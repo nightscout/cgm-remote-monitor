@@ -75,6 +75,7 @@ describe('Entries REST api', function ( ) {
       .get('/entries.json?find[dateString][$gte]=2014-07-19&count=' + count)
       .expect(200)
       .end(function (err, res) {
+        if (err) return done(err);
         res.body.should.be.instanceof(Array).and.have.lengthOf(count);
         done();
       });
@@ -86,6 +87,7 @@ describe('Entries REST api', function ( ) {
       .get('/entries/sgv.json?find[dateString][$gte]=2014-07-19&find[dateString][$lte]=2014-07-20')
       .expect(200)
       .end(function (err, res) {
+        if (err) return done(err);
         res.body.should.be.instanceof(Array).and.have.lengthOf(defaultCount);
         done( );
       });
@@ -97,6 +99,7 @@ describe('Entries REST api', function ( ) {
       .get('/entries/sgv.json?find[dateString][$gte]=2014-07-19&find[dateString][$lte]=2014-07-20')
       .expect(200)
       .end(function (err, res) {
+        if (err) return done(err);
         res.body.should.be.instanceof(Array).and.have.lengthOf(defaultCount);
 
         var array = res.body;
@@ -115,6 +118,7 @@ describe('Entries REST api', function ( ) {
       .get('/entries.json')
       .expect(200)
       .end(function (err, res) {
+        if (err) return done(err);
         res.body.should.be.instanceof(Array).and.have.lengthOf(defaultCount);
 
         var array = res.body;
@@ -132,6 +136,7 @@ describe('Entries REST api', function ( ) {
       .get('/echo/entries/sgv.json?find[dateString][$gte]=2014-07-19&find[dateString][$lte]=2014-07-20')
       .expect(200)
       .end(function (err, res) {
+        if (err) return done(err);
         res.body.should.be.instanceof(Object);
         res.body.query.should.be.instanceof(Object);
         res.body.input.should.be.instanceof(Object);
@@ -147,6 +152,7 @@ describe('Entries REST api', function ( ) {
       .get('/slice/entries/dateString/sgv/2014-07.json?count=20')
       .expect(200)
       .end(function (err, res) {
+        if (err) return done(err);
         res.body.should.be.instanceof(Array).and.have.lengthOf(20);
         done( );
       });
@@ -159,6 +165,7 @@ describe('Entries REST api', function ( ) {
       .get('/times/echo/2014-07/.*T{00..05}:.json?count=20&find[sgv][$gte]=160')
       .expect(200)
       .end(function (err, res) {
+        if (err) return done(err);
         res.body.should.be.instanceof(Object);
         res.body.req.should.have.property('query');
         res.body.should.have.property('pattern').with.lengthOf(6);
@@ -172,6 +179,7 @@ describe('Entries REST api', function ( ) {
       .get('/slice/entries/dateString/sgv/2014-07-{17..20}.json?count=20')
       .expect(200)
       .end(function (err, res) {
+        if (err) return done(err);
         res.body.should.be.instanceof(Array).and.have.lengthOf(20);
         done( );
       });
@@ -183,6 +191,7 @@ describe('Entries REST api', function ( ) {
       .get('/slice/entries/dateString/sgv/1999-07.json?count=20&find[sgv][$lte]=401')
       .expect(200)
       .end(function (err, res) {
+        if (err) return done(err);
         res.body.should.be.instanceof(Array).and.have.lengthOf(0);
         done( );
       });
@@ -194,6 +203,7 @@ describe('Entries REST api', function ( ) {
       .get('/times/2014-07-/{0..30}T.json?')
       .expect(200)
       .end(function (err, res) {
+        if (err) return done(err);
         res.body.should.be.instanceof(Array).and.have.lengthOf(10);
         done( );
       });
@@ -205,6 +215,7 @@ describe('Entries REST api', function ( ) {
       .get('/times/20{14..15}-07/T{09..10}.json?')
       .expect(200)
       .end(function (err, res) {
+        if (err) return done(err);
         res.body.should.be.instanceof(Array).and.have.lengthOf(10);
         done( );
       });
@@ -215,6 +226,7 @@ describe('Entries REST api', function ( ) {
       .get('/times/20{14..15}/T.*:{00..60}.json?')
       .expect(200)
       .end(function (err, res) {
+        if (err) return done(err);
         res.body.should.be.instanceof(Array).and.have.lengthOf(10);
         done( );
       });
@@ -225,6 +237,7 @@ describe('Entries REST api', function ( ) {
       .get('/entries/current.json')
       .expect(200)
       .end(function (err, res) {
+        if (err) return done(err);
         res.body.should.be.instanceof(Array).and.have.lengthOf(1);
         res.body[0].sgv.should.equal(100);
         done();
@@ -239,6 +252,7 @@ describe('Entries REST api', function ( ) {
         .get('/entries/'+currentId+'.json')
         .expect(200)
         .end(function (err, res) {
+          if (err) return done(err);
           res.body.should.be.instanceof(Array).and.have.lengthOf(1);
           res.body[0]._id.should.equal(currentId);
           done( );
@@ -252,6 +266,7 @@ describe('Entries REST api', function ( ) {
       .get('/entries/sgv/.json?count=10&find[dateString][$gte]=2014')
       .expect(200)
       .end(function (err, res) {
+        if (err) return done(err);
         res.body.should.be.instanceof(Array).and.have.lengthOf(10);
         done( );
       });
@@ -282,6 +297,7 @@ describe('Entries REST api', function ( ) {
             .get('/entries/sgv.json?find[dateString][$gte]=2014-07-19&find[dateString][$lte]=2014-07-20')
             .expect(200)
             .end(function (err, res) {
+              if (err) return done(err);
               res.body.should.be.instanceof(Array).and.have.lengthOf(10);
               done();
             });
