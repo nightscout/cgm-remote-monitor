@@ -97,15 +97,47 @@ pending after this policy change. Node 24 and the wider matrix remain gates.
 For reproducing pre-policy measurements, the probe's `unbounded` mode strips
 application find options; its default uses the checkout's actual policy.
 
-## AWS authentication compatibility still open
+## AWS authentication compatibility
 
-A no-network probe using driver 5.9.2 with a synthetic MONGODB-AWS URI
-containing username/password reaches its SASL-start command. Driver 7.6.0
-rejects the same URI in `new MongoClient` before any connection with
-`username and password cannot be provided when using MONGODB-AWS`.
-The vendor upgrade guide also requires `@aws-sdk/credential-providers`, which
-is not in the current candidate's package graph. This is an identified
-compatibility gap, not evidence that existing users do or do not use AWS auth.
-Do not merge this candidate until credential handling and dependency policy
-preserve supported deployments or an explicit retirement/migration decision
-is documented and tested. SCRAM database tests do not establish AWS parity.
+The unadapted driver 7 rejects legacy MONGODB-AWS URI credentials before
+connecting. `lib/storage/mongo-client-configuration.js` now moves those
+credentials into the documented asynchronous AWS credential-provider interface.
+URI values take precedence over environment values, including the session token;
+missing URI values retain environment fallback. No process environment is
+modified. Non-AWS URIs/options pass through unchanged. Repeated authentication
+properties are combined while retaining last-token precedence, since the new
+driver rejects duplicate URI option names. Other driver option validation is
+retained.
+
+The required `@aws-sdk/credential-providers` 3.1127.0 adds 24 package paths,
+2,706 installed regular files and 4,753,775 bytes. No retained package version
+changes. See `../audits/mongodb-aws-dependency-cost.json`. This is installation
+cost, not compressed image size or runtime RAM. A fresh-process test confirms
+ordinary MongoDB client construction does not load AWS SDK modules. With no
+static AWS access key, the SDK manages metadata credential retrieval and refresh;
+Nightscout does not implement its own AWS metadata protocol.
+
+Twelve regression cases exercise encoded credentials, URI/environment
+precedence, session tokens, repeated auth setup through the actual storage
+initializer, mixed-case/repeated options, sanitized errors and non-AWS isolation.
+The driver's real SASL nonce handling and signer run against an in-process
+challenge fixture. A separate child process with empty AWS config files and a
+minimal environment exercises the real SDK against an owned loopback metadata
+endpoint: unexpired credentials are reused and expired credentials refresh over
+two cycles. This does not validate a live Atlas account or deployment IAM role.
+The [MongoDB AWS authentication documentation](https://www.mongodb.com/docs/drivers/node/current/security/authentication/aws-iam/)
+describes the provider interface.
+
+Clean Node 24 installation/build passes. The first full AWS-enabled backend run
+found the existing source inventory parser cannot parse logical assignment;
+the helper now uses equivalent ordinary assignment, and its parser regression
+passes. Final full-suite validation is rerunning after that correction.
+
+## Query validation finding remains a merge blocker
+
+CodeQL alert 105 flags the profile query path. A safe owned-database probe
+confirmed that `profile.list_query({find:{$where: ...}})` evaluates a supplied
+JavaScript predicate under both driver 5.9.2 and 7.6.0. This is an existing
+query-validation gap surfaced on a changed line, not caused by batch sizing.
+Keep the driver PR unmerged while query validation and its regression coverage
+are addressed; do not dismiss the alert based only on successful backend tests.

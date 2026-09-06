@@ -93,6 +93,7 @@
     "npm": ">=10.x"
   },
   "dependencies": {
+    "@aws-sdk/credential-providers": "3.1127.0",
     "@babel/core": "^8.0.1",
     "@babel/preset-env": "^8.0.2",
     "@mongodb-js/saslprep": "^1.4.5",

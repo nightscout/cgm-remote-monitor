@@ -42,3 +42,21 @@ Before deploying the modernization release on a database currently running 4.4:
 4. Keep application rollback and database rollback separate. Reverting Nightscout does not undo database binary or FCV changes. Agree a recovery plan using MongoDB's documented downgrade restrictions and the verified backup; account for writes made since that backup.
 
 The follow-up database work must validate maintained MongoDB 7/8 releases with the selected driver and existing client/API fixtures before changing the recommended deployment version. Retiring 5/6 requires a separate support decision and release notice; they remain in CI during this migration. Database upgrade/restore evidence is required before final promotion of #8605. No production database is changed by this PR.
+
+
+## MongoDB AWS credentials in the driver migration candidate
+
+The driver migration preserves existing `MONGODB-AWS` connection strings by
+adapting URI credentials to a credential provider. URI credentials and session
+tokens retain precedence over `AWS_ACCESS_KEY_ID`, `AWS_SECRET_ACCESS_KEY` and
+`AWS_SESSION_TOKEN`; those variables remain available as fallbacks. Nightscout
+does not change those environment variables. Instance/container metadata
+credentials use the AWS SDK when no static access key is configured.
+
+The AWS credential-provider package is included in the production dependency
+set because the new driver requires it. Ordinary MongoDB client construction
+loads no AWS SDK modules. Live Atlas IAM/role verification is still a release
+gate; local challenge/metadata tests do not establish a deployment's IAM access.
+For application rollback, restore the driver, URI parser, SOCKS and AWS SDK
+manifest/lockfile plus the connection adapter together. No database binary,
+FCV or stored-data migration is performed by this adapter.
