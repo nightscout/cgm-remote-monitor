@@ -32,7 +32,13 @@ function worker(version = 'v1', stores = new Map()) {
     async delete(name) {return stores.delete(name);}
   };
   class WorkerRequest extends Request {
-    constructor(input, options) {super(typeof input === 'string' ? new URL(input, origin) : input, options);}
+    constructor(input, options) {
+      // Browsers create navigate requests; Node's public constructor forbids
+      // that mode, so model its read-only value for this event-handler test.
+      const navigation = options && options.mode === 'navigate';
+      super(typeof input === 'string' ? new URL(input, origin) : input, navigation ? {...options, mode: 'same-origin'} : options);
+      if (navigation) Object.defineProperty(this, 'mode', {value: 'navigate'});
+    }
   }
   vm.runInNewContext(source.replace('<%= locals.cachebuster %>', version), {
     self: {location: {origin}, skipWaiting() {}, addEventListener(name, handler) {listeners[name] = handler;}},
@@ -108,6 +114,16 @@ describe('Service worker asset cache contracts', function () {
       assert.equal((await state.fetch(pages[0])).type, 'error');
     });
   }
+
+  it('forwards document navigation without storing HTML while development bypasses interception', async function () {
+    const state = worker();
+    assert.equal(await (await state.fetch('/', {mode: 'navigate'})).text(), 'v1:/');
+    assert.deepEqual(state.requests, [origin + '/']);
+    assert.equal(state.stores.size, 0);
+    const development = worker('developmentMode');
+    assert.equal(development.fetch('/', {mode: 'navigate'}), undefined);
+    assert.equal(development.requests.length, 0);
+  });
 
   it('bypasses API, query-string, external, non-GET and development requests', async function () {
     const state = worker();
