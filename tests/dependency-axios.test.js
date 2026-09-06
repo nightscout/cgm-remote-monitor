@@ -150,6 +150,7 @@ describe('Axios consumer compatibility', function () {
       Object.defineProperty(Object.prototype, 'password', {value: 'inherited-password', configurable: true});
       for (let cycle = 0; cycle < 2; cycle++) {
         const context = {bootErrors: []};
+        const beforeRequests = requests.length;
         await importSettings({IMPORT_CONFIG: baseURL + '/config', settings: {}, extendedSettings: {}}, context);
         assert.deepStrictEqual(context.bootErrors, []);
         assert.strictEqual(requests.at(-1).headers.authorization, undefined);
@@ -159,6 +160,12 @@ describe('Axios consumer compatibility', function () {
         assert.deepStrictEqual(context.bootErrors, []);
         assert.strictEqual(requests.at(-1).headers.authorization,
           'Basic ' + Buffer.from('owned-user:owned-password').toString('base64'));
+        url.username = 'Café-user'; url.password = encodeURIComponent('p:a%ss💉');
+        await importSettings({IMPORT_CONFIG: url.href, settings: {}, extendedSettings: {}}, context);
+        assert.deepStrictEqual(context.bootErrors, []);
+        assert.strictEqual(requests.at(-1).headers.authorization,
+          'Basic ' + Buffer.from('Café-user:p:a%ss💉').toString('base64'));
+        assert.strictEqual(requests.length, beforeRequests + 3);
       }
     } finally {
       names.forEach((name, index) => {
