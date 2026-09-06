@@ -47,6 +47,15 @@ describe('Help tooltips on the application page', function () {
           return '<!doctype html>'+parsed.documentElement.outerHTML;
         },template);
         await page.route(origin+'/',route=>route.fulfill({contentType:'text/html',body:html}));
+        await page.addInitScript(() => {
+          window.tooltipEvents = [];
+          for (const type of ['pointerdown', 'pointerup', 'touchstart', 'touchend', 'click', 'focusin', 'focusout']) {
+            document.addEventListener(type, event => {
+              window.tooltipEvents.push({type, pointerType:event.pointerType, target:event.target.id || event.target.className});
+              if (window.tooltipEvents.length > 30) window.tooltipEvents.shift();
+            }, true);
+          }
+        });
         await page.goto(origin);
         await page.addScriptTag({url:origin+'/bundle/js/bundle.app.js'});
         await page.evaluate(()=>{
@@ -73,7 +82,7 @@ describe('Help tooltips on the application page', function () {
           if(process.env.NIGHTSCOUT_TOOLTIP_APP_SCREENSHOT && !touch && cycle===0)
             await page.screenshot({path:process.env.NIGHTSCOUT_TOOLTIP_APP_SCREENSHOT});
           if(touch)await tooltip.tap();else await page.keyboard.press('Escape');
-          assert.equal(await tooltip.isVisible(),false);
+          assert.equal(await tooltip.isVisible(),false, JSON.stringify(await page.evaluate(()=>window.tooltipEvents)));
           await page.evaluate(()=>window.Nightscout.client.browserUtils.closeDrawer('#drawer'));
           await page.locator('#drawer').waitFor({state:'hidden'});
         }

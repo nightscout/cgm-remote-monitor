@@ -26,7 +26,16 @@ describe('Native help tooltip candidate', function () {
   after(async function () {if(server) await new Promise(resolve=>server.close(resolve));});
   async function fixture(run, touch=false) {
     await withPage(origin, async ({page}) => {
-      await page.goto(origin);
+      await page.addInitScript(() => {
+          window.tooltipEvents = [];
+          for (const type of ['pointerdown', 'pointerup', 'touchstart', 'touchend', 'click', 'focusin', 'focusout']) {
+            document.addEventListener(type, event => {
+              window.tooltipEvents.push({type, pointerType:event.pointerType, target:event.target.id || event.target.className});
+              if (window.tooltipEvents.length > 30) window.tooltipEvents.shift();
+            }, true);
+          }
+        });
+        await page.goto(origin);
       await page.evaluate(touch => {window.controller=window.install(document,{touch});},touch);
       await run(page);
     },{hasTouch:touch});
@@ -67,7 +76,7 @@ describe('Native help tooltip candidate', function () {
       }
       await page.locator('#help').tap();
       await page.locator('[role=tooltip]').tap();
-      assert.equal(await page.locator('[role=tooltip]').isVisible(),false);
+      assert.equal(await page.locator('[role=tooltip]').isVisible(),false, JSON.stringify(await page.evaluate(()=>window.tooltipEvents)));
       await page.locator('#toolbar').tap();
       assert.equal(await page.evaluate(()=>window.clicks),1);
       assert.equal(await page.locator('[role=tooltip]').isVisible(),false);

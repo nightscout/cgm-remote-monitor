@@ -72,3 +72,16 @@ script tags. The fixture now uses native DOMParser, removes script nodes and
 serves the serialized template before loading the compiled application manually.
 No production sanitization or CodeQL rule is disabled. Fresh CodeQL must confirm
 the result. Production-build measurements and source hashes are refreshed.
+
+## Direct tooltip click follow-up
+
+Hosted head db3c6970 passes the keyboard cases and CodeQL, but both WebKit jobs
+still fail the three tooltip-tap dismissal cases. A direct click listener on the
+tooltip is now installed and removed with the document controller. This tests
+the hypothesis that WebKit's touch-to-click handling of non-interactive elements
+is bypassing document delegation. See the historical
+[WebKit event-delegation report](https://bugs.webkit.org/show_bug.cgi?id=171105);
+it is supporting context, not proof of this current failure's cause. Bounded
+pointer/touch/click/focus traces are attached to failed dismissal assertions.
+The original visibility assertions remain unchanged. Hosted confirmation is
+required; local macOS WebKit cannot establish Linux WebKit behavior.
