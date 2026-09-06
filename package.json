@@ -138,7 +138,7 @@
     "@types/tough-cookie": "^4.0.0",
     "babel-loader": "^10.1.1",
     "csv-parse": "^7.0.2",
-    "dompurify": "^3.4.14",
+    "dompurify": "^3.4.15",
     "eslint": "^10.10.0",
     "eslint-plugin-security": "^4.0.1",
     "expose-loader": "^2.0.0",
