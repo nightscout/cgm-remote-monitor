@@ -132,6 +132,12 @@ Owned TLS tests cover encoding, cancellation, failure classification, deadlines
 and cleanup. Package plus runtime source decreases by 22,575 bytes; no measured
 RAM saving is claimed. This does not complete the remaining M09 reviews.
 
+The [CLI/analyzer review](../test-specs/webpack-cli-analyzer.md) upgrades the
+build commands to CLI 7.2.3 and analyzer 5.3.2, preserves resource-limit tests
+and adds real command/report regression coverage. Production lock entries and
+application bundles are unchanged; development package bytes increase despite
+six fewer paths. Remaining dependency and override reviews keep M09 open.
+
 ## Phase 3 — reduce production installation and browser cost
 
 - [ ] **M10 — Separate build from runtime dependencies** (after M01; coordinate with M07 and M11 to avoid lockfile overlap).
