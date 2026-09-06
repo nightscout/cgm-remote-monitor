@@ -20,6 +20,26 @@ function profile(zone, units) {
 describe('Modernization date/time characterization', function () {
   for (const units of ['mg/dl', 'mmol']) {
     describe(units, function () {
+      for (const group of require('./fixtures/timezone-2026c.json').groups) {
+        for (const zone of group.zones) {
+          it('applies updated timezone rules through the profile for ' + zone, function () {
+            const p = profile(zone, units);
+            try {
+              for (let cycle = 0; cycle < 2; cycle++) {
+                for (const [iso, expected, offset] of group.cases) {
+                  const instant = moment.utc(iso);
+                  const epoch = instant.valueOf();
+                  const actual = p.applyTimezone(instant);
+                  assert.equal(actual, instant);
+                  assert.equal(actual.valueOf(), epoch);
+                  assert.equal(actual.format('YYYY-MM-DD HH:mm:ss'), expected);
+                  assert.equal(actual.utcOffset(), offset);
+                }
+              }
+            } finally { p.clear(); }
+          });
+        }
+      }
       for (const [zone, local, iso, offset] of [
         ['America/New_York', '2024-03-10T02:30:00', '2024-03-10T07:30:00.000Z', -240],
         ['America/New_York', '2024-11-03T01:30:00', '2024-11-03T05:30:00.000Z', -240],
