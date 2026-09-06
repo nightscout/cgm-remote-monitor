@@ -114,6 +114,12 @@ an override. HTML decoding/escaping and sanitization remain required; measured
 package files shrink by 776,553 bytes, with no runtime memory-saving claim.
 This scoped review does not complete M09.
 
+The [mime-types maintenance review](../test-specs/mime-types-upgrade.md) aligns
+direct lookup with Express's 3.0.2 release and preserves v1 JavaScript status
+negotiation. Legacy accepts/form-data consumers retain compatible 2.x copies;
+this is a maintenance upgrade with a measured installation-size increase, not
+a memory-saving claim.
+
 ## Phase 3 — reduce production installation and browser cost
 
 - [ ] **M10 — Separate build from runtime dependencies** (after M01; coordinate with M07 and M11 to avoid lockfile overlap).
