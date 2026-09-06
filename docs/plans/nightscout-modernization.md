@@ -280,6 +280,9 @@ Revisit when Node provides equivalent portable watch/ignore behavior or the
 project explicitly changes its development restart contract. No production
 runtime or memory improvement is claimed for retaining a development tool.
 
+### M09 CSV dependency review
+
+The [CSV upgrade](../test-specs/csv-upgrade.md) uses maintained writer/parser CommonJS exports and adds byte-level export regressions independent of parser round trips. Installed package bytes increase; no server-memory saving is claimed. This is one scoped dependency review and does not complete M09.
 
 ### M29 MiniMed retirement authorized
 
