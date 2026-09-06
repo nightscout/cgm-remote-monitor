@@ -39,7 +39,12 @@ credential-safe diagnostics. With the fix, 29 Axios/boot contracts pass on each
 supported Node floor. New real boot-stage cases repeat authenticated proxy and
 NO_PROXY imports twice, and repeat successful/failed credential-bearing imports
 twice. Existing MiniMed and nightscout-connect cookie-wrapper/token/reading tests
-remain active. Production-only install, build and full CI validation are pending.
+remain active. The full Node 22/MongoDB 6 backend suite passes 1,670 tests with
+one existing pending case. Production build passes and all six browser bundles
+are byte-identical to the parent. After npm prune --omit=dev, with Mocha absent,
+the actual augmentSettings stage performs two imports on both Node versions and
+preserves wrapped/nested settings. A clean reinstall/build restores the full
+validation environment. Hosted combined validation remains required.
 
 Rollback restores the declaration and boot stage together. No database,
 configuration format or browser bundle change is intended. Do not restore
