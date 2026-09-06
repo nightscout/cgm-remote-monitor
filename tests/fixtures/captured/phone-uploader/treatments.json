@@ -1,0 +1,467 @@
+[
+  {
+    "carbs": 5,
+    "created_at": "2026-05-08T20:51:40.000Z",
+    "enteredBy": "xDrip4iOS",
+    "eventType": "Carbs",
+    "insulin": null,
+    "utcOffset": 0,
+    "_id": "cb4e28c093b5b89fa718c946"
+  },
+  {
+    "carbs": null,
+    "created_at": "2026-05-08T15:10:59.001Z",
+    "enteredBy": "xDrip4iOS",
+    "eventType": "Bolus",
+    "insulin": 15,
+    "utcOffset": 0,
+    "_id": "e8eb308f199bc296b121b4f3"
+  },
+  {
+    "carbs": null,
+    "created_at": "2026-05-07T13:22:12.001Z",
+    "enteredBy": "xDrip4iOS",
+    "eventType": "BG Check",
+    "glucose": 54,
+    "glucoseType": "Finger",
+    "insulin": null,
+    "units": "mg/dl",
+    "utcOffset": 0,
+    "_id": "209339561c27af3d9cff931d"
+  },
+  {
+    "carbs": 90,
+    "created_at": "2026-05-08T15:10:59.000Z",
+    "enteredBy": "xDrip4iOS",
+    "eventType": "Carbs",
+    "insulin": null,
+    "utcOffset": 0,
+    "_id": "91bea6b01ba41ec83a070c34"
+  },
+  {
+    "carbs": null,
+    "created_at": "2026-05-08T09:11:36.001Z",
+    "enteredBy": "xDrip4iOS",
+    "eventType": "Bolus",
+    "insulin": 16,
+    "utcOffset": 0,
+    "_id": "2c5b1187e8f82085ee2b905e"
+  },
+  {
+    "carbs": 86,
+    "created_at": "2026-05-08T09:11:36.000Z",
+    "enteredBy": "xDrip4iOS",
+    "eventType": "Carbs",
+    "insulin": null,
+    "utcOffset": 0,
+    "_id": "f2e45a62700a3afb64bb922a"
+  },
+  {
+    "carbs": null,
+    "created_at": "2026-05-08T05:11:06.001Z",
+    "enteredBy": "xDrip4iOS",
+    "eventType": "Bolus",
+    "insulin": 16,
+    "utcOffset": 0,
+    "_id": "78ade8a78ecaf17a8b7fbd50"
+  },
+  {
+    "carbs": 73,
+    "created_at": "2026-05-08T05:11:06.000Z",
+    "enteredBy": "xDrip4iOS",
+    "eventType": "Carbs",
+    "insulin": null,
+    "utcOffset": 0,
+    "_id": "9cf824da4b3c23a3afbebc28"
+  },
+  {
+    "carbs": null,
+    "created_at": "2026-05-07T14:46:28.001Z",
+    "enteredBy": "xDrip4iOS",
+    "eventType": "Bolus",
+    "insulin": 13,
+    "utcOffset": 0,
+    "_id": "ceaccdf349711934b57b7209"
+  },
+  {
+    "carbs": 84,
+    "created_at": "2026-05-07T14:46:28.000Z",
+    "enteredBy": "xDrip4iOS",
+    "eventType": "Carbs",
+    "insulin": null,
+    "utcOffset": 0,
+    "_id": "43a456aa4d3d5574b1d2d64b"
+  },
+  {
+    "carbs": 9,
+    "created_at": "2026-05-07T13:22:12.000Z",
+    "enteredBy": "xDrip4iOS",
+    "eventType": "Carbs",
+    "insulin": null,
+    "utcOffset": 0,
+    "_id": "b1d968808466e49176aa4b87"
+  },
+  {
+    "carbs": null,
+    "created_at": "2026-05-07T09:16:27.001Z",
+    "enteredBy": "xDrip4iOS",
+    "eventType": "Bolus",
+    "insulin": 16,
+    "utcOffset": 0,
+    "_id": "d67560f1e6b62e7c28bac138"
+  },
+  {
+    "carbs": 84,
+    "created_at": "2026-05-07T09:16:27.000Z",
+    "enteredBy": "xDrip4iOS",
+    "eventType": "Carbs",
+    "insulin": null,
+    "utcOffset": 0,
+    "_id": "160821719c5d89c5ae6f5a6a"
+  },
+  {
+    "carbs": null,
+    "created_at": "2026-05-07T05:00:47.001Z",
+    "enteredBy": "xDrip4iOS",
+    "eventType": "Bolus",
+    "insulin": 16,
+    "utcOffset": 0,
+    "_id": "76a6694ce74bb8f1597f6e4a"
+  },
+  {
+    "carbs": 76,
+    "created_at": "2026-05-07T05:00:47.000Z",
+    "enteredBy": "xDrip4iOS",
+    "eventType": "Carbs",
+    "insulin": null,
+    "utcOffset": 0,
+    "_id": "f3f448163c2fd842e29f989e"
+  },
+  {
+    "carbs": 9,
+    "created_at": "2026-05-06T21:21:06.010Z",
+    "enteredBy": "xDrip4iOS",
+    "eventType": "Carbs",
+    "insulin": null,
+    "utcOffset": 0,
+    "_id": "899f48124ff1aa62809725fd"
+  },
+  {
+    "carbs": null,
+    "created_at": "2026-05-06T15:16:03.001Z",
+    "enteredBy": "xDrip4iOS",
+    "eventType": "Bolus",
+    "insulin": 16,
+    "utcOffset": 0,
+    "_id": "e549f24ca985c6f7fcbe593f"
+  },
+  {
+    "carbs": 96,
+    "created_at": "2026-05-06T15:16:03.000Z",
+    "enteredBy": "xDrip4iOS",
+    "eventType": "Carbs",
+    "insulin": null,
+    "utcOffset": 0,
+    "_id": "2c834747cb6ef2d2da6cc0a7"
+  },
+  {
+    "carbs": null,
+    "created_at": "2026-05-06T09:01:24.001Z",
+    "enteredBy": "xDrip4iOS",
+    "eventType": "Bolus",
+    "insulin": 15,
+    "utcOffset": 0,
+    "_id": "b5b46016020c5654f13b114f"
+  },
+  {
+    "carbs": 78,
+    "created_at": "2026-05-06T09:01:24.000Z",
+    "enteredBy": "xDrip4iOS",
+    "eventType": "Carbs",
+    "insulin": null,
+    "utcOffset": 0,
+    "_id": "6668031eacbb3686e2321588"
+  },
+  {
+    "carbs": null,
+    "created_at": "2026-05-06T05:01:35.001Z",
+    "enteredBy": "xDrip4iOS",
+    "eventType": "Bolus",
+    "insulin": 18,
+    "utcOffset": 0,
+    "_id": "8bd63c034ddbe53ba18fef1e"
+  },
+  {
+    "carbs": 84,
+    "created_at": "2026-05-06T05:01:35.000Z",
+    "enteredBy": "xDrip4iOS",
+    "eventType": "Carbs",
+    "insulin": null,
+    "utcOffset": 0,
+    "_id": "283f96c62867a30728c53a51"
+  },
+  {
+    "carbs": null,
+    "created_at": "2026-05-05T22:40:05.001Z",
+    "enteredBy": "xDrip4iOS",
+    "eventType": "BG Check",
+    "glucose": 57,
+    "glucoseType": "Finger",
+    "insulin": null,
+    "units": "mg/dl",
+    "utcOffset": 0,
+    "_id": "abca501ab4c6162a418abb9b"
+  },
+  {
+    "carbs": 10,
+    "created_at": "2026-05-05T22:40:05.000Z",
+    "enteredBy": "xDrip4iOS",
+    "eventType": "Carbs",
+    "insulin": null,
+    "utcOffset": 0,
+    "_id": "343e47b7ce7add5279773c06"
+  },
+  {
+    "carbs": null,
+    "created_at": "2026-05-05T14:21:31.001Z",
+    "enteredBy": "xDrip4iOS",
+    "eventType": "Bolus",
+    "insulin": 22,
+    "utcOffset": 0,
+    "_id": "c41465d8a1535e93f2ade982"
+  },
+  {
+    "carbs": 134,
+    "created_at": "2026-05-05T14:21:31.000Z",
+    "enteredBy": "xDrip4iOS",
+    "eventType": "Carbs",
+    "insulin": null,
+    "utcOffset": 0,
+    "_id": "a955b545722b5a259e671dbf"
+  },
+  {
+    "carbs": null,
+    "created_at": "2026-05-05T07:11:14.001Z",
+    "enteredBy": "xDrip4iOS",
+    "eventType": "Bolus",
+    "insulin": 17,
+    "utcOffset": 0,
+    "_id": "5a941bcaec49ee4350be95bb"
+  },
+  {
+    "carbs": 92,
+    "created_at": "2026-05-05T07:11:14.000Z",
+    "enteredBy": "xDrip4iOS",
+    "eventType": "Carbs",
+    "insulin": null,
+    "utcOffset": 0,
+    "_id": "e2bbc552e2154cef1f855fdf"
+  },
+  {
+    "carbs": null,
+    "created_at": "2026-05-04T20:56:25.523Z",
+    "enteredBy": "xDrip4iOS",
+    "eventType": "Bolus",
+    "insulin": 1,
+    "utcOffset": 0,
+    "_id": "92dc9cd38c440e5fe617a770"
+  },
+  {
+    "carbs": null,
+    "created_at": "2026-05-04T16:21:35.001Z",
+    "enteredBy": "xDrip4iOS",
+    "eventType": "Bolus",
+    "insulin": 19,
+    "utcOffset": 0,
+    "_id": "7616327122bae92e56ff136a"
+  },
+  {
+    "carbs": 109,
+    "created_at": "2026-05-04T16:21:35.000Z",
+    "enteredBy": "xDrip4iOS",
+    "eventType": "Carbs",
+    "insulin": null,
+    "utcOffset": 0,
+    "_id": "d80bb82a59b6211151c9b464"
+  },
+  {
+    "carbs": null,
+    "created_at": "2026-05-04T11:26:04.001Z",
+    "enteredBy": "xDrip4iOS",
+    "eventType": "Bolus",
+    "insulin": 12,
+    "utcOffset": 0,
+    "_id": "39a46d8240dffb468642fc14"
+  },
+  {
+    "carbs": 76,
+    "created_at": "2026-05-04T11:26:04.000Z",
+    "enteredBy": "xDrip4iOS",
+    "eventType": "Carbs",
+    "insulin": null,
+    "utcOffset": 0,
+    "_id": "e3bd403108198be48ac60761"
+  },
+  {
+    "carbs": null,
+    "created_at": "2026-05-04T06:16:12.000Z",
+    "enteredBy": "xDrip4iOS",
+    "eventType": "Bolus",
+    "insulin": 2,
+    "utcOffset": 0,
+    "_id": "1100e7da555c5658f571eed2"
+  },
+  {
+    "carbs": null,
+    "created_at": "2026-05-03T15:11:33.001Z",
+    "enteredBy": "xDrip4iOS",
+    "eventType": "Bolus",
+    "insulin": 14,
+    "utcOffset": 0,
+    "_id": "ab1420a46c1fa868b910c3a4"
+  },
+  {
+    "carbs": 88,
+    "created_at": "2026-05-03T15:11:33.000Z",
+    "enteredBy": "xDrip4iOS",
+    "eventType": "Carbs",
+    "insulin": null,
+    "utcOffset": 0,
+    "_id": "e3c66459c376469470d267f0"
+  },
+  {
+    "carbs": null,
+    "created_at": "2026-05-03T13:12:13.001Z",
+    "enteredBy": "xDrip4iOS",
+    "eventType": "BG Check",
+    "glucose": 58,
+    "glucoseType": "Finger",
+    "insulin": null,
+    "units": "mg/dl",
+    "utcOffset": 0,
+    "_id": "b339b608850196667f131ba2"
+  },
+  {
+    "carbs": 9,
+    "created_at": "2026-05-03T13:12:13.000Z",
+    "enteredBy": "xDrip4iOS",
+    "eventType": "Carbs",
+    "insulin": null,
+    "utcOffset": 0,
+    "_id": "c08b21d52155e05156fff148"
+  },
+  {
+    "carbs": null,
+    "created_at": "2026-05-03T11:49:09.001Z",
+    "enteredBy": "xDrip4iOS",
+    "eventType": "BG Check",
+    "glucose": 60,
+    "glucoseType": "Finger",
+    "insulin": null,
+    "units": "mg/dl",
+    "utcOffset": 0,
+    "_id": "d314e012288e1abbce77fb7c"
+  },
+  {
+    "carbs": 9,
+    "created_at": "2026-05-03T11:49:09.000Z",
+    "enteredBy": "xDrip4iOS",
+    "eventType": "Carbs",
+    "insulin": null,
+    "utcOffset": 0,
+    "_id": "41e3eb891ad46973553c3515"
+  },
+  {
+    "carbs": null,
+    "created_at": "2026-05-03T08:11:35.001Z",
+    "enteredBy": "xDrip4iOS",
+    "eventType": "Bolus",
+    "insulin": 16,
+    "utcOffset": 0,
+    "_id": "d2aea0de25acb09b747e1c41"
+  },
+  {
+    "carbs": 90,
+    "created_at": "2026-05-03T08:11:35.000Z",
+    "enteredBy": "xDrip4iOS",
+    "eventType": "Carbs",
+    "insulin": null,
+    "utcOffset": 0,
+    "_id": "23cb3480f23a7f9c9aa9110e"
+  },
+  {
+    "carbs": null,
+    "created_at": "2026-05-03T04:51:20.139Z",
+    "enteredBy": "xDrip4iOS",
+    "eventType": "Bolus",
+    "insulin": 2,
+    "utcOffset": 0,
+    "_id": "af6ce415085e7dd0beee746c"
+  },
+  {
+    "carbs": null,
+    "created_at": "2026-05-03T03:51:07.001Z",
+    "enteredBy": "xDrip4iOS",
+    "eventType": "Bolus",
+    "insulin": 13,
+    "utcOffset": 0,
+    "_id": "1cc3ff6724c94f9577347453"
+  },
+  {
+    "carbs": 70,
+    "created_at": "2026-05-03T03:51:07.000Z",
+    "enteredBy": "xDrip4iOS",
+    "eventType": "Carbs",
+    "insulin": null,
+    "utcOffset": 0,
+    "_id": "cdfd70f7d535150ce71f0de0"
+  },
+  {
+    "carbs": null,
+    "created_at": "2026-05-02T18:11:24.000Z",
+    "enteredBy": "xDrip4iOS",
+    "eventType": "Bolus",
+    "insulin": 3,
+    "utcOffset": 0,
+    "_id": "12c87bbb710fdd1a22c2882e"
+  },
+  {
+    "carbs": null,
+    "created_at": "2026-05-02T13:41:00.001Z",
+    "enteredBy": "xDrip4iOS",
+    "eventType": "Bolus",
+    "insulin": 10,
+    "utcOffset": 0,
+    "_id": "d6eb93539d4b684826c161fb"
+  },
+  {
+    "carbs": 64,
+    "created_at": "2026-05-02T13:41:00.000Z",
+    "enteredBy": "xDrip4iOS",
+    "eventType": "Carbs",
+    "insulin": null,
+    "utcOffset": 0,
+    "_id": "6b0c48e45962f3d1a23b6f20"
+  },
+  {
+    "carbs": null,
+    "created_at": "2026-05-02T11:19:43.001Z",
+    "enteredBy": "xDrip4iOS",
+    "eventType": "BG Check",
+    "glucose": 53,
+    "glucoseType": "Finger",
+    "insulin": null,
+    "units": "mg/dl",
+    "utcOffset": 0,
+    "_id": "ebb5e6f42fc7d7d3e5f1261c"
+  },
+  {
+    "carbs": 15,
+    "created_at": "2026-05-02T11:19:43.000Z",
+    "enteredBy": "xDrip4iOS",
+    "eventType": "Carbs",
+    "insulin": null,
+    "utcOffset": 0,
+    "_id": "dbb175a77c2f7d8d7efc63d3"
+  }
+]

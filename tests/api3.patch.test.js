@@ -9,6 +9,7 @@ describe('API3 PATCH', function() {
     , instance = require('./fixtures/api3/instance')
     , authSubject = require('./fixtures/api3/authSubject')
     , opTools = require('../lib/api3/shared/operationTools')
+    , utils = require('./fixtures/api3/utils')
     ;
 
   self.validDoc = {
@@ -28,7 +29,7 @@ describe('API3 PATCH', function() {
    * Get document detail for futher processing
    */
   self.get = async function get (identifier) {
-    let res = await self.instance.get(`${self.url}/${identifier}?token=${self.token.read}`)
+    let res = await self.instance.get(`${self.url}/${identifier}`, self.jwt.read)
       .expect(200);
 
     res.body.status.should.equal(200);
@@ -44,16 +45,21 @@ describe('API3 PATCH', function() {
     self.col = 'treatments';
     self.url = `/api/v3/${self.col}`;
 
-    let authResult = await authSubject(self.instance.ctx.authorization.storage);
+    let authResult = await authSubject(self.instance.ctx.authorization.storage, [
+      'create',
+      'update',
+      'read'
+    ], self.instance.app);
 
     self.subject = authResult.subject;
-    self.token = authResult.token;
-    self.urlToken = `${self.url}/${self.validDoc.identifier}?token=${self.token.update}`;
+    self.jwt = authResult.jwt;
+    self.urlIdent = `${self.url}/${self.validDoc.identifier}`;
     self.cache = self.instance.cacheMonitor;
   });
 
 
-  after(() => {
+  after(async () => {
+    await utils.storageClear(self.instance.ctx);
     self.instance.ctx.bus.teardown();
   });
 
@@ -78,7 +84,7 @@ describe('API3 PATCH', function() {
 
 
   it('should not found not existing collection', async () => {
-    let res = await self.instance.patch(`/api/v3/NOT_EXIST?token=${self.url}`)
+    let res = await self.instance.patch(`/api/v3/NOT_EXIST`, self.jwt.update)
       .send(self.validDoc)
       .expect(404);
 
@@ -87,14 +93,14 @@ describe('API3 PATCH', function() {
 
 
   it('should not found not existing document', async () => {
-    let res = await self.instance.patch(self.urlToken)
+    let res = await self.instance.patch(self.urlIdent, self.jwt.update)
       .send(self.validDoc)
       .expect(404);
 
     res.body.status.should.equal(404);
 
     // now let's insert the document for further patching
-    res = await self.instance.post(`${self.url}?token=${self.token.create}`)
+    res = await self.instance.post(`${self.url}`, self.jwt.create)
       .send(self.validDoc)
       .expect(201);
 
@@ -104,7 +110,7 @@ describe('API3 PATCH', function() {
 
 
   it('should reject identifier alteration', async () => {
-    let res = await self.instance.patch(self.urlToken)
+    let res = await self.instance.patch(self.urlIdent, self.jwt.update)
       .send(Object.assign({}, self.validDoc, { identifier: 'MODIFIED'}))
       .expect(400);
 
@@ -114,7 +120,7 @@ describe('API3 PATCH', function() {
 
 
   it('should reject date alteration', async () => {
-    let res = await self.instance.patch(self.urlToken)
+    let res = await self.instance.patch(self.urlIdent, self.jwt.update)
       .send(Object.assign({}, self.validDoc, { date: self.validDoc.date + 10000 }))
       .expect(400);
 
@@ -124,7 +130,7 @@ describe('API3 PATCH', function() {
 
 
   it('should reject utcOffset alteration', async () => {
-    let res = await self.instance.patch(self.urlToken)
+    let res = await self.instance.patch(self.urlIdent, self.jwt.update)
       .send(Object.assign({}, self.validDoc, { utcOffset: self.utcOffset - 120 }))
       .expect(400);
 
@@ -134,7 +140,7 @@ describe('API3 PATCH', function() {
 
 
   it('should reject eventType alteration', async () => {
-    let res = await self.instance.patch(self.urlToken)
+    let res = await self.instance.patch(self.urlIdent, self.jwt.update)
       .send(Object.assign({}, self.validDoc, { eventType: 'MODIFIED' }))
       .expect(400);
 
@@ -144,7 +150,7 @@ describe('API3 PATCH', function() {
 
 
   it('should reject device alteration', async () => {
-    let res = await self.instance.patch(self.urlToken)
+    let res = await self.instance.patch(self.urlIdent, self.jwt.update)
       .send(Object.assign({}, self.validDoc, { device: 'MODIFIED' }))
       .expect(400);
 
@@ -154,7 +160,7 @@ describe('API3 PATCH', function() {
 
 
   it('should reject app alteration', async () => {
-    let res = await self.instance.patch(self.urlToken)
+    let res = await self.instance.patch(self.urlIdent, self.jwt.update)
       .send(Object.assign({}, self.validDoc, { app: 'MODIFIED' }))
       .expect(400);
 
@@ -164,7 +170,7 @@ describe('API3 PATCH', function() {
 
 
   it('should reject srvCreated alteration', async () => {
-    let res = await self.instance.patch(self.urlToken)
+    let res = await self.instance.patch(self.urlIdent, self.jwt.update)
       .send(Object.assign({}, self.validDoc, { srvCreated: self.validDoc.date - 10000 }))
       .expect(400);
 
@@ -174,7 +180,7 @@ describe('API3 PATCH', function() {
 
 
   it('should reject subject alteration', async () => {
-    let res = await self.instance.patch(self.urlToken)
+    let res = await self.instance.patch(self.urlIdent, self.jwt.update)
       .send(Object.assign({}, self.validDoc, { subject: 'MODIFIED' }))
       .expect(400);
 
@@ -184,7 +190,7 @@ describe('API3 PATCH', function() {
 
 
   it('should reject srvModified alteration', async () => {
-    let res = await self.instance.patch(self.urlToken)
+    let res = await self.instance.patch(self.urlIdent, self.jwt.update)
       .send(Object.assign({}, self.validDoc, { srvModified: self.validDoc.date - 100000 }))
       .expect(400);
 
@@ -194,7 +200,7 @@ describe('API3 PATCH', function() {
 
 
   it('should reject modifiedBy alteration', async () => {
-    let res = await self.instance.patch(self.urlToken)
+    let res = await self.instance.patch(self.urlIdent, self.jwt.update)
       .send(Object.assign({}, self.validDoc, { modifiedBy: 'MODIFIED' }))
       .expect(400);
 
@@ -204,7 +210,7 @@ describe('API3 PATCH', function() {
 
 
   it('should reject isValid alteration', async () => {
-    let res = await self.instance.patch(self.urlToken)
+    let res = await self.instance.patch(self.urlIdent, self.jwt.update)
       .send(Object.assign({}, self.validDoc, { isValid: false }))
       .expect(400);
 
@@ -216,7 +222,7 @@ describe('API3 PATCH', function() {
   it('should patch document', async () => {
     self.validDoc.carbs = 10;
 
-    let res = await self.instance.patch(self.urlToken)
+    let res = await self.instance.patch(self.urlIdent, self.jwt.update)
       .send(self.validDoc)
       .expect(200);
 
@@ -231,5 +237,44 @@ describe('API3 PATCH', function() {
     self.cache.nextShouldEql(self.col, body)
   });
 
-});
 
+  it('should normalize endmills when patching durationInMilliseconds', async () => {
+    const tempBasalDoc = {
+      date: self.validDoc.date + 1,
+      utcOffset: -180,
+      app: testConst.TEST_APP,
+      device: testConst.TEST_DEVICE + ' API3 PATCH duration',
+      eventType: 'Temp Basal',
+      absolute: 1.2,
+      duration: 30
+    };
+    tempBasalDoc.identifier = opTools.calculateIdentifier(tempBasalDoc);
+
+    let res = await self.instance.post(`${self.url}`, self.jwt.create)
+      .send(tempBasalDoc)
+      .expect(201);
+
+    res.body.status.should.equal(201);
+    self.cache.nextShouldEql(self.col, tempBasalDoc)
+
+    res = await self.instance.patch(`${self.url}/${tempBasalDoc.identifier}`, self.jwt.update)
+      .send({
+        absolute: 0.7,
+        duration: 0,
+        durationInMilliseconds: 26584
+      })
+      .expect(200);
+
+    res.body.status.should.equal(200);
+
+    const body = await self.get(tempBasalDoc.identifier);
+    body.absolute.should.equal(0.7);
+    body.duration.should.equal(0);
+    body.durationInMilliseconds.should.equal(26584);
+    body.endmills.should.equal(tempBasalDoc.date + 26584);
+    body.modifiedBy.should.equal(self.subject.apiUpdate.name);
+
+    self.cache.nextShouldEql(self.col, body)
+  });
+
+});

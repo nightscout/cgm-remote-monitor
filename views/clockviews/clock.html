@@ -19,7 +19,7 @@
   <link rel="apple-touch-icon" sizes="180x180" href="/images/apple-touch-icon-180x180.png">
 
   <style type="text/css">
-    @import url("//fonts.googleapis.com/css?family=Open+Sans:700");
+    @import url("//fonts.googleapis.com/css?family=Open+Sans:700|Noto+Color+Emoji");
     <%- include('clock-shared.css', {}); %>
     <%if (face === 'config') { %>
     <%- include('clock-config.css', {}); %>
@@ -92,6 +92,25 @@
     window.addEventListener('click', function() {
       showClose();
     });
+
+    // This fixes the issue of a "stale" CGM value displaying indefinately.
+    // It displays "Internet offline." until internet is restored.
+    function uOffline() { 
+      document.body.innerHTML =
+        'Internet offline.'
+    }
+    // Return to normal as soon as internet connectivity is restored.              
+    function uOnline() { 
+    	location.reload()
+    }
+    if(window.addEventListener) { 
+      window.addEventListener('offline', uOffline);
+      window.addEventListener('online', uOnline);
+    } else {
+      document.body.attachEvent('onoffline', uOffline);
+      document.body.attachEvent('ononline', uOnline);
+    }
+
     <% } %>
   </script>
   <%if (face == 'config') { %>

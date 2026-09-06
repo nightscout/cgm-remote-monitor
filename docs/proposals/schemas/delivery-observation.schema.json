@@ -1,0 +1,135 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://nightscout.github.io/schemas/delivery-observation.schema.json",
+  "title": "DeliveryObservation",
+  "description": "Observed/confirmed insulin delivery from any source (pump, pen, injection)",
+  "type": "object",
+  "required": ["observationId", "observationType", "source", "observed", "reportedBy", "observedAt"],
+  "properties": {
+    "observationId": {
+      "type": "string",
+      "format": "uuid",
+      "description": "Unique identifier for this observation"
+    },
+    "observationType": {
+      "type": "string",
+      "enum": ["basal", "tempBasal", "bolus", "microBolus", "suspend", "injection", "pen", "inhaler"],
+      "description": "Type of delivery observed"
+    },
+    "source": {
+      "type": "object",
+      "required": ["sourceType"],
+      "description": "Where this delivery came from",
+      "properties": {
+        "sourceType": {
+          "type": "string",
+          "enum": ["pump", "manual", "pen", "inhaler", "estimated"],
+          "description": "Category of delivery source"
+        },
+        "sourceId": {
+          "type": "string",
+          "description": "Device identifier if from pump"
+        },
+        "sourceKind": {
+          "type": "string",
+          "description": "Specific device type (omnipod, medtronic, tandem, novopen, etc.)"
+        }
+      }
+    },
+    "observed": {
+      "type": "object",
+      "description": "What was actually delivered",
+      "properties": {
+        "rate": {
+          "type": "number",
+          "minimum": 0,
+          "description": "Observed rate in U/hr (for basal)"
+        },
+        "units": {
+          "type": "number",
+          "minimum": 0,
+          "description": "Observed units delivered"
+        },
+        "duration": {
+          "type": "integer",
+          "minimum": 0,
+          "description": "Duration in seconds (for temp basal)"
+        },
+        "startTime": {
+          "type": "string",
+          "format": "date-time",
+          "description": "When delivery started"
+        },
+        "endTime": {
+          "type": "string",
+          "format": "date-time",
+          "description": "When delivery ended (if completed)"
+        }
+      }
+    },
+    "confidence": {
+      "type": "string",
+      "enum": ["confirmed", "inferred", "reported", "estimated"],
+      "description": "Confidence level of this observation"
+    },
+    "reportedBy": {
+      "type": "object",
+      "required": ["issuerType", "issuerId"],
+      "properties": {
+        "issuerType": {
+          "type": "string",
+          "enum": ["human", "controller", "agent", "caregiver", "pump"]
+        },
+        "issuerId": {
+          "type": "string"
+        }
+      }
+    },
+    "observedAt": {
+      "type": "string",
+      "format": "date-time",
+      "description": "When this observation was recorded"
+    },
+    "pumpResponse": {
+      "type": "object",
+      "description": "Response from pump if applicable",
+      "properties": {
+        "acked": {
+          "type": "boolean",
+          "description": "Whether pump acknowledged the command"
+        },
+        "errorCode": {
+          "type": "string",
+          "description": "Error code if failed"
+        },
+        "errorMessage": {
+          "type": "string",
+          "description": "Human-readable error message"
+        },
+        "rawResponse": {
+          "type": "object",
+          "description": "Raw pump response for debugging"
+        }
+      }
+    },
+    "relatedRequestId": {
+      "type": ["string", "null"],
+      "format": "uuid",
+      "description": "DeliveryRequest this observation corresponds to, if any"
+    },
+    "annotations": {
+      "type": "object",
+      "description": "Additional context",
+      "properties": {
+        "notes": {
+          "type": "string",
+          "description": "Human-provided notes (e.g., 'correction for high')"
+        },
+        "mealContext": {
+          "type": "string",
+          "enum": ["breakfast", "lunch", "dinner", "snack", "correction", "other"]
+        }
+      }
+    }
+  }
+}

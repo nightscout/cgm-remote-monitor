@@ -4,7 +4,10 @@ var request = require('supertest');
 var load = require('./fixtures/load');
 var bootevent = require('../lib/server/bootevent');
 var language = require('../lib/language')();
+
 require('should');
+
+const FIVE_MINUTES=1000*60*5;
 
 describe('Entries REST api', function ( ) {
   var entries = require('../lib/api/entries/');
@@ -24,25 +27,42 @@ describe('Entries REST api', function ( ) {
     bootevent(self.env, language).boot(function booted (ctx) {
       self.app.use('/', entries(self.app, self.wares, ctx, self.env));
       self.archive = require('../lib/server/entries')(self.env, ctx);
-
-      var creating = load('json');
-      creating.push({type: 'sgv', sgv: 100, date: Date.now()});
-      self.archive.create(creating, done);
+      self.ctx = ctx;
+      done();
     });
   });
 
   beforeEach(function (done) {
     var creating = load('json');
-    creating.push({type: 'sgv', sgv: 100, date: Date.now()});
-    self.archive.create(creating, done);
+
+    for (let i = 0; i < 20; i++) {
+      const e = {type: 'sgv', sgv: 100, date: Date.now()};
+      e.date = e.date - FIVE_MINUTES * i;
+      creating.push(e);
+    }    creating = creating.sort((a, b) => a.date - b.date);
+
+    function setupDone() {
+      console.log('Setup complete');
+      done();
+    }
+
+    function waitForASecond() {
+      // wait for event processing of cache entries to actually finish
+      setTimeout(function() {
+        setupDone();
+       }, 100);
+    }
+
+    self.archive.create(creating, waitForASecond);
+
   });
 
-  afterEach(function (done) {
-    self.archive( ).remove({ }, done);
+  afterEach(async function () {
+    await self.archive( ).deleteMany({ });
   });
 
-  after(function (done) {
-    self.archive( ).remove({ }, done);
+  after(async function () {
+    await self.archive( ).deleteMany({ });
   });
 
   // keep this test pinned at or near the top in order to validate all
@@ -78,17 +98,34 @@ describe('Entries REST api', function ( ) {
       .expect(200)
       .end(function (err, res) {
         res.body.should.be.instanceof(Array).and.have.lengthOf(defaultCount);
-        
+
         var array = res.body;
         var firstEntry = array[0];
         var secondEntry = array[1];
-        
+
         firstEntry.date.should.be.above(secondEntry.date);
-        
+
         done( );
       });
   });
 
+  it('gets entries in right order without type specifier', function (done) {
+    var defaultCount = 10;
+    request(self.app)
+      .get('/entries.json')
+      .expect(200)
+      .end(function (err, res) {
+        res.body.should.be.instanceof(Array).and.have.lengthOf(defaultCount);
+
+        var array = res.body;
+        var firstEntry = array[0];
+        var secondEntry = array[1];
+
+        firstEntry.date.should.be.above(secondEntry.date);
+
+        done( );
+      });
+  });
 
   it('/echo/ api shows query', function (done) {
     request(self.app)
@@ -196,7 +233,7 @@ describe('Entries REST api', function ( ) {
 
   it('/entries/:id', function (done) {
     var app = self.app;
-    self.archive.list({count: 1}, function(err, records) {
+    self.archive.list({count: 10}, function(err, records) {
       var currentId = records.pop()._id.toString();
       request(app)
         .get('/entries/'+currentId+'.json')
@@ -225,7 +262,7 @@ describe('Entries REST api', function ( ) {
       .post('/entries/preview.json')
       .send(load('json'))
       .expect(401)
-      .end(function (err, res) {
+      .end(function () {
         // res.body.should.be.instanceof(Array).and.have.lengthOf(30);
         done();
       });
@@ -369,6 +406,64 @@ describe('Entries REST api', function ( ) {
               }
             });
         }
+      });
+  });
+
+  // ============================================================
+  // Single object input tests - validates response format
+  // ============================================================
+
+  it('post single entry returns array with one item', function (done) {
+    var now = Date.now();
+    var dateString = new Date(now).toISOString();
+    
+    request(self.app)
+      .post('/entries/')
+      .set('api-secret', known || '')
+      .send({
+        type: 'sgv',
+        sgv: 142,
+        date: now,
+        dateString: dateString,
+        device: 'test-device',
+        direction: 'Flat'
+      })
+      .expect(200)
+      .end(function (err, res) {
+        if (err) {
+          return done(err);
+        }
+        // Response should be an array even for single object input
+        res.body.should.be.instanceof(Array);
+        res.body.length.should.be.above(0);
+        res.body[0].should.have.property('_id');
+        res.body[0].sgv.should.equal(142);
+        res.body[0].type.should.equal('sgv');
+        res.body[0].direction.should.equal('Flat');
+
+        // Clean up
+        request(self.app)
+          .delete('/entries.json?find[date]=' + now)
+          .set('api-secret', known || '')
+          .expect(200)
+          .end(done);
+      });
+  });
+
+  it('post empty array returns empty result', function (done) {
+    request(self.app)
+      .post('/entries/')
+      .set('api-secret', known || '')
+      .send([])
+      .expect(200)
+      .end(function (err, res) {
+        if (err) {
+          return done(err);
+        }
+        // Empty input should return success with empty or minimal response
+        res.body.should.be.instanceof(Array);
+        res.body.length.should.equal(0);
+        done();
       });
   });
 

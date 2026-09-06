@@ -41,6 +41,32 @@ describe('ddata', function ( ) {
     done( );
   });
 
+  it('processRawDataForRuntime derives duration and endmills from durationInMilliseconds', function () {
+    var ddata = require('../lib/data/ddata')();
+    var createdAt = '2026-03-06T10:00:00.000Z';
+    var result = ddata.processRawDataForRuntime([{
+      _id: '507f1f77bcf86cd799439011',
+      created_at: createdAt,
+      durationInMilliseconds: 26584
+    }])[0];
+
+    result.mills.should.equal(new Date(createdAt).getTime());
+    result.duration.should.equal(0);
+    result.endmills.should.equal(result.mills + 26584);
+  });
+
+  it('idMergePreferNew matches records by identifier when _id is missing', function () {
+    var ddata = require('../lib/data/ddata')();
+    var merged = ddata.idMergePreferNew(
+      [{ _id: 'mongo-id', identifier: 'loop-id', carbs: 15 }],
+      [{ identifier: 'loop-id', carbs: 0 }]
+    );
+
+    merged.length.should.equal(1);
+    merged[0].carbs.should.equal(0);
+    merged[0].identifier.should.equal('loop-id');
+  });
+
   // TODO: ensure partition function gets called via:
   // Properties
   // * ddata.devicestatus
@@ -57,4 +83,3 @@ describe('ddata', function ( ) {
  
 
 });
-
