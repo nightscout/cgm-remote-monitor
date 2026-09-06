@@ -107,6 +107,23 @@ describe('language', function ( ) {
     });
   });
 
+  it('loads the registered Slovenian catalog without a missing-file error', function () {
+    var language = require('../lib/language')();
+    language.set('sl');
+    language.getFilename('sl').should.equal('sl_SI.json');
+    language.speechCode.should.equal('sl-SI');
+    language.loadLocalization(fs);
+    language.translate('Carbs').should.equal('OH');
+  });
+
+  it('substitutes the Russian status update time without losing values', function () {
+    var language = require('../lib/language')();
+    language.set('ru');
+    language.loadLocalization(fs);
+    language.translate('virtAsstStatus', '5.5', 'стабильно', '12:30')
+      .should.equal('5.5, стабильно, последнее обновление 12:30.');
+  });
+
   it('fallback to English filename for unsupported language codes', function () {
     var language = require('../lib/language')();
     language.getFilename('unknown_language').should.equal('en/en.json');
