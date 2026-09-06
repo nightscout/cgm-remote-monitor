@@ -4,29 +4,33 @@ const Cache = require('../lib/utils/reference-cache');
 
 // Model delayed timer dispatch independently of the cache implementation.
 function withClock(run) {
-  const original = {now: Date.now, set: global.setTimeout, clear: global.clearTimeout};
-  let now = 100000, id = 0;
+  const original = {now: Date.now, set: global.setTimeout, clear: global.clearTimeout, performance: Object.getOwnPropertyDescriptor(global, 'performance')};
+  let now = 100000, elapsed = 0, id = 0;
   const timers = new Map();
   Date.now = () => now;
+  Object.defineProperty(global, 'performance', {configurable: true, value: {now: () => elapsed}});
   global.setTimeout = (callback, delay) => {
     const timer = {id: ++id, unref() {return this;}};
-    timers.set(timer, {callback, at: now + delay});
+    timers.set(timer, {callback, at: elapsed + delay});
     return timer;
   };
   global.clearTimeout = timer => timers.delete(timer);
   const clock = {
     advance(ms, dispatch = true) {
       now += ms;
+      elapsed += ms;
       if (dispatch) {
         for (const [timer, task] of [...timers]) {
-          if (task.at <= now) {timers.delete(timer); task.callback();}
+          if (task.at <= elapsed) {timers.delete(timer); task.callback();}
         }
       }
     },
+    shiftWall(ms) {now += ms;},
     timers
   };
   try {run(clock);} finally {
     Date.now = original.now;
+    Object.defineProperty(global, 'performance', original.performance);
     global.setTimeout = original.set;
     global.clearTimeout = original.clear;
   }
@@ -92,6 +96,30 @@ describe('Profile cache application contracts', function () {
         assert.equal(clock.timers.size, 0);
         clock.advance(6000);
       }
+    });
+  });
+  it('expires on elapsed time even when the system clock moves backward', function () {
+    withClock(clock => {
+      const cache = new Cache();
+      cache.put('first', 1, 5000);
+      clock.advance(1000);
+      clock.shiftWall(-60000);
+      cache.put('second', 2, 5000);
+      clock.advance(4000);
+      assert.equal(cache.get('first'), null);
+      assert.equal(cache.get('second'), 2);
+      clock.advance(1000);
+      assert.equal(cache.get('second'), null);
+      cache.clear();
+    });
+  });
+  it('still rejects wall-clock-expired reads before timers dispatch after a forward jump', function () {
+    withClock(clock => {
+      const cache = new Cache();
+      cache.put('profile', 1, 5000);
+      clock.shiftWall(60000);
+      assert.equal(cache.get('profile'), null);
+      cache.clear();
     });
   });
   it('bounds entries and pending timers while retaining the newest replacement', function () {
