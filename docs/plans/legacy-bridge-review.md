@@ -80,3 +80,15 @@ not an active CI assertion that a future secure fix must preserve. These tests
 do not validate vendor login, full polling/transform behavior, a live account,
 all redirect options, or a proposed replacement. The secure replacement/fix
 and required deployment cases remain open.
+
+## Refresh after MongoDB driver 7 integration
+
+Rechecked against integration `cbbd4581` using Node 22.23.2 and the same
+production-only lockfile audit command. The four moderate affected package
+records remain unchanged, with zero high or critical records. Dependency counts
+now include the driver upgrade and its AWS authentication dependencies; the
+original counts are historical. Both raw audit snapshots are retained together.
+All recorded application and inspected dependency source hashes still match,
+and the four inspected installed package versions still match the current lock.
+The existing owned transport observations therefore cover unchanged inspected
+bridge sources; no new live vendor or production validation is claimed.
