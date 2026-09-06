@@ -244,8 +244,28 @@ Native fetch's default proxy behavior differs on both supported Node floors. The
 
 The remaining M08, M19, M23 and M26 candidates are assembled into one verification branch to test interactions and avoid serial CI/base-refresh churn. [Inputs and merge checks](../test-specs/cleanup-integration.md) identify the exact source heads. Completed in #8652, merged as `e3e3ec8f`, after all required checks passed on `2207cbf0` and actual merge tree `6a6b03ef` matched verification. GitHub marked all six source PRs merged. This completes M08, M19, M23 and M26; the source PR notes retain detailed validation and measurements.
 
-### M25 profile-cache candidate
+### M25 profile-cache and receipt implementation
 
-A bounded reference cache replaces memory-cache's per-entry timers while preserving the application's five-second get/put/clear contracts. [Workload measurements and limits](../test-specs/profile-cache.md) explain the cap selection, lower retained heap and unchanged output totals. Notification-cache policy and full candidate validation remain open; M25 is not yet complete.
+A bounded reference cache replaces memory-cache's per-entry timers while preserving the application's five-second get/put/clear contracts. [Workload measurements and limits](../test-specs/profile-cache.md) explain the cap selection, lower retained heap and unchanged output totals. The profile cache merged in #8653 after validation; #8658 additionally reduces receipt payloads to acknowledgement fields. Notification-cache policy and the final retain/replace decision remain open; M25 is not yet complete.
 
 - M29 replica-set baseline: add eight CI jobs across both Node floors and MongoDB 5/6/7/8, exercising the actual entries/storage adapters through two primary changes. Local driver 5.9.2 and proposed 7.6.0 comparisons pass on both Node floors with MongoDB 8.0.29; see [scope and evidence](../test-specs/mongodb-replica-set.md). Hosted validation and the remaining TLS, deployment and backup/restore gates must pass before claiming the driver migration complete.
+
+### M10 implementation and remaining release evidence
+
+#8657 merged as `0181cc99` after all 12 backend, eight replica-set, six browser,
+npm 12, CodeQL and both Docker checks passed on `b6e8c7cd`. The actual merge tree
+`5f3a6ae7f6caaa7db0573bc65e0396bb885914f8` matches the independently reviewed tree.
+Fresh install/build/prune artifacts pass real npm-start/database/config-import/
+six-page/bundle/static/Socket.IO checks on both supported Node floors. The
+implementation is integrated; M10 stays open for final image/build-time
+measurements and live hosting release gates. See the build/runtime specification.
+
+### M24 watch decision proposal
+
+The [watch review](../test-specs/development-watch.md) proposes retaining nodemon
+3.1.14. Owned probes on both Node floors show native watch changes unimported
+application-file coverage and imported-dependency ignore behavior. Both watchers
+restart imported application code and expose a fresh inspector target twice.
+A reproducible probe and POSIX CI regression record these contracts. Hosted Linux
+and Windows/IDE validation or explicit release gating remain; M24 is not yet
+complete. No package or production runtime change is made by this proposal.

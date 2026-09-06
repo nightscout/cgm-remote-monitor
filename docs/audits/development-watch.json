@@ -1,0 +1,282 @@
+{
+  "sourceSHA256": "9a37b0585a08baf10643663ce7e50c31f3e54f13b5f69456dd708468f1a76d9c",
+  "scope": "Owned macOS fixtures, Node floors pinned for parent and children. Single sample of two update cycles per variant; no CPU/memory or IDE reconnect measurement. Source hash includes defensive already-exited-process and SIGTERM cleanup added after these successful samples.",
+  "samples": [
+    {
+      "node": "v22.23.2",
+      "platform": "Darwin",
+      "nodemon": "3.1.14",
+      "configuration": {
+        "ignore": [
+          "tests/*",
+          "node_modules/*",
+          "bin/*"
+        ]
+      },
+      "variants": {
+        "nodemon": {
+          "initial": {
+            "pid": 88418,
+            "inspectorReachable": true
+          },
+          "cycles": [
+            {
+              "tests/ignored.js": 0,
+              "bin/ignored.js": 0,
+              "static/unimported.js": 1,
+              "node_modules/owned-watch-dep/index.js": 0,
+              "lib/loaded.js": 1,
+              "debuggerAfterRestart": {
+                "pid": 88545,
+                "inspectorReachable": true
+              }
+            },
+            {
+              "tests/ignored.js": 0,
+              "bin/ignored.js": 0,
+              "static/unimported.js": 1,
+              "node_modules/owned-watch-dep/index.js": 0,
+              "lib/loaded.js": 1,
+              "debuggerAfterRestart": {
+                "pid": 88696,
+                "inspectorReachable": true
+              }
+            }
+          ],
+          "boots": [
+            {
+              "boot": true,
+              "pid": 88418,
+              "node": "v22.23.2",
+              "value": 0
+            },
+            {
+              "boot": true,
+              "pid": 88472,
+              "node": "v22.23.2",
+              "value": 0
+            },
+            {
+              "boot": true,
+              "pid": 88545,
+              "node": "v22.23.2",
+              "value": 1
+            },
+            {
+              "boot": true,
+              "pid": 88617,
+              "node": "v22.23.2",
+              "value": 1
+            },
+            {
+              "boot": true,
+              "pid": 88696,
+              "node": "v22.23.2",
+              "value": 2
+            }
+          ]
+        },
+        "native": {
+          "initial": {
+            "pid": 88713,
+            "inspectorReachable": true
+          },
+          "cycles": [
+            {
+              "tests/ignored.js": 0,
+              "bin/ignored.js": 0,
+              "static/unimported.js": 0,
+              "node_modules/owned-watch-dep/index.js": 1,
+              "lib/loaded.js": 1,
+              "debuggerAfterRestart": {
+                "pid": 88890,
+                "inspectorReachable": true
+              }
+            },
+            {
+              "tests/ignored.js": 0,
+              "bin/ignored.js": 0,
+              "static/unimported.js": 0,
+              "node_modules/owned-watch-dep/index.js": 1,
+              "lib/loaded.js": 1,
+              "debuggerAfterRestart": {
+                "pid": 88923,
+                "inspectorReachable": true
+              }
+            }
+          ],
+          "boots": [
+            {
+              "boot": true,
+              "pid": 88713,
+              "node": "v22.23.2",
+              "value": 0
+            },
+            {
+              "boot": true,
+              "pid": 88851,
+              "node": "v22.23.2",
+              "value": 0
+            },
+            {
+              "boot": true,
+              "pid": 88890,
+              "node": "v22.23.2",
+              "value": 1
+            },
+            {
+              "boot": true,
+              "pid": 88917,
+              "node": "v22.23.2",
+              "value": 1
+            },
+            {
+              "boot": true,
+              "pid": 88923,
+              "node": "v22.23.2",
+              "value": 2
+            }
+          ]
+        }
+      }
+    },
+    {
+      "node": "v24.20.0",
+      "platform": "Darwin",
+      "nodemon": "3.1.14",
+      "configuration": {
+        "ignore": [
+          "tests/*",
+          "node_modules/*",
+          "bin/*"
+        ]
+      },
+      "variants": {
+        "nodemon": {
+          "initial": {
+            "pid": 88514,
+            "inspectorReachable": true
+          },
+          "cycles": [
+            {
+              "tests/ignored.js": 0,
+              "bin/ignored.js": 0,
+              "static/unimported.js": 1,
+              "node_modules/owned-watch-dep/index.js": 0,
+              "lib/loaded.js": 1,
+              "debuggerAfterRestart": {
+                "pid": 88662,
+                "inspectorReachable": true
+              }
+            },
+            {
+              "tests/ignored.js": 0,
+              "bin/ignored.js": 0,
+              "static/unimported.js": 1,
+              "node_modules/owned-watch-dep/index.js": 0,
+              "lib/loaded.js": 1,
+              "debuggerAfterRestart": {
+                "pid": 88845,
+                "inspectorReachable": true
+              }
+            }
+          ],
+          "boots": [
+            {
+              "boot": true,
+              "pid": 88514,
+              "node": "v24.20.0",
+              "value": 0
+            },
+            {
+              "boot": true,
+              "pid": 88585,
+              "node": "v24.20.0",
+              "value": 0
+            },
+            {
+              "boot": true,
+              "pid": 88662,
+              "node": "v24.20.0",
+              "value": 1
+            },
+            {
+              "boot": true,
+              "pid": 88796,
+              "node": "v24.20.0",
+              "value": 1
+            },
+            {
+              "boot": true,
+              "pid": 88845,
+              "node": "v24.20.0",
+              "value": 2
+            }
+          ]
+        },
+        "native": {
+          "initial": {
+            "pid": 88888,
+            "inspectorReachable": true
+          },
+          "cycles": [
+            {
+              "tests/ignored.js": 0,
+              "bin/ignored.js": 0,
+              "static/unimported.js": 0,
+              "node_modules/owned-watch-dep/index.js": 1,
+              "lib/loaded.js": 1,
+              "debuggerAfterRestart": {
+                "pid": 88922,
+                "inspectorReachable": true
+              }
+            },
+            {
+              "tests/ignored.js": 0,
+              "bin/ignored.js": 0,
+              "static/unimported.js": 0,
+              "node_modules/owned-watch-dep/index.js": 1,
+              "lib/loaded.js": 1,
+              "debuggerAfterRestart": {
+                "pid": 88937,
+                "inspectorReachable": true
+              }
+            }
+          ],
+          "boots": [
+            {
+              "boot": true,
+              "pid": 88888,
+              "node": "v24.20.0",
+              "value": 0
+            },
+            {
+              "boot": true,
+              "pid": 88916,
+              "node": "v24.20.0",
+              "value": 0
+            },
+            {
+              "boot": true,
+              "pid": 88922,
+              "node": "v24.20.0",
+              "value": 1
+            },
+            {
+              "boot": true,
+              "pid": 88932,
+              "node": "v24.20.0",
+              "value": 1
+            },
+            {
+              "boot": true,
+              "pid": 88937,
+              "node": "v24.20.0",
+              "value": 2
+            }
+          ]
+        }
+      }
+    }
+  ]
+}
