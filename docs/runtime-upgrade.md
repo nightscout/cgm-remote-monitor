@@ -107,3 +107,44 @@ Entries reads and the existing unknown-storage fallback remain unchanged.
 Type-only treatment/device-status slice requests no longer return entries-cache
 records. These requests now read the selected collection. Entries slices keep
 their existing cache path; selected-storage permission requirements still apply.
+
+## Legacy Dexcom bridge retirement in 15.0.9
+
+The local `share2nightscout-bridge` engine is removed in favour of Nightscout
+Connect's Dexcom Share source. Deprecated legacy overrides no longer select an
+old engine: `DEXCOM_BRIDGE_USE_LEGACY`, its Azure prefix, and legacy extended
+settings cannot re-enable it. MiniMed is not retired by this change.
+
+| Existing setting | Connect setting/behavior |
+| --- | --- |
+| `BRIDGE_USER_NAME` | Fallback for `CONNECT_SHARE_ACCOUNT_NAME` |
+| `BRIDGE_PASSWORD` | Fallback for `CONNECT_SHARE_PASSWORD` |
+| `BRIDGE_SERVER=US` | Fallback `CONNECT_SHARE_REGION=us` |
+| `BRIDGE_SERVER=EU` | Fallback `CONNECT_SHARE_REGION=ous` |
+| Custom `BRIDGE_SERVER` hostname | Fallback `CONNECT_SHARE_SERVER` |
+| No server override | Connect's default US endpoint |
+| `BRIDGE_INTERVAL`, `BRIDGE_MAX_COUNT`, `BRIDGE_FIRST_FETCH_COUNT`, `BRIDGE_MAX_FAILURES`, `BRIDGE_MINUTES` | Retired; Connect owns polling, backfill and retries |
+
+Complete legacy credentials enable `CONNECT_SOURCE=dexcomshare` when no source
+is selected. Explicit Connect credentials, region and server take precedence.
+Incomplete legacy credentials do not enable Connect. Prefer explicit Connect
+settings going forward and remove obsolete BRIDGE settings after validation.
+
+Connect currently supports one source per instance. Complete BRIDGE credentials
+alongside a different CONNECT_SOURCE now produce an actionable configuration
+error without starting either ingestion source. Select Dexcom Share, or arrange
+separate Dexcom ingestion and remove the obsolete BRIDGE credentials; the
+application must not silently discard either configured feed.
+
+Rehearse the switch using owned nonproduction data. Verify region/custom server,
+authentication, repeated uploads, backfill and duplicate handling. Connect marks
+new entries with device `nightscout-connect` rather than `share2`. There is no
+bulk history rewrite, but overlapping backfill updates matching readings,
+including their device field, while preserving database identifiers. Do not run old and new ingestion simultaneously.
+Private TLS endpoints must have certificates trusted by the Node runtime; the
+legacy engine's certificate-verification bypass is not retained.
+
+Rollback requires a previous Nightscout artifact with the legacy engine plus
+its known configuration; flipping the removed override on 15.0.9 cannot restore
+it. Retaining an old artifact does not resolve the legacy TLS defect. No MongoDB
+binary/FCV or schema change is part of this retirement.

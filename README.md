@@ -603,20 +603,18 @@ For folks using the new Many to Many feature, please provide the username of the
 patient to follow using `CONNECT_CARELINK_PATIENT_USERNAME` variable.
 
 
-##### `bridge` (Share2Nightscout bridge)
+##### Legacy Dexcom bridge (retired in 15.0.9)
 
-> **Deprecated** Please consider using the `connect` plugin instead.
+Use the `connect` plugin with `CONNECT_SOURCE=dexcomshare`. The bundled legacy
+Share2Nightscout engine and `DEXCOM_BRIDGE_USE_LEGACY` fallback are removed.
+Existing complete `BRIDGE_USER_NAME`/`BRIDGE_PASSWORD` credentials automatically
+map to Connect; explicit Connect settings take precedence. `BRIDGE_SERVER=EU`
+maps to the outside-US region and a custom hostname maps to `CONNECT_SHARE_SERVER`.
+Legacy polling/retry settings no longer configure ingestion. Mixed legacy Dexcom
+and non-Dexcom Connect configurations require operator migration.
 
-Fetch glucose reading directly from the Dexcom Share service, uses these extended settings:
-  * `BRIDGE_USER_NAME` - Your username for the Share service.
-  * `BRIDGE_PASSWORD` - Your password for the Share service.
-  * `BRIDGE_INTERVAL` (`150000` *2.5 minutes*) - The time (in milliseconds) to wait between each update.
-  * `BRIDGE_MAX_COUNT` (`1`) - The number of records to attempt to fetch per update.
-  * `BRIDGE_FIRST_FETCH_COUNT` (`3`) - Changes max count during the very first update only.
-  * `BRIDGE_MAX_FAILURES` (`3`) - How many failures before giving up.
-  * `BRIDGE_MINUTES` (`1400`) - The time window to search for new data per update (the default value is one day in minutes).
-  * `BRIDGE_SERVER` (``) - The default blank value is used to fetch data from Dexcom servers in the US. Set to (`EU`) to fetch from European servers instead.
-  * `DEXCOM_BRIDGE_USE_LEGACY` (`false`) - Set to `true` to force the legacy `share2nightscout-bridge` module. By default, compatible `BRIDGE_*` Dexcom settings are mapped to the `connect` plugin's Dexcom Share source because it has newer G7-era compatibility.
+See the [15.0.9 migration guide](docs/runtime-upgrade.md#legacy-dexcom-bridge-retirement-in-1509)
+for settings, changed behavior and rollback. MiniMed support is separate.
 
 ##### `mmconnect` (MiniMed Connect bridge)
 
