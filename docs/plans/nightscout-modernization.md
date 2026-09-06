@@ -220,6 +220,10 @@ The isolated Babel 8/preset 8/loader 10 candidate preserves the configured brows
 
 UUID major review found only one production v5 call. A scoped node:crypto implementation preserves the persisted namespace, key, UUID bits and malformed-Unicode rejection. [Reference vectors and validation](../test-specs/native-document-identifiers.md) cover fixed IDs, 264 old/new comparisons, repeat processing and full API validation. The candidate removes the direct UUID package; it remains unmerged pending hosted validation. Babel/preset/loader review remains open.
 
+### M23 query leaf conversion in progress
+
+Nine characterization cases now cover the old and scoped local query walker, including mutation, BSON values, prototype-like keys and errors. The replacement removes `traverse` and 70 exclusive transitive package paths without changing retained lock entries. [Contracts and measurements](../test-specs/query-leaves.md) distinguish installed-file savings from unmeasured server heap. Full backend and hosted validation remain required before completion.
+
 ### M24 compatible Node runner in progress
 
 Native --env-file changes both precedence and parsing of existing values, so the first slice uses a scoped Node runner with the existing .env grammar and file-wins policy. [Process contracts and validation](../test-specs/env-runner.md) cover startup flags, nyc/Mocha children and repeated signal handling. Two installed package paths are removed; nodemon/watch remains a separate unfinished slice.
