@@ -8,7 +8,7 @@ const WebSocket = analyzerRequire('ws');
 
 describe('Bundle analyzer WebSocket compatibility', function () {
   it('bounds retained message fragments', async function () {
-    const receiver = new WebSocket.Receiver('nodebuffer', {}, false, 0, 0, 4);
+    const receiver = new WebSocket.Receiver({binaryType: 'nodebuffer', maxFragments: 4});
     try {
       const error = once(receiver, 'error', {signal: AbortSignal.timeout(1000)});
       receiver.end(Buffer.from([2, 0, 0, 0, 0, 0, 0, 0, 128, 0]));
@@ -16,7 +16,7 @@ describe('Bundle analyzer WebSocket compatibility', function () {
     } finally { receiver.destroy(); }
   });
   it('resets the fragment count between consecutive valid messages', function () {
-    const receiver = new WebSocket.Receiver('nodebuffer', {}, false, 0, 0, 4);
+    const receiver = new WebSocket.Receiver({binaryType: 'nodebuffer', maxFragments: 4});
     const received = [];
     const errors = [];
     receiver.on('message', data => received.push(Array.from(data)));
@@ -29,7 +29,7 @@ describe('Bundle analyzer WebSocket compatibility', function () {
     } finally { receiver.destroy(); }
   });
   it('bounds tiny buffered chunks in an incomplete frame', async function () {
-    const receiver = new WebSocket.Receiver('nodebuffer', {}, false, 0, 4, 0);
+    const receiver = new WebSocket.Receiver({binaryType: 'nodebuffer', maxBufferedChunks: 4});
     try {
       const error = once(receiver, 'error', {signal: AbortSignal.timeout(1000)});
       receiver.write(Buffer.from([130, 126, 1, 0]));
