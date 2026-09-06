@@ -53,6 +53,10 @@ describe('push notification deduplication cache', function () {
     assert.strictEqual(receipt.level, payload.level);
     assert.strictEqual(receipt.group, payload.group);
     assert.strictEqual(receipt.eventName, payload.eventName);
+    assert.deepStrictEqual(Object.keys(receipt).sort(), ['eventName', 'group', 'level']);
+    payload.level = levels.URGENT;
+    payload.group = 'changed-after-send';
+    payload.eventName = 'changed-after-send';
     push.emitNotification(notification());
     assert.strictEqual(sent.length, 1);
     assert.strictEqual(push.pushoverAck({receipt: 'fixture-receipt'}), true);
@@ -124,6 +128,34 @@ describe('push notification deduplication cache', function () {
       assert.strictEqual(cancellations, cycle * 2);
       now += 900001;
     }
+  });
+
+  it('preserves actual snooze selection for high, low and plugin alarms', function () {
+    const settings = require('../lib/server/env')().settings;
+    Object.assign(settings, {alarmHigh: true, alarmLow: true, alarmUrgentHigh: true, alarmUrgentLow: true,
+      alarmHighMins: [11], alarmLowMins: [13], alarmUrgentHighMins: [17], alarmUrgentLowMins: [19],
+      alarmWarnMins: [23], alarmUrgentMins: [29]});
+    env.settings = settings;
+    const push = initialize(env, ctx, caches);
+    for (const [eventName, level, minutes] of [['high', levels.WARN, 11], ['low', levels.WARN, 13],
+      ['high', levels.URGENT, 17], ['low', levels.URGENT, 19], ['fixture', levels.WARN, 23], ['fixture', levels.URGENT, 29]]) {
+      const payload = Object.assign(notification(), {eventName, level, notifyhash: eventName + level});
+      push.emitNotification(payload);
+      payload.eventName = 'mutated';
+      assert.strictEqual(push.pushoverAck({receipt: 'fixture-receipt'}), true);
+      assert.deepStrictEqual(acknowledgements.pop(), [level, 'fixture-group', minutes * 60000, true]);
+    }
+  });
+
+  it('expires receipt acknowledgements after an hour over two cycles', function () {
+    const push = initialize(env, ctx, caches);
+    for (let cycle = 0; cycle < 2; cycle++) {
+      push.emitNotification(notification());
+      now += 3600001;
+      assert.strictEqual(push.pushoverAck({receipt: 'fixture-receipt'}), false);
+    }
+    assert.strictEqual(sent.length, 2);
+    assert.deepStrictEqual(acknowledgements, []);
   });
 
 });
