@@ -198,7 +198,11 @@ The user confirmed on 2026-09-05 that all implementation PRs target `chore/night
 
 Replace mongo-url-parser with the public connection-string parser already used by the installed MongoDB driver. [Contracts and validation](../test-specs/mongo-uri-credentials.md) cover driver grammar, decoded password comparisons and the no-connection requirement. The direct declaration count is unchanged; one installed legacy package is removed. Full validation remains open.
 
-### M18 callback and boot sequence work in progress
+### M20 Express parser ownership in progress
+
+Application parser imports now use Express's public parser functions, retaining the existing options and middleware order. [Validation notes](../test-specs/express-parsers.md) cover the shared implementations and regression suite. Only the direct declaration is removed; the transitive package and runtime memory remain. Validation against the refreshed integration branch remains required.
+
+### M18 callback and boot sequence work
 
 The first slice, #8639, merged as `a92d0882` after all required CI passed and the actual merge tree matched verification. It removes direct `async` usage from dataloader, treatments and three notification/voice plugins. [Callback contracts and validation](../test-specs/callback-tasks.md) cover ordering, bounded concurrency and repeated uploads.
 
