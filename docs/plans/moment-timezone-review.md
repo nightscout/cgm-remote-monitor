@@ -1,6 +1,6 @@
 # Moment and timezone review (M27)
 
-Status: inventory complete; replacement decision and comparison measurements open.
+Status: inventory and initial server characterization complete; replacement decision, browser parity and comparison measurements open.
 The baseline is integration `87340f59`. No runtime code or dependency changes are
 included in this inventory. Do not mark M27 complete from source counts alone.
 
@@ -58,3 +58,24 @@ fixed offsets such as GMT+5:30 from IANA zones and expose mutable Moment objects
 The initial evidence favors evaluating formatting separately from therapy/date
 parsing, because these consume different contracts. It does not yet justify
 removing Moment or changing historical timezone behavior.
+
+## Initial executable characterization and open DST discrepancy
+
+`tests/timezone-modernization.test.js` exercises actual profile helpers and API
+v3 date parsing. Seventeen cases cover New York and Lord Howe gap/overlap
+parsing, fixed quarter/half-hour offsets, both occurrences of a repeated hour,
+mutable applyTimezone identity, repeated schedule reads, API epoch units,
+retained offsets, RFC input, invalid dates and array fallback. Profile fixtures
+run under both display-unit settings; these are not full IOB/COB/report goldens.
+
+The schedule fixture exposed an existing discrepancy: at 2024-03-10T07:00Z
+(03:00 in New York), getValueByTime selects the 02:00 schedule value. It uses
+`diff(startOf('day'), 'seconds')`, so the missing spring hour is not counted.
+The fixture records the current result explicitly, not as a claim of clinical
+correctness. A separate reviewed change must establish intended wall-clock
+schedule semantics, including autumn repeats, non-hour changes, profile switches
+and affected basal/sensitivity/carbohydrate/target consumers, before altering it.
+Do not silently carry this result into a replacement as a correctness oracle.
+
+The remaining historical, browser-data-range, locale, duration, output and
+performance comparisons above are still required.
