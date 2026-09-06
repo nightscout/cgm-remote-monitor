@@ -103,6 +103,52 @@ jobs:
           npm prune --omit=dev --ignore-scripts
           node tools/validate-pruned-runtime.js
 
+  replica-test:
+    name: Replica set (${{ matrix.node-version }}, ${{ matrix.mongodb-version }})
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    strategy:
+      fail-fast: false
+      matrix:
+        node-version: ['22.23.2', '24.20.0']
+        mongodb-version: ['5.0.32', '6.0.27', '7.0.40', '8.0.29']
+    steps:
+      - name: Git Checkout
+        uses: actions/checkout@v5
+      - name: Use Node.js ${{ matrix.node-version }}
+        uses: actions/setup-node@v5
+        with:
+          node-version: ${{ matrix.node-version }}
+          package-manager-cache: false
+      - name: Start owned replica members
+        env:
+          MONGODB_TEST_VERSION: ${{ matrix.mongodb-version }}
+        run: |
+          for port in 27172 27173 27174; do
+            docker run -d --name "nightscout-owned-rs-$port" --network host \
+              "mongo:$MONGODB_TEST_VERSION" --port "$port" --bind_ip 127.0.0.1 \
+              --replSet nightscout_owned_rs --wiredTigerCacheSizeGB 0.25
+          done
+      # This exercises storage adapters; full builds run in the backend matrix.
+      - name: Install test dependencies
+        run: npm ci --ignore-scripts
+      - name: Validate reads and writes across two primary changes
+        run: node tools/validate-mongodb-replica-set.js
+      - name: Show owned replica logs on failure
+        if: failure()
+        run: |
+          for port in 27172 27173 27174; do
+            docker logs --tail 80 "nightscout-owned-rs-$port" || true
+          done
+      - name: Remove owned replica containers and volumes
+        if: always()
+        run: |
+          for port in 27172 27173 27174; do
+            if docker inspect "nightscout-owned-rs-$port" >/dev/null 2>&1; then
+              docker rm -fv "nightscout-owned-rs-$port"
+            fi
+          done
+
   browser-test:
     name: Browser tests (${{ matrix.node-version }}, ${{ matrix.browser }})
     runs-on: ubuntu-latest
@@ -156,7 +202,7 @@ jobs:
 
   docker-build-pr:
     name: Validate Docker image (${{ matrix.arch }})
-    needs: [test, browser-test, maintained-mongo]
+    needs: [test, browser-test, maintained-mongo, replica-test]
     if: github.event_name == 'pull_request'
     runs-on: ${{ matrix.runner }}
     strategy:
@@ -205,7 +251,7 @@ jobs:
 
   docker-build:
     name: Build Docker image (${{ matrix.arch }})
-    needs: [test, browser-test, maintained-mongo]
+    needs: [test, browser-test, maintained-mongo, replica-test]
     if: (github.ref == 'refs/heads/master' || github.ref == 'refs/heads/dev') && github.repository_owner == 'nightscout'
     runs-on: ${{ matrix.runner }}
     strategy:
