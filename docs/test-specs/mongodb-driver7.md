@@ -178,3 +178,31 @@ The GitHub dismissal points to these tests and applies only to this alert.
 No rule, path or general sanitizer exemption was added. This does not prove
 query resource bounds or change authorization policy. Fresh CodeQL analysis
 and every other CI/migration gate remain required before merging the driver.
+
+## Local TLS comparison
+
+`tools/validate-mongodb-tls.js CHECKOUT CERT_DIRECTORY` loads the selected
+checkout's real driver and storage initializer. The owned fixture must listen
+on 127.0.0.1:27175 with requireTLS and a dbpath of CERT_DIRECTORY/db. It expects
+ca.crt (the signing CA) and untrusted.crt (an unrelated CA), and verifies the
+server settings before writing or cleaning its unique database. Both the server
+certificate and private key are local ephemeral fixture material, never committed.
+
+For setup, create two temporary self-signed CA certificates and a server
+certificate signed by the first with SAN DNS:localhost,IP:127.0.0.1 and
+extendedKeyUsage=serverAuth. Start a disposable mongod with --tlsMode requireTLS,
+--tlsCertificateKeyFile pointing to the combined server certificate/key PEM,
+--tlsCAFile ca.crt and --tlsAllowConnectionsWithoutCertificates, using the fixed
+loopback port and owned dbpath above. Stop that process after validation.
+Native MongoDB 8.0.29 with --fork aborted in Apple's TLS/security initialization
+on the local macOS 27 host; running it in the foreground worked. This is a local
+harness limitation, not evidence of a driver regression.
+
+The committed local comparison covers drivers 5.9.2 and 7.6.0 on both Node floors
+against MongoDB 8.0.29. Every case opens/closes the actual storage client twice,
+upserts and reads one stable record, verifies TLS is enabled without insecure
+certificate/hostname overrides, and rejects an unrelated CA twice with a
+certificate-related server-selection error. This establishes local server
+certificate trust behavior. It does not cover hostname mismatch, expired
+certificates, client-certificate authentication, SRV/Atlas TLS or hosted
+MongoDB 5/6/7 TLS. Those remain distinct compatibility/deployment work.
