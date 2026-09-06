@@ -10,8 +10,8 @@ Helmet 5 changed CSP useDefaults and enabled cross-origin policies. An unchanged
 Nightscout configuration on Helmet 8 failed four existing framing tests by
 injecting script restrictions and upgrade-insecure-requests into a frame-only
 CSP. Both Nightscout CSP configurations now explicitly set useDefaults:false.
-The full Helmet invocation disables newly defaulted COEP/COOP/CORP and
-Origin-Agent-Cluster to preserve existing embedding/resource behaviour. This
+Explicit individual Helmet middleware preserves the existing enabled headers,
+without introducing COEP/COOP/CORP or Origin-Agent-Cluster. This
 retains the prior policy, rather than weakening an enabled Nightscout setting.
 HSTS, same-origin frame protection and full/report-only CSP remain configurable.
 
@@ -38,3 +38,23 @@ records the defaults, removal and runtime requirements.
 Full backend/browser, CodeQL, native Docker and pruned-runtime CI must pass on
 the current base before merge. This slice does not complete M09 or the live
 hosting/proxy release gates.
+
+## CodeQL follow-up after the dev refresh
+
+PR #8605's CodeQL result flagged `js/insecure-helmet-configuration` (alert #112)
+for passing false CSP/frameguard settings to the umbrella Helmet middleware.
+Those configurable choices also exist on dev; CSP remains opt-in and embedding
+remains configurable. Install the enabled header middleware directly and apply
+the selected framing/enforced CSP once, independently of the HSTS branch.
+Report-only CSP remains separate. This removes duplicated policy wiring and
+makes the security settings explicit without suppressing or dismissing alerts.
+
+The [24-mode comparison](../audits/helmet-explicit-header-comparison.json) against
+`e16302fd` records identical HTTP headers and response bodies (excluding Date
+and Connection). Expanded assertions check the retained nosniff, DNS-prefetch,
+download, cross-domain, XSS and referrer headers, and X-Powered-By removal.
+All 34 cases pass before the change and on Node 22.23.2/24.20.0 afterward.
+Three actual-server browser embedding/inline-control cases pass on Chromium
+and WebKit, repeating off/enforced/report-only CSP interactions twice.
+The individual middleware API is documented by [Helmet](https://helmet.js.org/).
+Hosted final-head CodeQL and the full CI matrix remain the final validation.

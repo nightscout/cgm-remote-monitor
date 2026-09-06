@@ -216,6 +216,19 @@ describe('server security headers', function () {
                 value.should.not.containEql('upgrade-insecure-requests');
                 value.should.not.containEql('script-src-attr');
               }
+              const hstsBundleEnabled = !insecureUseHttp && secureHstsHeader;
+              const retainedHeaders = {
+                'x-content-type-options': 'nosniff', 'x-dns-prefetch-control': 'off',
+                'x-download-options': 'noopen', 'x-permitted-cross-domain-policies': 'none',
+                'x-xss-protection': '0'
+              };
+              for (const [name, value] of Object.entries(retainedHeaders)) {
+                if (hstsBundleEnabled) res.headers[name].should.equal(value);
+                else should.not.exist(res.headers[name]);
+              }
+              if (hstsBundleEnabled) should.not.exist(res.headers['x-powered-by']);
+              if (hstsBundleEnabled || cspMode !== 'off') res.headers['referrer-policy'].should.equal('no-referrer');
+              else should.not.exist(res.headers['referrer-policy']);
               if (insecureUseHttp || !secureHstsHeader) should.not.exist(res.headers['strict-transport-security']);
               else res.headers['strict-transport-security'].should.equal('max-age=31536000');
               if (allowUnrestrictedFrameEmbedding) should.not.exist(res.headers['x-frame-options']);
