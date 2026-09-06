@@ -40,6 +40,7 @@ describe('Security of REST API V1', function() {
     self.env.settings.authFailDelay = 50;
     this.wares = require('../lib/middleware/')(self.env);
     self.app = require('express')();
+    require('../lib/middleware/configure-request')(self.app);
     self.app.enable('api');
     require('../lib/server/bootevent')(self.env, language).boot(async function booted (ctx) {
       self.ctx = ctx;

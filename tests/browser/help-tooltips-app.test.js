@@ -27,7 +27,7 @@ describe('Help tooltips on the application page', function () {
     });
     app.get('/api/v1/verifyauth',(req,res)=>res.json({message:'OK'}));
     app.get('/api/v1/adminnotifies',(req,res)=>res.json({message:{notifies:[],notifyCount:0}}));
-    app.get('/translations/*',(req,res)=>res.json({'Settings':'Réglages','When enabled an alarm may sound.':'Une alarme peut sonner.'}));
+    app.get('/translations/{*path}',(req,res)=>res.json({'Settings':'Réglages','When enabled an alarm may sound.':'Une alarme peut sonner.'}));
     app.use('/bundle',express.static(path.join(root,'node_modules/.cache/_ns_cache/public')));
     app.use(express.static(path.join(root,'static')));
     server=http.createServer(app);server.listen(0,'127.0.0.1');await once(server,'listening');
