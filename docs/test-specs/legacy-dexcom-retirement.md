@@ -21,3 +21,25 @@ comparisons, duplicate/backfill/cutover behavior, full CI,
 current-base verification and review of deployment/logging behavior. Unit/boot
 stage checks alone do not establish a working vendor integration. No real
 Dexcom account or live database has been used and no live migration is claimed.
+
+## Transport and cutover follow-up
+
+Two owned HTTPS cases pass on both Node floors using the connector's actual
+Axios dependency: an untrusted certificate is rejected before any HTTP request,
+and an explicitly trusted private CA permits both bare and wrapped account-ID
+responses, sessions and mapped glucose over two cycles. Proxy routing is disabled
+for the owned fixture only. This is driver-boundary evidence, not a live vendor
+or full actor authentication/refresh test.
+
+The actual entries adapter also passes a two-cycle database cutover check on
+Node 22/MongoDB 6 and Node 24/MongoDB 8. Connect backfill overlapping a legacy
+share2 reading preserves its database ID and yields one reading per timestamp;
+repeating the batch preserves the new reading's ID too. Overlapping records'
+device field becomes nightscout-connect; the migration note now states this.
+
+Open logging finding: an owned startup probe, before emitting data-processed,
+confirms nightscout-connect 0.0.13 logs both configured username and password.
+The source logs validated.config and, for invalid configuration, validated.
+No live credentials or network request were used. Resolve this in the Connect
+dependency before integrating the forced legacy migration; do not suppress
+global console output or claim that TLS checks resolve credential logging.
