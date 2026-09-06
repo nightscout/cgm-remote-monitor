@@ -102,6 +102,12 @@ The [EJS review](../test-specs/ejs-modernization.md) upgrades the template engin
 to dependency-free 6.0.1, removes Jake/filelist and the unused filelist override,
 and covers actual rendered pages, escaping, cache freshness and inherited locals.
 
+The [Axios consolidation](../test-specs/axios-consolidation.md) upgrades config
+imports to the same 1.20 client used by Connect and removes redundant Axios and
+follow-redirects overrides. Explicit redaction, actual import authentication and
+client isolation have regression coverage; measured installed production files
+shrink by approximately 1 MB, with no measured RAM-saving claim.
+
 ## Phase 3 — reduce production installation and browser cost
 
 - [ ] **M10 — Separate build from runtime dependencies** (after M01; coordinate with M07 and M11 to avoid lockfile overlap).
