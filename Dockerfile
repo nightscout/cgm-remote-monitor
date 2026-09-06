@@ -17,8 +17,8 @@ COPY server.js ./
 
 # Install the full dependency tree, run the existing postinstall bundle build,
 # then prune dev-only packages before copying artifacts into the runtime image.
-RUN npm ci --cache /tmp/empty-cache --omit=optional --force && \
-  npm prune --omit=dev --omit=optional && \
+RUN npm ci --include=dev --cache /tmp/empty-cache --omit=optional --force && \
+  npm prune --omit=dev --omit=optional --ignore-scripts && \
   rm -rf /tmp/*
 
 FROM node:22-alpine AS runtime

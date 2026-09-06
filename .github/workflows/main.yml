@@ -50,6 +50,13 @@ jobs:
         run: npm run-script test:core
       - name: Send Coverage
         run: npm run-script coverage
+      - name: Validate built and pruned runtime
+        env:
+          NODE_ENV: production
+          CUSTOMCONNSTR_mongo: mongodb://127.0.0.1:27017/testdb
+        run: |
+          npm prune --omit=dev --ignore-scripts
+          node tools/validate-pruned-runtime.js
 
   maintained-mongo:
     name: Maintained MongoDB
@@ -87,6 +94,14 @@ jobs:
         run: npm run-script test:core
       - name: Send Coverage
         run: npm run-script coverage
+
+      - name: Validate built and pruned runtime
+        env:
+          NODE_ENV: production
+          CUSTOMCONNSTR_mongo: mongodb://127.0.0.1:27017/testdb
+        run: |
+          npm prune --omit=dev --ignore-scripts
+          node tools/validate-pruned-runtime.js
 
   replica-test:
     name: Replica set (${{ matrix.node-version }}, ${{ matrix.mongodb-version }})
