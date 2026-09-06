@@ -1,7 +1,7 @@
 const path = require('path');
 const webpack = require('webpack');
 const pluginArray = [];
-// In dev mode, webpack-hot-middleware injects the HMR client into both
+// In dev mode, webpack-dev-middleware injects the HMR client into both
 // entries (app + clock). With devtool='source-map' the shared modules
 // emit .map files keyed by [name] and collide ("Multiple assets emit
 // different content to the same filename js/bundle.app.js.map").
@@ -135,7 +135,10 @@ if (process.env.NODE_ENV === 'development') {
   pluginArray.push(new webpack.HotModuleReplacementPlugin());
   pluginArray.push(new webpack.NoEmitOnErrorsPlugin());
 
-  const hot = 'webpack-hot-middleware/client?port=1337';
+  // Resolve the exported subpath before appending its resource query.
+  // Preserve HMR-only updates and avoid a new progress/runtime-error overlay.
+  const hot = require.resolve('webpack-dev-middleware/client') + '?reload=false&progress=false&overlay=' +
+    encodeURIComponent(JSON.stringify({runtimeErrors: false}));
 
   appEntry.unshift(hot);
   clockEntry.unshift(hot);

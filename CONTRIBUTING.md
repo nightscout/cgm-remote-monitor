@@ -202,7 +202,7 @@ reconnection. The parser override does not rewrite the prebuilt browser
 client, so both paths remain required.
 
 The fast-uri dependency checks resolve Ajv through each installed consumer
-(webpack, webpack-dev-middleware, terser-webpack-plugin, ajv-formats and table).
+(webpack, webpack-dev-middleware, minimizer-webpack-plugin, ajv-formats and table).
 They exercise external references, escaped JSON pointers and case-sensitive
 schema IDs, as well as URI security boundaries. Keep the fast-uri override
 scoped to 3.x while these consumers require it; a 4.x migration changes Unicode
@@ -354,3 +354,9 @@ Also if you can't code, it's possible to contribute by improving the documentati
 | All active testers/documentors: | [@danamlewis] [@jamieowendexcom] [@mcdafydd] [@oteroos] [@rarneson] [@tynbendad] [@unsoluble]
 | All active translators: | [@apanasef] [@jizhongwen] [@viderehh] [@herzogmedia] [@LuminaryXion] [@OpossumGit]
 
+
+Development hot updates use webpack-dev-middleware for both assets and the
+`/__webpack_hmr` event stream. Compile errors use its overlay; successful updates
+preserve unsaved input without automatic reload fallback. See the
+[webpack/HMR review](docs/test-specs/webpack-refresh.md) for migration and
+regression coverage.
