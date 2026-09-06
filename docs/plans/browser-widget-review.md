@@ -1,6 +1,6 @@
 # Browser widget modernization (M28)
 
-Current inventory: integration `37155778`, 2026-09-06. This inventory and proposed sequence
+Current inventory: based on integration `4a287bef`, 2026-09-06. This inventory and proposed sequence
 advance M28; they do not complete the migration or prove UI equivalence.
 `python3 tools/inventory-browser-widgets.py` reproduces the lexical inventory in
 `../audits/browser-widget-usage.json`, including source hashes and locked versions.

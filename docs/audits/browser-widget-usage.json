@@ -1,5 +1,5 @@
 {
-  "baseline": "37155778baafee6f5c41036139c20d73f5856e17",
+  "baseline": "fe2b74bd4c4d3884fff3c85684f36bbf5352c967",
   "scope": "Tracked JS/EJS/HTML under lib, bundle, static/report/js and views. Lexical matches include comments and omit dynamic/aliased calls; review the source before treating a match as a consumer.",
   "versionNote": "null means the package is absent from the current lockfile.",
   "installedVersions": {

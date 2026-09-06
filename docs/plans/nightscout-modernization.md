@@ -314,3 +314,14 @@ no generic Heroku/Azure proxy CIDR is assumed.
 The [#8328 requirement mapping](tracking-8328-reconciliation.md) distinguishes
 merged implementation from uncompleted dependency decisions and release gates.
 It does not authorize closing the issue or promoting #8605.
+
+### M27 comparison and timezone data integrated
+
+#8691 updates Moment Timezone to 0.6.3 / IANA 2026c with profile and browser
+regressions for changed offsets; see the [timezone review](../test-specs/moment-timezone-refresh.md).
+#8690 integrates [native Intl evidence](moment-timezone-review.md) and the
+[Luxon contract comparison](luxon-contract-review.md). Current hosted Chromium,
+Firefox and WebKit artifacts agree on the same three historical formatting
+differences outside the clipped browser timezone range. These comparisons do
+not replace production Moment or establish complete parsing, therapy, report,
+locale or memory equivalence. M27 remains open for its final decision.
