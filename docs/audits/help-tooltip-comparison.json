@@ -1,0 +1,59 @@
+{
+  "baselineCommit": "42fd9a148a72488688730970f293e86486373461",
+  "scope": "Matched Node 22 production builds; gzip measured independently per asset, not a browser network trace. Shared legacy tooltip CSS retained.",
+  "removedPackages": [
+    "jquery.tooltips"
+  ],
+  "addedPackages": [],
+  "changedRetainedPackages": [],
+  "javascript": [
+    {
+      "entry": "app",
+      "beforeBytes": 1155137,
+      "afterBytes": 1154638,
+      "beforeGzip": 329930,
+      "afterGzip": 329990
+    },
+    {
+      "entry": "admin",
+      "beforeBytes": 32025,
+      "afterBytes": 32025,
+      "beforeGzip": 7921,
+      "afterGzip": 7921
+    },
+    {
+      "entry": "profile",
+      "beforeBytes": 18498,
+      "afterBytes": 18498,
+      "beforeGzip": 6649,
+      "afterGzip": 6649
+    },
+    {
+      "entry": "food",
+      "beforeBytes": 15854,
+      "afterBytes": 15854,
+      "beforeGzip": 5303,
+      "afterGzip": 5303
+    },
+    {
+      "entry": "reports",
+      "beforeBytes": 170609,
+      "afterBytes": 170351,
+      "beforeGzip": 50441,
+      "afterGzip": 50414
+    },
+    {
+      "entry": "clock",
+      "beforeBytes": 150676,
+      "afterBytes": 150640,
+      "beforeGzip": 61209,
+      "afterGzip": 61213
+    }
+  ],
+  "newCss": {
+    "bytes": 343,
+    "gzip": 256
+  },
+  "translatedTitleValuesExamined": 297,
+  "translatedMarkupCandidates": []
+}

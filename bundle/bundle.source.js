@@ -9,7 +9,6 @@ require('jquery-ui-bundle');
 
 window.d3 = require('../lib/d3.mjs');
 
-require('jquery.tooltips');
 
 window.Storage = require('../lib/client/storage');
 
