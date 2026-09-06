@@ -59,3 +59,84 @@ Before deploying the modernization release on a database currently running 4.4:
 4. Keep application rollback and database rollback separate. Reverting Nightscout does not undo database binary or FCV changes. Agree a recovery plan using MongoDB's documented downgrade restrictions and the verified backup; account for writes made since that backup.
 
 The follow-up database work must validate maintained MongoDB 7/8 releases with the selected driver and existing client/API fixtures before changing the recommended deployment version. Retiring 5/6 requires a separate support decision and release notice; they remain in CI during this migration. Database upgrade/restore evidence is required before final promotion of #8605. No production database is changed by this PR.
+
+
+## MongoDB AWS credentials in the driver migration candidate
+
+The driver migration preserves existing `MONGODB-AWS` connection strings by
+adapting URI credentials to a credential provider. URI credentials and session
+tokens retain precedence over `AWS_ACCESS_KEY_ID`, `AWS_SECRET_ACCESS_KEY` and
+`AWS_SESSION_TOKEN`; those variables remain available as fallbacks. Nightscout
+does not change those environment variables. Instance/container metadata
+credentials use the AWS SDK when no static access key is configured.
+
+The AWS credential-provider package is included in the production dependency
+set because the new driver requires it. Ordinary MongoDB client construction
+loads no AWS SDK modules. Live Atlas IAM/role verification is still a release
+gate; local challenge/metadata tests do not establish a deployment's IAM access.
+For application rollback, restore the driver, URI parser, SOCKS and AWS SDK
+manifest/lockfile plus the connection adapter together. No database binary,
+FCV or stored-data migration is performed by this adapter.
+
+## MongoDB query filters
+
+This release rejects `$where`, `$function` and `$accumulator` when used to
+submit JavaScript through Nightscout database queries. Replace such filters
+with ordinary MongoDB comparison, logical or aggregation operators. Explicit
+literal values containing these names remain data. Profile filter requests
+rejected by this validation return HTTP 400 with an explanatory message;
+other profile storage failures return a generic HTTP 500.
+
+### Count and slice storage permissions
+
+The legacy `/api/v1/count/:storage/where` and `/api/v1/slice/:storage/...`
+routes now require `api:treatments:read` or `api:devicestatus:read` when that
+storage is selected, in addition to the existing `api:entries:read` gate.
+An entries-only token can no longer read those other collections through these
+routes. Grant the specific additional read permission to clients that need it.
+Entries reads and the existing unknown-storage fallback remain unchanged.
+
+### Slice responses use the requested collection
+
+Type-only treatment/device-status slice requests no longer return entries-cache
+records. These requests now read the selected collection. Entries slices keep
+their existing cache path; selected-storage permission requirements still apply.
+
+## Legacy Dexcom bridge retirement in 15.0.9
+
+The local `share2nightscout-bridge` engine is removed in favour of Nightscout
+Connect's Dexcom Share source. Deprecated legacy overrides no longer select an
+old engine: `DEXCOM_BRIDGE_USE_LEGACY`, its Azure prefix, and legacy extended
+settings cannot re-enable it. MiniMed is not retired by this change.
+
+| Existing setting | Connect setting/behavior |
+| --- | --- |
+| `BRIDGE_USER_NAME` | Fallback for `CONNECT_SHARE_ACCOUNT_NAME` |
+| `BRIDGE_PASSWORD` | Fallback for `CONNECT_SHARE_PASSWORD` |
+| `BRIDGE_SERVER=EU` | Fallback `CONNECT_SHARE_REGION=ous` |
+| Custom `BRIDGE_SERVER` hostname | Fallback `CONNECT_SHARE_SERVER` |
+| No server override | Connect's default US endpoint |
+| `BRIDGE_INTERVAL`, `BRIDGE_MAX_COUNT`, `BRIDGE_FIRST_FETCH_COUNT`, `BRIDGE_MAX_FAILURES`, `BRIDGE_MINUTES` | Retired; Connect owns polling, backfill and retries |
+
+Complete legacy credentials enable `CONNECT_SOURCE=dexcomshare` when no source
+is selected. Explicit Connect credentials, region and server take precedence.
+Incomplete legacy credentials do not enable Connect. Prefer explicit Connect
+settings going forward and remove obsolete BRIDGE settings after validation.
+
+Connect currently supports one source per instance. Complete BRIDGE credentials
+alongside a different CONNECT_SOURCE now produce an actionable configuration
+error without starting either ingestion source. Select Dexcom Share, or arrange
+separate Dexcom ingestion and remove the obsolete BRIDGE credentials; the
+application must not silently discard either configured feed.
+
+Rehearse the switch using owned nonproduction data. Verify region/custom server,
+authentication, repeated uploads, backfill and duplicate handling. Connect marks
+new entries with device `nightscout-connect` rather than `share2`; saved historical
+entries are not rewritten. Do not run old and new ingestion simultaneously.
+Private TLS endpoints must have certificates trusted by the Node runtime; the
+legacy engine's certificate-verification bypass is not retained.
+
+Rollback requires a previous Nightscout artifact with the legacy engine plus
+its known configuration; flipping the removed override on 15.0.9 cannot restore
+it. Retaining an old artifact does not resolve the legacy TLS defect. No MongoDB
+binary/FCV or schema change is part of this retirement.
