@@ -12,12 +12,23 @@ const { spawnSync } = require('child_process');
 const semver = require('semver');
 const lock = require('../package-lock.json');
 
-const consumers = ['@istanbuljs/load-nyc-config', 'webpack-cli', 'mocha'];
+// Legacy-peer-deps installations omit CLI's optional parser after Mocha
+// stops requiring v4. Required parsers must still always resolve.
+let cliYamlPresent = true;
+try {
+  createRequire(require.resolve('webpack-cli')).resolve('js-yaml');
+} catch (error) {
+  assert.strictEqual(error.code, 'MODULE_NOT_FOUND');
+  assert.strictEqual(require('webpack-cli/package.json').peerDependenciesMeta['js-yaml'].optional, true);
+  cliYamlPresent = false;
+}
+const consumers = ['@istanbuljs/load-nyc-config', 'mocha'];
+if (cliYamlPresent) consumers.push('webpack-cli');
 const versions = [
   { consumer: '@istanbuljs/load-nyc-config', major: 3, method: 'safeLoad', all: 'safeLoadAll', dump: 'safeDump' },
-  { consumer: 'webpack-cli', major: 4, method: 'load', all: 'loadAll', dump: 'dump' },
   { consumer: 'mocha', major: 5, method: 'load', all: 'loadAll', dump: 'dump' }
 ];
+if (cliYamlPresent) versions.push({consumer: 'webpack-cli', major: 4, method: 'load', all: 'loadAll', dump: 'dump'});
 
 function run(program, args, cwd) {
   // Keep parent coverage instrumentation and application settings out of fixtures.
@@ -38,8 +49,13 @@ describe('js-yaml dependency compatibility', function () {
     const copies = Object.entries(lock.packages).filter(([name]) => name.endsWith('/js-yaml'));
     assert.ok(copies.length > 0);
     for (const [name, entry] of copies) {
+      const manifest = path.resolve(__dirname, '..', name, 'package.json');
+      if (!fs.existsSync(manifest)) {
+        assert.ok(entry.optional && entry.peer, 'Only an optional peer parser may be absent: ' + name);
+        continue;
+      }
       // eslint-disable-next-line security/detect-non-literal-require
-      const installed = require(path.resolve(__dirname, '..', name, 'package.json'));
+      const installed = require(manifest);
       assert.strictEqual(installed.version, entry.version);
       assert.ok(semver.satisfies(installed.version, '>=3.15.2 <4 || >=4.3.2 <5 || >=5.4.1 <6'));
     }

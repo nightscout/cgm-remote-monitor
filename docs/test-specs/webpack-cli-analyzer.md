@@ -51,3 +51,8 @@ No deployment or Nightscout user-interface change is intended. The optional
 analyzer's developer report UI gains upstream display/compression features;
 it is not served by Nightscout. Restore both manifest/lockfile and Receiver
 constructor tests together to roll back. This does not complete M09.
+
+Mocha 12 follow-up: when v4 YAML is needed only as CLI's optional peer, legacy
+peer installations omit it. JavaScript builds remain supported; the consumer
+regression requires an explicit missing-parser error for YAML configs and also
+tests successful YAML builds when the optional peer is installed.
