@@ -248,3 +248,5 @@ The remaining M08, M19, M23 and M26 candidates are assembled into one verificati
 ### M25 profile-cache candidate
 
 A bounded reference cache replaces memory-cache's per-entry timers while preserving the application's five-second get/put/clear contracts. [Workload measurements and limits](../test-specs/profile-cache.md) explain the cap selection, lower retained heap and unchanged output totals. Notification-cache policy and full candidate validation remain open; M25 is not yet complete.
+
+- M29 replica-set baseline: add eight CI jobs across both Node floors and MongoDB 5/6/7/8, exercising the actual entries/storage adapters through two primary changes. Local driver 5.9.2 and proposed 7.6.0 comparisons pass on both Node floors with MongoDB 8.0.29; see [scope and evidence](../test-specs/mongodb-replica-set.md). Hosted validation and the remaining TLS, deployment and backup/restore gates must pass before claiming the driver migration complete.
