@@ -120,6 +120,12 @@ negotiation. Legacy accepts/form-data consumers retain compatible 2.x copies;
 this is a maintenance upgrade with a measured installation-size increase, not
 a memory-saving claim.
 
+The [APNs provider review](../test-specs/apn-upgrade.md) moves to 8.1.0, removes
+five duplicate dependency paths and the redundant node-forge override. Owned
+TLS/HTTP2 tests cover actual signed Loop requests, retries, failure handling and
+session/timer cleanup. The published package files grow slightly; no RAM-saving
+claim is made. Remaining M09 reviews stay open.
+
 ## Phase 3 — reduce production installation and browser cost
 
 - [ ] **M10 — Separate build from runtime dependencies** (after M01; coordinate with M07 and M11 to avoid lockfile overlap).
