@@ -1,10 +1,12 @@
 {
-  "baseline": "cbbd45810f3553a7e72526a4d456c2ad2e849ac9",
+  "baseline": "37155778baafee6f5c41036139c20d73f5856e17",
   "scope": "Tracked JS/EJS/HTML under lib, bundle, static/report/js and views. Lexical matches include comments and omit dynamic/aliased calls; review the source before treating a match as a consumer.",
+  "versionNote": "null means the package is absent from the current lockfile.",
   "installedVersions": {
     "jquery": "3.7.1",
-    "jquery-ui-bundle": "1.12.1-migrate",
-    "jquery.tooltips": "1.0.0",
+    "jquery-ui-bundle": null,
+    "jquery-ui": "1.14.2",
+    "jquery.tooltips": null,
     "flot": "0.8.3"
   },
   "files": [
@@ -57,51 +59,58 @@
     },
     {
       "path": "bundle/bundle.source.js",
-      "sha256": "4d744f291d65062439b8cfe6caf3f12a07bcccc8e73fa1e6941005c57babf8af",
+      "sha256": "acef604069d6d82497cc66fcc81e2a84bb45001a7bae1ae0f3650fec7dcec172",
       "hits": [
         {
-          "line": 6,
+          "line": 14,
           "kinds": [
             "package_import"
           ],
           "text": "require('jquery');"
         },
         {
-          "line": 8,
+          "line": 18,
           "kinds": [
             "package_import"
           ],
-          "text": "require('jquery-ui-bundle');"
+          "text": "require('jquery-ui/ui/widgets/dialog');"
         },
         {
-          "line": 12,
+          "line": 19,
           "kinds": [
             "package_import"
           ],
-          "text": "require('jquery.tooltips');"
+          "text": "require('jquery-ui/ui/widgets/droppable');"
+        },
+        {
+          "line": 20,
+          "kinds": [
+            "package_import"
+          ],
+          "text": "require('jquery-ui/ui/widgets/sortable');"
         }
       ]
     },
     {
       "path": "lib/admin_plugins/roles.js",
-      "sha256": "b371562afaa488329be624d1ba9c25b67560271cd7705ca272b08a0fdc3d8f29",
+      "sha256": "a5d34c4fa65a3dfef948e88c47214ccd1de156d48ff2c13bf6d16e55c9c028bc",
       "hits": [
         {
-          "line": 112,
+          "line": 118,
           "kinds": [
             "ui_widget"
           ],
           "text": "$('#editroledialog').dialog({"
         },
         {
-          "line": 131,
+          "line": 138,
           "kinds": [
             "ui_widget"
           ],
           "text": "$(self).dialog('close');"
         },
         {
-          "line": 137,
+          "line": 145,
           "kinds": [
             "ui_widget"
           ],
@@ -111,24 +120,24 @@
     },
     {
       "path": "lib/admin_plugins/subjects.js",
-      "sha256": "ca8c3ec6fe2900bf6a36d3fdb4cf1bd24fb35f93c442ccf3681a7bc1ce107344",
+      "sha256": "cae15d4d62188902a33d936ad529227fcbe57a6dab8f9f24c29acc71fac7a947",
       "hits": [
         {
-          "line": 113,
+          "line": 119,
           "kinds": [
             "ui_widget"
           ],
           "text": "$('#editsubjectdialog').dialog({"
         },
         {
-          "line": 131,
+          "line": 138,
           "kinds": [
             "ui_widget"
           ],
           "text": "$(self).dialog('close');"
         },
         {
-          "line": 137,
+          "line": 145,
           "kinds": [
             "ui_widget"
           ],
@@ -138,7 +147,7 @@
     },
     {
       "path": "lib/client/boluscalc.js",
-      "sha256": "d1745182f8bd8f03a71ef5fe94643e45b37d6d4b7f095d6d317ef00a920fc306",
+      "sha256": "c949135d447508738b6b94504379c4b84205c8395beccb0877fde950d9d21858",
       "hits": [
         {
           "line": 724,
@@ -157,28 +166,8 @@
       ]
     },
     {
-      "path": "lib/client/browser-utils.js",
-      "sha256": "53f5b7f10fe6398aa95bff5a65a0b7231738826a1bf0102373a32795fe7c4aad",
-      "hits": [
-        {
-          "line": 10,
-          "kinds": [
-            "ui_widget"
-          ],
-          "text": "$('.tip').tooltip();"
-        },
-        {
-          "line": 13,
-          "kinds": [
-            "ui_widget"
-          ],
-          "text": "$('#drawer').find('.tip').tooltip();"
-        }
-      ]
-    },
-    {
       "path": "lib/client/hashauth.js",
-      "sha256": "ce02dbfe8bbb2b65a118b7ea68659c8423b17a8200b7aa56aad28de53a297a1e",
+      "sha256": "c6afd37d8266340a971fd1b01e96fc625f535d5a298613f5c3154290f1315d3f",
       "hits": [
         {
           "line": 281,
@@ -205,7 +194,7 @@
     },
     {
       "path": "lib/client/index.js",
-      "sha256": "8ea437cd1f7c6be5ec5c174f800b54deae71a4133940b25e4de4071fd2ea2227",
+      "sha256": "8f65a152d823fa6b6ad05e0c8c67a447aa841bdcca5be9b64fafd909a67d959b",
       "hits": [
         {
           "line": 3,
@@ -218,7 +207,7 @@
     },
     {
       "path": "lib/food/food.js",
-      "sha256": "8b45fedb2c1c1382525ae8756804faa5eb8bf01effe24451c0c643eefd9595eb",
+      "sha256": "c901d5f94266bfd50407733b768d3ba95e7c4a188ec8f9779ea9045f79cdba0b",
       "hits": [
         {
           "line": 269,
@@ -258,7 +247,7 @@
     },
     {
       "path": "lib/report_plugins/glucosedistribution.js",
-      "sha256": "e14cfb45a22d2bfbcf89a210402f1615f5f64f494044bfc0db06bcba821f2ad5",
+      "sha256": "a5751927e0c4a09bff2a54e1699a2e9bbac50f626f251b9517e150eb23e7cbd2",
       "hits": [
         {
           "line": 484,
@@ -284,7 +273,7 @@
     },
     {
       "path": "lib/report_plugins/loopalyzer.js",
-      "sha256": "fcb8a697c764bc50e7206f58da76259abf81c96a2d4d4d4e5ebc7f95b303b70e",
+      "sha256": "d0b30c9acb8331d06c920a54a42630631f96fb0a1c0f9d93abd0431e2f90e7c1",
       "hits": [
         {
           "line": 1128,
@@ -404,7 +393,7 @@
     },
     {
       "path": "views/index.html",
-      "sha256": "466e65913df213f93201c6a070610d8b1172a7a351802d65dba3c0d4099bec01",
+      "sha256": "1606ba614f39f5d00aeed62a73a24cd977668cf5ff0a94a44ff9f05d54f46dce",
       "hits": [
         {
           "line": 31,
@@ -443,7 +432,7 @@
     },
     {
       "path": "views/service-worker.js",
-      "sha256": "5fdf62936613e6773467687be3d21e86fe914890249234c9ffb3c595d75c98a1",
+      "sha256": "c8d9a12bacd4d83cf04e7dc5239f6836ab20fa7b01d637e005a45af874fe6b1c",
       "hits": [
         {
           "line": 23,
