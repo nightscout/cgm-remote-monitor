@@ -11,7 +11,7 @@ window.d3 = require('../lib/d3.mjs');
 
 require('jquery.tooltips');
 
-window.Storage = require('js-storage');
+window.Storage = require('../lib/client/storage');
 
 
 const moment = require('moment-timezone');
