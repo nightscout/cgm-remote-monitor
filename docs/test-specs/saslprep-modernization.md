@@ -32,8 +32,10 @@ closes clients and removes the user. No production account or database is used.
 This passes locally on MongoDB 6 with both Node versions after omitting optional
 dependencies and pruning development packages. The complete pruned-runtime
 startup, config import, six pages/bundles and static/Socket.IO asset checks pass
-in both runs. The full Node 22 backend suite passes 2,009 cases with one existing
-pending case. All six browser bundles are byte-identical; changed test/tool
+in both runs. Before the Express integration, the full Node 22 backend suite passed 2,009
+cases with one existing pending case. After refreshing onto Express merge
+25a87cea, the clean install/build, 47 combined request/authentication cases and
+both complete pruned-runtime runs pass again. All six browser bundles are byte-identical; changed test/tool
 source lint and clean omit-optional install/build pass. Hosted CI remains
 required before merge. See the [package comparison](../audits/saslprep-package-comparison.json)
 for per-file hashes of both releases.
