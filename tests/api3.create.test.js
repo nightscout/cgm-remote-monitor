@@ -587,6 +587,36 @@ describe('API3 CREATE', function() {
   });
 
 
+  it('preserves a fixed persisted UUID through repeated create, deduplicate, read and delete cycles', async () => {
+    const identifier = '8c59e104-14cf-5bac-90e2-a47e502baaac';
+    const doc = {
+      date: 1704067200000, device: 'test-device',
+      eventType: 'Correction Bolus', insulin: 0.3, app: testConst.TEST_APP
+    };
+    for (let cycle = 0; cycle < 2; cycle++) {
+      let res = await self.instance.post(self.url, self.jwt.create).send(doc).expect(201);
+      res.body.identifier.should.equal(identifier);
+      res.headers.location.should.equal(`${self.url}/${identifier}`);
+      self.cache.nextShouldEql(self.col, {...doc, identifier});
+
+      res = await self.instance.post(self.url, self.jwt.update).send(doc).expect(200);
+      res.body.identifier.should.equal(identifier);
+      res.body.isDeduplication.should.equal(true);
+      self.cache.nextShouldEql(self.col, {...doc, identifier});
+
+      const stored = await self.get(identifier);
+      stored.should.containEql({...doc, identifier});
+      const records = await self.search(doc.date);
+      records.length.should.equal(1);
+      records[0].identifier.should.equal(identifier);
+
+      await self.delete(identifier);
+      self.cache.nextShouldDeleteLast(self.col);
+      await self.instance.get(`${self.url}/${identifier}`, self.jwt.read).expect(404);
+    }
+  });
+
+
   // TEST-V3-ID-001: Null identifier generates ObjectId, copies to identifier
   it('should generate identifier from ObjectId when null (TEST-V3-ID-001)', async () => {
     const doc = {

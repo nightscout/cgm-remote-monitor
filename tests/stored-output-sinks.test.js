@@ -9,8 +9,11 @@ describe('stored-data browser output encoding', function () {
   var env;
   var state;
   var $;
+  var priorD3;
 
   beforeEach(function () {
+    priorD3 = global.d3;
+    global.d3 = require('./fixtures/d3');
     delete global.window;
     delete global.document;
     env = createSecureDOM('<!DOCTYPE html><html><body></body></html>');
@@ -30,6 +33,8 @@ describe('stored-data browser output encoding', function () {
     ].forEach(function (moduleName) {
       delete require.cache[require.resolve(moduleName)];
     });
+    if (priorD3 === undefined) delete global.d3;
+    else global.d3 = priorD3;
     domGlobals.restoreDomGlobals(state);
   });
 
@@ -101,6 +106,85 @@ describe('stored-data browser output encoding', function () {
     should(env.window.injected).equal(undefined);
   });
 
+  it('filters treatment report rows without retaining empty day headings', function () {
+    function translate (value, options) {
+      if (!options || !options.params) { return value; }
+      return options.params.reduce(function replaceParam (text, param, index) {
+        return text.replace('%' + (index + 1), param);
+      }, value);
+    }
+
+    var client = {
+      careportal: {
+        resolveEventName: function (value) { return value; }
+      }
+      , profilefunctions: {
+        listBasalProfiles: function () { return []; }
+      }
+      , sbx: {
+        data: {
+          profile: {
+            applyTimezone: function (value) { return moment(value); }
+          }
+        }
+      }
+      , settings: {timeFormat: 24, units: 'mg/dl'}
+      , translate: translate
+      , utils: {}
+    };
+    var reportPlugins = {
+      consts: {ORDER_NEWESTONTOP: 'newest'}
+      , utils: {localeDate: function (value) { return value; }}
+    };
+    env.window.Nightscout = {client: client, report_plugins: reportPlugins};
+
+    var plugin = require('../lib/report_plugins/treatments')();
+    $('body').append(plugin.html(client));
+    var data = {
+      '2025-01-01': {
+        treatments: [
+          {_id: 'exercise-1', created_at: '2025-01-01T01:00:00.000Z', eventType: 'Exercise'}
+          , {_id: 'exercise-2', created_at: '2025-01-01T02:00:00.000Z', eventType: 'Exercise'}
+          , {_id: 'untyped', created_at: '2025-01-01T03:00:00.000Z'}
+        ]
+      }
+      , '2025-01-02': {
+        treatments: [
+          {_id: 'note', created_at: '2025-01-02T01:00:00.000Z', eventType: 'Note &amp; More'}
+        ]
+      }
+    };
+
+    plugin.report(data, ['2025-01-01', '2025-01-02'], {order: 'oldest', units: 'mg/dl'});
+
+    $('#treatments-report tr.border_bottom').length.should.equal(4);
+    $('#treatments-report td[colspan="12"]').length.should.equal(2);
+    $('#treatments-eventtype option').length.should.equal(4);
+    $('#treatments-eventtype option').filter(function hasDecodedLabel () {
+      return $(this).text() === 'Note & More (1)';
+    }).length.should.equal(1);
+    $('#treatments-report .recordcount').text().should.equal('Showing 4 of 4 records');
+
+    $('#treatments-eventtype').val('Exercise').trigger('change');
+    $('#treatments-report tr.border_bottom').length.should.equal(2);
+    $('#treatments-report td[colspan="12"]').length.should.equal(1);
+    $('#treatments-report td[colspan="12"]').text().should.equal('2025-01-01');
+    $('#treatments-report .recordcount').text().should.equal('Showing 2 of 4 records');
+
+    var noneValue = $('#treatments-eventtype option').filter(function hasNoType () {
+      return $(this).text() === '(none) (1)';
+    }).val();
+    $('#treatments-eventtype').val(noneValue).trigger('change');
+    $('#treatments-report tr.border_bottom').length.should.equal(1);
+    $('#treatments-report td[colspan="12"]').text().should.equal('2025-01-01');
+
+    $('#treatments-eventtype').val('Exercise').trigger('change');
+    plugin.report({'2025-01-02': data['2025-01-02']}, ['2025-01-02'], {order: 'oldest', units: 'mg/dl'});
+    $('#treatments-eventtype').val().should.equal('\u0000all');
+    $('#treatments-report tr.border_bottom').length.should.equal(1);
+    $('#treatments-report .recordcount').text().should.equal('Showing 1 of 1 records');
+  });
+
   it('renders admin notification fields as literal text', function () {
     $('body').append('<button id="adminnotifies"></button><div id="adminNotifiesDrawer"></div>');
     env.window.setTimeout = function () {};
@@ -137,7 +221,7 @@ describe('stored-data browser output encoding', function () {
   });
 
   it('encodes legacy treatment glucose in the chart tooltip', function () {
-    var d3 = require('d3');
+    var d3 = require('./fixtures/d3');
     var root = d3.select(env.document.body).append('div');
     var tooltip = root.append('div').append('div').attr('id', 'tooltip');
     var chartSvg = d3.select(env.document.body).append('svg');
@@ -184,7 +268,7 @@ describe('stored-data browser output encoding', function () {
   });
 
   it('renders stored annotations as literal text in chart tooltips', function () {
-    var d3 = require('d3');
+    var d3 = require('./fixtures/d3');
     var tooltip = d3.select(env.document.body).append('div').append('div').attr('id', 'tooltip');
     var chartSvg = d3.select(env.document.body).append('svg');
     var treatment = {
@@ -228,7 +312,7 @@ describe('stored-data browser output encoding', function () {
 
   it('renders stored annotations as literal SVG text in the day-to-day report', function () {
     $('body').append('<div id="daytodaycharts"></div>');
-    var d3 = require('d3');
+    var d3 = require('./fixtures/d3');
     var day = '2025-01-01';
     var firstTime = Date.parse(day + 'T00:00:00.000Z');
     var rawPayload = '<img src=x onerror="window.injected=true">Notes';
@@ -249,7 +333,7 @@ describe('stored-data browser output encoding', function () {
       , ticks: function () { return []; }
       , tooltip: d3.select(env.document.body).append('div')
       , translate: function (value) { return value; }
-      , utils: {scaleMgdl: function (value) { return value; }}
+      , utils: {scaleMgdl: function (value) { return value; }, roundBGForDisplay: function (value) { return value; }}
     };
     var reportPlugins = {
       consts: {SCALE_LOG: 'log'}
@@ -264,7 +348,7 @@ describe('stored-data browser output encoding', function () {
       , dailyProtein: 0
       , devicestatus: []
       , sgv: [
-        {color: 'green', date: new Date(firstTime), mills: firstTime, sgv: 100, type: 'sgv'}
+        {color: 'green', date: new Date(firstTime), mills: firstTime, sgv: 100, type: 'sgv', openaps: {suggested: {bg: 100, reason: rawPayload}}}
         , {color: 'green', date: new Date(firstTime + 60000), mills: firstTime + 60000, sgv: 110, type: 'sgv'}
       ]
       , treatments: [
@@ -303,7 +387,7 @@ describe('stored-data browser output encoding', function () {
       , maxDailyCarbsValue: 1
       , maxInsulinValue: 1
       , notes: true
-      , openAps: false
+      , openAps: true
       , othertreatments: false
       , predicted: false
       , raw: false
@@ -312,6 +396,15 @@ describe('stored-data browser output encoding', function () {
       , targetLow: 80
       , width: 800
     });
+
+    var forecastDot = env.document.querySelector('#daytodaycharts circle');
+    forecastDot.dispatchEvent(new env.window.MouseEvent('mouseover', {bubbles: true, clientX: 120, clientY: 80}));
+    client.tooltip.text().should.containEql(rawPayload);
+    client.tooltip.style('left').should.equal('120px');
+    client.tooltip.style('top').should.equal('95px');
+    client.tooltip.selectAll('img, script').size().should.equal(0);
+    forecastDot.dispatchEvent(new env.window.MouseEvent('mouseout', {bubbles: true}));
+    client.tooltip.style('display').should.equal('none');
 
     var noteTexts = Array.from(env.document.querySelectorAll('#daytodaycharts svg text'))
       .map(function (node) { return node.textContent; });

@@ -51,7 +51,7 @@ To add Alexa support for a plugin, [check this out](#adding-alexa-support-to-a-p
 1. Select "Alexa Skills Kit" in the main menu bar.
 1. Click the "Start a Skill" button. This will take you to the Skills console.
 1. Click the "Create Skill" button on the Skills console page.
-1. Name your new skill "Nightscout" (or something else, if you like). Use English (US) as your language. Click "Next".
+1. Name your new skill "Nightscout" (or something else, if you like). Choose the language matching your interaction-model template (for example, German (DE) for `de-de.json`). Click "Next".
 1. Choose a model to add to your skill. Click "Select" under "Custom" model, then click "Create skill" on the upper right.
 1. Congrats! Your empty custom skill should now be created.
 
@@ -61,7 +61,9 @@ Your Alexa skill's "interaction model" defines how your spoken questions get tra
 
 To get up and running with an interaction model, which will allow you to ask Alexa a few basic questions about your Nightscout site, you can copy and paste the configuration code for your language from [the list of templates](alexa-templates/).
 
-- If you're language doesn't have a template, please consider starting with [the en-us template](alexa-templates/en-us.json), then [modifying it to work with your language](#adding-support-for-additional-languages), and [making a pull request](/CONTRIBUTING.md) or [submitting an issue](https://github.com/nightscout/cgm-remote-monitor/issues) with your translated template to share it with others.
+- For German, use the [de-de template](alexa-templates/de-de.json) and set Nightscout's `LANGUAGE=de` for German responses.
+
+- If your language doesn't have a template, please consider starting with [the en-us template](alexa-templates/en-us.json), then [modifying it to work with your language](#adding-support-for-additional-languages), and [making a pull request](/CONTRIBUTING.md) or [submitting an issue](https://github.com/nightscout/cgm-remote-monitor/issues) with your translated template to share it with others.
 
 Select "JSON Editor" in the left-hand menu on your skill's edit page (which you should be on if you followed the above instructions). Replace everything in the textbox with the code from your chosen template. Then click "Save Model" at the top. A success message should appear indicating that the model was saved.
 
