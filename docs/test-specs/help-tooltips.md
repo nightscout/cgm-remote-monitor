@@ -32,9 +32,11 @@ behavior. The inventory examined 297 translated values for existing title keys;
 none contained HTML markup/entity candidates. HTML inside future titles is
 shown as text intentionally, not interpreted.
 
-Remaining review: hosted Firefox/WebKit, screen-reader QA, target touch devices,
-and the rest of M28's widget/
-chart inventory. Do not mark M28 complete or merge from these isolated tests.
+Integration requires full current-head hosted CI and current-base merge verification;
+these isolated tests alone are insufficient. Final physical-device/spoken-output
+validation is a release gate on #8605 before merging into dev; see
+[the iPhone Safari/VoiceOver checklist](iphone-voiceover.md). The rest of M28's
+widget/chart review also remains open. Do not mark M28 complete.
 Rollback restores the manifest/lock import and old initialization together,
 then removes the native helper/style and its main-page/service-worker entries.
 
@@ -106,3 +108,10 @@ not a claim about every screen reader's speech or real target devices.
 
 The candidate incorporates driver integration cbbd4581 without conflicts and
 passes a clean Node 22 install/build. Fresh hosted validation remains required.
+
+## Integration refresh
+
+The candidate incorporates integration 28f4ea4a. A clean Node 22 install/build
+and all 21 focused tooltip/admin cases pass in Chromium/Node 22 and WebKit/Node 24.
+The widget inventory now tolerates removed packages and recognizes selective
+jquery-ui imports. Fresh hosted CI is required for the resulting head.
