@@ -12,9 +12,8 @@ function connectStage(env, factory) {
   const filename = path.resolve(__dirname, '../lib/server/bootevent.js');
   const localRequire = createRequire(filename);
   const stages = [];
-  const pipeline = {acquire(stage) { stages.push(stage); return pipeline; }};
   const sandbox = {module: {exports: {}}, console: {log() {}}, process, require(name) {
-    if (name === 'bootevent') return () => pipeline;
+    if (name === '../utils/boot-sequence') return registered => {stages.push(...registered); return {};};
     if (name === 'nightscout-connect') return factory();
     return localRequire(name);
   }};
