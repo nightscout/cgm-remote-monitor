@@ -7,7 +7,7 @@ const {once} = require('node:events');
 const {getBrowser} = require('./hooks');
 
 // Capture the persisted-data contract before changing the implementation.
-const source = fs.readFileSync(require.resolve('js-storage'), 'utf8');
+const source = fs.readFileSync(require.resolve('../../lib/client/storage'), 'utf8');
 const script = '(function () { const module = {exports: {}}; const exports = module.exports; ' + source + '; window.storageContract = module.exports; })();';
 
 describe('Browser storage persisted-data contract', function () {
@@ -24,7 +24,10 @@ describe('Browser storage persisted-data contract', function () {
     try {
       const page = await context.newPage();
       await page.goto(origin);
-      if (blocked) await page.evaluate(() => Object.defineProperty(window, 'localStorage', {
+      if (blocked === 'quota') await page.evaluate(() => {
+        Storage.prototype.setItem = () => {throw new DOMException('Fixture full', 'QuotaExceededError');};
+      });
+      if (blocked === true) await page.evaluate(() => Object.defineProperty(window, 'localStorage', {
         get() {throw new DOMException('Fixture denied storage', 'SecurityError');}
       }));
       await page.addScriptTag({content: script});
@@ -109,4 +112,11 @@ describe('Browser storage persisted-data contract', function () {
       return [store.get('fixture'), store.set('fixture', 'value'), store.remove('fixture'), document.cookie];
     }, true), [null, null, null, '']);
   });
+  it('handles storage that is readable but has no writable quota at startup', async function () {
+    assert.deepEqual(await check(() => {
+      const store = window.storageContract.localStorage;
+      return [store.get('fixture'), store.set('fixture', 'value'), store.remove('fixture')];
+    }, 'quota'), [null, null, null]);
+  });
+
 });

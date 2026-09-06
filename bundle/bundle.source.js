@@ -10,7 +10,7 @@ window.d3 = require('../lib/d3.mjs');
 
 require('jquery.tooltips');
 
-window.Storage = require('js-storage');
+window.Storage = require('../lib/client/storage');
 
 require('flot');
 require('../node_modules/flot/jquery.flot.time');
