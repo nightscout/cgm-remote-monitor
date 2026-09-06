@@ -32,7 +32,7 @@ describe('Native Pushover HTTPS transport', function () {
     server.on('connection', socket => { sockets.add(socket); socket.on('close', () => sockets.delete(socket)); });
     await new Promise(resolve => server.listen(0, '127.0.0.1', resolve));
     const sandbox = {module: {exports: {}}, URLSearchParams, Buffer, queueMicrotask, clearTimeout,
-      setTimeout(fn, ms) { return setTimeout(fn, fastTimeout ? 80 : ms); },
+      setTimeout(fn, ms) { return setTimeout(fn, fastTimeout ? 250 : ms); },
       require(name) {
         assert.equal(name, 'node:https');
         return {request(options, callback) {
