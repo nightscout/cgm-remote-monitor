@@ -160,6 +160,8 @@ For every completed item, replace its checkbox with a checked box and append: PR
 
 ## Integration workflow and current child PRs
 
+Current CI policy: [coverage and execution cost](../test-specs/ci-coverage.md). Per maintainer direction, PR jobs use floating Node 22/24 only. Full backend coverage retains MongoDB 5–8, with exact transitional MongoDB minimum patches pinned. Minimum Node patches stay in the support range and require actual release-candidate validation; version-string policy tests are not execution evidence. Historical per-PR matrix counts below describe their original validation.
+
 The user confirmed on 2026-09-05 that all implementation PRs target `chore/nightscout-modernization`, and may be merged there after validation. #8605 remains the only PR into dev. CI and CodeQL explicitly include the integration branch as a pull-request target; container publishing remains limited to dev/master.
 
 - M07: [#8606](https://github.com/nightscout/cgm-remote-monitor/pull/8606) merged as `dd90c19b` (head `1250f6c0`, parent `b1837c13`). [Integration-target CI](https://github.com/nightscout/cgm-remote-monitor/actions/runs/33981221755) passed all 12 Node/MongoDB jobs, npm 12, CodeQL and amd64/arm64 Docker startup. Local main suites passed 1,968 tests on both exact Node floors; core 283 and dependency 317. Azure/Heroku staging and release promotion remain gated in `docs/runtime-upgrade.md`.

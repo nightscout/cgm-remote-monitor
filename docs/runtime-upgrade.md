@@ -18,7 +18,9 @@ Do not deploy this release to a host that cannot provide a supported runtime in 
 
 ## Deployment validation and release gate
 
-The CI matrix tests 22.23.2, latest 22, 24.20.0, and latest 24 against MongoDB 5 and 6 (eight combinations). MongoDB 4.4 coverage has been removed. MongoDB 5/6 remain supported during the migration, but are not recommended for new deployments because they are upstream end-of-life; see the database notice below. Unsupported-Node-version tests verify early rejection through both entry points and the public boot API. Docker PR checks build and smoke-start the pruned image on native amd64 and arm64 runners.
+The PR backend matrix tests current Node 22 and 24 releases against MongoDB 5, 6, 7 and 8 (eight combinations). Node selectors use `check-latest: true`. Replica failover runs once per MongoDB release across the two Node majors; Chromium runs on both Node majors, with Firefox and WebKit on Node 24. npm 12 and native amd64/arm64 Docker checks remain. See [CI coverage and timing](test-specs/ci-coverage.md).
+
+The exact minimum versions in `package.json` and the early-rejection tests are unchanged. Those policy tests simulate version strings; they do not prove execution compatibility on an older patch. Once floating releases advance, PR CI no longer exercises the exact floors. Before release, record clean install/build, backend/client-core and pruned-startup results on actual Node 22.23.2 and 24.20.0 against the final release candidate. Do not claim exact-floor compatibility from floating CI alone. MongoDB 4.4 remains retired and 5/6 remain supported during migration.
 
 The following remain release checks until a maintainer records actual host evidence. Updating selectors alone does **not** establish hosted compatibility:
 
