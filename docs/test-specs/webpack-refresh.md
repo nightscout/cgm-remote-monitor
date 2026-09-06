@@ -45,7 +45,9 @@ Regression coverage:
 - Full Node 22 Chromium suite passes 538 cases, including production asset and
   report/interaction coverage. Full Node 24/MongoDB 8 backend coverage passes
   1,947 tests with one existing pending case.
-- Full current-head hosted CI remains required before integration.
+- Nine focused Node 24 WebKit HMR/asset/cascade checks pass, including both
+  compile-error recovery cycles. Full current-head hosted CI remains required
+  before integration.
 
 [Matched measurements](../audits/webpack-refresh-comparison.json) show one fewer
 direct declaration and five fewer package paths, but **4,431,567 more installed
