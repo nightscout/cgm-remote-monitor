@@ -9,6 +9,7 @@ const express = require('express');
 const ejs = require('ejs');
 const {withPage} = require('./fixture');
 const fixtures = require('./legacy-report-data.json');
+const networkDiagnostics = new WeakMap();
 
 function queryKey(value) {
   const url = new URL(value, 'http://127.0.0.1');
@@ -37,7 +38,9 @@ describe('legacy reports in a real browser', function () {
     app.get('/', (request, response) => response.type('html').send(html));
     app.use((request, response, next) => {
       if (request.path.startsWith('/api/') || request.path.startsWith('/translations/')) {
-        requests.push({method: request.method, url: request.originalUrl, body: request.body});
+        const record = {method: request.method, url: request.originalUrl, body: request.body, finished: false};
+        requests.push(record);
+        response.once('finish', () => {record.finished = true;});
       }
       next();
     });
@@ -60,6 +63,14 @@ describe('legacy reports in a real browser', function () {
   async function withReports(run) {
     requests = [];
     await withPage(origin, async ({page}) => {
+      const pending = new Map(), failures = [];
+      networkDiagnostics.set(page, {pending, failures});
+      page.on('request', request => pending.set(request, Date.now()));
+      page.on('requestfinished', request => pending.delete(request));
+      page.on('requestfailed', request => {
+        pending.delete(request);
+        failures.push({path: new URL(request.url()).pathname, error: request.failure()});
+      });
       await page.clock.setFixedTime(new Date('2025-01-01T12:00:00Z'));
       await page.goto(origin);
       await page.evaluate(markup => {
@@ -139,6 +150,14 @@ describe('legacy reports in a real browser', function () {
         failures: window.reportFixture.failures.slice(-5), completed: window.reportFixture.completed,
         stalledForMs: performance.now() - window.reportFixture.progress.at}));
       error.message += '\nReport state: ' + JSON.stringify(state);
+      const network = networkDiagnostics.get(page);
+      error.message += '\nHTTP state: ' + JSON.stringify({
+        pending: Array.from(network.pending, ([request, at]) => ({path: new URL(request.url()).pathname,
+          elapsedMs: Date.now() - at})),
+        failures: network.failures.slice(-10),
+        received: requests.length,
+        unfinished: requests.filter(request => !request.finished).map(request => new URL(request.url, origin).pathname)
+      });
       throw error;
     }
     console.log('Report idle after', Date.now() - started, 'ms');

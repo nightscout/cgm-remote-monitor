@@ -108,7 +108,6 @@
     "ejs": "^3.1.8",
     "entities": "^6.0.1",
     "errorhandler": "^1.5.1",
-    "event-stream": "3.3.4",
     "events": "^3.3.0",
     "expose-loader": "^2.0.0",
     "express": "4.22.2",
