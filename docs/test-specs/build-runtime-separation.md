@@ -38,3 +38,12 @@ including randomString, remain byte-identical after pruning. Webpack/Babel
 are absent and Axios remains. npm start serves the expected no-database
 setup/error page (HTTP 500); this is not a fully initialized database-backed
 startup or complete asset-serving check. Azure shell syntax passes.
+
+The standalone tools/validate-pruned-runtime.js now starts through npm start
+against a unique loopback-only MongoDB test database. It requires a loaded
+API state, imports configuration from an owned HTTP fixture, verifies six
+pages and byte-identical page bundles, checks Socket.IO/static/service-worker
+assets and preserves the runtime key. It passes on both Node floors with
+MongoDB 6. The backend CI matrix runs it after tests and production pruning.
+It uses native APIs and production dependencies so missing test/build tools
+cannot be hidden by the validation harness. Live host gates remain open.
