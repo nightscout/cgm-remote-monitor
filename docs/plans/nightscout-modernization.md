@@ -124,7 +124,7 @@ Each row is a separate candidate PR after M01; entries marked M07 also need the 
 | [x] **M18** | `async`, then `bootevent` → bounded/ordered local helpers; dataloader, treatments, Alexa/Google Home/Maker, `lib/server/bootevent.js` | Preserve serial writes/sends, 10-task concurrency cap, boot stage order, error propagation and callback timing/contracts. Test two boot/teardown or load cycles and no duplicated pre-bolus writes. Remove separately; avoid unbounded Promise.all and unnecessary promise adapters. |
 | [ ] **M19** | IMPORT_CONFIG Axios → native fetch; `lib/server/bootevent.js` (after M07) | Specify non-2xx, timeout/cancellation, redirects, proxy support, auth/header redaction and JSON behavior using existing Axios fixtures. Keep connector cookie-wrapper compatibility. Root removal does not eliminate transitive Axios; fix runtime classification if this migration is deferred. |
 | [x] **M20** | `body-parser` direct use → Express parsers; wares, API and app modules | Preserve options, compression, limits, malformed body and inherited-option protections. Express currently exposes identical functions. Remove a declaration only; package and runtime memory remain through Express. |
-| [ ] **M21** | `mongo-url-parser` → existing driver parsing; `lib/server/env.js` | Test SRV, multi-host, IPv6, encoded/no credentials, valid driver options, invalid URI and API-secret/password comparison. Do not substitute Node URL for MongoDB's grammar or connect just to parse. Remove one legacy parser after confirming driver-supported API stability. |
+| [x] **M21** | `mongo-url-parser` → existing driver parsing; `lib/server/env.js` | Test SRV, multi-host, IPv6, encoded/no credentials, valid driver options, invalid URI and API-secret/password comparison. Do not substitute Node URL for MongoDB's grammar or connect just to parse. Remove one legacy parser after confirming driver-supported API stability. |
 | [ ] **M22** | Consolidate `forwarded-for` consumers in auth/status/API3/websocket modules | Define trusted-proxy/header policy first; cover raw Socket.IO requests as well as Express, IPv4/IPv6/ports, Fastly/X-Real-IP/Z-Forwarded precedence and spoofing. Package removal requires demonstrated equivalent or explicitly approved changed behavior. |
 | [ ] **M23** | Narrow `traverse` operations; `lib/server/query.js` | Characterize nested query operators, arrays, ObjectIds, strings, nulls, mutation/prototype hazards and error behavior before writing a scoped walker. Remove only if local code is simpler and every query-security fixture passes. |
 | [ ] **M24** | `env-cmd`/`nodemon` → Node CLI capabilities; package scripts and developer docs (after M07) | Preserve or explicitly document env-file precedence: env-cmd overrides inherited env, native --env-file does the reverse. Test quoting/multiline values and Mocha/nyc children. Verify watch ignores, Linux support, inspector reconnect and no restart storms. Separate PRs; no production RAM claim. |
@@ -196,9 +196,13 @@ The user confirmed on 2026-09-05 that all implementation PRs target `chore/night
 
 - M11 native assets/CSS: [#8630](https://github.com/nightscout/cgm-remote-monitor/pull/8630) merged as `53e279ca` (head `37b6f077`, parent `ce806e5b`). [CI](https://github.com/nightscout/cgm-remote-monitor/actions/runs/33994068828) passed all eight backend jobs, six browser jobs, npm 12, CodeQL and both native Docker checks; actual merge tree verified. Three direct loaders and 22 lock paths are removed with no replacements or retained version upgrades. Main/core/dependency totals: 1,580 / 283 / 264, one unrelated pending Node case; browser total: 433. The app bundle is 18,979 bytes smaller, clock/logo bytes are unchanged, and seven new image/source-map/cascade/HMR cases pass across all engines.
 
-### M21 URI credential parser work in progress
+### M21 completed URI credential parser work
 
-Replace mongo-url-parser with the public connection-string parser already used by the installed MongoDB driver. [Contracts and validation](../test-specs/mongo-uri-credentials.md) cover driver grammar, decoded password comparisons and the no-connection requirement. The direct declaration count is unchanged; one installed legacy package is removed. Full validation remains open.
+Replace mongo-url-parser with the public connection-string parser already used by the installed MongoDB driver. [Contracts and validation](../test-specs/mongo-uri-credentials.md) cover driver grammar, decoded password comparisons and the no-connection requirement. The direct declaration count is unchanged; one installed legacy package is removed. Completed in #8642, merged as `79bb2f5e`, after all required CI passed on `228964ce` and actual merge tree `ac1be291` matched verification.
+
+### M26 report quantile batching in progress
+
+The first slice batches probability requests through the existing simple-statistics API in four report plugins and reuses hourly reading arrays. [Validation and measurements](../test-specs/batched-report-quantiles.md) record the sort reduction and paired computation samples. Cross-unit and DST chart goldens pass against both the scalar and batching implementations. The library remains installed; refreshed hosted validation and the separate local-statistics candidate #8647 remain open.
 
 ### M20 completed Express parser ownership
 
@@ -212,7 +216,30 @@ The second slice, #8640, replaces bootevent and its nested chain with a local fo
 
 - M17 completed in #8637, merged as `c75bead0`. All required CI passed on `b39a98ab`; actual merge tree `fb05920f` matched verification. Native entry transforms retain response/write contracts with paired allocation/latency evidence. Browser transport diagnostics and the fixture connection-close mitigation were integrated in #8639; the earlier intermittent stall's cause remains unproven.
 
+### M08 Babel compiler migration in progress
+
+The isolated Babel 8/preset 8/loader 10 candidate preserves the configured browser targets. [Migration review and validation](../test-specs/babel-8.md) cover ESM loading on both supported Node floors, project iOS transforms, compiler semantics, source maps and cache invalidation. Full combined validation remains open; M08 is not yet complete.
+
+### M08 native identifier candidate
+
+UUID major review found only one production v5 call. A scoped node:crypto implementation preserves the persisted namespace, key, UUID bits and malformed-Unicode rejection. [Reference vectors and validation](../test-specs/native-document-identifiers.md) cover fixed IDs, 264 old/new comparisons, repeat processing and full API validation. The candidate removes the direct UUID package; it remains unmerged pending hosted validation. Babel/preset/loader review remains open.
+
+### M23 query leaf conversion in progress
+
+Nine characterization cases now cover the old and scoped local query walker, including mutation, BSON values, prototype-like keys and errors. The replacement removes `traverse` and 70 exclusive transitive package paths without changing retained lock entries. [Contracts and measurements](../test-specs/query-leaves.md) distinguish installed-file savings from unmeasured server heap. Full backend and hosted validation remain required before completion.
+
+### M26 local statistics candidate
+
+After the #8644 batching change, a scoped three-operation statistics module can remove simple-statistics while preserving its numeric definitions. [Recorded-oracle validation and bundle measurements](../test-specs/local-report-statistics.md) cover 109 baseline samples, both units and DST chart cases. This candidate depends on the batching work and remains unmerged pending complete validation; M26 is not yet complete.
 
 ### M24 compatible Node runner in progress
 
 Native --env-file changes both precedence and parsing of existing values, so the first slice uses a scoped Node runner with the existing .env grammar and file-wins policy. [Process contracts and validation](../test-specs/env-runner.md) cover startup flags, nyc/Mocha children and repeated signal handling. Two installed package paths are removed; nodemon/watch remains a separate unfinished slice.
+
+### M19 import client retain decision in progress
+
+Native fetch's default proxy behavior differs on both supported Node floors. The candidate retains Axios, corrects its production dependency declaration and prevents import credentials/settings from entering diagnostics. [Decision and regression evidence](../test-specs/import-config-client.md) cover the owned proxy comparison, repeated import contracts and validation limits. No dependency-count or server-memory saving is claimed; completion awaits full validation and merge.
+
+### Combined cleanup validation
+
+The remaining M08, M19, M23 and M26 candidates are assembled into one verification branch to test interactions and avoid serial CI/base-refresh churn. [Inputs and merge checks](../test-specs/cleanup-integration.md) identify the exact source heads. Source PRs stay reviewable; their tasks remain incomplete until the combined checks pass and the verified tree is merged into chore/nightscout-modernization.

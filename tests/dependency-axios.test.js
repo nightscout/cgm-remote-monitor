@@ -48,6 +48,7 @@ describe('Axios consumer compatibility', function () {
         if (target.pathname === '/error') { res.statusCode = 401; return res.end('{"error":"denied"}'); }
         if (target.pathname === '/slow') return;
         if (target.pathname === '/config') return res.end(JSON.stringify({settings: {units: 'mmol', nested: {added: true}}, extendedSettings: {custom: {enabled: true}}}));
+        if (target.pathname === '/secret-config') return res.end(JSON.stringify({settings: {apiSecret: 'fixture-imported-secret'}}));
         if (target.pathname === '/flat-config') return res.end('{"units":"mg/dl"}');
         if (target.pathname.startsWith('/api/v2/authorization/request/')) return res.end('{"token":"fixture-bearer","iat":100,"exp":200}');
         if (target.pathname === '/api/v1/entries.json') return res.end('[{"sgv":123,"date":1700000000000}]');
@@ -208,6 +209,70 @@ describe('Axios consumer compatibility', function () {
     const response = await client.get(login.headers.location);
     assert.strictEqual(response.data.headers.cookie, 'session=fixture');
     await assert.rejects(client.get('/error'), error => error.response.status === 401);
+  });
+
+  it('honors environment proxy authentication and NO_PROXY in repeated boot imports', async function () {
+    const keys = ['HTTP_PROXY', 'http_proxy', 'HTTPS_PROXY', 'https_proxy', 'NO_PROXY', 'no_proxy', 'ALL_PROXY', 'all_proxy'];
+    const saved = Object.fromEntries(keys.map(key => [key, process.env[key]]));
+    try {
+      keys.forEach(key => { delete process.env[key]; });
+      for (let cycle = 0; cycle < 2; cycle++) {
+        process.env.http_proxy = baseURL.replace('http://', 'http://fixture-proxy:fixture-proxy-password@');
+        delete process.env.no_proxy;
+        const proxied = {IMPORT_CONFIG: 'http://owned-import.invalid/flat-config', settings: {}, extendedSettings: {}};
+        const proxiedContext = {bootErrors: []};
+        await importSettings(proxied, proxiedContext);
+        assert.deepStrictEqual(proxiedContext.bootErrors, []);
+        assert.strictEqual(proxied.settings.units, 'mg/dl');
+        assert.strictEqual(requests[requests.length - 1].target.host, 'owned-import.invalid');
+        assert.strictEqual(requests[requests.length - 1].headers['proxy-authorization'],
+          'Basic ' + Buffer.from('fixture-proxy:fixture-proxy-password').toString('base64'));
+        process.env.http_proxy = 'http://127.0.0.1:1';
+        process.env.no_proxy = '127.0.0.1';
+        const direct = {IMPORT_CONFIG: baseURL + '/flat-config', settings: {}, extendedSettings: {}};
+        const directContext = {bootErrors: []};
+        await importSettings(direct, directContext);
+        assert.deepStrictEqual(directContext.bootErrors, []);
+        assert.strictEqual(direct.settings.units, 'mg/dl');
+        assert.strictEqual(requests[requests.length - 1].headers['proxy-authorization'], undefined);
+      }
+    } finally {
+      keys.forEach(key => {
+        if (saved[key] === undefined) delete process.env[key];
+        else process.env[key] = saved[key];
+      });
+    }
+  });
+
+  it('declares the import client as a production dependency', function () {
+    const manifest = require('../package.json');
+    assert.ok(manifest.dependencies.axios);
+    assert.strictEqual(manifest.devDependencies.axios, undefined);
+  });
+
+  it('keeps imported secrets and URL credentials out of logs and boot errors on repeated imports', async function () {
+    const logs = [];
+    const original = console.log;
+    console.log = (...args) => logs.push(require('util').format(...args));
+    try {
+      for (let cycle = 0; cycle < 2; cycle++) {
+        for (const route of ['/secret-config', '/error']) {
+          const env = {IMPORT_CONFIG: baseURL.replace('http://', 'http://fixture-import-user:fixture-import-password@') + route + '?token=fixture-import-token', settings: {}, extendedSettings: {}};
+          const ctx = {bootErrors: []};
+          await importSettings(env, ctx);
+          assert.strictEqual(requests[requests.length - 1].headers.authorization,
+            'Basic ' + Buffer.from('fixture-import-user:fixture-import-password').toString('base64'));
+          if (route === '/secret-config') assert.strictEqual(env.settings.apiSecret, 'fixture-imported-secret');
+          else assert.strictEqual(ctx.bootErrors[0].err.response.status, 401);
+          const visible = logs.join('\n') + JSON.stringify(ctx.bootErrors);
+          for (const secret of ['fixture-import-user', 'fixture-import-password', 'fixture-import-token', 'fixture-imported-secret']) {
+            assert.ok(!visible.includes(secret), 'import diagnostics exposed ' + secret);
+          }
+        }
+      }
+    } finally {
+      console.log = original;
+    }
   });
 
   it('imports wrapped settings through the actual boot stage and preserves existing nested settings', async function () {
