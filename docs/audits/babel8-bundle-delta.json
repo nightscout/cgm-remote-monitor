@@ -1,0 +1,44 @@
+[
+  {
+    "file": "bundle.admin.js",
+    "old_bytes": 32025,
+    "new_bytes": 32025,
+    "raw_delta": 0,
+    "gzip_delta": 0
+  },
+  {
+    "file": "bundle.app.js",
+    "old_bytes": 1153108,
+    "new_bytes": 1152623,
+    "raw_delta": -485,
+    "gzip_delta": -37
+  },
+  {
+    "file": "bundle.clock.js",
+    "old_bytes": 150676,
+    "new_bytes": 150640,
+    "raw_delta": -36,
+    "gzip_delta": 4
+  },
+  {
+    "file": "bundle.food.js",
+    "old_bytes": 15854,
+    "new_bytes": 15854,
+    "raw_delta": 0,
+    "gzip_delta": 0
+  },
+  {
+    "file": "bundle.profile.js",
+    "old_bytes": 18498,
+    "new_bytes": 18498,
+    "raw_delta": 0,
+    "gzip_delta": 0
+  },
+  {
+    "file": "bundle.reports.js",
+    "old_bytes": 177530,
+    "new_bytes": 177272,
+    "raw_delta": -258,
+    "gzip_delta": -31
+  }
+]
