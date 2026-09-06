@@ -156,29 +156,6 @@
     "xml2js": "^0.5.0",
     "xss": "^1.0.15"
   },
-  "overrides": {
-    "lodash": "4.18.1",
-    "ip-address": "10.7.0",
-    "postcss": "8.5.28",
-    "qs": "6.16.0",
-    "flatted": "3.4.2",
-    "picomatch": "2.3.2",
-    "ajv@^6.0.0": "6.15.0",
-    "ajv@^8.0.0": "8.18.0",
-    "socket.io-parser": "4.2.7",
-    "schema-utils@^4.0.0": {
-      "ajv": "8.18.0"
-    },
-    "ajv-formats": {
-      "ajv": "8.18.0"
-    },
-    "brace-expansion@^1.0.0": "1.1.18",
-    "brace-expansion@^2.0.0": "2.1.4",
-    "brace-expansion@^5.0.0": "5.0.9",
-    "js-yaml@^3.0.0": "3.15.2",
-    "js-yaml@^4.0.0": "4.3.2",
-    "fast-uri@^3.0.0": "3.1.7"
-  },
   "scarfSettings": {
     "enabled": false
   }
