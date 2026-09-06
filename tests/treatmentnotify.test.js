@@ -74,6 +74,17 @@ describe('treatmentnotify', function ( ) {
     done();
   });
 
+  it('labels an insulin-only treatment without an event type as a Correction Bolus', function () {
+    ctx.notifications.initRequests();
+    ctx.ddata.mbgs = [];
+    ctx.ddata.treatments = [{insulin: 1, mills: now, timestamp: new Date(now).toISOString()}];
+
+    var sbx = require('../lib/sandbox')().serverInit(env, ctx);
+    treatmentnotify.checkNotifications(sbx);
+
+    ctx.notifications.findUnSnoozeable()[0].title.should.equal('Correction Bolus');
+  });
+
   it('Request a notification for an announcement even there is an active snooze', function (done) {
     ctx.notifications.initRequests();
     ctx.ddata.treatments = [{mills: now, mgdl: 40, eventType: 'Announcement', isAnnouncement: true, notes: 'This not an alarm'}];

@@ -35,6 +35,22 @@
         "value": "1.50U"
       }
     ],
+    "cob": [
+      {
+        "info": [
+          {
+            "label": "Source",
+            "value": "OpenAPS"
+          },
+          {
+            "label": "Device",
+            "value": "openaps://AndroidAPS"
+          }
+        ],
+        "label": "COB",
+        "value": "0g"
+      }
+    ],
     "direction": [
       {
         "hide": true

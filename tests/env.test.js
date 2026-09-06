@@ -144,6 +144,34 @@ describe('env', function () {
     env.secureHstsHeader.should.be.true();
   });
 
+  it( 'allows unrestricted frame embedding by default and supports opting out', function () {
+    var originalValue = process.env.ALLOW_UNRESTRICTED_FRAME_EMBEDDING;
+
+    try {
+      delete process.env.ALLOW_UNRESTRICTED_FRAME_EMBEDDING;
+      var env = require( '../lib/server/env' )();
+      env.allowUnrestrictedFrameEmbedding.should.be.true();
+
+      process.env.ALLOW_UNRESTRICTED_FRAME_EMBEDDING = 'false';
+      env = require( '../lib/server/env' )();
+      env.allowUnrestrictedFrameEmbedding.should.be.false();
+
+      process.env.ALLOW_UNRESTRICTED_FRAME_EMBEDDING = 'true';
+      env = require( '../lib/server/env' )();
+      env.allowUnrestrictedFrameEmbedding.should.be.true();
+
+      process.env.ALLOW_UNRESTRICTED_FRAME_EMBEDDING = 'invalid';
+      env = require( '../lib/server/env' )();
+      env.allowUnrestrictedFrameEmbedding.should.be.true();
+    } finally {
+      if (originalValue === undefined) {
+        delete process.env.ALLOW_UNRESTRICTED_FRAME_EMBEDDING;
+      } else {
+        process.env.ALLOW_UNRESTRICTED_FRAME_EMBEDDING = originalValue;
+      }
+    }
+  });
+
   describe('HOSTNAME', function () {
     var originalHostname;
     var originalNightscoutHostname;

@@ -154,7 +154,8 @@ Older versions or other browsers might work, but are untested and unsupported. W
 ## Installation software requirements:
 
 - [Node.js](http://nodejs.org/) Node v20 LTS or later (v22, v24 also supported). Node versions that do not have the latest security patches will not be supported. Use [Install instructions for Node](https://nodejs.org/en/download/package-manager/) or use `bin/setup.sh`)
-- [MongoDB](https://www.mongodb.com/download-center?jmp=nav#community) 4.4 or later (5.0, 6.0 also supported).
+- [MongoDB](https://www.mongodb.com/download-center?jmp=nav#community) 5.0.32 or later, 6.0.27 or later 
+  NOTE: MongoDB 4.4 or lower is *not supported*. Nightscout 15.0.7 is the latest version that works with Mongo 4.4.
 
 As a non-root user clone this repo then install dependencies into the root of the project:
 
@@ -185,15 +186,15 @@ Want to help with development, or just see how Nightscout works? Great! See [CON
 
 # Usage
 
-The data being uploaded from the server to the client is from a MongoDB server such as [MongoDB Atlas][https://www.mongodb.com].
+The data being uploaded from the server to the client is from a MongoDB server such as [MongoDB Atlas](https://www.mongodb.com).
 
 [autoconfigure]: https://nightscout.github.io/pages/configure/
 [mongostring]: https://nightscout.github.io/pages/mongostring/
 
-## Updating my version?
+## Updating my version
 
-The easiest way to update your version of cgm-remote-monitor to the latest version is to use the [update tool][update-fork]. A step-by-step guide is available [here][http://www.nightscout.info/wiki/welcome/how-to-update-to-latest-cgm-remote-monitor-aka-cookie].
-To downgrade to an older version, follow [this guide][http://www.nightscout.info/wiki/welcome/how-to-deploy-an-older-version-of-nightscout].
+The easiest way to update your version of cgm-remote-monitor to the latest version is to use the [update tool][update-fork]. A step-by-step update guide is available [here](https://nightscout.github.io/update/update/).
+To downgrade to an older version, follow [this guide](https://nightscout.github.io/update/downgrade/).
 
 ## Configure my uploader to match
 
@@ -309,7 +310,7 @@ autonomy for your data:
   * `SHOW_PLUGINS` - enabled plugins that should have their visualizations shown, defaults to all enabled
   * `SHOW_FORECAST` (`ar2`) - plugin forecasts that should be shown by default, supports space delimited values such as `"ar2 openaps"`
   * `LANGUAGE` (`en`) - language of Nightscout. If not available english is used
-    * Currently supported language codes are: bg (Български), cs (Čeština), de (Deutsch), dk (Dansk), el (Ελληνικά), en (English), es (Español), fi (Suomi), fr (Français), he (עברית), hr (Hrvatski), hu (magyar), it (Italiano), ko (한국어), nb (Norsk (Bokmål)), nl (Nederlands), pl (Polski), pt (Português (Brasil)), ro (Română), ru (Русский), sk (Slovenčina), sv (Svenska), tr (Turkish), zh_cn (中文（简体)), zh_tw (中文（繁體))
+    * Currently supported language codes are: bg (Български), cs (Čeština), de (Deutsch), dk (Dansk), el (Ελληνικά), en (English), es (Español), fi (Suomi), fr (Français), he (עברית), hr (Hrvatski), hu (magyar), it (Italiano), ko (한국어), lt (Lietuvių), nb (Norsk (Bokmål)), nl (Nederlands), pl (Polski), pt (Português (Brasil)), ro (Română), ru (Русский), sk (Slovenčina), sv (Svenska), tr (Turkish), zh_cn (中文（简体)), zh_tw (中文（繁體))
   * `SCALE_Y` (`log`) - The type of scaling used for the Y axis of the charts system wide.
     * The default `log` (logarithmic) option will let you see more detail towards the lower range, while still showing the full CGM range.
     * The `linear` option has equidistant tick marks; the range used is dynamic so that space at the top of chart isn't wasted.
@@ -323,6 +324,7 @@ autonomy for your data:
   * `SECURE_HSTS_HEADER_PRELOAD` (`false`) - ask for preload in browsers for HSTS. Possible values `false`, or `true`.
   * `SECURE_CSP` (`false`) - Add Content Security Policy headers. Possible values `false`, or `true`.
   * `SECURE_CSP_REPORT_ONLY` (`false`) - If set to `true` allows to experiment with policies by monitoring (but not enforcing) their effects. Possible values `false`, or `true`.
+  * `ALLOW_UNRESTRICTED_FRAME_EMBEDDING` (`true`) - Allow other origins to embed this Nightscout site in an iframe. The default `true` preserves compatibility with existing dashboards and split-view installations, but allows clickjacking attacks against users who are already authorized in the embedded browser. Set this to `false` to send `X-Frame-Options: SAMEORIGIN` and an enforced CSP `frame-ancestors 'self'` policy. The default is temporarily `true` for compatibility and is expected to become `false` in a future release. Existing cross-origin embedding installations can set it explicitly to `true` to preserve their intended behavior when that default changes.
 
 ### Views
 
@@ -354,6 +356,8 @@ autonomy for your data:
   Some users will need easy access to multiple Nightscout views at the same time. We have a special view for this case, accessed on /split path on your Nightscout URL. The view supports any number of sites between 1 to 8 way split, where the content for the screen can be loaded from multiple Nightscout instances. Note you still need to host separate instances for each Nightscout being monitored including the one that hosts the split view page - these variables only add the ability to load multiple views into one browser page. To set the URLs from which the content is loaded, set:
   * `FRAME_URL_1` - URL where content is loaded, for the first view (increment the number up to 8 to get more views)
   * `FRAME_NAME_1` - Name for the first split view portion of the screen (increment the number to name more views)
+
+  When `SECURE_CSP=true`, the valid HTTP(S) origins configured in `FRAME_URL_1` through `FRAME_URL_8` are allowed by the CSP `frame-src` directive so the split page can load them. `FRAME_URL_n` controls what the split page may embed; it does not grant another site permission to embed this Nightscout instance. That inbound permission is controlled independently on each instance by `ALLOW_UNRESTRICTED_FRAME_EMBEDDING`. Setting it to `false` on the split-view host does not prevent that host from loading its configured frames, but a cross-origin Nightscout instance displayed inside the split view must allow cross-origin embedding.
 
 ### Plugins
 
@@ -431,7 +435,7 @@ autonomy for your data:
   Adds the IOB pill visualization in the client and calculates values that used by other plugins.  Uses treatments with insulin doses and the `dia` and `sens` fields from the [treatment profile](#treatment-profile).
 
 ##### `cob` (Carbs-on-Board)
-  Adds the COB pill visualization in the client and calculates values that used by other plugins.  Uses treatments with carb doses and the `carbs_hr`, `carbratio`, and `sens` fields from the [treatment profile](#treatment-profile).
+  Adds the COB pill visualization in the client and calculates values that used by other plugins.  Shows the carbs-on-board reported by the uploading system (Loop's `loop.cob`, or `openaps.suggested`/`openaps.enacted` for OpenAPS, AndroidAPS and Trio) when the most recent device status is less than 10 minutes old; the pill tooltip names the source and device. Otherwise it derives COB from treatments with carb doses and the `carbs_hr`, `carbratio`, and `sens` fields from the [treatment profile](#treatment-profile), which are not needed for the device-reported value.
 
 ##### `bwp` (Bolus Wizard Preview)
   This plugin in intended for the purpose of automatically snoozing alarms when the CGM indicates high blood sugar but there is also insulin on board (IOB) and secondly, alerting to user that it might be beneficial to measure the blood sugar using a glucometer and dosing insulin as calculated by the pump or instructed by trained medicare professionals. ***The values provided by the plugin are provided as a reference based on CGM data and insulin sensitivity you have configured, and are not intended to be used as a reference for bolus calculation.*** The plugin calculates the bolus amount when above your target, generates alarms when you should consider checking and bolusing, and snoozes alarms when there is enough IOB to cover a high BG. Uses the results of the `iob` plugin and `sens`, `target_high`, and `target_low` fields from the [treatment profile](#treatment-profile). Defaults that can be adjusted with [extended setting](#extended-settings)
@@ -670,6 +674,17 @@ For remote overrides, the following extended settings must be configured:
   * `LOOP_APNS_KEY_ID` - The Key ID for the above key.
   * `LOOP_DEVELOPER_TEAM_ID` - Your Apple developer team ID.
   * `LOOP_PUSH_SERVER_ENVIRONMENT` - (optional) Set this to `production` if you are using a provisioning profile that specifies production aps-environment, such as when distributing builds via TestFlight.
+
+If a Loop remote command fails, Careportal keeps the form open and displays the reason with a suggested next step:
+
+  * Missing APNs configuration identifies the setting to check, such as `LOOP_APNS_KEY` or `LOOP_DEVELOPER_TEAM_ID`, without exposing its value.
+  * Missing Loop settings, device tokens, or app identifiers direct you to check the profile upload from Loop.
+  * Invalid carbs or bolus entries explain that the amount must be a number greater than zero. Unsupported commands are reported explicitly.
+  * Recognized APNs failures retain the reason code and explain it. For example, `InvalidProviderToken` identifies a provider authentication problem and directs the Nightscout administrator to check the APNs signing key, key ID, and developer team ID. See [Apple's APNs error reference](https://developer.apple.com/documentation/usernotifications/handling-notification-responses-from-apns) for details.
+  * Authorization failures ask you to reauthorize Nightscout access or have the administrator check your Loop command permissions.
+  * Connection failures, timeouts, and empty error responses keep the form open with an explanation. If delivery cannot be confirmed, check Loop before submitting the command again. Commands are not automatically retried.
+
+When APNs provides no failure details, the message says so. Unexpected failures direct you to the Nightscout administrator and server logs. Full diagnostics remain in those logs; user-facing messages omit raw error objects, credentials, device tokens, filesystem paths, and other untrusted error text.
 
 ##### `override` (Override Mode)
   Additional monitoring for DIY automated insulin delivery systems to display real-time overrides such as Eating Soon or Exercise Mode:
