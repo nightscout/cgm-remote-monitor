@@ -44,7 +44,7 @@ one existing pending case. Production build passes and all six browser bundles
 are byte-identical to the parent. After npm prune --omit=dev, with Mocha absent,
 the actual augmentSettings stage performs two imports on both Node versions and
 preserves wrapped/nested settings. A clean reinstall/build restores the full
-validation environment. Hosted combined validation remains required.
+validation environment. The branch includes M21 merge #8642; hosted combined validation remains required.
 
 Rollback restores the declaration and boot stage together. No database,
 configuration format or browser bundle change is intended. Do not restore
