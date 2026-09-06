@@ -199,6 +199,21 @@ describe('legacy reports in a real browser', function () {
         await idle(page);
         assert.equal(requests.filter(r => r.method === 'DELETE').length, deletesBefore + 1);
         assert.equal(requests.filter(r => r.method === 'DELETE').at(-1).url, '/api/v1/treatments/55ce59bb925aa80e7071e5ba');
+        for (const dismiss of ['cancel', 'escape']) {
+          await page.locator('img.editTreatment').first().click();
+          await page.locator('#rp_edittreatmentdialog').waitFor({state: 'visible'});
+          assert.equal(await page.evaluate(() => document.activeElement.id), 'rped_eventType');
+          const originalNotes = await page.locator('#rped_adnotes').inputValue();
+          await page.locator('#rped_adnotes').fill('Discard this treatment draft');
+          if (dismiss === 'cancel') await page.getByRole('dialog').getByRole('button', {name: 'Cancel', exact: true}).click();
+          else await page.keyboard.press('Escape');
+          await page.locator('#rp_edittreatmentdialog').waitFor({state: 'hidden'});
+          assert.equal(requests.filter(r => r.method === 'PUT').length, cycle - 1, 'Dismissal sends no treatment update');
+          await page.locator('img.editTreatment').first().click();
+          assert.equal(await page.locator('#rped_adnotes').inputValue(), originalNotes, 'Reopen restores the saved treatment');
+          await page.keyboard.press('Escape');
+          await page.locator('#rp_edittreatmentdialog').waitFor({state: 'hidden'});
+        }
         await page.locator('img.editTreatment').first().click();
         assert.equal(await page.locator('#rped_eventType').inputValue(), 'Meal Bolus');
         assert.equal(await page.locator('#rped_carbsGiven').inputValue(), '54');

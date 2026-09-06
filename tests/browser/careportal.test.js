@@ -29,12 +29,12 @@ describe('careportal in a real browser', function () {
     const root = path.resolve(__dirname, '../..');
     const file = path.join(root, 'views/index.html');
     markup = ejs.render(fs.readFileSync(file, 'utf8'), {type: 'index', title: '', bundle: '/bundle'}, {filename: file});
-    const html = '<!doctype html><html><head><meta charset="utf-8"><link rel="stylesheet" href="/css/main.css"></head><body></body></html>';
+    const html = '<!doctype html><html><head><meta charset="utf-8"><link rel="stylesheet" href="/css/main.css"><link rel="stylesheet" href="/css/ui-darkness/jquery-ui.min.css"></head><body></body></html>';
     const css = fs.readFileSync(path.join(root, 'static/css/main.css'), 'utf8')
       .replace("@import url('https://fonts.googleapis.com/css?family=Ubuntu:400,700');", '');
     const settings = structuredClone(require('../fixtures/default-server-settings'));
     settings.settings.showPlugins = 'iob careportal boluscalc';
-    settings.settings.enable += ' boluscalc';
+    settings.settings.enable += ' boluscalc food';
     const app = express();
     app.use(express.urlencoded({extended: true}));
     app.use((request, response, next) => {
@@ -198,6 +198,44 @@ describe('careportal in a real browser', function () {
       }, {timezoneId: testCase.timezoneId, now: testCase.time});
     });
   }
+
+  it('reopens the bolus food picker, rejects zero portions and retains independent selections twice', async function () {
+    await withApp(async ({page}) => {
+      await page.evaluate(() => {
+        window.Nightscout.client.dataUpdate({food: [{_id: '000000000000000000000001', type: 'food',
+          name: 'Owned oats', category: 'Owned', subcategory: '', carbs: 10, portion: 25, unit: 'g'}]});
+      });
+      await page.locator('#boluscalcDrawerToggle').click();
+      await page.waitForFunction(() => window.Nightscout.client.sbx.data.food.some(food => food.name === 'Owned oats'));
+      const picker = page.locator('#bc_addfooddialog');
+      for (let cycle = 0; cycle < 2; cycle++) {
+        await page.locator('#bc_addfromdatabase').click();
+        await picker.waitFor({state: 'visible'});
+        assert.equal(await page.evaluate(() => document.activeElement.id), 'bc_filter_name');
+        assert.equal(await page.locator('#bc_addportions').inputValue(), '1');
+        await page.locator('#bc_data').selectOption('0');
+        await page.locator('#bc_addportions').fill('0');
+        await page.getByRole('dialog').getByRole('button', {name: 'Add', exact: true}).click();
+        assert.equal(await picker.isVisible(), true, 'Zero portions keep the picker open');
+        assert.equal(await page.locator('#bc_food tr').count(), cycle);
+        await page.keyboard.press('Escape');
+        await picker.waitFor({state: 'hidden'});
+        assert.equal(await page.locator('#bc_food tr').count(), cycle, 'Escape adds no food');
+        await page.locator('#bc_addfromdatabase').click();
+        await picker.waitFor({state: 'visible'});
+        assert.equal(await page.locator('#bc_addportions').inputValue(), '1');
+        await page.locator('#bc_data').selectOption('0');
+        await page.locator('#bc_addportions').fill(String(cycle + 2));
+        await page.getByRole('dialog').getByRole('button', {name: 'Add', exact: true}).click();
+        await picker.waitFor({state: 'hidden'});
+        const rows = await page.locator('#bc_food tr').allTextContents();
+        assert.equal(rows.length, cycle + 1);
+        assert.ok(rows[0].includes('50.0 g') && rows[0].includes('(20.0 g)'), 'First selection keeps two portions');
+        if (cycle) assert.ok(rows[1].includes('75.0 g') && rows[1].includes('(30.0 g)'));
+        assert.equal(requests.filter(r => r.method === 'POST' && r.path === '/api/v1/treatments/').length, 0, 'Picking food does not submit treatment');
+      }
+    }, {profile: true});
+  });
 
   it('uses local timezone date, not UTC, when saving a boluscalc other-time treatment', async function () {
     await withApp(async ({page, dialogs}) => {
