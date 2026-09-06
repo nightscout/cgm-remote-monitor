@@ -136,7 +136,7 @@ The [CLI/analyzer review](../test-specs/webpack-cli-analyzer.md) upgrades the
 build commands to CLI 7.2.3 and analyzer 5.3.2, preserves resource-limit tests
 and adds real command/report regression coverage. Production lock entries and
 application bundles are unchanged; development package bytes increase despite
-six fewer paths. 
+six fewer paths.
 The [Mocha 12 review](../test-specs/mocha12-modernization.md) adopts native Node
 argument parsing, removes two redundant runner overrides and 40 package paths.
 Runner failure/reporting, YAML defaults and retained parser security contracts

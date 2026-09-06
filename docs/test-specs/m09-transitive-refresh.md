@@ -54,9 +54,9 @@ application JavaScript bundles are byte-identical to the preceding override
 candidate. There is no claimed runtime-memory or UI improvement.
 
 Node 22 passes 305 dependency and 2,098 backend tests (one existing pending).
-A clean Node 24/npm 12 installation passes 296 dependency cases; optional CLI
-YAML is absent in that mode. Full backend coverage on both Nodes and hosted CI
-are merge gates. The [final inventory](../audits/m09-final-inventory.json) records
+A clean Node 24/npm 12 installation passes 296 dependency and 2,089 backend
+cases (one existing pending); optional CLI YAML is absent in that mode. Hosted
+CI and actual merge verification remain required. The [final inventory](../audits/m09-final-inventory.json) records
 zero known full/production advisories and no remaining updates within consumer
 ranges at the time of review.
 The environment matrix and Node/MongoDB compatibility floors do not change.
