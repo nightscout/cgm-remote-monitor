@@ -34,7 +34,7 @@ The served Socket.IO client now uses `closeOnBeforeunload: true` for both namesp
 - Chromium also runs with Playwright offline emulation. On the local WebKit 26.6 build, that emulation blocks even a minimal worker which returns a constant response without accessing the network; the same control works in Chromium 153. WebKit therefore uses actual origin connection failure. One exact WebKit network-error diagnostic is allowed only for the deliberately requested unavailable asset; other page errors fail the fixture. Hosted Firefox coverage remains required.
 - Fully booted HTTP contracts verify all six versioned production bundles (bytes, gzip/identity, HEAD, ETag/Last-Modified/304), each template's shared/page URLs, and all six development middleware assets.
 
-Still required before M15 completion: total navigation traffic and populated-page startup/heap measurements with numeric acceptance limits, and the complete hosted matrix/Docker checks on the final head. Actual-page worker lifecycle, source isolation and artifact gzip/chunk budgets now have the evidence described below. The first draft head passed all hosted checks, but that does not validate subsequent changes or the remaining gates. No M15 merge-ready claim has been made.
+The resource measurements and numeric limits are now recorded below. M15 still requires the complete hosted matrix/Docker checks on the final implementation head before readiness. Actual-page worker lifecycle, source isolation and artifact gzip/chunk budgets also have the evidence described below. The first draft head passed all hosted checks, but that does not validate subsequent changes or the remaining gates. No M15 merge-ready claim has been made.
 
 ## Current transfer measurement
 
@@ -72,7 +72,57 @@ Run `node tools/measure-page-bundles.js` after the normal production build to re
 
 The matched parent's monolithic app is 402,808 Node gzip bytes, so the app saves 70,657 bytes and the all-application total grows by 2,393 bytes. The 340,000-byte app limit rejects that prior monolithic artifact. Limits leave room for small fixes while requiring review of material growth; do not automatically regenerate them from whatever a build produces.
 
-`tests/page-bundle-budget.test.js` runs in the existing backend CI glob. It enforces the six per-entry limits, combined limit, absence of extra JavaScript chunks and report source-map isolation. Existing actual-template browser cases enforce one document bundle for dashboard and two for each secondary page, with exact request counts and separately checked script order. These counts exclude Socket.IO, startup scripts, CSS, images, APIs and service-worker precaching. The worker still precaches app and clock; first-install traffic is not the sum of unique document bundles alone. Populated-page timing/heap and total navigation traffic measurement remain open and must not be inferred from these artifact budgets.
+`tests/page-bundle-budget.test.js` runs in the existing backend CI glob. It enforces the six per-entry limits, combined limit, absence of extra JavaScript chunks and report source-map isolation. Existing actual-template browser cases enforce one document bundle for dashboard and two for each secondary page, with exact request counts and separately checked script order. These counts exclude Socket.IO, startup scripts, CSS, images, APIs and service-worker precaching. The worker still precaches app and clock; first-install traffic is not the sum of unique document bundles alone. The separate populated-page timing/heap and total navigation traffic measurements below must not be inferred from these artifact budgets.
 
 
 Hosted lifecycle validation on `d79b8a74` passed all backend, Chromium and WebKit jobs, npm 12 and CodeQL. Both Firefox jobs passed the report-rendering cases but failed four worker-control cases before exercising cache behavior. The compatibility follow-up restores the prior document-navigation network path while retaining native bypass for uncached API/polling traffic; all four focused application/worker cases pass locally on Chromium and WebKit, and 24 Node worker/cachebuster/resource-budget cases pass. Firefox confirmation on that follow-up is required. These failures are not waived and M15 remains draft.
+
+## Populated startup and retained heap
+
+The shared owned HTTP/Socket.IO fixture now serves both startup regression tests and measurement tools. It renders the actual templates and built JavaScript from each checkout. The comparison uses 576 SGVs over 48 hours, 48 treatments, one real-shaped profile fixture and 300 synthetic foods. It never opens a deployment or database. Readiness requires all SGVs plus page initialization and completed AJAX; the fixture verifies all treatment/food counts. This measures initial page readiness, not a user-requested historical report render. Report rendering, interaction and unit regression tests remain separate.
+
+The [70 cold samples](../audits/page-startup-baseline.json) comprise seven fresh Chromium processes for each page/version, alternating parent/candidate order. The parent is `6e11941a` (tree-identical to the measured `d42e95a6` checkout). Candidate bundle hashes match the published page-splitting artifacts. The run used Node 22.23.2, Chromium 153.0.8010.12, an Apple M4 Pro and a 1280 by 900 viewport. Browser dates/timezone were fixed. Workers were blocked for the cold comparison; the worker-enabled journey below measures installation and caching separately.
+
+| Page | Median readiness, parent → candidate (ms) | Median retained JS heap, parent → candidate (bytes) | CI heap ceiling (bytes) |
+| --- | ---: | ---: | ---: |
+| Dashboard | 162 → 162 | 5,085,760 → 5,017,492 | 5,500,000 |
+| Reports | 130 → 129 | 4,378,688 → 4,411,976 | 4,850,000 |
+| Admin | 129 → 129 | 4,619,796 → 4,577,280 | 5,050,000 |
+| Profile | 145 → 130 | 4,614,780 → 4,561,636 | 5,050,000 |
+| Food | 161 → 146 | 5,854,480 → 5,799,496 | 6,400,000 |
+
+Retained heap uses `Runtime.getHeapUsage` after `HeapProfiler.collectGarbage`. The raw records also include embedder/backing-storage counters and DOM counts; these counters are not summed into a total-RSS claim. Four pages retain less JavaScript heap. Reports retain 33,288 bytes more (about 0.8%). A matched [heap-retainer probe](../audits/page-report-heap-retainer.json) finds the largest additional array under V8's `smi_string_cache` strong root: 65,544 bytes versus 1,032. Other allocations offset part of that increase. This identifies a contributor, not a proof of leak absence or an all-platform memory saving. The bounded report increase is accepted alongside reduced transferred code and the other page savings; no server-memory saving is claimed.
+
+Five populated-page cases run in every browser CI job. Chromium additionally enforces the post-GC heap ceilings above; the other engines exercise the same data/UI readiness contracts without substituting an estimated heap metric. Ceilings are rounded allowances of approximately 10% above the measured candidate maxima and require review before increases.
+
+The standalone paired startup gate requires at least seven unique samples for every page/version. Its candidate median must be no more than the matched parent median plus the larger of 33 ms (two frame intervals) or twice the parent's interquartile range. This keeps timing comparison on the same host and prevents one extreme parent sample from defining the allowance. The 70 recorded samples pass. Timing comparison is a reproducible review/release check; CI directly enforces artifact, populated-startup and V8 heap contracts rather than applying Mac wall-clock timings to every runner.
+
+## Worker-enabled journey traffic
+
+The [14 journeys](../audits/page-journey-baseline.json) use seven fresh contexts per version, visiting dashboard, reports, admin, profile and food, then revisiting all five. Native service workers are enabled. The initial page waits for `navigator.serviceWorker.ready`, not merely the observable activated state. Every visited bundle must be present in CacheStorage before proceeding. Parent installation causes two dashboard navigations; the candidate performs one, matching the corrected reload behavior.
+
+| Metric | Parent median | Candidate median | Candidate limit |
+| --- | ---: | ---: | ---: |
+| All HTTP requests through final readiness | 324 | 285 | Recorded; includes timer-dependent polling |
+| HTTP requests excluding Socket.IO polling | 214 | 176 | 190 |
+| Completed HTTP response body bytes | 1,476,134 | 1,412,051 | 1,500,000 |
+| Origin bundle downloads on cached revisits | 0 | 0 | 0 |
+
+The counter observes final response writes before Socket.IO/Express compression wrappers, so it includes worker-origin precaching and actual negotiated compression (Brotli in this run). A Node regression test compares its counts with independently received gzip and identity response bodies. Bytes exclude HTTP headers, chunk framing and unfinished response bodies. The parent had one unfinished queued byte; the candidate had none. The cold CDP records separately report response transfer bytes including response headers. Neither measure is a packet capture or total server RSS.
+
+The candidate's initial dashboard still downloads app twice (document and worker precache) plus clock. That existing precache behavior is included, not hidden by the one-document-bundle count. The complete journey nevertheless transfers 64,083 fewer completed body bytes and uses 38 fewer non-polling requests. Subsequent visited page bundles load once; cached revisits fetch none from the origin.
+
+## Reproducing and validating resource evidence
+
+Use the same supported Node/browser build for both checkouts, and build the parent with its own lockfile. For example, after preparing a clean parent checkout at `6e11941a` and running `npm ci` there:
+
+```sh
+node tools/measure-page-startup.js /path/to/parent 7 > startup.json
+node tools/measure-page-journey.js /path/to/parent 7 > journey.json
+```
+
+The tools fail resource acceptance when limits are exceeded and mark fewer than seven samples as unassessed. Startup can also take an optional entry and heap-output directory for a diagnostic probe; partial-page probes do not establish complete M15 acceptance. Heap files use exclusive creation and are not overwritten. Checkouts, synthetic inputs and Node/browser versions must remain fixed during a comparison. Existing measured bundle hashes are retained in each output.
+
+`tests/page-resource-acceptance.test.js` rejects incomplete/duplicated runs, omitted revisits, 500 ms startup regressions, excessive heap, excessive body/request counts and cached bundle redownloads. These guard the evidence checker itself; they do not replace browser measurements. The byte-counter test independently checks compressed transport accounting.
+
+The latest hosted failure on `b9f48190` was one Firefox/Node 24 application-worker case: awaiting `registration.update()` raced the intentionally triggered reload and lost the outgoing execution context. The follow-up starts the update without awaiting that promise in the outgoing document, while still requiring the reload, cache retirement and successful page startup. No retry, timeout increase or cache assertion relaxation is used. Final hosted validation is still required.
