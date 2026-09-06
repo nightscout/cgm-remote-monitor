@@ -47,8 +47,8 @@ fixed offsets such as GMT+5:30 from IANA zones and expose mutable Moment objects
    parsing, timezone-to-instant conversion and therapy arithmetic separate.
    Compare byte/gzip size, cold and repeated CPU cost, allocations and browser
    output; do not infer a whole-server memory saving from package removal.
-5. Compare retain/narrow/replace and a maintained alternative against the same
-   corpus, including Chromium, Firefox and WebKit. Verify available releases and
+5. Compare retaining or narrowing Moment, native Intl plus scoped helpers, Luxon
+   and Day.js against the same corpus, including Chromium, Firefox and WebKit. Verify available releases and
    browser/runtime support at that point. No framework or date library is selected
    by this inventory, and Node's capabilities do not establish browser support.
 6. Record the final decision, measured benefit, compatibility limits and a review
@@ -175,3 +175,37 @@ The [Luxon contract comparison](luxon-contract-review.md) adds a maintained
 alternative on the same server formatting corpus. It records explicit overlap
 selection and mutation incompatibilities, a bounded compatibility adapter, and
 CPU measurements. It does not complete the remaining migration decision.
+
+
+## Day.js candidate from #8348
+
+Day.js is an explicit candidate for M27 alongside retaining/narrowing Moment,
+native Intl plus scoped helpers, and Luxon. [PR #8348](https://github.com/nightscout/cgm-remote-monitor/pull/8348)
+is useful migration groundwork, not an approved replacement or a prerequisite
+merge. No library has been selected. Intl addresses formatting and timezone
+presentation; parsing and calendar arithmetic require separate evaluation.
+
+The 2026-09-06 review of PR head `61f6aa6d1d54800ef971307ac29e6167e6c591d2`
+ran isolated probes using its actual Day.js wrapper and API parser with Day.js
+1.11.13 and 1.11.23 on Node 22.23.2 and 24.20.0. Both releases showed:
+
+- Date-only `2024-02-30` and space-separated `2024-02-30 12:00:00` were
+  normalized to March 1, while the current Moment API parser rejected them.
+  The PR's validation did reject the ISO input `2024-02-30T12:00:00Z`.
+- Adding one calendar day to New York midnight on 2024-03-10 retained the
+  `-05:00` offset in Day.js, whereas Moment returned the next midnight at
+  `-04:00`. The PR uses this arithmetic pattern in daily report boundaries.
+  This was an isolated arithmetic reproduction, not an end-to-end report test.
+
+Make these cases explicit regression requirements when evaluating Day.js, along
+with the shared corpus above, mutation contracts and the PR's custom offset
+parser. Preserve invalid-input rejection rather than weakening tests to accept
+normalization. Assess whether scoped adapters can preserve the required behavior
+without outweighing the maintenance benefit of the migration.
+
+Remeasure the author's historical bundle-saving estimate against the current
+modernization build, whose browser timezone data is already restricted. Compare
+raw and compressed bundle size, CPU, allocations and runtime memory separately;
+a smaller download does not establish lower server RAM use. The focused probes
+do not establish full-suite, report, therapy or browser compatibility. M27 remains
+open; adding Day.js to the candidate list does not resume runtime migration work.
