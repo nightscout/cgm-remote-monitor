@@ -107,7 +107,10 @@ self.addEventListener('fetch', event => {
   const request = event.request;
   if (new URL(request.url).origin !== self.location.origin || CACHE === 'developmentMode' ||
       request.method !== 'GET' || !inCache(request)) {
-    return event.respondWith(network(request));
+    // Leave navigation, API and long-lived polling to the browser. Extending
+    // fetch events for those requests can keep a replacement worker waiting
+    // while the application is connected, and changes native cancellation.
+    return;
   }
   event.respondWith(request.headers.get('range') ? returnRangeRequest(request) : fromCache(request));
 });

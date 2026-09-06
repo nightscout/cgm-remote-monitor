@@ -74,17 +74,16 @@ describe('native cachebuster compatibility', function () {
     process.env.NODE_ENV = 'development';
     const response = await request(app()).get('/sw.js').expect(200);
     const handlers = {};
-    let fetched, completion;
+    let completion;
     const resource = {url: 'https://fixture.example/images/launch.png', method: 'GET'};
     vm.runInNewContext(response.text, {
       URL, Request, Response,
       self: {location: {origin: 'https://fixture.example'}, addEventListener(name, handler) { handlers[name] = handler; }},
-      fetch: async request => { fetched = request; return 'network'; },
+      fetch() { throw new Error('Development worker intercepted a network request'); },
       caches: {open() { throw new Error('Development worker accessed the cache'); }}
     });
     handlers.fetch({request: resource, respondWith(promise) { completion = promise; }});
-    assert.strictEqual(await completion, 'network');
-    assert.strictEqual(fetched, resource);
+    assert.strictEqual(completion, undefined, 'The browser handles development requests directly');
   });
 
   it('prints exactly one 16-character token from the command-line generator', function () {

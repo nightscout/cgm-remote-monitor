@@ -16,7 +16,7 @@ const bundles = new Map(['app', 'clock', 'reports', 'admin', 'profile', 'food'].
 
 describe('Service worker in a real browser', function () {
   this.timeout(45000);
-  let server, origin, version, requests, networkDown;
+  let server, origin, version, requests, networkDown, pendingPoll;
   before(async function () {
     server = http.createServer((request, response) => {
       if (networkDown) {request.socket.destroy(); return;}
@@ -27,6 +27,9 @@ describe('Service worker in a real browser', function () {
       if (url.pathname === '/harness') {
         response.setHeader('Content-Type', 'text/html; charset=utf-8');
         response.end('<!doctype html><html><head><meta charset="utf-8"></head><body>Service worker fixture</body></html>');
+      } else if (url.pathname === '/poll') {
+        pendingPoll = response;
+        server.emit('poll-started');
       } else if (url.pathname === '/sw.js') {
         response.setHeader('Content-Type', 'application/javascript');
         response.setHeader('Service-Worker-Allowed', '/');
@@ -76,7 +79,11 @@ describe('Service worker in a real browser', function () {
         expectedNetworkErrors.splice(index, 1);
       }
       assert.deepEqual(blocked, []);
-    } finally {await context.close();}
+    } finally {
+      if (pendingPoll && !pendingPoll.writableEnded) pendingPoll.end('closed');
+      pendingPoll = null;
+      await context.close();
+    }
   }
   const asset = (name, build = 'v1') => '/bundle/js/bundle.' + name + '.js?v=' + build;
 
@@ -101,6 +108,23 @@ describe('Service worker in a real browser', function () {
       assert.equal(await page.evaluate(async url => {
         try {await fetch(url); return 'unexpected success';} catch (_) {return 'offline';}
       }, origin + asset('admin')), 'offline');
+    });
+  });
+
+  it('activates an updated worker while an uncached polling request remains open', async function () {
+    await withWorker(async ({page}) => {
+      const requested = once(server, 'poll-started');
+      await page.evaluate(() => {window.pollResult = fetch('/poll').then(response => response.text());});
+      await requested;
+      version = 'v2';
+      await page.evaluate(async () => {
+        navigator.serviceWorker.addEventListener('controllerchange', () => {window.workerChanged = true;}, {once: true});
+        await (await navigator.serviceWorker.getRegistration()).update();
+      });
+      await page.waitForFunction(() => window.workerChanged === true, null, {timeout: 5000});
+      assert.equal(pendingPoll.writableEnded, false, 'Worker activation must not depend on the poll completing');
+      pendingPoll.end('poll completed');
+      assert.equal(await page.evaluate(() => window.pollResult), 'poll completed');
     });
   });
 

@@ -111,15 +111,16 @@ describe('Service worker asset cache contracts', function () {
 
   it('bypasses API, query-string, external, non-GET and development requests', async function () {
     const state = worker();
-    for (const [url, options] of [['/api/v1/status.json'], [pages[0] + '?v=2'],
+    for (const [url, options] of [['/'], ['/api/v1/status.json'], ['/socket.io/?EIO=4&transport=polling'], [pages[0] + '?v=2'],
       ['https://nightscout.test.example/bundle/js/bundle.reports.js'], [pages[0], {method: 'POST'}]]) {
-      await state.fetch(url, options);
+      assert.equal(state.fetch(url, options), undefined, 'The browser must own uncached requests: ' + url);
     }
-    assert.equal(state.requests.length, 4);
+    assert.equal(state.requests.length, 0);
     assert.equal(state.stores.size, 0);
     const development = worker('developmentMode');
-    await development.fetch(pages[0]); await development.fetch(pages[0]);
-    assert.equal(development.requests.length, 2);
+    assert.equal(development.fetch(pages[0]), undefined);
+    assert.equal(development.fetch(pages[0]), undefined);
+    assert.equal(development.requests.length, 0);
     assert.equal(development.stores.size, 0);
   });
 
@@ -136,10 +137,9 @@ describe('Service worker asset cache contracts', function () {
   it('an older worker bypasses its cache for a newer page asset version', async function () {
     const state = worker('old');
     await state.fetch(pagesFor('old')[0]);
-    state.response = () => new Response('New deployment');
-    assert.equal(await (await state.fetch(pagesFor('new')[0])).text(), 'New deployment');
+    assert.equal(state.fetch(pagesFor('new')[0]), undefined, 'New versions use the browser network path');
     assert.equal(state.stores.get('old').has(origin + pagesFor('new')[0]), false);
-    assert.equal(state.requests.length, 2);
+    assert.equal(state.requests.length, 1);
   });
 
   it('slices full cached ranges and forwards uncached partial responses without recaching', async function () {

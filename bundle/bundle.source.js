@@ -20,10 +20,11 @@ window.moment = moment;
 
 window.Nightscout = window.Nightscout || {};
 
-window.Nightscout = {
+// Shared hot updates must retain the exports installed by page entries.
+Object.assign(window.Nightscout, {
     client: require('../lib/client'),
     units: require('../lib/units')()
-};
+});
 
 
 console.info('Nightscout bundle ready');

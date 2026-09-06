@@ -757,16 +757,21 @@
   <script>
     if ('serviceWorker' in navigator) {
       window.addEventListener('load', () => {
+        // Initial installation should not interrupt startup. For an update,
+        // reload once when the new worker actually takes control, rather than
+        // reloading repeatedly through installing/installed/activating states.
+        var wasControlled = Boolean(navigator.serviceWorker.controller);
+        var reloading = false;
+        navigator.serviceWorker.addEventListener('controllerchange', () => {
+          if (wasControlled && !reloading) {
+            reloading = true;
+            window.location.reload();
+          }
+        });
         navigator.serviceWorker.register('/sw.js', { scope: '/' }).then(function(reg) {
           console.log('Service worker registered');
           reg.addEventListener('updatefound', () => {
             console.log('Service worker update detected');
-            reg.update();
-            var newWorker = reg.installing;
-            newWorker.addEventListener('statechange', (state) => {
-              console.log('New worker state change', state);
-              window.location.reload(true);
-            });
           });
         }).catch(function(error) {
           console.log('Registration failed with ' + error);

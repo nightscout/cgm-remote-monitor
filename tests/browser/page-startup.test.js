@@ -12,7 +12,9 @@ const {withPage} = require('./fixture');
 const {getBrowser} = require('./hooks');
 
 describe('Complete page template startup', function () {
-  let server, io, origin, requests, authorizations, glucose, foodWrites, challenges, foodFailures;
+  let server, io, origin, requests, authorizations, glucose, foodWrites, challenges, foodFailures, loadingResponses;
+  let buildVersion, workerVersion, blockBundles, bundleRequests;
+  const pendingRequests = new Map();
   const secret = 'this is my long pass phrase';
   const hash = 'b723e97aa97846eb92d5264f084b2823f57c4aa1';
   const pages = [
@@ -31,16 +33,28 @@ describe('Complete page template startup', function () {
       response.setHeader('Content-Security-Policy', "default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline'; img-src 'self' data:; font-src 'self' data:; connect-src 'self'");
       next();
     });
-    app.use((request, response, next) => {requests.push(request.path); next();});
+    app.use((request, response, next) => {
+      pendingRequests.set(response, request.originalUrl);
+      response.on('close', () => pendingRequests.delete(response));
+      requests.push(request.path);
+      if (request.path.startsWith('/bundle/js/')) {
+        bundleRequests.push(request.originalUrl);
+        if (blockBundles) return response.status(503).end();
+      }
+      next();
+    });
     for (const [url, file, type] of pages) {
       const filename = path.join(root, 'views', file);
-      const html = ejs.render(fs.readFileSync(filename, 'utf8'), {
-        type, title: '', bundle: '/bundle', cachebuster: 'page-startup'
-      }, {filename});
-      app.get(url, (request, response) => response.type('html').send(html));
+      const template = fs.readFileSync(filename, 'utf8');
+      app.get(url, (request, response) => response.type('html').send(ejs.render(template, {
+        type, title: '', bundle: '/bundle', cachebuster: buildVersion
+      }, {filename})));
     }
+    const worker = fs.readFileSync(path.join(root, 'views/service-worker.js'), 'utf8');
+    app.get('/sw.js', (request, response) => response.type('js').set('Cache-Control', 'no-store').send(ejs.render(worker, {locals: {cachebuster: workerVersion}})));
     app.get('/api/v1/status.json', (request, response) => {
       if (request.query.secret !== hash) {challenges++; return response.status(401).json({message: 'Authentication required'});}
+      if (loadingResponses > 0) {loadingResponses--; return response.json({...settings, runtimeState: 'loading'});}
       response.json(settings);
     });
     app.get('/api/v1/status.js', (request, response) => response.type('js').send('this.serverSettings = ' + JSON.stringify(settings) + ';'));
@@ -89,22 +103,53 @@ describe('Complete page template startup', function () {
     origin = 'http://127.0.0.1:' + server.address().port;
   });
   after(async function () {if (io) await new Promise(resolve => io.close(resolve));});
-  beforeEach(function () {requests = []; authorizations = 0; glucose = 123; foodWrites = []; challenges = 0; foodFailures = 0;});
+  function disconnected(peer) {
+    if (!peer || !peer.connected) return Promise.resolve();
+    return new Promise((resolve, reject) => {
+      const timer = setTimeout(() => {peer.off('disconnect', done); reject(new Error('Socket did not retire within its heartbeat deadline: ' + peer.id));}, 7000);
+      function done() {clearTimeout(timer); resolve();}
+      peer.once('disconnect', done);
+    });
+  }
+  afterEach(async function () {
+    this.timeout(8000);
+    // A browser closing its transport may not deliver the close packet. Wait
+    // for the configured 1s heartbeat + 5s timeout before the next test owns
+    // this server; retain the assertion that all peers actually disappear.
+    await Promise.all([...io.of('/').sockets.values(), ...io.of('/alarm').sockets.values()].map(disconnected));
+    assert.equal(io.of('/').sockets.size, 0);
+    assert.equal(io.of('/alarm').sockets.size, 0);
+  });
+  beforeEach(function () {
+    requests = []; authorizations = 0; glucose = 123; foodWrites = []; challenges = 0; foodFailures = 0; loadingResponses = 0;
+    buildVersion = workerVersion = 'page-startup'; blockBundles = false; bundleRequests = [];
+  });
 
-  async function withNativePage(run) {
+  function readyEntry(entry) {
+    if (entry === 'app') return document.querySelector('.currentBG').textContent.trim() === '123';
+    if (entry === 'reports') return !!window.Nightscout.report_plugins;
+    if (entry === 'admin') return document.querySelector('#admin_placeholder').children.length > 0;
+    if (entry === 'profile') return /Values loaded|Default values used/.test(document.querySelector('.pe_status').textContent);
+    return document.querySelector('#fe_status').textContent === 'Database loaded';
+  }
+
+  async function withNativePage(run, {serviceWorkers = 'block'} = {}) {
     // Use a native document origin for navigation with in-flight polling.
     // All routes are finite owned responses; CSP bounds subresource traffic.
-    const context = await getBrowser().newContext({serviceWorkers: 'block', acceptDownloads: false});
-    const external = [], errors = [];
+    const context = await getBrowser().newContext({serviceWorkers, acceptDownloads: false});
+    const external = [], errors = [], messages = [];
+    context.on('console', message => {messages.push(message.text()); if (messages.length > 30) messages.shift();});
     context.on('request', request => {if (new URL(request.url()).origin !== origin) external.push(request.url());});
     context.on('page', page => page.on('pageerror', error => errors.push(error.message)));
     try {
       const page = await context.newPage();
       page.setDefaultTimeout(5000);
+      page.setDefaultNavigationTimeout(5000);
       await run({page});
       assert.deepEqual(external, [], 'Unexpected external request');
       assert.deepEqual(errors, [], 'Uncaught browser errors');
-    } finally {await context.close();}
+    } catch (error) {error.message += '\nBrowser messages: ' + JSON.stringify(messages); throw error;}
+    finally {await context.close();}
   }
 
   for (const authenticate of [false, true]) {
@@ -119,28 +164,32 @@ describe('Complete page template startup', function () {
             await page.locator('#requestauthenticationdialog-btn').click();
           }
           await page.waitForFunction(() => window.Nightscout && window.Nightscout.client.socket && window.Nightscout.client.socket.connected);
-          await page.waitForFunction(entry => {
-            if (entry === 'app') return document.querySelector('.currentBG').textContent.trim() === '123';
-            if (entry === 'reports') return !!window.Nightscout.report_plugins;
-            if (entry === 'admin') return document.querySelector('#admin_placeholder').children.length > 0;
-            if (entry === 'profile') return /Values loaded|Default values used/.test(document.querySelector('.pe_status').textContent);
-            return document.querySelector('#fe_status').textContent === 'Database loaded';
-          }, entry);
+          await page.waitForFunction(readyEntry, entry);
           assert.ok(authorizations >= 1);
           assert.equal(challenges, authenticate ? 1 : 0);
           assert.equal(await page.evaluate(() => window.Nightscout.client.hashauth.isAuthenticated()), true);
           assert.equal(await page.locator('#page-load-error').isVisible(), false);
-          assert.deepEqual(requests.filter(value => /^\/bundle\/js\/bundle\..*\.js$/.test(value)),
-            entry === 'app' ? ['/bundle/js/bundle.app.js'] : ['/bundle/js/bundle.app.js', '/bundle/js/bundle.' + entry + '.js']);
+          const expectedBundles = entry === 'app' ? ['/bundle/js/bundle.app.js'] : ['/bundle/js/bundle.app.js', '/bundle/js/bundle.' + entry + '.js'];
+          // The preload scanner can start downloads out of order. Check exact
+          // request counts independently from the ordered parser script tags.
+          assert.deepEqual(requests.filter(value => /^\/bundle\/js\/bundle\..*\.js$/.test(value)).sort(), expectedBundles.slice().sort());
+          assert.deepEqual(await page.locator('script[src]').evaluateAll(scripts => scripts.map(script => new URL(script.src).pathname).filter(value => /^\/bundle\/js\/bundle\..*\.js$/.test(value))), expectedBundles);
           const controls = await page.locator('button, input, select, option').count();
           const draft = entry === 'food' ? '#fe_name' : entry === 'reports' ? '#rp_from' : entry === 'profile' ? '#pe_date' : null;
           const draftValue = entry === 'food' ? 'Unsaved food draft' : '2026-01-02';
           if (draft) await page.locator(draft).fill(draftValue);
           for (let cycle = 0; cycle < 2; cycle++) {
             const before = authorizations;
+            const oldId = await page.evaluate(() => window.Nightscout.client.socket.id);
+            const oldPeer = io.of('/').sockets.get(oldId);
             glucose++;
-            await page.evaluate(() => window.Nightscout.client.socket.io.engine.close());
-            await page.waitForFunction(value => window.Nightscout.client.latestSGV && window.Nightscout.client.latestSGV.mgdl === value, glucose);
+            await Promise.all([
+              disconnected(oldPeer),
+              (async () => {
+                await page.evaluate(() => window.Nightscout.client.socket.io.engine.close());
+                await page.waitForFunction(value => window.Nightscout.client.latestSGV && window.Nightscout.client.latestSGV.mgdl === value, glucose);
+              })()
+            ]);
             assert.equal(authorizations, before + 1, 'One authorization after reconnect');
             assert.equal(io.of('/').sockets.size, 1, 'One active data connection');
             assert.equal(await page.locator('button, input, select, option').count(), controls, 'Reconnect must not duplicate controls');
@@ -164,6 +213,75 @@ describe('Complete page template startup', function () {
       });
     });
   }
+  }
+
+  for (const state of ['loading', 'offline']) {
+    for (const [url, , , entry] of pages) {
+      it('recovers ' + entry + ' after two ' + state + ' startup responses', async function () {
+        let attempts = 0;
+        if (state === 'loading') loadingResponses = 2;
+        await withPage(origin, async ({page}) => {
+          await page.addInitScript(hash => localStorage.setItem('apisecrethash', hash), hash);
+          await page.route(url => url.origin === origin && url.pathname === '/api/v1/status.json', route => {
+            attempts++;
+            return state === 'offline' && attempts <= 2 ? route.abort('failed') : route.fallback();
+          });
+          await page.clock.install();
+          try {
+            await page.goto(origin + url);
+            const message = state === 'loading' ? 'Nightscout is still starting' : 'Connecting to Nightscout server failed';
+            for (let retry = 0; retry < 2; retry++) {
+              await page.waitForFunction(message => window.$ && window.$.active === 0 && document.querySelector('#loadingMessageText') && document.querySelector('#loadingMessageText').textContent.includes(message), message);
+              assert.equal(await page.locator('#loadingMessageText').isVisible(), true);
+              assert.equal(attempts, retry + 1);
+              assert.equal(authorizations, 0, 'No socket initialization before status is ready');
+              const next = page.waitForRequest(url => new URL(url.url()).pathname === '/api/v1/status.json');
+              await page.clock.runFor(5000);
+              await next;
+            }
+            await page.waitForFunction(readyEntry, entry);
+            assert.equal(attempts, 3);
+            assert.equal(authorizations, 1);
+            assert.equal(await page.locator('#centerMessagePanel').isVisible(), false);
+          } finally {
+            await page.evaluate(() => {
+              const client = window.Nightscout && window.Nightscout.client;
+              if (client && client.socket) client.socket.disconnect();
+              if (client && client.alarmSocket) client.alarmSocket.disconnect();
+            });
+          }
+        });
+      });
+    }
+  }
+
+  for (const [url, , , entry] of pages) {
+    it('recovers the actual ' + entry + ' page after two failed bundle downloads', async function () {
+      await withPage(origin, async ({page}) => {
+        await page.addInitScript(hash => localStorage.setItem('apisecrethash', hash), hash);
+        try {
+          for (let cycle = 0; cycle < 2; cycle++) {
+            blockBundles = true;
+            await page.goto(origin + url);
+            const retry = page.getByRole('button', {name: 'Reload page'});
+            await retry.waitFor({state: 'visible'});
+            assert.equal(await page.locator('#centerMessagePanel').isVisible(), false, 'Loading overlay must not obscure recovery');
+            const before = authorizations;
+            blockBundles = false;
+            await Promise.all([page.waitForEvent('load'), retry.press('Enter')]);
+            await page.waitForFunction(readyEntry, entry);
+            assert.equal(authorizations, before + 1);
+            assert.equal(await page.locator('#page-load-error').isVisible(), false);
+          }
+        } finally {
+          await page.evaluate(() => {
+            const client = window.Nightscout && window.Nightscout.client;
+            if (client && client.socket) client.socket.disconnect();
+            if (client && client.alarmSocket) client.alarmSocket.disconnect();
+          });
+        }
+      });
+    });
   }
 
   it('retries a failed initial food fetch on reconnect without duplicating later save actions', async function () {
@@ -243,5 +361,77 @@ describe('Complete page template startup', function () {
         });
       }
     });
+  });
+
+  it('boots every page from cached bundles and retires the old cache on upgrade', async function () {
+    await withNativePage(async ({page}) => {
+      await page.addInitScript(hash => localStorage.setItem('apisecrethash', hash), hash);
+      let navigations = 0;
+      let stage = 'initial installation';
+      page.on('framenavigated', frame => {if (frame === page.mainFrame()) navigations++;});
+      try {
+        await page.goto(origin);
+        await page.evaluate(() => {navigator.serviceWorker.ready.then(() => {window.workerReady = true;});});
+        await page.waitForFunction(() => window.workerReady === true);
+        await page.waitForFunction(readyEntry, 'app');
+        assert.equal(navigations, 1, 'Initial worker installation must not reload a starting page');
+        stage = 'first controlled navigation';
+        await page.goto(origin + '/report/');
+        await page.waitForFunction(() => !!navigator.serviceWorker.controller);
+        stage = 'first visits';
+        for (const [url, , , entry] of pages) {
+          await page.goto(origin + url);
+          await page.waitForFunction(readyEntry, entry);
+        }
+        const cached = await page.evaluate(async () => (await (await caches.open('page-startup')).keys()).map(request => new URL(request.url).pathname));
+        for (const entry of ['app', 'reports', 'admin', 'profile', 'food']) assert.ok(cached.includes('/bundle/js/bundle.' + entry + '.js'));
+
+        blockBundles = true; bundleRequests = [];
+        stage = 'cached visits';
+        for (const [url, , , entry] of pages) {
+          await page.goto(origin + url);
+          await page.waitForFunction(readyEntry, entry);
+          assert.equal(await page.locator('#page-load-error').isVisible(), false);
+        }
+        assert.deepEqual(bundleRequests, [], 'Cached application bundles must boot without an origin download');
+
+        blockBundles = false; buildVersion = 'page-upgrade'; bundleRequests = [];
+        stage = 'new document under old worker';
+        await page.goto(origin + '/report/');
+        await page.waitForFunction(readyEntry, 'reports');
+        assert.ok(bundleRequests.includes('/bundle/js/bundle.app.js?v=page-upgrade'));
+        assert.ok(bundleRequests.includes('/bundle/js/bundle.reports.js?v=page-upgrade'));
+        stage = 'worker upgrade';
+        // Keep the old worker response stable while proving new-document cache
+        // bypass. Browsers may check for worker updates on any navigation.
+        await page.goto(origin);
+        await page.waitForFunction(readyEntry, 'app');
+        assert.equal(await page.evaluate(() => Boolean(navigator.serviceWorker.controller)), true, 'Dashboard is controlled before worker update');
+        const beforeUpdate = navigations;
+        workerVersion = buildVersion;
+        await Promise.all([
+          page.waitForEvent('framenavigated', {predicate: frame => frame === page.mainFrame()}),
+          page.evaluate(async () => {await (await navigator.serviceWorker.getRegistration()).update();})
+        ]);
+        await page.waitForLoadState('load');
+        await page.waitForFunction(async () => {
+          const names = await caches.keys();
+          return names.includes('page-upgrade') && !names.includes('page-startup');
+        });
+        await page.waitForFunction(readyEntry, 'app');
+        assert.equal(navigations, beforeUpdate + 1, 'Exactly one automatic reload when the active dashboard worker updates');
+        stage = 'visits after upgrade';
+        for (const [url, , , entry] of pages) {
+          stage = 'visits after upgrade: ' + entry;
+          await page.goto(origin + url);
+          await page.waitForFunction(readyEntry, entry);
+        }
+      } catch (error) {
+        error.message = 'Application worker stage ' + stage + ': ' + error.message;
+        error.message += '\nPage URL: ' + page.url();
+        error.message += '\nPending HTTP: ' + JSON.stringify([...pendingRequests.values()]);
+        throw error;
+      }
+    }, {serviceWorkers: 'allow'});
   });
 });
