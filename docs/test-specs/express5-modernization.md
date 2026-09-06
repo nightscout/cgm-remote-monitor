@@ -42,11 +42,28 @@ without the new request configuration. Tests include mutation/replacement across
 a mounted API, URL rewriting, request isolation, prototype pollution, three array
 notations, 1000-parameter boundaries and empty versus parsed bodies.
 
-A preliminary backend run passed 1,982 tests (one existing pending), before the
-final unparsed-body compatibility addition and Helmet integration. That is not
-final validation of the combined change. Full backend, client core, browser,
-Docker/pruned runtime, audit and exact-current-base CI must pass before merging.
-Installed package and image/memory measurements remain outstanding; no saving
-is claimed from removing Express 4's old transitive packages alone.
+The candidate refreshed onto Helmet merge 19bd2191 passes a clean Node 22
+install/build, all 2,007 backend cases (one existing pending), all 552 Chromium
+browser cases and all 283 client-core cases. The 74 combined request, parser,
+security-header and MIME cases also pass on Node 24. Application lint has zero
+errors and the sixteen existing warnings; npm reports zero audit findings.
+
+One earlier combined backend run had an ECONNRESET in UUID-EDGE-004. Five
+consecutive isolated runs of the entire 15-case UUID suite and a full backend
+rerun passed without code changes or test retries. The reset's cause was not
+established; preserve this observation when assessing hosted CI. No failure is
+skipped or retried by the test suite.
+
+Hosted backend, browser, Docker/pruned runtime, npm 12, CodeQL and
+exact-current-base CI must pass before merging.
+
+The lockfile has 292 production package records versus 293 with Express 4 and
+Helmet 8. All six production browser bundles are byte-identical. Several old
+Express debug/MIME dependencies disappear, while the router and newer parser
+chains add others. On the local ARM64 installation, summing the files belonging to production
+package records (excluding nested node_modules from each package to avoid double
+counting) gives 63,143,032 bytes before and 62,941,572 after: 201,460 bytes less.
+All production package directories are present in both installations. This is
+not a Docker-image or runtime-memory measurement; those remain outstanding.
 
 Migration reference: https://expressjs.com/en/guide/migrating-5/
