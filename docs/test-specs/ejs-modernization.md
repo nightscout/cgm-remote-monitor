@@ -53,7 +53,10 @@ The initial backend run passed 2,021 cases with one existing pending case; its
 only failure invoked the removed Jake dependency. That obsolete test is now
 removed and the 26 combined template/brace-expansion cases pass on both Node
 floors. The subsequent clean backend run passes all 2,021 cases with one
-existing pending case. Hosted final-head CI remains required before merge.
+existing pending case. After refreshing onto Axios merge `fdad2805`, a clean
+install/build, all 66 combined EJS/brace-expansion/Axios/SASLprep/Connect cases
+and the complete pruned runtime checks pass on both supported Node floors.
+Hosted final-head CI remains required before merge.
 
 Sources: [EJS 6.0.1](https://github.com/mde/ejs/releases/tag/v6.0.1),
 [EJS 5 migration notes](https://github.com/mde/ejs/blob/main/RELEASE_NOTES_v5.md).
