@@ -42,3 +42,13 @@ Before deploying the modernization release on a database currently running 4.4:
 4. Keep application rollback and database rollback separate. Reverting Nightscout does not undo database binary or FCV changes. Agree a recovery plan using MongoDB's documented downgrade restrictions and the verified backup; account for writes made since that backup.
 
 The follow-up database work must validate maintained MongoDB 7/8 releases with the selected driver and existing client/API fixtures before changing the recommended deployment version. Retiring 5/6 requires a separate support decision and release notice; they remain in CI during this migration. Database upgrade/restore evidence is required before final promotion of #8605. No production database is changed by this PR.
+
+
+## MongoDB query filters
+
+This release rejects `$where`, `$function` and `$accumulator` when used to
+submit JavaScript through Nightscout database queries. Replace such filters
+with ordinary MongoDB comparison, logical or aggregation operators. Explicit
+literal values containing these names remain data. Profile filter requests
+rejected by this validation return HTTP 400 with an explanatory message;
+other profile storage failures return a generic HTTP 500.
