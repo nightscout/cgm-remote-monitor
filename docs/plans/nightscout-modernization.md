@@ -196,6 +196,10 @@ The user confirmed on 2026-09-05 that all implementation PRs target `chore/night
 
 - M11 native assets/CSS: [#8630](https://github.com/nightscout/cgm-remote-monitor/pull/8630) merged as `53e279ca` (head `37b6f077`, parent `ce806e5b`). [CI](https://github.com/nightscout/cgm-remote-monitor/actions/runs/33994068828) passed all eight backend jobs, six browser jobs, npm 12, CodeQL and both native Docker checks; actual merge tree verified. Three direct loaders and 22 lock paths are removed with no replacements or retained version upgrades. Main/core/dependency totals: 1,580 / 283 / 264, one unrelated pending Node case; browser total: 433. The app bundle is 18,979 bytes smaller, clock/logo bytes are unchanged, and seven new image/source-map/cascade/HMR cases pass across all engines.
 
+### M21 URI credential parser work in progress
+
+Replace mongo-url-parser with the public connection-string parser already used by the installed MongoDB driver. [Contracts and validation](../test-specs/mongo-uri-credentials.md) cover driver grammar, decoded password comparisons and the no-connection requirement. The direct declaration count is unchanged; one installed legacy package is removed. Full validation remains open.
+
 ### M20 completed Express parser ownership
 
 M20 completed in #8641, merged as `09af1869`, after all required checks passed and merge tree `a869bac6` matched verification. Application imports use Express's public parser functions with existing options and middleware order. [Validation notes](../test-specs/express-parsers.md) cover the shared implementations and regression suite. Only the direct declaration is removed; the transitive package and runtime memory remain.
