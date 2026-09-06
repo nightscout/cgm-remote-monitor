@@ -52,3 +52,12 @@ with ordinary MongoDB comparison, logical or aggregation operators. Explicit
 literal values containing these names remain data. Profile filter requests
 rejected by this validation return HTTP 400 with an explanatory message;
 other profile storage failures return a generic HTTP 500.
+
+### Count and slice storage permissions
+
+The legacy `/api/v1/count/:storage/where` and `/api/v1/slice/:storage/...`
+routes now require `api:treatments:read` or `api:devicestatus:read` when that
+storage is selected, in addition to the existing `api:entries:read` gate.
+An entries-only token can no longer read those other collections through these
+routes. Grant the specific additional read permission to clients that need it.
+Entries reads and the existing unknown-storage fallback remain unchanged.
