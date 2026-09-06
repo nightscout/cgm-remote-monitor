@@ -72,6 +72,41 @@ describe('language', function ( ) {
     language.translate('Showing %1 of %2 records', '3', '10').should.equal('Visar 3 av 10 poster');
   });
 
+  it('loads Lithuanian through its registered language code', function () {
+    var language = require('../lib/language')();
+    language.get('lt').language.should.equal('Lietuvių');
+    language.getFilename('lt').should.equal('lt_LT.json');
+    language.set('lt');
+    language.speechCode.should.equal('lt-LT');
+    language.loadLocalization(fs);
+    language.translate('Carbs').should.equal('Angliavandeniai');
+    language.translate('ml').should.equal('ml');
+    language.translate('virtAsstTitleUploaderBattery').should.equal('Įkėlėjo baterija');
+    language.translate('Sensor age %1 days %2 hours', '2', '3').should.equal('Sensoriaus amžius: 2 d. 3 val.');
+    language.translate('Showing %1 of %2 records', '3', '10').should.equal('Showing 3 of 10 records');
+  });
+
+  it('uses Lithuanian labels for the missing-data time pill', function () {
+    var language = require('../lib/language')();
+    language.set('lt');
+    language.loadLocalization(fs);
+    var timeago = require('../lib/plugins/timeago')({ language: language });
+    timeago.calcDisplay().should.deepEqual({ label: 'prieš', shortLabel: 'prieš' });
+    language.translate('min ago').should.equal('min.');
+    language.translate('hour ago').should.equal('val.');
+  });
+
+  it('keeps Lithuanian keys and placeholders aligned with the English catalog', function () {
+    var english = JSON.parse(fs.readFileSync(path.join(__dirname, '../translations/en/en.json'), 'utf8'));
+    var lithuanian = JSON.parse(fs.readFileSync(path.join(__dirname, '../translations/lt_LT.json'), 'utf8'));
+    Object.keys(lithuanian).sort().should.deepEqual(Object.keys(english).sort());
+    Object.keys(english).forEach(function (key) {
+      lithuanian[key].should.be.a.String().and.not.empty();
+      var placeholders = /%\d+|\{\d+\}/g;
+      (lithuanian[key].match(placeholders) || []).sort().should.deepEqual((english[key].match(placeholders) || []).sort());
+    });
+  });
+
   it('fallback to English filename for unsupported language codes', function () {
     var language = require('../lib/language')();
     language.getFilename('unknown_language').should.equal('en/en.json');
