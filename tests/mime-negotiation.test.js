@@ -39,7 +39,7 @@ describe('API extension negotiation contracts', function () {
       if(type==='application/json') assert.deepEqual(result.body.result,[{sgv:123}]);
       else assert(result.text.includes('123'));
     }
-    for(const ext of ['unknown','exe','dll','deb','dmg','iso','msi','asc','wav','mpp','html','jsonld','rdf']) {
+    for(const ext of ['unknown','exe','dll','deb','dmg','iso','msi','asc','wav','mpp','html','jsonld','rdf','es','js','mjs','xfdf','fdf','prc','sql','aac','hsj2','mts','jpgm']) {
       await request(app).get('/entries.'+ext).expect(406);
     }
   });
