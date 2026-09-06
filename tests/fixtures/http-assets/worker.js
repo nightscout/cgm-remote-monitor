@@ -93,6 +93,10 @@ async function run() {
     ['/swagger.json', 'lib/server/swagger.json', true],
     ['/swagger.yaml', 'lib/server/swagger.yaml', true]
   ];
+  for (const entry of ['app', 'clock', 'reports', 'admin', 'profile', 'food']) {
+    sources.push(['/bundle/js/bundle.' + entry + '.js?v=http-contract',
+      'node_modules/.cache/_ns_cache/public/js/bundle.' + entry + '.js', true]);
+  }
   for (const [url, file, compressed] of sources) {
     const source = fs.readFileSync(path.join(root, file), 'utf8');
     for (const encoding of ['identity', 'gzip']) {
@@ -117,7 +121,12 @@ async function run() {
     assert.match(response.headers['content-type'], /text\/html/);
     assert.equal(response.headers['content-encoding'], 'gzip');
     assert.match(response.text, /<!DOCTYPE html>/i);
-    if (!url.includes('api-docs') && !url.includes('api3-docs')) assert.ok(response.text.includes(bundlePrefix + '/js/bundle.'), url + ' uses the correct bundle');
+    if (!url.includes('api-docs') && !url.includes('api3-docs')) {
+      const entries = url.startsWith('/clock/') ? ['clock'] : ['app'];
+      const entry = {'/admin/': 'admin', '/profile': 'profile', '/food': 'food', '/report/': 'reports'}[url];
+      if (entry) entries.push(entry);
+      for (const name of entries) assert.ok(response.text.includes(bundlePrefix + '/js/bundle.' + name + '.js?v=http-contract'), url + ' uses versioned page bundles');
+    }
     results.push(url);
   }
   const serviceWorker = await client.get('/sw.js').expect(200);
@@ -141,10 +150,14 @@ async function run() {
   await client.get('/clock/%zz').expect(400);
   results.push('service worker', 'robots', 'loaded API status', '404/400');
   if (development) {
-    const built = await client.get('/devbundle/js/bundle.app.js').timeout(60000).expect(200);
-    assert.match(built.headers['content-type'], /javascript/);
-    assert.ok(built.text.includes('Nightscout bundle ready'));
-    assert.ok(built.text.includes('webpack-hot-middleware'));
+    for (const entry of ['app', 'clock', 'reports', 'admin', 'profile', 'food']) {
+      const built = await client.get('/devbundle/js/bundle.' + entry + '.js?v=http-contract').timeout(60000).expect(200);
+      assert.match(built.headers['content-type'], /javascript/);
+      if (entry === 'app') {
+        assert.ok(built.text.includes('Nightscout bundle ready'));
+        assert.ok(built.text.includes('webpack-hot-middleware'));
+      }
+    }
     results.push('actual webpack development middleware');
   } else {
     const content = {
