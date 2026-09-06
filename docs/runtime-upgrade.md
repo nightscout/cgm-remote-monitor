@@ -137,8 +137,9 @@ application must not silently discard either configured feed.
 
 Rehearse the switch using owned nonproduction data. Verify region/custom server,
 authentication, repeated uploads, backfill and duplicate handling. Connect marks
-new entries with device `nightscout-connect` rather than `share2`; saved historical
-entries are not rewritten. Do not run old and new ingestion simultaneously.
+new entries with device `nightscout-connect` rather than `share2`. There is no
+bulk history rewrite, but overlapping backfill updates matching readings,
+including their device field, while preserving database identifiers. Do not run old and new ingestion simultaneously.
 Private TLS endpoints must have certificates trusted by the Node runtime; the
 legacy engine's certificate-verification bypass is not retained.
 
