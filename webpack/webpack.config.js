@@ -101,13 +101,6 @@ const rules = [
     type: 'asset/resource',
     generator: { filename: 'images/[contenthash][ext]' },
     exclude: /node_modules/
-  },
-  {
-    test: require.resolve('jquery'),
-    loader: 'expose-loader',
-    options: {
-      exposes: ['$']
-    }
   }
 ];
 

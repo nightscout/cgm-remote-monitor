@@ -83,6 +83,10 @@ At the audit baseline, completed foundations were: D3 7.9.0, jsdom-backed test t
   The [ESLint refresh](../test-specs/eslint-modernization.md) replaces the webpack wrapper with a scoped public-API integration, preserves the prior non-blocking development policy, and records the remaining CLI diagnostics for separate cleanup. Production dependencies and bundle bytes are unchanged.
   The [application lint cleanup](../test-specs/lint-cleanup.md) establishes a zero-error baseline and adds lint to one existing CI matrix job; sixteen security warnings remain for targeted review. The API3 alarm credential-log fix merged in #8688; it is no longer pending.
 
+The [MIME and jQuery exposure review](../test-specs/mime-jquery-exposure.md) consolidates
+API lookup on existing mime-types and replaces expose-loader with a browser
+bootstrap. M09 remains open for other dependency and override reviews.
+
 ## Phase 3 — reduce production installation and browser cost
 
 - [ ] **M10 — Separate build from runtime dependencies** (after M01; coordinate with M07 and M11 to avoid lockfile overlap).
