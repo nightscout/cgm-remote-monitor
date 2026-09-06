@@ -216,6 +216,10 @@ The second slice, #8640, replaces bootevent and its nested chain with a local fo
 
 The isolated Babel 8/preset 8/loader 10 candidate preserves the configured browser targets. [Migration review and validation](../test-specs/babel-8.md) cover ESM loading on both supported Node floors, project iOS transforms, compiler semantics, source maps and cache invalidation. Full combined validation remains open; M08 is not yet complete.
 
+### M08 native identifier candidate
+
+UUID major review found only one production v5 call. A scoped node:crypto implementation preserves the persisted namespace, key, UUID bits and malformed-Unicode rejection. [Reference vectors and validation](../test-specs/native-document-identifiers.md) cover fixed IDs, 264 old/new comparisons, repeat processing and full API validation. The candidate removes the direct UUID package; it remains unmerged pending hosted validation. Babel/preset/loader review remains open.
+
 ### M24 compatible Node runner in progress
 
 Native --env-file changes both precedence and parsing of existing values, so the first slice uses a scoped Node runner with the existing .env grammar and file-wins policy. [Process contracts and validation](../test-specs/env-runner.md) cover startup flags, nyc/Mocha children and repeated signal handling. Two installed package paths are removed; nodemon/watch remains a separate unfinished slice.
