@@ -178,5 +178,8 @@
     "js-yaml@^3.0.0": "3.15.2",
     "js-yaml@^4.0.0": "4.3.2",
     "fast-uri@^3.0.0": "3.1.7"
+  },
+  "scarfSettings": {
+    "enabled": false
   }
 }

@@ -68,6 +68,13 @@ describe('Interactive API documentation', function () {
       await page.setViewportSize({width: 390, height: 844});
       for (const route of ['/api-docs/', '/api3-docs/']) {
         await page.goto(origin + route);
+        const title = page.locator('.info .title');
+        await title.waitFor();
+        const lightColor = await title.evaluate(element => getComputedStyle(element).color);
+        await page.getByRole('button', {name: 'Switch to dark mode'}).click();
+        await page.waitForFunction(color => getComputedStyle(document.querySelector('.info .title')).color !== color, lightColor);
+        await page.getByRole('button', {name: 'Switch to light mode'}).click();
+        await page.waitForFunction(color => getComputedStyle(document.querySelector('.info .title')).color === color, lightColor);
         const open = page.getByRole('button', {name: 'Authorize', exact: true}).first();
         await open.focus();
         await page.keyboard.press('Enter');

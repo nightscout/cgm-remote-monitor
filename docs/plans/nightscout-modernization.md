@@ -149,6 +149,12 @@ xml2js 0.5.0: latest 0.6.2 inserts inherited objects/functions into prototype-na
 XML fields on Node 22/24. New regression coverage records the required data
 contract; reconsider a published fix or separately evaluated replacement.
 
+The [Swagger review](../test-specs/swagger-modernization.md) upgrades the docs UI,
+fixes cross-schema initializer state and avoids evaluating browser bundles in
+Node. Isolated middleware retained heap falls about 9.5–9.7 MiB; package and
+documentation-download sizes increase. Installation analytics are disabled.
+Other M09 dependency/override audit work remains open.
+
 ## Phase 3 — reduce production installation and browser cost
 
 - [ ] **M10 — Separate build from runtime dependencies** (after M01; coordinate with M07 and M11 to avoid lockfile overlap).
