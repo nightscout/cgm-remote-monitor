@@ -279,3 +279,14 @@ the merged env-cmd replacement, this completes the M24 implementation decision.
 Revisit when Node provides equivalent portable watch/ignore behavior or the
 project explicitly changes its development restart contract. No production
 runtime or memory improvement is claimed for retaining a development tool.
+
+
+### M22 explicit trusted-proxy policy
+
+The maintainer approved requiring explicit trusted-proxy configuration for
+15.0.9. The candidate replaces all six `forwarded-for` consumers with a shared
+`proxy-addr` helper and applies the same policy to Express HTTPS/hostname
+handling, including removal of the direct `X-Forwarded-Proto` redirect bypass.
+Direct connections are the default. See the [deployment migration guide](../proposals/trusted-proxy-migration.md).
+M22 remains open until candidate CI and hosting migration validation complete;
+no generic Heroku/Azure proxy CIDR is assumed.
