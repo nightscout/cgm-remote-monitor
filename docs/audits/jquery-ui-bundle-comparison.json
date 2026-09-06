@@ -1,7 +1,7 @@
 {
   "baseline": "d48be5e51b22b1c50edb5b50d88166b9e645f405",
   "node": "22.23.2",
-  "scope": "Matched Node 22 production builds: JS gzip, theme CSS gzip and installed regular-file bytes. Not browser heap or server memory. Both builds include the same admin dialog fix.",
+  "scope": "Matched Node 22 production builds: JS gzip, theme CSS gzip and installed regular-file bytes. Not browser heap or server memory. Both builds include the same admin dialog fix. Candidate also includes the independently verified quick-pick food-copy correction; the food page bundle reflects that change.",
   "bundles": {
     "bundle.admin.js": {
       "beforeBytes": 32069,
@@ -29,11 +29,11 @@
     },
     "bundle.food.js": {
       "beforeBytes": 15854,
-      "afterBytes": 15854,
+      "afterBytes": 15868,
       "beforeGzip": 5303,
-      "afterGzip": 5303,
+      "afterGzip": 5316,
       "beforeSHA256": "3235915435ed50979653d4316d91e317dad2667a5387240ca66deb12feec54c7",
-      "afterSHA256": "3235915435ed50979653d4316d91e317dad2667a5387240ca66deb12feec54c7"
+      "afterSHA256": "feb53c9785c02af477d5aa192fa8ea6a3068b8de016fd6ac5176db6703226d92"
     },
     "bundle.profile.js": {
       "beforeBytes": 18498,
@@ -57,7 +57,8 @@
     "bundle/bundle.source.js": "2bd997e5cc7b881e13368d1d6454ac1413c41b5df18c2e5d2a5d7851bbe7be84",
     "webpack/webpack.config.js": "8a4e37edc76777b6bf706bdc05c85896da5fb2a7bb444d72263901a09700a2be",
     "static/css/ui-darkness/jquery-ui.min.css": "babaddec84d3bc7b01c02512b9834d5408572702244ee1d30d6adcf427f0f521",
-    "static/css/ui-lightness/jquery-ui.min.css": "08375e720a0d54caf2183ee0b2da656087c0b4bd58b90d51294e0b3f853dcf9f"
+    "static/css/ui-lightness/jquery-ui.min.css": "08375e720a0d54caf2183ee0b2da656087c0b4bd58b90d51294e0b3f853dcf9f",
+    "lib/food/food.js": "c901d5f94266bfd50407733b768d3ba95e7c4a188ec8f9779ea9045f79cdba0b"
   },
   "themes": {
     "ui-darkness": {

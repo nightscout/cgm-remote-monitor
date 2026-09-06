@@ -1,14 +1,19 @@
 'use strict';
 
 const assert = require('node:assert/strict');
+const qs = require('qs');
 const {withPage} = require('./fixture');
 const {createPageFixture, hash} = require('../fixtures/page-startup/server');
 
 describe('Food editor widget interactions', function () {
-  it('drags foods, edits portions and sends reordered quick-pick updates over two cycles', async function () {
-    const food = {_id: 'owned-food', type: 'food', name: 'Owned oats', carbs: 10, portion: 25, unit: 'g', category: 'Owned', subcategory: '', gi: 2};
-    const picks = ['a', 'b'].map((name, position) => ({_id: 'owned-' + name, type: 'quickpick', name: 'Meal ' + name, position, foods: [], hidden: 'false', hideafteruse: 'true'}));
-    const fixture = await createPageFixture({apiData: {'/api/v1/food.json': [food, ...picks]}});
+  for (const reload of [false, true]) {
+  it('drags foods, edits portions and sends reordered updates twice ' + (reload ? 'with reloads' : 'without reloads'), async function () {
+    const foodId = '000000000000000000000001';
+    const pickIds = ['000000000000000000000002', '000000000000000000000003'];
+    const food = {_id: foodId, type: 'food', name: 'Owned oats', carbs: 10, portion: 25, unit: 'g', category: 'Owned', subcategory: '', gi: 2};
+    const picks = ['a', 'b'].map((name, position) => ({_id: pickIds[position], type: 'quickpick', name: 'Meal ' + name, position, foods: [], hidden: 'false', hideafteruse: 'true'}));
+    const records = [food, ...picks];
+    const fixture = await createPageFixture({apiData: {'/api/v1/food.json': records}});
     const writes = [];
     try {
       await withPage(fixture.origin, async ({page}) => {
@@ -19,6 +24,10 @@ describe('Food editor widget interactions', function () {
         await page.route(fixture.origin + '/api/v1/food/', async route => {
           if (route.request().method() !== 'PUT') return route.fallback();
           writes.push(new URLSearchParams(route.request().postData()));
+          const saved = qs.parse(route.request().postData());
+          const index = records.findIndex(record => record._id === saved._id);
+          assert.ok(index >= 0, 'Update an existing owned quick pick');
+          records[index] = saved;
           await route.fulfill({status: 200, contentType: 'application/json', body: '{}'});
         });
         try {
@@ -26,7 +35,7 @@ describe('Food editor widget interactions', function () {
           await page.waitForFunction(() => document.querySelector('#fe_status').textContent === 'Database loaded');
           await page.waitForFunction(() => window.Nightscout.client.hashauth.isAuthenticated());
           for (let cycle = 0; cycle < 2; cycle++) {
-            const selected = 'owned-' + (cycle === 0 ? 'a' : 'b');
+            const selected = pickIds[cycle];
             const source = page.locator('.draggablefood');
             const target = page.locator('.sortablequickpick[_id="' + selected + '"]');
             await source.dragTo(target);
@@ -42,7 +51,7 @@ describe('Food editor widget interactions', function () {
             const from = await first.boundingBox(), to = await second.boundingBox();
             await page.mouse.move(from.x + 10, from.y + from.height - 8); await page.mouse.down();
             await page.mouse.move(to.x + 10, to.y + to.height - 3, {steps: 20}); await page.mouse.up();
-            const order = cycle === 0 ? ['owned-b', 'owned-a'] : ['owned-a', 'owned-b'];
+            const order = cycle === 0 ? [pickIds[1], pickIds[0]] : pickIds;
             await page.waitForFunction(order => Array.from(document.querySelectorAll('.sortablequickpick')).map(node => node.getAttribute('_id')).join(',') === order.join(','), order);
             await page.locator('#fe_quickpick_save').click();
             await page.waitForFunction(() => window.$.active === 0);
@@ -52,9 +61,22 @@ describe('Food editor widget interactions', function () {
             assert.deepEqual(batch.map(record => record.get('position')), ['0', '1']);
             const saved = batch.find(record => record.get('_id') === selected);
             assert.equal(saved.get('carbs'), String((cycle + 2) * 10));
-            assert.equal(saved.get('foods[0][_id]'), 'owned-food');
+            assert.equal(saved.get('foods[0][_id]'), foodId);
             assert.equal(saved.get('foods[0][portions]'), String(cycle + 2));
+            for (const record of batch) {
+              if (record.has('foods[0][portions]')) {
+                assert.equal(Number(record.get('carbs')), Number(record.get('foods[0][carbs]')) * Number(record.get('foods[0][portions]')), 'Each quick pick retains internally consistent portions and totals');
+              }
+            }
             assert.equal(await source.count(), 1, 'Dragging preserves the original food row');
+            if (reload) {
+            await page.reload();
+            await page.waitForFunction(() => document.querySelector('#fe_status').textContent === 'Database loaded');
+            assert.deepEqual(await page.locator('.sortablequickpick').evaluateAll(nodes => nodes.map(node => node.getAttribute('_id'))), order);
+            assert.equal(await target.locator('.fe_qpportions').inputValue(), String(cycle + 2));
+            assert.ok((await target.locator('legend').textContent()).includes('Carbs: ' + ((cycle + 2) * 10) + ' g'));
+            }
+
           }
         } finally {
           await page.evaluate(() => {
@@ -66,4 +88,5 @@ describe('Food editor widget interactions', function () {
       });
     } finally {await new Promise(resolve => fixture.io.close(resolve));}
   });
+  }
 });

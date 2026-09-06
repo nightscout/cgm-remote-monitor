@@ -84,3 +84,30 @@ CSS outages or full offline database functionality. The inventory tool also now
 recognizes selected jquery-ui imports and reports absent old packages as null
 instead of failing after removal. Remaining application-dialog, persistence,
 full CI and device/accessibility gates are unchanged.
+
+## Food storage boundary and independent portions
+
+The food API suite now sends browser-form quick-pick updates through the actual
+router, extended form parser and MongoDB adapter, then checks both stored
+records and the quick-pick GET response over two cycles. It covers stable IDs,
+positions, nested portions/carbohydrates, totals and string flags. The six food
+API cases pass on Node 22.23.2/MongoDB 6 and Node 24.20.0/MongoDB 8 locally.
+
+The browser fixture now uses valid 24-hex IDs, retains serialized updates for
+subsequent fixture reads and reloads the actual editor to verify reconstructed
+order, portions and totals. This browser fixture is not MongoDB: the two tests
+prove complementary UI/reload and real API/storage boundaries, not one full
+browser-to-Mongo end-to-end session.
+
+An additional no-reload case exposed an existing food aliasing defect on both
+the old bundle at d48be5e5 and the UI candidate: adding one food to a second quick
+pick changes the first pick's nested portions while leaving its total unchanged
+(20 g reported versus 30 g implied by its nested food). The drop handler now
+copies the food's fields and initializes portions on that copy, preserving the
+source row and independent quick-pick portions. Both no-reload and reload cases
+pass on Chromium/Node 22 and WebKit/Node 24 after the fix. This changes production
+food behavior to remove shared mutable portion state; it is not merely a test
+fixture change. The bundle comparison includes the resulting food-page change.
+
+Fresh full CI and the remaining application-dialog/device/accessibility checks
+are still required before merging this candidate.
