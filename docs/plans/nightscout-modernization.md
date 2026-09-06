@@ -200,6 +200,10 @@ The user confirmed on 2026-09-05 that all implementation PRs target `chore/night
 
 The first slice batches probability requests through the existing simple-statistics API in four report plugins and reuses hourly reading arrays. [Validation and measurements](../test-specs/batched-report-quantiles.md) record the sort reduction and paired computation samples. Cross-unit and DST chart goldens pass against both the scalar and batching implementations. The library remains installed; refreshed hosted validation and the separate local-statistics candidate #8647 remain open.
 
+### M21 URI credential parser work in progress
+
+Replace mongo-url-parser with the public connection-string parser already used by the installed MongoDB driver. [Contracts and validation](../test-specs/mongo-uri-credentials.md) cover driver grammar, decoded password comparisons and the no-connection requirement. The direct declaration count is unchanged; one installed legacy package is removed. Full validation remains open.
+
 ### M20 completed Express parser ownership
 
 M20 completed in #8641, merged as `09af1869`, after all required checks passed and merge tree `a869bac6` matched verification. Application imports use Express's public parser functions with existing options and middleware order. [Validation notes](../test-specs/express-parsers.md) cover the shared implementations and regression suite. Only the direct declaration is removed; the transitive package and runtime memory remain.
