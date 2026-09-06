@@ -87,6 +87,13 @@ The [MIME and jQuery exposure review](../test-specs/mime-jquery-exposure.md) con
 API lookup on existing mime-types and replaces expose-loader with a browser
 bootstrap. M09 remains open for other dependency and override reviews.
 
+The [Helmet review](../test-specs/helmet-modernization.md) merged in #8696
+as `19bd2191`, with all required CI passing and an independently verified merge
+tree. Helmet 8.3 preserves existing CSP/HSTS/embedding policies; only obsolete
+Expect-CT is retired. The [Express 5 review](../test-specs/express5-modernization.md)
+covers request parsing, mutable filters, route syntax and MIME negotiation.
+Remaining dependency and override reviews keep M09 open.
+
 The [SASLprep review](../test-specs/saslprep-modernization.md) removes its redundant
 root declaration because driver 7.6 declares it as required, resolves 1.5.0,
 and adds Unicode SCRAM authentication checks to existing runtime CI jobs.

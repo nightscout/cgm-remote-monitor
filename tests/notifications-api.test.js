@@ -63,6 +63,7 @@ describe('Notifications API', function ( ) {
     notifications.process();
 
     var app = require('express')();
+    require('../lib/middleware/configure-request')(app);
     app.enable('api');
     var wares = require('../lib/middleware/')(env);
     app.use('/', notificationsAPI(app, wares, ctx));
