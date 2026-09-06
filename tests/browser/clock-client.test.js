@@ -35,7 +35,8 @@ describe('clock client in a real browser', function () {
   });
 
   async function render(serverUnits, browserUnits, scaled, delta, options = {}) {
-    properties = {bgnow: {sgvs: [{mgdl: 100, scaled, mills: Date.now(), direction: 'Flat'}]}, delta: {mgdl: 5, display: delta}};
+    properties = {bgnow: {sgvs: [{mgdl: options.bg ?? 100, scaled, mills: Date.now() - (options.stale ? 20 * 60 * 1000 : 0), direction: Object.hasOwn(options, 'direction') ? options.direction : 'Flat'}]}, delta: {mgdl: 5, display: delta}};
+    if (properties.bgnow.sgvs[0].direction === undefined) delete properties.bgnow.sgvs[0].direction;
     requests = [];
     return withPage(origin, async ({page}) => {
       await page.goto(origin);
@@ -46,7 +47,7 @@ describe('clock client in a real browser', function () {
         inner.setAttribute('data-face', options.face || 'bn0-sg40-dt14-ag6-ar25');
         if (options.config) inner.setAttribute('data-face-config', options.config);
         window.serverSettings = {settings: {units: serverUnits, showClockDelta: true, showClockLastTime: false}};
-        window.Nightscout.client.settings = {units: browserUnits, thresholds: {bgHigh: 260, bgLow: 55, bgTargetBottom: 80, bgTargetTop: 180}, timeFormat: 12};
+        window.Nightscout.client.settings = {units: browserUnits, thresholds: {bgHigh: 260, bgLow: 55, bgTargetBottom: options.lowerTarget ?? 80, bgTargetTop: 180}, timeFormat: 12};
         window.Nightscout.client.unitMismatch = browserUnits !== serverUnits;
       }, {serverUnits, browserUnits, options});
       const snapshots = [];
@@ -70,6 +71,7 @@ describe('clock client in a real browser', function () {
             unsafe: inner.querySelectorAll('img, script, [onclick], [onerror]').length,
             text: inner.textContent,
             em: inner.querySelector('.em')?.textContent,
+            arrow: inner.querySelector('.ar img')?.getAttribute('src'),
             sg: inner.querySelector('.sg')?.innerHTML, dt: inner.querySelector('.dt')?.innerHTML
           };
         }));
@@ -78,6 +80,46 @@ describe('clock client in a real browser', function () {
       return snapshots;
     });
   }
+
+
+  describe('low and falling emoji', function () {
+    async function check(bg, direction, expected, options = {}) {
+      const results = await render('mg/dl', options.browser || 'mg/dl', bg, '-5', {
+        face: 'bn10-sg40-em40-ar25', bg, direction, ...options
+      });
+      for (const result of results) assert.equal(result.em, expected);
+      return results;
+    }
+    for (const direction of ['FortyFiveDown', 'SingleDown', 'DoubleDown', 'TripleDown', 'down', 'slightdown']) {
+      it('shows concern at 74 with direction ' + direction, async function () {
+        await check(74, direction, '😟');
+      });
+    }
+    for (const direction of ['Flat', 'SingleUp', 'NONE', 'NOT COMPUTABLE', undefined]) {
+      it('preserves the existing face without a falling trend: ' + direction, async function () {
+        await check(74, direction, '😊');
+      });
+    }
+    it('uses the configured lower target and its boundary', async function () {
+      await check(89, 'SingleDown', '😟', {lowerTarget: 90});
+      await check(90, 'SingleDown', '😊', {lowerTarget: 90});
+      await check(89, 'SingleDown', '😊', {lowerTarget: 80});
+    });
+    it('preserves existing low-value faces', async function () {
+      await check(72, 'SingleDown', '😱');
+      await check(54, 'DoubleDown', '🥶');
+      await check(40, 'DoubleDown', '❌');
+    });
+    it('uses mg/dL internally when displaying mmol/L', async function () {
+      for (const result of await check(74, 'SingleDown', '😟', {browser: 'mmol'})) assert.equal(result.sg, '4.1');
+    });
+    it('keeps stale data ahead of the trend warning', async function () {
+      await check(74, 'SingleDown', '🤷', {stale: true});
+    });
+    it('uses the same normalized direction for the arrow', async function () {
+      for (const result of await check(74, 'down', '😟')) assert.equal(result.arrow, '/images/SingleDown.svg');
+    });
+  });
 
   it('constructs every supported face component with bounded numeric sizing', async function () {
     for (const result of await render('mg/dl', 'mg/dl', '100', '+5', {face: 'bn0-sg40-dt14-nl-ar25-ag6-tm10-em40'})) {

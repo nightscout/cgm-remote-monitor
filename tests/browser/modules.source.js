@@ -5,6 +5,7 @@
 window.NightscoutTestModules = {
   makeBus: require('../../lib/bus'),
   utils: require('../../lib/utils'),
+  profilefunctions: require('../../lib/profilefunctions'),
   browserSettings: require('../../lib/client/browser-settings'),
   careportal: require('../../lib/client/careportal'),
   boluscalc: require('../../lib/client/boluscalc'),

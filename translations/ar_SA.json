@@ -709,5 +709,8 @@
     "Security issue": "مشكلة أمنية",
     "Weak API_SECRET detected. Please use a mix of small and CAPITAL letters, numbers and non-alphanumeric characters such as !#%&/ to reduce the risk of unauthorized access. The minimum length of the API_SECRET is 12 characters.": "تم اكتشاف API_SECRET ضعيف. يرجى استخدام مزيج من الأحرف الصغيرة والكبيرة والأرقام والأحرف غير الأبجدية الرقمية مثل !#٪&/ لتقليل مخاطر الوصول غير المصرح به. الحد الأدنى لقوة API_SECRET هو 12 حرفًا.",
     "less than 1": "أقل من",
+    "Authorization failed. Reauthorize Nightscout access or ask the administrator to check your Loop command permissions.": "Authorization failed. Reauthorize Nightscout access or ask the administrator to check your Loop command permissions.",
+    "Could not confirm whether Loop received this command. Check your connection and Loop before submitting it again.": "Could not confirm whether Loop received this command. Check your connection and Loop before submitting it again.",
+    "Nightscout returned an error without details. Check Loop before submitting again, and ask the Nightscout administrator to check the server logs.": "Nightscout returned an error without details. Check Loop before submitting again, and ask the Nightscout administrator to check the server logs.",
     "MongoDB password and API_SECRET match. This is a really bad idea. Please change both and do not reuse passwords across the system.": "تطابق كلمة مرور مونغو دي بي و API_SECRET. فكرة سيئة حقًا. يرجى تغيير كليهما وعدم إعادة استخدام كلمات المرور داخل النظام."
 }

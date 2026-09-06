@@ -49,4 +49,32 @@ describe('query', function ( ) {
 
     opts._id.toString().should.equal(objectId);
   });
+  describe('date filter normalization', function () {
+    const cases = [
+      ['2026-09-05 00:00:00-04:00', '2026-09-05T04:00:00.000Z'],
+      ['2026-09-05 00Z', '2026-09-05T00:00:00.000Z'],
+      ['2026-09-05 00:00:00Z', '2026-09-05T00:00:00.000Z'],
+      ['2026-09-05 00:00:00+02:00', '2026-09-04T22:00:00.000Z'],
+      ['2026-09-05T00:00:00+02:00', '2026-09-04T22:00:00.000Z'],
+      ['2026-09-05T00:00:00 02:00', '2026-09-04T22:00:00.000Z'],
+      ['2026-09-05 00:00:00 02:00', '2026-09-04T22:00:00.000Z'],
+      ['2026-09-05T00:00:00 0230', '2026-09-04T21:30:00.000Z'],
+      ['2026-09-05 00:00:00.123 02', '2026-09-04T22:00:00.123Z']
+    ];
+
+    cases.forEach(function (testCase) {
+      it('normalizes ' + testCase[0], function () {
+        const result = query({ find: { created_at: { $gte: testCase[0] } } }, {
+          dateField: 'created_at', walker: {}
+        });
+        result.created_at.$gte.should.equal(testCase[1]);
+      });
+    });
+
+    it('still rejects invalid dates', function () {
+      (() => query({ find: { created_at: { $gte: '2026-99-05T00:00:00Z' } } }, {
+        dateField: 'created_at', walker: {}
+      })).should.throw(/Cannot parse/);
+    });
+  });
 }); 
