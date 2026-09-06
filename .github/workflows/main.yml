@@ -1,5 +1,8 @@
 name: CI test and publish Docker image
 
+permissions:
+  contents: read
+
 on:
   push:
     branches:
@@ -18,19 +21,16 @@ jobs:
       matrix:
         node-version: [20, 22, 24]
         mongodb-version: [4.4, 5.0, 6.0]
-    env:
-      # Temporary: Allow Node 20 until branch protection rules are updated
-      # See: https://github.blog/changelog/2025-09-19-deprecation-of-node-20-on-github-actions-runners/
-      ACTIONS_ALLOW_USE_UNSECURE_NODE_VERSION: true
 
     steps:
       - name: Git Checkout
-        uses: actions/checkout@v3
+        uses: actions/checkout@v5
 
       - name: Use Node.js ${{ matrix.node-version }}
-        uses: actions/setup-node@v3
+        uses: actions/setup-node@v5
         with:
           node-version: ${{ matrix.node-version }}
+          package-manager-cache: false
 
       - name: Start MongoDB ${{ matrix.mongodb-version }}
         uses: supercharge/mongodb-github-action@1.3.0
@@ -44,51 +44,116 @@ jobs:
       - name: Send Coverage
         run: npm run-script coverage
 
-  publish:
-    name: Publish to Docker Hub
+  docker-build-pr:
+    name: Validate Docker image
     needs: test
+    if: github.event_name == 'pull_request'
     runs-on: ubuntu-latest
+    steps:
+      - name: Git Checkout
+        uses: actions/checkout@v5
+        with:
+          persist-credentials: false
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v4
+      - name: Build Docker image without publishing
+        uses: docker/build-push-action@v7
+        with:
+          context: .
+          push: false
+          platforms: linux/amd64
+          tags: nightscout/cgm-remote-monitor:pr-${{ github.event.pull_request.number }}
+
+  docker-build:
+    name: Build Docker image (${{ matrix.arch }})
+    needs: test
     if: (github.ref == 'refs/heads/master' || github.ref == 'refs/heads/dev') && github.repository_owner == 'nightscout'
+    runs-on: ${{ matrix.runner }}
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - arch: amd64
+            platform: linux/amd64
+            runner: ubuntu-latest
+          - arch: arm64
+            platform: linux/arm64
+            runner: ubuntu-24.04-arm
     env:
       DOCKER_IMAGE: nightscout/cgm-remote-monitor
-      PLATFORMS: linux/amd64,linux/arm64
     steps:
-      - name: Set up QEMU
-        uses: docker/setup-qemu-action@v1
       - name: Set up Docker Buildx
-        uses: docker/setup-buildx-action@v1
+        uses: docker/setup-buildx-action@v4
       - name: Login to Docker Hub
-        uses: docker/login-action@v1
+        uses: docker/login-action@v4
         with:
           username: ${{ secrets.DOCKER_USER }}
           password: ${{ secrets.DOCKER_PASS }}
       - name: Clean git Checkout
         if: success()
-        uses: actions/checkout@v3
-      - name: Build, tag and push the dev Docker image
-        if: success() && github.ref == 'refs/heads/dev'
-        uses: docker/build-push-action@v2
+        uses: actions/checkout@v5
+      - name: Prepare Docker tags
+        id: docker-tags
+        shell: bash
+        run: |
+          if [[ "${GITHUB_REF}" == "refs/heads/dev" ]]; then
+            echo "version_tag=${DOCKER_IMAGE}:dev_${GITHUB_SHA}-${{ matrix.arch }}" >> "$GITHUB_OUTPUT"
+            echo "latest_tag=${DOCKER_IMAGE}:latest_dev-${{ matrix.arch }}" >> "$GITHUB_OUTPUT"
+          else
+            version="$(node -p "require('./package.json').version")"
+            echo "version_tag=${DOCKER_IMAGE}:${version}-${{ matrix.arch }}" >> "$GITHUB_OUTPUT"
+            echo "latest_tag=${DOCKER_IMAGE}:latest-${{ matrix.arch }}" >> "$GITHUB_OUTPUT"
+          fi
+      - name: Build, tag and push Docker image
+        uses: docker/build-push-action@v7
         with:
           context: .
           push: true
           no-cache: true
-          platforms: ${{ env.PLATFORMS }}
+          platforms: ${{ matrix.platform }}
           tags: |
-            ${{ env.DOCKER_IMAGE }}:dev_${{ github.sha }}
-            ${{ env.DOCKER_IMAGE }}:latest_dev
+            ${{ steps.docker-tags.outputs.version_tag }}
+            ${{ steps.docker-tags.outputs.latest_tag }}
 
-      - name: Get Nightscout release version
-        if: success() && github.ref == 'refs/heads/master'
-        id: package-version
-        uses: martinbeentjes/npm-get-version-action@master
-      - name: Build, tag and push the master Docker image
-        if: success() && github.ref == 'refs/heads/master'
-        uses: docker/build-push-action@v2
+  publish:
+    name: Publish to Docker Hub
+    needs: docker-build
+    runs-on: ubuntu-latest
+    if: (github.ref == 'refs/heads/master' || github.ref == 'refs/heads/dev') && github.repository_owner == 'nightscout'
+    env:
+      DOCKER_IMAGE: nightscout/cgm-remote-monitor
+    steps:
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v4
+      - name: Login to Docker Hub
+        uses: docker/login-action@v4
         with:
-          context: .
-          push: true
-          no-cache: true
-          platforms: ${{ env.PLATFORMS }}
-          tags: |
-            ${{ env.DOCKER_IMAGE }}:${{ steps.package-version.outputs.current-version }}
-            ${{ env.DOCKER_IMAGE }}:latest
+          username: ${{ secrets.DOCKER_USER }}
+          password: ${{ secrets.DOCKER_PASS }}
+      - name: Clean git Checkout
+        uses: actions/checkout@v5
+      - name: Prepare Docker manifest tags
+        id: docker-tags
+        shell: bash
+        run: |
+          if [[ "${GITHUB_REF}" == "refs/heads/dev" ]]; then
+            echo "version_tag=${DOCKER_IMAGE}:dev_${GITHUB_SHA}" >> "$GITHUB_OUTPUT"
+            echo "version_sources=${DOCKER_IMAGE}:dev_${GITHUB_SHA}-amd64 ${DOCKER_IMAGE}:dev_${GITHUB_SHA}-arm64" >> "$GITHUB_OUTPUT"
+            echo "latest_tag=${DOCKER_IMAGE}:latest_dev" >> "$GITHUB_OUTPUT"
+            echo "latest_sources=${DOCKER_IMAGE}:latest_dev-amd64 ${DOCKER_IMAGE}:latest_dev-arm64" >> "$GITHUB_OUTPUT"
+          else
+            version="$(node -p "require('./package.json').version")"
+            echo "version_tag=${DOCKER_IMAGE}:${version}" >> "$GITHUB_OUTPUT"
+            echo "version_sources=${DOCKER_IMAGE}:${version}-amd64 ${DOCKER_IMAGE}:${version}-arm64" >> "$GITHUB_OUTPUT"
+            echo "latest_tag=${DOCKER_IMAGE}:latest" >> "$GITHUB_OUTPUT"
+            echo "latest_sources=${DOCKER_IMAGE}:latest-amd64 ${DOCKER_IMAGE}:latest-arm64" >> "$GITHUB_OUTPUT"
+          fi
+      - name: Publish Docker manifests
+        shell: bash
+        run: |
+          docker buildx imagetools create \
+            -t "${{ steps.docker-tags.outputs.version_tag }}" \
+            ${{ steps.docker-tags.outputs.version_sources }}
+          docker buildx imagetools create \
+            -t "${{ steps.docker-tags.outputs.latest_tag }}" \
+            ${{ steps.docker-tags.outputs.latest_sources }}

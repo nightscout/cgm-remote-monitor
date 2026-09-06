@@ -82,6 +82,7 @@ describe('API3 mongoCollection find helpers', function () {
 
     const result = await find.findOne(col, docId.toString(), {});
 
+    observed.limit.should.equal(1);
     observed.toArrayCalls.should.equal(1);
     result.should.have.length(1);
     result[0].should.have.property('identifier', docId.toString());
@@ -95,6 +96,7 @@ describe('API3 mongoCollection find helpers', function () {
 
     const result = await find.findOneFilter(col, { type: 'mbg' }, {}, { normalize: false });
 
+    observed.limit.should.equal(1);
     observed.toArrayCalls.should.equal(1);
     result.should.have.length(1);
     result[0].should.have.property('_id');

@@ -30,7 +30,7 @@ describe('API3 mongoCollection promise-based helpers', function () {
       const col = {
         replaceOne: function (filter, receivedDoc, options) {
           arguments.length.should.equal(3);
-          filter.should.eql({ $or: [{ identifier: 'record-1' }] });
+          filter.should.eql({ $or: [{ identifier: { $eq: 'record-1' } }] });
           receivedDoc.should.equal(doc);
           options.should.eql({ upsert: true });
           return Promise.resolve({ matchedCount: 1 });
@@ -46,18 +46,18 @@ describe('API3 mongoCollection promise-based helpers', function () {
       const col = {
         updateOne: function (filter, update) {
           arguments.length.should.equal(2);
-          filter.should.eql({ $or: [{ identifier: 'record-2' }] });
+          filter.should.eql({ $or: [{ identifier: { $eq: 'record-2' } }] });
           update.should.eql({ $set: { value: 84 } });
           return Promise.resolve({ modifiedCount: 1 });
         },
         deleteOne: function (filter) {
           arguments.length.should.equal(1);
-          filter.should.eql({ $or: [{ identifier: 'record-2' }] });
+          filter.should.eql({ $or: [{ identifier: { $eq: 'record-2' } }] });
           return Promise.resolve({ deletedCount: 1 });
         },
         deleteMany: function (filter) {
           arguments.length.should.equal(1);
-          filter.should.eql({ $or: [{ kind: 'sgv' }, { kind: 'mbg' }] });
+          filter.should.eql({ $or: [{ kind: { $eq: 'sgv' } }, { kind: { $eq: 'mbg' } }] });
           return Promise.resolve({ deletedCount: 2 });
         }
       };

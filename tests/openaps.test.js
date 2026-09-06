@@ -1,6 +1,5 @@
 'use strict';
 
-const _ = require('lodash');
 const should = require('should');
 
 const helper = require('./inithelper')();
@@ -245,7 +244,7 @@ var statuses = [{
 
 var now = top_ctx.moment(statuses[0].created_at);
 
-_.forEach(statuses, function updateMills (status) {
+statuses.forEach(function updateMills (status) {
   status.mills = top_ctx.moment(status.created_at).valueOf();
 });
 
@@ -260,10 +259,10 @@ describe('openaps', function ( ) {
         updatePillText: function mockedUpdatePillText (plugin, options) {
           options.label.should.equal('OpenAPS ⌁');
           options.value.should.equal('2m ago');
-          var first = _.first(options.info);
+          var first = options.info?.[0];
           first.label.should.equal('1m ago');
           first.value.should.equal('abusypi ⌁ Enacted @ -55dB');
-          var last = _.last(options.info);
+          var last = options.info?.[options.info?.length - 1];
           last.label.should.equal('1h ago');
           last.value.should.equal('awaitingpi ◉ Waiting');
         }
@@ -304,7 +303,7 @@ describe('openaps', function ( ) {
       }
       , pluginBase: {
         updatePillText: function mockedUpdatePillText (plugin, options) {
-          var bgEvent = _.find(options.info, function(entry) {
+          var bgEvent = options.info.find(function(entry) {
             return entry.value.indexOf('BG: ') === 0;
           });
 
@@ -334,10 +333,10 @@ describe('openaps', function ( ) {
       , language: language
       , levels: levels
     };
-
     ctx.notifications.initRequests();
 
-    var notStatuses = _.cloneDeep(statuses);
+    // Deep clone statuses array for test isolation
+    var notStatuses = JSON.parse(JSON.stringify(statuses));
     notStatuses[0].openaps.enacted.recieved = false;
     var sbx = require('../lib/sandbox')().clientInit(ctx, now, {devicestatus: notStatuses});
 

@@ -9,6 +9,7 @@ describe('API3 PATCH', function() {
     , instance = require('./fixtures/api3/instance')
     , authSubject = require('./fixtures/api3/authSubject')
     , opTools = require('../lib/api3/shared/operationTools')
+    , utils = require('./fixtures/api3/utils')
     ;
 
   self.validDoc = {
@@ -57,7 +58,8 @@ describe('API3 PATCH', function() {
   });
 
 
-  after(() => {
+  after(async () => {
+    await utils.storageClear(self.instance.ctx);
     self.instance.ctx.bus.teardown();
   });
 
