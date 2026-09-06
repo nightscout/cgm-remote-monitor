@@ -26,6 +26,7 @@ describe('Public count query boundary', function () {
       if (event.commandName === 'aggregate' && event.command.aggregate === entries.collectionName) aggregateCommands++;
     });
     const app = express();
+    require('../lib/middleware/configure-request')(app);
     app.set('query parser', 'extended');
     const pass = (req, res, next) => next();
     const storage = require('../lib/server/entries')({entries_collection:entries.collectionName}, {store:db});

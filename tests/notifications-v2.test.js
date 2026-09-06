@@ -73,6 +73,7 @@ describe('Loop notifications API v2', function () {
     ctx.authorization.resolve = async function () { return { shiros: [shiro] }; };
 
     var app = express();
+    require('../lib/middleware/configure-request')(app);
     app.use(ctx.wares.sendJSONStatus);
     app.use('/api/v2/notifications', notificationsV2(app, ctx));
     return { app: app, calls: calls, ctx: ctx, env: env };

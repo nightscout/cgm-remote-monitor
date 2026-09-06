@@ -19,6 +19,7 @@ describe('authed REST api', function ( ) {
     this.wares = require('../lib/middleware/')(env);
     this.archive = null;
     this.app = require('express')( );
+    require('../lib/middleware/configure-request')(this.app);
     this.app.enable('api');
     var self = this;
     self.known_key = known;

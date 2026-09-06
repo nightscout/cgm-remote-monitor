@@ -118,6 +118,7 @@ function configure () {
 
         self.wares = require('../../../lib/middleware/')(instance.env);
         instance.app = require('express')();
+        require('../../../lib/middleware/configure-request')(instance.app);
         instance.app.enable('api');
 
         require('../../../lib/server/bootevent')(instance.env, language).boot(function booted (ctx) {

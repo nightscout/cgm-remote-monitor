@@ -47,7 +47,7 @@ describe('legacy reports in a real browser', function () {
     app.get('/api/v1/status.json', (request, response) => response.json(settings));
     app.get('/api/v1/verifyauth', (request, response) => response.json({message: 'OK'}));
     app.get('/api/v1/adminnotifies', (request, response) => response.json({message: {notifies: [], notifyCount: 0}}));
-    app.get('/translations/*', (request, response) => response.json({}));
+    app.get('/translations/{*path}', (request, response) => response.json({}));
     app.get(['/api/v1/entries.json', '/api/v1/treatments.json', '/api/v1/food/regular.json', '/api/v1/profiles', '/api/v1/devicestatus.json'],
       (request, response) => response.json(responses.get(queryKey(request.originalUrl)) || []));
     app.delete('/api/v1/treatments/:id', (request, response) => response.json({message: 'OK'}));

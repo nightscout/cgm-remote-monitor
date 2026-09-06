@@ -10,6 +10,7 @@ describe('API extension negotiation contracts', function () {
     const formats = {json:'application/json', svg:'image/svg+xml', csv:'text/csv', txt:'text/plain',
       png:'image/png', html:'text/html', js:'application/javascript', tsv:'text/tab-separated-values'};
     const app = express();
+    require('../lib/middleware/configure-request')(app);
     app.use(extensions(Object.keys(formats)));
     app.use((req,res) => res.json({url:req.url,accept:req.headers.accept,original:req.extToAccept}));
     for (const [ext,type] of Object.entries(formats)) {
