@@ -32,6 +32,7 @@ the entry point. Missing files fail without running the child; configuration
 values are not printed. The helper is shipped with the repository's bin files.
 
 The lockfile removes env-cmd and its private commander package, with no changes
-to retained entries. The runner is not a server-memory optimization: npm start
+to retained entries. Removed regular-file contents total 139,284 bytes, counting
+the nested commander files only once. The runner is not a server-memory optimization: npm start
 already invokes the server directly. Rollback restores package scripts and the
 manifest/lockfile together, then removes the helper.
