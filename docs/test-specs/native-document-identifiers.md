@@ -36,3 +36,21 @@ No server heap saving is claimed from this file-size measurement.
 No database migration or identifier rewrite is allowed. Rollback restores the
 UUID declaration/lockfile and prior calculateIdentifier together. Existing
 documents and repeated uploads must continue to resolve to the same IDs.
+
+## CodeQL review
+
+CodeQL alert #104 (`js/weak-cryptographic-algorithm`) flags the native SHA-1
+call, identifying the public constant `uuidNamespace` as sensitive input.
+SHA-1 is required by the existing UUID v5 protocol and is retained solely for
+compatibility with persisted identifiers. The identifier is not a credential,
+a signature, a password hash or an integrity guarantee. Callers may supply
+identifiers, and knowing one does not grant write permission: API3 create and
+update authenticate first, check applicable write permission before identifier
+processing/storage queries, and demand the selected insert/replace permission.
+
+The narrow alert disposition is "won't fix" for this protocol-required use;
+CodeQL and its rule remain enabled. Do not reuse this operation for security
+hashing or change its algorithm without a separate persisted-ID migration.
+The 15 identifier contracts plus five create/update authorization-ordering
+cases pass on Node 22.23.2 and 24.20.0 (20 tests on each). Existing full-suite
+coverage also exercises read permissions and unauthorized deduplication.
