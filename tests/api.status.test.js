@@ -19,6 +19,7 @@ describe('Status REST api', function ( ) {
     this.app.enable('api');
     var self = this;
     require('../lib/server/bootevent')(env, language).boot(function booted (ctx) {
+      self.ctx = ctx;
       self.app.use('/api', api(env, ctx));
       done();
     });
@@ -90,6 +91,27 @@ describe('Status REST api', function ( ) {
       });
   });
 
+
+  it('returns the same subject authorization for header and legacy query credentials', async function () {
+    const crypto = require('node:crypto');
+    const auth = this.ctx.authorization;
+    const previous = auth.storage.subjects;
+    const token = 'fixture-0123456789abcdef';
+    auth.storage.subjects = [{name:'Status fixture', accessToken:token,
+      digest:'0123456789abcdef0123456789abcdef',
+      accessTokenDigest:crypto.createHash('sha1').update(token).digest('hex'), roles:['readable']}];
+    try {
+      for (let cycle = 0; cycle < 2; cycle++) {
+        for (const transport of ['header', 'token', 'secret']) {
+          let call = request(this.app).get('/api/status.json');
+          call = transport === 'header' ? call.set('api-secret', token) : call.query({[transport]:token});
+          const result = await call.expect(200);
+          result.body.authorized.sub.should.equal('Status fixture');
+          result.body.authorized.permissionGroups.should.be.an.Array();
+        }
+      }
+    } finally { auth.storage.subjects = previous; }
+  });
 
 });
 
