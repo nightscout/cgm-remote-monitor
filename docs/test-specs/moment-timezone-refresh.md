@@ -27,3 +27,22 @@ and browser CI, and upgrade documentation remain required before merge. Alias
 metadata/country mappings and package/browser-size comparison remain unverified.
 The existing spring-DST schedule-selection discrepancy is not fixed by this
 library-data upgrade and must not be silently treated as corrected.
+
+## Targeted upstream-rule regressions
+
+Expected boundaries come from [IANA 2026c NEWS](https://github.com/eggert/tz/blob/2026c/NEWS),
+including the 2026a/2026b/2025c sections for Moldova, British Columbia and Baja
+California. The fixture groups the aliases shipped by the package; it does not
+independently establish legal timezone policy for each alias region.
+
+The shared fixture covers instants before/at transitions and subsequent dates
+for every changed zone/alias. Profile conversion runs twice for both glucose-unit
+settings and checks object/instant identity as well as local fields and offsets.
+All 43 cases pass on Node 22 and 24. Substituting the old timezone module preserves
+the original 17 passes and makes all 26 new cases fail.
+
+Nine real-browser cases pass on Chromium/Node 22 and WebKit/Node 24 using the
+actual production bundle. They check every changed in-range alias twice. The
+1953 Baja California correction remains server-only because browser data begins
+in 2015. Client-core also passes all 283 cases on Node 24. Full backend and
+current-head hosted CI, including Firefox, remain required before merge.
