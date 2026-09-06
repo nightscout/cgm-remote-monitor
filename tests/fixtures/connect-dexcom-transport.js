@@ -7,7 +7,8 @@ const os = require('node:os');
 const path = require('node:path');
 const https = require('node:https');
 const {execFileSync} = require('node:child_process');
-const {once} = require('node:events');
+const {once, EventEmitter} = require('node:events');
+const {inspect} = require('node:util');
 const {createRequire} = require('node:module');
 const source = require('nightscout-connect/lib/sources/dexcomshare');
 const connectorRequire = createRequire(require.resolve('nightscout-connect'));
@@ -60,6 +61,27 @@ describe('Connect Dexcom transport after legacy migration', function () {
       return axios.create({...config,proxy:false,...(trusted ? {httpsAgent:agent} : {})});
     }});
   }
+  it('does not log migrated credentials during real Connect startup', async function (t) {
+    const logs = [];
+    t.mock.method(console, 'log', (...args) => logs.push(inspect(args, {depth: 10})));
+    for (let cycle = 0; cycle < 2; cycle++) {
+      const env = {extendedSettings: {bridge: {userName: 'owned-user', password: 'owned-password', server: host}}};
+      compat.applyBridgeToConnectCompatibility(env);
+      const bus = new EventEmitter();
+      const ctx = {bus, bootErrors: []};
+      const handle = require('nightscout-connect')(env, ctx);
+      try {
+        assert.ok(handle);
+        assert.deepEqual(ctx.bootErrors, []);
+        bus.emit('tick', {password: 'owned-password'});
+        assert.ok(!logs.join('\n').includes('owned-user'));
+        assert.ok(!logs.join('\n').includes('owned-password'));
+      } finally {
+        await handle.stop();
+        bus.removeAllListeners();
+      }
+    }
+  });
   it('rejects an untrusted endpoint before transmitting credentials twice',async function () {
     for(let cycle=0;cycle<2;cycle++) {
       const before=requests.length;
@@ -98,7 +120,8 @@ describe('Connect Dexcom transport after legacy migration', function () {
       output.gap_for = async () => ({entries: new Date(Date.now() - 300000)});
       const make = builder({output});
       driver(true).generate_driver(make);
-      const actor = interpret(make(), {clock, logger: () => {}});
+      const actorLogs = [];
+      const actor = interpret(make(), {clock, logger: (...args) => actorLogs.push(inspect(args, {depth: 15}))});
       const count = suffix => requests.slice(before).filter(req => req.path.endsWith(suffix)).length;
       async function until(predicate) {
         for (let attempt = 0; attempt < 400; attempt++) {
@@ -130,6 +153,9 @@ describe('Connect Dexcom transport after legacy migration', function () {
         actor.stop(); numberedSessions = false;
       }
       assert.equal(clock.timeouts.size, 0);
+      for (const secret of ['owned-user', 'owned-password', 'owned-account', 'owned-session']) {
+        assert.ok(!actorLogs.join('\n').includes(secret), 'Actor log contains owned secret: ' + secret);
+      }
     }
   });
 

@@ -7,7 +7,7 @@ const run = promisify(execFile);
 
 describe('Connect Dexcom transport after legacy migration', function () {
   this.timeout(30000);
-  it('rejects untrusted TLS and authenticates trusted endpoints over repeated cycles', async function () {
+  it('validates TLS, private startup, session expiry and teardown over repeated cycles', async function () {
     // The API fixture suites disable TLS verification process-wide. A separate
     // process verifies the connector's default TLS behavior without inheriting
     // that override or changing another suite's environment.
