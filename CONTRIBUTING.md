@@ -365,3 +365,8 @@ Lint configuration is maintained in `eslint.config.cjs`. `npm run lint` reports
 CLI rule severities; development webpack builds display the same diagnostics as
 non-blocking warnings. Existing lint debt and the public-API integration are
 documented in the [ESLint modernization review](docs/test-specs/eslint-modernization.md).
+
+Application lint is now a required step in the existing Node 22/MongoDB 5.0.32
+CI job. Run `npm run lint` before submitting application changes. Errors fail
+the check; the remaining security warnings are retained for individual review.
+See the [lint cleanup evidence](docs/test-specs/lint-cleanup.md).

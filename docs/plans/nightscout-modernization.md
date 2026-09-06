@@ -81,6 +81,7 @@ At the audit baseline, completed foundations were: D3 7.9.0, jsdom-backed test t
   Acceptance: highest compatible release per consumer, focused exploit/API regression where relevant, full CI and explicit engine/browser/DB compatibility. Remove an override only after every affected parent resolves safely. Do not use forced audit fixes or a bulk latest-version update; keep Dependabot's current target configuration.
   The [webpack/HMR refresh](../test-specs/webpack-refresh.md) removes a separate hot-middleware dependency using the maintained development middleware, with repeated update/error recovery coverage and explicit installed/browser size costs. It does not complete the remaining dependency reviews.
   The [ESLint refresh](../test-specs/eslint-modernization.md) replaces the webpack wrapper with a scoped public-API integration, preserves the prior non-blocking development policy, and records the remaining CLI diagnostics for separate cleanup. Production dependencies and bundle bytes are unchanged.
+  The [application lint cleanup](../test-specs/lint-cleanup.md) establishes a zero-error baseline and adds lint to one existing CI matrix job; sixteen security warnings and the separately identified API3 token-log issue remain for targeted review.
 
 ## Phase 3 — reduce production installation and browser cost
 
