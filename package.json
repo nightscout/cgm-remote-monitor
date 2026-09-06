@@ -121,7 +121,6 @@
     "node-cache": "^4.2.1",
     "process": "^0.11.10",
     "proxy-addr": "^2.0.7",
-    "pushover-notifications": "^1.2.2",
     "qs": "6.16.0",
     "sanitize-html": "2.17.7",
     "semver": "^7.8.5",

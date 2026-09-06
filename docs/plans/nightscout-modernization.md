@@ -126,6 +126,12 @@ TLS/HTTP2 tests cover actual signed Loop requests, retries, failure handling and
 session/timer cleanup. The published package files grow slightly; no RAM-saving
 claim is made. Remaining M09 reviews stay open.
 
+The [native Pushover transport](../test-specs/pushover-native-transport.md) removes
+pushover-notifications and preserves message/receipt contracts using Node HTTPS.
+Owned TLS tests cover encoding, cancellation, failure classification, deadlines
+and cleanup. Package plus runtime source decreases by 22,575 bytes; no measured
+RAM saving is claimed. This does not complete the remaining M09 reviews.
+
 ## Phase 3 — reduce production installation and browser cost
 
 - [ ] **M10 — Separate build from runtime dependencies** (after M01; coordinate with M07 and M11 to avoid lockfile overlap).
