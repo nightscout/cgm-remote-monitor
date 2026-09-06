@@ -37,6 +37,39 @@ describe('nightscout-connect loading and teardown', function () {
     });
   });
 
+  it('migrates MiniMed once per lifecycle and tears down the replacement once', function () {
+    for (let cycle = 0; cycle < 2; cycle++) {
+      const env = {extendedSettings: {mmconnect: {userName: 'fixture-user', password: 'fixture-password', server: 'EU'}, connect: {countryCode: 'gb'}}};
+      const ctx = context();
+      let imports = 0, stops = 0, continued = 0;
+      connectStage(env, () => {
+        imports++;
+        return configured => {
+          assert.equal(configured.extendedSettings.connect.source, 'minimedcarelink');
+          assert.equal(configured.extendedSettings.connect.carelinkRegion, 'eu');
+          assert.equal(configured.extendedSettings.connect.countryCode, 'gb');
+          return {stop() {stops++;}};
+        };
+      })(ctx, () => continued++);
+      assert.equal(imports, 1); assert.equal(continued, 1);
+      ctx.bus.emit('teardown'); ctx.bus.emit('teardown');
+      assert.equal(stops, 1);
+    }
+  });
+
+  it('does not import any connector for missing MiniMed country or conflicting feeds', function () {
+    for (const other of [{}, {connect: {source: 'glooko'}}, {bridge: {userName: 'private-dexcom', password: 'private-password'}, connect: {countryCode: 'gb'}}]) {
+      for (let cycle = 0; cycle < 2; cycle++) {
+        const env = {extendedSettings: {...other, mmconnect: {userName: 'private-user', password: 'private-password'}}};
+        const ctx = context(); let continued = 0;
+        connectStage(env, () => {throw new Error('conflicting or incomplete connector imported');})(ctx, () => continued++);
+        assert.equal(continued, 1); assert.equal(ctx.bootErrors.length, 1);
+        assert.ok(!JSON.stringify(ctx.bootErrors).includes('private-'));
+        assert.equal(ctx.bus.listenerCount('teardown'), 0);
+      }
+    }
+  });
+
   it('migrates bridge credentials before deciding whether to import', function () {
     const env = {extendedSettings: {bridge: {userName: 'fixture-user', password: 'fixture-password', server: 'EU'}}};
     let imports = 0, calls = 0, continued = 0;
@@ -59,17 +92,34 @@ describe('nightscout-connect loading and teardown', function () {
     assert.strictEqual(continued, 1);
   });
 
-  it('leaves the explicitly selected legacy bridge without loading CONNECT', function () {
-    const env = {extendedSettings: {bridge: {userName: 'fixture', password: 'fixture', useLegacy: true}}};
-    let continued = 0;
-    connectStage(env, () => { throw new Error('legacy bridge loaded CONNECT'); })(context(), () => continued++);
-    assert.strictEqual(continued, 1);
-    assert.strictEqual(env.extendedSettings.connect, undefined);
+  it('routes retired legacy overrides through Connect once per lifecycle', function () {
+    for (const flag of ['useLegacy', 'dexcomBridgeUseLegacy']) {
+      const env = {extendedSettings: {bridge: {userName:'fixture',password:'fixture',[flag]:true}}};
+      const ctx=context();
+      let imports=0,stops=0,continued=0;
+      connectStage(env,()=>{imports++;return ()=>({stop(){stops++;}});})(ctx,()=>continued++);
+      assert.equal(imports,1);assert.equal(continued,1);
+      assert.equal(env.extendedSettings.connect.source,'dexcomshare');
+      ctx.bus.emit('teardown');ctx.bus.emit('teardown');assert.equal(stops,1);
+    }
+  });
+
+  it('reports mixed legacy Dexcom and non-Dexcom Connect without starting either', function () {
+    for(let cycle=0;cycle<2;cycle++) {
+      const env={extendedSettings:{bridge:{userName:'private-user',password:'private-password'},connect:{source:'glooko'}}};
+      const ctx=context();let continued=0;
+      connectStage(env,()=>{throw new Error('Conflicting connector started');})(ctx,()=>continued++);
+      assert.equal(continued,1);assert.equal(ctx.bootErrors.length,1);
+      assert.match(ctx.bootErrors[0].desc,/retired.*15\.0\.9/);
+      assert.ok(!JSON.stringify(ctx.bootErrors).includes('private-'));
+      assert.equal(env.extendedSettings.connect.source,'glooko');
+      assert.equal(ctx.bus.listenerCount('teardown'),0);
+    }
   });
 
   it('preserves explicit CONNECT configuration and stops once per boot lifecycle', function () {
     for (let cycle = 0; cycle < 2; cycle++) {
-      const env = {extendedSettings: {connect: {source: 'nightscout', sourceEndpoint: 'http://127.0.0.1:1'}, bridge: {userName: 'fixture', password: 'fixture'}}};
+      const env = {extendedSettings: {connect: {source: 'nightscout', sourceEndpoint: 'http://127.0.0.1:1'}}};
       const ctx = context();
       let imports = 0, stopped = 0;
       const handle = {stop() { stopped++; }};

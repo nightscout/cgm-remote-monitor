@@ -146,7 +146,7 @@ M18 completed in #8639 (merge `a92d0882`) and #8640 (merge `1fab2a24`). Each pas
   A native help-tooltip candidate removes jquery.tooltips with explicit keyboard/touch/text behavior; see [validation and remaining UI gates](../test-specs/help-tooltips.md). This does not remove jQuery UI/Flot or complete M28.
   Final device accessibility gate for #8605 into dev: **Safari with VoiceOver on a physical iPhone**, selected by the maintainer. Follow the [recorded checklist](../test-specs/iphone-voiceover.md); automated WebKit does not establish spoken output. Reviewed child implementation PRs may integrate with full CI while this release gate remains explicitly open.
 
-- [ ] **M29 — Legacy integration and MongoDB support decisions.** Confirmed 2026-09-05: retire MongoDB 4.4 and earlier from support/CI, retain MongoDB 5/6 during migration. The [runtime/database notice](../runtime-upgrade.md#mongodb-support-during-modernization) records support boundaries, upstream end-of-life dates and upgrade/rollback requirements. Next validate maintained MongoDB 7/8 releases and the chosen driver against real API/client fixtures before recommending them; retiring 5/6 requires a separate decision. Determine usage and migration paths before retiring MiniMed/Dexcom bridges or additional MongoDB versions. Legacy adapters already load lazily; deletion does not save disabled-instance heap. Reuse the existing MongoDB proposal's Loop/Trio/AAPS, partial-failure and identifier fixtures, verifying their current status. Provide configuration mapping, release notice and rollback before feature removal; update connector ownership/upstream issues as appropriate.
+- [ ] **M29 — Legacy integration and MongoDB support decisions.** Confirmed 2026-09-05: retire MongoDB 4.4 and earlier from support/CI, retain MongoDB 5/6 during migration. The [runtime/database notice](../runtime-upgrade.md#mongodb-support-during-modernization) records support boundaries, upstream end-of-life dates and upgrade/rollback requirements. Next validate maintained MongoDB 7/8 releases and the chosen driver against real API/client fixtures before recommending them; retiring 5/6 requires a separate decision. The maintainer explicitly authorized retiring the legacy Dexcom bridge in 15.0.9 in favour of Connect; validate the [retirement and migration](../test-specs/legacy-dexcom-retirement.md). MiniMed retirement is also authorized; complete its Connect migration and regression validation before integration. Retiring additional MongoDB versions requires a separate decision. Legacy adapters already load lazily; deletion does not save disabled-instance heap. Reuse the existing MongoDB proposal's Loop/Trio/AAPS, partial-failure and identifier fixtures, verifying their current status. Provide configuration mapping, release notice and rollback before feature removal; update connector ownership/upstream issues as appropriate.
 
 - [ ] **M30 — Close the loop on #8328.** Once agreed runtime policy, dependency reviews and retain/migrate decisions are complete, update this checklist with PRs and measured results, reconcile older roadmap/proposal statuses and publish before/after package, image, server and browser figures. Keep periodic audit/update work in normal maintenance. Close the tracker only when remaining Moment and other long-term decisions are explicit, not merely because the declaration count fell.
 
@@ -279,3 +279,29 @@ the merged env-cmd replacement, this completes the M24 implementation decision.
 Revisit when Node provides equivalent portable watch/ignore behavior or the
 project explicitly changes its development restart contract. No production
 runtime or memory improvement is claimed for retaining a development tool.
+
+### M09 CSV dependency review
+
+The [CSV upgrade](../test-specs/csv-upgrade.md) uses maintained writer/parser CommonJS exports and adds byte-level export regressions independent of parser round trips. Installed package bytes increase; no server-memory saving is claimed. This is one scoped dependency review and does not complete M09.
+
+### M29 MiniMed retirement authorized
+
+The maintainer has authorized retiring `mmconnect` in 15.0.9 in favour of
+Nightscout Connect, superseding earlier notes retaining MiniMed. The candidate
+removes the local plugin and its dependency chain, provides explicit account
+country/conflicting-feed migration errors, and pins the MiniMed logging fix from
+Connect PR #64. Configuration/lifecycle and active-consumer dependency tests are
+in place. Owned HTTPS/session/cookie/teardown fixtures pass on both Node floors.
+Data-contract fixes are pinned from Connect #65 and owned cutover fixtures pass.
+Full current-head CI and live vendor/hosting migration validation remain
+outstanding; M29 is still open.
+
+### M22 explicit trusted-proxy policy
+
+The maintainer approved requiring explicit trusted-proxy configuration for
+15.0.9. The candidate replaces all six `forwarded-for` consumers with a shared
+`proxy-addr` helper and applies the same policy to Express HTTPS/hostname
+handling, including removal of the direct `X-Forwarded-Proto` redirect bypass.
+Direct connections are the default. See the [deployment migration guide](../proposals/trusted-proxy-migration.md).
+M22 remains open until candidate CI and hosting migration validation complete;
+no generic Heroku/Azure proxy CIDR is assumed.

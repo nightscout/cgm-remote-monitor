@@ -107,3 +107,105 @@ Entries reads and the existing unknown-storage fallback remain unchanged.
 Type-only treatment/device-status slice requests no longer return entries-cache
 records. These requests now read the selected collection. Entries slices keep
 their existing cache path; selected-storage permission requirements still apply.
+
+## Legacy Dexcom bridge retirement in 15.0.9
+
+The local `share2nightscout-bridge` engine is removed in favour of Nightscout
+Connect's Dexcom Share source. Deprecated legacy overrides no longer select an
+old engine: `DEXCOM_BRIDGE_USE_LEGACY`, its Azure prefix, and legacy extended
+settings cannot re-enable it. MiniMed is not retired by this change.
+
+| Existing setting | Connect setting/behavior |
+| --- | --- |
+| `BRIDGE_USER_NAME` | Fallback for `CONNECT_SHARE_ACCOUNT_NAME` |
+| `BRIDGE_PASSWORD` | Fallback for `CONNECT_SHARE_PASSWORD` |
+| `BRIDGE_SERVER=US` | Fallback `CONNECT_SHARE_REGION=us` |
+| `BRIDGE_SERVER=EU` | Fallback `CONNECT_SHARE_REGION=ous` |
+| Custom `BRIDGE_SERVER` hostname | Fallback `CONNECT_SHARE_SERVER` |
+| No server override | Connect's default US endpoint |
+| `BRIDGE_INTERVAL`, `BRIDGE_MAX_COUNT`, `BRIDGE_FIRST_FETCH_COUNT`, `BRIDGE_MAX_FAILURES`, `BRIDGE_MINUTES` | Retired; Connect owns polling, backfill and retries |
+
+Complete legacy credentials enable `CONNECT_SOURCE=dexcomshare` when no source
+is selected. Explicit Connect credentials, region and server take precedence.
+Incomplete legacy credentials do not enable Connect. Prefer explicit Connect
+settings going forward and remove obsolete BRIDGE settings after validation.
+
+Connect currently supports one source per instance. Complete BRIDGE credentials
+alongside a different CONNECT_SOURCE now produce an actionable configuration
+error without starting either ingestion source. Select Dexcom Share, or arrange
+separate Dexcom ingestion and remove the obsolete BRIDGE credentials; the
+application must not silently discard either configured feed.
+
+Rehearse the switch using owned nonproduction data. Verify region/custom server,
+authentication, repeated uploads, backfill and duplicate handling. Connect marks
+new entries with device `nightscout-connect` rather than `share2`. There is no
+bulk history rewrite, but overlapping backfill updates matching readings,
+including their device field, while preserving database identifiers. Do not run old and new ingestion simultaneously.
+Private TLS endpoints must have certificates trusted by the Node runtime; the
+legacy engine's certificate-verification bypass is not retained.
+
+Rollback requires a previous Nightscout artifact with the legacy engine plus
+its known configuration; flipping the removed override on 15.0.9 cannot restore
+it. Retaining an old artifact does not resolve the legacy TLS defect. No MongoDB
+binary/FCV or schema change is part of this retirement.
+
+
+## Legacy MiniMed mmconnect retirement in 15.0.9
+
+The local `mmconnect` plugin and `minimed-connect-to-nightscout` package are
+retired in favour of Nightscout Connect. Configure:
+
+```text
+CONNECT_SOURCE=minimedcarelink
+CONNECT_CARELINK_USERNAME=<CareLink account username>
+CONNECT_CARELINK_PASSWORD=<CareLink account password>
+CONNECT_COUNTRY_CODE=<two-letter country where the account was created>
+CONNECT_CARELINK_REGION=eu
+```
+
+Use `us` instead of `eu` for the US service. `CONNECT_CARELINK_SERVER` can select
+a custom endpoint; preserve an existing explicit setting. Carepartners following
+a patient can set `CONNECT_CARELINK_PATIENT_USERNAME` explicitly.
+
+Complete legacy `MMCONNECT_USER_NAME` and `MMCONNECT_PASSWORD` values are accepted
+as a migration convenience, with explicit Connect settings taking precedence.
+Legacy `MMCONNECT_SERVER` values EU/US (case-insensitive) map to eu/us; a custom
+server maps to `CONNECT_CARELINK_SERVER`. You must supply `CONNECT_COUNTRY_CODE`:
+a service region is not an account country. No replacement starts if that value
+is missing. After validating ingestion, remove obsolete MMCONNECT variables.
+
+Connect supports one configured source. Legacy MiniMed credentials alongside a
+different Connect source, or alongside legacy Dexcom credentials, produce a boot
+error rather than silently starting only one feed. Select the intended Connect
+source and remove obsolete credentials, or migrate the additional feed to a
+separately configured uploader before upgrading.
+
+`MMCONNECT_INTERVAL`, `MMCONNECT_MAX_RETRY_DURATION`, `MMCONNECT_SGV_LIMIT`,
+`MMCONNECT_VERBOSE` and `MMCONNECT_STORE_RAW_DATA` no longer control ingestion.
+Connect uses its own scheduling, session refresh and retry behavior. It does not
+continue the old optional `carelink_raw` storage feature. Existing database
+records and historical glucose/pump data are not deleted or rewritten.
+
+The candidate pins Connect commit `c962a13fee9a7a5ca160ab5e3fb231d35cadf294`,
+including the logging fix in upstream PR #64 and data fixes in #65 (both open for review).
+Provider operation labels replace raw credential, cookie, token and patient-data
+logs. CLI capture output and other providers are outside that logging fix.
+
+Before release, validate the actual account/service region, authentication,
+session refresh, glucose timestamps/trends, pump battery/reservoir/IOB, duplicate
+handling across cutover and reconnect behavior. Owned configuration/logging
+fixtures do not prove live CareLink compatibility. Retain the previous release
+artifact and configuration plus a database backup for rollback; do not run both
+local engines against the same feed. Never downgrade MongoDB as a proxy for an
+application rollback.
+
+
+Connect may backfill older glucose readings instead of applying the retired
+engine's 20-minute stale-response cutoff. Measurement timestamps are preserved;
+old pump status must not be relabelled with fetch time. The pinned data fix also
+preserves valid readings when trend metadata is absent or mismatched, restores
+legacy nested IOB/uploader fields and avoids repeated status across cutover.
+Device identifiers change from `connect-<family>` to
+`nightscout-connect://minimedcarelink/<family>`; filters that match the old device
+name need updating. Owned regression fixtures cover these changes; verify actual
+account/device behavior before release.

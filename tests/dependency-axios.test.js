@@ -6,7 +6,6 @@ const {once} = require('events');
 const {createRequire} = require('module');
 const zlib = require('zlib');
 const rootAxios = require('axios');
-const legacyRequire = createRequire(require.resolve('minimed-connect-to-nightscout/package.json'));
 const connectRequire = createRequire(require.resolve('nightscout-connect/package.json'));
 const modernAxios = connectRequire('axios');
 
@@ -176,7 +175,7 @@ describe('Axios consumer compatibility', function () {
     assert.strictEqual((await client.get(baseURL + '/echo')).data.headers['x-fixture'], 'safe');
   });
 
-  [['MiniMed legacy', legacyRequire], ['nightscout-connect', connectRequire]].forEach(([label, consumerRequire]) => {
+  [['nightscout-connect', connectRequire]].forEach(([label, consumerRequire]) => {
     it(label + ' preserves its actual cookie wrapper across login and repeated reads', async function () {
       const axios = consumerRequire('axios');
       const support = consumerRequire('axios-cookiejar-support');
@@ -193,11 +192,11 @@ describe('Axios consumer compatibility', function () {
     });
   });
 
-  it('preserves MiniMed manual redirects, form posts and response interceptors', async function () {
-    const axios = legacyRequire('axios');
+  it('preserves Connect manual redirects, form posts and response interceptors', async function () {
+    const axios = connectRequire('axios');
     const client = axios.create({baseURL, proxy: false, maxRedirects: 0, withCredentials: true});
-    legacyRequire('axios-cookiejar-support').default(client);
-    client.defaults.jar = new (legacyRequire('tough-cookie').CookieJar)();
+    connectRequire('axios-cookiejar-support').wrapper(client);
+    client.defaults.jar = new (connectRequire('tough-cookie').CookieJar)();
     client.interceptors.response.use(response => response, error => {
       if (error.response && error.response.status >= 200 && error.response.status < 400) return error.response;
       return Promise.reject(error);
