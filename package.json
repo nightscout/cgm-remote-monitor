@@ -129,7 +129,6 @@
     "share2nightscout-bridge": "^0.2.12",
     "shiro-trie": "^0.4.9",
     "socket.io": "~4.8.3",
-    "socket.io-client": "^4.8.3",
     "swagger-ui-dist": "^4.13.2",
     "swagger-ui-express": "^4.5.0"
   },
@@ -150,6 +149,7 @@
     "nyc": "^18.0.0",
     "playwright-core": "1.63.0",
     "should": "^13.2.3",
+    "socket.io-client": "^4.8.3",
     "supertest": "^7.2.2",
     "webpack": "^5.74.0",
     "webpack-bundle-analyzer": "^4.5.0",

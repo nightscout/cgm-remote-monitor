@@ -3,7 +3,7 @@
 Seven build-only declarations move to devDependencies: Babel core/preset,
 babel-loader, expose-loader, moment-timezone-data-webpack-plugin, webpack
 and webpack-cli. The complete locked graph has no added/removed paths or
-version changes. Production-classified lock paths fall from 587 to 315.
+version changes. Production-classified lock paths fall from 587 to 312.
 These are package-path counts, not measured bytes or server heap savings.
 
 Docker and Azure explicitly install with `npm ci --include=dev`. The existing
@@ -11,8 +11,10 @@ postinstall builds production bundles and generates the runtime key, then
 `npm prune --omit=dev --ignore-scripts` removes build tools without rerunning
 build lifecycle scripts. Azure no longer installs global webpack or adds
 unlocked yargs. Full development installs retain HMR tools. Axios remains a
-production dependency for IMPORT_CONFIG. Browser libraries and socket.io-client
-are not reclassified without checking their static/runtime consumers.
+production dependency for IMPORT_CONFIG. Browser libraries retain their existing classification. socket.io-client moves
+to devDependencies: only Node tests import it; production pages use the
+Socket.IO server package client-dist asset. The pruned check proves exact
+served client bytes without an installed socket.io-client package.
 
 For source deployments use `npm ci --include=dev`, followed by
 `npm prune --omit=dev --ignore-scripts`, then `npm start`. Do not install with
@@ -47,3 +49,12 @@ assets and preserves the runtime key. It passes on both Node floors with
 MongoDB 6. The backend CI matrix runs it after tests and production pruning.
 It uses native APIs and production dependencies so missing test/build tools
 cannot be hidden by the validation harness. Live host gates remain open.
+
+The eight-declaration candidate has no full-graph path/version changes.
+Measured installed regular files fall from 13,612 / 125,602,974 bytes to
+7,561 / 57,251,409 bytes. Exclusions and platform are recorded in
+[raw measurements](../audits/build-runtime-files.json). This is installation
+file size, not image compression or runtime-memory evidence. The pre-client
+classification full suite passed 1,821 tests (one existing pending), including
+real development/HMR HTTP checks. Final pruned-client checks pass on both
+Node floors; fresh full/hosted validation is required for the final graph.

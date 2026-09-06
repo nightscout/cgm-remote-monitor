@@ -13,7 +13,7 @@ const root = path.resolve(__dirname, '..');
 
 async function main() {
   assert.equal(process.env.NODE_ENV, 'production');
-  for (const name of ['webpack', '@babel/core', 'babel-loader', 'mocha']) {
+  for (const name of ['webpack', '@babel/core', 'babel-loader', 'mocha', 'socket.io-client']) {
     assert.equal(fs.existsSync(path.join(root, 'node_modules', name)), false, name + ' must be pruned');
   }
   const key = fs.readFileSync(path.join(root, 'node_modules/.cache/_ns_cache/randomString'));
@@ -75,7 +75,11 @@ async function main() {
       assert.equal(response.status, 200, file);
       assert.deepEqual(Buffer.from(await response.arrayBuffer()), fs.readFileSync(path.join(root, 'node_modules/.cache/_ns_cache/public', file)));
     }
-    for (const asset of ['/socket.io/socket.io.js', '/js/client.js', '/css/drawer.css', '/sw.js']) {
+    const socketClient = await fetch(origin + '/socket.io/socket.io.js');
+    assert.equal(socketClient.status, 200);
+    assert.deepEqual(Buffer.from(await socketClient.arrayBuffer()),
+      fs.readFileSync(path.join(root, 'node_modules/socket.io/client-dist/socket.io.js')));
+    for (const asset of ['/js/client.js', '/css/drawer.css', '/sw.js']) {
       const response = await fetch(origin + asset);
       assert.equal(response.status, 200, asset);
       assert.ok((await response.text()).length > 20, asset);
