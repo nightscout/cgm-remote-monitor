@@ -115,7 +115,7 @@
     "jsonwebtoken": "^9.0.0",
     "mime": "^2.4.6",
     "moment": "^2.27.0",
-    "moment-timezone": "^0.5.31",
+    "moment-timezone": "^0.6.3",
     "mongodb": "^7.6.0",
     "mongodb-connection-string-url": "7.0.2",
     "nightscout-connect": "https://github.com/nightscout/nightscout-connect/archive/c962a13fee9a7a5ca160ab5e3fb231d35cadf294.tar.gz",

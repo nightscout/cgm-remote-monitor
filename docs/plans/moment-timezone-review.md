@@ -79,3 +79,99 @@ Do not silently carry this result into a replacement as a correctness oracle.
 
 The remaining historical, browser-data-range, locale, duration, output and
 performance comparisons above are still required.
+
+## Isolated native editor-format prototype
+
+`tools/audits/intl-editor-format-probe.cjs` now compares the `YYYY-MM-DD` and
+`HH:mm` shapes used by careportal, bolus calculator and treatment editors.
+It constructs one cached Gregorian/Latin-digit `Intl.DateTimeFormat` per zone
+and assembles named `formatToParts` fields. The explicit hour cycle prevents
+midnight from becoming `24:00`. This is an experiment, not application wiring.
+The API is specified in [ECMA-402](https://tc39.es/ecma402/#sec-intl.datetimeformat.prototype.formattoparts).
+
+Run `node tools/audits/intl-editor-format-probe.cjs` after installing the locked
+dependencies. [Recorded comparison](../audits/intl-editor-format-comparison.json)
+includes runtime/ICU/timezone-data versions, source hash, all five alternating
+benchmark rounds, mismatch counts and examples. Each runtime covers 325 cases:
+five zones, five locales and thirteen instants including gap/overlap boundaries,
+1900 history, the 2015/2035 browser-data boundaries and 2036. These runs use full
+server timezone data, so they do not validate the actual clipped browser data.
+
+Both Node 22.23.2 and 24.20.0 match all English/German/French cases. Each records
+130 differences for Arabic/Persian: Moment's locale postformat emits localized
+digits, while this candidate deliberately emits Latin digits. Deciding which
+representation is correct for an HTML input requires actual locale-aware editor
+validation; neither silent normalization nor copying the old output is justified
+by this formatting-only comparison.
+
+Median milliseconds for 5,000 date-and-time pairs across five alternating rounds:
+
+| Runtime | Moment | Cached Intl | New Intl formatter per call |
+| --- | ---: | ---: | ---: |
+| Node 22.23.2 | 5.38 | 12.55 | 149.26 |
+| Node 24.20.0 | 6.10 | 10.77 | 144.38 |
+
+The candidate function is 508 source bytes / 319 gzip bytes. Those are standalone
+source sizes, not a production bundle delta. Moment remains required elsewhere,
+so adopting this helper alone removes no package. This process loads both paths;
+no retained heap, allocation or server RSS saving is established. The benchmark
+uses pre-parsed instants and includes Moment zone conversion plus both formatting
+calls. It does not compare parsing, application throughput or therapy outputs.
+
+Decision for this prototype: do not replace editor formatting yet. It has no
+measured package saving, is slower in this bounded run and changes locale output.
+This is not a final decision to retain Moment everywhere. The shared browser
+corpus, fixed-offset profiles, translated report labels, durations, therapy
+outputs, maintained alternative and final retain/narrow/replace decision remain
+required before M27 is complete.
+
+## Actual production browser-bundle comparison
+
+Build with `npm run bundle`, then run
+`node tools/audits/browser-intl-editor-probe.cjs chromium` (or `webkit`/`firefox`).
+The probe boots the real app through the owned page-startup fixture, waits for its
+fixture glucose data, and uses `window.moment` from the production app bundle.
+It allows only fixture-origin requests, disconnects both sockets, closes the
+browser/context/server, and fails on uncaught browser errors. The normal browser test glob does not execute this research tool. An explicit
+step in each existing browser CI job runs it and saves its JSON output as an
+artifact, without adding a job or environment. Probe failure fails that job;
+recorded formatting differences are evidence, not an assertion of equivalence.
+
+[Browser results](../audits/browser-intl-editor-comparison.json) record bundle and
+probe hashes, browser versions, exact instants and every mismatch. Chromium and
+WebKit expose only `en` in the built Moment locale registry: the German, French,
+Arabic and Persian modules explicitly loaded in the server experiment are absent.
+The 130 locale differences from that experiment therefore do not demonstrate a
+regression in this browser bundle. App/D3 translations are a separate contract.
+
+For the actual available locale, both engines agree on 62 of 65 cases. Three
+1900-01-01 instants differ: Lord Howe is 11:00 in bundled Moment versus 10:00 in
+Intl; Kathmandu is 05:45 versus 05:41; Gaza is 02:00 versus 02:17. Full server
+Moment matched Intl on those cases, while the browser build clips timezone data
+to 2015–2035. The historical display discrepancy must be decided explicitly; this
+probe does not establish clinical correctness or authorize changing old records.
+
+Local Firefox failed before page execution because its temporary profile folder
+could not be found, including a retry using `/private/tmp`. The hosted results
+below provide the missing Firefox comparison for this corpus.
+These are formatting-shape checks, not locale-aware editor input/save, historical
+report, therapy or screen-reader validation. M27 remains open.
+
+## Hosted Firefox comparison completed
+
+The [hosted comparison evidence](../audits/hosted-intl-editor-comparison.json)
+now includes all four existing browser jobs, including Firefox. Each artifact's
+recorded checkout commit was resolved to a tree and verified against tested head
+`adb348f6`. All four runs report 65 cases and the same three historical
+differences; Firefox therefore agrees with Chromium/WebKit for this corpus.
+The earlier local Firefox launch failure remains a local tooling limitation,
+not an outstanding cross-engine comparison for these formatting cases.
+
+These artifacts precede the subsequent refresh with #8689 and documentation
+changes. Current-head CI/artifact validation is still required before merging
+this PR. They do not complete editor interactions or the broader M27 decision.
+
+The [Luxon contract comparison](luxon-contract-review.md) adds a maintained
+alternative on the same server formatting corpus. It records explicit overlap
+selection and mutation incompatibilities, a bounded compatibility adapter, and
+CPU measurements. It does not complete the remaining migration decision.

@@ -1,0 +1,137 @@
+{
+  "probeSha256": "b97cb5b4f2dc64ffea0df88a042d6302ff465a75034a7c6ac9014656c3502293",
+  "formatterProbeSha256": "e1fb9cf7c13d162d381799d05e93c8ba32146242b866e8368c7f9b50f409c818",
+  "runs": [
+    {
+      "engine": "chromium",
+      "browserVersion": "153.0.8010.12",
+      "node": "v22.23.2",
+      "baseline": "6276c6ab952924148ae03f120ab735dcfd471ee0",
+      "appBundleSha256": "05f8876bee74acdf5d221f37f8ba420a4e729d88d576ecef298174f5e1b7aa48",
+      "scope": "Actual production app bundle and its clipped timezone data; editor formatting shapes only, not editor interaction or therapy calculations.",
+      "bundledLocales": [
+        "en"
+      ],
+      "requestedLocalesNotBundled": [
+        "de",
+        "fr",
+        "ar",
+        "fa"
+      ],
+      "moment": "2.30.1",
+      "momentTimezone": "0.5.48",
+      "momentTzData": "2025b",
+      "cases": 65,
+      "mismatches": [
+        {
+          "zone": "Australia/Lord_Howe",
+          "locale": "en",
+          "instant": "1900-01-01T00:00:00.000Z",
+          "previous": {
+            "date": "1900-01-01",
+            "time": "11:00"
+          },
+          "candidate": {
+            "date": "1900-01-01",
+            "time": "10:00"
+          },
+          "equal": false
+        },
+        {
+          "zone": "Asia/Kathmandu",
+          "locale": "en",
+          "instant": "1900-01-01T00:00:00.000Z",
+          "previous": {
+            "date": "1900-01-01",
+            "time": "05:45"
+          },
+          "candidate": {
+            "date": "1900-01-01",
+            "time": "05:41"
+          },
+          "equal": false
+        },
+        {
+          "zone": "Asia/Gaza",
+          "locale": "en",
+          "instant": "1900-01-01T00:00:00.000Z",
+          "previous": {
+            "date": "1900-01-01",
+            "time": "02:00"
+          },
+          "candidate": {
+            "date": "1900-01-01",
+            "time": "02:17"
+          },
+          "equal": false
+        }
+      ]
+    },
+    {
+      "engine": "webkit",
+      "browserVersion": "26.6",
+      "node": "v22.23.2",
+      "baseline": "6276c6ab952924148ae03f120ab735dcfd471ee0",
+      "appBundleSha256": "05f8876bee74acdf5d221f37f8ba420a4e729d88d576ecef298174f5e1b7aa48",
+      "scope": "Actual production app bundle and its clipped timezone data; editor formatting shapes only, not editor interaction or therapy calculations.",
+      "bundledLocales": [
+        "en"
+      ],
+      "requestedLocalesNotBundled": [
+        "de",
+        "fr",
+        "ar",
+        "fa"
+      ],
+      "moment": "2.30.1",
+      "momentTimezone": "0.5.48",
+      "momentTzData": "2025b",
+      "cases": 65,
+      "mismatches": [
+        {
+          "zone": "Australia/Lord_Howe",
+          "locale": "en",
+          "instant": "1900-01-01T00:00:00.000Z",
+          "previous": {
+            "date": "1900-01-01",
+            "time": "11:00"
+          },
+          "candidate": {
+            "date": "1900-01-01",
+            "time": "10:00"
+          },
+          "equal": false
+        },
+        {
+          "zone": "Asia/Kathmandu",
+          "locale": "en",
+          "instant": "1900-01-01T00:00:00.000Z",
+          "previous": {
+            "date": "1900-01-01",
+            "time": "05:45"
+          },
+          "candidate": {
+            "date": "1900-01-01",
+            "time": "05:41"
+          },
+          "equal": false
+        },
+        {
+          "zone": "Asia/Gaza",
+          "locale": "en",
+          "instant": "1900-01-01T00:00:00.000Z",
+          "previous": {
+            "date": "1900-01-01",
+            "time": "02:00"
+          },
+          "candidate": {
+            "date": "1900-01-01",
+            "time": "02:17"
+          },
+          "equal": false
+        }
+      ]
+    }
+  ],
+  "firefox": "Local launch failed before any page test: Firefox could not find its temporary profile folder. Repeating with TMPDIR=/private/tmp also failed. No Firefox parity claim."
+}
