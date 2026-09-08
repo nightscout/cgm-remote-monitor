@@ -1,6 +1,6 @@
 # Nightscout dependency and runtime modernization
 
-Updated: 2026-09-06. Baseline: `dev` commit `9205ea300b9a6981ad8f16223c69620dd3c1c830` (15.0.9).
+Updated: 2026-09-08. Baseline: `dev` commit `9205ea300b9a6981ad8f16223c69620dd3c1c830` (15.0.9).
 Tracking issue: [#8328](https://github.com/nightscout/cgm-remote-monitor/issues/8328).
 
 This is the execution plan for reducing dependency maintenance, installation size, unnecessary server allocations and browser cost. Deliver each numbered item as a small PR targeting `chore/nightscout-modernization`. After review and green checks against the current integration branch, merge it there and update its status/evidence here. **#8605 is the single integration PR targeting dev** and stays draft until the complete modernization and release gates are satisfied. Do not merge individual implementation PRs into dev. Implementation checkboxes do not waive outstanding release validation.
@@ -323,7 +323,7 @@ The remaining M08, M19, M23 and M26 candidates are assembled into one verificati
 
 ### M25 profile-cache and receipt implementation
 
-A bounded reference cache replaces memory-cache's per-entry timers while preserving the application's five-second get/put/clear contracts. [Workload measurements and limits](../test-specs/profile-cache.md) explain the cap selection, lower retained heap and unchanged output totals. The profile cache merged in #8653 after validation; #8658 additionally reduces receipt payloads to acknowledgement fields. The [notification teardown follow-up](../test-specs/notification-cache-teardown.md) clears owned caches/timers and ignores late provider callbacks after shutdown. Notification-cache bounds and clone policy, and the final retain/replace decision, remain open; M25 is not yet complete.
+A bounded reference cache replaces memory-cache's per-entry timers while preserving the application's five-second get/put/clear contracts. [Workload measurements and limits](../test-specs/profile-cache.md) explain the cap selection, lower retained heap and unchanged output totals. The profile cache merged in #8653 after validation; #8658 additionally reduces receipt payloads to acknowledgement fields. The [notification teardown follow-up](../test-specs/notification-cache-teardown.md) clears owned caches/timers and ignores late provider callbacks after shutdown. The [dispatch snapshot follow-up](../test-specs/notification-dispatch-snapshot.md) captures acknowledgement fields and deduplication keys before asynchronous provider completion, with delayed multi-recipient and reused-payload regressions. Notification-cache bounds and the final retain/replace decision remain open; M25 is not yet complete.
 
 - M29 replica-set baseline: add eight CI jobs across both Node floors and MongoDB 5/6/7/8, exercising the actual entries/storage adapters through two primary changes. Local driver 5.9.2 and proposed 7.6.0 comparisons pass on both Node floors with MongoDB 8.0.29; see [scope and evidence](../test-specs/mongodb-replica-set.md). Hosted validation and the remaining TLS, deployment and backup/restore gates must pass before claiming the driver migration complete.
 
