@@ -1,6 +1,6 @@
 # Moment and timezone review (M27)
 
-Status: inventory and initial server characterization complete; replacement decision, browser parity and comparison measurements open.
+Status: the [M27 release decision](date-time-decision.md) retains the current narrowed Moment implementation after the candidate comparison. The sections below preserve the historical experiments and their scope; the final decision supersedes their provisional open statuses.
 The baseline is integration `87340f59`. No runtime code or dependency changes are
 included in this inventory. Do not mark M27 complete from source counts alone.
 

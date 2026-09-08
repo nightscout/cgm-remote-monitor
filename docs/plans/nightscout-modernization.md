@@ -27,6 +27,15 @@ At the audit baseline, completed foundations were: D3 7.9.0, jsdom-backed test t
 
 ## Shared merge and release gates
 
+Maintainer direction on 2026-09-08: complete the remaining implementation,
+appropriate automated regression coverage and CI. The maintainer will then run
+the integration branch in production and perform device testing. Live host,
+vendor-account/Atlas IAM and physical iPhone/VoiceOver checks below are therefore
+**maintainer-owned manual validation after the automated work**, not prerequisites
+for finishing that work. Keep them visible and unperformed until results are
+provided; automated tests do not establish manual passes. This handoff does not
+authorize automatic promotion of #8605 into dev before the maintainer's review.
+
 - Record the parent/head commits, runtime/npm versions and exact commands. Use a clean locked install; investigate any retained-version drift rather than accepting an unrelated lockfile refresh.
 - Run applicable focused tests, `npm run test-ci`, **separately** `npm run test:core`, and `npm run test:dependencies`; run production/development builds for dependency or bundler changes. Keep pre-existing quarantines visible until replacement coverage proves their contracts, and investigate new failures against the same parent/environment. The original three pending cases are now one remaining Node case plus two report cases migrated to active browser tests (M08).
 - Require current GitHub CI, CodeQL and Docker validation on each proposed merge with the current modernization branch, then validate the complete #8605 merge against fresh `dev` before promotion. Add regression tests for changed behavior, with a failing-before/passing-after demonstration when fixing a bug; avoid tests that merely repeat manifest contents.
@@ -211,7 +220,7 @@ M18 completed in #8639 (merge `a92d0882`) and #8640 (merge `1fab2a24`). Each pas
 
 ## Phase 5 — larger decisions, not compulsory rewrites
 
-- [ ] **M27 — Moment/timezone decision.** Map `moment`/`moment-timezone` use across profile/IOB/COB, therapy schedules, dates, reports and locale data. Establish golden outputs for DST gaps/overlaps, local midnight, timezone changes, historical data, duration and both glucose units. Compare retaining or narrowing Moment, native Intl plus scoped helpers, Luxon, Day.js and Temporal (including the proposal and discussion in #8348) for API complexity, bundle size, CPU, measured memory use and browser coverage. At the time of the M27 review, reassess Temporal native support across supported Node.js versions and browsers, any polyfill requirement and its cost, and whether a direct Moment-to-Temporal migration would avoid an intermediate library migration. No replacement or migration date is selected; Intl alone is not a complete parsing/arithmetic replacement. Choose retain/narrow/replace with evidence; do not assume a library swap is low effort or promise an old roadmap's 200 KB estimate. Coordinate with the testing proposal's DOM-free report boundary.
+- [x] **M27 — Moment/timezone decision.** The [release decision and comparative evidence](date-time-decision.md) retain the current narrowed Moment implementation under the existing browser/runtime contract, with an explicit revisit trigger; no date-library migration is selected. Map `moment`/`moment-timezone` use across profile/IOB/COB, therapy schedules, dates, reports and locale data. Establish golden outputs for DST gaps/overlaps, local midnight, timezone changes, historical data, duration and both glucose units. Compare retaining or narrowing Moment, native Intl plus scoped helpers, Luxon, Day.js and Temporal (including the proposal and discussion in #8348) for API complexity, bundle size, CPU, measured memory use and browser coverage. At the time of the M27 review, reassess Temporal native support across supported Node.js versions and browsers, any polyfill requirement and its cost, and whether a direct Moment-to-Temporal migration would avoid an intermediate library migration. No replacement or migration date is selected; Intl alone is not a complete parsing/arithmetic replacement. Choose retain/narrow/replace with evidence; do not assume a library swap is low effort or promise an old roadmap's 200 KB estimate. Coordinate with the testing proposal's DOM-free report boundary.
   Inventory baseline and remaining comparison work: [Moment/timezone review](moment-timezone-review.md). The lexical scan identifies 79 files, including 53 application files; it is not a complete call graph or a replacement decision.
 
 - [ ] **M28 — jQuery/UI/Flot and tooltip decision.** See [widget inventory and migration sequence](browser-widget-review.md) for the current consumers and concrete next steps. Inventory actual widgets, global plugin contracts and touch/accessibility behavior. First consider `jquery.tooltips`' two browser-utils initializers with a small delegated, escaped tooltip component; native title alone is not equivalent. After page splitting, compare retaining isolated jQuery UI/Flot against removing one widget/chart at a time. Require hover/focus/touch dismissal, keyboard/screen-reader checks, translated content, repeated initialization and report/chart goldens. Choose a framework only through a separate proposal with measured maintenance/size benefits.
@@ -393,4 +402,4 @@ regressions for changed offsets; see the [timezone review](../test-specs/moment-
 Firefox and WebKit artifacts agree on the same three historical formatting
 differences outside the clipped browser timezone range. These comparisons do
 not replace production Moment or establish complete parsing, therapy, report,
-locale or memory equivalence. M27 remains open for its final decision.
+locale or memory equivalence. The final M27 retain/narrow decision is recorded in [the release review](date-time-decision.md).
