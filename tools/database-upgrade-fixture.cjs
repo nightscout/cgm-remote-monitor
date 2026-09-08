@@ -41,7 +41,9 @@ async function application(db) {
   for (const stream of [child.stdout, child.stderr]) stream.on('data', chunk => {output = (output + chunk).slice(-12000);});
   const exit = once(child, 'exit');
   const origin = 'http://127.0.0.1:' + appPort;
-  const headers = {'api-secret': createHash('sha1').update(env.API_SECRET).digest('hex')};
+  // Fixed SHA-1 wire value for the synthetic owned-upgrade-api-fixture secret.
+  // This exercises the existing API protocol; never derives a digest from deployment credentials.
+  const headers = {'api-secret': '0de5c2d95b9fd6939ae35fc09e77eb43b3d4c3ef'};
   async function request(route, options = {}) {
     const response = await fetch(origin + route, {headers, signal: AbortSignal.timeout(5000), ...options});
     assert.equal(response.status, 200, route + ': ' + await response.clone().text());
