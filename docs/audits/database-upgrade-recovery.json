@@ -1,0 +1,2304 @@
+[
+  {
+    "metadata": {
+      "scope": "Owned synthetic standalone databases; no production or replica-set upgrade claim",
+      "gitHead": "3715f931f833ae2bd19861a574cab7185bcbce89",
+      "node": "v22.23.2",
+      "sourceLockSha256": "8e44e03500c5bdc484dbb1f62a815959cf261f5675c081305ccd734d4eaa67da",
+      "postPruneLockSha256": "8e44e03500c5bdc484dbb1f62a815959cf261f5675c081305ccd734d4eaa67da",
+      "sources": {
+        "tools/database-upgrade-fixture.cjs": "f6784229a136d9415055f8c3e96032efa3e7bb411535af41d42011bc15fbd025",
+        "tools/rehearse-database-upgrade.py": "9201de21f8366ae8284b5b4d7a9ac33c556e88d70eaae2e32b1280f0206ed317"
+      },
+      "ownedResourcesRemoved": {
+        "containers": 6,
+        "volumes": 3
+      }
+    },
+    "stages": [
+      {
+        "stage": "5.0.32",
+        "beforeFcvChange": {
+          "version": "5.0.32",
+          "fcv": {
+            "version": "5.0"
+          },
+          "api": {
+            "loaded": true,
+            "authenticatedEntries": 3,
+            "authenticatedTreatments": 3,
+            "profiles": 1,
+            "uploadAndReadback": true
+          },
+          "collections": {
+            "entries": {
+              "documents": 3,
+              "indexes": [
+                "_id_",
+                "date_-1_identifier_-1_created_at_-1",
+                "date_1",
+                "dateString_1",
+                "fixture_date",
+                "identifier_1",
+                "isValid_1",
+                "mbg_1",
+                "sgv_1",
+                "srvModified_1",
+                "sysTime_1",
+                "type_1",
+                "type_1_date_-1_dateString_1"
+              ],
+              "sha256": "e14ba77d8db0df1df6a8d4f8ec2f2f6a07bcacd6e898756a3725e86372378639"
+            },
+            "treatments": {
+              "documents": 3,
+              "indexes": [
+                "_id_",
+                "absolute_1",
+                "boluscalc.foods._id_1",
+                "carbs_1",
+                "created_at_1",
+                "duration_1",
+                "enteredBy_1",
+                "eventType_1",
+                "eventType_1_created_at_-1_identifier_-1_date_-1",
+                "eventType_1_duration_1_created_at_1",
+                "fixture_identifier",
+                "glucose_1",
+                "identifier_1",
+                "insulin_1",
+                "isValid_1",
+                "notes_1",
+                "NSCLIENT_ID_1",
+                "percent_1",
+                "srvModified_1"
+              ],
+              "sha256": "c3414184b6359cd320ca9b37877e3e83ec85d8d91702328fcbca101b2fb3de8e"
+            },
+            "profile": {
+              "documents": 1,
+              "indexes": [
+                "_id_",
+                "created_at_1",
+                "identifier_1",
+                "isValid_1",
+                "NSCLIENT_ID_1",
+                "srvModified_1",
+                "startDate_-1__id_-1",
+                "startDate_1"
+              ],
+              "sha256": "2ebcb79d0f815c2d7eff03be320be8f84f1fcabe2fcb49f5601bda02bcc5bdcc"
+            },
+            "devicestatus": {
+              "documents": 1,
+              "indexes": [
+                "_id_",
+                "created_at_-1_identifier_-1_date_-1",
+                "created_at_1",
+                "identifier_1",
+                "isValid_1",
+                "NSCLIENT_ID_1",
+                "srvModified_1"
+              ],
+              "sha256": "6d805de8abe1fc89bcbebd1ae00d88cf690d36ff7d6f07e3efb4a5d7970063a2"
+            },
+            "food": {
+              "documents": 1,
+              "indexes": [
+                "_id_",
+                "hidden_1",
+                "identifier_1",
+                "isValid_1",
+                "position_1",
+                "srvModified_1",
+                "type_1"
+              ],
+              "sha256": "8d195afdb647f9d7a60064f601fe1615e902eac2bb1efaa2d79768ab37553a86"
+            },
+            "settings": {
+              "documents": 1,
+              "indexes": [
+                "_id_",
+                "identifier_1",
+                "isValid_1",
+                "srvModified_1"
+              ],
+              "sha256": "6105e08d50704121d5ad0fd42ae9df66006018cc68f342c42576b8b5cdb1ca97"
+            }
+          }
+        },
+        "afterFcvChange": {
+          "version": "5.0.32",
+          "fcv": {
+            "version": "5.0"
+          },
+          "api": {
+            "loaded": true,
+            "authenticatedEntries": 3,
+            "authenticatedTreatments": 3,
+            "profiles": 1,
+            "uploadAndReadback": true
+          },
+          "collections": {
+            "entries": {
+              "documents": 3,
+              "indexes": [
+                "_id_",
+                "date_-1_identifier_-1_created_at_-1",
+                "date_1",
+                "dateString_1",
+                "fixture_date",
+                "identifier_1",
+                "isValid_1",
+                "mbg_1",
+                "sgv_1",
+                "srvModified_1",
+                "sysTime_1",
+                "type_1",
+                "type_1_date_-1_dateString_1"
+              ],
+              "sha256": "e14ba77d8db0df1df6a8d4f8ec2f2f6a07bcacd6e898756a3725e86372378639"
+            },
+            "treatments": {
+              "documents": 3,
+              "indexes": [
+                "_id_",
+                "absolute_1",
+                "boluscalc.foods._id_1",
+                "carbs_1",
+                "created_at_1",
+                "duration_1",
+                "enteredBy_1",
+                "eventType_1",
+                "eventType_1_created_at_-1_identifier_-1_date_-1",
+                "eventType_1_duration_1_created_at_1",
+                "fixture_identifier",
+                "glucose_1",
+                "identifier_1",
+                "insulin_1",
+                "isValid_1",
+                "notes_1",
+                "NSCLIENT_ID_1",
+                "percent_1",
+                "srvModified_1"
+              ],
+              "sha256": "c3414184b6359cd320ca9b37877e3e83ec85d8d91702328fcbca101b2fb3de8e"
+            },
+            "profile": {
+              "documents": 1,
+              "indexes": [
+                "_id_",
+                "created_at_1",
+                "identifier_1",
+                "isValid_1",
+                "NSCLIENT_ID_1",
+                "srvModified_1",
+                "startDate_-1__id_-1",
+                "startDate_1"
+              ],
+              "sha256": "2ebcb79d0f815c2d7eff03be320be8f84f1fcabe2fcb49f5601bda02bcc5bdcc"
+            },
+            "devicestatus": {
+              "documents": 1,
+              "indexes": [
+                "_id_",
+                "created_at_-1_identifier_-1_date_-1",
+                "created_at_1",
+                "identifier_1",
+                "isValid_1",
+                "NSCLIENT_ID_1",
+                "srvModified_1"
+              ],
+              "sha256": "6d805de8abe1fc89bcbebd1ae00d88cf690d36ff7d6f07e3efb4a5d7970063a2"
+            },
+            "food": {
+              "documents": 1,
+              "indexes": [
+                "_id_",
+                "hidden_1",
+                "identifier_1",
+                "isValid_1",
+                "position_1",
+                "srvModified_1",
+                "type_1"
+              ],
+              "sha256": "8d195afdb647f9d7a60064f601fe1615e902eac2bb1efaa2d79768ab37553a86"
+            },
+            "settings": {
+              "documents": 1,
+              "indexes": [
+                "_id_",
+                "identifier_1",
+                "isValid_1",
+                "srvModified_1"
+              ],
+              "sha256": "6105e08d50704121d5ad0fd42ae9df66006018cc68f342c42576b8b5cdb1ca97"
+            }
+          }
+        },
+        "elapsedSeconds": 3.388,
+        "image": [
+          "mongo@sha256:5e3e87afd24d75e722884d777c5713d254f7e88ba65381b5d6484f75a21b73e3"
+        ],
+        "backupBytes": 11411,
+        "backupSha256": "8174cecb937e4c153bcdf4ce00ed6b03b5e6bbb20b1d82f8d193d6444f2c9560"
+      },
+      {
+        "stage": "6.0.27",
+        "beforeFcvChange": {
+          "version": "6.0.27",
+          "fcv": {
+            "version": "5.0"
+          },
+          "api": {
+            "loaded": true,
+            "authenticatedEntries": 3,
+            "authenticatedTreatments": 3,
+            "profiles": 1,
+            "uploadAndReadback": true
+          },
+          "collections": {
+            "entries": {
+              "documents": 3,
+              "indexes": [
+                "_id_",
+                "date_-1_identifier_-1_created_at_-1",
+                "date_1",
+                "dateString_1",
+                "fixture_date",
+                "identifier_1",
+                "isValid_1",
+                "mbg_1",
+                "sgv_1",
+                "srvModified_1",
+                "sysTime_1",
+                "type_1",
+                "type_1_date_-1_dateString_1"
+              ],
+              "sha256": "e14ba77d8db0df1df6a8d4f8ec2f2f6a07bcacd6e898756a3725e86372378639"
+            },
+            "treatments": {
+              "documents": 3,
+              "indexes": [
+                "_id_",
+                "absolute_1",
+                "boluscalc.foods._id_1",
+                "carbs_1",
+                "created_at_1",
+                "duration_1",
+                "enteredBy_1",
+                "eventType_1",
+                "eventType_1_created_at_-1_identifier_-1_date_-1",
+                "eventType_1_duration_1_created_at_1",
+                "fixture_identifier",
+                "glucose_1",
+                "identifier_1",
+                "insulin_1",
+                "isValid_1",
+                "notes_1",
+                "NSCLIENT_ID_1",
+                "percent_1",
+                "srvModified_1"
+              ],
+              "sha256": "c3414184b6359cd320ca9b37877e3e83ec85d8d91702328fcbca101b2fb3de8e"
+            },
+            "profile": {
+              "documents": 1,
+              "indexes": [
+                "_id_",
+                "created_at_1",
+                "identifier_1",
+                "isValid_1",
+                "NSCLIENT_ID_1",
+                "srvModified_1",
+                "startDate_-1__id_-1",
+                "startDate_1"
+              ],
+              "sha256": "2ebcb79d0f815c2d7eff03be320be8f84f1fcabe2fcb49f5601bda02bcc5bdcc"
+            },
+            "devicestatus": {
+              "documents": 1,
+              "indexes": [
+                "_id_",
+                "created_at_-1_identifier_-1_date_-1",
+                "created_at_1",
+                "identifier_1",
+                "isValid_1",
+                "NSCLIENT_ID_1",
+                "srvModified_1"
+              ],
+              "sha256": "6d805de8abe1fc89bcbebd1ae00d88cf690d36ff7d6f07e3efb4a5d7970063a2"
+            },
+            "food": {
+              "documents": 1,
+              "indexes": [
+                "_id_",
+                "hidden_1",
+                "identifier_1",
+                "isValid_1",
+                "position_1",
+                "srvModified_1",
+                "type_1"
+              ],
+              "sha256": "8d195afdb647f9d7a60064f601fe1615e902eac2bb1efaa2d79768ab37553a86"
+            },
+            "settings": {
+              "documents": 1,
+              "indexes": [
+                "_id_",
+                "identifier_1",
+                "isValid_1",
+                "srvModified_1"
+              ],
+              "sha256": "6105e08d50704121d5ad0fd42ae9df66006018cc68f342c42576b8b5cdb1ca97"
+            }
+          }
+        },
+        "afterFcvChange": {
+          "version": "6.0.27",
+          "fcv": {
+            "version": "6.0"
+          },
+          "api": {
+            "loaded": true,
+            "authenticatedEntries": 3,
+            "authenticatedTreatments": 3,
+            "profiles": 1,
+            "uploadAndReadback": true
+          },
+          "collections": {
+            "entries": {
+              "documents": 3,
+              "indexes": [
+                "_id_",
+                "date_-1_identifier_-1_created_at_-1",
+                "date_1",
+                "dateString_1",
+                "fixture_date",
+                "identifier_1",
+                "isValid_1",
+                "mbg_1",
+                "sgv_1",
+                "srvModified_1",
+                "sysTime_1",
+                "type_1",
+                "type_1_date_-1_dateString_1"
+              ],
+              "sha256": "e14ba77d8db0df1df6a8d4f8ec2f2f6a07bcacd6e898756a3725e86372378639"
+            },
+            "treatments": {
+              "documents": 3,
+              "indexes": [
+                "_id_",
+                "absolute_1",
+                "boluscalc.foods._id_1",
+                "carbs_1",
+                "created_at_1",
+                "duration_1",
+                "enteredBy_1",
+                "eventType_1",
+                "eventType_1_created_at_-1_identifier_-1_date_-1",
+                "eventType_1_duration_1_created_at_1",
+                "fixture_identifier",
+                "glucose_1",
+                "identifier_1",
+                "insulin_1",
+                "isValid_1",
+                "notes_1",
+                "NSCLIENT_ID_1",
+                "percent_1",
+                "srvModified_1"
+              ],
+              "sha256": "c3414184b6359cd320ca9b37877e3e83ec85d8d91702328fcbca101b2fb3de8e"
+            },
+            "profile": {
+              "documents": 1,
+              "indexes": [
+                "_id_",
+                "created_at_1",
+                "identifier_1",
+                "isValid_1",
+                "NSCLIENT_ID_1",
+                "srvModified_1",
+                "startDate_-1__id_-1",
+                "startDate_1"
+              ],
+              "sha256": "2ebcb79d0f815c2d7eff03be320be8f84f1fcabe2fcb49f5601bda02bcc5bdcc"
+            },
+            "devicestatus": {
+              "documents": 1,
+              "indexes": [
+                "_id_",
+                "created_at_-1_identifier_-1_date_-1",
+                "created_at_1",
+                "identifier_1",
+                "isValid_1",
+                "NSCLIENT_ID_1",
+                "srvModified_1"
+              ],
+              "sha256": "6d805de8abe1fc89bcbebd1ae00d88cf690d36ff7d6f07e3efb4a5d7970063a2"
+            },
+            "food": {
+              "documents": 1,
+              "indexes": [
+                "_id_",
+                "hidden_1",
+                "identifier_1",
+                "isValid_1",
+                "position_1",
+                "srvModified_1",
+                "type_1"
+              ],
+              "sha256": "8d195afdb647f9d7a60064f601fe1615e902eac2bb1efaa2d79768ab37553a86"
+            },
+            "settings": {
+              "documents": 1,
+              "indexes": [
+                "_id_",
+                "identifier_1",
+                "isValid_1",
+                "srvModified_1"
+              ],
+              "sha256": "6105e08d50704121d5ad0fd42ae9df66006018cc68f342c42576b8b5cdb1ca97"
+            }
+          }
+        },
+        "elapsedSeconds": 1.662,
+        "image": [
+          "mongo@sha256:03cda579c8caad6573cb98c2b3d5ff5ead452a6450561129b89595b4b9c18de2"
+        ],
+        "backupBytes": 11411,
+        "backupSha256": "fb2a341fdc6e144ff308a5a24c697f914fd9c1054abd76442cf1611e2bd2dca6"
+      },
+      {
+        "stage": "7.0.40",
+        "beforeFcvChange": {
+          "version": "7.0.40",
+          "fcv": {
+            "version": "6.0"
+          },
+          "api": {
+            "loaded": true,
+            "authenticatedEntries": 3,
+            "authenticatedTreatments": 3,
+            "profiles": 1,
+            "uploadAndReadback": true
+          },
+          "collections": {
+            "entries": {
+              "documents": 3,
+              "indexes": [
+                "_id_",
+                "date_-1_identifier_-1_created_at_-1",
+                "date_1",
+                "dateString_1",
+                "fixture_date",
+                "identifier_1",
+                "isValid_1",
+                "mbg_1",
+                "sgv_1",
+                "srvModified_1",
+                "sysTime_1",
+                "type_1",
+                "type_1_date_-1_dateString_1"
+              ],
+              "sha256": "e14ba77d8db0df1df6a8d4f8ec2f2f6a07bcacd6e898756a3725e86372378639"
+            },
+            "treatments": {
+              "documents": 3,
+              "indexes": [
+                "_id_",
+                "absolute_1",
+                "boluscalc.foods._id_1",
+                "carbs_1",
+                "created_at_1",
+                "duration_1",
+                "enteredBy_1",
+                "eventType_1",
+                "eventType_1_created_at_-1_identifier_-1_date_-1",
+                "eventType_1_duration_1_created_at_1",
+                "fixture_identifier",
+                "glucose_1",
+                "identifier_1",
+                "insulin_1",
+                "isValid_1",
+                "notes_1",
+                "NSCLIENT_ID_1",
+                "percent_1",
+                "srvModified_1"
+              ],
+              "sha256": "c3414184b6359cd320ca9b37877e3e83ec85d8d91702328fcbca101b2fb3de8e"
+            },
+            "profile": {
+              "documents": 1,
+              "indexes": [
+                "_id_",
+                "created_at_1",
+                "identifier_1",
+                "isValid_1",
+                "NSCLIENT_ID_1",
+                "srvModified_1",
+                "startDate_-1__id_-1",
+                "startDate_1"
+              ],
+              "sha256": "2ebcb79d0f815c2d7eff03be320be8f84f1fcabe2fcb49f5601bda02bcc5bdcc"
+            },
+            "devicestatus": {
+              "documents": 1,
+              "indexes": [
+                "_id_",
+                "created_at_-1_identifier_-1_date_-1",
+                "created_at_1",
+                "identifier_1",
+                "isValid_1",
+                "NSCLIENT_ID_1",
+                "srvModified_1"
+              ],
+              "sha256": "6d805de8abe1fc89bcbebd1ae00d88cf690d36ff7d6f07e3efb4a5d7970063a2"
+            },
+            "food": {
+              "documents": 1,
+              "indexes": [
+                "_id_",
+                "hidden_1",
+                "identifier_1",
+                "isValid_1",
+                "position_1",
+                "srvModified_1",
+                "type_1"
+              ],
+              "sha256": "8d195afdb647f9d7a60064f601fe1615e902eac2bb1efaa2d79768ab37553a86"
+            },
+            "settings": {
+              "documents": 1,
+              "indexes": [
+                "_id_",
+                "identifier_1",
+                "isValid_1",
+                "srvModified_1"
+              ],
+              "sha256": "6105e08d50704121d5ad0fd42ae9df66006018cc68f342c42576b8b5cdb1ca97"
+            }
+          }
+        },
+        "afterFcvChange": {
+          "version": "7.0.40",
+          "fcv": {
+            "version": "7.0"
+          },
+          "api": {
+            "loaded": true,
+            "authenticatedEntries": 3,
+            "authenticatedTreatments": 3,
+            "profiles": 1,
+            "uploadAndReadback": true
+          },
+          "collections": {
+            "entries": {
+              "documents": 3,
+              "indexes": [
+                "_id_",
+                "date_-1_identifier_-1_created_at_-1",
+                "date_1",
+                "dateString_1",
+                "fixture_date",
+                "identifier_1",
+                "isValid_1",
+                "mbg_1",
+                "sgv_1",
+                "srvModified_1",
+                "sysTime_1",
+                "type_1",
+                "type_1_date_-1_dateString_1"
+              ],
+              "sha256": "e14ba77d8db0df1df6a8d4f8ec2f2f6a07bcacd6e898756a3725e86372378639"
+            },
+            "treatments": {
+              "documents": 3,
+              "indexes": [
+                "_id_",
+                "absolute_1",
+                "boluscalc.foods._id_1",
+                "carbs_1",
+                "created_at_1",
+                "duration_1",
+                "enteredBy_1",
+                "eventType_1",
+                "eventType_1_created_at_-1_identifier_-1_date_-1",
+                "eventType_1_duration_1_created_at_1",
+                "fixture_identifier",
+                "glucose_1",
+                "identifier_1",
+                "insulin_1",
+                "isValid_1",
+                "notes_1",
+                "NSCLIENT_ID_1",
+                "percent_1",
+                "srvModified_1"
+              ],
+              "sha256": "c3414184b6359cd320ca9b37877e3e83ec85d8d91702328fcbca101b2fb3de8e"
+            },
+            "profile": {
+              "documents": 1,
+              "indexes": [
+                "_id_",
+                "created_at_1",
+                "identifier_1",
+                "isValid_1",
+                "NSCLIENT_ID_1",
+                "srvModified_1",
+                "startDate_-1__id_-1",
+                "startDate_1"
+              ],
+              "sha256": "2ebcb79d0f815c2d7eff03be320be8f84f1fcabe2fcb49f5601bda02bcc5bdcc"
+            },
+            "devicestatus": {
+              "documents": 1,
+              "indexes": [
+                "_id_",
+                "created_at_-1_identifier_-1_date_-1",
+                "created_at_1",
+                "identifier_1",
+                "isValid_1",
+                "NSCLIENT_ID_1",
+                "srvModified_1"
+              ],
+              "sha256": "6d805de8abe1fc89bcbebd1ae00d88cf690d36ff7d6f07e3efb4a5d7970063a2"
+            },
+            "food": {
+              "documents": 1,
+              "indexes": [
+                "_id_",
+                "hidden_1",
+                "identifier_1",
+                "isValid_1",
+                "position_1",
+                "srvModified_1",
+                "type_1"
+              ],
+              "sha256": "8d195afdb647f9d7a60064f601fe1615e902eac2bb1efaa2d79768ab37553a86"
+            },
+            "settings": {
+              "documents": 1,
+              "indexes": [
+                "_id_",
+                "identifier_1",
+                "isValid_1",
+                "srvModified_1"
+              ],
+              "sha256": "6105e08d50704121d5ad0fd42ae9df66006018cc68f342c42576b8b5cdb1ca97"
+            }
+          }
+        },
+        "elapsedSeconds": 1.586,
+        "image": [
+          "mongo@sha256:b6421fd6d1c5ded6377b397d8983e2f82e2100dc5123332dcfda2065a472be5b"
+        ],
+        "backupBytes": 11411,
+        "backupSha256": "463ac8f717bd9e8ea01fc99e5780a5f65e093f0fdb6488d254126074f21ac5eb"
+      },
+      {
+        "stage": "8.0.29",
+        "beforeFcvChange": {
+          "version": "8.0.29",
+          "fcv": {
+            "version": "7.0"
+          },
+          "api": {
+            "loaded": true,
+            "authenticatedEntries": 3,
+            "authenticatedTreatments": 3,
+            "profiles": 1,
+            "uploadAndReadback": true
+          },
+          "collections": {
+            "entries": {
+              "documents": 3,
+              "indexes": [
+                "_id_",
+                "date_-1_identifier_-1_created_at_-1",
+                "date_1",
+                "dateString_1",
+                "fixture_date",
+                "identifier_1",
+                "isValid_1",
+                "mbg_1",
+                "sgv_1",
+                "srvModified_1",
+                "sysTime_1",
+                "type_1",
+                "type_1_date_-1_dateString_1"
+              ],
+              "sha256": "e14ba77d8db0df1df6a8d4f8ec2f2f6a07bcacd6e898756a3725e86372378639"
+            },
+            "treatments": {
+              "documents": 3,
+              "indexes": [
+                "_id_",
+                "absolute_1",
+                "boluscalc.foods._id_1",
+                "carbs_1",
+                "created_at_1",
+                "duration_1",
+                "enteredBy_1",
+                "eventType_1",
+                "eventType_1_created_at_-1_identifier_-1_date_-1",
+                "eventType_1_duration_1_created_at_1",
+                "fixture_identifier",
+                "glucose_1",
+                "identifier_1",
+                "insulin_1",
+                "isValid_1",
+                "notes_1",
+                "NSCLIENT_ID_1",
+                "percent_1",
+                "srvModified_1"
+              ],
+              "sha256": "c3414184b6359cd320ca9b37877e3e83ec85d8d91702328fcbca101b2fb3de8e"
+            },
+            "profile": {
+              "documents": 1,
+              "indexes": [
+                "_id_",
+                "created_at_1",
+                "identifier_1",
+                "isValid_1",
+                "NSCLIENT_ID_1",
+                "srvModified_1",
+                "startDate_-1__id_-1",
+                "startDate_1"
+              ],
+              "sha256": "2ebcb79d0f815c2d7eff03be320be8f84f1fcabe2fcb49f5601bda02bcc5bdcc"
+            },
+            "devicestatus": {
+              "documents": 1,
+              "indexes": [
+                "_id_",
+                "created_at_-1_identifier_-1_date_-1",
+                "created_at_1",
+                "identifier_1",
+                "isValid_1",
+                "NSCLIENT_ID_1",
+                "srvModified_1"
+              ],
+              "sha256": "6d805de8abe1fc89bcbebd1ae00d88cf690d36ff7d6f07e3efb4a5d7970063a2"
+            },
+            "food": {
+              "documents": 1,
+              "indexes": [
+                "_id_",
+                "hidden_1",
+                "identifier_1",
+                "isValid_1",
+                "position_1",
+                "srvModified_1",
+                "type_1"
+              ],
+              "sha256": "8d195afdb647f9d7a60064f601fe1615e902eac2bb1efaa2d79768ab37553a86"
+            },
+            "settings": {
+              "documents": 1,
+              "indexes": [
+                "_id_",
+                "identifier_1",
+                "isValid_1",
+                "srvModified_1"
+              ],
+              "sha256": "6105e08d50704121d5ad0fd42ae9df66006018cc68f342c42576b8b5cdb1ca97"
+            }
+          }
+        },
+        "afterFcvChange": {
+          "version": "8.0.29",
+          "fcv": {
+            "version": "8.0"
+          },
+          "api": {
+            "loaded": true,
+            "authenticatedEntries": 3,
+            "authenticatedTreatments": 3,
+            "profiles": 1,
+            "uploadAndReadback": true
+          },
+          "collections": {
+            "entries": {
+              "documents": 3,
+              "indexes": [
+                "_id_",
+                "date_-1_identifier_-1_created_at_-1",
+                "date_1",
+                "dateString_1",
+                "fixture_date",
+                "identifier_1",
+                "isValid_1",
+                "mbg_1",
+                "sgv_1",
+                "srvModified_1",
+                "sysTime_1",
+                "type_1",
+                "type_1_date_-1_dateString_1"
+              ],
+              "sha256": "e14ba77d8db0df1df6a8d4f8ec2f2f6a07bcacd6e898756a3725e86372378639"
+            },
+            "treatments": {
+              "documents": 3,
+              "indexes": [
+                "_id_",
+                "absolute_1",
+                "boluscalc.foods._id_1",
+                "carbs_1",
+                "created_at_1",
+                "duration_1",
+                "enteredBy_1",
+                "eventType_1",
+                "eventType_1_created_at_-1_identifier_-1_date_-1",
+                "eventType_1_duration_1_created_at_1",
+                "fixture_identifier",
+                "glucose_1",
+                "identifier_1",
+                "insulin_1",
+                "isValid_1",
+                "notes_1",
+                "NSCLIENT_ID_1",
+                "percent_1",
+                "srvModified_1"
+              ],
+              "sha256": "c3414184b6359cd320ca9b37877e3e83ec85d8d91702328fcbca101b2fb3de8e"
+            },
+            "profile": {
+              "documents": 1,
+              "indexes": [
+                "_id_",
+                "created_at_1",
+                "identifier_1",
+                "isValid_1",
+                "NSCLIENT_ID_1",
+                "srvModified_1",
+                "startDate_-1__id_-1",
+                "startDate_1"
+              ],
+              "sha256": "2ebcb79d0f815c2d7eff03be320be8f84f1fcabe2fcb49f5601bda02bcc5bdcc"
+            },
+            "devicestatus": {
+              "documents": 1,
+              "indexes": [
+                "_id_",
+                "created_at_-1_identifier_-1_date_-1",
+                "created_at_1",
+                "identifier_1",
+                "isValid_1",
+                "NSCLIENT_ID_1",
+                "srvModified_1"
+              ],
+              "sha256": "6d805de8abe1fc89bcbebd1ae00d88cf690d36ff7d6f07e3efb4a5d7970063a2"
+            },
+            "food": {
+              "documents": 1,
+              "indexes": [
+                "_id_",
+                "hidden_1",
+                "identifier_1",
+                "isValid_1",
+                "position_1",
+                "srvModified_1",
+                "type_1"
+              ],
+              "sha256": "8d195afdb647f9d7a60064f601fe1615e902eac2bb1efaa2d79768ab37553a86"
+            },
+            "settings": {
+              "documents": 1,
+              "indexes": [
+                "_id_",
+                "identifier_1",
+                "isValid_1",
+                "srvModified_1"
+              ],
+              "sha256": "6105e08d50704121d5ad0fd42ae9df66006018cc68f342c42576b8b5cdb1ca97"
+            }
+          }
+        },
+        "elapsedSeconds": 1.582,
+        "image": [
+          "mongo@sha256:02a0cc7939f5ed38f30f9bc714ef5f682d49baf9350c54acf302ce833087fe8a"
+        ],
+        "backupBytes": 11411,
+        "backupSha256": "bf80113ca735e6170f381f7c82c834cc40f80da948614867c8cc61d8895a526a"
+      },
+      {
+        "stage": "rollback-original-on-5",
+        "verification": {
+          "version": "5.0.32",
+          "fcv": {
+            "version": "5.0"
+          },
+          "api": {
+            "loaded": true,
+            "authenticatedEntries": 3,
+            "authenticatedTreatments": 3,
+            "profiles": 1,
+            "uploadAndReadback": true
+          },
+          "collections": {
+            "entries": {
+              "documents": 3,
+              "indexes": [
+                "_id_",
+                "date_-1_identifier_-1_created_at_-1",
+                "date_1",
+                "dateString_1",
+                "fixture_date",
+                "identifier_1",
+                "isValid_1",
+                "mbg_1",
+                "sgv_1",
+                "srvModified_1",
+                "sysTime_1",
+                "type_1",
+                "type_1_date_-1_dateString_1"
+              ],
+              "sha256": "e14ba77d8db0df1df6a8d4f8ec2f2f6a07bcacd6e898756a3725e86372378639"
+            },
+            "treatments": {
+              "documents": 3,
+              "indexes": [
+                "_id_",
+                "absolute_1",
+                "boluscalc.foods._id_1",
+                "carbs_1",
+                "created_at_1",
+                "duration_1",
+                "enteredBy_1",
+                "eventType_1",
+                "eventType_1_created_at_-1_identifier_-1_date_-1",
+                "eventType_1_duration_1_created_at_1",
+                "fixture_identifier",
+                "glucose_1",
+                "identifier_1",
+                "insulin_1",
+                "isValid_1",
+                "notes_1",
+                "NSCLIENT_ID_1",
+                "percent_1",
+                "srvModified_1"
+              ],
+              "sha256": "c3414184b6359cd320ca9b37877e3e83ec85d8d91702328fcbca101b2fb3de8e"
+            },
+            "profile": {
+              "documents": 1,
+              "indexes": [
+                "_id_",
+                "created_at_1",
+                "identifier_1",
+                "isValid_1",
+                "NSCLIENT_ID_1",
+                "srvModified_1",
+                "startDate_-1__id_-1",
+                "startDate_1"
+              ],
+              "sha256": "2ebcb79d0f815c2d7eff03be320be8f84f1fcabe2fcb49f5601bda02bcc5bdcc"
+            },
+            "devicestatus": {
+              "documents": 1,
+              "indexes": [
+                "_id_",
+                "created_at_-1_identifier_-1_date_-1",
+                "created_at_1",
+                "identifier_1",
+                "isValid_1",
+                "NSCLIENT_ID_1",
+                "srvModified_1"
+              ],
+              "sha256": "6d805de8abe1fc89bcbebd1ae00d88cf690d36ff7d6f07e3efb4a5d7970063a2"
+            },
+            "food": {
+              "documents": 1,
+              "indexes": [
+                "_id_",
+                "hidden_1",
+                "identifier_1",
+                "isValid_1",
+                "position_1",
+                "srvModified_1",
+                "type_1"
+              ],
+              "sha256": "8d195afdb647f9d7a60064f601fe1615e902eac2bb1efaa2d79768ab37553a86"
+            },
+            "settings": {
+              "documents": 1,
+              "indexes": [
+                "_id_",
+                "identifier_1",
+                "isValid_1",
+                "srvModified_1"
+              ],
+              "sha256": "6105e08d50704121d5ad0fd42ae9df66006018cc68f342c42576b8b5cdb1ca97"
+            }
+          }
+        }
+      },
+      {
+        "stage": "restore-final-on-8",
+        "verification": {
+          "version": "8.0.29",
+          "fcv": {
+            "version": "8.0"
+          },
+          "api": {
+            "loaded": true,
+            "authenticatedEntries": 3,
+            "authenticatedTreatments": 3,
+            "profiles": 1,
+            "uploadAndReadback": true
+          },
+          "collections": {
+            "entries": {
+              "documents": 3,
+              "indexes": [
+                "_id_",
+                "date_-1_identifier_-1_created_at_-1",
+                "date_1",
+                "dateString_1",
+                "fixture_date",
+                "identifier_1",
+                "isValid_1",
+                "mbg_1",
+                "sgv_1",
+                "srvModified_1",
+                "sysTime_1",
+                "type_1",
+                "type_1_date_-1_dateString_1"
+              ],
+              "sha256": "e14ba77d8db0df1df6a8d4f8ec2f2f6a07bcacd6e898756a3725e86372378639"
+            },
+            "treatments": {
+              "documents": 3,
+              "indexes": [
+                "_id_",
+                "absolute_1",
+                "boluscalc.foods._id_1",
+                "carbs_1",
+                "created_at_1",
+                "duration_1",
+                "enteredBy_1",
+                "eventType_1",
+                "eventType_1_created_at_-1_identifier_-1_date_-1",
+                "eventType_1_duration_1_created_at_1",
+                "fixture_identifier",
+                "glucose_1",
+                "identifier_1",
+                "insulin_1",
+                "isValid_1",
+                "notes_1",
+                "NSCLIENT_ID_1",
+                "percent_1",
+                "srvModified_1"
+              ],
+              "sha256": "c3414184b6359cd320ca9b37877e3e83ec85d8d91702328fcbca101b2fb3de8e"
+            },
+            "profile": {
+              "documents": 1,
+              "indexes": [
+                "_id_",
+                "created_at_1",
+                "identifier_1",
+                "isValid_1",
+                "NSCLIENT_ID_1",
+                "srvModified_1",
+                "startDate_-1__id_-1",
+                "startDate_1"
+              ],
+              "sha256": "2ebcb79d0f815c2d7eff03be320be8f84f1fcabe2fcb49f5601bda02bcc5bdcc"
+            },
+            "devicestatus": {
+              "documents": 1,
+              "indexes": [
+                "_id_",
+                "created_at_-1_identifier_-1_date_-1",
+                "created_at_1",
+                "identifier_1",
+                "isValid_1",
+                "NSCLIENT_ID_1",
+                "srvModified_1"
+              ],
+              "sha256": "6d805de8abe1fc89bcbebd1ae00d88cf690d36ff7d6f07e3efb4a5d7970063a2"
+            },
+            "food": {
+              "documents": 1,
+              "indexes": [
+                "_id_",
+                "hidden_1",
+                "identifier_1",
+                "isValid_1",
+                "position_1",
+                "srvModified_1",
+                "type_1"
+              ],
+              "sha256": "8d195afdb647f9d7a60064f601fe1615e902eac2bb1efaa2d79768ab37553a86"
+            },
+            "settings": {
+              "documents": 1,
+              "indexes": [
+                "_id_",
+                "identifier_1",
+                "isValid_1",
+                "srvModified_1"
+              ],
+              "sha256": "6105e08d50704121d5ad0fd42ae9df66006018cc68f342c42576b8b5cdb1ca97"
+            }
+          }
+        }
+      }
+    ]
+  },
+  {
+    "metadata": {
+      "scope": "Owned synthetic standalone databases; no production or replica-set upgrade claim",
+      "gitHead": "3715f931f833ae2bd19861a574cab7185bcbce89",
+      "node": "v24.20.0",
+      "sourceLockSha256": "8e44e03500c5bdc484dbb1f62a815959cf261f5675c081305ccd734d4eaa67da",
+      "postPruneLockSha256": "8e44e03500c5bdc484dbb1f62a815959cf261f5675c081305ccd734d4eaa67da",
+      "sources": {
+        "tools/database-upgrade-fixture.cjs": "f6784229a136d9415055f8c3e96032efa3e7bb411535af41d42011bc15fbd025",
+        "tools/rehearse-database-upgrade.py": "9201de21f8366ae8284b5b4d7a9ac33c556e88d70eaae2e32b1280f0206ed317"
+      },
+      "ownedResourcesRemoved": {
+        "containers": 6,
+        "volumes": 3
+      }
+    },
+    "stages": [
+      {
+        "stage": "5.0.32",
+        "beforeFcvChange": {
+          "version": "5.0.32",
+          "fcv": {
+            "version": "5.0"
+          },
+          "api": {
+            "loaded": true,
+            "authenticatedEntries": 3,
+            "authenticatedTreatments": 3,
+            "profiles": 1,
+            "uploadAndReadback": true
+          },
+          "collections": {
+            "entries": {
+              "documents": 3,
+              "indexes": [
+                "_id_",
+                "date_-1_identifier_-1_created_at_-1",
+                "date_1",
+                "dateString_1",
+                "fixture_date",
+                "identifier_1",
+                "isValid_1",
+                "mbg_1",
+                "sgv_1",
+                "srvModified_1",
+                "sysTime_1",
+                "type_1",
+                "type_1_date_-1_dateString_1"
+              ],
+              "sha256": "e14ba77d8db0df1df6a8d4f8ec2f2f6a07bcacd6e898756a3725e86372378639"
+            },
+            "treatments": {
+              "documents": 3,
+              "indexes": [
+                "_id_",
+                "absolute_1",
+                "boluscalc.foods._id_1",
+                "carbs_1",
+                "created_at_1",
+                "duration_1",
+                "enteredBy_1",
+                "eventType_1",
+                "eventType_1_created_at_-1_identifier_-1_date_-1",
+                "eventType_1_duration_1_created_at_1",
+                "fixture_identifier",
+                "glucose_1",
+                "identifier_1",
+                "insulin_1",
+                "isValid_1",
+                "notes_1",
+                "NSCLIENT_ID_1",
+                "percent_1",
+                "srvModified_1"
+              ],
+              "sha256": "c3414184b6359cd320ca9b37877e3e83ec85d8d91702328fcbca101b2fb3de8e"
+            },
+            "profile": {
+              "documents": 1,
+              "indexes": [
+                "_id_",
+                "created_at_1",
+                "identifier_1",
+                "isValid_1",
+                "NSCLIENT_ID_1",
+                "srvModified_1",
+                "startDate_-1__id_-1",
+                "startDate_1"
+              ],
+              "sha256": "2ebcb79d0f815c2d7eff03be320be8f84f1fcabe2fcb49f5601bda02bcc5bdcc"
+            },
+            "devicestatus": {
+              "documents": 1,
+              "indexes": [
+                "_id_",
+                "created_at_-1_identifier_-1_date_-1",
+                "created_at_1",
+                "identifier_1",
+                "isValid_1",
+                "NSCLIENT_ID_1",
+                "srvModified_1"
+              ],
+              "sha256": "703136ae6a5bae27b26cd6ff774ebe29070a659293bed91aceb2116df4c1f0c2"
+            },
+            "food": {
+              "documents": 1,
+              "indexes": [
+                "_id_",
+                "hidden_1",
+                "identifier_1",
+                "isValid_1",
+                "position_1",
+                "srvModified_1",
+                "type_1"
+              ],
+              "sha256": "343b3dbf402b3045b03896a0a2ecde90ac12741e65cab390d645a41d8bc6327f"
+            },
+            "settings": {
+              "documents": 1,
+              "indexes": [
+                "_id_",
+                "identifier_1",
+                "isValid_1",
+                "srvModified_1"
+              ],
+              "sha256": "e7cca69408ce21976bf8d22328e7c5ae1c963c2fca8ef32f5db4929a60fa20c8"
+            }
+          }
+        },
+        "afterFcvChange": {
+          "version": "5.0.32",
+          "fcv": {
+            "version": "5.0"
+          },
+          "api": {
+            "loaded": true,
+            "authenticatedEntries": 3,
+            "authenticatedTreatments": 3,
+            "profiles": 1,
+            "uploadAndReadback": true
+          },
+          "collections": {
+            "entries": {
+              "documents": 3,
+              "indexes": [
+                "_id_",
+                "date_-1_identifier_-1_created_at_-1",
+                "date_1",
+                "dateString_1",
+                "fixture_date",
+                "identifier_1",
+                "isValid_1",
+                "mbg_1",
+                "sgv_1",
+                "srvModified_1",
+                "sysTime_1",
+                "type_1",
+                "type_1_date_-1_dateString_1"
+              ],
+              "sha256": "e14ba77d8db0df1df6a8d4f8ec2f2f6a07bcacd6e898756a3725e86372378639"
+            },
+            "treatments": {
+              "documents": 3,
+              "indexes": [
+                "_id_",
+                "absolute_1",
+                "boluscalc.foods._id_1",
+                "carbs_1",
+                "created_at_1",
+                "duration_1",
+                "enteredBy_1",
+                "eventType_1",
+                "eventType_1_created_at_-1_identifier_-1_date_-1",
+                "eventType_1_duration_1_created_at_1",
+                "fixture_identifier",
+                "glucose_1",
+                "identifier_1",
+                "insulin_1",
+                "isValid_1",
+                "notes_1",
+                "NSCLIENT_ID_1",
+                "percent_1",
+                "srvModified_1"
+              ],
+              "sha256": "c3414184b6359cd320ca9b37877e3e83ec85d8d91702328fcbca101b2fb3de8e"
+            },
+            "profile": {
+              "documents": 1,
+              "indexes": [
+                "_id_",
+                "created_at_1",
+                "identifier_1",
+                "isValid_1",
+                "NSCLIENT_ID_1",
+                "srvModified_1",
+                "startDate_-1__id_-1",
+                "startDate_1"
+              ],
+              "sha256": "2ebcb79d0f815c2d7eff03be320be8f84f1fcabe2fcb49f5601bda02bcc5bdcc"
+            },
+            "devicestatus": {
+              "documents": 1,
+              "indexes": [
+                "_id_",
+                "created_at_-1_identifier_-1_date_-1",
+                "created_at_1",
+                "identifier_1",
+                "isValid_1",
+                "NSCLIENT_ID_1",
+                "srvModified_1"
+              ],
+              "sha256": "703136ae6a5bae27b26cd6ff774ebe29070a659293bed91aceb2116df4c1f0c2"
+            },
+            "food": {
+              "documents": 1,
+              "indexes": [
+                "_id_",
+                "hidden_1",
+                "identifier_1",
+                "isValid_1",
+                "position_1",
+                "srvModified_1",
+                "type_1"
+              ],
+              "sha256": "343b3dbf402b3045b03896a0a2ecde90ac12741e65cab390d645a41d8bc6327f"
+            },
+            "settings": {
+              "documents": 1,
+              "indexes": [
+                "_id_",
+                "identifier_1",
+                "isValid_1",
+                "srvModified_1"
+              ],
+              "sha256": "e7cca69408ce21976bf8d22328e7c5ae1c963c2fca8ef32f5db4929a60fa20c8"
+            }
+          }
+        },
+        "elapsedSeconds": 3.156,
+        "image": [
+          "mongo@sha256:5e3e87afd24d75e722884d777c5713d254f7e88ba65381b5d6484f75a21b73e3"
+        ],
+        "backupBytes": 11411,
+        "backupSha256": "6c5c194905f12e9b3245dc3ebee3ba39fd41b46e84100a10e82b5798d5cb97c7"
+      },
+      {
+        "stage": "6.0.27",
+        "beforeFcvChange": {
+          "version": "6.0.27",
+          "fcv": {
+            "version": "5.0"
+          },
+          "api": {
+            "loaded": true,
+            "authenticatedEntries": 3,
+            "authenticatedTreatments": 3,
+            "profiles": 1,
+            "uploadAndReadback": true
+          },
+          "collections": {
+            "entries": {
+              "documents": 3,
+              "indexes": [
+                "_id_",
+                "date_-1_identifier_-1_created_at_-1",
+                "date_1",
+                "dateString_1",
+                "fixture_date",
+                "identifier_1",
+                "isValid_1",
+                "mbg_1",
+                "sgv_1",
+                "srvModified_1",
+                "sysTime_1",
+                "type_1",
+                "type_1_date_-1_dateString_1"
+              ],
+              "sha256": "e14ba77d8db0df1df6a8d4f8ec2f2f6a07bcacd6e898756a3725e86372378639"
+            },
+            "treatments": {
+              "documents": 3,
+              "indexes": [
+                "_id_",
+                "absolute_1",
+                "boluscalc.foods._id_1",
+                "carbs_1",
+                "created_at_1",
+                "duration_1",
+                "enteredBy_1",
+                "eventType_1",
+                "eventType_1_created_at_-1_identifier_-1_date_-1",
+                "eventType_1_duration_1_created_at_1",
+                "fixture_identifier",
+                "glucose_1",
+                "identifier_1",
+                "insulin_1",
+                "isValid_1",
+                "notes_1",
+                "NSCLIENT_ID_1",
+                "percent_1",
+                "srvModified_1"
+              ],
+              "sha256": "c3414184b6359cd320ca9b37877e3e83ec85d8d91702328fcbca101b2fb3de8e"
+            },
+            "profile": {
+              "documents": 1,
+              "indexes": [
+                "_id_",
+                "created_at_1",
+                "identifier_1",
+                "isValid_1",
+                "NSCLIENT_ID_1",
+                "srvModified_1",
+                "startDate_-1__id_-1",
+                "startDate_1"
+              ],
+              "sha256": "2ebcb79d0f815c2d7eff03be320be8f84f1fcabe2fcb49f5601bda02bcc5bdcc"
+            },
+            "devicestatus": {
+              "documents": 1,
+              "indexes": [
+                "_id_",
+                "created_at_-1_identifier_-1_date_-1",
+                "created_at_1",
+                "identifier_1",
+                "isValid_1",
+                "NSCLIENT_ID_1",
+                "srvModified_1"
+              ],
+              "sha256": "703136ae6a5bae27b26cd6ff774ebe29070a659293bed91aceb2116df4c1f0c2"
+            },
+            "food": {
+              "documents": 1,
+              "indexes": [
+                "_id_",
+                "hidden_1",
+                "identifier_1",
+                "isValid_1",
+                "position_1",
+                "srvModified_1",
+                "type_1"
+              ],
+              "sha256": "343b3dbf402b3045b03896a0a2ecde90ac12741e65cab390d645a41d8bc6327f"
+            },
+            "settings": {
+              "documents": 1,
+              "indexes": [
+                "_id_",
+                "identifier_1",
+                "isValid_1",
+                "srvModified_1"
+              ],
+              "sha256": "e7cca69408ce21976bf8d22328e7c5ae1c963c2fca8ef32f5db4929a60fa20c8"
+            }
+          }
+        },
+        "afterFcvChange": {
+          "version": "6.0.27",
+          "fcv": {
+            "version": "6.0"
+          },
+          "api": {
+            "loaded": true,
+            "authenticatedEntries": 3,
+            "authenticatedTreatments": 3,
+            "profiles": 1,
+            "uploadAndReadback": true
+          },
+          "collections": {
+            "entries": {
+              "documents": 3,
+              "indexes": [
+                "_id_",
+                "date_-1_identifier_-1_created_at_-1",
+                "date_1",
+                "dateString_1",
+                "fixture_date",
+                "identifier_1",
+                "isValid_1",
+                "mbg_1",
+                "sgv_1",
+                "srvModified_1",
+                "sysTime_1",
+                "type_1",
+                "type_1_date_-1_dateString_1"
+              ],
+              "sha256": "e14ba77d8db0df1df6a8d4f8ec2f2f6a07bcacd6e898756a3725e86372378639"
+            },
+            "treatments": {
+              "documents": 3,
+              "indexes": [
+                "_id_",
+                "absolute_1",
+                "boluscalc.foods._id_1",
+                "carbs_1",
+                "created_at_1",
+                "duration_1",
+                "enteredBy_1",
+                "eventType_1",
+                "eventType_1_created_at_-1_identifier_-1_date_-1",
+                "eventType_1_duration_1_created_at_1",
+                "fixture_identifier",
+                "glucose_1",
+                "identifier_1",
+                "insulin_1",
+                "isValid_1",
+                "notes_1",
+                "NSCLIENT_ID_1",
+                "percent_1",
+                "srvModified_1"
+              ],
+              "sha256": "c3414184b6359cd320ca9b37877e3e83ec85d8d91702328fcbca101b2fb3de8e"
+            },
+            "profile": {
+              "documents": 1,
+              "indexes": [
+                "_id_",
+                "created_at_1",
+                "identifier_1",
+                "isValid_1",
+                "NSCLIENT_ID_1",
+                "srvModified_1",
+                "startDate_-1__id_-1",
+                "startDate_1"
+              ],
+              "sha256": "2ebcb79d0f815c2d7eff03be320be8f84f1fcabe2fcb49f5601bda02bcc5bdcc"
+            },
+            "devicestatus": {
+              "documents": 1,
+              "indexes": [
+                "_id_",
+                "created_at_-1_identifier_-1_date_-1",
+                "created_at_1",
+                "identifier_1",
+                "isValid_1",
+                "NSCLIENT_ID_1",
+                "srvModified_1"
+              ],
+              "sha256": "703136ae6a5bae27b26cd6ff774ebe29070a659293bed91aceb2116df4c1f0c2"
+            },
+            "food": {
+              "documents": 1,
+              "indexes": [
+                "_id_",
+                "hidden_1",
+                "identifier_1",
+                "isValid_1",
+                "position_1",
+                "srvModified_1",
+                "type_1"
+              ],
+              "sha256": "343b3dbf402b3045b03896a0a2ecde90ac12741e65cab390d645a41d8bc6327f"
+            },
+            "settings": {
+              "documents": 1,
+              "indexes": [
+                "_id_",
+                "identifier_1",
+                "isValid_1",
+                "srvModified_1"
+              ],
+              "sha256": "e7cca69408ce21976bf8d22328e7c5ae1c963c2fca8ef32f5db4929a60fa20c8"
+            }
+          }
+        },
+        "elapsedSeconds": 1.609,
+        "image": [
+          "mongo@sha256:03cda579c8caad6573cb98c2b3d5ff5ead452a6450561129b89595b4b9c18de2"
+        ],
+        "backupBytes": 11411,
+        "backupSha256": "692807fb0b0723b2cb14aa691084caa93bc10c48ad3bca0cc6dd1df1477e23e6"
+      },
+      {
+        "stage": "7.0.40",
+        "beforeFcvChange": {
+          "version": "7.0.40",
+          "fcv": {
+            "version": "6.0"
+          },
+          "api": {
+            "loaded": true,
+            "authenticatedEntries": 3,
+            "authenticatedTreatments": 3,
+            "profiles": 1,
+            "uploadAndReadback": true
+          },
+          "collections": {
+            "entries": {
+              "documents": 3,
+              "indexes": [
+                "_id_",
+                "date_-1_identifier_-1_created_at_-1",
+                "date_1",
+                "dateString_1",
+                "fixture_date",
+                "identifier_1",
+                "isValid_1",
+                "mbg_1",
+                "sgv_1",
+                "srvModified_1",
+                "sysTime_1",
+                "type_1",
+                "type_1_date_-1_dateString_1"
+              ],
+              "sha256": "e14ba77d8db0df1df6a8d4f8ec2f2f6a07bcacd6e898756a3725e86372378639"
+            },
+            "treatments": {
+              "documents": 3,
+              "indexes": [
+                "_id_",
+                "absolute_1",
+                "boluscalc.foods._id_1",
+                "carbs_1",
+                "created_at_1",
+                "duration_1",
+                "enteredBy_1",
+                "eventType_1",
+                "eventType_1_created_at_-1_identifier_-1_date_-1",
+                "eventType_1_duration_1_created_at_1",
+                "fixture_identifier",
+                "glucose_1",
+                "identifier_1",
+                "insulin_1",
+                "isValid_1",
+                "notes_1",
+                "NSCLIENT_ID_1",
+                "percent_1",
+                "srvModified_1"
+              ],
+              "sha256": "c3414184b6359cd320ca9b37877e3e83ec85d8d91702328fcbca101b2fb3de8e"
+            },
+            "profile": {
+              "documents": 1,
+              "indexes": [
+                "_id_",
+                "created_at_1",
+                "identifier_1",
+                "isValid_1",
+                "NSCLIENT_ID_1",
+                "srvModified_1",
+                "startDate_-1__id_-1",
+                "startDate_1"
+              ],
+              "sha256": "2ebcb79d0f815c2d7eff03be320be8f84f1fcabe2fcb49f5601bda02bcc5bdcc"
+            },
+            "devicestatus": {
+              "documents": 1,
+              "indexes": [
+                "_id_",
+                "created_at_-1_identifier_-1_date_-1",
+                "created_at_1",
+                "identifier_1",
+                "isValid_1",
+                "NSCLIENT_ID_1",
+                "srvModified_1"
+              ],
+              "sha256": "703136ae6a5bae27b26cd6ff774ebe29070a659293bed91aceb2116df4c1f0c2"
+            },
+            "food": {
+              "documents": 1,
+              "indexes": [
+                "_id_",
+                "hidden_1",
+                "identifier_1",
+                "isValid_1",
+                "position_1",
+                "srvModified_1",
+                "type_1"
+              ],
+              "sha256": "343b3dbf402b3045b03896a0a2ecde90ac12741e65cab390d645a41d8bc6327f"
+            },
+            "settings": {
+              "documents": 1,
+              "indexes": [
+                "_id_",
+                "identifier_1",
+                "isValid_1",
+                "srvModified_1"
+              ],
+              "sha256": "e7cca69408ce21976bf8d22328e7c5ae1c963c2fca8ef32f5db4929a60fa20c8"
+            }
+          }
+        },
+        "afterFcvChange": {
+          "version": "7.0.40",
+          "fcv": {
+            "version": "7.0"
+          },
+          "api": {
+            "loaded": true,
+            "authenticatedEntries": 3,
+            "authenticatedTreatments": 3,
+            "profiles": 1,
+            "uploadAndReadback": true
+          },
+          "collections": {
+            "entries": {
+              "documents": 3,
+              "indexes": [
+                "_id_",
+                "date_-1_identifier_-1_created_at_-1",
+                "date_1",
+                "dateString_1",
+                "fixture_date",
+                "identifier_1",
+                "isValid_1",
+                "mbg_1",
+                "sgv_1",
+                "srvModified_1",
+                "sysTime_1",
+                "type_1",
+                "type_1_date_-1_dateString_1"
+              ],
+              "sha256": "e14ba77d8db0df1df6a8d4f8ec2f2f6a07bcacd6e898756a3725e86372378639"
+            },
+            "treatments": {
+              "documents": 3,
+              "indexes": [
+                "_id_",
+                "absolute_1",
+                "boluscalc.foods._id_1",
+                "carbs_1",
+                "created_at_1",
+                "duration_1",
+                "enteredBy_1",
+                "eventType_1",
+                "eventType_1_created_at_-1_identifier_-1_date_-1",
+                "eventType_1_duration_1_created_at_1",
+                "fixture_identifier",
+                "glucose_1",
+                "identifier_1",
+                "insulin_1",
+                "isValid_1",
+                "notes_1",
+                "NSCLIENT_ID_1",
+                "percent_1",
+                "srvModified_1"
+              ],
+              "sha256": "c3414184b6359cd320ca9b37877e3e83ec85d8d91702328fcbca101b2fb3de8e"
+            },
+            "profile": {
+              "documents": 1,
+              "indexes": [
+                "_id_",
+                "created_at_1",
+                "identifier_1",
+                "isValid_1",
+                "NSCLIENT_ID_1",
+                "srvModified_1",
+                "startDate_-1__id_-1",
+                "startDate_1"
+              ],
+              "sha256": "2ebcb79d0f815c2d7eff03be320be8f84f1fcabe2fcb49f5601bda02bcc5bdcc"
+            },
+            "devicestatus": {
+              "documents": 1,
+              "indexes": [
+                "_id_",
+                "created_at_-1_identifier_-1_date_-1",
+                "created_at_1",
+                "identifier_1",
+                "isValid_1",
+                "NSCLIENT_ID_1",
+                "srvModified_1"
+              ],
+              "sha256": "703136ae6a5bae27b26cd6ff774ebe29070a659293bed91aceb2116df4c1f0c2"
+            },
+            "food": {
+              "documents": 1,
+              "indexes": [
+                "_id_",
+                "hidden_1",
+                "identifier_1",
+                "isValid_1",
+                "position_1",
+                "srvModified_1",
+                "type_1"
+              ],
+              "sha256": "343b3dbf402b3045b03896a0a2ecde90ac12741e65cab390d645a41d8bc6327f"
+            },
+            "settings": {
+              "documents": 1,
+              "indexes": [
+                "_id_",
+                "identifier_1",
+                "isValid_1",
+                "srvModified_1"
+              ],
+              "sha256": "e7cca69408ce21976bf8d22328e7c5ae1c963c2fca8ef32f5db4929a60fa20c8"
+            }
+          }
+        },
+        "elapsedSeconds": 1.568,
+        "image": [
+          "mongo@sha256:b6421fd6d1c5ded6377b397d8983e2f82e2100dc5123332dcfda2065a472be5b"
+        ],
+        "backupBytes": 11411,
+        "backupSha256": "ad86c70f36976b25212e7a0ed00eeb6897f2030a115d33240cd4f5db205331a3"
+      },
+      {
+        "stage": "8.0.29",
+        "beforeFcvChange": {
+          "version": "8.0.29",
+          "fcv": {
+            "version": "7.0"
+          },
+          "api": {
+            "loaded": true,
+            "authenticatedEntries": 3,
+            "authenticatedTreatments": 3,
+            "profiles": 1,
+            "uploadAndReadback": true
+          },
+          "collections": {
+            "entries": {
+              "documents": 3,
+              "indexes": [
+                "_id_",
+                "date_-1_identifier_-1_created_at_-1",
+                "date_1",
+                "dateString_1",
+                "fixture_date",
+                "identifier_1",
+                "isValid_1",
+                "mbg_1",
+                "sgv_1",
+                "srvModified_1",
+                "sysTime_1",
+                "type_1",
+                "type_1_date_-1_dateString_1"
+              ],
+              "sha256": "e14ba77d8db0df1df6a8d4f8ec2f2f6a07bcacd6e898756a3725e86372378639"
+            },
+            "treatments": {
+              "documents": 3,
+              "indexes": [
+                "_id_",
+                "absolute_1",
+                "boluscalc.foods._id_1",
+                "carbs_1",
+                "created_at_1",
+                "duration_1",
+                "enteredBy_1",
+                "eventType_1",
+                "eventType_1_created_at_-1_identifier_-1_date_-1",
+                "eventType_1_duration_1_created_at_1",
+                "fixture_identifier",
+                "glucose_1",
+                "identifier_1",
+                "insulin_1",
+                "isValid_1",
+                "notes_1",
+                "NSCLIENT_ID_1",
+                "percent_1",
+                "srvModified_1"
+              ],
+              "sha256": "c3414184b6359cd320ca9b37877e3e83ec85d8d91702328fcbca101b2fb3de8e"
+            },
+            "profile": {
+              "documents": 1,
+              "indexes": [
+                "_id_",
+                "created_at_1",
+                "identifier_1",
+                "isValid_1",
+                "NSCLIENT_ID_1",
+                "srvModified_1",
+                "startDate_-1__id_-1",
+                "startDate_1"
+              ],
+              "sha256": "2ebcb79d0f815c2d7eff03be320be8f84f1fcabe2fcb49f5601bda02bcc5bdcc"
+            },
+            "devicestatus": {
+              "documents": 1,
+              "indexes": [
+                "_id_",
+                "created_at_-1_identifier_-1_date_-1",
+                "created_at_1",
+                "identifier_1",
+                "isValid_1",
+                "NSCLIENT_ID_1",
+                "srvModified_1"
+              ],
+              "sha256": "703136ae6a5bae27b26cd6ff774ebe29070a659293bed91aceb2116df4c1f0c2"
+            },
+            "food": {
+              "documents": 1,
+              "indexes": [
+                "_id_",
+                "hidden_1",
+                "identifier_1",
+                "isValid_1",
+                "position_1",
+                "srvModified_1",
+                "type_1"
+              ],
+              "sha256": "343b3dbf402b3045b03896a0a2ecde90ac12741e65cab390d645a41d8bc6327f"
+            },
+            "settings": {
+              "documents": 1,
+              "indexes": [
+                "_id_",
+                "identifier_1",
+                "isValid_1",
+                "srvModified_1"
+              ],
+              "sha256": "e7cca69408ce21976bf8d22328e7c5ae1c963c2fca8ef32f5db4929a60fa20c8"
+            }
+          }
+        },
+        "afterFcvChange": {
+          "version": "8.0.29",
+          "fcv": {
+            "version": "8.0"
+          },
+          "api": {
+            "loaded": true,
+            "authenticatedEntries": 3,
+            "authenticatedTreatments": 3,
+            "profiles": 1,
+            "uploadAndReadback": true
+          },
+          "collections": {
+            "entries": {
+              "documents": 3,
+              "indexes": [
+                "_id_",
+                "date_-1_identifier_-1_created_at_-1",
+                "date_1",
+                "dateString_1",
+                "fixture_date",
+                "identifier_1",
+                "isValid_1",
+                "mbg_1",
+                "sgv_1",
+                "srvModified_1",
+                "sysTime_1",
+                "type_1",
+                "type_1_date_-1_dateString_1"
+              ],
+              "sha256": "e14ba77d8db0df1df6a8d4f8ec2f2f6a07bcacd6e898756a3725e86372378639"
+            },
+            "treatments": {
+              "documents": 3,
+              "indexes": [
+                "_id_",
+                "absolute_1",
+                "boluscalc.foods._id_1",
+                "carbs_1",
+                "created_at_1",
+                "duration_1",
+                "enteredBy_1",
+                "eventType_1",
+                "eventType_1_created_at_-1_identifier_-1_date_-1",
+                "eventType_1_duration_1_created_at_1",
+                "fixture_identifier",
+                "glucose_1",
+                "identifier_1",
+                "insulin_1",
+                "isValid_1",
+                "notes_1",
+                "NSCLIENT_ID_1",
+                "percent_1",
+                "srvModified_1"
+              ],
+              "sha256": "c3414184b6359cd320ca9b37877e3e83ec85d8d91702328fcbca101b2fb3de8e"
+            },
+            "profile": {
+              "documents": 1,
+              "indexes": [
+                "_id_",
+                "created_at_1",
+                "identifier_1",
+                "isValid_1",
+                "NSCLIENT_ID_1",
+                "srvModified_1",
+                "startDate_-1__id_-1",
+                "startDate_1"
+              ],
+              "sha256": "2ebcb79d0f815c2d7eff03be320be8f84f1fcabe2fcb49f5601bda02bcc5bdcc"
+            },
+            "devicestatus": {
+              "documents": 1,
+              "indexes": [
+                "_id_",
+                "created_at_-1_identifier_-1_date_-1",
+                "created_at_1",
+                "identifier_1",
+                "isValid_1",
+                "NSCLIENT_ID_1",
+                "srvModified_1"
+              ],
+              "sha256": "703136ae6a5bae27b26cd6ff774ebe29070a659293bed91aceb2116df4c1f0c2"
+            },
+            "food": {
+              "documents": 1,
+              "indexes": [
+                "_id_",
+                "hidden_1",
+                "identifier_1",
+                "isValid_1",
+                "position_1",
+                "srvModified_1",
+                "type_1"
+              ],
+              "sha256": "343b3dbf402b3045b03896a0a2ecde90ac12741e65cab390d645a41d8bc6327f"
+            },
+            "settings": {
+              "documents": 1,
+              "indexes": [
+                "_id_",
+                "identifier_1",
+                "isValid_1",
+                "srvModified_1"
+              ],
+              "sha256": "e7cca69408ce21976bf8d22328e7c5ae1c963c2fca8ef32f5db4929a60fa20c8"
+            }
+          }
+        },
+        "elapsedSeconds": 1.583,
+        "image": [
+          "mongo@sha256:02a0cc7939f5ed38f30f9bc714ef5f682d49baf9350c54acf302ce833087fe8a"
+        ],
+        "backupBytes": 11411,
+        "backupSha256": "2fe1135c420f9f310b5a07571ce92fe26a65ad6965be763f4668ba3e58987bde"
+      },
+      {
+        "stage": "rollback-original-on-5",
+        "verification": {
+          "version": "5.0.32",
+          "fcv": {
+            "version": "5.0"
+          },
+          "api": {
+            "loaded": true,
+            "authenticatedEntries": 3,
+            "authenticatedTreatments": 3,
+            "profiles": 1,
+            "uploadAndReadback": true
+          },
+          "collections": {
+            "entries": {
+              "documents": 3,
+              "indexes": [
+                "_id_",
+                "date_-1_identifier_-1_created_at_-1",
+                "date_1",
+                "dateString_1",
+                "fixture_date",
+                "identifier_1",
+                "isValid_1",
+                "mbg_1",
+                "sgv_1",
+                "srvModified_1",
+                "sysTime_1",
+                "type_1",
+                "type_1_date_-1_dateString_1"
+              ],
+              "sha256": "e14ba77d8db0df1df6a8d4f8ec2f2f6a07bcacd6e898756a3725e86372378639"
+            },
+            "treatments": {
+              "documents": 3,
+              "indexes": [
+                "_id_",
+                "absolute_1",
+                "boluscalc.foods._id_1",
+                "carbs_1",
+                "created_at_1",
+                "duration_1",
+                "enteredBy_1",
+                "eventType_1",
+                "eventType_1_created_at_-1_identifier_-1_date_-1",
+                "eventType_1_duration_1_created_at_1",
+                "fixture_identifier",
+                "glucose_1",
+                "identifier_1",
+                "insulin_1",
+                "isValid_1",
+                "notes_1",
+                "NSCLIENT_ID_1",
+                "percent_1",
+                "srvModified_1"
+              ],
+              "sha256": "c3414184b6359cd320ca9b37877e3e83ec85d8d91702328fcbca101b2fb3de8e"
+            },
+            "profile": {
+              "documents": 1,
+              "indexes": [
+                "_id_",
+                "created_at_1",
+                "identifier_1",
+                "isValid_1",
+                "NSCLIENT_ID_1",
+                "srvModified_1",
+                "startDate_-1__id_-1",
+                "startDate_1"
+              ],
+              "sha256": "2ebcb79d0f815c2d7eff03be320be8f84f1fcabe2fcb49f5601bda02bcc5bdcc"
+            },
+            "devicestatus": {
+              "documents": 1,
+              "indexes": [
+                "_id_",
+                "created_at_-1_identifier_-1_date_-1",
+                "created_at_1",
+                "identifier_1",
+                "isValid_1",
+                "NSCLIENT_ID_1",
+                "srvModified_1"
+              ],
+              "sha256": "703136ae6a5bae27b26cd6ff774ebe29070a659293bed91aceb2116df4c1f0c2"
+            },
+            "food": {
+              "documents": 1,
+              "indexes": [
+                "_id_",
+                "hidden_1",
+                "identifier_1",
+                "isValid_1",
+                "position_1",
+                "srvModified_1",
+                "type_1"
+              ],
+              "sha256": "343b3dbf402b3045b03896a0a2ecde90ac12741e65cab390d645a41d8bc6327f"
+            },
+            "settings": {
+              "documents": 1,
+              "indexes": [
+                "_id_",
+                "identifier_1",
+                "isValid_1",
+                "srvModified_1"
+              ],
+              "sha256": "e7cca69408ce21976bf8d22328e7c5ae1c963c2fca8ef32f5db4929a60fa20c8"
+            }
+          }
+        }
+      },
+      {
+        "stage": "restore-final-on-8",
+        "verification": {
+          "version": "8.0.29",
+          "fcv": {
+            "version": "8.0"
+          },
+          "api": {
+            "loaded": true,
+            "authenticatedEntries": 3,
+            "authenticatedTreatments": 3,
+            "profiles": 1,
+            "uploadAndReadback": true
+          },
+          "collections": {
+            "entries": {
+              "documents": 3,
+              "indexes": [
+                "_id_",
+                "date_-1_identifier_-1_created_at_-1",
+                "date_1",
+                "dateString_1",
+                "fixture_date",
+                "identifier_1",
+                "isValid_1",
+                "mbg_1",
+                "sgv_1",
+                "srvModified_1",
+                "sysTime_1",
+                "type_1",
+                "type_1_date_-1_dateString_1"
+              ],
+              "sha256": "e14ba77d8db0df1df6a8d4f8ec2f2f6a07bcacd6e898756a3725e86372378639"
+            },
+            "treatments": {
+              "documents": 3,
+              "indexes": [
+                "_id_",
+                "absolute_1",
+                "boluscalc.foods._id_1",
+                "carbs_1",
+                "created_at_1",
+                "duration_1",
+                "enteredBy_1",
+                "eventType_1",
+                "eventType_1_created_at_-1_identifier_-1_date_-1",
+                "eventType_1_duration_1_created_at_1",
+                "fixture_identifier",
+                "glucose_1",
+                "identifier_1",
+                "insulin_1",
+                "isValid_1",
+                "notes_1",
+                "NSCLIENT_ID_1",
+                "percent_1",
+                "srvModified_1"
+              ],
+              "sha256": "c3414184b6359cd320ca9b37877e3e83ec85d8d91702328fcbca101b2fb3de8e"
+            },
+            "profile": {
+              "documents": 1,
+              "indexes": [
+                "_id_",
+                "created_at_1",
+                "identifier_1",
+                "isValid_1",
+                "NSCLIENT_ID_1",
+                "srvModified_1",
+                "startDate_-1__id_-1",
+                "startDate_1"
+              ],
+              "sha256": "2ebcb79d0f815c2d7eff03be320be8f84f1fcabe2fcb49f5601bda02bcc5bdcc"
+            },
+            "devicestatus": {
+              "documents": 1,
+              "indexes": [
+                "_id_",
+                "created_at_-1_identifier_-1_date_-1",
+                "created_at_1",
+                "identifier_1",
+                "isValid_1",
+                "NSCLIENT_ID_1",
+                "srvModified_1"
+              ],
+              "sha256": "703136ae6a5bae27b26cd6ff774ebe29070a659293bed91aceb2116df4c1f0c2"
+            },
+            "food": {
+              "documents": 1,
+              "indexes": [
+                "_id_",
+                "hidden_1",
+                "identifier_1",
+                "isValid_1",
+                "position_1",
+                "srvModified_1",
+                "type_1"
+              ],
+              "sha256": "343b3dbf402b3045b03896a0a2ecde90ac12741e65cab390d645a41d8bc6327f"
+            },
+            "settings": {
+              "documents": 1,
+              "indexes": [
+                "_id_",
+                "identifier_1",
+                "isValid_1",
+                "srvModified_1"
+              ],
+              "sha256": "e7cca69408ce21976bf8d22328e7c5ae1c963c2fca8ef32f5db4929a60fa20c8"
+            }
+          }
+        }
+      }
+    ]
+  }
+]
