@@ -1,5 +1,7 @@
 # Notification cache teardown (M25 partial)
 
+Historical implementation evidence; the final M25 policy and maintained-library decision are now in [notification-cache-decision.md](notification-cache-decision.md).
+
 The notification service owns receipt and duplicate-suppression caches. Before
 this change, teardown left their housekeeping timers and retained values alive.
 An in-flight provider callback could also parse a response or populate a cache

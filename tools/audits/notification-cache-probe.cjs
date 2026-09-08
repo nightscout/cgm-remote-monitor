@@ -10,7 +10,7 @@ const originalLoad = Module._load;
 Module._load = function (name, parent, ...args) {
   const value = originalLoad.call(this, name, parent, ...args);
   if (
-    name !== "node-cache" ||
+    !["node-cache", "../utils/notification-cache"].includes(name) ||
     !parent.filename.endsWith("/lib/server/pushnotify.js")
   )
     return value;
@@ -148,9 +148,9 @@ function allocationBytes(node) {
   const receipts = caches.find((cache) => cache.options.checkperiod === 300);
   if (!recent || !receipts)
     throw new Error("Expected real notification caches");
-  // Read pinned node-cache internals without cloning the retained values again.
+  // Inspect values after the measured GC through the shared public API.
   const recentTypes = [
-    ...new Set(Object.values(recent.data).map((entry) => typeof entry.v)),
+    ...new Set(recent.keys().map((key) => typeof recent.get(key))),
   ];
   console.log(
     "PROBE_RESULT " +
