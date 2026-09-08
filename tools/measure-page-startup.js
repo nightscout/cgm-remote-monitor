@@ -126,7 +126,7 @@ async function main() {
   const fixtures = new Map(), rows = [];
   let complete = false, assessment;
   try {
-    for (const [label, root] of Object.entries(roots)) fixtures.set(label, await createPageFixture({root, ...data, compress: true}));
+    for (const [label, root] of Object.entries(roots)) fixtures.set(label, await createPageFixture({root, ...data, legacyStatusQuery: true, compress: true}));
     for (let run = 0; run < samples; run++) {
       for (const [url, , , entry] of selectedPages) {
         for (const label of run % 2 ? ['candidate', 'parent'] : ['parent', 'candidate']) {

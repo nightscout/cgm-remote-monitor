@@ -55,6 +55,8 @@ jobs:
         run: npm ls brace-expansion postcss mocha nanoid js-yaml eslint nyc dompurify socket.io-parser fast-uri ip-address d3 d3-color express body-parser socket.io socket.io-client engine.io engine.io-client socket.io-adapter ws axios @babel/core @babel/preset-env babel-loader uuid --all
       - name: Run Tests
         run: npm run-script test-ci
+      - name: Run installed connector regression tests
+        run: npm run test:connect
       - name: Run client-core tests
         run: npm run-script test:core
       - name: Send Coverage
@@ -100,6 +102,8 @@ jobs:
         run: npm ls brace-expansion postcss mocha nanoid js-yaml eslint nyc dompurify socket.io-parser fast-uri ip-address d3 d3-color express body-parser socket.io socket.io-client engine.io engine.io-client socket.io-adapter ws axios @babel/core @babel/preset-env babel-loader uuid --all
       - name: Run Tests
         run: npm run-script test-ci
+      - name: Run installed connector regression tests
+        run: npm run test:connect
       - name: Run client-core tests
         run: npm run-script test:core
       - name: Send Coverage
@@ -239,6 +243,18 @@ jobs:
         with:
           name: date-candidates-${{ matrix.node-version }}-${{ matrix.browser }}
           path: date-candidate-comparison.json
+          if-no-files-found: error
+          retention-days: 14
+
+      - name: Compare scoped report widget candidates
+        env:
+          NIGHTSCOUT_TEST_BROWSER: ${{ matrix.browser }}
+        run: node tools/audits/browser-report-widget-probe.cjs > report-widget-comparison.json
+      - name: Save report widget comparison evidence
+        uses: actions/upload-artifact@v4
+        with:
+          name: report-widgets-${{ matrix.node-version }}-${{ matrix.browser }}
+          path: report-widget-comparison.json
           if-no-files-found: error
           retention-days: 14
 

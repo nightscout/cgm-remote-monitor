@@ -1,6 +1,6 @@
 # Connector loading and lifecycle regression
 
-M03 defers the `nightscout-connect` import until a source is configured. The legacy BRIDGE-to-CONNECT migration runs first: valid bridge credentials still enable Dexcom Share automatically unless the explicit legacy opt-out is set. Enabled and invalid configurations continue through the same upstream factory and validation.
+M03 defers the `nightscout-connect` import until a source is configured. The legacy BRIDGE-to-CONNECT migration runs first: valid bridge credentials still enable Dexcom Share automatically (15.0.9 retires the old legacy opt-out; see the retirement specification). Enabled and invalid configurations continue through the same upstream factory and validation.
 
 The review also found that the connector subscribes to `tearDown` while Nightscout's bus emits `teardown`. The new once-only listener stops the returned connector on the actual Nightscout event. This fixes an existing shutdown leak; it does not change polling intervals or data transformation.
 
@@ -41,3 +41,29 @@ python3 tools/audits/connect-server-probes.py \
 Use only an isolated fixture database: the real server creates indexes and initializes its normal storage. The runner supplies test configuration and a loopback source, saving raw logs and `server-results.json`. The first exploratory run omitted CONNECT from ENABLE; those invalid enabled samples were discarded and all configurations rerun with explicit activation assertions.
 
 Rollback: revert the implementation commit and redeploy the prior artifact. No schema, persisted data, settings, or API formats change. This rollback also restores the previous shutdown defect, so account for connector actors during the rollback.
+
+## Final upstream output cleanup
+
+The final pin is `51b6e6e0f035fed8c7a26881620974a18c98b4b3`, published in
+[nightscout-connect #66](https://github.com/nightscout/nightscout-connect/pull/66).
+It is stacked on #64, which already contains merged #65. Its parent `a519633`
+has exactly the same source tree as the previous Nightscout `c962a13` archive.
+Seven failing-before regressions establish that actor shutdown alone left
+wrapper/output listeners and pending output waits behind. Idempotent stop now
+removes owned listeners, clears the bookmark, settles pending waits and ignores
+late callbacks. Invalid configuration allocates no output. Already-issued
+storage writes are not cancelled or rolled back.
+
+All 87 upstream tests pass on Node 22.23.2 and 24.20.0, including nine new cleanup,
+failed-write, repeated-write and null-batch cases. `npm run test:connect` runs the
+installed package tests from its own directory (Node's default test discovery
+excludes node_modules from the enclosing project). Both existing Node/MongoDB
+backend matrices run this command. The Nightscout lifecycle cases additionally
+verify zero owned listeners after invalid configuration, stop before any data
+event, and real local source authentication/teardown over two cycles. All 35
+connector/bridge/MiniMed integration cases pass on both floors. Provider payload
+transformations and CONNECT configuration remain unchanged.
+
+Rollback restores the prior archive pin and lock record together; it restores
+the known shutdown defects. No data migration is required. Real vendor accounts
+remain part of the maintainer's post-automation validation.

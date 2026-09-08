@@ -1,5 +1,7 @@
 # Browser widget modernization (M28)
 
+Historical inventory and proposed sequence, superseded by the [final M28 decision](browser-widget-decision.md).
+
 Current inventory: based on integration `4a287bef`, 2026-09-06. This inventory and proposed sequence
 advance M28; they do not complete the migration or prove UI equivalence.
 `python3 tools/inventory-browser-widgets.py` reproduces the lexical inventory in
