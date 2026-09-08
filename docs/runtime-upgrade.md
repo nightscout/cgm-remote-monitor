@@ -18,6 +18,11 @@ Do not deploy this release to a host that cannot provide a supported runtime in 
 
 ## Deployment validation and release gate
 
+Maintainer direction on 2026-09-08 assigns actual production hosting, vendor
+accounts and device testing to the maintainer after automated branch completion.
+The [completion evidence](test-specs/modernization-completion.md) records automated
+results separately; no live host or physical-device pass is implied.
+
 The PR backend matrix tests current Node 22 and 24 releases against MongoDB 5, 6, 7 and 8 (eight combinations). Node selectors use `check-latest: true`. Replica failover runs once per MongoDB release across the two Node majors; Chromium runs on both Node majors, with Firefox and WebKit on Node 24. npm 12 and native amd64/arm64 Docker checks remain. See [CI coverage and timing](test-specs/ci-coverage.md).
 
 The exact minimum versions in `package.json` and the early-rejection tests are unchanged. Those policy tests simulate version strings; they do not prove execution compatibility on an older patch. Once floating releases advance, PR CI no longer exercises the exact floors. Before release, record clean install/build, backend/client-core and pruned-startup results on actual Node 22.23.2 and 24.20.0 against the final release candidate. Do not claim exact-floor compatibility from floating CI alone. MongoDB 4.4 remains retired and 5/6 remain supported during migration.

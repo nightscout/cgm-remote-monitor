@@ -1,5 +1,10 @@
 # MongoDB Modernization Impact Assessment
 
+> Historical client-pattern assessment. Current automated migration evidence is
+> recorded in the [execution plan](../plans/nightscout-modernization.md) and
+> [database rehearsal](../test-specs/database-upgrade-recovery.md); the examples
+> below are not proof of current physical-client or production validation.
+
 ## Client Data Upload Patterns for Nightscout v3
 
 **Document Version:** 1.0  
