@@ -65,6 +65,49 @@ describe('push notification deduplication cache', function () {
     assert.strictEqual(push.pushoverAck({}), false);
   });
 
+  it('snapshots receipt fields before asynchronous multi-recipient responses', function () {
+    let complete;
+    ctx.pushover.send = (notify, callback) => { complete = callback; };
+    const push = initialize(env, ctx, caches);
+    const payload = notification();
+    push.emitNotification(payload);
+    payload.level = levels.URGENT;
+    payload.group = 'changed-in-flight';
+    payload.eventName = 'changed-in-flight';
+    complete(null, JSON.stringify({receipt: 'first-recipient'}));
+    complete(null, JSON.stringify({receipt: 'second-recipient'}));
+    for (const receipt of ['first-recipient', 'second-recipient']) {
+      assert.strictEqual(push.pushoverAck({receipt}), true);
+      assert.deepStrictEqual(acknowledgements.pop(), [levels.WARN, 'fixture-group', 420000, true]);
+      assert.strictEqual(push.pushoverAck({receipt}), false);
+    }
+  });
+
+  for (const provider of ['pushover', 'maker']) {
+    it('extends the dispatched key when a reused payload changes during ' + provider + ' send', function () {
+      const callbacks = [];
+      delete ctx.pushover;
+      ctx[provider] = provider === 'pushover'
+        ? {send(notify, callback) { sent.push(notify.key); callbacks.push(callback); }}
+        : {sendEvent(event, callback) { sent.push(event); callbacks.push(callback); }};
+      const push = initialize(env, ctx, caches);
+      const payload = notification();
+      push.emitNotification(payload);
+      payload.notifyhash = 'second-key';
+      push.emitNotification(payload);
+      // The first request succeeds after the second request fails. Only the
+      // first key should gain the longer suppression interval.
+      callbacks[1](new Error('second request failed'));
+      now += 1000;
+      callbacks[0](null, '{}');
+      now += 29001;
+      push.emitNotification(notification());
+      assert.strictEqual(sent.length, 2, 'Successful first key remains suppressed');
+      push.emitNotification(Object.assign(notification(), {notifyhash: 'second-key'}));
+      assert.strictEqual(sent.length, 3, 'Failed second key can retry after 30 seconds');
+    });
+  }
+
   it('extends successful sends to 15 minutes and expires repeatedly', function () {
     const push = initialize(env, ctx, caches);
     for (let cycle = 1; cycle <= 2; cycle++) {
