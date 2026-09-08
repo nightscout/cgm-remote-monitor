@@ -113,7 +113,7 @@ restores of original and final backups through authenticated Nightscout APIs.
 Current-head hosted results and exact merge-tree/artifact verification must pass
 before the final child merges. #8605's final merge is checked against fresh dev.
 
-M22's default-direct and explicit proxy policy remains deliberate; see the
+M22 now preserves proxy compatibility by default after the Kubernetes production trial; direct-only and explicit proxy trust remain opt-in. See the
 [configuration guide](../proposals/trusted-proxy-migration.md). M25 retains the
 bounded profile reference cache and uses maintained notification caching with
 explicit clone/expiry semantics. Notification keys remain TTL-bound rather than
@@ -121,7 +121,7 @@ silently evicting live acknowledgements. M27 retains narrowed Moment; M28 retain
 selected jQuery UI/jQuery and upgrades Flot after characterization. These are
 completed decisions with review triggers, not unfinished compulsory rewrites.
 
-Maintainer handoff: configure the actual proxy trust/runtimes; run the branch in
+Maintainer handoff: verify the edge-managed proxy boundary or configure optional explicit trust, and verify runtimes; run the branch in
 the intended production environment; validate vendor accounts/Atlas IAM where
 used, upgrade/rollback with a known-good artifact and backup, and physical devices
 including Safari/VoiceOver. No extra MongoDB retirement or automatic dev merge is
