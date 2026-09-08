@@ -19,7 +19,7 @@ policy supersedes that target. A framework/TypeScript rewrite, further MongoDB
 5/6 retirement, and replacement of every retained library are not implicit
 requirements of this dependency plan.
 
-M10 build/runtime separation, M22 explicit proxy trust, M25 maintained cache,
+M10 build/runtime separation, M22 proxy compatibility with optional explicit trust, M25 maintained cache,
 M27 date/time and M28 widget retain/migrate decisions are explicit. M29 includes
 legacy Dexcom/MiniMed migration mappings, the reviewed Connect pin (upstream
 #66, stacked on #64 which includes merged #65), and owned database upgrade and

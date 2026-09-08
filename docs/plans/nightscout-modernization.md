@@ -379,16 +379,21 @@ Child CI, the published Connect shutdown pin (#8720 / upstream #66), and
 owned database upgrade/backup recovery (#8718) complete the automated M29 work.
 Live vendor/hosting migration validation remains maintainer-owned afterward.
 
-### M22 explicit trusted-proxy policy
+### M22 proxy compatibility and optional explicit trust
 
-The maintainer approved requiring explicit trusted-proxy configuration for
-15.0.9. #8680 merged as `d080c1c8` after required CI and replaces all six `forwarded-for` consumers with a shared
-`proxy-addr` helper and applies the same policy to Express HTTPS/hostname
-handling, including removal of the direct `X-Forwarded-Proto` redirect bypass.
-Direct connections are the default. See the [deployment migration guide](../proposals/trusted-proxy-migration.md).
-M22 implementation and automated proxy/header/transport regression coverage are
-complete. Hosting-specific validation is maintainer-owned after automated
-completion; no generic Heroku/Azure proxy CIDR is assumed.
+The production Kubernetes trial superseded the mandatory explicit-IP migration:
+rotating ingress pods must not require updating Nightscout configuration to avoid
+HTTPS redirect loops. Unset/empty `TRUST_PROXY` preserves edge-managed proxy
+compatibility; `false` ignores forwarded metadata; explicit IP/CIDR lists retain
+restricted trust. Compatibility mode also restores distinct forwarded client IPs
+for authentication throttling and raw Socket.IO consumers. It relies on the edge
+to sanitize headers and restrict backend access, rather than claiming the same
+spoofing protection as explicit trust. The maintained helper and dependency
+removal remain. Legacy client-header precedence is deterministic instead of
+request-history dependent. See the [configuration guide](../proposals/trusted-proxy-migration.md).
+Automated tests cover both compatibility and strict modes, changing proxy peers,
+HTTP/API3 authentication, Socket.IO and the default image HTTPS redirect path.
+Actual deployment and device validation remains maintainer-owned.
 
 ### Tracker reconciliation
 

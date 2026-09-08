@@ -319,13 +319,16 @@ jobs:
         run: |
           docker run --rm "$IMAGE" node -e "require('./lib/server/runtime-policy')(); console.log(process.version)"
           docker run --rm "$IMAGE" node -e 'const load = require("node:module").createRequire(require.resolve("mongodb")); require("node:assert/strict").equal(load("@mongodb-js/saslprep").saslprep("I\u00ADX"), "IX")'
-          docker run --detach --name nightscout-smoke -e INSECURE_USE_HTTP=true -p 127.0.0.1:1337:1337 "$IMAGE"
+          docker run --detach --name nightscout-smoke -p 127.0.0.1:1337:1337 "$IMAGE"
           trap 'docker logs nightscout-smoke; docker rm -f nightscout-smoke' EXIT
           # With no database credentials the application must serve its setup/error page.
           for attempt in {1..60}; do
-            status=$(curl --silent --output /tmp/nightscout-smoke.html --write-out '%{http_code}' http://127.0.0.1:1337/ || true)
+            status=$(curl --silent --header 'X-Forwarded-Proto: https' --output /tmp/nightscout-smoke.html --write-out '%{http_code}' http://127.0.0.1:1337/ || true)
             if [[ "$status" == "200" || "$status" == "500" || "$status" == "503" ]]; then
               grep -qi nightscout /tmp/nightscout-smoke.html
+              # Default proxy compatibility must avoid HTTPS redirect loops,
+              # while unforwarded HTTP still receives a redirect.
+              test "$(curl --silent --output /dev/null --write-out '%{http_code}' http://127.0.0.1:1337/)" = 307
               exit 0
             fi
             sleep 1
