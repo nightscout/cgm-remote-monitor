@@ -55,6 +55,8 @@ jobs:
         run: npm ls brace-expansion postcss mocha nanoid js-yaml eslint nyc dompurify socket.io-parser fast-uri ip-address d3 d3-color express body-parser socket.io socket.io-client engine.io engine.io-client socket.io-adapter ws axios @babel/core @babel/preset-env babel-loader uuid --all
       - name: Run Tests
         run: npm run-script test-ci
+      - name: Run installed connector regression tests
+        run: npm run test:connect
       - name: Run client-core tests
         run: npm run-script test:core
       - name: Send Coverage
@@ -100,6 +102,8 @@ jobs:
         run: npm ls brace-expansion postcss mocha nanoid js-yaml eslint nyc dompurify socket.io-parser fast-uri ip-address d3 d3-color express body-parser socket.io socket.io-client engine.io engine.io-client socket.io-adapter ws axios @babel/core @babel/preset-env babel-loader uuid --all
       - name: Run Tests
         run: npm run-script test-ci
+      - name: Run installed connector regression tests
+        run: npm run test:connect
       - name: Run client-core tests
         run: npm run-script test:core
       - name: Send Coverage
