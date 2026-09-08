@@ -1,5 +1,7 @@
 # Bounded profile reference cache
 
+Historical implementation evidence; the final M25 policy and maintained-library decision are now in [notification-cache-decision.md](notification-cache-decision.md).
+
 M25's first implementation replaces memory-cache only in profilefunctions.
 The application uses get/put/clear with a five-second lifetime and reference
 values. Nine characterization cases pass against the old cache and the local

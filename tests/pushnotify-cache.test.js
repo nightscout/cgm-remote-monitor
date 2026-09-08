@@ -5,16 +5,16 @@ const fs = require('fs');
 const path = require('path');
 const vm = require('vm');
 const {createRequire} = require('module');
-const NodeCache = require('node-cache');
+const NotificationCache = require('../lib/utils/notification-cache');
 const levels = require('../lib/levels');
 
 function initialize(env, ctx, caches) {
   const filename = path.resolve(__dirname, '../lib/server/pushnotify.js');
   const localRequire = createRequire(filename);
   const sandbox = {module: {exports: {}}, console: {info() {}, warn() {}, error() {}}, require(name) {
-    if (name !== 'node-cache') return localRequire(name);
+    if (name !== '../utils/notification-cache') return localRequire(name);
     return function (options) {
-      const cache = new NodeCache(options);
+      const cache = new NotificationCache(options);
       caches.push(cache);
       return cache;
     };
@@ -205,9 +205,11 @@ describe('push notification deduplication cache', function () {
     const {EventEmitter} = require('node:events');
     ctx.bus = new EventEmitter();
     const originalSet = global.setTimeout, originalClear = global.clearTimeout;
+    const originalInterval = global.setInterval, originalClearInterval = global.clearInterval;
     const pending = new Set();
-    global.setTimeout = function () { const handle = {unref() {}}; pending.add(handle); return handle; };
+    global.setTimeout = global.setInterval = function () { const handle = {unref() {return this;}}; pending.add(handle); return handle; };
     global.clearTimeout = handle => pending.delete(handle);
+    global.clearInterval = global.clearTimeout;
     try {
       for (let cycle = 0; cycle < 2; cycle++) {
         const push = initialize(env, ctx, caches);
@@ -225,7 +227,10 @@ describe('push notification deduplication cache', function () {
         assert.equal(sent.length, cycle + 1, 'Closed instance cannot send again');
         assert.equal(push.pushoverAck({receipt: 'fixture-receipt'}), false);
       }
-    } finally { global.setTimeout = originalSet; global.clearTimeout = originalClear; }
+    } finally {
+      global.setTimeout = originalSet; global.clearTimeout = originalClear;
+      global.setInterval = originalInterval; global.clearInterval = originalClearInterval;
+    }
   });
 
   it('ignores provider completions arriving after teardown without retaining receipts', function () {

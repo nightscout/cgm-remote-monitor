@@ -13,6 +13,8 @@ parser.add_argument('output')
 parser.add_argument('--node', default=shutil.which('node'))
 parser.add_argument('--mongo-uri', required=True)
 parser.add_argument('--port', default='17341')
+parser.add_argument('--baseline-marker-type', choices=['object', 'boolean'], default='object')
+parser.add_argument('--candidate-marker-type', choices=['object', 'boolean'], default='boolean')
 args = parser.parse_args()
 out = Path(args.output).resolve()
 out.mkdir(parents=True, exist_ok=True)
@@ -35,7 +37,7 @@ for run in range(7):
                                    if line.startswith('PROBE_RESULT ')))
             assert data['sends'] == 100 and data['duplicates'] == 500 and data['recentEntries'] == 100
             assert data['receiptEntries'] == (100 if mode == 'receipt' else 0)
-            assert data['recentTypes'] == (['object'] if label == 'baseline' else ['boolean'])
+            assert data['recentTypes'] == [args.baseline_marker_type if label == 'baseline' else args.candidate_marker_type]
             data.update(run=run, label=label)
             results.append(data)
             (out / 'results.json').write_text(json.dumps(results, indent=2))
