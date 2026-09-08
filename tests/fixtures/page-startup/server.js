@@ -51,7 +51,7 @@ async function createPageFixture(options = {}) {
   const worker = fs.readFileSync(path.join(root, 'views/service-worker.js'), 'utf8');
   app.get('/sw.js', (request, response) => response.type('js').set('Cache-Control', 'no-store').send(ejs.render(worker, {locals: {cachebuster: state.workerVersion}})));
   app.get('/api/v1/status.json', (request, response) => {
-    if (request.headers['api-secret'] !== hash && !(options.legacyStatusQuery && request.query.secret === hash)) {state.challenges++; return response.status(401).json({message: 'Authentication required'});}
+    if (request.headers['api-secret'] !== hash) {state.challenges++; return response.status(401).json({message: 'Authentication required'});}
     if (state.loadingResponses > 0) {state.loadingResponses--; return response.json({...settings, runtimeState: 'loading'});}
     response.json(settings);
   });

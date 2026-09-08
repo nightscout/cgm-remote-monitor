@@ -52,7 +52,7 @@ function ready(entry) {
 async function sample(fixture, data, entry, url, snapshotPath) {
   const browser = await chromium.launch();
   try {
-    const context = await browser.newContext({serviceWorkers: 'block', viewport: {width: 1280, height: 900}, timezoneId: 'America/Los_Angeles'});
+    const context = await browser.newContext({extraHTTPHeaders: {'api-secret': hash}, serviceWorkers: 'block', viewport: {width: 1280, height: 900}, timezoneId: 'America/Los_Angeles'});
     const errors = [], external = [], responses = new Map(), completed = [];
     let websocketPayloadBytes = 0;
     context.on('request', request => {if (new URL(request.url()).origin !== fixture.origin) external.push(request.url());});
@@ -126,7 +126,7 @@ async function main() {
   const fixtures = new Map(), rows = [];
   let complete = false, assessment;
   try {
-    for (const [label, root] of Object.entries(roots)) fixtures.set(label, await createPageFixture({root, ...data, legacyStatusQuery: true, compress: true}));
+    for (const [label, root] of Object.entries(roots)) fixtures.set(label, await createPageFixture({root, ...data, compress: true}));
     for (let run = 0; run < samples; run++) {
       for (const [url, , , entry] of selectedPages) {
         for (const label of run % 2 ? ['candidate', 'parent'] : ['parent', 'candidate']) {

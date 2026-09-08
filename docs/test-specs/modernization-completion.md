@@ -92,8 +92,11 @@ fall from 1,651,030 to 1,359,001 and non-polling requests from 203 to 178.
 [journey](../audits/final-modernization/browser-journey.json) evidence includes
 raw timing, DOM, heap, transfer and build identities. Timings vary by page;
 the dashboard median is slightly higher within the matched variation limit.
-The measurement fixture optionally accepts the historical status-query test
-credential so the unchanged baseline can authenticate; production auth is untouched.
+These historical measurements used the then-current fixture query-credential
+option. The security follow-up removes that option: measurement browser contexts
+now send the fixed fixture credential in a header, so the unchanged baseline can
+still authenticate. Production authentication is untouched; the original raw
+measurements/source hashes remain a record of their original implementation.
 
 ## Validation and handoff
 
