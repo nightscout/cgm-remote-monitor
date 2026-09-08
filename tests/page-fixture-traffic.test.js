@@ -3,7 +3,7 @@
 const assert = require('node:assert/strict');
 const http = require('node:http');
 const {gunzipSync} = require('node:zlib');
-const {createPageFixture} = require('./fixtures/page-startup/server');
+const {createPageFixture, hash} = require('./fixtures/page-startup/server');
 
 describe('Page benchmark HTTP body accounting', function () {
   it('counts actual compressed and identity bytes once at the final response write', async function () {
@@ -27,6 +27,20 @@ describe('Page benchmark HTTP body accounting', function () {
         assert.equal(result.headers['content-encoding'] || 'identity', encoding);
         if (encoding === 'gzip') assert.ok(gunzipSync(result.bytes).length > result.bytes.length, 'Measure compressed bytes, not source bytes');
       }
+    } finally {await new Promise(resolve => fixture.io.close(resolve));}
+  });
+});
+
+
+describe('Page fixture authentication', function () {
+  it('requires a credential header even when an older caller requests query authentication', async function () {
+    const fixture = await createPageFixture({legacyStatusQuery: true});
+    try {
+      const url = fixture.origin + '/api/v1/status.json';
+      assert.equal((await fetch(url + '?secret=' + hash)).status, 401);
+      assert.equal((await fetch(url + '?secret=' + hash, {headers: {'api-secret': 'wrong'}})).status, 401);
+      assert.equal((await fetch(url, {headers: {'api-secret': hash}})).status, 200);
+      assert.equal((await fetch(url + '?secret=wrong', {headers: {'api-secret': hash}})).status, 200);
     } finally {await new Promise(resolve => fixture.io.close(resolve));}
   });
 });

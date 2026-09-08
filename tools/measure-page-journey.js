@@ -10,7 +10,7 @@ const {createPageFixture, pages, hash} = require('../tests/fixtures/page-startup
 async function journey(fixture, data) {
   const browser = await chromium.launch();
   try {
-    const context = await browser.newContext({serviceWorkers: 'allow', viewport: {width: 1280, height: 900}, timezoneId: 'America/Los_Angeles'});
+    const context = await browser.newContext({extraHTTPHeaders: {'api-secret': hash}, serviceWorkers: 'allow', viewport: {width: 1280, height: 900}, timezoneId: 'America/Los_Angeles'});
     const errors = [], external = [], steps = [];
     context.on('request', request => {if (new URL(request.url()).origin !== fixture.origin) external.push(request.url());});
     const page = await context.newPage();
@@ -59,7 +59,7 @@ async function main() {
   const data = workload(), fixtures = new Map(), rows = [];
   let complete = false, assessment;
   try {
-    for (const [label, root] of Object.entries(roots)) fixtures.set(label, await createPageFixture({root, ...data, legacyStatusQuery: true, compress: true, measureTraffic: true}));
+    for (const [label, root] of Object.entries(roots)) fixtures.set(label, await createPageFixture({root, ...data, compress: true, measureTraffic: true}));
     for (let run = 0; run < samples; run++) for (const label of run % 2 ? ['candidate', 'parent'] : ['parent', 'candidate']) {
       process.stderr.write('Journey ' + run + ' ' + label + '\n');
       rows.push({run, label, ...await journey(fixtures.get(label), data)});
