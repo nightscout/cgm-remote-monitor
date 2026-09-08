@@ -215,6 +215,20 @@ jobs:
           path: editor-time-comparison.json
           if-no-files-found: error
           retention-days: 14
+      - name: Install isolated date comparison candidates
+        run: |
+          mkdir -p "$RUNNER_TEMP/nightscout-date-candidates"
+          cp tools/audits/date-candidates/package*.json "$RUNNER_TEMP/nightscout-date-candidates/"
+          npm ci --prefix "$RUNNER_TEMP/nightscout-date-candidates" --ignore-scripts --no-audit --no-fund
+      - name: Compare date candidates with the production browser bundle
+        run: node tools/audits/browser-date-candidate-probe.cjs "$RUNNER_TEMP/nightscout-date-candidates" ${{ matrix.browser }} > date-candidate-comparison.json
+      - name: Save date candidate evidence
+        uses: actions/upload-artifact@v4
+        with:
+          name: date-candidates-${{ matrix.node-version }}-${{ matrix.browser }}
+          path: date-candidate-comparison.json
+          if-no-files-found: error
+          retention-days: 14
 
   npm12-build:
     name: Validate npm 12 install and build

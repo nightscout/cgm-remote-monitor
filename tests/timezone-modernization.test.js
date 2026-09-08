@@ -68,6 +68,24 @@ describe('Modernization date/time characterization', function () {
         }
         p.clear();
       });
+      for (const [zone, local, next, hours] of [
+        ['America/New_York', '2024-03-10', '2024-03-11T04:00:00.000Z', 23],
+        ['America/New_York', '2024-11-03', '2024-11-04T05:00:00.000Z', 25],
+        ['Australia/Lord_Howe', '2024-10-06', '2024-10-06T13:00:00.000Z', 23.5],
+        ['Australia/Lord_Howe', '2024-04-07', '2024-04-07T13:30:00.000Z', 24.5]
+      ]) {
+        it('keeps report calendar-day bounds at midnight across ' + zone + ' / ' + local, function () {
+          const p = profile(zone, units);
+          try {
+            const start = p.parseInTimezone(local + 'T00:00:00');
+            const end = start.clone().add(1, 'day');
+            assert.equal(end.toISOString(), next);
+            assert.equal(end.format('HH:mm:ss'), '00:00:00');
+            assert.equal(end.diff(start, 'hours', true), hours);
+            assert.equal(start.format('YYYY-MM-DD HH:mm:ss'), local + ' 00:00:00');
+          } finally {p.clear();}
+        });
+      }
       it('records existing elapsed-time basal selection at the spring gap (open discrepancy)', function () {
         const p = profile('America/New_York', units);
         for (let cycle = 0; cycle < 2; cycle++) {
@@ -90,7 +108,8 @@ describe('Modernization date/time characterization', function () {
     assert.equal(parsed.valueOf(), ms);
     assert.equal(parsed.utcOffset(), 345);
     assert.equal(dateTools.parseToMoment('Mon, 01 Jan 2024 00:00:00 +0000').valueOf(), ms);
-    for (const value of [null, 0, '', '2024-02-30', 'not-a-date', {}]) {
+    for (const value of [null, 0, '', '2024-02-30', '2024-02-30 12:00:00',
+      '2023-02-29', '2024-13-01', 'not-a-date', {}]) {
       assert.equal(dateTools.parseToMoment(value), null);
     }
   });
