@@ -230,6 +230,18 @@ jobs:
           if-no-files-found: error
           retention-days: 14
 
+      - name: Compare scoped report widget candidates
+        env:
+          NIGHTSCOUT_TEST_BROWSER: ${{ matrix.browser }}
+        run: node tools/audits/browser-report-widget-probe.cjs > report-widget-comparison.json
+      - name: Save report widget comparison evidence
+        uses: actions/upload-artifact@v4
+        with:
+          name: report-widgets-${{ matrix.node-version }}-${{ matrix.browser }}
+          path: report-widget-comparison.json
+          if-no-files-found: error
+          retention-days: 14
+
   npm12-build:
     name: Validate npm 12 install and build
     runs-on: ubuntu-latest

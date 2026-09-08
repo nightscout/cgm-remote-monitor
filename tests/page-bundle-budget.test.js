@@ -9,7 +9,9 @@ const {entries, output, measure} = require('../tools/measure-page-bundles');
 // 332151/53156/7923/6665/5306/61784 bytes; 405201 across application entries.
 // These bounded allowances permit small fixes, not restoring the 402808-byte
 // monolithic dashboard. Update only with a reviewed resource measurement.
-const limits = {app: 340000, reports: 55000, admin: 8500, profile: 7100, food: 5700, clock: 63000};
+// Flot 4 selected modules add 5,975 gzip bytes to reports (50,616 -> 56,591)
+// while leaving other entries unchanged; retain a narrow report allowance.
+const limits = {app: 340000, reports: 58000, admin: 8500, profile: 7100, food: 5700, clock: 63000};
 
 describe('Production page bundle resource budgets', function () {
   let measurements;
@@ -33,7 +35,7 @@ describe('Production page bundle resource budgets', function () {
       const map = JSON.parse(fs.readFileSync(path.join(output, 'bundle.' + entry + '.js.map'), 'utf8'));
       const reportSources = map.sources.filter(source => /\/node_modules\/flot\/|\/lib\/report(?:_plugins)?\//.test(source));
       if (entry === 'reports') {
-        assert.ok(reportSources.some(source => source.endsWith('/flot/jquery.flot.js')), 'Reports must include the real Flot implementation');
+        assert.ok(reportSources.some(source => source.endsWith('/flot/source/jquery.flot.js')), 'Reports must include the real Flot implementation');
         assert.ok(reportSources.some(source => source.endsWith('/report_plugins/index.js')), 'Reports must include report plugins');
       } else assert.deepEqual(reportSources, [], entry + ' must not contain report code');
     }

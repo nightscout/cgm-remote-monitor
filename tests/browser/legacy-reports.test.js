@@ -21,7 +21,8 @@ function queryKey(value) {
 describe('legacy reports in a real browser', function () {
   let server, origin, markup, requests;
   before(async function () {
-    const root = path.resolve(__dirname, '../..'), file = path.join(root, 'views/reportindex.html');
+    const root = process.env.NIGHTSCOUT_REPORT_REFERENCE_ROOT || path.resolve(__dirname, '../..');
+    const file = path.join(root, 'views/reportindex.html');
     markup = ejs.render(fs.readFileSync(file, 'utf8'), {type: 'reports', title: '', bundle: '/bundle'}, {filename: file});
     const cssNames = ['main', 'drawer', 'report', 'dropdown', 'ui-lightness/jquery-ui.min'];
     const css = new Map(cssNames.map(name => ['/css/' + name + '.css', fs.readFileSync(path.join(root, 'static/css', name + '.css'), 'utf8')
@@ -63,8 +64,9 @@ describe('legacy reports in a real browser', function () {
   async function withReports(run) {
     requests = [];
     await withPage(origin, async ({page, routed}) => {
-      const pending = new Map(), failures = [];
-      networkDiagnostics.set(page, {pending, failures, routed});
+      const pending = new Map(), failures = [], consoleErrors = [];
+      page.on('console', message => {if (message.type() === 'error') consoleErrors.push(message.text());});
+      networkDiagnostics.set(page, {pending, failures, routed, consoleErrors});
       page.on('request', request => pending.set(request, Date.now()));
       page.on('requestfinished', request => pending.delete(request));
       page.on('requestfailed', request => {
@@ -155,6 +157,7 @@ describe('legacy reports in a real browser', function () {
         pending: Array.from(network.pending, ([request, at]) => ({path: new URL(request.url()).pathname,
           elapsedMs: Date.now() - at})),
         failures: network.failures.slice(-10),
+        consoleErrors: network.consoleErrors.slice(-10),
         routed: Array.from(network.routed.values(), state => ({...state, elapsedMs: Date.now() - state.since})),
         received: requests.length,
         unfinished: requests.filter(request => !request.finished).map(request => new URL(request.url, origin).pathname)
@@ -263,4 +266,110 @@ describe('legacy reports in a real browser', function () {
       }
     });
   });
+
+  for (const units of ['mg/dl', 'mmol']) {
+    it('renders empty report periods repeatedly in ' + units, async function () {
+      await withReports(async page => {
+        await page.evaluate(units => {window.Nightscout.client.settings.units = units;}, units);
+        await page.locator('#rp_from').fill('2025-01-01');
+        await page.locator('#rp_to').fill('2025-01-01');
+        await page.locator('#hourlystats').click();
+        let count;
+        for (let cycle = 0; cycle < 2; cycle++) {
+          await show(page);
+          const next = await page.locator('#hourlystats-overviewchart canvas').count();
+          assert.ok(next > 0);
+          if (count !== undefined) assert.equal(next, count, 'Repeated rendering replaces canvases');
+          count = next;
+          assert.deepEqual(networkDiagnostics.get(page).consoleErrors, []);
+        }
+      });
+    });
+
+    it('preserves plotted report data and finite axes in ' + units + ' over repeated renders', async function () {
+      this.timeout(90000);
+      await withReports(async page => {
+        await page.evaluate(units => {
+          window.Nightscout.client.settings.units = units;
+          const original = $.plot;
+          window.reportPlots = {};
+          $.plot = Object.assign(function (placeholder, data, options) {
+            const plot = original(placeholder, data, options);
+            const id = $(placeholder).attr('id');
+            const axes = Object.fromEntries(Object.entries(plot.getAxes()).filter(([, axis]) => axis.used).map(([name, axis]) => [name, {
+              min: axis.min, max: axis.max, mode: axis.options.mode,
+              ticks: (axis.ticks || []).map(tick => ({v: tick.v, label: tick.label}))
+            }]));
+            const normalized = JSON.parse(JSON.stringify(data));
+            for (const series of normalized) {
+              if (series.bars && Array.isArray(series.bars.barWidth) && series.bars.barWidth[1] === true) {
+                series.bars.barWidth = series.bars.barWidth[0];
+              }
+            }
+            window.reportPlots[id] = {data: normalized, axes,
+              width: plot.width(), height: plot.height(),
+              canvases: $(placeholder).find('canvas').length};
+            return plot;
+          }, original);
+        }, units);
+        await page.locator('#rp_to').fill('2015-08-14');
+        await page.locator('#loopalyzer').click();
+        let initial;
+        for (let cycle = 0; cycle < 2; cycle++) {
+          await show(page);
+          const plots = await page.evaluate(() => window.reportPlots);
+          const data = Object.fromEntries(Object.entries(plots).map(([id, plot]) => [id, plot.data]));
+          const golden = path.join(__dirname, 'report-plot-data-' + (units === 'mmol' ? 'mmol' : 'mgdl') + '.json');
+          if (process.env.NIGHTSCOUT_WRITE_REPORT_GOLDENS === '1') fs.writeFileSync(golden, JSON.stringify(data, null, 2) + '\n');
+          assert.deepEqual(data, JSON.parse(fs.readFileSync(golden, 'utf8')), 'Report series match characterized output');
+          if (initial) assert.deepEqual(data, initial, 'Repeated rendering preserves series');
+          initial = data;
+          for (const id of ['hourlystats-overviewchart', 'percentile-chart', 'loopalyzer-basal', 'loopalyzer-bg',
+            'loopalyzer-tempbasal', 'loopalyzer-iob', 'loopalyzer-cob']) assert.ok(plots[id], id);
+          for (const [id, plot] of Object.entries(plots)) {
+            assert.ok(plot.width > 0 && plot.height > 0 && plot.canvases > 0, id + ' renders a visible canvas');
+            for (const axis of Object.values(plot.axes)) {
+              assert.ok(Number.isFinite(axis.min) && Number.isFinite(axis.max), id + ' finite axis bounds');
+              assert.ok(axis.ticks.every(tick => Number.isFinite(tick.v)), id + ' finite tick values');
+              if (axis.mode === 'time') assert.ok(axis.ticks.every(tick => !/Invalid|NaN/.test(tick.label)), id + ' valid dates');
+              if (axis.mode === 'time' && id.startsWith('loopalyzer-')) {
+                assert.ok(axis.max - axis.min <= 86400000, id + ' retains a single day, including absolute bar widths');
+                assert.ok(axis.ticks.length <= 26, id + ' does not generate thousands of hourly labels');
+              }
+            }
+          }
+          assert.equal(plots['hourlystats-overviewchart'].axes.xaxis.min, 0);
+          assert.equal(plots['hourlystats-overviewchart'].axes.xaxis.max, 86399000);
+          assert.equal(plots['hourlystats-overviewchart'].axes.yaxis.max, units === 'mmol' ? 22 : 400);
+          assert.equal(plots['percentile-chart'].axes.yaxis.max, units === 'mmol' ? 22 : 400);
+          assert.equal(plots['loopalyzer-bg'].axes.yaxis.max, units === 'mmol' ? 20 : 400);
+          assert.equal(plots['loopalyzer-tempbasal'].axes.yaxis.min, -1);
+          assert.equal(plots['loopalyzer-tempbasal'].axes.yaxis.max, 1);
+          const labels = await page.locator('#loopalyzer-cob .flot-x-axis .tickLabel').evaluateAll(elements => elements.map(element => {
+            const style = getComputedStyle(element), rect = element.getBoundingClientRect();
+            return {text: element.textContent, width: rect.width, height: rect.height,
+              color: element.namespaceURI === 'http://www.w3.org/2000/svg' ? style.fill : style.color};
+          }).filter(label => label.width > 0 && label.height > 0));
+          assert.ok(labels.some(label => label.text === '12:00'), 'Time labels are rendered');
+          assert.ok(labels.every(label => label.color !== 'rgb(255, 255, 255)'), 'Report labels contrast with the white background');
+          assert.ok((await page.locator('#loopalyzer-bg .legend').textContent()).includes('Blood Glucose'), 'Legend remains enabled');
+          assert.deepEqual(networkDiagnostics.get(page).consoleErrors, []);
+          if (process.env.NIGHTSCOUT_REPORT_PLOT_EVIDENCE) fs.writeFileSync(
+            process.env.NIGHTSCOUT_REPORT_PLOT_EVIDENCE + '-' + (units === 'mmol' ? 'mmol' : 'mgdl') + '.json',
+            JSON.stringify(plots, null, 2) + '\n');
+          if (cycle === 1 && process.env.NIGHTSCOUT_REPORT_SCREENSHOTS) {
+            for (const tab of ['loopalyzer', 'hourlystats', 'percentile']) {
+              await page.locator('#' + tab).click();
+              fs.writeFileSync(process.env.NIGHTSCOUT_REPORT_SCREENSHOTS + '-' + tab + '-labels.json', JSON.stringify(await page.locator('#' + tab + '-placeholder').evaluate(root =>
+                [...root.querySelectorAll('.flot-svg text')].slice(0, 30).map(element => ({text: element.textContent,
+                  html: element.outerHTML, font: getComputedStyle(element).font, fill: getComputedStyle(element).fill,
+                  rect: element.getBoundingClientRect().toJSON(), svg: element.closest('svg').getBoundingClientRect().toJSON()}))), null, 2));
+              await page.locator('#' + tab + '-placeholder').screenshot({path:
+                process.env.NIGHTSCOUT_REPORT_SCREENSHOTS + '-' + tab + '-' + (units === 'mmol' ? 'mmol' : 'mgdl') + '.png'});
+            }
+          }
+        }
+      });
+    });
+  }
 });

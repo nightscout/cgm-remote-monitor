@@ -14,6 +14,14 @@ body {
   color: black;
 }
 
+/* Flot 4 uses SVG for axes and legends. The shared glucose-chart stylesheet
+   gives all SVG text a white fill; reports retain their light chart labels. */
+#pluginchartplaceholders .flot-svg text,
+#pluginchartplaceholders .legend text {
+  fill: #545454;
+  font-size: 11px;
+}
+
 .centeraligned {
   text-align:center;
 }
