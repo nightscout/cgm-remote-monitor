@@ -316,7 +316,11 @@ describe('legacy reports in a real browser', function () {
         await page.locator('#loopalyzer').click();
         let initial;
         for (let cycle = 0; cycle < 2; cycle++) {
+          await page.evaluate(() => {window.reportPlots = {};});
           await show(page);
+          // The distribution pie is intentionally scheduled with setTimeout by
+          // the report plugin, after AJAX is idle. Require this cycle's plot.
+          await page.waitForFunction(() => Boolean(window.reportPlots['glucosedistribution-overviewchart']));
           const plots = await page.evaluate(() => window.reportPlots);
           const data = Object.fromEntries(Object.entries(plots).map(([id, plot]) => [id, plot.data]));
           const golden = path.join(__dirname, 'report-plot-data-' + (units === 'mmol' ? 'mmol' : 'mgdl') + '.json');
