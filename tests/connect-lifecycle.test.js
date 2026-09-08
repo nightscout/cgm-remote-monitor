@@ -149,7 +149,22 @@ describe('nightscout-connect loading and teardown', function () {
     assert.match(ctx.bootErrors[1].desc, /Password/);
     assert.strictEqual(ctx.nightscoutConnect, undefined);
     assert.strictEqual(ctx.bus.listenerCount('teardown'), 0);
+    assert.strictEqual(ctx.bus.listenerCount('data-processed'), 0);
+    assert.strictEqual(ctx.bus.listenerCount('tearDown'), 0);
   });
+  it('stops the installed connector before any processing event without retaining listeners', async function () {
+    const ctx = context();
+    const env = {extendedSettings: {connect: {source: 'nightscout', sourceEndpoint: 'http://127.0.0.1:1'}}};
+    connectStage(env, () => require('nightscout-connect'))(ctx, () => {});
+    const actor = ctx.nightscoutConnect();
+    ctx.bus.emit('teardown');
+    await ctx.nightscoutConnect.stop();
+    assert.strictEqual(actor.status, 2);
+    for (const event of ['data-processed', 'teardown', 'tearDown']) {
+      assert.strictEqual(ctx.bus.listenerCount(event), 0, event);
+    }
+  });
+
   it('authenticates the real local source and shuts its actor down over two lifecycles', async function () {
     this.timeout(10000);
     const http = require('http');
@@ -179,6 +194,9 @@ describe('nightscout-connect loading and teardown', function () {
         ctx.bus.emit('teardown');
         ctx.bus.emit('teardown');
         assert.strictEqual(actor.status, 2);
+        for (const event of ['data-processed', 'teardown', 'tearDown']) {
+          assert.strictEqual(ctx.bus.listenerCount(event), 0, event + ' must detach on stop');
+        }
       } finally {
         if (ctx.nightscoutConnect) await ctx.nightscoutConnect.stop();
         source.closeAllConnections();

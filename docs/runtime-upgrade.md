@@ -57,6 +57,12 @@ See MongoDB's [archived 6.0 standalone upgrade procedure](https://github.com/mon
 and [legacy documentation](https://www.mongodb.com/docs/legacy/). The existing
 MongoDB end-of-life and final upgrade/restore validation gates above still apply.
 
+The [owned upgrade and recovery rehearsal](test-specs/database-upgrade-recovery.md)
+now verifies successive MongoDB 5→6→7→8 standalone upgrades and fresh-volume
+restoration of the original and final backups with the actual Nightscout
+application. It is automated fixture evidence, not validation of a deployment's
+backup or topology. Deployment rehearsal remains maintainer-owned.
+
 Before deploying the modernization release on a database currently running 4.4:
 
 1. Record the database version, feature compatibility version (FCV), topology, authentication settings, Nightscout artifact and configuration. Take a consistent backup and verify restoration into an isolated environment.

@@ -55,6 +55,8 @@ jobs:
         run: npm ls brace-expansion postcss mocha nanoid js-yaml eslint nyc dompurify socket.io-parser fast-uri ip-address d3 d3-color express body-parser socket.io socket.io-client engine.io engine.io-client socket.io-adapter ws axios @babel/core @babel/preset-env babel-loader uuid --all
       - name: Run Tests
         run: npm run-script test-ci
+      - name: Run installed connector regression tests
+        run: npm run test:connect
       - name: Run client-core tests
         run: npm run-script test:core
       - name: Send Coverage
@@ -100,6 +102,8 @@ jobs:
         run: npm ls brace-expansion postcss mocha nanoid js-yaml eslint nyc dompurify socket.io-parser fast-uri ip-address d3 d3-color express body-parser socket.io socket.io-client engine.io engine.io-client socket.io-adapter ws axios @babel/core @babel/preset-env babel-loader uuid --all
       - name: Run Tests
         run: npm run-script test-ci
+      - name: Run installed connector regression tests
+        run: npm run test:connect
       - name: Run client-core tests
         run: npm run-script test:core
       - name: Send Coverage
@@ -112,6 +116,18 @@ jobs:
         run: |
           npm prune --omit=dev --ignore-scripts
           node tools/validate-pruned-runtime.js
+
+      - name: Rehearse owned database upgrades and backup recovery
+        if: matrix.node-version == '24' && matrix.mongodb-version == '8.0.29'
+        run: python3 tools/rehearse-database-upgrade.py "$RUNNER_TEMP/nightscout-database-upgrade"
+      - name: Record database upgrade and restore evidence
+        if: always() && matrix.node-version == '24' && matrix.mongodb-version == '8.0.29'
+        uses: actions/upload-artifact@v4
+        with:
+          name: database-upgrade-recovery
+          path: |
+            ${{ runner.temp }}/nightscout-database-upgrade/evidence.json
+            ${{ runner.temp }}/nightscout-database-upgrade/metadata.json
 
   replica-test:
     name: Replica set (${{ matrix.node-version }}, ${{ matrix.mongodb-version }})
