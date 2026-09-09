@@ -5,6 +5,33 @@ integration branch. It does not claim a shipped release or a manual production,
 vendor-account, Atlas IAM or physical-device pass. The maintainer explicitly
 owns those checks after automated completion.
 
+## Dev synchronization, 9 September 2026
+
+The integration branch now incorporates dev `a8888f0d` (#8726). Routine server
+and connector diagnostics default to quiet, with `DEBUG_LOGGING` and
+`CONNECT_DEBUG` documented in the README. The merge retains the current
+`DEBUG_MINIFY` deprecation notice, lazy connector loading, legacy credential
+migration/error handling and teardown registration.
+
+The connector pins had diverged. Pinning dev's `234d47c` directly would discard
+the eight commits leading to modernization's `51b6e6e`, including MiniMed data
+contracts and shutdown cleanup. The combined connector archive is now
+[`b77e5bb7a08a677f008af93335c04aa726436245`](https://github.com/nightscout/nightscout-connect/commit/b77e5bb7a08a677f008af93335c04aa726436245),
+a merge of those exact revisions. It preserves both changes without advancing
+either upstream target branch. The lockfile changes only the connector URL and
+integrity; the historical footprint measurements below have not been rerun for
+this logging integration.
+
+Fresh local checks pass on Node 22.23.2 and 24.20.0: 61 focused Nightscout
+logging/data-loader/connector/migration cases and all 116 installed connector
+cases per floor. The connector checks also verify that stopping a connector
+with either logging setting removes its listeners and prevents later output.
+The incoming boot-listener test now captures the native boot sequence instead
+of importing the retired `bootevent` package. Node 22 clean installation and
+production build, 283 client-core cases and 305 dependency cases pass; lint has
+zero errors and the same 16 warnings. Fresh parent CI must validate the merged
+branch across the full runtime, database, browser and Docker matrix.
+
 ## Comparison identity and scope
 
 The original audit baseline is `9205ea300b9a6981ad8f16223c69620dd3c1c830`.

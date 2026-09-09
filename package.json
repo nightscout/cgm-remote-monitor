@@ -120,7 +120,7 @@
     "moment-timezone": "^0.6.3",
     "mongodb": "^7.6.0",
     "mongodb-connection-string-url": "7.0.2",
-    "nightscout-connect": "https://github.com/nightscout/nightscout-connect/archive/51b6e6e0f035fed8c7a26881620974a18c98b4b3.tar.gz",
+    "nightscout-connect": "https://github.com/nightscout/nightscout-connect/archive/b77e5bb7a08a677f008af93335c04aa726436245.tar.gz",
     "process": "^0.11.10",
     "proxy-addr": "^2.0.7",
     "qs": "6.16.0",
