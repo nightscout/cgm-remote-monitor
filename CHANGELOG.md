@@ -6,6 +6,11 @@ All notable changes to cgm-remote-monitor are documented in this file.
 
 ### Fixed
 
+- **Log volume:** Disable routine heartbeat, data-reload and Nightscout Connect
+  diagnostics by default. Add `DEBUG_LOGGING=true` for server troubleshooting
+  and `CONNECT_DEBUG=true` for connector-only diagnostics. Keep warnings and
+  failures visible, and replace connector payload dumps with concise summaries.
+  Fixes #8714.
 - **MongoDB proxy dependency:** Update ip-address to 10.7.0. Add regression
   coverage for IPv4/IPv6 conversion, malformed addresses and SOCKS5 connections
   through MongoDB's installed proxy client. No MongoDB configuration or UI
