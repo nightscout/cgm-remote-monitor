@@ -1,0 +1,9 @@
+{
+  "name": "nightscout-m27-candidates",
+  "private": true,
+  "dependencies": {
+    "@js-temporal/polyfill": "0.5.1",
+    "dayjs": "1.11.23",
+    "luxon": "3.7.2"
+  }
+}

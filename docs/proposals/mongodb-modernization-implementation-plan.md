@@ -1,5 +1,13 @@
 # MongoDB Modernization Implementation Plan
 
+> Execution status (2026-09-08): the modernization integration branch now uses
+> MongoDB driver 7.6.0, with full Node 22/24 coverage on MongoDB 5/6/7/8,
+> replica failover, client/API identifier and partial-failure contracts, and an
+> owned sequential upgrade/backup-recovery rehearsal. The historical phases and
+> old counts below are design context. See the [current plan](../plans/nightscout-modernization.md)
+> and [upgrade evidence](../test-specs/database-upgrade-recovery.md). Live Atlas
+> IAM and deployment-specific migrations remain maintainer-owned; #8605 is draft.
+
 **Document Version:** 1.0  
 **Last Updated:** January 2026  
 **Status:** Planning Phase (2026 Proposal)  

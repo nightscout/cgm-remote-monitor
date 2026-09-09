@@ -6,20 +6,18 @@ const {once} = require('events');
 const {createRequire} = require('module');
 const zlib = require('zlib');
 const rootAxios = require('axios');
-const legacyRequire = createRequire(require.resolve('minimed-connect-to-nightscout/package.json'));
 const connectRequire = createRequire(require.resolve('nightscout-connect/package.json'));
 const modernAxios = connectRequire('axios');
 
 // Capture the real boot stage without starting storage, timers or remote bridges.
 function importSettings(env, ctx) {
   const boot = require('../lib/server/bootevent');
-  const id = require.resolve('bootevent');
+  const id = require.resolve('../lib/utils/boot-sequence');
   require(id);
   const original = require.cache[id].exports;
   const stages = [];
-  const chain = {acquire(stage) { stages.push(stage); return chain; }};
   try {
-    require.cache[id].exports = () => chain;
+    require.cache[id].exports = registered => {stages.push(...registered); return {};};
     boot(env, {});
   } finally {
     require.cache[id].exports = original;
@@ -49,6 +47,7 @@ describe('Axios consumer compatibility', function () {
         if (target.pathname === '/error') { res.statusCode = 401; return res.end('{"error":"denied"}'); }
         if (target.pathname === '/slow') return;
         if (target.pathname === '/config') return res.end(JSON.stringify({settings: {units: 'mmol', nested: {added: true}}, extendedSettings: {custom: {enabled: true}}}));
+        if (target.pathname === '/secret-config') return res.end(JSON.stringify({settings: {apiSecret: 'fixture-imported-secret'}}));
         if (target.pathname === '/flat-config') return res.end('{"units":"mg/dl"}');
         if (target.pathname.startsWith('/api/v2/authorization/request/')) return res.end('{"token":"fixture-bearer","iat":100,"exp":200}');
         if (target.pathname === '/api/v1/entries.json') return res.end('[{"sgv":123,"date":1700000000000}]');
@@ -66,7 +65,7 @@ describe('Axios consumer compatibility', function () {
     await new Promise(resolve => server.close(resolve));
   });
 
-  [['legacy', rootAxios], ['connect', modernAxios]].forEach(([label, axios]) => {
+  [['import', rootAxios], ['connect', modernAxios]].forEach(([label, axios]) => {
     it(label + ' preserves instance headers, nested queries and Unicode JSON', async function () {
       const client = axios.create({baseURL, proxy: false, headers: {Accept: 'application/json'}});
       client.interceptors.request.use(config => { config.headers['X-Fixture'] = 'interceptor'; return config; });
@@ -126,7 +125,7 @@ describe('Axios consumer compatibility', function () {
       assert.strictEqual((await axios.get(baseURL + '/echo', {proxy: false})).status, 200);
     });
     it(label + ' redacts errors with its supported redaction policy', async function () {
-      await assert.rejects(axios.get(baseURL + '/error', {proxy: false, ...(label === 'connect' ? {redact: ['password', 'authorization']} : {}), auth: {username: 'fixture-user', password: 'fixture-password'}, headers: {Authorization: 'Bearer fixture-token'}}), error => {
+      await assert.rejects(axios.get(baseURL + '/error', {proxy: false, redact: ['password', 'authorization'], auth: {username: 'fixture-user', password: 'fixture-password'}, headers: {Authorization: 'Bearer fixture-token'}}), error => {
         const serialized = JSON.stringify(error.toJSON());
         assert.ok(!serialized.includes('fixture-password'));
         assert.ok(!serialized.includes('fixture-token'));
@@ -143,10 +142,37 @@ describe('Axios consumer compatibility', function () {
     });
   });
 
-  it('legacy ignores inherited fields inside Basic auth', async function () {
-    const auth = Object.create({username: 'inherited-user', password: 'inherited-password'});
-    const response = await rootAxios.get(baseURL + '/echo', {proxy: false, auth});
-    assert.strictEqual(response.data.headers.authorization, 'Basic ' + Buffer.from(':').toString('base64'));
+  it('does not inherit Basic-auth fields in actual config imports, and retains URL credentials', async function () {
+    const names = ['username', 'password'];
+    const descriptors = names.map(name => Object.getOwnPropertyDescriptor(Object.prototype, name));
+    try {
+      Object.defineProperty(Object.prototype, 'username', {value: 'inherited-user', configurable: true});
+      Object.defineProperty(Object.prototype, 'password', {value: 'inherited-password', configurable: true});
+      for (let cycle = 0; cycle < 2; cycle++) {
+        const context = {bootErrors: []};
+        const beforeRequests = requests.length;
+        await importSettings({IMPORT_CONFIG: baseURL + '/config', settings: {}, extendedSettings: {}}, context);
+        assert.deepStrictEqual(context.bootErrors, []);
+        assert.strictEqual(requests.at(-1).headers.authorization, undefined);
+        const url = new URL('/config', baseURL);
+        url.username = 'owned-user'; url.password = 'owned-password';
+        await importSettings({IMPORT_CONFIG: url.href, settings: {}, extendedSettings: {}}, context);
+        assert.deepStrictEqual(context.bootErrors, []);
+        assert.strictEqual(requests.at(-1).headers.authorization,
+          'Basic ' + Buffer.from('owned-user:owned-password').toString('base64'));
+        url.username = 'Café-user'; url.password = encodeURIComponent('p:a%ss💉');
+        await importSettings({IMPORT_CONFIG: url.href, settings: {}, extendedSettings: {}}, context);
+        assert.deepStrictEqual(context.bootErrors, []);
+        assert.strictEqual(requests.at(-1).headers.authorization,
+          'Basic ' + Buffer.from('Café-user:p:a%ss💉').toString('base64'));
+        assert.strictEqual(requests.length, beforeRequests + 3);
+      }
+    } finally {
+      names.forEach((name, index) => {
+        if (descriptors[index]) Object.defineProperty(Object.prototype, name, descriptors[index]);
+        else delete Object.prototype[name];
+      });
+    }
   });
 
   it('connect removes ejected interceptors without dropping active or newly registered handlers', async function () {
@@ -166,17 +192,18 @@ describe('Axios consumer compatibility', function () {
     assert.deepStrictEqual(calls, ['active', 'active', 'new']);
   });
 
-  it('keeps null-prototype legacy headers compatible with request interceptors', async function () {
+  it('preserves request interceptor headers through AxiosHeaders', async function () {
     const client = rootAxios.create({proxy: false});
     client.interceptors.request.use(config => {
-      assert.strictEqual(Object.getPrototypeOf(config.headers), null);
-      config.headers['X-Fixture'] = 'safe';
+      assert.ok(config.headers instanceof rootAxios.AxiosHeaders);
+      config.headers.set('X-Fixture', 'safe');
+      assert.strictEqual(config.headers.get('X-Fixture'), 'safe');
       return config;
     });
     assert.strictEqual((await client.get(baseURL + '/echo')).data.headers['x-fixture'], 'safe');
   });
 
-  [['MiniMed legacy', legacyRequire], ['nightscout-connect', connectRequire]].forEach(([label, consumerRequire]) => {
+  [['nightscout-connect', connectRequire]].forEach(([label, consumerRequire]) => {
     it(label + ' preserves its actual cookie wrapper across login and repeated reads', async function () {
       const axios = consumerRequire('axios');
       const support = consumerRequire('axios-cookiejar-support');
@@ -188,16 +215,21 @@ describe('Axios consumer compatibility', function () {
       assert.strictEqual(login.data.headers.cookie, 'session=fixture');
       for (let cycle = 0; cycle < 2; cycle++) {
         assert.strictEqual((await client.get('/echo')).data.headers.cookie, 'session=fixture');
+        const ctx = {bootErrors: []};
+        await importSettings({IMPORT_CONFIG: baseURL + '/config', settings: {}, extendedSettings: {}}, ctx);
+        assert.deepStrictEqual(ctx.bootErrors, []);
+        assert.strictEqual(requests.at(-1).headers.cookie, undefined);
+        assert.strictEqual(requests.at(-1).headers.authorization, undefined);
       }
       assert.strictEqual(jar.getCookieStringSync(baseURL), 'session=fixture');
     });
   });
 
-  it('preserves MiniMed manual redirects, form posts and response interceptors', async function () {
-    const axios = legacyRequire('axios');
+  it('preserves Connect manual redirects, form posts and response interceptors', async function () {
+    const axios = connectRequire('axios');
     const client = axios.create({baseURL, proxy: false, maxRedirects: 0, withCredentials: true});
-    legacyRequire('axios-cookiejar-support').default(client);
-    client.defaults.jar = new (legacyRequire('tough-cookie').CookieJar)();
+    connectRequire('axios-cookiejar-support').wrapper(client);
+    client.defaults.jar = new (connectRequire('tough-cookie').CookieJar)();
     client.interceptors.response.use(response => response, error => {
       if (error.response && error.response.status >= 200 && error.response.status < 400) return error.response;
       return Promise.reject(error);
@@ -209,6 +241,70 @@ describe('Axios consumer compatibility', function () {
     const response = await client.get(login.headers.location);
     assert.strictEqual(response.data.headers.cookie, 'session=fixture');
     await assert.rejects(client.get('/error'), error => error.response.status === 401);
+  });
+
+  it('honors environment proxy authentication and NO_PROXY in repeated boot imports', async function () {
+    const keys = ['HTTP_PROXY', 'http_proxy', 'HTTPS_PROXY', 'https_proxy', 'NO_PROXY', 'no_proxy', 'ALL_PROXY', 'all_proxy'];
+    const saved = Object.fromEntries(keys.map(key => [key, process.env[key]]));
+    try {
+      keys.forEach(key => { delete process.env[key]; });
+      for (let cycle = 0; cycle < 2; cycle++) {
+        process.env.http_proxy = baseURL.replace('http://', 'http://fixture-proxy:fixture-proxy-password@');
+        delete process.env.no_proxy;
+        const proxied = {IMPORT_CONFIG: 'http://owned-import.invalid/flat-config', settings: {}, extendedSettings: {}};
+        const proxiedContext = {bootErrors: []};
+        await importSettings(proxied, proxiedContext);
+        assert.deepStrictEqual(proxiedContext.bootErrors, []);
+        assert.strictEqual(proxied.settings.units, 'mg/dl');
+        assert.strictEqual(requests[requests.length - 1].target.host, 'owned-import.invalid');
+        assert.strictEqual(requests[requests.length - 1].headers['proxy-authorization'],
+          'Basic ' + Buffer.from('fixture-proxy:fixture-proxy-password').toString('base64'));
+        process.env.http_proxy = 'http://127.0.0.1:1';
+        process.env.no_proxy = '127.0.0.1';
+        const direct = {IMPORT_CONFIG: baseURL + '/flat-config', settings: {}, extendedSettings: {}};
+        const directContext = {bootErrors: []};
+        await importSettings(direct, directContext);
+        assert.deepStrictEqual(directContext.bootErrors, []);
+        assert.strictEqual(direct.settings.units, 'mg/dl');
+        assert.strictEqual(requests[requests.length - 1].headers['proxy-authorization'], undefined);
+      }
+    } finally {
+      keys.forEach(key => {
+        if (saved[key] === undefined) delete process.env[key];
+        else process.env[key] = saved[key];
+      });
+    }
+  });
+
+  it('declares the import client as a production dependency', function () {
+    const manifest = require('../package.json');
+    assert.ok(manifest.dependencies.axios);
+    assert.strictEqual(manifest.devDependencies.axios, undefined);
+  });
+
+  it('keeps imported secrets and URL credentials out of logs and boot errors on repeated imports', async function () {
+    const logs = [];
+    const original = console.log;
+    console.log = (...args) => logs.push(require('util').format(...args));
+    try {
+      for (let cycle = 0; cycle < 2; cycle++) {
+        for (const route of ['/secret-config', '/error']) {
+          const env = {IMPORT_CONFIG: baseURL.replace('http://', 'http://fixture-import-user:fixture-import-password@') + route + '?token=fixture-import-token', settings: {}, extendedSettings: {}};
+          const ctx = {bootErrors: []};
+          await importSettings(env, ctx);
+          assert.strictEqual(requests[requests.length - 1].headers.authorization,
+            'Basic ' + Buffer.from('fixture-import-user:fixture-import-password').toString('base64'));
+          if (route === '/secret-config') assert.strictEqual(env.settings.apiSecret, 'fixture-imported-secret');
+          else assert.strictEqual(ctx.bootErrors[0].err.response.status, 401);
+          const visible = logs.join('\n') + JSON.stringify(ctx.bootErrors);
+          for (const secret of ['fixture-import-user', 'fixture-import-password', 'fixture-import-token', 'fixture-imported-secret']) {
+            assert.ok(!visible.includes(secret), 'import diagnostics exposed ' + secret);
+          }
+        }
+      }
+    } finally {
+      console.log = original;
+    }
   });
 
   it('imports wrapped settings through the actual boot stage and preserves existing nested settings', async function () {
@@ -245,6 +341,11 @@ describe('Axios consumer compatibility', function () {
       assert.strictEqual(request.headers.authorization, 'Bearer fixture-bearer');
       assert.strictEqual(request.target.searchParams.get('find[dateString][$gt]'), '2026-01-01T00:00:00.000Z');
       assert.strictEqual(request.target.searchParams.get('count'), '2');
+      const ctx = {bootErrors: []};
+      await importSettings({IMPORT_CONFIG: baseURL + '/config', settings: {}, extendedSettings: {}}, ctx);
+      assert.deepStrictEqual(ctx.bootErrors, []);
+      assert.strictEqual(requests.at(-1).headers.authorization, undefined);
+      assert.strictEqual(requests.at(-1).headers.cookie, undefined);
     }
   });
 });

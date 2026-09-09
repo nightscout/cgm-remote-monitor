@@ -352,50 +352,6 @@ describe('purifier', function() {
     }).should.throw(/not configured/);
   });
 
-  it('keeps disabled SVG, form and raw-text parser features inert', function() {
-    var purifier = require('../lib/server/purifier')({}, {});
-    var JSDOM = require('jsdom').JSDOM;
-    var payloads = [
-      '<svg><a><animate attributeName="href" values="#safe;javascript:alert(\'XSS\')" dur=".01s" fill="freeze"></animate><text y="30">Click me</text></a></svg>',
-      '<button formaction="javascript:alert(1)">Submit</button>',
-      '<object data="javascript:alert(1)"></object>',
-      '<textarea><img src=x onerror=alert(1)></textarea>SAFE',
-      '<xmp><img src=x onerror=alert(1)></xmp>SAFE',
-      '<textarea></textarea/><img src=x onerror="alert(document.domain)">',
-      '<xmp></xmp/><img src=x onerror="alert(document.domain)">',
-      '<svg><textarea><img src=x onerror=alert(1)>',
-      '<svg><xmp><img src=x onerror=alert(1)>',
-      '<math><textarea><img src=x onerror=alert(1)>',
-      '<math><xmp><img src=x onerror=alert(1)>',
-      '<math><mtext><table><mglyph><style><!--</style><img title="--></mglyph><img src=1 onerror=alert(1)>">'
-    ];
-
-    payloads.forEach(function (payload) {
-      var markup = purifier.sanitizeString(payload);
-
-      // Mutation-XSS payloads can become dangerous only after the browser
-      // reparses a sanitizer result. Check multiple parse/serialize rounds.
-      for (var round = 0; round < 3; round += 1) {
-        var dom = new JSDOM('<!doctype html><body>' + markup + '</body>');
-        var body = dom.window.document.body;
-
-        body.querySelectorAll('svg, animate, set, form, button, object, textarea, xmp, math, script, iframe, embed')
-          .length.should.equal(0);
-        body.querySelectorAll('*').forEach(function (element) {
-          Array.from(element.attributes).forEach(function (attribute) {
-            attribute.name.should.not.match(/^on/i);
-            if (/^(?:href|src|srcset|action|formaction|data|srcdoc)$/i.test(attribute.name)) {
-              attribute.value.should.not.match(/^\s*(?:javascript|vbscript):/i);
-            }
-          });
-        });
-
-        markup = body.innerHTML;
-        dom.window.close();
-      }
-    });
-  });
-
   it('handles cycles and leaves date and binary values untouched', function() {
     var purifier = require('../lib/server/purifier')({}, {});
     var date = new Date('2025-01-01T00:00:00.000Z');

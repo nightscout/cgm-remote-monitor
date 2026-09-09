@@ -23,6 +23,7 @@ describe('Entries REST api', function ( ) {
     self.wares = require('../lib/middleware/')(self.env);
     self.archive = null;
     self.app = require('express')( );
+    require('../lib/middleware/configure-request')(self.app);
     self.app.enable('api');
     bootevent(self.env, language).boot(function booted (ctx) {
       self.app.use('/', entries(self.app, self.wares, ctx, self.env));
@@ -65,6 +66,31 @@ describe('Entries REST api', function ( ) {
     await self.archive( ).deleteMany({ });
   });
 
+  it('replays Connect Dexcom backfill over legacy entries without duplicate timestamps', async function () {
+    const assert = require('node:assert/strict');
+    const source = require('nightscout-connect/lib/sources/dexcomshare');
+    const {createRequire} = require('node:module');
+    const connectorRequire = createRequire(require.resolve('nightscout-connect'));
+    const driver = source({shareAccountName:'owned-user',sharePassword:'owned-password'}, connectorRequire('axios'));
+    const first = Date.UTC(2020,5,1,12), second = first + FIVE_MINUTES;
+    const create = docs => new Promise((resolve,reject)=>self.archive.create(docs,(err,result)=>err ? reject(err) : resolve(result)));
+    await create([{type:'sgv',sgv:100,date:first,dateString:new Date(first).toISOString(),device:'share2',trend:4,direction:'Flat'}]);
+    const original = await self.archive().findOne({type:'sgv',date:first});
+    assert.ok(original);
+    const readings = [{Value:100,WT:'/Date('+first+')/',Trend:4},{Value:101,WT:'/Date('+second+')/',Trend:4}];
+    let secondId;
+    for(let cycle=0;cycle<2;cycle++) {
+      await create(driver.transformGlucose(readings).entries);
+      const stored = await self.archive().find({type:'sgv',date:{$in:[first,second]}}).sort({date:1}).toArray();
+      assert.equal(stored.length,2,'Overlap updates the existing reading instead of inserting a duplicate');
+      assert.equal(String(stored[0]._id),String(original._id));
+      assert.deepEqual(stored.map(entry=>entry.sgv),[100,101]);
+      assert.ok(stored.every(entry=>entry.device==='nightscout-connect'));
+      if(secondId) assert.equal(String(stored[1]._id),secondId);
+      secondId=String(stored[1]._id);
+    }
+  });
+
   // keep this test pinned at or near the top in order to validate all
   // entries successfully uploaded. if res.body.length is short of the
   // expected value, it may indicate a regression in the create
@@ -75,6 +101,7 @@ describe('Entries REST api', function ( ) {
       .get('/entries.json?find[dateString][$gte]=2014-07-19&count=' + count)
       .expect(200)
       .end(function (err, res) {
+        if (err) return done(err);
         res.body.should.be.instanceof(Array).and.have.lengthOf(count);
         done();
       });
@@ -86,6 +113,7 @@ describe('Entries REST api', function ( ) {
       .get('/entries/sgv.json?find[dateString][$gte]=2014-07-19&find[dateString][$lte]=2014-07-20')
       .expect(200)
       .end(function (err, res) {
+        if (err) return done(err);
         res.body.should.be.instanceof(Array).and.have.lengthOf(defaultCount);
         done( );
       });
@@ -97,6 +125,7 @@ describe('Entries REST api', function ( ) {
       .get('/entries/sgv.json?find[dateString][$gte]=2014-07-19&find[dateString][$lte]=2014-07-20')
       .expect(200)
       .end(function (err, res) {
+        if (err) return done(err);
         res.body.should.be.instanceof(Array).and.have.lengthOf(defaultCount);
 
         var array = res.body;
@@ -115,6 +144,7 @@ describe('Entries REST api', function ( ) {
       .get('/entries.json')
       .expect(200)
       .end(function (err, res) {
+        if (err) return done(err);
         res.body.should.be.instanceof(Array).and.have.lengthOf(defaultCount);
 
         var array = res.body;
@@ -132,6 +162,7 @@ describe('Entries REST api', function ( ) {
       .get('/echo/entries/sgv.json?find[dateString][$gte]=2014-07-19&find[dateString][$lte]=2014-07-20')
       .expect(200)
       .end(function (err, res) {
+        if (err) return done(err);
         res.body.should.be.instanceof(Object);
         res.body.query.should.be.instanceof(Object);
         res.body.input.should.be.instanceof(Object);
@@ -147,6 +178,7 @@ describe('Entries REST api', function ( ) {
       .get('/slice/entries/dateString/sgv/2014-07.json?count=20')
       .expect(200)
       .end(function (err, res) {
+        if (err) return done(err);
         res.body.should.be.instanceof(Array).and.have.lengthOf(20);
         done( );
       });
@@ -159,6 +191,7 @@ describe('Entries REST api', function ( ) {
       .get('/times/echo/2014-07/.*T{00..05}:.json?count=20&find[sgv][$gte]=160')
       .expect(200)
       .end(function (err, res) {
+        if (err) return done(err);
         res.body.should.be.instanceof(Object);
         res.body.req.should.have.property('query');
         res.body.should.have.property('pattern').with.lengthOf(6);
@@ -172,6 +205,7 @@ describe('Entries REST api', function ( ) {
       .get('/slice/entries/dateString/sgv/2014-07-{17..20}.json?count=20')
       .expect(200)
       .end(function (err, res) {
+        if (err) return done(err);
         res.body.should.be.instanceof(Array).and.have.lengthOf(20);
         done( );
       });
@@ -183,6 +217,7 @@ describe('Entries REST api', function ( ) {
       .get('/slice/entries/dateString/sgv/1999-07.json?count=20&find[sgv][$lte]=401')
       .expect(200)
       .end(function (err, res) {
+        if (err) return done(err);
         res.body.should.be.instanceof(Array).and.have.lengthOf(0);
         done( );
       });
@@ -194,6 +229,7 @@ describe('Entries REST api', function ( ) {
       .get('/times/2014-07-/{0..30}T.json?')
       .expect(200)
       .end(function (err, res) {
+        if (err) return done(err);
         res.body.should.be.instanceof(Array).and.have.lengthOf(10);
         done( );
       });
@@ -205,6 +241,7 @@ describe('Entries REST api', function ( ) {
       .get('/times/20{14..15}-07/T{09..10}.json?')
       .expect(200)
       .end(function (err, res) {
+        if (err) return done(err);
         res.body.should.be.instanceof(Array).and.have.lengthOf(10);
         done( );
       });
@@ -215,6 +252,7 @@ describe('Entries REST api', function ( ) {
       .get('/times/20{14..15}/T.*:{00..60}.json?')
       .expect(200)
       .end(function (err, res) {
+        if (err) return done(err);
         res.body.should.be.instanceof(Array).and.have.lengthOf(10);
         done( );
       });
@@ -225,6 +263,7 @@ describe('Entries REST api', function ( ) {
       .get('/entries/current.json')
       .expect(200)
       .end(function (err, res) {
+        if (err) return done(err);
         res.body.should.be.instanceof(Array).and.have.lengthOf(1);
         res.body[0].sgv.should.equal(100);
         done();
@@ -239,6 +278,7 @@ describe('Entries REST api', function ( ) {
         .get('/entries/'+currentId+'.json')
         .expect(200)
         .end(function (err, res) {
+          if (err) return done(err);
           res.body.should.be.instanceof(Array).and.have.lengthOf(1);
           res.body[0]._id.should.equal(currentId);
           done( );
@@ -252,6 +292,7 @@ describe('Entries REST api', function ( ) {
       .get('/entries/sgv/.json?count=10&find[dateString][$gte]=2014')
       .expect(200)
       .end(function (err, res) {
+        if (err) return done(err);
         res.body.should.be.instanceof(Array).and.have.lengthOf(10);
         done( );
       });
@@ -282,6 +323,7 @@ describe('Entries REST api', function ( ) {
             .get('/entries/sgv.json?find[dateString][$gte]=2014-07-19&find[dateString][$lte]=2014-07-20')
             .expect(200)
             .end(function (err, res) {
+              if (err) return done(err);
               res.body.should.be.instanceof(Array).and.have.lengthOf(10);
               done();
             });

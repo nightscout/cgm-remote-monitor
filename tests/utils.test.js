@@ -151,6 +151,18 @@ describe('utils', function ( ) {
       html.toTextContent('<img src=x onerror="alert(1)">').should.equal('<img src=x onerror="alert(1)">');
     });
 
+    it('preserves named, numeric and malformed character-reference behavior', function () {
+      html.toTextContent('&NotEqualTilde; &#x1F355; &#128;').should.equal('\u2242\u0338 🍕 €');
+      html.toTextContent('&#0; &#xD800; &#x110000;').should.equal('\uFFFD \uFFFD \uFFFD');
+      html.toTextContent('&unknown; &#xZZ; &amp').should.equal('&unknown; &#xZZ; &');
+    });
+
+    it('keeps decoded numeric markup inert in HTML text output', function () {
+      html.textAsHtml('&#60;img src=x onerror=alert(1)&#62;')
+        .should.equal('&lt;img src=x onerror=alert(1)&gt;');
+      html.toTextContent('&amp;#60;script&amp;#62;').should.equal('&#60;script&#62;');
+    });
+
     it('decodes one layer before escaping for an HTML text-node context', function () {
       html.textAsHtml('Already &#60;tag&#62; & raw').should.equal('Already &lt;tag&gt; &amp; raw');
       html.textAsHtml('&amp;lt;script&amp;gt;').should.equal('&amp;lt;script&amp;gt;');

@@ -1,0 +1,120 @@
+{
+  "baseline": {
+    "gitHead": "9205ea300b9a6981ad8f16223c69620dd3c1c830",
+    "lockSha256": "477e08bb4283b3464d014f3fd2caacd2582e3a353ed4c331fa9dd1b10632d375",
+    "declarations": {
+      "production": 65,
+      "development": 20
+    },
+    "lockPaths": 1033,
+    "productionClassifiedPaths": 677,
+    "bundles": {
+      "bundle.app.js": {
+        "bytes": 1761284,
+        "gzipBytes": 496510,
+        "sha256": "2f95d3cb03395b0f683fbcea41b70cba45819ebb93771d89355d6ca44725eda2"
+      },
+      "bundle.clock.js": {
+        "bytes": 152131,
+        "gzipBytes": 61784,
+        "sha256": "c37a1c7dd2460037f3175479fe31a9eb63fd08c0e11f84994168fe81836451d3"
+      }
+    },
+    "installed": {
+      "node": "v22.23.2",
+      "platform": "darwin",
+      "arch": "arm64",
+      "files": 27311,
+      "bytes": 173663680
+    },
+    "docker": {
+      "seconds": 36.58141562499986,
+      "gitHead": "9205ea300b9a6981ad8f16223c69620dd3c1c830",
+      "imageId": "sha256:b9640b97ea6fe2cb196faa020d1b07f5189facc00ee0588ff63bd27246ac5530",
+      "sizeBytes": 279203413,
+      "architecture": "arm64",
+      "node": "v22.23.2"
+    },
+    "productionInstalled": {
+      "node": "v22.23.2",
+      "platform": "linux",
+      "arch": "arm64",
+      "files": 17995,
+      "bytes": 101704501
+    },
+    "compression": {
+      "node": "22.23.2",
+      "zlib": "1.3.1-e00f703",
+      "level": 9
+    }
+  },
+  "candidate": {
+    "gitHead": "feae5aadc5b6d64c521c5665e2dc9a8b40d53979",
+    "lockSha256": "d1f405385a51bc4ff58b7cb259e3b724177781dfe77f2aacdff322a8221c46ad",
+    "declarations": {
+      "production": 37,
+      "development": 24
+    },
+    "lockPaths": 793,
+    "productionClassifiedPaths": 282,
+    "bundles": {
+      "bundle.admin.js": {
+        "bytes": 32053,
+        "gzipBytes": 7926,
+        "sha256": "9c0f02e2a64294e81403191933b6954ec97041d98545aef6a10336db9b8d3d0e"
+      },
+      "bundle.app.js": {
+        "bytes": 1046374,
+        "gzipBytes": 305212,
+        "sha256": "d6f59ba214964e7c34e1b1f6f76729cc294c82ce2e7a7adfe35298a18a42d563"
+      },
+      "bundle.clock.js": {
+        "bytes": 154556,
+        "gzipBytes": 62703,
+        "sha256": "84595e723f4cfc57cc852d51f91183c89a27496d0f067f7cced4d58e2da3a6c7"
+      },
+      "bundle.food.js": {
+        "bytes": 15864,
+        "gzipBytes": 5316,
+        "sha256": "9d7f4c0ff813cee970c3917a8be2df6ceaa73df3da65c7498198d502070a8cf4"
+      },
+      "bundle.profile.js": {
+        "bytes": 18979,
+        "gzipBytes": 6834,
+        "sha256": "531df37f75a17e66922f77cd2ff3ab63a6ff143b375e949ce03e84acd55f9752"
+      },
+      "bundle.reports.js": {
+        "bytes": 190319,
+        "gzipBytes": 56591,
+        "sha256": "5a214301ba33043c509532491b06eb73115c3f651e6bf17e1883cabda7e1533e"
+      }
+    },
+    "installed": {
+      "node": "v22.23.2",
+      "platform": "darwin",
+      "arch": "arm64",
+      "files": 22456,
+      "bytes": 195943381
+    },
+    "docker": {
+      "seconds": 17.99664337499962,
+      "gitHead": "056ee5bae5a2da6f216feab43124065ba3706d14",
+      "imageId": "sha256:3ce10790e501f7149a78055103bea9cfcba53657a84a195fbb8c7742d1ca0a04",
+      "sizeBytes": 239443787,
+      "architecture": "arm64",
+      "node": "v22.23.2"
+    },
+    "productionInstalled": {
+      "node": "v22.23.2",
+      "platform": "linux",
+      "arch": "arm64",
+      "files": 9654,
+      "bytes": 64135556
+    },
+    "compression": {
+      "node": "22.23.2",
+      "zlib": "1.3.1-e00f703",
+      "level": 9
+    }
+  }
+}

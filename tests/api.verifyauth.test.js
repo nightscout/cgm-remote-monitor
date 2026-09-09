@@ -19,6 +19,7 @@ describe('Verifyauth REST api', function ( ) {
     self.env.settings.authDefaultRoles = 'denied';
     this.wares = require('../lib/middleware/')(self.env);
     self.app = require('express')( );
+    require('../lib/middleware/configure-request')(self.app);
     self.app.enable('api');
     require('../lib/server/bootevent')(self.env, language).boot(function booted (ctx) {
       self.app.use('/api', api(self.env, ctx));

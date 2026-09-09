@@ -1,0 +1,107 @@
+{
+  "capturedFrom": "minimed-connect-to-nightscout@1.5.8",
+  "region": "EU",
+  "cases": [
+    {
+      "family": "MINIMED",
+      "input": {
+        "medicalDeviceFamily": "MINIMED",
+        "currentServerTime": 1788264000000,
+        "lastMedicalDeviceDataUpdateServerTime": 1788264000000,
+        "sMedicalDeviceTime": "2026-09-01T12:00:00.000Z",
+        "medicalDeviceBatteryLevelPercent": 80,
+        "conduitBatteryLevel": 60,
+        "reservoirRemainingUnits": 100,
+        "activeInsulin": {
+          "amount": 1.2
+        },
+        "sgs": [
+          {
+            "kind": "SG",
+            "sg": 123,
+            "datetime": "2026-09-01T12:00:00.000Z"
+          }
+        ],
+        "lastSG": {
+          "sg": 123
+        },
+        "lastSGTrend": "UP",
+        "markers": []
+      },
+      "entries": [
+        {
+          "type": "sgv",
+          "sgv": 123,
+          "date": 1788264000000,
+          "dateString": "2026-09-01T12:00:00.000Z",
+          "trend": 2,
+          "direction": "SingleUp"
+        }
+      ],
+      "devicestatus": [
+        {
+          "created_at": "2026-09-01T12:00:00.000Z",
+          "uploader": {
+            "battery": 60
+          },
+          "pump": {
+            "battery": {
+              "percent": 80
+            },
+            "reservoir": 100,
+            "iob": {
+              "timestamp": "2026-09-01T12:00:00.000Z",
+              "bolusiob": 1.2
+            },
+            "clock": "2026-09-01T12:00:00.000Z"
+          }
+        }
+      ]
+    },
+    {
+      "family": "GUARDIAN",
+      "input": {
+        "medicalDeviceFamily": "GUARDIAN",
+        "currentServerTime": 1788264000000,
+        "lastMedicalDeviceDataUpdateServerTime": 1788264000000,
+        "sMedicalDeviceTime": "2026-09-01T12:00:00.000Z",
+        "medicalDeviceBatteryLevelPercent": 80,
+        "conduitBatteryLevel": 60,
+        "reservoirRemainingUnits": 100,
+        "activeInsulin": {
+          "amount": 1.2
+        },
+        "sgs": [
+          {
+            "kind": "SG",
+            "sg": 123,
+            "datetime": "2026-09-01T12:00:00.000Z"
+          }
+        ],
+        "lastSG": {
+          "sg": 123
+        },
+        "lastSGTrend": "UP",
+        "markers": []
+      },
+      "entries": [
+        {
+          "type": "sgv",
+          "sgv": 123,
+          "date": 1788264000000,
+          "dateString": "2026-09-01T12:00:00.000Z",
+          "trend": 2,
+          "direction": "SingleUp"
+        }
+      ],
+      "devicestatus": [
+        {
+          "created_at": "2026-09-01T12:00:00.000Z",
+          "uploader": {
+            "battery": 80
+          }
+        }
+      ]
+    }
+  ]
+}

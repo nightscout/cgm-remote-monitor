@@ -1,0 +1,447 @@
+{
+  "baseline": "fe2b74bd4c4d3884fff3c85684f36bbf5352c967",
+  "scope": "Tracked JS/EJS/HTML under lib, bundle, static/report/js and views. Lexical matches include comments and omit dynamic/aliased calls; review the source before treating a match as a consumer.",
+  "versionNote": "null means the package is absent from the current lockfile.",
+  "installedVersions": {
+    "jquery": "3.7.1",
+    "jquery-ui-bundle": null,
+    "jquery-ui": "1.14.2",
+    "jquery.tooltips": null,
+    "flot": "0.8.3"
+  },
+  "files": [
+    {
+      "path": "bundle/bundle.clocks.source.js",
+      "sha256": "35deeadc430cfd962c7231057545c42791b3b25b45ac90ed1e9c00d1823833c4",
+      "hits": [
+        {
+          "line": 2,
+          "kinds": [
+            "package_import"
+          ],
+          "text": "$ = require(\"jquery\");"
+        }
+      ]
+    },
+    {
+      "path": "bundle/bundle.reports.source.js",
+      "sha256": "59c9ae685279506a9d5f9b5fa013b7a1bfcefbf448288eb87463279ee3de0412",
+      "hits": [
+        {
+          "line": 4,
+          "kinds": [
+            "package_import"
+          ],
+          "text": "require('flot');"
+        },
+        {
+          "line": 5,
+          "kinds": [
+            "package_import"
+          ],
+          "text": "require('flot/jquery.flot.time');"
+        },
+        {
+          "line": 6,
+          "kinds": [
+            "package_import"
+          ],
+          "text": "require('flot/jquery.flot.pie');"
+        },
+        {
+          "line": 7,
+          "kinds": [
+            "package_import"
+          ],
+          "text": "require('flot/jquery.flot.fillbetween');"
+        }
+      ]
+    },
+    {
+      "path": "bundle/bundle.source.js",
+      "sha256": "acef604069d6d82497cc66fcc81e2a84bb45001a7bae1ae0f3650fec7dcec172",
+      "hits": [
+        {
+          "line": 14,
+          "kinds": [
+            "package_import"
+          ],
+          "text": "require('jquery');"
+        },
+        {
+          "line": 18,
+          "kinds": [
+            "package_import"
+          ],
+          "text": "require('jquery-ui/ui/widgets/dialog');"
+        },
+        {
+          "line": 19,
+          "kinds": [
+            "package_import"
+          ],
+          "text": "require('jquery-ui/ui/widgets/droppable');"
+        },
+        {
+          "line": 20,
+          "kinds": [
+            "package_import"
+          ],
+          "text": "require('jquery-ui/ui/widgets/sortable');"
+        }
+      ]
+    },
+    {
+      "path": "lib/admin_plugins/roles.js",
+      "sha256": "a5d34c4fa65a3dfef948e88c47214ccd1de156d48ff2c13bf6d16e55c9c028bc",
+      "hits": [
+        {
+          "line": 118,
+          "kinds": [
+            "ui_widget"
+          ],
+          "text": "$('#editroledialog').dialog({"
+        },
+        {
+          "line": 138,
+          "kinds": [
+            "ui_widget"
+          ],
+          "text": "$(self).dialog('close');"
+        },
+        {
+          "line": 145,
+          "kinds": [
+            "ui_widget"
+          ],
+          "text": ", click: function() { $(this).dialog('close'); }"
+        }
+      ]
+    },
+    {
+      "path": "lib/admin_plugins/subjects.js",
+      "sha256": "cae15d4d62188902a33d936ad529227fcbe57a6dab8f9f24c29acc71fac7a947",
+      "hits": [
+        {
+          "line": 119,
+          "kinds": [
+            "ui_widget"
+          ],
+          "text": "$('#editsubjectdialog').dialog({"
+        },
+        {
+          "line": 138,
+          "kinds": [
+            "ui_widget"
+          ],
+          "text": "$(self).dialog('close');"
+        },
+        {
+          "line": 145,
+          "kinds": [
+            "ui_widget"
+          ],
+          "text": ", click: function() { $(this).dialog('close'); }"
+        }
+      ]
+    },
+    {
+      "path": "lib/client/boluscalc.js",
+      "sha256": "c949135d447508738b6b94504379c4b84205c8395beccb0877fde950d9d21858",
+      "hits": [
+        {
+          "line": 724,
+          "kinds": [
+            "ui_widget"
+          ],
+          "text": "$('#bc_addfooddialog').dialog({"
+        },
+        {
+          "line": 739,
+          "kinds": [
+            "ui_widget"
+          ],
+          "text": "$(this).dialog('close');"
+        }
+      ]
+    },
+    {
+      "path": "lib/client/hashauth.js",
+      "sha256": "c6afd37d8266340a971fd1b01e96fc625f535d5a298613f5c3154290f1315d3f",
+      "hits": [
+        {
+          "line": 281,
+          "kinds": [
+            "ui_widget"
+          ],
+          "text": "$('#requestauthenticationdialog').dialog({"
+        },
+        {
+          "line": 298,
+          "kinds": [
+            "ui_widget"
+          ],
+          "text": "$(dialog).dialog('close');"
+        },
+        {
+          "line": 308,
+          "kinds": [
+            "ui_global"
+          ],
+          "text": "if (e.keyCode === $.ui.keyCode.ENTER) {"
+        }
+      ]
+    },
+    {
+      "path": "lib/client/index.js",
+      "sha256": "8f65a152d823fa6b6ad05e0c8c67a447aa841bdcca5be9b64fafd909a67d959b",
+      "hits": [
+        {
+          "line": 3,
+          "kinds": [
+            "package_import"
+          ],
+          "text": "var $ = (global && global.$) || require('jquery');"
+        }
+      ]
+    },
+    {
+      "path": "lib/food/food.js",
+      "sha256": "c901d5f94266bfd50407733b768d3ba95e7c4a188ec8f9779ea9045f79cdba0b",
+      "hits": [
+        {
+          "line": 269,
+          "kinds": [
+            "ui_widget"
+          ],
+          "text": "$('.draggablefood').draggable({"
+        },
+        {
+          "line": 391,
+          "kinds": [
+            "ui_widget"
+          ],
+          "text": "$('.sortablequickpick').droppable({"
+        },
+        {
+          "line": 397,
+          "kinds": [
+            "ui_widget"
+          ],
+          "text": "$('#fe_picklist').sortable({"
+        }
+      ]
+    },
+    {
+      "path": "lib/report_plugins/dailystats.js",
+      "sha256": "59ffa9f98f2faf472de598ff80317f4933e4a8bc06166e047454b5cdea223615",
+      "hits": [
+        {
+          "line": 150,
+          "kinds": [
+            "flot"
+          ],
+          "text": "$.plot("
+        }
+      ]
+    },
+    {
+      "path": "lib/report_plugins/glucosedistribution.js",
+      "sha256": "a5751927e0c4a09bff2a54e1699a2e9bbac50f626f251b9517e150eb23e7cbd2",
+      "hits": [
+        {
+          "line": 484,
+          "kinds": [
+            "flot"
+          ],
+          "text": "$.plot("
+        }
+      ]
+    },
+    {
+      "path": "lib/report_plugins/hourlystats.js",
+      "sha256": "965065a3ffbf3b52384190a3d80a00cbadc0ecc9f96f2fe9050ba7c45626d39d",
+      "hits": [
+        {
+          "line": 107,
+          "kinds": [
+            "flot"
+          ],
+          "text": "$.plot("
+        }
+      ]
+    },
+    {
+      "path": "lib/report_plugins/loopalyzer.js",
+      "sha256": "d0b30c9acb8331d06c920a54a42630631f96fb0a1c0f9d93abd0431e2f90e7c1",
+      "hits": [
+        {
+          "line": 1128,
+          "kinds": [
+            "flot"
+          ],
+          "text": "$.plot('#loopalyzer-basal', chartBasalData, chartBasalOptions);"
+        },
+        {
+          "line": 1169,
+          "kinds": [
+            "flot"
+          ],
+          "text": "$.plot('#loopalyzer-bg', chartBGData, chartBGOptions);"
+        },
+        {
+          "line": 1198,
+          "kinds": [
+            "flot"
+          ],
+          "text": "$.plot('#loopalyzer-tempbasal', chartTempBasalData, chartTempBasalOptions);"
+        },
+        {
+          "line": 1233,
+          "kinds": [
+            "flot"
+          ],
+          "text": "$.plot('#loopalyzer-iob', chartIOBData, chartIOBOptions);"
+        },
+        {
+          "line": 1269,
+          "kinds": [
+            "flot"
+          ],
+          "text": "$.plot('#loopalyzer-cob', chartCOBData, chartCOBOptions);"
+        }
+      ]
+    },
+    {
+      "path": "lib/report_plugins/percentile.js",
+      "sha256": "c0336a314cf408207ccfe55c2e37e46dfe2965e4a5a953efc39430700c66c847",
+      "hits": [
+        {
+          "line": 96,
+          "kinds": [
+            "flot"
+          ],
+          "text": "$.plot("
+        }
+      ]
+    },
+    {
+      "path": "lib/report_plugins/treatments.js",
+      "sha256": "b1d9e9c411390cf6815585d445056462f4685d4c88907b948eb7e08880b31ef5",
+      "hits": [
+        {
+          "line": 207,
+          "kinds": [
+            "ui_widget"
+          ],
+          "text": "$( '#rp_edittreatmentdialog' ).dialog({"
+        },
+        {
+          "line": 234,
+          "kinds": [
+            "ui_widget"
+          ],
+          "text": "$( this ).dialog('close');"
+        },
+        {
+          "line": 241,
+          "kinds": [
+            "ui_widget"
+          ],
+          "text": "click: function () { $( this ).dialog('close'); }"
+        }
+      ]
+    },
+    {
+      "path": "static/report/js/flotcandle.js",
+      "sha256": "94e93da9e0871580a7a4b105655741dbf466a34993e8104e7f8cd8055d4976bd",
+      "hits": [
+        {
+          "line": 81,
+          "kinds": [
+            "flot"
+          ],
+          "text": "$.plot.plugins.push({"
+        }
+      ]
+    },
+    {
+      "path": "views/adminindex.html",
+      "sha256": "c88c95b10982ef6d515c5bc605bb0f60723ab54c04e324d3da49fb023ebb66e0",
+      "hits": [
+        {
+          "line": 33,
+          "kinds": [
+            "ui_stylesheet"
+          ],
+          "text": "<link rel=\"preload\" href=\"/css/ui-darkness/jquery-ui.min.css\" as=\"style\" onload=\"this.onload=null;this.rel='stylesheet'\">"
+        }
+      ]
+    },
+    {
+      "path": "views/foodindex.html",
+      "sha256": "626685e6f891b0678997b3f4af673c0db1e5fe1bfa1ad4f5d533ebf4ea41e81f",
+      "hits": [
+        {
+          "line": 31,
+          "kinds": [
+            "ui_stylesheet"
+          ],
+          "text": "<link rel=\"preload\" href=\"/css/ui-darkness/jquery-ui.min.css\" as=\"style\" onload=\"this.onload=null;this.rel='stylesheet'\">"
+        }
+      ]
+    },
+    {
+      "path": "views/index.html",
+      "sha256": "1606ba614f39f5d00aeed62a73a24cd977668cf5ff0a94a44ff9f05d54f46dce",
+      "hits": [
+        {
+          "line": 31,
+          "kinds": [
+            "ui_stylesheet"
+          ],
+          "text": "<link rel=\"preload\" href=\"css/ui-darkness/jquery-ui.min.css\" as=\"style\" onload=\"this.onload=null;this.rel='stylesheet'\">"
+        }
+      ]
+    },
+    {
+      "path": "views/profileindex.html",
+      "sha256": "79d8151891d1675ebfafd8339e5fe6f6c2b8ecedd264a82ab8a3ed41525c317a",
+      "hits": [
+        {
+          "line": 31,
+          "kinds": [
+            "ui_stylesheet"
+          ],
+          "text": "<link rel=\"preload\" href=\"/css/ui-darkness/jquery-ui.min.css\" as=\"style\" onload=\"this.onload=null;this.rel='stylesheet'\">"
+        }
+      ]
+    },
+    {
+      "path": "views/reportindex.html",
+      "sha256": "8e0d6560b3b2d1e570622998f0225352db49178832dd9d8de19da4c7ec9d689c",
+      "hits": [
+        {
+          "line": 30,
+          "kinds": [
+            "ui_stylesheet"
+          ],
+          "text": "<link rel=\"preload\" href=\"/css/ui-lightness/jquery-ui.min.css\" as=\"style\" onload=\"this.onload=null;this.rel='stylesheet'\">"
+        }
+      ]
+    },
+    {
+      "path": "views/service-worker.js",
+      "sha256": "c8d9a12bacd4d83cf04e7dc5239f6836ab20fa7b01d637e005a45af874fe6b1c",
+      "hits": [
+        {
+          "line": 23,
+          "kinds": [
+            "ui_stylesheet"
+          ],
+          "text": "'/css/ui-darkness/jquery-ui.min.css',"
+        }
+      ]
+    }
+  ]
+}

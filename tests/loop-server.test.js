@@ -1,5 +1,7 @@
 'use strict';
 
+require('should');
+
 var apn = require('@parse/node-apn');
 
 describe('server loop notifications', function () {
@@ -31,6 +33,7 @@ describe('server loop notifications', function () {
       var capturedOptions;
       apn.Provider = function MockProvider (options) {
         capturedOptions = options;
+        this.shutdown = function () {};
         this.send = function (notification, tokens) {
           return Promise.resolve({ sent: [{ device: tokens[0] }], failed: [] });
         };
