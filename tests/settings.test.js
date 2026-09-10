@@ -137,6 +137,47 @@ describe('settings', function ( ) {
     fresh.secureCsp.should.equal(true);
   });
 
+  it('support setting numbered custom webhook env vars', function () {
+    var userSetting = {
+      CUSTOM_WEBHOOK_URL_1: 'https://one.example.com/hook'
+      , CUSTOM_WEBHOOK_EVENT_1: 'ns-urgent'
+      //sparse on purpose, index 3 is set while index 2 is left unconfigured
+      , CUSTOM_WEBHOOK_URL_3: 'http://three.example.com/hook'
+      , CUSTOM_WEBHOOK_EVENT_3: 'ns-allclear'
+    };
+
+    var fresh = require('../lib/settings')();
+    fresh.eachSettingAsEnv(function (name) {
+      return userSetting[name];
+    });
+
+    fresh.customWebhookUrl1.should.equal('https://one.example.com/hook');
+    fresh.customWebhookEvent1.should.equal('ns-urgent');
+    fresh.customWebhookUrl2.should.equal('');
+    fresh.customWebhookEvent2.should.equal('');
+    fresh.customWebhookUrl3.should.equal('http://three.example.com/hook');
+    fresh.customWebhookEvent3.should.equal('ns-allclear');
+  });
+
+  it('does not publish custom webhook urls in filtered settings', function () {
+    var userSetting = {
+      CUSTOM_WEBHOOK_URL_1: 'https://one.example.com/hook?token=SUPERSECRET'
+      , CUSTOM_WEBHOOK_EVENT_1: 'ns-urgent'
+    };
+
+    var fresh = require('../lib/settings')();
+    fresh.eachSettingAsEnv(function (name) {
+      return userSetting[name];
+    });
+
+    var published = fresh.filteredSettings(fresh);
+
+    should.not.exist(published.customWebhookUrl1);
+    JSON.stringify(published).indexOf('SUPERSECRET').should.equal(-1);
+    //the event name is not a secret and stays available to the client
+    published.customWebhookEvent1.should.equal('ns-urgent');
+  });
+
   it('have default features', function () {
     var fresh = require('../lib/settings')();
     fresh.eachSettingAsEnv(function () {
