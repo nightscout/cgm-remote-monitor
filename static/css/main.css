@@ -82,6 +82,8 @@
 .icon-sort-numeric:before { content: '\f162'; }
 .icon-chart-line:before { content: '\f201'; }
 .icon-hourglass:before { content: '\f254'; }
+.icon-moon:before { content: '\263e'; }
+.icon-sun:before { content: '\2600'; }
 
 /* Plugin Icons id-s (copy from generated icon style.css) */
 .plugicon-database:before { content: "\e901"; }
