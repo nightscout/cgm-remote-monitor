@@ -1,182 +1,34 @@
 'use strict';
 
+// Phase 5b retired the bundle-driven Profile editor test in favor of
+// Node-only unit tests against the pure modules under
+// lib/client-core/profile-editor/. The original DOM-driven assertions
+// (counting #pe_databaserecords / #pe_profiles option lengths after
+// add/remove/clone clicks, and toggling I:C / target-bg ranges) are
+// now covered by:
+//
+//   tests/profileeditor.records.test.js          — DOM-equivalent CRUD
+//   tests/client-core/profile-editor-records.test.js
+//   tests/client-core/profile-editor-profiles.test.js
+//   tests/client-core/profile-editor-ranges.test.js
+//   tests/client-core/profile-editor-migrate.test.js
+//   tests/client-core/profile-editor-defaults-and-time.test.js
+//
+// Manual end-to-end UI verification is documented in
+// docs/test-specs/manual-smoke-checklist.md.
+//
+// This shim is kept (instead of deleted) so anyone searching for the
+// original test name lands here. The previous it.skip placeholder is
+// gone — see docs/proposals/track1/phase1c-shim-parity.txt for the
+// history of why the bundle test was retired.
+
 require('should');
-var _ = require('lodash');
-var benv = require('benv');
-var read = require('fs').readFileSync;
+var fs = require('fs');
+var path = require('path');
 
-var nowData = require('../lib/data/ddata')();
-nowData.sgvs.push({ mgdl: 100, mills: Date.now(), direction: 'Flat', type: 'sgv' });
-
-var exampleProfile = {
-  defaultProfile : 'Default'
-  , store: {
-      'Default' : {
-        //General values
-        'dia':3,
-
-        // Simple style values, 'from' are in minutes from midnight
-        'carbratio': [
-          {
-            'time': '00:00',
-            'value': 30
-          }],
-        'carbs_hr':30,
-        'delay': 20,
-        'sens': [
-          {
-            'time': '00:00',
-            'value': 100
-          }
-          , {
-            'time': '8:00',
-            'value': 80
-          }],
-        'startDate': new Date(),
-        'timezone': 'UTC',
-
-        //perGIvalues style values
-        'perGIvalues': false,
-        'carbs_hr_high': 30,
-        'carbs_hr_medium': 30,
-        'carbs_hr_low': 30,
-        'delay_high': 15,
-        'delay_medium': 20,
-        'delay_low': 20,
-
-        'basal':[
-          {
-            'time': '00:00',
-            'value': 0.1
-          }],
-        'target_low':[
-          {
-            'time': '00:00',
-            'value': 100
-          }],
-        'target_high':[
-          {
-            'time': '00:00',
-            'value': 120
-          }]
-      }
-  }
-};
-
-
-var someData = {
-    '/api/v1/profile.json?count=20': [exampleProfile]
-  };
-
-
-describe('Profile editor', function ( ) {
-  this.timeout(40000); //TODO: see why this test takes longer on Travis to complete
-  var headless = require('./fixtures/headless')(benv, this);
-
-  before(function (done) {
-    done( );
+describe('Profile editor (legacy DOM test retired)', function () {
+  it('coverage migrated to lib/client-core/profile-editor + tests/profileeditor.records.test.js', function () {
+    fs.existsSync(path.join(__dirname, 'profileeditor.records.test.js'))
+      .should.be.true();
   });
-
-  after(function (done) {
-    done( );
-  });
-
-  beforeEach(function (done) {
-    var opts = {
-      htmlFile: __dirname + '/../views/profileindex.html'
-    , mockProfileEditor: true
-    , mockAjax: someData
-    , benvRequires: [
-        __dirname + '/../static/js/profileinit.js'
-      ]
-    };
-    headless.setup(opts, done);
-  });
-
-  afterEach(function (done) {
-    headless.teardown( );
-    done( );
-  });
-
-  it ('should produce some html', function (done) {
-    var client = require('../lib/client');
-
-    var hashauth = require('../lib/client/hashauth');
-    hashauth.init(client,$);
-    hashauth.verifyAuthentication = function mockVerifyAuthentication(next) {
-      hashauth.authenticated = true;
-      next(true);
-    };
-
-     window.confirm = function mockConfirm (text) {
-       console.log('Confirm:', text);
-       return true;
-     };
-
-     window.alert = function mockAlert () {
-       return true;
-     };
-
-    window.Nightscout.profileclient();
-
-    client.init();
-    client.dataUpdate(nowData);
-    
-    // var result = $('body').html();
-    // console.log(result);
-    //var filesys = require('fs');
-    //var logfile = filesys.createWriteStream('out.html', { flags: 'a'} )
-    //logfile.write($('body').html());
-    
-    // database records manipulation
-    $('#pe_databaserecords option').length.should.be.equal(1);
-    $('#pe_records_add').click();
-    $('#pe_databaserecords option').length.should.be.equal(2);
-    $('#pe_records_remove').click();
-    $('#pe_databaserecords option').length.should.be.equal(1);
-    $('#pe_records_clone').click();
-    $('#pe_databaserecords option').length.should.be.equal(2);
-    $('#pe_databaserecords option').val(0);
-
-    //console.log($('#pe_databaserecords').html());
-    //console.log($('#pe_databaserecords').val());
-
-    // database records manipulation
-    $('#pe_profiles option').length.should.be.equal(1);
-    $('#pe_profile_add').click();
-    $('#pe_profiles option').length.should.be.equal(2);
-    $('#pe_profile_name').val('Test');
-    $('#pe_profiles option').val('Default');
-    $('#pe_profiles option').val('Test');
-    $('#pe_profile_remove').click();
-    $('#pe_profiles option').length.should.be.equal(1);
-    $('#pe_profile_clone').click();
-    $('#pe_profiles option').length.should.be.equal(2);
-    $('#pe_profiles option').val('Default');
-
-    //console.log($('#pe_profiles').html());
-    //console.log($('#pe_profiles').val());
-
-
-    // I:C range
-    $('#pe_ic_val_0').val().should.be.equal('30');
-    $('#pe_ic_placeholder').find('img.addsingle').click();
-    $('#pe_ic_val_0').val().should.be.equal('0');
-    $('#pe_ic_val_1').val().should.be.equal('30');
-    $('#pe_ic_placeholder').find('img.delsingle').click();
-    $('#pe_ic_val_0').val().should.be.equal('30');
-
-    // traget bg range
-    $('#pe_targetbg_low_0').val().should.be.equal('100');
-    $('#pe_targetbg_placeholder').find('img.addtargetbg').click();
-    $('#pe_targetbg_low_0').val().should.be.equal('0');
-    $('#pe_targetbg_low_1').val().should.be.equal('100');
-    $('#pe_targetbg_placeholder').find('img.deltargetbg').click();
-    $('#pe_targetbg_low_0').val().should.be.equal('100');
-
-
-    $('#pe_submit').click();
-    done();
-  });
-
 });

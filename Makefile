@@ -61,8 +61,14 @@ test:
 ci_tests:
 	python -c 'import os,sys,fcntl; flags = fcntl.fcntl(sys.stdout, fcntl.F_GETFL); fcntl.fcntl(sys.stdout, fcntl.F_SETFL, flags&~os.O_NONBLOCK);'
 #	NODE_ENV=test ${MONGO_SETTINGS} \
-#	${ISTANBUL} cover ${MOCHA} --report lcovonly -- --timeout 5000 -R tap ${TESTS}	
+#	${ISTANBUL} cover ${MOCHA} --report lcovonly -- --timeout 5000 -R tap ${TESTS}
 	for var in tests/*.js; do ${MONGO_SETTINGS} ${MOCHA} --timeout 30000 --exit --bail -R tap $$var; done
+
+docker_build:
+	# Containerise a local build of a working feature branch.
+	$(eval GIT_BRANCH=$(shell git rev-parse --abbrev-ref HEAD))
+	$(eval TIMESTAMP=$(shell date +%Y%m%d-%H%M%S))
+	docker build -t $(DOCKER_IMAGE):local-$(GIT_BRANCH)-$(TIMESTAMP) .
 
 docker_release:
 	# Get the version from the package.json file
@@ -88,4 +94,4 @@ docker_release:
 		docker push $(DOCKER_IMAGE):latest_dev; \
 	fi
 
-.PHONY: all coverage docker_release report test ci_tests
+.PHONY: all coverage docker_build docker_release report test ci_tests

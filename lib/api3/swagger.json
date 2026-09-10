@@ -11,7 +11,7 @@
       "name": "AGPL 3",
       "url": "https://www.gnu.org/licenses/agpl.txt"
     },
-    "version": "3.0.4"
+    "version": "3.0.5"
   },
   "servers": [
     {
@@ -54,10 +54,13 @@
             "in": "query",
             "description": "Any number of filtering operators.\n\nEach filtering operator has name like `<field-name>$<operator>`, e.g. `carbs$gt=2` which represents filtering rule \"The field carbs must be present and greater than 2\".\n\nYou can choose from operators&#58;\n\n`eq`=equals, `insulin$eq=1.5`\n\n`ne`=not equals, `insulin$ne=1.5`\n\n`gt`=greater than, `carbs$gt=30`\n\n`gte`=greater than or equal, `carbs$gte=30`\n\n`lt`=less than, `carbs$lt=30`\n\n`lte`=less than or equal, `carbs$lte=30`\n\n`in`=in specified set, `type$in=sgv|mbg|cal`\n\n`nin`=not in specified set, `eventType$nin=Temp%20Basal|Temporary%20Target`\n\n`re`=regex pattern, `eventType$re=Temp.%2A`\n\nWhen filtering by field `date`, `created_at`, `srvModified` or `srvCreated`, you can choose from three input formats\n- Unix epoch in milliseconds (1525383610088)\n- Unix epoch in seconds (1525383610)\n- ISO 8601 with optional timezone ('2018-05-03T21:40:10.088Z' or '2018-05-03T23:40:10.088+02:00')\n\nThe date is always queried in a normalized form - UTC with zero offset and with the correct format (1525383610088 for `date`, '2018-05-03T21:40:10.088Z' for `created_at`).",
             "required": false,
-            "style": "form",
-            "explode": true,
+            "style": "spaceDelimited",
+            "explode": false,
             "schema": {
-              "type": "string"
+              "type": "array",
+              "items": {
+                "type": "string"
+              }
             }
           },
           {
@@ -2462,10 +2465,13 @@
         "in": "query",
         "description": "Any number of filtering operators.\n\nEach filtering operator has name like `<field-name>$<operator>`, e.g. `carbs$gt=2` which represents filtering rule \"The field carbs must be present and greater than 2\".\n\nYou can choose from operators&#58;\n\n`eq`=equals, `insulin$eq=1.5`\n\n`ne`=not equals, `insulin$ne=1.5`\n\n`gt`=greater than, `carbs$gt=30`\n\n`gte`=greater than or equal, `carbs$gte=30`\n\n`lt`=less than, `carbs$lt=30`\n\n`lte`=less than or equal, `carbs$lte=30`\n\n`in`=in specified set, `type$in=sgv|mbg|cal`\n\n`nin`=not in specified set, `eventType$nin=Temp%20Basal|Temporary%20Target`\n\n`re`=regex pattern, `eventType$re=Temp.%2A`\n\nWhen filtering by field `date`, `created_at`, `srvModified` or `srvCreated`, you can choose from three input formats\n- Unix epoch in milliseconds (1525383610088)\n- Unix epoch in seconds (1525383610)\n- ISO 8601 with optional timezone ('2018-05-03T21:40:10.088Z' or '2018-05-03T23:40:10.088+02:00')\n\nThe date is always queried in a normalized form - UTC with zero offset and with the correct format (1525383610088 for `date`, '2018-05-03T21:40:10.088Z' for `created_at`).",
         "required": false,
-        "style": "form",
-        "explode": true,
+        "style": "spaceDelimited",
+        "explode": false,
         "schema": {
-          "type": "string"
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
         }
       },
       "lastModifiedRequiredHeader": {

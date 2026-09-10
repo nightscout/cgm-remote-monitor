@@ -1,7 +1,7 @@
 /* eslint require-atomic-updates: 0 */
 'use strict';
 
-require('should');
+const should = require('should');
 
 describe('API3 output renderers', function() {
   const self = this
@@ -9,18 +9,18 @@ describe('API3 output renderers', function() {
     , instance = require('./fixtures/api3/instance')
     , authSubject = require('./fixtures/api3/authSubject')
     , opTools = require('../lib/api3/shared/operationTools')
-    , _ = require('lodash')
+    , utils = require('./fixtures/api3/utils')
     , xml2js = require('xml2js')
     , csvParse = require('csv-parse/lib/sync')
     ;
 
   self.historyFrom = (new Date()).getTime() - 1000; // starting timestamp for HISTORY operations
 
-  self.doc1 = testConst.SAMPLE_ENTRIES[0];
+  self.doc1 = structuredClone(testConst.SAMPLE_ENTRIES[0]);
   self.doc1.date = (new Date()).getTime() - (5 * 60 * 1000);
   self.doc1.identifier = opTools.calculateIdentifier(self.doc1);
 
-  self.doc2 = testConst.SAMPLE_ENTRIES[1];
+  self.doc2 = structuredClone(testConst.SAMPLE_ENTRIES[1]);
   self.doc2.date = (new Date()).getTime();
   self.doc2.identifier = opTools.calculateIdentifier(self.doc2);
 
@@ -60,7 +60,8 @@ describe('API3 output renderers', function() {
   });
 
 
-  after(() => {
+  after(async () => {
+    await utils.storageClear(self.instance.ctx);
     self.instance.server.close();
   });
 
@@ -94,10 +95,10 @@ describe('API3 output renderers', function() {
    * @param arrModel
    * @param arr
    */
-  self.checkItems = function checkItems (arrModel, arr) {
+  self.checkItems = function checkItems(arrModel, arr) {
     for (let itemModel of arrModel) {
-      const item = _.find(arr, (doc) => doc.identifier === itemModel.identifier);
-      item.should.not.be.empty();
+      const item = arr.find(doc => doc.identifier === itemModel.identifier);
+      should(item).not.be.empty();
       self.checkProps(itemModel, item);
     }
   };
@@ -115,10 +116,10 @@ describe('API3 output renderers', function() {
     xmlText.should.startWith('<?xml version=\'1.0\' encoding=\'utf-8\'?>');
 
     const xml = await self.xmlParser.parseStringPromise(xmlText);
-    xml.items.should.not.be.empty();
+    should(xml.items).not.be.empty();
     let items = xml.items.item;
-    items.should.be.Array();
-    items.length.should.be.aboveOrEqual(arrModel.length);
+    should(items).be.Array();
+    items.length.should.equal(arrModel.length);
 
     self.checkItems(arrModel, items);
   };
@@ -137,7 +138,7 @@ describe('API3 output renderers', function() {
 
     const items = csvParse(csvText, self.csvParserOptions);
     items.should.be.Array();
-    items.length.should.be.aboveOrEqual(arrModel.length);
+    items.length.should.equal(arrModel.length);
 
     self.checkItems(arrModel, items);
   };
@@ -197,7 +198,7 @@ describe('API3 output renderers', function() {
     res.text.should.startWith('<?xml version=\'1.0\' encoding=\'utf-8\'?>');
 
     const xml = await self.xmlParser.parseStringPromise(res.text);
-    xml.item.should.not.be.empty();
+    should(xml.item).not.be.empty();
     self.checkProps(self.doc1, xml.item);
 
     let res2 = await self.instance.get(`${self.url}/${self.doc1.identifier}?fields=_all`, self.jwt.read)
@@ -293,4 +294,3 @@ describe('API3 output renderers', function() {
     await deleteDoc(self.doc2.identifier);
   });
 });
-

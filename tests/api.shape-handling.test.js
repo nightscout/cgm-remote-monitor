@@ -3,6 +3,7 @@
 var request = require('supertest');
 var should = require('should');
 var language = require('../lib/language')();
+var writePayload = require('../lib/api/shared/write-payload');
 
 describe('API Shape Handling - Single Object vs Array Input', function () {
   this.timeout(15000);
@@ -508,6 +509,187 @@ describe('API Shape Handling - Single Object vs Array Input', function () {
           if (err) return done(err);
           res.body.should.be.instanceof(Array);
           done();
+        });
+    });
+  });
+
+  describe('Bounded API write payloads', function () {
+    var scriptPayload = '<script>alert(1)</script>safe';
+    var writeCases = [
+      {
+        name: 'entries POST',
+        method: 'post',
+        path: '/api/entries/',
+        errorMessage: /entries payload/i,
+        tooManyMessage: /Too many entries/i,
+        textField: 'notes',
+        collection: function () { return self.ctx.entries(); },
+        document: function (marker) {
+          var now = Date.now();
+          return {type: 'sgv', sgv: 120, date: now, dateString: new Date(now).toISOString(), testMarker: marker};
+        }
+      },
+      {
+        name: 'devicestatus POST',
+        method: 'post',
+        path: '/api/devicestatus/',
+        errorMessage: /devicestatus payload/i,
+        tooManyMessage: /Too many devicestatus records/i,
+        textField: 'device',
+        collection: function () { return self.ctx.devicestatus(); },
+        document: function (marker) {
+          return {device: 'test-device', created_at: new Date().toISOString(), testMarker: marker};
+        }
+      },
+      {
+        name: 'activity POST',
+        method: 'post',
+        path: '/api/activity/',
+        errorMessage: /activity payload/i,
+        tooManyMessage: /Too many activity records/i,
+        textField: 'activitylevel',
+        collection: function () { return self.ctx.activity(); },
+        document: function (marker) {
+          return {created_at: new Date().toISOString(), steps: 100, activitylevel: 'walking', testMarker: marker};
+        }
+      },
+      {
+        name: 'food POST',
+        method: 'post',
+        path: '/api/food/',
+        errorMessage: /food payload/i,
+        tooManyMessage: /Too many food records/i,
+        textField: 'name',
+        collection: function () { return self.ctx.food(); },
+        document: function (marker) {
+          return {type: 'food', name: 'Test food', carbs: 10, testMarker: marker};
+        }
+      },
+      {
+        name: 'food PUT',
+        method: 'put',
+        path: '/api/food/',
+        errorMessage: /food payload/i,
+        tooManyMessage: /Too many food records/i,
+        textField: 'name',
+        collection: function () { return self.ctx.food(); },
+        document: function (marker) {
+          return {type: 'food', name: 'Test food update', carbs: 12, testMarker: marker};
+        }
+      }
+    ];
+
+    function clearWriteCollections () {
+      return Promise.all([
+        self.ctx.entries().deleteMany({}),
+        self.ctx.devicestatus().deleteMany({}),
+        self.ctx.activity().deleteMany({}),
+        self.ctx.food().deleteMany({})
+      ]);
+    }
+
+    function oversizedPayload () {
+      var documents = [];
+      while (documents.length <= writePayload.MAX_BATCH_ITEMS) {
+        documents.push({});
+      }
+      return documents;
+    }
+
+    beforeEach(clearWriteCollections);
+    afterEach(clearWriteCollections);
+
+    writeCases.forEach(function (writeCase) {
+      it(writeCase.name + ' treats a forged length as a document field', function () {
+        var document = writeCase.document('forged-length-' + Date.now());
+        document.length = writePayload.MAX_BATCH_ITEMS + 1;
+
+        return request(self.app)[writeCase.method](writeCase.path)
+          .set('api-secret', known)
+          .send(document)
+          .expect(200)
+          .then(function (res) {
+            res.body.should.be.instanceof(Array);
+            res.body.length.should.equal(1);
+            res.body[0].length.should.equal(writePayload.MAX_BATCH_ITEMS + 1);
+          });
+      });
+
+      [null, 42].forEach(function (invalidItem) {
+        var itemName = invalidItem === null ? 'null' : 'scalar';
+        it(writeCase.name + ' rejects a ' + itemName + ' array item before writing', function () {
+          var marker = 'invalid-item-' + writeCase.name + '-' + itemName + '-' + Date.now();
+
+          return request(self.app)[writeCase.method](writeCase.path)
+            .set('api-secret', known)
+            .send([writeCase.document(marker), invalidItem])
+            .expect(400)
+            .then(function (res) {
+              res.body.message.should.match(writeCase.errorMessage);
+              return writeCase.collection().findOne({testMarker: marker});
+            })
+            .then(function (stored) {
+              should.not.exist(stored);
+            });
+        });
+      });
+
+      it(writeCase.name + ' rejects batches above the 10,000 item limit', function () {
+        return request(self.app)[writeCase.method](writeCase.path)
+          .set('api-secret', known)
+          .send(oversizedPayload())
+          .expect(400)
+          .then(function (res) {
+            res.body.message.should.match(writeCase.tooManyMessage);
+            res.body.description.should.match(/10000/);
+          });
+      });
+
+      it(writeCase.name + ' remains sanitized at storage', function () {
+        var marker = 'storage-purifier-' + writeCase.name + '-' + Date.now();
+        var document = writeCase.document(marker);
+        document[writeCase.textField] = scriptPayload;
+
+        return request(self.app)[writeCase.method](writeCase.path)
+          .set('api-secret', known)
+          .send(document)
+          .expect(200)
+          .then(function (res) {
+            res.body.should.be.instanceof(Array);
+            res.body[0][writeCase.textField].should.equal('safe');
+            return writeCase.collection().findOne({testMarker: marker});
+          })
+          .then(function (stored) {
+            should.exist(stored);
+            stored[writeCase.textField].should.equal('safe');
+          });
+      });
+    });
+
+    it('entries preview sanitizes without persisting', function () {
+      var marker = 'sanitized-preview-' + Date.now();
+      var now = Date.now();
+      var document = {
+        type: 'sgv',
+        sgv: 125,
+        date: now,
+        dateString: new Date(now).toISOString(),
+        notes: scriptPayload,
+        testMarker: marker
+      };
+
+      return request(self.app)
+        .post('/api/entries/preview')
+        .set('api-secret', known)
+        .send(document)
+        .expect(200)
+        .then(function (res) {
+          res.body.should.be.instanceof(Array);
+          res.body[0].notes.should.equal('safe');
+          return self.ctx.entries().findOne({testMarker: marker});
+        })
+        .then(function (stored) {
+          should.not.exist(stored);
         });
     });
   });

@@ -1,6 +1,5 @@
 'use strict';
 
-var _ = require('lodash');
 var request = require('supertest');
 var should = require('should');
 var language = require('../lib/language')();
@@ -49,12 +48,25 @@ describe('Treatment API', function ( ) {
             done(err);
           } else {
             self.ctx.treatments.list({}, function (err, list) {
-              var sorted = _.sortBy(list, function (treatment) {
-                return treatment.created_at;
-              });
+              var sorted = list.sort((a, b) => a.created_at.localeCompare(b.created_at));
               sorted.length.should.equal(2);
               sorted[0].glucose.should.equal(100);
-              sorted[0].notes.should.equal('<img>');
+              // Sanitizer behavior: the dangerous IMG payload sent in
+              // `notes` must have its javascript: URL stripped while
+              // preserving the (now harmless) <img> shell, matching the
+              // previous DOMPurify-based behavior. The exact normalized
+              // form is `<img />` (XHTML self-closing under sanitize-html);
+              // DOMPurify produced `<img>`. We assert the normalized form
+              // AND the security invariants (no javascript:, no alert,
+              // no XSS, no surviving src attribute) so any future
+              // sanitizer swap that still satisfies the invariants is
+              // accepted. See tests/sanitizer-differential.test.js for
+              // the cross-sanitizer behavior matrix.
+              sorted[0].notes.should.equal('<img />');
+              sorted[0].notes.should.not.match(/javascript:/i);
+              sorted[0].notes.should.not.match(/alert/i);
+              sorted[0].notes.should.not.match(/XSS/i);
+              sorted[0].notes.should.not.match(/\bsrc\s*=/i);
               should.not.exist(sorted[0].eventTime);
               sorted[0].insulin.should.equal(2);
               sorted[1].carbs.should.equal(30);
@@ -87,7 +99,7 @@ describe('Treatment API', function ( ) {
 */
 
   it('post single treatments in zoned time format', function (done) {
-   
+
     var current_time = Date.now();
     console.log('Testing date with local format: ', _moment(current_time).format("YYYY-MM-DDTHH:mm:ss.SSSZZ"));
 
@@ -102,9 +114,7 @@ describe('Treatment API', function ( ) {
             done(err);
           } else {
             self.ctx.treatments.list({}, function (err, list) {
-              var sorted = _.sortBy(list, function (treatment) {
-                return treatment.created_at;
-              });
+              var sorted = list.sort((a, b) => a.created_at.localeCompare(b.created_at));
               console.log(sorted);
               sorted.length.should.equal(1);
               sorted[0].glucose.should.equal(100);
@@ -173,9 +183,7 @@ describe('Treatment API', function ( ) {
             done(err);
           } else {
             self.ctx.treatments.list({}, function (err, list) {
-              var sorted = _.sortBy(list, function (treatment) {
-                return treatment.created_at;
-              });
+              var sorted = list.sort((a, b) => a.created_at.localeCompare(b.created_at));
 
               if (sorted.length !== 3) {
                 console.info('unexpected result length, sorted treatments:', sorted);

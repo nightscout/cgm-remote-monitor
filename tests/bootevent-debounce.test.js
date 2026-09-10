@@ -26,7 +26,7 @@ const EventEmitter = require('events');
  */
 function createTestContext (opts) {
   opts = opts || {};
-  const _ = require('lodash');
+  const debounce = require('../lib/utils/debounce');
   const bus = new EventEmitter();
   const updateLog = [];
   let updateDelay = opts.updateDelay || 0; // ms to simulate dataloader work
@@ -72,7 +72,7 @@ function createTestContext (opts) {
     });
   }
 
-  var updateData = _.debounce(runDataLoad, 1000, { leading: true, trailing: true, maxWait: 5000 });
+  var updateData = debounce(runDataLoad, 1000, { leading: true, trailing: true, maxWait: 5000 });
 
   ctx.bus.on('tick', function timedReloadData () {
     updateData();

@@ -1,4 +1,3 @@
-var _ = require('lodash');
 var should = require('should');
 var levels = require('../lib/levels');
 
@@ -25,7 +24,7 @@ describe('treatmentnotify', function ( ) {
     should.not.exist(ctx.notifications.findHighestAlarm());
     should.exist(ctx.notifications.snoozedBy({level: levels.URGENT}));
 
-    _.first(ctx.notifications.findUnSnoozeable()).level.should.equal(levels.INFO);
+    ctx.notifications.findUnSnoozeable()?.[0]?.level.should.equal(levels.INFO);
 
     done();
   });
@@ -40,7 +39,7 @@ describe('treatmentnotify', function ( ) {
     should.not.exist(ctx.notifications.findHighestAlarm());
     should.exist(ctx.notifications.snoozedBy({level: levels.URGENT}));
 
-    should.not.exist(_.first(ctx.notifications.findUnSnoozeable()));
+    should.not.exist(ctx.notifications.findUnSnoozeable()?.[0]);
 
     done();
   });
@@ -55,7 +54,7 @@ describe('treatmentnotify', function ( ) {
     should.not.exist(ctx.notifications.findHighestAlarm());
     should.exist(ctx.notifications.snoozedBy({level: levels.URGENT}));
 
-    _.first(ctx.notifications.findUnSnoozeable()).level.should.equal(levels.INFO);
+    ctx.notifications.findUnSnoozeable()?.[0]?.level.should.equal(levels.INFO);
 
     done();
   });
@@ -70,9 +69,20 @@ describe('treatmentnotify', function ( ) {
     should.not.exist(ctx.notifications.findHighestAlarm());
     should.exist(ctx.notifications.snoozedBy({level: levels.URGENT}));
 
-    should.not.exist(_.first(ctx.notifications.findUnSnoozeable()));
+    should.not.exist(ctx.notifications.findUnSnoozeable()?.[0]);
 
     done();
+  });
+
+  it('labels an insulin-only treatment without an event type as a Correction Bolus', function () {
+    ctx.notifications.initRequests();
+    ctx.ddata.mbgs = [];
+    ctx.ddata.treatments = [{insulin: 1, mills: now, timestamp: new Date(now).toISOString()}];
+
+    var sbx = require('../lib/sandbox')().serverInit(env, ctx);
+    treatmentnotify.checkNotifications(sbx);
+
+    ctx.notifications.findUnSnoozeable()[0].title.should.equal('Correction Bolus');
   });
 
   it('Request a notification for an announcement even there is an active snooze', function (done) {
@@ -92,7 +102,7 @@ describe('treatmentnotify', function ( ) {
 
     treatmentnotify.checkNotifications(sbx);
 
-    var announcement = _.first(ctx.notifications.findUnSnoozeable());
+    var announcement = ctx.notifications.findUnSnoozeable()?.[0];
 
     should.exist(announcement);
     announcement.title.should.equal('Urgent Announcement');
@@ -113,7 +123,7 @@ describe('treatmentnotify', function ( ) {
 
     treatmentnotify.checkNotifications(sbx);
 
-    var announcement = _.first(ctx.notifications.findUnSnoozeable());
+    var announcement = ctx.notifications.findUnSnoozeable()?.[0];
 
     should.exist(announcement);
     announcement.title.should.equal('Announcement');

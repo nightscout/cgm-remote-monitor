@@ -131,7 +131,7 @@ function waitForConditionAsync(options) {
       console.warn('[SLOW TEST WARNING] ' + operationName + ' taking longer than ' + warningThreshold + 'ms');
     }, warningThreshold);
     
-    async function poll() {
+    function poll() {
       var elapsed = Date.now() - startTime;
       
       if (elapsed > maxTimeout) {
@@ -140,19 +140,23 @@ function waitForConditionAsync(options) {
         return;
       }
       
-      try {
-        var result = await options.condition();
-        options.assertion(result);
-        clearTimeout(warningTimer);
-        
-        if (warningIssued) {
-          console.log('[SLOW TEST INFO] ' + operationName + ' completed after ' + elapsed + 'ms');
-        }
-        
-        resolve(result);
-      } catch (assertionError) {
-        setTimeout(poll, pollInterval);
-      }
+      Promise.resolve()
+        .then(function() {
+          return options.condition();
+        })
+        .then(function(result) {
+          options.assertion(result);
+          clearTimeout(warningTimer);
+
+          if (warningIssued) {
+            console.log('[SLOW TEST INFO] ' + operationName + ' completed after ' + elapsed + 'ms');
+          }
+
+          resolve(result);
+        })
+        .catch(function() {
+          setTimeout(poll, pollInterval);
+        });
     }
     
     poll();

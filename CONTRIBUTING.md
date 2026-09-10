@@ -38,7 +38,7 @@
 
 ## Translations
 
-Please visit our [project in Crowdin](https://crowdin.com/project/nightscout) to translate Nigthscout. If you want to add a new language, please get in touch with the dev team in [Discord][discord-url].
+Please visit our [project in Crowdin](https://crowdin.com/project/nightscout) to translate Nightscout. If you want to add a new language, please get in touch with the dev team in [Discord][discord-url].
 
 ## Installation for development
 

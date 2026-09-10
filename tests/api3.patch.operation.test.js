@@ -6,6 +6,7 @@ describe('API3 PATCH operation', function () {
   const should = require('should');
   const security = require('../lib/api3/security');
   const patchOperation = require('../lib/api3/generic/patch/operation');
+  const purifier = require('../lib/server/purifier')({}, {});
 
   let originalAuthenticate;
   let originalDemandPermission;
@@ -59,6 +60,7 @@ describe('API3 PATCH operation', function () {
       }
     };
     const ctx = {
+      purifier,
       bus: {
         emit: (name, payload) => {
           events.push({ name, payload });

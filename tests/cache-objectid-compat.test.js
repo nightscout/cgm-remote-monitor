@@ -4,43 +4,52 @@
  * cache-objectid-compat.test.js
  *
  * Regression test: MongoDB driver 5.x ObjectId has no enumerable properties,
- * so _.isEmpty(new ObjectId()) returns true.  This broke cache.js
- * filterForAge() which used `!_.isEmpty(object._id)` as the hasId check.
+ * so lodash isEmpty(new ObjectId()) returns true.  This broke cache.js
+ * filterForAge() which used the old lodash isEmpty check for object._id.
  *
- * Fix: replaced `!_.isEmpty(object._id)` with `object._id != null && object._id !== ''`
+ * Fix: replaced the lodash isEmpty id check with `object._id != null && object._id !== ''`
  *
  * On mongodb driver 3.x (v15.0.6), Object.keys(new ObjectID()) returned
- * ['_bsontype','id'], making _.isEmpty return false (correct).
+ * ['_bsontype','id'], making lodash isEmpty return false (correct).
  *
  * On mongodb driver 5.x, Object.keys(new ObjectId())
- * returns [], making _.isEmpty return true (incorrect – treats valid
+ * returns [], making lodash isEmpty return true (incorrect - treats valid
  * ObjectId _id as empty).
  *
  * Affects: lib/server/cache.js filterForAge()
  * Related: AAPS backfill display bug (entries in MongoDB but invisible on chart)
  */
 
-const _ = require('lodash');
 const { ObjectId } = require('mongodb');
 const should = require('should');
 
+function lodashIsEmpty (value) {
+  if (value == null) {
+    return true;
+  }
+  if (typeof value === 'string' || Array.isArray(value)) {
+    return value.length === 0;
+  }
+  return Object.keys(value).length === 0;
+}
+
 describe('Cache ObjectId compatibility', function () {
 
-  describe('_.isEmpty behavioral change with new ObjectId (root cause)', function () {
+  describe('lodash isEmpty behavioral change with new ObjectId (root cause)', function () {
 
-    it('_.isEmpty(ObjectId) returns true on driver 5.x (regression)', function () {
+    it('lodash isEmpty(ObjectId) returns true on driver 5.x (regression)', function () {
       const oid = new ObjectId();
       // driver 5.x ObjectId has no enumerable keys
       Object.keys(oid).should.have.length(0);
-      _.isEmpty(oid).should.equal(true);
+      lodashIsEmpty(oid).should.equal(true);
       // But the ObjectId IS valid and non-null
       should.exist(oid);
       oid.toString().should.have.length(24);
     });
 
-    it('_.isEmpty works correctly with string _id', function () {
+    it('lodash isEmpty works correctly with string _id', function () {
       const stringId = new ObjectId().toString();
-      _.isEmpty(stringId).should.equal(false);
+      lodashIsEmpty(stringId).should.equal(false);
     });
 
     it('processRawDataForRuntime converts ObjectId to string (existing mitigation)', function () {
@@ -48,7 +57,7 @@ describe('Cache ObjectId compatibility', function () {
       const doc = { _id: new ObjectId(), type: 'sgv', sgv: 120, date: Date.now() };
       const processed = ddata.processRawDataForRuntime([doc]);
       (typeof processed[0]._id).should.equal('string');
-      _.isEmpty(processed[0]._id).should.equal(false);
+      lodashIsEmpty(processed[0]._id).should.equal(false);
     });
   });
 
@@ -56,8 +65,8 @@ describe('Cache ObjectId compatibility', function () {
 
     // Reproduce the OLD (broken) logic for comparison
     function filterForAgeOLD (data, ageLimit) {
-      return _.filter(data, function (object) {
-        var hasId = !_.isEmpty(object._id);
+      return data.filter(function (object) {
+        var hasId = !lodashIsEmpty(object._id);
         var age = object.mills || object.date;
         var isFresh = typeof age === 'number' && age >= ageLimit;
         return isFresh && hasId;
@@ -66,7 +75,7 @@ describe('Cache ObjectId compatibility', function () {
 
     // The FIXED logic (matches cache.js after the fix)
     function filterForAgeFIXED (data, ageLimit) {
-      return _.filter(data, function (object) {
+      return data.filter(function (object) {
         var hasId = object._id != null && object._id !== '';
         var age = object.mills || object.date;
         var isFresh = typeof age === 'number' && age >= ageLimit;
