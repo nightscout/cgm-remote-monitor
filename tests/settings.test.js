@@ -58,9 +58,11 @@ describe('settings', function ( ) {
       , 'BG_TARGET_BOTTOM'
       , 'BG_LOW'
       , 'SCALE_Y'
+      , 'FOCUS_RANGE_LOW'
+      , 'FOCUS_RANGE_HIGH'
     ];
 
-    expected.length.should.equal(24);
+    expected.length.should.equal(26);
 
     var seen = { };
     settings.eachSettingAsEnv(function markSeenNames(name) {
@@ -257,6 +259,36 @@ describe('settings', function ( ) {
     fresh.enable = ['feature1'];
     fresh.isEnabled(['unknown', 'feature1']).should.equal(true);
     fresh.isEnabled(['unknown', 'feature2']).should.equal(false);
+  });
+
+  it('set focus range', function () {
+    var userRange = {
+      FOCUS_RANGE_LOW: '80'
+      , FOCUS_RANGE_HIGH: '180'
+    };
+
+    var fresh = require('../lib/settings')();
+    fresh.eachSettingAsEnv(function (name) {
+      return userRange[name];
+    });
+
+    fresh.focusRangeLow.should.equal(80);
+    fresh.focusRangeHigh.should.equal(180);
+  });
+
+  it('disable focus range when low is not below high', function () {
+    var userRange = {
+      FOCUS_RANGE_LOW: '180'
+      , FOCUS_RANGE_HIGH: '80'
+    };
+
+    var fresh = require('../lib/settings')();
+    fresh.eachSettingAsEnv(function (name) {
+      return userRange[name];
+    });
+
+    fresh.focusRangeLow.should.equal(0);
+    fresh.focusRangeHigh.should.equal(0);
   });
 
 });
