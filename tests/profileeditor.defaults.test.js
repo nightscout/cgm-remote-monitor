@@ -57,4 +57,27 @@ describe('Profile editor with nothing stored', function () {
     assert.strictEqual($('#pe_dia').val(), '3');
     assert.strictEqual(writes.length, 0);
   });
+
+  it('leaves the clinical fields empty when the records cannot be fetched', function () {
+    openEditor(options => options.error());
+    assert.strictEqual($('.pe_status').text(), 'Your profile could not be loaded. Reload before editing.');
+    assert.strictEqual($('#pe_dia').val(), '');
+    assert.strictEqual($('#pe_basal_val_0').val(), '');
+    assert.strictEqual($('#pe_isf_val_0').val(), '');
+    assert.strictEqual($('#pe_targetbg_low_0').val(), '');
+  });
+
+  it('refuses to save while a clinical field is still empty', function () {
+    openEditor(options => options.error());
+    $('#pe_form button').trigger('click');
+    assert.strictEqual(writes.length, 0);
+    assert.deepStrictEqual(alerts, ['Enter every profile value before saving.']);
+  });
+
+  it('saves normally once every field carries a value', function () {
+    openEditor(options => options.success([]));
+    $('#pe_form button').trigger('click');
+    assert.strictEqual(writes.length, 1);
+    assert.strictEqual(alerts.length, 0);
+  });
 });
