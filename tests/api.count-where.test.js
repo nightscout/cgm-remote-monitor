@@ -109,6 +109,23 @@ describe('Count REST api', function ( ) {
       });
   });
 
+  it('does not write the filter it built to stdout', function (done) {
+    // A filter can carry values a deployment would rather not have in its logs.
+    var logged = [];
+    var realLog = console.log;
+    console.log = function () { logged.push(Array.prototype.slice.call(arguments)); };
+
+    request(self.app)
+      .get('/count/entries/where?find[date][$gte]=0')
+      .expect(200)
+      .end(function (err) {
+        console.log = realLog;
+        if (err) return done(err);
+        JSON.stringify(logged).should.not.match(/\$match query|AGGREGATE/);
+        done();
+      });
+  });
+
   it('counts entries older than the default window when asked for them', function (done) {
     // An explicit lower bound replaces the implicit two-day window; the bound
     // has to be injected as the epoch number `entries.date` is stored as.
