@@ -68,8 +68,19 @@ describe('browser-utils queryParms', function ( ) {
     parse('').should.eql({ });
   });
 
-  it('keeps the underscore and plus substitution', function ( ) {
-    parse('?name=a_b+c').should.eql({ name: 'a b c' });
+  it('leaves an underscore alone and still reads + as a space', function ( ) {
+    // `+` means space in a query string; `_` does not, in any encoding.
+    parse('?name=a_b+c').should.eql({ name: 'a_b c' });
+  });
+
+  it('carries an access token through intact', function ( ) {
+    // Tokens are `<subject name, \w only>-<16 hex>`, so a subject named
+    // mom_phone gets a token with an underscore in it. It used to arrive here
+    // as 'mom phone-...'. That authorised anyway, because findSubject matches
+    // on the last '-'-separated segment and ignores the name in front - but
+    // nobody chose that coupling, and this is the end that was wrong.
+    parse('?token=mom_phone-89e148acdbbb4709')
+      .should.eql({ token: 'mom_phone-89e148acdbbb4709' });
   });
 
   it('does not throw on a valueless parameter', function ( ) {
