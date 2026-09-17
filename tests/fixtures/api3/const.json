@@ -4,6 +4,59 @@
   "TEST_APP": "cgm-remote-monitor.test",
   "TEST_DEVICE": "Samsung XCover 4-123456735643809",
 
+  "SAMPLE_DEVICE_STATUSES": [
+    {
+      "date": 1770653232000.0,
+      "app": "statuses.test",
+      "some_property": "status value 1"
+    },
+    {
+      "date": 1770656892000.0,
+      "app": "statuses.test",
+      "some_property": "status value 2"
+    },
+    {
+      "date": 1770660552000.0,
+      "app": "statuses.test",
+      "some_property": "status value 3"
+    },
+    {
+      "date": 1770664212000.0,
+      "app": "statuses.test",
+      "some_property": "status value 4"
+    },
+    {
+      "date": 1770667872000.0,
+      "app": "statuses.test",
+      "some_property": "status value 5"
+    },
+    {
+      "date": 1770671532000.0,
+      "app": "statuses.test",
+      "some_property": "status value 6"
+    },
+    {
+      "date": 1770675192000.0,
+      "app": "statuses.test",
+      "some_property": "status value 7"
+    },
+    {
+      "date": 1770678852000.0,
+      "app": "statuses.test",
+      "some_property": "status value 8"
+    },
+    {
+      "date": 1770682512000.0,
+      "app": "statuses.test",
+      "some_property": "status value 9"
+    },
+    {
+      "date": 1770686172000.0,
+      "app": "statuses.test",
+      "some_property": "status value 10"
+    }
+  ],
+
   "SAMPLE_ENTRIES": [
     {
       "date": 1491717830000.0,
@@ -17,7 +70,6 @@
       "unfiltered": 171584,
       "app": "cgm-remote-monitor.test"
     },
-
     {
       "date": 1491718130000.0,
       "device": "dexcom",
@@ -30,7 +82,6 @@
       "unfiltered": 175776,
       "app": "cgm-remote-monitor.test"
     },
-
     {
       "date": 1491718430000.0,
       "device": "dexcom",
@@ -43,7 +94,6 @@
       "unfiltered": 180864,
       "app": "cgm-remote-monitor.test"
     },
-
     {
       "date": 1491718730000.0,
       "device": "dexcom",
@@ -56,7 +106,6 @@
       "unfiltered": 182080,
       "app": "cgm-remote-monitor.test"
     },
-
     {
       "date": 1491719030000.0,
       "device": "dexcom",
@@ -69,7 +118,6 @@
       "unfiltered": 186912,
       "app": "cgm-remote-monitor.test"
     },
-
     {
       "date": 1491719330000.0,
       "device": "dexcom",
@@ -82,7 +130,6 @@
       "unfiltered": 188512,
       "app": "cgm-remote-monitor.test"
     },
-
     {
       "date": 1491719630000.0,
       "device": "dexcom",
@@ -95,7 +142,6 @@
       "unfiltered": 192608,
       "app": "cgm-remote-monitor.test"
     },
-
     {
       "date": 1491719930000.0,
       "device": "dexcom",
@@ -108,7 +154,6 @@
       "unfiltered": 196640,
       "app": "cgm-remote-monitor.test"
     },
-
     {
       "date": 1491720230000.0,
       "device": "dexcom",
@@ -121,7 +166,6 @@
       "unfiltered": 199008,
       "app": "cgm-remote-monitor.test"
     },
-
     {
       "date": 1491720530000.0,
       "device": "dexcom",
@@ -134,5 +178,377 @@
       "unfiltered": 203296,
       "app": "cgm-remote-monitor.test"
     }
+  ],
+
+  "SAMPLE_FOODS": [
+    {
+        "date": 1770858972000.0,
+        "app": "food.test",
+        "food": "food",
+        "category": "test food category 1",
+        "subcategory": "food sub-category 1",
+        "name": "test food name 1",
+        "portion": 1.23,
+        "unit": "g",
+        "carbs": 4.56,
+        "fat": 7.89,
+        "protein": 12.3,
+        "energy": 45.6,
+        "gi": 1,
+        "hideafteruse": true,
+        "hidden": false,
+        "position": 1,
+        "portions": 2,
+        "foods": []
+    },
+    {
+        "date": 1770859032000.0,
+        "app": "food.test",
+        "food": "quickpick",
+        "category": "test food category 2",
+        "subcategory": "food sub-category 2",
+        "name": "test food name 2",
+        "portion": 6.78,
+        "unit": "g",
+        "carbs": 9.12,
+        "fat": 3.45,
+        "protein": 67.8,
+        "energy": 91.2,
+        "gi": 2,
+        "hideafteruse": false,
+        "hidden": false,
+        "position": 2,
+        "portions": 3,
+        "foods": []
+    },
+    {
+        "date": 1770859092000.0,
+        "app": "food.test",
+        "food": "food",
+        "category": "test food category 1",
+        "subcategory": "food sub-category 1",
+        "name": "test food name 3",
+        "portion": 3.45,
+        "unit": "ml",
+        "carbs": 6.78,
+        "fat": 9.12,
+        "protein": 34.5,
+        "energy": 67.8,
+        "gi": 3,
+        "hideafteruse": true,
+        "hidden": true,
+        "position": 3,
+        "portions": 4,
+        "foods": []
+    },
+    {
+        "date": 1770859152000.0,
+        "app": "food.test",
+        "food": "quickpick",
+        "category": "test food category 2",
+        "subcategory": "food sub-category 2",
+        "name": "test food name 4",
+        "portion": 9.12,
+        "unit": "oz",
+        "carbs": 3.45,
+        "fat": 6.78,
+        "protein": 91.2,
+        "energy": 34.5,
+        "gi": 1,
+        "hideafteruse": false,
+        "hidden": true,
+        "position": 4,
+        "portions": 5,
+        "foods": []
+    },
+    {
+        "date": 1770859212000.0,
+        "app": "food.test",
+        "food": "food",
+        "category": "test food category 1",
+        "subcategory": "food sub-category 1",
+        "name": "test food name 5",
+        "portion": 6.78,
+        "unit": "g",
+        "carbs": 9.12,
+        "fat": 3.45,
+        "protein": 67.8,
+        "energy": 9.12,
+        "gi": 2,
+        "hideafteruse": false,
+        "hidden": false,
+        "position": 5,
+        "portions": 6,
+        "foods": []
+    },
+    {
+        "date": 1770859272000.0,
+        "app": "food.test",
+        "food": "food",
+        "category": "test food category 2",
+        "subcategory": "food sub-category 2",
+        "name": "test food name 6",
+        "portion": 3.45,
+        "unit": "g",
+        "carbs": 6.78,
+        "fat": 9.12,
+        "protein": 34.5,
+        "energy": 67.8,
+        "gi": 3,
+        "hideafteruse": true,
+        "hidden": true,
+        "position": 6,
+        "portions": 7,
+        "foods": []
+    },
+    {
+        "date": 1770859332000.0,
+        "app": "food.test",
+        "food": "food",
+        "category": "test food category 1",
+        "subcategory": "food sub-category 1",
+        "name": "test food name 7",
+        "portion": 9.12,
+        "unit": "g",
+        "carbs": 3.45,
+        "fat": 6.78,
+        "protein": 91.2,
+        "energy": 34.5,
+        "gi": 1,
+        "hideafteruse": false,
+        "hidden": false,
+        "position": 7,
+        "portions": 8,
+        "foods": []
+    },
+    {
+        "date": 1770859392000.0,
+        "app": "food.test",
+        "food": "quickpick",
+        "category": "test food category 2",
+        "subcategory": "food sub-category 2",
+        "name": "test food name 8",
+        "portion": 6.78,
+        "unit": "g",
+        "carbs": 9.12,
+        "fat": 3.45,
+        "protein": 67.8,
+        "energy": 91.2,
+        "gi": 2,
+        "hideafteruse": true,
+        "hidden": true,
+        "position": 9,
+        "portions": 1,
+        "foods": []
+    },
+    {
+        "date": 1770859452000.0,
+        "app": "food.test",
+        "food": "food",
+        "category": "test food category 1",
+        "subcategory": "food sub-category 1",
+        "name": "test food name 9",
+        "portion": 3.45,
+        "unit": "g",
+        "carbs": 6.78,
+        "fat": 9.12,
+        "protein": 34.5,
+        "energy": 67.8,
+        "gi": 3,
+        "hideafteruse": false,
+        "hidden": false,
+        "position": 1,
+        "portions": 2,
+        "foods": []
+    }
+  ],
+
+  "SAMPLE_PROFILES": [
+    {
+      "date": 1770653232000.0,
+      "app": "profiles.test",
+      "some_property": "profile value 1"
+    },
+    {
+      "date": 1770656892000.0,
+      "app": "profiles.test",
+      "some_property": "profile value 2"
+    },
+    {
+      "date": 1770660552000.0,
+      "app": "profiles.test",
+      "some_property": "profile value 3"
+    },
+    {
+      "date": 1770664212000.0,
+      "app": "profiles.test",
+      "some_property": "profile value 4"
+    },
+    {
+      "date": 1770667872000.0,
+      "app": "profiles.test",
+      "some_property": "profile value 5"
+    },
+    {
+      "date": 1770671532000.0,
+      "app": "profiles.test",
+      "some_property": "profile value 6"
+    },
+    {
+      "date": 1770675192000.0,
+      "app": "profiles.test",
+      "some_property": "profile value 7"
+    },
+    {
+      "date": 1770678852000.0,
+      "app": "profiles.test",
+      "some_property": "profile value 8"
+    },
+    {
+      "date": 1770682512000.0,
+      "app": "profiles.test",
+      "some_property": "profile value 9"
+    },
+    {
+      "date": 1770686172000.0,
+      "app": "profiles.test",
+      "some_property": "profile value 10"
+    }
+  ],
+
+  "SAMPLE_SETTINGS": [
+    {
+      "date": 1770653232000.0,
+      "app": "settings.test",
+      "some_property": "setting value 1"
+    },
+    {
+      "date": 1770656892000.0,
+      "app": "settings.test",
+      "some_property": "setting value 2"
+    },
+    {
+      "date": 1770660552000.0,
+      "app": "settings.test",
+      "some_property": "setting value 3"
+    },
+    {
+      "date": 1770664212000.0,
+      "app": "settings.test",
+      "some_property": "setting value 4"
+    },
+    {
+      "date": 1770667872000.0,
+      "app": "settings.test",
+      "some_property": "setting value 5"
+    },
+    {
+      "date": 1770671532000.0,
+      "app": "settings.test",
+      "some_property": "setting value 6"
+    },
+    {
+      "date": 1770675192000.0,
+      "app": "settings.test",
+      "some_property": "setting value 7"
+    },
+    {
+      "date": 1770678852000.0,
+      "app": "settings.test",
+      "some_property": "setting value 8"
+    },
+    {
+      "date": 1770682512000.0,
+      "app": "settings.test",
+      "some_property": "setting value 9"
+    },
+    {
+      "date": 1770686172000.0,
+      "app": "settings.test",
+      "some_property": "setting value 10"
+    }
+  ],
+
+  "SAMPLE_TREATMENTS": [
+     {
+         "date": 1662908400000,
+         "created_at": "2022-09-11T15:00:00.000Z",
+         "app": "cgm-remote-monitor.test",
+         "enteredBy": "Test User",
+         "eventType": "Sensor Change",
+         "utcOffset": 0
+     },
+     {
+         "date": 1663736400000,
+         "created_at": "2022-09-21T05:00:00.000Z",
+         "app": "cgm-remote-monitor.test",
+         "enteredBy": "Test User",
+         "eventType": "Sensor Change",
+         "utcOffset": 0
+     },
+     {
+         "date": 1664485250231,
+         "created_at": "2022-09-29T21:00:50.231Z",
+         "app": "cgm-remote-monitor.test",
+         "enteredBy": "Test User",
+         "eventType": "Sensor Change",
+         "utcOffset": 0
+     },
+     {
+         "date": 1665228073789,
+         "created_at": "2022-10-08T11:21:13.789Z",
+         "app": "cgm-remote-monitor.test",
+         "enteredBy": "Test User",
+         "eventType": "Sensor Change",
+         "utcOffset": 0
+     },
+     {
+         "date": 1666066278811,
+         "created_at": "2022-10-18T04:11:18.811Z",
+         "app": "cgm-remote-monitor.test",
+         "enteredBy": "Test User",
+         "eventType": "Sensor Change",
+         "utcOffset": 0
+     },
+     {
+         "date": 1666731723000,
+         "created_at": "2022-10-25T21:02:03.000Z",
+         "app": "cgm-remote-monitor.test",
+         "enteredBy": "Test User",
+         "eventType": "Sensor Change",
+         "utcOffset": 0
+     },
+     {
+         "date": 1667268224443,
+         "created_at": "2022-11-01T02:03:44.443Z",
+         "app": "cgm-remote-monitor.test",
+         "enteredBy": "Test User",
+         "eventType": "Sensor Change",
+         "utcOffset": 0
+     },
+     {
+         "date": 1668176516000,
+         "created_at": "2022-11-11T14:21:56.000Z",
+         "app": "cgm-remote-monitor.test",
+         "enteredBy": "Test User",
+         "eventType": "Sensor Change",
+         "utcOffset": 0
+     },
+     {
+         "date": 1669075080000,
+         "created_at": "2022-11-21T23:58:00.000Z",
+         "app": "cgm-remote-monitor.test",
+         "enteredBy": "Test User",
+         "eventType": "Sensor Change",
+         "utcOffset": 0
+     },
+     {
+         "date": 1669766400000,
+         "created_at": "2022-11-30T00:00:00.000Z",
+         "app": "cgm-remote-monitor.test",
+         "enteredBy": "Test User",
+         "eventType": "Sensor Change",
+         "utcOffset": 0
+     }
   ]
 }

@@ -1,15 +1,11 @@
 Nightscout Web Monitor (a.k.a. cgm-remote-monitor)
-======================================
+==================================================
 
 ![nightscout horizontal](https://cloud.githubusercontent.com/assets/751143/8425633/93c94dc0-1ebc-11e5-99e7-71a8f464caac.png)
 
 [![Build Status][build-img]][build-url]
-[![Dependency Status][dependency-img]][dependency-url]
 [![Coverage Status][coverage-img]][coverage-url]
-[![Codacy Badge][codacy-img]][codacy-url]
 [![Discord chat][discord-img]][discord-url]
-
-[![Deploy to Heroku][heroku-img]][heroku-url] [![Update your site][update-img]][update-fork]
 
 This acts as a web-based CGM (Continuous Glucose Monitor) to allow
 multiple caregivers to remotely view a patient's glucose data in
@@ -36,16 +32,10 @@ See [CONTRIBUTING.md](CONTRIBUTING.md)
 
 ## [#WeAreNotWaiting](https://twitter.com/hashtag/wearenotwaiting?src=hash&vertical=default&f=images) and [this](https://vimeo.com/109767890) is why.
 
-[![Coverage Status](https://coveralls.io/repos/github/nightscout/cgm-remote-monitor/badge.svg?branch=master)](https://coveralls.io/github/nightscout/cgm-remote-monitor?branch=master)
-
-[build-img]: https://img.shields.io/travis/nightscout/cgm-remote-monitor.svg
-[build-url]: https://travis-ci.org/nightscout/cgm-remote-monitor
-[dependency-img]: https://img.shields.io/david/nightscout/cgm-remote-monitor.svg
-[dependency-url]: https://david-dm.org/nightscout/cgm-remote-monitor
+[build-img]: https://img.shields.io/github/actions/workflow/status/nightscout/cgm-remote-monitor/main.yml
+[build-url]: https://github.com/nightscout/cgm-remote-monitor/actions/workflows/main.yml
 [coverage-img]: https://img.shields.io/coveralls/nightscout/cgm-remote-monitor/dev.svg
-[coverage-url]: https://coveralls.io/github/nightscout/cgm-remote-monitor?branch=master
-[codacy-img]: https://www.codacy.com/project/badge/f79327216860472dad9afda07de39d3b
-[codacy-url]: https://www.codacy.com/app/Nightscout/cgm-remote-monitor
+[coverage-url]: https://coveralls.io/github/nightscout/cgm-remote-monitor?branch=dev
 [discord-img]: https://img.shields.io/discord/629952586895851530?label=discord%20chat
 [discord-url]: https://discord.gg/rTKhrqz
 [heroku-img]: https://www.herokucdn.com/deploy/button.png
@@ -105,15 +95,16 @@ See [CONTRIBUTING.md](CONTRIBUTING.md)
         - [`treatmentnotify` (Treatment Notifications)](#treatmentnotify-treatment-notifications)
         - [`basal` (Basal Profile)](#basal-basal-profile)
         - [`bolus` (Bolus Rendering)](#bolus-bolus-rendering)
-        - [`bridge` (Share2Nightscout bridge)](#bridge-share2nightscout-bridge)
-        - [`mmconnect` (MiniMed Connect bridge)](#mmconnect-minimed-connect-bridge)
+        - [`connect` (Nightscout Connect)](#connect-nightscout-connect)
+        - [`bridge` (Share2Nightscout bridge)](#bridge-share2nightscout-bridge), _deprecated_
+        - [`mmconnect` (MiniMed Connect bridge)](#mmconnect-minimed-connect-bridge), _deprecated_
         - [`pump` (Pump Monitoring)](#pump-pump-monitoring)
         - [`openaps` (OpenAPS)](#openaps-openaps)
         - [`loop` (Loop)](#loop-loop)
         - [`override` (Override Mode)](#override-override-mode)
         - [`xdripjs` (xDrip-js)](#xdripjs-xdrip-js)
         - [`alexa` (Amazon Alexa)](#alexa-amazon-alexa)
-        - [`googlehome` (Google Home/DialogFLow)](#googlehome-google-homedialogflow)
+        - [`googlehome` (Google Home/DialogFLow)](#googlehome-google-homedialogflow) [broken]
         - [`speech` (Speech)](#speech-speech)
         - [`cors` (CORS)](#cors-cors)
       - [Extended Settings](#extended-settings)
@@ -132,40 +123,38 @@ See [CONTRIBUTING.md](CONTRIBUTING.md)
 
 ## Supported configurations:
 
-If you plan to use Nightscout, we recommend using [Heroku](https://nightscout.github.io/nightscout/new_user/) as this is free and easy to use.
-We used to recommend hostig at Azure, but the resource needs of Nightscout have grown over the years and Azure won't comfortably run Nightscout
-anymore in the free tier. If you're hosting in Azure and looking to update your site, we recommend you
-[switch from Azure to Heroku](http://openaps.readthedocs.io/en/latest/docs/While%20You%20Wait%20For%20Gear/nightscout-setup.html#switching-from-azure-to-heroku)
-as you're likely to hit issues in the process of updating the site.
-
-- [Nightscout Setup with Heroku](https://nightscout.github.io/nightscout/new_user/) (recommended)
+- [Nightscout Setup](https://nightscout.github.io/nightscout/new_user/) (recommended)
 
 While you can install Nightscout on a virtual server or a Raspberry Pi, we do not recommend this unless you have at least some
-experience hosting Node applications and development using the toolchain in use with Nightscout. Heroku automates all of the
-hosting for you and even many of the dvelopers run their production sites in Heroku due to convenience.
+experience hosting Node applications and development using the toolchain in use with Nightscout.
 
-If you're a hosting provider and want to provide our users additional free hosting options,
+If you're a hosting provider and want to provide our users additional hosting options,
 you're welcome to issue a documentation pull request with instructions on how to setup Nightscout on your system.
 
 ## Recommended minimum browser versions for using Nightscout:
 
-Older versions of the browsers might work, but are untested.
+Our [browserslist](https://github.com/browserslist/browserslist) policy is documented in `.browserlistrc`.   
+We currently support approximately [91%](https://browsersl.ist/?q=%3E+0.25%25%2C+ios_saf+9.3%2C+ios_saf+10.3%2C+ios_saf+13.7%2C+ios_saf+14.8%2C+not+dead%2C+not+and_uc+12.12%2C+not+ie+11%0A) of all browsers globally used. These include:
 
-- Android 4
-- iOS 6
-- Chrome 35
-- Edge 17
-- Firefox 61
-- Opera 12.1
-- Safari 6 (macOS 10.7)
-- Internet Explorer: not supported
+- Android Chrome: 104 or later (`and_chr`)
+- Google Chrome: 101 or later (`chrome`)
+- Microsoft Edge: 103 or later (`edge`)
+- Mozilla Firefox: 102 or later (`firefox`)
+- Apple Safari on iOS: 15.5 or later (`ios_saf`)
+- Opera Mini on Android: 63 or later (`op_mini`)
+- Opera: 88 or later (`opera`)
+- Apple Safari for macOS 10.15 Catalina or later: : 15.5 or later (`safari`)
+- Samsung Internet on Android: 17.0 or later (`samsung`)
+- Internet Explorer 11 : not supported
 
-Some features may not work with devices/browsers on the older end of these requirements.
+Older versions or other browsers might work, but are untested and unsupported. We'll try to to keep Nightscout compatible with older iPads (e.g. Safari on iOS 10.3.4), but note that those devices are not supported by Apple anymore and have known security issues. Debugging these old devices gets harder due to Apple not supporting debugging the old devices on Macs that have been updated. Some features may not work with devices/browsers on the older end of these requirements.
 
-## Windows installation software requirements:
 
-- [Node.js](http://nodejs.org/) Latest Node 12 LTS. Node versions that do not have the latest security patches will not work. Use [Install instructions for Node](https://nodejs.org/en/download/package-manager/) or use `bin/setup.sh`)
-- [MongoDB](https://www.mongodb.com/download-center?jmp=nav#community) 3.x or later. MongoDB 2.4 is only supported for Raspberry Pi.
+
+## Installation software requirements:
+
+- [Node.js](http://nodejs.org/) Node v20 LTS or later (v22, v24 also supported). Node versions that do not have the latest security patches will not be supported. Use [Install instructions for Node](https://nodejs.org/en/download/package-manager/) or use `bin/setup.sh`)
+- [MongoDB](https://www.mongodb.com/download-center?jmp=nav#community) 4.4 or later (5.0, 6.0 also supported).
 
 As a non-root user clone this repo then install dependencies into the root of the project:
 
@@ -184,7 +173,7 @@ $ npm install
 
 - If deploying the software to Microsoft Azure, you must set ** in the app settings for *WEBSITE_NODE_DEFAULT_VERSION* and *SCM_COMMAND_IDLE_TIMEOUT* **before** you deploy the latest Nightscout or the site deployment will likely fail. Other hosting environments do not require this setting. Additionally, if using the Azure free hosting tier, the installation might fail due to resource constraints imposed by Azure on the free hosting. Please set the following settings to the environment in Azure:
 ```
-WEBSITE_NODE_DEFAULT_VERSION=10.15.2
+WEBSITE_NODE_DEFAULT_VERSION=16.16.0
 SCM_COMMAND_IDLE_TIMEOUT=300
 ```
 - See [install MongoDB, Node.js, and Nightscouton a single Windows system](https://github.com/jaylagorio/Nightscout-on-Windows-Server). if you want to host your Nightscout outside of the cloud. Although the instructions are intended for Windows Server the procedure is compatible with client versions of Windows such as Windows 7 and Windows 10.
@@ -196,15 +185,15 @@ Want to help with development, or just see how Nightscout works? Great! See [CON
 
 # Usage
 
-The data being uploaded from the server to the client is from a MongoDB server such as [MongoDB Atlas][https://www.mongodb.com].
+The data being uploaded from the server to the client is from a MongoDB server such as [MongoDB Atlas](https://www.mongodb.com).
 
 [autoconfigure]: https://nightscout.github.io/pages/configure/
 [mongostring]: https://nightscout.github.io/pages/mongostring/
 
-## Updating my version?
+## Updating my version
 
-The easiest way to update your version of cgm-remote-monitor to the latest version is to use the [update tool][update-fork]. A step-by-step guide is available [here][http://www.nightscout.info/wiki/welcome/how-to-update-to-latest-cgm-remote-monitor-aka-cookie].
-To downgrade to an older version, follow [this guide][http://www.nightscout.info/wiki/welcome/how-to-deploy-an-older-version-of-nightscout].
+The easiest way to update your version of cgm-remote-monitor to the latest version is to use the [update tool][update-fork]. A step-by-step update guide is available [here](https://nightscout.github.io/update/update/).
+To downgrade to an older version, follow [this guide](https://nightscout.github.io/update/downgrade/).
 
 ## Configure my uploader to match
 
@@ -232,7 +221,7 @@ Once you've installed Nightscout, you can access API documentation by loading `/
   * Boluses over 2U: `http://localhost:1337/api/v1/treatments.json?find[insulin][$gte]=2`
 
 The API is Swagger enabled, so you can generate client code to make working with the API easy.
-To learn more about the Nightscout API, visit https://YOUR-SITE.com/api-docs/ or review [swagger.yaml](swagger.yaml).
+To learn more about the Nightscout API, visit https://YOUR-SITE.com/api-docs/ or review [swagger.yaml](lib/server/swagger.yaml).
 
 ## Environment
 
@@ -241,7 +230,7 @@ To learn more about the Nightscout API, visit https://YOUR-SITE.com/api-docs/ or
 ### Required
 
   * `MONGODB_URI` - The connection string for your Mongo database. Something like `mongodb://sally:sallypass@ds099999.mongolab.com:99999/nightscout`.
-  * `API_SECRET` - A secret passphrase that must be at least 12 characters long.
+  * `API_SECRET` - A secret passphrase that must be at least 12 characters long. Alternatively, if `API_SECRET_FILE` is defined, the secret passphrase will be read from the specified file.
   * `MONGODB_COLLECTION` (`entries`) - The Mongo collection where CGM entries are stored.
   * `DISPLAY_UNITS` (`mg/dl`) - Options are `mg/dl` or `mmol/L` (or just `mmol`).  Setting to `mmol/L` puts the entire server into `mmol/L` mode by default, no further settings needed.
 
@@ -255,6 +244,15 @@ To learn more about the Nightscout API, visit https://YOUR-SITE.com/api-docs/ or
     Setting it to `denied` will require a token from every visit, using `status-only` will enable api-secret based login.
   * `IMPORT_CONFIG` - Used to import settings and extended settings from a url such as a gist.  Structure of file should be something like: `{"settings": {"theme": "colors"}, "extendedSettings": {"upbat": {"enableAlerts": true}}}`
   * `TREATMENTS_AUTH` (`on`) - possible values `on` or `off`. Deprecated, if set to `off` the `careportal` role will be added to `AUTH_DEFAULT_ROLES`
+  * `UUID_HANDLING` (`true`) - Controls how UUID `_id` values are handled for treatments and entries. When `true` (default), if a client sends a UUID string as the `_id` field, it is extracted to the `identifier` field (for sync deduplication) and the server generates a proper ObjectId for `_id`. Queries by UUID (`GET`/`DELETE`) are also routed through the `identifier` field. When `false`, UUID `_id` values are silently stripped on write (no identifier is preserved) and UUID-based queries return empty results. This only affects the specific case where a UUID is sent as `_id` (e.g., Loop overrides, Trio CGM entries).
+
+#### Data Rights
+
+These are useful to help protect your rights to portability and
+autonomy for your data:
+  * `OBSCURED` - list, identical to `ENABLE`, a list of plugins to
+    obscure.
+  * `OBSCURE_DEVICE_PROVENANCE` - Required, a string visible to the [companies deciding to filter based on your data](https://help.sugarmate.io/en/articles/4673402-adding-a-nightscout-data-source).  For example, `my-data-rights`.
 
 ### Alarms
 
@@ -283,8 +281,11 @@ To learn more about the Nightscout API, visit https://YOUR-SITE.com/api-docs/ or
   * `MONGO_PROFILE_COLLECTION`(`profile`) - The collection used to store your profiles
   * `MONGO_FOOD_COLLECTION`(`food`) - The collection used to store your food database
   * `MONGO_ACTIVITY_COLLECTION`(`activity`) - The collection used to store activity data
+  * `MONGO_POOL_SIZE` (`5`) - MongoDB connection pool size. Adjust for your deployment needs.
+  * `MONGO_MIN_POOL_SIZE` (`0`) - Minimum pool connections to keep open.
+  * `MONGO_MAX_IDLE_TIME_MS` (`30000`) - Max idle time (ms) before closing a connection.
   * `PORT` (`1337`) - The port that the node.js application will listen on.
-  * `HOSTNAME` - The hostname that the node.js application will listen on, null by default for any hostname for IPv6 you may need to use `::`.
+  * `NIGHTSCOUT_HOSTNAME` - The hostname or address that the node.js application will listen on. Leave unset to listen on all interfaces. Docker users can set this to `0.0.0.0` when Nightscout is reached through another container or reverse proxy. The older `HOSTNAME` setting is still accepted for compatibility, but should not be used for new installs because container platforms often set it automatically.
   * `SSL_KEY` - Path to your ssl key file, so that ssl(https) can be enabled directly in node.js. If using Let's Encrypt, make this variable the path to your privkey.pem file (private key).
   * `SSL_CERT` - Path to your ssl cert file, so that ssl(https) can be enabled directly in node.js. If using Let's Encrypt, make this variable the path to fullchain.pem file (cert + ca).
   * `SSL_CA` - Path to your ssl ca file, so that ssl(https) can be enabled directly in node.js. If using Let's Encrypt, make this variable the path to chain.pem file (chain).
@@ -322,6 +323,7 @@ To learn more about the Nightscout API, visit https://YOUR-SITE.com/api-docs/ or
   * `SECURE_HSTS_HEADER_PRELOAD` (`false`) - ask for preload in browsers for HSTS. Possible values `false`, or `true`.
   * `SECURE_CSP` (`false`) - Add Content Security Policy headers. Possible values `false`, or `true`.
   * `SECURE_CSP_REPORT_ONLY` (`false`) - If set to `true` allows to experiment with policies by monitoring (but not enforcing) their effects. Possible values `false`, or `true`.
+  * `ALLOW_UNRESTRICTED_FRAME_EMBEDDING` (`true`) - Allow other origins to embed this Nightscout site in an iframe. The default `true` preserves compatibility with existing dashboards and split-view installations, but allows clickjacking attacks against users who are already authorized in the embedded browser. Set this to `false` to send `X-Frame-Options: SAMEORIGIN` and an enforced CSP `frame-ancestors 'self'` policy. The default is temporarily `true` for compatibility and is expected to become `false` in a future release. Existing cross-origin embedding installations can set it explicitly to `true` to preserve their intended behavior when that default changes.
 
 ### Views
 
@@ -353,6 +355,8 @@ To learn more about the Nightscout API, visit https://YOUR-SITE.com/api-docs/ or
   Some users will need easy access to multiple Nightscout views at the same time. We have a special view for this case, accessed on /split path on your Nightscout URL. The view supports any number of sites between 1 to 8 way split, where the content for the screen can be loaded from multiple Nightscout instances. Note you still need to host separate instances for each Nightscout being monitored including the one that hosts the split view page - these variables only add the ability to load multiple views into one browser page. To set the URLs from which the content is loaded, set:
   * `FRAME_URL_1` - URL where content is loaded, for the first view (increment the number up to 8 to get more views)
   * `FRAME_NAME_1` - Name for the first split view portion of the screen (increment the number to name more views)
+
+  When `SECURE_CSP=true`, the valid HTTP(S) origins configured in `FRAME_URL_1` through `FRAME_URL_8` are allowed by the CSP `frame-src` directive so the split page can load them. `FRAME_URL_n` controls what the split page may embed; it does not grant another site permission to embed this Nightscout instance. That inbound permission is controlled independently on each instance by `ALLOW_UNRESTRICTED_FRAME_EMBEDDING`. Setting it to `false` on the split-view host does not prevent that host from loading its configured frames, but a cross-origin Nightscout instance displayed inside the split view must allow cross-origin embedding.
 
 ### Plugins
 
@@ -484,8 +488,120 @@ To learn more about the Nightscout API, visit https://YOUR-SITE.com/api-docs/ or
   * `BOLUS_RENDER_FORMAT` (`default`) - Possible values are `hidden`, `default` (with leading zero and U), `concise` (with U, without leading zero), and `minimal` (without leading zero and U).
   * `BOLUS_RENDER_FORMAT_SMALL` (`default`) - Possible values are `hidden`, `default` (with leading zero and U), `concise` (with U, without leading zero), and `minimal` (without leading zero and U).
   
+##### `connect` (Nightscout Connect)
+
+Connect common diabetes cloud resources to Nightscout.
+Include the keyword `connect` in the `ENABLE` list.
+Nightscout connection uses extended settings using the environment variable prefix `CONNECT_`.
+  * `CONNECT_SOURCE` - The name for the source of one of the supported inputs.  one of `nightscout`, `dexcomshare`, etc...
+  * `CONNECT_SOURCE_COLLECTIONS` - For Nightscout source sync, a comma-separated list of collections. Default: `entries,treatments,devicestatus,profiles`.
+  * `CONNECT_SOURCE_MAX_COUNT` - For Nightscout source sync, maximum records per collection request. Default: `1000`.
+###### Nightscout
+
+> Work in progress
+
+To sync from another Nightscout site, include `CONNECT_SOURCE_ENDPOINT` and
+`CONNECT_SOURCE_API_SECRET`. 
+* `CONNECT_SOURCE=nightscout`
+* `CONNECT_SOURCE_ENDPOINT=<URL>`
+* `CONNECT_SOURCE_API_SECRET=<OPTIONAL_API_SECRET>`
+
+The `CONNECT_SOURCE_ENDPOINT` must be a fully qualified URL and may contain a
+`?token=<subject>` query string to specify an accessToken.
+The `CONNECT_SOURCE_API_SECRET`, if provided, will be used to create a token
+called `nightscout-connect-reader`.  This information or the token provided in
+the query will be used to read information from Nightscout and is optional if
+the site is readable by default.
+
+Select this driver by setting `CONNECT_SOURCE` equal to `nightscout`.
+
+The Nightscout source copies entries, treatments, devicestatus, and profiles by
+default. Set `CONNECT_SOURCE_COLLECTIONS` to a comma-separated subset if you
+only want specific collections.
+
+
+
+###### Dexcom Share
+To synchronize from Dexcom Share use the following variables.
+* `CONNECT_SOURCE=dexcomshare`
+* `CONNECT_SHARE_ACCOUNT_NAME=`
+* `CONNECT_SHARE_PASSWORD=`
+
+Optional, `CONNECT_SHARE_REGION` and `CONNECT_SHARE_SERVER` do the same thing, only specify one.
+* `CONNECT_SHARE_REGION=`  `ous` or `us`. `us` is the default if nothing is
+  provided.  Selecting `us` sets `CONNECT_SHARE_SERVER` to `share2.dexcom.com`.
+  Selecting `ous` here sets `CONNECT_SHARE_SERVER` to `shareous1.dexcom.com`.
+* `CONNECT_SHARE_SERVER=` set the server domain to use.
+
+Dexcom Share supports newer G7-era account responses that return
+`{ accountId: "..." }` as well as older bare account IDs.
+
+
+###### Glooko
+
+> Note: Experimental.
+
+To synchronize from Glooko use the following variables.
+* `CONNECT_SOURCE=glooko`
+* `CONNECT_GLOOKO_EMAIL=`
+* `CONNECT_GLOOKO_PASSWORD=`
+* `CONNECT_GLOOKO_TIMEZONE_OFFSET=0`
+* `CONNECT_GLOOKO_DEVICE_ID=` optional stable device identity
+* `CONNECT_GLOOKO_SERIAL_NUMBER=` optional stable serial number
+* `CONNECT_GLOOKO_WEB_ORIGIN=` optional web origin override for regional/custom hosts
+* `CONNECT_GLOOKO_AUTH_MODE=api` optional auth mode: `api`, `web`, or `auto`
+* `CONNECT_GLOOKO_USE_V3_GRAPH=true` optional v3 graph CGM fallback when v2 returns no readings
+
+By default, `CONNECT_GLOOKO_SERVER` is set to `api.glooko.com` because the
+default value for `CONNECT_GLOOKO_ENV` is `default`.
+* `CONNECT_GLOOKO_ENV` is the word `default` by defalt.  Other values are
+  `eu`, `ca`, `development`, `production`, for `api.glooko.work`, and
+  `externalapi.glooko.com`, respectively.
+* `CONNECT_GLOOKO_SERVER` the hostname server to use - `api.glooko.com` by `default`, `eu.api.glooko.com` for EU users, or a more specific regional host such as `de-fr.api.glooko.com`.
+
+If both, `CONNECT_GLOOKO_SERVER` and `CONNECT_GLOOKO_ENV` are set, only
+`CONNECT_GLOOKO_SERVER` will be used.
+
+`CONNECT_GLOOKO_AUTH_MODE=web` uses Glooko's web sign-in form with CSRF token
+handling; `auto` tries API login first and falls back to web login on a 422
+response. The optional v3 graph fallback fetches `cgmHigh`, `cgmNormal`, and
+`cgmLow` series when v2 CGM readings are empty.
+
+###### Libre Link Up
+To synchronize from Libre Link Up use the following variables.
+* `CONNECT_SOURCE=linkup`
+* `CONNECT_LINK_UP_USERNAME=`
+* `CONNECT_LINK_UP_PASSWORD=`
+
+By default, `CONNECT_LINK_UP_SERVER` is set to `api-eu.libreview.io` because the
+default value for `CONNECT_LINK_UP_REGION` is `EU`.
+Other available values for `CONNECT_LINK_UP_REGION`:
+  * `US`, `EU`, `EU2`, `DE`, `FR`, `JP`, `AP`, `AU`, `AE`, `CA`
+* `CONNECT_LINK_UP_SERVER` may be used to override the region mapping with an explicit LibreView API host.
+* `CONNECT_LINK_UP_VERSION` and `CONNECT_LINK_UP_PRODUCT` may be used when LibreLinkUp requires a newer client version or product identifier.
+
+For folks connected to many patients, you can provide the patient ID by setting
+the `CONNECT_LINK_UP_PATIENT_ID` variable.
+
+###### Minimed Carelink
+
+To synchronize from Medtronic Minimed Carelink, set the following
+environment variables.
+* `CONNECT_SOURCE=minimedcarelink`
+* `CONNECT_CARELINK_USERNAME`
+* `CONNECT_CARELINK_PASSWORD`
+* `CONNECT_CARELINK_REGION` Either `eu` to set `CONNECT_CARELINK_SERVER` to
+  `carelink.minimed.eu` or `us` to use `carelink.minimed.com`.
+
+For folks using the new Many to Many feature, please provide the username of the
+patient to follow using `CONNECT_CARELINK_PATIENT_USERNAME` variable.
+
+
 ##### `bridge` (Share2Nightscout bridge)
-  Glucose reading directly from the Dexcom Share service, uses these extended settings:
+
+> **Deprecated** Please consider using the `connect` plugin instead.
+
+Fetch glucose reading directly from the Dexcom Share service, uses these extended settings:
   * `BRIDGE_USER_NAME` - Your username for the Share service.
   * `BRIDGE_PASSWORD` - Your password for the Share service.
   * `BRIDGE_INTERVAL` (`150000` *2.5 minutes*) - The time (in milliseconds) to wait between each update.
@@ -494,8 +610,12 @@ To learn more about the Nightscout API, visit https://YOUR-SITE.com/api-docs/ or
   * `BRIDGE_MAX_FAILURES` (`3`) - How many failures before giving up.
   * `BRIDGE_MINUTES` (`1400`) - The time window to search for new data per update (the default value is one day in minutes).
   * `BRIDGE_SERVER` (``) - The default blank value is used to fetch data from Dexcom servers in the US. Set to (`EU`) to fetch from European servers instead.
+  * `DEXCOM_BRIDGE_USE_LEGACY` (`false`) - Set to `true` to force the legacy `share2nightscout-bridge` module. By default, compatible `BRIDGE_*` Dexcom settings are mapped to the `connect` plugin's Dexcom Share source because it has newer G7-era compatibility.
 
 ##### `mmconnect` (MiniMed Connect bridge)
+
+> **Deprecated** Please consider using the `connect` plugin instead.
+
   Transfer real-time MiniMed Connect data from the Medtronic CareLink server into Nightscout ([read more](https://github.com/mddub/minimed-connect-to-nightscout))
   * `MMCONNECT_USER_NAME` - Your user name for CareLink Connect.
   * `MMCONNECT_PASSWORD` - Your password for CareLink Connect.
@@ -568,8 +688,10 @@ For remote overrides, the following extended settings must be configured:
 ##### `alexa` (Amazon Alexa)
   Integration with Amazon Alexa, [detailed setup instructions](docs/plugins/alexa-plugin.md)
 
-##### `googlehome` (Google Home/DialogFLow)
+##### `googlehome` (Google Home/DialogFLow) [broken]
   Integration with Google Home (via DialogFlow), [detailed setup instructions](docs/plugins/googlehome-plugin.md)
+
+  Unfortunately this integration broke when [Google discontinued conversational actions](https://developers.google.com/assistant/ca-sunset). We'll keep this here for reference, in case it can be revived at some point in the future.
 
 ##### `speech` (Speech)
   Speech synthesis plugin. When enabled, speaks out the blood glucose values, IOB and alarms. Note you have to set the LANGUAGE setting on the server to get all translated alarms.
@@ -652,7 +774,7 @@ For remote overrides, the following extended settings must be configured:
   * `ns-info` - Plugins that generate notifications at the info level will cause this event to also be triggered.  It will be sent in addition to `ns-event`.
   * `ns-warning` - Alarms at the warning level with cause this event to also be triggered.  It will be sent in addition to `ns-event`.
   * `ns-urgent` - Alarms at the urgent level with cause this event to also be triggered.  It will be sent in addition to `ns-event`.
-  * see the [full list of events](lib/plugins/maker-setup.md#events)
+  * see the [full list of events](docs/plugins/maker-setup.md#events)
 
 
 ### Treatment Profile

@@ -1,0 +1,191 @@
+{
+  "fixture": "aaps",
+  "time": 1778284864388,
+  "pills": {
+    "rawbg": [
+      {
+        "hide": true
+      }
+    ],
+    "iob": [
+      {
+        "info": [
+          {
+            "label": "Basal IOB",
+            "value": "0.44"
+          },
+          {
+            "label": "Source",
+            "value": "OpenAPS"
+          },
+          {
+            "label": "Device",
+            "value": "openaps://AndroidAPS"
+          },
+          {
+            "label": "------------",
+            "value": ""
+          },
+          {
+            "label": "Careportal IOB",
+            "value": "0.22"
+          }
+        ],
+        "label": "IOB",
+        "value": "1.50U"
+      }
+    ],
+    "direction": [
+      {
+        "hide": true
+      }
+    ],
+    "upbat": [
+      {
+        "hide": true,
+        "info": null,
+        "value": "?%"
+      }
+    ],
+    "delta": [
+      {
+        "info": null,
+        "label": "mg/dl"
+      }
+    ],
+    "cage": [
+      {
+        "info": [
+          {
+            "label": "Inserted",
+            "value": "12/31/1969, 4:00:00 PM"
+          }
+        ],
+        "label": "CAGE",
+        "pillClass": null,
+        "value": "n/a "
+      }
+    ],
+    "iage": [
+      {
+        "info": [
+          {
+            "label": "Changed",
+            "value": "12/31/1969, 4:00:00 PM"
+          }
+        ],
+        "label": "IAGE",
+        "pillClass": null
+      }
+    ],
+    "sage": [
+      {
+        "info": [],
+        "label": "SAGE",
+        "pillClass": null
+      }
+    ],
+    "bage": [
+      {
+        "info": [
+          {
+            "label": "Inserted",
+            "value": "12/31/1969, 4:00:00 PM"
+          }
+        ],
+        "label": "BAGE",
+        "pillClass": null,
+        "value": "n/a "
+      }
+    ],
+    "bwp": [
+      {
+        "info": [
+          {
+            "label": "Notice",
+            "value": "required info missing"
+          },
+          {
+            "label": "  • ",
+            "value": "Missing need a treatment profile"
+          },
+          {
+            "label": "  • ",
+            "value": "Data isn't current"
+          }
+        ],
+        "label": "BWP",
+        "value": "0U"
+      }
+    ],
+    "loop": [
+      {
+        "info": [],
+        "label": "Loop ⚠",
+        "pillClass": "current",
+        "value": null
+      }
+    ],
+    "openaps": [
+      {
+        "info": [
+          {
+            "label": "1m ago",
+            "value": "AndroidAPS ◉ Waiting"
+          }
+        ],
+        "label": "OpenAPS ⚠",
+        "pillClass": "current",
+        "value": "unknown"
+      }
+    ],
+    "override": [
+      {
+        "hide": true,
+        "info": [],
+        "label": "",
+        "value": ""
+      }
+    ],
+    "pump": [
+      {
+        "info": [
+          {
+            "label": "Device"
+          }
+        ],
+        "label": "Pump",
+        "pillClass": "current",
+        "value": ""
+      }
+    ],
+    "timeago": [
+      {
+        "label": "time ago",
+        "pillClass": "current"
+      }
+    ],
+    "dbsize": [
+      {
+        "hide": true,
+        "info": [
+          {
+            "label": "Data size",
+            "value": "0 MiB of 496 MiB (0%)"
+          }
+        ],
+        "labelClass": "plugicon-database",
+        "pillClass": "current",
+        "value": "0%"
+      }
+    ]
+  },
+  "forecastSummary": [
+    {
+      "count": 0,
+      "first": null,
+      "last": null
+    }
+  ],
+  "errors": {}
+}

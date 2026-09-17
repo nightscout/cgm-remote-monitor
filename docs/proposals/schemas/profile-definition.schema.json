@@ -1,0 +1,176 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://nightscout.github.io/schemas/profile-definition.schema.json",
+  "title": "ProfileDefinition",
+  "description": "User-authored, versioned profile configuration containing basal rates, ISF, CR, and targets",
+  "type": "object",
+  "required": ["profileId", "contentHash", "title", "timezone", "units", "schedules", "createdBy", "createdAt"],
+  "properties": {
+    "profileId": {
+      "type": "string",
+      "description": "Stable unique identifier for this profile"
+    },
+    "contentHash": {
+      "type": "string",
+      "pattern": "^[a-f0-9]{64}$",
+      "description": "SHA-256 hash of canonicalized profile content for deduplication and verification"
+    },
+    "title": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 100,
+      "description": "Human-readable profile name"
+    },
+    "timezone": {
+      "type": "string",
+      "description": "IANA timezone identifier (e.g., 'America/New_York')"
+    },
+    "units": {
+      "type": "string",
+      "enum": ["mg/dL", "mmol/L"],
+      "description": "Blood glucose units"
+    },
+    "schedules": {
+      "type": "object",
+      "required": ["basal", "isf", "cr", "target"],
+      "properties": {
+        "basal": {
+          "type": "array",
+          "minItems": 1,
+          "description": "Time-based basal rate schedule",
+          "items": {
+            "type": "object",
+            "required": ["time", "rate"],
+            "properties": {
+              "time": {
+                "type": "string",
+                "pattern": "^([01]?[0-9]|2[0-3]):[0-5][0-9]$",
+                "description": "Start time in HH:MM format"
+              },
+              "rate": {
+                "type": "number",
+                "minimum": 0,
+                "maximum": 35,
+                "description": "Basal rate in U/hr"
+              }
+            }
+          }
+        },
+        "isf": {
+          "type": "array",
+          "minItems": 1,
+          "description": "Insulin sensitivity factor schedule",
+          "items": {
+            "type": "object",
+            "required": ["time", "value"],
+            "properties": {
+              "time": {
+                "type": "string",
+                "pattern": "^([01]?[0-9]|2[0-3]):[0-5][0-9]$"
+              },
+              "value": {
+                "type": "number",
+                "minimum": 1,
+                "description": "ISF in configured units per 1U insulin"
+              }
+            }
+          }
+        },
+        "cr": {
+          "type": "array",
+          "minItems": 1,
+          "description": "Carb ratio schedule",
+          "items": {
+            "type": "object",
+            "required": ["time", "value"],
+            "properties": {
+              "time": {
+                "type": "string",
+                "pattern": "^([01]?[0-9]|2[0-3]):[0-5][0-9]$"
+              },
+              "value": {
+                "type": "number",
+                "minimum": 1,
+                "description": "Grams of carbs per 1U insulin"
+              }
+            }
+          }
+        },
+        "target": {
+          "type": "array",
+          "minItems": 1,
+          "description": "Target glucose range schedule",
+          "items": {
+            "type": "object",
+            "required": ["time", "low", "high"],
+            "properties": {
+              "time": {
+                "type": "string",
+                "pattern": "^([01]?[0-9]|2[0-3]):[0-5][0-9]$"
+              },
+              "low": {
+                "type": "number",
+                "minimum": 60,
+                "description": "Lower target bound"
+              },
+              "high": {
+                "type": "number",
+                "minimum": 60,
+                "description": "Upper target bound"
+              }
+            }
+          }
+        }
+      }
+    },
+    "insulinModel": {
+      "type": "object",
+      "description": "Insulin action curve parameters",
+      "properties": {
+        "type": {
+          "type": "string",
+          "enum": ["rapid", "fiasp", "lyumjev", "afrezza", "custom"],
+          "description": "Insulin model type"
+        },
+        "dia": {
+          "type": "number",
+          "minimum": 2,
+          "maximum": 10,
+          "description": "Duration of insulin action in hours"
+        },
+        "peakTime": {
+          "type": "number",
+          "minimum": 15,
+          "maximum": 180,
+          "description": "Time to peak action in minutes"
+        }
+      }
+    },
+    "createdBy": {
+      "$ref": "#/$defs/issuerRef"
+    },
+    "createdAt": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "legacyProfileName": {
+      "type": "string",
+      "description": "For backward compatibility mapping to legacy profile name field"
+    }
+  },
+  "$defs": {
+    "issuerRef": {
+      "type": "object",
+      "required": ["issuerType", "issuerId"],
+      "properties": {
+        "issuerType": {
+          "type": "string",
+          "enum": ["human", "controller", "agent", "caregiver"]
+        },
+        "issuerId": {
+          "type": "string"
+        }
+      }
+    }
+  }
+}

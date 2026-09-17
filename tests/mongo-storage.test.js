@@ -3,6 +3,8 @@
 var should = require('should');
 var assert = require('assert');
 
+var productionSafety = require('./lib/production-safety');
+
 describe('mongo storage', function () {
   var env = require('../lib/server/env')();
 
@@ -27,6 +29,66 @@ describe('mongo storage', function () {
 
         done();
       });
+    });
+  });
+
+  it('Uses the default database from the connection string via the public client API', function (done) {
+    var store = require('../lib/storage/mongo-storage');
+    store(env, function (err, db) {
+      should.not.exist(err);
+      should.exist(db.db);
+      should.exist(db.client);
+
+      db.client.db().databaseName.should.equal(db.db.databaseName);
+      productionSafety.isTestDatabaseName(db.db.databaseName).should.be.true();
+      done();
+    });
+  });
+
+  it('ensureIndexes uses createIndex without the legacy background option', function (done) {
+    var store = require('../lib/storage/mongo-storage');
+    var calls = [];
+
+    store(env, function (err, db) {
+      should.not.exist(err);
+
+      db.ensureIndexes({
+        collectionName: 'entries',
+        createIndex: function (field, options) {
+          calls.push({ field: field, options: options });
+          return Promise.resolve();
+        }
+      }, ['date']);
+
+      calls.length.should.equal(1);
+      calls[0].field.should.equal('date');
+      should.not.exist(calls[0].options);
+
+      done();
+    });
+  });
+
+  it('ensureIndexes accepts compound index definitions', function (done) {
+    var store = require('../lib/storage/mongo-storage');
+    var calls = [];
+    var profileLatestIndex = { startDate: -1, _id: -1 };
+
+    store(env, function (err, db) {
+      should.not.exist(err);
+
+      db.ensureIndexes({
+        collectionName: 'profile',
+        createIndex: function (field, options) {
+          calls.push({ field: field, options: options });
+          return Promise.resolve();
+        }
+      }, [profileLatestIndex]);
+
+      calls.length.should.equal(1);
+      calls[0].field.should.eql(profileLatestIndex);
+      should.not.exist(calls[0].options);
+
+      done();
     });
   });
 
@@ -58,4 +120,3 @@ describe('mongo storage', function () {
   });
 
 });
-

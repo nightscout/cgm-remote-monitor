@@ -1,0 +1,302 @@
+[
+  {
+    "created_at": "2026-05-09T00:00:35.589Z",
+    "device": "Android Phone",
+    "uploader": {
+      "battery": 89,
+      "type": "PHONE"
+    },
+    "utcOffset": 0,
+    "_id": "469c661e6942e8e2b5e64d07"
+  },
+  {
+    "created_at": "2026-05-08T23:55:35.443Z",
+    "device": "Android Phone",
+    "uploader": {
+      "battery": 89,
+      "type": "PHONE"
+    },
+    "utcOffset": 0,
+    "_id": "3e5e07aec9f7e1a9816fcffc"
+  },
+  {
+    "created_at": "2026-05-08T23:50:34.672Z",
+    "device": "Android Phone",
+    "uploader": {
+      "battery": 89,
+      "type": "PHONE"
+    },
+    "utcOffset": 0,
+    "_id": "a1e908e4eead40f91ba0983a"
+  },
+  {
+    "created_at": "2026-05-08T23:45:31.874Z",
+    "device": "Android Phone",
+    "uploader": {
+      "battery": 89,
+      "type": "PHONE"
+    },
+    "utcOffset": 0,
+    "_id": "c4fa375afc20c76d9dec9bf5"
+  },
+  {
+    "created_at": "2026-05-08T23:40:31.632Z",
+    "device": "Android Phone",
+    "uploader": {
+      "battery": 89,
+      "type": "PHONE"
+    },
+    "utcOffset": 0,
+    "_id": "c810863dc27962d2fab719e7"
+  },
+  {
+    "created_at": "2026-05-08T23:35:31.812Z",
+    "device": "Android Phone",
+    "uploader": {
+      "battery": 89,
+      "type": "PHONE"
+    },
+    "utcOffset": 0,
+    "_id": "8410990d56a3d877159c8847"
+  },
+  {
+    "created_at": "2026-05-08T23:30:28.693Z",
+    "device": "Android Phone",
+    "uploader": {
+      "battery": 89,
+      "type": "PHONE"
+    },
+    "utcOffset": 0,
+    "_id": "82d553fbf38d3e62676347ce"
+  },
+  {
+    "created_at": "2026-05-08T23:25:31.408Z",
+    "device": "Android Phone",
+    "uploader": {
+      "battery": 89,
+      "type": "PHONE"
+    },
+    "utcOffset": 0,
+    "_id": "83d2c2aa87b6636d51d03e7a"
+  },
+  {
+    "created_at": "2026-05-08T23:20:28.827Z",
+    "device": "Android Phone",
+    "uploader": {
+      "battery": 89,
+      "type": "PHONE"
+    },
+    "utcOffset": 0,
+    "_id": "47e2f38b4b9896404d063e62"
+  },
+  {
+    "created_at": "2026-05-08T23:15:29.096Z",
+    "device": "Android Phone",
+    "uploader": {
+      "battery": 89,
+      "type": "PHONE"
+    },
+    "utcOffset": 0,
+    "_id": "c33e735c7b87b56138815bc3"
+  },
+  {
+    "created_at": "2026-05-08T23:10:26.879Z",
+    "device": "Android Phone",
+    "uploader": {
+      "battery": 89,
+      "type": "PHONE"
+    },
+    "utcOffset": 0,
+    "_id": "2035420797742aae3928f169"
+  },
+  {
+    "created_at": "2026-05-08T23:05:26.180Z",
+    "device": "Android Phone",
+    "uploader": {
+      "battery": 89,
+      "type": "PHONE"
+    },
+    "utcOffset": 0,
+    "_id": "120bee0da4b475c102ca547d"
+  },
+  {
+    "created_at": "2026-05-08T23:00:25.660Z",
+    "device": "Android Phone",
+    "uploader": {
+      "battery": 89,
+      "type": "PHONE"
+    },
+    "utcOffset": 0,
+    "_id": "6c951eed872060d019b0b2b0"
+  },
+  {
+    "created_at": "2026-05-08T22:55:24.528Z",
+    "device": "Android Phone",
+    "uploader": {
+      "battery": 89,
+      "type": "PHONE"
+    },
+    "utcOffset": 0,
+    "_id": "a4174e2c7334ccb29ee24d50"
+  },
+  {
+    "created_at": "2026-05-08T22:50:24.833Z",
+    "device": "Android Phone",
+    "uploader": {
+      "battery": 89,
+      "type": "PHONE"
+    },
+    "utcOffset": 0,
+    "_id": "fc57b2612d18d9b5d7ca20e8"
+  },
+  {
+    "created_at": "2026-05-08T22:45:22.755Z",
+    "device": "Android Phone",
+    "uploader": {
+      "battery": 89,
+      "type": "PHONE"
+    },
+    "utcOffset": 0,
+    "_id": "d7473c6ee70a42bec08ad89b"
+  },
+  {
+    "created_at": "2026-05-08T22:40:21.396Z",
+    "device": "Android Phone",
+    "uploader": {
+      "battery": 89,
+      "type": "PHONE"
+    },
+    "utcOffset": 0,
+    "_id": "10d19f5ae0b97967ed9796bd"
+  },
+  {
+    "created_at": "2026-05-08T22:35:20.534Z",
+    "device": "Android Phone",
+    "uploader": {
+      "battery": 89,
+      "type": "PHONE"
+    },
+    "utcOffset": 0,
+    "_id": "086fb1af00c7cf6ab243f8f6"
+  },
+  {
+    "created_at": "2026-05-08T22:30:19.773Z",
+    "device": "Android Phone",
+    "uploader": {
+      "battery": 89,
+      "type": "PHONE"
+    },
+    "utcOffset": 0,
+    "_id": "c539c10b6a014aa8f30b0418"
+  },
+  {
+    "created_at": "2026-05-08T22:25:19.746Z",
+    "device": "Android Phone",
+    "uploader": {
+      "battery": 89,
+      "type": "PHONE"
+    },
+    "utcOffset": 0,
+    "_id": "8ac68e185f51fdd87e7dcef8"
+  },
+  {
+    "created_at": "2026-05-08T22:20:22.876Z",
+    "device": "Android Phone",
+    "uploader": {
+      "battery": 89,
+      "type": "PHONE"
+    },
+    "utcOffset": 0,
+    "_id": "8251a3e2104194d6fa817375"
+  },
+  {
+    "created_at": "2026-05-08T22:15:17.626Z",
+    "device": "Android Phone",
+    "uploader": {
+      "battery": 89,
+      "type": "PHONE"
+    },
+    "utcOffset": 0,
+    "_id": "79a2f96cea901a5c47d914d5"
+  },
+  {
+    "created_at": "2026-05-08T22:10:22.923Z",
+    "device": "Android Phone",
+    "uploader": {
+      "battery": 89,
+      "type": "PHONE"
+    },
+    "utcOffset": 0,
+    "_id": "0a1f0ef7b4e4dacf74e4a223"
+  },
+  {
+    "created_at": "2026-05-08T22:05:22.065Z",
+    "device": "Android Phone",
+    "uploader": {
+      "battery": 89,
+      "type": "PHONE"
+    },
+    "utcOffset": 0,
+    "_id": "2091ba5d31ec8df00d607222"
+  },
+  {
+    "created_at": "2026-05-08T22:00:13.839Z",
+    "device": "Android Phone",
+    "uploader": {
+      "battery": 89,
+      "type": "PHONE"
+    },
+    "utcOffset": 0,
+    "_id": "86d850b208838d076f765e2c"
+  },
+  {
+    "created_at": "2026-05-08T21:55:11.749Z",
+    "device": "Android Phone",
+    "uploader": {
+      "battery": 89,
+      "type": "PHONE"
+    },
+    "utcOffset": 0,
+    "_id": "281006a953f197002a0081bb"
+  },
+  {
+    "created_at": "2026-05-08T21:50:20.165Z",
+    "device": "Android Phone",
+    "uploader": {
+      "battery": 89,
+      "type": "PHONE"
+    },
+    "utcOffset": 0,
+    "_id": "5c6d3588fe8c2d4061fbffa4"
+  },
+  {
+    "created_at": "2026-05-08T21:45:11.754Z",
+    "device": "Android Phone",
+    "uploader": {
+      "battery": 89,
+      "type": "PHONE"
+    },
+    "utcOffset": 0,
+    "_id": "e9a8d452697373725dd3442d"
+  },
+  {
+    "created_at": "2026-05-08T21:40:10.630Z",
+    "device": "Android Phone",
+    "uploader": {
+      "battery": 89,
+      "type": "PHONE"
+    },
+    "utcOffset": 0,
+    "_id": "8c208bc4f8eae7dc51f35837"
+  },
+  {
+    "created_at": "2026-05-08T21:35:11.603Z",
+    "device": "Android Phone",
+    "uploader": {
+      "battery": 89,
+      "type": "PHONE"
+    },
+    "utcOffset": 0,
+    "_id": "39fa4fa196d10a881736929a"
+  }
+]

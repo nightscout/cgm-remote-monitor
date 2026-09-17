@@ -1,12 +1,14 @@
 'use strict';
 
-const _ = require('lodash');
+const request = require('supertest')
+  ;
+require('should');
 
 function createRole (authStorage, name, permissions) {
-
   return new Promise((resolve, reject) => {
 
-    let role = _.find(authStorage.roles, { name });
+    let role = authStorage.roles && Array.isArray(authStorage.roles) ?
+      authStorage.roles.find(r => r && r.name === name) : null;
 
     if (role) {
       resolve(role);
@@ -17,11 +19,11 @@ function createRole (authStorage, name, permissions) {
         "permissions": permissions,
         "notes": ""
       }, function afterCreate (err) {
-
         if (err)
-          reject(err);
+          return reject(err);
 
-        role = _.find(authStorage.roles, { name });
+        role = authStorage.roles && Array.isArray(authStorage.roles) ?
+          authStorage.roles.find(r => r && r.name === name) : null;
         resolve(role);
       });
     }
@@ -30,11 +32,11 @@ function createRole (authStorage, name, permissions) {
 
 
 function createTestSubject (authStorage, subjectName, roles) {
-
   return new Promise((resolve, reject) => {
 
     const subjectDbName = 'test-' + subjectName;
-    let subject = _.find(authStorage.subjects, { name: subjectDbName });
+    let subject = authStorage.subjects && Array.isArray(authStorage.subjects) ?
+      authStorage.subjects.find(s => s && s.name === subjectDbName) : null;
 
     if (subject) {
       resolve(subject);
@@ -45,11 +47,11 @@ function createTestSubject (authStorage, subjectName, roles) {
         "roles": roles,
         "notes": ""
       }, function afterCreate (err) {
-
         if (err)
-          reject(err);
+          return reject(err);
 
-        subject = _.find(authStorage.subjects, { name: subjectDbName });
+        subject = authStorage.subjects && Array.isArray(authStorage.subjects) ?
+          authStorage.subjects.find(s => s && s.name === subjectDbName) : null;
         resolve(subject);
       });
     }
@@ -57,7 +59,37 @@ function createTestSubject (authStorage, subjectName, roles) {
 }
 
 
-async function authSubject (authStorage) {
+async function initJwts (accessToken, tokensNeeded, app) {
+  const jwt = {}
+  if (!Array.isArray(tokensNeeded) || !app)
+    return jwt;
+
+  for (const tokenNeeded of tokensNeeded) {
+    jwt[tokenNeeded] = await new Promise((resolve, reject) => {
+      try {
+        const authToken = accessToken[tokenNeeded];
+
+        request(app)
+          .get(`/api/v2/authorization/request/${authToken}`)
+          .expect(200)
+          .end(function(err, res) {
+            if (err)
+              return reject(err);
+
+            resolve(res.body.token);
+          });
+      }
+      catch (e) {
+        reject(e)
+      }
+    })
+  }
+
+  return jwt;
+}
+
+
+async function authSubject (authStorage, tokensNeeded, app) {
 
   await createRole(authStorage, 'admin', '*');
   await createRole(authStorage, 'readable', '*:*:read');
@@ -67,6 +99,7 @@ async function authSubject (authStorage) {
   await createRole(authStorage, 'apiRead', 'api:*:read');
   await createRole(authStorage, 'apiUpdate', 'api:*:update');
   await createRole(authStorage, 'apiDelete', 'api:*:delete');
+  await createRole(authStorage, 'noneRole', '');
 
   const subject = {
     apiAll: await createTestSubject(authStorage, 'apiAll', ['apiAll']),
@@ -77,10 +110,12 @@ async function authSubject (authStorage) {
     apiDelete: await createTestSubject(authStorage, 'apiDelete', ['apiDelete']),
     admin: await createTestSubject(authStorage, 'admin', ['admin']),
     readable: await createTestSubject(authStorage, 'readable', ['readable']),
-    denied: await createTestSubject(authStorage, 'denied', ['denied'])
+    denied: await createTestSubject(authStorage, 'denied', ['denied']),
+    noneSubject: await createTestSubject(authStorage, 'noneSubject', null),
+    noneRole: await createTestSubject(authStorage, 'noneRole', ['noneRole'])
   };
 
-  const token = {
+  const accessToken = {
     all: subject.apiAll.accessToken,
     admin: subject.apiAdmin.accessToken,
     create: subject.apiCreate.accessToken,
@@ -89,10 +124,14 @@ async function authSubject (authStorage) {
     delete: subject.apiDelete.accessToken,
     denied: subject.denied.accessToken,
     adminAll: subject.admin.accessToken,
-    readable: subject.readable.accessToken
+    readable: subject.readable.accessToken,
+    noneSubject: subject.noneSubject.accessToken,
+    noneRole: subject.noneRole.accessToken
   };
 
-  return {subject, token};
+  const jwt = await initJwts(accessToken, tokensNeeded, app);
+
+  return {subject, accessToken, jwt};
 }
 
 module.exports = authSubject;

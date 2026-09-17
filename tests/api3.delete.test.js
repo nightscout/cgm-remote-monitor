@@ -7,6 +7,7 @@ describe('API3 UPDATE', function() {
   const self = this
     , instance = require('./fixtures/api3/instance')
     , authSubject = require('./fixtures/api3/authSubject')
+    , utils = require('./fixtures/api3/utils')
     ;
 
   self.timeout(15000);
@@ -19,16 +20,18 @@ describe('API3 UPDATE', function() {
     self.env = self.instance.env;
     self.url = '/api/v3/treatments';
 
-    let authResult = await authSubject(self.instance.ctx.authorization.storage);
+    let authResult = await authSubject(self.instance.ctx.authorization.storage, [
+      'delete'
+    ], self.instance.app);
 
     self.subject = authResult.subject;
-    self.token = authResult.token;
-    self.urlToken = `${self.url}?token=${self.token.delete}`;
+    self.jwt = authResult.jwt;
     self.cache = self.instance.cacheMonitor;
   });
 
 
-  after(() => {
+  after(async () => {
+    await utils.storageClear(self.instance.ctx);
     self.instance.ctx.bus.teardown();
   });
 
@@ -53,7 +56,7 @@ describe('API3 UPDATE', function() {
 
 
   it('should not found not existing collection', async () => {
-    let res = await self.instance.delete(`/api/v3/NOT_EXIST?token=${self.url}`)
+    let res = await self.instance.delete(`/api/v3/NOT_EXIST`, self.jwt.delete)
       .send(self.validDoc)
       .expect(404);
 

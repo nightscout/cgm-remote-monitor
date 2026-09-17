@@ -2,9 +2,10 @@
 # Nightscout tests/builds/analysis
 TESTS=tests/*.js
 MONGO_CONNECTION?=mongodb://localhost:27017/test_db
+AUTH_FAIL_DELAY?=50
 CUSTOMCONNSTR_mongo_settings_collection?=test_settings
 CUSTOMCONNSTR_mongo_collection?=test_sgvs
-MONGO_SETTINGS=MONGO_CONNECTION=${MONGO_CONNECTION} \
+MONGO_SETTINGS=AUTH_FAIL_DELAY=${AUTH_FAIL_DELAY} MONGO_CONNECTION=${MONGO_CONNECTION} \
 	CUSTOMCONNSTR_mongo_collection=${CUSTOMCONNSTR_mongo_collection}
 
 # XXX.bewest: Mocha is an odd process, and since things are being
@@ -29,6 +30,15 @@ DOCKER_IMAGE=nightscout/cgm-remote-monitor
 
 all: test
 
+my.test.env:
+	@echo "Creating my.test.env from Makefile defaults..."
+	@echo "MONGO_CONNECTION=${MONGO_CONNECTION}" > my.test.env
+	@echo "CUSTOMCONNSTR_mongo_collection=${CUSTOMCONNSTR_mongo_collection}" >> my.test.env
+	@echo "CUSTOMCONNSTR_mongo_settings_collection=${CUSTOMCONNSTR_mongo_settings_collection}" >> my.test.env
+	@echo "API_SECRET=test-secret-key" >> my.test.env
+	@echo "AUTH_FAIL_DELAY=${AUTH_FAIL_DELAY}" >> my.test.env
+	@echo "INSECURE_USE_HTTP=true" >> my.test.env
+
 coverage:
 	NODE_ENV=test ${MONGO_SETTINGS} \
 	${ISTANBUL} cover ${MOCHA} -- --timeout 15000 -R tap ${TESTS}
@@ -51,8 +61,14 @@ test:
 ci_tests:
 	python -c 'import os,sys,fcntl; flags = fcntl.fcntl(sys.stdout, fcntl.F_GETFL); fcntl.fcntl(sys.stdout, fcntl.F_SETFL, flags&~os.O_NONBLOCK);'
 #	NODE_ENV=test ${MONGO_SETTINGS} \
-#	${ISTANBUL} cover ${MOCHA} --report lcovonly -- --timeout 5000 -R tap ${TESTS}	
+#	${ISTANBUL} cover ${MOCHA} --report lcovonly -- --timeout 5000 -R tap ${TESTS}
 	for var in tests/*.js; do ${MONGO_SETTINGS} ${MOCHA} --timeout 30000 --exit --bail -R tap $$var; done
+
+docker_build:
+	# Containerise a local build of a working feature branch.
+	$(eval GIT_BRANCH=$(shell git rev-parse --abbrev-ref HEAD))
+	$(eval TIMESTAMP=$(shell date +%Y%m%d-%H%M%S))
+	docker build -t $(DOCKER_IMAGE):local-$(GIT_BRANCH)-$(TIMESTAMP) .
 
 docker_release:
 	# Get the version from the package.json file
@@ -78,4 +94,4 @@ docker_release:
 		docker push $(DOCKER_IMAGE):latest_dev; \
 	fi
 
-.PHONY: all coverage docker_release report test ci_tests
+.PHONY: all coverage docker_build docker_release report test ci_tests

@@ -38,12 +38,12 @@ describe('authed REST api', function ( ) {
     this.archive.create(creating, done);
   });
 
-  afterEach(function (done) {
-    this.archive( ).remove({ }, done);
+  afterEach(async function () {
+    await this.archive( ).deleteMany({ });
   });
 
-  after(function (done) {
-    this.archive( ).remove({ }, done);
+  after(async function () {
+    await this.archive( ).deleteMany({ });
   });
 
   it('disallow unauthorized POST', function (done) {

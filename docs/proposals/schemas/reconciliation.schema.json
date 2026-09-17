@@ -1,0 +1,117 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://nightscout.github.io/schemas/reconciliation.schema.json",
+  "title": "Reconciliation",
+  "description": "Matching of DeliveryRequest to DeliveryObservation - intent vs reality",
+  "type": "object",
+  "required": ["reconciliationId", "outcome", "reconciledAt"],
+  "properties": {
+    "reconciliationId": {
+      "type": "string",
+      "format": "uuid",
+      "description": "Unique identifier for this reconciliation"
+    },
+    "requestId": {
+      "type": ["string", "null"],
+      "format": "uuid",
+      "description": "The DeliveryRequest being reconciled (null for spontaneous observations)"
+    },
+    "observationId": {
+      "type": ["string", "null"],
+      "format": "uuid",
+      "description": "The DeliveryObservation (null for unobserved requests)"
+    },
+    "outcome": {
+      "type": "string",
+      "enum": ["matched", "partial", "blocked", "failed", "expired", "unknown", "spontaneous"],
+      "description": "Result of reconciliation"
+    },
+    "discrepancy": {
+      "type": "object",
+      "description": "Details of any mismatch between request and observation",
+      "properties": {
+        "requestedUnits": {
+          "type": "number",
+          "description": "What was requested"
+        },
+        "deliveredUnits": {
+          "type": "number",
+          "description": "What was actually delivered"
+        },
+        "delta": {
+          "type": "number",
+          "description": "Difference (delivered - requested)"
+        },
+        "requestedRate": {
+          "type": "number",
+          "description": "Requested rate for temp basal"
+        },
+        "deliveredRate": {
+          "type": "number",
+          "description": "Actual rate delivered"
+        },
+        "requestedDuration": {
+          "type": "integer",
+          "description": "Requested duration in seconds"
+        },
+        "actualDuration": {
+          "type": "integer",
+          "description": "Actual duration in seconds"
+        },
+        "reason": {
+          "type": "string",
+          "enum": [
+            "capped_by_max_basal",
+            "capped_by_max_iob",
+            "capped_by_max_bolus",
+            "comm_failure",
+            "pump_error",
+            "user_canceled",
+            "pump_busy",
+            "reservoir_low",
+            "battery_low",
+            "occlusion",
+            "expired",
+            "unknown"
+          ],
+          "description": "Reason for discrepancy"
+        },
+        "reasonDetails": {
+          "type": "string",
+          "description": "Additional details about the discrepancy"
+        }
+      }
+    },
+    "reconciledAt": {
+      "type": "string",
+      "format": "date-time",
+      "description": "When this reconciliation was performed"
+    },
+    "reconciledBy": {
+      "type": "object",
+      "properties": {
+        "issuerType": {
+          "type": "string",
+          "enum": ["controller", "agent", "system"]
+        },
+        "issuerId": {
+          "type": "string"
+        }
+      }
+    },
+    "latency": {
+      "type": "object",
+      "description": "Timing metrics",
+      "properties": {
+        "requestToObservationMs": {
+          "type": "integer",
+          "description": "Time from request to observation in milliseconds"
+        },
+        "requestToReconciliationMs": {
+          "type": "integer",
+          "description": "Time from request to reconciliation in milliseconds"
+        }
+      }
+    }
+  }
+}

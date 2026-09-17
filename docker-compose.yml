@@ -1,10 +1,18 @@
 version: '3'
 
+x-logging: &default-logging
+  options:
+    max-size: '10m'
+    max-file: '5'
+  driver: json-file
+
 services:
   mongo:
-    image: mongo:4.4
+    image: mongo:5.0.32
+    restart: always
     volumes:
       - ${NS_MONGO_DATA_DIR:-./mongo-data}:/data/db:cached
+    logging: *default-logging
 
   nightscout:
     image: nightscout/cgm-remote-monitor:latest
@@ -19,6 +27,7 @@ services:
       - 'traefik.http.routers.nightscout.rule=Host(`localhost`)'
       - 'traefik.http.routers.nightscout.entrypoints=websecure'
       - 'traefik.http.routers.nightscout.tls.certresolver=le'
+    logging: *default-logging
     environment:
       ### Variables for the container
       NODE_ENV: production
@@ -28,6 +37,8 @@ services:
       # The `nightscout` service can use HTTP, because we use `traefik` to serve the HTTPS
       # and manage TLS certificates
       INSECURE_USE_HTTP: 'true'
+      # Listen on all container interfaces so reverse proxies and other containers can reach Nightscout
+      NIGHTSCOUT_HOSTNAME: '0.0.0.0'
 
       # For all other settings, please refer to the Environment section of the README
       ### Required variables
@@ -50,12 +61,12 @@ services:
       # When readable, anyone can view Nightscout without a token. Setting it to denied will require
       # a token from every visit, using status-only will enable api-secret based login.
       AUTH_DEFAULT_ROLES: denied
-
       # For all other settings, please refer to the Environment section of the README
       # https://github.com/nightscout/cgm-remote-monitor#environment
 
   traefik:
     image: traefik:latest
+    restart: always
     container_name: 'traefik'
     command:
       - '--providers.docker=true'
@@ -74,3 +85,4 @@ services:
     volumes:
       - './letsencrypt:/letsencrypt'
       - '/var/run/docker.sock:/var/run/docker.sock:ro'
+    logging: *default-logging

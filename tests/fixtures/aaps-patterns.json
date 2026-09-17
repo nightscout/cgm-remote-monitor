@@ -1,0 +1,271 @@
+{
+  "COMMENT": "AAPS-realistic test fixtures based on AndroidAPS source code analysis",
+
+  "PUMP_IDENTIFIERS": {
+    "ACCU_CHEK_INSIGHT": {
+      "pumpType": "ACCU_CHEK_INSIGHT_BLUETOOTH",
+      "pumpSerial": "33013206"
+    },
+    "DANA_R": {
+      "pumpType": "DANA_R",
+      "pumpSerial": "ABC12345"
+    },
+    "OMNIPOD_EROS": {
+      "pumpType": "OMNIPOD_EROS",
+      "pumpSerial": "1234567890"
+    }
+  },
+
+  "SGV_ENTRIES": {
+    "HIGH_FREQUENCY_BATCH": [
+      {
+        "type": "sgv",
+        "sgv": 120,
+        "date": 1705600000000,
+        "dateString": "2024-01-18T16:00:00.000Z",
+        "device": "AndroidAPS-DexcomG6",
+        "direction": "Flat",
+        "utcOffset": 0,
+        "app": "AAPS"
+      },
+      {
+        "type": "sgv",
+        "sgv": 125,
+        "date": 1705600300000,
+        "dateString": "2024-01-18T16:05:00.000Z",
+        "device": "AndroidAPS-DexcomG6",
+        "direction": "FortyFiveUp",
+        "utcOffset": 0,
+        "app": "AAPS"
+      },
+      {
+        "type": "sgv",
+        "sgv": 130,
+        "date": 1705600600000,
+        "dateString": "2024-01-18T16:10:00.000Z",
+        "device": "AndroidAPS-DexcomG6",
+        "direction": "SingleUp",
+        "utcOffset": 0,
+        "app": "AAPS"
+      },
+      {
+        "type": "sgv",
+        "sgv": 128,
+        "date": 1705600900000,
+        "dateString": "2024-01-18T16:15:00.000Z",
+        "device": "AndroidAPS-DexcomG6",
+        "direction": "Flat",
+        "utcOffset": 0,
+        "app": "AAPS"
+      },
+      {
+        "type": "sgv",
+        "sgv": 122,
+        "date": 1705601200000,
+        "dateString": "2024-01-18T16:20:00.000Z",
+        "device": "AndroidAPS-DexcomG6",
+        "direction": "FortyFiveDown",
+        "utcOffset": 0,
+        "app": "AAPS"
+      }
+    ],
+    "SINGLE_READING": {
+      "type": "sgv",
+      "sgv": 98,
+      "date": 1549414398005,
+      "dateString": "2019-02-06T01:53:18.005+0100",
+      "device": "AndroidAPS-DexcomG6",
+      "direction": "Flat",
+      "utcOffset": 60,
+      "app": "AAPS"
+    }
+  },
+
+  "SMB_BURSTS": {
+    "COMMENT": "Super Micro Bolus - common in closed-loop systems, rapid sequential small corrections",
+    "CORRECTION_SEQUENCE": [
+      {
+        "eventType": "Correction Bolus",
+        "insulin": 0.25,
+        "isSMB": true,
+        "pumpId": 4148,
+        "pumpType": "ACCU_CHEK_INSIGHT_BLUETOOTH",
+        "pumpSerial": "33013206",
+        "date": 1705600000000,
+        "created_at": "2024-01-18T16:00:00.000Z",
+        "type": "NORMAL",
+        "isValid": true,
+        "app": "AAPS"
+      },
+      {
+        "eventType": "Correction Bolus",
+        "insulin": 0.30,
+        "isSMB": true,
+        "pumpId": 4149,
+        "pumpType": "ACCU_CHEK_INSIGHT_BLUETOOTH",
+        "pumpSerial": "33013206",
+        "date": 1705600300000,
+        "created_at": "2024-01-18T16:05:00.000Z",
+        "type": "NORMAL",
+        "isValid": true,
+        "app": "AAPS"
+      },
+      {
+        "eventType": "Correction Bolus",
+        "insulin": 0.15,
+        "isSMB": true,
+        "pumpId": 4150,
+        "pumpType": "ACCU_CHEK_INSIGHT_BLUETOOTH",
+        "pumpSerial": "33013206",
+        "date": 1705600600000,
+        "created_at": "2024-01-18T16:10:00.000Z",
+        "type": "NORMAL",
+        "isValid": true,
+        "app": "AAPS"
+      }
+    ]
+  },
+
+  "MEAL_SCENARIO": {
+    "COMMENT": "Typical meal with carbs entry, bolus wizard, and meal bolus",
+    "CARB_ENTRY": {
+      "eventType": "Carb Correction",
+      "carbs": 45,
+      "date": 1626200383325,
+      "created_at": "2021-07-13T17:59:43.325Z",
+      "isValid": true,
+      "app": "AAPS"
+    },
+    "MEAL_BOLUS": {
+      "eventType": "Meal Bolus",
+      "insulin": 8.1,
+      "pumpId": 4102,
+      "pumpType": "ACCU_CHEK_INSIGHT_BLUETOOTH",
+      "pumpSerial": "33013206",
+      "date": 1626175512664,
+      "created_at": "2021-07-13T11:25:12.664Z",
+      "type": "NORMAL",
+      "isValid": true,
+      "isSMB": false,
+      "app": "AAPS"
+    },
+    "BOLUS_WIZARD": {
+      "eventType": "Bolus Wizard",
+      "glucose": 134,
+      "glucoseType": "Sensor",
+      "carbs": 45,
+      "insulin": 8.1,
+      "date": 1626175500000,
+      "created_at": "2021-07-13T11:25:00.000Z",
+      "isValid": true,
+      "app": "AAPS"
+    }
+  },
+
+  "DEDUPLICATION_TESTS": {
+    "COMMENT": "Test cases for duplicate detection using pump composite key",
+    "ORIGINAL": {
+      "eventType": "Correction Bolus",
+      "insulin": 0.5,
+      "pumpId": 4148,
+      "pumpType": "DANA_R",
+      "pumpSerial": "12345",
+      "date": 1705600000000,
+      "created_at": "2024-01-18T16:00:00.000Z",
+      "isValid": true,
+      "app": "AAPS"
+    },
+    "DUPLICATE_SAME_PUMP_KEY": {
+      "eventType": "Correction Bolus",
+      "insulin": 0.5,
+      "pumpId": 4148,
+      "pumpType": "DANA_R",
+      "pumpSerial": "12345",
+      "date": 1705600000000,
+      "created_at": "2024-01-18T16:00:00.000Z",
+      "isValid": true,
+      "app": "AAPS"
+    },
+    "DIFFERENT_PUMP_ID": {
+      "eventType": "Correction Bolus",
+      "insulin": 0.5,
+      "pumpId": 4149,
+      "pumpType": "DANA_R",
+      "pumpSerial": "12345",
+      "date": 1705600000000,
+      "created_at": "2024-01-18T16:00:00.000Z",
+      "isValid": true,
+      "app": "AAPS"
+    },
+    "DIFFERENT_PUMP_SERIAL": {
+      "eventType": "Correction Bolus",
+      "insulin": 0.5,
+      "pumpId": 4148,
+      "pumpType": "DANA_R",
+      "pumpSerial": "99999",
+      "date": 1705600000000,
+      "created_at": "2024-01-18T16:00:00.000Z",
+      "isValid": true,
+      "app": "AAPS"
+    }
+  },
+
+  "TEMP_BASAL": {
+    "COMMENT": "Temporary basal rate changes from closed-loop",
+    "SAMPLE": {
+      "eventType": "Temp Basal",
+      "duration": 30,
+      "absolute": 1.2,
+      "rate": 1.2,
+      "pumpId": 5001,
+      "pumpType": "OMNIPOD_EROS",
+      "pumpSerial": "1234567890",
+      "date": 1705600000000,
+      "created_at": "2024-01-18T16:00:00.000Z",
+      "isValid": true,
+      "app": "AAPS"
+    }
+  },
+
+  "DEVICESTATUS": {
+    "COMMENT": "Device status uploads with pump/loop state",
+    "SAMPLE": {
+      "device": "AndroidAPS",
+      "date": 1705600000000,
+      "created_at": "2024-01-18T16:00:00.000Z",
+      "pump": {
+        "battery": {
+          "percent": 75
+        },
+        "reservoir": 120.5,
+        "status": {
+          "status": "normal",
+          "timestamp": "2024-01-18T16:00:00.000Z"
+        }
+      },
+      "openaps": {
+        "enacted": {
+          "timestamp": "2024-01-18T16:00:00.000Z",
+          "rate": 1.2,
+          "duration": 30,
+          "received": true
+        },
+        "iob": {
+          "iob": 2.5,
+          "basaliob": 1.2,
+          "activity": 0.05,
+          "time": "2024-01-18T16:00:00.000Z"
+        }
+      },
+      "uploaderBattery": 85,
+      "app": "AAPS"
+    }
+  },
+
+  "SYNC_CATCHUP_SCENARIO": {
+    "COMMENT": "Simulates AAPS catching up after being offline - many records in quick succession",
+    "RECORD_COUNT": 100,
+    "BASE_TIMESTAMP": 1705600000000,
+    "INTERVAL_MS": 300000
+  }
+}

@@ -1057,7 +1057,11 @@ components:
         'n':
           type: integer
           format: int32
-          description: Number of records deleted
+          description: Number of records deleted. Legacy alias of deletedCount.
+        deletedCount:
+          type: integer
+          format: int32
+          description: Number of records deleted.
         optime:
           $ref: '#/components/schemas/optime'
         electionId:

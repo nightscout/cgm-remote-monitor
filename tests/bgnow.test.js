@@ -1,18 +1,14 @@
 'use strict';
 
 var should = require('should');
-var _ = require('lodash');
+const helper = require('./inithelper')();
 
 var FIVE_MINS = 300000;
 var SIX_MINS = 360000;
 
 describe('BG Now', function ( ) {
-  var ctx = {
-    language: require('../lib/language')()
-    , settings: require('../lib/settings')()
-  };
- 
-  ctx.levels = require('../lib/levels');
+
+  const ctx = helper.ctx;
 
   var bgnow = require('../lib/plugins/bgnow')(ctx);
   var sandbox = require('../lib/sandbox')(ctx);
@@ -33,10 +29,10 @@ describe('BG Now', function ( ) {
       , language: { translate: function(text) { return text; } }
       }
     };
-    
+
     ctx.language = ctx.pluginBase.language;
     ctx.levels = require('../lib/levels');
-   
+
     var data = {sgvs: [{mills: before, mgdl: 100}, {mills: now, mgdl: 105}]};
 
     var sbx = sandbox.clientInit(ctx, Date.now(), data);
@@ -70,6 +66,7 @@ describe('BG Now', function ( ) {
         }
       }
       , language: require('../lib/language')()
+      , moment: helper.ctx.moment
     };
 
     var sbx = sandbox.clientInit(ctx, now, data);
@@ -92,6 +89,7 @@ describe('BG Now', function ( ) {
       }
       , pluginBase: {}
       , language: require('../lib/language')()
+      , moment: helper.ctx.moment
     };
 
     var data = {sgvs: [{mills: before, mgdl: 100}, {mills: now, mgdl: 105}]};
@@ -137,6 +135,7 @@ describe('BG Now', function ( ) {
       }
       , pluginBase: {}
       , language: require('../lib/language')()
+      , moment: helper.ctx.moment
     };
 
     var data = {sgvs: [{mills: before, mgdl: 85}, {mills: now, mgdl: 85}]};
@@ -183,6 +182,7 @@ describe('BG Now', function ( ) {
       }
       , pluginBase: {}
       , language: require('../lib/language')()
+      , moment: helper.ctx.moment
     };
 
     var data = {sgvs: [{mills: before - SIX_MINS, mgdl: 100}, {mills: now, mgdl: 105}]};
@@ -224,9 +224,7 @@ describe('BG Now', function ( ) {
 
 });
 
-function findInfoValue (label, info) {
-  var found = _.find(info, function checkLine (line) {
-    return line.label === label;
-  });
+function findInfoValue(label, info) {
+  const found = info.find(line => line.label === label);
   return found && found.value;
 }

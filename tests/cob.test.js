@@ -1,18 +1,15 @@
 'use strict';
 
-const _ = require('lodash');
-const fs = require('fs');
-const language = require('../lib/language')(fs);
+const deepMerge = require('../lib/utils/deepMerge');
+const helper = require('./inithelper')();
 
 require('should');
 
 describe('COB', function ( ) {
-  var ctx = {};
-  ctx.settings = {};
-  ctx.language = language;
+  var ctx = helper.ctx;
 
   var cob = require('../lib/plugins/cob')(ctx);
-  
+
   var profileData = {
     startDate: '2015-06-21'
     , sens: 95
@@ -20,7 +17,7 @@ describe('COB', function ( ) {
     , carbs_hr: 30
   };
 
-  var profile = require('../lib/profilefunctions')([profileData]);
+  var profile = require('../lib/profilefunctions')([profileData], ctx);
 
   it('should calculate IOB, multiple treatments', function() {
 
@@ -87,6 +84,8 @@ describe('COB', function ( ) {
 
     ctx.pluginBase = {
         updatePillText: function mockedUpdatePillText (plugin, options) {
+          plugin.name.should.equal('cob');
+          plugin.pluginType.should.equal('pill-minor');
           options.value.should.equal('8g');
           done();
         }
@@ -157,7 +156,7 @@ describe('COB', function ( ) {
     });
 
     it('should fall back to treatments if openaps devicestatus is present but too stale', function() {
-      var devicestatus = [_.merge(OPENAPS_DEVICESTATUS, { mills: time - cob.RECENCY_THRESHOLD - 1, openaps: {enacted: {COB: 5, timestamp: time - cob.RECENCY_THRESHOLD - 1} } })];
+      var devicestatus = [deepMerge(OPENAPS_DEVICESTATUS, { mills: time - cob.RECENCY_THRESHOLD - 1, openaps: {enacted: {COB: 5, timestamp: time - cob.RECENCY_THRESHOLD - 1} } })];
       cob.cobTotal(treatments, devicestatus, profile, time).should.containEql({
         source: 'Care Portal',
         cob: treatmentCOB
@@ -165,11 +164,57 @@ describe('COB', function ( ) {
     });
 
     it('should return COB data from OpenAPS', function () {
-      var devicestatus = [_.merge(OPENAPS_DEVICESTATUS, { mills: time - 1, openaps: {enacted: {COB: 5, timestamp: time - 1} } })];
+      var devicestatus = [deepMerge(OPENAPS_DEVICESTATUS, { mills: time - 1, openaps: {enacted: {COB: 5, timestamp: time - 1} } })];
       cob.cobTotal(treatments, devicestatus, profile, time).should.containEql({
         cob: 5,
         source: 'OpenAPS',
         device: 'openaps://pi1'
+      });
+    });
+
+    it('should return historical OpenAPS COB data when viewing retro time', function () {
+      var viewTime = time - (60 * 60 * 1000);
+      var cobTime = viewTime - 1;
+      var devicestatus = [{
+        device: 'openaps://pi1',
+        mills: cobTime,
+        openaps: {
+          enacted: {
+            COB: 6,
+            timestamp: cobTime
+          }
+        }
+      }];
+
+      cob.cobTotal([], devicestatus, profile, viewTime).should.containEql({
+        cob: 6,
+        source: 'OpenAPS',
+        device: 'openaps://pi1'
+      });
+    });
+
+    it('should fall back to treatments when historical OpenAPS COB is stale for retro time', function() {
+      var viewTime = time - (60 * 60 * 1000);
+      var staleCobTime = viewTime - (11 * 60 * 1000);
+      var retroTreatments = [{
+        mills: viewTime - 1,
+        carbs: '20'
+      }];
+      var retroTreatmentCOB = cob.fromTreatments(retroTreatments, [], profile, viewTime).cob;
+      var devicestatus = [{
+        device: 'openaps://pi1',
+        mills: staleCobTime,
+        openaps: {
+          enacted: {
+            COB: 6,
+            timestamp: staleCobTime
+          }
+        }
+      }];
+
+      cob.cobTotal(retroTreatments, devicestatus, profile, viewTime).should.containEql({
+        source: 'Care Portal',
+        cob: retroTreatmentCOB
       });
     });
 
@@ -184,9 +229,30 @@ describe('COB', function ( ) {
         }
       };
 
-      var devicestatus = [_.merge(LOOP_DEVICESTATUS, { mills: time - 1, loop: {cob: {timestamp: time - 1} } })];
+      var devicestatus = [deepMerge(LOOP_DEVICESTATUS, { mills: time - 1, loop: {cob: {timestamp: time - 1} } })];
       cob.cobTotal(treatments, devicestatus, profile, time).should.containEql({
         cob: 5,
+        source: 'Loop',
+        device: 'loop://iPhone'
+      });
+    });
+
+    it('should return historical Loop COB data when viewing retro time', function () {
+      var viewTime = time - (60 * 60 * 1000);
+      var cobTime = viewTime - 1;
+      var devicestatus = [{
+        device: 'loop://iPhone',
+        mills: cobTime,
+        loop: {
+          cob: {
+            cob: 7,
+            timestamp: cobTime
+          }
+        }
+      }];
+
+      cob.cobTotal([], devicestatus, profile, viewTime).should.containEql({
+        cob: 7,
         source: 'Loop',
         device: 'loop://iPhone'
       });
