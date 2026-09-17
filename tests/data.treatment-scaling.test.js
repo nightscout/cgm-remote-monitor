@@ -35,6 +35,26 @@ describe('treatment duration processing', function ( ) {
 
   var ddata = require('../lib/data/ddata')();
 
+  // NaN timestamps are the one input where the Set dedup below is not identical to
+  // the filter/findIndex it replaced. `===` never matches NaN, so that version kept
+  // every NaN-milled event; a Set is SameValueZero, so they collapse to one. This is
+  // a return to the older semantics rather than a new divergence - `_.uniqBy` stood
+  // here until 9cab9f5a (2025-05-11) and lodash's uniq special-cases NaN.
+  //
+  // The input is reachable, not hypothetical: ddata.processRawDataForRuntime derives
+  // mills from `new Date(created_at).getTime()`, and the v1 REST API stopped
+  // validating created_at in 1059232f (2020-09-21, "Remove the validation for
+  // created_at in REST API ;("), so an unparseable created_at reaches here as NaN.
+  // lib/plugins/timeago.js and the endmills guard in ddata.js both defend against it.
+  //
+  // Downstream, a surviving NaN is inert in cutIfInInterval - every comparison against
+  // NaN is false - but it does make the millsOrder comparator inconsistent, so the
+  // binary search in firstAfter loses its sortedness precondition. The damage is
+  // one-sided: NaN compares false in firstAfter's test, so the returned index can only
+  // be too low, which adds candidates that cutIfInInterval then rejects. Empirically
+  // V8's sort leaves the real entries correctly ordered around a single NaN, so the
+  // forward scan's `break` still fires in the right place - but that is an observation
+  // about V8, not a guarantee, and it is only single-NaN because of the dedup above.
   it('drops later treatments that share a timestamp, keeping the first', function ( ) {
     var mills = 1600000000000;
     var result = ddata.processDurations([
@@ -113,6 +133,20 @@ describe('treatment duration processing', function ( ) {
     ddata.processDurations([], true).length.should.equal(0);
   });
 
+  // What this fixture does and does not cover. The cost of processDurations is now
+  // O(n log n) for the index plus, per base, the number of events inside that base's
+  // own window - not n^2. tempBasals() above lays 30-minute durations 10 minutes
+  // apart, so each window holds about three events and this measures the sort rather
+  // than the window scan. A single long-duration event still collects every event
+  // inside it, so a treatment set dominated by long windows degrades back toward
+  // quadratic. That is a ceiling this guard does not exercise, not a regression: the
+  // previous nested scan visited all n for every base unconditionally, so the new
+  // worst case is the old ordinary case.
+  //
+  // Long windows have real carriers. Nothing clamps `duration` - lib/server/treatments
+  // only coerces it with Number() and drops it if NaN - and all three arrays that reach
+  // processDurations can carry hours-long events: temp targets (routed through here by
+  // db819b5e), profile switches with a duration, and pump-length temp basals.
   it('scales sub-quadratically over a long treatment history', function ( ) {
     this.timeout(30000);
     var treatments = tempBasals(20000);
