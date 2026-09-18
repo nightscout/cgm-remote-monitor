@@ -9,7 +9,7 @@ const bodyParser = require('body-parser');
 
 require('should');
 
-describe('Alexa REST api', function ( ) {
+describe('Google Home REST api', function ( ) {
   this.timeout(10000);
   const apiRoot = require('../lib/api/root');
   const api = require('../lib/api/');
@@ -17,7 +17,7 @@ describe('Alexa REST api', function ( ) {
     delete process.env.API_SECRET;
     process.env.API_SECRET = 'this is my long pass phrase';
     var env = require('../lib/server/env')( );
-    env.settings.enable = ['alexa'];
+    env.settings.enable = ['googlehome'];
     env.settings.authDefaultRoles = 'readable';
     env.api_secret = 'this is my long pass phrase';
     this.wares = require('../lib/middleware/')(env);
@@ -37,65 +37,27 @@ describe('Alexa REST api', function ( ) {
     });
   });
 
-  it('Launch Request', function (done) {
+  function unknownIntent (languageCode) {
+    return {
+      queryResult: {
+        languageCode: languageCode
+        , intent: { displayName: 'UNKNOWN' }
+        , parameters: { metric: 'blood glucose' }
+      }
+    };
+  }
+
+  const unknownIntentText = 'I\'m sorry, I don\'t know what you\'re asking for.';
+
+  it('answers an unknown intent', function (done) {
     request(this.app)
-      .post('/api/v1/alexa')
-      .send({
-        "request": {
-          "type": "LaunchRequest",
-          "locale": "en-US"
-        }
-      })
+      .post('/api/v1/googlehome')
+      .send(unknownIntent('en-US'))
       .expect(200)
-      .end(function (err, res)  {
+      .end(function (err, res) {
         if (err) return done(err);
-
-        const launchText = 'What would you like to check on Nightscout?';
-
-        res.body.response.outputSpeech.text.should.equal(launchText);
-        res.body.response.reprompt.outputSpeech.text.should.equal(launchText);
-        res.body.response.shouldEndSession.should.equal(false);
-        done( );
-      });
-  });
-
-  it('Launch Request With Intent', function (done) {
-    request(this.app)
-      .post('/api/v1/alexa')
-      .send({
-        "request": {
-          "type": "LaunchRequest",
-          "locale": "en-US",
-          "intent": {
-            "name": "UNKNOWN"
-          }
-        }
-      })
-      .expect(200)
-      .end(function (err, res)  {
-        if (err) return done(err);
-
-        const unknownIntentText = 'I\'m sorry, I don\'t know what you\'re asking for.';
-
-        res.body.response.outputSpeech.text.should.equal(unknownIntentText);
-        res.body.response.shouldEndSession.should.equal(true);
-        done( );
-      });
-  });
-
-  it('Session Ended', function (done) {
-    request(this.app)
-      .post('/api/v1/alexa')
-      .send({
-        "request": {
-          "type": "SessionEndedRequest",
-          "locale": "en-US"
-        }
-      })
-      .expect(200)
-      .end(function (err)  {
-        if (err) return done(err);
-
+        res.body.payload.google.richResponse.items[0].simpleResponse.textToSpeech
+          .should.equal(unknownIntentText);
         done( );
       });
   });
@@ -115,19 +77,15 @@ describe('Alexa REST api', function ( ) {
     momentLocaleBefore.should.not.equal('de');
 
     request(this.app)
-      .post('/api/v1/alexa')
-      .send({
-        "request": {
-          "type": "LaunchRequest",
-          "locale": "de-DE"
-        }
-      })
+      .post('/api/v1/googlehome')
+      .send(unknownIntent('de-DE'))
       .expect(200)
-      .end(function (err, res)  {
+      .end(function (err, res) {
         if (err) return done(err);
 
         // Non-vacuity: the route really did run and handle this request.
-        res.body.response.outputSpeech.text.should.equal('What would you like to check on Nightscout?');
+        res.body.payload.google.richResponse.items[0].simpleResponse.textToSpeech
+          .should.equal(unknownIntentText);
 
         self.ctx.language.lang.should.equal(languageBefore);
         self.ctx.language.speechCode.should.equal(speechCodeBefore);
