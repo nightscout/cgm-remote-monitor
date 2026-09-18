@@ -93,4 +93,22 @@ describe('insulinage', function ( ) {
         done();
     });
 
+    it('trigger an urgent alarm when insulin is 72 hours old', function (done) {
+        ctx.notifications.initRequests();
+
+        var before = Date.now() - (72 * 60 * 60 * 1000);
+
+        ctx.ddata.insulinchangeTreatments = [{eventType: 'Insulin Change', mills: before}];
+
+        var sbx = prepareSandbox();
+        sbx.extendedSettings = { 'enableAlerts': 'TRUE' };
+        iage.setProperties(sbx);
+        iage.checkNotifications(sbx);
+
+        var highest = ctx.notifications.findHighestAlarm('IAGE');
+        highest.level.should.equal(levels.URGENT);
+        highest.title.should.equal('Insulin reservoir age 72 hours');
+        done();
+    });
+
 });
