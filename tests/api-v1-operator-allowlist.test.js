@@ -120,7 +120,7 @@ describe('API v1 query operator allowlist', function ( ) {
         assert.equal(error.statusCode, 400);
         assert.equal(error.operator, operator);
         assert.match(error.message,
-          new RegExp('^Query operator ' + operator.replace('$', '\\$') + ' is not supported'));
+          new RegExp('^Query operator ' + escapeRegExp(operator) + ' is not supported'));
         // The error has to say what IS supported, or a client author is stuck.
         assert.match(error.message, /Supported operators: \$and \$or \(top level\)/);
       });
@@ -217,7 +217,7 @@ describe('API v1 query operator allowlist', function ( ) {
               .expect(400);
             assert.equal(response.body.status, 400);
             assert.match(response.body.message,
-              new RegExp('^Query operator \\' + row[0] + ' is not supported'));
+              new RegExp('^Query operator ' + escapeRegExp(row[0]) + ' is not supported'));
             assert.equal(reached.length, 0, 'the query must not reach storage');
           });
         });
@@ -327,6 +327,24 @@ describe('API v1 query operator allowlist', function ( ) {
     });
   });
 });
+
+// Operator names are interpolated into assertion patterns, and every one of
+// them starts with `$` -- which is an anchor in a regular expression, not a
+// dollar sign. Two earlier spellings here got that half-right and CodeQL was
+// right to flag one of them:
+//
+//   operator.replace('$', '\\$')          escapes only the FIRST occurrence
+//   '^Query operator \\' + row[0]         prepends one backslash and relies on
+//                                        row[0] happening to start with `$`
+//
+// Both worked only because every name in the tables above contains exactly one
+// `$` and it is the first character. A name like `$elemMatch nested in $or` --
+// which the REFUSED table does carry, in its label column -- breaks the first,
+// and any operator reached by a different path breaks the second. Escape
+// properly instead of relying on the shape of the current fixtures.
+function escapeRegExp (value) {
+  return String(value).replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+}
 
 // assert.throws() does not hand back the error it caught, and every refusal
 // here is asserted field by field, so catch it directly.
