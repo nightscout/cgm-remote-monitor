@@ -35,7 +35,7 @@ describe('clock client', function() {
     done();
   }
 
-  function renderProperties(serverUnits, browserUnits, properties) {
+  function renderProperties(serverUnits, browserUnits, properties, lowerTarget) {
     window.serverSettings = {
       settings: {
         units: serverUnits
@@ -49,7 +49,7 @@ describe('clock client', function() {
       , thresholds: {
         bgHigh: 260
         , bgLow: 55
-        , bgTargetBottom: 80
+        , bgTargetBottom: lowerTarget === undefined ? 80 : lowerTarget
         , bgTargetTop: 180
       }
       , timeFormat: 12
@@ -83,6 +83,58 @@ describe('clock client', function() {
 
   beforeEach(setupClockClient);
   afterEach(teardownClockClient);
+
+  describe('low and falling emoji', function() {
+    function renderEmoji(bg, direction, lowerTarget, browserUnits, stale) {
+      $('#inner').attr('data-face', 'bn10-sg40-em40-ar25');
+      var properties = propertiesWithUnits(bg, '-5');
+      properties.bgnow.sgvs[0].mgdl = bg;
+      properties.bgnow.sgvs[0].direction = direction;
+      if (stale) {
+        properties.bgnow.sgvs[0].mills = Date.now() - 20 * 60 * 1000;
+      }
+      renderProperties('mg/dl', browserUnits || 'mg/dl', properties, lowerTarget);
+      return $('.em').text();
+    }
+
+    ['FortyFiveDown', 'SingleDown', 'DoubleDown', 'TripleDown', 'down', 'slightdown'].forEach(function(direction) {
+      it('shows concern at 74 with direction ' + direction, function() {
+        renderEmoji(74, direction).should.equal('😟');
+      });
+    });
+
+    ['Flat', 'SingleUp', 'NONE', 'NOT COMPUTABLE', undefined].forEach(function(direction) {
+      it('preserves the existing face without a falling trend: ' + direction, function() {
+        renderEmoji(74, direction).should.equal('😊');
+      });
+    });
+
+    it('uses the configured lower target and its boundary', function() {
+      renderEmoji(89, 'SingleDown', 90).should.equal('😟');
+      renderEmoji(90, 'SingleDown', 90).should.equal('😊');
+      renderEmoji(89, 'SingleDown', 80).should.equal('😊');
+    });
+
+    it('preserves the existing low-value faces', function() {
+      renderEmoji(72, 'SingleDown').should.equal('😱');
+      renderEmoji(54, 'DoubleDown').should.equal('🥶');
+      renderEmoji(40, 'DoubleDown').should.equal('❌');
+    });
+
+    it('uses mg/dL internally when the browser displays mmol/L', function() {
+      renderEmoji(74, 'SingleDown', 80, 'mmol').should.equal('😟');
+      $('.sg').text().should.equal('4.1');
+    });
+
+    it('keeps stale data ahead of the trend warning', function() {
+      renderEmoji(74, 'SingleDown', 80, 'mg/dl', true).should.equal('🤷');
+    });
+
+    it('uses the same normalized direction for the arrow', function() {
+      renderEmoji(74, 'down').should.equal('😟');
+      $('.ar img').attr('src').should.equal('/images/SingleDown.svg');
+    });
+  });
 
   it('constructs every supported face component with bounded numeric sizing', function() {
     $('#inner').attr('data-face', 'bn0-sg40-dt14-nl-ar25-ag6-tm10-em40');

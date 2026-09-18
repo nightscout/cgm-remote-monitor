@@ -39,7 +39,7 @@ function headless (benv, binding) {
 
       console.log('HTML set', Date.now() - t);
 
-      var d3 = require('d3');
+      var d3 = require('./d3');
       //disable all d3 transitions so most of the other code can run with jsdom
       d3.timer = function mockTimer() { };
 
