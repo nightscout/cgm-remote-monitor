@@ -54,7 +54,6 @@ const REFUSED = [
   ['$not', {sgv: {$not: {$gt: 100}}}],
   ['$all', {tags: {$all: ['a', 'b']}}],
   ['$size', {tags: {$size: 2}}],
-  ['$type', {sgv: {$type: 'number'}}],
   ['$mod', {sgv: {$mod: [2, 0]}}],
   ['$bitsAllSet', {flags: {$bitsAllSet: 3}}],
   ['$slice', {tags: {$slice: 2}}],
@@ -81,6 +80,11 @@ const ALLOWED = [
   ['$in', {type: {$in: ['sgv', 'mbg']}}],
   ['$nin', {type: {$nin: ['cal']}}],
   ['$exists', {mbg: {$exists: true}}],
+  // $type is the one departure from the storage seam's set, and it is here
+  // because PR #8737 shipped readTypeOperand() to keep find[sgv][$type]=2
+  // reaching MongoDB as the number 2. See the module header.
+  ['$type as a BSON code', {sgv: {$type: 2}}],
+  ['$type as an alias', {sgv: {$type: 'number'}}],
   ['$regex', {device: {$regex: 'dex'}}],
   ['$regex with $options', {device: {$regex: 'DEX', $options: 'i'}}],
   ['$and', {$and: [{type: 'sgv'}, {sgv: {$gte: 100}}]}],
