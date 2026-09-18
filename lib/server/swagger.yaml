@@ -3,7 +3,12 @@ servers:
   - url: /api/v1
 info:
   title: Nightscout API
-  description: Own your DData with the Nightscout API
+  description: |
+    Own your DData with the Nightscout API
+
+    **Query operators.** Endpoints that accept `find[...]` support a fixed set of MongoDB query operators. On a field: `$eq` `$ne` `$gt` `$gte` `$lt` `$lte` `$in` `$nin` `$exists` `$regex` (with `$options`). At the top level of a query, or of one of their branches: `$and` `$or`. A field name with no operator is an equality match, and the indexed group form `find[$and][0][field][$op]=value` is accepted.
+
+    Any other operator is refused with HTTP 400 and a message naming it. That includes `$where`, `$function` and `$accumulator`, which ask MongoDB to run JavaScript; `$expr`, which embeds the aggregation expression language in a filter; and `$elemMatch`, `$not`, `$nor`, `$all`, `$size`, `$type`, `$mod`, `$text` and the geospatial operators, none of which the API is defined over. An operator name appearing inside a *value* is data and is not affected.
   version: 14.2.3
   license:
     name: AGPL 3
