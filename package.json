@@ -208,6 +208,9 @@
     "terser-webpack-plugin": "5.6.0",
     "minimed-connect-to-nightscout": {
       "axios": "0.33.0",
+      "axios-cookiejar-support": {
+        "axios": "0.33.0"
+      },
       "tough-cookie": "4.1.4"
     },
     "nightscout-connect": {
