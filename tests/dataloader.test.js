@@ -17,7 +17,12 @@ describe('dataloader', function () {
         },
         cache: {
           isEmpty: function () { return true; },
+          // the loader reads entries and treatments by reference now and keeps
+          // cloning device statuses, so this stub has to answer both accessors
           insertData: function (key, results) { return results; },
+          insertDataRef: function (key, results) { return results; },
+          getData: function () { return []; },
+          getDataRef: function () { return []; },
           getRemovalGeneration: function () { return 0; }
         },
         ddata: ddata,
