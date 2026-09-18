@@ -1,0 +1,13 @@
+{
+  "node_modules/request/lib/redirect.js": "4056494e80f0354a6253c6fc08a526bf10920c1b2bb517efb1249945a1291672",
+  "node_modules/request/lib/auth.js": "033318b8870b4a942c02fe04f8a9dce0930d9160399671f4c21806083681d994",
+  "node_modules/request/lib/oauth.js": "53fdc5f23d96f57db1e2a2152fc156949b37fccb5d3d9a39e035e919233798cb",
+  "node_modules/request/lib/multipart.js": "af2c0b45347049efcd475a47c15bd448fc714482d34b2caf7e3c912bef3ecf43",
+  "node_modules/share2nightscout-bridge/index.js": "0dc7198e24693c72a9a5e7284561d989a05a4b751739cadb3154eccbce8edf21",
+  "node_modules/minimed-connect-to-nightscout/index.js": "a9fb0b34d5552c86ea8954d7b257dd04354bdde16d093ce02193efcc2c796837",
+  "node_modules/minimed-connect-to-nightscout/nightscout.js": "12aee756b89cc6c810647c9a22241a0d6b14502ccc02ef9300648c6ec3e0d76c",
+  "lib/plugins/bridge.js": "494240ae2da288b2022a0c65d42c03b488fab4159cb117faec557aa75f5a45cf",
+  "lib/plugins/mmconnect.js": "d6de93f2ccdb8a6c14ffd1f1c946c34313899360b8df9e673f7ec7baef5b508a",
+  "lib/server/bridge-connect-compat.js": "aeb2db47de4f5de94cd470cac1d4c3fc290ba628c7f3424e911182ef916b0fe6",
+  "lib/server/bootevent.js": "39a7d2bba6660fc677b45968bef1f8d71e8621dd31dc5ab8a3835ab26a299e61"
+}

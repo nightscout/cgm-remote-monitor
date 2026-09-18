@@ -8,7 +8,8 @@ x-logging: &default-logging
 
 services:
   mongo:
-    image: mongo:5.0.32
+    # Existing data: follow docs/runtime-upgrade.md before changing MongoDB majors.
+    image: mongo:6.0.27
     restart: always
     volumes:
       - ${NS_MONGO_DATA_DIR:-./mongo-data}:/data/db:cached

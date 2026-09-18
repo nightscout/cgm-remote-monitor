@@ -1,0 +1,474 @@
+{
+  "baselineCommit": "e16302fdf9afaa173f187d1bd04018c6d5427648",
+  "comparison": "All 24 header maps and response bodies are identical before and after explicit middleware composition; Date and Connection excluded.",
+  "modes": [
+    {
+      "options": {
+        "insecureUseHttp": false,
+        "secureHstsHeader": false,
+        "allowUnrestrictedFrameEmbedding": false,
+        "secureCsp": false,
+        "secureCspReportOnly": false
+      },
+      "headers": {
+        "content-length": "25",
+        "content-security-policy": "frame-ancestors 'self'",
+        "content-type": "text/plain; charset=utf-8",
+        "etag": "W/\"19-2NTlN/votVlrfMtAaltZ799LfR0\"",
+        "x-frame-options": "SAMEORIGIN",
+        "x-powered-by": "Express"
+      },
+      "body": "User-agent: *\nDisallow: /"
+    },
+    {
+      "options": {
+        "insecureUseHttp": false,
+        "secureHstsHeader": false,
+        "allowUnrestrictedFrameEmbedding": false,
+        "secureCsp": true,
+        "secureCspReportOnly": false
+      },
+      "headers": {
+        "content-length": "25",
+        "content-security-policy": "default-src 'self';style-src 'self' https://fonts.googleapis.com/ https://fonts.gstatic.com/ 'unsafe-inline';script-src 'self' 'unsafe-inline';font-src 'self' https://fonts.googleapis.com/ https://fonts.gstatic.com/ data:;img-src 'self' data:;object-src 'none';report-uri /report-violation;base-uri 'none';form-action 'self';connect-src 'self' ws: wss: https://fonts.googleapis.com/ https://fonts.gstatic.com/;frame-src 'self';frame-ancestors 'self'",
+        "content-type": "text/plain; charset=utf-8",
+        "etag": "W/\"19-2NTlN/votVlrfMtAaltZ799LfR0\"",
+        "referrer-policy": "no-referrer",
+        "x-frame-options": "SAMEORIGIN",
+        "x-powered-by": "Express"
+      },
+      "body": "User-agent: *\nDisallow: /"
+    },
+    {
+      "options": {
+        "insecureUseHttp": false,
+        "secureHstsHeader": false,
+        "allowUnrestrictedFrameEmbedding": false,
+        "secureCsp": true,
+        "secureCspReportOnly": true
+      },
+      "headers": {
+        "content-length": "25",
+        "content-security-policy": "frame-ancestors 'self'",
+        "content-security-policy-report-only": "default-src 'self';style-src 'self' https://fonts.googleapis.com/ https://fonts.gstatic.com/ 'unsafe-inline';script-src 'self' 'unsafe-inline';font-src 'self' https://fonts.googleapis.com/ https://fonts.gstatic.com/ data:;img-src 'self' data:;object-src 'none';report-uri /report-violation;base-uri 'none';form-action 'self';connect-src 'self' ws: wss: https://fonts.googleapis.com/ https://fonts.gstatic.com/;frame-src 'self';frame-ancestors 'self'",
+        "content-type": "text/plain; charset=utf-8",
+        "etag": "W/\"19-2NTlN/votVlrfMtAaltZ799LfR0\"",
+        "referrer-policy": "no-referrer",
+        "x-frame-options": "SAMEORIGIN",
+        "x-powered-by": "Express"
+      },
+      "body": "User-agent: *\nDisallow: /"
+    },
+    {
+      "options": {
+        "insecureUseHttp": false,
+        "secureHstsHeader": false,
+        "allowUnrestrictedFrameEmbedding": true,
+        "secureCsp": false,
+        "secureCspReportOnly": false
+      },
+      "headers": {
+        "content-length": "25",
+        "content-type": "text/plain; charset=utf-8",
+        "etag": "W/\"19-2NTlN/votVlrfMtAaltZ799LfR0\"",
+        "x-powered-by": "Express"
+      },
+      "body": "User-agent: *\nDisallow: /"
+    },
+    {
+      "options": {
+        "insecureUseHttp": false,
+        "secureHstsHeader": false,
+        "allowUnrestrictedFrameEmbedding": true,
+        "secureCsp": true,
+        "secureCspReportOnly": false
+      },
+      "headers": {
+        "content-length": "25",
+        "content-security-policy": "default-src 'self';style-src 'self' https://fonts.googleapis.com/ https://fonts.gstatic.com/ 'unsafe-inline';script-src 'self' 'unsafe-inline';font-src 'self' https://fonts.googleapis.com/ https://fonts.gstatic.com/ data:;img-src 'self' data:;object-src 'none';report-uri /report-violation;base-uri 'none';form-action 'self';connect-src 'self' ws: wss: https://fonts.googleapis.com/ https://fonts.gstatic.com/;frame-src 'self'",
+        "content-type": "text/plain; charset=utf-8",
+        "etag": "W/\"19-2NTlN/votVlrfMtAaltZ799LfR0\"",
+        "referrer-policy": "no-referrer",
+        "x-powered-by": "Express"
+      },
+      "body": "User-agent: *\nDisallow: /"
+    },
+    {
+      "options": {
+        "insecureUseHttp": false,
+        "secureHstsHeader": false,
+        "allowUnrestrictedFrameEmbedding": true,
+        "secureCsp": true,
+        "secureCspReportOnly": true
+      },
+      "headers": {
+        "content-length": "25",
+        "content-security-policy-report-only": "default-src 'self';style-src 'self' https://fonts.googleapis.com/ https://fonts.gstatic.com/ 'unsafe-inline';script-src 'self' 'unsafe-inline';font-src 'self' https://fonts.googleapis.com/ https://fonts.gstatic.com/ data:;img-src 'self' data:;object-src 'none';report-uri /report-violation;base-uri 'none';form-action 'self';connect-src 'self' ws: wss: https://fonts.googleapis.com/ https://fonts.gstatic.com/;frame-src 'self'",
+        "content-type": "text/plain; charset=utf-8",
+        "etag": "W/\"19-2NTlN/votVlrfMtAaltZ799LfR0\"",
+        "referrer-policy": "no-referrer",
+        "x-powered-by": "Express"
+      },
+      "body": "User-agent: *\nDisallow: /"
+    },
+    {
+      "options": {
+        "insecureUseHttp": false,
+        "secureHstsHeader": true,
+        "allowUnrestrictedFrameEmbedding": false,
+        "secureCsp": false,
+        "secureCspReportOnly": false
+      },
+      "headers": {
+        "content-length": "25",
+        "content-security-policy": "frame-ancestors 'self'",
+        "content-type": "text/plain; charset=utf-8",
+        "etag": "W/\"19-2NTlN/votVlrfMtAaltZ799LfR0\"",
+        "referrer-policy": "no-referrer",
+        "strict-transport-security": "max-age=31536000",
+        "x-content-type-options": "nosniff",
+        "x-dns-prefetch-control": "off",
+        "x-download-options": "noopen",
+        "x-frame-options": "SAMEORIGIN",
+        "x-permitted-cross-domain-policies": "none",
+        "x-xss-protection": "0"
+      },
+      "body": "User-agent: *\nDisallow: /"
+    },
+    {
+      "options": {
+        "insecureUseHttp": false,
+        "secureHstsHeader": true,
+        "allowUnrestrictedFrameEmbedding": false,
+        "secureCsp": true,
+        "secureCspReportOnly": false
+      },
+      "headers": {
+        "content-length": "25",
+        "content-security-policy": "default-src 'self';style-src 'self' https://fonts.googleapis.com/ https://fonts.gstatic.com/ 'unsafe-inline';script-src 'self' 'unsafe-inline';font-src 'self' https://fonts.googleapis.com/ https://fonts.gstatic.com/ data:;img-src 'self' data:;object-src 'none';report-uri /report-violation;base-uri 'none';form-action 'self';connect-src 'self' ws: wss: https://fonts.googleapis.com/ https://fonts.gstatic.com/;frame-src 'self';frame-ancestors 'self'",
+        "content-type": "text/plain; charset=utf-8",
+        "etag": "W/\"19-2NTlN/votVlrfMtAaltZ799LfR0\"",
+        "referrer-policy": "no-referrer",
+        "strict-transport-security": "max-age=31536000",
+        "x-content-type-options": "nosniff",
+        "x-dns-prefetch-control": "off",
+        "x-download-options": "noopen",
+        "x-frame-options": "SAMEORIGIN",
+        "x-permitted-cross-domain-policies": "none",
+        "x-xss-protection": "0"
+      },
+      "body": "User-agent: *\nDisallow: /"
+    },
+    {
+      "options": {
+        "insecureUseHttp": false,
+        "secureHstsHeader": true,
+        "allowUnrestrictedFrameEmbedding": false,
+        "secureCsp": true,
+        "secureCspReportOnly": true
+      },
+      "headers": {
+        "content-length": "25",
+        "content-security-policy": "frame-ancestors 'self'",
+        "content-security-policy-report-only": "default-src 'self';style-src 'self' https://fonts.googleapis.com/ https://fonts.gstatic.com/ 'unsafe-inline';script-src 'self' 'unsafe-inline';font-src 'self' https://fonts.googleapis.com/ https://fonts.gstatic.com/ data:;img-src 'self' data:;object-src 'none';report-uri /report-violation;base-uri 'none';form-action 'self';connect-src 'self' ws: wss: https://fonts.googleapis.com/ https://fonts.gstatic.com/;frame-src 'self';frame-ancestors 'self'",
+        "content-type": "text/plain; charset=utf-8",
+        "etag": "W/\"19-2NTlN/votVlrfMtAaltZ799LfR0\"",
+        "referrer-policy": "no-referrer",
+        "strict-transport-security": "max-age=31536000",
+        "x-content-type-options": "nosniff",
+        "x-dns-prefetch-control": "off",
+        "x-download-options": "noopen",
+        "x-frame-options": "SAMEORIGIN",
+        "x-permitted-cross-domain-policies": "none",
+        "x-xss-protection": "0"
+      },
+      "body": "User-agent: *\nDisallow: /"
+    },
+    {
+      "options": {
+        "insecureUseHttp": false,
+        "secureHstsHeader": true,
+        "allowUnrestrictedFrameEmbedding": true,
+        "secureCsp": false,
+        "secureCspReportOnly": false
+      },
+      "headers": {
+        "content-length": "25",
+        "content-type": "text/plain; charset=utf-8",
+        "etag": "W/\"19-2NTlN/votVlrfMtAaltZ799LfR0\"",
+        "referrer-policy": "no-referrer",
+        "strict-transport-security": "max-age=31536000",
+        "x-content-type-options": "nosniff",
+        "x-dns-prefetch-control": "off",
+        "x-download-options": "noopen",
+        "x-permitted-cross-domain-policies": "none",
+        "x-xss-protection": "0"
+      },
+      "body": "User-agent: *\nDisallow: /"
+    },
+    {
+      "options": {
+        "insecureUseHttp": false,
+        "secureHstsHeader": true,
+        "allowUnrestrictedFrameEmbedding": true,
+        "secureCsp": true,
+        "secureCspReportOnly": false
+      },
+      "headers": {
+        "content-length": "25",
+        "content-security-policy": "default-src 'self';style-src 'self' https://fonts.googleapis.com/ https://fonts.gstatic.com/ 'unsafe-inline';script-src 'self' 'unsafe-inline';font-src 'self' https://fonts.googleapis.com/ https://fonts.gstatic.com/ data:;img-src 'self' data:;object-src 'none';report-uri /report-violation;base-uri 'none';form-action 'self';connect-src 'self' ws: wss: https://fonts.googleapis.com/ https://fonts.gstatic.com/;frame-src 'self'",
+        "content-type": "text/plain; charset=utf-8",
+        "etag": "W/\"19-2NTlN/votVlrfMtAaltZ799LfR0\"",
+        "referrer-policy": "no-referrer",
+        "strict-transport-security": "max-age=31536000",
+        "x-content-type-options": "nosniff",
+        "x-dns-prefetch-control": "off",
+        "x-download-options": "noopen",
+        "x-permitted-cross-domain-policies": "none",
+        "x-xss-protection": "0"
+      },
+      "body": "User-agent: *\nDisallow: /"
+    },
+    {
+      "options": {
+        "insecureUseHttp": false,
+        "secureHstsHeader": true,
+        "allowUnrestrictedFrameEmbedding": true,
+        "secureCsp": true,
+        "secureCspReportOnly": true
+      },
+      "headers": {
+        "content-length": "25",
+        "content-security-policy-report-only": "default-src 'self';style-src 'self' https://fonts.googleapis.com/ https://fonts.gstatic.com/ 'unsafe-inline';script-src 'self' 'unsafe-inline';font-src 'self' https://fonts.googleapis.com/ https://fonts.gstatic.com/ data:;img-src 'self' data:;object-src 'none';report-uri /report-violation;base-uri 'none';form-action 'self';connect-src 'self' ws: wss: https://fonts.googleapis.com/ https://fonts.gstatic.com/;frame-src 'self'",
+        "content-type": "text/plain; charset=utf-8",
+        "etag": "W/\"19-2NTlN/votVlrfMtAaltZ799LfR0\"",
+        "referrer-policy": "no-referrer",
+        "strict-transport-security": "max-age=31536000",
+        "x-content-type-options": "nosniff",
+        "x-dns-prefetch-control": "off",
+        "x-download-options": "noopen",
+        "x-permitted-cross-domain-policies": "none",
+        "x-xss-protection": "0"
+      },
+      "body": "User-agent: *\nDisallow: /"
+    },
+    {
+      "options": {
+        "insecureUseHttp": true,
+        "secureHstsHeader": false,
+        "allowUnrestrictedFrameEmbedding": false,
+        "secureCsp": false,
+        "secureCspReportOnly": false
+      },
+      "headers": {
+        "content-length": "25",
+        "content-security-policy": "frame-ancestors 'self'",
+        "content-type": "text/plain; charset=utf-8",
+        "etag": "W/\"19-2NTlN/votVlrfMtAaltZ799LfR0\"",
+        "x-frame-options": "SAMEORIGIN",
+        "x-powered-by": "Express"
+      },
+      "body": "User-agent: *\nDisallow: /"
+    },
+    {
+      "options": {
+        "insecureUseHttp": true,
+        "secureHstsHeader": false,
+        "allowUnrestrictedFrameEmbedding": false,
+        "secureCsp": true,
+        "secureCspReportOnly": false
+      },
+      "headers": {
+        "content-length": "25",
+        "content-security-policy": "default-src 'self';style-src 'self' https://fonts.googleapis.com/ https://fonts.gstatic.com/ 'unsafe-inline';script-src 'self' 'unsafe-inline';font-src 'self' https://fonts.googleapis.com/ https://fonts.gstatic.com/ data:;img-src 'self' data:;object-src 'none';report-uri /report-violation;base-uri 'none';form-action 'self';connect-src 'self' ws: wss: https://fonts.googleapis.com/ https://fonts.gstatic.com/;frame-src 'self';frame-ancestors 'self'",
+        "content-type": "text/plain; charset=utf-8",
+        "etag": "W/\"19-2NTlN/votVlrfMtAaltZ799LfR0\"",
+        "referrer-policy": "no-referrer",
+        "x-frame-options": "SAMEORIGIN",
+        "x-powered-by": "Express"
+      },
+      "body": "User-agent: *\nDisallow: /"
+    },
+    {
+      "options": {
+        "insecureUseHttp": true,
+        "secureHstsHeader": false,
+        "allowUnrestrictedFrameEmbedding": false,
+        "secureCsp": true,
+        "secureCspReportOnly": true
+      },
+      "headers": {
+        "content-length": "25",
+        "content-security-policy": "frame-ancestors 'self'",
+        "content-security-policy-report-only": "default-src 'self';style-src 'self' https://fonts.googleapis.com/ https://fonts.gstatic.com/ 'unsafe-inline';script-src 'self' 'unsafe-inline';font-src 'self' https://fonts.googleapis.com/ https://fonts.gstatic.com/ data:;img-src 'self' data:;object-src 'none';report-uri /report-violation;base-uri 'none';form-action 'self';connect-src 'self' ws: wss: https://fonts.googleapis.com/ https://fonts.gstatic.com/;frame-src 'self';frame-ancestors 'self'",
+        "content-type": "text/plain; charset=utf-8",
+        "etag": "W/\"19-2NTlN/votVlrfMtAaltZ799LfR0\"",
+        "referrer-policy": "no-referrer",
+        "x-frame-options": "SAMEORIGIN",
+        "x-powered-by": "Express"
+      },
+      "body": "User-agent: *\nDisallow: /"
+    },
+    {
+      "options": {
+        "insecureUseHttp": true,
+        "secureHstsHeader": false,
+        "allowUnrestrictedFrameEmbedding": true,
+        "secureCsp": false,
+        "secureCspReportOnly": false
+      },
+      "headers": {
+        "content-length": "25",
+        "content-type": "text/plain; charset=utf-8",
+        "etag": "W/\"19-2NTlN/votVlrfMtAaltZ799LfR0\"",
+        "x-powered-by": "Express"
+      },
+      "body": "User-agent: *\nDisallow: /"
+    },
+    {
+      "options": {
+        "insecureUseHttp": true,
+        "secureHstsHeader": false,
+        "allowUnrestrictedFrameEmbedding": true,
+        "secureCsp": true,
+        "secureCspReportOnly": false
+      },
+      "headers": {
+        "content-length": "25",
+        "content-security-policy": "default-src 'self';style-src 'self' https://fonts.googleapis.com/ https://fonts.gstatic.com/ 'unsafe-inline';script-src 'self' 'unsafe-inline';font-src 'self' https://fonts.googleapis.com/ https://fonts.gstatic.com/ data:;img-src 'self' data:;object-src 'none';report-uri /report-violation;base-uri 'none';form-action 'self';connect-src 'self' ws: wss: https://fonts.googleapis.com/ https://fonts.gstatic.com/;frame-src 'self'",
+        "content-type": "text/plain; charset=utf-8",
+        "etag": "W/\"19-2NTlN/votVlrfMtAaltZ799LfR0\"",
+        "referrer-policy": "no-referrer",
+        "x-powered-by": "Express"
+      },
+      "body": "User-agent: *\nDisallow: /"
+    },
+    {
+      "options": {
+        "insecureUseHttp": true,
+        "secureHstsHeader": false,
+        "allowUnrestrictedFrameEmbedding": true,
+        "secureCsp": true,
+        "secureCspReportOnly": true
+      },
+      "headers": {
+        "content-length": "25",
+        "content-security-policy-report-only": "default-src 'self';style-src 'self' https://fonts.googleapis.com/ https://fonts.gstatic.com/ 'unsafe-inline';script-src 'self' 'unsafe-inline';font-src 'self' https://fonts.googleapis.com/ https://fonts.gstatic.com/ data:;img-src 'self' data:;object-src 'none';report-uri /report-violation;base-uri 'none';form-action 'self';connect-src 'self' ws: wss: https://fonts.googleapis.com/ https://fonts.gstatic.com/;frame-src 'self'",
+        "content-type": "text/plain; charset=utf-8",
+        "etag": "W/\"19-2NTlN/votVlrfMtAaltZ799LfR0\"",
+        "referrer-policy": "no-referrer",
+        "x-powered-by": "Express"
+      },
+      "body": "User-agent: *\nDisallow: /"
+    },
+    {
+      "options": {
+        "insecureUseHttp": true,
+        "secureHstsHeader": true,
+        "allowUnrestrictedFrameEmbedding": false,
+        "secureCsp": false,
+        "secureCspReportOnly": false
+      },
+      "headers": {
+        "content-length": "25",
+        "content-security-policy": "frame-ancestors 'self'",
+        "content-type": "text/plain; charset=utf-8",
+        "etag": "W/\"19-2NTlN/votVlrfMtAaltZ799LfR0\"",
+        "x-frame-options": "SAMEORIGIN",
+        "x-powered-by": "Express"
+      },
+      "body": "User-agent: *\nDisallow: /"
+    },
+    {
+      "options": {
+        "insecureUseHttp": true,
+        "secureHstsHeader": true,
+        "allowUnrestrictedFrameEmbedding": false,
+        "secureCsp": true,
+        "secureCspReportOnly": false
+      },
+      "headers": {
+        "content-length": "25",
+        "content-security-policy": "default-src 'self';style-src 'self' https://fonts.googleapis.com/ https://fonts.gstatic.com/ 'unsafe-inline';script-src 'self' 'unsafe-inline';font-src 'self' https://fonts.googleapis.com/ https://fonts.gstatic.com/ data:;img-src 'self' data:;object-src 'none';report-uri /report-violation;base-uri 'none';form-action 'self';connect-src 'self' ws: wss: https://fonts.googleapis.com/ https://fonts.gstatic.com/;frame-src 'self';frame-ancestors 'self'",
+        "content-type": "text/plain; charset=utf-8",
+        "etag": "W/\"19-2NTlN/votVlrfMtAaltZ799LfR0\"",
+        "referrer-policy": "no-referrer",
+        "x-frame-options": "SAMEORIGIN",
+        "x-powered-by": "Express"
+      },
+      "body": "User-agent: *\nDisallow: /"
+    },
+    {
+      "options": {
+        "insecureUseHttp": true,
+        "secureHstsHeader": true,
+        "allowUnrestrictedFrameEmbedding": false,
+        "secureCsp": true,
+        "secureCspReportOnly": true
+      },
+      "headers": {
+        "content-length": "25",
+        "content-security-policy": "frame-ancestors 'self'",
+        "content-security-policy-report-only": "default-src 'self';style-src 'self' https://fonts.googleapis.com/ https://fonts.gstatic.com/ 'unsafe-inline';script-src 'self' 'unsafe-inline';font-src 'self' https://fonts.googleapis.com/ https://fonts.gstatic.com/ data:;img-src 'self' data:;object-src 'none';report-uri /report-violation;base-uri 'none';form-action 'self';connect-src 'self' ws: wss: https://fonts.googleapis.com/ https://fonts.gstatic.com/;frame-src 'self';frame-ancestors 'self'",
+        "content-type": "text/plain; charset=utf-8",
+        "etag": "W/\"19-2NTlN/votVlrfMtAaltZ799LfR0\"",
+        "referrer-policy": "no-referrer",
+        "x-frame-options": "SAMEORIGIN",
+        "x-powered-by": "Express"
+      },
+      "body": "User-agent: *\nDisallow: /"
+    },
+    {
+      "options": {
+        "insecureUseHttp": true,
+        "secureHstsHeader": true,
+        "allowUnrestrictedFrameEmbedding": true,
+        "secureCsp": false,
+        "secureCspReportOnly": false
+      },
+      "headers": {
+        "content-length": "25",
+        "content-type": "text/plain; charset=utf-8",
+        "etag": "W/\"19-2NTlN/votVlrfMtAaltZ799LfR0\"",
+        "x-powered-by": "Express"
+      },
+      "body": "User-agent: *\nDisallow: /"
+    },
+    {
+      "options": {
+        "insecureUseHttp": true,
+        "secureHstsHeader": true,
+        "allowUnrestrictedFrameEmbedding": true,
+        "secureCsp": true,
+        "secureCspReportOnly": false
+      },
+      "headers": {
+        "content-length": "25",
+        "content-security-policy": "default-src 'self';style-src 'self' https://fonts.googleapis.com/ https://fonts.gstatic.com/ 'unsafe-inline';script-src 'self' 'unsafe-inline';font-src 'self' https://fonts.googleapis.com/ https://fonts.gstatic.com/ data:;img-src 'self' data:;object-src 'none';report-uri /report-violation;base-uri 'none';form-action 'self';connect-src 'self' ws: wss: https://fonts.googleapis.com/ https://fonts.gstatic.com/;frame-src 'self'",
+        "content-type": "text/plain; charset=utf-8",
+        "etag": "W/\"19-2NTlN/votVlrfMtAaltZ799LfR0\"",
+        "referrer-policy": "no-referrer",
+        "x-powered-by": "Express"
+      },
+      "body": "User-agent: *\nDisallow: /"
+    },
+    {
+      "options": {
+        "insecureUseHttp": true,
+        "secureHstsHeader": true,
+        "allowUnrestrictedFrameEmbedding": true,
+        "secureCsp": true,
+        "secureCspReportOnly": true
+      },
+      "headers": {
+        "content-length": "25",
+        "content-security-policy-report-only": "default-src 'self';style-src 'self' https://fonts.googleapis.com/ https://fonts.gstatic.com/ 'unsafe-inline';script-src 'self' 'unsafe-inline';font-src 'self' https://fonts.googleapis.com/ https://fonts.gstatic.com/ data:;img-src 'self' data:;object-src 'none';report-uri /report-violation;base-uri 'none';form-action 'self';connect-src 'self' ws: wss: https://fonts.googleapis.com/ https://fonts.gstatic.com/;frame-src 'self'",
+        "content-type": "text/plain; charset=utf-8",
+        "etag": "W/\"19-2NTlN/votVlrfMtAaltZ799LfR0\"",
+        "referrer-policy": "no-referrer",
+        "x-powered-by": "Express"
+      },
+      "body": "User-agent: *\nDisallow: /"
+    }
+  ]
+}

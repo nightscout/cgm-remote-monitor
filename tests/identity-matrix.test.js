@@ -37,6 +37,7 @@ describe('Identity Field Test Matrix', function() {
     self.env.settings.enable = ['careportal', 'api'];
     const wares = require('../lib/middleware/')(self.env);
     self.app = require('express')();
+    require('../lib/middleware/configure-request')(self.app);
     self.app.enable('api');
     require('../lib/server/bootevent')(self.env, language).boot(function booted(ctx) {
       self.ctx = ctx;

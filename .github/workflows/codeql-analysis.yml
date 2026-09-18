@@ -16,7 +16,7 @@ on:
   push:
     branches: [ dev, master ]
   pull_request:
-    branches: [ dev, master ]
+    branches: [ dev, master, chore/nightscout-modernization ]
   schedule:
     - cron: '43 23 * * 3'
 

@@ -25,6 +25,27 @@ describe('env', function () {
     }
   });
 
+  it('preserves unset, direct and explicit proxy configuration modes', function () {
+    const original = process.env.TRUST_PROXY;
+    const azure = process.env.CUSTOMCONNSTR_TRUST_PROXY;
+    try {
+      delete process.env.CUSTOMCONNSTR_TRUST_PROXY;
+      for (const value of [undefined, '', 'false', '127.0.0.1,::1']) {
+        if (value === undefined) delete process.env.TRUST_PROXY;
+        else process.env.TRUST_PROXY = value;
+        require('../lib/server/env')().trustProxy.should.equal(value || '');
+      }
+      delete process.env.TRUST_PROXY;
+      process.env.CUSTOMCONNSTR_TRUST_PROXY = 'false';
+      require('../lib/server/env')().trustProxy.should.equal('false');
+    } finally {
+      if (original === undefined) delete process.env.TRUST_PROXY;
+      else process.env.TRUST_PROXY = original;
+      if (azure === undefined) delete process.env.CUSTOMCONNSTR_TRUST_PROXY;
+      else process.env.CUSTOMCONNSTR_TRUST_PROXY = azure;
+    }
+  });
+
   it('should not set the API key without API_SECRET or API_SECRET_FILE', function () {
     delete process.env.API_SECRET;
     delete process.env.API_SECRET_FILE;

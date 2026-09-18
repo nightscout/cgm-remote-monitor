@@ -1,0 +1,318 @@
+{
+  "sourceSHA256": "086571f84cc92a4c125fee6e82a2474d169c2868338c32968befd5af15660074",
+  "scope": "Owned loopback HTTP/TLS only, ephemeral self-signed certificate, fake credentials, two cycles per Node floor. Records unsafe legacy acceptance; not a correctness oracle or live vendor validation.",
+  "samples": [
+    {
+      "node": "v22.23.2",
+      "bridge": "0.2.12",
+      "minimed": "1.5.8",
+      "cycles": [
+        {
+          "strictClientRejectsUntrusted": true,
+          "trustedControlSucceeds": true,
+          "legacyAuthorizationAcceptsUntrusted": true,
+          "legacyGlucoseAcceptsUntrusted": true,
+          "redirects": [
+            {
+              "fromTLS": false,
+              "code": 301,
+              "status": 301,
+              "targetHits": 0
+            },
+            {
+              "fromTLS": false,
+              "code": 302,
+              "status": 302,
+              "targetHits": 0
+            },
+            {
+              "fromTLS": false,
+              "code": 303,
+              "status": 303,
+              "targetHits": 0
+            },
+            {
+              "fromTLS": false,
+              "code": 307,
+              "status": 307,
+              "targetHits": 0
+            },
+            {
+              "fromTLS": false,
+              "code": 308,
+              "status": 308,
+              "targetHits": 0
+            },
+            {
+              "fromTLS": true,
+              "code": 301,
+              "status": 301,
+              "targetHits": 0
+            },
+            {
+              "fromTLS": true,
+              "code": 302,
+              "status": 302,
+              "targetHits": 0
+            },
+            {
+              "fromTLS": true,
+              "code": 303,
+              "status": 303,
+              "targetHits": 0
+            },
+            {
+              "fromTLS": true,
+              "code": 307,
+              "status": 307,
+              "targetHits": 0
+            },
+            {
+              "fromTLS": true,
+              "code": 308,
+              "status": 308,
+              "targetHits": 0
+            }
+          ],
+          "minimedUpload": {
+            "rejected": true,
+            "targetHits": 0
+          }
+        },
+        {
+          "strictClientRejectsUntrusted": true,
+          "trustedControlSucceeds": true,
+          "legacyAuthorizationAcceptsUntrusted": true,
+          "legacyGlucoseAcceptsUntrusted": true,
+          "redirects": [
+            {
+              "fromTLS": false,
+              "code": 301,
+              "status": 301,
+              "targetHits": 0
+            },
+            {
+              "fromTLS": false,
+              "code": 302,
+              "status": 302,
+              "targetHits": 0
+            },
+            {
+              "fromTLS": false,
+              "code": 303,
+              "status": 303,
+              "targetHits": 0
+            },
+            {
+              "fromTLS": false,
+              "code": 307,
+              "status": 307,
+              "targetHits": 0
+            },
+            {
+              "fromTLS": false,
+              "code": 308,
+              "status": 308,
+              "targetHits": 0
+            },
+            {
+              "fromTLS": true,
+              "code": 301,
+              "status": 301,
+              "targetHits": 0
+            },
+            {
+              "fromTLS": true,
+              "code": 302,
+              "status": 302,
+              "targetHits": 0
+            },
+            {
+              "fromTLS": true,
+              "code": 303,
+              "status": 303,
+              "targetHits": 0
+            },
+            {
+              "fromTLS": true,
+              "code": 307,
+              "status": 307,
+              "targetHits": 0
+            },
+            {
+              "fromTLS": true,
+              "code": 308,
+              "status": 308,
+              "targetHits": 0
+            }
+          ],
+          "minimedUpload": {
+            "rejected": true,
+            "targetHits": 0
+          }
+        }
+      ],
+      "methods": [
+        "GET",
+        "POST"
+      ],
+      "warning": "Diagnostic observations are not a correctness oracle: accepting an untrusted TLS certificate is a known unresolved defect."
+    },
+    {
+      "node": "v24.20.0",
+      "bridge": "0.2.12",
+      "minimed": "1.5.8",
+      "cycles": [
+        {
+          "strictClientRejectsUntrusted": true,
+          "trustedControlSucceeds": true,
+          "legacyAuthorizationAcceptsUntrusted": true,
+          "legacyGlucoseAcceptsUntrusted": true,
+          "redirects": [
+            {
+              "fromTLS": false,
+              "code": 301,
+              "status": 301,
+              "targetHits": 0
+            },
+            {
+              "fromTLS": false,
+              "code": 302,
+              "status": 302,
+              "targetHits": 0
+            },
+            {
+              "fromTLS": false,
+              "code": 303,
+              "status": 303,
+              "targetHits": 0
+            },
+            {
+              "fromTLS": false,
+              "code": 307,
+              "status": 307,
+              "targetHits": 0
+            },
+            {
+              "fromTLS": false,
+              "code": 308,
+              "status": 308,
+              "targetHits": 0
+            },
+            {
+              "fromTLS": true,
+              "code": 301,
+              "status": 301,
+              "targetHits": 0
+            },
+            {
+              "fromTLS": true,
+              "code": 302,
+              "status": 302,
+              "targetHits": 0
+            },
+            {
+              "fromTLS": true,
+              "code": 303,
+              "status": 303,
+              "targetHits": 0
+            },
+            {
+              "fromTLS": true,
+              "code": 307,
+              "status": 307,
+              "targetHits": 0
+            },
+            {
+              "fromTLS": true,
+              "code": 308,
+              "status": 308,
+              "targetHits": 0
+            }
+          ],
+          "minimedUpload": {
+            "rejected": true,
+            "targetHits": 0
+          }
+        },
+        {
+          "strictClientRejectsUntrusted": true,
+          "trustedControlSucceeds": true,
+          "legacyAuthorizationAcceptsUntrusted": true,
+          "legacyGlucoseAcceptsUntrusted": true,
+          "redirects": [
+            {
+              "fromTLS": false,
+              "code": 301,
+              "status": 301,
+              "targetHits": 0
+            },
+            {
+              "fromTLS": false,
+              "code": 302,
+              "status": 302,
+              "targetHits": 0
+            },
+            {
+              "fromTLS": false,
+              "code": 303,
+              "status": 303,
+              "targetHits": 0
+            },
+            {
+              "fromTLS": false,
+              "code": 307,
+              "status": 307,
+              "targetHits": 0
+            },
+            {
+              "fromTLS": false,
+              "code": 308,
+              "status": 308,
+              "targetHits": 0
+            },
+            {
+              "fromTLS": true,
+              "code": 301,
+              "status": 301,
+              "targetHits": 0
+            },
+            {
+              "fromTLS": true,
+              "code": 302,
+              "status": 302,
+              "targetHits": 0
+            },
+            {
+              "fromTLS": true,
+              "code": 303,
+              "status": 303,
+              "targetHits": 0
+            },
+            {
+              "fromTLS": true,
+              "code": 307,
+              "status": 307,
+              "targetHits": 0
+            },
+            {
+              "fromTLS": true,
+              "code": 308,
+              "status": 308,
+              "targetHits": 0
+            }
+          ],
+          "minimedUpload": {
+            "rejected": true,
+            "targetHits": 0
+          }
+        }
+      ],
+      "methods": [
+        "GET",
+        "POST"
+      ],
+      "warning": "Diagnostic observations are not a correctness oracle: accepting an untrusted TLS certificate is a known unresolved defect."
+    }
+  ]
+}

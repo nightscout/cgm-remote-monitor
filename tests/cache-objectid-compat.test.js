@@ -23,6 +23,15 @@
 const { ObjectId } = require('mongodb');
 const should = require('should');
 
+// Preserve the historical driver-5 opaque shape independently of the current
+// BSON representation. Methods/identifier bytes still come from real ObjectId.
+function opaqueObjectId() {
+  const id = new ObjectId();
+  for (const key of Object.keys(id)) Object.defineProperty(id, key, {enumerable: false});
+  return id;
+}
+
+
 function lodashIsEmpty (value) {
   if (value == null) {
     return true;
@@ -37,8 +46,8 @@ describe('Cache ObjectId compatibility', function () {
 
   describe('lodash isEmpty behavioral change with new ObjectId (root cause)', function () {
 
-    it('lodash isEmpty(ObjectId) returns true on driver 5.x (regression)', function () {
-      const oid = new ObjectId();
+    it('lodash isEmpty rejects the historical opaque ObjectId shape', function () {
+      const oid = opaqueObjectId();
       // driver 5.x ObjectId has no enumerable keys
       Object.keys(oid).should.have.length(0);
       lodashIsEmpty(oid).should.equal(true);
@@ -85,9 +94,9 @@ describe('Cache ObjectId compatibility', function () {
 
     const TWO_DAYS = 172800000;
 
-    it('OLD: ObjectId _id is rejected (confirms the bug existed)', function () {
+    it('OLD: opaque ObjectId _id is rejected (confirms the bug existed)', function () {
       var ageLimit = Date.now() - TWO_DAYS;
-      var doc = { _id: new ObjectId(), type: 'sgv', sgv: 120, mills: Date.now() - 3600000 };
+      var doc = { _id: opaqueObjectId(), type: 'sgv', sgv: 120, mills: Date.now() - 3600000 };
       filterForAgeOLD([doc], ageLimit).should.have.length(0);
     });
 
@@ -150,6 +159,20 @@ describe('Cache ObjectId compatibility', function () {
       ];
       var result = cache.insertData('entries', entries);
       result.should.have.length(2);
+    });
+
+
+    it('real cache preserves opaque ObjectId entries across two updates', function () {
+      const id = opaqueObjectId();
+      for (const sgv of [120, 130]) {
+        ctx.bus.emit('data-update', {type: 'entries', op: 'update', changes: [
+          {_id: id, type: 'sgv', sgv, date: Date.now(), mills: Date.now()}
+        ]});
+        const result = cache.getData('entries');
+        result.should.have.length(1);
+        result[0]._id.should.equal(id.toHexString());
+        result[0].sgv.should.equal(sgv);
+      }
     });
 
     it('cache accepts string _id entries via insertData', function () {

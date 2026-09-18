@@ -153,9 +153,9 @@ Older versions or other browsers might work, but are untested and unsupported. W
 
 ## Installation software requirements:
 
-- [Node.js](http://nodejs.org/) Node v20 LTS or later (v22, v24 also supported). Node versions that do not have the latest security patches will not be supported. Use [Install instructions for Node](https://nodejs.org/en/download/package-manager/) or use `bin/setup.sh`)
-- [MongoDB](https://www.mongodb.com/download-center?jmp=nav#community) 5.0.32 or later, 6.0.27 or later 
-  NOTE: MongoDB 4.4 or lower is *not supported*. Nightscout 15.0.7 is the latest version that works with Mongo 4.4.
+- [Node.js](http://nodejs.org/) Node 22.23.2+ or 24.20.0+ within those LTS major lines. Node 24 is recommended for new source installations; Node 20 and non-LTS major lines are not supported. Node versions that do not have the latest security patches will not be supported. Use [Install instructions for Node](https://nodejs.org/en/download/package-manager/) or use `bin/setup.sh`)
+- [MongoDB](https://www.mongodb.com/download-center?jmp=nav#community) 5.0.32+ within the 5.0 series, or 6.0.27+ within the 6.0 series, retained during the modernization migration.
+  MongoDB 4.4 and earlier are unsupported and no longer tested. MongoDB 5/6 are also upstream end-of-life; validation of maintained 7/8 releases is planned. See the [MongoDB support and upgrade notice](docs/runtime-upgrade.md#mongodb-support-during-modernization) before upgrading an existing deployment.
 
 As a non-root user clone this repo then install dependencies into the root of the project:
 
@@ -165,7 +165,7 @@ $ npm install
 
 ## Installation notes for users with nginx or Apache reverse proxy for SSL/TLS offloading:
 
-- Your site redirects insecure connections to `https` by default. If you use a reverse proxy like nginx or Apache to handle the connection security for you, make sure it sets the `X-Forwarded-Proto` header. Otherwise nightscout will be unable to know if it was called through a secure connection and will try to redirect you to the https version. If you're unable to set this Header, you can change the `INSECURE_USE_HTTP` setting in nightscout to true in order to allow insecure connections without being redirected.
+- Your site redirects insecure connections to `https` by default. Reverse-proxy compatibility remains enabled by default. The proxy must sanitize forwarded headers and control access to the backend. Optional `TRUST_PROXY` settings provide direct-only or explicit IP/CIDR trust; see the [proxy configuration guide](docs/proposals/trusted-proxy-migration.md).
 - In case you use a proxy. Do not use an external network interfaces for hosting Nightscout. Make sure the unsecure port is not available from a remote network connection
 - HTTP Strict Transport Security (HSTS) headers are enabled by default, use settings `SECURE_HSTS_HEADER` and `SECURE_HSTS_HEADER_*`
 - See [Predefined values for your server settings](#predefined-values-for-your-server-settings-optional) for more details
@@ -174,10 +174,12 @@ $ npm install
 
 - If deploying the software to Microsoft Azure, you must set ** in the app settings for *WEBSITE_NODE_DEFAULT_VERSION* and *SCM_COMMAND_IDLE_TIMEOUT* **before** you deploy the latest Nightscout or the site deployment will likely fail. Other hosting environments do not require this setting. Additionally, if using the Azure free hosting tier, the installation might fail due to resource constraints imposed by Azure on the free hosting. Please set the following settings to the environment in Azure:
 ```
-WEBSITE_NODE_DEFAULT_VERSION=16.16.0
+WEBSITE_NODE_DEFAULT_VERSION=~24
 SCM_COMMAND_IDLE_TIMEOUT=300
 ```
-- See [install MongoDB, Node.js, and Nightscouton a single Windows system](https://github.com/jaylagorio/Nightscout-on-Windows-Server). if you want to host your Nightscout outside of the cloud. Although the instructions are intended for Windows Server the procedure is compatible with client versions of Windows such as Windows 7 and Windows 10.
+- Check the actual Node version in both the Azure build and application environments before upgrading: `~24` does not guarantee a particular patch. See the [runtime upgrade and deployment validation guide](docs/runtime-upgrade.md), including outstanding hosted-platform release checks.
+
+- See [install MongoDB, Node.js, and Nightscouton a single Windows system](https://github.com/jaylagorio/Nightscout-on-Windows-Server). if you want to host your Nightscout outside of the cloud. Use a Windows version supported by your chosen Node LTS release. These external instructions may contain obsolete runtime versions.
 - If you deploy to Windows and want to develop or test you need to install [Cygwin](https://www.cygwin.com/) (use [setup-x86_64.exe](https://www.cygwin.com/setup-x86_64.exe) and make sure to install `build-essential` package. Test your configuration by executing `make` and check if all tests are ok.
 
 # Development
@@ -210,6 +212,9 @@ By default the `/entries` and `/treatments` APIs limit results to the the most r
 You can get many more results, by using the `count`, `date`, `dateString`, and `created_at` parameters, depending on the type of data you're looking for.
 
 Once you've installed Nightscout, you can access API documentation by loading `/api-docs/` URL in your instance.
+
+The `/api/v1/count/:storage/where` endpoint accepts `find` filters for counting records.
+Custom aggregation `pipeline` parameters are rejected with HTTP 400; they are not part of the public count API.
 
 #### Example Queries
 
@@ -291,7 +296,7 @@ autonomy for your data:
   * `SSL_CERT` - Path to your ssl cert file, so that ssl(https) can be enabled directly in node.js. If using Let's Encrypt, make this variable the path to fullchain.pem file (cert + ca).
   * `SSL_CA` - Path to your ssl ca file, so that ssl(https) can be enabled directly in node.js. If using Let's Encrypt, make this variable the path to chain.pem file (chain).
   * `HEARTBEAT` (`60`)  - Number of seconds to wait in between database checks
-  * `DEBUG_MINIFY` (`true`)  - Debug option, setting to `false` will disable bundle minification to help tracking down error and speed up development
+  * `DEBUG_MINIFY` - Deprecated compatibility setting; it does not control webpack bundle minification. Use `NODE_ENV=development` for development bundles and hot updates. Production bundles are built during installation.
   * `DEBUG_LOGGING` (`false`) - Set to `true` to log routine server heartbeats, data reload summaries and Nightscout Connect diagnostics. Warnings, errors and startup messages remain visible with debugging off. This is a server environment setting; restart Nightscout after changing it. On Heroku, add or edit it under **Settings → Config Vars**. Set it back to `false` or remove it when troubleshooting is complete. It does not control Heroku router/access logs or every plugin's logging.
   * `DE_NORMALIZE_DATES`(`true`) - The Nightscout REST API normalizes all entered dates to UTC zone. Some Nightscout clients have broken date deserialization logic and expect to received back dates in zoned formats. Setting this variable to `true` causes the REST API to serialize dates sent to Nightscout in zoned format back to zoned format when served to clients over REST.
 
@@ -319,6 +324,7 @@ autonomy for your data:
   * `EDIT_MODE` (`on`) - possible values `on` or `off`. Enables the icon allowing for editing of treatments in the main view.
 
 ### Predefined values for your server settings (optional)
+  * `TRUST_PROXY` (empty) - Empty preserves reverse-proxy compatibility without listing proxy addresses. Set `false` to ignore all forwarded metadata, or supply comma-separated trusted proxy IP addresses/CIDRs for restricted trust. See the [proxy configuration guide](docs/proposals/trusted-proxy-migration.md) for the security boundary and client-header rules.
   * `INSECURE_USE_HTTP` (`false`) - Redirect unsafe http traffic to https. Possible values `false`, or `true`. Your site redirects to `https` by default. If you don't want that from Nightscout, but want to implement that with a Nginx or Apache proxy, set `INSECURE_USE_HTTP` to `true`. Note: This will allow (unsafe) http traffic to your Nightscout instance and is not recommended.
   * `SECURE_HSTS_HEADER` (`true`) - Add HTTP Strict Transport Security (HSTS) header. Possible values `false`, or `true`.
   * `SECURE_HSTS_HEADER_INCLUDESUBDOMAINS` (`false`) - includeSubdomains options for HSTS. Possible values `false`, or `true`.
@@ -600,34 +606,36 @@ For folks using the new Many to Many feature, please provide the username of the
 patient to follow using `CONNECT_CARELINK_PATIENT_USERNAME` variable.
 
 
-##### `bridge` (Share2Nightscout bridge)
+##### Legacy Dexcom bridge (retired in 15.0.9)
 
-> **Deprecated** Please consider using the `connect` plugin instead.
+Use the `connect` plugin with `CONNECT_SOURCE=dexcomshare`. The bundled legacy
+Share2Nightscout engine and `DEXCOM_BRIDGE_USE_LEGACY` fallback are removed.
+Existing complete `BRIDGE_USER_NAME`/`BRIDGE_PASSWORD` credentials automatically
+map to Connect; explicit Connect settings take precedence. `BRIDGE_SERVER=EU`
+maps to the outside-US region and a custom hostname maps to `CONNECT_SHARE_SERVER`.
+Legacy polling/retry settings no longer configure ingestion. Mixed legacy Dexcom
+and non-Dexcom Connect configurations require operator migration.
 
-Fetch glucose reading directly from the Dexcom Share service, uses these extended settings:
-  * `BRIDGE_USER_NAME` - Your username for the Share service.
-  * `BRIDGE_PASSWORD` - Your password for the Share service.
-  * `BRIDGE_INTERVAL` (`150000` *2.5 minutes*) - The time (in milliseconds) to wait between each update.
-  * `BRIDGE_MAX_COUNT` (`1`) - The number of records to attempt to fetch per update.
-  * `BRIDGE_FIRST_FETCH_COUNT` (`3`) - Changes max count during the very first update only.
-  * `BRIDGE_MAX_FAILURES` (`3`) - How many failures before giving up.
-  * `BRIDGE_MINUTES` (`1400`) - The time window to search for new data per update (the default value is one day in minutes).
-  * `BRIDGE_SERVER` (``) - The default blank value is used to fetch data from Dexcom servers in the US. Set to (`EU`) to fetch from European servers instead.
-  * `DEXCOM_BRIDGE_USE_LEGACY` (`false`) - Set to `true` to force the legacy `share2nightscout-bridge` module. By default, compatible `BRIDGE_*` Dexcom settings are mapped to the `connect` plugin's Dexcom Share source because it has newer G7-era compatibility.
+See the [15.0.9 migration guide](docs/runtime-upgrade.md#legacy-dexcom-bridge-retirement-in-1509)
+for settings, changed behavior and rollback. MiniMed migration is described below.
 
-##### `mmconnect` (MiniMed Connect bridge)
+##### `mmconnect` (retired in 15.0.9)
 
-> **Deprecated** Please consider using the `connect` plugin instead.
+Use Nightscout Connect with `CONNECT_SOURCE=minimedcarelink`,
+`CONNECT_CARELINK_USERNAME`, `CONNECT_CARELINK_PASSWORD` and
+`CONNECT_COUNTRY_CODE` (the two-letter country where the account was created).
+The bundled `minimed-connect-to-nightscout` engine is removed.
 
-  Transfer real-time MiniMed Connect data from the Medtronic CareLink server into Nightscout ([read more](https://github.com/mddub/minimed-connect-to-nightscout))
-  * `MMCONNECT_USER_NAME` - Your user name for CareLink Connect.
-  * `MMCONNECT_PASSWORD` - Your password for CareLink Connect.
-  * `MMCONNECT_INTERVAL` (`60000` *1 minute*) - Number of milliseconds to wait between requests to the CareLink server.
-  * `MMCONNECT_MAX_RETRY_DURATION` (`32`) - Maximum number of total seconds to spend retrying failed requests before giving up.
-  * `MMCONNECT_SGV_LIMIT` (`24`) - Maximum number of recent sensor glucose values to send to Nightscout on each request.
-  * `MMCONNECT_VERBOSE` - Set this to "true" to log CareLink request information to the console.
-  * `MMCONNECT_STORE_RAW_DATA` - Set this to "true" to store raw data returned from CareLink as `type: "carelink_raw"` database entries (useful for development).
-  * `MMCONNECT_SERVER` - Set this to `EU` if you're using the European Medtronic services
+Complete `MMCONNECT_USER_NAME`/`MMCONNECT_PASSWORD` credentials map to Connect
+when `CONNECT_COUNTRY_CODE` is supplied; explicit Connect values take precedence.
+`MMCONNECT_SERVER=EU`/`US` maps to the corresponding Connect region. The country
+cannot be inferred from that region, so missing country configuration prevents
+the replacement from starting and produces migration instructions.
+
+Legacy interval, retry, SGV-limit, verbose and raw-data storage flags are retired.
+Connect owns scheduling and ingestion. Existing `carelink_raw` records are not
+deleted. See the [MiniMed migration guide](docs/runtime-upgrade.md#legacy-minimed-mmconnect-retirement-in-1509)
+for configuration, changed behavior and validation before upgrading.
 
 ##### `pump` (Pump Monitoring)
   Generic Pump Monitoring for OpenAPS, MiniMed Connect, RileyLink, t:slim, with more on the way

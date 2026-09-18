@@ -1,0 +1,691 @@
+{
+  "node": "22.23.2",
+  "scenario": "owned real router, fake collection, 1000 entries, fresh process per sample, 5 warmups, 30 timed HTTP requests, then 30 separately allocation-profiled requests",
+  "rows": [
+    {
+      "run": 0,
+      "label": "parent",
+      "count": 1000,
+      "operation": "get",
+      "requests": 30,
+      "meanMs": 1.0161166666666663,
+      "responseBytes": 46001,
+      "allocation": {
+        "estimatedBytes": 22068912,
+        "entryAttributedBytes": 12179184
+      },
+      "heapBefore": 16896800,
+      "heapBeforeGC": 24658648,
+      "heapAfterGC": 17272840
+    },
+    {
+      "run": 0,
+      "label": "candidate",
+      "count": 1000,
+      "operation": "get",
+      "requests": 30,
+      "meanMs": 0.9003430333333337,
+      "responseBytes": 46001,
+      "allocation": {
+        "estimatedBytes": 15135192,
+        "entryAttributedBytes": 9664136
+      },
+      "heapBefore": 16796680,
+      "heapBeforeGC": 18692552,
+      "heapAfterGC": 17160088
+    },
+    {
+      "run": 0,
+      "label": "parent",
+      "count": 1000,
+      "operation": "preview",
+      "requests": 30,
+      "meanMs": 0.9062125000000004,
+      "responseBytes": 46001,
+      "allocation": {
+        "estimatedBytes": 19146504,
+        "entryAttributedBytes": 5082952
+      },
+      "heapBefore": 17185904,
+      "heapBeforeGC": 22183336,
+      "heapAfterGC": 17545912
+    },
+    {
+      "run": 0,
+      "label": "candidate",
+      "count": 1000,
+      "operation": "preview",
+      "requests": 30,
+      "meanMs": 0.7997472333333334,
+      "responseBytes": 46001,
+      "allocation": {
+        "estimatedBytes": 11586984,
+        "entryAttributedBytes": 2135320
+      },
+      "heapBefore": 17089768,
+      "heapBeforeGC": 22663680,
+      "heapAfterGC": 17432440
+    },
+    {
+      "run": 0,
+      "label": "parent",
+      "count": 1000,
+      "operation": "write",
+      "requests": 30,
+      "meanMs": 2.049531966666667,
+      "responseBytes": 97001,
+      "allocation": {
+        "estimatedBytes": 89277040,
+        "entryAttributedBytes": 70240080
+      },
+      "heapBefore": 17391384,
+      "heapBeforeGC": 32795288,
+      "heapAfterGC": 17771440
+    },
+    {
+      "run": 0,
+      "label": "candidate",
+      "count": 1000,
+      "operation": "write",
+      "requests": 30,
+      "meanMs": 1.9934555666666662,
+      "responseBytes": 97001,
+      "allocation": {
+        "estimatedBytes": 78452280,
+        "entryAttributedBytes": 65065848
+      },
+      "heapBefore": 17315656,
+      "heapBeforeGC": 19004968,
+      "heapAfterGC": 17664272
+    },
+    {
+      "run": 1,
+      "label": "candidate",
+      "count": 1000,
+      "operation": "get",
+      "requests": 30,
+      "meanMs": 0.8680972000000001,
+      "responseBytes": 46001,
+      "allocation": {
+        "estimatedBytes": 14154520,
+        "entryAttributedBytes": 8584680
+      },
+      "heapBefore": 16794248,
+      "heapBeforeGC": 18908680,
+      "heapAfterGC": 17159928
+    },
+    {
+      "run": 1,
+      "label": "parent",
+      "count": 1000,
+      "operation": "get",
+      "requests": 30,
+      "meanMs": 1.0180985999999999,
+      "responseBytes": 46001,
+      "allocation": {
+        "estimatedBytes": 21158112,
+        "entryAttributedBytes": 11228288
+      },
+      "heapBefore": 16892696,
+      "heapBeforeGC": 24654928,
+      "heapAfterGC": 17268896
+    },
+    {
+      "run": 1,
+      "label": "candidate",
+      "count": 1000,
+      "operation": "preview",
+      "requests": 30,
+      "meanMs": 0.7638569333333336,
+      "responseBytes": 46001,
+      "allocation": {
+        "estimatedBytes": 11073072,
+        "entryAttributedBytes": 2412920
+      },
+      "heapBefore": 17088664,
+      "heapBeforeGC": 22662872,
+      "heapAfterGC": 17431832
+    },
+    {
+      "run": 1,
+      "label": "parent",
+      "count": 1000,
+      "operation": "preview",
+      "requests": 30,
+      "meanMs": 0.8715083333333334,
+      "responseBytes": 46001,
+      "allocation": {
+        "estimatedBytes": 20219704,
+        "entryAttributedBytes": 5569400
+      },
+      "heapBefore": 17192456,
+      "heapBeforeGC": 22185568,
+      "heapAfterGC": 17546400
+    },
+    {
+      "run": 1,
+      "label": "candidate",
+      "count": 1000,
+      "operation": "write",
+      "requests": 30,
+      "meanMs": 1.9411611000000002,
+      "responseBytes": 97001,
+      "allocation": {
+        "estimatedBytes": 81503416,
+        "entryAttributedBytes": 68878448
+      },
+      "heapBefore": 17330456,
+      "heapBeforeGC": 19022184,
+      "heapAfterGC": 17668112
+    },
+    {
+      "run": 1,
+      "label": "parent",
+      "count": 1000,
+      "operation": "write",
+      "requests": 30,
+      "meanMs": 2.0940472333333333,
+      "responseBytes": 97001,
+      "allocation": {
+        "estimatedBytes": 86510184,
+        "entryAttributedBytes": 68527840
+      },
+      "heapBefore": 17383600,
+      "heapBeforeGC": 32794904,
+      "heapAfterGC": 17771696
+    },
+    {
+      "run": 2,
+      "label": "parent",
+      "count": 1000,
+      "operation": "get",
+      "requests": 30,
+      "meanMs": 1.058419433333333,
+      "responseBytes": 46001,
+      "allocation": {
+        "estimatedBytes": 22648312,
+        "entryAttributedBytes": 11782680
+      },
+      "heapBefore": 16896000,
+      "heapBeforeGC": 24658984,
+      "heapAfterGC": 17272872
+    },
+    {
+      "run": 2,
+      "label": "candidate",
+      "count": 1000,
+      "operation": "get",
+      "requests": 30,
+      "meanMs": 0.8595958333333338,
+      "responseBytes": 46001,
+      "allocation": {
+        "estimatedBytes": 14231736,
+        "entryAttributedBytes": 9402640
+      },
+      "heapBefore": 16796352,
+      "heapBeforeGC": 18836792,
+      "heapAfterGC": 17160024
+    },
+    {
+      "run": 2,
+      "label": "parent",
+      "count": 1000,
+      "operation": "preview",
+      "requests": 30,
+      "meanMs": 0.8635014000000003,
+      "responseBytes": 46001,
+      "allocation": {
+        "estimatedBytes": 19179088,
+        "entryAttributedBytes": 5074856
+      },
+      "heapBefore": 17192792,
+      "heapBeforeGC": 22179640,
+      "heapAfterGC": 17542136
+    },
+    {
+      "run": 2,
+      "label": "candidate",
+      "count": 1000,
+      "operation": "preview",
+      "requests": 30,
+      "meanMs": 0.704405566666667,
+      "responseBytes": 46001,
+      "allocation": {
+        "estimatedBytes": 11883240,
+        "entryAttributedBytes": 2518816
+      },
+      "heapBefore": 17106680,
+      "heapBeforeGC": 22662240,
+      "heapAfterGC": 17431160
+    },
+    {
+      "run": 2,
+      "label": "parent",
+      "count": 1000,
+      "operation": "write",
+      "requests": 30,
+      "meanMs": 1.9661139,
+      "responseBytes": 97001,
+      "allocation": {
+        "estimatedBytes": 87684136,
+        "entryAttributedBytes": 70424672
+      },
+      "heapBefore": 17383192,
+      "heapBeforeGC": 32905104,
+      "heapAfterGC": 17766688
+    },
+    {
+      "run": 2,
+      "label": "candidate",
+      "count": 1000,
+      "operation": "write",
+      "requests": 30,
+      "meanMs": 1.8022208333333338,
+      "responseBytes": 97001,
+      "allocation": {
+        "estimatedBytes": 78343056,
+        "entryAttributedBytes": 66120240
+      },
+      "heapBefore": 17304104,
+      "heapBeforeGC": 27067968,
+      "heapAfterGC": 17663872
+    },
+    {
+      "run": 3,
+      "label": "candidate",
+      "count": 1000,
+      "operation": "get",
+      "requests": 30,
+      "meanMs": 0.863381933333334,
+      "responseBytes": 46001,
+      "allocation": {
+        "estimatedBytes": 13783784,
+        "entryAttributedBytes": 8421672
+      },
+      "heapBefore": 16797080,
+      "heapBeforeGC": 18909512,
+      "heapAfterGC": 17159896
+    },
+    {
+      "run": 3,
+      "label": "parent",
+      "count": 1000,
+      "operation": "get",
+      "requests": 30,
+      "meanMs": 1.0020027666666669,
+      "responseBytes": 46001,
+      "allocation": {
+        "estimatedBytes": 21963568,
+        "entryAttributedBytes": 11709368
+      },
+      "heapBefore": 16892480,
+      "heapBeforeGC": 24704792,
+      "heapAfterGC": 17272048
+    },
+    {
+      "run": 3,
+      "label": "candidate",
+      "count": 1000,
+      "operation": "preview",
+      "requests": 30,
+      "meanMs": 0.7005874999999998,
+      "responseBytes": 46001,
+      "allocation": {
+        "estimatedBytes": 10697096,
+        "entryAttributedBytes": 1827424
+      },
+      "heapBefore": 17084472,
+      "heapBeforeGC": 22662176,
+      "heapAfterGC": 17431408
+    },
+    {
+      "run": 3,
+      "label": "parent",
+      "count": 1000,
+      "operation": "preview",
+      "requests": 30,
+      "meanMs": 0.8396055333333337,
+      "responseBytes": 46001,
+      "allocation": {
+        "estimatedBytes": 20402200,
+        "entryAttributedBytes": 5148536
+      },
+      "heapBefore": 17191440,
+      "heapBeforeGC": 22184568,
+      "heapAfterGC": 17545120
+    },
+    {
+      "run": 3,
+      "label": "candidate",
+      "count": 1000,
+      "operation": "write",
+      "requests": 30,
+      "meanMs": 1.7749597333333327,
+      "responseBytes": 97001,
+      "allocation": {
+        "estimatedBytes": 78897896,
+        "entryAttributedBytes": 66450024
+      },
+      "heapBefore": 17316032,
+      "heapBeforeGC": 19060016,
+      "heapAfterGC": 17666432
+    },
+    {
+      "run": 3,
+      "label": "parent",
+      "count": 1000,
+      "operation": "write",
+      "requests": 30,
+      "meanMs": 1.9329611333333332,
+      "responseBytes": 97001,
+      "allocation": {
+        "estimatedBytes": 81955304,
+        "entryAttributedBytes": 65482728
+      },
+      "heapBefore": 17364416,
+      "heapBeforeGC": 32887560,
+      "heapAfterGC": 17766160
+    },
+    {
+      "run": 4,
+      "label": "parent",
+      "count": 1000,
+      "operation": "get",
+      "requests": 30,
+      "meanMs": 0.9539638999999999,
+      "responseBytes": 46001,
+      "allocation": {
+        "estimatedBytes": 22143816,
+        "entryAttributedBytes": 11969288
+      },
+      "heapBefore": 16896744,
+      "heapBeforeGC": 24705832,
+      "heapAfterGC": 17273120
+    },
+    {
+      "run": 4,
+      "label": "candidate",
+      "count": 1000,
+      "operation": "get",
+      "requests": 30,
+      "meanMs": 0.8173861000000002,
+      "responseBytes": 46001,
+      "allocation": {
+        "estimatedBytes": 13532432,
+        "entryAttributedBytes": 8721928
+      },
+      "heapBefore": 16794400,
+      "heapBeforeGC": 18836584,
+      "heapAfterGC": 17159888
+    },
+    {
+      "run": 4,
+      "label": "parent",
+      "count": 1000,
+      "operation": "preview",
+      "requests": 30,
+      "meanMs": 0.8656319666666666,
+      "responseBytes": 46001,
+      "allocation": {
+        "estimatedBytes": 22203768,
+        "entryAttributedBytes": 6426760
+      },
+      "heapBefore": 17188656,
+      "heapBeforeGC": 22039296,
+      "heapAfterGC": 17541664
+    },
+    {
+      "run": 4,
+      "label": "candidate",
+      "count": 1000,
+      "operation": "preview",
+      "requests": 30,
+      "meanMs": 0.6852874999999997,
+      "responseBytes": 46001,
+      "allocation": {
+        "estimatedBytes": 12026696,
+        "entryAttributedBytes": 2276056
+      },
+      "heapBefore": 17089168,
+      "heapBeforeGC": 22661992,
+      "heapAfterGC": 17431360
+    },
+    {
+      "run": 4,
+      "label": "parent",
+      "count": 1000,
+      "operation": "write",
+      "requests": 30,
+      "meanMs": 1.9206514,
+      "responseBytes": 97001,
+      "allocation": {
+        "estimatedBytes": 86519112,
+        "entryAttributedBytes": 69521280
+      },
+      "heapBefore": 17400392,
+      "heapBeforeGC": 32823880,
+      "heapAfterGC": 17786624
+    },
+    {
+      "run": 4,
+      "label": "candidate",
+      "count": 1000,
+      "operation": "write",
+      "requests": 30,
+      "meanMs": 1.8259138999999995,
+      "responseBytes": 97001,
+      "allocation": {
+        "estimatedBytes": 80713848,
+        "entryAttributedBytes": 69181344
+      },
+      "heapBefore": 17312872,
+      "heapBeforeGC": 19052400,
+      "heapAfterGC": 17678632
+    },
+    {
+      "run": 5,
+      "label": "candidate",
+      "count": 1000,
+      "operation": "get",
+      "requests": 30,
+      "meanMs": 0.8150833333333334,
+      "responseBytes": 46001,
+      "allocation": {
+        "estimatedBytes": 14109432,
+        "entryAttributedBytes": 8939488
+      },
+      "heapBefore": 16794480,
+      "heapBeforeGC": 18836856,
+      "heapAfterGC": 17160128
+    },
+    {
+      "run": 5,
+      "label": "parent",
+      "count": 1000,
+      "operation": "get",
+      "requests": 30,
+      "meanMs": 0.9482236,
+      "responseBytes": 46001,
+      "allocation": {
+        "estimatedBytes": 21821952,
+        "entryAttributedBytes": 11771416
+      },
+      "heapBefore": 16896744,
+      "heapBeforeGC": 24659080,
+      "heapAfterGC": 17273416
+    },
+    {
+      "run": 5,
+      "label": "candidate",
+      "count": 1000,
+      "operation": "preview",
+      "requests": 30,
+      "meanMs": 0.7474430333333331,
+      "responseBytes": 46001,
+      "allocation": {
+        "estimatedBytes": 12419256,
+        "entryAttributedBytes": 2664320
+      },
+      "heapBefore": 17088800,
+      "heapBeforeGC": 22551032,
+      "heapAfterGC": 17431936
+    },
+    {
+      "run": 5,
+      "label": "parent",
+      "count": 1000,
+      "operation": "preview",
+      "requests": 30,
+      "meanMs": 0.9027319333333329,
+      "responseBytes": 46001,
+      "allocation": {
+        "estimatedBytes": 19350800,
+        "entryAttributedBytes": 5183528
+      },
+      "heapBefore": 17197296,
+      "heapBeforeGC": 22039648,
+      "heapAfterGC": 17543192
+    },
+    {
+      "run": 5,
+      "label": "candidate",
+      "count": 1000,
+      "operation": "write",
+      "requests": 30,
+      "meanMs": 1.8282485999999996,
+      "responseBytes": 97001,
+      "allocation": {
+        "estimatedBytes": 75206152,
+        "entryAttributedBytes": 63273960
+      },
+      "heapBefore": 17308592,
+      "heapBeforeGC": 19009240,
+      "heapAfterGC": 17666696
+    },
+    {
+      "run": 5,
+      "label": "parent",
+      "count": 1000,
+      "operation": "write",
+      "requests": 30,
+      "meanMs": 1.9774874999999998,
+      "responseBytes": 97001,
+      "allocation": {
+        "estimatedBytes": 85411584,
+        "entryAttributedBytes": 68024248
+      },
+      "heapBefore": 17395072,
+      "heapBeforeGC": 32823304,
+      "heapAfterGC": 17788800
+    },
+    {
+      "run": 6,
+      "label": "parent",
+      "count": 1000,
+      "operation": "get",
+      "requests": 30,
+      "meanMs": 0.9842319333333331,
+      "responseBytes": 46001,
+      "allocation": {
+        "estimatedBytes": 22440856,
+        "entryAttributedBytes": 12899920
+      },
+      "heapBefore": 16897368,
+      "heapBeforeGC": 24660504,
+      "heapAfterGC": 17273536
+    },
+    {
+      "run": 6,
+      "label": "candidate",
+      "count": 1000,
+      "operation": "get",
+      "requests": 30,
+      "meanMs": 0.8291458333333329,
+      "responseBytes": 46001,
+      "allocation": {
+        "estimatedBytes": 14392808,
+        "entryAttributedBytes": 9124664
+      },
+      "heapBefore": 16794488,
+      "heapBeforeGC": 18908656,
+      "heapAfterGC": 17159904
+    },
+    {
+      "run": 6,
+      "label": "parent",
+      "count": 1000,
+      "operation": "preview",
+      "requests": 30,
+      "meanMs": 0.8728041666666669,
+      "responseBytes": 46001,
+      "allocation": {
+        "estimatedBytes": 19521240,
+        "entryAttributedBytes": 5365840
+      },
+      "heapBefore": 17201576,
+      "heapBeforeGC": 22181072,
+      "heapAfterGC": 17543440
+    },
+    {
+      "run": 6,
+      "label": "candidate",
+      "count": 1000,
+      "operation": "preview",
+      "requests": 30,
+      "meanMs": 0.6961541666666662,
+      "responseBytes": 46001,
+      "allocation": {
+        "estimatedBytes": 11149096,
+        "entryAttributedBytes": 2334024
+      },
+      "heapBefore": 17089528,
+      "heapBeforeGC": 22662728,
+      "heapAfterGC": 17432008
+    },
+    {
+      "run": 6,
+      "label": "parent",
+      "count": 1000,
+      "operation": "write",
+      "requests": 30,
+      "meanMs": 1.9720874999999998,
+      "responseBytes": 97001,
+      "allocation": {
+        "estimatedBytes": 86962216,
+        "entryAttributedBytes": 70033400
+      },
+      "heapBefore": 17404528,
+      "heapBeforeGC": 32821960,
+      "heapAfterGC": 17786304
+    },
+    {
+      "run": 6,
+      "label": "candidate",
+      "count": 1000,
+      "operation": "write",
+      "requests": 30,
+      "meanMs": 1.8491944333333332,
+      "responseBytes": 97001,
+      "allocation": {
+        "estimatedBytes": 78912544,
+        "entryAttributedBytes": 66043200
+      },
+      "heapBefore": 17312440,
+      "heapBeforeGC": 27081552,
+      "heapAfterGC": 17668640
+    }
+  ],
+  "implementations": {
+    "parent": {
+      "lib/api/entries/index.js": "ebd28e8726f51d4c8ce1e68c808ffb11300a53bfa8cfee96a220124b7918059f",
+      "lib/server/entries.js": "9bfe1ac765bcfb4f56de3a32544f3eddafd032d2003b681616dbd7750c4c9648",
+      "package-lock.json": "9d30a88da1a6c49a15ece29e128c751d1049a49e5bedf6e16f3373ce8f1f0287"
+    },
+    "candidate": {
+      "lib/api/entries/index.js": "ba7d73e51384cb8cab9c77e82eb322b9070d09a1016f99e652a994ba706cbaaa",
+      "lib/server/entries.js": "bfdceb363be149d32756d84bb7d281e546674d09e73ec0de155c660de692006d",
+      "package-lock.json": "ac6030c817bb12cd8bdb62afb022bd4a9bbc7c7a92ac8d5c9f52f3e36073f292"
+    }
+  },
+  "fixtureSha256": "8987f89f5251d19e6ff685a8d79d4e2e74ca4091b15ff81bd167841f0998efc4"
+}

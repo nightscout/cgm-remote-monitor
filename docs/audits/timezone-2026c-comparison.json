@@ -1,0 +1,387 @@
+{
+  "before": {
+    "version": "0.5.48",
+    "data": "2025b"
+  },
+  "after": {
+    "version": "0.6.3",
+    "data": "2026c"
+  },
+  "window": {
+    "from": "1900-01-01T00:00:00.000Z",
+    "until": "2100-01-01T00:00:00.000Z"
+  },
+  "addedZones": [],
+  "removedZones": [],
+  "comparedIntervals": 66156,
+  "changedZones": 13,
+  "changes": [
+    {
+      "zone": "Africa/Casablanca",
+      "changedIntervals": 64,
+      "firstChange": {
+        "from": "2026-09-20T01:00:00.000Z",
+        "until": "2027-02-07T02:00:00.000Z",
+        "previous": {
+          "offsetMinutes": -60,
+          "abbreviation": "+01"
+        },
+        "candidate": {
+          "offsetMinutes": 0,
+          "abbreviation": "+00"
+        }
+      },
+      "lastChange": {
+        "from": "2087-05-11T02:00:00.000Z",
+        "until": "2100-01-01T00:00:00.000Z",
+        "previous": {
+          "offsetMinutes": -60,
+          "abbreviation": "+01"
+        },
+        "candidate": {
+          "offsetMinutes": 0,
+          "abbreviation": "+00"
+        }
+      }
+    },
+    {
+      "zone": "Africa/El_Aaiun",
+      "changedIntervals": 64,
+      "firstChange": {
+        "from": "2026-09-20T01:00:00.000Z",
+        "until": "2027-02-07T02:00:00.000Z",
+        "previous": {
+          "offsetMinutes": -60,
+          "abbreviation": "+01"
+        },
+        "candidate": {
+          "offsetMinutes": 0,
+          "abbreviation": "+00"
+        }
+      },
+      "lastChange": {
+        "from": "2087-05-11T02:00:00.000Z",
+        "until": "2100-01-01T00:00:00.000Z",
+        "previous": {
+          "offsetMinutes": -60,
+          "abbreviation": "+01"
+        },
+        "candidate": {
+          "offsetMinutes": 0,
+          "abbreviation": "+00"
+        }
+      }
+    },
+    {
+      "zone": "America/Edmonton",
+      "changedIntervals": 147,
+      "firstChange": {
+        "from": "2026-11-01T08:00:00.000Z",
+        "until": "2027-03-14T09:00:00.000Z",
+        "previous": {
+          "offsetMinutes": 420,
+          "abbreviation": "MST"
+        },
+        "candidate": {
+          "offsetMinutes": 360,
+          "abbreviation": "CST"
+        }
+      },
+      "lastChange": {
+        "from": "2099-11-01T08:00:00.000Z",
+        "until": "2100-01-01T00:00:00.000Z",
+        "previous": {
+          "offsetMinutes": 420,
+          "abbreviation": "MST"
+        },
+        "candidate": {
+          "offsetMinutes": 360,
+          "abbreviation": "CST"
+        }
+      }
+    },
+    {
+      "zone": "America/Ensenada",
+      "changedIntervals": 16,
+      "firstChange": {
+        "from": "1953-04-26T09:00:00.000Z",
+        "until": "1953-09-27T09:00:00.000Z",
+        "previous": {
+          "offsetMinutes": 480,
+          "abbreviation": "PST"
+        },
+        "candidate": {
+          "offsetMinutes": 420,
+          "abbreviation": "PDT"
+        }
+      },
+      "lastChange": {
+        "from": "1975-02-23T10:00:00.000Z",
+        "until": "1975-10-26T09:00:00.000Z",
+        "previous": {
+          "offsetMinutes": 480,
+          "abbreviation": "PST"
+        },
+        "candidate": {
+          "offsetMinutes": 420,
+          "abbreviation": "PDT"
+        }
+      }
+    },
+    {
+      "zone": "America/Santa_Isabel",
+      "changedIntervals": 16,
+      "firstChange": {
+        "from": "1953-04-26T09:00:00.000Z",
+        "until": "1953-09-27T09:00:00.000Z",
+        "previous": {
+          "offsetMinutes": 480,
+          "abbreviation": "PST"
+        },
+        "candidate": {
+          "offsetMinutes": 420,
+          "abbreviation": "PDT"
+        }
+      },
+      "lastChange": {
+        "from": "1975-02-23T10:00:00.000Z",
+        "until": "1975-10-26T09:00:00.000Z",
+        "previous": {
+          "offsetMinutes": 480,
+          "abbreviation": "PST"
+        },
+        "candidate": {
+          "offsetMinutes": 420,
+          "abbreviation": "PDT"
+        }
+      }
+    },
+    {
+      "zone": "America/Tijuana",
+      "changedIntervals": 16,
+      "firstChange": {
+        "from": "1953-04-26T09:00:00.000Z",
+        "until": "1953-09-27T09:00:00.000Z",
+        "previous": {
+          "offsetMinutes": 480,
+          "abbreviation": "PST"
+        },
+        "candidate": {
+          "offsetMinutes": 420,
+          "abbreviation": "PDT"
+        }
+      },
+      "lastChange": {
+        "from": "1975-02-23T10:00:00.000Z",
+        "until": "1975-10-26T09:00:00.000Z",
+        "previous": {
+          "offsetMinutes": 480,
+          "abbreviation": "PST"
+        },
+        "candidate": {
+          "offsetMinutes": 420,
+          "abbreviation": "PDT"
+        }
+      }
+    },
+    {
+      "zone": "America/Vancouver",
+      "changedIntervals": 147,
+      "firstChange": {
+        "from": "2026-11-01T09:00:00.000Z",
+        "until": "2027-03-14T10:00:00.000Z",
+        "previous": {
+          "offsetMinutes": 480,
+          "abbreviation": "PST"
+        },
+        "candidate": {
+          "offsetMinutes": 420,
+          "abbreviation": "MST"
+        }
+      },
+      "lastChange": {
+        "from": "2099-11-01T09:00:00.000Z",
+        "until": "2100-01-01T00:00:00.000Z",
+        "previous": {
+          "offsetMinutes": 480,
+          "abbreviation": "PST"
+        },
+        "candidate": {
+          "offsetMinutes": 420,
+          "abbreviation": "MST"
+        }
+      }
+    },
+    {
+      "zone": "America/Yellowknife",
+      "changedIntervals": 147,
+      "firstChange": {
+        "from": "2026-11-01T08:00:00.000Z",
+        "until": "2027-03-14T09:00:00.000Z",
+        "previous": {
+          "offsetMinutes": 420,
+          "abbreviation": "MST"
+        },
+        "candidate": {
+          "offsetMinutes": 360,
+          "abbreviation": "CST"
+        }
+      },
+      "lastChange": {
+        "from": "2099-11-01T08:00:00.000Z",
+        "until": "2100-01-01T00:00:00.000Z",
+        "previous": {
+          "offsetMinutes": 420,
+          "abbreviation": "MST"
+        },
+        "candidate": {
+          "offsetMinutes": 360,
+          "abbreviation": "CST"
+        }
+      }
+    },
+    {
+      "zone": "Canada/Mountain",
+      "changedIntervals": 147,
+      "firstChange": {
+        "from": "2026-11-01T08:00:00.000Z",
+        "until": "2027-03-14T09:00:00.000Z",
+        "previous": {
+          "offsetMinutes": 420,
+          "abbreviation": "MST"
+        },
+        "candidate": {
+          "offsetMinutes": 360,
+          "abbreviation": "CST"
+        }
+      },
+      "lastChange": {
+        "from": "2099-11-01T08:00:00.000Z",
+        "until": "2100-01-01T00:00:00.000Z",
+        "previous": {
+          "offsetMinutes": 420,
+          "abbreviation": "MST"
+        },
+        "candidate": {
+          "offsetMinutes": 360,
+          "abbreviation": "CST"
+        }
+      }
+    },
+    {
+      "zone": "Canada/Pacific",
+      "changedIntervals": 147,
+      "firstChange": {
+        "from": "2026-11-01T09:00:00.000Z",
+        "until": "2027-03-14T10:00:00.000Z",
+        "previous": {
+          "offsetMinutes": 480,
+          "abbreviation": "PST"
+        },
+        "candidate": {
+          "offsetMinutes": 420,
+          "abbreviation": "MST"
+        }
+      },
+      "lastChange": {
+        "from": "2099-11-01T09:00:00.000Z",
+        "until": "2100-01-01T00:00:00.000Z",
+        "previous": {
+          "offsetMinutes": 480,
+          "abbreviation": "PST"
+        },
+        "candidate": {
+          "offsetMinutes": 420,
+          "abbreviation": "MST"
+        }
+      }
+    },
+    {
+      "zone": "Europe/Chisinau",
+      "changedIntervals": 156,
+      "firstChange": {
+        "from": "2022-03-27T00:00:00.000Z",
+        "until": "2022-03-27T01:00:00.000Z",
+        "previous": {
+          "offsetMinutes": -180,
+          "abbreviation": "EEST"
+        },
+        "candidate": {
+          "offsetMinutes": -120,
+          "abbreviation": "EET"
+        }
+      },
+      "lastChange": {
+        "from": "2099-10-25T00:00:00.000Z",
+        "until": "2099-10-25T01:00:00.000Z",
+        "previous": {
+          "offsetMinutes": -120,
+          "abbreviation": "EET"
+        },
+        "candidate": {
+          "offsetMinutes": -180,
+          "abbreviation": "EEST"
+        }
+      }
+    },
+    {
+      "zone": "Europe/Tiraspol",
+      "changedIntervals": 156,
+      "firstChange": {
+        "from": "2022-03-27T00:00:00.000Z",
+        "until": "2022-03-27T01:00:00.000Z",
+        "previous": {
+          "offsetMinutes": -180,
+          "abbreviation": "EEST"
+        },
+        "candidate": {
+          "offsetMinutes": -120,
+          "abbreviation": "EET"
+        }
+      },
+      "lastChange": {
+        "from": "2099-10-25T00:00:00.000Z",
+        "until": "2099-10-25T01:00:00.000Z",
+        "previous": {
+          "offsetMinutes": -120,
+          "abbreviation": "EET"
+        },
+        "candidate": {
+          "offsetMinutes": -180,
+          "abbreviation": "EEST"
+        }
+      }
+    },
+    {
+      "zone": "Mexico/BajaNorte",
+      "changedIntervals": 16,
+      "firstChange": {
+        "from": "1953-04-26T09:00:00.000Z",
+        "until": "1953-09-27T09:00:00.000Z",
+        "previous": {
+          "offsetMinutes": 480,
+          "abbreviation": "PST"
+        },
+        "candidate": {
+          "offsetMinutes": 420,
+          "abbreviation": "PDT"
+        }
+      },
+      "lastChange": {
+        "from": "1975-02-23T10:00:00.000Z",
+        "until": "1975-10-26T09:00:00.000Z",
+        "previous": {
+          "offsetMinutes": 480,
+          "abbreviation": "PST"
+        },
+        "candidate": {
+          "offsetMinutes": 420,
+          "abbreviation": "PDT"
+        }
+      }
+    }
+  ],
+  "scope": "Full server data offsets and abbreviations only. Alias metadata, country mappings, parsing, profile selection and clipped browser behavior require separate checks.",
+  "note": "Summary stores first/last changed interval per zone. Run the probe for every interval; this is not a validation of the upstream civil-time rules.",
+  "probeSha256": "e88827a98fc6b99bfd01fab88158635c9c1f4abb646f2678e62fbcdb97be3b4c"
+}

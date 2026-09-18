@@ -1,0 +1,221 @@
+{
+  "reviewDate": "2026-09-06",
+  "edges": [
+    {
+      "parent": "(root)",
+      "name": "qs",
+      "range": "6.16.0",
+      "path": "node_modules/qs",
+      "version": "6.16.0",
+      "compatible": true
+    },
+    {
+      "parent": "node_modules/@istanbuljs/load-nyc-config",
+      "name": "js-yaml",
+      "range": "^3.13.1",
+      "path": "node_modules/@istanbuljs/load-nyc-config/node_modules/js-yaml",
+      "version": "3.15.2",
+      "compatible": true
+    },
+    {
+      "parent": "node_modules/ajv-formats",
+      "name": "ajv",
+      "range": "^8.0.0",
+      "path": "node_modules/ajv-formats/node_modules/ajv",
+      "version": "8.20.0",
+      "compatible": true
+    },
+    {
+      "parent": "node_modules/ajv-formats/node_modules/ajv",
+      "name": "fast-uri",
+      "range": "^3.0.1",
+      "path": "node_modules/fast-uri",
+      "version": "3.1.7",
+      "compatible": true
+    },
+    {
+      "parent": "node_modules/anymatch",
+      "name": "picomatch",
+      "range": "^2.0.4",
+      "path": "node_modules/picomatch",
+      "version": "2.3.2",
+      "compatible": true
+    },
+    {
+      "parent": "node_modules/body-parser",
+      "name": "qs",
+      "range": "^6.15.2",
+      "path": "node_modules/qs",
+      "version": "6.16.0",
+      "compatible": true
+    },
+    {
+      "parent": "node_modules/eslint",
+      "name": "ajv",
+      "range": "^6.14.0",
+      "path": "node_modules/ajv",
+      "version": "6.15.0",
+      "compatible": true
+    },
+    {
+      "parent": "node_modules/express",
+      "name": "qs",
+      "range": "^6.14.0",
+      "path": "node_modules/qs",
+      "version": "6.16.0",
+      "compatible": true
+    },
+    {
+      "parent": "node_modules/flat-cache",
+      "name": "flatted",
+      "range": "^3.4.2",
+      "path": "node_modules/flatted",
+      "version": "3.4.4",
+      "compatible": true
+    },
+    {
+      "parent": "node_modules/minimatch",
+      "name": "brace-expansion",
+      "range": "^5.0.8",
+      "path": "node_modules/brace-expansion",
+      "version": "5.0.9",
+      "compatible": true
+    },
+    {
+      "parent": "node_modules/minimizer-webpack-plugin",
+      "name": "schema-utils",
+      "range": "^4.3.3",
+      "path": "node_modules/schema-utils",
+      "version": "4.3.3",
+      "compatible": true
+    },
+    {
+      "parent": "node_modules/mocha",
+      "name": "js-yaml",
+      "range": "^5.0.0",
+      "path": "node_modules/mocha/node_modules/js-yaml",
+      "version": "5.4.1",
+      "compatible": true
+    },
+    {
+      "parent": "node_modules/nightscout-connect",
+      "name": "qs",
+      "range": "^6.15.3",
+      "path": "node_modules/qs",
+      "version": "6.16.0",
+      "compatible": true
+    },
+    {
+      "parent": "node_modules/node-cache",
+      "name": "lodash",
+      "range": "^4.17.15",
+      "path": "node_modules/lodash",
+      "version": "4.18.1",
+      "compatible": true
+    },
+    {
+      "parent": "node_modules/nodemon/node_modules/readdirp",
+      "name": "picomatch",
+      "range": "^2.2.1",
+      "path": "node_modules/picomatch",
+      "version": "2.3.2",
+      "compatible": true
+    },
+    {
+      "parent": "node_modules/sanitize-html",
+      "name": "postcss",
+      "range": "^8.3.11",
+      "path": "node_modules/postcss",
+      "version": "8.5.28",
+      "compatible": true
+    },
+    {
+      "parent": "node_modules/schema-utils",
+      "name": "ajv",
+      "range": "^8.9.0",
+      "path": "node_modules/schema-utils/node_modules/ajv",
+      "version": "8.20.0",
+      "compatible": true
+    },
+    {
+      "parent": "node_modules/schema-utils",
+      "name": "ajv-formats",
+      "range": "^2.1.1",
+      "path": "node_modules/ajv-formats",
+      "version": "2.1.1",
+      "compatible": true
+    },
+    {
+      "parent": "node_modules/schema-utils/node_modules/ajv",
+      "name": "fast-uri",
+      "range": "^3.0.1",
+      "path": "node_modules/fast-uri",
+      "version": "3.1.7",
+      "compatible": true
+    },
+    {
+      "parent": "node_modules/schema-utils/node_modules/ajv-keywords",
+      "name": "ajv",
+      "range": "^8.8.2",
+      "path": "node_modules/schema-utils/node_modules/ajv",
+      "version": "8.20.0",
+      "compatible": true
+    },
+    {
+      "parent": "node_modules/socket.io",
+      "name": "socket.io-parser",
+      "range": "~4.2.4",
+      "path": "node_modules/socket.io-parser",
+      "version": "4.2.7",
+      "compatible": true
+    },
+    {
+      "parent": "node_modules/socket.io-client",
+      "name": "socket.io-parser",
+      "range": "~4.2.4",
+      "path": "node_modules/socket.io-parser",
+      "version": "4.2.7",
+      "compatible": true
+    },
+    {
+      "parent": "node_modules/socks",
+      "name": "ip-address",
+      "range": "^10.1.1",
+      "path": "node_modules/ip-address",
+      "version": "10.7.0",
+      "compatible": true
+    },
+    {
+      "parent": "node_modules/superagent",
+      "name": "qs",
+      "range": "^6.14.1",
+      "path": "node_modules/qs",
+      "version": "6.16.0",
+      "compatible": true
+    },
+    {
+      "parent": "node_modules/webpack",
+      "name": "schema-utils",
+      "range": "^4.3.3",
+      "path": "node_modules/schema-utils",
+      "version": "4.3.3",
+      "compatible": true
+    },
+    {
+      "parent": "node_modules/webpack-cli",
+      "name": "js-yaml",
+      "range": "^4.0.0 || ^5.0.0",
+      "path": "node_modules/js-yaml",
+      "version": "4.3.2",
+      "compatible": true
+    },
+    {
+      "parent": "node_modules/webpack-dev-middleware",
+      "name": "schema-utils",
+      "range": "^4.3.3",
+      "path": "node_modules/schema-utils",
+      "version": "4.3.3",
+      "compatible": true
+    }
+  ]
+}

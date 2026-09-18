@@ -14,6 +14,7 @@ describe('Treatment API query errors', function () {
 
   beforeEach(function () {
     app = express();
+    require('../lib/middleware/configure-request')(app);
     storageError = null;
     lastQuery = null;
     const env = { settings: {} };

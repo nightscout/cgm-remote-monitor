@@ -29,6 +29,7 @@
   <meta name="msapplication-config" content="/browserconfig.xml">
   <meta name="theme-color" content="#333333">
   <link rel="preload" href="css/ui-darkness/jquery-ui.min.css" as="style" onload="this.onload=null;this.rel='stylesheet'">
+  <link rel="stylesheet" href="css/help-tooltips.css">
   <link rel="preload" href="css/jquery.tooltips.css" as="style" onload="this.onload=null;this.rel='stylesheet'">
   <link rel="preload" href="css/main.css" as="style" onload="this.onload=null;this.rel='stylesheet'">
   <link rel="preload" href="css/drawer.css" as="style" onload="this.onload=null;this.rel='stylesheet'">
@@ -752,23 +753,26 @@
     <audio src="audio/alarm2.mp3" preload="auto" loop="true" class="urgent alarm2 mp3" type="audio/mp3"></audio>
   </div>
 
-  <script src="<%= locals.bundle %>/js/bundle.app.js"></script>
-  <script src="socket.io/socket.io.js"></script>
-  <script src="js/client.js"></script>
+  <%- include('partials/page-scripts', {pageEntry: 'app', startupScripts: ['/js/client.js']}) %>
 
   <script>
     if ('serviceWorker' in navigator) {
       window.addEventListener('load', () => {
+        // Initial installation should not interrupt startup. For an update,
+        // reload once when the new worker actually takes control, rather than
+        // reloading repeatedly through installing/installed/activating states.
+        var wasControlled = Boolean(navigator.serviceWorker.controller);
+        var reloading = false;
+        navigator.serviceWorker.addEventListener('controllerchange', () => {
+          if (wasControlled && !reloading) {
+            reloading = true;
+            window.location.reload();
+          }
+        });
         navigator.serviceWorker.register('/sw.js', { scope: '/' }).then(function(reg) {
           console.log('Service worker registered');
           reg.addEventListener('updatefound', () => {
             console.log('Service worker update detected');
-            reg.update();
-            var newWorker = reg.installing;
-            newWorker.addEventListener('statechange', (state) => {
-              console.log('New worker state change', state);
-              window.location.reload(true);
-            });
           });
         }).catch(function(error) {
           console.log('Registration failed with ' + error);

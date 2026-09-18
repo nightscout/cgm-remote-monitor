@@ -1,5 +1,7 @@
 'use strict;'
 
+require('./lib/supertest-loopback');
+
 var testHelpers = require('./lib/test-helpers');
 var productionSafety = require('./lib/production-safety');
 

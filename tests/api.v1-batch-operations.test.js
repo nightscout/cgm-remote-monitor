@@ -40,6 +40,7 @@ describe('v1 API Batch Operations - MongoDB Modernization', function() {
     self.env.settings.enable = ['careportal', 'api'];
     this.wares = require('../lib/middleware/')(self.env);
     self.app = require('express')();
+    require('../lib/middleware/configure-request')(self.app);
     self.app.enable('api');
     require('../lib/server/bootevent')(self.env, language).boot(function booted(ctx) {
       self.ctx = ctx;
@@ -163,7 +164,9 @@ describe('v1 API Batch Operations - MongoDB Modernization', function() {
       // SPEC: Edge case - empty array should not error (Section 4.6)
       // NOTE: Current behavior creates empty treatment with auto-generated created_at
       
-      const batch = fixtures.edgeCases.emptyBatch;
+      const batch = fixtures.edgeCases.emptyArray;
+      batch.should.be.instanceof(Array);
+      batch.length.should.equal(0);
       
       request(self.app)
         .post('/api/treatments/')
