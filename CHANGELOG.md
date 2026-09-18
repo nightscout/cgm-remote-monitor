@@ -6,6 +6,15 @@ All notable changes to cgm-remote-monitor are documented in this file.
 
 ### Fixed
 
+- **Credential settings converted to numbers:** Keep credential and identifier
+  settings as text instead of converting any value that looks numeric. A Dexcom
+  account name that is a phone number keeps its leading plus and a password
+  keeps its leading zeros, so `CONNECT_SHARE_ACCOUNT_NAME=+15551234567` and
+  `CONNECT_SHARE_PASSWORD=007700` reach Dexcom Share as typed rather than as
+  `15551234567` and `7700`. The Medtronic CareLink and Glooko credentials, the
+  legacy `BRIDGE_*` settings and `LOOP_DEVELOPER_TEAM_ID` are covered as well.
+  Number and `on`/`off` conversion is unchanged for every other setting, and no
+  configuration changes are required. Relates to #8056 and #8181.
 - **Log volume:** Disable routine heartbeat, data-reload and Nightscout Connect
   diagnostics by default. Add `DEBUG_LOGGING=true` for server troubleshooting
   and `CONNECT_DEBUG=true` for connector-only diagnostics. Keep warnings and
