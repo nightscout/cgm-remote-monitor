@@ -63,10 +63,24 @@ describe('query operand readers', function ( ) {
     });
 
     // The operand is reached by operator, not by position, so wrapping it
-    // changes nothing. Measured: {sgv: {$not: {$exists: "false"}}} returns the
-    // document that HAS sgv, i.e. the inverse of the inverse of the request.
-    it('reads the operand at any depth, including under $not', function ( ) {
-      find('find[madeUpField][$not][$exists]=false').madeUpField.$not.$exists.should.equal(false);
+    // changes nothing.
+    //
+    // THIS TEST USED $not AND NO LONGER CAN. Its subject is the depth property,
+    // and $not was the fixture that expressed it -- measured at the time:
+    // {sgv: {$not: {$exists: "false"}}} returns the document that HAS sgv, the
+    // inverse of the inverse of the request. The v1 operator allowlist (BF-04)
+    // now refuses $not, so that shape cannot reach the reader at all and the
+    // property is asserted through $and, which is allowed and is the same
+    // claim. The refusal is asserted below rather than left silent, because a
+    // deleted assertion and a deleted capability look identical afterwards.
+    it('reads the operand at any depth, including inside a group', function ( ) {
+      const out = find('find[$and][0][madeUpField][$exists]=false');
+      out.$and[0].madeUpField.$exists.should.equal(false);
+    });
+
+    it('no longer accepts $not at all, which is where that depth case used to live', function ( ) {
+      (function ( ) { find('find[madeUpField][$not][$exists]=false'); })
+        .should.throw(/^Query operator \$not is not supported/);
     });
 
     it('reads the operand inside an $or array', function ( ) {
@@ -89,9 +103,18 @@ describe('query operand readers', function ( ) {
       find('find[notes][$regex]=true').notes.$regex.should.equal('true');
     });
 
-    it('leaves $options, $type and $text alone', function ( ) {
+    // $type kept its own test in tests/query.test.js, where its operand reader
+    // is the subject. $text is gone from this list: the allowlist (BF-04)
+    // refuses it, and it could never have worked on a field anyway -- MongoDB
+    // answers "unknown operator: $text" outside the top level, and Nightscout
+    // creates no text index for the top-level form to use.
+    it('leaves $options alone', function ( ) {
       find('find[notes][$options]=i').notes.$options.should.equal('i');
-      find('find[sgv][$type]=number').sgv.$type.should.equal('number');
+    });
+
+    it('no longer accepts $text, which used to sit in this list as a fixture', function ( ) {
+      (function ( ) { find('find[notes][$text]=x'); })
+        .should.throw(/^Query operator \$text is not supported/);
     });
 
     // A field value that happens to spell a boolean is a VALUE, not an
