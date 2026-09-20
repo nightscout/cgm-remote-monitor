@@ -162,6 +162,34 @@ describe('pluginbase (modern jsdom)', function () {
     majorPills.find('span.pill.fake').attr('title').should.equal('fake');
   });
 
+  it('switches between a native title and custom tooltip as pill data changes', function () {
+    const container = $('<div>').appendTo('body');
+    const bgStatus = $('<div>').appendTo(container);
+    const majorPills = $('<div>').appendTo(bgStatus);
+    const minorPills = $('<div>').appendTo(bgStatus);
+    const statusPills = $('<div>').appendTo(bgStatus);
+    const tooltip = $('<div>').appendTo(container);
+    const base = require('../lib/plugins/pluginbase')(
+      majorPills, minorPills, statusPills, bgStatus, d3Selection(tooltip), null, value => value
+    );
+    const plugin = { name: 'delta', label: 'BG Delta', pluginType: 'pill-major' };
+    base.updatePillText(plugin, { label: 'mg/dl', value: 5 });
+    const pill = majorPills.find('.delta');
+    pill.attr('title').should.equal('BG Delta');
+
+    base.updatePillText(plugin, { label: 'mg/dl', value: 5, info: [{ label: 'Device', value: 'CGM' }] });
+    should.not.exist(pill.attr('title'));
+    pill.trigger($.Event('mouseover', { pageX: 0, pageY: 0 }));
+    tooltip.text().should.containEql('CGM');
+    tooltip.css('display').should.not.equal('none');
+    pill.trigger('mouseout');
+
+    base.updatePillText(plugin, { label: 'mg/dl', value: 6 });
+    pill.attr('title').should.equal('BG Delta');
+    pill.trigger('mouseover');
+    tooltip.css('display').should.equal('none');
+  });
+
   it('renders tooltip labels and values as text inside owned markup', function () {
     function div (clazz) {
       return $('<div class="' + clazz + '"></div>');
