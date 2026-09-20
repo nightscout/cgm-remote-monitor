@@ -1,6 +1,7 @@
 'use strict';
 
 require('should');
+const assert = require('assert');
 const helper = require('./inithelper')();
 const levels = helper.ctx.levels;
 
@@ -125,7 +126,25 @@ describe('insulinage', function ( ) {
         iage.checkNotifications(sbx);
 
         sbx.properties.iage.level.should.equal(levels.URGENT);
+        assert.equal(sbx.properties.iage.notification, undefined);
         done();
+    });
+
+    [
+        { minutes: 72 * 60 + 20, enabled: true, notification: true },
+        { minutes: 72 * 60 + 21, enabled: true, notification: false },
+        { minutes: 72 * 60, enabled: false, notification: false }
+    ].forEach(function (testCase) {
+        it('keeps the urgent notification window at ' + testCase.minutes + ' minutes with alerts ' + testCase.enabled, function () {
+            var now = Date.UTC(2026, 0, 10);
+            var result = iage.findLatestTimeChange({
+                time: now,
+                extendedSettings: { enableAlerts: testCase.enabled },
+                data: { insulinchangeTreatments: [{ mills: now - testCase.minutes * 60000 }] }
+            });
+            result.level.should.equal(levels.URGENT);
+            Boolean(result.notification).should.equal(testCase.notification);
+        });
     });
 
 });
