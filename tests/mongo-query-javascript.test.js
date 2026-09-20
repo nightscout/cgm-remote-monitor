@@ -131,10 +131,14 @@ describe('MongoDB query JavaScript boundary', function ( ) {
       const entriesList = stubList({dateField: 'date', useEpoch: true, walker: { }});
       const ctx = {
         authorization: permit
-        // entries' in-memory short circuit is consulted before storage. It
-        // declines any `find` key other than `type`, so a refused filter still
-        // reaches query.js; an empty cache makes that explicit here.
-        , cache: {treatments: [ ], devicestatus: [ ], entries: [ ], getData: function ( ) { return [ ]; }}
+        // Non-type filters must bypass the entries cache and reach query.js.
+        , cache: {
+          treatments: [ ], devicestatus: [ ], entries: [ ]
+          , getData: function ( ) { return [ ]; }
+          , getDataRef: function ( ) {
+            throw new Error('Queries requiring storage must not read the entries cache');
+          }
+        }
         , ddata: {sgvs: [ ]}
         , purifier: {purifyObject: function ( ) { }}
         , entries: Object.assign(function ( ) { }, {
