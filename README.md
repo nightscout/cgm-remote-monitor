@@ -292,6 +292,7 @@ autonomy for your data:
   * `SSL_CA` - Path to your ssl ca file, so that ssl(https) can be enabled directly in node.js. If using Let's Encrypt, make this variable the path to chain.pem file (chain).
   * `HEARTBEAT` (`60`)  - Number of seconds to wait in between database checks
   * `DEBUG_MINIFY` (`true`)  - Debug option, setting to `false` will disable bundle minification to help tracking down error and speed up development
+  * `DEBUG_LOGGING` (`false`) - Set to `true` to log routine server heartbeats, data reload summaries and Nightscout Connect diagnostics. Warnings, errors and startup messages remain visible with debugging off. This is a server environment setting; restart Nightscout after changing it. On Heroku, add or edit it under **Settings → Config Vars**. Set it back to `false` or remove it when troubleshooting is complete. It does not control Heroku router/access logs or every plugin's logging.
   * `DE_NORMALIZE_DATES`(`true`) - The Nightscout REST API normalizes all entered dates to UTC zone. Some Nightscout clients have broken date deserialization logic and expect to received back dates in zoned formats. Setting this variable to `true` causes the REST API to serialize dates sent to Nightscout in zoned format back to zoned format when served to clients over REST.
 
 ### Predefined values for your browser settings (optional)
@@ -464,7 +465,7 @@ autonomy for your data:
   * `IAGE_ENABLE_ALERTS` (`false`) - Set to `true` to enable notifications to remind you of upcoming insulin reservoir change.
   * `IAGE_INFO` (`44`) - If time since last `Insulin Change` matches `IAGE_INFO`, user will be warned of upcoming insulin reservoir change
   * `IAGE_WARN` (`48`) - If time since last `Insulin Change` matches `IAGE_WARN`, user will be alarmed to to change the insulin reservoir
-  * `IAGE_URGENT` (`72`) - If time since last `Insulin Change` matches `IAGE_URGENT`, user will be issued a persistent warning of overdue change.
+  * `IAGE_URGENT` (`72`) - Marks the insulin age as urgent at and beyond this many hours since the last `Insulin Change`. With `IAGE_ENABLE_ALERTS` enabled, an urgent notification is requested during the first 20 minutes of the threshold hour (through minute 20). Starting or upgrading Nightscout after that window does not issue a catch-up notification; the urgent indicator remains until the insulin age resets.
 
 ##### `bage` (Battery Age)
   Calculates the number of days and hours since the last `Pump Battery Change` treatment that was recorded.
@@ -495,6 +496,7 @@ Connect common diabetes cloud resources to Nightscout.
 Include the keyword `connect` in the `ENABLE` list.
 Nightscout connection uses extended settings using the environment variable prefix `CONNECT_`.
   * `CONNECT_SOURCE` - The name for the source of one of the supported inputs.  one of `nightscout`, `dexcomshare`, etc...
+  * `CONNECT_DEBUG` (inherits `DEBUG_LOGGING`, which defaults to `false`) - Set to `true` for connector-only debugging, or `false` to keep the connector quiet while server debugging is enabled. Diagnostic output uses operation summaries, without dumping credentials, sessions or patient records. Warnings and failures remain visible. Restart Nightscout after changing this setting.
   * `CONNECT_SOURCE_COLLECTIONS` - For Nightscout source sync, a comma-separated list of collections. Default: `entries,treatments,devicestatus,profiles`.
   * `CONNECT_SOURCE_MAX_COUNT` - For Nightscout source sync, maximum records per collection request. Default: `1000`.
 ###### Nightscout
@@ -737,6 +739,8 @@ When APNs provides no failure details, the message says so. Unexpected failures 
   Some plugins support additional configuration using extra environment variables.  These are prefixed with the name of the plugin and a `_`.  For example setting `MYPLUGIN_EXAMPLE_VALUE=1234` would make `extendedSettings.exampleValue` available to the `MYPLUGIN` plugin.
 
   Plugins only have access to their own extended settings, all the extended settings of client plugins will be sent to the browser.
+
+  Values that look numeric are converted to numbers before the plugin sees them, and `on`/`true`/`off`/`false` are converted to booleans.  Settings whose value must reach the plugin as written — passwords, account names, and account or device identifiers — are listed in `stringSettings` in `lib/server/env.js` and are never converted to numbers.  Add yours there when you introduce one.
 
   * `DEVICESTATUS_ADVANCED` (`true`) - Defaults to true. Users who only have a single device uploading data to Nightscout can set this to false to reduce the data use of the site.
   * `DEVICESTATUS_DAYS` (`1`) - Defaults to 1, can optionally be set to 2. Users can use this to show 48 hours of device status data for in retro mode, rather than the default 24 hours. Setting this value to 2 will roughly double the bandwidth usage of nightscout, so users with a data cap may not want to update this setting.
