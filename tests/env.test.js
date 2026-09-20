@@ -128,6 +128,55 @@ describe('env', function () {
     delete process.env.SCARYPLUGIN_DO_THING;
   } );
 
+  describe( 'extended settings type conversion', function () {
+    var VARS = [ 'ENABLE', 'CONNECT_SOURCE', 'CONNECT_SHARE_ACCOUNT_NAME', 'CONNECT_SHARE_PASSWORD'
+               , 'BRIDGE_INTERVAL', 'PROFILE_HISTORY', 'PUSHOVER_API_TOKEN', 'PUSHOVER_ALARM_KEY' ];
+
+    function clear () {
+      VARS.forEach( function eachVar ( name ) { delete process.env[name]; } );
+    }
+
+    beforeEach( function () {
+      clear();
+      process.env.ENABLE = 'bridge connect profile pushover';
+    } );
+
+    afterEach( clear );
+
+    // Dexcom issues phone numbers as account names, and Number('+15551234567')
+    // drops the plus. A password keeps its leading zeros for the same reason.
+    it( 'keeps a phone-number Dexcom account name and a leading-zero password as typed', function () {
+      process.env.CONNECT_SOURCE = 'dexcomshare';
+      process.env.CONNECT_SHARE_ACCOUNT_NAME = '+15551234567';
+      process.env.CONNECT_SHARE_PASSWORD = '007700';
+
+      var env = require( '../lib/server/env' )();
+
+      env.extendedSettings.connect.shareAccountName.should.equal( '+15551234567' );
+      env.extendedSettings.connect.sharePassword.should.equal( '007700' );
+    } );
+
+    it( 'still converts a numeric setting on a plugin that has credentials', function () {
+      process.env.BRIDGE_INTERVAL = '150000';
+
+      var env = require( '../lib/server/env' )();
+
+      env.extendedSettings.bridge.interval.should.equal( 150000 );
+    } );
+
+    // pushover.js disables a push category with `key === false`
+    it( 'still converts on and off to booleans', function () {
+      process.env.PROFILE_HISTORY = 'on';
+      process.env.PUSHOVER_API_TOKEN = 'dummy_token_abc';
+      process.env.PUSHOVER_ALARM_KEY = 'off';
+
+      var env = require( '../lib/server/env' )();
+
+      env.extendedSettings.profile.history.should.equal( true );
+      env.extendedSettings.pushover.alarmKey.should.equal( false );
+    } );
+  } );
+
   it( 'add pushover to enable if one of the env vars is set', function () {
     process.env.PUSHOVER_API_TOKEN = 'abc12345';
 

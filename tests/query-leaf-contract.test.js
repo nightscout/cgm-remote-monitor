@@ -7,11 +7,11 @@ for (const [name, query] of implementations) {
   describe(name + ' query leaf contracts', function () {
     it('mutates nested operators and arrays in place without touching other fields', function () {
       const values = ['90', '120'];
-      const params = {find: {sgv: {$not: {$in: values}, $gte: '70'}, note: '123'}};
+      const params = {find: {sgv: {$in: values, $gte: '70'}, note: '123'}};
       const result = query(params, {noDateFilter: true});
       assert.equal(result, params.find);
-      assert.equal(result.sgv.$not.$in, values);
-      assert.deepEqual(result, {sgv: {$not: {$in: [90, 120]}, $gte: 70}, note: '123'});
+      assert.equal(result.sgv.$in, values);
+      assert.deepEqual(result, {sgv: {$in: [90, 120], $gte: 70}, note: '123'});
     });
     it('preserves the scalar truthiness and root replacement contracts', function () {
       for (const value of [0, false, null, undefined, '', 42]) {

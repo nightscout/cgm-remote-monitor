@@ -62,7 +62,7 @@ describe('Public count query boundary', function () {
       const response = await request(server).get('/count/entries/where?' + qs.stringify({find:{date:{$gte:0}}, pipeline}));
       assert.equal(response.status, 400, JSON.stringify(response.body));
       assert.equal(response.body.status, 400);
-      assert.equal(response.body.message, 'Custom aggregation pipelines are not supported by the count endpoint');
+      assert.equal(response.body.message, 'The pipeline parameter is not supported by the Nightscout API v1. Use find[...] to filter the records a count is taken over.');
       assert.equal(aggregateCommands, before);
     }
   });

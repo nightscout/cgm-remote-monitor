@@ -377,6 +377,8 @@
     "Values loaded.": "Reikšmės įkeltos.",
     "Default values used.": "Naudojamos numatytosios reikšmės.",
     "Error. Default values used.": "Klaida. Naudojamos numatytosios reikšmės.",
+    "Enter every profile value before saving.": "Prieš išsaugodami įveskite visas profilio reikšmes.",
+    "Your profile could not be loaded. Reload before editing.": "Nepavyko įkelti jūsų profilio. Prieš redaguodami įkelkite puslapį iš naujo.",
     "Time ranges of target_low and target_high don't  match. Values are restored to defaults.": "„target_low“ ir „target_high“ laiko intervalai nesutampa. Reikšmės atkurtos į numatytąsias.",
     "Valid from:": "Galioja nuo:",
     "Save current record before switching to new?": "Išsaugoti dabartinį įrašą prieš pereinant prie naujo?",

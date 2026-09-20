@@ -217,7 +217,7 @@ describe('profile and settings components in a real browser', function () {
           const ctx = {moment: window.moment, timezones: ['UTC'], settings: {units: 'mg/dl'}, language: {translate: value => value}};
           const client = {
             ctx, headers: () => ({}), init: callback => callback(),
-            profilefunctions: {data: [], loadData(records) {this.data = records;}},
+            profilefunctions: {data: [], loadData(records) {this.data = records;}, hasData() {return !!this.data;}},
             settings: {customTitle: 'Nightscout', extendedSettings: {profile: {history: true, multiple: true}}, timeFormat: 24, units: 'mg/dl'},
             translate: value => value, utils: window.NightscoutTestModules.utils(ctx)
           };

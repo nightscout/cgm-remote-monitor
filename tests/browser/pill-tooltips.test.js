@@ -50,7 +50,7 @@ describe('pluginbase in a real browser', function () {
           if (name === 'display' && value === 'block') fixture.renders++;
           return style.apply(this, arguments);
         };
-        fixture.base = window.NightscoutTestModules.pluginbase(major, minor, status, bgStatus, tooltip);
+        fixture.base = window.NightscoutTestModules.pluginbase(major, minor, status, bgStatus, tooltip, null, value => value);
         fixture.mouse = (pill, type) => pill[0].dispatchEvent(new MouseEvent(type, {
           bubbles: true, cancelable: true, view: window, clientX: 10, clientY: 20
         }));

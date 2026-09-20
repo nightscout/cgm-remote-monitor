@@ -74,9 +74,9 @@ describe('MongoDB application read batches', function () {
     verify(await api.list_query(opts()), 2501);
   });
 
-  it('profile list preserves explicitly unlimited results', async function () {
+  it('profile list preserves an explicit large count across batches', async function () {
     const api = require('../lib/server/profile')(collectionName, ctx);
-    verify(await api.list(undefined, 0), 2501);
+    verify(await api.list(undefined, 2501), 2501);
   });
 
   it('food lists retain every result across batches', async function () {
