@@ -1,6 +1,7 @@
 'use strict';
 
 require('should');
+const assert = require('assert');
 const helper = require('./inithelper')();
 const levels = helper.ctx.levels;
 
@@ -93,7 +94,7 @@ describe('insulinage', function ( ) {
         done();
     });
 
-    it('trigger an urgent alarm when insulin is 72 hours old', function (done) {
+    it('trigger an urgent alarm when insulin reservoir is 72 hours old', function (done) {
         ctx.notifications.initRequests();
 
         var before = Date.now() - (72 * 60 * 60 * 1000);
@@ -108,7 +109,42 @@ describe('insulinage', function ( ) {
         var highest = ctx.notifications.findHighestAlarm('IAGE');
         highest.level.should.equal(levels.URGENT);
         highest.title.should.equal('Insulin reservoir age 72 hours');
+        highest.message.should.equal('Insulin reservoir change overdue!');
         done();
+    });
+
+    it('stay at the urgent level past the urgent threshold', function (done) {
+        ctx.notifications.initRequests();
+
+        var before = Date.now() - (80 * 60 * 60 * 1000);
+
+        ctx.ddata.insulinchangeTreatments = [{eventType: 'Insulin Change', mills: before}];
+
+        var sbx = prepareSandbox();
+        sbx.extendedSettings = { 'enableAlerts': 'TRUE' };
+        iage.setProperties(sbx);
+        iage.checkNotifications(sbx);
+
+        sbx.properties.iage.level.should.equal(levels.URGENT);
+        assert.equal(sbx.properties.iage.notification, undefined);
+        done();
+    });
+
+    [
+        { minutes: 72 * 60 + 20, enabled: true, notification: true },
+        { minutes: 72 * 60 + 21, enabled: true, notification: false },
+        { minutes: 72 * 60, enabled: false, notification: false }
+    ].forEach(function (testCase) {
+        it('keeps the urgent notification window at ' + testCase.minutes + ' minutes with alerts ' + testCase.enabled, function () {
+            var now = Date.UTC(2026, 0, 10);
+            var result = iage.findLatestTimeChange({
+                time: now,
+                extendedSettings: { enableAlerts: testCase.enabled },
+                data: { insulinchangeTreatments: [{ mills: now - testCase.minutes * 60000 }] }
+            });
+            result.level.should.equal(levels.URGENT);
+            Boolean(result.notification).should.equal(testCase.notification);
+        });
     });
 
 });
