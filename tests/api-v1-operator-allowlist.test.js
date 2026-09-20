@@ -173,7 +173,13 @@ describe('API v1 query operator allowlist', function ( ) {
       const entriesList = stubList({dateField: 'date', useEpoch: true, walker: { }});
       const ctx = {
         authorization: permit
-        , cache: {treatments: [ ], devicestatus: [ ], entries: [ ], getData: function ( ) { return [ ]; }}
+        , cache: {
+          treatments: [ ], devicestatus: [ ], entries: [ ]
+          , getData: function ( ) { return [ ]; }
+          , getDataRef: function ( ) {
+            throw new Error('Queries requiring storage must not read the entries cache');
+          }
+        }
         , ddata: {sgvs: [ ]}
         , purifier: {purifyObject: function ( ) { }}
         , entries: Object.assign(function ( ) { }, {
