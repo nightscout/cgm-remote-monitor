@@ -17,9 +17,13 @@ describe('dev integration browser regressions', function () {
     const modules = await buildModules();
     server = http.createServer((req, res) => {
       if (req.url === '/app.js' || req.url === '/modules.js') {
-        res.setHeader('Content-Type', 'application/javascript');
+        res.setHeader('Content-Type', 'application/javascript; charset=utf-8');
         res.end(req.url === '/app.js' ? app : modules);
-      } else res.end('<!doctype html><html><body></body></html>');
+      } else if (req.url === '/') {
+        // WebKit treats an untyped response as a download, not a test page.
+        res.setHeader('Content-Type', 'text/html; charset=utf-8');
+        res.end('<!doctype html><html><head><meta charset="utf-8"></head><body></body></html>');
+      } else res.writeHead(404).end();
     });
     server.listen(0, '127.0.0.1');
     await once(server, 'listening');
@@ -30,7 +34,8 @@ describe('dev integration browser regressions', function () {
   });
   async function runInBrowser(run) {
     await withPage(origin, async ({page}) => {
-      await page.goto(origin);
+      const response = await page.goto(origin);
+      assert.match(response.headers()['content-type'], /^text\/html(?:;|$)/);
       await page.addScriptTag({url: origin + '/app.js'});
       await page.addScriptTag({url: origin + '/modules.js'});
       await run(page);
