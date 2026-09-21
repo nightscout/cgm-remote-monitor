@@ -20,6 +20,20 @@ describe('language', function ( ) {
     language.translate('Sensor age %1 days %2 hours', '1', '2').should.equal('Sensor age 1 days 2 hours');
   });
 
+  it('substitutes a tenth parameter without the first one eating it', function () {
+    // `%1` is a prefix of `%10`. Substituting forwards, the `%1` pass rewrites
+    // the `%1` inside `%10` and leaves a stray `0` behind - so `%10` used to
+    // come out as the first parameter followed by a literal 0.
+    //
+    // Latent rather than live: no shipped translation uses more than `%3`.
+    // This exists so the first translator to write a tenth substitution does
+    // not have to find it themselves.
+    var language = require('../lib/language')();
+    var params = ['one', 'two', 'three', 'four', 'five', 'six', 'seven', 'eight', 'nine', 'TEN', 'ELEVEN'];
+    language.translate('%1|%9|%10|%11', { params: params })
+      .should.equal('one|nine|TEN|ELEVEN');
+  });
+
   it('translate to French', function () {
     var language = require('../lib/language')();
     language.set('fr');

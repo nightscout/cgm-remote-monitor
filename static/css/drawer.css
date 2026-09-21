@@ -287,6 +287,16 @@ h1, legend,
   padding-left: 12px;
 }
 
+#buttonbar a:hover,
+#buttonbar a:hover i {
+  color: #fff;
+}
+
+#buttonbar a:active,
+#buttonbar a:active i {
+  color: #808080;
+}
+
 #notification {
   display: none;
   font-size: 14px;
