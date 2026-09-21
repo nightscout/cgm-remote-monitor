@@ -23,7 +23,11 @@ function probe(version, entry) {
 }
 
 describe('Node runtime policy', function () {
-  ['v22.23.2', 'v22.24.0', 'v24.20.0', 'v24.21.0'].forEach(version => {
+  // Boundary updated with the floor: engines is ^22.12 || >=24. 22.12.0 is the exact
+  // lower bound and is where require(esm) is unflagged, which is the real dependency
+  // constraint (sanitize-html requires the ESM-only htmlparser2). The old patch floor
+  // ^22.23.2 || ^24.20.0 rejected these and nothing measured justified it.
+  ['v22.12.0', 'v22.22.0', 'v22.23.2', 'v22.24.0', 'v24.0.0', 'v24.20.0', 'v24.21.0'].forEach(version => {
     it('accepts supported LTS ' + version, function () {
       const result = probe(version, "require('./lib/server/runtime-policy')();");
       assert.strictEqual(result.status, 0, result.stderr);
@@ -31,7 +35,19 @@ describe('Node runtime policy', function () {
     });
   });
 
-  ['v16.20.2', 'v20.20.0', 'v22.0.0', 'v22.23.1', 'v23.0.0', 'v24.19.0', 'v24.20.0-rc.1', 'v25.0.0', 'v26.8.1'].forEach(version => {
+  // Still refused, and each for a stated reason: 16/18 predate require(esm); 20 reached
+  // end of life 2026-04-30 (it WORKS -- measured 310 passing / 0 failing -- and is
+  // deliberately not supported rather than deliberately broken); 22.0-22.11 predate
+  // require(esm); 23 is an odd major BELOW the >=24 arm; prereleases never satisfy a
+  // range unless the range says so, which is semver's default and is relied on here.
+  //
+  // DELIBERATELY ABSENT, and it is a real consequence of `>= 24`: v25.x and v26.x are
+  // ACCEPTED. The previous policy document excluded "odd-numbered releases" and "Node 26
+  // Current" by name, and the wider range no longer does. That is the maintainer's call
+  // (2026-09-21) and it follows from the position that over-restricting has cost this
+  // project more than permissiveness has. If odd majors should be refused, the range needs
+  // an explicit upper arm -- `^22.12 || ^24 || ^26` -- and this list gets v25.0.0 back.
+  ['v16.20.2', 'v18.20.8', 'v20.20.0', 'v22.0.0', 'v22.11.1', 'v23.0.0', 'v24.20.0-rc.1'].forEach(version => {
     ['lib/server/server.js', 'server.js'].forEach(entry => {
       it('rejects ' + version + ' before startup through ' + entry, function () {
         const result = probe(version, 'require(' + JSON.stringify('./' + entry) + ');');
