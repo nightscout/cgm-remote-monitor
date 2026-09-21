@@ -377,6 +377,8 @@
     "Values loaded.": "已载入数值",
     "Default values used.": "已使用默认值",
     "Error. Default values used.": "错误，已使用默认值",
+    "Enter every profile value before saving.": "Enter every profile value before saving.",
+    "Your profile could not be loaded. Reload before editing.": "Your profile could not be loaded. Reload before editing.",
     "Time ranges of target_low and target_high don't  match. Values are restored to defaults.": "时间范围内的目标高低血糖值不匹配。已恢复使用默认值。",
     "Valid from:": "生效从：",
     "Save current record before switching to new?": "切换至新记录前保存当前记录？",
