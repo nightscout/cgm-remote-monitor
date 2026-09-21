@@ -1,0 +1,35 @@
+{
+  "base": "79bb2f5e0822e00de01e5498f6f8dd815a63340d",
+  "sources": [
+    {
+      "pr": 8644,
+      "branch": "perf/batched-report-quantiles",
+      "head": "ba141542620e90f2cd7834e447d8a8f10dffc9e3"
+    },
+    {
+      "pr": 8646,
+      "branch": "chore/query-leaf-walker",
+      "head": "c0c1987500dc67399e9edb24d80e29255b83dd45"
+    },
+    {
+      "pr": 8647,
+      "branch": "chore/local-report-statistics",
+      "head": "2aef22b4c710c612ca79eba6a77d700fa23af9db"
+    },
+    {
+      "pr": 8649,
+      "branch": "chore/native-document-identifiers",
+      "head": "53c36875de119d15c4ead06f2f47811241feb966"
+    },
+    {
+      "pr": 8650,
+      "branch": "chore/babel-8",
+      "head": "1dafe82e3b6cfa6f062c23716be0607a28728899"
+    },
+    {
+      "pr": 8651,
+      "branch": "chore/import-config-client",
+      "head": "bd982e538b81e8bf5a6c49a4382b282b0dd1efe0"
+    }
+  ]
+}

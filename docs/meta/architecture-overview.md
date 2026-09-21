@@ -14,7 +14,7 @@ Nightscout (cgm-remote-monitor) is an open-source, real-time Continuous Glucose 
 - **Version:** 15.0.4
 - **License:** AGPL-3.0
 - **Primary Stack:** Node.js + MongoDB + Socket.IO
-- **Node.js Support:** ^14.x, ^16.x, ^18.x, ^20.x (LTS versions)
+- **Node.js Support:** ^22.23.2 or ^24.20.0 (LTS versions; see package.json)
 - **Supported NPM:** ^6.x
 
 ---
@@ -118,7 +118,7 @@ nightscout/
 The application follows a sequential boot process using the `bootevent` library:
 
 ```
-startBoot → checkNodeVersion → checkEnv → augmentSettings → checkSettings
+checkNodeVersion → startBoot → checkEnv → augmentSettings → checkSettings
      ↓
 setupStorage → setupAuthorization → setupInternals → ensureIndexes
      ↓

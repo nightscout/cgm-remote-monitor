@@ -81,15 +81,6 @@ describe('brace-expansion dependency regressions', function () {
       });
     });
 
-  it('preserves file selection through the production EJS/Jake/FileList chain', function () {
-    const ejsRequire = createRequire(require.resolve('ejs'));
-    const jakeRequire = createRequire(ejsRequire.resolve('jake'));
-    const { FileList } = jakeRequire('filelist');
-    const files = new FileList();
-    files.include(path.join(__dirname, '{api,api3}.security.test.js'));
-    assert.deepStrictEqual(files.toArray().sort(), [
-      path.join(__dirname, 'api.security.test.js'),
-      path.join(__dirname, 'api3.security.test.js')
-    ]);
-  });
+  // EJS 6 no longer installs Jake/FileList. Remaining consumers are exercised
+  // from the committed dependency graph above.
 });

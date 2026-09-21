@@ -5,6 +5,8 @@
 **Status:** Tracks 1+2 substantially complete; Track 3 pending
 **Authors:** Nightscout Development Team
 
+**Current execution decision (2026-09-05):** M08 removes the remaining test-only jsdom package/harness after moving browser contracts into required Chromium/Firefox/WebKit tests. Both report quarantines now have active replacements. See the [retirement plan](../plans/jsdom-retirement.md) and [browser specification](../test-specs/browser-tests.md). The jsdom examples, compatibility notes and deferred-Playwright proposals below are historical records, not current setup instructions. Production was already jsdom-free; browser-tool costs are measured separately.
+
 ---
 
 ## Executive Summary
@@ -437,7 +439,7 @@ Note: `benv` removed; direct jsdom usage with secure harness.
 - [x] Clear guidelines for new code placement
   (`lib/client-core/index.js` doc-comment: no `$`, `window`,
   `document`, or `ajax` allowed)
-- [x] Bundle wiring smoke test (`tests/bundle.smoke.test.js`)
+- [x] Bundle wiring smoke test (`tests/browser/bundle.test.js`)
   asserts `window.Nightscout.{client,reportclient,profileclient,units}`
   shape; skips cleanly when bundle absent.
 
@@ -548,8 +550,8 @@ device pre-filters whenever a new uploader class enters the cohort.
 
 ### L2. Domain-specific test corpora are non-negotiable for security libs
 
-The `tests/sanitizer-differential.test.js` work (commits `c8d880d1`,
-`61e2e582`) revealed that the popular `xss` library silently truncates
+The sanitizer corpus introduced in commits `c8d880d1` and `61e2e582`
+(now `tests/browser/sanitizer-differential.test.js`) revealed that the popular `xss` library silently truncates
 `"Hypo: BG < 70 needed sugar"` to `"Hypo: BG "` because `<` parses as a
 tag start. Generic benchmarks would have rated `xss` as "smaller, faster,
 no DOM" and missed this entirely. The 30-row diabetes-domain corpus
@@ -601,7 +603,7 @@ wiring matters and per-module pure tests cannot reach.
 Phase 5c established a layered coverage shape for bundle-heavy UI behavior:
 
 1. **Extracted pure logic** → Node-only `tests/client-core/*` suites.
-2. **Bundle wiring** → `tests/bundle.smoke.test.js` (asserts
+2. **Bundle wiring** → `tests/browser/bundle.test.js` (asserts
    `window.Nightscout.{client,reportclient,profileclient,units}`).
 3. **Real-browser behavior** →
    `docs/test-specs/manual-smoke-checklist.md`.

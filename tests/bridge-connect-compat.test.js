@@ -54,7 +54,7 @@ describe('bridge connect compatibility', function () {
     should.not.exist(env.extendedSettings.connect.shareRegion);
   });
 
-  it('does not migrate when legacy bridge is explicitly requested', function () {
+  it('migrates even when the retired legacy override is set', function () {
     var env = {
       extendedSettings: {
         bridge: {
@@ -67,8 +67,8 @@ describe('bridge connect compatibility', function () {
 
     var result = compat.applyBridgeToConnectCompatibility(env);
 
-    result.legacy.should.equal(true);
-    should.not.exist(env.extendedSettings.connect);
+    result.migrated.should.equal(true);
+    env.extendedSettings.connect.source.should.equal('dexcomshare');
   });
 
   it('does not override non-Dexcom connect sources', function () {
@@ -87,6 +87,40 @@ describe('bridge connect compatibility', function () {
     var result = compat.applyBridgeToConnectCompatibility(env);
 
     result.migrated.should.equal(false);
+    result.error.should.match(/retired.*15\.0\.9/);
     env.extendedSettings.connect.source.should.equal('glooko');
+    should.not.exist(env.extendedSettings.connect.sharePassword);
   });
+  it('preserves custom server and explicit credentials over repeated migration', function () {
+    const env = {extendedSettings: {bridge: {userName:'old-user',password:'old-pass',server:'owned.share.example'},
+      connect: {source:'dexcomshare',shareAccountName:'explicit-user',sharePassword:'explicit-pass'}}};
+    for (let cycle=0;cycle<2;cycle++) {
+      compat.applyBridgeToConnectCompatibility(env).migrated.should.equal(true);
+      env.extendedSettings.connect.shareServer.should.equal('owned.share.example');
+      env.extendedSettings.connect.shareAccountName.should.equal('explicit-user');
+      env.extendedSettings.connect.sharePassword.should.equal('explicit-pass');
+    }
+  });
+
+  it('does not enable Connect from absent or incomplete bridge credentials', function () {
+    for (const bridge of [{}, {userName:'partial'}, {password:'partial'}]) {
+      const env={extendedSettings:{bridge}};
+      compat.applyBridgeToConnectCompatibility(env).migrated.should.equal(false);
+      should.not.exist(env.extendedSettings.connect);
+    }
+  });
+
+  it('maps the legacy US selector to the real US region over repeated migration', function () {
+    const source = require('nightscout-connect/lib/sources/dexcomshare');
+    for (const server of ['US', 'us', 'Us']) {
+      const env = {extendedSettings: {bridge: {userName: 'owned-user', password: 'owned-password', server}}};
+      for (let cycle = 0; cycle < 2; cycle++) {
+        compat.applyBridgeToConnectCompatibility(env).migrated.should.equal(true);
+        env.extendedSettings.connect.shareRegion.should.equal('us');
+        should.not.exist(env.extendedSettings.connect.shareServer);
+        source.validate(env.extendedSettings.connect).config.baseURL.should.equal('https://share2.dexcom.com');
+      }
+    }
+  });
+
 });

@@ -18,6 +18,7 @@ describe('_id Validation API Tests', function() {
     self.env.settings.enable = ['careportal', 'api'];
     this.wares = require('../lib/middleware/')(self.env);
     self.app = require('express')();
+    require('../lib/middleware/configure-request')(self.app);
     self.app.enable('api');
     self.app.enable('careportal');
     require('../lib/server/bootevent')(self.env, language).boot(function booted(ctx) {

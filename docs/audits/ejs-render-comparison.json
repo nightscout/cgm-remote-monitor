@@ -1,0 +1,73 @@
+{
+  "baseline": "3.1.10",
+  "candidate": "6.0.1",
+  "results": [
+    {
+      "file": "index.html",
+      "bytes": 44934,
+      "sha256": "670d890de5d3d7fb32d2eb2ab547eeede4f7d1314b862567fa3d68713897a873"
+    },
+    {
+      "file": "reportindex.html",
+      "bytes": 13071,
+      "sha256": "222f44e5b1012db614c32e1e2c02fc0dd941fc4f0c907c74a09b3e227c3817d8"
+    },
+    {
+      "file": "adminindex.html",
+      "bytes": 9317,
+      "sha256": "6564204f21307dba60e2d88496adac03d08e8552278dd4b682c2dfa680451b4b"
+    },
+    {
+      "file": "profileindex.html",
+      "bytes": 21265,
+      "sha256": "fee668f771ad4095e978581b7837f0edba234f778f78c9f3820f29edf03a9502"
+    },
+    {
+      "file": "foodindex.html",
+      "bytes": 13267,
+      "sha256": "34ee16502364e043625650319d19bbede8b78e7a464a38292b64c0009659fae4"
+    },
+    {
+      "file": "clockviews/clock.html",
+      "bytes": 4570,
+      "sha256": "544e988212938e799d7a8d641eb485dc731dcf6aecdf72e67594956e168aafe3"
+    },
+    {
+      "file": "clockviews/clock.html",
+      "bytes": 7901,
+      "sha256": "a8739c512c5d230f5c6fdc5eeeb82f419da4444ab641663a082a8926364f0f84"
+    },
+    {
+      "file": "error.html",
+      "bytes": 1946,
+      "sha256": "2920d1fd799c7b2181574d5b2ed0f693b6b052b2627301eddc140b3205ba52fd"
+    },
+    {
+      "file": "frame.html",
+      "bytes": 686,
+      "sha256": "eee12ff91d726d975151f492ec0bda28c0cae64a5c77a8be67d69d5a0a58645e"
+    },
+    {
+      "file": "frame.html",
+      "bytes": 1383,
+      "sha256": "59ae5f43107d26b31257225bcbe06f89d255e3114c809226db9a7db691259331"
+    },
+    {
+      "file": "frame.html",
+      "bytes": 2219,
+      "sha256": "4466d38700899ae8225086ba59c9aff809cd7cb2d52ed9c346a32030ee7c8c12"
+    },
+    {
+      "file": "service-worker.js",
+      "bytes": 4933,
+      "sha256": "285bfd9893c3392e9909037a6f6aa905c0655d467e07c44b41452d85b9ef0469"
+    },
+    {
+      "file": "service-worker.js",
+      "bytes": 4946,
+      "sha256": "c76b8abcb9d692d8315823624f8527661ed17f8953066578a8c09910ea7719e3"
+    }
+  ],
+  "baselineCommit": "25a87cea0663a418f71af33827e3f9e5fab31060",
+  "notes": "13 actual Nightscout page/worker fixtures with encoded labels, clock include branches, multiframe counts 1/4/8 and two service-worker identities; outputs byte-identical."
+}

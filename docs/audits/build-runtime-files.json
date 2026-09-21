@@ -1,0 +1,22 @@
+{
+  "baselineCommit": "9d1ec539",
+  "method": "Regular installed files excluding .cache, .bin, .package-lock.json and symlinks; baseline production-only install ignores lifecycle scripts, candidate built then pruned. Generated artifacts excluded. Not disk blocks, image size or RAM.",
+  "before": {
+    "node": "v22.23.2",
+    "platform": "darwin",
+    "arch": "arm64",
+    "files": 13612,
+    "bytes": 125602974
+  },
+  "after": {
+    "node": "v22.23.2",
+    "platform": "darwin",
+    "arch": "arm64",
+    "files": 7561,
+    "bytes": 57251409
+  },
+  "productionPaths": {
+    "before": 587,
+    "after": 312
+  }
+}

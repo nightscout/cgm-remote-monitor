@@ -44,6 +44,7 @@ describe('Loop notifications API v2', function () {
     var calls = [];
     apn.Provider = function MockProvider () {
       if (Object.prototype.hasOwnProperty.call(options, 'providerError')) { throw options.providerError; }
+      this.shutdown = function () {};
       this.send = function (notification, tokens) {
         calls.push({ notification: notification, tokens: tokens });
         return options.send ? options.send() : Promise.resolve({ sent: [{}], failed: [] });
@@ -72,6 +73,7 @@ describe('Loop notifications API v2', function () {
     ctx.authorization.resolve = async function () { return { shiros: [shiro] }; };
 
     var app = express();
+    require('../lib/middleware/configure-request')(app);
     app.use(ctx.wares.sendJSONStatus);
     app.use('/api/v2/notifications', notificationsV2(app, ctx));
     return { app: app, calls: calls, ctx: ctx, env: env };

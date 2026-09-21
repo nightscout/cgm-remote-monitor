@@ -1,0 +1,1976 @@
+[
+  {
+    "iteration": 0,
+    "variant": "driver5",
+    "reads": [
+      {
+        "driver": "5.9.2",
+        "count": 8928,
+        "hash": "79cc6a8a6d70f198763cff2d8083bdd627c4f685907f524b5e8eca2ed5d9573f",
+        "commands": [
+          {
+            "name": "find",
+            "batchSize": null
+          },
+          {
+            "name": "getMore",
+            "batchSize": 1000
+          },
+          {
+            "name": "getMore",
+            "batchSize": 1000
+          },
+          {
+            "name": "getMore",
+            "batchSize": 1000
+          },
+          {
+            "name": "getMore",
+            "batchSize": 1000
+          },
+          {
+            "name": "getMore",
+            "batchSize": 1000
+          },
+          {
+            "name": "getMore",
+            "batchSize": 1000
+          },
+          {
+            "name": "getMore",
+            "batchSize": 1000
+          },
+          {
+            "name": "getMore",
+            "batchSize": 1000
+          },
+          {
+            "name": "getMore",
+            "batchSize": 1000
+          }
+        ],
+        "batches": [
+          101,
+          1000,
+          1000,
+          1000,
+          1000,
+          1000,
+          1000,
+          1000,
+          1000,
+          827
+        ],
+        "elapsedMs": 35.319208,
+        "heapDelta": 8651480
+      },
+      {
+        "driver": "5.9.2",
+        "count": 1000,
+        "hash": "1c101f5440b7876d7e4469664a9636982debf9a607b234d8dcd784e39d08b3bf",
+        "commands": [
+          {
+            "name": "find",
+            "batchSize": null
+          },
+          {
+            "name": "getMore",
+            "batchSize": 899
+          }
+        ],
+        "batches": [
+          101,
+          899
+        ],
+        "elapsedMs": 3.4902090000000214,
+        "heapDelta": 2995392
+      },
+      {
+        "driver": "5.9.2",
+        "count": 1500,
+        "hash": "7b4b928fc8e7e221144f998b51d728f1003acb91f888b238a781beb1dea04492",
+        "commands": [
+          {
+            "name": "find",
+            "batchSize": null
+          },
+          {
+            "name": "getMore",
+            "batchSize": 1000
+          },
+          {
+            "name": "getMore",
+            "batchSize": 399
+          }
+        ],
+        "batches": [
+          101,
+          1000,
+          399
+        ],
+        "elapsedMs": 5.055666000000002,
+        "heapDelta": 4382896
+      }
+    ]
+  },
+  {
+    "iteration": 0,
+    "variant": "driver7",
+    "reads": [
+      {
+        "driver": "7.6.0",
+        "count": 8928,
+        "hash": "79cc6a8a6d70f198763cff2d8083bdd627c4f685907f524b5e8eca2ed5d9573f",
+        "commands": [
+          {
+            "name": "find",
+            "batchSize": null
+          },
+          {
+            "name": "getMore",
+            "batchSize": null
+          }
+        ],
+        "batches": [
+          101,
+          8827
+        ],
+        "elapsedMs": 39.40691699999999,
+        "heapDelta": 23847960
+      },
+      {
+        "driver": "7.6.0",
+        "count": 1000,
+        "hash": "1c101f5440b7876d7e4469664a9636982debf9a607b234d8dcd784e39d08b3bf",
+        "commands": [
+          {
+            "name": "find",
+            "batchSize": null
+          },
+          {
+            "name": "getMore",
+            "batchSize": null
+          }
+        ],
+        "batches": [
+          101,
+          899
+        ],
+        "elapsedMs": 11.180999999999983,
+        "heapDelta": 6151768
+      },
+      {
+        "driver": "7.6.0",
+        "count": 1500,
+        "hash": "7b4b928fc8e7e221144f998b51d728f1003acb91f888b238a781beb1dea04492",
+        "commands": [
+          {
+            "name": "find",
+            "batchSize": null
+          },
+          {
+            "name": "getMore",
+            "batchSize": null
+          }
+        ],
+        "batches": [
+          101,
+          1399
+        ],
+        "elapsedMs": 6.906458000000015,
+        "heapDelta": 9231344
+      }
+    ]
+  },
+  {
+    "iteration": 0,
+    "variant": "driver7-bounded",
+    "reads": [
+      {
+        "driver": "7.6.0",
+        "count": 8928,
+        "hash": "79cc6a8a6d70f198763cff2d8083bdd627c4f685907f524b5e8eca2ed5d9573f",
+        "commands": [
+          {
+            "name": "find",
+            "batchSize": 1000
+          },
+          {
+            "name": "getMore",
+            "batchSize": 1000
+          },
+          {
+            "name": "getMore",
+            "batchSize": 1000
+          },
+          {
+            "name": "getMore",
+            "batchSize": 1000
+          },
+          {
+            "name": "getMore",
+            "batchSize": 1000
+          },
+          {
+            "name": "getMore",
+            "batchSize": 1000
+          },
+          {
+            "name": "getMore",
+            "batchSize": 1000
+          },
+          {
+            "name": "getMore",
+            "batchSize": 1000
+          },
+          {
+            "name": "getMore",
+            "batchSize": 1000
+          }
+        ],
+        "batches": [
+          1000,
+          1000,
+          1000,
+          1000,
+          1000,
+          1000,
+          1000,
+          1000,
+          928
+        ],
+        "elapsedMs": 42.620125,
+        "heapDelta": 15423304
+      },
+      {
+        "driver": "7.6.0",
+        "count": 1000,
+        "hash": "1c101f5440b7876d7e4469664a9636982debf9a607b234d8dcd784e39d08b3bf",
+        "commands": [
+          {
+            "name": "find",
+            "batchSize": 1001
+          }
+        ],
+        "batches": [
+          1000
+        ],
+        "elapsedMs": 3.0603749999999934,
+        "heapDelta": 6008096
+      },
+      {
+        "driver": "7.6.0",
+        "count": 1500,
+        "hash": "7b4b928fc8e7e221144f998b51d728f1003acb91f888b238a781beb1dea04492",
+        "commands": [
+          {
+            "name": "find",
+            "batchSize": 1000
+          },
+          {
+            "name": "getMore",
+            "batchSize": 500
+          }
+        ],
+        "batches": [
+          1000,
+          500
+        ],
+        "elapsedMs": 4.197084000000018,
+        "heapDelta": 8996416
+      }
+    ]
+  },
+  {
+    "iteration": 1,
+    "variant": "driver7-bounded",
+    "reads": [
+      {
+        "driver": "7.6.0",
+        "count": 8928,
+        "hash": "79cc6a8a6d70f198763cff2d8083bdd627c4f685907f524b5e8eca2ed5d9573f",
+        "commands": [
+          {
+            "name": "find",
+            "batchSize": 1000
+          },
+          {
+            "name": "getMore",
+            "batchSize": 1000
+          },
+          {
+            "name": "getMore",
+            "batchSize": 1000
+          },
+          {
+            "name": "getMore",
+            "batchSize": 1000
+          },
+          {
+            "name": "getMore",
+            "batchSize": 1000
+          },
+          {
+            "name": "getMore",
+            "batchSize": 1000
+          },
+          {
+            "name": "getMore",
+            "batchSize": 1000
+          },
+          {
+            "name": "getMore",
+            "batchSize": 1000
+          },
+          {
+            "name": "getMore",
+            "batchSize": 1000
+          }
+        ],
+        "batches": [
+          1000,
+          1000,
+          1000,
+          1000,
+          1000,
+          1000,
+          1000,
+          1000,
+          928
+        ],
+        "elapsedMs": 42.31954200000001,
+        "heapDelta": 9678768
+      },
+      {
+        "driver": "7.6.0",
+        "count": 1000,
+        "hash": "1c101f5440b7876d7e4469664a9636982debf9a607b234d8dcd784e39d08b3bf",
+        "commands": [
+          {
+            "name": "find",
+            "batchSize": 1001
+          }
+        ],
+        "batches": [
+          1000
+        ],
+        "elapsedMs": 3.2646249999999952,
+        "heapDelta": 6008040
+      },
+      {
+        "driver": "7.6.0",
+        "count": 1500,
+        "hash": "7b4b928fc8e7e221144f998b51d728f1003acb91f888b238a781beb1dea04492",
+        "commands": [
+          {
+            "name": "find",
+            "batchSize": 1000
+          },
+          {
+            "name": "getMore",
+            "batchSize": 500
+          }
+        ],
+        "batches": [
+          1000,
+          500
+        ],
+        "elapsedMs": 4.8058750000000146,
+        "heapDelta": 9009864
+      }
+    ]
+  },
+  {
+    "iteration": 1,
+    "variant": "driver7",
+    "reads": [
+      {
+        "driver": "7.6.0",
+        "count": 8928,
+        "hash": "79cc6a8a6d70f198763cff2d8083bdd627c4f685907f524b5e8eca2ed5d9573f",
+        "commands": [
+          {
+            "name": "find",
+            "batchSize": null
+          },
+          {
+            "name": "getMore",
+            "batchSize": null
+          }
+        ],
+        "batches": [
+          101,
+          8827
+        ],
+        "elapsedMs": 41.078374999999994,
+        "heapDelta": 23942496
+      },
+      {
+        "driver": "7.6.0",
+        "count": 1000,
+        "hash": "1c101f5440b7876d7e4469664a9636982debf9a607b234d8dcd784e39d08b3bf",
+        "commands": [
+          {
+            "name": "find",
+            "batchSize": null
+          },
+          {
+            "name": "getMore",
+            "batchSize": null
+          }
+        ],
+        "batches": [
+          101,
+          899
+        ],
+        "elapsedMs": 6.149750000000012,
+        "heapDelta": 6146392
+      },
+      {
+        "driver": "7.6.0",
+        "count": 1500,
+        "hash": "7b4b928fc8e7e221144f998b51d728f1003acb91f888b238a781beb1dea04492",
+        "commands": [
+          {
+            "name": "find",
+            "batchSize": null
+          },
+          {
+            "name": "getMore",
+            "batchSize": null
+          }
+        ],
+        "batches": [
+          101,
+          1399
+        ],
+        "elapsedMs": 7.002874999999989,
+        "heapDelta": 9230240
+      }
+    ]
+  },
+  {
+    "iteration": 1,
+    "variant": "driver5",
+    "reads": [
+      {
+        "driver": "5.9.2",
+        "count": 8928,
+        "hash": "79cc6a8a6d70f198763cff2d8083bdd627c4f685907f524b5e8eca2ed5d9573f",
+        "commands": [
+          {
+            "name": "find",
+            "batchSize": null
+          },
+          {
+            "name": "getMore",
+            "batchSize": 1000
+          },
+          {
+            "name": "getMore",
+            "batchSize": 1000
+          },
+          {
+            "name": "getMore",
+            "batchSize": 1000
+          },
+          {
+            "name": "getMore",
+            "batchSize": 1000
+          },
+          {
+            "name": "getMore",
+            "batchSize": 1000
+          },
+          {
+            "name": "getMore",
+            "batchSize": 1000
+          },
+          {
+            "name": "getMore",
+            "batchSize": 1000
+          },
+          {
+            "name": "getMore",
+            "batchSize": 1000
+          },
+          {
+            "name": "getMore",
+            "batchSize": 1000
+          }
+        ],
+        "batches": [
+          101,
+          1000,
+          1000,
+          1000,
+          1000,
+          1000,
+          1000,
+          1000,
+          1000,
+          827
+        ],
+        "elapsedMs": 37.312332999999995,
+        "heapDelta": 7574920
+      },
+      {
+        "driver": "5.9.2",
+        "count": 1000,
+        "hash": "1c101f5440b7876d7e4469664a9636982debf9a607b234d8dcd784e39d08b3bf",
+        "commands": [
+          {
+            "name": "find",
+            "batchSize": null
+          },
+          {
+            "name": "getMore",
+            "batchSize": 899
+          }
+        ],
+        "batches": [
+          101,
+          899
+        ],
+        "elapsedMs": 3.6867090000000076,
+        "heapDelta": 2993984
+      },
+      {
+        "driver": "5.9.2",
+        "count": 1500,
+        "hash": "7b4b928fc8e7e221144f998b51d728f1003acb91f888b238a781beb1dea04492",
+        "commands": [
+          {
+            "name": "find",
+            "batchSize": null
+          },
+          {
+            "name": "getMore",
+            "batchSize": 1000
+          },
+          {
+            "name": "getMore",
+            "batchSize": 399
+          }
+        ],
+        "batches": [
+          101,
+          1000,
+          399
+        ],
+        "elapsedMs": 5.345624999999984,
+        "heapDelta": 4384184
+      }
+    ]
+  },
+  {
+    "iteration": 2,
+    "variant": "driver5",
+    "reads": [
+      {
+        "driver": "5.9.2",
+        "count": 8928,
+        "hash": "79cc6a8a6d70f198763cff2d8083bdd627c4f685907f524b5e8eca2ed5d9573f",
+        "commands": [
+          {
+            "name": "find",
+            "batchSize": null
+          },
+          {
+            "name": "getMore",
+            "batchSize": 1000
+          },
+          {
+            "name": "getMore",
+            "batchSize": 1000
+          },
+          {
+            "name": "getMore",
+            "batchSize": 1000
+          },
+          {
+            "name": "getMore",
+            "batchSize": 1000
+          },
+          {
+            "name": "getMore",
+            "batchSize": 1000
+          },
+          {
+            "name": "getMore",
+            "batchSize": 1000
+          },
+          {
+            "name": "getMore",
+            "batchSize": 1000
+          },
+          {
+            "name": "getMore",
+            "batchSize": 1000
+          },
+          {
+            "name": "getMore",
+            "batchSize": 1000
+          }
+        ],
+        "batches": [
+          101,
+          1000,
+          1000,
+          1000,
+          1000,
+          1000,
+          1000,
+          1000,
+          1000,
+          827
+        ],
+        "elapsedMs": 36.443625,
+        "heapDelta": 8666848
+      },
+      {
+        "driver": "5.9.2",
+        "count": 1000,
+        "hash": "1c101f5440b7876d7e4469664a9636982debf9a607b234d8dcd784e39d08b3bf",
+        "commands": [
+          {
+            "name": "find",
+            "batchSize": null
+          },
+          {
+            "name": "getMore",
+            "batchSize": 899
+          }
+        ],
+        "batches": [
+          101,
+          899
+        ],
+        "elapsedMs": 3.6296250000000043,
+        "heapDelta": 2993984
+      },
+      {
+        "driver": "5.9.2",
+        "count": 1500,
+        "hash": "7b4b928fc8e7e221144f998b51d728f1003acb91f888b238a781beb1dea04492",
+        "commands": [
+          {
+            "name": "find",
+            "batchSize": null
+          },
+          {
+            "name": "getMore",
+            "batchSize": 1000
+          },
+          {
+            "name": "getMore",
+            "batchSize": 399
+          }
+        ],
+        "batches": [
+          101,
+          1000,
+          399
+        ],
+        "elapsedMs": 4.5956250000000125,
+        "heapDelta": 4382896
+      }
+    ]
+  },
+  {
+    "iteration": 2,
+    "variant": "driver7",
+    "reads": [
+      {
+        "driver": "7.6.0",
+        "count": 8928,
+        "hash": "79cc6a8a6d70f198763cff2d8083bdd627c4f685907f524b5e8eca2ed5d9573f",
+        "commands": [
+          {
+            "name": "find",
+            "batchSize": null
+          },
+          {
+            "name": "getMore",
+            "batchSize": null
+          }
+        ],
+        "batches": [
+          101,
+          8827
+        ],
+        "elapsedMs": 44.10008300000001,
+        "heapDelta": 17897616
+      },
+      {
+        "driver": "7.6.0",
+        "count": 1000,
+        "hash": "1c101f5440b7876d7e4469664a9636982debf9a607b234d8dcd784e39d08b3bf",
+        "commands": [
+          {
+            "name": "find",
+            "batchSize": null
+          },
+          {
+            "name": "getMore",
+            "batchSize": null
+          }
+        ],
+        "batches": [
+          101,
+          899
+        ],
+        "elapsedMs": 6.089124999999996,
+        "heapDelta": 6150008
+      },
+      {
+        "driver": "7.6.0",
+        "count": 1500,
+        "hash": "7b4b928fc8e7e221144f998b51d728f1003acb91f888b238a781beb1dea04492",
+        "commands": [
+          {
+            "name": "find",
+            "batchSize": null
+          },
+          {
+            "name": "getMore",
+            "batchSize": null
+          }
+        ],
+        "batches": [
+          101,
+          1399
+        ],
+        "elapsedMs": 9.422874999999976,
+        "heapDelta": 9228056
+      }
+    ]
+  },
+  {
+    "iteration": 2,
+    "variant": "driver7-bounded",
+    "reads": [
+      {
+        "driver": "7.6.0",
+        "count": 8928,
+        "hash": "79cc6a8a6d70f198763cff2d8083bdd627c4f685907f524b5e8eca2ed5d9573f",
+        "commands": [
+          {
+            "name": "find",
+            "batchSize": 1000
+          },
+          {
+            "name": "getMore",
+            "batchSize": 1000
+          },
+          {
+            "name": "getMore",
+            "batchSize": 1000
+          },
+          {
+            "name": "getMore",
+            "batchSize": 1000
+          },
+          {
+            "name": "getMore",
+            "batchSize": 1000
+          },
+          {
+            "name": "getMore",
+            "batchSize": 1000
+          },
+          {
+            "name": "getMore",
+            "batchSize": 1000
+          },
+          {
+            "name": "getMore",
+            "batchSize": 1000
+          },
+          {
+            "name": "getMore",
+            "batchSize": 1000
+          }
+        ],
+        "batches": [
+          1000,
+          1000,
+          1000,
+          1000,
+          1000,
+          1000,
+          1000,
+          1000,
+          928
+        ],
+        "elapsedMs": 43.343582999999995,
+        "heapDelta": 15358112
+      },
+      {
+        "driver": "7.6.0",
+        "count": 1000,
+        "hash": "1c101f5440b7876d7e4469664a9636982debf9a607b234d8dcd784e39d08b3bf",
+        "commands": [
+          {
+            "name": "find",
+            "batchSize": 1001
+          }
+        ],
+        "batches": [
+          1000
+        ],
+        "elapsedMs": 3.0969169999999906,
+        "heapDelta": 6008040
+      },
+      {
+        "driver": "7.6.0",
+        "count": 1500,
+        "hash": "7b4b928fc8e7e221144f998b51d728f1003acb91f888b238a781beb1dea04492",
+        "commands": [
+          {
+            "name": "find",
+            "batchSize": 1000
+          },
+          {
+            "name": "getMore",
+            "batchSize": 500
+          }
+        ],
+        "batches": [
+          1000,
+          500
+        ],
+        "elapsedMs": 5.034333000000004,
+        "heapDelta": 9009864
+      }
+    ]
+  },
+  {
+    "iteration": 3,
+    "variant": "driver7-bounded",
+    "reads": [
+      {
+        "driver": "7.6.0",
+        "count": 8928,
+        "hash": "79cc6a8a6d70f198763cff2d8083bdd627c4f685907f524b5e8eca2ed5d9573f",
+        "commands": [
+          {
+            "name": "find",
+            "batchSize": 1000
+          },
+          {
+            "name": "getMore",
+            "batchSize": 1000
+          },
+          {
+            "name": "getMore",
+            "batchSize": 1000
+          },
+          {
+            "name": "getMore",
+            "batchSize": 1000
+          },
+          {
+            "name": "getMore",
+            "batchSize": 1000
+          },
+          {
+            "name": "getMore",
+            "batchSize": 1000
+          },
+          {
+            "name": "getMore",
+            "batchSize": 1000
+          },
+          {
+            "name": "getMore",
+            "batchSize": 1000
+          },
+          {
+            "name": "getMore",
+            "batchSize": 1000
+          }
+        ],
+        "batches": [
+          1000,
+          1000,
+          1000,
+          1000,
+          1000,
+          1000,
+          1000,
+          1000,
+          928
+        ],
+        "elapsedMs": 55.847791,
+        "heapDelta": 9684640
+      },
+      {
+        "driver": "7.6.0",
+        "count": 1000,
+        "hash": "1c101f5440b7876d7e4469664a9636982debf9a607b234d8dcd784e39d08b3bf",
+        "commands": [
+          {
+            "name": "find",
+            "batchSize": 1001
+          }
+        ],
+        "batches": [
+          1000
+        ],
+        "elapsedMs": 3.603791000000001,
+        "heapDelta": 6007176
+      },
+      {
+        "driver": "7.6.0",
+        "count": 1500,
+        "hash": "7b4b928fc8e7e221144f998b51d728f1003acb91f888b238a781beb1dea04492",
+        "commands": [
+          {
+            "name": "find",
+            "batchSize": 1000
+          },
+          {
+            "name": "getMore",
+            "batchSize": 500
+          }
+        ],
+        "batches": [
+          1000,
+          500
+        ],
+        "elapsedMs": 5.420874999999995,
+        "heapDelta": 9007104
+      }
+    ]
+  },
+  {
+    "iteration": 3,
+    "variant": "driver7",
+    "reads": [
+      {
+        "driver": "7.6.0",
+        "count": 8928,
+        "hash": "79cc6a8a6d70f198763cff2d8083bdd627c4f685907f524b5e8eca2ed5d9573f",
+        "commands": [
+          {
+            "name": "find",
+            "batchSize": null
+          },
+          {
+            "name": "getMore",
+            "batchSize": null
+          }
+        ],
+        "batches": [
+          101,
+          8827
+        ],
+        "elapsedMs": 45.971708999999976,
+        "heapDelta": 18019504
+      },
+      {
+        "driver": "7.6.0",
+        "count": 1000,
+        "hash": "1c101f5440b7876d7e4469664a9636982debf9a607b234d8dcd784e39d08b3bf",
+        "commands": [
+          {
+            "name": "find",
+            "batchSize": null
+          },
+          {
+            "name": "getMore",
+            "batchSize": null
+          }
+        ],
+        "batches": [
+          101,
+          899
+        ],
+        "elapsedMs": 7.110499999999973,
+        "heapDelta": 6149976
+      },
+      {
+        "driver": "7.6.0",
+        "count": 1500,
+        "hash": "7b4b928fc8e7e221144f998b51d728f1003acb91f888b238a781beb1dea04492",
+        "commands": [
+          {
+            "name": "find",
+            "batchSize": null
+          },
+          {
+            "name": "getMore",
+            "batchSize": null
+          }
+        ],
+        "batches": [
+          101,
+          1399
+        ],
+        "elapsedMs": 9.535874999999976,
+        "heapDelta": 9227536
+      }
+    ]
+  },
+  {
+    "iteration": 3,
+    "variant": "driver5",
+    "reads": [
+      {
+        "driver": "5.9.2",
+        "count": 8928,
+        "hash": "79cc6a8a6d70f198763cff2d8083bdd627c4f685907f524b5e8eca2ed5d9573f",
+        "commands": [
+          {
+            "name": "find",
+            "batchSize": null
+          },
+          {
+            "name": "getMore",
+            "batchSize": 1000
+          },
+          {
+            "name": "getMore",
+            "batchSize": 1000
+          },
+          {
+            "name": "getMore",
+            "batchSize": 1000
+          },
+          {
+            "name": "getMore",
+            "batchSize": 1000
+          },
+          {
+            "name": "getMore",
+            "batchSize": 1000
+          },
+          {
+            "name": "getMore",
+            "batchSize": 1000
+          },
+          {
+            "name": "getMore",
+            "batchSize": 1000
+          },
+          {
+            "name": "getMore",
+            "batchSize": 1000
+          },
+          {
+            "name": "getMore",
+            "batchSize": 1000
+          }
+        ],
+        "batches": [
+          101,
+          1000,
+          1000,
+          1000,
+          1000,
+          1000,
+          1000,
+          1000,
+          1000,
+          827
+        ],
+        "elapsedMs": 37.322542,
+        "heapDelta": 7658728
+      },
+      {
+        "driver": "5.9.2",
+        "count": 1000,
+        "hash": "1c101f5440b7876d7e4469664a9636982debf9a607b234d8dcd784e39d08b3bf",
+        "commands": [
+          {
+            "name": "find",
+            "batchSize": null
+          },
+          {
+            "name": "getMore",
+            "batchSize": 899
+          }
+        ],
+        "batches": [
+          101,
+          899
+        ],
+        "elapsedMs": 3.912292000000008,
+        "heapDelta": 2993984
+      },
+      {
+        "driver": "5.9.2",
+        "count": 1500,
+        "hash": "7b4b928fc8e7e221144f998b51d728f1003acb91f888b238a781beb1dea04492",
+        "commands": [
+          {
+            "name": "find",
+            "batchSize": null
+          },
+          {
+            "name": "getMore",
+            "batchSize": 1000
+          },
+          {
+            "name": "getMore",
+            "batchSize": 399
+          }
+        ],
+        "batches": [
+          101,
+          1000,
+          399
+        ],
+        "elapsedMs": 5.268540999999999,
+        "heapDelta": 4382120
+      }
+    ]
+  },
+  {
+    "iteration": 4,
+    "variant": "driver5",
+    "reads": [
+      {
+        "driver": "5.9.2",
+        "count": 8928,
+        "hash": "79cc6a8a6d70f198763cff2d8083bdd627c4f685907f524b5e8eca2ed5d9573f",
+        "commands": [
+          {
+            "name": "find",
+            "batchSize": null
+          },
+          {
+            "name": "getMore",
+            "batchSize": 1000
+          },
+          {
+            "name": "getMore",
+            "batchSize": 1000
+          },
+          {
+            "name": "getMore",
+            "batchSize": 1000
+          },
+          {
+            "name": "getMore",
+            "batchSize": 1000
+          },
+          {
+            "name": "getMore",
+            "batchSize": 1000
+          },
+          {
+            "name": "getMore",
+            "batchSize": 1000
+          },
+          {
+            "name": "getMore",
+            "batchSize": 1000
+          },
+          {
+            "name": "getMore",
+            "batchSize": 1000
+          },
+          {
+            "name": "getMore",
+            "batchSize": 1000
+          }
+        ],
+        "batches": [
+          101,
+          1000,
+          1000,
+          1000,
+          1000,
+          1000,
+          1000,
+          1000,
+          1000,
+          827
+        ],
+        "elapsedMs": 36.243334000000004,
+        "heapDelta": 8639344
+      },
+      {
+        "driver": "5.9.2",
+        "count": 1000,
+        "hash": "1c101f5440b7876d7e4469664a9636982debf9a607b234d8dcd784e39d08b3bf",
+        "commands": [
+          {
+            "name": "find",
+            "batchSize": null
+          },
+          {
+            "name": "getMore",
+            "batchSize": 899
+          }
+        ],
+        "batches": [
+          101,
+          899
+        ],
+        "elapsedMs": 3.4947919999999897,
+        "heapDelta": 2993984
+      },
+      {
+        "driver": "5.9.2",
+        "count": 1500,
+        "hash": "7b4b928fc8e7e221144f998b51d728f1003acb91f888b238a781beb1dea04492",
+        "commands": [
+          {
+            "name": "find",
+            "batchSize": null
+          },
+          {
+            "name": "getMore",
+            "batchSize": 1000
+          },
+          {
+            "name": "getMore",
+            "batchSize": 399
+          }
+        ],
+        "batches": [
+          101,
+          1000,
+          399
+        ],
+        "elapsedMs": 5.112625000000008,
+        "heapDelta": 4382560
+      }
+    ]
+  },
+  {
+    "iteration": 4,
+    "variant": "driver7",
+    "reads": [
+      {
+        "driver": "7.6.0",
+        "count": 8928,
+        "hash": "79cc6a8a6d70f198763cff2d8083bdd627c4f685907f524b5e8eca2ed5d9573f",
+        "commands": [
+          {
+            "name": "find",
+            "batchSize": null
+          },
+          {
+            "name": "getMore",
+            "batchSize": null
+          }
+        ],
+        "batches": [
+          101,
+          8827
+        ],
+        "elapsedMs": 44.859624999999994,
+        "heapDelta": 17900736
+      },
+      {
+        "driver": "7.6.0",
+        "count": 1000,
+        "hash": "1c101f5440b7876d7e4469664a9636982debf9a607b234d8dcd784e39d08b3bf",
+        "commands": [
+          {
+            "name": "find",
+            "batchSize": null
+          },
+          {
+            "name": "getMore",
+            "batchSize": null
+          }
+        ],
+        "batches": [
+          101,
+          899
+        ],
+        "elapsedMs": 6.610582999999991,
+        "heapDelta": 6149976
+      },
+      {
+        "driver": "7.6.0",
+        "count": 1500,
+        "hash": "7b4b928fc8e7e221144f998b51d728f1003acb91f888b238a781beb1dea04492",
+        "commands": [
+          {
+            "name": "find",
+            "batchSize": null
+          },
+          {
+            "name": "getMore",
+            "batchSize": null
+          }
+        ],
+        "batches": [
+          101,
+          1399
+        ],
+        "elapsedMs": 9.055791999999997,
+        "heapDelta": 9213680
+      }
+    ]
+  },
+  {
+    "iteration": 4,
+    "variant": "driver7-bounded",
+    "reads": [
+      {
+        "driver": "7.6.0",
+        "count": 8928,
+        "hash": "79cc6a8a6d70f198763cff2d8083bdd627c4f685907f524b5e8eca2ed5d9573f",
+        "commands": [
+          {
+            "name": "find",
+            "batchSize": 1000
+          },
+          {
+            "name": "getMore",
+            "batchSize": 1000
+          },
+          {
+            "name": "getMore",
+            "batchSize": 1000
+          },
+          {
+            "name": "getMore",
+            "batchSize": 1000
+          },
+          {
+            "name": "getMore",
+            "batchSize": 1000
+          },
+          {
+            "name": "getMore",
+            "batchSize": 1000
+          },
+          {
+            "name": "getMore",
+            "batchSize": 1000
+          },
+          {
+            "name": "getMore",
+            "batchSize": 1000
+          },
+          {
+            "name": "getMore",
+            "batchSize": 1000
+          }
+        ],
+        "batches": [
+          1000,
+          1000,
+          1000,
+          1000,
+          1000,
+          1000,
+          1000,
+          1000,
+          928
+        ],
+        "elapsedMs": 41.12462499999998,
+        "heapDelta": 9709984
+      },
+      {
+        "driver": "7.6.0",
+        "count": 1000,
+        "hash": "1c101f5440b7876d7e4469664a9636982debf9a607b234d8dcd784e39d08b3bf",
+        "commands": [
+          {
+            "name": "find",
+            "batchSize": 1001
+          }
+        ],
+        "batches": [
+          1000
+        ],
+        "elapsedMs": 3.239875000000012,
+        "heapDelta": 6008640
+      },
+      {
+        "driver": "7.6.0",
+        "count": 1500,
+        "hash": "7b4b928fc8e7e221144f998b51d728f1003acb91f888b238a781beb1dea04492",
+        "commands": [
+          {
+            "name": "find",
+            "batchSize": 1000
+          },
+          {
+            "name": "getMore",
+            "batchSize": 500
+          }
+        ],
+        "batches": [
+          1000,
+          500
+        ],
+        "elapsedMs": 4.67866699999999,
+        "heapDelta": 8996320
+      }
+    ]
+  },
+  {
+    "iteration": 5,
+    "variant": "driver7-bounded",
+    "reads": [
+      {
+        "driver": "7.6.0",
+        "count": 8928,
+        "hash": "79cc6a8a6d70f198763cff2d8083bdd627c4f685907f524b5e8eca2ed5d9573f",
+        "commands": [
+          {
+            "name": "find",
+            "batchSize": 1000
+          },
+          {
+            "name": "getMore",
+            "batchSize": 1000
+          },
+          {
+            "name": "getMore",
+            "batchSize": 1000
+          },
+          {
+            "name": "getMore",
+            "batchSize": 1000
+          },
+          {
+            "name": "getMore",
+            "batchSize": 1000
+          },
+          {
+            "name": "getMore",
+            "batchSize": 1000
+          },
+          {
+            "name": "getMore",
+            "batchSize": 1000
+          },
+          {
+            "name": "getMore",
+            "batchSize": 1000
+          },
+          {
+            "name": "getMore",
+            "batchSize": 1000
+          }
+        ],
+        "batches": [
+          1000,
+          1000,
+          1000,
+          1000,
+          1000,
+          1000,
+          1000,
+          1000,
+          928
+        ],
+        "elapsedMs": 44.062708000000015,
+        "heapDelta": 15427800
+      },
+      {
+        "driver": "7.6.0",
+        "count": 1000,
+        "hash": "1c101f5440b7876d7e4469664a9636982debf9a607b234d8dcd784e39d08b3bf",
+        "commands": [
+          {
+            "name": "find",
+            "batchSize": 1001
+          }
+        ],
+        "batches": [
+          1000
+        ],
+        "elapsedMs": 3.3873749999999916,
+        "heapDelta": 6008040
+      },
+      {
+        "driver": "7.6.0",
+        "count": 1500,
+        "hash": "7b4b928fc8e7e221144f998b51d728f1003acb91f888b238a781beb1dea04492",
+        "commands": [
+          {
+            "name": "find",
+            "batchSize": 1000
+          },
+          {
+            "name": "getMore",
+            "batchSize": 500
+          }
+        ],
+        "batches": [
+          1000,
+          500
+        ],
+        "elapsedMs": 6.141250000000014,
+        "heapDelta": 8996320
+      }
+    ]
+  },
+  {
+    "iteration": 5,
+    "variant": "driver7",
+    "reads": [
+      {
+        "driver": "7.6.0",
+        "count": 8928,
+        "hash": "79cc6a8a6d70f198763cff2d8083bdd627c4f685907f524b5e8eca2ed5d9573f",
+        "commands": [
+          {
+            "name": "find",
+            "batchSize": null
+          },
+          {
+            "name": "getMore",
+            "batchSize": null
+          }
+        ],
+        "batches": [
+          101,
+          8827
+        ],
+        "elapsedMs": 42.352749999999986,
+        "heapDelta": 23842584
+      },
+      {
+        "driver": "7.6.0",
+        "count": 1000,
+        "hash": "1c101f5440b7876d7e4469664a9636982debf9a607b234d8dcd784e39d08b3bf",
+        "commands": [
+          {
+            "name": "find",
+            "batchSize": null
+          },
+          {
+            "name": "getMore",
+            "batchSize": null
+          }
+        ],
+        "batches": [
+          101,
+          899
+        ],
+        "elapsedMs": 6.082291999999995,
+        "heapDelta": 6151768
+      },
+      {
+        "driver": "7.6.0",
+        "count": 1500,
+        "hash": "7b4b928fc8e7e221144f998b51d728f1003acb91f888b238a781beb1dea04492",
+        "commands": [
+          {
+            "name": "find",
+            "batchSize": null
+          },
+          {
+            "name": "getMore",
+            "batchSize": null
+          }
+        ],
+        "batches": [
+          101,
+          1399
+        ],
+        "elapsedMs": 7.248499999999979,
+        "heapDelta": 9211944
+      }
+    ]
+  },
+  {
+    "iteration": 5,
+    "variant": "driver5",
+    "reads": [
+      {
+        "driver": "5.9.2",
+        "count": 8928,
+        "hash": "79cc6a8a6d70f198763cff2d8083bdd627c4f685907f524b5e8eca2ed5d9573f",
+        "commands": [
+          {
+            "name": "find",
+            "batchSize": null
+          },
+          {
+            "name": "getMore",
+            "batchSize": 1000
+          },
+          {
+            "name": "getMore",
+            "batchSize": 1000
+          },
+          {
+            "name": "getMore",
+            "batchSize": 1000
+          },
+          {
+            "name": "getMore",
+            "batchSize": 1000
+          },
+          {
+            "name": "getMore",
+            "batchSize": 1000
+          },
+          {
+            "name": "getMore",
+            "batchSize": 1000
+          },
+          {
+            "name": "getMore",
+            "batchSize": 1000
+          },
+          {
+            "name": "getMore",
+            "batchSize": 1000
+          },
+          {
+            "name": "getMore",
+            "batchSize": 1000
+          }
+        ],
+        "batches": [
+          101,
+          1000,
+          1000,
+          1000,
+          1000,
+          1000,
+          1000,
+          1000,
+          1000,
+          827
+        ],
+        "elapsedMs": 37.423584000000005,
+        "heapDelta": 7647808
+      },
+      {
+        "driver": "5.9.2",
+        "count": 1000,
+        "hash": "1c101f5440b7876d7e4469664a9636982debf9a607b234d8dcd784e39d08b3bf",
+        "commands": [
+          {
+            "name": "find",
+            "batchSize": null
+          },
+          {
+            "name": "getMore",
+            "batchSize": 899
+          }
+        ],
+        "batches": [
+          101,
+          899
+        ],
+        "elapsedMs": 3.6748750000000143,
+        "heapDelta": 2993984
+      },
+      {
+        "driver": "5.9.2",
+        "count": 1500,
+        "hash": "7b4b928fc8e7e221144f998b51d728f1003acb91f888b238a781beb1dea04492",
+        "commands": [
+          {
+            "name": "find",
+            "batchSize": null
+          },
+          {
+            "name": "getMore",
+            "batchSize": 1000
+          },
+          {
+            "name": "getMore",
+            "batchSize": 399
+          }
+        ],
+        "batches": [
+          101,
+          1000,
+          399
+        ],
+        "elapsedMs": 4.696791000000019,
+        "heapDelta": 4383792
+      }
+    ]
+  },
+  {
+    "iteration": 6,
+    "variant": "driver5",
+    "reads": [
+      {
+        "driver": "5.9.2",
+        "count": 8928,
+        "hash": "79cc6a8a6d70f198763cff2d8083bdd627c4f685907f524b5e8eca2ed5d9573f",
+        "commands": [
+          {
+            "name": "find",
+            "batchSize": null
+          },
+          {
+            "name": "getMore",
+            "batchSize": 1000
+          },
+          {
+            "name": "getMore",
+            "batchSize": 1000
+          },
+          {
+            "name": "getMore",
+            "batchSize": 1000
+          },
+          {
+            "name": "getMore",
+            "batchSize": 1000
+          },
+          {
+            "name": "getMore",
+            "batchSize": 1000
+          },
+          {
+            "name": "getMore",
+            "batchSize": 1000
+          },
+          {
+            "name": "getMore",
+            "batchSize": 1000
+          },
+          {
+            "name": "getMore",
+            "batchSize": 1000
+          },
+          {
+            "name": "getMore",
+            "batchSize": 1000
+          }
+        ],
+        "batches": [
+          101,
+          1000,
+          1000,
+          1000,
+          1000,
+          1000,
+          1000,
+          1000,
+          1000,
+          827
+        ],
+        "elapsedMs": 37.80125000000001,
+        "heapDelta": 7608200
+      },
+      {
+        "driver": "5.9.2",
+        "count": 1000,
+        "hash": "1c101f5440b7876d7e4469664a9636982debf9a607b234d8dcd784e39d08b3bf",
+        "commands": [
+          {
+            "name": "find",
+            "batchSize": null
+          },
+          {
+            "name": "getMore",
+            "batchSize": 899
+          }
+        ],
+        "batches": [
+          101,
+          899
+        ],
+        "elapsedMs": 3.9746669999999824,
+        "heapDelta": 2993984
+      },
+      {
+        "driver": "5.9.2",
+        "count": 1500,
+        "hash": "7b4b928fc8e7e221144f998b51d728f1003acb91f888b238a781beb1dea04492",
+        "commands": [
+          {
+            "name": "find",
+            "batchSize": null
+          },
+          {
+            "name": "getMore",
+            "batchSize": 1000
+          },
+          {
+            "name": "getMore",
+            "batchSize": 399
+          }
+        ],
+        "batches": [
+          101,
+          1000,
+          399
+        ],
+        "elapsedMs": 5.626749999999987,
+        "heapDelta": 4382896
+      }
+    ]
+  },
+  {
+    "iteration": 6,
+    "variant": "driver7",
+    "reads": [
+      {
+        "driver": "7.6.0",
+        "count": 8928,
+        "hash": "79cc6a8a6d70f198763cff2d8083bdd627c4f685907f524b5e8eca2ed5d9573f",
+        "commands": [
+          {
+            "name": "find",
+            "batchSize": null
+          },
+          {
+            "name": "getMore",
+            "batchSize": null
+          }
+        ],
+        "batches": [
+          101,
+          8827
+        ],
+        "elapsedMs": 41.46529100000001,
+        "heapDelta": 22788152
+      },
+      {
+        "driver": "7.6.0",
+        "count": 1000,
+        "hash": "1c101f5440b7876d7e4469664a9636982debf9a607b234d8dcd784e39d08b3bf",
+        "commands": [
+          {
+            "name": "find",
+            "batchSize": null
+          },
+          {
+            "name": "getMore",
+            "batchSize": null
+          }
+        ],
+        "batches": [
+          101,
+          899
+        ],
+        "elapsedMs": 6.962250000000012,
+        "heapDelta": 6144512
+      },
+      {
+        "driver": "7.6.0",
+        "count": 1500,
+        "hash": "7b4b928fc8e7e221144f998b51d728f1003acb91f888b238a781beb1dea04492",
+        "commands": [
+          {
+            "name": "find",
+            "batchSize": null
+          },
+          {
+            "name": "getMore",
+            "batchSize": null
+          }
+        ],
+        "batches": [
+          101,
+          1399
+        ],
+        "elapsedMs": 8.231707999999998,
+        "heapDelta": 9283648
+      }
+    ]
+  },
+  {
+    "iteration": 6,
+    "variant": "driver7-bounded",
+    "reads": [
+      {
+        "driver": "7.6.0",
+        "count": 8928,
+        "hash": "79cc6a8a6d70f198763cff2d8083bdd627c4f685907f524b5e8eca2ed5d9573f",
+        "commands": [
+          {
+            "name": "find",
+            "batchSize": 1000
+          },
+          {
+            "name": "getMore",
+            "batchSize": 1000
+          },
+          {
+            "name": "getMore",
+            "batchSize": 1000
+          },
+          {
+            "name": "getMore",
+            "batchSize": 1000
+          },
+          {
+            "name": "getMore",
+            "batchSize": 1000
+          },
+          {
+            "name": "getMore",
+            "batchSize": 1000
+          },
+          {
+            "name": "getMore",
+            "batchSize": 1000
+          },
+          {
+            "name": "getMore",
+            "batchSize": 1000
+          },
+          {
+            "name": "getMore",
+            "batchSize": 1000
+          }
+        ],
+        "batches": [
+          1000,
+          1000,
+          1000,
+          1000,
+          1000,
+          1000,
+          1000,
+          1000,
+          928
+        ],
+        "elapsedMs": 44.63974999999999,
+        "heapDelta": 9760176
+      },
+      {
+        "driver": "7.6.0",
+        "count": 1000,
+        "hash": "1c101f5440b7876d7e4469664a9636982debf9a607b234d8dcd784e39d08b3bf",
+        "commands": [
+          {
+            "name": "find",
+            "batchSize": 1001
+          }
+        ],
+        "batches": [
+          1000
+        ],
+        "elapsedMs": 3.585542000000004,
+        "heapDelta": 6008040
+      },
+      {
+        "driver": "7.6.0",
+        "count": 1500,
+        "hash": "7b4b928fc8e7e221144f998b51d728f1003acb91f888b238a781beb1dea04492",
+        "commands": [
+          {
+            "name": "find",
+            "batchSize": 1000
+          },
+          {
+            "name": "getMore",
+            "batchSize": 500
+          }
+        ],
+        "batches": [
+          1000,
+          500
+        ],
+        "elapsedMs": 4.461542000000009,
+        "heapDelta": 8996336
+      }
+    ]
+  }
+]

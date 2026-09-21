@@ -1,0 +1,1002 @@
+{
+  "scope": "CLI lint of lib only on the same application sources. Exit code is 1 before and after. ESLint 10 additionally includes lib/d3.mjs and unused-directive diagnostics.",
+  "before": {
+    "files": 226,
+    "errors": 5,
+    "warnings": 16,
+    "counts": {
+      "security/detect-non-literal-regexp": 3,
+      "no-unused-vars": 4,
+      "security/detect-unsafe-regex": 1,
+      "security/detect-non-literal-fs-filename": 12,
+      "no-constant-condition": 1
+    },
+    "messages": [
+      {
+        "file": "lib/api/entries/index.js",
+        "ruleId": "security/detect-non-literal-regexp",
+        "line": 595,
+        "column": 16,
+        "severity": 1,
+        "message": "Found non-literal argument to RegExp Constructor"
+      },
+      {
+        "file": "lib/api/profile/index.js",
+        "ruleId": "no-unused-vars",
+        "line": 30,
+        "column": 38,
+        "severity": 2,
+        "message": "'next' is defined but never used."
+      },
+      {
+        "file": "lib/api3/alarmSocket.js",
+        "ruleId": "no-unused-vars",
+        "line": 68,
+        "column": 109,
+        "severity": 2,
+        "message": "'auth' is defined but never used."
+      },
+      {
+        "file": "lib/middleware/express-extension-to-accept.js",
+        "ruleId": "security/detect-non-literal-regexp",
+        "line": 19,
+        "column": 16,
+        "severity": 1,
+        "message": "Found non-literal argument to RegExp Constructor"
+      },
+      {
+        "file": "lib/profile/profileeditor.js",
+        "ruleId": "no-unused-vars",
+        "line": 100,
+        "column": 12,
+        "severity": 2,
+        "message": "'convertToRanges' is defined but never used. Allowed unused vars must match /should|expect/u."
+      },
+      {
+        "file": "lib/profilefunctions.js",
+        "ruleId": "security/detect-unsafe-regex",
+        "line": 220,
+        "column": 30,
+        "severity": 1,
+        "message": "Unsafe Regular Expression"
+      },
+      {
+        "file": "lib/server/app.js",
+        "ruleId": "security/detect-non-literal-fs-filename",
+        "line": 13,
+        "column": 7,
+        "severity": 1,
+        "message": "Found existsSync from package \"fs\" with non literal argument at index 0"
+      },
+      {
+        "file": "lib/server/app.js",
+        "ruleId": "security/detect-non-literal-fs-filename",
+        "line": 15,
+        "column": 7,
+        "severity": 1,
+        "message": "Found existsSync from package \"fs\" with non literal argument at index 0"
+      },
+      {
+        "file": "lib/server/app.js",
+        "ruleId": "security/detect-non-literal-fs-filename",
+        "line": 17,
+        "column": 7,
+        "severity": 1,
+        "message": "Found existsSync from package \"fs\" with non literal argument at index 0"
+      },
+      {
+        "file": "lib/server/app.js",
+        "ruleId": "security/detect-non-literal-fs-filename",
+        "line": 173,
+        "column": 21,
+        "severity": 1,
+        "message": "Found readFileSync from package \"fs\" with non literal argument at index 0"
+      },
+      {
+        "file": "lib/server/app.js",
+        "ruleId": "security/detect-non-literal-fs-filename",
+        "line": 298,
+        "column": 23,
+        "severity": 1,
+        "message": "Found readFileSync from package \"fs\" with non literal argument at index 0"
+      },
+      {
+        "file": "lib/server/app.js",
+        "ruleId": "security/detect-non-literal-fs-filename",
+        "line": 299,
+        "column": 23,
+        "severity": 1,
+        "message": "Found readFileSync from package \"fs\" with non literal argument at index 0"
+      },
+      {
+        "file": "lib/server/enclave.js",
+        "ruleId": "security/detect-non-literal-fs-filename",
+        "line": 23,
+        "column": 9,
+        "severity": 1,
+        "message": "Found existsSync from package \"fs\" with non literal argument at index 0"
+      },
+      {
+        "file": "lib/server/enclave.js",
+        "ruleId": "security/detect-non-literal-fs-filename",
+        "line": 24,
+        "column": 14,
+        "severity": 1,
+        "message": "Found readFileSync from package \"fs\" with non literal argument at index 0"
+      },
+      {
+        "file": "lib/server/env.js",
+        "ruleId": "security/detect-non-literal-fs-filename",
+        "line": 71,
+        "column": 12,
+        "severity": 1,
+        "message": "Found readFileSync from package \"fs\" with non literal argument at index 0"
+      },
+      {
+        "file": "lib/server/env.js",
+        "ruleId": "security/detect-non-literal-fs-filename",
+        "line": 72,
+        "column": 15,
+        "severity": 1,
+        "message": "Found readFileSync from package \"fs\" with non literal argument at index 0"
+      },
+      {
+        "file": "lib/server/env.js",
+        "ruleId": "security/detect-non-literal-fs-filename",
+        "line": 75,
+        "column": 16,
+        "severity": 1,
+        "message": "Found readFileSync from package \"fs\" with non literal argument at index 0"
+      },
+      {
+        "file": "lib/server/env.js",
+        "ruleId": "security/detect-non-literal-fs-filename",
+        "line": 237,
+        "column": 14,
+        "severity": 1,
+        "message": "Found readFileSync from package \"fs\" with non literal argument at index 0"
+      },
+      {
+        "file": "lib/server/query.js",
+        "ruleId": "security/detect-non-literal-regexp",
+        "line": 242,
+        "column": 12,
+        "severity": 1,
+        "message": "Found non-literal argument to RegExp Constructor"
+      },
+      {
+        "file": "lib/server/server.js",
+        "ruleId": "no-unused-vars",
+        "line": 74,
+        "column": 9,
+        "severity": 2,
+        "message": "'websocket' is assigned a value but never used. Allowed unused vars must match /should|expect/u."
+      },
+      {
+        "file": "lib/storage/mongo-storage.js",
+        "ruleId": "no-constant-condition",
+        "line": 141,
+        "column": 16,
+        "severity": 2,
+        "message": "Unexpected constant condition."
+      }
+    ]
+  },
+  "after": {
+    "files": 227,
+    "errors": 53,
+    "warnings": 47,
+    "counts": {
+      "no-useless-assignment": 27,
+      "security/detect-non-literal-regexp": 3,
+      "no-unused-vars": 25,
+      "unused-directive": 31,
+      "security/detect-unsafe-regex": 1,
+      "security/detect-non-literal-fs-filename": 12,
+      "no-constant-condition": 1
+    },
+    "messages": [
+      {
+        "file": "lib/admin_plugins/daterangedelete.js",
+        "ruleId": "no-useless-assignment",
+        "line": 202,
+        "column": 11,
+        "severity": 2,
+        "message": "The value assigned to 'queryParams' is not used in subsequent statements."
+      },
+      {
+        "file": "lib/admin_plugins/daterangedelete.js",
+        "ruleId": "no-useless-assignment",
+        "line": 203,
+        "column": 11,
+        "severity": 2,
+        "message": "The value assigned to 'dateField' is not used in subsequent statements."
+      },
+      {
+        "file": "lib/admin_plugins/daterangedelete.js",
+        "ruleId": "no-useless-assignment",
+        "line": 397,
+        "column": 9,
+        "severity": 2,
+        "message": "The value assigned to 'queryParams' is not used in subsequent statements."
+      },
+      {
+        "file": "lib/admin_plugins/daterangedelete.js",
+        "ruleId": "no-useless-assignment",
+        "line": 398,
+        "column": 9,
+        "severity": 2,
+        "message": "The value assigned to 'dateField' is not used in subsequent statements."
+      },
+      {
+        "file": "lib/api/entries/index.js",
+        "ruleId": "security/detect-non-literal-regexp",
+        "line": 595,
+        "column": 16,
+        "severity": 1,
+        "message": "Found non-literal argument to RegExp Constructor"
+      },
+      {
+        "file": "lib/api/profile/index.js",
+        "ruleId": "no-unused-vars",
+        "line": 30,
+        "column": 38,
+        "severity": 2,
+        "message": "'next' is defined but never used."
+      },
+      {
+        "file": "lib/api3/alarmSocket.js",
+        "ruleId": "no-unused-vars",
+        "line": 68,
+        "column": 109,
+        "severity": 2,
+        "message": "'auth' is defined but never used."
+      },
+      {
+        "file": "lib/api3/generic/history/operation.js",
+        "ruleId": "no-useless-assignment",
+        "line": 67,
+        "column": 7,
+        "severity": 2,
+        "message": "The value assigned to 'lastModified' is not used in subsequent statements."
+      },
+      {
+        "file": "lib/api3/generic/history/operation.js",
+        "ruleId": "no-useless-assignment",
+        "line": 69,
+        "column": 7,
+        "severity": 2,
+        "message": "The value assigned to 'operator' is not used in subsequent statements."
+      },
+      {
+        "file": "lib/api3/generic/history/operation.js",
+        "ruleId": "no-unused-vars",
+        "line": 94,
+        "column": 14,
+        "severity": 2,
+        "message": "'err' is defined but never used."
+      },
+      {
+        "file": "lib/authorization/storage.js",
+        "ruleId": "no-unused-vars",
+        "line": 28,
+        "column": 14,
+        "severity": 2,
+        "message": "'err' is defined but never used."
+      },
+      {
+        "file": "lib/client-core/careportal/event-types.js",
+        "ruleId": null,
+        "line": 30,
+        "column": 5,
+        "severity": 1,
+        "message": "Unused eslint-disable directive (no problems were reported from 'security/detect-object-injection')."
+      },
+      {
+        "file": "lib/client-core/careportal/event-types.js",
+        "ruleId": null,
+        "line": 49,
+        "column": 7,
+        "severity": 1,
+        "message": "Unused eslint-disable directive (no problems were reported from 'security/detect-object-injection')."
+      },
+      {
+        "file": "lib/client-core/careportal/event-types.js",
+        "ruleId": null,
+        "line": 61,
+        "column": 7,
+        "severity": 1,
+        "message": "Unused eslint-disable directive (no problems were reported from 'security/detect-object-injection')."
+      },
+      {
+        "file": "lib/client-core/careportal/normalize-treatment.js",
+        "ruleId": null,
+        "line": 56,
+        "column": 5,
+        "severity": 1,
+        "message": "Unused eslint-disable directive (no problems were reported from 'security/detect-object-injection')."
+      },
+      {
+        "file": "lib/client-core/careportal/normalize-treatment.js",
+        "ruleId": null,
+        "line": 112,
+        "column": 5,
+        "severity": 1,
+        "message": "Unused eslint-disable directive (no problems were reported from 'security/detect-object-injection')."
+      },
+      {
+        "file": "lib/client/adminnotifiesclient.js",
+        "ruleId": null,
+        "line": 71,
+        "column": 9,
+        "severity": 1,
+        "message": "Unused eslint-disable directive (no problems were reported from 'security/detect-object-injection')."
+      },
+      {
+        "file": "lib/client/boluscalc.js",
+        "ruleId": "no-unused-vars",
+        "line": 44,
+        "column": 69,
+        "severity": 2,
+        "message": "'e' is defined but never used."
+      },
+      {
+        "file": "lib/client/boluscalc.js",
+        "ruleId": null,
+        "line": 253,
+        "column": 9,
+        "severity": 1,
+        "message": "Unused eslint-disable directive (no problems were reported from 'security/detect-object-injection')."
+      },
+      {
+        "file": "lib/client/boluscalc.js",
+        "ruleId": null,
+        "line": 428,
+        "column": 9,
+        "severity": 1,
+        "message": "Unused eslint-disable directive (no problems were reported from 'security/detect-object-injection')."
+      },
+      {
+        "file": "lib/client/boluscalc.js",
+        "ruleId": null,
+        "line": 655,
+        "column": 7,
+        "severity": 1,
+        "message": "Unused eslint-disable directive (no problems were reported from 'security/detect-object-injection')."
+      },
+      {
+        "file": "lib/client/boluscalc.js",
+        "ruleId": null,
+        "line": 700,
+        "column": 7,
+        "severity": 1,
+        "message": "Unused eslint-disable directive (no problems were reported from 'security/detect-object-injection')."
+      },
+      {
+        "file": "lib/client/boluscalc.js",
+        "ruleId": null,
+        "line": 735,
+        "column": 15,
+        "severity": 1,
+        "message": "Unused eslint-disable directive (no problems were reported from 'security/detect-object-injection')."
+      },
+      {
+        "file": "lib/client/browser-settings.js",
+        "ruleId": null,
+        "line": 219,
+        "column": 11,
+        "severity": 1,
+        "message": "Unused eslint-disable directive (no problems were reported from 'security/detect-object-injection')."
+      },
+      {
+        "file": "lib/client/browser-settings.js",
+        "ruleId": null,
+        "line": 284,
+        "column": 7,
+        "severity": 1,
+        "message": "Unused eslint-disable directive (no problems were reported from 'security/detect-object-injection')."
+      },
+      {
+        "file": "lib/client/browser-utils.js",
+        "ruleId": "no-unused-vars",
+        "line": 43,
+        "column": 69,
+        "severity": 2,
+        "message": "'e' is defined but never used."
+      },
+      {
+        "file": "lib/client/careportal.js",
+        "ruleId": null,
+        "line": 104,
+        "column": 5,
+        "severity": 1,
+        "message": "Unused eslint-disable directive (no problems were reported from 'security/detect-object-injection')."
+      },
+      {
+        "file": "lib/client/chart.js",
+        "ruleId": null,
+        "line": 705,
+        "column": 7,
+        "severity": 1,
+        "message": "Unused eslint-disable directive (no problems were reported from 'security/detect-object-injection')."
+      },
+      {
+        "file": "lib/client/clock-client.js",
+        "ruleId": null,
+        "line": 127,
+        "column": 7,
+        "severity": 1,
+        "message": "Unused eslint-disable directive (no problems were reported from 'security/detect-object-injection')."
+      },
+      {
+        "file": "lib/client/clock-client.js",
+        "ruleId": null,
+        "line": 133,
+        "column": 7,
+        "severity": 1,
+        "message": "Unused eslint-disable directive (no problems were reported from 'security/detect-object-injection')."
+      },
+      {
+        "file": "lib/client/d3locales.js",
+        "ruleId": null,
+        "line": 240,
+        "column": 5,
+        "severity": 1,
+        "message": "Unused eslint-disable directive (no problems were reported from 'security/detect-object-injection')."
+      },
+      {
+        "file": "lib/client/d3locales.js",
+        "ruleId": null,
+        "line": 244,
+        "column": 3,
+        "severity": 1,
+        "message": "Unused eslint-disable directive (no problems were reported from 'security/detect-object-injection')."
+      },
+      {
+        "file": "lib/client/hashauth.js",
+        "ruleId": "no-useless-assignment",
+        "line": 367,
+        "column": 9,
+        "severity": 2,
+        "message": "The value assigned to 'status' is not used in subsequent statements."
+      },
+      {
+        "file": "lib/client/index.js",
+        "ruleId": "no-useless-assignment",
+        "line": 374,
+        "column": 9,
+        "severity": 2,
+        "message": "The value assigned to 'timeFormat' is not used in subsequent statements."
+      },
+      {
+        "file": "lib/client/index.js",
+        "ruleId": null,
+        "line": 910,
+        "column": 7,
+        "severity": 1,
+        "message": "Unused eslint-disable directive (no problems were reported from 'security/detect-object-injection')."
+      },
+      {
+        "file": "lib/client/index.js",
+        "ruleId": null,
+        "line": 915,
+        "column": 7,
+        "severity": 1,
+        "message": "Unused eslint-disable directive (no problems were reported from 'security/detect-object-injection')."
+      },
+      {
+        "file": "lib/client/index.js",
+        "ruleId": null,
+        "line": 1005,
+        "column": 7,
+        "severity": 1,
+        "message": "Unused eslint-disable directive (no problems were reported from 'security/detect-object-injection')."
+      },
+      {
+        "file": "lib/client/index.js",
+        "ruleId": null,
+        "line": 1045,
+        "column": 7,
+        "severity": 1,
+        "message": "Unused eslint-disable directive (no problems were reported from 'security/detect-non-literal-fs-filename')."
+      },
+      {
+        "file": "lib/client/index.js",
+        "ruleId": null,
+        "line": 1060,
+        "column": 7,
+        "severity": 1,
+        "message": "Unused eslint-disable directive (no problems were reported from 'security/detect-non-literal-fs-filename')."
+      },
+      {
+        "file": "lib/client/receiveddata.js",
+        "ruleId": null,
+        "line": 13,
+        "column": 7,
+        "severity": 1,
+        "message": "Unused eslint-disable directive (no problems were reported from 'security/detect-object-injection')."
+      },
+      {
+        "file": "lib/client/receiveddata.js",
+        "ruleId": null,
+        "line": 27,
+        "column": 7,
+        "severity": 1,
+        "message": "Unused eslint-disable directive (no problems were reported from 'security/detect-object-injection')."
+      },
+      {
+        "file": "lib/client/receiveddata.js",
+        "ruleId": null,
+        "line": 57,
+        "column": 5,
+        "severity": 1,
+        "message": "Unused eslint-disable directive (no problems were reported from 'security/detect-object-injection')."
+      },
+      {
+        "file": "lib/client/receiveddata.js",
+        "ruleId": null,
+        "line": 101,
+        "column": 5,
+        "severity": 1,
+        "message": "Unused eslint-disable directive (no problems were reported from 'security/detect-object-injection')."
+      },
+      {
+        "file": "lib/client/receiveddata.js",
+        "ruleId": null,
+        "line": 108,
+        "column": 7,
+        "severity": 1,
+        "message": "Unused eslint-disable directive (no problems were reported from 'security/detect-object-injection')."
+      },
+      {
+        "file": "lib/client/renderer.js",
+        "ruleId": null,
+        "line": 625,
+        "column": 11,
+        "severity": 1,
+        "message": "Unused eslint-disable directive (no problems were reported from 'security/detect-object-injection')."
+      },
+      {
+        "file": "lib/client/renderer.js",
+        "ruleId": "no-unused-vars",
+        "line": 1073,
+        "column": 16,
+        "severity": 2,
+        "message": "'err' is defined but never used."
+      },
+      {
+        "file": "lib/client/storage.js",
+        "ruleId": "no-unused-vars",
+        "line": 8,
+        "column": 61,
+        "severity": 2,
+        "message": "'_' is defined but never used."
+      },
+      {
+        "file": "lib/client/storage.js",
+        "ruleId": "no-unused-vars",
+        "line": 21,
+        "column": 12,
+        "severity": 2,
+        "message": "'_' is defined but never used."
+      },
+      {
+        "file": "lib/client/storage.js",
+        "ruleId": "no-unused-vars",
+        "line": 109,
+        "column": 16,
+        "severity": 2,
+        "message": "'_' is defined but never used."
+      },
+      {
+        "file": "lib/client/storage.js",
+        "ruleId": "no-unused-vars",
+        "line": 118,
+        "column": 16,
+        "severity": 2,
+        "message": "'_' is defined but never used."
+      },
+      {
+        "file": "lib/data/dataloader.js",
+        "ruleId": "no-useless-assignment",
+        "line": 38,
+        "column": 7,
+        "severity": 2,
+        "message": "The value assigned to 'merged' is not used in subsequent statements."
+      },
+      {
+        "file": "lib/language.js",
+        "ruleId": null,
+        "line": 145,
+        "column": 5,
+        "severity": 1,
+        "message": "Unused eslint-disable directive (no problems were reported from 'security/detect-non-literal-fs-filename')."
+      },
+      {
+        "file": "lib/middleware/express-extension-to-accept.js",
+        "ruleId": "security/detect-non-literal-regexp",
+        "line": 19,
+        "column": 16,
+        "severity": 1,
+        "message": "Found non-literal argument to RegExp Constructor"
+      },
+      {
+        "file": "lib/plugins/ar2.js",
+        "ruleId": "no-useless-assignment",
+        "line": 160,
+        "column": 11,
+        "severity": 2,
+        "message": "The value assigned to 'response' is not used in subsequent statements."
+      },
+      {
+        "file": "lib/plugins/basalprofile.js",
+        "ruleId": "no-useless-assignment",
+        "line": 116,
+        "column": 13,
+        "severity": 2,
+        "message": "The value assigned to 'response' is not used in subsequent statements."
+      },
+      {
+        "file": "lib/plugins/boluswizardpreview.js",
+        "ruleId": "no-useless-assignment",
+        "line": 169,
+        "column": 9,
+        "severity": 2,
+        "message": "The value assigned to 'delta' is not used in subsequent statements."
+      },
+      {
+        "file": "lib/plugins/cob.js",
+        "ruleId": "no-useless-assignment",
+        "line": 199,
+        "column": 9,
+        "severity": 2,
+        "message": "The value assigned to 'isDecaying' is not used in subsequent statements."
+      },
+      {
+        "file": "lib/plugins/cob.js",
+        "ruleId": "no-useless-assignment",
+        "line": 270,
+        "column": 9,
+        "severity": 2,
+        "message": "The value assigned to 'response' is not used in subsequent statements."
+      },
+      {
+        "file": "lib/plugins/loop.js",
+        "ruleId": "no-useless-assignment",
+        "line": 475,
+        "column": 13,
+        "severity": 2,
+        "message": "The value assigned to 'response' is not used in subsequent statements."
+      },
+      {
+        "file": "lib/plugins/pluginbase.js",
+        "ruleId": "no-useless-assignment",
+        "line": 33,
+        "column": 9,
+        "severity": 2,
+        "message": "The value assigned to 'container' is not used in subsequent statements."
+      },
+      {
+        "file": "lib/plugins/pushover.js",
+        "ruleId": "no-useless-assignment",
+        "line": 15,
+        "column": 9,
+        "severity": 2,
+        "message": "The value assigned to 'keys' is not used in subsequent statements."
+      },
+      {
+        "file": "lib/plugins/rawbg.js",
+        "ruleId": "no-useless-assignment",
+        "line": 57,
+        "column": 9,
+        "severity": 2,
+        "message": "The value assigned to 'raw' is not used in subsequent statements."
+      },
+      {
+        "file": "lib/plugins/xdripjs.js",
+        "ruleId": "no-useless-assignment",
+        "line": 220,
+        "column": 9,
+        "severity": 2,
+        "message": "The value assigned to 'sessionDuration' is not used in subsequent statements."
+      },
+      {
+        "file": "lib/profile/profileeditor.js",
+        "ruleId": "no-unused-vars",
+        "line": 100,
+        "column": 12,
+        "severity": 2,
+        "message": "'convertToRanges' is defined but never used. Allowed unused vars must match /should|expect/u."
+      },
+      {
+        "file": "lib/profilefunctions.js",
+        "ruleId": "security/detect-unsafe-regex",
+        "line": 220,
+        "column": 30,
+        "severity": 1,
+        "message": "Unsafe Regular Expression"
+      },
+      {
+        "file": "lib/report_plugins/glucosedistribution.js",
+        "ruleId": "no-useless-assignment",
+        "line": 372,
+        "column": 7,
+        "severity": 2,
+        "message": "The value assigned to 'GVIIdeal' is not used in subsequent statements."
+      },
+      {
+        "file": "lib/report_plugins/loopalyzer.js",
+        "ruleId": "no-useless-assignment",
+        "line": 199,
+        "column": 11,
+        "severity": 2,
+        "message": "The value assigned to 'stopIndex' is not used in subsequent statements."
+      },
+      {
+        "file": "lib/report_plugins/loopalyzer.js",
+        "ruleId": "no-useless-assignment",
+        "line": 262,
+        "column": 11,
+        "severity": 2,
+        "message": "The value assigned to 'stopIndex' is not used in subsequent statements."
+      },
+      {
+        "file": "lib/report_plugins/loopalyzer.js",
+        "ruleId": "no-useless-assignment",
+        "line": 263,
+        "column": 11,
+        "severity": 2,
+        "message": "The value assigned to 'k' is not used in subsequent statements."
+      },
+      {
+        "file": "lib/report_plugins/loopalyzer.js",
+        "ruleId": "no-useless-assignment",
+        "line": 264,
+        "column": 11,
+        "severity": 2,
+        "message": "The value assigned to 'm' is not used in subsequent statements."
+      },
+      {
+        "file": "lib/report_plugins/loopalyzer.js",
+        "ruleId": "no-useless-assignment",
+        "line": 536,
+        "column": 7,
+        "severity": 2,
+        "message": "The value assigned to 'stopIndex' is not used in subsequent statements."
+      },
+      {
+        "file": "lib/report_plugins/weektoweek.js",
+        "ruleId": "no-useless-assignment",
+        "line": 63,
+        "column": 76,
+        "severity": 2,
+        "message": "The value assigned to 'colorIdx' is not used in subsequent statements."
+      },
+      {
+        "file": "lib/server/activity.js",
+        "ruleId": "no-unused-vars",
+        "line": 16,
+        "column": 14,
+        "severity": 2,
+        "message": "'err' is defined but never used."
+      },
+      {
+        "file": "lib/server/app.js",
+        "ruleId": "security/detect-non-literal-fs-filename",
+        "line": 13,
+        "column": 7,
+        "severity": 1,
+        "message": "Found existsSync from package \"fs\" with non literal argument at index 0"
+      },
+      {
+        "file": "lib/server/app.js",
+        "ruleId": "security/detect-non-literal-fs-filename",
+        "line": 15,
+        "column": 7,
+        "severity": 1,
+        "message": "Found existsSync from package \"fs\" with non literal argument at index 0"
+      },
+      {
+        "file": "lib/server/app.js",
+        "ruleId": "security/detect-non-literal-fs-filename",
+        "line": 17,
+        "column": 7,
+        "severity": 1,
+        "message": "Found existsSync from package \"fs\" with non literal argument at index 0"
+      },
+      {
+        "file": "lib/server/app.js",
+        "ruleId": "no-unused-vars",
+        "line": 39,
+        "column": 14,
+        "severity": 2,
+        "message": "'err' is defined but never used."
+      },
+      {
+        "file": "lib/server/app.js",
+        "ruleId": "security/detect-non-literal-fs-filename",
+        "line": 173,
+        "column": 21,
+        "severity": 1,
+        "message": "Found readFileSync from package \"fs\" with non literal argument at index 0"
+      },
+      {
+        "file": "lib/server/app.js",
+        "ruleId": "security/detect-non-literal-fs-filename",
+        "line": 298,
+        "column": 23,
+        "severity": 1,
+        "message": "Found readFileSync from package \"fs\" with non literal argument at index 0"
+      },
+      {
+        "file": "lib/server/app.js",
+        "ruleId": "security/detect-non-literal-fs-filename",
+        "line": 299,
+        "column": 23,
+        "severity": 1,
+        "message": "Found readFileSync from package \"fs\" with non literal argument at index 0"
+      },
+      {
+        "file": "lib/server/bootevent.js",
+        "ruleId": "no-unused-vars",
+        "line": 71,
+        "column": 16,
+        "severity": 2,
+        "message": "'e' is defined but never used."
+      },
+      {
+        "file": "lib/server/enclave.js",
+        "ruleId": "security/detect-non-literal-fs-filename",
+        "line": 23,
+        "column": 9,
+        "severity": 1,
+        "message": "Found existsSync from package \"fs\" with non literal argument at index 0"
+      },
+      {
+        "file": "lib/server/enclave.js",
+        "ruleId": "security/detect-non-literal-fs-filename",
+        "line": 24,
+        "column": 14,
+        "severity": 1,
+        "message": "Found readFileSync from package \"fs\" with non literal argument at index 0"
+      },
+      {
+        "file": "lib/server/enclave.js",
+        "ruleId": "no-unused-vars",
+        "line": 66,
+        "column": 13,
+        "severity": 2,
+        "message": "'err' is defined but never used."
+      },
+      {
+        "file": "lib/server/env.js",
+        "ruleId": "security/detect-non-literal-fs-filename",
+        "line": 71,
+        "column": 12,
+        "severity": 1,
+        "message": "Found readFileSync from package \"fs\" with non literal argument at index 0"
+      },
+      {
+        "file": "lib/server/env.js",
+        "ruleId": "security/detect-non-literal-fs-filename",
+        "line": 72,
+        "column": 15,
+        "severity": 1,
+        "message": "Found readFileSync from package \"fs\" with non literal argument at index 0"
+      },
+      {
+        "file": "lib/server/env.js",
+        "ruleId": "security/detect-non-literal-fs-filename",
+        "line": 75,
+        "column": 16,
+        "severity": 1,
+        "message": "Found readFileSync from package \"fs\" with non literal argument at index 0"
+      },
+      {
+        "file": "lib/server/env.js",
+        "ruleId": "security/detect-non-literal-fs-filename",
+        "line": 237,
+        "column": 14,
+        "severity": 1,
+        "message": "Found readFileSync from package \"fs\" with non literal argument at index 0"
+      },
+      {
+        "file": "lib/server/env.js",
+        "ruleId": "no-unused-vars",
+        "line": 276,
+        "column": 12,
+        "severity": 2,
+        "message": "'err' is defined but never used."
+      },
+      {
+        "file": "lib/server/food.js",
+        "ruleId": "no-unused-vars",
+        "line": 13,
+        "column": 14,
+        "severity": 2,
+        "message": "'err' is defined but never used."
+      },
+      {
+        "file": "lib/server/profile.js",
+        "ruleId": "no-unused-vars",
+        "line": 73,
+        "column": 14,
+        "severity": 2,
+        "message": "'err' is defined but never used."
+      },
+      {
+        "file": "lib/server/query.js",
+        "ruleId": "security/detect-non-literal-regexp",
+        "line": 242,
+        "column": 12,
+        "severity": 1,
+        "message": "Found non-literal argument to RegExp Constructor"
+      },
+      {
+        "file": "lib/server/server.js",
+        "ruleId": "no-unused-vars",
+        "line": 74,
+        "column": 9,
+        "severity": 2,
+        "message": "'websocket' is assigned a value but never used. Allowed unused vars must match /should|expect/u."
+      },
+      {
+        "file": "lib/server/treatments.js",
+        "ruleId": "no-unused-vars",
+        "line": 128,
+        "column": 20,
+        "severity": 2,
+        "message": "'findErr' is defined but never used."
+      },
+      {
+        "file": "lib/server/treatments.js",
+        "ruleId": "no-unused-vars",
+        "line": 176,
+        "column": 22,
+        "severity": 2,
+        "message": "'findErr' is defined but never used."
+      },
+      {
+        "file": "lib/server/treatments.js",
+        "ruleId": "no-unused-vars",
+        "line": 320,
+        "column": 18,
+        "severity": 2,
+        "message": "'findErr' is defined but never used."
+      },
+      {
+        "file": "lib/server/websocket.js",
+        "ruleId": "no-unused-vars",
+        "line": 192,
+        "column": 18,
+        "severity": 2,
+        "message": "'err' is defined but never used."
+      },
+      {
+        "file": "lib/settings.js",
+        "ruleId": "no-useless-assignment",
+        "line": 346,
+        "column": 9,
+        "severity": 2,
+        "message": "The value assigned to 'enabled' is not used in subsequent statements."
+      },
+      {
+        "file": "lib/storage/mongo-storage.js",
+        "ruleId": "no-constant-condition",
+        "line": 141,
+        "column": 16,
+        "severity": 2,
+        "message": "Unexpected constant condition."
+      },
+      {
+        "file": "lib/utils/cloneShallow.js",
+        "ruleId": "no-unused-vars",
+        "line": 128,
+        "column": 16,
+        "severity": 2,
+        "message": "'e' is defined but never used."
+      }
+    ]
+  },
+  "baselineFindingsAbsent": []
+}

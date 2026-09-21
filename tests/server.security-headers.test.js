@@ -13,6 +13,7 @@ function securityApp (options) {
 
   const env = {
     name: 'security-header-test'
+    , trustProxy: '127.0.0.1,::1'
     , version: '1.0.0'
     , insecureUseHttp: options.insecureUseHttp !== undefined
       ? options.insecureUseHttp
@@ -199,4 +200,46 @@ describe('server security headers', function () {
     res.headers['content-security-policy'].should.not.containEql('frame-ancestors');
     should.not.exist(res.headers['strict-transport-security']);
   });
+  for (const insecureUseHttp of [false, true]) {
+    for (const secureHstsHeader of [false, true]) {
+      for (const allowUnrestrictedFrameEmbedding of [false, true]) {
+        for (const cspMode of ['off', 'enforced', 'report-only']) {
+          it(`keeps explicit policies for HTTP=${insecureUseHttp}, HSTS=${secureHstsHeader}, embedding=${allowUnrestrictedFrameEmbedding}, CSP=${cspMode}`, async function () {
+            for (let cycle = 0; cycle < 2; cycle++) {
+              const app = securityApp({insecureUseHttp, secureHstsHeader, allowUnrestrictedFrameEmbedding,
+                secureCsp: cspMode !== 'off', secureCspReportOnly: cspMode === 'report-only'});
+              const res = await (insecureUseHttp ? getRobotsOverHttp(app) : getRobots(app));
+              for (const name of ['cross-origin-embedder-policy', 'cross-origin-opener-policy',
+                'cross-origin-resource-policy', 'origin-agent-cluster']) should.not.exist(res.headers[name]);
+              for (const name of ['content-security-policy', 'content-security-policy-report-only']) {
+                const value = res.headers[name] || '';
+                value.should.not.containEql('upgrade-insecure-requests');
+                value.should.not.containEql('script-src-attr');
+              }
+              const hstsBundleEnabled = !insecureUseHttp && secureHstsHeader;
+              const retainedHeaders = {
+                'x-content-type-options': 'nosniff', 'x-dns-prefetch-control': 'off',
+                'x-download-options': 'noopen', 'x-permitted-cross-domain-policies': 'none',
+                'x-xss-protection': '0'
+              };
+              for (const [name, value] of Object.entries(retainedHeaders)) {
+                if (hstsBundleEnabled) res.headers[name].should.equal(value);
+                else should.not.exist(res.headers[name]);
+              }
+              if (hstsBundleEnabled) should.not.exist(res.headers['x-powered-by']);
+              if (hstsBundleEnabled || cspMode !== 'off') res.headers['referrer-policy'].should.equal('no-referrer');
+              else should.not.exist(res.headers['referrer-policy']);
+              if (insecureUseHttp || !secureHstsHeader) should.not.exist(res.headers['strict-transport-security']);
+              else res.headers['strict-transport-security'].should.equal('max-age=31536000');
+              if (allowUnrestrictedFrameEmbedding) should.not.exist(res.headers['x-frame-options']);
+              else res.headers['x-frame-options'].should.equal('SAMEORIGIN');
+              if (cspMode === 'enforced') res.headers['content-security-policy'].should.containEql("script-src 'self' 'unsafe-inline'");
+              if (cspMode === 'report-only') res.headers['content-security-policy-report-only'].should.containEql("script-src 'self' 'unsafe-inline'");
+            }
+          });
+        }
+      }
+    }
+  }
+
 });

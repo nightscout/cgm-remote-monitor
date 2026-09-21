@@ -12,6 +12,12 @@ on:
     branches:
       - master
       - dev
+      - chore/nightscout-modernization
+
+# Replace obsolete PR runs; never cancel a dev/master publication in progress.
+concurrency:
+  group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
 
 jobs:
   test:
@@ -19,8 +25,10 @@ jobs:
     runs-on: ubuntu-latest
     strategy:
       matrix:
-        node-version: [20, 22, 24]
-        mongodb-version: [4.4, 5.0, 6.0]
+        # Test current releases in both supported Node majors.
+        node-version: ['22', '24']
+        # MongoDB 4.4 is retired; keep 5/6 during the modernization migration.
+        mongodb-version: ['5.0.32', '6.0.27']
 
     steps:
       - name: Git Checkout
@@ -30,7 +38,8 @@ jobs:
         uses: actions/setup-node@v5
         with:
           node-version: ${{ matrix.node-version }}
-          package-manager-cache: false
+          check-latest: true
+          cache: npm
 
       - name: Start MongoDB ${{ matrix.mongodb-version }}
         uses: supercharge/mongodb-github-action@1.3.0
@@ -38,15 +47,216 @@ jobs:
           mongodb-version: ${{ matrix.mongodb-version }}
 
       - name: Install dependencies
-        run: npm install
+        run: npm ci
+      - name: Lint application sources
+        if: matrix.node-version == '22' && matrix.mongodb-version == '5.0.32'
+        run: npm run lint
       - name: Validate dependency resolution
-        run: npm ls brace-expansion postcss mocha nanoid js-yaml eslint nyc dompurify socket.io-parser fast-uri ip-address d3 d3-color express body-parser socket.io socket.io-client engine.io engine.io-client socket.io-adapter ws axios @babel/core @babel/preset-env babel-loader jsdom uuid --all
+        run: npm ls brace-expansion postcss mocha nanoid js-yaml eslint nyc dompurify socket.io-parser fast-uri ip-address d3 d3-color express body-parser socket.io socket.io-client engine.io engine.io-client socket.io-adapter ws axios @babel/core @babel/preset-env babel-loader uuid --all
       - name: Run Tests
         run: npm run-script test-ci
+      - name: Run installed connector regression tests
+        run: npm run test:connect
       - name: Run client-core tests
         run: npm run-script test:core
       - name: Send Coverage
         run: npm run-script coverage
+      - name: Validate built and pruned runtime
+        env:
+          NODE_ENV: production
+          CUSTOMCONNSTR_mongo: mongodb://127.0.0.1:27017/testdb
+        run: |
+          npm prune --omit=dev --ignore-scripts
+          node tools/validate-pruned-runtime.js
+
+  maintained-mongo:
+    name: Maintained MongoDB
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        # Keep full backend coverage for both Node majors on MongoDB 7/8.
+        node-version: ['22', '24']
+        # Additional coverage; the retained MongoDB 5/6 matrix stays above.
+        mongodb-version: ['7.0.40', '8.0.29']
+
+    steps:
+      - name: Git Checkout
+        uses: actions/checkout@v5
+
+      - name: Use Node.js ${{ matrix.node-version }}
+        uses: actions/setup-node@v5
+        with:
+          node-version: ${{ matrix.node-version }}
+          check-latest: true
+          cache: npm
+
+      - name: Start MongoDB ${{ matrix.mongodb-version }}
+        uses: supercharge/mongodb-github-action@1.3.0
+        with:
+          mongodb-version: ${{ matrix.mongodb-version }}
+
+      - name: Install dependencies
+        run: npm ci
+      - name: Validate dependency resolution
+        run: npm ls brace-expansion postcss mocha nanoid js-yaml eslint nyc dompurify socket.io-parser fast-uri ip-address d3 d3-color express body-parser socket.io socket.io-client engine.io engine.io-client socket.io-adapter ws axios @babel/core @babel/preset-env babel-loader uuid --all
+      - name: Run Tests
+        run: npm run-script test-ci
+      - name: Run installed connector regression tests
+        run: npm run test:connect
+      - name: Run client-core tests
+        run: npm run-script test:core
+      - name: Send Coverage
+        run: npm run-script coverage
+
+      - name: Validate built and pruned runtime
+        env:
+          NODE_ENV: production
+          CUSTOMCONNSTR_mongo: mongodb://127.0.0.1:27017/testdb
+        run: |
+          npm prune --omit=dev --ignore-scripts
+          node tools/validate-pruned-runtime.js
+
+      - name: Rehearse owned database upgrades and backup recovery
+        if: matrix.node-version == '24' && matrix.mongodb-version == '8.0.29'
+        run: python3 tools/rehearse-database-upgrade.py "$RUNNER_TEMP/nightscout-database-upgrade"
+      - name: Record database upgrade and restore evidence
+        if: always() && matrix.node-version == '24' && matrix.mongodb-version == '8.0.29'
+        uses: actions/upload-artifact@v4
+        with:
+          name: database-upgrade-recovery
+          path: |
+            ${{ runner.temp }}/nightscout-database-upgrade/evidence.json
+            ${{ runner.temp }}/nightscout-database-upgrade/metadata.json
+
+  replica-test:
+    name: Replica set (${{ matrix.node-version }}, ${{ matrix.mongodb-version }})
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    strategy:
+      fail-fast: false
+      matrix:
+        # Each server version exercises failover; the backend matrix covers
+        # every Node/MongoDB pair. Keep both Node majors in failover coverage.
+        include:
+          - node-version: '22'
+            mongodb-version: '5.0.32'
+          - node-version: '24'
+            mongodb-version: '6.0.27'
+          - node-version: '22'
+            mongodb-version: '7.0.40'
+          - node-version: '24'
+            mongodb-version: '8.0.29'
+    steps:
+      - name: Git Checkout
+        uses: actions/checkout@v5
+      - name: Use Node.js ${{ matrix.node-version }}
+        uses: actions/setup-node@v5
+        with:
+          node-version: ${{ matrix.node-version }}
+          check-latest: true
+          cache: npm
+      - name: Start owned replica members
+        env:
+          MONGODB_TEST_VERSION: ${{ matrix.mongodb-version }}
+        run: |
+          for port in 27172 27173 27174; do
+            docker run -d --name "nightscout-owned-rs-$port" --network host \
+              "mongo:$MONGODB_TEST_VERSION" --port "$port" --bind_ip 127.0.0.1 \
+              --replSet nightscout_owned_rs --wiredTigerCacheSizeGB 0.25
+          done
+      # This exercises storage adapters; full builds run in the backend matrix.
+      - name: Install test dependencies
+        run: npm ci --ignore-scripts
+      - name: Validate reads and writes across two primary changes
+        run: node tools/validate-mongodb-replica-set.js
+      - name: Show owned replica logs on failure
+        if: failure()
+        run: |
+          for port in 27172 27173 27174; do
+            docker logs --tail 80 "nightscout-owned-rs-$port" || true
+          done
+      - name: Remove owned replica containers and volumes
+        if: always()
+        run: |
+          for port in 27172 27173 27174; do
+            if docker inspect "nightscout-owned-rs-$port" >/dev/null 2>&1; then
+              docker rm -fv "nightscout-owned-rs-$port"
+            fi
+          done
+
+  browser-test:
+    name: Browser tests (${{ matrix.node-version }}, ${{ matrix.browser }})
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    strategy:
+      fail-fast: false
+      matrix:
+        # All browser engines on Node 24; Chromium also validates the Node 22
+        # build and development/HMR tooling. Browser assertions are unchanged.
+        include:
+          - node-version: '22'
+            browser: chromium
+          - node-version: '24'
+            browser: chromium
+          - node-version: '24'
+            browser: firefox
+          - node-version: '24'
+            browser: webkit
+    steps:
+      - name: Git Checkout
+        uses: actions/checkout@v5
+        with:
+          persist-credentials: false
+      - name: Use Node.js ${{ matrix.node-version }}
+        uses: actions/setup-node@v5
+        with:
+          node-version: ${{ matrix.node-version }}
+          check-latest: true
+          cache: npm
+      - name: Install dependencies and build production bundle
+        run: npm ci
+      - name: Install the pinned browser and system dependencies
+        run: npx --no-install playwright-core install --with-deps ${{ matrix.browser }}
+      - name: Run isolated browser tests
+        env:
+          NIGHTSCOUT_TEST_BROWSER: ${{ matrix.browser }}
+        run: npm run test:browser
+      - name: Record editor time formatting comparison
+        run: node tools/audits/browser-intl-editor-probe.cjs ${{ matrix.browser }} > editor-time-comparison.json
+      - name: Save editor time formatting evidence
+        uses: actions/upload-artifact@v4
+        with:
+          name: editor-time-${{ matrix.node-version }}-${{ matrix.browser }}
+          path: editor-time-comparison.json
+          if-no-files-found: error
+          retention-days: 14
+      - name: Install isolated date comparison candidates
+        run: |
+          mkdir -p "$RUNNER_TEMP/nightscout-date-candidates"
+          cp tools/audits/date-candidates/package*.json "$RUNNER_TEMP/nightscout-date-candidates/"
+          npm ci --prefix "$RUNNER_TEMP/nightscout-date-candidates" --ignore-scripts --no-audit --no-fund
+      - name: Compare date candidates with the production browser bundle
+        run: node tools/audits/browser-date-candidate-probe.cjs "$RUNNER_TEMP/nightscout-date-candidates" ${{ matrix.browser }} > date-candidate-comparison.json
+      - name: Save date candidate evidence
+        uses: actions/upload-artifact@v4
+        with:
+          name: date-candidates-${{ matrix.node-version }}-${{ matrix.browser }}
+          path: date-candidate-comparison.json
+          if-no-files-found: error
+          retention-days: 14
+
+      - name: Compare scoped report widget candidates
+        env:
+          NIGHTSCOUT_TEST_BROWSER: ${{ matrix.browser }}
+        run: node tools/audits/browser-report-widget-probe.cjs > report-widget-comparison.json
+      - name: Save report widget comparison evidence
+        uses: actions/upload-artifact@v4
+        with:
+          name: report-widgets-${{ matrix.node-version }}-${{ matrix.browser }}
+          path: report-widget-comparison.json
+          if-no-files-found: error
+          retention-days: 14
 
   npm12-build:
     name: Validate npm 12 install and build
@@ -61,7 +271,8 @@ jobs:
         uses: actions/setup-node@v5
         with:
           node-version: 24
-          package-manager-cache: false
+          check-latest: true
+          cache: npm
       - name: Use npm 12
         run: npm install --global npm@12
       - name: Install dependencies and build production bundle
@@ -72,10 +283,20 @@ jobs:
         run: NODE_ENV=development npm run bundle-dev
 
   docker-build-pr:
-    name: Validate Docker image
-    needs: test
+    name: Validate Docker image (${{ matrix.arch }})
+    # Independent validation can run immediately; all jobs still gate merging.
     if: github.event_name == 'pull_request'
-    runs-on: ubuntu-latest
+    runs-on: ${{ matrix.runner }}
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - arch: amd64
+            platform: linux/amd64
+            runner: ubuntu-latest
+          - arch: arm64
+            platform: linux/arm64
+            runner: ubuntu-24.04-arm
     steps:
       - name: Git Checkout
         uses: actions/checkout@v5
@@ -88,12 +309,35 @@ jobs:
         with:
           context: .
           push: false
-          platforms: linux/amd64
+          load: true
+          platforms: ${{ matrix.platform }}
           tags: nightscout/cgm-remote-monitor:pr-${{ github.event.pull_request.number }}
+
+      - name: Validate pruned runtime and startup
+        env:
+          IMAGE: nightscout/cgm-remote-monitor:pr-${{ github.event.pull_request.number }}
+        run: |
+          docker run --rm "$IMAGE" node -e "require('./lib/server/runtime-policy')(); console.log(process.version)"
+          docker run --rm "$IMAGE" node -e 'const load = require("node:module").createRequire(require.resolve("mongodb")); require("node:assert/strict").equal(load("@mongodb-js/saslprep").saslprep("I\u00ADX"), "IX")'
+          docker run --detach --name nightscout-smoke -p 127.0.0.1:1337:1337 "$IMAGE"
+          trap 'docker logs nightscout-smoke; docker rm -f nightscout-smoke' EXIT
+          # With no database credentials the application must serve its setup/error page.
+          for attempt in {1..60}; do
+            status=$(curl --silent --header 'X-Forwarded-Proto: https' --output /tmp/nightscout-smoke.html --write-out '%{http_code}' http://127.0.0.1:1337/ || true)
+            if [[ "$status" == "200" || "$status" == "500" || "$status" == "503" ]]; then
+              grep -qi nightscout /tmp/nightscout-smoke.html
+              # Default proxy compatibility must avoid HTTPS redirect loops,
+              # while unforwarded HTTP still receives a redirect.
+              test "$(curl --silent --output /dev/null --write-out '%{http_code}' http://127.0.0.1:1337/)" = 307
+              exit 0
+            fi
+            sleep 1
+          done
+          exit 1
 
   docker-build:
     name: Build Docker image (${{ matrix.arch }})
-    needs: test
+    needs: [test, browser-test, maintained-mongo, replica-test, npm12-build]
     if: (github.ref == 'refs/heads/master' || github.ref == 'refs/heads/dev') && github.repository_owner == 'nightscout'
     runs-on: ${{ matrix.runner }}
     strategy:

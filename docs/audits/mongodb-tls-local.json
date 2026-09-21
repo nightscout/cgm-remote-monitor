@@ -1,0 +1,38 @@
+{
+  "scope": "Owned local MongoDB 8 TLS; server authentication only, not live Atlas or mutual TLS.",
+  "validatorSHA256": "9817e5af74334bddcb7046b49c7f0769864e4d5f49e84f00d93864e8d3ed72ff",
+  "results": [
+    {
+      "driver": "5.9.2",
+      "node": "v22.23.2",
+      "server": "8.0.29",
+      "trustedReadWriteCycles": 2,
+      "untrustedCARejections": 2,
+      "sourceCommit": "5dcdc4baedbb65ded086d68854daed1bd780a520"
+    },
+    {
+      "driver": "5.9.2",
+      "node": "v24.20.0",
+      "server": "8.0.29",
+      "trustedReadWriteCycles": 2,
+      "untrustedCARejections": 2,
+      "sourceCommit": "5dcdc4baedbb65ded086d68854daed1bd780a520"
+    },
+    {
+      "driver": "7.6.0",
+      "node": "v22.23.2",
+      "server": "8.0.29",
+      "trustedReadWriteCycles": 2,
+      "untrustedCARejections": 2,
+      "sourceCommit": "e15070ba6ca1876831ca4c65410a61d84403a137"
+    },
+    {
+      "driver": "7.6.0",
+      "node": "v24.20.0",
+      "server": "8.0.29",
+      "trustedReadWriteCycles": 2,
+      "untrustedCARejections": 2,
+      "sourceCommit": "e15070ba6ca1876831ca4c65410a61d84403a137"
+    }
+  ]
+}

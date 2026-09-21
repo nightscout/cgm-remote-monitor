@@ -2,7 +2,6 @@
 
 const assert = require('assert');
 const {spawnSync} = require('child_process');
-const uuid = require('uuid');
 const opTools = require('../lib/api3/shared/operationTools');
 
 // Fixed independently using SHA-1(namespace bytes + UTF-8 key), with UUID v5
@@ -16,7 +15,14 @@ const vectors = [
   [{device: 'test-device', date: 1704067200001}, '311353ac-f7f9-51e8-a39e-04f362cb9593']
 ];
 
-describe('UUID dependency compatibility', function () {
+// Additional reference vectors computed with Python uuid.uuid5 and the same
+// 16 namespace bytes; preserve normalization, NUL and long UTF-8 inputs.
+vectors.push([{device: "\u00e9", date: 1704067200000}, 'dc84fc61-f0eb-508a-bafb-f4120b3a8717']);
+vectors.push([{device: "e\u0301", date: 1704067200000}, 'e6352a83-49bb-5244-ac7b-140f37d56166']);
+vectors.push([{device: "\u0000", date: 1704067200000}, 'b7a6cfd2-4f58-56c5-b200-249802fbb978']);
+vectors.push([{device: 'x'.repeat(10000), date: 1704067200000}, 'caad421a-319d-5939-a32e-49a5265592ab']);
+
+describe('Persisted UUID v5 identifier compatibility', function () {
   it('loads the synchronous API without experimental require(ESM) support', function () {
     const flag = '--no-experimental-require-module';
     const flags = process.allowedNodeEnvironmentFlags.has(flag) ? [flag] : [];
@@ -32,8 +38,7 @@ describe('UUID dependency compatibility', function () {
     it('preserves the persisted identifier ' + expected, function () {
       assert.strictEqual(opTools.calculateIdentifier(doc), expected);
       assert.strictEqual(opTools.calculateIdentifier({...doc}), expected);
-      assert.ok(uuid.validate(expected));
-      assert.strictEqual(uuid.version(expected), 5);
+      assert.match(expected, /^[a-f0-9]{8}-[a-f0-9]{4}-5[a-f0-9]{3}-[89ab][a-f0-9]{3}-[a-f0-9]{12}$/);
     });
   }
 
@@ -68,19 +73,11 @@ describe('UUID dependency compatibility', function () {
     }
   });
 
-  it('retains the patched v5 buffer bounds checks without partial writes', function () {
-    for (const [length, offset] of [[8, 0], [16, -1], [16, 1]]) {
-      const buffer = Buffer.alloc(length, 0xaa);
-      assert.throws(() => uuid.v5('fixture', uuid.v5.DNS, buffer, offset), RangeError);
-      assert.deepStrictEqual(buffer, Buffer.alloc(length, 0xaa));
+  it('retains absent-document and malformed Unicode behavior', function () {
+    assert.equal(opTools.calculateIdentifier(null), undefined);
+    assert.equal(opTools.calculateIdentifier(undefined), undefined);
+    for (const device of ['\ud800', '\udfff', 'before\ud800after']) {
+      assert.throws(() => opTools.calculateIdentifier({device, date: 1704067200000}), URIError);
     }
-  });
-
-  it('writes v5 into a valid buffer without changing adjacent bytes', function () {
-    const buffer = Buffer.alloc(20, 0xaa);
-    assert.strictEqual(uuid.v5('www.example.com', uuid.v5.DNS, buffer, 2), buffer);
-    assert.strictEqual(uuid.stringify(buffer, 2), '2ed6657d-e927-568b-95e1-2665a8aea6a2');
-    assert.deepStrictEqual(buffer.subarray(0, 2), Buffer.from([0xaa, 0xaa]));
-    assert.deepStrictEqual(buffer.subarray(18), Buffer.from([0xaa, 0xaa]));
   });
 });

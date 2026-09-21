@@ -1,0 +1,14 @@
+{
+  "sources": {
+    "tools/measure-page-startup.js": "08833230b9201583fb7530d6814e9a76f621610f2a7b07a8a7274403a0e05c6c",
+    "tools/measure-page-journey.js": "134bcc23e3df59e2e81239fc3a8af41fabe7a626ebae342a99fa2c15c2df2ba2",
+    "tools/measure-installed-files.js": "221b7fbecc5bd58cef47125aec3ccba5717f27c7de22e9dac4f561998258d294",
+    "tools/measure-page-bundles.js": "c5a04931d2df019f8021306c4303b3ec0372fc16087444573e94d5a6dcbc7a98",
+    "tools/page-resource-acceptance.js": "481a9f9da4ce7605fe5efbff1badc78c8d6b1e01cbfa032543c3aa6893039f2e",
+    "tests/fixtures/page-startup/server.js": "82def8ffcae6b89f15906af60e9d524ea44914342efe15f1d77364e1422bdf4c",
+    "tools/audits/connect-server-probes.py": "951ce1fb5f899afb2d21b47eab4d11e93c90433ec83dc5e56503dc8eefa66ca4",
+    "tools/audits/connect-server-probe.cjs": "f0d04bb9496ae915f194e254089130b185dace9ed8a6764e729f8a029a90cae4"
+  },
+  "candidateRuntimeCommit": "056ee5bae5a2da6f216feab43124065ba3706d14",
+  "baselineCommit": "9205ea300b9a6981ad8f16223c69620dd3c1c830"
+}
