@@ -377,6 +377,8 @@
     "Values loaded.": "Data nahrána.",
     "Default values used.": "Použity výchozí hodnoty.",
     "Error. Default values used.": "CHYBA: Použity výchozí hodnoty.",
+    "Enter every profile value before saving.": "Enter every profile value before saving.",
+    "Your profile could not be loaded. Reload before editing.": "Your profile could not be loaded. Reload before editing.",
     "Time ranges of target_low and target_high don't  match. Values are restored to defaults.": "Rozsahy časů pro limity glykémií si neodpovídají. Budou nastaveny výchozí hodnoty.",
     "Valid from:": "Platné od:",
     "Save current record before switching to new?": "Uložit současný záznam před přepnutím na nový?",
