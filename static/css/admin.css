@@ -25,3 +25,15 @@
   margin-bottom: 10px;
   margin-right: 20px;
 }
+.carelink-native { max-width: 1000px; }
+.carelink-native button, .carelink-native select { margin: 8px 8px 8px 0; min-height: 40px; max-width: 100%; }
+.carelink-native label { display: block; margin-top: 12px; }
+.carelink-native .carelink-replace { margin: 12px 0; }
+.carelink-replace input { margin-right: 8px; }
+.carelink-panel { position: relative; margin-top: 16px; }
+.carelink-screen { display: block; width: 100%; height: auto; border: 1px solid #777; background: #fff; touch-action: none; }
+.carelink-keyboard { position: absolute; width: 1px; height: 1px; opacity: .01; pointer-events: none; }
+.carelink-keyboard-visible { position: static; width: 100%; height: 40px; opacity: 1; pointer-events: auto; }
+.carelink-focus, .carelink-details { overflow-wrap: anywhere; }
+.carelink-input-controls { display: flex; flex-wrap: wrap; gap: 4px; }
+.carelink-focus { width: 100%; }

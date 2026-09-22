@@ -588,8 +588,13 @@ the `CONNECT_LINK_UP_PATIENT_ID` variable.
 
 ###### Minimed Carelink
 
-To synchronize from Medtronic Minimed Carelink, set the following
-environment variables.
+On the `wip/carelink-native` branch, an experimental in-tree CareLink connector
+provides sign-in through Nightscout's **Data sources** screen. See the
+[isolated local evaluation instructions](docs/carelink-native.md). This is not
+yet a production-ready replacement.
+
+The following settings describe the existing, legacy environment-driven
+Medtronic Minimed Carelink connector.
 * `CONNECT_SOURCE=minimedcarelink`
 * `CONNECT_CARELINK_USERNAME`
 * `CONNECT_CARELINK_PASSWORD`

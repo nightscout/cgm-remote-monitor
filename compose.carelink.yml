@@ -1,0 +1,47 @@
+# Disposable local evaluation, isolated from any existing Nightscout database.
+# Start: docker compose -f compose.carelink.yml up --build -d
+# Open: http://localhost:1337 then Data sources in the Nightscout menu.
+name: nightscout-carelink-native
+services:
+  nightscout:
+    build: .
+    image: nightscout-carelink-native:local
+    ports:
+      - "127.0.0.1:1337:1337"
+    environment:
+      MONGODB_URI: mongodb://mongo:27017/nightscout
+      API_SECRET: ${API_SECRET:-carelink-local-testing-only}
+      AUTH_DEFAULT_ROLES: denied
+      INSECURE_USE_HTTP: "true"
+      DISPLAY_UNITS: mmol
+      ENABLE: careportal
+    depends_on:
+      mongo:
+        condition: service_healthy
+    mem_limit: 1536m
+    cpus: 2
+    read_only: true
+    tmpfs:
+      - /tmp:size=256m,mode=1777
+    cap_drop: [ALL]
+    cap_add: [SETUID, SETGID, KILL]
+    security_opt:
+      - no-new-privileges:true
+      - seccomp=./docker/carelink-seccomp.json
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "2"
+  mongo:
+    image: mongo:7
+    volumes:
+      - carelink-test-db:/data/db
+    healthcheck:
+      test: [CMD, mongosh, --quiet, --eval, "db.adminCommand('ping').ok"]
+      interval: 5s
+      timeout: 5s
+      retries: 20
+    mem_limit: 512m
+volumes:
+  carelink-test-db:
