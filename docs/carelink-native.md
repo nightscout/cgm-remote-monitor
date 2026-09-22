@@ -21,7 +21,7 @@ docker compose -f compose.carelink.yml up --build -d
 
 Open <http://localhost:1337>. Authorize Nightscout with the **local-test-only**
 API secret `carelink-local-testing-only`, then choose **Data sources** in the
-menu (or **Admin Tools → Data sources — Medtronic CareLink**). Select the country
+menu (or open <http://localhost:1337/data-sources>). Select the country
 in which your CareLink account is registered and choose **Connect Medtronic**.
 Sign in on the displayed Medtronic page, complete any verification yourself,
 then confirm the account whose data you want to import.
@@ -47,6 +47,11 @@ Medtronic on other devices or claim to revoke every Medtronic session.
 
 ## User and source behaviour
 
+- `/data-sources` is a dedicated page showing **Available data sources**, with
+  its own navigation and styles. It does not render Admin Tools. Native source
+  cards are registered in `lib/data-sources/index.js`; future in-tree connectors
+  can join this page without becoming admin plugins. Owner authentication and
+  the private connector API protections are unchanged.
 - The CareLink section uses a responsive connection card with separate account,
   latest-reading and last-check details. Its status distinguishes a linked account
   from receiving readings, flags readings older than 15 minutes, and exposes
@@ -57,7 +62,7 @@ Medtronic on other devices or claim to revoke every Medtronic session.
   active. Dismissing a result only changes the display, not the saved connection.
 - Controls retain visible keyboard focus and text labels. Motion reduction,
   forced-colour styling and mobile zoom are supported. Styles are scoped to this
-  section; the rest of the admin interface is unchanged.
+  page; the legacy admin interface remains separate and unchanged.
 - No `ENABLE=connect`, `CONNECT_SOURCE`, token copying or restart is required.
 - Authentication, account confirmation, last successful sync and latest glucose
   timestamp are separate states. No readings is not reported as a successful
@@ -66,7 +71,7 @@ Medtronic on other devices or claim to revoke every Medtronic session.
   with connection progress, account confirmation or a persistent failure/retry
   card. Safe failure details identify the token/account step, response status
   and failure category, never provider response bodies, URLs or credentials.
-  The admin page versions its script/style URLs on restart so an older cached
+  The data sources page versions its script/style URLs on restart so an older cached
   interface cannot hide newly added connection feedback.
 - Reconnection does not replace a working connection until the new account and
   credentials have been saved. Cancelling preserves the previous connection.
@@ -210,8 +215,18 @@ npx env-cmd -f tests/ci.test.env mocha --timeout 15000 --require tests/hooks.js 
 These are local results, not hosted CI results. No production service was
 changed. The initial smoke checks were account-free; a subsequent real-account
 sign-in was user-confirmed, and the local connector reported connected with
-imported readings. The UI changes preserve that saved connection. The admin
+imported readings. The UI changes preserve that saved connection. The connector
 screen has component-level tests but still needs hands-on visual testing.
+
+The standalone data sources follow-up passed 71 focused connector and admin
+tests plus 18 authentication/security-header regressions. Coverage checks the
+dedicated template, menu destination, authentication bootstrap, source-only
+registry and duplicate-initialization guard. The new page retains versioned
+assets and private, same-origin framing headers. Local container HTTP checks
+verified the new route, menu link, assets, separate Admin Tools and anonymous API
+denial. The saved CareLink connection remained active across the app update;
+MongoDB was not restarted. Its visual layout still needs hands-on browser
+checking; automated browser access was unavailable locally.
 
 Outstanding hands-on checks: MFA/CAPTCHA, patient/device data parity,
 refresh with real rotated tokens, physical iOS and

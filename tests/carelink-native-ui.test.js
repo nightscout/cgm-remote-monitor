@@ -19,10 +19,52 @@ describe('native CareLink admin asset freshness', function () {
   });
 });
 
+describe('dedicated data sources page', function () {
+  it('renders only the source page, with versioned assets and accessible navigation', async function () {
+    for (const revision of ['first-build', 'second-build']) {
+      const html = await require('ejs').renderFile(require('node:path').join(__dirname, '../views/data-sources.html'),
+        { locals: { bundle: '/bundle', cachebuster: revision } });
+      assert.ok(html.includes('<h1>Data sources</h1>'));
+      assert.ok(html.includes('Available data sources'));
+      assert.ok(html.includes('id="data-sources-list"'));
+      assert.ok(html.includes('id="authentication_placeholder"'));
+      assert.ok(html.includes('Skip to data sources'));
+      assert.ok(html.includes('Back to Nightscout'));
+      assert.ok(!html.includes('admin_placeholder') && !html.includes('/admin/'));
+      assert.ok(!html.includes('/css/admin.css') && !html.includes('/css/main.css'));
+      assert.ok(!html.includes('user-scalable=0') && !html.includes('maximum-scale=1'));
+      for (const asset of ['/bundle/js/bundle.app.js', '/css/data-sources.css', '/js/data-sources.js']) {
+        assert.ok(html.includes(asset + '?v=' + revision));
+      }
+    }
+  });
+  it('mounts sources through the existing authentication flow, without initializing admin tools', function () {
+    let ready, mounted = 0;
+    const client = { init: callback => { ready = callback; } };
+    const filename = require('node:path').join(__dirname, '../static/js/data-sources.js');
+    const source = require('node:fs').readFileSync(filename, 'utf8');
+    const context = { window: { Nightscout: { client, dataSources: { mount: (actualClient, container) => {
+      assert.equal(actualClient, client); assert.equal(container, '#data-sources-list'); mounted++;
+    } } } }, $: selector => {
+      assert.equal(selector, '#data-sources-loading'); return { hide: () => {} };
+    } };
+    require('node:vm').runInNewContext(source, context, { filename });
+    assert.equal(client.requiredPermission, '*');
+    assert.equal(mounted, 0);
+    ready();
+    assert.equal(mounted, 1);
+  });
+  it('links the Nightscout menu directly to the standalone route', function () {
+    const html = require('node:fs').readFileSync(require('node:path').join(__dirname, '../views/index.html'), 'utf8');
+    assert.ok(html.includes('id="datasourceslink" href="/data-sources"'));
+    assert.ok(!html.includes('/admin#carelink'));
+  });
+});
+
 describe('native CareLink owner controls', function () {
   let dom, globals, $, state, calls;
   beforeEach(function () {
-    dom = createSecureDOM('<!doctype html><body><fieldset><div id="admin_connect_0_html"></div></fieldset></body>');
+    dom = createSecureDOM('<!doctype html><body><div id="data-sources-list"></div></body>');
     globals = installDomGlobals(dom); $ = dom.window.$; calls = [];
     state = { available: true, connected: false, configured: false, conflicts: [], session: null };
     $.ajax = options => {
@@ -35,10 +77,26 @@ describe('native CareLink owner controls', function () {
     dom.window.close(); restoreDomGlobals(globals);
   });
   async function init() {
-    const plugin = require('../lib/admin_plugins/connect')();
-    plugin.actions[0].init({ headers: () => ({ 'api-secret': 'test-digest' }) });
+    const [plugin] = require('../lib/data-sources').mount({ headers: () => ({ 'api-secret': 'test-digest' }) }, '#data-sources-list');
     await new Promise(resolve => setImmediate(resolve)); return plugin;
   }
+  it('mounts only available source cards and does not duplicate them after a socket reconnect', async function () {
+    const controller = await init();
+    const callCount = calls.length;
+    const again = require('../lib/data-sources').mount({ headers: () => ({}) }, '#data-sources-list');
+    assert.equal(again[0], controller);
+    assert.equal(calls.length, callCount);
+    assert.equal($('#data-sources-list > section').length, 1);
+    assert.equal($('#carelink').attr('aria-label'), 'Medtronic CareLink');
+    assert.equal($('fieldset, .adminButton, #admin_placeholder').length, 0);
+  });
+  it('keeps CareLink out of the legacy admin registry while retaining its other tools', function () {
+    const names = [];
+    require('../lib/admin_plugins')({}).eachPlugin(plugin => names.push(plugin.name));
+    assert.ok(names.includes('subjects') && names.includes('roles'));
+    assert.equal(names.length, 8);
+    assert.ok(!names.includes('connect'));
+  });
   it('loads countries and uses authenticated headers without URL secrets', async function () {
     await init();
     assert.equal($('#carelink-country option').length, 2);
@@ -82,7 +140,7 @@ describe('native CareLink owner controls', function () {
     assert.ok($('.carelink-feedback').text().includes('Completing the secure connection'));
     assert.equal($('.carelink-feedback').attr('aria-busy'), 'true');
     state.session = { ...state.session, phase: 'account_lookup' };
-    await plugin.actions[0].code();
+    await plugin.refresh();
     assert.ok($('.carelink-feedback').text().includes('Loading the accounts'));
     assert.notEqual($('.carelink-panel').css('display'), 'none');
   });
@@ -136,7 +194,7 @@ describe('native CareLink owner controls', function () {
     Object.assign(state, { configured: true, connected: true, country: 'GB' });
     const plugin = await init();
     $('#carelink-country').append($('<option>').val('CA').text('Canada')).val('CA').trigger('change');
-    await plugin.actions[0].code();
+    await plugin.refresh();
     assert.equal($('#carelink-country').val(), 'CA');
   });
   it('does not imply fresh data just because the account is connected', async function () {
@@ -144,10 +202,10 @@ describe('native CareLink owner controls', function () {
     const plugin = await init();
     assert.equal($('.carelink-badge span').text(), 'Older readings');
     assert.equal($('.carelink-latest').attr('data-stale'), 'true');
-    state.lastReading = null; await plugin.actions[0].code();
+    state.lastReading = null; await plugin.refresh();
     assert.equal($('.carelink-badge span').text(), 'Waiting for data');
     assert.equal($('.carelink-latest').text(), 'Not yet');
-    state.error = 'provider_unavailable'; await plugin.actions[0].code();
+    state.error = 'provider_unavailable'; await plugin.refresh();
     assert.equal($('.carelink-badge span').text(), 'Needs attention');
   });
   it('shows labelled setup steps and validates the country without starting a login', async function () {
@@ -177,7 +235,7 @@ describe('native CareLink owner controls', function () {
     state.session = { id: 'test', state: 'selecting', patients: [{ username: 'example', label: 'Example' }] };
     const plugin = await init();
     Object.assign(state, { configured: true, connected: true, session: { id: 'test', state: 'connected', patients: [] } });
-    await plugin.actions[0].code();
+    await plugin.refresh();
     assert.equal($('.carelink-feedback').attr('data-state'), 'connected');
     assert.ok($('.carelink-feedback').text().includes('Waiting for CareLink readings'));
     assert.equal($('.carelink-feedback-icon').hasClass('carelink-spinner'), false);

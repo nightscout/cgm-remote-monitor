@@ -1,0 +1,44 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <meta name="theme-color" content="#101923">
+    <title>Data sources: Nightscout</title>
+    <link rel="icon" type="image/png" href="/images/favicon-32x32.png" sizes="32x32">
+    <link rel="apple-touch-icon" href="/images/apple-touch-icon-180x180.png">
+    <link rel="manifest" href="/manifest.json">
+    <link rel="stylesheet" href="/css/ui-darkness/jquery-ui.min.css">
+    <link rel="stylesheet" href="/css/data-sources.css?v=<%= locals.cachebuster %>">
+  </head>
+  <body class="data-sources-page">
+    <a class="data-sources-skip" href="#data-sources-main">Skip to data sources</a>
+    <header class="data-sources-nav">
+      <a class="data-sources-brand" href="/" aria-label="Nightscout home">
+        <img src="/images/favicon-32x32.png" width="28" height="28" alt="">
+        <span>Nightscout</span>
+      </a>
+      <a class="data-sources-back" href="/">← Back to Nightscout</a>
+    </header>
+    <main id="data-sources-main" class="data-sources-content" tabindex="-1">
+      <div class="data-sources-intro">
+        <p class="data-sources-eyebrow">YOUR CONNECTIONS</p>
+        <h1>Data sources</h1>
+        <p>Connect your account. Bring your readings into Nightscout.</p>
+      </div>
+      <h2 class="data-sources-heading">Available data sources</h2>
+      <div id="data-sources-loading" class="data-sources-loading" role="status">
+        <p id="loadingMessageText">Loading your data sources…</p>
+        <p>Nightscout may ask you to authenticate before managing connections.</p>
+      </div>
+      <div id="data-sources-list"></div>
+      <noscript><p class="data-sources-loading">Enable JavaScript to manage your data sources.</p></noscript>
+    </main>
+    <footer class="data-sources-footer">
+      <%- include('partials/authentication-status') %>
+    </footer>
+    <script src="<%= locals.bundle %>/js/bundle.app.js?v=<%= locals.cachebuster %>"></script>
+    <script src="/socket.io/socket.io.js"></script>
+    <script src="/js/data-sources.js?v=<%= locals.cachebuster %>"></script>
+  </body>
+</html>

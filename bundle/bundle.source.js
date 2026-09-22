@@ -30,7 +30,8 @@ var ctx = {
 window.Nightscout = {
     client: require('../lib/client'),
     units: require('../lib/units')(),
-    admin_plugins: require('../lib/admin_plugins/')(ctx)
+    admin_plugins: require('../lib/admin_plugins/')(ctx),
+    dataSources: require('../lib/data-sources')
 };
 
 window.Nightscout.report_plugins_preinit = require('../lib/report_plugins/');
