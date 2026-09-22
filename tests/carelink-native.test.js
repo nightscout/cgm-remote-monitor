@@ -152,6 +152,29 @@ describe('native CareLink lifecycle', function () {
     assert.equal(f.exchanges(), 1); assert.equal(f.manager.session.machine.state.value, 'selecting');
     assert.equal(f.saved(), null); assert.equal(f.closed(), 1);
   });
+  it('retains the failed token-exchange step without exposing provider secrets', async function () {
+    const f = make();
+    f.auth.exchange = async () => { throw new ConnectError('provider_unavailable', 502,
+      { operation: 'token_exchange', reason: 'http_error', httpStatus: 403, body: 'private-token', url: 'private-url' }); };
+    await loggedIn(f);
+    const status = f.manager.status('owner');
+    assert.equal(status.configured, false); assert.equal(status.session.state, 'failed');
+    assert.equal(status.session.phase, 'token_exchange');
+    assert.deepEqual(status.session.diagnostic, { operation: 'token_exchange', reason: 'http_error', httpStatus: 403 });
+    assert.ok(!JSON.stringify(status).includes('private-'));
+    assert.equal(f.saved(), null); assert.equal(f.manager.session.transaction, null);
+  });
+  it('distinguishes account lookup failure after successful token exchange', async function () {
+    const f = make();
+    f.client.account = async () => { throw new ConnectError('provider_unavailable', 502,
+      { operation: 'account_profile', reason: 'invalid_json', httpStatus: 503 }); };
+    await loggedIn(f);
+    const status = f.manager.status('owner');
+    assert.equal(status.session.phase, 'account_lookup');
+    assert.equal(status.session.diagnostic.operation, 'account_profile');
+    assert.equal(status.session.state, 'failed'); assert.equal(status.configured, false);
+    assert.equal(f.manager.session.candidate, null); assert.equal(f.saved(), null);
+  });
   it('persists and activates the importer without environment changes', async function () {
     const f = make(); const s = await loggedIn(f);
     await f.manager.select(s.id, 'owner', 'patient-one');

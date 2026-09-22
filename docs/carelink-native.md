@@ -51,6 +51,10 @@ Medtronic on other devices or claim to revoke every Medtronic session.
 - Authentication, account confirmation, last successful sync and latest glucose
   timestamp are separate states. No readings is not reported as a successful
   glucose import. A revoked grant asks for reconnection; transient failures retry.
+- After the Medtronic redirect, the browser closes but its panel stays visible
+  with connection progress, account confirmation or a persistent failure/retry
+  card. Safe failure details identify the token/account step, response status
+  and failure category, never provider response bodies, URLs or credentials.
 - Reconnection does not replace a working connection until the new account and
   credentials have been saved. Cancelling preserves the previous connection.
 - Existing environment-driven connectors are unchanged until a native connection
@@ -164,8 +168,12 @@ could not read Nightscout's signing-key file or the supervisor's environment.
 Client-core coverage passed 286 tests. amd64 and the full supported Node/MongoDB
 matrix have not been validated here.
 
-The final full sequential regression run passed **2,429 tests**, with three
-pending tests, including the native CareLink unit, DOM and real-Mongo coverage.
+The initial implementation (`5b6a0103`) passed **2,429 tests** in the full
+sequential regression run, with three pending tests, including the native
+CareLink unit, DOM and real-Mongo coverage. The post-login feedback follow-up
+passed 51 focused protocol, lifecycle, API, UI and safe-diagnostic tests. Its
+regression reproduces the observed `waiting → exchanging → failed` transition
+using synthetic data; no HAR or captured credentials are included in the repo.
 
 The existing parallel unit command reproduced authentication-test timeouts on
 unmodified `dev` as well as this branch. Use the full sequential regression

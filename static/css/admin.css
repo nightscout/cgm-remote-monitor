@@ -37,3 +37,10 @@
 .carelink-focus, .carelink-details { overflow-wrap: anywhere; }
 .carelink-input-controls { display: flex; flex-wrap: wrap; gap: 4px; }
 .carelink-focus { width: 100%; }
+.carelink-feedback { padding: 16px; margin-bottom: 12px; border: 2px solid #8aa7c0; border-radius: 8px; background: #262626; color: #fff; overflow-wrap: anywhere; }
+.carelink-feedback h3 { margin-top: 0; }
+.carelink-feedback[data-state="exchanging"], .carelink-feedback[data-state="saving"], .carelink-feedback[data-state="failed"], .carelink-feedback[data-state="expired"] { min-height: 160px; }
+.carelink-feedback[data-state="failed"], .carelink-feedback[data-state="expired"] { border-color: #f0b76a; }
+.carelink-feedback[data-state="connected"] { border-color: #80c69b; }
+.carelink-feedback:focus { outline: 2px solid #b8dbff; outline-offset: 2px; }
+.carelink-diagnostic { font-size: .9em; }
