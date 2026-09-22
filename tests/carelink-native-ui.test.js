@@ -4,6 +4,20 @@ const assert = require('node:assert/strict');
 const { createSecureDOM } = require('./fixtures/secure-jsdom');
 const { installDomGlobals, restoreDomGlobals } = require('./fixtures/dom-globals');
 
+describe('native CareLink admin asset freshness', function () {
+  it('versions the admin bundle and styles so an old week-long cached bundle is not reused', async function () {
+    const render = cachebuster => require('ejs').renderFile(require('node:path').join(__dirname, '../views/adminindex.html'),
+      { locals: { bundle: '/bundle', cachebuster }, type: 'admin', title: 'Admin tools' });
+    for (const revision of ['first-build', 'second-build']) {
+      const html = await render(revision);
+      for (const asset of ['/bundle/js/bundle.app.js', '/css/admin.css', '/admin/js/admin.js']) {
+        assert.ok(html.includes(asset + '?v=' + revision));
+        assert.ok(!html.includes('"' + asset + '"'));
+      }
+    }
+  });
+});
+
 describe('native CareLink owner controls', function () {
   let dom, globals, $, state, calls;
   beforeEach(function () {

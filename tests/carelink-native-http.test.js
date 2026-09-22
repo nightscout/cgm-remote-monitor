@@ -8,11 +8,12 @@ const { request } = require('../lib/connect/sources/carelink/http');
 const ConnectError = require('../lib/connect/errors');
 
 describe('native CareLink safe transport diagnostics', function () {
-  let original;
+  let original, sentOptions;
   beforeEach(() => { original = https.request; });
   afterEach(() => { https.request = original; });
   function response(status, body) {
     https.request = (url, options, callback) => {
+      sentOptions = options;
       const req = new EventEmitter();
       req.end = () => {
         const res = new PassThrough(); res.statusCode = status;
@@ -54,5 +55,13 @@ describe('native CareLink safe transport diagnostics', function () {
   it('still returns successful JSON responses unchanged', async function () {
     response(200, '{"ok":true}');
     assert.deepEqual(await request('https://carelink.minimed.eu/public'), { ok: true });
+  });
+  it('identifies the client on token requests so the edge forwards them to OAuth', async function () {
+    response(200, '{"ok":true}');
+    await request('https://carelink-login.minimed.eu/oauth/token', {
+      method: 'POST', body: 'synthetic=test', operation: 'token_exchange', headers: { 'Content-Type': 'application/x-www-form-urlencoded' }
+    });
+    assert.equal(sentOptions.headers['User-Agent'], 'Nightscout-CareLink/0.1');
+    assert.equal(sentOptions.headers['Content-Type'], 'application/x-www-form-urlencoded');
   });
 });

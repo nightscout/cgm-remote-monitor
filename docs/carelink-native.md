@@ -55,6 +55,8 @@ Medtronic on other devices or claim to revoke every Medtronic session.
   with connection progress, account confirmation or a persistent failure/retry
   card. Safe failure details identify the token/account step, response status
   and failure category, never provider response bodies, URLs or credentials.
+  The admin page versions its script/style URLs on restart so an older cached
+  interface cannot hide newly added connection feedback.
 - Reconnection does not replace a working connection until the new account and
   credentials have been saved. Cancelling preserves the previous connection.
 - Existing environment-driven connectors are unchanged until a native connection
@@ -120,6 +122,9 @@ one Nightscout process/replica.
 `lib/connect` owns auth, lifecycle, storage, output and the CareLink provider.
 The login lifecycle uses XState 4, matching the existing connector dependency.
 OAuth discovery maps the registered country to US/EU (Canada is not assumed US).
+Provider requests identify themselves as `Nightscout-CareLink/0.1`; requests
+without a User-Agent were observed to fail at the provider's CloudFront edge
+with an HTML 403 before reaching the OAuth endpoint.
 PKCE/state are generated server-side; only the exact custom redirect with one
 matching state and one code is accepted, once. Provider errors are reduced to
 safe status codes, never raw response bodies.
@@ -174,6 +179,10 @@ CareLink unit, DOM and real-Mongo coverage. The post-login feedback follow-up
 passed 51 focused protocol, lifecycle, API, UI and safe-diagnostic tests. Its
 regression reproduces the observed `waiting → exchanging → failed` transition
 using synthetic data; no HAR or captured credentials are included in the repo.
+The User-Agent/cache follow-up passed 60 focused tests, including existing admin
+tools. An account-free probe reproduced the missing-header HTML 403 and reached
+the OAuth JSON error response with the identifying header and an intentionally
+invalid code. That probe does not prove a complete real-account sign-in.
 
 The existing parallel unit command reproduced authentication-test timeouts on
 unmodified `dev` as well as this branch. Use the full sequential regression
