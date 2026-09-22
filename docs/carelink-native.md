@@ -47,6 +47,17 @@ Medtronic on other devices or claim to revoke every Medtronic session.
 
 ## User and source behaviour
 
+- The CareLink section uses a responsive connection card with separate account,
+  latest-reading and last-check details. Its status distinguishes a linked account
+  from receiving readings, flags readings older than 15 minutes, and exposes
+  connection settings without cluttering the connected overview.
+- A four-step guide, loading indicators, a framed login display and persistent
+  success/error panels provide feedback throughout sign-in. Technical details
+  expand on demand; reconnect failures explain when the old connection remains
+  active. Dismissing a result only changes the display, not the saved connection.
+- Controls retain visible keyboard focus and text labels. Motion reduction,
+  forced-colour styling and mobile zoom are supported. Styles are scoped to this
+  section; the rest of the admin interface is unchanged.
 - No `ENABLE=connect`, `CONNECT_SOURCE`, token copying or restart is required.
 - Authentication, account confirmation, last successful sync and latest glucose
   timestamp are separate states. No readings is not reported as a successful
@@ -183,6 +194,10 @@ The User-Agent/cache follow-up passed 60 focused tests, including existing admin
 tools. An account-free probe reproduced the missing-header HTML 403 and reached
 the OAuth JSON error response with the identifying header and an intentionally
 invalid code. That probe does not prove a complete real-account sign-in.
+The subsequent UI redesign passed 66 focused tests and a production container
+build. Eleven key text/background colour pairs were checked above 4.5:1; this
+is not a full accessibility audit. Automated visual inspection remained blocked
+by the browser access policy, so hands-on desktop/mobile review is still needed.
 
 The existing parallel unit command reproduced authentication-test timeouts on
 unmodified `dev` as well as this branch. Use the full sequential regression
@@ -192,12 +207,14 @@ command for this local evaluation:
 npx env-cmd -f tests/ci.test.env mocha --timeout 15000 --require tests/hooks.js --exit 'tests/*.test.js'
 ```
 
-These are local results, not hosted CI results. No production service or real
-CareLink account was used. The admin screen has component-level tests but still
-needs hands-on visual testing.
+These are local results, not hosted CI results. No production service was
+changed. The initial smoke checks were account-free; a subsequent real-account
+sign-in was user-confirmed, and the local connector reported connected with
+imported readings. The UI changes preserve that saved connection. The admin
+screen has component-level tests but still needs hands-on visual testing.
 
-Outstanding hands-on checks: full CareLink login/token exchange, MFA/CAPTCHA,
-patient/device data parity, refresh with real rotated tokens, physical iOS and
+Outstanding hands-on checks: MFA/CAPTCHA, patient/device data parity,
+refresh with real rotated tokens, physical iOS and
 Android typing/paste/composition, interrupted connectivity and prolonged memory
 use. A screenshot stream is not a complete accessible page: keyboard navigation
 and focused-field labels are present, but screen-reader and accessible challenge

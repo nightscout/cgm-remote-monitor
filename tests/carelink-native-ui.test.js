@@ -10,6 +10,7 @@ describe('native CareLink admin asset freshness', function () {
       { locals: { bundle: '/bundle', cachebuster }, type: 'admin', title: 'Admin tools' });
     for (const revision of ['first-build', 'second-build']) {
       const html = await render(revision);
+      assert.ok(!html.includes('user-scalable=0') && !html.includes('maximum-scale=1'));
       for (const asset of ['/bundle/js/bundle.app.js', '/css/admin.css', '/admin/js/admin.js']) {
         assert.ok(html.includes(asset + '?v=' + revision));
         assert.ok(!html.includes('"' + asset + '"'));
@@ -110,5 +111,79 @@ describe('native CareLink owner controls', function () {
     state.session = { id: 'test', state: 'connected', patients: [] }; await init();
     assert.equal($('.carelink-panel').css('display'), 'none');
     assert.ok($('[role=status]').first().text().includes('not connected'));
+  });
+  it('shows a connected dashboard with separate account, reading and sync details', async function () {
+    Object.assign(state, { configured: true, connected: true, country: 'GB', patient: 'Example account', lastReading: Date.now() - 120000, lastSync: Date.now() - 10000,
+      session: { id: 'complete', state: 'connected', patients: [] } });
+    await init();
+    assert.equal($('.carelink-badge span').text(), 'Connected');
+    assert.equal($('.carelink-badge').attr('data-tone'), 'success');
+    assert.equal($('.carelink-account').text(), 'Example account');
+    assert.equal($('.carelink-latest').text(), '2 min ago');
+    assert.equal($('.carelink-last-sync').text(), 'Just now');
+    assert.ok($('.carelink-latest').attr('title'));
+    assert.equal($('.carelink-setup').css('display'), 'none');
+    assert.equal($('.carelink-panel').css('display'), 'none');
+    const settings = $('button').filter((i, b) => b.textContent === 'Connection settings');
+    settings.trigger('click');
+    assert.notEqual($('.carelink-setup').css('display'), 'none');
+    assert.equal(settings.attr('aria-expanded'), 'true');
+    assert.equal($('#carelink-country').val(), 'GB');
+    assert.equal(dom.window.document.activeElement, $('#carelink-country')[0]);
+    assert.equal(calls.filter(c => c.method !== 'GET').length, 0);
+  });
+  it('does not overwrite a changed country during automatic status refresh', async function () {
+    Object.assign(state, { configured: true, connected: true, country: 'GB' });
+    const plugin = await init();
+    $('#carelink-country').append($('<option>').val('CA').text('Canada')).val('CA').trigger('change');
+    await plugin.actions[0].code();
+    assert.equal($('#carelink-country').val(), 'CA');
+  });
+  it('does not imply fresh data just because the account is connected', async function () {
+    Object.assign(state, { configured: true, connected: true, lastReading: Date.now() - 3600000 });
+    const plugin = await init();
+    assert.equal($('.carelink-badge span').text(), 'Older readings');
+    assert.equal($('.carelink-latest').attr('data-stale'), 'true');
+    state.lastReading = null; await plugin.actions[0].code();
+    assert.equal($('.carelink-badge span').text(), 'Waiting for data');
+    assert.equal($('.carelink-latest').text(), 'Not yet');
+    state.error = 'provider_unavailable'; await plugin.actions[0].code();
+    assert.equal($('.carelink-badge span').text(), 'Needs attention');
+  });
+  it('shows labelled setup steps and validates the country without starting a login', async function () {
+    await init();
+    assert.equal($('.carelink-steps li').length, 4);
+    assert.ok($('.carelink-steps [aria-current=step]').text().includes('Choose country'));
+    $('button').filter((i, b) => b.textContent === 'Connect Medtronic').trigger('click');
+    await new Promise(resolve => setImmediate(resolve));
+    assert.ok($('.carelink-request-error').text().includes('Choose your CareLink account country'));
+    assert.equal(dom.window.document.activeElement, $('#carelink-country')[0]);
+    assert.equal(calls.filter(c => c.method === 'POST').length, 0);
+  });
+  it('keeps error details collapsible while progress has a labelled current step', async function () {
+    state.session = { id: 'test', state: 'failed', phase: 'token_exchange', error: 'provider_unavailable',
+      diagnostic: { httpStatus: 403, operation: 'token_exchange', reason: 'invalid_json' }, patients: [] };
+    await init();
+    assert.equal($('.carelink-technical').prop('open'), false);
+    assert.equal($('.carelink-technical summary').text(), 'Technical details');
+    assert.ok($('.carelink-steps [aria-current=step]').attr('aria-label').includes('needs attention'));
+    assert.equal($('.carelink-feedback-icon svg').attr('aria-hidden'), 'true');
+    $('button').filter((i, b) => b.textContent === 'Dismiss').trigger('click');
+    await new Promise(resolve => setImmediate(resolve));
+    assert.equal($('.carelink-panel').css('display'), 'none');
+    assert.equal(calls.filter(c => c.method !== 'GET').length, 0);
+  });
+  it('shows a dismissible success state after account confirmation without implying readings arrived', async function () {
+    state.session = { id: 'test', state: 'selecting', patients: [{ username: 'example', label: 'Example' }] };
+    const plugin = await init();
+    Object.assign(state, { configured: true, connected: true, session: { id: 'test', state: 'connected', patients: [] } });
+    await plugin.actions[0].code();
+    assert.equal($('.carelink-feedback').attr('data-state'), 'connected');
+    assert.ok($('.carelink-feedback').text().includes('Waiting for CareLink readings'));
+    assert.equal($('.carelink-feedback-icon').hasClass('carelink-spinner'), false);
+    $('button').filter((i, b) => b.textContent === 'Back to connection overview').trigger('click');
+    await new Promise(resolve => setImmediate(resolve));
+    assert.equal($('.carelink-panel').css('display'), 'none');
+    assert.notEqual($('.carelink-overview').css('display'), 'none');
   });
 });
