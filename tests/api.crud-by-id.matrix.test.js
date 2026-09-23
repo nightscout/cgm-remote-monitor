@@ -54,7 +54,6 @@ var UUID_COLS = ['entries', 'treatments'];
 
 function isHexForm (form) { return form !== 'uuid'; }
 
-var V3_NON_HEX = 'v3 looks a non-hex identifier up in `identifier` only, not in the _id it lists the record under; decision';
 
 var EXPECT = {
   // POST a new record carrying its own _id.
@@ -111,31 +110,15 @@ var EXPECT = {
   }
   // API v3 gives a v1 record without identifier the identifier String(_id)
   // (lib/api3/swagger.yaml: used "when reading or addressing these
-  // documents"). For a non-hex _id its filters look in `identifier` only, and
-  // tests/api3.storage.modify.test.js asserts that filter; decision.
-  , 'v3 get': function (col, form) {
-    if (form === 'uuid') return ['404', V3_NON_HEX, '200'];
-    return ['200', 'GET by the identifier v3 lists the v1 record under finds it'];
-  }
+  // documents"), and its filters match that identifier against _id, 24-hex or
+  // not.
+  , 'v3 get': function () { return ['200', 'GET by the identifier v3 lists the v1 record under finds it']; }
   , 'v3 put': function (col, form) {
-    if (form === 'uuid') return ['201 n=2 edited=false', V3_NON_HEX, '200 n=1 edited=true'];
     if (form === 'oidU') return ['400 n=1 edited=false', 'v3 identifiers are immutable strings: a PUT naming an ObjectId record by its upper-case hex would change its identifier'];
     return ['200 n=1 edited=true', 'v3 PUT by identifier replaces the v1 record, leaving one'];
   }
-  , 'v3 delete': function (col, form) {
-    if (form === 'uuid') return ['404 n=1', V3_NON_HEX, '200 n=0'];
-    return ['200 n=0', 'v3 permanent DELETE by identifier removes the v1 record'];
-  }
-  , 'v3 resend': function (col, form) {
-    if (form === 'uuid') {
-      // treatments, entries and devicestatus have dedup fallback fields: the
-      // create finds the record by them, then replaces by identifier, misses,
-      // inserts a copy and answers 500 (lib/api3/generic/update/replace.js)
-      if (['treatments', 'entries', 'devicestatus'].indexOf(col) !== -1) return ['500 n=2 edited=false', V3_NON_HEX, '200 n=1 edited=true'];
-      return ['201 n=2 edited=false', V3_NON_HEX, '200 n=1 edited=true'];
-    }
-    return ['200 n=1 edited=true', 'v3 POST with the same identifier deduplicates onto the v1 record'];
-  }
+  , 'v3 delete': function () { return ['200 n=0', 'v3 permanent DELETE by identifier removes the v1 record']; }
+  , 'v3 resend': function () { return ['200 n=1 edited=true', 'v3 POST with the same identifier deduplicates onto the v1 record']; }
   // websocket dbAdd of a new record carrying its own _id
   , 'ws create': function (col, form) {
     if (isHexForm(form)) return ['[ObjectId]', 'a 24-hex _id is stored as the ObjectId it names, as v1 does'];
