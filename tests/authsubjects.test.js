@@ -142,6 +142,103 @@ describe('Storing authorization subjects', function () {
     stored.roles.should.deepEqual(['admin']);
   });
 
+  // A fixed date far from now, so "kept" and "overwritten with the time of the
+  // edit" cannot be confused.
+  const CREATED_AT = '2020-01-02T03:04:05.000Z';
+
+  // The request body the stock admin page sends when an operator edits a
+  // subject: the object GET returned, with the dialog's inputs written over
+  // it, form-encoded by jQuery. GET does not return created_at, so it is not
+  // in the body.
+  async function saveSubjectFromAdminPage (listed, changes) {
+    const body = Object.assign({}, listed, changes);
+    should.not.exist(body.created_at);
+    await request(self.app)
+      .put('/api/v2/authorization/subjects')
+      .set('api-secret', API_SECRET)
+      .type('form')
+      .send(body)
+      .expect(200);
+
+    return subjectsCollection().findOne({ name: NAME });
+  }
+
+  it('keeps notes and created_at when a subject is edited on the admin page', async function () {
+    await createSubject({ name: NAME, roles: ['readable'], notes: 'phone on the fridge', created_at: CREATED_AT });
+
+    const listed = await listSubject();
+    const stored = await saveSubjectFromAdminPage(listed, { roles: ['careportal', 'readable'] });
+
+    stored.roles.should.deepEqual(['careportal', 'readable']);
+    stored.notes.should.equal('phone on the fridge');
+    stored.created_at.should.equal(CREATED_AT);
+  });
+
+  it('removes every role when the admin page saves a subject with none', async function () {
+    // Form encoding drops an empty list, so this request has no roles field at
+    // all. Taking roles from the stored document would keep access the
+    // operator just removed.
+    await createSubject({ name: NAME, roles: ['admin'], notes: 'n', created_at: CREATED_AT });
+
+    const listed = await listSubject();
+    const stored = await saveSubjectFromAdminPage(listed, { roles: [] });
+
+    (stored.roles || []).should.deepEqual([]);
+    stored.created_at.should.equal(CREATED_AT);
+  });
+
+  it('keeps notes and created_at when a PUT leaves them out', async function () {
+    const created = await createSubject({ name: NAME, roles: ['readable'], notes: 'kept', created_at: CREATED_AT });
+
+    const stored = await saveSubject({ _id: created._id.toString(), name: NAME, roles: ['admin'] });
+
+    stored.roles.should.deepEqual(['admin']);
+    should(stored.notes).equal('kept');
+    stored.created_at.should.equal(CREATED_AT);
+  });
+
+  it('clears notes when a PUT sends them empty, and still keeps created_at', async function () {
+    const created = await createSubject({ name: NAME, roles: ['readable'], notes: 'to be cleared', created_at: CREATED_AT });
+
+    const stored = await saveSubject({ _id: created._id.toString(), name: NAME, roles: ['readable'], notes: '' });
+
+    stored.notes.should.equal('');
+    stored.created_at.should.equal(CREATED_AT);
+  });
+
+  async function saveRole (body) {
+    await request(self.app)
+      .put('/api/v2/authorization/roles')
+      .set('api-secret', API_SECRET)
+      .send(body)
+      .expect(200);
+
+    return rolesCollection().findOne({ name: ROLE });
+  }
+
+  async function createRole (body) {
+    await request(self.app)
+      .post('/api/v2/authorization/roles')
+      .set('api-secret', API_SECRET)
+      .send(body)
+      .expect(200);
+
+    return rolesCollection().findOne({ name: ROLE });
+  }
+
+  it('keeps a role\'s notes and created_at when a PUT leaves them out, and clears notes sent empty', async function () {
+    const created = await createRole({ name: ROLE, permissions: ['api:entries:read'], notes: 'kept', created_at: CREATED_AT });
+
+    let stored = await saveRole({ _id: created._id.toString(), name: ROLE, permissions: ['api:treatments:read'] });
+    stored.permissions.should.deepEqual(['api:treatments:read']);
+    should(stored.notes).equal('kept');
+    stored.created_at.should.equal(CREATED_AT);
+
+    stored = await saveRole({ _id: created._id.toString(), name: ROLE, permissions: ['api:treatments:read'], notes: '' });
+    stored.notes.should.equal('');
+    stored.created_at.should.equal(CREATED_AT);
+  });
+
   it('does not store fields a subject document does not own', async function () {
     const created = await createSubject({
       name: NAME
