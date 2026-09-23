@@ -245,9 +245,10 @@ describe('API v1 ?count= parameter', function () {
     });
   });
 
-  // Decided 2026-09-23 for 15.0.9: `count` is checked on reads only.  No
-  // write uses it, so a write that carries one - valid or not - must be
-  // carried out exactly as if it did not.
+  // Decided 2026-09-23 for 15.0.9: a save or an update does not use `count`,
+  // so one that carries one - valid or not - is carried out exactly as if it
+  // did not.  A delete that carries a count it cannot read is refused, as
+  // #8738 made it on dev - see 'a delete that carries a count' below.
   describe('a write that carries a count', function () {
     const known = require('crypto').createHash('sha1').update(API_SECRET).digest('hex');
 
@@ -263,20 +264,6 @@ describe('API v1 ?count= parameter', function () {
             if (err) return done(err);
             try {
               (await self.archive( ).countDocuments({ device: device })).should.equal(1);
-              done();
-            } catch (e) { done(e); }
-          });
-      });
-
-      it('deletes the entries a delete names regardless: count=' + value, function (done) {
-        request(self.app)
-          .delete('/api/v1/entries/?find[sgv][$gte]=1&count=' + value)
-          .set('api-secret', known)
-          .expect(200)
-          .end(async function (err) {
-            if (err) return done(err);
-            try {
-              (await self.archive( ).countDocuments({ })).should.equal(0);
               done();
             } catch (e) { done(e); }
           });
@@ -298,6 +285,75 @@ describe('API v1 ?count= parameter', function () {
             } catch (e) { done(e); }
           });
       });
+    });
+  });
+
+  // A delete removes everything its filter matches; `count` has never limited
+  // it.  One that carries a count it cannot read is refused and deletes
+  // nothing: `count=0` in particular must not be read as "delete nothing" and
+  // then delete everything.
+  describe('a delete that carries a count', function () {
+    const known = require('crypto').createHash('sha1').update(API_SECRET).digest('hex');
+
+    ['abc', '0', '00', '-3', '2.5'].forEach(function (value) {
+      it('is refused and deletes nothing: count=' + value, function (done) {
+        request(self.app)
+          .delete('/api/v1/entries/?find[sgv][$gte]=1&count=' + value)
+          .set('api-secret', known)
+          .expect(400)
+          .end(async function (err, res) {
+            if (err) return done(err);
+            try {
+              res.body.message.should.equal('Bad count');
+              (await self.archive( ).countDocuments({ })).should.equal(STORED);
+              done();
+            } catch (e) { done(e); }
+          });
+      });
+    });
+
+    it('is refused and deletes nothing by id either: count=0', function (done) {
+      self.archive( ).findOne({ }).then(function (entry) {
+        request(self.app)
+          .delete('/api/v1/entries/' + entry._id + '?count=0')
+          .set('api-secret', known)
+          .expect(400)
+          .end(async function (err) {
+            if (err) return done(err);
+            try {
+              (await self.archive( ).countDocuments({ })).should.equal(STORED);
+              done();
+            } catch (e) { done(e); }
+          });
+      }, done);
+    });
+
+    it('still deletes everything its filter matches with a valid count, which it does not limit', function (done) {
+      request(self.app)
+        .delete('/api/v1/entries/?find[sgv][$gte]=1&count=2')
+        .set('api-secret', known)
+        .expect(200)
+        .end(async function (err) {
+          if (err) return done(err);
+          try {
+            (await self.archive( ).countDocuments({ })).should.equal(0);
+            done();
+          } catch (e) { done(e); }
+        });
+    });
+
+    it('still deletes everything its filter matches with no count', function (done) {
+      request(self.app)
+        .delete('/api/v1/entries/?find[sgv][$gte]=1')
+        .set('api-secret', known)
+        .expect(200)
+        .end(async function (err) {
+          if (err) return done(err);
+          try {
+            (await self.archive( ).countDocuments({ })).should.equal(0);
+            done();
+          } catch (e) { done(e); }
+        });
     });
   });
 });
