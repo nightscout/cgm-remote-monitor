@@ -111,7 +111,7 @@ describe('nightscout-connect loading and teardown', function () {
       const ctx=context();let continued=0;
       connectStage(env,()=>{throw new Error('Conflicting connector started');})(ctx,()=>continued++);
       assert.equal(continued,1);assert.equal(ctx.bootErrors.length,1);
-      assert.match(ctx.bootErrors[0].desc,/retired.*15\.0\.9/);
+      assert.match(ctx.bootErrors[0].desc,/has been removed/);assert.doesNotMatch(ctx.bootErrors[0].desc,/15\.0\.9/);
       assert.ok(!JSON.stringify(ctx.bootErrors).includes('private-'));
       assert.equal(env.extendedSettings.connect.source,'glooko');
       assert.equal(ctx.bus.listenerCount('teardown'),0);

@@ -634,35 +634,36 @@ For folks using the new Many to Many feature, please provide the username of the
 patient to follow using `CONNECT_CARELINK_PATIENT_USERNAME` variable.
 
 
-##### Legacy Dexcom bridge (retired in 15.0.9)
+##### Legacy Dexcom bridge (removed)
 
 Use the `connect` plugin with `CONNECT_SOURCE=dexcomshare`. The bundled legacy
-Share2Nightscout engine and `DEXCOM_BRIDGE_USE_LEGACY` fallback are removed.
+Share2Nightscout engine and `DEXCOM_BRIDGE_USE_LEGACY` fallback are removed;
+if `DEXCOM_BRIDGE_USE_LEGACY` is still set, Nightscout logs that it is ignored.
 Existing complete `BRIDGE_USER_NAME`/`BRIDGE_PASSWORD` credentials automatically
 map to Connect; explicit Connect settings take precedence. `BRIDGE_SERVER=EU`
 maps to the outside-US region and a custom hostname maps to `CONNECT_SHARE_SERVER`.
 Legacy polling/retry settings no longer configure ingestion. Mixed legacy Dexcom
 and non-Dexcom Connect configurations require operator migration.
 
-See the [15.0.9 migration guide](docs/runtime-upgrade.md#legacy-dexcom-bridge-retirement-in-1509)
+See the [Dexcom migration guide](docs/runtime-upgrade.md#legacy-dexcom-bridge-retirement)
 for settings, changed behavior and rollback. MiniMed migration is described below.
 
-##### `mmconnect` (retired in 15.0.9)
+##### `mmconnect` (removed)
 
-Use Nightscout Connect with `CONNECT_SOURCE=minimedcarelink`,
+Add `connect` to `ENABLE` and use Nightscout Connect with `CONNECT_SOURCE=minimedcarelink`,
 `CONNECT_CARELINK_USERNAME`, `CONNECT_CARELINK_PASSWORD` and
 `CONNECT_COUNTRY_CODE` (the two-letter country where the account was created).
 The bundled `minimed-connect-to-nightscout` engine is removed.
 
 Complete `MMCONNECT_USER_NAME`/`MMCONNECT_PASSWORD` credentials map to Connect
-when `CONNECT_COUNTRY_CODE` is supplied; explicit Connect values take precedence.
+when `connect` is in `ENABLE` and `CONNECT_COUNTRY_CODE` is supplied; explicit Connect values take precedence.
 `MMCONNECT_SERVER=EU`/`US` maps to the corresponding Connect region. The country
 cannot be inferred from that region, so missing country configuration prevents
-the replacement from starting and produces migration instructions.
+the site from starting: Nightscout shows an error page naming the settings to add.
 
 Legacy interval, retry, SGV-limit, verbose and raw-data storage flags are retired.
 Connect owns scheduling and ingestion. Existing `carelink_raw` records are not
-deleted. See the [MiniMed migration guide](docs/runtime-upgrade.md#legacy-minimed-mmconnect-retirement-in-1509)
+deleted. See the [MiniMed migration guide](docs/runtime-upgrade.md#legacy-minimed-mmconnect-retirement)
 for configuration, changed behavior and validation before upgrading.
 
 ##### `pump` (Pump Monitoring)

@@ -87,7 +87,8 @@ describe('bridge connect compatibility', function () {
     var result = compat.applyBridgeToConnectCompatibility(env);
 
     result.migrated.should.equal(false);
-    result.error.should.match(/retired.*15\.0\.9/);
+    result.error.should.match(/has been removed/);
+    result.error.should.not.match(/15\.0\.9/);
     env.extendedSettings.connect.source.should.equal('glooko');
     should.not.exist(env.extendedSettings.connect.sharePassword);
   });

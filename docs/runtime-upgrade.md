@@ -102,12 +102,13 @@ Type-only treatment/device-status slice requests no longer return entries-cache
 records. These requests now read the selected collection. Entries slices keep
 their existing cache path; selected-storage permission requirements still apply.
 
-## Legacy Dexcom bridge retirement in 15.0.9
+## Legacy Dexcom bridge retirement
 
 The local `share2nightscout-bridge` engine is removed in favour of Nightscout
 Connect's Dexcom Share source. Deprecated legacy overrides no longer select an
 old engine: `DEXCOM_BRIDGE_USE_LEGACY`, its Azure prefix, and legacy extended
-settings cannot re-enable it. MiniMed is not retired by this change.
+settings cannot re-enable it; if `DEXCOM_BRIDGE_USE_LEGACY` is still set,
+Nightscout logs that it is ignored. MiniMed is retired separately, below.
 
 | Existing setting | Connect setting/behavior |
 | --- | --- |
@@ -139,15 +140,15 @@ Private TLS endpoints must have certificates trusted by the Node runtime; the
 legacy engine's certificate-verification bypass is not retained.
 
 Rollback requires a previous Nightscout artifact with the legacy engine plus
-its known configuration; flipping the removed override on 15.0.9 cannot restore
+its known configuration; flipping the removed override cannot restore
 it. Retaining an old artifact does not resolve the legacy TLS defect. No MongoDB
 binary/FCV or schema change is part of this retirement.
 
 
-## Legacy MiniMed mmconnect retirement in 15.0.9
+## Legacy MiniMed mmconnect retirement
 
 The local `mmconnect` plugin and `minimed-connect-to-nightscout` package are
-retired in favour of Nightscout Connect. Configure:
+retired in favour of Nightscout Connect. Add `connect` to `ENABLE`, then configure:
 
 ```text
 CONNECT_SOURCE=minimedcarelink
@@ -166,7 +167,8 @@ as a migration convenience, with explicit Connect settings taking precedence.
 Legacy `MMCONNECT_SERVER` values EU/US (case-insensitive) map to eu/us; a custom
 server maps to `CONNECT_CARELINK_SERVER`. You must supply `CONNECT_COUNTRY_CODE`:
 a service region is not an account country. No replacement starts if that value
-is missing. After validating ingestion, remove obsolete MMCONNECT variables.
+is missing, and the whole site shows an error page naming the settings to
+add; the `CONNECT_*` settings are read only when `connect` is in `ENABLE`. After validating ingestion, remove obsolete MMCONNECT variables.
 
 Connect supports one configured source. Legacy MiniMed credentials alongside a
 different Connect source, or alongside legacy Dexcom credentials, produce a boot
@@ -180,8 +182,9 @@ Connect uses its own scheduling, session refresh and retry behavior. It does not
 continue the old optional `carelink_raw` storage feature. Existing database
 records and historical glucose/pump data are not deleted or rewritten.
 
-The candidate pins Connect commit `c962a13fee9a7a5ca160ab5e3fb231d35cadf294`,
-including the logging fix in upstream PR #64 and data fixes in #65 (both open for review).
+This branch pins nightscout-connect `0.1.0-dev.1`, which contains commit
+`c962a13fee9a7a5ca160ab5e3fb231d35cadf294`: the logging fix from upstream PR #64 and
+the data fixes from #65.
 Provider operation labels replace raw credential, cookie, token and patient-data
 logs. CLI capture output and other providers are outside that logging fix.
 
