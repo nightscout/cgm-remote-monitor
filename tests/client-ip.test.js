@@ -80,14 +80,22 @@ describe('explicit trusted proxies', function () {
     }
   });
 
+  // CHANGED FROM THE CHERRY-PICKED TEST (395f3207), AND WHY: bf/throttle
+  // (merged into this branch before the backport) changed the delay list's
+  // interface from a bare address string to the keys returned by keysFor(). The
+  // modernization version of this test hands the list raw address strings,
+  // which the new list ignores, so it failed here. Only the calls are adapted
+  // (addr = the key keysFor() derives from the resolved address); every
+  // expectation is the one 395f3207 asserts.
   it('prevents spoofed IPs from escaping the authentication delay list', function () {
     const resolve = createClientIP('false');
     const delay = require('../lib/authorization/delaylist')({settings: {authFailDelay: 10000}});
-    delay.addFailedRequest(resolve(raw('203.0.113.10', { 'x-forwarded-for': '192.0.2.1' })));
-    assert.ok(delay.shouldDelayRequest(resolve(raw('203.0.113.10', { 'x-forwarded-for': '192.0.2.2' }))) > 0);
-    assert.equal(delay.shouldDelayRequest('203.0.113.11'), false);
-    delay.requestSucceeded(resolve(raw('203.0.113.10')));
-    assert.equal(delay.shouldDelayRequest('203.0.113.10'), false);
+    const addr = ip => delay.keysFor({ ip });
+    delay.addFailedRequest(addr(resolve(raw('203.0.113.10', { 'x-forwarded-for': '192.0.2.1' }))));
+    assert.ok(delay.shouldDelayRequest(addr(resolve(raw('203.0.113.10', { 'x-forwarded-for': '192.0.2.2' })))) > 0);
+    assert.equal(delay.shouldDelayRequest(addr('203.0.113.11')), false);
+    delay.requestSucceeded(addr(resolve(raw('203.0.113.10'))));
+    assert.equal(delay.shouldDelayRequest(addr('203.0.113.10')), false);
   });
 
   for (const transport of ['polling', 'websocket']) {
@@ -204,11 +212,13 @@ describe('proxy compatibility default', function () {
     });
   }
 
+  // CHANGED FROM THE CHERRY-PICKED TEST (395f3207): calls adapted to
+  // bf/throttle's keysFor() interface, as above; expectations unchanged.
   it('keeps different clients on independent authentication delay keys by default', function () {
     const resolve = createClientIP();
     const delay = require('../lib/authorization/delaylist')({settings: {authFailDelay: 10000}});
-    const first = resolve(raw('10.1.0.2', {'x-forwarded-for': '198.51.100.4'}));
-    const second = resolve(raw('10.1.0.2', {'x-forwarded-for': '198.51.100.5'}));
+    const first = delay.keysFor({ ip: resolve(raw('10.1.0.2', {'x-forwarded-for': '198.51.100.4'})) });
+    const second = delay.keysFor({ ip: resolve(raw('10.1.0.2', {'x-forwarded-for': '198.51.100.5'})) });
     delay.addFailedRequest(first);
     assert.ok(delay.shouldDelayRequest(first) > 0);
     assert.equal(delay.shouldDelayRequest(second), false);
