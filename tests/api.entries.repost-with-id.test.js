@@ -11,6 +11,11 @@
 // without `_id` updated the entry. A POST with an `_id` now behaves like one
 // without: the stored entry keeps its `_id`, and a new entry is stored with
 // the `_id` it was sent with.
+//
+// The response gives each entry the `_id` it is stored under: for an entry
+// that updated a stored one, that entry's own `_id`, whether the POST carried
+// another `_id` or none (docs/proposals/TEST-IMPLEMENTATION-SUMMARY.md 6.1.2:
+// every item in the response has an `_id`).
 
 var request = require('supertest');
 require('should');
@@ -156,6 +161,128 @@ describe('entries: a re-POST carrying an _id updates the stored entry', function
     var docs = await collection().find({ _id: new ObjectID(HEX.fresh.replace('a05', 'a09')) }).toArray();
     docs.length.should.equal(1);
     docs[0].sgv.should.equal(109);
+  });
+
+  describe('the response _id', function () {
+
+    it('is the stored _id when the POST carried a different one', async function () {
+      await seed(20, new ObjectID(HEX.other.replace('b03', 'b20')));
+      var res = await post(sampleEntry(20, { _id: HEX.otherSent.replace('a03', 'a20') })).expect(200);
+      res.body.length.should.equal(1);
+      res.body[0]._id.should.equal(HEX.other.replace('b03', 'b20'));
+    });
+
+    it('is the stored _id when the POST carried none', async function () {
+      await seed(21, new ObjectID(HEX.other.replace('b03', 'b21')));
+      var res = await post(sampleEntry(21)).expect(200);
+      res.body.length.should.equal(1);
+      res.body[0]._id.should.equal(HEX.other.replace('b03', 'b21'));
+    });
+
+    it('is the stored string _id of an entry stored as a string', async function () {
+      await seed(22, HEX.legacyUpper.replace('B02', 'B22'));
+      var res = await post(sampleEntry(22, { _id: HEX.legacyUpper.replace('B02', 'B22').toLowerCase() })).expect(200);
+      res.body[0]._id.should.equal(HEX.legacyUpper.replace('B02', 'B22'));
+    });
+
+    it('is each entry\'s own stored _id in a batch mixing matched and new entries, in order', async function () {
+      var stored = [HEX.other.replace('b03', 'b23'), HEX.other.replace('b03', 'b25')];
+      await seed(23, new ObjectID(stored[0]));
+      await seed(25, stored[1]);
+      var res = await post([
+        sampleEntry(23)
+        , sampleEntry(24, { _id: HEX.fresh.replace('a05', 'a24') })
+        , sampleEntry(25, { _id: HEX.otherSent.replace('a03', 'a25') })
+        , sampleEntry(26)
+      ]).expect(200);
+      res.body.length.should.equal(4);
+      res.body[0]._id.should.equal(stored[0]);
+      res.body[1]._id.should.equal(HEX.fresh.replace('a05', 'a24'));
+      res.body[2]._id.should.equal(stored[1]);
+      var fourth = await atMinute(26);
+      fourth.length.should.equal(1);
+      res.body[3]._id.should.equal(String(fourth[0]._id));
+    });
+
+    it('is the first entry\'s _id for a second entry at the same time and type in one batch', async function () {
+      var res = await post([sampleEntry(27, { sgv: 170 }), sampleEntry(27, { sgv: 171 })]).expect(200);
+      var docs = await atMinute(27);
+      docs.length.should.equal(1);
+      res.body[0]._id.should.equal(String(docs[0]._id));
+      res.body[1]._id.should.equal(String(docs[0]._id));
+    });
+
+    describe('reads', function () {
+      var finds;
+      var original;
+      var failFind;
+
+      beforeEach(function () {
+        finds = [];
+        failFind = false;
+        original = self.ctx.store.collection;
+        var entriesName = self.env.entries_collection;
+        self.ctx.store.collection = function (name) {
+          var col = original.apply(this, arguments);
+          if (name !== entriesName) return col;
+          return new Proxy(col, {
+            get: function (target, prop) {
+              if (prop === 'find') {
+                return function (filter) {
+                  finds.push(filter);
+                  if (failFind) throw new Error('test read failure');
+                  return target.find.apply(target, arguments);
+                };
+              }
+              var value = target[prop];
+              return typeof value === 'function' ? value.bind(target) : value;
+            }
+          });
+        };
+      });
+
+      afterEach(function () {
+        self.ctx.store.collection = original;
+      });
+
+      it('one read for a batch of several matched entries', async function () {
+        await seed(30, new ObjectID(HEX.other.replace('b03', 'b30')));
+        await seed(31, new ObjectID(HEX.other.replace('b03', 'b31')));
+        await seed(32, HEX.other.replace('b03', 'b32'));
+        var res = await post([sampleEntry(30), sampleEntry(31), sampleEntry(32)]).expect(200);
+        finds.length.should.equal(1);
+        res.body.map(function (e) { return e._id; }).should.eql([
+          HEX.other.replace('b03', 'b30'), HEX.other.replace('b03', 'b31'), HEX.other.replace('b03', 'b32')]);
+      });
+
+      it('no read for a batch of new entries', async function () {
+        await post([sampleEntry(33), sampleEntry(34, { _id: HEX.fresh.replace('a05', 'a34') })]).expect(200);
+        finds.length.should.equal(0);
+      });
+
+      it('the read asks only for the matched entries', async function () {
+        await seed(35, new ObjectID(HEX.other.replace('b03', 'b35')));
+        await post([sampleEntry(35), sampleEntry(36)]).expect(200);
+        finds.length.should.equal(1);
+        finds[0].$or.length.should.equal(1);
+        finds[0].$or[0].sysTime.$eq.should.equal(new Date(Date.UTC(2021, 4, 5, 6, 35)).toISOString());
+      });
+
+      it('a failed read-back still answers 200 with the entries stored', async function () {
+        await seed(37, new ObjectID(HEX.other.replace('b03', 'b37')));
+        failFind = true;
+        await post([sampleEntry(37, { sgv: 180 })]).expect(200);
+        failFind = false;
+        var docs = await atMinute(37);
+        docs.length.should.equal(1);
+        docs[0].sgv.should.equal(180);
+      });
+    });
+
+    it('is the sent _id for a new entry (control)', async function () {
+      var res = await post(sampleEntry(28, { _id: HEX.fresh.replace('a05', 'a28') })).expect(200);
+      res.body[0]._id.should.equal(HEX.fresh.replace('a05', 'a28'));
+    });
   });
 
   it('without an _id, updates the stored entry (control)', async function () {
