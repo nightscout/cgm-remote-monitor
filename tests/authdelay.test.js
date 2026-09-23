@@ -289,6 +289,25 @@ describe('Authentication failure throttling with TRUST_PROXY configured', functi
     });
   });
 
+  describe('TRUST_PROXY=1 (one proxy in front of Nightscout)', function () {
+    // The test client connects over loopback, which plays the one proxy; it
+    // appends the address it saw as the right-most entry.
+    const self = {};
+    before(bootThrottledServer(self, '1'));
+    const t = throttleHelpers(self);
+    const REAL = '203.0.113.60';
+
+    it('throttles a guess that varies both the secret and the forwarded address', async function () {
+      await t.reset(REAL);
+
+      const first = await t.guess('guess-1', '198.51.100.1, ' + REAL);
+      const second = await t.guess('guess-2', '198.51.100.2, ' + REAL);
+
+      first.should.be.below(THROTTLED);
+      second.should.be.aboveOrEqual(THROTTLED);
+    });
+  });
+
   describe('TRUST_PROXY=false (clients connect directly)', function () {
     const self = {};
     before(bootThrottledServer(self, 'false'));
@@ -355,6 +374,22 @@ describe('Throttle key as the request path resolves it', function () {
     one.ip.should.equal('203.0.113.50');
     addressKey(one).should.equal(addressKey(two));
   });
+  it('with a hop count, keys on the entry the n-th closest proxy added', function () {
+    const one = resolvedData('1', '10.1.0.2', '198.51.100.4, 203.0.113.50');
+    const two = resolvedData('1', '10.1.0.2', '198.51.100.5, 203.0.113.50');
+    one.ip.should.equal('203.0.113.50');
+    addressKey(one).should.equal(addressKey(two));
+
+    resolvedData('2', '10.1.0.2', '198.51.100.4, 203.0.113.50, 10.1.0.3').ip.should.equal('203.0.113.50');
+  });
+
+  it('with TRUST_PROXY=true, keys on the left-most entry', function () {
+    const one = resolvedData('true', '10.1.0.2', '198.51.100.4, 203.0.113.50');
+    const two = resolvedData('true', '10.1.0.2', '198.51.100.5, 203.0.113.50');
+    one.ip.should.equal('198.51.100.4');
+    two.ip.should.equal('198.51.100.5');
+    addressKey(one).should.not.equal(addressKey(two));
+  });
 });
 
 // bf2/auth-hardening. The boot message is the notification half of the
@@ -402,5 +437,41 @@ describe('Throttle boot message', function () {
     seen.warn[0].should.containEql('TRUST_PROXY is not set');
     seen.info.length.should.equal(2);
     should(delaylist.bootMessage({ trustProxy: '10.1.0.2' })).equal(null);
+  });
+
+  it('with TRUST_PROXY=true, warns that the address is only as good as the outermost proxy', function () {
+    for (const value of ['true', ' TRUE ']) {
+      const message = delaylist.bootMessage({ trustProxy: value });
+      should(message).be.a.String();
+      message.should.containEql('TRUST_PROXY=true');
+      message.should.containEql('left-most X-Forwarded-For entry');
+      message.should.containEql('outermost proxy');
+      message.should.containEql('does NOT protect against guessing');
+      message.should.not.equal(delaylist.bootMessage({}));
+      const named = message.match(/\b[A-Z][A-Z0-9]*(?:_[A-Z0-9]+)+\b/g) || [];
+      for (const name of named) { envSource.should.containEql("readENV('" + name + "'"); }
+    }
+  });
+
+  it('with a hop count, logs one line naming the hop count the key comes from', function () {
+    const original = { warn: console.warn, info: console.info };
+    const seen = { warn: [], info: [] };
+    console.warn = text => seen.warn.push(String(text));
+    console.info = text => seen.info.push(String(text));
+    try {
+      delaylist({ settings: {}, trustProxy: '1' });
+      delaylist({ settings: {}, trustProxy: ' 2 ' });
+      delaylist({ settings: {}, trustProxy: 'true' });
+    } finally {
+      console.warn = original.warn;
+      console.info = original.info;
+    }
+    seen.info.should.eql([
+      'Failed-authentication throttling is keyed on the client address as resolved through TRUST_PROXY=1: the X-Forwarded-For entry added by the proxy 1 hop from Nightscout.',
+      'Failed-authentication throttling is keyed on the client address as resolved through TRUST_PROXY=2: the X-Forwarded-For entry added by the proxy 2 hops from Nightscout.'
+    ]);
+    seen.warn.length.should.equal(1);
+    seen.warn[0].should.containEql('TRUST_PROXY=true');
+    should(delaylist.bootMessage({ trustProxy: '2' })).equal(null);
   });
 });

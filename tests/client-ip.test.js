@@ -65,7 +65,7 @@ describe('explicit trusted proxies', function () {
   });
 
   it('rejects permissive shortcuts and invalid configuration', function () {
-    for (const value of [true, 1, 'true', '1', 'loopback', '*', '10.0.0.1,', '10.0.0.0/33', '::1/129']) {
+    for (const value of ['loopback', '*', '10.0.0.1,', '10.0.0.0/33', '::1/129']) {
       assert.throws(() => compileTrust(value));
     }
   });
@@ -399,5 +399,123 @@ describe('dev behaviour with TRUST_PROXY unset', function () {
       const res = await req;
       assert.equal(res.status, status, 'X-Forwarded-Proto: ' + JSON.stringify(proto));
     }
+  });
+});
+
+// bf2/auth-hardening. TRUST_PROXY also takes Express's other two forms: a hop
+// count n (trust the n closest hops) and true (trust every hop). Both resolve
+// through proxy-addr, so req.ip, req.secure and the throttle's address agree.
+// Neither is the compatibility default above.
+describe('TRUST_PROXY hop counts and true', function () {
+  const INVALID = /^Error: TRUST_PROXY must be false, true, a whole number of proxy hops/;
+  // peer 10.0.0.1 appended the right-most entry; the one before it was
+  // appended by the proxy two hops away; the left-most came from the caller.
+  const CHAIN = raw('10.0.0.1', { 'x-forwarded-for': '198.51.100.4, 203.0.113.50, 10.0.0.2' });
+
+  it('accepts whole numbers and true, and neither takes the legacy path', function () {
+    for (const [value, hops] of [['1', 1], ['2', 2], [' 3 ', 3], ['10', 10], [2, 2]]) {
+      const trust = compileTrust(value);
+      assert.equal(trust.trustedHops, hops, JSON.stringify(value));
+      assert.equal(trust.legacyForwardedHeaders, undefined);
+      assert.equal(trust.trustsEveryHop, undefined);
+    }
+    for (const value of ['true', 'TRUE', ' True ', true]) {
+      const trust = compileTrust(value);
+      assert.equal(trust.trustsEveryHop, true, JSON.stringify(value));
+      assert.equal(trust.legacyForwardedHeaders, undefined);
+      assert.notEqual(trust, compileTrust(undefined));
+    }
+  });
+
+  it('rejects zero, negative, fractional and non-decimal numbers, and numbers mixed with addresses', function () {
+    for (const value of ['0', '-1', '1.5', '0x2', '1e1', '01', '+1', '1 2', '2,10.0.0.1', '10.0.0.1,2', '1,', 0, -1, 1.5]) {
+      assert.throws(() => compileTrust(value), INVALID, JSON.stringify(value));
+    }
+  });
+
+  it('refuses subnet aliases on their own path', function () {
+    for (const value of ['loopback', 'linklocal', 'uniquelocal', '10.0.0.1,loopback']) {
+      assert.throws(() => compileTrust(value), /subnet aliases loopback, linklocal, uniquelocal are not accepted/, value);
+    }
+  });
+
+  it('with a hop count, the client is the entry the n-th closest proxy added', function () {
+    assert.equal(createClientIP('1')(CHAIN), '10.0.0.2');
+    assert.equal(createClientIP('2')(CHAIN), '203.0.113.50');
+    assert.equal(createClientIP('3')(CHAIN), '198.51.100.4');
+    assert.equal(createClientIP('5')(CHAIN), '198.51.100.4');
+    assert.equal(createClientIP('1')(raw('10.0.0.1')), '10.0.0.1');
+    assert.equal(createClientIP('1')(raw('10.0.0.1', { 'x-real-ip': '198.51.100.9' })), '10.0.0.1');
+  });
+
+  it('with true, the client is the left-most entry', function () {
+    assert.equal(createClientIP('true')(CHAIN), '198.51.100.4');
+  });
+
+  it('req.ip, req.secure and the throttle address agree through Express', async function () {
+    // [TRUST_PROXY, what the loopback peer's request resolves to]
+    for (const [setting, expected] of [['1', '203.0.113.50'], ['2', '198.51.100.4'], ['true', '198.51.100.4']]) {
+      const res = await request(appFor(setting)).get('/')
+        .set('Host', 'direct.example').set('X-Forwarded-For', '198.51.100.4, 203.0.113.50')
+        .set('X-Forwarded-Host', 'edge.example').set('X-Forwarded-Proto', 'https').expect(200);
+      assert.equal(res.body.ip, expected, setting);
+      assert.equal(res.body.expressIP, expected, setting);
+      assert.equal(res.body.secure, true, setting);
+      assert.equal(res.body.hostname, 'edge.example', setting);
+    }
+  });
+
+  it('honours forwarded HTTPS in the actual Nightscout app with a hop count or true', async function () {
+    const createApp = require('../lib/server/app');
+    for (const setting of ['1', '2', 'true']) {
+      const env = { name: 'proxy-hops-test', version: '1', trustProxy: setting,
+        insecureUseHttp: false, secureHstsHeader: false, static_files: '/static', settings: require('../lib/settings')() };
+      const app = createApp(env, { bootErrors: [{ desc: 'test', err: 'test' }] });
+      await request(app).get('/robots.txt').set('X-Forwarded-Proto', 'https').expect(200);
+      await request(app).get('/robots.txt').expect(307);
+    }
+  });
+
+  it('passes the hop-count client address to HTTP authorization and API v3 authentication', async function () {
+    for (const [setting, expected] of [['1', '203.0.113.50'], ['2', '198.51.100.4']]) {
+      const req = raw('10.0.0.1', { 'x-forwarded-for': '198.51.100.4, 203.0.113.50' });
+      req.header = () => undefined;
+      req.query = {};
+      const authorization = require('../lib/authorization')({ trustProxy: setting, settings: {} }, {
+        store: { collection () { return {}; } }, language: { translate: text => text }
+      });
+      let observed;
+      authorization.resolve = data => { observed = data; };
+      authorization.resolveWithRequest(req, () => {});
+      assert.equal(observed.ip, expected, setting);
+      const app = appFor(setting);
+      app.set('API3_SECURITY_ENABLE', true);
+      req.header = name => name === 'Authorization' ? 'Bearer owned-test-token' : undefined;
+      const ctx = { authorization: { resolve (data, callback) { observed = data; callback(null, { shiros: [] }); } } };
+      await require('../lib/api3/security').authenticate({ app, ctx, req, res: {} });
+      assert.equal(observed.ip, expected, setting);
+    }
+  });
+
+  // Measured: on 11 of the 25 unset-default fixtures (the table above plus the
+  // two chain cases in the legacy test) true and unset give different answers.
+  // These are some of them. The chain cases differ because forwarded-for
+  // rejects an IPv6 entry after a comma and a space, and proxy-addr does not.
+  it('true is not the compatibility default', function () {
+    const truly = createClientIP('true');
+    const unset = createClientIP();
+    // [socket peer, headers, true, unset]
+    for (const [peer, headers, whenTrue, whenUnset] of [
+      ['10.0.0.1', { 'x-forwarded-for': '198.51.100.4, 2001:db8::2' }, '198.51.100.4', '10.0.0.1'],
+      ['::1', { 'x-forwarded-for': '2001:db8::4, ::1' }, '2001:db8::4', '::1'],
+      ['10.0.0.1', { 'x-real-ip': '198.51.100.9' }, '10.0.0.1', '198.51.100.9'],
+      ['10.0.0.1', { 'x-forwarded-for': '198.51.100.4:443' }, '10.0.0.1', '198.51.100.4'],
+      [undefined, {}, undefined, '127.0.0.1']
+    ]) {
+      freshProcessOrder();
+      assert.equal(truly(raw(peer, headers)), whenTrue, JSON.stringify(headers));
+      assert.equal(unset(raw(peer, headers)), whenUnset, JSON.stringify(headers));
+    }
+    freshProcessOrder();
   });
 });

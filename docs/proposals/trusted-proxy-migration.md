@@ -15,8 +15,11 @@ changing ingress pod addresses. No additional environment variable is required.
 | Unset or empty | Compatibility: honor forwarded protocol/hostname and legacy client-IP headers from the connecting peer. |
 | `false` | Direct-only: ignore forwarded metadata; use the socket peer and actual TLS connection. |
 | Comma-separated IP addresses/CIDRs | Restricted trust: only configured proxy peers supply forwarded metadata; walk `X-Forwarded-For` from right to left, stopping at the first untrusted address. |
+| A whole number `n` (1 or more) | Hop count, as Express's numeric `trust proxy`: trust the `n` closest hops; the client is the `X-Forwarded-For` entry added by the proxy `n` hops away. |
+| `true` | Trust every hop, as Express's `true`: the client is the left-most `X-Forwarded-For` entry, so it is only as trustworthy as the outermost proxy, which must replace a client-supplied header rather than add to it. This is not the compatibility default. |
 
-`true`, hop counts, subnet aliases and malformed settings are rejected at startup.
+`0`, negative or fractional numbers, numbers mixed with addresses, subnet aliases
+and malformed settings are rejected at startup.
 The existing `CUSTOMCONNSTR_TRUST_PROXY` environment convention also works.
 An explicitly configured list never falls back to compatibility for unknown peers.
 
@@ -52,8 +55,8 @@ supply them.
 per client address. In the default mode that address is whatever the forwarding
 headers say, so a caller who changes them on every attempt is never delayed.
 The delay only protects against password or token guessing once `TRUST_PROXY`
-is set (to `false`, or to your proxy's addresses); Nightscout logs a warning at
-startup while it is unset.
+is set (to `false`, a hop count, or your proxy's addresses); Nightscout logs a
+warning at startup while it is unset, and a conditional warning with `true`.
 
 ## Deployment guidance
 
