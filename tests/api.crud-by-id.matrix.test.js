@@ -18,10 +18,6 @@
 //   upper  the `_id` is the upper-case 24-hex string
 //   uuid   the `_id` is a UUID string (treatments and entries before 15.0.7)
 //
-// A cell whose EXPECT carries a third value is behaviour kept as it is,
-// pending a maintainer decision: the cell asserts today's outcome, and the
-// third value is the outcome the consistent rule would give.
-//
 // Set CRUD_MATRIX_OUT to a file path to write every cell's expected and
 // observed outcome as JSON.
 //
@@ -48,8 +44,7 @@ var COLS = {
 var UUID_COLS = ['entries', 'treatments'];
 
 // ---------------------------------------------------------------------------
-// Expected outcomes. Each returns [expected, why] for one cell, or
-// [expected, why, ideal] for behaviour kept pending a maintainer decision.
+// Expected outcomes. Each returns [expected, why] for one cell.
 // ---------------------------------------------------------------------------
 
 function isHexForm (form) { return form !== 'uuid'; }
@@ -74,11 +69,7 @@ var EXPECT = {
         if (form === 'uuid') return ['200 [string/ident]', 'upsert matches the legacy _id=UUID record ($or identifier/_id)'];
         return ['200 [ObjectId]', 'upsert by _id; a string copy is replaced by the ObjectId'];
       case 'devicestatus':
-        if (stored === 'string') {
-          return ['200 [ObjectId,string]', 'devicestatus create has no check for the id already stored as a string (lib/server/devicestatus.js), so the re-send is stored beside it; decision'
-            , '500 [string]'];
-        }
-        return ['500 [ObjectId]', 'a re-sent devicestatus _id is refused as a duplicate'];
+        return ['500 [' + stored + ']', 'a re-sent devicestatus _id is refused as a duplicate, whichever form it is stored in'];
       case 'profile':
         return ['500 [' + stored + ']', 'a re-sent profile _id is refused as a duplicate (BF-99 create guard)'];
       default:
@@ -258,14 +249,14 @@ describe('CRUD by _id matrix: v1, v3 and websocket, every collection and stored 
   function cell (api, op, col, form, run) {
     var key = api + ' ' + op;
     var exp = EXPECT[key](col, form);
-    it(key + ' | ' + col + ' | ' + form + ' -> ' + exp[0] + (exp[2] ? ' (kept; consistent: ' + exp[2] + ')' : ''), async function () {
+    it(key + ' | ' + col + ' | ' + form + ' -> ' + exp[0], async function () {
       var observed;
       try {
         observed = await run();
       } catch (err) {
         observed = 'threw: ' + (err && err.message ? err.message : String(err));
       }
-      results.push({ api: api, op: op, col: col, form: form, expected: exp[0], observed: observed, why: exp[1], ideal: exp[2] || exp[0] });
+      results.push({ api: api, op: op, col: col, form: form, expected: exp[0], observed: observed, why: exp[1] });
       should(observed).equal(exp[0]);
     });
   }
