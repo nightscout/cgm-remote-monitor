@@ -1,4 +1,7 @@
-# Proxy configuration in Nightscout 15.0.9
+# Proxy configuration (`TRUST_PROXY`)
+
+> This branch (bf2/auth-hardening) differs from chore/nightscout-modernization
+> in how the default resolves client identity; see "Client identity" below.
 
 The production Kubernetes trial exposed redirect loops from the initially
 mandatory proxy-IP configuration. That migration is superseded: existing
@@ -30,15 +33,27 @@ HTTPS detection uses Express's forwarded protocol handling. With
 plain HTTP without an HTTPS indication still redirects. Disabling Nightscout's
 HTTPS enforcement is not necessary to solve the ingress redirect loop.
 
-Client identity retains the legacy header families in fixed priority order:
-`Fastly-Client-IP`, `X-Forwarded-For`, `Z-Forwarded-For`, `Forwarded`, `X-Real-IP`.
-The selected comma-separated chain must contain valid IP addresses throughout;
-its first address is the client. Bare IPv4/IPv6 and IPv4 with a numeric port are
-accepted. Invalid chains fall back to the socket peer. Here `Forwarded` means the
-legacy bare-IP header, not RFC `for=...` syntax. Bracketed IPv6 with a port is
-unsupported. Fixed precedence deliberately removes the old package's
-request-history-dependent header ordering. Edges using a lower-priority header
-must also strip or overwrite higher-priority client-supplied headers.
+Client identity in the default mode is resolved exactly as in earlier releases,
+by the `forwarded-for` package, which reads the header families
+`Fastly-Client-IP`, `X-Forwarded-For`, `Z-Forwarded-For`, `Forwarded` and
+`X-Real-IP`. The first family present wins; its comma-separated chain must
+contain valid IP addresses throughout, and its first address is the client.
+Invalid chains fall back to the socket peer. Here `Forwarded` means the legacy
+bare-IP header, not RFC `for=...` syntax. Two properties of the old behaviour
+are kept deliberately, because the default must not change what existing
+installations see: the search order is reordered by earlier requests (the
+family that last matched moves to the front), and an IPv6 address after the
+first entry in a comma-and-space chain makes the chain invalid. (The
+modernization branch replaces this with a fixed-order reimplementation.) Edges
+using any of these headers must strip or overwrite the others when clients
+supply them.
+
+**Failed-login throttling.** Nightscout delays repeated failed logins, counted
+per client address. In the default mode that address is whatever the forwarding
+headers say, so a caller who changes them on every attempt is never delayed.
+The delay only protects against password or token guessing once `TRUST_PROXY`
+is set (to `false`, or to your proxy's addresses); Nightscout logs a warning at
+startup while it is unset.
 
 ## Deployment guidance
 
@@ -65,8 +80,6 @@ can differ from Express's `req.ip`, which uses `X-Forwarded-For`.
 changing ingress peers, header precedence, malformed chains, IPv4/IPv6/ports,
 HTTPS redirects, independent authentication-delay keys and HTTP/API3/Socket.IO
 consumers. Environment tests cover unset, empty, false, lists and Azure aliases.
-The native amd64/arm64 Docker CI smoke uses default HTTPS enforcement and a
-forwarded HTTPS request, then checks unforwarded HTTP still redirects.
 
 Check real deployment login, status/API3, client identity and Socket.IO after
 rollout. Automated fixtures do not establish a deployment's actual trust boundary.
