@@ -8,6 +8,8 @@ require('should');
 const FIVE_MINUTES = 1000 * 60 * 5
   , STORED = 24
   , API_SECRET = 'this is my long pass phrase'
+  // the api-secret header value for API_SECRET, as the other API tests use it
+  , known = 'b723e97aa97846eb92d5264f084b2823f57c4aa1'
   ;
 
 // `?count=` is how every v1 read says how many documents it wants. A request
@@ -250,7 +252,6 @@ describe('API v1 ?count= parameter', function () {
   // did not.  A delete that carries a count it cannot read is refused, as
   // #8738 made it on dev - see 'a delete that carries a count' below.
   describe('a write that carries a count', function () {
-    const known = require('crypto').createHash('sha1').update(API_SECRET).digest('hex');
 
     ['abc', '0', '-3'].forEach(function (value) {
       it('stores posted entries regardless: count=' + value, function (done) {
@@ -293,7 +294,6 @@ describe('API v1 ?count= parameter', function () {
   // nothing: `count=0` in particular must not be read as "delete nothing" and
   // then delete everything.
   describe('a delete that carries a count', function () {
-    const known = require('crypto').createHash('sha1').update(API_SECRET).digest('hex');
 
     ['abc', '0', '00', '-3', '2.5'].forEach(function (value) {
       it('is refused and deletes nothing: count=' + value, function (done) {
