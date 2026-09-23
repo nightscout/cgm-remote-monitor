@@ -169,8 +169,11 @@ describe('nightscout-connect loading and teardown', function () {
         connectStage(env, () => require('nightscout-connect'))(ctx, () => {});
         const actor = ctx.nightscoutConnect();
         assert.strictEqual(actor.status, 1);
-        ctx.bus.emit('data-processed', {data: {sgvs: []}});
-        ctx.bus.emit('data-processed', {data: {sgvs: []}});
+        // A real sandbox always carries lastEntry (lib/sandbox.js); connector
+        // 0.1.0 reads it even when there are no readings yet.
+        const processed = {data: {sgvs: []}, lastEntry: entries => entries[entries.length - 1]};
+        ctx.bus.emit('data-processed', processed);
+        ctx.bus.emit('data-processed', processed);
         const deadline = Date.now() + 4000;
         while (!requests.includes('/api/v1/verifyauth') && Date.now() < deadline) {
           await new Promise(resolve => setTimeout(resolve, 10));
