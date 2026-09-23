@@ -100,6 +100,31 @@ describe('Alexa REST api', function ( ) {
       });
   });
 
+  // Alexa can send request types this skill has no case for - for example
+  // System.ExceptionEncountered, which Amazon sends after a response it could
+  // not use. With no default in the switch, nothing answered and the request
+  // stayed open until the client gave up. Amazon's documentation says a skill
+  // cannot return a response to that request (or to SessionEndedRequest), so
+  // it gets the same empty answer SessionEndedRequest does.
+  it('answers a request type it does not handle instead of hanging', function (done) {
+    request(this.app)
+      .post('/api/v1/alexa')
+      .timeout(2000)
+      .send({
+        "request": {
+          "type": "System.ExceptionEncountered",
+          "locale": "en-US"
+        }
+      })
+      .expect(200)
+      .end(function (err, res)  {
+        if (err) return done(err);
+
+        res.body.should.equal('');
+        done( );
+      });
+  });
+
   // The request carries the caller's locale, and both the language instance and
   // moment's locale are shared by the whole process. Setting either one from a
   // request hands the caller's language to every later request in the server.
