@@ -57,9 +57,33 @@ describe('explicit trusted proxies', function () {
     }
   });
 
-  it('falls back to the peer for malformed or port-bearing addresses', function () {
+  // CHANGED FROM THE CHERRY-PICKED TEST (395f3207), AND WHY: it asserted that
+  // `198.51.100.4:1234` and `[2001:db8::4]:1234` fall back to the peer. Azure
+  // App Service writes every X-Forwarded-For entry with a port, so under that
+  // rule no explicit TRUST_PROXY value worked there: every visitor resolved to
+  // the front end's address and shared one failed-login delay. A numeric port
+  // on a valid address is now removed; the other malformed values below still
+  // fall back to the peer, as before.
+  it('removes a numeric port from a forwarded address', function () {
     const resolve = createClientIP('10.1.0.2');
-    for (const value of ['unknown', '198.51.100.4:1234', '[2001:db8::4]:1234', '"198.51.100.4"']) {
+    for (const [value, expected] of [
+      ['198.51.100.4:1234', '198.51.100.4'],
+      ['[2001:db8::4]:1234', '2001:db8::4'],
+      ['[2001:db8::4]', '2001:db8::4']
+    ]) {
+      assert.equal(resolve(raw('10.1.0.2', { 'x-forwarded-for': value })), expected);
+    }
+  });
+
+  it('resolves an Azure-style chain, where the front end adds client:port, with a hop count', function () {
+    const resolve = createClientIP('1');
+    assert.equal(resolve(raw('10.1.0.2', { 'x-forwarded-for': '192.0.2.99, 198.51.100.4:51234' })), '198.51.100.4');
+    assert.equal(resolve(raw('10.1.0.2', { 'x-forwarded-for': '198.51.100.4:51234' })), '198.51.100.4');
+  });
+
+  it('falls back to the peer for malformed addresses', function () {
+    const resolve = createClientIP('10.1.0.2');
+    for (const value of ['unknown', '"198.51.100.4"', '198.51.100.4:abc', '198.51.100.4:1234567', '[not-an-ip]:443']) {
       assert.equal(resolve(raw('10.1.0.2', { 'x-forwarded-for': value })), '10.1.0.2');
     }
   });
@@ -509,7 +533,7 @@ describe('TRUST_PROXY hop counts and true', function () {
       ['10.0.0.1', { 'x-forwarded-for': '198.51.100.4, 2001:db8::2' }, '198.51.100.4', '10.0.0.1'],
       ['::1', { 'x-forwarded-for': '2001:db8::4, ::1' }, '2001:db8::4', '::1'],
       ['10.0.0.1', { 'x-real-ip': '198.51.100.9' }, '10.0.0.1', '198.51.100.9'],
-      ['10.0.0.1', { 'x-forwarded-for': '198.51.100.4:443' }, '10.0.0.1', '198.51.100.4'],
+      ['10.0.0.1', { 'x-forwarded-for': '[2001:db8::4]:443' }, '2001:db8::4', '10.0.0.1'],
       [undefined, {}, undefined, '127.0.0.1']
     ]) {
       freshProcessOrder();
