@@ -174,14 +174,25 @@ describe('D3 chart interaction compatibility', function () {
         }
         if (!confirmed) return assert.deepStrictEqual(emitted, []);
         const split = operation === 'Move carbs' || operation === 'Move insulin';
-        assert.strictEqual(emitted.length, split ? 4 : 2);
-        assert.strictEqual(emitted[0][0], eventName);
+        const move = operation === 'Move';
+        // A time change also clears the fields the page derived at the old
+        // time (BF-103), so Move sends an unset before its update.
+        const stale = {mills: 1, endmills: 1, mgdl: 1, scaled: 1};
+        assert.strictEqual(emitted.length, split || move ? 4 : 2);
+        assert.strictEqual(emitted[0][0], move ? 'dbUpdateUnset' : eventName);
         assert.strictEqual(emitted[0][1]._id, 'treatment-1');
         assert.strictEqual(emitted[0][1].collection, 'treatments');
         const movedAt = client.chart.xScale.invert(x).toISOString();
-        if (operation === 'Move') assert.deepStrictEqual(emitted[0][1].data, {created_at: movedAt});
-        if (operation.includes('carbs')) assert.deepStrictEqual(emitted[0][1].data, {carbs: 1});
-        if (operation.includes('insulin')) assert.deepStrictEqual(emitted[0][1].data, {insulin: 1});
+        if (move) {
+          assert.deepStrictEqual(emitted[0][1].data, stale);
+          assert.strictEqual(emitted[1][0], eventName);
+          assert.strictEqual(emitted[1][1]._id, 'treatment-1');
+          assert.deepStrictEqual(emitted[1][1].data, {created_at: movedAt});
+        }
+        if (operation === 'Remove carbs') assert.deepStrictEqual(emitted[0][1].data, {carbs: 1});
+        if (operation === 'Remove insulin') assert.deepStrictEqual(emitted[0][1].data, {insulin: 1});
+        if (operation === 'Move carbs') assert.deepStrictEqual(emitted[0][1].data, Object.assign({carbs: 1}, stale));
+        if (operation === 'Move insulin') assert.deepStrictEqual(emitted[0][1].data, Object.assign({insulin: 1}, stale));
         if (split) {
           assert.strictEqual(emitted[1][0], 'dbAdd');
           const data = emitted[1][1].data;
@@ -190,6 +201,10 @@ describe('D3 chart interaction compatibility', function () {
           assert.strictEqual(data.NSCLIENT_ID, undefined);
           assert.strictEqual(data.carbs, operation === 'Move carbs' ? 20 : undefined);
           assert.strictEqual(data.insulin, operation === 'Move insulin' ? 2 : undefined);
+          // nothing the page derived at the old time is written to the new record
+          ['mills', 'date', 'mgdl', 'scaled', 'endmills'].forEach(function (field) {
+            assert.strictEqual(data[field], undefined, field);
+          });
         }
       });
     });
