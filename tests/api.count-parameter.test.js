@@ -369,6 +369,73 @@ describe('API v1 ?count= parameter', function () {
     });
   });
 
+  // Decided 2026-09-24 for 15.0.9: each tolerance above has its own setting,
+  // on by default, so a later release can turn it off.  With a setting off,
+  // that shape meets #8748's rule exactly as `dev` answered it before.
+  describe('with a count compatibility setting turned off', function () {
+    afterEach(function () {
+      delete self.env.apiV1CountLeadingNumber;
+      delete self.env.apiV1CountZeroWindow;
+    });
+
+    it('refuses 1?token=... when API_V1_COUNT_LEADING_NUMBER is false', function (done) {
+      self.env.apiV1CountLeadingNumber = false;
+      request(self.app)
+        .get('/api/v1/entries.json?' + TO_DATABASE + 'count=1?token=abc')
+        .expect(400)
+        .end(function (err, res) {
+          if (err) return done(err);
+          res.body.message.should.equal('Bad count');
+          res.headers.should.not.have.property('deprecation');
+          done();
+        });
+    });
+
+    it('answers count=0 with an empty list when API_V1_COUNT_ZERO_WINDOW is false, window or not', function (done) {
+      self.env.apiV1CountZeroWindow = false;
+      request(self.app)
+        .get('/api/v1/entries.json?find[date][$gte]=1&find[date][$lte]=' + (Date.now() + FIVE_MINUTES) + '&count=0')
+        .expect(200)
+        .end(function (err, res) {
+          if (err) return done(err);
+          res.body.should.be.instanceof(Array).and.have.lengthOf(0);
+          res.headers.should.not.have.property('deprecation');
+          request(self.app)
+            .get('/api/v1/entries.json?' + TO_DATABASE + 'count=0')
+            .expect(200)
+            .end(function (err2, res2) {
+              if (err2) return done(err2);
+              res2.body.should.be.instanceof(Array).and.have.lengthOf(0);
+              done();
+            });
+        });
+    });
+
+    it('keeps the other tolerance when only one is turned off', function (done) {
+      self.env.apiV1CountZeroWindow = false;
+      request(self.app)
+        .get('/api/v1/entries.json?' + TO_DATABASE + 'count=3?token=abc')
+        .expect(200)
+        .end(function (err, res) {
+          if (err) return done(err);
+          res.body.should.be.instanceof(Array).and.have.lengthOf(3);
+          done();
+        });
+    });
+
+    it('reads 0?token=... as an empty list when only the zero-window tolerance is off', function (done) {
+      self.env.apiV1CountZeroWindow = false;
+      request(self.app)
+        .get('/api/v1/entries.json?' + TO_DATABASE + 'count=0?token=abc')
+        .expect(200)
+        .end(function (err, res) {
+          if (err) return done(err);
+          res.body.should.be.instanceof(Array).and.have.lengthOf(0);
+          done();
+        });
+    });
+  });
+
   // Decided 2026-09-23 for 15.0.9: a save or an update does not use `count`,
   // so one that carries one - valid or not - is carried out exactly as if it
   // did not.  A delete that carries a count it cannot read is refused, as
