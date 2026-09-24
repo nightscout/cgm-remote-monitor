@@ -214,6 +214,32 @@ describe('env', function () {
     env.secureHstsHeader.should.be.true();
   });
 
+  it( 'tolerates the two real-client count shapes by default and supports opting out', function () {
+    var names = ['API_V1_COUNT_LEADING_NUMBER', 'API_V1_COUNT_ZERO_WINDOW'];
+    var original = names.map(function (name) { return process.env[name]; });
+
+    try {
+      names.forEach(function (name) { delete process.env[name]; });
+      var env = require( '../lib/server/env' )();
+      env.apiV1CountLeadingNumber.should.be.true();
+      env.apiV1CountZeroWindow.should.be.true();
+
+      process.env.API_V1_COUNT_LEADING_NUMBER = 'false';
+      process.env.API_V1_COUNT_ZERO_WINDOW = 'false';
+      env = require( '../lib/server/env' )();
+      env.apiV1CountLeadingNumber.should.be.false();
+      env.apiV1CountZeroWindow.should.be.false();
+    } finally {
+      names.forEach(function (name, i) {
+        if (original[i] === undefined) {
+          delete process.env[name];
+        } else {
+          process.env[name] = original[i];
+        }
+      });
+    }
+  });
+
   it( 'allows unrestricted frame embedding by default and supports opting out', function () {
     var originalValue = process.env.ALLOW_UNRESTRICTED_FRAME_EMBEDDING;
 
