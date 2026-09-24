@@ -124,9 +124,10 @@ what separates the real client from whatever the caller wrote.
 - **Docker, nginx/Apache, Caddy, Traefik, HAProxy, Heroku:** `TRUST_PROXY=1`
   for one proxy, without listing provider address ranges. See the table below
   for platforms that put more than one proxy in front.
-- **Azure App Service:** leave `TRUST_PROXY` unset for now. Azure is reported
-  to send the client as `address:port`, which every explicit mode rejects in
-  favour of the peer, so an explicit value gives every client the same address.
+- **Azure App Service:** `TRUST_PROXY=1`, then confirm with the check under
+  "Choosing a hop count". Azure is reported to send the client as
+  `address:port`; the explicit modes remove a numeric port from a forwarded
+  address, so that form resolves to the client.
 - **Restricted trust:** use verified proxy source addresses/CIDRs as seen by
   Nightscout. Account for intermediate proxies, source NAT and address rotation.
   A stable dedicated proxy network may be appropriate; arbitrary shared pod or
@@ -163,7 +164,7 @@ ignored forwarded headers the client sent.
 | Render | `3`, then verify | low | One measured public report (a Cloudflare hop and an internal hop). |
 | Northflank | `1`, then verify | low | Append/replace not documented. |
 | DigitalOcean App Platform | leave unset | low | DO documents `X-Forwarded-For` as carrying the ingress address and the client in `do-connecting-ip`, which Nightscout does not read; a user report disagrees. |
-| Azure App Service | leave unset | medium | Port suffix; see "Deployment guidance". |
+| Azure App Service | `1`, then verify | medium | Microsoft's own Express example uses `trust proxy` 1; whether Azure appends or replaces is not documented. Its `address:port` entries are accepted. |
 | Kubernetes, ingress-nginx default | `1` | high | Only meaningful if the ingress sees real client addresses (PROXY protocol, or a source-preserving load balancer). Do not infer a CIDR from a pod list. |
 | DigitalOcean Kubernetes, load balancer in TCP mode with PROXY protocol, ingress-nginx `use-proxy-protocol: "true"` | `1`, plus one per further proxy between the ingress and Nightscout | high | In TCP mode the load balancer adds no HTTP headers; the client travels only in the PROXY header, and the ingress rewrites `X-Forwarded-For` from it. The load balancer is not a hop; count the ingress and every HTTP proxy after it. Measured with an emulated chain: one too few gives the ingress's address, one too many believes the client. Enable PROXY protocol on both sides or neither: a mismatch takes the site down (the ingress answers 400 or drops connections), and neither side enabled leaves every client with the load balancer's address. |
 | Managed Nightscout (T1Pal, NS10BE, similar) | provider's choice | — | The site owner does not control the proxy; ask the provider. |
