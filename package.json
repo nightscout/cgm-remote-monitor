@@ -137,7 +137,7 @@
     "mongo-url-parser": "^1.0.2",
     "mongodb": "^5.9.2",
     "mongomock": "^0.1.2",
-    "nightscout-connect": "0.1.0-dev.3",
+    "nightscout-connect": "0.1.0",
     "node-cache": "^4.2.1",
     "process": "^0.11.10",
     "pushover-notifications": "^1.2.2",
