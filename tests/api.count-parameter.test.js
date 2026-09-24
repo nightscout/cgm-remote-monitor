@@ -78,34 +78,6 @@ describe('API v1 ?count= parameter', function () {
     });
   });
 
-  // EXPECTATION CHANGED 2026-09-23 (maintainer decision for 15.0.9): this
-  // test was 'refuses count=0 on profiles' and expected HTTP 400.  count=0 now
-  // asks for no documents and gets 200 with an empty list.
-  it('answers count=0 on profiles, which has no cache to fall back on, with no profiles', function (done) {
-    request(self.app)
-      .get('/api/v1/profiles.json?count=0')
-      .expect(200)
-      .end(function (err, res) {
-        if (err) return done(err);
-        res.body.should.eql([]);
-        done();
-      });
-  });
-
-  // EXPECTATION CHANGED 2026-09-23 (maintainer decision for 15.0.9): this
-  // test was 'refuses count=0 on treatments' and expected HTTP 400.  count=0
-  // now asks for no documents and gets 200 with an empty list.
-  it('answers count=0 on treatments with no treatments', function (done) {
-    request(self.app)
-      .get('/api/v1/treatments.json?count=0')
-      .expect(200)
-      .end(function (err, res) {
-        if (err) return done(err);
-        res.body.should.eql([]);
-        done();
-      });
-  });
-
   it('still returns exactly the number asked for', function (done) {
     request(self.app)
       .get('/api/v1/entries.json?' + TO_DATABASE + 'count=5')
@@ -184,16 +156,25 @@ describe('API v1 ?count= parameter', function () {
     limits.should.eql([7]);
   });
 
-  // Decided 2026-09-23 for 15.0.9: `count=0` is a request for no documents.
-  // Its answer is an empty list - never an error, and never the whole
-  // collection, which is what MongoDB's `.limit(0)` would have produced.
-  // Every collection below holds documents the filter matches, so a read that
-  // lost its bound would show up as a non-empty answer.
-  describe('a request for zero documents', function () {
+  // EXPECTATION CHANGED 2026-09-24 (maintainer decision for 15.0.9): a read
+  // with `count=0` was answered with an empty list here (decided 2026-09-23).
+  // GluPredKit sends `count=0` with a date range meaning "everything in the
+  // range", and 15.0.8 answered it that way, so 15.0.9 does too: `count=0`
+  // with a `find` that bounds a date field from both sides reads everything
+  // in the window, and `count=0` without one reads as if no count had been
+  // given.  Both carry a deprecation warning.  It is still never an error,
+  // and never the whole collection unless a window asks for it.
+  describe('a read with count=0', function () {
     const SEEDED = 3;
+    const WINDOW = function (field, from, to) {
+      return 'find[' + field + '][$gte]=' + encodeURIComponent(from) + '&find[' + field + '][$lte]=' + encodeURIComponent(to) + '&';
+    };
+    let from, to;
 
     before(async function () {
       const now = Date.now();
+      from = new Date(now - FIVE_MINUTES * 200).toISOString();
+      to = new Date(now + FIVE_MINUTES).toISOString();
       const docs = function (make) {
         const out = [];
         for (let i = 0; i < SEEDED; i++) out.push(make(new Date(now - FIVE_MINUTES * i).toISOString(), i));
@@ -212,30 +193,84 @@ describe('API v1 ?count= parameter', function () {
       await self.ctx.activity().deleteMany({ });
     });
 
+    function expectDeprecated (res) {
+      res.headers.should.have.property('deprecation', 'true');
+      res.headers.should.have.property('warning');
+      res.headers.warning.should.match(/^299 - "count=0 is deprecated/);
+    }
+
+    it('reads the endpoint default without a date window, not an empty list', function (done) {
+      request(self.app)
+        .get('/api/v1/entries.json?' + TO_DATABASE + 'count=0')
+        .expect(200)
+        .end(function (err, res) {
+          if (err) return done(err);
+          res.body.should.be.instanceof(Array).and.have.lengthOf(10);
+          expectDeprecated(res);
+          done();
+        });
+    });
+
+    it('reads the endpoint default when the window is open on one side', function (done) {
+      request(self.app)
+        .get('/api/v1/entries.json?find[date][$gte]=1&count=0')
+        .expect(200)
+        .end(function (err, res) {
+          if (err) return done(err);
+          res.body.should.be.instanceof(Array).and.have.lengthOf(10);
+          done();
+        });
+    });
+
+    it('reads everything inside a date window, as 15.0.8 did: entries', function (done) {
+      request(self.app)
+        .get('/api/v1/entries.json?find[date][$gte]=1&find[date][$lte]=' + (Date.now() + FIVE_MINUTES) + '&count=0')
+        .expect(200)
+        .end(function (err, res) {
+          if (err) return done(err);
+          res.body.should.be.instanceof(Array).and.have.lengthOf(STORED);
+          expectDeprecated(res);
+          done();
+        });
+    });
+
+    it('reads everything inside a date window with an exclusive bound: entries by type', function (done) {
+      request(self.app)
+        .get('/api/v1/entries/sgv.json?find[date][$gt]=1&find[date][$lt]=' + (Date.now() + FIVE_MINUTES) + '&count=00')
+        .expect(200)
+        .end(function (err, res) {
+          if (err) return done(err);
+          res.body.should.be.instanceof(Array).and.have.lengthOf(STORED);
+          done();
+        });
+    });
+
     [
-      ['entries, read from the database', '/api/v1/entries.json?' + TO_DATABASE + 'count=0']
-      , ['entries, written with a leading zero', '/api/v1/entries.json?' + TO_DATABASE + 'count=00']
-      , ['entries by type', '/api/v1/entries/sgv.json?' + TO_DATABASE + 'count=0']
-      , ['treatments, read from the database', '/api/v1/treatments.json?find[eventType]=Note&count=0']
-      , ['devicestatus, read from the database', '/api/v1/devicestatus.json?find[device]=count-zero&count=0']
-      , ['devicestatus, served from the cache', '/api/v1/devicestatus.json?count=0']
-      , ['profiles', '/api/v1/profiles.json?count=0']
-      , ['profile', '/api/v1/profile.json?count=0']
-      , ['activity', '/api/v1/activity.json?count=0']
+      ['treatments, read from the database', function () { return '/api/v1/treatments.json?find[eventType]=Note&count=0'; }]
+      , ['treatments in a window', function () { return '/api/v1/treatments.json?' + WINDOW('created_at', from, to) + 'count=0'; }]
+      , ['devicestatus, read from the database', function () { return '/api/v1/devicestatus.json?find[device]=count-zero&count=0'; }]
+      , ['devicestatus, served from the cache', function () { return '/api/v1/devicestatus.json?count=0'; }]
+      , ['devicestatus in a window', function () { return '/api/v1/devicestatus.json?' + WINDOW('created_at', from, to) + 'count=0'; }]
+      , ['profiles', function () { return '/api/v1/profiles.json?count=0'; }]
+      , ['profiles in a window', function () { return '/api/v1/profiles.json?' + WINDOW('startDate', from, to) + 'count=0'; }]
+      , ['profile', function () { return '/api/v1/profile.json?count=0'; }]
+      , ['profile in a window, as GluPredKit asks', function () { return '/api/v1/profile?' + WINDOW('created_at', from, to) + 'count=0'; }]
+      , ['activity', function () { return '/api/v1/activity.json?count=0'; }]
     ].forEach(function ([label, path]) {
-      it('answers with an empty list, not the whole collection: ' + label, function (done) {
+      it('is answered with the stored documents, not an empty list: ' + label, function (done) {
         request(self.app)
-          .get(path)
+          .get(path())
           .expect(200)
           .end(function (err, res) {
             if (err) return done(err);
-            res.body.should.be.instanceof(Array).and.have.lengthOf(0);
+            res.body.should.be.instanceof(Array).and.have.lengthOf(SEEDED);
+            expectDeprecated(res);
             done();
           });
       });
     });
 
-    it('is answered with nothing by the storage layer too, whatever form the zero takes', async function () {
+    it('is still answered with nothing by the storage layer, whatever form the zero takes', async function () {
       for (const count of ['0', 0, '00']) {
         const found = await new Promise(function (resolve, reject) {
           self.archive.list({ count: count, find: { sgv: { $gte: 1 } } }, function (err, rows) {
@@ -244,6 +279,93 @@ describe('API v1 ?count= parameter', function () {
         });
         found.should.be.instanceof(Array).and.have.lengthOf(0);
       }
+    });
+  });
+
+  // Decided 2026-09-24 for 15.0.9: oref0's `ns-get.sh` appends its credential
+  // to the query with a second `?`, so its `count=1` arrives as
+  // `1?<credential>` or `1?token=<token>`.  15.0.8 read the leading number;
+  // 15.0.9 reads it the same way, with a deprecation warning, and only when
+  // the number is followed by `?`.
+  describe('a count followed by ?, as oref0 sends it', function () {
+    const TOKEN = 'oref0-shaped-token-value';
+
+    [
+      ['token mode', '1?token=' + TOKEN]
+      , ['hashed-secret mode', '1?' + known]
+    ].forEach(function ([label, value]) {
+      it('reads the leading number in ' + label, function (done) {
+        request(self.app)
+          .get('/api/v1/entries.json?' + TO_DATABASE + 'count=' + encodeURIComponent(value).replace(/%3F/g, '?'))
+          .expect(200)
+          .end(function (err, res) {
+            if (err) return done(err);
+            res.body.should.be.instanceof(Array).and.have.lengthOf(1);
+            res.headers.should.have.property('deprecation', 'true');
+            res.headers.warning.should.match(/^299 - "a count followed by other text is deprecated/);
+            done();
+          });
+      });
+    });
+
+    it('reads a larger leading number exactly', function (done) {
+      request(self.app)
+        .get('/api/v1/entries.json?' + TO_DATABASE + 'count=5?token=' + TOKEN)
+        .expect(200)
+        .end(function (err, res) {
+          if (err) return done(err);
+          res.body.should.be.instanceof(Array).and.have.lengthOf(5);
+          done();
+        });
+    });
+
+    it('never echoes or logs what follows the ?', function (done) {
+      const logged = [];
+      const realWarn = console.warn;
+      console.warn = function () { logged.push(Array.prototype.join.call(arguments, ' ')); };
+      request(self.app)
+        .get('/api/v1/entries.json?' + TO_DATABASE + 'count=2?token=' + TOKEN)
+        .expect(200)
+        .end(function (err, res) {
+          console.warn = realWarn;
+          if (err) return done(err);
+          JSON.stringify(res.headers).should.not.containEql(TOKEN);
+          logged.join('\n').should.not.containEql(TOKEN);
+          done();
+        });
+    });
+
+    [
+      ['a negative number', '-3?token=' + TOKEN]
+      , ['exponent notation', '1e2?token=' + TOKEN]
+      , ['a fraction', '2.5?token=' + TOKEN]
+      , ['a non-number', 'abc?1']
+      , ['text before the number', 'x1?token=' + TOKEN]
+    ].forEach(function ([label, value]) {
+      it('still refuses ' + label + ' followed by ?: count=' + value, function (done) {
+        request(self.app)
+          .get('/api/v1/entries.json?' + TO_DATABASE + 'count=' + value)
+          .expect(400)
+          .end(function (err, res) {
+            if (err) return done(err);
+            res.body.status.should.equal(400);
+            done();
+          });
+      });
+    });
+
+    it('is not accepted on a delete, which still refuses a count it cannot read', function (done) {
+      request(self.app)
+        .delete('/api/v1/entries.json?' + TO_DATABASE + 'count=1?token=' + TOKEN)
+        .set('api-secret', known)
+        .expect(400)
+        .end(function (err) {
+          if (err) return done(err);
+          self.archive( ).countDocuments({ }).then(function (n) {
+            n.should.equal(STORED);
+            done();
+          }, done);
+        });
     });
   });
 
