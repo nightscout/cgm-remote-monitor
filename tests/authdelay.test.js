@@ -114,31 +114,50 @@ describe('Authentication failure throttling', function () {
     second.should.be.aboveOrEqual(THROTTLED);
   });
 
-  it('does not delay a request that authenticates while the address is throttled', async function () {
+  // WAIT BEFORE THE CHECK, AS DEV DOES. These three replace two tests that
+  // asserted the opposite order (the credential checked first, only the failure
+  // held). That order answers a correct guess at once, so the delay stops
+  // costing a guesser any time. The earlier authenticated-request test also sent
+  // its good request from a different address than the failures, so it passed
+  // under either order; the tests below use the SAME address, which is what
+  // tells the two orders apart.
+  it('makes a request that authenticates from a throttled address wait, as dev does', async function () {
     await resetThrottle();
 
     await timeRequest(wrongSecret('wrong-again', '198.51.100.7'));
-    await timeRequest(wrongSecret('wrong-again', '198.51.100.8'));
+    await timeRequest(wrongSecret('wrong-again-2', '198.51.100.7'));
 
-    // The credential entry throttling the guesses above is still live. Making
-    // this request wait would mean one failing client could slow down everybody
-    // sharing an address, which is what the old code did to every request.
     const authenticated = await timeRequest(function build (req) {
-      return req.set('api-secret', API_SECRET).expect(200);
+      return req.set('api-secret', API_SECRET).set('X-Forwarded-For', '198.51.100.7').expect(200);
     });
 
-    authenticated.should.be.below(THROTTLED);
+    authenticated.should.be.aboveOrEqual(THROTTLED);
   });
 
-  it('does not delay a request that presents no credential at all', async function () {
+  it('makes a request with no credential from a throttled address wait, as dev does', async function () {
     await resetThrottle();
 
     await timeRequest(wrongSecret('wrong-yet-again', '198.51.100.9'));
-    await timeRequest(wrongSecret('wrong-yet-again', '198.51.100.10'));
+    await timeRequest(wrongSecret('wrong-yet-again-2', '198.51.100.9'));
 
-    const anonymous = await timeRequest(function build (req) { return req; });
+    const anonymous = await timeRequest(function build (req) {
+      return req.set('X-Forwarded-For', '198.51.100.9');
+    });
 
-    anonymous.should.be.below(THROTTLED);
+    anonymous.should.be.aboveOrEqual(THROTTLED);
+  });
+
+  it('does not delay a request from a different address', async function () {
+    await resetThrottle();
+
+    await timeRequest(wrongSecret('wrong-elsewhere', '198.51.100.11'));
+    await timeRequest(wrongSecret('wrong-elsewhere-2', '198.51.100.11'));
+
+    const other = await timeRequest(function build (req) {
+      return req.set('api-secret', API_SECRET).set('X-Forwarded-For', '198.51.100.12').expect(200);
+    });
+
+    other.should.be.below(THROTTLED);
   });
 });
 
