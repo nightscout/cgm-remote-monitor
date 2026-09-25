@@ -34,6 +34,7 @@ describe('server loop notifications', function () {
         this.send = function (notification, tokens) {
           return Promise.resolve({ sent: [{ device: tokens[0] }], failed: [] });
         };
+        this.shutdown = function () { };
       };
       apn.Notification = function MockNotification () { };
 
