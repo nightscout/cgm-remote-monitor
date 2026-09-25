@@ -39,14 +39,21 @@ describe('Storing authorization subjects', function () {
     return self.ctx.store.collection(self.env.authentication_collections_prefix + 'roles');
   }
 
+  // Rows without a usable name, which some tests below store on purpose.
+  const NAMELESS = { $or: [{ name: { $not: { $type: 'string' } } }, { name: { $in: ['', '   '] } }] };
+
   beforeEach(async function () {
     await subjectsCollection().deleteMany({ name: NAME });
     await rolesCollection().deleteMany({ name: ROLE });
+    await subjectsCollection().deleteMany(NAMELESS);
+    await rolesCollection().deleteMany(NAMELESS);
   });
 
   afterEach(async function () {
     await subjectsCollection().deleteMany({ name: NAME });
     await rolesCollection().deleteMany({ name: ROLE });
+    await subjectsCollection().deleteMany(NAMELESS);
+    await rolesCollection().deleteMany(NAMELESS);
   });
 
   async function createSubject (body) {
@@ -256,6 +263,123 @@ describe('Storing authorization subjects', function () {
     });
 
     stored.should.not.have.property('unexpected');
+  });
+
+  describe('without a name', function () {
+    // Without the fix, the TypeError thrown while reloading is an unhandled
+    // rejection, which mocha does not report, and the request never answers.
+    // Fail the test with that error instead of a timeout.
+    let rejected, listener;
+
+    beforeEach(function () {
+      rejected = new Promise(function (resolve, reject) { listener = reject; });
+      rejected.catch(function () { });
+      process.on('unhandledRejection', listener);
+    });
+
+    afterEach(function () {
+      process.removeListener('unhandledRejection', listener);
+    });
+
+    function guarded (work) {
+      return Promise.race([work(), rejected]);
+    }
+
+    function reloaded () {
+      return new Promise(function (resolve, reject) {
+        self.ctx.authorization.storage.reload(function loaded (err) {
+          return err ? reject(err) : resolve(self.ctx.authorization.storage);
+        });
+      });
+    }
+
+    it('refuses to create a subject without a name, and keeps working', function () {
+      return guarded(async function () {
+        const refused = await request(self.app)
+          .post('/api/v2/authorization/subjects')
+          .set('api-secret', API_SECRET)
+          .send({ roles: ['readable'], notes: 'no name' })
+          .expect(400);
+
+        refused.body.description.should.equal('A name is required');
+        (await subjectsCollection().countDocuments(NAMELESS)).should.equal(0);
+
+        // The next write, and the reload that follows it, still work.
+        const created = await createSubject({ name: NAME, roles: ['readable'] });
+        should.exist(created);
+        should.exist(await listSubject());
+      });
+    });
+
+    it('refuses a subject or role whose name is empty or not a string', function () {
+      return guarded(async function () {
+        for (const name of ['', '   ', 42, ['a', 'b'], { first: 'x' }]) {
+          await request(self.app)
+            .post('/api/v2/authorization/subjects')
+            .set('api-secret', API_SECRET)
+            .send({ name: name, roles: ['readable'] })
+            .expect(400);
+        }
+
+        await request(self.app)
+          .post('/api/v2/authorization/roles')
+          .set('api-secret', API_SECRET)
+          .send({ permissions: ['api:entries:read'] })
+          .expect(400);
+
+        (await subjectsCollection().countDocuments(NAMELESS)).should.equal(0);
+        (await rolesCollection().countDocuments(NAMELESS)).should.equal(0);
+      });
+    });
+
+    it('refuses to save a subject or role without a name', function () {
+      return guarded(async function () {
+        const created = await createSubject({ name: NAME, roles: ['readable'] });
+
+        await request(self.app)
+          .put('/api/v2/authorization/subjects')
+          .set('api-secret', API_SECRET)
+          .send({ _id: created._id.toString(), roles: ['admin'] })
+          .expect(400);
+
+        const stored = await subjectsCollection().findOne({ _id: created._id });
+        stored.name.should.equal(NAME);
+        stored.roles.should.deepEqual(['readable']);
+
+        const role = await createRole({ name: ROLE, permissions: ['api:entries:read'] });
+        await request(self.app)
+          .put('/api/v2/authorization/roles')
+          .set('api-secret', API_SECRET)
+          .send({ _id: role._id.toString(), permissions: ['*'] })
+          .expect(400);
+
+        (await rolesCollection().findOne({ _id: role._id })).permissions.should.deepEqual(['api:entries:read']);
+      });
+    });
+
+    it('loads, skipping subjects and roles already stored without a string name', function () {
+      return guarded(async function () {
+        await createSubject({ name: NAME, roles: ['readable'] });
+        await createRole({ name: ROLE, permissions: ['api:entries:read'] });
+        await subjectsCollection().insertMany([
+          { roles: ['admin'], created_at: CREATED_AT }
+          , { name: 42, roles: ['admin'], created_at: CREATED_AT }
+        ]);
+        await rolesCollection().insertMany([
+          { permissions: ['*'], created_at: CREATED_AT }
+          , { name: { first: 'x' }, permissions: ['*'], created_at: CREATED_AT }
+        ]);
+
+        const storage = await reloaded();
+
+        storage.subjects.filter(subject => typeof subject.name !== 'string').should.have.length(0);
+        storage.roles.filter(role => typeof role.name !== 'string').should.have.length(0);
+        should.exist(storage.subjects.find(subject => subject.name === NAME));
+        should.exist(storage.roles.find(role => role.name === ROLE));
+        should.exist(storage.roles.find(role => role.name === 'admin'));
+        should.exist((await listSubject()).accessToken);
+      });
+    });
   });
 
   it('does not store fields a role document does not own', function (done) {
