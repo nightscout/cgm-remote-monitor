@@ -253,6 +253,64 @@ describe('pump', function ( ) {
   });
 
 
+  function suspendedCheck (extendedSettings, pumpFields) {
+    var ctx = {
+      settings: {
+        units: 'mg/dl'
+      }
+      , notifications: require('../lib/notifications')(env, top_ctx)
+      , language: language
+      , levels: levels
+    };
+    ctx.notifications.initRequests();
+
+    var suspendedStatuses = cloneDeep(statuses);
+    suspendedStatuses[1].pump.status.suspended = true;
+    Object.assign(suspendedStatuses[1].pump, pumpFields);
+
+    var sbx = sandbox.clientInit(ctx, now.valueOf(), {
+      devicestatus: suspendedStatuses
+    });
+    sbx.extendedSettings = extendedSettings;
+    pump.setProperties(sbx);
+    pump.checkNotifications(sbx);
+
+    return ctx.notifications.findHighestAlarm('Pump');
+  }
+
+  it('generate a warning when the pump is suspended and PUMP_WARN_ON_SUSPEND is true', function (done) {
+    var highest = suspendedCheck({ 'enableAlerts': true, 'warnOnSuspend': true });
+    should.exist(highest);
+    highest.level.should.equal(levels.WARN);
+    highest.title.should.equal('Pump Suspended');
+
+    done();
+  });
+
+  it('not generate an alert when the pump is suspended and PUMP_WARN_ON_SUSPEND is off', function (done) {
+    var highest = suspendedCheck({ 'enableAlerts': true });
+    should.not.exist(highest);
+
+    done();
+  });
+
+  it('read warnOnSuspend from the plugin settings, not from the devicestatus', function (done) {
+    var highest;
+    (function () {
+      highest = suspendedCheck({ 'enableAlerts': true }, { warnOnSuspend: true });
+    }).should.not.throw();
+    should.not.exist(highest);
+
+    (function () {
+      highest = suspendedCheck({ 'enableAlerts': true, 'warnOnSuspend': true }, { warnOnSuspend: false });
+    }).should.not.throw();
+    should.exist(highest);
+    highest.level.should.equal(levels.WARN);
+    highest.title.should.equal('Pump Suspended');
+
+    done();
+  });
+
   it('generate an alert when battery is low', function (done) {
     var ctx = {
       settings: {

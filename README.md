@@ -155,7 +155,7 @@ Older versions or other browsers might work, but are untested and unsupported. W
 
 - [Node.js](http://nodejs.org/) Node v20 LTS or later (v22, v24 also supported). Node versions that do not have the latest security patches will not be supported. Use [Install instructions for Node](https://nodejs.org/en/download/package-manager/) or use `bin/setup.sh`)
 - [MongoDB](https://www.mongodb.com/download-center?jmp=nav#community) 5.0.32 or later, 6.0.27 or later 
-  NOTE: MongoDB 4.4 or lower is *not supported*. Nightscout 15.0.7 is the latest version that works with Mongo 4.4.
+  NOTE: MongoDB 4.4 is *deprecated* and support for it will be removed in a future release. It still passes the automated tests, but MongoDB itself stopped supporting 4.4 in February 2024. Plan to upgrade, one major version at a time (4.4 to 5.0, then 6.0, and so on).
 
 As a non-root user clone this repo then install dependencies into the root of the project:
 
@@ -165,7 +165,7 @@ $ npm install
 
 ## Installation notes for users with nginx or Apache reverse proxy for SSL/TLS offloading:
 
-- Your site redirects insecure connections to `https` by default. If you use a reverse proxy like nginx or Apache to handle the connection security for you, make sure it sets the `X-Forwarded-Proto` header. Otherwise nightscout will be unable to know if it was called through a secure connection and will try to redirect you to the https version. If you're unable to set this Header, you can change the `INSECURE_USE_HTTP` setting in nightscout to true in order to allow insecure connections without being redirected.
+- Your site redirects insecure connections to `https` by default. Reverse-proxy compatibility remains enabled by default. The proxy must sanitize forwarded headers and control access to the backend. Optional `TRUST_PROXY` settings provide direct-only, hop-count, trust-every-hop or explicit IP/CIDR trust; see the [proxy configuration guide](docs/proposals/trusted-proxy-migration.md).
 - In case you use a proxy. Do not use an external network interfaces for hosting Nightscout. Make sure the unsecure port is not available from a remote network connection
 - HTTP Strict Transport Security (HSTS) headers are enabled by default, use settings `SECURE_HSTS_HEADER` and `SECURE_HSTS_HEADER_*`
 - See [Predefined values for your server settings](#predefined-values-for-your-server-settings-optional) for more details
@@ -246,6 +246,8 @@ To learn more about the Nightscout API, visit https://YOUR-SITE.com/api-docs/ or
   * `IMPORT_CONFIG` - Used to import settings and extended settings from a url such as a gist.  Structure of file should be something like: `{"settings": {"theme": "colors"}, "extendedSettings": {"upbat": {"enableAlerts": true}}}`
   * `TREATMENTS_AUTH` (`on`) - possible values `on` or `off`. Deprecated, if set to `off` the `careportal` role will be added to `AUTH_DEFAULT_ROLES`
   * `UUID_HANDLING` (`true`) - Controls how UUID `_id` values are handled for treatments and entries. When `true` (default), if a client sends a UUID string as the `_id` field, it is extracted to the `identifier` field (for sync deduplication) and the server generates a proper ObjectId for `_id`. Queries by UUID (`GET`/`DELETE`) are also routed through the `identifier` field. When `false`, UUID `_id` values are silently stripped on write (no identifier is preserved) and UUID-based queries return empty results. This only affects the specific case where a UUID is sent as `_id` (e.g., Loop overrides, Trio CGM entries).
+  * `API_V1_COUNT_LEADING_NUMBER` (`true`) - On API v1 reads, a `count` that is a whole number followed by `?` and other text, such as `1?token=...`, is read as that number, as 15.0.8 read it. OpenAPS (oref0) sends its latest-treatment lookup this way. The answer carries a `Deprecation: true` header and a `Warning`; the text after the `?` is never logged. Set to `false` to refuse it with `400 Bad count`, like any other malformed count. The default is temporarily `true` for compatibility and is expected to become `false` in a future release.
+  * `API_V1_COUNT_ZERO_WINDOW` (`true`) - On API v1 reads, `count=0` with a `find` that bounds one date field from both sides (for example `find[created_at][$gte]=...&find[created_at][$lte]=...`) returns every record in that range, as 15.0.8 did; without such a range it returns the endpoint's default number of records. GluPredKit asks this way. The answer carries a `Deprecation: true` header and a `Warning`. Set to `false` to answer every read with `count=0` with an empty list. The default is temporarily `true` for compatibility and is expected to become `false` in a future release.
 
 #### Data Rights
 
@@ -264,6 +266,7 @@ autonomy for your data:
   * `BG_TARGET_TOP` (`180`) - the top of the target range, also used to draw the line on the chart (interprets units based on DISPLAY_UNITS setting)
   * `BG_TARGET_BOTTOM` (`80`) - the bottom of the target range, also used to draw the line on the chart (interprets units based on DISPLAY_UNITS setting)
   * `BG_LOW` (`55`) - the low BG outside the target range that is considered urgent (interprets units based on DISPLAY_UNITS setting)
+  * On a `DISPLAY_UNITS=mmol` site each of the four `BG_` thresholds is read on its own: a value below 30 is taken as mmol/L and converted, and a value of 30 or more (including the defaults above, for any you leave unset) is taken as mg/dl. So you can set only some of them in mmol/L. The server log shows one line for each threshold it converts.
   * `ALARM_URGENT_HIGH` (`on`) - possible values `on` or `off`
   * `ALARM_URGENT_HIGH_MINS` (`30 60 90 120`) - Number of minutes to snooze urgent high alarms, space separated for options in browser, first used for pushover
   * `ALARM_HIGH` (`on`) - possible values `on` or `off`
@@ -292,6 +295,7 @@ autonomy for your data:
   * `SSL_CA` - Path to your ssl ca file, so that ssl(https) can be enabled directly in node.js. If using Let's Encrypt, make this variable the path to chain.pem file (chain).
   * `HEARTBEAT` (`60`)  - Number of seconds to wait in between database checks
   * `DEBUG_MINIFY` (`true`)  - Debug option, setting to `false` will disable bundle minification to help tracking down error and speed up development
+  * `DEBUG_LOGGING` (`false`) - Set to `true` to log routine server heartbeats, data reload summaries and Nightscout Connect diagnostics. Warnings, errors and startup messages remain visible with debugging off. This is a server environment setting; restart Nightscout after changing it. On Heroku, add or edit it under **Settings → Config Vars**. Set it back to `false` or remove it when troubleshooting is complete. It does not control Heroku router/access logs or every plugin's logging.
   * `DE_NORMALIZE_DATES`(`true`) - The Nightscout REST API normalizes all entered dates to UTC zone. Some Nightscout clients have broken date deserialization logic and expect to received back dates in zoned formats. Setting this variable to `true` causes the REST API to serialize dates sent to Nightscout in zoned format back to zoned format when served to clients over REST.
 
 ### Predefined values for your browser settings (optional)
@@ -318,6 +322,7 @@ autonomy for your data:
   * `EDIT_MODE` (`on`) - possible values `on` or `off`. Enables the icon allowing for editing of treatments in the main view.
 
 ### Predefined values for your server settings (optional)
+  * `TRUST_PROXY` (empty) - Empty preserves reverse-proxy compatibility without listing proxy addresses. Set `false` to ignore all forwarded metadata, a whole number of proxy hops (for example `1`) to trust that many proxies, `true` to trust every hop, or comma-separated trusted proxy IP addresses/CIDRs for restricted trust. While it is empty, the client address comes from headers any caller can set, so the failed-login delay (`AUTH_FAIL_DELAY`) does not protect against guessing, and Nightscout logs a `SECURITY:` warning at startup. Behind a TLS-terminating proxy, `false` causes an https redirect loop; remove the setting to undo any value. See the [proxy configuration guide](docs/proposals/trusted-proxy-migration.md) for which value fits which deployment, the security boundary and client-header rules.
   * `INSECURE_USE_HTTP` (`false`) - Redirect unsafe http traffic to https. Possible values `false`, or `true`. Your site redirects to `https` by default. If you don't want that from Nightscout, but want to implement that with a Nginx or Apache proxy, set `INSECURE_USE_HTTP` to `true`. Note: This will allow (unsafe) http traffic to your Nightscout instance and is not recommended.
   * `SECURE_HSTS_HEADER` (`true`) - Add HTTP Strict Transport Security (HSTS) header. Possible values `false`, or `true`.
   * `SECURE_HSTS_HEADER_INCLUDESUBDOMAINS` (`false`) - includeSubdomains options for HSTS. Possible values `false`, or `true`.
@@ -464,7 +469,7 @@ autonomy for your data:
   * `IAGE_ENABLE_ALERTS` (`false`) - Set to `true` to enable notifications to remind you of upcoming insulin reservoir change.
   * `IAGE_INFO` (`44`) - If time since last `Insulin Change` matches `IAGE_INFO`, user will be warned of upcoming insulin reservoir change
   * `IAGE_WARN` (`48`) - If time since last `Insulin Change` matches `IAGE_WARN`, user will be alarmed to to change the insulin reservoir
-  * `IAGE_URGENT` (`72`) - If time since last `Insulin Change` matches `IAGE_URGENT`, user will be issued a persistent warning of overdue change.
+  * `IAGE_URGENT` (`72`) - Marks the insulin age as urgent at and beyond this many hours since the last `Insulin Change`. With `IAGE_ENABLE_ALERTS` enabled, an urgent notification is requested during the first 20 minutes of the threshold hour (through minute 20). Starting or upgrading Nightscout after that window does not issue a catch-up notification; the urgent indicator remains until the insulin age resets.
 
 ##### `bage` (Battery Age)
   Calculates the number of days and hours since the last `Pump Battery Change` treatment that was recorded.
@@ -495,6 +500,7 @@ Connect common diabetes cloud resources to Nightscout.
 Include the keyword `connect` in the `ENABLE` list.
 Nightscout connection uses extended settings using the environment variable prefix `CONNECT_`.
   * `CONNECT_SOURCE` - The name for the source of one of the supported inputs.  one of `nightscout`, `dexcomshare`, etc...
+  * `CONNECT_DEBUG` (inherits `DEBUG_LOGGING`, which defaults to `false`) - Set to `true` for connector-only debugging, or `false` to keep the connector quiet while server debugging is enabled. Diagnostic output uses operation summaries, without dumping credentials, sessions or patient records. Warnings and failures remain visible. Restart Nightscout after changing this setting.
   * `CONNECT_SOURCE_COLLECTIONS` - For Nightscout source sync, a comma-separated list of collections. Default: `entries,treatments,devicestatus,profiles`.
   * `CONNECT_SOURCE_MAX_COUNT` - For Nightscout source sync, maximum records per collection request. Default: `1000`.
 ###### Nightscout
@@ -737,6 +743,8 @@ When APNs provides no failure details, the message says so. Unexpected failures 
   Some plugins support additional configuration using extra environment variables.  These are prefixed with the name of the plugin and a `_`.  For example setting `MYPLUGIN_EXAMPLE_VALUE=1234` would make `extendedSettings.exampleValue` available to the `MYPLUGIN` plugin.
 
   Plugins only have access to their own extended settings, all the extended settings of client plugins will be sent to the browser.
+
+  Values that look numeric are converted to numbers before the plugin sees them, and `on`/`true`/`off`/`false` are converted to booleans.  Settings whose value must reach the plugin as written — passwords, account names, and account or device identifiers — are listed in `stringSettings` in `lib/server/env.js` and are never converted to numbers.  Add yours there when you introduce one.
 
   * `DEVICESTATUS_ADVANCED` (`true`) - Defaults to true. Users who only have a single device uploading data to Nightscout can set this to false to reduce the data use of the site.
   * `DEVICESTATUS_DAYS` (`1`) - Defaults to 1, can optionally be set to 2. Users can use this to show 48 hours of device status data for in retro mode, rather than the default 24 hours. Setting this value to 2 will roughly double the bandwidth usage of nightscout, so users with a data cap may not want to update this setting.

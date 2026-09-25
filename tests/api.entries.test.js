@@ -127,6 +127,48 @@ describe('Entries REST api', function ( ) {
       });
   });
 
+  /* The untyped cached read used to deep-clone the whole retained window before
+   * slicing ten documents out of it. It now slices first and clones the slice.
+   * The response must not move: cloning first cannot change what comes back, so
+   * compare the two shapes at the HTTP layer rather than reasoning about it.
+   */
+  it('serves the same body whether or not the cache is cloned before slicing', function (done) {
+    var ctx = self.ctx;
+    var cheapRead = ctx.cache.getDataRef;
+    var before = ctx.cache.entries.slice( );
+    var beforeJson = JSON.stringify(ctx.cache.entries);
+
+    request(self.app)
+      .get('/entries.json?count=10')
+      .expect(200)
+      .end(function (err, sliced) {
+        if (err) return done(err);
+
+        // the shape this endpoint had before: clone the whole array, then slice
+        ctx.cache.getDataRef = function (datatype) { return ctx.cache.getData(datatype); };
+
+        request(self.app)
+          .get('/entries.json?count=10')
+          .expect(200)
+          .end(function (err2, cloned) {
+            ctx.cache.getDataRef = cheapRead;
+            if (err2) return done(err2);
+
+            sliced.body.should.be.instanceof(Array).and.have.lengthOf(10);
+            sliced.body.should.eql(cloned.body);
+
+            // and reading must not reorder, replace or write to the cache's
+            // own documents
+            ctx.cache.entries.should.have.lengthOf(before.length);
+            for (var i = 0; i < before.length; i++) {
+              (ctx.cache.entries[i] === before[i]).should.equal(true);
+            }
+            JSON.stringify(ctx.cache.entries).should.equal(beforeJson);
+            done( );
+          });
+      });
+  });
+
   it('/echo/ api shows query', function (done) {
     request(self.app)
       .get('/echo/entries/sgv.json?find[dateString][$gte]=2014-07-19&find[dateString][$lte]=2014-07-20')
@@ -464,6 +506,38 @@ describe('Entries REST api', function ( ) {
         res.body.should.be.instanceof(Array);
         res.body.length.should.equal(0);
         done();
+      });
+  });
+
+  /* The cached read hands out copies, not the cache's documents. If it ever
+   * hands out the documents themselves, the `mills` fill-in below it writes
+   * straight into the cache — so seed a document with no `mills` and check the
+   * cache still has none after the read.
+   */
+  it('does not write to the cached documents while serving a read', function (done) {
+    var ctx = self.ctx;
+    var ObjectId = require('mongodb').ObjectId;
+    var seeded = {
+      _id: new ObjectId( )
+      , type: 'sgv'
+      , sgv: 123
+      , date: Date.now( ) + 60000
+      , dateString: new Date(Date.now( ) + 60000).toISOString( )
+    };
+    ctx.bus.emit('data-update', { type: 'entries', op: 'update', changes: [seeded] });
+
+    var cached = ctx.cache.entries[0];
+    cached.should.not.have.property('mills');
+
+    request(self.app)
+      .get('/entries.json?count=10')
+      .expect(200)
+      .end(function (err, res) {
+        if (err) return done(err);
+        res.body[0].sgv.should.equal(123);
+        res.body[0].mills.should.equal(seeded.date);
+        ctx.cache.entries[0].should.not.have.property('mills');
+        done( );
       });
   });
 
