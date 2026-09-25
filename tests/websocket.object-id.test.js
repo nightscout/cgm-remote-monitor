@@ -36,6 +36,7 @@ describe('websocket: a 24-hex _id is stored as an ObjectId and matched in either
     , updateOid: '5f41abcdef0000000000b00b'
     , updateTwins: '5f41abcdef0000000000b00c'
     , unsetTwins: '5f41abcdef0000000000b00d'
+    , removeCachedTwins: '5f41abcdef0000000000b00e'
   };
 
   function col (name) {
@@ -206,6 +207,25 @@ describe('websocket: a 24-hex _id is stored as an ObjectId and matched in either
       var reply = await emit('dbRemove', { collection: 'entries', _id: HEX.removeString });
       reply.result.should.equal('success');
       (await storedFor('entries', HEX.removeString)).length.should.equal(0);
+    });
+
+    it('dbRemove of both copies of an id leaves neither in the in-memory cache (BF-131)', async function () {
+      var hex = HEX.removeCachedTwins;
+      // A recent time: the cache keeps only records inside its retention window.
+      var at = new Date(Math.floor(Date.now() / 60000) * 60000 - 30 * 60000).toISOString();
+      var docs = [
+        { _id: hex, eventType: 'Note', created_at: at, notes: 'string copy' }
+        , { _id: new ObjectID(hex), eventType: 'Note', created_at: at, notes: 'edited copy' }
+      ];
+      await col('treatments').insertMany(docs);
+      self.ctx.bus.emit('data-update', { type: 'treatments', op: 'update', changes: self.ctx.ddata.processRawDataForRuntime(docs) });
+      function cachedCopies () {
+        return self.ctx.cache.getData('treatments').filter(function (o) { return String(o._id) === hex; }).length;
+      }
+      cachedCopies().should.equal(2, 'both copies cached');
+      await emit('dbRemove', { collection: 'treatments', _id: hex });
+      (await storedFor('treatments', hex)).length.should.equal(0);
+      cachedCopies().should.equal(0, 'copies cached after dbRemove');
     });
 
     it('dbRemove removes both an ObjectId copy and a string copy of one id', async function () {
