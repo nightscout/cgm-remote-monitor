@@ -43,6 +43,16 @@ describe('query', function ( ) {
     opts._id.should.equal(uuid);
   });
 
+  it('should name each 24-hex id in an _id list in both forms', function ( ) {
+    var hex = '5f2600000000000000000d01';
+    var opts = query({ find: { _id: { $in: [hex, 'not-hex'] }, created_at: { $gte: '2020-01-01' } } });
+    opts._id.$in.map(String).should.eql([hex, hex, 'not-hex']);
+    opts._id.$in[0].constructor.name.should.equal('ObjectId');
+    (typeof opts._id.$in[1]).should.equal('string');
+    var nin = query({ find: { _id: { $nin: [hex] }, created_at: { $gte: '2020-01-01' } } });
+    nin._id.$nin.map(String).should.eql([hex, hex]);
+  });
+
   it('should convert ObjectId-shaped _id queries', function ( ) {
     var objectId = '55cbd4e47e726599048a3f91';
     var opts = query({ find: { _id: objectId } });
