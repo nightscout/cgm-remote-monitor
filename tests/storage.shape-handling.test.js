@@ -797,13 +797,13 @@ describe('Storage Layer Shape Handling - Direct Storage Tests', function () {
       }).catch(done);
     });
 
-    it('createSubject() stores a 24-hex _id as the ObjectId it names', async function () {
+    it('createSubject() does not store a client 24-hex _id as a string', async function () {
       var hex = '5f2500000000000000000c01';
       await self.ctx.authorization.storage.createSubject({ _id: hex, name: 'mongo-save-subject', roles: ['readable'] });
       var docs = await subjectsCollection().find({ name: 'mongo-save-subject' }).toArray();
       docs.length.should.equal(1);
       docs[0]._id.constructor.name.should.equal('ObjectId');
-      docs[0]._id.toString().should.equal(hex);
+      (await subjectsCollection().countDocuments({ _id: hex })).should.equal(0);
     });
 
     it('removeSubject() removes a subject stored with a string _id', async function () {
