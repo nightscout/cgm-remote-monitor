@@ -6,7 +6,11 @@ const request = require('supertest');
 const express = require('express');
 const { Server } = require('socket.io');
 const connect = require('socket.io-client');
-const { compileTrust, getClientIP, createClientIP } = require('../lib/server/client-ip');
+const { trustFor, clientIPFor } = require('../lib/server/client-ip');
+
+// A resolver or policy for one TRUST_PROXY value, as Nightscout builds it from env.
+const resolverFor = trustProxy => clientIPFor({ trustProxy });
+const policyFor = trustProxy => trustFor({ trustProxy });
 
 function raw (peer, headers = {}) { return { socket: { remoteAddress: peer }, headers }; }
 
@@ -23,15 +27,16 @@ function freshProcessOrder () {
 
 function appFor (trustProxy) {
   const app = express();
-  const trust = compileTrust(trustProxy);
-  app.set('trust proxy', trust);
-  app.get('/', (req, res) => res.json({ ip: getClientIP(req, trust), expressIP: req.ip, secure: req.secure, hostname: req.hostname }));
+  const env = { trustProxy };
+  app.set('trust proxy', trustFor(env));
+  const resolve = clientIPFor(env);
+  app.get('/', (req, res) => res.json({ ip: resolve(req), expressIP: req.ip, secure: req.secure, hostname: req.hostname }));
   return app;
 }
 
 describe('explicit trusted proxies', function () {
   it('ignores every forwarding header for direct peers, independently of request history', function () {
-    const resolve = createClientIP('false');
+    const resolve = resolverFor('false');
     for (let cycle = 0; cycle < 2; cycle++) {
       for (const headers of [
         { 'fastly-client-ip': '192.0.2.1', 'x-real-ip': '192.0.2.2' },
@@ -42,7 +47,7 @@ describe('explicit trusted proxies', function () {
   });
 
   it('walks trusted hops from right to left and stops at the first untrusted address', function () {
-    const resolve = createClientIP('10.1.0.0/16,2001:db8:1::/48');
+    const resolve = resolverFor('10.1.0.0/16,2001:db8:1::/48');
     assert.equal(resolve(raw('10.1.0.2', { 'x-forwarded-for': '192.0.2.99, 198.51.100.4, 10.1.0.3' })), '198.51.100.4');
     assert.equal(resolve(raw('10.2.0.2', { 'x-forwarded-for': '198.51.100.4' })), '10.2.0.2');
     assert.equal(resolve(raw('::ffff:10.1.0.2', { 'x-forwarded-for': '2001:db8:2::4, 2001:db8:1::3' })), '2001:db8:2::4');
@@ -50,7 +55,7 @@ describe('explicit trusted proxies', function () {
   });
 
   it('ignores alternate headers even for trusted peers', function () {
-    const resolve = createClientIP('10.1.0.2');
+    const resolve = resolverFor('10.1.0.2');
     for (let cycle = 0; cycle < 2; cycle++) {
       assert.equal(resolve(raw('10.1.0.2', { 'x-real-ip': '192.0.2.1' })), '10.1.0.2');
       assert.equal(resolve(raw('10.1.0.2', { 'x-real-ip': '192.0.2.1', 'fastly-client-ip': '192.0.2.2', 'x-forwarded-for': '198.51.100.4' })), '198.51.100.4');
@@ -65,7 +70,7 @@ describe('explicit trusted proxies', function () {
   // on a valid address is now removed; the other malformed values below still
   // fall back to the peer, as before.
   it('removes a numeric port from a forwarded address', function () {
-    const resolve = createClientIP('10.1.0.2');
+    const resolve = resolverFor('10.1.0.2');
     for (const [value, expected] of [
       ['198.51.100.4:1234', '198.51.100.4'],
       ['[2001:db8::4]:1234', '2001:db8::4'],
@@ -76,13 +81,13 @@ describe('explicit trusted proxies', function () {
   });
 
   it('resolves an Azure-style chain, where the front end adds client:port, with a hop count', function () {
-    const resolve = createClientIP('1');
+    const resolve = resolverFor('1');
     assert.equal(resolve(raw('10.1.0.2', { 'x-forwarded-for': '192.0.2.99, 198.51.100.4:51234' })), '198.51.100.4');
     assert.equal(resolve(raw('10.1.0.2', { 'x-forwarded-for': '198.51.100.4:51234' })), '198.51.100.4');
   });
 
   it('falls back to the peer for malformed addresses', function () {
-    const resolve = createClientIP('10.1.0.2');
+    const resolve = resolverFor('10.1.0.2');
     for (const value of ['unknown', '"198.51.100.4"', '198.51.100.4:abc', '198.51.100.4:1234567', '[not-an-ip]:443']) {
       assert.equal(resolve(raw('10.1.0.2', { 'x-forwarded-for': value })), '10.1.0.2');
     }
@@ -90,13 +95,13 @@ describe('explicit trusted proxies', function () {
 
   it('rejects permissive shortcuts and invalid configuration', function () {
     for (const value of ['loopback', '*', '10.0.0.1,', '10.0.0.0/33', '::1/129']) {
-      assert.throws(() => compileTrust(value));
+      assert.throws(() => policyFor(value));
     }
   });
 
   it('keeps policies isolated between application instances', function () {
-    const trusted = createClientIP('10.1.0.2');
-    const direct = createClientIP('false');
+    const trusted = resolverFor('10.1.0.2');
+    const direct = resolverFor('false');
     const req = raw('10.1.0.2', { 'x-forwarded-for': '198.51.100.4' });
     assert.equal(trusted(req), '198.51.100.4');
     assert.equal(direct(req), '10.1.0.2');
@@ -123,7 +128,7 @@ describe('explicit trusted proxies', function () {
   // (addr = the key keysFor() derives from the resolved address); every
   // expectation is the one 395f3207 asserts.
   it('prevents spoofed IPs from escaping the authentication delay list', function () {
-    const resolve = createClientIP('false');
+    const resolve = resolverFor('false');
     const delay = require('../lib/authorization/delaylist')({settings: {authFailDelay: 10000}});
     const addr = ip => delay.keysFor({ ip });
     delay.addFailedRequest(addr(resolve(raw('203.0.113.10', { 'x-forwarded-for': '192.0.2.1' }))));
@@ -138,7 +143,7 @@ describe('explicit trusted proxies', function () {
       for (const trusted of [false, true]) {
         const server = http.createServer();
         const io = new Server(server);
-        const resolve = createClientIP(trusted ? '127.0.0.1,::1' : 'false');
+        const resolve = resolverFor(trusted ? '127.0.0.1,::1' : 'false');
         io.on('connection', socket => socket.emit('client-address', resolve(socket.request)));
         await new Promise(done => server.listen(0, '127.0.0.1', done));
         try {
@@ -184,9 +189,9 @@ describe('explicit trusted proxies', function () {
     const security = require('../lib/api3/security');
     const keyThrough = async (envTrust, appTrust) => {
       const parent = express();
-      parent.set('trust proxy', compileTrust('true'));
+      parent.set('trust proxy', policyFor('true'));
       const v3 = express();
-      v3.set('trust proxy', compileTrust(appTrust));
+      v3.set('trust proxy', policyFor(appTrust));
       parent.use('/api/v3', v3);
       v3.set('API3_SECURITY_ENABLE', true);
       freshProcessOrder();
@@ -204,16 +209,22 @@ describe('explicit trusted proxies', function () {
     }
   });
 
+  // One way to do it: a second export (a raw compiler, a resolver built from a
+  // bare value) would let new code compile its own policy again.
+  it('exports only trustFor and clientIPFor', function () {
+    assert.deepEqual(Object.keys(require('../lib/server/client-ip')).sort(), ['clientIPFor', 'trustFor']);
+  });
+
   // app.js hands Express the same compiled policy every other consumer reads,
   // so req.ip, req.secure and the failed-login key cannot disagree.
   it('compiles one TRUST_PROXY policy per env and hands that one to Express', function () {
-    const { trustFor } = require('../lib/server/client-ip');
     const createApp = require('../lib/server/app');
     for (const value of [undefined, 'false', 'true', '1', '10.1.0.2']) {
       const env = { name: 'proxy-test', version: '1', trustProxy: value,
         insecureUseHttp: false, secureHstsHeader: false, static_files: '/static', settings: require('../lib/settings')() };
       const trust = trustFor(env);
       assert.equal(trustFor(env), trust, String(value));
+      assert.equal(clientIPFor(env), clientIPFor(env), String(value));
       const app = createApp(env, { bootErrors: [{ desc: 'test', err: 'test' }] });
       assert.equal(app.get('trust proxy fn'), trust, String(value));
       env.trustProxy = '2';
@@ -267,7 +278,7 @@ describe('proxy compatibility default', function () {
   // Every other expectation is 395f3207's, unchanged.
   it('retains validated legacy client headers (dev precedence, from a fresh process)', function () {
     for (const setting of [undefined, null, '', '   ']) {
-      const resolve = createClientIP(setting);
+      const resolve = resolverFor(setting);
       const fresh = req => { freshProcessOrder(); return resolve(req); };
       for (let cycle = 0; cycle < 2; cycle++) {
         assert.equal(fresh(raw('10.1.0.2', {'x-real-ip': '198.51.100.4'})), '198.51.100.4');
@@ -302,7 +313,7 @@ describe('proxy compatibility default', function () {
       assert.equal(metadata.body.ip === '198.51.100.4', enabled);
       assert.equal(metadata.body.hostname === 'edge.example', enabled);
       if (setting === undefined || setting === '') {
-        const resolve = createClientIP(setting);
+        const resolve = resolverFor(setting);
         for (const peer of ['10.1.0.2', '10.1.0.3', '10.1.0.4']) {
           assert.equal(resolve(raw(peer, {'x-forwarded-for': '198.51.100.4, 10.1.0.5'})), '198.51.100.4');
         }
@@ -313,7 +324,7 @@ describe('proxy compatibility default', function () {
   // CHANGED FROM THE CHERRY-PICKED TEST (395f3207): calls adapted to
   // bf/throttle's keysFor() interface, as above; expectations unchanged.
   it('keeps different clients on independent authentication delay keys by default', function () {
-    const resolve = createClientIP();
+    const resolve = resolverFor();
     const delay = require('../lib/authorization/delaylist')({settings: {authFailDelay: 10000}});
     const first = delay.keysFor({ ip: resolve(raw('10.1.0.2', {'x-forwarded-for': '198.51.100.4'})) });
     const second = delay.keysFor({ ip: resolve(raw('10.1.0.2', {'x-forwarded-for': '198.51.100.5'})) });
@@ -327,7 +338,7 @@ describe('proxy compatibility default', function () {
     it('retains the original client on default raw Socket.IO ' + transport + ' connections', async function () {
       const server = http.createServer();
       const io = new Server(server);
-      const resolve = createClientIP();
+      const resolve = resolverFor();
       io.on('connection', socket => socket.emit('client-address', resolve(socket.request)));
       await new Promise(done => server.listen(0, '127.0.0.1', done));
       try {
@@ -383,7 +394,7 @@ describe('dev behaviour with TRUST_PROXY unset', function () {
     try {
       delete process.env.TRUST_PROXY;
       delete process.env.CUSTOMCONNSTR_TRUST_PROXY;
-      return createClientIP(require('../lib/server/env')().trustProxy);
+      return clientIPFor(require('../lib/server/env')());
     } finally {
       for (const [name, value] of Object.entries(saved)) {
         if (value === undefined) delete process.env[name]; else process.env[name] = value;
@@ -484,42 +495,42 @@ describe('TRUST_PROXY hop counts and true', function () {
 
   it('accepts whole numbers and true, and neither takes the legacy path', function () {
     for (const [value, hops] of [['1', 1], ['2', 2], [' 3 ', 3], ['10', 10], [2, 2]]) {
-      const trust = compileTrust(value);
+      const trust = policyFor(value);
       assert.equal(trust.trustedHops, hops, JSON.stringify(value));
       assert.equal(trust.legacyForwardedHeaders, undefined);
       assert.equal(trust.trustsEveryHop, undefined);
     }
     for (const value of ['true', 'TRUE', ' True ', true]) {
-      const trust = compileTrust(value);
+      const trust = policyFor(value);
       assert.equal(trust.trustsEveryHop, true, JSON.stringify(value));
       assert.equal(trust.legacyForwardedHeaders, undefined);
-      assert.notEqual(trust, compileTrust(undefined));
+      assert.notEqual(trust, policyFor());
     }
   });
 
   it('rejects zero, negative, fractional and non-decimal numbers, and numbers mixed with addresses', function () {
     for (const value of ['0', '-1', '1.5', '0x2', '1e1', '01', '+1', '1 2', '2,10.0.0.1', '10.0.0.1,2', '1,', 0, -1, 1.5]) {
-      assert.throws(() => compileTrust(value), INVALID, JSON.stringify(value));
+      assert.throws(() => policyFor(value), INVALID, JSON.stringify(value));
     }
   });
 
   it('refuses subnet aliases on their own path', function () {
     for (const value of ['loopback', 'linklocal', 'uniquelocal', '10.0.0.1,loopback']) {
-      assert.throws(() => compileTrust(value), /subnet aliases loopback, linklocal, uniquelocal are not accepted/, value);
+      assert.throws(() => policyFor(value), /subnet aliases loopback, linklocal, uniquelocal are not accepted/, value);
     }
   });
 
   it('with a hop count, the client is the entry the n-th closest proxy added', function () {
-    assert.equal(createClientIP('1')(CHAIN), '10.0.0.2');
-    assert.equal(createClientIP('2')(CHAIN), '203.0.113.50');
-    assert.equal(createClientIP('3')(CHAIN), '198.51.100.4');
-    assert.equal(createClientIP('5')(CHAIN), '198.51.100.4');
-    assert.equal(createClientIP('1')(raw('10.0.0.1')), '10.0.0.1');
-    assert.equal(createClientIP('1')(raw('10.0.0.1', { 'x-real-ip': '198.51.100.9' })), '10.0.0.1');
+    assert.equal(resolverFor('1')(CHAIN), '10.0.0.2');
+    assert.equal(resolverFor('2')(CHAIN), '203.0.113.50');
+    assert.equal(resolverFor('3')(CHAIN), '198.51.100.4');
+    assert.equal(resolverFor('5')(CHAIN), '198.51.100.4');
+    assert.equal(resolverFor('1')(raw('10.0.0.1')), '10.0.0.1');
+    assert.equal(resolverFor('1')(raw('10.0.0.1', { 'x-real-ip': '198.51.100.9' })), '10.0.0.1');
   });
 
   it('with true, the client is the left-most entry', function () {
-    assert.equal(createClientIP('true')(CHAIN), '198.51.100.4');
+    assert.equal(resolverFor('true')(CHAIN), '198.51.100.4');
   });
 
   it('req.ip, req.secure and the throttle address agree through Express', async function () {
@@ -572,8 +583,8 @@ describe('TRUST_PROXY hop counts and true', function () {
   // These are some of them. The chain cases differ because forwarded-for
   // rejects an IPv6 entry after a comma and a space, and proxy-addr does not.
   it('true is not the compatibility default', function () {
-    const truly = createClientIP('true');
-    const unset = createClientIP();
+    const truly = resolverFor('true');
+    const unset = resolverFor();
     // [socket peer, headers, true, unset]
     for (const [peer, headers, whenTrue, whenUnset] of [
       ['10.0.0.1', { 'x-forwarded-for': '198.51.100.4, 2001:db8::2' }, '198.51.100.4', '10.0.0.1'],
