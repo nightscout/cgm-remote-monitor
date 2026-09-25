@@ -29,6 +29,8 @@ describe('API3: records stored with a string _id', function () {
     , profileCreate: '5f2300000000000000000b04'
     , profileUpper: '5F2300000000000000000B05'
     , profileObjectId: '5f2300000000000000000a01'
+    , pairDelete: '5f2300000000000000000c01'
+    , pairPut: '5f2300000000000000000c02'
     , foodGet: '5f2400000000000000000b01'
     , foodPut: '5f2400000000000000000b02'
     , foodDelete: '5f2400000000000000000b03'
@@ -121,6 +123,43 @@ describe('API3: records stored with a string _id', function () {
         all.length.should.equal(1, 'records for this id after the POST');
         all[0].some_property.should.equal('resent');
       });
+    });
+  });
+
+  // A v3 PUT on a string-_id record before either form was matched left a
+  // pair: the v1 record, and a v3 copy carrying its id as `identifier`. GET
+  // returns the v3 copy, so DELETE and PUT must write that one too.
+  describe('a v1 record and the v3 copy of it', function () {
+    async function seedPair (hex, n) {
+      await col('profile').insertOne(sample('profiles.test', n, { _id: hex, some_property: 'v1-original' }));
+      await col('profile').insertOne(sample('profiles.test', n, { _id: new ObjectID(), identifier: hex, some_property: 'v3-copy' }));
+    }
+
+    it('DELETE marks the copy GET returns as deleted', async () => {
+      const hex = HEX.pairDelete;
+      await seedPair(hex, 7);
+
+      await self.instance.delete('/api/v3/profile/' + hex, self.jwt.all).expect(200);
+
+      const copy = (await byIdentifier('profile', hex))[0];
+      copy.isValid.should.equal(false);
+      const original = await col('profile').findOne({ _id: hex });
+      (original.isValid === undefined).should.equal(true, 'the v1 record was written');
+      await self.instance.get('/api/v3/profile/' + hex, self.jwt.all).expect(410);
+    });
+
+    it('PUT replaces the copy GET returns, leaving one document with that identifier', async () => {
+      const hex = HEX.pairPut;
+      await seedPair(hex, 8);
+
+      await self.instance.put('/api/v3/profile/' + hex, self.jwt.all)
+        .send(sample('profiles.test', 8, { some_property: 'v3-put' }))
+        .expect(200);
+
+      const copies = await byIdentifier('profile', hex);
+      copies.length.should.equal(1, 'documents with this identifier');
+      copies[0].some_property.should.equal('v3-put');
+      (await col('profile').findOne({ _id: hex })).some_property.should.equal('v1-original');
     });
   });
 
