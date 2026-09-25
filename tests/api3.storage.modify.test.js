@@ -29,7 +29,9 @@ describe('API3 mongoCollection promise-based helpers', function () {
       const doc = { value: 42 };
       const col = {
         findOne: function (filter, options) {
-          options.should.eql({ sort: { identifier: -1 }, projection: { _id: 1 } });
+          // CHANGED EXPECTATION (BF-117): the sort adds _id: -1, so of two copies
+          // stored by _id the ObjectId one is read and written.
+          options.should.eql({ sort: { identifier: -1, _id: -1 }, projection: { _id: 1 } });
           return Promise.resolve(null);
         },
         replaceOne: function (filter, receivedDoc, options) {
@@ -51,7 +53,9 @@ describe('API3 mongoCollection promise-based helpers', function () {
       const col = {
         findOne: function (filter, options) {
           filter.should.eql({ $or: [{ identifier: { $eq: 'record-2' } }, { _id: { $eq: 'record-2' } }] });
-          options.should.eql({ sort: { identifier: -1 }, projection: { _id: 1 } });
+          // CHANGED EXPECTATION (BF-117): the sort adds _id: -1, so of two copies
+          // stored by _id the ObjectId one is read and written.
+          options.should.eql({ sort: { identifier: -1, _id: -1 }, projection: { _id: 1 } });
           return Promise.resolve({ _id: target });
         },
         updateOne: function (filter, update) {

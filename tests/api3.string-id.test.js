@@ -135,7 +135,11 @@ describe('API3: records stored with a string _id', function () {
       await col('profile').insertOne(sample('profiles.test', n, { _id: new ObjectID(), identifier: hex, some_property: 'v3-copy' }));
     }
 
-    it('DELETE marks the copy GET returns as deleted', async () => {
+    // CHANGED EXPECTATION (BF-117): this test asserted that DELETE left the
+    // v1 record untouched. A delete by identifier now marks every stored form
+    // of the record, as v1 DELETE and the websocket dbRemove remove every form
+    // (BF-110), so neither half stays readable as a valid record.
+    it('DELETE marks the copy GET returns, and the v1 record, as deleted', async () => {
       const hex = HEX.pairDelete;
       await seedPair(hex, 7);
 
@@ -144,7 +148,7 @@ describe('API3: records stored with a string _id', function () {
       const copy = (await byIdentifier('profile', hex))[0];
       copy.isValid.should.equal(false);
       const original = await col('profile').findOne({ _id: hex });
-      (original.isValid === undefined).should.equal(true, 'the v1 record was written');
+      original.isValid.should.equal(false, 'the v1 record is marked deleted too');
       await self.instance.get('/api/v3/profile/' + hex, self.jwt.all).expect(410);
     });
 
