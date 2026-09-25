@@ -136,6 +136,134 @@ describe('clock client', function() {
     });
   });
 
+  describe('when the data fetch fails', function() {
+    var T0 = Date.parse('2026-09-24T12:00:00Z');
+    var RealDate = Date;
+    var realSetInterval = global.setInterval;
+    var now, timers, failing, calls;
+
+    // Drive the page's own setInterval timers and Date from a manual clock.
+    function startClock(face, showClockLastTime) {
+      now = T0;
+      timers = [];
+      failing = false;
+      calls = 0;
+      global.Date = class FakeDate extends RealDate {
+        constructor(...args) {
+          if (args.length) { super(...args); } else { super(now); }
+        }
+        static now() { return now; }
+      };
+      global.setInterval = function(fn, ms) {
+        timers.push({ fn: fn, ms: ms, next: now + ms });
+        return timers.length;
+      };
+
+      $('#inner').attr('data-face', face);
+      window.serverSettings = {
+        settings: {
+          units: 'mg/dl'
+          , showClockDelta: true
+          , showClockLastTime: showClockLastTime
+          , timeFormat: 24
+          , thresholds: { bgHigh: 260, bgLow: 55, bgTargetBottom: 80, bgTargetTop: 180 }
+        }
+      };
+
+      var reading = {
+        bgnow: { sgvs: [{ mgdl: 120, scaled: 120, mills: T0, direction: 'Flat' }] }
+        , delta: { mgdl: 0, display: '+0' }
+      };
+      $.ajax = function(url, opts) {
+        calls++;
+        if (failing) {
+          opts.error({ status: 0, statusText: 'error' });
+        } else {
+          opts.success(reading);
+        }
+      };
+    }
+
+    function advance(minutes) {
+      var end = now + minutes * 60 * 1000;
+      for (;;) {
+        timers.sort(function(a, b) { return a.next - b.next; });
+        var t = timers[0];
+        if (!t || t.next > end) break;
+        now = t.next;
+        t.next += t.ms;
+        t.fn();
+      }
+      now = end;
+    }
+
+    var realConsoleError;
+    beforeEach(function() {
+      realConsoleError = console.error;
+      console.error = function() {};
+    });
+
+    afterEach(function() {
+      console.error = realConsoleError;
+      global.Date = RealDate;
+      global.setInterval = realSetInterval;
+    });
+
+    ['bgclock', 'clock-color'].forEach(function(face) {
+      it('turns the ' + face + ' face stale when fetches fail after the last reading', function() {
+        startClock(face, false);
+        clockClient.init();
+        $('.sg').hasClass('stale').should.be.false();
+        $('.ag').text().should.equal('');
+
+        failing = true;
+        advance(30);
+
+        calls.should.be.above(80);
+        $('.sg').hasClass('stale').should.be.true();
+        $('.ag').text().should.equal('30 minutes ago');
+        $('body').css('background-color').should.equal('rgb(128, 128, 128)');
+      });
+    });
+
+    it('keeps the age text moving on a face that always shows it', function() {
+      startClock('cy13-sg40-ag6-tm10', true);
+      clockClient.init();
+      $('.ag').text().should.equal('Just now');
+
+      failing = true;
+      advance(5);
+
+      $('.ag').text().should.equal('5 minutes ago');
+      $('.sg').hasClass('stale').should.be.false();
+
+      advance(10);
+
+      $('.ag').text().should.equal('15 minutes ago');
+      $('.sg').hasClass('stale').should.be.true();
+    });
+
+    it('draws nothing and does not throw when no fetch has succeeded yet', function() {
+      startClock('clock-color', false);
+      failing = true;
+      clockClient.init();
+      advance(5);
+
+      calls.should.be.above(10);
+      $('.sg').text().should.equal('');
+    });
+
+    it('control: fetches that succeed with the same reading turn it stale', function() {
+      startClock('clock-color', false);
+      clockClient.init();
+      advance(30);
+
+      $('.sg').hasClass('stale').should.be.true();
+      $('.ag').text().should.equal('30 minutes ago');
+      $('body').css('background-color').should.equal('rgb(128, 128, 128)');
+    });
+  });
+
   it('constructs every supported face component with bounded numeric sizing', function() {
     $('#inner').attr('data-face', 'bn0-sg40-dt14-nl-ar25-ag6-tm10-em40');
 
