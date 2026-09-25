@@ -163,29 +163,30 @@ describe('explicit trusted proxies', function () {
   it('passes the configured client IP to API v3 authentication', async function () {
     const security = require('../lib/api3/security');
     for (const trusted of [false, true]) {
-      const app = appFor(trusted ? '10.1.0.2' : 'false');
+      const env = { trustProxy: trusted ? '10.1.0.2' : 'false' };
+      const app = express();
       app.set('API3_SECURITY_ENABLE', true);
       const req = raw('10.1.0.2', { 'x-forwarded-for': '198.51.100.4' });
       req.header = name => name === 'Authorization' ? 'Bearer owned-test-token' : undefined;
       let observed;
       const ctx = { authorization: { resolve(data, callback) { observed = data; callback(null, {shiros: []}); } } };
-      await security.authenticate({app, ctx, req, res: {}});
+      await security.authenticate({app, ctx, env, req, res: {}});
       assert.equal(observed.ip, trusted ? '198.51.100.4' : '10.1.0.2');
       assert.equal(observed.token, 'owned-test-token');
     }
   });
 
-  // lib/api3/security.js keys the failed-login delay with the v3 app's
-  // 'trust proxy fn'. The v3 app does not set it; it inherits it when
-  // lib/server/app.js mounts it under a parent that does. This goes through
-  // that mount, for the default and for explicit values. Mounted under a
-  // parent that sets nothing, the key is the socket peer instead.
-  it('keys API v3 authentication on the trust a mounted v3 app inherits from its parent', async function () {
+  // lib/api3/security.js keys the failed-login delay with the policy compiled
+  // from opCtx.env, the one every other consumer reads. A 'trust proxy' the v3
+  // app sets itself, or inherits from the app it is mounted under, is Express's
+  // (req.ip, req.secure) and does not move the key.
+  it('keys API v3 authentication on env, not on the v3 app\'s own trust proxy', async function () {
     const security = require('../lib/api3/security');
-    const keyThrough = async (parentTrust) => {
+    const keyThrough = async (envTrust, appTrust) => {
       const parent = express();
-      if (parentTrust !== null) parent.set('trust proxy', compileTrust(parentTrust));
+      parent.set('trust proxy', compileTrust('true'));
       const v3 = express();
+      v3.set('trust proxy', compileTrust(appTrust));
       parent.use('/api/v3', v3);
       v3.set('API3_SECURITY_ENABLE', true);
       freshProcessOrder();
@@ -193,13 +194,31 @@ describe('explicit trusted proxies', function () {
       req.header = name => name === 'Authorization' ? 'Bearer owned-test-token' : undefined;
       let observed;
       const ctx = { authorization: { resolve (data, callback) { observed = data; callback(null, { shiros: [] }); } } };
-      await security.authenticate({ app: v3, ctx, req, res: {} });
+      await security.authenticate({ app: v3, ctx, env: { trustProxy: envTrust }, req, res: {} });
       return observed.ip;
     };
-    assert.equal(await keyThrough(undefined), '198.51.100.4');
-    assert.equal(await keyThrough('1'), '203.0.113.50');
-    assert.equal(await keyThrough('false'), '10.1.0.2');
-    assert.equal(await keyThrough(null), '10.1.0.2');
+    for (const appTrust of [undefined, 'false', '2', 'true']) {
+      assert.equal(await keyThrough(undefined, appTrust), '198.51.100.4', String(appTrust));
+      assert.equal(await keyThrough('1', appTrust), '203.0.113.50', String(appTrust));
+      assert.equal(await keyThrough('false', appTrust), '10.1.0.2', String(appTrust));
+    }
+  });
+
+  // app.js hands Express the same compiled policy every other consumer reads,
+  // so req.ip, req.secure and the failed-login key cannot disagree.
+  it('compiles one TRUST_PROXY policy per env and hands that one to Express', function () {
+    const { trustFor } = require('../lib/server/client-ip');
+    const createApp = require('../lib/server/app');
+    for (const value of [undefined, 'false', 'true', '1', '10.1.0.2']) {
+      const env = { name: 'proxy-test', version: '1', trustProxy: value,
+        insecureUseHttp: false, secureHstsHeader: false, static_files: '/static', settings: require('../lib/settings')() };
+      const trust = trustFor(env);
+      assert.equal(trustFor(env), trust, String(value));
+      const app = createApp(env, { bootErrors: [{ desc: 'test', err: 'test' }] });
+      assert.equal(app.get('trust proxy fn'), trust, String(value));
+      env.trustProxy = '2';
+      assert.equal(trustFor(env).trustedHops, 2, String(value));
+    }
   });
 
   it('passes the configured client IP to HTTP authorization', function () {
@@ -539,11 +558,11 @@ describe('TRUST_PROXY hop counts and true', function () {
       authorization.resolve = data => { observed = data; };
       authorization.resolveWithRequest(req, () => {});
       assert.equal(observed.ip, expected, setting);
-      const app = appFor(setting);
+      const app = express();
       app.set('API3_SECURITY_ENABLE', true);
       req.header = name => name === 'Authorization' ? 'Bearer owned-test-token' : undefined;
       const ctx = { authorization: { resolve (data, callback) { observed = data; callback(null, { shiros: [] }); } } };
-      await require('../lib/api3/security').authenticate({ app, ctx, req, res: {} });
+      await require('../lib/api3/security').authenticate({ app, ctx, env: { trustProxy: setting }, req, res: {} });
       assert.equal(observed.ip, expected, setting);
     }
   });
