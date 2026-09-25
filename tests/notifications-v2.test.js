@@ -73,7 +73,8 @@ describe('Loop notifications API v2', function () {
 
     var app = express();
     app.use(ctx.wares.sendJSONStatus);
-    app.use('/api/v2/notifications', notificationsV2(app, ctx));
+    if (Object.prototype.hasOwnProperty.call(options, 'trustProxy')) { env.trustProxy = options.trustProxy; }
+    app.use('/api/v2/notifications', notificationsV2(app, ctx, env));
     return { app: app, calls: calls, ctx: ctx, env: env };
   }
 
@@ -300,6 +301,44 @@ describe('Loop notifications API v2', function () {
     assert.deepEqual(fixture.calls[0].tokens, ['private-test-device-token']);
     assert.equal(fixture.calls[0].notification.payload.notes, 'test note');
     assert.equal(fixture.calls[0].notification.payload['entered-by'], 'test user');
+  });
+
+  // The 'remote-address' Loop receives, and records on remote overrides, is the
+  // client address as TRUST_PROXY resolves it, not the connection's peer, which
+  // behind a hosting proxy is the proxy.
+  [
+    ['', '198.51.100.4'],
+    ['1', '198.51.100.4'],
+    ['127.0.0.1,::1', '198.51.100.4'],
+    ['false', null]
+  ].forEach(function (testCase) {
+    it('sends Loop the client address TRUST_PROXY=' + (testCase[0] || '(unset)') + ' resolves', async function () {
+      var fixture = makeApp({ trustProxy: testCase[0] });
+      var response = await post(fixture).set('X-Forwarded-For', '198.51.100.4');
+      assert.equal(response.status, 200);
+      var address = fixture.calls[0].notification.payload['remote-address'];
+      if (testCase[1]) {
+        assert.equal(address, testCase[1]);
+      } else {
+        assert.match(address, /^(::ffff:)?127\.0\.0\.1$|^::1$/);
+      }
+    });
+  });
+
+  // lib/api2/index.js must hand the route the server's env; without it the
+  // address falls back to the unset default and ignores TRUST_PROXY=false.
+  it('reads TRUST_PROXY from the env lib/api2 is created with', async function () {
+    var fixture = makeApp({ trustProxy: 'false' });
+    fixture.ctx.properties = express.Router();
+    fixture.ctx.authorization.endpoints = express.Router();
+    var app = express();
+    app.use(fixture.ctx.wares.sendJSONStatus);
+    app.use('/api/v2', require('../lib/api2')(fixture.env, fixture.ctx, express.Router()));
+    var response = await request(app).post('/api/v2/notifications/loop')
+      .set('X-Forwarded-For', '198.51.100.4')
+      .send({ eventType: 'Temporary Override Cancel' });
+    assert.equal(response.status, 200);
+    assert.match(fixture.calls[0].notification.payload['remote-address'], /^(::ffff:)?127\.0\.0\.1$|^::1$/);
   });
 
   it('rejects callers without permission before attempting APNs delivery', async function () {

@@ -119,6 +119,9 @@ function configure () {
         self.wares = require('../../../lib/middleware/')(instance.env);
         instance.app = require('express')();
         instance.app.enable('api');
+        // As lib/server/app.js does, so the mounted v3 app's req.ip and
+        // req.secure see the same proxy trust as in production.
+        instance.app.set('trust proxy', require('../../../lib/server/client-ip').trustFor(instance.env));
 
         require('../../../lib/server/bootevent')(instance.env, language).boot(function booted (ctx) {
           instance.ctx = ctx;

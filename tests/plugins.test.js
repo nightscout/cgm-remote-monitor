@@ -155,4 +155,20 @@ describe('Plugins', function ( ) {
 
   });
 
+  // isPluginEnabled compared find()'s result with null, but find() returns
+  // undefined when nothing matches, so every name - enabled, disabled or made
+  // up - came back as enabled.
+  it('isPluginEnabled answers false for a plugin that is not enabled', function ( ) {
+    var registered = registerWith(['careportal'], 'client');
+
+    // Non-vacuity: careportal really is armed and cage really is not, so the
+    // two answers below are about enablement and not about registration.
+    registered.armed.should.containEql('careportal');
+    registered.armed.should.not.containEql('cage');
+
+    registered.plugins.isPluginEnabled('careportal').should.equal(true);
+    registered.plugins.isPluginEnabled('cage').should.equal(false);
+    registered.plugins.isPluginEnabled('no-such-plugin').should.equal(false);
+  });
+
 });

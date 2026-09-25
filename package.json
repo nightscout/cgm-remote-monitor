@@ -137,9 +137,10 @@
     "mongo-url-parser": "^1.0.2",
     "mongodb": "^5.9.2",
     "mongomock": "^0.1.2",
-    "nightscout-connect": "0.1.0-dev.2",
+    "nightscout-connect": "0.1.0",
     "node-cache": "^4.2.1",
     "process": "^0.11.10",
+    "proxy-addr": "^2.0.7",
     "pushover-notifications": "^1.2.2",
     "random-token": "0.0.8",
     "sanitize-html": "2.17.5",
@@ -186,7 +187,7 @@
     "lodash": "4.18.1",
     "ip-address": "10.7.0",
     "postcss": "8.5.28",
-    "qs": "6.15.1",
+    "qs": "6.16.0",
     "flatted": "3.4.2",
     "picomatch": "2.3.2",
     "ajv@^6.0.0": "6.12.6",
@@ -218,7 +219,7 @@
     },
     "request": {
       "form-data": "2.5.5",
-      "qs": "6.15.1",
+      "qs": "6.16.0",
       "tough-cookie": "4.1.4"
     },
     "mongodb": {

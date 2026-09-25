@@ -25,6 +25,27 @@ describe('env', function () {
     }
   });
 
+  it('preserves unset, direct and explicit proxy configuration modes', function () {
+    const original = process.env.TRUST_PROXY;
+    const azure = process.env.CUSTOMCONNSTR_TRUST_PROXY;
+    try {
+      delete process.env.CUSTOMCONNSTR_TRUST_PROXY;
+      for (const value of [undefined, '', 'false', '127.0.0.1,::1']) {
+        if (value === undefined) delete process.env.TRUST_PROXY;
+        else process.env.TRUST_PROXY = value;
+        require('../lib/server/env')().trustProxy.should.equal(value || '');
+      }
+      delete process.env.TRUST_PROXY;
+      process.env.CUSTOMCONNSTR_TRUST_PROXY = 'false';
+      require('../lib/server/env')().trustProxy.should.equal('false');
+    } finally {
+      if (original === undefined) delete process.env.TRUST_PROXY;
+      else process.env.TRUST_PROXY = original;
+      if (azure === undefined) delete process.env.CUSTOMCONNSTR_TRUST_PROXY;
+      else process.env.CUSTOMCONNSTR_TRUST_PROXY = azure;
+    }
+  });
+
   it('should not set the API key without API_SECRET or API_SECRET_FILE', function () {
     delete process.env.API_SECRET;
     delete process.env.API_SECRET_FILE;
@@ -191,6 +212,32 @@ describe('env', function () {
     env = require( '../lib/server/env' )();
     env.insecureUseHttp.should.be.false(); // not defined should be false
     env.secureHstsHeader.should.be.true();
+  });
+
+  it( 'tolerates the two real-client count shapes by default and supports opting out', function () {
+    var names = ['API_V1_COUNT_LEADING_NUMBER', 'API_V1_COUNT_ZERO_WINDOW'];
+    var original = names.map(function (name) { return process.env[name]; });
+
+    try {
+      names.forEach(function (name) { delete process.env[name]; });
+      var env = require( '../lib/server/env' )();
+      env.apiV1CountLeadingNumber.should.be.true();
+      env.apiV1CountZeroWindow.should.be.true();
+
+      process.env.API_V1_COUNT_LEADING_NUMBER = 'false';
+      process.env.API_V1_COUNT_ZERO_WINDOW = 'false';
+      env = require( '../lib/server/env' )();
+      env.apiV1CountLeadingNumber.should.be.false();
+      env.apiV1CountZeroWindow.should.be.false();
+    } finally {
+      names.forEach(function (name, i) {
+        if (original[i] === undefined) {
+          delete process.env[name];
+        } else {
+          process.env[name] = original[i];
+        }
+      });
+    }
   });
 
   it( 'allows unrestricted frame embedding by default and supports opting out', function () {
