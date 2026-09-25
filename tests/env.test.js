@@ -25,6 +25,27 @@ describe('env', function () {
     }
   });
 
+  it('preserves unset, direct and explicit proxy configuration modes', function () {
+    const original = process.env.TRUST_PROXY;
+    const azure = process.env.CUSTOMCONNSTR_TRUST_PROXY;
+    try {
+      delete process.env.CUSTOMCONNSTR_TRUST_PROXY;
+      for (const value of [undefined, '', 'false', '127.0.0.1,::1']) {
+        if (value === undefined) delete process.env.TRUST_PROXY;
+        else process.env.TRUST_PROXY = value;
+        require('../lib/server/env')().trustProxy.should.equal(value || '');
+      }
+      delete process.env.TRUST_PROXY;
+      process.env.CUSTOMCONNSTR_TRUST_PROXY = 'false';
+      require('../lib/server/env')().trustProxy.should.equal('false');
+    } finally {
+      if (original === undefined) delete process.env.TRUST_PROXY;
+      else process.env.TRUST_PROXY = original;
+      if (azure === undefined) delete process.env.CUSTOMCONNSTR_TRUST_PROXY;
+      else process.env.CUSTOMCONNSTR_TRUST_PROXY = azure;
+    }
+  });
+
   it('should not set the API key without API_SECRET or API_SECRET_FILE', function () {
     delete process.env.API_SECRET;
     delete process.env.API_SECRET_FILE;
@@ -107,6 +128,55 @@ describe('env', function () {
     delete process.env.SCARYPLUGIN_DO_THING;
   } );
 
+  describe( 'extended settings type conversion', function () {
+    var VARS = [ 'ENABLE', 'CONNECT_SOURCE', 'CONNECT_SHARE_ACCOUNT_NAME', 'CONNECT_SHARE_PASSWORD'
+               , 'BRIDGE_INTERVAL', 'PROFILE_HISTORY', 'PUSHOVER_API_TOKEN', 'PUSHOVER_ALARM_KEY' ];
+
+    function clear () {
+      VARS.forEach( function eachVar ( name ) { delete process.env[name]; } );
+    }
+
+    beforeEach( function () {
+      clear();
+      process.env.ENABLE = 'bridge connect profile pushover';
+    } );
+
+    afterEach( clear );
+
+    // Dexcom issues phone numbers as account names, and Number('+15551234567')
+    // drops the plus. A password keeps its leading zeros for the same reason.
+    it( 'keeps a phone-number Dexcom account name and a leading-zero password as typed', function () {
+      process.env.CONNECT_SOURCE = 'dexcomshare';
+      process.env.CONNECT_SHARE_ACCOUNT_NAME = '+15551234567';
+      process.env.CONNECT_SHARE_PASSWORD = '007700';
+
+      var env = require( '../lib/server/env' )();
+
+      env.extendedSettings.connect.shareAccountName.should.equal( '+15551234567' );
+      env.extendedSettings.connect.sharePassword.should.equal( '007700' );
+    } );
+
+    it( 'still converts a numeric setting on a plugin that has credentials', function () {
+      process.env.BRIDGE_INTERVAL = '150000';
+
+      var env = require( '../lib/server/env' )();
+
+      env.extendedSettings.bridge.interval.should.equal( 150000 );
+    } );
+
+    // pushover.js disables a push category with `key === false`
+    it( 'still converts on and off to booleans', function () {
+      process.env.PROFILE_HISTORY = 'on';
+      process.env.PUSHOVER_API_TOKEN = 'dummy_token_abc';
+      process.env.PUSHOVER_ALARM_KEY = 'off';
+
+      var env = require( '../lib/server/env' )();
+
+      env.extendedSettings.profile.history.should.equal( true );
+      env.extendedSettings.pushover.alarmKey.should.equal( false );
+    } );
+  } );
+
   it( 'add pushover to enable if one of the env vars is set', function () {
     process.env.PUSHOVER_API_TOKEN = 'abc12345';
 
@@ -142,6 +212,60 @@ describe('env', function () {
     env = require( '../lib/server/env' )();
     env.insecureUseHttp.should.be.false(); // not defined should be false
     env.secureHstsHeader.should.be.true();
+  });
+
+  it( 'tolerates the two real-client count shapes by default and supports opting out', function () {
+    var names = ['API_V1_COUNT_LEADING_NUMBER', 'API_V1_COUNT_ZERO_WINDOW'];
+    var original = names.map(function (name) { return process.env[name]; });
+
+    try {
+      names.forEach(function (name) { delete process.env[name]; });
+      var env = require( '../lib/server/env' )();
+      env.apiV1CountLeadingNumber.should.be.true();
+      env.apiV1CountZeroWindow.should.be.true();
+
+      process.env.API_V1_COUNT_LEADING_NUMBER = 'false';
+      process.env.API_V1_COUNT_ZERO_WINDOW = 'false';
+      env = require( '../lib/server/env' )();
+      env.apiV1CountLeadingNumber.should.be.false();
+      env.apiV1CountZeroWindow.should.be.false();
+    } finally {
+      names.forEach(function (name, i) {
+        if (original[i] === undefined) {
+          delete process.env[name];
+        } else {
+          process.env[name] = original[i];
+        }
+      });
+    }
+  });
+
+  it( 'allows unrestricted frame embedding by default and supports opting out', function () {
+    var originalValue = process.env.ALLOW_UNRESTRICTED_FRAME_EMBEDDING;
+
+    try {
+      delete process.env.ALLOW_UNRESTRICTED_FRAME_EMBEDDING;
+      var env = require( '../lib/server/env' )();
+      env.allowUnrestrictedFrameEmbedding.should.be.true();
+
+      process.env.ALLOW_UNRESTRICTED_FRAME_EMBEDDING = 'false';
+      env = require( '../lib/server/env' )();
+      env.allowUnrestrictedFrameEmbedding.should.be.false();
+
+      process.env.ALLOW_UNRESTRICTED_FRAME_EMBEDDING = 'true';
+      env = require( '../lib/server/env' )();
+      env.allowUnrestrictedFrameEmbedding.should.be.true();
+
+      process.env.ALLOW_UNRESTRICTED_FRAME_EMBEDDING = 'invalid';
+      env = require( '../lib/server/env' )();
+      env.allowUnrestrictedFrameEmbedding.should.be.true();
+    } finally {
+      if (originalValue === undefined) {
+        delete process.env.ALLOW_UNRESTRICTED_FRAME_EMBEDDING;
+      } else {
+        process.env.ALLOW_UNRESTRICTED_FRAME_EMBEDDING = originalValue;
+      }
+    }
   });
 
   describe('HOSTNAME', function () {

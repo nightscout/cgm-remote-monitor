@@ -154,7 +154,8 @@ Older versions or other browsers might work, but are untested and unsupported. W
 ## Installation software requirements:
 
 - [Node.js](http://nodejs.org/) Node v20 LTS or later (v22, v24 also supported). Node versions that do not have the latest security patches will not be supported. Use [Install instructions for Node](https://nodejs.org/en/download/package-manager/) or use `bin/setup.sh`)
-- [MongoDB](https://www.mongodb.com/download-center?jmp=nav#community) 4.4 or later (5.0, 6.0 also supported).
+- [MongoDB](https://www.mongodb.com/download-center?jmp=nav#community) 5.0.32 or later, 6.0.27 or later 
+  NOTE: MongoDB 4.4 is *deprecated* and support for it will be removed in a future release. It still passes the automated tests, but MongoDB itself stopped supporting 4.4 in February 2024. Plan to upgrade, one major version at a time (4.4 to 5.0, then 6.0, and so on).
 
 As a non-root user clone this repo then install dependencies into the root of the project:
 
@@ -164,7 +165,7 @@ $ npm install
 
 ## Installation notes for users with nginx or Apache reverse proxy for SSL/TLS offloading:
 
-- Your site redirects insecure connections to `https` by default. If you use a reverse proxy like nginx or Apache to handle the connection security for you, make sure it sets the `X-Forwarded-Proto` header. Otherwise nightscout will be unable to know if it was called through a secure connection and will try to redirect you to the https version. If you're unable to set this Header, you can change the `INSECURE_USE_HTTP` setting in nightscout to true in order to allow insecure connections without being redirected.
+- Your site redirects insecure connections to `https` by default. Reverse-proxy compatibility remains enabled by default. The proxy must sanitize forwarded headers and control access to the backend. Optional `TRUST_PROXY` settings provide direct-only, hop-count, trust-every-hop or explicit IP/CIDR trust; see the [proxy configuration guide](docs/proposals/trusted-proxy-migration.md).
 - In case you use a proxy. Do not use an external network interfaces for hosting Nightscout. Make sure the unsecure port is not available from a remote network connection
 - HTTP Strict Transport Security (HSTS) headers are enabled by default, use settings `SECURE_HSTS_HEADER` and `SECURE_HSTS_HEADER_*`
 - See [Predefined values for your server settings](#predefined-values-for-your-server-settings-optional) for more details
@@ -185,15 +186,15 @@ Want to help with development, or just see how Nightscout works? Great! See [CON
 
 # Usage
 
-The data being uploaded from the server to the client is from a MongoDB server such as [MongoDB Atlas][https://www.mongodb.com].
+The data being uploaded from the server to the client is from a MongoDB server such as [MongoDB Atlas](https://www.mongodb.com).
 
 [autoconfigure]: https://nightscout.github.io/pages/configure/
 [mongostring]: https://nightscout.github.io/pages/mongostring/
 
-## Updating my version?
+## Updating my version
 
-The easiest way to update your version of cgm-remote-monitor to the latest version is to use the [update tool][update-fork]. A step-by-step guide is available [here][http://www.nightscout.info/wiki/welcome/how-to-update-to-latest-cgm-remote-monitor-aka-cookie].
-To downgrade to an older version, follow [this guide][http://www.nightscout.info/wiki/welcome/how-to-deploy-an-older-version-of-nightscout].
+The easiest way to update your version of cgm-remote-monitor to the latest version is to use the [update tool][update-fork]. A step-by-step update guide is available [here](https://nightscout.github.io/update/update/).
+To downgrade to an older version, follow [this guide](https://nightscout.github.io/update/downgrade/).
 
 ## Configure my uploader to match
 
@@ -245,6 +246,8 @@ To learn more about the Nightscout API, visit https://YOUR-SITE.com/api-docs/ or
   * `IMPORT_CONFIG` - Used to import settings and extended settings from a url such as a gist.  Structure of file should be something like: `{"settings": {"theme": "colors"}, "extendedSettings": {"upbat": {"enableAlerts": true}}}`
   * `TREATMENTS_AUTH` (`on`) - possible values `on` or `off`. Deprecated, if set to `off` the `careportal` role will be added to `AUTH_DEFAULT_ROLES`
   * `UUID_HANDLING` (`true`) - Controls how UUID `_id` values are handled for treatments and entries. When `true` (default), if a client sends a UUID string as the `_id` field, it is extracted to the `identifier` field (for sync deduplication) and the server generates a proper ObjectId for `_id`. Queries by UUID (`GET`/`DELETE`) are also routed through the `identifier` field. When `false`, UUID `_id` values are silently stripped on write (no identifier is preserved) and UUID-based queries return empty results. This only affects the specific case where a UUID is sent as `_id` (e.g., Loop overrides, Trio CGM entries).
+  * `API_V1_COUNT_LEADING_NUMBER` (`true`) - On API v1 reads, a `count` that is a whole number followed by `?` and other text, such as `1?token=...`, is read as that number, as 15.0.8 read it. OpenAPS (oref0) sends its latest-treatment lookup this way. The answer carries a `Deprecation: true` header and a `Warning`; the text after the `?` is never logged. Set to `false` to refuse it with `400 Bad count`, like any other malformed count. The default is temporarily `true` for compatibility and is expected to become `false` in a future release.
+  * `API_V1_COUNT_ZERO_WINDOW` (`true`) - On API v1 reads, `count=0` with a `find` that bounds one date field from both sides (for example `find[created_at][$gte]=...&find[created_at][$lte]=...`) returns every record in that range, as 15.0.8 did; without such a range it returns the endpoint's default number of records. GluPredKit asks this way. The answer carries a `Deprecation: true` header and a `Warning`. Set to `false` to answer every read with `count=0` with an empty list. The default is temporarily `true` for compatibility and is expected to become `false` in a future release.
 
 #### Data Rights
 
@@ -291,6 +294,7 @@ autonomy for your data:
   * `SSL_CA` - Path to your ssl ca file, so that ssl(https) can be enabled directly in node.js. If using Let's Encrypt, make this variable the path to chain.pem file (chain).
   * `HEARTBEAT` (`60`)  - Number of seconds to wait in between database checks
   * `DEBUG_MINIFY` (`true`)  - Debug option, setting to `false` will disable bundle minification to help tracking down error and speed up development
+  * `DEBUG_LOGGING` (`false`) - Set to `true` to log routine server heartbeats, data reload summaries and Nightscout Connect diagnostics. Warnings, errors and startup messages remain visible with debugging off. This is a server environment setting; restart Nightscout after changing it. On Heroku, add or edit it under **Settings → Config Vars**. Set it back to `false` or remove it when troubleshooting is complete. It does not control Heroku router/access logs or every plugin's logging.
   * `DE_NORMALIZE_DATES`(`true`) - The Nightscout REST API normalizes all entered dates to UTC zone. Some Nightscout clients have broken date deserialization logic and expect to received back dates in zoned formats. Setting this variable to `true` causes the REST API to serialize dates sent to Nightscout in zoned format back to zoned format when served to clients over REST.
 
 ### Predefined values for your browser settings (optional)
@@ -309,7 +313,7 @@ autonomy for your data:
   * `SHOW_PLUGINS` - enabled plugins that should have their visualizations shown, defaults to all enabled
   * `SHOW_FORECAST` (`ar2`) - plugin forecasts that should be shown by default, supports space delimited values such as `"ar2 openaps"`
   * `LANGUAGE` (`en`) - language of Nightscout. If not available english is used
-    * Currently supported language codes are: bg (Български), cs (Čeština), de (Deutsch), dk (Dansk), el (Ελληνικά), en (English), es (Español), fi (Suomi), fr (Français), he (עברית), hr (Hrvatski), hu (magyar), it (Italiano), ko (한국어), nb (Norsk (Bokmål)), nl (Nederlands), pl (Polski), pt (Português (Brasil)), ro (Română), ru (Русский), sk (Slovenčina), sv (Svenska), tr (Turkish), zh_cn (中文（简体)), zh_tw (中文（繁體))
+    * Currently supported language codes are: bg (Български), cs (Čeština), de (Deutsch), dk (Dansk), el (Ελληνικά), en (English), es (Español), fi (Suomi), fr (Français), he (עברית), hr (Hrvatski), hu (magyar), it (Italiano), ko (한국어), lt (Lietuvių), nb (Norsk (Bokmål)), nl (Nederlands), pl (Polski), pt (Português (Brasil)), ro (Română), ru (Русский), sk (Slovenčina), sv (Svenska), tr (Turkish), zh_cn (中文（简体)), zh_tw (中文（繁體))
   * `SCALE_Y` (`log`) - The type of scaling used for the Y axis of the charts system wide.
     * The default `log` (logarithmic) option will let you see more detail towards the lower range, while still showing the full CGM range.
     * The `linear` option has equidistant tick marks; the range used is dynamic so that space at the top of chart isn't wasted.
@@ -317,12 +321,14 @@ autonomy for your data:
   * `EDIT_MODE` (`on`) - possible values `on` or `off`. Enables the icon allowing for editing of treatments in the main view.
 
 ### Predefined values for your server settings (optional)
+  * `TRUST_PROXY` (empty) - Empty preserves reverse-proxy compatibility without listing proxy addresses. Set `false` to ignore all forwarded metadata, a whole number of proxy hops (for example `1`) to trust that many proxies, `true` to trust every hop, or comma-separated trusted proxy IP addresses/CIDRs for restricted trust. While it is empty, the client address comes from headers any caller can set, so the failed-login delay (`AUTH_FAIL_DELAY`) does not protect against guessing, and Nightscout logs a `SECURITY:` warning at startup. Behind a TLS-terminating proxy, `false` causes an https redirect loop; remove the setting to undo any value. See the [proxy configuration guide](docs/proposals/trusted-proxy-migration.md) for which value fits which deployment, the security boundary and client-header rules.
   * `INSECURE_USE_HTTP` (`false`) - Redirect unsafe http traffic to https. Possible values `false`, or `true`. Your site redirects to `https` by default. If you don't want that from Nightscout, but want to implement that with a Nginx or Apache proxy, set `INSECURE_USE_HTTP` to `true`. Note: This will allow (unsafe) http traffic to your Nightscout instance and is not recommended.
   * `SECURE_HSTS_HEADER` (`true`) - Add HTTP Strict Transport Security (HSTS) header. Possible values `false`, or `true`.
   * `SECURE_HSTS_HEADER_INCLUDESUBDOMAINS` (`false`) - includeSubdomains options for HSTS. Possible values `false`, or `true`.
   * `SECURE_HSTS_HEADER_PRELOAD` (`false`) - ask for preload in browsers for HSTS. Possible values `false`, or `true`.
   * `SECURE_CSP` (`false`) - Add Content Security Policy headers. Possible values `false`, or `true`.
   * `SECURE_CSP_REPORT_ONLY` (`false`) - If set to `true` allows to experiment with policies by monitoring (but not enforcing) their effects. Possible values `false`, or `true`.
+  * `ALLOW_UNRESTRICTED_FRAME_EMBEDDING` (`true`) - Allow other origins to embed this Nightscout site in an iframe. The default `true` preserves compatibility with existing dashboards and split-view installations, but allows clickjacking attacks against users who are already authorized in the embedded browser. Set this to `false` to send `X-Frame-Options: SAMEORIGIN` and an enforced CSP `frame-ancestors 'self'` policy. The default is temporarily `true` for compatibility and is expected to become `false` in a future release. Existing cross-origin embedding installations can set it explicitly to `true` to preserve their intended behavior when that default changes.
 
 ### Views
 
@@ -354,6 +360,8 @@ autonomy for your data:
   Some users will need easy access to multiple Nightscout views at the same time. We have a special view for this case, accessed on /split path on your Nightscout URL. The view supports any number of sites between 1 to 8 way split, where the content for the screen can be loaded from multiple Nightscout instances. Note you still need to host separate instances for each Nightscout being monitored including the one that hosts the split view page - these variables only add the ability to load multiple views into one browser page. To set the URLs from which the content is loaded, set:
   * `FRAME_URL_1` - URL where content is loaded, for the first view (increment the number up to 8 to get more views)
   * `FRAME_NAME_1` - Name for the first split view portion of the screen (increment the number to name more views)
+
+  When `SECURE_CSP=true`, the valid HTTP(S) origins configured in `FRAME_URL_1` through `FRAME_URL_8` are allowed by the CSP `frame-src` directive so the split page can load them. `FRAME_URL_n` controls what the split page may embed; it does not grant another site permission to embed this Nightscout instance. That inbound permission is controlled independently on each instance by `ALLOW_UNRESTRICTED_FRAME_EMBEDDING`. Setting it to `false` on the split-view host does not prevent that host from loading its configured frames, but a cross-origin Nightscout instance displayed inside the split view must allow cross-origin embedding.
 
 ### Plugins
 
@@ -431,7 +439,7 @@ autonomy for your data:
   Adds the IOB pill visualization in the client and calculates values that used by other plugins.  Uses treatments with insulin doses and the `dia` and `sens` fields from the [treatment profile](#treatment-profile).
 
 ##### `cob` (Carbs-on-Board)
-  Adds the COB pill visualization in the client and calculates values that used by other plugins.  Uses treatments with carb doses and the `carbs_hr`, `carbratio`, and `sens` fields from the [treatment profile](#treatment-profile).
+  Adds the COB pill visualization in the client and calculates values that used by other plugins.  Shows the carbs-on-board reported by the uploading system (Loop's `loop.cob`, or `openaps.suggested`/`openaps.enacted` for OpenAPS, AndroidAPS and Trio) when the most recent device status is less than 10 minutes old; the pill tooltip names the source and device. Otherwise it derives COB from treatments with carb doses and the `carbs_hr`, `carbratio`, and `sens` fields from the [treatment profile](#treatment-profile), which are not needed for the device-reported value.
 
 ##### `bwp` (Bolus Wizard Preview)
   This plugin in intended for the purpose of automatically snoozing alarms when the CGM indicates high blood sugar but there is also insulin on board (IOB) and secondly, alerting to user that it might be beneficial to measure the blood sugar using a glucometer and dosing insulin as calculated by the pump or instructed by trained medicare professionals. ***The values provided by the plugin are provided as a reference based on CGM data and insulin sensitivity you have configured, and are not intended to be used as a reference for bolus calculation.*** The plugin calculates the bolus amount when above your target, generates alarms when you should consider checking and bolusing, and snoozes alarms when there is enough IOB to cover a high BG. Uses the results of the `iob` plugin and `sens`, `target_high`, and `target_low` fields from the [treatment profile](#treatment-profile). Defaults that can be adjusted with [extended setting](#extended-settings)
@@ -460,7 +468,7 @@ autonomy for your data:
   * `IAGE_ENABLE_ALERTS` (`false`) - Set to `true` to enable notifications to remind you of upcoming insulin reservoir change.
   * `IAGE_INFO` (`44`) - If time since last `Insulin Change` matches `IAGE_INFO`, user will be warned of upcoming insulin reservoir change
   * `IAGE_WARN` (`48`) - If time since last `Insulin Change` matches `IAGE_WARN`, user will be alarmed to to change the insulin reservoir
-  * `IAGE_URGENT` (`72`) - If time since last `Insulin Change` matches `IAGE_URGENT`, user will be issued a persistent warning of overdue change.
+  * `IAGE_URGENT` (`72`) - Marks the insulin age as urgent at and beyond this many hours since the last `Insulin Change`. With `IAGE_ENABLE_ALERTS` enabled, an urgent notification is requested during the first 20 minutes of the threshold hour (through minute 20). Starting or upgrading Nightscout after that window does not issue a catch-up notification; the urgent indicator remains until the insulin age resets.
 
 ##### `bage` (Battery Age)
   Calculates the number of days and hours since the last `Pump Battery Change` treatment that was recorded.
@@ -491,6 +499,9 @@ Connect common diabetes cloud resources to Nightscout.
 Include the keyword `connect` in the `ENABLE` list.
 Nightscout connection uses extended settings using the environment variable prefix `CONNECT_`.
   * `CONNECT_SOURCE` - The name for the source of one of the supported inputs.  one of `nightscout`, `dexcomshare`, etc...
+  * `CONNECT_DEBUG` (inherits `DEBUG_LOGGING`, which defaults to `false`) - Set to `true` for connector-only debugging, or `false` to keep the connector quiet while server debugging is enabled. Diagnostic output uses operation summaries, without dumping credentials, sessions or patient records. Warnings and failures remain visible. Restart Nightscout after changing this setting.
+  * `CONNECT_SOURCE_COLLECTIONS` - For Nightscout source sync, a comma-separated list of collections. Default: `entries,treatments,devicestatus,profiles`.
+  * `CONNECT_SOURCE_MAX_COUNT` - For Nightscout source sync, maximum records per collection request. Default: `1000`.
 ###### Nightscout
 
 > Work in progress
@@ -510,6 +521,10 @@ the site is readable by default.
 
 Select this driver by setting `CONNECT_SOURCE` equal to `nightscout`.
 
+The Nightscout source copies entries, treatments, devicestatus, and profiles by
+default. Set `CONNECT_SOURCE_COLLECTIONS` to a comma-separated subset if you
+only want specific collections.
+
 
 
 ###### Dexcom Share
@@ -524,6 +539,9 @@ Optional, `CONNECT_SHARE_REGION` and `CONNECT_SHARE_SERVER` do the same thing, o
   Selecting `ous` here sets `CONNECT_SHARE_SERVER` to `shareous1.dexcom.com`.
 * `CONNECT_SHARE_SERVER=` set the server domain to use.
 
+Dexcom Share supports newer G7-era account responses that return
+`{ accountId: "..." }` as well as older bare account IDs.
+
 
 ###### Glooko
 
@@ -533,16 +551,27 @@ To synchronize from Glooko use the following variables.
 * `CONNECT_SOURCE=glooko`
 * `CONNECT_GLOOKO_EMAIL=`
 * `CONNECT_GLOOKO_PASSWORD=`
+* `CONNECT_GLOOKO_TIMEZONE_OFFSET=0`
+* `CONNECT_GLOOKO_DEVICE_ID=` optional stable device identity
+* `CONNECT_GLOOKO_SERIAL_NUMBER=` optional stable serial number
+* `CONNECT_GLOOKO_WEB_ORIGIN=` optional web origin override for regional/custom hosts
+* `CONNECT_GLOOKO_AUTH_MODE=api` optional auth mode: `api`, `web`, or `auto`
+* `CONNECT_GLOOKO_USE_V3_GRAPH=true` optional v3 graph CGM fallback when v2 returns no readings
 
 By default, `CONNECT_GLOOKO_SERVER` is set to `api.glooko.com` because the
 default value for `CONNECT_GLOOKO_ENV` is `default`.
 * `CONNECT_GLOOKO_ENV` is the word `default` by defalt.  Other values are
-  `development`, `production`, for `api.glooko.work`, and
+  `eu`, `ca`, `development`, `production`, for `api.glooko.work`, and
   `externalapi.glooko.com`, respectively.
-* `CONNECT_GLOOKO_SERVER` the hostname server to use - `api.glooko.com` by `default`.
+* `CONNECT_GLOOKO_SERVER` the hostname server to use - `api.glooko.com` by `default`, `eu.api.glooko.com` for EU users, or a more specific regional host such as `de-fr.api.glooko.com`.
 
 If both, `CONNECT_GLOOKO_SERVER` and `CONNECT_GLOOKO_ENV` are set, only
 `CONNECT_GLOOKO_SERVER` will be used.
+
+`CONNECT_GLOOKO_AUTH_MODE=web` uses Glooko's web sign-in form with CSRF token
+handling; `auto` tries API login first and falls back to web login on a 422
+response. The optional v3 graph fallback fetches `cgmHigh`, `cgmNormal`, and
+`cgmLow` series when v2 CGM readings are empty.
 
 ###### Libre Link Up
 To synchronize from Libre Link Up use the following variables.
@@ -553,7 +582,9 @@ To synchronize from Libre Link Up use the following variables.
 By default, `CONNECT_LINK_UP_SERVER` is set to `api-eu.libreview.io` because the
 default value for `CONNECT_LINK_UP_REGION` is `EU`.
 Other available values for `CONNECT_LINK_UP_REGION`:
-  * `US`, `EU`, `DE`, `FR`, `JP`, `AP`, `AU`, `AE`
+  * `US`, `EU`, `EU2`, `DE`, `FR`, `JP`, `AP`, `AU`, `AE`, `CA`
+* `CONNECT_LINK_UP_SERVER` may be used to override the region mapping with an explicit LibreView API host.
+* `CONNECT_LINK_UP_VERSION` and `CONNECT_LINK_UP_PRODUCT` may be used when LibreLinkUp requires a newer client version or product identifier.
 
 For folks connected to many patients, you can provide the patient ID by setting
 the `CONNECT_LINK_UP_PATIENT_ID` variable.
@@ -585,6 +616,7 @@ Fetch glucose reading directly from the Dexcom Share service, uses these extende
   * `BRIDGE_MAX_FAILURES` (`3`) - How many failures before giving up.
   * `BRIDGE_MINUTES` (`1400`) - The time window to search for new data per update (the default value is one day in minutes).
   * `BRIDGE_SERVER` (``) - The default blank value is used to fetch data from Dexcom servers in the US. Set to (`EU`) to fetch from European servers instead.
+  * `DEXCOM_BRIDGE_USE_LEGACY` (`false`) - Set to `true` to force the legacy `share2nightscout-bridge` module. By default, compatible `BRIDGE_*` Dexcom settings are mapped to the `connect` plugin's Dexcom Share source because it has newer G7-era compatibility.
 
 ##### `mmconnect` (MiniMed Connect bridge)
 
@@ -648,6 +680,17 @@ For remote overrides, the following extended settings must be configured:
   * `LOOP_DEVELOPER_TEAM_ID` - Your Apple developer team ID.
   * `LOOP_PUSH_SERVER_ENVIRONMENT` - (optional) Set this to `production` if you are using a provisioning profile that specifies production aps-environment, such as when distributing builds via TestFlight.
 
+If a Loop remote command fails, Careportal keeps the form open and displays the reason with a suggested next step:
+
+  * Missing APNs configuration identifies the setting to check, such as `LOOP_APNS_KEY` or `LOOP_DEVELOPER_TEAM_ID`, without exposing its value.
+  * Missing Loop settings, device tokens, or app identifiers direct you to check the profile upload from Loop.
+  * Invalid carbs or bolus entries explain that the amount must be a number greater than zero. Unsupported commands are reported explicitly.
+  * Recognized APNs failures retain the reason code and explain it. For example, `InvalidProviderToken` identifies a provider authentication problem and directs the Nightscout administrator to check the APNs signing key, key ID, and developer team ID. See [Apple's APNs error reference](https://developer.apple.com/documentation/usernotifications/handling-notification-responses-from-apns) for details.
+  * Authorization failures ask you to reauthorize Nightscout access or have the administrator check your Loop command permissions.
+  * Connection failures, timeouts, and empty error responses keep the form open with an explanation. If delivery cannot be confirmed, check Loop before submitting the command again. Commands are not automatically retried.
+
+When APNs provides no failure details, the message says so. Unexpected failures direct you to the Nightscout administrator and server logs. Full diagnostics remain in those logs; user-facing messages omit raw error objects, credentials, device tokens, filesystem paths, and other untrusted error text.
+
 ##### `override` (Override Mode)
   Additional monitoring for DIY automated insulin delivery systems to display real-time overrides such as Eating Soon or Exercise Mode:
   * Requires `DEVICESTATUS_ADVANCED="true"` to be set
@@ -699,6 +742,8 @@ For remote overrides, the following extended settings must be configured:
   Some plugins support additional configuration using extra environment variables.  These are prefixed with the name of the plugin and a `_`.  For example setting `MYPLUGIN_EXAMPLE_VALUE=1234` would make `extendedSettings.exampleValue` available to the `MYPLUGIN` plugin.
 
   Plugins only have access to their own extended settings, all the extended settings of client plugins will be sent to the browser.
+
+  Values that look numeric are converted to numbers before the plugin sees them, and `on`/`true`/`off`/`false` are converted to booleans.  Settings whose value must reach the plugin as written — passwords, account names, and account or device identifiers — are listed in `stringSettings` in `lib/server/env.js` and are never converted to numbers.  Add yours there when you introduce one.
 
   * `DEVICESTATUS_ADVANCED` (`true`) - Defaults to true. Users who only have a single device uploading data to Nightscout can set this to false to reduce the data use of the site.
   * `DEVICESTATUS_DAYS` (`1`) - Defaults to 1, can optionally be set to 2. Users can use this to show 48 hours of device status data for in retro mode, rather than the default 24 hours. Setting this value to 2 will roughly double the bandwidth usage of nightscout, so users with a data cap may not want to update this setting.

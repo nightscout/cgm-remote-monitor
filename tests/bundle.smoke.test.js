@@ -1,15 +1,13 @@
 'use strict';
 
-// Phase 5c — bundle smoke test.
+// Phase 5c — structural bundle smoke test.
 //
-// The skipped tests/reports.test.js asserted that a freshly-built
-// bundle would boot Nightscout's report client end-to-end through
-// jsdom and render plugin HTML. Per-plugin stats math is already
-// exercised by dedicated suites (basalprofileplugin.test.js,
-// daytodayplugin.test.js, foodstatsplugin.test.js, etc.), so the
-// remaining gap is purely structural: "did webpack produce a bundle
-// that exposes Nightscout.client / .reportclient / .profileclient
-// without throwing on first execute?".
+// This checks that webpack produced a bundle which executes and exposes
+// Nightscout.client, .reportclient, .profileclient, and .units. It does not
+// render report workflows or validate report statistics. Browser-level report
+// behavior is currently covered by the manual smoke checklist; calculations
+// should gain DOM-free unit or contract tests as they are extracted from the
+// legacy client bundle.
 //
 // This suite skips cleanly when the build artifact is missing so it
 // does not break a fresh checkout that has not yet run `npm install`

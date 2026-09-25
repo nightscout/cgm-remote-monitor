@@ -25,7 +25,16 @@
     ],
     "cob": [
       {
-        "info": [],
+        "info": [
+          {
+            "label": "Source",
+            "value": "Loop"
+          },
+          {
+            "label": "Device",
+            "value": "loop://test-device"
+          }
+        ],
         "label": "COB",
         "value": "0g"
       }
@@ -111,7 +120,8 @@
       {
         "info": [],
         "label": "SAGE",
-        "pillClass": null
+        "pillClass": null,
+        "value": "n/a "
       }
     ],
     "bage": [
@@ -148,7 +158,7 @@
         "info": [
           {
             "label": "future",
-            "value": "<b>Temp Basal Canceled</b>, IOB: 1.43U, COB: 0g, Predicted Min-Max BG: 94.61-141, Eventual BG: 102.3"
+            "value": "Temp Basal Canceled, IOB: 1.43U, COB: 0g, Predicted Min-Max BG: 94.61-141, Eventual BG: 102.3"
           }
         ],
         "label": "TestLoop ↻",

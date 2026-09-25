@@ -1,5 +1,10 @@
 'use strict';
 
+// Legacy pill tooltips use Date#toLocaleString(), so their output otherwise
+// changes with the developer or CI runner's local timezone. The committed
+// goldens were created in this timezone; pin it for both generation and tests.
+process.env.TZ = 'America/Los_Angeles';
+
 /**
  * Shared runner that drives the pill-emitting plugins in `lib/plugins/`
  * against a captured-fixture directory under `tests/fixtures/captured/<source>/`.
@@ -28,6 +33,8 @@
  *     recent-window plugins do not sit on a boundary. Any future anchor
  *     change requires `node tools/captured-fixtures/generate-pill-goldens.js
  *     --write` and review of the resulting drift.
+ *   - Native date formatting is pinned to America/Los_Angeles above so the
+ *     same fixture produces identical tooltip text on every runner.
  *   - Plugin output order is the order in PILL_PLUGINS below.
  *   - Floats are JSON-serialized as-is; if a future change introduces
  *     non-determinism (Date.now(), Math.random(), iteration order),
