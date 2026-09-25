@@ -266,6 +266,7 @@ autonomy for your data:
   * `BG_TARGET_TOP` (`180`) - the top of the target range, also used to draw the line on the chart (interprets units based on DISPLAY_UNITS setting)
   * `BG_TARGET_BOTTOM` (`80`) - the bottom of the target range, also used to draw the line on the chart (interprets units based on DISPLAY_UNITS setting)
   * `BG_LOW` (`55`) - the low BG outside the target range that is considered urgent (interprets units based on DISPLAY_UNITS setting)
+  * On a `DISPLAY_UNITS=mmol` site each of the four `BG_` thresholds is read on its own: a value below 30 is taken as mmol/L and converted, and a value of 30 or more (including the defaults above, for any you leave unset) is taken as mg/dl. So you can set only some of them in mmol/L. The server log shows one line for each threshold it converts.
   * `ALARM_URGENT_HIGH` (`on`) - possible values `on` or `off`
   * `ALARM_URGENT_HIGH_MINS` (`30 60 90 120`) - Number of minutes to snooze urgent high alarms, space separated for options in browser, first used for pushover
   * `ALARM_HIGH` (`on`) - possible values `on` or `off`
