@@ -69,7 +69,8 @@ var EXPECT = {
         if (form === 'uuid') return ['200 [string/ident]', 'upsert matches the legacy _id=UUID record ($or identifier/_id)'];
         return ['200 [ObjectId]', 'upsert by _id; a string copy is replaced by the ObjectId'];
       case 'devicestatus':
-        return ['500 [' + stored + ']', 'a re-sent devicestatus _id is refused as a duplicate, whichever form it is stored in'];
+        // CHANGED EXPECTATION (BF-116): was 500, "refused as a duplicate".
+        return ['200 [' + stored + ']', 'a re-sent devicestatus _id is answered with the stored record and not stored again, whichever form it is stored in'];
       case 'profile':
         return ['500 [' + stored + ']', 'a re-sent profile _id is refused as a duplicate (BF-99 create guard)'];
       default:
