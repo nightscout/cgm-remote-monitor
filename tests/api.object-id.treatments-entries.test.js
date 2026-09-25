@@ -33,6 +33,8 @@ describe('treatments and entries: records stored with a string _id', function ()
     , tRepostArray: '5f2100000000000000000b07'
     , tUpper: '5F2100000000000000000B08'
     , tRepostPreBolus: '5f2100000000000000000b09'
+    , tBatchDedup: '5f2100000000000000000b0a'
+    , tBatchNew: '5f2100000000000000000a0b'
     , tNew: '5f2100000000000000000a01'
     , eFind: '5f2200000000000000000b01'
     , eGet: '5f2200000000000000000b02'
@@ -100,6 +102,45 @@ describe('treatments and entries: records stored with a string _id', function ()
   });
 
   describe('treatments', function () {
+
+    // BF-130. A batch whose first item names a string-stored treatment by
+    // its hex, and whose second item has no _id and the same created_at and
+    // eventType, matched the string copy with the second item and then
+    // deleted it with the string forms of the first. The second item is now
+    // written after the pair became one record, so it replaces that record,
+    // as it does when no string copy exists.
+    it('a batch item deduplicated onto a string-stored record is not lost', async function () {
+      await collection('treatments').insertOne(sampleTreatment(40, { _id: HEX.tBatchDedup, notes: 'object-id-test', enteredBy: 'original' }));
+      await request(self.app).post('/api/treatments/').set('api-secret', known)
+        .send([sampleTreatment(40, { _id: HEX.tBatchDedup, enteredBy: 'first' }), sampleTreatment(40, { enteredBy: 'second' })])
+        .expect(200);
+      var docs = await collection('treatments').find({ created_at: sampleTreatment(40).created_at, notes: 'object-id-test' }).toArray();
+      docs.length.should.equal(1, 'records at that time');
+      docs[0].enteredBy.should.equal('second');
+      (docs[0]._id instanceof ObjectID).should.equal(true);
+      docs[0]._id.toHexString().should.equal(HEX.tBatchDedup);
+    });
+
+    it('the same batch with no string-stored record ends the same way (control)', async function () {
+      await request(self.app).post('/api/treatments/').set('api-secret', known)
+        .send([sampleTreatment(41, { _id: HEX.tBatchNew, enteredBy: 'first' }), sampleTreatment(41, { enteredBy: 'second' })])
+        .expect(200);
+      var docs = await collection('treatments').find({ created_at: sampleTreatment(41).created_at, notes: 'object-id-test' }).toArray();
+      docs.length.should.equal(1, 'records at that time');
+      docs[0].enteredBy.should.equal('second');
+      docs[0]._id.toHexString().should.equal(HEX.tBatchNew);
+    });
+
+    it('a batch answers each item with the _id it is stored under', async function () {
+      var res = await request(self.app).post('/api/treatments/').set('api-secret', known)
+        .send([sampleTreatment(42, { enteredBy: 'a' }), sampleTreatment(43, { _id: HEX.tNew.replace('a01', 'a2b'), enteredBy: 'b' }), sampleTreatment(44, { enteredBy: 'c' })])
+        .expect(200);
+      res.body.length.should.equal(3);
+      for (var i = 0; i < 3; i++) {
+        var stored = await collection('treatments').findOne({ created_at: sampleTreatment(42 + i).created_at, notes: 'object-id-test' });
+        String(res.body[i]._id).should.equal(String(stored._id), 'item ' + i);
+      }
+    });
 
     function findById (hex) {
       return request(self.app)
