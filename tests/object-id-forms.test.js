@@ -66,12 +66,28 @@ describe('object-id-forms', function () {
       kinds(forms.idForms(new ObjectID(HEX))).should.eql(['ObjectId:' + HEX, 'string:' + HEX]);
     });
 
-    it('throws for a value that is not an id, as new ObjectId does', function () {
+    it('throws for a value that is not an id', function () {
       (function () { forms.idForms('not-an-id'); }).should.throw();
+    });
+
+    it('throws for a 12-character string, which new ObjectId reads as raw bytes', function () {
+      (function () { forms.idForms('abcdefghijkl'); }).should.throw();
     });
 
     it('stringIdForms keeps only the strings', function () {
       forms.stringIdForms(UPPER).should.eql([UPPER.toLowerCase(), UPPER]);
+    });
+  });
+
+  describe('idFilter', function () {
+    it('matches every form of a hex or ObjectId id', function () {
+      kinds(forms.idFilter(UPPER).$in).should.eql(forms.idForms(UPPER).map(function (v) { return kinds([v])[0]; }));
+      kinds(forms.idFilter(new ObjectID(HEX)).$in).should.eql(['ObjectId:' + HEX, 'string:' + HEX]);
+    });
+
+    it('matches any other value exactly as given', function () {
+      forms.idFilter('abcdefghijkl').should.eql({ $eq: 'abcdefghijkl' });
+      forms.idFilter('a-uuid-like-id').should.eql({ $eq: 'a-uuid-like-id' });
     });
   });
 

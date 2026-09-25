@@ -429,6 +429,22 @@ describe('Storage Layer Shape Handling - Direct Storage Tests', function () {
       });
     });
 
+    it('save() generates _id for a 12-character _id instead of reading it as raw bytes', function (done) {
+      self.ctx.profile.save({
+        _id: 'abcdefghijkl',
+        defaultProfile: 'Default',
+        store: { Default: { dia: 3, units: 'mg/dl' } },
+        startDate: '2024-10-19T23:00:00.000Z',
+        units: 'mg/dl'
+      }, function (err, saved) {
+        should.not.exist(err);
+        saved._id.constructor.name.should.equal('ObjectId');
+        // 'abcdefghijkl' as 12 raw bytes
+        saved._id.toString().should.not.equal('6162636465666768696a6b6c');
+        done();
+      });
+    });
+
     it('save() preserves explicit created_at and does not overwrite it', function (done) {
       var profile = {
         defaultProfile: 'Default',
