@@ -119,6 +119,9 @@ function configure () {
         self.wares = require('../../../lib/middleware/')(instance.env);
         instance.app = require('express')();
         instance.app.enable('api');
+        // As lib/server/app.js does, so the mounted v3 app inherits the same
+        // proxy trust, and with it the same failed-login key, as in production.
+        instance.app.set('trust proxy', require('../../../lib/server/client-ip').compileTrust(instance.env.trustProxy));
 
         require('../../../lib/server/bootevent')(instance.env, language).boot(function booted (ctx) {
           instance.ctx = ctx;

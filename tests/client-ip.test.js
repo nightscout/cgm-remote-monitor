@@ -175,6 +175,33 @@ describe('explicit trusted proxies', function () {
     }
   });
 
+  // lib/api3/security.js keys the failed-login delay with the v3 app's
+  // 'trust proxy fn'. The v3 app does not set it; it inherits it when
+  // lib/server/app.js mounts it under a parent that does. This goes through
+  // that mount, for the default and for explicit values. Mounted under a
+  // parent that sets nothing, the key is the socket peer instead.
+  it('keys API v3 authentication on the trust a mounted v3 app inherits from its parent', async function () {
+    const security = require('../lib/api3/security');
+    const keyThrough = async (parentTrust) => {
+      const parent = express();
+      if (parentTrust !== null) parent.set('trust proxy', compileTrust(parentTrust));
+      const v3 = express();
+      parent.use('/api/v3', v3);
+      v3.set('API3_SECURITY_ENABLE', true);
+      freshProcessOrder();
+      const req = raw('10.1.0.2', { 'x-forwarded-for': '198.51.100.4, 203.0.113.50' });
+      req.header = name => name === 'Authorization' ? 'Bearer owned-test-token' : undefined;
+      let observed;
+      const ctx = { authorization: { resolve (data, callback) { observed = data; callback(null, { shiros: [] }); } } };
+      await security.authenticate({ app: v3, ctx, req, res: {} });
+      return observed.ip;
+    };
+    assert.equal(await keyThrough(undefined), '198.51.100.4');
+    assert.equal(await keyThrough('1'), '203.0.113.50');
+    assert.equal(await keyThrough('false'), '10.1.0.2');
+    assert.equal(await keyThrough(null), '10.1.0.2');
+  });
+
   it('passes the configured client IP to HTTP authorization', function () {
     const init = require('../lib/authorization');
     for (const trusted of [false, true]) {
