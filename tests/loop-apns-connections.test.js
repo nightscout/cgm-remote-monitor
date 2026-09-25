@@ -22,8 +22,8 @@ describe('server loop notifications close their APNs connection', function () {
 
   before(function (done) {
     server = http2.createSecureServer({
-      key: fs.readFileSync('./tests/fixtures/api3/localhost.key')
-      , cert: fs.readFileSync('./tests/fixtures/api3/localhost.crt')
+      key: fs.readFileSync('./tests/fixtures/localhost.key')
+      , cert: fs.readFileSync('./tests/fixtures/localhost.crt')
     });
     server.on('session', function (session) {
       sessions.add(session);
