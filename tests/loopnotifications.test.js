@@ -28,6 +28,7 @@ describe('API tests for iOS Loop push notifications', function() {
   this.timeout(10000);
 
   let fakeAPNServer;
+  const fakeAPNSessions = new Set();
 
   /**
    * Let's capture the HTTP request sent to APNs via "@parse/node-apn" npm package.
@@ -39,6 +40,14 @@ describe('API tests for iOS Loop push notifications', function() {
   before(function(done) {
     // Use http2+tls since APNs and the @parse/node-apn only supports them.
     fakeAPNServer = http2.createSecureServer(fakeServerOpts);
+
+    // An APNs provider keeps its client session open until it is shut down,
+    // and http2 server.close() waits for open sessions to end (Node 24 closes
+    // idle ones itself, 20 and 22 do not), so the after hook destroys them.
+    fakeAPNServer.on('session', (session) => {
+      fakeAPNSessions.add(session);
+      session.on('close', () => fakeAPNSessions.delete(session));
+    });
 
     fakeAPNServer.on('listening', () => {
       // More info about dynamic port: https://nodejs.org/docs/latest-v22.x/api/net.html#serverlistenport-host-backlog-callback
@@ -126,6 +135,7 @@ describe('API tests for iOS Loop push notifications', function() {
     apn.Provider = OriginalApnProviderClass;
 
     inst.ctx.profile().deleteMany({}).then(() => {
+      fakeAPNSessions.forEach(session => session.destroy());
       fakeAPNServer.close(done);
     }).catch(err => done(err));
   });
@@ -253,6 +263,7 @@ describe('Mocked tests for iOS Loop push notifications', function () {
         this.send = function (notification, tokens) {
           return Promise.resolve({ sent: [{ device: tokens[0] }], failed: [] });
         };
+        this.shutdown = function () { };
       };
       apn.Notification = function MockNotification () { };
 
