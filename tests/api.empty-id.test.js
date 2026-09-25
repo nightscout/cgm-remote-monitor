@@ -116,6 +116,16 @@ describe('entries and treatments: an empty _id is replaced by a server id', func
       });
     });
 
+    it('reads an Extended JSON {$oid} as the ObjectId it names', function () {
+      var doc = { _id: { $oid: '5f2500000000000000000d01' } };
+      idForms.dropEmptyId(doc);
+      (doc._id instanceof ObjectID).should.equal(true);
+      doc._id.toHexString().should.equal('5f2500000000000000000d01');
+      var other = { _id: { $oid: 'not-hex' } };
+      idForms.dropEmptyId(other);
+      other.should.not.have.property('_id');
+    });
+
     it('keeps strings, ObjectIds and an ObjectId from another bson copy', function () {
       var foreign = { _bsontype: 'ObjectId', id: Buffer.alloc(12) };
       ['5f2500000000000000000c01', 'a-uuid-or-other-string', new ObjectID(), foreign].forEach(function (value) {
@@ -124,6 +134,17 @@ describe('entries and treatments: an empty _id is replaced by a server id', func
         doc._id.should.equal(value);
       });
     });
+  });
+
+  it('POST /treatments with an Extended JSON {$oid} _id keeps that id, and a re-POST adds no copy', async function () {
+    var hex = '5f2500000000000000000d02';
+    await request(self.app).post('/api/treatments/').set('api-secret', known)
+      .send(treatment(50, { _id: { $oid: hex } })).expect(200);
+    await request(self.app).post('/api/treatments/').set('api-secret', known)
+      .send(treatment(50, { _id: { $oid: hex } })).expect(200);
+    var docs = await collection('treatments').find({ enteredBy: TAG, created_at: treatment(50).created_at }).toArray();
+    docs.length.should.equal(1);
+    docs[0]._id.toHexString().should.equal(hex);
   });
 
   describe('a record already stored with a null _id', function () {

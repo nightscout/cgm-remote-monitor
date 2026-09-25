@@ -30,6 +30,7 @@ describe('API3: DELETE of a record stored twice by _id', function () {
     , readReversed: '5f2500000000000000000c06'
     , patch: '5f2500000000000000000c05'
     , patchReversed: '5f2500000000000000000c07'
+    , unrelated: '5f2500000000000000000c08'
   };
 
   // Synthetic values only.
@@ -124,6 +125,25 @@ describe('API3: DELETE of a record stored twice by _id', function () {
 
     (await storedFor(HEX.permanent)).length.should.equal(0, 'copies left after the DELETE');
     (await col().countDocuments({ _id: new ObjectID(HEX.other) })).should.equal(1, 'the other record');
+  });
+
+  // A document with an identifier of its own is addressed by it, even when
+  // its _id is the identifier another document is deleted by.
+  [false, true].forEach(function (permanent) {
+    it('DELETE' + (permanent ? ' ?permanent=true' : '') + ' leaves a record whose _id matches but whose identifier differs', async () => {
+      const hex = HEX.unrelated.slice(0, 22) + (permanent ? '09' : '08');
+      await col().insertOne(sample(6, { _id: new ObjectID(), identifier: hex, notes: 'addressed' }));
+      await col().insertOne(sample(7, { _id: new ObjectID(hex), identifier: 'another-record-' + hex, notes: 'unrelated' }));
+
+      await self.instance.delete('/api/v3/treatments/' + hex + (permanent ? '?permanent=true' : ''), self.jwt.all).expect(200);
+
+      const unrelated = await col().findOne({ identifier: 'another-record-' + hex });
+      unrelated.should.be.ok();
+      (unrelated.isValid === undefined).should.equal(true, 'the unrelated record was written');
+      const addressed = await col().find({ identifier: hex }).toArray();
+      if (permanent) addressed.length.should.equal(0);
+      else addressed[0].isValid.should.equal(false);
+    });
   });
 
   it('DELETE of an id with no record answers 404', async () => {
