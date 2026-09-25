@@ -335,6 +335,114 @@ describe('ddata', function ( ) {
       ddata.treatments[0].durationInMilliseconds.should.equal(1800000);
       ddata.treatments[0].endmills.should.equal(1801000);
     });
+
+    describe('AAPS nsclientV3 open-ended shape', function () {
+      // RunningModeExtension.kt: an open-ended DISABLED_LOOP is uploaded as
+      // 10 years (in minutes and milliseconds) with originalDuration 0.
+      var tenYears = 3650 * 24 * 60;
+      var tenYearsInMilliseconds = tenYears * 60000;
+
+      function devDisabledAt(mills) {
+        return {
+          eventType: 'OpenAPS Offline',
+          mode: 'DISABLED_LOOP',
+          mills: mills,
+          duration: tenYears,
+          durationInMilliseconds: tenYearsInMilliseconds,
+          originalDuration: 0
+        };
+      }
+
+      ['CLOSED_LOOP', 'OPEN_LOOP', 'CLOSED_LOOP_LGS'].forEach(function (mode) {
+        it('ends a 10 year DISABLED_LOOP with originalDuration 0 when followed by ' + mode, function () {
+          var ddata = require('../lib/data/ddata')();
+          var disabled = devDisabledAt(1000);
+          var treatments = [
+            disabled,
+            { eventType: 'OpenAPS Offline', mode: mode, mills: 1801000, duration: 0, originalDuration: 0 }
+          ];
+
+          var normalized = ddata.normalizeAapsRunningModes(treatments);
+
+          normalized[0].duration.should.equal(30);
+          normalized[0].durationInMilliseconds.should.equal(1800000);
+          normalized[0].endmills.should.equal(1801000);
+          disabled.duration.should.equal(tenYears);
+        });
+      });
+
+      it('ends a 10 year DISABLED_LOOP without originalDuration', function () {
+        var ddata = require('../lib/data/ddata')();
+        var disabled = devDisabledAt(1000);
+        delete disabled.originalDuration;
+        delete disabled.durationInMilliseconds;
+        var treatments = [
+          disabled,
+          { eventType: 'OpenAPS Offline', mode: 'CLOSED_LOOP', mills: 1801000, duration: 0 }
+        ];
+
+        var normalized = ddata.normalizeAapsRunningModes(treatments);
+
+        normalized[0].duration.should.equal(30);
+        normalized[0].endmills.should.equal(1801000);
+      });
+
+      it('does not change a finite DISABLED_LOOP that carries its originalDuration', function () {
+        var ddata = require('../lib/data/ddata')();
+        var disabled = {
+          eventType: 'OpenAPS Offline',
+          mode: 'DISABLED_LOOP',
+          mills: 1000,
+          duration: 60,
+          durationInMilliseconds: 3600000,
+          originalDuration: 3600000
+        };
+        var treatments = [
+          disabled,
+          { eventType: 'OpenAPS Offline', mode: 'CLOSED_LOOP', mills: 1801000, duration: 0, originalDuration: 0 }
+        ];
+
+        var normalized = ddata.normalizeAapsRunningModes(treatments);
+
+        normalized[0].should.equal(disabled);
+        normalized[0].duration.should.equal(60);
+      });
+
+      it('does not change a finite DISABLED_LOOP with originalDuration 0', function () {
+        var ddata = require('../lib/data/ddata')();
+        var disabled = {
+          eventType: 'OpenAPS Offline',
+          mode: 'DISABLED_LOOP',
+          mills: 1000,
+          duration: 60,
+          durationInMilliseconds: 3600000,
+          originalDuration: 0
+        };
+        var treatments = [
+          disabled,
+          { eventType: 'OpenAPS Offline', mode: 'CLOSED_LOOP', mills: 1801000, duration: 0, originalDuration: 0 }
+        ];
+
+        var normalized = ddata.normalizeAapsRunningModes(treatments);
+
+        normalized[0].should.equal(disabled);
+        normalized[0].duration.should.equal(60);
+      });
+
+      it('is idempotent', function () {
+        var ddata = require('../lib/data/ddata')();
+        var treatments = [
+          devDisabledAt(1000),
+          { eventType: 'OpenAPS Offline', mode: 'CLOSED_LOOP', mills: 1801000, duration: 0, originalDuration: 0 }
+        ];
+
+        var once = ddata.normalizeAapsRunningModes(treatments);
+        var twice = ddata.normalizeAapsRunningModes(once);
+
+        once[0].endmills.should.equal(1801000);
+        twice.should.deepEqual(once);
+      });
+    });
   });
 
   // TODO: ensure partition function gets called via:
