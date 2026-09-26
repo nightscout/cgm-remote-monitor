@@ -45,6 +45,7 @@ This index provides navigation for the Nightscout documentation structure. Each 
 ### Data Schemas
 - [Treatments Schema](./data-schemas/treatments-schema.md) - Treatment collection fields
 - [Profiles Schema](./data-schemas/profiles-schema.md) - Profile structure
+- [Alarm Snooze Schema](./data-schemas/alarmsnooze-schema.md) - Alarm snooze state for multi-instance deploys
 
 ### Proposals
 - [OIDC Actor Identity](./proposals/oidc-actor-identity-proposal.md) - Verified actor identity RFC
