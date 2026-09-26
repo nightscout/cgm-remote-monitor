@@ -7,8 +7,13 @@ var should = require('should');
 
 function matchesValue (actual, condition) {
   if (condition && typeof condition === 'object') {
+    if (condition.$in) {
+      return !Array.isArray(actual) && condition.$in.some(function (value) {
+        return actual === value || (actual === undefined && value === null);
+      });
+    }
     if (Object.prototype.hasOwnProperty.call(condition, '$eq')) {
-      return actual === condition.$eq;
+      return actual === condition.$eq || (actual === undefined && condition.$eq === null);
     }
     // The dedup lookups skip deleted records with {isValid: {$ne: false}} (BF-122 / JL-1).
     if (Object.prototype.hasOwnProperty.call(condition, '$ne')) {
@@ -403,11 +408,11 @@ describe('WebSocket database input validation', function () {
     treatmentCollection.queries[0].should.eql({
       created_at: {$eq: '2026-04-01T00:00:01.000Z'},
       eventType: {$eq: 'Meal Bolus'},
-      syncIdentifier: {$eq: null},
-      id: {$eq: null},
-      uuid: {$eq: null},
-      NSCLIENT_ID: {$eq: null},
-      identifier: {$eq: null},
+      syncIdentifier: {$in: [null, ''], $not: {$type: 'array'}},
+      id: {$in: [null, ''], $not: {$type: 'array'}},
+      uuid: {$in: [null, ''], $not: {$type: 'array'}},
+      NSCLIENT_ID: {$in: [null, ''], $not: {$type: 'array'}},
+      identifier: {$in: [null, ''], $not: {$type: 'array'}},
       isValid: {$ne: false}
     });
     treatmentCollection.queries[1].created_at.should.eql({
