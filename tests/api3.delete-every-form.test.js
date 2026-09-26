@@ -12,7 +12,7 @@
 
 require('should');
 
-describe('API3: DELETE of a record stored twice by _id', function () {
+describe('API3: DELETE across stored identifier forms', function () {
   const self = this
     , instance = require('./fixtures/api3/instance')
     , authSubject = require('./fixtures/api3/authSubject')
@@ -30,7 +30,6 @@ describe('API3: DELETE of a record stored twice by _id', function () {
     , readReversed: '5f2500000000000000000c06'
     , patch: '5f2500000000000000000c05'
     , patchReversed: '5f2500000000000000000c07'
-    , unrelated: '5f2500000000000000000c08'
   };
 
   // Synthetic values only.
@@ -67,9 +66,11 @@ describe('API3: DELETE of a record stored twice by _id', function () {
     self.instance = await instance.create({});
     self.app = self.instance.app;
     self.env = self.instance.env;
+    self.app.use('/api/v1', require('../lib/api')(self.env, self.instance.ctx));
 
     let authResult = await authSubject(self.instance.ctx.authorization.storage, ['all'], self.instance.app);
     self.jwt = authResult.jwt;
+    self.accessToken = authResult.accessToken.all;
   });
 
   after(async () => {
@@ -127,22 +128,90 @@ describe('API3: DELETE of a record stored twice by _id', function () {
     (await col().countDocuments({ _id: new ObjectID(HEX.other) })).should.equal(1, 'the other record');
   });
 
+  // v1 accepts null and empty identifiers. v3 exposes the record's _id for
+  // both, just as it does when identifier is absent, so that public identifier
+  // must also work for both kinds of DELETE.
+  [false, true].forEach(function (permanent) {
+    const suffix = permanent ? '?permanent=true' : '';
+
+    async function deleteAndVerify (id, storedIds) {
+      const url = '/api/v3/treatments/' + id;
+      const read = await self.instance.get(url, self.jwt.all).expect(200);
+      read.body.result.identifier.should.equal(id);
+
+      await self.instance.delete(url + suffix, self.jwt.all).expect(200);
+
+      const stored = await col().find({ _id: { $in: storedIds } }).toArray();
+      stored.length.should.equal(permanent ? 0 : storedIds.length);
+      stored.forEach(function (doc) { doc.isValid.should.equal(false); });
+      await self.instance.get(url, self.jwt.all).expect(permanent ? 404 : 410);
+    }
+
+    [
+      { label: 'absent', fields: {} }
+      , { label: 'null', fields: { identifier: null } }
+      , { label: 'empty', fields: { identifier: '' } }
+    ].forEach(function (shape) {
+      it('DELETE' + suffix + ' removes a v1-created treatment with identifier ' + shape.label, async () => {
+        const id = new ObjectID();
+        await self.instance.post('/api/v1/treatments')
+          .set('api-secret', self.accessToken)
+          .send(sample(10, Object.assign({ _id: id.toHexString() }, shape.fields)))
+          .expect(200);
+
+        const stored = await col().findOne({ _id: id });
+        if (shape.label === 'absent') stored.should.not.have.property('identifier');
+        else stored.should.have.property('identifier', shape.fields.identifier);
+
+        await deleteAndVerify(id.toHexString(), [id]);
+      });
+    });
+
+    // Upgraded sites can also hold hex strings or custom strings as _id.
+    [null, ''].forEach(function (identifier) {
+      ['hex', 'custom'].forEach(function (form) {
+        it('DELETE' + suffix + ' removes a legacy ' + form + ' string _id with identifier ' + JSON.stringify(identifier), async () => {
+          const id = (form === 'custom' ? 'legacy-' : '') + new ObjectID().toHexString();
+          await col().insertOne(sample(11, { _id: id, identifier }));
+          await deleteAndVerify(id, [id]);
+        });
+      });
+    });
+
+    it('DELETE' + suffix + ' removes both ObjectId and string copies with empty identifiers', async () => {
+      const id = new ObjectID();
+      await col().insertMany([
+        sample(12, { _id: id, identifier: null })
+        , sample(12, { _id: id.toHexString(), identifier: '' })
+      ]);
+      await deleteAndVerify(id.toHexString(), [id, id.toHexString()]);
+    });
+  });
+
   // A document with an identifier of its own is addressed by it, even when
   // its _id is the identifier another document is deleted by.
   [false, true].forEach(function (permanent) {
-    it('DELETE' + (permanent ? ' ?permanent=true' : '') + ' leaves a record whose _id matches but whose identifier differs', async () => {
-      const hex = HEX.unrelated.slice(0, 22) + (permanent ? '09' : '08');
-      await col().insertOne(sample(6, { _id: new ObjectID(), identifier: hex, notes: 'addressed' }));
-      await col().insertOne(sample(7, { _id: new ObjectID(hex), identifier: 'another-record-' + hex, notes: 'unrelated' }));
+    ['hex', 'custom'].forEach(function (form) {
+      ['string', 'array'].forEach(function (shape) {
+        it('DELETE' + (permanent ? ' ?permanent=true' : '') + ' leaves a matching ' + form + ' _id with its own ' + shape + ' identifier', async () => {
+          const objectId = new ObjectID();
+          const id = (form === 'custom' ? 'legacy-' : '') + objectId.toHexString();
+          const unrelatedId = form === 'custom' ? id : objectId;
+          const identifier = shape === 'array' ? [null, '', 'another-record-' + id] : 'another-record-' + id;
+          await col().insertOne(sample(6, { _id: new ObjectID(), identifier: id, notes: 'addressed' }));
+          await col().insertOne(sample(7, { _id: unrelatedId, identifier, notes: 'unrelated' }));
 
-      await self.instance.delete('/api/v3/treatments/' + hex + (permanent ? '?permanent=true' : ''), self.jwt.all).expect(200);
+          await self.instance.delete('/api/v3/treatments/' + id + (permanent ? '?permanent=true' : ''), self.jwt.all).expect(200);
 
-      const unrelated = await col().findOne({ identifier: 'another-record-' + hex });
-      unrelated.should.be.ok();
-      (unrelated.isValid === undefined).should.equal(true, 'the unrelated record was written');
-      const addressed = await col().find({ identifier: hex }).toArray();
-      if (permanent) addressed.length.should.equal(0);
-      else addressed[0].isValid.should.equal(false);
+          const unrelated = await col().findOne({ _id: unrelatedId });
+          unrelated.should.be.ok();
+          unrelated.identifier.should.eql(identifier);
+          (unrelated.isValid === undefined).should.equal(true, 'the unrelated record was written');
+          const addressed = await col().find({ identifier: id }).toArray();
+          if (permanent) addressed.length.should.equal(0);
+          else addressed[0].isValid.should.equal(false);
+        });
+      });
     });
   });
 
