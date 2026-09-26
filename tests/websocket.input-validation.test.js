@@ -400,14 +400,16 @@ describe('WebSocket database input validation', function () {
     // without one (expectation changed from created_at + eventType alone).
     // CHANGED EXPECTATION (BF-122 / JL-1): it also carries isValid: {$ne: false},
     // because a deleted record is not a copy of a new one.
+    // CHANGED EXPECTATION (BF-141): a stored identity of "" is no identity,
+    // like null or absent; the list is the server's own, not client input.
     treatmentCollection.queries[0].should.eql({
       created_at: {$eq: '2026-04-01T00:00:01.000Z'},
       eventType: {$eq: 'Meal Bolus'},
-      syncIdentifier: {$eq: null},
-      id: {$eq: null},
-      uuid: {$eq: null},
-      NSCLIENT_ID: {$eq: null},
-      identifier: {$eq: null},
+      syncIdentifier: {$in: [null, '']},
+      id: {$in: [null, '']},
+      uuid: {$in: [null, '']},
+      NSCLIENT_ID: {$in: [null, '']},
+      identifier: {$in: [null, '']},
       isValid: {$ne: false}
     });
     treatmentCollection.queries[1].created_at.should.eql({

@@ -262,4 +262,113 @@ describe('Same-time treatments are kept apart (BF-121)', function () {
       docs.map(function (d) { return d.carbs; }).should.eql([20]);
     });
   });
+
+  // An empty identity field is no identity (BF-141). A client that sends
+  // `identifier: ""` (or an empty syncIdentifier, id, uuid or NSCLIENT_ID)
+  // has not told its records apart: its re-send is the same record, as a
+  // re-send with the field null or absent is, whichever of the three forms
+  // is stored. A real identity still has to match exactly.
+  describe('an empty identity is no identity (BF-141)', function () {
+    var EMPTY_FORMS = [
+      { name: '""', set: function (o, f) { o[f] = ''; } }
+      , { name: 'null', set: function (o, f) { o[f] = null; } }
+      , { name: 'absent', set: function (o, f) { delete o[f]; } }
+    ];
+
+    function carb (field, form) {
+      var o = careportal(20, { eventType: 'Carb Correction' });
+      form.set(o, field);
+      return o;
+    }
+
+    it('stores the same v1 treatment POSTed twice with identifier "" once', async function () {
+      await post(careportal(20, { identifier: '' }));
+      await post(careportal(20, { identifier: '' }));
+      var docs = await stored();
+      docs.length.should.equal(1, 'identifier "" re-sent: expected 1 record, got ' + docs.length);
+    });
+
+    ['identifier', 'syncIdentifier', 'id', 'uuid', 'NSCLIENT_ID'].forEach(function (field) {
+      EMPTY_FORMS.forEach(function (storedForm) {
+        EMPTY_FORMS.forEach(function (sentForm) {
+          it('API v1: a re-send with ' + field + ' ' + sentForm.name + ' matches a record stored with it ' + storedForm.name, async function () {
+            await post(carb(field, storedForm));
+            await post(carb(field, sentForm));
+            var docs = await stored();
+            docs.length.should.equal(1, field + ' stored ' + storedForm.name + ', re-sent ' + sentForm.name + ': expected 1 record, got ' + docs.length);
+          });
+        });
+      });
+
+      it('API v1: a record stored with ' + field + ' "" before this change is matched by a re-send', async function () {
+        var o = carb(field, EMPTY_FORMS[0]);
+        o.utcOffset = 0;
+        await col().insertOne(o);
+        await post(carb(field, EMPTY_FORMS[0]));
+        var docs = await stored();
+        docs.length.should.equal(1);
+      });
+    });
+
+    ['syncIdentifier', 'id', 'uuid', 'NSCLIENT_ID'].forEach(function (field) {
+      it('API v1: a real ' + field + ' is not matched by a record with it "", or the reverse', async function () {
+        var real = careportal(20, { eventType: 'Carb Correction' });
+        real[field] = 'client-1';
+        await post(carb(field, EMPTY_FORMS[0]));
+        await post(real);
+        await post(carb(field, EMPTY_FORMS[0]));
+        var docs = await stored();
+        docs.length.should.equal(2);
+        docs.filter(function (d) { return d[field] === 'client-1'; }).length.should.equal(1);
+      });
+    });
+
+    it('API v1: an entry with identifier "" does not replace an API v3 record', async function () {
+      await col().insertOne({ identifier: 'v3-record', eventType: 'Meal Bolus', created_at: T, date: Date.parse(T),
+        carbs: 20, srvModified: 1549784400000, srvCreated: 1549784400000 });
+      await post(careportal(20, { identifier: '' }));
+      var docs = await stored();
+      docs.length.should.equal(2);
+    });
+
+    it('API v1: two same-time entries with identifier "" and different carbs are still two', async function () {
+      await post(careportal(20, { identifier: '' }));
+      await post(careportal(15, { identifier: '' }));
+      var docs = await stored();
+      docs.map(function (d) { return d.carbs; }).should.eql([20, 15]);
+    });
+
+    // The socket's exact match: another amount at the same time and type is
+    // answered with the stored record when neither has an identity (the known
+    // limit above), so it must be for an empty identity too. The amounts
+    // differ so that the "similar" match cannot answer instead.
+    ['identifier', 'syncIdentifier', 'id', 'uuid'].forEach(function (field) {
+      EMPTY_FORMS.forEach(function (storedForm) {
+        it('websocket dbAdd: an exact match with ' + field + ' "" finds a record stored with it ' + storedForm.name, async function () {
+          var first = { eventType: 'Carb Correction', created_at: T, carbs: 20 };
+          storedForm.set(first, field);
+          await col().insertOne(first);
+          var again = { eventType: 'Carb Correction', created_at: T, carbs: 15 };
+          again[field] = '';
+          await dbAdd(again);
+          var docs = await stored();
+          docs.map(function (d) { return d.carbs; }).should.eql([20], field + ' stored ' + storedForm.name + ', dbAdd ""');
+        });
+      });
+    });
+
+    it('websocket dbAdd: a real client id is not answered with a record whose id is ""', async function () {
+      await col().insertOne({ eventType: 'Carb Correction', created_at: T, carbs: 20, id: '' });
+      await dbAdd({ eventType: 'Carb Correction', created_at: T, carbs: 15, id: 'client-a' });
+      var docs = await stored();
+      docs.map(function (d) { return d.carbs; }).should.eql([20, 15]);
+    });
+
+    it('websocket dbAdd: a write with identifier "" is not answered with an API v3 record', async function () {
+      await col().insertOne({ identifier: 'v3-record', eventType: 'Carb Correction', created_at: T, carbs: 20 });
+      await dbAdd({ eventType: 'Carb Correction', created_at: T, carbs: 15, identifier: '' });
+      var docs = await stored();
+      docs.map(function (d) { return d.carbs; }).should.eql([20, 15]);
+    });
+  });
 });

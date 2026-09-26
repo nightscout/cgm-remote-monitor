@@ -191,15 +191,17 @@ describe('legacy storage selector hardening', function () {
     });
     // BF-121: without a client identity the fallback also requires no stored
     // identity and equal carbs and insulin (expectation changed from
-    // created_at + eventType alone).
+    // created_at + eventType alone). CHANGED EXPECTATION (BF-141): a stored
+    // identity of "" is no identity, like null or absent; the list is the
+    // server's own, not client input.
     capturedOperations[1].replaceOne.filter.should.deepEqual({
       created_at: {$eq: fallback.created_at},
       eventType: {$eq: 'Note'},
-      syncIdentifier: {$eq: null},
-      id: {$eq: null},
-      uuid: {$eq: null},
-      NSCLIENT_ID: {$eq: null},
-      identifier: {$eq: null},
+      syncIdentifier: {$in: [null, '']},
+      id: {$in: [null, '']},
+      uuid: {$in: [null, '']},
+      NSCLIENT_ID: {$in: [null, '']},
+      identifier: {$in: [null, '']},
       carbs: {$eq: null},
       insulin: {$eq: null}
     });
