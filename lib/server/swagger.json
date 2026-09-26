@@ -30,7 +30,7 @@
           {
             "name": "spec",
             "in": "path",
-            "description": "entry id, such as `55cf81bc436037528ec75fa5` or a type filter such\nas `sgv`, `mbg`, etc.\n",
+            "description": "entry id, such as `55cf81bc436037528ec75fa5` or a type filter such\nas `sgv`, `mbg`, etc. An id that names no entry answers 200 with\nan empty array.\n",
             "required": true,
             "schema": {
               "type": "string",

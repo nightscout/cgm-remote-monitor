@@ -99,6 +99,9 @@ describe('legacy storage selector hardening', function () {
     for (const name of ['activity', 'food']) {
       var capturedOperations;
       var collection = {
+        // BF-122: food reads the records a batch replaces (for srvCreated and
+        // identifier) before it writes; none are stored here.
+        find: function () { return { toArray: async function () { return []; } }; },
         bulkWrite: async function (operations) {
           capturedOperations = operations;
           return {upsertedIds: {}};
