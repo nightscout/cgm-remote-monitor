@@ -15,7 +15,7 @@ var fs = require('fs')
 function configure () {
   const self = { };
 
-  self.prepareEnv = function prepareEnv({ apiSecret, useHttps, authDefaultRoles, enable }) {
+  self.prepareEnv = function prepareEnv({ apiSecret, useHttps, authDefaultRoles, enable, authFailDelay = 0 }) {
 
     if (useHttps) {
       process.env.NODE_TLS_REJECT_UNAUTHORIZED = '0';
@@ -37,7 +37,7 @@ function configure () {
 
     env.settings.authDefaultRoles = authDefaultRoles;
     env.settings.enable = enable;
-    env.settings.authFailDelay = 0;
+    env.settings.authFailDelay = authFailDelay;
 
     return env;
   };
@@ -105,7 +105,8 @@ function configure () {
     useHttps = true,
     authDefaultRoles = '',
     enable = ['careportal', 'api'],
-    storageSocket = null
+    storageSocket = null,
+    authFailDelay = 0
     }) {
 
     return new Promise(function (resolve, reject) {
@@ -115,7 +116,7 @@ function configure () {
           hasBooted = false
           ;
 
-        instance.env = self.prepareEnv({ apiSecret, useHttps, authDefaultRoles, enable });
+        instance.env = self.prepareEnv({ apiSecret, useHttps, authDefaultRoles, enable, authFailDelay });
 
         self.wares = require('../../../lib/middleware/')(instance.env);
         instance.app = require('express')();
