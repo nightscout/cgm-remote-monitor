@@ -10,6 +10,10 @@ function matchesValue (actual, condition) {
     if (Object.prototype.hasOwnProperty.call(condition, '$eq')) {
       return actual === condition.$eq;
     }
+    // The dedup lookups skip deleted records with {isValid: {$ne: false}} (BF-122 / JL-1).
+    if (Object.prototype.hasOwnProperty.call(condition, '$ne')) {
+      return actual !== condition.$ne;
+    }
     if (Object.prototype.hasOwnProperty.call(condition, '$gte') && actual < condition.$gte) {
       return false;
     }
@@ -304,9 +308,11 @@ describe('WebSocket database input validation', function () {
       data: {defaultProfile: 'new', startDate: '2026-01-01T00:00:00.000Z'}
     });
 
-    collections.treatments.queries[0].should.eql({NSCLIENT_ID: {$eq: '$ne'}});
+    // CHANGED EXPECTATION (BF-122 / JL-1): was the literal selector alone, now it also
+    // carries isValid: {$ne: false}, because a deleted record is not a copy of a new one.
+    collections.treatments.queries[0].should.eql({NSCLIENT_ID: {$eq: '$ne'}, isValid: {$ne: false}});
     collections.devicestatus.queries[0].should.eql({
-      created_at: {$eq: '2026-01-01T00:00:00.000Z'}
+      created_at: {$eq: '2026-01-01T00:00:00.000Z'}, isValid: {$ne: false}
     });
     collections.profile.queries[0].should.eql({
       startDate: {$eq: '2026-01-01T00:00:00.000Z'}
@@ -390,9 +396,12 @@ describe('WebSocket database input validation', function () {
 
     await updateStarted;
     replyCount.should.equal(0);
+    // CHANGED EXPECTATION (BF-122 / JL-1): was the literal selector alone, now it also
+    // carries isValid: {$ne: false}, because a deleted record is not a copy of a new one.
     treatmentCollection.queries[0].should.eql({
       created_at: {$eq: '2026-04-01T00:00:01.000Z'},
-      eventType: {$eq: 'Meal Bolus'}
+      eventType: {$eq: 'Meal Bolus'},
+      isValid: {$ne: false}
     });
     treatmentCollection.queries[1].created_at.should.eql({
       $gte: '2026-03-31T23:59:59.000Z',
