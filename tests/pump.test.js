@@ -253,6 +253,64 @@ describe('pump', function ( ) {
   });
 
 
+  function suspendedCheck (extendedSettings, pumpFields) {
+    var ctx = {
+      settings: {
+        units: 'mg/dl'
+      }
+      , notifications: require('../lib/notifications')(env, top_ctx)
+      , language: language
+      , levels: levels
+    };
+    ctx.notifications.initRequests();
+
+    var suspendedStatuses = cloneDeep(statuses);
+    suspendedStatuses[1].pump.status.suspended = true;
+    Object.assign(suspendedStatuses[1].pump, pumpFields);
+
+    var sbx = sandbox.clientInit(ctx, now.valueOf(), {
+      devicestatus: suspendedStatuses
+    });
+    sbx.extendedSettings = extendedSettings;
+    pump.setProperties(sbx);
+    pump.checkNotifications(sbx);
+
+    return ctx.notifications.findHighestAlarm('Pump');
+  }
+
+  it('generate a warning when the pump is suspended and PUMP_WARN_ON_SUSPEND is true', function (done) {
+    var highest = suspendedCheck({ 'enableAlerts': true, 'warnOnSuspend': true });
+    should.exist(highest);
+    highest.level.should.equal(levels.WARN);
+    highest.title.should.equal('Pump Suspended');
+
+    done();
+  });
+
+  it('not generate an alert when the pump is suspended and PUMP_WARN_ON_SUSPEND is off', function (done) {
+    var highest = suspendedCheck({ 'enableAlerts': true });
+    should.not.exist(highest);
+
+    done();
+  });
+
+  it('read warnOnSuspend from the plugin settings, not from the devicestatus', function (done) {
+    var highest;
+    (function () {
+      highest = suspendedCheck({ 'enableAlerts': true }, { warnOnSuspend: true });
+    }).should.not.throw();
+    should.not.exist(highest);
+
+    (function () {
+      highest = suspendedCheck({ 'enableAlerts': true, 'warnOnSuspend': true }, { warnOnSuspend: false });
+    }).should.not.throw();
+    should.exist(highest);
+    highest.level.should.equal(levels.WARN);
+    highest.title.should.equal('Pump Suspended');
+
+    done();
+  });
+
   it('generate an alert when battery is low', function (done) {
     var ctx = {
       settings: {
@@ -351,6 +409,66 @@ describe('pump', function ( ) {
     should.not.exist(highest);
 
     done();
+  });
+
+  describe('after an AAPS open-ended loop disable', function () {
+    var H = 60 * 60 * 1000;
+    var alertTime = moment(statuses[1].created_at).add(1, 'hours').valueOf();
+    var source = { eventType: 'OpenAPS Offline', isValid: true, pumpType: 'X', pumpSerial: 'S', enteredBy: 'AndroidAPS' };
+    var openEndedShapes = {
+      'duration 2147483647 minutes': { duration: 2147483647, durationInMilliseconds: 2147483647 * 60000, originalDuration: 2147483647 * 60000 },
+      '10 years with originalDuration 0': { duration: 5256000, durationInMilliseconds: 5256000 * 60000, originalDuration: 0 }
+    };
+
+    function processed (treatments) {
+      var ddata = require('../lib/data/ddata')();
+      ddata.treatments = treatments;
+      ddata.processTreatments(true);
+      return ddata.treatments;
+    }
+
+    function highestAlarm (treatments) {
+      var ctx = {
+        settings: {
+          units: 'mg/dl'
+        }
+        , notifications: require('../lib/notifications')(env, top_ctx)
+        , language: language
+        , levels: levels
+      };
+
+      ctx.notifications.initRequests();
+
+      var sbx = sandbox.clientInit(ctx, alertTime, {
+        devicestatus: statuses
+        , treatments: processed(treatments)
+      });
+      sbx.extendedSettings = { 'enableAlerts': true };
+      pump.setProperties(sbx);
+      pump.checkNotifications(sbx);
+
+      return ctx.notifications.findHighestAlarm('Pump');
+    }
+
+    Object.keys(openEndedShapes).forEach(function (shape) {
+      it('generate an alert for stale pump data once the loop is re-enabled (' + shape + ')', function () {
+        var highest = highestAlarm([
+          Object.assign({}, source, openEndedShapes[shape], { mode: 'DISABLED_LOOP', mills: alertTime - 6 * H })
+          , Object.assign({}, source, { mode: 'CLOSED_LOOP', mills: alertTime - 5 * H, duration: 0, durationInMilliseconds: 0, originalDuration: 0 })
+        ]);
+
+        should.exist(highest);
+        highest.level.should.equal(levels.URGENT);
+      });
+
+      it('not generate an alert for stale pump data while the loop is still disabled (' + shape + ')', function () {
+        var highest = highestAlarm([
+          Object.assign({}, source, openEndedShapes[shape], { mode: 'DISABLED_LOOP', mills: alertTime - 6 * H })
+        ]);
+
+        should.not.exist(highest);
+      });
+    });
   });
 
   it('not generate an alert for a stale pump data, when there is an offline marker', function (done) {
