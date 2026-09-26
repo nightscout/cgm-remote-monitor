@@ -199,6 +199,39 @@ describe('JL-1: a soft-deleted record (isValid false) stops counting', function 
     (await v1('get', '/profile.json').expect(200)).body.filter((p) => p.defaultProfile === newer).length.should.equal(0);
   });
 
+  describe('a profile search by date with a deleted profile of the same date', () => {
+    // Profile date is typed as text on v1 find: find[date]=20210304 matches the
+    // text date only, not a numeric one.
+    const marker = tag('profile-date');
+    const profiles = (query) => v1('get', '/profiles/').query(Object.assign({ 'find[defaultProfile]': marker }, query)).expect(200)
+      .then((res) => res.body.map((p) => p.tag).sort());
+
+    before(async () => {
+      const startDate = new Date().toISOString();
+      await col('profile').insertMany([
+        { startDate, date: '20210304', defaultProfile: marker, tag: 'live', store: {} },
+        { startDate, date: '20210304', defaultProfile: marker, tag: 'deleted', isValid: false, store: {} },
+        { startDate, date: 1614816000000, defaultProfile: marker, tag: 'numeric', store: {} }
+      ]);
+    });
+
+    it('find[date] returns the live profile and leaves out the deleted one', async () => {
+      (await profiles({ 'find[date]': '20210304' })).should.eql(['live']);
+    });
+
+    it('find[date] with find[isValid]=false returns the deleted one only', async () => {
+      (await profiles({ 'find[date]': '20210304', 'find[isValid]': 'false' })).should.eql(['deleted']);
+    });
+
+    it('find[date] as text does not match a numeric date', async () => {
+      (await profiles({ 'find[date]': '1614816000000' })).should.eql([]);
+    });
+
+    it('control: with no date filter the two profiles that are not deleted come back', async () => {
+      (await profiles({})).should.eql(['live', 'numeric']);
+    });
+  });
+
   it('a deleted glucose reading is left out of v1 reads; an uploader sending it again stores it again', async () => {
     const device = tag('entry');
     const date = Date.now() - 120000;
