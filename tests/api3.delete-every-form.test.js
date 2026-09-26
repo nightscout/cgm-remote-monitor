@@ -215,6 +215,124 @@ describe('API3: DELETE across stored identifier forms', function () {
     });
   });
 
+  // BF-142: normalizeDoc (`!doc.identifier`) exposes the _id for every falsy
+  // stored identifier, 0 and false included, so a DELETE by that _id must find
+  // the record, as GET does. v1 entries and devicestatus store such values as
+  // sent; v1 treatments refuse a non-string identifier, so treatments are
+  // seeded directly.
+  const FALSY = [
+    { label: '0', value: 0 }
+    , { label: '-0', value: -0, direct: true } // JSON cannot carry -0 or NaN
+    , { label: 'false', value: false }
+    , { label: 'NaN', value: NaN, direct: true }
+  ];
+
+  function colFor (colName) {
+    return self.instance.ctx.store.collection(self.env[colName + '_collection']);
+  }
+
+  const V1_WRITE = {
+    entries: (n, identifier) => [{ type: 'sgv', sgv: 100 + n, date: Date.UTC(2021, 5, 2, 0, n)
+      , dateString: new Date(Date.UTC(2021, 5, 2, 0, n)).toISOString(), device: 'delete-every-form-test', identifier }]
+    , devicestatus: (n, identifier) => ({ device: 'delete-every-form-test'
+      , created_at: new Date(Date.UTC(2021, 5, 3, 0, n)).toISOString(), identifier })
+  };
+
+  async function seedFalsy (colName, n, value) {
+    if (colName === 'treatments') {
+      const _id = new ObjectID();
+      await col().insertOne(sample(n, { _id, identifier: value }));
+      return _id;
+    }
+    await self.instance.post('/api/v1/' + colName)
+      .set('api-secret', self.accessToken)
+      .send(V1_WRITE[colName](n, value))
+      .expect(200);
+    const stored = await colFor(colName).find({ device: 'delete-every-form-test' })
+      .sort({ _id: -1 }).limit(1).toArray();
+    return stored[0]._id;
+  }
+
+  [false, true].forEach(function (permanent) {
+    const suffix = permanent ? '?permanent=true' : '';
+    ['treatments', 'entries', 'devicestatus'].forEach(function (colName) {
+      FALSY.forEach(function (shape, i) {
+        if (shape.direct && colName !== 'treatments') return;
+        it('DELETE' + suffix + ' removes a ' + colName + ' record with identifier ' + shape.label + ', by the _id GET shows', async () => {
+          const _id = await seedFalsy(colName, 20 + i + (permanent ? 10 : 0), shape.value);
+          const stored = await colFor(colName).findOne({ _id });
+          stored.should.have.property('identifier');
+          Object.is(stored.identifier, shape.value).should.equal(true, 'stored as sent: ' + stored.identifier);
+
+          const url = '/api/v3/' + colName + '/' + _id.toHexString();
+          const read = await self.instance.get(url, self.jwt.all).expect(200);
+          read.body.result.identifier.should.equal(_id.toHexString());
+
+          await self.instance.delete(url + suffix, self.jwt.all).expect(200);
+
+          const after = await colFor(colName).findOne({ _id });
+          if (permanent) (after === null).should.equal(true, 'record left after a permanent DELETE');
+          else after.isValid.should.equal(false);
+          await self.instance.get(url, self.jwt.all).expect(permanent ? 404 : 410);
+        });
+      });
+    });
+  });
+
+  // Values normalizeDoc keeps are the record's own identifier, which GET
+  // shows, so the _id does not address the record for a DELETE (BF-117).
+  const KEPT = [
+    { label: '[null]', value: [null] }
+    , { label: '[""]', value: [''] }
+    , { label: '["","other"]', value: ['', 'other'] }
+    , { label: '[0]', value: [0] }
+    , { label: 'Decimal128 0', value: require('mongodb').Decimal128.fromString('0') }
+    , { label: '"own-string"', value: 'own-string' }
+  ];
+
+  [false, true].forEach(function (permanent) {
+    const suffix = permanent ? '?permanent=true' : '';
+    KEPT.forEach(function (shape, i) {
+      it('DELETE' + suffix + ' by _id leaves a treatment whose own identifier is ' + shape.label, async () => {
+        const _id = new ObjectID();
+        await col().insertOne(sample(40 + i, { _id, identifier: shape.value }));
+        const url = '/api/v3/treatments/' + _id.toHexString();
+        const read = await self.instance.get(url, self.jwt.all).expect(200);
+        read.body.result.identifier.should.not.equal(_id.toHexString());
+
+        await self.instance.delete(url + suffix, self.jwt.all).expect(404);
+
+        const after = await col().findOne({ _id });
+        after.should.be.ok();
+        (after.isValid === undefined).should.equal(true, 'the record was written');
+      });
+    });
+  });
+
+  // Every clause still needs the _id to be a form of the requested id: a
+  // DELETE of one record leaves records with falsy or array identifiers that
+  // hold null, "" or 0, under other _ids.
+  [false, true].forEach(function (permanent) {
+    it('DELETE' + (permanent ? '?permanent=true' : '') + ' of one record leaves unrelated records with empty or falsy identifiers', async () => {
+      const target = new ObjectID();
+      await col().insertOne(sample(50, { _id: target, identifier: 0 }));
+      const bystanders = [null, '', 0, false, NaN, [null], [''], ['', 'other'], [0]].map(function (value, i) {
+        return sample(51 + i, { _id: i % 2 ? new ObjectID() : new ObjectID().toHexString(), identifier: value });
+      });
+      bystanders.push(sample(60, { _id: new ObjectID() }));
+      await col().insertMany(bystanders);
+
+      await self.instance.delete('/api/v3/treatments/' + target.toHexString() + (permanent ? '?permanent=true' : ''), self.jwt.all).expect(200);
+
+      (await col().countDocuments({ _id: target })).should.equal(permanent ? 0 : 1);
+      for (const doc of bystanders) {
+        const after = await col().findOne({ _id: doc._id });
+        after.should.be.ok();
+        (after.isValid === undefined).should.equal(true, 'bystander ' + JSON.stringify(doc.identifier) + ' was written');
+      }
+    });
+  });
+
   it('DELETE of an id with no record answers 404', async () => {
     await self.instance.delete('/api/v3/treatments/5f2500000000000000000cff', self.jwt.all).expect(404);
   });
