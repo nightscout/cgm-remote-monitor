@@ -396,11 +396,18 @@ describe('WebSocket database input validation', function () {
 
     await updateStarted;
     replyCount.should.equal(0);
-    // CHANGED EXPECTATION (BF-122 / JL-1): was the literal selector alone, now it also
-    // carries isValid: {$ne: false}, because a deleted record is not a copy of a new one.
+    // BF-121: a write without a client identity matches only a record
+    // without one (expectation changed from created_at + eventType alone).
+    // CHANGED EXPECTATION (BF-122 / JL-1): it also carries isValid: {$ne: false},
+    // because a deleted record is not a copy of a new one.
     treatmentCollection.queries[0].should.eql({
       created_at: {$eq: '2026-04-01T00:00:01.000Z'},
       eventType: {$eq: 'Meal Bolus'},
+      syncIdentifier: {$eq: null},
+      id: {$eq: null},
+      uuid: {$eq: null},
+      NSCLIENT_ID: {$eq: null},
+      identifier: {$eq: null},
       isValid: {$ne: false}
     });
     treatmentCollection.queries[1].created_at.should.eql({
@@ -408,6 +415,8 @@ describe('WebSocket database input validation', function () {
       $lte: '2026-04-01T00:00:03.000Z'
     });
     treatmentCollection.queries[1].insulin.should.eql({$eq: 1});
+    // BF-121: the similar match always requires the eventType (new expectation).
+    treatmentCollection.queries[1].eventType.should.eql({$eq: 'Meal Bolus'});
     releaseUpdate();
 
     var reply = await replyPromise;

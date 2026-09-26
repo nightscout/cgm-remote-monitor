@@ -189,9 +189,49 @@ describe('legacy storage selector hardening', function () {
     capturedOperations[0].replaceOne.filter.should.deepEqual({
       identifier: {$eq: '__proto__'}
     });
+    // BF-121: without a client identity the fallback also requires no stored
+    // identity and equal carbs and insulin (expectation changed from
+    // created_at + eventType alone).
     capturedOperations[1].replaceOne.filter.should.deepEqual({
       created_at: {$eq: fallback.created_at},
-      eventType: {$eq: 'Note'}
+      eventType: {$eq: 'Note'},
+      syncIdentifier: {$eq: null},
+      id: {$eq: null},
+      uuid: {$eq: null},
+      NSCLIENT_ID: {$eq: null},
+      identifier: {$eq: null},
+      carbs: {$eq: null},
+      insulin: {$eq: null}
+    });
+  });
+
+  it('wraps a client identity in the treatment fallback in literal equality (BF-121)', async function () {
+    var capturedOperations;
+    var collection = {
+      bulkWrite: async function (operations) {
+        capturedOperations = operations;
+        return {upsertedIds: {}};
+      },
+      find: function () {
+        return {toArray: async function () { return []; }};
+      }
+    };
+    var storage = storageFor('treatments', collection).api;
+
+    await storage.create([{
+      syncIdentifier: '__proto__',
+      id: '$where',
+      eventType: 'Note',
+      created_at: '2026-01-01T00:02:00.000Z',
+      carbs: 5
+    }]);
+
+    // The identity decides: no null placeholders and no amounts.
+    capturedOperations[0].replaceOne.filter.should.deepEqual({
+      created_at: {$eq: '2026-01-01T00:02:00.000Z'},
+      eventType: {$eq: 'Note'},
+      syncIdentifier: {$eq: '__proto__'},
+      id: {$eq: '$where'}
     });
   });
 
