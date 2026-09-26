@@ -195,11 +195,11 @@ describe('legacy storage selector hardening', function () {
     capturedOperations[1].replaceOne.filter.should.deepEqual({
       created_at: {$eq: fallback.created_at},
       eventType: {$eq: 'Note'},
-      syncIdentifier: {$eq: null},
-      id: {$eq: null},
-      uuid: {$eq: null},
-      NSCLIENT_ID: {$eq: null},
-      identifier: {$eq: null},
+      syncIdentifier: {$in: [null, ''], $not: {$type: 'array'}},
+      id: {$in: [null, ''], $not: {$type: 'array'}},
+      uuid: {$in: [null, ''], $not: {$type: 'array'}},
+      NSCLIENT_ID: {$in: [null, ''], $not: {$type: 'array'}},
+      identifier: {$in: [null, ''], $not: {$type: 'array'}},
       carbs: {$eq: null},
       insulin: {$eq: null}
     });

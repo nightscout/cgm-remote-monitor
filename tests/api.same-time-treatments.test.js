@@ -109,6 +109,47 @@ describe('Same-time treatments are kept apart (BF-121)', function () {
 
   describe('API v1', function () {
 
+    ['identifier', 'syncIdentifier', 'id', 'uuid', 'NSCLIENT_ID'].forEach(function (field) {
+      [false, true].forEach(function (batch) {
+        it('recognises ' + (batch ? 'batch' : 'single') + ' retries with empty, null or absent ' + field, async function () {
+          var original;
+          for (const value of ['', null, undefined, '']) {
+            var docs = [careportal(20, value === undefined ? {} : { [field]: value })];
+            if (batch) docs.push(careportal(30, Object.assign({ created_at: T5 }, value === undefined ? {} : { [field]: value })));
+            await post(batch ? docs : docs[0]);
+            var saved = await stored();
+            saved.length.should.equal(batch ? 2 : 1);
+            if (!original) original = saved;
+            saved.forEach(function (doc, i) {
+              String(doc._id).should.equal(String(original[i]._id));
+              doc.srvCreated.should.equal(original[i].srvCreated);
+            });
+          }
+        });
+      });
+
+      ['own-id', ['', 'own-id']].forEach(function (identity) {
+        it('does not replace a record with its own ' + field + ' ' + JSON.stringify(identity), async function () {
+          await col().insertOne(careportal(20, { [field]: identity }));
+          await post(careportal(20));
+          (await stored()).length.should.equal(2);
+        });
+      });
+    });
+
+    [undefined, null].forEach(function (identifier) {
+      it('keeps srvCreated when retrying an anonymous treatment with identifier ' + identifier, async function () {
+        var doc = careportal(20, identifier === undefined ? {} : { identifier: identifier });
+        await post(doc);
+        var first = (await stored())[0];
+        await post(doc);
+        var again = await stored();
+        again.length.should.equal(1);
+        again[0].srvCreated.should.equal(first.srvCreated);
+        again[0].srvModified.should.be.above(first.srvModified);
+      });
+    });
+
     it('keeps two Loop carb entries at the same time with different syncIdentifiers (#8185)', async function () {
       await post(loopCarb(16, 'sync-a'));
       await post(loopCarb(4, 'sync-b'));
