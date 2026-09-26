@@ -39,6 +39,7 @@ describe('settings', function ( ) {
       , 'UNITS'
       , 'TIME_FORMAT'
       , 'NIGHT_MODE'
+      , 'SHOW_SECONDS'
       , 'SHOW_RAWBG'
       , 'CUSTOM_TITLE'
       , 'THEME'
@@ -60,7 +61,7 @@ describe('settings', function ( ) {
       , 'SCALE_Y'
     ];
 
-    expected.length.should.equal(24);
+    expected.length.should.equal(25);
 
     var seen = { };
     settings.eachSettingAsEnv(function markSeenNames(name) {
