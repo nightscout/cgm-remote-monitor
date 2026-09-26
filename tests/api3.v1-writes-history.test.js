@@ -283,10 +283,10 @@ describe('BF-122: API v1 and websocket writes appear in API v3 history', functio
     for (let i = 1; i < values.length; i++) values[i].should.be.above(values[i - 1]);
   });
 
-  // Decision pending (see the PR): v1 DELETE and websocket dbRemove still remove
-  // the record outright, so history has nothing to report. This pins today's
-  // behaviour so a change to it is deliberate.
-  it('a v1 DELETE still removes the record, and history does not report it (pinned, decision pending)', async () => {
+  // Kept by decision (maintainer, 2026-09-26; see the PR): v1 DELETE and websocket
+  // dbRemove still remove the record outright, so history has nothing to report.
+  // This pins that behaviour so a change to it is deliberate.
+  it('a v1 DELETE still removes the record, and history does not report it (pinned: hard delete kept)', async () => {
     const created = await self.instance.post('/api/v3/treatments', self.jwt.all)
       .send({ eventType: 'Note', date: Date.now(), utcOffset: 0, app: 'bf122', device: 'bf122', notes: tag('t-del') })
       .expect(201);
