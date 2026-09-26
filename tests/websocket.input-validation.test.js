@@ -390,15 +390,24 @@ describe('WebSocket database input validation', function () {
 
     await updateStarted;
     replyCount.should.equal(0);
+    // BF-121: a write without a client identity matches only a record
+    // without one (expectation changed from created_at + eventType alone).
     treatmentCollection.queries[0].should.eql({
       created_at: {$eq: '2026-04-01T00:00:01.000Z'},
-      eventType: {$eq: 'Meal Bolus'}
+      eventType: {$eq: 'Meal Bolus'},
+      syncIdentifier: {$eq: null},
+      id: {$eq: null},
+      uuid: {$eq: null},
+      NSCLIENT_ID: {$eq: null},
+      identifier: {$eq: null}
     });
     treatmentCollection.queries[1].created_at.should.eql({
       $gte: '2026-03-31T23:59:59.000Z',
       $lte: '2026-04-01T00:00:03.000Z'
     });
     treatmentCollection.queries[1].insulin.should.eql({$eq: 1});
+    // BF-121: the similar match always requires the eventType (new expectation).
+    treatmentCollection.queries[1].eventType.should.eql({$eq: 'Meal Bolus'});
     releaseUpdate();
 
     var reply = await replyPromise;
