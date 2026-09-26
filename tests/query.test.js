@@ -200,6 +200,58 @@ describe('query', function ( ) {
       opts.delta.$gte.should.equal('1.5');
     });
 
+    describe('the numeric date and sgv default (BF-106)', function () {
+      // A storage module that sets no `walker` has always had `date` and
+      // `sgv` read as numbers. Naming a collection keeps that for each of
+      // the two fields its schema does not type.
+      const activityOpts = require('../lib/server/activity').queryOpts;
+
+      function activity (queryString) {
+        return query(qs.parse(queryString), Object.assign({ }, activityOpts));
+      }
+
+      it('reads activity date and sgv bounds as numbers', function () {
+        const q = activity('find[date][$gte]=1695600000000&find[sgv][$lt]=180');
+        q.date.$gte.should.equal(1695600000000);
+        q.sgv.$lt.should.equal(180);
+      });
+
+      it('does not truncate a fractional bound', function () {
+        activity('find[sgv][$gte]=119.5').sgv.$gte.should.equal(119.5);
+      });
+
+      it('reads each element of an $in list', function () {
+        activity('find[sgv][$in][]=100&find[sgv][$in][]=120').sgv.$in.should.eql([100, 120]);
+      });
+
+      it('leaves every other activity field as text', function () {
+        const q = activity('find[steps][$gte]=10&find[activitylevel]=12345');
+        q.steps.$gte.should.equal('10');
+        q.activitylevel.should.equal('12345');
+      });
+
+      it('reads devicestatus sgv as a number, and date from the schema', function () {
+        const q = find('devicestatus', 'find[sgv][$gte]=120&find[date][$gte]=1.5', { dateField: 'created_at' });
+        q.sgv.$gte.should.equal(120);
+        q.date.$gte.should.equal(1.5);
+      });
+
+      it('keeps devicestatus text fields as text', function () {
+        find('devicestatus', 'find[device]=12345', { dateField: 'created_at' }).device.should.equal('12345');
+      });
+
+      it('gives nothing to a caller that passes walker: {}, as profile does', function () {
+        const q = find('profile', 'find[date][$gte]=5&find[sgv][$gte]=6', { dateField: 'startDate', walker: { } });
+        q.date.$gte.should.equal('5');
+        q.sgv.$gte.should.equal('6');
+      });
+
+      it('lets an explicit walker replace it, as treatments does', function () {
+        const q = find('treatments', 'find[sgv][$gte]=120', { dateField: 'created_at', walker: { notes: query.parseRegEx } });
+        q.sgv.$gte.should.equal('120');
+      });
+    });
+
     describe('the table and the code that uses it', function () {
       it('has an entry for every collection wired to it', function () {
         WIRED.forEach(function (collection) {
