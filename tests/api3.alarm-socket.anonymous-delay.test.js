@@ -19,10 +19,19 @@ require('should');
  * A subscriber with no credential has nothing to guess with: whatever the
  * delay protects, it gets the deployment's anonymous default permissions and
  * nothing else, the same answer it gets from an address that never failed.
- * So it is answered at once. Everything that presents a credential, valid or
- * not, still waits exactly as before; the rows below that assert the delay is
- * still there are as much the point of this file as the one that asserts it
- * is gone.
+ * So it is answered at once. The same holds for the connect-time admission,
+ * which never carries a credential: on a readable site every socket, signed
+ * in or not, is in the delivery room as soon as it connects, whatever the
+ * delay state of its address, as on 15.0.8 and on an address that never
+ * failed. Everything that presents a credential, valid or not, still waits
+ * exactly as before before the credential is checked, and can only add to
+ * what the admission gave; the rows below that assert the delay is still
+ * there are as much the point of this file as the ones that assert it is
+ * gone.
+ *
+ * CHANGED marks the expectations the wider admission changed by design: on a
+ * readable site a viewer whose credentialed subscribe is still held already
+ * receives the alarm through the admission.
  *
  * Addresses are chosen per case through X-Forwarded-For, which this fixture
  * resolves the client address from (TRUST_PROXY unset), so each case starts
@@ -38,6 +47,7 @@ describe('Alarm socket and the failed-login delay (BF-80)', function () {
     ;
 
   const API_SECRET = 'this is my long pass phrase'
+    , API_SECRET_HASH = crypto.createHash('sha1').update(API_SECRET).digest('hex')
     // A different wrong secret per use: a failed credential is keyed as well
     // as the address, and a shared one would couple the scenarios.
     , wrongHash = tag => crypto.createHash('sha1').update('not the secret ' + tag).digest('hex')
@@ -93,6 +103,32 @@ describe('Alarm socket and the failed-login delay (BF-80)', function () {
   }
 
   /*
+   * Y without a subscribe: connect, emit one alarm EMIT_AFTER ms later, and
+   * report when (if at all) it arrived.
+   */
+  async function silentViewer (inst, address) {
+    const socket = await connect(inst, address);
+    await new Promise(r => setTimeout(r, EMIT_AFTER));
+    const tag = 'bf80-silent-' + address + '-' + Date.now();
+    const emittedAt = Date.now();
+    inst.ctx.bus.emit('notification', Object.assign({}, ALARM, { message: tag }));
+    await new Promise(r => setTimeout(r, PROMPT));
+    const first = socket.received.find(r => r.message === tag);
+    return { alarmAfterEmitMs: first ? first.at - emittedAt : null };
+  }
+
+  // Emit a second alarm on `socket` after its subscribe has resolved: the
+  // positive control for a viewer that missed the first one.
+  async function emitAgain (inst, socket) {
+    const tag = 'bf80-again-' + Date.now() + '-' + Math.random();
+    const emittedAt = Date.now();
+    inst.ctx.bus.emit('notification', Object.assign({}, ALARM, { message: tag }));
+    await new Promise(r => setTimeout(r, PROMPT));
+    const first = socket.received.find(r => r.message === tag);
+    return first ? first.at - emittedAt : null;
+  }
+
+  /*
    * Y: connect, subscribe with `message`, and while the acknowledgement is
    * outstanding emit one alarm EMIT_AFTER ms in. Reports when the ack came,
    * what it said, and when (if at all) the alarm arrived.
@@ -126,10 +162,20 @@ describe('Alarm socket and the failed-login delay (BF-80)', function () {
 
     const first = socket.received.find(r => r.message === tag);
     return {
-      ackMs: ack.at - sent
+      socket
+      , ackMs: ack.at - sent
       , ack: ack.data
       , alarmAfterEmitMs: first ? first.at - emittedAt : null
     };
+  }
+
+  // Send an ack for a group of our own from `socket` and report whether it
+  // reached the notifications layer.
+  async function tryAck (inst, socket) {
+    const group = 'bf80-ack-' + Date.now() + '-' + Math.random();
+    socket.emit('ack', 2, group, 1000);
+    await new Promise(r => setTimeout(r, 300));
+    return inst.acks.some(a => a.group === group);
   }
 
   /*
@@ -158,7 +204,37 @@ describe('Alarm socket and the failed-login delay (BF-80)', function () {
     , wrongSecret: async () => {
       const address = freshAddress();
       await fail(self.readable, address, FAILURES);
-      return viewer(self.readable, address, { secret: wrongHash(address) });
+      const y = await viewer(self.readable, address, { secret: wrongHash(address) });
+      y.ackReached = await tryAck(self.readable, y.socket);
+      return y;
+    }
+    // Positive control for the ack check above: the right secret, no failures.
+    , rightSecret: async () => {
+      const y = await viewer(self.readable, freshAddress(), { secret: API_SECRET_HASH });
+      y.ackReached = await tryAck(self.readable, y.socket);
+      return y;
+    }
+    , deniedWrongSecret: async () => {
+      const address = freshAddress();
+      await fail(self.denied, address, FAILURES);
+      return viewer(self.denied, address, { secret: wrongHash(address) });
+    }
+    , deniedValidToken: async () => {
+      const address = freshAddress();
+      await fail(self.denied, address, FAILURES);
+      const y = await viewer(self.denied, address, { jwtToken: self.deniedJwt });
+      y.againAfterEmitMs = await emitAgain(self.denied, y.socket);
+      return y;
+    }
+    , readableSilent: async () => {
+      const address = freshAddress();
+      await fail(self.readable, address, FAILURES);
+      return silentViewer(self.readable, address);
+    }
+    , deniedSilent: async () => {
+      const address = freshAddress();
+      await fail(self.denied, address, FAILURES);
+      return silentViewer(self.denied, address);
     }
     , ignoredField: async () => {
       const address = freshAddress();
@@ -178,7 +254,9 @@ describe('Alarm socket and the failed-login delay (BF-80)', function () {
     , afterAnonymous: async () => {
       const address = freshAddress();
       await fail(self.readable, address, FAILURES);
-      // Five anonymous viewers subscribe while the address is held.
+      // Five sockets connect and never subscribe (five admissions), and five
+      // anonymous viewers subscribe, while the address is held.
+      await Promise.all([0, 1, 2, 3, 4].map(() => connect(self.readable, address)));
       const reads = await Promise.all([0, 1, 2, 3, 4].map(async function anonymous () {
         const socket = await connect(self.readable, address);
         const data = await new Promise(r => socket.emit('subscribe', { secret: null }, r));
@@ -199,6 +277,15 @@ describe('Alarm socket and the failed-login delay (BF-80)', function () {
 
     const auth = await authSubject(self.readable.ctx.authorization.storage, ['read'], self.readable.app);
     self.jwt = auth.jwt.read;
+    const deniedAuth = await authSubject(self.denied.ctx.authorization.storage, ['read'], self.denied.app);
+    self.deniedJwt = deniedAuth.jwt.read;
+
+    // Record acks that reach the notifications layer instead of acting on
+    // them; each ack carries a group of its own.
+    self.readable.acks = [];
+    self.readable.ctx.notifications.ack = function recordAck (level, group) {
+      self.readable.acks.push({ level, group });
+    };
 
     self.notified = [];
     self.readable.ctx.bus.on('admin-notify', function onNotify (n) { self.notified.push(n); });
@@ -246,34 +333,99 @@ describe('Alarm socket and the failed-login delay (BF-80)', function () {
   });
 
 
-  // ------------------------------------------------------------ unchanged
+  // ------------------------------------------------ the connect-time admission
 
-  // Every guess carries a credential, and every credential still waits.
-  it('still holds a viewer presenting a wrong secret for the full delay', () => {
+  // A socket that never subscribes is admitted with the anonymous default,
+  // and on a readable site that is read, whatever the delay state.
+  it('delivers the alarm at once to a readable-site socket that never subscribes, on a throttled address', () => {
+    const y = self.y.readableSilent;
+    (y.alarmAfterEmitMs === null).should.equal(false, 'alarm not delivered within ' + PROMPT + ' ms of emission');
+    y.alarmAfterEmitMs.should.be.below(PROMPT);
+  });
+
+  // BF-75: on a denied site the admission grants nothing, so a socket that
+  // never subscribes receives nothing -- no return to the 15.0.8 broadcast.
+  it('delivers nothing to a denied-site socket that never subscribes, on a throttled address', () => {
+    const y = self.y.deniedSilent;
+    (y.alarmAfterEmitMs === null).should.equal(true, 'alarm delivered to an unentitled socket');
+  });
+
+
+  // ------------------------------------------------ the credential check still waits
+
+  // Every guess carries a credential, and every credential still waits before
+  // it is checked.
+  it('still holds the credential check of a wrong secret for the full delay', () => {
     const y = self.y.wrongSecret;
     y.ack.success.should.equal(false);
     y.ackMs.should.be.aboveOrEqual(DELAY * 0.8);
-    (y.alarmAfterEmitMs === null).should.equal(true, 'held viewer received the first emission');
+  });
+
+  // CHANGED (wider admission, 2026-09-26): this viewer used to miss the first
+  // emission; it is now in the room through the admission, with the anonymous
+  // default, while its subscribe is held.
+  it('delivers the alarm at once to a readable-site viewer whose wrong-secret subscribe is held', () => {
+    const y = self.y.wrongSecret;
+    (y.alarmAfterEmitMs === null).should.equal(false, 'alarm not delivered within ' + PROMPT + ' ms of emission');
+    y.alarmAfterEmitMs.should.be.below(PROMPT);
+  });
+
+  // The admission gave read and nothing else; the failed subscribe adds
+  // nothing, so an ack from this socket goes nowhere.
+  it('gives a wrong secret no permission beyond the anonymous default', () => {
+    self.y.wrongSecret.ackReached.should.equal(false, 'ack from a wrong-secret socket reached notifications');
+    // The control: the same ack from a socket with the right secret arrives.
+    self.y.rightSecret.ack.ack.should.equal(true);
+    self.y.rightSecret.ackReached.should.equal(true, 'ack from an admin socket did not arrive');
+  });
+
+  it('still holds the credential check of a wrong secret on a denied site, and delivers nothing', () => {
+    const y = self.y.deniedWrongSecret;
+    y.ack.success.should.equal(false);
+    y.ackMs.should.be.aboveOrEqual(DELAY * 0.8);
+    (y.alarmAfterEmitMs === null).should.equal(true, 'alarm delivered to an unentitled socket');
   });
 
   // A field this path does not read still counts as presenting something, so
   // a message is never answered as anonymous because it put its credential in
   // an unexpected place.
-  it('still holds a viewer whose only credential is in a field this path ignores', () => {
+  it('still holds the subscribe of a viewer whose only credential is in a field this path ignores', () => {
     const y = self.y.ignoredField;
     y.ackMs.should.be.aboveOrEqual(DELAY * 0.8);
-    (y.alarmAfterEmitMs === null).should.equal(true, 'held viewer received the first emission');
   });
 
-  // Option 2 leaves a signed-in viewer where it was: a valid credential is
-  // only known to be valid once it has been checked, and it is checked after
-  // the wait.
-  it('still holds a viewer presenting a valid web token for the full delay', () => {
+  // CHANGED (wider admission): see the wrong-secret case above.
+  it('delivers the alarm at once to a readable-site viewer whose ignored-field subscribe is held', () => {
+    const y = self.y.ignoredField;
+    (y.alarmAfterEmitMs === null).should.equal(false, 'alarm not delivered within ' + PROMPT + ' ms of emission');
+  });
+
+  // A valid credential is only known to be valid once it has been checked, and
+  // it is checked after the wait.
+  it('still holds the credential check of a valid web token for the full delay', () => {
     const y = self.y.validToken;
     y.ack.success.should.equal(true);
     y.ack.read.should.equal(true);
     y.ackMs.should.be.aboveOrEqual(DELAY * 0.8);
+  });
+
+  // CHANGED (wider admission): a signed-in viewer on a readable site used to
+  // miss the first emission; it now has it through the admission.
+  it('delivers the alarm at once to a readable-site viewer whose valid-token subscribe is held', () => {
+    const y = self.y.validToken;
+    (y.alarmAfterEmitMs === null).should.equal(false, 'alarm not delivered within ' + PROMPT + ' ms of emission');
+    y.alarmAfterEmitMs.should.be.below(PROMPT);
+  });
+
+  // Unchanged on a denied site: the admission grants nothing, so a signed-in
+  // viewer receives nothing until its held subscribe resolves, and then does.
+  it('holds a valid web token on a denied site: no alarm until its subscribe resolves', () => {
+    const y = self.y.deniedValidToken;
+    y.ack.success.should.equal(true);
+    y.ack.read.should.equal(true);
+    y.ackMs.should.be.aboveOrEqual(DELAY * 0.8);
     (y.alarmAfterEmitMs === null).should.equal(true, 'held viewer received the first emission');
+    (y.againAfterEmitMs === null).should.equal(false, 'resolved viewer did not receive the next emission');
   });
 
   it('does not hold a signed-in viewer on a different address', () => {
@@ -288,10 +440,10 @@ describe('Alarm socket and the failed-login delay (BF-80)', function () {
     y.alarmAfterEmitMs.should.be.below(PROMPT);
   });
 
-  // The next guess from the address is still held -- anonymous subscribes did
-  // not clear the delay -- and for no longer than the penalty the failures
-  // left, so they did not add to it either.
-  it('does not let anonymous subscribes wear the delay down or add to it', () => {
+  // The next guess from the address is still held -- anonymous admissions and
+  // subscribes did not clear the delay -- and for no longer than the penalty
+  // the failures left, so they did not add to it either.
+  it('does not let anonymous admissions or subscribes wear the delay down or add to it', () => {
     const y = self.y.afterAnonymous;
     y.anonymousReads.should.eql([true, true, true, true, true]);
     y.ack.success.should.equal(false);
@@ -301,9 +453,9 @@ describe('Alarm socket and the failed-login delay (BF-80)', function () {
 
   it('still raises the Failed authentication notice for every failure', () => {
     const failed = self.notified.filter(n => n && n.title === 'Failed authentication');
-    // FAILURES for each of the seven throttling scenarios on this instance,
+    // FAILURES for each of the eight throttling scenarios on this instance,
     // plus the two wrong-secret subscribes.
-    failed.length.should.equal(FAILURES * 7 + 2);
+    failed.length.should.equal(FAILURES * 8 + 2);
   });
 
 });
