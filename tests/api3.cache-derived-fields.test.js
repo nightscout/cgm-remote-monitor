@@ -9,13 +9,15 @@
 // the most recent minutes from MongoDB), a v3 record dated earlier than that
 // window stayed in memory without `mills` until restart: left out of IOB and
 // COB, and in the way of the time sort that COB and its "last carbs" detail
-// rely on.
+// rely on. A device status written through v3 had the same gap:
+// GET /api/v1/devicestatus served from memory sorts by `mills`, so a late v3
+// status was placed after every other one.
 //
 // Synthetic values only; not medical advice.
 
 require('should');
 
-describe('BF-146: treatments written through API v3 enter the cache with mills', function () {
+describe('BF-146: treatments and device status written through API v3 enter the cache with mills', function () {
   const self = this
     , instance = require('./fixtures/api3/instance')
     , authSubject = require('./fixtures/api3/authSubject')
@@ -91,6 +93,8 @@ describe('BF-146: treatments written through API v3 enter the cache with mills',
 
   after(async () => {
     await col().deleteMany({ $or: [{ notes: { $regex: '^' + TAG } }, { enteredBy: 'bf146' }, { device: 'bf146' }] });
+    await self.instance.ctx.store.collection(self.instance.env.devicestatus_collection || 'devicestatus')
+      .deleteMany({ device: { $regex: '^' + TAG } });
     self.instance.ctx.bus.teardown();
   });
 
@@ -181,6 +185,105 @@ describe('BF-146: treatments written through API v3 enter the cache with mills',
       const expected = cob.cobTotal(inTimeOrder, [], profile, when).cob;
       expected.should.be.above(0);
       cob.cobTotal(held, [], profile, when).cob.should.equal(expected);
+    });
+  });
+
+  describe('device status', () => {
+    const ds = (s) => tag('ds-' + s);
+    const statusTime = (d) => Date.parse(d.created_at);
+    const cached = () => self.instance.ctx.cache.devicestatus;
+
+    function v1Status (name, minutesAgo) {
+      return { device: ds(name), created_at: new Date(ago(minutesAgo)).toISOString(), pump: { reservoir: 100 } };
+    }
+
+    function v3Status (name, minutesAgo) {
+      return self.instance.post('/api/v3/devicestatus', self.jwt.all)
+        .send({ date: ago(minutesAgo), utcOffset: 0, app: 'AAPS', device: ds(name), pump: { reservoir: 90 } })
+        .expect(201);
+    }
+
+    // What GET /api/v1/devicestatus should answer from memory: the newest
+    // `count` held statuses by time.
+    function newestHeld (count) {
+      return cached().slice().sort((a, b) => statusTime(b) - statusTime(a)).slice(0, count).map((d) => d.device);
+    }
+
+    async function v1Read (count) {
+      const url = '/devicestatus.json' + (count ? '?count=' + count : '');
+      const res = await v1('get', url).expect(200);
+      return res.body.map((d) => d.device);
+    }
+
+    before(async () => {
+      // More held statuses than the default read asks for, and enough for the
+      // dataloader's incremental load of device status.
+      const held = [];
+      for (let i = 0; i < INCREMENTAL_THRESHOLD + 4; i++) held.push(v1Status('v1-' + i, 60 - i));
+      await v1('post', '/devicestatus/').send(held).expect(200);
+      await load();
+    });
+
+    beforeEach(() => {
+      self.instance.ctx.cache.isEmpty('devicestatus').should.equal(false, 'the dataloader is not on its incremental load of device status');
+      cached().length.should.be.aboveOrEqual(10);
+    });
+
+    it('a late v3 status newer than the others is in the default v1 read, in its place', async () => {
+      await v3Status('v3-late', 20);
+      await load();
+      const read = await v1Read();
+      read.should.containEql(ds('v3-late'));
+      read.should.eql(newestHeld(10));
+    });
+
+    it('the whole held set read from memory is in time order', async () => {
+      const count = cached().length;
+      const read = await v1Read(count);
+      read.should.eql(newestHeld(count));
+    });
+
+    it('control: a v1 status of the same age is in its place', async () => {
+      await v1('post', '/devicestatus/').send([v1Status('v1-late', 19)]).expect(200);
+      await load();
+      // Its own place only: this control does not depend on the v3 records.
+      const read = await v1Read();
+      read.should.containEql(ds('v1-late'));
+      read.indexOf(ds('v1-late')).should.equal(newestHeld(10).indexOf(ds('v1-late')));
+    });
+
+    it('control: a v3 status dated now is first', async () => {
+      await v3Status('v3-now', 0);
+      await load();
+      (await v1Read())[0].should.equal(ds('v3-now'));
+    });
+
+    it('the page data holds the late v3 status with its time', async () => {
+      const held = self.instance.ctx.ddata.devicestatus.filter((d) => d.device === ds('v3-late'));
+      held.length.should.equal(1);
+      held[0].mills.should.equal(statusTime(held[0]));
+      const recent = self.instance.ctx.ddata.recentDeviceStatus(Date.now()).filter((d) => d.device === ds('v3-late'));
+      recent.length.should.equal(1);
+    });
+
+    it('with DENORMALIZE_DATES the late v3 status keeps its time and place over repeated reads', async () => {
+      const settings = self.instance.env.settings;
+      const was = settings.deNormalizeDates;
+      settings.deNormalizeDates = true;
+      try {
+        await v3Status('v3-late-denorm', 18);
+        await load();
+        for (let i = 0; i < 2; i++) {
+          const res = await v1('get', '/devicestatus.json').expect(200);
+          const mine = res.body.filter((d) => d.device === ds('v3-late-denorm'));
+          mine.length.should.equal(1);
+          Date.parse(mine[0].created_at).should.equal(mine[0].mills);
+          res.body.map((d) => d.device).should.eql(newestHeld(10));
+          await load();
+        }
+      } finally {
+        settings.deNormalizeDates = was;
+      }
     });
   });
 
