@@ -136,6 +136,20 @@ readings. Reload Reports after changing fixtures or display units.
       modes show **2 readings** and the same **6.9% / 51** A1c estimates, using
       the mean glucose rather than averaging rounded A1c values per reading.
 
+### Day to Day events with a duration past midnight (#8223)
+
+Use the same local test instance with readings on two consecutive days. Enter an
+**Exercise** of **240 minutes** at **22:00** on the first day, and tick **Notes**
+and **Other treatments** in the Day to Day options.
+
+- [ ] Show both days. The first day's violet band runs from 22:00 to the right
+      edge of the chart, and the second day's runs from the left edge to 02:00.
+      Each label sits over the part of the band on its own chart.
+- [ ] Show only the second day. The band from midnight to 02:00 is still drawn.
+- [ ] Repeat with a **Note** and a **Temporary Target** of the same length. Each
+      appears on both days.
+- [ ] An event that ends exactly at midnight appears only on its own day.
+
 ## 4. Care portal (treatment entry)
 
 - [ ] Open Care Portal, choose **Snack Bolus** as the event type.

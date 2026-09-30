@@ -6,6 +6,13 @@ All notable changes to cgm-remote-monitor are documented in this file.
 
 ### Fixed
 
+- **Day to Day events past midnight:** Draw an Exercise, Note, OpenAPS Offline,
+  Temporary Override or other event with a duration on every day it covers. An
+  exercise entered at 22:00 for four hours now shows from 22:00 to midnight on
+  its first day and from midnight to 02:00 on the next, also when the next day is
+  shown alone. Each part stays inside its own chart, with its label centered on
+  that part. Events that start and end on the same day are drawn as before.
+  Fixes #8223.
 - **Credential settings converted to numbers:** Keep credential and identifier
   settings as text instead of converting any value that looks numeric. A Dexcom
   account name that is a phone number keeps its leading plus and a password
