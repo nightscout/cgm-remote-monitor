@@ -6,6 +6,11 @@ All notable changes to cgm-remote-monitor are documented in this file.
 
 ### Fixed
 
+- **Food Editor on phones:** Scroll the food list, or the page, when a swipe
+  starts on a food or a quick pick. On a phone the list has room for two or
+  three foods, and swiping on them did nothing, so the rest of the list could
+  not be reached. Dragging a food into a quick pick and reordering quick picks
+  still use the mouse, as before. Fixes #8192.
 - **Day to Day events past midnight:** Draw an Exercise, Note, OpenAPS Offline,
   Temporary Override or other event with a duration on every day it covers. An
   exercise entered at 22:00 for four hours now shows from 22:00 to midnight on
