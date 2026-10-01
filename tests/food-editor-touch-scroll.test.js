@@ -107,9 +107,8 @@ describe('food editor: touch scrolling (#8192)', function () {
   beforeEach(function () {
     delete global.window;
     delete global.document;
-    const body = /<body>([\s\S]*)<\/body>/.exec(VIEW)[1]
-      .replace(/<%[\s\S]*?%>/g, '')
-      .replace(/<script\b[\s\S]*?<\/script>/g, '');
+    // createSecureDOM does not run scripts, so the view's <script> tags stay inert
+    const body = /<body>([\s\S]*)<\/body>/.exec(VIEW)[1].replace(/<%[\s\S]*?%>/g, '');
     env = createSecureDOM('<!DOCTYPE html><html><body>' + body + '</body></html>');
     state = domGlobals.installDomGlobals(env);
     delete require.cache[require.resolve('jquery-ui-bundle')];
