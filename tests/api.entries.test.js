@@ -451,6 +451,30 @@ describe('Entries REST api', function ( ) {
       });
   });
 
+  // BF-108: xDrip4iOS deletes readings in bulk by listing their dates.
+  it('deletes the readings listed under find[date][$in] and no others', async function () {
+    const dates = [1405878255000, 1405878555000, 1405878855000];
+    const window = '/entries.json?find[date][$gte]=' + dates[0] + '&find[date][$lte]=' + dates[2] + '&count=100';
+    await request(self.app)
+      .post('/entries/')
+      .set('api-secret', known || '')
+      .send(dates.map(function (date, i) {
+        return { type: 'sgv', sgv: 120 + i, date: date, device: 'dexcom', direction: 'Flat' };
+      }))
+      .expect(200);
+
+    const before = await request(self.app).get(window).set('api-secret', known || '').expect(200);
+    before.body.length.should.equal(3);
+
+    await request(self.app)
+      .delete('/entries.json?find[type]=sgv&find[date][$in][]=' + dates[0] + '&find[date][$in][]=' + dates[2])
+      .set('api-secret', known || '')
+      .expect(200);
+
+    const after = await request(self.app).get(window).set('api-secret', known || '').expect(200);
+    after.body.map(function (entry) { return entry.date; }).should.eql([dates[1]]);
+  });
+
   // ============================================================
   // Single object input tests - validates response format
   // ============================================================

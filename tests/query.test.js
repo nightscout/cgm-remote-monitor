@@ -86,6 +86,31 @@ describe('query', function ( ) {
         dateField: 'created_at', walker: {}
       })).should.throw(/Cannot parse/);
     });
+
+    // BF-108: xDrip4iOS deletes readings in bulk with find[date][$in][]=<ms>, up to 50 at once.
+    it('keeps a list of epoch timestamps under the date field', function () {
+      const dates = [];
+      for (let i = 0; i < 50; i++) { dates.push(String(1758600000000 + i * 300000)); }
+      const result = query({ find: { type: 'sgv', date: { $in: dates } } }, {
+        collection: 'entries', useEpoch: true
+      });
+      result.date.$in.should.eql(dates.map(Number));
+      result.type.should.equal('sgv');
+    });
+
+    it('normalizes each date in a list on its own', function () {
+      const result = query({
+        find: { created_at: { $in: [cases[0][0], cases[6][0]], $nin: [cases[3][0]] } }
+      }, { dateField: 'created_at', walker: {} });
+      result.created_at.$in.should.eql([cases[0][1], cases[6][1]]);
+      result.created_at.$nin.should.eql([cases[3][1]]);
+    });
+
+    it('rejects a list that holds an invalid date', function () {
+      (() => query({ find: { created_at: { $in: ['2026-09-05T00:00:00Z', '2026-99-05T00:00:00Z'] } } }, {
+        dateField: 'created_at', walker: {}
+      })).should.throw(/Cannot parse/);
+    });
   });
 
   describe('schema-driven type coercion', function () {
