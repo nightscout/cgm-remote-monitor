@@ -166,6 +166,17 @@ and **Other treatments** in the Day to Day options.
       `Target bottom` for a Temporary Target — the confirm-text shows
       mmol values, not mg/dL.
 
+## 5. Food Editor (`/food`) on a touch screen (#8192)
+
+Enter at least eight foods and two quick picks, then open `/food` on a phone, or
+in Chrome's device toolbar with a phone selected.
+
+- [ ] Swipe up on a food in the list. The list scrolls to the foods below.
+- [ ] Swipe up on a quick pick. The page scrolls.
+- [ ] On a computer, with the device toolbar off, drag a food onto a quick pick
+      with the mouse; the food is added to it. Drag a quick pick by the empty end
+      of its title line above another; the order changes.
+
 ## When this checklist fails
 
 A failure may be in data loading, report calculations, bundle wiring, or
