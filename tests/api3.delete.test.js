@@ -7,6 +7,7 @@ describe('API3 UPDATE', function() {
   const self = this
     , instance = require('./fixtures/api3/instance')
     , authSubject = require('./fixtures/api3/authSubject')
+    , utils = require('./fixtures/api3/utils')
     ;
 
   self.timeout(15000);
@@ -29,7 +30,8 @@ describe('API3 UPDATE', function() {
   });
 
 
-  after(() => {
+  after(async () => {
+    await utils.storageClear(self.instance.ctx);
     self.instance.ctx.bus.teardown();
   });
 

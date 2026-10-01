@@ -9,6 +9,7 @@ describe('Generic REST API3', function() {
     , instance = require('./fixtures/api3/instance')
     , authSubject = require('./fixtures/api3/authSubject')
     , opTools = require('../lib/api3/shared/operationTools')
+    , utils = require('./fixtures/api3/utils')
     ;
 
   self.urlLastModified = '/api/v3/lastModified';
@@ -49,7 +50,8 @@ describe('Generic REST API3', function() {
   });
 
 
-  after(() => {
+  after(async () => {
+    await utils.storageClear(self.instance.ctx);
     self.instance.ctx.bus.teardown();
   });
 

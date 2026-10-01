@@ -10,6 +10,7 @@ describe('API3 READ', function () {
     , instance = require('./fixtures/api3/instance')
     , authSubject = require('./fixtures/api3/authSubject')
     , opTools = require('../lib/api3/shared/operationTools')
+    , utils = require('./fixtures/api3/utils')
   ;
 
   self.validDoc = {
@@ -43,7 +44,8 @@ describe('API3 READ', function () {
   });
 
 
-  after(() => {
+  after(async () => {
+    await utils.storageClear(self.instance.ctx);
     self.instance.ctx.bus.teardown();
   });
 
@@ -74,7 +76,7 @@ describe('API3 READ', function () {
 
     res.body.status.should.equal(404);
     should.not.exist(res.body.result);
-    self.cache.shouldBeEmpty()
+    self.cache.shouldBeEmpty();
   });
 
 
@@ -84,7 +86,7 @@ describe('API3 READ', function () {
 
     res.body.status.should.equal(404);
     should.not.exist(res.body.result);
-    self.cache.shouldBeEmpty()
+    self.cache.shouldBeEmpty();
   });
 
 
@@ -159,7 +161,7 @@ describe('API3 READ', function () {
       .expect(200);
 
     res.body.status.should.equal(200);
-    self.cache.nextShouldDeleteLast(self.col)
+    self.cache.nextShouldDeleteLast(self.col);
 
     res = await self.instance.get(`${self.url}/${self.validDoc.identifier}`, self.jwt.read)
       .expect(410);
@@ -174,7 +176,7 @@ describe('API3 READ', function () {
       .expect(200);
 
     res.body.status.should.equal(200);
-    self.cache.nextShouldDeleteLast(self.col)
+    self.cache.nextShouldDeleteLast(self.col);
 
     res = await self.instance.get(`${self.url}/${self.validDoc.identifier}`, self.jwt.read)
       .expect(404);
@@ -192,13 +194,17 @@ describe('API3 READ', function () {
     delete doc.identifier;
 
     await new Promise((resolve, reject) => {
-      self.instance.ctx.devicestatus.create([doc], async (err) => { // let's insert the document in APIv1's way
-
-        should.not.exist(err);
-        doc._id = doc._id.toString();
-        self.cache.nextShouldEql(self.col, doc)
-
-        err ? reject(err) : resolve(doc);
+      self.instance.ctx.devicestatus.create([doc], (err) => { // let's insert the document in APIv1's way
+        if (err) {
+          return reject(err);
+        }
+        try {
+          doc._id = doc._id.toString();
+          self.cache.nextShouldEql(self.col, doc);
+          resolve(doc);
+        } catch (e) {
+          reject(e);
+        }
       });
     });
 
@@ -215,10 +221,7 @@ describe('API3 READ', function () {
       .expect(200);
 
     res.body.status.should.equal(200);
-    self.cache.nextShouldDeleteLast(self.col)
+    self.cache.nextShouldDeleteLast(self.col);
   });
-
-
 })
 ;
-

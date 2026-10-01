@@ -1,14 +1,18 @@
 'use strict';
 
 var should = require('should');
-var mongodb = require('mongodb');
 
 describe('mongo storage retry lifecycle', function () {
-  var originalMongoClient = mongodb.MongoClient;
   var originalSetTimeout = global.setTimeout;
+  var currentMongoModule = null;
+  var currentMongoClient = null;
 
   function setMongoClient(fakeMongoClient) {
-    Object.defineProperty(mongodb, 'MongoClient', {
+    delete require.cache[require.resolve('mongodb')];
+    currentMongoModule = require('mongodb');
+    currentMongoClient = currentMongoModule.MongoClient;
+
+    Object.defineProperty(currentMongoModule, 'MongoClient', {
       configurable: true,
       enumerable: true,
       value: fakeMongoClient,
@@ -16,10 +20,39 @@ describe('mongo storage retry lifecycle', function () {
     });
   }
 
+  function restoreMongoClient() {
+    if (!currentMongoModule || !currentMongoClient) {
+      return;
+    }
+
+    Object.defineProperty(currentMongoModule, 'MongoClient', {
+      configurable: true,
+      enumerable: true,
+      value: currentMongoClient,
+      writable: true
+    });
+
+    currentMongoModule = null;
+    currentMongoClient = null;
+  }
+
+  function interceptRetryDelay(retryDelays) {
+    global.setTimeout = function (fn, ms) {
+      if (ms === 3000) {
+        retryDelays.push(ms);
+        Promise.resolve().then(fn);
+        return 1;
+      }
+
+      return originalSetTimeout.apply(global, arguments);
+    };
+  }
+
   afterEach(function () {
-    setMongoClient(originalMongoClient);
+    restoreMongoClient();
     global.setTimeout = originalSetTimeout;
     delete require.cache[require.resolve('../lib/storage/mongo-storage')];
+    delete require.cache[require.resolve('mongodb')];
   });
 
   it('closes failed retry clients and calls back only after a successful retry', function (done) {
@@ -61,11 +94,7 @@ describe('mongo storage retry lifecycle', function () {
     };
 
     setMongoClient(FakeMongoClient);
-    global.setTimeout = function (fn, ms) {
-      retryDelays.push(ms);
-      Promise.resolve().then(fn);
-      return 1;
-    };
+    interceptRetryDelay(retryDelays);
 
     delete require.cache[require.resolve('../lib/storage/mongo-storage')];
     var store = require('../lib/storage/mongo-storage');
@@ -107,11 +136,7 @@ describe('mongo storage retry lifecycle', function () {
     };
 
     setMongoClient(FakeMongoClient);
-    global.setTimeout = function (fn, ms) {
-      retryDelays.push(ms);
-      Promise.resolve().then(fn);
-      return 1;
-    };
+    interceptRetryDelay(retryDelays);
 
     delete require.cache[require.resolve('../lib/storage/mongo-storage')];
     var store = require('../lib/storage/mongo-storage');

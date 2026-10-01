@@ -2,7 +2,7 @@ openapi: 3.0.0
 servers:
   - url: '/api/v3'
 info:
-  version: 3.0.4
+  version: 3.0.5
   title: Nightscout API
   contact:
     name: NS development discussion channel
@@ -650,7 +650,10 @@ components:
       in: query
       name: filter_parameters
       schema:
-        type: string
+        type: array
+        items:
+          type: string
+      style: spaceDelimited
       description:
         Any number of filtering operators.
 
