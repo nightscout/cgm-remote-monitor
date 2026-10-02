@@ -357,6 +357,8 @@ autonomy for your data:
     * Nightscout does not wait for the deletion to finish, and does not log how many records were deleted.
   * `CI` (not set) - When set to any value, API v3 also serves `/api/v3/test`, a route used by the test suite that checks a token for `api:entries:read` permission. It is also served when `NODE_ENV` is `development` or `test`, and Express treats an unset `NODE_ENV` as `development`. Only this exact upper-case name is read.
 
+  The API v3 `settings` collection is storage for apps, for example an app keeping a copy of its own configuration. Nightscout's own pages do not show it. Unlike the other five API v3 collections (`devicestatus`, `entries`, `food`, `profile` and `treatments`), whose text has unsafe HTML removed when it is written, a `settings` record is stored exactly as it was sent. An app that shows `settings` values on a web page or in a web view must treat them as untrusted and escape them itself.
+
 ### Views
 
   Nightscout allows to create custom, simplified views using a predefined set of elements. This option is available under `[+]` link in the main menu.
