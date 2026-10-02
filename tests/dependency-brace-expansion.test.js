@@ -14,9 +14,9 @@ const packages = Object.entries(lock.packages);
 // Include the final resource-limit fixes on each supported API line.
 // A global 5.x override breaks minimatch 3/5/9, which call a function export.
 const patchedRanges = {
-  1: '>=1.1.18 <2',
-  2: '>=2.1.4 <3',
-  5: '>=5.0.9 <6'
+  1: '>=1.1.21 <2',
+  2: '>=2.1.7 <3',
+  5: '>=5.0.12 <6'
 };
 
 describe('brace-expansion dependency regressions', function () {
@@ -52,6 +52,12 @@ describe('brace-expansion dependency regressions', function () {
       it('bounds default expansion count and keeps nonempty alternatives', function () {
         assert.strictEqual(expand('{1..100001}').length, 100000);
         assert.deepStrictEqual(expand('{a,,b}', { max: 2 }), ['a', 'b']);
+      });
+
+      it('expands deeply nested alternatives without exhausting the stack', function () {
+        // 1.1.20 / 2.1.6 / 5.0.11 and earlier recurse once per level and throw RangeError.
+        const results = expand('{a,'.repeat(5000) + 'b' + '}'.repeat(5000));
+        assert.ok(results.length > 0);
       });
 
       it('bounds expansion length while generating padded sequences', function () {
