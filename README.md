@@ -754,6 +754,15 @@ When APNs provides no failure details, the message says so. Unexpected failures 
   
   This plugin should be enabled by default, if needed can be diasabled by adding `dbsize` to the list of disabled plugins, for example: `DISABLE="dbsize"`.
 
+##### `webhook` (Webhook Notifier)
+  Sends your latest glucose reading to another server, for example a display on your home network, each time a new reading arrives. Add `webhook` to `ENABLE` to turn it on. For each new reading it sends an HTTP `POST` with a JSON body of the form `{"source": "nightscout", "mgdl": 120, "mills": 1700000000000, "iso": "2023-11-14T22:13:20.000Z"}`; the value is always in mg/dl, whatever `DISPLAY_UNITS` is set to. The reading already present when Nightscout starts is not sent. A request that fails, times out after 5 seconds, or gets a response other than `2xx` is sent again the next time Nightscout checks for notifications, as long as it is still the latest reading. The request carries no token or password, so send it only to a server you control.
+
+  The address is `<WEBHOOK_PROTOCOL>://<WEBHOOK_HOST>:<WEBHOOK_PORT><WEBHOOK_PATH>`, so the defaults give `http://localhost:3000/nightscout`. These settings are read straight from the environment when Nightscout starts, using exactly these upper-case names (not the `CUSTOMCONNSTR_` or lowercase forms other settings accept):
+  * `WEBHOOK_PROTOCOL` (`http`) - `http` or `https`.
+  * `WEBHOOK_HOST` (`localhost`) - The host name or IP address of the receiving server.
+  * `WEBHOOK_PORT` (`3000`) - The port of the receiving server. The port is always part of the address, so for a standard `https` server set this to `443`.
+  * `WEBHOOK_PATH` (`/nightscout`) - The path the reading is sent to. Start it with `/`.
+
 #### Extended Settings
   Some plugins support additional configuration using extra environment variables.  These are prefixed with the name of the plugin and a `_`.  For example setting `MYPLUGIN_EXAMPLE_VALUE=1234` would make `extendedSettings.exampleValue` available to the `MYPLUGIN` plugin.
 
