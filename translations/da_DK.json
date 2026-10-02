@@ -377,6 +377,8 @@
     "Values loaded.": "Værdier hentet.",
     "Default values used.": "Standardværdier brugt.",
     "Error. Default values used.": "Fejl. Standardværdier brugt.",
+    "Enter every profile value before saving.": "Enter every profile value before saving.",
+    "Your profile could not be loaded. Reload before editing.": "Your profile could not be loaded. Reload before editing.",
     "Time ranges of target_low and target_high don't  match. Values are restored to defaults.": "Tidsintervaller for lav og høj matcher ikke. Værdier gendannes til standardværdier.",
     "Valid from:": "Gyldig fra:",
     "Save current record before switching to new?": "Gem nuværende data inden der skiftes til ny?",

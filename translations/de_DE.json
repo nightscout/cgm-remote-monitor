@@ -377,6 +377,8 @@
     "Values loaded.": "Werte geladen.",
     "Default values used.": "Standardwerte werden verwendet.",
     "Error. Default values used.": "Fehler. Standardwerte werden verwendet.",
+    "Enter every profile value before saving.": "Enter every profile value before saving.",
+    "Your profile could not be loaded. Reload before editing.": "Your profile could not be loaded. Reload before editing.",
     "Time ranges of target_low and target_high don't  match. Values are restored to defaults.": "Zeitspannen vom untern und oberen Zielwert stimmen nicht überein. Werte auf Standard zurückgesetzt.",
     "Valid from:": "Gültig ab:",
     "Save current record before switching to new?": "Aktuellen Datensatz speichern?",

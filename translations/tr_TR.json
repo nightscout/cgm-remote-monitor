@@ -377,6 +377,8 @@
     "Values loaded.": "Değerler yüklendi.",
     "Default values used.": "Varsayılan değerler kullanıldı.",
     "Error. Default values used.": "Hata. Varsayılan değerler kullanıldı.",
+    "Enter every profile value before saving.": "Enter every profile value before saving.",
+    "Your profile could not be loaded. Reload before editing.": "Your profile could not be loaded. Reload before editing.",
     "Time ranges of target_low and target_high don't  match. Values are restored to defaults.": "Düşük_hedef ve yüksek_hedef öğelerinin zaman aralıkları eşleşmiyor. Değerler varsayılanlara geri yüklenir.",
     "Valid from:": "Tarihinden itibaren geçerli",
     "Save current record before switching to new?": "Yenisine geçmeden önce mevcut kaydı kaydet",

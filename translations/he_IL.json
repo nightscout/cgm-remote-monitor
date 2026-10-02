@@ -377,6 +377,8 @@
     "Values loaded.": "ערכים נטענו ",
     "Default values used.": "משתמשים בערכי בררת המחדל ",
     "Error. Default values used.": "משתמשים בערכי בררת המחדל שגיאה - ",
+    "Enter every profile value before saving.": "Enter every profile value before saving.",
+    "Your profile could not be loaded. Reload before editing.": "Your profile could not be loaded. Reload before editing.",
     "Time ranges of target_low and target_high don't  match. Values are restored to defaults.": "טווחי יעד נמוכים ויעדים גבוהים אינם תואמים. הערכים משוחזרים לברירות המחדל ",
     "Valid from:": "בתוקף מ: ",
     "Save current record before switching to new?": "שמור את הרשומה הנוכחית לפני המעבר ל חדש? ",
