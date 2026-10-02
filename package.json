@@ -161,7 +161,7 @@
   },
   "devDependencies": {
     "@types/tough-cookie": "^4.0.0",
-    "axios": "^0.33.0",
+    "axios": "^0.34.0",
     "babel-eslint": "^10.1.0",
     "csv-parse": "^4.12.0",
     "dompurify": "^3.4.14",
@@ -185,7 +185,7 @@
     "follow-redirects": "1.16.0",
     "node-forge": "1.4.0",
     "lodash": "4.18.1",
-    "ip-address": "10.7.0",
+    "ip-address": "10.7.1",
     "postcss": "8.5.28",
     "qs": "6.16.0",
     "flatted": "3.4.2",
@@ -208,9 +208,9 @@
     },
     "terser-webpack-plugin": "5.6.0",
     "minimed-connect-to-nightscout": {
-      "axios": "0.33.0",
+      "axios": "0.34.0",
       "axios-cookiejar-support": {
-        "axios": "0.33.0"
+        "axios": "0.34.0"
       },
       "tough-cookie": "4.1.4"
     },
@@ -225,11 +225,11 @@
     "mongodb": {
       "mongodb-connection-string-url": "3.0.2"
     },
-    "brace-expansion@^1.0.0": "1.1.18",
-    "brace-expansion@^2.0.0": "2.1.4",
-    "brace-expansion@^5.0.0": "5.0.9",
+    "brace-expansion@^1.0.0": "1.1.21",
+    "brace-expansion@^2.0.0": "2.1.7",
+    "brace-expansion@^5.0.0": "5.0.12",
     "js-yaml@^3.0.0": "3.15.2",
     "js-yaml@^4.0.0": "4.3.2",
-    "fast-uri@^3.0.0": "3.1.7"
+    "fast-uri@^3.0.0": "3.1.8"
   }
 }
