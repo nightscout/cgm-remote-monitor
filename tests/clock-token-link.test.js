@@ -182,3 +182,53 @@ describe('clock says when it is refused (#7377)', function () {
     });
   });
 });
+
+describe('clock configurator link keeps the token, encoded (#7377)', function () {
+  function renderConfig () {
+    var file = path.join(__dirname, '../views/clockviews/clock.html');
+    return ejs.render(fs.readFileSync(file, 'utf8'), { face: 'config', locals: { bundle: '/bundle' } }, { filename: file });
+  }
+
+  function boot (search) {
+    // The clock bundle is not served here: in its place, give the page jQuery
+    // and a client that does nothing.
+    var stand = '<script>' + fs.readFileSync(require.resolve('jquery/dist/jquery.js'), 'utf8') + '</script>' +
+      '<script>window.Nightscout = { client: { init: function () {}, query: function () {}, showNotAuthorized: function () {} } };</script>';
+    var html = renderConfig().replace(/<script src="[^"]*bundle\.clock\.js"><\/script>/, function () { return stand; });
+    html.should.not.match(/bundle\.clock\.js/);
+    return new Promise(function (resolve) {
+      var env = createSecureDOM(html, {
+        url: 'http://localhost/clock/config' + search
+        , runScripts: 'dangerously'
+        , virtualConsole: new (require('jsdom').VirtualConsole)()
+      });
+      setTimeout(function () { resolve(env); }, 100);
+    });
+  }
+
+  it('carries the page token on the link to the configured clock', async function () {
+    var env = await boot('?token=reader-0123456789abcdef');
+    var $ = env.window.$;
+    $('#clocklink').attr('href').should.equal('/clock/cy10?token=reader-0123456789abcdef');
+    $('#facename').text('cy10-sg40');
+    $('#facename').change();
+    $('#clocklink').attr('href').should.equal('/clock/cy10-sg40?token=reader-0123456789abcdef');
+    env.cleanup();
+  });
+
+  it('encodes the token and the face, so neither can change the link', async function () {
+    var env = await boot('?token=' + encodeURIComponent('a"b<c d'));
+    var $ = env.window.$;
+    $('#clocklink').attr('href').should.equal('/clock/cy10?token=a%22b%3Cc%20d');
+    $('#facename').text('cy10?x=1#y');
+    $('#facename').change();
+    $('#clocklink').attr('href').should.equal('/clock/cy10%3Fx%3D1%23y?token=a%22b%3Cc%20d');
+    env.cleanup();
+  });
+
+  it('adds nothing when the page has no token', async function () {
+    var env = await boot('');
+    env.window.$('#clocklink').attr('href').should.equal('/clock/cy10');
+    env.cleanup();
+  });
+});
