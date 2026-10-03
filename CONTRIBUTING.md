@@ -58,7 +58,7 @@ We develop on the `dev` branch. All new pull requests should be targeted to `dev
 
 You can get the `dev` branch checked out using `git checkout dev`.
 
-Once checked out, install the dependencies using `npm install`, then copy the included  [`docs/example-template.env`][example-env-template] to `my.env` file to `my.env` and edit the file to include your settings (like the Mongo URL). Leave the `NODE_ENV=development` line intact. Once set, run the site using `npm run dev`. This will start Nightscout in the development mode, with different code packaging rules and automatic restarting of the server using nodemon, when you save changed files on disk. The client also hot-reloads new code in, but it's recommended to reload the website after changes due to the way the plugin sandbox works.
+Once checked out, install the dependencies using `npm install`, then copy the included  [`docs/example-template.env`][example-env-template] to `my.env` file and edit the file to include your settings (like the Mongo URL). Leave the `NODE_ENV=development` line intact. Once set, run the site using `npm run dev`. This will start Nightscout in the development mode, with different code packaging rules and automatic restarting of the server using nodemon, when you save changed files on disk. The client also hot-reloads new code in, but it's recommended to reload the website after changes due to the way the plugin sandbox works.
 
 Note the template sets `INSECURE_USE_HTTP` to `true` to enable the site to work over HTTP in local development.
 
@@ -95,7 +95,7 @@ Some simple rules that will make it easier to maintain our codebase:
   };
   ```
 
-If in doubt, format your code with `js-beautify --indent-size 2 --comma-first  --keep-array-indentation`
+If in doubt, format your code with `js-beautify --indent-size 2 --comma-first  --keep-array-indentation --space-after-named-function`
 
 ## Create a prototype
 
@@ -161,6 +161,47 @@ NODE_ENV=test npm test -- --grep "treatments"
 ```
 
 ### Advanced Test Scripts
+
+Run `npm run test:dependencies` to check dependency resolution and compatibility
+without MongoDB. This includes Mocha subprocess checks for serial and parallel
+execution, root hooks, timeouts, assertion diffs and failure exit codes. The
+fixtures deliberately fail in child processes; the parent checks that those
+failures are reported correctly.
+
+The dependency checks also exercise YAML configuration loading in ESLint, nyc
+and Mocha, plus parser resource limits. Custom tooling YAML files must keep
+each merge sequence (`<<: [...]`) to at most 100 entries; the default merge-work
+budget is 10,000 across a parse call, counting source mappings and their keys.
+For Mocha YAML configuration, write numeric options as `5000`, not `5_000`:
+js-yaml 4.2 and later treat numbers containing underscores as strings.
+CI also runs `NODE_ENV=development npm run bundle-dev` to validate the webpack
+lint integration.
+
+DOMPurify is a development-only reference in the sanitizer comparison suite;
+production sanitization uses `sanitize-html`. Dependency tests exercise its
+default string API with our jsdom version, including nested template security,
+visible note text and supported SVG attributes. These tests inspect inert DOM
+trees; they do not execute payloads or emulate newer browser template expansion.
+
+Socket.IO dependency checks start temporary loopback servers without MongoDB.
+They cover parser validation, binary serialization and both polling and
+WebSocket connections using the Node client and the actual served browser
+client in jsdom. Each transport check reconnects twice. The parser override
+updates installed Node packages; it does not rewrite Socket.IO's prebuilt
+browser distribution, so both client paths need compatibility checks.
+
+The fast-uri dependency checks resolve Ajv through each installed consumer
+(webpack, webpack-dev-middleware, terser-webpack-plugin, ajv-formats and table).
+They exercise external references, escaped JSON pointers and case-sensitive
+schema IDs, as well as URI security boundaries. Keep the fast-uri override
+scoped to 3.x while these consumers require it; a 4.x migration changes Unicode
+encoding and removes deprecated TypeScript aliases.
+
+The ip-address dependency checks exercise MongoDB's installed SOCKS client
+against a temporary loopback SOCKS5 fixture. They verify IPv4, IPv6 and hostname
+requests, fragmented IPv6 replies and data exchange over two connections.
+The fixture needs neither an external proxy nor MongoDB; the normal application
+suite separately exercises the database driver.
 
 For diagnosing test issues and ensuring reliability:
 

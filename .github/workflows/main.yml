@@ -39,10 +39,37 @@ jobs:
 
       - name: Install dependencies
         run: npm install
+      - name: Validate dependency resolution
+        run: npm ls brace-expansion postcss mocha nanoid js-yaml eslint nyc dompurify socket.io-parser fast-uri ip-address d3 d3-color express body-parser socket.io socket.io-client engine.io engine.io-client socket.io-adapter ws axios @babel/core @babel/preset-env babel-loader jsdom uuid --all
       - name: Run Tests
         run: npm run-script test-ci
+      - name: Run client-core tests
+        run: npm run-script test:core
       - name: Send Coverage
         run: npm run-script coverage
+
+  npm12-build:
+    name: Validate npm 12 install and build
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: Git Checkout
+        uses: actions/checkout@v5
+        with:
+          persist-credentials: false
+      - name: Use Node.js 24
+        uses: actions/setup-node@v5
+        with:
+          node-version: 24
+          package-manager-cache: false
+      - name: Use npm 12
+        run: npm install --global npm@12
+      - name: Install dependencies and build production bundle
+        run: npm ci
+      - name: Test dependency compatibility
+        run: npm run test:dependencies
+      - name: Build development bundle with ESLint integration
+        run: NODE_ENV=development npm run bundle-dev
 
   docker-build-pr:
     name: Validate Docker image

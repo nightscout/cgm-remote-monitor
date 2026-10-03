@@ -10,6 +10,12 @@ services:
   mongo:
     image: mongo:5.0.32
     restart: always
+    # Docker's default of 1024 open files is too low for MongoDB, which can then
+    # stop with "Too many open files". 64000 is MongoDB's recommended minimum.
+    ulimits:
+      nofile:
+        soft: 64000
+        hard: 64000
     volumes:
       - ${NS_MONGO_DATA_DIR:-./mongo-data}:/data/db:cached
     logging: *default-logging
