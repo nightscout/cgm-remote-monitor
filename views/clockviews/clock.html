@@ -59,6 +59,15 @@
     script.onload = function() {
       window.Nightscout.client.init();
     };
+    // A refused script fires error, not load, and does not expose the status.
+    // Ask once more to read it, and say so on a 401 instead of drawing nothing.
+    script.onerror = function() {
+      $.ajax(src, { dataType: 'text', error: function (xhr) {
+        if (xhr && xhr.status === 401) {
+          window.Nightscout.client.showNotAuthorized();
+        }
+      } });
+    };
     script.src = src;
 
     document.head.appendChild(script); //or something of the likes
