@@ -30,6 +30,12 @@
 </div>
 <script type="text/javascript">
     $( function() {
+        // Keep the token this page was opened with (clock.html's `token`) on
+        // the link to the configured clock, as the menu link carried it here.
+        function clockHref (face) {
+            return '/clock/' + face + (token ? '?token=' + token : '');
+        }
+        $( "#clocklink" ).attr('href', clockHref($( "#facename" ).text()));
         $( "input.elmt" ).click( function() {
             let size = $("input#" + this.id + "_size").val();
             let append = '-' + this.name + (size ? size : '');
@@ -59,7 +65,7 @@
         } );
         $( "#facename" ).change(function() {
             $( "#inner" ).attr('data-face-config', $(this).text());
-            $( "#clocklink" ).attr('href', ('/clock/' + $(this).text()));
+            $( "#clocklink" ).attr('href', clockHref($(this).text()));
             window.Nightscout.client.query();
         } );
     } );
