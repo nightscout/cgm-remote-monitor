@@ -776,6 +776,42 @@ For remote overrides, the following extended settings must be configured:
   * `ns-urgent` - Alarms at the urgent level with cause this event to also be triggered.  It will be sent in addition to `ns-event`.
   * see the [full list of events](docs/plugins/maker-setup.md#events)
 
+#### AAPS iOS push alarms
+
+ Sends glucose alarms to the AAPS iOS follower clients as an Apple push notification, so a client
+ can alarm while it is in the background.
+
+ This is a transport, not a plugin, so there is nothing to add to `ENABLE`. It sends only real
+ alarms, at `WARN` level and above.
+
+ The push itself carries **no glucose value and no alarm text**. It holds only a wake signal and an
+ id. The client wakes, reads Nightscout over its own connection, and decides what to show. That
+ keeps patient data out of Apple's servers, and means a faked push cannot state a glucose value.
+
+ Configure these environment variables:
+
+  * `AAPS_APNS_KEY` - the path to your Apple Push Notifications service (APNs) key file, or the
+    contents of the file. Create the key in the Apple Developer website, under Keys, with the APNs
+    box ticked.
+  * `AAPS_APNS_KEY_ID` - the ten character Key ID for the key above. It is also in the file name.
+  * `AAPS_DEVELOPER_TEAM_ID` - your ten character Apple developer team ID.
+
+ Each client writes its own device token, bundle id and APNs environment into the `settings`
+ collection, so there is nothing else to configure per device. A client that has not registered
+ simply gets no push.
+
+ Two things that are easy to get wrong:
+
+  * An **APNs key is not the same file as an App Store Connect API key**, even though both are named
+    `AuthKey_<ID>.p8`. Using the wrong one gives `InvalidProviderToken`.
+  * These are **separate from the `LOOP_APNS_*` settings** above. Those belong to the Loop app, with
+    a different Apple team and a different app, so a site that uses both needs both sets.
+
+ Apple limits how often an app may be woken by a background push, so this transport keeps its own
+ limit per device and will skip an alarm that comes too soon after the last one. Apple also does not
+ promise to deliver a background push at all, and will not deliver one to an app the user has force
+ quit. **Push alarms are best-effort and must never be somebody's only alarm.**
+
 
 ### Treatment Profile
   Some of the [plugins](#plugins) make use of a treatment profile that can be edited using the Profile Editor, see the link in the Settings drawer on your site.
