@@ -6,6 +6,13 @@ All notable changes to cgm-remote-monitor are documented in this file.
 
 ### Fixed
 
+- **Loopalyzer BG line:** Draw the BG line through CGM readings that are on or
+  close to a 5-minute mark. A reading exactly on the mark was dropped, and one
+  that arrived just after the mark left a gap in the line before it, so a day
+  with readings timed like this showed a broken or missing BG line in
+  Loopalyzer while Day to Day showed every reading. Readings away from the
+  marks are drawn as before, and a reading that is really missing still shows
+  as a gap. Fixes #6236.
 - **Food Editor on phones:** Scroll the food list, or the page, when a swipe
   starts on a food or a quick pick. On a phone the list has room for two or
   three foods, and swiping on them did nothing, so the rest of the list could
