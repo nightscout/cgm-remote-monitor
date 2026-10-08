@@ -13,6 +13,7 @@ function securityApp (options) {
 
   const env = {
     name: 'security-header-test'
+    , trustProxy: '127.0.0.1,::1'
     , version: '1.0.0'
     , insecureUseHttp: options.insecureUseHttp !== undefined
       ? options.insecureUseHttp

@@ -19,6 +19,9 @@ describe('boluswizardpreview', function ( ) {
 
   function prepareSandbox ( ) {
     var sbx = require('../lib/sandbox')().serverInit(env, ctx);
+    // The data below is stamped with `now`, taken once when this file loads;
+    // serverInit reads the clock again, so pin the sandbox to `now` too.
+    sbx.time = now;
     bgnow.setProperties(sbx);
     ar2.setProperties(sbx);
     iob.setProperties(sbx);
@@ -164,7 +167,7 @@ describe('boluswizardpreview', function ( ) {
     data.treatments = [{mills: now, insulin: '1.0'}];
     data.devicestatus = [];
     data.profile = require('../lib/profilefunctions')([profileData], ctx);
-    var sbx = sandbox.clientInit(ctx, Date.now(), data);
+    var sbx = sandbox.clientInit(ctx, now, data);
     sbx.properties.iob = iob.calcTotal(data.treatments, data.devicestatus, data.profile, now);
 
     var results = boluswizardpreview.calc(sbx);
@@ -207,7 +210,7 @@ describe('boluswizardpreview', function ( ) {
     data.treatments = [{mills: now, insulin: '0.45'}];
     data.devicestatus = [];
     data.profile = require('../lib/profilefunctions')([profileData], ctx);
-    var sbx = sandbox.clientInit(ctx, Date.now(), data);
+    var sbx = sandbox.clientInit(ctx, now, data);
     sbx.properties.iob = iob.calcTotal(data.treatments, data.devicestatus, data.profile, now);
 
     var results = boluswizardpreview.calc(sbx);
