@@ -1,7 +1,7 @@
 'use strict';
 
 // Real chart and renderer with only application services replaced by deterministic data.
-module.exports = function (d3, window, units) {
+module.exports = function (d3, window, units, layout) {
   const now = Date.parse('2025-01-01T12:00:00Z');
   const hour = 3600000;
   const client = {
@@ -25,12 +25,21 @@ module.exports = function (d3, window, units) {
     }
   };
   window.document.body.innerHTML = '<div style="width:900px"><div><div id="tooltip"></div></div></div><div id="chartContainer"></div>';
-  window.document.querySelector('#chartContainer').getBoundingClientRect = () => ({width: 900, height: 600});
+  // layout.width: the container width the next update() measures (default 900)
+  client.layout = layout || {width: 900};
+  window.document.querySelector('#chartContainer').getBoundingClientRect = () => ({width: client.layout.width, height: 600});
   client.tooltip = d3.select('#tooltip');
   client.renderer = require('../../lib/client/renderer')(client, d3);
   client.chart = require('../../lib/client/chart')(client, d3, window.$);
-  // jsdom has no SVG animated width/height; provide the same explicit chart extent.
-  client.chart.brush.extent([[0, 0], [900, 171]]);
+  if (layout) {
+    // An <svg> drawn before the page has laid out reports the browser default size, 300x150.
+    const svg = window.document.querySelector('#chartContainer svg');
+    Object.defineProperty(svg, 'width', {value: {baseVal: {value: 300}}});
+    Object.defineProperty(svg, 'height', {value: {baseVal: {value: 150}}});
+  } else {
+    // jsdom has no SVG animated width/height; provide the same explicit chart extent.
+    client.chart.brush.extent([[0, 0], [900, 171]]);
+  }
   client.chart.update(true);
   return client;
 };

@@ -91,6 +91,29 @@ describe('D3 chart interaction compatibility', function () {
       assert.deepStrictEqual(d3.brushSelection(client.chart.theBrush.node()), [437.5, 662.5]);
     });
   });
+  ['mouse', 'touch'].forEach(function (input) {
+    it('drags the context window back to now after the chart was drawn before layout, using ' + input, function () {
+      client = makeChart(d3, env.window, 'mg/dl', {width: 880});
+      client.layout.width = 900;
+      client.chart.update(false);
+      const overlay = client.chart.theBrush.select('.overlay').node();
+      if (input === 'mouse') {
+        mouse(overlay, 'mousedown', 450, 50, 1);
+        mouse(env.window, 'mouseup', 450, 50);
+        mouse(overlay, 'mousedown', 450, 50, 1);
+        mouse(env.window, 'mousemove', 1000, 50, 1);
+        mouse(env.window, 'mouseup', 1000, 50);
+      } else {
+        touch(overlay, 'touchstart', 450, 50);
+        touch(overlay, 'touchend', 450, 50);
+        touch(overlay, 'touchstart', 450, 50);
+        touch(overlay, 'touchmove', 1000, 50);
+        touch(overlay, 'touchend', 1000, 50);
+      }
+      assert.deepStrictEqual(d3.brushSelection(client.chart.theBrush.node()), [675, 900]);
+      assert.strictEqual(client.chart.inRetroMode(), false);
+    });
+  });
   function treatment(editMode) {
     client.editMode = editMode;
     client.renderer.drawTreatment({_id: 'treatment-1', NSCLIENT_ID: 'old-id', eventType: 'Meal Bolus',
