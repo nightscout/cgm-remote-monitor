@@ -377,6 +377,8 @@
     "Values loaded.": "Vrednosti naložene.",
     "Default values used.": "Uporabljene privzete vrednosti.",
     "Error. Default values used.": "Napaka. Uporabljene privzete vrednosti.",
+    "Enter every profile value before saving.": "Enter every profile value before saving.",
+    "Your profile could not be loaded. Reload before editing.": "Your profile could not be loaded. Reload before editing.",
     "Time ranges of target_low and target_high don't  match. Values are restored to defaults.": "Časovna področja ciljni_nizki in ciljni_visoki se ne ujemata. Vrednosti so obnovljene na privzete.",
     "Valid from:": "Veljavno od:",
     "Save current record before switching to new?": "Shranite trenutni zapis, preden ga spremenite v novega?",
