@@ -5,12 +5,12 @@ var should = require('should');
 var createSecureDOM = require('./fixtures/secure-jsdom').createSecureDOM;
 var domGlobals = require('./fixtures/dom-globals');
 
-describe('glucosedistribution report', function () {
+describe('glucosedistribution report', function distributionReportTests () {
   var env;
   var state;
   var $;
 
-  beforeEach(function () {
+  beforeEach(function installReportDOM () {
     delete global.window;
     delete global.document;
     env = createSecureDOM('<!DOCTYPE html><html><body></body></html>');
@@ -19,10 +19,10 @@ describe('glucosedistribution report', function () {
     env.window.moment = moment;
   });
 
-  afterEach(function (done) {
+  afterEach(function cleanupReportDOM (done) {
     // the plugin defers its pie chart via setTimeout; let that timer fire
     // while the DOM globals are still installed, then clean up
-    setTimeout(function () {
+    setTimeout(function restoreReportDOM () {
       delete require.cache[require.resolve('../lib/report_plugins/glucosedistribution')];
       domGlobals.restoreDomGlobals(state);
       done();
@@ -34,23 +34,23 @@ describe('glucosedistribution report', function () {
       sbx: {
         data: {
           profile: {
-            applyTimezone: function (value) { return moment(value); }
+            applyTimezone: function applyTimezone (value) { return moment(value); }
           }
         }
       }
       , settings: {units: 'mg/dl'}
-      , translate: function (value) { return value; }
+      , translate: function translate (value) { return value; }
     };
     env.window.Nightscout = {
       client: client
       , report_plugins: {
-        utils: {localeDate: function (value) { return value; }}
+        utils: {localeDate: function localeDate (value) { return value; }}
       }
     };
 
     var plugin = require('../lib/report_plugins/glucosedistribution')();
     $('body').append(plugin.html(client));
-    $.plot = function () {};
+    $.plot = function plot () {};
     plugin.report({allstatsrecords: records, alldays: 1}, ['2025-01-01'], {
       targetLow: 80
       , targetHigh: 180
@@ -65,13 +65,13 @@ describe('glucosedistribution report', function () {
     return parseInt($('#glucosedistribution-report table tr').eq(2).find('td').eq(2).text(), 10);
   }
 
-  it('counts each statsrecord once when readings arrive every 5 minutes', function () {
+  it('counts each statsrecord once when readings arrive every 5 minutes', function countRegularReadings () {
     var start = Date.parse('2025-01-01T00:00:00.000Z');
     var records = [];
     for (var i = 0; i < 12; i++) {
       records.push({
-        sgv: 100
-        , bgValue: 100
+        sgv: 100 + i
+        , bgValue: 100 + i
         , displayTime: new Date(start + i * 5 * 60 * 1000)
       });
     }
@@ -80,9 +80,11 @@ describe('glucosedistribution report', function () {
 
     inRangeReadings().should.equal(records.length);
     overallReadings().should.equal(records.length);
+    $('#glucosedistribution-stability tr').eq(1).find('td').eq(0).text().should.equal('288 mg/dl');
+    $('#glucosedistribution-stability tr').eq(3).find('td').eq(0).text().should.equal('12 mg/dl');
   });
 
-  it('counts a single statsrecord once', function () {
+  it('counts a single statsrecord once', function countSingleReading () {
     var records = [{
       sgv: 100
       , bgValue: 100
