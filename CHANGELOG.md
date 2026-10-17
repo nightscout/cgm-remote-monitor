@@ -6,6 +6,11 @@ All notable changes to cgm-remote-monitor are documented in this file.
 
 ### Fixed
 
+- **Snooze without the API secret:** Keep an alarm quiet for the snooze chosen
+  on a page that has not entered the API secret. With the default `readable`
+  role such a page may not acknowledge alarms, so the server ignored its snooze
+  and the alarm sounded again at the next heartbeat, within a minute. A page
+  that is signed in behaves as before. Relates to #8194.
 - **Food Editor on phones:** Scroll the food list, or the page, when a swipe
   starts on a food or a quick pick. On a phone the list has room for two or
   three foods, and swiping on them did nothing, so the rest of the list could
