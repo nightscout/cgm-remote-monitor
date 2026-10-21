@@ -143,7 +143,7 @@
     "proxy-addr": "^2.0.8",
     "pushover-notifications": "^1.2.2",
     "random-token": "0.0.8",
-    "sanitize-html": "2.17.5",
+    "sanitize-html": "2.18.1",
     "semver": "^6.3.0",
     "share2nightscout-bridge": "^0.2.12",
     "shiro-trie": "^0.4.9",
