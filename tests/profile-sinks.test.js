@@ -293,6 +293,7 @@ describe('profile-derived browser sinks', function () {
     var profilefunctions = {
       data: []
       , loadData: function (records) { this.data = records; }
+      , hasData: function () { return !!this.data; }
     };
     var client = {
       ctx: {moment: moment, timezones: ['UTC']}
