@@ -257,6 +257,77 @@ describe('careportal', function ( ) {
     mocks.treatment.boluscalc.eventTime.should.not.equal(utcShiftedEventTime);
   });
 
+  // The bolus calculator reads the BG in the display units and the profile's
+  // targets and sensitivity in the profile's own units. Where the two differ
+  // they are converted to the display units, rounded as shown (1 mg/dl,
+  // 0.1 mmol/L) as the basal profile pill does. Before that an mmol/L profile
+  // on an mg/dl site suggested 81 U for 250 mg/dl where 2.3 U is right, and an
+  // mg/dl profile on an mmol/L site -1.4 U for 13.9 mmol/L.
+  function unitsProfile (units, sens, low, high) {
+    return {
+      defaultProfile: 'Default'
+      , units: units
+      , store: {
+        Default: {
+          dia: 3
+          , units: units
+          , basal: [{time: '00:00', timeAsSeconds: 0, value: 1}]
+          , carbratio: [{time: '00:00', timeAsSeconds: 0, value: 10}]
+          , sens: [{time: '00:00', timeAsSeconds: 0, value: sens}]
+          , target_low: [{time: '00:00', timeAsSeconds: 0, value: low}]
+          , target_high: [{time: '00:00', timeAsSeconds: 0, value: high}]
+        }
+      }
+    };
+  }
+
+  function calculateBolus (displayUnits, profile, bg) {
+    var client = window.Nightscout.client;
+    client.init();
+    client.settings.units = displayUnits;
+    client.dataUpdate({
+      sgvs: [{ mgdl: 250, mills: Date.now(), direction: 'Flat', type: 'sgv' }]
+      , treatments: []
+      , devicestatus: []
+      , profiles: [profile]
+    }, true);
+    client.boluscalc.prepare();
+    $('#bc_bg').val(String(bg));
+    $('#bc_carbs').val('0');
+    $('#bc_othercorrection').val('0');
+    var record = client.boluscalc.calculateInsulin();
+    client.settings.units = 'mg/dl';
+    return record;
+  }
+
+  it('boluscalc uses an mg/dl profile on an mg/dl site as stored', function () {
+    var record = calculateBolus('mg/dl', unitsProfile('mg/dl', 54, 90, 126), 250);
+    record.isf.should.equal(54);
+    record.insulinbg.should.be.approximately(2.3, 0.001);
+  });
+
+  it('boluscalc uses an mmol/L profile on an mmol/L site as stored', function () {
+    var record = calculateBolus('mmol', unitsProfile('mmol', 3, 5, 7), 13.9);
+    record.isf.should.equal(3);
+    record.insulinbg.should.be.approximately(2.3, 0.001);
+  });
+
+  it('boluscalc converts an mmol/L profile on an mg/dl site', function () {
+    var record = calculateBolus('mg/dl', unitsProfile('mmol', 3, 5, 7), 250);
+    record.isf.should.equal(54);
+    record.targetBGLow.should.equal(90);
+    record.targetBGHigh.should.equal(126);
+    record.insulinbg.should.be.approximately(2.3, 0.001);
+  });
+
+  it('boluscalc converts an mg/dl profile on an mmol/L site', function () {
+    var record = calculateBolus('mmol', unitsProfile('mg/dl', 54, 90, 126), 13.9);
+    record.isf.should.be.approximately(3, 0.001);
+    record.targetBGLow.should.be.approximately(5, 0.001);
+    record.targetBGHigh.should.be.approximately(7, 0.001);
+    record.insulinbg.should.be.approximately(2.3, 0.001);
+  });
+
   function checkLoopSubmission (eventType, failureResponse, expectedMessage, textStatus) {
     var failed = failureResponse !== undefined;
     var client = window.Nightscout.client;
