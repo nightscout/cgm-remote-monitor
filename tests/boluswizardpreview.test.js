@@ -67,6 +67,42 @@ describe('boluswizardpreview', function ( ) {
     done();
   });
 
+  it('converts profile units to display units before estimating the bolus', function (done) {
+    ctx.notifications.initRequests();
+
+    var MMOL_TO_MGDL = 18.01559;
+    var displayUnits = ctx.settings.units;
+
+    // A profile stored in the opposite units to the site's display units. getSensitivity and the
+    // BG targets return these raw stored values, so the plugin must convert them to display units
+    // before mixing them with the (display-unit) scaled SGV.
+    var profile = displayUnits === 'mmol'
+      ? { dia: 3, units: 'mg/dl', sens: 54, target_high: 126, target_low: 90 }
+      : { dia: 3, units: 'mmol', sens: 3, target_high: 7, target_low: 5 };
+
+    function toDisplay (v) {
+      return displayUnits === 'mmol' ? v / MMOL_TO_MGDL : v * MMOL_TO_MGDL;
+    }
+    var sens = toDisplay(profile.sens);
+    var targetHigh = toDisplay(profile.target_high);
+
+    var bgMgdl = 250;
+    ctx.ddata.sgvs = [{mills: before, mgdl: bgMgdl}, {mills: now, mgdl: bgMgdl}];
+    ctx.ddata.treatments = [{mills: now, insulin: '1.0'}];
+    ctx.ddata.profiles = [profile];
+
+    var sbx = prepareSandbox();
+    var results = boluswizardpreview.calc(sbx);
+
+    // IOB is 1.0 U at `now`, so effect = sens and the estimate is (outcome - targetHigh) / sens,
+    // all in display units. On the unconverted (buggy) code this comes out ~18x too large.
+    var scaled = displayUnits === 'mmol' ? bgMgdl / MMOL_TO_MGDL : bgMgdl;
+    var expectedEstimate = ((scaled - sens) - targetHigh) / sens;
+
+    results.bolusEstimate.should.be.approximately(expectedEstimate, 0.01);
+    done();
+  });
+
   it('should calculate IOB results correctly with 1.0 U IOB', function (done) {
     ctx.notifications.initRequests();
     ctx.ddata.sgvs = [{mills: before, mgdl: 100}, {mills: now, mgdl: 100}];
@@ -98,6 +134,42 @@ describe('boluswizardpreview', function ( ) {
     results.bolusEstimate.should.equal(0);
     results.displayLine.should.equal('BWP: 0U');
     
+    done();
+  });
+
+  it('converts profile units to display units before estimating the bolus', function (done) {
+    ctx.notifications.initRequests();
+
+    var MMOL_TO_MGDL = 18.01559;
+    var displayUnits = ctx.settings.units;
+
+    // A profile stored in the opposite units to the site's display units. getSensitivity and the
+    // BG targets return these raw stored values, so the plugin must convert them to display units
+    // before mixing them with the (display-unit) scaled SGV.
+    var profile = displayUnits === 'mmol'
+      ? { dia: 3, units: 'mg/dl', sens: 54, target_high: 126, target_low: 90 }
+      : { dia: 3, units: 'mmol', sens: 3, target_high: 7, target_low: 5 };
+
+    function toDisplay (v) {
+      return displayUnits === 'mmol' ? v / MMOL_TO_MGDL : v * MMOL_TO_MGDL;
+    }
+    var sens = toDisplay(profile.sens);
+    var targetHigh = toDisplay(profile.target_high);
+
+    var bgMgdl = 250;
+    ctx.ddata.sgvs = [{mills: before, mgdl: bgMgdl}, {mills: now, mgdl: bgMgdl}];
+    ctx.ddata.treatments = [{mills: now, insulin: '1.0'}];
+    ctx.ddata.profiles = [profile];
+
+    var sbx = prepareSandbox();
+    var results = boluswizardpreview.calc(sbx);
+
+    // IOB is 1.0 U at `now`, so effect = sens and the estimate is (outcome - targetHigh) / sens,
+    // all in display units. On the unconverted (buggy) code this comes out ~18x too large.
+    var scaled = displayUnits === 'mmol' ? bgMgdl / MMOL_TO_MGDL : bgMgdl;
+    var expectedEstimate = ((scaled - sens) - targetHigh) / sens;
+
+    results.bolusEstimate.should.be.approximately(expectedEstimate, 0.01);
     done();
   });
 
