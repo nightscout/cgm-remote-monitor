@@ -54,6 +54,19 @@ describe('explicit trusted proxies', function () {
     assert.equal(resolve(raw('2001:db8:1::2', { 'x-forwarded-for': '2001:db8:2::4' })), '2001:db8:2::4');
   });
 
+  // GHSA-jqcg-44mw-7w3h: proxy-addr before 2.0.8 compiles an IPv6 subnet with
+  // zero leading bits so that it matches every IPv4 address, which made any
+  // client a trusted proxy. 2.0.8 matches only the block the entry names.
+  it('trusts only the IPv4 block an IPv6-notation entry names', function () {
+    for (const entry of ['::ffff:10.0.0.0/8', '::/1']) {
+      const resolve = resolverFor(entry);
+      assert.equal(resolve(raw('203.0.113.10', { 'x-forwarded-for': '192.0.2.1' })), '203.0.113.10');
+    }
+    const resolve = resolverFor('::ffff:10.0.0.0/104');
+    assert.equal(resolve(raw('203.0.113.10', { 'x-forwarded-for': '192.0.2.1' })), '203.0.113.10');
+    assert.equal(resolve(raw('10.1.2.3', { 'x-forwarded-for': '192.0.2.1' })), '192.0.2.1');
+  });
+
   it('ignores alternate headers even for trusted peers', function () {
     const resolve = resolverFor('10.1.0.2');
     for (let cycle = 0; cycle < 2; cycle++) {

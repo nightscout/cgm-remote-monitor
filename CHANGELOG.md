@@ -4,8 +4,19 @@ All notable changes to cgm-remote-monitor are documented in this file.
 
 ## [Unreleased]
 
+## [15.0.9] - 2026-10-21
+
+Release notes: https://github.com/nightscout/cgm-remote-monitor/releases/tag/v15.0.9
+
 ### Fixed
 
+- **Server stopped by a token for a deleted subject:** Refuse a bearer token
+  whose subject was deleted, or lost when the database was dropped, the same way
+  as a wrong token. The token still verifies until it expires, and the first
+  request that carried it, through API v1 or the websocket and alarm socket,
+  stopped the server with `Cannot read properties of null (reading 'shiros')`.
+  API v3 now answers such a token with 401, as it does a wrong one, instead of
+  403. Fixes #8225.
 - **Food Editor on phones:** Scroll the food list, or the page, when a swipe
   starts on a food or a quick pick. On a phone the list has room for two or
   three foods, and swiping on them did nothing, so the rest of the list could
@@ -85,7 +96,11 @@ All notable changes to cgm-remote-monitor are documented in this file.
   range percentages. Five-minute series are unaffected. Range percentages
   continue to count retained readings rather than weight elapsed time.
 
-## [15.0.7] - 2026-03-XX (Unreleased)
+## [15.0.8] - 2026-09-04
+
+See https://github.com/nightscout/cgm-remote-monitor/releases/tag/v15.0.8
+
+## [15.0.7] - 2026-04-29
 
 ### Added
 
