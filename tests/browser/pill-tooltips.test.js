@@ -50,7 +50,10 @@ describe('pluginbase in a real browser', function () {
           if (name === 'display' && value === 'block') fixture.renders++;
           return style.apply(this, arguments);
         };
-        fixture.base = window.NightscoutTestModules.pluginbase(major, minor, status, bgStatus, tooltip);
+        // pluginbase titles a pill that has no tooltip with its translated label;
+        // a test may replace fixture.translate.
+        fixture.translate = value => value;
+        fixture.base = window.NightscoutTestModules.pluginbase(major, minor, status, bgStatus, tooltip, null, value => fixture.translate(value));
         fixture.mouse = (pill, type) => pill[0].dispatchEvent(new MouseEvent(type, {
           bubbles: true, cancelable: true, view: window, clientX: 10, clientY: 20
         }));
@@ -162,6 +165,66 @@ describe('pluginbase in a real browser', function () {
         return {display: tooltipNode.css('display'), text: tooltipNode.text()};
       });
       assert.deepEqual(result, {display: 'block', text: 'Second 2'});
+    });
+  });
+  it('titles a pill with its translated plugin label so the acronym is explained', async function () {
+    await withPills(async page => {
+      const title = await page.evaluate(() => {
+        const f = window.pillFixture;
+        f.translate = text => text === 'Insulin Age' ? 'Insulinalter' : text;
+        f.base.updatePillText({name: 'iage', label: 'Insulin Age', pluginType: 'pill-minor'}, {value: '3d1h', label: 'IAGE'});
+        return f.minor.find('span.pill.iage').attr('title');
+      });
+      assert.equal(title, 'Insulinalter');
+    });
+  });
+
+  it('does not also set a title when the pill has its own tooltip', async function () {
+    await withPills(async page => {
+      const title = await page.evaluate(() => {
+        const f = window.pillFixture;
+        f.base.updatePillText({name: 'iob', label: 'Insulin-on-Board', pluginType: 'pill-major'}, {
+          value: '2.5U', label: 'IOB', info: [{label: 'Source', value: 'care portal'}]
+        });
+        return f.major.find('span.pill.iob').attr('title');
+      });
+      assert.equal(title, undefined);
+    });
+  });
+
+  it('falls back to the plugin name when a plugin carries no label', async function () {
+    await withPills(async page => {
+      const title = await page.evaluate(() => {
+        const f = window.pillFixture;
+        f.base.updatePillText({name: 'fake', pluginType: 'pill-major'}, {value: '1', label: 'X'});
+        return f.major.find('span.pill.fake').attr('title');
+      });
+      assert.equal(title, 'fake');
+    });
+  });
+
+  it('switches between a native title and the custom tooltip as pill data changes', async function () {
+    await withPills(async page => {
+      const result = await page.evaluate(() => {
+        const f = window.pillFixture, plugin = {name: 'delta', label: 'BG Delta', pluginType: 'pill-major'};
+        const steps = [];
+        f.base.updatePillText(plugin, {label: 'mg/dl', value: 5});
+        const pill = f.major.find('.delta');
+        steps.push({title: pill.attr('title')});
+        f.base.updatePillText(plugin, {label: 'mg/dl', value: 5, info: [{label: 'Device', value: 'CGM'}]});
+        f.mouse(pill, 'mouseover');
+        steps.push({title: pill.attr('title'), text: f.tooltipNode.text(), display: f.tooltipNode.css('display')});
+        f.mouse(pill, 'mouseout');
+        f.base.updatePillText(plugin, {label: 'mg/dl', value: 6});
+        f.mouse(pill, 'mouseover');
+        steps.push({title: pill.attr('title'), display: f.tooltipNode.css('display')});
+        return steps;
+      });
+      assert.deepEqual(result, [
+        {title: 'BG Delta'},
+        {title: undefined, text: 'Device CGM', display: 'block'},
+        {title: 'BG Delta', display: 'none'}
+      ]);
     });
   });
 });

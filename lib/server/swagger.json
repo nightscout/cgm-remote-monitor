@@ -7,7 +7,7 @@
   ],
   "info": {
     "title": "Nightscout API",
-    "description": "Own your DData with the Nightscout API",
+    "description": "Own your DData with the Nightscout API\n\n**Query operators.** Endpoints that accept `find[...]` support a fixed set of MongoDB query operators. On a field: `$eq` `$ne` `$gt` `$gte` `$lt` `$lte` `$in` `$nin` `$exists` `$type` `$regex` (with `$options`). At the top level of a query, or of one of their branches: `$and` `$or`. A field name with no operator is an equality match, and the indexed group form `find[$and][0][field][$op]=value` is accepted.\n\nAny other operator is refused with HTTP 400 and a message naming it. That includes `$where`, `$function` and `$accumulator`, which ask MongoDB to run JavaScript; `$expr`, which embeds the aggregation expression language in a filter; and `$elemMatch`, `$not`, `$nor`, `$all`, `$size`, `$mod`, `$text` and the geospatial operators, none of which the API is defined over. An operator name appearing inside a *value* is data and is not affected.",
     "version": "14.2.3",
     "license": {
       "name": "AGPL 3",
@@ -30,7 +30,7 @@
           {
             "name": "spec",
             "in": "path",
-            "description": "entry id, such as `55cf81bc436037528ec75fa5` or a type filter such\nas `sgv`, `mbg`, etc.\n",
+            "description": "entry id, such as `55cf81bc436037528ec75fa5` or a type filter such\nas `sgv`, `mbg`, etc. An id that names no entry answers 200 with\nan empty array.\n",
             "required": true,
             "schema": {
               "type": "string",

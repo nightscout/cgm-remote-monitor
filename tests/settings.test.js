@@ -197,6 +197,66 @@ describe('settings', function ( ) {
     should.deepEqual(fresh.alarmTypes, ['simple']);
   });
 
+  describe('thresholds on an mmol site', function () {
+    function thresholdsFor (vars) {
+      var fresh = require('../lib/settings')();
+      var realInfo = console.info;
+      console.info = function () {};
+      try {
+        fresh.eachSettingAsEnv(function (name) {
+          return Object.assign({ UNITS: 'mmol' }, vars)[name];
+        });
+      } finally {
+        console.info = realInfo;
+      }
+      return fresh.thresholds;
+    }
+
+    it('convert all four when all four are set in mmol/L', function () {
+      thresholdsFor({ BG_HIGH: '14', BG_TARGET_TOP: '10', BG_TARGET_BOTTOM: '4', BG_LOW: '3.0' })
+        .should.eql({ bgHigh: 252, bgTargetTop: 180, bgTargetBottom: 72, bgLow: 54 });
+    });
+
+    it('keep all four when all four are set in mg/dl', function () {
+      thresholdsFor({ BG_HIGH: '260', BG_TARGET_TOP: '180', BG_TARGET_BOTTOM: '80', BG_LOW: '55' })
+        .should.eql({ bgHigh: 260, bgTargetTop: 180, bgTargetBottom: 80, bgLow: 55 });
+    });
+
+    it('convert the targets set in mmol/L and keep the mg/dl defaults of the rest', function () {
+      thresholdsFor({ BG_TARGET_TOP: '8.5', BG_TARGET_BOTTOM: '3.9' })
+        .should.eql({ bgHigh: 260, bgTargetTop: 153, bgTargetBottom: 70, bgLow: 55 });
+    });
+
+    it('convert the targets and BG_LOW set in mmol/L and keep the mg/dl default of BG_HIGH', function () {
+      thresholdsFor({ BG_TARGET_TOP: '8.5', BG_TARGET_BOTTOM: '3.9', BG_LOW: '3.5' })
+        .should.eql({ bgHigh: 260, bgTargetTop: 153, bgTargetBottom: 70, bgLow: 63 });
+    });
+
+    it('keep a target set in mg/dl when BG_HIGH is set in mmol/L', function () {
+      thresholdsFor({ BG_HIGH: '14', BG_TARGET_TOP: '180' })
+        .should.eql({ bgHigh: 252, bgTargetTop: 180, bgTargetBottom: 80, bgLow: 55 });
+    });
+
+    it('log each threshold it converts', function () {
+      var fresh = require('../lib/settings')();
+      var lines = [];
+      var realInfo = console.info;
+      console.info = function () { lines.push(Array.prototype.join.call(arguments, ' ')); };
+      try {
+        fresh.eachSettingAsEnv(function (name) {
+          return { UNITS: 'mmol', BG_TARGET_TOP: '8.5', BG_TARGET_BOTTOM: '3.9' }[name];
+        });
+      } finally {
+        console.info = realInfo;
+      }
+      var converted = lines.filter(function (line) { return line.indexOf('converted to') > -1; });
+      converted.should.eql([
+        'Threshold bgTargetTop 8.5 taken as mmol/L, converted to 153 mg/dl'
+        , 'Threshold bgTargetBottom 3.9 taken as mmol/L, converted to 70 mg/dl'
+      ]);
+    });
+  });
+
   it('default to predict if no thresholds are set', function () {
     var fresh = require('../lib/settings')();
     fresh.eachSettingAsEnv(function ( ) {
