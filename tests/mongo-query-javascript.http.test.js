@@ -63,12 +63,22 @@ describe('Profile query JavaScript HTTP boundary', function () {
   it('treats operator names inside explicit literals as data', async function () {
     for (const [find, score] of [
       [{payload:{$eq:{$where:'literal'}}}, 1],
-      [{$expr:{$eq:[{$literal:{$function:'literal'}}, '$payload']}}, 2],
       [{notes:{$regex:'\\$where is plain text'}}, 1]
     ]) {
       const result = await request(server).get('/profiles/?' + qs.stringify({find})).expect(200);
       assert.equal(result.body.length, 1);
       assert.equal(result.body[0].score, score);
     }
+  });
+
+  it('refuses $expr, even around a $literal, through the API v1 operator allowlist', async function () {
+    // The JavaScript guard alone would let this through as data; the operator
+    // allowlist (lib/server/query-operator-allowlist.js) refuses $expr itself.
+    const before = findCommands;
+    const find = {$expr:{$eq:[{$literal:{$function:'literal'}}, '$payload']}};
+    const response = await request(server).get('/profiles/?' + qs.stringify({find})).expect(400);
+    assert.equal(response.body.status, 400);
+    assert.match(response.body.message, /\$expr/);
+    assert.equal(findCommands, before);
   });
 });
