@@ -218,6 +218,10 @@ a, a:visited, a:link {
   padding: 2px 0;
 }
 
+.pill:hover {
+  background: #989898;
+}
+
 .pill em, .pill label {
   padding: 2px 3px;
   white-space: nowrap;
@@ -443,6 +447,14 @@ a, a:visited, a:link {
   border-color: #808080;
   color: #000;
   background: #808080;
+}
+
+.focus-range li:hover {
+  border-color: #808080;
+}
+
+.focus-range li:active {
+  background: #404040;
 }
 
 .pill.hidden {
