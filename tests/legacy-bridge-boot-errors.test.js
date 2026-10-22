@@ -36,11 +36,12 @@ function boot (vars) {
     const filename = path.resolve(__dirname, '../lib/server/bootevent.js');
     const localRequire = createRequire(filename);
     const stages = [];
-    const pipeline = {acquire (stage) { stages.push(stage); return pipeline; }};
+    // lib/server/bootevent.js hands its stage list to lib/utils/boot-sequence.js.
+    const sequence = list => { stages.push(...list); return {boot () { return this; }}; };
     const logs = [];
     let started = null;
     const sandbox = {module: {exports: {}}, console: {log (...args) { logs.push(args.join(' ')); }}, process, require (name) {
-      if (name === 'bootevent') return () => pipeline;
+      if (name === '../utils/boot-sequence') return sequence;
       if (name === 'nightscout-connect') return configured => { started = configured.extendedSettings.connect.source; return {stop () {}}; };
       return localRequire(name);
     }};
