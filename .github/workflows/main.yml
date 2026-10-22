@@ -67,9 +67,9 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        # The lowest Node 22 that engines (^22.12 || >=24) admits, and the
-        # current Node 24, against maintained MongoDB releases.
-        node-version: ['22.12.0', '24']
+        # The floor engines (^22.12 || >=24) admits in Node 22, Node 24, and
+        # the newest Node line, against maintained MongoDB releases.
+        node-version: ['22.12.0', '24', '26']
         # Additional coverage; the retained MongoDB 5/6 matrix stays above.
         mongodb-version: ['7.0.40', '8.0.29']
 
@@ -114,7 +114,8 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        node-version: ['22', '24']
+        # Floor, Node 24 and the newest Node line, as in maintained-mongo.
+        node-version: ['22.12.0', '24', '26']
         mongodb-version: ['5.0.32', '6.0.27', '7.0.40', '8.0.29']
     steps:
       - name: Git Checkout
