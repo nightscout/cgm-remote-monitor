@@ -218,7 +218,7 @@
     },
     "WEBSITE_NODE_DEFAULT_VERSION": {
         "type": "string",
-        "defaultValue": "~22"
+        "defaultValue": "~24"
     }
   },
   "resources": [{
