@@ -26,6 +26,7 @@ const CACHE_LIST = [
     '/css/ui-darkness/images/ui-icons_cccccc_256x240.png',
     '/css/ui-darkness/images/ui-bg_inset-soft_25_000000_1x100.png',
     '/css/ui-darkness/images/ui-bg_gloss-wave_25_333333_500x100.png',
+    '/css/tokens.css',
     '/css/main.css',
     '/bundle/js/bundle.app.js',
     '/bundle/js/bundle.clock.js',

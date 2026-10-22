@@ -1,7 +1,7 @@
 <!DOCTYPE html>
-<html>
+<html lang="en">
     <head>
-      <meta name="viewport" content="width=device-width, maximum-scale=1, initial-scale=1, user-scalable=0" />
+      <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
       <meta name="apple-mobile-web-app-capable" content="yes">
       <title>Profile Editor: Nightscout</title>
 
@@ -25,6 +25,7 @@
       <meta name="msapplication-config" content="/browserconfig.xml">
       <meta name="theme-color" content="#333333">
 
+      <link rel="stylesheet" href="/css/tokens.css">
       <link rel="preload" href="/css/main.css" as="style" onload="this.onload=null;this.rel='stylesheet'">
       <link rel="preload" href="/css/drawer.css" as="style" onload="this.onload=null;this.rel='stylesheet'">
       <link rel="preload" href="/css/profile.css" as="style" onload="this.onload=null;this.rel='stylesheet'">
@@ -67,8 +68,8 @@
         <br>
         <dl>
           <b title="Start of record validity" class="titletranslate"><span class="translate">Record valid from</span>: </b>
-          <input type="date" id="pe_date" />
-          <input type="time" id="pe_time" />
+          <input type="date" id="pe_date" aria-label="Record valid from: date" />
+          <input type="time" id="pe_time" aria-label="Record valid from: time" />
         </dl>
 
         <fieldset class="browserSettings pe_stored_profile">
@@ -85,16 +86,16 @@
           </legend>
           <dl>
             <b><span class="translate">Name</span>: </b>
-            <input type="text" id="pe_profile_name" style="width:150px">
+            <input type="text" id="pe_profile_name" aria-label="Profile name" style="width:150px">
           </dl>
           <dl>
             <b><span class="translate">Timezone</span>: </b>
-            <select id="pe_timezone">
-            </select>        
+            <select id="pe_timezone" aria-label="Timezone">
+            </select>
           </dl>
           <dl>
             <b title="Represents the typical duration over which insulin takes effect.  Varies per patient and per insulin type. Typically 3-4 hours for most pumped insulin and most patients. Sometimes also called insulin lifetime." class="titletranslate"><span class="translate">Duration of Insulin Activity (DIA)</span> [<span class="translate">hours</span>]: </b>
-            <input type="text" id="pe_dia" />
+            <input type="text" id="pe_dia" aria-label="Duration of insulin activity (DIA), hours" />
           </dl>
 
           <fieldset>
