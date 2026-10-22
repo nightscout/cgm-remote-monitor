@@ -1,7 +1,7 @@
 'use strict';
 
 // Real chart and renderer with only application services replaced by deterministic data.
-module.exports = function (d3, window, units) {
+module.exports = function (d3, window, units, layout) {
   const now = Date.parse('2025-01-01T12:00:00Z');
   const hour = 3600000;
   const client = {
@@ -29,6 +29,15 @@ module.exports = function (d3, window, units) {
   client.tooltip = d3.select('#tooltip');
   client.renderer = require('../../lib/client/renderer')(client, d3);
   client.chart = require('../../lib/client/chart')(client, d3, window.$);
+  if (layout) {
+    // layout.width: the container width the first update() measures. An <svg>
+    // drawn before the page has laid out reports the browser default size,
+    // 300x150; pin that here so the case does not depend on load timing.
+    window.document.querySelector('#chartContainer').style.width = layout.width + 'px';
+    const svg = window.document.querySelector('#chartContainer svg');
+    Object.defineProperty(svg, 'width', {value: {baseVal: {value: 300}}});
+    Object.defineProperty(svg, 'height', {value: {baseVal: {value: 150}}});
+  }
   client.chart.update(true);
   return client;
 };

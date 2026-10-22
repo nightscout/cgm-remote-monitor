@@ -37,15 +37,15 @@ describe('D3 chart interaction compatibility in a real browser', function () {
     if (server) await new Promise(resolve => server.close(resolve));
   });
 
-  async function withChart(run, units = 'mg/dl') {
+  async function withChart(run, units = 'mg/dl', layout) {
     await withPage(origin, async ({page}) => {
       await page.goto(origin);
       await page.addScriptTag({url: origin + '/bundle.js'});
       await page.addScriptTag({url: origin + '/modules.js'});
       await page.addStyleTag({url: origin + '/main.css'});
-      await page.evaluate(units => {
+      await page.evaluate(({units, layout}) => {
         const d3 = window.d3;
-        const client = window.NightscoutTestModules.makeChart(d3, window, units);
+        const client = window.NightscoutTestModules.makeChart(d3, window, units, layout);
         function point(x, y, space) {
           return space ? new DOMPoint(x, y).matrixTransform(space.getScreenCTM()) : {x, y};
         }
@@ -63,14 +63,14 @@ describe('D3 chart interaction compatibility in a real browser', function () {
         }
         window.chartFixture = {client, d3, mouse, treatment, tooltip, emitted: []};
         client.socket = {emit(name, payload, callback) {window.chartFixture.emitted.push([name, payload]); if (callback) callback('ok');}};
-      }, units);
+      }, {units, layout});
       const geometry = await page.evaluate(() => {
         const {client} = window.chartFixture;
         const rect = document.querySelector('#chartContainer').getBoundingClientRect();
         return {width: rect.width, height: rect.height, focus: client.chart.focusHeight,
           touchListener: typeof client.chart.theBrush.on('touchstart.brush')};
       });
-      assert.deepEqual([geometry.width, geometry.height], [900, 600]);
+      assert.deepEqual([geometry.width, geometry.height], [layout ? layout.width : 900, 600]);
       assert.equal(geometry.focus, 399);
       assert.equal(geometry.touchListener, 'function');
       await run(page);
@@ -170,6 +170,19 @@ describe('D3 chart interaction compatibility in a real browser', function () {
         const result = await brushGesture(page, input, 450, 550);
         assert.deepEqual(result.selection, [437.5, 662.5]);
       });
+    });
+    it('drags the context window back to now after the chart was drawn before layout, using ' + input, async function () {
+      await withChart(async page => {
+        await page.evaluate(() => {
+          const {client} = window.chartFixture;
+          document.querySelector('#chartContainer').style.width = '900px';
+          client.chart.update(false);
+        });
+        await brushGesture(page, input, 450);
+        const result = await brushGesture(page, input, 450, 1000);
+        assert.deepEqual(result.selection, [675, 900]);
+        assert.equal(await page.evaluate(() => window.chartFixture.client.chart.inRetroMode()), false);
+      }, 'mg/dl', {width: 880});
     });
   }
 
@@ -282,15 +295,26 @@ describe('D3 chart interaction compatibility in a real browser', function () {
           const {emitted, movedAt} = await page.evaluate(x => ({emitted: window.chartFixture.emitted, movedAt: window.chartFixture.client.chart.xScale.invert(x).toISOString()}), x);
           if (!confirmed) return assert.deepEqual(emitted, []);
           const split = operation === 'Move carbs' || operation === 'Move insulin';
-          assert.equal(emitted.length, split ? 4 : 2);
-          for (let index = 0; index < emitted.length; index += split ? 2 : 1) {
+          const move = operation === 'Move';
+          // A time change also clears the fields the page derived at the old
+          // time (BF-103), so Move sends an unset before its update.
+          const stale = {mills: 1, endmills: 1, mgdl: 1, scaled: 1};
+          assert.equal(emitted.length, split || move ? 4 : 2);
+          for (let index = 0; index < emitted.length; index += split || move ? 2 : 1) {
             const [name, payload] = emitted[index];
-            assert.equal(name, eventName);
+            assert.equal(name, move ? 'dbUpdateUnset' : eventName);
             assert.equal(payload._id, 'treatment-1');
             assert.equal(payload.collection, 'treatments');
-            if (operation === 'Move') assert.deepEqual(payload.data, {created_at: movedAt});
-            if (operation.includes('carbs')) assert.deepEqual(payload.data, {carbs: 1});
-            if (operation.includes('insulin')) assert.deepEqual(payload.data, {insulin: 1});
+            if (move) {
+              assert.deepEqual(payload.data, stale);
+              assert.equal(emitted[index + 1][0], eventName);
+              assert.equal(emitted[index + 1][1]._id, 'treatment-1');
+              assert.deepEqual(emitted[index + 1][1].data, {created_at: movedAt});
+            }
+            if (operation === 'Remove carbs') assert.deepEqual(payload.data, {carbs: 1});
+            if (operation === 'Remove insulin') assert.deepEqual(payload.data, {insulin: 1});
+            if (operation === 'Move carbs') assert.deepEqual(payload.data, {carbs: 1, ...stale});
+            if (operation === 'Move insulin') assert.deepEqual(payload.data, {insulin: 1, ...stale});
             if (split) {
               assert.equal(emitted[index + 1][0], 'dbAdd');
               const data = emitted[index + 1][1].data;
@@ -299,6 +323,8 @@ describe('D3 chart interaction compatibility in a real browser', function () {
               assert.equal(data.NSCLIENT_ID, undefined);
               assert.equal(data.carbs, operation === 'Move carbs' ? 20 : undefined);
               assert.equal(data.insulin, operation === 'Move insulin' ? 2 : undefined);
+              // nothing the page derived at the old time is written to the new record
+              for (const field of ['mills', 'date', 'mgdl', 'scaled', 'endmills']) assert.equal(data[field], undefined, field);
             }
           }
         });
