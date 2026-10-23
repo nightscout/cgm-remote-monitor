@@ -72,7 +72,12 @@ describe('ar2', function ( ) {
     var highest = ctx.notifications.findHighestAlarm();
     highest.level.should.equal(helper.ctx.levels.WARN);
     highest.title.should.equal('Warning, HIGH predicted');
-    highest.message.should.equal('BG Now: 170 +20 ↗ mg/dl\nBG 15m: 206 mg/dl\nIOB: 1.25U');
+
+    var expectedMessage =
+      ctx.settings.units === 'mmol' ?
+        'BG Now: 9.4 +1.1 ↗ mmol/L\nBG 15m: 11.4 mmol/L\nIOB: 1.25U' :
+        'BG Now: 170 +20 ↗ mg/dl\nBG 15m: 206 mg/dl\nIOB: 1.25U';
+    highest.message.should.equal(expectedMessage);
 
     done();
   });

@@ -19,7 +19,7 @@
   <link rel="apple-touch-icon" sizes="180x180" href="/images/apple-touch-icon-180x180.png">
 
   <style type="text/css">
-    @import url("//fonts.googleapis.com/css?family=Open+Sans:700");
+    @import url("//fonts.googleapis.com/css?family=Open+Sans:700|Noto+Color+Emoji");
     <%- include('clock-shared.css', {}); %>
     <%if (face === 'config') { %>
     <%- include('clock-config.css', {}); %>
@@ -58,6 +58,15 @@
     var script = document.createElement('script');
     script.onload = function() {
       window.Nightscout.client.init();
+    };
+    // A refused script fires error, not load, and does not expose the status.
+    // Ask once more to read it, and say so on a 401 instead of drawing nothing.
+    script.onerror = function() {
+      $.ajax(src, { dataType: 'text', error: function (xhr) {
+        if (xhr && xhr.status === 401) {
+          window.Nightscout.client.showNotAuthorized();
+        }
+      } });
     };
     script.src = src;
 

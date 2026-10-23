@@ -1,0 +1,121 @@
+=== BASELINE on branch wip/bewest/track1-baseline ===
+2026-05-09T12:45:56-07:00
+node: v24.15.0
+npm:  11.12.1
+git HEAD: b8d5c02d
+
+=== npm ls jsdom benv mongodb mocha supertest nyc ===
+nightscout@15.0.7 /home/bewest/src/worktrees/nightscout/cgm-pr-8447
+├─┬ benv@3.3.0
+│ └── jsdom@11.11.0 deduped
+├── jsdom@11.11.0
+├── mocha@8.4.0
+├─┬ mongodb-legacy@5.0.0 extraneous
+│ └── mongodb@5.9.2 deduped
+├── mongodb@5.9.2
+├── nyc@14.1.1
+└── supertest@3.4.2
+
+
+EXIT=0
+=== npm test (all) ===
+2026-05-09T12:47:06-07:00
+
+      at process.processImmediate (node:internal/timers:504:21)
+
+  2) API_SECRET
+       should fail when unauthorized:
+     Uncaught AssertionError: expected 401 to be 'ok'
+      at Assertion.fail (node_modules/should/cjs/should.js:275:17)
+      at Assertion.value (node_modules/should/cjs/should.js:356:19)
+      at Test.<anonymous> (tests/security.test.js:110:32)
+      at Test.assert (node_modules/supertest/lib/test.js:181:6)
+      at Server.localAssert (node_modules/supertest/lib/test.js:131:12)
+      at Object.onceWrapper (node:events:630:28)
+      at Server.emit (node:events:509:28)
+      at emitCloseNT (node:net:2487:8)
+      at process.processTicksAndRejections (node:internal/process/task_queues:89:21)
+
+  3) API_SECRET
+       should work fine set:
+     Uncaught AssertionError: expected 401 to be 'ok'
+      at Assertion.fail (node_modules/should/cjs/should.js:275:17)
+      at Assertion.value (node_modules/should/cjs/should.js:356:19)
+      at Test.<anonymous> (tests/security.test.js:110:32)
+      at Test.assert (node_modules/supertest/lib/test.js:181:6)
+      at Server.localAssert (node_modules/supertest/lib/test.js:131:12)
+      at Object.onceWrapper (node:events:630:28)
+      at Server.emit (node:events:509:28)
+      at emitCloseNT (node:net:2487:8)
+      at process.processTicksAndRejections (node:internal/process/task_queues:89:21)
+
+
+
+EXIT=3
+
+=== SUMMARY ===
+875 passing (55s)
+1 pending
+3 failing  (all pre-existing on wip/bewest/post-benv, NOT introduced by Track 1):
+  1) mongo storage > Uses the default database from the connection string via the public client API
+  2) API_SECRET > should fail when unauthorized
+  3) API_SECRET > should work fine set
+     (#2/#3 are auth-throttle state carry-over: status.json 401 instead of 200; deterministic when the suite runs in default order on this env)
+
+=== Per-benv-test isolated runs (Phase 0 scoreboard) ===
+hashauth: exit=0 time=964ms   5 passing (572ms)  
+pluginbase: exit=0 time=588ms   1 passing (198ms)  
+adminnotifies: exit=0 time=202ms   1 passing (3ms)  
+admintools: exit=0 time=612ms   1 passing (241ms)  
+careportal: exit=0 time=641ms   1 passing (257ms)  
+profileeditor: exit=0 time=965ms   1 passing (582ms)  
+reports: exit=0 time=8701ms   2 passing (8s)  
+
+=== Phase 0 changes ===
+- .nvmrc: 16.16.0 -> 22  (LTS; project bias is Node 22 minimum, Node 24 supported)
+- package.json engines.node: ">=20.x" -> ">=22"
+- package.json engines.npm:  ">=10.x" -> ">=10"  (drop the ".x" cosmetic; semver-major floor unchanged)
+
+Active runtime during baseline capture: node v24.15.0 / npm 11.12.1 (satisfies new engines).
+
+=== Notes for follow-on phases ===
+- 7 benv-dependent tests all green individually under Node 24:
+    hashauth (572ms, 5 pass)  pluginbase (198ms, 1 pass)  adminnotifies (3ms, 1 pass)
+    admintools (241ms, 1 pass) careportal (257ms, 1 pass) profileeditor (582ms, 1 pass)
+    reports (8s, 2 pass)
+- "Unable to find element for #chartContainer" warnings during admintools/careportal/profileeditor/reports
+  are noise from the bundle init in jsdom 11; expected to disappear once we move to fixture-isolated harness.
+- mongodb-legacy@5.0.0 marked extraneous in npm ls — pre-existing, not addressed in Phase 0.
+
+=== Addendum: clean baseline after my.test.env fixes ===
+Date: 2026-05-09
+Discovery: my.test.env is gitignored (matches '.gitignore: my.*.env') so it
+is local-developer-state. Two settings in this developer's local file
+caused the 3 baseline failures; both are environmental, not code:
+
+1. AUTH_DEFAULT_ROLES=careportal
+   The 'careportal' role only grants 'api:treatments:create'; it does NOT
+   include 'api:status:read', so /status.json returned 401 in
+   security.test.js (which calls ping_status() expecting 200 BEFORE setting
+   the api-secret). This was misread initially as auth-throttle carry-over.
+   Fix: AUTH_DEFAULT_ROLES=careportal readable
+
+2. MONGO_CONNECTION=mongodb://localhost:27017/nightscout_test
+   tests/mongo-storage.test.js:41 hardcodes
+       db.db.databaseName.should.equal('testdb')
+   tests/ci.test.env uses /testdb in CI. Local devs must use the same DB
+   name to satisfy this assertion.
+   Fix: MONGO_CONNECTION=mongodb://localhost:27017/testdb
+
+Result after both fixes (no source/test changes):
+   878 passing (55s)
+   1 pending
+   0 failing
+
+Recommendation for follow-up (out of Track-1 Phase 0 scope):
+- Add a documented example my.test.env (perhaps docs/example-template.env
+  already exists — verify and align). Several other contributors will hit
+  the same 'careportal' / 'testdb' surprise.
+- Consider relaxing tests/mongo-storage.test.js:41 to read the expected
+  database name from the connection string the test itself parsed, rather
+  than hardcoding 'testdb'.

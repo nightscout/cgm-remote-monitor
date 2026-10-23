@@ -2,8 +2,7 @@
 /* globals describe, it */
 'use strict';
 
-var _ = require('lodash'),
-  should = require('should');
+var should = require('should');
 
 describe('mmconnect', function () {
   var mmconnect = require('../lib/plugins/mmconnect');
@@ -21,6 +20,22 @@ describe('mmconnect', function () {
       }
     }
   };
+
+  describe('DEPRECATION_WARNING', function () {
+    it('names every setting the Nightscout Connect replacement needs', function () {
+      [
+        'MMCONNECT_'
+        , 'ENABLE'
+        , 'CONNECT_SOURCE=minimedcarelink'
+        , 'CONNECT_CARELINK_USERNAME'
+        , 'CONNECT_CARELINK_PASSWORD'
+        , 'CONNECT_CARELINK_REGION'
+        , 'CONNECT_COUNTRY_CODE'
+      ].forEach(function (setting) {
+        mmconnect.DEPRECATION_WARNING.should.containEql(setting);
+      });
+    });
+  });
 
   describe('init()', function () {
     it('should create a runner if env vars are present', function () {
@@ -61,7 +76,7 @@ describe('mmconnect', function () {
     it('should generate a "carelink_raw" entry with sgs truncated and PII redacted', function () {
       var data = {
         'lastMedicalDeviceDataUpdateServerTime': 1445471797479
-        , 'sgs': _.range(10)
+        , 'sgs': Array.from({ length: 10 }, (_, i) => i)
         , 'firstName': 'sensitive'
         , 'lastName': 'sensitive'
         , 'medicalDeviceSerialNumber': 'sensitive'
@@ -72,9 +87,9 @@ describe('mmconnect', function () {
         , 'type': 'carelink_raw'
       });
       entry.data.should.have.properties({
-        'firstName': '<redacted>'
-        , 'lastName': '<redacted>'
-        , 'medicalDeviceSerialNumber': '<redacted>'
+        'firstName': '[redacted]'
+        , 'lastName': '[redacted]'
+        , 'medicalDeviceSerialNumber': '[redacted]'
       });
       entry.data.sgs.length.should.equal(6);
     });
