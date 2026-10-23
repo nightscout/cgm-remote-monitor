@@ -10,6 +10,13 @@ Release notes: https://github.com/nightscout/cgm-remote-monitor/releases/tag/v15
 
 ### Fixed
 
+- **Loopalyzer BG line:** Draw the BG line through CGM readings that are on or
+  close to a 5-minute mark. A reading exactly on the mark was dropped, and one
+  that arrived just after the mark left a gap in the line before it, so a day
+  with readings timed like this showed a broken or missing BG line in
+  Loopalyzer while Day to Day showed every reading. Readings away from the
+  marks are drawn as before, and a reading that is really missing still shows
+  as a gap. Fixes #6236.
 - **Server stopped by a token for a deleted subject:** Refuse a bearer token
   whose subject was deleted, or lost when the database was dropped, the same way
   as a wrong token. The token still verifies until it expires, and the first
