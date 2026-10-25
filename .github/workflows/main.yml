@@ -87,6 +87,9 @@ jobs:
         run: npm ci
       - name: Run isolated browser tests
         env:
+          # Firefox requires HOME to be owned by the container's current user.
+          # GitHub mounts /github/home with the host runner's ownership.
+          HOME: /root
           NIGHTSCOUT_TEST_BROWSER: ${{ matrix.browser }}
         run: npm run test:browser
 
