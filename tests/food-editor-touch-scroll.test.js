@@ -28,9 +28,9 @@ const VIEW = fs.readFileSync(path.join(ROOT, 'views/foodindex.html'), 'utf8');
 // The view's <link> stylesheets in document order, then the CSS the bundle
 // injects at the end of <head>.
 function pageStylesheets () {
-  const linked = (VIEW.match(/<link\b[^>]*>/g) || [])
+  const linked = (VIEW.replace(/<%[\s\S]*?%>/g, '').match(/<link\b[^>]*>/g) || [])
     .filter(function isStyle (tag) { return /\bas="style"|\brel="stylesheet"/.test(tag); })
-    .map(function staticPath (tag) { return path.join('static', /\bhref="([^"]+)"/.exec(tag)[1]); });
+    .map(function staticPath (tag) { return path.join('static', /\bhref="([^"]+)"/.exec(tag)[1].split('?')[0]); });
   const bundled = (fs.readFileSync(path.join(ROOT, 'bundle/bundle.source.js'), 'utf8')
     .match(/^import '\.\.\/(static\/css\/[^']+)';/gm) || [])
     .map(function importPath (line) { return /'\.\.\/([^']+)'/.exec(line)[1]; });
@@ -108,7 +108,7 @@ describe('food editor: touch scrolling (#8192)', function () {
     delete global.window;
     delete global.document;
     // createSecureDOM does not run scripts, so the view's <script> tags stay inert
-    const body = /<body>([\s\S]*)<\/body>/.exec(VIEW)[1].replace(/<%[\s\S]*?%>/g, '');
+    const body = /<body\b[^>]*>([\s\S]*)<\/body>/.exec(VIEW)[1].replace(/<%[\s\S]*?%>/g, '');
     env = createSecureDOM('<!DOCTYPE html><html><body>' + body + '</body></html>');
     state = domGlobals.installDomGlobals(env);
     delete require.cache[require.resolve('jquery-ui-bundle')];
@@ -179,6 +179,15 @@ describe('food editor: touch scrolling (#8192)', function () {
     const quickpick = env.document.querySelector('#fe_picklist .sortablequickpick');
     assert.equal(panBlockedBy(quickpick.querySelector('legend'), sheets), null);
     assert.equal(panBlockedBy(quickpick.querySelector('.fe_foodinsideqp .width200px'), sheets), null);
+  });
+
+  it('retains touch scrolling on food rows and quick picks in the modern theme', function () {
+    env.document.documentElement.classList.add('modern-ui');
+    const sheets = pageStylesheets();
+    const row = env.document.querySelector('#fe_data .draggablefood .width200px');
+    const quickpick = env.document.querySelector('#fe_picklist .sortablequickpick .fe_foodinsideqp');
+    assert.equal(panBlockedBy(row, sheets), null);
+    assert.equal(panBlockedBy(quickpick, sheets), null);
   });
 
   it('control: a drag handle outside the food editor keeps jQuery UI\'s touch-action: none', function () {

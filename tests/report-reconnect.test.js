@@ -38,62 +38,66 @@ describe('report page reconnect initialization', function () {
     domGlobals.restoreDomGlobals(state);
   });
 
-  it('builds and wires the report GUI only for the first authorized connection', function () {
-    var authorizedCallback;
-    var addHtmlCalls = 0;
-    var reportPlugins = {
-      addHtmlFromPlugins: function () { addHtmlCalls++; }
-      , consts: {
-        SCALE_LINEAR: 0
-        , SCALE_LOG: 1
-        , ORDER_OLDESTONTOP: 0
-        , ORDER_NEWESTONTOP: 1
-        , scaleYFromSettings: function () { return 0; }
-      }
-    };
-    var client = {
-      careportal: {events: []}
-      , ctx: {moment: moment}
-      , headers: function () { return {}; }
-      , init: function (callback) { authorizedCallback = callback; }
-      , settings: {
-        scaleY: 'linear'
-        , thresholds: {bgTargetBottom: 80, bgTargetTop: 180}
-        , units: 'mg/dl'
-      }
-      , translate: function (value) { return value; }
-      , utils: {scaleMgdl: function (value) { return value / 18; }}
-    };
-
-    $.ajax = function emptyFoodResponse (url, options) {
-      options.success([]);
-      var response = {
-        done: function (callback) { callback(); return response; }
-        , fail: function () { return response; }
+  ['default', 'modern'].forEach(function (theme) {
+    it('builds and wires the ' + theme + ' report GUI only for the first authorized connection', function () {
+      var authorizedCallback;
+      var addHtmlCalls = 0;
+      var reportPlugins = {
+        addHtmlFromPlugins: function () { addHtmlCalls++; }
+        , consts: {
+          SCALE_LINEAR: 0
+          , SCALE_LOG: 1
+          , ORDER_OLDESTONTOP: 0
+          , ORDER_NEWESTONTOP: 1
+          , scaleYFromSettings: function () { return 0; }
+        }
       };
-      return response;
-    };
-    env.window.Nightscout = {
-      client: client
-      , report_plugins_preinit: function () { return reportPlugins; }
-    };
+      var client = {
+        careportal: {events: []}
+        , ctx: {moment: moment}
+        , headers: function () { return {}; }
+        , init: function (callback) { authorizedCallback = callback; }
+        , settings: {
+          theme: theme
+          , scaleY: 'linear'
+          , thresholds: {bgTargetBottom: 80, bgTargetTop: 180}
+          , units: 'mg/dl'
+        }
+        , translate: function (value) { return value; }
+        , utils: {scaleMgdl: function (value) { return value / 18; }}
+      };
 
-    require('../lib/report/reportclient')();
-    authorizedCallback();
+      $.ajax = function emptyFoodResponse (url, options) {
+        options.success([]);
+        var response = {
+          done: function (callback) { callback(); return response; }
+          , fail: function () { return response; }
+        };
+        return response;
+      };
+      env.window.Nightscout = {
+        client: client
+        , report_plugins_preinit: function () { return reportPlugins; }
+      };
 
-    addHtmlCalls.should.equal(1);
-    $._data($('#rp_show')[0], 'events').click.length.should.equal(1);
+      require('../lib/report/reportclient')();
+      authorizedCallback();
 
-    $('#rp_from').val('2025-02-03');
-    $('#first').removeClass('selected');
-    $('#second').addClass('selected');
+      addHtmlCalls.should.equal(1);
+      $._data($('#rp_show')[0], 'events').click.length.should.equal(1);
 
-    authorizedCallback();
+      $('#rp_from').val('2025-02-03');
+      $('#second').trigger('click');
 
-    addHtmlCalls.should.equal(1);
-    $('#rp_from').val().should.equal('2025-02-03');
-    $('#tabnav > li.selected').attr('id').should.equal('second');
-    $._data($('#rp_show')[0], 'events').click.length.should.equal(1);
+      authorizedCallback();
+
+      addHtmlCalls.should.equal(1);
+      $('#rp_from').val().should.equal('2025-02-03');
+      $('#tabnav > li.selected').attr('id').should.equal('second');
+      if (theme === 'modern') $('#second').attr('aria-pressed').should.equal('true');
+      $._data($('#rp_show')[0], 'events').click.length.should.equal(1);
+    });
+
   });
 
   it('makes plugin HTML and styles idempotent while preserving tab selection', function () {
