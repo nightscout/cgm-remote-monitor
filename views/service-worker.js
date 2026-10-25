@@ -28,6 +28,7 @@ const CACHE_LIST = [
     '/css/ui-darkness/images/ui-bg_gloss-wave_25_333333_500x100.png',
     '/css/main.css',
     '/bundle/js/bundle.app.js',
+    '/bundle/js/bundle.app.js?v=' + CACHE,
     '/bundle/js/bundle.clock.js',
     '/socket.io/socket.io.js',
     '/js/client.js',
