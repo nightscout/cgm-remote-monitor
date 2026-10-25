@@ -75,6 +75,17 @@ html.modern-ui {
   font-size: 20px;
   border-radius: 8px;
 }
+.modern-ui #buttonbar i {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 1em;
+  height: 1em;
+  margin: 0;
+  padding: 0;
+  line-height: 1;
+}
+.modern-ui #buttonbar i::before { margin: 0; }
 .modern-ui a:focus-visible,
 .modern-ui [tabindex]:focus-visible {
   outline: 2px solid #91c9ff;
