@@ -79,6 +79,14 @@ function bin (name) {
   return path.join(ROOT, 'node_modules', '.bin', name);
 }
 
+// Runs mocha with a tier's env file: bin/with-env.js where the repository has
+// it (it replaces env-cmd), env-cmd otherwise.
+function withEnv (file, args) {
+  const loader = path.join(ROOT, 'bin', 'with-env.js');
+  if (fs.existsSync(loader)) return [process.execPath, [loader, file, path.join(ROOT, 'node_modules', 'mocha', 'bin', 'mocha.js')].concat(args)];
+  return [bin('env-cmd'), ['-f', file, bin('mocha')].concat(args)];
+}
+
 function command (name, files, ci) {
   const tier = MAP.tiers[name];
   // A tier's first and last files run around any subset of it; they may
@@ -91,7 +99,7 @@ function command (name, files, ci) {
   if (tier.exit) args.push('--exit');
   if (tier.parallel) args.push('--parallel', '--jobs', String(tier.parallel));
   const ordered = first.concat(body, last).map(f => './' + f);
-  if (tier.env) return [bin('env-cmd'), ['-f', envFile(ci), bin('mocha')].concat(args, ordered)];
+  if (tier.env) return withEnv(envFile(ci), args.concat(ordered));
   return [bin('mocha'), args.concat(ordered)];
 }
 
