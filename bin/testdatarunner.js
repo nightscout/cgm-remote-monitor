@@ -3,7 +3,7 @@
 
 const axios = require('axios');
 const moment = require('moment');
-const crypto = require('crypto');
+const crypto = require('node:crypto');
 const shasum = crypto.createHash('sha1');
 
 const FIVE_MINUTES = 1000 * 60 * 5;
@@ -44,7 +44,7 @@ function addEntry () {
 }
 
 function oscillator(time, frequency = 1, amplitude = 1, phase = 0, offset = 0){
-  return Math.sin(time * frequency * Math.PI * 2 + phase * Math.PI * 2) * amplitude + offset; 
+  return Math.sin(time * frequency * Math.PI * 2 + phase * Math.PI * 2) * amplitude + offset;
 }
 
 async function sendFail() {
@@ -59,7 +59,7 @@ async function sendEntry (date) {
   entry.date = date;
   entry.dateString = m.toISOString();
   entry.sgv = 100 + Math.round(oscillator(date / 1000, 1/(60*60), 30));
-  
+
   console.log('Adding entry', entry);
   const response = await axios.post(ENTRIES_URL, entry, {headers: HEADERS});
 
@@ -93,7 +93,7 @@ async function sendEntry (date) {
           console.log('We got data but it is older than 5 minutes, makign a partial fill');
 
           let current = latestDate + FIVE_MINUTES;
-          
+
           while (current < now) {
             await sendEntry(current);
             current += FIVE_MINUTES;

@@ -1,0 +1,107 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://nightscout.github.io/schemas/event-envelope.schema.json",
+  "title": "EventEnvelope",
+  "description": "Wrapper for all control plane events, providing consistent ordering, audit, and replay capabilities",
+  "type": "object",
+  "required": ["eventId", "eventType", "issuer", "timestamp", "payload"],
+  "properties": {
+    "eventId": {
+      "type": "string",
+      "format": "uuid",
+      "description": "Stable UUID for this event"
+    },
+    "eventType": {
+      "type": "string",
+      "description": "Dot-notation event type",
+      "enum": [
+        "profile.definition.created",
+        "profile.definition.updated",
+        "profile.selection.changed",
+        "override.definition.created",
+        "override.definition.updated",
+        "override.instance.activated",
+        "override.instance.ended",
+        "override.instance.canceled",
+        "override.instance.superseded",
+        "policy.composition.computed",
+        "delivery.requested",
+        "delivery.observed",
+        "delivery.reconciled",
+        "controller.registered",
+        "controller.deregistered",
+        "capability.snapshot.updated"
+      ]
+    },
+    "cursor": {
+      "type": "integer",
+      "minimum": 0,
+      "description": "Server-assigned monotonic global ordering"
+    },
+    "issuer": {
+      "type": "string",
+      "description": "Identifier for the entity that issued this event (controller, user, agent)"
+    },
+    "issuerSeq": {
+      "type": "integer",
+      "minimum": 0,
+      "description": "Monotonic sequence number per issuer for ordering"
+    },
+    "idempotencyKey": {
+      "type": "string",
+      "description": "Client-provided key for retry deduplication"
+    },
+    "timestamp": {
+      "type": "string",
+      "format": "date-time",
+      "description": "ISO 8601 timestamp when event was created"
+    },
+    "refs": {
+      "type": "array",
+      "description": "References to related objects",
+      "items": {
+        "type": "object",
+        "required": ["refType", "refId"],
+        "properties": {
+          "refType": {
+            "type": "string",
+            "description": "Type of referenced object",
+            "enum": [
+              "profileDefinition",
+              "profileSelection",
+              "overrideDefinition",
+              "overrideInstance",
+              "policyComposition",
+              "deliveryRequest",
+              "deliveryObservation",
+              "controllerInstance",
+              "capabilitySnapshot"
+            ]
+          },
+          "refId": {
+            "type": "string",
+            "description": "ID or content hash of referenced object"
+          }
+        }
+      }
+    },
+    "payload": {
+      "type": "object",
+      "description": "The actual event data (schema depends on eventType)"
+    },
+    "metadata": {
+      "type": "object",
+      "description": "Optional extensible metadata",
+      "properties": {
+        "bridgeSource": {
+          "type": "string",
+          "description": "If synthesized from legacy data, the source collection"
+        },
+        "bridgeSourceId": {
+          "type": "string",
+          "description": "If synthesized, the source document ID"
+        }
+      }
+    }
+  }
+}

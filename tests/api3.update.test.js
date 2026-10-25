@@ -29,7 +29,7 @@ describe('API3 UPDATE', function() {
    * Get document detail for futher processing
    */
   self.get = async function get (identifier) {
-    let res = await self.instance.get(`${self.url}/${identifier}?token=${self.token.read}`)
+    let res = await self.instance.get(`${self.url}/${identifier}`, self.jwt.read)
       .expect(200);
 
     res.body.status.should.equal(200);
@@ -45,16 +45,22 @@ describe('API3 UPDATE', function() {
     self.col = 'treatments'
     self.url = `/api/v3/${self.col}`;
 
-    let authResult = await authSubject(self.instance.ctx.authorization.storage);
+    let authResult = await authSubject(self.instance.ctx.authorization.storage, [
+      'read',
+      'update',
+      'delete',
+      'all'
+    ], self.instance.app);
 
     self.subject = authResult.subject;
-    self.token = authResult.token;
-    self.urlToken = `${self.url}/${self.validDoc.identifier}?token=${self.token.update}`
+    self.jwt = authResult.jwt;
+    self.urlIdent = `${self.url}/${self.validDoc.identifier}`
     self.cache = self.instance.cacheMonitor;
   });
 
 
-  after(() => {
+  after(async () => {
+    await utils.storageClear(self.instance.ctx);
     self.instance.ctx.bus.teardown();
   });
 
@@ -64,7 +70,7 @@ describe('API3 UPDATE', function() {
   });
 
 
-  afterEach(() => {
+  afterEach(async () => {
     self.cache.shouldBeEmpty();
   });
 
@@ -79,7 +85,7 @@ describe('API3 UPDATE', function() {
 
 
   it('should not found not existing collection', async () => {
-    let res = await self.instance.put(`/api/v3/NOT_EXIST?token=${self.url}`)
+    let res = await self.instance.put(`/api/v3/NOT_EXIST`, self.jwt.update)
       .send(self.validDoc)
       .expect(404);
 
@@ -88,7 +94,7 @@ describe('API3 UPDATE', function() {
 
 
   it('should require update permission for upsert', async () => {
-    let res = await self.instance.put(`${self.url}/${self.validDoc.identifier}?token=${self.token.update}`)
+    let res = await self.instance.put(`${self.url}/${self.validDoc.identifier}`, self.jwt.update)
       .send(self.validDoc)
       .expect(403);
 
@@ -98,7 +104,7 @@ describe('API3 UPDATE', function() {
 
 
   it('should upsert not existing document', async () => {
-    let res = await self.instance.put(`${self.url}/${self.validDoc.identifier}?token=${self.token.all}`)
+    let res = await self.instance.put(`${self.url}/${self.validDoc.identifier}`, self.jwt.all)
       .send(self.validDoc)
       .expect(201);
 
@@ -108,7 +114,7 @@ describe('API3 UPDATE', function() {
 
     const lastModified = new Date(res.headers['last-modified']).getTime(); // Last-Modified has trimmed milliseconds
 
-    let body = await self.get(self.validDoc.identifier);
+    let body = await self.get(self.validDoc.identifier, self.jwt.read);
     body.should.containEql(self.validDoc);
     should.not.exist(body.modifiedBy);
 
@@ -123,7 +129,7 @@ describe('API3 UPDATE', function() {
     self.validDoc.carbs = 10;
     delete self.validDoc.insulin;
 
-    let res = await self.instance.put(self.urlToken)
+    let res = await self.instance.put(self.urlIdent, self.jwt.update)
       .send(self.validDoc)
       .expect(200);
 
@@ -132,7 +138,7 @@ describe('API3 UPDATE', function() {
 
     const lastModified = new Date(res.headers['last-modified']).getTime(); // Last-Modified has trimmed milliseconds
 
-    let body = await self.get(self.validDoc.identifier);
+    let body = await self.get(self.validDoc.identifier, self.jwt.read);
     body.should.containEql(self.validDoc);
     should.not.exist(body.insulin);
     should.not.exist(body.modifiedBy);
@@ -147,7 +153,7 @@ describe('API3 UPDATE', function() {
     const doc = Object.assign({}, self.validDoc, {
       carbs: 11
     });
-    let res = await self.instance.put(self.urlToken)
+    let res = await self.instance.put(self.urlIdent, self.jwt.update)
       .set('If-Unmodified-Since', new Date(new Date().getTime() + 1000).toUTCString())
       .send(doc)
       .expect(200);
@@ -155,7 +161,7 @@ describe('API3 UPDATE', function() {
     res.body.status.should.equal(200);
     self.cache.nextShouldEql(self.col, doc)
 
-    let body = await self.get(self.validDoc.identifier);
+    let body = await self.get(self.validDoc.identifier, self.jwt.read);
     body.should.containEql(doc);
   });
 
@@ -167,20 +173,20 @@ describe('API3 UPDATE', function() {
     let body = await self.get(doc.identifier);
     self.validDoc = body;
 
-    let res = await self.instance.put(self.urlToken)
+    let res = await self.instance.put(self.urlIdent, self.jwt.update)
       .set('If-Unmodified-Since', new Date(new Date(body.srvModified).getTime() - 1000).toUTCString())
       .send(doc)
       .expect(412);
 
     res.body.status.should.equal(412);
 
-    body = await self.get(doc.identifier);
+    body = await self.get(doc.identifier, self.jwt.read);
     body.should.eql(self.validDoc);
   });
 
 
   it('should reject date alteration', async () => {
-    let res = await self.instance.put(self.urlToken)
+    let res = await self.instance.put(self.urlIdent, self.jwt.update)
       .send(Object.assign({}, self.validDoc, { date: self.validDoc.date + 10000 }))
       .expect(400);
 
@@ -190,7 +196,7 @@ describe('API3 UPDATE', function() {
 
 
   it('should reject utcOffset alteration', async () => {
-    let res = await self.instance.put(self.urlToken)
+    let res = await self.instance.put(self.urlIdent, self.jwt.update)
       .send(Object.assign({}, self.validDoc, { utcOffset: self.utcOffset - 120 }))
       .expect(400);
 
@@ -200,7 +206,7 @@ describe('API3 UPDATE', function() {
 
 
   it('should reject eventType alteration', async () => {
-    let res = await self.instance.put(self.urlToken)
+    let res = await self.instance.put(self.urlIdent, self.jwt.update)
       .send(Object.assign({}, self.validDoc, { eventType: 'MODIFIED' }))
       .expect(400);
 
@@ -210,7 +216,7 @@ describe('API3 UPDATE', function() {
 
 
   it('should reject device alteration', async () => {
-    let res = await self.instance.put(self.urlToken)
+    let res = await self.instance.put(self.urlIdent, self.jwt.update)
       .send(Object.assign({}, self.validDoc, { device: 'MODIFIED' }))
       .expect(400);
 
@@ -220,7 +226,7 @@ describe('API3 UPDATE', function() {
 
 
   it('should reject app alteration', async () => {
-    let res = await self.instance.put(self.urlToken)
+    let res = await self.instance.put(self.urlIdent, self.jwt.update)
       .send(Object.assign({}, self.validDoc, { app: 'MODIFIED' }))
       .expect(400);
 
@@ -230,7 +236,7 @@ describe('API3 UPDATE', function() {
 
 
   it('should reject srvCreated alteration', async () => {
-    let res = await self.instance.put(self.urlToken)
+    let res = await self.instance.put(self.urlIdent, self.jwt.update)
       .send(Object.assign({}, self.validDoc, { srvCreated: self.validDoc.date - 10000 }))
       .expect(400);
 
@@ -240,7 +246,7 @@ describe('API3 UPDATE', function() {
 
 
   it('should reject subject alteration', async () => {
-    let res = await self.instance.put(self.urlToken)
+    let res = await self.instance.put(self.urlIdent, self.jwt.update)
       .send(Object.assign({}, self.validDoc, { subject: 'MODIFIED' }))
       .expect(400);
 
@@ -250,7 +256,7 @@ describe('API3 UPDATE', function() {
 
 
   it('should reject srvModified alteration', async () => {
-    let res = await self.instance.put(self.urlToken)
+    let res = await self.instance.put(self.urlIdent, self.jwt.update)
       .send(Object.assign({}, self.validDoc, { srvModified: self.validDoc.date - 100000 }))
       .expect(400);
 
@@ -260,7 +266,7 @@ describe('API3 UPDATE', function() {
 
 
   it('should reject modifiedBy alteration', async () => {
-    let res = await self.instance.put(self.urlToken)
+    let res = await self.instance.put(self.urlIdent, self.jwt.update)
       .send(Object.assign({}, self.validDoc, { modifiedBy: 'MODIFIED' }))
       .expect(400);
 
@@ -270,7 +276,7 @@ describe('API3 UPDATE', function() {
 
 
   it('should reject isValid alteration', async () => {
-    let res = await self.instance.put(self.urlToken)
+    let res = await self.instance.put(self.urlIdent, self.jwt.update)
       .send(Object.assign({}, self.validDoc, { isValid: false }))
       .expect(400);
 
@@ -282,7 +288,7 @@ describe('API3 UPDATE', function() {
   it('should ignore identifier alteration in body', async () => {
     self.validDoc = await self.get(self.validDoc.identifier);
 
-    let res = await self.instance.put(self.urlToken)
+    let res = await self.instance.put(self.urlIdent, self.jwt.update)
       .send(Object.assign({}, self.validDoc, { identifier: 'MODIFIED' }))
       .expect(200);
 
@@ -292,14 +298,55 @@ describe('API3 UPDATE', function() {
   });
 
 
+  it('should normalize endmills when replacing durationInMilliseconds', async () => {
+    const tempBasalDoc = {
+      identifier: utils.randomString('32', 'aA#'),
+      date: (new Date()).getTime() + 1,
+      utcOffset: -180,
+      app: testConst.TEST_APP,
+      device: testConst.TEST_DEVICE + ' API3 UPDATE duration',
+      eventType: 'Temp Basal',
+      absolute: 1.2,
+      duration: 30
+    };
+
+    let res = await self.instance.put(`${self.url}/${tempBasalDoc.identifier}`, self.jwt.all)
+      .send(tempBasalDoc)
+      .expect(201);
+
+    res.body.status.should.equal(201);
+    self.cache.nextShouldEql(self.col, tempBasalDoc)
+
+    const replacedDoc = Object.assign({}, tempBasalDoc, {
+      absolute: 0.7,
+      duration: 0,
+      durationInMilliseconds: 26584
+    });
+
+    res = await self.instance.put(`${self.url}/${tempBasalDoc.identifier}`, self.jwt.update)
+      .send(replacedDoc)
+      .expect(200);
+
+    res.body.status.should.equal(200);
+    self.cache.nextShouldEql(self.col, replacedDoc)
+
+    const body = await self.get(tempBasalDoc.identifier);
+    body.absolute.should.equal(0.7);
+    body.duration.should.equal(0);
+    body.durationInMilliseconds.should.equal(26584);
+    body.endmills.should.equal(tempBasalDoc.date + 26584);
+    body.subject.should.equal(self.subject.apiUpdate.name);
+  });
+
+
   it('should not update deleted document', async () => {
-    let res = await self.instance.delete(`${self.url}/${self.validDoc.identifier}?token=${self.token.delete}`)
+    let res = await self.instance.delete(self.urlIdent, self.jwt.delete)
       .expect(200);
 
     res.body.status.should.equal(200);
     self.cache.nextShouldDeleteLast(self.col)
 
-    res = await self.instance.put(self.urlToken)
+    res = await self.instance.put(self.urlIdent, self.jwt.update)
       .send(self.validDoc)
       .expect(410);
 
@@ -307,4 +354,3 @@ describe('API3 UPDATE', function() {
   });
 
 });
-

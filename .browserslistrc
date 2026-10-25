@@ -1,0 +1,12 @@
+# Browsers we support
+# See https://github.com/browserslist/browserslist for details
+
+> 0.25%
+ios_saf 9.3
+ios_saf 10.3
+ios_saf 13.7
+ios_saf 14.8
+not dead
+not and_uc 12.12
+not ie 11
+

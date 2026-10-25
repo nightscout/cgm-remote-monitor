@@ -1,0 +1,100 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://nightscout.github.io/schemas/delivery-request.schema.json",
+  "title": "DeliveryRequest",
+  "description": "Intent to deliver insulin - the command sent to the pump",
+  "type": "object",
+  "required": ["requestId", "requestType", "requestedBy", "requestedAt"],
+  "properties": {
+    "requestId": {
+      "type": "string",
+      "format": "uuid",
+      "description": "Unique identifier for this delivery request"
+    },
+    "requestType": {
+      "type": "string",
+      "enum": ["tempBasal", "scheduledBasal", "bolus", "microBolus", "suspend", "resume", "cancelTemp"],
+      "description": "Type of delivery action requested"
+    },
+    "parameters": {
+      "type": "object",
+      "description": "Request parameters (varies by requestType)",
+      "properties": {
+        "rate": {
+          "type": "number",
+          "minimum": 0,
+          "description": "Rate in U/hr for basal requests"
+        },
+        "units": {
+          "type": "number",
+          "minimum": 0,
+          "description": "Units for bolus requests"
+        },
+        "duration": {
+          "type": "integer",
+          "minimum": 0,
+          "description": "Duration in seconds for temp basal"
+        },
+        "bolusType": {
+          "type": "string",
+          "enum": ["normal", "square", "dual", "micro"],
+          "description": "Type of bolus if applicable"
+        }
+      }
+    },
+    "requestedBy": {
+      "type": "object",
+      "required": ["issuerType", "issuerId"],
+      "properties": {
+        "issuerType": {
+          "type": "string",
+          "enum": ["human", "controller", "agent", "caregiver"]
+        },
+        "issuerId": {
+          "type": "string"
+        }
+      }
+    },
+    "basedOn": {
+      "type": "object",
+      "description": "What informed this request",
+      "properties": {
+        "policyCompositionId": {
+          "type": "string",
+          "description": "PolicyComposition that was in force"
+        },
+        "algorithmSuggestion": {
+          "type": "object",
+          "description": "Algorithm output that led to this request",
+          "properties": {
+            "suggestedAt": { "type": "string", "format": "date-time" },
+            "reason": { "type": "string" },
+            "predictedBG": {
+              "type": "array",
+              "items": { "type": "number" }
+            },
+            "iob": { "type": "number" },
+            "cob": { "type": "number" },
+            "eventualBG": { "type": "number" }
+          }
+        }
+      }
+    },
+    "requestedAt": {
+      "type": "string",
+      "format": "date-time",
+      "description": "When this request was created"
+    },
+    "expiresAt": {
+      "type": "string",
+      "format": "date-time",
+      "description": "Request is stale/invalid after this time"
+    },
+    "priority": {
+      "type": "string",
+      "enum": ["normal", "high", "urgent"],
+      "default": "normal",
+      "description": "Request priority for queuing"
+    }
+  }
+}

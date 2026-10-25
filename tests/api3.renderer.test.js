@@ -1,7 +1,7 @@
 /* eslint require-atomic-updates: 0 */
 'use strict';
 
-require('should');
+const should = require('should');
 
 describe('API3 output renderers', function() {
   const self = this
@@ -9,18 +9,18 @@ describe('API3 output renderers', function() {
     , instance = require('./fixtures/api3/instance')
     , authSubject = require('./fixtures/api3/authSubject')
     , opTools = require('../lib/api3/shared/operationTools')
-    , _ = require('lodash')
+    , utils = require('./fixtures/api3/utils')
     , xml2js = require('xml2js')
     , csvParse = require('csv-parse/lib/sync')
     ;
 
   self.historyFrom = (new Date()).getTime() - 1000; // starting timestamp for HISTORY operations
 
-  self.doc1 = testConst.SAMPLE_ENTRIES[0];
+  self.doc1 = structuredClone(testConst.SAMPLE_ENTRIES[0]);
   self.doc1.date = (new Date()).getTime() - (5 * 60 * 1000);
   self.doc1.identifier = opTools.calculateIdentifier(self.doc1);
 
-  self.doc2 = testConst.SAMPLE_ENTRIES[1];
+  self.doc2 = structuredClone(testConst.SAMPLE_ENTRIES[1]);
   self.doc2.date = (new Date()).getTime();
   self.doc2.identifier = opTools.calculateIdentifier(self.doc2);
 
@@ -44,15 +44,24 @@ describe('API3 output renderers', function() {
     self.col = 'entries';
     self.url = `/api/v3/${self.col}`;
 
-    let authResult = await authSubject(self.instance.ctx.authorization.storage);
+    let authResult = await authSubject(self.instance.ctx.authorization.storage, [
+      'create',
+      'read',
+      'delete'
+    ], self.instance.app);
 
     self.subject = authResult.subject;
-    self.token = authResult.token;
+    self.jwt = authResult.jwt;
     self.cache = self.instance.cacheMonitor;
+    
+    // Clean up ALL entries to ensure test isolation from previous test files
+    const col = self.instance.ctx.store.collection(self.instance.env.entries_collection || 'entries');
+    await col.deleteMany({});
   });
 
 
-  after(() => {
+  after(async () => {
+    await utils.storageClear(self.instance.ctx);
     self.instance.server.close();
   });
 
@@ -86,10 +95,10 @@ describe('API3 output renderers', function() {
    * @param arrModel
    * @param arr
    */
-  self.checkItems = function checkItems (arrModel, arr) {
+  self.checkItems = function checkItems(arrModel, arr) {
     for (let itemModel of arrModel) {
-      const item = _.find(arr, (doc) => doc.identifier === itemModel.identifier);
-      item.should.not.be.empty();
+      const item = arr.find(doc => doc.identifier === itemModel.identifier);
+      should(item).not.be.empty();
       self.checkProps(itemModel, item);
     }
   };
@@ -107,10 +116,10 @@ describe('API3 output renderers', function() {
     xmlText.should.startWith('<?xml version=\'1.0\' encoding=\'utf-8\'?>');
 
     const xml = await self.xmlParser.parseStringPromise(xmlText);
-    xml.items.should.not.be.empty();
+    should(xml.items).not.be.empty();
     let items = xml.items.item;
-    items.should.be.Array();
-    items.length.should.be.aboveOrEqual(arrModel.length);
+    should(items).be.Array();
+    items.length.should.equal(arrModel.length);
 
     self.checkItems(arrModel, items);
   };
@@ -129,7 +138,7 @@ describe('API3 output renderers', function() {
 
     const items = csvParse(csvText, self.csvParserOptions);
     items.should.be.Array();
-    items.length.should.be.aboveOrEqual(arrModel.length);
+    items.length.should.equal(arrModel.length);
 
     self.checkItems(arrModel, items);
   };
@@ -139,13 +148,13 @@ describe('API3 output renderers', function() {
 
     async function createDoc (doc) {
 
-      let res = await self.instance.post(`${self.url}?token=${self.token.create}`)
+      let res = await self.instance.post(`${self.url}`, self.jwt.create)
         .send(doc)
         .expect(201);
 
       res.body.status.should.equal(201);
 
-      res = await self.instance.get(`${self.url}/${doc.identifier}?token=${self.token.read}`)
+      res = await self.instance.get(`${self.url}/${doc.identifier}`, self.jwt.read)
         .expect(200);
       return res.body;
     }
@@ -168,31 +177,31 @@ describe('API3 output renderers', function() {
       should.not.exist(res.body.result);
     }
 
-    await check406(self.instance.get(`${self.url}/${self.doc1.identifier}.ttf?fields=_all&token=${self.token.read}`));
-    await check406(self.instance.get(`${self.url}/${self.doc1.identifier}?fields=_all&token=${self.token.read}`)
+    await check406(self.instance.get(`${self.url}/${self.doc1.identifier}.ttf?fields=_all`, self.jwt.read));
+    await check406(self.instance.get(`${self.url}/${self.doc1.identifier}?fields=_all`, self.jwt.read)
       .set('Accept', 'font/ttf'));
 
-    await check406(self.instance.get(`${self.url}.ttf?fields=_all&token=${self.token.read}`));
-    await check406(self.instance.get(`${self.url}?fields=_all&token=${self.token.read}`)
+    await check406(self.instance.get(`${self.url}.ttf?fields=_all`, self.jwt.read));
+    await check406(self.instance.get(`${self.url}?fields=_all`, self.jwt.read)
       .set('Accept', 'font/ttf'));
 
-    await check406(self.instance.get(`${self.url}/history/${self.doc1.date}.ttf?token=${self.token.read}`));
-    await check406(self.instance.get(`${self.url}/history/${self.doc1.date}?token=${self.token.read}`)
+    await check406(self.instance.get(`${self.url}/history/${self.doc1.date}.ttf`, self.jwt.read));
+    await check406(self.instance.get(`${self.url}/history/${self.doc1.date}`, self.jwt.read)
       .set('Accept', 'font/ttf'));
   });
 
 
   it('READ should accept xml content type', async () => {
-    let res = await self.instance.get(`${self.url}/${self.doc1.identifier}.xml?fields=_all&token=${self.token.read}`)
+    let res = await self.instance.get(`${self.url}/${self.doc1.identifier}.xml?fields=_all`, self.jwt.read)
       .expect(200);
 
     res.text.should.startWith('<?xml version=\'1.0\' encoding=\'utf-8\'?>');
 
     const xml = await self.xmlParser.parseStringPromise(res.text);
-    xml.item.should.not.be.empty();
+    should(xml.item).not.be.empty();
     self.checkProps(self.doc1, xml.item);
 
-    let res2 = await self.instance.get(`${self.url}/${self.doc1.identifier}?fields=_all&token=${self.token.read}`)
+    let res2 = await self.instance.get(`${self.url}/${self.doc1.identifier}?fields=_all`, self.jwt.read)
       .set('Accept', 'application/xml')
       .expect(200);
 
@@ -201,12 +210,12 @@ describe('API3 output renderers', function() {
 
 
   it('READ should accept csv content type', async () => {
-    let res = await self.instance.get(`${self.url}/${self.doc1.identifier}.csv?fields=_all&token=${self.token.read}`)
+    let res = await self.instance.get(`${self.url}/${self.doc1.identifier}.csv?fields=_all`, self.jwt.read)
       .expect(200);
 
     await self.checkCsvItems([self.doc1], res.text);
 
-    let res2 = await self.instance.get(`${self.url}/${self.doc1.identifier}?fields=_all&token=${self.token.read}`)
+    let res2 = await self.instance.get(`${self.url}/${self.doc1.identifier}?fields=_all`, self.jwt.read)
       .set('Accept', 'text/csv')
       .expect(200);
 
@@ -215,12 +224,12 @@ describe('API3 output renderers', function() {
 
 
   it('SEARCH should accept xml content type', async () => {
-    let res = await self.instance.get(`${self.url}.xml?token=${self.token.read}&date$gte=${self.doc1.date}`)
+    let res = await self.instance.get(`${self.url}.xml?date$gte=${self.doc1.date}`, self.jwt.read)
       .expect(200);
 
     await self.checkXmlItems([self.doc1, self.doc2], res.text);
 
-    let res2 = await self.instance.get(`${self.url}?token=${self.token.read}&date$gte=${self.doc1.date}`)
+    let res2 = await self.instance.get(`${self.url}?date$gte=${self.doc1.date}`, self.jwt.read)
       .set('Accept', 'application/xml')
       .expect(200);
 
@@ -229,12 +238,12 @@ describe('API3 output renderers', function() {
 
 
   it('SEARCH should accept csv content type', async () => {
-    let res = await self.instance.get(`${self.url}.csv?token=${self.token.read}&date$gte=${self.doc1.date}`)
+    let res = await self.instance.get(`${self.url}.csv?date$gte=${self.doc1.date}`, self.jwt.read)
       .expect(200);
 
     await self.checkCsvItems([self.doc1, self.doc2], res.text);
 
-    let res2 = await self.instance.get(`${self.url}?token=${self.token.read}&date$gte=${self.doc1.date}`)
+    let res2 = await self.instance.get(`${self.url}?date$gte=${self.doc1.date}`, self.jwt.read)
       .set('Accept', 'text/csv')
       .expect(200);
 
@@ -243,12 +252,12 @@ describe('API3 output renderers', function() {
 
 
   it('HISTORY should accept xml content type', async () => {
-    let res = await self.instance.get(`${self.url}/history/${self.historyFrom}.xml?token=${self.token.read}`)
+    let res = await self.instance.get(`${self.url}/history/${self.historyFrom}.xml`, self.jwt.read)
       .expect(200);
 
     await self.checkXmlItems([self.doc1, self.doc2], res.text);
 
-    let res2 = await self.instance.get(`${self.url}/history/${self.historyFrom}?token=${self.token.read}`)
+    let res2 = await self.instance.get(`${self.url}/history/${self.historyFrom}`, self.jwt.read)
       .set('Accept', 'application/xml')
       .expect(200);
 
@@ -257,12 +266,12 @@ describe('API3 output renderers', function() {
 
 
   it('HISTORY should accept csv content type', async () => {
-    let res = await self.instance.get(`${self.url}/history/${self.historyFrom}.csv?token=${self.token.read}`)
+    let res = await self.instance.get(`${self.url}/history/${self.historyFrom}.csv`, self.jwt.read)
       .expect(200);
 
     await self.checkCsvItems([self.doc1, self.doc2], res.text);
 
-    let res2 = await self.instance.get(`${self.url}/history/${self.historyFrom}?token=${self.token.read}`)
+    let res2 = await self.instance.get(`${self.url}/history/${self.historyFrom}`, self.jwt.read)
       .set('Accept', 'text/csv')
       .expect(200);
 
@@ -273,7 +282,7 @@ describe('API3 output renderers', function() {
   it('should remove mock documents', async () => {
 
     async function deleteDoc (identifier) {
-      let res = await self.instance.delete(`${self.url}/${identifier}?token=${self.token.delete}`)
+      let res = await self.instance.delete(`${self.url}/${identifier}`, self.jwt.delete)
         .query({ 'permanent': 'true' })
         .expect(200);
 
@@ -285,4 +294,3 @@ describe('API3 output renderers', function() {
     await deleteDoc(self.doc2.identifier);
   });
 });
-

@@ -1,0 +1,146 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://nightscout.github.io/schemas/policy-composition.schema.json",
+  "title": "PolicyComposition",
+  "description": "Materialized view of effective therapy parameters computed from active profile and overrides",
+  "type": "object",
+  "required": ["compositionId", "references", "effectiveParameters", "computedBy", "validFrom"],
+  "properties": {
+    "compositionId": {
+      "type": "string",
+      "format": "uuid",
+      "description": "Unique identifier for this composition snapshot"
+    },
+    "references": {
+      "type": "object",
+      "required": ["profileId", "profileHash"],
+      "description": "References to source objects used in this composition",
+      "properties": {
+        "profileId": {
+          "type": "string",
+          "description": "Active ProfileDefinition ID"
+        },
+        "profileHash": {
+          "type": "string",
+          "pattern": "^[a-f0-9]{64}$",
+          "description": "Content hash of active profile for verification"
+        },
+        "activeOverrideInstanceIds": {
+          "type": "array",
+          "items": { "type": "string" },
+          "description": "Currently active OverrideInstance IDs"
+        },
+        "capabilitySnapshotId": {
+          "type": ["string", "null"],
+          "description": "Reference to CapabilitySnapshot if available"
+        }
+      }
+    },
+    "effectiveParameters": {
+      "type": "object",
+      "description": "Computed therapy parameters currently in force",
+      "properties": {
+        "targetRange": {
+          "type": "object",
+          "required": ["low", "high"],
+          "properties": {
+            "low": {
+              "type": "number",
+              "description": "Effective lower target bound"
+            },
+            "high": {
+              "type": "number",
+              "description": "Effective upper target bound"
+            }
+          }
+        },
+        "effectiveISF": {
+          "type": "number",
+          "description": "Effective insulin sensitivity factor for current time"
+        },
+        "effectiveCR": {
+          "type": "number",
+          "description": "Effective carb ratio for current time"
+        },
+        "effectiveBasal": {
+          "type": "number",
+          "description": "Effective basal rate for current time (after multipliers)"
+        },
+        "scheduledBasal": {
+          "type": "number",
+          "description": "Scheduled basal rate from profile (before multipliers)"
+        },
+        "basalMultiplier": {
+          "type": "number",
+          "description": "Aggregate basal multiplier from overrides"
+        },
+        "sensitivityMultiplier": {
+          "type": "number",
+          "description": "Aggregate sensitivity multiplier from overrides"
+        },
+        "maxBasalAllowed": {
+          "type": "number",
+          "description": "Maximum basal rate allowed by constraints"
+        },
+        "maxBolusAllowed": {
+          "type": "number",
+          "description": "Maximum bolus allowed by constraints"
+        },
+        "maxIOB": {
+          "type": "number",
+          "description": "Maximum IOB allowed by constraints"
+        },
+        "automationEnabled": {
+          "type": "boolean",
+          "description": "Whether closed-loop automation is active"
+        },
+        "automationMode": {
+          "type": "string",
+          "enum": ["closedLoop", "openLoop", "suspended", "manual"],
+          "description": "Current automation mode"
+        }
+      }
+    },
+    "computedBy": {
+      "type": "object",
+      "required": ["computedAt"],
+      "properties": {
+        "controllerKind": {
+          "type": "string",
+          "description": "Controller type that computed this (loop, trio, aaps, nightscout)"
+        },
+        "controllerVersion": {
+          "type": "string",
+          "description": "Controller version"
+        },
+        "controllerInstanceId": {
+          "type": "string",
+          "description": "Specific controller instance ID"
+        },
+        "computedAt": {
+          "type": "string",
+          "format": "date-time",
+          "description": "When this composition was computed"
+        }
+      }
+    },
+    "validFrom": {
+      "type": "string",
+      "format": "date-time",
+      "description": "When this composition became valid"
+    },
+    "validTo": {
+      "type": ["string", "null"],
+      "format": "date-time",
+      "description": "When this composition was superseded; null if current"
+    },
+    "cursor": {
+      "type": "integer",
+      "description": "Global ordering cursor for event stream"
+    },
+    "previousCompositionId": {
+      "type": ["string", "null"],
+      "description": "Previous composition for audit chain"
+    }
+  }
+}

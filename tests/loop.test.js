@@ -1,18 +1,13 @@
 'use strict';
 
-const _ = require('lodash');
 const should = require('should');
-const moment = require('moment');
-const fs = require('fs');
-const language = require('../lib/language')(fs);
-const levels = require('../lib/levels');
+const cloneDeep = require('../lib/utils/clone');
+const helper = require('./inithelper')();
 
-var ctx_top = {
-  language: language
-  , settings: require('../lib/settings')()
-  , levels: levels
-};
+var ctx_top = helper.getctx();
 ctx_top.language.set('en');
+const language = ctx_top.language;
+
 var env = require('../lib/server/env')();
 var loop = require('../lib/plugins/loop')(ctx_top);
 var sandbox = require('../lib/sandbox')(ctx_top);
@@ -107,10 +102,10 @@ var statuses = [
   }
 ];
 
-var now = moment(statuses[0].created_at);
+var now = ctx_top.moment(statuses[0].created_at);
 
-_.forEach(statuses, function updateMills (status) {
-  status.mills = moment(status.created_at).valueOf();
+statuses.forEach(function updateMills (status) {
+  status.mills = ctx_top.moment(status.created_at).valueOf();
 });
 
 describe('loop', function ( ) {
@@ -124,9 +119,9 @@ describe('loop', function ( ) {
         updatePillText: function mockedUpdatePillText (plugin, options) {
           options.label.should.equal('Loop ⌁');
           options.value.should.equal('1m ago ↝ 147');
-          var first = _.first(options.info);
+          var first = options.info?.[0];
           first.label.should.equal('1m ago');
-          first.value.should.equal('<b>Temp Basal Started</b> 0.88U/hour for 30m, IOB: 0.17U, Predicted Min-Max BG: 147-149, Eventual BG: 147');
+          first.value.should.equal('Temp Basal Started 0.88U/hour for 30m, IOB: 0.17U, Predicted Min-Max BG: 147-149, Eventual BG: 147');
         }
         , addForecastPoints: function mockAddForecastPoints (points) {
           points.length.should.equal(6);
@@ -164,7 +159,7 @@ describe('loop', function ( ) {
         updatePillText: function mockedUpdatePillText (plugin, options) {
           options.label.should.equal('Loop x');
           options.value.should.equal('1m ago');
-          var first = _.first(options.info);
+          var first = options.info?.[0];
           first.label.should.equal('1m ago');
           first.value.should.equal('Error: SomeError');
           done();
@@ -174,7 +169,7 @@ describe('loop', function ( ) {
       language: language
     };
 
-    var errorTime = moment(statuses[1].created_at);
+    var errorTime = ctx_top.moment(statuses[1].created_at);
 
     var sbx = sandbox.clientInit(ctx, errorTime.valueOf(), {devicestatus: statuses});
 
@@ -209,7 +204,7 @@ describe('loop', function ( ) {
 
     ctx.notifications.initRequests();
 
-    var notStatuses = _.cloneDeep(statuses);
+    var notStatuses = cloneDeep(statuses);
     notStatuses[0].loop.enacted.received = false;
     var sbx = require('../lib/sandbox')().clientInit(ctx, now, {devicestatus: notStatuses});
 
@@ -242,7 +237,7 @@ describe('loop', function ( ) {
     loop.checkNotifications(sbx);
 
     var highest = ctx.notifications.findHighestAlarm('Loop');
-    highest.level.should.equal(levels.URGENT);
+    highest.level.should.equal(ctx_top.levels.URGENT);
     highest.title.should.equal('Loop isn\'t looping');
     done();
   });

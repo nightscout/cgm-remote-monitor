@@ -38,7 +38,7 @@
 
 ## Translations
 
-Please visit our [project in Crowdin](https://crowdin.com/project/nightscout) to translate Nigthscout. If you want to add a new language, please get in touch with the dev team in [Discord][discord-url].
+Please visit our [project in Crowdin](https://crowdin.com/project/nightscout) to translate Nightscout. If you want to add a new language, please get in touch with the dev team in [Discord][discord-url].
 
 ## Installation for development
 
@@ -58,7 +58,7 @@ We develop on the `dev` branch. All new pull requests should be targeted to `dev
 
 You can get the `dev` branch checked out using `git checkout dev`.
 
-Once checked out, install the dependencies using `npm install`, then copy the included  [`docs/example-template.env`][example-env-template] to `my.env` file to `my.env` and edit the file to include your settings (like the Mongo URL). Leave the `NODE_ENV=development` line intact. Once set, run the site using `npm run dev`. This will start Nightscout in the development mode, with different code packaging rules and automatic restarting of the server using nodemon, when you save changed files on disk. The client also hot-reloads new code in, but it's recommended to reload the website after changes due to the way the plugin sandbox works.
+Once checked out, install the dependencies using `npm install`, then copy the included  [`docs/example-template.env`][example-env-template] to `my.env` file and edit the file to include your settings (like the Mongo URL). Leave the `NODE_ENV=development` line intact. Once set, run the site using `npm run dev`. This will start Nightscout in the development mode, with different code packaging rules and automatic restarting of the server using nodemon, when you save changed files on disk. The client also hot-reloads new code in, but it's recommended to reload the website after changes due to the way the plugin sandbox works.
 
 Note the template sets `INSECURE_USE_HTTP` to `true` to enable the site to work over HTTP in local development.
 
@@ -95,7 +95,7 @@ Some simple rules that will make it easier to maintain our codebase:
   };
   ```
 
-If in doubt, format your code with `js-beautify --indent-size 2 --comma-first  --keep-array-indentation`
+If in doubt, format your code with `js-beautify --indent-size 2 --comma-first  --keep-array-indentation --space-after-named-function`
 
 ## Create a prototype
 
@@ -141,6 +141,110 @@ We use git-flow, with `master` as our production, stable branch, and `dev` is us
 Once `dev` has been reviewed and people feel it's time to release, we follow the git-flow release process, which creates a new tag and bumps the version correctly.  See sem-ver for versioning strategy.
 
 Every commit is tested by travis.  We encourage adding tests to validate your design.  We encourage discussing your use cases to help everyone get a better understanding of your design.
+
+## Running Tests Locally
+
+Tests **require** `NODE_ENV=test` to protect production databases from accidental destruction. If this variable is not set, tests will refuse to run and exit with an error.
+
+```bash
+# Run all tests
+NODE_ENV=test npm test
+
+# Run only unit tests (parallel, fast)
+NODE_ENV=test npm run test:unit
+
+# Run only integration tests (sequential, needs MongoDB)
+NODE_ENV=test npm run test:integration
+
+# Run specific test files
+NODE_ENV=test npm test -- --grep "treatments"
+```
+
+### Advanced Test Scripts
+
+Run `npm run test:dependencies` to check dependency resolution and compatibility
+without MongoDB. This includes Mocha subprocess checks for serial and parallel
+execution, root hooks, timeouts, assertion diffs and failure exit codes. The
+fixtures deliberately fail in child processes; the parent checks that those
+failures are reported correctly.
+
+The dependency checks also exercise YAML configuration loading in ESLint, nyc
+and Mocha, plus parser resource limits. Custom tooling YAML files must keep
+each merge sequence (`<<: [...]`) to at most 100 entries; the default merge-work
+budget is 10,000 across a parse call, counting source mappings and their keys.
+For Mocha YAML configuration, write numeric options as `5000`, not `5_000`:
+js-yaml 4.2 and later treat numbers containing underscores as strings.
+CI also runs `NODE_ENV=development npm run bundle-dev` to validate the webpack
+lint integration.
+
+DOMPurify is a development-only reference in the sanitizer comparison suite;
+production sanitization uses `sanitize-html`. Dependency tests exercise its
+default string API with our jsdom version, including nested template security,
+visible note text and supported SVG attributes. These tests inspect inert DOM
+trees; they do not execute payloads or emulate newer browser template expansion.
+
+Socket.IO dependency checks start temporary loopback servers without MongoDB.
+They cover parser validation, binary serialization and both polling and
+WebSocket connections using the Node client and the actual served browser
+client in jsdom. Each transport check reconnects twice. The parser override
+updates installed Node packages; it does not rewrite Socket.IO's prebuilt
+browser distribution, so both client paths need compatibility checks.
+
+The fast-uri dependency checks resolve Ajv through each installed consumer
+(webpack, webpack-dev-middleware, terser-webpack-plugin, ajv-formats and table).
+They exercise external references, escaped JSON pointers and case-sensitive
+schema IDs, as well as URI security boundaries. Keep the fast-uri override
+scoped to 3.x while these consumers require it; a 4.x migration changes Unicode
+encoding and removes deprecated TypeScript aliases.
+
+The ip-address dependency checks exercise MongoDB's installed SOCKS client
+against a temporary loopback SOCKS5 fixture. They verify IPv4, IPv6 and hostname
+requests, fragmented IPv6 replies and data exchange over two connections.
+The fixture needs neither an external proxy nor MongoDB; the normal application
+suite separately exercises the database driver.
+
+For diagnosing test issues and ensuring reliability:
+
+```bash
+# Run stress tests for concurrent write operations
+NODE_ENV=test npm run test:stress
+
+# Detect flaky tests by running multiple iterations
+NODE_ENV=test npm run test:flaky           # Default iterations
+NODE_ENV=test npm run test:flaky:quick     # 3 iterations
+NODE_ENV=test npm run test:flaky:thorough  # 20 iterations
+
+# Run specific flaky test harnesses
+NODE_ENV=test npm run test:flaky:entries   # Entries isolation tests
+NODE_ENV=test npm run test:flaky:socket    # Socket isolation tests
+
+# Enable timing warnings to find slow tests
+NODE_ENV=test npm run test:timing
+```
+
+You can create a `my.test.env` file based on `ci.test.env` for local testing:
+
+```bash
+source my.test.env && npm test
+```
+
+### Test Environment Variables
+
+These variables control test behavior and MongoDB connection pooling:
+
+| Variable | Purpose | Default |
+|----------|---------|---------|
+| `NODE_ENV=test` | **Required** - Enables test mode, prevents production DB access | - |
+| `MONGO_POOL_SIZE` | MongoDB connection pool size | 5 |
+| `MONGO_MIN_POOL_SIZE` | Minimum pool connections to keep open | 0 |
+| `MONGO_MAX_IDLE_TIME_MS` | Max idle time (ms) before closing connection | 30000 |
+| `AUTH_FAIL_DELAY` | Delay (ms) after auth failure (test speedup) | 5000 |
+
+For CI or resource-constrained environments, adjust pool size:
+
+```bash
+MONGO_POOL_SIZE=3 MONGO_MIN_POOL_SIZE=1 npm test
+```
 
 ## Other Dev Tips
 

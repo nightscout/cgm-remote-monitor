@@ -2,7 +2,7 @@ openapi: 3.0.0
 servers:
   - url: '/api/v3'
 info:
-  version: 3.0.3
+  version: 3.0.5
   title: Nightscout API
   contact:
     name: NS development discussion channel
@@ -14,49 +14,8 @@ info:
     Nightscout API v3 is a component of cgm-remote-monitor project. It aims to provide lightweight, secured and HTTP REST compliant interface for your T1D treatment data exchange.
 
 
-    API v3 uses these environment variables, among other things&#58;
+    API v3 is configured with the `API3_*` environment variables. Their defaults, the spellings Nightscout accepts, and what each one does are listed in one place, the *API v3* section of the README shipped with Nightscout (https://github.com/nightscout/cgm-remote-monitor#api-v3-optional). That includes the fallback deduplication rules referred to below, and `API3_AUTOPRUNE_<COLLECTION>`, which is off unless set and permanently deletes older records when it is set.
 
-    - Security switch (optional, default = `true`)
-    <pre>API3_SECURITY_ENABLE=true</pre>
-    You can turn the whole security mechanism off, e.g. for debugging or development purposes,
-    but this should never be set to false in production.
-
-
-    - Maximum limit count of documents retrieved from single query
-      <pre>API3_MAX_LIMIT=1000</pre>
-
-
-    - Autopruning of obsolete documents (optional, default is only `DEVICESTATUS`=60)
-      <pre>API3_AUTOPRUNE_DEVICESTATUS=60
-
-      API3_AUTOPRUNE_ENTRIES=365
-
-      API3_AUTOPRUNE_TREATMENTS=120
-      </pre>
-      You can specify for which collections autopruning will be activated and length of retention period in days, e.g. "Hold 60 days of devicestatus, automatically delete older documents, hold 365 days of treatments and entries, automatically delete older documents."
-
-
-    - Fallback deduplication switch (optional, default = true)
-      <pre>API3_DEDUP_FALLBACK_ENABLED=true</pre>
-      API3 uses the `identifier` field for document identification and mutual distinction within a single collection. There is automatic deduplication implemented matching the equal `identifier` field. E.g. `CREATE` operation for document having the same `identifier` as another one existing in the database is automatically transformed into `UPDATE` operation of the document found in the database.
-
-      Documents not created via API v3 usually does not have any `identifier` field, but we would like to have some form of deduplication for them, too. This fallback deduplication is turned on by having set `API3_DEDUP_FALLBACK_ENABLED` to `true`.
-      When searching the collection in database, the document is found to be a duplicate only when either he has equal `identifier` or he has no `identifier` and meets&#58;
-      <pre>`devicestatus` collection&#58; equal combination of `created_at` and `device`
-
-      `entries` collection&#58;      equal combination of `date` and `type`
-
-      `food` collection&#58;         equal `created_at`
-
-      `profile` collection&#58;      equal `created_at`
-
-      `treatments` collection&#58;   equal combination of `created_at` and `eventType`
-      </pre>
-
-
-    - Fallback switch for adding `created_at` field along the `date` field (optional, default = true)
-      <pre>API3_CREATED_AT_FALLBACK_ENABLED=true</pre>
-      Standard APIv3 document model uses only `date` field for storing a timestamp of the event recorded by the document. But there is a fallback option to fill `created_at` field as well automatically on each insert/update, just to keep all older components working.
 
 tags:
   - name: generic
@@ -74,8 +33,6 @@ paths:
         required: true
         schema:
           $ref: '#/components/schemas/paramCollection'
-
-      - $ref: '#/components/parameters/tokenParam'
 
     ######################################################################################
     get:
@@ -113,7 +70,6 @@ paths:
         - $ref: '#/components/parameters/fieldsParam'
 
       security:
-        - accessToken: []
         - jwtoken: []
 
       responses:
@@ -158,7 +114,6 @@ paths:
               $ref: '#/components/schemas/DocumentToPost'
 
       security:
-        - accessToken: []
         - jwtoken: []
 
       responses:
@@ -196,8 +151,6 @@ paths:
         schema:
           $ref: '#/components/schemas/paramIdentifier'
 
-      - $ref: '#/components/parameters/tokenParam'
-
     ######################################################################################
     get:
       tags:
@@ -221,7 +174,6 @@ paths:
         - $ref: '#/components/parameters/fieldsParam'
 
       security:
-        - accessToken: []
         - jwtoken: []
 
       responses:
@@ -276,7 +228,6 @@ paths:
               $ref: '#/components/schemas/DocumentToPost'
 
       security:
-        - accessToken: []
         - jwtoken: []
 
       responses:
@@ -341,7 +292,6 @@ paths:
               $ref: '#/components/schemas/DocumentToPost'
 
       security:
-        - accessToken: []
         - jwtoken: []
 
       responses:
@@ -382,7 +332,6 @@ paths:
         - $ref: '#/components/parameters/permanentParam'
 
       security:
-        - accessToken: []
         - jwtoken: []
 
       responses:
@@ -407,8 +356,6 @@ paths:
         required: true
         schema:
           $ref: '#/components/schemas/paramCollection'
-
-      - $ref: '#/components/parameters/tokenParam'
 
     get:
       tags:
@@ -439,7 +386,6 @@ paths:
         - $ref: '#/components/parameters/fieldsParam'
 
       security:
-        - accessToken: []
         - jwtoken: []
 
       responses:
@@ -475,8 +421,6 @@ paths:
           type: integer
           format: int64
 
-      - $ref: '#/components/parameters/tokenParam'
-
     get:
       tags:
         - generic
@@ -497,7 +441,6 @@ paths:
         - $ref: '#/components/parameters/fieldsParam'
 
       security:
-        - accessToken: []
         - jwtoken: []
 
       responses:
@@ -543,7 +486,6 @@ paths:
         This operation requires authorization in contrast with VERSION operation.
 
       security:
-        - accessToken: []
         - jwtoken: []
 
       responses:
@@ -560,9 +502,6 @@ paths:
 
   ######################################################################################
   /lastModified:
-    parameters:
-      - $ref: '#/components/parameters/tokenParam'
-
     get:
       tags:
         - other
@@ -577,7 +516,6 @@ paths:
         This operation requires `read` permission for the API and the collections (e.g. `api:treatments:read`). For each collection the permission is checked separately, you will get timestamps only for those collections that you have access to.
 
       security:
-        - accessToken: []
         - jwtoken: []
 
       responses:
@@ -592,22 +530,6 @@ paths:
 components:
 
   parameters:
-
-
-    tokenParam:
-      in: query
-      name: token
-      schema:
-        type: string
-      required: false
-      description:
-        An alternative way of authorization - passing accessToken in a query parameter.
-
-
-        Example&#58;
-
-
-        <pre>token=testadmin-bf2591231bd2c042</pre>
 
 
     limitParam:
@@ -687,7 +609,10 @@ components:
       in: query
       name: filter_parameters
       schema:
-        type: string
+        type: array
+        items:
+          type: string
+      style: spaceDelimited
       description:
         Any number of filtering operators.
 
@@ -887,7 +812,7 @@ components:
                 example: 400
 
     401Unauthorized:
-      description: The request was not successfully authenticated using access token or JWT, so that the request cannot continue due to the security policy.
+      description: The request was not successfully authenticated using JWT, so that the request cannot continue due to the security policy.
       content:
         application/json:
           schema:
@@ -1226,7 +1151,7 @@ components:
         subject:
           type: string
           description:
-            Name of the security subject (within Nightscout scope) which has created the document. This field is automatically set by the server from the passed token or JWT.
+            Name of the security subject (within Nightscout scope) which has created the document. This field is automatically set by the server from the passed JWT.
 
 
             Note&#58; this field is immutable by the client (it cannot be updated or patched)
@@ -1428,7 +1353,7 @@ components:
 
     Settings:
       description:
-        A document representing persisted settings of some application or system (it could by Nightscout itself as well). This pack of options serves as a backup or as a shared centralized storage for multiple client instances. It is a probably good idea to `PATCH` the document instead of `UPDATE` operation, e.g. when changing one settings option in a client application.
+        A document representing persisted settings of some application or system (it could by Nightscout itself as well). This pack of options serves as a backup or as a shared centralized storage for multiple client instances. It is a probably good idea to `PATCH` the document instead of `UPDATE` operation, e.g. when changing one settings option in a client application. Settings documents are stored exactly as sent, without the HTML cleaning applied to the other collections, so a client that displays their values must treat them as untrusted (see the *API v3* section of the README).
 
 
         `identifier` represents a client application name here, e.g. `xdrip` or `aaps`.
@@ -1749,16 +1674,6 @@ components:
 
   ######################################################################################
   securitySchemes:
-
-    accessToken:
-      type: apiKey
-      name: token
-      in: query
-      description: >-
-        Add token as query item in the URL or as HTTP header. You can manage access token in
-        `/admin`.
-
-        Each operation requires a specific permission that has to be granted (via security role) to the security subject, which was authenticated by `token` parameter/header or `JWT`. E.g. for creating new `devicestatus` document via API you need `api:devicestatus:create` permission.
 
     jwtoken:
       type: http

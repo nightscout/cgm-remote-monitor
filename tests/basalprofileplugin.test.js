@@ -2,6 +2,8 @@ const should = require('should');
 const fs = require('fs');
 const language = require('../lib/language')(fs);
 
+const helper = require('./inithelper')();
+
 describe('basalprofile', function ( ) {
 
   var sandbox = require('../lib/sandbox')();
@@ -51,8 +53,7 @@ describe('basalprofile', function ( ) {
     ]
   };
 
-
-  var profile = require('../lib/profilefunctions')([profileData]);
+  var profile = require('../lib/profilefunctions')([profileData], helper.ctx);
 
   it('update basal profile pill', function (done) {
     var data = {};
@@ -68,7 +69,9 @@ describe('basalprofile', function ( ) {
       , language: language
     };
 
-    var time = new Date('2015-06-21T00:00:00+00:00').getTime();
+    var time = new Date('2015-06-21T00:00:00+00:00');
+
+    console.log('TIME1', time);
 
     var sbx = sandbox.clientInit(ctx, time, data);
     sbx.data.profile = profile;
@@ -86,7 +89,7 @@ describe('basalprofile', function ( ) {
       , language: language
     };
 
-    var time = new Date('2015-06-21T00:00:00+00:00').getTime();
+    var time = new Date('2015-06-21T00:00:00+00:00');
 
     var sbx = sandbox.clientInit(ctx, time, data);
     sbx.data.profile = profile;

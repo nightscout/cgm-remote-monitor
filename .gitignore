@@ -10,6 +10,9 @@ bundle/bundle.out.js
 my.env
 my.*.env
 *.pem
+!/tests/fixtures/dummy_private_key.pem
+
+fly.toml
 
 static/bower_components/
 .*.sw?
@@ -20,6 +23,9 @@ static/bower_components/
 
 # istanbul output
 coverage/
+
+# flaky test results
+flaky-test-results/
 
 npm-debug.log
 *.heapsnapshot
@@ -34,3 +40,7 @@ npm-debug.log
 # directories created by docker-compose.yml
 mongo-data/
 letsencrypt/
+
+stats.json
+.replit
+attached_assets/

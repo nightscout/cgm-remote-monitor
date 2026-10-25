@@ -1,6 +1,7 @@
 'use strict';
 
 var fs = require('fs')
+  , path = require('path')
   , language = require('../../../lib/language')()
   , api = require('../../../lib/api3/')
   , http = require('http')
@@ -14,7 +15,7 @@ var fs = require('fs')
 function configure () {
   const self = { };
 
-  self.prepareEnv = function prepareEnv({ apiSecret, useHttps, authDefaultRoles, enable }) {
+  self.prepareEnv = function prepareEnv({ apiSecret, useHttps, authDefaultRoles, enable, authFailDelay = 0 }) {
 
     if (useHttps) {
       process.env.NODE_TLS_REJECT_UNAUTHORIZED = '0';
@@ -29,29 +30,37 @@ function configure () {
 
     if (useHttps) {
       env.ssl = {
-        key: fs.readFileSync(__dirname + '/localhost.key'),
-        cert: fs.readFileSync(__dirname + '/localhost.crt')
+        key: fs.readFileSync(path.join(__dirname, '../localhost.key')),
+        cert: fs.readFileSync(path.join(__dirname, '../localhost.crt'))
       };
     }
 
     env.settings.authDefaultRoles = authDefaultRoles;
     env.settings.enable = enable;
+    env.settings.authFailDelay = authFailDelay;
 
     return env;
   };
 
 
+  function addJwt (req, jwt) {
+    return jwt
+      ? req.set('Authorization', `Bearer ${jwt}`)
+      : req;
+  }
+
+
   self.addSecuredOperations = function addSecuredOperations (instance) {
 
-    instance.get = (url) => request(instance.baseUrl).get(url);
+    instance.get = (url, jwt) => addJwt(request(instance.baseUrl).get(url), jwt);
 
-    instance.post = (url) => request(instance.baseUrl).post(url);
+    instance.post = (url, jwt) => addJwt(request(instance.baseUrl).post(url), jwt);
 
-    instance.put = (url) => request(instance.baseUrl).put(url);
+    instance.put = (url, jwt) => addJwt(request(instance.baseUrl).put(url), jwt);
 
-    instance.patch = (url) => request(instance.baseUrl).patch(url);
+    instance.patch = (url, jwt) => addJwt(request(instance.baseUrl).patch(url), jwt);
 
-    instance.delete = (url) => request(instance.baseUrl).delete(url);
+    instance.delete = (url, jwt) => addJwt(request(instance.baseUrl).delete(url), jwt);
   };
 
 
@@ -96,7 +105,8 @@ function configure () {
     useHttps = true,
     authDefaultRoles = '',
     enable = ['careportal', 'api'],
-    storageSocket = null
+    storageSocket = null,
+    authFailDelay = 0
     }) {
 
     return new Promise(function (resolve, reject) {
@@ -106,11 +116,14 @@ function configure () {
           hasBooted = false
           ;
 
-        instance.env = self.prepareEnv({ apiSecret, useHttps, authDefaultRoles, enable });
+        instance.env = self.prepareEnv({ apiSecret, useHttps, authDefaultRoles, enable, authFailDelay });
 
         self.wares = require('../../../lib/middleware/')(instance.env);
         instance.app = require('express')();
         instance.app.enable('api');
+        // As lib/server/app.js does, so the mounted v3 app's req.ip and
+        // req.secure see the same proxy trust as in production.
+        instance.app.set('trust proxy', require('../../../lib/server/client-ip').trustFor(instance.env));
 
         require('../../../lib/server/bootevent')(instance.env, language).boot(function booted (ctx) {
           instance.ctx = ctx;
@@ -122,6 +135,7 @@ function configure () {
           }
 
           instance.app.use('/api/v3', instance.ctx.apiApp);
+          instance.app.use('/api/v2/authorization', instance.ctx.authorization.endpoints);
 
           const transport = useHttps ? https : http;
 
