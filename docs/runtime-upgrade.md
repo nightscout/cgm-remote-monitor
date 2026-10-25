@@ -42,10 +42,10 @@ No deployment platform is retired by this change. An unavailable or unverified p
 
 This change removes CI jobs and updates the support policy. It does not change the MongoDB driver, schema, connection protocol, or startup behavior, and does not migrate or delete data. An existing 4.4 connection may still work; that does not make it supported. There is no new startup version query or database permission requirement.
 
-### Docker Compose default in Nightscout 15.0.9
+### Docker Compose default in Nightscout 16.0.0
 
 The bundled `docker-compose.yml` now selects **mongo:6.0.27**, replacing the
-**mongo:5.0.32** default shipped in 15.0.8. MongoDB 5 remains supported during
+**mongo:5.0.32** default shipped through 15.0.9. MongoDB 5 remains supported during
 migration; changing the example default does not require externally managed
 MongoDB 5 deployments to upgrade immediately.
 
