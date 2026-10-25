@@ -52,7 +52,7 @@ describe('Native env runner process contract', function () {
   it('passes file values through nyc into a Mocha child', function () {
     const test = path.join(directory, 'owned.test.js');
     fs.writeFileSync(test, 'it("inherits owned file value",()=>require("node:assert/strict").equal(process.env.OWNED_VALUE,"file#value"))');
-    const result = run([require.resolve('nyc/bin/nyc.js'), '--silent', '--temp-dir', path.join(directory, 'coverage'), process.execPath, require.resolve('mocha/bin/mocha.js'), test]);
+    const result = run([require.resolve('nyc/bin/nyc.js'), '--silent', '--all=false', '--temp-dir', path.join(directory, 'coverage'), process.execPath, require.resolve('mocha/bin/mocha.js'), test]);
     assert.equal(result.status, 0, result.stdout + result.stderr);
     assert.match(result.stdout, /1 passing/);
   });
