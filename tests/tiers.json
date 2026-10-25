@@ -1,0 +1,236 @@
+{
+  "testFiles": "tests/**/*.test.js",
+  "smoke": [
+    "unit",
+    "dom",
+    "dependency",
+    "core",
+    "integration"
+  ],
+  "tiers": {
+    "unit": {
+      "files": [
+        "tests/alexa-template.test.js",
+        "tests/apn-lifecycle.test.js",
+        "tests/ar2.test.js",
+        "tests/basalprofileplugin.test.js",
+        "tests/bgnow.test.js",
+        "tests/boluswizardpreview.test.js",
+        "tests/booterror.test.js",
+        "tests/bootevent-debounce.test.js",
+        "tests/bootevent-history-clock.test.js",
+        "tests/bootevent-readable-warning.test.js",
+        "tests/bridge-connect-compat.test.js",
+        "tests/browser-utils.queryparms.test.js",
+        "tests/cache-objectid-compat.test.js",
+        "tests/cachebuster.test.js",
+        "tests/cannulaage.test.js",
+        "tests/client-ip.test.js",
+        "tests/cob.test.js",
+        "tests/connect-dexcom-transport.test.js",
+        "tests/connect-lifecycle.test.js",
+        "tests/connect-minimed-cutover.test.js",
+        "tests/connect-minimed-transport.test.js",
+        "tests/data.*.test.js",
+        "tests/dataloader.test.js",
+        "tests/ddata.test.js",
+        "tests/debug-logging.test.js",
+        "tests/direction.test.js",
+        "tests/env.test.js",
+        "tests/errorcodes.test.js",
+        "tests/expressextensions.test.js",
+        "tests/insulinage.test.js",
+        "tests/iob.test.js",
+        "tests/language.test.js",
+        "tests/legacy-bridge-boot-errors.test.js",
+        "tests/levels.test.js",
+        "tests/loop-apns-connections.test.js",
+        "tests/loop.test.js",
+        "tests/loopalyzer-sgv.test.js",
+        "tests/maker-level-names.test.js",
+        "tests/maker.test.js",
+        "tests/mmconnect-connect-compat.test.js",
+        "tests/mongo-pool-config.test.js",
+        "tests/mongo-query-javascript.test.js",
+        "tests/object-id-forms.test.js",
+        "tests/plugins.test.js",
+        "tests/profile-empty-name.test.js",
+        "tests/profile-switch-percentage.test.js",
+        "tests/profile-switch-preprocessing.test.js",
+        "tests/profile-temp-cache.test.js",
+        "tests/profile.spec-profile.test.js",
+        "tests/profile.test.js",
+        "tests/profileeditor.records.test.js",
+        "tests/profileeditor.test.js",
+        "tests/pushover-lifecycle.test.js",
+        "tests/pushover.test.js",
+        "tests/query.operands.test.js",
+        "tests/query.test.js",
+        "tests/receiveddata.merge.test.js",
+        "tests/report-utils.treatment-units.test.js",
+        "tests/runtime-policy.test.js",
+        "tests/sandbox.test.js",
+        "tests/sensorage.test.js",
+        "tests/server.security-headers.test.js",
+        "tests/service-worker-assets.test.js",
+        "tests/settings.test.js",
+        "tests/simplealarms.test.js",
+        "tests/timeago.test.js",
+        "tests/times.test.js",
+        "tests/treatmentnotify.test.js",
+        "tests/treatmenttime.test.js",
+        "tests/uniqsgv.test.js",
+        "tests/units.test.js",
+        "tests/upbat.test.js",
+        "tests/utils.deepMerge.test.js",
+        "tests/utils.test.js",
+        "tests/webhook.test.js"
+      ],
+      "env": true,
+      "require": [
+        "./tests/hooks.js"
+      ],
+      "timeout": 5000,
+      "exit": true,
+      "parallel": 2
+    },
+    "dom": {
+      "files": [
+        "tests/boluscalc.quickpick-rebuild.test.js",
+        "tests/boluscalc.quickpick.test.js",
+        "tests/client.alarm-no-reading.test.js",
+        "tests/client.alarm-snooze.test.js",
+        "tests/client.renderer.tooltip-units.test.js",
+        "tests/clock-token-link.test.js",
+        "tests/editor-navigation.test.js",
+        "tests/food-editor-touch-scroll.test.js",
+        "tests/glucosedistribution.test.js",
+        "tests/loopalyzer-report.test.js",
+        "tests/modern-panels.test.js",
+        "tests/modern-reports.test.js",
+        "tests/modern-ui.test.js",
+        "tests/profile-sinks.test.js",
+        "tests/profileeditor.defaults.test.js",
+        "tests/profileeditor.empty-name.test.js",
+        "tests/report-daytoday-durations.test.js"
+      ],
+      "env": true,
+      "require": [
+        "./tests/hooks.js"
+      ],
+      "timeout": 5000,
+      "exit": true
+    },
+    "dependency": {
+      "files": [
+        "tests/dependency-*.test.js"
+      ],
+      "timeout": 5000,
+      "exit": true,
+      "covers": [
+        "package.json",
+        "package-lock.json"
+      ]
+    },
+    "core": {
+      "files": [
+        "tests/client-core/**/*.test.js"
+      ],
+      "timeout": 5000,
+      "exit": true
+    },
+    "harness": {
+      "files": [
+        "tests/fail.test.js",
+        "tests/fixtures/*.test.js",
+        "tests/flakiness-control.test.js",
+        "tests/production-safety.test.js"
+      ],
+      "covers": [
+        "scripts/flaky-test-runner.js"
+      ],
+      "env": true,
+      "require": [
+        "./tests/hooks.js"
+      ],
+      "timeout": 5000,
+      "exit": true
+    },
+    "integration": {
+      "files": [
+        "tests/00_production-safety.test.js",
+        "tests/XX_clean*.test.js",
+        "tests/adminnotifies*.test.js",
+        "tests/api*.test.js",
+        "tests/api3*.test.js",
+        "tests/authdelay.test.js",
+        "tests/authsubjects.test.js",
+        "tests/cache.remove-by-id.test.js",
+        "tests/carb-dose-upload.test.js",
+        "tests/client.renderer.test.js",
+        "tests/dbsize*.test.js",
+        "tests/error-handler.test.js",
+        "tests/gap-treat-012.test.js",
+        "tests/identity-matrix.test.js",
+        "tests/issue-6923-legacy-uuid.test.js",
+        "tests/loopnotifications.test.js",
+        "tests/mongo-storage*.test.js",
+        "tests/notifications*.test.js",
+        "tests/notifications-api*.test.js",
+        "tests/objectid-cache.test.js",
+        "tests/openaps*.test.js",
+        "tests/pebble*.test.js",
+        "tests/pump*.test.js",
+        "tests/pushnotify*.test.js",
+        "tests/rawbg*.test.js",
+        "tests/reports*.test.js",
+        "tests/reportstorage*.test.js",
+        "tests/security.test.js",
+        "tests/sgv-devicestatus.test.js",
+        "tests/soft-deleted.jl1.test.js",
+        "tests/storage*.test.js",
+        "tests/uuid-handling.test.js",
+        "tests/verifyauth.test.js",
+        "tests/websocket*.test.js"
+      ],
+      "env": true,
+      "require": [
+        "./tests/hooks.js"
+      ],
+      "timeout": 15000,
+      "exit": true,
+      "first": [
+        "tests/00_production-safety.test.js"
+      ],
+      "last": [
+        "tests/XX_clean.test.js"
+      ]
+    },
+    "stress": {
+      "files": [
+        "tests/concurrent*.test.js"
+      ],
+      "env": true,
+      "require": [
+        "./tests/hooks.js"
+      ],
+      "timeout": 60000,
+      "exit": true,
+      "first": [
+        "tests/00_production-safety.test.js"
+      ],
+      "last": [
+        "tests/XX_clean.test.js"
+      ]
+    },
+    "browser": {
+      "files": [
+        "tests/browser/*.test.js"
+      ],
+      "require": [
+        "./tests/browser/hooks.js"
+      ],
+      "timeout": 30000
+    }
+  }
+}
