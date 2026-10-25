@@ -63,7 +63,12 @@ describe('status bootstrap authentication headers', function () {
     await request(app).get('/api/v1/status.json').query({secret: hash}).expect(200);
   });
 
+  it('prevents caching a refusal for an invalid GET credential', async function () {
+    await request(app).get('/api/v1/status.json?token=invalid-fixture-token')
+      .expect(401).expect('Cache-Control', 'no-store');
+  });
+
   it('refuses a private status request without credentials', async function () {
-    await request(app).get('/api/v1/status.json').expect(401);
+    await request(app).get('/api/v1/status.json').expect(401).expect('Cache-Control', 'no-store');
   });
 });

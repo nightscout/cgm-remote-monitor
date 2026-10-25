@@ -170,6 +170,14 @@ $ npm install
 - HTTP Strict Transport Security (HSTS) headers are enabled by default, use settings `SECURE_HSTS_HEADER` and `SECURE_HSTS_HEADER_*`
 - See [Predefined values for your server settings](#predefined-values-for-your-server-settings-optional) for more details
 
+### Protecting authentication credentials in URLs
+
+GET parameters (`token` and `secret`) remain supported for existing clients and shared links. Use authentication headers for new API clients, and use a subject token with only the necessary permissions for shared links. Treat credential-bearing URLs as secrets: they can remain in browser history and copied links even over HTTPS.
+
+Nightscout sends `Referrer-Policy: no-referrer` independently of CSP/HSTS settings and prevents caching of credential-bearing responses. Its default production error logger omits URL queries, fragments and userinfo, redacts request credentials repeated in error details, and excludes arbitrary error properties. CSP logging retains selected diagnostics without URL queries or script samples. Custom logging integrations must apply equivalent protections.
+
+Configure your reverse proxy, CDN, hosting access logs, analytics and error monitoring separately: do not record query strings, `Referer`, `Authorization` or `api-secret` values for authenticated requests. These systems may record the original request before Nightscout can sanitize diagnostic output. Terminate TLS at the public endpoint and restrict access to the backend. Nightscout's response headers cannot remove credentials already captured by upstream logs or browser history.
+
 ## Installation notes for Microsoft Azure, Windows:
 
 - If deploying the software to Microsoft Azure, you must set *WEBSITE_NODE_DEFAULT_VERSION* and *SCM_COMMAND_IDLE_TIMEOUT* in the app settings **before** you deploy the latest Nightscout or the site deployment will likely fail. Other hosting environments do not require this setting. Additionally, if using the Azure free hosting tier, the installation might fail due to resource constraints imposed by Azure on the free hosting. Please set the following settings to the environment in Azure:
