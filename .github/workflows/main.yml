@@ -71,11 +71,12 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        # The exact floors engines (^22.23.4 || ^24.22.1 || >=26.12.1) admits on
-        # each line and the newest Node line, against maintained MongoDB releases.
-        node-version: ['22.23.4', '24.22.1', '26.12.1', '26']
-        # Additional coverage; the retained MongoDB 5/6 matrix stays above.
-        mongodb-version: ['7.0.40', '8.0.29']
+        # Edges of the range only: the floor of engines (^22.23.4 || ^24.22.1 ||
+        # >=26.12.1) and the newest released Node line.
+        node-version: ['22.23.4', '26']
+        # The newest tested MongoDB. The oldest supported (5.0) runs in the test
+        # matrix above and in replica-test.
+        mongodb-version: ['8.0.29']
 
     steps:
       - name: Git Checkout
@@ -120,9 +121,10 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        # The exact floors and the newest Node line, as in maintained-mongo.
-        node-version: ['22.23.4', '24.22.1', '26.12.1', '26']
-        mongodb-version: ['5.0.32', '6.0.27', '7.0.40', '8.0.29']
+        # Edges only, as in maintained-mongo: the Node floor and the newest line,
+        # the oldest supported and the newest tested MongoDB.
+        node-version: ['22.23.4', '26']
+        mongodb-version: ['5.0.32', '8.0.29']
     steps:
       - name: Git Checkout
         uses: actions/checkout@v5
