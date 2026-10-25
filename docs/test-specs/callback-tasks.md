@@ -16,16 +16,24 @@ Two intentional corrections accompany the replacement:
 
 - Maker finishes all keys in one stage before beginning the next. Previously,
   each key invoked the stage callback independently, advancing stages early.
-  A send failure now stops later keys and stages.
+  Keys start independently within a stage, and a failure does not suppress
+  other keys or later stages. The first error is reported once after all stages
+  complete. Each HTTPS request has a ten-second absolute deadline, covering
+  connection setup and response-body completion, and destroys the request on
+  failure. Successful results retain configured key order.
 - Voice rollups omit missing results when a handler fails, returning available
   completed text once instead of throwing while accessing an undefined result.
 
 `tests/callback-tasks.test.js` covers helper contracts. Set
 `NIGHTSCOUT_ASYNC_ORACLE` to a parent checkout's installed `async` directory to
 run the five shared characterization cases against both implementations.
-`tests/plugin-task-order.test.js` exercises two successive Maker events and
-voice rollups. Its `NIGHTSCOUT_PLUGIN_TASK_ORACLE_ROOT` option demonstrates the
-four corrected behavior failures against the parent. `tests/api.treatments.test.js`
+`tests/plugin-task-order.test.js` exercises two successive Maker events,
+stage barriers, partial failures, announcement keys and voice rollups.
+`tests/maker-delivery.test.js` uses an owned HTTPS transport and clock to cover
+stalled connections/bodies, transport and response errors, all-clear delivery,
+ordered results and single completion without network access or real waits.
+Their `NIGHTSCOUT_PLUGIN_TASK_ORACLE_ROOT` option checks an earlier implementation
+against the same contracts. `tests/api.treatments.test.js`
 uploads the same pre-bolus batch twice and verifies stable record counts and IDs
 against a disposable MongoDB database.
 
