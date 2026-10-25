@@ -17,7 +17,7 @@ exports.withPage = async function (origin, run, {expectBlocked = false, hasTouch
   assert.equal(target.hostname, '127.0.0.1');
   assert.equal(target.origin, origin);
   const context = await getBrowser().newContext({serviceWorkers: 'block', acceptDownloads: false, hasTouch, timezoneId});
-  const blocked = [], errors = [];
+  const blocked = [], errors = [], routed = new Map();
   try {
     // Fulfilled documents have no network address. Chromium's local-network
     // permission is needed for their native WebSocket connection to our
@@ -34,16 +34,25 @@ exports.withPage = async function (origin, run, {expectBlocked = false, hasTouch
       // route.continue() can follow redirects without invoking this handler
       // again. Fixture HTTP responses are finite and redirects are forbidden;
       // fetch one response only, then fulfill it with its actual headers/body.
-      const response = await route.fetch({maxRedirects: 0, timeout: 5000});
+      const request = route.request();
+      const state = {path: new URL(url).pathname, phase: 'fetch', since: Date.now()};
+      routed.set(request, state);
+      // Keep intercepted fixture requests independent: hosted runs have
+      // stalled in fetch before reaching the server when reusing connections.
+      const response = await route.fetch({maxRedirects: 0, timeout: 5000,
+        headers: {...await request.allHeaders(), connection: 'close'}});
       try {
         const location = response.headers().location;
         if (response.status() >= 300 && response.status() < 400 && location) {
           blocked.push(new URL(location, url).href);
           return await route.abort('blockedbyclient');
         }
+        state.phase = 'fulfill';
         await route.fulfill({response});
       } finally {
+        state.phase = 'dispose';
         await response.dispose();
+        routed.delete(request);
       }
     });
     await context.routeWebSocket(url => !permitted(url.toString(), origin), socket => {
@@ -54,7 +63,7 @@ exports.withPage = async function (origin, run, {expectBlocked = false, hasTouch
     const page = await context.newPage();
     page.setDefaultTimeout(5000);
     page.setDefaultNavigationTimeout(5000);
-    const result = await run({page, context, blocked});
+    const result = await run({page, context, blocked, routed});
     assert.deepEqual(errors, [], 'Uncaught browser errors');
     if (!expectBlocked) assert.deepEqual(blocked, [], 'Unexpected request outside test fixture');
     return result;

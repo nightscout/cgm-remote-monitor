@@ -75,6 +75,8 @@ function setup (callback, options) {
   activeEnv = createSecureDOM(html, options);
 
   setGlobal('window', activeEnv.window);
+  // Webpack's chunk runtime in the page bundles reads `self`; RT-JSDOM-REST retires this harness.
+  setGlobal('self', activeEnv.window);
   DOM_GLOBALS.forEach(function (name) {
     setGlobal(name, activeEnv.window[name] || function noop () {});
   });
@@ -162,6 +164,7 @@ function teardown (clearDOM) {
       delete global[name];
     });
     delete global.window;
+    delete global.self;
     if (activeEnv) {
       activeEnv.cleanup();
       activeEnv = null;

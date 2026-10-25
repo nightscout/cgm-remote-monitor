@@ -1,0 +1,96 @@
+{
+  "node": "v22.23.2",
+  "platform": "darwin",
+  "arch": "arm64",
+  "statistics": "0.7.0",
+  "bins": 48,
+  "readingsPerBin": 180,
+  "repetitions": 100,
+  "probabilities": [
+    0.1,
+    0.25,
+    0.5,
+    0.75,
+    0.9
+  ],
+  "samples": [
+    {
+      "pair": 0,
+      "scalar": {
+        "milliseconds": 188.145708,
+        "checksum": 4547500
+      },
+      "batched": {
+        "milliseconds": 39.67358399999998,
+        "checksum": 4547500
+      }
+    },
+    {
+      "pair": 1,
+      "batched": {
+        "milliseconds": 38.82041600000002,
+        "checksum": 4547500
+      },
+      "scalar": {
+        "milliseconds": 193.64199999999994,
+        "checksum": 4547500
+      }
+    },
+    {
+      "pair": 2,
+      "scalar": {
+        "milliseconds": 196.83395800000005,
+        "checksum": 4547500
+      },
+      "batched": {
+        "milliseconds": 40.24683399999992,
+        "checksum": 4547500
+      }
+    },
+    {
+      "pair": 3,
+      "batched": {
+        "milliseconds": 40.19524999999999,
+        "checksum": 4547500
+      },
+      "scalar": {
+        "milliseconds": 199.94820800000002,
+        "checksum": 4547500
+      }
+    },
+    {
+      "pair": 4,
+      "scalar": {
+        "milliseconds": 191.01587500000005,
+        "checksum": 4547500
+      },
+      "batched": {
+        "milliseconds": 36.458667000000105,
+        "checksum": 4547500
+      }
+    },
+    {
+      "pair": 5,
+      "batched": {
+        "milliseconds": 36.374874999999975,
+        "checksum": 4547500
+      },
+      "scalar": {
+        "milliseconds": 181.6371670000001,
+        "checksum": 4547500
+      }
+    },
+    {
+      "pair": 6,
+      "scalar": {
+        "milliseconds": 181.06920800000012,
+        "checksum": 4547500
+      },
+      "batched": {
+        "milliseconds": 36.389875000000075,
+        "checksum": 4547500
+      }
+    }
+  ],
+  "scope": "Quantile computation only; not full report rendering or retained memory"
+}

@@ -198,20 +198,22 @@ for isolation, coverage boundaries and additional test-tool disk/RAM costs.
 
 ### CI coverage and manual release checks
 
-Ordinary and release PRs run 13 validation jobs: six full server lanes,
-three browsers on Node 26, npm 12 compatibility, two native Docker builds
-and CodeQL. Four server lanes cover the Node/MongoDB edges. Two preserve the
+Ordinary and release PRs run 19 validation jobs: six main server lanes,
+two maintained-MongoDB lanes, four replica-set lanes, three browsers on Node 26,
+npm 12 compatibility, two native Docker builds and CodeQL. Four main server
+lanes cover the Node/MongoDB edges. Two preserve the
 required check names `Run Tests (24, 6)` and `Run Tests (22, 6)`.
 MongoDB 4.4 remains unsupported and has no CI lane.
-No individual test cases are dropped. Publishing waits for all server, browser
-and npm 12 jobs on the actual `dev`/`master` push.
+No individual test cases are dropped. Publishing waits for all server, browser,
+npm 12, maintained-MongoDB and replica-set jobs on the actual `dev`/`master` push.
 
 Before a release, use **Actions → CI test and publish Docker image → Run
 workflow**, select the candidate ref and leave **extended** enabled. This tests
 all six Node selectors (the patched floor and latest patch on each of 22/24/26)
 against MongoDB 5.0/8.0, plus the two transitional required lanes (14 server
 jobs), and all three browsers on every selector (18 browser jobs). Both native
-Docker images are built and smoke-tested. Manual runs never publish images.
+Docker images are built and smoke-tested. The two maintained-MongoDB lanes and
+four replica-set lanes also run in both manual modes. Manual runs never publish images.
 CodeQL can be run separately on the same ref through its own Run workflow
 control. GitHub exposes manual dispatch after the workflow configuration
 reaches the default branch.

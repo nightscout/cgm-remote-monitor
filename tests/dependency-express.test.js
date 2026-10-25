@@ -3,8 +3,9 @@
 const assert = require('assert');
 const request = require('supertest');
 const express = require('express');
-const bodyParser = require('body-parser');
 const { createRequire } = require('module');
+const fromExpress = createRequire(require.resolve('express'));
+const bodyParser = fromExpress('body-parser');
 const zlib = require('zlib');
 const configureWares = require('../lib/middleware');
 const query = require('../lib/server/query');
@@ -26,17 +27,19 @@ function post (app, type, body) {
 
 describe('Express and body-parser dependency compatibility', function () {
   it('uses the patched body-parser for Express built-in parsers as well', function () {
-    const fromExpress = createRequire(require.resolve('express'));
-    assert.strictEqual(fromExpress.resolve('body-parser'), require.resolve('body-parser'));
+    for (const type of ['json', 'urlencoded', 'raw', 'text']) {
+      assert.strictEqual(express[type], bodyParser[type]);
+      assert.strictEqual(configureWares.wares.bodyParser[type], express[type]);
+    }
     assert.throws(() => express.json({limit: 'invalid'}), TypeError);
     assert.throws(() => express.urlencoded({extended: true, limit: NaN}), TypeError);
   });
 
   [
-    ['json', bodyParser.json, 'application/json', size => JSON.stringify('x'.repeat(size)), {strict: false}],
-    ['urlencoded', bodyParser.urlencoded, 'application/x-www-form-urlencoded', size => 'v=' + 'x'.repeat(size), {extended: true}],
-    ['raw', bodyParser.raw, 'application/octet-stream', size => Buffer.alloc(size, 120), {}],
-    ['text', bodyParser.text, 'text/plain', size => 'x'.repeat(size), {}]
+    ['json', express.json, 'application/json', size => JSON.stringify('x'.repeat(size)), {strict: false}],
+    ['urlencoded', express.urlencoded, 'application/x-www-form-urlencoded', size => 'v=' + 'x'.repeat(size), {extended: true}],
+    ['raw', express.raw, 'application/octet-stream', size => Buffer.alloc(size, 120), {}],
+    ['text', express.text, 'text/plain', size => 'x'.repeat(size), {}]
   ].forEach(function ([name, parser, type, payload, options]) {
     ['invalid', NaN].forEach(function (limit) {
       it(name + ' rejects invalid size limit ' + String(limit) + ' at construction', function () {
@@ -89,7 +92,7 @@ describe('Express and body-parser dependency compatibility', function () {
   it('accepts a bulk JSON upload above 1MiB with both API limit formats', async function () {
     const payload = JSON.stringify([{type: 'sgv', sgv: 123, device: 'x'.repeat(MiB + 1)}]);
     for (const limit of ['50Mb', 1048576 * 50]) {
-      const app = appWithParser(bodyParser.json({limit: limit}), (req, res) => {
+      const app = appWithParser(express.json({limit: limit}), (req, res) => {
         if (!Array.isArray(req.body)) return res.sendStatus(400);
         res.json({count: req.body.length, sgv: req.body[0].sgv});
       });
