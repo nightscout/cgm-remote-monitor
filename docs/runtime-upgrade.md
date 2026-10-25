@@ -1,45 +1,36 @@
 # Runtime and database support (next release)
 
-Nightscout requires **Node 22.12+ or Node 24+** (`^22.12 || >=24`). Prereleases are not supported. The package manifest is authoritative; the startup guard uses that same range before loading application configuration or starting services.
+Nightscout requires **Node 22.23.4+ within Node 22, 24.22.1+ within Node 24, or 26.12.1 and later** (`^22.23.4 || ^24.22.1 || >=26.12.1`). Prereleases are excluded. The package manifest is authoritative; the startup guard checks that same range before loading application configuration or starting services.
 
-**REVISED 2026-09-21, and the floor was loosened rather than tightened.** This document previously required `^22.23.2 || ^24.20.0` and said so on the grounds that *"these minimum patches reflect the supported release baseline at the time of this change"* — that is, the latest LTS patches on the day it was written (22.23.2 was 8 days old, 24.20.0 was 10). That is a policy choice, not a compatibility requirement, and it was measured to cost something for nothing:
+## Security floor: CVE-2026-111497
 
-| Node | unit suite | Playwright suite |
-|---|---|---|
-| 24.20.0 / 24.15.0 | 310 passing / 0 failing | — |
-| 22.23.2 / 22.22.0 / 22.12.0 | 310 / 0 | 21 / 0 |
-| 20.20.0 | 310 / 0 | 21 / 0 |
-| 18.20.8 | 295 / **15 failing** | — |
+The October 21, 2026 [Node security release](https://nodejs.org/en/blog/vulnerability/october-2026-security-releases) fixes a Brotli decoder out-of-bounds write that can cause a crash, disclosure of process memory, or remote code execution when an application decompresses attacker-controlled input. The fixed releases are [22.23.4](https://nodejs.org/en/blog/release/v22.23.4), [24.22.1](https://nodejs.org/en/blog/release/v24.22.1) and [26.12.1](https://nodejs.org/en/blog/release/v26.12.1).
 
-Identical on every version the old floor rejected. **22.12 is the real lower bound**, and it is a dependency constraint rather than an application one: the 15 failures at 18 are all `ERR_REQUIRE_ESM` from `sanitize-html` requiring the ESM-only `htmlparser2`, and `require(esm)` is unflagged in 22.12 (backported to 20.19).
+This supersedes the earlier compatibility-only floor of `^22.12 || >=24`. Those versions can run the application, but the old range also permits vulnerable runtimes. Node 20, 23 and 25 are excluded; unpatched Node 22, 24 and 26 releases are refused at startup. The `>=26.12.1` arm preserves the existing policy of accepting later stable major releases; it does not establish compatibility with a future runtime before testing it.
 
-**Node 20 works and is not supported.** Measured at 310/0, so nothing is deliberately broken for it, but it reached end of life on 2026-04-30 and receives no security updates, so the project cannot support it. It is not actively blocked beyond falling outside the range.
+The current Express 4/body-parser 1 request parser rejects Brotli request bodies, but Nightscout Connect's Axios client automatically decompresses Brotli responses. Blocking inbound `Content-Encoding: br` alone therefore does not remove the risk. Upgrade the runtime used by both the build and the running application.
 
-**`>= 24` admits odd-numbered and future majors**, including 25.x and 26.x, which the previous policy excluded by name. That is deliberate: the project's history is that Node compatibility has been good and over-restricting has been more harmful than permissiveness. Prereleases remain excluded, by semver's default treatment of them rather than by a special rule.
-
-Node 24 is recommended for new source installations (`.nvmrc` and `bin/setup.sh`). The Docker image uses Node 22 Alpine through the official major tag — which the previous patch floor made impossible, since `node:22-alpine` resolves to v22.22.0 and a container built from it exited 1 at boot against `^22.23.2`. A minor floor and a floating major tag are compatible; a patch floor and a floating major tag are not. Keep your runtime patched regardless: a version missing current security patches is not something the project can support even when it runs. npm 10 or newer remains required; CI separately validates npm 12 on Node 24.
-
-Official references: [Node release index](https://nodejs.org/dist/index.json), [LTS schedule](https://github.com/nodejs/Release#release-schedule). Node 22 reaches end of life on April 30, 2027; Node 24 on April 30, 2028.
+Node 24 LTS is recommended for new source installations. `.nvmrc` selects 24.22.1, and the NodeSource setup helper selects the 24 line; verify the installed patch. Both Docker stages use `node:22.23.4-alpine`. Update those pins as newer security releases arrive, rebuild images, and redeploy existing containers: changing this repository does not patch a running process. npm 10 or newer remains required; CI separately validates npm 12 on Node 24.
 
 ## Upgrade and rollback
 
-**Most operators need no runtime change under the revised range.** Node 22.12+ and 24+ both qualify, and the Docker image already satisfies it. The steps below apply if your host is on Node 20 or older.
+**Check every running runtime before upgrading.** Sites on an older patch of Node 22, 24 or 26, or on Node 20, 23 or 25, must upgrade. A floating major tag or hosting selector does not prove the deployed patch is fixed.
 
 1. Record the running Nightscout commit/image digest, Node version, npm version, environment configuration, and deployment settings. Retain the previous application artifact and take a normal database backup. Keep API_SECRET and browser origin unchanged so credentials and local settings remain valid.
-2. For source deployments, upgrade Node **before** installing this Nightscout release. With nvm, run `nvm install 24` and `nvm use 24`; verify `node --version` meets the package range. A major selector is not proof of the actual installed patch. Rebuild native dependencies with a fresh `npm ci`; do not reuse node_modules from another Node version.
+2. For source deployments, upgrade Node **before** installing this Nightscout release. With nvm, run `nvm install` and `nvm use` from the checkout to select its patched `.nvmrc` version; verify `node --version` meets the package range. A major selector is not proof of the actual installed patch. Rebuild native dependencies with a fresh `npm ci`; do not reuse node_modules from another Node version.
 3. Build and start in staging using the same configuration and a representative database copy. Check authenticated uploads, profile/treatment reads, both glucose units, chart interactions, notification acknowledgements/snoozes, and two disconnect/reconnect cycles. Compare startup and post-GC memory under matched workloads before claiming improvements.
-4. For Docker, pull/build the new image and retain the old digest. Confirm the actual runtime with `docker run --rm IMAGE node --version`, then exercise application startup with the deployment's MongoDB configuration.
+4. For Docker, retain the old digest, rebuild with `docker build --pull` against the patched base image, and redeploy the resulting image. Confirm the actual runtime with `docker run --rm IMAGE node --version`, then exercise application startup with the deployment's MongoDB configuration.
 5. Roll back by deploying the recorded previous commit/artifact or image digest and its previous runtime/configuration. For a source rollback, run `npm ci` under that release's supported Node version. This change performs no database migration; do not restore an old database over new user data merely to roll back the runtime policy.
 
 Do not deploy this release to a host that cannot provide a supported runtime in **both build and execution** environments.
 
 ## Deployment validation and release gate
 
-The CI matrix tests the latest Node 22 and the latest Node 24 against MongoDB 5 and 6 (four combinations), and the browser suite runs on latest 22 and latest 24. MongoDB 4.4 coverage has been removed. MongoDB 5/6 remain supported during the migration, but are not recommended for new deployments because they are upstream end-of-life; see the database notice below. Unsupported-Node-version tests verify early rejection through both entry points and the public boot API. Docker PR checks build and smoke-start the pruned image on native amd64 and arm64 runners.
+The CI matrix tests Node 22.23.4, 24.22.1 and 26.12.1 plus the latest releases of each line against MongoDB 5 and 6 (twelve combinations). The browser suite exercises those same six runtime selectors on Chromium, Firefox and WebKit. Boundary tests reject the preceding vulnerable patch on each line, including through both server entry points and the public boot API, and verify the actual test runtime satisfies the policy. MongoDB 4.4 coverage has been removed. MongoDB 5/6 remain supported during the migration, but are not recommended for new deployments because they are upstream end-of-life; see the database notice below. Unsupported-Node-version tests verify early rejection through both entry points and the public boot API. Docker PR checks build and smoke-start the pruned image on native amd64 and arm64 runners.
 
 The following remain release checks until a maintainer records actual host evidence. Updating selectors alone does **not** establish hosted compatibility:
 
-- **Azure / Windows:** `azuredeploy.json` now selects `~24`. In the target App Service/Kudu environment, confirm this runtime is available and resolves to a Node 24 release, then verify deployment, build, and application startup. Set `SCM_COMMAND_IDLE_TIMEOUT=300`. The legacy Azure deployment script's production-only install/global webpack behavior needs separate build/runtime cleanup; test that path before release. Do not assume legacy Windows versions in external tutorials are supported.
+- **Azure / Windows:** `azuredeploy.json` now selects `~24`. In the target App Service/Kudu environment, confirm this runtime is available and resolves to Node 24.22.1 or later within Node 24 in both build and execution environments, then verify deployment, build, and application startup. Set `SCM_COMMAND_IDLE_TIMEOUT=300`. The legacy Azure deployment script's production-only install/global webpack behavior needs separate build/runtime cleanup; test that path before release. Do not assume legacy Windows versions in external tutorials are supported.
 - **Heroku:** verify the buildpack resolves the engine range, builds with development dependencies, prunes correctly, and starts with persistent configuration. Record buildpack/stack versions and an upgrade/rollback exercise.
 - **Source and development:** verify a clean locked install and production startup, development/HMR startup, and upgrade/rollback with the same saved configuration and browser storage. The Linux setup helper selects NodeSource 24; validate it on the deployment's supported distribution.
 

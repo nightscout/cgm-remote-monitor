@@ -153,7 +153,7 @@ Older versions or other browsers might work, but are untested and unsupported. W
 
 ## Installation software requirements:
 
-- [Node.js](http://nodejs.org/) Node 22.12+ or 24+. Node 24 is recommended for new source installations. Node 20 reached end of life on 2026-04-30 and is not supported, though it is not actively blocked; non-LTS major lines are not supported. Keep your runtime patched — a version missing current security patches is not something the project can support even when it runs. Use [Install instructions for Node](https://nodejs.org/en/download/package-manager/) or use `bin/setup.sh`)
+- [Node.js](http://nodejs.org/) Node 22.23.4+ within Node 22, 24.22.1+ within Node 24, or 26.12.1 and later (`^22.23.4 || ^24.22.1 || >=26.12.1`). These minimum versions include the fix for CVE-2026-111497. Node 24 LTS is recommended for new source installations. Nightscout refuses unsupported runtimes at startup, including Node 20, Node 25 and earlier unpatched releases. Future stable majors remain permitted by the range; prereleases are excluded. Keep your runtime patched. Use [Install instructions for Node](https://nodejs.org/en/download/package-manager/) or use `bin/setup.sh`.
 - [MongoDB](https://www.mongodb.com/download-center?jmp=nav#community) 5.0.32+ within the 5.0 series, or 6.0.27+ within the 6.0 series, retained during the modernization migration.
   MongoDB 4.4 and earlier are unsupported and no longer tested. MongoDB 5/6 are also upstream end-of-life; validation of maintained 7/8 releases is planned. See the [MongoDB support and upgrade notice](docs/runtime-upgrade.md#mongodb-support-during-modernization) before upgrading an existing deployment.
 
@@ -178,7 +178,7 @@ WEBSITE_NODE_DEFAULT_VERSION=~24
 SCM_COMMAND_IDLE_TIMEOUT=300
 ```
   `~24` asks Azure for the newest Node 24 it offers. The one-click template `azuredeploy.json` sets both, and its `WEBSITE_NODE_DEFAULT_VERSION` field (default `~24`) is the Node version the deployed site uses.
-- Check the actual Node version in both the Azure build and application environments before upgrading: `~24` does not guarantee a particular patch. See the [runtime upgrade and deployment validation guide](docs/runtime-upgrade.md), including outstanding hosted-platform release checks.
+- Check the actual Node version in both the Azure build and application environments before upgrading: `~24` does not guarantee a particular patch, and both must provide at least Node 24.22.1. See the [runtime upgrade and deployment validation guide](docs/runtime-upgrade.md), including outstanding hosted-platform release checks.
 
 - See [install MongoDB, Node.js, and Nightscouton a single Windows system](https://github.com/jaylagorio/Nightscout-on-Windows-Server). if you want to host your Nightscout outside of the cloud. Use a Windows version supported by your chosen Node LTS release. These external instructions may contain obsolete runtime versions.
 - If you deploy to Windows and want to develop or test you need to install [Cygwin](https://www.cygwin.com/) (use [setup-x86_64.exe](https://www.cygwin.com/setup-x86_64.exe) and make sure to install `build-essential` package. Test your configuration by executing `make` and check if all tests are ok.

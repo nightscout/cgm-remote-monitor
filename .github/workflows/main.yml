@@ -20,11 +20,8 @@ jobs:
     runs-on: ubuntu-latest
     strategy:
       matrix:
-        # Major aliases are the right coverage now that engines states a MINOR floor
-        # (^22.12 || >=24) rather than a patch floor: a floating major tag can never
-        # resolve below 22.12, so there is no patch boundary left to guard. 22.12 is where
-        # require(esm) is unflagged, which is the real dependency constraint.
-        node-version: ['22', '24']
+        # Exercise the CVE-2026-111497 security boundaries and current releases.
+        node-version: ['22.23.4', '22', '24.22.1', '24', '26.12.1', '26']
         # MongoDB 4.4 is retired; keep 5/6 during the modernization migration.
         mongodb-version: [5.0, 6.0]
 
@@ -61,7 +58,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        node-version: ['22', '24']
+        node-version: ['22.23.4', '22', '24.22.1', '24', '26.12.1', '26']
         browser: [chromium, firefox, webkit]
     steps:
       - name: Git Checkout
