@@ -190,38 +190,36 @@ npm run test:browser
 ```
 
 Use `NIGHTSCOUT_TEST_BROWSER=firefox` or `webkit` after installing that engine.
-Ordinary CI runs all three browser engines once on Node 24. Server compatibility
-is checked separately on Node 22.23.4/MongoDB 5, Node 24/MongoDB 6 and the latest
-Node 26/MongoDB 6. Every lane runs the full existing suite; only the environment
-combinations are reduced. Browser downloads are separate from ordinary npm
-installs and production deployment. See the
-[browser test specification](docs/test-specs/browser-tests.md) for isolation,
-coverage boundaries and the additional test-tool disk/RAM costs.
+Ordinary CI runs all three browser engines once on Node 26. Server compatibility
+uses the Node 22.23.4/26 and MongoDB 5.0/8.0 edges, plus the three transitional
+required lanes below. Browser downloads are separate from ordinary npm installs
+and production deployment. See the [browser test specification](docs/test-specs/browser-tests.md)
+for isolation, coverage boundaries and additional test-tool disk/RAM costs.
 
 ### CI coverage and manual release checks
 
-Ordinary pull requests run three server lanes, three browser lanes, npm 12
-compatibility, two native Docker builds and CodeQL (ten validation jobs).
-The real `Run Tests (24, 6)` lane is retained for branch protection.
-Same-repository `dev` to `master` release PRs run that server lane, all three
-browsers and both native Docker image checks against the merge result; the
-Node 22/26 boundary lanes already run on the `dev` push. Forks named `dev`
-still get ordinary PR coverage. Publishing waits for all server, browser and
-npm 12 checks on the actual `dev`/`master` push.
+Ordinary and release PRs retain dev's 14 validation jobs: seven full server
+lanes, three browsers on Node 26, npm 12 compatibility, two native Docker builds
+and CodeQL. Four server lanes cover the Node/MongoDB edges. Three preserve the
+currently required check names `Run Tests (24, 6)`, `Run Tests (22, 6)` and
+`Run Tests (22, 4.4)`. MongoDB 4.4 remains unsupported; its CI lane can be removed
+once an administrator removes the requirement from branch protection.
+No individual test cases are dropped. Publishing waits for all server, browser
+and npm 12 jobs on the actual `dev`/`master` push.
 
 Before a release, use **Actions → CI test and publish Docker image → Run
-workflow**, select the release candidate ref and leave **extended** enabled.
-This runs all six Node selectors (the supported patch floor and latest patch
-on each of 22/24/26) against MongoDB 5/6, and all three browsers on every
-selector. Both native Docker images are built and smoke-tested. Manual runs
-never publish images. CodeQL can be run separately on the same ref through its
-own Run workflow control. GitHub exposes manual dispatch after the workflow
-configuration reaches the default branch.
+workflow**, select the candidate ref and leave **extended** enabled. This tests
+all six Node selectors (the patched floor and latest patch on each of 22/24/26)
+against MongoDB 5.0/8.0, plus the three transitional required lanes (15 server
+jobs), and all three browsers on every selector (18 browser jobs). Both native
+Docker images are built and smoke-tested. Manual runs never publish images.
+CodeQL can be run separately on the same ref through its own Run workflow
+control. GitHub exposes manual dispatch after the workflow configuration
+reaches the default branch.
 
 Superseded PR runs cancel automatically; push, manual and scheduled runs have
-separate concurrency groups so deployment or release checks are not cancelled.
-When changing matrix names, align the protection rules for both `dev` and
-`master` before removing required contexts, to avoid a permanently pending check.
+separate groups so deployment or release checks are not cancelled. Coordinate
+protection rules on both `dev` and `master` before deleting a required context.
 
 Socket.IO checks use disposable loopback servers without MongoDB. Node-client
 and parser checks run in `test:dependencies`; actual served-browser clients
