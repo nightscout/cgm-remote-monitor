@@ -182,7 +182,7 @@ Connect uses its own scheduling, session refresh and retry behavior. It does not
 continue the old optional `carelink_raw` storage feature. Existing database
 records and historical glucose/pump data are not deleted or rewritten.
 
-This branch pins nightscout-connect `0.1.0-dev.1`, which contains commit
+This branch pins nightscout-connect `0.1.0`, which contains commit
 `c962a13fee9a7a5ca160ab5e3fb231d35cadf294`: the logging fix from upstream PR #64 and
 the data fixes from #65.
 Provider operation labels replace raw credential, cookie, token and patient-data
