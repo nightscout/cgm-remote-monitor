@@ -71,9 +71,9 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        # The floor engines (^22.12 || >=24) admits in Node 22, Node 24, and
-        # the newest Node line, against maintained MongoDB releases.
-        node-version: ['22.12.0', '24', '26']
+        # The exact floors engines (^22.23.4 || ^24.22.1 || >=26.12.1) admits on
+        # each line and the newest Node line, against maintained MongoDB releases.
+        node-version: ['22.23.4', '24.22.1', '26.12.1', '26']
         # Additional coverage; the retained MongoDB 5/6 matrix stays above.
         mongodb-version: ['7.0.40', '8.0.29']
 
@@ -85,6 +85,8 @@ jobs:
         uses: actions/setup-node@v5
         with:
           node-version: ${{ matrix.node-version }}
+          # Major aliases must resolve past any cached vulnerable patch.
+          check-latest: true
           package-manager-cache: false
 
       - name: Start MongoDB ${{ matrix.mongodb-version }}
@@ -118,8 +120,8 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        # Floor, Node 24 and the newest Node line, as in maintained-mongo.
-        node-version: ['22.12.0', '24', '26']
+        # The exact floors and the newest Node line, as in maintained-mongo.
+        node-version: ['22.23.4', '24.22.1', '26.12.1', '26']
         mongodb-version: ['5.0.32', '6.0.27', '7.0.40', '8.0.29']
     steps:
       - name: Git Checkout
@@ -128,6 +130,8 @@ jobs:
         uses: actions/setup-node@v5
         with:
           node-version: ${{ matrix.node-version }}
+          # Major aliases must resolve past any cached vulnerable patch.
+          check-latest: true
           package-manager-cache: false
       - name: Start owned replica members
         env:
