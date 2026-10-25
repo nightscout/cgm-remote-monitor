@@ -222,6 +222,9 @@ You can get many more results, by using the `count`, `date`, `dateString`, and `
 
 Once you've installed Nightscout, you can access API documentation by loading `/api-docs/` URL in your instance.
 
+The `/api/v1/count/:storage/where` endpoint accepts `find` filters for counting records.
+Custom aggregation `pipeline` parameters are rejected with HTTP 400; they are not part of the public count API.
+
 #### Example Queries
 
 (replace `http://localhost:1337` with your own URL)
@@ -315,7 +318,7 @@ autonomy for your data:
   * `SSL_CERT` - Path to your ssl cert file, so that ssl(https) can be enabled directly in node.js. If using Let's Encrypt, make this variable the path to fullchain.pem file (cert + ca).
   * `SSL_CA` - Path to your ssl ca file, so that ssl(https) can be enabled directly in node.js. If using Let's Encrypt, make this variable the path to chain.pem file (chain).
   * `HEARTBEAT` (`60`)  - Number of seconds to wait in between database checks
-  * `DEBUG_MINIFY` (`true`)  - Debug option, setting to `false` will disable bundle minification to help tracking down error and speed up development
+  * `DEBUG_MINIFY` - Deprecated compatibility setting; it does not control webpack bundle minification. Use `NODE_ENV=development` for development bundles and hot updates. Production bundles are built during installation.
   * `DEBUG_LOGGING` (`false`) - Set to `true` to log routine server heartbeats, data reload summaries and Nightscout Connect diagnostics. Warnings, errors and startup messages remain visible with debugging off. This is a server environment setting; restart Nightscout after changing it. On Heroku, add or edit it under **Settings → Config Vars**. Set it back to `false` or remove it when troubleshooting is complete. It does not control Heroku router/access logs or every plugin's logging.
   * `DE_NORMALIZE_DATES`(`true`) - The Nightscout REST API normalizes all entered dates to UTC zone. Some Nightscout clients have broken date deserialization logic and expect to received back dates in zoned formats. Setting this variable to `true` causes the REST API to serialize dates sent to Nightscout in zoned format back to zoned format when served to clients over REST.
 

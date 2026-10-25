@@ -1,16 +1,13 @@
-import './bundle.source';
+'use strict';
 
-console.info('Nightscout report bundle start');
+// The app entry initializes the shared client before this page entry.
+require('flot');
+require('flot/jquery.flot.time');
+require('flot/jquery.flot.pie');
+require('flot/jquery.flot.fillbetween');
 
 window.Nightscout.report_plugins_preinit = require('../lib/report_plugins/');
 window.Nightscout.predictions = require('../lib/report/predictions');
 window.Nightscout.reportclient = require('../lib/report/reportclient');
-window.Nightscout.profileclient = require('../lib/profile/profileeditor');
-window.Nightscout.foodclient = require('../lib/food/food');
 
-console.info('Nightscout report bundle ready');
-
-// Needed for Hot Module Replacement
-if(typeof(module.hot) !== 'undefined') {
-    module.hot.accept()
-}
+if (module.hot) module.hot.accept();

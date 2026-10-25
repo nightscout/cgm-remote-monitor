@@ -9,6 +9,7 @@ const express = require('express');
 const ejs = require('ejs');
 const {withPage} = require('./fixture');
 const fixtures = require('./legacy-report-data.json');
+const networkDiagnostics = new WeakMap();
 
 function queryKey(value) {
   const url = new URL(value, 'http://127.0.0.1');
@@ -37,7 +38,9 @@ describe('legacy reports in a real browser', function () {
     app.get('/', (request, response) => response.type('html').send(html));
     app.use((request, response, next) => {
       if (request.path.startsWith('/api/') || request.path.startsWith('/translations/')) {
-        requests.push({method: request.method, url: request.originalUrl, body: request.body});
+        const record = {method: request.method, url: request.originalUrl, body: request.body, finished: false};
+        requests.push(record);
+        response.once('finish', () => {record.finished = true;});
       }
       next();
     });
@@ -59,7 +62,15 @@ describe('legacy reports in a real browser', function () {
 
   async function withReports(run) {
     requests = [];
-    await withPage(origin, async ({page}) => {
+    await withPage(origin, async ({page, routed}) => {
+      const pending = new Map(), failures = [];
+      networkDiagnostics.set(page, {pending, failures, routed});
+      page.on('request', request => pending.set(request, Date.now()));
+      page.on('requestfinished', request => pending.delete(request));
+      page.on('requestfailed', request => {
+        pending.delete(request);
+        failures.push({path: new URL(request.url()).pathname, error: request.failure()});
+      });
       await page.clock.setFixedTime(new Date('2025-01-01T12:00:00Z'));
       await page.goto(origin);
       await page.evaluate(markup => {
@@ -69,10 +80,12 @@ describe('legacy reports in a real browser', function () {
         document.body.replaceChildren(...parsed.body.childNodes);
       }, markup);
       await page.addScriptTag({url: origin + '/bundle/js/bundle.app.js'});
+      await page.addScriptTag({url: origin + '/bundle/js/bundle.reports.js'});
       await page.addScriptTag({url: origin + '/report/js/flotcandle.js'});
       await page.addScriptTag({url: origin + '/report/js/loopalyzer.js'});
       await page.evaluate(() => {
-        window.reportFixture = {emitted: [], failures: [], errors: []};
+        window.reportFixture = {emitted: [], failures: [], errors: [], completed: 0};
+        window.$(document).on('ajaxComplete.reportFixture', () => window.reportFixture.completed++);
         window.addEventListener('error', event => window.reportFixture.errors.push(event.message));
         window.$.ajaxPrefilter((options, original, xhr) => xhr.fail((response, status) => {
           window.reportFixture.failures.push({url: options.url, status, httpStatus: response.status});
@@ -115,16 +128,37 @@ describe('legacy reports in a real browser', function () {
   async function idle(page) {
     const started = Date.now();
     try {
-      // Each month refresh makes about 100 fixture requests and renders all
-      // report plugins. Shared Firefox runners can exceed 15 seconds while
-      // still making progress. Wait for completion within a bounded budget;
-      // the repeated-month case also retains its 90-second overall deadline.
-      await page.waitForFunction(() => window.$.active === 0 && window.$('#rp_show').is(':visible') && window.$('#info').text() === '', null, {timeout: 30000});
+      // A month requires many batches of real HTTP requests. Bound total work
+      // separately from a stalled request: completed AJAX calls prove progress.
+      await page.evaluate(() => {
+        window.reportFixture.progress = {completed: window.reportFixture.completed, at: performance.now()};
+      });
+      const result = await page.waitForFunction(() => {
+        if (window.$.active === 0 && window.$('#rp_show').is(':visible') && window.$('#info').text() === '') return 'ready';
+        const state = window.reportFixture, progress = state.progress;
+        if (state.completed !== progress.completed) {
+          progress.completed = state.completed;
+          progress.at = performance.now();
+        }
+        return performance.now() - progress.at >= 15000 ? 'stalled' : false;
+      }, null, {timeout: 60000});
+      try {assert.equal(await result.jsonValue(), 'ready', 'Report made no HTTP completion progress for 15 seconds');}
+      finally {await result.dispose();}
     } catch (error) {
       const state = await page.evaluate(() => ({active: window.$.active, info: window.$('#info').text(),
         showVisible: window.$('#rp_show').is(':visible'), errors: window.reportFixture.errors,
-        failures: window.reportFixture.failures.slice(-5)}));
+        failures: window.reportFixture.failures.slice(-5), completed: window.reportFixture.completed,
+        stalledForMs: performance.now() - window.reportFixture.progress.at}));
       error.message += '\nReport state: ' + JSON.stringify(state);
+      const network = networkDiagnostics.get(page);
+      error.message += '\nHTTP state: ' + JSON.stringify({
+        pending: Array.from(network.pending, ([request, at]) => ({path: new URL(request.url()).pathname,
+          elapsedMs: Date.now() - at})),
+        failures: network.failures.slice(-10),
+        routed: Array.from(network.routed.values(), state => ({...state, elapsedMs: Date.now() - state.since})),
+        received: requests.length,
+        unfinished: requests.filter(request => !request.finished).map(request => new URL(request.url, origin).pathname)
+      });
       throw error;
     }
     console.log('Report idle after', Date.now() - started, 'ms');

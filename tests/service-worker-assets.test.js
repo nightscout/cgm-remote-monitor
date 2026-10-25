@@ -29,8 +29,10 @@ describe('versioned dashboard assets', function () {
       Request: class { constructor (url) { this.url = new URL(url, origin).href; } },
       fetch: async () => {
         if (offline) throw new Error('No network available');
-        return {body: 'cached bundle', clone: function () { return this; }};
+        return {status: 200, body: 'cached bundle', clone: function () { return this; }};
       },
+      URL,
+      Response: class { constructor () { this.status = 503; } static error () { return new this(); } },
       console: {log: () => {}, error: () => {}}
     });
     let install;
@@ -42,7 +44,10 @@ describe('versioned dashboard assets', function () {
       request: {url: origin + '/bundle/js/bundle.app.js?v=' + version, method: 'GET', headers: {get: () => null}},
       respondWith: task => { response = task; }
     });
+    assert.ok(response, 'the worker answers the versioned bundle request');
     assert.strictEqual((await response).body, 'cached bundle');
-    assert.ok(entries.has(origin + '/bundle/js/bundle.app.js'), 'legacy pages retain their offline bundle');
+    // Cut 2's worker caches versioned bundle addresses only: no page requests the
+    // unversioned address, and documents are never cached by the worker.
+    assert.ok(!entries.has(origin + '/bundle/js/bundle.app.js'), 'no unversioned bundle is downloaded at install');
   });
 });

@@ -1,5 +1,7 @@
 'use strict';
 
+// covers: tests/browser/hooks.js, tests/browser/fixture.js
+
 const assert = require('node:assert/strict');
 const http = require('node:http');
 const {once} = require('node:events');

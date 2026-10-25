@@ -15,8 +15,13 @@ describe('stored-data browser output encoding in a real browser', function () {
     const modules = await buildModules();
     const css = fs.readFileSync(path.resolve(__dirname, '../../static/css/main.css'), 'utf8')
       .replace("@import url('https://fonts.googleapis.com/css?family=Ubuntu:400,700');", '');
+    const pageBundle = fs.readFileSync(path.resolve(__dirname, '../../node_modules/.cache/_ns_cache/public/js/bundle.reports.js'));
     server = http.createServer((request, response) => {
       const url = new URL(request.url, 'http://127.0.0.1');
+      if (url.pathname === '/page.js') {
+        response.setHeader('Content-Type', 'application/javascript; charset=utf-8');
+        response.end(pageBundle); return;
+      }
       if (url.pathname === '/bundle.js' || url.pathname === '/modules.js') {
         response.setHeader('Content-Type', 'application/javascript; charset=utf-8');
         response.end(url.pathname === '/bundle.js' ? app : modules);
@@ -47,6 +52,7 @@ describe('stored-data browser output encoding in a real browser', function () {
     await withPage(origin, async ({page}) => {
       await page.goto(origin);
       await page.addScriptTag({url: origin + '/bundle.js'});
+      await page.addScriptTag({url: origin + '/page.js'});
       await page.addScriptTag({url: origin + '/modules.js'});
       if (chart) await page.addStyleTag({url: origin + '/main.css'});
       await page.evaluate(chart => {
