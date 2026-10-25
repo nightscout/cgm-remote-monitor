@@ -1,0 +1,53 @@
+{
+  "purpose": "AGP correctness fixes and report bundle review",
+  "baselineCommit": "901459c59da444d2745d127a51abd2e684d70384",
+  "baseline": {
+    "reportsGzipBytes": 60762,
+    "allApplicationGzipBytes": 425866
+  },
+  "candidate": {
+    "runtime": {
+      "node": "24.22.1",
+      "zlib": "1.3.2.1-motley-285e94b"
+    },
+    "bundles": {
+      "app": {
+        "bytes": 1192500,
+        "gzipBytes": 344418
+      },
+      "reports": {
+        "bytes": 197143,
+        "gzipBytes": 58638
+      },
+      "admin": {
+        "bytes": 32025,
+        "gzipBytes": 7923
+      },
+      "profile": {
+        "bytes": 19482,
+        "gzipBytes": 7017
+      },
+      "food": {
+        "bytes": 15788,
+        "gzipBytes": 5285
+      },
+      "clock": {
+        "bytes": 151548,
+        "gzipBytes": 61736
+      }
+    },
+    "allApplicationGzipBytes": 423281
+  },
+  "limits": {
+    "reportsGzipBytes": 60000,
+    "allApplicationGzipBytes": 425000
+  },
+  "sourceSha256": {
+    "lib/report/agp-data.js": "5744febe1820874b569abce1ce298c1ccbe34b90318b2a7a770e091cd95c4869",
+    "lib/report_plugins/agp.js": "914420ed0f3616434ae97632cce565ff6596feab9f7a48c8dce316e8cdc51844",
+    "lib/report_plugins/percentile.js": "059ce7da94f7d9731f8d92249f02a377da58b8baf28e673fd741fb5d6e60fdb1",
+    "lib/report/reportclient.js": "f5f87791367c8d1ca41b2af7cf847d1891d7430db01b59f7c2e7c466f223df11",
+    "bundle/bundle.reports.source.js": "7303ca5749eac37197eec6fd926d67e91bb1cd9cec4b41a806b9e7d86074722b",
+    "lib/d3.mjs": "75d785bd42452c42726503db3260ed08bbc1ca414150f0fd9e19f20fad6a3ec3"
+  }
+}

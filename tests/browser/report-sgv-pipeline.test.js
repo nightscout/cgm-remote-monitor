@@ -85,7 +85,7 @@ describe('report SGV loading and Daily Stats in a real browser', function () {
           ctx, settings: {units, scaleY: 'linear', thresholds: {bgTargetBottom: 80, bgTargetTop: 180}},
           careportal: {events: []}, headers: () => ({}), init: callback => callback(),
           translate: ctx.language.translate, utils: window.NightscoutTestModules.utils(ctx),
-          sbx: {data: {profile: {parseInTimezone: value => moment.tz(value, timezone), applyTimezone: value => value.tz(timezone)}}},
+          sbx: {data: {profile: {getTimezone: () => timezone, parseInTimezone: value => moment.tz(value, timezone), applyTimezone: value => value.tz(timezone)}}},
           ddata: {processDurations: treatments => treatments}
         };
         // Preserve the original immutable API-response guarantee, while using
@@ -144,6 +144,8 @@ describe('report SGV loading and Daily Stats in a real browser', function () {
             window.reportResult = JSON.parse(JSON.stringify({
               data: storage[day], table: Object.fromEntries(headers.map((name, index) => [name, rows[0][index]])),
               pie: pies[day], rows, days: days.slice(), pies, chartSeries, percentileTooltip,
+              percentilePaths: Array.from(document.querySelectorAll('#percentile-chart path'))
+                .filter(path => Array.isArray(path.__data__)).map(path => path.getAttribute('d')),
               hourlyRows: charts ? Array.from(document.querySelector('#hourlystats-report table').rows).slice(1)
                 .map(row => Array.from(row.cells, cell => cell.textContent)) : [],
               statisticsSVGs: document.querySelectorAll('#owned-statistics-charts svg').length,
@@ -159,6 +161,7 @@ describe('report SGV loading and Daily Stats in a real browser', function () {
         window.resetReportResult = () => { window.reportResult = null; pies = {}; };
       }, {units, day, endDay, timezone, charts});
       await page.waitForFunction(() => window.$.active === 0);
+      assert.equal(requests.filter(request => request.url.pathname === '/api/v1/entries.json').length, 0, 'Reports wait for an explicit Show');
       async function show() {
         await page.evaluate(() => window.resetReportResult());
         await page.locator('#rp_show').click();
@@ -186,8 +189,11 @@ describe('report SGV loading and Daily Stats in a real browser', function () {
       await withReport([0, 300], units, [100, 200], DAY, async result => {
         const mmol = units === 'mmol';
         const [p90, p75, p50] = result.chartSeries['#percentile-chart'];
-        assert.deepEqual(p50, [{t: 15, v: mmol ? 8.35 : 150}]);
-        assert.deepEqual(p75, [{t: 15, v: mmol ? 11.1 : 200}]);
+        assert.equal(p50.length, 48);
+        assert.deepEqual(p50[0], {t: 15, v: mmol ? 8.35 : 150});
+        assert.ok(p50.slice(1).every(point => point.v === null));
+        assert.deepEqual(p75[0], {t: 15, v: mmol ? 11.1 : 200});
+        assert.ok(p75.slice(1).every(point => point.v === null));
         assert.deepEqual(p90, p75);
         assert.deepEqual(result.percentileTooltip.slice(1), mmol
           ? ['75%: 11.1', 'Median: 8.3', '25%: 5.6', '10%: 5.6']
@@ -207,6 +213,15 @@ describe('report SGV loading and Daily Stats in a real browser', function () {
         assert.deepEqual(again.chartSeries, result.chartSeries);
         assert.deepEqual(again.hourlyRows, result.hourlyRows);
         assert.equal(again.entriesRequests, 1);
+      }, {charts: true});
+    });
+
+    it('keeps twelve-hour holes visible in the percentile lines and bands (' + units + ')', async function () {
+      await withReport([0, 12 * 3600], units, [100, 200], DAY, async result => {
+        assert.equal(result.percentilePaths.length, 3);
+        result.percentilePaths.forEach(path => assert.equal((path.match(/M/g) || []).length, 2));
+        const medians = result.chartSeries['#percentile-chart'][2];
+        assert.ok(medians.slice(1, 24).every(point => point.v === null));
       }, {charts: true});
     });
 
@@ -256,8 +271,8 @@ describe('report SGV loading and Daily Stats in a real browser', function () {
           const expected = fixture.dayHours === 23
             ? {0: mmol ? 5.6 : 100, 6: mmol ? 11.1 : 200, 47: mmol ? 16.7 : 300}
             : {2: mmol ? 8.35 : 150, 47: mmol ? 16.7 : 300};
-          assert.equal(medians.length, Object.keys(expected).length);
-          medians.forEach(point => assert.equal(point.v, expected[(point.t - 15) / 30]));
+          assert.equal(medians.length, 48);
+          medians.forEach(point => assert.equal(point.v, expected[(point.t - 15) / 30] ?? null));
           const counts = result.hourlyRows.map(row => Number(row[1].split(' ')[0]));
           assert.deepEqual(counts, Array.from({length: 24}, (_, hour) =>
             fixture.dayHours === 23 ? ([0, 3, 23].includes(hour) ? 1 : 0) : (hour === 1 ? 2 : hour === 23 ? 1 : 0)));
