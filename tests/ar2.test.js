@@ -32,6 +32,8 @@ describe('ar2', function ( ) {
     var sbx = prepareSandbox();
     var cone = ar2.forecastCone(sbx);
     cone.length.should.equal(26);
+    cone.filter(point => point.forecastSeries === 'upper').length.should.equal(13);
+    cone.filter(point => point.forecastSeries === 'lower').length.should.equal(13);
   });
 
   it('should plot a line if coneFactor is 0', function () {
@@ -43,6 +45,7 @@ describe('ar2', function ( ) {
     bgnow.setProperties(sbx);
     var cone = ar2.forecastCone(sbx);
     cone.length.should.equal(13);
+    cone.every(point => point.forecastSeries === 'central').should.equal(true);
   });
 
 

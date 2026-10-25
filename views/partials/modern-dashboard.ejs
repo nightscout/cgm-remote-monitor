@@ -1,0 +1,42 @@
+<div class="container loading" id="container">
+  <%- include('toolbar') %>
+  <div id="notification" role="region" aria-label="Notification">
+    <a href="#" aria-label="cancel"><span></span><i class="icon-cancel-circled"></i></a>
+  </div>
+  <main class="primary modern-dashboard">
+    <div class="status">
+      <div class="statusBox">
+        <div id="currentTime">---</div>
+        <div class="statusPills"></div>
+      </div>
+    </div>
+    <div class="bgStatus current">
+      <div class="bgButton" aria-live="assertive" role="contentinfo" aria-label="Blood Sugar" tabindex="0">
+        <span class="bgSpan">
+          <span class="pill rawbg hidden"><em></em><label></label></span>
+          <span class="currentBG">---</span>
+          <span class="pill direction"></span>
+        </span>
+        <span class="modern-glucose-unit"></span>
+      </div>
+      <ul class="dropdown-menu" id="silenceBtn"></ul>
+      <div class="majorPills"></div>
+      <div class="minorPills"></div>
+    </div>
+    <ul class="focus-range" aria-label="Chart time range">
+      <li data-hours="1" class="translate">Hours:</li>
+      <li data-hours="2" tabindex="0" role="button" aria-label="2 hours">2</li>
+      <li data-hours="3" tabindex="0" role="button" aria-label="3 hours">3</li>
+      <li data-hours="4" tabindex="0" role="button" aria-label="4 hours">4</li>
+      <li data-hours="6" tabindex="0" role="button" aria-label="6 hours">6</li>
+      <li data-hours="12" tabindex="0" role="button" aria-label="12 hours">12</li>
+      <li data-hours="24" tabindex="0" role="button" aria-label="24 hours">24</li>
+      <li data-hours="48" tabindex="0" role="button" aria-label="48 hours">48</li>
+      <li tabindex="0" role="button" aria-label="More chart options">...</li>
+    </ul>
+    <div class="row-fluid section1">
+      <div id="chartContainer" role="region" aria-label="Glucose chart and history overview"></div>
+    </div>
+  </main>
+  <ul class="dropdown-menu" id="viewMenu"></ul>
+</div>
