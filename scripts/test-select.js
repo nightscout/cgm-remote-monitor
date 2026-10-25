@@ -18,7 +18,7 @@
 //   node scripts/test-select.js affected | node scripts/test-select.js run -
 //
 // `affected` walks a reverse dependency graph built from the string literals
-// in every tracked or untracked .js file: require()/import paths, relative
+// in every tracked or untracked .js/.mjs file: require()/import paths, relative
 // path strings, path.join(__dirname, ...) arguments, template literals (as
 // every file under their fixed directory) and `// covers:` lines. It is
 // static, so a module loaded by a fully computed name is missed; run the full
@@ -40,7 +40,9 @@ const ROOT = path.resolve(__dirname, '..');
 const tiers = require('./test-tiers');
 const tierOf = tiers.tierOf;
 
-const BUNDLE_ENTRIES = ['bundle/bundle.source.js', 'bundle/bundle.clocks.source.js'];
+const BUNDLE_ENTRIES = ['bundle/bundle.source.js', 'bundle/bundle.clocks.source.js',
+  'bundle/bundle.reports.source.js', 'bundle/bundle.admin.source.js',
+  'bundle/bundle.profile.source.js', 'bundle/bundle.food.source.js'];
 const BUNDLE_OUTPUT = 'node_modules/.cache/_ns_cache/public/js/bundle.app.js';
 
 function git (args) {
@@ -80,7 +82,7 @@ function resolveTarget (fromDir, spec, known) {
   const abs = path.resolve(fromDir, spec);
   const rel = path.relative(ROOT, abs).split(path.sep).join('/');
   if (rel.startsWith('..')) return null;
-  const candidates = [rel, rel + '.js', rel + '.json', rel.replace(/\/$/, '') + '/index.js'];
+  const candidates = [rel, rel + '.js', rel + '.mjs', rel + '.json', rel.replace(/\/$/, '') + '/index.js'];
   return candidates.find(c => known.has(c)) || null;
 }
 
@@ -107,7 +109,7 @@ function referencesOf (file, known) {
       if (!prefix.endsWith('/')) return;
       const base = path.relative(ROOT, path.resolve(dir, prefix)).split(path.sep).join('/') + '/';
       if (base.startsWith('..')) return;
-      known.forEach(f => { if (f.startsWith(base) && f.endsWith('.js')) refs.add(f); });
+      known.forEach(f => { if (f.startsWith(base) && /\.m?js$/.test(f)) refs.add(f); });
       return;
     }
     const target = resolveTarget(dir, s, known);
@@ -130,7 +132,7 @@ function referencesOf (file, known) {
     m[1].split(',').map(p => p.trim()).forEach(p => { if (known.has(p)) refs.add(p); });
   }
 
-  if (/bundle\.(?:app|clocks)\.js|_ns_cache\/public/.test(text)) {
+  if (/bundle\.(?:app|clock|reports|admin|profile|food)\.js|_ns_cache\/public/.test(text)) {
     BUNDLE_ENTRIES.forEach(entry => { if (known.has(entry)) refs.add(entry); });
   }
 
@@ -141,7 +143,7 @@ function referencesOf (file, known) {
 function reverseGraph (files) {
   const known = new Set(files);
   const dependents = new Map();
-  files.filter(f => f.endsWith('.js')).forEach(file => {
+  files.filter(f => /\.m?js$/.test(f)).forEach(file => {
     referencesOf(file, known).forEach(target => {
       if (!dependents.has(target)) dependents.set(target, new Set());
       dependents.get(target).add(file);

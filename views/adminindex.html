@@ -44,8 +44,6 @@
     </main>
     <%- include('partials/authentication-status') %>
 
-    <script src="<%= locals.bundle %>/js/bundle.app.js?v=<%= locals.cachebuster %>"></script>
-    <script src="/socket.io/socket.io.js"></script>
-    <script src="/admin/js/admin.js"></script>
+    <%- include('partials/page-scripts', {pageEntry: 'admin', startupScripts: ['/admin/js/admin.js']}) %>
   </body>
 </html>

@@ -17,8 +17,8 @@ COPY server.js ./
 
 # Install the full dependency tree, run the existing postinstall bundle build,
 # then prune dev-only packages before copying artifacts into the runtime image.
-RUN npm ci --cache /tmp/empty-cache --omit=optional --force && \
-  npm prune --omit=dev --omit=optional && \
+RUN npm ci --include=dev --cache /tmp/empty-cache --omit=optional --force && \
+  npm prune --omit=dev --omit=optional --ignore-scripts && \
   rm -rf /tmp/*
 
 FROM node:24.22.1-alpine AS runtime
@@ -28,6 +28,10 @@ LABEL maintainer="Nightscout Contributors"
 ENV NODE_ENV=production
 
 WORKDIR /opt/app
+
+# The runtime starts Node directly. Keep npm and its dependency tree in the
+# builder rather than shipping an unused package manager in the final image.
+RUN rm -rf /usr/local/lib/node_modules/npm /usr/local/bin/npm /usr/local/bin/npx
 
 COPY --chown=node:node package.json package-lock.json ./
 COPY --chown=node:node lib/ ./lib/

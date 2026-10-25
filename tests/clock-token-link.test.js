@@ -194,7 +194,8 @@ describe('clock configurator link keeps the token, encoded (#7377)', function ()
     // and a client that does nothing.
     var stand = '<script>' + fs.readFileSync(require.resolve('jquery/dist/jquery.js'), 'utf8') + '</script>' +
       '<script>window.Nightscout = { client: { init: function () {}, query: function () {}, showNotAuthorized: function () {} } };</script>';
-    var html = renderConfig().replace(/<script src="[^"]*bundle\.clock\.js"><\/script>/, function () { return stand; });
+    // The script address may carry cut 2's cache-busting ?v= query.
+    var html = renderConfig().replace(/<script src="[^"]*bundle\.clock\.js(\?[^"]*)?"><\/script>/, function () { return stand; });
     html.should.not.match(/bundle\.clock\.js/);
     return new Promise(function (resolve) {
       var env = createSecureDOM(html, {

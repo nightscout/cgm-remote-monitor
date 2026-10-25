@@ -5,7 +5,7 @@ const moment = require('moment');
 const request = require('supertest');
 const language = require('../lib/language')(fs);
 
-const bodyParser = require('body-parser');
+const express = require('express');
 
 require('should');
 
@@ -26,13 +26,9 @@ describe('Alexa REST api', function ( ) {
     var self = this;
     require('../lib/server/bootevent')(env, language).boot(function booted (ctx) {
       self.ctx = ctx;
-      self.app.use('/api', bodyParser({
-        limit: 1048576 * 50
-      }), apiRoot(env, ctx));
+      self.app.use('/api', express.json({limit: 1048576 * 50}), express.urlencoded({extended: true, limit: 1048576 * 50}), apiRoot(env, ctx));
 
-      self.app.use('/api/v1', bodyParser({
-        limit: 1048576 * 50
-      }), api(env, ctx));
+      self.app.use('/api/v1', express.json({limit: 1048576 * 50}), express.urlencoded({extended: true, limit: 1048576 * 50}), api(env, ctx));
       done( );
     });
   });

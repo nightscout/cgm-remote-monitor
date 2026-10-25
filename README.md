@@ -154,8 +154,8 @@ Older versions or other browsers might work, but are untested and unsupported. W
 ## Installation software requirements:
 
 - [Node.js](http://nodejs.org/) Node 22.23.4+ within Node 22, 24.22.1+ within Node 24, or 26.12.1 and later (`^22.23.4 || ^24.22.1 || >=26.12.1`). These minimum versions include the fix for CVE-2026-111497. Node 24 LTS is recommended for new source installations. Nightscout refuses unsupported runtimes at startup, including Node 20, Node 25 and earlier unpatched releases. Future stable majors remain permitted by the range; prereleases are excluded. Keep your runtime patched. Use [Install instructions for Node](https://nodejs.org/en/download/package-manager/) or use `bin/setup.sh`.
-- [MongoDB](https://www.mongodb.com/download-center?jmp=nav#community) 5.0.32+ within the 5.0 series, or 6.0.27+ within the 6.0 series, retained during the modernization migration.
-  MongoDB 4.4 and earlier are unsupported and no longer tested. MongoDB 5/6 are also upstream end-of-life; validation of maintained 7/8 releases is planned. See the [MongoDB support and upgrade notice](docs/runtime-upgrade.md#mongodb-support-during-modernization) before upgrading an existing deployment.
+- [MongoDB](https://www.mongodb.com/download-center?jmp=nav#community) 5.0 through 8.0: 5.0.32+ within the 5.0 series, 6.0.27+ within the 6.0 series, or MongoDB 7.0 or 8.0. CI tests the edges of that range, 5.0 and 8.0.
+  MongoDB 4.4 and earlier are unsupported. MongoDB 5/6 are upstream end-of-life, so use 7.0 or 8.0 for new deployments. See the [MongoDB support and upgrade notice](docs/runtime-upgrade.md#mongodb-support-during-modernization) before upgrading an existing deployment.
 
 As a non-root user clone this repo then install dependencies into the root of the project:
 
@@ -169,6 +169,14 @@ $ npm install
 - In case you use a proxy. Do not use an external network interfaces for hosting Nightscout. Make sure the unsecure port is not available from a remote network connection
 - HTTP Strict Transport Security (HSTS) headers are enabled by default, use settings `SECURE_HSTS_HEADER` and `SECURE_HSTS_HEADER_*`
 - See [Predefined values for your server settings](#predefined-values-for-your-server-settings-optional) for more details
+
+### Protecting authentication credentials in URLs
+
+GET parameters (`token` and `secret`) remain supported for existing clients and shared links. Use authentication headers for new API clients, and use a subject token with only the necessary permissions for shared links. Treat credential-bearing URLs as secrets: they can remain in browser history and copied links even over HTTPS.
+
+Nightscout sends `Referrer-Policy: no-referrer` independently of CSP/HSTS settings and prevents caching of credential-bearing responses. Its default production error logger omits URL queries, fragments and userinfo, redacts request credentials repeated in error details, and excludes arbitrary error properties. CSP logging retains selected diagnostics without URL queries or script samples. Custom logging integrations must apply equivalent protections.
+
+Configure your reverse proxy, CDN, hosting access logs, analytics and error monitoring separately: do not record query strings, `Referer`, `Authorization` or `api-secret` values for authenticated requests. These systems may record the original request before Nightscout can sanitize diagnostic output. Terminate TLS at the public endpoint and restrict access to the backend. Nightscout's response headers cannot remove credentials already captured by upstream logs or browser history.
 
 ## Installation notes for Microsoft Azure, Windows:
 
@@ -213,6 +221,9 @@ By default the `/entries` and `/treatments` APIs limit results to the the most r
 You can get many more results, by using the `count`, `date`, `dateString`, and `created_at` parameters, depending on the type of data you're looking for.
 
 Once you've installed Nightscout, you can access API documentation by loading `/api-docs/` URL in your instance.
+
+The `/api/v1/count/:storage/where` endpoint accepts `find` filters for counting records.
+Custom aggregation `pipeline` parameters are rejected with HTTP 400; they are not part of the public count API.
 
 #### Example Queries
 
@@ -307,7 +318,7 @@ autonomy for your data:
   * `SSL_CERT` - Path to your ssl cert file, so that ssl(https) can be enabled directly in node.js. If using Let's Encrypt, make this variable the path to fullchain.pem file (cert + ca).
   * `SSL_CA` - Path to your ssl ca file, so that ssl(https) can be enabled directly in node.js. If using Let's Encrypt, make this variable the path to chain.pem file (chain).
   * `HEARTBEAT` (`60`)  - Number of seconds to wait in between database checks
-  * `DEBUG_MINIFY` (`true`)  - Debug option, setting to `false` will disable bundle minification to help tracking down error and speed up development
+  * `DEBUG_MINIFY` - Deprecated compatibility setting; it does not control webpack bundle minification. Use `NODE_ENV=development` for development bundles and hot updates. Production bundles are built during installation.
   * `DEBUG_LOGGING` (`false`) - Set to `true` to log routine server heartbeats, data reload summaries and Nightscout Connect diagnostics. Warnings, errors and startup messages remain visible with debugging off. This is a server environment setting; restart Nightscout after changing it. On Heroku, add or edit it under **Settings → Config Vars**. Set it back to `false` or remove it when troubleshooting is complete. It does not control Heroku router/access logs or every plugin's logging.
   * `DE_NORMALIZE_DATES`(`true`) - The Nightscout REST API normalizes all entered dates to UTC zone. Some Nightscout clients have broken date deserialization logic and expect to received back dates in zoned formats. Setting this variable to `true` causes the REST API to serialize dates sent to Nightscout in zoned format back to zoned format when served to clients over REST.
 

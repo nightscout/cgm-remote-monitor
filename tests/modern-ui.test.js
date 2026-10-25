@@ -265,7 +265,7 @@ describe('opt-in modern dashboard', function () {
     const state = domGlobals.installDomGlobals(env);
     domGlobals.defineConfigurable(global, 'location', env.window.location);
     try {
-      const storage = require('js-storage').localStorage;
+      const storage = require('../lib/client/storage').localStorage;
       const browserSettings = require('../lib/client/browser-settings');
       const client = { browserUtils: {}, translate: value => value };
       ['modern', 'colors'].forEach(style => {

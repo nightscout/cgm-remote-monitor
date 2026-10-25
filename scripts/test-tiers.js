@@ -146,7 +146,7 @@ function check () {
   const known = new Set(files);
   const refs = new Map();
   const refsOf = f => {
-    if (!refs.has(f)) refs.set(f, f.endsWith('.js') ? referencesOf(f, known) : new Set());
+    if (!refs.has(f)) refs.set(f, /\.m?js$/.test(f) ? referencesOf(f, known) : new Set());
     return refs.get(f);
   };
   tests.forEach(t => {
