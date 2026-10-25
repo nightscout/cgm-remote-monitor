@@ -51,11 +51,20 @@ describe('overridden dependency versions', function () {
 // line (nightscout-connect's axios 1.x) and is not checked here.
 describe('advisory floors in the installed tree', function () {
   const floors = {
-    'ip-address': { 10: '10.7.1' },
-    'fast-uri': { 3: '3.1.8' },
+    'ip-address': { 10: '10.7.5' },
+    'fast-uri': { 3: '3.1.9' },
     'axios': { 0: '0.34.0' },
-    'dompurify': { 3: '3.4.16' },
-    'webpack-dev-middleware': { 8: '8.3.0' }
+    'dompurify': { 3: '3.4.17' },
+    'webpack-dev-middleware': { 8: '8.3.0' },
+    'body-parser': { 1: '1.20.9' },
+    'compression': { 1: '1.8.2' },
+    'sanitize-html': { 2: '2.18.1' },
+    'moment': { 2: '2.31.0' },
+    'follow-redirects': { 1: '1.16.1' },
+    'source-map-js': { 1: '1.2.2' },
+    'serialize-javascript': { 7: '7.1.4' },
+    'csv-parse': { 7: '7.0.3' },
+    'uuid': { 11: '11.1.1' }
   };
 
   Object.keys(floors).forEach(function (name) {

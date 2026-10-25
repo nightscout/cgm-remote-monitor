@@ -38,7 +38,7 @@ describe('nightscout-connect loading and teardown', function () {
     });
   });
 
-  it('migrates MiniMed once per lifecycle and tears down the replacement once', function () {
+  it('migrates MiniMed once per lifecycle and leaves teardown to the connector', function () {
     for (let cycle = 0; cycle < 2; cycle++) {
       const env = {extendedSettings: {mmconnect: {userName: 'fixture-user', password: 'fixture-password', server: 'EU'}, connect: {countryCode: 'gb'}}};
       const ctx = context();
@@ -53,8 +53,10 @@ describe('nightscout-connect loading and teardown', function () {
         };
       })(ctx, () => continued++);
       assert.equal(imports, 1); assert.equal(continued, 1);
+      // Boot registers no teardown listener: connector 0.1.0 owns its stop().
+      assert.equal(ctx.bus.listenerCount('teardown'), 0);
       ctx.bus.emit('teardown'); ctx.bus.emit('teardown');
-      assert.equal(stops, 1);
+      assert.equal(stops, 0);
     }
   });
 
@@ -93,7 +95,7 @@ describe('nightscout-connect loading and teardown', function () {
     assert.strictEqual(continued, 1);
   });
 
-  it('routes retired legacy overrides through Connect once per lifecycle', function () {
+  it('routes retired legacy overrides through Connect once per lifecycle without a boot teardown listener', function () {
     for (const flag of ['useLegacy', 'dexcomBridgeUseLegacy']) {
       const env = {extendedSettings: {bridge: {userName:'fixture',password:'fixture',[flag]:true}}};
       const ctx=context();
@@ -101,7 +103,8 @@ describe('nightscout-connect loading and teardown', function () {
       connectStage(env,()=>{imports++;return ()=>({stop(){stops++;}});})(ctx,()=>continued++);
       assert.equal(imports,1);assert.equal(continued,1);
       assert.equal(env.extendedSettings.connect.source,'dexcomshare');
-      ctx.bus.emit('teardown');ctx.bus.emit('teardown');assert.equal(stops,1);
+      assert.equal(ctx.bus.listenerCount('teardown'),0);
+      ctx.bus.emit('teardown');ctx.bus.emit('teardown');assert.equal(stops,0);
     }
   });
 
@@ -118,7 +121,7 @@ describe('nightscout-connect loading and teardown', function () {
     }
   });
 
-  it('preserves explicit CONNECT configuration and stops once per boot lifecycle', function () {
+  it('preserves explicit CONNECT configuration and adds no boot teardown listener', function () {
     for (let cycle = 0; cycle < 2; cycle++) {
       const env = {extendedSettings: {connect: {source: 'nightscout', sourceEndpoint: 'http://127.0.0.1:1'}}};
       const ctx = context();
@@ -133,10 +136,10 @@ describe('nightscout-connect loading and teardown', function () {
       })(ctx, () => {});
       assert.strictEqual(imports, 1);
       assert.strictEqual(ctx.nightscoutConnect, handle);
-      ctx.bus.emit('teardown');
-      ctx.bus.emit('teardown');
-      assert.strictEqual(stopped, 1);
       assert.strictEqual(ctx.bus.listenerCount('teardown'), 0);
+      ctx.bus.emit('teardown');
+      ctx.bus.emit('teardown');
+      assert.strictEqual(stopped, 0);
     }
   });
 
@@ -180,9 +183,19 @@ describe('nightscout-connect loading and teardown', function () {
         }
         assert.ok(requests.includes('/api/v1/verifyauth'), requests.join(', '));
         assert.strictEqual(requests.filter(url => url === '/api/v1/verifyauth').length, 1);
+        // The connector's own listener is the only teardown listener.
+        assert.strictEqual(ctx.bus.listenerCount('teardown'), 1);
+        assert.strictEqual(ctx.bus.listenerCount('tearDown'), 1);
+        let actorStops = 0;
+        const actorStop = actor.stop.bind(actor);
+        actor.stop = function countedStop () { actorStops++; return actorStop(); };
         ctx.bus.emit('teardown');
         ctx.bus.emit('teardown');
+        ctx.bus.emit('tearDown');
         assert.strictEqual(actor.status, 2);
+        assert.strictEqual(actorStops, 1);
+        assert.strictEqual(ctx.bus.listenerCount('teardown'), 0);
+        assert.strictEqual(ctx.bus.listenerCount('tearDown'), 0);
       } finally {
         if (ctx.nightscoutConnect) await ctx.nightscoutConnect.stop();
         source.closeAllConnections();

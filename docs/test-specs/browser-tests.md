@@ -10,7 +10,11 @@ NIGHTSCOUT_TEST_BROWSER=firefox npm run test:browser
 NIGHTSCOUT_TEST_BROWSER=webkit npm run test:browser
 ```
 
-On Linux, install browser system dependencies with `npx --no-install playwright-core install --with-deps chromium firefox webkit`. A missing package, browser executable or emitted application bundle fails the suite. CI runs all three engines on both exact supported Node floors. The Node/MongoDB 5/6 matrix remains unchanged, and Docker validation/publication depends on the browser job as well as backend tests. Modern Playwright WebKit is not proof of compatibility with every older iOS version listed in `.browserslistrc`; historical-browser transformation and release smoke gates still apply.
+On Linux, install browser system dependencies with `npx --no-install playwright-core install --with-deps chromium firefox webkit`. A missing package, browser executable or emitted application bundle fails the suite. CI runs all three engines on the latest Node 26; the backend Node/MongoDB matrix covers the Node 22.23.4 floor. MongoDB 4.4 is unsupported and has no CI lane. PR/manual Docker validation runs alongside the tests; push-only publication waits for backend, browser and npm 12 jobs. Manual extended validation covers all six Node floor/latest selectors; see [CI coverage](../../CONTRIBUTING.md#ci-coverage-and-manual-release-checks). Modern Playwright WebKit is not proof of compatibility with every older iOS version listed in `.browserslistrc`; historical-browser transformation and release smoke gates still apply.
+
+Browser CI uses the versioned Playwright Noble image with browsers and system dependencies already installed, avoiding a separate browser download and Ubuntu package installation in each job. Keep the image version in `.github/workflows/main.yml` aligned with `playwright-core` in both package manifests. `setup-node` still selects each matrix runtime with `check-latest: true`. Backend, browser and npm 12 jobs cache npm downloads keyed by `package-lock.json`; every job still runs `npm ci` and builds its own production bundle.
+
+The legacy report fixture makes about 100 local HTTP requests per month refresh. Its completion condition allows up to 30 seconds per refresh on shared runners, within the repeated-month case's existing 90-second overall deadline. This is a maximum wait, not a fixed delay or retry: the test continues as soon as requests and rendering finish. Report values, repeated treatment edits/deletes, request assertions and failure diagnostics remain required.
 
 ## Coverage mapping
 

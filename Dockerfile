@@ -29,6 +29,10 @@ ENV NODE_ENV=production
 
 WORKDIR /opt/app
 
+# The runtime starts Node directly. Keep npm and its dependency tree in the
+# builder rather than shipping an unused package manager in the final image.
+RUN rm -rf /usr/local/lib/node_modules/npm /usr/local/bin/npm /usr/local/bin/npx
+
 COPY --chown=node:node package.json package-lock.json ./
 COPY --chown=node:node lib/ ./lib/
 COPY --chown=node:node static/ ./static/
