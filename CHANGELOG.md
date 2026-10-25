@@ -4,6 +4,10 @@ All notable changes to cgm-remote-monitor are documented in this file.
 
 ## [Unreleased]
 
+## [15.0.9] - 2026-10-21
+
+Release notes: https://github.com/nightscout/cgm-remote-monitor/releases/tag/v15.0.9
+
 ### Fixed
 
 - **Snooze without the API secret:** Keep an alarm quiet for the snooze chosen
@@ -97,7 +101,11 @@ All notable changes to cgm-remote-monitor are documented in this file.
   range percentages. Five-minute series are unaffected. Range percentages
   continue to count retained readings rather than weight elapsed time.
 
-## [15.0.7] - 2026-03-XX (Unreleased)
+## [15.0.8] - 2026-09-04
+
+See https://github.com/nightscout/cgm-remote-monitor/releases/tag/v15.0.8
+
+## [15.0.7] - 2026-04-29
 
 ### Added
 

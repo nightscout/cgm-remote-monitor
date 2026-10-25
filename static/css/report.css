@@ -110,3 +110,6 @@ label {
   font-size: 12pt;
   text-transform: uppercase;
 }
+/* Structural wrapper has no visual effect on the established report theme. */
+.report-filters { min-width: 0; margin: 0; padding: 0; border: 0; }
+.report-filters-title { display: none; }
