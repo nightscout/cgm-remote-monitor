@@ -39,7 +39,8 @@ jobs:
           node-version: ${{ matrix.node-version }}
           # Major aliases must resolve past any cached vulnerable patch.
           check-latest: true
-          package-manager-cache: false
+          cache: npm
+          cache-dependency-path: package-lock.json
 
       - name: Start MongoDB ${{ matrix.mongodb-version }}
         uses: supercharge/mongodb-github-action@1.3.0
@@ -60,6 +61,10 @@ jobs:
   browser-test:
     name: Browser tests (${{ matrix.node-version }}, ${{ matrix.browser }})
     runs-on: ubuntu-latest
+    container:
+      # Keep this version in sync with playwright-core in package.json/package-lock.json.
+      image: mcr.microsoft.com/playwright:v1.63.0-noble
+      options: --init --ipc=host
     timeout-minutes: 10
     strategy:
       fail-fast: false
@@ -76,11 +81,10 @@ jobs:
         with:
           node-version: ${{ matrix.node-version }}
           check-latest: true
-          package-manager-cache: false
+          cache: npm
+          cache-dependency-path: package-lock.json
       - name: Install dependencies and build production bundle
         run: npm ci
-      - name: Install the pinned browser and system dependencies
-        run: npx --no-install playwright-core install --with-deps ${{ matrix.browser }}
       - name: Run isolated browser tests
         env:
           NIGHTSCOUT_TEST_BROWSER: ${{ matrix.browser }}
@@ -100,7 +104,8 @@ jobs:
         with:
           node-version: 24
           check-latest: true
-          package-manager-cache: false
+          cache: npm
+          cache-dependency-path: package-lock.json
       - name: Use npm 12
         run: npm install --global npm@12
       - name: Install dependencies and build production bundle
@@ -112,7 +117,7 @@ jobs:
 
   docker-build-pr:
     name: Validate Docker image (${{ matrix.arch }})
-    needs: [test, browser-test]
+    # Validation has no publishing side effects and can run alongside the test matrix.
     if: github.event_name == 'pull_request'
     runs-on: ${{ matrix.runner }}
     strategy:
