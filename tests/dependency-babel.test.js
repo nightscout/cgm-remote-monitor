@@ -28,7 +28,7 @@ describe('Babel compiler compatibility', function () {
     const preset = require('@babel/preset-env/package.json');
     const loader = require('babel-loader/package.json');
     [compiler, preset, loader].forEach(pkg => {
-      ['20.0.0', '22.0.0', '24.0.0'].forEach(version => assert.ok(semver.satisfies(version, pkg.engines.node), pkg.name + ' excludes Node ' + version));
+      ['22.23.2', '24.20.0'].forEach(version => assert.ok(semver.satisfies(version, pkg.engines.node), pkg.name + ' excludes Node ' + version));
     });
     assert.ok(semver.satisfies(compiler.version, preset.peerDependencies['@babel/core']));
     assert.ok(semver.satisfies(compiler.version, loader.peerDependencies['@babel/core']));

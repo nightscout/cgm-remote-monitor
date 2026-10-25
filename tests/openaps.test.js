@@ -268,6 +268,14 @@ describe('openaps', function ( ) {
         }
         , addForecastPoints: function mockAddForecastPoints (points) {
           points.length.should.equal(12);
+          var times = new Map();
+          points.forEach(function (point) {
+            point.mgdl.should.equal(100);
+            point.mills.should.be.greaterThan(point.forecastMills);
+            times.set(point.forecastMills, (times.get(point.forecastMills) || 0) + 1);
+          });
+          times.size.should.equal(4);
+          Array.from(times.values()).every(count => count === 3).should.equal(true);
           done();
         }
       }

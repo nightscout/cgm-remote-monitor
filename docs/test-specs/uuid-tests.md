@@ -4,7 +4,7 @@ PR #8529 originally proposed UUID 9.0.1 to 14.0.0. Current `dev` already
 uses 11.1.1, the latest CommonJS-compatible release as of 2026-09-05.
 The registry's latest release is 14.0.2. UUID 12 removed CommonJS builds;
 loading 14.0.2 with `require('uuid')` fails with `ERR_REQUIRE_ESM` on Node
-20.0.0. Nightscout supports Node >=20.x and loads API v3 synchronously.
+20.0.0. At the time of the UUID 11 upgrade, Nightscout supported Node >=20.x and loaded API v3 synchronously. The runtime policy now requires Node 22.23.2+ or 24.20.0+; the UUID 14 migration remains separate.
 Retain 11.1.1 until that runtime/module compatibility boundary is deliberately
 migrated. Successful tests on the latest Node 20 patch alone do not establish
 compatibility with the entire supported range.
