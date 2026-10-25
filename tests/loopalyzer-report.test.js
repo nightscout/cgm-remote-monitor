@@ -166,4 +166,209 @@ describe('Loopalyzer report glucose chart', function () {
     assert.equal(together[0], 170);
     assert.equal(together.filter(Number.isFinite).length, 287);
   });
+
+  describe('DST transition days (#8156)', function () {
+    function renderAllCharts (overrides, days, enablePredictions) {
+      const $ = env.window.$;
+      const ctx = {
+        moment: moment
+        , settings: require('../lib/settings')()
+        , language: require('../lib/language')()
+      };
+      ctx.settings.units = 'mg/dl';
+      const utils = require('../lib/utils')(ctx);
+      const profile = require('../lib/profilefunctions')([{
+        defaultProfile: 'Default', startDate: '1980-01-01'
+        , store: { Default: {
+          timezone: TIMEZONE, units: 'mg/dl', dia: 3, carbs_hr: 30
+          , basal: [{ time: '00:00', value: 1 }]
+          , sens: [{ time: '00:00', value: 50 }]
+          , carbratio: [{ time: '00:00', value: 10 }]
+          , target_low: [{ time: '00:00', value: 90 }]
+          , target_high: [{ time: '00:00', value: 120 }]
+        } }
+      }], ctx);
+      const plugins = {
+        iob: require('../lib/plugins/iob')(ctx)
+        , cob: require('../lib/plugins/cob')(ctx)
+      };
+      const client = {
+        settings: ctx.settings, utils: utils, sbx: { data: { profile: profile } }
+        , plugins: name => plugins[name], translate: value => value
+      };
+      env.window.Nightscout = {
+        client: client
+        , report_plugins: { utils: { localeDate: value => value } }
+      };
+      const report = require('../lib/report_plugins/loopalyzer')();
+      $('body').empty().append(report.html(client));
+      if (enablePredictions) {
+        $('#rp_loopalyzerpredictions').prop('checked', true);
+      }
+      const charts = {};
+      $.plot = function (selector, series, options) {
+        charts[selector] = { series: series, options: options };
+      };
+      const datastorage = Object.assign({
+        allstatsrecords: [], alldays: days.length, profiles: [], treatments: []
+        , devicestatus: [], profileSwitchTreatments: [], tempbasalTreatments: [], combobolusTreatments: []
+      }, overrides);
+      report.report(datastorage, days, { units: 'mg/dl', targetLow: 80, targetHigh: 180 });
+      return charts;
+    }
+
+    it('renders all charts when viewed on 23-hour and 25-hour DST days', function () {
+      const bolusAt = moment.tz(DAY + 'T08:00:00', TIMEZONE).valueOf();
+      const datastorage = {
+        allstatsrecords: [reading(DAY, 8 * 60 * 60 * 1000, 125)]
+        , treatments: [{
+          eventType: 'Meal Bolus'
+          , created_at: new Date(bolusAt).toISOString()
+          , mills: bolusAt
+          , insulin: 2
+          , carbs: 30
+        }]
+        , tempbasalTreatments: [{
+          eventType: 'Temp Basal'
+          , created_at: new Date(bolusAt).toISOString()
+          , mills: bolusAt
+          , duration: 30
+          , absolute: 1.5
+        }]
+      };
+
+      ['2023-10-29', '2026-03-29'].forEach(function (viewerDay) {
+        moment.tz.setDefault(TIMEZONE);
+        moment.now = () => moment.tz(viewerDay + 'T12:00:00', TIMEZONE).valueOf();
+        delete require.cache[require.resolve('../lib/report_plugins/loopalyzer')];
+
+        const charts = renderAllCharts(datastorage, [DAY], false);
+        const bgSeries = charts['#loopalyzer-bg'].series.find(s => s.id === 'glucose');
+        const basalSeries = charts['#loopalyzer-basal'].series.find(s => s.id === 'basals');
+        const tempSeries = charts['#loopalyzer-tempbasal'].series.find(s => s.id === 'tempBasals');
+        const iobSeries = charts['#loopalyzer-iob'].series.find(s => s.id === 'iobs');
+        const cobSeries = charts['#loopalyzer-cob'].series.find(s => s.id === 'cobs');
+
+        [bgSeries, basalSeries, tempSeries, iobSeries, cobSeries].forEach(function (series) {
+          assert.equal(series.data.length, 288);
+          assert.ok(series.data.some(point => Number.isFinite(point[1])));
+        });
+
+        const axisStart = bgSeries.data[0][0].getTime();
+        bgSeries.data.forEach(function (point, index) {
+          assert.equal(point[0].getTime(), axisStart + index * FIVE_MINUTES);
+        });
+        const axisEnd = axisStart + 288 * FIVE_MINUTES;
+        [charts['#loopalyzer-iob'], charts['#loopalyzer-cob']].forEach(function (chart) {
+          const treatmentMarking = chart.options.grid.markings.find(m => m.xaxis);
+          assert.ok(treatmentMarking);
+          assert.ok(treatmentMarking.xaxis.from.getTime() >= axisStart);
+          assert.ok(treatmentMarking.xaxis.to.getTime() <= axisEnd);
+        });
+      });
+    });
+
+    it('retains series data when selected days include 23-hour and 25-hour DST transitions', function () {
+      ['2026-03-29', '2026-10-25'].forEach(function (dstDay) {
+        const morning = moment.tz(dstDay, TIMEZONE).valueOf() + 6 * 60 * 60 * 1000;
+        const lateHour = moment.tz(dstDay, TIMEZONE).valueOf() + 24 * 60 * 60 * 1000 + 30 * 60 * 1000;
+        const isLongDay = dstDay === '2026-10-25';
+
+        const calculatedCharts = renderAllCharts({
+          allstatsrecords: [reading(dstDay, 6 * 60 * 60 * 1000, 118)]
+          , treatments: [{
+            eventType: 'Meal Bolus'
+            , created_at: new Date(morning).toISOString()
+            , mills: morning
+            , insulin: 2
+            , carbs: 25
+          }]
+          , tempbasalTreatments: [{
+            eventType: 'Temp Basal'
+            , created_at: new Date(morning).toISOString()
+            , mills: morning
+            , duration: 30
+            , absolute: 1.5
+          }]
+        }, [dstDay], false);
+
+        ['#loopalyzer-basal', '#loopalyzer-bg', '#loopalyzer-tempbasal', '#loopalyzer-iob', '#loopalyzer-cob'].forEach(function (selector) {
+          const data = calculatedCharts[selector].series[0].data;
+          assert.equal(data.length, 288);
+          assert.ok(data.some(point => Number.isFinite(point[1])));
+        });
+
+        const midnightPlus5 = moment.tz(dstDay, TIMEZONE).valueOf() + FIVE_MINUTES;
+        const devicestatus = [
+          {
+            device: 'loop://iPhone'
+            , mills: morning + FIVE_MINUTES
+            , loop: {
+              iob: { iob: 1.8, timestamp: new Date(morning + FIVE_MINUTES).toISOString() }
+              , cob: { cob: 20, timestamp: new Date(morning + FIVE_MINUTES).toISOString() }
+              , predicted: {
+                startDate: new Date(morning + FIVE_MINUTES).toISOString()
+                , values: [120, 125, 130]
+              }
+            }
+          }
+          , {
+            device: 'loop://iPhone'
+            , mills: midnightPlus5
+            , loop: {
+              iob: { iob: 0.4, timestamp: new Date(midnightPlus5).toISOString() }
+              , cob: { cob: 0, timestamp: new Date(midnightPlus5).toISOString() }
+              , predicted: {
+                startDate: new Date(midnightPlus5).toISOString()
+                , values: [105, 106, 107]
+              }
+            }
+          }
+        ];
+        if (isLongDay) {
+          devicestatus.unshift({
+            device: 'loop://iPhone'
+            , mills: lateHour
+            , loop: {
+              iob: { iob: 0.9, timestamp: new Date(lateHour).toISOString() }
+              , cob: { cob: 10, timestamp: new Date(lateHour).toISOString() }
+              , predicted: {
+                startDate: new Date(lateHour - 20 * 60 * 1000).toISOString()
+                , values: [110, 112, 114, 116, 118, 120]
+              }
+            }
+          });
+        }
+        const treatments = [{
+          eventType: 'Meal Bolus'
+          , created_at: new Date(morning).toISOString()
+          , mills: morning
+          , insulin: 2
+          , carbs: 25
+        }];
+        if (isLongDay) {
+          treatments.push({
+            eventType: 'Meal Bolus'
+            , created_at: new Date(lateHour).toISOString()
+            , mills: lateHour
+            , insulin: 1
+            , carbs: 15
+          });
+        }
+
+        const statusCharts = renderAllCharts({
+          allstatsrecords: [reading(dstDay, 6 * 60 * 60 * 1000, 118)]
+          , treatments: treatments
+          , devicestatus: devicestatus
+        }, [dstDay], true);
+
+        const predictions = statusCharts['#loopalyzer-bg'].series.find(s => s.id === 'predictions');
+        assert.ok(predictions);
+        assert.equal(predictions.data.length, 288);
+        assert.ok(predictions.data.some(point => Number.isFinite(point[1])));
+        assert.ok(statusCharts['#loopalyzer-iob'].series[0].data.some(point => Number.isFinite(point[1])));
+        assert.ok(statusCharts['#loopalyzer-cob'].series[0].data.some(point => Number.isFinite(point[1])));
+      });
+    });
+  });
 });

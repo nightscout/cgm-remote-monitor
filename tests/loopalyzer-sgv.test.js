@@ -186,4 +186,19 @@ describe('loopalyzer SGV slots', function () {
     bins.slice(276).every(function (bin) { return isNaN(bin[1][0]); }).should.be.true();
     bins[0][1][1].should.equal(200);
   });
+
+  it('keeps 288 bins on a 25-hour local day', function () {
+    const longDay = '2026-10-25';
+    const followingDay = '2026-10-26';
+    const dayLength = moment.tz(followingDay, TIMEZONE).valueOf() - moment.tz(longDay, TIMEZONE).valueOf();
+    dayLength.should.equal(25 * 60 * 60 * 1000);
+    const records = readings(longDay, [0, 287 * FIVE_MINUTES, 299 * FIVE_MINUTES], 100)
+      .concat(readings(followingDay, [200], 200));
+
+    const bins = slots(records, [longDay, followingDay]);
+    bins.should.have.length(288);
+    bins[0][1][0].should.equal(100);
+    bins[287][1][0].should.equal(101);
+    bins[0][1][1].should.equal(200);
+  });
 });
