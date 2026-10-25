@@ -156,6 +156,7 @@ describe('modern chart integration', function () {
         selector = '.forecast-dot';
         client.settings.showForecast = 'test';
         client.sbx.pluginBase.forecastPoints.test = [{mills: client.now + minute, mgdl: 210, type, color: 'cyan'}];
+        client.chart.update(false);
       } else if (type === 'mbg') {
         client.entries.unshift({mills: client.now - minute, mgdl: 140, type, color: 'green', device: 'Meter'});
       }
@@ -173,7 +174,7 @@ describe('modern chart integration', function () {
       assert.ok(+marker.getAttribute('r') >= 5.5);
       assert.strictEqual(dot.getAttribute('r'), radius);
       assert.strictEqual(dot.getAttribute('stroke-width'), stroke);
-      assert.ok(client.tooltip.text().includes('BG: ' + client.sbx.scaleEntry(dot.__data__)));
+      assert.ok(client.tooltip.text().includes(String(client.sbx.scaleEntry(dot.__data__))));
       dot.dispatchEvent(new env.window.MouseEvent('mouseout', {bubbles: true}));
       assert.strictEqual(env.document.querySelector('.modern-hover-dot'), null);
       assert.strictEqual(client.tooltip.style('display'), 'none');
@@ -190,7 +191,7 @@ describe('modern chart integration', function () {
     client.renderer.addFocusCircles();
     assert.strictEqual(env.document.querySelector('.modern-hover-dot').getAttribute('cx'), dot.getAttribute('cx'));
     assert.strictEqual(+dot.getAttribute('r'), 4.5);
-    client.entries = client.entries.filter(p => p !== client.latestSGV);
+    client.entries = [];
     client.renderer.addFocusCircles();
     assert.strictEqual(env.document.querySelector('.modern-hover-dot'), null);
     assert.strictEqual(client.tooltip.style('display'), 'none');
@@ -204,6 +205,129 @@ describe('modern chart integration', function () {
     assert.strictEqual(env.document.querySelector('.modern-hover-dot'), null);
     assert.strictEqual(dot.getAttribute('r'), radius);
     assert.strictEqual(client.tooltip.style('display'), 'block');
+  });
+  it('selects the same nearest reading at any vertical position and clears on plot exit', function () {
+    client.renderer.addFocusCircles();
+    const area = env.document.querySelector('.modern-hover-area');
+    const reading = env.document.querySelectorAll('.entry-dot')[2];
+    const x = +reading.getAttribute('cx');
+    [1, client.chart.focusHeight / 2, client.chart.focusHeight - 1].forEach(y => {
+      area.dispatchEvent(new env.window.MouseEvent('mousemove', {bubbles: true, clientX: x, clientY: y}));
+      const marker = env.document.querySelector('.modern-hover-dot');
+      assert.strictEqual(marker.getAttribute('cx'), reading.getAttribute('cx'));
+      assert.strictEqual(marker.getAttribute('cy'), reading.getAttribute('cy'));
+      assert.strictEqual(+env.document.querySelector('.modern-hover-guide').getAttribute('x1'), x);
+      assert.ok(client.tooltip.text().includes('BG: ' + client.sbx.scaleEntry(reading.__data__)));
+    });
+    client.chart.focus.node().dispatchEvent(new env.window.MouseEvent('mouseleave'));
+    assert.strictEqual(env.document.querySelector('.modern-hover-dot'), null);
+    assert.strictEqual(env.document.querySelector('.modern-hover-guide'), null);
+    assert.strictEqual(client.tooltip.style('display'), 'none');
+  });
+  it('shows all forecasts at the selected timestamp without using pointer height to choose a branch', function () {
+    client.settings.showForecast = 'test';
+    client.sbx.pluginBase.forecastPoints.test = ['upper', 'lower'].map((forecastSeries, index) => ({
+      mills: client.now + 5 * minute + (index ? 4000 : 2000), forecastMills: client.now + 5 * minute,
+      mgdl: index ? 160 : 220, type: 'forecast', color: 'cyan',
+      forecastSeries, info: {type: 'ar2'}
+    }));
+    client.chart.update(false);
+    client.renderer.addFocusCircles();
+    const dots = env.document.querySelectorAll('.forecast-dot');
+    const area = env.document.querySelector('.modern-hover-area');
+    [1, client.chart.focusHeight - 1].forEach(y => {
+      area.dispatchEvent(new env.window.MouseEvent('mousemove', {
+        bubbles: true, clientX: +dots[0].getAttribute('cx') - 0.1, clientY: y
+      }));
+      assert.strictEqual(env.document.querySelectorAll('.modern-hover-dot').length, 2);
+      assert.ok(client.tooltip.text().includes('AR2 Upper'));
+      assert.ok(client.tooltip.text().includes('AR2 Lower'));
+      dots.forEach(dot => assert.ok(client.tooltip.text().includes(String(client.sbx.scaleEntry(dot.__data__)))));
+    });
+  });
+  it('shows every forecast type on direct hover, including series with different base timestamps', function () {
+    client.settings.showForecast = 'test';
+    client.sbx.pluginBase.forecastPoints.test = ['COB', 'IOB', 'UAM'].flatMap((forecastType, series) => [0, 5, 10].map(time => ({
+      mills: client.now + (time + 1) * minute + series * 3000,
+      forecastMills: client.now + (time + 1) * minute,
+      mgdl: 200 + time + series, type: 'forecast', color: 'cyan', forecastType, info: {type: 'openaps'}
+    }))).concat(['upper', 'lower'].flatMap((forecastSeries, branch) => [0, 5, 10].map(time => ({
+      mills: client.now + time * minute + (branch ? 4000 : 2000), forecastMills: client.now + time * minute,
+      mgdl: 210 + time - branch, type: 'forecast', color: 'blue', forecastSeries, info: {type: 'ar2'}
+    }))));
+    client.chart.update(false);
+    client.renderer.addFocusCircles();
+    const point = Array.from(env.document.querySelectorAll('.forecast-dot')).find(p => p.__data__.forecastType === 'COB' && p.__data__.forecastMills === client.now + 6 * minute);
+    point.dispatchEvent(new env.window.MouseEvent('mouseover', {bubbles: true, clientX: 300, clientY: 100}));
+    assert.strictEqual(env.document.querySelectorAll('.modern-hover-dot').length, 5);
+    ['COB', 'IOB', 'UAM', 'AR2 Upper', 'AR2 Lower'].forEach(label => assert.ok(client.tooltip.text().includes(label)));
+    assert.strictEqual(client.tooltip.node().querySelectorAll('.modern-tooltip-row').length, 5);
+    assert.strictEqual(client.tooltip.node().querySelector('.modern-tooltip-heading').textContent, 'Glucose · mmol/L');
+    const selected = Array.from(env.document.querySelectorAll('.modern-hover-dot')).map(p => p.__data__);
+    assert.ok(selected.every(p => Math.abs((p.forecastMills || p.mills) - (client.now + 6 * minute)) <= 2.5 * minute));
+    const originalText = client.tooltip.text();
+    client.sbx.pluginBase.forecastPoints.test.forEach(p => { p.mgdl += 18; });
+    client.renderer.addFocusCircles();
+    assert.notStrictEqual(client.tooltip.text(), originalText);
+    assert.strictEqual(env.document.querySelectorAll('.modern-hover-dot').length, 5);
+  });
+  it('keeps shared forecast labels inert and tooltips within the viewport', function () {
+    client.settings.showForecast = 'test';
+    client.sbx.pluginBase.forecastPoints.test = [{
+      mills: client.now + minute, mgdl: 200, type: 'forecast', color: 'cyan',
+      forecastSeries: '<img src=x onerror=alert(1)>', info: {type: 'ar2'}
+    }];
+    client.chart.update(false);
+    client.renderer.addFocusCircles();
+    client.tooltip.node().getBoundingClientRect = () => ({width: 200, height: 150});
+    Object.defineProperty(env.document.documentElement, 'clientWidth', {value: 390, configurable: true});
+    Object.defineProperty(env.document.documentElement, 'clientHeight', {value: 600, configurable: true});
+    const point = env.document.querySelector('.forecast-dot');
+    const area = env.document.querySelector('.modern-hover-area');
+    area.dispatchEvent(new env.window.MouseEvent('mousemove', {bubbles: true,
+      clientX: +point.getAttribute('cx') - 0.1, clientY: client.chart.focusHeight - 1
+    }));
+    assert.strictEqual(client.tooltip.node().querySelector('img'), null);
+    assert.ok(client.tooltip.text().includes('<img src=x onerror=alert(1)>'));
+    assert.ok(parseFloat(client.tooltip.style('left')) >= 8);
+    assert.ok(parseFloat(client.tooltip.style('left')) + 200 <= 382);
+    assert.ok(parseFloat(client.tooltip.style('top')) >= 8);
+    assert.ok(parseFloat(client.tooltip.style('top')) + 150 <= 592);
+  });
+  it('preserves treatment controls and suppresses column inspection during dragging', function () {
+    client.renderer.addFocusCircles();
+    const area = env.document.querySelector('.modern-hover-area');
+    const reading = env.document.querySelector('.entry-dot');
+    const x = +reading.getAttribute('cx');
+    area.dispatchEvent(new env.window.MouseEvent('mousemove', {bubbles: true, clientX: x, clientY: 100}));
+    assert.ok(env.document.querySelector('.modern-hover-dot'));
+    const treatment = client.chart.focus.append('rect').attr('class', 'draggable-treatment').node();
+    client.tooltip.text('Treatment detail');
+    treatment.dispatchEvent(new env.window.MouseEvent('mousemove', {bubbles: true, clientX: x, clientY: 100}));
+    assert.strictEqual(client.tooltip.text(), 'Treatment detail');
+    assert.strictEqual(env.document.querySelector('.modern-hover-dot'), null);
+    let clicked = 0;
+    treatment.addEventListener('click', () => { clicked++; });
+    treatment.dispatchEvent(new env.window.MouseEvent('click', {bubbles: true}));
+    assert.strictEqual(clicked, 1);
+    area.dispatchEvent(new env.window.MouseEvent('mousemove', {bubbles: true, clientX: x, clientY: 100, buttons: 1}));
+    assert.strictEqual(env.document.querySelector('.modern-hover-dot'), null);
+    assert.strictEqual(client.chart.focus.node().firstChild, area);
+  });
+  it('ignores invalid readings and clears inspection when there are no samples', function () {
+    client.entries[0].mgdl = NaN;
+    client.renderer.addFocusCircles();
+    const area = env.document.querySelector('.modern-hover-area');
+    const invalid = env.document.querySelector('.entry-dot');
+    area.dispatchEvent(new env.window.MouseEvent('mousemove', {bubbles: true,
+      clientX: +invalid.getAttribute('cx'), clientY: 100
+    }));
+    assert.ok(client.tooltip.text().includes('BG: ' + client.sbx.scaleEntry(client.entries[1])));
+    client.entries = [];
+    client.renderer.addFocusCircles();
+    area.dispatchEvent(new env.window.MouseEvent('mousemove', {bubbles: true, clientX: 100, clientY: 100}));
+    assert.strictEqual(env.document.querySelector('.modern-hover-dot'), null);
+    assert.strictEqual(client.tooltip.style('display'), 'none');
   });
   it('keeps finger-stick points distinct and out of the connected trace', function () {
     client.entries.push({mills: client.now - minute, mgdl: 140, type: 'mbg', color: 'red'});

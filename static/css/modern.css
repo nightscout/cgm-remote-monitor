@@ -290,7 +290,13 @@ html.modern-ui {
 .modern-ui .modern-connected-sample { fill: transparent; }
 .modern-ui .modern-trace-label { fill: #9faec0; font-size: 11px; pointer-events: none; }
 .modern-ui .modern-now-label { fill: #c9d0da; font-size: 12px; text-anchor: end; pointer-events: none; }
-.modern-ui .tooltip { z-index: 50; padding: 10px; border: 1px solid #46576b; border-radius: 8px; background: #202a36; color: #f0f3f7; }
+.modern-ui .tooltip { z-index: 50; box-sizing: border-box; max-width: min(360px, calc(100vw - 16px)); padding: 10px; border: 1px solid #46576b; border-radius: 8px; background: #202a36; color: #f0f3f7; }
+.modern-ui .modern-hover-guide { stroke: #a5b6c9; stroke-width: 1; stroke-opacity: .65; stroke-dasharray: 3 4; pointer-events: none; }
+.modern-ui .modern-hover-area { cursor: crosshair; }
+.modern-ui .modern-chart-tooltip { pointer-events: none; }
+.modern-ui .modern-tooltip-heading { margin-bottom: 6px; color: #b8c5d5; font-size: 12px; }
+.modern-ui .modern-tooltip-row { display: flex; justify-content: space-between; gap: 18px; line-height: 1.55; }
+.modern-ui .modern-tooltip-meta { margin: -1px 0 4px; color: #aebdce; font-size: 11px; }
 .modern-ui #viewMenu { grid-area: range; top: 100%; left: 0; right: auto; max-width: calc(100vw - 24px); font-size: 16px; }
 .modern-ui #viewMenu li { white-space: normal; }
 .modern-ui #silenceBtn { grid-area: glucose; top: 100%; right: 0; max-width: calc(100vw - 24px); }
