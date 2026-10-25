@@ -303,6 +303,28 @@ jobs:
       - name: Build development bundle with ESLint integration
         run: NODE_ENV=development npm run bundle-dev
 
+  tests-pass:
+    name: Tests pass
+    # One check for branch protection to require, so the matrices above can
+    # change without a repository settings change. It fails if any test job
+    # failed or was cancelled; Docker validation is skipped outside pull
+    # requests and dispatched runs.
+    if: always()
+    needs: [test, test-no-db, maintained-mongo, replica-test, browser-test, npm12-build, docker-build-pr]
+    runs-on: ubuntu-latest
+    steps:
+      - name: Every test job succeeded or was skipped
+        env:
+          RESULTS: ${{ join(needs.*.result, ' ') }}
+        run: |
+          echo "$RESULTS"
+          for result in $RESULTS; do
+            case "$result" in
+              success|skipped) ;;
+              *) exit 1 ;;
+            esac
+          done
+
   docker-build-pr:
     name: Validate Docker image (${{ matrix.arch }})
     # Validation has no publishing side effects and can run alongside the test matrix.
@@ -354,7 +376,7 @@ jobs:
 
   docker-build:
     name: Build Docker image (${{ matrix.arch }})
-    needs: [test, test-no-db, browser-test, npm12-build, maintained-mongo, replica-test]
+    needs: [tests-pass]
     if: github.event_name == 'push' && (github.ref == 'refs/heads/master' || github.ref == 'refs/heads/dev') && github.repository_owner == 'nightscout'
     runs-on: ${{ matrix.runner }}
     strategy:
