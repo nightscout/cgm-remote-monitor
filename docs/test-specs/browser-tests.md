@@ -14,6 +14,8 @@ On Linux, install browser system dependencies with `npx --no-install playwright-
 
 Browser CI uses the versioned Playwright Noble image with browsers and system dependencies already installed, avoiding a separate browser download and Ubuntu package installation in each job. Keep the image version in `.github/workflows/main.yml` aligned with `playwright-core` in both package manifests. `setup-node` still selects each matrix runtime with `check-latest: true`. Backend, browser and npm 12 jobs cache npm downloads keyed by `package-lock.json`; every job still runs `npm ci` and builds its own production bundle.
 
+The legacy report fixture makes about 100 local HTTP requests per month refresh. Its completion condition allows up to 30 seconds per refresh on shared runners, within the repeated-month case's existing 90-second overall deadline. This is a maximum wait, not a fixed delay or retry: the test continues as soon as requests and rendering finish. Report values, repeated treatment edits/deletes, request assertions and failure diagnostics remain required.
+
 ## Coverage mapping
 
 All six browser jobs passed the comparison phase on both exact Node floors. The old bundle smoke file and the four served-browser jsdom cases are now replaced; Node parser/client coverage remains.

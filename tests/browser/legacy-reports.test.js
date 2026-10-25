@@ -115,10 +115,11 @@ describe('legacy reports in a real browser', function () {
   async function idle(page) {
     const started = Date.now();
     try {
-      // Rendering a month of all report plugins includes synchronous profile
-      // requests and chart work. Give the condition a bounded render budget;
-      // retain diagnostics if a request/render fails to finish.
-      await page.waitForFunction(() => window.$.active === 0 && window.$('#rp_show').is(':visible') && window.$('#info').text() === '', null, {timeout: 15000});
+      // Each month refresh makes about 100 fixture requests and renders all
+      // report plugins. Shared Firefox runners can exceed 15 seconds while
+      // still making progress. Wait for completion within a bounded budget;
+      // the repeated-month case also retains its 90-second overall deadline.
+      await page.waitForFunction(() => window.$.active === 0 && window.$('#rp_show').is(':visible') && window.$('#info').text() === '', null, {timeout: 30000});
     } catch (error) {
       const state = await page.evaluate(() => ({active: window.$.active, info: window.$('#info').text(),
         showVisible: window.$('#rp_show').is(':visible'), errors: window.reportFixture.errors,
