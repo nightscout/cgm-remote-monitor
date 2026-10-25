@@ -1,4 +1,4 @@
-FROM node:22.23.4-alpine AS builder
+FROM node:24.22.1-alpine AS builder
 
 LABEL maintainer="Nightscout Contributors"
 
@@ -21,7 +21,7 @@ RUN npm ci --cache /tmp/empty-cache --omit=optional --force && \
   npm prune --omit=dev --omit=optional && \
   rm -rf /tmp/*
 
-FROM node:22.23.4-alpine AS runtime
+FROM node:24.22.1-alpine AS runtime
 
 LABEL maintainer="Nightscout Contributors"
 

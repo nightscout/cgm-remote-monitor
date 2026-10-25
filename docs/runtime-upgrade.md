@@ -10,7 +10,7 @@ This supersedes the earlier compatibility-only floor of `^22.12 || >=24`. Those 
 
 The current Express 4/body-parser 1 request parser rejects Brotli request bodies, but Nightscout Connect's Axios client automatically decompresses Brotli responses. Blocking inbound `Content-Encoding: br` alone therefore does not remove the risk. Upgrade the runtime used by both the build and the running application.
 
-Node 24 LTS is recommended for new source installations. `.nvmrc` selects 24.22.1, and the NodeSource setup helper selects the 24 line; verify the installed patch. Both Docker stages use `node:22.23.4-alpine`. Update those pins as newer security releases arrive, rebuild images, and redeploy existing containers: changing this repository does not patch a running process. npm 10 or newer remains required; CI separately validates npm 12 on Node 24.
+Node 24 LTS is recommended for new source installations. `.nvmrc` selects 24.22.1, and the NodeSource setup helper selects the 24 line; verify the installed patch. Both Docker stages use `node:24.22.1-alpine`; source deployments can still use patched Node 22 under the package's runtime policy. Update those pins as newer security releases arrive, rebuild images, and redeploy existing containers: changing this repository does not patch a running process. npm 10 or newer remains required; CI separately validates npm 12 on Node 24.
 
 ## Upgrade and rollback
 
