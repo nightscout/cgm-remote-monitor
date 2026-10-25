@@ -211,54 +211,58 @@ describe('report SGV loading and Daily Stats in a real browser', function () {
   });
 
   describe('report page reconnect initialization', function () {
-    it('builds and wires the report GUI only for the first authorized connection', async function () {
-      requests = [];
-      await withReportPage(async page => {
-        await page.evaluate(() => {
-          const $ = window.$, moment = window.moment, Nightscout = window.Nightscout;
-          const ctx = {moment, settings: {units: 'mg/dl'}, language: {translate: value => value}};
-          let authorized, addHtmlCalls = 0;
-          const client = {
-            ctx, careportal: {events: []}, headers: () => ({}), init: callback => { authorized = callback; },
-            settings: {scaleY: 'linear', units: 'mg/dl', thresholds: {bgTargetBottom: 80, bgTargetTop: 180}},
-            translate: ctx.language.translate, utils: window.NightscoutTestModules.utils(ctx)
-          };
-          const registry = Nightscout.report_plugins_preinit;
-          Nightscout.client = client;
-          Nightscout.report_plugins_preinit = context => {
-            const plugins = registry(context), addHtml = plugins.addHtmlFromPlugins;
-            plugins.addHtmlFromPlugins = client => { addHtmlCalls++; return addHtml(client); };
-            return plugins;
-          };
-          Nightscout.reportclient();
-          window.reconnectReport = () => authorized();
-          window.reportGuiState = () => ({
-            addHtmlCalls, handlers: $._data($('#rp_show')[0], 'events').click.length,
-            from: $('#rp_from').val(), selected: $('#tabnav > li.selected').attr('id'),
-            menu: $('#tabnav > li').length, placeholders: $('#pluginchartplaceholders > div').length,
-            styles: $('style[id$="-css"]').length
-          });
-          authorized();
-        });
-        await page.waitForFunction(() => window.$.active === 0);
-        const first = await page.evaluate(() => window.reportGuiState());
-        assert.equal(first.addHtmlCalls, 1);
-        assert.equal(first.handlers, 1);
-        assert.ok(first.menu > 1);
-        await page.locator('#rp_from').fill(DAY);
-        await page.locator('#tabnav > li').nth(1).click();
-        const chosen = await page.evaluate(() => window.reportGuiState());
-        assert.notEqual(chosen.selected, first.selected);
-        for (let cycle = 0; cycle < 2; cycle++) {
-          await page.evaluate(() => window.reconnectReport());
+    for (const theme of ['default', 'modern']) {
+      it('builds and wires the ' + theme + ' report GUI only for the first authorized connection', async function () {
+        requests = [];
+        await withReportPage(async page => {
+          await page.evaluate(theme => {
+            const $ = window.$, moment = window.moment, Nightscout = window.Nightscout;
+            const ctx = {moment, settings: {units: 'mg/dl'}, language: {translate: value => value}};
+            let authorized, addHtmlCalls = 0;
+            const client = {
+              ctx, careportal: {events: []}, headers: () => ({}), init: callback => { authorized = callback; },
+              settings: {theme, scaleY: 'linear', units: 'mg/dl', thresholds: {bgTargetBottom: 80, bgTargetTop: 180}},
+              translate: ctx.language.translate, utils: window.NightscoutTestModules.utils(ctx)
+            };
+            const registry = Nightscout.report_plugins_preinit;
+            Nightscout.client = client;
+            Nightscout.report_plugins_preinit = context => {
+              const plugins = registry(context), addHtml = plugins.addHtmlFromPlugins;
+              plugins.addHtmlFromPlugins = client => { addHtmlCalls++; return addHtml(client); };
+              return plugins;
+            };
+            Nightscout.reportclient();
+            window.reconnectReport = () => authorized();
+            window.reportGuiState = () => ({
+              addHtmlCalls, handlers: $._data($('#rp_show')[0], 'events').click.length,
+              from: $('#rp_from').val(), selected: $('#tabnav > li.selected').attr('id'),
+              menu: $('#tabnav > li').length, placeholders: $('#pluginchartplaceholders > div').length,
+              styles: $('style[id$="-css"]').length,
+              pressed: $('#tabnav > li.selected').attr('aria-pressed')
+            });
+            authorized();
+          }, theme);
           await page.waitForFunction(() => window.$.active === 0);
-          assert.deepEqual(await page.evaluate(() => window.reportGuiState()), chosen);
-        }
-        assert.equal(requests.length, 1, 'Reconnect must not reload the food database');
-        assert.equal(requests[0].method, 'GET');
-        assert.equal(requests[0].url.pathname, '/api/v1/food/regular.json');
+          const first = await page.evaluate(() => window.reportGuiState());
+          assert.equal(first.addHtmlCalls, 1);
+          assert.equal(first.handlers, 1);
+          assert.ok(first.menu > 1);
+          await page.locator('#rp_from').fill(DAY);
+          await page.locator('#tabnav > li').nth(1).click();
+          const chosen = await page.evaluate(() => window.reportGuiState());
+          assert.notEqual(chosen.selected, first.selected);
+          if (theme === 'modern') assert.equal(chosen.pressed, 'true');
+          for (let cycle = 0; cycle < 2; cycle++) {
+            await page.evaluate(() => window.reconnectReport());
+            await page.waitForFunction(() => window.$.active === 0);
+            assert.deepEqual(await page.evaluate(() => window.reportGuiState()), chosen);
+          }
+          assert.equal(requests.length, 1, 'Reconnect must not reload the food database');
+          assert.equal(requests[0].method, 'GET');
+          assert.equal(requests[0].url.pathname, '/api/v1/food/regular.json');
+        });
       });
-    });
+    }
 
     it('makes plugin HTML and styles idempotent while preserving tab selection', async function () {
       requests = [];
