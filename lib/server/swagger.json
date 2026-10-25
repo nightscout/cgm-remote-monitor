@@ -1294,7 +1294,7 @@
           },
           "theme": {
             "type": "string",
-            "description": "Default theme to be displayed system wide, `default`, `colors`, `colorblindfriendly`."
+            "description": "Default theme to be displayed system wide, `default`, `colors`, `colorblindfriendly`, `modern`. Modern opts into the responsive dashboard."
           },
           "language": {
             "type": "string",
