@@ -24,10 +24,12 @@ jobs:
         # the floor, the lowest Node that package.json engines admits
         # (^22.23.4 || ^24.22.1 || >=26.12.1), and the newest Node release
         # line ('26' with check-latest), each against the oldest and newest
-        # supported MongoDB (5.0 and 6.0, README). The 24.22.1 and 26.12.1
+        # supported MongoDB (5.0 and 8.0, README). The 24.22.1 and 26.12.1
         # floors are covered by tests/runtime-policy.test.js's boundary cases.
         node-version: ['22.23.4', '26']
-        mongodb-version: [5.0, 6.0]
+        # Quoted, so the MongoDB action pulls mongo:5.0 and mongo:8.0, the
+        # newest patch of each series (unquoted, 8.0 becomes "8": mongo:8).
+        mongodb-version: ['5.0', '8.0']
         include:
           # Branch protection requires these check names: "Run Tests (24, 6)"
           # on dev and master, "Run Tests (22, 6)" and "Run Tests (22, 4.4)" on
