@@ -172,15 +172,6 @@ describe('API v1 ?count= parameter', function () {
     let from, to;
 
     before(async function () {
-      // Start from empty collections: the assertions compare against exactly
-      // the seeded documents, whatever ran before this file.
-      await self.ctx.treatments().deleteMany({ });
-      await self.ctx.devicestatus().deleteMany({ });
-      await self.ctx.profile().deleteMany({ });
-      await self.ctx.activity().deleteMany({ });
-      // A remove without `changes` flushes the runtime cache, which was
-      // filled at boot from whatever the collections held then.
-      self.ctx.bus.emit('data-update', { type: 'devicestatus', op: 'remove' });
       const now = Date.now();
       from = new Date(now - FIVE_MINUTES * 200).toISOString();
       to = new Date(now + FIVE_MINUTES).toISOString();
