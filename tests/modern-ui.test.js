@@ -82,7 +82,7 @@ describe('opt-in modern dashboard', function () {
     } finally { domGlobals.restoreDomGlobals(state); env.cleanup(); }
   });
 
-  ['profile', 'food', 'admin'].forEach(type => {
+  ['profile', 'food', 'admin', 'report'].forEach(type => {
     ['modern', 'colors'].forEach(serverTheme => {
       it('renders one working ' + type + ' editor shell and honours a browser override from ' + serverTheme, async function () {
         const output = await ejs.renderFile(path.join(__dirname, '../views/' + type + 'index.html'), {
@@ -92,12 +92,20 @@ describe('opt-in modern dashboard', function () {
         try {
           const document = env.document;
           const root = document.querySelector('main.editor-content');
-          const formId = {profile: 'pe_form', food: 'fe_form', admin: 'admin_placeholder'}[type];
+          const formId = {profile: 'pe_form', food: 'fe_form', admin: 'admin_placeholder', report: 'report-filters'}[type];
           assert.strictEqual(document.querySelectorAll('#' + formId).length, 1);
           assert.ok(root.contains(document.getElementById(formId)));
           assert.strictEqual(document.documentElement.classList.contains('modern-ui'), serverTheme === 'modern');
           assert.ok(document.querySelector('script[src="/bundle/js/bundle.app.js?v=test"]'));
           assert.ok(document.querySelector('link[href="/css/modern-editors.css?v=test"]'));
+          if (type === 'profile' || type === 'food') {
+            const status = document.querySelector('#buttonbar.editor-status');
+            assert.ok(status);
+            assert.ok(status.compareDocumentPosition(document.querySelector('.editor-navigation')) & env.window.Node.DOCUMENT_POSITION_FOLLOWING);
+            assert.strictEqual(status.getAttribute('role'), 'status');
+          }
+          assert.strictEqual(document.querySelectorAll('.editor-navigation').length, 1);
+          assert.ok(document.querySelector('#toolbar').contains(document.querySelector('.editor-navigation')));
           assert.strictEqual(document.querySelector('.editor-navigation [aria-current="page"]').getAttribute('href'), '/' + type);
           const ids = [...document.querySelectorAll('[id]')].map(node => node.id);
           assert.strictEqual(new Set(ids).size, ids.length);

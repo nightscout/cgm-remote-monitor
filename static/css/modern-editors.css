@@ -9,10 +9,11 @@
   border-bottom: 1px solid #2b323c; background: #171c23;
 }
 .modern-ui .editor-page #toolbar .customTitle { position: static; flex: 1; text-align: left; }
-.modern-ui .editor-page #buttonbar { align-items: center; gap: 5px; font-size: 12px; color: #aab9ca; }
+.modern-ui .editor-page #buttonbar { display: grid; grid-template-columns: auto minmax(0, 1fr); order: 1; flex: 0 0 260px; align-items: center; justify-content: start; gap: 5px; width: 260px; height: 40px; min-width: 0; overflow: auto; scrollbar-width: thin; font-size: 12px; color: #aab9ca; }
 .modern-ui .editor-page #buttonbar b { font-weight: 400; }
+.modern-ui .editor-page #buttonbar > span { overflow-wrap: anywhere; }
 .modern-ui .editor-page #toolbar .closeButton {
-  display: inline-flex; align-items: center; justify-content: center; order: 3;
+  display: inline-flex; align-items: center; justify-content: center; order: 3; flex-shrink: 0;
   position: static; float: none; width: 40px; height: 40px; margin: 0; padding: 0;
   border: 1px solid #344152; border-radius: 10px; background: #202a36; color: #b9c9db;
   text-decoration: none; font-size: 0; transform: none;
@@ -25,6 +26,8 @@
 .modern-ui .editor-navigation a { padding: 9px 14px; border: 1px solid transparent; border-radius: 8px; color: #aebdd0; text-decoration: none; font-size: 14px; }
 .modern-ui .editor-navigation a[aria-current] { color: #c5e3ff; background: #223348; border-color: #38536e; }
 .modern-ui .editor-navigation a:hover { color: #fff; background: #24303f; }
+.modern-ui .editor-page #toolbar .editor-navigation { order: 2; flex: 0 1 auto; flex-wrap: nowrap; align-items: center; gap: 4px; min-width: 0; max-width: 100%; margin: 0; padding: 3px 2px; overflow-x: auto; scrollbar-width: thin; }
+.modern-ui .editor-page #toolbar .editor-navigation a { flex: 0 0 auto; min-height: 36px; padding: 7px 10px; white-space: nowrap; font-size: 13px; }
 .modern-ui .editor-content { max-width: 1280px; margin: 0 auto; padding: 0 24px 24px; }
 .modern-ui .editor-content :is(#pe_form, #fe_form, #admin_placeholder) { margin: 0; min-width: 0; }
 .modern-ui :is(#pe_form, #fe_form, #admin_placeholder) fieldset { min-width: 0; margin: 0 0 24px; padding: 20px; border: 1px solid #303d4d; border-radius: 12px; background: #171f29; }
@@ -113,17 +116,23 @@
 .modern-ui .editor-page .ui-dialog-buttonpane { margin: 0; padding: 12px 16px; border: 0; border-top: 1px solid #344152; background: #171f29; }
 .modern-ui .editor-page .ui-dialog-buttonpane button { min-height: 40px; border: 1px solid #4d6381; border-radius: 7px; background: #2b3d54; color: #e5edf8; font: inherit; }
 @media (max-width: 1000px) {
+  .modern-ui :is(.profile-page, .food-page) #toolbar { display: grid; grid-template-columns: 260px minmax(0, 1fr) 40px; grid-template-areas: "brand brand back" "status navigation navigation"; row-gap: 4px; }
+  .modern-ui :is(.profile-page, .food-page) #toolbar .customTitle { grid-area: brand; }
+  .modern-ui :is(.profile-page, .food-page) #toolbar .closeButton { grid-area: back; }
+  .modern-ui :is(.profile-page, .food-page) #toolbar #buttonbar { grid-area: status; }
+  .modern-ui :is(.profile-page, .food-page) #toolbar .editor-navigation { grid-area: navigation; }
   .modern-ui #pe_form .pe_stored_profile { grid-template-columns: minmax(0, 1fr); }
   .modern-ui #fe_form .food-record-fields tr { grid-template-columns: repeat(3, minmax(0, 1fr)); }
 }
 @media (max-width: 600px) {
   .modern-ui .editor-page #toolbar { padding: 8px 12px; gap: 4px; }
   .modern-ui .editor-page #toolbar .customTitle { font-size: 17px; }
-  .modern-ui .editor-page #buttonbar { order: 4; flex-basis: 100%; justify-content: flex-start; padding-left: 38px; }
+  .modern-ui :is(.profile-page, .food-page) #toolbar { grid-template-columns: minmax(0, 1fr) 40px; grid-template-areas: "brand back" "status status" "navigation navigation"; }
+  .modern-ui .editor-page #buttonbar { width: 100%; height: 34px; }
   .modern-ui .editor-page .toolbar-title { padding: 24px 12px 12px; }
   .modern-ui .editor-page .toolbar-title h2 { font-size: 26px; }
-  .modern-ui .editor-navigation { gap: 2px; padding: 0 12px 20px; }
-  .modern-ui .editor-navigation a { padding: 9px 10px; font-size: 12px; }
+  .modern-ui .editor-page #toolbar .editor-navigation { order: 4; flex: 1 1 100%; width: 100%; }
+  .modern-ui .editor-page #toolbar .editor-navigation a { min-height: 40px; padding: 8px 10px; font-size: 12px; }
   .modern-ui .editor-content { padding: 0 12px 16px; }
   .modern-ui :is(#pe_form, #fe_form, #admin_placeholder) fieldset, .modern-ui #admin_placeholder > fieldset { padding: 14px; border-radius: 10px; }
   .modern-ui .editor-content legend { font-size: 14px; }

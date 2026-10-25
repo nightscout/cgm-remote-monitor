@@ -10,7 +10,7 @@ Restart Nightscout and reload the page. Remove this variable or select an existi
 
 The existing browser theme preference takes precedence over the server default, just as it does for the other themes. Select **Modern** in Settings or **Reset, and use defaults** if this browser has a saved preference. Switching back to another theme in Settings restores the classic layout on reload. Both layouts and their chart rendering always follow the same effective theme.
 
-`modern` uses Nightscout's existing coloured glucose thresholds: green in range, yellow outside target, red urgent. It does not change units, thresholds, plugin visibility, alarm configuration, or permissions. Reports and clock views keep their existing layouts. Care Portal, Profile Editor, Food Editor and Admin Tools use matching modern styling, with the same editing, authorization and save behavior.
+`modern` uses Nightscout's existing coloured glucose thresholds: green in range, yellow outside target, red urgent. It does not change units, thresholds, plugin visibility, alarm configuration, or permissions. Clock views keep their existing layout. Reports, Care Portal, Profile Editor, Food Editor and Admin Tools use matching modern styling, with the same editing, authorization and save behavior.
 
 ## Screen sizes
 
@@ -50,6 +50,12 @@ The overview retains its brush and sample shading. Paths are clipped to the plot
 
 ## Editors and Care Portal
 
-The Profile Editor, Food Editor and Admin Tools share a page header, editor navigation, native form styling and authentication status. Their layout follows the effective server/browser theme. Profile schedules stack on phones; food record fields wrap into columns, while wide database rows scroll within their own panel. Food drag-and-drop and native touch scrolling are retained. Admin cleanup actions have distinct styling and keep their existing previews, authentication and confirmations.
+The Profile Editor, Food Editor and Admin Tools share a page header with tools navigation inside the top toolbar, native form styling and authentication status. Their layout follows the effective server/browser theme. Profile schedules stack on phones; food record fields wrap into columns, while wide database rows scroll within their own panel. Food drag-and-drop and native touch scrolling are retained. Admin cleanup actions have distinct styling and keep their existing previews, authentication and confirmations.
 
 Care Portal retains event-specific field visibility and treatment validation. Its sticky Close and Submit controls are separate: Close returns focus to the toolbar without saving, and Submit uses the original confirmation and save flow. No new dependencies are required.
+
+## Reports
+
+Reports use the modern page header and toolbar navigation, compact single-row report-type controls (scrollable on narrower screens), collapsible labelled filters, date shortcuts and matching authentication/treatment dialogs. Enter or Space selects a focused report type. Existing report selection, date ranges, food/note/event filters, target settings, scales and stored options remain in use. Wide charts and tables scroll within the selected report, keeping the page usable on phones.
+
+Charts and heatmaps retain their existing series colours and calculations on a light analysis canvas. Print styling removes navigation and filter controls while retaining the selected report. The report bundle and theme styles use startup-versioned URLs, as the editors do.
