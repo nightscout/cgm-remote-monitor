@@ -38,7 +38,7 @@ Chart-options and alarm menus use matching dark surfaces. All menu styling is sc
 
 ## Chart meaning
 
-The modern trace joins consecutive **sensor readings** with straight segments and keeps the original sample dots and tooltips. It never smooths the data or joins finger-stick/raw-glucose points into the sensor trace. A larger dot identifies the latest sensor reading. Colour comes from Nightscout's existing colour function.
+The modern trace joins consecutive **sensor readings** with a shape-preserving curve through every observation. It does not average or change the measurements, and the curve stays between neighboring observations without introducing extra peaks or troughs. Small sample dots and their original tooltip/touch targets remain, with a larger dot identifying the latest sensor reading. The main stroke is slightly stronger than the quieter dashed forecasts and overview trace. Colour comes from Nightscout's existing colour function; finger-stick/raw-glucose points remain separate from the sensor trace.
 
 Missing and invalid sensor readings break the trace. The renderer infers the sampling cadence from recent data intervals and breaks intervals greater than 1.5 times that cadence, with an absolute limit of 7.5 minutes. Thus a missing sample in a regular 1-minute or 5-minute feed remains visible. Sensor error codes are not joined. Individual readings remain present even when there are too few points to form a line.
 

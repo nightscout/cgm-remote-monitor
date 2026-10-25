@@ -282,10 +282,10 @@ html.modern-ui {
 .modern-ui #chartContainer .target-bottom-line { stroke: #a5b6c9; stroke-opacity: .6; }
 .modern-ui .modern-target-band { fill: #8fc8b0; fill-opacity: .045; pointer-events: none; }
 .modern-ui .modern-trace,
-.modern-ui .modern-forecast-line { fill: none; stroke-linejoin: round; stroke-linecap: round; pointer-events: none; }
-.modern-ui .modern-trace { stroke-width: 1.8; }
-.modern-ui .chart-context .modern-trace { stroke-width: 1; opacity: .7; }
-.modern-ui .modern-forecast-line { stroke-width: 1.4; stroke-dasharray: 5 5; opacity: .7; }
+.modern-ui .modern-forecast-line { fill: none; stroke-linejoin: round; stroke-linecap: round; vector-effect: non-scaling-stroke; pointer-events: none; }
+.modern-ui .modern-trace { stroke-width: 2.25; }
+.modern-ui .chart-context .modern-trace { stroke-width: 1.25; opacity: .7; }
+.modern-ui .modern-forecast-line { stroke-width: 1.25; stroke-dasharray: 4 6; opacity: .55; }
 .modern-ui .modern-now-label { fill: #c9d0da; font-size: 12px; text-anchor: end; pointer-events: none; }
 .modern-ui .tooltip { z-index: 50; padding: 10px; border: 1px solid #46576b; border-radius: 8px; background: #202a36; color: #f0f3f7; }
 .modern-ui #viewMenu { grid-area: range; top: 100%; left: 0; right: auto; max-width: calc(100vw - 24px); font-size: 16px; }
