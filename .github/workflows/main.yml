@@ -14,27 +14,49 @@ on:
       - dev
       - chore/nightscout-modernization
 
+  workflow_dispatch:
+    inputs:
+      extended:
+        description: Run every patched Node floor/latest alias across MongoDB edges and all browsers
+        type: boolean
+        default: true
+
+# Cancel superseded PR validation without cancelling or collapsing push runs.
+concurrency:
+  group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.run_id }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
 jobs:
   test:
-    name: Run Tests
+    name: Run Tests (${{ matrix.node-version }}, ${{ matrix.mongodb-version }})
     runs-on: ubuntu-latest
     strategy:
       matrix:
-        # Exercise the CVE-2026-111497 security boundaries and current releases.
-        node-version: ['22.23.4', '22', '24.22.1', '24', '26.12.1', '26']
-        # MongoDB 4.4 is retired; keep 5/6 during the modernization migration.
-        mongodb-version: [5.0, 6.0]
+        # Test the edges of the supported range, not every point inside it:
+        # the floor, the lowest Node that package.json engines admits
+        # (^22.23.4 || ^24.22.1 || >=26.12.1), and the newest Node release
+        # line ('26' with check-latest), each against the oldest and newest
+        # supported MongoDB (5.0 and 8.0, README). The 24.22.1 and 26.12.1
+        # floors are covered by tests/runtime-policy.test.js's boundary cases.
+        node-version: ${{ fromJSON(inputs.extended && '["22.23.4","22","24.22.1","24","26.12.1","26"]' || '["22.23.4","26"]') }}
+        # Quoted, so the MongoDB action pulls mongo:5.0 and mongo:8.0, the
+        # newest patch of each series (unquoted, 8.0 becomes "8": mongo:8).
+        mongodb-version: ['5.0', '8.0']
         include:
-          # Retain the existing required check until branch protection is updated separately.
+          # Retain "Run Tests (24, 6)" for dev/master and "Run Tests (22, 6)"
+          # for master until the repository settings change. Node 24 is also
+          # the line the Docker images use.
+          - node-version: '24'
+            mongodb-version: 6.0
           - node-version: '22'
-            mongodb-version: '4.4'
+            mongodb-version: 6.0
 
     steps:
       - name: Git Checkout
-        uses: actions/checkout@v5
+        uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5
 
       - name: Use Node.js ${{ matrix.node-version }}
-        uses: actions/setup-node@v5
+        uses: actions/setup-node@a0853c24544627f65ddf259abe73b1d18a591444 # v5
         with:
           node-version: ${{ matrix.node-version }}
           # Major aliases must resolve past any cached vulnerable patch.
@@ -43,7 +65,7 @@ jobs:
           cache-dependency-path: package-lock.json
 
       - name: Start MongoDB ${{ matrix.mongodb-version }}
-        uses: supercharge/mongodb-github-action@1.3.0
+        uses: supercharge/mongodb-github-action@310bd1bbeb878d9de3e54ee492cbd9643b1e8875 # 1.3.0
         with:
           mongodb-version: ${{ matrix.mongodb-version }}
 
@@ -80,10 +102,10 @@ jobs:
 
     steps:
       - name: Git Checkout
-        uses: actions/checkout@v5
+        uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5
 
       - name: Use Node.js ${{ matrix.node-version }}
-        uses: actions/setup-node@v5
+        uses: actions/setup-node@a0853c24544627f65ddf259abe73b1d18a591444 # v5
         with:
           node-version: ${{ matrix.node-version }}
           # Major aliases must resolve past any cached vulnerable patch.
@@ -91,7 +113,7 @@ jobs:
           package-manager-cache: false
 
       - name: Start MongoDB ${{ matrix.mongodb-version }}
-        uses: supercharge/mongodb-github-action@1.3.0
+        uses: supercharge/mongodb-github-action@310bd1bbeb878d9de3e54ee492cbd9643b1e8875 # 1.3.0
         with:
           mongodb-version: ${{ matrix.mongodb-version }}
 
@@ -127,9 +149,9 @@ jobs:
         mongodb-version: ['5.0.32', '8.0.29']
     steps:
       - name: Git Checkout
-        uses: actions/checkout@v5
+        uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5
       - name: Use Node.js ${{ matrix.node-version }}
-        uses: actions/setup-node@v5
+        uses: actions/setup-node@a0853c24544627f65ddf259abe73b1d18a591444 # v5
         with:
           node-version: ${{ matrix.node-version }}
           # Major aliases must resolve past any cached vulnerable patch.
@@ -175,15 +197,17 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        node-version: ['22.23.4', '22', '24.22.1', '24', '26.12.1', '26']
+        # Every engine, on the newest Node release line only: the backend
+        # matrix above covers the Node floor.
+        node-version: ${{ fromJSON(inputs.extended && '["22.23.4","22","24.22.1","24","26.12.1","26"]' || '["26"]') }}
         browser: [chromium, firefox, webkit]
     steps:
       - name: Git Checkout
-        uses: actions/checkout@v5
+        uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5
         with:
           persist-credentials: false
       - name: Use Node.js ${{ matrix.node-version }}
-        uses: actions/setup-node@v5
+        uses: actions/setup-node@a0853c24544627f65ddf259abe73b1d18a591444 # v5
         with:
           node-version: ${{ matrix.node-version }}
           check-latest: true
@@ -205,11 +229,11 @@ jobs:
     timeout-minutes: 10
     steps:
       - name: Git Checkout
-        uses: actions/checkout@v5
+        uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5
         with:
           persist-credentials: false
       - name: Use Node.js 24
-        uses: actions/setup-node@v5
+        uses: actions/setup-node@a0853c24544627f65ddf259abe73b1d18a591444 # v5
         with:
           node-version: 24
           check-latest: true
@@ -227,7 +251,7 @@ jobs:
   docker-build-pr:
     name: Validate Docker image (${{ matrix.arch }})
     # Validation has no publishing side effects and can run alongside the test matrix.
-    if: github.event_name == 'pull_request'
+    if: github.event_name == 'pull_request' || github.event_name == 'workflow_dispatch'
     runs-on: ${{ matrix.runner }}
     strategy:
       fail-fast: false
@@ -239,25 +263,25 @@ jobs:
           - arch: arm64
             platform: linux/arm64
             runner: ubuntu-24.04-arm
+    env:
+      IMAGE: nightscout/cgm-remote-monitor:ci-${{ github.run_id }}-${{ matrix.arch }}
     steps:
       - name: Git Checkout
-        uses: actions/checkout@v5
+        uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5
         with:
           persist-credentials: false
       - name: Set up Docker Buildx
-        uses: docker/setup-buildx-action@v4
+        uses: docker/setup-buildx-action@f87e5991a6d7451dcb8d9637bfbc97413f497069 # v4
       - name: Build Docker image without publishing
-        uses: docker/build-push-action@v7
+        uses: docker/build-push-action@c3c9e263c25d99ce0380d002d59b67737d91b0dc # v7
         with:
           context: .
           push: false
           load: true
           platforms: ${{ matrix.platform }}
-          tags: nightscout/cgm-remote-monitor:pr-${{ github.event.pull_request.number }}
+          tags: ${{ env.IMAGE }}
 
       - name: Validate pruned runtime and startup
-        env:
-          IMAGE: nightscout/cgm-remote-monitor:pr-${{ github.event.pull_request.number }}
         run: |
           docker run --rm "$IMAGE" node -e "require('./lib/server/runtime-policy')(); console.log(process.version)"
           docker run --detach --name nightscout-smoke -e INSECURE_USE_HTTP=true -p 127.0.0.1:1337:1337 "$IMAGE"
@@ -275,8 +299,8 @@ jobs:
 
   docker-build:
     name: Build Docker image (${{ matrix.arch }})
-    needs: [test, browser-test, maintained-mongo, replica-test]
-    if: (github.ref == 'refs/heads/master' || github.ref == 'refs/heads/dev') && github.repository_owner == 'nightscout'
+    needs: [test, browser-test, npm12-build, maintained-mongo, replica-test]
+    if: github.event_name == 'push' && (github.ref == 'refs/heads/master' || github.ref == 'refs/heads/dev') && github.repository_owner == 'nightscout'
     runs-on: ${{ matrix.runner }}
     strategy:
       fail-fast: false
@@ -292,15 +316,15 @@ jobs:
       DOCKER_IMAGE: nightscout/cgm-remote-monitor
     steps:
       - name: Set up Docker Buildx
-        uses: docker/setup-buildx-action@v4
+        uses: docker/setup-buildx-action@f87e5991a6d7451dcb8d9637bfbc97413f497069 # v4
       - name: Login to Docker Hub
-        uses: docker/login-action@v4
+        uses: docker/login-action@81c6f93d4bc991e510b342a00b419b3bb4efc5c6 # v4
         with:
           username: ${{ secrets.DOCKER_USER }}
           password: ${{ secrets.DOCKER_PASS }}
       - name: Clean git Checkout
         if: success()
-        uses: actions/checkout@v5
+        uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5
       - name: Prepare Docker tags
         id: docker-tags
         shell: bash
@@ -314,7 +338,7 @@ jobs:
             echo "latest_tag=${DOCKER_IMAGE}:latest-${{ matrix.arch }}" >> "$GITHUB_OUTPUT"
           fi
       - name: Build, tag and push Docker image
-        uses: docker/build-push-action@v7
+        uses: docker/build-push-action@c3c9e263c25d99ce0380d002d59b67737d91b0dc # v7
         with:
           context: .
           push: true
@@ -328,19 +352,19 @@ jobs:
     name: Publish to Docker Hub
     needs: docker-build
     runs-on: ubuntu-latest
-    if: (github.ref == 'refs/heads/master' || github.ref == 'refs/heads/dev') && github.repository_owner == 'nightscout'
+    if: github.event_name == 'push' && (github.ref == 'refs/heads/master' || github.ref == 'refs/heads/dev') && github.repository_owner == 'nightscout'
     env:
       DOCKER_IMAGE: nightscout/cgm-remote-monitor
     steps:
       - name: Set up Docker Buildx
-        uses: docker/setup-buildx-action@v4
+        uses: docker/setup-buildx-action@f87e5991a6d7451dcb8d9637bfbc97413f497069 # v4
       - name: Login to Docker Hub
-        uses: docker/login-action@v4
+        uses: docker/login-action@81c6f93d4bc991e510b342a00b419b3bb4efc5c6 # v4
         with:
           username: ${{ secrets.DOCKER_USER }}
           password: ${{ secrets.DOCKER_PASS }}
       - name: Clean git Checkout
-        uses: actions/checkout@v5
+        uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5
       - name: Prepare Docker manifest tags
         id: docker-tags
         shell: bash
