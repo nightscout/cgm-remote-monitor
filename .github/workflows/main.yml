@@ -71,18 +71,9 @@ jobs:
 
       - name: Install dependencies
         run: npm ci
-      - name: Validate dependency resolution
-        run: npm ls brace-expansion postcss mocha nanoid js-yaml eslint nyc dompurify socket.io-parser fast-uri ip-address d3 d3-color express body-parser socket.io socket.io-client engine.io engine.io-client socket.io-adapter ws axios @babel/core @babel/preset-env babel-loader uuid --all
-      - name: Check the test tier map
-        run: npm run-script test:tiers
+      # The tiers that pass with no database run in test-no-db.
       - name: Run Tests
-        run: npm run-script test-ci
-      - name: Run client-core tests
-        run: npm run-script test:core
-      - name: Run test harness tests
-        run: npm run-script test:harness
-      - name: Send Coverage
-        run: npm run-script coverage
+        run: node scripts/test-tiers.js run integration,stress --ci
       - name: Validate built and pruned runtime
         env:
           NODE_ENV: production
@@ -90,6 +81,37 @@ jobs:
         run: |
           npm prune --omit=dev --ignore-scripts
           node tools/validate-pruned-runtime.js
+
+  test-no-db:
+    name: Tests without a database (${{ matrix.node-version }})
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        # These tiers pass with no MongoDB reachable (tests/tiers.json), so
+        # they vary only with Node: the same edges as the test matrix.
+        node-version: ${{ fromJSON(inputs.extended && '["22.23.4","22","24.22.1","24","26.12.1","26"]' || '["22.23.4","26"]') }}
+
+    steps:
+      - name: Git Checkout
+        uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5
+
+      - name: Use Node.js ${{ matrix.node-version }}
+        uses: actions/setup-node@a0853c24544627f65ddf259abe73b1d18a591444 # v5
+        with:
+          node-version: ${{ matrix.node-version }}
+          # Major aliases must resolve past any cached vulnerable patch.
+          check-latest: true
+          cache: npm
+          cache-dependency-path: package-lock.json
+
+      - name: Install dependencies
+        run: npm ci
+      - name: Validate dependency resolution
+        run: npm ls brace-expansion postcss mocha nanoid js-yaml eslint nyc dompurify socket.io-parser fast-uri ip-address d3 d3-color express body-parser socket.io socket.io-client engine.io engine.io-client socket.io-adapter ws axios @babel/core @babel/preset-env babel-loader uuid --all
+      - name: Check the test tier map
+        run: npm run-script test:tiers
+      - name: Run Tests
+        run: node scripts/test-tiers.js run unit,dom,dependency,core,harness --ci
 
   maintained-mongo:
     name: Maintained MongoDB
@@ -303,7 +325,7 @@ jobs:
 
   docker-build:
     name: Build Docker image (${{ matrix.arch }})
-    needs: [test, browser-test, npm12-build, maintained-mongo, replica-test]
+    needs: [test, test-no-db, browser-test, npm12-build, maintained-mongo, replica-test]
     if: github.event_name == 'push' && (github.ref == 'refs/heads/master' || github.ref == 'refs/heads/dev') && github.repository_owner == 'nightscout'
     runs-on: ${{ matrix.runner }}
     strategy:
