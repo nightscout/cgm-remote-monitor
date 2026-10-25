@@ -1,4 +1,5 @@
 'use strict';
+// covers: lib/plugins/maker.js
 
 const assert = require('node:assert/strict');
 const {EventEmitter} = require('node:events');

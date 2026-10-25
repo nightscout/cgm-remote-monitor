@@ -73,10 +73,14 @@ jobs:
         run: npm ci
       - name: Validate dependency resolution
         run: npm ls brace-expansion postcss mocha nanoid js-yaml eslint nyc dompurify socket.io-parser fast-uri ip-address d3 d3-color express body-parser socket.io socket.io-client engine.io engine.io-client socket.io-adapter ws axios @babel/core @babel/preset-env babel-loader uuid --all
+      - name: Check the test tier map
+        run: npm run-script test:tiers
       - name: Run Tests
         run: npm run-script test-ci
       - name: Run client-core tests
         run: npm run-script test:core
+      - name: Run test harness tests
+        run: npm run-script test:harness
       - name: Send Coverage
         run: npm run-script coverage
       - name: Validate built and pruned runtime

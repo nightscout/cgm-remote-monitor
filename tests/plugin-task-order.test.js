@@ -1,4 +1,5 @@
 'use strict';
+// covers: lib/plugins/maker.js, lib/plugins/alexa.js, lib/plugins/googlehome.js
 const assert = require('node:assert/strict');
 const path = require('node:path');
 const pluginRoot = process.env.NIGHTSCOUT_PLUGIN_TASK_ORACLE_ROOT || path.resolve(__dirname, '..');

@@ -160,6 +160,54 @@ NODE_ENV=test npm run test:integration
 NODE_ENV=test npm test -- --grep "treatments"
 ```
 
+### Test tiers
+
+`tests/tiers.json` puts every test file in exactly one tier and says how each
+tier runs; `npm run test:<tier>` runs one, and `npm run test:all` runs every
+tier except `browser`.
+
+| Tier | What belongs there |
+|---|---|
+| `unit` | passes with no MongoDB reachable; runs in parallel |
+| `dom` | uses `tests/fixtures/secure-jsdom.js`, no MongoDB; runs serially |
+| `dependency` | checks a third-party package's behaviour |
+| `core` | `tests/client-core/` |
+| `harness` | tests of the test tooling itself |
+| `integration` | needs MongoDB; runs after `00_production-safety` and before `XX_clean` |
+| `stress` | concurrency tests, bracketed the same way |
+| `browser` | real-browser tests (see below) |
+
+A new test file must be added to a tier. `npm run test:tiers` checks that
+every test file is in exactly one tier, that no tier entry is stale, and that
+every test reaches some source file through `require` or a path string. A test
+that exercises code the graph cannot see (a child process, a package) says
+what it covers on a line of its own:
+
+```js
+// covers: package-lock.json
+```
+
+Unknown tier names, missing explicit test files and files outside the requested
+tiers fail with a nonzero exit status before any tests run. Empty automatic
+affected-test selections and empty stdin pipelines remain successful no-ops.
+
+### Inner-loop selection
+
+```bash
+# Tests within 4 require hops of the last 10 commits and uncommitted work
+npm run test:affected
+npm run test:affected -- --since official/dev --why   # what this branch changes, with reasons
+npm run test:affected -- --depth 10                   # every implicated test
+
+# A seeded random sample; the seed is printed so a failure can be replayed
+npm run test:smoke -- 12
+npm run test:smoke -- 12 --seed 7
+```
+
+Both print the selection on stderr; `node scripts/test-select.js affected`
+without `--run` prints the files on stdout for another runner. The selection is
+static, so run the full suite before pushing.
+
 ### Advanced Test Scripts
 
 Run `npm run test:dependencies` to check dependency resolution and compatibility
