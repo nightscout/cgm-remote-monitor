@@ -290,6 +290,28 @@ html.modern-ui {
 .modern-ui .modern-connected-sample { fill: transparent; }
 .modern-ui .modern-trace-label { fill: #9faec0; font-size: 11px; pointer-events: none; }
 .modern-ui .modern-now-label { fill: #c9d0da; font-size: 12px; text-anchor: end; pointer-events: none; }
+/* Rates remain stepped: corners mark real changes in insulin delivery. */
+.modern-ui .chart-basals { pointer-events: none; }
+.modern-ui .chart-basals .basalline,
+.modern-ui .chart-basals .notempline {
+  stroke-linejoin: round;
+  stroke-linecap: round;
+  vector-effect: non-scaling-stroke;
+}
+.modern-ui .chart-basals .basalline { stroke: #8abde5; stroke-width: 1.75; stroke-opacity: .9; }
+.modern-ui .chart-basals .notempline { stroke: #a4b3c5; stroke-width: 1; stroke-dasharray: 3 5; stroke-opacity: .55; }
+.modern-ui .chart-basals .basalarea { fill-opacity: .5; }
+.modern-ui .chart-basals .tempbasalarea,
+.modern-ui .chart-basals .comboarea { fill-opacity: 1; }
+.modern-ui .chart-basals .tempbasaltext {
+  font-size: 11px !important;
+  font-weight: 500;
+  fill: #b3cde3;
+  stroke: #101419;
+  stroke-width: 4px;
+  stroke-linejoin: round;
+  paint-order: stroke fill;
+}
 .modern-ui .tooltip { z-index: 50; box-sizing: border-box; max-width: min(360px, calc(100vw - 16px)); padding: 10px; border: 1px solid #46576b; border-radius: 8px; background: #202a36; color: #f0f3f7; }
 .modern-ui .modern-hover-guide { stroke: #a5b6c9; stroke-width: 1; stroke-opacity: .65; stroke-dasharray: 3 4; pointer-events: none; }
 .modern-ui .modern-hover-area { cursor: crosshair; }
