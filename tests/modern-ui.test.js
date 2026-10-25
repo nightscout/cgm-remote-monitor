@@ -41,6 +41,63 @@ describe('opt-in modern dashboard', function () {
     }
   });
 
+  ['modern', 'colors'].forEach(theme => {
+    it('preserves authentication submission, retry focus and remember-device opt-in with ' + theme, function () {
+      const env = createSecureDOM('<div id="authentication_placeholder"></div>');
+      const state = domGlobals.installDomGlobals(env);
+      const authPath = require.resolve('../lib/client/hashauth');
+      delete require.cache[authPath];
+      try {
+        const $ = env.window.$;
+        $.ui = {keyCode: {ENTER: 13}};
+        let options;
+        let closed = false;
+        $.fn.dialog = function (value) {
+          if (value === 'close') { closed = true; return this; }
+          options = value;
+          this.show().append($('<button id="requestauthenticationdialog-btn"></button>')
+            .on('click', () => options.buttons[0].click.call(this[0])));
+          options.open();
+          return this;
+        };
+        let authenticated = false;
+        const auth = require(authPath).init({
+          settings: {theme}, translate: value => value,
+          afterAuth: value => { authenticated = value; }
+        }, $);
+        auth.requestAuthentication();
+        assert.strictEqual(options.height, theme === 'modern' ? 'auto' : 270);
+        assert.strictEqual(options.dialogClass, theme === 'modern' ? 'modern-auth-dialog' : '');
+        assert.strictEqual(options.closeText, theme === 'modern' ? 'Close' : '');
+        assert.strictEqual($('#apisecret').attr('type'), 'password');
+        assert.strictEqual($('#storeapisecret').is(':checked'), false);
+        assert.strictEqual(env.document.activeElement.id, 'apisecret');
+        auth.processSecret = (secret, remember, done) => {
+          assert.strictEqual(secret, 'synthetic-rejected-value');
+          assert.strictEqual(remember, false);
+          done(false);
+        };
+        $('#apisecret').val('synthetic-rejected-value');
+        $('#requestauthenticationdialog-btn').trigger('click');
+        assert.strictEqual($('#apisecret').val(), '');
+        assert.strictEqual(env.document.activeElement.id, 'apisecret');
+        assert.strictEqual(closed, false);
+        auth.processSecret = (secret, remember, done) => {
+          assert.strictEqual(secret, 'synthetic-accepted-value');
+          assert.strictEqual(remember, true);
+          done(true);
+        };
+        $('#storeapisecret').prop('checked', true);
+        $('#apisecret').val('synthetic-accepted-value').trigger($.Event('keyup', {keyCode: 13}));
+        assert.strictEqual(authenticated, true);
+        assert.strictEqual(closed, true);
+      } finally {
+        delete require.cache[authPath];
+        domGlobals.restoreDomGlobals(state);
+      }
+    });
+  });
+
   function settingsFor (value) {
     const settings = makeSettings();
     settings.eachSettingAsEnv(name => name === 'THEME' ? value : undefined);

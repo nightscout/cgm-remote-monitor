@@ -26,6 +26,8 @@ Dashboard content has its own stacking context. Drawers appear above it, followe
 
 The modern theme also restyles the existing Settings drawer. A sticky heading includes a Close button that returns keyboard focus to the menu toggle. Native radio buttons, checkboxes, selects and text inputs keep their existing values and behavior, with clearer section spacing and visible focus states. The original Save and reset actions remain visible at the bottom while scrolling. Reports, clock links, plugin controls and authentication remain available in the same drawer.
 
+The device-authentication dialog uses the same dark surface, a compact heading, a labelled Close control, and a full-width Authenticate button. It fits the available viewport with scrollable content on short screens. The existing masked input, unchecked remember-device option, Enter submission, retry focus and Escape dismissal remain in use. Other themes retain their original authentication dialog.
+
 Chart-options and alarm menus use matching dark surfaces. All menu styling is scoped to the modern theme. The dashboard bundle URL changes after a server restart so a normal reload picks up updates; the service worker precaches that version for offline use.
 
 ## Chart meaning

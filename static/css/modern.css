@@ -508,3 +508,112 @@ html.modern-ui {
 .modern-ui .dropdown-menu li a:hover,
 .modern-ui .dropdown-menu li label:hover { background: #2a3b50; }
 .modern-ui #viewMenu input { accent-color: #9bcdfb; }
+
+/* Keep the existing authentication dialog and focus handling, with a compact surface. */
+.modern-ui .modern-auth-dialog.ui-dialog {
+  position: fixed;
+  top: 50% !important;
+  left: 50% !important;
+  transform: translate(-50%, -50%);
+  display: flex;
+  flex-direction: column;
+  box-sizing: border-box;
+  width: min(440px, calc(100vw - 32px)) !important;
+  max-height: calc(100vh - 32px);
+  max-height: calc(100dvh - 32px);
+  margin: 0;
+  padding: 0;
+  overflow: hidden;
+  border: 1px solid #3c4a5c;
+  border-radius: 14px;
+  background: #151c25;
+  color: #e5e9ef;
+  font-family: inherit;
+  font-size: 14px;
+  box-shadow: 0 18px 64px rgb(0 0 0 / 45%);
+}
+.modern-ui .modern-auth-dialog .ui-dialog-titlebar {
+  flex: 0 0 auto;
+  margin: 0;
+  padding: 18px 60px 18px 22px;
+  border: 0;
+  border-bottom: 1px solid #2d3846;
+  border-radius: 0;
+  background: #171f2a;
+  color: #e9eff7;
+  font-size: 20px;
+  font-weight: 650;
+  line-height: 1.3;
+  letter-spacing: -.025em;
+}
+.modern-ui .modern-auth-dialog .ui-dialog-title { float: none; display: block; width: auto; margin: 0; white-space: normal; }
+.modern-ui .modern-auth-dialog .ui-dialog-titlebar-close {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  top: 50%;
+  right: 12px;
+  width: 40px;
+  height: 40px;
+  margin-top: -20px;
+  padding: 0;
+  border: 0;
+  border-radius: 8px;
+  background: transparent;
+  color: #b8c5d5;
+  font-size: 0;
+  box-shadow: none;
+}
+.modern-ui .modern-auth-dialog .ui-dialog-titlebar-close::before {
+  content: '';
+  width: 14px;
+  height: 14px;
+  background: linear-gradient(45deg, transparent 44%, currentColor 45%, currentColor 55%, transparent 56%), linear-gradient(-45deg, transparent 44%, currentColor 45%, currentColor 55%, transparent 56%);
+}
+.modern-ui .modern-auth-dialog .ui-dialog-titlebar-close .ui-icon,
+.modern-ui .modern-auth-dialog .ui-dialog-titlebar-close .ui-button-icon-space { display: none; }
+.modern-ui .modern-auth-dialog .ui-dialog-titlebar-close:hover { background: #293442; color: #fff; }
+.modern-ui .modern-auth-dialog #requestauthenticationdialog {
+  display: grid !important;
+  grid-template-columns: 18px minmax(0, 1fr);
+  align-items: start;
+  gap: 12px 10px;
+  flex: 1 1 auto;
+  min-height: 0 !important;
+  height: auto !important;
+  padding: 22px;
+  overflow: auto;
+  background: #151c25;
+  color: #b7c4d4;
+  line-height: 1.5;
+}
+.modern-ui #requestauthenticationdialog > br { display: none; }
+.modern-ui #requestauthenticationdialog label[for="apisecret"] { grid-column: 1 / -1; color: #dbe5f0; font-size: 14px; font-weight: 600; }
+.modern-ui #requestauthenticationdialog #apisecret {
+  grid-column: 1 / -1;
+  box-sizing: border-box;
+  min-width: 0;
+  min-height: 46px;
+  margin: -4px 0 6px;
+  padding: 10px 12px;
+  border: 1px solid #52677f;
+  border-radius: 8px;
+  background: #101720;
+  color: #e9eff7;
+  font: inherit;
+  font-size: 16px;
+}
+.modern-ui #requestauthenticationdialog #storeapisecret { width: 18px; height: 18px; margin: 2px 0 0; accent-color: #9bcdfb; }
+.modern-ui #requestauthenticationdialog label[for="storeapisecret"] { cursor: pointer; overflow-wrap: anywhere; }
+.modern-ui .modern-auth-dialog .ui-dialog-buttonpane { flex: 0 0 auto; margin: 0; padding: 16px 22px; border: 0; border-top: 1px solid #2d3846; background: #151c25; }
+.modern-ui .modern-auth-dialog .ui-dialog-buttonset { float: none; }
+.modern-ui .modern-auth-dialog #requestauthenticationdialog-btn { box-sizing: border-box; width: 100%; min-height: 44px; margin: 0; padding: 10px 14px; border: 1px solid #9bcdfb; border-radius: 8px; background: #9bcdfb; color: #122033; font: inherit; font-size: 15px; font-weight: 650; box-shadow: none; cursor: pointer; }
+.modern-ui .modern-auth-dialog #requestauthenticationdialog-btn:hover { background: #bbdfff; border-color: #bbdfff; }
+.modern-ui .modern-auth-dialog #requestauthenticationdialog-btn .ui-button-text { padding: 0; }
+.modern-ui .modern-auth-dialog input:focus-visible,
+.modern-ui .modern-auth-dialog button:focus-visible { outline: 2px solid #9bcdfb; outline-offset: 3px; }
+@media (max-width: 360px) {
+  .modern-ui .modern-auth-dialog .ui-dialog-titlebar { padding-left: 16px; font-size: 18px; }
+  .modern-ui .modern-auth-dialog #requestauthenticationdialog { padding: 18px 16px; }
+  .modern-ui .modern-auth-dialog .ui-dialog-buttonpane { padding: 14px 16px; }
+}
