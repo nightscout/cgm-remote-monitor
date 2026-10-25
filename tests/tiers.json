@@ -62,6 +62,7 @@
         "tests/profile.test.js",
         "tests/profileeditor.records.test.js",
         "tests/profileeditor.test.js",
+        "tests/purifier.corpus.test.js",
         "tests/pushover-lifecycle.test.js",
         "tests/pushover.test.js",
         "tests/query.operands.test.js",
