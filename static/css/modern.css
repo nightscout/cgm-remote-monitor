@@ -12,7 +12,9 @@ html.modern-ui {
 }
 .modern-ui #container {
   position: relative;
-  z-index: auto;
+  /* Contain legacy/plugin layers below the body-level drawers and dialogs. */
+  z-index: 0;
+  isolation: isolate;
   top: auto;
   padding: 0;
 }
@@ -26,9 +28,9 @@ html.modern-ui {
   box-sizing: border-box;
   width: 100%;
   height: auto;
-  min-height: 56px;
+  min-height: 48px;
   margin: 0;
-  padding: 4px max(16px, env(safe-area-inset-right)) 4px max(16px, env(safe-area-inset-left));
+  padding: 2px max(14px, env(safe-area-inset-right)) 2px max(14px, env(safe-area-inset-left));
   border-bottom: 1px solid #2b323c;
   background: #171c23;
 }
@@ -39,7 +41,7 @@ html.modern-ui {
   box-sizing: border-box;
   margin: 0;
   padding: 4px 0 4px 38px;
-  font-size: 20px;
+  font-size: 18px;
   font-weight: 650;
   overflow-wrap: anywhere;
   background-position: left center;
@@ -85,13 +87,13 @@ html.modern-ui {
   display: grid;
   position: relative;
   grid-template-columns: minmax(0, 0.9fr) minmax(0, 1.1fr);
-  grid-template-areas: "clock glucose" "status major" "status minor" "range range" "chart chart";
-  grid-template-rows: auto auto auto auto minmax(320px, 1fr);
-  gap: 10px 24px;
+  grid-template-areas: "clock glucose" "status major" "range minor" "chart chart";
+  grid-template-rows: auto auto auto minmax(320px, 1fr);
+  gap: 6px 20px;
   box-sizing: border-box;
-  min-height: calc(100vh - 56px);
-  min-height: calc(100svh - 56px);
-  padding: 18px max(20px, env(safe-area-inset-right)) max(20px, env(safe-area-inset-bottom)) max(20px, env(safe-area-inset-left));
+  min-height: calc(100vh - 48px);
+  min-height: calc(100svh - 48px);
+  padding: 8px max(14px, env(safe-area-inset-right)) max(12px, env(safe-area-inset-bottom)) max(14px, env(safe-area-inset-left));
   font-family: inherit;
   white-space: normal;
 }
@@ -109,7 +111,7 @@ html.modern-ui {
   align-self: center;
   display: block;
   color: #c9d0da;
-  font-size: clamp(64px, 7.4vw, 120px);
+  font-size: clamp(56px, 6vw, 100px);
   line-height: 1.1;
   letter-spacing: -0.045em;
   text-align: left;
@@ -122,13 +124,13 @@ html.modern-ui {
   max-width: 100%;
   width: auto;
   margin: 0;
-  padding: 4px 10px;
+  padding: 2px 6px;
   border: 2px solid transparent;
   border-radius: 12px;
   cursor: pointer;
 }
 .modern-ui .bgStatus .currentBG {
-  font-size: clamp(88px, 8.8vw, 144px);
+  font-size: clamp(76px, 7.3vw, 120px);
   line-height: 1;
   font-weight: 600;
   letter-spacing: -0.055em;
@@ -139,7 +141,7 @@ html.modern-ui {
   display: inline;
   margin: 0 0 0 8px;
   padding: 0;
-  font-size: clamp(56px, 5.8vw, 96px);
+  font-size: clamp(48px, 5vw, 80px);
   line-height: 1;
   border: 0;
   background: none;
@@ -147,9 +149,9 @@ html.modern-ui {
 }
 .modern-ui .modern-glucose-unit {
   display: block;
-  margin-top: 4px;
-  color: #b8c2cf;
-  font-size: 16px;
+  margin-top: 2px;
+  color: #aab5c3;
+  font-size: 14px;
   font-weight: 400;
   letter-spacing: normal;
   text-align: right;
@@ -161,15 +163,15 @@ html.modern-ui {
   align-items: start;
   align-content: start;
   flex-wrap: wrap;
-  gap: 8px;
+  gap: 5px;
   min-width: 0;
   margin: 0;
-  font-size: 16px;
+  font-size: 14px;
   line-height: 1.4;
 }
 .modern-ui .statusPills { grid-area: status; }
-.modern-ui .bgStatus .majorPills { grid-area: major; justify-content: flex-end; font-size: 20px; }
-.modern-ui .minorPills { grid-area: minor; justify-content: flex-end; }
+.modern-ui .bgStatus .majorPills { grid-area: major; justify-content: flex-end; font-size: 18px; }
+.modern-ui .minorPills { grid-area: minor; justify-content: flex-end; font-size: 13px; z-index: auto; }
 .modern-ui .modern-dashboard .pill:not(.direction):not(.rawbg) {
   display: inline-flex;
   align-items: center;
@@ -179,14 +181,14 @@ html.modern-ui {
   box-sizing: border-box;
   min-width: 0;
   max-width: 100%;
-  min-height: 40px;
+  min-height: 28px;
   white-space: normal;
   overflow-wrap: anywhere;
   margin: 0;
-  padding: 7px 12px;
-  border: 1px solid #35404d;
-  border-radius: 10px;
-  background: #1c232c;
+  padding: 4px 8px;
+  border: 1px solid #29313b;
+  border-radius: 7px;
+  background: #161c23;
   color: #e5e9ef;
 }
 .modern-ui .modern-dashboard .pill em,
@@ -198,12 +200,12 @@ html.modern-ui {
   line-height: 1.35;
 }
 .modern-ui .modern-dashboard .pill label {
-  color: #b8c2cf;
+  color: #aab5c3;
   white-space: normal;
   overflow-wrap: anywhere;
 }
-.modern-ui .modern-dashboard .pill em { color: #f0f3f7; font-weight: 650; }
-.modern-ui .modern-dashboard .pill.warn:not(.direction):not(.rawbg) { border-color: #786323; background: #26241a; }
+.modern-ui .modern-dashboard .pill em { color: #e7ecf3; font-weight: 600; }
+.modern-ui .modern-dashboard .pill.warn:not(.direction):not(.rawbg) { border-color: #5b4c20; background: #211f18; }
 .modern-ui .modern-dashboard .pill.warn em { color: #ffff00; }
 .modern-ui .modern-dashboard .pill.urgent:not(.direction):not(.rawbg) { border-color: #ff5353; background: #371d24; }
 .modern-ui .modern-dashboard .pill.urgent em { color: #ff6565; }
@@ -225,11 +227,11 @@ html.modern-ui {
   box-sizing: border-box;
   width: auto;
   max-width: 100%;
-  margin: 4px 0 2px;
-  padding: 3px;
-  border: 1px solid #35404d;
-  border-radius: 10px;
-  background: #171d25;
+  margin: 0;
+  padding: 2px;
+  border: 1px solid #29313b;
+  border-radius: 8px;
+  background: #141a21;
   text-align: center;
 }
 .modern-ui .focus-range li {
@@ -237,10 +239,10 @@ html.modern-ui {
   align-items: center;
   justify-content: center;
   box-sizing: border-box;
-  min-width: 44px;
-  min-height: 44px;
-  padding: 4px 12px;
-  font-size: 15px;
+  min-width: 36px;
+  min-height: 32px;
+  padding: 3px 8px;
+  font-size: 13px;
   border: 0;
   border-radius: 7px;
   color: #b8c2cf;
@@ -274,7 +276,7 @@ html.modern-ui {
 .modern-ui .chart-context .modern-trace { stroke-width: 1; opacity: .7; }
 .modern-ui .modern-forecast-line { stroke-width: 1.4; stroke-dasharray: 5 5; opacity: .7; }
 .modern-ui .modern-now-label { fill: #c9d0da; font-size: 12px; text-anchor: end; pointer-events: none; }
-.modern-ui .tooltip { z-index: 1001; padding: 10px; border: 1px solid #46576b; border-radius: 8px; background: #202a36; color: #f0f3f7; }
+.modern-ui .tooltip { z-index: 50; padding: 10px; border: 1px solid #46576b; border-radius: 8px; background: #202a36; color: #f0f3f7; }
 .modern-ui #viewMenu { grid-area: range; top: 100%; left: 0; right: auto; max-width: calc(100vw - 24px); font-size: 16px; }
 .modern-ui #viewMenu li { white-space: normal; }
 .modern-ui #silenceBtn { grid-area: glucose; top: 100%; right: 0; max-width: calc(100vw - 24px); }
@@ -282,31 +284,42 @@ html.modern-ui {
 .modern-ui #drawer,
 .modern-ui #treatmentDrawer,
 .modern-ui #boluscalcDrawer,
-.modern-ui #adminNotifiesDrawer { background-color: #202833; color: #e5e9ef; }
+.modern-ui #adminNotifiesDrawer {
+  position: fixed;
+  z-index: 100;
+  margin-top: 48px;
+  max-height: calc(100vh - 48px);
+  max-height: calc(100dvh - 48px);
+  box-sizing: border-box;
+  background-color: #202833;
+  color: #e5e9ef;
+}
+/* Keep jQuery UI's dynamic dialog ordering above the dashboard and drawers. */
+.modern-ui .ui-front { z-index: 300; }
 @media (max-width: 1000px) and (min-width: 601px) {
-  .modern-ui .modern-dashboard { gap: 10px 16px; }
+  .modern-ui .modern-dashboard { gap: 6px 12px; }
   .modern-ui .statusPills,
-  .modern-ui .minorPills { font-size: 14px; }
-  .modern-ui .modern-dashboard .pill:not(.direction):not(.rawbg) { padding: 7px 9px; }
+  .modern-ui .minorPills { font-size: 13px; }
+  .modern-ui .modern-dashboard .pill:not(.direction):not(.rawbg) { padding: 4px 7px; }
 }
 @media (max-width: 600px) {
   .modern-ui .modern-dashboard {
     grid-template-columns: repeat(2, minmax(0, 1fr));
     grid-template-areas: "clock freshness" "glucose glucose" "major major" "range range" "chart chart";
-    grid-template-rows: auto auto auto auto 340px;
+    grid-template-rows: auto auto auto auto clamp(340px, calc(100svh - 300px), 480px);
     grid-auto-rows: auto;
     align-content: start;
-    gap: 8px;
+    gap: 6px;
     min-height: 0;
-    padding: 12px max(12px, env(safe-area-inset-right)) max(20px, env(safe-area-inset-bottom)) max(12px, env(safe-area-inset-left));
+    padding: 8px max(12px, env(safe-area-inset-right)) max(12px, env(safe-area-inset-bottom)) max(12px, env(safe-area-inset-left));
   }
   .modern-ui #container #toolbar { padding-left: 12px; padding-right: 12px; }
   .modern-ui #toolbar .customTitle { min-width: 110px; font-size: 16px; padding-left: 30px; background-size: 23px auto; }
   .modern-ui #buttonbar { max-width: 100%; }
-  .modern-ui #currentTime { font-size: 22px; font-weight: 600; letter-spacing: -.025em; text-align: left; }
-  .modern-ui .bgButton { justify-self: center; padding: 8px 4px; }
+  .modern-ui #currentTime { font-size: 20px; font-weight: 600; letter-spacing: -.025em; text-align: left; }
+  .modern-ui .bgButton { justify-self: center; padding: 4px; }
   .modern-ui .modern-glucose-unit { text-align: center; }
-  .modern-ui .bgStatus .currentBG { font-size: clamp(72px, 22vw, 112px); }
+  .modern-ui .bgStatus .currentBG { font-size: clamp(72px, 20vw, 104px); }
   .modern-ui .bgStatus .currentBG.bg-limit,
   .modern-ui .bgStatus .currentBG.icon-hourglass { font-size: 64px; }
   .modern-ui .bgStatus .pill.direction { font-size: clamp(44px, 13vw, 68px); margin-left: 6px; }
@@ -319,14 +332,14 @@ html.modern-ui {
     grid-area: freshness;
     justify-self: end;
     align-self: center;
-    min-height: 30px !important;
-    padding: 3px 7px !important;
+    min-height: 26px !important;
+    padding: 3px 6px !important;
     font-size: 13px;
   }
   .modern-ui .statusPills > .pill:not(.timeago),
-  .modern-ui .minorPills > .pill { justify-content: space-between !important; align-self: stretch; font-size: 14px; }
+  .modern-ui .minorPills > .pill { justify-content: space-between !important; align-self: stretch; font-size: 13px; }
   .modern-ui .minorPills > .basal { grid-column: 1 / -1; }
-  .modern-ui .modern-dashboard .pill:not(.direction):not(.rawbg) { min-height: 44px; padding: 8px 10px; }
+  .modern-ui .modern-dashboard .pill:not(.direction):not(.rawbg) { min-height: 36px; padding: 6px 8px; }
   .modern-ui .focus-range { justify-self: stretch; justify-content: center; margin: 2px 0; }
   .modern-ui .focus-range li { min-width: 34px; min-height: 44px; padding: 4px 7px; font-size: 14px; flex: 1; }
   .modern-ui .section1,

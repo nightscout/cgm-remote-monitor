@@ -14,11 +14,13 @@ The existing browser theme preference takes precedence over the server default, 
 
 ## Screen sizes
 
-- **Desktop:** clock and glucose are side by side; plugin pills wrap below; the chart uses the remaining viewport height with a readable minimum.
+- **Desktop:** clock and glucose are side by side above compact plugin pills. The time-range control and secondary metrics share a row so the chart uses more of the viewport height, with a readable minimum.
 - **Tablet:** the same hierarchy adapts to the narrower columns; pills wrap naturally without truncating values.
-- **Phone (600 CSS pixels or narrower):** a small clock and the existing reading-age pill appear first, followed by the large glucose reading and major pills. The chart appears before a two-column grid of secondary plugin pills. The page scrolls vertically rather than compressing the chart. Every time-range option remains available, and the range control can wrap on narrow screens.
+- **Phone (600 CSS pixels or narrower):** a compact clock and the existing reading-age pill appear first, followed by the large glucose reading and major pills. The chart grows with the available screen height (340–480px) and appears before a two-column grid of secondary plugin pills. The page scrolls vertically rather than compressing the chart. Every time-range option remains available, and the range control can wrap on narrow screens.
 
 The original plugin elements and their tooltips are retained. Pills reflect real plugin warning/urgent state; the design never invents a connection or health status. Existing alarm colours, alarm menus, stale-reading strike-through, historical browsing, treatment entry, settings, and authorization still use Nightscout's normal client code. Browser text zoom is allowed. Controls have keyboard focus indicators; chart range and glucose/alarm controls accept Enter or Space.
+
+Dashboard content has its own stacking context. Drawers appear above it, followed by jQuery UI dialogs and modal backdrops; legacy plugin z-index values cannot cover authentication inputs or menu controls. Dialogs retain jQuery UI's dynamic ordering.
 
 ## Chart meaning
 
