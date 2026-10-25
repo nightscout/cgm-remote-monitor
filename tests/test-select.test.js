@@ -109,3 +109,48 @@ describe('Test selection CLI validation', function () {
     assert.ok(selected.every(file => tiers.tierOf(file) === 'core'));
   });
 });
+
+describe('Seeded test-file order', function () {
+  this.timeout(15000);
+  const root = path.resolve(__dirname, '..');
+  const files = tiers.listTestFiles().filter(file => tiers.tierOf(file) === 'integration');
+
+  function orderOf(seed) {
+    return tiers.command('integration', files, true, seed)[1].filter(arg => arg.endsWith('.test.js'));
+  }
+
+  it('replays the same order from the same seed and keeps every file', function () {
+    const first = orderOf(8839), replay = orderOf(8839);
+    assert.deepEqual(first, replay);
+    assert.deepEqual(first.slice().sort(), orderOf(undefined).slice().sort());
+    assert.notDeepEqual(first, orderOf(8840));
+  });
+
+  it('keeps the database safety check first and the clean-up last', function () {
+    for (const seed of [0, 1, 8839, 4294967296]) {
+      const order = orderOf(seed);
+      assert.equal(order[0], './tests/00_production-safety.test.js');
+      assert.equal(order[order.length - 1], './tests/XX_clean.test.js');
+    }
+  });
+
+  it('leaves the order alone without a seed', function () {
+    const plain = orderOf(undefined);
+    const body = plain.slice(1, -1);
+    assert.deepEqual(body, files.filter(file => !/00_production-safety|XX_clean\./.test(file)).map(file => './' + file));
+  });
+
+  it('prints the seed and rejects one that is not an integer', function () {
+    const coreFile = 'tests/client-core/careportal-duration.test.js';
+    const run = seed => spawnSync(process.execPath, [path.join(root, 'scripts', 'test-tiers.js'), 'run', 'core', coreFile], {
+      cwd: root, encoding: 'utf8', timeout: 10000, env: Object.assign({}, process.env, {TEST_SHUFFLE_SEED: seed})
+    });
+    const ok = run('8839');
+    assert.equal(ok.status, 0, ok.stderr);
+    assert.match(ok.stderr, /shuffled; replay with TEST_SHUFFLE_SEED=8839/);
+    const bad = run('soon');
+    assert.equal(bad.status, 2);
+    assert.match(bad.stderr, /TEST_SHUFFLE_SEED must be a non-negative integer/);
+    assert.doesNotMatch(bad.stdout + bad.stderr, /passing/);
+  });
+});

@@ -191,6 +191,15 @@ Unknown tier names, missing explicit test files and files outside the requested
 tiers fail with a nonzero exit status before any tests run. Empty automatic
 affected-test selections and empty stdin pipelines remain successful no-ops.
 
+`TEST_SHUFFLE_SEED=<integer>` runs each tier's files in a seeded random order,
+keeping a tier's first and last files in place, and prints the seed. Running
+again with the same seed replays the order, so a failure that depends on which
+file ran before it can be reproduced:
+
+```bash
+TEST_SHUFFLE_SEED=8839 npm run test:integration
+```
+
 ### Inner-loop selection
 
 ```bash
