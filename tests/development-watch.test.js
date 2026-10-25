@@ -1,4 +1,5 @@
 'use strict';
+// covers: package.json, tools/probe-development-watch.py
 
 const assert = require('node:assert/strict');
 const fs = require('node:fs/promises');
