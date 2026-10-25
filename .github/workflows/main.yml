@@ -35,14 +35,28 @@ jobs:
         # Test the edges of the supported range, not every point inside it:
         # the floor, the lowest Node that package.json engines admits
         # (^22.23.4 || ^24.22.1 || >=26.12.1), and the newest Node release
-        # line ('26' with check-latest), each against the oldest and newest
+        # line ('26' with check-latest), against the oldest and newest
         # supported MongoDB (5.0 and 8.0, README). The 24.22.1 and 26.12.1
         # floors are covered by tests/runtime-policy.test.js's boundary cases.
         node-version: ${{ fromJSON(inputs.extended && '["22.23.4","22","24.22.1","24","26.12.1","26"]' || '["22.23.4","26"]') }}
         # Quoted, so the MongoDB action pulls mongo:5.0 and mongo:8.0, the
         # newest patch of each series (unquoted, 8.0 becomes "8": mongo:8).
         mongodb-version: ['5.0', '8.0']
+        # Pull requests and pushes run the diagonal, which tests each Node
+        # edge and each MongoDB edge once; the extended run keeps every pair.
+        # The newest pair also runs in maintained-mongo.
+        exclude: ${{ fromJSON(inputs.extended && '[]' || '[{"node-version":"22.23.4","mongodb-version":"5.0"},{"node-version":"26","mongodb-version":"8.0"}]') }}
         include:
+          # Each diagonal cell also takes one other setting at its
+          # non-default value, without adding a cell: the floor shuffles the
+          # test-file order (seeded by the run, printed for replay), and the
+          # newest line runs in a time zone with daylight saving time.
+          - node-version: '22.23.4'
+            mongodb-version: '8.0'
+            shuffle: true
+          - node-version: '26'
+            mongodb-version: '5.0'
+            tz: America/Los_Angeles
           # Retain "Run Tests (24, 6)" for dev/master and "Run Tests (22, 6)"
           # for master until the repository settings change. Node 24 is also
           # the line the Docker images use.
@@ -50,6 +64,9 @@ jobs:
             mongodb-version: 6.0
           - node-version: '22'
             mongodb-version: 6.0
+    env:
+      TZ: ${{ matrix.tz || 'UTC' }}
+      TEST_SHUFFLE_SEED: ${{ matrix.shuffle && github.run_id || '' }}
 
     steps:
       - name: Git Checkout
@@ -90,6 +107,16 @@ jobs:
         # These tiers pass with no MongoDB reachable (tests/tiers.json), so
         # they vary only with Node: the same edges as the test matrix.
         node-version: ${{ fromJSON(inputs.extended && '["22.23.4","22","24.22.1","24","26.12.1","26"]' || '["22.23.4","26"]') }}
+        # The other way round from the test matrix, so each Node edge runs
+        # each setting once across the two jobs.
+        include:
+          - node-version: '22.23.4'
+            tz: America/Los_Angeles
+          - node-version: '26'
+            shuffle: true
+    env:
+      TZ: ${{ matrix.tz || 'UTC' }}
+      TEST_SHUFFLE_SEED: ${{ matrix.shuffle && github.run_id || '' }}
 
     steps:
       - name: Git Checkout
