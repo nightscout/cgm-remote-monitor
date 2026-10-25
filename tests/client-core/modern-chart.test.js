@@ -82,7 +82,7 @@ describe('modern chart integration', function () {
     assert.ok(forecast.compareDocumentPosition(dots[5]) & 4, 'latest observation must be above forecast hit targets');
   });
   ['linear', 'log'].forEach(scaleY => ['mmol', 'mg/dl'].forEach(units => {
-    it('passes through every reading without overshoot on ' + scaleY + ' scales in ' + units, function () {
+    it('smooths the trend within observed bounds while retaining exact readings on ' + scaleY + ' scales in ' + units, function () {
       client = makeChart(d3, env.window, units, {width: 900, theme: 'modern', scaleY});
       client.entries = [140, 300, 80, 80, 260, 40].map((mgdl, index) => ({
         mills: client.now - (5 - index) * 5 * minute, mgdl, type: 'sgv', color: 'yellow'
@@ -96,30 +96,46 @@ describe('modern chart integration', function () {
         const x = layer === 'focus' ? client.chart.xScale : client.chart.xScale2;
         const y = layer === 'focus' ? client.chart.yScale : client.chart.yScale2;
         const expected = client.entries.map(p => [x(new Date(p.mills)), y(client.sbx.scaleEntry(p))]);
-        let previous;
-        let index = 0;
-        for (const command of path.getAttribute('d').matchAll(/([MLC])([^MLCZ]*)/g)) {
+        const commands = Array.from(path.getAttribute('d').matchAll(/([MLC])([^MLCZ]*)/g));
+        commands.forEach(command => {
           const values = command[2].split(',').map(Number);
-          const end = values.slice(-2);
-          end.forEach((value, axis) => assert.ok(Math.abs(value - expected[index][axis]) < 0.001));
-          if (command[1] === 'C') {
-            // A cubic remains within its control-point hull. Keeping the controls
-            // between the observed endpoints prevents invented peaks or troughs.
-            for (let control = 0; control < 4; control += 2) {
-              [0, 1].forEach(axis => {
-                assert.ok(values[control + axis] >= Math.min(previous[axis], end[axis]) - 0.001);
-                assert.ok(values[control + axis] <= Math.max(previous[axis], end[axis]) + 0.001);
-              });
-            }
+          // A basis curve stays within its observed control-point hull.
+          for (let control = 0; control < values.length; control += 2) {
+            [0, 1].forEach(axis => {
+              assert.ok(values[control + axis] >= Math.min(...expected.map(p => p[axis])) - 0.001);
+              assert.ok(values[control + axis] <= Math.max(...expected.map(p => p[axis])) + 0.001);
+            });
           }
-          previous = end;
-          index++;
-        }
-        assert.strictEqual(index, client.entries.length);
+        });
+        const first = commands[0][2].split(',').map(Number);
+        const last = commands[commands.length - 1][2].split(',').map(Number).slice(-2);
+        [0, 1].forEach(axis => {
+          assert.ok(Math.abs(first[axis] - expected[0][axis]) < 0.001);
+          assert.ok(Math.abs(last[axis] - expected[expected.length - 1][axis]) < 0.001);
+        });
+        const dots = env.document.querySelectorAll('.chart-' + layer + ' circle' + (layer === 'focus' ? '.entry-dot' : ''));
+        assert.strictEqual(dots.length, client.entries.length);
+        dots.forEach((dot, index) => {
+          assert.ok(Math.abs(+dot.getAttribute('cx') - expected[index][0]) < 0.001);
+          assert.ok(Math.abs(+dot.getAttribute('cy') - expected[index][1]) < 0.001);
+        });
       });
       assert.deepStrictEqual(client.entries.map(p => [p.mills, p.mgdl]), original);
+      assert.strictEqual(env.document.querySelector('.modern-trace-label').textContent, 'Smoothed trend');
     });
   }));
+  it('keeps urgent, isolated and latest readings visible while hiding connected sample bumps', function () {
+    client.entries[1].color = 'red';
+    const isolated = {mills: client.now - 90 * minute, mgdl: 150, color: 'yellow', type: 'sgv'};
+    client.entries.unshift(isolated);
+    client.renderer.addFocusCircles();
+    const dots = Array.from(env.document.querySelectorAll('.entry-dot'));
+    dots.forEach(dot => {
+      const p = dot.__data__;
+      const shouldHide = p !== isolated && p.color !== 'red' && p !== client.latestSGV;
+      assert.strictEqual(dot.classList.contains('modern-connected-sample'), shouldHide);
+    });
+  });
   it('curves forecast branches separately and keeps their hit targets', function () {
     client.settings.showForecast = 'test';
     client.sbx.pluginBase.forecastPoints.test = ['upper', 'lower'].flatMap((branch, index) => [0, 5, 10].map(time => ({
@@ -132,6 +148,62 @@ describe('modern chart integration', function () {
     paths.forEach(path => assert.ok(/C/.test(path.getAttribute('d'))));
     assert.strictEqual(env.document.querySelectorAll('.forecast-dot').length, 6);
     assert.strictEqual(env.document.querySelector('.forecast-dot').getAttribute('fill'), 'transparent');
+  });
+  ['sgv', 'mbg', 'forecast'].forEach(type => {
+    it('emphasizes the hovered ' + type + ' point at its exact coordinates without changing hit targets', function () {
+      let selector = '.entry-dot';
+      if (type === 'forecast') {
+        selector = '.forecast-dot';
+        client.settings.showForecast = 'test';
+        client.sbx.pluginBase.forecastPoints.test = [{mills: client.now + minute, mgdl: 210, type, color: 'cyan'}];
+      } else if (type === 'mbg') {
+        client.entries.unshift({mills: client.now - minute, mgdl: 140, type, color: 'green', device: 'Meter'});
+      }
+      client.renderer.addFocusCircles();
+      const dot = env.document.querySelector(selector);
+      const radius = dot.getAttribute('r');
+      const stroke = dot.getAttribute('stroke-width');
+      dot.dispatchEvent(new env.window.MouseEvent('mouseover', {bubbles: true, clientX: 50, clientY: 80}));
+      const marker = env.document.querySelector('.modern-hover-dot');
+      assert.ok(marker);
+      assert.strictEqual(marker.getAttribute('cx'), dot.getAttribute('cx'));
+      assert.strictEqual(marker.getAttribute('cy'), dot.getAttribute('cy'));
+      assert.strictEqual(marker.getAttribute('fill'), dot.__data__.color);
+      assert.strictEqual(marker.getAttribute('pointer-events'), 'none');
+      assert.ok(+marker.getAttribute('r') >= 5.5);
+      assert.strictEqual(dot.getAttribute('r'), radius);
+      assert.strictEqual(dot.getAttribute('stroke-width'), stroke);
+      assert.ok(client.tooltip.text().includes('BG: ' + client.sbx.scaleEntry(dot.__data__)));
+      dot.dispatchEvent(new env.window.MouseEvent('mouseout', {bubbles: true}));
+      assert.strictEqual(env.document.querySelector('.modern-hover-dot'), null);
+      assert.strictEqual(client.tooltip.style('display'), 'none');
+      assert.strictEqual(dot.getAttribute('r'), radius);
+    });
+  });
+  it('keeps latest-reading emphasis aligned through redraw and clears it when the source disappears', function () {
+    client.renderer.addFocusCircles();
+    const dot = Array.from(env.document.querySelectorAll('.entry-dot')).find(dot => +dot.getAttribute('r') === 4.5);
+    dot.dispatchEvent(new env.window.MouseEvent('mouseover', {bubbles: true, clientX: 50, clientY: 80}));
+    assert.strictEqual(+env.document.querySelector('.modern-hover-dot').getAttribute('r'), 6.5);
+    client.layout.width = 1200;
+    client.chart.update(false);
+    client.renderer.addFocusCircles();
+    assert.strictEqual(env.document.querySelector('.modern-hover-dot').getAttribute('cx'), dot.getAttribute('cx'));
+    assert.strictEqual(+dot.getAttribute('r'), 4.5);
+    client.entries = client.entries.filter(p => p !== client.latestSGV);
+    client.renderer.addFocusCircles();
+    assert.strictEqual(env.document.querySelector('.modern-hover-dot'), null);
+    assert.strictEqual(client.tooltip.style('display'), 'none');
+  });
+  it('leaves classic point hover styling unchanged', function () {
+    client.settings.theme = 'default';
+    client.renderer.addFocusCircles();
+    const dot = env.document.querySelector('.entry-dot');
+    const radius = dot.getAttribute('r');
+    dot.dispatchEvent(new env.window.MouseEvent('mouseover', {bubbles: true, clientX: 50, clientY: 80}));
+    assert.strictEqual(env.document.querySelector('.modern-hover-dot'), null);
+    assert.strictEqual(dot.getAttribute('r'), radius);
+    assert.strictEqual(client.tooltip.style('display'), 'block');
   });
   it('keeps finger-stick points distinct and out of the connected trace', function () {
     client.entries.push({mills: client.now - minute, mgdl: 140, type: 'mbg', color: 'red'});

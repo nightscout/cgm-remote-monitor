@@ -38,7 +38,9 @@ Chart-options and alarm menus use matching dark surfaces. All menu styling is sc
 
 ## Chart meaning
 
-The modern trace joins consecutive **sensor readings** with a shape-preserving curve through every observation. It does not average or change the measurements, and the curve stays between neighboring observations without introducing extra peaks or troughs. Small sample dots and their original tooltip/touch targets remain, with a larger dot identifying the latest sensor reading. The main stroke is slightly stronger than the quieter dashed forecasts and overview trace. Colour comes from Nightscout's existing colour function; finger-stick/raw-glucose points remain separate from the sensor trace.
+The modern chart labels its connecting stroke **Smoothed trend**. It uses a basis curve to soften the small steps between sensor samples; the stroke may sit between the measured values. Measurements are not changed or averaged in storage, calculations, alarms or tooltips. The latest reading, urgent readings and isolated samples remain visible at their exact coordinates. Other connected sample dots are hidden at rest so they do not create a scalloped edge.
+
+Hover reveals a larger marker with a dark outline at the original measurement, alongside its existing tooltip. Forecast hover also reveals the exact predicted point. Hit targets retain their existing size, and the temporary marker follows redraws and clears on pointer exit or when its source reading is removed. Colour comes from Nightscout's existing colour function; finger-stick/raw-glucose points remain separate from the sensor trend.
 
 Missing and invalid sensor readings break the trace. The renderer infers the sampling cadence from recent data intervals and breaks intervals greater than 1.5 times that cadence, with an absolute limit of 7.5 minutes. Thus a missing sample in a regular 1-minute or 5-minute feed remains visible. Sensor error codes are not joined. Individual readings remain present even when there are too few points to form a line.
 
