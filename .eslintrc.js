@@ -5,7 +5,10 @@ module.exports = {    'plugins': [
       'eslint:recommended',
       'plugin:security/recommended'
     ],
-    'parser': 'babel-eslint',
+    'parserOptions': {
+      'ecmaVersion': 2020,
+      'sourceType': 'module'
+    },
     'env': {
       'browser': true,
       'commonjs': true,

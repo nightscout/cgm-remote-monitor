@@ -65,6 +65,31 @@ describe('Entries REST api', function ( ) {
     await self.archive( ).deleteMany({ });
   });
 
+  it('replays Connect Dexcom backfill over legacy entries without duplicate timestamps', async function () {
+    const assert = require('node:assert/strict');
+    const source = require('nightscout-connect/lib/sources/dexcomshare');
+    const {createRequire} = require('node:module');
+    const connectorRequire = createRequire(require.resolve('nightscout-connect'));
+    const driver = source({shareAccountName:'owned-user',sharePassword:'owned-password'}, connectorRequire('axios'));
+    const first = Date.UTC(2020,5,1,12), second = first + FIVE_MINUTES;
+    const create = docs => new Promise((resolve,reject)=>self.archive.create(docs,(err,result)=>err ? reject(err) : resolve(result)));
+    await create([{type:'sgv',sgv:100,date:first,dateString:new Date(first).toISOString(),device:'share2',trend:4,direction:'Flat'}]);
+    const original = await self.archive().findOne({type:'sgv',date:first});
+    assert.ok(original);
+    const readings = [{Value:100,WT:'/Date('+first+')/',Trend:4},{Value:101,WT:'/Date('+second+')/',Trend:4}];
+    let secondId;
+    for(let cycle=0;cycle<2;cycle++) {
+      await create(driver.transformGlucose(readings).entries);
+      const stored = await self.archive().find({type:'sgv',date:{$in:[first,second]}}).sort({date:1}).toArray();
+      assert.equal(stored.length,2,'Overlap updates the existing reading instead of inserting a duplicate');
+      assert.equal(String(stored[0]._id),String(original._id));
+      assert.deepEqual(stored.map(entry=>entry.sgv),[100,101]);
+      assert.ok(stored.every(entry=>entry.device==='nightscout-connect'));
+      if(secondId) assert.equal(String(stored[1]._id),secondId);
+      secondId=String(stored[1]._id);
+    }
+  });
+
   // keep this test pinned at or near the top in order to validate all
   // entries successfully uploaded. if res.body.length is short of the
   // expected value, it may indicate a regression in the create

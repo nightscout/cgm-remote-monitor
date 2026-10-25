@@ -54,7 +54,7 @@ describe('bridge connect compatibility', function () {
     should.not.exist(env.extendedSettings.connect.shareRegion);
   });
 
-  it('does not migrate when legacy bridge is explicitly requested', function () {
+  it('migrates even when the retired legacy override is set', function () {
     var env = {
       extendedSettings: {
         bridge: {
@@ -67,8 +67,8 @@ describe('bridge connect compatibility', function () {
 
     var result = compat.applyBridgeToConnectCompatibility(env);
 
-    result.legacy.should.equal(true);
-    should.not.exist(env.extendedSettings.connect);
+    result.migrated.should.equal(true);
+    env.extendedSettings.connect.source.should.equal('dexcomshare');
   });
 
   it('does not override non-Dexcom connect sources', function () {
@@ -87,7 +87,98 @@ describe('bridge connect compatibility', function () {
     var result = compat.applyBridgeToConnectCompatibility(env);
 
     result.migrated.should.equal(false);
+    result.error.should.match(/has been removed/);
+    result.error.should.not.match(/15\.0\.9/);
     env.extendedSettings.connect.source.should.equal('glooko');
+    should.not.exist(env.extendedSettings.connect.sharePassword);
+  });
+  it('preserves custom server and explicit credentials over repeated migration', function () {
+    const env = {extendedSettings: {bridge: {userName:'old-user',password:'old-pass',server:'owned.share.example'},
+      connect: {source:'dexcomshare',shareAccountName:'explicit-user',sharePassword:'explicit-pass'}}};
+    for (let cycle=0;cycle<2;cycle++) {
+      compat.applyBridgeToConnectCompatibility(env).migrated.should.equal(true);
+      env.extendedSettings.connect.shareServer.should.equal('owned.share.example');
+      env.extendedSettings.connect.shareAccountName.should.equal('explicit-user');
+      env.extendedSettings.connect.sharePassword.should.equal('explicit-pass');
+    }
+  });
+
+  it('does not enable Connect from absent or incomplete bridge credentials', function () {
+    for (const bridge of [{}, {userName:'partial'}, {password:'partial'}]) {
+      const env={extendedSettings:{bridge}};
+      compat.applyBridgeToConnectCompatibility(env).migrated.should.equal(false);
+      should.not.exist(env.extendedSettings.connect);
+    }
+  });
+
+  it('maps the legacy US selector to the real US region over repeated migration', function () {
+    const source = require('nightscout-connect/lib/sources/dexcomshare');
+    for (const server of ['US', 'us', 'Us']) {
+      const env = {extendedSettings: {bridge: {userName: 'owned-user', password: 'owned-password', server}}};
+      for (let cycle = 0; cycle < 2; cycle++) {
+        compat.applyBridgeToConnectCompatibility(env).migrated.should.equal(true);
+        env.extendedSettings.connect.shareRegion.should.equal('us');
+        should.not.exist(env.extendedSettings.connect.shareServer);
+        source.validate(env.extendedSettings.connect).config.baseURL.should.equal('https://share2.dexcom.com');
+      }
+    }
+  });
+
+  describe('BRIDGE_SERVER mapping', function () {
+    function migrate (server) {
+      var bridge = { userName: 'dexcom-user', password: 'dexcom-pass' };
+      if (server !== undefined) { bridge.server = server; }
+      var env = { extendedSettings: { bridge: bridge } };
+      compat.applyBridgeToConnectCompatibility(env);
+      return env.extendedSettings.connect;
+    }
+
+    var cases = [
+      [undefined, { shareRegion: 'us' }]
+      , ['', { shareRegion: 'us' }]
+      , ['US', { shareRegion: 'us' }]
+      , ['us', { shareRegion: 'us' }]
+      , [' US ', { shareRegion: 'us' }]
+      , ['EU', { shareRegion: 'ous' }]
+      , ['eu', { shareRegion: 'ous' }]
+      , ['ous', { shareRegion: 'ous' }]
+      , ['OUS', { shareRegion: 'ous' }]
+      , ['share2.dexcom.com', { shareServer: 'share2.dexcom.com' }]
+      , ['shareous1.dexcom.com', { shareServer: 'shareous1.dexcom.com' }]
+      , ['https://shareous1.dexcom.com/', { shareServer: 'shareous1.dexcom.com' }]
+      , ['share.example.test', { shareServer: 'share.example.test' }]
+    ];
+
+    cases.forEach(function (c) {
+      it('maps BRIDGE_SERVER=' + JSON.stringify(c[0]) + ' to ' + JSON.stringify(c[1]), function () {
+        var connect = migrate(c[0]);
+        if (c[1].shareRegion) {
+          connect.shareRegion.should.equal(c[1].shareRegion);
+          should.not.exist(connect.shareServer);
+        } else {
+          connect.shareServer.should.equal(c[1].shareServer);
+          should.not.exist(connect.shareRegion);
+        }
+      });
+    });
+
+    it('never passes a region name through as a hostname', function () {
+      ['US', 'us', 'EU', 'ous', 'Us'].forEach(function (name) {
+        should.not.exist(migrate(name).shareServer);
+      });
+    });
+
+    it('keeps an explicit CONNECT_SHARE_REGION over BRIDGE_SERVER', function () {
+      var env = {
+        extendedSettings: {
+          bridge: { userName: 'u', password: 'p', server: 'US' }
+          , connect: { source: 'dexcomshare', shareRegion: 'ous' }
+        }
+      };
+      compat.applyBridgeToConnectCompatibility(env);
+      env.extendedSettings.connect.shareRegion.should.equal('ous');
+      should.not.exist(env.extendedSettings.connect.shareServer);
+    });
   });
 
   describe('BRIDGE_SERVER mapping', function () {
