@@ -22,7 +22,7 @@ describe('legacy reports in a real browser', function () {
   let server, origin, markup, requests;
   before(async function () {
     const root = path.resolve(__dirname, '../..'), file = path.join(root, 'views/reportindex.html');
-    markup = ejs.render(fs.readFileSync(file, 'utf8'), {type: 'reports', title: '', bundle: '/bundle'}, {filename: file});
+    markup = ejs.render(fs.readFileSync(file, 'utf8'), {type: 'reports', title: '', bundle: '/bundle', settings: require('../fixtures/default-server-settings').settings}, {filename: file});
     const cssNames = ['main', 'drawer', 'report', 'dropdown', 'ui-lightness/jquery-ui.min'];
     const css = new Map(cssNames.map(name => ['/css/' + name + '.css', fs.readFileSync(path.join(root, 'static/css', name + '.css'), 'utf8')
       .split('\n').filter(line => ![
@@ -236,14 +236,16 @@ describe('legacy reports in a real browser', function () {
       const daily = await page.locator('#dailystats-report > table').evaluate(table => Array.from(table.rows).slice(1).map(row => Array.from(row.cells, cell => cell.textContent)));
       assert.ok(daily.some(row => row.slice(2, 6).join('|') === '0%|100%|0%|2'));
       // The raw hourly count is independent of the distribution report's
-      // interpolation/cleaning. Preserve both original regression expectations.
+      // interpolation/cleaning.
       assert.equal(daily.length, 31);
       assert.equal(daily.filter(row => row[2] === 'No data available').length, 23);
       const populated = daily.filter(row => row.length === 15);
       assert.equal(populated.length, 8);
       assert.equal(populated.reduce((sum, row) => sum + Number(row[5]), 0), 16);
       const distribution = await page.locator('#glucosedistribution-report tr').evaluateAll(rows => rows.map(row => Array.from(row.cells, cell => cell.textContent)));
-      assert.ok(distribution.some(row => row[0].trim() === 'In Range:' && row[1] === '47.6%' && row[2] === '10'));
+      // #8812 removed the duplicated first sample: ten of twenty are in range.
+      assert.ok(distribution.some(row => row[0].trim() === 'In Range:' && row[1] === '50.0%' && row[2] === '10'), JSON.stringify(distribution));
+      assert.equal(distribution.find(row => row[0].trim() === 'Overall:')[2], '20');
       const hourly = await page.locator('#hourlystats-report td').allTextContents();
       assert.ok(hourly.includes('16 (100%)'));
       assert.equal(await page.locator('#success-grid').count(), 1);

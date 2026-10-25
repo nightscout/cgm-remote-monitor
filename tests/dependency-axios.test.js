@@ -6,7 +6,6 @@ const {once} = require('events');
 const {createRequire} = require('module');
 const zlib = require('zlib');
 const rootAxios = require('axios');
-const legacyRequire = createRequire(require.resolve('minimed-connect-to-nightscout/package.json'));
 const connectRequire = createRequire(require.resolve('nightscout-connect/package.json'));
 const modernAxios = connectRequire('axios');
 
@@ -176,7 +175,7 @@ describe('Axios consumer compatibility', function () {
     assert.strictEqual((await client.get(baseURL + '/echo')).data.headers['x-fixture'], 'safe');
   });
 
-  [['MiniMed legacy', legacyRequire], ['nightscout-connect', connectRequire]].forEach(([label, consumerRequire]) => {
+  [['nightscout-connect', connectRequire]].forEach(([label, consumerRequire]) => {
     it(label + ' preserves its actual cookie wrapper across login and repeated reads', async function () {
       const axios = consumerRequire('axios');
       const support = consumerRequire('axios-cookiejar-support');
@@ -193,11 +192,11 @@ describe('Axios consumer compatibility', function () {
     });
   });
 
-  it('preserves MiniMed manual redirects, form posts and response interceptors', async function () {
-    const axios = legacyRequire('axios');
+  it('preserves Connect manual redirects, form posts and response interceptors', async function () {
+    const axios = connectRequire('axios');
     const client = axios.create({baseURL, proxy: false, maxRedirects: 0, withCredentials: true});
-    legacyRequire('axios-cookiejar-support').default(client);
-    client.defaults.jar = new (legacyRequire('tough-cookie').CookieJar)();
+    connectRequire('axios-cookiejar-support').wrapper(client);
+    client.defaults.jar = new (connectRequire('tough-cookie').CookieJar)();
     client.interceptors.response.use(response => response, error => {
       if (error.response && error.response.status >= 200 && error.response.status < 400) return error.response;
       return Promise.reject(error);
@@ -310,5 +309,53 @@ describe('Axios consumer compatibility', function () {
       assert.strictEqual(request.target.searchParams.get('find[dateString][$gt]'), '2026-01-01T00:00:00.000Z');
       assert.strictEqual(request.target.searchParams.get('count'), '2');
     }
+  });
+});
+
+// IMPORT_CONFIG loads axios from lib/server/bootevent.js at boot. A production
+// install (npm ci --omit=dev, or the Dockerfile's npm prune --omit=dev) keeps
+// only dependencies, so every package bootevent.js loads must be listed there.
+describe('Packages the server loads are runtime dependencies', function () {
+  const fs = require('fs');
+  const path = require('path');
+  const {builtinModules} = require('module');
+  const pkg = require('../package.json');
+
+  function bootRequires () {
+    const source = fs.readFileSync(path.join(__dirname, '../lib/server/bootevent.js'), 'utf8');
+    const names = new Set();
+    for (const match of source.matchAll(/require\(\s*['"]([^'"]+)['"]\s*\)/g)) {
+      const id = match[1].replace(/^node:/, '');
+      if (id.startsWith('.') || builtinModules.includes(id.split('/')[0])) continue;
+      names.add(id.startsWith('@') ? id.split('/').slice(0, 2).join('/') : id.split('/')[0]);
+    }
+    return [...names].sort();
+  }
+
+  it('finds axios among the packages bootevent.js loads', function () {
+    assert.ok(bootRequires().includes('axios'));
+  });
+
+  it('lists every package bootevent.js loads under dependencies', function () {
+    const missing = bootRequires().filter(name => !(pkg.dependencies || {})[name]);
+    assert.deepStrictEqual(missing, []);
+  });
+
+  it('does not also list axios under devDependencies', function () {
+    assert.strictEqual((pkg.devDependencies || {}).axios, undefined);
+  });
+
+  // lib/utils.js loads lodash/escape for every server that escapes HTML. lodash
+  // reaches node_modules through other packages too, but only a declaration
+  // keeps it in a production install whatever those packages do.
+  it('lists lodash, which lib/utils.js loads, under dependencies', function () {
+    const utils = fs.readFileSync(path.join(__dirname, '../lib/utils.js'), 'utf8');
+    assert.match(utils, /require\(\s*['"]lodash\/escape['"]\s*\)/);
+    assert.ok((pkg.dependencies || {}).lodash, 'lodash is not under dependencies');
+    assert.strictEqual((pkg.devDependencies || {}).lodash, undefined);
+  });
+
+  it('declares lodash at the version its override pins', function () {
+    assert.strictEqual((pkg.dependencies || {}).lodash, pkg.overrides.lodash);
   });
 });

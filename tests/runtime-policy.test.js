@@ -23,15 +23,26 @@ function probe(version, entry) {
 }
 
 describe('Node runtime policy', function () {
-  ['v22.23.2', 'v22.24.0', 'v24.20.0', 'v24.21.0'].forEach(version => {
-    it('accepts supported LTS ' + version, function () {
+  it('runs on an actually supported runtime', function () {
+    assert.ok(require('semver').satisfies(process.version, supported),
+      'Use a patched Node runtime matching ' + supported + '; got ' + process.version);
+  });
+
+  // The security floor includes the Brotli fix for CVE-2026-111497.
+  // Later stable majors remain allowed, as in the previous runtime policy.
+  ['v22.23.4', 'v22.24.0', 'v24.22.1', 'v24.23.0', 'v26.12.1', 'v26.13.0', 'v27.0.0'].forEach(version => {
+    it('accepts supported release ' + version, function () {
       const result = probe(version, "require('./lib/server/runtime-policy')();");
       assert.strictEqual(result.status, 0, result.stderr);
       assert.match(result.stdout, /runtime accepted/);
     });
   });
 
-  ['v16.20.2', 'v20.20.0', 'v22.0.0', 'v22.23.1', 'v23.0.0', 'v24.19.0', 'v24.20.0-rc.1', 'v25.0.0', 'v26.8.1'].forEach(version => {
+  // Check the immediately preceding vulnerable patch on each maintained line,
+  // older releases and the unpatched Node 25 line. Prereleases remain excluded.
+  ['v16.20.2', 'v18.20.8', 'v20.20.0', 'v22.0.0', 'v22.11.1', 'v22.23.3',
+    'v23.0.0', 'v24.0.0', 'v24.22.0', 'v25.2.1', 'v26.0.0', 'v26.12.0',
+    'v22.23.4-rc.1', 'v24.22.1-rc.1', 'v26.12.1-rc.1'].forEach(version => {
     ['lib/server/server.js', 'server.js'].forEach(entry => {
       it('rejects ' + version + ' before startup through ' + entry, function () {
         const result = probe(version, 'require(' + JSON.stringify('./' + entry) + ');');
@@ -44,10 +55,12 @@ describe('Node runtime policy', function () {
     });
   });
 
-  it('rejects unsupported runtime before the public boot API starts the bus', function () {
-    const result = probe('v20.20.0', "require('./lib/server/bootevent')({}, {}).boot(function () { throw new Error('booted'); });");
-    assert.strictEqual(result.status, 1, result.stderr);
-    assert.ok(result.stderr.includes(supported), result.stderr);
-    assert.doesNotMatch(result.stderr, /Loaded application services|booted/);
+  ['v20.20.0', 'v22.23.3', 'v24.22.0', 'v25.2.1', 'v26.12.0'].forEach(version => {
+    it('rejects ' + version + ' before the public boot API starts the bus', function () {
+      const result = probe(version, "require('./lib/server/bootevent')({}, {}).boot(function () { throw new Error('booted'); });");
+      assert.strictEqual(result.status, 1, result.stderr);
+      assert.ok(result.stderr.includes(supported), result.stderr);
+      assert.doesNotMatch(result.stderr, /Loaded application services|booted/);
+    });
   });
 });

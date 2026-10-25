@@ -1,7 +1,7 @@
 # Babel build regression tests
 
 The build uses Babel core/preset-env 7.29.7 and babel-loader 9.2.1. These are
-compatible Babel 7 releases. Runtime policy now requires Node 22.23.2+ or 24.20.0+; the Babel 8 migration remains a separate change:
+compatible Babel 7 releases. Runtime policy now requires Node `^22.23.4 || ^24.22.1 || >=26.12.1`; the Babel 8 migration remains a separate change:
 Babel 8 requires Node 22.18+ or 24.11+, while loader 10 excludes Node 20 releases
 before 20.10. A future upgrade to those major versions needs an explicit runtime
 support decision. The project's `.babelrc` and `.browserslistrc` are unchanged.

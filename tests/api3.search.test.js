@@ -489,7 +489,13 @@ describe('API3 SEARCH', function() {
   }
 
 
-  before(async () => {
+  // Earlier api3 files drop the database. On an empty database the first
+  // auth role insert in authSubject waits behind the collections and indexes
+  // boot asks for without awaiting them, which can exceed mocha's 5 s default
+  // on a loaded machine. Allow what the fixture's own boot watchdog allows
+  // (tests/fixtures/api3/instance.js).
+  before(async function () {
+    this.timeout(30000);
     self.testStarted = new Date();
     self.instance = await instance.create({});
 

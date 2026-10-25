@@ -37,6 +37,41 @@ describe('nightscout-connect loading and teardown', function () {
     });
   });
 
+  it('migrates MiniMed once per lifecycle and leaves teardown to the connector', function () {
+    for (let cycle = 0; cycle < 2; cycle++) {
+      const env = {extendedSettings: {mmconnect: {userName: 'fixture-user', password: 'fixture-password', server: 'EU'}, connect: {countryCode: 'gb'}}};
+      const ctx = context();
+      let imports = 0, stops = 0, continued = 0;
+      connectStage(env, () => {
+        imports++;
+        return configured => {
+          assert.equal(configured.extendedSettings.connect.source, 'minimedcarelink');
+          assert.equal(configured.extendedSettings.connect.carelinkRegion, 'eu');
+          assert.equal(configured.extendedSettings.connect.countryCode, 'gb');
+          return {stop() {stops++;}};
+        };
+      })(ctx, () => continued++);
+      assert.equal(imports, 1); assert.equal(continued, 1);
+      // Boot registers no teardown listener: connector 0.1.0 owns its stop().
+      assert.equal(ctx.bus.listenerCount('teardown'), 0);
+      ctx.bus.emit('teardown'); ctx.bus.emit('teardown');
+      assert.equal(stops, 0);
+    }
+  });
+
+  it('does not import any connector for missing MiniMed country or conflicting feeds', function () {
+    for (const other of [{}, {connect: {source: 'glooko'}}, {bridge: {userName: 'private-dexcom', password: 'private-password'}, connect: {countryCode: 'gb'}}]) {
+      for (let cycle = 0; cycle < 2; cycle++) {
+        const env = {extendedSettings: {...other, mmconnect: {userName: 'private-user', password: 'private-password'}}};
+        const ctx = context(); let continued = 0;
+        connectStage(env, () => {throw new Error('conflicting or incomplete connector imported');})(ctx, () => continued++);
+        assert.equal(continued, 1); assert.equal(ctx.bootErrors.length, 1);
+        assert.ok(!JSON.stringify(ctx.bootErrors).includes('private-'));
+        assert.equal(ctx.bus.listenerCount('teardown'), 0);
+      }
+    }
+  });
+
   it('migrates bridge credentials before deciding whether to import', function () {
     const env = {extendedSettings: {bridge: {userName: 'fixture-user', password: 'fixture-password', server: 'EU'}}};
     let imports = 0, calls = 0, continued = 0;
@@ -59,17 +94,35 @@ describe('nightscout-connect loading and teardown', function () {
     assert.strictEqual(continued, 1);
   });
 
-  it('leaves the explicitly selected legacy bridge without loading CONNECT', function () {
-    const env = {extendedSettings: {bridge: {userName: 'fixture', password: 'fixture', useLegacy: true}}};
-    let continued = 0;
-    connectStage(env, () => { throw new Error('legacy bridge loaded CONNECT'); })(context(), () => continued++);
-    assert.strictEqual(continued, 1);
-    assert.strictEqual(env.extendedSettings.connect, undefined);
+  it('routes retired legacy overrides through Connect once per lifecycle without a boot teardown listener', function () {
+    for (const flag of ['useLegacy', 'dexcomBridgeUseLegacy']) {
+      const env = {extendedSettings: {bridge: {userName:'fixture',password:'fixture',[flag]:true}}};
+      const ctx=context();
+      let imports=0,stops=0,continued=0;
+      connectStage(env,()=>{imports++;return ()=>({stop(){stops++;}});})(ctx,()=>continued++);
+      assert.equal(imports,1);assert.equal(continued,1);
+      assert.equal(env.extendedSettings.connect.source,'dexcomshare');
+      assert.equal(ctx.bus.listenerCount('teardown'),0);
+      ctx.bus.emit('teardown');ctx.bus.emit('teardown');assert.equal(stops,0);
+    }
   });
 
-  it('preserves explicit CONNECT configuration and stops once per boot lifecycle', function () {
+  it('reports mixed legacy Dexcom and non-Dexcom Connect without starting either', function () {
+    for(let cycle=0;cycle<2;cycle++) {
+      const env={extendedSettings:{bridge:{userName:'private-user',password:'private-password'},connect:{source:'glooko'}}};
+      const ctx=context();let continued=0;
+      connectStage(env,()=>{throw new Error('Conflicting connector started');})(ctx,()=>continued++);
+      assert.equal(continued,1);assert.equal(ctx.bootErrors.length,1);
+      assert.match(ctx.bootErrors[0].desc,/has been removed/);assert.doesNotMatch(ctx.bootErrors[0].desc,/15\.0\.9/);
+      assert.ok(!JSON.stringify(ctx.bootErrors).includes('private-'));
+      assert.equal(env.extendedSettings.connect.source,'glooko');
+      assert.equal(ctx.bus.listenerCount('teardown'),0);
+    }
+  });
+
+  it('preserves explicit CONNECT configuration and adds no boot teardown listener', function () {
     for (let cycle = 0; cycle < 2; cycle++) {
-      const env = {extendedSettings: {connect: {source: 'nightscout', sourceEndpoint: 'http://127.0.0.1:1'}, bridge: {userName: 'fixture', password: 'fixture'}}};
+      const env = {extendedSettings: {connect: {source: 'nightscout', sourceEndpoint: 'http://127.0.0.1:1'}}};
       const ctx = context();
       let imports = 0, stopped = 0;
       const handle = {stop() { stopped++; }};
@@ -82,10 +135,10 @@ describe('nightscout-connect loading and teardown', function () {
       })(ctx, () => {});
       assert.strictEqual(imports, 1);
       assert.strictEqual(ctx.nightscoutConnect, handle);
-      ctx.bus.emit('teardown');
-      ctx.bus.emit('teardown');
-      assert.strictEqual(stopped, 1);
       assert.strictEqual(ctx.bus.listenerCount('teardown'), 0);
+      ctx.bus.emit('teardown');
+      ctx.bus.emit('teardown');
+      assert.strictEqual(stopped, 0);
     }
   });
 
@@ -118,17 +171,30 @@ describe('nightscout-connect loading and teardown', function () {
         connectStage(env, () => require('nightscout-connect'))(ctx, () => {});
         const actor = ctx.nightscoutConnect();
         assert.strictEqual(actor.status, 1);
-        ctx.bus.emit('data-processed', {data: {sgvs: []}});
-        ctx.bus.emit('data-processed', {data: {sgvs: []}});
+        // A real sandbox always carries lastEntry (lib/sandbox.js); connector
+        // 0.1.0 reads it even when there are no readings yet.
+        const processed = {data: {sgvs: []}, lastEntry: entries => entries[entries.length - 1]};
+        ctx.bus.emit('data-processed', processed);
+        ctx.bus.emit('data-processed', processed);
         const deadline = Date.now() + 4000;
         while (!requests.includes('/api/v1/verifyauth') && Date.now() < deadline) {
           await new Promise(resolve => setTimeout(resolve, 10));
         }
         assert.ok(requests.includes('/api/v1/verifyauth'), requests.join(', '));
         assert.strictEqual(requests.filter(url => url === '/api/v1/verifyauth').length, 1);
+        // The connector's own listener is the only teardown listener.
+        assert.strictEqual(ctx.bus.listenerCount('teardown'), 1);
+        assert.strictEqual(ctx.bus.listenerCount('tearDown'), 1);
+        let actorStops = 0;
+        const actorStop = actor.stop.bind(actor);
+        actor.stop = function countedStop () { actorStops++; return actorStop(); };
         ctx.bus.emit('teardown');
         ctx.bus.emit('teardown');
+        ctx.bus.emit('tearDown');
         assert.strictEqual(actor.status, 2);
+        assert.strictEqual(actorStops, 1);
+        assert.strictEqual(ctx.bus.listenerCount('teardown'), 0);
+        assert.strictEqual(ctx.bus.listenerCount('tearDown'), 0);
       } finally {
         if (ctx.nightscoutConnect) await ctx.nightscoutConnect.stop();
         source.closeAllConnections();

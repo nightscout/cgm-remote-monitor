@@ -1,33 +1,61 @@
 'use strict';
+// covers: lib/plugins/maker.js, lib/plugins/alexa.js, lib/plugins/googlehome.js
 const assert = require('node:assert/strict');
 const path = require('node:path');
 const pluginRoot = process.env.NIGHTSCOUT_PLUGIN_TASK_ORACLE_ROOT || path.resolve(__dirname, '..');
 const loadPlugin = name => require(path.join(pluginRoot, 'lib/plugins', name));
 
 describe('Maker task ordering', function () {
-  it('finishes every key in a stage before advancing, on two successive events', function () {
+  const eventNames = ['ns-event', 'ns-warning', 'ns-warning-test'];
+  it('starts keys independently but waits for the whole stage, on two successive events', function () {
     const maker = loadPlugin('maker')({extendedSettings: {maker: {key: 'a b'}}});
     for (let cycle = 0; cycle < 2; cycle++) {
       const sent = [], pending = [];
       let completions = 0;
-      maker.makeKeyRequest = (key, event, name, callback) => {sent.push(name + ':' + key); pending.push(callback);};
+      maker.makeKeyRequest = (key, event, name, next) => {sent.push(name + ':' + key); pending.push(next);};
       maker.sendEvent({name: 'test', level: 'warning'}, err => {assert.ifError(err); completions++;});
-      const expected = ['ns-event:a', 'ns-event:b', 'ns-warning:a', 'ns-warning:b', 'ns-warning-test:a', 'ns-warning-test:b'];
-      for (let i = 0; i < expected.length; i++) {
-        assert.deepEqual(sent, expected.slice(0, i + 1));
+      for (let stage = 0; stage < eventNames.length; stage++) {
+        const expected = eventNames.slice(0, stage + 1).flatMap(name => [name + ':a', name + ':b']);
+        assert.deepEqual(sent, expected);
+        const [first, second] = pending.splice(0);
+        second(null, {statusCode: 200});
         assert.equal(completions, 0);
-        pending.shift()(null, {statusCode: 200});
+        assert.deepEqual(sent, expected, 'The next stage must wait for both keys');
+        first(null, {statusCode: 200});
       }
       assert.equal(completions, 1);
     }
   });
-  it('stops later keys and stages on the first send failure', function () {
+  it('attempts every key and stage after errors and reports the first error once', function () {
     const maker = loadPlugin('maker')({extendedSettings: {maker: {key: 'a b'}}});
-    const sent = [], error = new Error('Owned send failure');
+    const sent = [], pending = [], error = new Error('Owned send failure');
     let completions = 0;
-    maker.makeKeyRequest = (key, event, name, next) => {sent.push(name + ':' + key); next(error);};
+    maker.makeKeyRequest = (key, event, name, next) => {sent.push(name + ':' + key); pending.push(next);};
     maker.sendEvent({name: 'test', level: 'warning'}, err => {assert.equal(err, error); completions++;});
-    assert.deepEqual(sent, ['ns-event:a']); assert.equal(completions, 1);
+    for (let stage = 0; stage < eventNames.length; stage++) {
+      assert.deepEqual(sent, eventNames.slice(0, stage + 1).flatMap(name => [name + ':a', name + ':b']));
+      const [first, second] = pending.splice(0);
+      first(stage === 0 ? error : new Error('Later failure'));
+      assert.equal(completions, 0);
+      second(null, {statusCode: 200});
+    }
+    assert.equal(completions, 1);
+  });
+  it('keeps the first error local to one event and uses every announcement key', function () {
+    const maker = loadPlugin('maker')({extendedSettings: {maker: {key: 'ordinary', announcementKey: 'a b'}}});
+    let fail = true;
+    for (let cycle = 0; cycle < 2; cycle++) {
+      const sent = [];
+      let completions = 0;
+      maker.makeKeyRequest = (key, event, name, next) => {sent.push(name + ':' + key); next(fail && key === 'a' ? new Error('Owned failure') : null);};
+      maker.sendEvent({name: 'test', level: 'warning', isAnnouncement: true}, err => {
+        if (fail) assert.equal(err.message, 'Owned failure'); else assert.ifError(err);
+        completions++;
+      });
+      assert.deepEqual(sent, eventNames.flatMap(name => [name + ':a', name + ':b']));
+      assert.equal(completions, 1);
+      fail = false;
+    }
   });
 });
 

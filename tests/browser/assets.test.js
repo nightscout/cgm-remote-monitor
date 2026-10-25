@@ -73,7 +73,7 @@ describe('Webpack image and CSS update contracts', function () {
   for (const template of ['index', 'adminindex', 'profileindex', 'foodindex', 'reportindex']) {
     it('preserves the static stylesheet cascade for ' + template, async function () {
       const file = path.join(root, 'views', template + '.html');
-      const markup = ejs.render(fs.readFileSync(file, 'utf8'), {type: template === 'index' ? 'index' : template.replace(/index$/, ''), title: '', bundle: '/bundle'}, {filename: file});
+      const markup = ejs.render(fs.readFileSync(file, 'utf8'), {type: template === 'index' ? 'index' : template.replace(/index$/, ''), title: '', bundle: '/bundle', settings: require('../fixtures/default-server-settings').settings}, {filename: file});
       await serve(path.join(root, 'node_modules/.cache/_ns_cache/public'), '/bundle', async (page, origin) => {
         await page.goto(origin);
         const sheets = await page.evaluate(markup => {
@@ -84,7 +84,7 @@ describe('Webpack image and CSS update contracts', function () {
             ? {text: node.textContent} : {url: node.getAttribute('href')});
         }, markup);
         for (const sheet of sheets) {
-          const css = sheet.text === undefined ? fs.readFileSync(path.join(root, 'static', sheet.url.replace(/^\//, '')), 'utf8') : sheet.text;
+          const css = sheet.text === undefined ? fs.readFileSync(path.join(root, 'static', sheet.url.replace(/^\//, '').replace(/\?.*$/, '')), 'utf8') : sheet.text;
           // External fonts are outside the finite fixture; preserve every other declaration.
           const externalFonts = [
             "@import url('https://fonts.googleapis.com/css?family=Ubuntu:400,700');",

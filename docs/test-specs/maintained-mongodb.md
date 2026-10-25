@@ -7,6 +7,12 @@ on the maintained-server jobs too, so their failure cannot be ignored by
 publishing. Each job uses an isolated service; no deployment database is
 upgraded by CI.
 
+Current matrix: the edges of the supported range only, Node 22.23.4 (the floor)
+and 26 (the newest line) against MongoDB 8.0.29 (the newest tested). The oldest
+supported MongoDB, 5.0, runs in the main test matrix and the replica-set job.
+Docker publication still depends on these jobs; the pull-request image check
+runs alongside them.
+
 The initial baseline is integration commit 5cada7ff with mongodb driver
 5.9.2. Official download metadata and Docker Hub tags were checked on
 2026-09-06. Local macOS arm64 archives were SHA-256 verified; buildInfo confirms
