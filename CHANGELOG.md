@@ -10,6 +10,13 @@ Release notes: https://github.com/nightscout/cgm-remote-monitor/releases/tag/v15
 
 ### Fixed
 
+- **Loopalyzer BG line:** Draw the BG line through CGM readings that are on or
+  close to a 5-minute mark. A reading exactly on the mark was dropped, and one
+  that arrived just after the mark left a gap in the line before it, so a day
+  with readings timed like this showed a broken or missing BG line in
+  Loopalyzer while Day to Day showed every reading. Readings away from the
+  marks are drawn as before, and a reading that is really missing still shows
+  as a gap. Fixes #6236.
 - **Snooze without the API secret:** Keep an alarm quiet for the snooze chosen
   on a page that has not entered the API secret. With the default `readable`
   role such a page may not acknowledge alarms, so the server ignored its snooze
