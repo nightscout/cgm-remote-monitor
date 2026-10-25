@@ -972,7 +972,7 @@ components:
           type: string
           description: >-
             Default theme to be displayed system wide, `default`, `colors`,
-            `colorblindfriendly`.
+            `colorblindfriendly`, `modern`. Modern opts into the responsive dashboard.
         language:
           type: string
           description: Default language code to be used system wide
