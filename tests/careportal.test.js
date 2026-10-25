@@ -281,7 +281,7 @@ describe('careportal', function ( ) {
     };
   }
 
-  function calculateBolus (displayUnits, profile, bg) {
+  function calculateBolus (displayUnits, profile, bg, eventTime) {
     var client = window.Nightscout.client;
     client.init();
     client.settings.units = displayUnits;
@@ -289,9 +289,14 @@ describe('careportal', function ( ) {
       sgvs: [{ mgdl: 250, mills: Date.now(), direction: 'Flat', type: 'sgv' }]
       , treatments: []
       , devicestatus: []
-      , profiles: [profile]
+      , profiles: Array.isArray(profile) ? profile : [profile]
     }, true);
     client.boluscalc.prepare();
+    if (eventTime) {
+      selectRadio('#bc_nowtime', '#bc_othertime');
+      $('#bc_eventDateValue').val(moment(eventTime).format('YYYY-MM-DD'));
+      $('#bc_eventTimeValue').val(moment(eventTime).format('HH:mm'));
+    }
     $('#bc_bg').val(String(bg));
     $('#bc_carbs').val('0');
     $('#bc_othercorrection').val('0');
@@ -326,6 +331,33 @@ describe('careportal', function ( ) {
     record.targetBGLow.should.be.approximately(5, 0.001);
     record.targetBGHigh.should.be.approximately(7, 0.001);
     record.insulinbg.should.be.approximately(2.3, 0.001);
+  });
+
+  ['mg/dl', 'mmol'].forEach(function (historicalUnits) {
+    ['mg/dl', 'mmol'].forEach(function (displayUnits) {
+      it('boluscalc uses historical profile units ' + historicalUnits + ' on a ' + displayUnits + ' display after a units change', function () {
+        var eventTime = moment().subtract(2, 'hours').startOf('minute');
+        var currentUnits = historicalUnits === 'mg/dl' ? 'mmol' : 'mg/dl';
+        function datedProfile (units, startTime) {
+          var profile = units === 'mg/dl' ? unitsProfile(units, 54, 90, 126) : unitsProfile(units, 3, 5, 7);
+          profile.startDate = startTime.toISOString();
+          return profile;
+        }
+        var profiles = [
+          datedProfile(currentUnits, eventTime.clone().add(1, 'hour')),
+          datedProfile(historicalUnits, eventTime.clone().subtract(1, 'hour'))
+        ];
+        var record = calculateBolus(displayUnits, profiles, displayUnits === 'mg/dl' ? 250 : 13.9, eventTime);
+        var profile = window.Nightscout.client.sbx.data.profile;
+        profile.getUnits('Default').should.equal(currentUnits);
+        profile.getCurrentProfile(eventTime, 'Default').units.should.equal(historicalUnits);
+        record.eventTime.toISOString().should.equal(eventTime.toISOString());
+        record.isf.should.be.approximately(displayUnits === 'mg/dl' ? 54 : 3, 0.001);
+        record.targetBGLow.should.be.approximately(displayUnits === 'mg/dl' ? 90 : 5, 0.001);
+        record.targetBGHigh.should.be.approximately(displayUnits === 'mg/dl' ? 126 : 7, 0.001);
+        record.insulinbg.should.be.approximately(2.3, 0.001);
+      });
+    });
   });
 
   function checkLoopSubmission (eventType, failureResponse, expectedMessage, textStatus) {
