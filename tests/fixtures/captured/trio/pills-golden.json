@@ -35,6 +35,22 @@
         "value": "2.78U"
       }
     ],
+    "cob": [
+      {
+        "info": [
+          {
+            "label": "Source",
+            "value": "OpenAPS"
+          },
+          {
+            "label": "Device",
+            "value": "Trio"
+          }
+        ],
+        "label": "COB",
+        "value": "61g"
+      }
+    ],
     "direction": [
       {
         "hide": true
@@ -84,7 +100,8 @@
       {
         "info": [],
         "label": "SAGE",
-        "pillClass": null
+        "pillClass": null,
+        "value": "n/a "
       }
     ],
     "bage": [
@@ -211,6 +228,7 @@
         "mgdl": 156,
         "color": "#1e88e5",
         "mills": 1778284801472,
+        "forecastMills": 1778284798139,
         "noFade": true,
         "forecastType": "IOB"
       },
@@ -218,6 +236,7 @@
         "mgdl": 39,
         "color": "#c9bd60",
         "mills": 1778293208138,
+        "forecastMills": 1778293198139,
         "noFade": true,
         "forecastType": "UAM"
       }

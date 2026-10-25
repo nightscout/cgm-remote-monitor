@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<html>
+<html class="<%= settings.theme === 'modern' ? 'modern-ui' : '' %>">
     <head>
       <meta name="viewport" content="width=device-width, maximum-scale=1, initial-scale=1, user-scalable=0" />
       <meta name="apple-mobile-web-app-capable" content="yes">
@@ -29,11 +29,14 @@
       <link rel="preload" href="/css/drawer.css" as="style" onload="this.onload=null;this.rel='stylesheet'">
       <link rel="preload" href="/css/profile.css" as="style" onload="this.onload=null;this.rel='stylesheet'">
       <link rel="preload" href="/css/ui-darkness/jquery-ui.min.css" as="style" onload="this.onload=null;this.rel='stylesheet'">
+      <link rel="stylesheet" href="/css/modern.css?v=<%= locals.cachebuster %>">
+      <link rel="stylesheet" href="/css/modern-editors.css?v=<%= locals.cachebuster %>">
       <%- include('preloadCSS')%>
 
     </head>
-  <body>
+  <body class="editor-page profile-page">
     <%- include('partials/toolbar') %>
+    <main class="editor-content">
 
     <form id="pe_form">
       <fieldset class="browserSettings">
@@ -163,10 +166,11 @@
 
     </form>
 
+    </main>
     <%- include('partials/authentication-status') %>
 
     <script src="/api/v1/status.js"></script>
-    <script src="<%= locals.bundle %>/js/bundle.app.js"></script>
+    <script src="<%= locals.bundle %>/js/bundle.app.js?v=<%= locals.cachebuster %>"></script>
     <script src="/socket.io/socket.io.js"></script>
     <script src="/js/profileinit.js"></script>
   </body>
