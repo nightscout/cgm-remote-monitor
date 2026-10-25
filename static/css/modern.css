@@ -83,6 +83,7 @@ html.modern-ui {
 .modern-ui body > svg { position: absolute; width: 0; height: 0; overflow: hidden; }
 .modern-ui .modern-dashboard {
   display: grid;
+  position: relative;
   grid-template-columns: minmax(0, 0.9fr) minmax(0, 1.1fr);
   grid-template-areas: "clock glucose" "status major" "status minor" "range range" "chart chart";
   grid-template-rows: auto auto auto auto minmax(320px, 1fr);
@@ -272,10 +273,12 @@ html.modern-ui {
 .modern-ui .modern-trace { stroke-width: 1.8; }
 .modern-ui .chart-context .modern-trace { stroke-width: 1; opacity: .7; }
 .modern-ui .modern-forecast-line { stroke-width: 1.4; stroke-dasharray: 5 5; opacity: .7; }
-.modern-ui .modern-now-label { fill: #c9d0da; font-size: 12px; text-anchor: middle; pointer-events: none; }
+.modern-ui .modern-now-label { fill: #c9d0da; font-size: 12px; text-anchor: end; pointer-events: none; }
 .modern-ui .tooltip { z-index: 1001; padding: 10px; border: 1px solid #46576b; border-radius: 8px; background: #202a36; color: #f0f3f7; }
-.modern-ui #viewMenu { max-width: calc(100vw - 24px); font-size: 16px; }
+.modern-ui #viewMenu { grid-area: range; top: 100%; left: 0; right: auto; max-width: calc(100vw - 24px); font-size: 16px; }
 .modern-ui #viewMenu li { white-space: normal; }
+.modern-ui #silenceBtn { grid-area: glucose; top: 100%; right: 0; max-width: calc(100vw - 24px); }
+.modern-ui #silenceBtn a { box-sizing: border-box; min-height: 44px; padding: 10px 12px; font-size: 18px; white-space: normal; }
 .modern-ui #drawer,
 .modern-ui #treatmentDrawer,
 .modern-ui #boluscalcDrawer,
