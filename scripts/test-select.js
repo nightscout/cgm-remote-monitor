@@ -185,7 +185,7 @@ function parseArgs (argv) {
     else if (a === '--depth') opts.depth = parseInt(argv[++i], 10);
     else if (a === '--max') opts.max = parseInt(argv[++i], 10);
     else if (a === '--seed') opts.seed = parseInt(argv[++i], 10);
-    else if (a === '--tier') opts.tiers = argv[++i].split(',');
+    else if (a === '--tier') opts.tiers = (argv[++i] || '').split(',');
     else if (a === '--why') opts.why = true;
     else if (a === '--run') opts.run = true;
     else opts._.push(a);
@@ -282,12 +282,7 @@ function run (files) {
   if (files.length === 1 && files[0] === '-') {
     files = fs.readFileSync(0, 'utf8').split('\n').map(s => s.trim()).filter(Boolean);
   }
-  const rels = [];
-  files.forEach(f => {
-    const rel = path.relative(ROOT, path.resolve(f)).split(path.sep).join('/');
-    if (tierOf(rel)) rels.push(rel);
-    else console.error('# not in a test tier, skipped: ' + f);
-  });
+  const rels = files.map(f => path.relative(ROOT, path.resolve(f)).split(path.sep).join('/'));
   if (!rels.length) {
     console.error('# no tests selected');
     return 0;
@@ -298,13 +293,20 @@ function run (files) {
 function main () {
   const opts = parseArgs(process.argv.slice(2));
   const command = opts._.shift();
+  if (command === 'sample' && !tiers.validateTiers(opts.tiers)) process.exit(2);
   const commands = { affected, sample };
   if (commands[command]) {
     const files = commands[command](opts);
     if (opts.run) process.exit(run(files));
     return;
   }
-  if (command === 'run') return process.exit(run(opts._));
+  if (command === 'run') {
+    if (!opts._.length) {
+      console.error('# specify test files or - to read the selection from stdin');
+      process.exit(2);
+    }
+    return process.exit(run(opts._));
+  }
   console.error('usage: test-select.js affected [--last N | --since REF | --files a,b] [--why] [--depth N] [--max N] [--run]\n' +
     '       test-select.js sample [N] [--seed S] [--tier ' + tiers.TIER_NAMES.join(',') + '] [--run]\n' +
     '       test-select.js run [files... | -]');

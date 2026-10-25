@@ -103,10 +103,35 @@ function command (name, files, ci) {
   return [bin('mocha'), args.concat(ordered)];
 }
 
+// Share tier-name validation with the selection CLI before it samples files.
+function validateTiers (names) {
+  const unknown = names.filter(name => !TIER_NAMES.includes(name));
+  if (!names.length || unknown.length) {
+    console.error('# unknown test tier: ' + (unknown.length ? unknown.map(name => name || '(empty)').join(', ') : '(none)') +
+      '; expected ' + TIER_NAMES.join(', '));
+    return false;
+  }
+  return true;
+}
+
 // Runs each named tier in map order; with files, only those files (plus the
 // tier's first and last files). Returns the first non-zero exit status.
 function run (names, files, ci) {
+  if (!validateTiers(names)) return 2;
   const all = listTestFiles();
+  const known = new Set(all);
+  const problems = [];
+  // Validate the complete request before starting any tier. A mixed valid and
+  // invalid selection must not run a partial suite and report success.
+  (files || []).forEach(file => {
+    if (!known.has(file)) problems.push('unknown test file: ' + file);
+    else if (!tierOf(file)) problems.push('test file must belong to exactly one tier: ' + file);
+    else if (!names.includes(tierOf(file))) problems.push(file + ' belongs to tier ' + tierOf(file) + ', not a requested tier');
+  });
+  if (problems.length) {
+    problems.forEach(problem => console.error('# ' + problem));
+    return 2;
+  }
   let status = 0;
   TIER_NAMES.filter(name => names.includes(name)).forEach(name => {
     const members = (files ? files : all).filter(f => tierOf(f) === name);
@@ -180,7 +205,7 @@ function check () {
   return problems.length ? 1 : 0;
 }
 
-module.exports = { MAP, TIER_NAMES, tierOf, tiersOf, listTestFiles, infraFiles, run };
+module.exports = { MAP, TIER_NAMES, tierOf, tiersOf, listTestFiles, infraFiles, validateTiers, run };
 
 if (require.main === module) {
   const argv = process.argv.slice(2);
@@ -191,6 +216,7 @@ if (require.main === module) {
     const files = rest.length > 1 ? rest.slice(1).map(f => path.relative(ROOT, path.resolve(f)).split(path.sep).join('/')) : null;
     process.exit(run(rest[0].split(','), files, ci));
   } else if (cmd === 'list') {
+    if (rest.length && !validateTiers([rest[0]])) process.exit(2);
     listTestFiles().filter(f => !rest[0] || tierOf(f) === rest[0]).forEach(f => console.log(f));
   } else if (cmd === 'check') {
     process.exit(check());

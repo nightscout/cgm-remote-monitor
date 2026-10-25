@@ -187,6 +187,10 @@ what it covers on a line of its own:
 // covers: package-lock.json
 ```
 
+Unknown tier names, missing explicit test files and files outside the requested
+tiers fail with a nonzero exit status before any tests run. Empty automatic
+affected-test selections and empty stdin pipelines remain successful no-ops.
+
 ### Inner-loop selection
 
 ```bash
