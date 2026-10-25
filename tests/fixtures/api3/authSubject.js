@@ -1,15 +1,14 @@
 'use strict';
 
-const _ = require('lodash')
-  , request = require('supertest')
+const request = require('supertest')
   ;
 require('should');
 
 function createRole (authStorage, name, permissions) {
-
   return new Promise((resolve, reject) => {
 
-    let role = _.find(authStorage.roles, { name });
+    let role = authStorage.roles && Array.isArray(authStorage.roles) ?
+      authStorage.roles.find(r => r && r.name === name) : null;
 
     if (role) {
       resolve(role);
@@ -20,11 +19,11 @@ function createRole (authStorage, name, permissions) {
         "permissions": permissions,
         "notes": ""
       }, function afterCreate (err) {
-
         if (err)
-          reject(err);
+          return reject(err);
 
-        role = _.find(authStorage.roles, { name });
+        role = authStorage.roles && Array.isArray(authStorage.roles) ?
+          authStorage.roles.find(r => r && r.name === name) : null;
         resolve(role);
       });
     }
@@ -33,11 +32,11 @@ function createRole (authStorage, name, permissions) {
 
 
 function createTestSubject (authStorage, subjectName, roles) {
-
   return new Promise((resolve, reject) => {
 
     const subjectDbName = 'test-' + subjectName;
-    let subject = _.find(authStorage.subjects, { name: subjectDbName });
+    let subject = authStorage.subjects && Array.isArray(authStorage.subjects) ?
+      authStorage.subjects.find(s => s && s.name === subjectDbName) : null;
 
     if (subject) {
       resolve(subject);
@@ -48,11 +47,11 @@ function createTestSubject (authStorage, subjectName, roles) {
         "roles": roles,
         "notes": ""
       }, function afterCreate (err) {
-
         if (err)
-          reject(err);
+          return reject(err);
 
-        subject = _.find(authStorage.subjects, { name: subjectDbName });
+        subject = authStorage.subjects && Array.isArray(authStorage.subjects) ?
+          authStorage.subjects.find(s => s && s.name === subjectDbName) : null;
         resolve(subject);
       });
     }
@@ -62,7 +61,7 @@ function createTestSubject (authStorage, subjectName, roles) {
 
 async function initJwts (accessToken, tokensNeeded, app) {
   const jwt = {}
-  if (!_.isArray(tokensNeeded) || !app)
+  if (!Array.isArray(tokensNeeded) || !app)
     return jwt;
 
   for (const tokenNeeded of tokensNeeded) {
@@ -75,7 +74,7 @@ async function initJwts (accessToken, tokensNeeded, app) {
           .expect(200)
           .end(function(err, res) {
             if (err)
-              reject(err);
+              return reject(err);
 
             resolve(res.body.token);
           });

@@ -1,12 +1,11 @@
 'use strict';
 
-var _ = require('lodash');
 var should = require('should');
+const cloneDeep = require('../lib/utils/clone');
 const helper = require('./inithelper')();
 const moment = helper.ctx.moment;
 
 var top_ctx = helper.getctx();
-top_ctx.settings = require('../lib/settings')();
 top_ctx.language.set('en');
 
 var env = require('../lib/server/env')();
@@ -94,11 +93,11 @@ var statuses2 = [{
 
 var now = moment(statuses[1].created_at);
 
-_.forEach(statuses, function updateMills (status) {
+statuses.forEach(function updateMills (status) {
   status.mills = moment(status.created_at).valueOf();
 });
 
-_.forEach(statuses2, function updateMills (status) {
+statuses2.forEach(function updateMills (status) {
   status.mills = moment(status.created_at).valueOf();
 });
 
@@ -205,10 +204,10 @@ describe('pump', function ( ) {
       , language: language
       , levels: levels
     };
-
     ctx.notifications.initRequests();
 
-    var lowResStatuses = _.cloneDeep(statuses);
+    // Deep clone statuses array for test isolation
+    var lowResStatuses = cloneDeep(statuses);
     lowResStatuses[1].pump.reservoir = 0.5;
 
     var sbx = sandbox.clientInit(ctx, now.valueOf(), {
@@ -236,8 +235,7 @@ describe('pump', function ( ) {
     };
 
     ctx.notifications.initRequests();
-
-    var lowResStatuses = _.cloneDeep(statuses);
+    var lowResStatuses = JSON.parse(JSON.stringify(statuses));
     lowResStatuses[1].pump.reservoir = 0;
 
     var sbx = sandbox.clientInit(ctx, now.valueOf(), {
@@ -255,6 +253,64 @@ describe('pump', function ( ) {
   });
 
 
+  function suspendedCheck (extendedSettings, pumpFields) {
+    var ctx = {
+      settings: {
+        units: 'mg/dl'
+      }
+      , notifications: require('../lib/notifications')(env, top_ctx)
+      , language: language
+      , levels: levels
+    };
+    ctx.notifications.initRequests();
+
+    var suspendedStatuses = cloneDeep(statuses);
+    suspendedStatuses[1].pump.status.suspended = true;
+    Object.assign(suspendedStatuses[1].pump, pumpFields);
+
+    var sbx = sandbox.clientInit(ctx, now.valueOf(), {
+      devicestatus: suspendedStatuses
+    });
+    sbx.extendedSettings = extendedSettings;
+    pump.setProperties(sbx);
+    pump.checkNotifications(sbx);
+
+    return ctx.notifications.findHighestAlarm('Pump');
+  }
+
+  it('generate a warning when the pump is suspended and PUMP_WARN_ON_SUSPEND is true', function (done) {
+    var highest = suspendedCheck({ 'enableAlerts': true, 'warnOnSuspend': true });
+    should.exist(highest);
+    highest.level.should.equal(levels.WARN);
+    highest.title.should.equal('Pump Suspended');
+
+    done();
+  });
+
+  it('not generate an alert when the pump is suspended and PUMP_WARN_ON_SUSPEND is off', function (done) {
+    var highest = suspendedCheck({ 'enableAlerts': true });
+    should.not.exist(highest);
+
+    done();
+  });
+
+  it('read warnOnSuspend from the plugin settings, not from the devicestatus', function (done) {
+    var highest;
+    (function () {
+      highest = suspendedCheck({ 'enableAlerts': true }, { warnOnSuspend: true });
+    }).should.not.throw();
+    should.not.exist(highest);
+
+    (function () {
+      highest = suspendedCheck({ 'enableAlerts': true, 'warnOnSuspend': true }, { warnOnSuspend: false });
+    }).should.not.throw();
+    should.exist(highest);
+    highest.level.should.equal(levels.WARN);
+    highest.title.should.equal('Pump Suspended');
+
+    done();
+  });
+
   it('generate an alert when battery is low', function (done) {
     var ctx = {
       settings: {
@@ -266,8 +322,7 @@ describe('pump', function ( ) {
     };
 
     ctx.notifications.initRequests();
-
-    var lowBattStatuses = _.cloneDeep(statuses);
+    var lowBattStatuses = JSON.parse(JSON.stringify(statuses));
     lowBattStatuses[1].pump.battery.voltage = 1.33;
 
     var sbx = sandbox.clientInit(ctx, now.valueOf(), {
@@ -283,7 +338,6 @@ describe('pump', function ( ) {
 
     done();
   });
-
   it('generate an urgent alarm when battery is really low', function (done) {
     var ctx = {
       settings: {
@@ -296,7 +350,7 @@ describe('pump', function ( ) {
 
     ctx.notifications.initRequests();
 
-    var lowBattStatuses = _.cloneDeep(statuses);
+    var lowBattStatuses = JSON.parse(JSON.stringify(statuses));
     lowBattStatuses[1].pump.battery.voltage = 1.00;
 
     var sbx = sandbox.clientInit(ctx, now.valueOf(), {
@@ -334,14 +388,14 @@ describe('pump', function ( ) {
 
     ctx.notifications.initRequests();
 
-    var lowBattStatuses = _.cloneDeep(statuses);
+    var lowBattStatuses = JSON.parse(JSON.stringify(statuses));
     lowBattStatuses[1].pump.battery.voltage = 1.00;
 
     var sbx = sandbox.clientInit(ctx, now.valueOf(), {
       devicestatus: lowBattStatuses
       , profiles: [profileData]
     });
-    profile.loadData(_.cloneDeep([profileData]));
+    profile.loadData(JSON.parse(JSON.stringify([profileData])));
     sbx.data.profile = profile;
 
     sbx.extendedSettings = {
@@ -355,6 +409,66 @@ describe('pump', function ( ) {
     should.not.exist(highest);
 
     done();
+  });
+
+  describe('after an AAPS open-ended loop disable', function () {
+    var H = 60 * 60 * 1000;
+    var alertTime = moment(statuses[1].created_at).add(1, 'hours').valueOf();
+    var source = { eventType: 'OpenAPS Offline', isValid: true, pumpType: 'X', pumpSerial: 'S', enteredBy: 'AndroidAPS' };
+    var openEndedShapes = {
+      'duration 2147483647 minutes': { duration: 2147483647, durationInMilliseconds: 2147483647 * 60000, originalDuration: 2147483647 * 60000 },
+      '10 years with originalDuration 0': { duration: 5256000, durationInMilliseconds: 5256000 * 60000, originalDuration: 0 }
+    };
+
+    function processed (treatments) {
+      var ddata = require('../lib/data/ddata')();
+      ddata.treatments = treatments;
+      ddata.processTreatments(true);
+      return ddata.treatments;
+    }
+
+    function highestAlarm (treatments) {
+      var ctx = {
+        settings: {
+          units: 'mg/dl'
+        }
+        , notifications: require('../lib/notifications')(env, top_ctx)
+        , language: language
+        , levels: levels
+      };
+
+      ctx.notifications.initRequests();
+
+      var sbx = sandbox.clientInit(ctx, alertTime, {
+        devicestatus: statuses
+        , treatments: processed(treatments)
+      });
+      sbx.extendedSettings = { 'enableAlerts': true };
+      pump.setProperties(sbx);
+      pump.checkNotifications(sbx);
+
+      return ctx.notifications.findHighestAlarm('Pump');
+    }
+
+    Object.keys(openEndedShapes).forEach(function (shape) {
+      it('generate an alert for stale pump data once the loop is re-enabled (' + shape + ')', function () {
+        var highest = highestAlarm([
+          Object.assign({}, source, openEndedShapes[shape], { mode: 'DISABLED_LOOP', mills: alertTime - 6 * H })
+          , Object.assign({}, source, { mode: 'CLOSED_LOOP', mills: alertTime - 5 * H, duration: 0, durationInMilliseconds: 0, originalDuration: 0 })
+        ]);
+
+        should.exist(highest);
+        highest.level.should.equal(levels.URGENT);
+      });
+
+      it('not generate an alert for stale pump data while the loop is still disabled (' + shape + ')', function () {
+        var highest = highestAlarm([
+          Object.assign({}, source, openEndedShapes[shape], { mode: 'DISABLED_LOOP', mills: alertTime - 6 * H })
+        ]);
+
+        should.not.exist(highest);
+      });
+    });
   });
 
   it('not generate an alert for a stale pump data, when there is an offline marker', function (done) {
@@ -391,7 +505,7 @@ describe('pump', function ( ) {
       , language: language
       , levels: levels
     };
-    
+
     ctx.language.set('en');
     var sbx = sandbox.clientInit(ctx, now.valueOf(), {devicestatus: statuses});
     pump.setProperties(sbx);
@@ -405,19 +519,19 @@ describe('pump', function ( ) {
       pump.virtAsst.intentHandlers[1].intentHandler(function next(title, response) {
         title.should.equal('Pump Battery');
         response.should.equal('Your pump battery is at 1.52 volts');
-        
+
         pump.virtAsst.intentHandlers[2].intentHandler(function next(title, response) {
           title.should.equal('Insulin Remaining');
           response.should.equal('You have 86.4 units remaining');
-    
+
           pump.virtAsst.intentHandlers[3].intentHandler(function next(title, response) {
             title.should.equal('Pump Battery');
             response.should.equal('Your pump battery is at 1.52 volts');
             done();
           }, [], sbx);
-          
+
         }, [], sbx);
-          
+
       }, [], sbx);
 
     }, [], sbx);

@@ -1,7 +1,15 @@
 const path = require('path');
 const webpack = require('webpack');
 const pluginArray = [];
-const sourceMapType = 'source-map';
+// In dev mode, webpack-hot-middleware injects the HMR client into both
+// entries (app + clock). With devtool='source-map' the shared modules
+// emit .map files keyed by [name] and collide ("Multiple assets emit
+// different content to the same filename js/bundle.app.js.map").
+// eval-cheap-module-source-map embeds maps in eval()s so nothing is
+// written to js/bundle.[name].js.map. Production keeps real .map files.
+const sourceMapType = process.env.NODE_ENV === 'development'
+  ? 'eval-cheap-module-source-map'
+  : 'source-map';
 const MomentTimezoneDataPlugin = require('moment-timezone-data-webpack-plugin');
 const projectRoot = path.resolve(__dirname, '..');
 
@@ -54,7 +62,6 @@ pluginArray.push(new webpack.ProvidePlugin({
 
 pluginArray.push(new webpack.ProvidePlugin({
   process: 'process/browser',
-  Buffer: ['buffer', 'Buffer'],
 }));
 
 // limit Timezone data from Moment
@@ -93,23 +100,15 @@ const rules = [
   },
   {
     test: /\.css$/i,
-    use: [ 'style-loader',
-      {
-        loader: 'css-loader',
-        options: {
-          sourceMap: true,
-        },
-      } ],
+    // Keep ordinary selectors global and inject CSS with webpack's own runtime.
+    type: 'css/global',
+    parser: { exportType: 'style' },
     exclude: /node_modules/
   },
   {
     test: /\.(jpe?g|png|gif)$/i,
-    loader: 'file-loader',
-    options: {
-      outputPath: 'images'
-      //the images will be emitted to public/assets/images/ folder
-      //the images will be put in the DOM <style> tag as eg. background: url(assets/images/image.png);
-    },
+    type: 'asset/resource',
+    generator: { filename: 'images/[contenthash][ext]' },
     exclude: /node_modules/
   },
   {
@@ -123,6 +122,8 @@ const rules = [
 
 const appEntry = ['./bundle/bundle.source.js'];
 const clockEntry = ['./bundle/bundle.clocks.source.js'];
+const pageEntries = Object.fromEntries(['reports', 'admin', 'profile', 'food'].map(name =>
+  [name, ['./bundle/bundle.' + name + '.source.js']]));
 
 let mode = 'production';
 let publicPath = '/bundle/';
@@ -137,6 +138,7 @@ if (process.env.NODE_ENV === 'development') {
 
   appEntry.unshift(hot);
   clockEntry.unshift(hot);
+  Object.values(pageEntries).forEach(entry => entry.unshift(hot));
 }
 
 const optimization = {};
@@ -144,16 +146,22 @@ const optimization = {};
 
 module.exports = {
   mode,
+  experiments: { css: true },
   context: projectRoot,
   entry: {
     app: appEntry,
-    clock: clockEntry
+    clock: clockEntry,
+    ...Object.fromEntries(Object.entries(pageEntries).map(([name, entry]) =>
+      [name, {import: entry, dependOn: 'app'}]))
   },
   output: {
     path: path.resolve(projectRoot, './node_modules/.cache/_ns_cache/public'),
     publicPath,
     filename: 'js/bundle.[name].js',
+    // Preserve the 32-character image names previously emitted by file-loader.
+    hashDigestLength: 32,
     sourceMapFilename: 'js/bundle.[name].js.map',
+    clean: true,
   },
   devtool: sourceMapType,
   optimization,
@@ -165,13 +173,8 @@ module.exports = {
     fallback: {
       'process/browser': require.resolve('process/browser'),
       events: require.resolve('events/'),
-      buffer: require.resolve('buffer/'),
+      crypto: false,
       vm: false
-    },
-    alias: {
-      stream: 'stream-browserify',
-      crypto: 'crypto-browserify',
-      buffer: 'buffer',
     }
   }
 };

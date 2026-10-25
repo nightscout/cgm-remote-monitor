@@ -1,12 +1,20 @@
 'use strict';
 
+const baseTime = Date.now();
+const iso = function(offsetMs) {
+  return new Date(baseTime + (offsetMs || 0)).toISOString();
+};
+const epoch = function(offsetMs) {
+  return baseTime + (offsetMs || 0);
+};
+
 module.exports = {
   aapsDuplicatePumpId: {
     first: {
       eventType: 'Correction Bolus',
       insulin: 0.25,
-      created_at: new Date().toISOString(),
-      date: Date.now(),
+      created_at: iso(0),
+      date: epoch(0),
       type: 'SMB',
       isValid: true,
       isSMB: true,
@@ -18,8 +26,8 @@ module.exports = {
     duplicate: {
       eventType: 'Correction Bolus',
       insulin: 0.25,
-      created_at: new Date().toISOString(),
-      date: Date.now(),
+      created_at: iso(0),
+      date: epoch(0),
       type: 'SMB',
       isValid: true,
       isSMB: true,
@@ -34,8 +42,8 @@ module.exports = {
     first: {
       type: 'sgv',
       sgv: 120,
-      date: Date.now(),
-      dateString: new Date().toISOString(),
+      date: epoch(60000),
+      dateString: iso(60000),
       device: 'AndroidAPS-DexcomG6',
       direction: 'Flat',
       app: 'AAPS'
@@ -43,8 +51,8 @@ module.exports = {
     duplicate: {
       type: 'sgv',
       sgv: 120,
-      date: Date.now(),
-      dateString: new Date().toISOString(),
+      date: epoch(60000),
+      dateString: iso(60000),
       device: 'AndroidAPS-DexcomG6',
       direction: 'Flat',
       app: 'AAPS'
@@ -56,14 +64,14 @@ module.exports = {
       eventType: 'Carb Correction',
       carbs: 15,
       syncIdentifier: 'loop-sync-abc123',
-      created_at: new Date().toISOString(),
+      created_at: iso(120000),
       enteredBy: 'loop://iPhone'
     },
     duplicate: {
       eventType: 'Carb Correction',
       carbs: 15,
       syncIdentifier: 'loop-sync-abc123',
-      created_at: new Date().toISOString(),
+      created_at: iso(120000),
       enteredBy: 'loop://iPhone'
     }
   },
@@ -75,7 +83,7 @@ module.exports = {
       rate: 1.5,
       absolute: 1.5,
       syncIdentifier: 'loop-dose-xyz789',
-      created_at: new Date().toISOString(),
+      created_at: iso(180000),
       enteredBy: 'loop://iPhone'
     },
     duplicate: {
@@ -84,7 +92,7 @@ module.exports = {
       rate: 1.5,
       absolute: 1.5,
       syncIdentifier: 'loop-dose-xyz789',
-      created_at: new Date().toISOString(),
+      created_at: iso(180000),
       enteredBy: 'loop://iPhone'
     }
   },
@@ -95,7 +103,7 @@ module.exports = {
       id: 'trio-uuid-abc123',
       insulin: 5.0,
       carbs: 45,
-      created_at: new Date().toISOString(),
+      created_at: iso(240000),
       enteredBy: 'Trio'
     },
     duplicate: {
@@ -103,7 +111,7 @@ module.exports = {
       id: 'trio-uuid-abc123',
       insulin: 5.0,
       carbs: 45,
-      created_at: new Date().toISOString(),
+      created_at: iso(240000),
       enteredBy: 'Trio'
     }
   },
@@ -116,7 +124,7 @@ module.exports = {
       targetTop: 110,
       targetBottom: 110,
       reason: 'Eating Soon',
-      created_at: new Date().toISOString(),
+      created_at: iso(300000),
       enteredBy: 'Trio'
     },
     duplicate: {
@@ -126,7 +134,7 @@ module.exports = {
       targetTop: 110,
       targetBottom: 110,
       reason: 'Eating Soon',
-      created_at: new Date().toISOString(),
+      created_at: iso(300000),
       enteredBy: 'Trio'
     }
   },
@@ -147,10 +155,10 @@ module.exports = {
   },
 
   batchWithDuplicates: [
-    { eventType: 'Note', created_at: new Date().toISOString(), notes: 'First note', id: 'note-1' },
-    { eventType: 'Note', created_at: new Date(Date.now() + 60000).toISOString(), notes: 'Second note', id: 'note-2' },
-    { eventType: 'Note', created_at: new Date().toISOString(), notes: 'First note', id: 'note-1' },
-    { eventType: 'Note', created_at: new Date(Date.now() + 120000).toISOString(), notes: 'Third note', id: 'note-3' }
+    { eventType: 'Note', created_at: iso(360000), notes: 'First note', id: 'note-1' },
+    { eventType: 'Note', created_at: iso(420000), notes: 'Second note', id: 'note-2' },
+    { eventType: 'Note', created_at: iso(360000), notes: 'First note', id: 'note-1' },
+    { eventType: 'Note', created_at: iso(480000), notes: 'Third note', id: 'note-3' }
   ],
 
   crossClientDuplicates: {
@@ -160,13 +168,15 @@ module.exports = {
       pumpId: 4148,
       pumpType: 'OMNIPOD_DASH',
       pumpSerial: 'PDM-12345',
-      app: 'AAPS'
+      app: 'AAPS',
+      created_at: iso(540000)
     },
     trioUploadSameEvent: {
       eventType: 'Correction Bolus',
       insulin: 0.25,
       id: 'trio-smb-4148',
-      enteredBy: 'Trio'
+      enteredBy: 'Trio',
+      created_at: iso(541000)
     }
   }
 };

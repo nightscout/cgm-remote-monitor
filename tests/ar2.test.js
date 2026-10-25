@@ -32,6 +32,13 @@ describe('ar2', function ( ) {
     var sbx = prepareSandbox();
     var cone = ar2.forecastCone(sbx);
     cone.length.should.equal(26);
+    cone.filter(point => point.forecastSeries === 'upper').length.should.equal(13);
+    cone.filter(point => point.forecastSeries === 'lower').length.should.equal(13);
+    for (var index = 0; index < cone.length; index += 2) {
+      cone[index].forecastMills.should.equal(cone[index + 1].forecastMills);
+      (cone[index].mills - cone[index].forecastMills).should.equal(2000);
+      (cone[index + 1].mills - cone[index + 1].forecastMills).should.equal(4000);
+    }
   });
 
   it('should plot a line if coneFactor is 0', function () {
@@ -43,6 +50,7 @@ describe('ar2', function ( ) {
     bgnow.setProperties(sbx);
     var cone = ar2.forecastCone(sbx);
     cone.length.should.equal(13);
+    cone.every(point => point.forecastSeries === 'central').should.equal(true);
   });
 
 
@@ -72,7 +80,12 @@ describe('ar2', function ( ) {
     var highest = ctx.notifications.findHighestAlarm();
     highest.level.should.equal(helper.ctx.levels.WARN);
     highest.title.should.equal('Warning, HIGH predicted');
-    highest.message.should.equal('BG Now: 170 +20 ↗ mg/dl\nBG 15m: 206 mg/dl\nIOB: 1.25U');
+
+    var expectedMessage =
+      ctx.settings.units === 'mmol' ?
+        'BG Now: 9.4 +1.1 ↗ mmol/L\nBG 15m: 11.4 mmol/L\nIOB: 1.25U' :
+        'BG Now: 170 +20 ↗ mg/dl\nBG 15m: 206 mg/dl\nIOB: 1.25U';
+    highest.message.should.equal(expectedMessage);
 
     done();
   });

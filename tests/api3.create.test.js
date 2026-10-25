@@ -82,7 +82,8 @@ describe('API3 CREATE', function() {
   });
 
 
-  after(() => {
+  after(async () => {
+    await utils.storageClear(self.instance.ctx);
     self.instance.ctx.bus.teardown();
   });
 
@@ -389,12 +390,17 @@ describe('API3 CREATE', function() {
     delete doc.identifier;
 
     await new Promise((resolve, reject) => {
-      self.instance.ctx.treatments.create([doc], async (err) => {  // let's insert the document in APIv1's way
-        should.not.exist(err);
-        doc._id = doc._id.toString();
-        self.cache.nextShouldEql(self.col, doc)
-
-        err ? reject(err) : resolve(doc);
+      self.instance.ctx.treatments.create([doc], (err) => {  // let's insert the document in APIv1's way
+        if (err) {
+          return reject(err);
+        }
+        try {
+          doc._id = doc._id.toString();
+          self.cache.nextShouldEql(self.col, doc);
+          resolve(doc);
+        } catch (e) {
+          reject(e);
+        }
       });
     });
 
@@ -403,6 +409,11 @@ describe('API3 CREATE', function() {
       identifier: utils.randomString('32', 'aA#')
     });
     delete doc2._id; // APIv1 updates input document, we must get rid of _id for the next round
+    // CHANGED EXPECTATION (BF-122): was doc2 carrying no server times, now the v1
+    // create also writes srvModified and srvCreated into doc; the v3 POST sets its
+    // own srvModified and keeps the stored srvCreated, so the copy must not carry them.
+    delete doc2.srvModified;
+    delete doc2.srvCreated;
 
     const resPost2 = await self.instance.post(`${self.url}`, self.jwt.all)
       .send(doc2)
@@ -416,10 +427,10 @@ describe('API3 CREATE', function() {
 
     let updatedBody = await self.get(doc2.identifier);
     updatedBody.should.containEql(doc2);
-    self.cache.nextShouldEql(self.col, doc2)
+    self.cache.nextShouldEql(self.col, doc2);
 
     await self.delete(doc2.identifier);
-    self.cache.nextShouldDeleteLast(self.col)
+    self.cache.nextShouldDeleteLast(self.col);
   });
 
 
@@ -433,14 +444,20 @@ describe('API3 CREATE', function() {
     delete doc.identifier;
 
     await new Promise((resolve, reject) => {
-      self.instance.ctx.treatments.create([doc], async (err) => {  // let's insert the document in APIv1's way
-        should.not.exist(err);
-        doc._id = doc._id.toString();
-
-        self.cache.nextShouldEql(self.col, doc)
-        err ? reject(err) : resolve(doc);
+      self.instance.ctx.treatments.create([doc], (err) => {  // let's insert the document in APIv1's way
+        if (err) {
+          return reject(err);
+        }
+        try {
+          doc._id = doc._id.toString();
+          self.cache.nextShouldEql(self.col, doc);
+          resolve(doc);
+        } catch (e) {
+          reject(e);
+        }
       });
     });
+
 
     const oldBody = await self.get(doc._id);
     delete doc._id; // APIv1 updates input document, we must get rid of _id for the next round
@@ -451,6 +468,11 @@ describe('API3 CREATE', function() {
       insulin: 0.4,
       identifier: utils.randomString('32', 'aA#')
     });
+    // CHANGED EXPECTATION (BF-122): was doc2 carrying no server times, now the v1
+    // create also writes srvModified and srvCreated into doc; the v3 POST sets its
+    // own, so the copy must not carry the first record's.
+    delete doc2.srvModified;
+    delete doc2.srvCreated;
 
     await self.instance.post(`${self.url}`, self.jwt.all)
       .send(doc2)
@@ -461,13 +483,13 @@ describe('API3 CREATE', function() {
     updatedBody.identifier.should.not.equal(oldBody.identifier);
     should.not.exist(updatedBody.isDeduplication);
     should.not.exist(updatedBody.deduplicatedIdentifier);
-    self.cache.nextShouldEql(self.col, doc2)
+    self.cache.nextShouldEql(self.col, doc2);
 
     await self.delete(doc2.identifier);
-    self.cache.nextShouldDeleteLast(self.col)
+    self.cache.nextShouldDeleteLast(self.col);
 
     await self.delete(oldBody.identifier);
-    self.cache.nextShouldDeleteLast(self.col)
+    self.cache.nextShouldDeleteLast(self.col);
   });
 
 
@@ -484,7 +506,7 @@ describe('API3 CREATE', function() {
     let res = await self.instance.delete(`${self.url}/${identifier}`, self.jwt.delete)
       .expect(200);
     res.body.status.should.equal(200);
-    self.cache.nextShouldDeleteLast(self.col)
+    self.cache.nextShouldDeleteLast(self.col);
 
     const date2 = new Date();
     res = await self.instance.post(self.url, self.jwt.create)
@@ -493,7 +515,7 @@ describe('API3 CREATE', function() {
 
     res.body.status.should.equal(403);
     res.body.message.should.equal('Missing permission api:treatments:update');
-    self.cache.shouldBeEmpty()
+    self.cache.shouldBeEmpty();
 
     const doc2 = Object.assign({}, self.validDoc, { identifier, date: date2.toISOString() });
     res = await self.instance.post(`${self.url}`, self.jwt.all)
@@ -509,7 +531,7 @@ describe('API3 CREATE', function() {
     body.identifier.should.equal(identifier);
 
     await self.delete(identifier);
-    self.cache.nextShouldDeleteLast(self.col)
+    self.cache.nextShouldDeleteLast(self.col);
   });
 
 
@@ -532,7 +554,7 @@ describe('API3 CREATE', function() {
     self.cache.nextShouldEql(self.col, self.validDoc);
 
     await self.delete(validIdentifier);
-    self.cache.nextShouldDeleteLast(self.col)
+    self.cache.nextShouldDeleteLast(self.col);
   });
 
 
@@ -571,7 +593,37 @@ describe('API3 CREATE', function() {
     body.length.should.equal(1);
 
     await self.delete(validIdentifier);
-    self.cache.nextShouldDeleteLast(self.col)
+    self.cache.nextShouldDeleteLast(self.col);
+  });
+
+
+  it('preserves a fixed persisted UUID through repeated create, deduplicate, read and delete cycles', async () => {
+    const identifier = '8c59e104-14cf-5bac-90e2-a47e502baaac';
+    const doc = {
+      date: 1704067200000, device: 'test-device',
+      eventType: 'Correction Bolus', insulin: 0.3, app: testConst.TEST_APP
+    };
+    for (let cycle = 0; cycle < 2; cycle++) {
+      let res = await self.instance.post(self.url, self.jwt.create).send(doc).expect(201);
+      res.body.identifier.should.equal(identifier);
+      res.headers.location.should.equal(`${self.url}/${identifier}`);
+      self.cache.nextShouldEql(self.col, {...doc, identifier});
+
+      res = await self.instance.post(self.url, self.jwt.update).send(doc).expect(200);
+      res.body.identifier.should.equal(identifier);
+      res.body.isDeduplication.should.equal(true);
+      self.cache.nextShouldEql(self.col, {...doc, identifier});
+
+      const stored = await self.get(identifier);
+      stored.should.containEql({...doc, identifier});
+      const records = await self.search(doc.date);
+      records.length.should.equal(1);
+      records[0].identifier.should.equal(identifier);
+
+      await self.delete(identifier);
+      self.cache.nextShouldDeleteLast(self.col);
+      await self.instance.get(`${self.url}/${identifier}`, self.jwt.read).expect(404);
+    }
   });
 
 
@@ -683,4 +735,3 @@ describe('API3 CREATE', function() {
   });
 
 });
-

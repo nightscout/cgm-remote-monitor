@@ -31,6 +31,28 @@ describe('Security of REST API V1', function() {
     return res.body.token;
   }
 
+  async function deletedSubjectToken (name) {
+    const storage = self.ctx.authorization.storage;
+    await new Promise(function (resolve, reject) {
+      storage.createSubject({ name: name, roles: ['readable'], notes: '' }, function afterCreate (err) {
+        if (err) return reject(err);
+        resolve();
+      });
+    });
+
+    const subject = storage.subjects.find(s => s.name === name);
+    const token = await getBearerToken(subject.accessToken);
+
+    await new Promise(function (resolve, reject) {
+      storage.removeSubject(subject._id, function afterRemove (err) {
+        if (err) return reject(err);
+        resolve();
+      });
+    });
+
+    return token;
+  }
+
   before(function(done) {
     var api = require('../lib/api/');
     delete process.env.API_SECRET;
@@ -148,12 +170,22 @@ describe('Security of REST API V1', function() {
       });
   });
 
-  it('Data load fail succeed with a false bearer token', function(done) {
+  it('Data load should fail with a false bearer token without logging a JWT TypeError', function(done) {
+    const originalError = console.error;
+    const errors = [];
+    console.error = function captureConsoleError () {
+      errors.push(Array.prototype.slice.call(arguments).join(' '));
+      return originalError.apply(console, arguments);
+    };
+
     request(self.app)
       .get('/api/v1/entries.json')
       .set('Authorization', 'Bearer 1234567890')
       .expect(401)
-      .end(function(err, res) {
+      .end(function(err) {
+        console.error = originalError;
+        if (err) return done(err);
+        errors.join('\n').should.not.containEql('Cannot read properties of null');
         done();
       });
   });
@@ -174,6 +206,45 @@ describe('Security of REST API V1', function() {
         done();
       });
     });
+  });
+
+  it('Data load should fail with a bearer token whose subject was deleted', async function () {
+    const token = await deletedSubjectToken('api-security-subject-deleted-read');
+
+    await request(self.app)
+      .get('/api/v1/entries.json')
+      .set('Authorization', 'Bearer ' + token)
+      .expect(401);
+
+    await request(self.app)
+      .get('/api/v1/entries.json')
+      .set('api-secret', known)
+      .expect(200);
+  });
+
+  it('/verifyauth should return UNAUTHORIZED for a bearer token whose subject was deleted', async function () {
+    const token = await deletedSubjectToken('api-security-subject-deleted-verify');
+
+    const res = await request(self.app)
+      .get('/api/v1/verifyauth')
+      .set('Authorization', 'Bearer ' + token)
+      .expect(200);
+
+    res.body.message.message.should.equal('UNAUTHORIZED');
+    res.body.message.canRead.should.equal(false);
+  });
+
+  it('Resolving a bearer token whose subject was deleted fails like a wrong token', async function () {
+    const token = await deletedSubjectToken('api-security-subject-deleted-resolve');
+
+    const outcome = await new Promise(function (resolve) {
+      self.ctx.authorization.resolve({ token: token, ip: '127.0.0.1' }, function resolved (err, result) {
+        resolve({ err: err, result: result });
+      });
+    });
+
+    outcome.err.should.equal('All validation failed');
+    outcome.result.should.eql({});
   });
 
   describe('Authorization admin save endpoints', function () {

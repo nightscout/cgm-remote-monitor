@@ -59,7 +59,8 @@ describe('API3 UPDATE', function() {
   });
 
 
-  after(() => {
+  after(async () => {
+    await utils.storageClear(self.instance.ctx);
     self.instance.ctx.bus.teardown();
   });
 
@@ -69,7 +70,7 @@ describe('API3 UPDATE', function() {
   });
 
 
-  afterEach(() => {
+  afterEach(async () => {
     self.cache.shouldBeEmpty();
   });
 

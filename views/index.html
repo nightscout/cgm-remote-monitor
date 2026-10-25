@@ -1,8 +1,12 @@
 <!DOCTYPE html>
-<html>
+<html<% if (settings.theme === 'modern') { %> class="modern-ui"<% } %>>
 
 <head>
+  <% if (settings.theme === 'modern') { %>
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <% } else { %>
   <meta name="viewport" content="width=device-width, maximum-scale=1, initial-scale=0.9, user-scalable=0">
+  <% } %>
   <meta name="apple-mobile-web-app-capable" content="yes">
   <link rel="apple-touch-startup-image" href="images/launch.png">
   <meta name="apple-mobile-web-app-title" content="Nightscout">
@@ -33,6 +37,7 @@
   <link rel="preload" href="css/main.css" as="style" onload="this.onload=null;this.rel='stylesheet'">
   <link rel="preload" href="css/drawer.css" as="style" onload="this.onload=null;this.rel='stylesheet'">
   <link rel="preload" href="css/dropdown.css" as="style" onload="this.onload=null;this.rel='stylesheet'">
+  <link rel="preload" href="css/modern.css?<%= locals.cachebuster %>" as="style" onload="this.onload=null;this.rel='stylesheet'">
 
   <style media="screen" type="text/css">
     #centerMessagePanel {
@@ -117,53 +122,14 @@
       </div>
     </div>
   </div>
-  <div class="container loading" id="container">
-    <%- include('partials/toolbar') %>
-
-    <div id="notification" role="region" aria-label="Notification">
-      <a href="#" aria-label="cancel"><span></span><i class="icon-cancel-circled"></i></a>
-    </div>
-    <div class="primary">
-      <div class="bgStatus current">
-        <div class="bgButton" aria-live="assertive" role="contentinfo" aria-label="Blood Sugar">
-          <span class="bgSpan">
-            <span class="pill rawbg hidden"><em></em><label></label></span>
-            <span class="currentBG">---</span>
-            <span class="pill direction"></span>
-          </span>
-        </div>
-        <ul class="dropdown-menu" id="silenceBtn"></ul>
-        <div class="majorPills"></div>
-        <div class="minorPills"></div>
-      </div>
-
-      <div class="status">
-        <div class="statusBox">
-          <div id="currentTime">---</div>
-          <div class="statusPills">
-          </div>
-        </div>
-      </div>
-      <div></div>
-
-      <ul class="focus-range">
-        <li data-hours="1" class="translate">Hours:</li>
-        <li data-hours="2">2</li>
-        <li data-hours="3">3</li>
-        <li data-hours="4">4</li>
-        <li data-hours="6">6</li>
-        <li data-hours="12">12</li>
-        <li data-hours="24">24</li>
-        <li>...</li>
-      </ul>
-    </div>
-    <ul class="dropdown-menu" id="viewMenu"></ul>
-  </div>
-  <div class="row-fluid section1">
-    <div id="chartContainer" role="region" aria-label="Chart"></div>
-  </div>
-  </div>
-
+  <% if (settings.theme === 'modern') { %>
+  <%- include('partials/modern-dashboard') %>
+  <% } else { %>
+  <%- include('partials/classic-dashboard') %>
+  <% } %>
+  <template id="alternate-dashboard">
+    <%- include(settings.theme === 'modern' ? 'partials/classic-dashboard' : 'partials/modern-dashboard') %>
+  </template>
   <div id="drawer">
     <form id="settings-form" role="form">
       <ul class="navigation" role="navigation" aria-label="Settings">
@@ -287,6 +253,7 @@
           <dt class="translate">Theme</dt>
           <dd><input type="radio" name="theme-browser" id="theme-default-browser" value="default" checked><label for="theme-default-browser" class="translate">Default</label></dd>
           <dd><input type="radio" name="theme-browser" id="theme-colors-browser" value="colors"><label for="theme-colors-browser" class="translate">Colors</label></dd>
+          <dd><input type="radio" name="theme-browser" id="theme-modern-browser" value="modern"><label for="theme-modern-browser" class="translate">Modern</label></dd>
           <dd><input type="radio" name="theme-browser" id="theme-colorblindfriendly-browser" value="colorblindfriendly"><label for="theme-colorblindfriendly-browser" class="translate">Colorblind-friendly colors</label></dd>
         </dl>
         <dl id="show-plugins" class="toggle">
@@ -472,7 +439,7 @@
           <input type="time" id="eventTimeValue" name="eventTimeValue" value="" class="eventinput eventtime">
         </div>
 
-        <button type="button" class="translate">Submit Form</button>
+        <button id="treatment-submit" type="button" class="translate">Submit Form</button>
       </fieldset>
     </form>
   </div>
@@ -752,23 +719,26 @@
     <audio src="audio/alarm2.mp3" preload="auto" loop="true" class="urgent alarm2 mp3" type="audio/mp3"></audio>
   </div>
 
-  <script src="<%= locals.bundle %>/js/bundle.app.js"></script>
-  <script src="socket.io/socket.io.js"></script>
-  <script src="js/client.js"></script>
+  <%- include('partials/page-scripts', {pageEntry: 'app', startupScripts: ['/js/client.js']}) %>
 
   <script>
     if ('serviceWorker' in navigator) {
       window.addEventListener('load', () => {
+        // Initial installation should not interrupt startup. For an update,
+        // reload once when the new worker actually takes control, rather than
+        // reloading repeatedly through installing/installed/activating states.
+        var wasControlled = Boolean(navigator.serviceWorker.controller);
+        var reloading = false;
+        navigator.serviceWorker.addEventListener('controllerchange', () => {
+          if (wasControlled && !reloading) {
+            reloading = true;
+            window.location.reload();
+          }
+        });
         navigator.serviceWorker.register('/sw.js', { scope: '/' }).then(function(reg) {
           console.log('Service worker registered');
           reg.addEventListener('updatefound', () => {
             console.log('Service worker update detected');
-            reg.update();
-            var newWorker = reg.installing;
-            newWorker.addEventListener('statechange', (state) => {
-              console.log('New worker state change', state);
-              window.location.reload(true);
-            });
           });
         }).catch(function(error) {
           console.log('Registration failed with ' + error);

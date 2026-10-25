@@ -264,3 +264,6 @@ main h2 {
     background: transparent;
   }
 }
+/* Structural wrapper retained for the optional modern layout. */
+.report-filters { min-width: 0; margin: 0; padding: 0; border: 0; }
+.report-filters-title { display: none; }

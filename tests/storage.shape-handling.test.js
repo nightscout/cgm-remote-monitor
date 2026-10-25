@@ -76,6 +76,27 @@ describe('Storage Layer Shape Handling - Direct Storage Tests', function () {
       });
     });
 
+    it('sanitizes documents written directly through the storage adapter', function (done) {
+      var now = new Date().toISOString();
+      self.ctx.treatments.create({
+        eventType: 'Note',
+        created_at: now,
+        notes: '<img src=x onerror=alert(1)>direct import',
+        enteredBy: '<script>alert(1)</script>bridge'
+      }, function (err, result) {
+        should.not.exist(err);
+        result[0].notes.should.not.match(/onerror/i);
+        result[0].enteredBy.should.equal('bridge');
+
+        self.ctx.treatments.list({ find: { created_at: { $eq: now } } }, function (listErr, stored) {
+          should.not.exist(listErr);
+          stored[0].notes.should.not.match(/onerror/i);
+          stored[0].enteredBy.should.equal('bridge');
+          done();
+        });
+      });
+    });
+
     it('create() handles large batch', function (done) {
       var treatments = [];
       var baseTime = Date.now();
@@ -408,6 +429,22 @@ describe('Storage Layer Shape Handling - Direct Storage Tests', function () {
       });
     });
 
+    it('save() generates _id for a 12-character _id instead of reading it as raw bytes', function (done) {
+      self.ctx.profile.save({
+        _id: 'abcdefghijkl',
+        defaultProfile: 'Default',
+        store: { Default: { dia: 3, units: 'mg/dl' } },
+        startDate: '2024-10-19T23:00:00.000Z',
+        units: 'mg/dl'
+      }, function (err, saved) {
+        should.not.exist(err);
+        saved._id.constructor.name.should.equal('ObjectId');
+        // 'abcdefghijkl' as 12 raw bytes
+        saved._id.toString().should.not.equal('6162636465666768696a6b6c');
+        done();
+      });
+    });
+
     it('save() preserves explicit created_at and does not overwrite it', function (done) {
       var profile = {
         defaultProfile: 'Default',
@@ -439,6 +476,136 @@ describe('Storage Layer Shape Handling - Direct Storage Tests', function () {
           })
           .catch(done);
       });
+    });
+
+    it('prune() deletes older profiles while keeping the newest records', function (done) {
+      var profiles = [];
+
+      for (var i = 0; i < 12; i++) {
+        profiles.push({
+          defaultProfile: 'Profile' + i,
+          store: {
+            Default: {
+              dia: 3,
+              carbratio: [{ time: '00:00', value: 30 }],
+              sens: [{ time: '00:00', value: 100 }],
+              basal: [{ time: '00:00', value: 0.5 }],
+              target_low: [{ time: '00:00', value: 80 }],
+              target_high: [{ time: '00:00', value: 120 }],
+              units: 'mg/dl'
+            }
+          },
+          startDate: new Date(Date.UTC(2025, 0, i + 1)).toISOString(),
+          units: 'mg/dl'
+        });
+      }
+
+      self.ctx.profile.create(profiles, function (err) {
+        should.not.exist(err);
+
+        self.ctx.profile.prune(10, function (pruneErr, stat) {
+          should.not.exist(pruneErr);
+          stat.deletedCount.should.equal(2);
+
+          self.ctx.profile.list(function (listErr, docs) {
+            should.not.exist(listErr);
+            docs.length.should.equal(10);
+            docs[0].defaultProfile.should.equal('Profile11');
+            docs[9].defaultProfile.should.equal('Profile2');
+            done();
+          }, 20);
+        });
+      });
+    });
+
+    it('prune() uses _id as a tie-breaker when profile startDate values match', function (done) {
+      var profiles = [];
+
+      for (var i = 0; i < 3; i++) {
+        profiles.push({
+          defaultProfile: 'TieProfile' + i,
+          store: {
+            Default: {
+              dia: 3,
+              carbratio: [{ time: '00:00', value: 30 }],
+              sens: [{ time: '00:00', value: 100 }],
+              basal: [{ time: '00:00', value: 0.5 }],
+              target_low: [{ time: '00:00', value: 80 }],
+              target_high: [{ time: '00:00', value: 120 }],
+              units: 'mg/dl'
+            }
+          },
+          startDate: '2025-01-01T00:00:00.000Z',
+          units: 'mg/dl'
+        });
+      }
+
+      self.ctx.profile.create(profiles, function (err) {
+        should.not.exist(err);
+
+        self.ctx.profile.prune(1, function (pruneErr, stat) {
+          should.not.exist(pruneErr);
+          stat.deletedCount.should.equal(2);
+
+          self.ctx.profile.list(function (listErr, docs) {
+            should.not.exist(listErr);
+            docs.length.should.equal(1);
+            docs[0].defaultProfile.should.equal('TieProfile2');
+            done();
+          }, 10);
+        });
+      });
+    });
+
+    it('prune() removes profiles missing startDate after dated profiles', function (done) {
+      var profiles = [
+        {
+          defaultProfile: 'MissingStartDate',
+          store: { Default: { dia: 3 } },
+          units: 'mg/dl'
+        },
+        {
+          defaultProfile: 'NullStartDate',
+          store: { Default: { dia: 3 } },
+          startDate: null,
+          units: 'mg/dl'
+        },
+        {
+          defaultProfile: 'OldProfile',
+          store: { Default: { dia: 3 } },
+          startDate: '2024-01-01T00:00:00.000Z',
+          units: 'mg/dl'
+        },
+        {
+          defaultProfile: 'NewProfile',
+          store: { Default: { dia: 3 } },
+          startDate: '2025-01-01T00:00:00.000Z',
+          units: 'mg/dl'
+        }
+      ];
+
+      self.ctx.profile.create(profiles, function (err) {
+        should.not.exist(err);
+
+        self.ctx.profile.prune(1, function (pruneErr, stat) {
+          should.not.exist(pruneErr);
+          stat.deletedCount.should.equal(3);
+
+          self.ctx.profile.list(function (listErr, docs) {
+            should.not.exist(listErr);
+            docs.length.should.equal(1);
+            docs[0].defaultProfile.should.equal('NewProfile');
+            done();
+          }, 10);
+        });
+      });
+    });
+
+    it('declares indexes used by profile loading and websocket deduplication', function () {
+      self.ctx.profile.indexedFields.should.containEql('startDate');
+      self.ctx.profile.indexedFields.should.containEql('created_at');
+      self.ctx.profile.indexedFields.should.containEql('NSCLIENT_ID');
+      self.ctx.profile.indexedFields.should.containEql({ startDate: -1, _id: -1 });
     });
   });
 
@@ -628,6 +795,22 @@ describe('Storage Layer Shape Handling - Direct Storage Tests', function () {
             .catch(done);
         });
       }).catch(done);
+    });
+
+    it('createSubject() does not store a client 24-hex _id as a string', async function () {
+      var hex = '5f2500000000000000000c01';
+      await self.ctx.authorization.storage.createSubject({ _id: hex, name: 'mongo-save-subject', roles: ['readable'] });
+      var docs = await subjectsCollection().find({ name: 'mongo-save-subject' }).toArray();
+      docs.length.should.equal(1);
+      docs[0]._id.constructor.name.should.equal('ObjectId');
+      (await subjectsCollection().countDocuments({ _id: hex })).should.equal(0);
+    });
+
+    it('removeSubject() removes a subject stored with a string _id', async function () {
+      var hex = '5f2500000000000000000c02';
+      await subjectsCollection().insertOne({ _id: hex, name: 'mongo-save-subject', roles: ['readable'] });
+      await self.ctx.authorization.storage.removeSubject(hex);
+      (await subjectsCollection().find({ name: 'mongo-save-subject' }).toArray()).length.should.equal(0);
     });
 
     it('saveSubject() updates an existing subject without duplicating it', function (done) {
