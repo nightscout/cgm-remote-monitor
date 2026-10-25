@@ -490,4 +490,61 @@ describe('careportal', function ( ) {
     checkLoopSubmission('Temporary Override Cancel');
   });
 
+  // The bolus calculator's profile picker. The record saved the chosen name
+  // but, from 14.0.0, the sensitivity, targets and carb ratio came from the
+  // active profile whatever was chosen.
+  function pickerSchedule (value) {
+    return [{time: '00:00', timeAsSeconds: 0, value: value}];
+  }
+
+  function pickerProfile (sens, carbratio) {
+    return {
+      dia: 3
+      , units: 'mg/dl'
+      , basal: pickerSchedule(1)
+      , carbratio: pickerSchedule(carbratio)
+      , sens: pickerSchedule(sens)
+      , target_low: pickerSchedule(90)
+      , target_high: pickerSchedule(126)
+    };
+  }
+
+  function calculateWithProfile (choice) {
+    var client = window.Nightscout.client;
+    client.init();
+    client.dataUpdate({
+      sgvs: [{ mgdl: 250, mills: Date.now(), direction: 'Flat', type: 'sgv' }]
+      , treatments: []
+      , devicestatus: []
+      , profiles: [{
+        defaultProfile: 'Default'
+        , units: 'mg/dl'
+        , store: { Default: pickerProfile(54, 10), Other: pickerProfile(27, 5) }
+      }]
+    }, true);
+    client.boluscalc.prepare();
+    if (choice) {
+      $('#bc_profile').val(choice);
+    }
+    $('#bc_bg').val('250');
+    $('#bc_carbs').val('0');
+    $('#bc_othercorrection').val('0');
+    return client.boluscalc.calculateInsulin();
+  }
+
+  it('boluscalc uses the active profile by default', function () {
+    var record = calculateWithProfile();
+    record.profile.should.equal('Default');
+    record.isf.should.equal(54);
+    record.ic.should.equal(10);
+  });
+
+  it('boluscalc uses the chosen profile', function () {
+    var record = calculateWithProfile('Other');
+    record.profile.should.equal('Other');
+    record.isf.should.equal(27);
+    record.ic.should.equal(5);
+    record.insulinbg.should.be.approximately(4.59, 0.001);
+  });
+
 });
