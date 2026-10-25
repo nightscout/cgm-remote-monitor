@@ -10,6 +10,11 @@ Release notes: https://github.com/nightscout/cgm-remote-monitor/releases/tag/v15
 
 ### Fixed
 
+- **Snooze without the API secret:** Keep an alarm quiet for the snooze chosen
+  on a page that has not entered the API secret. With the default `readable`
+  role such a page may not acknowledge alarms, so the server ignored its snooze
+  and the alarm sounded again at the next heartbeat, within a minute. A page
+  that is signed in behaves as before. Relates to #8194.
 - **Server stopped by a token for a deleted subject:** Refuse a bearer token
   whose subject was deleted, or lost when the database was dropped, the same way
   as a wrong token. The token still verifies until it expires, and the first
