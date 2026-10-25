@@ -190,10 +190,38 @@ npm run test:browser
 ```
 
 Use `NIGHTSCOUT_TEST_BROWSER=firefox` or `webkit` after installing that engine.
-CI requires all three engines on both Node floors. Browser downloads are
-separate from ordinary npm installs and production deployment. See the
+Ordinary CI runs all three browser engines once on Node 24. Server compatibility
+is checked separately on Node 22.23.4/MongoDB 5, Node 24/MongoDB 6 and the latest
+Node 26/MongoDB 6. Every lane runs the full existing suite; only the environment
+combinations are reduced. Browser downloads are separate from ordinary npm
+installs and production deployment. See the
 [browser test specification](docs/test-specs/browser-tests.md) for isolation,
 coverage boundaries and the additional test-tool disk/RAM costs.
+
+### CI coverage and manual release checks
+
+Ordinary pull requests run three server lanes, three browser lanes, npm 12
+compatibility, two native Docker builds and CodeQL (ten validation jobs).
+The real `Run Tests (24, 6)` lane is retained for branch protection.
+Same-repository `dev` to `master` release PRs run that server lane, all three
+browsers and both native Docker image checks against the merge result; the
+Node 22/26 boundary lanes already run on the `dev` push. Forks named `dev`
+still get ordinary PR coverage. Publishing waits for all server, browser and
+npm 12 checks on the actual `dev`/`master` push.
+
+Before a release, use **Actions → CI test and publish Docker image → Run
+workflow**, select the release candidate ref and leave **extended** enabled.
+This runs all six Node selectors (the supported patch floor and latest patch
+on each of 22/24/26) against MongoDB 5/6, and all three browsers on every
+selector. Both native Docker images are built and smoke-tested. Manual runs
+never publish images. CodeQL can be run separately on the same ref through its
+own Run workflow control. GitHub exposes manual dispatch after the workflow
+configuration reaches the default branch.
+
+Superseded PR runs cancel automatically; push, manual and scheduled runs have
+separate concurrency groups so deployment or release checks are not cancelled.
+When changing matrix names, align the protection rules for both `dev` and
+`master` before removing required contexts, to avoid a permanently pending check.
 
 Socket.IO checks use disposable loopback servers without MongoDB. Node-client
 and parser checks run in `test:dependencies`; actual served-browser clients

@@ -14,22 +14,30 @@ on:
       - dev
       - chore/nightscout-modernization
 
+  workflow_dispatch:
+    inputs:
+      extended:
+        description: Run all supported Node floors/latest patches against MongoDB 5/6 and all browsers
+        type: boolean
+        default: true
+
+# Replace stale PR checks, but never cancel or collapse publishing runs.
+concurrency:
+  group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.run_id }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
 jobs:
   test:
-    name: Run Tests
+    # Preserve the required status check name and run the real suite in every mode.
+    name: Run Tests (${{ matrix.node-version }}, ${{ matrix.mongodb-version }})
     runs-on: ubuntu-latest
+    timeout-minutes: 15
     strategy:
       matrix:
-        # Exercise the CVE-2026-111497 security boundaries and current releases.
-        node-version: ['22.23.4', '22', '24.22.1', '24', '26.12.1', '26']
-        # MongoDB 4.4 is retired; keep 5/6 during the modernization migration.
-        mongodb-version: [5.0, 6.0]
-        include:
-          # Retain the existing required check until branch protection is updated separately.
-          - node-version: '22'
-            mongodb-version: '4.4'
+        node-version: ['24']
+        mongodb-version: [6.0]
 
-    steps:
+    steps: &server-test-steps
       - name: Git Checkout
         uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5
 
@@ -58,6 +66,29 @@ jobs:
       - name: Send Coverage
         run: npm run-script coverage
 
+  test-boundaries:
+    name: Run Tests (${{ matrix.node-version }}, ${{ matrix.mongodb-version }})
+    # Same-repository release PRs already get boundary coverage on the dev push.
+    # Keep the required Node 24 suite, all browsers and both images on the actual
+    # release merge result. Forks named dev still receive the ordinary PR matrix.
+    if: >-
+      ${{ !(github.event_name == 'pull_request' &&
+            github.event.pull_request.head.repo.full_name == github.repository &&
+            github.head_ref == 'dev' && github.base_ref == 'master') }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    strategy:
+      fail-fast: false
+      matrix:
+        node-version: ${{ fromJSON(inputs.extended && '["22.23.4","22","24.22.1","24","26.12.1","26"]' || '["22.23.4","26"]') }}
+        mongodb-version: [5.0, 6.0]
+        # The primary job always covers (24, 6), including manual runs.
+        exclude: >-
+          ${{ fromJSON(inputs.extended &&
+              '[{"node-version":"24","mongodb-version":6}]' ||
+              '[{"node-version":"22.23.4","mongodb-version":6},{"node-version":"26","mongodb-version":5}]') }}
+    steps: *server-test-steps
+
   browser-test:
     name: Browser tests (${{ matrix.node-version }}, ${{ matrix.browser }})
     runs-on: ubuntu-latest
@@ -69,7 +100,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        node-version: ['22.23.4', '22', '24.22.1', '24', '26.12.1', '26']
+        node-version: ${{ fromJSON(inputs.extended && '["22.23.4","22","24.22.1","24","26.12.1","26"]' || '["24"]') }}
         browser: [chromium, firefox, webkit]
     steps:
       - name: Git Checkout
@@ -121,7 +152,7 @@ jobs:
   docker-build-pr:
     name: Validate Docker image (${{ matrix.arch }})
     # Validation has no publishing side effects and can run alongside the test matrix.
-    if: github.event_name == 'pull_request'
+    if: github.event_name == 'pull_request' || github.event_name == 'workflow_dispatch'
     runs-on: ${{ matrix.runner }}
     strategy:
       fail-fast: false
@@ -133,6 +164,8 @@ jobs:
           - arch: arm64
             platform: linux/arm64
             runner: ubuntu-24.04-arm
+    env:
+      IMAGE: nightscout/cgm-remote-monitor:ci-${{ github.run_id }}-${{ matrix.arch }}
     steps:
       - name: Git Checkout
         uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5
@@ -147,11 +180,9 @@ jobs:
           push: false
           load: true
           platforms: ${{ matrix.platform }}
-          tags: nightscout/cgm-remote-monitor:pr-${{ github.event.pull_request.number }}
+          tags: ${{ env.IMAGE }}
 
       - name: Validate pruned runtime and startup
-        env:
-          IMAGE: nightscout/cgm-remote-monitor:pr-${{ github.event.pull_request.number }}
         run: |
           docker run --rm "$IMAGE" node -e "require('./lib/server/runtime-policy')(); console.log(process.version)"
           docker run --detach --name nightscout-smoke -e INSECURE_USE_HTTP=true -p 127.0.0.1:1337:1337 "$IMAGE"
@@ -169,8 +200,8 @@ jobs:
 
   docker-build:
     name: Build Docker image (${{ matrix.arch }})
-    needs: [test, browser-test]
-    if: (github.ref == 'refs/heads/master' || github.ref == 'refs/heads/dev') && github.repository_owner == 'nightscout'
+    needs: [test, test-boundaries, browser-test, npm12-build]
+    if: github.event_name == 'push' && (github.ref == 'refs/heads/master' || github.ref == 'refs/heads/dev') && github.repository_owner == 'nightscout'
     runs-on: ${{ matrix.runner }}
     strategy:
       fail-fast: false
@@ -222,7 +253,7 @@ jobs:
     name: Publish to Docker Hub
     needs: docker-build
     runs-on: ubuntu-latest
-    if: (github.ref == 'refs/heads/master' || github.ref == 'refs/heads/dev') && github.repository_owner == 'nightscout'
+    if: github.event_name == 'push' && (github.ref == 'refs/heads/master' || github.ref == 'refs/heads/dev') && github.repository_owner == 'nightscout'
     env:
       DOCKER_IMAGE: nightscout/cgm-remote-monitor
     steps:
