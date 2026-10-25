@@ -103,6 +103,63 @@ describe('boluswizardpreview', function ( ) {
     done();
   });
 
+  ['mg/dl', 'mmol'].forEach(function (historicalUnits) {
+    ['mg/dl', 'mmol'].forEach(function (displayUnits) {
+      [250, 72].forEach(function (bgMgdl) {
+        it('uses historical ' + historicalUnits + ' profile units on a ' + displayUnits +
+          ' display at ' + bgMgdl + ' mg/dl after a units change', function () {
+          var eventTime = now - 2 * 60 * 60 * 1000;
+          var currentUnits = historicalUnits === 'mg/dl' ? 'mmol' : 'mg/dl';
+          var localCtx = {
+            settings: Object.assign({}, ctx.settings, { units: displayUnits })
+            , moment: ctx.moment
+            , language: ctx.language
+            , levels: ctx.levels
+          };
+
+          function datedProfile (units, startTime) {
+            return {
+              defaultProfile: 'Default'
+              , startDate: new Date(startTime).toISOString()
+              , store: {
+                Default: {
+                  dia: 3, units: units, timezone: 'UTC', basal: 1, carbratio: 10
+                  , sens: units === 'mg/dl' ? 54 : 3
+                  , target_low: units === 'mg/dl' ? 90 : 5
+                  , target_high: units === 'mg/dl' ? 126 : 7
+                }
+              }
+            };
+          }
+
+          var historicalProfile = require('../lib/profilefunctions')([
+            datedProfile(currentUnits, eventTime + 60 * 60 * 1000)
+            , datedProfile(historicalUnits, eventTime - 60 * 60 * 1000)
+          ], localCtx);
+          var data = {
+            profile: historicalProfile
+            , sgvs: [{ mills: eventTime, mgdl: bgMgdl }]
+            , treatments: [{ mills: eventTime, insulin: '1.0' }]
+            , devicestatus: []
+          };
+          var sbx = require('../lib/sandbox')().clientInit(localCtx, eventTime, data);
+          sbx.properties.iob = iob.calcTotal(data.treatments, [], historicalProfile, eventTime);
+
+          historicalProfile.getUnits().should.equal(currentUnits);
+          historicalProfile.getUnits(undefined, eventTime).should.equal(historicalUnits);
+          var result = boluswizardpreview.calc(sbx);
+          should.not.exist(result.errors);
+          result.iob.should.equal(1);
+          result.effect.should.be.approximately(displayUnits === 'mg/dl' ? 54 : 3, 0.05);
+          // Equivalent profiles give about +1.30 U above target and -1.33 U below it,
+          // regardless of the current profile's units or the site's display units.
+          result.bolusEstimate.should.be.approximately(bgMgdl === 250 ? 1.30 : -1.33, 0.01);
+          result.belowLowTarget.should.equal(bgMgdl === 72);
+        });
+      });
+    });
+  });
+
   it('should calculate IOB results correctly with 1.0 U IOB', function (done) {
     ctx.notifications.initRequests();
     ctx.ddata.sgvs = [{mills: before, mgdl: 100}, {mills: now, mgdl: 100}];
