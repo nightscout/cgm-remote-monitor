@@ -22,6 +22,12 @@ The original plugin elements and their tooltips are retained. Pills reflect real
 
 Dashboard content has its own stacking context. Drawers appear above it, followed by jQuery UI dialogs and modal backdrops; legacy plugin z-index values cannot cover authentication inputs or menu controls. Dialogs retain jQuery UI's dynamic ordering.
 
+## Settings menu
+
+The modern theme also restyles the existing Settings drawer. A sticky heading includes a Close button that returns keyboard focus to the menu toggle. Native radio buttons, checkboxes, selects and text inputs keep their existing values and behavior, with clearer section spacing and visible focus states. The original Save and reset actions remain visible at the bottom while scrolling. Reports, clock links, plugin controls and authentication remain available in the same drawer.
+
+Chart-options and alarm menus use matching dark surfaces. All menu styling is scoped to the modern theme. The dashboard bundle URL changes after a server restart so a normal reload picks up updates; the service worker precaches that version for offline use.
+
 ## Chart meaning
 
 The modern trace joins consecutive **sensor readings** with straight segments and keeps the original sample dots and tooltips. It never smooths the data or joins finger-stick/raw-glucose points into the sensor trace. A larger dot identifies the latest sensor reading. Colour comes from Nightscout's existing colour function.

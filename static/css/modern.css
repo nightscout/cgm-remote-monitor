@@ -348,3 +348,163 @@ html.modern-ui {
 @media (prefers-reduced-motion: reduce) {
   .modern-ui *, .modern-ui *::before, .modern-ui *::after { scroll-behavior: auto !important; transition: none !important; }
 }
+
+/* Settings drawer: native controls, quiet sections and accessible actions. */
+.modern-ui #drawer {
+  background: #151c25;
+  border-left: 1px solid #34404f;
+  box-shadow: -8px 0 24px rgb(0 0 0 / 16%);
+  font-size: 14px;
+  scrollbar-width: thin;
+  scrollbar-color: #465466 #151c25;
+  overscroll-behavior: contain;
+}
+.modern-ui #drawer .modern-drawer-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  position: sticky;
+  top: 0;
+  z-index: 2;
+  padding: 10px 16px;
+  border-bottom: 1px solid #2d3846;
+  background: #171f2a;
+}
+.modern-ui #drawer .modern-drawer-header h2 {
+  margin: 0;
+  font-size: 20px;
+  line-height: 1.3;
+  font-weight: 650;
+  letter-spacing: -.025em;
+}
+.modern-ui #drawer .modern-drawer-close {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 40px;
+  height: 40px;
+  margin: 0;
+  padding: 0;
+  border: 0;
+  border-radius: 8px;
+  background: transparent;
+  color: #b8c5d5;
+  line-height: 1;
+  font-weight: 400;
+  font-size: 26px;
+  box-shadow: none;
+  cursor: pointer;
+}
+.modern-ui #drawer .modern-drawer-close:hover { background: #293442; color: #fff; }
+.modern-ui #drawer form { padding: 0 16px; }
+.modern-ui #drawer fieldset { min-width: 0; margin: 0; padding: 0; border: 0; }
+.modern-ui #drawer legend { padding: 0; font-size: 13px; font-weight: 600; color: #b7c4d4; text-shadow: none; }
+.modern-ui #drawer #browserSettings > legend { display: none; }
+.modern-ui #drawer .navigation {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 6px;
+  padding: 14px 0;
+  border-bottom: 1px solid #2b3542;
+}
+.modern-ui #drawer .navigation > li:first-child,
+.modern-ui #drawer .navigation > .multilink { grid-column: 1 / -1; }
+.modern-ui #drawer .navigation a {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  box-sizing: border-box;
+  min-height: 40px;
+  margin: 0;
+  padding: 8px 10px;
+  border: 1px solid #334151;
+  border-radius: 8px;
+  background: #1c2633;
+  color: #dbe7f5;
+  font-size: 13px;
+  text-align: center;
+  white-space: normal;
+}
+.modern-ui #drawer .navigation a:hover { background: #273547; border-color: #54708d; }
+.modern-ui #drawer .navigation li.multilink { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 6px; }
+.modern-ui #drawer .navigation .multilink > a:first-child {
+  grid-column: 1 / -1;
+  justify-content: flex-start;
+  min-height: 0;
+  padding: 7px 0 2px;
+  border: 0;
+  background: none;
+  color: #9faec0;
+  font-size: 12px;
+  font-weight: 600;
+}
+.modern-ui #drawer dl { display: block; margin: 0; padding: 13px 0; border-bottom: 1px solid #293441; }
+.modern-ui #drawer dt { margin-bottom: 7px; color: #b7c4d4; font-size: 13px; font-weight: 600; }
+.modern-ui #drawer dd { display: flex; align-items: center; gap: 8px; box-sizing: border-box; min-width: 0; min-height: 36px; margin: 0; }
+.modern-ui #drawer label { flex: 1; min-width: 0; line-height: 1.4; color: #e1e8f1; cursor: pointer; }
+.modern-ui #drawer input,
+.modern-ui #drawer select,
+.modern-ui #drawer button { font-family: inherit; }
+.modern-ui #drawer input[type="checkbox"],
+.modern-ui #drawer input[type="radio"] {
+  flex: 0 0 auto;
+  width: 18px;
+  height: 18px;
+  margin: 0;
+  accent-color: #9bcdfb;
+  cursor: pointer;
+}
+.modern-ui #drawer dl.radio { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 6px; }
+.modern-ui #drawer dl.radio dt { grid-column: 1 / -1; margin-bottom: 1px; }
+.modern-ui #drawer dl.radio dd { padding: 8px; min-height: 42px; border: 1px solid #334151; border-radius: 8px; background: #1b2430; }
+.modern-ui #drawer dl.radio dd:has(input:checked) { border-color: #729dc5; background: #23344a; }
+.modern-ui #drawer dl.radio label { font-size: 13px; }
+.modern-ui #drawer select,
+.modern-ui #drawer input[type="text"],
+.modern-ui #drawer input[type="number"] {
+  box-sizing: border-box;
+  width: 100%;
+  min-width: 0;
+  min-height: 42px;
+  padding: 8px 10px;
+  border: 1px solid #3c4a5c;
+  border-radius: 8px;
+  background: #1a2330;
+  color: #e9eff7;
+  font-size: 14px;
+}
+.modern-ui #drawer input.timeago-mins { flex: 0 0 52px; width: 52px; min-height: 36px; padding: 6px; text-align: center; }
+.modern-ui #drawer input:focus-visible,
+.modern-ui #drawer select:focus-visible,
+.modern-ui #drawer button:focus-visible { outline: 2px solid #9bcdfb; outline-offset: 2px; }
+.modern-ui #drawer #show-plugins { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 4px 10px; }
+.modern-ui #drawer #show-plugins dt { grid-column: 1 / -1; }
+.modern-ui #drawer #show-plugins label { font-size: 13px; }
+.modern-ui #drawer .actions {
+  position: sticky;
+  bottom: 0;
+  z-index: 2;
+  margin: 0;
+  padding: 12px 0;
+  border-top: 1px solid #344151;
+  background: #151c25;
+}
+.modern-ui #drawer #save { min-height: 44px; padding: 10px 14px; border: 1px solid #9bcdfb; border-radius: 8px; background: #9bcdfb; color: #122033; font-size: 15px; font-weight: 650; box-shadow: none; cursor: pointer; }
+.modern-ui #drawer #save:hover { background: #bbdfff; border-color: #bbdfff; }
+.modern-ui #drawer .actions a { padding: 9px 0 0; color: #aebed1; text-align: center; font-size: 12px; text-underline-offset: 3px; }
+.modern-ui #drawer .authentication-status { margin: 0; padding: 16px 0; border-top: 0; border-bottom: 1px solid #293441; font-size: 13px; line-height: 1.65; color: #acbbcd; }
+.modern-ui #drawer .authentication-status > strong { display: block; margin-bottom: 6px; font-weight: 600; color: #c4d1e1; }
+.modern-ui #drawer .authentication-status a { display: inline-flex; align-items: center; min-height: 32px; padding: 2px 9px; border: 1px solid #3b5068; border-radius: 6px; background: #1d2c3e; color: #c6e1ff; text-decoration: none; }
+.modern-ui #drawer #about { padding: 16px 0; color: #9faec0; font-size: 12px; }
+.modern-ui #drawer #about legend { padding-top: 16px; }
+.modern-ui #drawer #about div { font-size: 12px; }
+.modern-ui #drawer #about .links { margin: 10px 0 0; }
+.modern-ui #drawer #about a { color: #a9c7e7; text-underline-offset: 3px; }
+/* Chart options and alarm menus use the same surfaces as Settings. */
+.modern-ui #viewMenu,
+.modern-ui #silenceBtn { overflow: hidden; border: 1px solid #45556b; border-radius: 9px; background: #1b2634; }
+.modern-ui .dropdown-menu li a,
+.modern-ui .dropdown-menu li label { display: flex; align-items: center; gap: 8px; box-sizing: border-box; min-height: 42px; padding: 9px 12px; background: #1b2634; color: #e1eaf5; font-size: 14px; white-space: normal; }
+.modern-ui .dropdown-menu li a:hover,
+.modern-ui .dropdown-menu li label:hover { background: #2a3b50; }
+.modern-ui #viewMenu input { accent-color: #9bcdfb; }

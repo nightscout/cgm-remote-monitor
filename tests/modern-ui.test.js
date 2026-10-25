@@ -13,6 +13,34 @@ class NoResources extends ResourceLoader {
 }
 
 describe('opt-in modern dashboard', function () {
+  it('adds one settings header while preserving settings values and Save handlers', function () {
+    const env = createSecureDOM('<button id="drawerToggle">Settings</button><div id="drawer"><form id="settings-form"><input id="customTitle" value="Original title"><div class="actions"><button id="save">Save</button></div><div class="authentication-status">Existing status</div></form></div>');
+    const state = domGlobals.installDomGlobals(env);
+    try {
+      const $ = env.window.$;
+      let saved = 0;
+      let closed = 0;
+      $('#save').on('click', event => { event.preventDefault(); saved++; });
+      const client = {translate: value => value, browserUtils: {closeLastOpenedDrawer: () => { closed++; }}};
+      const originalSave = $('#save')[0];
+      const layout = require('../lib/client/modern-layout');
+      layout(client, $, () => {});
+      layout(client, $, () => {});
+      assert.strictEqual($('.modern-drawer-header').length, 1);
+      assert.strictEqual($('#customTitle').val(), 'Original title');
+      assert.strictEqual($('#save')[0], originalSave);
+      assert.strictEqual($('#settings-form').children().last().attr('class'), 'actions');
+      $('#save').trigger('click');
+      assert.strictEqual(saved, 1);
+      $('.modern-drawer-close').trigger('click');
+      assert.strictEqual(closed, 1);
+      assert.strictEqual(env.document.activeElement.id, 'drawerToggle');
+    } finally {
+      domGlobals.restoreDomGlobals(state);
+      env.cleanup();
+    }
+  });
+
   function settingsFor (value) {
     const settings = makeSettings();
     settings.eachSettingAsEnv(name => name === 'THEME' ? value : undefined);
