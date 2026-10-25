@@ -96,6 +96,11 @@ describe('report SGV loading and Daily Stats in a real browser', function () {
             options.converters = {...options.converters, 'text json': text => Object.freeze(parse(text).map(Object.freeze))};
           }
         });
+        function tooltipLines(element) {
+          const copy = element.cloneNode(true);
+          copy.querySelectorAll('br').forEach(br => br.replaceWith(document.createTextNode('\n')));
+          return copy.textContent.split('\n');
+        }
         let pies = {}, chartSeries = {}, percentileTooltip = [];
         const registry = Nightscout.report_plugins_preinit;
         Nightscout.client = client;
@@ -118,14 +123,13 @@ describe('report SGV loading and Daily Stats in a real browser', function () {
                   const hover = document.querySelector('#percentile-chart svg > g > rect:last-child');
                   const bounds = hover.getBoundingClientRect();
                   hover.dispatchEvent(new MouseEvent('mousemove', {bubbles: true, clientX: bounds.left + 1, clientY: bounds.top + 1}));
-                  percentileTooltip = document.querySelector('#percentile-tooltip').innerHTML.split(/<br\s*\/?\s*>/i)
-                    .map(line => line.replace(/<[^>]+>/g, ''));
+                  percentileTooltip = tooltipLines(document.querySelector('#percentile-tooltip'));
 
                 } else {
                   chartSeries['#hourlystats-overviewchart'] = Array.from(document.querySelectorAll('.hs-box')).map(box => {
                     box.querySelector('rect:last-child').dispatchEvent(new MouseEvent('mouseover', {bubbles: true}));
                     const tooltip = document.querySelector('.hourlystats-tooltip:last-child');
-                    return tooltip.innerHTML.split(/<br\s*\/?\s*>/i).map(line => line.replace(/<[^>]+>/g, ''));
+                    return tooltipLines(tooltip);
                   });
                 }
 
