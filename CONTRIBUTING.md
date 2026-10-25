@@ -191,26 +191,25 @@ npm run test:browser
 
 Use `NIGHTSCOUT_TEST_BROWSER=firefox` or `webkit` after installing that engine.
 Ordinary CI runs all three browser engines once on Node 26. Server compatibility
-uses the Node 22.23.4/26 and MongoDB 5.0/8.0 edges, plus the three transitional
+uses the Node 22.23.4/26 and MongoDB 5.0/8.0 edges, plus the two transitional
 required lanes below. Browser downloads are separate from ordinary npm installs
 and production deployment. See the [browser test specification](docs/test-specs/browser-tests.md)
 for isolation, coverage boundaries and additional test-tool disk/RAM costs.
 
 ### CI coverage and manual release checks
 
-Ordinary and release PRs retain dev's 14 validation jobs: seven full server
-lanes, three browsers on Node 26, npm 12 compatibility, two native Docker builds
-and CodeQL. Four server lanes cover the Node/MongoDB edges. Three preserve the
-currently required check names `Run Tests (24, 6)`, `Run Tests (22, 6)` and
-`Run Tests (22, 4.4)`. MongoDB 4.4 remains unsupported; its CI lane can be removed
-once an administrator removes the requirement from branch protection.
+Ordinary and release PRs run 13 validation jobs: six full server lanes,
+three browsers on Node 26, npm 12 compatibility, two native Docker builds
+and CodeQL. Four server lanes cover the Node/MongoDB edges. Two preserve the
+required check names `Run Tests (24, 6)` and `Run Tests (22, 6)`.
+MongoDB 4.4 remains unsupported and has no CI lane.
 No individual test cases are dropped. Publishing waits for all server, browser
 and npm 12 jobs on the actual `dev`/`master` push.
 
 Before a release, use **Actions → CI test and publish Docker image → Run
 workflow**, select the candidate ref and leave **extended** enabled. This tests
 all six Node selectors (the patched floor and latest patch on each of 22/24/26)
-against MongoDB 5.0/8.0, plus the three transitional required lanes (15 server
+against MongoDB 5.0/8.0, plus the two transitional required lanes (14 server
 jobs), and all three browsers on every selector (18 browser jobs). Both native
 Docker images are built and smoke-tested. Manual runs never publish images.
 CodeQL can be run separately on the same ref through its own Run workflow

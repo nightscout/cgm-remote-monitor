@@ -155,7 +155,7 @@ Older versions or other browsers might work, but are untested and unsupported. W
 
 - [Node.js](http://nodejs.org/) Node 22.23.4+ within Node 22, 24.22.1+ within Node 24, or 26.12.1 and later (`^22.23.4 || ^24.22.1 || >=26.12.1`). These minimum versions include the fix for CVE-2026-111497. Node 24 LTS is recommended for new source installations. Nightscout refuses unsupported runtimes at startup, including Node 20, Node 25 and earlier unpatched releases. Future stable majors remain permitted by the range; prereleases are excluded. Keep your runtime patched. Use [Install instructions for Node](https://nodejs.org/en/download/package-manager/) or use `bin/setup.sh`.
 - [MongoDB](https://www.mongodb.com/download-center?jmp=nav#community) 5.0 through 8.0: 5.0.32+ within the 5.0 series, 6.0.27+ within the 6.0 series, or MongoDB 7.0 or 8.0. CI tests the edges of that range, 5.0 and 8.0.
-  MongoDB 4.4 and earlier are unsupported. A temporary 4.4 CI lane remains only to satisfy legacy branch-protection requirements; it does not restore support. MongoDB 5/6 are upstream end-of-life, so use 7.0 or 8.0 for new deployments. See the [MongoDB support and upgrade notice](docs/runtime-upgrade.md#mongodb-support-during-modernization) before upgrading an existing deployment.
+  MongoDB 4.4 and earlier are unsupported. MongoDB 5/6 are upstream end-of-life, so use 7.0 or 8.0 for new deployments. See the [MongoDB support and upgrade notice](docs/runtime-upgrade.md#mongodb-support-during-modernization) before upgrading an existing deployment.
 
 As a non-root user clone this repo then install dependencies into the root of the project:
 

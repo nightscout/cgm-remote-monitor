@@ -43,16 +43,13 @@ jobs:
         # newest patch of each series (unquoted, 8.0 becomes "8": mongo:8).
         mongodb-version: ['5.0', '8.0']
         include:
-          # Branch protection requires these check names: "Run Tests (24, 6)"
-          # on dev and master, "Run Tests (22, 6)" and "Run Tests (22, 4.4)" on
-          # master. Keep them until the repository settings change. Node 24 is
-          # also the line the Docker images use. MongoDB 4.4 is unsupported.
+          # Retain "Run Tests (24, 6)" for dev/master and "Run Tests (22, 6)"
+          # for master until the repository settings change. Node 24 is also
+          # the line the Docker images use.
           - node-version: '24'
             mongodb-version: 6.0
           - node-version: '22'
             mongodb-version: 6.0
-          - node-version: '22'
-            mongodb-version: '4.4'
 
     steps:
       - name: Git Checkout
