@@ -100,7 +100,7 @@
     "async": "^0.9.2",
     "axios": "^0.34.0",
     "babel-loader": "^9.2.1",
-    "body-parser": "^1.20.6",
+    "body-parser": "^1.20.9",
     "bootevent": "0.0.1",
     "braces": "^3.0.2",
     "buffer": "^6.0.3",
@@ -130,7 +130,7 @@
     "lodash": "4.18.1",
     "memory-cache": "^0.2.0",
     "mime": "^2.4.6",
-    "moment": "^2.27.0",
+    "moment": "^2.31.0",
     "moment-timezone": "^0.5.31",
     "moment-timezone-data-webpack-plugin": "^1.5.0",
     "mongo-url-parser": "^1.0.2",
@@ -157,8 +157,8 @@
   },
   "devDependencies": {
     "@types/tough-cookie": "^4.0.0",
-    "csv-parse": "^4.12.0",
-    "dompurify": "^3.4.14",
+    "csv-parse": "^7.0.3",
+    "dompurify": "^3.4.17",
     "env-cmd": "^10.1.0",
     "eslint": "^7.19.0",
     "eslint-plugin-security": "^1.4.0",
@@ -180,7 +180,7 @@
     "follow-redirects": "1.16.1",
     "node-forge": "1.4.0",
     "lodash": "4.18.1",
-    "ip-address": "10.7.1",
+    "ip-address": "10.7.5",
     "postcss": "8.5.28",
     "qs": "6.16.0",
     "flatted": "3.4.2",
@@ -199,7 +199,7 @@
     },
     "mocha": {
       "diff": "8.0.3",
-      "serialize-javascript": "7.0.5"
+      "serialize-javascript": "7.1.4"
     },
     "terser-webpack-plugin": "5.6.0",
     "nightscout-connect": {
@@ -213,6 +213,10 @@
     "brace-expansion@^5.0.0": "5.0.12",
     "js-yaml@^3.0.0": "3.15.2",
     "js-yaml@^4.0.0": "4.3.2",
-    "fast-uri@^3.0.0": "3.1.8"
+    "fast-uri@^3.0.0": "3.1.9",
+    "source-map-js": "1.2.2",
+    "istanbul-lib-processinfo": {
+      "uuid": "11.1.1"
+    }
   }
 }
