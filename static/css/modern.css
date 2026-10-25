@@ -1,4 +1,4 @@
-/* Opt-in dashboard only. THEME, plugin states and alarm colours retain their meaning. */
+/* Opt-in modern theme. THEME, plugin states and alarm colours retain their meaning. */
 html.modern-ui {
   color-scheme: dark;
   background: #101419;
@@ -379,7 +379,7 @@ html.modern-ui {
   scrollbar-color: #465466 #151c25;
   overscroll-behavior: contain;
 }
-.modern-ui :is(#drawer, #adminNotifiesDrawer) .modern-drawer-header {
+.modern-ui :is(#drawer, #adminNotifiesDrawer, #treatmentDrawer) .modern-drawer-header {
   display: flex;
   align-items: center;
   justify-content: space-between;
@@ -390,14 +390,14 @@ html.modern-ui {
   border-bottom: 1px solid #2d3846;
   background: #171f2a;
 }
-.modern-ui :is(#drawer, #adminNotifiesDrawer) .modern-drawer-header h2 {
+.modern-ui :is(#drawer, #adminNotifiesDrawer, #treatmentDrawer) .modern-drawer-header h2 {
   margin: 0;
   font-size: 20px;
   line-height: 1.3;
   font-weight: 650;
   letter-spacing: -.025em;
 }
-.modern-ui :is(#drawer, #adminNotifiesDrawer) .modern-drawer-close {
+.modern-ui :is(#drawer, #adminNotifiesDrawer, #treatmentDrawer) .modern-drawer-close {
   display: inline-flex;
   align-items: center;
   justify-content: center;
@@ -415,7 +415,7 @@ html.modern-ui {
   box-shadow: none;
   cursor: pointer;
 }
-.modern-ui :is(#drawer, #adminNotifiesDrawer) .modern-drawer-close:hover { background: #293442; color: #fff; }
+.modern-ui :is(#drawer, #adminNotifiesDrawer, #treatmentDrawer) .modern-drawer-close:hover { background: #293442; color: #fff; }
 .modern-ui #drawer form { padding: 0 16px; }
 .modern-ui #drawer fieldset { min-width: 0; margin: 0; padding: 0; border: 0; }
 .modern-ui #drawer legend { padding: 0; font-size: 13px; font-weight: 600; color: #b7c4d4; text-shadow: none; }
@@ -647,3 +647,33 @@ html.modern-ui {
 .modern-ui .modern-admin-message h3 { margin: 0 0 8px; font-size: 15px; font-weight: 650; color: #e9eff7; line-height: 1.4; }
 .modern-ui .modern-admin-message .adminNotifyMessage { margin: 0; color: #c4d1e1; font-size: 14px; line-height: 1.55; white-space: pre-line; }
 .modern-ui .modern-admin-message .adminNotifyMessageAdditionalInfo { margin: 12px 0 0; color: #9faec0; font-size: 12px; line-height: 1.5; }
+
+/* Care Portal uses the existing dynamically shown treatment fields. */
+.modern-ui #treatmentDrawer { width: min(440px, 100vw); padding: 0; background: #151c25; border-left: 1px solid #34404f; font-size: 14px; overscroll-behavior: contain; scrollbar-width: thin; }
+.modern-ui #treatment-form { padding: 0 16px; }
+.modern-ui #treatmentDrawer fieldset { min-width: 0; margin: 16px 0; padding: 12px; border: 1px solid #354252; border-radius: 9px; }
+.modern-ui #treatmentDrawer .treatmentData { margin: 0; padding: 18px 0; border: 0; }
+.modern-ui #treatmentDrawer .treatmentData > legend { display: none; }
+.modern-ui #treatmentDrawer legend { padding: 0 6px; color: #b9c9dc; font-size: 13px; font-weight: 600; text-shadow: none; }
+.modern-ui #treatmentDrawer label.left-column { width: 100%; margin: 0 0 14px; }
+.modern-ui #treatmentDrawer label.left-column > span { display: block; width: auto; margin: 0 0 6px; color: #b8c7da; white-space: normal; overflow: visible; }
+.modern-ui #treatmentDrawer :is(input, select, textarea) { box-sizing: border-box; width: 100%; max-width: 100%; min-height: 42px; padding: 9px 10px; border: 1px solid #435168; border-radius: 7px; background: #0f1721; color: #edf2f9; font: inherit; }
+.modern-ui #treatmentDrawer :is(input[type="radio"], input[type="checkbox"]) { width: 18px; height: 18px; min-height: 0; padding: 0; margin: 0 6px 0 0; vertical-align: middle; accent-color: #9bcdfb; }
+.modern-ui #treatmentDrawer #bg label { display: inline-block; margin: 8px 10px 0 0; }
+.modern-ui #treatmentDrawer #bg label br { display: none; }
+.modern-ui #treatmentDrawer #bg label:has(br) { display: block; color: #b8c7da; }
+.modern-ui #treatmentDrawer #bg label[for="sensor"] { display: inline-block; }
+.modern-ui #treatmentDrawer #insulinSplitLabel input { width: 70px !important; }
+.modern-ui #treatmentDrawer textarea { min-height: 84px; margin-top: 6px; resize: vertical; }
+.modern-ui #treatmentDrawer #eventTime { display: flex; flex-wrap: wrap; align-items: center; gap: 10px; margin: 4px 0 16px; }
+.modern-ui #treatmentDrawer #eventTime > span { flex-basis: 100%; width: auto; color: #b8c7da; }
+.modern-ui #treatmentDrawer #eventTime label { display: inline-flex; align-items: center; min-height: 32px; }
+.modern-ui #treatmentDrawer #eventTime label span { width: auto; }
+.modern-ui #treatmentDrawer #eventTime .eventinput { width: auto; flex: 1 1 130px; }
+.modern-ui #treatmentDrawer .modern-treatment-actions { position: sticky; bottom: 0; padding: 12px 0 max(12px, env(safe-area-inset-bottom)); border-top: 1px solid #334052; background: #151c25; }
+.modern-ui #treatmentDrawer #treatment-submit { width: 100%; min-height: 44px; margin: 0; padding: 10px 14px; border: 1px solid #9bcdfb; border-radius: 8px; background: #9bcdfb; color: #122033; font: inherit; font-weight: 650; box-shadow: none; }
+.modern-ui #treatmentDrawer :is(input, select, textarea, button):focus-visible { outline: 2px solid #9bcdfb; outline-offset: 3px; }
+/* Drawer JS supplies legacy pixel widths; constrain the modern panel on resize. */
+.modern-ui #treatmentDrawer { width: min(440px, 100vw) !important; max-width: 100vw; }
+.modern-ui #treatmentDrawer :is(#glucoseValue, #notes) { width: 100%; }
+.modern-ui #treatmentDrawer input:invalid { border-color: #ff9b9f; background: #34232d; }

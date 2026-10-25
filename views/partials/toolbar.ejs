@@ -2,7 +2,7 @@
     <h1 class="customTitle">Nightscout</h1>
 
     <%if (type !== 'index') { %>
-        <a href="/" class="closeButton button-close"><span>X</span></a>
+        <a href="/" class="closeButton button-close" aria-label="Back to Nightscout"><span>X</span></a>
     <% } %>
 
     <%if (type === 'food') { %>
@@ -30,6 +30,6 @@
 
 <%if (title) { %>
     <div class="toolbar-title">
-        <h2 class="translate"><%= title %></h1>
+        <h2 class="translate"><%= title %></h2>
     </div>
 <% } %>

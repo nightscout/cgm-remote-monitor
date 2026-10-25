@@ -10,7 +10,7 @@ Restart Nightscout and reload the page. Remove this variable or select an existi
 
 The existing browser theme preference takes precedence over the server default, just as it does for the other themes. Select **Modern** in Settings or **Reset, and use defaults** if this browser has a saved preference. Switching back to another theme in Settings restores the classic layout on reload. Both layouts and their chart rendering always follow the same effective theme.
 
-`modern` uses Nightscout's existing coloured glucose thresholds: green in range, yellow outside target, red urgent. It does not change units, thresholds, plugin visibility, alarm configuration, or permissions. Reports, clock views, and editors keep their existing layouts.
+`modern` uses Nightscout's existing coloured glucose thresholds: green in range, yellow outside target, red urgent. It does not change units, thresholds, plugin visibility, alarm configuration, or permissions. Reports and clock views keep their existing layouts. Care Portal, Profile Editor, Food Editor and Admin Tools use matching modern styling, with the same editing, authorization and save behavior.
 
 ## Screen sizes
 
@@ -47,3 +47,9 @@ Missing and invalid sensor readings break the trace. The renderer infers the sam
 Forecasts are dashed and separated by provider, forecast type, branch, and colour. AR2's upper and lower cone branches are identified explicitly so the renderer cannot zigzag between them. AR2 and OpenAPS also expose their nominal forecast timestamp separately from legacy unique-marker offsets, allowing shared hover to group prediction types. This adds display metadata only; it does not change prediction calculations or values. Forecast samples retain transparent hover/touch targets for the existing tooltips. The target band uses the configured thresholds, and axes retain the selected scale and units.
 
 The overview retains its brush and sample shading. Paths are clipped to the plot, and are redrawn when data, history range, units, or container dimensions change. Classic rendering stays dot-only.
+
+## Editors and Care Portal
+
+The Profile Editor, Food Editor and Admin Tools share a page header, editor navigation, native form styling and authentication status. Their layout follows the effective server/browser theme. Profile schedules stack on phones; food record fields wrap into columns, while wide database rows scroll within their own panel. Food drag-and-drop and native touch scrolling are retained. Admin cleanup actions have distinct styling and keep their existing previews, authentication and confirmations.
+
+Care Portal retains event-specific field visibility and treatment validation. Its sticky Close and Submit controls are separate: Close returns focus to the toolbar without saving, and Submit uses the original confirmation and save flow. No new dependencies are required.

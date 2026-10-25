@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<html>
+<html class="<%= settings.theme === 'modern' ? 'modern-ui' : '' %>">
     <head>
       <meta name="viewport" content="width=device-width, maximum-scale=1, initial-scale=1, user-scalable=0" />
       <meta name="apple-mobile-web-app-capable" content="yes">
@@ -29,66 +29,72 @@
       <link rel="preload" href="/css/drawer.css" as="style" onload="this.onload=null;this.rel='stylesheet'">
       <link rel="preload" href="/css/food.css" as="style" onload="this.onload=null;this.rel='stylesheet'">
       <link rel="preload" href="/css/ui-darkness/jquery-ui.min.css" as="style" onload="this.onload=null;this.rel='stylesheet'">
+      <link rel="stylesheet" href="/css/modern.css?v=<%= locals.cachebuster %>">
+      <link rel="stylesheet" href="/css/modern-editors.css?v=<%= locals.cachebuster %>">
       <%- include('preloadCSS')%>
 
     </head>
-  <body>
+  <body class="editor-page food-page">
     <%- include('partials/toolbar') %>
+    <%- include('partials/editor-navigation') %>
+    <main class="editor-content">
 
     <div id="fe_form">
       <fieldset class="browserSettings">
         <legend class="translate">Your database</legend>
         <fieldset class="browserSettings">
           <legend class="translate">Filter</legend>
-          <span class="translate">Category</span>: <select id="fe_filter_category"></select>
-          <span class="translate">Subcategory</span>: <select id="fe_filter_subcategory"></select>
-          <span class="translate">Name</span>: <input type="text" id="fe_filter_name"></select>
+          <label class="food-filter"><span class="translate">Category</span><select id="fe_filter_category"></select></label>
+          <label class="food-filter"><span class="translate">Subcategory</span><select id="fe_filter_subcategory"></select></label>
+          <label class="food-filter"><span class="translate">Name</span><input type="text" id="fe_filter_name"></label>
         </fieldset>
+        <div class="food-database-scroll" role="region" aria-label="Food database" tabindex="0">
         <div id="fe_data_header"></div>
         <div id="fe_data" style="width:100%;height:250px;overflow-x:hidden;overflow-y:scroll;"></div>
+        </div>
       </fieldset>
       <fieldset class="browserSettings">
         <legend><span class="translate">Record</span> (ID: <input type="text" id="fe_id">)</legend>
-        <table>
+        <table class="food-record-fields">
           <tr>
             <td>
-              <span class="translate">Name</span>: <br><input type="text" id="fe_name">
+              <label for="fe_name" class="translate">Name</label>: <br><input type="text" id="fe_name">
             </td>
             <td>
-              <span class="translate">Portion</span>:<br><input type="text" id="fe_portion">
+              <label for="fe_portion" class="translate">Portion</label>:<br><input type="text" id="fe_portion">
             </td>
             <td>
-              <span class="translate">Unit</span>: <br><select id="fe_unit">
+              <label for="fe_unit" class="translate">Unit</label>: <br><select id="fe_unit">
               </select>
             </td>
             <td>
-              <span class="translate">Carbs</span>: [g]<br><input type="number" id="fe_carbs">
+              <label for="fe_carbs" class="translate">Carbs</label>: [g]<br><input type="number" id="fe_carbs">
             </td>
             <td>
-              <span class="translate">GI</span>: <br><select id="fe_gi">
+              <label for="fe_gi" class="translate">GI</label>: <br><select id="fe_gi">
                 <option value="1" class="translate">Low</option>
                 <option value="2" class="translate" selected>Medium</option>
                 <option value="3" class="translate">High</option>
               </select>
             </td>
             <td>
-              <span class="translate">Category</span>: <select id="fe_category_list"></select>
+              <label for="fe_category" class="translate">Category</label>: <select id="fe_category_list"></select>
               <br>
               <input type="text" id="fe_category">
             </td>
             <td>
-              <span class="translate">Subcategory</span>: <select id="fe_subcategory_list"></select>
+              <label for="fe_subcategory" class="translate">Subcategory</label>: <select id="fe_subcategory_list"></select>
               <br>
               <input type="text" id="fe_subcategory">
             </td>
             <td>
-              <span class="translate">Fat [g]</span>:<br><input type="number" id="fe_fat">
+              <label for="fe_fat" class="translate">Fat [g]</label>:<br><input type="number" id="fe_fat">
             </td>
             <td>
-              <span class="translate">Protein [g]</span>:<br><input type="number" id="fe_protein">
+              <label for="fe_protein" class="translate">Protein [g]</label>:<br><input type="number" id="fe_protein">
             </td>
             <td>
-              <span class="translate">Energy [kJ]</span>:<br><input type="number" id="fe_energy">
+              <label for="fe_energy" class="translate">Energy [kJ]</label>:<br><input type="number" id="fe_energy">
             </td>
           </tr>
         </table>
@@ -110,9 +116,10 @@
       </fieldset>
     </div>
 
+    </main>
     <%- include('partials/authentication-status') %>
 
-    <script src="<%= locals.bundle %>/js/bundle.app.js"></script>
+    <script src="<%= locals.bundle %>/js/bundle.app.js?v=<%= locals.cachebuster %>"></script>
     <script src="/socket.io/socket.io.js"></script>
     <script src="/js/foodinit.js"></script>
   </body>

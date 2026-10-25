@@ -41,6 +41,75 @@ describe('opt-in modern dashboard', function () {
     }
   });
 
+  it('keeps Care Portal Close separate from Submit and retains unsaved fields', function () {
+    const env = createSecureDOM('<button id="treatmentDrawerToggle">Care Portal</button><div id="treatmentDrawer"><form id="treatment-form"><fieldset><input id="carbsGiven" value="15"><textarea id="notes">Unsent note</textarea><button id="treatment-submit" type="button">Submit Form</button></fieldset></form></div>');
+    const state = domGlobals.installDomGlobals(env);
+    try {
+      const $ = env.window.$;
+      let saved = 0;
+      let closed = 0;
+      const submit = $('#treatment-submit')[0];
+      $('#treatment-submit').on('click', () => { saved++; });
+      const client = {translate: value => value, browserUtils: {closeLastOpenedDrawer: () => { closed++; }}};
+      const layout = require('../lib/client/modern-layout');
+      layout(client, $, () => {});
+      layout(client, $, () => {});
+      assert.strictEqual($('#treatmentDrawer .modern-drawer-header').length, 1);
+      assert.strictEqual($('.modern-treatment-actions').length, 1);
+      $('#treatmentDrawer .modern-drawer-close').trigger('click');
+      assert.strictEqual(saved, 0);
+      assert.strictEqual(closed, 1);
+      assert.strictEqual(env.document.activeElement.id, 'treatmentDrawerToggle');
+      assert.strictEqual($('#carbsGiven').val(), '15');
+      assert.strictEqual($('#notes').val(), 'Unsent note');
+      assert.strictEqual($('#treatment-submit')[0], submit);
+      $('#treatment-submit').trigger('click');
+      assert.strictEqual(saved, 1);
+    } finally {
+      domGlobals.restoreDomGlobals(state);
+      env.cleanup();
+    }
+  });
+
+  it('does not observe a missing chart when a modern editor loads', function () {
+    const env = createSecureDOM('<main class="editor-content"></main>');
+    const state = domGlobals.installDomGlobals(env);
+    try {
+      let observed = 0;
+      env.window.ResizeObserver = class { observe (node) { assert.ok(node); observed++; } };
+      require('../lib/client/modern-layout')({}, env.window.$, () => {});
+      assert.strictEqual(observed, 0);
+    } finally { domGlobals.restoreDomGlobals(state); env.cleanup(); }
+  });
+
+  ['profile', 'food', 'admin'].forEach(type => {
+    ['modern', 'colors'].forEach(serverTheme => {
+      it('renders one working ' + type + ' editor shell and honours a browser override from ' + serverTheme, async function () {
+        const output = await ejs.renderFile(path.join(__dirname, '../views/' + type + 'index.html'), {
+          settings: settingsFor(serverTheme), locals: {bundle: '/bundle', cachebuster: 'test'}, type, title: type
+        });
+        const env = createSecureDOM(output, {resources: new NoResources()});
+        try {
+          const document = env.document;
+          const root = document.querySelector('main.editor-content');
+          const formId = {profile: 'pe_form', food: 'fe_form', admin: 'admin_placeholder'}[type];
+          assert.strictEqual(document.querySelectorAll('#' + formId).length, 1);
+          assert.ok(root.contains(document.getElementById(formId)));
+          assert.strictEqual(document.documentElement.classList.contains('modern-ui'), serverTheme === 'modern');
+          assert.ok(document.querySelector('script[src="/bundle/js/bundle.app.js?v=test"]'));
+          assert.ok(document.querySelector('link[href="/css/modern-editors.css?v=test"]'));
+          assert.strictEqual(document.querySelector('.editor-navigation [aria-current="page"]').getAttribute('href'), '/' + type);
+          const ids = [...document.querySelectorAll('[id]')].map(node => node.id);
+          assert.strictEqual(new Set(ids).size, ids.length);
+          const effective = serverTheme === 'modern' ? 'colors' : 'modern';
+          require('../lib/client/dashboard-theme')(document, effective);
+          assert.strictEqual(document.documentElement.classList.contains('modern-ui'), effective === 'modern');
+          assert.strictEqual(document.getElementById(formId), root.querySelector('#' + formId));
+        } finally { env.cleanup(); }
+      });
+    });
+  });
+
   ['modern', 'colors'].forEach(theme => {
     it('preserves authentication submission, retry focus and remember-device opt-in with ' + theme, function () {
       const env = createSecureDOM('<div id="authentication_placeholder"></div>');
@@ -169,7 +238,7 @@ describe('opt-in modern dashboard', function () {
       });
       const env = createSecureDOM(output, {resources: new NoResources()});
       const document = env.document;
-      ['container', 'chartContainer', 'currentTime', 'silenceBtn', 'viewMenu', 'drawer', 'treatmentDrawer', 'drawerToggle'].forEach(id => {
+      ['container', 'chartContainer', 'currentTime', 'silenceBtn', 'viewMenu', 'drawer', 'treatmentDrawer', 'treatment-submit', 'drawerToggle'].forEach(id => {
         assert.strictEqual(document.querySelectorAll('#' + id).length, 1, id);
       });
       ['.statusPills', '.majorPills', '.minorPills', '.currentBG', '.focus-range'].forEach(selector => {
