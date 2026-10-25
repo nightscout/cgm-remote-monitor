@@ -28,6 +28,12 @@ The modern theme also restyles the existing Settings drawer. A sticky heading in
 
 The device-authentication dialog uses the same dark surface, a compact heading, a labelled Close control, and a full-width Authenticate button. It fits the available viewport with scrollable content on short screens. The existing masked input, unchecked remember-device option, Enter submission, retry focus and Escape dismissal remain in use. Other themes retain their original authentication dialog.
 
+Admin notifications use the same sticky heading and Close control, with readable message cards and subdued event counts/timestamps. Empty-queue and sign-in-required states retain their existing text and behavior. Close returns focus to the notifications icon.
+
+Modern side panels slide in and out over 200ms using the browser’s native animation API, with no additional dependencies. Reopening during a closing animation cancels the close cleanly. Reduced-motion preferences and browsers without native animation support use immediate opening/closing.
+
+Toolbar hover hints open below their buttons with a small gap and align toward the viewport at the left and right edges. Existing hover handlers and touch-screen tooltip behavior are retained.
+
 Chart-options and alarm menus use matching dark surfaces. All menu styling is scoped to the modern theme. The dashboard bundle URL changes after a server restart so a normal reload picks up updates; the service worker precaches that version for offline use.
 
 ## Chart meaning

@@ -98,6 +98,52 @@ describe('opt-in modern dashboard', function () {
     });
   });
 
+  it('shows existing toolbar tooltips below their buttons and inside both viewport edges', function () {
+    const env = createSecureDOM('<div id="buttonbar"><a class="tip" title="Left label"></a><a class="tip" title="Middle label"></a><a class="tip" title="Right label"></a></div><span class="tip" id="other-tip" title="Other label"></span>');
+    const state = domGlobals.installDomGlobals(env);
+    const pluginPath = require.resolve('jquery.tooltips/js/jquery.tooltips');
+    delete require.cache[pluginPath];
+    try {
+      const $ = env.window.$;
+      Object.defineProperty(env.document.documentElement, 'clientWidth', {value: 320});
+      const links = $('#buttonbar .tip');
+      links.each(function (index) {
+        const left = [14, 220, 262][index];
+        this.getBoundingClientRect = () => ({left, top: 2, width: 44, height: 44});
+        this.getClientRects = () => [this.getBoundingClientRect()];
+        Object.defineProperty(this, 'offsetWidth', {value: 44});
+        Object.defineProperty(this, 'offsetHeight', {value: 44});
+      });
+      require(pluginPath);
+      $('.tip').tooltip();
+      const otherOptions = $('#other-tip').data('tooltip').options;
+      const widths = [160, 220, 120];
+      const original = links.map(function () { return $(this).data('tooltip'); }).get();
+      original.forEach((tooltip, index) => {
+        Object.defineProperty(tooltip.tip()[0], 'offsetWidth', {value: widths[index]});
+        Object.defineProperty(tooltip.tip()[0], 'offsetHeight', {value: 24});
+        tooltip.tip().css('width', widths[index] + 'px');
+      });
+      require('../lib/client/modern-layout')({}, $, () => {});
+      assert.strictEqual($('#other-tip').data('tooltip').options, otherOptions);
+      assert.strictEqual(otherOptions.gravity, 's');
+      links.each(function (index) {
+        assert.strictEqual($(this).data('tooltip'), original[index]);
+        $(this).trigger('mouseenter');
+        const tip = original[index].tip();
+        assert.strictEqual(parseFloat(tip.css('top')), 52);
+        assert.ok(parseFloat(tip.css('left')) >= 8);
+        assert.ok(parseFloat(tip.css('left')) + widths[index] <= 312);
+        assert.strictEqual(tip.find('.tooltip-inner').text(), ['Left label', 'Middle label', 'Right label'][index]);
+        $(this).trigger('mouseleave');
+        assert.strictEqual(env.document.querySelectorAll('body > .tooltip').length, 0);
+      });
+    } finally {
+      delete require.cache[pluginPath];
+      domGlobals.restoreDomGlobals(state);
+    }
+  });
+
   function settingsFor (value) {
     const settings = makeSettings();
     settings.eachSettingAsEnv(name => name === 'THEME' ? value : undefined);

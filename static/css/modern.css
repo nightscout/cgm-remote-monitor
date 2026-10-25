@@ -370,7 +370,7 @@ html.modern-ui {
   scrollbar-color: #465466 #151c25;
   overscroll-behavior: contain;
 }
-.modern-ui #drawer .modern-drawer-header {
+.modern-ui :is(#drawer, #adminNotifiesDrawer) .modern-drawer-header {
   display: flex;
   align-items: center;
   justify-content: space-between;
@@ -381,14 +381,14 @@ html.modern-ui {
   border-bottom: 1px solid #2d3846;
   background: #171f2a;
 }
-.modern-ui #drawer .modern-drawer-header h2 {
+.modern-ui :is(#drawer, #adminNotifiesDrawer) .modern-drawer-header h2 {
   margin: 0;
   font-size: 20px;
   line-height: 1.3;
   font-weight: 650;
   letter-spacing: -.025em;
 }
-.modern-ui #drawer .modern-drawer-close {
+.modern-ui :is(#drawer, #adminNotifiesDrawer) .modern-drawer-close {
   display: inline-flex;
   align-items: center;
   justify-content: center;
@@ -406,7 +406,7 @@ html.modern-ui {
   box-shadow: none;
   cursor: pointer;
 }
-.modern-ui #drawer .modern-drawer-close:hover { background: #293442; color: #fff; }
+.modern-ui :is(#drawer, #adminNotifiesDrawer) .modern-drawer-close:hover { background: #293442; color: #fff; }
 .modern-ui #drawer form { padding: 0 16px; }
 .modern-ui #drawer fieldset { min-width: 0; margin: 0; padding: 0; border: 0; }
 .modern-ui #drawer legend { padding: 0; font-size: 13px; font-weight: 600; color: #b7c4d4; text-shadow: none; }
@@ -628,3 +628,13 @@ html.modern-ui {
   .modern-ui .modern-auth-dialog #requestauthenticationdialog { padding: 18px 16px; }
   .modern-ui .modern-auth-dialog .ui-dialog-buttonpane { padding: 14px 16px; }
 }
+
+/* Administration uses the same panel hierarchy as Settings. */
+.modern-ui #adminNotifiesDrawer { background: #151c25; border-left: 1px solid #34404f; box-shadow: -8px 0 24px rgb(0 0 0 / 16%); font-size: 14px; scrollbar-width: thin; scrollbar-color: #465466 #151c25; overscroll-behavior: contain; }
+.modern-ui #adminNotifyContent { margin: 0; padding: 16px; }
+.modern-ui #adminNotifyContent > p { margin: 0 0 16px; color: #acbbcd; line-height: 1.5; }
+.modern-ui #adminNotifyContent > p b { font-weight: 500; }
+.modern-ui .modern-admin-message { margin: 0 0 12px; padding: 16px; border: 1px solid #334151; border-radius: 10px; background: #1b2430; overflow-wrap: anywhere; }
+.modern-ui .modern-admin-message h3 { margin: 0 0 8px; font-size: 15px; font-weight: 650; color: #e9eff7; line-height: 1.4; }
+.modern-ui .modern-admin-message .adminNotifyMessage { margin: 0; color: #c4d1e1; font-size: 14px; line-height: 1.55; white-space: pre-line; }
+.modern-ui .modern-admin-message .adminNotifyMessageAdditionalInfo { margin: 12px 0 0; color: #9faec0; font-size: 12px; line-height: 1.5; }
