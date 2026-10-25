@@ -182,8 +182,8 @@ describe('loopalyzer SGV slots', function () {
       .concat(readings(followingDay, [200], 200));
 
     const bins = slots(records, [shortDay, followingDay]);
-    bins[275][1][0].should.equal(80);
-    bins.slice(276).every(function (bin) { return isNaN(bin[1][0]); }).should.be.true();
+    bins[287][1][0].should.equal(80);
+    bins.slice(24, 36).every(function (bin) { return isNaN(bin[1][0]); }).should.be.true();
     bins[0][1][1].should.equal(200);
   });
 
@@ -198,7 +198,39 @@ describe('loopalyzer SGV slots', function () {
     const bins = slots(records, [longDay, followingDay]);
     bins.should.have.length(288);
     bins[0][1][0].should.equal(100);
-    bins[287][1][0].should.equal(101);
+    bins[275][1][0].should.equal(101);
+    bins[287][1][0].should.equal(102);
     bins[0][1][1].should.equal(200);
+  });
+
+  it('keeps the earliest available reading for a repeated clock time', function () {
+    const day = '2026-10-25';
+    const first = {displayTime: new Date('2026-10-25T02:15:00+02:00'), sgv: 100};
+    const second = {displayTime: new Date('2026-10-25T02:15:00+01:00'), sgv: 200};
+    firstDay(slots([second, first], [day]))[27].should.equal(100);
+    firstDay(slots([second], [day]))[27].should.equal(200);
+  });
+
+  it('rounds timestamp jitter onto the real mark after a skipped hour', function () {
+    const record = {displayTime: new Date('2026-03-29T01:59:59.800+01:00'), sgv: 123};
+    const values = firstDay(slots([record], ['2026-03-29']));
+    values[36].should.equal(123); // The next real five-minute mark is 03:00.
+    values.slice(24, 36).every(isNaN).should.be.true();
+  });
+
+  it('preserves clock times and late data across half-hour DST changes', function () {
+    const timezone = 'Australia/Lord_Howe';
+    const otherProfile = require('../lib/profilefunctions')([{
+      defaultProfile: 'Default', startDate: '1980-01-01', store: {Default: {timezone, dia: 3}}
+    }], {moment});
+    for (const day of ['2026-04-05', '2026-10-04']) {
+      const records = ['08:00:00', '23:30:00'].map((time, index) => ({
+        displayTime: moment.tz(day + 'T' + time, timezone).toDate(), sgv: 120 + index
+      }));
+      const bins = loopalyzer.getSGVs({allstatsrecords: records}, [day], otherProfile);
+      bins[96][1][0].should.equal(120);
+      bins[282][1][0].should.equal(121);
+      if (day === '2026-10-04') bins.slice(24, 30).every(bin => isNaN(bin[1][0])).should.be.true();
+    }
   });
 });
