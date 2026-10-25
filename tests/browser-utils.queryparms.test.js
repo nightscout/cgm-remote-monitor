@@ -25,7 +25,7 @@ const browserUtils = require('../lib/client/browser-utils');
 function stubJquery ( ) {
   function chain ( ) {
     return {
-      tooltip: chain, find: chain, click: chain, width: function ( ) { return 1024; }
+      tooltip: chain, find: chain, click: chain, on: chain, width: function ( ) { return 1024; }
       , addClass: chain, removeClass: chain, html: chain, css: chain, show: chain
     };
   }
