@@ -27,8 +27,13 @@ describe('Babel compiler compatibility', function () {
     const compiler = require('@babel/core/package.json');
     const preset = require('@babel/preset-env/package.json');
     const loader = require('babel-loader/package.json');
+    // The lowest version of each arm of package.json engines, read rather than
+    // copied, so the check follows the floor (22.23.4, 24.22.1, 26.12.1 today).
+    const floors = require('../package.json').engines.node.split('||')
+      .map(range => semver.minVersion(range.trim()).version);
+    assert.ok(floors.length >= 1, 'no Node floor read from package.json engines');
     [compiler, preset, loader].forEach(pkg => {
-      ['22.23.2', '24.20.0'].forEach(version => assert.ok(semver.satisfies(version, pkg.engines.node), pkg.name + ' excludes Node ' + version));
+      floors.forEach(version => assert.ok(semver.satisfies(version, pkg.engines.node), pkg.name + ' excludes Node ' + version));
     });
     assert.ok(semver.satisfies(compiler.version, preset.peerDependencies['@babel/core']));
     assert.ok(semver.satisfies(compiler.version, loader.peerDependencies['@babel/core']));

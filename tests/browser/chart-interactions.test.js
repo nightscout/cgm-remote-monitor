@@ -221,6 +221,61 @@ describe('D3 chart interaction compatibility in a real browser', function () {
     });
   });
 
+  // The treatment-drag handlers clamp the pointer to the focus chart
+  // (renderer.js drag start/drag). The clamped x becomes the treatment's new
+  // created_at, so a drag released past an edge must land on the axis bound,
+  // read from the axis at release, never on a time off the chart.
+  it('clamps a treatment dragged past the right edge to the time at the edge of the chart', async function () {
+    await withChart(async page => {
+      page.on('dialog', dialog => dialog.accept());
+      const result = await page.evaluate(() => {
+        const {client, treatment, mouse, tooltip, emitted} = window.chartFixture;
+        const node = treatment(true), space = client.chart.focus.node();
+        const width = +client.chart.charts.attr('width');
+        mouse(node, 'mousedown', 600, 200, 1, space);
+        mouse(window, 'mousemove', width + 300, 150, 1, space);
+        const text = tooltip().text;
+        const arrow = +client.chart.drag.select('.arrow').attr('x2');
+        mouse(window, 'mouseup', width + 300, 150, 0, space);
+        return {text, arrow, width, emitted,
+          edge: client.chart.xScale.invert(width).toISOString(),
+          unclamped: client.chart.xScale.invert(width + 300).toISOString()};
+      });
+      assert.ok(result.text.includes('Move'), result.text);
+      assert.equal(result.arrow, result.width);
+      assert.notEqual(result.edge, result.unclamped);
+      assert.equal(result.emitted.length, 2);
+      assert.equal(result.emitted[1][0], 'dbUpdate');
+      assert.deepEqual(result.emitted[1][1].data, {created_at: result.edge});
+    });
+  });
+
+  it('clamps a treatment dragged past the left and bottom edges into the drop areas there', async function () {
+    await withChart(async page => {
+      const dialogs = [];
+      page.on('dialog', async dialog => {dialogs.push(dialog.message()); await dialog.dismiss();});
+      for (const [x, y, operation] of [[-200, 150, 'Remove'], [400, 1000, 'Move insulin']]) {
+        const result = await page.evaluate(({x, y}) => {
+          const {client, treatment, mouse, tooltip} = window.chartFixture;
+          client.chart.focus.selectAll('.draggable-treatment').remove();
+          const node = treatment(true), space = client.chart.focus.node();
+          mouse(node, 'mousedown', 600, 200, 1, space);
+          mouse(window, 'mousemove', x, y, 1, space);
+          const text = tooltip().text;
+          const arrow = client.chart.drag.select('.arrow');
+          const at = [+arrow.attr('x2'), +arrow.attr('y2')];
+          mouse(window, 'mouseup', x, y, 0, space);
+          return {text, at, focusHeight: client.chart.focusHeight};
+        }, {x, y});
+        assert.ok(result.text.includes('Operation: ' + operation + 'New time'), result.text);
+        assert.deepEqual(result.at, [Math.max(0, x), Math.min(y, result.focusHeight)]);
+      }
+      // Both confirms were dismissed, so nothing was sent.
+      assert.equal(dialogs.length, 2);
+      assert.deepEqual(await page.evaluate(() => window.chartFixture.emitted), []);
+    });
+  });
+
   it('preserves duration treatment geometry and hover details', async function () {
     await withChart(async page => {
       const result = await page.evaluate(() => {

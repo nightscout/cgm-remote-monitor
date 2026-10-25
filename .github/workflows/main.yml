@@ -20,12 +20,25 @@ jobs:
     runs-on: ubuntu-latest
     strategy:
       matrix:
-        # Exercise the CVE-2026-111497 security boundaries and current releases.
-        node-version: ['22.23.4', '22', '24.22.1', '24', '26.12.1', '26']
-        # MongoDB 4.4 is retired; keep 5/6 during the modernization migration.
-        mongodb-version: [5.0, 6.0]
+        # Test the edges of the supported range, not every point inside it:
+        # the floor, the lowest Node that package.json engines admits
+        # (^22.23.4 || ^24.22.1 || >=26.12.1), and the newest Node release
+        # line ('26' with check-latest), each against the oldest and newest
+        # supported MongoDB (5.0 and 8.0, README). The 24.22.1 and 26.12.1
+        # floors are covered by tests/runtime-policy.test.js's boundary cases.
+        node-version: ['22.23.4', '26']
+        # Quoted, so the MongoDB action pulls mongo:5.0 and mongo:8.0, the
+        # newest patch of each series (unquoted, 8.0 becomes "8": mongo:8).
+        mongodb-version: ['5.0', '8.0']
         include:
-          # Retain the existing required check until branch protection is updated separately.
+          # Branch protection requires these check names: "Run Tests (24, 6)"
+          # on dev and master, "Run Tests (22, 6)" and "Run Tests (22, 4.4)" on
+          # master. Keep them until the repository settings change. Node 24 is
+          # also the line the Docker images use. MongoDB 4.4 is unsupported.
+          - node-version: '24'
+            mongodb-version: 6.0
+          - node-version: '22'
+            mongodb-version: 6.0
           - node-version: '22'
             mongodb-version: '4.4'
 
@@ -69,7 +82,9 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        node-version: ['22.23.4', '22', '24.22.1', '24', '26.12.1', '26']
+        # Every engine, on the newest Node release line only: the backend
+        # matrix above covers the Node floor.
+        node-version: ['26']
         browser: [chromium, firefox, webkit]
     steps:
       - name: Git Checkout
