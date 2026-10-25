@@ -69,8 +69,9 @@ describe('loopalyzer SGV slots', function () {
 
     const values = firstDay(slots(readings(DAY, offsets), [DAY]));
 
-    values.slice(0, 12).should.eql([100, 101, 102, 103, 104, 105, 106, 107, 108, 109, 110, 111]);
-    values.slice(12).every(isNaN).should.be.true();
+    isNaN(values[0]).should.be.true();
+    values.slice(1, 13).should.eql([100, 101, 102, 103, 104, 105, 106, 107, 108, 109, 110, 111]);
+    values.slice(13).every(isNaN).should.be.true();
   });
 
   it('keeps the gap where a reading is missing', function () {
@@ -78,13 +79,15 @@ describe('loopalyzer SGV slots', function () {
     const nearMark = [1, 2, 3, 4, 6, 7, 8].map(function (i) { return i * FIVE_MINUTES + (i % 2 ? -500 : 300); });
 
     const midSlotValues = firstDay(slots(readings(DAY, midSlot), [DAY])).slice(0, 8);
-    const nearMarkValues = firstDay(slots(readings(DAY, nearMark), [DAY])).slice(0, 8);
+    const nearMarkValues = firstDay(slots(readings(DAY, nearMark), [DAY])).slice(0, 9);
 
     midSlotValues.slice(0, 4).should.eql([100, 101, 102, 103]);
     isNaN(midSlotValues[4]).should.be.true();
     midSlotValues.slice(5).should.eql([104, 105, 106]);
-    nearMarkValues.filter(isNaN).should.have.length(1);
-    nearMarkValues.filter(function (value) { return !isNaN(value); }).should.eql([100, 101, 102, 103, 104, 105, 106]);
+    isNaN(nearMarkValues[0]).should.be.true();
+    nearMarkValues.slice(1, 5).should.eql([100, 101, 102, 103]);
+    isNaN(nearMarkValues[5]).should.be.true();
+    nearMarkValues.slice(6).should.eql([104, 105, 106]);
   });
 
   it('keeps an earlier reading in its slot when the next day comes first', function () {
@@ -95,5 +98,92 @@ describe('loopalyzer SGV slots', function () {
 
     bins[0][1][0].should.equal(200);
     bins[287][1][1].should.equal(100);
+  });
+
+  [0, -200, 200].forEach(function (jitter) {
+    it('preserves the exact missing slot with timestamp jitter of ' + jitter + ' ms', function () {
+      const offsets = [0, 1, 3, 4].map(function (slot) {
+        return Math.max(0, slot * FIVE_MINUTES + jitter);
+      });
+      const values = firstDay(slots(readings(DAY, offsets), [DAY]));
+
+      values.slice(0, 2).should.eql([100, 101]);
+      isNaN(values[2]).should.be.true();
+      values.slice(3, 5).should.eql([102, 103]);
+      values.slice(5).every(isNaN).should.be.true();
+    });
+  });
+
+  it('keeps readings on either side of midnight in their own day', function () {
+    const records = readings(DAY, [288 * FIVE_MINUTES - 200], 80)
+      .concat(readings(NEXT_DAY, [200], 200));
+
+    [[DAY, NEXT_DAY], [NEXT_DAY, DAY]].forEach(function (days) {
+      const bins = slots(records, days);
+      bins[287][1][days.indexOf(DAY)].should.equal(80);
+      bins[0][1][days.indexOf(NEXT_DAY)].should.equal(200);
+    });
+    firstDay(slots(records, [DAY]))[287].should.equal(80);
+    firstDay(slots(records, [NEXT_DAY]))[0].should.equal(200);
+  });
+
+  it('does not fill a missing final sample with the next day\'s first reading', function () {
+    const offsets = [];
+    for (let i = 0; i < 287; i++) offsets.push(i * FIVE_MINUTES + 200);
+    const records = readings(DAY, offsets).concat(readings(NEXT_DAY, [200], 240));
+
+    const alone = firstDay(slots(records, [DAY]));
+    const together = slots(records, [DAY, NEXT_DAY]);
+    isNaN(alone[287]).should.be.true();
+    isNaN(together[287][1][0]).should.be.true();
+    alone.filter(function (value) { return !isNaN(value); }).should.have.length(287);
+    together[0][1][1].should.equal(240);
+  });
+
+  it('places the actual issue #6236 timestamps at their nearest five-minute marks', function () {
+    const uploaded = [
+      [1602547500286.0908, 72], [1602547800601.2769, 81], [1602548100006.845, 82]
+      , [1602548399978.8152, 77], [1602548700313.8928, 75], [1602549000395.83, 76]
+      , [1602549300030.324, 77]
+    ].map(function (entry) {
+      return { displayTime: new Date(entry[0]), sgv: entry[1], bgValue: entry[1] };
+    });
+
+    const values = firstDay(slots(uploaded, ['2020-10-13']));
+    // Europe/Oslo was UTC+2: these readings belong at local 02:05 through 02:35.
+    values.slice(25, 32).should.eql([72, 81, 82, 77, 75, 76, 77]);
+    values.filter(function (value) { return !isNaN(value); }).should.have.length(7);
+  });
+
+  it('keeps the earliest reading when two timestamps align to the same mark', function () {
+    const records = readings(DAY, [FIVE_MINUTES - 200, FIVE_MINUTES + 200]);
+    [records, records.slice().reverse()].forEach(function (ordered) {
+      const values = firstDay(slots(ordered, [DAY]));
+      values[1].should.equal(100);
+      values.filter(function (value) { return !isNaN(value); }).should.have.length(1);
+    });
+  });
+
+  it('only aligns timestamps within the 30-second tolerance', function () {
+    const atLimit = firstDay(slots(readings(DAY, [FIVE_MINUTES - 30000]), [DAY]));
+    const outsideLimit = firstDay(slots(readings(DAY, [FIVE_MINUTES - 30001]), [DAY]));
+    atLimit[1].should.equal(100);
+    isNaN(atLimit[0]).should.be.true();
+    outsideLimit[0].should.equal(100);
+    isNaN(outsideLimit[1]).should.be.true();
+  });
+
+  it('does not include the following day on a 23-hour local day', function () {
+    const shortDay = '2026-03-29';
+    const followingDay = '2026-03-30';
+    const dayLength = moment.tz(followingDay, TIMEZONE).valueOf() - moment.tz(shortDay, TIMEZONE).valueOf();
+    dayLength.should.equal(23 * 60 * 60 * 1000);
+    const records = readings(shortDay, [dayLength - 200], 80)
+      .concat(readings(followingDay, [200], 200));
+
+    const bins = slots(records, [shortDay, followingDay]);
+    bins[275][1][0].should.equal(80);
+    bins.slice(276).every(function (bin) { return isNaN(bin[1][0]); }).should.be.true();
+    bins[0][1][1].should.equal(200);
   });
 });
