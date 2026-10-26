@@ -6,6 +6,7 @@
 // YAML file is the one to edit; this script writes its JSON twin.
 //
 //   node scripts/swagger-json.js          write both swagger.json files
+//                                        (also: npm run swagger:json)
 //   node scripts/swagger-json.js --check  exit 1 if either is out of date
 //
 // tests/api-docs.contract.test.js runs the same comparison.
