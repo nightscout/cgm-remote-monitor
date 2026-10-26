@@ -165,7 +165,7 @@ describe('report SGV loading and Daily Stats in a real browser', function () {
         window.resetReportResult = () => { window.reportResult = null; pies = {}; };
       }, {units, day, endDay, timezone, charts});
       await page.waitForFunction(() => window.$.active === 0);
-      assert.equal(requests.filter(request => request.url.pathname === '/api/v1/entries.json').length, 0, 'Reports wait for an explicit Show');
+      assert.equal(requests.filter(request => request.url.pathname === '/api/v1/entries.json').length, 0, 'Changing the initial range cancels the default week load');
       async function show() {
         await page.evaluate(() => window.resetReportResult());
         await page.locator('#rp_show').click();
@@ -329,6 +329,81 @@ describe('report SGV loading and Daily Stats in a real browser', function () {
         assert.deepEqual(repeated.rows, result.rows);
         assert.deepEqual(repeated.pies, result.pies);
         assert.deepEqual(repeated.stats, result.stats);
+      });
+    });
+  });
+
+  describe('automatic initial report', function () {
+    async function initialPage(run) {
+      requests = [];
+      entries = Array.from({length: 7}, (_, index) => ({type: 'sgv', date: Date.UTC(2025, 0, 27 + index, 20), sgv: 120 + index}));
+      await withReportPage(async page => {
+        // UTC is already Feb 3, while the profile is still on Feb 2.
+        await page.clock.setFixedTime(new Date('2025-02-03T02:00:00Z'));
+        await page.evaluate(() => {
+          const moment = window.moment, ns = window.Nightscout;
+          const ctx = {moment, settings: {units: 'mg/dl'}, language: {translate: value => value}};
+          const profile = {data: null, parseInTimezone: value => moment.tz(value, 'America/Los_Angeles'),
+            applyTimezone: value => value.tz('America/Los_Angeles')};
+          const client = {ctx, settings: {units: 'mg/dl', theme: 'modern', scaleY: 'linear', thresholds: {bgTargetBottom: 80, bgTargetTop: 180}},
+            careportal: {events: []}, headers: () => ({}), translate: ctx.language.translate,
+            utils: window.NightscoutTestModules.utils(ctx), sbx: {data: {profile}}, profilefunctions: {data: [{}]},
+            dataLastUpdated: 1, ddata: {processDurations: value => value},
+            init(callback) {window.authorizeInitialReport = callback; callback();}};
+          const registry = ns.report_plugins_preinit;
+          ns.client = client;
+          window.initialRenderCount = 0;
+          ns.report_plugins_preinit = context => {
+            const plugins = registry(context), agp = plugins('agp');
+            plugins.eachPlugin = callback => callback({...agp, report(storage, days, options) {
+              agp.report(storage, days, options);
+              window.initialRenderCount++;
+              window.initialReportDays = days.slice();
+            }});
+            return plugins;
+          };
+          window.releaseInitialProfile = () => {profile.data = [{}];};
+          ns.reportclient();
+        });
+        await page.waitForFunction(() => window.$.active === 0);
+        assert.equal(requests.filter(request => request.url.pathname === '/api/v1/entries.json').length, 0,
+          'Wait for a populated profile snapshot rather than using the viewer timezone');
+        await run(page);
+      });
+    }
+
+    it('loads seven profile-calendar days without Show and leaves the range alone on reconnect', async function () {
+      await initialPage(async page => {
+        await page.evaluate(() => window.releaseInitialProfile());
+        await page.waitForFunction(() => window.initialRenderCount === 1 && window.$.active === 0);
+        assert.equal(await page.locator('#rp_from').inputValue(), '2025-01-27');
+        assert.equal(await page.locator('#rp_to').inputValue(), '2025-02-02');
+        assert.equal((await page.evaluate(() => window.initialReportDays)).length, 7);
+        assert.equal(requests.filter(request => request.url.pathname === '/api/v1/entries.json').length, 7);
+        assert.equal(await page.locator('#agp-chart svg').count(), 1);
+        await page.locator('#rp_from').fill('2025-02-01');
+        const before = requests.length;
+        await page.evaluate(() => {window.authorizeInitialReport(); window.authorizeInitialReport();});
+        await page.waitForFunction(() => window.$.active === 0);
+        assert.equal(await page.locator('#rp_from').inputValue(), '2025-02-01');
+        assert.equal(await page.evaluate(() => window.initialRenderCount), 1);
+        assert.equal(requests.length, before);
+      });
+    });
+
+    it('does not overwrite a range edited while the initial profile is loading', async function () {
+      await initialPage(async page => {
+        await page.locator('#rp_from').fill('2025-02-01');
+        await page.evaluate(() => {
+          window.releaseInitialProfile();
+          window.setTimeout(() => {window.initialProfileSettled = true;}, 350);
+        });
+        await page.waitForFunction(() => window.initialProfileSettled);
+        assert.equal(await page.locator('#rp_from').inputValue(), '2025-02-01');
+        assert.equal(requests.filter(request => request.url.pathname === '/api/v1/entries.json').length, 0);
+        await page.locator('#rp_show').click();
+        await page.waitForFunction(() => window.initialRenderCount === 1 && window.$.active === 0);
+        assert.equal((await page.evaluate(() => window.initialReportDays)).length, 3);
       });
     });
   });

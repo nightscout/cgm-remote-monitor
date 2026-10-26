@@ -15,9 +15,11 @@ const {entries, output, measure} = require('../tools/measure-page-bundles');
 // monolithic dashboard. Update only with a reviewed resource measurement.
 // AGP/D3 report features measured on patched Node 24.22.1 after removing unused
 // Flot pie/fillbetween plugins: 58638 reports / 423281 total gzip bytes.
-// See docs/audits/reports-agp-bundle-baseline.json. Only the reports and total
-// allowances change; 1362/1719 bytes of headroom retain a tight feature budget.
-const limits = {app: 349000, reports: 60000, admin: 8500, profile: 7100, food: 5700, clock: 63000};
+// Final Modern daily rendering, combined hover and compact treatment rows:
+// 61045 reports / 425688 total gzip bytes on patched Node 24.22.1. Static chart
+// styles are loaded as CSS. See the modernReportRefinements audit entry.
+// Only reports and total allowances increase; other page limits stay fixed.
+const limits = {app: 349000, reports: 61500, admin: 8500, profile: 7100, food: 5700, clock: 63000};
 
 describe('Production page bundle resource budgets', function () {
   let measurements;
@@ -32,9 +34,9 @@ describe('Production page bundle resource budgets', function () {
     const emitted = fs.readdirSync(output).filter(name => name.endsWith('.js')).sort();
     assert.deepEqual(emitted, entries.map(entry => 'bundle.' + entry + '.js').sort());
   });
-  it('keeps the total for visiting every application page within 425000 gzip bytes', function () {
-    assert.ok(measurements.allApplicationGzipBytes <= 425000,
-      'All application entries: ' + measurements.allApplicationGzipBytes + ' gzip bytes exceeds 425000');
+  it('keeps the total for visiting every application page within 426000 gzip bytes', function () {
+    assert.ok(measurements.allApplicationGzipBytes <= 426000,
+      'All application entries: ' + measurements.allApplicationGzipBytes + ' gzip bytes exceeds 426000');
   });
   it('emits report modules only in the reports entry', function () {
     for (const entry of entries) {

@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<html class="<%= settings.theme === 'modern' ? 'modern-ui' : '' %>">
+<html class="report-ui <%= settings.theme === 'modern' ? 'modern-ui' : '' %>">
 <head>
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>Nightscout Reporting</title>
@@ -26,7 +26,7 @@
 
   <link rel="preload" href="/css/main.css" as="style" onload="this.onload=null;this.rel='stylesheet'">
   <link rel="preload" href="/css/drawer.css" as="style" onload="this.onload=null;this.rel='stylesheet'">
-  <link rel="preload" href="/css/report.css" as="style" onload="this.onload=null;this.rel='stylesheet'">
+  <link rel="preload" href="/css/report.css?v=<%= locals.cachebuster %>" as="style" onload="this.onload=null;this.rel='stylesheet'">
   <link rel="preload" href="/css/dropdown.css" as="style" onload="this.onload=null;this.rel='stylesheet'">
   <link rel="preload" href="/css/ui-lightness/jquery-ui.min.css" as="style" onload="this.onload=null;this.rel='stylesheet'">
   <link rel="stylesheet" href="/css/modern.css?v=<%= locals.cachebuster %>">

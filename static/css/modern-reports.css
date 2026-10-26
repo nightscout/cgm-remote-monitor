@@ -1,26 +1,42 @@
-/* Reports keep their native chart/heatmap palettes on a light analysis canvas. */
+/* Light analysis surfaces sit above a muted page beneath the shared dark toolbar. */
+.modern-ui.report-ui { background: #eef2f7; color-scheme: light; }
+.modern-ui .report-page { min-height: 100vh; background: #eef2f7; color: #243246; color-scheme: light; }
+.modern-ui .report-page .toolbar-title h2 { color: #18283c; }
+.modern-ui .report-page .editor-content { width: 90vw; max-width: 90vw; padding-left: 0; padding-right: 0; background: transparent; }
+.modern-ui .report-page .toolbar-title { width: 90vw; max-width: 90vw; padding-left: 0; padding-right: 0; }
+.modern-ui .report-page .authentication-status { width: 90vw; max-width: 90vw; padding-left: 0; padding-right: 0; }
+.modern-ui .report-page .agp-wrap { width: 100%; max-width: 90vw; }
+.modern-ui .report-page .editor-content :is(input, select, textarea) { background: #fff; color: #243246; border-color: #b8c7d9; }
+.modern-ui .report-page .editor-content :is(input[type="checkbox"], input[type="radio"]) { accent-color: #326da5; }
+.modern-ui .report-page .editor-content legend { color: #43566f; }
+.modern-ui .report-page .authentication-status { background: #fff; color: #607083; border-color: #e1e7ee; }
+.modern-ui .report-page .authentication-status a { color: #245e94; }
+
 .modern-ui .report-page #tabnav {
-  display: flex; flex-wrap: nowrap; gap: 4px; max-width: 1232px; margin: 0 auto 16px;
-  padding: 4px 2px 8px; border: 0; font: inherit; list-style: none;
+  display: flex; flex-wrap: nowrap; gap: 4px; width: 90vw; max-width: 90vw; margin: 0 auto 16px;
+  padding: 5px; border: 1px solid #d4deea; border-radius: 10px; background: #e4ebf3; font: inherit; list-style: none;
   overflow-x: auto; overscroll-behavior-x: contain; scrollbar-width: thin;
 }
 .modern-ui .report-page #tabnav .menutab {
-  flex: 0 0 auto; margin: 0; padding: 7px 10px; border: 1px solid #344254; border-radius: 7px;
-  background: #19232f; color: #b8c8dc; white-space: nowrap; font-size: 13px; font-weight: 500; cursor: pointer;
+  flex: 0 0 auto; margin: 0; padding: 7px 10px; border: 1px solid transparent; border-radius: 6px;
+  background: transparent; color: #41546c; white-space: nowrap; font-size: 13px; font-weight: 500; cursor: pointer;
 }
-.modern-ui .report-page #tabnav .selected { border-color: #8dbbe9; background: #28415d; color: #e6f3ff; }
-.modern-ui .report-page #tabnav .menutab:hover { background: #2b3c51; color: #fff; }
-.modern-ui .report-page #tabnav .menutab:focus-visible { outline: 2px solid #9bcdfb; outline-offset: 3px; }
-.modern-ui .report-page .report-filters { padding: 20px; border: 1px solid #303d4d; border-radius: 12px; background: #171f29; }
-.modern-ui .report-page .report-filter-panel { border: 1px solid #303d4d; border-radius: 12px; background: #171f29; }
-.modern-ui .report-page .report-filter-panel > summary { display: flex; align-items: center; justify-content: space-between; min-height: 56px; padding: 16px 20px; color: #cbd9e9; font-size: 15px; font-weight: 600; cursor: pointer; list-style: none; }
+.modern-ui .report-page #tabnav .selected { border-color: #215d9c; background: #215d9c; color: #fff; font-weight: 650; box-shadow: 0 2px 4px #18344d24; }
+.modern-ui .report-page #tabnav .menutab:hover { background: #f7faff; color: #21598c; }
+.modern-ui .report-page #tabnav .selected:hover { background: #194d83; color: #fff; }
+.modern-ui .report-page #tabnav .menutab:focus-visible { outline: 2px solid #477fad; outline-offset: 3px; }
+.modern-ui .report-page .report-filters { padding: 20px; border: 1px solid #d8e0ea; border-radius: 12px; background: #fff; }
+.modern-ui .report-page .report-filter-panel { width: 100%; max-width: 90vw; border: 1px solid #d8e0ea; border-radius: 10px; background: #f8fafd; overflow: hidden; }
+.modern-ui .report-page .report-filter-panel > summary { display: flex; align-items: center; justify-content: space-between; min-height: 56px; padding: 16px 20px; color: #43566f; font-size: 15px; font-weight: 600; cursor: pointer; list-style: none; }
 .modern-ui .report-page .report-filter-panel > summary::-webkit-details-marker { display: none; }
 .modern-ui .report-page .report-filter-panel > summary::after { content: '⌄'; font-size: 20px; }
 .modern-ui .report-page .report-filter-panel[open] > summary::after { transform: rotate(180deg); }
-.modern-ui .report-page .report-filter-panel > summary:focus-visible { outline: 2px solid #9bcdfb; outline-offset: 3px; border-radius: 12px; }
-.modern-ui .report-page .report-filter-panel .report-filters { padding-top: 0; border: 0; }
+.modern-ui .report-page .report-filter-panel > summary:focus-visible { outline: 2px solid #477fad; outline-offset: 3px; border-radius: 12px; }
+.modern-ui .report-page .report-filter-panel .report-filters { padding-top: 0; border: 0; border-radius: 0; background: #f8fafd; }
+.modern-ui .report-page .report-filter-panel > summary { background: #e8eef6; color: #2d4664; }
+.modern-ui .report-page .report-filter-panel[open] > summary { margin-bottom: 8px; border-bottom: 1px solid #d8e0ea; }
 .modern-ui .report-page .report-filter-panel .report-filters-title { display: none; }
-.modern-ui .report-page .report-filters-title { display: block; padding: 0 8px; color: #cbd9e9; font-size: 15px; font-weight: 600; }
+.modern-ui .report-page .report-filters-title { display: block; padding: 0 8px; color: #43566f; font-size: 15px; font-weight: 600; }
 .modern-ui .report-page .report-filter-table { width: 100%; border-collapse: collapse; font-size: 14px; }
 .modern-ui .report-page .report-filter-table tbody { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); column-gap: 24px; }
 .modern-ui .report-page .report-filter-table tr { display: grid; grid-template-columns: 28px minmax(0, 1fr); align-items: start; }
@@ -29,50 +45,84 @@
 .modern-ui .report-page .report-filter-table td:empty:not(:first-child) { display: none; }
 .modern-ui .report-page .report-filter-table td { padding: 8px 4px; vertical-align: top; }
 .modern-ui .report-page .report-filter-table td:first-child:not([colspan]) { width: 32px; }
-.modern-ui .report-page .report-filter-table label { display: inline-flex; gap: 5px; margin: 4px 8px 4px 0; color: #c5d1e0; }
+.modern-ui .report-page .report-filter-table label { display: inline-flex; gap: 5px; margin: 4px 8px 4px 0; color: #43566f; }
 .modern-ui .report-page .report-filter-table :is(input, select) { margin-bottom: 4px; }
 .modern-ui .report-page .report-filter-table input[type="number"] { width: 84px; }
 .modern-ui .report-page .report-filter-table input[type="checkbox"] { margin-top: 13px; }
 .modern-ui .report-page .report-filter-table label input[type="checkbox"] { margin-top: 0; }
 .modern-ui .report-page .report-date-presets { display: inline-flex; flex-wrap: wrap; gap: 6px; max-width: 100%; margin: 0; vertical-align: middle; }
-.modern-ui .report-page .presetdates { margin: 0; padding: 6px 10px; border: 1px solid #35465b; border-radius: 6px; color: #bbdaf7; text-decoration: none; font-size: 12px; }
-.modern-ui .report-page .presetdates:hover { background: #2a3d53; }
-.modern-ui .report-page #rp_show { min-width: 140px; min-height: 44px; margin-top: 14px; padding: 10px 16px; border: 1px solid #9bcdfb; border-radius: 8px; background: #9bcdfb; color: #122033; font: inherit; font-weight: 650; text-transform: none; cursor: pointer; }
-.modern-ui .report-page #info { margin-top: 12px; color: #bbcee4; font-size: 13px; overflow-wrap: anywhere; }
-.modern-ui .report-page .report-divider { margin: 24px 0; border-color: #303d4d; }
+.modern-ui .report-page .presetdates { margin: 0; padding: 6px 10px; border: 1px solid #cbd6e3; border-radius: 6px; color: #245e94; text-decoration: none; font-size: 12px; }
+.modern-ui .report-page .presetdates:hover { background: #f5f9fd; }
+.modern-ui .report-page #rp_show { min-width: 140px; min-height: 44px; margin-top: 14px; padding: 10px 16px; border: 1px solid #215d9c; border-radius: 8px; background: #215d9c; color: #fff; font: inherit; font-weight: 650; text-transform: none; cursor: pointer; }
+.modern-ui .report-page #info { margin-top: 12px; color: #607083; font-size: 13px; overflow-wrap: anywhere; }
+.modern-ui .report-page .report-divider { margin: 20px 0; border: 0; }
 .modern-ui .report-page .tabplaceholder {
-  max-width: 100%; padding: 24px; border: 1px solid #d8e0ea; border-radius: 12px;
+  width: 100%; max-width: 90vw; min-width: 0; padding: 24px; border: 1px solid #ccd7e5; border-radius: 12px; box-shadow: 0 3px 14px #263e5810;
   background: #fff; color: #243246; color-scheme: light; overflow-x: auto; scrollbar-width: thin;
 }
 .modern-ui .report-page .tabplaceholder h2 { margin: 0 0 18px; color: #18283c; font-size: 24px; font-weight: 650; letter-spacing: -.025em; }
 .modern-ui .report-page .tabplaceholder :is(h3, h4) { color: #24364c; }
 .modern-ui .report-page .tabplaceholder > b { display: inline-block; margin-bottom: 12px; color: #52657b; font-size: 13px; font-weight: 500; }
 .modern-ui .report-page .tabplaceholder label { display: inline-flex; align-items: center; gap: 4px; margin: 6px 10px 6px 0; font-size: 13px; }
-.modern-ui .report-page .tabplaceholder :is(input, select, textarea) { background: #f6f8fc; border-color: #b8c7d9; color: #243246; }
+.modern-ui .report-page .tabplaceholder :is(input, select, textarea) { background: #fff; border-color: #b8c7d9; color: #243246; }
 .modern-ui .report-page .tabplaceholder :is(input[type="checkbox"], input[type="radio"]) { accent-color: #326da5; }
-.modern-ui .report-page .tabplaceholder :is(button, input[type="button"]) { border: 1px solid #a9bdd4; border-radius: 7px; background: #eaf0f7; color: #244b73; font: inherit; font-size: 13px; box-shadow: none; }
+.modern-ui .report-page .tabplaceholder :is(button, input[type="button"]) { border: 1px solid #a9bdd4; border-radius: 7px; background: #fff; color: #244b73; font: inherit; font-size: 13px; box-shadow: none; }
 .modern-ui .report-page .tabplaceholder a { color: #245e94; }
 .modern-ui .report-page .tabplaceholder table { border-collapse: collapse; font-size: 13px; }
 .modern-ui .report-page .tabplaceholder :is(th, td.tdborder) { padding: 10px 8px; border: 1px solid #dae2ec; }
-.modern-ui .report-page .tabplaceholder th { background: #eef3f9; color: #435b75; font-weight: 600; text-align: left; }
+.modern-ui .report-page .tabplaceholder th { background: #eaf0f7; color: #435b75; font-weight: 600; text-align: left; }
 .modern-ui .report-page .tabplaceholder td { padding: 6px; }
 .modern-ui .report-page .tabplaceholder svg { font-family: inherit; }
 .modern-ui .report-page .tabplaceholder .axis text { fill: #52657b; font-size: 11px; }
 .modern-ui .report-page .tabplaceholder .axis :is(path, line) { stroke: #9aabbd !important; }
 .modern-ui .report-page :is(#daytodaycharts, #weektoweekcharts) > table { margin-top: 18px; border-top: 1px solid #dce4ed; }
-.modern-ui .report-page #treatments-placeholder :is(tr[style*="background"], th) { background: #edf2f8 !important; }
-.modern-ui .report-page #treatments-placeholder td[style*="background"] { background: #e4edf7 !important; }
+.modern-ui .report-page #treatments-placeholder :is(tr[style*="background"], th) { background: #fff !important; }
+.modern-ui .report-page #treatments-placeholder td[style*="background"] { background: #fff !important; }
 .modern-ui .report-page #treatments-placeholder table { min-width: 1050px; }
 .modern-ui .report-page #calibrations-list { min-width: 250px; }
-.modern-ui .report-page .tooltip { background: #202c3b; color: #eef4fc; border-color: #536a84; }
-@media (max-width: 1280px) {
-  .modern-ui .report-page #tabnav { margin-left: 24px; margin-right: 24px; }
+.modern-ui .report-page .tooltip { background: #fff; color: #243246; border-color: #b8c7d9; }
+/* Distinguish report context, headline measures and chart sections. */
+.modern-ui .report-page .agp-header { margin-bottom: 20px; padding-bottom: 16px; border-bottom: 1px solid #dce4ee; }
+.modern-ui .report-page .agp-header h2 { margin-bottom: 10px; }
+.modern-ui .report-page .agp-subhead { color: #344b67; font-size: 14px; font-weight: 600; }
+.modern-ui .report-page .agp-cgmactive { margin: 6px 0 12px; color: #617187; font-size: 12px; }
+.modern-ui .report-page #rp_show:hover { background: #194d83; border-color: #194d83; }
+.modern-ui .report-page .agp-card { border-color: #d4deea; border-radius: 10px; }
+.modern-ui .report-page .agp-card-title { margin: -16px -16px 16px; padding: 12px 16px; border-bottom: 1px solid #d4deea; border-radius: 9px 9px 0 0; background: #eaf0f7; color: #2c4665; font-size: 14px; font-weight: 700; }
+.modern-ui .report-page .agp-stats-grid { gap: 0 20px; }
+.modern-ui .report-page .agp-stat { min-width: 0; padding: 14px 0; border-bottom: 1px solid #e4eaf2; }
+.modern-ui .report-page .agp-stat-value { color: #173b63; font-size: 30px; font-variant-numeric: tabular-nums; letter-spacing: -.03em; }
+.modern-ui .report-page .agp-stat-unit { color: #576b84; font-size: 12px; letter-spacing: 0; }
+.modern-ui .report-page .agp-stat-label { margin-top: 5px; color: #41546c; line-height: 1.4; }
+.modern-ui .report-page .agp-stat-hint { margin-top: 3px; color: #66778c; line-height: 1.4; }
+.modern-ui .report-page .agp-stat:nth-child(n+5) { border-bottom: 0; padding-bottom: 4px; }
+.modern-ui .report-page .agp-stat:nth-child(n+5) .agp-stat-value { color: #41546c; font-size: 22px; }
+.modern-ui .report-page .agp-tir { gap: 18px; }
+.modern-ui .report-page .agp-tir-bar { height: auto; min-height: 320px; }
+.modern-ui .report-page .agp-tir-row { display: grid; grid-template-columns: 12px minmax(0, 1fr) auto; align-items: center; column-gap: 7px; row-gap: 3px; padding: 8px 0; border-bottom: 1px solid #e4eaf2; }
+.modern-ui .report-page .agp-tir-row:last-child { border-bottom: 0; }
+.modern-ui .report-page .agp-tir-swatch { grid-column: 1; grid-row: 1; }
+.modern-ui .report-page .agp-tir-name { grid-column: 2; grid-row: 1; font-size: 13px; color: #344b67; }
+.modern-ui .report-page .agp-tir-pct { grid-column: 3; grid-row: 1; margin: 0; color: #24364c; font-size: 19px; font-variant-numeric: tabular-nums; }
+.modern-ui .report-page .agp-tir-range { grid-column: 2 / 4; grid-row: 2; color: #5a6d84; }
+.modern-ui .report-page .agp-tir-time { grid-column: 2 / 4; grid-row: 3; width: auto; margin: 0; color: #66778c; }
+.modern-ui .report-page .agp-target { background: #f0f7f1; border-radius: 6px; }
+.modern-ui .report-page .agp-agp-note, .modern-ui .report-page .agp-daily-caption { color: #617187; line-height: 1.5; }
+.modern-ui .report-page #agp-chart svg { width: 100%; height: auto; }
+.modern-ui .report-page .agp-daily-cell { padding: 0 4px 4px; border-color: #dce4ee; }
+.modern-ui .report-page .agp-daily-label { margin: 0 -4px 4px; padding: 7px 4px; border-bottom: 1px solid #e1e8f1; border-radius: 7px 7px 0 0; background: #f0f4f9; color: #344b67; }
+.modern-ui .report-page #daytodaycharts .daily-distribution h3 { margin: -16px -16px 10px; padding: 10px 16px; border-bottom: 1px solid #dfe6ef; border-radius: 11px 11px 0 0; background: #eaf0f7; color: #2c4665; }
+@media (max-width: 600px) {
+  .modern-ui .report-page .agp-card { padding: 12px; }
+  .modern-ui .report-page .agp-card-title { margin: -12px -12px 12px; padding: 10px 12px; }
+  .modern-ui .report-page .agp-stat-value { font-size: 26px; }
+  .modern-ui .report-page .agp-tir { gap: 12px; }
 }
 @media (max-width: 1000px) {
   .modern-ui .report-page .report-filter-table tbody { grid-template-columns: minmax(0, 1fr); }
 }
 @media (max-width: 600px) {
-  .modern-ui .report-page #tabnav { margin: 0 12px 12px; }
+  .modern-ui .report-page #tabnav { margin: 0 auto 12px; }
   .modern-ui .report-page #tabnav .menutab { min-height: 40px; padding: 9px 10px; font-size: 12px; }
   .modern-ui .report-page .report-filters { padding: 12px; }
   .modern-ui .report-page .report-filter-table td { padding: 6px 2px; }
@@ -85,8 +135,9 @@
 @media print {
   .modern-ui .report-page { background: #fff; color: #000; }
   .modern-ui .report-page :is(#toolbar, .toolbar-title, .editor-navigation, #tabnav, .report-filter-panel, .report-filters, .report-divider, .authentication-status) { display: none !important; }
-  .modern-ui .report-page .editor-content { max-width: none; padding: 0; }
-  .modern-ui .report-page .tabplaceholder { padding: 0; border: 0; border-radius: 0; overflow: visible; }
+  .modern-ui .report-page .editor-content { width: 100%; max-width: none; padding: 0; }
+  .modern-ui .report-page .tabplaceholder { padding: 0; border: 0; border-radius: 0; box-shadow: none; overflow: visible; }
+  .modern-ui .report-page :is(.agp-card-title, .agp-daily-label, .agp-target) { background: #fff; }
 }
 
 /* Keep expanded filters close to the density of the established Reports UI. */
@@ -108,3 +159,157 @@
 @media (max-width: 600px) {
   .modern-ui .report-page .report-filter-table :is(select, input[type="text"]) { width: auto; max-width: 100%; }
 }
+
+/* Report dialogs and hover details follow the same light canvas. */
+.modern-ui .report-page :is(#percentile-tooltip, .hourlystats-tooltip) { background: #fff; color: #243246; border: 1px solid #c4d0df; box-shadow: 0 4px 16px #1b2e441a; }
+.modern-ui .report-page .ui-dialog { background: #fff; color: #243246; border-color: #c4d0df; color-scheme: light; }
+.modern-ui .report-page .ui-dialog-titlebar { background: #fff; color: #243246; border-color: #e1e7ee; }
+.modern-ui .report-page .ui-dialog-content { background: #fff; color: #243246; }
+.modern-ui .report-page .ui-dialog-content :is(input, textarea, select) { background: #fff; color: #243246; border-color: #b8c7d9; }
+.modern-ui .report-page .ui-dialog-buttonpane { background: #fff; border-color: #e1e7ee; }
+.modern-ui .report-page .ui-dialog-buttonpane button { background: #fff; color: #244b73; border-color: #8caac7; }
+
+/* Daily glucose: one continuous analytical surface, with a quiet summary rail. */
+.modern-ui .report-page #daytodaycharts > table.daily-report-card { width: 100%; margin: 0 0 16px; padding: 0; border: 1px solid #dce5ef; border-radius: 14px; box-shadow: 0 5px 24px #29446609; border-collapse: separate; border-spacing: 0; overflow: hidden; }
+.modern-ui .report-page .daily-report-card > tbody > tr { display: grid; grid-template-columns: minmax(0, 1fr) 300px; }
+.modern-ui .report-page #daytodaycharts td.daily-chart-main { min-width: 0; padding: 14px 14px 12px; overflow-x: auto; }
+.modern-ui .report-page #daytodaycharts td.daily-chart-aside { min-width: 0; padding: 12px; border-left: 1px solid #e6edf4; background: #fbfcfe; }
+.modern-ui .report-page .daily-report-card:has(.daily-chart-aside > div:empty) > tbody > tr { grid-template-columns: minmax(0, 1fr); }
+.modern-ui .report-page .daily-chart-aside:has(> div:empty) { display: none; }
+.modern-ui .report-page .daily-chart-header { display: flex; align-items: center; justify-content: space-between; gap: 16px; min-width: 620px; margin-bottom: 10px; }
+.modern-ui .report-page #daytodaycharts .daily-chart-header h3 { margin: 0; font-size: 16px; font-weight: 650; letter-spacing: -.02em; color: #18334e; }
+.modern-ui .report-page .daily-trend-pill { flex: 0 0 auto; padding: 6px 10px; border: 1px solid #e0e8f1; border-radius: 8px; background: #f8fafc; color: #526984; font-size: 11px; }
+.modern-ui .report-page .daily-trend-pill::before { content: '∿'; margin-right: 7px; color: #009b73; font-size: 20px; line-height: 0; vertical-align: middle; }
+.modern-ui .report-page svg.daily-chart-svg { display: block; width: 100%; min-width: 620px; height: auto; overflow: visible; }
+.modern-ui .report-page #daytodaycharts .axis text { fill: #70849c; font-size: 10px; }
+.modern-ui .report-page #daytodaycharts .axis .domain { stroke: #ccd9e6 !important; }
+.modern-ui .report-page #daytodaycharts .x.axis .tick line { stroke: #e3ebf3 !important; }
+.modern-ui .report-page .daily-axis-label { fill: #526984; font-size: 11px; font-weight: 600; }
+.modern-ui .report-page .daily-treatment text { font-size: 11px; font-weight: 650; paint-order: stroke; stroke: #fff; stroke-width: 3px; stroke-linejoin: round; }
+.modern-ui .report-page .daily-treatment.is-dense text { opacity: 0; }
+.modern-ui .report-page .daily-treatment.is-dense:hover text { opacity: 1; }
+.modern-ui .report-page .daily-chart-legend { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 18px; margin-top: 10px; padding-top: 10px; border-top: 1px solid #edf1f6; color: #657c97; font-size: 11px; }
+.modern-ui .report-page .daily-chart-legend span { display: inline-flex; align-items: center; gap: 8px; }
+.modern-ui .report-page .daily-chart-legend span::before { content: ''; display: inline-block; width: 22px; height: 3px; border-radius: 3px; background: #009b73; }
+.modern-ui .report-page .daily-chart-legend .daily-legend-target::before { height: 10px; border: 1px solid #d3eee1; background: #e8f7ef; }
+.modern-ui .report-page .daily-chart-legend .daily-legend-basal::before { height: 2px; background: #347de1; }
+.modern-ui .report-page .daily-chart-legend :is(.daily-legend-bolus, .daily-legend-carbs)::before { width: 8px; height: 8px; border-radius: 50%; background: #347de1; }
+.modern-ui .report-page .daily-chart-legend .daily-legend-carbs::before { background: #dc820d; }
+.modern-ui .report-page #daytodaycharts .daily-distribution { min-width: 0; padding: 0; gap: 10px; align-items: start; }
+.modern-ui .report-page #daytodaycharts .daily-distribution section { padding: 12px; border-color: #e0e8f1; border-radius: 11px; background: linear-gradient(#f8fafd, #fff 55%); }
+.modern-ui .report-page #daytodaycharts .daily-distribution h3 { margin: 0 0 8px; padding: 0; border: 0; border-radius: 0; background: none; color: #18334e; font-size: 14px; }
+.modern-ui .report-page #daytodaycharts .daily-insulin-body { grid-template-columns: 120px minmax(0, 1fr); gap: 10px; margin-top: 8px; }
+.modern-ui .report-page #daytodaycharts .daily-insulin-ring { width: 120px; height: 120px; margin: 0 auto; }
+.modern-ui .report-page #daytodaycharts .daily-insulin-key { grid-template-columns: 9px minmax(0, 1fr) auto; gap: 7px; font-size: 11px; }
+.modern-ui .report-page #daytodaycharts .daily-insulin-name { color: #294560; }
+.modern-ui .report-page #daytodaycharts .daily-insulin-name small { color: #7589a1; }
+.modern-ui .report-page #daytodaycharts .daily-carbs-total { grid-column: 2; grid-row: 1 / 3; margin: 0; color: #cc790e; font-size: 26px; letter-spacing: -1px; }
+.modern-ui .report-page #daytodaycharts .daily-carbs-total > span { color: #cc790e; font-size: 14px; }
+.modern-ui .report-page #daytodaycharts .daily-macro-totals { margin-top: 6px; padding-top: 6px; border-top: 1px solid #e6edf4; line-height: 1.6; }
+.modern-ui .report-page .daily-display-controls { padding: 12px 14px; margin-bottom: 24px; border: 1px solid #e0e7f0; border-radius: 9px; background: #f8fafd; color: #526984; font-size: 12px; }
+.modern-ui .report-page .daily-display-controls label span { opacity: 1 !important; color: inherit !important; }
+.modern-ui .report-page #daytoday-placeholder > .daily-report-hint, .modern-ui .report-page #daytoday-placeholder > .daily-report-hint + br { display: none; }
+@media (max-width: 1100px) {
+  .modern-ui .report-page .daily-report-card > tbody > tr { grid-template-columns: minmax(0, 1fr); }
+  .modern-ui .report-page #daytodaycharts td.daily-chart-aside { border-left: 0; border-top: 1px solid #e6edf4; }
+  .modern-ui .report-page #daytodaycharts .daily-distribution { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+}
+@media (max-width: 600px) {
+  .modern-ui .report-page #daytodaycharts td.daily-chart-main { padding: 12px 10px; }
+  .modern-ui .report-page #daytodaycharts td.daily-chart-aside { padding: 12px; }
+  .modern-ui .report-page #daytodaycharts .daily-distribution { grid-template-columns: minmax(0, 1fr); }
+  .modern-ui .report-page .daily-chart-header { min-width: 620px; margin-bottom: 10px; }
+}
+@media print {
+  .modern-ui .report-page #daytodaycharts > table.daily-report-card { box-shadow: none; break-inside: avoid; }
+  .modern-ui .report-page .daily-display-controls, .modern-ui .report-page .daytoday-glucose-focus { display: none !important; }
+  .modern-ui .report-page svg.daily-chart-svg, .modern-ui .report-page .daily-chart-header { min-width: 0; }
+}
+.modern-ui .report-page .daily-treatment.is-selected text { opacity: 1; }
+.modern-ui .report-page .daily-treatment.is-selected circle { r: 5px; stroke-width: 2px; }
+.modern-ui .report-page .daily-treatment.is-selected line { stroke-opacity: .85; }
+
+/* Nutrition is a compact total; secondary breakdowns expand only when needed. */
+.modern-ui .report-page #daytodaycharts .daily-carbs-card { display: grid; grid-template-columns: minmax(0, 1fr) auto; align-items: center; gap: 2px 8px; padding: 10px 12px; }
+.modern-ui .report-page #daytodaycharts .daily-carbs-card h3 { grid-column: 1; grid-row: 1; margin: 0; font-size: 12px; }
+.modern-ui .report-page #daytodaycharts .daily-carbs-card > .daily-summary-caption { grid-column: 1; grid-row: 2; font-size: 10px; line-height: 1.3; }
+.modern-ui .report-page #daytodaycharts .daily-nutrition-details { grid-column: 1 / -1; margin-top: 2px; color: #718096; font-size: 10px; }
+.modern-ui .report-page #daytodaycharts .daily-nutrition-details summary { min-height: 22px; padding: 3px 0; cursor: pointer; }
+.modern-ui .report-page #daytodaycharts .daily-nutrition-details .daily-carbs-track { height: 4px; margin-top: 8px; }
+.modern-ui .report-page #daytodaycharts .daily-insulin-legend { gap: 10px; }
+.modern-ui .report-page #daytodaycharts .daily-insulin-total { font-size: 29px; }
+.modern-ui .report-page #daytodaycharts .daily-insulin-card > .daily-summary-caption { font-size: 10px; line-height: 1.4; }
+@media print {
+  .modern-ui .report-page #daytodaycharts .daily-nutrition-details > :not(summary) { display: block; }
+}
+
+/* Treatments, design A: a dense table with progressive row details. */
+.modern-ui .report-page #treatments-placeholder { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 6px 20px; }
+.modern-ui .report-page #treatments-placeholder > h2 { grid-column: 1; grid-row: 1; margin: 0; }
+.modern-ui .report-page #treatments-placeholder > .treatment-report-hint { display: none; }
+.modern-ui .report-page #treatments-report { display: contents; }
+.modern-ui .report-page #treatments-report .treatments-period { grid-column: 1; grid-row: 2; color: #71859d; font-size: 13px; }
+.modern-ui .report-page #treatments-report .filterbar { grid-column: 2; grid-row: 1 / 3; display: flex; align-items: center; flex-wrap: wrap; justify-content: flex-end; gap: 8px 12px; margin: 0; font-size: 12px; }
+.modern-ui .report-page #treatments-report .filterbar label { margin: 0; color: #60758f; font-size: 11px; }
+.modern-ui .report-page #treatments-report .filterbar select { min-height: 36px; max-width: 100%; margin: 0; padding: 7px 28px 7px 10px; border: 1px solid #c7d5e6; border-radius: 7px; background: #fff; font-size: 12px; }
+.modern-ui .report-page #treatments-report .recordcount { padding-left: 12px; border-left: 1px solid #dae4ef; color: #60758f; white-space: nowrap; }
+.modern-ui .report-page .treatment-table-wrap { grid-column: 1 / -1; margin-top: 12px; max-height: 72vh; overflow: auto; border: 1px solid #dce5ef; border-radius: 9px; scrollbar-width: thin; }
+.modern-ui .report-page #treatments-report .treatments-table { width: 100%; min-width: 1080px; border-collapse: separate; border-spacing: 0; table-layout: fixed; font-size: 13px; }
+.modern-ui .report-page #treatments-report .treatments-table thead { position: sticky; top: 0; z-index: 2; }
+.modern-ui .report-page #treatments-report .treatments-table thead th { padding: 11px 10px; border: 0; border-bottom: 1px solid #d7e2ef; background: #e8eff7 !important; color: #435c79; font-size: 12px; font-weight: 650; text-align: left; }
+.modern-ui .report-page #treatments-report .treatments-table th small { display: block; margin-top: 2px; color: #72859e; font-size: 10px; font-weight: 400; }
+.modern-ui .report-page .treatments-table th:nth-child(1) { width: 72px; }
+.modern-ui .report-page .treatments-table th:nth-child(2) { width: 150px; }
+.modern-ui .report-page .treatments-table th:nth-child(3) { width: 92px; }
+.modern-ui .report-page .treatments-table th:nth-child(4), .modern-ui .report-page .treatments-table th:nth-child(5) { width: 72px; }
+.modern-ui .report-page .treatments-table th:nth-child(6) { width: 90px; }
+.modern-ui .report-page .treatments-table th:nth-child(7) { width: 78px; }
+.modern-ui .report-page .treatments-table th:nth-child(8) { width: 104px; }
+.modern-ui .report-page .treatments-table th:nth-child(10) { width: 82px; }
+.modern-ui .report-page .treatments-table th:nth-child(11) { width: 34px; }
+.modern-ui .report-page #treatments-report .treatments-table .treatment-details-heading { color: transparent; padding: 0; font-size: 0; }
+.modern-ui .report-page #treatments-report .treatment-day-row th { padding: 9px 12px; border: 0; border-bottom: 1px solid #e1e9f3; background: #f0f5fb !important; color: #2b4564; font-size: 12px; font-weight: 650; }
+.modern-ui .report-page #treatments-report .treatment-data-row { height: 42px; background: #fff; }
+.modern-ui .report-page #treatments-report .treatment-data-row.treatment-alt { background: #f7faff; }
+.modern-ui .report-page #treatments-report .treatment-data-row:hover { background: #eef5fd; }
+.modern-ui .report-page #treatments-report .treatment-data-row td { padding: 7px 10px; border: 0; border-bottom: 1px solid #e8eef6; color: #344d69; line-height: 1.4; overflow-wrap: anywhere; vertical-align: middle; }
+.modern-ui .report-page #treatments-report .treatment-data-row :is(.treatment-col-0, .treatment-col-2, .treatment-col-3, .treatment-col-4, .treatment-col-5, .treatment-col-6) { font-variant-numeric: tabular-nums; white-space: nowrap; }
+.modern-ui .report-page #treatments-report .treatment-data-row :is(.treatment-col-2, .treatment-col-3, .treatment-col-4, .treatment-col-5, .treatment-col-6) { text-align: right; }
+.modern-ui .report-page #treatments-report .treatment-data-row :is(.treatment-col-3, .treatment-col-5) { color: #256fce; font-weight: 650; }
+.modern-ui .report-page #treatments-report .treatment-data-row .treatment-col-4 { color: #a7660c; font-weight: 650; }
+.modern-ui .report-page #treatments-report .treatment-data-row .treatment-empty { color: #a1afc0; font-weight: 400; }
+.modern-ui .report-page .treatment-badge { display: inline-block; max-width: 100%; padding: 3px 7px; border-radius: 6px; background: #eaf0f7; color: #536a86; font-size: 12px; font-weight: 600; }
+.modern-ui .report-page .treatment-badge-insulin { background: #e4f0ff; color: #1766c6; }
+.modern-ui .report-page .treatment-badge-basal { background: #ede8fc; color: #7050b5; }
+.modern-ui .report-page .treatment-badge-meal { background: #fff0d5; color: #966012; }
+.modern-ui .report-page .treatment-note-preview { display: block; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; color: #6b7d94; }
+.modern-ui .report-page #treatments-report .treatment-data-row .treatment-actions { padding: 5px 8px; white-space: nowrap; }
+.modern-ui .report-page #treatments-report :is(.treatment-action, .treatment-menu > summary) { display: inline-flex; align-items: center; justify-content: center; width: 28px; height: 28px; padding: 5px; border: 1px solid transparent; border-radius: 5px; background: transparent; color: #627995; vertical-align: middle; cursor: pointer; }
+.modern-ui .report-page #treatments-report :is(.treatment-action, .treatment-menu > summary):hover { background: #e5eef9; border-color: #cad9ec; color: #245e9c; }
+.modern-ui .report-page #treatments-report :is(.treatment-action, .treatment-menu > summary):focus-visible { outline: 2px solid #397bbd; outline-offset: 1px; }
+.modern-ui .report-page #treatments-report :is(.treatment-action, .treatment-menu > summary) svg { display: block; width: 16px; height: 16px; }
+.modern-ui .report-page .treatment-menu { position: relative; display: inline-block; margin-left: 3px; }
+.modern-ui .report-page .treatment-menu > summary { list-style: none; }
+.modern-ui .report-page .treatment-menu > summary::-webkit-details-marker { display: none; }
+.modern-ui .report-page #treatments-report .treatment-menu > .deleteTreatment { display: none; }
+.modern-ui .report-page #treatments-report .treatment-menu[open] > .deleteTreatment { display: block; position: absolute; top: calc(100% + 4px); right: 0; z-index: 4; min-width: 130px; padding: 9px 12px; border: 1px solid #dce5ef; border-radius: 7px; background: #fff; color: #ad3f46; box-shadow: 0 5px 18px #29446620; text-align: left; white-space: nowrap; cursor: pointer; }
+.modern-ui .report-page #treatments-report .treatment-data-row .treatment-disclosure { padding: 4px 2px; }
+.modern-ui .report-page .treatment-data-row.is-expanded, .modern-ui .report-page .treatment-detail-row { background: #f0f6fe; }
+.modern-ui .report-page .treatment-data-row.is-expanded .treatment-detail-toggle svg { transform: rotate(180deg); }
+.modern-ui .report-page #treatments-report .treatment-detail-row > td { padding: 12px 16px 16px; border-bottom: 1px solid #dce7f5; }
+.modern-ui .report-page .treatment-detail-grid { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 12px 20px; margin: 0; }
+.modern-ui .report-page .treatment-detail-grid dt { margin-bottom: 4px; color: #7a8da5; font-size: 10px; }
+.modern-ui .report-page .treatment-detail-grid dd { margin: 0; color: #344d69; font-size: 12px; overflow-wrap: anywhere; white-space: pre-wrap; }
+.modern-ui .report-page .treatment-detail-notes { grid-column: 1 / -1; }
+@media (max-width: 900px) {
+  .modern-ui .report-page #treatments-placeholder { grid-template-columns: minmax(0, 1fr); }
+  .modern-ui .report-page #treatments-report .filterbar { grid-column: 1; grid-row: 3; justify-content: flex-start; margin-top: 6px; }
+}
+@media print {
+  .modern-ui .report-page .treatment-table-wrap { max-height: none; overflow: visible; border: 0; }
+  .modern-ui .report-page #treatments-report .treatments-table { min-width: 0; font-size: 9px; }
+  .modern-ui .report-page #treatments-report .filterbar { display: none; }
+}
+
+.modern-ui .report-page #treatments-report .treatment-menu > summary { font-size: 18px; line-height: 1; }
+.modern-ui .report-page #treatments-report .treatment-data-row.is-expanded { background: #eef5fd; }
