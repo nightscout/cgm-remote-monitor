@@ -1,4 +1,5 @@
 'use strict';
+// covers: package-lock.json
 /* global fixture, socket */
 
 const assert = require('node:assert/strict');

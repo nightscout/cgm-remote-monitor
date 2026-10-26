@@ -1,0 +1,61 @@
+# Modern dashboard (opt in)
+
+The modern dashboard is an optional presentation of the existing Nightscout main screen, built from master 15.0.9. Enable it on your server with:
+
+```sh
+THEME=modern
+```
+
+Restart Nightscout and reload the page. Remove this variable or select an existing theme (`default`, `colors`, or `colorblindfriendly`) and restart to return to the established interface. The default theme remains unchanged. There is no database migration.
+
+The existing browser theme preference takes precedence over the server default, just as it does for the other themes. Select **Modern** in Settings or **Reset, and use defaults** if this browser has a saved preference. Switching back to another theme in Settings restores the classic layout on reload. Both layouts and their chart rendering always follow the same effective theme.
+
+`modern` uses Nightscout's existing coloured glucose thresholds: green in range, yellow outside target, red urgent. It does not change units, thresholds, plugin visibility, alarm configuration, or permissions. Clock views keep their existing layout. Reports, Care Portal, Profile Editor, Food Editor and Admin Tools use matching modern styling, with the same editing, authorization and save behavior.
+
+## Screen sizes
+
+- **Desktop:** clock and glucose are side by side above compact plugin pills. The time-range control and secondary metrics share a row so the chart uses more of the viewport height, with a readable minimum.
+- **Tablet:** the same hierarchy adapts to the narrower columns; pills wrap naturally without truncating values.
+- **Phone (600 CSS pixels or narrower):** a compact clock and the existing reading-age pill appear first, followed by the large glucose reading and major pills. The chart grows with the available screen height (340–480px) and appears before a two-column grid of secondary plugin pills. The page scrolls vertically rather than compressing the chart. Every time-range option remains available, and the range control can wrap on narrow screens.
+
+The original plugin elements and their tooltips are retained. Pills reflect real plugin warning/urgent state; the design never invents a connection or health status. Existing alarm colours, alarm menus, stale-reading strike-through, historical browsing, treatment entry, settings, and authorization still use Nightscout's normal client code. Browser text zoom is allowed. Controls have keyboard focus indicators; chart range and glucose/alarm controls accept Enter or Space.
+
+Dashboard content has its own stacking context. Drawers appear above it, followed by jQuery UI dialogs and modal backdrops; legacy plugin z-index values cannot cover authentication inputs or menu controls. Dialogs retain jQuery UI's dynamic ordering.
+
+## Settings menu
+
+The modern theme also restyles the existing Settings drawer. A sticky heading includes a Close button that returns keyboard focus to the menu toggle. Native radio buttons, checkboxes, selects and text inputs keep their existing values and behavior, with clearer section spacing and visible focus states. The original Save and reset actions remain visible at the bottom while scrolling. Reports, clock links, plugin controls and authentication remain available in the same drawer.
+
+The device-authentication dialog uses the same dark surface, a compact heading, a labelled Close control, and a full-width Authenticate button. It fits the available viewport with scrollable content on short screens. The existing masked input, unchecked remember-device option, Enter submission, retry focus and Escape dismissal remain in use. Other themes retain their original authentication dialog.
+
+Admin notifications use the same sticky heading and Close control, with readable message cards and subdued event counts/timestamps. Empty-queue and sign-in-required states retain their existing text and behavior. Close returns focus to the notifications icon.
+
+Modern side panels slide in and out over 200ms using the browser’s native animation API, with no additional dependencies. Reopening during a closing animation cancels the close cleanly. Reduced-motion preferences and browsers without native animation support use immediate opening/closing.
+
+Toolbar hover hints open below their buttons with a small gap and align toward the viewport at the left and right edges. Existing hover handlers and touch-screen tooltip behavior are retained.
+
+Chart-options and alarm menus use matching dark surfaces. All menu styling is scoped to the modern theme. The dashboard bundle URL changes after a server restart so a normal reload picks up updates; the service worker precaches that version for offline use.
+
+## Chart meaning
+
+The modern chart labels its connecting stroke **Smoothed trend**. It uses a basis curve to soften the small steps between sensor samples; the stroke may sit between the measured values. Measurements are not changed or averaged in storage, calculations, alarms or tooltips. The latest reading, urgent readings and isolated samples remain visible at their exact coordinates. Other connected sample dots are hidden at rest so they do not create a scalloped edge.
+
+Moving the mouse anywhere in the main plot selects the nearest time column, independent of pointer height. A vertical guide and larger outlined markers identify the original readings. Forecast inspection includes the nearest actual point from every active series within half its normal sampling interval, with a glucose-unit heading and clear labels such as IOB, COB, UAM, AR2 Lower and AR2 Upper. Differing source times are shown alongside the values; the tooltip never interpolates predictions. Direct point hover uses the same shared tooltip. Values and markers refresh on redraw, clear on plot exit, and stay within the viewport. The hit surface sits behind treatment controls; treatment hover/click, dragging and the separate history brush retain their existing interactions. Colour comes from Nightscout's existing colour function; finger-stick/raw-glucose points remain separate from the sensor trend.
+
+Missing and invalid sensor readings break the trace. The renderer infers the sampling cadence from recent data intervals and breaks intervals greater than 1.5 times that cadence, with an absolute limit of 7.5 minutes. Thus a missing sample in a regular 1-minute or 5-minute feed remains visible. Sensor error codes are not joined. Individual readings remain present even when there are too few points to form a line.
+
+Forecasts are dashed and separated by provider, forecast type, branch, and colour. AR2's upper and lower cone branches are identified explicitly so the renderer cannot zigzag between them. AR2 and OpenAPS also expose their nominal forecast timestamp separately from legacy unique-marker offsets, allowing shared hover to group prediction types. This adds display metadata only; it does not change prediction calculations or values. Forecast samples retain transparent hover/touch targets for the existing tooltips. The target band uses the configured thresholds, and axes retain the selected scale and units.
+
+The overview retains its brush and sample shading. Paths are clipped to the plot, and are redrawn when data, history range, units, or container dimensions change. Classic rendering stays dot-only.
+
+## Editors and Care Portal
+
+The Profile Editor, Food Editor and Admin Tools share a page header with tools navigation inside the top toolbar, native form styling and authentication status. Their layout follows the effective server/browser theme. Profile schedules stack on phones; food record fields wrap into columns, while wide database rows scroll within their own panel. Food drag-and-drop and native touch scrolling are retained. Admin cleanup actions have distinct styling and keep their existing previews, authentication and confirmations.
+
+Care Portal retains event-specific field visibility and treatment validation. Its sticky Close and Submit controls are separate: Close returns focus to the toolbar without saving, and Submit uses the original confirmation and save flow. No new dependencies are required.
+
+## Reports
+
+Reports use the modern page header and toolbar navigation, compact single-row report-type controls (scrollable on narrower screens), collapsible labelled filters, date shortcuts and matching authentication/treatment dialogs. Enter or Space selects a focused report type. Existing report selection, date ranges, food/note/event filters, target settings, scales and stored options remain in use. Wide charts and tables scroll within the selected report, keeping the page usable on phones.
+
+Charts and heatmaps retain their existing series colours and calculations on a light analysis canvas. Print styling removes navigation and filter controls while retaining the selected report. The report bundle and theme styles use startup-versioned URLs, as the editors do.

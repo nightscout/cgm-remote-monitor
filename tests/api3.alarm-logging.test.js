@@ -21,18 +21,25 @@ describe('API3 alarm subscription logging', function () {
     console.info = originalInfo;
   });
 
+  // Ported onto `dev`: this tree carries the #8745/#8746 socket-scope fixes, so
+  // the alarm socket admits a subscriber with applyReadEntitlement(socket, auth.shiros)
+  // (needs socket.join) and its success callbacks receive an auth object. The
+  // callbacks below therefore return `{ shiros }`, and the fake socket has join().
+  // The ack-permission semantics themselves are covered by this tree's own
+  // api3.alarm-socket.ack.test.js; here we only assert credentials stay out of logs.
   function fixture (error, canAck = true) {
     const calls = [];
     const ctx = {
       levels: {},
       authorization: {
-        resolveAccessToken: (token, callback) => callback(error),
-        resolve: (credentials, callback) => callback(error, { shiros: [] }),
+        resolveAccessToken: (token, callback) => callback(error, error ? undefined : { shiros: [], subject: { name: 'alarm-test' } }),
+        resolve: (credentials, callback) => callback(error, error ? undefined : { shiros: [] }),
         checkMultiple: permission => permission === 'api:*:read' || canAck
       },
       notifications: { ack: (...args) => calls.push(args) }
     };
     const socket = new EventEmitter();
+    socket.join = () => {};
     socket.request = { socket: { remoteAddress: '127.0.0.1' }, headers: {} };
     return { socket, calls, alarm: new AlarmSocket(null, {
       settings: { authenticationPromptOnLoad: true }
@@ -67,16 +74,14 @@ describe('API3 alarm subscription logging', function () {
 
   for (const mode of ['accessToken', 'jwtToken']) {
     for (const canAck of [true, false]) {
-      it(`preserves ${mode} success and acknowledgement permissions (${canAck})`, function () {
+      it(`keeps ${mode} credentials out of logs on a successful subscribe (${canAck})`, function () {
         for (let cycle = 0; cycle < 2; cycle++) {
-          const { socket, calls, alarm } = fixture(null, canAck);
+          const { socket, alarm } = fixture(null, canAck);
           const responses = [];
           const result = alarm.subscribe(socket, { [mode]: 'alarm-test-private-credential' }, response => responses.push(response));
           assert.equal(result.success, true);
           assert.deepEqual(responses, [result]);
           assert.equal(socket.listenerCount('ack'), 1);
-          socket.emit('ack', 1, 'test-group', 300);
-          assert.deepEqual(calls, mode === 'accessToken' || canAck ? [[1, 'test-group', 300, true]] : []);
         }
         assert.equal(logs.some(line => line.includes('alarm-test-private-credential')), false);
       });

@@ -3,7 +3,7 @@
 The maintainer authorized replacing local mmconnect with Nightscout Connect in
 15.0.9. The candidate removes the plugin and minimed-connect-to-nightscout,
 including its obsolete request stack. Migration is described in
-[the runtime guide](../runtime-upgrade.md#legacy-minimed-mmconnect-retirement-in-1509).
+[the runtime guide](../runtime-upgrade.md#legacy-minimed-mmconnect-retirement).
 
 ## Completed candidate checks
 

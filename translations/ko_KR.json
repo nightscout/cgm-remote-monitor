@@ -709,5 +709,8 @@
     "Security issue": "Security issue",
     "Weak API_SECRET detected. Please use a mix of small and CAPITAL letters, numbers and non-alphanumeric characters such as !#%&/ to reduce the risk of unauthorized access. The minimum length of the API_SECRET is 12 characters.": "취약한 API secret이 감지되었습니다. 대소문자, 숫자, 문자(!#%&/ 등)를 사용해 검증되지 않은 접근을 막으세요. API secret은 최소 12자여야 합니다.",
     "less than 1": "less than 1",
+    "Authorization failed. Reauthorize Nightscout access or ask the administrator to check your Loop command permissions.": "Authorization failed. Reauthorize Nightscout access or ask the administrator to check your Loop command permissions.",
+    "Could not confirm whether Loop received this command. Check your connection and Loop before submitting it again.": "Could not confirm whether Loop received this command. Check your connection and Loop before submitting it again.",
+    "Nightscout returned an error without details. Check Loop before submitting again, and ask the Nightscout administrator to check the server logs.": "Nightscout returned an error without details. Check Loop before submitting again, and ask the Nightscout administrator to check the server logs.",
     "MongoDB password and API_SECRET match. This is a really bad idea. Please change both and do not reuse passwords across the system.": "MongoDB 비밀번호와 API secret이 일치합니다. 비밀번호와 API secret을 변경하고 동일한 비밀번호를 사용하지 마십시오."
 }

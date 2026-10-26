@@ -409,6 +409,11 @@ describe('API3 CREATE', function() {
       identifier: utils.randomString('32', 'aA#')
     });
     delete doc2._id; // APIv1 updates input document, we must get rid of _id for the next round
+    // CHANGED EXPECTATION (BF-122): was doc2 carrying no server times, now the v1
+    // create also writes srvModified and srvCreated into doc; the v3 POST sets its
+    // own srvModified and keeps the stored srvCreated, so the copy must not carry them.
+    delete doc2.srvModified;
+    delete doc2.srvCreated;
 
     const resPost2 = await self.instance.post(`${self.url}`, self.jwt.all)
       .send(doc2)
@@ -463,6 +468,11 @@ describe('API3 CREATE', function() {
       insulin: 0.4,
       identifier: utils.randomString('32', 'aA#')
     });
+    // CHANGED EXPECTATION (BF-122): was doc2 carrying no server times, now the v1
+    // create also writes srvModified and srvCreated into doc; the v3 POST sets its
+    // own, so the copy must not carry the first record's.
+    delete doc2.srvModified;
+    delete doc2.srvCreated;
 
     await self.instance.post(`${self.url}`, self.jwt.all)
       .send(doc2)

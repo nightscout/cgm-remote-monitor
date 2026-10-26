@@ -1,4 +1,5 @@
 'use strict';
+// covers: lib/api/entries/index.js, lib/server/entries.js
 
 const assert = require('node:assert/strict');
 const request = require('supertest');

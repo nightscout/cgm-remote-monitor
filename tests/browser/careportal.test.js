@@ -28,11 +28,11 @@ describe('careportal in a real browser', function () {
   before(async function () {
     const root = path.resolve(__dirname, '../..');
     const file = path.join(root, 'views/index.html');
-    markup = ejs.render(fs.readFileSync(file, 'utf8'), {type: 'index', title: '', bundle: '/bundle'}, {filename: file});
+    const settings = structuredClone(require('../fixtures/default-server-settings'));
+    markup = ejs.render(fs.readFileSync(file, 'utf8'), {type: 'index', title: '', bundle: '/bundle', settings: settings.settings}, {filename: file});
     const html = '<!doctype html><html><head><meta charset="utf-8"><link rel="stylesheet" href="/css/main.css"><link rel="stylesheet" href="/css/ui-darkness/jquery-ui.min.css"></head><body></body></html>';
     const css = fs.readFileSync(path.join(root, 'static/css/main.css'), 'utf8')
       .replace("@import url('https://fonts.googleapis.com/css?family=Ubuntu:400,700');", '');
-    const settings = structuredClone(require('../fixtures/default-server-settings'));
     settings.settings.showPlugins = 'iob careportal boluscalc';
     settings.settings.enable += ' boluscalc food';
     const app = express();
@@ -261,6 +261,87 @@ describe('careportal in a real browser', function () {
       assert.equal(posts[0].data.boluscalc.eventTime, '2024-10-25T22:00:00.000Z');
     }, {timezoneId: 'Europe/Moscow', now: '2024-10-26T01:00:00+03:00', profile: true});
   });
+
+  function unitsProfile(units, startDate = '1980-01-01') {
+    const schedule = value => [{time: '00:00', timeAsSeconds: 0, value}];
+    return {defaultProfile: 'Default', startDate, units, store: {Default: {
+      dia: 3, units, basal: schedule(1), carbratio: schedule(10),
+      sens: schedule(units === 'mg/dl' ? 54 : 3),
+      target_low: schedule(units === 'mg/dl' ? 90 : 5),
+      target_high: schedule(units === 'mg/dl' ? 126 : 7)
+    }}};
+  }
+
+  async function calculateBolus(page, {displayUnits, profiles, eventTime, choice}) {
+    return page.evaluate(({displayUnits, profiles, eventTime, choice}) => {
+      const client = window.Nightscout.client, $ = window.$;
+      client.settings.units = displayUnits;
+      client.dataUpdate({sgvs: [{mgdl: 250, mills: Date.now(), direction: 'Flat', type: 'sgv'}],
+        treatments: [], devicestatus: [], profiles}, true);
+      client.boluscalc.prepare();
+      if (eventTime) {
+        $('#bc_nowtime').prop('checked', false);
+        $('#bc_othertime').prop('checked', true);
+        $('#bc_eventDateValue').val(window.moment(eventTime).format('YYYY-MM-DD'));
+        $('#bc_eventTimeValue').val(window.moment(eventTime).format('HH:mm'));
+      }
+      if (choice) $('#bc_profile').val(choice);
+      $('#bc_bg').val(displayUnits === 'mg/dl' ? '250' : '13.9');
+      $('#bc_carbs').val('0');
+      $('#bc_othercorrection').val('0');
+      const record = client.boluscalc.calculateInsulin();
+      return {profile: record.profile, isf: record.isf, ic: record.ic,
+        low: record.targetBGLow, high: record.targetBGHigh, correction: record.insulinbg,
+        eventTime: record.eventTime.toISOString(), currentUnits: client.sbx.data.profile.getUnits('Default')};
+    }, {displayUnits, profiles, eventTime, choice});
+  }
+
+  function assertBolusUnits(record, displayUnits) {
+    assert.equal(record.isf, displayUnits === 'mg/dl' ? 54 : 3);
+    assert.equal(record.low, displayUnits === 'mg/dl' ? 90 : 5);
+    assert.equal(record.high, displayUnits === 'mg/dl' ? 126 : 7);
+    assert.ok(Math.abs(record.correction - 2.3) < 0.001);
+  }
+
+  for (const profileUnits of ['mg/dl', 'mmol']) {
+    for (const displayUnits of ['mg/dl', 'mmol']) {
+      it('calculates with a ' + profileUnits + ' profile on a ' + displayUnits + ' display', async function () {
+        await withApp(async ({page}) => {
+          const record = await calculateBolus(page, {displayUnits, profiles: [unitsProfile(profileUnits)]});
+          assertBolusUnits(record, displayUnits);
+        });
+      });
+
+      it('uses historical ' + profileUnits + ' units on a ' + displayUnits + ' display after a units change', async function () {
+        await withApp(async ({page}) => {
+          const eventTime = '2024-10-26T02:00:00.000Z';
+          const currentUnits = profileUnits === 'mg/dl' ? 'mmol' : 'mg/dl';
+          const profiles = [unitsProfile(currentUnits, '2024-10-26T03:00:00.000Z'),
+            unitsProfile(profileUnits, '2024-10-26T01:00:00.000Z')];
+          const record = await calculateBolus(page, {displayUnits, profiles, eventTime});
+          assert.equal(record.currentUnits, currentUnits);
+          assert.equal(record.eventTime, eventTime);
+          assertBolusUnits(record, displayUnits);
+        });
+      });
+    }
+  }
+
+  for (const choice of ['Default', 'Other']) {
+    it('uses the ' + choice + ' profile chosen in the bolus calculator', async function () {
+      await withApp(async ({page}) => {
+        const profile = unitsProfile('mg/dl');
+        profile.store.Other = structuredClone(profile.store.Default);
+        profile.store.Other.sens[0].value = 27;
+        profile.store.Other.carbratio[0].value = 5;
+        const record = await calculateBolus(page, {displayUnits: 'mg/dl', profiles: [profile], choice});
+        assert.equal(record.profile, choice);
+        assert.equal(record.isf, choice === 'Default' ? 54 : 27);
+        assert.equal(record.ic, choice === 'Default' ? 10 : 5);
+        assert.ok(Math.abs(record.correction - (choice === 'Default' ? 2.3 : 4.59)) < 0.001);
+      });
+    });
+  }
 
   async function checkLoopSubmission(eventType, failure, expectedMessage, mode) {
     await withApp(async ({page, dialogs}) => {

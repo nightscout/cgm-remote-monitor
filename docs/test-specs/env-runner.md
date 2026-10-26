@@ -45,3 +45,10 @@ usual foreground-child pattern. Both old and new now report SIGTERM under
 coverage. The unchanged 12 native cases pass under nyc on Node 22 and 24;
 the normal old/new comparison has 19 cases. The full covered suite is rerun
 before considering the candidate ready.
+
+The nyc/Mocha child case runs its inner nyc with --all=false. With the
+repository's .nycrc (all: true) the inner nyc instrumented all of lib/ before
+reporting, which is unrelated to the contract under test: 3.6 s of a 3.9 s child,
+and 8-9 s when the suite itself runs under nyc, against a 10 s limit. Two hosted
+runs timed out on it. The case now takes about 0.5 s either way and still fails
+when the runner stops passing file values to the child.

@@ -14,7 +14,8 @@ describe('Help tooltips on the application page', function () {
   before(async function () {
     const root=path.resolve(__dirname,'../..'), file=path.join(root,'views/index.html');
     // Keep the real template/styles; boot manually with finite owned socket data.
-    template=ejs.render(fs.readFileSync(file,'utf8'),{type:'index',title:'Tooltip fixture',bundle:'/bundle'},{filename:file});
+    // Dev's views read server settings (theme) while rendering, as careportal.test.js passes them.
+    template=ejs.render(fs.readFileSync(file,'utf8'),{type:'index',title:'Tooltip fixture',bundle:'/bundle',settings:require('../fixtures/default-server-settings').settings},{filename:file});
     const css=fs.readFileSync(path.join(root,'static/css/main.css'),'utf8')
       .replace("@import url('https://fonts.googleapis.com/css?family=Ubuntu:400,700');",'');
     const app=express();
