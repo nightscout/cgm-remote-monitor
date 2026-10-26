@@ -86,7 +86,7 @@ The [70 cold samples](../audits/page-startup-baseline.json) comprise seven fresh
 | Page | Median readiness, parent → candidate (ms) | Median retained JS heap, parent → candidate (bytes) | CI heap ceiling (bytes) |
 | --- | ---: | ---: | ---: |
 | Dashboard | 162 → 162 | 5,085,760 → 5,017,492 | 5,500,000 |
-| Reports | 130 → 129 | 4,378,688 → 4,411,976 | 4,850,000 |
+| Reports | 130 → 129 | 4,378,688 → 4,411,976 | 6,800,000 (was 4,850,000; see below) |
 | Admin | 129 → 129 | 4,619,796 → 4,577,280 | 5,050,000 |
 | Profile | 145 → 130 | 4,614,780 → 4,561,636 | 5,050,000 |
 | Food | 161 → 146 | 5,854,480 → 5,799,496 | 6,400,000 |
@@ -94,6 +94,8 @@ The [70 cold samples](../audits/page-startup-baseline.json) comprise seven fresh
 Retained heap uses `Runtime.getHeapUsage` after `HeapProfiler.collectGarbage`. The raw records also include embedder/backing-storage counters and DOM counts; these counters are not summed into a total-RSS claim. Four pages retain less JavaScript heap. Reports retain 33,288 bytes more (about 0.8%). A matched [heap-retainer probe](../audits/page-report-heap-retainer.json) finds the largest additional array under V8's `smi_string_cache` strong root: 65,544 bytes versus 1,032. Other allocations offset part of that increase. This identifies a contributor, not a proof of leak absence or an all-platform memory saving. The bounded report increase is accepted alongside reduced transferred code and the other page savings; no server-memory saving is claimed.
 
 Five populated-page cases run in every browser CI job. Chromium additionally enforces the post-GC heap ceilings above; the other engines exercise the same data/UI readiness contracts without substituting an estimated heap metric. Ceilings are rounded allowances of approximately 10% above the measured candidate maxima and require review before increases.
+
+**Reports ceiling raised to 6,800,000 bytes (2026-10-25).** Since #8542 the reports page draws its first report (the AGP chart and seven daily charts, 576 readings) as soon as the profile has loaded, so a populated reports page is no longer an empty form. The populated-page test now waits for that first report to finish (charts under `#pluginchartplaceholders` and an empty `#info`) before measuring. Seven fresh samples on dev `428b20b7` (Node 26.12.1, Chromium from Playwright 1.63.0, Linux, 1280 by 900) retained 6,181,516 to 6,197,116 bytes, median 6,184,504; 6,800,000 is 1.097 times the maximum, the same rounding as the other ceilings. The page did not get heavier for the same work: retained heap after one manual Show was 9,235,772 to 9,246,888 bytes on `b29f1bf7` (before #8542) and 7,178,352 to 7,178,776 on `428b20b7`, and after five Shows 9.93 MB and 7.46 MB respectively. Both revisions retain a little more with each further Show (about 170 KB per run before #8542 and 70 KB after), which these measurements do not explain.
 
 The standalone paired startup gate requires at least seven unique samples for every page/version. Its candidate median must be no more than the matched parent median plus the larger of 33 ms (two frame intervals) or twice the parent's interquartile range. This keeps timing comparison on the same host and prevents one extreme parent sample from defining the allowance. The 70 recorded samples pass. Timing comparison is a reproducible review/release check; CI directly enforces artifact, populated-startup and V8 heap contracts rather than applying Mac wall-clock timings to every runner.
 
