@@ -26,7 +26,7 @@ async function createPageFixture(options = {}) {
   if (options.compress) app.use(require('compression')());
   const apiData = request => options.apiData && options.apiData[request.path] || [];
   const settings = structuredClone(require('../default-server-settings'));
-  settings.settings.enable += ' food';
+  settings.settings.enable += ' food' + (options.enable ? ' ' + options.enable : '');
   app.use((request, response, next) => {
     response.setHeader('Content-Security-Policy', "default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline'; img-src 'self' data:; font-src 'self' data:; connect-src 'self'");
     next();

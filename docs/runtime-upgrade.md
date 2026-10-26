@@ -101,6 +101,12 @@ For application rollback, restore the driver, URI parser, SOCKS and AWS SDK
 manifest/lockfile plus the connection adapter together. No database binary,
 FCV or stored-data migration is performed by this adapter.
 
+## API v1 profile uploads
+
+Profile POST requests still accept a single object or an array of objects.
+Malformed entries and batches above 10,000 records now return HTTP 400 before
+any profiles are stored. Split larger profile imports into smaller requests.
+
 ## MongoDB query filters
 
 This release rejects `$where`, `$function` and `$accumulator` when used to

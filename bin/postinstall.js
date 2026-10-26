@@ -15,7 +15,9 @@ const {spawnSync} = require('node:child_process');
 
 const root = path.resolve(__dirname, '..');
 const cache = path.join(root, 'node_modules/.cache/_ns_cache');
-const bundles = ['app', 'clock'].map(name => path.join(cache, 'public/js/bundle.' + name + '.js'));
+// Every split page entry is required for a usable prebuilt installation.
+const bundles = ['app', 'reports', 'admin', 'profile', 'food', 'clock']
+  .map(name => path.join(cache, 'public/js/bundle.' + name + '.js'));
 
 function resolve (request) {
   try {

@@ -18,6 +18,7 @@
         "tests/basalprofileplugin.test.js",
         "tests/bgnow.test.js",
         "tests/boluswizardpreview.test.js",
+        "tests/boot-await-indexes.test.js",
         "tests/boot-sequence.test.js",
         "tests/booterror.test.js",
         "tests/bootevent-debounce.test.js",
@@ -44,6 +45,7 @@
         "tests/development-watch.test.js",
         "tests/direction.test.js",
         "tests/entry-transform-contract.test.js",
+        "tests/env.api3.test.js",
         "tests/env.test.js",
         "tests/errorcodes.test.js",
         "tests/express-query-contract.test.js",
@@ -116,7 +118,8 @@
         "tests/upbat.test.js",
         "tests/utils.deepMerge.test.js",
         "tests/utils.test.js",
-        "tests/webhook.test.js"
+        "tests/webhook.test.js",
+        "tests/write-validation.test.js"
       ],
       "env": true,
       "require": [
@@ -203,6 +206,7 @@
         "tests/authdelay.test.js",
         "tests/authorization-reload-boundary.test.js",
         "tests/authsubjects.test.js",
+        "tests/boot-index-ready.test.js",
         "tests/boot-sequence-integration.test.js",
         "tests/cache.remove-by-id.test.js",
         "tests/carb-dose-upload.test.js",

@@ -268,6 +268,52 @@ describe('env', function () {
     }
   });
 
+  describe('SECURE_HSTS_HEADER_INCLUDESUBDOMAINS spelling (BF-49)', function () {
+    var KEYS = ['SECURE_HSTS_HEADER_INCLUDESUBDOMAINS', 'SECURE_HSTS_HEADER_INCLUDE_SUBDOMAINS'
+      , 'secure_hsts_header_include_subdomains', 'CUSTOMCONNSTR_SECURE_HSTS_HEADER_INCLUDE_SUBDOMAINS'];
+    var saved, warnings, originalWarn;
+
+    beforeEach(function () {
+      saved = {};
+      KEYS.forEach(function (key) { saved[key] = process.env[key]; delete process.env[key]; });
+      warnings = [];
+      originalWarn = console.warn;
+      console.warn = function (message) { warnings.push(String(message)); };
+    });
+
+    afterEach(function () {
+      console.warn = originalWarn;
+      KEYS.forEach(function (key) {
+        if (saved[key] === undefined) delete process.env[key];
+        else process.env[key] = saved[key];
+      });
+    });
+
+    function hstsWarnings () {
+      return warnings.filter(function (w) { return w.indexOf('SECURE_HSTS_HEADER_INCLUDE_SUBDOMAINS') > -1; });
+    }
+
+    it('says nothing when the underscored name is not set', function () {
+      process.env.SECURE_HSTS_HEADER_INCLUDESUBDOMAINS = 'true';
+      require('../lib/server/env')().secureHstsHeaderIncludeSubdomains.should.equal(true);
+      hstsWarnings().should.eql([]);
+    });
+
+    it('warns that the underscored name has no effect, and still does not use it', function () {
+      ['SECURE_HSTS_HEADER_INCLUDE_SUBDOMAINS', 'secure_hsts_header_include_subdomains'
+        , 'CUSTOMCONNSTR_SECURE_HSTS_HEADER_INCLUDE_SUBDOMAINS'].forEach(function (key) {
+        warnings = [];
+        process.env[key] = 'true';
+        var env = require('../lib/server/env')();
+        env.secureHstsHeaderIncludeSubdomains.should.equal(false);
+        hstsWarnings().length.should.equal(1, key);
+        hstsWarnings()[0].should.match(/has no effect/);
+        hstsWarnings()[0].should.match(/SECURE_HSTS_HEADER_INCLUDESUBDOMAINS=false/);
+        delete process.env[key];
+      });
+    });
+  });
+
   describe('HOSTNAME', function () {
     var originalHostname;
     var originalNightscoutHostname;

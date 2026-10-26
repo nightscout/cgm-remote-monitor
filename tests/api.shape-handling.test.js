@@ -2,6 +2,7 @@
 
 var request = require('supertest');
 var should = require('should');
+var ObjectID = require('mongodb').ObjectId;
 var language = require('../lib/language')();
 var writePayload = require('../lib/api/shared/write-payload');
 
@@ -577,6 +578,18 @@ describe('API Shape Handling - Single Object vs Array Input', function () {
         document: function (marker) {
           return {type: 'food', name: 'Test food update', carbs: 12, testMarker: marker};
         }
+      },
+      {
+        name: 'profile POST',
+        method: 'post',
+        path: '/api/profile/',
+        errorMessage: /profile payload/i,
+        tooManyMessage: /Too many profile records/i,
+        textField: 'notes',
+        collection: function () { return self.ctx.profile(); },
+        document: function (marker) {
+          return Object.assign(require('./fixtures/nightscoutkit-profiles').generateUniqueProfile(marker), {testMarker: marker});
+        }
       }
     ];
 
@@ -585,7 +598,8 @@ describe('API Shape Handling - Single Object vs Array Input', function () {
         self.ctx.entries().deleteMany({}),
         self.ctx.devicestatus().deleteMany({}),
         self.ctx.activity().deleteMany({}),
-        self.ctx.food().deleteMany({})
+        self.ctx.food().deleteMany({}),
+        self.ctx.profile().deleteMany({})
       ]);
     }
 
@@ -702,6 +716,38 @@ describe('API Shape Handling - Single Object vs Array Input', function () {
     // later files that list profiles (api.profiles) find extras.
     after(async function () {
       await self.ctx.profile().deleteMany({});
+    });
+
+    [1e100, '1e100'].forEach(function (length) {
+      it('POST treats a huge ' + typeof length + ' length field as one profile', async function () {
+        var profile = profileFixtures.generateUniqueProfile('huge-length-' + typeof length);
+        profile.length = length;
+        var res = await request(self.app).post('/api/profile/').set('api-secret', known)
+          .send(profile).timeout({response: 5000, deadline: 10000}).expect(200);
+        res.body.length.should.equal(1);
+        res.body[0].length.should.equal(length);
+        var stored = await self.ctx.profile().findOne({ _id: new ObjectID(res.body[0]._id) });
+        stored.length.should.equal(length);
+      });
+    });
+
+    ['not a profile', false, []].forEach(function (invalid) {
+      it('POST refuses a mixed batch containing ' + JSON.stringify(invalid) + ' before any write', async function () {
+        var profile = profileFixtures.generateUniqueProfile('invalid-profile-item');
+        profile.testMarker = 'invalid-profile-item-' + JSON.stringify(invalid);
+        var res = await request(self.app).post('/api/profile/').set('api-secret', known)
+          .send([profile, invalid]).expect(400);
+        res.body.message.should.match(/Invalid profile payload/);
+        should.not.exist(await self.ctx.profile().findOne({testMarker: profile.testMarker}));
+      });
+    });
+
+    it('POST refuses a binary body before storage', async function () {
+      var before = await self.ctx.profile().countDocuments();
+      var res = await request(self.app).post('/api/profile/').set('api-secret', known)
+        .set('Content-Type', 'application/octet-stream').send(Buffer.from('not a profile')).expect(400);
+      res.body.message.should.match(/Invalid profile payload/);
+      (await self.ctx.profile().countDocuments()).should.equal(before);
     });
 
     it('POST accepts single profile object', function (done) {

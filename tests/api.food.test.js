@@ -78,6 +78,27 @@ describe('Food API', function ( ) {
     }
   });
 
+  // BF-93: a food write asks for a data reload, as the other v1 writes do, so
+  // the broadcast delta carries it to open pages without waiting for the next
+  // heartbeat.
+  it('creating, saving and deleting a food each request a data reload', async function ( ) {
+    var reloads = 0;
+    function onReload ( ) { reloads++; }
+    self.ctx.bus.on('data-received', onReload);
+    try {
+      var created = await request(self.app).post('/api/food/').set('api-secret', known)
+        .send({ type: 'quickpick', name: 'bf93 reload pick', carbs: 30, foods: [] }).expect(200);
+      reloads.should.equal(1);
+      var record = Object.assign({}, created.body[0], { name: 'bf93 reload pick', type: 'quickpick', carbs: 45, foods: [] });
+      await request(self.app).put('/api/food/').set('api-secret', known).send(record).expect(200);
+      reloads.should.equal(2);
+      await request(self.app).delete('/api/food/' + record._id).set('api-secret', known).expect(200);
+      reloads.should.equal(3);
+    } finally {
+      self.ctx.bus.removeListener('data-received', onReload);
+    }
+  });
+
   it('put a food, query, delete, verify gone', function (done) {
     // insert a sample food - needs to be unique from example data
     var sample_food = "type=food&category=snack&subcategory=fast&name=a+food&portion=0&carbs=10&fat=0&protein=0&energy=0&gi=2&unit=g"
