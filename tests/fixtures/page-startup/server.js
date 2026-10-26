@@ -45,7 +45,8 @@ async function createPageFixture(options = {}) {
     const filename = path.join(root, 'views', file);
     const template = fs.readFileSync(filename, 'utf8');
     app.get(url, (request, response) => response.type('html').send(ejs.render(template, {
-      type, title: '', bundle: '/bundle', cachebuster: state.buildVersion
+      type, title: '', bundle: '/bundle', cachebuster: state.buildVersion,
+      settings: require('../default-server-settings').settings
     }, {filename})));
   }
   const worker = fs.readFileSync(path.join(root, 'views/service-worker.js'), 'utf8');

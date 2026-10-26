@@ -349,3 +349,51 @@ describe('Axios consumer compatibility', function () {
     }
   });
 });
+
+// IMPORT_CONFIG loads axios from lib/server/bootevent.js at boot. A production
+// install (npm ci --omit=dev, or the Dockerfile's npm prune --omit=dev) keeps
+// only dependencies, so every package bootevent.js loads must be listed there.
+describe('Packages the server loads are runtime dependencies', function () {
+  const fs = require('fs');
+  const path = require('path');
+  const {builtinModules} = require('module');
+  const pkg = require('../package.json');
+
+  function bootRequires () {
+    const source = fs.readFileSync(path.join(__dirname, '../lib/server/bootevent.js'), 'utf8');
+    const names = new Set();
+    for (const match of source.matchAll(/require\(\s*['"]([^'"]+)['"]\s*\)/g)) {
+      const id = match[1].replace(/^node:/, '');
+      if (id.startsWith('.') || builtinModules.includes(id.split('/')[0])) continue;
+      names.add(id.startsWith('@') ? id.split('/').slice(0, 2).join('/') : id.split('/')[0]);
+    }
+    return [...names].sort();
+  }
+
+  it('finds axios among the packages bootevent.js loads', function () {
+    assert.ok(bootRequires().includes('axios'));
+  });
+
+  it('lists every package bootevent.js loads under dependencies', function () {
+    const missing = bootRequires().filter(name => !(pkg.dependencies || {})[name]);
+    assert.deepStrictEqual(missing, []);
+  });
+
+  it('does not also list axios under devDependencies', function () {
+    assert.strictEqual((pkg.devDependencies || {}).axios, undefined);
+  });
+
+  // lib/utils.js loads lodash/escape for every server that escapes HTML. lodash
+  // reaches node_modules through other packages too, but only a declaration
+  // keeps it in a production install whatever those packages do.
+  it('lists lodash, which lib/utils.js loads, under dependencies', function () {
+    const utils = fs.readFileSync(path.join(__dirname, '../lib/utils.js'), 'utf8');
+    assert.match(utils, /require\(\s*['"]lodash\/escape['"]\s*\)/);
+    assert.ok((pkg.dependencies || {}).lodash, 'lodash is not under dependencies');
+    assert.strictEqual((pkg.devDependencies || {}).lodash, undefined);
+  });
+
+  it('declares lodash at the version its override pins', function () {
+    assert.strictEqual((pkg.dependencies || {}).lodash, pkg.overrides.lodash);
+  });
+});

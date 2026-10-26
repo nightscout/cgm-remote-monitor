@@ -85,7 +85,7 @@ describe('report SGV loading and Daily Stats in a real browser', function () {
           ctx, settings: {units, scaleY: 'linear', thresholds: {bgTargetBottom: 80, bgTargetTop: 180}},
           careportal: {events: []}, headers: () => ({}), init: callback => callback(),
           translate: ctx.language.translate, utils: window.NightscoutTestModules.utils(ctx),
-          sbx: {data: {profile: {parseInTimezone: value => moment.tz(value, timezone), applyTimezone: value => value.tz(timezone)}}},
+          sbx: {data: {profile: {getTimezone: () => timezone, parseInTimezone: value => moment.tz(value, timezone), applyTimezone: value => value.tz(timezone)}}},
           ddata: {processDurations: treatments => treatments}
         };
         // Preserve the original immutable API-response guarantee, while using
@@ -96,16 +96,12 @@ describe('report SGV loading and Daily Stats in a real browser', function () {
             options.converters = {...options.converters, 'text json': text => Object.freeze(parse(text).map(Object.freeze))};
           }
         });
-        let pies = {}, chartSeries = {};
-        const plot = $.plot;
-        $.plot = Object.assign(function (selector, series, options) {
-          if (selector.startsWith('#dailystat-chart-')) {
-            pies[selector.slice('#dailystat-chart-'.length)] = series.map(band => ({...band}));
-          } else if (charts && ['#percentile-chart', '#hourlystats-overviewchart'].includes(selector)) {
-            chartSeries[selector] = series.map(band => ({id: band.id, data: band.data.map(point => point.slice(1))}));
-          } else throw new Error('Unexpected chart: ' + selector);
-          return plot.call(this, selector, series, options);
-        }, plot);
+        function tooltipLines(element) {
+          const copy = element.cloneNode(true);
+          copy.querySelectorAll('br').forEach(br => br.replaceWith(document.createTextNode('\n')));
+          return copy.textContent.split('\n');
+        }
+        let pies = {}, chartSeries = {}, percentileTooltip = [];
         const registry = Nightscout.report_plugins_preinit;
         Nightscout.client = client;
         Nightscout.report_plugins_preinit = context => {
@@ -121,9 +117,29 @@ describe('report SGV loading and Daily Stats in a real browser', function () {
                 container.append(plugin.html(client));
                 container.find('#percentile-chart, #hourlystats-overviewchart').css({height: '500px', width: '1000px'});
                 plugin.report(storage, days, options);
+                if (name === 'percentile') {
+                  chartSeries['#percentile-chart'] = Array.from(document.querySelectorAll('#percentile-chart path'))
+                    .map(path => path.__data__).filter(Array.isArray).map(points => points.map(point => ({...point})));
+                  const hover = document.querySelector('#percentile-chart svg > g > rect:last-child');
+                  const bounds = hover.getBoundingClientRect();
+                  hover.dispatchEvent(new MouseEvent('mousemove', {bubbles: true, clientX: bounds.left + 1, clientY: bounds.top + 1}));
+                  percentileTooltip = tooltipLines(document.querySelector('#percentile-tooltip'));
+
+                } else {
+                  chartSeries['#hourlystats-overviewchart'] = Array.from(document.querySelectorAll('.hs-box')).map(box => {
+                    box.querySelector('rect:last-child').dispatchEvent(new MouseEvent('mouseover', {bubbles: true}));
+                    const tooltip = document.querySelector('.hourlystats-tooltip:last-child');
+                    return tooltipLines(tooltip);
+                  });
+                }
+
               }
             }
-            // Flot adds nested legend tables; only inspect the report table's
+            pies = Object.fromEntries(Array.from(document.querySelectorAll('#dailystats-report .tir-bar')).map(bar => {
+              const day = days[Array.from(document.querySelectorAll('#dailystats-report > table > tr, #dailystats-report > table > tbody > tr')).indexOf(bar.closest('tr')) - 1];
+              return [day, Array.from(bar.children, (segment, index) => ({label: ['Low', 'In Range', 'High'][index], data: parseFloat(segment.style.width)}))];
+            }));
+            // Only inspect the report table's
             // own rows, preserving the original statistics assertions.
             const table = document.querySelector('#dailystats-report > table');
             const headers = Array.from(table.rows[0].cells, cell => cell.textContent);
@@ -131,10 +147,12 @@ describe('report SGV loading and Daily Stats in a real browser', function () {
               .map(row => Array.from(row.children, cell => cell.textContent));
             window.reportResult = JSON.parse(JSON.stringify({
               data: storage[day], table: Object.fromEntries(headers.map((name, index) => [name, rows[0][index]])),
-              pie: pies[day], rows, days: days.slice(), pies, chartSeries,
+              pie: pies[day], rows, days: days.slice(), pies, chartSeries, percentileTooltip,
+              percentilePaths: Array.from(document.querySelectorAll('#percentile-chart path'))
+                .filter(path => Array.isArray(path.__data__)).map(path => path.getAttribute('d')),
               hourlyRows: charts ? Array.from(document.querySelector('#hourlystats-report table').rows).slice(1)
                 .map(row => Array.from(row.cells, cell => cell.textContent)) : [],
-              statisticsCanvases: document.querySelectorAll('#owned-statistics-charts canvas').length,
+              statisticsSVGs: document.querySelectorAll('#owned-statistics-charts svg').length,
               stats: days.map(day => storage[day].statsrecords),
               canvases: document.querySelectorAll('#dailystats-report canvas').length
             }));
@@ -147,12 +165,14 @@ describe('report SGV loading and Daily Stats in a real browser', function () {
         window.resetReportResult = () => { window.reportResult = null; pies = {}; };
       }, {units, day, endDay, timezone, charts});
       await page.waitForFunction(() => window.$.active === 0);
+      assert.equal(requests.filter(request => request.url.pathname === '/api/v1/entries.json').length, 0, 'Changing the initial range cancels the default week load');
       async function show() {
         await page.evaluate(() => window.resetReportResult());
         await page.locator('#rp_show').click();
         await page.waitForFunction(() => window.reportResult && window.$.active === 0);
         const result = await page.evaluate(() => window.reportResult);
-        assert.ok(result.canvases >= Object.keys(result.pies).length, 'Real Flot canvases were drawn');
+        assert.equal(result.canvases, 0, 'Daily Stats uses native TIR bars');
+        assert.ok(Object.values(result.pies).every(bands => bands.length === 3), 'Each populated day has a real three-band TIR bar');
         const cgmRequests = requests.filter(request => request.url.pathname === '/api/v1/entries.json');
         for (const request of requests) assert.equal(request.method, 'GET');
         for (const {url} of cgmRequests) {
@@ -169,24 +189,30 @@ describe('report SGV loading and Daily Stats in a real browser', function () {
   }
 
   ['mg/dl', 'mmol'].forEach(function (units) {
-    it('preserves percentile bands and hourly candle/table goldens (' + units + ')', async function () {
+    it('preserves percentile values and hourly tables with D3 percentile whiskers (' + units + ')', async function () {
       await withReport([0, 300], units, [100, 200], DAY, async result => {
         const mmol = units === 'mmol';
-        const bands = Object.fromEntries(result.chartSeries['#percentile-chart'].filter(series => series.id).map(series => [series.id, series.data]));
-        for (const [id, expected] of Object.entries({c10: mmol ? 5.6 : 100, c25: mmol ? 5.6 : 100,
-          c50: mmol ? 8.35 : 150, c75: mmol ? 11.1 : 200, c90: mmol ? 11.1 : 200})) {
-          assert.equal(bands[id].length, 48);
-          assert.equal(bands[id][0][0], expected);
-          assert.ok(bands[id].slice(1).every(point => point[0] === null));
-        }
+        const [p90, p75, p50] = result.chartSeries['#percentile-chart'];
+        assert.equal(p50.length, 48);
+        assert.deepEqual(p50[0], {t: 15, v: mmol ? 8.35 : 150});
+        assert.ok(p50.slice(1).every(point => point.v === null));
+        assert.deepEqual(p75[0], {t: 15, v: mmol ? 11.1 : 200});
+        assert.ok(p75.slice(1).every(point => point.v === null));
+        assert.deepEqual(p90, p75);
+        assert.deepEqual(result.percentileTooltip.slice(1), mmol
+          ? ['75%: 11.1', 'Median: 8.3', '25%: 5.6', '10%: 5.6']
+          : ['75%: 200', 'Median: 150', '25%: 100', '10%: 100']);
+        assert.ok(result.percentileTooltip[0].endsWith(mmol ? '90%: 11.1' : '90%: 200'));
+
         assert.deepEqual(result.hourlyRows[0].slice(1), mmol
           ? ['2 (100%)', '8', '5.6', '5.6', '8.3', '11.1', '11.1', '2.7']
           : ['2 (100%)', '150', '100', '100.0', '150.0', '200.0', '200', '50']);
-        const candles = result.chartSeries['#hourlystats-overviewchart'][0].data;
-        assert.equal(candles.length, 24);
-        assert.deepEqual(candles[0], mmol ? [5.6, 11.1, 5.25, 10.75] : [100, 200, 100, 200]);
-        assert.ok(candles.slice(1).every(point => point.every(value => value === null)));
-        assert.ok(result.statisticsCanvases >= 2);
+        const boxes = result.chartSeries['#hourlystats-overviewchart'];
+        assert.equal(boxes.length, 1, 'Empty hours do not acquire boxes');
+        assert.deepEqual(boxes[0], mmol
+          ? ['0:00', 'Max: 11.1', '90%: 11.1', 'Quartile 75: 11.1', 'Median: 8.3', 'Quartile 25: 5.6', '10%: 5.6', 'Min: 5.6']
+          : ['0:00', 'Max: 200.0', '90%: 200.0', 'Quartile 75: 200.0', 'Median: 150.0', 'Quartile 25: 100.0', '10%: 100.0', 'Min: 100.0']);
+        assert.equal(result.statisticsSVGs, 2);
         const again = await result.showAgain();
         assert.deepEqual(again.chartSeries, result.chartSeries);
         assert.deepEqual(again.hourlyRows, result.hourlyRows);
@@ -194,9 +220,18 @@ describe('report SGV loading and Daily Stats in a real browser', function () {
       }, {charts: true});
     });
 
+    it('keeps twelve-hour holes visible in the percentile lines and bands (' + units + ')', async function () {
+      await withReport([0, 12 * 3600], units, [100, 200], DAY, async result => {
+        assert.equal(result.percentilePaths.length, 3);
+        result.percentilePaths.forEach(path => assert.equal((path.match(/M/g) || []).length, 2));
+        const medians = result.chartSeries['#percentile-chart'][2];
+        assert.ok(medians.slice(1, 24).every(point => point.v === null));
+      }, {charts: true});
+    });
+
     [
       { name: 'dense', offsets: [0, 58, 116], kept: [0, 116], bands: ['0%', '50%', '50%'], pie: [0, 50, 50] },
-      { name: 'five-minute', offsets: [0, 300, 600], kept: [0, 300, 600], bands: ['33%', '33%', '33%'], pie: [33.3, 33.3, 33.3] }
+      { name: 'five-minute', offsets: [0, 300, 600], kept: [0, 300, 600], bands: ['33%', '33%', '33%'], pie: [33, 33, 33] }
     ].forEach(function (fixture) {
       it('uses the retained ' + fixture.name + ' readings in charts and statistics (' + units + ')', async function () {
         await withReport(fixture.offsets, units, [100, 50, 200], DAY, async result => {
@@ -236,15 +271,16 @@ describe('report SGV loading and Daily Stats in a real browser', function () {
             units === 'mg/dl' ? ['100.0', '200.0', '300.0'] : ['5.6', '11.1', '16.7']);
           assert.deepEqual(result.stats[0].map(record => record.bgValue), [100, 200, 300]);
           const mmol = units === 'mmol';
-          const medians = result.chartSeries['#percentile-chart'].find(series => series.id === 'c50').data;
+          const medians = result.chartSeries['#percentile-chart'][2];
           const expected = fixture.dayHours === 23
             ? {0: mmol ? 5.6 : 100, 6: mmol ? 11.1 : 200, 47: mmol ? 16.7 : 300}
             : {2: mmol ? 8.35 : 150, 47: mmol ? 16.7 : 300};
-          medians.forEach((point, bin) => assert.equal(point[0], expected[bin] ?? null));
+          assert.equal(medians.length, 48);
+          medians.forEach(point => assert.equal(point.v, expected[(point.t - 15) / 30] ?? null));
           const counts = result.hourlyRows.map(row => Number(row[1].split(' ')[0]));
           assert.deepEqual(counts, Array.from({length: 24}, (_, hour) =>
             fixture.dayHours === 23 ? ([0, 3, 23].includes(hour) ? 1 : 0) : (hour === 1 ? 2 : hour === 23 ? 1 : 0)));
-          assert.ok(result.statisticsCanvases >= 2);
+          assert.equal(result.statisticsSVGs, 2);
           const repeated = await result.showAgain();
           assert.equal(repeated.entriesRequests, 1);
           assert.deepEqual(repeated.rows, result.rows);
@@ -297,55 +333,134 @@ describe('report SGV loading and Daily Stats in a real browser', function () {
     });
   });
 
-  describe('report page reconnect initialization', function () {
-    it('builds and wires the report GUI only for the first authorized connection', async function () {
+  describe('automatic initial report', function () {
+    async function initialPage(run) {
       requests = [];
+      entries = Array.from({length: 7}, (_, index) => ({type: 'sgv', date: Date.UTC(2025, 0, 27 + index, 20), sgv: 120 + index}));
       await withReportPage(async page => {
+        // UTC is already Feb 3, while the profile is still on Feb 2.
+        await page.clock.setFixedTime(new Date('2025-02-03T02:00:00Z'));
         await page.evaluate(() => {
-          const $ = window.$, moment = window.moment, Nightscout = window.Nightscout;
+          const moment = window.moment, ns = window.Nightscout;
           const ctx = {moment, settings: {units: 'mg/dl'}, language: {translate: value => value}};
-          let authorized, addHtmlCalls = 0;
-          const client = {
-            ctx, careportal: {events: []}, headers: () => ({}), init: callback => { authorized = callback; },
-            settings: {scaleY: 'linear', units: 'mg/dl', thresholds: {bgTargetBottom: 80, bgTargetTop: 180}},
-            translate: ctx.language.translate, utils: window.NightscoutTestModules.utils(ctx)
-          };
-          const registry = Nightscout.report_plugins_preinit;
-          Nightscout.client = client;
-          Nightscout.report_plugins_preinit = context => {
-            const plugins = registry(context), addHtml = plugins.addHtmlFromPlugins;
-            plugins.addHtmlFromPlugins = client => { addHtmlCalls++; return addHtml(client); };
+          const profile = {data: null, parseInTimezone: value => moment.tz(value, 'America/Los_Angeles'),
+            applyTimezone: value => value.tz('America/Los_Angeles')};
+          const client = {ctx, settings: {units: 'mg/dl', theme: 'modern', scaleY: 'linear', thresholds: {bgTargetBottom: 80, bgTargetTop: 180}},
+            careportal: {events: []}, headers: () => ({}), translate: ctx.language.translate,
+            utils: window.NightscoutTestModules.utils(ctx), sbx: {data: {profile}}, profilefunctions: {data: [{}]},
+            dataLastUpdated: 1, ddata: {processDurations: value => value},
+            init(callback) {window.authorizeInitialReport = callback; callback();}};
+          const registry = ns.report_plugins_preinit;
+          ns.client = client;
+          window.initialRenderCount = 0;
+          ns.report_plugins_preinit = context => {
+            const plugins = registry(context), agp = plugins('agp');
+            plugins.eachPlugin = callback => callback({...agp, report(storage, days, options) {
+              agp.report(storage, days, options);
+              window.initialRenderCount++;
+              window.initialReportDays = days.slice();
+            }});
             return plugins;
           };
-          Nightscout.reportclient();
-          window.reconnectReport = () => authorized();
-          window.reportGuiState = () => ({
-            addHtmlCalls, handlers: $._data($('#rp_show')[0], 'events').click.length,
-            from: $('#rp_from').val(), selected: $('#tabnav > li.selected').attr('id'),
-            menu: $('#tabnav > li').length, placeholders: $('#pluginchartplaceholders > div').length,
-            styles: $('style[id$="-css"]').length
-          });
-          authorized();
+          window.releaseInitialProfile = () => {profile.data = [{}];};
+          ns.reportclient();
         });
         await page.waitForFunction(() => window.$.active === 0);
-        const first = await page.evaluate(() => window.reportGuiState());
-        assert.equal(first.addHtmlCalls, 1);
-        assert.equal(first.handlers, 1);
-        assert.ok(first.menu > 1);
-        await page.locator('#rp_from').fill(DAY);
-        await page.locator('#tabnav > li').nth(1).click();
-        const chosen = await page.evaluate(() => window.reportGuiState());
-        assert.notEqual(chosen.selected, first.selected);
-        for (let cycle = 0; cycle < 2; cycle++) {
-          await page.evaluate(() => window.reconnectReport());
-          await page.waitForFunction(() => window.$.active === 0);
-          assert.deepEqual(await page.evaluate(() => window.reportGuiState()), chosen);
-        }
-        assert.equal(requests.length, 1, 'Reconnect must not reload the food database');
-        assert.equal(requests[0].method, 'GET');
-        assert.equal(requests[0].url.pathname, '/api/v1/food/regular.json');
+        assert.equal(requests.filter(request => request.url.pathname === '/api/v1/entries.json').length, 0,
+          'Wait for a populated profile snapshot rather than using the viewer timezone');
+        await run(page);
+      });
+    }
+
+    it('loads seven profile-calendar days without Show and leaves the range alone on reconnect', async function () {
+      await initialPage(async page => {
+        await page.evaluate(() => window.releaseInitialProfile());
+        await page.waitForFunction(() => window.initialRenderCount === 1 && window.$.active === 0);
+        assert.equal(await page.locator('#rp_from').inputValue(), '2025-01-27');
+        assert.equal(await page.locator('#rp_to').inputValue(), '2025-02-02');
+        assert.equal((await page.evaluate(() => window.initialReportDays)).length, 7);
+        assert.equal(requests.filter(request => request.url.pathname === '/api/v1/entries.json').length, 7);
+        assert.equal(await page.locator('#agp-chart svg').count(), 1);
+        await page.locator('#rp_from').fill('2025-02-01');
+        const before = requests.length;
+        await page.evaluate(() => {window.authorizeInitialReport(); window.authorizeInitialReport();});
+        await page.waitForFunction(() => window.$.active === 0);
+        assert.equal(await page.locator('#rp_from').inputValue(), '2025-02-01');
+        assert.equal(await page.evaluate(() => window.initialRenderCount), 1);
+        assert.equal(requests.length, before);
       });
     });
+
+    it('does not overwrite a range edited while the initial profile is loading', async function () {
+      await initialPage(async page => {
+        await page.locator('#rp_from').fill('2025-02-01');
+        await page.evaluate(() => {
+          window.releaseInitialProfile();
+          window.setTimeout(() => {window.initialProfileSettled = true;}, 350);
+        });
+        await page.waitForFunction(() => window.initialProfileSettled);
+        assert.equal(await page.locator('#rp_from').inputValue(), '2025-02-01');
+        assert.equal(requests.filter(request => request.url.pathname === '/api/v1/entries.json').length, 0);
+        await page.locator('#rp_show').click();
+        await page.waitForFunction(() => window.initialRenderCount === 1 && window.$.active === 0);
+        assert.equal((await page.evaluate(() => window.initialReportDays)).length, 3);
+      });
+    });
+  });
+
+  describe('report page reconnect initialization', function () {
+    for (const theme of ['default', 'modern']) {
+      it('builds and wires the ' + theme + ' report GUI only for the first authorized connection', async function () {
+        requests = [];
+        await withReportPage(async page => {
+          await page.evaluate(theme => {
+            const $ = window.$, moment = window.moment, Nightscout = window.Nightscout;
+            const ctx = {moment, settings: {units: 'mg/dl'}, language: {translate: value => value}};
+            let authorized, addHtmlCalls = 0;
+            const client = {
+              ctx, careportal: {events: []}, headers: () => ({}), init: callback => { authorized = callback; },
+              settings: {theme, scaleY: 'linear', units: 'mg/dl', thresholds: {bgTargetBottom: 80, bgTargetTop: 180}},
+              translate: ctx.language.translate, utils: window.NightscoutTestModules.utils(ctx)
+            };
+            const registry = Nightscout.report_plugins_preinit;
+            Nightscout.client = client;
+            Nightscout.report_plugins_preinit = context => {
+              const plugins = registry(context), addHtml = plugins.addHtmlFromPlugins;
+              plugins.addHtmlFromPlugins = client => { addHtmlCalls++; return addHtml(client); };
+              return plugins;
+            };
+            Nightscout.reportclient();
+            window.reconnectReport = () => authorized();
+            window.reportGuiState = () => ({
+              addHtmlCalls, handlers: $._data($('#rp_show')[0], 'events').click.length,
+              from: $('#rp_from').val(), selected: $('#tabnav > li.selected').attr('id'),
+              menu: $('#tabnav > li').length, placeholders: $('#pluginchartplaceholders > div').length,
+              styles: $('style[id$="-css"]').length,
+              pressed: $('#tabnav > li.selected').attr('aria-pressed')
+            });
+            authorized();
+          }, theme);
+          await page.waitForFunction(() => window.$.active === 0);
+          const first = await page.evaluate(() => window.reportGuiState());
+          assert.equal(first.addHtmlCalls, 1);
+          assert.equal(first.handlers, 1);
+          assert.ok(first.menu > 1);
+          await page.locator('#rp_from').fill(DAY);
+          await page.locator('#tabnav > li').nth(1).click();
+          const chosen = await page.evaluate(() => window.reportGuiState());
+          assert.notEqual(chosen.selected, first.selected);
+          if (theme === 'modern') assert.equal(chosen.pressed, 'true');
+          for (let cycle = 0; cycle < 2; cycle++) {
+            await page.evaluate(() => window.reconnectReport());
+            await page.waitForFunction(() => window.$.active === 0);
+            assert.deepEqual(await page.evaluate(() => window.reportGuiState()), chosen);
+          }
+          assert.equal(requests.length, 1, 'Reconnect must not reload the food database');
+          assert.equal(requests[0].method, 'GET');
+          assert.equal(requests[0].url.pathname, '/api/v1/food/regular.json');
+        });
+      });
+    }
 
     it('makes plugin HTML and styles idempotent while preserving tab selection', async function () {
       requests = [];

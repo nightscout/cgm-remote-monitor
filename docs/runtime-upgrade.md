@@ -1,17 +1,25 @@
 # Runtime and database support (next release)
 
-Nightscout now requires **Node 22.23.2+ or Node 24.20.0+**, within those two LTS major lines (`^22.23.2 || ^24.20.0`). Node 20 is retired. Earlier patches, odd-numbered releases, prereleases, and Node 26 Current are not supported. The package manifest is authoritative; the startup guard uses that same range before loading application configuration or starting services.
+Nightscout requires **Node 22.23.4+ within Node 22, 24.22.1+ within Node 24, or 26.12.1 and later** (`^22.23.4 || ^24.22.1 || >=26.12.1`). Prereleases are excluded. The package manifest is authoritative; the startup guard checks that same range before loading application configuration or starting services.
 
-Node 24 is recommended for new source installations (`.nvmrc` and `bin/setup.sh`). The Docker image continues to use Node 22 Alpine, updated through the official major tag. npm 10 or newer remains required; CI separately validates npm 12 on Node 24. These minimum patches reflect the supported release baseline at the time of this change, not a promise that future security updates are optional.
+## Security floor: CVE-2026-111497
 
-Official references: [Node release index](https://nodejs.org/dist/index.json), [LTS schedule](https://github.com/nodejs/Release#release-schedule). Node 22 reaches end of life on April 30, 2027; Node 24 on April 30, 2028.
+The October 21, 2026 [Node security release](https://nodejs.org/en/blog/vulnerability/october-2026-security-releases) fixes a Brotli decoder out-of-bounds write that can cause a crash, disclosure of process memory, or remote code execution when an application decompresses attacker-controlled input. The fixed releases are [22.23.4](https://nodejs.org/en/blog/release/v22.23.4), [24.22.1](https://nodejs.org/en/blog/release/v24.22.1) and [26.12.1](https://nodejs.org/en/blog/release/v26.12.1).
+
+This supersedes the earlier compatibility-only floor of `^22.12 || >=24`. Those versions can run the application, but the old range also permits vulnerable runtimes. Node 20, 23 and 25 are excluded; unpatched Node 22, 24 and 26 releases are refused at startup. The `>=26.12.1` arm preserves the existing policy of accepting later stable major releases; it does not establish compatibility with a future runtime before testing it.
+
+The current Express 4/body-parser 1 request parser rejects Brotli request bodies, but Nightscout Connect's Axios client automatically decompresses Brotli responses. Blocking inbound `Content-Encoding: br` alone therefore does not remove the risk. Upgrade the runtime used by both the build and the running application.
+
+Node 24 LTS is recommended for new source installations. `.nvmrc` selects 24.22.1, and the NodeSource setup helper selects the 24 line; verify the installed patch. Both Docker stages use `node:24.22.1-alpine`; source deployments can still use patched Node 22 under the package's runtime policy. Update those pins as newer security releases arrive, rebuild images, and redeploy existing containers: changing this repository does not patch a running process. npm 10 or newer remains required; CI separately validates npm 12 on Node 24.
 
 ## Upgrade and rollback
 
+**Check every running runtime before upgrading.** Sites on an older patch of Node 22, 24 or 26, or on Node 20, 23 or 25, must upgrade. A floating major tag or hosting selector does not prove the deployed patch is fixed.
+
 1. Record the running Nightscout commit/image digest, Node version, npm version, environment configuration, and deployment settings. Retain the previous application artifact and take a normal database backup. Keep API_SECRET and browser origin unchanged so credentials and local settings remain valid.
-2. For source deployments, upgrade Node **before** installing this Nightscout release. With nvm, run `nvm install 24` and `nvm use 24`; verify `node --version` meets the package range. A major selector is not proof of the actual installed patch. Rebuild native dependencies with a fresh `npm ci`; do not reuse node_modules from another Node version.
+2. For source deployments, upgrade Node **before** installing this Nightscout release. With nvm, run `nvm install` and `nvm use` from the checkout to select its patched `.nvmrc` version; verify `node --version` meets the package range. A major selector is not proof of the actual installed patch. Rebuild native dependencies with a fresh `npm ci`; do not reuse node_modules from another Node version.
 3. Build and start in staging using the same configuration and a representative database copy. Check authenticated uploads, profile/treatment reads, both glucose units, chart interactions, notification acknowledgements/snoozes, and two disconnect/reconnect cycles. Compare startup and post-GC memory under matched workloads before claiming improvements.
-4. For Docker, pull/build the new image and retain the old digest. Confirm the actual runtime with `docker run --rm IMAGE node --version`, then exercise application startup with the deployment's MongoDB configuration.
+4. For Docker, retain the old digest, rebuild with `docker build --pull` against the patched base image, and redeploy the resulting image. Confirm the actual runtime with `docker run --rm IMAGE node --version`, then exercise application startup with the deployment's MongoDB configuration.
 5. Roll back by deploying the recorded previous commit/artifact or image digest and its previous runtime/configuration. For a source rollback, run `npm ci` under that release's supported Node version. This change performs no database migration; do not restore an old database over new user data merely to roll back the runtime policy.
 
 Do not deploy this release to a host that cannot provide a supported runtime in **both build and execution** environments.
@@ -23,13 +31,11 @@ accounts and device testing to the maintainer after automated branch completion.
 The [completion evidence](test-specs/modernization-completion.md) records automated
 results separately; no live host or physical-device pass is implied.
 
-The PR backend matrix tests current Node 22 and 24 releases against MongoDB 5, 6, 7 and 8 (eight combinations). Node selectors use `check-latest: true`. Replica failover runs once per MongoDB release across the two Node majors; Chromium runs on both Node majors, with Firefox and WebKit on Node 24. npm 12 and native amd64/arm64 Docker checks remain. See [CI coverage and timing](test-specs/ci-coverage.md).
-
-The exact minimum versions in `package.json` and the early-rejection tests are unchanged. Those policy tests simulate version strings; they do not prove execution compatibility on an older patch. Once floating releases advance, PR CI no longer exercises the exact floors. Before release, record clean install/build, backend/client-core and pruned-startup results on actual Node 22.23.2 and 24.20.0 against the final release candidate. Do not claim exact-floor compatibility from floating CI alone. MongoDB 4.4 remains retired and 5/6 remain supported during migration.
+Ordinary CI tests the Node edges (22.23.4 and latest 26) against MongoDB 5.0 and 8.0, with the two transitional required lanes (24/6 and 22/6). Every browser engine runs once on Node 26. MongoDB 4.4 remains unsupported and has no CI lane. Manual extended validation adds the other patched Node floors/latest aliases against both MongoDB edges and all browsers. See [CI coverage and manual release checks](../CONTRIBUTING.md#ci-coverage-and-manual-release-checks). Boundary tests reject the preceding vulnerable patch on each Node line through both server entry points and the public boot API. MongoDB 5/6 remain supported during the migration but are upstream end-of-life; use MongoDB 7.0 or 8.0 for new deployments. Docker PR checks build and smoke-start the pruned image on native amd64 and arm64 runners.
 
 The following remain release checks until a maintainer records actual host evidence. Updating selectors alone does **not** establish hosted compatibility:
 
-- **Azure / Windows:** `azuredeploy.json` now selects `~24`. In the target App Service/Kudu environment, confirm this runtime is available and resolves to at least 24.20.0, then verify deployment, build, and application startup. Set `SCM_COMMAND_IDLE_TIMEOUT=300`. The Azure script now installs locked build dependencies with `npm ci --include=dev`, builds in postinstall, and prunes with `npm prune --omit=dev --ignore-scripts`; validate that complete path on the target host before release. Do not assume legacy Windows versions in external tutorials are supported.
+- **Azure / Windows:** `azuredeploy.json` now selects `~24`. In the target App Service/Kudu environment, confirm this runtime is available and resolves to Node 24.22.1 or later within Node 24 in both build and execution environments, then verify deployment, build, and application startup. Set `SCM_COMMAND_IDLE_TIMEOUT=300`. The Azure script now installs locked build dependencies with `npm ci --include=dev`, builds in postinstall, and prunes with `npm prune --omit=dev --ignore-scripts`; validate that complete path on the target host before release. Do not assume legacy Windows versions in external tutorials are supported.
 - **Heroku:** verify the buildpack resolves the engine range, builds with development dependencies, prunes correctly, and starts with persistent configuration. Record buildpack/stack versions and an upgrade/rollback exercise.
 - **Source and development:** verify a clean locked install and production startup, development/HMR startup, and upgrade/rollback with the same saved configuration and browser storage. The Linux setup helper selects NodeSource 24; validate it on the deployment's supported distribution.
 
@@ -37,14 +43,14 @@ No deployment platform is retired by this change. An unavailable or unverified p
 
 ## MongoDB support during modernization
 
-**MongoDB 4.4 and earlier are retired from Nightscout support and CI.** MongoDB 5.0.32+ within the 5.0 series and 6.0.27+ within the 6.0 series remain supported during the modernization migration. This is a transitional compatibility policy, not a claim of upstream security support: MongoDB 4.4 reached end of life on February 29, 2024; 5.0 on October 31, 2024; and 6.0 on July 31, 2025. See the [official lifecycle schedule](https://www.mongodb.com/legal/support-policy/lifecycles).
+**MongoDB 4.4 and earlier are retired from Nightscout support.** Nightscout supports MongoDB 5.0 through 8.0: 5.0.32+ within the 5.0 series, 6.0.27+ within the 6.0 series, and MongoDB 7.0 and 8.0. CI tests the edges of that range, 5.0 and 8.0. This is a transitional compatibility policy, not a claim of upstream security support: MongoDB 4.4 reached end of life on February 29, 2024; 5.0 on October 31, 2024; and 6.0 on July 31, 2025. See the [official lifecycle schedule](https://www.mongodb.com/legal/support-policy/lifecycles).
 
 This change removes CI jobs and updates the support policy. It does not change the MongoDB driver, schema, connection protocol, or startup behavior, and does not migrate or delete data. An existing 4.4 connection may still work; that does not make it supported. There is no new startup version query or database permission requirement.
 
-### Docker Compose default in Nightscout 15.0.9
+### Docker Compose default in Nightscout 16.0.0
 
 The bundled `docker-compose.yml` now selects **mongo:6.0.27**, replacing the
-**mongo:5.0.32** default shipped in 15.0.8. MongoDB 5 remains supported during
+**mongo:5.0.32** default shipped through 15.0.9. MongoDB 5 remains supported during
 migration; changing the example default does not require externally managed
 MongoDB 5 deployments to upgrade immediately.
 
@@ -75,7 +81,7 @@ Before deploying the modernization release on a database currently running 4.4:
 3. Rehearse the database upgrade independently of the Nightscout upgrade using a representative restored copy. Verify authenticated uploads, entries/treatments/profiles, indexes, stable identifiers, timezone/unit behavior, and supported Loop/Trio/AAPS clients. Retain results for the final release gate.
 4. Keep application rollback and database rollback separate. Reverting Nightscout does not undo database binary or FCV changes. Agree a recovery plan using MongoDB's documented downgrade restrictions and the verified backup; account for writes made since that backup.
 
-The follow-up database work must validate maintained MongoDB 7/8 releases with the selected driver and existing client/API fixtures before changing the recommended deployment version. Retiring 5/6 requires a separate support decision and release notice; they remain in CI during this migration. Database upgrade/restore evidence is required before final promotion of #8605. No production database is changed by this PR.
+MongoDB 7.0 and 8.0 are the maintained releases to use for new deployments. Retiring 5/6 requires a separate support decision and release notice; 5.0 remains the floor CI tests. Database upgrade/restore evidence is required before final promotion of #8605. No production database is changed by this PR.
 
 
 ## MongoDB AWS credentials in the driver migration candidate
@@ -119,12 +125,13 @@ Type-only treatment/device-status slice requests no longer return entries-cache
 records. These requests now read the selected collection. Entries slices keep
 their existing cache path; selected-storage permission requirements still apply.
 
-## Legacy Dexcom bridge retirement in 15.0.9
+## Legacy Dexcom bridge retirement
 
 The local `share2nightscout-bridge` engine is removed in favour of Nightscout
 Connect's Dexcom Share source. Deprecated legacy overrides no longer select an
 old engine: `DEXCOM_BRIDGE_USE_LEGACY`, its Azure prefix, and legacy extended
-settings cannot re-enable it. MiniMed is not retired by this change.
+settings cannot re-enable it; if `DEXCOM_BRIDGE_USE_LEGACY` is still set,
+Nightscout logs that it is ignored. MiniMed is retired separately, below.
 
 | Existing setting | Connect setting/behavior |
 | --- | --- |
@@ -156,15 +163,15 @@ Private TLS endpoints must have certificates trusted by the Node runtime; the
 legacy engine's certificate-verification bypass is not retained.
 
 Rollback requires a previous Nightscout artifact with the legacy engine plus
-its known configuration; flipping the removed override on 15.0.9 cannot restore
+its known configuration; flipping the removed override cannot restore
 it. Retaining an old artifact does not resolve the legacy TLS defect. No MongoDB
 binary/FCV or schema change is part of this retirement.
 
 
-## Legacy MiniMed mmconnect retirement in 15.0.9
+## Legacy MiniMed mmconnect retirement
 
 The local `mmconnect` plugin and `minimed-connect-to-nightscout` package are
-retired in favour of Nightscout Connect. Configure:
+retired in favour of Nightscout Connect. Add `connect` to `ENABLE`, then configure:
 
 ```text
 CONNECT_SOURCE=minimedcarelink
@@ -183,7 +190,8 @@ as a migration convenience, with explicit Connect settings taking precedence.
 Legacy `MMCONNECT_SERVER` values EU/US (case-insensitive) map to eu/us; a custom
 server maps to `CONNECT_CARELINK_SERVER`. You must supply `CONNECT_COUNTRY_CODE`:
 a service region is not an account country. No replacement starts if that value
-is missing. After validating ingestion, remove obsolete MMCONNECT variables.
+is missing, and the whole site shows an error page naming the settings to
+add; the `CONNECT_*` settings are read only when `connect` is in `ENABLE`. After validating ingestion, remove obsolete MMCONNECT variables.
 
 Connect supports one configured source. Legacy MiniMed credentials alongside a
 different Connect source, or alongside legacy Dexcom credentials, produce a boot
@@ -197,8 +205,9 @@ Connect uses its own scheduling, session refresh and retry behavior. It does not
 continue the old optional `carelink_raw` storage feature. Existing database
 records and historical glucose/pump data are not deleted or rewritten.
 
-The candidate pins Connect commit `c962a13fee9a7a5ca160ab5e3fb231d35cadf294`,
-including the logging fix in upstream PR #64 and data fixes in #65 (both open for review).
+This branch pins nightscout-connect `0.1.0`, which contains commit
+`c962a13fee9a7a5ca160ab5e3fb231d35cadf294`: the logging fix from upstream PR #64 and
+the data fixes from #65.
 Provider operation labels replace raw credential, cookie, token and patient-data
 logs. CLI capture output and other providers are outside that logging fix.
 

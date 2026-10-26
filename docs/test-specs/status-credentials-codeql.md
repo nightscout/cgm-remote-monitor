@@ -4,10 +4,14 @@ The #8605 integration scan at ff5480ed reported two sensitive-GET findings
 (status routing and the owned page fixture) and one query-injection finding
 at entries.deleteMany. These require separate dispositions.
 
-Browser startup now sends the existing API-secret hash or subject access token
-in the existing `api-secret` header. Status URLs contain only the cache-buster.
-The status response uses credentials already extracted by permission middleware,
-including the signed token created for a legacy token query. Existing external
+Browser startup sends the stored API-secret hash, or a shared link's token, in
+headers: the hash as `api-secret`; a token as `api-secret` and as a bearer
+`Authorization` header, so both opaque subject tokens and JWTs are accepted.
+Status URLs contain only the cache-buster. The status response reads the
+credential with the permission middleware's own token extraction (a bearer
+header or the legacy `token` query), then the `api-secret` header, then the
+legacy `secret` query. This is the dev version
+of the change (#8836), which replaced this branch's 973a2849. Existing external
 clients using query credentials remain compatible; this does not claim that all
 legacy URL-based authentication has been retired. New clients should use headers.
 The owned fixture requires the same header as production startup.

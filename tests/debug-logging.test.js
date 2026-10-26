@@ -98,6 +98,8 @@ describe('boot event diagnostics', function () {
     ['tick', 'data-received'].forEach(event => {
       it(`processes ${event} and notifications with logging=${logging}`, function () {
         const steps = [];
+        // lib/server/bootevent.js hands its stages to lib/utils/boot-sequence.js,
+        // which replaced the bootevent package.
         const bootId = require.resolve('../lib/utils/boot-sequence');
         const sandboxId = require.resolve('../lib/sandbox');
         require(bootId);
@@ -112,7 +114,7 @@ describe('boot event diagnostics', function () {
         let processed = 0;
         const sbx = {};
         try {
-          require.cache[bootId].exports = registered => { steps.push(...registered); return {}; };
+          require.cache[bootId].exports = (list) => { steps.push(...list); return { boot() { return this; } }; };
           require.cache[sandboxId].exports = () => ({ serverInit: () => sbx });
           for (const method of Object.keys(savedConsole)) console[method] = (...args) => logs.push(args);
           boot({ debug: { logging } }, {});

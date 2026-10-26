@@ -30,7 +30,7 @@
           {
             "name": "spec",
             "in": "path",
-            "description": "entry id, such as `55cf81bc436037528ec75fa5` or a type filter such\nas `sgv`, `mbg`, etc.\n",
+            "description": "entry id, such as `55cf81bc436037528ec75fa5` or a type filter such\nas `sgv`, `mbg`, etc. An id that names no entry answers 200 with\nan empty array.\n",
             "required": true,
             "schema": {
               "type": "string",
@@ -1294,7 +1294,7 @@
           },
           "theme": {
             "type": "string",
-            "description": "Default theme to be displayed system wide, `default`, `colors`, `colorblindfriendly`."
+            "description": "Default theme to be displayed system wide, `default`, `colors`, `colorblindfriendly`, `modern`. Modern opts into the responsive dashboard."
           },
           "language": {
             "type": "string",

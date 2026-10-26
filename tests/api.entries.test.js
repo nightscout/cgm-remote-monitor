@@ -300,6 +300,71 @@ describe('Entries REST api', function ( ) {
       });
   });
 
+  describe('brace patterns are capped at 2000 expansions', function ( ) {
+    // Six chained groups of ten alternatives: a million patterns.
+    var million = '20' + '{0..9}'.repeat(6);
+
+    function refused (url, done) {
+      var started = Date.now();
+      request(self.app)
+        .get(url)
+        .expect(400)
+        .end(function (err, res) {
+          if (err) return done(err);
+          (Date.now() - started).should.be.below(500);
+          res.body.status.should.equal(400);
+          res.body.description.should.match(/at most 2000 patterns/);
+          done( );
+        });
+    }
+
+    it('/times/echo refuses a prefix that expands to a million patterns', function (done) {
+      refused('/times/echo/' + million + '/T.json', done);
+    });
+
+    it('/times refuses a regex that expands to a million patterns', function (done) {
+      refused('/times/2014/' + million + '.json', done);
+    });
+
+    it('/slice refuses a prefix that expands to a million patterns', function (done) {
+      refused('/slice/entries/dateString/sgv/' + million + '.json', done);
+    });
+
+    it('/times/echo counts prefix and regex together', function (done) {
+      // 100 prefixes and 60 regexes are each allowed; 6000 together are not.
+      refused('/times/echo/20{00..99}/T{00..59}.json', done);
+    });
+
+    it('/times/echo refuses one pattern over the limit', function (done) {
+      refused('/times/echo/{1..3}{1..667}/T.json', done);
+    });
+
+    it('/times/echo expands a pattern at the limit as before', function (done) {
+      request(self.app)
+        .get('/times/echo/{1..2}{000..999}/T.json')
+        .expect(200)
+        .end(function (err, res) {
+          if (err) return done(err);
+          res.body.pattern.should.eql(require('braces').expand('^{1..2}{000..999}.*T'));
+          res.body.pattern.should.have.lengthOf(2000);
+          done( );
+        });
+    });
+
+    it('/times/echo expands the documented example as before', function (done) {
+      request(self.app)
+        .get('/times/echo/20{14..15}/T{13..18}:{00..15}.json')
+        .expect(200)
+        .end(function (err, res) {
+          if (err) return done(err);
+          res.body.pattern.should.have.lengthOf(192);
+          res.body.pattern[0].should.equal('^2014.*T13:00');
+          res.body.pattern[191].should.equal('^2015.*T18:15');
+          done( );
+        });
+    });
+  });
+
   it('/entries/current.json', function (done) {
     request(self.app)
       .get('/entries/current.json')
@@ -491,6 +556,30 @@ describe('Entries REST api', function ( ) {
             });
         }
       });
+  });
+
+  // BF-108: xDrip4iOS deletes readings in bulk by listing their dates.
+  it('deletes the readings listed under find[date][$in] and no others', async function () {
+    const dates = [1405878255000, 1405878555000, 1405878855000];
+    const window = '/entries.json?find[date][$gte]=' + dates[0] + '&find[date][$lte]=' + dates[2] + '&count=100';
+    await request(self.app)
+      .post('/entries/')
+      .set('api-secret', known || '')
+      .send(dates.map(function (date, i) {
+        return { type: 'sgv', sgv: 120 + i, date: date, device: 'dexcom', direction: 'Flat' };
+      }))
+      .expect(200);
+
+    const before = await request(self.app).get(window).set('api-secret', known || '').expect(200);
+    before.body.length.should.equal(3);
+
+    await request(self.app)
+      .delete('/entries.json?find[type]=sgv&find[date][$in][]=' + dates[0] + '&find[date][$in][]=' + dates[2])
+      .set('api-secret', known || '')
+      .expect(200);
+
+    const after = await request(self.app).get(window).set('api-secret', known || '').expect(200);
+    after.body.map(function (entry) { return entry.date; }).should.eql([dates[1]]);
   });
 
   // ============================================================

@@ -118,3 +118,126 @@ label {
   font-size: 12pt;
   text-transform: uppercase;
 }
+/* Structural wrapper has no visual effect on the established report theme. */
+.report-filters { min-width: 0; margin: 0; padding: 0; border: 0; }
+.report-filters-title { display: none; }
+
+/* Daily composition: totals and comparisons, with no implied nutrition goal. */
+#daytodaycharts .daily-distribution { display: grid; gap: 12px; min-width: 280px; padding-top: 14px; }
+#daytodaycharts .daily-distribution section { padding: 16px; border: 1px solid #dfe6ef; border-radius: 12px; background: #fff; color: #243246; }
+#daytodaycharts .daily-distribution h3 { margin: 0 0 5px; color: #243246; font-size: 14px; font-weight: 650; letter-spacing: -.015em; }
+#daytodaycharts .daily-summary-caption { margin: 0; color: #718096; font-size: 11px; line-height: 1.5; }
+#daytodaycharts .daily-insulin-body { display: grid; grid-template-columns: 128px minmax(0,1fr); align-items: center; gap: 12px; margin-top: 12px; }
+#daytodaycharts .daily-insulin-ring { display: block; width: 128px; height: 128px; }
+#daytodaycharts .daily-insulin-total { fill: #1d2c40; font-size: 26px; font-weight: 700; letter-spacing: -1px; }
+#daytodaycharts .daily-insulin-unit { fill: #748297; font-size: 11px; font-weight: 500; }
+#daytodaycharts .daily-insulin-legend { display: grid; gap: 14px; }
+#daytodaycharts .daily-insulin-key { display: grid; grid-template-columns: 9px 1fr auto; align-items: center; gap: 8px; text-align: left; font-size: 12px; }
+#daytodaycharts .daily-summary-swatch { width: 8px; height: 8px; border-radius: 3px; }
+#daytodaycharts .daily-insulin-name { color: #46566b; font-weight: 600; }
+#daytodaycharts .daily-insulin-name small { display: block; margin-top: 2px; color: #7c8999; font-size: 11px; font-weight: 400; }
+#daytodaycharts .daily-insulin-key strong { color: #243246; font-weight: 650; font-variant-numeric: tabular-nums; }
+#daytodaycharts .daily-carbs-total { margin: 10px 0 2px; color: #a85c15; font-size: 29px; font-weight: 700; letter-spacing: -.7px; font-variant-numeric: tabular-nums; }
+#daytodaycharts .daily-carbs-total > span { color: #7e8a9a; font-size: 14px; font-weight: 500; letter-spacing: 0; }
+#daytodaycharts .daily-carbs-track { height: 6px; margin-top: 15px; overflow: hidden; border-radius: 6px; background: #f6ecdf; }
+#daytodaycharts .daily-carbs-track > span { display: block; height: 100%; border-radius: inherit; background: #e7a251; }
+#daytodaycharts .daily-carbs-comparison { margin: 7px 0 0; color: #7c8999; font-size: 10px; line-height: 1.5; }
+
+#daytodaycharts > table > tbody > tr > td { vertical-align: top; }
+#daytodaycharts .daily-macro-totals { margin: 8px 0 0; color: #7c8999; font-size: 10px; }
+#daytodaycharts .daily-basal-adjustments { margin-top: 12px; border-top: 1px solid #edf1f6; padding-top: 10px; font-size: 11px; color: #617186; }
+#daytodaycharts .daily-basal-adjustments summary { cursor: pointer; }
+#daytodaycharts .daily-basal-adjustments dl { display: grid; grid-template-columns: 1fr auto; gap: 7px; margin: 10px 0 0; }
+#daytodaycharts .daily-basal-adjustments dd { margin: 0; font-variant-numeric: tabular-nums; }
+
+/* A compact reading tooltip shared by the daily charts. */
+.tooltip.daytoday-reading-tooltip { position: absolute; z-index: 60; max-width: min(360px, calc(100vw - 16px)); padding: 10px 12px; border: 1px solid #b8c7d9; border-radius: 8px; background: #fff; color: #243246; box-shadow: 0 4px 16px #1b2e4426; font-size: 12px; line-height: 1.6; pointer-events: none; }
+
+/* AGP component styles are static; keep them out of the reports JavaScript. */
+.agp-wrap{font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;color:#222;max-width:1100px;}
+.agp-wrap *{box-sizing:border-box;}
+.agp-h2{margin:0 0 4px 0;font-size:22px;font-weight:700;}
+.agp-subhead{font-size:14px;color:#444;font-weight:600;}
+.agp-cgmactive{font-size:13px;color:#666;margin-bottom:10px;}
+.agp-card{background:#fff;border:1px solid #e2e2e2;border-radius:12px;padding:16px;margin-bottom:16px;}
+.agp-card-title{font-size:15px;font-weight:700;margin-bottom:12px;color:#333;}
+.agp-top{display:flex;flex-wrap:wrap;gap:16px;align-items:stretch;}
+.agp-stats-card{flex:1 1 340px;margin-bottom:0;}
+.agp-tir-card{flex:1 1 320px;margin-bottom:0;}
+.agp-top{margin-bottom:16px;}
+.agp-stats-grid{display:grid;grid-template-columns:1fr 1fr;gap:12px;}
+.agp-stat{padding:8px 4px;}
+.agp-stat-value{font-size:24px;font-weight:700;line-height:1.1;color:#111;}
+.agp-stat-unit{font-size:13px;font-weight:600;color:#666;margin-left:3px;}
+.agp-stat-label{font-size:12px;color:#666;margin-top:2px;}
+.agp-stat-hint{font-size:11px;color:#888;margin-top:1px;}
+.agp-tir{display:flex;gap:14px;align-items:stretch;}
+.agp-tir-bar{width:46px;min-width:46px;display:flex;flex-direction:column;border-radius:6px;overflow:hidden;height:300px;border:1px solid #ddd;}
+.agp-tir-seg{width:100%;-webkit-print-color-adjust:exact;print-color-adjust:exact;}
+.agp-tir-legend{display:flex;flex-direction:column;justify-content:space-between;flex:1;}
+.agp-tir-row{display:flex;align-items:baseline;gap:6px;padding:2px 0;}
+.agp-tir-swatch{width:12px;height:12px;border-radius:3px;display:inline-block;flex:0 0 auto;-webkit-print-color-adjust:exact;print-color-adjust:exact;}
+.agp-tir-name{font-weight:700;font-size:13px;}
+.agp-tir-range{font-size:12px;color:#666;}
+.agp-tir-pct{font-weight:700;font-size:14px;margin-left:auto;}
+.agp-tir-time{font-size:11px;color:#888;width:100%;margin-left:18px;}
+.agp-tir-row.agp-target .agp-tir-name{color:#2e7d32;}
+#agp-chart svg, #agp-daily svg{display:block;}
+.agp-agp-note,.agp-daily-caption{font-size:12px;color:#777;margin-bottom:10px;}
+.agp-daily-grid{display:grid;grid-template-columns:repeat(7,1fr);gap:10px;}
+@media (max-width:900px){.agp-daily-grid{grid-template-columns:repeat(4,minmax(0,1fr));}
+}
+@media (max-width:600px){.agp-daily-grid{grid-template-columns:repeat(2,minmax(0,1fr));}
+.agp-card{padding:12px;}
+.agp-top>div{min-width:0;}
+.agp-tir{gap:10px;}
+.agp-tir-row{flex-wrap:wrap;}
+.agp-stat-value{font-size:21px;}
+}
+.agp-daily-cell{border:1px solid #eee;border-radius:8px;padding:4px;text-align:center;}
+.agp-daily-label{font-size:11px;color:#555;margin-bottom:2px;font-weight:600;}
+.agp-empty{color:#999;font-style:italic;}
+
+
+/* Daily chart typography, framing and print-safe colours. */
+#daytoday-placeholder {  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;}
+#daytodaycharts text, #daytodaycharts svg text {  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;}
+#daytodaycharts .axis text {  fill: #607d8b;  stroke: none;}
+#daytodaycharts .axis path.domain, #daytodaycharts .axis line {  stroke: #cfd8dc;  stroke-width: 1;  shape-rendering: crispEdges;}
+#daytodaycharts .high-line {  stroke: #eceff1;}
+#daytodaycharts > table {  background: #ffffff;  border: 1px solid #e4e7eb;  border-radius: 12px;  box-shadow: 0 1px 3px rgba(0,0,0,0.06);  padding: 10px 14px;  margin: 0 0 16px 0;  border-collapse: separate;}
+#daytodaycharts svg rect, #daytodaycharts svg path,#daytodaycharts svg circle, #daytodaycharts svg polyline,#daytodaycharts svg line {  -webkit-print-color-adjust: exact;  print-color-adjust: exact;}
+
+/* Weekly chart styles share the static report stylesheet. */
+#weektoweekcharts {  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;}
+#weektoweekcharts svg {  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;}
+#weektoweekcharts svg text {  fill: #607d8b;}
+#weektoweekcharts .wtw-card {  display: inline-block;  background: #ffffff;  border: 1px solid #e4e7eb;  border-radius: 12px;  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.08);  padding: 12px 16px;  margin: 8px 0;}
+#weektoweekcharts svg rect, #weektoweekcharts svg circle, #weektoweekcharts svg path {  -webkit-print-color-adjust: exact;  print-color-adjust: exact;}
+/* Stable-width daily inspection panel with a single time header and aligned rows. */
+.tooltip.daytoday-reading-tooltip { box-sizing: border-box; width: min(280px, calc(100vw - 16px)); padding: 12px 14px; font-variant-numeric: tabular-nums; }
+.tooltip.daytoday-reading-tooltip .daily-tooltip-header { display: flex; align-items: baseline; justify-content: space-between; padding-bottom: 9px; margin-bottom: 4px; border-bottom: 1px solid #e4ebf3; }
+.tooltip.daytoday-reading-tooltip .daily-tooltip-header strong { font-size: 18px; font-weight: 650; color: #243b55; }
+.tooltip.daytoday-reading-tooltip .daily-tooltip-header span { font-size: 11px; color: #73859a; }
+.tooltip.daytoday-reading-tooltip .daily-tooltip-metric { display: grid; grid-template-columns: 1fr auto; gap: 0 12px; padding: 7px 0; }
+.tooltip.daytoday-reading-tooltip .daily-tooltip-metric > span { color: #60768e; font-size: 12px; }
+.tooltip.daytoday-reading-tooltip .daily-tooltip-metric strong { color: #243b55; font-size: 13px; font-weight: 650; }
+.tooltip.daytoday-reading-tooltip .daily-tooltip-metric > small { grid-column: 1 / -1; color: #7a8ba0; font-size: 10px; }
+.tooltip.daytoday-reading-tooltip .daily-tooltip-basal strong { color: #215d9c; }
+.tooltip.daytoday-reading-tooltip .daily-tooltip-treatments { min-height: 56px; margin-top: 5px; padding-top: 9px; border-top: 1px solid #e4ebf3; }
+.tooltip.daytoday-reading-tooltip .daily-tooltip-heading { display: flex; align-items: baseline; justify-content: space-between; margin-bottom: 5px; color: #526984; font-size: 11px; font-weight: 600; }
+.tooltip.daytoday-reading-tooltip .daily-tooltip-heading small { color: #7a8ba0; font-size: 10px; font-weight: 400; }
+.tooltip.daytoday-reading-tooltip ul { list-style: none; margin: 0; padding: 0; }
+.tooltip.daytoday-reading-tooltip li { margin-top: 7px; }
+.tooltip.daytoday-reading-tooltip li > div { display: grid; grid-template-columns: minmax(0, 1fr) auto auto; align-items: baseline; gap: 8px; }
+.tooltip.daytoday-reading-tooltip li b { color: #526984; font-size: 11px; font-weight: 500; }
+.tooltip.daytoday-reading-tooltip li span { color: #243b55; font-size: 11px; font-weight: 600; text-align: right; }
+.tooltip.daytoday-reading-tooltip time { color: #7a8ba0; white-space: nowrap; font-size: 10px; }
+.tooltip.daytoday-reading-tooltip li > small, .tooltip.daytoday-reading-tooltip .daily-tooltip-detail { display: block; color: #7a8ba0; font-size: 10px; overflow-wrap: anywhere; }
+.tooltip.daytoday-reading-tooltip .daily-tooltip-treatments > small { color: #7a8ba0; font-size: 11px; }
+
+/* Shared treatment report rules. */
+.border_bottom td {  border-bottom:1pt solid #eee;}
+#treatments-report .filterbar {  margin:0.6em 0;}
+#treatments-report .filterbar select {  margin-right:0.8em;}
+#treatments-report .filterbar .recordcount {  color:#666;}

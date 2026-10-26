@@ -104,11 +104,15 @@ describe('Profile query JavaScript HTTP boundary', function () {
       assert.equal(result.body[0].score, score);
     }
   });
-  it('refuses expressions at the v1 allowlist even when their operands are literal', async function () {
+
+  it('refuses $expr, even around a $literal, through the API v1 operator allowlist', async function () {
+    // The JavaScript guard alone would let this through as data; the operator
+    // allowlist (lib/server/query-operator-allowlist.js) refuses $expr itself.
     const before = findCommands;
-    const find = {$expr: {$eq: [{$literal: {$function: 'literal'}}, '$payload']}};
-    const result = await request(server).get('/profiles/?' + qs.stringify({find})).expect(400);
-    assert.match(result.body.message, /\$expr/);
+    const find = {$expr:{$eq:[{$literal:{$function:'literal'}}, '$payload']}};
+    const response = await request(server).get('/profiles/?' + qs.stringify({find})).expect(400);
+    assert.equal(response.body.status, 400);
+    assert.match(response.body.message, /\$expr/);
     assert.equal(findCommands, before);
   });
 });

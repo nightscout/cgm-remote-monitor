@@ -1,4 +1,5 @@
 'use strict';
+// covers: tests/lib/supertest-loopback.js
 const assert = require('node:assert/strict');
 const http = require('node:http');
 const {once} = require('node:events');

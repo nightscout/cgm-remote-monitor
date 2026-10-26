@@ -227,7 +227,7 @@ M18 completed in #8639 (merge `a92d0882`) and #8640 (merge `1fab2a24`). Each pas
   The [final widget decision](browser-widget-decision.md) retains the integrated native help tooltips and selected jQuery UI 1.14.2 with jQuery 3.7.1, and upgrades isolated Flot to 4.2.6. It compares native dialogs and a D3 pie prototype, preserves report data/axes/labels through browser regressions and records measured costs. Physical device validation remains maintainer-owned; current child CI is required before integration.
   Final device accessibility gate for #8605 into dev: **Safari with VoiceOver on a physical iPhone**, selected by the maintainer. Follow the [recorded checklist](../test-specs/iphone-voiceover.md); automated WebKit does not establish spoken output. Reviewed child implementation PRs may integrate with full CI while this release gate remains explicitly open.
 
-- [x] **M29 — Legacy integration and MongoDB support decisions.** Confirmed 2026-09-05: retire MongoDB 4.4 and earlier from support/CI, retain MongoDB 5/6 during migration. The [runtime/database notice](../runtime-upgrade.md#mongodb-support-during-modernization) records support boundaries, upstream end-of-life dates and upgrade/rollback requirements. Maintained MongoDB 7/8 and the driver have integrated API/client/replica CI coverage. The [owned upgrade/recovery rehearsal](../test-specs/database-upgrade-recovery.md) verifies successive standalone 5→6→7→8 upgrades and fresh-volume restoration of original/final backups with the actual built/pruned app on both Node floors; hosted rehearsal evidence remains required before child integration. Live deployment validation is maintainer-owned; retiring 5/6 requires a separate decision. The maintainer explicitly authorized retiring the legacy Dexcom bridge in 15.0.9 in favour of Connect; validate the [retirement and migration](../test-specs/legacy-dexcom-retirement.md). MiniMed retirement integrated in #8682 with owned regression coverage; its owned Connect migration checks pass, while live account checks are maintainer-owned afterward. Retiring additional MongoDB versions requires a separate decision. Legacy adapters loaded lazily before retirement; their deletion does not establish disabled-instance heap savings. Reuse the existing MongoDB proposal's Loop/Trio/AAPS, partial-failure and identifier fixtures, verifying their current status. Provide configuration mapping, release notice and rollback before feature removal; update connector ownership/upstream issues as appropriate.
+- [x] **M29 — Legacy integration and MongoDB support decisions.** Confirmed 2026-09-05: retire MongoDB 4.4 and earlier from support/CI, retain MongoDB 5/6 during migration. The [runtime/database notice](../runtime-upgrade.md#mongodb-support-during-modernization) records support boundaries, upstream end-of-life dates and upgrade/rollback requirements. Maintained MongoDB 7/8 and the driver have integrated API/client/replica CI coverage. The [owned upgrade/recovery rehearsal](../test-specs/database-upgrade-recovery.md) verifies successive standalone 5→6→7→8 upgrades and fresh-volume restoration of original/final backups with the actual built/pruned app on both Node floors; hosted rehearsal evidence remains required before child integration. Live deployment validation is maintainer-owned; retiring 5/6 requires a separate decision. The maintainer explicitly authorized retiring the legacy Dexcom bridge in 16.0.0 in favour of Connect; validate the [retirement and migration](../test-specs/legacy-dexcom-retirement.md). MiniMed retirement integrated in #8682 with owned regression coverage; its owned Connect migration checks pass, while live account checks are maintainer-owned afterward. Retiring additional MongoDB versions requires a separate decision. Legacy adapters loaded lazily before retirement; their deletion does not establish disabled-instance heap savings. Reuse the existing MongoDB proposal's Loop/Trio/AAPS, partial-failure and identifier fixtures, verifying their current status. Provide configuration mapping, release notice and rollback before feature removal; update connector ownership/upstream issues as appropriate.
 
 - [x] **M30 — Close the loop on #8328.** Once agreed runtime policy, dependency reviews and retain/migrate decisions are complete, update this checklist with PRs and measured results, reconcile older roadmap/proposal statuses and publish before/after package, image, server and browser figures. Keep periodic audit/update work in normal maintenance. Close the tracker only when remaining Moment and other long-term decisions are explicit, not merely because the declaration count fell.
 
@@ -241,7 +241,7 @@ For every completed item, replace its checkbox with a checked box and append: PR
 
 ## Integration workflow and current child PRs
 
-Current CI policy: [coverage and execution cost](../test-specs/ci-coverage.md). Per maintainer direction, PR jobs use floating Node 22/24 only. Full backend coverage retains MongoDB 5–8, with exact transitional MongoDB minimum patches pinned. Minimum Node patches stay in the support range and require actual release-candidate validation; version-string policy tests are not execution evidence. Historical per-PR matrix counts below describe their original validation.
+Current CI policy: [CI coverage and manual release checks](../../CONTRIBUTING.md#ci-coverage-and-manual-release-checks) (edges of the supported range: Node 22.23.4 and 26 against MongoDB 5.0 and 8.0; the September floating Node 22/24 matrix is superseded, see [ci-coverage](../test-specs/ci-coverage.md)). Version-string policy tests are not execution evidence. Historical per-PR matrix counts below describe their original validation.
 
 The user confirmed on 2026-09-05 that all implementation PRs target `chore/nightscout-modernization`, and may be merged there after validation. #8605 remains the only PR into dev. CI and CodeQL explicitly include the integration branch as a pull-request target; container publishing remains limited to dev/master.
 
@@ -368,7 +368,7 @@ The [CSV upgrade](../test-specs/csv-upgrade.md) uses maintained writer/parser Co
 
 ### M29 MiniMed retirement integrated
 
-The maintainer has authorized retiring `mmconnect` in 15.0.9 in favour of
+The maintainer has authorized retiring `mmconnect` in 16.0.0 in favour of
 Nightscout Connect, superseding earlier notes retaining MiniMed. #8682 merged
 as `94caf03b` after required CI and removes the local plugin and its dependency chain, provides explicit account
 country/conflicting-feed migration errors, and pins the MiniMed logging fix from
@@ -379,21 +379,18 @@ Child CI, the published Connect shutdown pin (#8720 / upstream #66), and
 owned database upgrade/backup recovery (#8718) complete the automated M29 work.
 Live vendor/hosting migration validation remains maintainer-owned afterward.
 
-### M22 proxy compatibility and optional explicit trust
+### M22 trusted-proxy policy
 
-The production Kubernetes trial superseded the mandatory explicit-IP migration:
-rotating ingress pods must not require updating Nightscout configuration to avoid
-HTTPS redirect loops. Unset/empty `TRUST_PROXY` preserves edge-managed proxy
-compatibility; `false` ignores forwarded metadata; explicit IP/CIDR lists retain
-restricted trust. Compatibility mode also restores distinct forwarded client IPs
-for authentication throttling and raw Socket.IO consumers. It relies on the edge
-to sanitize headers and restrict backend access, rather than claiming the same
-spoofing protection as explicit trust. The maintained helper and dependency
-removal remain. Legacy client-header precedence is deterministic instead of
-request-history dependent. See the [configuration guide](../proposals/trusted-proxy-migration.md).
-Automated tests cover both compatibility and strict modes, changing proxy peers,
-HTTP/API3 authentication, Socket.IO and the default image HTTPS redirect path.
-Actual deployment and device validation remains maintainer-owned.
+#8680 (merged as `d080c1c8`) moved every client-address consumer onto one
+shared helper and applied the same policy to Express HTTPS/hostname handling.
+Its default, trusting no proxy when `TRUST_PROXY` is unset, is not what ships:
+in 16.0.0 an unset `TRUST_PROXY` keeps the earlier compatibility resolution
+(`forwarded-for`), so existing reverse-proxy deployments keep working without
+new settings. Explicit values (`false`, a hop count, `true`, or proxy IP
+addresses/CIDRs) are resolved through `proxy-addr`. See the
+[proxy configuration guide](../proposals/trusted-proxy-migration.md).
+M22 remains open for hosting migration validation and final release checks;
+no generic Heroku/Azure proxy CIDR is assumed.
 
 ### Tracker reconciliation
 

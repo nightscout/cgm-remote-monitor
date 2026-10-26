@@ -56,6 +56,58 @@ function shouldHaveSameOriginFrameProtection (res) {
 }
 
 describe('server security headers', function () {
+  for (const options of [
+    {}, {secureHstsHeader: false}, {insecureUseHttp: true},
+    {secureCsp: true}, {secureCsp: true, secureCspReportOnly: true}
+  ]) {
+    it('sets no-referrer independently of CSP and TLS configuration ' + JSON.stringify(options), async function () {
+      const res = await getRobots(securityApp(options));
+      res.headers['referrer-policy'].should.equal('no-referrer');
+    });
+  }
+
+  it('protects HTTPS redirects before other middleware runs', async function () {
+    const res = await request(securityApp()).get('/robots.txt?token=fixture-redirect-token').expect(307);
+    res.headers['referrer-policy'].should.equal('no-referrer');
+    res.headers['cache-control'].should.equal('no-store');
+    res.headers.location.should.containEql('token=fixture-redirect-token');
+  });
+
+  it('keeps public static caching but prevents caching credential-bearing static requests', async function () {
+    const app = securityApp({insecureUseHttp: true});
+    const anonymous = await request(app).get('/css/sgv.css').expect(200);
+    anonymous.headers['cache-control'].should.containEql('public, max-age=');
+    const credential = await request(app).get('/css/sgv.css?token=fixture-static-token').expect(200);
+    credential.headers['cache-control'].should.equal('no-store');
+  });
+
+  it('redacts credential URLs in real CSP reports without logging arbitrary report fields', async function () {
+    const app = securityApp({insecureUseHttp: true, secureCsp: true});
+    const log = console.log;
+    const captured = [];
+    console.log = function (...args) {
+      if (args[0] === 'CSP Violation: ') captured.push(args);
+      else log(...args);
+    };
+    try {
+      await request(app).post('/report-violation?token=fixture-report-token')
+        .set('Content-Type', 'application/csp-report')
+        .send(JSON.stringify({'csp-report': {
+          'document-uri': 'https://example.test/?token=fixture-report-token',
+          'blocked-uri': 'https://cdn.test/image?secret=fixture-report-secret',
+          'violated-directive': 'img-src', 'line-number': 8,
+          'script-sample': 'fixture-report-token', unexpected: 'fixture-report-secret'
+        }})).expect(204).expect('Cache-Control', 'no-store');
+    } finally { console.log = log; }
+    captured.length.should.equal(1);
+    captured[0][1].should.eql({
+      'document-uri': 'https://example.test/', 'blocked-uri': 'https://cdn.test/image',
+      'violated-directive': 'img-src', 'line-number': 8
+    });
+    JSON.stringify(captured).should.not.containEql('fixture-report-token');
+    JSON.stringify(captured).should.not.containEql('fixture-report-secret');
+  });
+
   it('preserves unrestricted cross-origin embedding by default', async function () {
     const res = await getRobots(securityApp());
 
