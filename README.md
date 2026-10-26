@@ -939,3 +939,12 @@ License
 
     You should have received a copy of the GNU Affero General Public License
     along with this program.  If not, see <http://www.gnu.org/licenses/>.
+
+### Third party Assets
+
+The following third-party font assets have been converted from `.ttf` to WOFF2 using [woff2_compress](https://github.com/google/woff2); WOFF fallbacks are derived from the WOFF2 files. This project does not relicense these assets.
+
+- The folder `static/font/ubuntu/` contains the Ubuntu font family, renamed in its font metadata as the Nightscout derivative following conversion. Glyphs and font metrics are unchanged. The fonts remain under the Ubuntu Font Licence Version 1.0; the original copyright and licence are included in that folder.
+
+- The folder `static/font/open-sans/` contains a modified version of Open Sans and is licensed under SIL Open Font License 1.1.
+
