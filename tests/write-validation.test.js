@@ -81,4 +81,29 @@ describe('write-validation rules', function () {
     line.should.match(/tt-units-plausible:targetTop/);
     line.should.not.match(/99\.09/);
   });
+
+  it('never words a refusal as a message AndroidAPS string-matches', () => {
+    const docs = [
+      tt({ targetBottom: 99.09, targetTop: 99.09, units: 'mmol' }),
+      tt({ targetBottom: 5, targetTop: 6, units: 'mg/dl' }),
+      tt({ targetBottom: 140, targetTop: 90 }),
+      tt({ targetBottom: Infinity, targetTop: NaN, units: 'banana' }),
+      tt({ duration: -1, durationInMilliseconds: 'x' }),
+      tt({})
+    ];
+    const rulesSeen = new Set();
+    docs.forEach(doc => {
+      const problems = wv.checkTreatment(doc);
+      problems.length.should.be.above(0);
+      problems.forEach(p => rulesSeen.add(p.rule));
+      const texts = [wv.describe(problems), wv.ValidationError(problems).message,
+        JSON.stringify(wv.refusal(doc, problems).refused)];
+      texts.forEach(text => {
+        text.should.not.match(/Bad or missing utcOffset/i);
+        text.should.not.match(/cannot be modified/i);
+      });
+    });
+    // every rule's message was covered
+    Array.from(rulesSeen).sort().should.eql(['tt-duration', 'tt-order', 'tt-target', 'tt-units', 'tt-units-plausible']);
+  });
 });
