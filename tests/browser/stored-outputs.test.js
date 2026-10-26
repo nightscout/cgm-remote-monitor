@@ -106,6 +106,41 @@ describe('stored-data browser output encoding in a real browser', function () {
     });
   });
 
+  it('keeps modern treatment details safe, complete and filterable', async function () {
+    await withSink('', async page => {
+      await page.evaluate(() => {
+        const $ = window.$, client = window.sinkFixture.reportClient(), plugin = window.sinkFixture.plugins('treatments');
+        client.settings.theme = 'modern';
+        client.sbx.data.profile.parseInTimezone = value => window.moment(value);
+        client.utils.toRoundedStr = value => String(value);
+        window.Nightscout.client = client;
+        $('body').append(plugin.html(client));
+        const data = {'2025-01-01': {treatments: [
+          {_id: 'meal', created_at: '2025-01-01T12:00:00Z', eventType: 'Meal Bolus', insulin: 2, carbs: 30,
+            protein: 10, fat: 8, percent: 0, profile: '<svg onload="window.injected=true">Profile</svg>',
+            enteredBy: 'Fish &amp; Chips', notes: '<img src=x onerror="window.injected=true">Notes'},
+          {_id: 'basal', created_at: '2025-01-01T12:05:00Z', eventType: 'Temp Basal', absolute: 0, duration: 30}
+        ]}};
+        window.sinkFixture.originalTreatments = JSON.stringify(data);
+        window.sinkFixture.modernTreatments = data;
+        plugin.report(data, ['2025-01-01'], {order: 'oldest', units: 'mg/dl'});
+      });
+      assert.equal(await page.locator('tr.treatment-data-row').count(), 2);
+      assert.equal(await page.locator('.treatment-detail-row dl').count(), 0, 'secondary details render on demand');
+      assert.equal(await page.locator('.treatment-data-row').nth(1).locator('.treatment-col-5').textContent(), '0.00');
+      const details = page.locator('.treatment-detail-toggle').first();
+      await details.click();
+      assert.equal(await details.getAttribute('aria-expanded'), 'true');
+      const text = await page.locator('.treatment-detail-row').first().textContent();
+      for (const value of ['10 g', '8 g', '0 %', '<svg onload="window.injected=true">Profile</svg>', '<img src=x onerror="window.injected=true">Notes']) assert.ok(text.includes(value), text);
+      assert.equal(await page.locator('#treatments-report script, #treatments-report [onload], #treatments-report [onerror], #treatments-report img[src="x"]').count(), 0);
+      assert.equal(await page.evaluate(() => JSON.stringify(window.sinkFixture.modernTreatments) === window.sinkFixture.originalTreatments), true);
+      await page.locator('#treatments-eventtype').selectOption('Temp Basal');
+      assert.equal(await page.locator('tr.treatment-data-row').count(), 1);
+      assert.equal(await page.locator('.recordcount').textContent(), 'Showing 1 of 2 records');
+    });
+  });
+
   it('filters treatment report rows without retaining empty day headings', async function () {
     await withSink('', async page => {
       await page.evaluate(() => {
@@ -219,11 +254,15 @@ describe('stored-data browser output encoding in a real browser', function () {
         const result = {hover: client.tooltip.text(), left: client.tooltip.style('left'), top: client.tooltip.style('top'),
           tooltipUnsafe: client.tooltip.selectAll('img,script').size(), texts: Array.from(document.querySelectorAll('#daytodaycharts svg text'), node => node.textContent),
           unsafe: window.$('#daytodaycharts').find('img,script,svg svg,[onerror],[onload]').length};
+        dot.dispatchEvent(new MouseEvent('mousemove', {bubbles: true, clientX: 180, clientY: 120}));
+        result.movedTop = client.tooltip.style('top');
         dot.dispatchEvent(new MouseEvent('mouseout', {bubbles: true})); result.out = client.tooltip.style('display');
         return result;
       });
       const raw = '<img src=x onerror="window.injected=true">Notes';
-      assert.ok(result.hover.includes(raw)); assert.equal(result.left, '120px'); assert.equal(result.top, '95px');
+      assert.ok(result.hover.includes(raw));
+      assert.ok(Number.isFinite(Number.parseFloat(result.left)));
+      assert.equal(result.movedTop, result.top, 'daily tooltip retains its vertical anchor');
       assert.equal(result.tooltipUnsafe, 0); assert.equal(result.out, 'none');
       assert.equal(result.texts.filter(text => text === raw).length, 2);
       assert.ok(result.texts.includes(' 10 g Fish & Chips')); assert.equal(result.unsafe, 0);
