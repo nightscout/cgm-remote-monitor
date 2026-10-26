@@ -115,7 +115,7 @@ describe('legacy reports in a real browser', function () {
       await page.locator('#rp_to').fill('2015-09-07');
       assert.equal(requests.filter(r => new URL(r.url, origin).pathname === '/api/v1/status.json').length, 1);
       assert.equal(requests.filter(r => new URL(r.url, origin).pathname === '/api/v1/verifyauth').length, 1);
-      assert.equal(await page.locator('#tabnav .menutab').count(), 11);
+      assert.equal(await page.locator('#tabnav .menutab').count(), 12);
       await run(page);
     }, {timezoneId: 'UTC'});
   }
@@ -174,32 +174,82 @@ describe('legacy reports in a real browser', function () {
       await page.locator('#rp_eventtype').selectOption('BG Check');
       for (const id of ['rp_optionsraw', 'rp_optionsiob', 'rp_optionscob', 'rp_enableeventtype', 'rp_enablenotes', 'rp_optionsopenaps']) await page.locator('#' + id).check();
       await page.locator('#rp_enablefood').check(); await page.locator('#rp_enablefood').uncheck();
-      for (const scale of ['rp_log', 'rp_linear']) {
-        await page.locator('#' + scale).check(); await show(page);
-        const text = await page.locator('#daytoday-placeholder').textContent();
-        assert.ok(text.includes('Milk now')); assert.ok(text.includes('50 g'));
-        assert.ok(text.includes('TDD average: 2.9U'));
+      await page.addStyleTag({url: origin + '/css/modern-reports.css'});
+      for (const theme of ['default', 'modern']) {
+        await page.evaluate(theme => {
+          window.Nightscout.client.settings.theme = theme;
+          document.documentElement.classList.toggle('modern-ui', theme === 'modern');
+          document.body.classList.add('report-page');
+        }, theme);
+        for (const scale of ['rp_log', 'rp_linear']) {
+          await page.locator('#' + scale).check(); await show(page);
+          const text = await page.locator('#daytoday-placeholder').textContent();
+          assert.ok(text.includes('Milk now')); assert.ok(text.includes('50 g'));
+          assert.ok(text.includes('TDD average: 2.9U'));
+          const sample = page.locator('.daytoday-glucose-sample').first();
+          const glucose = await sample.evaluate(node => Math.round(node.__data__.sgv));
+          await sample.hover();
+          assert.equal(await page.locator('.daily-tooltip-glucose strong').textContent(), glucose + ' mg/dL');
+          assert.equal(await page.locator('.daytoday-reading-tooltip').isVisible(), true);
+          const hoverPosition = await sample.evaluate(node => {
+            const svg = node.ownerSVGElement, bounds = svg.getBoundingClientRect();
+            const point = new DOMPoint(Number(node.getAttribute('cx')), 60).matrixTransform(svg.getScreenCTM());
+            return {x: point.x - bounds.x, y: point.y - bounds.y};
+          });
+          const svg = page.locator('#daytodaycharts svg:has(.daytoday-glucose-sample)').first();
+          await svg.hover({position: hoverPosition});
+          const tooltipTop = await page.locator('.daytoday-reading-tooltip').evaluate(node => node.getBoundingClientRect().top);
+          await svg.hover({position: {x: hoverPosition.x, y: hoverPosition.y + 50}});
+          const tooltipAfter = await page.locator('.daytoday-reading-tooltip').evaluate(node => ({top: node.getBoundingClientRect().top, styleTop: node.style.top, scrollY: window.scrollY}));
+          assert.ok(Math.abs(tooltipAfter.top - tooltipTop) < 1, JSON.stringify({theme, scale, tooltipTop, tooltipAfter, hoverPosition}));
+          assert.equal(await page.locator('.daily-tooltip-glucose strong').textContent(), glucose + ' mg/dL');
+          assert.equal(await svg.locator('.daytoday-glucose-focus').isVisible(), true);
+          assert.ok((await page.locator('.daily-tooltip-basal').textContent()).includes('U/h'));
+          if (theme === 'modern') {
+            assert.ok(await page.locator('.daily-basal-axis').count());
+            assert.ok(await page.locator('.daily-treatment-carbs').count());
+            assert.ok(await page.locator('.daily-treatment-bolus').count());
+            assert.ok((await page.locator('.daily-chart-legend').first().textContent()).includes('Basal (U/h)'));
+            const bolus = page.locator('.daily-treatment-bolus').first();
+            const dose = await bolus.locator('text').textContent();
+            const markerMeta = await bolus.evaluate(node => ({time: new Date(node.__data__.mills).toISOString(), title: node.querySelector('title').textContent}));
+            await bolus.locator('circle').hover();
+            const observed = await page.evaluate(() => ({text: document.querySelector('.daytoday-reading-tooltip')?.textContent, selected: document.querySelectorAll('.daily-treatment.is-selected').length}));
+            assert.ok(observed.text?.includes(dose), JSON.stringify({dose, markerMeta, observed}));
+            assert.ok((await bolus.getAttribute('class')).includes('is-selected'));
+          }
+          await page.locator('#daytoday-placeholder h2').hover();
+          assert.equal(await page.locator('.daytoday-reading-tooltip').isVisible(), false);
+        }
       }
       await page.locator('#treatments').click(); await show(page);
       const cells = await page.locator('#treatments-report tr.border_bottom').evaluateAll(rows => rows.map(row => Array.from(row.cells, cell => cell.textContent)));
-      assert.ok(cells.some(row => row[2] === 'Correction Bolus' && row[3] === '250 (Sensor)' && row[4] === '0.75'));
+      assert.ok(cells.some(row => row[1] === 'Correction Bolus' && row[2] === '250' && row[3] === '0.75'));
+      const firstDetails = page.locator('.treatment-detail-toggle').first();
+      await firstDetails.click();
+      assert.equal(await firstDetails.getAttribute('aria-expanded'), 'true');
+      assert.ok((await page.locator('.treatment-detail-row').first().textContent()).includes('Finger'));
+      await firstDetails.click();
+      assert.equal(await page.locator('.treatment-detail-row').first().isVisible(), false);
       for (let cycle = 1; cycle <= 2; cycle++) {
         const deletesBefore = requests.filter(r => r.method === 'DELETE').length;
         const confirmation = page.waitForEvent('dialog').then(async dialog => {
           assert.equal(dialog.type(), 'confirm'); assert.ok(dialog.message().includes('Delete this treatment?'));
           await dialog.dismiss();
         });
-        await page.locator('img.deleteTreatment').first().click(); await confirmation;
+        await page.locator('.treatment-menu > summary').first().click();
+        await page.locator('.deleteTreatment').first().click(); await confirmation;
         assert.equal(requests.filter(r => r.method === 'DELETE').length, deletesBefore);
         const accepted = page.waitForEvent('dialog').then(async dialog => {
           assert.equal(dialog.type(), 'confirm'); assert.ok(dialog.message().includes('Meal Bolus'));
           await dialog.accept();
         });
-        await page.locator('img.deleteTreatment').first().click(); await accepted;
+        await page.locator('.treatment-menu > summary').first().click();
+        await page.locator('.deleteTreatment').first().click(); await accepted;
         await idle(page);
         assert.equal(requests.filter(r => r.method === 'DELETE').length, deletesBefore + 1);
         assert.equal(requests.filter(r => r.method === 'DELETE').at(-1).url, '/api/v1/treatments/55ce59bb925aa80e7071e5ba');
-        await page.locator('img.editTreatment').first().click();
+        await page.locator('.editTreatment').first().click();
         assert.equal(await page.locator('#rped_eventType').inputValue(), 'Meal Bolus');
         assert.equal(await page.locator('#rped_carbsGiven').inputValue(), '54');
         assert.equal(await page.locator('#rped_insulinGiven').inputValue(), '3.15');
@@ -229,7 +279,7 @@ describe('legacy reports in a real browser', function () {
       assert.equal(populated.reduce((sum, row) => sum + Number(row[5]), 0), 16);
       const distribution = await page.locator('#glucosedistribution-report tr').evaluateAll(rows => rows.map(row => Array.from(row.cells, cell => cell.textContent)));
       // #8812 removed the duplicated first sample: ten of twenty are in range.
-      assert.ok(distribution.some(row => row[0].trim() === 'In Range:' && row[1] === '50.0%' && row[2] === '10'), JSON.stringify(distribution));
+      assert.ok(distribution.some(row => row[0].trim() === 'In Range (70–180):' && row[1] === '50.0%' && row[2] === '10'), JSON.stringify(distribution));
       assert.equal(distribution.find(row => row[0].trim() === 'Overall:')[2], '20');
       const hourly = await page.locator('#hourlystats-report td').allTextContents();
       assert.ok(hourly.includes('16 (100%)'));
@@ -246,7 +296,7 @@ describe('legacy reports in a real browser', function () {
         await page.locator('#' + scale).check(); await show(page);
         const colors = await page.locator('#weektoweek-placeholder circle[cx][cy]').evaluateAll(nodes => nodes.filter(node => node.__data__.type === 'sgv').map(node => node.getAttribute('fill')));
         assert.equal(colors.length, 16);
-        for (const color of ['73, 22, 153', '34, 201, 228', '0, 153, 123', '135, 135, 228', '135, 49, 204', '36, 36, 228', '0, 234, 188']) assert.ok(colors.includes('rgb(' + color + ')'));
+        for (const color of ['31, 119, 180', '255, 127, 14', '44, 160, 44', '214, 39, 40', '148, 103, 189', '140, 86, 75', '23, 190, 207']) assert.ok(colors.includes('rgb(' + color + ')'));
       }
     });
   });
