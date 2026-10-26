@@ -16,8 +16,8 @@ const CATALOGUE_DIR = path.join(__dirname, '../lib/registration/catalogue');
 const SCHEMA_DIR = path.join(__dirname, '../lib/registration/schemas');
 
 // Members of the capability document not offered yet (registration
-// specification section 4): absent means no instances and no command path.
-const NOT_OFFERED = ['instances', 'commands'];
+// specification section 4): absent means no command path.
+const NOT_OFFERED = ['commands'];
 
 // The grammar members every hub interprets (registration section 4).
 const REQUIRED_INTERPRETS = [
@@ -108,11 +108,13 @@ describe('controller registration well-known documents', function () {
       ok.should.equal(true);
     });
 
-    it('offers submissions and no instances or commands, and interprets the required members', async function () {
+    it('offers submissions and instances, no commands, and interprets the required members', async function () {
       const res = await request(self.on).get(SYNC).expect(200);
       NOT_OFFERED.forEach(member => res.body.should.not.have.property(member));
       res.body.submit.should.eql({ href: '/api/v4/registrations', tiers: ['controller-owned'],
         permissions: { submit: 'api:registrations:create', retire: 'api:registrations:delete' } });
+      res.body.instances.should.eql({ leaseSeconds: 900, instanceId: 'uuid-v4', roles: ['source', 'command-sink'],
+        channels: ['slot', 'element'], labels: { maxLabels: 8, maxKeyLength: 96, maxValueLength: 64 } });
       // An entry covers the member and everything beneath it.
       REQUIRED_INTERPRETS.filter(member => !res.body.grammar.interprets.some(entry =>
         member === entry || member.indexOf(entry + '.') === 0)).should.eql([]);
