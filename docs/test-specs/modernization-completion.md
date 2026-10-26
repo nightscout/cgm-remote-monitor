@@ -58,6 +58,15 @@ tooling, a test fixture and documentation only; application sources and the
 dependency graph are unchanged. These local results do not replace fresh
 hosted checks or the manual acceptance work above.
 
+Hosted follow-up on `ad56423d`: all backend, npm 12, Docker, Chromium, WebKit,
+CodeQL and owned database upgrade/recovery checks passed. Firefox logged all
+650 cases passing but its job was cancelled by the ten-minute job limit before
+the command/evidence steps could complete. Browser jobs now allow fifteen
+minutes for setup, production build, the full suite and evidence collection.
+Individual test deadlines, assertions and the CI matrix are unchanged; this
+adjusts the total job budget rather than retrying or skipping failing tests.
+Fresh hosted validation is still required on the resulting head.
+
 ## Dev synchronization, 9 September 2026
 
 The integration branch now incorporates dev `a8888f0d` (#8726). Routine server

@@ -223,7 +223,9 @@ jobs:
       # Keep this version in sync with playwright-core in package.json/package-lock.json.
       image: mcr.microsoft.com/playwright:v1.63.0-noble
       options: --init --ipc=host
-    timeout-minutes: 10
+    # Firefox's 650-case suite can take about nine minutes on a hosted runner.
+    # Allow setup, production build, evidence and cleanup to finish as well.
+    timeout-minutes: 15
     strategy:
       fail-fast: false
       matrix:
