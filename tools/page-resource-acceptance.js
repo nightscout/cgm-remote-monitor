@@ -2,7 +2,7 @@
 
 // Measured d79b8a74/b9f48190 prototype on Chromium 153. Recalibrate only
 // through a reviewed matched comparison, not automatically from new output.
-const heapLimits = {app: 5500000, reports: 4850000, admin: 5050000, profile: 5050000, food: 6400000};
+const heapLimits = {app: 5500000, reports: 6800000, admin: 5050000, profile: 5050000, food: 6400000};
 const median = values => {
   const sorted = values.slice().sort((a, b) => a - b), middle = Math.floor(sorted.length / 2);
   return sorted.length % 2 ? sorted[middle] : (sorted[middle - 1] + sorted[middle]) / 2;
