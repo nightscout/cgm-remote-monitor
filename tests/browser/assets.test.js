@@ -86,7 +86,7 @@ describe('Webpack image and CSS update contracts', function () {
       await page.addStyleTag({url: origin + '/css/open-sans-font.css'});
       const results = await page.evaluate(async () => {
         const fonts = [
-          ...[300, 400, 500, 700].flatMap(weight => ['normal', 'italic'].map(style => [style, weight, 'ubuntu'])),
+          ...[300, 400, 500, 700].flatMap(weight => ['normal', 'italic'].map(style => [style, weight, 'Ubuntu derivative Nightscout'])),
           ...[300, 400, 600, 700, 800].map(weight => ['normal', weight, 'Open Sans']),
           ...[300, 400, 600, 700].map(weight => ['italic', weight, 'Open Sans'])
         ];
