@@ -201,6 +201,8 @@
     "Date format": "날짜 형식",
     "12 hours": "12 시간",
     "24 hours": "24 시간",
+    "Show Seconds": "Show Seconds",
+    "When enabled the clock displays seconds and updates every second.": "When enabled the clock displays seconds and updates every second.",
     "Log a Treatment": "Treatment 로그",
     "BG Check": "혈당 체크",
     "Meal Bolus": "식사 인슐린",
