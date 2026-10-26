@@ -33,6 +33,15 @@ describe('profile and settings components in a real browser', function () {
         response.setHeader('Content-Type', 'application/javascript; charset=utf-8');
         response.end(pageBundles.get(url.pathname)); return;
       }
+      // The legacy treatments table's edit and delete icons are <img> elements
+      // with no set size. WebKit gives a broken image no box, so without them
+      // the edit icon is never visible to click.
+      const image = url.pathname.startsWith('/images/') &&
+        path.resolve(__dirname, '../../static/images', path.basename(url.pathname));
+      if (image && image.endsWith('.png') && fs.existsSync(image)) {
+        response.setHeader('Content-Type', 'image/png');
+        response.end(fs.readFileSync(image)); return;
+      }
       if (url.pathname === '/bundle.js' || url.pathname === '/modules.js') {
         response.setHeader('Content-Type', 'application/javascript; charset=utf-8');
         response.end(url.pathname === '/bundle.js' ? app : modules);
