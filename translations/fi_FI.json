@@ -201,6 +201,8 @@
     "Date format": "Aikamuoto",
     "12 hours": "12 tuntia",
     "24 hours": "24 tuntia",
+    "Show Seconds": "Show Seconds",
+    "When enabled the clock displays seconds and updates every second.": "When enabled the clock displays seconds and updates every second.",
     "Log a Treatment": "Tallenna tapahtuma",
     "BG Check": "Verensokerin tarkistus",
     "Meal Bolus": "Ruokailubolus",
