@@ -183,6 +183,73 @@ describe('controller registration: the product resource', function () {
     codes(other.body.elements.find(e => e.element === 'extensions/' + NS)).should.eql(['namespace-claimed']);
   });
 
+  function owner (href, action, etag, body, headers) {
+    let req = request(self.app).post(href + '/' + action);
+    Object.keys(headers || { 'api-secret': SECRET_HASH }).forEach(k => { req = req.set(k, (headers || { 'api-secret': SECRET_HASH })[k]); });
+    if (etag === '*') { req = req.set('If-None-Match', '*'); } else if (etag) { req = req.set('If-Match', '"' + etag + '"'); }
+    return req.send(body || {});
+  }
+
+  it('lets only API_SECRET act as the owner', async function () {
+    const created = await put(HREF, fixture.registration, { 'If-None-Match': '*' }, self.tokens['registration-test-a']).expect(201);
+    const etag = created.body.registration.etag;
+    const res = await request(self.app).post(HREF + '/block?token=' + self.tokens['registration-test-a'])
+      .set('If-Match', '"' + etag + '"').send({}).expect(403);
+    codes(res.body).should.eql(['not-authorised']);
+    const stale = await owner(HREF, 'block', 'sha256:0000').expect(412);
+    codes(stale.body).should.eql(['stale-etag']);
+    const blocked = await owner(HREF, 'block', etag).expect(200);
+    blocked.body.registration.state.should.equal('blocked');
+    blocked.body.registration.blockedFrom.should.equal('active');
+  });
+
+  it('blocks, then refuses the controller, then unblocks to the interrupted state', async function () {
+    const created = await put(HREF, fixture.registration, { 'If-None-Match': '*' }, self.tokens['registration-test-a']).expect(201);
+    const blocked = await owner(HREF, 'block', created.body.registration.etag).expect(200);
+    const refused = await put(HREF, fixture.registration, { 'If-Match': '"' + blocked.body.registration.etag + '"' },
+      self.tokens['registration-test-a']).expect(403);
+    codes(refused.body).should.eql(['blocked-by-owner']);
+    const unblocked = await owner(HREF, 'unblock', blocked.body.registration.etag).expect(200);
+    unblocked.body.registration.state.should.equal('active');
+    unblocked.body.registration.etag.should.equal(created.body.registration.etag);
+  });
+
+  it('blocks an identity with nothing stored, and unblocking removes it', async function () {
+    const blocked = await owner(HREF, 'block', '*').expect(201);
+    blocked.body.registration.state.should.equal('blocked');
+    const refused = await put(HREF, fixture.registration, { 'If-None-Match': '*' }, self.tokens['registration-test-a']).expect(403);
+    codes(refused.body).should.eql(['blocked-by-owner']);
+    await owner(HREF, 'unblock', blocked.body.registration.etag).expect(200);
+    should(await self.ctx.registrations.get({ vendor: 'Example', product: 'NegotiationController' })).equal(null);
+  });
+
+  it('frees a retired product\'s namespaces for another product', async function () {
+    const created = await put(HREF, fixture.registration, { 'If-None-Match': '*' }, self.tokens['registration-test-a']).expect(201);
+    const notRetired = await owner(HREF, 'free-namespaces', created.body.registration.etag).expect(409);
+    codes(notRetired.body).should.eql(['not-retired']);
+    const retired = await owner(HREF, 'retire', created.body.registration.etag).expect(200);
+    const freed = await owner(HREF, 'free-namespaces', retired.body.registration.etag).expect(200);
+    freed.body.registration.freedNamespaces.should.eql([NS]);
+    const other = await put(OTHER, registration('OtherController'), { 'If-None-Match': '*' }, self.tokens['registration-test-b']).expect(201);
+    other.body.outcome.should.equal('accepted');
+  });
+
+  it('transfers to a stored subject, refuses an unknown one, and releases for the next writer', async function () {
+    const created = await put(HREF, fixture.registration, { 'If-None-Match': '*' }, self.tokens['registration-test-a']).expect(201);
+    const unknown = await owner(HREF, 'transfer', created.body.registration.etag,
+      { transferTo: { kind: 'subject', subject: '000000000000000000000000' } }).expect(422);
+    codes(unknown.body).should.eql(['invalid-transfer']);
+    const moved = await owner(HREF, 'transfer', created.body.registration.etag,
+      { transferTo: { kind: 'subject', subject: self.ids['registration-test-b'] } }).expect(200);
+    moved.body.registration.boundTo.should.eql({ kind: 'subject', subject: self.ids['registration-test-b'] });
+    const released = await owner(HREF, 'release', moved.body.registration.etag).expect(200);
+    should(released.body.registration.boundTo).equal(null);
+    const bound = await put(HREF, fixture.registration, { 'If-Match': '"' + released.body.registration.etag + '"' },
+      self.tokens['registration-test-a']).expect(200);
+    bound.body.registration.bindingEvent.should.equal('next-writer');
+    bound.body.noop.should.equal(false);
+  });
+
   it('builds its unique identity index at boot', async function () {
     const indexes = await self.ctx.store.db.collection(self.env.registrations_collection).indexes();
     const unique = indexes.find(i => i.name === 'registration_identity_unique');
