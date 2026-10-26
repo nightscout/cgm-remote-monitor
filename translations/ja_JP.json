@@ -201,6 +201,8 @@
     "Date format": "日数初期化",
     "12 hours": "12時間制",
     "24 hours": "24時間制",
+    "Show Seconds": "Show Seconds",
+    "When enabled the clock displays seconds and updates every second.": "When enabled the clock displays seconds and updates every second.",
     "Log a Treatment": "治療を記録",
     "BG Check": "BG測定",
     "Meal Bolus": "食事ボーラス",
