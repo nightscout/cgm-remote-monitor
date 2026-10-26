@@ -10,6 +10,7 @@
   "tiers": {
     "unit": {
       "files": [
+        "tests/agp-data.test.js",
         "tests/alexa-template.test.js",
         "tests/apn-lifecycle.test.js",
         "tests/ar2.test.js",
@@ -122,6 +123,7 @@
     },
     "dom": {
       "files": [
+        "tests/agp-report.test.js",
         "tests/boluscalc.quickpick-rebuild.test.js",
         "tests/boluscalc.quickpick.test.js",
         "tests/client.alarm-no-reading.test.js",

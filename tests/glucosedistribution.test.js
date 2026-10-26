@@ -54,6 +54,9 @@ describe('glucosedistribution report', function distributionReportTests () {
 
     var plugin = require('../lib/report_plugins/glucosedistribution')();
     $('body').append(plugin.html(client));
+    // These regressions use the configured 80/180 targets, which the new UI
+    // exposes explicitly as Custom rather than its consensus TIR default.
+    $('#glucosedistribution-rangemode-custom').prop('checked', true);
     if (selectedHours) {
       for (var hour = 0; hour < 24; hour++) {
         $('#glucosedistribution-' + hour).prop('checked', selectedHours.includes(hour));
@@ -71,7 +74,17 @@ describe('glucosedistribution report', function distributionReportTests () {
   }
 
   function inRangeReadings () {
-    return parseInt($('#glucosedistribution-report table tr').eq(2).find('td').eq(2).text(), 10);
+    return parseInt(rangeCells('In Range').eq(2).text(), 10);
+  }
+
+  function rangeCells (label) {
+    // Numerical regressions identify the band, independently of display order.
+    var row = $('#glucosedistribution-report table tr').filter(function () {
+      var heading = $(this).find('td:first strong').text().trim();
+      return heading === label + ':' || heading.startsWith(label + ' (');
+    });
+    row.length.should.equal(1);
+    return row.find('td');
   }
 
   function reading (minute, value) {
@@ -83,8 +96,8 @@ describe('glucosedistribution report', function distributionReportTests () {
   }
 
   [
-    { first: 54, rangeRow: 1, average: '99.8', name: 'low' }
-    , { first: 250, rangeRow: 3, average: '100.5', name: 'high' }
+    { first: 54, label: 'Low', average: '99.8', name: 'low' }
+    , { first: 250, label: 'High', average: '100.5', name: 'high' }
   ].forEach(function (example) {
     it('does not give the first ' + example.name + ' reading extra weight in a full day', function () {
       var records = [];
@@ -96,11 +109,19 @@ describe('glucosedistribution report', function distributionReportTests () {
 
       overallReadings().should.equal(288);
       inRangeReadings().should.equal(287);
-      var rangeCells = $('#glucosedistribution-report table tr').eq(example.rangeRow).find('td');
-      rangeCells.eq(1).text().should.equal('0.3%');
-      rangeCells.eq(2).text().should.equal('1');
+      var cells = rangeCells(example.label);
+      cells.eq(1).text().should.equal('0.3%');
+      cells.eq(2).text().should.equal('1');
       $('#glucosedistribution-report table tr:last td').eq(3).text().should.equal(example.average);
     });
+  });
+
+  it('displays higher bands first and keeps Overall last', function () {
+    renderReport([reading(0, 100)]);
+
+    $('#glucosedistribution-report table td:first-child strong').toArray().map(function (node) {
+      return node.textContent.trim();
+    }).should.eql(['High (>=180):', 'In Range:', 'Low (<80):', 'Overall:']);
   });
 
   it('still includes an interpolated sample for a missing five-minute reading', function () {
