@@ -303,13 +303,16 @@ Data-contract fixes are pinned from Connect #65 and owned cutover fixtures pass.
 Child CI is complete. Live vendor/hosting migration validation remains
 outstanding; M29 is still open.
 
-### M22 explicit trusted-proxy policy
+### M22 trusted-proxy policy
 
-The maintainer approved requiring explicit trusted-proxy configuration for
-15.0.9. #8680 merged as `d080c1c8` after required CI and replaces all six `forwarded-for` consumers with a shared
-`proxy-addr` helper and applies the same policy to Express HTTPS/hostname
-handling, including removal of the direct `X-Forwarded-Proto` redirect bypass.
-Direct connections are the default. See the [deployment migration guide](../proposals/trusted-proxy-migration.md).
+#8680 (merged as `d080c1c8`) moved every client-address consumer onto one
+shared helper and applied the same policy to Express HTTPS/hostname handling.
+Its default, trusting no proxy when `TRUST_PROXY` is unset, is not what ships:
+in 16.0.0 an unset `TRUST_PROXY` keeps the earlier compatibility resolution
+(`forwarded-for`), so existing reverse-proxy deployments keep working without
+new settings. Explicit values (`false`, a hop count, `true`, or proxy IP
+addresses/CIDRs) are resolved through `proxy-addr`. See the
+[proxy configuration guide](../proposals/trusted-proxy-migration.md).
 M22 remains open for hosting migration validation and final release checks;
 no generic Heroku/Azure proxy CIDR is assumed.
 
