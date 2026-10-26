@@ -50,3 +50,50 @@ describe('modern report navigation', function () {
     } finally { globals.restoreDomGlobals(state); env.cleanup(); }
   });
 });
+
+describe('daily insulin and carbohydrate summaries', function () {
+  let env, state, host;
+  beforeEach(function () {
+    env = createSecureDOM('<div id="daily-summary"></div>');
+    state = globals.installDomGlobals(env);
+    host = env.window.$('#daily-summary');
+  });
+  afterEach(function () {globals.restoreDomGlobals(state); env.cleanup();});
+  function render(values) {
+    require('../lib/report/daily-distribution')(host, values, text => text, require('../lib/d3.mjs'));
+  }
+  it('shows the actual insulin split and makes the carbs comparison explicit', function () {
+    const values = {basal: 18, bolus: 12, carbs: 45, maxCarbs: 180};
+    render(values);
+    assert.strictEqual(host.find('.daily-insulin-total').text(), '30.0');
+    assert.deepStrictEqual(host.find('.daily-insulin-name small').toArray().map(node => node.textContent), ['60.0%', '40.0%']);
+    assert.deepStrictEqual(host.find('.daily-insulin-key strong').toArray().map(node => node.textContent), ['18.0 U', '12.0 U']);
+    assert.strictEqual(new Set(host.find('.daily-insulin-ring path').toArray().map(node => node.getAttribute('fill'))).size, 2);
+    assert.strictEqual(host.find('.daily-carbs-total').text(), '45 g');
+    assert.strictEqual(host.find('.daily-carbs-track > span')[0].style.width, '25%');
+    assert.strictEqual(host.find('.daily-carbs-comparison').text(), 'Highest selected day: 180 g');
+    assert.ok(!host.text().includes('goal'));
+    assert.deepStrictEqual(values, {basal: 18, bolus: 12, carbs: 45, maxCarbs: 180});
+  });
+  it('handles zero and single-category insulin without NaN percentages', function () {
+    render({basal: 0, bolus: 0, carbs: 0, maxCarbs: 0});
+    assert.strictEqual(host.find('.daily-insulin-total').text(), '0.0');
+    assert.strictEqual(host.find('.daily-insulin-ring path').length, 0);
+    assert.ok(host.text().includes('No insulin recorded'));
+    assert.ok(host.text().includes('No carbs recorded'));
+    assert.strictEqual(host.find('.daily-carbs-track').length, 0);
+    render({basal: 0, bolus: 10, carbs: 0, maxCarbs: 100});
+    assert.strictEqual(host.find('.daily-insulin-ring path').length, 1);
+    assert.deepStrictEqual(host.find('.daily-insulin-name small').toArray().map(node => node.textContent), ['0.0%', '100.0%']);
+    assert.ok(!host.html().includes('NaN'));
+  });
+  it('does not turn unavailable totals into a misleading zero or full ring', function () {
+    render({basal: -2, bolus: 5, carbs: NaN, maxCarbs: 100});
+    assert.strictEqual(host.find('.daily-insulin-total').text(), '—');
+    assert.strictEqual(host.find('.daily-insulin-ring path').length, 0);
+    assert.ok(host.text().includes('Insulin breakdown unavailable'));
+    assert.strictEqual(host.find('.daily-carbs-total').text(), '— g');
+    assert.strictEqual(host.find('.daily-carbs-track').length, 0);
+    assert.ok(!host.html().includes('NaN'));
+  });
+});
