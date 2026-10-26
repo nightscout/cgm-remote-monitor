@@ -24,6 +24,13 @@ describe('Populated application page budgets', function () {
         await page.addInitScript(hash => localStorage.setItem('apisecrethash', hash), hash);
         await page.goto(fixture.origin + url);
         await page.waitForFunction(ready, entry);
+        // The reports page draws its first report once the profile has loaded
+        // (#8542). showreports() draws the charts and clears #info in one
+        // pass, so wait for both before measuring the page as a user sees it.
+        if (entry === 'reports') {
+          await page.waitForFunction(() => document.querySelectorAll('#pluginchartplaceholders svg').length > 0 &&
+            document.querySelector('#info').textContent.trim() === '');
+        }
         assert.deepEqual(await page.evaluate(() => ({sgvs: window.Nightscout.client.ddata.sgvs.length,
           treatments: window.Nightscout.client.ddata.treatments.length, food: window.Nightscout.client.ddata.food.length})),
         {sgvs: 576, treatments: 48, food: 300});

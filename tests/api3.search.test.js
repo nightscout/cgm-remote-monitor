@@ -502,6 +502,13 @@ describe('API3 SEARCH', function() {
     self.app = self.instance.app;
     self.env = self.instance.env;
 
+    // Each endpoint suite below counts, sorts and pages only the documents it
+    // inserts. Files that run earlier can leave records in these collections,
+    // so start from empty ones (deleteMany keeps the indexes boot created).
+    for (const name of ['devicestatus', 'entries', 'food', 'profile', 'settings', 'treatments']) {
+      await self.instance.ctx.store.collection(self.env[name + '_collection']).deleteMany({});
+    }
+
     let authResult = await authSubject(self.instance.ctx.authorization.storage, [
       'read',
       'all'
