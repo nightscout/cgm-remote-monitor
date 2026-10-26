@@ -103,6 +103,7 @@
     "@aws-sdk/credential-providers": "3.1127.0",
     "@cacheable/node-cache": "3.1.1",
     "@parse/node-apn": "8.1.0",
+    "ajv": "8.20.0",
     "axios": "1.20.0",
     "braces": "^3.0.2",
     "compression": "^1.8.2",
