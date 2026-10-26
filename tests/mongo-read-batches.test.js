@@ -74,9 +74,14 @@ describe('MongoDB application read batches', function () {
     verify(await api.list_query(opts()), 2501);
   });
 
-  it('profile list preserves explicitly unlimited results', async function () {
+  // EXPECTATION CHANGED at the 16.0.0 merge: this read `list(undefined, 0)` as
+  // "no limit". Dev decided for 15.0.9 that a count of zero asks for no
+  // records (tests/api.count-parameter.test.js), so the large read is asked for
+  // with an explicit count, as the modernization branch's e3b22034 did.
+  it('profile list preserves an explicit large count across batches', async function () {
     const api = require('../lib/server/profile')(collectionName, ctx);
-    verify(await api.list(undefined, 0), 2501);
+    verify(await api.list(undefined, 2501), 2501);
+    assert.deepEqual(await api.list(undefined, 0), []);
   });
 
   it('food lists retain every result across batches', async function () {
