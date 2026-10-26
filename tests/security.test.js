@@ -29,7 +29,11 @@ describe('API_SECRET', function() {
     done();
   });
 
+  // env.settings is shared by every require('../lib/server/env')() call, and
+  // other files set authDefaultRoles on it (the API3 fixture sets ''). These
+  // tests expect the default, readable.
   function setup_app (env, fn) {
+    env.settings.authDefaultRoles = 'readable';
     api = require('../lib/api/');
     require('../lib/server/bootevent')(env, language).boot(function booted (ctx) {
       ctx.app = api(env, ctx);
@@ -40,6 +44,7 @@ describe('API_SECRET', function() {
   }
 
   function setup_big_app (env, fn) {
+    env.settings.authDefaultRoles = 'readable';
     api = require('../lib/api/');
     require('../lib/server/bootevent')(env, language).boot(function booted (ctx) {
       ctx.app = api(env, ctx);
@@ -207,6 +212,178 @@ describe('purifier', function() {
 
     record.note.should.not.containEql('javascript:');
     record.note.should.containEql('open');
+  });
+
+  it('preserves harmless text and profile references byte-for-byte', function() {
+    var purifier = require('../lib/server/purifier')({}, {});
+    var record = {
+      defaultProfile: 'A&B',
+      status: 'BG < 70',
+      store: {
+        'A&B': {
+          name: 'Fish & Chips'
+        }
+      }
+    };
+
+    purifier.purifyObject(record);
+
+    record.defaultProfile.should.equal('A&B');
+    record.status.should.equal('BG < 70');
+    Object.keys(record.store).should.deepEqual(['A&B']);
+    record.store['A&B'].name.should.equal('Fish & Chips');
+  });
+
+  it('does not expand large plain-text strings during sanitization', function() {
+    var purifier = require('../lib/server/purifier')({}, {});
+    var text = '&'.repeat(1024 * 1024);
+    var record = {note: text};
+
+    purifier.purifyObject(record);
+
+    record.note.should.equal(text);
+  });
+
+  it('rejects oversized strings that require HTML parsing', function() {
+    var purifier = require('../lib/server/purifier')({}, {});
+    var record = {note: '<b>' + 'x'.repeat(64 * 1024)};
+
+    (function () {
+      purifier.purifyObject(record);
+    }).should.throw(/sanitization limit/);
+  });
+
+  it('bounds aggregate HTML parsing across an object', function() {
+    var purifier = require('../lib/server/purifier')({}, {});
+    var markup = '<b>' + 'x'.repeat(32 * 1024);
+    var record = {first: markup, second: markup};
+
+    (function () {
+      purifier.purifyObject(record);
+    }).should.throw(/sanitization limit/);
+  });
+
+  it('sanitizes reasonably deep input without exhausting the call stack', function() {
+    var purifier = require('../lib/server/purifier')({}, {});
+    var record = {};
+    var leaf = record;
+
+    for (var depth = 0; depth < 512; depth += 1) {
+      leaf.child = {};
+      leaf = leaf.child;
+    }
+    leaf.note = '<script>alert(1)</script>safe';
+
+    purifier.purifyObject(record);
+
+    leaf.note.should.equal('safe');
+  });
+
+  it('rejects excessive nesting before traversal state can exhaust the heap', function() {
+    var purifier = require('../lib/server/purifier')({}, {});
+    var record = {};
+    var leaf = record;
+
+    for (var depth = 0; depth < 1100; depth += 1) {
+      leaf.child = {};
+      leaf = leaf.child;
+    }
+
+    (function () {
+      purifier.purifyObject(record);
+    }).should.throw(/complexity limit/);
+  });
+
+  it('rejects excessive object and property counts', function() {
+    var purifier = require('../lib/server/purifier')({}, {});
+    var tooManyObjects = [];
+    var tooManyProperties = {};
+
+    for (var index = 0; index < 11000; index += 1) {
+      tooManyObjects.push({});
+    }
+    for (var property = 0; property < 52000; property += 1) {
+      tooManyProperties['key' + property] = 'plain text';
+    }
+
+    (function () {
+      purifier.purifyObject(tooManyObjects);
+    }).should.throw(/complexity limit/);
+    (function () {
+      purifier.purifyObject(tooManyProperties);
+    }).should.throw(/complexity limit/);
+  });
+
+  it('is idempotent when a write crosses more than one guarded boundary', function() {
+    var purifier = require('../lib/server/purifier')({}, {});
+    var record = {
+      note: '<img src=x onerror=alert(1)><strong>A&B</strong>',
+      encoded: '&lt;img src=x onerror=alert(1)&gt;'
+    };
+
+    purifier.purifyObject(record);
+    var once = JSON.stringify(record);
+    purifier.purifyObject(record);
+
+    JSON.stringify(record).should.equal(once);
+  });
+
+  it('sanitizes own prototype-like keys without polluting global prototypes', function() {
+    var purifier = require('../lib/server/purifier')({}, {});
+    var record = JSON.parse('{"__proto__":{"note":"<script>alert(1)</script>safe"},"constructor":{"note":"<img src=x onerror=alert(1)>ok"},"prototype":{"note":"<script>alert(1)</script>done"}}');
+
+    purifier.purifyObject(record);
+
+    record.__proto__.note.should.equal('safe');
+    record.constructor.note.should.not.match(/onerror/i);
+    record.prototype.note.should.equal('done');
+    should.not.exist(Object.prototype.note);
+  });
+
+  it('purifies direct storage batches per document and fails closed without a purifier', function() {
+    var purifyForStorage = require('../lib/server/storage-purifier');
+    var purifier = require('../lib/server/purifier')({}, {});
+    var documents = [
+      {note: '<script>alert(1)</script>first'},
+      {note: '<img src=x onerror=alert(1)>second'}
+    ];
+
+    purifyForStorage({purifier: purifier}, documents);
+
+    documents[0].note.should.equal('first');
+    documents[1].note.should.not.match(/onerror/i);
+    (function () {
+      purifyForStorage({}, {note: 'must not be written'});
+    }).should.throw(/not configured/);
+  });
+
+  it('handles cycles and leaves date and binary values untouched', function() {
+    var purifier = require('../lib/server/purifier')({}, {});
+    var date = new Date('2025-01-01T00:00:00.000Z');
+    var buffer = Buffer.from('binary');
+    var typedArray = new Uint8Array([1, 2, 3]);
+    var unsafe = '<script>alert(1)</script>';
+    var record = {
+      list: [unsafe + 'safe'],
+      date: date,
+      buffer: buffer,
+      typedArray: typedArray
+    };
+
+    date.note = unsafe;
+    buffer.note = unsafe;
+    typedArray.note = unsafe;
+    record.self = record;
+    record.list.push(record);
+
+    purifier.purifyObject(record);
+
+    record.list[0].should.equal('safe');
+    record.self.should.equal(record);
+    record.list[1].should.equal(record);
+    date.note.should.equal(unsafe);
+    buffer.note.should.equal(unsafe);
+    typedArray.note.should.equal(unsafe);
   });
 
 });
