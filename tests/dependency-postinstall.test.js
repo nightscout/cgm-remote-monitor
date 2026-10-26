@@ -13,6 +13,7 @@ const {spawnSync} = require('node:child_process');
 const repo = path.resolve(__dirname, '..');
 const postinstall = require('../package.json').scripts.postinstall;
 const BUNDLE = 'node_modules/.cache/_ns_cache/public/js';
+const ENTRIES = ['app', 'reports', 'admin', 'profile', 'food', 'clock'];
 const KEY = 'node_modules/.cache/_ns_cache/randomString';
 
 describe('npm postinstall bundle build', function () {
@@ -37,7 +38,7 @@ describe('npm postinstall bundle build', function () {
   }
 
   // Stand-in for webpack and webpack-cli: records its arguments and writes
-  // the two entry bundles, or fails with the given status.
+  // all page entry bundles, or fails with the given status.
   function installBuildTools (status = 0) {
     write('node_modules/webpack/package.json', JSON.stringify({name: 'webpack', version: '5.0.0'}));
     write('node_modules/webpack-cli/package.json', JSON.stringify({name: 'webpack-cli', version: '4.0.0'}));
@@ -46,7 +47,7 @@ describe('npm postinstall bundle build', function () {
       fs.writeFileSync('webpack-args.json', JSON.stringify(process.argv.slice(2)));
       if (${status}) process.exit(${status});
       fs.mkdirSync('${BUNDLE}', {recursive: true});
-      for (const name of ['app', 'clock']) fs.writeFileSync('${BUNDLE}/bundle.' + name + '.js', 'built');
+      for (const name of ${JSON.stringify(ENTRIES)}) fs.writeFileSync('${BUNDLE}/bundle.' + name + '.js', 'built');
     `);
   }
 
@@ -67,7 +68,9 @@ describe('npm postinstall bundle build', function () {
     assert.equal(result.status, 0, result.stderr);
     assert.deepEqual(JSON.parse(fs.readFileSync(path.join(root, 'webpack-args.json'), 'utf8')),
       ['--mode', 'production', '--config', 'webpack/webpack.config.js']);
-    assert.equal(fs.readFileSync(path.join(root, BUNDLE, 'bundle.app.js'), 'utf8'), 'built');
+    for (const name of ENTRIES) {
+      assert.equal(fs.readFileSync(path.join(root, BUNDLE, 'bundle.' + name + '.js'), 'utf8'), 'built');
+    }
     assert.match(fs.readFileSync(path.join(root, KEY), 'utf8'), /^[0-9a-f]{2048}\n$/);
   });
 
@@ -88,19 +91,26 @@ describe('npm postinstall bundle build', function () {
   });
 
   it('keeps an already-built bundle when the build tools were omitted', function () {
-    write(BUNDLE + '/bundle.app.js', 'prebuilt');
-    write(BUNDLE + '/bundle.clock.js', 'prebuilt');
+    for (const name of ENTRIES) write(BUNDLE + '/bundle.' + name + '.js', 'prebuilt');
     const result = run();
     assert.equal(result.status, 0, result.stderr);
     assert.match(result.stderr, /bundle was not rebuilt/);
-    assert.equal(fs.readFileSync(path.join(root, BUNDLE, 'bundle.app.js'), 'utf8'), 'prebuilt');
+    for (const name of ENTRIES) {
+      assert.equal(fs.readFileSync(path.join(root, BUNDLE, 'bundle.' + name + '.js'), 'utf8'), 'prebuilt');
+    }
     assert.match(fs.readFileSync(path.join(root, KEY), 'utf8'), /^[0-9a-f]{2048}\n$/);
   });
 
-  it('does not treat a partial bundle as built', function () {
-    write(BUNDLE + '/bundle.app.js', 'prebuilt');
-    const result = run();
-    assert.equal(result.status, 1);
-    assert.match(result.stderr, /cannot build the web page bundle/);
-  });
+  for (const missing of ENTRIES) {
+    it('rejects a prebuilt installation missing the ' + missing + ' bundle', function () {
+      for (const name of ENTRIES.filter(name => name !== missing)) {
+        write(BUNDLE + '/bundle.' + name + '.js', 'prebuilt');
+      }
+      const result = run();
+      assert.equal(result.status, 1);
+      assert.match(result.stderr, /cannot build the web page bundle/);
+      assert.match(result.stderr, /npm ci --include=dev/);
+      assert.equal(exists(KEY), false);
+    });
+  }
 });
