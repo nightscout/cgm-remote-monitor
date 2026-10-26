@@ -112,6 +112,75 @@ describe('Shared persistence boundary', function () {
     assert.equal(f.calls.length, 1);
   });
 
+  it('preserves socket update payloads and the direct driver call in off/log modes', async function () {
+    for (const mode of ['off', 'log']) {
+      const f = fixture(mode, [{_id: 'id', ...valid(), mills: 1000, endmills: 1801000}]);
+      const update = {$set: {duration: 0, targetBottom: 0, targetTop: 0}};
+      const original = JSON.stringify(update);
+      await f.col.updateOne({_id: 'id'}, update);
+      assert.equal(JSON.stringify(update), original);
+      assert.deepEqual(f.calls, [[{_id: 'id'}, update]]);
+    }
+  });
+
+  it('bounds conditional retries and does not announce an uncommitted conflict', async function () {
+    const stored = {_id: 'id', ...valid()}, f = fixture('reject', [stored]);
+    let attempts = 0;
+    f.raw.updateOne = async () => { attempts++; return {matchedCount: 0, modifiedCount: 0}; };
+    f.raw.findOne = async () => stored;
+    await assert.rejects(f.col.updateOne({_id: 'id'}, {$set: {targetTop: 7}}), {name: 'WriteConflictError', status: 409});
+    assert.equal(attempts, 4);
+    assert.equal(f.events.length, 0);
+  });
+
+  it('does not recreate a target deleted during a conditional write', async function () {
+    const f = fixture('reject', [{_id: 'id', ...valid()}]);
+    f.raw.updateOne = async () => ({matchedCount: 0, modifiedCount: 0});
+    f.raw.findOne = async () => null;
+    const result = await f.col.updateOne({_id: 'id'}, {$set: {targetTop: 7}});
+    assert.equal(result.matchedCount, 0);
+    assert.equal(f.events.length, 0);
+  });
+
+  it('refuses upsert and unacknowledged conditional updates before persistence', async function () {
+    const f = fixture('reject', [{_id: 'id', ...valid()}]);
+    for (const options of [{upsert: true}, {writeConcern: {w: 0}}]) {
+      await assert.rejects(f.col.updateOne({_id: 'id'}, {$set: {targetTop: 7}}, options), {name: 'WriteValidationError'});
+    }
+    assert.equal(f.calls.length, 0);
+  });
+
+  it('normalizes each batch target against its own timestamps', async function () {
+    const docs = [1000, 2000].map((mills, i) => ({_id: String(i), ...valid(), mills,
+      endmills: mills + 1800000, durationInMilliseconds: 1800000}));
+    const f = fixture('reject', docs);
+    const update = {$set: {duration: 0, targetBottom: 0, targetTop: 0}};
+    await f.col.updateMany({}, update);
+    assert.deepEqual(f.calls.map(call => call[1].$set.endmills), [1000, 2000]);
+    assert.deepEqual(update, {$set: {duration: 0, targetBottom: 0, targetTop: 0}});
+  });
+
+  it('reports committed counts if a later conditional batch item conflicts', async function () {
+    const docs = [{_id: 'first', ...valid()}, {_id: 'second', ...valid()}];
+    const f = fixture('reject', docs);
+    let calls = 0;
+    f.raw.updateOne = async () => ({matchedCount: ++calls === 1 ? 1 : 0, modifiedCount: calls === 1 ? 1 : 0});
+    f.raw.findOne = async () => docs[1];
+    await assert.rejects(f.col.updateMany({}, {$set: {targetTop: 7}}), {name: 'WriteConflictError'});
+    assert.equal(f.events.length, 1);
+    assert.equal(f.events[0].partial, true);
+    assert.equal(f.events[0].counts.modified, 1);
+  });
+
+  it('keeps snapshot values literal and guards only the validation dependencies', function () {
+    const {snapshotFilter} = require('../lib/storage/validated-update');
+    const stored = {_id: 'id', eventType: 'Temporary Target', targetTop: {$gt: 1}, notes: 'private'};
+    const filter = snapshotFilter({_id: 'id'}, stored);
+    assert(filter.$and.some(check => check.$expr && JSON.stringify(check.$expr).includes('"$literal":{"$gt":1}')));
+    assert(!JSON.stringify(filter).includes('private'));
+    assert(filter.$and.some(check => check.targetBottom && check.targetBottom.$exists === false));
+  });
+
   it('normalizes known spellings only in reject mode', async function () {
     for (const mode of ['off', 'log', 'reject']) {
       const f = fixture(mode), doc = valid();
