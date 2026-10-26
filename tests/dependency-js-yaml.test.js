@@ -12,9 +12,9 @@ const { spawnSync } = require('child_process');
 const semver = require('semver');
 const lock = require('../package-lock.json');
 
-const consumers = ['eslint', '@eslint/eslintrc', '@istanbuljs/load-nyc-config', 'mocha'];
+const consumers = ['@istanbuljs/load-nyc-config', 'mocha'];
 const versions = [
-  { consumer: 'eslint', major: 3, method: 'safeLoad', all: 'safeLoadAll', dump: 'safeDump' },
+  { consumer: '@istanbuljs/load-nyc-config', major: 3, method: 'safeLoad', all: 'safeLoadAll', dump: 'safeDump' },
   { consumer: 'mocha', major: 4, method: 'load', all: 'loadAll', dump: 'dump' }
 ];
 
@@ -137,20 +137,6 @@ describe('js-yaml dependency compatibility', function () {
       fs.writeFileSync(file, value);
       return file;
     }
-
-    it('loads ESLint YAML configuration and produces YAML TAP diagnostics', function () {
-      const config = fixture('.eslintrc.yml', 'root: true\nrules:\n  no-undef: error\n');
-      const { CLIEngine } = require('eslint');
-      const eslint = new CLIEngine({ cwd: directory, useEslintrc: false, configFile: config });
-      const report = eslint.executeOnText('missingName();', 'fixture.js');
-      assert.strictEqual(report.errorCount, 1);
-      assert.strictEqual(report.results[0].messages[0].ruleId, 'no-undef');
-      const output = CLIEngine.getFormatter('tap')(report.results);
-      assert.ok(output.includes('not ok 1'));
-      const diagnostic = output.match(/ {2}---\n([\s\S]*?)\.\.\./)[1].replace(/^ {2}/gm, '');
-      const consumerRequire = createRequire(require.resolve('eslint'));
-      assert.strictEqual(consumerRequire('js-yaml').safeLoad(diagnostic).data.ruleId, 'no-undef');
-    });
 
     it('loads nyc YAML options and preserves inherited configuration', async function () {
       fixture('base.yml', 'reporter: [lcov, text-summary]\nexclude: [tests/**]\n');

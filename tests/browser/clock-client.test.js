@@ -11,6 +11,10 @@ describe('clock client in a real browser', function () {
   let server, origin, properties, requests, failing = false;
   before(async function () {
     const source = fs.readFileSync(path.resolve(__dirname, '../../node_modules/.cache/_ns_cache/public/js/bundle.clock.js'));
+    // The clock designer's markup as served inside clock.html; its script
+    // needs jQuery and the page's token, and only the link's markup is under
+    // test here.
+    const designer = fs.readFileSync(path.resolve(__dirname, '../../views/clockviews/clock-config.html'), 'utf8').split('<script')[0];
     server = http.createServer((request, response) => {
       if (request.url === '/clock.js') {
         response.setHeader('Content-Type', 'application/javascript; charset=utf-8');
@@ -20,6 +24,9 @@ describe('clock client in a real browser', function () {
         if (failing) return response.writeHead(503).end();
         response.setHeader('Content-Type', 'application/json');
         response.end(JSON.stringify(properties));
+      } else if (request.url === '/designer') {
+        response.setHeader('Content-Type', 'text/html; charset=utf-8');
+        response.end('<!doctype html><html><head><meta charset="utf-8"></head><body>' + designer + '</body></html>');
       } else if (request.url === '/') {
         response.setHeader('Content-Type', 'text/html; charset=utf-8');
         response.end('<!doctype html><html><head><meta charset="utf-8"></head><body><div id="inner"></div></body></html>');
@@ -79,6 +86,13 @@ describe('clock client in a real browser', function () {
       return snapshots;
     });
   }
+
+  it('BF-160: the clock designer opens the clock in a new tab, not a window named with quotes', async function () {
+    await withPage(origin, async ({page}) => {
+      await page.goto(origin + '/designer');
+      assert.equal(await page.locator('#clocklink').getAttribute('target'), '_blank');
+    });
+  });
 
   it('constructs every supported face component with bounded numeric sizing', async function () {
     for (const result of await render('mg/dl', 'mg/dl', '100', '+5', {face: 'bn0-sg40-dt14-nl-ar25-ag6-tm10-em40'})) {

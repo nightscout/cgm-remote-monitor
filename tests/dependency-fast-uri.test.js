@@ -80,7 +80,7 @@ describe('fast-uri dependency security and compatibility', function () {
 // Resolve Ajv through each installed consumer, rather than testing the root
 // Ajv 6 package (which uses uri-js and would not exercise this upgrade).
 describe('fast-uri compatibility with installed Ajv consumers', function () {
-  ['webpack', 'webpack-dev-middleware', 'terser-webpack-plugin', 'ajv-formats', 'table'].forEach(function (consumer) {
+  ['webpack', 'webpack-dev-middleware', 'minimizer-webpack-plugin', 'ajv-formats'].forEach(function (consumer) {
     it(consumer + ' resolves external and escaped local schema references', function () {
       const requireConsumer = createRequire(require.resolve(consumer));
       const Ajv = requireConsumer('ajv');

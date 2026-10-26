@@ -198,6 +198,21 @@ describe('Treatment API', function ( ) {
     });
   });
 
+  it('does not duplicate pre-bolus records when the same array is uploaded twice', async function () {
+    await new Promise((resolve, reject) => self.ctx.treatments.remove({find: {created_at: {'$gte': '1999-01-01T00:00:00.000Z'}}}, err => err ? reject(err) : resolve()));
+    const now = new Date().toISOString();
+    const batch = [
+      {eventType: 'BG Check', created_at: now, glucose: 100, units: 'mg/dl'},
+      {eventType: 'Meal Bolus', created_at: now, carbs: '30', insulin: '2.00', preBolus: '15', units: 'mg/dl'}
+    ];
+    for (let cycle = 0; cycle < 2; cycle++) {
+      await request(self.app).post('/api/treatments/').set('api-secret', api_secret_hash).send(batch).expect(200);
+      const result = await request(self.app).get('/api/treatments/?count=10').set('api-secret', api_secret_hash).expect(200);
+      result.body.length.should.equal(3);
+      new Set(result.body.map(row => row._id)).size.should.equal(3);
+    }
+  });
+
   it('post a treatment, query, delete, verify gone', function (done) {
     // insert a treatment - needs to be unique from example data
     console.log('Inserting treatment entry');

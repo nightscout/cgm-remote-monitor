@@ -1,5 +1,7 @@
 'use strict';
 
+// covers: package-lock.json
+
 const assert = require('node:assert/strict');
 const fs = require('node:fs');
 const path = require('node:path');
@@ -60,6 +62,19 @@ describe('DOMPurify reference in a real browser', function () {
       }, {input, passes});
     });
   }
+
+  it('removes mixed-case XML handlers even when a form shadows attribute removal', async function () {
+    const clean = await withPage(origin, async ({page}) => {
+      await page.goto(origin);
+      await page.addScriptTag({url: origin + '/purify.js'});
+      return page.evaluate(() => {
+        const xml = '<section xmlns="http://www.w3.org/1999/xhtml"><form ONCLICK="alert(1)"><input name="removeAttributeNode"/></form></section>';
+        const parsed = new DOMParser().parseFromString(xml, 'application/xhtml+xml');
+        return window.DOMPurify.sanitize(document.importNode(parsed.documentElement, true));
+      });
+    });
+    assert.doesNotMatch(clean, /onclick/i);
+  });
 
   const attacks = {
     'event handlers': '<img src=x onerror=alert(1)>',

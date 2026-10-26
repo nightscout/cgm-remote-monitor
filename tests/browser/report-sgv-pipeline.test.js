@@ -19,15 +19,22 @@ const HTML = '<!doctype html><html><head><meta charset="utf-8"></head><body>' +
   '<input id="rp_oldestontop" type="radio" checked>' +
   '<input id="rp_enabledate" type="checkbox" checked>' +
   '<input id="rp_mo" type="checkbox" checked><input id="rp_tu" type="checkbox" checked>' +
-  '<input id="rp_we" type="checkbox" checked><div id="info"></div></body></html>';
+  '<input id="rp_we" type="checkbox" checked><input id="rp_th" type="checkbox" checked>' +
+  '<input id="rp_fr" type="checkbox" checked><input id="rp_sa" type="checkbox" checked>' +
+  '<input id="rp_su" type="checkbox" checked><div id="info"></div></body></html>';
 
 describe('report SGV loading and Daily Stats in a real browser', function () {
   let server, origin, entries, requests;
   before(async function () {
     const app = fs.readFileSync(path.resolve(__dirname, '../../node_modules/.cache/_ns_cache/public/js/bundle.app.js'));
     const modules = await buildModules();
+    const pageBundle = fs.readFileSync(path.resolve(__dirname, '../../node_modules/.cache/_ns_cache/public/js/bundle.reports.js'));
     server = http.createServer((request, response) => {
       const url = new URL(request.url, 'http://127.0.0.1');
+      if (url.pathname === '/page.js') {
+        response.setHeader('Content-Type', 'application/javascript; charset=utf-8');
+        response.end(pageBundle); return;
+      }
       if (url.pathname === '/bundle.js' || url.pathname === '/modules.js') {
         response.setHeader('Content-Type', 'application/javascript; charset=utf-8');
         response.end(url.pathname === '/bundle.js' ? app : modules);
@@ -57,27 +64,28 @@ describe('report SGV loading and Daily Stats in a real browser', function () {
     if (server) await new Promise(resolve => server.close(resolve));
   });
 
-  async function withReportPage(run) {
+  async function withReportPage(run, timezoneId = 'UTC') {
     return withPage(origin, async ({page}) => {
       await page.goto(origin);
       await page.addScriptTag({url: origin + '/bundle.js'});
+      await page.addScriptTag({url: origin + '/page.js'});
       await page.addScriptTag({url: origin + '/modules.js'});
       await run(page);
-    });
+    }, {timezoneId});
   }
 
-  async function withReport(offsets, units, values, endDay, run) {
-    entries = offsets.map((seconds, index) => ({type: 'sgv', date: BASE + seconds * 1000, sgv: values[index], device: 'report-test'})).reverse();
+  async function withReport(offsets, units, values, endDay, run, {day = DAY, base = BASE, timezone = 'UTC', dayHours = 24, charts = false} = {}) {
+    entries = offsets.map((seconds, index) => ({type: 'sgv', date: base + seconds * 1000, sgv: values[index], device: 'report-test'})).reverse();
     requests = [];
     await withReportPage(async page => {
-      await page.evaluate(({units, day, endDay}) => {
+      await page.evaluate(({units, day, endDay, timezone, charts}) => {
         const $ = window.$, moment = window.moment, Nightscout = window.Nightscout;
         const ctx = {moment, settings: {units}, language: {translate: value => value}};
         const client = {
           ctx, settings: {units, scaleY: 'linear', thresholds: {bgTargetBottom: 80, bgTargetTop: 180}},
           careportal: {events: []}, headers: () => ({}), init: callback => callback(),
           translate: ctx.language.translate, utils: window.NightscoutTestModules.utils(ctx),
-          sbx: {data: {profile: {parseInTimezone: value => moment.utc(value)}}},
+          sbx: {data: {profile: {getTimezone: () => timezone, parseInTimezone: value => moment.tz(value, timezone), applyTimezone: value => value.tz(timezone)}}},
           ddata: {processDurations: treatments => treatments}
         };
         // Preserve the original immutable API-response guarantee, while using
@@ -88,13 +96,12 @@ describe('report SGV loading and Daily Stats in a real browser', function () {
             options.converters = {...options.converters, 'text json': text => Object.freeze(parse(text).map(Object.freeze))};
           }
         });
-        let pies = {};
-        const plot = $.plot;
-        $.plot = Object.assign(function (selector, series, options) {
-          if (!selector.startsWith('#dailystat-chart-')) throw new Error('Unexpected chart: ' + selector);
-          pies[selector.slice('#dailystat-chart-'.length)] = series.map(band => ({...band}));
-          return plot.call(this, selector, series, options);
-        }, plot);
+        function tooltipLines(element) {
+          const copy = element.cloneNode(true);
+          copy.querySelectorAll('br').forEach(br => br.replaceWith(document.createTextNode('\n')));
+          return copy.textContent.split('\n');
+        }
+        let pies = {}, chartSeries = {}, percentileTooltip = [];
         const registry = Nightscout.report_plugins_preinit;
         Nightscout.client = client;
         Nightscout.report_plugins_preinit = context => {
@@ -102,7 +109,37 @@ describe('report SGV loading and Daily Stats in a real browser', function () {
           // Preserve the real registry and report HTML; focus rendering on Daily Stats.
           plugins.eachPlugin = callback => callback({...daily, report(storage, days, options) {
             daily.report(storage, days, options);
-            // Flot adds nested legend tables; only inspect the report table's
+            if (charts) {
+              $('#owned-statistics-charts').remove();
+              const container = $('<div id="owned-statistics-charts" style="width:1000px">').appendTo('body');
+              for (const name of ['percentile', 'hourlystats']) {
+                const plugin = plugins(name);
+                container.append(plugin.html(client));
+                container.find('#percentile-chart, #hourlystats-overviewchart').css({height: '500px', width: '1000px'});
+                plugin.report(storage, days, options);
+                if (name === 'percentile') {
+                  chartSeries['#percentile-chart'] = Array.from(document.querySelectorAll('#percentile-chart path'))
+                    .map(path => path.__data__).filter(Array.isArray).map(points => points.map(point => ({...point})));
+                  const hover = document.querySelector('#percentile-chart svg > g > rect:last-child');
+                  const bounds = hover.getBoundingClientRect();
+                  hover.dispatchEvent(new MouseEvent('mousemove', {bubbles: true, clientX: bounds.left + 1, clientY: bounds.top + 1}));
+                  percentileTooltip = tooltipLines(document.querySelector('#percentile-tooltip'));
+
+                } else {
+                  chartSeries['#hourlystats-overviewchart'] = Array.from(document.querySelectorAll('.hs-box')).map(box => {
+                    box.querySelector('rect:last-child').dispatchEvent(new MouseEvent('mouseover', {bubbles: true}));
+                    const tooltip = document.querySelector('.hourlystats-tooltip:last-child');
+                    return tooltipLines(tooltip);
+                  });
+                }
+
+              }
+            }
+            pies = Object.fromEntries(Array.from(document.querySelectorAll('#dailystats-report .tir-bar')).map(bar => {
+              const day = days[Array.from(document.querySelectorAll('#dailystats-report > table > tr, #dailystats-report > table > tbody > tr')).indexOf(bar.closest('tr')) - 1];
+              return [day, Array.from(bar.children, (segment, index) => ({label: ['Low', 'In Range', 'High'][index], data: parseFloat(segment.style.width)}))];
+            }));
+            // Only inspect the report table's
             // own rows, preserving the original statistics assertions.
             const table = document.querySelector('#dailystats-report > table');
             const headers = Array.from(table.rows[0].cells, cell => cell.textContent);
@@ -110,7 +147,12 @@ describe('report SGV loading and Daily Stats in a real browser', function () {
               .map(row => Array.from(row.children, cell => cell.textContent));
             window.reportResult = JSON.parse(JSON.stringify({
               data: storage[day], table: Object.fromEntries(headers.map((name, index) => [name, rows[0][index]])),
-              pie: pies[day], rows, days: days.slice(), pies,
+              pie: pies[day], rows, days: days.slice(), pies, chartSeries, percentileTooltip,
+              percentilePaths: Array.from(document.querySelectorAll('#percentile-chart path'))
+                .filter(path => Array.isArray(path.__data__)).map(path => path.getAttribute('d')),
+              hourlyRows: charts ? Array.from(document.querySelector('#hourlystats-report table').rows).slice(1)
+                .map(row => Array.from(row.cells, cell => cell.textContent)) : [],
+              statisticsSVGs: document.querySelectorAll('#owned-statistics-charts svg').length,
               stats: days.map(day => storage[day].statsrecords),
               canvases: document.querySelectorAll('#dailystats-report canvas').length
             }));
@@ -121,33 +163,75 @@ describe('report SGV loading and Daily Stats in a real browser', function () {
         $('#rp_from').val(day);
         $('#rp_to').val(endDay);
         window.resetReportResult = () => { window.reportResult = null; pies = {}; };
-      }, {units, day: DAY, endDay});
+      }, {units, day, endDay, timezone, charts});
       await page.waitForFunction(() => window.$.active === 0);
+      assert.equal(requests.filter(request => request.url.pathname === '/api/v1/entries.json').length, 0, 'Changing the initial range cancels the default week load');
       async function show() {
         await page.evaluate(() => window.resetReportResult());
         await page.locator('#rp_show').click();
         await page.waitForFunction(() => window.reportResult && window.$.active === 0);
         const result = await page.evaluate(() => window.reportResult);
-        assert.ok(result.canvases >= Object.keys(result.pies).length, 'Real Flot canvases were drawn');
+        assert.equal(result.canvases, 0, 'Daily Stats uses native TIR bars');
+        assert.ok(Object.values(result.pies).every(bands => bands.length === 3), 'Each populated day has a real three-band TIR bar');
         const cgmRequests = requests.filter(request => request.url.pathname === '/api/v1/entries.json');
         for (const request of requests) assert.equal(request.method, 'GET');
         for (const {url} of cgmRequests) {
           const from = Number(url.searchParams.get('find[date][$gte]'));
           const to = Number(url.searchParams.get('find[date][$lt]'));
-          assert.ok(from >= BASE && from <= Date.parse(endDay + 'T00:00:00.000Z'));
-          assert.equal(to - from, DAY_SECONDS * 1000);
+          assert.ok(from >= base && from <= (endDay === day ? base : Date.parse(endDay + 'T00:00:00.000Z')));
+          assert.equal(to - from, dayHours * 60 * 60 * 1000);
           assert.equal(url.searchParams.get('count'), '10000');
         }
         return {...result, entriesRequests: cgmRequests.length, showAgain: show};
       }
       await run(await show());
-    });
+    }, timezone);
   }
 
   ['mg/dl', 'mmol'].forEach(function (units) {
+    it('preserves percentile values and hourly tables with D3 percentile whiskers (' + units + ')', async function () {
+      await withReport([0, 300], units, [100, 200], DAY, async result => {
+        const mmol = units === 'mmol';
+        const [p90, p75, p50] = result.chartSeries['#percentile-chart'];
+        assert.equal(p50.length, 48);
+        assert.deepEqual(p50[0], {t: 15, v: mmol ? 8.35 : 150});
+        assert.ok(p50.slice(1).every(point => point.v === null));
+        assert.deepEqual(p75[0], {t: 15, v: mmol ? 11.1 : 200});
+        assert.ok(p75.slice(1).every(point => point.v === null));
+        assert.deepEqual(p90, p75);
+        assert.deepEqual(result.percentileTooltip.slice(1), mmol
+          ? ['75%: 11.1', 'Median: 8.3', '25%: 5.6', '10%: 5.6']
+          : ['75%: 200', 'Median: 150', '25%: 100', '10%: 100']);
+        assert.ok(result.percentileTooltip[0].endsWith(mmol ? '90%: 11.1' : '90%: 200'));
+
+        assert.deepEqual(result.hourlyRows[0].slice(1), mmol
+          ? ['2 (100%)', '8', '5.6', '5.6', '8.3', '11.1', '11.1', '2.7']
+          : ['2 (100%)', '150', '100', '100.0', '150.0', '200.0', '200', '50']);
+        const boxes = result.chartSeries['#hourlystats-overviewchart'];
+        assert.equal(boxes.length, 1, 'Empty hours do not acquire boxes');
+        assert.deepEqual(boxes[0], mmol
+          ? ['0:00', 'Max: 11.1', '90%: 11.1', 'Quartile 75: 11.1', 'Median: 8.3', 'Quartile 25: 5.6', '10%: 5.6', 'Min: 5.6']
+          : ['0:00', 'Max: 200.0', '90%: 200.0', 'Quartile 75: 200.0', 'Median: 150.0', 'Quartile 25: 100.0', '10%: 100.0', 'Min: 100.0']);
+        assert.equal(result.statisticsSVGs, 2);
+        const again = await result.showAgain();
+        assert.deepEqual(again.chartSeries, result.chartSeries);
+        assert.deepEqual(again.hourlyRows, result.hourlyRows);
+        assert.equal(again.entriesRequests, 1);
+      }, {charts: true});
+    });
+
+    it('keeps twelve-hour holes visible in the percentile lines and bands (' + units + ')', async function () {
+      await withReport([0, 12 * 3600], units, [100, 200], DAY, async result => {
+        assert.equal(result.percentilePaths.length, 3);
+        result.percentilePaths.forEach(path => assert.equal((path.match(/M/g) || []).length, 2));
+        const medians = result.chartSeries['#percentile-chart'][2];
+        assert.ok(medians.slice(1, 24).every(point => point.v === null));
+      }, {charts: true});
+    });
+
     [
       { name: 'dense', offsets: [0, 58, 116], kept: [0, 116], bands: ['0%', '50%', '50%'], pie: [0, 50, 50] },
-      { name: 'five-minute', offsets: [0, 300, 600], kept: [0, 300, 600], bands: ['33%', '33%', '33%'], pie: [33.3, 33.3, 33.3] }
+      { name: 'five-minute', offsets: [0, 300, 600], kept: [0, 300, 600], bands: ['33%', '33%', '33%'], pie: [33, 33, 33] }
     ].forEach(function (fixture) {
       it('uses the retained ' + fixture.name + ' readings in charts and statistics (' + units + ')', async function () {
         await withReport(fixture.offsets, units, [100, 50, 200], DAY, async result => {
@@ -158,6 +242,10 @@ describe('report SGV loading and Daily Stats in a real browser', function () {
             .map(entry => (entry.mills - BASE) / 1000), fixture.kept);
           assert.deepEqual(result.data.statsrecords.map(entry => entry.sgv), expectedStats);
           assert.equal(result.table.Readings, String(fixture.kept.length));
+          const quartiles = units === 'mg/dl'
+            ? (fixture.name === 'dense' ? ['100.0', '150.0', '200.0'] : ['50.0', '100.0', '200.0'])
+            : (fixture.name === 'dense' ? ['5.6', '8.3', '11.1'] : ['2.8', '5.6', '11.1']);
+          assert.deepEqual([result.table['25%'], result.table.Median, result.table['75%']], quartiles);
           assert.deepEqual([result.table.Low, result.table.Normal, result.table.High], fixture.bands);
           assert.deepEqual(result.pie.map(band => band.label), ['Low', 'In Range', 'High']);
           assert.deepEqual(result.pie.map(band => band.data), fixture.pie);
@@ -166,6 +254,41 @@ describe('report SGV loading and Daily Stats in a real browser', function () {
         });
       });
     });
+
+    for (const fixture of [
+      {day: '2025-03-09', base: Date.parse('2025-03-09T05:00:00Z'), dayHours: 23, offsets: [0, 7200, 82500, 82800]},
+      {day: '2025-11-02', base: Date.parse('2025-11-02T04:00:00Z'), dayHours: 25, offsets: [3600, 7200, 89700, 90000]}
+    ]) {
+      it('retains quartiles across the ' + fixture.dayHours + '-hour DST day (' + units + ')', async function () {
+        await withReport(fixture.offsets, units, [100, 200, 300, 999], fixture.day, async result => {
+          assert.deepEqual(result.days, [fixture.day]);
+          assert.equal(result.table.Readings, '3');
+          const bounds = result.data.sgv.filter(record => record.type === 'rawbg' && record.color === 'transparent')
+            .map(record => record.date).sort();
+          assert.deepEqual(bounds, [new Date(fixture.base).toISOString(),
+            new Date(fixture.base + fixture.dayHours * 3600000).toISOString()]);
+          assert.deepEqual([result.table['25%'], result.table.Median, result.table['75%']],
+            units === 'mg/dl' ? ['100.0', '200.0', '300.0'] : ['5.6', '11.1', '16.7']);
+          assert.deepEqual(result.stats[0].map(record => record.bgValue), [100, 200, 300]);
+          const mmol = units === 'mmol';
+          const medians = result.chartSeries['#percentile-chart'][2];
+          const expected = fixture.dayHours === 23
+            ? {0: mmol ? 5.6 : 100, 6: mmol ? 11.1 : 200, 47: mmol ? 16.7 : 300}
+            : {2: mmol ? 8.35 : 150, 47: mmol ? 16.7 : 300};
+          assert.equal(medians.length, 48);
+          medians.forEach(point => assert.equal(point.v, expected[(point.t - 15) / 30] ?? null));
+          const counts = result.hourlyRows.map(row => Number(row[1].split(' ')[0]));
+          assert.deepEqual(counts, Array.from({length: 24}, (_, hour) =>
+            fixture.dayHours === 23 ? ([0, 3, 23].includes(hour) ? 1 : 0) : (hour === 1 ? 2 : hour === 23 ? 1 : 0)));
+          assert.equal(result.statisticsSVGs, 2);
+          const repeated = await result.showAgain();
+          assert.equal(repeated.entriesRequests, 1);
+          assert.deepEqual(repeated.rows, result.rows);
+          assert.deepEqual(repeated.chartSeries, result.chartSeries);
+          assert.deepEqual(repeated.hourlyRows, result.hourlyRows);
+        }, {...fixture, timezone: 'America/New_York', charts: true});
+      });
+    }
 
     it('calculates estimated A1c before rounding glucose for display (' + units + ')', async function () {
       // 150 mg/dL displays as 8.3 mmol/L. Converting that rounded display value
@@ -206,6 +329,81 @@ describe('report SGV loading and Daily Stats in a real browser', function () {
         assert.deepEqual(repeated.rows, result.rows);
         assert.deepEqual(repeated.pies, result.pies);
         assert.deepEqual(repeated.stats, result.stats);
+      });
+    });
+  });
+
+  describe('automatic initial report', function () {
+    async function initialPage(run) {
+      requests = [];
+      entries = Array.from({length: 7}, (_, index) => ({type: 'sgv', date: Date.UTC(2025, 0, 27 + index, 20), sgv: 120 + index}));
+      await withReportPage(async page => {
+        // UTC is already Feb 3, while the profile is still on Feb 2.
+        await page.clock.setFixedTime(new Date('2025-02-03T02:00:00Z'));
+        await page.evaluate(() => {
+          const moment = window.moment, ns = window.Nightscout;
+          const ctx = {moment, settings: {units: 'mg/dl'}, language: {translate: value => value}};
+          const profile = {data: null, parseInTimezone: value => moment.tz(value, 'America/Los_Angeles'),
+            applyTimezone: value => value.tz('America/Los_Angeles')};
+          const client = {ctx, settings: {units: 'mg/dl', theme: 'modern', scaleY: 'linear', thresholds: {bgTargetBottom: 80, bgTargetTop: 180}},
+            careportal: {events: []}, headers: () => ({}), translate: ctx.language.translate,
+            utils: window.NightscoutTestModules.utils(ctx), sbx: {data: {profile}}, profilefunctions: {data: [{}]},
+            dataLastUpdated: 1, ddata: {processDurations: value => value},
+            init(callback) {window.authorizeInitialReport = callback; callback();}};
+          const registry = ns.report_plugins_preinit;
+          ns.client = client;
+          window.initialRenderCount = 0;
+          ns.report_plugins_preinit = context => {
+            const plugins = registry(context), agp = plugins('agp');
+            plugins.eachPlugin = callback => callback({...agp, report(storage, days, options) {
+              agp.report(storage, days, options);
+              window.initialRenderCount++;
+              window.initialReportDays = days.slice();
+            }});
+            return plugins;
+          };
+          window.releaseInitialProfile = () => {profile.data = [{}];};
+          ns.reportclient();
+        });
+        await page.waitForFunction(() => window.$.active === 0);
+        assert.equal(requests.filter(request => request.url.pathname === '/api/v1/entries.json').length, 0,
+          'Wait for a populated profile snapshot rather than using the viewer timezone');
+        await run(page);
+      });
+    }
+
+    it('loads seven profile-calendar days without Show and leaves the range alone on reconnect', async function () {
+      await initialPage(async page => {
+        await page.evaluate(() => window.releaseInitialProfile());
+        await page.waitForFunction(() => window.initialRenderCount === 1 && window.$.active === 0);
+        assert.equal(await page.locator('#rp_from').inputValue(), '2025-01-27');
+        assert.equal(await page.locator('#rp_to').inputValue(), '2025-02-02');
+        assert.equal((await page.evaluate(() => window.initialReportDays)).length, 7);
+        assert.equal(requests.filter(request => request.url.pathname === '/api/v1/entries.json').length, 7);
+        assert.equal(await page.locator('#agp-chart svg').count(), 1);
+        await page.locator('#rp_from').fill('2025-02-01');
+        const before = requests.length;
+        await page.evaluate(() => {window.authorizeInitialReport(); window.authorizeInitialReport();});
+        await page.waitForFunction(() => window.$.active === 0);
+        assert.equal(await page.locator('#rp_from').inputValue(), '2025-02-01');
+        assert.equal(await page.evaluate(() => window.initialRenderCount), 1);
+        assert.equal(requests.length, before);
+      });
+    });
+
+    it('does not overwrite a range edited while the initial profile is loading', async function () {
+      await initialPage(async page => {
+        await page.locator('#rp_from').fill('2025-02-01');
+        await page.evaluate(() => {
+          window.releaseInitialProfile();
+          window.setTimeout(() => {window.initialProfileSettled = true;}, 350);
+        });
+        await page.waitForFunction(() => window.initialProfileSettled);
+        assert.equal(await page.locator('#rp_from').inputValue(), '2025-02-01');
+        assert.equal(requests.filter(request => request.url.pathname === '/api/v1/entries.json').length, 0);
+        await page.locator('#rp_show').click();
+        await page.waitForFunction(() => window.initialRenderCount === 1 && window.$.active === 0);
+        assert.equal((await page.evaluate(() => window.initialReportDays)).length, 3);
       });
     });
   });

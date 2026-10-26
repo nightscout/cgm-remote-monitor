@@ -26,11 +26,11 @@ Do not deploy this release to a host that cannot provide a supported runtime in 
 
 ## Deployment validation and release gate
 
-Ordinary CI tests the Node edges (22.23.4 and latest 26) against MongoDB 5.0 and 8.0, with the two transitional required lanes (24/6 and 22/6). Every browser engine runs once on Node 26. MongoDB 4.4 remains unsupported and has no CI lane. Manual extended validation adds the other patched Node floors/latest aliases against both MongoDB edges and all browsers. See [CI coverage and manual release checks](../CONTRIBUTING.md#ci-coverage-and-manual-release-checks). Boundary tests reject the preceding vulnerable patch on each Node line through both server entry points and the public boot API. MongoDB 5/6 remain supported during the migration but are upstream end-of-life; use MongoDB 7.0 or 8.0 for new deployments. Docker PR checks build and smoke-start the pruned image on native amd64 and arm64 runners.
+Ordinary CI tests the Node edges (22.23.4 and latest 26) and the MongoDB edges (5.0 and 8.0) on the diagonal, 22.23.4 against 8.0 and 26 against 5.0, plus the newest pair (26 against 8.0.29), with the two transitional required lanes (24/6 and 22/6). Tests that need no database run on both Node edges. A weekly extended run tests every pair. Every browser engine runs once on Node 26. MongoDB 4.4 remains unsupported and has no CI lane. Manual extended validation adds the other patched Node floors/latest aliases against both MongoDB edges and all browsers. See [CI coverage and manual release checks](../CONTRIBUTING.md#ci-coverage-and-manual-release-checks). Boundary tests reject the preceding vulnerable patch on each Node line through both server entry points and the public boot API. MongoDB 5/6 remain supported during the migration but are upstream end-of-life; use MongoDB 7.0 or 8.0 for new deployments. Docker PR checks build and smoke-start the pruned image on native amd64 and arm64 runners.
 
 The following remain release checks until a maintainer records actual host evidence. Updating selectors alone does **not** establish hosted compatibility:
 
-- **Azure / Windows:** `azuredeploy.json` now selects `~24`. In the target App Service/Kudu environment, confirm this runtime is available and resolves to Node 24.22.1 or later within Node 24 in both build and execution environments, then verify deployment, build, and application startup. Set `SCM_COMMAND_IDLE_TIMEOUT=300`. The legacy Azure deployment script's production-only install/global webpack behavior needs separate build/runtime cleanup; test that path before release. Do not assume legacy Windows versions in external tutorials are supported.
+- **Azure / Windows:** `azuredeploy.json` now selects `~24`. In the target App Service/Kudu environment, confirm this runtime is available and resolves to Node 24.22.1 or later within Node 24 in both build and execution environments, then verify deployment, build, and application startup. Set `SCM_COMMAND_IDLE_TIMEOUT=300`. The Azure script now installs locked build dependencies with `npm ci --include=dev`, builds in postinstall, and prunes with `npm prune --omit=dev --ignore-scripts`; validate that complete path on the target host before release. Do not assume legacy Windows versions in external tutorials are supported.
 - **Heroku:** verify the buildpack resolves the engine range, builds with development dependencies, prunes correctly, and starts with persistent configuration. Record buildpack/stack versions and an upgrade/rollback exercise.
 - **Source and development:** verify a clean locked install and production startup, development/HMR startup, and upgrade/rollback with the same saved configuration and browser storage. The Linux setup helper selects NodeSource 24; validate it on the deployment's supported distribution.
 
@@ -41,6 +41,27 @@ No deployment platform is retired by this change. An unavailable or unverified p
 **MongoDB 4.4 and earlier are retired from Nightscout support.** Nightscout supports MongoDB 5.0 through 8.0: 5.0.32+ within the 5.0 series, 6.0.27+ within the 6.0 series, and MongoDB 7.0 and 8.0. CI tests the edges of that range, 5.0 and 8.0. This is a transitional compatibility policy, not a claim of upstream security support: MongoDB 4.4 reached end of life on February 29, 2024; 5.0 on October 31, 2024; and 6.0 on July 31, 2025. See the [official lifecycle schedule](https://www.mongodb.com/legal/support-policy/lifecycles).
 
 This change removes CI jobs and updates the support policy. It does not change the MongoDB driver, schema, connection protocol, or startup behavior, and does not migrate or delete data. An existing 4.4 connection may still work; that does not make it supported. There is no new startup version query or database permission requirement.
+
+### Docker Compose default in Nightscout 16.0.0
+
+The bundled `docker-compose.yml` now selects **mongo:6.0.27**, replacing the
+**mongo:5.0.32** default shipped through 15.0.9. MongoDB 5 remains supported during
+migration; changing the example default does not require externally managed
+MongoDB 5 deployments to upgrade immediately.
+
+For an existing Compose deployment, this is a database major-version upgrade,
+not just a Nightscout image update. Back up and rehearse against a restored copy
+before recreating the Mongo service. Follow MongoDB's standalone 5-to-6 upgrade
+procedure (or the matching replica/sharded procedure), including the required
+5.0 feature compatibility version before starting 6.0. Retain the existing
+`NS_MONGO_DATA_DIR`/data mount; do not delete the data directory or volume.
+Verify Nightscout reads, uploads, profiles and settings after the upgrade before
+raising FCV to 6.0. An application rollback does not downgrade MongoDB or FCV;
+use the documented database recovery procedure and your verified backup.
+
+See MongoDB's [archived 6.0 standalone upgrade procedure](https://github.com/mongodb/docs/blob/v6.0/source/release-notes/6.0-upgrade-standalone.txt)
+and [legacy documentation](https://www.mongodb.com/docs/legacy/). The existing
+MongoDB end-of-life and final upgrade/restore validation gates above still apply.
 
 Before deploying the modernization release on a database currently running 4.4:
 
@@ -68,6 +89,12 @@ gate; local challenge/metadata tests do not establish a deployment's IAM access.
 For application rollback, restore the driver, URI parser, SOCKS and AWS SDK
 manifest/lockfile plus the connection adapter together. No database binary,
 FCV or stored-data migration is performed by this adapter.
+
+## API v1 profile uploads
+
+Profile POST requests still accept a single object or an array of objects.
+Malformed entries and batches above 10,000 records now return HTTP 400 before
+any profiles are stored. Split larger profile imports into smaller requests.
 
 ## MongoDB query filters
 
@@ -197,3 +224,24 @@ Device identifiers change from `connect-<family>` to
 `nightscout-connect://minimedcarelink/<family>`; filters that match the old device
 name need updating. Owned regression fixtures cover these changes; verify actual
 account/device behavior before release.
+
+## Updated timezone rules
+
+The modernization candidate updates Moment Timezone to 0.6.3 with IANA timezone
+data 2026c. Local clock labels and profile-zone conversion can change where that
+data corrects historical rules or models new clock policies. Stored UTC timestamps
+are not rewritten by the dependency update.
+
+Affected zone groups include Morocco/Western Sahara, Alberta-related aliases,
+British Columbia, Moldova and historical Baja California. The
+[IANA release notes](https://github.com/eggert/tz/blob/2026c/NEWS) describe the
+modeled changes. The package's aliases follow their linked canonical zones;
+this is not an independent guarantee of current policy for every alias region.
+Verify the configured profile timezone and relevant local-time displays when
+upgrading an affected installation.
+
+Server timezone data includes historical corrections; the existing browser
+bundle retains only 2015–2035 data. This update does not broaden that browser
+range or resolve the separately tracked spring-DST schedule-selection issue.
+Application rollback restores the previous timezone rules without rewriting
+stored timestamps. See the [validation scope](test-specs/moment-timezone-refresh.md).

@@ -251,15 +251,17 @@ describe('Profiles API: _id is stored and matched as an ObjectId', function () {
     it('is not copied by a POST of the same _id', async function () {
       // A sync client re-sending a profile the site already stores (as the
       // Nightscout connector does on every poll) must not now add an
-      // ObjectId copy beside the string original. The POST fails on the
-      // duplicate _id, exactly as it did before profiles were converted.
+      // ObjectId copy beside the string original. The re-send is merged into
+      // the stored profile and answered with its _id (BF-166; it failed with
+      // 500 on the duplicate _id before).
       await collection().insertOne(sampleProfile(5, { _id: HEX.legacyRepost }));
 
-      await request(self.app)
+      var res = await request(self.app)
         .post('/api/profile/')
         .set('api-secret', known)
         .send(sampleProfile(5, { _id: HEX.legacyRepost }))
-        .expect(500);
+        .expect(200);
+      res.body[0]._id.should.equal(HEX.legacyRepost);
 
       var stored = await storedFor(HEX.legacyRepost);
       stored.length.should.equal(1, 'documents holding this _id after the POST');

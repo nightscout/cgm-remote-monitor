@@ -34,6 +34,13 @@ describe('Count REST api', function ( ) {
     });
   });
 
+  // Files that run earlier can leave recent entries and treatments, which
+  // these counts would include; start each test from empty collections.
+  beforeEach(async function () {
+    await self.archive( ).deleteMany({ });
+    await self.treatments( ).deleteMany({ });
+  });
+
   beforeEach(function (done) {
     var creating = [];
     for (let i = 0; i < 20; i++) {

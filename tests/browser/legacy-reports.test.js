@@ -9,6 +9,7 @@ const express = require('express');
 const ejs = require('ejs');
 const {withPage} = require('./fixture');
 const fixtures = require('./legacy-report-data.json');
+const networkDiagnostics = new WeakMap();
 
 function queryKey(value) {
   const url = new URL(value, 'http://127.0.0.1');
@@ -37,7 +38,9 @@ describe('legacy reports in a real browser', function () {
     app.get('/', (request, response) => response.type('html').send(html));
     app.use((request, response, next) => {
       if (request.path.startsWith('/api/') || request.path.startsWith('/translations/')) {
-        requests.push({method: request.method, url: request.originalUrl, body: request.body});
+        const record = {method: request.method, url: request.originalUrl, body: request.body, finished: false};
+        requests.push(record);
+        response.once('finish', () => {record.finished = true;});
       }
       next();
     });
@@ -59,7 +62,15 @@ describe('legacy reports in a real browser', function () {
 
   async function withReports(run) {
     requests = [];
-    await withPage(origin, async ({page}) => {
+    await withPage(origin, async ({page, routed}) => {
+      const pending = new Map(), failures = [];
+      networkDiagnostics.set(page, {pending, failures, routed});
+      page.on('request', request => pending.set(request, Date.now()));
+      page.on('requestfinished', request => pending.delete(request));
+      page.on('requestfailed', request => {
+        pending.delete(request);
+        failures.push({path: new URL(request.url()).pathname, error: request.failure()});
+      });
       await page.clock.setFixedTime(new Date('2025-01-01T12:00:00Z'));
       await page.goto(origin);
       await page.evaluate(markup => {
@@ -69,10 +80,12 @@ describe('legacy reports in a real browser', function () {
         document.body.replaceChildren(...parsed.body.childNodes);
       }, markup);
       await page.addScriptTag({url: origin + '/bundle/js/bundle.app.js'});
+      await page.addScriptTag({url: origin + '/bundle/js/bundle.reports.js'});
       await page.addScriptTag({url: origin + '/report/js/flotcandle.js'});
       await page.addScriptTag({url: origin + '/report/js/loopalyzer.js'});
       await page.evaluate(() => {
-        window.reportFixture = {emitted: [], failures: [], errors: []};
+        window.reportFixture = {emitted: [], failures: [], errors: [], completed: 0};
+        window.$(document).on('ajaxComplete.reportFixture', () => window.reportFixture.completed++);
         window.addEventListener('error', event => window.reportFixture.errors.push(event.message));
         window.$.ajaxPrefilter((options, original, xhr) => xhr.fail((response, status) => {
           window.reportFixture.failures.push({url: options.url, status, httpStatus: response.status});
@@ -102,7 +115,7 @@ describe('legacy reports in a real browser', function () {
       await page.locator('#rp_to').fill('2015-09-07');
       assert.equal(requests.filter(r => new URL(r.url, origin).pathname === '/api/v1/status.json').length, 1);
       assert.equal(requests.filter(r => new URL(r.url, origin).pathname === '/api/v1/verifyauth').length, 1);
-      assert.equal(await page.locator('#tabnav .menutab').count(), 11);
+      assert.equal(await page.locator('#tabnav .menutab').count(), 12);
       await run(page);
     }, {timezoneId: 'UTC'});
   }
@@ -115,16 +128,37 @@ describe('legacy reports in a real browser', function () {
   async function idle(page) {
     const started = Date.now();
     try {
-      // Each month refresh makes about 100 fixture requests and renders all
-      // report plugins. Shared Firefox runners can exceed 15 seconds while
-      // still making progress. Wait for completion within a bounded budget;
-      // the repeated-month case also retains its 90-second overall deadline.
-      await page.waitForFunction(() => window.$.active === 0 && window.$('#rp_show').is(':visible') && window.$('#info').text() === '', null, {timeout: 30000});
+      // A month requires many batches of real HTTP requests. Bound total work
+      // separately from a stalled request: completed AJAX calls prove progress.
+      await page.evaluate(() => {
+        window.reportFixture.progress = {completed: window.reportFixture.completed, at: performance.now()};
+      });
+      const result = await page.waitForFunction(() => {
+        if (window.$.active === 0 && window.$('#rp_show').is(':visible') && window.$('#info').text() === '') return 'ready';
+        const state = window.reportFixture, progress = state.progress;
+        if (state.completed !== progress.completed) {
+          progress.completed = state.completed;
+          progress.at = performance.now();
+        }
+        return performance.now() - progress.at >= 15000 ? 'stalled' : false;
+      }, null, {timeout: 60000});
+      try {assert.equal(await result.jsonValue(), 'ready', 'Report made no HTTP completion progress for 15 seconds');}
+      finally {await result.dispose();}
     } catch (error) {
       const state = await page.evaluate(() => ({active: window.$.active, info: window.$('#info').text(),
         showVisible: window.$('#rp_show').is(':visible'), errors: window.reportFixture.errors,
-        failures: window.reportFixture.failures.slice(-5)}));
+        failures: window.reportFixture.failures.slice(-5), completed: window.reportFixture.completed,
+        stalledForMs: performance.now() - window.reportFixture.progress.at}));
       error.message += '\nReport state: ' + JSON.stringify(state);
+      const network = networkDiagnostics.get(page);
+      error.message += '\nHTTP state: ' + JSON.stringify({
+        pending: Array.from(network.pending, ([request, at]) => ({path: new URL(request.url()).pathname,
+          elapsedMs: Date.now() - at})),
+        failures: network.failures.slice(-10),
+        routed: Array.from(network.routed.values(), state => ({...state, elapsedMs: Date.now() - state.since})),
+        received: requests.length,
+        unfinished: requests.filter(request => !request.finished).map(request => new URL(request.url, origin).pathname)
+      });
       throw error;
     }
     console.log('Report idle after', Date.now() - started, 'ms');
@@ -140,32 +174,97 @@ describe('legacy reports in a real browser', function () {
       await page.locator('#rp_eventtype').selectOption('BG Check');
       for (const id of ['rp_optionsraw', 'rp_optionsiob', 'rp_optionscob', 'rp_enableeventtype', 'rp_enablenotes', 'rp_optionsopenaps']) await page.locator('#' + id).check();
       await page.locator('#rp_enablefood').check(); await page.locator('#rp_enablefood').uncheck();
-      for (const scale of ['rp_log', 'rp_linear']) {
-        await page.locator('#' + scale).check(); await show(page);
-        const text = await page.locator('#daytoday-placeholder').textContent();
-        assert.ok(text.includes('Milk now')); assert.ok(text.includes('50 g'));
-        assert.ok(text.includes('TDD average: 2.9U'));
+      await page.addStyleTag({url: origin + '/css/modern-reports.css'});
+      for (const theme of ['default', 'modern']) {
+        await page.evaluate(theme => {
+          window.Nightscout.client.settings.theme = theme;
+          document.documentElement.classList.toggle('modern-ui', theme === 'modern');
+          document.body.classList.add('report-page');
+        }, theme);
+        for (const scale of ['rp_log', 'rp_linear']) {
+          await page.locator('#' + scale).check(); await show(page);
+          const text = await page.locator('#daytoday-placeholder').textContent();
+          assert.ok(text.includes('Milk now')); assert.ok(text.includes('50 g'));
+          assert.ok(text.includes('TDD average: 2.9U'));
+          const sample = page.locator('.daytoday-glucose-sample').first();
+          const glucose = await sample.evaluate(node => Math.round(node.__data__.sgv));
+          await sample.hover();
+          assert.equal(await page.locator('.daily-tooltip-glucose strong').textContent(), glucose + ' mg/dL');
+          assert.equal(await page.locator('.daytoday-reading-tooltip').isVisible(), true);
+          const hoverPosition = await sample.evaluate(node => {
+            const svg = node.ownerSVGElement, bounds = svg.getBoundingClientRect();
+            const point = new DOMPoint(Number(node.getAttribute('cx')), 60).matrixTransform(svg.getScreenCTM());
+            return {x: point.x - bounds.x, y: point.y - bounds.y};
+          });
+          const svg = page.locator('#daytodaycharts svg:has(.daytoday-glucose-sample)').first();
+          await svg.hover({position: hoverPosition});
+          const tooltipTop = await page.locator('.daytoday-reading-tooltip').evaluate(node => node.getBoundingClientRect().top);
+          await svg.hover({position: {x: hoverPosition.x, y: hoverPosition.y + 50}});
+          const tooltipAfter = await page.locator('.daytoday-reading-tooltip').evaluate(node => ({top: node.getBoundingClientRect().top, styleTop: node.style.top, scrollY: window.scrollY}));
+          assert.ok(Math.abs(tooltipAfter.top - tooltipTop) < 1, JSON.stringify({theme, scale, tooltipTop, tooltipAfter, hoverPosition}));
+          assert.equal(await page.locator('.daily-tooltip-glucose strong').textContent(), glucose + ' mg/dL');
+          assert.equal(await svg.locator('.daytoday-glucose-focus').isVisible(), true);
+          assert.ok((await page.locator('.daily-tooltip-basal').textContent()).includes('U/h'));
+          if (theme === 'modern') {
+            assert.ok(await page.locator('.daily-basal-axis').count());
+            assert.ok(await page.locator('.daily-treatment-carbs').count());
+            assert.ok(await page.locator('.daily-treatment-bolus').count());
+            assert.ok((await page.locator('.daily-chart-legend').first().textContent()).includes('Basal (U/h)'));
+            const bolus = page.locator('.daily-treatment-bolus').first();
+            const dose = await bolus.locator('text').textContent();
+            const markerMeta = await bolus.evaluate(node => ({time: new Date(node.__data__.mills).toISOString(), title: node.querySelector('title').textContent}));
+            await bolus.locator('circle').hover();
+            const observed = await page.evaluate(() => ({text: document.querySelector('.daytoday-reading-tooltip')?.textContent, selected: document.querySelectorAll('.daily-treatment.is-selected').length}));
+            assert.ok(observed.text?.includes(dose), JSON.stringify({dose, markerMeta, observed}));
+            assert.ok((await bolus.getAttribute('class')).includes('is-selected'));
+          }
+          await page.locator('#daytoday-placeholder h2').hover();
+          assert.equal(await page.locator('.daytoday-reading-tooltip').isVisible(), false);
+        }
       }
       await page.locator('#treatments').click(); await show(page);
       const cells = await page.locator('#treatments-report tr.border_bottom').evaluateAll(rows => rows.map(row => Array.from(row.cells, cell => cell.textContent)));
-      assert.ok(cells.some(row => row[2] === 'Correction Bolus' && row[3] === '250 (Sensor)' && row[4] === '0.75'));
+      assert.ok(cells.some(row => row[1] === 'Correction Bolus' && row[2] === '250' && row[3] === '0.75'));
+      const firstDetails = page.locator('.treatment-detail-toggle').first();
+      await firstDetails.click();
+      assert.equal(await firstDetails.getAttribute('aria-expanded'), 'true');
+      assert.ok((await page.locator('.treatment-detail-row').first().textContent()).includes('Finger'));
+      await firstDetails.click();
+      assert.equal(await page.locator('.treatment-detail-row').first().isVisible(), false);
       for (let cycle = 1; cycle <= 2; cycle++) {
         const deletesBefore = requests.filter(r => r.method === 'DELETE').length;
         const confirmation = page.waitForEvent('dialog').then(async dialog => {
           assert.equal(dialog.type(), 'confirm'); assert.ok(dialog.message().includes('Delete this treatment?'));
           await dialog.dismiss();
         });
-        await page.locator('img.deleteTreatment').first().click(); await confirmation;
+        await page.locator('.treatment-menu > summary').first().click();
+        await page.locator('.deleteTreatment').first().click(); await confirmation;
         assert.equal(requests.filter(r => r.method === 'DELETE').length, deletesBefore);
         const accepted = page.waitForEvent('dialog').then(async dialog => {
           assert.equal(dialog.type(), 'confirm'); assert.ok(dialog.message().includes('Meal Bolus'));
           await dialog.accept();
         });
-        await page.locator('img.deleteTreatment').first().click(); await accepted;
+        await page.locator('.treatment-menu > summary').first().click();
+        await page.locator('.deleteTreatment').first().click(); await accepted;
         await idle(page);
         assert.equal(requests.filter(r => r.method === 'DELETE').length, deletesBefore + 1);
         assert.equal(requests.filter(r => r.method === 'DELETE').at(-1).url, '/api/v1/treatments/55ce59bb925aa80e7071e5ba');
-        await page.locator('img.editTreatment').first().click();
+        for (const dismiss of ['cancel', 'escape']) {
+          await page.locator('.editTreatment').first().click();
+          await page.locator('#rp_edittreatmentdialog').waitFor({state: 'visible'});
+          assert.equal(await page.evaluate(() => document.activeElement.id), 'rped_eventType');
+          const originalNotes = await page.locator('#rped_adnotes').inputValue();
+          await page.locator('#rped_adnotes').fill('Discard this treatment draft');
+          if (dismiss === 'cancel') await page.getByRole('dialog').getByRole('button', {name: 'Cancel', exact: true}).click();
+          else await page.keyboard.press('Escape');
+          await page.locator('#rp_edittreatmentdialog').waitFor({state: 'hidden'});
+          assert.equal(requests.filter(r => r.method === 'PUT').length, cycle - 1, 'Dismissal sends no treatment update');
+          await page.locator('.editTreatment').first().click();
+          assert.equal(await page.locator('#rped_adnotes').inputValue(), originalNotes, 'Reopen restores the saved treatment');
+          await page.keyboard.press('Escape');
+          await page.locator('#rp_edittreatmentdialog').waitFor({state: 'hidden'});
+        }
+        await page.locator('.editTreatment').first().click();
         assert.equal(await page.locator('#rped_eventType').inputValue(), 'Meal Bolus');
         assert.equal(await page.locator('#rped_carbsGiven').inputValue(), '54');
         assert.equal(await page.locator('#rped_insulinGiven').inputValue(), '3.15');
@@ -195,7 +294,7 @@ describe('legacy reports in a real browser', function () {
       assert.equal(populated.reduce((sum, row) => sum + Number(row[5]), 0), 16);
       const distribution = await page.locator('#glucosedistribution-report tr').evaluateAll(rows => rows.map(row => Array.from(row.cells, cell => cell.textContent)));
       // #8812 removed the duplicated first sample: ten of twenty are in range.
-      assert.ok(distribution.some(row => row[0].trim() === 'In Range:' && row[1] === '50.0%' && row[2] === '10'), JSON.stringify(distribution));
+      assert.ok(distribution.some(row => row[0].trim() === 'In Range (70–180):' && row[1] === '50.0%' && row[2] === '10'), JSON.stringify(distribution));
       assert.equal(distribution.find(row => row[0].trim() === 'Overall:')[2], '20');
       const hourly = await page.locator('#hourlystats-report td').allTextContents();
       assert.ok(hourly.includes('16 (100%)'));
@@ -212,7 +311,7 @@ describe('legacy reports in a real browser', function () {
         await page.locator('#' + scale).check(); await show(page);
         const colors = await page.locator('#weektoweek-placeholder circle[cx][cy]').evaluateAll(nodes => nodes.filter(node => node.__data__.type === 'sgv').map(node => node.getAttribute('fill')));
         assert.equal(colors.length, 16);
-        for (const color of ['73, 22, 153', '34, 201, 228', '0, 153, 123', '135, 135, 228', '135, 49, 204', '36, 36, 228', '0, 234, 188']) assert.ok(colors.includes('rgb(' + color + ')'));
+        for (const color of ['31, 119, 180', '255, 127, 14', '44, 160, 44', '214, 39, 40', '148, 103, 189', '140, 86, 75', '23, 190, 207']) assert.ok(colors.includes('rgb(' + color + ')'));
       }
     });
   });

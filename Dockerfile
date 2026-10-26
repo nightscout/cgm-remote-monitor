@@ -8,7 +8,7 @@ WORKDIR /opt/app
 COPY package.json package-lock.json .babelrc ./
 COPY bundle/ ./bundle/
 COPY webpack/ ./webpack/
-COPY bin/generateRandomString.js ./bin/
+COPY bin/generateRandomString.js bin/postinstall.js ./bin/
 COPY lib/ ./lib/
 COPY static/ ./static/
 COPY views/ ./views/
@@ -17,8 +17,8 @@ COPY server.js ./
 
 # Install the full dependency tree, run the existing postinstall bundle build,
 # then prune dev-only packages before copying artifacts into the runtime image.
-RUN npm ci --cache /tmp/empty-cache --omit=optional --force && \
-  npm prune --omit=dev --omit=optional && \
+RUN npm ci --include=dev --cache /tmp/empty-cache --omit=optional --force && \
+  npm prune --omit=dev --omit=optional --ignore-scripts && \
   rm -rf /tmp/*
 
 FROM node:24.22.1-alpine AS runtime
