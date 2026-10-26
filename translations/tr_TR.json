@@ -201,6 +201,8 @@
     "Date format": "Veri formatı",
     "12 hours": "12 saat",
     "24 hours": "24 saat",
+    "Show Seconds": "Show Seconds",
+    "When enabled the clock displays seconds and updates every second.": "When enabled the clock displays seconds and updates every second.",
     "Log a Treatment": "Tedaviyi günlüğe kaydet",
     "BG Check": "KŞ Kontol",
     "Meal Bolus": "Yemek bolus",
