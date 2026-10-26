@@ -160,7 +160,7 @@ For every completed item, replace its checkbox with a checked box and append: PR
 
 ## Integration workflow and current child PRs
 
-Current CI policy: [coverage and execution cost](../test-specs/ci-coverage.md). Per maintainer direction, PR jobs use floating Node 22/24 only. Full backend coverage retains MongoDB 5–8, with exact transitional MongoDB minimum patches pinned. Minimum Node patches stay in the support range and require actual release-candidate validation; version-string policy tests are not execution evidence. Historical per-PR matrix counts below describe their original validation.
+Current CI policy: [CI coverage and manual release checks](../../CONTRIBUTING.md#ci-coverage-and-manual-release-checks) (edges of the supported range: Node 22.23.4 and 26 against MongoDB 5.0 and 8.0; the September floating Node 22/24 matrix is superseded, see [ci-coverage](../test-specs/ci-coverage.md)). Version-string policy tests are not execution evidence. Historical per-PR matrix counts below describe their original validation.
 
 The user confirmed on 2026-09-05 that all implementation PRs target `chore/nightscout-modernization`, and may be merged there after validation. #8605 remains the only PR into dev. CI and CodeQL explicitly include the integration branch as a pull-request target; container publishing remains limited to dev/master.
 
