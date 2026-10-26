@@ -14,8 +14,8 @@ framework, database migration, stricter default or new public socket broadcast.
 | Pattern | Implementation and evidence |
 | --- | --- |
 | P1: divergent writers | `lib/storage/write-step.js` receives persistence operations from all six v1/internal storage modules, the legacy socket, and API v3. It validates selectors, executes the driver call, preserves driver results/errors, and observes committed changes. The existing matching/coercion/reply policies remain in their adapters. The CRUD matrix pins these differences; the boundary gate and its bypass controls cover all eight adapter entry points. |
-| P2: stored shapes | `read-contract.js` provides non-mutating inspection and safe scalar conversions. API v3 exposes aggregate rule counts in `Nightscout-Data-Warnings`, leaving record values in the body. Cache conversion, insertion and repeated merges tolerate object-valued dates/durations and malformed IDs without inventing replacement IDs. Unaddressable authorization subjects fail closed while remaining in the database. `diagnose:data` produces a bounded read-only aggregate report. |
-| P3: validation | The existing pure Temporary Target rules now cover socket add/update/unset as well as v1, v3 and internal treatment storage. Socket add batches are checked before the first write. All adapters share effective-duration validation, including cancellation/end-time conflicts. In reject mode, partial target updates use conditional writes and revalidate changed snapshots; socket updates persist the validated duration fields. The default remains `WRITE_VALIDATION=off`. Log mode preserves data; reject mode uses the existing rules and canonical unit spellings. Logs contain rule/field names, not identifiers or readings. |
+| P2: stored shapes | `read-contract.js` provides non-mutating inspection and safe scalar conversions. API v3 exposes aggregate rule counts in the experimental `Nightscout-Data-Warnings` header only with `API_V3_DATA_WARNINGS=true` (default false), leaving record values in the body. Cache conversion, insertion and repeated merges tolerate object-valued dates/durations and malformed IDs without inventing replacement IDs. Unaddressable authorization subjects fail closed while remaining in the database. `diagnose:data` produces a bounded read-only aggregate report. |
+| P3: validation | The existing pure Temporary Target rules now cover socket add/update/unset as well as v1, v3 and internal treatment storage. Socket add batches are checked before the first write; valid items are stored and refused items keep their ordered reply slot with the v1 `refused` shape and no `_id`. Even an entirely refused socket request returns explicit refusal objects, rather than `[]`. All adapters share effective-duration validation, including cancellation/end-time conflicts. In reject mode, partial target updates use conditional writes and revalidate changed snapshots; socket updates persist the validated duration fields. The default remains `WRITE_VALIDATION=off`. Log mode preserves data; reject mode uses the existing rules and canonical unit spellings. Logs contain rule/field names, not identifiers or readings. |
 | P4: synchronization | Startup flags implausibly future server clocks without silently rewinding issued cursors. History headers are derived only from valid numeric server times; malformed returned data cannot manufacture a `NaN` cursor. Projected history loads `srvModified` for cursor headers while omitting it from the body unless requested. Existing history/restart tests remain gates. Public delivery behavior stays unchanged. |
 | P5: units/identity | Preserve the existing unit and ID compatibility helpers. Exercise ObjectId, lower/upper hex and UUID shapes and all 32 ordered resend pairs among v1, v3, socket and internal entry/treatment writers. Do not invent a new conversion constant, globally relabel units, collapse same-time device statuses or require identifiers. |
 | P6: blind CI | Every tiered Mocha command and legacy npm Mocha command uses `--fail-zero` and an execution reporter requiring a completed test body in each selected test file. Serial/parallel controls cover empty, all-pending and support-only runs. The production-safety/cleanup files do not count as intended coverage; the POSIX development-watch probe has an explicit Windows exception. Existing seeded file-order CI remains. Matrix writes must emit the internal commit observation, and AST controls fail when any known adapter bypasses the boundary. |
@@ -44,6 +44,12 @@ committed counts and partial flag). One event is produced per changed **boundary
 operation** (including a conditional batch), including the committed portion of a failed bulk operation. No event
 is produced for an unchanged, wholly failed or unacknowledged operation.
 
+**`storage-write-committed` is internal and unstable.** Its name, payload and
+operation granularity have no compatibility guarantee. It has no production
+subscriber yet. Settle the contract with the first subscriber (BF-164 plan C),
+including `_id`/`identifier`, origin and one event per write call, before treating
+it as a stable interface. These payloads must stay internal.
+
 This event is not a per-request transaction or an all-path `/storage` event.
 Existing cache updates, `data-received` notifications and v3-only
 `storage-socket-*` notifications retain their timing and payloads. A subscriber
@@ -53,8 +59,20 @@ failure must not turn an already committed write into a client retry.
 the same storage functions today. It is not an authorization decision. Permission
 checks still run in their existing transport layers.
 
+## Layer names
+
+`lib/storage/write-step.js` is the **persistence boundary** over MongoDB driver
+operations. The future `write(intent)` service is a separate layer above it and
+should have a separate name, such as `write-intent.js`. It is not implemented by
+this PR. The future storage interface and intent layer can build on this boundary
+without renaming it or changing the public transport contracts here.
+
 ## Read and diagnostic contract
 
+- Public response warnings are off by default. `API_V3_DATA_WARNINGS=true` enables
+  an experimental header; its name/default must be agreed alongside v1's
+  `Warning: 299` convention before it becomes a stable client contract. Read
+  guards and the diagnostic CLI remain enabled independently.
 - Retain stored data. Do not repair, delete, coerce clinical values or advance
   `srvModified` while diagnosing.
 - Treat malformed database values as data, not JavaScript coercion methods.
