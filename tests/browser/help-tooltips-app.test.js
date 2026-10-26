@@ -11,6 +11,8 @@ const {withPage} = require('./fixture');
 
 describe('Help tooltips on the application page', function () {
   let server, origin, units, template;
+  // Select the alarm control's help even when another setting adds an earlier tip.
+  const alarmHelpSelector = '#drawer dl:has(#alarm-urgenthigh-browser) .tip';
   before(async function () {
     const root=path.resolve(__dirname,'../..'), file=path.join(root,'views/index.html');
     // Keep the real template/styles; boot manually with finite owned socket data.
@@ -70,7 +72,7 @@ describe('Help tooltips on the application page', function () {
           if(touch)await page.locator('#drawerToggle').tap();
           else {await page.locator('#drawerToggle').focus();await page.keyboard.press('Enter');}
           await page.locator('#drawer').waitFor({state:'visible'});
-          const help=page.locator('#drawer .tip').first();
+          const help=page.locator(alarmHelpSelector);
           if(touch)await help.tap();else await help.focus();
           const tooltip=page.locator('.ns-help-tooltip');
           assert.equal(await tooltip.isVisible(),true);
@@ -84,7 +86,7 @@ describe('Help tooltips on the application page', function () {
             const cdp=await page.context().newCDPSession(page);
             try {
               const dom=await cdp.send('DOM.getDocument');
-              const match=await cdp.send('DOM.querySelector',{nodeId:dom.root.nodeId,selector:'#drawer .tip'});
+              const match=await cdp.send('DOM.querySelector',{nodeId:dom.root.nodeId,selector:alarmHelpSelector});
               const {nodes}=await cdp.send('Accessibility.getPartialAXTree',{nodeId:match.nodeId,fetchRelatives:false});
               assert.equal(nodes[0].ignored,false);
               assert.equal(nodes[0].role.value,'button');
