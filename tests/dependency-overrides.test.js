@@ -53,18 +53,27 @@ describe('advisory floors in the installed tree', function () {
   const floors = {
     'ip-address': { 10: '10.7.5' },
     'fast-uri': { 3: '3.1.9' },
-    'axios': { 0: '0.34.0' },
+    // EXPECTATION CHANGED at the cut 5 merge: the modernization branch moves
+    // axios to 1.x and Express 5 brings body-parser 2.x, so the 0.x and 1.x
+    // copies these floors named are gone. axios 1.x is floored at 1.20.0, the
+    // version dev's own nightscout-connect override holds; body-parser 2.x at
+    // 2.4.0, the first 2.x that survives tests/fixtures/http-middleware-probe.js
+    // (2.3.0 crashes it, as 1.20.8 did).
+    'axios': { 1: '1.20.0' },
     'dompurify': { 3: '3.4.17' },
     'webpack-dev-middleware': { 8: '8.3.0' },
-    'body-parser': { 1: '1.20.9' },
+    'body-parser': { 2: '2.4.0' },
     'compression': { 1: '1.8.2' },
     'sanitize-html': { 2: '2.18.1' },
     'moment': { 2: '2.31.0' },
     'follow-redirects': { 1: '1.16.1' },
     'source-map-js': { 1: '1.2.2' },
     'serialize-javascript': { 7: '7.1.4' },
-    'csv-parse': { 7: '7.0.3' },
-    'uuid': { 11: '11.1.1' }
+    'csv-parse': { 7: '7.0.3' }
+    // EXPECTATION CHANGED at the cut 5 merge: uuid 11.x came in only through
+    // istanbul-lib-processinfo 3.0.0. The modernization branch's transitive
+    // refresh takes 3.0.1, which no longer depends on uuid, so no uuid copy is
+    // locked and there is nothing left to floor.
   };
 
   Object.keys(floors).forEach(function (name) {

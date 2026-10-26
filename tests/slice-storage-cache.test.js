@@ -29,6 +29,7 @@ describe('Slice storage cache selection', function () {
       ctx[name] = require('../lib/server/' + name)({[name + '_collection']:col.collectionName}, ctx);
     }
     const app = express();
+    require('../lib/middleware/configure-request')(app);
     app.set('query parser', 'extended');
     app.use(require('../lib/api/entries')(app, require('../lib/middleware')(env), ctx, env));
     server = await new Promise(resolve => {const listening = app.listen(0, '127.0.0.1', () => resolve(listening));});

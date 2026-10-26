@@ -168,6 +168,7 @@ describe('API v1 query operator allowlist', function ( ) {
     beforeEach(function ( ) {
       reached = [ ];
       app = express();
+      require('../lib/middleware/configure-request')(app);
       const wares = require('../lib/middleware/')(env);
       const permit = {isPermitted: function ( ) { return function (req, res, next) { next(); }; }};
       const entriesList = stubList({dateField: 'date', useEpoch: true, walker: { }});

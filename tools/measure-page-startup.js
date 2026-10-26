@@ -52,7 +52,7 @@ function ready(entry) {
 async function sample(fixture, data, entry, url, snapshotPath) {
   const browser = await chromium.launch();
   try {
-    const context = await browser.newContext({serviceWorkers: 'block', viewport: {width: 1280, height: 900}, timezoneId: 'America/Los_Angeles'});
+    const context = await browser.newContext({extraHTTPHeaders: {'api-secret': hash}, serviceWorkers: 'block', viewport: {width: 1280, height: 900}, timezoneId: 'America/Los_Angeles'});
     const errors = [], external = [], responses = new Map(), completed = [];
     let websocketPayloadBytes = 0;
     context.on('request', request => {if (new URL(request.url()).origin !== fixture.origin) external.push(request.url());});

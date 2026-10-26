@@ -1,9 +1,16 @@
 # Nightscout dependency and runtime modernization
 
-Updated: 2026-09-06. Baseline: `dev` commit `9205ea300b9a6981ad8f16223c69620dd3c1c830` (15.0.9).
+Current scope updated: 2026-10-26. Historical plan baseline: `dev` commit `9205ea300b9a6981ad8f16223c69620dd3c1c830` (15.0.9).
 Tracking issue: [#8328](https://github.com/nightscout/cgm-remote-monitor/issues/8328).
 
-This is the execution plan for reducing dependency maintenance, installation size, unnecessary server allocations and browser cost. Deliver each numbered item as a small PR targeting `chore/nightscout-modernization`. After review and green checks against the current integration branch, merge it there and update its status/evidence here. **#8605 is the single integration PR targeting dev** and stays draft until the complete modernization and release gates are satisfied. Do not merge individual implementation PRs into dev. Implementation checkboxes do not waive outstanding release validation.
+This records the original execution plan for reducing dependency maintenance,
+installation size, unnecessary server allocations and browser cost. Much of it
+has since reached dev through cuts 1–4 and other PRs. **#8605 is now cut 5**,
+targeting current dev for the remaining web/notification dependency and
+Loopalyzer compatibility work. The [current scope and evidence limits](../test-specs/modernization-completion.md#current-cut-5-scope-26-october-2026)
+take precedence over historical completion checkboxes, draft status, runtime
+versions and measurements below. Implementation checkboxes do not waive
+current CI or the explicit maintainer acceptance work.
 
 This plan supersedes the dated Node/dependency recommendations and unmeasured size estimates in the [January architecture roadmap](../meta/modernization-roadmap.md). Use that document for broader ideas, the [testing proposal](../proposals/testing-modernization-proposal.md) for logic/DOM separation, and the [MongoDB plan](../proposals/mongodb-modernization-implementation-plan.md) for database compatibility work. Revalidate their historical checklists before starting work. A new framework, TypeScript conversion, Redis, identity system or database migration is not a prerequisite for dependency reduction.
 
@@ -27,6 +34,15 @@ At the audit baseline, completed foundations were: D3 7.9.0, jsdom-backed test t
 
 ## Shared merge and release gates
 
+Maintainer direction on 2026-09-08: complete the remaining implementation,
+appropriate automated regression coverage and CI. The maintainer will then run
+the integration branch in production and perform device testing. Live host,
+vendor-account/Atlas IAM and physical iPhone/VoiceOver checks below are therefore
+**maintainer-owned manual validation after the automated work**, not prerequisites
+for finishing that work. Keep them visible and unperformed until results are
+provided; automated tests do not establish manual passes. This handoff does not
+authorize automatic promotion of #8605 into dev before the maintainer's review.
+
 - Record the parent/head commits, runtime/npm versions and exact commands. Use a clean locked install; investigate any retained-version drift rather than accepting an unrelated lockfile refresh.
 - Run applicable focused tests, `npm run test-ci`, **separately** `npm run test:core`, and `npm run test:dependencies`; run production/development builds for dependency or bundler changes. Keep pre-existing quarantines visible until replacement coverage proves their contracts, and investigate new failures against the same parent/environment. The original three pending cases are now one remaining Node case plus two report cases migrated to active browser tests (M08).
 - Require current GitHub CI, CodeQL and Docker validation on each proposed merge with the current modernization branch, then validate the complete #8605 merge against fresh `dev` before promotion. Add regression tests for changed behavior, with a failing-before/passing-after demonstration when fixing a bug; avoid tests that merely repeat manifest contents.
@@ -39,7 +55,7 @@ At the audit baseline, completed foundations were: D3 7.9.0, jsdom-backed test t
 
 - [x] **M01 — Remove four unused declarations and one unused import** (implemented on the integration branch in `6a6dd7a5`; [initial #8605 CI](https://github.com/nightscout/cgm-remote-monitor/actions/runs/33979863812) passed all applicable checks).
   Files: `package.json`, `package-lock.json`, `lib/api2/summary/basaldataprocessor.js`, this plan and the audit inventory. Remove `mongomock`, `moment-locales-webpack-plugin`, `acorn`, `acorn-jsx` after source/config/asset verification, plus the summary processor's unused jQuery import. Browser jQuery remains required. Remove the redundant function-scoped loop-index redeclaration in that same module so its existing lint warning is cleared without changing loop behavior.
-  Acceptance: clean install and both builds; shared CI gates and summary tests; 81 declarations, 1,030 package paths, 673 production paths; no retained version changes or browser asset changes. Acorn/Acorn JSX remain transitively required. Retain `@types/tough-cookie`: removing it passed a local legacy-peer-deps simulation but broke Docker-style `npm ci` without the repository `.npmrc`, where the cookie wrapper requires its peer lock entry. Retain `@mongodb-js/saslprep` for Mongo authentication with optional packages omitted, and `swagger-ui-dist` for assets and major-version policy. No new behavior test or RAM claim is needed for an unused declaration/import.
+  Acceptance: clean install and both builds; shared CI gates and summary tests; 81 declarations, 1,030 package paths, 673 production paths; no retained version changes or browser asset changes. Acorn/Acorn JSX remain transitively required. Retain `@types/tough-cookie`: removing it passed a local legacy-peer-deps simulation but broke Docker-style `npm ci` without the repository `.npmrc`, where the cookie wrapper requires its peer lock entry. At this stage, retained `@mongodb-js/saslprep` for Mongo authentication with optional packages omitted (superseded by the M09 driver-owned SASLprep review below), and `swagger-ui-dist` for assets and major-version policy. No new behavior test or RAM claim is needed for an unused declaration/import.
 
 - [x] **M02 — Stop pill tooltip handler accumulation** (after M01; independent of Node policy).
   Files: `lib/plugins/pluginbase.js`, `tests/pluginbase.modern.test.js` and appropriate DOM fixtures. Use a stable/namespaced binding that reads the latest options, removing both handlers when tooltip info disappears.
@@ -76,20 +92,85 @@ At the audit baseline, completed foundations were: D3 7.9.0, jsdom-backed test t
 
   Other files: manifests, `.babelrc`, webpack rules and `tests/dependency-{babel,uuid}.test.js`. Review required Babel/preset/loader and UUID releases, engine ranges, CommonJS/ESM loading and API changes before installing them. Babel must preserve supported-browser transforms/build output; UUID must preserve deterministic v5 vectors, persisted identifiers and duplicate upload/update cycles. Native random UUID v4 is not a replacement. Test exact supported runtime floors and full CI. A higher Node floor enables review, not automatic major-version compatibility.
 
-- [ ] **M09 — Review remaining maintained releases and security overrides** (after M07 where runtime requires it; ongoing).
+- [x] **M09 — Review remaining maintained releases and security overrides** (review and compatible updates complete in the final integration tree).
   Files: manifests, each actual consumer and `tests/dependency-*.test.js`. Re-run production/full audits and `npm explain`; track each finding as reachable, build/test-only, mitigated or awaiting upstream work, with evidence. Prioritize reachable issues and unmaintained transitive chains; review Express/Helmet, MongoDB, loaders/lint/build tools and providers independently.
   Acceptance: highest compatible release per consumer, focused exploit/API regression where relevant, full CI and explicit engine/browser/DB compatibility. Remove an override only after every affected parent resolves safely. Do not use forced audit fixes or a bulk latest-version update; keep Dependabot's current target configuration.
-  The [webpack/HMR refresh](../test-specs/webpack-refresh.md) removes a separate hot-middleware dependency using the maintained development middleware, with repeated update/error recovery coverage and explicit installed/browser size costs. It does not complete the remaining dependency reviews.
+  The [final compatible transitive review](../test-specs/m09-transitive-refresh.md) covers Day.js under launder, webpack's module lexer, APNs error formatting and Mocha serialization. Its final inventory records no further updates within declared consumer ranges and zero known full/production npm advisories. Final child CI and merge verification are required before accepting this completion update.
+  The [remaining override review](../test-specs/m09-override-review.md) verifies parent ranges, reviews Ajv/flatted fixes and retains shiro-trie. The lockfile preserves patched versions without forced resolution. Cache/date/widget migrations retain their separate M25/M27/M28 scope; xml2js remains an explicit compatibility hold.
+  The [webpack/HMR refresh](../test-specs/webpack-refresh.md) removes a separate hot-middleware dependency using the maintained development middleware, with repeated update/error recovery coverage and explicit installed/browser size costs.
   The [ESLint refresh](../test-specs/eslint-modernization.md) replaces the webpack wrapper with a scoped public-API integration, preserves the prior non-blocking development policy, and records the remaining CLI diagnostics for separate cleanup. Production dependencies and bundle bytes are unchanged.
   The [application lint cleanup](../test-specs/lint-cleanup.md) establishes a zero-error baseline and adds lint to one existing CI matrix job; sixteen security warnings remain for targeted review. The API3 alarm credential-log fix merged in #8688; it is no longer pending.
 
 The [MIME and jQuery exposure review](../test-specs/mime-jquery-exposure.md) consolidates
 API lookup on existing mime-types and replaces expose-loader with a browser
-bootstrap. M09 remains open for other dependency and override reviews.
+bootstrap.
+
+The [Helmet review](../test-specs/helmet-modernization.md) merged in #8696
+as `19bd2191`, with all required CI passing and an independently verified merge
+tree. Helmet 8.3 preserves existing CSP/HSTS/embedding policies; only obsolete
+Expect-CT is retired. The [Express 5 review](../test-specs/express5-modernization.md)
+covers request parsing, mutable filters, route syntax and MIME negotiation.
+
+The [SASLprep review](../test-specs/saslprep-modernization.md) removes its redundant
+root declaration because driver 7.6 declares it as required, resolves 1.5.0,
+and adds Unicode SCRAM authentication checks to existing runtime CI jobs.
+
+The [EJS review](../test-specs/ejs-modernization.md) upgrades the template engine
+to dependency-free 6.0.1, removes Jake/filelist and the unused filelist override,
+and covers actual rendered pages, escaping, cache freshness and inherited locals.
+
+The [Axios consolidation](../test-specs/axios-consolidation.md) upgrades config
+imports to the same 1.20 client used by Connect and removes redundant Axios and
+follow-redirects overrides. Explicit redaction, actual import authentication and
+client isolation have regression coverage; measured installed production files
+shrink by approximately 1 MB, with no measured RAM-saving claim.
+
+The [entities consolidation](../test-specs/entities-consolidation.md) upgrades the
+shared decoder to 8.0.0 and consolidates three installed copies into one, without
+an override. HTML decoding/escaping and sanitization remain required; measured
+package files shrink by 776,553 bytes, with no runtime memory-saving claim.
+
+The [mime-types maintenance review](../test-specs/mime-types-upgrade.md) aligns
+direct lookup with Express's 3.0.2 release and preserves v1 JavaScript status
+negotiation. Legacy accepts/form-data consumers retain compatible 2.x copies;
+this is a maintenance upgrade with a measured installation-size increase, not
+a memory-saving claim.
+
+The [APNs provider review](../test-specs/apn-upgrade.md) moves to 8.1.0, removes
+five duplicate dependency paths and the redundant node-forge override. Owned
+TLS/HTTP2 tests cover actual signed Loop requests, retries, failure handling and
+session/timer cleanup. The published package files grow slightly; no RAM-saving
+claim is made.
+
+The [native Pushover transport](../test-specs/pushover-native-transport.md) removes
+pushover-notifications and preserves message/receipt contracts using Node HTTPS.
+Owned TLS tests cover encoding, cancellation, failure classification, deadlines
+and cleanup. Package plus runtime source decreases by 22,575 bytes; no measured
+RAM saving is claimed.
+
+The [CLI/analyzer review](../test-specs/webpack-cli-analyzer.md) upgrades the
+build commands to CLI 7.2.3 and analyzer 5.3.2, preserves resource-limit tests
+and adds real command/report regression coverage. Production lock entries and
+application bundles are unchanged; development package bytes increase despite
+six fewer paths.
+The [Mocha 12 review](../test-specs/mocha12-modernization.md) adopts native Node
+argument parsing, removes two redundant runner overrides and 40 package paths.
+Runner failure/reporting, YAML defaults and retained parser security contracts
+have consumer coverage; production dependencies and bundles remain unchanged.
+
+The [XML parser review](../test-specs/xml-parser-review.md) retains test-only
+xml2js 0.5.0: latest 0.6.2 inserts inherited objects/functions into prototype-named
+XML fields on Node 22/24. New regression coverage records the required data
+contract; reconsider a published fix or separately evaluated replacement.
+
+The [Swagger review](../test-specs/swagger-modernization.md) upgrades the docs UI,
+fixes cross-schema initializer state and avoids evaluating browser bundles in
+Node. Isolated middleware retained heap falls about 9.5–9.7 MiB; package and
+documentation-download sizes increase. Installation analytics are disabled.
 
 ## Phase 3 — reduce production installation and browser cost
 
-- [ ] **M10 — Separate build from runtime dependencies** (after M01; coordinate with M07 and M11 to avoid lockfile overlap).
+- [x] **M10 — Separate build from runtime dependencies** (after M01; coordinate with M07 and M11 to avoid lockfile overlap).
   Files: `package.json`, lockfile, `Dockerfile`, `bin/azure-deploy.sh`, package/build scripts, `lib/server/app.js` development branch and deployment docs. Move the surviving build-only roots to devDependencies: Babel core/preset/loader, expose-loader, timezone-data plugin, webpack/CLI (asset/CSS loaders are being removed in M11).
   Implementation merged in #8657: install → build → prune is explicit, build-only tools are development dependencies, Axios remains available for runtime IMPORT_CONFIG, and the native environment runner replaces env-cmd. Generated assets/runtime keys and Socket.IO assets have pruned-startup coverage. See [build/runtime evidence](../test-specs/build-runtime-separation.md). Final image/build-time measurements and live hosting validation remain release gates; the original implementation tasks are not still pending.
   Acceptance: full-dependency development/HMR works; pruned artifact starts with `npm start`, serves all assets and imports config without build tools; Docker, source/Heroku and Azure follow the tested build path. Compare production paths, installed bytes, image bytes and build time. Reference feasibility target: 673 → 415 production paths after M01, before subsequent version/classification changes; remeasure, do not promise the exact count or a heap saving.
@@ -132,10 +213,10 @@ Each row is a separate candidate PR after M01; entries marked M07 also need the 
 | [x] **M19** | IMPORT_CONFIG Axios → native fetch; `lib/server/bootevent.js` (after M07) | Specify non-2xx, timeout/cancellation, redirects, proxy support, auth/header redaction and JSON behavior using existing Axios fixtures. Keep connector cookie-wrapper compatibility. Root removal does not eliminate transitive Axios; fix runtime classification if this migration is deferred. |
 | [x] **M20** | `body-parser` direct use → Express parsers; wares, API and app modules | Preserve options, compression, limits, malformed body and inherited-option protections. Express currently exposes identical functions. Remove a declaration only; package and runtime memory remain through Express. |
 | [x] **M21** | `mongo-url-parser` → existing driver parsing; `lib/server/env.js` | Test SRV, multi-host, IPv6, encoded/no credentials, valid driver options, invalid URI and API-secret/password comparison. Do not substitute Node URL for MongoDB's grammar or connect just to parse. Remove one legacy parser after confirming driver-supported API stability. |
-| [ ] **M22** | Consolidate `forwarded-for` consumers in auth/status/API3/websocket modules | Define trusted-proxy/header policy first; cover raw Socket.IO requests as well as Express, IPv4/IPv6/ports, Fastly/X-Real-IP/Z-Forwarded precedence and spoofing. Package removal requires demonstrated equivalent or explicitly approved changed behavior. |
+| [x] **M22** | Consolidate `forwarded-for` consumers in auth/status/API3/websocket modules | Define trusted-proxy/header policy first; cover raw Socket.IO requests as well as Express, IPv4/IPv6/ports, Fastly/X-Real-IP/Z-Forwarded precedence and spoofing. Package removal requires demonstrated equivalent or explicitly approved changed behavior. |
 | [x] **M23** | Narrow `traverse` operations; `lib/server/query.js` | Characterize nested query operators, arrays, ObjectIds, strings, nulls, mutation/prototype hazards and error behavior before writing a scoped walker. Remove only if local code is simpler and every query-security fixture passes. |
 | [x] **M24** | `env-cmd`/`nodemon` → Node CLI capabilities; package scripts and developer docs (after M07) | Preserve or explicitly document env-file precedence: env-cmd overrides inherited env, native --env-file does the reverse. Test quoting/multiline values and Mocha/nyc children. Verify watch ignores, Linux support, inspector reconnect and no restart storms. Separate PRs; no production RAM claim. |
-| [ ] **M25** | Review one bounded TTL helper for `node-cache`/`memory-cache`; pushnotify and `lib/profilefunctions.js` (after M05) | Specify clone/reference semantics separately, null/zero, cache bounds, TTL/extension, 5-second profile expiry, clear/profile-switch and timers/shutdown. Fake-clock tests plus repeated real workload/heap measurements; an unbounded Map is unacceptable. Retain a maintained cache if local complexity grows. |
+| [x] **M25** | Review one bounded TTL helper for `node-cache`/`memory-cache`; pushnotify and `lib/profilefunctions.js` (after M05) | Specify clone/reference semantics separately, null/zero, cache bounds, TTL/extension, 5-second profile expiry, clear/profile-switch and timers/shutdown. Fake-clock tests plus repeated real workload/heap measurements; an unbounded Map is unacceptable. Retain a maintained cache if local complexity grows. |
 | [x] **M26** | Avoid repeated percentile sorts, then consider local statistics; `lib/report_plugins/{percentile,dailystats,hourlystats,success,glucosedistribution}.js` | First use the current quantile API's probability array to sort once per bin. Preserve empty/single/even/odd/repeated/unsorted inputs, boundary percentiles, population deviation and source arrays. `[1,2,3,4]` q25 must remain 1.5 and population deviation approximately 1.118; D3 defaults differ. Golden reports in both units and across DST must pass before any simple-statistics removal. Record sort/allocation/time reduction separately from package count. |
 
 M16 completed in #8636, merged as `06e986bb` after all required backend/browser/npm 12/CodeQL/Docker checks passed on `b00f5b3b`. The actual merge tree matches the verified tree. The local adapter retains application persistence and public storage operations; only js-storage is removed. Combined validation includes 505 Chromium cases and a diagnostic 1,616-test backend pass (one existing pending). The isolated local 401 was not reproduced or explained; 1,000 additional cache/auth requests had matching owned-server markers. No authorization code changed or assertion was relaxed. The combined build saves 207 Node gzip bytes across application entries and 358 for clock. See [storage contracts and validation limits](../test-specs/browser-storage.md).
@@ -146,16 +227,16 @@ M18 completed in #8639 (merge `a92d0882`) and #8640 (merge `1fab2a24`). Each pas
 
 ## Phase 5 — larger decisions, not compulsory rewrites
 
-- [ ] **M27 — Moment/timezone decision.** Map `moment`/`moment-timezone` use across profile/IOB/COB, therapy schedules, dates, reports and locale data. Establish golden outputs for DST gaps/overlaps, local midnight, timezone changes, historical data, duration and both glucose units. Compare native Intl plus scoped helpers and maintained alternatives for API complexity, bundle/CPU and browser coverage. Choose retain/narrow/replace with evidence; do not assume a library swap is low effort or promise an old roadmap's 200 KB estimate. Coordinate with the testing proposal's DOM-free report boundary.
+- [x] **M27 — Moment/timezone decision.** The [release decision and comparative evidence](date-time-decision.md) retain the current narrowed Moment implementation under the existing browser/runtime contract, with an explicit revisit trigger; no date-library migration is selected. Map `moment`/`moment-timezone` use across profile/IOB/COB, therapy schedules, dates, reports and locale data. Establish golden outputs for DST gaps/overlaps, local midnight, timezone changes, historical data, duration and both glucose units. Compare retaining or narrowing Moment, native Intl plus scoped helpers, Luxon, Day.js and Temporal (including the proposal and discussion in #8348) for API complexity, bundle size, CPU, measured memory use and browser coverage. At the time of the M27 review, reassess Temporal native support across supported Node.js versions and browsers, any polyfill requirement and its cost, and whether a direct Moment-to-Temporal migration would avoid an intermediate library migration. No replacement or migration date is selected; Intl alone is not a complete parsing/arithmetic replacement. Choose retain/narrow/replace with evidence; do not assume a library swap is low effort or promise an old roadmap's 200 KB estimate. Coordinate with the testing proposal's DOM-free report boundary.
   Inventory baseline and remaining comparison work: [Moment/timezone review](moment-timezone-review.md). The lexical scan identifies 79 files, including 53 application files; it is not a complete call graph or a replacement decision.
 
-- [ ] **M28 — jQuery/UI/Flot and tooltip decision.** See [widget inventory and migration sequence](browser-widget-review.md) for the current consumers and concrete next steps. Inventory actual widgets, global plugin contracts and touch/accessibility behavior. First consider `jquery.tooltips`' two browser-utils initializers with a small delegated, escaped tooltip component; native title alone is not equivalent. After page splitting, compare retaining isolated jQuery UI/Flot against removing one widget/chart at a time. Require hover/focus/touch dismissal, keyboard/screen-reader checks, translated content, repeated initialization and report/chart goldens. Choose a framework only through a separate proposal with measured maintenance/size benefits.
-  A native help-tooltip candidate removes jquery.tooltips with explicit keyboard/touch/text behavior; see [validation and remaining UI gates](../test-specs/help-tooltips.md). This does not remove jQuery UI/Flot or complete M28.
+- [x] **M28 — jQuery/UI/Flot and tooltip decision.** See [widget inventory and migration sequence](browser-widget-review.md) for the current consumers and concrete next steps. Inventory actual widgets, global plugin contracts and touch/accessibility behavior. First consider `jquery.tooltips`' two browser-utils initializers with a small delegated, escaped tooltip component; native title alone is not equivalent. After page splitting, compare retaining isolated jQuery UI/Flot against removing one widget/chart at a time. Require hover/focus/touch dismissal, keyboard/screen-reader checks, translated content, repeated initialization and report/chart goldens. Choose a framework only through a separate proposal with measured maintenance/size benefits.
+  The [final widget decision](browser-widget-decision.md) retains the integrated native help tooltips and selected jQuery UI 1.14.2 with jQuery 3.7.1, and upgrades isolated Flot to 4.2.6. It compares native dialogs and a D3 pie prototype, preserves report data/axes/labels through browser regressions and records measured costs. Physical device validation remains maintainer-owned; current child CI is required before integration.
   Final device accessibility gate for #8605 into dev: **Safari with VoiceOver on a physical iPhone**, selected by the maintainer. Follow the [recorded checklist](../test-specs/iphone-voiceover.md); automated WebKit does not establish spoken output. Reviewed child implementation PRs may integrate with full CI while this release gate remains explicitly open.
 
-- [ ] **M29 — Legacy integration and MongoDB support decisions.** Confirmed 2026-09-05: retire MongoDB 4.4 and earlier from support/CI, retain MongoDB 5/6 during migration. The [runtime/database notice](../runtime-upgrade.md#mongodb-support-during-modernization) records support boundaries, upstream end-of-life dates and upgrade/rollback requirements. Maintained MongoDB 7/8 and the driver have integrated API/client/replica CI coverage; live deployment and database migration evidence remain required; retiring 5/6 requires a separate decision. The maintainer explicitly authorized retiring the legacy Dexcom bridge in 16.0.0 in favour of Connect; validate the [retirement and migration](../test-specs/legacy-dexcom-retirement.md). MiniMed retirement integrated in #8682 with owned regression coverage; finish its live Connect migration release checks. Retiring additional MongoDB versions requires a separate decision. Legacy adapters loaded lazily before retirement; their deletion does not establish disabled-instance heap savings. Reuse the existing MongoDB proposal's Loop/Trio/AAPS, partial-failure and identifier fixtures, verifying their current status. Provide configuration mapping, release notice and rollback before feature removal; update connector ownership/upstream issues as appropriate.
+- [x] **M29 — Legacy integration and MongoDB support decisions.** Confirmed 2026-09-05: retire MongoDB 4.4 and earlier from support/CI, retain MongoDB 5/6 during migration. The [runtime/database notice](../runtime-upgrade.md#mongodb-support-during-modernization) records support boundaries, upstream end-of-life dates and upgrade/rollback requirements. Maintained MongoDB 7/8 and the driver have integrated API/client/replica CI coverage. The [owned upgrade/recovery rehearsal](../test-specs/database-upgrade-recovery.md) verifies successive standalone 5→6→7→8 upgrades and fresh-volume restoration of original/final backups with the actual built/pruned app on both Node floors; hosted rehearsal evidence remains required before child integration. Live deployment validation is maintainer-owned; retiring 5/6 requires a separate decision. The maintainer explicitly authorized retiring the legacy Dexcom bridge in 16.0.0 in favour of Connect; validate the [retirement and migration](../test-specs/legacy-dexcom-retirement.md). MiniMed retirement integrated in #8682 with owned regression coverage; its owned Connect migration checks pass, while live account checks are maintainer-owned afterward. Retiring additional MongoDB versions requires a separate decision. Legacy adapters loaded lazily before retirement; their deletion does not establish disabled-instance heap savings. Reuse the existing MongoDB proposal's Loop/Trio/AAPS, partial-failure and identifier fixtures, verifying their current status. Provide configuration mapping, release notice and rollback before feature removal; update connector ownership/upstream issues as appropriate.
 
-- [ ] **M30 — Close the loop on #8328.** Once agreed runtime policy, dependency reviews and retain/migrate decisions are complete, update this checklist with PRs and measured results, reconcile older roadmap/proposal statuses and publish before/after package, image, server and browser figures. Keep periodic audit/update work in normal maintenance. Close the tracker only when remaining Moment and other long-term decisions are explicit, not merely because the declaration count fell.
+- [x] **M30 — Close the loop on #8328.** Once agreed runtime policy, dependency reviews and retain/migrate decisions are complete, update this checklist with PRs and measured results, reconcile older roadmap/proposal statuses and publish before/after package, image, server and browser figures. Keep periodic audit/update work in normal maintenance. Close the tracker only when remaining Moment and other long-term decisions are explicit, not merely because the declaration count fell.
 
 Security/escaping, JWT/permissions, MongoDB, Socket.IO/APN and CSV/XML implementations remain maintained-library responsibilities unless a separate correctness review establishes a better alternative. Persisted UUID v5 identifiers remain unchanged. Avoid adding infrastructure or homegrown generic frameworks to achieve a smaller dependency manifest.
 
@@ -258,7 +339,7 @@ The remaining M08, M19, M23 and M26 candidates are assembled into one verificati
 
 ### M25 profile-cache and receipt implementation
 
-A bounded reference cache replaces memory-cache's per-entry timers while preserving the application's five-second get/put/clear contracts. [Workload measurements and limits](../test-specs/profile-cache.md) explain the cap selection, lower retained heap and unchanged output totals. The profile cache merged in #8653 after validation; #8658 additionally reduces receipt payloads to acknowledgement fields. The [notification teardown follow-up](../test-specs/notification-cache-teardown.md) clears owned caches/timers and ignores late provider callbacks after shutdown. Notification-cache bounds and clone policy, and the final retain/replace decision, remain open; M25 is not yet complete.
+A bounded reference cache replaces memory-cache's per-entry timers while preserving the application's five-second get/put/clear contracts. [Workload measurements and limits](../test-specs/profile-cache.md) explain the cap selection, lower retained heap and unchanged output totals. The profile cache merged in #8653 after validation; #8658 additionally reduces receipt payloads to acknowledgement fields. The [notification teardown follow-up](../test-specs/notification-cache-teardown.md) clears owned caches/timers and ignores late provider callbacks after shutdown. The [dispatch snapshot follow-up](../test-specs/notification-dispatch-snapshot.md) captures acknowledgement fields and deduplication keys before asynchronous provider completion, with delayed multi-recipient and reused-payload regressions. The [final cache decision](../test-specs/notification-cache-decision.md) selects the maintained notification cache with a compatibility adapter and retains the bounded profile helper. It specifies TTL-only notification bounds without silently evicting live delivery state, proves clone/expiry/teardown behavior against the legacy package, and records seven repeated-workload process pairs on both Node floors. M25 implementation and automated review are complete; hosted child integration evidence is recorded in its PR.
 
 - M29 replica-set baseline: add eight CI jobs across both Node floors and MongoDB 5/6/7/8, exercising the actual entries/storage adapters through two primary changes. Local driver 5.9.2 and proposed 7.6.0 comparisons pass on both Node floors with MongoDB 8.0.29; see [scope and evidence](../test-specs/mongodb-replica-set.md). Hosted validation and the remaining TLS, deployment and backup/restore gates must pass before claiming the driver migration complete.
 
@@ -269,8 +350,9 @@ npm 12, CodeQL and both Docker checks passed on `b6e8c7cd`. The actual merge tre
 `5f3a6ae7f6caaa7db0573bc65e0396bb885914f8` matches the independently reviewed tree.
 Fresh install/build/prune artifacts pass real npm-start/database/config-import/
 six-page/bundle/static/Socket.IO checks on both supported Node floors. The
-implementation is integrated; M10 stays open for final image/build-time
-measurements and live hosting release gates. See the build/runtime specification.
+implementation and final image/build-time measurements are complete. See the
+[combined evidence](../test-specs/modernization-completion.md). Live hosting is
+maintainer-owned after automated completion, as directed above.
 
 ### M24 watch retain decision
 
@@ -300,8 +382,9 @@ country/conflicting-feed migration errors, and pins the MiniMed logging fix from
 Connect PR #64. Configuration/lifecycle and active-consumer dependency tests are
 in place. Owned HTTPS/session/cookie/teardown fixtures pass on both Node floors.
 Data-contract fixes are pinned from Connect #65 and owned cutover fixtures pass.
-Child CI is complete. Live vendor/hosting migration validation remains
-outstanding; M29 is still open.
+Child CI, the published Connect shutdown pin (#8720 / upstream #66), and
+owned database upgrade/backup recovery (#8718) complete the automated M29 work.
+Live vendor/hosting migration validation remains maintainer-owned afterward.
 
 ### M22 trusted-proxy policy
 
@@ -318,9 +401,10 @@ no generic Heroku/Azure proxy CIDR is assumed.
 
 ### Tracker reconciliation
 
-The [#8328 requirement mapping](tracking-8328-reconciliation.md) distinguishes
-merged implementation from uncompleted dependency decisions and release gates.
-It does not authorize closing the issue or promoting #8605.
+The [#8328 requirement mapping](tracking-8328-reconciliation.md) records final
+implementation/retain decisions and the [combined before/after evidence](../test-specs/modernization-completion.md).
+All agreed automated M01–M30 work is covered; manual release validation remains
+maintainer-owned. Keep #8328 open and #8605 draft through that handoff/integration.
 
 ### M27 comparison and timezone data integrated
 
@@ -331,4 +415,22 @@ regressions for changed offsets; see the [timezone review](../test-specs/moment-
 Firefox and WebKit artifacts agree on the same three historical formatting
 differences outside the clipped browser timezone range. These comparisons do
 not replace production Moment or establish complete parsing, therapy, report,
-locale or memory equivalence. M27 remains open for its final decision.
+locale or memory equivalence. The final M27 retain/narrow decision is recorded in [the release review](date-time-decision.md).
+
+### Final automated completion and manual handoff
+
+#8717 completes M25's maintained notification-cache decision; #8719 completes
+M28's widget/Flot decision and report characterization. #8718 adds owned
+MongoDB 5→6→7→8 upgrades and backup recovery through actual Nightscout APIs.
+#8720 pins published upstream Connect #66 and adds all 87 installed connector
+regressions to the existing backend CI jobs. Upstream #65 is already merged
+into #64; #66 is stacked there, and the exact reviewed archive is pinned.
+
+M10/M22/M29 automated completion and M30 reconciliation are recorded in the
+[final combined evidence](../test-specs/modernization-completion.md), including
+package/file/image, server and browser comparisons to original baseline
+`9205ea30`. Full development bytes grow; production image/files and the measured
+server heap/browser transfer fall. Historical slice savings are not summed.
+The existing shared current-head CI and merge-tree gates still apply to the
+final reconciliation child. The maintainer then owns actual production and
+device validation; #8605 remains draft and is not automatically merged into dev.

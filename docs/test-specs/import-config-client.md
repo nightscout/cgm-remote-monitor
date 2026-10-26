@@ -11,7 +11,9 @@ this retain outcome. Revisit a scoped fetch dispatcher when both supported Node
 lines provide compatible behavior without another client dependency or a global
 routing change. See [Node proxy configuration](https://nodejs.org/api/cli.html#node_use_env_proxy1).
 
-Axios remains ^0.33.0 with the existing connector-specific overrides. This PR
+The initial M19 change kept Axios ^0.33.0 with connector-specific overrides.
+The [M09 consolidation](axios-consolidation.md) subsequently reviews 1.20.0
+for both consumers and removal of that override. The M19 change
 moves the direct declaration from devDependencies to dependencies because the
 production augmentSettings boot stage requires it. No installed package entry,
 version or integrity changes; the existing transitive consumers already keep

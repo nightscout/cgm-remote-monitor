@@ -130,6 +130,7 @@ describe('API v1 count endpoint pipeline parameter', function ( ) {
     const env = {settings: { }, name: 'test', version: '0', DISPLAY_UNITS: 'mg/dl'};
     const sent = [ ];
     const app = express();
+    require('../lib/middleware/configure-request')(app);
     const wares = require('../lib/middleware/')(env);
     const ctx = {
       authorization: {isPermitted: function ( ) { return function (req, res, next) { next(); }; }}
@@ -163,6 +164,7 @@ describe('API v1 count endpoint pipeline parameter', function ( ) {
     const env = {settings: { }, name: 'test', version: '0', DISPLAY_UNITS: 'mg/dl'};
     const sent = [ ];
     const app = express();
+    require('../lib/middleware/configure-request')(app);
     const wares = require('../lib/middleware/')(env);
     const ctx = {
       authorization: {isPermitted: function ( ) { return function (req, res, next) { next(); }; }}

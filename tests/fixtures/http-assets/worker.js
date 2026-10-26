@@ -61,6 +61,11 @@ async function run() {
   const env = require('../../../lib/server/env')();
   assert.equal(env.debug.minify, process.env.DEBUG_MINIFY === 'true');
   env.settings.authDefaultRoles = 'readable';
+  // Exercise the real CORS handler across the existing production/development
+  // modes, including its wildcard default and configured-origin variant.
+  env.settings.enable = [...env.settings.enable.filter(feature => feature !== 'cors'), 'cors'];
+  const corsOrigin = process.env.NODE_ENV === 'development' ? 'https://cors-fixture.test' : '*';
+  env.extendedSettings = {...env.extendedSettings, cors: corsOrigin === '*' ? {} : {allowOrigin: corsOrigin}};
   ctx = await new Promise(resolve => require('../../../lib/server/bootevent')(env, require('../../../lib/language')()).boot(resolve));
   assert.deepEqual(ctx.bootErrors, []);
   if (ctx.runtimeState !== 'loaded') await ready(ctx.bus);
@@ -83,6 +88,24 @@ async function run() {
   const app = createApp(env, ctx);
   app.locals.cachebuster = 'http-contract';
   const client = await serve(app);
+  for (const [url, method] of [['/api/v1/entries', 'POST'], ['/api/v3/treatments', 'PUT'], ['/missing', 'DELETE']]) {
+    await client.options(url)
+      .set('Origin', 'https://cors-fixture.test')
+      .set('Access-Control-Request-Method', method)
+      .set('Access-Control-Request-Headers', 'Authorization,Content-Type')
+      .expect(200, 'OK')
+      .expect('Content-Type', /text\/plain/)
+      .expect('Access-Control-Allow-Origin', corsOrigin)
+      .expect('Access-Control-Allow-Methods', 'GET,PUT,POST,DELETE,OPTIONS')
+      .expect('Access-Control-Allow-Headers', 'Content-Type, Authorization, Content-Length, X-Requested-With');
+  }
+  for (const [route, apiPath] of [['/api-docs/', '/api/v1'], ['/api3-docs/', '/api/v3']]) {
+    await client.get(route).expect(200).expect('Content-Type', /text\/html/);
+    const init = await client.get(route + 'swagger-ui-init.js').expect(200);
+    assert.ok(init.text.includes('"url": "' + apiPath + '"'), route + ' keeps its own API schema');
+  }
+  await client.get('/swagger-ui-dist/').expect(307).expect('Location', '/api-docs');
+  await client.get('/api/v3/swagger-ui-dist/').expect(307).expect('Location', '../../../api3-docs');
   const bundlePrefix = development ? '/devbundle' : '/bundle';
   const results = [];
   const sources = [

@@ -94,6 +94,8 @@ jobs:
       # The tiers that pass with no database run in test-no-db.
       - name: Run Tests
         run: node scripts/test-tiers.js run integration,stress --ci
+      - name: Run installed connector regression tests
+        run: npm run test:connect
       - name: Validate built and pruned runtime
         env:
           NODE_ENV: production
@@ -187,6 +189,8 @@ jobs:
         run: npm ls brace-expansion postcss mocha nanoid js-yaml eslint nyc dompurify socket.io-parser fast-uri ip-address d3 d3-color express body-parser socket.io socket.io-client engine.io engine.io-client socket.io-adapter ws axios @babel/core @babel/preset-env babel-loader uuid --all
       - name: Run Tests
         run: npm run-script test-ci
+      - name: Run installed connector regression tests
+        run: npm run test:connect
       - name: Run client-core tests
         run: npm run-script test:core
       - name: Send Coverage
@@ -200,6 +204,18 @@ jobs:
           npm prune --omit=dev --ignore-scripts
           node tools/validate-pruned-runtime.js
 
+      - name: Rehearse owned database upgrades and backup recovery
+        if: matrix.node-version == '26' && matrix.mongodb-version == '8.0.29'
+        run: python3 tools/rehearse-database-upgrade.py "$RUNNER_TEMP/nightscout-database-upgrade"
+      - name: Record database upgrade and restore evidence
+        if: always() && matrix.node-version == '26' && matrix.mongodb-version == '8.0.29'
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        with:
+          name: database-upgrade-recovery
+          path: |
+            ${{ runner.temp }}/nightscout-database-upgrade/evidence.json
+            ${{ runner.temp }}/nightscout-database-upgrade/metadata.json
+
   browser-test:
     name: Browser tests (${{ matrix.node-version }}, ${{ matrix.browser }})
     runs-on: ubuntu-latest
@@ -207,7 +223,9 @@ jobs:
       # Keep this version in sync with playwright-core in package.json/package-lock.json.
       image: mcr.microsoft.com/playwright:v1.63.0-noble
       options: --init --ipc=host
-    timeout-minutes: 10
+    # Firefox's 650-case suite can take about nine minutes on a hosted runner.
+    # Allow setup, production build, evidence and cleanup to finish as well.
+    timeout-minutes: 15
     strategy:
       fail-fast: false
       matrix:
@@ -251,6 +269,23 @@ jobs:
         with:
           name: editor-time-${{ matrix.node-version }}-${{ matrix.browser }}
           path: editor-time-comparison.json
+          if-no-files-found: error
+          retention-days: 14
+      - name: Install isolated date comparison candidates
+        run: |
+          mkdir -p "$RUNNER_TEMP/nightscout-date-candidates"
+          cp tools/audits/date-candidates/package*.json "$RUNNER_TEMP/nightscout-date-candidates/"
+          npm ci --prefix "$RUNNER_TEMP/nightscout-date-candidates" --ignore-scripts --no-audit --no-fund
+      - name: Compare date candidates with the production browser bundle
+        env:
+          # This probe also launches Firefox in the root-owned container.
+          HOME: /root
+        run: node tools/audits/browser-date-candidate-probe.cjs "$RUNNER_TEMP/nightscout-date-candidates" ${{ matrix.browser }} > date-candidate-comparison.json
+      - name: Save date candidate evidence
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        with:
+          name: date-candidates-${{ matrix.node-version }}-${{ matrix.browser }}
+          path: date-candidate-comparison.json
           if-no-files-found: error
           retention-days: 14
 
@@ -337,13 +372,17 @@ jobs:
       - name: Validate pruned runtime and startup
         run: |
           docker run --rm "$IMAGE" node -e "require('./lib/server/runtime-policy')(); console.log(process.version)"
-          docker run --detach --name nightscout-smoke -e INSECURE_USE_HTTP=true -p 127.0.0.1:1337:1337 "$IMAGE"
+          docker run --rm "$IMAGE" node -e 'const load = require("node:module").createRequire(require.resolve("mongodb")); require("node:assert/strict").equal(load("@mongodb-js/saslprep").saslprep("I\u00ADX"), "IX")'
+          docker run --detach --name nightscout-smoke -p 127.0.0.1:1337:1337 "$IMAGE"
           trap 'docker logs nightscout-smoke; docker rm -f nightscout-smoke' EXIT
           # With no database credentials the application must serve its setup/error page.
           for attempt in {1..60}; do
-            status=$(curl --silent --output /tmp/nightscout-smoke.html --write-out '%{http_code}' http://127.0.0.1:1337/ || true)
+            status=$(curl --silent --header 'X-Forwarded-Proto: https' --output /tmp/nightscout-smoke.html --write-out '%{http_code}' http://127.0.0.1:1337/ || true)
             if [[ "$status" == "200" || "$status" == "500" || "$status" == "503" ]]; then
               grep -qi nightscout /tmp/nightscout-smoke.html
+              # Default proxy compatibility must avoid HTTPS redirect loops,
+              # while unforwarded HTTP still receives a redirect.
+              test "$(curl --silent --output /dev/null --write-out '%{http_code}' http://127.0.0.1:1337/)" = 307
               exit 0
             fi
             sleep 1

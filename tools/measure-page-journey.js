@@ -10,7 +10,7 @@ const {createPageFixture, pages, hash} = require('../tests/fixtures/page-startup
 async function journey(fixture, data) {
   const browser = await chromium.launch();
   try {
-    const context = await browser.newContext({serviceWorkers: 'allow', viewport: {width: 1280, height: 900}, timezoneId: 'America/Los_Angeles'});
+    const context = await browser.newContext({extraHTTPHeaders: {'api-secret': hash}, serviceWorkers: 'allow', viewport: {width: 1280, height: 900}, timezoneId: 'America/Los_Angeles'});
     const errors = [], external = [], steps = [];
     context.on('request', request => {if (new URL(request.url()).origin !== fixture.origin) external.push(request.url());});
     const page = await context.newPage();

@@ -32,6 +32,7 @@ async function main() {
   });
   try {
     await client.connect();
+    await require('./validate-mongo-scram')(client, mongo, database);
     config.listen(0, '127.0.0.1');
     await once(config, 'listening');
     const reservation = http.createServer();

@@ -1,0 +1,4894 @@
+{
+  "scope": "M28 isolated Flot upgrade and rejected single-pie D3 prototype",
+  "baselineBundles": {
+    "runtime": {
+      "node": "22.23.2",
+      "zlib": "1.3.1-e00f703"
+    },
+    "bundles": {
+      "app": {
+        "bytes": 1046374,
+        "gzipBytes": 305212
+      },
+      "reports": {
+        "bytes": 170335,
+        "gzipBytes": 50616
+      },
+      "admin": {
+        "bytes": 32053,
+        "gzipBytes": 7926
+      },
+      "profile": {
+        "bytes": 18979,
+        "gzipBytes": 6834
+      },
+      "food": {
+        "bytes": 15864,
+        "gzipBytes": 5316
+      },
+      "clock": {
+        "bytes": 154556,
+        "gzipBytes": 62703
+      }
+    },
+    "allApplicationGzipBytes": 375904
+  },
+  "candidateBundles": {
+    "runtime": {
+      "node": "22.23.2",
+      "zlib": "1.3.1-e00f703"
+    },
+    "bundles": {
+      "app": {
+        "bytes": 1046374,
+        "gzipBytes": 305212
+      },
+      "reports": {
+        "bytes": 190319,
+        "gzipBytes": 56591
+      },
+      "admin": {
+        "bytes": 32053,
+        "gzipBytes": 7926
+      },
+      "profile": {
+        "bytes": 18979,
+        "gzipBytes": 6834
+      },
+      "food": {
+        "bytes": 15864,
+        "gzipBytes": 5316
+      },
+      "clock": {
+        "bytes": 154556,
+        "gzipBytes": 62703
+      }
+    },
+    "allApplicationGzipBytes": 381879
+  },
+  "renderComparison": {
+    "scope": "Fixture HTTP loading plus report rendering; not CPU-only or production latency",
+    "node": "v22.23.2",
+    "sources": {
+      "tools/audits/report-flot-comparison.py": "f0f335334a83787b1f961262b6a3b17054df99b9d7b4ea7b502f2d0a0d852392",
+      "tests/browser/legacy-reports.test.js": "8b12f0d19dbb74effe5df0252edae393e4f4bf4f20c6f24f6e9a5a18181dd005",
+      "bundle/bundle.reports.source.js": "ed9e22d2b6360278e8c5868a49cdaa36cd4df13e490048ac6ecc891349875713",
+      "lib/report_plugins/loopalyzer.js": "81566bdb265f5cd3a6821b95621a193cf52a29f5f73df66400bbb3fb3e6504f3",
+      "lib/report_plugins/hourlystats.js": "79b7488de87c9b3b6d13fe618f50d94528bec50812ccc6af46fffd37d3f59249",
+      "lib/report_plugins/percentile.js": "fdc86f4461b53b9e767274112cf1dc6139b846580e7ed930dca987f06a914889",
+      "static/css/report.css": "378fa5609bb1b703a96af62488613c480ab4d7b7a7072c88112afeb5fc3fbbe8"
+    },
+    "samples": [
+      {
+        "run": 0,
+        "label": "baseline",
+        "reportFixtureMs": [
+          169,
+          119,
+          140,
+          116
+        ],
+        "browser": "chromium 153.0.8010.12",
+        "gitHead": "9a110324de84ed5d14a189e7a51a755c9b5c8645"
+      },
+      {
+        "run": 0,
+        "label": "candidate",
+        "reportFixtureMs": [
+          147,
+          116,
+          139,
+          112
+        ],
+        "browser": "chromium 153.0.8010.12",
+        "gitHead": "cd5b192bbc191c73988c5d8b58304d86784be757"
+      },
+      {
+        "run": 1,
+        "label": "baseline",
+        "reportFixtureMs": [
+          147,
+          116,
+          141,
+          123
+        ],
+        "browser": "chromium 153.0.8010.12",
+        "gitHead": "9a110324de84ed5d14a189e7a51a755c9b5c8645"
+      },
+      {
+        "run": 1,
+        "label": "candidate",
+        "reportFixtureMs": [
+          146,
+          128,
+          139,
+          113
+        ],
+        "browser": "chromium 153.0.8010.12",
+        "gitHead": "cd5b192bbc191c73988c5d8b58304d86784be757"
+      },
+      {
+        "run": 2,
+        "label": "baseline",
+        "reportFixtureMs": [
+          154,
+          115,
+          148,
+          120
+        ],
+        "browser": "chromium 153.0.8010.12",
+        "gitHead": "9a110324de84ed5d14a189e7a51a755c9b5c8645"
+      },
+      {
+        "run": 2,
+        "label": "candidate",
+        "reportFixtureMs": [
+          143,
+          118,
+          141,
+          113
+        ],
+        "browser": "chromium 153.0.8010.12",
+        "gitHead": "cd5b192bbc191c73988c5d8b58304d86784be757"
+      },
+      {
+        "run": 3,
+        "label": "baseline",
+        "reportFixtureMs": [
+          149,
+          118,
+          145,
+          115
+        ],
+        "browser": "chromium 153.0.8010.12",
+        "gitHead": "9a110324de84ed5d14a189e7a51a755c9b5c8645"
+      },
+      {
+        "run": 3,
+        "label": "candidate",
+        "reportFixtureMs": [
+          142,
+          115,
+          143,
+          114
+        ],
+        "browser": "chromium 153.0.8010.12",
+        "gitHead": "cd5b192bbc191c73988c5d8b58304d86784be757"
+      },
+      {
+        "run": 4,
+        "label": "baseline",
+        "reportFixtureMs": [
+          151,
+          124,
+          149,
+          118
+        ],
+        "browser": "chromium 153.0.8010.12",
+        "gitHead": "9a110324de84ed5d14a189e7a51a755c9b5c8645"
+      },
+      {
+        "run": 4,
+        "label": "candidate",
+        "reportFixtureMs": [
+          150,
+          120,
+          143,
+          116
+        ],
+        "browser": "chromium 153.0.8010.12",
+        "gitHead": "cd5b192bbc191c73988c5d8b58304d86784be757"
+      },
+      {
+        "run": 5,
+        "label": "baseline",
+        "reportFixtureMs": [
+          151,
+          124,
+          148,
+          116
+        ],
+        "browser": "chromium 153.0.8010.12",
+        "gitHead": "9a110324de84ed5d14a189e7a51a755c9b5c8645"
+      },
+      {
+        "run": 5,
+        "label": "candidate",
+        "reportFixtureMs": [
+          144,
+          113,
+          144,
+          113
+        ],
+        "browser": "chromium 153.0.8010.12",
+        "gitHead": "cd5b192bbc191c73988c5d8b58304d86784be757"
+      },
+      {
+        "run": 6,
+        "label": "baseline",
+        "reportFixtureMs": [
+          152,
+          122,
+          154,
+          121
+        ],
+        "browser": "chromium 153.0.8010.12",
+        "gitHead": "9a110324de84ed5d14a189e7a51a755c9b5c8645"
+      },
+      {
+        "run": 6,
+        "label": "candidate",
+        "reportFixtureMs": [
+          151,
+          115,
+          151,
+          115
+        ],
+        "browser": "chromium 153.0.8010.12",
+        "gitHead": "cd5b192bbc191c73988c5d8b58304d86784be757"
+      }
+    ]
+  },
+  "widgetCandidates": [
+    {
+      "engine": "chromium",
+      "browser": "153.0.8010.12",
+      "node": "v22.23.2",
+      "baseline": "cd5b192bbc191c73988c5d8b58304d86784be757",
+      "cases": [
+        {
+          "values": [
+            10,
+            47.6,
+            42.4
+          ],
+          "d3": [
+            {
+              "label": "Low <safe>",
+              "value": 10,
+              "startAngle": 0,
+              "endAngle": 0.6283185307179586
+            },
+            {
+              "label": "In range",
+              "value": 47.6,
+              "startAngle": 0.6283185307179586,
+              "endAngle": 3.619114736935442
+            },
+            {
+              "label": "High",
+              "value": 42.4,
+              "startAngle": 3.619114736935442,
+              "endAngle": 6.283185307179586
+            }
+          ],
+          "flot": [
+            {
+              "label": "Low <safe>",
+              "percent": 10,
+              "data": [
+                [
+                  1,
+                  10
+                ]
+              ]
+            },
+            {
+              "label": "In range",
+              "percent": 47.6,
+              "data": [
+                [
+                  1,
+                  47.6
+                ]
+              ]
+            },
+            {
+              "label": "High",
+              "percent": 42.4,
+              "data": [
+                [
+                  1,
+                  42.4
+                ]
+              ]
+            }
+          ],
+          "svgCount": 1,
+          "text": "Low <safe>: 10In range: 47.6High: 42.4",
+          "timing": {
+            "flot": [
+              7.199999999254942,
+              1,
+              0.5,
+              0.40000000037252903,
+              0.30000000074505806,
+              0.30000000074505806,
+              0.3999999985098839
+            ],
+            "d3": [
+              0.5,
+              0.09999999962747097,
+              0.09999999962747097,
+              0.09999999962747097,
+              0,
+              0,
+              0
+            ]
+          }
+        },
+        {
+          "values": [
+            0,
+            100,
+            0
+          ],
+          "d3": [
+            {
+              "label": "Low <safe>",
+              "value": 0,
+              "startAngle": 0,
+              "endAngle": 0
+            },
+            {
+              "label": "In range",
+              "value": 100,
+              "startAngle": 0,
+              "endAngle": 6.283185307179587
+            },
+            {
+              "label": "High",
+              "value": 0,
+              "startAngle": 6.283185307179587,
+              "endAngle": 6.283185307179587
+            }
+          ],
+          "flot": [
+            {
+              "label": "Low <safe>",
+              "percent": 0,
+              "data": [
+                [
+                  1,
+                  0
+                ]
+              ]
+            },
+            {
+              "label": "In range",
+              "percent": 100,
+              "data": [
+                [
+                  1,
+                  100
+                ]
+              ]
+            },
+            {
+              "label": "High",
+              "percent": 0,
+              "data": [
+                [
+                  1,
+                  0
+                ]
+              ]
+            }
+          ],
+          "svgCount": 1,
+          "text": "Low <safe>: 0In range: 100High: 0",
+          "timing": {
+            "flot": [
+              0.30000000074505806,
+              0.40000000037252903,
+              0.2999999988824129,
+              0.3999999985098839,
+              0.30000000074505806,
+              0.40000000037252903,
+              0.2999999988824129
+            ],
+            "d3": [
+              0,
+              0,
+              0.10000000149011612,
+              0,
+              0,
+              0,
+              0
+            ]
+          }
+        },
+        {
+          "values": [
+            0,
+            0,
+            0
+          ],
+          "d3": [
+            {
+              "label": "Low <safe>",
+              "value": 0,
+              "startAngle": 0,
+              "endAngle": 0
+            },
+            {
+              "label": "In range",
+              "value": 0,
+              "startAngle": 0,
+              "endAngle": 0
+            },
+            {
+              "label": "High",
+              "value": 0,
+              "startAngle": 0,
+              "endAngle": 0
+            }
+          ],
+          "flot": [
+            {
+              "label": "Low <safe>",
+              "percent": null,
+              "data": [
+                [
+                  1,
+                  0
+                ]
+              ]
+            },
+            {
+              "label": "In range",
+              "percent": null,
+              "data": [
+                [
+                  1,
+                  0
+                ]
+              ]
+            },
+            {
+              "label": "High",
+              "percent": null,
+              "data": [
+                [
+                  1,
+                  0
+                ]
+              ]
+            }
+          ],
+          "svgCount": 1,
+          "text": "Low <safe>: 0In range: 0High: 0",
+          "timing": {
+            "flot": [
+              0.30000000074505806,
+              0.19999999925494194,
+              0.8000000007450581,
+              0.40000000037252903,
+              0.2999999988824129,
+              0.2999999988824129,
+              0.2000000011175871
+            ],
+            "d3": [
+              0,
+              0,
+              0,
+              0,
+              0.10000000149011612,
+              0,
+              0.09999999962747097
+            ]
+          }
+        }
+      ],
+      "features": {
+        "nativeDialog": "function",
+        "modelessDialog": "function",
+        "jquery": "3.7.1",
+        "ui": "1.14.2"
+      },
+      "candidateScope": "static distribution pie only; not the time/candle/fillbetween/report suite",
+      "sources": {
+        "tools/audits/browser-report-widget-probe.cjs": "608c50036008dbfad49eecb4c462a550097384af1bf3035d318deb7b3a6b38bf",
+        "node_modules/.cache/_ns_cache/public/js/bundle.app.js": "d6f59ba214964e7c34e1b1f6f76729cc294c82ce2e7a7adfe35298a18a42d563",
+        "node_modules/.cache/_ns_cache/public/js/bundle.reports.js": "5a214301ba33043c509532491b06eb73115c3f651e6bf17e1883cabda7e1533e"
+      },
+      "candidateSource": {
+        "bytes": 1352,
+        "gzipBytes": 661,
+        "sha256": "31f8d998c9b20bfea5f4700df68e06d3841c3e0a855df2fa6a0097b41b6a2996"
+      },
+      "note": "Unminified standalone helper bytes, not an application bundle saving. Existing D3 is reused."
+    },
+    {
+      "engine": "webkit",
+      "browser": "26.6",
+      "node": "v24.20.0",
+      "baseline": "cd5b192bbc191c73988c5d8b58304d86784be757",
+      "cases": [
+        {
+          "values": [
+            10,
+            47.6,
+            42.4
+          ],
+          "d3": [
+            {
+              "label": "Low <safe>",
+              "value": 10,
+              "startAngle": 0,
+              "endAngle": 0.6283185307179586
+            },
+            {
+              "label": "In range",
+              "value": 47.6,
+              "startAngle": 0.6283185307179586,
+              "endAngle": 3.619114736935442
+            },
+            {
+              "label": "High",
+              "value": 42.4,
+              "startAngle": 3.619114736935442,
+              "endAngle": 6.283185307179586
+            }
+          ],
+          "flot": [
+            {
+              "label": "Low <safe>",
+              "percent": 10,
+              "data": [
+                [
+                  1,
+                  10
+                ]
+              ]
+            },
+            {
+              "label": "In range",
+              "percent": 47.6,
+              "data": [
+                [
+                  1,
+                  47.6
+                ]
+              ]
+            },
+            {
+              "label": "High",
+              "percent": 42.4,
+              "data": [
+                [
+                  1,
+                  42.4
+                ]
+              ]
+            }
+          ],
+          "svgCount": 1,
+          "text": "Low <safe>: 10In range: 47.6High: 42.4",
+          "timing": {
+            "flot": [
+              7,
+              3,
+              1,
+              1,
+              1,
+              1,
+              0
+            ],
+            "d3": [
+              1,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0
+            ]
+          }
+        },
+        {
+          "values": [
+            0,
+            100,
+            0
+          ],
+          "d3": [
+            {
+              "label": "Low <safe>",
+              "value": 0,
+              "startAngle": 0,
+              "endAngle": 0
+            },
+            {
+              "label": "In range",
+              "value": 100,
+              "startAngle": 0,
+              "endAngle": 6.283185307179587
+            },
+            {
+              "label": "High",
+              "value": 0,
+              "startAngle": 6.283185307179587,
+              "endAngle": 6.283185307179587
+            }
+          ],
+          "flot": [
+            {
+              "label": "Low <safe>",
+              "percent": 0,
+              "data": [
+                [
+                  1,
+                  0
+                ]
+              ]
+            },
+            {
+              "label": "In range",
+              "percent": 100,
+              "data": [
+                [
+                  1,
+                  100
+                ]
+              ]
+            },
+            {
+              "label": "High",
+              "percent": 0,
+              "data": [
+                [
+                  1,
+                  0
+                ]
+              ]
+            }
+          ],
+          "svgCount": 1,
+          "text": "Low <safe>: 0In range: 100High: 0",
+          "timing": {
+            "flot": [
+              1,
+              1,
+              1,
+              0,
+              1,
+              1,
+              0
+            ],
+            "d3": [
+              0,
+              0,
+              0,
+              0,
+              0,
+              1,
+              0
+            ]
+          }
+        },
+        {
+          "values": [
+            0,
+            0,
+            0
+          ],
+          "d3": [
+            {
+              "label": "Low <safe>",
+              "value": 0,
+              "startAngle": 0,
+              "endAngle": 0
+            },
+            {
+              "label": "In range",
+              "value": 0,
+              "startAngle": 0,
+              "endAngle": 0
+            },
+            {
+              "label": "High",
+              "value": 0,
+              "startAngle": 0,
+              "endAngle": 0
+            }
+          ],
+          "flot": [
+            {
+              "label": "Low <safe>",
+              "percent": null,
+              "data": [
+                [
+                  1,
+                  0
+                ]
+              ]
+            },
+            {
+              "label": "In range",
+              "percent": null,
+              "data": [
+                [
+                  1,
+                  0
+                ]
+              ]
+            },
+            {
+              "label": "High",
+              "percent": null,
+              "data": [
+                [
+                  1,
+                  0
+                ]
+              ]
+            }
+          ],
+          "svgCount": 1,
+          "text": "Low <safe>: 0In range: 0High: 0",
+          "timing": {
+            "flot": [
+              1,
+              1,
+              1,
+              1,
+              0,
+              1,
+              1
+            ],
+            "d3": [
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0
+            ]
+          }
+        }
+      ],
+      "features": {
+        "nativeDialog": "function",
+        "modelessDialog": "function",
+        "jquery": "3.7.1",
+        "ui": "1.14.2"
+      },
+      "candidateScope": "static distribution pie only; not the time/candle/fillbetween/report suite",
+      "sources": {
+        "tools/audits/browser-report-widget-probe.cjs": "608c50036008dbfad49eecb4c462a550097384af1bf3035d318deb7b3a6b38bf",
+        "node_modules/.cache/_ns_cache/public/js/bundle.app.js": "d6f59ba214964e7c34e1b1f6f76729cc294c82ce2e7a7adfe35298a18a42d563",
+        "node_modules/.cache/_ns_cache/public/js/bundle.reports.js": "5a214301ba33043c509532491b06eb73115c3f651e6bf17e1883cabda7e1533e"
+      },
+      "candidateSource": {
+        "bytes": 1352,
+        "gzipBytes": 661,
+        "sha256": "31f8d998c9b20bfea5f4700df68e06d3841c3e0a855df2fa6a0097b41b6a2996"
+      },
+      "note": "Unminified standalone helper bytes, not an application bundle saving. Existing D3 is reused."
+    }
+  ],
+  "axes": {
+    "mgdl": {
+      "baseline": {
+        "dailystat-chart-2015-08-14": {
+          "axes": {
+            "xaxis": {
+              "min": 0.99,
+              "max": 1.01,
+              "mode": null,
+              "ticks": []
+            },
+            "yaxis": {
+              "min": 0,
+              "max": 102,
+              "ticks": []
+            }
+          },
+          "dataSha256": "ca99e233296e2b1eece438c289354c00ebc97116bcf68fc383fa3cbb2dc4f3d9"
+        },
+        "dailystat-chart-2015-08-13": {
+          "axes": {
+            "xaxis": {
+              "min": 0.99,
+              "max": 1.01,
+              "mode": null,
+              "ticks": []
+            },
+            "yaxis": {
+              "min": 0,
+              "max": 102,
+              "ticks": []
+            }
+          },
+          "dataSha256": "ca99e233296e2b1eece438c289354c00ebc97116bcf68fc383fa3cbb2dc4f3d9"
+        },
+        "dailystat-chart-2015-08-12": {
+          "axes": {
+            "xaxis": {
+              "min": 0.99,
+              "max": 1.01,
+              "mode": null,
+              "ticks": []
+            },
+            "yaxis": {
+              "min": 0,
+              "max": 102,
+              "ticks": []
+            }
+          },
+          "dataSha256": "8a75b2aacf93f5fb7afac44b412c36b8cf6faa9170b5321844334f3a10f4bd07"
+        },
+        "dailystat-chart-2015-08-11": {
+          "axes": {
+            "xaxis": {
+              "min": 0.99,
+              "max": 1.01,
+              "mode": null,
+              "ticks": []
+            },
+            "yaxis": {
+              "min": 0,
+              "max": 102,
+              "ticks": []
+            }
+          },
+          "dataSha256": "8a75b2aacf93f5fb7afac44b412c36b8cf6faa9170b5321844334f3a10f4bd07"
+        },
+        "dailystat-chart-2015-08-10": {
+          "axes": {
+            "xaxis": {
+              "min": 0.99,
+              "max": 1.01,
+              "mode": null,
+              "ticks": []
+            },
+            "yaxis": {
+              "min": 0,
+              "max": 102,
+              "ticks": []
+            }
+          },
+          "dataSha256": "ca99e233296e2b1eece438c289354c00ebc97116bcf68fc383fa3cbb2dc4f3d9"
+        },
+        "dailystat-chart-2015-08-09": {
+          "axes": {
+            "xaxis": {
+              "min": 0.99,
+              "max": 1.01,
+              "mode": null,
+              "ticks": []
+            },
+            "yaxis": {
+              "min": 0,
+              "max": 102,
+              "ticks": []
+            }
+          },
+          "dataSha256": "8a75b2aacf93f5fb7afac44b412c36b8cf6faa9170b5321844334f3a10f4bd07"
+        },
+        "dailystat-chart-2015-08-08": {
+          "axes": {
+            "xaxis": {
+              "min": 0.99,
+              "max": 1.01,
+              "mode": null,
+              "ticks": []
+            },
+            "yaxis": {
+              "min": 0,
+              "max": 102,
+              "ticks": []
+            }
+          },
+          "dataSha256": "ca99e233296e2b1eece438c289354c00ebc97116bcf68fc383fa3cbb2dc4f3d9"
+        },
+        "hourlystats-overviewchart": {
+          "axes": {
+            "xaxis": {
+              "min": 0,
+              "max": 86399000,
+              "mode": "time",
+              "ticks": [
+                {
+                  "v": 0,
+                  "label": "00:00"
+                },
+                {
+                  "v": 7200000,
+                  "label": "02:00"
+                },
+                {
+                  "v": 14400000,
+                  "label": "04:00"
+                },
+                {
+                  "v": 21600000,
+                  "label": "06:00"
+                },
+                {
+                  "v": 28800000,
+                  "label": "08:00"
+                },
+                {
+                  "v": 36000000,
+                  "label": "10:00"
+                },
+                {
+                  "v": 43200000,
+                  "label": "12:00"
+                },
+                {
+                  "v": 50400000,
+                  "label": "14:00"
+                },
+                {
+                  "v": 57600000,
+                  "label": "16:00"
+                },
+                {
+                  "v": 64800000,
+                  "label": "18:00"
+                },
+                {
+                  "v": 72000000,
+                  "label": "20:00"
+                },
+                {
+                  "v": 79200000,
+                  "label": "22:00"
+                },
+                {
+                  "v": 86400000,
+                  "label": "00:00"
+                }
+              ]
+            },
+            "yaxis": {
+              "min": 0,
+              "max": 400,
+              "ticks": [
+                {
+                  "v": 0,
+                  "label": "0"
+                },
+                {
+                  "v": 50,
+                  "label": "50"
+                },
+                {
+                  "v": 100,
+                  "label": "100"
+                },
+                {
+                  "v": 150,
+                  "label": "150"
+                },
+                {
+                  "v": 200,
+                  "label": "200"
+                },
+                {
+                  "v": 250,
+                  "label": "250"
+                },
+                {
+                  "v": 300,
+                  "label": "300"
+                },
+                {
+                  "v": 350,
+                  "label": "350"
+                },
+                {
+                  "v": 400,
+                  "label": "400"
+                }
+              ]
+            }
+          },
+          "dataSha256": "b670df64c3975b39343d84bb8e9f0ceeb24ddd044a9e3768c581f22e7b032d40"
+        },
+        "percentile-chart": {
+          "axes": {
+            "xaxis": {
+              "min": 1735689600000,
+              "max": 1735774200000,
+              "mode": "time",
+              "ticks": [
+                {
+                  "v": 1735689600000,
+                  "label": "00:00"
+                },
+                {
+                  "v": 1735696800000,
+                  "label": "02:00"
+                },
+                {
+                  "v": 1735704000000,
+                  "label": "04:00"
+                },
+                {
+                  "v": 1735711200000,
+                  "label": "06:00"
+                },
+                {
+                  "v": 1735718400000,
+                  "label": "08:00"
+                },
+                {
+                  "v": 1735725600000,
+                  "label": "10:00"
+                },
+                {
+                  "v": 1735732800000,
+                  "label": "12:00"
+                },
+                {
+                  "v": 1735740000000,
+                  "label": "14:00"
+                },
+                {
+                  "v": 1735747200000,
+                  "label": "16:00"
+                },
+                {
+                  "v": 1735754400000,
+                  "label": "18:00"
+                },
+                {
+                  "v": 1735761600000,
+                  "label": "20:00"
+                },
+                {
+                  "v": 1735768800000,
+                  "label": "22:00"
+                },
+                {
+                  "v": 1735776000000,
+                  "label": "00:00"
+                }
+              ]
+            },
+            "yaxis": {
+              "min": 0,
+              "max": 400,
+              "ticks": [
+                {
+                  "v": 0,
+                  "label": "0"
+                },
+                {
+                  "v": 50,
+                  "label": "50"
+                },
+                {
+                  "v": 100,
+                  "label": "100"
+                },
+                {
+                  "v": 150,
+                  "label": "150"
+                },
+                {
+                  "v": 200,
+                  "label": "200"
+                },
+                {
+                  "v": 250,
+                  "label": "250"
+                },
+                {
+                  "v": 300,
+                  "label": "300"
+                },
+                {
+                  "v": 350,
+                  "label": "350"
+                },
+                {
+                  "v": 400,
+                  "label": "400"
+                }
+              ]
+            }
+          },
+          "dataSha256": "eb12f0ee9bec88bb90170ea38157f7cbc979afaa46de7e121d40ee5a63c9f45d"
+        },
+        "loopalyzer-basal": {
+          "axes": {
+            "xaxis": {
+              "min": 1735689600000,
+              "max": 1735776000000,
+              "mode": "time",
+              "ticks": [
+                {
+                  "v": 1735689600000,
+                  "label": "00:00"
+                },
+                {
+                  "v": 1735693200000,
+                  "label": "01:00"
+                },
+                {
+                  "v": 1735696800000,
+                  "label": "02:00"
+                },
+                {
+                  "v": 1735700400000,
+                  "label": "03:00"
+                },
+                {
+                  "v": 1735704000000,
+                  "label": "04:00"
+                },
+                {
+                  "v": 1735707600000,
+                  "label": "05:00"
+                },
+                {
+                  "v": 1735711200000,
+                  "label": "06:00"
+                },
+                {
+                  "v": 1735714800000,
+                  "label": "07:00"
+                },
+                {
+                  "v": 1735718400000,
+                  "label": "08:00"
+                },
+                {
+                  "v": 1735722000000,
+                  "label": "09:00"
+                },
+                {
+                  "v": 1735725600000,
+                  "label": "10:00"
+                },
+                {
+                  "v": 1735729200000,
+                  "label": "11:00"
+                },
+                {
+                  "v": 1735732800000,
+                  "label": "12:00"
+                },
+                {
+                  "v": 1735736400000,
+                  "label": "13:00"
+                },
+                {
+                  "v": 1735740000000,
+                  "label": "14:00"
+                },
+                {
+                  "v": 1735743600000,
+                  "label": "15:00"
+                },
+                {
+                  "v": 1735747200000,
+                  "label": "16:00"
+                },
+                {
+                  "v": 1735750800000,
+                  "label": "17:00"
+                },
+                {
+                  "v": 1735754400000,
+                  "label": "18:00"
+                },
+                {
+                  "v": 1735758000000,
+                  "label": "19:00"
+                },
+                {
+                  "v": 1735761600000,
+                  "label": "20:00"
+                },
+                {
+                  "v": 1735765200000,
+                  "label": "21:00"
+                },
+                {
+                  "v": 1735768800000,
+                  "label": "22:00"
+                },
+                {
+                  "v": 1735772400000,
+                  "label": "23:00"
+                },
+                {
+                  "v": 1735776000000,
+                  "label": "00:00"
+                }
+              ]
+            },
+            "yaxis": {
+              "min": 0,
+              "max": 0.15000000000000002,
+              "ticks": [
+                {
+                  "v": 0,
+                  "label": ""
+                },
+                {
+                  "v": 0.05,
+                  "label": "0.05"
+                },
+                {
+                  "v": 0.1,
+                  "label": "0.1"
+                },
+                {
+                  "v": 0.15000000000000002,
+                  "label": ""
+                }
+              ]
+            }
+          },
+          "dataSha256": "c640e07b66710201bbd53ed9918057e9f6e799081d6b29c5bfcefb03a3150713"
+        },
+        "loopalyzer-bg": {
+          "axes": {
+            "xaxis": {
+              "min": 1735689600000,
+              "max": 1735775700000,
+              "mode": "time",
+              "ticks": [
+                {
+                  "v": 1735689600000,
+                  "label": "00:00"
+                },
+                {
+                  "v": 1735693200000,
+                  "label": "01:00"
+                },
+                {
+                  "v": 1735696800000,
+                  "label": "02:00"
+                },
+                {
+                  "v": 1735700400000,
+                  "label": "03:00"
+                },
+                {
+                  "v": 1735704000000,
+                  "label": "04:00"
+                },
+                {
+                  "v": 1735707600000,
+                  "label": "05:00"
+                },
+                {
+                  "v": 1735711200000,
+                  "label": "06:00"
+                },
+                {
+                  "v": 1735714800000,
+                  "label": "07:00"
+                },
+                {
+                  "v": 1735718400000,
+                  "label": "08:00"
+                },
+                {
+                  "v": 1735722000000,
+                  "label": "09:00"
+                },
+                {
+                  "v": 1735725600000,
+                  "label": "10:00"
+                },
+                {
+                  "v": 1735729200000,
+                  "label": "11:00"
+                },
+                {
+                  "v": 1735732800000,
+                  "label": "12:00"
+                },
+                {
+                  "v": 1735736400000,
+                  "label": "13:00"
+                },
+                {
+                  "v": 1735740000000,
+                  "label": "14:00"
+                },
+                {
+                  "v": 1735743600000,
+                  "label": "15:00"
+                },
+                {
+                  "v": 1735747200000,
+                  "label": "16:00"
+                },
+                {
+                  "v": 1735750800000,
+                  "label": "17:00"
+                },
+                {
+                  "v": 1735754400000,
+                  "label": "18:00"
+                },
+                {
+                  "v": 1735758000000,
+                  "label": "19:00"
+                },
+                {
+                  "v": 1735761600000,
+                  "label": "20:00"
+                },
+                {
+                  "v": 1735765200000,
+                  "label": "21:00"
+                },
+                {
+                  "v": 1735768800000,
+                  "label": "22:00"
+                },
+                {
+                  "v": 1735772400000,
+                  "label": "23:00"
+                },
+                {
+                  "v": 1735776000000,
+                  "label": "00:00"
+                }
+              ]
+            },
+            "yaxis": {
+              "min": 0,
+              "max": 400,
+              "ticks": [
+                {
+                  "v": 0,
+                  "label": ""
+                },
+                {
+                  "v": 100,
+                  "label": "100"
+                },
+                {
+                  "v": 200,
+                  "label": "200"
+                },
+                {
+                  "v": 300,
+                  "label": "300"
+                },
+                {
+                  "v": 400,
+                  "label": ""
+                }
+              ]
+            }
+          },
+          "dataSha256": "a8bcf34852243b3a09971e8dd6f6a409f2840ad59ff08c09cf461c49fd0149be"
+        },
+        "loopalyzer-tempbasal": {
+          "axes": {
+            "xaxis": {
+              "min": 1735689600000,
+              "max": 1735775700000,
+              "mode": "time",
+              "ticks": [
+                {
+                  "v": 1735689600000,
+                  "label": "00:00"
+                },
+                {
+                  "v": 1735693200000,
+                  "label": "01:00"
+                },
+                {
+                  "v": 1735696800000,
+                  "label": "02:00"
+                },
+                {
+                  "v": 1735700400000,
+                  "label": "03:00"
+                },
+                {
+                  "v": 1735704000000,
+                  "label": "04:00"
+                },
+                {
+                  "v": 1735707600000,
+                  "label": "05:00"
+                },
+                {
+                  "v": 1735711200000,
+                  "label": "06:00"
+                },
+                {
+                  "v": 1735714800000,
+                  "label": "07:00"
+                },
+                {
+                  "v": 1735718400000,
+                  "label": "08:00"
+                },
+                {
+                  "v": 1735722000000,
+                  "label": "09:00"
+                },
+                {
+                  "v": 1735725600000,
+                  "label": "10:00"
+                },
+                {
+                  "v": 1735729200000,
+                  "label": "11:00"
+                },
+                {
+                  "v": 1735732800000,
+                  "label": "12:00"
+                },
+                {
+                  "v": 1735736400000,
+                  "label": "13:00"
+                },
+                {
+                  "v": 1735740000000,
+                  "label": "14:00"
+                },
+                {
+                  "v": 1735743600000,
+                  "label": "15:00"
+                },
+                {
+                  "v": 1735747200000,
+                  "label": "16:00"
+                },
+                {
+                  "v": 1735750800000,
+                  "label": "17:00"
+                },
+                {
+                  "v": 1735754400000,
+                  "label": "18:00"
+                },
+                {
+                  "v": 1735758000000,
+                  "label": "19:00"
+                },
+                {
+                  "v": 1735761600000,
+                  "label": "20:00"
+                },
+                {
+                  "v": 1735765200000,
+                  "label": "21:00"
+                },
+                {
+                  "v": 1735768800000,
+                  "label": "22:00"
+                },
+                {
+                  "v": 1735772400000,
+                  "label": "23:00"
+                },
+                {
+                  "v": 1735776000000,
+                  "label": "00:00"
+                }
+              ]
+            },
+            "yaxis": {
+              "min": -1,
+              "max": 1,
+              "ticks": [
+                {
+                  "v": -1,
+                  "label": ""
+                },
+                {
+                  "v": -0.5,
+                  "label": "-0.5"
+                },
+                {
+                  "v": 0,
+                  "label": "0"
+                },
+                {
+                  "v": 0.5,
+                  "label": "0.5"
+                },
+                {
+                  "v": 1,
+                  "label": ""
+                }
+              ]
+            }
+          },
+          "dataSha256": "21edd0d6470dbc28445a0a75d66f887f4c0f7f4a83d93af2ad46ce997e6e501b"
+        },
+        "loopalyzer-iob": {
+          "axes": {
+            "xaxis": {
+              "min": 1735689600000,
+              "max": 1735776000000,
+              "mode": "time",
+              "ticks": [
+                {
+                  "v": 1735689600000,
+                  "label": "00:00"
+                },
+                {
+                  "v": 1735693200000,
+                  "label": "01:00"
+                },
+                {
+                  "v": 1735696800000,
+                  "label": "02:00"
+                },
+                {
+                  "v": 1735700400000,
+                  "label": "03:00"
+                },
+                {
+                  "v": 1735704000000,
+                  "label": "04:00"
+                },
+                {
+                  "v": 1735707600000,
+                  "label": "05:00"
+                },
+                {
+                  "v": 1735711200000,
+                  "label": "06:00"
+                },
+                {
+                  "v": 1735714800000,
+                  "label": "07:00"
+                },
+                {
+                  "v": 1735718400000,
+                  "label": "08:00"
+                },
+                {
+                  "v": 1735722000000,
+                  "label": "09:00"
+                },
+                {
+                  "v": 1735725600000,
+                  "label": "10:00"
+                },
+                {
+                  "v": 1735729200000,
+                  "label": "11:00"
+                },
+                {
+                  "v": 1735732800000,
+                  "label": "12:00"
+                },
+                {
+                  "v": 1735736400000,
+                  "label": "13:00"
+                },
+                {
+                  "v": 1735740000000,
+                  "label": "14:00"
+                },
+                {
+                  "v": 1735743600000,
+                  "label": "15:00"
+                },
+                {
+                  "v": 1735747200000,
+                  "label": "16:00"
+                },
+                {
+                  "v": 1735750800000,
+                  "label": "17:00"
+                },
+                {
+                  "v": 1735754400000,
+                  "label": "18:00"
+                },
+                {
+                  "v": 1735758000000,
+                  "label": "19:00"
+                },
+                {
+                  "v": 1735761600000,
+                  "label": "20:00"
+                },
+                {
+                  "v": 1735765200000,
+                  "label": "21:00"
+                },
+                {
+                  "v": 1735768800000,
+                  "label": "22:00"
+                },
+                {
+                  "v": 1735772400000,
+                  "label": "23:00"
+                },
+                {
+                  "v": 1735776000000,
+                  "label": "00:00"
+                }
+              ]
+            },
+            "yaxis": {
+              "min": 0,
+              "max": 4,
+              "ticks": [
+                {
+                  "v": 0,
+                  "label": ""
+                },
+                {
+                  "v": 1,
+                  "label": "1"
+                },
+                {
+                  "v": 2,
+                  "label": "2"
+                },
+                {
+                  "v": 3,
+                  "label": "3"
+                },
+                {
+                  "v": 4,
+                  "label": ""
+                }
+              ]
+            }
+          },
+          "dataSha256": "bf1d641b765451a3e6d1128676849f7745c08c8b955844e70ca876fc85bb42d7"
+        },
+        "loopalyzer-cob": {
+          "axes": {
+            "xaxis": {
+              "min": 1735689600000,
+              "max": 1735776000000,
+              "mode": "time",
+              "ticks": [
+                {
+                  "v": 1735689600000,
+                  "label": "00:00"
+                },
+                {
+                  "v": 1735693200000,
+                  "label": "01:00"
+                },
+                {
+                  "v": 1735696800000,
+                  "label": "02:00"
+                },
+                {
+                  "v": 1735700400000,
+                  "label": "03:00"
+                },
+                {
+                  "v": 1735704000000,
+                  "label": "04:00"
+                },
+                {
+                  "v": 1735707600000,
+                  "label": "05:00"
+                },
+                {
+                  "v": 1735711200000,
+                  "label": "06:00"
+                },
+                {
+                  "v": 1735714800000,
+                  "label": "07:00"
+                },
+                {
+                  "v": 1735718400000,
+                  "label": "08:00"
+                },
+                {
+                  "v": 1735722000000,
+                  "label": "09:00"
+                },
+                {
+                  "v": 1735725600000,
+                  "label": "10:00"
+                },
+                {
+                  "v": 1735729200000,
+                  "label": "11:00"
+                },
+                {
+                  "v": 1735732800000,
+                  "label": "12:00"
+                },
+                {
+                  "v": 1735736400000,
+                  "label": "13:00"
+                },
+                {
+                  "v": 1735740000000,
+                  "label": "14:00"
+                },
+                {
+                  "v": 1735743600000,
+                  "label": "15:00"
+                },
+                {
+                  "v": 1735747200000,
+                  "label": "16:00"
+                },
+                {
+                  "v": 1735750800000,
+                  "label": "17:00"
+                },
+                {
+                  "v": 1735754400000,
+                  "label": "18:00"
+                },
+                {
+                  "v": 1735758000000,
+                  "label": "19:00"
+                },
+                {
+                  "v": 1735761600000,
+                  "label": "20:00"
+                },
+                {
+                  "v": 1735765200000,
+                  "label": "21:00"
+                },
+                {
+                  "v": 1735768800000,
+                  "label": "22:00"
+                },
+                {
+                  "v": 1735772400000,
+                  "label": "23:00"
+                },
+                {
+                  "v": 1735776000000,
+                  "label": "00:00"
+                }
+              ]
+            },
+            "yaxis": {
+              "min": 0,
+              "max": 60,
+              "ticks": [
+                {
+                  "v": 0,
+                  "label": ""
+                },
+                {
+                  "v": 10,
+                  "label": "10"
+                },
+                {
+                  "v": 20,
+                  "label": "20"
+                },
+                {
+                  "v": 30,
+                  "label": "30"
+                },
+                {
+                  "v": 40,
+                  "label": "40"
+                },
+                {
+                  "v": 50,
+                  "label": "50"
+                },
+                {
+                  "v": 60,
+                  "label": ""
+                }
+              ]
+            }
+          },
+          "dataSha256": "59fe80b1a4565d47eaf4cb2a04442704d36e1e91fbfca131b916c9ce6bb800e8"
+        },
+        "glucosedistribution-overviewchart": {
+          "axes": {
+            "xaxis": {
+              "min": 0.99,
+              "max": 1.01,
+              "mode": null,
+              "ticks": []
+            },
+            "yaxis": {
+              "min": 0,
+              "max": 10.2,
+              "ticks": []
+            }
+          },
+          "dataSha256": "749b77b30944aad853eaaed1a36c51bf7be051723b129d8a3d274bce9ac25a37"
+        }
+      },
+      "candidate": {
+        "dailystat-chart-2015-08-14": {
+          "axes": {
+            "xaxis": {
+              "min": 1,
+              "max": 1.01,
+              "mode": null,
+              "ticks": []
+            },
+            "yaxis": {
+              "min": 0,
+              "max": 102,
+              "ticks": []
+            }
+          },
+          "dataSha256": "ca99e233296e2b1eece438c289354c00ebc97116bcf68fc383fa3cbb2dc4f3d9"
+        },
+        "dailystat-chart-2015-08-13": {
+          "axes": {
+            "xaxis": {
+              "min": 1,
+              "max": 1.01,
+              "mode": null,
+              "ticks": []
+            },
+            "yaxis": {
+              "min": 0,
+              "max": 102,
+              "ticks": []
+            }
+          },
+          "dataSha256": "ca99e233296e2b1eece438c289354c00ebc97116bcf68fc383fa3cbb2dc4f3d9"
+        },
+        "dailystat-chart-2015-08-12": {
+          "axes": {
+            "xaxis": {
+              "min": 1,
+              "max": 1.01,
+              "mode": null,
+              "ticks": []
+            },
+            "yaxis": {
+              "min": 0,
+              "max": 102,
+              "ticks": []
+            }
+          },
+          "dataSha256": "8a75b2aacf93f5fb7afac44b412c36b8cf6faa9170b5321844334f3a10f4bd07"
+        },
+        "dailystat-chart-2015-08-11": {
+          "axes": {
+            "xaxis": {
+              "min": 1,
+              "max": 1.01,
+              "mode": null,
+              "ticks": []
+            },
+            "yaxis": {
+              "min": 0,
+              "max": 102,
+              "ticks": []
+            }
+          },
+          "dataSha256": "8a75b2aacf93f5fb7afac44b412c36b8cf6faa9170b5321844334f3a10f4bd07"
+        },
+        "dailystat-chart-2015-08-10": {
+          "axes": {
+            "xaxis": {
+              "min": 1,
+              "max": 1.01,
+              "mode": null,
+              "ticks": []
+            },
+            "yaxis": {
+              "min": 0,
+              "max": 102,
+              "ticks": []
+            }
+          },
+          "dataSha256": "ca99e233296e2b1eece438c289354c00ebc97116bcf68fc383fa3cbb2dc4f3d9"
+        },
+        "dailystat-chart-2015-08-09": {
+          "axes": {
+            "xaxis": {
+              "min": 1,
+              "max": 1.01,
+              "mode": null,
+              "ticks": []
+            },
+            "yaxis": {
+              "min": 0,
+              "max": 102,
+              "ticks": []
+            }
+          },
+          "dataSha256": "8a75b2aacf93f5fb7afac44b412c36b8cf6faa9170b5321844334f3a10f4bd07"
+        },
+        "dailystat-chart-2015-08-08": {
+          "axes": {
+            "xaxis": {
+              "min": 1,
+              "max": 1.01,
+              "mode": null,
+              "ticks": []
+            },
+            "yaxis": {
+              "min": 0,
+              "max": 102,
+              "ticks": []
+            }
+          },
+          "dataSha256": "ca99e233296e2b1eece438c289354c00ebc97116bcf68fc383fa3cbb2dc4f3d9"
+        },
+        "hourlystats-overviewchart": {
+          "axes": {
+            "xaxis": {
+              "min": 0,
+              "max": 86399000,
+              "mode": "time",
+              "ticks": [
+                {
+                  "v": 0,
+                  "label": "00:00"
+                },
+                {
+                  "v": 7200000,
+                  "label": "02:00"
+                },
+                {
+                  "v": 14400000,
+                  "label": "04:00"
+                },
+                {
+                  "v": 21600000,
+                  "label": "06:00"
+                },
+                {
+                  "v": 28800000,
+                  "label": "08:00"
+                },
+                {
+                  "v": 36000000,
+                  "label": "10:00"
+                },
+                {
+                  "v": 43200000,
+                  "label": "12:00"
+                },
+                {
+                  "v": 50400000,
+                  "label": "14:00"
+                },
+                {
+                  "v": 57600000,
+                  "label": "16:00"
+                },
+                {
+                  "v": 64800000,
+                  "label": "18:00"
+                },
+                {
+                  "v": 72000000,
+                  "label": "20:00"
+                },
+                {
+                  "v": 79200000,
+                  "label": "22:00"
+                },
+                {
+                  "v": 86400000,
+                  "label": "00:00"
+                }
+              ]
+            },
+            "yaxis": {
+              "min": 0,
+              "max": 400,
+              "ticks": [
+                {
+                  "v": 0,
+                  "label": "0"
+                },
+                {
+                  "v": 50,
+                  "label": "50"
+                },
+                {
+                  "v": 100,
+                  "label": "100"
+                },
+                {
+                  "v": 150,
+                  "label": "150"
+                },
+                {
+                  "v": 200,
+                  "label": "200"
+                },
+                {
+                  "v": 250,
+                  "label": "250"
+                },
+                {
+                  "v": 300,
+                  "label": "300"
+                },
+                {
+                  "v": 350,
+                  "label": "350"
+                },
+                {
+                  "v": 400,
+                  "label": "400"
+                }
+              ]
+            }
+          },
+          "dataSha256": "b670df64c3975b39343d84bb8e9f0ceeb24ddd044a9e3768c581f22e7b032d40"
+        },
+        "percentile-chart": {
+          "axes": {
+            "xaxis": {
+              "min": 1735689600000,
+              "max": 1735774200000,
+              "mode": "time",
+              "ticks": [
+                {
+                  "v": 1735689600000,
+                  "label": "00:00"
+                },
+                {
+                  "v": 1735696800000,
+                  "label": "02:00"
+                },
+                {
+                  "v": 1735704000000,
+                  "label": "04:00"
+                },
+                {
+                  "v": 1735711200000,
+                  "label": "06:00"
+                },
+                {
+                  "v": 1735718400000,
+                  "label": "08:00"
+                },
+                {
+                  "v": 1735725600000,
+                  "label": "10:00"
+                },
+                {
+                  "v": 1735732800000,
+                  "label": "12:00"
+                },
+                {
+                  "v": 1735740000000,
+                  "label": "14:00"
+                },
+                {
+                  "v": 1735747200000,
+                  "label": "16:00"
+                },
+                {
+                  "v": 1735754400000,
+                  "label": "18:00"
+                },
+                {
+                  "v": 1735761600000,
+                  "label": "20:00"
+                },
+                {
+                  "v": 1735768800000,
+                  "label": "22:00"
+                },
+                {
+                  "v": 1735776000000,
+                  "label": "00:00"
+                }
+              ]
+            },
+            "yaxis": {
+              "min": 0,
+              "max": 400,
+              "ticks": [
+                {
+                  "v": 0,
+                  "label": "0"
+                },
+                {
+                  "v": 50,
+                  "label": "50"
+                },
+                {
+                  "v": 100,
+                  "label": "100"
+                },
+                {
+                  "v": 150,
+                  "label": "150"
+                },
+                {
+                  "v": 200,
+                  "label": "200"
+                },
+                {
+                  "v": 250,
+                  "label": "250"
+                },
+                {
+                  "v": 300,
+                  "label": "300"
+                },
+                {
+                  "v": 350,
+                  "label": "350"
+                },
+                {
+                  "v": 400,
+                  "label": "400"
+                }
+              ]
+            }
+          },
+          "dataSha256": "eb12f0ee9bec88bb90170ea38157f7cbc979afaa46de7e121d40ee5a63c9f45d"
+        },
+        "loopalyzer-basal": {
+          "axes": {
+            "xaxis": {
+              "min": 1735689600000,
+              "max": 1735776000000,
+              "mode": "time",
+              "ticks": [
+                {
+                  "v": 1735689600000,
+                  "label": "00:00"
+                },
+                {
+                  "v": 1735693200000,
+                  "label": "01:00"
+                },
+                {
+                  "v": 1735696800000,
+                  "label": "02:00"
+                },
+                {
+                  "v": 1735700400000,
+                  "label": "03:00"
+                },
+                {
+                  "v": 1735704000000,
+                  "label": "04:00"
+                },
+                {
+                  "v": 1735707600000,
+                  "label": "05:00"
+                },
+                {
+                  "v": 1735711200000,
+                  "label": "06:00"
+                },
+                {
+                  "v": 1735714800000,
+                  "label": "07:00"
+                },
+                {
+                  "v": 1735718400000,
+                  "label": "08:00"
+                },
+                {
+                  "v": 1735722000000,
+                  "label": "09:00"
+                },
+                {
+                  "v": 1735725600000,
+                  "label": "10:00"
+                },
+                {
+                  "v": 1735729200000,
+                  "label": "11:00"
+                },
+                {
+                  "v": 1735732800000,
+                  "label": "12:00"
+                },
+                {
+                  "v": 1735736400000,
+                  "label": "13:00"
+                },
+                {
+                  "v": 1735740000000,
+                  "label": "14:00"
+                },
+                {
+                  "v": 1735743600000,
+                  "label": "15:00"
+                },
+                {
+                  "v": 1735747200000,
+                  "label": "16:00"
+                },
+                {
+                  "v": 1735750800000,
+                  "label": "17:00"
+                },
+                {
+                  "v": 1735754400000,
+                  "label": "18:00"
+                },
+                {
+                  "v": 1735758000000,
+                  "label": "19:00"
+                },
+                {
+                  "v": 1735761600000,
+                  "label": "20:00"
+                },
+                {
+                  "v": 1735765200000,
+                  "label": "21:00"
+                },
+                {
+                  "v": 1735768800000,
+                  "label": "22:00"
+                },
+                {
+                  "v": 1735772400000,
+                  "label": "23:00"
+                },
+                {
+                  "v": 1735776000000,
+                  "label": "00:00"
+                }
+              ]
+            },
+            "yaxis": {
+              "min": 0,
+              "max": 0.15000000000000002,
+              "ticks": [
+                {
+                  "v": 0,
+                  "label": ""
+                },
+                {
+                  "v": 0.05,
+                  "label": "0.05"
+                },
+                {
+                  "v": 0.1,
+                  "label": "0.1"
+                },
+                {
+                  "v": 0.15000000000000002,
+                  "label": ""
+                }
+              ]
+            }
+          },
+          "dataSha256": "c640e07b66710201bbd53ed9918057e9f6e799081d6b29c5bfcefb03a3150713"
+        },
+        "loopalyzer-bg": {
+          "axes": {
+            "xaxis": {
+              "min": 1735689600000,
+              "max": 1735775700000,
+              "mode": "time",
+              "ticks": [
+                {
+                  "v": 1735689600000,
+                  "label": "00:00"
+                },
+                {
+                  "v": 1735693200000,
+                  "label": "01:00"
+                },
+                {
+                  "v": 1735696800000,
+                  "label": "02:00"
+                },
+                {
+                  "v": 1735700400000,
+                  "label": "03:00"
+                },
+                {
+                  "v": 1735704000000,
+                  "label": "04:00"
+                },
+                {
+                  "v": 1735707600000,
+                  "label": "05:00"
+                },
+                {
+                  "v": 1735711200000,
+                  "label": "06:00"
+                },
+                {
+                  "v": 1735714800000,
+                  "label": "07:00"
+                },
+                {
+                  "v": 1735718400000,
+                  "label": "08:00"
+                },
+                {
+                  "v": 1735722000000,
+                  "label": "09:00"
+                },
+                {
+                  "v": 1735725600000,
+                  "label": "10:00"
+                },
+                {
+                  "v": 1735729200000,
+                  "label": "11:00"
+                },
+                {
+                  "v": 1735732800000,
+                  "label": "12:00"
+                },
+                {
+                  "v": 1735736400000,
+                  "label": "13:00"
+                },
+                {
+                  "v": 1735740000000,
+                  "label": "14:00"
+                },
+                {
+                  "v": 1735743600000,
+                  "label": "15:00"
+                },
+                {
+                  "v": 1735747200000,
+                  "label": "16:00"
+                },
+                {
+                  "v": 1735750800000,
+                  "label": "17:00"
+                },
+                {
+                  "v": 1735754400000,
+                  "label": "18:00"
+                },
+                {
+                  "v": 1735758000000,
+                  "label": "19:00"
+                },
+                {
+                  "v": 1735761600000,
+                  "label": "20:00"
+                },
+                {
+                  "v": 1735765200000,
+                  "label": "21:00"
+                },
+                {
+                  "v": 1735768800000,
+                  "label": "22:00"
+                },
+                {
+                  "v": 1735772400000,
+                  "label": "23:00"
+                },
+                {
+                  "v": 1735776000000,
+                  "label": "00:00"
+                }
+              ]
+            },
+            "yaxis": {
+              "min": 0,
+              "max": 400,
+              "ticks": [
+                {
+                  "v": 0,
+                  "label": ""
+                },
+                {
+                  "v": 100,
+                  "label": "100"
+                },
+                {
+                  "v": 200,
+                  "label": "200"
+                },
+                {
+                  "v": 300,
+                  "label": "300"
+                },
+                {
+                  "v": 400,
+                  "label": ""
+                }
+              ]
+            }
+          },
+          "dataSha256": "a8bcf34852243b3a09971e8dd6f6a409f2840ad59ff08c09cf461c49fd0149be"
+        },
+        "loopalyzer-tempbasal": {
+          "axes": {
+            "xaxis": {
+              "min": 1735689600000,
+              "max": 1735775700000,
+              "mode": "time",
+              "ticks": [
+                {
+                  "v": 1735689600000,
+                  "label": "00:00"
+                },
+                {
+                  "v": 1735693200000,
+                  "label": "01:00"
+                },
+                {
+                  "v": 1735696800000,
+                  "label": "02:00"
+                },
+                {
+                  "v": 1735700400000,
+                  "label": "03:00"
+                },
+                {
+                  "v": 1735704000000,
+                  "label": "04:00"
+                },
+                {
+                  "v": 1735707600000,
+                  "label": "05:00"
+                },
+                {
+                  "v": 1735711200000,
+                  "label": "06:00"
+                },
+                {
+                  "v": 1735714800000,
+                  "label": "07:00"
+                },
+                {
+                  "v": 1735718400000,
+                  "label": "08:00"
+                },
+                {
+                  "v": 1735722000000,
+                  "label": "09:00"
+                },
+                {
+                  "v": 1735725600000,
+                  "label": "10:00"
+                },
+                {
+                  "v": 1735729200000,
+                  "label": "11:00"
+                },
+                {
+                  "v": 1735732800000,
+                  "label": "12:00"
+                },
+                {
+                  "v": 1735736400000,
+                  "label": "13:00"
+                },
+                {
+                  "v": 1735740000000,
+                  "label": "14:00"
+                },
+                {
+                  "v": 1735743600000,
+                  "label": "15:00"
+                },
+                {
+                  "v": 1735747200000,
+                  "label": "16:00"
+                },
+                {
+                  "v": 1735750800000,
+                  "label": "17:00"
+                },
+                {
+                  "v": 1735754400000,
+                  "label": "18:00"
+                },
+                {
+                  "v": 1735758000000,
+                  "label": "19:00"
+                },
+                {
+                  "v": 1735761600000,
+                  "label": "20:00"
+                },
+                {
+                  "v": 1735765200000,
+                  "label": "21:00"
+                },
+                {
+                  "v": 1735768800000,
+                  "label": "22:00"
+                },
+                {
+                  "v": 1735772400000,
+                  "label": "23:00"
+                },
+                {
+                  "v": 1735776000000,
+                  "label": "00:00"
+                }
+              ]
+            },
+            "yaxis": {
+              "min": -1,
+              "max": 1,
+              "ticks": [
+                {
+                  "v": -1,
+                  "label": ""
+                },
+                {
+                  "v": -0.5,
+                  "label": "-0.5"
+                },
+                {
+                  "v": 0,
+                  "label": "0"
+                },
+                {
+                  "v": 0.5,
+                  "label": "0.5"
+                },
+                {
+                  "v": 1,
+                  "label": ""
+                }
+              ]
+            }
+          },
+          "dataSha256": "21edd0d6470dbc28445a0a75d66f887f4c0f7f4a83d93af2ad46ce997e6e501b"
+        },
+        "loopalyzer-iob": {
+          "axes": {
+            "xaxis": {
+              "min": 1735689600000,
+              "max": 1735776000000,
+              "mode": "time",
+              "ticks": [
+                {
+                  "v": 1735689600000,
+                  "label": "00:00"
+                },
+                {
+                  "v": 1735693200000,
+                  "label": "01:00"
+                },
+                {
+                  "v": 1735696800000,
+                  "label": "02:00"
+                },
+                {
+                  "v": 1735700400000,
+                  "label": "03:00"
+                },
+                {
+                  "v": 1735704000000,
+                  "label": "04:00"
+                },
+                {
+                  "v": 1735707600000,
+                  "label": "05:00"
+                },
+                {
+                  "v": 1735711200000,
+                  "label": "06:00"
+                },
+                {
+                  "v": 1735714800000,
+                  "label": "07:00"
+                },
+                {
+                  "v": 1735718400000,
+                  "label": "08:00"
+                },
+                {
+                  "v": 1735722000000,
+                  "label": "09:00"
+                },
+                {
+                  "v": 1735725600000,
+                  "label": "10:00"
+                },
+                {
+                  "v": 1735729200000,
+                  "label": "11:00"
+                },
+                {
+                  "v": 1735732800000,
+                  "label": "12:00"
+                },
+                {
+                  "v": 1735736400000,
+                  "label": "13:00"
+                },
+                {
+                  "v": 1735740000000,
+                  "label": "14:00"
+                },
+                {
+                  "v": 1735743600000,
+                  "label": "15:00"
+                },
+                {
+                  "v": 1735747200000,
+                  "label": "16:00"
+                },
+                {
+                  "v": 1735750800000,
+                  "label": "17:00"
+                },
+                {
+                  "v": 1735754400000,
+                  "label": "18:00"
+                },
+                {
+                  "v": 1735758000000,
+                  "label": "19:00"
+                },
+                {
+                  "v": 1735761600000,
+                  "label": "20:00"
+                },
+                {
+                  "v": 1735765200000,
+                  "label": "21:00"
+                },
+                {
+                  "v": 1735768800000,
+                  "label": "22:00"
+                },
+                {
+                  "v": 1735772400000,
+                  "label": "23:00"
+                },
+                {
+                  "v": 1735776000000,
+                  "label": "00:00"
+                }
+              ]
+            },
+            "yaxis": {
+              "min": 0,
+              "max": 4,
+              "ticks": [
+                {
+                  "v": 0,
+                  "label": ""
+                },
+                {
+                  "v": 1,
+                  "label": "1"
+                },
+                {
+                  "v": 2,
+                  "label": "2"
+                },
+                {
+                  "v": 3,
+                  "label": "3"
+                },
+                {
+                  "v": 4,
+                  "label": ""
+                }
+              ]
+            }
+          },
+          "dataSha256": "bf1d641b765451a3e6d1128676849f7745c08c8b955844e70ca876fc85bb42d7"
+        },
+        "loopalyzer-cob": {
+          "axes": {
+            "xaxis": {
+              "min": 1735689600000,
+              "max": 1735776000000,
+              "mode": "time",
+              "ticks": [
+                {
+                  "v": 1735689600000,
+                  "label": "00:00"
+                },
+                {
+                  "v": 1735693200000,
+                  "label": "01:00"
+                },
+                {
+                  "v": 1735696800000,
+                  "label": "02:00"
+                },
+                {
+                  "v": 1735700400000,
+                  "label": "03:00"
+                },
+                {
+                  "v": 1735704000000,
+                  "label": "04:00"
+                },
+                {
+                  "v": 1735707600000,
+                  "label": "05:00"
+                },
+                {
+                  "v": 1735711200000,
+                  "label": "06:00"
+                },
+                {
+                  "v": 1735714800000,
+                  "label": "07:00"
+                },
+                {
+                  "v": 1735718400000,
+                  "label": "08:00"
+                },
+                {
+                  "v": 1735722000000,
+                  "label": "09:00"
+                },
+                {
+                  "v": 1735725600000,
+                  "label": "10:00"
+                },
+                {
+                  "v": 1735729200000,
+                  "label": "11:00"
+                },
+                {
+                  "v": 1735732800000,
+                  "label": "12:00"
+                },
+                {
+                  "v": 1735736400000,
+                  "label": "13:00"
+                },
+                {
+                  "v": 1735740000000,
+                  "label": "14:00"
+                },
+                {
+                  "v": 1735743600000,
+                  "label": "15:00"
+                },
+                {
+                  "v": 1735747200000,
+                  "label": "16:00"
+                },
+                {
+                  "v": 1735750800000,
+                  "label": "17:00"
+                },
+                {
+                  "v": 1735754400000,
+                  "label": "18:00"
+                },
+                {
+                  "v": 1735758000000,
+                  "label": "19:00"
+                },
+                {
+                  "v": 1735761600000,
+                  "label": "20:00"
+                },
+                {
+                  "v": 1735765200000,
+                  "label": "21:00"
+                },
+                {
+                  "v": 1735768800000,
+                  "label": "22:00"
+                },
+                {
+                  "v": 1735772400000,
+                  "label": "23:00"
+                },
+                {
+                  "v": 1735776000000,
+                  "label": "00:00"
+                }
+              ]
+            },
+            "yaxis": {
+              "min": 0,
+              "max": 60,
+              "ticks": [
+                {
+                  "v": 0,
+                  "label": ""
+                },
+                {
+                  "v": 10,
+                  "label": "10"
+                },
+                {
+                  "v": 20,
+                  "label": "20"
+                },
+                {
+                  "v": 30,
+                  "label": "30"
+                },
+                {
+                  "v": 40,
+                  "label": "40"
+                },
+                {
+                  "v": 50,
+                  "label": "50"
+                },
+                {
+                  "v": 60,
+                  "label": ""
+                }
+              ]
+            }
+          },
+          "dataSha256": "59fe80b1a4565d47eaf4cb2a04442704d36e1e91fbfca131b916c9ce6bb800e8"
+        },
+        "glucosedistribution-overviewchart": {
+          "axes": {
+            "xaxis": {
+              "min": 1,
+              "max": 1.01,
+              "mode": null,
+              "ticks": []
+            },
+            "yaxis": {
+              "min": 0,
+              "max": 10.2,
+              "ticks": []
+            }
+          },
+          "dataSha256": "749b77b30944aad853eaaed1a36c51bf7be051723b129d8a3d274bce9ac25a37"
+        }
+      }
+    },
+    "mmol": {
+      "baseline": {
+        "dailystat-chart-2015-08-14": {
+          "axes": {
+            "xaxis": {
+              "min": 0.99,
+              "max": 1.01,
+              "mode": null,
+              "ticks": []
+            },
+            "yaxis": {
+              "min": 0,
+              "max": 102,
+              "ticks": []
+            }
+          },
+          "dataSha256": "994d89ef7352c605149b85f3c44cc7f3677a04cc2eb2b2e1ae997920963e8f3f"
+        },
+        "dailystat-chart-2015-08-13": {
+          "axes": {
+            "xaxis": {
+              "min": 0.99,
+              "max": 1.01,
+              "mode": null,
+              "ticks": []
+            },
+            "yaxis": {
+              "min": 0,
+              "max": 102,
+              "ticks": []
+            }
+          },
+          "dataSha256": "994d89ef7352c605149b85f3c44cc7f3677a04cc2eb2b2e1ae997920963e8f3f"
+        },
+        "dailystat-chart-2015-08-12": {
+          "axes": {
+            "xaxis": {
+              "min": 0.99,
+              "max": 1.01,
+              "mode": null,
+              "ticks": []
+            },
+            "yaxis": {
+              "min": 0,
+              "max": 102,
+              "ticks": []
+            }
+          },
+          "dataSha256": "994d89ef7352c605149b85f3c44cc7f3677a04cc2eb2b2e1ae997920963e8f3f"
+        },
+        "dailystat-chart-2015-08-11": {
+          "axes": {
+            "xaxis": {
+              "min": 0.99,
+              "max": 1.01,
+              "mode": null,
+              "ticks": []
+            },
+            "yaxis": {
+              "min": 0,
+              "max": 102,
+              "ticks": []
+            }
+          },
+          "dataSha256": "994d89ef7352c605149b85f3c44cc7f3677a04cc2eb2b2e1ae997920963e8f3f"
+        },
+        "dailystat-chart-2015-08-10": {
+          "axes": {
+            "xaxis": {
+              "min": 0.99,
+              "max": 1.01,
+              "mode": null,
+              "ticks": []
+            },
+            "yaxis": {
+              "min": 0,
+              "max": 102,
+              "ticks": []
+            }
+          },
+          "dataSha256": "994d89ef7352c605149b85f3c44cc7f3677a04cc2eb2b2e1ae997920963e8f3f"
+        },
+        "dailystat-chart-2015-08-09": {
+          "axes": {
+            "xaxis": {
+              "min": 0.99,
+              "max": 1.01,
+              "mode": null,
+              "ticks": []
+            },
+            "yaxis": {
+              "min": 0,
+              "max": 102,
+              "ticks": []
+            }
+          },
+          "dataSha256": "994d89ef7352c605149b85f3c44cc7f3677a04cc2eb2b2e1ae997920963e8f3f"
+        },
+        "dailystat-chart-2015-08-08": {
+          "axes": {
+            "xaxis": {
+              "min": 0.99,
+              "max": 1.01,
+              "mode": null,
+              "ticks": []
+            },
+            "yaxis": {
+              "min": 0,
+              "max": 102,
+              "ticks": []
+            }
+          },
+          "dataSha256": "994d89ef7352c605149b85f3c44cc7f3677a04cc2eb2b2e1ae997920963e8f3f"
+        },
+        "hourlystats-overviewchart": {
+          "axes": {
+            "xaxis": {
+              "min": 0,
+              "max": 86399000,
+              "mode": "time",
+              "ticks": [
+                {
+                  "v": 0,
+                  "label": "00:00"
+                },
+                {
+                  "v": 7200000,
+                  "label": "02:00"
+                },
+                {
+                  "v": 14400000,
+                  "label": "04:00"
+                },
+                {
+                  "v": 21600000,
+                  "label": "06:00"
+                },
+                {
+                  "v": 28800000,
+                  "label": "08:00"
+                },
+                {
+                  "v": 36000000,
+                  "label": "10:00"
+                },
+                {
+                  "v": 43200000,
+                  "label": "12:00"
+                },
+                {
+                  "v": 50400000,
+                  "label": "14:00"
+                },
+                {
+                  "v": 57600000,
+                  "label": "16:00"
+                },
+                {
+                  "v": 64800000,
+                  "label": "18:00"
+                },
+                {
+                  "v": 72000000,
+                  "label": "20:00"
+                },
+                {
+                  "v": 79200000,
+                  "label": "22:00"
+                },
+                {
+                  "v": 86400000,
+                  "label": "00:00"
+                }
+              ]
+            },
+            "yaxis": {
+              "min": 0,
+              "max": 22,
+              "ticks": [
+                {
+                  "v": 0,
+                  "label": "0"
+                },
+                {
+                  "v": 5,
+                  "label": "5"
+                },
+                {
+                  "v": 10,
+                  "label": "10"
+                },
+                {
+                  "v": 15,
+                  "label": "15"
+                },
+                {
+                  "v": 20,
+                  "label": "20"
+                },
+                {
+                  "v": 25,
+                  "label": "25"
+                }
+              ]
+            }
+          },
+          "dataSha256": "a19d39b51d1ae69d963104e55a400ac19e8ae848bdf3ab2e03b6e94784c0bcf0"
+        },
+        "percentile-chart": {
+          "axes": {
+            "xaxis": {
+              "min": 1735689600000,
+              "max": 1735774200000,
+              "mode": "time",
+              "ticks": [
+                {
+                  "v": 1735689600000,
+                  "label": "00:00"
+                },
+                {
+                  "v": 1735696800000,
+                  "label": "02:00"
+                },
+                {
+                  "v": 1735704000000,
+                  "label": "04:00"
+                },
+                {
+                  "v": 1735711200000,
+                  "label": "06:00"
+                },
+                {
+                  "v": 1735718400000,
+                  "label": "08:00"
+                },
+                {
+                  "v": 1735725600000,
+                  "label": "10:00"
+                },
+                {
+                  "v": 1735732800000,
+                  "label": "12:00"
+                },
+                {
+                  "v": 1735740000000,
+                  "label": "14:00"
+                },
+                {
+                  "v": 1735747200000,
+                  "label": "16:00"
+                },
+                {
+                  "v": 1735754400000,
+                  "label": "18:00"
+                },
+                {
+                  "v": 1735761600000,
+                  "label": "20:00"
+                },
+                {
+                  "v": 1735768800000,
+                  "label": "22:00"
+                },
+                {
+                  "v": 1735776000000,
+                  "label": "00:00"
+                }
+              ]
+            },
+            "yaxis": {
+              "min": 0,
+              "max": 22,
+              "ticks": [
+                {
+                  "v": 0,
+                  "label": "0"
+                },
+                {
+                  "v": 5,
+                  "label": "5"
+                },
+                {
+                  "v": 10,
+                  "label": "10"
+                },
+                {
+                  "v": 15,
+                  "label": "15"
+                },
+                {
+                  "v": 20,
+                  "label": "20"
+                },
+                {
+                  "v": 25,
+                  "label": "25"
+                }
+              ]
+            }
+          },
+          "dataSha256": "3acfdef08bd9b872927549ad32443147a727ba110c782c6181d8dbaa4b49bc2a"
+        },
+        "loopalyzer-basal": {
+          "axes": {
+            "xaxis": {
+              "min": 1735689600000,
+              "max": 1735776000000,
+              "mode": "time",
+              "ticks": [
+                {
+                  "v": 1735689600000,
+                  "label": "00:00"
+                },
+                {
+                  "v": 1735693200000,
+                  "label": "01:00"
+                },
+                {
+                  "v": 1735696800000,
+                  "label": "02:00"
+                },
+                {
+                  "v": 1735700400000,
+                  "label": "03:00"
+                },
+                {
+                  "v": 1735704000000,
+                  "label": "04:00"
+                },
+                {
+                  "v": 1735707600000,
+                  "label": "05:00"
+                },
+                {
+                  "v": 1735711200000,
+                  "label": "06:00"
+                },
+                {
+                  "v": 1735714800000,
+                  "label": "07:00"
+                },
+                {
+                  "v": 1735718400000,
+                  "label": "08:00"
+                },
+                {
+                  "v": 1735722000000,
+                  "label": "09:00"
+                },
+                {
+                  "v": 1735725600000,
+                  "label": "10:00"
+                },
+                {
+                  "v": 1735729200000,
+                  "label": "11:00"
+                },
+                {
+                  "v": 1735732800000,
+                  "label": "12:00"
+                },
+                {
+                  "v": 1735736400000,
+                  "label": "13:00"
+                },
+                {
+                  "v": 1735740000000,
+                  "label": "14:00"
+                },
+                {
+                  "v": 1735743600000,
+                  "label": "15:00"
+                },
+                {
+                  "v": 1735747200000,
+                  "label": "16:00"
+                },
+                {
+                  "v": 1735750800000,
+                  "label": "17:00"
+                },
+                {
+                  "v": 1735754400000,
+                  "label": "18:00"
+                },
+                {
+                  "v": 1735758000000,
+                  "label": "19:00"
+                },
+                {
+                  "v": 1735761600000,
+                  "label": "20:00"
+                },
+                {
+                  "v": 1735765200000,
+                  "label": "21:00"
+                },
+                {
+                  "v": 1735768800000,
+                  "label": "22:00"
+                },
+                {
+                  "v": 1735772400000,
+                  "label": "23:00"
+                },
+                {
+                  "v": 1735776000000,
+                  "label": "00:00"
+                }
+              ]
+            },
+            "yaxis": {
+              "min": 0,
+              "max": 0.15000000000000002,
+              "ticks": [
+                {
+                  "v": 0,
+                  "label": ""
+                },
+                {
+                  "v": 0.05,
+                  "label": "0.05"
+                },
+                {
+                  "v": 0.1,
+                  "label": "0.1"
+                },
+                {
+                  "v": 0.15000000000000002,
+                  "label": ""
+                }
+              ]
+            }
+          },
+          "dataSha256": "c640e07b66710201bbd53ed9918057e9f6e799081d6b29c5bfcefb03a3150713"
+        },
+        "loopalyzer-bg": {
+          "axes": {
+            "xaxis": {
+              "min": 1735689600000,
+              "max": 1735775700000,
+              "mode": "time",
+              "ticks": [
+                {
+                  "v": 1735689600000,
+                  "label": "00:00"
+                },
+                {
+                  "v": 1735693200000,
+                  "label": "01:00"
+                },
+                {
+                  "v": 1735696800000,
+                  "label": "02:00"
+                },
+                {
+                  "v": 1735700400000,
+                  "label": "03:00"
+                },
+                {
+                  "v": 1735704000000,
+                  "label": "04:00"
+                },
+                {
+                  "v": 1735707600000,
+                  "label": "05:00"
+                },
+                {
+                  "v": 1735711200000,
+                  "label": "06:00"
+                },
+                {
+                  "v": 1735714800000,
+                  "label": "07:00"
+                },
+                {
+                  "v": 1735718400000,
+                  "label": "08:00"
+                },
+                {
+                  "v": 1735722000000,
+                  "label": "09:00"
+                },
+                {
+                  "v": 1735725600000,
+                  "label": "10:00"
+                },
+                {
+                  "v": 1735729200000,
+                  "label": "11:00"
+                },
+                {
+                  "v": 1735732800000,
+                  "label": "12:00"
+                },
+                {
+                  "v": 1735736400000,
+                  "label": "13:00"
+                },
+                {
+                  "v": 1735740000000,
+                  "label": "14:00"
+                },
+                {
+                  "v": 1735743600000,
+                  "label": "15:00"
+                },
+                {
+                  "v": 1735747200000,
+                  "label": "16:00"
+                },
+                {
+                  "v": 1735750800000,
+                  "label": "17:00"
+                },
+                {
+                  "v": 1735754400000,
+                  "label": "18:00"
+                },
+                {
+                  "v": 1735758000000,
+                  "label": "19:00"
+                },
+                {
+                  "v": 1735761600000,
+                  "label": "20:00"
+                },
+                {
+                  "v": 1735765200000,
+                  "label": "21:00"
+                },
+                {
+                  "v": 1735768800000,
+                  "label": "22:00"
+                },
+                {
+                  "v": 1735772400000,
+                  "label": "23:00"
+                },
+                {
+                  "v": 1735776000000,
+                  "label": "00:00"
+                }
+              ]
+            },
+            "yaxis": {
+              "min": 0,
+              "max": 20,
+              "ticks": [
+                {
+                  "v": 0,
+                  "label": ""
+                },
+                {
+                  "v": 5,
+                  "label": "5"
+                },
+                {
+                  "v": 10,
+                  "label": "10"
+                },
+                {
+                  "v": 15,
+                  "label": "15"
+                },
+                {
+                  "v": 20,
+                  "label": ""
+                }
+              ]
+            }
+          },
+          "dataSha256": "73cdeb71fd747b240c56c688e57eca3bb99db931624575509ac6f3a8d6662227"
+        },
+        "loopalyzer-tempbasal": {
+          "axes": {
+            "xaxis": {
+              "min": 1735689600000,
+              "max": 1735775700000,
+              "mode": "time",
+              "ticks": [
+                {
+                  "v": 1735689600000,
+                  "label": "00:00"
+                },
+                {
+                  "v": 1735693200000,
+                  "label": "01:00"
+                },
+                {
+                  "v": 1735696800000,
+                  "label": "02:00"
+                },
+                {
+                  "v": 1735700400000,
+                  "label": "03:00"
+                },
+                {
+                  "v": 1735704000000,
+                  "label": "04:00"
+                },
+                {
+                  "v": 1735707600000,
+                  "label": "05:00"
+                },
+                {
+                  "v": 1735711200000,
+                  "label": "06:00"
+                },
+                {
+                  "v": 1735714800000,
+                  "label": "07:00"
+                },
+                {
+                  "v": 1735718400000,
+                  "label": "08:00"
+                },
+                {
+                  "v": 1735722000000,
+                  "label": "09:00"
+                },
+                {
+                  "v": 1735725600000,
+                  "label": "10:00"
+                },
+                {
+                  "v": 1735729200000,
+                  "label": "11:00"
+                },
+                {
+                  "v": 1735732800000,
+                  "label": "12:00"
+                },
+                {
+                  "v": 1735736400000,
+                  "label": "13:00"
+                },
+                {
+                  "v": 1735740000000,
+                  "label": "14:00"
+                },
+                {
+                  "v": 1735743600000,
+                  "label": "15:00"
+                },
+                {
+                  "v": 1735747200000,
+                  "label": "16:00"
+                },
+                {
+                  "v": 1735750800000,
+                  "label": "17:00"
+                },
+                {
+                  "v": 1735754400000,
+                  "label": "18:00"
+                },
+                {
+                  "v": 1735758000000,
+                  "label": "19:00"
+                },
+                {
+                  "v": 1735761600000,
+                  "label": "20:00"
+                },
+                {
+                  "v": 1735765200000,
+                  "label": "21:00"
+                },
+                {
+                  "v": 1735768800000,
+                  "label": "22:00"
+                },
+                {
+                  "v": 1735772400000,
+                  "label": "23:00"
+                },
+                {
+                  "v": 1735776000000,
+                  "label": "00:00"
+                }
+              ]
+            },
+            "yaxis": {
+              "min": -1,
+              "max": 1,
+              "ticks": [
+                {
+                  "v": -1,
+                  "label": ""
+                },
+                {
+                  "v": -0.5,
+                  "label": "-0.5"
+                },
+                {
+                  "v": 0,
+                  "label": "0"
+                },
+                {
+                  "v": 0.5,
+                  "label": "0.5"
+                },
+                {
+                  "v": 1,
+                  "label": ""
+                }
+              ]
+            }
+          },
+          "dataSha256": "21edd0d6470dbc28445a0a75d66f887f4c0f7f4a83d93af2ad46ce997e6e501b"
+        },
+        "loopalyzer-iob": {
+          "axes": {
+            "xaxis": {
+              "min": 1735689600000,
+              "max": 1735776000000,
+              "mode": "time",
+              "ticks": [
+                {
+                  "v": 1735689600000,
+                  "label": "00:00"
+                },
+                {
+                  "v": 1735693200000,
+                  "label": "01:00"
+                },
+                {
+                  "v": 1735696800000,
+                  "label": "02:00"
+                },
+                {
+                  "v": 1735700400000,
+                  "label": "03:00"
+                },
+                {
+                  "v": 1735704000000,
+                  "label": "04:00"
+                },
+                {
+                  "v": 1735707600000,
+                  "label": "05:00"
+                },
+                {
+                  "v": 1735711200000,
+                  "label": "06:00"
+                },
+                {
+                  "v": 1735714800000,
+                  "label": "07:00"
+                },
+                {
+                  "v": 1735718400000,
+                  "label": "08:00"
+                },
+                {
+                  "v": 1735722000000,
+                  "label": "09:00"
+                },
+                {
+                  "v": 1735725600000,
+                  "label": "10:00"
+                },
+                {
+                  "v": 1735729200000,
+                  "label": "11:00"
+                },
+                {
+                  "v": 1735732800000,
+                  "label": "12:00"
+                },
+                {
+                  "v": 1735736400000,
+                  "label": "13:00"
+                },
+                {
+                  "v": 1735740000000,
+                  "label": "14:00"
+                },
+                {
+                  "v": 1735743600000,
+                  "label": "15:00"
+                },
+                {
+                  "v": 1735747200000,
+                  "label": "16:00"
+                },
+                {
+                  "v": 1735750800000,
+                  "label": "17:00"
+                },
+                {
+                  "v": 1735754400000,
+                  "label": "18:00"
+                },
+                {
+                  "v": 1735758000000,
+                  "label": "19:00"
+                },
+                {
+                  "v": 1735761600000,
+                  "label": "20:00"
+                },
+                {
+                  "v": 1735765200000,
+                  "label": "21:00"
+                },
+                {
+                  "v": 1735768800000,
+                  "label": "22:00"
+                },
+                {
+                  "v": 1735772400000,
+                  "label": "23:00"
+                },
+                {
+                  "v": 1735776000000,
+                  "label": "00:00"
+                }
+              ]
+            },
+            "yaxis": {
+              "min": 0,
+              "max": 4,
+              "ticks": [
+                {
+                  "v": 0,
+                  "label": ""
+                },
+                {
+                  "v": 1,
+                  "label": "1"
+                },
+                {
+                  "v": 2,
+                  "label": "2"
+                },
+                {
+                  "v": 3,
+                  "label": "3"
+                },
+                {
+                  "v": 4,
+                  "label": ""
+                }
+              ]
+            }
+          },
+          "dataSha256": "bf1d641b765451a3e6d1128676849f7745c08c8b955844e70ca876fc85bb42d7"
+        },
+        "loopalyzer-cob": {
+          "axes": {
+            "xaxis": {
+              "min": 1735689600000,
+              "max": 1735776000000,
+              "mode": "time",
+              "ticks": [
+                {
+                  "v": 1735689600000,
+                  "label": "00:00"
+                },
+                {
+                  "v": 1735693200000,
+                  "label": "01:00"
+                },
+                {
+                  "v": 1735696800000,
+                  "label": "02:00"
+                },
+                {
+                  "v": 1735700400000,
+                  "label": "03:00"
+                },
+                {
+                  "v": 1735704000000,
+                  "label": "04:00"
+                },
+                {
+                  "v": 1735707600000,
+                  "label": "05:00"
+                },
+                {
+                  "v": 1735711200000,
+                  "label": "06:00"
+                },
+                {
+                  "v": 1735714800000,
+                  "label": "07:00"
+                },
+                {
+                  "v": 1735718400000,
+                  "label": "08:00"
+                },
+                {
+                  "v": 1735722000000,
+                  "label": "09:00"
+                },
+                {
+                  "v": 1735725600000,
+                  "label": "10:00"
+                },
+                {
+                  "v": 1735729200000,
+                  "label": "11:00"
+                },
+                {
+                  "v": 1735732800000,
+                  "label": "12:00"
+                },
+                {
+                  "v": 1735736400000,
+                  "label": "13:00"
+                },
+                {
+                  "v": 1735740000000,
+                  "label": "14:00"
+                },
+                {
+                  "v": 1735743600000,
+                  "label": "15:00"
+                },
+                {
+                  "v": 1735747200000,
+                  "label": "16:00"
+                },
+                {
+                  "v": 1735750800000,
+                  "label": "17:00"
+                },
+                {
+                  "v": 1735754400000,
+                  "label": "18:00"
+                },
+                {
+                  "v": 1735758000000,
+                  "label": "19:00"
+                },
+                {
+                  "v": 1735761600000,
+                  "label": "20:00"
+                },
+                {
+                  "v": 1735765200000,
+                  "label": "21:00"
+                },
+                {
+                  "v": 1735768800000,
+                  "label": "22:00"
+                },
+                {
+                  "v": 1735772400000,
+                  "label": "23:00"
+                },
+                {
+                  "v": 1735776000000,
+                  "label": "00:00"
+                }
+              ]
+            },
+            "yaxis": {
+              "min": 0,
+              "max": 60,
+              "ticks": [
+                {
+                  "v": 0,
+                  "label": ""
+                },
+                {
+                  "v": 10,
+                  "label": "10"
+                },
+                {
+                  "v": 20,
+                  "label": "20"
+                },
+                {
+                  "v": 30,
+                  "label": "30"
+                },
+                {
+                  "v": 40,
+                  "label": "40"
+                },
+                {
+                  "v": 50,
+                  "label": "50"
+                },
+                {
+                  "v": 60,
+                  "label": ""
+                }
+              ]
+            }
+          },
+          "dataSha256": "59fe80b1a4565d47eaf4cb2a04442704d36e1e91fbfca131b916c9ce6bb800e8"
+        },
+        "glucosedistribution-overviewchart": {
+          "axes": {
+            "xaxis": {
+              "min": 0.99,
+              "max": 1.01,
+              "mode": null,
+              "ticks": []
+            },
+            "yaxis": {
+              "min": 0,
+              "max": 19.38,
+              "ticks": []
+            }
+          },
+          "dataSha256": "1ae4ec4ea8530acef31d5e8ee2d4bab6fcce5cd3b425e3615ad3dd1f33c04aaa"
+        }
+      },
+      "candidate": {
+        "dailystat-chart-2015-08-14": {
+          "axes": {
+            "xaxis": {
+              "min": 1,
+              "max": 1.01,
+              "mode": null,
+              "ticks": []
+            },
+            "yaxis": {
+              "min": 0,
+              "max": 102,
+              "ticks": []
+            }
+          },
+          "dataSha256": "994d89ef7352c605149b85f3c44cc7f3677a04cc2eb2b2e1ae997920963e8f3f"
+        },
+        "dailystat-chart-2015-08-13": {
+          "axes": {
+            "xaxis": {
+              "min": 1,
+              "max": 1.01,
+              "mode": null,
+              "ticks": []
+            },
+            "yaxis": {
+              "min": 0,
+              "max": 102,
+              "ticks": []
+            }
+          },
+          "dataSha256": "994d89ef7352c605149b85f3c44cc7f3677a04cc2eb2b2e1ae997920963e8f3f"
+        },
+        "dailystat-chart-2015-08-12": {
+          "axes": {
+            "xaxis": {
+              "min": 1,
+              "max": 1.01,
+              "mode": null,
+              "ticks": []
+            },
+            "yaxis": {
+              "min": 0,
+              "max": 102,
+              "ticks": []
+            }
+          },
+          "dataSha256": "994d89ef7352c605149b85f3c44cc7f3677a04cc2eb2b2e1ae997920963e8f3f"
+        },
+        "dailystat-chart-2015-08-11": {
+          "axes": {
+            "xaxis": {
+              "min": 1,
+              "max": 1.01,
+              "mode": null,
+              "ticks": []
+            },
+            "yaxis": {
+              "min": 0,
+              "max": 102,
+              "ticks": []
+            }
+          },
+          "dataSha256": "994d89ef7352c605149b85f3c44cc7f3677a04cc2eb2b2e1ae997920963e8f3f"
+        },
+        "dailystat-chart-2015-08-10": {
+          "axes": {
+            "xaxis": {
+              "min": 1,
+              "max": 1.01,
+              "mode": null,
+              "ticks": []
+            },
+            "yaxis": {
+              "min": 0,
+              "max": 102,
+              "ticks": []
+            }
+          },
+          "dataSha256": "994d89ef7352c605149b85f3c44cc7f3677a04cc2eb2b2e1ae997920963e8f3f"
+        },
+        "dailystat-chart-2015-08-09": {
+          "axes": {
+            "xaxis": {
+              "min": 1,
+              "max": 1.01,
+              "mode": null,
+              "ticks": []
+            },
+            "yaxis": {
+              "min": 0,
+              "max": 102,
+              "ticks": []
+            }
+          },
+          "dataSha256": "994d89ef7352c605149b85f3c44cc7f3677a04cc2eb2b2e1ae997920963e8f3f"
+        },
+        "dailystat-chart-2015-08-08": {
+          "axes": {
+            "xaxis": {
+              "min": 1,
+              "max": 1.01,
+              "mode": null,
+              "ticks": []
+            },
+            "yaxis": {
+              "min": 0,
+              "max": 102,
+              "ticks": []
+            }
+          },
+          "dataSha256": "994d89ef7352c605149b85f3c44cc7f3677a04cc2eb2b2e1ae997920963e8f3f"
+        },
+        "hourlystats-overviewchart": {
+          "axes": {
+            "xaxis": {
+              "min": 0,
+              "max": 86399000,
+              "mode": "time",
+              "ticks": [
+                {
+                  "v": 0,
+                  "label": "00:00"
+                },
+                {
+                  "v": 7200000,
+                  "label": "02:00"
+                },
+                {
+                  "v": 14400000,
+                  "label": "04:00"
+                },
+                {
+                  "v": 21600000,
+                  "label": "06:00"
+                },
+                {
+                  "v": 28800000,
+                  "label": "08:00"
+                },
+                {
+                  "v": 36000000,
+                  "label": "10:00"
+                },
+                {
+                  "v": 43200000,
+                  "label": "12:00"
+                },
+                {
+                  "v": 50400000,
+                  "label": "14:00"
+                },
+                {
+                  "v": 57600000,
+                  "label": "16:00"
+                },
+                {
+                  "v": 64800000,
+                  "label": "18:00"
+                },
+                {
+                  "v": 72000000,
+                  "label": "20:00"
+                },
+                {
+                  "v": 79200000,
+                  "label": "22:00"
+                },
+                {
+                  "v": 86400000,
+                  "label": "00:00"
+                }
+              ]
+            },
+            "yaxis": {
+              "min": 0,
+              "max": 22,
+              "ticks": [
+                {
+                  "v": 0,
+                  "label": "0"
+                },
+                {
+                  "v": 5,
+                  "label": "5"
+                },
+                {
+                  "v": 10,
+                  "label": "10"
+                },
+                {
+                  "v": 15,
+                  "label": "15"
+                },
+                {
+                  "v": 20,
+                  "label": "20"
+                },
+                {
+                  "v": 25,
+                  "label": "25"
+                }
+              ]
+            }
+          },
+          "dataSha256": "a19d39b51d1ae69d963104e55a400ac19e8ae848bdf3ab2e03b6e94784c0bcf0"
+        },
+        "percentile-chart": {
+          "axes": {
+            "xaxis": {
+              "min": 1735689600000,
+              "max": 1735774200000,
+              "mode": "time",
+              "ticks": [
+                {
+                  "v": 1735689600000,
+                  "label": "00:00"
+                },
+                {
+                  "v": 1735696800000,
+                  "label": "02:00"
+                },
+                {
+                  "v": 1735704000000,
+                  "label": "04:00"
+                },
+                {
+                  "v": 1735711200000,
+                  "label": "06:00"
+                },
+                {
+                  "v": 1735718400000,
+                  "label": "08:00"
+                },
+                {
+                  "v": 1735725600000,
+                  "label": "10:00"
+                },
+                {
+                  "v": 1735732800000,
+                  "label": "12:00"
+                },
+                {
+                  "v": 1735740000000,
+                  "label": "14:00"
+                },
+                {
+                  "v": 1735747200000,
+                  "label": "16:00"
+                },
+                {
+                  "v": 1735754400000,
+                  "label": "18:00"
+                },
+                {
+                  "v": 1735761600000,
+                  "label": "20:00"
+                },
+                {
+                  "v": 1735768800000,
+                  "label": "22:00"
+                },
+                {
+                  "v": 1735776000000,
+                  "label": "00:00"
+                }
+              ]
+            },
+            "yaxis": {
+              "min": 0,
+              "max": 22,
+              "ticks": [
+                {
+                  "v": 0,
+                  "label": "0"
+                },
+                {
+                  "v": 5,
+                  "label": "5"
+                },
+                {
+                  "v": 10,
+                  "label": "10"
+                },
+                {
+                  "v": 15,
+                  "label": "15"
+                },
+                {
+                  "v": 20,
+                  "label": "20"
+                },
+                {
+                  "v": 25,
+                  "label": "25"
+                }
+              ]
+            }
+          },
+          "dataSha256": "3acfdef08bd9b872927549ad32443147a727ba110c782c6181d8dbaa4b49bc2a"
+        },
+        "loopalyzer-basal": {
+          "axes": {
+            "xaxis": {
+              "min": 1735689600000,
+              "max": 1735776000000,
+              "mode": "time",
+              "ticks": [
+                {
+                  "v": 1735689600000,
+                  "label": "00:00"
+                },
+                {
+                  "v": 1735693200000,
+                  "label": "01:00"
+                },
+                {
+                  "v": 1735696800000,
+                  "label": "02:00"
+                },
+                {
+                  "v": 1735700400000,
+                  "label": "03:00"
+                },
+                {
+                  "v": 1735704000000,
+                  "label": "04:00"
+                },
+                {
+                  "v": 1735707600000,
+                  "label": "05:00"
+                },
+                {
+                  "v": 1735711200000,
+                  "label": "06:00"
+                },
+                {
+                  "v": 1735714800000,
+                  "label": "07:00"
+                },
+                {
+                  "v": 1735718400000,
+                  "label": "08:00"
+                },
+                {
+                  "v": 1735722000000,
+                  "label": "09:00"
+                },
+                {
+                  "v": 1735725600000,
+                  "label": "10:00"
+                },
+                {
+                  "v": 1735729200000,
+                  "label": "11:00"
+                },
+                {
+                  "v": 1735732800000,
+                  "label": "12:00"
+                },
+                {
+                  "v": 1735736400000,
+                  "label": "13:00"
+                },
+                {
+                  "v": 1735740000000,
+                  "label": "14:00"
+                },
+                {
+                  "v": 1735743600000,
+                  "label": "15:00"
+                },
+                {
+                  "v": 1735747200000,
+                  "label": "16:00"
+                },
+                {
+                  "v": 1735750800000,
+                  "label": "17:00"
+                },
+                {
+                  "v": 1735754400000,
+                  "label": "18:00"
+                },
+                {
+                  "v": 1735758000000,
+                  "label": "19:00"
+                },
+                {
+                  "v": 1735761600000,
+                  "label": "20:00"
+                },
+                {
+                  "v": 1735765200000,
+                  "label": "21:00"
+                },
+                {
+                  "v": 1735768800000,
+                  "label": "22:00"
+                },
+                {
+                  "v": 1735772400000,
+                  "label": "23:00"
+                },
+                {
+                  "v": 1735776000000,
+                  "label": "00:00"
+                }
+              ]
+            },
+            "yaxis": {
+              "min": 0,
+              "max": 0.15000000000000002,
+              "ticks": [
+                {
+                  "v": 0,
+                  "label": ""
+                },
+                {
+                  "v": 0.05,
+                  "label": "0.05"
+                },
+                {
+                  "v": 0.1,
+                  "label": "0.1"
+                },
+                {
+                  "v": 0.15000000000000002,
+                  "label": ""
+                }
+              ]
+            }
+          },
+          "dataSha256": "c640e07b66710201bbd53ed9918057e9f6e799081d6b29c5bfcefb03a3150713"
+        },
+        "loopalyzer-bg": {
+          "axes": {
+            "xaxis": {
+              "min": 1735689600000,
+              "max": 1735775700000,
+              "mode": "time",
+              "ticks": [
+                {
+                  "v": 1735689600000,
+                  "label": "00:00"
+                },
+                {
+                  "v": 1735693200000,
+                  "label": "01:00"
+                },
+                {
+                  "v": 1735696800000,
+                  "label": "02:00"
+                },
+                {
+                  "v": 1735700400000,
+                  "label": "03:00"
+                },
+                {
+                  "v": 1735704000000,
+                  "label": "04:00"
+                },
+                {
+                  "v": 1735707600000,
+                  "label": "05:00"
+                },
+                {
+                  "v": 1735711200000,
+                  "label": "06:00"
+                },
+                {
+                  "v": 1735714800000,
+                  "label": "07:00"
+                },
+                {
+                  "v": 1735718400000,
+                  "label": "08:00"
+                },
+                {
+                  "v": 1735722000000,
+                  "label": "09:00"
+                },
+                {
+                  "v": 1735725600000,
+                  "label": "10:00"
+                },
+                {
+                  "v": 1735729200000,
+                  "label": "11:00"
+                },
+                {
+                  "v": 1735732800000,
+                  "label": "12:00"
+                },
+                {
+                  "v": 1735736400000,
+                  "label": "13:00"
+                },
+                {
+                  "v": 1735740000000,
+                  "label": "14:00"
+                },
+                {
+                  "v": 1735743600000,
+                  "label": "15:00"
+                },
+                {
+                  "v": 1735747200000,
+                  "label": "16:00"
+                },
+                {
+                  "v": 1735750800000,
+                  "label": "17:00"
+                },
+                {
+                  "v": 1735754400000,
+                  "label": "18:00"
+                },
+                {
+                  "v": 1735758000000,
+                  "label": "19:00"
+                },
+                {
+                  "v": 1735761600000,
+                  "label": "20:00"
+                },
+                {
+                  "v": 1735765200000,
+                  "label": "21:00"
+                },
+                {
+                  "v": 1735768800000,
+                  "label": "22:00"
+                },
+                {
+                  "v": 1735772400000,
+                  "label": "23:00"
+                },
+                {
+                  "v": 1735776000000,
+                  "label": "00:00"
+                }
+              ]
+            },
+            "yaxis": {
+              "min": 0,
+              "max": 20,
+              "ticks": [
+                {
+                  "v": 0,
+                  "label": ""
+                },
+                {
+                  "v": 5,
+                  "label": "5"
+                },
+                {
+                  "v": 10,
+                  "label": "10"
+                },
+                {
+                  "v": 15,
+                  "label": "15"
+                },
+                {
+                  "v": 20,
+                  "label": ""
+                }
+              ]
+            }
+          },
+          "dataSha256": "73cdeb71fd747b240c56c688e57eca3bb99db931624575509ac6f3a8d6662227"
+        },
+        "loopalyzer-tempbasal": {
+          "axes": {
+            "xaxis": {
+              "min": 1735689600000,
+              "max": 1735775700000,
+              "mode": "time",
+              "ticks": [
+                {
+                  "v": 1735689600000,
+                  "label": "00:00"
+                },
+                {
+                  "v": 1735693200000,
+                  "label": "01:00"
+                },
+                {
+                  "v": 1735696800000,
+                  "label": "02:00"
+                },
+                {
+                  "v": 1735700400000,
+                  "label": "03:00"
+                },
+                {
+                  "v": 1735704000000,
+                  "label": "04:00"
+                },
+                {
+                  "v": 1735707600000,
+                  "label": "05:00"
+                },
+                {
+                  "v": 1735711200000,
+                  "label": "06:00"
+                },
+                {
+                  "v": 1735714800000,
+                  "label": "07:00"
+                },
+                {
+                  "v": 1735718400000,
+                  "label": "08:00"
+                },
+                {
+                  "v": 1735722000000,
+                  "label": "09:00"
+                },
+                {
+                  "v": 1735725600000,
+                  "label": "10:00"
+                },
+                {
+                  "v": 1735729200000,
+                  "label": "11:00"
+                },
+                {
+                  "v": 1735732800000,
+                  "label": "12:00"
+                },
+                {
+                  "v": 1735736400000,
+                  "label": "13:00"
+                },
+                {
+                  "v": 1735740000000,
+                  "label": "14:00"
+                },
+                {
+                  "v": 1735743600000,
+                  "label": "15:00"
+                },
+                {
+                  "v": 1735747200000,
+                  "label": "16:00"
+                },
+                {
+                  "v": 1735750800000,
+                  "label": "17:00"
+                },
+                {
+                  "v": 1735754400000,
+                  "label": "18:00"
+                },
+                {
+                  "v": 1735758000000,
+                  "label": "19:00"
+                },
+                {
+                  "v": 1735761600000,
+                  "label": "20:00"
+                },
+                {
+                  "v": 1735765200000,
+                  "label": "21:00"
+                },
+                {
+                  "v": 1735768800000,
+                  "label": "22:00"
+                },
+                {
+                  "v": 1735772400000,
+                  "label": "23:00"
+                },
+                {
+                  "v": 1735776000000,
+                  "label": "00:00"
+                }
+              ]
+            },
+            "yaxis": {
+              "min": -1,
+              "max": 1,
+              "ticks": [
+                {
+                  "v": -1,
+                  "label": ""
+                },
+                {
+                  "v": -0.5,
+                  "label": "-0.5"
+                },
+                {
+                  "v": 0,
+                  "label": "0"
+                },
+                {
+                  "v": 0.5,
+                  "label": "0.5"
+                },
+                {
+                  "v": 1,
+                  "label": ""
+                }
+              ]
+            }
+          },
+          "dataSha256": "21edd0d6470dbc28445a0a75d66f887f4c0f7f4a83d93af2ad46ce997e6e501b"
+        },
+        "loopalyzer-iob": {
+          "axes": {
+            "xaxis": {
+              "min": 1735689600000,
+              "max": 1735776000000,
+              "mode": "time",
+              "ticks": [
+                {
+                  "v": 1735689600000,
+                  "label": "00:00"
+                },
+                {
+                  "v": 1735693200000,
+                  "label": "01:00"
+                },
+                {
+                  "v": 1735696800000,
+                  "label": "02:00"
+                },
+                {
+                  "v": 1735700400000,
+                  "label": "03:00"
+                },
+                {
+                  "v": 1735704000000,
+                  "label": "04:00"
+                },
+                {
+                  "v": 1735707600000,
+                  "label": "05:00"
+                },
+                {
+                  "v": 1735711200000,
+                  "label": "06:00"
+                },
+                {
+                  "v": 1735714800000,
+                  "label": "07:00"
+                },
+                {
+                  "v": 1735718400000,
+                  "label": "08:00"
+                },
+                {
+                  "v": 1735722000000,
+                  "label": "09:00"
+                },
+                {
+                  "v": 1735725600000,
+                  "label": "10:00"
+                },
+                {
+                  "v": 1735729200000,
+                  "label": "11:00"
+                },
+                {
+                  "v": 1735732800000,
+                  "label": "12:00"
+                },
+                {
+                  "v": 1735736400000,
+                  "label": "13:00"
+                },
+                {
+                  "v": 1735740000000,
+                  "label": "14:00"
+                },
+                {
+                  "v": 1735743600000,
+                  "label": "15:00"
+                },
+                {
+                  "v": 1735747200000,
+                  "label": "16:00"
+                },
+                {
+                  "v": 1735750800000,
+                  "label": "17:00"
+                },
+                {
+                  "v": 1735754400000,
+                  "label": "18:00"
+                },
+                {
+                  "v": 1735758000000,
+                  "label": "19:00"
+                },
+                {
+                  "v": 1735761600000,
+                  "label": "20:00"
+                },
+                {
+                  "v": 1735765200000,
+                  "label": "21:00"
+                },
+                {
+                  "v": 1735768800000,
+                  "label": "22:00"
+                },
+                {
+                  "v": 1735772400000,
+                  "label": "23:00"
+                },
+                {
+                  "v": 1735776000000,
+                  "label": "00:00"
+                }
+              ]
+            },
+            "yaxis": {
+              "min": 0,
+              "max": 4,
+              "ticks": [
+                {
+                  "v": 0,
+                  "label": ""
+                },
+                {
+                  "v": 1,
+                  "label": "1"
+                },
+                {
+                  "v": 2,
+                  "label": "2"
+                },
+                {
+                  "v": 3,
+                  "label": "3"
+                },
+                {
+                  "v": 4,
+                  "label": ""
+                }
+              ]
+            }
+          },
+          "dataSha256": "bf1d641b765451a3e6d1128676849f7745c08c8b955844e70ca876fc85bb42d7"
+        },
+        "loopalyzer-cob": {
+          "axes": {
+            "xaxis": {
+              "min": 1735689600000,
+              "max": 1735776000000,
+              "mode": "time",
+              "ticks": [
+                {
+                  "v": 1735689600000,
+                  "label": "00:00"
+                },
+                {
+                  "v": 1735693200000,
+                  "label": "01:00"
+                },
+                {
+                  "v": 1735696800000,
+                  "label": "02:00"
+                },
+                {
+                  "v": 1735700400000,
+                  "label": "03:00"
+                },
+                {
+                  "v": 1735704000000,
+                  "label": "04:00"
+                },
+                {
+                  "v": 1735707600000,
+                  "label": "05:00"
+                },
+                {
+                  "v": 1735711200000,
+                  "label": "06:00"
+                },
+                {
+                  "v": 1735714800000,
+                  "label": "07:00"
+                },
+                {
+                  "v": 1735718400000,
+                  "label": "08:00"
+                },
+                {
+                  "v": 1735722000000,
+                  "label": "09:00"
+                },
+                {
+                  "v": 1735725600000,
+                  "label": "10:00"
+                },
+                {
+                  "v": 1735729200000,
+                  "label": "11:00"
+                },
+                {
+                  "v": 1735732800000,
+                  "label": "12:00"
+                },
+                {
+                  "v": 1735736400000,
+                  "label": "13:00"
+                },
+                {
+                  "v": 1735740000000,
+                  "label": "14:00"
+                },
+                {
+                  "v": 1735743600000,
+                  "label": "15:00"
+                },
+                {
+                  "v": 1735747200000,
+                  "label": "16:00"
+                },
+                {
+                  "v": 1735750800000,
+                  "label": "17:00"
+                },
+                {
+                  "v": 1735754400000,
+                  "label": "18:00"
+                },
+                {
+                  "v": 1735758000000,
+                  "label": "19:00"
+                },
+                {
+                  "v": 1735761600000,
+                  "label": "20:00"
+                },
+                {
+                  "v": 1735765200000,
+                  "label": "21:00"
+                },
+                {
+                  "v": 1735768800000,
+                  "label": "22:00"
+                },
+                {
+                  "v": 1735772400000,
+                  "label": "23:00"
+                },
+                {
+                  "v": 1735776000000,
+                  "label": "00:00"
+                }
+              ]
+            },
+            "yaxis": {
+              "min": 0,
+              "max": 60,
+              "ticks": [
+                {
+                  "v": 0,
+                  "label": ""
+                },
+                {
+                  "v": 10,
+                  "label": "10"
+                },
+                {
+                  "v": 20,
+                  "label": "20"
+                },
+                {
+                  "v": 30,
+                  "label": "30"
+                },
+                {
+                  "v": 40,
+                  "label": "40"
+                },
+                {
+                  "v": 50,
+                  "label": "50"
+                },
+                {
+                  "v": 60,
+                  "label": ""
+                }
+              ]
+            }
+          },
+          "dataSha256": "59fe80b1a4565d47eaf4cb2a04442704d36e1e91fbfca131b916c9ce6bb800e8"
+        },
+        "glucosedistribution-overviewchart": {
+          "axes": {
+            "xaxis": {
+              "min": 1,
+              "max": 1.01,
+              "mode": null,
+              "ticks": []
+            },
+            "yaxis": {
+              "min": 0,
+              "max": 19.38,
+              "ticks": []
+            }
+          },
+          "dataSha256": "1ae4ec4ea8530acef31d5e8ee2d4bab6fcce5cd3b425e3615ad3dd1f33c04aaa"
+        }
+      }
+    }
+  }
+}

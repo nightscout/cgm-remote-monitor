@@ -16,6 +16,7 @@ describe('Status REST api', function ( ) {
     env.api_secret = 'this is my long pass phrase';
     this.wares = require('../lib/middleware/')(env);
     this.app = require('express')( );
+    require('../lib/middleware/configure-request')(this.app);
     this.app.enable('api');
     var self = this;
     require('../lib/server/bootevent')(env, language).boot(function booted (ctx) {
@@ -70,15 +71,18 @@ describe('Status REST api', function ( ) {
   });
 
 
-  it('/status.js', function (done) {
-    request(this.app)
-      .get('/api/status.js')
-      .end(function(err, res) {
+  it('preserves JavaScript status by extension and explicit Accept header', async function () {
+    for (let cycle = 0; cycle < 2; cycle++) {
+      for (const endpoint of ['/api/status.js?count=1', '/api/status']) {
+        const res = await request(this.app).get(endpoint)
+          .set('Accept', 'application/javascript').expect(200);
         res.type.should.equal('application/javascript');
-        res.statusCode.should.equal(200);
         res.text.should.startWith('this.serverSettings =');
-        done();
-      });
+        const info = JSON.parse(res.text.slice('this.serverSettings = '.length, -2));
+        info.status.should.equal('ok');
+        info.apiEnabled.should.equal(true);
+      }
+    }
   });
 
   it('/status.png', function (done) {

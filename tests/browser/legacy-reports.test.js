@@ -21,7 +21,8 @@ function queryKey(value) {
 describe('legacy reports in a real browser', function () {
   let server, origin, markup, requests;
   before(async function () {
-    const root = path.resolve(__dirname, '../..'), file = path.join(root, 'views/reportindex.html');
+    const root = process.env.NIGHTSCOUT_REPORT_REFERENCE_ROOT || path.resolve(__dirname, '../..');
+    const file = path.join(root, 'views/reportindex.html');
     markup = ejs.render(fs.readFileSync(file, 'utf8'), {type: 'reports', title: '', bundle: '/bundle', settings: require('../fixtures/default-server-settings').settings}, {filename: file});
     const cssNames = ['main', 'drawer', 'report', 'dropdown', 'ui-lightness/jquery-ui.min'];
     const css = new Map(cssNames.map(name => ['/css/' + name + '.css', fs.readFileSync(path.join(root, 'static/css', name + '.css'), 'utf8')
@@ -47,7 +48,7 @@ describe('legacy reports in a real browser', function () {
     app.get('/api/v1/status.json', (request, response) => response.json(settings));
     app.get('/api/v1/verifyauth', (request, response) => response.json({message: 'OK'}));
     app.get('/api/v1/adminnotifies', (request, response) => response.json({message: {notifies: [], notifyCount: 0}}));
-    app.get('/translations/*', (request, response) => response.json({}));
+    app.get('/translations/{*path}', (request, response) => response.json({}));
     app.get(['/api/v1/entries.json', '/api/v1/treatments.json', '/api/v1/food/regular.json', '/api/v1/profiles', '/api/v1/devicestatus.json'],
       (request, response) => response.json(responses.get(queryKey(request.originalUrl)) || []));
     app.delete('/api/v1/treatments/:id', (request, response) => response.json({message: 'OK'}));
@@ -63,8 +64,9 @@ describe('legacy reports in a real browser', function () {
   async function withReports(run) {
     requests = [];
     await withPage(origin, async ({page, routed}) => {
-      const pending = new Map(), failures = [];
-      networkDiagnostics.set(page, {pending, failures, routed});
+      const pending = new Map(), failures = [], consoleErrors = [];
+      page.on('console', message => {if (message.type() === 'error') consoleErrors.push(message.text());});
+      networkDiagnostics.set(page, {pending, failures, routed, consoleErrors});
       page.on('request', request => pending.set(request, Date.now()));
       page.on('requestfinished', request => pending.delete(request));
       page.on('requestfailed', request => {
@@ -155,6 +157,7 @@ describe('legacy reports in a real browser', function () {
         pending: Array.from(network.pending, ([request, at]) => ({path: new URL(request.url()).pathname,
           elapsedMs: Date.now() - at})),
         failures: network.failures.slice(-10),
+        consoleErrors: network.consoleErrors.slice(-10),
         routed: Array.from(network.routed.values(), state => ({...state, elapsedMs: Date.now() - state.since})),
         received: requests.length,
         unfinished: requests.filter(request => !request.finished).map(request => new URL(request.url, origin).pathname)
@@ -315,4 +318,121 @@ describe('legacy reports in a real browser', function () {
       }
     });
   });
+
+  for (const units of ['mg/dl', 'mmol']) {
+    it('renders empty report periods repeatedly in ' + units, async function () {
+      await withReports(async page => {
+        await page.evaluate(units => {window.Nightscout.client.settings.units = units;}, units);
+        await page.locator('#rp_from').fill('2025-01-01');
+        await page.locator('#rp_to').fill('2025-01-01');
+        await page.locator('#hourlystats').click();
+        let count;
+        for (let cycle = 0; cycle < 2; cycle++) {
+          await show(page);
+          // CHANGED at the cut 5 merge: dev draws this chart with D3 (#8542),
+          // so the repeated render is checked on its SVG rather than a canvas.
+          const next = await page.locator('#hourlystats-overviewchart svg').count();
+          assert.ok(next > 0);
+          if (count !== undefined) assert.equal(next, count, 'Repeated rendering replaces the chart');
+          count = next;
+          assert.deepEqual(networkDiagnostics.get(page).consoleErrors, []);
+        }
+      });
+    });
+
+    it('preserves plotted report data and finite axes in ' + units + ' over repeated renders', async function () {
+      this.timeout(90000);
+      await withReports(async page => {
+        await page.evaluate(units => {
+          window.Nightscout.client.settings.units = units;
+          const original = $.plot;
+          window.reportPlots = {};
+          $.plot = Object.assign(function (placeholder, data, options) {
+            const plot = original(placeholder, data, options);
+            const id = $(placeholder).attr('id');
+            const axes = Object.fromEntries(Object.entries(plot.getAxes()).filter(([, axis]) => axis.used).map(([name, axis]) => [name, {
+              min: axis.min, max: axis.max, mode: axis.options.mode,
+              ticks: (axis.ticks || []).map(tick => ({v: tick.v, label: tick.label}))
+            }]));
+            const normalized = JSON.parse(JSON.stringify(data));
+            for (const series of normalized) {
+              if (series.bars && Array.isArray(series.bars.barWidth) && series.bars.barWidth[1] === true) {
+                series.bars.barWidth = series.bars.barWidth[0];
+              }
+            }
+            window.reportPlots[id] = {data: normalized, axes,
+              width: plot.width(), height: plot.height(),
+              canvases: $(placeholder).find('canvas').length};
+            return plot;
+          }, original);
+        }, units);
+        await page.locator('#rp_to').fill('2015-08-14');
+        await page.locator('#loopalyzer').click();
+        let initial;
+        for (let cycle = 0; cycle < 2; cycle++) {
+          await page.evaluate(() => {window.reportPlots = {};});
+          await show(page);
+          // CHANGED at the cut 5 merge: dev's AGP work (#8542) draws the daily,
+          // hourly, percentile and distribution charts with D3, so Loopalyzer is
+          // the only report still plotted with Flot. The characterized series
+          // are compared for Loopalyzer only, against this branch's goldens
+          // unchanged; the other charts' golden entries describe Flot charts dev
+          // no longer draws.
+          const flotCharts = ['loopalyzer-basal', 'loopalyzer-bg', 'loopalyzer-tempbasal', 'loopalyzer-iob', 'loopalyzer-cob'];
+          await page.waitForFunction(() => Boolean(window.reportPlots['loopalyzer-cob']));
+          const plots = await page.evaluate(() => window.reportPlots);
+          assert.deepEqual(Object.keys(plots).sort(), flotCharts.slice().sort(), 'Only Loopalyzer is plotted with Flot');
+          const data = Object.fromEntries(Object.entries(plots).map(([id, plot]) => [id, plot.data]));
+          const golden = path.join(__dirname, 'report-plot-data-' + (units === 'mmol' ? 'mmol' : 'mgdl') + '.json');
+          // dev's restyle (#8542) changed Loopalyzer's series colours and nothing
+          // else in these series, so colour is left out of the comparison.
+          const uncoloured = charts => Object.fromEntries(Object.entries(charts).map(([id, series]) =>
+            [id, series.map(({color, ...rest}) => rest)]));
+          const characterized = Object.fromEntries(Object.entries(JSON.parse(fs.readFileSync(golden, 'utf8')))
+            .filter(([id]) => flotCharts.includes(id)));
+          assert.deepEqual(uncoloured(data), uncoloured(characterized), 'Report series match characterized output');
+          if (initial) assert.deepEqual(data, initial, 'Repeated rendering preserves series');
+          initial = data;
+          for (const [id, plot] of Object.entries(plots)) {
+            assert.ok(plot.width > 0 && plot.height > 0 && plot.canvases > 0, id + ' renders a visible canvas');
+            for (const axis of Object.values(plot.axes)) {
+              assert.ok(Number.isFinite(axis.min) && Number.isFinite(axis.max), id + ' finite axis bounds');
+              assert.ok(axis.ticks.every(tick => Number.isFinite(tick.v)), id + ' finite tick values');
+              if (axis.mode === 'time') assert.ok(axis.ticks.every(tick => !/Invalid|NaN/.test(tick.label)), id + ' valid dates');
+              if (axis.mode === 'time' && id.startsWith('loopalyzer-')) {
+                assert.ok(axis.max - axis.min <= 86400000, id + ' retains a single day, including absolute bar widths');
+                assert.ok(axis.ticks.length <= 26, id + ' does not generate thousands of hourly labels');
+              }
+            }
+          }
+          assert.equal(plots['loopalyzer-bg'].axes.yaxis.max, units === 'mmol' ? 20 : 400);
+          assert.equal(plots['loopalyzer-tempbasal'].axes.yaxis.min, -1);
+          assert.equal(plots['loopalyzer-tempbasal'].axes.yaxis.max, 1);
+          const labels = await page.locator('#loopalyzer-cob .flot-x-axis .tickLabel').evaluateAll(elements => elements.map(element => {
+            const style = getComputedStyle(element), rect = element.getBoundingClientRect();
+            return {text: element.textContent, width: rect.width, height: rect.height,
+              color: element.namespaceURI === 'http://www.w3.org/2000/svg' ? style.fill : style.color};
+          }).filter(label => label.width > 0 && label.height > 0));
+          assert.ok(labels.some(label => label.text === '12:00'), 'Time labels are rendered');
+          assert.ok(labels.every(label => label.color !== 'rgb(255, 255, 255)'), 'Report labels contrast with the white background');
+          assert.ok((await page.locator('#loopalyzer-bg .legend').textContent()).includes('Blood Glucose'), 'Legend remains enabled');
+          assert.deepEqual(networkDiagnostics.get(page).consoleErrors, []);
+          if (process.env.NIGHTSCOUT_REPORT_PLOT_EVIDENCE) fs.writeFileSync(
+            process.env.NIGHTSCOUT_REPORT_PLOT_EVIDENCE + '-' + (units === 'mmol' ? 'mmol' : 'mgdl') + '.json',
+            JSON.stringify(plots, null, 2) + '\n');
+          if (cycle === 1 && process.env.NIGHTSCOUT_REPORT_SCREENSHOTS) {
+            for (const tab of ['loopalyzer']) {
+              await page.locator('#' + tab).click();
+              fs.writeFileSync(process.env.NIGHTSCOUT_REPORT_SCREENSHOTS + '-' + tab + '-labels.json', JSON.stringify(await page.locator('#' + tab + '-placeholder').evaluate(root =>
+                [...root.querySelectorAll('.flot-svg text')].slice(0, 30).map(element => ({text: element.textContent,
+                  html: element.outerHTML, font: getComputedStyle(element).font, fill: getComputedStyle(element).fill,
+                  rect: element.getBoundingClientRect().toJSON(), svg: element.closest('svg').getBoundingClientRect().toJSON()}))), null, 2));
+              await page.locator('#' + tab + '-placeholder').screenshot({path:
+                process.env.NIGHTSCOUT_REPORT_SCREENSHOTS + '-' + tab + '-' + (units === 'mmol' ? 'mmol' : 'mgdl') + '.png'});
+            }
+          }
+        }
+      });
+    });
+  }
 });

@@ -1,4 +1,9 @@
-# Build/runtime separation candidate
+# Build/runtime separation (integrated)
+
+Integrated in #8657. Final combined graph/image measurements are in the
+[completion evidence](modernization-completion.md); the figures below describe
+this historical slice, not the final combined branch. Live host execution is
+maintainer-owned after automated completion.
 
 Seven build-only declarations move to devDependencies: Babel core/preset,
 babel-loader, expose-loader, moment-timezone-data-webpack-plugin, webpack

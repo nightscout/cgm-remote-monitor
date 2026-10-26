@@ -24,6 +24,7 @@ describe('Count REST api', function ( ) {
     self.env.settings.authDefaultRoles = 'readable';
     self.wares = require('../lib/middleware/')(self.env);
     self.app = require('express')( );
+    require('../lib/middleware/configure-request')(self.app);
     self.app.enable('api');
     bootevent(self.env, language).boot(function booted (ctx) {
       self.app.use('/', entries(self.app, self.wares, ctx, self.env));

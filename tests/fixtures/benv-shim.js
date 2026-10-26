@@ -35,8 +35,10 @@ const DOM_GLOBALS = [
   'document',
   'location',
   'getComputedStyle',
-  'btoa',
-  'atob',
+  // Not btoa/atob: Node has its own, and jsdom's window.atob calls the global
+  // atob, so mirroring the window's onto the global made every atob call
+  // recurse until it failed as InvalidCharacterError. entities 8 decodes its
+  // tables with atob when the bundle loads, which is how this surfaced.
   'HTMLElement',
   'Element',
   'Node',

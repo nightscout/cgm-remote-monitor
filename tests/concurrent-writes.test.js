@@ -20,6 +20,7 @@ describe('Concurrent Write Tests - MongoDB 5.x Compatibility', function () {
     self.env.settings.enable = ['careportal', 'api'];
     self.wares = require('../lib/middleware/')(self.env);
     self.app = require('express')();
+    require('../lib/middleware/configure-request')(self.app);
     self.app.enable('api');
     require('../lib/server/bootevent')(self.env, language).boot(function booted(ctx) {
       self.ctx = ctx;

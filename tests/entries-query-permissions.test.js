@@ -29,6 +29,7 @@ describe('Entries predicate permission boundary', function () {
     authorization.storage.roles = [{name:'owned-role', permissions:[]}];
     ctx.entries = require('../lib/server/entries')({entries_collection:name}, ctx);
     const app = express();
+    require('../lib/middleware/configure-request')(app);
     app.enable('api');
     app.set('query parser', 'extended');
     app.use(require('../lib/api/entries')(app, require('../lib/middleware')(env), ctx, env));

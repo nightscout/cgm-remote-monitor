@@ -10,6 +10,7 @@ describe('API extension negotiation contracts', function () {
     const formats = {json:'application/json', svg:'image/svg+xml', csv:'text/csv', txt:'text/plain',
       png:'image/png', html:'text/html', js:'application/javascript', tsv:'text/tab-separated-values'};
     const app = express();
+    require('../lib/middleware/configure-request')(app);
     app.use(extensions(Object.keys(formats)));
     app.use((req,res) => res.json({url:req.url,accept:req.headers.accept,original:req.extToAccept}));
     for (const [ext,type] of Object.entries(formats)) {
@@ -38,7 +39,7 @@ describe('API extension negotiation contracts', function () {
       if(type==='application/json') assert.deepEqual(result.body.result,[{sgv:123}]);
       else assert(result.text.includes('123'));
     }
-    for(const ext of ['unknown','exe','dll','deb','dmg','iso','msi','asc','wav','mpp','html','jsonld','rdf']) {
+    for(const ext of ['unknown','exe','dll','deb','dmg','iso','msi','asc','wav','mpp','html','jsonld','rdf','es','js','mjs','xfdf','fdf','prc','sql','aac','hsj2','mts','jpgm']) {
       await request(app).get('/entries.'+ext).expect(406);
     }
   });

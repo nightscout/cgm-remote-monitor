@@ -25,6 +25,7 @@ describe('Profile query JavaScript HTTP boundary', function () {
       {startDate:'2030-01-03T00:00:00.000Z', score:3}
     ]);
     const app = express();
+    require('../lib/middleware/configure-request')(app);
     app.set('query parser', 'extended');
     const env = {settings:{authDefaultRoles:'owned-profile-role', authFailDelay:0},
       authentication_collections_prefix:collectionName + '_auth_'};

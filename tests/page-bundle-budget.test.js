@@ -19,7 +19,12 @@ const {entries, output, measure} = require('../tools/measure-page-bundles');
 // 61032 reports / 425675 total gzip bytes on patched Node 24.22.1. Static chart
 // styles are loaded as CSS. See the modernReportRefinements audit entry.
 // Only reports and total allowances increase; other page limits stay fixed.
-const limits = {app: 349000, reports: 61500, admin: 8500, profile: 7100, food: 5700, clock: 63000};
+// LIMIT CHANGED at the cut 5 merge: Flot 0.8 -> 4.2.6 (the modernization
+// branch's upgrade, kept for Loopalyzer, the remaining Flot chart) measured
+// 66853 reports gzip bytes against 61076 on cut 4 (+5777) on Node 24.22.1;
+// the modernization branch measured +5975 for the same modules. The reports
+// allowance moves by that measured cost; every other limit is unchanged.
+const limits = {app: 349000, reports: 67500, admin: 8500, profile: 7100, food: 5700, clock: 63000};
 
 describe('Production page bundle resource budgets', function () {
   let measurements;
@@ -43,7 +48,7 @@ describe('Production page bundle resource budgets', function () {
       const map = JSON.parse(fs.readFileSync(path.join(output, 'bundle.' + entry + '.js.map'), 'utf8'));
       const reportSources = map.sources.filter(source => /\/node_modules\/flot\/|\/lib\/report(?:_plugins)?\//.test(source));
       if (entry === 'reports') {
-        assert.ok(reportSources.some(source => source.endsWith('/flot/jquery.flot.js')), 'Reports must include the real Flot implementation');
+        assert.ok(reportSources.some(source => source.endsWith('/flot/source/jquery.flot.js')), 'Reports must include the real Flot implementation');
         assert.ok(reportSources.some(source => source.endsWith('/report_plugins/index.js')), 'Reports must include report plugins');
       } else assert.deepEqual(reportSources, [], entry + ' must not contain report code');
     }

@@ -73,6 +73,7 @@ describe('Loop notifications API v2', function () {
     ctx.authorization.resolve = async function () { return { shiros: [shiro] }; };
 
     var app = express();
+    require('../lib/middleware/configure-request')(app);
     app.use(ctx.wares.sendJSONStatus);
     if (Object.prototype.hasOwnProperty.call(options, 'trustProxy')) { env.trustProxy = options.trustProxy; }
     app.use('/api/v2/notifications', notificationsV2(app, ctx, env));

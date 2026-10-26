@@ -29,8 +29,9 @@
     "start": "node lib/server/server.js",
     "test": "node bin/with-env.js ./my.test.env node_modules/mocha/bin/mocha.js --timeout 5000 --require ./tests/hooks.js --exit ./tests/*.test.js",
     "test-single": "node bin/with-env.js ./my.test.env node_modules/mocha/bin/mocha.js --timeout 5000 --require ./tests/hooks.js --exit ./tests/$TEST.test.js",
+    "test:connect": "npm --prefix node_modules/nightscout-connect test",
     "test:core": "node scripts/test-tiers.js run core",
-    "test:dependencies": "npm ls brace-expansion postcss mocha nanoid js-yaml eslint nyc dompurify socket.io-parser fast-uri ip-address d3 d3-color express body-parser socket.io socket.io-client engine.io engine.io-client socket.io-adapter ws axios @babel/core @babel/preset-env babel-loader uuid --all && node scripts/test-tiers.js run dependency",
+    "test:dependencies": "npm ls @cacheable/node-cache @cacheable/utils keyv hookified lodash brace-expansion postcss mocha nanoid js-yaml eslint nyc dompurify socket.io-parser fast-uri ip-address d3 d3-color express body-parser socket.io socket.io-client engine.io engine.io-client socket.io-adapter ws axios @babel/core @babel/preset-env babel-loader uuid --all && node scripts/test-tiers.js run dependency",
     "test-ci": "node bin/with-env.js ./tests/ci.test.env node_modules/nyc/bin/nyc.js --reporter=lcov --reporter=text-summary mocha --timeout 5000 --require ./tests/hooks.js --exit ./tests/*.test.js",
     "test:fast": "node bin/with-env.js ./my.test.env node_modules/mocha/bin/mocha.js --timeout 5000 --require ./tests/hooks.js --exit --reporter min ./tests/*.test.js",
     "test:unit": "node scripts/test-tiers.js run unit",
@@ -100,44 +101,43 @@
   },
   "dependencies": {
     "@aws-sdk/credential-providers": "3.1127.0",
-    "@mongodb-js/saslprep": "^1.4.5",
-    "@parse/node-apn": "^5.1.3",
-    "axios": "^0.34.0",
+    "@cacheable/node-cache": "3.1.1",
+    "@parse/node-apn": "8.1.0",
+    "axios": "1.20.0",
     "braces": "^3.0.2",
     "compression": "^1.8.2",
     "csv-stringify": "^6.8.3",
     "d3": "^7.9.0",
     "easyxml": "^2.0.1",
-    "ejs": "^3.1.8",
-    "entities": "^6.0.1",
+    "ejs": "6.0.1",
+    "entities": "8.0.0",
     "errorhandler": "^1.5.1",
     "events": "^3.3.0",
-    "express": "4.22.2",
+    "express": "^5.2.1",
     "fast-password-entropy": "^1.1.1",
-    "flot": "^0.8.3",
+    "flot": "4.2.6",
     "forwarded-for": "^1.1.0",
-    "helmet": "^4.0.0",
+    "helmet": "^8.3.0",
     "jquery": "^3.5.1",
     "jquery-ui": "^1.14.2",
     "jsonwebtoken": "^9.0.0",
     "lodash": "4.18.1",
-    "mime-types": "^2.1.35",
+    "mime-types": "3.0.2",
     "moment": "^2.31.0",
     "moment-timezone": "^0.6.3",
     "mongodb": "^7.6.0",
     "mongodb-connection-string-url": "7.0.2",
     "nightscout-connect": "0.1.0",
-    "node-cache": "^4.2.1",
     "process": "^0.11.10",
     "proxy-addr": "^2.0.8",
-    "pushover-notifications": "^1.2.2",
+    "qs": "6.16.0",
     "sanitize-html": "2.18.1",
     "semver": "^7.8.5",
     "shiro-trie": "^0.4.9",
     "socket.io": "~4.8.3",
     "socks": "2.8.10",
-    "swagger-ui-dist": "^4.13.2",
-    "swagger-ui-express": "^4.5.0"
+    "swagger-ui-dist": "5.32.15",
+    "swagger-ui-express": "5.0.1"
   },
   "devDependencies": {
     "@babel/core": "^8.0.1",
@@ -150,8 +150,9 @@
     "eslint": "^10.10.0",
     "eslint-plugin-security": "^4.0.1",
     "globals": "^17.12.0",
+    "js-yaml": "4.3.2",
     "jsdom": "^26.1.0",
-    "mocha": "^11.8.0",
+    "mocha": "12.0.0",
     "moment-timezone-data-webpack-plugin": "^1.5.0",
     "nodemon": "^3.1.14",
     "nyc": "^18.0.0",
@@ -160,8 +161,8 @@
     "socket.io-client": "^4.8.3",
     "supertest": "^7.2.2",
     "webpack": "^5.110.3",
-    "webpack-bundle-analyzer": "^4.5.0",
-    "webpack-cli": "^4.10.0",
+    "webpack-bundle-analyzer": "5.3.2",
+    "webpack-cli": "7.2.3",
     "webpack-dev-middleware": "^8.3.0",
     "xml2js": "^0.5.0",
     "xss": "^1.0.15"
@@ -176,19 +177,19 @@
     "flatted": "3.4.2",
     "picomatch": "2.3.2",
     "ajv@^6.0.0": "6.15.0",
-    "ajv@^8.0.0": "8.18.0",
+    "ajv@^8.0.0": "8.20.0",
     "socket.io-parser": "4.2.7",
     "filelist": {
       "minimatch": "5.1.8"
     },
     "schema-utils@^4.0.0": {
-      "ajv": "8.18.0"
+      "ajv": "8.20.0"
     },
     "ajv-formats": {
-      "ajv": "8.18.0"
+      "ajv": "8.20.0"
     },
     "mocha": {
-      "diff": "8.0.3",
+      "diff": "9.0.0",
       "serialize-javascript": "7.1.4"
     },
     "terser-webpack-plugin": "5.6.0",
@@ -199,11 +200,14 @@
     "brace-expansion@^2.0.0": "2.1.7",
     "brace-expansion@^5.0.0": "5.0.12",
     "js-yaml@^3.0.0": "3.15.2",
-    "js-yaml@^4.0.0": "4.3.2",
+    "js-yaml@^4.0.0": "$js-yaml",
     "fast-uri@^3.0.0": "3.1.9",
     "source-map-js": "1.2.2",
     "istanbul-lib-processinfo": {
       "uuid": "11.1.1"
     }
+  },
+  "scarfSettings": {
+    "enabled": false
   }
 }
