@@ -191,6 +191,15 @@ Unknown tier names, missing explicit test files and files outside the requested
 tiers fail with a nonzero exit status before any tests run. Empty automatic
 affected-test selections and empty stdin pipelines remain successful no-ops.
 
+`TEST_SHUFFLE_SEED=<integer>` runs each tier's files in a seeded random order,
+keeping a tier's first and last files in place, and prints the seed. Running
+again with the same seed replays the order, so a failure that depends on which
+file ran before it can be reproduced:
+
+```bash
+TEST_SHUFFLE_SEED=8839 npm run test:integration
+```
+
 ### Inner-loop selection
 
 ```bash
@@ -239,29 +248,48 @@ npm run test:browser
 
 Use `NIGHTSCOUT_TEST_BROWSER=firefox` or `webkit` after installing that engine.
 Ordinary CI runs all three browser engines once on Node 26. Server compatibility
-uses the Node 22.23.4/26 and MongoDB 5.0/8.0 edges, plus the two transitional
-required lanes below. Browser downloads are separate from ordinary npm installs
+uses the Node 22.23.4/26 and MongoDB 5.0/8.0 edges, each tested once (below),
+plus the two transitional required lanes. Browser downloads are separate from ordinary npm installs
 and production deployment. See the [browser test specification](docs/test-specs/browser-tests.md)
 for isolation, coverage boundaries and additional test-tool disk/RAM costs.
 
 ### CI coverage and manual release checks
 
-Ordinary and release PRs run 19 validation jobs: six main server lanes,
-two maintained-MongoDB lanes, four replica-set lanes, three browsers on Node 26,
-npm 12 compatibility, two native Docker builds and CodeQL. Four main server
-lanes cover the Node/MongoDB edges. Two preserve the
-required check names `Run Tests (24, 6)` and `Run Tests (22, 6)`.
-MongoDB 4.4 remains unsupported and has no CI lane.
-No individual test cases are dropped. Publishing waits for all server, browser,
-npm 12, maintained-MongoDB and replica-set jobs on the actual `dev`/`master` push.
+Ordinary and release PRs run these validation jobs:
+
+| Job | Lanes | What runs |
+|---|---|---|
+| Tests without a database | Node 22.23.4 and 26, no MongoDB | the `unit`, `dom`, `dependency`, `core` and `harness` tiers, the tier map check and the dependency check |
+| Run Tests | (22.23.4, MongoDB 8.0) and (26, MongoDB 5.0), plus the two required lanes | the `integration` and `stress` tiers, then the pruned runtime check |
+| Maintained MongoDB | Node 26 against MongoDB 8.0.29 | the whole suite in one process (`test-ci`) and `test:core` |
+| Browser tests | chromium, firefox, webkit on Node 26 | the `browser` tier |
+| npm 12, Docker (amd64, arm64), CodeQL | one each | install, build and image start-up |
+| Tests pass | one | succeeds only if every job above succeeded or was skipped |
+
+The main lanes test the diagonal: each Node edge and each MongoDB edge runs
+once, and the newest pair runs in Maintained MongoDB. Each diagonal lane also
+takes one other setting at its non-default value: one runs in
+`TZ=America/Los_Angeles`, a zone with daylight saving time, and the other runs
+the test files in an order seeded by the run id. The seed is printed in the
+log; `TEST_SHUFFLE_SEED=<seed>` replays it locally. Tests without a database
+take the same two settings the other way round, so each Node edge runs each
+setting once.
+
+Two lanes preserve the required check names `Run Tests (24, 6)` and
+`Run Tests (22, 6)`. Once branch protection requires `Tests pass` instead, they
+can be removed. MongoDB 4.4 remains unsupported and has no CI lane. No
+individual test cases are dropped. Publishing waits for `Tests pass` on the
+actual `dev`/`master` push.
 
 Before a release, use **Actions → CI test and publish Docker image → Run
 workflow**, select the candidate ref and leave **extended** enabled. This tests
 all six Node selectors (the patched floor and latest patch on each of 22/24/26)
-against MongoDB 5.0/8.0, plus the two transitional required lanes (14 server
-jobs), and all three browsers on every selector (18 browser jobs). Both native
-Docker images are built and smoke-tested. The two maintained-MongoDB lanes and
-four replica-set lanes also run in both manual modes. Manual runs never publish images.
+against both MongoDB 5.0 and 8.0, plus the two transitional required lanes (14
+server jobs), the tiers without a database on all six selectors, and all three
+browsers on every selector (18 browser jobs). Both native Docker images are
+built and smoke-tested. The maintained-MongoDB lane also runs
+in both manual modes. Manual runs never publish images. The **Weekly extended
+tests** workflow starts the same extended run on `dev` every Monday.
 CodeQL can be run separately on the same ref through its own Run workflow
 control. GitHub exposes manual dispatch after the workflow configuration
 reaches the default branch.

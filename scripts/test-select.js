@@ -246,31 +246,14 @@ function warnStaleBundle (changed, via) {
   }
 }
 
-// mulberry32: small seeded PRNG so a failing sample can be replayed with --seed.
-function prng (seed) {
-  let a = seed >>> 0;
-  return function () {
-    a = (a + 0x6D2B79F5) >>> 0;
-    let t = a;
-    t = Math.imul(t ^ (t >>> 15), t | 1);
-    t ^= t + Math.imul(t ^ (t >>> 7), t | 61);
-    return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
-  };
-}
-
 function sample (opts) {
   const n = parseInt(opts._[0], 10) || 10;
   const seed = Number.isInteger(opts.seed) ? opts.seed : Math.floor(Math.random() * 1e9);
-  const random = prng(seed);
   const bracket = new Set();
   tiers.TIER_NAMES.forEach(name => {
     [].concat(tiers.MAP.tiers[name].first || [], tiers.MAP.tiers[name].last || []).forEach(f => bracket.add(f));
   });
-  const pool = repoFiles().filter(f => opts.tiers.includes(tierOf(f)) && !bracket.has(f)).sort();
-  for (let i = pool.length - 1; i > 0; i--) {
-    const j = Math.floor(random() * (i + 1));
-    const tmp = pool[i]; pool[i] = pool[j]; pool[j] = tmp;
-  }
+  const pool = tiers.shuffle(repoFiles().filter(f => opts.tiers.includes(tierOf(f)) && !bracket.has(f)).sort(), seed);
   console.error('# sample of ' + Math.min(n, pool.length) + ' from ' + pool.length + ' test files in ' +
     opts.tiers.join(',') + '; replay with --seed ' + seed);
   const picked = pool.slice(0, n).sort();
