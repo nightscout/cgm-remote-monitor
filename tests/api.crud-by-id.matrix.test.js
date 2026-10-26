@@ -111,7 +111,12 @@ var EXPECT = {
     return ['200 n=1 edited=true', 'v3 PUT by identifier replaces the v1 record, leaving one'];
   }
   , 'v3 delete': function () { return ['200 n=0', 'v3 permanent DELETE by identifier removes the v1 record']; }
-  , 'v3 resend': function () { return ['200 n=1 edited=true', 'v3 POST with the same identifier deduplicates onto the v1 record']; }
+  , 'v3 resend': function (col) {
+    // ID-SIMPLE-MATCH, devicestatus option (b), decided 2026-10-26: a device
+    // status re-sent with a stored identifier is acknowledged, not rewritten.
+    if (col === 'devicestatus') return ['200 n=1 edited=false', 'v3 POST with the same identifier is acknowledged as a deduplication and leaves the v1 status as stored'];
+    return ['200 n=1 edited=true', 'v3 POST with the same identifier deduplicates onto the v1 record'];
+  }
   // websocket dbAdd of a new record carrying its own _id
   , 'ws create': function (col, form) {
     if (isHexForm(form)) return ['[ObjectId]', 'a 24-hex _id is stored as the ObjectId it names, as v1 does'];

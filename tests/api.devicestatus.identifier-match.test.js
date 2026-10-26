@@ -1,23 +1,23 @@
-'use strict';
-
-// A devicestatus POSTed again with the `identifier` of a stored status
-// replaces that status's fields, as a v1 treatment with the same
-// `identifier` does, instead of being stored a second time.
+// A devicestatus POSTed again with the `identifier` of a stored status is
+// acknowledged with the stored status's `_id` and not written again
+// (ID-SIMPLE-MATCH, devicestatus option (b), maintainer decision 2026-10-26).
 //
 // `identifier` is the client's name for the status. v1 devicestatus had no
 // match key: every POST added a record, so an uploader that retried a status
 // it had already sent stored a copy. Now a status whose `identifier` is
-// already stored updates that status with the later values, and the response
-// names the stored `_id`. A status with a new `identifier`, or with none, is
-// inserted as before, and a re-sent `_id` is still answered with the stored
-// record (see api.devicestatus.resend-guard).
+// already stored writes nothing: no merge, no second record and no new
+// srvModified, whether the body is the same or different; the response names
+// the stored `_id`, as a re-sent `_id` is answered (see
+// api.devicestatus.resend-guard). A status with a new `identifier`, or with
+// none, is inserted as before. API v3 does the same
+// (api3.devicestatus.identifier-dedup).
 
 var request = require('supertest');
 require('should');
 var ObjectID = require('mongodb').ObjectId;
 var language = require('../lib/language')();
 
-describe('devicestatus: a re-send with a stored identifier updates that status', function () {
+describe('devicestatus: a re-send with a stored identifier is acknowledged and not stored again', function () {
   this.timeout(15000);
   var self = this;
   var known = 'b723e97aa97846eb92d5264f084b2823f57c4aa1';
@@ -68,17 +68,51 @@ describe('devicestatus: a re-send with a stored identifier updates that status',
     return dropAll();
   });
 
-  it('the same identifier POSTed twice stores one status with the later values', async function () {
-    var first = await post(status(0, { identifier: 'idm-status-a', uploaderBattery: 50 })).expect(200);
-    var second = await post(status(1, { identifier: 'idm-status-a', uploaderBattery: 48 })).expect(200);
+  it('the same status POSTed twice with one identifier stores it once, unchanged', async function () {
+    var body = status(0, { identifier: 'idm-status-same', uploaderBattery: 50 });
+    var first = await post(Object.assign({}, body)).expect(200);
+    var before = await stored({ identifier: 'idm-status-same' });
+    var second = await post(Object.assign({}, body)).expect(200);
+
+    var docs = await stored({ identifier: 'idm-status-same' });
+    docs.length.should.equal(1);
+    docs.should.eql(before);
+    String(first.body[0]._id).should.equal(String(docs[0]._id));
+    second.body.length.should.equal(1);
+    String(second.body[0]._id).should.equal(String(docs[0]._id));
+  });
+
+  it('a different status POSTed with a stored identifier writes nothing: no merge, no copy, no new srvModified', async function () {
+    var first = await post(status(0, { identifier: 'idm-status-a', uploaderBattery: 50, pump: { reservoir: 100 } })).expect(200);
+    var before = await stored({ identifier: 'idm-status-a' });
+    var second = await post(status(1, { identifier: 'idm-status-a', uploaderBattery: 48, pump: null, extra: 'x' })).expect(200);
 
     var docs = await stored({ identifier: 'idm-status-a' });
     docs.length.should.equal(1);
-    docs[0].uploaderBattery.should.equal(48);
-    docs[0].created_at.should.equal(status(1).created_at);
+    docs.should.eql(before);
+    docs[0].uploaderBattery.should.equal(50);
+    docs[0].pump.should.eql({ reservoir: 100 });
+    docs[0].should.not.have.property('extra');
+    docs[0].created_at.should.equal(status(0).created_at);
+    docs[0].srvModified.should.equal(before[0].srvModified);
     String(first.body[0]._id).should.equal(String(docs[0]._id));
     String(second.body[0]._id).should.equal(String(docs[0]._id));
-    docs[0].srvModified.should.be.above(docs[0].srvCreated);
+    // The reply is the status as sent with the stored _id, the shape a
+    // re-sent _id gets.
+    second.body[0].uploaderBattery.should.equal(48);
+  });
+
+  it('the acknowledged re-send announces nothing', async function () {
+    await post(status(0, { identifier: 'idm-status-quiet' })).expect(200);
+    var events = [];
+    function seen (event) { if (event && event.type === 'devicestatus') events.push(event); }
+    self.ctx.bus.on('data-update', seen);
+    try {
+      await post(status(1, { identifier: 'idm-status-quiet' })).expect(200);
+    } finally {
+      self.ctx.bus.removeListener('data-update', seen);
+    }
+    events.length.should.equal(0);
   });
 
   it('a different identifier stores a second status', async function () {
@@ -98,7 +132,7 @@ describe('devicestatus: a re-send with a stored identifier updates that status',
     docs.forEach(function (d) { d.should.not.have.property('identifier'); });
   });
 
-  it('a batch of stored, new, repeated and unidentified statuses stores each identifier once', async function () {
+  it('a batch of stored, new, repeated and unidentified statuses stores each identifier once, the first copy', async function () {
     await post(status(0, { identifier: 'idm-batch-stored', uploaderBattery: 40 })).expect(200);
 
     var res = await post([
@@ -111,7 +145,7 @@ describe('devicestatus: a re-send with a stored identifier updates that status',
     ]).expect(200);
 
     var docs = await stored();
-    docs.map(function (d) { return d.uploaderBattery; }).should.eql([42, 43, 44, 45, 47]);
+    docs.map(function (d) { return d.uploaderBattery; }).should.eql([40, 43, 44, 45, 46]);
     var byIdentifier = {};
     docs.forEach(function (d) { if (d.identifier) byIdentifier[d.identifier] = String(d._id); });
     res.body.length.should.equal(6);
@@ -134,21 +168,34 @@ describe('devicestatus: a re-send with a stored identifier updates that status',
     String(res.body[0]._id).should.equal(hex);
   });
 
-  it('when _id and identifier name different stored statuses, identifier decides', async function () {
+  it('when _id and identifier name different stored statuses, identifier decides, and neither is written', async function () {
     var storedHex = '5f3300000000000000000b02';
     var otherHex = '5f3300000000000000000b03';
     await post(status(0, { _id: storedHex, identifier: 'idm-status-d', uploaderBattery: 50 })).expect(200);
     await post(status(5, { _id: otherHex, uploaderBattery: 30 })).expect(200);
+    var before = await stored();
 
     var res = await post(status(1, { _id: otherHex, identifier: 'idm-status-d', uploaderBattery: 49 })).expect(200);
 
     var docs = await stored();
-    docs.length.should.equal(2);
+    docs.should.eql(before);
     String(docs[0]._id).should.equal(storedHex);
-    docs[0].uploaderBattery.should.equal(49);
+    docs[0].uploaderBattery.should.equal(50);
     String(docs[1]._id).should.equal(otherHex);
     docs[1].uploaderBattery.should.equal(30);
     String(res.body[0]._id).should.equal(storedHex);
+  });
+
+  it('a re-send of a deleted status (isValid: false) is acknowledged and leaves it deleted', async function () {
+    await post(status(0, { identifier: 'idm-status-deleted' })).expect(200);
+    await collection().updateOne({ identifier: 'idm-status-deleted' }, { $set: { isValid: false } });
+    var before = await stored({ identifier: 'idm-status-deleted' });
+    var res = await post(status(0, { identifier: 'idm-status-deleted' })).expect(200);
+
+    var docs = await stored({ identifier: 'idm-status-deleted' });
+    docs.should.eql(before);
+    docs[0].isValid.should.equal(false);
+    String(res.body[0]._id).should.equal(String(docs[0]._id));
   });
 
   it('a non-string or empty identifier is stored as sent, and every POST stores a status', async function () {
