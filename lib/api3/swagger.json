@@ -309,6 +309,9 @@
           "404": {
             "$ref": "#/components/responses/404NotFound"
           },
+          "409": {
+            "$ref": "#/components/responses/409Conflict"
+          },
           "410": {
             "$ref": "#/components/responses/410Gone"
           },
@@ -884,6 +887,21 @@
           }
         }
       },
+      "409Conflict": {
+        "description": "A treatment changed while the patch was being validated (with `WRITE_VALIDATION` checks); retry the request.",
+        "content": {
+          "application/json": {
+            "schema": {
+              "properties": {
+                "status": {
+                  "type": "integer",
+                  "example": 409
+                }
+              }
+            }
+          }
+        }
+      },
       "412PreconditionFailed": {
         "description": "The document has already been modified on the server since specified timestamp (in If-Unmodified-Since header).",
         "content": {
@@ -931,6 +949,11 @@
       },
       "search200": {
         "description": "Successful operation returning array of documents matching the filtering criteria",
+        "headers": {
+          "Nightscout-Data-Warnings": {
+            "$ref": "#/components/headers/DataWarnings"
+          }
+        },
         "content": {
           "application/json": {
             "schema": {
@@ -987,6 +1010,9 @@
         "headers": {
           "Last-Modified": {
             "$ref": "#/components/headers/LastModified"
+          },
+          "Nightscout-Data-Warnings": {
+            "$ref": "#/components/headers/DataWarnings"
           }
         }
       },
@@ -1023,6 +1049,9 @@
           },
           "ETag": {
             "$ref": "#/components/headers/EtagLastModifiedMaximum"
+          },
+          "Nightscout-Data-Warnings": {
+            "$ref": "#/components/headers/DataWarnings"
           }
         }
       },
@@ -1059,13 +1088,19 @@
         }
       },
       "LastModifiedMaximum": {
-        "description": "The latest (maximum) `srvModified` of the returned documents, as an HTTP date such as `Wed, 17 Oct 2018 05:13:00 GMT`.",
+        "description": "The latest (maximum) `srvModified` of the returned documents, as an HTTP date such as `Wed, 17 Oct 2018 05:13:00 GMT`. Absent when no returned document has a valid `srvModified`, for example when the result is empty.",
         "schema": {
           "type": "string"
         }
       },
       "EtagLastModifiedMaximum": {
-        "description": "The latest (maximum) `srvModified` of the returned documents, with milliseconds (unlike `Last-Modified`), e.g. `W/\"1525383610088\"`.",
+        "description": "The latest (maximum) `srvModified` of the returned documents, with milliseconds (unlike `Last-Modified`), e.g. `W/\"1525383610088\"`. Absent when `Last-Modified` is.",
+        "schema": {
+          "type": "string"
+        }
+      },
+      "DataWarnings": {
+        "description": "Experimental, sent only when `API_V3_DATA_WARNINGS` is on (see the README). Counts of stored-data rules the returned documents break, as `rule=count, ...`; no identifiers or values. The header's form is not settled and may change.",
         "schema": {
           "type": "string"
         }
