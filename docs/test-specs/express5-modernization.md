@@ -28,6 +28,17 @@ Status JavaScript negotiation specifies application/javascript explicitly to
 retain the v1 format contract despite Express's changed MIME database.
 Browser fixture translation routes use the supported wildcard syntax.
 
+Cut 5 CORS follow-up, 26 October 2026: use `res.sendStatus(200)` for the
+enabled CORS handler's preflight response. Express 5 treats `res.send(200)` as
+a JSON body containing `200`; Express 4 used the numeric argument as the HTTP
+status and returned text `OK`. The explicit API restores that existing wire
+contract without changing feature defaults, allowed origins/methods/headers
+or API authorization. The real HTTP-contract fixture now checks preflight for
+v1, v3 and an unknown path in both production modes and development, with the
+wildcard default and a configured origin. Its assertions fail against
+`res.send(200)` before the correction (`expected 'OK' response body, got '200'`).
+These are owned loopback requests; no remote API or provider is contacted.
+
 The old empty-batch test referenced a nonexistent fixture and sent no body.
 It now asserts that its fixture is an empty array before sending it. Separate
 request tests distinguish absent, unsupported, empty-array and document bodies.
