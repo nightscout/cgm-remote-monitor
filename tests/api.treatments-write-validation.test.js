@@ -145,7 +145,7 @@ describe('Treatment write validation (WRITE_VALIDATION)', function () {
       const res = await self.instance.post(self.url, self.jwt.create).send(doc).expect(400);
 
       res.body.status.should.equal(400);
-      res.body.message.should.match(/targetTop is too high for units mmol; it looks like a mg\/dL value/);
+      res.body.message.should.match(/targetTop is labelled units mmol but is above 30, so it is a mg\/dL value: send units mg\/dl, or targetTop in mmol\/L/);
       should.not.exist(await storedV3(doc.identifier));
     });
 
@@ -229,7 +229,7 @@ describe('Treatment write validation (WRITE_VALIDATION)', function () {
       const res = await v1Post(body).expect(400);
 
       res.body.status.should.equal(400);
-      res.body.message.should.match(/too high for units mmol/);
+      res.body.message.should.match(/targetTop is labelled units mmol .* send units mg\/dl/);
       (await storedV1(body.created_at)).length.should.equal(0);
     });
 
@@ -245,14 +245,54 @@ describe('Treatment write validation (WRITE_VALIDATION)', function () {
       should.not.exist(stored[0].units);
     });
 
-    it('API v1 refuses a whole batch when one item breaks a rule', async () => {
-      const good = careportalDoubleLabel(500);
-      delete good.glucose;
-      delete good.glucoseType;
+    it('API v1 stores the valid items of a mixed batch and reports the refused one in its slot', async () => {
+      const first = careportalDoubleLabel(500);
+      delete first.glucose;
+      delete first.glucoseType;
       const bad = careportalDoubleLabel(501);
-      await v1Post([good, bad]).expect(400);
-      (await storedV1(good.created_at)).length.should.equal(0);
+      const last = { eventType: 'Note', created_at: new Date(Date.now() - 502 * 60000).toISOString(),
+        enteredBy: DEVICE, notes: 'batch tail' };
+
+      const res = await v1Post([first, bad, last]).expect(200);
+
+      // The reply shape old clients read: one object per item sent, in order,
+      // `_id` on each stored one (NightscoutKit maps ids by position and
+      // requires the count to match).
+      res.body.should.be.an.Array();
+      res.body.length.should.equal(3);
+      should.exist(res.body[0]._id);
+      should.exist(res.body[2]._id);
+      res.body[2].notes.should.equal('batch tail');
+      should.not.exist(res.body[1]._id);
+      res.body[1].created_at.should.equal(bad.created_at);
+      res.body[1].refused.status.should.equal(400);
+      res.body[1].refused.message.should.match(/targetTop is labelled units mmol .* send units mg\/dl/);
+      res.body[1].refused.rules.should.containEql({ rule: 'tt-units-plausible', field: 'targetTop' });
+      res.headers.warning.should.match(/^299 - "1 of 3 treatments refused by WRITE_VALIDATION/);
+
+      (await storedV1(first.created_at)).length.should.equal(1);
       (await storedV1(bad.created_at)).length.should.equal(0);
+      (await storedV1(last.created_at)).length.should.equal(1);
+    });
+
+    it('API v1 answers 400 when every item of a batch is refused', async () => {
+      const a = careportalDoubleLabel(510);
+      const b = careportalDoubleLabel(511);
+      const res = await v1Post([a, b]).expect(400);
+      res.body.message.should.match(/targetTop is labelled units mmol/);
+      (await storedV1(a.created_at)).length.should.equal(0);
+      (await storedV1(b.created_at)).length.should.equal(0);
+    });
+
+    it('API v1 reply to a batch with nothing refused carries no refusal and no Warning', async () => {
+      const ok = careportalDoubleLabel(520);
+      delete ok.glucose;
+      delete ok.glucoseType;
+      const res = await v1Post([ok]).expect(200);
+      res.body.length.should.equal(1);
+      should.exist(res.body[0]._id);
+      should.not.exist(res.body[0].refused);
+      should.not.exist(res.headers.warning);
     });
 
     it('API v1 PUT refuses the careportal double label with 400', async () => {
