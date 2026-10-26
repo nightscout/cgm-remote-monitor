@@ -262,7 +262,6 @@ Ordinary and release PRs run these validation jobs:
 | Tests without a database | Node 22.23.4 and 26, no MongoDB | the `unit`, `dom`, `dependency`, `core` and `harness` tiers, the tier map check and the dependency check |
 | Run Tests | (22.23.4, MongoDB 8.0) and (26, MongoDB 5.0), plus the two required lanes | the `integration` and `stress` tiers, then the pruned runtime check |
 | Maintained MongoDB | Node 26 against MongoDB 8.0.29 | the whole suite in one process (`test-ci`) and `test:core` |
-| Replica set | Node 22.23.4/26 × MongoDB 5.0.32/8.0.29 | reads and writes across two primary changes |
 | Browser tests | chromium, firefox, webkit on Node 26 | the `browser` tier |
 | npm 12, Docker (amd64, arm64), CodeQL | one each | install, build and image start-up |
 | Tests pass | one | succeeds only if every job above succeeded or was skipped |
@@ -288,7 +287,7 @@ all six Node selectors (the patched floor and latest patch on each of 22/24/26)
 against both MongoDB 5.0 and 8.0, plus the two transitional required lanes (14
 server jobs), the tiers without a database on all six selectors, and all three
 browsers on every selector (18 browser jobs). Both native Docker images are
-built and smoke-tested. The maintained-MongoDB and replica-set lanes also run
+built and smoke-tested. The maintained-MongoDB lane also runs
 in both manual modes. Manual runs never publish images. The **Weekly extended
 tests** workflow starts the same extended run on `dev` every Monday.
 CodeQL can be run separately on the same ref through its own Run workflow

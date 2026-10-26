@@ -10,8 +10,8 @@ upgraded by CI.
 Current matrix: the newest pair only, Node 26 (the newest line) against MongoDB
 8.0.29 (the newest tested), running the whole suite in one process. The main
 test matrix runs the diagonal, Node 22.23.4 against MongoDB 8.0 and Node 26
-against 5.0, so the floor is tested against 8.0 there; 5.0 also runs in the
-replica-set job. The extended run adds every pair. Docker publication depends
+against 5.0, so the floor is tested against 8.0 there. The extended run adds
+every pair. Docker publication depends
 on this job through `Tests pass`; the pull-request image check runs alongside
 it.
 
