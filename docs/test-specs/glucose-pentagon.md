@@ -1,0 +1,17 @@
+# Comprehensive Glucose Pentagon
+
+The Distribution report includes a Comprehensive Glucose Pentagon (CGP) and Pentagon Glucose Ratio (PGR) for the selected calendar days. It compares five measures with the reference pentagon described by [Vigersky et al.](https://doi.org/10.1177/1932296817718561). The chart and values are descriptive research measures; the PGR is not a validated prediction of an individual's complications or a basis for treatment decisions.
+
+The pentagon uses the model's fixed 70–180 mg/dL (approximately 3.9–10.0 mmol/L) range, regardless of the range selected for the surrounding Distribution report. Select all 24 hours to display it. The report shows the observed CGM coverage, number of readings and selected days. It withholds the pentagon when coverage is below 70%. This threshold is a conservative implementation guard, not a demonstrated validation threshold for PGR; coverage alone does not establish that the selected data are representative.
+
+## Calculation
+
+Glucose readings are deduplicated and restricted to 39–600 mg/dL, using the same preparation as the AGP report. Observations are weighted by their estimated duration, at most five minutes and clipped at the end of each profile-local day. Long gaps and completely missing days remain unobserved; calendar-day duration accounts for daylight saving. Time out of range is the observed fraction below 70 or above 180, expressed as minutes per 24 hours. The mean and population coefficient of variation are weighted by observed duration.
+
+For each day, low intensity is the Euclidean length of the area below 70 (the glucose deficit multiplied by time) and the duration at or below 70. High intensity is the corresponding length of the area of glucose values at or above 180 and the duration at or above 180. Exactly 70 and 180 are included in the intensity durations, as in Reporter, while both are in range for time out of range. Each day's intensity is normalized to 24 hours of observed time, and daily intensities are averaged by observed duration. This gives an estimate from available observations, not reconstructed missing data. It may differ from Reporter when readings are missing or irregular, and daylight-saving days are normalized to 24 hours. Reporter labels intensity values in glucose-unit × min² and divides them by 1,000 for display.
+
+The five calculated values are transformed to pentagon axes using the Vigersky/Reporter formulas; the PGR is the polygon area divided by the reference polygon area. The axis transforms use 17% as the lower bound for variability and 90 mg/dL as the lower bound for mean glucose, following Reporter. The displayed polygon is clipped at the chart's outer scale; dots identify clipped axes, but the displayed values and PGR use the full calculated values. No risk categories are assigned.
+
+## Attribution
+
+The method and axis conventions were compared with [Nightscout Reporter](https://github.com/zreptil/nightscout-reporter) (Dart, commit `518d61fb1d8d61bb127fd4de1c60e28278b39a62`, BSD-3-Clause) and its successor [Nightscout Reporter Angular](https://github.com/zreptil/nightscout-reporter-angular) (commit `c21559a1fa20eb0ff24300f8b2a64563ee200136`, MIT). Their license notices are retained in `docs/third-party/`. This implementation independently handles incomplete and irregular readings as described above.

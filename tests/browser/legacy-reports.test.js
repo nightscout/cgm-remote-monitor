@@ -307,6 +307,32 @@ describe('legacy reports in a real browser', function () {
     });
   });
 
+  it('renders and updates the glucose pentagon in the Distribution report', async function () {
+    await withReports(async page => {
+      await page.locator('#glucosedistribution').click();
+      await page.evaluate(() => {
+        const profile = window.Nightscout.client.sbx.data.profile;
+        const start = profile.parseInTimezone('2015-08-08').valueOf();
+        const records = Array.from({length: 288}, (_, i) => ({
+          displayTime: new Date(start + i * 300000), bgValue: i < 144 ? 60 : 200, sgv: i < 144 ? 60 : 200
+        }));
+        window.Nightscout.report_plugins('glucosedistribution').report(
+          {allstatsrecords: records, alldays: 1}, ['2015-08-08'], {targetLow: 70, targetHigh: 180});
+      });
+      assert.match(await page.locator('.gd-pentagon-score').textContent(), /^PGR: /);
+      assert.equal(await page.locator('.gd-pentagon-values dt').count(), 5);
+      assert.equal(await page.locator('.gd-pentagon-chart svg').getAttribute('role'), 'img');
+      await page.locator('#glucosedistribution-0').uncheck();
+      assert.equal(await page.locator('.gd-pentagon-score').count(), 0);
+      assert.match(await page.locator('.gd-pentagon-message').textContent(), /all 24 hours/);
+      await page.locator('#glucosedistribution-0').check();
+      assert.match(await page.locator('.gd-pentagon-score').textContent(), /^PGR: /);
+      await page.setViewportSize({width: 390, height: 844});
+      assert.equal(await page.locator('.gd-pentagon-chart svg').isVisible(), true);
+      if (process.env.NIGHTSCOUT_PENTAGON_SCREENSHOT) await page.locator('.gd-pentagon').screenshot({path: process.env.NIGHTSCOUT_PENTAGON_SCREENSHOT});
+    });
+  });
+
   it('should produce week to week report', async function () {
     await withReports(async page => {
       await page.locator('#weektoweek').click();
