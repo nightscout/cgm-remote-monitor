@@ -29,7 +29,11 @@ describe('API_SECRET', function() {
     done();
   });
 
+  // env.settings is shared by every require('../lib/server/env')() call, and
+  // other files set authDefaultRoles on it (the API3 fixture sets ''). These
+  // tests expect the default, readable.
   function setup_app (env, fn) {
+    env.settings.authDefaultRoles = 'readable';
     api = require('../lib/api/');
     require('../lib/server/bootevent')(env, language).boot(function booted (ctx) {
       ctx.app = api(env, ctx);
@@ -40,6 +44,7 @@ describe('API_SECRET', function() {
   }
 
   function setup_big_app (env, fn) {
+    env.settings.authDefaultRoles = 'readable';
     api = require('../lib/api/');
     require('../lib/server/bootevent')(env, language).boot(function booted (ctx) {
       ctx.app = api(env, ctx);
