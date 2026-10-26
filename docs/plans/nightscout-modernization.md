@@ -1,9 +1,16 @@
 # Nightscout dependency and runtime modernization
 
-Updated: 2026-09-08. Baseline: `dev` commit `9205ea300b9a6981ad8f16223c69620dd3c1c830` (15.0.9).
+Current scope updated: 2026-10-26. Historical plan baseline: `dev` commit `9205ea300b9a6981ad8f16223c69620dd3c1c830` (15.0.9).
 Tracking issue: [#8328](https://github.com/nightscout/cgm-remote-monitor/issues/8328).
 
-This is the execution plan for reducing dependency maintenance, installation size, unnecessary server allocations and browser cost. Deliver each numbered item as a small PR targeting `chore/nightscout-modernization`. After review and green checks against the current integration branch, merge it there and update its status/evidence here. **#8605 is the single integration PR targeting dev** and stays draft until the complete modernization and release gates are satisfied. Do not merge individual implementation PRs into dev. Implementation checkboxes do not waive outstanding release validation.
+This records the original execution plan for reducing dependency maintenance,
+installation size, unnecessary server allocations and browser cost. Much of it
+has since reached dev through cuts 1–4 and other PRs. **#8605 is now cut 5**,
+targeting current dev for the remaining web/notification dependency and
+Loopalyzer compatibility work. The [current scope and evidence limits](../test-specs/modernization-completion.md#current-cut-5-scope-26-october-2026)
+take precedence over historical completion checkboxes, draft status, runtime
+versions and measurements below. Implementation checkboxes do not waive
+current CI or the explicit maintainer acceptance work.
 
 This plan supersedes the dated Node/dependency recommendations and unmeasured size estimates in the [January architecture roadmap](../meta/modernization-roadmap.md). Use that document for broader ideas, the [testing proposal](../proposals/testing-modernization-proposal.md) for logic/DOM separation, and the [MongoDB plan](../proposals/mongodb-modernization-implementation-plan.md) for database compatibility work. Revalidate their historical checklists before starting work. A new framework, TypeScript conversion, Redis, identity system or database migration is not a prerequisite for dependency reduction.
 

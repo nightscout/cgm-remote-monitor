@@ -1,9 +1,62 @@
 # Modernization completion evidence
 
-This record closes the agreed M01–M30 automated work for the draft #8605
-integration branch. It does not claim a shipped release or a manual production,
-vendor-account, Atlas IAM or physical-device pass. The maintainer explicitly
-owns those checks after automated completion.
+This record preserves the original integration branch's M01–M30 evidence.
+Its dated results do not establish completion or release readiness of today's
+cut 5. The maintainer owns the manual production, vendor-account, Atlas IAM
+and physical-device checks; none is claimed passed here.
+
+## Current cut 5 scope, 26 October 2026
+
+#8605 is the remaining cut 5 PR against dev, synchronized through `09d0def8`
+by `246f2274`. Cuts 1–4 and subsequent dev changes already contain much of the
+original plan. The remaining production work upgrades Express 5/Helmet 8,
+Axios 1, EJS 6, entities 8, MIME types 3 and Swagger UI 5; migrates APNs to 8
+and notification caching to `@cacheable/node-cache` with its compatibility
+adapter; replaces the used Pushover SDK subset; and upgrades Loopalyzer to
+Flot 4. The notification callbacks snapshot dispatch/acknowledgement state.
+There is no new database schema or multitenancy implementation in this scope.
+
+The current runtime floor remains `^22.23.4 || ^24.22.1 || >=26.12.1`; Docker
+uses Node 24.22.1. Moment and the selected jQuery/UI modules remain deliberate
+retain decisions. jsdom is again present for dev's active DOM regressions, and
+25 top-level dependency overrides remain: the historical retirement and
+zero-override statements are not current graph claims.
+
+A fresh audit on both current dev and this branch reports two affected package
+records, `@parse/node-apn` and `node-forge`, for
+[GHSA-86w9-cpqp-85rv](https://github.com/advisories/GHSA-86w9-cpqp-85rv), with no
+published fix. The inspected APNs client uses Forge for credential parsing and
+fingerprinting; no signature-verification call was found in that client. This
+is a scoped code observation, not a general safety guarantee. Do not suppress
+the advisory or describe the current installation as having zero advisories.
+
+The report-widget comparison is historical research, no longer required CI.
+Its optional script loads the old pie plugin only in an isolated page; required
+browser tests exercise the production D3 reports and Flot Loopalyzer instead.
+Artifact actions retain dev's commit pins and lint runs once on the floor lane.
+
+All measurements below belong to their recorded baseline/build/runtime. They
+are not incremental benefits measured against today's dev. Fresh hosted CI,
+CodeQL and Docker checks must pass on the proposed cut 5 merge. Live Pushover
+delivery/acknowledgement/cancellation, alarm suppression over its real time
+window, APNs delivery to a phone, and deployment/rollback remain unverified.
+
+Follow-up local validation on Node 24.22.1: the complete backend suite passes
+4,283 cases with three pending against an owned loopback MongoDB 8.0.29;
+dependency tests pass 368 with two pending; client-core passes 319; application
+lint has zero errors and 18 warnings. The Swagger opt-out passes in the checkout
+path containing spaces, and removing or enabling that root policy fails the
+test. The optional historical pie experiment passes in Chromium, Firefox and
+WebKit with its plugin isolated from the production entry. Workflow parsing
+verifies pinned remote actions, unchanged dev matrices and one floor lint step.
+`npm ls --all` passes under npm 11.19.0 without changing the lockfile; npm 11.6.2
+reports override conflicts on both dev and cut 5.
+
+The preceding review of `246f2274` passed the production build, 650 Chromium
+cases and 334 installed connector cases. This follow-up changes CI, research
+tooling, a test fixture and documentation only; application sources and the
+dependency graph are unchanged. These local results do not replace fresh
+hosted checks or the manual acceptance work above.
 
 ## Dev synchronization, 9 September 2026
 
