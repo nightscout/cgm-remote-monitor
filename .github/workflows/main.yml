@@ -350,7 +350,10 @@ jobs:
   docker-build:
     name: Build Docker image (${{ matrix.arch }})
     needs: [tests-pass]
-    if: github.event_name == 'push' && (github.ref == 'refs/heads/master' || github.ref == 'refs/heads/dev') && github.repository_owner == 'nightscout'
+    # Without a status function GitHub adds success(), which also checks the
+    # jobs tests-pass needs. Docker validation is skipped on pushes, so that
+    # skipped the build; ask for tests-pass's own result instead.
+    if: ${{ !cancelled() && needs.tests-pass.result == 'success' && github.event_name == 'push' && (github.ref == 'refs/heads/master' || github.ref == 'refs/heads/dev') && github.repository_owner == 'nightscout' }}
     runs-on: ${{ matrix.runner }}
     strategy:
       fail-fast: false
@@ -402,7 +405,9 @@ jobs:
     name: Publish to Docker Hub
     needs: docker-build
     runs-on: ubuntu-latest
-    if: github.event_name == 'push' && (github.ref == 'refs/heads/master' || github.ref == 'refs/heads/dev') && github.repository_owner == 'nightscout'
+    # As for docker-build: the implicit success() would see the skipped
+    # Docker validation further up the chain.
+    if: ${{ !cancelled() && needs.docker-build.result == 'success' && github.event_name == 'push' && (github.ref == 'refs/heads/master' || github.ref == 'refs/heads/dev') && github.repository_owner == 'nightscout' }}
     env:
       DOCKER_IMAGE: nightscout/cgm-remote-monitor
     steps:
