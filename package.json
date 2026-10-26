@@ -44,7 +44,7 @@
     "test:parallel": "node bin/with-env.js ./my.test.env node_modules/mocha/bin/mocha.js --timeout 10000 --require ./tests/hooks.js --exit --parallel --jobs 2 ./tests/*.test.js",
     "test:parallel:ci": "CLEAR_REQUIRE_CACHE=true node bin/with-env.js ./tests/ci.test.env node_modules/nyc/bin/nyc.js --reporter=lcov --reporter=text-summary mocha --timeout 10000 --require ./tests/hooks.js --exit --parallel --jobs 2 ./tests/*.test.js",
     "env": "env",
-    "postinstall": "webpack --mode production --config webpack/webpack.config.js && npm run-script post-generate-keys",
+    "postinstall": "node bin/postinstall.js",
     "bundle": "webpack --mode production --config webpack/webpack.config.js && npm run-script post-generate-keys",
     "bundle-dev": "webpack --mode development --config webpack/webpack.config.js && npm run-script post-generate-keys",
     "bundle-analyzer": "webpack --mode development --config webpack/webpack.config.js --profile --json > stats.json && webpack-bundle-analyzer stats.json",
