@@ -663,8 +663,9 @@ describe('API3 CREATE', function() {
 
   // TEST-V3-ID-002: ObjectId string as identifier uses it directly
   it('should use ObjectId string as identifier (TEST-V3-ID-002)', async () => {
-    // Valid 24-char hex ObjectId format
-    const objectIdIdentifier = '507f1f77bcf86cd799439011';
+    // Valid 24-char hex ObjectId format, fresh each run: the well-known
+    // 507f1f77bcf86cd799439011 is also used by other files' fixtures.
+    const objectIdIdentifier = require('crypto').randomBytes(12).toString('hex');
     const doc = {
       date: (new Date()).getTime(),
       app: testConst.TEST_APP,
