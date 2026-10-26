@@ -22,7 +22,7 @@ info:
 
     Any other operator is refused with HTTP 400 and a message naming it. That includes `$where`, `$function` and `$accumulator`, which ask MongoDB to run JavaScript; `$expr`, which embeds the aggregation expression language in a filter; and `$elemMatch`, `$not`, `$nor`, `$all`, `$size`, `$mod`, `$text` and the geospatial operators, none of which the API is defined over. An operator name appearing inside a *value* is data and is not affected.
 
-    **Writes.** `POST` bodies are one record or an array of at most 10000 records. Anything else is refused with HTTP 400. An `_id`, where a write accepts one, must be a 24-character hex string.
+    **Writes.** `POST` bodies are one record or an array of at most 10000 records. Anything else is refused with HTTP 400. A write's `_id` is optional: leave it out and the server assigns one. If sent, it should be a 24-character hex string (either case), which is stored as that ObjectId in lower case. Anything else is never stored as `_id`: profile, devicestatus, food and activity refuse it with HTTP 400; treatments and entries drop it and assign one (Extended JSON `{"$oid": "<24 hex>"}` is kept as that ObjectId, and any other string is moved to `identifier` when `UUID_HANDLING` is on, the default). Reads return `_id` as the ObjectId's 24-character hex form.
   version: 16.0.0
   license:
     name: AGPL 3
@@ -1550,7 +1550,8 @@ components:
           description: The signal strength from CGM transmitter. (only available for sgv types)
         _id:
           type: string
-          description: Storage id assigned by Nightscout, a 24-character hex string.
+          description: >-
+            Storage id: a MongoDB ObjectId, served as its 24-character hex form. Sent in a write, a 24-character hex string, or omitted; any other value is not stored as `_id` (see Writes above).
         device:
           type: string
           description: The device or uploader that produced the entry.
@@ -1604,7 +1605,8 @@ components:
           $ref: '#/components/schemas/xdripjs'
         _id:
           type: string
-          description: Storage id assigned by Nightscout, a 24-character hex string.
+          description: >-
+            Storage id: a MongoDB ObjectId, served as its 24-character hex form. Sent in a write, a 24-character hex string, or omitted; anything else is refused with HTTP 400.
     Devicestatuses:
       type: array
       items:
@@ -1732,7 +1734,8 @@ components:
       properties:
         _id:
           type: string
-          description: Storage id assigned by Nightscout.
+          description: >-
+            Storage id: a MongoDB ObjectId, served as its 24-character hex form. Sent in a write, a 24-character hex string, or omitted; any other value is not stored as `_id` (see Writes above).
         eventType:
           type: string
           description: The type of treatment event.
@@ -1800,7 +1803,8 @@ components:
       properties:
         _id:
           type: string
-          description: Storage id assigned by Nightscout, a 24-character hex string.
+          description: >-
+            Storage id: a MongoDB ObjectId, served as its 24-character hex form. Sent in a write, a 24-character hex string, or omitted; anything else is refused with HTTP 400.
         defaultProfile:
           type: string
           description: Name of the profile in `store` that is in use.
@@ -2027,7 +2031,8 @@ components:
           description: Date and time in ISO 8601 format, readable by JavaScript `Date()`.
         _id:
           type: string
-          description: Storage id assigned by Nightscout, a 24-character hex string.
+          description: >-
+            Storage id: a MongoDB ObjectId, served as its 24-character hex form. Sent in a write, a 24-character hex string, or omitted; anything else is refused with HTTP 400.
     Activities:
       type: array
       items:
@@ -2037,7 +2042,8 @@ components:
       properties:
         _id:
           type: string
-          description: Storage id assigned by Nightscout, a 24-character hex string.
+          description: >-
+            Storage id: a MongoDB ObjectId, served as its 24-character hex form. Sent in a write, a 24-character hex string, or omitted; anything else is refused with HTTP 400.
         type:
           type: string
           enum:

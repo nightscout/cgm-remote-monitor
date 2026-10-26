@@ -7,7 +7,7 @@
   ],
   "info": {
     "title": "Nightscout API v1",
-    "description": "Own your data with the Nightscout API.\n\nThis document describes API v1 as served by Nightscout 16.0.0 under `/api/v1`. `GET /versions` is served one level up, under `/api`. API v1 is also served under `/api/v2`, which adds endpoints not described here. API v3 has its own document at `/api3-docs`.\n\n**Authentication.** A request can carry the `API_SECRET` (as its SHA-1 or SHA-512 hex digest, in the `api-secret` header), a JSON Web Token (`Authorization: Bearer <jwt>`), or an access token created in the admin tools (the `token` query parameter). The `secret` query parameter is also accepted, for existing clients. Credentials in URLs can end up in logs and browser history: see *Protecting authentication credentials in URLs* in the README. A JWT is issued for an access token by `GET /api/v2/authorization/request/{accessToken}`.\n\n**Permissions.** Each operation below names the permission it checks, such as `api:entries:read`. A request without credentials is given the roles listed in `AUTH_DEFAULT_ROLES` (default `readable`, which grants read permissions); with `AUTH_DEFAULT_ROLES=denied` every operation that checks a permission needs credentials. A refused request is answered with HTTP 401 and `{\"status\":401,\"message\":\"Unauthorized\",\"description\":\"Invalid/Missing\"}`.\n\n**Availability.** Operations that change data are mounted only when `API_SECRET` is set. Writing treatments also needs `careportal` in `ENABLE`; `/alexa` and `/googlehome` need `alexa` and `googlehome` in `ENABLE`.\n\n**Reads.** Reads of entries, treatments, devicestatus, activity and `/profiles` take a MongoDB-style filter in `find[...]` query parameters and a number of records in `count`. Without a filter on the record's date field (`date` for entries, `created_at` for treatments, devicestatus and activity, `startDate` for profiles), a read covers the last four days. Records are returned newest first.\n\n**`count`.** `count` is a whole number of records. A value that is not (`abc`, `-3`, `1e2`) is refused with HTTP 400 `Bad count`. Two older forms are still read as 15.0.8 read them, each answered with `Deprecation: true` and a `Warning` header and each controlled by a setting described in the README: a number followed by `?` and other text is read as that number (`API_V1_COUNT_LEADING_NUMBER`), and `count=0` returns every record in a `find` that bounds one date field from both sides, or the endpoint's default number of records without such a range (`API_V1_COUNT_ZERO_WINDOW`). With a setting turned off, that form is refused, or for `count=0` answered with an empty list. A delete carrying a `count` that is not a whole number of records, `count=0` included, is refused with HTTP 400.\n\n**Query operators.** Endpoints that accept `find[...]` support a fixed set of MongoDB query operators. On a field: `$eq` `$ne` `$gt` `$gte` `$lt` `$lte` `$in` `$nin` `$exists` `$type` `$regex` (with `$options`). At the top level of a query, or of one of their branches: `$and` `$or`. A field name with no operator is an equality match, and the indexed group form `find[$and][0][field][$op]=value` is accepted.\n\nAny other operator is refused with HTTP 400 and a message naming it. That includes `$where`, `$function` and `$accumulator`, which ask MongoDB to run JavaScript; `$expr`, which embeds the aggregation expression language in a filter; and `$elemMatch`, `$not`, `$nor`, `$all`, `$size`, `$mod`, `$text` and the geospatial operators, none of which the API is defined over. An operator name appearing inside a *value* is data and is not affected.\n\n**Writes.** `POST` bodies are one record or an array of at most 10000 records. Anything else is refused with HTTP 400. An `_id`, where a write accepts one, must be a 24-character hex string.\n",
+    "description": "Own your data with the Nightscout API.\n\nThis document describes API v1 as served by Nightscout 16.0.0 under `/api/v1`. `GET /versions` is served one level up, under `/api`. API v1 is also served under `/api/v2`, which adds endpoints not described here. API v3 has its own document at `/api3-docs`.\n\n**Authentication.** A request can carry the `API_SECRET` (as its SHA-1 or SHA-512 hex digest, in the `api-secret` header), a JSON Web Token (`Authorization: Bearer <jwt>`), or an access token created in the admin tools (the `token` query parameter). The `secret` query parameter is also accepted, for existing clients. Credentials in URLs can end up in logs and browser history: see *Protecting authentication credentials in URLs* in the README. A JWT is issued for an access token by `GET /api/v2/authorization/request/{accessToken}`.\n\n**Permissions.** Each operation below names the permission it checks, such as `api:entries:read`. A request without credentials is given the roles listed in `AUTH_DEFAULT_ROLES` (default `readable`, which grants read permissions); with `AUTH_DEFAULT_ROLES=denied` every operation that checks a permission needs credentials. A refused request is answered with HTTP 401 and `{\"status\":401,\"message\":\"Unauthorized\",\"description\":\"Invalid/Missing\"}`.\n\n**Availability.** Operations that change data are mounted only when `API_SECRET` is set. Writing treatments also needs `careportal` in `ENABLE`; `/alexa` and `/googlehome` need `alexa` and `googlehome` in `ENABLE`.\n\n**Reads.** Reads of entries, treatments, devicestatus, activity and `/profiles` take a MongoDB-style filter in `find[...]` query parameters and a number of records in `count`. Without a filter on the record's date field (`date` for entries, `created_at` for treatments, devicestatus and activity, `startDate` for profiles), a read covers the last four days. Records are returned newest first.\n\n**`count`.** `count` is a whole number of records. A value that is not (`abc`, `-3`, `1e2`) is refused with HTTP 400 `Bad count`. Two older forms are still read as 15.0.8 read them, each answered with `Deprecation: true` and a `Warning` header and each controlled by a setting described in the README: a number followed by `?` and other text is read as that number (`API_V1_COUNT_LEADING_NUMBER`), and `count=0` returns every record in a `find` that bounds one date field from both sides, or the endpoint's default number of records without such a range (`API_V1_COUNT_ZERO_WINDOW`). With a setting turned off, that form is refused, or for `count=0` answered with an empty list. A delete carrying a `count` that is not a whole number of records, `count=0` included, is refused with HTTP 400.\n\n**Query operators.** Endpoints that accept `find[...]` support a fixed set of MongoDB query operators. On a field: `$eq` `$ne` `$gt` `$gte` `$lt` `$lte` `$in` `$nin` `$exists` `$type` `$regex` (with `$options`). At the top level of a query, or of one of their branches: `$and` `$or`. A field name with no operator is an equality match, and the indexed group form `find[$and][0][field][$op]=value` is accepted.\n\nAny other operator is refused with HTTP 400 and a message naming it. That includes `$where`, `$function` and `$accumulator`, which ask MongoDB to run JavaScript; `$expr`, which embeds the aggregation expression language in a filter; and `$elemMatch`, `$not`, `$nor`, `$all`, `$size`, `$mod`, `$text` and the geospatial operators, none of which the API is defined over. An operator name appearing inside a *value* is data and is not affected.\n\n**Writes.** `POST` bodies are one record or an array of at most 10000 records. Anything else is refused with HTTP 400. A write's `_id` is optional: leave it out and the server assigns one. If sent, it should be a 24-character hex string (either case), which is stored as that ObjectId in lower case. Anything else is never stored as `_id`: profile, devicestatus, food and activity refuse it with HTTP 400; treatments and entries drop it and assign one (Extended JSON `{\"$oid\": \"<24 hex>\"}` is kept as that ObjectId, and any other string is moved to `identifier` when `UUID_HANDLING` is on, the default). Reads return `_id` as the ObjectId's 24-character hex form.\n",
     "version": "16.0.0",
     "license": {
       "name": "AGPL 3",
@@ -2172,7 +2172,7 @@
           },
           "_id": {
             "type": "string",
-            "description": "Storage id assigned by Nightscout, a 24-character hex string."
+            "description": "Storage id: a MongoDB ObjectId, served as its 24-character hex form. Sent in a write, a 24-character hex string, or omitted; any other value is not stored as `_id` (see Writes above)."
           },
           "device": {
             "type": "string",
@@ -2246,7 +2246,7 @@
           },
           "_id": {
             "type": "string",
-            "description": "Storage id assigned by Nightscout, a 24-character hex string."
+            "description": "Storage id: a MongoDB ObjectId, served as its 24-character hex form. Sent in a write, a 24-character hex string, or omitted; anything else is refused with HTTP 400."
           }
         }
       },
@@ -2426,7 +2426,7 @@
         "properties": {
           "_id": {
             "type": "string",
-            "description": "Storage id assigned by Nightscout."
+            "description": "Storage id: a MongoDB ObjectId, served as its 24-character hex form. Sent in a write, a 24-character hex string, or omitted; any other value is not stored as `_id` (see Writes above)."
           },
           "eventType": {
             "type": "string",
@@ -2512,7 +2512,7 @@
         "properties": {
           "_id": {
             "type": "string",
-            "description": "Storage id assigned by Nightscout, a 24-character hex string."
+            "description": "Storage id: a MongoDB ObjectId, served as its 24-character hex form. Sent in a write, a 24-character hex string, or omitted; anything else is refused with HTTP 400."
           },
           "defaultProfile": {
             "type": "string",
@@ -2825,7 +2825,7 @@
           },
           "_id": {
             "type": "string",
-            "description": "Storage id assigned by Nightscout, a 24-character hex string."
+            "description": "Storage id: a MongoDB ObjectId, served as its 24-character hex form. Sent in a write, a 24-character hex string, or omitted; anything else is refused with HTTP 400."
           }
         }
       },
@@ -2840,7 +2840,7 @@
         "properties": {
           "_id": {
             "type": "string",
-            "description": "Storage id assigned by Nightscout, a 24-character hex string."
+            "description": "Storage id: a MongoDB ObjectId, served as its 24-character hex form. Sent in a write, a 24-character hex string, or omitted; anything else is refused with HTTP 400."
           },
           "type": {
             "type": "string",
