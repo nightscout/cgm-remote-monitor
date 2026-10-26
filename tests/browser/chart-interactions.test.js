@@ -5,7 +5,7 @@ const fs = require('node:fs');
 const path = require('node:path');
 const http = require('node:http');
 const {once} = require('node:events');
-const {withPage} = require('./fixture');
+const {withPage, serveFontAsset} = require('./fixture');
 const {buildModules} = require('./modules');
 
 describe('D3 chart interaction compatibility in a real browser', function () {
@@ -13,11 +13,10 @@ describe('D3 chart interaction compatibility in a real browser', function () {
   before(async function () {
     const app = fs.readFileSync(path.resolve(__dirname, '../../node_modules/.cache/_ns_cache/public/js/bundle.app.js'));
     const modules = await buildModules();
-    // Production loads this stylesheet outside webpack. Keep chart geometry
-    // rules, omitting only the external font import from the isolated fixture.
-    const css = fs.readFileSync(path.resolve(__dirname, '../../static/css/main.css'), 'utf8')
-      .replace("@import url('https://fonts.googleapis.com/css?family=Ubuntu:400,700');", '');
+    // Production loads this stylesheet outside webpack, including local fonts.
+    const css = fs.readFileSync(path.resolve(__dirname, '../../static/css/main.css'), 'utf8');
     server = http.createServer((request, response) => {
+      if (serveFontAsset(request, response)) return;
       if (request.url === '/bundle.js' || request.url === '/modules.js') {
         response.setHeader('Content-Type', 'application/javascript; charset=utf-8');
         response.end(request.url === '/bundle.js' ? app : modules);

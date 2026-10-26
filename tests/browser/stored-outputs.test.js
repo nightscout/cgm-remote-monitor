@@ -5,7 +5,7 @@ const fs = require('node:fs');
 const path = require('node:path');
 const http = require('node:http');
 const {once} = require('node:events');
-const {withPage} = require('./fixture');
+const {withPage, serveFontAsset} = require('./fixture');
 const {buildModules} = require('./modules');
 
 describe('stored-data browser output encoding in a real browser', function () {
@@ -13,10 +13,10 @@ describe('stored-data browser output encoding in a real browser', function () {
   before(async function () {
     const app = fs.readFileSync(path.resolve(__dirname, '../../node_modules/.cache/_ns_cache/public/js/bundle.app.js'));
     const modules = await buildModules();
-    const css = fs.readFileSync(path.resolve(__dirname, '../../static/css/main.css'), 'utf8')
-      .replace("@import url('https://fonts.googleapis.com/css?family=Ubuntu:400,700');", '');
+    const css = fs.readFileSync(path.resolve(__dirname, '../../static/css/main.css'), 'utf8');
     const pageBundle = fs.readFileSync(path.resolve(__dirname, '../../node_modules/.cache/_ns_cache/public/js/bundle.reports.js'));
     server = http.createServer((request, response) => {
+      if (serveFontAsset(request, response)) return;
       const url = new URL(request.url, 'http://127.0.0.1');
       if (url.pathname === '/page.js') {
         response.setHeader('Content-Type', 'application/javascript; charset=utf-8');
