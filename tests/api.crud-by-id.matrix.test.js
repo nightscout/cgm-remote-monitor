@@ -72,7 +72,8 @@ var EXPECT = {
         // CHANGED EXPECTATION (BF-116): was 500, "refused as a duplicate".
         return ['200 [' + stored + ']', 'a re-sent devicestatus _id is answered with the stored record and not stored again, whichever form it is stored in'];
       case 'profile':
-        return ['500 [' + stored + ']', 'a re-sent profile _id is refused as a duplicate (BF-99 create guard)'];
+        // CHANGED EXPECTATION (BF-166): was 500, "refused as a duplicate".
+        return ['200 [' + stored + ']', 'a re-sent profile _id is merged into the stored record (write contract Q1) and not stored again, whichever form it is stored in'];
       default:
         return ['200 [ObjectId]', 'create is an upsert by _id; a string copy is replaced by the ObjectId'];
     }
