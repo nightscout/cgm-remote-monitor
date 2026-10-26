@@ -148,7 +148,7 @@
       "required": false 
     },
     "THEME": {
-      "description": "Default setting for new browser views, for the color theme of the CGM graph. ('default', 'colors', or 'colorblindfriendly')",
+      "description": "Default theme for new browser views. 'modern' enables the responsive dark dashboard; 'default', 'colors', and 'colorblindfriendly' retain the classic layout.",
       "value": "colors",
       "required": false 
     },

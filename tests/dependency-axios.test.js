@@ -6,20 +6,18 @@ const {once} = require('events');
 const {createRequire} = require('module');
 const zlib = require('zlib');
 const rootAxios = require('axios');
-const legacyRequire = createRequire(require.resolve('minimed-connect-to-nightscout/package.json'));
 const connectRequire = createRequire(require.resolve('nightscout-connect/package.json'));
 const modernAxios = connectRequire('axios');
 
 // Capture the real boot stage without starting storage, timers or remote bridges.
 function importSettings(env, ctx) {
   const boot = require('../lib/server/bootevent');
-  const id = require.resolve('bootevent');
+  const id = require.resolve('../lib/utils/boot-sequence');
   require(id);
   const original = require.cache[id].exports;
   const stages = [];
-  const chain = {acquire(stage) { stages.push(stage); return chain; }};
   try {
-    require.cache[id].exports = () => chain;
+    require.cache[id].exports = registered => {stages.push(...registered); return {};};
     boot(env, {});
   } finally {
     require.cache[id].exports = original;
@@ -49,6 +47,7 @@ describe('Axios consumer compatibility', function () {
         if (target.pathname === '/error') { res.statusCode = 401; return res.end('{"error":"denied"}'); }
         if (target.pathname === '/slow') return;
         if (target.pathname === '/config') return res.end(JSON.stringify({settings: {units: 'mmol', nested: {added: true}}, extendedSettings: {custom: {enabled: true}}}));
+        if (target.pathname === '/secret-config') return res.end(JSON.stringify({settings: {apiSecret: 'fixture-imported-secret'}}));
         if (target.pathname === '/flat-config') return res.end('{"units":"mg/dl"}');
         if (target.pathname.startsWith('/api/v2/authorization/request/')) return res.end('{"token":"fixture-bearer","iat":100,"exp":200}');
         if (target.pathname === '/api/v1/entries.json') return res.end('[{"sgv":123,"date":1700000000000}]');
@@ -176,7 +175,7 @@ describe('Axios consumer compatibility', function () {
     assert.strictEqual((await client.get(baseURL + '/echo')).data.headers['x-fixture'], 'safe');
   });
 
-  [['MiniMed legacy', legacyRequire], ['nightscout-connect', connectRequire]].forEach(([label, consumerRequire]) => {
+  [['nightscout-connect', connectRequire]].forEach(([label, consumerRequire]) => {
     it(label + ' preserves its actual cookie wrapper across login and repeated reads', async function () {
       const axios = consumerRequire('axios');
       const support = consumerRequire('axios-cookiejar-support');
@@ -193,11 +192,11 @@ describe('Axios consumer compatibility', function () {
     });
   });
 
-  it('preserves MiniMed manual redirects, form posts and response interceptors', async function () {
-    const axios = legacyRequire('axios');
+  it('preserves Connect manual redirects, form posts and response interceptors', async function () {
+    const axios = connectRequire('axios');
     const client = axios.create({baseURL, proxy: false, maxRedirects: 0, withCredentials: true});
-    legacyRequire('axios-cookiejar-support').default(client);
-    client.defaults.jar = new (legacyRequire('tough-cookie').CookieJar)();
+    connectRequire('axios-cookiejar-support').wrapper(client);
+    client.defaults.jar = new (connectRequire('tough-cookie').CookieJar)();
     client.interceptors.response.use(response => response, error => {
       if (error.response && error.response.status >= 200 && error.response.status < 400) return error.response;
       return Promise.reject(error);
@@ -209,6 +208,70 @@ describe('Axios consumer compatibility', function () {
     const response = await client.get(login.headers.location);
     assert.strictEqual(response.data.headers.cookie, 'session=fixture');
     await assert.rejects(client.get('/error'), error => error.response.status === 401);
+  });
+
+  it('honors environment proxy authentication and NO_PROXY in repeated boot imports', async function () {
+    const keys = ['HTTP_PROXY', 'http_proxy', 'HTTPS_PROXY', 'https_proxy', 'NO_PROXY', 'no_proxy', 'ALL_PROXY', 'all_proxy'];
+    const saved = Object.fromEntries(keys.map(key => [key, process.env[key]]));
+    try {
+      keys.forEach(key => { delete process.env[key]; });
+      for (let cycle = 0; cycle < 2; cycle++) {
+        process.env.http_proxy = baseURL.replace('http://', 'http://fixture-proxy:fixture-proxy-password@');
+        delete process.env.no_proxy;
+        const proxied = {IMPORT_CONFIG: 'http://owned-import.invalid/flat-config', settings: {}, extendedSettings: {}};
+        const proxiedContext = {bootErrors: []};
+        await importSettings(proxied, proxiedContext);
+        assert.deepStrictEqual(proxiedContext.bootErrors, []);
+        assert.strictEqual(proxied.settings.units, 'mg/dl');
+        assert.strictEqual(requests[requests.length - 1].target.host, 'owned-import.invalid');
+        assert.strictEqual(requests[requests.length - 1].headers['proxy-authorization'],
+          'Basic ' + Buffer.from('fixture-proxy:fixture-proxy-password').toString('base64'));
+        process.env.http_proxy = 'http://127.0.0.1:1';
+        process.env.no_proxy = '127.0.0.1';
+        const direct = {IMPORT_CONFIG: baseURL + '/flat-config', settings: {}, extendedSettings: {}};
+        const directContext = {bootErrors: []};
+        await importSettings(direct, directContext);
+        assert.deepStrictEqual(directContext.bootErrors, []);
+        assert.strictEqual(direct.settings.units, 'mg/dl');
+        assert.strictEqual(requests[requests.length - 1].headers['proxy-authorization'], undefined);
+      }
+    } finally {
+      keys.forEach(key => {
+        if (saved[key] === undefined) delete process.env[key];
+        else process.env[key] = saved[key];
+      });
+    }
+  });
+
+  it('declares the import client as a production dependency', function () {
+    const manifest = require('../package.json');
+    assert.ok(manifest.dependencies.axios);
+    assert.strictEqual(manifest.devDependencies.axios, undefined);
+  });
+
+  it('keeps imported secrets and URL credentials out of logs and boot errors on repeated imports', async function () {
+    const logs = [];
+    const original = console.log;
+    console.log = (...args) => logs.push(require('util').format(...args));
+    try {
+      for (let cycle = 0; cycle < 2; cycle++) {
+        for (const route of ['/secret-config', '/error']) {
+          const env = {IMPORT_CONFIG: baseURL.replace('http://', 'http://fixture-import-user:fixture-import-password@') + route + '?token=fixture-import-token', settings: {}, extendedSettings: {}};
+          const ctx = {bootErrors: []};
+          await importSettings(env, ctx);
+          assert.strictEqual(requests[requests.length - 1].headers.authorization,
+            'Basic ' + Buffer.from('fixture-import-user:fixture-import-password').toString('base64'));
+          if (route === '/secret-config') assert.strictEqual(env.settings.apiSecret, 'fixture-imported-secret');
+          else assert.strictEqual(ctx.bootErrors[0].err.response.status, 401);
+          const visible = logs.join('\n') + JSON.stringify(ctx.bootErrors);
+          for (const secret of ['fixture-import-user', 'fixture-import-password', 'fixture-import-token', 'fixture-imported-secret']) {
+            assert.ok(!visible.includes(secret), 'import diagnostics exposed ' + secret);
+          }
+        }
+      }
+    } finally {
+      console.log = original;
+    }
   });
 
   it('imports wrapped settings through the actual boot stage and preserves existing nested settings', async function () {
@@ -246,5 +309,53 @@ describe('Axios consumer compatibility', function () {
       assert.strictEqual(request.target.searchParams.get('find[dateString][$gt]'), '2026-01-01T00:00:00.000Z');
       assert.strictEqual(request.target.searchParams.get('count'), '2');
     }
+  });
+});
+
+// IMPORT_CONFIG loads axios from lib/server/bootevent.js at boot. A production
+// install (npm ci --omit=dev, or the Dockerfile's npm prune --omit=dev) keeps
+// only dependencies, so every package bootevent.js loads must be listed there.
+describe('Packages the server loads are runtime dependencies', function () {
+  const fs = require('fs');
+  const path = require('path');
+  const {builtinModules} = require('module');
+  const pkg = require('../package.json');
+
+  function bootRequires () {
+    const source = fs.readFileSync(path.join(__dirname, '../lib/server/bootevent.js'), 'utf8');
+    const names = new Set();
+    for (const match of source.matchAll(/require\(\s*['"]([^'"]+)['"]\s*\)/g)) {
+      const id = match[1].replace(/^node:/, '');
+      if (id.startsWith('.') || builtinModules.includes(id.split('/')[0])) continue;
+      names.add(id.startsWith('@') ? id.split('/').slice(0, 2).join('/') : id.split('/')[0]);
+    }
+    return [...names].sort();
+  }
+
+  it('finds axios among the packages bootevent.js loads', function () {
+    assert.ok(bootRequires().includes('axios'));
+  });
+
+  it('lists every package bootevent.js loads under dependencies', function () {
+    const missing = bootRequires().filter(name => !(pkg.dependencies || {})[name]);
+    assert.deepStrictEqual(missing, []);
+  });
+
+  it('does not also list axios under devDependencies', function () {
+    assert.strictEqual((pkg.devDependencies || {}).axios, undefined);
+  });
+
+  // lib/utils.js loads lodash/escape for every server that escapes HTML. lodash
+  // reaches node_modules through other packages too, but only a declaration
+  // keeps it in a production install whatever those packages do.
+  it('lists lodash, which lib/utils.js loads, under dependencies', function () {
+    const utils = fs.readFileSync(path.join(__dirname, '../lib/utils.js'), 'utf8');
+    assert.match(utils, /require\(\s*['"]lodash\/escape['"]\s*\)/);
+    assert.ok((pkg.dependencies || {}).lodash, 'lodash is not under dependencies');
+    assert.strictEqual((pkg.devDependencies || {}).lodash, undefined);
+  });
+
+  it('declares lodash at the version its override pins', function () {
+    assert.strictEqual((pkg.dependencies || {}).lodash, pkg.overrides.lodash);
   });
 });

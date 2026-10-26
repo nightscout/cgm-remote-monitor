@@ -1,4 +1,4 @@
+'use strict';
 
-var randomToken = require('random-token');
-var token = randomToken(16);
-console.log(token);
+const { randomBytes } = require('node:crypto');
+console.log(randomBytes(8).toString('hex'));

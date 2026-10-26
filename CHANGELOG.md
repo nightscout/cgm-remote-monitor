@@ -4,8 +4,43 @@ All notable changes to cgm-remote-monitor are documented in this file.
 
 ## [Unreleased]
 
+## [15.0.9] - 2026-10-21
+
+Release notes: https://github.com/nightscout/cgm-remote-monitor/releases/tag/v15.0.9
+
 ### Fixed
 
+- **Loopalyzer BG line:** Draw the BG line through CGM readings that are on or
+  close to a 5-minute mark. A reading exactly on the mark was dropped, and one
+  that arrived just after the mark left a gap in the line before it, so a day
+  with readings timed like this showed a broken or missing BG line in
+  Loopalyzer while Day to Day showed every reading. Readings away from the
+  marks are drawn as before, and a reading that is really missing still shows
+  as a gap. Fixes #6236.
+- **Snooze without the API secret:** Keep an alarm quiet for the snooze chosen
+  on a page that has not entered the API secret. With the default `readable`
+  role such a page may not acknowledge alarms, so the server ignored its snooze
+  and the alarm sounded again at the next heartbeat, within a minute. A page
+  that is signed in behaves as before. Relates to #8194.
+- **Server stopped by a token for a deleted subject:** Refuse a bearer token
+  whose subject was deleted, or lost when the database was dropped, the same way
+  as a wrong token. The token still verifies until it expires, and the first
+  request that carried it, through API v1 or the websocket and alarm socket,
+  stopped the server with `Cannot read properties of null (reading 'shiros')`.
+  API v3 now answers such a token with 401, as it does a wrong one, instead of
+  403. Fixes #8225.
+- **Food Editor on phones:** Scroll the food list, or the page, when a swipe
+  starts on a food or a quick pick. On a phone the list has room for two or
+  three foods, and swiping on them did nothing, so the rest of the list could
+  not be reached. Dragging a food into a quick pick and reordering quick picks
+  still use the mouse, as before. Fixes #8192.
+- **Day to Day events past midnight:** Draw an Exercise, Note, OpenAPS Offline,
+  Temporary Override or other event with a duration on every day it covers. An
+  exercise entered at 22:00 for four hours now shows from 22:00 to midnight on
+  its first day and from midnight to 02:00 on the next, also when the next day is
+  shown alone. Each part stays inside its own chart, with its label centered on
+  that part. Events that start and end on the same day are drawn as before.
+  Fixes #8223.
 - **Credential settings converted to numbers:** Keep credential and identifier
   settings as text instead of converting any value that looks numeric. A Dexcom
   account name that is a phone number keeps its leading plus and a password
@@ -73,7 +108,11 @@ All notable changes to cgm-remote-monitor are documented in this file.
   range percentages. Five-minute series are unaffected. Range percentages
   continue to count retained readings rather than weight elapsed time.
 
-## [15.0.7] - 2026-03-XX (Unreleased)
+## [15.0.8] - 2026-09-04
+
+See https://github.com/nightscout/cgm-remote-monitor/releases/tag/v15.0.8
+
+## [15.0.7] - 2026-04-29
 
 ### Added
 

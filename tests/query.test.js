@@ -43,6 +43,16 @@ describe('query', function ( ) {
     opts._id.should.equal(uuid);
   });
 
+  it('should name each 24-hex id in an _id list in both forms', function ( ) {
+    var hex = '5f2600000000000000000d01';
+    var opts = query({ find: { _id: { $in: [hex, 'not-hex'] }, created_at: { $gte: '2020-01-01' } } });
+    opts._id.$in.map(String).should.eql([hex, hex, 'not-hex']);
+    opts._id.$in[0].constructor.name.should.equal('ObjectId');
+    (typeof opts._id.$in[1]).should.equal('string');
+    var nin = query({ find: { _id: { $nin: [hex] }, created_at: { $gte: '2020-01-01' } } });
+    nin._id.$nin.map(String).should.eql([hex, hex]);
+  });
+
   it('should convert ObjectId-shaped _id queries', function ( ) {
     var objectId = '55cbd4e47e726599048a3f91';
     var opts = query({ find: { _id: objectId } });
@@ -73,6 +83,31 @@ describe('query', function ( ) {
 
     it('still rejects invalid dates', function () {
       (() => query({ find: { created_at: { $gte: '2026-99-05T00:00:00Z' } } }, {
+        dateField: 'created_at', walker: {}
+      })).should.throw(/Cannot parse/);
+    });
+
+    // BF-108: xDrip4iOS deletes readings in bulk with find[date][$in][]=<ms>, up to 50 at once.
+    it('keeps a list of epoch timestamps under the date field', function () {
+      const dates = [];
+      for (let i = 0; i < 50; i++) { dates.push(String(1758600000000 + i * 300000)); }
+      const result = query({ find: { type: 'sgv', date: { $in: dates } } }, {
+        collection: 'entries', useEpoch: true
+      });
+      result.date.$in.should.eql(dates.map(Number));
+      result.type.should.equal('sgv');
+    });
+
+    it('normalizes each date in a list on its own', function () {
+      const result = query({
+        find: { created_at: { $in: [cases[0][0], cases[6][0]], $nin: [cases[3][0]] } }
+      }, { dateField: 'created_at', walker: {} });
+      result.created_at.$in.should.eql([cases[0][1], cases[6][1]]);
+      result.created_at.$nin.should.eql([cases[3][1]]);
+    });
+
+    it('rejects a list that holds an invalid date', function () {
+      (() => query({ find: { created_at: { $in: ['2026-09-05T00:00:00Z', '2026-99-05T00:00:00Z'] } } }, {
         dateField: 'created_at', walker: {}
       })).should.throw(/Cannot parse/);
     });
@@ -188,6 +223,58 @@ describe('query', function ( ) {
       const opts = query(qs.parse('find[sgv][$gte]=120.5&find[delta][$gte]=1.5'), { });
       opts.sgv.$gte.should.equal(120);
       opts.delta.$gte.should.equal('1.5');
+    });
+
+    describe('the numeric date and sgv default (BF-106)', function () {
+      // A storage module that sets no `walker` has always had `date` and
+      // `sgv` read as numbers. Naming a collection keeps that for each of
+      // the two fields its schema does not type.
+      const activityOpts = require('../lib/server/activity').queryOpts;
+
+      function activity (queryString) {
+        return query(qs.parse(queryString), Object.assign({ }, activityOpts));
+      }
+
+      it('reads activity date and sgv bounds as numbers', function () {
+        const q = activity('find[date][$gte]=1695600000000&find[sgv][$lt]=180');
+        q.date.$gte.should.equal(1695600000000);
+        q.sgv.$lt.should.equal(180);
+      });
+
+      it('does not truncate a fractional bound', function () {
+        activity('find[sgv][$gte]=119.5').sgv.$gte.should.equal(119.5);
+      });
+
+      it('reads each element of an $in list', function () {
+        activity('find[sgv][$in][]=100&find[sgv][$in][]=120').sgv.$in.should.eql([100, 120]);
+      });
+
+      it('leaves every other activity field as text', function () {
+        const q = activity('find[steps][$gte]=10&find[activitylevel]=12345');
+        q.steps.$gte.should.equal('10');
+        q.activitylevel.should.equal('12345');
+      });
+
+      it('reads devicestatus sgv as a number, and date from the schema', function () {
+        const q = find('devicestatus', 'find[sgv][$gte]=120&find[date][$gte]=1.5', { dateField: 'created_at' });
+        q.sgv.$gte.should.equal(120);
+        q.date.$gte.should.equal(1.5);
+      });
+
+      it('keeps devicestatus text fields as text', function () {
+        find('devicestatus', 'find[device]=12345', { dateField: 'created_at' }).device.should.equal('12345');
+      });
+
+      it('gives nothing to a caller that passes walker: {}, as profile does', function () {
+        const q = find('profile', 'find[date][$gte]=5&find[sgv][$gte]=6', { dateField: 'startDate', walker: { } });
+        q.date.$gte.should.equal('5');
+        q.sgv.$gte.should.equal('6');
+      });
+
+      it('lets an explicit walker replace it, as treatments does', function () {
+        const q = find('treatments', 'find[sgv][$gte]=120', { dateField: 'created_at', walker: { notes: query.parseRegEx } });
+        q.sgv.$gte.should.equal('120');
+      });
     });
 
     describe('the table and the code that uses it', function () {

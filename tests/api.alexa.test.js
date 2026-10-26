@@ -5,7 +5,7 @@ const moment = require('moment');
 const request = require('supertest');
 const language = require('../lib/language')(fs);
 
-const bodyParser = require('body-parser');
+const express = require('express');
 
 require('should');
 
@@ -26,13 +26,9 @@ describe('Alexa REST api', function ( ) {
     var self = this;
     require('../lib/server/bootevent')(env, language).boot(function booted (ctx) {
       self.ctx = ctx;
-      self.app.use('/api', bodyParser({
-        limit: 1048576 * 50
-      }), apiRoot(env, ctx));
+      self.app.use('/api', express.json({limit: 1048576 * 50}), express.urlencoded({extended: true, limit: 1048576 * 50}), apiRoot(env, ctx));
 
-      self.app.use('/api/v1', bodyParser({
-        limit: 1048576 * 50
-      }), api(env, ctx));
+      self.app.use('/api/v1', express.json({limit: 1048576 * 50}), express.urlencoded({extended: true, limit: 1048576 * 50}), api(env, ctx));
       done( );
     });
   });
@@ -96,6 +92,31 @@ describe('Alexa REST api', function ( ) {
       .end(function (err)  {
         if (err) return done(err);
 
+        done( );
+      });
+  });
+
+  // Alexa can send request types this skill has no case for - for example
+  // System.ExceptionEncountered, which Amazon sends after a response it could
+  // not use. With no default in the switch, nothing answered and the request
+  // stayed open until the client gave up. Amazon's documentation says a skill
+  // cannot return a response to that request (or to SessionEndedRequest), so
+  // it gets the same empty answer SessionEndedRequest does.
+  it('answers a request type it does not handle instead of hanging', function (done) {
+    request(this.app)
+      .post('/api/v1/alexa')
+      .timeout(2000)
+      .send({
+        "request": {
+          "type": "System.ExceptionEncountered",
+          "locale": "en-US"
+        }
+      })
+      .expect(200)
+      .end(function (err, res)  {
+        if (err) return done(err);
+
+        res.body.should.equal('');
         done( );
       });
   });

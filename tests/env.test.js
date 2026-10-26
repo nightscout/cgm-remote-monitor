@@ -25,6 +25,27 @@ describe('env', function () {
     }
   });
 
+  it('preserves unset, direct and explicit proxy configuration modes', function () {
+    const original = process.env.TRUST_PROXY;
+    const azure = process.env.CUSTOMCONNSTR_TRUST_PROXY;
+    try {
+      delete process.env.CUSTOMCONNSTR_TRUST_PROXY;
+      for (const value of [undefined, '', 'false', '127.0.0.1,::1']) {
+        if (value === undefined) delete process.env.TRUST_PROXY;
+        else process.env.TRUST_PROXY = value;
+        require('../lib/server/env')().trustProxy.should.equal(value || '');
+      }
+      delete process.env.TRUST_PROXY;
+      process.env.CUSTOMCONNSTR_TRUST_PROXY = 'false';
+      require('../lib/server/env')().trustProxy.should.equal('false');
+    } finally {
+      if (original === undefined) delete process.env.TRUST_PROXY;
+      else process.env.TRUST_PROXY = original;
+      if (azure === undefined) delete process.env.CUSTOMCONNSTR_TRUST_PROXY;
+      else process.env.CUSTOMCONNSTR_TRUST_PROXY = azure;
+    }
+  });
+
   it('should not set the API key without API_SECRET or API_SECRET_FILE', function () {
     delete process.env.API_SECRET;
     delete process.env.API_SECRET_FILE;
@@ -193,6 +214,32 @@ describe('env', function () {
     env.secureHstsHeader.should.be.true();
   });
 
+  it( 'tolerates the two real-client count shapes by default and supports opting out', function () {
+    var names = ['API_V1_COUNT_LEADING_NUMBER', 'API_V1_COUNT_ZERO_WINDOW'];
+    var original = names.map(function (name) { return process.env[name]; });
+
+    try {
+      names.forEach(function (name) { delete process.env[name]; });
+      var env = require( '../lib/server/env' )();
+      env.apiV1CountLeadingNumber.should.be.true();
+      env.apiV1CountZeroWindow.should.be.true();
+
+      process.env.API_V1_COUNT_LEADING_NUMBER = 'false';
+      process.env.API_V1_COUNT_ZERO_WINDOW = 'false';
+      env = require( '../lib/server/env' )();
+      env.apiV1CountLeadingNumber.should.be.false();
+      env.apiV1CountZeroWindow.should.be.false();
+    } finally {
+      names.forEach(function (name, i) {
+        if (original[i] === undefined) {
+          delete process.env[name];
+        } else {
+          process.env[name] = original[i];
+        }
+      });
+    }
+  });
+
   it( 'allows unrestricted frame embedding by default and supports opting out', function () {
     var originalValue = process.env.ALLOW_UNRESTRICTED_FRAME_EMBEDDING;
 
@@ -219,6 +266,52 @@ describe('env', function () {
         process.env.ALLOW_UNRESTRICTED_FRAME_EMBEDDING = originalValue;
       }
     }
+  });
+
+  describe('SECURE_HSTS_HEADER_INCLUDESUBDOMAINS spelling (BF-49)', function () {
+    var KEYS = ['SECURE_HSTS_HEADER_INCLUDESUBDOMAINS', 'SECURE_HSTS_HEADER_INCLUDE_SUBDOMAINS'
+      , 'secure_hsts_header_include_subdomains', 'CUSTOMCONNSTR_SECURE_HSTS_HEADER_INCLUDE_SUBDOMAINS'];
+    var saved, warnings, originalWarn;
+
+    beforeEach(function () {
+      saved = {};
+      KEYS.forEach(function (key) { saved[key] = process.env[key]; delete process.env[key]; });
+      warnings = [];
+      originalWarn = console.warn;
+      console.warn = function (message) { warnings.push(String(message)); };
+    });
+
+    afterEach(function () {
+      console.warn = originalWarn;
+      KEYS.forEach(function (key) {
+        if (saved[key] === undefined) delete process.env[key];
+        else process.env[key] = saved[key];
+      });
+    });
+
+    function hstsWarnings () {
+      return warnings.filter(function (w) { return w.indexOf('SECURE_HSTS_HEADER_INCLUDE_SUBDOMAINS') > -1; });
+    }
+
+    it('says nothing when the underscored name is not set', function () {
+      process.env.SECURE_HSTS_HEADER_INCLUDESUBDOMAINS = 'true';
+      require('../lib/server/env')().secureHstsHeaderIncludeSubdomains.should.equal(true);
+      hstsWarnings().should.eql([]);
+    });
+
+    it('warns that the underscored name has no effect, and still does not use it', function () {
+      ['SECURE_HSTS_HEADER_INCLUDE_SUBDOMAINS', 'secure_hsts_header_include_subdomains'
+        , 'CUSTOMCONNSTR_SECURE_HSTS_HEADER_INCLUDE_SUBDOMAINS'].forEach(function (key) {
+        warnings = [];
+        process.env[key] = 'true';
+        var env = require('../lib/server/env')();
+        env.secureHstsHeaderIncludeSubdomains.should.equal(false);
+        hstsWarnings().length.should.equal(1, key);
+        hstsWarnings()[0].should.match(/has no effect/);
+        hstsWarnings()[0].should.match(/SECURE_HSTS_HEADER_INCLUDESUBDOMAINS=false/);
+        delete process.env[key];
+      });
+    });
   });
 
   describe('HOSTNAME', function () {

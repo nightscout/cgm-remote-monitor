@@ -160,6 +160,63 @@ NODE_ENV=test npm run test:integration
 NODE_ENV=test npm test -- --grep "treatments"
 ```
 
+### Test tiers
+
+`tests/tiers.json` puts every test file in exactly one tier and says how each
+tier runs; `npm run test:<tier>` runs one, and `npm run test:all` runs every
+tier except `browser`.
+
+| Tier | What belongs there |
+|---|---|
+| `unit` | passes with no MongoDB reachable; runs in parallel |
+| `dom` | uses `tests/fixtures/secure-jsdom.js`, no MongoDB; runs serially |
+| `dependency` | checks a third-party package's behaviour |
+| `core` | `tests/client-core/` |
+| `harness` | tests of the test tooling itself |
+| `integration` | needs MongoDB; runs after `00_production-safety` and before `XX_clean` |
+| `stress` | concurrency tests, bracketed the same way |
+| `browser` | real-browser tests (see below) |
+
+A new test file must be added to a tier. `npm run test:tiers` checks that
+every test file is in exactly one tier, that no tier entry is stale, and that
+every test reaches some source file through `require` or a path string. A test
+that exercises code the graph cannot see (a child process, a package) says
+what it covers on a line of its own:
+
+```js
+// covers: package-lock.json
+```
+
+Unknown tier names, missing explicit test files and files outside the requested
+tiers fail with a nonzero exit status before any tests run. Empty automatic
+affected-test selections and empty stdin pipelines remain successful no-ops.
+
+`TEST_SHUFFLE_SEED=<integer>` runs each tier's files in a seeded random order,
+keeping a tier's first and last files in place, and prints the seed. Running
+again with the same seed replays the order, so a failure that depends on which
+file ran before it can be reproduced:
+
+```bash
+TEST_SHUFFLE_SEED=8839 npm run test:integration
+```
+
+### Inner-loop selection
+
+```bash
+# Tests within 4 require hops of the last 10 commits and uncommitted work
+npm run test:affected
+npm run test:affected -- --since official/dev --why   # what this branch changes, with reasons
+npm run test:affected -- --depth 10                   # every implicated test
+
+# A seeded random sample; the seed is printed so a failure can be replayed
+npm run test:smoke -- 12
+npm run test:smoke -- 12 --seed 7
+```
+
+Both print the selection on stderr; `node scripts/test-select.js affected`
+without `--run` prints the files on stdout for another runner. The selection is
+static, so run the full suite before pushing.
+
 ### Advanced Test Scripts
 
 Run `npm run test:dependencies` to check dependency resolution and compatibility
@@ -177,21 +234,78 @@ js-yaml 4.2 and later treat numbers containing underscores as strings.
 CI also runs `NODE_ENV=development npm run bundle-dev` to validate the webpack
 lint integration.
 
-DOMPurify is a development-only reference in the sanitizer comparison suite;
-production sanitization uses `sanitize-html`. Dependency tests exercise its
-default string API with our jsdom version, including nested template security,
-visible note text and supported SVG attributes. These tests inspect inert DOM
-trees; they do not execute payloads or emulate newer browser template expansion.
+DOMPurify is a development-only reference in the real-browser sanitizer
+comparison suite; production sanitization uses `sanitize-html`. jsdom and
+its old test harness have been removed. Browser parsing, output safety,
+authentication, forms, charts and reports run against actual browser APIs.
 
-Socket.IO dependency checks start temporary loopback servers without MongoDB.
-They cover parser validation, binary serialization and both polling and
-WebSocket connections using the Node client and the actual served browser
-client in jsdom. Each transport check reconnects twice. The parser override
-updates installed Node packages; it does not rewrite Socket.IO's prebuilt
-browser distribution, so both client paths need compatibility checks.
+After `npm ci`, install the pinned browser explicitly and run:
+
+```sh
+npx --no-install playwright-core install chromium
+npm run test:browser
+```
+
+Use `NIGHTSCOUT_TEST_BROWSER=firefox` or `webkit` after installing that engine.
+Ordinary CI runs all three browser engines once on Node 26. Server compatibility
+uses the Node 22.23.4/26 and MongoDB 5.0/8.0 edges, each tested once (below),
+plus the two transitional required lanes. Browser downloads are separate from ordinary npm installs
+and production deployment. See the [browser test specification](docs/test-specs/browser-tests.md)
+for isolation, coverage boundaries and additional test-tool disk/RAM costs.
+
+### CI coverage and manual release checks
+
+Ordinary and release PRs run these validation jobs:
+
+| Job | Lanes | What runs |
+|---|---|---|
+| Tests without a database | Node 22.23.4 and 26, no MongoDB | the `unit`, `dom`, `dependency`, `core` and `harness` tiers, the tier map check and the dependency check |
+| Run Tests | (22.23.4, MongoDB 8.0) and (26, MongoDB 5.0), plus the two required lanes | the `integration` and `stress` tiers, then the pruned runtime check |
+| Maintained MongoDB | Node 26 against MongoDB 8.0.29 | the whole suite in one process (`test-ci`) and `test:core` |
+| Browser tests | chromium, firefox, webkit on Node 26 | the `browser` tier |
+| npm 12, Docker (amd64, arm64), CodeQL | one each | install, build and image start-up |
+| Tests pass | one | succeeds only if every job above succeeded or was skipped |
+
+The main lanes test the diagonal: each Node edge and each MongoDB edge runs
+once, and the newest pair runs in Maintained MongoDB. Each diagonal lane also
+takes one other setting at its non-default value: one runs in
+`TZ=America/Los_Angeles`, a zone with daylight saving time, and the other runs
+the test files in an order seeded by the run id. The seed is printed in the
+log; `TEST_SHUFFLE_SEED=<seed>` replays it locally. Tests without a database
+take the same two settings the other way round, so each Node edge runs each
+setting once.
+
+Two lanes preserve the required check names `Run Tests (24, 6)` and
+`Run Tests (22, 6)`. Once branch protection requires `Tests pass` instead, they
+can be removed. MongoDB 4.4 remains unsupported and has no CI lane. No
+individual test cases are dropped. Publishing waits for `Tests pass` on the
+actual `dev`/`master` push.
+
+Before a release, use **Actions → CI test and publish Docker image → Run
+workflow**, select the candidate ref and leave **extended** enabled. This tests
+all six Node selectors (the patched floor and latest patch on each of 22/24/26)
+against both MongoDB 5.0 and 8.0, plus the two transitional required lanes (14
+server jobs), the tiers without a database on all six selectors, and all three
+browsers on every selector (18 browser jobs). Both native Docker images are
+built and smoke-tested. The maintained-MongoDB lane also runs
+in both manual modes. Manual runs never publish images. The **Weekly extended
+tests** workflow starts the same extended run on `dev` every Monday.
+CodeQL can be run separately on the same ref through its own Run workflow
+control. GitHub exposes manual dispatch after the workflow configuration
+reaches the default branch.
+
+Superseded PR runs cancel automatically; push, manual and scheduled runs have
+separate groups so deployment or release checks are not cancelled. Coordinate
+protection rules on both `dev` and `master` before deleting a required context.
+
+Socket.IO checks use disposable loopback servers without MongoDB. Node-client
+and parser checks run in `test:dependencies`; actual served-browser clients
+run in `test:browser`, with both polling/WebSocket transports and repeated
+reconnection. The parser override does not rewrite the prebuilt browser
+client, so both paths remain required.
 
 The fast-uri dependency checks resolve Ajv through each installed consumer
-(webpack, webpack-dev-middleware, terser-webpack-plugin, ajv-formats and table).
+(webpack, webpack-dev-middleware, minimizer-webpack-plugin and ajv-formats).
 They exercise external references, escaped JSON pointers and case-sensitive
 schema IDs, as well as URI security boundaries. Keep the fast-uri override
 scoped to 3.x while these consumers require it; a 4.x migration changes Unicode
@@ -343,3 +457,19 @@ Also if you can't code, it's possible to contribute by improving the documentati
 | All active testers/documentors: | [@danamlewis] [@jamieowendexcom] [@mcdafydd] [@oteroos] [@rarneson] [@tynbendad] [@unsoluble]
 | All active translators: | [@apanasef] [@jizhongwen] [@viderehh] [@herzogmedia] [@LuminaryXion] [@OpossumGit]
 
+
+Development hot updates use webpack-dev-middleware for both assets and the
+`/__webpack_hmr` event stream. Compile errors use its overlay; successful updates
+preserve unsaved input without automatic reload fallback. See the
+[webpack/HMR review](docs/test-specs/webpack-refresh.md) for migration and
+regression coverage.
+
+Lint configuration is maintained in `eslint.config.cjs`. `npm run lint` reports
+CLI rule severities; development webpack builds display the same diagnostics as
+non-blocking warnings. Existing lint debt and the public-API integration are
+documented in the [ESLint modernization review](docs/test-specs/eslint-modernization.md).
+
+Application lint is now a required step in the existing Node 22/MongoDB 5.0.32
+CI job. Run `npm run lint` before submitting application changes. Errors fail
+the check; the remaining security warnings are retained for individual review.
+See the [lint cleanup evidence](docs/test-specs/lint-cleanup.md).
