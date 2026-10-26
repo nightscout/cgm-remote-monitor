@@ -119,7 +119,9 @@
         "tests/utils.deepMerge.test.js",
         "tests/utils.test.js",
         "tests/webhook.test.js",
-        "tests/write-validation.test.js"
+        "tests/write-validation.test.js",
+        "tests/write-step.test.js",
+        "tests/read-contract.test.js"
       ],
       "env": true,
       "require": [
