@@ -1,6 +1,7 @@
 'use strict';
 
 const assert = require('node:assert/strict');
+const selectedWidgetsReady = require('./ui-widget-probe');
 const path = require('node:path');
 const {fork} = require('node:child_process');
 const {once} = require('node:events');
@@ -72,6 +73,7 @@ describe('Actual page entries with development hot middleware', function () {
             assert.deepEqual(result, {client: true, type: name === 'app' ? 'object' : 'function'}, name + ' after ' + entry + ' update');
             assert.equal(await page.locator('#draft').inputValue(), 'Unsaved ' + name);
             assert.equal(navigations.get(name), 1, name + ' unexpectedly reloaded');
+            assert.equal(await page.evaluate(selectedWidgetsReady), true, name + ' lost UI widget functions or inline styles after HMR');
           }
         }
       }

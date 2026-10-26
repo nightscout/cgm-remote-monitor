@@ -57,6 +57,15 @@ describe('editor navigation authorization', function () {
   });
 });
 
+// Cut 3 replaced the jquery.tooltips plugin with one delegated native help
+// tooltip (lib/client/help-tooltips.js). EXPECTATION CHANGED with that switch:
+// this test used to read the plugin's per-link state ($(link).data('tooltip'),
+// its options.offset and its mouseover handlers). It now asks the same
+// questions of the native tooltip: after the theme replaces the dashboard, a
+// toolbar link shows its own title on hover (desktop) and nothing on hover
+// (touch), a second initTooltips() installs nothing new, and drawer help still
+// opens on a tap on touch screens. Real-layout placement is covered by
+// tests/browser/help-tooltips*.test.js.
 describe('toolbar tooltips after theme selection', function () {
   ['modern', 'colors'].forEach(serverTheme => {
     [false, true].forEach(touch => {
@@ -66,44 +75,48 @@ describe('toolbar tooltips after theme selection', function () {
         });
         const env = createSecureDOM(output, {resources: new NoResources()});
         const state = domGlobals.installDomGlobals(env);
-        const pluginPath = require.resolve('jquery.tooltips/js/jquery.tooltips');
-        delete require.cache[pluginPath];
+        let installed;
         try {
           const $ = env.window.$;
-          env.document.createEvent = () => {
+          const doc = env.document;
+          doc.createEvent = () => {
             if (!touch) throw new Error('Desktop has no TouchEvent');
             return {};
           };
-          require(pluginPath);
           const utils = require('../lib/client/browser-utils')($);
           const theme = serverTheme === 'modern' ? 'colors' : 'modern';
-          require('../lib/client/dashboard-theme')(env.document, theme);
-          utils.initTooltips();
+          require('../lib/client/dashboard-theme')(doc, theme);
+          installed = utils.initTooltips();
           if (theme === 'modern') {
             require('../lib/client/modern-layout')({translate: value => value, browserUtils: utils}, $, () => {});
           }
-          const links = $('#buttonbar .tip');
+          assert.strictEqual(utils.initTooltips(), installed, 'a second initTooltips() installs nothing new');
+          assert.strictEqual(doc.querySelectorAll('.ns-help-tooltip').length, 1);
+          const tip = doc.getElementById('ns-help-tooltip');
+          const links = doc.querySelectorAll('#buttonbar .tip');
           assert.ok(links.length > 0);
-          links.each(function () {
-            const tooltip = $(this).data('tooltip');
-            assert.strictEqual(!!tooltip, !touch);
-            if (touch) return;
-            const handlers = $._data(this, 'events').mouseover.length;
-            utils.initTooltips();
-            assert.strictEqual($(this).data('tooltip'), tooltip);
-            assert.strictEqual($._data(this, 'events').mouseover.length, handlers);
-            assert.strictEqual(tooltip.getTitle(), $(this).attr('original-title'));
-            tooltip.options.fade = false;
-            $(this).trigger('mouseenter');
-            assert.strictEqual(tooltip.tip().find('.tooltip-inner').text(), tooltip.getTitle());
-            assert.strictEqual(tooltip.options.offset, theme === 'modern' ? 6 : 0);
-            $(this).trigger('mouseleave');
+          links.forEach(link => {
+            const title = link.getAttribute('original-title') || link.getAttribute('title');
+            assert.ok(title, 'toolbar link has a title');
+            link.dispatchEvent(new env.window.Event('pointerover', {bubbles: true}));
+            if (touch) {
+              assert.strictEqual(tip.hidden, true, 'no toolbar hover tooltip on touch screens');
+              return;
+            }
+            assert.strictEqual(tip.hidden, false);
+            assert.strictEqual(tip.textContent, title);
+            link.dispatchEvent(new env.window.Event('pointerout', {bubbles: true}));
+            assert.strictEqual(tip.hidden, true);
           });
-          $('#drawer .tip').each(function () {
-            assert.ok($(this).data('tooltip'), 'drawer help remains available on touch screens');
-          });
+          const help = doc.querySelector('#drawer a.tip:not([href])');
+          assert.ok(help, 'the drawer has help links');
+          help.dispatchEvent(new env.window.MouseEvent('click', {bubbles: true, cancelable: true}));
+          if (touch) {
+            assert.strictEqual(tip.hidden, false, 'drawer help remains available on touch screens');
+            assert.strictEqual(tip.textContent, help.getAttribute('original-title'));
+          }
         } finally {
-          delete require.cache[pluginPath];
+          if (installed) installed.destroy();
           domGlobals.restoreDomGlobals(state);
           env.cleanup();
         }

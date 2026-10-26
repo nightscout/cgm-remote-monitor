@@ -1,6 +1,7 @@
 'use strict';
 
 const assert = require('node:assert/strict');
+const selectedWidgetsReady = require('./ui-widget-probe');
 const {withPage} = require('./fixture');
 const {getBrowser} = require('./hooks');
 const {createPageFixture, pages, hash} = require('../fixtures/page-startup/server');
@@ -299,6 +300,7 @@ describe('Complete page template startup', function () {
           await page.goto(origin + url);
           await page.waitForFunction(readyEntry, entry);
           assert.equal(await page.locator('#page-load-error').isVisible(), false);
+          assert.equal(await page.evaluate(selectedWidgetsReady), true, entry + ' lost UI widgets or inline CSS when using cached bundles');
         }
         assert.deepEqual(fixtureState.bundleRequests, [], 'Cached application bundles must boot without an origin download');
 
