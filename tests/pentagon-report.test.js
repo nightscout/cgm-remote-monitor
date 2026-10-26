@@ -51,6 +51,16 @@ describe('Glucose pentagon report', function () {
     render([]); assert.equal($('#pentagon svg').length, 0);
     assert.match($('#pentagon .gd-pentagon-message').text(), /No glucose/);
   });
+  it('explains insufficient observed time even with 100% elapsed coverage', function () {
+    const previousNow = Date.now;
+    Date.now = () => Date.UTC(2026, 9, 1, 0, 5);
+    try {
+      render(records(60).slice(0, 1));
+      assert.equal($('#pentagon .gd-pentagon-score').length, 0);
+      assert.match($('#pentagon .gd-pentagon-coverage').text(), /100\.0%/);
+      assert.match($('#pentagon .gd-pentagon-message').text(), /16 hours 48 minutes/);
+    } finally { Date.now = previousNow; }
+  });
   it('explains when overlapping or missing readings cannot be distinguished', function () {
     const data = records(100).flatMap(r => [r, {...r, displayTime: new Date(r.displayTime.valueOf() + 60000)}]);
     render(data);

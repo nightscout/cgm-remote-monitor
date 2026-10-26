@@ -311,17 +311,28 @@ describe('legacy reports in a real browser', function () {
     await withReports(async page => {
       await page.locator('#glucosedistribution').click();
       await page.evaluate(() => {
-        const profile = window.Nightscout.client.sbx.data.profile;
-        const start = profile.parseInTimezone('2015-08-08').valueOf();
-        const records = Array.from({length: 288}, (_, i) => ({
-          displayTime: new Date(start + i * 300000), bgValue: i < 144 ? 60 : 200, sgv: i < 144 ? 60 : 200
-        }));
-        window.Nightscout.report_plugins('glucosedistribution').report(
-          {allstatsrecords: records, alldays: 1}, ['2015-08-08'], {targetLow: 70, targetHigh: 180});
+        window.renderPentagonFixture = (count = 288) => {
+          const profile = window.Nightscout.client.sbx.data.profile;
+          const start = profile.parseInTimezone('2015-08-08').valueOf();
+          const records = Array.from({length: count}, (_, i) => ({
+            displayTime: new Date(start + i * 300000), bgValue: i < 144 ? 60 : 200, sgv: i < 144 ? 60 : 200
+          }));
+          window.Nightscout.report_plugins('glucosedistribution').report(
+            {allstatsrecords: records, alldays: 1}, ['2015-08-08'], {targetLow: 70, targetHigh: 180});
+        };
+        window.renderPentagonFixture();
       });
       assert.match(await page.locator('.gd-pentagon-score').textContent(), /^PGR: /);
       assert.equal(await page.locator('.gd-pentagon-values dt').count(), 5);
       assert.equal(await page.locator('.gd-pentagon-chart svg').getAttribute('role'), 'img');
+      const firstFiveMinutes = await page.evaluate(() => window.Nightscout.client.sbx.data.profile.parseInTimezone('2015-08-08').valueOf() + 300000);
+      await page.clock.setFixedTime(new Date(firstFiveMinutes));
+      await page.evaluate(() => window.renderPentagonFixture(1));
+      assert.equal(await page.locator('.gd-pentagon-score').count(), 0);
+      assert.match(await page.locator('.gd-pentagon-coverage').textContent(), /100\.0%/);
+      assert.match(await page.locator('.gd-pentagon-message').textContent(), /16 hours 48 minutes/);
+      await page.clock.setFixedTime(new Date('2025-01-01T12:00:00Z'));
+      await page.evaluate(() => window.renderPentagonFixture());
       await page.locator('#glucosedistribution-0').uncheck();
       assert.equal(await page.locator('.gd-pentagon-score').count(), 0);
       assert.match(await page.locator('.gd-pentagon-message').textContent(), /all 24 hours/);

@@ -86,18 +86,63 @@ describe('Glucose pentagon calculations', function () {
     const result = calculate(ambiguous, ['2026-10-01']);
     assert.equal(result.available, false); assert.equal(result.reason, 'ambiguous'); close(result.coverage, 40);
   });
+  for (const offsetSeconds of [61, 75, 90, 120, 135, 140]) {
+    it('withholds ambiguous interleaved uploads offset by ' + offsetSeconds + ' seconds', function () {
+      const original = fullDay('2026-10-01', 100).map(r => ({...r, device: 'same-source'}));
+      const duplicate = original.map(r => ({...record(r.displayTime.valueOf() + offsetSeconds * 1000, 100), device: 'same-source'}));
+      const result = calculate(original.concat(duplicate), ['2026-10-01']);
+      assert.equal(result.available, false); assert.equal(result.reason, 'ambiguous');
+    });
+  }
+  it('detects ambiguous streams despite small upload timestamp jitter', function () {
+    const original = fullDay('2026-10-01', 100).map(r => ({...r, device: 'same-source'}));
+    const duplicate = original.map((r, index) => ({...record(r.displayTime.valueOf() + (120 + (index % 3 - 1) * 3) * 1000, 100), device: 'same-source'}));
+    const result = calculate(original.concat(duplicate), ['2026-10-01']);
+    assert.equal(result.available, false); assert.equal(result.reason, 'ambiguous');
+  });
+  it('detects a local ambiguous run within a longer otherwise complete period', function () {
+    const days = ['2026-10-01', '2026-10-02', '2026-10-03'];
+    const original = days.flatMap(day => fullDay(day, 100));
+    const duplicate = original.slice(300, 310).map(r => record(r.displayTime.valueOf() + 120000, 100));
+    const result = calculate(original.concat(duplicate), days);
+    assert.equal(result.available, false); assert.equal(result.reason, 'ambiguous');
+  });
+  it('keeps a regularly sampled 2.5-minute sensor available', function () {
+    const result = calculate(fullDay('2026-10-01', 100, 2.5), ['2026-10-01']);
+    assert.equal(result.available, true); close(result.coverage, 100);
+  });
+  it('unions distinguishable sources offset by two minutes', function () {
+    const original = fullDay('2026-10-01', 100).map(r => ({...r, device: 'sensor-a'}));
+    const duplicate = original.map(r => ({...record(r.displayTime.valueOf() + 120000, 100), device: 'sensor-b'}));
+    const result = calculate(original.concat(duplicate), ['2026-10-01']);
+    assert.equal(result.available, true); close(result.coverage, 100);
+  });
+  it('withholds a daily score for one reading despite full elapsed coverage', function () {
+    const now = Date.UTC(2026, 9, 1, 0, 5);
+    const result = calculate([record(now - 5 * MIN, 60)], ['2026-10-01'], 'UTC', now);
+    assert.equal(result.available, false); assert.equal(result.reason, 'duration');
+    close(result.coverage, 100); assert.equal(result.score, undefined);
+  });
+  it('requires 16 hours 48 minutes of observation independent of elapsed coverage', function () {
+    const start = Date.UTC(2026, 9, 1);
+    const readings = fullDay('2026-10-01', 110, 1);
+    const below = calculate(readings.slice(0, 1007), ['2026-10-01'], 'UTC', start + 1007 * MIN);
+    const enough = calculate(readings.slice(0, 1008), ['2026-10-01'], 'UTC', start + 1008 * MIN);
+    close(below.coverage, 100); assert.equal(below.reason, 'duration');
+    close(enough.coverage, 100); assert.equal(enough.available, true);
+  });
   it('uses only elapsed time today and excludes future readings', function () {
-    const now = Date.UTC(2026, 9, 1, 12);
-    const readings = fullDay('2026-10-01', 110).slice(0, 144);
+    const now = Date.UTC(2026, 9, 1, 16, 50);
+    const readings = fullDay('2026-10-01', 110).slice(0, 202);
     const result = calculate(readings, ['2026-10-01'], 'UTC', now);
-    assert.equal(result.available, true); close(result.coverage, 100); assert.equal(result.count, 144);
+    assert.equal(result.available, true); close(result.coverage, 100); assert.equal(result.count, 202);
     const withFuture = calculate(readings.concat(record(now + MIN, 600)), ['2026-10-01'], 'UTC', now);
-    close(withFuture.coverage, result.coverage); close(withFuture.score, result.score); assert.equal(withFuture.count, 144);
+    close(withFuture.coverage, result.coverage); close(withFuture.score, result.score); assert.equal(withFuture.count, 202);
     assert.equal(calculate([record(now + MIN, 100)], ['2026-10-01'], 'UTC', now).reason, 'empty');
   });
   it('uses elapsed local time on the current daylight-saving day', function () {
     const day = '2026-03-29', zone = 'Europe/Oslo';
-    const now = moment.tz(day + ' 12:00', zone).valueOf();
+    const now = moment.tz(day + ' 18:00', zone).valueOf();
     const readings = fullDay(day, 100, 5, zone).filter(r => r.displayTime.valueOf() < now);
     const result = calculate(readings, [day], zone, now);
     assert.equal(result.available, true); close(result.coverage, 100);
