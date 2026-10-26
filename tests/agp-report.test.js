@@ -23,8 +23,8 @@ describe('AGP report values and gaps', function () {
     globals.restoreDomGlobals(state); env.cleanup();
   });
   function record(at, value = 120) {return {displayTime: new Date(at), bgValue: value, sgv: value};}
-  function render(data, days = [DAY], units = 'mg/dl') {
-    report.report({allstatsrecords: data}, days, {units, targetLow: units === 'mmol' ? 3.9 : 70, targetHigh: units === 'mmol' ? 10 : 180});
+  function render(data, days = [DAY], units = 'mg/dl', targets = {}) {
+    report.report({allstatsrecords: data}, days, {units, targetLow: units === 'mmol' ? 3.9 : 70, targetHigh: units === 'mmol' ? 10 : 180, ...targets});
   }
   function median(selector = '#agp-chart') {return $(selector + ' path').toArray().findLast(path => Array.isArray(path.__data__));}
   it('bins and groups readings by the profile timezone rather than the host', function () {
@@ -56,6 +56,31 @@ describe('AGP report values and gaps', function () {
       assert.equal($('.agp-stat-value').eq(2).text(), '33.3%');
       const point = median().__data__[32];
       assert.ok(Math.abs(point.v - (units === 'mmol' ? 150 / 18.0182 : 150)) < 0.01);
+    });
+    it('keeps summary chart ranges aligned with TIR when report targets change in ' + units, function () {
+      const values = [65, 75, 175, 200];
+      const data = values.map((value, i) => record('2026-10-25T08:' + String(i * 5).padStart(2, '0') + ':00+01:00', value));
+      function geometry() {
+        return ['#agp-chart', '#agp-daily'].map(selector => ({
+          band: ['y', 'height'].map(attribute => Number($(selector + ' rect').first().attr(attribute))),
+          lines: $(selector + ' line').toArray().map(node => [node.getAttribute('y1'), node.getAttribute('y2')])
+        }));
+      }
+      render(data, [DAY], units);
+      const consensus = geometry();
+      const scale = units === 'mmol' ? 18.0182 : 1;
+      render(data, [DAY], units, {targetLow: 80 / scale, targetHigh: 160 / scale});
+
+      assert.equal($('.agp-target .agp-tir-range').text(), units === 'mmol' ? '3.9–10.0' : '70–180');
+      assert.equal($('.agp-target .agp-tir-pct').text(), '50.0%');
+      assert.deepEqual(geometry(), consensus, 'custom report targets do not change summary shading or reference lines');
+      const band = $('#agp-daily rect').first()[0];
+      const top = Number(band.getAttribute('y')), bottom = top + Number(band.getAttribute('height'));
+      const dots = $('#agp-daily circle').toArray();
+      for (const index of [1, 2]) {
+        const y = Number(dots[index].getAttribute('cy'));
+        assert.ok(y >= top && y <= bottom, values[index] + ' mg/dL is inside the summary target band');
+      }
     });
   }
   it('leaves missing AGP intervals empty and splits the daily trace', function () {

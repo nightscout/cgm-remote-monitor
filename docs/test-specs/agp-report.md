@@ -24,6 +24,10 @@ changing tabs can render from the already loaded data.
 - Glucose statistics, GMI and range percentages retain the report's original
   reading-based definitions; coverage estimation does not interpolate glucose
   values or change stored readings.
+- Statistics Summary uses the same 70–180 mg/dL consensus range for its TIR
+  classification, AGP shading/reference lines and daily mini-chart shading,
+  converted to display units before plotting. Configured report targets do not
+  change these summary bands; other reports retain their configurable targets.
 - All 96 AGP / 48 Percentile Chart bins are retained. Missing bins contain null
   values, and D3 lines/areas break there. Hovering a missing percentile bin hides
   its tooltip rather than borrowing a distant value. Daily traces also break
@@ -65,7 +69,7 @@ Static AGP, daily and weekly presentation styles live in `static/css/report.css`
 rather than JavaScript strings. Modern refinements remain in `modern-reports.css`.
 
 The final Modern chart, combined hover and compact treatment-table refinements
-measure 61,045 reports / 425,688 total JavaScript gzip bytes after extracting
+measure 61,032 reports / 425,675 total JavaScript gzip bytes after extracting
 static CSS. Their bounded allowance is 61,500 / 426,000 bytes, with other
 per-page limits unchanged.
 Hover includes basal U/h and all treatments within ±5 minutes, with actual

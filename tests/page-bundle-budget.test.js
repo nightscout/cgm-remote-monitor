@@ -16,7 +16,7 @@ const {entries, output, measure} = require('../tools/measure-page-bundles');
 // AGP/D3 report features measured on patched Node 24.22.1 after removing unused
 // Flot pie/fillbetween plugins: 58638 reports / 423281 total gzip bytes.
 // Final Modern daily rendering, combined hover and compact treatment rows:
-// 61045 reports / 425688 total gzip bytes on patched Node 24.22.1. Static chart
+// 61032 reports / 425675 total gzip bytes on patched Node 24.22.1. Static chart
 // styles are loaded as CSS. See the modernReportRefinements audit entry.
 // Only reports and total allowances increase; other page limits stay fixed.
 const limits = {app: 349000, reports: 61500, admin: 8500, profile: 7100, food: 5700, clock: 63000};

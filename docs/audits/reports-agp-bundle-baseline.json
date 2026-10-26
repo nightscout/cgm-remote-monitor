@@ -62,8 +62,8 @@
         "gzipBytes": 344418
       },
       "reports": {
-        "bytes": 206294,
-        "gzipBytes": 61045
+        "bytes": 206240,
+        "gzipBytes": 61032
       },
       "admin": {
         "bytes": 32025,
@@ -82,8 +82,8 @@
         "gzipBytes": 61736
       }
     },
-    "allApplicationGzipBytes": 425688,
-    "reportsGzipBytes": 61045,
+    "allApplicationGzipBytes": 425675,
+    "reportsGzipBytes": 61032,
     "limits": {
       "reportsGzipBytes": 61500,
       "allApplicationGzipBytes": 426000
@@ -91,7 +91,7 @@
     "sourceSha256": {
       "lib/report/reportclient.js": "251560df8d00870cd85274626c3d11ea3e32503fe9d1199224bef503b7aee7f6",
       "lib/report/daily-distribution.js": "d5ee86d40e5bf309fc8ab1f84aa6fbf6c9291746ce341550e2d82507b888763f",
-      "lib/report_plugins/agp.js": "f3327b57112787dc65f6520a719976339d5dfc512cee4835e9529d856471cca3",
+      "lib/report_plugins/agp.js": "ca35cf2dd454f230bbe58ddfab1e352f564e25d3122c6b16ca2ed0442bd0ca64",
       "lib/report_plugins/daytoday.js": "3be68cdaef92d0af6577fd9120a9c218c9abd998a4d02b7870021c88da5fe42d",
       "lib/report_plugins/glucosedistribution.js": "d28730c53d4f3a0070f8bc9a5c5bd55f7e9cf08e5a326695d72f89c4229695e4",
       "lib/report_plugins/treatments.js": "591d886ea4dddb57dc13365004e018b54260c48a786dd3fe5fda98dd1dcc002b",
