@@ -1,7 +1,7 @@
 # Legacy bridge dependency and TLS review (M09/M29)
 
 Update: the maintainer explicitly authorized retiring the local Dexcom bridge in
-15.0.9 in favour of Nightscout Connect. This supersedes the earlier retention and
+16.0.0 in favour of Nightscout Connect. This supersedes the earlier retention and
 upstream TLS-patch decision for Dexcom below; MiniMed remains separate. See the
 [retirement candidate and remaining validation](../test-specs/legacy-dexcom-retirement.md).
 The historical TLS/advisory evidence below remains applicable to the old package.
