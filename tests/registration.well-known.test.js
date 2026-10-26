@@ -4,7 +4,7 @@ const fs = require('fs');
 const path = require('path');
 const request = require('supertest');
 const should = require('should');
-const Ajv = require('ajv');
+const Ajv2020 = require('ajv/dist/2020');
 const language = require('../lib/language')();
 
 const registration = require('../lib/registration');
@@ -13,11 +13,11 @@ const BASE = registration.BASE;
 const SYNC = BASE + '/sync';
 const CATALOGUE = BASE + '/controllers';
 const CATALOGUE_DIR = path.join(__dirname, '../lib/registration/catalogue');
+const SCHEMA_DIR = path.join(__dirname, '../lib/registration/schemas');
 
-// Members of the capability document this slice does not offer (registration
-// specification section 4): absent means no submissions, no instances and no
-// command path.
-const NOT_OFFERED = ['submit', 'instances', 'commands'];
+// Members of the capability document not offered yet (registration
+// specification section 4): absent means no instances and no command path.
+const NOT_OFFERED = ['instances', 'commands'];
 
 // The grammar members every hub interprets (registration section 4).
 const REQUIRED_INTERPRETS = [
@@ -29,24 +29,9 @@ function vendored (name) {
   return JSON.parse(fs.readFileSync(path.join(CATALOGUE_DIR, name), 'utf8'));
 }
 
-// The vendored schema is draft 2020-12; the validator in the tree is ajv 6
-// (draft-07). The schema uses no keyword whose meaning differs between the two,
-// which the first test checks, so it is validated without its $schema.
-const DRAFT_2020_ONLY = ['$defs', 'prefixItems', 'unevaluatedProperties', 'unevaluatedItems',
-  'dependentSchemas', 'dependentRequired', '$dynamicRef', '$dynamicAnchor', 'minContains', 'maxContains'];
-
-function keywordsOf (node, out) {
-  if (Array.isArray(node)) { node.forEach(n => keywordsOf(n, out)); return out; }
-  if (node && typeof node === 'object') {
-    Object.keys(node).forEach(k => { out.add(k); keywordsOf(node[k], out); });
-  }
-  return out;
-}
-
 function capabilityValidator () {
-  const schema = vendored('hub-capabilities.schema.json');
-  delete schema.$schema;
-  return new Ajv({ allErrors: true }).compile(schema);
+  const schema = JSON.parse(fs.readFileSync(path.join(SCHEMA_DIR, 'hub-capabilities.schema.json'), 'utf8'));
+  return new Ajv2020({ allErrors: true, strict: false }).compile(schema);
 }
 
 function pathsOf (body) {
@@ -65,6 +50,8 @@ describe('controller registration well-known documents', function () {
     const env = require('../lib/server/env')();
     env.settings.authDefaultRoles = 'denied';
     self.env = env;
+    // Booted with the flag on, so the registration store is set up.
+    env.controllerRegistration = true;
     require('../lib/server/bootevent')(env, language).boot(function booted (ctx) {
       const createApp = require('../lib/server/app');
       env.controllerRegistration = false;
@@ -113,9 +100,7 @@ describe('controller registration well-known documents', function () {
   });
 
   describe('flag on', function () {
-    it('validates against the vendored capability schema, which needs no draft 2020-12 keyword', async function () {
-      const used = keywordsOf(vendored('hub-capabilities.schema.json'), new Set());
-      DRAFT_2020_ONLY.filter(k => used.has(k)).should.eql([]);
+    it('validates against the vendored capability schema', async function () {
       const res = await request(self.on).get(SYNC).expect(200).expect('Content-Type', /application\/json/);
       const validate = capabilityValidator();
       const ok = validate(res.body);
@@ -123,10 +108,14 @@ describe('controller registration well-known documents', function () {
       ok.should.equal(true);
     });
 
-    it('offers no submissions, instances or commands, and interprets the required members', async function () {
+    it('offers submissions and no instances or commands, and interprets the required members', async function () {
       const res = await request(self.on).get(SYNC).expect(200);
       NOT_OFFERED.forEach(member => res.body.should.not.have.property(member));
-      res.body.grammar.interprets.should.containDeep(REQUIRED_INTERPRETS);
+      res.body.submit.should.eql({ href: '/api/v4/registrations', tiers: ['controller-owned'],
+        permissions: { submit: 'api:registrations:create', retire: 'api:registrations:delete' } });
+      // An entry covers the member and everything beneath it.
+      REQUIRED_INTERPRETS.filter(member => !res.body.grammar.interprets.some(entry =>
+        member === entry || member.indexOf(entry + '.') === 0)).should.eql([]);
       res.body.wellKnown.catalogue.should.equal(CATALOGUE);
     });
 
@@ -143,7 +132,7 @@ describe('controller registration well-known documents', function () {
     it('serves the vendored catalogue and nothing else', async function () {
       const files = fs.readdirSync(CATALOGUE_DIR).sort();
       files.should.eql(registration.KINDS.map(id => id + '.json')
-        .concat(['hub-capabilities.schema.json', 'mappings.json', 'shared-slots.json']).sort());
+        .concat(['mappings.json', 'shared-slots.json']).sort());
 
       const caps = (await request(self.on).get(SYNC).expect(200)).body;
       const index = (await request(self.on).get(CATALOGUE).expect(200)).body;
