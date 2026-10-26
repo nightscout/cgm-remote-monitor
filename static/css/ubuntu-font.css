@@ -1,48 +1,64 @@
 @font-face {
   font-family: 'Ubuntu derivative Nightscout';
   font-style: italic;
+  font-display: swap;
   font-weight: 300;
-  src: url(/font/ubuntu/Ubuntu-LI.woff2) format('woff2');
+  src: url(/font/ubuntu/Ubuntu-LI.woff2) format('woff2'),
+       url(/font/ubuntu/Ubuntu-LI.woff) format('woff');
 }
 @font-face {
   font-family: 'Ubuntu derivative Nightscout';
   font-style: italic;
+  font-display: swap;
   font-weight: 400;
-  src: url(/font/ubuntu/Ubuntu-RI.woff2) format('woff2');
+  src: url(/font/ubuntu/Ubuntu-RI.woff2) format('woff2'),
+       url(/font/ubuntu/Ubuntu-RI.woff) format('woff');
 }
 @font-face {
   font-family: 'Ubuntu derivative Nightscout';
   font-style: italic;
+  font-display: swap;
   font-weight: 500;
-  src: url(/font/ubuntu/Ubuntu-MI.woff2) format('woff2');
+  src: url(/font/ubuntu/Ubuntu-MI.woff2) format('woff2'),
+       url(/font/ubuntu/Ubuntu-MI.woff) format('woff');
 }
 @font-face {
   font-family: 'Ubuntu derivative Nightscout';
   font-style: italic;
+  font-display: swap;
   font-weight: 700;
-  src: url(/font/ubuntu/Ubuntu-BI.woff2) format('woff2');
+  src: url(/font/ubuntu/Ubuntu-BI.woff2) format('woff2'),
+       url(/font/ubuntu/Ubuntu-BI.woff) format('woff');
 }
 @font-face {
   font-family: 'Ubuntu derivative Nightscout';
   font-style: normal;
+  font-display: swap;
   font-weight: 300;
-  src: url(/font/ubuntu/Ubuntu-L.woff2) format('woff2');
+  src: url(/font/ubuntu/Ubuntu-L.woff2) format('woff2'),
+       url(/font/ubuntu/Ubuntu-L.woff) format('woff');
 }
 @font-face {
   font-family: 'Ubuntu derivative Nightscout';
   font-style: normal;
+  font-display: swap;
   font-weight: 400;
-  src: url(/font/ubuntu/Ubuntu-R.woff2) format('woff2');
+  src: url(/font/ubuntu/Ubuntu-R.woff2) format('woff2'),
+       url(/font/ubuntu/Ubuntu-R.woff) format('woff');
 }
 @font-face {
   font-family: 'Ubuntu derivative Nightscout';
   font-style: normal;
+  font-display: swap;
   font-weight: 500;
-  src: url(/font/ubuntu/Ubuntu-M.woff2) format('woff2');
+  src: url(/font/ubuntu/Ubuntu-M.woff2) format('woff2'),
+       url(/font/ubuntu/Ubuntu-M.woff) format('woff');
 }
 @font-face {
   font-family: 'Ubuntu derivative Nightscout';
   font-style: normal;
+  font-display: swap;
   font-weight: 700;
-  src: url(/font/ubuntu/Ubuntu-B.woff2) format('woff2');
+  src: url(/font/ubuntu/Ubuntu-B.woff2) format('woff2'),
+       url(/font/ubuntu/Ubuntu-B.woff) format('woff');
 }

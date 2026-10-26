@@ -11,8 +11,8 @@ const fontDirectory = path.resolve(__dirname, '../../static/font/ubuntu');
 const fontStylesheet = path.resolve(__dirname, '../../static/css/ubuntu-font.css');
 const fontAssets = new Map([
   ['/css/ubuntu-font.css', [fontStylesheet, 'text/css; charset=utf-8']],
-  ...fs.readdirSync(fontDirectory).filter(name => name.endsWith('.woff2'))
-    .map(name => ['/font/ubuntu/' + name, [path.join(fontDirectory, name), 'font/woff2']])
+  ...fs.readdirSync(fontDirectory).filter(name => name.endsWith('.woff2') || name.endsWith('.woff'))
+    .map(name => ['/font/ubuntu/' + name, [path.join(fontDirectory, name), name.endsWith('.woff2') ? 'font/woff2' : 'font/woff']])
 ]);
 
 exports.serveFontAsset = function (request, response) {

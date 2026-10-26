@@ -103,6 +103,83 @@ describe('Webpack image and CSS update contracts', function () {
     });
   });
 
+  it('uses WOFF fallbacks when WOFF2 is unavailable', async function () {
+    await serve(path.join(root, 'node_modules/.cache/_ns_cache/public'), '/bundle', async (page, origin, requests) => {
+      await page.goto(origin);
+      for (const [file, family] of [['ubuntu-font.css', 'Ubuntu derivative Nightscout'], ['open-sans-font.css', 'Open Sans']]) {
+        const css = fs.readFileSync(path.join(root, 'static/css', file), 'utf8');
+        const faces = [...css.matchAll(/@font-face\s*\{([^}]+)\}/g)];
+        assert.ok(faces.length > 0);
+        for (const [, face] of faces) {
+          assert.match(face, /font-display:\s*swap/);
+          assert.match(face, /format\('woff2'\)\s*,\s*url\([^)]+\.woff\)\s*format\('woff'\)/);
+        }
+        // Simulate a browser that does not recognize WOFF2 while exercising the
+        // original second src on a modern browser. This is not an iOS 9 test.
+        await page.addStyleTag({content: css.replaceAll("format('woff2')", "format('unsupported')")
+          .replaceAll("font-family: '" + family + "'", "font-family: 'Fallback " + family + "'")});
+      }
+      const results = await page.evaluate(async () => {
+        const fonts = [
+          ...[300, 400, 500, 700].flatMap(weight => ['normal', 'italic'].map(style => [style, weight, 'Fallback Ubuntu derivative Nightscout'])),
+          ...[300, 400, 600, 700, 800].map(weight => ['normal', weight, 'Fallback Open Sans']),
+          ...[300, 400, 600, 700].map(weight => ['italic', weight, 'Fallback Open Sans'])
+        ];
+        return Promise.all(fonts.map(async ([style, weight, family]) => {
+          const faces = await document.fonts.load(`${style} ${weight} 16px "${family}"`);
+          return [style, weight, family, faces.length, faces.every(face => face.status === 'loaded')];
+        }));
+      });
+      for (const [style, weight, family, count, loaded] of results) {
+        assert.equal(count, 1, `${family} ${style} ${weight} face is missing`);
+        assert.ok(loaded, `${family} ${style} ${weight} failed to load`);
+      }
+      assert.equal(requests.filter(request => request.endsWith('.woff')).length, 17);
+      assert.equal(requests.filter(request => request.endsWith('.woff2')).length, 0);
+    });
+  });
+
+  it('renders multilingual characters and clock emoji with production font styles', async function () {
+    await serve(path.join(root, 'node_modules/.cache/_ns_cache/public'), '/bundle', async (page, origin) => {
+      await page.goto(origin);
+      const clock = path.join(root, 'views/clockviews/clock.html');
+      const markup = ejs.render(fs.readFileSync(clock, 'utf8'), {face: 'bn10-sg40-em40', bundle: '/bundle', cachebuster: ''}, {filename: clock});
+      const style = await page.evaluate(html => new DOMParser().parseFromString(html, 'text/html').querySelector('style').textContent, markup);
+      await page.addStyleTag({content: style});
+      await page.addStyleTag({url: origin + '/css/ubuntu-font.css'});
+      await page.evaluate(() => { document.body.innerHTML = '<main><div id="inner"><div class="em" style="font-size:56px"></div></div></main>'; });
+      await page.evaluate(() => Promise.all([document.fonts.load('700 56px "Open Sans"'),
+        document.fonts.load('700 56px "Ubuntu derivative Nightscout"')]));
+      const result = await page.evaluate(() => {
+        const node = document.querySelector('.em');
+        const canvas = document.createElement('canvas'); canvas.width = 128; canvas.height = 128;
+        const context = canvas.getContext('2d');
+        context.textBaseline = 'top'; context.fillStyle = '#000';
+        function pixels(text) {
+          context.clearRect(0, 0, canvas.width, canvas.height);
+          context.fillText(text, 4, 4);
+          return Array.from(context.getImageData(0, 0, canvas.width, canvas.height).data);
+        }
+        const samples = ['é', 'e\u0301', 'á', 'ñ', 'ż', 'ă', 'ł', 'ø', 'ğ', 'α', 'я', 'א', 'م', 'क', 'த', '日', '한', '中', '😟', '😊', '😱', '🥶', '❌', '🦄', '🤷'];
+        return ['Open Sans', 'Ubuntu derivative Nightscout'].flatMap(family => {
+          node.style.fontFamily = '"' + family + '", sans-serif';
+          const computed = getComputedStyle(node);
+          context.font = `${computed.fontStyle} ${computed.fontWeight} ${computed.fontSize} ${computed.fontFamily}`;
+          const missing = pixels(String.fromCodePoint(0x10ffff));
+          return samples.map(text => {
+            node.textContent = text;
+            const actual = pixels(node.textContent);
+            return {family, text: node.textContent, visible: actual.some((value, index) => index % 4 === 3 && value),
+              missing: actual.every((value, index) => value === missing[index])};
+          });
+        });
+      });
+      for (const sample of result) {
+        assert.ok(sample.visible && !sample.missing, `${sample.family}: ${sample.text} rendered as an empty or missing glyph`);
+      }
+    });
+  });
+
   for (const template of ['index', 'adminindex', 'profileindex', 'foodindex', 'reportindex']) {
     it('preserves the static stylesheet cascade for ' + template, async function () {
       const file = path.join(root, 'views', template + '.html');
