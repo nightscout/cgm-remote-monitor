@@ -326,6 +326,7 @@ autonomy for your data:
 ### Predefined values for your browser settings (optional)
 
   * `TIME_FORMAT` (`12`)- possible values `12` or `24`
+  * `SHOW_SECONDS` (`off`) - Set to `on` to show seconds on the dashboard clock in either time format. Users can override this default with **Show Seconds** in their browser settings. Only the clock display updates every second; chart, plugin and alarm maintenance retain their existing cadence.
   * `DAY_START` (`7.0`) - time for start of day (0.0 - 24.0) for features using day time / night time options
   * `DAY_END` (`21.0`) - time for end of day (0.0 - 24.0) for features using day time / night time options
   * `NIGHT_MODE` (`off`) - possible values `on` or `off`
