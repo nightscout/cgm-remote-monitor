@@ -242,6 +242,9 @@ jobs:
           NIGHTSCOUT_TEST_BROWSER: ${{ matrix.browser }}
         run: npm run test:browser
       - name: Record editor time formatting comparison
+        env:
+          # Firefox needs the same root-owned HOME as the browser test step.
+          HOME: /root
         run: node tools/audits/browser-intl-editor-probe.cjs ${{ matrix.browser }} > editor-time-comparison.json
       - name: Save editor time formatting evidence
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
