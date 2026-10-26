@@ -1,7 +1,7 @@
 'use strict';
 
-// API v3 refuses a client-supplied `_id` on create (POST) and PUT with 400
-// (BF-170).
+// API v3 refuses a client-supplied `_id` on create (POST), PUT and PATCH
+// with 400 (BF-170).
 //
 // API v3 addresses records by `identifier`; `_id` is the storage key
 // Nightscout assigns. Create used to store a 24-hex body `_id` as a string,
@@ -11,7 +11,7 @@
 
 require('should');
 
-describe('API3: a client-supplied _id is refused on create and PUT (BF-170)', function () {
+describe('API3: a client-supplied _id is refused on create, PUT and PATCH (BF-170)', function () {
   const self = this
     , instance = require('./fixtures/api3/instance')
     , authSubject = require('./fixtures/api3/authSubject')
@@ -101,6 +101,22 @@ describe('API3: a client-supplied _id is refused on create and PUT (BF-170)', fu
       const doc = body(colName, {});
       await self.instance.post('/api/v3/' + colName, self.jwt.all).send(doc).expect(201);
       (await colFor(colName).countDocuments({ app: APP, date: doc.date })).should.equal(1);
+    });
+  });
+
+  // PATCH answered 500 for a body _id (MongoDB refuses to change it). The URL
+  // names the record, so a body _id can only try to change its storage key:
+  // PATCH refuses it with v3's immutable-field message, which AndroidAPS
+  // treats as a permanent failure, unlike create and PUT.
+  ID_FORMS.forEach(function (form) {
+    it('PATCH with a ' + form.label + ' _id answers 400 as an immutable field and leaves the record unchanged', async () => {
+      const doc = body('treatments', { identifier: 'client-id-refused-patch-' + minute });
+      await self.instance.post('/api/v3/treatments', self.jwt.all).send(doc).expect(201);
+      const res = await self.instance.patch('/api/v3/treatments/' + doc.identifier, self.jwt.all)
+        .send({ _id: form.value, notes: 'changed' }).expect(400);
+      res.body.status.should.equal(400);
+      res.body.message.should.equal('Field _id cannot be modified by the client');
+      (await colFor('treatments').findOne({ identifier: doc.identifier })).notes.should.equal(APP);
     });
   });
 
