@@ -42,9 +42,9 @@ describe('utils', function ( ) {
   });
 
   it('rounds values that binary floating point pushes below the halfway point', function () {
-    // 1.005 * 100 is 100.49999999999999, 0.145 * 100 is 14.499999999999998 and
-    // 2.675 * 100 is 267.49999999999994, so rounding the float product rounded
-    // these down to 1, 0.14 and 2.67. Insulin doses are shown with
+    // 1.005 * 100 is 100.49999999999999 and 0.145 * 100 is 14.499999999999998,
+    // so rounding the float product rounded these down to 1 and 0.14.
+    // Insulin doses are shown with
     // utils.toRoundedStr(dose, 2), so a 1.005 U bolus was reported as "1U".
     utils.toRoundedStr(1.005, 2).should.equal('1.01');
     utils.toRoundedStr(1.015, 2).should.equal('1.02');
@@ -58,6 +58,35 @@ describe('utils', function ( ) {
   it('keeps rounding exponential-notation values', function () {
     utils.toRoundedStr(1e-7, 2).should.equal('0');
     utils.toRoundedStr(1.5e21, 0).should.equal(String(1.5e21));
+  });
+
+  it('distinguishes values below, at and above decimal midpoints for either sign', function () {
+    const cases = [
+      [0, [[2.4999999999999996, '2'], [2.5, '3'], [2.5000000000000004, '3']]],
+      [1, [[1.8499999999999999, '1.8'], [1.85, '1.9'], [1.8500000000000003, '1.9']]],
+      [2, [[10.264999999999999, '10.26'], [10.265, '10.27'], [10.265000000000002, '10.27']]],
+      [3, [[0.06249999999999999, '0.062'], [0.0625, '0.063'], [0.06250000000000001, '0.063']]],
+      [-2, [[149.99999999999997, '100'], [150, '200'], [150.00000000000003, '200']]]
+    ];
+    for (const [precision, values] of cases) {
+      for (const [value, expected] of values) {
+        for (const sign of [1, -1]) {
+          utils.toRoundedStr(sign * value, precision).should.equal(sign < 0 ? '-' + expected : expected);
+        }
+      }
+    }
+  });
+
+  it('carries decimal rounding across zeros and exponent notation without losing the sign', function () {
+    const cases = [
+      [9.995, 2, '10'], [99.995, 2, '100'], [0.09995, 4, '0.1'],
+      [999.5, 0, '1000'], [1.005e-7, 9, '1.01e-7'], [1.25e21, -20, '1.3e+21']
+    ];
+    for (const [value, precision, expected] of cases) {
+      utils.toRoundedStr(value, precision).should.equal(expected);
+      utils.toRoundedStr(-value, precision).should.equal('-' + expected);
+    }
+    utils.toRoundedStr('1.005', 2).should.equal('1.01');
   });
 
   it('merge date and time', function () {
