@@ -1,9 +1,9 @@
 {
-  "$comment": "Generated from the alignment repository's specs/sync/controller-instance.schema.json by tools/nsschema/vendor_catalogue.py. Do not edit; regenerate. Source commit dd02d8ed2b5e2fa22165f332b0d6b0ca48595435.",
+  "$comment": "Generated from the alignment repository's specs/sync/controller-instance.schema.json by tools/nsschema/vendor_catalogue.py. Do not edit; regenerate. Source commit 789446fd47938ef1b978bf5478321fb5520126bd.",
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "$id": "https://nightscout.dev/schemas/sync/controller-instance.json",
   "title": "Controller instance",
-  "description": "D19 (execution plan §2.6.2; queue item SPEC-REG-INSTANCE; contract in the hub-sync design §3.6). One connected copy of a controller — a phone that doses, a development build, a simulator, a lab rig, later an agent — as the body of `PUT <submit.href>/<vendor>/<product>/instances/<instanceId>`. It names the content-addressed definition it runs, the channel roles it plays, each with a provenance, and its labels. The instance id is the path segment: controller-supplied, opaque, a random UUID version 4 (122 random bits), never derived from a device name, model or serial. An instance carries no hardware identifiers: the upstream RFC's `ControllerInstanceRegistration` (cgm-remote-monitor docs/proposals, read at official b5ddd662) carries `device.deviceId`, `device.model`, `pumpBinding.pumpSerial` and `cgmBinding.cgmId`; this document has no such members, because the instance's purpose is to distinguish copies of a controller, which an opaque id does without identifying a person or a device. Anything identifying a controller reports is a typed, sensitivity-labelled field of its definition (D18 addendum rule 2), and the free-text `devicestatus.device` a hub observes is recorded only as a withheld observed alias (control-plane reconciliation §3.3). Must-ignore applies, as in the grammar: no object is closed.",
+  "description": "D19 (execution plan §2.6.2; queue item SPEC-REG-INSTANCE; contract in the hub-sync design §3.6). One connected copy of a controller — a phone that doses, a development build, a simulator, a lab rig, later an agent — as the body of `PUT /api/v4/instances/{instanceId}` (before 2026-10-26, `PUT <submit.href>/<vendor>/<product>/instances/<instanceId>`). It names the content-addressed definition it runs, the channel roles it plays, each with a provenance, and its labels. The instance id is the path segment: controller-supplied, opaque, a random UUID version 4 (122 random bits), never derived from a device name, model or serial. An instance carries no hardware identifiers: the upstream RFC's `ControllerInstanceRegistration` (cgm-remote-monitor docs/proposals, read at official b5ddd662) carries `device.deviceId`, `device.model`, `pumpBinding.pumpSerial` and `cgmBinding.cgmId`; this document has no such members, because the instance's purpose is to distinguish copies of a controller, which an opaque id does without identifying a person or a device. Anything identifying a controller reports is a typed, sensitivity-labelled field of its definition (D18 addendum rule 2), and the free-text `devicestatus.device` a hub observes is recorded only as a withheld observed alias (control-plane reconciliation §3.3). Must-ignore applies, as in the grammar: no object is closed. *(Amended, maintainer 2026-10-26: the instance resource is `/api/v4/instances/{instanceId}`, flat under the hub's v4 root; creating, renewing and releasing an instance use that path, and the body names the product in `product`. registration §7.)*",
   "type": "object",
   "required": [
     "apiVersion",
@@ -18,9 +18,25 @@
     "kind": {
       "const": "ControllerInstance"
     },
+    "product": {
+      "type": "object",
+      "required": [
+        "vendor",
+        "product"
+      ],
+      "properties": {
+        "vendor": {
+          "type": "string"
+        },
+        "product": {
+          "type": "string"
+        }
+      },
+      "description": "The product this instance is a copy of: the registration's `metadata.vendor` and `metadata.product`. Proposed with the flat instance path (maintainer, 2026-10-26): a hub serving `/api/v4/instances/{instanceId}` requires it on every PUT, refuses a request whose product is not registered (404) and a renewal naming another product than the stored instance's (422 `invalid-instance`). A hub that takes instances under the product resource reads the product from the path."
+    },
     "definitionId": {
       "$ref": "#/$defs/definitionId",
-      "description": "The definition this instance runs: one the hub stores for this (vendor, product), from a product PUT or a definition PUT. Otherwise the whole instance is rejected `unknown-definition`."
+      "description": "The definition this instance runs: one the hub stores for this (vendor, product), named by `product` or by the path, from a product PUT or a definition PUT. Otherwise the whole instance is rejected `unknown-definition`."
     },
     "roles": {
       "type": "array",

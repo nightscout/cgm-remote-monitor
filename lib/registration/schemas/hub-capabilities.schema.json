@@ -1,5 +1,5 @@
 {
-  "$comment": "Generated from the alignment repository's specs/sync/hub-capabilities.schema.json by tools/nsschema/vendor_catalogue.py. Do not edit; regenerate. Source commit baa67a88f3c9dffb225c4f878f3e2ad7dee65112.",
+  "$comment": "Generated from the alignment repository's specs/sync/hub-capabilities.schema.json by tools/nsschema/vendor_catalogue.py. Do not edit; regenerate. Source commit 789446fd47938ef1b978bf5478321fb5520126bd.",
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "$id": "https://nightscout.dev/schemas/sync/hub-capabilities.json",
   "title": "Hub capability document",
@@ -304,7 +304,7 @@
     },
     "instances": {
       "type": "object",
-      "description": "D19 (execution plan §2.6.2; SPEC-REG-INSTANCE; hub-sync design §3.6). Present: the hub stores definitions at `<submit.href>/<vendor>/<product>/definitions/<definitionId>` and instances at `<submit.href>/<vendor>/<product>/instances/<instanceId>`, and requires an instance id on every typed write (an instance-less typed write is refused `instance-required`, a definite refusal, so that record goes as its carrier). Writes with no instance — older controllers and the well-known tier — are attributed to an implicit unregistered instance of the product and never refused for exclusivity. Absent: the hub takes neither resource and typed writes need no instance (SPEC-REG-NEGOTIATE as it stands). A controller reads this at launch and after a controller release, never on a lease renewal (decision 8).",
+      "description": "D19 (execution plan §2.6.2; SPEC-REG-INSTANCE; hub-sync design §3.6). Present: the hub stores definitions at `<submit.href>/<vendor>/<product>/definitions/<definitionId>` and instances at `/api/v4/instances/{instanceId}` (maintainer, 2026-10-26; before then `<submit.href>/<vendor>/<product>/instances/<instanceId>`), the owner's listing at `GET /api/v4/instances`, and requires an instance id on every typed write (an instance-less typed write is refused `instance-required`, a definite refusal, so that record goes as its carrier). Writes with no instance — older controllers and the well-known tier — are attributed to an implicit unregistered instance of the product and never refused for exclusivity. Absent: the hub takes neither resource and typed writes need no instance (SPEC-REG-NEGOTIATE as it stands). A controller reads this at launch and after a controller release, never on a lease renewal (decision 8).",
       "required": [
         "leaseSeconds",
         "roles",

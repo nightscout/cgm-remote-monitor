@@ -100,6 +100,15 @@ describe('controller registration well-known documents', function () {
         res.text.should.equal(none.text.replace(BASE + '/not-served', p));
       }
     });
+
+    it('serves no registration or instance resource', async function () {
+      const id = '00000000-0000-4000-8000-00000000000a';
+      for (const p of [registration.SUBMIT_HREF + '/Example/Controller', registration.INSTANCES_HREF,
+        registration.INSTANCES_HREF + '/' + id]) {
+        await request(self.off).get(p).expect(404);
+        await request(self.off).put(p).send({}).expect(404);
+      }
+    });
   });
 
   describe('flag on', function () {
