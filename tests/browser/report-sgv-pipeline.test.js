@@ -74,11 +74,11 @@ describe('report SGV loading and Daily Stats in a real browser', function () {
     }, {timezoneId});
   }
 
-  async function withReport(offsets, units, values, endDay, run, {day = DAY, base = BASE, timezone = 'UTC', dayHours = 24, charts = false} = {}) {
+  async function withReport(offsets, units, values, endDay, run, {day = DAY, base = BASE, timezone = 'UTC', dayHours = 24, charts = false, pentagon = false} = {}) {
     entries = offsets.map((seconds, index) => ({type: 'sgv', date: base + seconds * 1000, sgv: values[index], device: 'report-test'})).reverse();
     requests = [];
     await withReportPage(async page => {
-      await page.evaluate(({units, day, endDay, timezone, charts}) => {
+      await page.evaluate(({units, day, endDay, timezone, charts, pentagon}) => {
         const $ = window.$, moment = window.moment, Nightscout = window.Nightscout;
         const ctx = {moment, settings: {units}, language: {translate: value => value}};
         const client = {
@@ -135,6 +135,20 @@ describe('report SGV loading and Daily Stats in a real browser', function () {
 
               }
             }
+            let pentagonResult = null;
+            if (pentagon) {
+              $('#owned-pentagon').remove();
+              const container = $('<div id="owned-pentagon">').appendTo('body');
+              const distribution = plugins('glucosedistribution');
+              container.append(distribution.html(client));
+              distribution.report(storage, days, options);
+              pentagonResult = {
+                score: container.find('.gd-pentagon-score').text(),
+                coverage: container.find('.gd-pentagon-coverage').text(),
+                message: container.find('.gd-pentagon-message').text(),
+                values: container.find('.gd-pentagon-values dd').toArray().map(node => node.textContent)
+              };
+            }
             pies = Object.fromEntries(Array.from(document.querySelectorAll('#dailystats-report .tir-bar')).map(bar => {
               const day = days[Array.from(document.querySelectorAll('#dailystats-report > table > tr, #dailystats-report > table > tbody > tr')).indexOf(bar.closest('tr')) - 1];
               return [day, Array.from(bar.children, (segment, index) => ({label: ['Low', 'In Range', 'High'][index], data: parseFloat(segment.style.width)}))];
@@ -146,7 +160,7 @@ describe('report SGV loading and Daily Stats in a real browser', function () {
             const rows = Array.from(table.rows).slice(1)
               .map(row => Array.from(row.children, cell => cell.textContent));
             window.reportResult = JSON.parse(JSON.stringify({
-              data: storage[day], table: Object.fromEntries(headers.map((name, index) => [name, rows[0][index]])),
+              data: storage[day], pentagon: pentagonResult, table: Object.fromEntries(headers.map((name, index) => [name, rows[0][index]])),
               pie: pies[day], rows, days: days.slice(), pies, chartSeries, percentileTooltip,
               percentilePaths: Array.from(document.querySelectorAll('#percentile-chart path'))
                 .filter(path => Array.isArray(path.__data__)).map(path => path.getAttribute('d')),
@@ -163,7 +177,7 @@ describe('report SGV loading and Daily Stats in a real browser', function () {
         $('#rp_from').val(day);
         $('#rp_to').val(endDay);
         window.resetReportResult = () => { window.reportResult = null; pies = {}; };
-      }, {units, day, endDay, timezone, charts});
+      }, {units, day, endDay, timezone, charts, pentagon});
       await page.waitForFunction(() => window.$.active === 0);
       assert.equal(requests.filter(request => request.url.pathname === '/api/v1/entries.json').length, 0, 'Changing the initial range cancels the default week load');
       async function show() {
@@ -187,6 +201,55 @@ describe('report SGV loading and Daily Stats in a real browser', function () {
       await run(await show());
     }, timezone);
   }
+
+  it('uses original 59-second CGM samples in the pentagon while preserving existing report filtering', async function () {
+    const offsets = Array.from({length: Math.ceil(DAY_SECONDS / 59)}, (_, i) => i * 59);
+    const values = offsets.map((_, i) => i % 2 ? 71 : 69);
+    await withReport(offsets, 'mg/dl', values, DAY, async result => {
+      assert.equal(result.entriesRequests, 1);
+      assert.equal(result.data.statsrecords.length, 733, 'Existing reports keep their one-minute filter');
+      assert.equal(result.data.pentagonrecords.length, 1465, 'Pentagon receives all original samples');
+      assert.match(result.pentagon.coverage, /100\.0%/);
+      assert.equal(result.pentagon.score, 'PGR: 1.32');
+      assert.equal(result.pentagon.values[0], '720 min/day');
+      assert.equal(result.pentagon.values[4], '70 mg/dL');
+    }, {pentagon: true});
+  });
+
+  it('withholds the pentagon when the loaded data contain conflicting simultaneous readings', async function () {
+    const offsets = Array.from({length: 288}, (_, i) => i * 300);
+    const values = offsets.map(() => 100);
+    offsets.push(15000); values.push(200);
+    await withReport(offsets, 'mg/dl', values, DAY, async result => {
+      assert.equal(result.data.pentagonrecords.length, 289);
+      assert.equal(result.pentagon.score, '');
+      assert.match(result.pentagon.coverage, /coverage is uncertain/);
+      assert.match(result.pentagon.message, /Conflicting glucose readings/);
+    }, {pentagon: true});
+  });
+
+  it('collapses exact duplicate uploads in the pentagon without changing other reports', async function () {
+    const offsets = Array.from({length: 288}, (_, i) => [i * 300, i * 300]).flat();
+    const values = offsets.map(() => 100);
+    await withReport(offsets, 'mg/dl', values, DAY, async result => {
+      assert.equal(result.data.statsrecords.length, 288);
+      assert.equal(result.data.pentagonrecords.length, 576);
+      assert.match(result.pentagon.coverage, /100\.0% · 288 readings/);
+      assert.equal(result.pentagon.score, 'PGR: 1.00');
+    }, {pentagon: true});
+  });
+
+  it('withholds the pentagon when near-duplicate uploads from one source are ambiguous', async function () {
+    const offsets = Array.from({length: 288}, (_, i) => [i * 300, i * 300 + 30]).flat();
+    const values = offsets.map(() => 100);
+    await withReport(offsets, 'mg/dl', values, DAY, async result => {
+      assert.equal(result.data.statsrecords.length, 288);
+      assert.equal(result.data.pentagonrecords.length, 576);
+      assert.equal(result.pentagon.score, '');
+      assert.match(result.pentagon.coverage, /coverage is uncertain/);
+      assert.match(result.pentagon.message, /overlapping uploads or missing data/);
+    }, {pentagon: true});
+  });
 
   ['mg/dl', 'mmol'].forEach(function (units) {
     it('preserves percentile values and hourly tables with D3 percentile whiskers (' + units + ')', async function () {

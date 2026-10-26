@@ -68,6 +68,14 @@ describe('Glucose pentagon report', function () {
     assert.match($('#pentagon .gd-pentagon-coverage').text(), /coverage is uncertain/);
     assert.match($('#pentagon .gd-pentagon-message').text(), /overlapping uploads or missing data/);
   });
+  it('explains conflicting simultaneous glucose values', function () {
+    const data = records(100);
+    data.push({...data[50], bgValue: 200});
+    render(data);
+    assert.equal($('#pentagon .gd-pentagon-score').length, 0);
+    assert.match($('#pentagon .gd-pentagon-coverage').text(), /coverage is uncertain/);
+    assert.match($('#pentagon .gd-pentagon-message').text(), /Conflicting glucose readings/);
+  });
   it('withholds full-day metrics when hours are filtered and restores them', function () {
     render(records(100), 'mg/dl', false);
     assert.equal($('#pentagon svg').length, 0);

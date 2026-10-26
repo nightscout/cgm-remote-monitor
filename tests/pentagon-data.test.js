@@ -12,7 +12,7 @@ function fullDay(day, value, cadence = 5, zone = 'UTC') {
 }
 function calculate(records, days, zone = 'UTC', now = Date.UTC(2027, 0, 1)) {
   const p = profile(zone);
-  return pentagon.calculate(agp.prepare(records, days, p, moment), p, now);
+  return pentagon.calculate(agp.prepare(records, days, p, moment, {preserveSimultaneous: true}), p, now);
 }
 function close(actual, expected, tolerance = 1e-8) {assert.ok(Math.abs(actual - expected) < tolerance, `${actual} != ${expected}`);}
 
@@ -45,6 +45,53 @@ describe('Glucose pentagon calculations', function () {
       close(result.values[0], 0); close(result.values[1], 0); close(result.values[4], 100);
     });
   }
+  it('preserves fast samples spaced 59 seconds apart with values around the low boundary', function () {
+    const start = Date.UTC(2026, 9, 1);
+    const readings = Array.from({length: Math.ceil(86400 / 59)}, (_, i) => ({
+      ...record(start + i * 59000, i % 2 ? 71 : 69), device: 'fast-sensor'
+    }));
+    const result = calculate(readings, ['2026-10-01']);
+    assert.equal(result.available, true); assert.equal(result.count, 1465);
+    close(result.coverage, 100); close(result.values[0], 720.2);
+    close(result.values[4], 69.99972222222222);
+    assert.equal(result.score.toFixed(2), '1.32');
+  });
+  it('collapses exact duplicates from the same source without dropping fast samples', function () {
+    const entries = fullDay('2026-10-01', 100).map(r => ({...r, device: 'sensor-a'}));
+    const result = calculate(entries.flatMap(r => [r, {...r}]), ['2026-10-01']);
+    assert.equal(result.available, true); assert.equal(result.count, 288);
+    close(result.coverage, 100); close(result.score, calculate(entries, ['2026-10-01']).score);
+  });
+  it('unions equal simultaneous observations from distinct devices', function () {
+    const entries = fullDay('2026-10-01', 100).map(r => ({...r, device: 'sensor-a'}));
+    const matching = entries.map(r => ({...r, device: 'sensor-b'}));
+    const result = calculate(entries.concat(matching), ['2026-10-01']);
+    assert.equal(result.available, true); assert.equal(result.count, 576);
+    close(result.coverage, 100); close(result.score, calculate(entries, ['2026-10-01']).score);
+  });
+  it('withholds the score for conflicting simultaneous readings regardless of source or input order', function () {
+    const entries = fullDay('2026-10-01', 100).map(r => ({...r, device: 'sensor-a'}));
+    for (const device of ['sensor-a', 'sensor-b', undefined]) {
+      const conflict = {...entries[50], bgValue: 200, device};
+      for (const records of [entries.concat(conflict), [conflict].concat(entries)]) {
+        const result = calculate(records, ['2026-10-01']);
+        assert.equal(result.available, false); assert.equal(result.reason, 'conflicting');
+      }
+    }
+  });
+  it('withholds ambiguous near-duplicate uploads from the same source', function () {
+    const entries = fullDay('2026-10-01', 100).map(r => ({...r, device: 'sensor-a'}));
+    const duplicate = entries.map(r => ({...record(r.displayTime.valueOf() + 30000, 100), device: r.device}));
+    const result = calculate(entries.concat(duplicate), ['2026-10-01']);
+    assert.equal(result.available, false); assert.equal(result.reason, 'ambiguous');
+  });
+  it('unions distinguishable streams offset by less than one minute', function () {
+    const entries = fullDay('2026-10-01', 100).map(r => ({...r, device: 'sensor-a'}));
+    const duplicate = entries.map(r => ({...record(r.displayTime.valueOf() + 30000, 100), device: 'sensor-b'}));
+    const result = calculate(entries.concat(duplicate), ['2026-10-01']);
+    assert.equal(result.available, true); close(result.coverage, 100);
+    close(result.score, calculate(entries, ['2026-10-01']).score);
+  });
   it('does not produce NaN for glucose below the reference mean', function () {
     const result = calculate(fullDay('2026-10-01', 60), ['2026-10-01']);
     assert.equal(result.available, true); assert.ok(Number.isFinite(result.score));
