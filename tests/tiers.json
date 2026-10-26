@@ -63,6 +63,7 @@
         "tests/maker-delivery.test.js",
         "tests/maker-level-names.test.js",
         "tests/maker.test.js",
+        "tests/merge-patch.test.js",
         "tests/mime-negotiation.test.js",
         "tests/mmconnect-connect-compat.test.js",
         "tests/mongo-aws-compat.test.js",
