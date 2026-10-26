@@ -201,6 +201,8 @@
     "Date format": "Dato format",
     "12 hours": "12 timer",
     "24 hours": "24 timer",
+    "Show Seconds": "Show Seconds",
+    "When enabled the clock displays seconds and updates every second.": "When enabled the clock displays seconds and updates every second.",
     "Log a Treatment": "Log en hændelse",
     "BG Check": "BG kontrol",
     "Meal Bolus": "Måltidsbolus",
