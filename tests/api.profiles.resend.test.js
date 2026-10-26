@@ -62,6 +62,10 @@ describe('Profiles API: a profile re-sent with its own _id (BF-166)', function (
     return request(self.app).post('/api/profile/').set('api-secret', known).send(body);
   }
 
+  function postAsCreator (body) {
+    return request(self.app).post('/api/profile/').set('api-secret', self.creatorToken).send(body);
+  }
+
   function createInProcess (docs) {
     return new Promise(function (resolve, reject) {
       self.ctx.profile.create(docs, function (err, created) {
@@ -86,8 +90,84 @@ describe('Profiles API: a profile re-sent with its own _id (BF-166)', function (
     });
   });
 
+  before(async function () {
+    var auth = self.ctx.authorization.storage;
+    var name = 'profile-resend-create-only';
+    if (!auth.roles.some(function (role) { return role.name === name; })) {
+      await new Promise(function (resolve, reject) {
+        auth.createRole({ name: name, permissions: ['api:profile:read', 'api:profile:create'] },
+          function (err) { if (err) reject(err); else resolve(); });
+      });
+    }
+    if (!auth.subjects.some(function (subject) { return subject.name === name; })) {
+      await new Promise(function (resolve, reject) {
+        auth.createSubject({ name: name, roles: [name] },
+          function (err) { if (err) reject(err); else resolve(); });
+      });
+    }
+    self.creatorToken = auth.subjects.find(function (subject) { return subject.name === name; }).accessToken;
+  });
+
   after(function () {
     return collection().deleteMany({ enteredBy: MARK });
+  });
+
+  it('create permission permits a new profile and its identical retry without changing history', async function () {
+    var hex = nextHex();
+    await postAsCreator(sampleProfile(5, { _id: hex })).expect(200);
+    var before = (await storedFor(hex))[0];
+    var retry = await postAsCreator(sampleProfile(5, { _id: hex })).expect(200);
+    retry.body[0]._id.should.equal(hex);
+    (await storedFor(hex)).should.eql([before]);
+  });
+
+  it('create permission cannot change an existing profile through POST or PUT', async function () {
+    var hex = nextHex();
+    await post(sampleProfile(5, { _id: hex })).expect(200);
+    var before = (await storedFor(hex))[0];
+    await request(self.app).put('/api/profile/').set('api-secret', self.creatorToken)
+      .send(sampleProfile(6, { _id: hex })).expect(401);
+    await postAsCreator(sampleProfile(6, { _id: hex })).expect(401);
+    (await storedFor(hex)).should.eql([before]);
+  });
+
+  it('create permission cannot merge into a legacy string ID through an upper-case re-send', async function () {
+    var hex = nextHex();
+    await collection().insertOne(sampleProfile(5, { _id: hex }));
+    var before = (await storedFor(hex))[0];
+    await postAsCreator(sampleProfile(6, { _id: hex.toUpperCase() })).expect(401);
+    (await storedFor(hex)).should.eql([before]);
+  });
+
+  [false, true].forEach(function (newFirst) {
+    it('refuses a mixed batch before any write with the new profile ' + (newFirst ? 'first' : 'last'), async function () {
+      var hex = nextHex();
+      var fresh = nextHex();
+      await post(sampleProfile(5, { _id: hex })).expect(200);
+      var before = (await storedFor(hex))[0];
+      var docs = [sampleProfile(6, { _id: hex }), sampleProfile(4, { _id: fresh })];
+      if (newFirst) docs.reverse();
+      await postAsCreator(docs).expect(401);
+      (await storedFor(hex)).should.eql([before]);
+      (await storedFor(fresh)).should.eql([]);
+    });
+  });
+
+  it('checks every existing-profile re-send, including a change after an identical retry', async function () {
+    var hex = nextHex();
+    await post(sampleProfile(5, { _id: hex })).expect(200);
+    var before = (await storedFor(hex))[0];
+    await postAsCreator([sampleProfile(5, { _id: hex }), sampleProfile(6, { _id: hex })]).expect(401);
+    (await storedFor(hex)).should.eql([before]);
+  });
+
+  it('create permission can merge repeated new IDs within the same upload', async function () {
+    var hex = nextHex();
+    await postAsCreator([sampleProfile(5, { _id: hex, kept: 'first' }), sampleProfile(6, { _id: hex })]).expect(200);
+    var stored = await storedFor(hex);
+    stored.length.should.equal(1);
+    stored[0].store.Default.dia.should.equal(6);
+    stored[0].kept.should.equal('first');
   });
 
   ['lower', 'upper'].forEach(function (spelling) {
