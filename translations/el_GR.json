@@ -201,6 +201,8 @@
     "Date format": "Μορφή Ώρας",
     "12 hours": "12ωρο",
     "24 hours": "24ωρο",
+    "Show Seconds": "Show Seconds",
+    "When enabled the clock displays seconds and updates every second.": "When enabled the clock displays seconds and updates every second.",
     "Log a Treatment": "Καταγραφή Θεραπείας",
     "BG Check": "Έλεγχος Γλυκόζης",
     "Meal Bolus": "Ινσουλίνη Γεύματος",
