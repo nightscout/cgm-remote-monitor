@@ -586,6 +586,89 @@ describe('CRUD by _id matrix: v1, v3 and websocket, every collection and stored 
     }
   }
 
+  for (const mode of ['off', 'log', 'reject']) {
+    for (const batch of [false, true]) {
+      it('keeps late socket refusals in place for ' + mode + ' ' + (batch ? 'batches' : 'single uploads'), async function () {
+        const previous = self.env.writeValidation;
+        self.env.writeValidation = mode;
+        try {
+          const n = nextN(), oldId = idFor('treatments', 'oid', n);
+          const old = Object.assign(body('treatments', n), {_id: oldId.stored,
+            eventType: 'Temporary Target', duration: 30, targetBottom: 9, targetTop: 6});
+          await collection('treatments').insertOne(old);
+          const incomingId = idFor('treatments', 'oid', nextN());
+          // Valid input passes preflight; the +/-2-second match then tries to
+          // change the timestamp of a legacy target that fails validation.
+          const incoming = Object.assign({}, old, {_id: incomingId.asked, targetBottom: 5,
+            created_at: new Date(when(n) + 1000).toISOString(), notes: 'late-refusal-slot'});
+          const items = [incoming], ids = [];
+          if (batch) {
+            for (const valid of [false, true]) {
+              const next = nextN(), id = idFor('treatments', 'oid', next);
+              ids.push(id);
+              items.push(Object.assign(body('treatments', next), {_id: id.asked,
+                eventType: 'Temporary Target', duration: 30, targetBottom: valid ? 5 : 9, targetTop: 6,
+                notes: valid ? 'accepted-slot' : 'preflight-refusal-slot'}));
+            }
+          }
+          const before = commits.length;
+          const reply = await wsEmit('dbAdd', {collection: 'treatments', data: batch ? items : incoming});
+          should(reply.length).equal(items.length);
+          const current = (await storedFor('treatments', oldId))[0];
+          should(current.targetBottom).equal(9);
+          if (mode === 'reject') {
+            should(reply[0].notes).equal('late-refusal-slot');
+            should(reply[0]._id).equal(undefined);
+            should(reply[0].refused.status).equal(400);
+            should(reply[0].refused.rules).containDeep([{rule: 'tt-order', field: 'targetBottom'}]);
+            should(current.created_at).equal(old.created_at);
+            should(current.srvModified).equal(undefined);
+          } else {
+            should(String(reply[0]._id)).equal(oldId.asked);
+            should(reply[0].refused).equal(undefined);
+            should(current.created_at).equal(incoming.created_at);
+          }
+          should((await storedFor('treatments', incomingId)).length).equal(0);
+          if (batch) {
+            should(reply[1].notes).equal('preflight-refusal-slot');
+            should(reply[2].notes).equal('accepted-slot');
+            should(String(reply[2]._id)).equal(ids[1].asked);
+            should((await storedFor('treatments', ids[0])).length).equal(mode === 'reject' ? 0 : 1);
+            should((await storedFor('treatments', ids[1])).length).equal(1);
+            if (mode === 'reject') {
+              should(reply[1]._id).equal(undefined);
+              should(reply[1].refused.status).equal(400);
+            }
+          }
+          should(commits.length - before).equal(mode === 'reject' ? (batch ? 1 : 0) : items.length);
+        } finally { self.env.writeValidation = previous; }
+      });
+    }
+  }
+
+  it('does not turn a socket persistence failure into a domain refusal', async function () {
+    const previous = self.env.writeValidation;
+    self.env.writeValidation = 'reject';
+    const raw = collection('treatments'), n = nextN(), id = idFor('treatments', 'oid', n);
+    const prototype = Object.getPrototypeOf(raw), original = prototype.updateOne;
+    try {
+      const old = Object.assign(body('treatments', n), {_id: id.stored,
+        eventType: 'Temporary Target', duration: 30, targetBottom: 5, targetTop: 6});
+      await raw.insertOne(old);
+      prototype.updateOne = async function (filter, ...args) {
+        if (JSON.stringify(filter).includes(id.asked)) throw new Error('synthetic storage failure');
+        return original.call(this, filter, ...args);
+      };
+      const reply = await wsEmit('dbAdd', {collection: 'treatments', data: Object.assign({}, old,
+        {_id: id.asked, created_at: new Date(when(n) + 1000).toISOString()})});
+      should(reply).deepEqual([]);
+      should((await raw.findOne({_id: id.stored})).created_at).equal(old.created_at);
+    } finally {
+      prototype.updateOne = original;
+      self.env.writeValidation = previous;
+    }
+  });
+
   it('gates read/search/history diagnostic headers in every representation without changing response data', async function () {
     const previous = self.env.apiV3DataWarnings;
     should(previous).equal(false);
