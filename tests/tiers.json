@@ -80,6 +80,7 @@
         "tests/plugin-task-order.test.js",
         "tests/plugins.test.js",
         "tests/profile-cache-contract.test.js",
+        "tests/profile-data-received-order.test.js",
         "tests/profile-empty-name.test.js",
         "tests/profile-switch-percentage.test.js",
         "tests/profile-switch-preprocessing.test.js",
