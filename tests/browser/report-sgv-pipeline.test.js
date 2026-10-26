@@ -241,6 +241,7 @@ describe('report SGV loading and Daily Stats in a real browser', function () {
           assert.deepEqual(result.data.sgv.filter(entry => entry.type === 'sgv')
             .map(entry => (entry.mills - BASE) / 1000), fixture.kept);
           assert.deepEqual(result.data.statsrecords.map(entry => entry.sgv), expectedStats);
+          assert.ok(result.data.statsrecords.every(entry => entry.device === 'report-test'), 'SGV source is preserved for coverage');
           assert.equal(result.table.Readings, String(fixture.kept.length));
           const quartiles = units === 'mg/dl'
             ? (fixture.name === 'dense' ? ['100.0', '150.0', '200.0'] : ['50.0', '100.0', '200.0'])

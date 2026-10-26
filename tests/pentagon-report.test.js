@@ -30,6 +30,8 @@ describe('Glucose pentagon report', function () {
     assert.equal($('#pentagon .gd-pentagon-patient').length, 1);
     assert.match($('#pentagon .gd-pentagon-coverage').text(), /100\.0%/);
     assert.match($('#pentagon .gd-pentagon-note').text(), /not a validated prediction/);
+    assert.match($('#pentagon .gd-pentagon-note').first().text(), /extrapolate observed readings to a 24-hour day/);
+    assert.match($('#pentagon .gd-pentagon-note').first().text(), /Missing data may bias/);
   });
   it('changes display units without changing the score or polygon', function () {
     render(records(200));
@@ -48,6 +50,13 @@ describe('Glucose pentagon report', function () {
     assert.match($('#pentagon .gd-pentagon-message').text(), /70%/);
     render([]); assert.equal($('#pentagon svg').length, 0);
     assert.match($('#pentagon .gd-pentagon-message').text(), /No glucose/);
+  });
+  it('explains when overlapping or missing readings cannot be distinguished', function () {
+    const data = records(100).flatMap(r => [r, {...r, displayTime: new Date(r.displayTime.valueOf() + 60000)}]);
+    render(data);
+    assert.equal($('#pentagon .gd-pentagon-score').length, 0);
+    assert.match($('#pentagon .gd-pentagon-coverage').text(), /coverage is uncertain/);
+    assert.match($('#pentagon .gd-pentagon-message').text(), /overlapping uploads or missing data/);
   });
   it('withholds full-day metrics when hours are filtered and restores them', function () {
     render(records(100), 'mg/dl', false);

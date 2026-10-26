@@ -26,7 +26,9 @@ const {entries, output, measure} = require('../tools/measure-page-bundles');
 // allowance moves by that measured cost; every other limit is unchanged.
 // The glucose pentagon adds 2,538 gzip bytes to reports (66,783 -> 69,321
 // on Node 26.12.1). Increase only that allowance by the measured cost.
-const limits = {app: 349000, reports: 70038, admin: 8500, profile: 7100, food: 5700, clock: 63000};
+// Source-aware pentagon coverage adds 655 gzip bytes (69,265 -> 69,920
+// on Node 26.12.1); retain the prior reports allowance above the measured cost.
+const limits = {app: 349000, reports: 70693, admin: 8500, profile: 7100, food: 5700, clock: 63000};
 
 describe('Production page bundle resource budgets', function () {
   let measurements;

@@ -10,9 +10,9 @@ function fullDay(day, value, cadence = 5, zone = 'UTC') {
   const p = profile(zone), start = p.parseInTimezone(day), length = start.clone().add(1, 'day').diff(start, 'minutes');
   return Array.from({length: Math.ceil(length / cadence)}, (_, i) => record(start.valueOf() + i * cadence * MIN, typeof value === 'function' ? value(i, length / cadence) : value));
 }
-function calculate(records, days, zone = 'UTC') {
+function calculate(records, days, zone = 'UTC', now = Date.UTC(2027, 0, 1)) {
   const p = profile(zone);
-  return pentagon.calculate(agp.prepare(records, days, p, moment), p);
+  return pentagon.calculate(agp.prepare(records, days, p, moment), p, now);
 }
 function close(actual, expected, tolerance = 1e-8) {assert.ok(Math.abs(actual - expected) < tolerance, `${actual} != ${expected}`);}
 
@@ -64,6 +64,49 @@ describe('Glucose pentagon calculations', function () {
     const low = calculate(fullDay('2026-10-01', 100).slice(0, 201), ['2026-10-01']);
     const enough = calculate(fullDay('2026-10-01', 100).slice(0, 202), ['2026-10-01']);
     assert.equal(low.available, false); assert.equal(enough.available, true);
+  });
+  it('unions interleaved five-minute streams from distinct devices without double counting', function () {
+    const original = fullDay('2026-10-01', 100).map(r => ({...r, device: 'sensor-a'}));
+    const interleaved = original.flatMap(r => [r, {...record(r.displayTime.valueOf() + MIN, 100), device: 'sensor-b'}]);
+    const unique = require('../lib/report/uniqsgv')(interleaved.map(r => ({mills: r.displayTime.valueOf(), bgValue: r.bgValue, device: r.device})))
+      .map(r => ({...record(r.mills, r.bgValue), device: r.device}));
+    const result = calculate(unique, ['2026-10-01']);
+    assert.equal(result.available, true); close(result.coverage, 100);
+    close(result.score, calculate(original, ['2026-10-01']).score);
+  });
+  it('counts conflicting overlapping readings once, using the most recent', function () {
+    const first = fullDay('2026-10-01', 100).map(r => ({...r, device: 'sensor-a'}));
+    const second = first.map(r => ({...record(r.displayTime.valueOf() + MIN, 200), device: 'sensor-b'}));
+    const result = calculate(first.concat(second), ['2026-10-01']);
+    assert.equal(result.available, true); close(result.coverage, 100); close(result.values[4], 180);
+  });
+  it('withholds the score when overlapping uploads cannot be distinguished from missing readings', function () {
+    const original = fullDay('2026-10-01', 100);
+    const ambiguous = original.flatMap(r => [r, record(r.displayTime.valueOf() + MIN, 100)]);
+    const result = calculate(ambiguous, ['2026-10-01']);
+    assert.equal(result.available, false); assert.equal(result.reason, 'ambiguous'); close(result.coverage, 40);
+  });
+  it('uses only elapsed time today and excludes future readings', function () {
+    const now = Date.UTC(2026, 9, 1, 12);
+    const readings = fullDay('2026-10-01', 110).slice(0, 144);
+    const result = calculate(readings, ['2026-10-01'], 'UTC', now);
+    assert.equal(result.available, true); close(result.coverage, 100); assert.equal(result.count, 144);
+    const withFuture = calculate(readings.concat(record(now + MIN, 600)), ['2026-10-01'], 'UTC', now);
+    close(withFuture.coverage, result.coverage); close(withFuture.score, result.score); assert.equal(withFuture.count, 144);
+    assert.equal(calculate([record(now + MIN, 100)], ['2026-10-01'], 'UTC', now).reason, 'empty');
+  });
+  it('uses elapsed local time on the current daylight-saving day', function () {
+    const day = '2026-03-29', zone = 'Europe/Oslo';
+    const now = moment.tz(day + ' 12:00', zone).valueOf();
+    const readings = fullDay(day, 100, 5, zone).filter(r => r.displayTime.valueOf() < now);
+    const result = calculate(readings, [day], zone, now);
+    assert.equal(result.available, true); close(result.coverage, 100);
+  });
+  it('apportions readings that cross midnight to both selected days', function () {
+    const first = fullDay('2026-10-01', 100).map(r => record(r.displayTime.valueOf() + MIN, 100));
+    const second = fullDay('2026-10-02', 100).map(r => record(r.displayTime.valueOf() + MIN, 100));
+    const result = calculate(first.concat(second), ['2026-10-01', '2026-10-02']);
+    assert.equal(result.available, true); close(result.coverage, 100 * (2880 - 1) / 2880);
   });
   it('does not impute a long gap even when overall coverage is sufficient', function () {
     const readings = fullDay('2026-10-01', 100).filter((_, i) => i < 100 || i >= 148);
