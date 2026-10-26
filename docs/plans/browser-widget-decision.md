@@ -1,5 +1,26 @@
 # M28 browser widget decision
 
+## Cut 5 update, 26 October 2026
+
+The decision and measurements below describe the September integration branch.
+Current dev's #8542 has since moved report pies and bands to D3. Cut 5 retains
+Flot 4 only for Loopalyzer; the production reports entry deliberately omits the
+pie and fillbetween plugins. Current Loopalyzer data/axis/legend checks in
+`tests/browser/legacy-reports.test.js` and the report SGV pipeline checks remain
+in the required Chromium/Firefox/WebKit suite.
+`tests/modern-reports.test.js` also retains the actual insulin split, carb
+comparison, zero/single-category and invalid-value cases in the required DOM
+tier. Removing the old candidate experiment does not remove those regressions.
+
+The pie candidate comparison is now an optional historical experiment, outside
+required CI. Its script injects the Flot pie plugin only into its disposable
+page, asserts that the production bundle has not loaded it, and records the
+injected plugin's source hash separately. It does not validate today's D3 report
+implementation, and its timings must not be presented as current application
+performance or transfer savings.
+
+## Historical September decision
+
 Decision, 2026-09-08: retain jQuery 3.7.1 and selected jQuery UI 1.14.2 modules,
 retain the native help tooltips already integrated, and upgrade reports-only
 Flot 0.8.3 to 4.2.6 with only the needed core helpers/time/pie/fillbetween/legend
@@ -110,8 +131,8 @@ renders in each unit. Fixture HTTP loading plus rendering ranges/medians are
 These are local fixture timings, not CPU-only or production latency. Local
 Chromium and WebKit pass the six report cases; current hosted Firefox and the
 complete CI/CodeQL/Docker suite remain required before child integration.
-The existing browser matrix also records the scoped candidate feature/data
-probe on all four jobs; no new environment or external account is required.
+The then-current browser matrix also recorded the scoped candidate feature/data
+probe. That historical experiment is no longer a required CI step.
 
 Reproduce the measurements with clean built baseline/candidate checkouts:
 

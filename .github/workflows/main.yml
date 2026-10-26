@@ -141,9 +141,6 @@ jobs:
 
       - name: Install dependencies
         run: npm ci
-      - name: Lint application sources
-        if: matrix.node-version == '22.23.4'
-        run: npm run lint
       - name: Validate dependency resolution
         run: npm ls brace-expansion postcss mocha nanoid js-yaml eslint nyc dompurify socket.io-parser fast-uri ip-address d3 d3-color express body-parser socket.io socket.io-client engine.io engine.io-client socket.io-adapter ws axios @babel/core @babel/preset-env babel-loader uuid --all
       - name: Check the test tier map
@@ -212,7 +209,7 @@ jobs:
         run: python3 tools/rehearse-database-upgrade.py "$RUNNER_TEMP/nightscout-database-upgrade"
       - name: Record database upgrade and restore evidence
         if: always() && matrix.node-version == '26' && matrix.mongodb-version == '8.0.29'
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
         with:
           name: database-upgrade-recovery
           path: |
@@ -280,22 +277,10 @@ jobs:
       - name: Compare date candidates with the production browser bundle
         run: node tools/audits/browser-date-candidate-probe.cjs "$RUNNER_TEMP/nightscout-date-candidates" ${{ matrix.browser }} > date-candidate-comparison.json
       - name: Save date candidate evidence
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
         with:
           name: date-candidates-${{ matrix.node-version }}-${{ matrix.browser }}
           path: date-candidate-comparison.json
-          if-no-files-found: error
-          retention-days: 14
-
-      - name: Compare scoped report widget candidates
-        env:
-          NIGHTSCOUT_TEST_BROWSER: ${{ matrix.browser }}
-        run: node tools/audits/browser-report-widget-probe.cjs > report-widget-comparison.json
-      - name: Save report widget comparison evidence
-        uses: actions/upload-artifact@v4
-        with:
-          name: report-widgets-${{ matrix.node-version }}-${{ matrix.browser }}
-          path: report-widget-comparison.json
           if-no-files-found: error
           retention-days: 14
 

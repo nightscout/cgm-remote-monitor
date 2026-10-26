@@ -9,6 +9,9 @@ const {gzipSync} = require('node:zlib');
 const playwright = require('playwright-core');
 const root = path.resolve(__dirname, '../..');
 const candidate = path.join(__dirname, 'd3-report-pie-candidate.js');
+// Historical comparison only: #8542 replaced production pies with D3. Load
+// the old baseline plugin in this isolated page, never in the reports bundle.
+const baselinePlugin = require.resolve('flot/source/jquery.flot.pie.js');
 const engine = process.env.NIGHTSCOUT_TEST_BROWSER || 'chromium';
 
 (async () => {
@@ -21,6 +24,10 @@ const engine = process.env.NIGHTSCOUT_TEST_BROWSER || 'chromium';
     await page.setContent('<div id="flot" style="width:600px;height:240px"></div><div id="d3"></div>');
     for (const entry of ['app', 'reports']) await page.addScriptTag({path: path.join(root,
       'node_modules/.cache/_ns_cache/public/js/bundle.' + entry + '.js')});
+    assert.equal(await page.evaluate(() => $.plot.plugins.some(plugin => plugin.name === 'pie')), false,
+      'The production reports bundle must not restore the retired Flot pie plugin');
+    await page.addScriptTag({content: '(function(jQuery) {\n' +
+      fs.readFileSync(baselinePlugin, 'utf8') + '\n})(window.$);'});
     await page.addScriptTag({path: candidate});
     const result = await page.evaluate(() => {
       const cases = [];
@@ -41,7 +48,7 @@ const engine = process.env.NIGHTSCOUT_TEST_BROWSER || 'chromium';
       }
       const dialog = document.createElement('dialog');
       return {cases, features: {nativeDialog: typeof dialog.showModal, modelessDialog: typeof dialog.show,
-        jquery: $.fn.jquery, ui: $.ui.version}, candidateScope: 'static distribution pie only; not the time/candle/fillbetween/report suite'};
+        jquery: $.fn.jquery, ui: $.ui.version}, candidateScope: 'historical static pie experiment with an isolated Flot plugin; not production report validation'};
     });
     for (const row of result.cases) {
       assert.equal(row.svgCount, 1);
@@ -62,6 +69,8 @@ const engine = process.env.NIGHTSCOUT_TEST_BROWSER || 'chromium';
         .map(file => [file, crypto.createHash('sha256').update(fs.readFileSync(path.join(root, file))).digest('hex')])),
       candidateSource: {bytes: source.length, gzipBytes: gzipSync(source, {level: 9}).length,
         sha256: crypto.createHash('sha256').update(source).digest('hex')},
-      note: 'Unminified standalone helper bytes, not an application bundle saving. Existing D3 is reused.'}, null, 2));
+      baselinePlugin: {path: path.relative(root, baselinePlugin),
+        sha256: crypto.createHash('sha256').update(fs.readFileSync(baselinePlugin)).digest('hex')},
+      note: 'Optional historical experiment, outside required CI. Baseline pie plugin is injected only in this page. Helper bytes are not an application bundle saving.'}, null, 2));
   } finally {await browser.close();}
 })().catch(error => {console.error(error); process.exitCode = 1;});
