@@ -201,6 +201,8 @@
     "Date format": "Időformátum",
     "12 hours": "12 óra",
     "24 hours": "24 óra",
+    "Show Seconds": "Show Seconds",
+    "When enabled the clock displays seconds and updates every second.": "When enabled the clock displays seconds and updates every second.",
     "Log a Treatment": "Kezelés rögzítése",
     "BG Check": "VC ellenőrzés",
     "Meal Bolus": "Étkezési bólus",
