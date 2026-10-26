@@ -201,6 +201,8 @@
     "Date format": "Formát datumu",
     "12 hours": "12 hodin",
     "24 hours": "24 hodin",
+    "Show Seconds": "Show Seconds",
+    "When enabled the clock displays seconds and updates every second.": "When enabled the clock displays seconds and updates every second.",
     "Log a Treatment": "Záznam ošetření",
     "BG Check": "Kontrola glykémie",
     "Meal Bolus": "Bolus na jídlo",
