@@ -698,8 +698,11 @@ describe('API Shape Handling - Single Object vs Array Input', function () {
   describe('Profile API - /api/profile/', function () {
     var profileFixtures = require('./fixtures/nightscoutkit-profiles.js');
     
-    // Profile uses unique mills/startDate for each test, so cleanup not strictly needed
-    // but we'll clean up via direct collection access for good practice
+    // Each test posts a uniquely dated profile; remove them all afterwards, or
+    // later files that list profiles (api.profiles) find extras.
+    after(async function () {
+      await self.ctx.profile().deleteMany({});
+    });
 
     it('POST accepts single profile object', function (done) {
       var profile = profileFixtures.generateUniqueProfile('single-obj');

@@ -138,8 +138,15 @@ describe('API3 READ', function () {
 
 
   it('should not send unmodified document since', async () => {
+    // srvModified comes from a monotonic server clock that a large batch in an
+    // earlier file (api3.v1-writes-history) can push seconds ahead of
+    // Date.now(), so a header based on now alone can fall before it. Use
+    // whichever is later, rounded up past the header's whole second.
+    const stored = await self.instance.get(`${self.url}/${self.validDoc.identifier}`, self.jwt.read)
+      .expect(200);
+    const since = Math.max(Date.now(), stored.body.result.srvModified);
     let res = await self.instance.get(`${self.url}/${self.validDoc.identifier}`, self.jwt.read)
-      .set('If-Modified-Since', new Date(new Date().getTime() + 1000).toUTCString())
+      .set('If-Modified-Since', new Date(Math.ceil(since / 1000) * 1000 + 1000).toUTCString())
       .expect(304);
 
     res.body.should.be.empty();
