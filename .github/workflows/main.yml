@@ -277,6 +277,9 @@ jobs:
           cp tools/audits/date-candidates/package*.json "$RUNNER_TEMP/nightscout-date-candidates/"
           npm ci --prefix "$RUNNER_TEMP/nightscout-date-candidates" --ignore-scripts --no-audit --no-fund
       - name: Compare date candidates with the production browser bundle
+        env:
+          # This probe also launches Firefox in the root-owned container.
+          HOME: /root
         run: node tools/audits/browser-date-candidate-probe.cjs "$RUNNER_TEMP/nightscout-date-candidates" ${{ matrix.browser }} > date-candidate-comparison.json
       - name: Save date candidate evidence
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2

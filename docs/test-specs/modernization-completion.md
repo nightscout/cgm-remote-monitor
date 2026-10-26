@@ -67,6 +67,14 @@ Individual test deadlines, assertions and the CI matrix are unchanged; this
 adjusts the total job budget rather than retrying or skipping failing tests.
 Fresh hosted validation is still required on the resulting head.
 
+The older Firefox failure in run `40347964386` also exposed a separate
+configuration gap: the date-candidate probe launched Firefox without the
+root-owned `HOME` already supplied to the suite and editor probe. Firefox
+refused `/github/home`, which belongs to the host runner's user. The same
+`HOME=/root` is now supplied to that probe; the dependency installation and
+other action environments are unchanged. The historical pie-probe failure
+and this Firefox launch failure are distinct causes.
+
 ## Dev synchronization, 9 September 2026
 
 The integration branch now incorporates dev `a8888f0d` (#8726). Routine server
