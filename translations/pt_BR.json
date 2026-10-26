@@ -201,6 +201,8 @@
     "Date format": "Formato de data",
     "12 hours": "12 horas",
     "24 hours": "24 horas",
+    "Show Seconds": "Show Seconds",
+    "When enabled the clock displays seconds and updates every second.": "When enabled the clock displays seconds and updates every second.",
     "Log a Treatment": "Registre um tratamento",
     "BG Check": "Medida de glicemia",
     "Meal Bolus": "Bolus de refeição",
