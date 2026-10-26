@@ -41,6 +41,25 @@ describe('utils', function ( ) {
     utils.toRoundedStr('text', 2).should.equal('0');
   });
 
+  it('rounds values that binary floating point pushes below the halfway point', function () {
+    // 1.005 * 100 is 100.49999999999999, 0.145 * 100 is 14.499999999999998 and
+    // 2.675 * 100 is 267.49999999999994, so rounding the float product rounded
+    // these down to 1, 0.14 and 2.67. Insulin doses are shown with
+    // utils.toRoundedStr(dose, 2), so a 1.005 U bolus was reported as "1U".
+    utils.toRoundedStr(1.005, 2).should.equal('1.01');
+    utils.toRoundedStr(1.015, 2).should.equal('1.02');
+    utils.toRoundedStr(0.145, 2).should.equal('0.15');
+    utils.toRoundedStr(2.675, 2).should.equal('2.68');
+    utils.toRoundedStr(35.855, 2).should.equal('35.86');
+    utils.toRoundedStr(-1.005, 2).should.equal('-1.01');
+    utils.toRoundedStr(-0.145, 2).should.equal('-0.15');
+  });
+
+  it('keeps rounding exponential-notation values', function () {
+    utils.toRoundedStr(1e-7, 2).should.equal('0');
+    utils.toRoundedStr(1.5e21, 0).should.equal(String(1.5e21));
+  });
+
   it('merge date and time', function () {
     var result = utils.mergeInputTime('22:35', '2015-07-14');
     result.hours().should.equal(22);
