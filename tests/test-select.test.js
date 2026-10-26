@@ -194,3 +194,42 @@ describe('Non-vacuous test lanes', function () {
     }
   });
 });
+
+
+describe('Executed test-file accounting', function () {
+  this.timeout(15000);
+  const fs = require('node:fs'), os = require('node:os');
+  const reporter = path.resolve(__dirname, '../scripts/execution-reporter.js');
+  it('fails empty/pending intended files even alongside passing helpers, serially and in parallel', function () {
+    const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'ns-execution-'));
+    try {
+      const sources = {
+        'empty.cjs': "describe('empty',()=>{});",
+        'pending.cjs': "describe('pending',()=>it.skip('behavior',()=>{}));",
+        'pass.cjs': "describe('pass',()=>it('behavior',()=>{}));"
+      };
+      for (const [file, source] of Object.entries(sources)) fs.writeFileSync(path.join(dir, file), source);
+      for (const parallel of [[], ['--parallel', '--jobs', '2']]) {
+        for (const [files, ok] of [[['empty.cjs', 'pass.cjs'], false], [['pending.cjs'], false], [['pass.cjs'], true]]) {
+          const run = spawnSync(process.execPath, [require.resolve('mocha/bin/mocha'), '--no-config', '--no-package',
+            '--fail-zero', '--reporter', reporter, ...parallel, ...files.map(file => path.join(dir, file))],
+          {encoding: 'utf8', timeout: 5000});
+          assert.ifError(run.error);
+          assert.equal(run.status === 0, ok, run.stdout + run.stderr);
+          if (!ok) assert.match(run.stderr, /TEST_EXECUTION: no test body completed/);
+        }
+      }
+    } finally { fs.rmSync(dir, {recursive: true, force: true}); }
+  });
+
+  it('does not count the database safety/cleanup files as intended coverage', function () {
+    const Reporter = require('../scripts/execution-reporter');
+    const EventEmitter = require('node:events');
+    const runner = new EventEmitter();
+    runner.stats = {}; runner.failures = 0;
+    const files = ['00_production-safety.test.js', 'XX_clean.test.js'].map(f => path.join(__dirname, f));
+    const reporter = new Reporter(runner, {files});
+    files.forEach(file => runner.emit('pass', {file, title: 'helper', slow: () => 1000, duration: 0}));
+    reporter.done(0, failures => assert(failures > 0));
+  });
+});
