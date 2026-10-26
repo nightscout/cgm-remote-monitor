@@ -1365,7 +1365,7 @@ components:
         `identifier` represents a client application name here, e.g. `xdrip` or `aaps`.
 
 
-        `Settings` collection has a more specific authorization required. For the `SEARCH` operation within this collection, you need an `admin` permission, such as `api:settings:admin`. The goal is to isolate individual client application settings.
+        `Settings` collection has a more specific authorization required. For the `SEARCH` and `HISTORY` operations within this collection, you need an `admin` permission, such as `api:settings:admin`. The goal is to isolate individual client application settings. `READ` of one document by its identifier needs `read` permission, or `admin` permission when `API3_SETTINGS_STRICT_READ_ENABLED` is on.
 
       allOf:
         - $ref: '#/components/schemas/DocumentBase'
