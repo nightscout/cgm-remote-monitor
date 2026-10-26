@@ -31,18 +31,35 @@ jobs:
     name: Run Tests (${{ matrix.node-version }}, ${{ matrix.mongodb-version }})
     runs-on: ubuntu-latest
     strategy:
+      # Each lane is the only one testing its edge and setting, so one
+      # failing must not cancel the others' results.
+      fail-fast: false
       matrix:
         # Test the edges of the supported range, not every point inside it:
         # the floor, the lowest Node that package.json engines admits
         # (^22.23.4 || ^24.22.1 || >=26.12.1), and the newest Node release
-        # line ('26' with check-latest), each against the oldest and newest
+        # line ('26' with check-latest), against the oldest and newest
         # supported MongoDB (5.0 and 8.0, README). The 24.22.1 and 26.12.1
         # floors are covered by tests/runtime-policy.test.js's boundary cases.
         node-version: ${{ fromJSON(inputs.extended && '["22.23.4","22","24.22.1","24","26.12.1","26"]' || '["22.23.4","26"]') }}
         # Quoted, so the MongoDB action pulls mongo:5.0 and mongo:8.0, the
         # newest patch of each series (unquoted, 8.0 becomes "8": mongo:8).
         mongodb-version: ['5.0', '8.0']
+        # Pull requests and pushes run the diagonal, which tests each Node
+        # edge and each MongoDB edge once; the extended run keeps every pair.
+        # The newest pair also runs in maintained-mongo.
+        exclude: ${{ fromJSON(inputs.extended && '[]' || '[{"node-version":"22.23.4","mongodb-version":"5.0"},{"node-version":"26","mongodb-version":"8.0"}]') }}
         include:
+          # Each diagonal cell also takes one other setting at its
+          # non-default value, without adding a cell: the floor shuffles the
+          # test-file order (seeded by the run, printed for replay), and the
+          # newest line runs in a time zone with daylight saving time.
+          - node-version: '22.23.4'
+            mongodb-version: '8.0'
+            shuffle: true
+          - node-version: '26'
+            mongodb-version: '5.0'
+            tz: America/Los_Angeles
           # Retain "Run Tests (24, 6)" for dev/master and "Run Tests (22, 6)"
           # for master until the repository settings change. Node 24 is also
           # the line the Docker images use.
@@ -50,6 +67,9 @@ jobs:
             mongodb-version: 6.0
           - node-version: '22'
             mongodb-version: 6.0
+    env:
+      TZ: ${{ matrix.tz || 'UTC' }}
+      TEST_SHUFFLE_SEED: ${{ matrix.shuffle && github.run_id || '' }}
 
     steps:
       - name: Git Checkout
@@ -71,21 +91,9 @@ jobs:
 
       - name: Install dependencies
         run: npm ci
-      - name: Lint application sources
-        if: matrix.node-version == '22.23.4' && matrix.mongodb-version == '5.0'
-        run: npm run lint
-      - name: Validate dependency resolution
-        run: npm ls brace-expansion postcss mocha nanoid js-yaml eslint nyc dompurify socket.io-parser fast-uri ip-address d3 d3-color express body-parser socket.io socket.io-client engine.io engine.io-client socket.io-adapter ws axios @babel/core @babel/preset-env babel-loader uuid --all
-      - name: Check the test tier map
-        run: npm run-script test:tiers
+      # The tiers that pass with no database run in test-no-db.
       - name: Run Tests
-        run: npm run-script test-ci
-      - name: Run client-core tests
-        run: npm run-script test:core
-      - name: Run test harness tests
-        run: npm run-script test:harness
-      - name: Send Coverage
-        run: npm run-script coverage
+        run: node scripts/test-tiers.js run integration,stress --ci
       - name: Validate built and pruned runtime
         env:
           NODE_ENV: production
@@ -94,17 +102,66 @@ jobs:
           npm prune --omit=dev --ignore-scripts
           node tools/validate-pruned-runtime.js
 
+  test-no-db:
+    name: Tests without a database (${{ matrix.node-version }})
+    runs-on: ubuntu-latest
+    strategy:
+      # Each lane is the only one testing its edge and setting, so one
+      # failing must not cancel the others' results.
+      fail-fast: false
+      matrix:
+        # These tiers pass with no MongoDB reachable (tests/tiers.json), so
+        # they vary only with Node: the same edges as the test matrix.
+        node-version: ${{ fromJSON(inputs.extended && '["22.23.4","22","24.22.1","24","26.12.1","26"]' || '["22.23.4","26"]') }}
+        # The other way round from the test matrix, so each Node edge runs
+        # each setting once across the two jobs.
+        include:
+          - node-version: '22.23.4'
+            tz: America/Los_Angeles
+          - node-version: '26'
+            shuffle: true
+    env:
+      TZ: ${{ matrix.tz || 'UTC' }}
+      TEST_SHUFFLE_SEED: ${{ matrix.shuffle && github.run_id || '' }}
+
+    steps:
+      - name: Git Checkout
+        uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5
+
+      - name: Use Node.js ${{ matrix.node-version }}
+        uses: actions/setup-node@a0853c24544627f65ddf259abe73b1d18a591444 # v5
+        with:
+          node-version: ${{ matrix.node-version }}
+          # Major aliases must resolve past any cached vulnerable patch.
+          check-latest: true
+          cache: npm
+          cache-dependency-path: package-lock.json
+
+      - name: Install dependencies
+        run: npm ci
+      - name: Validate dependency resolution
+        run: npm ls brace-expansion postcss mocha nanoid js-yaml eslint nyc dompurify socket.io-parser fast-uri ip-address d3 d3-color express body-parser socket.io socket.io-client engine.io engine.io-client socket.io-adapter ws axios @babel/core @babel/preset-env babel-loader uuid --all
+      - name: Check the test tier map
+        run: npm run-script test:tiers
+      - name: Lint application sources
+        if: matrix.node-version == '22.23.4'
+        run: npm run lint
+      - name: Run Tests
+        run: node scripts/test-tiers.js run unit,dom,dependency,core,harness --ci
+
   maintained-mongo:
     name: Maintained MongoDB
     runs-on: ubuntu-latest
     strategy:
       fail-fast: false
       matrix:
-        # Edges of the range only: the floor of engines (^22.23.4 || ^24.22.1 ||
-        # >=26.12.1) and the newest released Node line.
-        node-version: ['22.23.4', '26']
-        # The newest tested MongoDB. The oldest supported (5.0) runs in the test
-        # matrix above and in replica-test.
+        # The newest pair, which the test matrix's diagonal leaves out: the
+        # newest Node line against the newest tested MongoDB, pinned to the
+        # patch release the README's range was measured on. The whole suite
+        # runs here in one process, as npm run test-ci does. The diagonal
+        # covers the Node floor (22.23.4 against 8.0) and the oldest supported
+        # MongoDB (5.0).
+        node-version: ['26']
         mongodb-version: ['8.0.29']
 
     steps:
@@ -143,56 +200,6 @@ jobs:
           npm prune --omit=dev --ignore-scripts
           node tools/validate-pruned-runtime.js
 
-  replica-test:
-    name: Replica set (${{ matrix.node-version }}, ${{ matrix.mongodb-version }})
-    runs-on: ubuntu-latest
-    timeout-minutes: 10
-    strategy:
-      fail-fast: false
-      matrix:
-        # Edges only, as in maintained-mongo: the Node floor and the newest line,
-        # the oldest supported and the newest tested MongoDB.
-        node-version: ['22.23.4', '26']
-        mongodb-version: ['5.0.32', '8.0.29']
-    steps:
-      - name: Git Checkout
-        uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5
-      - name: Use Node.js ${{ matrix.node-version }}
-        uses: actions/setup-node@a0853c24544627f65ddf259abe73b1d18a591444 # v5
-        with:
-          node-version: ${{ matrix.node-version }}
-          # Major aliases must resolve past any cached vulnerable patch.
-          check-latest: true
-          package-manager-cache: false
-      - name: Start owned replica members
-        env:
-          MONGODB_TEST_VERSION: ${{ matrix.mongodb-version }}
-        run: |
-          for port in 27172 27173 27174; do
-            docker run -d --name "nightscout-owned-rs-$port" --network host \
-              "mongo:$MONGODB_TEST_VERSION" --port "$port" --bind_ip 127.0.0.1 \
-              --replSet nightscout_owned_rs --wiredTigerCacheSizeGB 0.25
-          done
-      # This exercises storage adapters; full builds run in the backend matrix.
-      - name: Install test dependencies
-        run: npm ci --ignore-scripts
-      - name: Validate reads and writes across two primary changes
-        run: node tools/validate-mongodb-replica-set.js
-      - name: Show owned replica logs on failure
-        if: failure()
-        run: |
-          for port in 27172 27173 27174; do
-            docker logs --tail 80 "nightscout-owned-rs-$port" || true
-          done
-      - name: Remove owned replica containers and volumes
-        if: always()
-        run: |
-          for port in 27172 27173 27174; do
-            if docker inspect "nightscout-owned-rs-$port" >/dev/null 2>&1; then
-              docker rm -fv "nightscout-owned-rs-$port"
-            fi
-          done
-
   browser-test:
     name: Browser tests (${{ matrix.node-version }}, ${{ matrix.browser }})
     runs-on: ubuntu-latest
@@ -222,6 +229,11 @@ jobs:
           cache-dependency-path: package-lock.json
       - name: Install dependencies and build production bundle
         run: npm ci
+      # The container runs as root over a checkout the runner's user owns, and
+      # actions/checkout's safe.directory entry went to a temporary HOME, so
+      # git refuses the checkout and the tier runner finds no test files.
+      - name: Trust the checkout for git
+        run: git config --system --add safe.directory "$GITHUB_WORKSPACE"
       - name: Run isolated browser tests
         env:
           # Firefox requires HOME to be owned by the container's current user.
@@ -263,6 +275,28 @@ jobs:
         run: npm run test:dependencies
       - name: Build development bundle with ESLint integration
         run: NODE_ENV=development npm run bundle-dev
+
+  tests-pass:
+    name: Tests pass
+    # One check for branch protection to require, so the matrices above can
+    # change without a repository settings change. It fails if any test job
+    # failed or was cancelled; Docker validation is skipped outside pull
+    # requests and dispatched runs.
+    if: always()
+    needs: [test, test-no-db, maintained-mongo, browser-test, npm12-build, docker-build-pr]
+    runs-on: ubuntu-latest
+    steps:
+      - name: Every test job succeeded or was skipped
+        env:
+          RESULTS: ${{ join(needs.*.result, ' ') }}
+        run: |
+          echo "$RESULTS"
+          for result in $RESULTS; do
+            case "$result" in
+              success|skipped) ;;
+              *) exit 1 ;;
+            esac
+          done
 
   docker-build-pr:
     name: Validate Docker image (${{ matrix.arch }})
@@ -315,8 +349,11 @@ jobs:
 
   docker-build:
     name: Build Docker image (${{ matrix.arch }})
-    needs: [test, browser-test, npm12-build, maintained-mongo, replica-test]
-    if: github.event_name == 'push' && (github.ref == 'refs/heads/master' || github.ref == 'refs/heads/dev') && github.repository_owner == 'nightscout'
+    needs: [tests-pass]
+    # Without a status function GitHub adds success(), which also checks the
+    # jobs tests-pass needs. Docker validation is skipped on pushes, so that
+    # skipped the build; ask for tests-pass's own result instead.
+    if: ${{ !cancelled() && needs.tests-pass.result == 'success' && github.event_name == 'push' && (github.ref == 'refs/heads/master' || github.ref == 'refs/heads/dev') && github.repository_owner == 'nightscout' }}
     runs-on: ${{ matrix.runner }}
     strategy:
       fail-fast: false
@@ -368,7 +405,9 @@ jobs:
     name: Publish to Docker Hub
     needs: docker-build
     runs-on: ubuntu-latest
-    if: github.event_name == 'push' && (github.ref == 'refs/heads/master' || github.ref == 'refs/heads/dev') && github.repository_owner == 'nightscout'
+    # As for docker-build: the implicit success() would see the skipped
+    # Docker validation further up the chain.
+    if: ${{ !cancelled() && needs.docker-build.result == 'success' && github.event_name == 'push' && (github.ref == 'refs/heads/master' || github.ref == 'refs/heads/dev') && github.repository_owner == 'nightscout' }}
     env:
       DOCKER_IMAGE: nightscout/cgm-remote-monitor
     steps:

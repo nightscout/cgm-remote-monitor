@@ -13,6 +13,8 @@
 //
 // `run` with no files runs the whole tier. --ci uses tests/ci.test.env;
 // otherwise TEST_ENV_FILE, then ./my.test.env, then tests/ci.test.env.
+// TEST_SHUFFLE_SEED=<integer> runs each tier's files in a seeded random order
+// (its first and last files stay in place); the seed is printed for replay.
 
 const { spawnSync } = require('child_process');
 const fs = require('fs');
@@ -54,8 +56,12 @@ function tierOf (file) {
   return tiers.length === 1 ? tiers[0] : undefined;
 }
 
+// Throws when git fails: an empty list would let a tier run nothing and pass
+// (git refuses a checkout owned by another user, as in CI containers).
 function listTestFiles () {
   const result = spawnSync('git', ['ls-files', '--cached', '--others', '--exclude-standard', 'tests'], { cwd: ROOT, encoding: 'utf8' });
+  if (result.error) throw result.error;
+  if (result.status !== 0) throw new Error('git ls-files tests: ' + result.stderr.trim());
   return result.stdout.split('\n').filter(f => TEST_FILE.test(f) && fs.existsSync(path.join(ROOT, f))).sort();
 }
 
@@ -75,6 +81,37 @@ function infraFiles (name) {
   return files;
 }
 
+// mulberry32: small seeded PRNG so a shuffled order or a sample can be
+// replayed from its seed.
+function prng (seed) {
+  let a = seed >>> 0;
+  return function () {
+    a = (a + 0x6D2B79F5) >>> 0;
+    let t = a;
+    t = Math.imul(t ^ (t >>> 15), t | 1);
+    t ^= t + Math.imul(t ^ (t >>> 7), t | 61);
+    return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
+  };
+}
+
+// A seeded Fisher-Yates shuffle of a copy of list.
+function shuffle (list, seed) {
+  const random = prng(seed);
+  const out = list.slice();
+  for (let i = out.length - 1; i > 0; i--) {
+    const j = Math.floor(random() * (i + 1));
+    const tmp = out[i]; out[i] = out[j]; out[j] = tmp;
+  }
+  return out;
+}
+
+function shuffleSeed () {
+  const value = process.env.TEST_SHUFFLE_SEED;
+  if (value === undefined || value === '') return undefined;
+  if (!/^\d+$/.test(value)) throw new Error('TEST_SHUFFLE_SEED must be a non-negative integer, not ' + JSON.stringify(value));
+  return Number(value);
+}
+
 function bin (name) {
   return path.join(ROOT, 'node_modules', '.bin', name);
 }
@@ -87,13 +124,14 @@ function withEnv (file, args) {
   return [bin('env-cmd'), ['-f', file, bin('mocha')].concat(args)];
 }
 
-function command (name, files, ci) {
+function command (name, files, ci, seed) {
   const tier = MAP.tiers[name];
   // A tier's first and last files run around any subset of it; they may
   // belong to another tier (the database safety check and clean-up).
   const first = tier.first || [];
   const last = tier.last || [];
-  const body = files.filter(f => !first.includes(f) && !last.includes(f));
+  let body = files.filter(f => !first.includes(f) && !last.includes(f));
+  if (seed !== undefined) body = shuffle(body, seed);
   const args = ['--timeout', String(tier.timeout)];
   (tier.require || []).forEach(r => args.push('--require', r));
   if (tier.exit) args.push('--exit');
@@ -118,7 +156,14 @@ function validateTiers (names) {
 // tier's first and last files). Returns the first non-zero exit status.
 function run (names, files, ci) {
   if (!validateTiers(names)) return 2;
-  const all = listTestFiles();
+  let seed, all;
+  try {
+    seed = shuffleSeed();
+    all = listTestFiles();
+  } catch (err) {
+    console.error('# ' + err.message);
+    return 2;
+  }
   const known = new Set(all);
   const problems = [];
   // Validate the complete request before starting any tier. A mixed valid and
@@ -128,6 +173,13 @@ function run (names, files, ci) {
     else if (!tierOf(file)) problems.push('test file must belong to exactly one tier: ' + file);
     else if (!names.includes(tierOf(file))) problems.push(file + ' belongs to tier ' + tierOf(file) + ', not a requested tier');
   });
+  // A whole tier that matches no files ran nothing; that is a failure, not a
+  // pass. (With explicit files, tiers they do not touch are skipped.)
+  if (!files) {
+    names.filter(name => !all.some(f => tierOf(f) === name)).forEach(name => {
+      problems.push('tier ' + name + ' matches no test files');
+    });
+  }
   if (problems.length) {
     problems.forEach(problem => console.error('# ' + problem));
     return 2;
@@ -136,8 +188,9 @@ function run (names, files, ci) {
   TIER_NAMES.filter(name => names.includes(name)).forEach(name => {
     const members = (files ? files : all).filter(f => tierOf(f) === name);
     if (!members.length) return;
-    const cmd = command(name, members, ci);
-    console.error('# ' + name + ': ' + members.length + ' test files');
+    const cmd = command(name, members, ci, seed);
+    console.error('# ' + name + ': ' + members.length + ' test files' +
+      (seed === undefined ? '' : ', shuffled; replay with TEST_SHUFFLE_SEED=' + seed));
     const result = spawnSync(cmd[0], cmd[1], { cwd: ROOT, stdio: 'inherit' });
     if (result.status !== 0 && !status) status = result.status || 1;
   });
@@ -205,7 +258,7 @@ function check () {
   return problems.length ? 1 : 0;
 }
 
-module.exports = { MAP, TIER_NAMES, tierOf, tiersOf, listTestFiles, infraFiles, validateTiers, run };
+module.exports = { MAP, TIER_NAMES, tierOf, tiersOf, listTestFiles, infraFiles, validateTiers, shuffle, command, run };
 
 if (require.main === module) {
   const argv = process.argv.slice(2);

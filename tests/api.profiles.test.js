@@ -28,6 +28,13 @@ describe('Profiles API', function ( ) {
     });
   });
 
+  // The two cases below list profiles, delete one and expect one fewer; with
+  // records left by earlier files the list is capped and the count does not
+  // move. Start each from an empty collection.
+  beforeEach(async function () {
+    await self.ctx.profile().deleteMany({});
+  });
+
   it('put a profile, query, delete, verify gone', function (done) {
     // insert a sample profile - needs to be unique from example data
     var sample_profile = {"defaultProfile":"Default","store":{"Default":{"dia":3,"carbratio":[{"time":"00:00","value":30,"timeAsSeconds":0}],"carbs_hr":20,"delay":20,"sens":[{"time":"00:00","value":100,"timeAsSeconds":0}],"timezone":"US/Pacific","basal":[{"time":"00:00","value":0.1,"timeAsSeconds":0}],"target_low":[{"time":"00:00","value":100,"timeAsSeconds":0}],"target_high":[{"time":"00:00","value":100,"timeAsSeconds":0}],"units":"mg/dl"}},"startDate":"2024-10-19T23:00:00.000Z","mills":0,"created_at":"2024-10-26T20:32:49.173Z","srvModified":1732653169173,"units":"mg/dl"};

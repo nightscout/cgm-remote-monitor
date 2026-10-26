@@ -111,7 +111,8 @@
         "tests/upbat.test.js",
         "tests/utils.deepMerge.test.js",
         "tests/utils.test.js",
-        "tests/webhook.test.js"
+        "tests/webhook.test.js",
+        "tests/write-validation.test.js"
       ],
       "env": true,
       "require": [
