@@ -44,6 +44,9 @@ describe('controller registration: definitions, instances and roles', function (
     process.env.API_SECRET = SECRET;
     const env = require('../lib/server/env')();
     env.settings.authDefaultRoles = 'denied';
+    // Other suites change INSECURE_USE_HTTP in process.env (tests/env.test.js
+    // unsets it); answer over plain http here rather than redirecting to https.
+    env.insecureUseHttp = true;
     env.controllerRegistration = true;
     self.env = env;
     require('../lib/server/bootevent')(env, language).boot(function booted (ctx) {

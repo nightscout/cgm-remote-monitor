@@ -49,6 +49,9 @@ describe('controller registration well-known documents', function () {
     delete process.env.CONTROLLER_REGISTRATION;
     const env = require('../lib/server/env')();
     env.settings.authDefaultRoles = 'denied';
+    // Other suites change INSECURE_USE_HTTP in process.env (tests/env.test.js
+    // unsets it); answer over plain http here rather than redirecting to https.
+    env.insecureUseHttp = true;
     self.env = env;
     // Booted with the flag on, so the registration store is set up.
     env.controllerRegistration = true;
