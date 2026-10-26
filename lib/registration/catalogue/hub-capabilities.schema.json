@@ -1,0 +1,461 @@
+{
+  "$comment": "Generated from the alignment repository's specs/sync/hub-capabilities.schema.json by tools/nsschema/vendor_catalogue.py. Do not edit; regenerate. Source commit baa67a88f3c9dffb225c4f878f3e2ad7dee65112.",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://nightscout.dev/schemas/sync/hub-capabilities.json",
+  "title": "Hub capability document",
+  "description": "What a hub (Nightscout, Nocturne) supports for controller registrations, published unauthenticated at `/.well-known/nightscout/sync` on every host the hub serves (D18 addendum rule 6, execution plan §2.6.1; specified by queue item SPEC-REG-NEGOTIATE). A controller reads it before submitting a registration and can compute from it which elements the hub would accept (tools/nsschema/negotiate.py is the reference for that computation); the submit response is authoritative. The document describes the hub software and the deployment, never a person: it lists the hub-shipped well-known kinds and none of the registrations a tenant's controllers have submitted, because which controller a person uses is not public. Must-ignore applies here as in the grammar: no object is closed, and a reader ignores members it does not know. An unknown value of a closed list is invalid; `grammar.versions[].apiVersion` and the vocabularies below are closed so a controller can rely on them. *(Amended 2026-10-16, SPEC-REG-AMEND, the maintainer's walk-through rows 1 and 2, execution plan §2.6.3: the member that declared a legacy id form, `objectId` or `opaque`, added the same day by SPEC-REG-QUIRKS, is removed. Every hub's legacy surface (v1, v3) serves 24-hex `_id` values the hub assigns, on either store, so there is nothing to declare; a hub's own newer APIs may use other ids, and the sync identity is `identifier`.)*",
+  "type": "object",
+  "required": [
+    "apiVersion",
+    "kind",
+    "grammar"
+  ],
+  "properties": {
+    "apiVersion": {
+      "const": "nightscout.dev/sync/v1",
+      "description": "The version of this document's own shape. Within v1 a reader ignores members it does not know."
+    },
+    "kind": {
+      "const": "HubCapabilities"
+    },
+    "hub": {
+      "type": "object",
+      "description": "Informational. A controller must not branch on the product or version; it reads the capability members below instead.",
+      "properties": {
+        "product": {
+          "type": "string"
+        },
+        "version": {
+          "type": "string"
+        }
+      }
+    },
+    "grammar": {
+      "type": "object",
+      "description": "Which registration grammar versions the hub reads, and which grammar members it interprets.",
+      "required": [
+        "versions",
+        "interprets"
+      ],
+      "properties": {
+        "versions": {
+          "type": "array",
+          "minItems": 1,
+          "description": "One entry per grammar major the hub reads. A registration whose `apiVersion` is not listed is rejected whole (`unsupported-grammar-major`). The minor is the grammar revision the hub implements within that major; a registration carries no minor, because within a major the hub ignores members it does not know (rule 1).",
+          "items": {
+            "type": "object",
+            "required": [
+              "apiVersion",
+              "major",
+              "minor"
+            ],
+            "properties": {
+              "apiVersion": {
+                "type": "string",
+                "pattern": "^nightscout\\.dev/sync/v[1-9][0-9]*$"
+              },
+              "major": {
+                "type": "integer",
+                "minimum": 1
+              },
+              "minor": {
+                "type": "integer",
+                "minimum": 0
+              }
+            }
+          }
+        },
+        "interprets": {
+          "type": "array",
+          "minItems": 1,
+          "uniqueItems": true,
+          "description": "The grammar members the hub interprets, as dotted member paths of the registration with `*` for an array item or a map key (`spec.stateSpans.*.wire`, `spec.extensions`). An entry covers the member and everything beneath it. A member of a submitted registration that no entry covers is ignored: kept as written, not interpreted, not served as data, and listed in the response's `ignored`. A member the grammar does not define is ignored whatever this list says. The list must cover the members the submit contract itself reads (`apiVersion`, `kind`, `metadata.vendor`, `metadata.product`, `metadata.tier`, `spec.cadence`, `spec.documents.*.collection`, `spec.documents.*.decomposesTo`); tools/nsschema/negotiate.py `capability_problems` checks that, because coverage by prefix cannot be stated in JSON Schema.",
+          "items": {
+            "type": "string",
+            "pattern": "^[A-Za-z][A-Za-z0-9]*(\\.([A-Za-z][A-Za-z0-9]*|\\*))*$"
+          }
+        }
+      }
+    },
+    "horizons": {
+      "type": "object",
+      "description": "Rule 5. The horizon classes and availability values the hub stores. A kind, extension or typed field that declares a class or availability not listed here is rejected as an element (`unsupported-horizon`, `unsupported-availability`), and the controller writes its well-known carrier. Absent: the hub stores none of the declared horizons and supports `released` only.",
+      "properties": {
+        "classes": {
+          "type": "array",
+          "uniqueItems": true,
+          "items": {
+            "enum": [
+              "cycle",
+              "span",
+              "effective-dated",
+              "definition",
+              "aggregate"
+            ]
+          }
+        },
+        "availability": {
+          "type": "array",
+          "uniqueItems": true,
+          "items": {
+            "enum": [
+              "released",
+              "dev-only",
+              "experimental"
+            ]
+          }
+        }
+      }
+    },
+    "typeFragment": {
+      "type": "object",
+      "description": "Rule 2. The subset of the grammar's type-fragment keywords the hub can store, validate and index. A typed field (extension field, `settings.fields[]`, `replayInputs[]`) whose `type`, or whose `typeRef` target, uses a keyword or format outside this subset is rejected as an element (`unsupported-type-keyword`): the hub never accepts a constraint it would not apply. Must be a subset of the grammar's own fragment keywords.",
+      "required": [
+        "keywords"
+      ],
+      "properties": {
+        "keywords": {
+          "type": "array",
+          "uniqueItems": true,
+          "contains": {
+            "const": "type"
+          },
+          "items": {
+            "enum": [
+              "type",
+              "enum",
+              "minimum",
+              "maximum",
+              "format",
+              "items",
+              "properties",
+              "required",
+              "description"
+            ]
+          }
+        },
+        "formats": {
+          "type": "array",
+          "uniqueItems": true,
+          "description": "The `format` values the hub supports. Absent with `format` in `keywords`: every grammar format.",
+          "items": {
+            "enum": [
+              "date-time",
+              "date",
+              "time",
+              "duration",
+              "uuid",
+              "uri"
+            ]
+          }
+        }
+      }
+    },
+    "limits": {
+      "type": "object",
+      "description": "Bounds the hub enforces. `maxRegistrationBytes` (the RFC 8785 canonical JSON of the submitted registration) and `maxExtensions` reject the whole registration; `maxFieldsPerExtension` and `maxTypeDepth` (nesting of `items`/`properties`, a scalar type being depth 1) reject the element. Absent: no stated limit.",
+      "properties": {
+        "maxRegistrationBytes": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "maxExtensions": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "maxFieldsPerExtension": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "maxTypeDepth": {
+          "type": "integer",
+          "minimum": 1
+        }
+      }
+    },
+    "wellKnown": {
+      "type": "object",
+      "description": "The well-known tier (D18): registrations the hub ships, generated from measurement, which describe today's writers with no controller change. Served at the controller-descriptions catalogue (`/.well-known/nightscout/controllers`, PROPOSAL-controller-descriptions §2.1).",
+      "properties": {
+        "catalogue": {
+          "type": "string",
+          "description": "The catalogue index, as a path on this host."
+        },
+        "kinds": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "required": [
+              "vendor",
+              "product",
+              "href"
+            ],
+            "properties": {
+              "id": {
+                "type": "string"
+              },
+              "vendor": {
+                "type": "string"
+              },
+              "product": {
+                "type": "string"
+              },
+              "versionRange": {
+                "type": "string"
+              },
+              "href": {
+                "type": "string",
+                "description": "The well-known registration, as a path on this host."
+              }
+            }
+          }
+        },
+        "slots": {
+          "type": "array",
+          "description": "D20 rule 2 (SPEC-REG-QUIRKS, hub-sync design §3.7): the optional shared slot list. A definition's `stateSpans[].sameAs` names one of these, and the entry's channel is then that slot. A slot is shared across products only through this list or `sameAs` (maintainer, 2026-10-16, walk-through row 5): a slot named here by its own name is one channel for every product, and equal names this list does not hold are each product's own channel, which the owner's listing records as `slotNameObservations`. *(It read, 2026-10-16 SPEC-REG-QUIRKS: 'Listing a slot adds no contention: equal slot names already share a channel'.)* The list is also what a catalogue mapping may name. Which slots share a meaning is for the controller authors to confirm (PROPOSAL-REG-CONTROLLERS).",
+          "items": {
+            "type": "object",
+            "required": [
+              "name"
+            ],
+            "properties": {
+              "name": {
+                "type": "string",
+                "pattern": "^[A-Za-z][A-Za-z0-9]*$"
+              },
+              "description": {
+                "type": "string"
+              }
+            }
+          }
+        },
+        "mappings": {
+          "type": "array",
+          "description": "D20 rule 2: catalogue mappings for versions released before registration, each a quirks registry entry with `applies_to: declarations`, scoped to the vendor versions it affects. The hub applies one to a write it describes by a well-known registration when the writer's version is in `versions`, and records it (`quirksApplied`, rule 3). A write whose version the hub does not know gets no mapping.",
+          "items": {
+            "type": "object",
+            "required": [
+              "quirk",
+              "vendor",
+              "product",
+              "versions",
+              "slot",
+              "sameAs"
+            ],
+            "properties": {
+              "quirk": {
+                "type": "string",
+                "pattern": "^QUIRK-[A-Z]+-[0-9]{3}$"
+              },
+              "vendor": {
+                "type": "string"
+              },
+              "product": {
+                "type": "string"
+              },
+              "versions": {
+                "type": "string",
+                "minLength": 1,
+                "description": "A version range (specs/quirks/README.md)."
+              },
+              "slot": {
+                "type": "string"
+              },
+              "sameAs": {
+                "type": "string",
+                "pattern": "^[A-Za-z][A-Za-z0-9]*$"
+              }
+            }
+          }
+        }
+      }
+    },
+    "submit": {
+      "type": "object",
+      "description": "Where a controller submits a controller-owned registration (specs/sync/registration-submit.schema.json). Absent: the hub does not accept submissions, for example while a hub's feature flag is off, and every element falls back to its well-known carrier.",
+      "required": [
+        "href"
+      ],
+      "properties": {
+        "href": {
+          "type": "string",
+          "description": "The registrations collection, as a path on this host. One registration is the resource `<href>/<vendor>/<product>`, each segment percent-encoded."
+        },
+        "tiers": {
+          "type": "array",
+          "items": {
+            "const": "controller-owned"
+          },
+          "description": "The tiers a controller may submit. Only `controller-owned`: the well-known tier ships with the hub."
+        },
+        "permissions": {
+          "type": "object",
+          "description": "The permissions a credential needs, so a controller can tell an operator what to grant. Proposed names; see the open questions in the hub-sync design §3.5.",
+          "properties": {
+            "submit": {
+              "type": "string"
+            },
+            "retire": {
+              "type": "string"
+            }
+          }
+        }
+      }
+    },
+    "instances": {
+      "type": "object",
+      "description": "D19 (execution plan §2.6.2; SPEC-REG-INSTANCE; hub-sync design §3.6). Present: the hub stores definitions at `<submit.href>/<vendor>/<product>/definitions/<definitionId>` and instances at `<submit.href>/<vendor>/<product>/instances/<instanceId>`, and requires an instance id on every typed write (an instance-less typed write is refused `instance-required`, a definite refusal, so that record goes as its carrier). Writes with no instance — older controllers and the well-known tier — are attributed to an implicit unregistered instance of the product and never refused for exclusivity. Absent: the hub takes neither resource and typed writes need no instance (SPEC-REG-NEGOTIATE as it stands). A controller reads this at launch and after a controller release, never on a lease renewal (decision 8).",
+      "required": [
+        "leaseSeconds",
+        "roles",
+        "channels"
+      ],
+      "properties": {
+        "leaseSeconds": {
+          "type": "integer",
+          "minimum": 60,
+          "description": "Rule 4. How long an instance's lease runs from each create or renewal; `leaseExpiresAt` in each response is that time. An instance that does not renew lapses: it holds no roles, and a role it held is granted to a claimant on the claimant's next renewal, never automatically."
+        },
+        "instanceId": {
+          "enum": [
+            "uuid-v4"
+          ],
+          "description": "The instance id form the hub accepts: a random lowercase UUID version 4 (122 random bits). Absent means `uuid-v4`."
+        },
+        "roles": {
+          "type": "array",
+          "minItems": 1,
+          "uniqueItems": true,
+          "description": "Rule 5. The roles the hub grants: the shared `source` and `command-sink`, and any `{value: other, controllerTerm}` it knows. A role not listed is refused `unsupported-role`. Every listed role is exclusive among live `device`-provenance instances (rule 6).",
+          "items": {
+            "anyOf": [
+              {
+                "enum": [
+                  "source",
+                  "command-sink"
+                ]
+              },
+              {
+                "type": "object",
+                "required": [
+                  "value",
+                  "controllerTerm"
+                ],
+                "properties": {
+                  "value": {
+                    "const": "other"
+                  },
+                  "controllerTerm": {
+                    "type": "string",
+                    "minLength": 1
+                  }
+                }
+              }
+            ]
+          }
+        },
+        "channels": {
+          "type": "array",
+          "minItems": 1,
+          "uniqueItems": true,
+          "description": "Rule 5. The channel forms the hub derives from a definition: `slot`, the slot name a stateSpans kind declares (shared across products on the tenant when `wellKnown.slots` holds it or a `sameAs` names it, else the product's own: walk-through row 5, 2026-10-16); `element`, `<vendor>/<product>/<element id>` for every other element. Closed: a form outside the list is invalid.",
+          "items": {
+            "enum": [
+              "slot",
+              "element"
+            ]
+          }
+        },
+        "labels": {
+          "type": "object",
+          "description": "Rule 7. Bounds on an instance's labels; a label over them refuses the instance `invalid-label`. Absent: no stated bound.",
+          "properties": {
+            "maxLabels": {
+              "type": "integer",
+              "minimum": 0
+            },
+            "maxKeyLength": {
+              "type": "integer",
+              "minimum": 1
+            },
+            "maxValueLength": {
+              "type": "integer",
+              "minimum": 0
+            }
+          }
+        }
+      }
+    },
+    "commands": {
+      "type": "object",
+      "description": "Commands CM31 (SPEC-REG-COMMANDS, proposed). Present: the hub offers the command record — sending, the outstanding list, cancel, outcome reports and the destination's fetch (commands CM32) — and, with `proposals`, proposals and approvals. Absent: the hub serves none of those paths, and a controller has no hub command path and keeps the transports it has. A controller reads this at launch and after a controller release.",
+      "required": [
+        "href",
+        "fetch",
+        "maxExpirySeconds",
+        "maxPayloadBytes"
+      ],
+      "properties": {
+        "href": {
+          "type": "string",
+          "description": "Where commands are sent and listed (`POST`, `GET ?channel=`), and the base of `/{commandId}`, `/{commandId}/cancel` and `/{commandId}/reports`; proposed `/api/v4/commands`."
+        },
+        "fetch": {
+          "type": "string",
+          "description": "The destination's fetch, a URI template naming `{instanceId}`; proposed `/api/v4/instances/{instanceId}/commands` (CM18, CM26)."
+        },
+        "proposals": {
+          "type": "string",
+          "description": "Where proposals are made and acted on; proposed `/api/v4/proposals`. Absent: the hub takes no proposals."
+        },
+        "maxExpirySeconds": {
+          "type": "integer",
+          "minimum": 1,
+          "description": "CM3: the longest a command or proposal may run from the request."
+        },
+        "maxPayloadBytes": {
+          "type": "integer",
+          "minimum": 1,
+          "description": "CM5: the largest payload, as RFC 8785 canonical JSON."
+        },
+        "liveTransports": {
+          "type": "array",
+          "uniqueItems": true,
+          "description": "CM28: the transports the hub sends fetch-now signals on (CM27), which carry nothing of a command. Open vocabulary: `socket` (the existing listener, sync-transport T16), `apns`, `fcm`, or `{value: other, controllerTerm}`. Absent or empty: no signals; controllers fetch on their cadence.",
+          "items": {
+            "anyOf": [
+              {
+                "enum": [
+                  "socket",
+                  "apns",
+                  "fcm"
+                ]
+              },
+              {
+                "type": "object",
+                "required": [
+                  "value",
+                  "controllerTerm"
+                ],
+                "properties": {
+                  "value": {
+                    "const": "other"
+                  },
+                  "controllerTerm": {
+                    "type": "string",
+                    "minLength": 1
+                  }
+                }
+              }
+            ]
+          }
+        },
+        "minFetchIntervalSeconds": {
+          "type": "integer",
+          "minimum": 0,
+          "description": "CM29: the shortest interval between one instance's fetches the hub serves; a declared fetch interval under it is raised to it. Absent: 0."
+        }
+      }
+    }
+  }
+}

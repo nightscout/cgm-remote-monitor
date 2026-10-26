@@ -230,6 +230,7 @@
         "tests/pump*.test.js",
         "tests/pushnotify*.test.js",
         "tests/rawbg*.test.js",
+        "tests/registration.well-known.test.js",
         "tests/reports*.test.js",
         "tests/reportstorage*.test.js",
         "tests/security.test.js",
