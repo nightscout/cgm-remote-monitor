@@ -201,6 +201,8 @@
     "Date format": "Kellaaja formaat",
     "12 hours": "12 tundi",
     "24 hours": "24 tundi",
+    "Show Seconds": "Show Seconds",
+    "When enabled the clock displays seconds and updates every second.": "When enabled the clock displays seconds and updates every second.",
     "Log a Treatment": "Log a Treatment",
     "BG Check": "VS kontroll",
     "Meal Bolus": "Toiduboolus",
