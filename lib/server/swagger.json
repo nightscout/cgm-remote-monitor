@@ -1,23 +1,14 @@
 {
   "openapi": "3.0.0",
-  "info": {
-    "title": "Nightscout API",
-    "description": "Own your Data with the Nightscout API",
-    "license": {
-      "name": "AGPL 3",
-      "url": "https://www.gnu.org/licenses/agpl.txt"
-    },
-    "version": "14.2.3"
-  },
   "servers": [
     {
       "url": "/api/v1"
     }
   ],
   "info": {
-    "title": "Nightscout API",
-    "description": "Own your DData with the Nightscout API\n\n**Query operators.** Endpoints that accept `find[...]` support a fixed set of MongoDB query operators. On a field: `$eq` `$ne` `$gt` `$gte` `$lt` `$lte` `$in` `$nin` `$exists` `$type` `$regex` (with `$options`). At the top level of a query, or of one of their branches: `$and` `$or`. A field name with no operator is an equality match, and the indexed group form `find[$and][0][field][$op]=value` is accepted.\n\nAny other operator is refused with HTTP 400 and a message naming it. That includes `$where`, `$function` and `$accumulator`, which ask MongoDB to run JavaScript; `$expr`, which embeds the aggregation expression language in a filter; and `$elemMatch`, `$not`, `$nor`, `$all`, `$size`, `$mod`, `$text` and the geospatial operators, none of which the API is defined over. An operator name appearing inside a *value* is data and is not affected.",
-    "version": "14.2.3",
+    "title": "Nightscout API v1",
+    "description": "Own your data with the Nightscout API.\n\nThis document describes API v1 as served by Nightscout 16.0.0 under `/api/v1`. `GET /versions` is served one level up, under `/api`. API v1 is also served under `/api/v2`, which adds endpoints not described here. API v3 has its own document at `/api3-docs`.\n\n**Authentication.** A request can carry the `API_SECRET` (as its SHA-1 or SHA-512 hex digest, in the `api-secret` header), a JSON Web Token (`Authorization: Bearer <jwt>`), or an access token created in the admin tools (the `token` query parameter). The `secret` query parameter is also accepted, for existing clients. Credentials in URLs can end up in logs and browser history: see *Protecting authentication credentials in URLs* in the README. A JWT is issued for an access token by `GET /api/v2/authorization/request/{accessToken}`.\n\n**Permissions.** Each operation below names the permission it checks, such as `api:entries:read`. A request without credentials is given the roles listed in `AUTH_DEFAULT_ROLES` (default `readable`, which grants read permissions); with `AUTH_DEFAULT_ROLES=denied` every operation that checks a permission needs credentials. A refused request is answered with HTTP 401 and `{\"status\":401,\"message\":\"Unauthorized\",\"description\":\"Invalid/Missing\"}`.\n\n**Availability.** Operations that change data are mounted only when `API_SECRET` is set. Writing treatments also needs `careportal` in `ENABLE`; `/alexa` and `/googlehome` need `alexa` and `googlehome` in `ENABLE`.\n\n**Reads.** Reads of entries, treatments, devicestatus, activity and `/profiles` take a MongoDB-style filter in `find[...]` query parameters and a number of records in `count`. Without a filter on the record's date field (`date` for entries, `created_at` for treatments, devicestatus and activity, `startDate` for profiles), a read covers the last four days. Records are returned newest first.\n\n**`count`.** `count` is a whole number of records. A value that is not (`abc`, `-3`, `1e2`) is refused with HTTP 400 `Bad count`. Two older forms are still read as 15.0.8 read them, each answered with `Deprecation: true` and a `Warning` header and each controlled by a setting described in the README: a number followed by `?` and other text is read as that number (`API_V1_COUNT_LEADING_NUMBER`), and `count=0` returns every record in a `find` that bounds one date field from both sides, or the endpoint's default number of records without such a range (`API_V1_COUNT_ZERO_WINDOW`). With a setting turned off, that form is refused, or for `count=0` answered with an empty list. A delete carrying a `count` that is not a whole number of records, `count=0` included, is refused with HTTP 400.\n\n**Query operators.** Endpoints that accept `find[...]` support a fixed set of MongoDB query operators. On a field: `$eq` `$ne` `$gt` `$gte` `$lt` `$lte` `$in` `$nin` `$exists` `$type` `$regex` (with `$options`). At the top level of a query, or of one of their branches: `$and` `$or`. A field name with no operator is an equality match, and the indexed group form `find[$and][0][field][$op]=value` is accepted.\n\nAny other operator is refused with HTTP 400 and a message naming it. That includes `$where`, `$function` and `$accumulator`, which ask MongoDB to run JavaScript; `$expr`, which embeds the aggregation expression language in a filter; and `$elemMatch`, `$not`, `$nor`, `$all`, `$size`, `$mod`, `$text` and the geospatial operators, none of which the API is defined over. An operator name appearing inside a *value* is data and is not affected.\n\n**Writes.** `POST` bodies are one record or an array of at most 10000 records. Anything else is refused with HTTP 400. An `_id`, where a write accepts one, must be a 24-character hex string.\n",
+    "version": "16.0.0",
     "license": {
       "name": "AGPL 3",
       "url": "https://www.gnu.org/licenses/agpl.txt"
@@ -25,42 +16,123 @@
   },
   "security": [
     {
-      "api_secret": [],
-      "token_in_url": [],
+      "api_secret": []
+    },
+    {
       "jwtoken": []
+    },
+    {
+      "token_in_url": []
+    },
+    {
+      "api_secret_in_url": []
+    }
+  ],
+  "tags": [
+    {
+      "name": "Entries",
+      "description": "CGM and meter readings and calibrations (`entries` collection)."
+    },
+    {
+      "name": "Treatments",
+      "description": "Care events such as boluses, carbs, temporary targets and notes."
+    },
+    {
+      "name": "Profile",
+      "description": "Therapy profiles."
+    },
+    {
+      "name": "Devicestatus",
+      "description": "Status reports from uploaders, pumps and closed-loop systems."
+    },
+    {
+      "name": "Activity",
+      "description": "Activity records."
+    },
+    {
+      "name": "Food",
+      "description": "The food database used by the care portal and bolus wizard."
+    },
+    {
+      "name": "Status",
+      "description": "Server status, settings and credentials checks."
+    },
+    {
+      "name": "Notifications",
+      "description": "Alarm acknowledgement and push-notification callbacks."
+    },
+    {
+      "name": "Integrations",
+      "description": "Voice assistant endpoints."
+    },
+    {
+      "name": "Debug",
+      "description": "Endpoints that show how a request is turned into a query."
     }
   ],
   "paths": {
     "/entries": {
       "get": {
+        "summary": "Entries matching a query",
+        "description": "Returns entries, newest first. Without `count` the 10 newest are returned; without a filter on `date` or `dateString`, only entries from the last four days are considered.\n\nThe response format follows the extension (`/entries.json`, `.csv`, `.tsv`, `.txt`) or the `Accept` header. With neither, as with `Accept: */*`, the answer is tab-separated text. The text formats carry `dateString`, `date`, `sgv`, `direction` and `device` of each entry.\n\nIf `If-Modified-Since` is not before the newest entry, the answer is HTTP 304.\n\nPermission: `api:entries:read`.\n",
+        "operationId": "listEntries",
         "tags": [
           "Entries"
         ],
-        "summary": "All Entries matching query",
-        "description": "The Entries endpoint returns information about the Nightscout entries.",
         "parameters": [
           {
-            "name": "find",
-            "in": "query",
-            "description": "The query used to find entries, support nested query syntax, for example `find[dateString][$gte]=2015-08-27`.  All find parameters are interpreted as strings.",
-            "required": false,
-            "schema": {
-              "type": "string"
-            }
+            "$ref": "#/components/parameters/find"
           },
           {
-            "name": "count",
-            "in": "query",
-            "description": "Number of entries to return.",
-            "required": false,
-            "schema": {
-              "type": "number"
-            }
+            "$ref": "#/components/parameters/countEntries"
+          },
+          {
+            "$ref": "#/components/parameters/ifModifiedSince"
           }
         ],
         "responses": {
           "200": {
-            "description": "An array of entries",
+            "$ref": "#/components/responses/Entries"
+          },
+          "304": {
+            "$ref": "#/components/responses/NotModified"
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          }
+        }
+      },
+      "post": {
+        "summary": "Add entries",
+        "description": "Stores one entry or an array of entries and returns the stored records with their `_id`. A single object without a `date` is not stored and the answer is an empty array.\n\nPermission: `api:entries:create`. Mounted only when `API_SECRET` is set.\n",
+        "operationId": "addEntries",
+        "tags": [
+          "Entries"
+        ],
+        "requestBody": {
+          "description": "One entry or an array of entries.",
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "oneOf": [
+                  {
+                    "$ref": "#/components/schemas/Entry"
+                  },
+                  {
+                    "$ref": "#/components/schemas/Entries"
+                  }
+                ]
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "The stored entries.",
             "content": {
               "application/json": {
                 "schema": {
@@ -69,563 +141,450 @@
               }
             }
           },
-          "default": {
-            "description": "Unexpected error",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/Error"
-                }
-              }
-            }
-          }
-        }
-      },
-      "post": {
-        "tags": [
-          "Entries"
-        ],
-        "summary": "Add new entries.",
-        "description": "",
-        "operationId": "addEntries",
-        "requestBody": {
-          "description": "Entries to be uploaded.",
-          "content": {
-            "application/json": {
-              "schema": {
-                "$ref": "#/components/schemas/Entries"
-              }
-            },
-            "text/plain": {
-              "schema": {
-                "$ref": "#/components/schemas/Entries"
-              }
-            }
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
           },
-          "required": true
-        },
-        "responses": {
-          "200": {
-            "description": "Rejected list of entries.  Empty list is success."
-          },
-          "405": {
-            "description": "Invalid input"
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
           }
         }
       },
       "delete": {
+        "summary": "Delete entries matching a query",
+        "description": "Removes every entry matching `find`. As with `GET /entries`, without a filter on `date` or `dateString` only entries from the last four days are considered. The `count` parameter is checked but does not limit the delete.\n\nPermission: `api:entries:delete`. Mounted only when `API_SECRET` is set.\n",
+        "operationId": "removeEntries",
         "tags": [
           "Entries"
         ],
-        "summary": "Delete entries matching query.",
-        "description": "Remove entries, same search syntax as GET.",
-        "operationId": "remove",
         "parameters": [
           {
-            "name": "find",
-            "in": "query",
-            "description": "The query used to find entries, support nested query syntax, for example `find[dateString][$gte]=2015-08-27`.  All find parameters are interpreted as strings.",
-            "required": false,
-            "schema": {
-              "type": "string"
-            }
+            "$ref": "#/components/parameters/find"
           },
           {
-            "name": "count",
-            "in": "query",
-            "description": "Number of entries to return.",
-            "required": false,
-            "schema": {
-              "type": "number"
-            }
+            "$ref": "#/components/parameters/countDelete"
           }
         ],
         "responses": {
           "200": {
-            "description": "Empty list is success."
+            "$ref": "#/components/responses/DeleteStatus"
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
           }
         }
       }
     },
     "/entries/current": {
       "get": {
+        "summary": "The newest entry",
+        "description": "Returns an array holding the newest entry, of any type. Content negotiation is as for `GET /entries`.\n\nPermission: `api:entries:read`.\n",
+        "operationId": "currentEntry",
         "tags": [
           "Entries"
         ],
-        "summary": "Get the current entry.",
-        "description": "Get the latest entry.",
         "responses": {
           "200": {
-            "description": "The current entry.",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/Entry"
-                }
-              }
-            }
+            "$ref": "#/components/responses/Entries"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
           }
         }
       }
     },
     "/entries/preview": {
       "post": {
+        "summary": "Preview entries without storing them",
+        "description": "Echoes the posted entries back after the same normalisation and cleaning a `POST /entries` applies, without storing anything. Useful for checking an uploader's payload.\n\nPermission: `api:entries:create`.\n",
+        "operationId": "previewEntries",
         "tags": [
           "Entries"
         ],
-        "summary": "Preview new entries.",
-        "description": "Preview entries before adding them.",
         "requestBody": {
+          "description": "One entry or an array of entries.",
+          "required": true,
           "content": {
             "application/json": {
               "schema": {
-                "$ref": "#/components/schemas/Entries"
+                "oneOf": [
+                  {
+                    "$ref": "#/components/schemas/Entry"
+                  },
+                  {
+                    "$ref": "#/components/schemas/Entries"
+                  }
+                ]
               }
             }
           }
         },
         "responses": {
           "200": {
-            "description": "The previewed entries."
+            "description": "The entries as they would be stored.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Entries"
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
           }
         }
       }
     },
     "/entries/{spec}": {
       "get": {
+        "summary": "One entry by id, or entries of one type",
+        "description": "If `spec` is a 24-character hex id, returns an array holding that entry, or an empty array if no entry has that id. Otherwise `spec` is an entry type, such as `sgv`, `mbg` or `cal`, and the read is a `GET /entries` restricted to that type. A file extension selects the format, as for `GET /entries` (`/entries/sgv.json`).\n\nPermission: `api:entries:read`.\n",
+        "operationId": "getEntriesBySpec",
         "tags": [
           "Entries"
         ],
-        "summary": "All Entries matching query",
-        "description": "The Entries endpoint returns information about the\nNightscout entries.\n",
         "parameters": [
           {
-            "name": "spec",
-            "in": "path",
-            "description": "entry id, such as `55cf81bc436037528ec75fa5` or a type filter such\nas `sgv`, `mbg`, etc. An id that names no entry answers 200 with\nan empty array.\n",
-            "required": true,
-            "schema": {
-              "type": "string",
-              "default": "sgv"
-            }
+            "$ref": "#/components/parameters/entrySpec"
           },
           {
-            "name": "find",
-            "in": "query",
-            "description": "The query used to find entries, support nested query syntax, for\nexample `find[dateString][$gte]=2015-08-27`.  All find parameters\nare interpreted as strings.\n",
-            "required": false,
-            "schema": {
-              "type": "string"
-            }
+            "$ref": "#/components/parameters/find"
           },
           {
-            "name": "count",
-            "in": "query",
-            "description": "Number of entries to return.",
-            "required": false,
-            "schema": {
-              "type": "number"
-            }
+            "$ref": "#/components/parameters/countEntries"
           }
         ],
         "responses": {
           "200": {
-            "description": "An array of entries",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/Entries"
-                }
-              }
-            }
+            "$ref": "#/components/responses/Entries"
           },
-          "default": {
-            "description": "Entries",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/Entries"
-                }
-              }
-            }
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          }
+        }
+      },
+      "delete": {
+        "summary": "Delete one entry by id, or entries of one type",
+        "description": "If `spec` is a 24-character hex id, removes that entry. Otherwise `spec` is an entry type and the entries of that type matching `find` are removed; `*` matches every type.\n\nPermission: `api:entries:delete`. Mounted only when `API_SECRET` is set.\n",
+        "operationId": "removeEntriesBySpec",
+        "tags": [
+          "Entries"
+        ],
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/entrySpec"
+          },
+          {
+            "$ref": "#/components/parameters/find"
+          },
+          {
+            "$ref": "#/components/parameters/countDelete"
+          }
+        ],
+        "responses": {
+          "200": {
+            "$ref": "#/components/responses/DeleteStatus"
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
           }
         }
       }
     },
     "/slice/{storage}/{field}/{type}/{prefix}/{regex}": {
       "get": {
+        "summary": "Records whose field matches a pattern",
+        "description": "Returns records from `storage` whose `field` matches a pattern built from `prefix` and `regex`. `type`, `prefix` and `regex` may be left off from the right (`/slice/entries/dateString/mbg/2015`).\n\n`prefix` and `regex` get bash-style brace expansion, so `T{15..17}:.*` matches 3pm to 5pm. A pattern that expands to more than 2000 regular expressions is refused with HTTP 400 `Pattern too broad`. Content negotiation is as for `GET /entries`.\n\nPermission: `api:entries:read`, and for `treatments` or `devicestatus` storage also `api:treatments:read` or `api:devicestatus:read`.\n",
+        "operationId": "sliceRecords",
         "tags": [
           "Entries"
         ],
-        "summary": "All Entries matching query",
-        "description": "The Entries endpoint returns information about the Nightscout entries.",
         "parameters": [
           {
-            "name": "storage",
-            "in": "path",
-            "description": "Prefix to use in constructing a prefix-based regex, default is `entries`.",
-            "required": true,
-            "schema": {
-              "type": "string",
-              "default": "entries"
-            }
+            "$ref": "#/components/parameters/storage"
           },
           {
             "name": "field",
             "in": "path",
-            "description": "Name of the field to use Regex against in query object, default is `dateString`.",
+            "description": "Name of the field the pattern is matched against, for example `dateString`.",
             "required": true,
             "schema": {
               "type": "string",
-              "default": "dateString"
+              "example": "dateString"
             }
           },
           {
             "name": "type",
             "in": "path",
-            "description": "The type field to search against, default is sgv.",
+            "description": "Record type to select, for example `sgv`.",
             "required": true,
             "schema": {
               "type": "string",
-              "default": "sgv"
+              "example": "sgv"
             }
           },
           {
-            "name": "prefix",
-            "in": "path",
-            "description": "Prefix to use in constructing a prefix-based regex.",
-            "required": true,
-            "schema": {
-              "type": "string",
-              "default": "2015"
-            }
+            "$ref": "#/components/parameters/patternPrefix"
           },
           {
-            "name": "regex",
-            "in": "path",
-            "description": "Tail part of regexp to use in expanding/construccting a query object.\nRegexp also has bash-style brace and glob expansion applied to it,\ncreating ways to search for modal times of day, perhaps using\nsomething like this syntax: `T{15..17}:.*`, this would search for\nall records from 3pm to 5pm.\n",
-            "required": true,
-            "schema": {
-              "type": "string",
-              "default": ".*"
-            }
+            "$ref": "#/components/parameters/patternRegex"
           },
           {
-            "name": "find",
-            "in": "query",
-            "description": "The query used to find entries, support nested query syntax, for\nexample `find[dateString][$gte]=2015-08-27`.  All find parameters\nare interpreted as strings.\n",
-            "required": false,
-            "schema": {
-              "type": "string"
-            }
+            "$ref": "#/components/parameters/find"
           },
           {
-            "name": "count",
-            "in": "query",
-            "description": "Number of entries to return.",
-            "required": false,
-            "schema": {
-              "type": "number"
-            }
+            "$ref": "#/components/parameters/countEntries"
           }
         ],
         "responses": {
           "200": {
-            "description": "An array of entries",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/Entries"
-                }
-              }
-            }
+            "$ref": "#/components/responses/Entries"
           },
-          "default": {
-            "description": "Unexpected error",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/Error"
-                }
-              }
-            }
-          }
-        }
-      }
-    },
-    "/echo/{storage}/{spec}": {
-      "get": {
-        "tags": [
-          "Entries",
-          "Debug"
-        ],
-        "summary": "View generated Mongo Query object",
-        "description": "Information about the mongo query object created by the query.\n",
-        "parameters": [
-          {
-            "name": "storage",
-            "in": "path",
-            "description": "`entries`, or `treatments` to select the storage layer.\n",
-            "required": true,
-            "schema": {
-              "type": "string",
-              "default": "sgv"
-            }
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
           },
-          {
-            "name": "spec",
-            "in": "path",
-            "description": "entry id, such as `55cf81bc436037528ec75fa5` or a type filter such\nas `sgv`, `mbg`, etc.\nThis parameter is optional.\n",
-            "required": true,
-            "schema": {
-              "type": "string",
-              "default": "sgv"
-            }
-          },
-          {
-            "name": "find",
-            "in": "query",
-            "description": "The query used to find entries, support nested query syntax, for\nexample `find[dateString][$gte]=2015-08-27`.  All find parameters\nare interpreted as strings.\n",
-            "required": false,
-            "schema": {
-              "type": "string"
-            }
-          },
-          {
-            "name": "count",
-            "in": "query",
-            "description": "Number of entries to return.",
-            "required": false,
-            "schema": {
-              "type": "number"
-            }
-          }
-        ],
-        "responses": {
-          "200": {
-            "description": "An array of entries",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/MongoQuery"
-                }
-              }
-            }
-          }
-        }
-      }
-    },
-    "/times/echo/{prefix}/{regex}": {
-      "get": {
-        "tags": [
-          "Entries",
-          "Debug"
-        ],
-        "summary": "Echo the query object to be used.",
-        "description": "Echo debug information about the query object constructed.",
-        "parameters": [
-          {
-            "name": "prefix",
-            "in": "path",
-            "description": "Prefix to use in constructing a prefix-based regex.",
-            "required": true,
-            "schema": {
-              "type": "string"
-            }
-          },
-          {
-            "name": "regex",
-            "in": "path",
-            "description": "Tail part of regexp to use in expanding/construccting a query object.\nRegexp also has bash-style brace and glob expansion applied to it,\ncreating ways to search for modal times of day, perhaps using\nsomething like this syntax: `T{15..17}:.*`, this would search for\nall records from 3pm to 5pm.\n",
-            "required": true,
-            "schema": {
-              "type": "string"
-            }
-          },
-          {
-            "name": "find",
-            "in": "query",
-            "description": "The query used to find entries, support nested query syntax, for example `find[dateString][$gte]=2015-08-27`.  All find parameters are interpreted as strings.",
-            "required": false,
-            "schema": {
-              "type": "string"
-            }
-          },
-          {
-            "name": "count",
-            "in": "query",
-            "description": "Number of entries to return.",
-            "required": false,
-            "schema": {
-              "type": "number"
-            }
-          }
-        ],
-        "responses": {
-          "200": {
-            "description": "An array of entries",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/MongoQuery"
-                }
-              }
-            }
-          },
-          "default": {
-            "description": "Unexpected error",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/Error"
-                }
-              }
-            }
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
           }
         }
       }
     },
     "/times/{prefix}/{regex}": {
       "get": {
+        "summary": "Entries whose dateString matches a pattern",
+        "description": "Returns entries whose `dateString` matches a pattern built from `prefix` and `regex`, for example `/times/2015-04/T{13..18}:{00..15}` for 1pm to 6pm in April 2015. `regex`, or both parameters, may be left off. Brace expansion and its limit are as for `/slice`. Content negotiation is as for `GET /entries`.\n\nPermission: `api:entries:read`.\n",
+        "operationId": "timesEntries",
         "tags": [
           "Entries"
         ],
-        "summary": "All Entries matching query",
-        "description": "The Entries endpoint returns information about the Nightscout entries.",
         "parameters": [
           {
-            "name": "prefix",
-            "in": "path",
-            "description": "Prefix to use in constructing a prefix-based regex.",
-            "required": true,
-            "schema": {
-              "type": "string"
-            }
+            "$ref": "#/components/parameters/patternPrefix"
           },
           {
-            "name": "regex",
-            "in": "path",
-            "description": "Tail part of regexp to use in expanding/construccting a query object.\nRegexp also has bash-style brace and glob expansion applied to it,\ncreating ways to search for modal times of day, perhaps using\nsomething like this syntax: `T{15..17}:.*`, this would search for\nall records from 3pm to 5pm.\n",
-            "required": true,
-            "schema": {
-              "type": "string"
-            }
+            "$ref": "#/components/parameters/patternRegex"
           },
           {
-            "name": "find",
-            "in": "query",
-            "description": "The query used to find entries, support nested query syntax, for example `find[dateString][$gte]=2015-08-27`.  All find parameters are interpreted as strings.",
-            "required": false,
-            "schema": {
-              "type": "string"
-            }
+            "$ref": "#/components/parameters/find"
           },
           {
-            "name": "count",
-            "in": "query",
-            "description": "Number of entries to return.",
-            "required": false,
-            "schema": {
-              "type": "number"
-            }
+            "$ref": "#/components/parameters/countEntries"
           }
         ],
         "responses": {
           "200": {
-            "description": "An array of entries",
+            "$ref": "#/components/responses/Entries"
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          }
+        }
+      }
+    },
+    "/times/echo/{prefix}/{regex}": {
+      "get": {
+        "summary": "Show the query a /times request builds",
+        "description": "Returns the route parameters, the query and the expanded patterns that `/times/{prefix}/{regex}` would use, without reading any records. `regex`, or both parameters, may be left off.\n\nPermission: `api:entries:read`.\n",
+        "operationId": "timesEcho",
+        "tags": [
+          "Debug"
+        ],
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/patternPrefix"
+          },
+          {
+            "$ref": "#/components/parameters/patternRegex"
+          },
+          {
+            "$ref": "#/components/parameters/find"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "The query that would be run.",
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/Entries"
+                  "type": "object",
+                  "properties": {
+                    "req": {
+                      "type": "object",
+                      "properties": {
+                        "params": {
+                          "type": "object"
+                        },
+                        "query": {
+                          "type": "object"
+                        }
+                      }
+                    },
+                    "pattern": {
+                      "type": "array",
+                      "items": {
+                        "type": "string"
+                      }
+                    }
+                  }
                 }
               }
             }
           },
-          "default": {
-            "description": "Unexpected error",
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          }
+        }
+      }
+    },
+    "/echo/{storage}/{model}": {
+      "get": {
+        "summary": "Show the query a read builds",
+        "description": "Returns the MongoDB query that a read of `storage` with these parameters would run, without running it. `model` is a record type such as `sgv` and may be left off; a third segment, an entry id or type, may follow it (`/echo/{storage}/{model}/{spec}`).\n\n`storage` must name a storage layer such as `entries`, `treatments` or `devicestatus`; other names are answered with HTTP 500.\n\nPermission: `api:entries:read`.\n",
+        "operationId": "echoQuery",
+        "tags": [
+          "Debug"
+        ],
+        "parameters": [
+          {
+            "name": "storage",
+            "in": "path",
+            "description": "Storage layer whose query is shown.",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "example": "entries"
+            }
+          },
+          {
+            "name": "model",
+            "in": "path",
+            "description": "Record type, such as `sgv` or `mbg`.",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "example": "sgv"
+            }
+          },
+          {
+            "$ref": "#/components/parameters/find"
+          },
+          {
+            "$ref": "#/components/parameters/countEntries"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "The query that would be run.",
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/Error"
+                  "$ref": "#/components/schemas/MongoQuery"
                 }
               }
             }
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
           }
         }
       }
     },
     "/count/{storage}/where": {
       "get": {
+        "summary": "Count records matching a query",
+        "description": "Counts the records in `storage` that match `find`. The answer is an array with one object, `{\"_id\": null, \"count\": <n>}`, or an empty array when nothing matches. A `pipeline` parameter is refused with HTTP 400.\n\nPermission: `api:entries:read`, and for `treatments` or `devicestatus` storage also `api:treatments:read` or `api:devicestatus:read`.\n",
+        "operationId": "countRecords",
         "tags": [
           "Entries"
         ],
-        "summary": "Count of records",
-        "description": "Get the count of records matching a query.",
         "parameters": [
           {
-            "name": "storage",
-            "in": "path",
-            "required": true,
-            "schema": {
-              "type": "string"
-            }
+            "$ref": "#/components/parameters/storage"
           },
           {
-            "name": "find",
-            "in": "query",
-            "required": false,
-            "schema": {
-              "type": "string"
-            }
+            "$ref": "#/components/parameters/find"
           }
         ],
         "responses": {
           "200": {
-            "description": "Count of records.",
+            "description": "The number of matching records.",
             "content": {
               "application/json": {
                 "schema": {
                   "type": "array",
                   "items": {
-                    "type": "object"
+                    "type": "object",
+                    "properties": {
+                      "_id": {
+                        "type": "string",
+                        "nullable": true,
+                        "description": "Always `null`."
+                      },
+                      "count": {
+                        "type": "integer"
+                      }
+                    }
                   }
                 }
               }
             }
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
           }
         }
       }
     },
     "/treatments": {
       "get": {
+        "summary": "Treatments matching a query",
+        "description": "Returns treatments, newest `created_at` first. Without `count`, 100 treatments are returned, or 1000 when `find` is given. Without a filter on `created_at`, only treatments from the last four days are considered.\n\nIf `If-Modified-Since` is not before the newest treatment, the answer is HTTP 304.\n\nPermission: `api:treatments:read`.\n",
+        "operationId": "listTreatments",
         "tags": [
           "Treatments"
         ],
-        "summary": "Treatments",
-        "description": "The Treatments endpoint returns information about the Nightscout treatments.",
         "parameters": [
           {
-            "name": "find",
-            "in": "query",
-            "description": "The query used to find entries, supports nested query syntax.  Examples `find[insulin][$gte]=3` `find[carb][$gte]=100` `find[eventType]=Correction+Bolus` All find parameters are interpreted as strings.",
-            "required": false,
-            "schema": {
-              "type": "string"
-            }
+            "$ref": "#/components/parameters/find"
           },
           {
             "name": "count",
             "in": "query",
-            "description": "Number of entries to return.",
+            "description": "Number of treatments to return. See *count* in the description of this API.",
             "required": false,
             "schema": {
-              "type": "number"
+              "type": "integer",
+              "minimum": 0
             }
+          },
+          {
+            "$ref": "#/components/parameters/ifModifiedSince"
           }
         ],
         "responses": {
           "200": {
-            "description": "An array of treatments",
+            "description": "An array of treatments.",
             "content": {
               "application/json": {
                 "schema": {
@@ -634,288 +593,186 @@
               }
             }
           },
-          "default": {
-            "description": "Unexpected error",
+          "304": {
+            "$ref": "#/components/responses/NotModified"
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          }
+        }
+      },
+      "post": {
+        "summary": "Add treatments",
+        "description": "Stores one treatment or an array of treatments and returns them as stored, with their `_id`. A treatment without `created_at` gets the current time.\n\nWith `WRITE_VALIDATION=reject` (see the README), a Temporary Target that breaks a rule is refused: in a batch the other treatments are stored, the refused one's slot in the answer has no `_id` and a `refused` member with the reason, and a `Warning` header gives the count. A batch whose treatments are all refused, or a single refused treatment, gets HTTP 400.\n\nPermission: `api:treatments:create`. Mounted only when `API_SECRET` is set and `careportal` is in `ENABLE`.\n",
+        "operationId": "addTreatments",
+        "tags": [
+          "Treatments"
+        ],
+        "requestBody": {
+          "description": "One treatment or an array of treatments.",
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "oneOf": [
+                  {
+                    "$ref": "#/components/schemas/Treatment"
+                  },
+                  {
+                    "$ref": "#/components/schemas/Treatments"
+                  }
+                ]
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "The stored treatments, one per treatment sent, in order.",
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/Error"
+                  "$ref": "#/components/schemas/Treatments"
                 }
               }
             }
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
           }
         }
       },
       "put": {
+        "summary": "Replace a treatment",
+        "description": "Stores the treatment in the body, replacing the stored treatment with the same `_id`, and returns it.\n\nPermission: `api:treatments:update`. Mounted only when `API_SECRET` is set and `careportal` is in `ENABLE`.\n",
+        "operationId": "updateTreatment",
         "tags": [
           "Treatments"
         ],
-        "summary": "Modify treatments.",
-        "description": "",
-        "operationId": "updateTreatments",
         "requestBody": {
-          "description": "Treatment to be updated.",
+          "description": "The treatment, with its `_id`.",
+          "required": true,
           "content": {
             "application/json": {
               "schema": {
                 "$ref": "#/components/schemas/Treatment"
               }
             }
-          },
-          "required": true
+          }
         },
         "responses": {
           "200": {
-            "description": "The modified treatment document."
-          }
-        }
-      },
-      "post": {
-        "tags": [
-          "Treatments"
-        ],
-        "summary": "Add new treatments.",
-        "description": "",
-        "operationId": "addTreatments",
-        "requestBody": {
-          "description": "Treatments to be uploaded.",
-          "content": {
-            "application/json": {
-              "schema": {
-                "$ref": "#/components/schemas/Treatments"
+            "description": "The stored treatment.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Treatment"
+                }
               }
             }
           },
-          "required": true
-        },
-        "responses": {
-          "200": {
-            "description": "Rejected list of treatments.  Empty list is success."
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
           },
-          "405": {
-            "description": "Invalid input"
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
           }
         }
       },
       "delete": {
+        "summary": "Delete treatments matching a query",
+        "description": "Removes the treatments a `GET /treatments` with the same `find` would select. The `count` parameter is checked but does not limit the delete.\n\nPermission: `api:treatments:delete`. Mounted only when `API_SECRET` is set and `careportal` is in `ENABLE`.\n",
+        "operationId": "removeTreatments",
         "tags": [
           "Treatments"
         ],
-        "summary": "Delete treatments matching query.",
-        "description": "Remove treatments, same search syntax as GET.",
-        "operationId": "removeTreatments",
         "parameters": [
           {
-            "name": "find",
-            "in": "query",
-            "description": "The query used to find treatments to delete, support nested query syntax, for example `find[insulin][$gte]=3`. All find parameters are interpreted as strings.",
-            "required": false,
-            "schema": {
-              "type": "string"
-            }
+            "$ref": "#/components/parameters/find"
           },
           {
-            "name": "count",
-            "in": "query",
-            "description": "Number of entries to return.",
-            "required": false,
-            "schema": {
-              "type": "number"
-            }
+            "$ref": "#/components/parameters/countDelete"
           }
         ],
         "responses": {
           "200": {
-            "description": "Empty list is success."
+            "$ref": "#/components/responses/DeleteStatus"
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
           }
         }
       }
     },
-    "/treatments/{spec}": {
+    "/treatments/{id}": {
       "delete": {
+        "summary": "Delete a treatment by id",
+        "description": "Removes the treatment with this `_id`, further restricted by `find` if given. `*` matches any id, so `DELETE /treatments/*` removes every treatment matching `find`.\n\nPermission: `api:treatments:delete`. Mounted only when `API_SECRET` is set and `careportal` is in `ENABLE`.\n",
+        "operationId": "removeTreatment",
         "tags": [
           "Treatments"
         ],
-        "summary": "Delete treatments record with id provided in spec",
-        "description": "The Treatments endpoint returns information about the\nNightscout devicestatus records.\n",
         "parameters": [
           {
-            "name": "spec",
+            "name": "id",
             "in": "path",
-            "description": "treatment id, such as `55cf81bc436037528ec75fa5`\n",
+            "description": "The treatment's `_id`, or `*`.",
             "required": true,
             "schema": {
-              "type": "string"
+              "type": "string",
+              "example": "55cf81bc436037528ec75fa5"
             }
+          },
+          {
+            "$ref": "#/components/parameters/find"
           }
         ],
         "responses": {
           "200": {
-            "description": "A status record of the delete.",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/DeleteStatus"
-                }
-              }
-            }
+            "$ref": "#/components/responses/DeleteStatus"
           },
-          "default": {
-            "description": "Unexpected error",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/Error"
-                }
-              }
-            }
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
           }
         }
       }
     },
     "/profile": {
       "get": {
+        "summary": "Profile records",
+        "description": "Returns the stored profile records, newest first. `count` sets how many (default 10). This read applies no date window.\n\nPermission: `api:profile:read`.\n",
+        "operationId": "listProfile",
         "tags": [
           "Profile"
         ],
-        "summary": "Profile",
-        "description": "The Profile endpoint returns information about the Nightscout Treatment Profiles.",
-        "responses": {
-          "200": {
-            "description": "An array of profile objects",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/Profile"
-                }
-              }
-            }
-          },
-          "default": {
-            "description": "Unexpected error",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/Error"
-                }
-              }
-            }
-          }
-        }
-      },
-      "put": {
-        "tags": [
-          "Profile"
-        ],
-        "summary": "Update a profile",
-        "requestBody": {
-          "content": {
-            "application/json": {
-              "schema": {
-                "$ref": "#/components/schemas/Profile"
-              }
-            }
-          }
-        },
-        "responses": {
-          "200": {
-            "description": "The updated profile."
-          }
-        }
-      },
-      "post": {
-        "tags": [
-          "Profile"
-        ],
-        "summary": "Add a new profile",
-        "requestBody": {
-          "content": {
-            "application/json": {
-              "schema": {
-                "$ref": "#/components/schemas/Profile"
-              }
-            }
-          }
-        },
-        "responses": {
-          "200": {
-            "description": "The created profile."
-          }
-        }
-      }
-    },
-    "/profile/{id}": {
-      "delete": {
-        "tags": [
-          "Profile"
-        ],
-        "summary": "Delete a profile",
         "parameters": [
-          {
-            "name": "id",
-            "in": "path",
-            "required": true,
-            "schema": {
-              "type": "string"
-            }
-          }
-        ],
-        "responses": {
-          "200": {
-            "description": "Empty object on success."
-          }
-        }
-      }
-    },
-    "/profile/current": {
-      "get": {
-        "tags": [
-          "Profile"
-        ],
-        "summary": "Get current profile",
-        "description": "Get the currently active profile.",
-        "responses": {
-          "200": {
-            "description": "The current profile.",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/Profile"
-                }
-              }
-            }
-          }
-        }
-      }
-    },
-    "/profiles": {
-      "get": {
-        "tags": [
-          "Profile"
-        ],
-        "summary": "List profiles",
-        "description": "List profiles matching query.",
-        "parameters": [
-          {
-            "name": "find",
-            "in": "query",
-            "required": false,
-            "schema": {
-              "type": "string"
-            }
-          },
           {
             "name": "count",
             "in": "query",
+            "description": "Number of profile records to return (default 10).",
             "required": false,
             "schema": {
-              "type": "number"
+              "type": "integer",
+              "minimum": 1,
+              "default": 10
             }
           }
         ],
         "responses": {
           "200": {
-            "description": "An array of profile objects",
+            "description": "An array of profile records.",
             "content": {
               "application/json": {
                 "schema": {
@@ -923,71 +780,301 @@
                 }
               }
             }
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          }
+        }
+      },
+      "post": {
+        "summary": "Add profile records",
+        "description": "Stores one profile record or an array of them and returns them as stored. A record whose `_id` names a stored record replaces it, which also needs `api:profile:update`; without it the request is refused with HTTP 401 before anything is written.\n\nPermission: `api:profile:create`. Mounted only when `API_SECRET` is set.\n",
+        "operationId": "addProfile",
+        "tags": [
+          "Profile"
+        ],
+        "requestBody": {
+          "description": "One profile record or an array of profile records.",
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "oneOf": [
+                  {
+                    "$ref": "#/components/schemas/Profile"
+                  },
+                  {
+                    "$ref": "#/components/schemas/Profiles"
+                  }
+                ]
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "The stored profile records.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Profiles"
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          }
+        }
+      },
+      "put": {
+        "summary": "Replace a profile record",
+        "description": "Stores the profile record in the body, replacing the stored record with the same `_id`, and returns it. The body must carry a valid `_id`.\n\nPermission: `api:profile:update`. Mounted only when `API_SECRET` is set.\n",
+        "operationId": "updateProfile",
+        "tags": [
+          "Profile"
+        ],
+        "requestBody": {
+          "description": "The profile record, with its `_id`.",
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/Profile"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "The stored profile record.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Profile"
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          }
+        }
+      },
+      "delete": {
+        "summary": "Prune old profile records",
+        "description": "Removes all but the newest `keep` profile records.\n\nPermission: `api:profile:delete`. Mounted only when `API_SECRET` is set.\n",
+        "operationId": "pruneProfile",
+        "tags": [
+          "Profile"
+        ],
+        "parameters": [
+          {
+            "name": "keep",
+            "in": "query",
+            "description": "Number of newest profile records to keep, a whole number from 10 to 10000. Other values are refused with HTTP 400.",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "minimum": 10,
+              "maximum": 10000,
+              "default": 100
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "$ref": "#/components/responses/DeleteStatus"
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          }
+        }
+      }
+    },
+    "/profile/{id}": {
+      "delete": {
+        "summary": "Delete a profile record",
+        "description": "Removes the profile record with this `_id`. The answer is an empty object.\n\nPermission: `api:profile:delete`. Mounted only when `API_SECRET` is set.\n",
+        "operationId": "removeProfile",
+        "tags": [
+          "Profile"
+        ],
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/recordId"
+          }
+        ],
+        "responses": {
+          "200": {
+            "$ref": "#/components/responses/EmptyObject"
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          }
+        }
+      }
+    },
+    "/profile/current": {
+      "get": {
+        "summary": "The newest profile record",
+        "description": "Returns the newest profile record, or `null` if there is none.\n\nPermission: `api:profile:read`.\n",
+        "operationId": "currentProfile",
+        "tags": [
+          "Profile"
+        ],
+        "responses": {
+          "200": {
+            "description": "The newest profile record.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/Profile"
+                    }
+                  ],
+                  "nullable": true
+                }
+              }
+            }
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          }
+        }
+      }
+    },
+    "/profiles": {
+      "get": {
+        "summary": "Profile records matching a query",
+        "description": "Returns profile records matching `find`, newest first. Without `count` 10 are returned; without a filter on `startDate`, only records whose `startDate` is in the last four days are considered.\n\nPermission: `api:profile:read`.\n",
+        "operationId": "queryProfiles",
+        "tags": [
+          "Profile"
+        ],
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/find"
+          },
+          {
+            "name": "count",
+            "in": "query",
+            "description": "Number of profile records to return (default 10). See *count* in the description of this API.",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "minimum": 0,
+              "default": 10
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "An array of profile records.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Profiles"
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
           }
         }
       }
     },
     "/status": {
       "get": {
+        "summary": "Server status and settings",
+        "description": "Returns the server's status, version, enabled features and the settings clients display with. The format follows the extension or the `Accept` header: `/status.json` returns the object below, `/status.js` a script that assigns it to `this.serverSettings`, `/status.txt` and `/status.html` the text `STATUS OK`, and `/status.png` and `/status.svg` redirect to a badge image. With no extension and `Accept: */*` the answer is HTML.\n\nWhen the request carries an access token, `authorized` holds a JWT issued for it (see *Authentication*); otherwise it is `null`.\n\nPermission: `api:status:read`. Responses are sent with `Cache-Control: no-store`.\n",
+        "operationId": "getStatus",
         "tags": [
           "Status"
         ],
-        "summary": "Status",
-        "description": "Server side status, default settings and capabilities.",
         "responses": {
           "200": {
-            "description": "Server capabilities and status.",
+            "description": "Server status.",
             "content": {
               "application/json": {
                 "schema": {
                   "$ref": "#/components/schemas/Status"
                 }
-              }
-            }
-          },
-          "default": {
-            "description": "Unexpected error",
-            "content": {
-              "application/json": {
+              },
+              "application/javascript": {
                 "schema": {
-                  "$ref": "#/components/schemas/Error"
+                  "type": "string"
+                }
+              },
+              "text/plain": {
+                "schema": {
+                  "type": "string"
+                }
+              },
+              "text/html": {
+                "schema": {
+                  "type": "string"
                 }
               }
             }
+          },
+          "302": {
+            "description": "Redirect to a status badge image (`.png`, `.svg`)."
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
           }
         }
       }
     },
     "/devicestatus": {
       "get": {
+        "summary": "Devicestatus records matching a query",
+        "description": "Returns devicestatus records, newest first. Without `count` 10 are returned; without a filter on `created_at`, only records from the last four days are considered.\n\nPermission: `api:devicestatus:read`.\n",
+        "operationId": "listDevicestatus",
         "tags": [
           "Devicestatus"
         ],
-        "summary": "All Devicestatuses matching query",
-        "description": "The Devicestatus endpoint returns information about the Nightscout devicestatus records.",
         "parameters": [
           {
-            "name": "find",
-            "in": "query",
-            "description": "The query used to find entries, support nested query syntax, for example `find[dateString][$gte]=2015-08-27`.  All find parameters are interpreted as strings.",
-            "required": false,
-            "schema": {
-              "type": "string"
-            }
+            "$ref": "#/components/parameters/find"
           },
           {
             "name": "count",
             "in": "query",
-            "description": "Number of devicestatus records to return.",
+            "description": "Number of records to return (default 10). See *count* in the description of this API.",
             "required": false,
             "schema": {
-              "type": "number"
+              "type": "integer",
+              "minimum": 0,
+              "default": 10
             }
           }
         ],
         "responses": {
           "200": {
-            "description": "An array of devicestatus entries",
+            "description": "An array of devicestatus records.",
             "content": {
               "application/json": {
                 "schema": {
@@ -996,158 +1083,151 @@
               }
             }
           },
-          "default": {
-            "description": "Unexpected error",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/Error"
-                }
-              }
-            }
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
           }
         }
       },
       "post": {
+        "summary": "Add devicestatus records",
+        "description": "Stores one devicestatus record or an array of them and returns them as stored, with their `_id`.\n\nPermission: `api:devicestatus:create`. Mounted only when `API_SECRET` is set.\n",
+        "operationId": "addDevicestatus",
         "tags": [
           "Devicestatus"
         ],
-        "summary": "Add new devicestatus records.",
-        "description": "",
-        "operationId": "addDevicestatuses",
         "requestBody": {
-          "description": "Device statuses to be uploaded.",
+          "description": "One devicestatus record or an array of them.",
+          "required": true,
           "content": {
             "application/json": {
               "schema": {
-                "$ref": "#/components/schemas/Devicestatuses"
+                "oneOf": [
+                  {
+                    "$ref": "#/components/schemas/Devicestatus"
+                  },
+                  {
+                    "$ref": "#/components/schemas/Devicestatuses"
+                  }
+                ]
               }
             }
-          },
-          "required": true
+          }
         },
         "responses": {
           "200": {
-            "description": "Rejected list of device statuses.  Empty list is success."
+            "description": "The stored devicestatus records.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Devicestatuses"
+                }
+              }
+            }
           },
-          "405": {
-            "description": "Invalid input"
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
           }
         }
       },
       "delete": {
+        "summary": "Delete devicestatus records matching a query",
+        "description": "Removes the devicestatus records a `GET /devicestatus` with the same `find` would select.\n\nPermission: `api:devicestatus:delete`. Mounted only when `API_SECRET` is set.\n",
+        "operationId": "removeDevicestatus",
         "tags": [
           "Devicestatus"
         ],
-        "summary": "Delete all Devicestatus records matching query",
-        "description": "The Devicestatus endpoint returns information about the\nNightscout devicestatus records.\n",
         "parameters": [
           {
-            "name": "find",
-            "in": "query",
-            "description": "The query used to find entries, support nested query syntax, for\nexample `find[created_at][$gte]=2015-08-27`.  All find parameters\nare interpreted as strings.\n",
-            "required": false,
-            "schema": {
-              "type": "string"
-            }
+            "$ref": "#/components/parameters/find"
+          },
+          {
+            "$ref": "#/components/parameters/countDelete"
           }
         ],
         "responses": {
           "200": {
-            "description": "A status record of the delete.",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/DeleteStatus"
-                }
-              }
-            }
+            "$ref": "#/components/responses/DeleteStatus"
           },
-          "default": {
-            "description": "Unexpected error",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/Error"
-                }
-              }
-            }
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
           }
         }
       }
     },
-    "/devicestatus/{spec}": {
+    "/devicestatus/{id}": {
       "delete": {
+        "summary": "Delete a devicestatus record by id",
+        "description": "Removes the devicestatus record with this `_id`, further restricted by `find` if given. `*` matches any id.\n\nPermission: `api:devicestatus:delete`. Mounted only when `API_SECRET` is set.\n",
+        "operationId": "removeDevicestatusById",
         "tags": [
           "Devicestatus"
         ],
-        "summary": "Delete devicestatus record with id provided in spec",
-        "description": "The Devicestatus endpoint returns information about the\nNightscout devicestatus records.\n",
         "parameters": [
           {
-            "name": "spec",
+            "name": "id",
             "in": "path",
-            "description": "entry id, such as `55cf81bc436037528ec75fa5`\n",
+            "description": "The record's `_id`, or `*`.",
             "required": true,
             "schema": {
-              "type": "string"
+              "type": "string",
+              "example": "55cf81bc436037528ec75fa5"
             }
+          },
+          {
+            "$ref": "#/components/parameters/find"
           }
         ],
         "responses": {
           "200": {
-            "description": "A status record of the delete.",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/DeleteStatus"
-                }
-              }
-            }
+            "$ref": "#/components/responses/DeleteStatus"
           },
-          "default": {
-            "description": "Unexpected error",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/Error"
-                }
-              }
-            }
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
           }
         }
       }
     },
     "/activity": {
       "get": {
+        "summary": "Activity records matching a query",
+        "description": "Returns activity records, newest first. Without a filter on `created_at`, only records from the last four days are considered.\n\nIf `If-Modified-Since` is not before the newest record, the answer is HTTP 304.\n\nPermission: `api:activity:read`.\n",
+        "operationId": "listActivity",
         "tags": [
           "Activity"
         ],
-        "summary": "All activity matching query",
-        "description": "The Activity endpoint returns information about the Nightscout activity records.",
         "parameters": [
           {
-            "name": "find",
-            "in": "query",
-            "description": "The query used to find entries, support nested query syntax.",
-            "required": false,
-            "schema": {
-              "type": "string"
-            }
+            "$ref": "#/components/parameters/find"
           },
           {
             "name": "count",
             "in": "query",
-            "description": "Number of entries to return.",
+            "description": "Number of records to return. See *count* in the description of this API.",
             "required": false,
             "schema": {
-              "type": "number"
+              "type": "integer",
+              "minimum": 0
             }
+          },
+          {
+            "$ref": "#/components/parameters/ifModifiedSince"
           }
         ],
         "responses": {
           "200": {
-            "description": "An array of activity entries",
+            "description": "An array of activity records.",
             "content": {
               "application/json": {
                 "schema": {
@@ -1156,175 +1236,136 @@
               }
             }
           },
-          "default": {
-            "description": "Unexpected error",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/Error"
-                }
-              }
-            }
-          }
-        }
-      },
-      "put": {
-        "tags": [
-          "Activity"
-        ],
-        "summary": "Modify activity records.",
-        "requestBody": {
-          "description": "Activity to be uploaded.",
-          "content": {
-            "application/json": {
-              "schema": {
-                "$ref": "#/components/schemas/Activity"
-              }
-            }
+          "304": {
+            "$ref": "#/components/responses/NotModified"
           },
-          "required": true
-        },
-        "responses": {
-          "200": {
-            "description": "Uploaded activity record."
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
           }
         }
       },
       "post": {
+        "summary": "Add activity records",
+        "description": "Stores one activity record or an array of them and returns them as stored, with their `_id`.\n\nPermission: `api:activity:create`. Mounted only when `API_SECRET` is set.\n",
+        "operationId": "addActivity",
         "tags": [
           "Activity"
         ],
-        "summary": "Add new activity records.",
         "requestBody": {
-          "description": "Activity to be uploaded.",
+          "description": "One activity record or an array of them.",
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "oneOf": [
+                  {
+                    "$ref": "#/components/schemas/Activity"
+                  },
+                  {
+                    "$ref": "#/components/schemas/Activities"
+                  }
+                ]
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "The stored activity records.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Activities"
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          }
+        }
+      },
+      "put": {
+        "summary": "Replace an activity record",
+        "description": "Stores the activity record in the body, replacing the stored record with the same `_id`, and returns it. The body must be one object with a valid `_id`.\n\nPermission: `api:activity:update`. Mounted only when `API_SECRET` is set.\n",
+        "operationId": "updateActivity",
+        "tags": [
+          "Activity"
+        ],
+        "requestBody": {
+          "description": "The activity record, with its `_id`.",
+          "required": true,
           "content": {
             "application/json": {
               "schema": {
                 "$ref": "#/components/schemas/Activity"
               }
             }
-          },
-          "required": true
+          }
         },
         "responses": {
           "200": {
-            "description": "Uploaded activity record."
+            "description": "The stored activity record.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Activity"
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
           }
         }
       }
     },
     "/activity/{id}": {
       "delete": {
+        "summary": "Delete an activity record",
+        "description": "Removes the activity record with this `_id`. The answer is an empty object.\n\nPermission: `api:activity:delete`. Mounted only when `API_SECRET` is set.\n",
+        "operationId": "removeActivity",
         "tags": [
           "Activity"
         ],
-        "summary": "Delete activity record with id",
         "parameters": [
           {
-            "name": "id",
-            "in": "path",
-            "description": "id of record to delete",
-            "required": true,
-            "schema": {
-              "type": "string"
-            }
+            "$ref": "#/components/parameters/recordId"
           }
         ],
         "responses": {
           "200": {
-            "description": "A status record of the delete.",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/DeleteStatus"
-                }
-              }
-            }
-          }
-        }
-      }
-    },
-    "/adminnotifies": {
-      "get": {
-        "tags": [
-          "Status"
-        ],
-        "summary": "Get admin notifications",
-        "description": "Get notifications for admin users.",
-        "responses": {
-          "200": {
-            "description": "Admin notifications",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/inline_response_200"
-                }
-              }
-            }
-          }
-        }
-      }
-    },
-    "/alexa": {
-      "post": {
-        "tags": [
-          "Integrations"
-        ],
-        "summary": "Endpoint for Amazon Alexa Skill.",
-        "description": "",
-        "requestBody": {
-          "description": "Request from Alexa.",
-          "content": {
-            "application/json": {
-              "schema": {
-                "type": "object"
-              }
-            }
+            "$ref": "#/components/responses/EmptyObject"
           },
-          "required": true
-        },
-        "responses": {
-          "200": {
-            "description": "Response for Alexa."
-          }
-        }
-      }
-    },
-    "/googlehome": {
-      "post": {
-        "tags": [
-          "Integrations"
-        ],
-        "summary": "Endpoint for Google Home Action.",
-        "description": "",
-        "requestBody": {
-          "description": "Request from Google Home.",
-          "content": {
-            "application/json": {
-              "schema": {
-                "type": "object"
-              }
-            }
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
           },
-          "required": true
-        },
-        "responses": {
-          "200": {
-            "description": "Response for Google Home."
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
           }
         }
       }
     },
     "/food": {
       "get": {
+        "summary": "All food records",
+        "description": "Returns every food record, quickpicks included. This read takes no query parameters.\n\nPermission: `api:food:read`.\n",
+        "operationId": "listFood",
         "tags": [
           "Food"
         ],
-        "summary": "Get food entries",
-        "description": "Get food entries.",
         "responses": {
           "200": {
-            "description": "An array of food entries",
+            "description": "An array of food records.",
             "content": {
               "application/json": {
                 "schema": {
@@ -1332,107 +1373,138 @@
                 }
               }
             }
-          }
-        }
-      },
-      "put": {
-        "tags": [
-          "Food"
-        ],
-        "summary": "Update a food entry",
-        "description": "Update an existing food entry.",
-        "requestBody": {
-          "content": {
-            "application/json": {
-              "schema": {
-                "$ref": "#/components/schemas/Food"
-              }
-            }
-          }
-        },
-        "responses": {
-          "200": {
-            "description": "The updated food entry.",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/Food"
-                }
-              }
-            }
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
           }
         }
       },
       "post": {
+        "summary": "Add food records",
+        "description": "Stores one food record or an array of them and returns them as stored, with their `_id`.\n\nPermission: `api:food:create`. Mounted only when `API_SECRET` is set.\n",
+        "operationId": "addFood",
         "tags": [
           "Food"
         ],
-        "summary": "Add a food entry",
-        "description": "Add a new food entry.",
         "requestBody": {
+          "description": "One food record or an array of them.",
+          "required": true,
           "content": {
             "application/json": {
               "schema": {
-                "$ref": "#/components/schemas/Food"
+                "oneOf": [
+                  {
+                    "$ref": "#/components/schemas/Food"
+                  },
+                  {
+                    "$ref": "#/components/schemas/Foods"
+                  }
+                ]
               }
             }
           }
         },
         "responses": {
           "200": {
-            "description": "The created food entry.",
+            "description": "The stored food records.",
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/Food"
+                  "$ref": "#/components/schemas/Foods"
                 }
               }
             }
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          }
+        }
+      },
+      "put": {
+        "summary": "Replace food records",
+        "description": "Stores one food record or an array of them, each replacing the stored record with the same `_id`, and returns them as an array.\n\nPermission: `api:food:update`. Mounted only when `API_SECRET` is set.\n",
+        "operationId": "updateFood",
+        "tags": [
+          "Food"
+        ],
+        "requestBody": {
+          "description": "One food record or an array of them, each with its `_id`.",
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "oneOf": [
+                  {
+                    "$ref": "#/components/schemas/Food"
+                  },
+                  {
+                    "$ref": "#/components/schemas/Foods"
+                  }
+                ]
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "The stored food records.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Foods"
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
           }
         }
       }
     },
     "/food/{id}": {
       "delete": {
+        "summary": "Delete a food record",
+        "description": "Removes the food record with this `_id`. The answer is an empty object.\n\nPermission: `api:food:delete`. Mounted only when `API_SECRET` is set.\n",
+        "operationId": "removeFood",
         "tags": [
           "Food"
         ],
-        "summary": "Delete a food entry",
-        "description": "Delete a food entry by its ID.",
         "parameters": [
           {
-            "name": "id",
-            "in": "path",
-            "required": true,
-            "schema": {
-              "type": "string"
-            }
+            "$ref": "#/components/parameters/recordId"
           }
         ],
         "responses": {
           "200": {
-            "description": "Empty object on success.",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "type": "object"
-                }
-              }
-            }
+            "$ref": "#/components/responses/EmptyObject"
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
           }
         }
       }
     },
     "/food/quickpicks": {
       "get": {
+        "summary": "Quickpick food records",
+        "description": "Returns the food records of type `quickpick` that are not hidden, ordered by `position`.\n\nPermission: `api:food:read`.\n",
+        "operationId": "listQuickpicks",
         "tags": [
           "Food"
         ],
-        "summary": "Get quickpick food entries",
-        "description": "Get food entries that are marked as quickpicks.",
         "responses": {
           "200": {
-            "description": "An array of food entries",
+            "description": "An array of food records.",
             "content": {
               "application/json": {
                 "schema": {
@@ -1440,24 +1512,163 @@
                 }
               }
             }
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
           }
         }
       }
     },
     "/food/regular": {
       "get": {
+        "summary": "Regular food records",
+        "description": "Returns the food records of type `food`.\n\nPermission: `api:food:read`.\n",
+        "operationId": "listRegularFood",
         "tags": [
           "Food"
         ],
-        "summary": "Get regular food entries",
-        "description": "Get food entries that are not marked as quickpicks.",
         "responses": {
           "200": {
-            "description": "An array of food entries",
+            "description": "An array of food records.",
             "content": {
               "application/json": {
                 "schema": {
                   "$ref": "#/components/schemas/Foods"
+                }
+              }
+            }
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          }
+        }
+      }
+    },
+    "/adminnotifies": {
+      "get": {
+        "summary": "Messages for the site administrator",
+        "description": "Returns the server's messages for the administrator, such as repeated failed sign-ins. Anyone may call it: `notifyCount` is always filled in, and the messages themselves are included only for a caller with `*:*:admin`.\n",
+        "operationId": "getAdminNotifies",
+        "security": [],
+        "tags": [
+          "Status"
+        ],
+        "responses": {
+          "200": {
+            "description": "The messages, wrapped as `{\"status\": 200, \"message\": {...}}`.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "status": {
+                      "type": "integer",
+                      "example": 200
+                    },
+                    "message": {
+                      "type": "object",
+                      "properties": {
+                        "notifies": {
+                          "type": "array",
+                          "description": "Empty unless the caller has `*:*:admin`.",
+                          "items": {
+                            "type": "object",
+                            "properties": {
+                              "title": {
+                                "type": "string"
+                              },
+                              "message": {
+                                "type": "string"
+                              },
+                              "count": {
+                                "type": "integer"
+                              },
+                              "lastRecorded": {
+                                "type": "integer",
+                                "format": "int64"
+                              },
+                              "persistent": {
+                                "type": "boolean"
+                              }
+                            }
+                          }
+                        },
+                        "notifyCount": {
+                          "type": "integer"
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/verifyauth": {
+      "get": {
+        "summary": "Check the credentials on a request",
+        "description": "Reports what the credentials on the request allow. Anyone may call it; a request without credentials is answered with the default roles' permissions and `message: UNAUTHORIZED`.\n",
+        "operationId": "verifyAuth",
+        "security": [],
+        "tags": [
+          "Status"
+        ],
+        "responses": {
+          "200": {
+            "description": "What the credentials allow, wrapped as `{\"status\": 200, \"message\": {...}}`.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "status": {
+                      "type": "integer",
+                      "example": 200
+                    },
+                    "message": {
+                      "type": "object",
+                      "properties": {
+                        "canRead": {
+                          "type": "boolean",
+                          "description": "The credentials grant `*:*:read`."
+                        },
+                        "canWrite": {
+                          "type": "boolean",
+                          "description": "The credentials grant `*:*:write`."
+                        },
+                        "isAdmin": {
+                          "type": "boolean",
+                          "description": "The credentials grant `*:*:admin`."
+                        },
+                        "message": {
+                          "type": "string",
+                          "enum": [
+                            "OK",
+                            "UNAUTHORIZED"
+                          ],
+                          "description": "`OK` when the credentials, not the default roles, grant `*:*:read`."
+                        },
+                        "rolefound": {
+                          "type": "string",
+                          "enum": [
+                            "FOUND",
+                            "NOTFOUND"
+                          ],
+                          "description": "`FOUND` when the credentials name a subject."
+                        },
+                        "permissions": {
+                          "type": "string",
+                          "enum": [
+                            "DEFAULT",
+                            "ROLE"
+                          ],
+                          "description": "`DEFAULT` when the answer comes from `AUTH_DEFAULT_ROLES`."
+                        }
+                      }
+                    }
+                  }
                 }
               }
             }
@@ -1467,117 +1678,252 @@
     },
     "/notifications/ack": {
       "get": {
+        "summary": "Acknowledge an alarm",
+        "description": "Acknowledges, that is silences, the alarm of `level` in `group` for `time` milliseconds (30 minutes if not given). Acknowledging level 2 also acknowledges level 1. The answer is the text `OK`.\n\nPermission: `notifications:*:ack`. Mounted only when `API_SECRET` is set. A caller without the permission is refused; the refusal is currently answered with HTTP 500 rather than 401.\n",
+        "operationId": "ackNotification",
         "tags": [
           "Notifications"
         ],
-        "summary": "Acknowledge a notification",
-        "description": "Acknowledge a notification.",
         "parameters": [
           {
             "name": "level",
             "in": "query",
-            "required": false,
+            "description": "Alarm level to acknowledge (1 warning, 2 urgent).",
+            "required": true,
             "schema": {
-              "type": "number"
+              "type": "integer"
             }
           },
           {
             "name": "group",
             "in": "query",
+            "description": "Alarm group.",
             "required": false,
             "schema": {
-              "type": "string"
+              "type": "string",
+              "default": "default"
             }
           },
           {
             "name": "time",
             "in": "query",
+            "description": "How long to silence the alarm, in milliseconds (default 30 minutes).",
             "required": false,
             "schema": {
-              "type": "number"
+              "type": "integer"
             }
           }
         ],
         "responses": {
           "200": {
-            "description": "OK"
+            "description": "The alarm was acknowledged.",
+            "content": {
+              "text/plain": {
+                "schema": {
+                  "type": "string",
+                  "example": "OK"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Refused for lack of permission (see above)."
           }
         }
       }
     },
     "/notifications/pushovercallback": {
       "post": {
+        "summary": "Pushover acknowledgement callback",
+        "description": "The callback Pushover calls when a user acknowledges an emergency-priority notification. It needs no credentials; the notification is identified by its `receipt`. The answer is `OK`, or HTTP 500 when no sent notification has that receipt.\n",
+        "operationId": "pushoverCallback",
+        "security": [],
         "tags": [
           "Notifications"
         ],
-        "summary": "Pushover callback",
-        "description": "Callback for pushover notifications.",
-        "responses": {
-          "200": {
-            "description": "OK"
-          }
-        }
-      }
-    },
-    "/verifyauth": {
-      "get": {
-        "tags": [
-          "Status"
-        ],
-        "summary": "Verify authentication token",
-        "description": "Verify that the token (API secret) is valid.",
-        "responses": {
-          "200": {
-            "description": "Status of the token.",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/inline_response_200_1"
+        "requestBody": {
+          "description": "Pushover's callback fields.",
+          "required": true,
+          "content": {
+            "application/x-www-form-urlencoded": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "receipt": {
+                    "type": "string"
+                  }
                 }
               }
-            }
-          }
-        }
-      }
-    },
-    "/versions": {
-      "get": {
-        "tags": [
-          "Status"
-        ],
-        "summary": "Get API versions",
-        "description": "Get available API versions.",
-        "responses": {
-          "200": {
-            "description": "Available API versions.",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "type": "array",
-                  "items": {
-                    "$ref": "#/components/schemas/inline_response_200_2"
+            },
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "receipt": {
+                    "type": "string"
                   }
                 }
               }
             }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "The notification was acknowledged."
+          },
+          "400": {
+            "description": "The body could not be parsed."
+          },
+          "500": {
+            "description": "No sent notification has this receipt."
+          }
+        }
+      }
+    },
+    "/alexa": {
+      "post": {
+        "summary": "Amazon Alexa skill endpoint",
+        "description": "Answers requests from the Nightscout Alexa skill with speech built from the current data.\n\nPermission: `api:*:read`. Mounted only when `alexa` is in `ENABLE`.\n",
+        "operationId": "alexa",
+        "tags": [
+          "Integrations"
+        ],
+        "requestBody": {
+          "description": "An Alexa skill request.",
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "An Alexa skill response, or an empty string for a request type that takes no speech.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "oneOf": [
+                    {
+                      "type": "object"
+                    },
+                    {
+                      "type": "string"
+                    }
+                  ]
+                }
+              }
+            }
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          }
+        }
+      }
+    },
+    "/googlehome": {
+      "post": {
+        "summary": "Google Home (Dialogflow) endpoint",
+        "description": "Answers fulfillment requests from the Nightscout Google Home action with speech built from the current data.\n\nPermission: `api:*:read`. Mounted only when `googlehome` is in `ENABLE`.\n",
+        "operationId": "googleHome",
+        "tags": [
+          "Integrations"
+        ],
+        "requestBody": {
+          "description": "A Dialogflow fulfillment request.",
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "A Dialogflow fulfillment response.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object"
+                }
+              }
+            }
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
           }
         }
       }
     },
     "/experiments/test": {
       "get": {
+        "summary": "Check the authorization:debug:test permission",
+        "description": "Answers `{\"status\": \"ok\"}` to a caller with `authorization:debug:test`. Used to test permission checks.\n\nMounted only when `API_SECRET` is set.\n",
+        "operationId": "experimentsTest",
         "tags": [
           "Debug"
         ],
-        "summary": "Experiments - Test endpoint",
-        "description": "Test endpoint for experiments.",
         "responses": {
           "200": {
-            "description": "Status ok",
+            "description": "The caller has the permission.",
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/inline_response_200_3"
+                  "type": "object",
+                  "properties": {
+                    "status": {
+                      "type": "string",
+                      "example": "ok"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          }
+        }
+      }
+    },
+    "/versions": {
+      "servers": [
+        {
+          "url": "/api"
+        }
+      ],
+      "get": {
+        "summary": "API versions served",
+        "description": "Lists the API versions this server serves and where. Served at `/api/versions`, not under `/api/v1`. Needs no credentials.\n",
+        "operationId": "getVersions",
+        "security": [],
+        "tags": [
+          "Status"
+        ],
+        "responses": {
+          "200": {
+            "description": "The API versions.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "type": "object",
+                    "properties": {
+                      "version": {
+                        "type": "string",
+                        "example": "1.0.0"
+                      },
+                      "url": {
+                        "type": "string",
+                        "example": "/api/v1"
+                      }
+                    }
+                  }
                 }
               }
             }
@@ -1587,6 +1933,203 @@
     }
   },
   "components": {
+    "securitySchemes": {
+      "api_secret": {
+        "type": "apiKey",
+        "name": "api-secret",
+        "in": "header",
+        "description": "SHA-1 (or SHA-512) hex digest of `API_SECRET`."
+      },
+      "api_secret_in_url": {
+        "type": "apiKey",
+        "name": "secret",
+        "in": "query",
+        "description": "The same digest as `api-secret`, in the URL. Accepted for existing clients; prefer the header."
+      },
+      "token_in_url": {
+        "type": "apiKey",
+        "name": "token",
+        "in": "query",
+        "description": "An access token created in the admin tools (`/admin`). Accepted for existing clients and shared links; treat such URLs as secrets."
+      },
+      "jwtoken": {
+        "type": "http",
+        "scheme": "bearer",
+        "bearerFormat": "JWT",
+        "description": "A JWT from `GET /api/v2/authorization/request/{accessToken}`."
+      }
+    },
+    "parameters": {
+      "find": {
+        "name": "find",
+        "in": "query",
+        "required": false,
+        "style": "deepObject",
+        "explode": true,
+        "description": "Filter, in nested query syntax: `find[dateString][$gte]=2015-08-27`, `find[type]=sgv`, `find[insulin][$gte]=3`. Values arrive as strings; `date`, `sgv` and date fields are converted. See *Query operators*.",
+        "schema": {
+          "type": "object",
+          "additionalProperties": true
+        }
+      },
+      "countEntries": {
+        "name": "count",
+        "in": "query",
+        "required": false,
+        "description": "Number of entries to return (default 10). See *count* in the description of this API.",
+        "schema": {
+          "type": "integer",
+          "minimum": 0,
+          "default": 10
+        }
+      },
+      "countDelete": {
+        "name": "count",
+        "in": "query",
+        "required": false,
+        "description": "Checked like a read's `count`, but does not limit the delete. `count=0` and other values that are not a whole number of records are refused with HTTP 400.",
+        "schema": {
+          "type": "integer",
+          "minimum": 1
+        }
+      },
+      "ifModifiedSince": {
+        "name": "If-Modified-Since",
+        "in": "header",
+        "required": false,
+        "description": "HTTP date; if the newest record returned is not newer, the answer is HTTP 304.",
+        "schema": {
+          "type": "string"
+        }
+      },
+      "entrySpec": {
+        "name": "spec",
+        "in": "path",
+        "required": true,
+        "description": "A 24-character hex entry id, such as `55cf81bc436037528ec75fa5`, or an entry type such as `sgv`, `mbg` or `cal`.",
+        "schema": {
+          "type": "string",
+          "example": "sgv"
+        }
+      },
+      "storage": {
+        "name": "storage",
+        "in": "path",
+        "required": true,
+        "description": "`entries`, `treatments` or `devicestatus`. Any other value reads `entries`.",
+        "schema": {
+          "type": "string",
+          "enum": [
+            "entries",
+            "treatments",
+            "devicestatus"
+          ],
+          "example": "entries"
+        }
+      },
+      "patternPrefix": {
+        "name": "prefix",
+        "in": "path",
+        "required": true,
+        "description": "Start of the pattern, matched from the beginning of the field, with brace expansion: `2015-04`, `20{14..15}-04`.",
+        "schema": {
+          "type": "string",
+          "example": "2015-04"
+        }
+      },
+      "patternRegex": {
+        "name": "regex",
+        "in": "path",
+        "required": true,
+        "description": "Rest of the pattern, a regular expression matched anywhere after the prefix, with brace expansion: `T{13..18}:{00..15}`.",
+        "schema": {
+          "type": "string",
+          "example": "T{13..18}:{00..15}"
+        }
+      },
+      "recordId": {
+        "name": "id",
+        "in": "path",
+        "required": true,
+        "description": "The record's `_id`, a 24-character hex string. Other values are refused with HTTP 400.",
+        "schema": {
+          "type": "string",
+          "example": "55cf81bc436037528ec75fa5"
+        }
+      }
+    },
+    "responses": {
+      "Entries": {
+        "description": "An array of entries. JSON, or text in the format the extension or `Accept` header asks for.",
+        "content": {
+          "application/json": {
+            "schema": {
+              "$ref": "#/components/schemas/Entries"
+            }
+          },
+          "text/plain": {
+            "schema": {
+              "type": "string",
+              "description": "Tab-separated `dateString`, `date`, `sgv`, `direction`, `device`."
+            }
+          },
+          "text/tab-separated-values": {
+            "schema": {
+              "type": "string"
+            }
+          },
+          "text/csv": {
+            "schema": {
+              "type": "string",
+              "description": "Comma-separated `dateString`, `date`, `sgv`, `direction`, `device`."
+            }
+          }
+        }
+      },
+      "NotModified": {
+        "description": "Nothing newer than `If-Modified-Since`."
+      },
+      "DeleteStatus": {
+        "description": "The number of records deleted.",
+        "content": {
+          "application/json": {
+            "schema": {
+              "$ref": "#/components/schemas/DeleteStatus"
+            }
+          }
+        }
+      },
+      "EmptyObject": {
+        "description": "An empty object.",
+        "content": {
+          "application/json": {
+            "schema": {
+              "type": "object"
+            }
+          }
+        }
+      },
+      "BadRequest": {
+        "description": "The request was refused: a malformed `count`, a refused query operator, a malformed body or `_id`, or too many records.",
+        "content": {
+          "application/json": {
+            "schema": {
+              "$ref": "#/components/schemas/Error"
+            }
+          }
+        }
+      },
+      "Unauthorized": {
+        "description": "The credentials, or the default roles, do not grant the permission.",
+        "content": {
+          "application/json": {
+            "schema": {
+              "$ref": "#/components/schemas/Error"
+            }
+          }
+        }
+      }
+    },
     "schemas": {
       "Entry": {
         "properties": {
@@ -1596,11 +2139,12 @@
           },
           "dateString": {
             "type": "string",
-            "description": "dateString, MUST be ISO `8601` format date parseable by Javascript Date()"
+            "description": "Date and time in ISO 8601 format, readable by JavaScript `Date()`."
           },
           "date": {
-            "type": "number",
-            "description": "Epoch"
+            "type": "integer",
+            "description": "Time of the reading in epoch milliseconds.",
+            "format": "int64"
           },
           "sgv": {
             "type": "number",
@@ -1625,6 +2169,41 @@
           "rssi": {
             "type": "number",
             "description": "The signal strength from CGM transmitter. (only available for sgv types)"
+          },
+          "_id": {
+            "type": "string",
+            "description": "Storage id assigned by Nightscout, a 24-character hex string."
+          },
+          "device": {
+            "type": "string",
+            "description": "The device or uploader that produced the entry."
+          },
+          "mbg": {
+            "type": "number",
+            "description": "Meter glucose value (only for `mbg` entries)."
+          },
+          "utcOffset": {
+            "type": "integer",
+            "description": "UTC offset of `dateString` in minutes, set by the server."
+          },
+          "sysTime": {
+            "type": "string",
+            "description": "Set by the server from `dateString`."
+          },
+          "srvCreated": {
+            "type": "integer",
+            "format": "int64",
+            "description": "Server time the record was stored (epoch milliseconds)."
+          },
+          "srvModified": {
+            "type": "integer",
+            "format": "int64",
+            "description": "Server time the record was last changed (epoch milliseconds)."
+          },
+          "mills": {
+            "type": "integer",
+            "format": "int64",
+            "description": "Epoch milliseconds; present on entries served from the in-memory cache."
           }
         }
       },
@@ -1646,15 +2225,15 @@
           },
           "created_at": {
             "type": "string",
-            "description": "dateString, MUST be ISO `8601` format date parseable by Javascript Date()"
+            "description": "Date and time in ISO 8601 format, readable by JavaScript `Date()`."
           },
           "openaps": {
-            "type": "string",
-            "description": "OpenAPS devicestatus record - TODO: Fill Out Details"
+            "type": "object",
+            "description": "OpenAPS (oref0, AAPS, Trio) loop state."
           },
           "loop": {
-            "type": "string",
-            "description": "Loop devicestatus record - TODO: Fill Out Details"
+            "type": "object",
+            "description": "Loop state."
           },
           "pump": {
             "$ref": "#/components/schemas/pump"
@@ -1664,6 +2243,10 @@
           },
           "xdripjs": {
             "$ref": "#/components/schemas/xdripjs"
+          },
+          "_id": {
+            "type": "string",
+            "description": "Storage id assigned by Nightscout, a 24-character hex string."
           }
         }
       },
@@ -1677,7 +2260,7 @@
         "properties": {
           "clock": {
             "type": "string",
-            "description": "dateString, MUST be ISO `8601` format date parseable by Javascript Date()"
+            "description": "Date and time in ISO 8601 format, readable by JavaScript `Date()`."
           },
           "battery": {
             "$ref": "#/components/schemas/pumpbattery"
@@ -1719,7 +2302,7 @@
           },
           "timestamp": {
             "type": "string",
-            "description": "dateString, MUST be ISO `8601` format date parseable by Javascript Date()"
+            "description": "Date and time in ISO 8601 format, readable by JavaScript `Date()`."
           }
         }
       },
@@ -1843,7 +2426,7 @@
         "properties": {
           "_id": {
             "type": "string",
-            "description": "Internally assigned id."
+            "description": "Storage id assigned by Nightscout."
           },
           "eventType": {
             "type": "string",
@@ -1851,7 +2434,7 @@
           },
           "created_at": {
             "type": "string",
-            "description": "The date of the event, might be set retroactively ."
+            "description": "Date and time of the event in ISO 8601 format; the server uses the current time if it is missing."
           },
           "glucose": {
             "type": "string",
@@ -1896,6 +2479,24 @@
           "enteredBy": {
             "type": "string",
             "description": "Who entered the treatment."
+          },
+          "utcOffset": {
+            "type": "integer",
+            "description": "UTC offset of `created_at` in minutes, set by the server."
+          },
+          "srvCreated": {
+            "type": "integer",
+            "format": "int64",
+            "description": "Server time the record was stored (epoch milliseconds)."
+          },
+          "srvModified": {
+            "type": "integer",
+            "format": "int64",
+            "description": "Server time the record was last changed (epoch milliseconds)."
+          },
+          "refused": {
+            "type": "string",
+            "description": "Present only in a POST answer, on a treatment `WRITE_VALIDATION=reject` refused; gives the reason. Such a treatment has no `_id`."
           }
         }
       },
@@ -1906,26 +2507,48 @@
         }
       },
       "Profile": {
+        "type": "object",
+        "description": "A profile record: a set of named profiles and which one is the default.",
         "properties": {
-          "sens": {
-            "type": "integer",
-            "description": "Internally assigned id"
-          },
-          "dia": {
-            "type": "integer",
-            "description": "Internally assigned id"
-          },
-          "carbratio": {
-            "type": "integer",
-            "description": "Internally assigned id"
-          },
-          "carbs_hr": {
-            "type": "integer",
-            "description": "Internally assigned id"
-          },
           "_id": {
             "type": "string",
-            "description": "Internally assigned id"
+            "description": "Storage id assigned by Nightscout, a 24-character hex string."
+          },
+          "defaultProfile": {
+            "type": "string",
+            "description": "Name of the profile in `store` that is in use."
+          },
+          "startDate": {
+            "type": "string",
+            "description": "When this record takes effect, ISO 8601."
+          },
+          "store": {
+            "type": "object",
+            "description": "Named profiles.",
+            "additionalProperties": {
+              "$ref": "#/components/schemas/ProfileSettings"
+            }
+          },
+          "units": {
+            "type": "string"
+          },
+          "created_at": {
+            "type": "string",
+            "description": "Date and time in ISO 8601 format, readable by JavaScript `Date()`."
+          },
+          "mills": {
+            "type": "integer",
+            "format": "int64"
+          },
+          "srvCreated": {
+            "type": "integer",
+            "format": "int64",
+            "description": "Server time the record was stored (epoch milliseconds)."
+          },
+          "srvModified": {
+            "type": "integer",
+            "format": "int64",
+            "description": "Server time the record was last changed (epoch milliseconds)."
           }
         }
       },
@@ -1939,29 +2562,75 @@
         "properties": {
           "apiEnabled": {
             "type": "boolean",
-            "description": "Whether or not the REST API is enabled."
+            "description": "Whether the REST API is enabled, that is, `API_SECRET` is set."
           },
           "careportalEnabled": {
             "type": "boolean",
-            "description": "Whether or not the careportal is enabled in the API."
-          },
-          "head": {
-            "type": "string",
-            "description": "The git identifier for the running instance of the app."
+            "description": "Whether the API is enabled and `careportal` is in `ENABLE`."
           },
           "name": {
             "type": "string",
-            "description": "Nightscout (static)"
+            "description": "Server name (`nightscout` unless configured)."
           },
           "version": {
             "type": "string",
-            "description": "The version label of the app."
+            "description": "Nightscout version, for example `16.0.0`."
           },
           "settings": {
             "$ref": "#/components/schemas/Settings"
           },
           "extendedSettings": {
             "$ref": "#/components/schemas/ExtendedSettings"
+          },
+          "status": {
+            "type": "string",
+            "example": "ok"
+          },
+          "serverTime": {
+            "type": "string",
+            "description": "Server time, ISO 8601."
+          },
+          "serverTimeEpoch": {
+            "type": "integer",
+            "format": "int64",
+            "description": "Server time, epoch milliseconds."
+          },
+          "boluscalcEnabled": {
+            "type": "boolean",
+            "description": "Whether the API is enabled and `boluscalc` is in `ENABLE`."
+          },
+          "authorized": {
+            "nullable": true,
+            "type": "object",
+            "description": "For a request carrying an access token, a JWT issued for it; otherwise `null`.",
+            "properties": {
+              "token": {
+                "type": "string"
+              },
+              "sub": {
+                "type": "string"
+              },
+              "permissionGroups": {
+                "type": "array",
+                "items": {
+                  "type": "array",
+                  "items": {
+                    "type": "string"
+                  }
+                }
+              },
+              "iat": {
+                "type": "integer"
+              },
+              "exp": {
+                "type": "integer"
+              }
+            }
+          },
+          "runtimeState": {
+            "type": "string",
+            "example": "loaded",
+            "description": "Boot state of the server."
           }
         }
       },
@@ -1972,11 +2641,11 @@
             "description": "Default units for glucose measurements across the server."
           },
           "timeFormat": {
-            "type": "string",
+            "type": "integer",
             "description": "Default time format",
             "enum": [
-              "12",
-              "24"
+              12,
+              24
             ]
           },
           "customTitle": {
@@ -2005,14 +2674,14 @@
           },
           "alarmTypes": {
             "type": "array",
-            "description": "Enabled alarm types, can be multiple",
             "items": {
-              "type": "string"
+              "type": "string",
+              "enum": [
+                "simple",
+                "predict"
+              ]
             },
-            "enum": [
-              "simple",
-              "predict"
-            ]
+            "description": "Enabled alarm types, can be multiple"
           },
           "alarmUrgentHigh": {
             "type": "boolean",
@@ -2048,10 +2717,10 @@
           },
           "enable": {
             "type": "array",
-            "description": "Enabled features",
             "items": {
               "type": "string"
-            }
+            },
+            "description": "Enabled features"
           },
           "thresholds": {
             "$ref": "#/components/schemas/Threshold"
@@ -2082,66 +2751,57 @@
         "description": "Extended settings of client side plugins"
       },
       "MongoQuery": {
-        "description": "Mongo Query object."
+        "type": "object",
+        "description": "The query that would be run.",
+        "properties": {
+          "query": {
+            "type": "object",
+            "description": "The MongoDB filter."
+          },
+          "input": {
+            "type": "object",
+            "description": "The query parameters as received."
+          },
+          "params": {
+            "type": "object",
+            "description": "The route parameters."
+          },
+          "storage": {
+            "type": "string"
+          }
+        }
       },
       "Error": {
+        "type": "object",
+        "description": "Error answer.",
         "properties": {
-          "code": {
+          "status": {
             "type": "integer",
-            "format": "int32"
+            "description": "HTTP status code."
           },
           "message": {
             "type": "string"
           },
-          "fields": {
-            "type": "object"
+          "description": {
+            "description": "More detail; absent on some errors."
           }
         }
       },
       "DeleteStatus": {
+        "type": "object",
+        "description": "Result of a delete.",
         "properties": {
-          "n": {
-            "type": "integer",
-            "format": "int32",
-            "description": "Number of records deleted. Legacy alias of deletedCount."
+          "acknowledged": {
+            "type": "boolean",
+            "description": "The database acknowledged the delete. Absent from the profile prune answer."
           },
           "deletedCount": {
             "type": "integer",
-            "format": "int32",
             "description": "Number of records deleted."
           },
-          "optime": {
-            "$ref": "#/components/schemas/optime"
-          },
-          "electionId": {
-            "type": "string",
-            "description": "Election id of operation"
-          },
-          "ok": {
+          "n": {
             "type": "integer",
-            "description": "Status of whether delete was successful",
-            "format": "int32"
-          },
-          "operationTime": {
-            "type": "string",
-            "description": "Time delete operation was executed"
-          },
-          "$clusterTime": {
-            "type": "string",
-            "description": "Information about execution time in cluster environment"
-          }
-        }
-      },
-      "optime": {
-        "properties": {
-          "ts": {
-            "type": "string",
-            "description": "Time the operation started"
-          },
-          "t": {
-            "type": "integer",
-            "description": "Time the operation took to complete",
-            "format": "int32"
+            "description": "Number of records deleted. Legacy alias of `deletedCount`."
           }
         }
       },
@@ -2161,7 +2821,11 @@
           },
           "created_at": {
             "type": "string",
-            "description": "dateString, MUST be ISO `8601` format date parseable by Javascript Date()"
+            "description": "Date and time in ISO 8601 format, readable by JavaScript `Date()`."
+          },
+          "_id": {
+            "type": "string",
+            "description": "Storage id assigned by Nightscout, a 24-character hex string."
           }
         }
       },
@@ -2172,21 +2836,40 @@
         }
       },
       "Food": {
+        "type": "object",
         "properties": {
           "_id": {
+            "type": "string",
+            "description": "Storage id assigned by Nightscout, a 24-character hex string."
+          },
+          "type": {
+            "type": "string",
+            "enum": [
+              "food",
+              "quickpick"
+            ],
+            "description": "`food` for a food, `quickpick` for a quickpick."
+          },
+          "category": {
             "type": "string"
           },
-          "food": {
+          "subcategory": {
             "type": "string"
           },
-          "amount": {
-            "type": "number"
+          "name": {
+            "type": "string"
+          },
+          "portion": {
+            "type": "number",
+            "description": "Size of one portion, in `unit`."
           },
           "unit": {
-            "type": "string"
+            "type": "string",
+            "example": "g"
           },
           "carbs": {
-            "type": "number"
+            "type": "number",
+            "description": "Grams of carbohydrate per portion."
           },
           "fat": {
             "type": "number"
@@ -2194,8 +2877,32 @@
           "protein": {
             "type": "number"
           },
-          "quickPick": {
-            "type": "boolean"
+          "energy": {
+            "type": "number"
+          },
+          "gi": {
+            "type": "number",
+            "description": "Glycemic index class (1 low, 2 medium, 3 high)."
+          },
+          "hidden": {
+            "description": "Quickpick hidden flag; stored as a boolean or the string `true`/`false`."
+          },
+          "hideafteruse": {
+            "description": "Quickpick flag; boolean or string."
+          },
+          "position": {
+            "description": "Quickpick ordering; number or numeric string."
+          },
+          "foods": {
+            "type": "array",
+            "description": "Foods in a quickpick.",
+            "items": {
+              "type": "object"
+            }
+          },
+          "created_at": {
+            "type": "string",
+            "description": "Date and time in ISO 8601 format, readable by JavaScript `Date()`."
           }
         }
       },
@@ -2205,81 +2912,86 @@
           "$ref": "#/components/schemas/Food"
         }
       },
-      "inline_response_200": {
+      "ProfileTimeValue": {
         "type": "object",
         "properties": {
-          "notifies": {
+          "time": {
+            "type": "string",
+            "example": "00:00",
+            "description": "Start time, `HH:MM`."
+          },
+          "value": {
+            "type": "number"
+          },
+          "timeAsSeconds": {
+            "type": "number",
+            "description": "Start time in seconds after midnight."
+          }
+        }
+      },
+      "ProfileSettings": {
+        "type": "object",
+        "description": "One named profile. Values are as entered in the profile editor or uploaded by an app; their meaning depends on `units` and on the app that uses them.",
+        "properties": {
+          "dia": {
+            "type": "number",
+            "description": "Duration of insulin action, hours."
+          },
+          "carbratio": {
+            "description": "Carb ratio schedule, grams per unit.",
             "type": "array",
             "items": {
-              "type": "object"
+              "$ref": "#/components/schemas/ProfileTimeValue"
             }
           },
-          "notifyCount": {
+          "carbs_hr": {
+            "type": "number",
+            "description": "Carbs absorbed per hour."
+          },
+          "delay": {
             "type": "number"
-          }
-        }
-      },
-      "inline_response_200_1": {
-        "type": "object",
-        "properties": {
-          "canRead": {
-            "type": "boolean"
           },
-          "canWrite": {
-            "type": "boolean"
+          "sens": {
+            "description": "Insulin sensitivity schedule, in `units` per unit of insulin.",
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/ProfileTimeValue"
+            }
           },
-          "isAdmin": {
-            "type": "boolean"
+          "basal": {
+            "description": "Basal rate schedule, units per hour.",
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/ProfileTimeValue"
+            }
           },
-          "message": {
-            "type": "string"
+          "target_low": {
+            "description": "Low target schedule, in `units`.",
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/ProfileTimeValue"
+            }
           },
-          "rolefound": {
-            "type": "string"
+          "target_high": {
+            "description": "High target schedule, in `units`.",
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/ProfileTimeValue"
+            }
           },
-          "permissions": {
-            "type": "string"
-          }
-        }
-      },
-      "inline_response_200_2": {
-        "type": "object",
-        "properties": {
-          "version": {
-            "type": "string"
+          "timezone": {
+            "type": "string",
+            "example": "Europe/Prague"
           },
-          "url": {
-            "type": "string"
-          }
-        }
-      },
-      "inline_response_200_3": {
-        "type": "object",
-        "properties": {
-          "status": {
+          "units": {
+            "type": "string",
+            "example": "mg/dl",
+            "description": "`mg/dl` or `mmol`."
+          },
+          "startDate": {
             "type": "string"
           }
         }
-      }
-    },
-    "securitySchemes": {
-      "api_secret": {
-        "type": "apiKey",
-        "description": "The hash of the API_SECRET env var",
-        "name": "api-secret",
-        "in": "header"
-      },
-      "token_in_url": {
-        "type": "apiKey",
-        "description": "Add token as query item in the URL. You can manage access Token in `/admin`. This uses json webtokens.",
-        "name": "token",
-        "in": "query"
-      },
-      "jwtoken": {
-        "type": "http",
-        "description": "Use this if you know the temporary json webtoken.",
-        "scheme": "bearer",
-        "bearerFormat": "JWT"
       }
     }
   }
