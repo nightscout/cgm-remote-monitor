@@ -68,4 +68,15 @@ describe('Complete authorization reload boundary', function () {
       }
     }
   });
+  it('does not stop authorization reload on an unaddressable stored subject', async function () {
+    const doc = {_id: {toString: 'not callable'}, name: 'malformed', roles: ['admin']};
+    await subjects.insertOne(doc);
+    try {
+      await new Promise((resolve, reject) => storage.reload(error => error ? reject(error) : resolve()));
+      assert(!storage.subjects.some(subject => subject.name === 'malformed'));
+      assert(await subjects.findOne({name: 'malformed'}), 'diagnosis must not delete the stored record');
+      assert(storage.subjects.some(subject => subject.name === 'first'));
+    } finally { await subjects.deleteOne({name: 'malformed'}); }
+  });
+
 });

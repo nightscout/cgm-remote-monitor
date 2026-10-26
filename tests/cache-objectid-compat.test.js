@@ -228,3 +228,21 @@ describe('Cache ObjectId compatibility', function () {
     });
   });
 });
+
+
+describe('Targeted cache invalidation', function () {
+  it('invalidates one cache and its in-flight generation without clearing others', function () {
+    const assert = require('node:assert/strict');
+    const ddata = require('../lib/data/ddata')();
+    const bus = new (require('node:events').EventEmitter)();
+    const cache = require('../lib/server/cache')({extendedSettings: {}}, {ddata, bus});
+    cache.insertData('treatments', [{_id: 't', mills: Date.now()}]);
+    cache.insertData('entries', [{_id: 'e', mills: Date.now()}]);
+    const generation = cache.getRemovalGeneration('treatments');
+    assert.equal(cache.invalidate('treatments'), true);
+    assert.equal(cache.getRemovalGeneration('treatments'), generation + 1);
+    assert.equal(cache.getData('treatments').length, 0);
+    assert.equal(cache.getData('entries').length, 1);
+    assert.equal(cache.invalidate('unknown'), false);
+  });
+});

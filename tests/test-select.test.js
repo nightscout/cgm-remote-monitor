@@ -165,3 +165,71 @@ describe('Seeded test-file order', function () {
     assert.doesNotMatch(bad.stdout + bad.stderr, /passing/);
   });
 });
+
+
+describe('Non-vacuous test lanes', function () {
+  const fs = require('node:fs');
+  const os = require('node:os');
+  it('puts the zero-test guard on every tier command', function () {
+    const map = require('./tiers.json');
+    for (const name of Object.keys(map.tiers)) {
+      assert.ok(tiers.command(name, [], true)[1].includes('--fail-zero'), name);
+    }
+  });
+
+  it('fails an empty suite, with an unguarded control that passes', function () {
+    const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'nightscout-zero-tests-'));
+    try {
+      const file = path.join(dir, 'empty.cjs');
+      fs.writeFileSync(file, "describe('empty suite', function () {});\n");
+      const args = [require.resolve('mocha/bin/mocha'), '--no-config', '--no-package', file];
+      for (const [guard, expected] of [[[], 0], [['--fail-zero'], 1]]) {
+        const run = spawnSync(process.execPath, args.concat(guard), {encoding: 'utf8', timeout: 5000});
+        assert.ifError(run.error);
+        assert.equal(run.status, expected, run.stdout + run.stderr);
+        assert.match(run.stdout, /0 passing/);
+      }
+    } finally {
+      fs.rmSync(dir, {recursive: true, force: true});
+    }
+  });
+});
+
+
+describe('Executed test-file accounting', function () {
+  this.timeout(15000);
+  const fs = require('node:fs'), os = require('node:os');
+  const reporter = path.resolve(__dirname, '../scripts/execution-reporter.js');
+  it('fails empty/pending intended files even alongside passing helpers, serially and in parallel', function () {
+    const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'ns-execution-'));
+    try {
+      const sources = {
+        'empty.cjs': "describe('empty',()=>{});",
+        'pending.cjs': "describe('pending',()=>it.skip('behavior',()=>{}));",
+        'pass.cjs': "describe('pass',()=>it('behavior',()=>{}));"
+      };
+      for (const [file, source] of Object.entries(sources)) fs.writeFileSync(path.join(dir, file), source);
+      for (const parallel of [[], ['--parallel', '--jobs', '2']]) {
+        for (const [files, ok] of [[['empty.cjs', 'pass.cjs'], false], [['pending.cjs'], false], [['pass.cjs'], true]]) {
+          const run = spawnSync(process.execPath, [require.resolve('mocha/bin/mocha'), '--no-config', '--no-package',
+            '--fail-zero', '--reporter', reporter, ...parallel, ...files.map(file => path.join(dir, file))],
+          {encoding: 'utf8', timeout: 5000});
+          assert.ifError(run.error);
+          assert.equal(run.status === 0, ok, run.stdout + run.stderr);
+          if (!ok) assert.match(run.stderr, /TEST_EXECUTION: no test body completed/);
+        }
+      }
+    } finally { fs.rmSync(dir, {recursive: true, force: true}); }
+  });
+
+  it('does not count the database safety/cleanup files as intended coverage', function () {
+    const Reporter = require('../scripts/execution-reporter');
+    const EventEmitter = require('node:events');
+    const runner = new EventEmitter();
+    runner.stats = {}; runner.failures = 0;
+    const files = ['00_production-safety.test.js', 'XX_clean.test.js'].map(f => path.join(__dirname, f));
+    const reporter = new Reporter(runner, {files});
+    files.forEach(file => runner.emit('pass', {file, title: 'helper', slow: () => 1000, duration: 0}));
+    reporter.done(0, failures => assert(failures > 0));
+  });
+});

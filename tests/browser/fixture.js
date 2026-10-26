@@ -1,7 +1,27 @@
 'use strict';
 
 const assert = require('node:assert/strict');
+const fs = require('node:fs');
+const path = require('node:path');
 const {getBrowser} = require('./hooks');
+
+// The isolated chart fixtures use production main.css, including its local
+// font import. Serve only the font resources that stylesheet can request.
+const fontDirectory = path.resolve(__dirname, '../../static/font/ubuntu');
+const fontStylesheet = path.resolve(__dirname, '../../static/css/ubuntu-font.css');
+const fontAssets = new Map([
+  ['/css/ubuntu-font.css', [fontStylesheet, 'text/css; charset=utf-8']],
+  ...fs.readdirSync(fontDirectory).filter(name => name.endsWith('.woff2') || name.endsWith('.woff'))
+    .map(name => ['/font/ubuntu/' + name, [path.join(fontDirectory, name), name.endsWith('.woff2') ? 'font/woff2' : 'font/woff']])
+]);
+
+exports.serveFontAsset = function (request, response) {
+  const asset = fontAssets.get(new URL(request.url, 'http://127.0.0.1').pathname);
+  if (!asset) return false;
+  response.setHeader('Content-Type', asset[1]);
+  response.end(fs.readFileSync(asset[0]));
+  return true;
+};
 
 // Allow only the exact origin of a disposable fixture server. A different
 // loopback port is still outside the fixture; page content cannot expand it.
