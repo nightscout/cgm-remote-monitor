@@ -4,7 +4,7 @@ const assert = require('node:assert/strict');
 const contract = require('../lib/storage/read-contract');
 const {ObjectId} = require('mongodb');
 const {spawnSync} = require('node:child_process');
-const {report} = require('../scripts/diagnose-data');
+const {report, collectionNames} = require('../scripts/diagnose-data');
 
 describe('Stored-data read contract', function () {
   it('reports malformed shapes without mutating or leaking their contents', function () {
@@ -97,6 +97,39 @@ describe('Stored-data read contract', function () {
     assert.equal(closed, 1);
     assert(!JSON.stringify(result).includes('private'));
   });
+  it('resolves diagnostic collection names with the same precedence as the application', function () {
+    const names = ['ENTRIES_COLLECTION', 'MONGO_COLLECTION', 'MONGO_TREATMENTS_COLLECTION',
+      'MONGO_DEVICESTATUS_COLLECTION', 'MONGO_PROFILE_COLLECTION', 'MONGO_FOOD_COLLECTION', 'MONGO_SETTINGS_COLLECTION'];
+    const clean = {...process.env};
+    for (const name of names) {
+      for (const key of [name, name.toLowerCase(), 'CUSTOMCONNSTR_' + name, 'CUSTOMCONNSTR_' + name.toLowerCase()]) delete clean[key];
+    }
+    const cases = [
+      [{}, {entries: 'entries', treatments: 'treatments'}],
+      [{MONGO_TREATMENTS_COLLECTION: 'direct_treatments', MONGO_COLLECTION: 'direct_entries'},
+        {entries: 'direct_entries', treatments: 'direct_treatments'}],
+      [{CUSTOMCONNSTR_MONGO_TREATMENTS_COLLECTION: ' custom_treatments ', MONGO_TREATMENTS_COLLECTION: 'decoy',
+        CUSTOMCONNSTR_ENTRIES_COLLECTION: 'custom_entries', MONGO_COLLECTION: 'decoy_entries'},
+      {entries: 'custom_entries', treatments: 'custom_treatments'}],
+      [{CUSTOMCONNSTR_mongo_treatments_collection: 'lower_custom', mongo_treatments_collection: 'lower_direct',
+        entries_collection: 'lower_entries'}, {entries: 'lower_entries', treatments: 'lower_custom'}],
+      [{mongo_profile_collection: 'profile_lower', CUSTOMCONNSTR_MONGO_SETTINGS_COLLECTION: 'settings_custom',
+        CUSTOMCONNSTR_mongo_devicestatus_collection: 'custom_status', mongo_food_collection: 'lower_food'},
+        {entries: 'entries', treatments: 'treatments', profile: 'profile_lower', settings: 'settings_custom',
+          devicestatus: 'custom_status', food: 'lower_food'}]
+    ];
+    for (const [overrides, expected] of cases) {
+      const env = {...clean, ...overrides};
+      const selected = collectionNames(env);
+      for (const [name, value] of Object.entries(expected)) assert.equal(selected[name], value);
+      const source = "const e=require('./lib/server/env')();console.log(JSON.stringify({entries:e.entries_collection,treatments:e.treatments_collection,devicestatus:e.devicestatus_collection,profile:e.profile_collection,food:e.food_collection,settings:e.settings_collection}));";
+      const child = spawnSync(process.execPath, ['-e', source], {env, encoding: 'utf8', timeout: 5000});
+      assert.ifError(child.error);
+      assert.equal(child.status, 0, child.stderr);
+      assert.deepEqual(selected, JSON.parse(child.stdout.trim().split('\n').pop()));
+    }
+  });
+
   it('never advances a history cursor from a malformed stored time', function () {
     const docs = [{srvModified: [999999]}, {srvModified: '999999'}, {srvModified: NaN},
       {srvModified: {valueOf: 'broken'}}, {srvModified: 100}, {srvModified: 200}];

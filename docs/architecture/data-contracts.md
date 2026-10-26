@@ -99,8 +99,8 @@ npm run diagnose:data -- --limit 10000
 ```
 
 The limit is per collection (maximum 1,000,000). `truncated: true` means this is a
-sample, not a clean bill of health for the database. Existing collection-name
-environment overrides are honored. Use a read-only database account. Output
+sample, not a clean bill of health for the database. Collection-name environment overrides use the same precedence as the server,
+including Azure `CUSTOMCONNSTR_` and lowercase aliases. Use a read-only database account. Output
 contains counts and rule names, not patient records. The report currently covers
 entries, treatments, device status, profile, food and settings; it is not a full
 schema validator or a clinical validity assessment.
@@ -125,8 +125,13 @@ These are explicit remaining items, not claims that this PR has solved them:
    the conditional boundary explicitly refuses upsert/unacknowledged options.
    Batch preflight checks all existing matches, but concurrent batch failures can
    still leave earlier documents committed (reported in the internal event).
-   This is per-document protection, not a transaction across twins, a new generic
-   update-operator API, or race-free cross-path deduplication.
+   When a socket update partially commits before failing, it reconciles all
+   matching cached records and requests a live reload. If the reread fails or a concurrent cache change makes its
+   snapshot unreliable, the affected collection cache is invalidated. If
+   targeted invalidation is unavailable, existing global invalidation is the
+   fallback. The existing failure reply is retained. This is per-document
+   protection, not a transaction across twins, a new generic update-operator
+   API, or race-free cross-path deduplication.
 3. **Read inventory.** These tests protect the touched API, cache, history boot and
    authorization boundaries. They do not prove that every plugin tolerates every
    historical BSON shape. Extend the corpus and read-entry-point coverage; the
