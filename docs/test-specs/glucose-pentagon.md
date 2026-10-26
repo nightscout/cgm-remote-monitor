@@ -18,7 +18,7 @@ The method and axis conventions were compared with [Nightscout Reporter](https:/
 
 ## Localization and layout
 
-All report labels and warning states are registered in `translations/en/en.json`, the source configured in `crowdin.yml`. The limitations are separate complete sentences so translators can review and reuse them. Translations for individual languages follow the normal Crowdin review workflow; absent translations retain the existing English fallback. Adding the source strings does not mean those language translations have been completed.
+All report labels and warning states are registered in `translations/en/en.json`, the source configured in `crowdin.yml`. The limitations are separate complete sentences so translators can review and reuse them. Translations for individual languages follow the normal Crowdin review workflow; absent translations retain the existing English fallback. Adding the source strings does not mean those language translations have been completed. The Lithuanian catalogue, which the project requires to contain every source key, includes explicit English fallbacks for the new entries pending translation.
 
 Axis labels use wrapping HTML around the SVG, with automatic text direction, while the axis positions remain fixed. Numerical values retain left-to-right unit ordering. The reference outline is dashed and the selected-data outline is solid, so the legend can be understood without colour. Browser regressions cover expanded accented/emoji text, unspaced CJK text and right-to-left text at 320, 390 and 1440 pixels in both report themes. Print-media checks preserve the chart, values, limitations and distinct outline styles; they do not test every printer's pagination.
 
