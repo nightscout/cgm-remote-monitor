@@ -72,7 +72,7 @@ jobs:
       - name: Install dependencies
         run: npm ci
       - name: Lint application sources
-        if: matrix.node-version == '22' && matrix.mongodb-version == '5.0.32'
+        if: matrix.node-version == '22.23.4' && matrix.mongodb-version == '5.0'
         run: npm run lint
       - name: Validate dependency resolution
         run: npm ls brace-expansion postcss mocha nanoid js-yaml eslint nyc dompurify socket.io-parser fast-uri ip-address d3 d3-color express body-parser socket.io socket.io-client engine.io engine.io-client socket.io-adapter ws axios @babel/core @babel/preset-env babel-loader uuid --all
@@ -232,7 +232,7 @@ jobs:
       - name: Record editor time formatting comparison
         run: node tools/audits/browser-intl-editor-probe.cjs ${{ matrix.browser }} > editor-time-comparison.json
       - name: Save editor time formatting evidence
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
         with:
           name: editor-time-${{ matrix.node-version }}-${{ matrix.browser }}
           path: editor-time-comparison.json
