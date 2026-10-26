@@ -91,6 +91,7 @@
         "tests/pushover-lifecycle.test.js",
         "tests/pushover-transport.test.js",
         "tests/pushover.test.js",
+        "tests/query-exists-argument.test.js",
         "tests/query-leaf-contract.test.js",
         "tests/query-leaves.test.js",
         "tests/query.operands.test.js",
