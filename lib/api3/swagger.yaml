@@ -1059,10 +1059,16 @@ components:
             Main addressing, required field that identifies document in the collection.
 
 
-            A client may send its own identifier when it creates a document, and the server keeps it. It is compared exactly as sent and does not have to be a UUID; one identifier names one document in the collection.
+            The identifier is the record's sync identity, assigned by the client (its own id for the record), the same on every retry and on every device that uploads the same record. It is compared exactly as sent (case-sensitive, no trimming) and does not have to be a UUID. One identifier names one document in the collection.
 
 
-            When the client sends none, the server calculates one from the `device`, `date` and `eventType` fields, so that duplicate records are automatically merged.
+            When the client sends none, the server calculates one from the `device`, `date` and `eventType` fields, so the same record uploaded twice gets the same identifier.
+
+
+            A create whose identifier matches a stored document updates that document instead of storing a second one; the reply then carries `isDeduplication`.
+
+
+            `_id` is the storage key Nightscout assigns. API v3 does not return it, and it refuses a request body that carries `_id` with 400; send the record's own id in `identifier` instead.
 
 
             The best practise for all applications is not to loose identifiers from received documents, but save them carefully for other consumer applications/systems.
