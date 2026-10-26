@@ -617,9 +617,18 @@ describe('Concurrent Write Tests - MongoDB 5.x Compatibility', function () {
       });
     });
 
+    // The CGM and cross-collection sync tests also write entries and
+    // devicestatus records; remove those too, or later files that count them
+    // find extras.
     afterEach(function (done) {
       self.ctx.treatments.remove({ find: { eventType: { '$regex': '^Correction Bolus' } } }, function () {
-        done();
+        self.ctx.devicestatus.remove({ find: { device: { '$regex': '^cross-collection-device-' } } }, function () {
+          self.ctx.entries().deleteMany({ device: { $in: ['AndroidAPS-DexcomG6', 'cross-collection-test'] } })
+            .then(function () {
+              done();
+            })
+            .catch(done);
+        });
       });
     });
 

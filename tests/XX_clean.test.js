@@ -34,4 +34,8 @@ describe('Clean MONGO after tests', function ( ) {
     await self.ctx.entries().deleteMany({ });
   });
 
+  it('wipe devicestatus data', async function () {
+    await self.ctx.devicestatus().deleteMany({ });
+  });
+
 });
