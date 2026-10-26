@@ -329,9 +329,11 @@ describe('legacy reports in a real browser', function () {
         let count;
         for (let cycle = 0; cycle < 2; cycle++) {
           await show(page);
-          const next = await page.locator('#hourlystats-overviewchart canvas').count();
+          // CHANGED at the cut 5 merge: dev draws this chart with D3 (#8542),
+          // so the repeated render is checked on its SVG rather than a canvas.
+          const next = await page.locator('#hourlystats-overviewchart svg').count();
           assert.ok(next > 0);
-          if (count !== undefined) assert.equal(next, count, 'Repeated rendering replaces canvases');
+          if (count !== undefined) assert.equal(next, count, 'Repeated rendering replaces the chart');
           count = next;
           assert.deepEqual(networkDiagnostics.get(page).consoleErrors, []);
         }
@@ -370,18 +372,27 @@ describe('legacy reports in a real browser', function () {
         for (let cycle = 0; cycle < 2; cycle++) {
           await page.evaluate(() => {window.reportPlots = {};});
           await show(page);
-          // The distribution pie is intentionally scheduled with setTimeout by
-          // the report plugin, after AJAX is idle. Require this cycle's plot.
-          await page.waitForFunction(() => Boolean(window.reportPlots['glucosedistribution-overviewchart']));
+          // CHANGED at the cut 5 merge: dev's AGP work (#8542) draws the daily,
+          // hourly, percentile and distribution charts with D3, so Loopalyzer is
+          // the only report still plotted with Flot. The characterized series
+          // are compared for Loopalyzer only, against this branch's goldens
+          // unchanged; the other charts' golden entries describe Flot charts dev
+          // no longer draws.
+          const flotCharts = ['loopalyzer-basal', 'loopalyzer-bg', 'loopalyzer-tempbasal', 'loopalyzer-iob', 'loopalyzer-cob'];
+          await page.waitForFunction(() => Boolean(window.reportPlots['loopalyzer-cob']));
           const plots = await page.evaluate(() => window.reportPlots);
+          assert.deepEqual(Object.keys(plots).sort(), flotCharts.slice().sort(), 'Only Loopalyzer is plotted with Flot');
           const data = Object.fromEntries(Object.entries(plots).map(([id, plot]) => [id, plot.data]));
           const golden = path.join(__dirname, 'report-plot-data-' + (units === 'mmol' ? 'mmol' : 'mgdl') + '.json');
-          if (process.env.NIGHTSCOUT_WRITE_REPORT_GOLDENS === '1') fs.writeFileSync(golden, JSON.stringify(data, null, 2) + '\n');
-          assert.deepEqual(data, JSON.parse(fs.readFileSync(golden, 'utf8')), 'Report series match characterized output');
+          // dev's restyle (#8542) changed Loopalyzer's series colours and nothing
+          // else in these series, so colour is left out of the comparison.
+          const uncoloured = charts => Object.fromEntries(Object.entries(charts).map(([id, series]) =>
+            [id, series.map(({color, ...rest}) => rest)]));
+          const characterized = Object.fromEntries(Object.entries(JSON.parse(fs.readFileSync(golden, 'utf8')))
+            .filter(([id]) => flotCharts.includes(id)));
+          assert.deepEqual(uncoloured(data), uncoloured(characterized), 'Report series match characterized output');
           if (initial) assert.deepEqual(data, initial, 'Repeated rendering preserves series');
           initial = data;
-          for (const id of ['hourlystats-overviewchart', 'percentile-chart', 'loopalyzer-basal', 'loopalyzer-bg',
-            'loopalyzer-tempbasal', 'loopalyzer-iob', 'loopalyzer-cob']) assert.ok(plots[id], id);
           for (const [id, plot] of Object.entries(plots)) {
             assert.ok(plot.width > 0 && plot.height > 0 && plot.canvases > 0, id + ' renders a visible canvas');
             for (const axis of Object.values(plot.axes)) {
@@ -394,10 +405,6 @@ describe('legacy reports in a real browser', function () {
               }
             }
           }
-          assert.equal(plots['hourlystats-overviewchart'].axes.xaxis.min, 0);
-          assert.equal(plots['hourlystats-overviewchart'].axes.xaxis.max, 86399000);
-          assert.equal(plots['hourlystats-overviewchart'].axes.yaxis.max, units === 'mmol' ? 22 : 400);
-          assert.equal(plots['percentile-chart'].axes.yaxis.max, units === 'mmol' ? 22 : 400);
           assert.equal(plots['loopalyzer-bg'].axes.yaxis.max, units === 'mmol' ? 20 : 400);
           assert.equal(plots['loopalyzer-tempbasal'].axes.yaxis.min, -1);
           assert.equal(plots['loopalyzer-tempbasal'].axes.yaxis.max, 1);
@@ -414,7 +421,7 @@ describe('legacy reports in a real browser', function () {
             process.env.NIGHTSCOUT_REPORT_PLOT_EVIDENCE + '-' + (units === 'mmol' ? 'mmol' : 'mgdl') + '.json',
             JSON.stringify(plots, null, 2) + '\n');
           if (cycle === 1 && process.env.NIGHTSCOUT_REPORT_SCREENSHOTS) {
-            for (const tab of ['loopalyzer', 'hourlystats', 'percentile']) {
+            for (const tab of ['loopalyzer']) {
               await page.locator('#' + tab).click();
               fs.writeFileSync(process.env.NIGHTSCOUT_REPORT_SCREENSHOTS + '-' + tab + '-labels.json', JSON.stringify(await page.locator('#' + tab + '-placeholder').evaluate(root =>
                 [...root.querySelectorAll('.flot-svg text')].slice(0, 30).map(element => ({text: element.textContent,
