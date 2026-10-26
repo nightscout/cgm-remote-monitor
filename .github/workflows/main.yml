@@ -31,6 +31,9 @@ jobs:
     name: Run Tests (${{ matrix.node-version }}, ${{ matrix.mongodb-version }})
     runs-on: ubuntu-latest
     strategy:
+      # Each lane is the only one testing its edge and setting, so one
+      # failing must not cancel the others' results.
+      fail-fast: false
       matrix:
         # Test the edges of the supported range, not every point inside it:
         # the floor, the lowest Node that package.json engines admits
@@ -103,6 +106,9 @@ jobs:
     name: Tests without a database (${{ matrix.node-version }})
     runs-on: ubuntu-latest
     strategy:
+      # Each lane is the only one testing its edge and setting, so one
+      # failing must not cancel the others' results.
+      fail-fast: false
       matrix:
         # These tiers pass with no MongoDB reachable (tests/tiers.json), so
         # they vary only with Node: the same edges as the test matrix.
