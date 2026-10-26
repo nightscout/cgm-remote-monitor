@@ -234,7 +234,12 @@ describe('devicestatus: a re-send of a stored _id is acknowledged, not copied or
         return new Proxy(col, {
           get: function (target, prop) {
             if (prop === 'find') {
-              return function (filter) { finds.push(filter); return target.find.apply(target, arguments); };
+              // Only reads by _id: a find from an earlier file's background
+              // work in this process (a reload) would otherwise count too.
+              return function (filter) {
+                if (filter && filter._id) finds.push(filter);
+                return target.find.apply(target, arguments);
+              };
             }
             var value = target[prop];
             return typeof value === 'function' ? value.bind(target) : value;
