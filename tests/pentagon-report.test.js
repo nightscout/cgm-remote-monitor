@@ -88,4 +88,37 @@ describe('Glucose pentagon report', function () {
     assert.ok(Number($('#pentagon .gd-pentagon-score').text().replace('PGR: ', '')) > 1);
     assert.equal($('#pentagon dl dd').last().text(), '600 mg/dL');
   });
+  it('registers every report state in Crowdin and renders translations as Unicode text', function () {
+    const source = require('../translations/en/en.json');
+    const language = require('../lib/language')();
+    // A synthetic catalogue tests the real translator without presenting
+    // unreviewed medical translations as approved language contributions.
+    const prefix = 'العربية é 👩‍⚕️ <img> ';
+    language.offerTranslations(Object.fromEntries(Object.keys(source).map(key => [key, prefix + source[key]])));
+    const seen = new Set();
+    const translate = key => {
+      assert.ok(Object.hasOwn(source, key), 'Missing Crowdin source: ' + key);
+      seen.add(key);
+      return language.translate(key);
+    };
+    const draw = (allHours = true) => view.render($('#pentagon'), records(100), ['2026-10-01'], profile, moment, 'mg/dl', translate, allHours);
+    draw();
+    assert.equal($('#pentagon h3').text(), prefix + source['Comprehensive Glucose Pentagon']);
+    assert.equal($('#pentagon .gd-pentagon-label').length, 5);
+    assert.equal($('#pentagon .gd-pentagon-label').eq(1).text(), prefix + source['Glucose variability']);
+    assert.equal($('#pentagon .gd-pentagon-label').eq(1).attr('dir'), 'auto');
+    assert.equal($('#pentagon img').length, 0, 'Translations are text, never HTML');
+    assert.match($('#pentagon .gd-pentagon-note').text(), /العربية é 👩‍⚕️ <img> PGR is a research metric/);
+    draw(false);
+    const model = require('../lib/report/pentagon'), original = model.calculate;
+    try {
+      for (const reason of ['empty', 'coverage', 'duration', 'ambiguous', 'conflicting', 'invalid']) {
+        model.calculate = () => ({available: false, coverage: 0, count: 0, days: 2, reason});
+        draw();
+        assert.ok($('#pentagon .gd-pentagon-message').text().startsWith(prefix));
+      }
+    } finally { model.calculate = original; }
+    assert.ok(seen.has('day') && seen.has('days'));
+    assert.equal(seen.size, 28, 'Every report string and warning was exercised');
+  });
 });

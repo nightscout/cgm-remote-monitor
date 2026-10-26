@@ -17,6 +17,25 @@ function calculate(records, days, zone = 'UTC', now = Date.UTC(2027, 0, 1)) {
 function close(actual, expected, tolerance = 1e-8) {assert.ok(Math.abs(actual - expected) < tolerance, `${actual} != ${expected}`);}
 
 describe('Glucose pentagon calculations', function () {
+  for (const fixture of require('./fixtures/pentagon-reference.json').cases) {
+    it('matches the independent numeric reference: ' + fixture.name, function () {
+      for (const cadence of [1, 5]) {
+        const readings = fixture.days.flatMap(day => {
+          let time = Date.parse(day.day + 'T00:00:00Z');
+          return day.segments.flatMap(([minutes, bg]) => Array.from({length: minutes / cadence}, () => {
+            const entry = record(time, bg);
+            time += cadence * MIN;
+            return entry;
+          }));
+        });
+        const result = calculate(readings.reverse(), fixture.days.map(day => day.day));
+        assert.equal(result.available, true);
+        close(result.coverage, fixture.expected.coverage);
+        result.values.forEach((value, index) => close(value, fixture.expected.values[index]));
+        close(result.score, fixture.expected.score);
+      }
+    });
+  }
   it('uses the published reference pentagon as PGR 1', function () {
     const axes = pentagon.lengths([0, 16.7, 0, 0, 90]);
     close(pentagon.area(axes), 5 * 14 * 14 * Math.sin(2 * Math.PI / 5) / 2);

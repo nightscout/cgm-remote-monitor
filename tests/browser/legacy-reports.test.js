@@ -307,21 +307,25 @@ describe('legacy reports in a real browser', function () {
     });
   });
 
+  async function renderPentagonFixture(page) {
+    await page.locator('#glucosedistribution').click();
+    await page.evaluate(() => {
+      window.renderPentagonFixture = (count = 288) => {
+        const profile = window.Nightscout.client.sbx.data.profile;
+        const start = profile.parseInTimezone('2015-08-08').valueOf();
+        const records = Array.from({length: count}, (_, i) => ({
+          displayTime: new Date(start + i * 300000), bgValue: i < 144 ? 60 : 200, sgv: i < 144 ? 60 : 200
+        }));
+        window.Nightscout.report_plugins('glucosedistribution').report(
+          {allstatsrecords: records, alldays: 1}, ['2015-08-08'], {targetLow: 70, targetHigh: 180});
+      };
+      window.renderPentagonFixture();
+    });
+  }
+
   it('renders and updates the glucose pentagon in the Distribution report', async function () {
     await withReports(async page => {
-      await page.locator('#glucosedistribution').click();
-      await page.evaluate(() => {
-        window.renderPentagonFixture = (count = 288) => {
-          const profile = window.Nightscout.client.sbx.data.profile;
-          const start = profile.parseInTimezone('2015-08-08').valueOf();
-          const records = Array.from({length: count}, (_, i) => ({
-            displayTime: new Date(start + i * 300000), bgValue: i < 144 ? 60 : 200, sgv: i < 144 ? 60 : 200
-          }));
-          window.Nightscout.report_plugins('glucosedistribution').report(
-            {allstatsrecords: records, alldays: 1}, ['2015-08-08'], {targetLow: 70, targetHigh: 180});
-        };
-        window.renderPentagonFixture();
-      });
+      await renderPentagonFixture(page);
       assert.match(await page.locator('.gd-pentagon-score').textContent(), /^PGR: /);
       assert.equal(await page.locator('.gd-pentagon-values dt').count(), 5);
       assert.equal(await page.locator('.gd-pentagon-chart svg').getAttribute('role'), 'img');
@@ -351,7 +355,7 @@ describe('legacy reports in a real browser', function () {
         assert.equal(await chart.isVisible(), true);
         const bounds = await chart.evaluate(svg => {
           const chartRect = svg.getBoundingClientRect(), cardRect = svg.closest('.gd-pentagon').getBoundingClientRect();
-          const labels = Array.from(svg.querySelectorAll('.gd-pentagon-label'), label => label.getBoundingClientRect());
+          const labels = Array.from(svg.closest('.gd-pentagon-chart').querySelectorAll('.gd-pentagon-label'), label => label.getBoundingClientRect());
           return {left: chartRect.left - cardRect.left, right: cardRect.right - chartRect.right,
             labelsFit: labels.every(label => label.left >= cardRect.left && label.right <= cardRect.right)};
         });
@@ -360,6 +364,71 @@ describe('legacy reports in a real browser', function () {
           await page.locator('.gd-pentagon').screenshot({path: process.env.NIGHTSCOUT_PENTAGON_SCREENSHOTS + '/modern-' + name + '.png'});
           if (name === 'desktop') await page.locator('#glucosedistribution-placeholder').screenshot({path: process.env.NIGHTSCOUT_PENTAGON_SCREENSHOTS + '/modern-report-desktop.png'});
         }
+      }
+    });
+  });
+
+  it('wraps translated pentagon labels and preserves report content in print', async function () {
+    await withReports(async page => {
+      await renderPentagonFixture(page);
+      const score = await page.locator('.gd-pentagon-score').textContent();
+      const polygon = await page.locator('.gd-pentagon-patient').getAttribute('points');
+      await page.addStyleTag({url: origin + '/css/modern-reports.css'});
+      for (const modern of [false, true]) {
+        await page.evaluate(modern => {
+          document.documentElement.classList.toggle('modern-ui', modern);
+          document.documentElement.classList.toggle('report-ui', modern);
+          document.body.classList.toggle('report-page', modern);
+        }, modern);
+        // Pseudolocales exercise expansion, unspaced Unicode and bidi text;
+        // these are test data, not medical translations for publication.
+        for (const locale of ['expanded', 'unspaced', 'rtl']) {
+          await page.evaluate(locale => {
+            const names = ['Time out of range', 'Glucose variability', 'Low glucose intensity', 'High glucose intensity', 'Mean glucose'];
+            const prefix = locale === 'rtl' ? 'العربية עברית ' : locale === 'unspaced' ? '漢字'.repeat(16) : 'é 👩‍⚕️ ';
+            window.Nightscout.client.translate = text => names.includes(text) ? prefix + text + ' ' + text : text;
+            window.renderPentagonFixture();
+            document.querySelector('.gd-pentagon').dir = locale === 'rtl' ? 'rtl' : 'ltr';
+          }, locale);
+          for (const width of [320, 390, 1440]) {
+            await page.setViewportSize({width, height: 1100});
+            const layout = await page.locator('.gd-pentagon').evaluate(card => {
+              const bounds = card.getBoundingClientRect();
+              const chart = card.querySelector('svg').getBoundingClientRect();
+              const labels = Array.from(card.querySelectorAll('.gd-pentagon-label'), label => {
+                const range = document.createRange(); range.selectNodeContents(label);
+                const r = range.getBoundingClientRect();
+                return {fits: r.left >= bounds.left - 1 && r.right <= bounds.right + 1,
+                  overlaps: r.left < chart.right && r.right > chart.left && r.top < chart.bottom && r.bottom > chart.top,
+                  direction: getComputedStyle(label).direction};
+              });
+              return {labels, overflow: card.scrollWidth - card.clientWidth};
+            });
+            assert.equal(layout.labels.length, 5);
+            assert.ok(layout.labels.every(label => label.fits && !label.overlaps), JSON.stringify({modern, locale, width, layout}));
+            assert.ok(layout.overflow <= 1, JSON.stringify({modern, locale, width, layout}));
+            if (locale === 'rtl') assert.ok(layout.labels.every(label => label.direction === 'rtl'));
+            assert.equal(await page.locator('.gd-pentagon-score').textContent(), score);
+            assert.equal(await page.locator('.gd-pentagon-patient').getAttribute('points'), polygon);
+          }
+        }
+        await page.setViewportSize({width: 794, height: 1123});
+        await page.emulateMedia({media: 'print'});
+        assert.equal(await page.locator('.gd-pentagon-chart svg').isVisible(), true);
+        assert.equal(await page.locator('.gd-pentagon-values dd').count(), 5);
+        assert.equal(await page.locator('.gd-pentagon-score').textContent(), score);
+        assert.equal(await page.locator('.gd-pentagon-note').first().isVisible(), true);
+        assert.match(await page.locator('.gd-pentagon-note').first().textContent(), /not a validated prediction/);
+        assert.match(await page.locator('.gd-pentagon-legend').textContent(), /Dashed green: reference · Solid yellow: selected data/);
+        const styles = await page.locator('.gd-pentagon').evaluate(card => ({
+          breakInside: getComputedStyle(card).breakInside,
+          reference: getComputedStyle(card.querySelector('.gd-pentagon-reference')).strokeDasharray,
+          selected: getComputedStyle(card.querySelector('.gd-pentagon-patient')).strokeDasharray
+        }));
+        assert.equal(styles.breakInside, 'avoid');
+        assert.notEqual(styles.reference, 'none');
+        assert.equal(styles.selected, 'none');
+        await page.emulateMedia({media: 'screen'});
       }
     });
   });

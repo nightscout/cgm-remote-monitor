@@ -15,3 +15,17 @@ The five calculated values are transformed to pentagon axes using the Vigersky/R
 ## Attribution
 
 The method and axis conventions were compared with [Nightscout Reporter](https://github.com/zreptil/nightscout-reporter) (Dart, commit `518d61fb1d8d61bb127fd4de1c60e28278b39a62`, BSD-3-Clause) and its successor [Nightscout Reporter Angular](https://github.com/zreptil/nightscout-reporter-angular) (commit `c21559a1fa20eb0ff24300f8b2a64563ee200136`, MIT). Their license notices are retained in `docs/third-party/`. This implementation independently handles incomplete and irregular readings as described above.
+
+## Localization and layout
+
+All report labels and warning states are registered in `translations/en/en.json`, the source configured in `crowdin.yml`. The limitations are separate complete sentences so translators can review and reuse them. Translations for individual languages follow the normal Crowdin review workflow; absent translations retain the existing English fallback. Adding the source strings does not mean those language translations have been completed.
+
+Axis labels use wrapping HTML around the SVG, with automatic text direction, while the axis positions remain fixed. Numerical values retain left-to-right unit ordering. The reference outline is dashed and the selected-data outline is solid, so the legend can be understood without colour. Browser regressions cover expanded accented/emoji text, unspaced CJK text and right-to-left text at 320, 390 and 1440 pixels in both report themes. Print-media checks preserve the chart, values, limitations and distinct outline styles; they do not test every printer's pagination.
+
+## Fixed numerical reference
+
+`tests/fixtures/pentagon-reference.json` contains two varied days represented as duration/glucose bins, plus a case omitting the final four hours. Expected values were calculated separately with Python Decimal at 60-digit precision, without importing this implementation or using its output. Tests expand the bins into one- and five-minute samples in reverse order and compare all five metrics and the PGR against the fixed numbers.
+
+For the complete case, observed duration is 2,880 minutes, the weighted glucose sum is 445,500 and the weighted squared-glucose sum is 83,989,500. Out-of-range duration is 1,260 minutes, giving 630 minutes/day and mean glucose 154.6875 mg/dL. Population variance is the weighted squared sum divided by duration minus the square of the mean. Each day's low/high intensity is calculated from its duration bins; after daily normalization and observed-duration weighting, the result is 1,440 times the sum of the daily unnormalized intensities divided by total observed duration. The area ratio simplifies to the sum of adjacent transformed-axis products divided by `5 × 14²`, because the common sine term cancels. This gives PGR **4.794097269391343**, or **3.89035671512699** when the final four hours are unobserved. Intermediate sums are retained in the fixture for review.
+
+These are independently implemented numerical regression checks, not third-party clinical review or validation of PGR or the incomplete-data policy.
