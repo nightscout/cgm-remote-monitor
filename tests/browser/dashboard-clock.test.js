@@ -63,7 +63,10 @@ describe('Dashboard seconds clock', function () {
           await page.locator('#show-seconds-browser').focus();
           await page.locator('#show-seconds-browser').press('Space');
           assert.equal(await page.locator('#show-seconds-browser').isChecked(), false);
-          await Promise.all([page.waitForEvent('load'), page.locator('#save').click()]);
+          await page.locator('#save').click();
+          // Saving reloads the page; wait for storage and the new client's setting.
+          await page.waitForFunction(() => window.Nightscout?.client?.settings?.showSeconds === false &&
+            localStorage.getItem('showSeconds') === 'false');
           await ready();
           assert.equal(await page.evaluate(() => window.Nightscout.client.settings.showSeconds), false);
           assert.doesNotMatch(await page.locator('#currentTime').textContent(), /\d+:\d+:\d+/);
@@ -72,7 +75,9 @@ describe('Dashboard seconds clock', function () {
           await page.locator('#show-seconds-browser').focus();
           await page.locator('#show-seconds-browser').press('Space');
           assert.equal(await page.locator('#show-seconds-browser').isChecked(), true);
-          await Promise.all([page.waitForEvent('load'), page.locator('#save').click()]);
+          await page.locator('#save').click();
+          await page.waitForFunction(() => window.Nightscout?.client?.settings?.showSeconds === true &&
+            localStorage.getItem('showSeconds') === 'true');
           await ready();
           assert.equal(await page.evaluate(() => window.Nightscout.client.settings.showSeconds), true);
           assert.equal(await page.locator('#currentTime').textContent(), timeFormat === 24 ? '14:05:08' : '2:05:08 pm');
