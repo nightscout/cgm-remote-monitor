@@ -201,6 +201,8 @@
     "Date format": "Formatul datei",
     "12 hours": "12 ore",
     "24 hours": "24 ore",
+    "Show Seconds": "Show Seconds",
+    "When enabled the clock displays seconds and updates every second.": "When enabled the clock displays seconds and updates every second.",
     "Log a Treatment": "Înregistrează un eveniment",
     "BG Check": "Verificare glicemie",
     "Meal Bolus": "Bolus masă",
