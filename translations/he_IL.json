@@ -201,6 +201,8 @@
     "Date format": "פורמט תאריך",
     "12 hours": "שתים עשרה שעות",
     "24 hours": "עשרים וארבע שעות",
+    "Show Seconds": "Show Seconds",
+    "When enabled the clock displays seconds and updates every second.": "When enabled the clock displays seconds and updates every second.",
     "Log a Treatment": "הזן רשומה",
     "BG Check": "בדיקת סוכר",
     "Meal Bolus": "בולוס ארוחה",
