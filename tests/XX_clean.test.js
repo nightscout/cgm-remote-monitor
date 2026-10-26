@@ -1,6 +1,5 @@
 'use strict';
 
-var _ = require('lodash');
 var language = require('../lib/language')();
 
 describe('Clean MONGO after tests', function ( ) {
@@ -17,6 +16,7 @@ describe('Clean MONGO after tests', function ( ) {
     self.env.settings.enable = ['careportal', 'api'];
     this.wares = require('../lib/middleware/')(self.env);
     self.app = require('express')();
+    require('../lib/middleware/configure-request')(self.app);
     self.app.enable('api');
     require('../lib/server/bootevent')(self.env, language).boot(function booted(ctx) {
       self.ctx = ctx;
@@ -33,5 +33,9 @@ describe('Clean MONGO after tests', function ( ) {
   it('wipe entries data', async function () {
     await self.ctx.entries().deleteMany({ });
   });
-  
+
+  it('wipe devicestatus data', async function () {
+    await self.ctx.devicestatus().deleteMany({ });
+  });
+
 });

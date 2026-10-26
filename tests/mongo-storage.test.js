@@ -3,6 +3,8 @@
 var should = require('should');
 var assert = require('assert');
 
+var productionSafety = require('./lib/production-safety');
+
 describe('mongo storage', function () {
   var env = require('../lib/server/env')();
 
@@ -38,7 +40,7 @@ describe('mongo storage', function () {
       should.exist(db.client);
 
       db.client.db().databaseName.should.equal(db.db.databaseName);
-      db.db.databaseName.should.equal('testdb');
+      productionSafety.isTestDatabaseName(db.db.databaseName).should.be.true();
       done();
     });
   });
@@ -63,6 +65,86 @@ describe('mongo storage', function () {
       should.not.exist(calls[0].options);
 
       done();
+    });
+  });
+
+  it('ensureIndexes accepts compound index definitions', function (done) {
+    var store = require('../lib/storage/mongo-storage');
+    var calls = [];
+    var profileLatestIndex = { startDate: -1, _id: -1 };
+
+    store(env, function (err, db) {
+      should.not.exist(err);
+
+      db.ensureIndexes({
+        collectionName: 'profile',
+        createIndex: function (field, options) {
+          calls.push({ field: field, options: options });
+          return Promise.resolve();
+        }
+      }, [profileLatestIndex]);
+
+      calls.length.should.equal(1);
+      calls[0].field.should.eql(profileLatestIndex);
+      should.not.exist(calls[0].options);
+
+      done();
+    });
+  });
+
+  it('ensureIndexes builds a collection\'s indexes in one request and resolves when they exist', function (done) {
+    var store = require('../lib/storage/mongo-storage');
+    var batches = [];
+    var singles = [];
+    var created = false;
+
+    store(env, function (err, db) {
+      should.not.exist(err);
+
+      var result = db.ensureIndexes({
+        collectionName: 'entries',
+        createIndexes: function (specs) {
+          batches.push(specs);
+          return new Promise(function (resolve) {
+            setTimeout(function () { created = true; resolve(); }, 20);
+          });
+        },
+        createIndex: function (field) {
+          singles.push(field);
+          return Promise.resolve();
+        }
+      }, ['date', { type: 1, date: -1 }, 'date']);
+
+      created.should.be.false();
+      result.then(function () {
+        created.should.be.true();
+        batches.should.eql([[{ key: { date: 1 } }, { key: { type: 1, date: -1 } }]]);
+        singles.should.eql([]);
+        done();
+      }, done);
+    });
+  });
+
+  it('ensureIndexes retries one at a time when the combined request fails, and never rejects', function (done) {
+    var store = require('../lib/storage/mongo-storage');
+    var singles = [];
+
+    store(env, function (err, db) {
+      should.not.exist(err);
+
+      db.ensureIndexes({
+        collectionName: 'entries',
+        createIndexes: function () {
+          return Promise.reject(new Error('one definition conflicts'));
+        },
+        createIndex: function (field) {
+          singles.push(field);
+          return field === 'sgv' ? Promise.reject(new Error('conflict')) : Promise.resolve();
+        }
+      }, ['date', 'sgv', 'type']).then(function () {
+        singles.should.eql(['date', 'sgv', 'type']);
+        done();
+      }, done);
     });
   });
 

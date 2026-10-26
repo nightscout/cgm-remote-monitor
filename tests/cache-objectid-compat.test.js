@@ -4,43 +4,61 @@
  * cache-objectid-compat.test.js
  *
  * Regression test: MongoDB driver 5.x ObjectId has no enumerable properties,
- * so _.isEmpty(new ObjectId()) returns true.  This broke cache.js
- * filterForAge() which used `!_.isEmpty(object._id)` as the hasId check.
+ * so lodash isEmpty(new ObjectId()) returns true.  This broke cache.js
+ * filterForAge() which used the old lodash isEmpty check for object._id.
  *
- * Fix: replaced `!_.isEmpty(object._id)` with `object._id != null && object._id !== ''`
+ * Fix: replaced the lodash isEmpty id check with `object._id != null && object._id !== ''`
  *
  * On mongodb driver 3.x (v15.0.6), Object.keys(new ObjectID()) returned
- * ['_bsontype','id'], making _.isEmpty return false (correct).
+ * ['_bsontype','id'], making lodash isEmpty return false (correct).
  *
  * On mongodb driver 5.x, Object.keys(new ObjectId())
- * returns [], making _.isEmpty return true (incorrect – treats valid
+ * returns [], making lodash isEmpty return true (incorrect - treats valid
  * ObjectId _id as empty).
  *
  * Affects: lib/server/cache.js filterForAge()
  * Related: AAPS backfill display bug (entries in MongoDB but invisible on chart)
  */
 
-const _ = require('lodash');
 const { ObjectId } = require('mongodb');
 const should = require('should');
 
+// Preserve the historical driver-5 opaque shape independently of the current
+// BSON representation. Methods/identifier bytes still come from real ObjectId.
+function opaqueObjectId() {
+  const id = new ObjectId();
+  for (const key of Object.keys(id)) Object.defineProperty(id, key, {enumerable: false});
+  return id;
+}
+
+
+function lodashIsEmpty (value) {
+  if (value == null) {
+    return true;
+  }
+  if (typeof value === 'string' || Array.isArray(value)) {
+    return value.length === 0;
+  }
+  return Object.keys(value).length === 0;
+}
+
 describe('Cache ObjectId compatibility', function () {
 
-  describe('_.isEmpty behavioral change with new ObjectId (root cause)', function () {
+  describe('lodash isEmpty behavioral change with new ObjectId (root cause)', function () {
 
-    it('_.isEmpty(ObjectId) returns true on driver 5.x (regression)', function () {
-      const oid = new ObjectId();
+    it('lodash isEmpty rejects the historical opaque ObjectId shape', function () {
+      const oid = opaqueObjectId();
       // driver 5.x ObjectId has no enumerable keys
       Object.keys(oid).should.have.length(0);
-      _.isEmpty(oid).should.equal(true);
+      lodashIsEmpty(oid).should.equal(true);
       // But the ObjectId IS valid and non-null
       should.exist(oid);
       oid.toString().should.have.length(24);
     });
 
-    it('_.isEmpty works correctly with string _id', function () {
+    it('lodash isEmpty works correctly with string _id', function () {
       const stringId = new ObjectId().toString();
-      _.isEmpty(stringId).should.equal(false);
+      lodashIsEmpty(stringId).should.equal(false);
     });
 
     it('processRawDataForRuntime converts ObjectId to string (existing mitigation)', function () {
@@ -48,7 +66,7 @@ describe('Cache ObjectId compatibility', function () {
       const doc = { _id: new ObjectId(), type: 'sgv', sgv: 120, date: Date.now() };
       const processed = ddata.processRawDataForRuntime([doc]);
       (typeof processed[0]._id).should.equal('string');
-      _.isEmpty(processed[0]._id).should.equal(false);
+      lodashIsEmpty(processed[0]._id).should.equal(false);
     });
   });
 
@@ -56,8 +74,8 @@ describe('Cache ObjectId compatibility', function () {
 
     // Reproduce the OLD (broken) logic for comparison
     function filterForAgeOLD (data, ageLimit) {
-      return _.filter(data, function (object) {
-        var hasId = !_.isEmpty(object._id);
+      return data.filter(function (object) {
+        var hasId = !lodashIsEmpty(object._id);
         var age = object.mills || object.date;
         var isFresh = typeof age === 'number' && age >= ageLimit;
         return isFresh && hasId;
@@ -66,7 +84,7 @@ describe('Cache ObjectId compatibility', function () {
 
     // The FIXED logic (matches cache.js after the fix)
     function filterForAgeFIXED (data, ageLimit) {
-      return _.filter(data, function (object) {
+      return data.filter(function (object) {
         var hasId = object._id != null && object._id !== '';
         var age = object.mills || object.date;
         var isFresh = typeof age === 'number' && age >= ageLimit;
@@ -76,9 +94,9 @@ describe('Cache ObjectId compatibility', function () {
 
     const TWO_DAYS = 172800000;
 
-    it('OLD: ObjectId _id is rejected (confirms the bug existed)', function () {
+    it('OLD: opaque ObjectId _id is rejected (confirms the bug existed)', function () {
       var ageLimit = Date.now() - TWO_DAYS;
-      var doc = { _id: new ObjectId(), type: 'sgv', sgv: 120, mills: Date.now() - 3600000 };
+      var doc = { _id: opaqueObjectId(), type: 'sgv', sgv: 120, mills: Date.now() - 3600000 };
       filterForAgeOLD([doc], ageLimit).should.have.length(0);
     });
 
@@ -143,6 +161,20 @@ describe('Cache ObjectId compatibility', function () {
       result.should.have.length(2);
     });
 
+
+    it('real cache preserves opaque ObjectId entries across two updates', function () {
+      const id = opaqueObjectId();
+      for (const sgv of [120, 130]) {
+        ctx.bus.emit('data-update', {type: 'entries', op: 'update', changes: [
+          {_id: id, type: 'sgv', sgv, date: Date.now(), mills: Date.now()}
+        ]});
+        const result = cache.getData('entries');
+        result.should.have.length(1);
+        result[0]._id.should.equal(id.toHexString());
+        result[0].sgv.should.equal(sgv);
+      }
+    });
+
     it('cache accepts string _id entries via insertData', function () {
       var entries = [
         { _id: new ObjectId().toString(), type: 'sgv', sgv: 120, date: Date.now() - 3600000, mills: Date.now() - 3600000 }
@@ -194,5 +226,23 @@ describe('Cache ObjectId compatibility', function () {
       // All 3 entries should be present (2 existing + 1 new)
       result.should.have.length(3);
     });
+  });
+});
+
+
+describe('Targeted cache invalidation', function () {
+  it('invalidates one cache and its in-flight generation without clearing others', function () {
+    const assert = require('node:assert/strict');
+    const ddata = require('../lib/data/ddata')();
+    const bus = new (require('node:events').EventEmitter)();
+    const cache = require('../lib/server/cache')({extendedSettings: {}}, {ddata, bus});
+    cache.insertData('treatments', [{_id: 't', mills: Date.now()}]);
+    cache.insertData('entries', [{_id: 'e', mills: Date.now()}]);
+    const generation = cache.getRemovalGeneration('treatments');
+    assert.equal(cache.invalidate('treatments'), true);
+    assert.equal(cache.getRemovalGeneration('treatments'), generation + 1);
+    assert.equal(cache.getData('treatments').length, 0);
+    assert.equal(cache.getData('entries').length, 1);
+    assert.equal(cache.invalidate('unknown'), false);
   });
 });

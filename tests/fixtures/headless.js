@@ -1,6 +1,5 @@
 
 var read = require('fs').readFileSync;
-var _ = require('lodash');
 
 function headless (benv, binding) {
   var self = binding;
@@ -26,24 +25,32 @@ function headless (benv, binding) {
       console.log('Setting up benv', Date.now() - t);
 
       benv.require(__dirname + '/../../node_modules/.cache/_ns_cache/public/js/bundle.app.js');
-      
+
       console.log('Bundle loaded', Date.now() - t);
 
       self.$ = $;
-      
+
       self.localCookieStorage = self.localStorage = self.$.localStorage = require(localStorage);
 
       self.$.fn.tooltip = function mockTooltip ( ) { };
 
       var indexHtml = read(htmlFile, 'utf8');
+      if (!opts.htmlFile) {
+        // The dashboard is composed of EJS partials. Exercise the same rendered
+        // DOM as the server, rather than inserting unexpanded include tags.
+        indexHtml = require('ejs').render(indexHtml, {
+          settings: serverSettings.settings || {}, type: 'index', title: '',
+          locals: { bundle: '/bundle', cachebuster: 'test' }
+        }, { filename: htmlFile });
+      }
       self.$('body').html(indexHtml);
 
       console.log('HTML set', Date.now() - t);
 
-      var d3 = require('d3');
+      var d3 = require('./d3');
       //disable all d3 transitions so most of the other code can run with jsdom
       d3.timer = function mockTimer() { };
-      
+
       if (opts.mockProfileEditor) {
         self.$.plot = function mockPlot () {
         };
@@ -52,15 +59,14 @@ function headless (benv, binding) {
 
         self.$.fn.dialog = function mockDialog (opts) {
           function maybeCall (name, obj) {
-            if (obj[name] && obj[name].call) {
+            if (obj?.[name] && obj[name]?.call) {
               obj[name]();
             }
 
-          }
-          maybeCall('open', opts);
+          }          maybeCall('open', opts);
 
-          _.forEach(opts.buttons, function (button) {
-            maybeCall('click', button);
+          Object.keys(opts?.buttons || []).forEach(function (key) {
+            maybeCall('click', opts.buttons[key]);
           });
         };
       }
@@ -171,7 +177,7 @@ function headless (benv, binding) {
       });
       callback( );
     });
-    
+
   }
 
   function teardown ( ) {

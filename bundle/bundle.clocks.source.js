@@ -1,5 +1,5 @@
 
-$ = require("jquery");
+$ = require('../lib/client/jquery-global');
 
 window.Nightscout = {
     client: require('../lib/client/clock-client'),

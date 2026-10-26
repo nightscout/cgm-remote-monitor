@@ -39,6 +39,7 @@ describe('GAP-TREAT-012: Loop Override UUID Handling', function() {
     self.env.settings.enable = ['careportal', 'api'];
     const wares = require('../lib/middleware/')(self.env);
     self.app = require('express')();
+    require('../lib/middleware/configure-request')(self.app);
     self.app.enable('api');
     require('../lib/server/bootevent')(self.env, language).boot(function booted(ctx) {
       self.ctx = ctx;
@@ -49,12 +50,16 @@ describe('GAP-TREAT-012: Loop Override UUID Handling', function() {
     });
   });
 
-  beforeEach(function(done) {
-    // Clear treatments before each test
+  function clearTreatments (done) {
     self.ctx.treatments.remove({ 
       find: { created_at: { '$gte': '1999-01-01T00:00:00.000Z' } } 
     }, done);
-  });
+  }
+
+  // Clear treatments before each test, and after the last: its records (one
+  // with _id 507f1f77bcf86cd799439011) would otherwise reach later files.
+  beforeEach(clearTreatments);
+  after(clearTreatments);
 
   describe('TEST-GAP-001: Loop override POST with UUID as _id', function() {
 

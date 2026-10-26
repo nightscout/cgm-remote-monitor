@@ -1,0 +1,87 @@
+{
+  "baseline": "d48be5e51b22b1c50edb5b50d88166b9e645f405",
+  "node": "22.23.2",
+  "scope": "Matched Node 22 production builds: JS gzip, theme CSS gzip and installed regular-file bytes. Not browser heap or server memory. Both builds include the same admin dialog fix. Candidate also includes the independently verified quick-pick food-copy correction; the food page bundle reflects that change.",
+  "bundles": {
+    "bundle.admin.js": {
+      "beforeBytes": 32069,
+      "afterBytes": 32069,
+      "beforeGzip": 7933,
+      "afterGzip": 7933,
+      "beforeSHA256": "91f37a01345dabd5332ab6b96fb2209c11bc7e0628ae6ae597a626b183ab9f8d",
+      "afterSHA256": "91f37a01345dabd5332ab6b96fb2209c11bc7e0628ae6ae597a626b183ab9f8d"
+    },
+    "bundle.app.js": {
+      "beforeBytes": 1154652,
+      "afterBytes": 1028918,
+      "beforeGzip": 329895,
+      "afterGzip": 295592,
+      "beforeSHA256": "f7f4eb0cba28a9a9a40d5c76aabbfa086dfd40dfa3bb994ece939ed0632cd186",
+      "afterSHA256": "2173b65eaee6bf5f864b51a4a02899221553485ad1c7d39e21958dfdaf4619a6"
+    },
+    "bundle.clock.js": {
+      "beforeBytes": 150640,
+      "afterBytes": 150640,
+      "beforeGzip": 61213,
+      "afterGzip": 61213,
+      "beforeSHA256": "9c1d2234972ea045712a683565714525f6da32bcde44b2624ddb5965cb8fa310",
+      "afterSHA256": "9c1d2234972ea045712a683565714525f6da32bcde44b2624ddb5965cb8fa310"
+    },
+    "bundle.food.js": {
+      "beforeBytes": 15854,
+      "afterBytes": 15868,
+      "beforeGzip": 5303,
+      "afterGzip": 5316,
+      "beforeSHA256": "3235915435ed50979653d4316d91e317dad2667a5387240ca66deb12feec54c7",
+      "afterSHA256": "feb53c9785c02af477d5aa192fa8ea6a3068b8de016fd6ac5176db6703226d92"
+    },
+    "bundle.profile.js": {
+      "beforeBytes": 18498,
+      "afterBytes": 18498,
+      "beforeGzip": 6649,
+      "afterGzip": 6649,
+      "beforeSHA256": "fb20a691e908237df9da308668e24ca913aebe37e9d6a7cdbfcbc8ebb0a4a6dd",
+      "afterSHA256": "fb20a691e908237df9da308668e24ca913aebe37e9d6a7cdbfcbc8ebb0a4a6dd"
+    },
+    "bundle.reports.js": {
+      "beforeBytes": 170351,
+      "afterBytes": 170351,
+      "beforeGzip": 50414,
+      "afterGzip": 50414,
+      "beforeSHA256": "a00623517a6b6d1f6a4163ff07335f6342adac35f43b7de0e260df3671197494",
+      "afterSHA256": "a00623517a6b6d1f6a4163ff07335f6342adac35f43b7de0e260df3671197494"
+    }
+  },
+  "sourceHashes": {
+    "package-lock.json": "aa4069846db48b4f6cf89879e70abe10c1832556e371dac3b8cfc80534fc764c",
+    "bundle/bundle.source.js": "2bd997e5cc7b881e13368d1d6454ac1413c41b5df18c2e5d2a5d7851bbe7be84",
+    "webpack/webpack.config.js": "8a4e37edc76777b6bf706bdc05c85896da5fb2a7bb444d72263901a09700a2be",
+    "static/css/ui-darkness/jquery-ui.min.css": "babaddec84d3bc7b01c02512b9834d5408572702244ee1d30d6adcf427f0f521",
+    "static/css/ui-lightness/jquery-ui.min.css": "08375e720a0d54caf2183ee0b2da656087c0b4bd58b90d51294e0b3f853dcf9f",
+    "lib/food/food.js": "c901d5f94266bfd50407733b768d3ba95e7c4a188ec8f9779ea9045f79cdba0b"
+  },
+  "themes": {
+    "ui-darkness": {
+      "beforeBytes": 30037,
+      "afterBytes": 31612,
+      "beforeGzip": 7419,
+      "afterGzip": 7621
+    },
+    "ui-lightness": {
+      "beforeBytes": 30163,
+      "afterBytes": 31753,
+      "beforeGzip": 7492,
+      "afterGzip": 7700
+    }
+  },
+  "installedPackage": {
+    "before": {
+      "regularFiles": 19,
+      "bytes": 1283590
+    },
+    "after": {
+      "regularFiles": 550,
+      "bytes": 4610862
+    }
+  }
+}

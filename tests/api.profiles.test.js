@@ -1,6 +1,5 @@
 'use strict';
 
-var _ = require('lodash');
 var request = require('supertest');
 var should = require('should');
 var language = require('../lib/language')();
@@ -20,6 +19,7 @@ describe('Profiles API', function ( ) {
     self.env.settings.enable = ['careportal', 'api'];
     this.wares = require('../lib/middleware/')(self.env);
     self.app = require('express')();
+    require('../lib/middleware/configure-request')(self.app);
     self.app.enable('api');
     require('../lib/server/bootevent')(self.env, language).boot(function booted(ctx) {
       self.ctx = ctx;
@@ -27,6 +27,13 @@ describe('Profiles API', function ( ) {
       self.app.use('/api', api(self.env, ctx));
       done();
     });
+  });
+
+  // The two cases below list profiles, delete one and expect one fewer; with
+  // records left by earlier files the list is capped and the count does not
+  // move. Start each from an empty collection.
+  beforeEach(async function () {
+    await self.ctx.profile().deleteMany({});
   });
 
   it('put a profile, query, delete, verify gone', function (done) {
@@ -294,6 +301,85 @@ describe('Profiles API', function ( ) {
         .expect(400)
         .expect(function(response) {
           response.body.message.should.match(/Invalid _id format/i);
+        })
+        .end(done);
+    });
+  });
+
+  describe('profile pruning', function() {
+    beforeEach(async function () {
+      await self.ctx.profile().deleteMany({});
+    });
+
+    afterEach(async function () {
+      await self.ctx.profile().deleteMany({});
+    });
+
+    function profileForIndex (index) {
+      return {
+        "defaultProfile": "PruneTest" + index,
+        "store": { "Default": { "dia": 3 } },
+        "startDate": new Date(Date.UTC(2025, 0, index + 1)).toISOString()
+      };
+    }
+
+    it('should delete older profile records and keep the newest records', function(done) {
+      var profiles = [];
+
+      for (var i = 0; i < 12; i++) {
+        profiles.push(profileForIndex(i));
+      }
+
+      self.ctx.profile.create(profiles, function (err) {
+        if (err) {
+          return done(err);
+        }
+
+        request(self.app)
+          .delete('/api/profile/?keep=10')
+          .set('api-secret', known || '')
+          .expect(200)
+          .expect(function(response) {
+            response.body.deletedCount.should.equal(2);
+            response.body.n.should.equal(2);
+          })
+          .end(function (deleteErr) {
+            if (deleteErr) {
+              return done(deleteErr);
+            }
+
+            self.ctx.profile.list(function (listErr, docs) {
+              if (listErr) {
+                return done(listErr);
+              }
+
+              docs.length.should.equal(10);
+              docs[0].defaultProfile.should.equal('PruneTest11');
+              docs[9].defaultProfile.should.equal('PruneTest2');
+              done();
+            }, 20);
+          });
+      });
+    });
+
+    it('should reject unsafe profile keep counts', function(done) {
+      request(self.app)
+        .delete('/api/profile/?keep=9')
+        .set('api-secret', known || '')
+        .expect(400)
+        .expect(function(response) {
+          response.body.message.should.match(/Invalid keep count/i);
+        })
+        .end(done);
+    });
+
+    it('should reject unbounded profile keep counts', function(done) {
+      request(self.app)
+        .delete('/api/profile/?keep=10001')
+        .set('api-secret', known || '')
+        .expect(400)
+        .expect(function(response) {
+          response.body.message.should.match(/Invalid keep count/i);
         })
         .end(done);
     });

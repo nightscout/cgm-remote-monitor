@@ -34,4 +34,33 @@ describe('Data', function ( ) {
     ddata.treatments[4].mgdl.should.equal(90);
   });
 
+  // A treatment's units may be spelled 'mmol/L' or 'mmol/l' as well as 'mmol'; each is
+  // read as mmol/L, as the profile and the tooltip read it (BF-157)
+  it('reads a treatment glucose in mmol/L in any spelling of its units', function() {
+    var ddata = require('../lib/data/ddata')();
+    ddata.sgvs = [{mgdl: 90, mills: before},{mgdl: 100, mills: now}];
+    ddata.treatments = [
+      {_id: 'mmol_1', mills: before, glucose: 7, units: 'mmol/L'}
+      , {_id: 'mmol_2', mills: before, glucose: 7, units: 'mmol/l'}
+      , {_id: 'mmol_3', mills: before, glucose: 7, units: 'mmol'}
+      , {_id: 'mgdl_1', mills: before, glucose: 126, units: 'mg/dL'}
+      , {_id: 'mgdl_2', mills: before, glucose: 126, units: 'mg/dl'}
+    ];
+    fitTreatmentsToBGCurve(ddata, {
+        settings: settings
+      }
+      , {
+        language: require('../lib/language')()
+      }
+    );
+    ddata.treatments.slice(0, 3).forEach(function (t) {
+      t.should.have.property('mmol', 7);
+      t.should.not.have.property('mgdl');
+    });
+    ddata.treatments.slice(3).forEach(function (t) {
+      t.should.have.property('mgdl', 126);
+      t.should.not.have.property('mmol');
+    });
+  });
+
 });

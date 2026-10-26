@@ -1,8 +1,6 @@
 'use strict';
 
-var _ = require('lodash');
 var request = require('supertest');
-var should = require('should');
 var language = require('../lib/language')();
 
 describe('Devicestatus API', function ( ) {
@@ -20,6 +18,7 @@ describe('Devicestatus API', function ( ) {
     self.env.settings.enable = ['careportal', 'api'];
     this.wares = require('../lib/middleware/')(self.env);
     self.app = require('express')();
+    require('../lib/middleware/configure-request')(self.app);
     self.app.enable('api');
     require('../lib/server/bootevent')(self.env, language).boot(function booted(ctx) {
       self.ctx = ctx;
@@ -82,7 +81,7 @@ describe('Devicestatus API', function ( ) {
                       console.log('Testing if devicestatus was deleted');
                       request(self.app)
                         .get('/api/devicestatus/')
-                        .query('find[created_at][$lte]=2018-12-16')
+                        .query('find[created_at][$gte]=2018-12-16')
                         .set('api-secret', known || '')
                         .expect(200)
                         .expect(function (response) {

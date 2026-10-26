@@ -20,18 +20,22 @@ describe('Concurrent Write Tests - MongoDB 5.x Compatibility', function () {
     self.env.settings.enable = ['careportal', 'api'];
     self.wares = require('../lib/middleware/')(self.env);
     self.app = require('express')();
+    require('../lib/middleware/configure-request')(self.app);
     self.app.enable('api');
     require('../lib/server/bootevent')(self.env, language).boot(function booted(ctx) {
       self.ctx = ctx;
       self.ctx.ddata = require('../lib/data/ddata')();
       self.app.use('/api', api(self.env, ctx));
-      done();
+      self.server = self.app.listen(0, done);
     });
   });
 
   after(function (done) {
     if (self.ctx && self.ctx.bus) {
       self.ctx.bus.teardown();
+    }
+    if (self.server && self.server.listening) {
+      return self.server.close(done);
     }
     done();
   });
@@ -63,7 +67,7 @@ describe('Concurrent Write Tests - MongoDB 5.x Compatibility', function () {
 
         promises.push(
           new Promise(function (resolve, reject) {
-            request(self.app)
+            request(self.server)
               .post('/api/treatments/')
               .set('api-secret', known)
               .send(treatment)
@@ -113,7 +117,7 @@ describe('Concurrent Write Tests - MongoDB 5.x Compatibility', function () {
 
         promises.push(
           new Promise(function (resolve, reject) {
-            request(self.app)
+            request(self.server)
               .post('/api/treatments/')
               .set('api-secret', known)
               .send(treatments)
@@ -159,7 +163,7 @@ describe('Concurrent Write Tests - MongoDB 5.x Compatibility', function () {
               notes: 'rapid sequential ' + index
             };
 
-            request(self.app)
+            request(self.server)
               .post('/api/treatments/')
               .set('api-secret', known)
               .send(treatment)
@@ -220,7 +224,7 @@ describe('Concurrent Write Tests - MongoDB 5.x Compatibility', function () {
 
         promises.push(
           new Promise(function (resolve, reject) {
-            request(self.app)
+            request(self.server)
               .post('/api/devicestatus/')
               .set('api-secret', known)
               .send(status)
@@ -270,7 +274,7 @@ describe('Concurrent Write Tests - MongoDB 5.x Compatibility', function () {
 
         promises.push(
           new Promise(function (resolve, reject) {
-            request(self.app)
+            request(self.server)
               .post('/api/devicestatus/')
               .set('api-secret', known)
               .send(statuses)
@@ -328,7 +332,7 @@ describe('Concurrent Write Tests - MongoDB 5.x Compatibility', function () {
 
         promises.push(
           new Promise(function (resolve, reject) {
-            request(self.app)
+            request(self.server)
               .post('/api/entries/')
               .set('api-secret', known)
               .send(entry)
@@ -379,7 +383,7 @@ describe('Concurrent Write Tests - MongoDB 5.x Compatibility', function () {
 
         promises.push(
           new Promise(function (resolve, reject) {
-            request(self.app)
+            request(self.server)
               .post('/api/entries/')
               .set('api-secret', known)
               .send(entries)
@@ -443,7 +447,7 @@ describe('Concurrent Write Tests - MongoDB 5.x Compatibility', function () {
       var baseTime = Date.now();
 
       var treatmentPromise = new Promise(function (resolve, reject) {
-        request(self.app)
+        request(self.server)
           .post('/api/treatments/')
           .set('api-secret', known)
           .send([
@@ -458,7 +462,7 @@ describe('Concurrent Write Tests - MongoDB 5.x Compatibility', function () {
       });
 
       var devicestatusPromise = new Promise(function (resolve, reject) {
-        request(self.app)
+        request(self.server)
           .post('/api/devicestatus/')
           .set('api-secret', known)
           .send([
@@ -473,7 +477,7 @@ describe('Concurrent Write Tests - MongoDB 5.x Compatibility', function () {
       });
 
       var entriesPromise = new Promise(function (resolve, reject) {
-        request(self.app)
+        request(self.server)
           .post('/api/entries/')
           .set('api-secret', known)
           .send([
@@ -537,7 +541,7 @@ describe('Concurrent Write Tests - MongoDB 5.x Compatibility', function () {
               notes: 'unique id test ' + Math.random()
             };
 
-            request(self.app)
+            request(self.server)
               .post('/api/treatments/')
               .set('api-secret', known)
               .send(treatment)
@@ -581,7 +585,7 @@ describe('Concurrent Write Tests - MongoDB 5.x Compatibility', function () {
         promises.push(
           new Promise(function (resolve, reject) {
             var batch = treatments;
-            request(self.app)
+            request(self.server)
               .post('/api/treatments/')
               .set('api-secret', known)
               .send(batch)
@@ -613,9 +617,18 @@ describe('Concurrent Write Tests - MongoDB 5.x Compatibility', function () {
       });
     });
 
+    // The CGM and cross-collection sync tests also write entries and
+    // devicestatus records; remove those too, or later files that count them
+    // find extras.
     afterEach(function (done) {
       self.ctx.treatments.remove({ find: { eventType: { '$regex': '^Correction Bolus' } } }, function () {
-        done();
+        self.ctx.devicestatus.remove({ find: { device: { '$regex': '^cross-collection-device-' } } }, function () {
+          self.ctx.entries().deleteMany({ device: { $in: ['AndroidAPS-DexcomG6', 'cross-collection-test'] } })
+            .then(function () {
+              done();
+            })
+            .catch(done);
+        });
       });
     });
 
@@ -639,7 +652,7 @@ describe('Concurrent Write Tests - MongoDB 5.x Compatibility', function () {
           notes: 'AAPS sync catch-up ' + index
         };
 
-        request(self.app)
+        request(self.server)
           .post('/api/treatments/')
           .set('api-secret', known)
           .send(smb)
@@ -687,7 +700,7 @@ describe('Concurrent Write Tests - MongoDB 5.x Compatibility', function () {
           direction: ['Flat', 'FortyFiveUp', 'SingleUp', 'FortyFiveDown'][index % 4]
         };
 
-        request(self.app)
+        request(self.server)
           .post('/api/entries/')
           .set('api-secret', known)
           .send(sgv)
@@ -726,7 +739,7 @@ describe('Concurrent Write Tests - MongoDB 5.x Compatibility', function () {
         promises.push(
           new Promise(function (resolve, reject) {
             var idx = i;
-            request(self.app)
+            request(self.server)
               .post('/api/treatments/')
               .set('api-secret', known)
               .send({
@@ -745,7 +758,7 @@ describe('Concurrent Write Tests - MongoDB 5.x Compatibility', function () {
         promises.push(
           new Promise(function (resolve, reject) {
             var idx = i;
-            request(self.app)
+            request(self.server)
               .post('/api/entries/')
               .set('api-secret', known)
               .send({
@@ -764,7 +777,7 @@ describe('Concurrent Write Tests - MongoDB 5.x Compatibility', function () {
         promises.push(
           new Promise(function (resolve, reject) {
             var idx = i;
-            request(self.app)
+            request(self.server)
               .post('/api/devicestatus/')
               .set('api-secret', known)
               .send({

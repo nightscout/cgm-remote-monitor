@@ -1,6 +1,5 @@
 'use strict';
 
-var _ = require('lodash');
 var request = require('supertest');
 var should = require('should');
 var language = require('../lib/language')();
@@ -20,6 +19,7 @@ describe('Food API', function ( ) {
     self.env.settings.enable = ['careportal', 'api'];
     this.wares = require('../lib/middleware/')(self.env);
     self.app = require('express')();
+    require('../lib/middleware/configure-request')(self.app);
     self.app.enable('api');
     require('../lib/server/bootevent')(self.env, language).boot(function booted(ctx) {
       self.ctx = ctx;
@@ -27,6 +27,76 @@ describe('Food API', function ( ) {
       self.app.use('/api', api(self.env, ctx));
       done();
     });
+  });
+
+  it('round-trips browser-form quick-pick order, portions and totals through MongoDB twice', async function () {
+    const assert = require('node:assert/strict');
+    const {ObjectId} = require('mongodb');
+    const ids = [new ObjectId(), new ObjectId()];
+    const foodId = new ObjectId().toHexString();
+    try {
+      for (let cycle = 0; cycle < 2; cycle++) {
+        for (let index = 0; index < ids.length; index++) {
+          const portions = index === 0 ? 2 : (cycle === 0 ? 0 : 3);
+          const data = new URLSearchParams({_id: ids[index].toHexString(), type: 'quickpick',
+            name: 'Owned meal ' + index, position: String(cycle === 0 ? 1 - index : index),
+            hidden: 'false', hideafteruse: 'true', carbs: String(portions * 10)});
+          if (portions) {
+            for (const [key, value] of Object.entries({_id: foodId, type: 'food', name: 'Owned oats', carbs: 10, portions, portion: 25, unit: 'g'})) {
+              data.set('foods[0][' + key + ']', String(value));
+            }
+          }
+          await request(self.app).put('/api/food/').set('api-secret', known)
+            .set('Content-Type', 'application/x-www-form-urlencoded').send(data.toString()).expect(200);
+        }
+        const stored = await self.ctx.food().find({_id: {$in: ids}}).toArray();
+        assert.equal(stored.length, 2, 'Updates preserve exactly two owned records');
+        const response = await request(self.app).get('/api/food/quickpicks').set('api-secret', known).expect(200);
+        const owned = response.body.filter(row => ids.some(id => id.toHexString() === row._id));
+        const expected = cycle === 0 ? [ids[1], ids[0]] : ids;
+        assert.deepEqual(owned.map(row => row._id), expected.map(id => id.toHexString()));
+        assert.deepEqual(owned.map(row => row.position), ['0', '1']);
+        for (let index = 0; index < ids.length; index++) {
+          const row = owned.find(row => row._id === ids[index].toHexString());
+          const raw = stored.find(row => row._id.equals(ids[index]));
+          const portions = index === 0 ? 2 : (cycle === 0 ? 0 : 3);
+          assert.equal(row.carbs, String(portions * 10));
+          assert.equal(raw.carbs, row.carbs);
+          assert.equal(row.hidden, 'false');
+          assert.equal(row.hideafteruse, 'true');
+          if (portions) {
+            assert.equal(row.foods.length, 1);
+            assert.equal(row.foods[0]._id, foodId);
+            assert.equal(row.foods[0].portions, String(portions));
+            assert.equal(row.foods[0].carbs, '10');
+            assert.deepEqual(raw.foods, row.foods);
+          }
+        }
+      }
+    } finally {
+      for (const id of ids) await request(self.app).delete('/api/food/' + id.toHexString()).set('api-secret', known).expect(200);
+    }
+  });
+
+  // BF-93: a food write asks for a data reload, as the other v1 writes do, so
+  // the broadcast delta carries it to open pages without waiting for the next
+  // heartbeat.
+  it('creating, saving and deleting a food each request a data reload', async function ( ) {
+    var reloads = 0;
+    function onReload ( ) { reloads++; }
+    self.ctx.bus.on('data-received', onReload);
+    try {
+      var created = await request(self.app).post('/api/food/').set('api-secret', known)
+        .send({ type: 'quickpick', name: 'bf93 reload pick', carbs: 30, foods: [] }).expect(200);
+      reloads.should.equal(1);
+      var record = Object.assign({}, created.body[0], { name: 'bf93 reload pick', type: 'quickpick', carbs: 45, foods: [] });
+      await request(self.app).put('/api/food/').set('api-secret', known).send(record).expect(200);
+      reloads.should.equal(2);
+      await request(self.app).delete('/api/food/' + record._id).set('api-secret', known).expect(200);
+      reloads.should.equal(3);
+    } finally {
+      self.ctx.bus.removeListener('data-received', onReload);
+    }
   });
 
   it('put a food, query, delete, verify gone', function (done) {

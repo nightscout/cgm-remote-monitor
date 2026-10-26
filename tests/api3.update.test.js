@@ -59,7 +59,8 @@ describe('API3 UPDATE', function() {
   });
 
 
-  after(() => {
+  after(async () => {
+    await utils.storageClear(self.instance.ctx);
     self.instance.ctx.bus.teardown();
   });
 
@@ -69,7 +70,7 @@ describe('API3 UPDATE', function() {
   });
 
 
-  afterEach(() => {
+  afterEach(async () => {
     self.cache.shouldBeEmpty();
   });
 
@@ -152,8 +153,14 @@ describe('API3 UPDATE', function() {
     const doc = Object.assign({}, self.validDoc, {
       carbs: 11
     });
+    // srvModified comes from a monotonic server clock that a large batch in an
+    // earlier file (api3.v1-writes-history) can push seconds ahead of
+    // Date.now(), so a header based on now alone can fall before it. Use
+    // whichever is later, rounded up past the header's whole second.
+    const stored = await self.get(self.validDoc.identifier, self.jwt.read);
+    const since = Math.max(Date.now(), stored.srvModified);
     let res = await self.instance.put(self.urlIdent, self.jwt.update)
-      .set('If-Unmodified-Since', new Date(new Date().getTime() + 1000).toUTCString())
+      .set('If-Unmodified-Since', new Date(Math.ceil(since / 1000) * 1000 + 1000).toUTCString())
       .send(doc)
       .expect(200);
 
