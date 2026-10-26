@@ -1,0 +1,317 @@
+{
+  "probeSha256": "5dfa8185b6162dfe2c317e7165d42043693e2c7c170b51301037b748c8ae8d7a",
+  "runs": [
+    {
+      "baseline": "533c21055c87203bf37d9da63706d8859cac407b",
+      "node": "v22.23.2",
+      "icu": "78.2",
+      "intlTz": "2026a",
+      "moment": "2.30.1",
+      "momentTimezone": "0.5.48",
+      "momentTzData": "2025b",
+      "scope": "Editor YYYY-MM-DD and HH:mm formatting shapes; full server timezone data, not the clipped browser bundle. No parsing, invalid-input, fixed-offset profile, therapy, report-label or application wiring coverage.",
+      "formatterSourceBytes": 508,
+      "formatterSourceGzipBytes": 319,
+      "cases": 325,
+      "caveats": "Formatter size is standalone source, not a bundled delta. Both libraries remain loaded in this process. No retained heap, allocation or server RSS saving is established.",
+      "mismatchCount": 130,
+      "mismatchesByLocale": {
+        "ar": 65,
+        "fa": 65
+      },
+      "examples": [
+        {
+          "zone": "UTC",
+          "locale": "ar",
+          "instant": "1900-01-01T00:00:00.000Z",
+          "previous": {
+            "date": "\u0661\u0669\u0660\u0660-\u0660\u0661-\u0660\u0661",
+            "time": "\u0660\u0660:\u0660\u0660"
+          },
+          "candidate": {
+            "date": "1900-01-01",
+            "time": "00:00"
+          },
+          "equal": false
+        },
+        {
+          "zone": "UTC",
+          "locale": "fa",
+          "instant": "1900-01-01T00:00:00.000Z",
+          "previous": {
+            "date": "\u06f1\u06f9\u06f0\u06f0-\u06f0\u06f1-\u06f0\u06f1",
+            "time": "\u06f0\u06f0:\u06f0\u06f0"
+          },
+          "candidate": {
+            "date": "1900-01-01",
+            "time": "00:00"
+          },
+          "equal": false
+        }
+      ],
+      "timings": [
+        {
+          "round": 0,
+          "name": "moment",
+          "iterations": 5000,
+          "milliseconds": 13.087125,
+          "checksum": 75000
+        },
+        {
+          "round": 0,
+          "name": "intlCached",
+          "iterations": 5000,
+          "milliseconds": 12.545000000000002,
+          "checksum": 75000
+        },
+        {
+          "round": 0,
+          "name": "intlConstructEachTime",
+          "iterations": 5000,
+          "milliseconds": 154.96475,
+          "checksum": 75000
+        },
+        {
+          "round": 1,
+          "name": "intlConstructEachTime",
+          "iterations": 5000,
+          "milliseconds": 149.26062500000003,
+          "checksum": 75000
+        },
+        {
+          "round": 1,
+          "name": "intlCached",
+          "iterations": 5000,
+          "milliseconds": 22.45379200000002,
+          "checksum": 75000
+        },
+        {
+          "round": 1,
+          "name": "moment",
+          "iterations": 5000,
+          "milliseconds": 5.619290999999976,
+          "checksum": 75000
+        },
+        {
+          "round": 2,
+          "name": "moment",
+          "iterations": 5000,
+          "milliseconds": 5.356417000000022,
+          "checksum": 75000
+        },
+        {
+          "round": 2,
+          "name": "intlCached",
+          "iterations": 5000,
+          "milliseconds": 11.872749999999996,
+          "checksum": 75000
+        },
+        {
+          "round": 2,
+          "name": "intlConstructEachTime",
+          "iterations": 5000,
+          "milliseconds": 145.196166,
+          "checksum": 75000
+        },
+        {
+          "round": 3,
+          "name": "intlConstructEachTime",
+          "iterations": 5000,
+          "milliseconds": 151.45608299999992,
+          "checksum": 75000
+        },
+        {
+          "round": 3,
+          "name": "intlCached",
+          "iterations": 5000,
+          "milliseconds": 16.13416600000005,
+          "checksum": 75000
+        },
+        {
+          "round": 3,
+          "name": "moment",
+          "iterations": 5000,
+          "milliseconds": 5.305250000000001,
+          "checksum": 75000
+        },
+        {
+          "round": 4,
+          "name": "moment",
+          "iterations": 5000,
+          "milliseconds": 5.3832080000000815,
+          "checksum": 75000
+        },
+        {
+          "round": 4,
+          "name": "intlCached",
+          "iterations": 5000,
+          "milliseconds": 11.811542000000031,
+          "checksum": 75000
+        },
+        {
+          "round": 4,
+          "name": "intlConstructEachTime",
+          "iterations": 5000,
+          "milliseconds": 143.22395799999993,
+          "checksum": 75000
+        }
+      ]
+    },
+    {
+      "baseline": "533c21055c87203bf37d9da63706d8859cac407b",
+      "node": "v24.20.0",
+      "icu": "78.3",
+      "intlTz": "2026c",
+      "moment": "2.30.1",
+      "momentTimezone": "0.5.48",
+      "momentTzData": "2025b",
+      "scope": "Editor YYYY-MM-DD and HH:mm formatting shapes; full server timezone data, not the clipped browser bundle. No parsing, invalid-input, fixed-offset profile, therapy, report-label or application wiring coverage.",
+      "formatterSourceBytes": 508,
+      "formatterSourceGzipBytes": 319,
+      "cases": 325,
+      "caveats": "Formatter size is standalone source, not a bundled delta. Both libraries remain loaded in this process. No retained heap, allocation or server RSS saving is established.",
+      "mismatchCount": 130,
+      "mismatchesByLocale": {
+        "ar": 65,
+        "fa": 65
+      },
+      "examples": [
+        {
+          "zone": "UTC",
+          "locale": "ar",
+          "instant": "1900-01-01T00:00:00.000Z",
+          "previous": {
+            "date": "\u0661\u0669\u0660\u0660-\u0660\u0661-\u0660\u0661",
+            "time": "\u0660\u0660:\u0660\u0660"
+          },
+          "candidate": {
+            "date": "1900-01-01",
+            "time": "00:00"
+          },
+          "equal": false
+        },
+        {
+          "zone": "UTC",
+          "locale": "fa",
+          "instant": "1900-01-01T00:00:00.000Z",
+          "previous": {
+            "date": "\u06f1\u06f9\u06f0\u06f0-\u06f0\u06f1-\u06f0\u06f1",
+            "time": "\u06f0\u06f0:\u06f0\u06f0"
+          },
+          "candidate": {
+            "date": "1900-01-01",
+            "time": "00:00"
+          },
+          "equal": false
+        }
+      ],
+      "timings": [
+        {
+          "round": 0,
+          "name": "moment",
+          "iterations": 5000,
+          "milliseconds": 8.901457999999991,
+          "checksum": 75000
+        },
+        {
+          "round": 0,
+          "name": "intlCached",
+          "iterations": 5000,
+          "milliseconds": 10.769040999999987,
+          "checksum": 75000
+        },
+        {
+          "round": 0,
+          "name": "intlConstructEachTime",
+          "iterations": 5000,
+          "milliseconds": 147.969041,
+          "checksum": 75000
+        },
+        {
+          "round": 1,
+          "name": "intlConstructEachTime",
+          "iterations": 5000,
+          "milliseconds": 144.383333,
+          "checksum": 75000
+        },
+        {
+          "round": 1,
+          "name": "intlCached",
+          "iterations": 5000,
+          "milliseconds": 22.067791999999997,
+          "checksum": 75000
+        },
+        {
+          "round": 1,
+          "name": "moment",
+          "iterations": 5000,
+          "milliseconds": 6.098333000000025,
+          "checksum": 75000
+        },
+        {
+          "round": 2,
+          "name": "moment",
+          "iterations": 5000,
+          "milliseconds": 6.816167000000007,
+          "checksum": 75000
+        },
+        {
+          "round": 2,
+          "name": "intlCached",
+          "iterations": 5000,
+          "milliseconds": 10.479624999999942,
+          "checksum": 75000
+        },
+        {
+          "round": 2,
+          "name": "intlConstructEachTime",
+          "iterations": 5000,
+          "milliseconds": 139.09783399999992,
+          "checksum": 75000
+        },
+        {
+          "round": 3,
+          "name": "intlConstructEachTime",
+          "iterations": 5000,
+          "milliseconds": 148.06112500000006,
+          "checksum": 75000
+        },
+        {
+          "round": 3,
+          "name": "intlCached",
+          "iterations": 5000,
+          "milliseconds": 15.066124999999943,
+          "checksum": 75000
+        },
+        {
+          "round": 3,
+          "name": "moment",
+          "iterations": 5000,
+          "milliseconds": 5.436874999999986,
+          "checksum": 75000
+        },
+        {
+          "round": 4,
+          "name": "moment",
+          "iterations": 5000,
+          "milliseconds": 5.260084000000006,
+          "checksum": 75000
+        },
+        {
+          "round": 4,
+          "name": "intlCached",
+          "iterations": 5000,
+          "milliseconds": 10.15874999999994,
+          "checksum": 75000
+        },
+        {
+          "round": 4,
+          "name": "intlConstructEachTime",
+          "iterations": 5000,
+          "milliseconds": 139.90187500000002,
+          "checksum": 75000
+        }
+      ]
+    }
+  ]
+}

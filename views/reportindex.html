@@ -1,6 +1,7 @@
 <!DOCTYPE html>
-<html>
+<html class="report-ui <%= settings.theme === 'modern' ? 'modern-ui' : '' %>">
 <head>
+  <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>Nightscout Reporting</title>
   
   <link rel="apple-touch-icon" sizes="57x57" href="/images/apple-touch-icon-57x57.png">
@@ -25,60 +26,64 @@
 
   <link rel="preload" href="/css/main.css" as="style" onload="this.onload=null;this.rel='stylesheet'">
   <link rel="preload" href="/css/drawer.css" as="style" onload="this.onload=null;this.rel='stylesheet'">
-  <link rel="preload" href="/css/report.css" as="style" onload="this.onload=null;this.rel='stylesheet'">
+  <link rel="preload" href="/css/report.css?v=<%= locals.cachebuster %>" as="style" onload="this.onload=null;this.rel='stylesheet'">
   <link rel="preload" href="/css/dropdown.css" as="style" onload="this.onload=null;this.rel='stylesheet'">
   <link rel="preload" href="/css/ui-lightness/jquery-ui.min.css" as="style" onload="this.onload=null;this.rel='stylesheet'">
+  <link rel="stylesheet" href="/css/modern.css?v=<%= locals.cachebuster %>">
+  <link rel="stylesheet" href="/css/modern-editors.css?v=<%= locals.cachebuster %>">
+  <link rel="stylesheet" href="/css/modern-reports.css?v=<%= locals.cachebuster %>">
   <%- include('preloadCSS')%>
   
 </head>
-  <body>
+  <body class="editor-page report-page">
     <%- include('partials/toolbar') %>
 
-  <ul id="tabnav">
+  <ul id="tabnav" aria-label="Report type">
   </ul>
-  <main>
-    <table>
-      <tr>
-        <td><input type="checkbox" id="rp_enabledate" checked></td>
+  <main class="editor-content">
+    <fieldset id="report-filters" class="report-filters">
+    <legend class="report-filters-title translate">Report filters</legend>
+    <table class="report-filter-table">
+      <tr class="report-dates-row">
+        <td><input type="checkbox" id="rp_enabledate" aria-label="Filter by date" checked></td>
         <td>
-          <span class="translate">From</span>: <input type="date" id="rp_from">
-          <span class="translate">To</span>: <input type="date" id="rp_to">
-          <a href="#" days="1" class="presetdates"><span class="translate">Today</span></a>
+          <label for="rp_from" class="translate">From</label>: <input type="date" id="rp_from">
+          <label for="rp_to" class="translate">To</label>: <input type="date" id="rp_to">
+          <span class="report-date-presets"><a href="#" days="1" class="presetdates"><span class="translate">Today</span></a>
           <a href="#" days="2" class="presetdates"><span class="translate">Last 2 days</span></a>
           <a href="#" days="3" class="presetdates"><span class="translate">Last 3 days</span></a>
           <a href="#" days="7" class="presetdates"><span class="translate">Last week</span></a>
           <a href="#" days="14" class="presetdates"><span class="translate">Last 2 weeks</span></a>
           <a href="#" days="31" class="presetdates"><span class="translate">Last month</span></a>
-          <a href="#" days="90" class="presetdates"><span class="translate">Last 3 months</span></a>
+          <a href="#" days="90" class="presetdates"><span class="translate">Last 3 months</span></a></span>
         </td>
       </tr>
-      <tr class="rp_foodgui" style="display:none">
+      <tr class="rp_foodgui report-food-filter-row" style="display:none">
         <td></td>
         <td>
-          <span class="translate">Category</span>: <select id="rp_category"></select>
-          <span class="translate">Subcategory</span>: <select id="rp_subcategory"></select>
-          <span class="translate">Name</span>: <input type="text" id="rp_name"></select>
+          <label for="rp_category" class="translate">Category</label>: <select id="rp_category"></select>
+          <label for="rp_subcategory" class="translate">Subcategory</label>: <select id="rp_subcategory"></select>
+          <label for="rp_name" class="translate">Name</label>: <input type="text" id="rp_name">
         </td>
       </tr>
       <tr class="rp_foodgui" style="display:none">
         <td>
-          <input type="checkbox" id="rp_enablefood">
+          <input type="checkbox" id="rp_enablefood" aria-label="Filter by food">
         </td>
         <td>
-          <span class="translate">Food</span>: <select id="rp_food"></select>
+          <label for="rp_food" class="translate">Days with food</label>: <select id="rp_food"></select>
         </td>
       </tr>
       <tr>
-        <td><input type="checkbox" id="rp_enablenotes"></td>
+        <td><input type="checkbox" id="rp_enablenotes" aria-label="Filter by notes"></td>
         <td>
-          <span class="translate">Notes contain</span>: <input type="text" id="rp_notes"></select>
+          <label for="rp_notes" class="translate">Days with notes containing</label>: <input type="text" id="rp_notes">
         </td>
       </tr>
-      <tr>
         <tr>
-          <td><input type="checkbox" id="rp_enableeventtype"></td>
+          <td><input type="checkbox" id="rp_enableeventtype" aria-label="Filter by event type"></td>
           <td>
-            <span class="translate">Event Type</span>: <select id="rp_eventtype"></select>
+            <label for="rp_eventtype" class="translate">Days with event type</label>: <select id="rp_eventtype"></select>
           </td>
         </tr>
         <tr>
@@ -95,9 +100,9 @@
         </tr>
         <tr>
           <td colspan="2">
-            <span class="translate">Target BG range bottom</span>:
+            <label for="rp_targetlow" class="translate">Target BG range bottom</label>:
             <input type="number" size="3" step="0.1" id="rp_targetlow">
-            <span class="translate">top</span>:
+            <label for="rp_targethigh" class="translate">top</label>:
             <input type="number" size="3" step="0.1" id="rp_targethigh">
           </td>
           <td></td>
@@ -114,20 +119,16 @@
           </td>
           <td></td>
         </tr>
-      </tr>
     </table>
     <button id="rp_show" class="translate">Show</button>
-    <div id="info"></div>
-    <hr>
+    <div id="info" role="status" aria-live="polite"></div>
+    </fieldset>
+    <hr class="report-divider">
     <div id="pluginchartplaceholders"></div>
   </main>
 
   <%- include('partials/authentication-status') %>
 
-  <script src="<%= locals.bundle %>/js/bundle.app.js"></script>
-  <script src="/socket.io/socket.io.js"></script>
-  <script src="/report/js/flotcandle.js"></script>
-  <script src="/report/js/loopalyzer.js"></script>
-  <script src="/js/reportinit.js"></script>
+  <%- include('partials/page-scripts', {pageEntry: 'reports', startupScripts: ['/report/js/flotcandle.js', '/report/js/loopalyzer.js', '/js/reportinit.js']}) %>
 </body>
 </html>  

@@ -1,6 +1,6 @@
 # Test Coverage Gaps - Aggregated View
 
-**Last Updated:** May 2026
+**Last Updated:** September 2026
 
 This document aggregates coverage gaps from all test specifications to provide a prioritized view for planning test development work.
 
@@ -97,6 +97,7 @@ These gaps represent functional coverage that should be addressed after high pri
 | Shape Handling | Cross-API consistency (v1 vs v3 storage) | `shape-handling-tests.md` | Cross-read verification tests |
 | Authorization | Subject CRUD operations | `authorization-tests.md` | Add API tests for admin endpoints |
 | Authorization | Role Management | `authorization-tests.md` | Test role creation and permission assignment |
+| Reports | Deterministic report-statistics and browser-rendering coverage | `testing-modernization-proposal.md` | Extract calculations behind DOM-free modules or API contracts; add unit/contract tests and retain manual browser smoke checks meanwhile |
 
 ---
 
@@ -139,51 +140,28 @@ When addressing a gap:
 
 ---
 
-## Track 1 / Phase 4 — `reports.test.js` skipped (Phase 4, 2026-05)
+## Partial — report statistics and browser rendering
 
-**File:** `tests/reports.test.js`
-**State:** `describe.skip(...)` — entire suite skipped, never runs.
+The two formerly quarantined `tests/reports.test.js` cases now run in
+`tests/browser/legacy-reports.test.js` against the actual report page and
+browser components. Historical output assertions are preserved, with native
+edit/delete dialogs, exact request payloads and plotted-reading checks.
+The [browser specification](browser-tests.md#legacy-report-quarantine-replacement)
+records fixture boundaries and validation. No generic jsdom/browser mocks
+replace the report components.
 
-**What it covered (legacy benv harness):**
-- "should produce some html" — exercises `Nightscout.reportclient` end-to-end
-  by feeding 7 days of synthetic SGV/treatment data through the client-side
-  report rendering pipeline (jQuery + Flot) inside a benv/jsdom-11 sandbox.
-- "should produce week to week report" — same scaffolding, week-to-week view.
+Additional automated coverage includes `tests/browser/report-sgv-pipeline.test.js`
+for both unit modes, Daily Stats, caching and repeated initialization;
+`tests/browser/stored-outputs.test.js` and `profile-settings.test.js` for output
+safety; and `tests/reportstorage.test.js` for preference persistence.
 
-**Why it can't be ported to modern jsdom today:**
-1. Both tests `benv.require()` the full webpack `bundle.app.js` against a
-   *new* jsdom window in their `beforeEach`. The bundle's entry module
-   (38211) recompiles on each `require()` (cache-busted), but its
-   side-effect writes to the new `window` (e.g. `window.Nightscout = ...`)
-   are not observable on the second invocation under modern Node — the
-   exact mechanism is unclear, but the legacy `benv`+`rewire` path side-
-   stepped it via `vm.runInThisContext` semantics that we cannot
-   faithfully reproduce. (Re-introducing `rewire` was attempted; it hangs
-   on jQuery DOM-ready timing under modern jQuery+jsdom@24.)
-2. Even if we worked around that, the rendering surface (Flot, charts as
-   raw HTML) is the wrong assertion target. The right surface is the
-   server-side statistics API once it lands (see
-   `docs/proposals/testing-modernization-proposal.md` Track 3 / Future).
-
-**Coverage replacement plan:**
-- **Short-term (Phase 5c, Track 2):** structural wiring is now covered
-  by `tests/bundle.smoke.test.js` (boots `bundle.app.js` in jsdom and
-  asserts `Nightscout.client/.reportclient/.profileclient/.units` are
-  exposed). Per-plugin stats math is exercised by dedicated suites:
-  `basalprofileplugin.test.js`, `daytodayplugin.test.js`,
-  `foodstatsplugin.test.js`, `glucosedistributionplugin.test.js`,
-  `hourlystatsplugin.test.js`, `loopalyzerplugin.test.js`,
-  `profileplugin.test.js`, `reportstorage.test.js`. End-to-end
-  rendering checks moved to a manual checklist:
-  `docs/test-specs/manual-smoke-checklist.md` §3.
-- **Medium-term:** when the server-side statistics API ships, port the
-  per-bucket calculations (TIR, average, std-dev) as Node-only unit tests.
-- **Long-term:** delete `tests/reports.test.js` and the supporting
-  `static/js/reportinit.js` once the server-side path replaces client
-  rendering.
-
-**Tracking:** opening a follow-up issue at PR-merge time to surface this
-gap and tie it to the stats API work.
+This closes the two historical quarantines, not every report coverage gap.
+The broad historical fixture is mg/dL/UTC and uses finite backend responses;
+it does not verify MongoDB persistence or every uploader's OpenAPS data.
+Keep section 3 of `manual-smoke-checklist.md` as a release check. Add
+independent calculation/unit/timezone contracts as modernization extracts
+report logic (M14/M26/M27), including the distribution cleaning/interpolation
+boundary separately from raw reading counts.
 
 ---
 

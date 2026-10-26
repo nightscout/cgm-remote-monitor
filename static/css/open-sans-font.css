@@ -14,7 +14,7 @@
   font-family: 'Open Sans';
   font-style: italic;
   font-weight: 600;
-  src: url(/font/open-sans/static/OpenSans-SemiboldItalic.woff2) format('woff2');
+  src: url(/font/open-sans/static/OpenSans-SemiBoldItalic.woff2) format('woff2');
 }
 @font-face {
   font-family: 'Open Sans';
@@ -38,7 +38,7 @@
   font-family: 'Open Sans';
   font-style: normal;
   font-weight: 600;
-  src: url(/font/open-sans/static/OpenSans-Semibold.woff2) format('woff2');
+  src: url(/font/open-sans/static/OpenSans-SemiBold.woff2) format('woff2');
 }
 @font-face {
   font-family: 'Open Sans';

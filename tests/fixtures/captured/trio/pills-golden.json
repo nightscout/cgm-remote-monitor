@@ -35,6 +35,22 @@
         "value": "2.78U"
       }
     ],
+    "cob": [
+      {
+        "info": [
+          {
+            "label": "Source",
+            "value": "OpenAPS"
+          },
+          {
+            "label": "Device",
+            "value": "Trio"
+          }
+        ],
+        "label": "COB",
+        "value": "61g"
+      }
+    ],
     "direction": [
       {
         "hide": true
@@ -84,7 +100,8 @@
       {
         "info": [],
         "label": "SAGE",
-        "pillClass": null
+        "pillClass": null,
+        "value": "n/a "
       }
     ],
     "bage": [
@@ -137,7 +154,7 @@
           },
           {
             "label": "1m ago",
-            "value": "BG: 156, <b>Temp Basal Canceled</b>, Autosens ratio: 1.17, ISF: 100→86, COB: 61, Dev: 71, BGI: -8, CR: 11, Target: 150, minPredBG 169, minGuardBG 65, IOBpredBG 39, COBpredBG 403, UAMpredBG 39, TDD: 46.8 U; minGuardBG 65&lt;95 84m left and 0 ~ req 0U/hr: no temp required, IOB: 2.77U, Basal IOB -2.22U, Bolus IOB 4.99U"
+            "value": "BG: 156, Temp Basal Canceled, Autosens ratio: 1.17, ISF: 100→86, COB: 61, Dev: 71, BGI: -8, CR: 11, Target: 150, minPredBG 169, minGuardBG 65, IOBpredBG 39, COBpredBG 403, UAMpredBG 39, TDD: 46.8 U; minGuardBG 65&lt;95 84m left and 0 ~ req 0U/hr: no temp required, IOB: 2.77U, Basal IOB -2.22U, Bolus IOB 4.99U"
           }
         ],
         "label": "OpenAPS ⌁",
@@ -211,6 +228,7 @@
         "mgdl": 156,
         "color": "#1e88e5",
         "mills": 1778284801472,
+        "forecastMills": 1778284798139,
         "noFade": true,
         "forecastType": "IOB"
       },
@@ -218,6 +236,7 @@
         "mgdl": 39,
         "color": "#c9bd60",
         "mills": 1778293208138,
+        "forecastMills": 1778293198139,
         "noFade": true,
         "forecastType": "UAM"
       }

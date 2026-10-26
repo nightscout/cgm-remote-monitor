@@ -145,7 +145,7 @@ it('should not work short', function() {
 
 ## 4. Client-Side Hash Authentication Test Cases
 
-### 4.1 Hashauth Test Suite (`tests/hashauth.test.js`)
+### 4.1 Hashauth browser suite (`tests/browser/authentication.test.js`)
 
 | Test ID | Test Case | Requirement | Expected Result |
 |---------|-----------|-------------|-----------------|
@@ -158,7 +158,12 @@ it('should not work short', function() {
 
 **Note:** These tests validate client-side hash computation and UI state management, not server-side authentication. They verify that the client correctly hashes the API_SECRET before transmission, including when browser `crypto.subtle` is unavailable in non-secure contexts.
 
-#### Test Case Details
+#### Historical fixture example
+
+The example below documents the previous component boundary. Current tests
+use the actual bundle, native storage/dialogs and isolated HTTP responses;
+see [browser authentication coverage](browser-tests.md). The benv/jsdom
+harness is removed and should not be restored to run this example.
 
 **HASH-003: Should store hash and then remove authentication**
 ```javascript
@@ -195,14 +200,14 @@ it('should store hash and the remove authentication', function (done) {
 
 #### Known Testing Quirks
 
-**Browser Environment Simulation:**
-- Tests use `benv` package to simulate browser DOM
-- `headless.js` fixture provides secure jsdom harness
-- Tests mock `localStorage`, `window.alert`, Web Crypto, and jQuery plugins
-
-**Network Isolation:**
-- `mockAjax: true` prevents actual network requests
-- `verifyAuthentication` is mocked to control auth state
+**Current browser environment:**
+- The actual bundle runs in an isolated Chromium/Firefox/WebKit context.
+- Native storage, alerts and Web Crypto are used; the fallback-hash case
+  intentionally disables only the relevant crypto boundary.
+- Local HTTP/socket authorization responses are fixtures, not production
+  credentials or server-side authorization tests.
+- Each context closes in `finally`, with HTTP/WebSocket origin isolation
+  and explicit leak checks in the shared browser harness.
 
 ---
 
@@ -436,14 +441,11 @@ var known512 = '8c8743d38cbe00debe4b3ba8d0ffbb85e4716c982a61bb9e57bab203178e3718
 
 ### 10.1 Client-Side Testing Complexity
 
-**Issue:** The `hashauth.test.js` tests require complex browser environment simulation using `benv`.
-
-**Details:**
-- Tests rely on `headless.js` fixture for secure jsdom setup
-- Network isolation via `NoNetworkLoader` pattern prevents accidental external requests
-- `js-storage` module caches environment detection on first require, requiring cache clearing in `after()` hook
-
-**Barrier:** Modernizing these tests requires maintaining the secure jsdom harness to prevent test network leakage.
+The historical benv/jsdom and import-time global/cache restoration issues
+are retired with the old harness. `tests/browser/authentication.test.js`
+uses fresh browser contexts and native storage, including saved authentication
+across two reloads. The application still uses `js-storage`; replacing that
+package remains a separate M16 contract migration.
 
 ### 10.2 Brute-Force Test Timing
 
@@ -499,7 +501,7 @@ Per `docs/proposals/testing-modernization-proposal.md`:
 
 **Track 1 (Testing Foundation):**
 - Security tests are identified as "keep" tests due to their critical nature
-- hashauth tests require the secure jsdom harness from Track 1
+- Hashauth tests require the isolated real-browser suite; the Track 1 jsdom harness is retired
 
 **Track 2 (Logic/DOM Separation):**
 - `hashauth.js` client module could be split into pure logic (hash computation) and DOM interaction
