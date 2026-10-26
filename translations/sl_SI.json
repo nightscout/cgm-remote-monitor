@@ -201,6 +201,8 @@
     "Date format": "Oblika datuma",
     "12 hours": "12 ur",
     "24 hours": "24 ur",
+    "Show Seconds": "Show Seconds",
+    "When enabled the clock displays seconds and updates every second.": "When enabled the clock displays seconds and updates every second.",
     "Log a Treatment": "Zabeleži nego",
     "BG Check": "Preverjanje GK",
     "Meal Bolus": "Bolus za obrok",
