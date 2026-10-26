@@ -1,7 +1,7 @@
 # Legacy Dexcom retirement validation (M09/M29)
 
 Candidate in progress. The maintainer explicitly authorized retirement in
-15.0.9 in favour of Nightscout Connect, superseding the proposed upstream TLS
+16.0.0 in favour of Nightscout Connect, superseding the proposed upstream TLS
 repair and prior need to retain forced-legacy use cases.
 
 Removes the engine, local plugin and old implementation-only tests. Compatibility

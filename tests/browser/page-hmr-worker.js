@@ -35,9 +35,8 @@ app.use((request, response, next) => {
   next();
 });
 for (const [url, html] of documents) app.get(url, (request, response) => response.type('html').send(html));
-const development = require('webpack-dev-middleware')(compiler, {publicPath: config.output.publicPath, stats: false});
-const hot = require('webpack-hot-middleware')(compiler, {heartbeat: 1000, log: false});
-app.use(development); app.use(hot);
+const development = require('webpack-dev-middleware')(compiler, {publicPath: config.output.publicPath, stats: 'errors-only', hot: {heartbeat: 1000}});
+app.use(development);
 const server = http.createServer(app);
 let origin, latest, closing = false;
 function notify() {if (origin && latest && process.connected) process.send({...latest, origin});}
@@ -49,9 +48,8 @@ server.listen(0, '127.0.0.1', () => {origin = 'http://127.0.0.1:' + server.addre
 async function close() {
   if (closing) return;
   closing = true;
-  hot.close();
-  await new Promise(resolve => server.close(resolve));
   await new Promise(resolve => development.close(resolve));
+  await new Promise(resolve => server.close(resolve));
   await new Promise(resolve => compiler.close(resolve));
   fs.rmSync(directory, {recursive: true, force: true});
   process.exit(0);
@@ -60,6 +58,10 @@ process.on('disconnect', close);
 process.on('SIGTERM', close);
 process.on('message', message => {
   if (message.close) return close();
-  if (!sources.has(message.entry) || !Number.isInteger(message.version) || message.version < 1 || message.version > 2) throw new Error('Invalid HMR fixture update');
+  if (message.broken && sources.has(message.entry)) {
+    fs.writeFileSync(path.join(directory, 'bundle', names[message.entry]), sources.get(message.entry) + '\nconst ownedBrokenFixture = ;\n');
+    return;
+  }
+  if (!sources.has(message.entry) || !Number.isInteger(message.version) || message.version < 1 || message.version > 4) throw new Error('Invalid HMR fixture update');
   write(message.entry, message.version);
 });

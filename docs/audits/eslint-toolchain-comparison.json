@@ -1,0 +1,120 @@
+{
+  "scope": "Matched clean Node 22 installs and production builds; file bytes exclude caches and do not measure image size or server memory.",
+  "before": {
+    "lockSha256": "84afe99b3acc1356e1aa5aea9e1c5b1acf817de3d7b16eca1a779f4b37f8a681",
+    "declarations": 61,
+    "packagePaths": 900,
+    "productionPaths": 294,
+    "files": {
+      "node": "v22.23.2",
+      "platform": "darwin",
+      "arch": "arm64",
+      "files": 24799,
+      "bytes": 208333694
+    },
+    "bundles": {
+      "runtime": {
+        "node": "22.23.2",
+        "zlib": "1.3.1-e00f703"
+      },
+      "bundles": {
+        "app": {
+          "bytes": 1041919,
+          "gzipBytes": 303753
+        },
+        "reports": {
+          "bytes": 170347,
+          "gzipBytes": 50577
+        },
+        "admin": {
+          "bytes": 32065,
+          "gzipBytes": 7930
+        },
+        "profile": {
+          "bytes": 18472,
+          "gzipBytes": 6660
+        },
+        "food": {
+          "bytes": 15864,
+          "gzipBytes": 5316
+        },
+        "clock": {
+          "bytes": 150606,
+          "gzipBytes": 61422
+        }
+      },
+      "allApplicationGzipBytes": 374236
+    },
+    "baseCommit": "fe49001b088fb52a91ff76921e4a73a348d54516",
+    "bundleSha256": {
+      "app": "fdfa486768bf62c6e068e474b47a35d1463bf51dfbde43cf8d3dc9ada30949e4",
+      "reports": "fe00b93c8881561e2c672950b80c0534a4c02823d64fb0b466eec526c56b987f",
+      "admin": "d0ab2543129d932eaccd3966a5cfbc2eb7684eecb944d8c77ad506be0e3eb8f5",
+      "profile": "10d6b3353837943838acb9cd46d17504486483bd21fd166825cd82aa99b954ff",
+      "food": "fb7be2b2196f0ad4678cd3513b881fbd4606cd055a409becab7a435bb6b51a3d",
+      "clock": "959131ee91feadadcadfa24fcba0d70fa7b7c54348e9f116c6f42ea7a08a9215"
+    }
+  },
+  "after": {
+    "lockSha256": "75df2737fd393f4c333ada79c48450db7b88500a258ace6e95d7bd7189421677",
+    "declarations": 62,
+    "packagePaths": 859,
+    "productionPaths": 294,
+    "files": {
+      "node": "v22.23.2",
+      "platform": "darwin",
+      "arch": "arm64",
+      "files": 23682,
+      "bytes": 204737481
+    },
+    "bundles": {
+      "runtime": {
+        "node": "22.23.2",
+        "zlib": "1.3.1-e00f703"
+      },
+      "bundles": {
+        "app": {
+          "bytes": 1041919,
+          "gzipBytes": 303753
+        },
+        "reports": {
+          "bytes": 170347,
+          "gzipBytes": 50577
+        },
+        "admin": {
+          "bytes": 32065,
+          "gzipBytes": 7930
+        },
+        "profile": {
+          "bytes": 18472,
+          "gzipBytes": 6660
+        },
+        "food": {
+          "bytes": 15864,
+          "gzipBytes": 5316
+        },
+        "clock": {
+          "bytes": 150606,
+          "gzipBytes": 61422
+        }
+      },
+      "allApplicationGzipBytes": 374236
+    },
+    "baseCommit": "fe49001b088fb52a91ff76921e4a73a348d54516",
+    "bundleSha256": {
+      "app": "fdfa486768bf62c6e068e474b47a35d1463bf51dfbde43cf8d3dc9ada30949e4",
+      "reports": "fe00b93c8881561e2c672950b80c0534a4c02823d64fb0b466eec526c56b987f",
+      "admin": "d0ab2543129d932eaccd3966a5cfbc2eb7684eecb944d8c77ad506be0e3eb8f5",
+      "profile": "10d6b3353837943838acb9cd46d17504486483bd21fd166825cd82aa99b954ff",
+      "food": "fb7be2b2196f0ad4678cd3513b881fbd4606cd055a409becab7a435bb6b51a3d",
+      "clock": "959131ee91feadadcadfa24fcba0d70fa7b7c54348e9f116c6f42ea7a08a9215"
+    }
+  },
+  "delta": {
+    "declarations": 1,
+    "packagePaths": -41,
+    "productionPaths": 0,
+    "installedBytes": -3596213,
+    "appGzipBytes": 0
+  }
+}

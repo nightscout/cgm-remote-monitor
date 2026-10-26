@@ -64,6 +64,8 @@ describe('Complete page template startup', function () {
   for (const [url, , , entry] of pages) {
     it('boots ' + entry + ' with ' + (authenticate ? 'the authentication dialog' : 'stored authentication') + ' and reconnects twice', async function () {
       await withPage(origin, async ({page}) => {
+        const statusUrls = [];
+        page.on('request', request => {if (new URL(request.url()).pathname === '/api/v1/status.json') statusUrls.push(request.url());});
         if (!authenticate) await page.addInitScript(hash => localStorage.setItem('apisecrethash', hash), hash);
         try {
           await page.goto(origin + url);
@@ -110,6 +112,12 @@ describe('Complete page template startup', function () {
             await page.waitForFunction(() => document.querySelector('#fe_status').textContent === 'OK' && window.$.active === 0);
             assert.equal(fixtureState.foodWrites.length, 1, 'One save action must create exactly one record after reconnects');
             assert.equal(fixtureState.foodWrites[0].name, draftValue);
+          }
+          assert(statusUrls.length > 0);
+          for (const url of statusUrls) {
+            const params = new URL(url).searchParams;
+            assert.equal(params.has('secret'), false);
+            assert.equal(params.has('token'), false);
           }
         } finally {
           await page.evaluate(() => {

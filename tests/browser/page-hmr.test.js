@@ -81,4 +81,33 @@ describe('Actual page entries with development hot middleware', function () {
       assert.deepEqual(external, [], 'Unexpected external HMR request');
     } finally {await context.close();}
   });
+
+  it('recovers from repeated compile errors without losing an unsaved draft or reloading', async function () {
+    this.timeout(120000);
+    const context = await getBrowser().newContext({serviceWorkers: 'block'});
+    try {
+      const page = await context.newPage();
+      let navigations = 0;
+      page.on('framenavigated', frame => {if (frame === page.mainFrame()) navigations++;});
+      await page.goto(origin + '/reports');
+      await page.waitForFunction(() => window.pageHotVersions && window.pageHotVersions.reports === 2);
+      await page.locator('#draft').fill('Retain through compilation failure');
+      for (const version of [3, 4]) {
+        const failed = assert.rejects(compiled(worker), /ownedBrokenFixture|Unexpected token/);
+        worker.send({entry: 'reports', broken: true});
+        await failed;
+        await page.locator('#webpack-dev-middleware-hot-overlay').waitFor({state: 'visible'});
+        assert.equal(await page.locator('#draft').inputValue(), 'Retain through compilation failure');
+        const recovered = compiled(worker);
+        worker.send({entry: 'reports', version});
+        await recovered;
+        await page.waitForFunction(version => window.pageHotVersions.reports === version, version);
+        await page.locator('#webpack-dev-middleware-hot-overlay').waitFor({state: 'detached'});
+        assert.equal(await page.locator('#draft').inputValue(), 'Retain through compilation failure');
+        assert.equal(navigations, 1);
+        assert.equal(await page.evaluate(() => typeof window.Nightscout.reportclient), 'function');
+      }
+    } finally {await context.close();}
+  });
+
 });
