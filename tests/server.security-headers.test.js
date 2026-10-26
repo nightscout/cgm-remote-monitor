@@ -279,8 +279,12 @@ describe('server security headers', function () {
                 else should.not.exist(res.headers[name]);
               }
               if (hstsBundleEnabled) should.not.exist(res.headers['x-powered-by']);
-              if (hstsBundleEnabled || cspMode !== 'off') res.headers['referrer-policy'].should.equal('no-referrer');
-              else should.not.exist(res.headers['referrer-policy']);
+              // EXPECTATION CHANGED at the cut 5 merge: this branch sent
+              // Referrer-Policy only with the HSTS bundle or CSP. dev sends it on
+              // every response, independently of CSP and TLS settings (see the
+              // 'sets no-referrer independently' test above), and dev's
+              // behaviour is kept.
+              res.headers['referrer-policy'].should.equal('no-referrer');
               if (insecureUseHttp || !secureHstsHeader) should.not.exist(res.headers['strict-transport-security']);
               else res.headers['strict-transport-security'].should.equal('max-age=31536000');
               if (allowUnrestrictedFrameEmbedding) should.not.exist(res.headers['x-frame-options']);

@@ -27,7 +27,11 @@ describe('EJS application template contracts', function () {
   ]) {
     it(file + ' retains includes, escaped labels and fresh locals with cached templates', async function () {
       for (const revision of ['first & revision', 'second 💉 revision']) {
-        const data = {type, title: 'Café <test> & "quotes"', bundle: '/bundle', cachebuster: revision};
+        // dev's page templates read settings.theme (the opt-in modern theme), and
+        // lib/server/app.js always renders them with env.settings, so the
+        // contract renders them with the default server settings too.
+        const data = {type, title: 'Café <test> & "quotes"', bundle: '/bundle', cachebuster: revision,
+          settings: require('./fixtures/default-server-settings').settings};
         const html = await renderFile(file, data);
         assert.ok(html.includes('Café &lt;test&gt; &amp; &#34;quotes&#34;'));
         assert.ok(!html.includes('Café <test>'));
