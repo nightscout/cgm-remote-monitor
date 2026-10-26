@@ -129,6 +129,7 @@ describe('CRUD by _id matrix: v1, v3 and websocket, every collection and stored 
   var authSubject = require('./fixtures/api3/authSubject');
   var results = [];
   var counter = 0;
+  var commits = [];
 
   this.timeout(30000);
 
@@ -253,6 +254,7 @@ describe('CRUD by _id matrix: v1, v3 and websocket, every collection and stored 
     var exp = EXPECT[key](col, form);
     it(key + ' | ' + col + ' | ' + form + ' -> ' + exp[0], async function () {
       var observed;
+      var beforeCommits = commits.length;
       try {
         observed = await run();
       } catch (err) {
@@ -260,12 +262,22 @@ describe('CRUD by _id matrix: v1, v3 and websocket, every collection and stored 
       }
       results.push({ api: api, op: op, col: col, form: form, expected: exp[0], observed: observed, why: exp[1] });
       should(observed).equal(exp[0]);
+      // G2: the real transport must cross the common persistence boundary.
+      // No-op resends keep their historical behavior and need not emit.
+      var changes = ['create', 'put', 'update', 'delete', 'remove'].indexOf(op) !== -1;
+      if (changes && !/^400/.test(observed)
+        && !(op === 'delete' && /n=1$/.test(observed))) {
+        var source = api === 'ws' ? 'socket' : api === 'v1' ? 'v1/internal' : 'v3';
+        should(commits.slice(beforeCommits).some(event => event.collection === col && event.source === source))
+          .equal(true, 'write bypassed the shared boundary: ' + key + ' ' + col);
+      }
     });
   }
 
   before(async function () {
     self.instance = await instance.create({ useHttps: false });
     self.env = self.instance.env;
+    self.instance.ctx.bus.on('storage-write-committed', event => commits.push(event));
     self.instance.app.use('/api/v1', require('../lib/api/')(self.env, self.instance.ctx));
     var authResult = await authSubject(self.instance.ctx.authorization.storage, ['all'], self.instance.app);
     self.jwt = authResult.jwt;
@@ -457,4 +469,111 @@ describe('CRUD by _id matrix: v1, v3 and websocket, every collection and stored 
       });
     });
   });
+  // ---- internal/plugin callers ---------------------------------------------
+  Object.keys(COLS).forEach(function (col) {
+    it('internal create and cross-path resend | ' + col, async function () {
+      var n = nextN(), id = idFor(col, 'oid', n);
+      var before = commits.length;
+      var doc = Object.assign(body(col, n), {_id: id.asked});
+      await new Promise((resolve, reject) => self.instance.ctx[col].create([doc],
+        (err, result) => err ? reject(err) : resolve(result)));
+      should(commits.slice(before).some(event => event.collection === col && event.source === 'v1/internal')).equal(true);
+      should((await storedFor(col, id)).length).equal(1);
+      await v1('post', v1Base(col)).send(Object.assign(body(col, n), {_id: id.asked}));
+      should((await storedFor(col, id)).length).equal(1);
+    });
+  });
+
+  describe('WRITE_VALIDATION across all four paths', function () {
+    for (const mode of ['off', 'log', 'reject']) {
+      it(mode + ' preserves each reply contract and checks socket writes too', async function () {
+        const previous = self.env.writeValidation;
+        self.env.writeValidation = mode;
+        try {
+          for (const source of ['v1', 'v3', 'socket', 'internal']) {
+            const n = nextN(), id = idFor('treatments', 'oid', n);
+            const doc = Object.assign(body('treatments', n), {
+              eventType: 'Temporary Target', duration: 30, targetBottom: 12, targetTop: 6,
+              _id: id.asked
+            });
+            if (source === 'v1') {
+              const res = await v1('post', v1Base('treatments')).send(doc);
+              should(res.status).equal(mode === 'reject' ? 400 : 200);
+            } else if (source === 'v3') {
+              delete doc._id;
+              doc.identifier = id.asked;
+              const res = await self.instance.post('/api/v3/treatments', self.jwt.all).send(doc);
+              should(res.status).equal(mode === 'reject' ? 400 : 201);
+            } else if (source === 'socket') {
+              const res = await wsEmit('dbAdd', {collection: 'treatments', data: doc});
+              should(res.length).equal(mode === 'reject' ? 0 : 1);
+            } else {
+              const err = await new Promise(resolve => self.instance.ctx.treatments.create([doc], err => resolve(err)));
+              should(Boolean(err)).equal(mode === 'reject');
+            }
+            should((await storedFor('treatments', id)).length).equal(mode === 'reject' ? 0 : 1);
+          }
+        } finally { self.env.writeValidation = previous; }
+      });
+    }
+
+    it('refuses a whole invalid socket batch and checks edits/unsets before persisting', async function () {
+      const previous = self.env.writeValidation;
+      self.env.writeValidation = 'reject';
+      try {
+        const n = nextN(), id = idFor('treatments', 'oid', n);
+        const doc = Object.assign(body('treatments', n), {_id: id.asked,
+          eventType: 'Temporary Target', duration: 30, targetBottom: 5, targetTop: 6});
+        const bad = Object.assign({}, doc, {_id: idFor('treatments', 'oid', nextN()).asked, targetTop: 1});
+        const batch = await wsEmit('dbAdd', {collection: 'treatments', data: [doc, bad]});
+        should(batch).deepEqual([]);
+        should((await storedFor('treatments', id)).length).equal(0);
+        await wsEmit('dbAdd', {collection: 'treatments', data: doc});
+        for (const [event, data] of [['dbUpdate', {targetBottom: 9}], ['dbUpdateUnset', {targetTop: ''}]]) {
+          const reply = await wsEmit(event, {collection: 'treatments', _id: id.asked, data});
+          should(reply.result).equal('Unable to process update');
+          const stored = (await storedFor('treatments', id))[0];
+          should(stored.targetBottom).equal(5);
+          should(stored.targetTop).equal(6);
+        }
+        const edit = await wsEmit('dbUpdate', {collection: 'treatments', _id: id.asked, data: {notes: 'edited'}});
+        should(edit.result).equal('success');
+      } finally { self.env.writeValidation = previous; }
+    });
+  });
+
+  it('returns malformed stored records with an aggregate warning, without invalid date headers', async function () {
+    const identifier = 'architecture-malformed-time';
+    await collection('treatments').insertOne({identifier, app: 'crud-matrix',
+      eventType: 'Note', srvModified: {toString: 'broken'}, created_at: 'not-a-date'});
+    const res = await self.instance.get('/api/v3/treatments/' + identifier, self.jwt.all).expect(200);
+    should(res.body.result.srvModified).deepEqual({toString: 'broken'});
+    should(res.headers['nightscout-data-warnings']).match(/server-time-shape/);
+    should(res.headers['last-modified']).equal(undefined);
+  });
+
+  it('keeps /storage delivery v3-only while observing writes from every path', async function () {
+    const events = [];
+    const listener = event => events.push(event);
+    const bus = self.instance.ctx.bus;
+    bus.on('storage-socket-create', listener);
+    bus.on('storage-socket-update', listener);
+    try {
+      const first = nextN();
+      await v1('post', v1Base('treatments')).send(body('treatments', first));
+      await new Promise((resolve, reject) => self.instance.ctx.treatments.create([body('treatments', nextN())],
+        err => err ? reject(err) : resolve()));
+      await wsEmit('dbAdd', {collection: 'treatments', data: body('treatments', nextN())});
+      should(events.length).equal(0);
+      const doc = body('treatments', nextN());
+      doc.identifier = 'architecture-socket-control';
+      await self.instance.post('/api/v3/treatments', self.jwt.all).send(doc).expect(201);
+      should(events.length).equal(1);
+      should(events[0].colName).equal('treatments');
+    } finally {
+      bus.removeListener('storage-socket-create', listener);
+      bus.removeListener('storage-socket-update', listener);
+    }
+  });
+
 });

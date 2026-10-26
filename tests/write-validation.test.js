@@ -101,7 +101,7 @@ describe('write-validation rules', function () {
     const doc = tt({ identifier: 'abc', targetBottom: 99.09, targetTop: 99.09, units: 'mmol' });
     const line = wv.logLine('API v3', doc, wv.checkTreatment(doc));
     line.should.match(/tt-units-plausible:targetTop/);
-    line.should.not.match(/99\.09/);
+    line.should.not.match(/99\.09|abc/);
   });
 
   it('never words a refusal as a message AndroidAPS string-matches', () => {

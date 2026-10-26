@@ -132,7 +132,7 @@ function command (name, files, ci, seed) {
   const last = tier.last || [];
   let body = files.filter(f => !first.includes(f) && !last.includes(f));
   if (seed !== undefined) body = shuffle(body, seed);
-  const args = ['--timeout', String(tier.timeout)];
+  const args = ['--fail-zero', '--timeout', String(tier.timeout)];
   (tier.require || []).forEach(r => args.push('--require', r));
   if (tier.exit) args.push('--exit');
   if (tier.parallel) args.push('--parallel', '--jobs', String(tier.parallel));

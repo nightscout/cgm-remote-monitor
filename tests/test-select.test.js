@@ -165,3 +165,32 @@ describe('Seeded test-file order', function () {
     assert.doesNotMatch(bad.stdout + bad.stderr, /passing/);
   });
 });
+
+
+describe('Non-vacuous test lanes', function () {
+  const fs = require('node:fs');
+  const os = require('node:os');
+  it('puts the zero-test guard on every tier command', function () {
+    const map = require('./tiers.json');
+    for (const name of Object.keys(map.tiers)) {
+      assert.ok(tiers.command(name, [], true)[1].includes('--fail-zero'), name);
+    }
+  });
+
+  it('fails an empty suite, with an unguarded control that passes', function () {
+    const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'nightscout-zero-tests-'));
+    try {
+      const file = path.join(dir, 'empty.cjs');
+      fs.writeFileSync(file, "describe('empty suite', function () {});\n");
+      const args = [require.resolve('mocha/bin/mocha'), '--no-config', '--no-package', file];
+      for (const [guard, expected] of [[[], 0], [['--fail-zero'], 1]]) {
+        const run = spawnSync(process.execPath, args.concat(guard), {encoding: 'utf8', timeout: 5000});
+        assert.ifError(run.error);
+        assert.equal(run.status, expected, run.stdout + run.stderr);
+        assert.match(run.stdout, /0 passing/);
+      }
+    } finally {
+      fs.rmSync(dir, {recursive: true, force: true});
+    }
+  });
+});

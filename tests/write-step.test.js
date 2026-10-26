@@ -1,0 +1,148 @@
+'use strict';
+
+const assert = require('node:assert/strict');
+const {EventEmitter} = require('node:events');
+const step = require('../lib/storage/write-step');
+const validation = require('../lib/server/write-validation');
+
+function fixture(mode = 'off', docs = []) {
+  const calls = [], events = [];
+  const bus = new EventEmitter();
+  bus.on('storage-write-committed', event => events.push(event));
+  const context = {name: 'treatments', source: 'socket', env: {writeValidation: mode}, bus};
+  const raw = {
+    find() { return {limit() { return this; }, toArray: async () => docs}; },
+    insertOne: async (...args) => { calls.push(args); return {acknowledged: true, insertedId: 'id'}; },
+    updateOne: async (...args) => { calls.push(args); return {acknowledged: true, matchedCount: 1, modifiedCount: 1}; },
+    deleteMany: async (...args) => { calls.push(args); return {deletedCount: 2}; },
+    bulkWrite: async (...args) => { calls.push(args); return {modifiedCount: 2}; }
+  };
+  return {raw, calls, events, context, col: step.collection(raw, context)};
+}
+const valid = () => ({eventType: 'Temporary Target', units: 'mmol/L', targetBottom: 5, targetTop: 6, duration: 30});
+
+describe('Shared persistence boundary', function () {
+  it('preserves driver arguments/results, receiver binding, and publishes once after commit', async function () {
+    const f = fixture();
+    let resolve;
+    const result = {insertedId: 'stored', acknowledged: true};
+    f.raw.insertOne = function (...args) {
+      assert.equal(this, f.raw);
+      f.calls.push(args);
+      return new Promise(r => { resolve = r; });
+    };
+    const doc = {notes: 'sensitive'}, options = {ordered: false};
+    const pending = f.col.insertOne(doc, options);
+    await Promise.resolve();
+    assert.equal(f.events.length, 0);
+    resolve(result);
+    assert.equal(await pending, result);
+    assert.deepEqual(f.calls, [[doc, options]]);
+    assert.equal(f.events.length, 1);
+    assert.equal(f.events[0].counts.inserted, 1);
+    assert(!JSON.stringify(f.events).includes('sensitive'));
+    assert(!JSON.stringify(f.events).includes('stored'));
+  });
+
+  it('keeps reads and collection properties bound to the driver', async function () {
+    const f = fixture();
+    f.raw.collectionName = 'custom';
+    f.raw.findOne = function () { assert.equal(this, f.raw); return {x: 1}; };
+    assert.equal(f.col.collectionName, 'custom');
+    assert.deepEqual(f.col.findOne({}), {x: 1});
+    assert.equal(f.events.length, 0);
+  });
+
+  it('does not announce no-op or unacknowledged writes', async function () {
+    const f = fixture();
+    for (const result of [{matchedCount: 1, modifiedCount: 0}, {acknowledged: false, insertedId: 'id'}]) {
+      f.raw.insertOne = async () => result;
+      assert.equal(await f.col.insertOne({}), result);
+    }
+    assert.equal(f.events.length, 0);
+  });
+
+  it('retains the original partial-write error and reports only committed counts', async function () {
+    const f = fixture();
+    const err = Object.assign(new Error('duplicate'), {result: {insertedCount: 1}, insertedIds: {0: 'id'}});
+    f.raw.insertOne = async () => { throw err; };
+    await assert.rejects(f.col.insertOne({}), e => e === err);
+    assert.equal(f.events.length, 1);
+    assert.equal(f.events[0].partial, true);
+    assert.equal(f.events[0].counts.inserted, 1);
+    err.result = undefined;
+    await assert.rejects(f.col.insertOne({}), e => e === err);
+    assert.equal(f.events.length, 1);
+  });
+
+  it('cannot turn a committed write into a retry through a failing observer', async function () {
+    const f = fixture();
+    f.context.bus.on('storage-write-committed', () => { throw new Error('observer failed'); });
+    assert.equal((await f.col.insertOne({})).insertedId, 'id');
+    assert.equal(f.calls.length, 1);
+  });
+
+  it('rejects executable filters before any I/O, including a later bulk operation', async function () {
+    const f = fixture();
+    await assert.rejects(f.col.deleteMany({$where: 'true'}), /JavaScript/);
+    await assert.rejects(f.col.bulkWrite([{insertOne: {document: {}}}, {deleteOne: {filter: {$expr: {$function: {}}}}}]), /JavaScript/);
+    assert.equal(f.calls.length, 0);
+    await f.col.deleteMany({notes: {$eq: {$where: 'literal value'}}});
+    assert.equal(f.calls.length, 1);
+  });
+
+  for (const mode of ['off', 'log', 'reject']) {
+    it('applies ' + mode + ' to socket inserts without changing the off/log document', async function () {
+      const f = fixture(mode), doc = {...valid(), targetBottom: 12};
+      const copy = JSON.stringify(doc);
+      if (mode === 'reject') await assert.rejects(f.col.insertOne(doc), {name: 'WriteValidationError'});
+      else await f.col.insertOne(doc);
+      assert.equal(JSON.stringify(doc), copy);
+      assert.equal(f.calls.length, mode === 'reject' ? 0 : 1);
+    });
+  }
+
+  it('checks the merged update and unsets, while allowing unrelated legacy edits', async function () {
+    const f = fixture('reject', [valid()]);
+    await assert.rejects(f.col.updateOne({_id: 'id'}, {$set: {targetBottom: 9}}), /above targetTop/);
+    await assert.rejects(f.col.updateOne({_id: 'id'}, {$unset: {targetTop: ''}}), /above zero/);
+    await assert.rejects(f.col.updateOne({_id: 'id'}, {$set: {'targetTop.foo': 9}}), /above zero/);
+    assert.equal(f.calls.length, 0);
+    await f.col.updateOne({_id: 'id'}, {$set: {notes: 'edit'}});
+    assert.equal(f.calls.length, 1);
+  });
+
+  it('normalizes known spellings only in reject mode', async function () {
+    for (const mode of ['off', 'log', 'reject']) {
+      const f = fixture(mode), doc = valid();
+      await f.col.insertOne(doc);
+      assert.equal(doc.units, mode === 'reject' ? 'mmol' : 'mmol/L');
+    }
+  });
+
+  it('rejects a socket batch before its first persistence call', function () {
+    const batch = [valid(), {...valid(), targetTop: 1}];
+    let persisted = false;
+    assert.throws(() => {
+      batch.forEach(doc => validation.enforce({writeValidation: 'reject'}, 'socket', doc));
+      persisted = true;
+    }, /above targetTop/);
+    assert.equal(persisted, false);
+  });
+});
+
+
+describe('Write-boundary gate controls', function () {
+  const {check, ADAPTERS} = require('../scripts/check-write-boundary');
+  const fs = require('node:fs'), path = require('node:path');
+  it('checks every adapter and catches a removed boundary in each one', function () {
+    for (const file of ADAPTERS) {
+      const source = fs.readFileSync(path.resolve(__dirname, '..', file), 'utf8');
+      assert.deepEqual(check(source), [], file);
+      // Break-it control: replacing the wrapper with an arbitrary pass-through
+      // must fail for every real adapter, not just a toy source string.
+      const bypassed = source.replaceAll('writeStep.collection(', 'passthrough(');
+      assert(check(bypassed).some(issue => issue.includes('raw collection')), file);
+    }
+  });
+});
