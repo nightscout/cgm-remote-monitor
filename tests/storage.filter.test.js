@@ -339,4 +339,97 @@ describe('storage filter AST', function ( ) {
       roundTrip(null).should.eql({ });
     });
   });
+
+  describe('the API v1 dialect', function ( ) {
+
+    // API v1's reads go through the interface in this dialect, and must answer
+    // every request as they did before. So the dialect's one property is
+    // identity: toMongo(fromMongo(f, v1), v1) is f, operand for operand, for
+    // every query document lib/server/query.js and the v1 modules build --
+    // including the ones mongod refuses, which must reach it to be refused as
+    // they are today.
+
+    const V1 = { v1: true };
+    const qs = require('qs');
+    const { ObjectId } = require('mongodb');
+
+    function identity (f) {
+      const ast = fromMongo(f, V1);
+      validate(ast, V1).should.be.an.Object();
+      require('node:assert/strict').deepStrictEqual(toMongo(ast, V1), f);
+      return ast;
+    }
+
+    // Real query strings, through query.js with the treatments walker (the
+    // only one with regex fields) and the entries walker.
+    const QUERIES = [
+      '', 'find[type]=sgv', 'find[type][$eq]=mbg', 'find[sgv][$gte]=100&find[sgv][$lte]=200'
+      , 'find[sgv][$type]=2', 'find[sgv][$type]=string', 'find[sgv][$type][]=2&find[sgv][$type][]=1'
+      , 'find[mbg][$exists]=true', 'find[mbg][$exists]=false', 'find[mbg][$exists]', 'find[mbg][$exists]=yes'
+      , 'find[device][$regex]=dex&find[device][$options]=i', 'find[device][$regex]=x&find[device][$options]=g'
+      , 'find[device][$options]=i', 'find[device][$regex][]=x', 'find[device][$regex]=' + 'a'.repeat(200)
+      , 'find[sgv][$in][]=1&find[sgv][$in][]=2', 'find[sgv][$in]=5', 'find[sgv][$nin]=5'
+      , 'find[$or][0][type]=sgv&find[$or][1][type]=mbg', 'find[$or]=x', 'find[$or][]=', 'find[$and][0][sgv]=5'
+      , 'find[a-b]=1', 'find[a.0.b]=1', 'find[0]=1', 'find[sgv][$eq][x]=1', 'find[sgv][$gte]='
+      , 'find[eventType]=/Bolus/i', 'find[eventType]=/a.b/g', 'find[notes]=/x/s'
+      , 'find[_id]=5f1e3a2b4c5d6e7f80910a1b', 'find[_id]=not-hex', 'find[created_at][$gte]=2026-01-01'
+    ];
+
+    it('reproduces every query document query.js builds from a real query string', function ( ) {
+      const walker = { sgv: parseInt, date: parseInt, mbg: parseInt, eventType: queryCreate.parseRegEx
+        , notes: queryCreate.parseRegEx };
+      for (const q of QUERIES) {
+        for (const opts of [{ walker, useEpoch: true }, { walker, dateField: 'created_at' }]) {
+          identity(softDeleted.visible(queryCreate(qs.parse(q), opts), qs.parse(q)));
+        }
+      }
+    });
+
+    it('reproduces the fixed filters the v1 modules read with', function ( ) {
+      identity(softDeleted.visible({ }));
+      identity(softDeleted.visible({ type: 'food' }));
+      identity({ $and: [{ type: 'quickpick' }, { hidden: { $nin: [true, 'true'] } }, softDeleted.notDeleted()] });
+      identity(softDeleted.visible({ _id: { $in: [new ObjectId(), '5f1e3a2b4c5d6e7f80910a1b'] } }));
+      identity(fallbackKey.fallbackQuery({ eventType: 'Note' }, '2026-01-01T00:00:00.000Z', { withAmounts: true }));
+      identity({ $and: [{ type: 'sgv', isValid: true }, { isValid: { $ne: false } }] });
+    });
+
+    it('keeps the operands the strict dialect reads or refuses, verbatim', function ( ) {
+      // Each of these is admitted by dev's v1 allowlist. The strict dialect
+      // would refuse or reinterpret it; v1 must carry it to mongod unchanged.
+      const re = /a.b/g;
+      fromMongo({ a: re }, V1).should.eql({ op: 're', field: 'a', value: re, implicit: true });
+      fromMongo({ a: { $exists: '' } }, V1).should.eql({ op: 'exists', field: 'a', value: '' });
+      fromMongo({ a: { $type: [2, 1] } }, V1).should.eql({ op: 'type', field: 'a', value: [2, 1] });
+      fromMongo({ 'a-b': { $in: 5 } }, V1).should.eql({ op: 'in', field: 'a-b', value: 5 });
+      fromMongo({ $or: 'x' }, V1).should.eql({ op: 'or', explicit: true, operand: 'x' });
+      identity({ a: { $regex: 'x'.repeat(filter.RE_MAX_LEN + 1) } });
+      for (const f of [{ 'a-b': 1 }, { a: { $type: [2, 1] } }, { $or: 'x' }, { a: { $regex: 'x', $options: 'g' } }]) {
+        (() => toMongo(fromMongo(f))).should.throw();
+      }
+    });
+
+    it('still refuses every operator dev\'s v1 allowlist refuses', function ( ) {
+      for (const f of [{ $where: '1' }, { $expr: { } }, { $nor: [{ a: 1 }] }, { a: { $elemMatch: { } } }
+        , { a: { $not: { $gt: 1 } } }, { a: { $gt: 1, stray: 2 } }, { a: { $size: 2 } }]) {
+        let err;
+        try { fromMongo(f, V1); } catch (e) { err = e; }
+        (err instanceof TypeError).should.equal(true, JSON.stringify(f));
+        err.should.have.property('operator');
+      }
+    });
+
+    it('carries a malformed logical operand only in a form mongod refuses', function ( ) {
+      (() => validate({ op: 'or', explicit: true, operand: [{ a: 1 }] }, V1))
+        .should.throw(/operand must be expressed as nodes/);
+      validate({ op: 'or', explicit: true, operand: [{ a: 1 }, 'x'] }, V1).should.be.an.Object();
+      validate({ op: 'and', explicit: true, operand: [] }, V1).should.be.an.Object();
+    });
+
+    it('refuses a hand-built AST that is not one query document', function ( ) {
+      (() => toMongo(and(cmp('eq', 'a', 1), { op: 'eq', field: 'a', value: 2, implicit: true }), V1))
+        .should.throw(/cannot merge/);
+      (() => toMongo(and(cmp('gt', 'a', 1), cmp('gt', 'a', 2)), V1)).should.throw(/cannot merge/);
+    });
+  });
 });
