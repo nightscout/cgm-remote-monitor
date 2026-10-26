@@ -576,4 +576,160 @@ describe('CRUD by _id matrix: v1, v3 and websocket, every collection and stored 
     }
   });
 
+  it('keeps cursor metadata for projected history and avoids false cancellation warnings', async function () {
+    const id = 'projected-cancel';
+    await collection('treatments').insertOne({identifier: id, app: 'crud-matrix', eventType: 'Temporary Target',
+      duration: 0, targetBottom: 0, targetTop: 0, srvModified: Date.now()});
+    const res = await self.instance.get('/api/v3/treatments/' + id + '?fields=eventType,targetBottom,targetTop', self.jwt.all).expect(200);
+    should(res.headers['nightscout-data-warnings']).equal(undefined);
+    should(res.body.result.duration).equal(undefined);
+    const hist = await self.instance.get('/api/v3/treatments/history/1577836800000?fields=eventType&limit=1000', self.jwt.all).expect(200);
+    should(hist.headers.etag).match(/^W\/"[0-9]+"$/);
+    should(Number.isFinite(Date.parse(hist.headers['last-modified']))).equal(true);
+    hist.body.result.forEach(doc => should(doc.srvModified).equal(undefined));
+  });
+
+  it('refuses conflicting cancellation/end-time inputs through all four writers', async function () {
+    const previous = self.env.writeValidation;
+    self.env.writeValidation = 'reject';
+    try {
+      for (const source of ['v1', 'v3', 'socket', 'internal']) {
+        const n = nextN(), id = idFor('treatments', 'oid', n);
+        const doc = Object.assign(body('treatments', n), {_id: id.asked,
+          eventType: 'Temporary Target', duration: 0, targetBottom: 0, targetTop: 0,
+          mills: when(n), endmills: when(n) + 1800000});
+        if (source === 'v1') await v1('post', v1Base('treatments')).send(doc).expect(400);
+        else if (source === 'v3') {
+          delete doc._id; doc.identifier = id.asked;
+          await self.instance.post('/api/v3/treatments', self.jwt.all).send(doc).expect(400);
+        } else if (source === 'socket') {
+          should(await wsEmit('dbAdd', {collection: 'treatments', data: doc})).deepEqual([]);
+        } else {
+          const err = await new Promise(resolve => self.instance.ctx.treatments.create([doc], err => resolve(err)));
+          should(err.name).equal('WriteValidationError');
+        }
+        should((await storedFor('treatments', id)).length).equal(0);
+      }
+    } finally { self.env.writeValidation = previous; }
+  });
+
+  for (const sources of [['socket', 'socket'], ['v3', 'v3'], ['socket', 'v3']]) {
+    it('conditionally validates concurrent ' + sources.join('/') + ' patches in Mongo', async function () {
+      const step = require('../lib/storage/write-step');
+      const id = idFor('treatments', 'oid', nextN());
+      const raw = collection('treatments');
+      await raw.insertOne({_id: id.stored, app: 'crud-matrix', eventType: 'Temporary Target',
+        duration: 30, targetBottom: 100, targetTop: 140});
+      let calls = 0, release;
+      const barrier = new Promise(resolve => { release = resolve; });
+      const observed = new Proxy(raw, {get(target, key) {
+        if (key === 'updateOne') return async (...args) => {
+          if (++calls <= 2) { if (calls === 2) release(); await barrier; }
+          return target.updateOne(...args);
+        };
+        return typeof target[key] === 'function' ? target[key].bind(target) : target[key];
+      }});
+      const writers = sources.map(source => step.collection(observed,
+        {name: 'treatments', source, env: {writeValidation: 'reject'}}));
+      const outcomes = await Promise.allSettled([
+        writers[0].updateOne({_id: id.stored}, {$set: {targetBottom: 120}}),
+        writers[1].updateOne({_id: id.stored}, {$set: {targetTop: 110}})
+      ]);
+      should(outcomes.filter(o => o.status === 'fulfilled').length).equal(1);
+      should(outcomes.find(o => o.status === 'rejected').reason.name).equal('WriteValidationError');
+      const stored = await raw.findOne({_id: id.stored});
+      should(stored.targetBottom <= stored.targetTop).equal(true);
+    });
+  }
+
+  it('stores a socket cancellation consistently and refuses unsets that reactivate invalid targets', async function () {
+    const previous = self.env.writeValidation;
+    self.env.writeValidation = 'reject';
+    try {
+      const n = nextN(), id = idFor('treatments', 'oid', n), start = when(n);
+      await collection('treatments').insertOne({_id: id.stored, app: 'crud-matrix',
+        eventType: 'Temporary Target', mills: start, duration: 30, durationInMilliseconds: 1800000,
+        endmills: start + 1800000, targetBottom: 100, targetTop: 140});
+      const reply = await wsEmit('dbUpdate', {collection: 'treatments', _id: id.asked,
+        data: {duration: 0, targetBottom: 0, targetTop: 0}});
+      should(reply.result).equal('success');
+      const stored = (await storedFor('treatments', id))[0];
+      should(stored.duration).equal(0);
+      should(stored.durationInMilliseconds).equal(0);
+      should(stored.endmills).equal(start);
+      const unset = await wsEmit('dbUpdateUnset', {collection: 'treatments', _id: id.asked,
+        data: {duration: '', durationInMilliseconds: '', endmills: ''}});
+      should(unset.result).equal('Unable to process update');
+      should((await storedFor('treatments', id))[0].duration).equal(0);
+    } finally { self.env.writeValidation = previous; }
+  });
+
+  for (const expected of [400, 409]) {
+    it('returns HTTP ' + expected + ' for a target changed after v3 route validation', async function () {
+      const previous = self.env.writeValidation;
+      self.env.writeValidation = 'reject';
+      const raw = collection('treatments'), id = idFor('treatments', 'oid', nextN());
+      const prototype = Object.getPrototypeOf(raw), original = prototype.updateOne;
+      let attempts = 0;
+      try {
+        await raw.insertOne({_id: id.stored, identifier: id.asked, app: 'crud-matrix',
+          eventType: 'Temporary Target', duration: 30, targetBottom: 100, targetTop: 140});
+        prototype.updateOne = async function (filter, ...args) {
+          if (filter.$and && JSON.stringify(filter).includes(id.asked)) {
+            attempts++;
+            // Force the race after the conditional boundary's snapshot read.
+            await original.call(raw, {_id: id.stored}, {$set: expected === 400
+              ? {targetTop: 110} : {duration: attempts % 2 ? 31 : 30}});
+          }
+          return original.call(this, filter, ...args);
+        };
+        await self.instance.patch('/api/v3/treatments/' + id.asked, self.jwt.all)
+          .send({targetBottom: 120}).expect(expected);
+        should(attempts).equal(expected === 400 ? 1 : 4);
+        const stored = await raw.findOne({_id: id.stored});
+        should(stored.targetBottom).equal(100);
+      } finally {
+        prototype.updateOne = original;
+        self.env.writeValidation = previous;
+      }
+    });
+  }
+
+  for (const col of ['entries', 'treatments']) {
+    for (const from of ['v1', 'v3', 'socket', 'internal']) {
+      for (const to of ['v1', 'v3', 'socket', 'internal']) {
+        it(col + ' cross-path resend ' + from + ' -> ' + to, async function () {
+          const n = nextN(), id = idFor(col, 'oid', n);
+          async function send(path, marker) {
+            const doc = Object.assign(body(col, n, marker), {_id: id.asked, identifier: id.asked});
+            if (path === 'v1') return v1('post', v1Base(col)).send(doc)
+              .expect(col === 'entries' && from === 'socket' ? 500 : 200);
+            if (path === 'v3') {
+              delete doc._id;
+              const res = await self.instance.post('/api/v3/' + col, self.jwt.all).send(doc);
+              should([200, 201].includes(res.status)).equal(true);
+              return res;
+            }
+            if (path === 'socket') return wsEmit('dbAdd', {collection: col, data: doc});
+            return new Promise((resolve, reject) => self.instance.ctx[col].create([doc],
+              (err, result) => err ? reject(err) : resolve(result)));
+          }
+          await send(from, 'original');
+          const collides = col === 'entries' && from === 'socket' && ['v1', 'internal'].includes(to);
+          if (collides && to === 'internal') {
+            const assert = require('node:assert/strict');
+            await assert.rejects(send(to, 'edited'), err => err.code === 11000);
+          } else await send(to, 'edited');
+          const stored = await storedFor(col, id);
+          // Baseline differences: v3/socket do not populate v1's sysTime key.
+          // A v3->legacy resend duplicates; socket->v1/internal collides on _id.
+          // Keep these visible until the identity/natural-key policy is changed.
+          const duplicate = col === 'entries' && from === 'v3' && to !== 'v3';
+          should(stored.length).equal(duplicate ? 2 : 1);
+          if (!duplicate) should(allEdited(stored)).equal(to !== 'socket' && !collides);
+        });
+      }
+    }
+  }
+
 });

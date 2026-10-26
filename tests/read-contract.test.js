@@ -91,4 +91,35 @@ describe('Stored-data read contract', function () {
     assert.equal(contract.historyWatermark(docs.slice(0, 4)), undefined);
   });
 
+  it('retains malformed identities safely through repeated cache merge and deletion', function () {
+    const ddata = require('../lib/data/ddata')();
+    const bus = new (require('node:events').EventEmitter)();
+    const cache = require('../lib/server/cache')({extendedSettings: {}}, {ddata, bus});
+    const id = {toString: 'broken', valueOf: 'broken'};
+    const doc = {_id: id, created_at: new Date().toISOString(), eventType: 'Note'};
+    const raw = JSON.stringify(doc);
+    for (let i = 0; i < 3; i++) {
+      const converted = ddata.processRawDataForRuntime([doc, {_id: 'normal', mills: Date.now()}]);
+      const cached = cache.insertDataRef('treatments', converted);
+      ddata.treatments = ddata.idMergePreferNew(ddata.treatments, cached);
+      assert.equal(ddata.treatments.length, 2);
+      assert.equal(cached.length, 2);
+    }
+    bus.emit('data-update', {type: 'treatments', op: 'remove', changes: id});
+    assert.equal(cache.getDataRef('treatments').length, 1);
+    bus.emit('data-update', {type: 'treatments', op: 'remove', changes: ['normal']});
+    assert.equal(cache.getDataRef('treatments').length, 0);
+    assert.equal(JSON.stringify(doc), raw);
+    assert.doesNotThrow(() => cache.insertDataRef('treatments', [{_id: 'bad-date', mills: id, created_at: id}]));
+  });
+
+  it('does not mistake an incomplete cancellation projection for an active target', function () {
+    const cancel = {eventType: 'Temporary Target', duration: 0, targetBottom: 0, targetTop: 0};
+    assert.deepEqual(contract.inspect(cancel), []);
+    const {duration, ...projected} = cancel;
+    assert.equal(duration, 0);
+    assert.deepEqual(contract.inspect(projected, {partial: true}), []);
+    assert(contract.inspect(projected).length > 0, 'a full malformed record should still be diagnosed');
+  });
+
 });
