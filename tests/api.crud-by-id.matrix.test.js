@@ -506,7 +506,11 @@ describe('CRUD by _id matrix: v1, v3 and websocket, every collection and stored 
               should(res.status).equal(mode === 'reject' ? 400 : 201);
             } else if (source === 'socket') {
               const res = await wsEmit('dbAdd', {collection: 'treatments', data: doc});
-              should(res.length).equal(mode === 'reject' ? 0 : 1);
+              should(res.length).equal(1);
+              if (mode === 'reject') {
+                should(res[0].refused.status).equal(400);
+                should(res[0]._id).equal(undefined);
+              }
             } else {
               const err = await new Promise(resolve => self.instance.ctx.treatments.create([doc], err => resolve(err)));
               should(Boolean(err)).equal(mode === 'reject');
@@ -517,7 +521,7 @@ describe('CRUD by _id matrix: v1, v3 and websocket, every collection and stored 
       });
     }
 
-    it('refuses a whole invalid socket batch and checks edits/unsets before persisting', async function () {
+    it('stores valid socket batch items, reports refusals in order and checks edits/unsets', async function () {
       const previous = self.env.writeValidation;
       self.env.writeValidation = 'reject';
       try {
@@ -526,8 +530,13 @@ describe('CRUD by _id matrix: v1, v3 and websocket, every collection and stored 
           eventType: 'Temporary Target', duration: 30, targetBottom: 5, targetTop: 6});
         const bad = Object.assign({}, doc, {_id: idFor('treatments', 'oid', nextN()).asked, targetTop: 1});
         const batch = await wsEmit('dbAdd', {collection: 'treatments', data: [doc, bad]});
-        should(batch).deepEqual([]);
-        should((await storedFor('treatments', id)).length).equal(0);
+        should(batch.length).equal(2);
+        should(String(batch[0]._id)).equal(id.asked);
+        should(batch[1]._id).equal(undefined);
+        should(batch[1].refused.status).equal(400);
+        should(batch[1].refused.rules).containDeep([{rule: 'tt-order', field: 'targetBottom'}]);
+        should(await collection('treatments').findOne({_id: new ObjectID(bad._id)})).equal(null);
+        should((await storedFor('treatments', id)).length).equal(1);
         await wsEmit('dbAdd', {collection: 'treatments', data: doc});
         for (const [event, data] of [['dbUpdate', {targetBottom: 9}], ['dbUpdateUnset', {targetTop: ''}]]) {
           const reply = await wsEmit(event, {collection: 'treatments', _id: id.asked, data});
@@ -542,13 +551,72 @@ describe('CRUD by _id matrix: v1, v3 and websocket, every collection and stored 
     });
   });
 
-  it('returns malformed stored records with an aggregate warning, without invalid date headers', async function () {
+  for (const mode of ['off', 'log', 'reject']) {
+    for (const invalid of [[true, false, true], [true, true], [false, false]]) {
+      it('keeps ordered socket results for ' + mode + ' with invalid items ' + invalid.join(','), async function () {
+        const previous = self.env.writeValidation;
+        self.env.writeValidation = mode;
+        try {
+          const ids = [], docs = invalid.map((bad, i) => {
+            const n = nextN(), id = idFor('treatments', 'oid', n);
+            ids.push(id);
+            return Object.assign(body('treatments', n, 'slot-' + i), {_id: id.asked,
+              eventType: 'Temporary Target', duration: 30, targetBottom: 5, targetTop: bad ? 1 : 6});
+          });
+          const before = commits.length;
+          const reply = await wsEmit('dbAdd', {collection: 'treatments', data: docs});
+          should(reply.length).equal(docs.length);
+          for (let i = 0; i < docs.length; i++) {
+            should(reply[i].crud).equal('slot-' + i);
+            const refused = mode === 'reject' && invalid[i];
+            should((await storedFor('treatments', ids[i])).length).equal(refused ? 0 : 1);
+            if (refused) {
+              should(reply[i]._id).equal(undefined);
+              should(reply[i].refused.status).equal(400);
+              should(reply[i].refused.message).match(/targetBottom must not be above targetTop/);
+              should(reply[i].refused.rules).containDeep([{rule: 'tt-order', field: 'targetBottom'}]);
+            } else {
+              should(String(reply[i]._id)).equal(ids[i].asked);
+              should(reply[i].refused).equal(undefined);
+            }
+          }
+          should(commits.length - before).equal(invalid.filter(bad => mode !== 'reject' || !bad).length);
+        } finally { self.env.writeValidation = previous; }
+      });
+    }
+  }
+
+  it('gates read/search/history diagnostic headers in every representation without changing response data', async function () {
+    const previous = self.env.apiV3DataWarnings;
+    should(previous).equal(false);
+    const identifier = 'header-opt-in';
+    await collection('treatments').insertOne({identifier, app: 'crud-matrix', eventType: 'Note',
+      duration: {toString: 'broken'}, created_at: new Date().toISOString(), srvModified: Date.now()});
+    try {
+      for (const url of ['/api/v3/treatments/' + identifier + '?fields=duration',
+        '/api/v3/treatments?identifier$eq=' + identifier + '&fields=duration',
+        '/api/v3/treatments/history/1577836800000?limit=1000&fields=duration']) {
+        for (const format of ['application/json', 'text/csv', 'application/xml']) {
+          self.env.apiV3DataWarnings = false;
+          const quiet = await self.instance.get(url, self.jwt.all).set('Accept', format).expect(200);
+          should(quiet.headers['nightscout-data-warnings']).equal(undefined);
+          self.env.apiV3DataWarnings = true;
+          const diagnosed = await self.instance.get(url, self.jwt.all).set('Accept', format).expect(200);
+          should(diagnosed.headers['nightscout-data-warnings']).match(/number-shape/);
+          should(diagnosed.text).equal(quiet.text);
+          should(diagnosed.headers.etag).equal(quiet.headers.etag);
+        }
+      }
+    } finally { self.env.apiV3DataWarnings = previous; }
+  });
+
+  it('returns malformed stored records without default diagnostics or invalid date headers', async function () {
     const identifier = 'architecture-malformed-time';
     await collection('treatments').insertOne({identifier, app: 'crud-matrix',
       eventType: 'Note', srvModified: {toString: 'broken'}, created_at: 'not-a-date'});
     const res = await self.instance.get('/api/v3/treatments/' + identifier, self.jwt.all).expect(200);
     should(res.body.result.srvModified).deepEqual({toString: 'broken'});
-    should(res.headers['nightscout-data-warnings']).match(/server-time-shape/);
+    should(res.headers['nightscout-data-warnings']).equal(undefined);
     should(res.headers['last-modified']).equal(undefined);
   });
 
@@ -577,16 +645,20 @@ describe('CRUD by _id matrix: v1, v3 and websocket, every collection and stored 
   });
 
   it('keeps cursor metadata for projected history and avoids false cancellation warnings', async function () {
-    const id = 'projected-cancel';
-    await collection('treatments').insertOne({identifier: id, app: 'crud-matrix', eventType: 'Temporary Target',
-      duration: 0, targetBottom: 0, targetTop: 0, srvModified: Date.now()});
-    const res = await self.instance.get('/api/v3/treatments/' + id + '?fields=eventType,targetBottom,targetTop', self.jwt.all).expect(200);
-    should(res.headers['nightscout-data-warnings']).equal(undefined);
-    should(res.body.result.duration).equal(undefined);
-    const hist = await self.instance.get('/api/v3/treatments/history/1577836800000?fields=eventType&limit=1000', self.jwt.all).expect(200);
-    should(hist.headers.etag).match(/^W\/"[0-9]+"$/);
-    should(Number.isFinite(Date.parse(hist.headers['last-modified']))).equal(true);
-    hist.body.result.forEach(doc => should(doc.srvModified).equal(undefined));
+    const previous = self.env.apiV3DataWarnings;
+    self.env.apiV3DataWarnings = true;
+    try {
+      const id = 'projected-cancel';
+      await collection('treatments').insertOne({identifier: id, app: 'crud-matrix', eventType: 'Temporary Target',
+        duration: 0, targetBottom: 0, targetTop: 0, srvModified: Date.now()});
+      const res = await self.instance.get('/api/v3/treatments/' + id + '?fields=eventType,targetBottom,targetTop', self.jwt.all).expect(200);
+      should(res.headers['nightscout-data-warnings']).equal(undefined);
+      should(res.body.result.duration).equal(undefined);
+      const hist = await self.instance.get('/api/v3/treatments/history/1577836800000?fields=eventType&limit=1000', self.jwt.all).expect(200);
+      should(hist.headers.etag).match(/^W\/"[0-9]+"$/);
+      should(Number.isFinite(Date.parse(hist.headers['last-modified']))).equal(true);
+      hist.body.result.forEach(doc => should(doc.srvModified).equal(undefined));
+    } finally { self.env.apiV3DataWarnings = previous; }
   });
 
   it('refuses conflicting cancellation/end-time inputs through all four writers', async function () {
@@ -603,7 +675,10 @@ describe('CRUD by _id matrix: v1, v3 and websocket, every collection and stored 
           delete doc._id; doc.identifier = id.asked;
           await self.instance.post('/api/v3/treatments', self.jwt.all).send(doc).expect(400);
         } else if (source === 'socket') {
-          should(await wsEmit('dbAdd', {collection: 'treatments', data: doc})).deepEqual([]);
+          const reply = await wsEmit('dbAdd', {collection: 'treatments', data: doc});
+          should(reply.length).equal(1);
+          should(reply[0]._id).equal(undefined);
+          should(reply[0].refused.status).equal(400);
         } else {
           const err = await new Promise(resolve => self.instance.ctx.treatments.create([doc], err => resolve(err)));
           should(err.name).equal('WriteValidationError');

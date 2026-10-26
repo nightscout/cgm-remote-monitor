@@ -24,10 +24,23 @@ describe('Stored-data read contract', function () {
   it('does not flag missing fields in a projected treatment or mutate API data', function () {
     const doc = {eventType: 'Temporary Target', notes: 'legacy'};
     const headers = {};
-    contract.setHeader({setHeader: (key, value) => { headers[key] = value; }}, [doc]);
+    contract.setHeader({setHeader: (key, value) => { headers[key] = value; }}, [doc], {enabled: true, partial: true});
     assert.deepEqual(headers, {});
     assert.equal(doc.notes, 'legacy');
     assert(contract.inspect(doc).length);
+  });
+
+  it('keeps API warnings off unless explicitly enabled, without disabling inspection', function () {
+    const doc = {srvModified: {toString: 'broken'}, notes: 'private'};
+    const headers = {}, res = {setHeader: (key, value) => { headers[key] = value; }};
+    for (const options of [undefined, {enabled: false}, {enabled: 'true'}]) {
+      contract.setHeader(res, doc, options);
+      assert.deepEqual(headers, {});
+    }
+    assert(contract.inspect(doc).some(p => p.rule === 'server-time-shape'));
+    contract.setHeader(res, doc, {enabled: true});
+    assert.equal(headers['Nightscout-Data-Warnings'], 'server-time-shape=1');
+    assert(!JSON.stringify(headers).includes('private'));
   });
 
   it('flags a future clock without clamping a previously issued cursor', function () {

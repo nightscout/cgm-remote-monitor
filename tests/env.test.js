@@ -46,6 +46,24 @@ describe('env', function () {
     }
   });
 
+  it('keeps experimental API v3 warnings disabled by default and permits explicit opt-in', function () {
+    const keys = ['API_V3_DATA_WARNINGS', 'CUSTOMCONNSTR_API_V3_DATA_WARNINGS'];
+    const saved = keys.map(key => process.env[key]);
+    try {
+      keys.forEach(key => { delete process.env[key]; });
+      require('../lib/server/env')().apiV3DataWarnings.should.equal(false);
+      process.env.API_V3_DATA_WARNINGS = 'true';
+      require('../lib/server/env')().apiV3DataWarnings.should.equal(true);
+      process.env.API_V3_DATA_WARNINGS = 'false';
+      require('../lib/server/env')().apiV3DataWarnings.should.equal(false);
+    } finally {
+      keys.forEach((key, i) => {
+        if (saved[i] === undefined) delete process.env[key];
+        else process.env[key] = saved[i];
+      });
+    }
+  });
+
   it('should not set the API key without API_SECRET or API_SECRET_FILE', function () {
     delete process.env.API_SECRET;
     delete process.env.API_SECRET_FILE;

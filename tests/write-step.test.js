@@ -189,14 +189,15 @@ describe('Shared persistence boundary', function () {
     }
   });
 
-  it('rejects a socket batch before its first persistence call', function () {
-    const batch = [valid(), {...valid(), targetTop: 1}];
-    let persisted = false;
-    assert.throws(() => {
-      batch.forEach(doc => validation.enforce({writeValidation: 'reject'}, 'socket', doc));
-      persisted = true;
-    }, /above targetTop/);
-    assert.equal(persisted, false);
+  it('builds an explicit refusal without a stored id or mutation of the input', function () {
+    const doc = {_id: 'unwritten', ...valid(), targetTop: 1};
+    const before = JSON.stringify(doc);
+    const refused = validation.refusal(doc, validation.candidate(doc).problems);
+    assert.equal(refused._id, undefined);
+    assert.equal(refused.refused.status, 400);
+    assert.equal(validation.isRefusal(refused), true);
+    assert.equal(validation.isRefusal(doc), false);
+    assert.equal(JSON.stringify(doc), before);
   });
 });
 
