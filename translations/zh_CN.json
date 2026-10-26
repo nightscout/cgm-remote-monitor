@@ -201,6 +201,8 @@
     "Date format": "时间格式",
     "12 hours": "12小时制",
     "24 hours": "24小时制",
+    "Show Seconds": "Show Seconds",
+    "When enabled the clock displays seconds and updates every second.": "When enabled the clock displays seconds and updates every second.",
     "Log a Treatment": "记录操作",
     "BG Check": "测量血糖",
     "Meal Bolus": "正餐大剂量",
