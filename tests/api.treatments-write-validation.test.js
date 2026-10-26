@@ -133,6 +133,16 @@ describe('Treatment write validation (WRITE_VALIDATION)', function () {
       stored[0].targetTop.should.equal(99.085745);
       stored[0].units.should.equal('mmol');
     });
+
+    it('API v3 PATCH retains existing units and duration behavior with validation off', async () => {
+      const doc = v3Target({ duration: 0, units: 'mmol' });
+      await self.instance.post(self.url, self.jwt.create).send(doc).expect(201);
+      await self.instance.patch(`${self.url}/${doc.identifier}`, self.jwt.update)
+        .send({ units: 'mmol/L', endmills: doc.date + 3600000 }).expect(200);
+      const stored = await storedV3(doc.identifier);
+      stored.units.should.equal('mmol/L');
+      stored.duration.should.equal(60);
+    });
   });
 
 
@@ -185,6 +195,59 @@ describe('Treatment write validation (WRITE_VALIDATION)', function () {
     it('API v3 does not touch other event types', async () => {
       const doc = v3Target({ eventType: 'Note', notes: 'x', units: 'banana', targetTop: 1, targetBottom: 9 });
       await self.instance.post(self.url, self.jwt.create).send(doc).expect(201);
+    });
+
+    [
+      { units: 'mmol', alias: 'mmol/L', target: 6 },
+      { units: 'mg/dl', alias: 'mg/dL', target: 100 }
+    ].forEach(example => {
+      it('API v3 PATCH canonicalises ' + example.alias + ' without repeating eventType', async () => {
+        const doc = v3Target({ targetTop: example.target, targetBottom: example.target, units: example.units });
+        await self.instance.post(self.url, self.jwt.create).send(doc).expect(201);
+        await self.instance.patch(`${self.url}/${doc.identifier}`, self.jwt.update)
+          .send({ units: example.alias }).expect(200);
+        const stored = await storedV3(doc.identifier);
+        stored.units.should.equal(example.units);
+        stored.targetTop.should.equal(example.target);
+        stored.targetBottom.should.equal(example.target);
+      });
+    });
+
+    ['patch', 'put', 'post'].forEach(method => {
+      it('API v3 ' + method.toUpperCase() + ' refuses a targetless cancel made active by endmills', async () => {
+        const doc = v3Target({ duration: 0 });
+        await self.instance.post(self.url, self.jwt.create).send(doc).expect(201);
+        const body = method === 'patch' ? {} : Object.assign({}, doc);
+        body.endmills = doc.date + 3600000;
+        const url = method === 'post' ? self.url : `${self.url}/${doc.identifier}`;
+        const jwt = method === 'post' ? self.jwt.all : self.jwt.update;
+        const response = await self.instance[method](url, jwt).send(body).expect(400);
+        response.body.message.should.match(/targetBottom must be a number above zero/);
+        const stored = await storedV3(doc.identifier);
+        stored.duration.should.equal(0);
+        should.not.exist(stored.endmills);
+      });
+    });
+
+    it('API v3 PATCH still allows cancelling a target with stored millisecond duration', async () => {
+      const doc = v3Target({ durationInMilliseconds: 3600000, targetTop: 100, targetBottom: 90, units: 'mg/dl' });
+      await self.instance.post(self.url, self.jwt.create).send(doc).expect(201);
+      await self.instance.patch(`${self.url}/${doc.identifier}`, self.jwt.update)
+        .send({ duration: 0, targetTop: null, targetBottom: null }).expect(200);
+      const stored = await storedV3(doc.identifier);
+      stored.duration.should.equal(0);
+      stored.durationInMilliseconds.should.equal(0);
+    });
+
+    it('API v3 does not let endmills hide an invalid submitted duration', async () => {
+      const doc = v3Target({ targetTop: 100, targetBottom: 90, units: 'mg/dl' });
+      await self.instance.post(self.url, self.jwt.create).send(doc).expect(201);
+      for (const duration of [-1, '0']) {
+        const response = await self.instance.put(`${self.url}/${doc.identifier}`, self.jwt.update)
+          .send({ ...doc, duration, endmills: doc.date + 3600000 }).expect(400);
+        response.body.message.should.match(/duration must be a number of zero or more/);
+        (await storedV3(doc.identifier)).duration.should.equal(60);
+      }
     });
 
     it('API v3 PATCH checks the record as it would be stored', async () => {
@@ -308,6 +371,23 @@ describe('Treatment write validation (WRITE_VALIDATION)', function () {
   describe('log', function () {
 
     beforeEach(() => setMode('log'));
+
+    it('logs invalid effective durations without normalising stored units or rejecting the patch', async () => {
+      const doc = v3Target({ duration: 0, units: 'mmol' });
+      await self.instance.post(self.url, self.jwt.create).send(doc).expect(201);
+      const warnings = [], warn = console.warn;
+      console.warn = function () { warnings.push(Array.from(arguments).join(' ')); };
+      try {
+        await self.instance.patch(`${self.url}/${doc.identifier}`, self.jwt.update)
+          .send({ units: 'mmol/L', endmills: doc.date + 3600000 }).expect(200);
+      } finally {
+        console.warn = warn;
+      }
+      const stored = await storedV3(doc.identifier);
+      stored.units.should.equal('mmol/L');
+      stored.duration.should.equal(60);
+      warnings.some(line => line.includes('tt-target:targetBottom')).should.be.true();
+    });
 
     it('stores the record and logs the rule without the values', async () => {
       const warnings = [];

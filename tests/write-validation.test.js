@@ -75,6 +75,28 @@ describe('write-validation rules', function () {
     b.units.should.equal('banana');
   });
 
+  it('handles non-coercible duration timestamps without mutating off/log records', () => {
+    const opTools = require('../lib/api3/shared/operationTools');
+    for (const mode of ['off', 'log', 'reject']) {
+      const doc = tt({date: 1800000000000, duration: 0, mills: {toString: null}});
+      const original = JSON.stringify(doc), warnings = [];
+      const res = {status(code) {this.code = code; return this;}, json(body) {this.body = body;}};
+      const warn = console.warn;
+      console.warn = line => warnings.push(line);
+      try {
+        const result = opTools.validateDomain({env: {writeValidation: mode}, col: {colName: 'treatments'}, res}, doc);
+        if (mode === 'reject') {
+          res.code.should.equal(400);
+          res.body.message.should.match(/duration cannot be derived/);
+        } else result.should.equal(true);
+      } finally {
+        console.warn = warn;
+      }
+      JSON.stringify(doc).should.equal(original);
+      warnings.length.should.equal(mode === 'log' ? 1 : 0);
+    }
+  });
+
   it('logs rules and fields, never values', () => {
     const doc = tt({ identifier: 'abc', targetBottom: 99.09, targetTop: 99.09, units: 'mmol' });
     const line = wv.logLine('API v3', doc, wv.checkTreatment(doc));
