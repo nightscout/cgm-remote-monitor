@@ -1059,10 +1059,10 @@ components:
             Main addressing, required field that identifies document in the collection.
 
 
-            The client should not create the identifier, the server automatically assigns it when the document is inserted.
+            A client may send its own identifier when it creates a document, and the server keeps it. It is compared exactly as sent and does not have to be a UUID; one identifier names one document in the collection.
 
 
-            The server calculates the identifier in such a way that duplicate records are automatically merged (deduplicating is made by `date`, `device` and `eventType` fields).
+            When the client sends none, the server calculates one from the `device`, `date` and `eventType` fields, so that duplicate records are automatically merged.
 
 
             The best practise for all applications is not to loose identifiers from received documents, but save them carefully for other consumer applications/systems.
