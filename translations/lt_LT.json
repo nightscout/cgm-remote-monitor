@@ -201,6 +201,8 @@
     "Date format": "Datos formatas",
     "12 hours": "12 valandų",
     "24 hours": "24 valandos",
+    "Show Seconds": "Show Seconds",
+    "When enabled the clock displays seconds and updates every second.": "When enabled the clock displays seconds and updates every second.",
     "Log a Treatment": "Pridėti įrašą",
     "BG Check": "Gliukozės patikra",
     "Meal Bolus": "Bolusas maistui",
