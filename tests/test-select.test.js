@@ -84,6 +84,17 @@ describe('Test selection CLI validation', function () {
     });
   }
 
+  it('fails instead of running nothing when git cannot list the test files', function () {
+    // As in a CI container where git refuses a checkout another user owns.
+    const result = spawnSync(process.execPath, [path.join(root, 'scripts', 'test-tiers.js'), 'run', 'core'], {
+      cwd: root, encoding: 'utf8', timeout: 5000,
+      env: Object.assign({}, process.env, {GIT_DIR: path.join(root, 'no-such-git-dir')})
+    });
+    assert.equal(result.status, 2, result.stdout + result.stderr);
+    assert.match(result.stderr, /git ls-files tests/);
+    assert.doesNotMatch(result.stdout + result.stderr, /passing/);
+  });
+
   it('keeps empty automatic selections and stdin pipelines successful', function () {
     for (const [args, input] of [
       [['affected', '--files', '.gitignore', '--run'], undefined],

@@ -56,8 +56,12 @@ function tierOf (file) {
   return tiers.length === 1 ? tiers[0] : undefined;
 }
 
+// Throws when git fails: an empty list would let a tier run nothing and pass
+// (git refuses a checkout owned by another user, as in CI containers).
 function listTestFiles () {
   const result = spawnSync('git', ['ls-files', '--cached', '--others', '--exclude-standard', 'tests'], { cwd: ROOT, encoding: 'utf8' });
+  if (result.error) throw result.error;
+  if (result.status !== 0) throw new Error('git ls-files tests: ' + result.stderr.trim());
   return result.stdout.split('\n').filter(f => TEST_FILE.test(f) && fs.existsSync(path.join(ROOT, f))).sort();
 }
 
@@ -152,14 +156,14 @@ function validateTiers (names) {
 // tier's first and last files). Returns the first non-zero exit status.
 function run (names, files, ci) {
   if (!validateTiers(names)) return 2;
-  let seed;
+  let seed, all;
   try {
     seed = shuffleSeed();
+    all = listTestFiles();
   } catch (err) {
     console.error('# ' + err.message);
     return 2;
   }
-  const all = listTestFiles();
   const known = new Set(all);
   const problems = [];
   // Validate the complete request before starting any tier. A mixed valid and
@@ -169,6 +173,13 @@ function run (names, files, ci) {
     else if (!tierOf(file)) problems.push('test file must belong to exactly one tier: ' + file);
     else if (!names.includes(tierOf(file))) problems.push(file + ' belongs to tier ' + tierOf(file) + ', not a requested tier');
   });
+  // A whole tier that matches no files ran nothing; that is a failure, not a
+  // pass. (With explicit files, tiers they do not touch are skipped.)
+  if (!files) {
+    names.filter(name => !all.some(f => tierOf(f) === name)).forEach(name => {
+      problems.push('tier ' + name + ' matches no test files');
+    });
+  }
   if (problems.length) {
     problems.forEach(problem => console.error('# ' + problem));
     return 2;

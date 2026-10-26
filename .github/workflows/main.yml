@@ -226,6 +226,11 @@ jobs:
           cache-dependency-path: package-lock.json
       - name: Install dependencies and build production bundle
         run: npm ci
+      # The container runs as root over a checkout the runner's user owns, and
+      # actions/checkout's safe.directory entry went to a temporary HOME, so
+      # git refuses the checkout and the tier runner finds no test files.
+      - name: Trust the checkout for git
+        run: git config --system --add safe.directory "$GITHUB_WORKSPACE"
       - name: Run isolated browser tests
         env:
           # Firefox requires HOME to be owned by the container's current user.
