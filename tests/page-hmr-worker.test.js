@@ -1,4 +1,5 @@
 'use strict';
+// covers: tests/browser/compiled-worker.js
 
 const assert = require('node:assert/strict');
 const {EventEmitter} = require('node:events');
