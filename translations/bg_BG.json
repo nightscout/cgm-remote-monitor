@@ -201,6 +201,8 @@
     "Date format": "Формат на датата",
     "12 hours": "12 часа",
     "24 hours": "24 часа",
+    "Show Seconds": "Show Seconds",
+    "When enabled the clock displays seconds and updates every second.": "When enabled the clock displays seconds and updates every second.",
     "Log a Treatment": "Въвеждане на събитие",
     "BG Check": "Проверка на КЗ",
     "Meal Bolus": "Болус-основно хранене",
