@@ -1,5 +1,5 @@
-@import url("//fonts.googleapis.com/css?family=Ubuntu:300,400,500,700,300italic,400italic,500italic,700italic");
-@import url("//fonts.googleapis.com/css?family=Open+Sans:300italic,400italic,600italic,700italic,300,400,600,700,800");
+@import url("/css/ubuntu-font.css");
+@import url("/css/open-sans-font.css");
 @import url("/glyphs/css/fontello.css");
 
 
