@@ -103,7 +103,8 @@ const rules = [
     // Keep ordinary selectors global and inject CSS with webpack's own runtime.
     type: 'css/global',
     parser: { exportType: 'style' },
-    exclude: /node_modules/
+    // The selected UI structure styles use the same inline runtime as app CSS.
+    exclude: /node_modules[\\/](?!jquery-ui[\\/]themes[\\/]base[\\/])/
   },
   {
     test: /\.(jpe?g|png|gif)$/i,

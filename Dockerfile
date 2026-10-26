@@ -8,7 +8,7 @@ WORKDIR /opt/app
 COPY package.json package-lock.json .babelrc ./
 COPY bundle/ ./bundle/
 COPY webpack/ ./webpack/
-COPY bin/generateRandomString.js ./bin/
+COPY bin/generateRandomString.js bin/postinstall.js ./bin/
 COPY lib/ ./lib/
 COPY static/ ./static/
 COPY views/ ./views/

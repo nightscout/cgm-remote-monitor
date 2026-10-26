@@ -20,8 +20,10 @@ require('should');
 const browserUtils = require('../lib/client/browser-utils');
 
 // A stub rather than jsdom: init() only needs $ to be callable and chainable,
-// and $.fn.tooltip to be an object it can hang defaults on. Nothing in this
-// test reaches the DOM.
+// and $.fn.tooltip to be an object it can hang defaults on. init() also
+// installs the delegated help tooltip (lib/client/help-tooltips.js) on
+// `document`; stubDocument() gives it the few calls it makes. Nothing in this
+// test reaches a real DOM.
 function stubJquery ( ) {
   function chain ( ) {
     return {
@@ -34,17 +36,29 @@ function stubJquery ( ) {
   return $;
 }
 
+function stubDocument ( ) {
+  function noop ( ) { }
+  const element = { setAttribute: noop, removeAttribute: noop, addEventListener: noop, style: { } };
+  return {
+    // isTouch() asks document.createEvent('TouchEvent') and treats a throw as
+    // "not a touch screen", which is the branch a stub naturally takes.
+    createEvent: function ( ) { throw new Error('no TouchEvent'); }
+    , createElement: function ( ) { return element; }
+    , body: { appendChild: noop }
+    , querySelectorAll: function ( ) { return [ ]; }
+    , addEventListener: noop
+    , defaultView: { addEventListener: noop }
+  };
+}
+
 describe('browser-utils queryParms', function ( ) {
   let priorLocation, priorDocument, utils;
 
   beforeEach(function ( ) {
     priorLocation = Object.getOwnPropertyDescriptor(global, 'location');
     priorDocument = Object.getOwnPropertyDescriptor(global, 'document');
-    // isTouch() asks document.createEvent('TouchEvent') and treats a throw as
-    // "not a touch screen", which is the branch a stub naturally takes.
     Object.defineProperty(global, 'document', {
-      configurable: true, writable: true,
-      value: { createEvent: function ( ) { throw new Error('no TouchEvent'); } }
+      configurable: true, writable: true, value: stubDocument()
     });
     Object.defineProperty(global, 'location', {
       configurable: true, writable: true, value: { search: '' }

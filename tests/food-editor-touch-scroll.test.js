@@ -21,6 +21,7 @@ const path = require('path');
 const postcss = require('postcss');
 const createSecureDOM = require('./fixtures/secure-jsdom').createSecureDOM;
 const domGlobals = require('./fixtures/dom-globals');
+const loadJqueryUiWidgets = require('./fixtures/jquery-ui-widgets');
 
 const ROOT = path.join(__dirname, '..');
 const VIEW = fs.readFileSync(path.join(ROOT, 'views/foodindex.html'), 'utf8');
@@ -111,9 +112,10 @@ describe('food editor: touch scrolling (#8192)', function () {
     const body = /<body\b[^>]*>([\s\S]*)<\/body>/.exec(VIEW)[1].replace(/<%[\s\S]*?%>/g, '');
     env = createSecureDOM('<!DOCTYPE html><html><body>' + body + '</body></html>');
     state = domGlobals.installDomGlobals(env);
-    delete require.cache[require.resolve('jquery-ui-bundle')];
-    require('jquery-ui-bundle');
     $ = env.window.$;
+    // The widgets the page bundle ships (cut 3 replaced jquery-ui-bundle with
+    // selected jquery-ui widgets; see bundle/bundle.source.js).
+    loadJqueryUiWidgets($);
 
     const records = [foodRecord('Apple', 12), foodRecord('Banana', 23), foodRecord('Bread', 45)]
       .concat([0, 1].map(function quickpickRecord (position) {
@@ -153,7 +155,6 @@ describe('food editor: touch scrolling (#8192)', function () {
 
   afterEach(function () {
     delete require.cache[require.resolve('../lib/food/food')];
-    delete require.cache[require.resolve('jquery-ui-bundle')];
     if (priorOption) Object.defineProperty(global, 'Option', priorOption);
     else delete global.Option;
     domGlobals.restoreDomGlobals(state);
