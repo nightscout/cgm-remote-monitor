@@ -45,21 +45,34 @@ describe('Swagger documentation route isolation', function () {
     assert.deepEqual(JSON.parse(output), []);
   });
   it('honors the project installation-analytics opt-out before making a request', function () {
-    this.timeout(10000);
     const root = path.resolve(__dirname, '..');
-    const env = {INIT_CWD: root, PATH: process.env.PATH, HOME: process.env.HOME,
-      npm_execpath: path.resolve(path.dirname(process.execPath), '../lib/node_modules/npm/bin/npm-cli.js')};
+    // Exercise Scarf's real dependency-tree parser and reporting policy using
+    // installed metadata. Its npm traversal shells out with an unquoted cwd;
+    // that is unrelated to our opt-out and fails in checkouts containing spaces.
     execFileSync(process.execPath, ['-e', `
       const assert = require('node:assert/strict');
+      const path = require('node:path');
       let requests = 0;
       const deny = () => {requests++; throw new Error('Unexpected analytics request');};
       require('node:https').request = deny;
       require('node:http').request = deny;
       const scarf = require(process.argv[1]);
+      const project = require(process.argv[2]);
+      assert.equal(project.scarfSettings.enabled, false);
+      const graph = {...project, path: process.cwd(), dependencies: {
+        'swagger-ui-dist': {...require(process.argv[3]), path: path.dirname(process.argv[3]), dependencies: {
+          '@scarf/scarf': {...require(process.argv[4]), path: path.dirname(process.argv[4])}
+        }}
+      }};
+      scarf.getDependencyInfo = () => new Promise((resolve, reject) => {
+        scarf.processDependencyTreeOutput(resolve, reject)(null, JSON.stringify(graph), '');
+      });
       assert.rejects(scarf.reportPostInstall(), /opted out|disabled/i).then(() => {
         assert.equal(requests, 0);
       }).catch(error => {console.error(error); process.exitCode = 1;});
-    `, require.resolve('@scarf/scarf')], {cwd: root, env, encoding: 'utf8', timeout: 8000});
+    `, require.resolve('@scarf/scarf'), require.resolve('../package.json'),
+    require.resolve('swagger-ui-dist/package.json'), require.resolve('@scarf/scarf/package.json')],
+    {cwd: root, env: {INIT_CWD: root}, encoding: 'utf8', timeout: 5000});
   });
   it('serves assets and redirects legacy docs while refusing package metadata', async function () {
     await request(app).get('/swagger-ui-dist').expect(307).expect('Location', '/api-docs');

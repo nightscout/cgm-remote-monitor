@@ -45,11 +45,15 @@ checks must cover the final combined head before merge.
 The new distribution declares @scarf/scarf 1.4.0 for installation analytics.
 Disable it project-wide using scarfSettings.enabled=false, the
 [supported opt-out](https://docs.scarf.sh/package-analytics/). A child-process test
-runs the installed reporter with the real dependency tree/root manifest and
-requires its disabled result before any HTTP(S) request; network attempts are
-intercepted and fail. This package remains declared upstream and is not used by
-Nightscout's request handlers. Do not add a fake replacement or force an unrelated
-package version merely to hide a dependency path.
+runs the installed reporter and its dependency-tree parser with metadata read
+from the real root, Swagger and Scarf manifests, requiring its disabled result
+before any HTTP(S) request; network attempts are intercepted and fail. Only the
+npm traversal is replaced by this owned graph: upstream's unquoted shell cwd
+breaks in checkout paths containing spaces and is unrelated to the opt-out.
+No environment opt-out is supplied, so the test still detects removing or
+enabling the root `scarfSettings` policy. This package remains declared upstream
+and is not used by Nightscout's request handlers. Do not add a fake replacement
+or force an unrelated package version merely to hide a dependency path.
 
 Measurements:
 
