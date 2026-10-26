@@ -10,6 +10,7 @@ const path = require('node:path');
 describe('API v3 settings are read by env.js', function () {
   const NAMES = [
     'API3_SECURITY_ENABLE', 'API3_DEDUP_FALLBACK_ENABLED', 'API3_CREATED_AT_FALLBACK_ENABLED', 'API3_MAX_LIMIT'
+    , 'API3_SETTINGS_STRICT_READ_ENABLED'
     , 'API3_AUTOPRUNE_DEVICESTATUS', 'API3_AUTOPRUNE_ENTRIES', 'API3_AUTOPRUNE_FOOD'
     , 'API3_AUTOPRUNE_PROFILE', 'API3_AUTOPRUNE_SETTINGS', 'API3_AUTOPRUNE_TREATMENTS'
   ];
@@ -48,6 +49,7 @@ describe('API v3 settings are read by env.js', function () {
     , API3_DEDUP_FALLBACK_ENABLED: apiConst.API3_DEDUP_FALLBACK_ENABLED
     , API3_CREATED_AT_FALLBACK_ENABLED: apiConst.API3_CREATED_AT_FALLBACK_ENABLED
     , API3_MAX_LIMIT: apiConst.API3_MAX_LIMIT
+    , API3_SETTINGS_STRICT_READ_ENABLED: apiConst.API3_SETTINGS_STRICT_READ_ENABLED
   };
 
   it('has the documented defaults when nothing is set', function () {
@@ -57,6 +59,7 @@ describe('API v3 settings are read by env.js', function () {
       , API3_DEDUP_FALLBACK_ENABLED: true
       , API3_CREATED_AT_FALLBACK_ENABLED: true
       , API3_MAX_LIMIT: 1000
+      , API3_SETTINGS_STRICT_READ_ENABLED: false
       , CI: false
       , API3_AUTOPRUNE_DEVICESTATUS: undefined
       , API3_AUTOPRUNE_ENTRIES: undefined

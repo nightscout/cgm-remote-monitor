@@ -1,7 +1,7 @@
 const path = require('path');
 const webpack = require('webpack');
 const pluginArray = [];
-// In dev mode, webpack-hot-middleware injects the HMR client into both
+// In dev mode, webpack-dev-middleware injects the HMR client into both
 // entries (app + clock). With devtool='source-map' the shared modules
 // emit .map files keyed by [name] and collide ("Multiple assets emit
 // different content to the same filename js/bundle.app.js.map").
@@ -72,18 +72,8 @@ pluginArray.push(new MomentTimezoneDataPlugin({
 }));
 
 if (process.env.NODE_ENV === 'development') {
-  const ESLintPlugin = require('eslint-webpack-plugin');
-  pluginArray.push(new ESLintPlugin({
-    emitWarning: true,
-    failOnError: false,
-    failOnWarning: false,
-    formatter: require('eslint').CLIEngine.getFormatter('stylish'),
-    overrideConfig: {
-      globals: {
-        '$': 'writeable'
-      }
-    }
-  }));
+  const DevelopmentLintPlugin = require('./lint-plugin');
+  pluginArray.push(new DevelopmentLintPlugin());
 }
 
 const rules = [
@@ -103,20 +93,14 @@ const rules = [
     // Keep ordinary selectors global and inject CSS with webpack's own runtime.
     type: 'css/global',
     parser: { exportType: 'style' },
-    exclude: /node_modules/
+    // The selected UI structure styles use the same inline runtime as app CSS.
+    exclude: /node_modules[\\/](?!jquery-ui[\\/]themes[\\/]base[\\/])/
   },
   {
     test: /\.(jpe?g|png|gif)$/i,
     type: 'asset/resource',
     generator: { filename: 'images/[contenthash][ext]' },
     exclude: /node_modules/
-  },
-  {
-    test: require.resolve('jquery'),
-    loader: 'expose-loader',
-    options: {
-      exposes: ['$']
-    }
   }
 ];
 
@@ -134,7 +118,10 @@ if (process.env.NODE_ENV === 'development') {
   pluginArray.push(new webpack.HotModuleReplacementPlugin());
   pluginArray.push(new webpack.NoEmitOnErrorsPlugin());
 
-  const hot = 'webpack-hot-middleware/client?port=1337';
+  // Resolve the exported subpath before appending its resource query.
+  // Preserve HMR-only updates and avoid a new progress/runtime-error overlay.
+  const hot = require.resolve('webpack-dev-middleware/client') + '?reload=false&progress=false&overlay=' +
+    encodeURIComponent(JSON.stringify({runtimeErrors: false}));
 
   appEntry.unshift(hot);
   clockEntry.unshift(hot);

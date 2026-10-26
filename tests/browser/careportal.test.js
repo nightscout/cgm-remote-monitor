@@ -24,17 +24,18 @@ const connectionFailureMessage = 'Could not confirm whether Loop received this c
 const authorizationFailureMessage = 'Authorization failed. Reauthorize Nightscout access or ask the administrator to check your Loop command permissions.';
 
 describe('careportal in a real browser', function () {
-  let server, origin, requests, loopResponse, markup;
+  let server, origin, requests, loopResponse, markup, siteUnits = 'mg/dl';
   before(async function () {
     const root = path.resolve(__dirname, '../..');
     const file = path.join(root, 'views/index.html');
     const settings = structuredClone(require('../fixtures/default-server-settings'));
     markup = ejs.render(fs.readFileSync(file, 'utf8'), {type: 'index', title: '', bundle: '/bundle', settings: settings.settings}, {filename: file});
-    const html = '<!doctype html><html><head><meta charset="utf-8"><link rel="stylesheet" href="/css/main.css"></head><body></body></html>';
+    const html = '<!doctype html><html><head><meta charset="utf-8"><link rel="stylesheet" href="/css/main.css"><link rel="stylesheet" href="/css/ui-darkness/jquery-ui.min.css"></head><body></body></html>';
     const css = fs.readFileSync(path.join(root, 'static/css/main.css'), 'utf8')
       .replace("@import url('https://fonts.googleapis.com/css?family=Ubuntu:400,700');", '');
     settings.settings.showPlugins = 'iob careportal boluscalc';
-    settings.settings.enable += ' boluscalc';
+    // openaps supplies the Temporary Target event type.
+    settings.settings.enable += ' boluscalc food openaps';
     const app = express();
     app.use(express.urlencoded({extended: true}));
     app.use((request, response, next) => {
@@ -44,7 +45,7 @@ describe('careportal in a real browser', function () {
       next();
     });
     app.get('/', (request, response) => response.type('html').send(html));
-    app.get('/api/v1/status.json', (request, response) => response.json(settings));
+    app.get('/api/v1/status.json', (request, response) => response.json({...settings, settings: {...settings.settings, units: siteUnits}}));
     app.get('/api/v1/verifyauth', (request, response) => response.json({message: 'OK'}));
     app.get('/api/v1/adminnotifies', (request, response) => response.json({message: {notifies: [], notifyCount: 0}}));
     app.get('/translations/*', (request, response) => response.json({}));
@@ -69,8 +70,9 @@ describe('careportal in a real browser', function () {
     if (server) await new Promise(resolve => server.close(resolve));
   });
 
-  async function withApp(run, {timezoneId = 'UTC', now = '2024-10-26T04:00:00Z', profile = false} = {}) {
+  async function withApp(run, {timezoneId = 'UTC', now = '2024-10-26T04:00:00Z', profile = false, units = 'mg/dl'} = {}) {
     requests = [];
+    siteUnits = units;
     loopResponse = {status: 200, body: 'OK'};
     await withPage(origin, async ({page}) => {
       const dialogs = [];
@@ -135,7 +137,7 @@ describe('careportal in a real browser', function () {
       assert.deepEqual(await page.evaluate(() => ({sockets: window.careportalFixture.sockets.length,
         auth: window.careportalFixture.emitted.filter(e => e.event === 'authorize').length,
         chart: !!window.Nightscout.client.chart, units: window.Nightscout.client.settings.units})),
-      {sockets: 2, auth: 1, chart: true, units: 'mg/dl'});
+      {sockets: 2, auth: 1, chart: true, units});
       await run({page, dialogs});
     }, {timezoneId});
   }
@@ -176,6 +178,41 @@ describe('careportal in a real browser', function () {
     });
   });
 
+  // careportal temp-target double conversion: on an mmol site the form
+  // converts the targets to mg/dL. The record must not still say mmol, and a
+  // glucose value typed under another event type must not ride along hidden
+  // (with one, the server keeps the label and the chart converts again).
+  it('saves a Temporary Target on an mmol site once converted, without a hidden glucose value', async function () {
+    await withApp(async ({page, dialogs}) => {
+      await openCareportal(page);
+      await page.locator('#eventType').selectOption('BG Check');
+      await page.locator('#glucoseValue').fill('6.1');
+      await page.locator('#eventType').selectOption('Temporary Target');
+      assert.equal(await page.locator('#bg').isVisible(), false);
+      await page.locator('#reason').selectOption('Manual');
+      await page.locator('#targetBottom').fill('5.5');
+      await page.locator('#targetTop').fill('5.5');
+      await page.locator('#duration').fill('60');
+      await submit(page);
+      assert.deepEqual(dialogs.map(d => d.type), ['confirm'], JSON.stringify(dialogs));
+      const posts = requests.filter(r => r.path === '/api/v1/treatments/');
+      assert.equal(posts.length, 1);
+      const posted = posts[0].data;
+      assert.equal(posted.eventType, 'Temporary Target');
+      // The chart reads the record as posted (the v1 API keeps the units label
+      // when a glucose value is present): 99.09 mg/dL, not 1785.09.
+      const ddata = require('../../lib/data/ddata')();
+      ddata.treatments = [{...posted, _id: 'tt', mills: Date.now(), targetTop: Number(posted.targetTop),
+        targetBottom: Number(posted.targetBottom), ...(posted.glucose ? {glucose: Number(posted.glucose)} : {})}];
+      ddata.processTreatments(false);
+      assert.deepEqual([ddata.tempTargetTreatments[0].targetBottom, ddata.tempTargetTreatments[0].targetTop].map(v => +v.toFixed(2)), [99.09, 99.09]);
+      assert.equal(posted.glucose, undefined);
+      assert.equal(posted.units, 'mg/dl');
+      assert.equal(dialogs[0].message.indexOf('Blood Glucose'), -1, dialogs[0].message);
+      assert.equal(await page.locator('#glucoseValue').inputValue(), '');
+    }, {units: 'mmol'});
+  });
+
   for (const testCase of [
     {time: '2024-10-25T23:00:00-05:00', timezoneId: 'America/Chicago', date: '2024-10-25', timeInput: '23:00', expected: '2024-10-26T04:00:00.000Z', wrong: '2024-10-27T04:00:00.000Z'},
     {time: '2024-10-26T01:00:00+03:00', timezoneId: 'Europe/Moscow', date: '2024-10-26', timeInput: '01:00', expected: '2024-10-25T22:00:00.000Z', wrong: '2024-10-24T22:00:00.000Z'}
@@ -198,6 +235,44 @@ describe('careportal in a real browser', function () {
       }, {timezoneId: testCase.timezoneId, now: testCase.time});
     });
   }
+
+  it('reopens the bolus food picker, rejects zero portions and retains independent selections twice', async function () {
+    await withApp(async ({page}) => {
+      await page.evaluate(() => {
+        window.Nightscout.client.dataUpdate({food: [{_id: '000000000000000000000001', type: 'food',
+          name: 'Owned oats', category: 'Owned', subcategory: '', carbs: 10, portion: 25, unit: 'g'}]});
+      });
+      await page.locator('#boluscalcDrawerToggle').click();
+      await page.waitForFunction(() => window.Nightscout.client.sbx.data.food.some(food => food.name === 'Owned oats'));
+      const picker = page.locator('#bc_addfooddialog');
+      for (let cycle = 0; cycle < 2; cycle++) {
+        await page.locator('#bc_addfromdatabase').click();
+        await picker.waitFor({state: 'visible'});
+        assert.equal(await page.evaluate(() => document.activeElement.id), 'bc_filter_name');
+        assert.equal(await page.locator('#bc_addportions').inputValue(), '1');
+        await page.locator('#bc_data').selectOption('0');
+        await page.locator('#bc_addportions').fill('0');
+        await page.getByRole('dialog').getByRole('button', {name: 'Add', exact: true}).click();
+        assert.equal(await picker.isVisible(), true, 'Zero portions keep the picker open');
+        assert.equal(await page.locator('#bc_food tr').count(), cycle);
+        await page.keyboard.press('Escape');
+        await picker.waitFor({state: 'hidden'});
+        assert.equal(await page.locator('#bc_food tr').count(), cycle, 'Escape adds no food');
+        await page.locator('#bc_addfromdatabase').click();
+        await picker.waitFor({state: 'visible'});
+        assert.equal(await page.locator('#bc_addportions').inputValue(), '1');
+        await page.locator('#bc_data').selectOption('0');
+        await page.locator('#bc_addportions').fill(String(cycle + 2));
+        await page.getByRole('dialog').getByRole('button', {name: 'Add', exact: true}).click();
+        await picker.waitFor({state: 'hidden'});
+        const rows = await page.locator('#bc_food tr').allTextContents();
+        assert.equal(rows.length, cycle + 1);
+        assert.ok(rows[0].includes('50.0 g') && rows[0].includes('(20.0 g)'), 'First selection keeps two portions');
+        if (cycle) assert.ok(rows[1].includes('75.0 g') && rows[1].includes('(30.0 g)'));
+        assert.equal(requests.filter(r => r.method === 'POST' && r.path === '/api/v1/treatments/').length, 0, 'Picking food does not submit treatment');
+      }
+    }, {profile: true});
+  });
 
   it('uses local timezone date, not UTC, when saving a boluscalc other-time treatment', async function () {
     await withApp(async ({page, dialogs}) => {

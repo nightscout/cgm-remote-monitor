@@ -42,6 +42,27 @@ No deployment platform is retired by this change. An unavailable or unverified p
 
 This change removes CI jobs and updates the support policy. It does not change the MongoDB driver, schema, connection protocol, or startup behavior, and does not migrate or delete data. An existing 4.4 connection may still work; that does not make it supported. There is no new startup version query or database permission requirement.
 
+### Docker Compose default in Nightscout 16.0.0
+
+The bundled `docker-compose.yml` now selects **mongo:6.0.27**, replacing the
+**mongo:5.0.32** default shipped through 15.0.9. MongoDB 5 remains supported during
+migration; changing the example default does not require externally managed
+MongoDB 5 deployments to upgrade immediately.
+
+For an existing Compose deployment, this is a database major-version upgrade,
+not just a Nightscout image update. Back up and rehearse against a restored copy
+before recreating the Mongo service. Follow MongoDB's standalone 5-to-6 upgrade
+procedure (or the matching replica/sharded procedure), including the required
+5.0 feature compatibility version before starting 6.0. Retain the existing
+`NS_MONGO_DATA_DIR`/data mount; do not delete the data directory or volume.
+Verify Nightscout reads, uploads, profiles and settings after the upgrade before
+raising FCV to 6.0. An application rollback does not downgrade MongoDB or FCV;
+use the documented database recovery procedure and your verified backup.
+
+See MongoDB's [archived 6.0 standalone upgrade procedure](https://github.com/mongodb/docs/blob/v6.0/source/release-notes/6.0-upgrade-standalone.txt)
+and [legacy documentation](https://www.mongodb.com/docs/legacy/). The existing
+MongoDB end-of-life and final upgrade/restore validation gates above still apply.
+
 Before deploying the modernization release on a database currently running 4.4:
 
 1. Record the database version, feature compatibility version (FCV), topology, authentication settings, Nightscout artifact and configuration. Take a consistent backup and verify restoration into an isolated environment.
@@ -197,3 +218,24 @@ Device identifiers change from `connect-<family>` to
 `nightscout-connect://minimedcarelink/<family>`; filters that match the old device
 name need updating. Owned regression fixtures cover these changes; verify actual
 account/device behavior before release.
+
+## Updated timezone rules
+
+The modernization candidate updates Moment Timezone to 0.6.3 with IANA timezone
+data 2026c. Local clock labels and profile-zone conversion can change where that
+data corrects historical rules or models new clock policies. Stored UTC timestamps
+are not rewritten by the dependency update.
+
+Affected zone groups include Morocco/Western Sahara, Alberta-related aliases,
+British Columbia, Moldova and historical Baja California. The
+[IANA release notes](https://github.com/eggert/tz/blob/2026c/NEWS) describe the
+modeled changes. The package's aliases follow their linked canonical zones;
+this is not an independent guarantee of current policy for every alias region.
+Verify the configured profile timezone and relevant local-time displays when
+upgrading an affected installation.
+
+Server timezone data includes historical corrections; the existing browser
+bundle retains only 2015–2035 data. This update does not broaden that browser
+range or resolve the separately tracked spring-DST schedule-selection issue.
+Application rollback restores the previous timezone rules without rewriting
+stored timestamps. See the [validation scope](test-specs/moment-timezone-refresh.md).

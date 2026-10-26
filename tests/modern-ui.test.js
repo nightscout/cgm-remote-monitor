@@ -175,48 +175,44 @@ describe('opt-in modern dashboard', function () {
     });
   });
 
+  // EXPECTATION CHANGED with cut 3's native help tooltip
+  // (lib/client/help-tooltips.js), which replaced the jquery.tooltips plugin
+  // that modern-layout used to re-aim per link. The question is the same: a
+  // toolbar tooltip opens 6px below its button and stays 8px inside both
+  // viewport edges, and leaving the button closes it.
   it('shows existing toolbar tooltips below their buttons and inside both viewport edges', function () {
     const env = createSecureDOM('<div id="buttonbar"><a class="tip" title="Left label"></a><a class="tip" title="Middle label"></a><a class="tip" title="Right label"></a></div><span class="tip" id="other-tip" title="Other label"></span>');
     const state = domGlobals.installDomGlobals(env);
-    const pluginPath = require.resolve('jquery.tooltips/js/jquery.tooltips');
-    delete require.cache[pluginPath];
+    let installed;
     try {
       const $ = env.window.$;
-      Object.defineProperty(env.document.documentElement, 'clientWidth', {value: 320});
-      const links = $('#buttonbar .tip');
-      links.each(function (index) {
+      const doc = env.document;
+      Object.defineProperty(env.window, 'innerWidth', {configurable: true, value: 320});
+      Object.defineProperty(env.window, 'innerHeight', {configurable: true, value: 640});
+      const links = doc.querySelectorAll('#buttonbar .tip');
+      links.forEach((link, index) => {
         const left = [14, 220, 262][index];
-        this.getBoundingClientRect = () => ({left, top: 2, width: 44, height: 44});
-        this.getClientRects = () => [this.getBoundingClientRect()];
-        Object.defineProperty(this, 'offsetWidth', {value: 44});
-        Object.defineProperty(this, 'offsetHeight', {value: 44});
+        link.getBoundingClientRect = () => ({left, top: 2, width: 44, height: 44, right: left + 44, bottom: 46});
       });
-      require(pluginPath);
-      $('.tip').tooltip();
-      const otherOptions = $('#other-tip').data('tooltip').options;
-      const widths = [160, 220, 120];
-      const original = links.map(function () { return $(this).data('tooltip'); }).get();
-      original.forEach((tooltip, index) => {
-        Object.defineProperty(tooltip.tip()[0], 'offsetWidth', {value: widths[index]});
-        Object.defineProperty(tooltip.tip()[0], 'offsetHeight', {value: 24});
-        tooltip.tip().css('width', widths[index] + 'px');
-      });
+      installed = require('../lib/client/help-tooltips')(doc, {touch: false});
       require('../lib/client/modern-layout')({}, $, () => {});
-      assert.strictEqual($('#other-tip').data('tooltip').options, otherOptions);
-      assert.strictEqual(otherOptions.gravity, 's');
-      links.each(function (index) {
-        assert.strictEqual($(this).data('tooltip'), original[index]);
-        $(this).trigger('mouseenter');
-        const tip = original[index].tip();
-        assert.strictEqual(parseFloat(tip.css('top')), 52);
-        assert.ok(parseFloat(tip.css('left')) >= 8);
-        assert.ok(parseFloat(tip.css('left')) + widths[index] <= 312);
-        assert.strictEqual(tip.find('.tooltip-inner').text(), ['Left label', 'Middle label', 'Right label'][index]);
-        $(this).trigger('mouseleave');
-        assert.strictEqual(env.document.querySelectorAll('body > .tooltip').length, 0);
+      const tip = doc.getElementById('ns-help-tooltip');
+      const widths = {'Left label': 160, 'Middle label': 220, 'Right label': 120};
+      tip.getBoundingClientRect = () => ({left: 0, top: 0, width: widths[tip.textContent], height: 24});
+      links.forEach((link, index) => {
+        link.dispatchEvent(new env.window.Event('pointerover', {bubbles: true}));
+        const text = ['Left label', 'Middle label', 'Right label'][index];
+        assert.strictEqual(tip.hidden, false);
+        assert.strictEqual(tip.textContent, text);
+        assert.strictEqual(parseFloat(tip.style.top), 52);
+        assert.ok(parseFloat(tip.style.left) >= 8);
+        assert.ok(parseFloat(tip.style.left) + widths[text] <= 312);
+        link.dispatchEvent(new env.window.Event('pointerout', {bubbles: true}));
+        assert.strictEqual(tip.hidden, true);
       });
+      assert.strictEqual(doc.querySelectorAll('.ns-help-tooltip').length, 1);
     } finally {
-      delete require.cache[pluginPath];
+      if (installed) installed.destroy();
       domGlobals.restoreDomGlobals(state);
     }
   });

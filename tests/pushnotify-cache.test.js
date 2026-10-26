@@ -158,4 +158,49 @@ describe('push notification deduplication cache', function () {
     assert.deepStrictEqual(acknowledgements, []);
   });
 
+  it('releases cached values, timers and notification listeners on teardown over two cycles', function () {
+    const {EventEmitter} = require('node:events');
+    ctx.bus = new EventEmitter();
+    const originalSet = global.setTimeout, originalClear = global.clearTimeout;
+    const pending = new Set();
+    global.setTimeout = function () { const handle = {unref() {}}; pending.add(handle); return handle; };
+    global.clearTimeout = handle => pending.delete(handle);
+    try {
+      for (let cycle = 0; cycle < 2; cycle++) {
+        const push = initialize(env, ctx, caches);
+        ctx.bus.on('notification', push.emitNotification);
+        push.emitNotification(notification());
+        assert.equal(pending.size, 2, 'Two cache housekeeping timers');
+        assert.equal(caches[cycle * 2].keys().length, 1);
+        ctx.bus.emit('teardown');
+        ctx.bus.emit('teardown');
+        assert.equal(pending.size, 0, 'Teardown cancels both housekeeping timers');
+        assert.equal(ctx.bus.listenerCount('notification'), 0);
+        assert.equal(ctx.bus.listenerCount('teardown'), 0);
+        for (const cache of caches) assert.equal(cache.keys().length, 0);
+        push.emitNotification(notification());
+        assert.equal(sent.length, cycle + 1, 'Closed instance cannot send again');
+        assert.equal(push.pushoverAck({receipt: 'fixture-receipt'}), false);
+      }
+    } finally { global.setTimeout = originalSet; global.clearTimeout = originalClear; }
+  });
+
+  it('ignores provider completions arriving after teardown without retaining receipts', function () {
+    const {EventEmitter} = require('node:events');
+    ctx.bus = new EventEmitter();
+    const pending = [];
+    ctx.pushover.send = (notify, callback) => { sent.push(notify); pending.push(callback); };
+    for (let cycle = 0; cycle < 2; cycle++) {
+      const push = initialize(env, ctx, caches);
+      push.emitNotification(notification());
+      ctx.bus.emit('teardown');
+      // Closed services must neither parse nor retain late provider responses.
+      assert.doesNotThrow(() => pending[cycle](null, 'late-invalid-json'));
+      pending[cycle](null, JSON.stringify({receipt: 'late-fixture-receipt'}));
+      assert.equal(push.pushoverAck({receipt: 'late-fixture-receipt'}), false);
+      assert.deepStrictEqual(acknowledgements, []);
+      for (const cache of caches) assert.equal(cache.keys().length, 0);
+    }
+  });
+
 });

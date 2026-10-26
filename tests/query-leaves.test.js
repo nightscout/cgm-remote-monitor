@@ -8,7 +8,7 @@
 // its own; the operator allowlist limits which shapes reach it.
 
 const assert = require('node:assert/strict');
-const { ObjectId } = require('mongodb');
+const { ObjectId, Long } = require('mongodb');
 const queryLeaves = require('../lib/utils/query-leaves');
 
 function visits (root) {
@@ -74,6 +74,20 @@ describe('query leaves walker', function () {
     assert.deepEqual(seen.map(function (entry) { return entry[0]; }), ['o', 'a', 'id', 'd']);
     assert.equal(seen[2][1], id);
     assert.equal(seen[3][1], date);
+  });
+
+  // bson 7 (driver 7) gives ObjectId, and has long given Long, own enumerable
+  // fields; the leaf test is the class's inherited `_bsontype`, not "no keys".
+  it('does not walk into the fields of driver values, and request data cannot claim to be one', function () {
+    const id = new ObjectId();
+    const hex = id.toHexString();
+    const long = Long.fromNumber(5);
+    const seen = visits({id: id, n: long});
+    assert.deepEqual(seen.map(function (entry) { return entry[0]; }), ['id', 'n']);
+    queryLeaves({id: id}, function (value) { return typeof value === 'number' ? String(value) : value; });
+    assert.equal(id.toHexString(), hex);
+    const claimed = {_bsontype: 'ObjectId', $where: 'x'};
+    assert.deepEqual(visits({f: claimed}).map(function (entry) { return entry[0]; }), ['f/_bsontype', 'f/$where']);
   });
 
   it('skips holes, inherited keys and symbol keys', function () {

@@ -1,6 +1,7 @@
 'use strict';
 
 const assert = require('node:assert/strict');
+const selectedWidgetsReady = require('./ui-widget-probe');
 const {withPage} = require('./fixture');
 const {getBrowser} = require('./hooks');
 const {createPageFixture, pages, hash} = require('../fixtures/page-startup/server');
@@ -63,6 +64,8 @@ describe('Complete page template startup', function () {
   for (const [url, , , entry] of pages) {
     it('boots ' + entry + ' with ' + (authenticate ? 'the authentication dialog' : 'stored authentication') + ' and reconnects twice', async function () {
       await withPage(origin, async ({page}) => {
+        const statusUrls = [];
+        page.on('request', request => {if (new URL(request.url()).pathname === '/api/v1/status.json') statusUrls.push(request.url());});
         if (!authenticate) await page.addInitScript(hash => localStorage.setItem('apisecrethash', hash), hash);
         try {
           await page.goto(origin + url);
@@ -109,6 +112,12 @@ describe('Complete page template startup', function () {
             await page.waitForFunction(() => document.querySelector('#fe_status').textContent === 'OK' && window.$.active === 0);
             assert.equal(fixtureState.foodWrites.length, 1, 'One save action must create exactly one record after reconnects');
             assert.equal(fixtureState.foodWrites[0].name, draftValue);
+          }
+          assert(statusUrls.length > 0);
+          for (const url of statusUrls) {
+            const params = new URL(url).searchParams;
+            assert.equal(params.has('secret'), false);
+            assert.equal(params.has('token'), false);
           }
         } finally {
           await page.evaluate(() => {
@@ -299,6 +308,7 @@ describe('Complete page template startup', function () {
           await page.goto(origin + url);
           await page.waitForFunction(readyEntry, entry);
           assert.equal(await page.locator('#page-load-error').isVisible(), false);
+          assert.equal(await page.evaluate(selectedWidgetsReady), true, entry + ' lost UI widgets or inline CSS when using cached bundles');
         }
         assert.deepEqual(fixtureState.bundleRequests, [], 'Cached application bundles must boot without an origin download');
 

@@ -132,8 +132,9 @@ describe('API3: records whose _id is a non-hex string', function () {
     });
 
     it('identifyingFilter matches a non-hex identifier as a literal _id of a record without identifier', function () {
+      const none = { $in: [null, '', 0, false, NaN], $not: { $type: ['array', 'decimal'] } };
       filters.identifyingFilter('custom-id').should.eql({
-        $or: [{ identifier: { $eq: 'custom-id' } }, { identifier: { $exists: false }, _id: { $eq: 'custom-id' } }]
+        $or: [{ identifier: { $eq: 'custom-id' } }, { identifier: none, _id: { $eq: 'custom-id' } }]
       });
     });
 

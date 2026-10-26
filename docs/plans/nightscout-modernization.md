@@ -79,16 +79,23 @@ At the audit baseline, completed foundations were: D3 7.9.0, jsdom-backed test t
 - [ ] **M09 — Review remaining maintained releases and security overrides** (after M07 where runtime requires it; ongoing).
   Files: manifests, each actual consumer and `tests/dependency-*.test.js`. Re-run production/full audits and `npm explain`; track each finding as reachable, build/test-only, mitigated or awaiting upstream work, with evidence. Prioritize reachable issues and unmaintained transitive chains; review Express/Helmet, MongoDB, loaders/lint/build tools and providers independently.
   Acceptance: highest compatible release per consumer, focused exploit/API regression where relevant, full CI and explicit engine/browser/DB compatibility. Remove an override only after every affected parent resolves safely. Do not use forced audit fixes or a bulk latest-version update; keep Dependabot's current target configuration.
+  The [webpack/HMR refresh](../test-specs/webpack-refresh.md) removes a separate hot-middleware dependency using the maintained development middleware, with repeated update/error recovery coverage and explicit installed/browser size costs. It does not complete the remaining dependency reviews.
+  The [ESLint refresh](../test-specs/eslint-modernization.md) replaces the webpack wrapper with a scoped public-API integration, preserves the prior non-blocking development policy, and records the remaining CLI diagnostics for separate cleanup. Production dependencies and bundle bytes are unchanged.
+  The [application lint cleanup](../test-specs/lint-cleanup.md) establishes a zero-error baseline and adds lint to one existing CI matrix job; sixteen security warnings remain for targeted review. The API3 alarm credential-log fix merged in #8688; it is no longer pending.
+
+The [MIME and jQuery exposure review](../test-specs/mime-jquery-exposure.md) consolidates
+API lookup on existing mime-types and replaces expose-loader with a browser
+bootstrap. M09 remains open for other dependency and override reviews.
 
 ## Phase 3 — reduce production installation and browser cost
 
 - [ ] **M10 — Separate build from runtime dependencies** (after M01; coordinate with M07 and M11 to avoid lockfile overlap).
   Files: `package.json`, lockfile, `Dockerfile`, `bin/azure-deploy.sh`, package/build scripts, `lib/server/app.js` development branch and deployment docs. Move the surviving build-only roots to devDependencies: Babel core/preset/loader, expose-loader, timezone-data plugin, webpack/CLI (asset/CSS loaders are being removed in M11).
-  First make install → build → prune explicit. Current `postinstall` requires webpack; Azure currently installs production-only packages and global webpack. Preserve generated assets and runtime keys in the shipped artifact. Fix root Axios's accidental dev-only classification while IMPORT_CONFIG needs it, or complete M19 first; account for `npm run prod` using env-cmd. Independently classify direct `socket.io-client`, after proving browser assets are supplied by Socket.IO server.
+  Implementation merged in #8657: install → build → prune is explicit, build-only tools are development dependencies, Axios remains available for runtime IMPORT_CONFIG, and the native environment runner replaces env-cmd. Generated assets/runtime keys and Socket.IO assets have pruned-startup coverage. See [build/runtime evidence](../test-specs/build-runtime-separation.md). Final image/build-time measurements and live hosting validation remain release gates; the original implementation tasks are not still pending.
   Acceptance: full-dependency development/HMR works; pruned artifact starts with `npm start`, serves all assets and imports config without build tools; Docker, source/Heroku and Azure follow the tested build path. Compare production paths, installed bytes, image bytes and build time. Reference feasibility target: 673 → 415 production paths after M01, before subsequent version/classification changes; remeasure, do not promise the exact count or a heap saving.
 
 - [x] **M11 — Use built-in assets and the existing lint parser** (after M01; two small PRs).
-  Files: `webpack/webpack.config.js`, `.eslintrc.js`, manifests, CSS image fixtures. Replace `file-loader` with webpack `asset/resource`; replace `babel-eslint` with existing Espree only if actual lint/security-rule parity holds.
+  Files: `webpack/webpack.config.js`, `eslint.config.cjs`, manifests, CSS image fixtures. Replace `file-loader` with webpack `asset/resource`; replace `babel-eslint` with existing Espree only if actual lint/security-rule parity holds.
   Completed asset/CSS implementation (#8630, merged as `53e279ca`): webpack `asset/resource` and native `css/global` (`exportType: style`) remove file-loader, css-loader and style-loader, with no replacement package or version upgrade. Native CSS is explicitly experimental; the browser and build gates below are required. The existing loader pair injected no CSS because of module interop, masked by static template stylesheets; native CSS restores injection and hot updates. See [native asset/CSS validation](../test-specs/native-assets.md).
   Acceptance: emitted image filenames/public paths, CSS URL loading, source maps and development HMR match; lint result differences are explained and no syntax/rule coverage is lost. Audit parsing succeeded for all 214 lib JS files, which is feasibility evidence, not lint parity. Target: remove two direct declarations without new replacement packages. Babel browser transpilation remains.
 
@@ -127,7 +134,7 @@ Each row is a separate candidate PR after M01; entries marked M07 also need the 
 | [x] **M21** | `mongo-url-parser` → existing driver parsing; `lib/server/env.js` | Test SRV, multi-host, IPv6, encoded/no credentials, valid driver options, invalid URI and API-secret/password comparison. Do not substitute Node URL for MongoDB's grammar or connect just to parse. Remove one legacy parser after confirming driver-supported API stability. |
 | [ ] **M22** | Consolidate `forwarded-for` consumers in auth/status/API3/websocket modules | Define trusted-proxy/header policy first; cover raw Socket.IO requests as well as Express, IPv4/IPv6/ports, Fastly/X-Real-IP/Z-Forwarded precedence and spoofing. Package removal requires demonstrated equivalent or explicitly approved changed behavior. |
 | [x] **M23** | Narrow `traverse` operations; `lib/server/query.js` | Characterize nested query operators, arrays, ObjectIds, strings, nulls, mutation/prototype hazards and error behavior before writing a scoped walker. Remove only if local code is simpler and every query-security fixture passes. |
-| [ ] **M24** | `env-cmd`/`nodemon` → Node CLI capabilities; package scripts and developer docs (after M07) | Preserve or explicitly document env-file precedence: env-cmd overrides inherited env, native --env-file does the reverse. Test quoting/multiline values and Mocha/nyc children. Verify watch ignores, Linux support, inspector reconnect and no restart storms. Separate PRs; no production RAM claim. |
+| [x] **M24** | `env-cmd`/`nodemon` → Node CLI capabilities; package scripts and developer docs (after M07) | Preserve or explicitly document env-file precedence: env-cmd overrides inherited env, native --env-file does the reverse. Test quoting/multiline values and Mocha/nyc children. Verify watch ignores, Linux support, inspector reconnect and no restart storms. Separate PRs; no production RAM claim. |
 | [ ] **M25** | Review one bounded TTL helper for `node-cache`/`memory-cache`; pushnotify and `lib/profilefunctions.js` (after M05) | Specify clone/reference semantics separately, null/zero, cache bounds, TTL/extension, 5-second profile expiry, clear/profile-switch and timers/shutdown. Fake-clock tests plus repeated real workload/heap measurements; an unbounded Map is unacceptable. Retain a maintained cache if local complexity grows. |
 | [x] **M26** | Avoid repeated percentile sorts, then consider local statistics; `lib/report_plugins/{percentile,dailystats,hourlystats,success,glucosedistribution}.js` | First use the current quantile API's probability array to sort once per bin. Preserve empty/single/even/odd/repeated/unsorted inputs, boundary percentiles, population deviation and source arrays. `[1,2,3,4]` q25 must remain 1.5 and population deviation approximately 1.118; D3 defaults differ. Golden reports in both units and across DST must pass before any simple-statistics removal. Record sort/allocation/time reduction separately from package count. |
 
@@ -140,10 +147,13 @@ M18 completed in #8639 (merge `a92d0882`) and #8640 (merge `1fab2a24`). Each pas
 ## Phase 5 — larger decisions, not compulsory rewrites
 
 - [ ] **M27 — Moment/timezone decision.** Map `moment`/`moment-timezone` use across profile/IOB/COB, therapy schedules, dates, reports and locale data. Establish golden outputs for DST gaps/overlaps, local midnight, timezone changes, historical data, duration and both glucose units. Compare native Intl plus scoped helpers and maintained alternatives for API complexity, bundle/CPU and browser coverage. Choose retain/narrow/replace with evidence; do not assume a library swap is low effort or promise an old roadmap's 200 KB estimate. Coordinate with the testing proposal's DOM-free report boundary.
+  Inventory baseline and remaining comparison work: [Moment/timezone review](moment-timezone-review.md). The lexical scan identifies 79 files, including 53 application files; it is not a complete call graph or a replacement decision.
 
-- [ ] **M28 — jQuery/UI/Flot and tooltip decision.** Inventory actual widgets, global plugin contracts and touch/accessibility behavior. First consider `jquery.tooltips`' two browser-utils initializers with a small delegated, escaped tooltip component; native title alone is not equivalent. After page splitting, compare retaining isolated jQuery UI/Flot against removing one widget/chart at a time. Require hover/focus/touch dismissal, keyboard/screen-reader checks, translated content, repeated initialization and report/chart goldens. Choose a framework only through a separate proposal with measured maintenance/size benefits.
+- [ ] **M28 — jQuery/UI/Flot and tooltip decision.** See [widget inventory and migration sequence](browser-widget-review.md) for the current consumers and concrete next steps. Inventory actual widgets, global plugin contracts and touch/accessibility behavior. First consider `jquery.tooltips`' two browser-utils initializers with a small delegated, escaped tooltip component; native title alone is not equivalent. After page splitting, compare retaining isolated jQuery UI/Flot against removing one widget/chart at a time. Require hover/focus/touch dismissal, keyboard/screen-reader checks, translated content, repeated initialization and report/chart goldens. Choose a framework only through a separate proposal with measured maintenance/size benefits.
+  A native help-tooltip candidate removes jquery.tooltips with explicit keyboard/touch/text behavior; see [validation and remaining UI gates](../test-specs/help-tooltips.md). This does not remove jQuery UI/Flot or complete M28.
+  Final device accessibility gate for #8605 into dev: **Safari with VoiceOver on a physical iPhone**, selected by the maintainer. Follow the [recorded checklist](../test-specs/iphone-voiceover.md); automated WebKit does not establish spoken output. Reviewed child implementation PRs may integrate with full CI while this release gate remains explicitly open.
 
-- [ ] **M29 — Legacy integration and MongoDB support decisions.** Confirmed 2026-09-05: retire MongoDB 4.4 and earlier from support/CI, retain MongoDB 5/6 during migration. The [runtime/database notice](../runtime-upgrade.md#mongodb-support-during-modernization) records support boundaries, upstream end-of-life dates and upgrade/rollback requirements. Next validate maintained MongoDB 7/8 releases and the chosen driver against real API/client fixtures before recommending them; retiring 5/6 requires a separate decision. The maintainer explicitly authorized retiring the legacy Dexcom bridge in 15.0.9 in favour of Connect; validate the [retirement and migration](../test-specs/legacy-dexcom-retirement.md). MiniMed retirement is also authorized; complete its Connect migration and regression validation before integration. Retiring additional MongoDB versions requires a separate decision. Legacy adapters already load lazily; deletion does not save disabled-instance heap. Reuse the existing MongoDB proposal's Loop/Trio/AAPS, partial-failure and identifier fixtures, verifying their current status. Provide configuration mapping, release notice and rollback before feature removal; update connector ownership/upstream issues as appropriate.
+- [ ] **M29 — Legacy integration and MongoDB support decisions.** Confirmed 2026-09-05: retire MongoDB 4.4 and earlier from support/CI, retain MongoDB 5/6 during migration. The [runtime/database notice](../runtime-upgrade.md#mongodb-support-during-modernization) records support boundaries, upstream end-of-life dates and upgrade/rollback requirements. Maintained MongoDB 7/8 and the driver have integrated API/client/replica CI coverage; live deployment and database migration evidence remain required; retiring 5/6 requires a separate decision. The maintainer explicitly authorized retiring the legacy Dexcom bridge in 16.0.0 in favour of Connect; validate the [retirement and migration](../test-specs/legacy-dexcom-retirement.md). MiniMed retirement integrated in #8682 with owned regression coverage; finish its live Connect migration release checks. Retiring additional MongoDB versions requires a separate decision. Legacy adapters loaded lazily before retirement; their deletion does not establish disabled-instance heap savings. Reuse the existing MongoDB proposal's Loop/Trio/AAPS, partial-failure and identifier fixtures, verifying their current status. Provide configuration mapping, release notice and rollback before feature removal; update connector ownership/upstream issues as appropriate.
 
 - [ ] **M30 — Close the loop on #8328.** Once agreed runtime policy, dependency reviews and retain/migrate decisions are complete, update this checklist with PRs and measured results, reconcile older roadmap/proposal statuses and publish before/after package, image, server and browser figures. Keep periodic audit/update work in normal maintenance. Close the tracker only when remaining Moment and other long-term decisions are explicit, not merely because the declaration count fell.
 
@@ -156,6 +166,8 @@ Start with **M01 → M07**, with **M02–M06** available as independent small PR
 For every completed item, replace its checkbox with a checked box and append: PR link, tested parent/head, resulting dependency/path counts, applicable installed/image/browser bytes, workload memory/latency results, UI/deployment checks and any retained limitation. Mark an accepted retain decision as such, with rationale and review trigger. Do not claim regression-free behavior beyond the tests and environments actually exercised.
 
 ## Integration workflow and current child PRs
+
+Current CI policy: [CI coverage and manual release checks](../../CONTRIBUTING.md#ci-coverage-and-manual-release-checks) (edges of the supported range: Node 22.23.4 and 26 against MongoDB 5.0 and 8.0; the September floating Node 22/24 matrix is superseded, see [ci-coverage](../test-specs/ci-coverage.md)). Version-string policy tests are not execution evidence. Historical per-PR matrix counts below describe their original validation.
 
 The user confirmed on 2026-09-05 that all implementation PRs target `chore/nightscout-modernization`, and may be merged there after validation. #8605 remains the only PR into dev. CI and CodeQL explicitly include the integration branch as a pull-request target; container publishing remains limited to dev/master.
 
@@ -234,7 +246,7 @@ After the #8644 batching change, a scoped three-operation statistics module can 
 
 ### M24 compatible Node runner in progress
 
-Native --env-file changes both precedence and parsing of existing values, so the first slice uses a scoped Node runner with the existing .env grammar and file-wins policy. [Process contracts and validation](../test-specs/env-runner.md) cover startup flags, nyc/Mocha children and repeated signal handling. Two installed package paths are removed; nodemon/watch remains a separate unfinished slice.
+Native --env-file changes both precedence and parsing of existing values, so the first slice uses a scoped Node runner with the existing .env grammar and file-wins policy. [Process contracts and validation](../test-specs/env-runner.md) cover startup flags, nyc/Mocha children and repeated signal handling. Two installed package paths are removed; the nodemon/watch retain decision is recorded below.
 
 ### M19 completed import client retain decision
 
@@ -244,8 +256,79 @@ Native fetch's default proxy behavior differs on both supported Node floors. The
 
 The remaining M08, M19, M23 and M26 candidates are assembled into one verification branch to test interactions and avoid serial CI/base-refresh churn. [Inputs and merge checks](../test-specs/cleanup-integration.md) identify the exact source heads. Completed in #8652, merged as `e3e3ec8f`, after all required checks passed on `2207cbf0` and actual merge tree `6a6b03ef` matched verification. GitHub marked all six source PRs merged. This completes M08, M19, M23 and M26; the source PR notes retain detailed validation and measurements.
 
-### M25 profile-cache candidate
+### M25 profile-cache and receipt implementation
 
-A bounded reference cache replaces memory-cache's per-entry timers while preserving the application's five-second get/put/clear contracts. [Workload measurements and limits](../test-specs/profile-cache.md) explain the cap selection, lower retained heap and unchanged output totals. Notification-cache policy and full candidate validation remain open; M25 is not yet complete.
+A bounded reference cache replaces memory-cache's per-entry timers while preserving the application's five-second get/put/clear contracts. [Workload measurements and limits](../test-specs/profile-cache.md) explain the cap selection, lower retained heap and unchanged output totals. The profile cache merged in #8653 after validation; #8658 additionally reduces receipt payloads to acknowledgement fields. The [notification teardown follow-up](../test-specs/notification-cache-teardown.md) clears owned caches/timers and ignores late provider callbacks after shutdown. Notification-cache bounds and clone policy, and the final retain/replace decision, remain open; M25 is not yet complete.
 
 - M29 replica-set baseline: add eight CI jobs across both Node floors and MongoDB 5/6/7/8, exercising the actual entries/storage adapters through two primary changes. Local driver 5.9.2 and proposed 7.6.0 comparisons pass on both Node floors with MongoDB 8.0.29; see [scope and evidence](../test-specs/mongodb-replica-set.md). Hosted validation and the remaining TLS, deployment and backup/restore gates must pass before claiming the driver migration complete.
+
+### M10 implementation and remaining release evidence
+
+#8657 merged as `0181cc99` after all 12 backend, eight replica-set, six browser,
+npm 12, CodeQL and both Docker checks passed on `b6e8c7cd`. The actual merge tree
+`5f3a6ae7f6caaa7db0573bc65e0396bb885914f8` matches the independently reviewed tree.
+Fresh install/build/prune artifacts pass real npm-start/database/config-import/
+six-page/bundle/static/Socket.IO checks on both supported Node floors. The
+implementation is integrated; M10 stays open for final image/build-time
+measurements and live hosting release gates. See the build/runtime specification.
+
+### M24 watch retain decision
+
+The [watch review](../test-specs/development-watch.md) retains nodemon 3.1.14.
+Owned probes on both Node floors show native watch changes unimported application
+file coverage and imported-dependency ignore behavior. Both watchers restart
+application code twice; the strengthened probe attaches to each new inspector
+and evaluates its PID. The original policy comparison passed the complete hosted
+matrix, including Linux. The strengthened review merged in #8670 (`8506445f`); its implementation
+is no longer awaiting a child merge. Windows watch behavior and scripts
+are unchanged; overall Node hosting release gates remain separate. Together with
+the merged env-cmd replacement, this completes the M24 implementation decision.
+Revisit when Node provides equivalent portable watch/ignore behavior or the
+project explicitly changes its development restart contract. No production
+runtime or memory improvement is claimed for retaining a development tool.
+
+### M09 CSV dependency review
+
+The [CSV upgrade](../test-specs/csv-upgrade.md) uses maintained writer/parser CommonJS exports and adds byte-level export regressions independent of parser round trips. Installed package bytes increase; no server-memory saving is claimed. This is one scoped dependency review and does not complete M09.
+
+### M29 MiniMed retirement integrated
+
+The maintainer has authorized retiring `mmconnect` in 16.0.0 in favour of
+Nightscout Connect, superseding earlier notes retaining MiniMed. #8682 merged
+as `94caf03b` after required CI and removes the local plugin and its dependency chain, provides explicit account
+country/conflicting-feed migration errors, and pins the MiniMed logging fix from
+Connect PR #64. Configuration/lifecycle and active-consumer dependency tests are
+in place. Owned HTTPS/session/cookie/teardown fixtures pass on both Node floors.
+Data-contract fixes are pinned from Connect #65 and owned cutover fixtures pass.
+Child CI is complete. Live vendor/hosting migration validation remains
+outstanding; M29 is still open.
+
+### M22 trusted-proxy policy
+
+#8680 (merged as `d080c1c8`) moved every client-address consumer onto one
+shared helper and applied the same policy to Express HTTPS/hostname handling.
+Its default, trusting no proxy when `TRUST_PROXY` is unset, is not what ships:
+in 16.0.0 an unset `TRUST_PROXY` keeps the earlier compatibility resolution
+(`forwarded-for`), so existing reverse-proxy deployments keep working without
+new settings. Explicit values (`false`, a hop count, `true`, or proxy IP
+addresses/CIDRs) are resolved through `proxy-addr`. See the
+[proxy configuration guide](../proposals/trusted-proxy-migration.md).
+M22 remains open for hosting migration validation and final release checks;
+no generic Heroku/Azure proxy CIDR is assumed.
+
+### Tracker reconciliation
+
+The [#8328 requirement mapping](tracking-8328-reconciliation.md) distinguishes
+merged implementation from uncompleted dependency decisions and release gates.
+It does not authorize closing the issue or promoting #8605.
+
+### M27 comparison and timezone data integrated
+
+#8691 updates Moment Timezone to 0.6.3 / IANA 2026c with profile and browser
+regressions for changed offsets; see the [timezone review](../test-specs/moment-timezone-refresh.md).
+#8690 integrates [native Intl evidence](moment-timezone-review.md) and the
+[Luxon contract comparison](luxon-contract-review.md). Current hosted Chromium,
+Firefox and WebKit artifacts agree on the same three historical formatting
+differences outside the clipped browser timezone range. These comparisons do
+not replace production Moment or establish complete parsing, therapy, report,
+locale or memory equivalence. M27 remains open for its final decision.
