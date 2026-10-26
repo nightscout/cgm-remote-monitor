@@ -587,6 +587,138 @@ describe('CRUD by _id matrix: v1, v3 and websocket, every collection and stored 
   }
 
   for (const mode of ['off', 'log', 'reject']) {
+    for (const pattern of [['fail', 'bad', 'good'], ['bad', 'fail', 'good'],
+      ['bad', 'good', 'fail'], ['fail', 'bad', 'fail']]) {
+      it('keeps socket batch outcomes for ' + mode + ' with ' + pattern.join(','), async function () {
+        const previous = self.env.writeValidation;
+        self.env.writeValidation = mode;
+        const raw = collection('treatments'), prototype = Object.getPrototypeOf(raw), original = prototype.insertOne;
+        try {
+          const ids = [], docs = pattern.map((kind, i) => {
+            const n = nextN(), id = idFor('treatments', 'oid', n);
+            ids.push(id);
+            return Object.assign(body('treatments', n, kind + '-' + i), {_id: id.asked,
+              eventType: 'Temporary Target', duration: 30, targetBottom: kind === 'bad' ? 9 : 5, targetTop: 6},
+              kind === 'fail' ? {refused: {spoofed: true}} : kind === 'bad' ? {failed: {spoofed: true}} : {});
+          });
+          prototype.insertOne = async function (doc, ...args) {
+            if (typeof doc.crud === 'string' && doc.crud.startsWith('fail-')) throw new Error('synthetic private driver detail');
+            return original.call(this, doc, ...args);
+          };
+          const before = commits.length;
+          const reply = await wsEmit('dbAdd', {collection:'treatments', data:docs});
+          const returned = pattern.map((kind, i) => i).filter(i => mode === 'reject' || pattern[i] !== 'fail');
+          should(reply.length).equal(returned.length);
+          for (let slot = 0; slot < returned.length; slot++) {
+            const i = returned[slot], kind = pattern[i];
+            should(reply[slot].crud).equal(kind + '-' + i);
+            if (mode === 'reject' && kind === 'fail') {
+              should(reply[slot]._id).equal(undefined);
+              should(reply[slot].refused).equal(undefined);
+              should(reply[slot].failed).deepEqual({status: 500, message: 'Treatment write could not be confirmed'});
+              should(reply[slot].srvCreated).equal(undefined);
+              should(reply[slot].srvModified).equal(undefined);
+            } else if (mode === 'reject' && kind === 'bad') {
+              should(reply[slot]._id).equal(undefined);
+              should(reply[slot].refused.status).equal(400);
+              should(reply[slot].failed).equal(undefined);
+            } else {
+              should(String(reply[slot]._id)).equal(ids[i].asked);
+              if (kind === 'bad') should(reply[slot].failed).deepEqual({spoofed: true});
+              else should(reply[slot].failed).equal(undefined);
+            }
+          }
+          should(JSON.stringify(reply).includes('synthetic private driver detail')).equal(false);
+          for (let i = 0; i < pattern.length; i++) {
+            const stored = pattern[i] !== 'fail' && (mode !== 'reject' || pattern[i] !== 'bad');
+            should((await storedFor('treatments', ids[i])).length).equal(stored ? 1 : 0);
+          }
+          should(commits.length - before).equal(pattern.filter(kind => kind !== 'fail' && (mode !== 'reject' || kind !== 'bad')).length);
+        } finally { prototype.insertOne = original; self.env.writeValidation = previous; }
+      });
+    }
+  }
+
+  for (const mode of ['off', 'log', 'reject']) {
+    it('handles an unexpected socket batch exception in ' + mode + ' mode', async function () {
+      const previous = self.env.writeValidation;
+      self.env.writeValidation = mode;
+      const raw = collection('treatments'), prototype = Object.getPrototypeOf(raw), original = prototype.insertOne;
+      try {
+        const docs = ['fail', 'bad', 'good'].map((kind, i) => {
+          const n = nextN(), id = idFor('treatments', 'oid', n);
+          return Object.assign(body('treatments', n, kind + '-' + i), {_id: id.asked,
+            eventType: 'Temporary Target', duration: 30, targetBottom: kind === 'bad' ? 9 : 5, targetTop: 6});
+        });
+        prototype.insertOne = async function (doc, ...args) {
+          if (doc.crud === 'fail-0') throw {};
+          return original.call(this, doc, ...args);
+        };
+        const reply = await wsEmit('dbAdd', {collection: 'treatments', data: docs});
+        if (mode !== 'reject') {
+          should(reply).deepEqual([]);
+          should(await raw.findOne({_id: new ObjectID(docs[1]._id)})).equal(null);
+          should(await raw.findOne({_id: new ObjectID(docs[2]._id)})).equal(null);
+        } else {
+          should(reply.length).equal(3);
+          should(reply[0].failed.status).equal(500);
+          should(reply[1].refused.status).equal(400);
+          should(reply[2]._id).not.equal(undefined);
+          should(reply.map(item => item.crud)).deepEqual(['fail-0', 'bad-1', 'good-2']);
+        }
+      } finally { prototype.insertOne = original; self.env.writeValidation = previous; }
+    });
+  }
+
+  it('keeps non-treatment socket batch failure replies unchanged in reject mode', async function () {
+    const previous = self.env.writeValidation;
+    self.env.writeValidation = 'reject';
+    const raw = collection('food'), prototype = Object.getPrototypeOf(raw), original = prototype.insertOne;
+    try {
+      const ids = [], docs = ['fail', 'good', 'good'].map((kind, i) => {
+        const n = nextN(), id = idFor('food', 'oid', n);
+        ids.push(id);
+        return Object.assign(body('food', n, kind + '-food-' + i), {_id: id.asked});
+      });
+      prototype.insertOne = async function (doc, ...args) {
+        if (doc.crud === 'fail-food-0') throw new Error('synthetic food failure');
+        return original.call(this, doc, ...args);
+      };
+      const reply = await wsEmit('dbAdd', {collection:'food', data:docs});
+      should(reply.length).equal(2);
+      should(reply.map(item => item.crud)).deepEqual(['good-food-1', 'good-food-2']);
+      should((await storedFor('food', ids[0])).length).equal(0);
+      should((await storedFor('food', ids[1])).length).equal(1);
+      should((await storedFor('food', ids[2])).length).equal(1);
+    } finally { prototype.insertOne = original; self.env.writeValidation = previous; }
+  });
+
+  it('marks a lost write acknowledgement as unconfirmed and finds the record on replay', async function () {
+    const previous = self.env.writeValidation;
+    self.env.writeValidation = 'reject';
+    const raw = collection('treatments'), prototype = Object.getPrototypeOf(raw), original = prototype.insertOne;
+    try {
+      const n = nextN(), id = idFor('treatments', 'oid', n);
+      const doc = Object.assign(body('treatments', n, 'ack-lost'), {_id: id.asked,
+        eventType: 'Temporary Target', duration: 30, targetBottom: 5, targetTop: 6});
+      let once = false;
+      prototype.insertOne = async function (input, ...args) {
+        const result = await original.call(this, input, ...args);
+        if (input.crud === 'ack-lost' && !once) { once = true; throw new Error('synthetic acknowledgement loss'); }
+        return result;
+      };
+      const first = await wsEmit('dbAdd', {collection:'treatments', data:[doc]});
+      should(first.length).equal(1);
+      should(first[0]._id).equal(undefined);
+      should(first[0].failed.message).equal('Treatment write could not be confirmed');
+      should((await storedFor('treatments', id)).length).equal(1);
+      const replay = await wsEmit('dbAdd', {collection:'treatments', data:[doc]});
+      should(String(replay[0]._id)).equal(id.asked);
+      should((await storedFor('treatments', id)).length).equal(1);
+    } finally { prototype.insertOne = original; self.env.writeValidation = previous; }
+  });
+
+  for (const mode of ['off', 'log', 'reject']) {
     for (const batch of [false, true]) {
       it('keeps late socket refusals in place for ' + mode + ' ' + (batch ? 'batches' : 'single uploads'), async function () {
         const previous = self.env.writeValidation;
@@ -600,7 +732,8 @@ describe('CRUD by _id matrix: v1, v3 and websocket, every collection and stored 
           // Valid input passes preflight; the +/-2-second match then tries to
           // change the timestamp of a legacy target that fails validation.
           const incoming = Object.assign({}, old, {_id: incomingId.asked, targetBottom: 5,
-            created_at: new Date(when(n) + 1000).toISOString(), notes: 'late-refusal-slot'});
+            created_at: new Date(when(n) + 1000).toISOString(), notes: 'late-refusal-slot',
+            failed: {spoofed: true}});
           const items = [incoming], ids = [];
           if (batch) {
             for (const valid of [false, true]) {
@@ -620,6 +753,7 @@ describe('CRUD by _id matrix: v1, v3 and websocket, every collection and stored 
             should(reply[0].notes).equal('late-refusal-slot');
             should(reply[0]._id).equal(undefined);
             should(reply[0].refused.status).equal(400);
+            should(reply[0].failed).equal(undefined);
             should(reply[0].refused.rules).containDeep([{rule: 'tt-order', field: 'targetBottom'}]);
             should(current.created_at).equal(old.created_at);
             should(current.srvModified).equal(undefined);
