@@ -327,9 +327,29 @@ describe('legacy reports in a real browser', function () {
       assert.match(await page.locator('.gd-pentagon-message').textContent(), /all 24 hours/);
       await page.locator('#glucosedistribution-0').check();
       assert.match(await page.locator('.gd-pentagon-score').textContent(), /^PGR: /);
-      await page.setViewportSize({width: 390, height: 844});
-      assert.equal(await page.locator('.gd-pentagon-chart svg').isVisible(), true);
       if (process.env.NIGHTSCOUT_PENTAGON_SCREENSHOT) await page.locator('.gd-pentagon').screenshot({path: process.env.NIGHTSCOUT_PENTAGON_SCREENSHOT});
+      await page.addStyleTag({url: origin + '/css/modern-reports.css'});
+      await page.evaluate(() => {
+        document.documentElement.classList.add('modern-ui', 'report-ui');
+        document.body.classList.add('report-page');
+        window.Nightscout.client.settings.theme = 'modern';
+      });
+      for (const [name, size] of [['desktop', {width: 1440, height: 1100}], ['mobile', {width: 390, height: 844}]]) {
+        await page.setViewportSize(size);
+        const chart = page.locator('.gd-pentagon-chart svg');
+        assert.equal(await chart.isVisible(), true);
+        const bounds = await chart.evaluate(svg => {
+          const chartRect = svg.getBoundingClientRect(), cardRect = svg.closest('.gd-pentagon').getBoundingClientRect();
+          const labels = Array.from(svg.querySelectorAll('.gd-pentagon-label'), label => label.getBoundingClientRect());
+          return {left: chartRect.left - cardRect.left, right: cardRect.right - chartRect.right,
+            labelsFit: labels.every(label => label.left >= cardRect.left && label.right <= cardRect.right)};
+        });
+        assert.ok(bounds.left >= 0 && bounds.right >= 0 && bounds.labelsFit, name + ' chart and labels fit within the card');
+        if (process.env.NIGHTSCOUT_PENTAGON_SCREENSHOTS) {
+          await page.locator('.gd-pentagon').screenshot({path: process.env.NIGHTSCOUT_PENTAGON_SCREENSHOTS + '/modern-' + name + '.png'});
+          if (name === 'desktop') await page.locator('#glucosedistribution-placeholder').screenshot({path: process.env.NIGHTSCOUT_PENTAGON_SCREENSHOTS + '/modern-report-desktop.png'});
+        }
+      }
     });
   });
 

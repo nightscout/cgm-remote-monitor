@@ -259,5 +259,6 @@ label {
 .gd-pentagon-patient { fill: #f5c94b; fill-opacity: .45; stroke: #986c00; stroke-width: 2; }
 .gd-pentagon-overflow { fill: #986c00; }
 .gd-pentagon-label { fill: #243246; font-size: 12px; }
+@media (max-width: 600px) { .gd-pentagon-label { font-size: 18px; } }
 .gd-pentagon svg polygon, .gd-pentagon svg circle { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
 @media print { .gd-pentagon { break-inside: avoid; } }
