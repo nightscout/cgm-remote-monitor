@@ -257,6 +257,43 @@ describe('Q1b: a null on a merge removes the field (RFC 7386)', function () {
       (await stored(fresh)).should.have.property('direction', null);
     });
 
+    // ID-SIMPLE-MATCH: an entry whose identifier is stored is matched on it;
+    // what that match writes is the same merge.
+    it('a re-send matched on a stored identifier at another time removes the null field', async function () {
+      var first = nextDate();
+      var later = nextDate();
+      await post([entry(first, { identifier: 'q1b-idm-1', noise: 1, q1bN: { x: 1, y: 2 } })]).expect(200);
+      await post([entry(later, { identifier: 'q1b-idm-1', direction: null, q1bN: { x: null } })]).expect(200);
+      var docs = await col('entries').find({ identifier: 'q1b-idm-1' }).toArray();
+      docs.length.should.equal(1);
+      docs[0].sysTime.should.equal(new Date(later).toISOString());
+      docs[0].should.not.have.property('direction');
+      docs[0].q1bN.should.eql({ y: 2 });
+      docs[0].noise.should.equal(1);
+    });
+
+    it('the second of two entries with one new identifier in a batch removes the null field', async function () {
+      var first = nextDate();
+      var later = nextDate();
+      await post([entry(first, { identifier: 'q1b-idm-2' }), entry(later, { identifier: 'q1b-idm-2', direction: null })]).expect(200);
+      var docs = await col('entries').find({ identifier: 'q1b-idm-2' }).toArray();
+      docs.length.should.equal(1);
+      docs[0].should.not.have.property('direction');
+    });
+
+    it('an entry merged on its identifier, then re-sent for its new time, merges into the same record', async function () {
+      var first = nextDate();
+      var later = nextDate();
+      await post([entry(first, { identifier: 'q1b-idm-3', q1bN: { x: 1, y: 2 } })]).expect(200);
+      await post([
+        entry(later, { identifier: 'q1b-idm-3', q1bN: { x: null } })
+        , entry(later, { q1bN: { y: null, z: 3 } })
+      ]).expect(200);
+      var docs = await col('entries').find({ sysTime: new Date(later).toISOString(), type: 'sgv' }).toArray();
+      docs.length.should.equal(1);
+      docs[0].q1bN.should.eql({ z: 3 });
+    });
+
     it('control: a re-send without a null updates the fields it sends, as before', async function () {
       var date = nextDate();
       await post([entry(date, { noise: 1 })]).expect(200);
