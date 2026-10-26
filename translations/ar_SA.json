@@ -201,6 +201,8 @@
     "Date format": "صيغة التاريخ",
     "12 hours": "12 ساعة",
     "24 hours": "24 ساعة",
+    "Show Seconds": "Show Seconds",
+    "When enabled the clock displays seconds and updates every second.": "When enabled the clock displays seconds and updates every second.",
     "Log a Treatment": "سجل العلاج",
     "BG Check": "فحص نسبة السكر في الدم",
     "Meal Bolus": "جرعة الوجبة",
