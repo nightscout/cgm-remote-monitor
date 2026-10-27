@@ -17,8 +17,8 @@ function makeCtx (docs, sendResults) {
         return {
           find: function find (query) {
             return {
-              // Promise, not a callback. The pinned mongodb driver is ^5.9.2, which removed
-              // callback support - a mock that still took a cb would let a callback-style
+              // Promise, not a callback. The mongodb driver (^7) has no callback
+              // support - a mock that still took a cb would let a callback-style
               // regression in the transport pass here and then hang silently in production.
               toArray: function toArray () {
                 // Honour the soft-delete filter the transport asks for, so the test proves the
@@ -97,12 +97,12 @@ describe('apnspush', function apnspushSuite () {
     body.aps.should.not.have.property('alert');
   });
 
-  it('shows that leaving the default priority sends no priority header at all', function defaultPriority () {
+  it('shows that leaving the default priority sends priority 10, which is wrong for a background push', function defaultPriority () {
     const n = new apn.Notification();
     n.pushType = 'background';
     n.topic = 'app.aaps.client';
     n.contentAvailable = 1;
-    n.headers().should.not.have.property('apns-priority');
+    n.headers().should.have.property('apns-priority', 10);
   });
 
   it('skips a registration with no token or no bundle id', function halfWritten (done) {
