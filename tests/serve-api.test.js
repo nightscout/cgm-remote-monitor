@@ -97,6 +97,12 @@ describe('nightscout serve api (PLAT-SERVE)', function () {
   this.timeout(30000);
 
   let env;
+  let spawned;
+  // A child left running by a failed assertion would outlive the suite.
+  afterEach(function () {
+    if (spawned && spawned.exitCode === null && spawned.signalCode === null) spawned.kill('SIGKILL');
+    spawned = null;
+  });
   let language;
   before(function () {
     // lib/server/env.js takes API_SECRET out of process.env when it reads it,
@@ -167,7 +173,7 @@ describe('nightscout serve api (PLAT-SERVE)', function () {
       API_PORT: String(port), API_HOSTNAME: '127.0.0.1', API_SECRET: crypto.randomBytes(24).toString('hex')
     });
     for (const key of Object.keys(childEnv)) if (/^npm_/i.test(key)) delete childEnv[key];
-    const child = spawn(process.execPath, [BIN, 'serve', 'api'], { cwd: root, env: childEnv });
+    const child = spawned = spawn(process.execPath, [BIN, 'serve', 'api'], { cwd: root, env: childEnv });
     let stdout = '';
     let stderr = '';
     child.stderr.on('data', d => { stderr += d; });
