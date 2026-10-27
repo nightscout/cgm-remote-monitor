@@ -99,6 +99,9 @@ describe('nightscout serve api (PLAT-SERVE)', function () {
   let env;
   let language;
   before(function () {
+    // lib/server/env.js takes API_SECRET out of process.env when it reads it,
+    // so a file run after another has none; set one, as the API v3 fixture does.
+    process.env.API_SECRET = crypto.randomBytes(24).toString('hex');
     env = require('../lib/server/env')();
     language = require('../lib/language')();
   });
