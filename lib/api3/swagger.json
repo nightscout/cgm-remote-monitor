@@ -1,8 +1,13 @@
 {
   "openapi": "3.0.0",
+  "servers": [
+    {
+      "url": "/api/v3"
+    }
+  ],
   "info": {
+    "version": "3.0.5",
     "title": "Nightscout API",
-    "description": "Nightscout API v3 is a component of cgm-remote-monitor project. It aims to provide lightweight, secured and HTTP REST compliant interface for your T1D treatment data exchange.\n\nAPI v3 is configured with the `API3_*` environment variables. Their defaults, the spellings Nightscout accepts, and what each one does are listed in one place, the *API v3* section of the README shipped with Nightscout (https://github.com/nightscout/cgm-remote-monitor#api-v3-optional). That includes the fallback deduplication rules referred to below, and `API3_AUTOPRUNE_<COLLECTION>`, which is off unless set and permanently deletes older records when it is set.",
     "contact": {
       "name": "NS development discussion channel",
       "url": "https://gitter.im/nightscout/public"
@@ -11,13 +16,8 @@
       "name": "AGPL 3",
       "url": "https://www.gnu.org/licenses/agpl.txt"
     },
-    "version": "3.0.5"
+    "description": "Nightscout API v3 is a component of cgm-remote-monitor project. It aims to provide lightweight, secured and HTTP REST compliant interface for your T1D treatment data exchange.\n\nAPI v3 is configured with the `API3_*` environment variables. Their defaults, the spellings Nightscout accepts, and what each one does are listed in one place, the *API v3* section of the README shipped with Nightscout (https://github.com/nightscout/cgm-remote-monitor#api-v3-optional). That includes the fallback deduplication rules referred to below, and `API3_AUTOPRUNE_<COLLECTION>`, which is off unless set and permanently deletes older records when it is set."
   },
-  "servers": [
-    {
-      "url": "/api/v3"
-    }
-  ],
   "tags": [
     {
       "name": "generic",
@@ -30,1171 +30,454 @@
   ],
   "paths": {
     "/{collection}": {
+      "parameters": [
+        {
+          "in": "path",
+          "name": "collection",
+          "description": "Collection to which the operation is targeted",
+          "required": true,
+          "schema": {
+            "$ref": "#/components/schemas/paramCollection"
+          }
+        }
+      ],
       "get": {
         "tags": [
           "generic"
         ],
         "summary": "SEARCH: Search documents from the collection",
-        "description": "General search operation through documents of one collection, matching the specified filtering criteria. You can apply&#58;\n\n1) filtering - combining any number of filtering parameters\n\n2) ordering - using `sort` or `sort$desc` parameter\n\n3) paging - using `limit` and `skip` parameters\n\nIf successful, HTTP 200 code is returned with JSON array of matching documents as a response content (it may be empty).\n\nThis operation requires `read` permission for the API and the collection (e.g. `*:*:read`, `api:*:read`, `*:treatments:read`, `api:treatments:read`).\n\nThe only exception is the `settings` collection which requires `admin` permission (`api:settings:admin`), because the settings of each application should be isolated and kept secret. You need to know the concrete identifier to access the app's settings.",
         "operationId": "SEARCH",
+        "description": "General search operation through documents of one collection, matching the specified filtering criteria. You can apply&#58;\n\n1) filtering - combining any number of filtering parameters\n\n2) ordering - using `sort` or `sort$desc` parameter\n\n3) paging - using `limit` and `skip` parameters\n\nWithout `sort` or `sort$desc`, documents are returned in ascending order of `identifier`, then `created_at`, `date` and the internal `_id`; those keys also break ties after a requested sort field. The query parameter names `token`, `sort`, `sort$desc`, `limit`, `skip`, `fields` and `now` are not filters.\n\nIf successful, HTTP 200 code is returned with JSON array of matching documents as a response content (it may be empty).\n\nThis operation requires `read` permission for the API and the collection (e.g. `*:*:read`, `api:*:read`, `*:treatments:read`, `api:treatments:read`).\n\nThe only exception is the `settings` collection which requires `admin` permission (`api:settings:admin`), because the settings of each application should be isolated and kept secret. You need to know the concrete identifier to access the app's settings.",
         "parameters": [
           {
-            "name": "collection",
-            "in": "path",
-            "description": "Collection to which the operation is targeted",
-            "required": true,
-            "style": "simple",
-            "explode": false,
-            "schema": {
-              "$ref": "#/components/schemas/paramCollection"
-            }
+            "$ref": "#/components/parameters/filterParams"
           },
           {
-            "name": "filter_parameters",
-            "in": "query",
-            "description": "Any number of filtering operators.\n\nEach filtering operator has name like `<field-name>$<operator>`, e.g. `carbs$gt=2` which represents filtering rule \"The field carbs must be present and greater than 2\".\n\nYou can choose from operators&#58;\n\n`eq`=equals, `insulin$eq=1.5`\n\n`ne`=not equals, `insulin$ne=1.5`\n\n`gt`=greater than, `carbs$gt=30`\n\n`gte`=greater than or equal, `carbs$gte=30`\n\n`lt`=less than, `carbs$lt=30`\n\n`lte`=less than or equal, `carbs$lte=30`\n\n`in`=in specified set, `type$in=sgv|mbg|cal`\n\n`nin`=not in specified set, `eventType$nin=Temp%20Basal|Temporary%20Target`\n\n`re`=regex pattern, `eventType$re=Temp.%2A`\n\nWhen filtering by field `date`, `created_at`, `srvModified` or `srvCreated`, you can choose from three input formats\n- Unix epoch in milliseconds (1525383610088)\n- Unix epoch in seconds (1525383610)\n- ISO 8601 with optional timezone ('2018-05-03T21:40:10.088Z' or '2018-05-03T23:40:10.088+02:00')\n\nThe date is always queried in a normalized form - UTC with zero offset and with the correct format (1525383610088 for `date`, '2018-05-03T21:40:10.088Z' for `created_at`).",
-            "required": false,
-            "style": "spaceDelimited",
-            "explode": false,
-            "schema": {
-              "type": "array",
-              "items": {
-                "type": "string"
-              }
-            }
+            "$ref": "#/components/parameters/sortParam"
           },
           {
-            "name": "sort",
-            "in": "query",
-            "description": "Field name by which the sorting of documents is performed. This parameter cannot be combined with `sort$desc` parameter.",
-            "required": false,
-            "style": "form",
-            "explode": true,
-            "schema": {
-              "type": "string"
-            }
+            "$ref": "#/components/parameters/sortDescParam"
           },
           {
-            "name": "sort$desc",
-            "in": "query",
-            "description": "Field name by which the descending (reverse) sorting of documents is performed. This parameter cannot be combined with `sort` parameter.",
-            "required": false,
-            "style": "form",
-            "explode": true,
-            "schema": {
-              "type": "string"
-            }
+            "$ref": "#/components/parameters/limitParam"
           },
           {
-            "name": "limit",
-            "in": "query",
-            "description": "Maximum number of documents to get in result array",
-            "required": false,
-            "style": "form",
-            "explode": true,
-            "schema": {
-              "minimum": 1,
-              "type": "integer",
-              "example": 100
-            }
+            "$ref": "#/components/parameters/skipParam"
           },
           {
-            "name": "skip",
-            "in": "query",
-            "description": "Number of documents to skip from collection query before loading them into result array (used for pagination)",
-            "required": false,
-            "style": "form",
-            "explode": true,
-            "schema": {
-              "minimum": 0,
-              "type": "integer",
-              "example": 0,
-              "default": 0
-            }
-          },
-          {
-            "name": "fields",
-            "in": "query",
-            "description": "A chosen set of fields to return in response. Either you can enumerate specific fields of interest or use the predefined set. Sample parameter values&#58;\n\n_all&#58; All fields will be returned (default value)\n\ndate,insulin&#58; Only fields `date` and `insulin` will be returned",
-            "required": false,
-            "style": "form",
-            "explode": true,
-            "schema": {
-              "type": "string",
-              "default": "_all"
-            },
-            "examples": {
-              "all": {
-                "summary": "All fields will be returned (default behaviour)",
-                "value": "_all"
-              },
-              "customSet": {
-                "summary": "Only fields date and insulin will be returned",
-                "value": "date,insulin"
-              }
-            }
+            "$ref": "#/components/parameters/fieldsParam"
           }
         ],
-        "responses": {
-          "200": {
-            "description": "Successful operation returning array of documents matching the filtering criteria",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/inline_response_200"
-                }
-              },
-              "text/csv": {
-                "schema": {
-                  "$ref": "#/components/schemas/DocumentArray"
-                }
-              },
-              "application/xml": {
-                "schema": {
-                  "$ref": "#/components/schemas/DocumentArray"
-                }
-              }
-            }
-          },
-          "400": {
-            "description": "The request is malformed. There may be some required parameters missing or there are unrecognized parameters present.",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/inline_response_400"
-                }
-              }
-            }
-          },
-          "401": {
-            "description": "The request was not successfully authenticated using JWT, so that the request cannot continue due to the security policy.",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/inline_response_401"
-                }
-              }
-            }
-          },
-          "403": {
-            "description": "Insecure HTTP scheme used or the request has been successfully authenticated, but the security subject is not authorized for the operation.",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/inline_response_403"
-                }
-              }
-            }
-          },
-          "404": {
-            "description": "The collection or document specified was not found.",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/inline_response_404"
-                }
-              }
-            }
-          },
-          "406": {
-            "description": "The requested content type (in `Accept` header) is not supported.",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/inline_response_406"
-                }
-              }
-            }
-          }
-        },
         "security": [
           {
             "jwtoken": []
           }
-        ]
+        ],
+        "responses": {
+          "200": {
+            "$ref": "#/components/responses/search200"
+          },
+          "400": {
+            "$ref": "#/components/responses/400BadRequest"
+          },
+          "401": {
+            "$ref": "#/components/responses/401Unauthorized"
+          },
+          "403": {
+            "$ref": "#/components/responses/403Forbidden"
+          },
+          "404": {
+            "$ref": "#/components/responses/404NotFound"
+          },
+          "406": {
+            "$ref": "#/components/responses/406NotAcceptable"
+          }
+        }
       },
       "post": {
         "tags": [
           "generic"
         ],
         "summary": "CREATE: Inserts a new document into the collection",
+        "operationId": "CREATE",
         "description": "Using this operation you can insert new documents into collection. Normally the operation ends with 201 HTTP status code, `Last-Modified` and `Location` headers specified. `identifier` is included in response body or it can be parsed from the `Location` response header.\n\nWhen the document to post is marked as a duplicate (using rules described at `API3_DEDUP_FALLBACK_ENABLED` switch), the update operation takes place instead of inserting. In this case the original document in the collection is found and it gets updated by the actual operation POST body. Finally the operation ends with 200 HTTP status code along with `Last-Modified` and correct `Location` headers. The response body then includes `isDeduplication`=`true` and `deduplicatedIdentifier` fields. For `devicestatus`, a document whose `identifier` is already stored is not updated; the stored document is left as it is and the operation ends with 200 HTTP status code, `isDeduplication`=`true` and the stored `identifier`; a device status is a snapshot, so it is acknowledged and not stored again.\n\nThis operation provides autopruning of the collection (if autopruning is enabled).\n\nThis operation requires `create` (and/or `update` for deduplication) permission for the API and the collection (e.g. `api:treatments:create` and `api:treatments:update`)",
-        "parameters": [
-          {
-            "name": "collection",
-            "in": "path",
-            "description": "Collection to which the operation is targeted",
-            "required": true,
-            "style": "simple",
-            "explode": false,
-            "schema": {
-              "$ref": "#/components/schemas/paramCollection"
-            }
-          }
-        ],
         "requestBody": {
           "description": "JSON with new document to insert",
+          "required": true,
           "content": {
             "application/json": {
               "schema": {
                 "$ref": "#/components/schemas/DocumentToPost"
               }
             }
-          },
-          "required": true
-        },
-        "responses": {
-          "200": {
-            "description": "Successfully updated a duplicate document in the collection",
-            "headers": {
-              "Last-Modified": {
-                "$ref": "#/components/schemas/headerLastModified"
-              },
-              "Location": {
-                "$ref": "#/components/schemas/headerLocation"
-              }
-            },
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/inline_response_200_1"
-                }
-              }
-            }
-          },
-          "201": {
-            "description": "Successfully created a new document in collection",
-            "headers": {
-              "Last-Modified": {
-                "$ref": "#/components/schemas/headerLastModified"
-              },
-              "Location": {
-                "$ref": "#/components/schemas/headerLocation"
-              }
-            },
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/inline_response_201"
-                }
-              }
-            }
-          },
-          "400": {
-            "description": "The request is malformed. There may be some required parameters missing or there are unrecognized parameters present.",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/inline_response_400"
-                }
-              }
-            }
-          },
-          "401": {
-            "description": "The request was not successfully authenticated using JWT, so that the request cannot continue due to the security policy.",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/inline_response_401"
-                }
-              }
-            }
-          },
-          "403": {
-            "description": "Insecure HTTP scheme used or the request has been successfully authenticated, but the security subject is not authorized for the operation.",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/inline_response_403"
-                }
-              }
-            }
-          },
-          "404": {
-            "description": "The collection or document specified was not found.",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/inline_response_404"
-                }
-              }
-            }
-          },
-          "422": {
-            "description": "The client request is well formed but a server validation error occured. Eg. when trying to modify or delete a read-only document (having `isReadOnly=true`).",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/inline_response_422"
-                }
-              }
-            }
           }
         },
         "security": [
           {
             "jwtoken": []
           }
-        ]
+        ],
+        "responses": {
+          "200": {
+            "$ref": "#/components/responses/200Deduplication"
+          },
+          "201": {
+            "$ref": "#/components/responses/201CreatedLocation"
+          },
+          "400": {
+            "$ref": "#/components/responses/400BadRequest"
+          },
+          "401": {
+            "$ref": "#/components/responses/401Unauthorized"
+          },
+          "403": {
+            "$ref": "#/components/responses/403Forbidden"
+          },
+          "404": {
+            "$ref": "#/components/responses/404NotFound"
+          },
+          "422": {
+            "$ref": "#/components/responses/422UnprocessableEntity"
+          }
+        }
       }
     },
     "/{collection}/{identifier}": {
+      "parameters": [
+        {
+          "in": "path",
+          "name": "collection",
+          "description": "Collection to which the operation is targeted",
+          "required": true,
+          "schema": {
+            "$ref": "#/components/schemas/paramCollection"
+          }
+        },
+        {
+          "in": "path",
+          "name": "identifier",
+          "description": "Identifier of the document to which the operation is targeted",
+          "required": true,
+          "schema": {
+            "$ref": "#/components/schemas/paramIdentifier"
+          }
+        }
+      ],
       "get": {
         "tags": [
           "generic"
         ],
         "summary": "READ: Retrieves a single document from the collection",
+        "operationId": "READ",
         "description": "Basically this operation looks for a document matching the `identifier` field returning 200 or 404 HTTP status code.\n\nIf the document has been found in the collection but it had already been deleted, 410 HTTP status code is to be returned.\n\nWhen `If-Modified-Since` header is used and its value is greater than the timestamp of the document in the collection, 304 HTTP status code with empty response content is returned. It means that the document has not been modified on server since the last retrieval to client side. With `If-Modified-Since` header and less or equal timestamp `srvModified` a normal 200 HTTP status with full response is returned.\n\nThis operation requires `read` permission for the API and the collection (e.g. `api:treatments:read`)",
         "parameters": [
           {
-            "name": "collection",
-            "in": "path",
-            "description": "Collection to which the operation is targeted",
-            "required": true,
-            "style": "simple",
-            "explode": false,
-            "schema": {
-              "$ref": "#/components/schemas/paramCollection"
-            }
+            "$ref": "#/components/parameters/ifModifiedSinceHeader"
           },
           {
-            "name": "identifier",
-            "in": "path",
-            "description": "Identifier of the document to which the operation is targeted",
-            "required": true,
-            "style": "simple",
-            "explode": false,
-            "schema": {
-              "$ref": "#/components/schemas/paramIdentifier"
-            }
-          },
-          {
-            "name": "If-Modified-Since",
-            "in": "header",
-            "description": "Timestamp (defined with respect to server's clock) of the last document modification formatted as&#58;\n\n&lt;day-name&gt;, &lt;day&gt; &lt;month&gt; &lt;year&gt; &lt;hour&gt;&#58;&lt;minute&gt;&#58;&lt;second&gt; GMT\n\nIf this header is present, the operation will compare its value with the srvModified timestamp of the document at first and the operation result then may differ. The srvModified timestamp was defined by server's clock.\n\nExample&#58;\n\n<pre>If-Modified-Since&#58; Wed, 17 Oct 2018 05&#58;13&#58;00 GMT</pre>",
-            "required": false,
-            "style": "simple",
-            "explode": false,
-            "schema": {
-              "type": "string"
-            }
-          },
-          {
-            "name": "fields",
-            "in": "query",
-            "description": "A chosen set of fields to return in response. Either you can enumerate specific fields of interest or use the predefined set. Sample parameter values&#58;\n\n_all&#58; All fields will be returned (default value)\n\ndate,insulin&#58; Only fields `date` and `insulin` will be returned",
-            "required": false,
-            "style": "form",
-            "explode": true,
-            "schema": {
-              "type": "string",
-              "default": "_all"
-            },
-            "examples": {
-              "all": {
-                "summary": "All fields will be returned (default behaviour)",
-                "value": "_all"
-              },
-              "customSet": {
-                "summary": "Only fields date and insulin will be returned",
-                "value": "date,insulin"
-              }
-            }
+            "$ref": "#/components/parameters/fieldsParam"
           }
         ],
-        "responses": {
-          "200": {
-            "description": "The document has been succesfully found and its JSON form returned in the response content.",
-            "headers": {
-              "Last-Modified": {
-                "$ref": "#/components/schemas/headerLastModified"
-              }
-            },
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/inline_response_200_2"
-                }
-              },
-              "text/csv": {
-                "schema": {
-                  "$ref": "#/components/schemas/Document"
-                }
-              },
-              "application/xml": {
-                "schema": {
-                  "$ref": "#/components/schemas/Document"
-                }
-              }
-            }
-          },
-          "304": {
-            "description": "The document has not been modified on the server since timestamp specified in If-Modified-Since header",
-            "headers": {
-              "Last-Modified": {
-                "$ref": "#/components/schemas/headerLastModified"
-              }
-            }
-          },
-          "401": {
-            "description": "The request was not successfully authenticated using JWT, so that the request cannot continue due to the security policy.",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/inline_response_401"
-                }
-              }
-            }
-          },
-          "403": {
-            "description": "Insecure HTTP scheme used or the request has been successfully authenticated, but the security subject is not authorized for the operation.",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/inline_response_403"
-                }
-              }
-            }
-          },
-          "404": {
-            "description": "The collection or document specified was not found.",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/inline_response_404"
-                }
-              }
-            }
-          },
-          "406": {
-            "description": "The requested content type (in `Accept` header) is not supported.",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/inline_response_406"
-                }
-              }
-            }
-          },
-          "410": {
-            "description": "The requested document has already been deleted.",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/inline_response_410"
-                }
-              }
-            }
-          }
-        },
         "security": [
           {
             "jwtoken": []
           }
-        ]
+        ],
+        "responses": {
+          "200": {
+            "$ref": "#/components/responses/read200"
+          },
+          "304": {
+            "$ref": "#/components/responses/304NotModified"
+          },
+          "401": {
+            "$ref": "#/components/responses/401Unauthorized"
+          },
+          "403": {
+            "$ref": "#/components/responses/403Forbidden"
+          },
+          "404": {
+            "$ref": "#/components/responses/404NotFound"
+          },
+          "406": {
+            "$ref": "#/components/responses/406NotAcceptable"
+          },
+          "410": {
+            "$ref": "#/components/responses/410Gone"
+          }
+        }
       },
       "put": {
         "tags": [
           "generic"
         ],
         "summary": "UPDATE: Updates a document in the collection",
+        "operationId": "UPDATE",
         "description": "Normally the document with the matching `identifier` will be replaced in the collection by the whole JSON request body and 200 HTTP status code will be returned.\n\nIf the document has been found in the collection but it had already been deleted, 410 HTTP status code is to be returned.\n\nWhen no document with `identifier` has been found in the collection, then an insert operation takes place instead of updating. Finally 201 HTTP status code is returned with only `Last-Modified` header (`identifier` is already known from the path parameter).\n\nYou can also specify `If-Unmodified-Since` request header including your timestamp of document's last modification. If the document has been modified by somebody else on the server afterwards (and you do not know about it), the 412 HTTP status code is returned cancelling the update operation. You can use this feature to prevent race condition problems.\n\nThis operation provides autopruning of the collection (if autopruning is enabled).\n\nThis operation requires `update` (and/or `create`) permission for the API and the collection (e.g. `api:treatments:update` and `api:treatments:create`)",
         "parameters": [
           {
-            "name": "collection",
-            "in": "path",
-            "description": "Collection to which the operation is targeted",
-            "required": true,
-            "style": "simple",
-            "explode": false,
-            "schema": {
-              "$ref": "#/components/schemas/paramCollection"
-            }
-          },
-          {
-            "name": "identifier",
-            "in": "path",
-            "description": "Identifier of the document to which the operation is targeted",
-            "required": true,
-            "style": "simple",
-            "explode": false,
-            "schema": {
-              "$ref": "#/components/schemas/paramIdentifier"
-            }
-          },
-          {
-            "name": "If-Unmodified-Since",
-            "in": "header",
-            "description": "Timestamp (defined with respect to server's clock) of the last document modification formatted as&#58;\n\n&lt;day-name&gt;, &lt;day&gt; &lt;month&gt; &lt;year&gt; &lt;hour&gt;&#58;&lt;minute&gt;&#58;&lt;second&gt; GMT\n\nIf this header is present, the operation will compare its value with the srvModified timestamp of the document at first and the operation result then may differ. The srvModified timestamp was defined by server's clock.\n\nExample&#58;\n\n<pre>If-Unmodified-Since&#58; Wed, 17 Oct 2018 05&#58;13&#58;00 GMT</pre>",
-            "required": false,
-            "style": "simple",
-            "explode": false,
-            "schema": {
-              "type": "string"
-            }
+            "$ref": "#/components/parameters/ifUnmodifiedSinceHeader"
           }
         ],
         "requestBody": {
           "description": "JSON of new version of document (`identifier` in JSON is ignored if present)",
+          "required": true,
           "content": {
             "application/json": {
               "schema": {
                 "$ref": "#/components/schemas/DocumentToPost"
               }
             }
-          },
-          "required": true
+          }
         },
+        "security": [
+          {
+            "jwtoken": []
+          }
+        ],
         "responses": {
           "200": {
-            "description": "The request was successfully processed",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/inline_response_200_3"
-                }
-              }
-            }
+            "$ref": "#/components/responses/200Updated"
           },
           "201": {
-            "description": "Successfully created a new document in collection",
-            "headers": {
-              "Last-Modified": {
-                "$ref": "#/components/schemas/headerLastModified"
-              }
-            },
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/inline_response_201"
-                }
-              }
-            }
+            "$ref": "#/components/responses/201Created"
           },
           "400": {
-            "description": "The request is malformed. There may be some required parameters missing or there are unrecognized parameters present.",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/inline_response_400"
-                }
-              }
-            }
+            "$ref": "#/components/responses/400BadRequest"
           },
           "401": {
-            "description": "The request was not successfully authenticated using JWT, so that the request cannot continue due to the security policy.",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/inline_response_401"
-                }
-              }
-            }
+            "$ref": "#/components/responses/401Unauthorized"
           },
           "403": {
-            "description": "Insecure HTTP scheme used or the request has been successfully authenticated, but the security subject is not authorized for the operation.",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/inline_response_403"
-                }
-              }
-            }
+            "$ref": "#/components/responses/403Forbidden"
           },
           "404": {
-            "description": "The collection or document specified was not found.",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/inline_response_404"
-                }
-              }
-            }
+            "$ref": "#/components/responses/404NotFound"
           },
           "410": {
-            "description": "The requested document has already been deleted.",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/inline_response_410"
-                }
-              }
-            }
+            "$ref": "#/components/responses/410Gone"
           },
           "412": {
-            "description": "The document has already been modified on the server since specified timestamp (in If-Unmodified-Since header).",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/inline_response_412"
-                }
-              }
-            }
+            "$ref": "#/components/responses/412PreconditionFailed"
           },
           "422": {
-            "description": "The client request is well formed but a server validation error occured. Eg. when trying to modify or delete a read-only document (having `isReadOnly=true`).",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/inline_response_422"
-                }
-              }
-            }
+            "$ref": "#/components/responses/422UnprocessableEntity"
           }
-        },
-        "security": [
-          {
-            "jwtoken": []
-          }
-        ]
-      },
-      "delete": {
-        "tags": [
-          "generic"
-        ],
-        "summary": "DELETE: Deletes a document from the collection",
-        "description": "If the document has already been deleted, the operation will succeed anyway. Normally, documents are not really deleted from the collection but they are only marked as deleted. For special cases the deletion can be irreversible using `permanent` parameter.\n\nThis operation provides autopruning of the collection (if autopruning is enabled).\n\nThis operation requires `delete` permission for the API and the collection (e.g. `api:treatments:delete`)",
-        "parameters": [
-          {
-            "name": "collection",
-            "in": "path",
-            "description": "Collection to which the operation is targeted",
-            "required": true,
-            "style": "simple",
-            "explode": false,
-            "schema": {
-              "$ref": "#/components/schemas/paramCollection"
-            }
-          },
-          {
-            "name": "identifier",
-            "in": "path",
-            "description": "Identifier of the document to which the operation is targeted",
-            "required": true,
-            "style": "simple",
-            "explode": false,
-            "schema": {
-              "$ref": "#/components/schemas/paramIdentifier"
-            }
-          },
-          {
-            "name": "permanent",
-            "in": "query",
-            "description": "If true, the deletion will be irreversible and it will not appear in `HISTORY` operation. Normally there is no reason for setting this flag.",
-            "required": false,
-            "style": "form",
-            "explode": true,
-            "schema": {
-              "type": "boolean"
-            }
-          }
-        ],
-        "responses": {
-          "200": {
-            "description": "The request was successfully processed",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/inline_response_200_3"
-                }
-              }
-            }
-          },
-          "401": {
-            "description": "The request was not successfully authenticated using JWT, so that the request cannot continue due to the security policy.",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/inline_response_401"
-                }
-              }
-            }
-          },
-          "403": {
-            "description": "Insecure HTTP scheme used or the request has been successfully authenticated, but the security subject is not authorized for the operation.",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/inline_response_403"
-                }
-              }
-            }
-          },
-          "404": {
-            "description": "The collection or document specified was not found.",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/inline_response_404"
-                }
-              }
-            }
-          },
-          "422": {
-            "description": "The client request is well formed but a server validation error occured. Eg. when trying to modify or delete a read-only document (having `isReadOnly=true`).",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/inline_response_422"
-                }
-              }
-            }
-          }
-        },
-        "security": [
-          {
-            "jwtoken": []
-          }
-        ]
+        }
       },
       "patch": {
         "tags": [
           "generic"
         ],
         "summary": "PATCH: Partially updates document in the collection",
+        "operationId": "PATCH",
         "description": "Normally the document with the matching `identifier` will be retrieved from the collection and it will be patched by all specified fields from the JSON request body. Finally 200 HTTP status code will be returned.\n\nIf the document has been found in the collection but it had already been deleted, 410 HTTP status code is to be returned.\n\nWhen no document with `identifier` has been found in the collection, then the operation ends with 404 HTTP status code.\n\nYou can also specify `If-Unmodified-Since` request header including your timestamp of document's last modification. If the document has been modified by somebody else on the server afterwards (and you do not know about it), the 412 HTTP status code is returned cancelling the update operation. You can use this feature to prevent race condition problems.\n\n`PATCH` operation can save some bandwidth for incremental document updates in comparison with `GET` - `UPDATE` operation sequence.\n\nWhile patching the document, the field `modifiedBy` is automatically set to the authorized subject's name.\n\nThis operation provides autopruning of the collection (if autopruning is enabled).\n\nThis operation requires `update` permission for the API and the collection (e.g. `api:treatments:update`)",
         "parameters": [
           {
-            "name": "collection",
-            "in": "path",
-            "description": "Collection to which the operation is targeted",
-            "required": true,
-            "style": "simple",
-            "explode": false,
-            "schema": {
-              "$ref": "#/components/schemas/paramCollection"
-            }
-          },
-          {
-            "name": "identifier",
-            "in": "path",
-            "description": "Identifier of the document to which the operation is targeted",
-            "required": true,
-            "style": "simple",
-            "explode": false,
-            "schema": {
-              "$ref": "#/components/schemas/paramIdentifier"
-            }
-          },
-          {
-            "name": "If-Unmodified-Since",
-            "in": "header",
-            "description": "Timestamp (defined with respect to server's clock) of the last document modification formatted as&#58;\n\n&lt;day-name&gt;, &lt;day&gt; &lt;month&gt; &lt;year&gt; &lt;hour&gt;&#58;&lt;minute&gt;&#58;&lt;second&gt; GMT\n\nIf this header is present, the operation will compare its value with the srvModified timestamp of the document at first and the operation result then may differ. The srvModified timestamp was defined by server's clock.\n\nExample&#58;\n\n<pre>If-Unmodified-Since&#58; Wed, 17 Oct 2018 05&#58;13&#58;00 GMT</pre>",
-            "required": false,
-            "style": "simple",
-            "explode": false,
-            "schema": {
-              "type": "string"
-            }
+            "$ref": "#/components/parameters/ifUnmodifiedSinceHeader"
           }
         ],
         "requestBody": {
           "description": "JSON of new version of document (`identifier` in JSON is ignored if present)",
+          "required": true,
           "content": {
             "application/json": {
               "schema": {
                 "$ref": "#/components/schemas/DocumentToPost"
               }
             }
-          },
-          "required": true
-        },
-        "responses": {
-          "200": {
-            "description": "The request was successfully processed",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/inline_response_200_3"
-                }
-              }
-            }
-          },
-          "400": {
-            "description": "The request is malformed. There may be some required parameters missing or there are unrecognized parameters present.",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/inline_response_400"
-                }
-              }
-            }
-          },
-          "401": {
-            "description": "The request was not successfully authenticated using JWT, so that the request cannot continue due to the security policy.",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/inline_response_401"
-                }
-              }
-            }
-          },
-          "403": {
-            "description": "Insecure HTTP scheme used or the request has been successfully authenticated, but the security subject is not authorized for the operation.",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/inline_response_403"
-                }
-              }
-            }
-          },
-          "404": {
-            "description": "The collection or document specified was not found.",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/inline_response_404"
-                }
-              }
-            }
-          },
-          "410": {
-            "description": "The requested document has already been deleted.",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/inline_response_410"
-                }
-              }
-            }
-          },
-          "412": {
-            "description": "The document has already been modified on the server since specified timestamp (in If-Unmodified-Since header).",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/inline_response_412"
-                }
-              }
-            }
-          },
-          "422": {
-            "description": "The client request is well formed but a server validation error occured. Eg. when trying to modify or delete a read-only document (having `isReadOnly=true`).",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/inline_response_422"
-                }
-              }
-            }
           }
         },
         "security": [
           {
             "jwtoken": []
           }
-        ]
+        ],
+        "responses": {
+          "200": {
+            "$ref": "#/components/responses/200Ok"
+          },
+          "400": {
+            "$ref": "#/components/responses/400BadRequest"
+          },
+          "401": {
+            "$ref": "#/components/responses/401Unauthorized"
+          },
+          "403": {
+            "$ref": "#/components/responses/403Forbidden"
+          },
+          "404": {
+            "$ref": "#/components/responses/404NotFound"
+          },
+          "409": {
+            "$ref": "#/components/responses/409Conflict"
+          },
+          "410": {
+            "$ref": "#/components/responses/410Gone"
+          },
+          "412": {
+            "$ref": "#/components/responses/412PreconditionFailed"
+          },
+          "422": {
+            "$ref": "#/components/responses/422UnprocessableEntity"
+          }
+        }
+      },
+      "delete": {
+        "tags": [
+          "generic"
+        ],
+        "summary": "DELETE: Deletes a document from the collection",
+        "operationId": "DELETE",
+        "description": "If the document has already been deleted, the operation will succeed anyway. Normally, documents are not really deleted from the collection but they are only marked as deleted. For special cases the deletion can be irreversible using `permanent` parameter.\n\nThis operation provides autopruning of the collection (if autopruning is enabled).\n\nThis operation requires `delete` permission for the API and the collection (e.g. `api:treatments:delete`)",
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/permanentParam"
+          }
+        ],
+        "security": [
+          {
+            "jwtoken": []
+          }
+        ],
+        "responses": {
+          "200": {
+            "$ref": "#/components/responses/200Ok"
+          },
+          "401": {
+            "$ref": "#/components/responses/401Unauthorized"
+          },
+          "403": {
+            "$ref": "#/components/responses/403Forbidden"
+          },
+          "404": {
+            "$ref": "#/components/responses/404NotFound"
+          },
+          "422": {
+            "$ref": "#/components/responses/422UnprocessableEntity"
+          }
+        }
       }
     },
     "/{collection}/history": {
+      "parameters": [
+        {
+          "in": "path",
+          "name": "collection",
+          "description": "Collection to which the operation is targeted",
+          "required": true,
+          "schema": {
+            "$ref": "#/components/schemas/paramCollection"
+          }
+        }
+      ],
       "get": {
         "tags": [
           "generic"
         ],
         "summary": "HISTORY: Retrieves incremental changes since timestamp",
-        "description": "HISTORY operation is intended for continuous data synchronization with other systems.\nEvery insertion, update and deletion will be included in the resulting JSON array of documents (since timestamp in `Last-Modified` request header value). All changes are listed chronologically in response with 200 HTTP status code. The maximum listed `srvModified` timestamp is also stored in `Last-Modified` and `ETag` response headers that you can use for future, directly following synchronization. You can also limit the array's length using `limit` parameter.\n\nDeleted documents will appear with `isValid` = `false` field.\n\nHISTORY operation has a fallback mechanism in place for documents, which were not created by API v3. For such documents `srvModified` is virtually assigned from the `date` field (for `entries` collection) or from the `created_at` field (for other collections).\n\nThis operation requires `read` permission for the API and the collection (e.g. `api:treatments:read`)\n\nThe only exception is the `settings` collection which requires `admin` permission (`api:settings:admin`), because the settings of each application should be isolated and kept secret. You need to know the concrete identifier to access the app's settings.",
         "operationId": "HISTORY",
+        "description": "HISTORY operation is intended for continuous data synchronization with other systems.\nEvery insertion, update and deletion will be included in the resulting JSON array of documents (since timestamp in `Last-Modified` request header value). All changes are listed chronologically in response with 200 HTTP status code. The maximum listed `srvModified` timestamp is also stored in `Last-Modified` and `ETag` response headers that you can use for future, directly following synchronization. You can also limit the array's length using `limit` parameter.\n\nDeleted documents will appear with `isValid` = `false` field.\n\nHISTORY operation has a fallback mechanism in place for documents, which were not created by API v3. For such documents `srvModified` is virtually assigned from the `date` field (for `entries` collection) or from the `created_at` field (for other collections).\n\nThis operation requires `read` permission for the API and the collection (e.g. `api:treatments:read`)\n\nThe only exception is the `settings` collection which requires `admin` permission (`api:settings:admin`), because the settings of each application should be isolated and kept secret. You need to know the concrete identifier to access the app's settings.",
         "parameters": [
           {
-            "name": "collection",
-            "in": "path",
-            "description": "Collection to which the operation is targeted",
-            "required": true,
-            "style": "simple",
-            "explode": false,
-            "schema": {
-              "$ref": "#/components/schemas/paramCollection"
-            }
+            "$ref": "#/components/parameters/lastModifiedRequiredHeader"
           },
           {
-            "name": "Last-Modified",
-            "in": "header",
-            "description": "Starting timestamp (defined with respect to server's clock) since which the changes in documents are to be listed, formatted as&#58;\n\n&lt;day-name&gt;, &lt;day&gt; &lt;month&gt; &lt;year&gt; &lt;hour&gt;&#58;&lt;minute&gt;&#58;&lt;second&gt; GMT\n\nExample&#58;\n\n<pre>Last-Modified&#58; Wed, 17 Oct 2018 05&#58;13&#58;00 GMT</pre>",
-            "required": true,
-            "style": "simple",
-            "explode": false,
-            "schema": {
-              "type": "string"
-            }
+            "$ref": "#/components/parameters/limitParam"
           },
           {
-            "name": "limit",
-            "in": "query",
-            "description": "Maximum number of documents to get in result array",
-            "required": false,
-            "style": "form",
-            "explode": true,
-            "schema": {
-              "minimum": 1,
-              "type": "integer",
-              "example": 100
-            }
-          },
-          {
-            "name": "fields",
-            "in": "query",
-            "description": "A chosen set of fields to return in response. Either you can enumerate specific fields of interest or use the predefined set. Sample parameter values&#58;\n\n_all&#58; All fields will be returned (default value)\n\ndate,insulin&#58; Only fields `date` and `insulin` will be returned",
-            "required": false,
-            "style": "form",
-            "explode": true,
-            "schema": {
-              "type": "string",
-              "default": "_all"
-            },
-            "examples": {
-              "all": {
-                "summary": "All fields will be returned (default behaviour)",
-                "value": "_all"
-              },
-              "customSet": {
-                "summary": "Only fields date and insulin will be returned",
-                "value": "date,insulin"
-              }
-            }
+            "$ref": "#/components/parameters/fieldsParam"
           }
         ],
-        "responses": {
-          "200": {
-            "description": "Changed documents since specified timestamp",
-            "headers": {
-              "Last-Modified": {
-                "$ref": "#/components/schemas/headerLastModifiedMaximum"
-              },
-              "ETag": {
-                "$ref": "#/components/schemas/headerEtagLastModifiedMaximum"
-              }
-            },
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/inline_response_200"
-                }
-              },
-              "text/csv": {
-                "schema": {
-                  "$ref": "#/components/schemas/DocumentArray"
-                }
-              },
-              "application/xml": {
-                "schema": {
-                  "$ref": "#/components/schemas/DocumentArray"
-                }
-              }
-            }
-          },
-          "400": {
-            "description": "The request is malformed. There may be some required parameters missing or there are unrecognized parameters present.",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/inline_response_400"
-                }
-              }
-            }
-          },
-          "401": {
-            "description": "The request was not successfully authenticated using JWT, so that the request cannot continue due to the security policy.",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/inline_response_401"
-                }
-              }
-            }
-          },
-          "403": {
-            "description": "Insecure HTTP scheme used or the request has been successfully authenticated, but the security subject is not authorized for the operation.",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/inline_response_403"
-                }
-              }
-            }
-          },
-          "404": {
-            "description": "The collection or document specified was not found.",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/inline_response_404"
-                }
-              }
-            }
-          },
-          "406": {
-            "description": "The requested content type (in `Accept` header) is not supported.",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/inline_response_406"
-                }
-              }
-            }
-          }
-        },
         "security": [
           {
             "jwtoken": []
           }
-        ]
+        ],
+        "responses": {
+          "200": {
+            "$ref": "#/components/responses/history200"
+          },
+          "400": {
+            "$ref": "#/components/responses/400BadRequest"
+          },
+          "401": {
+            "$ref": "#/components/responses/401Unauthorized"
+          },
+          "403": {
+            "$ref": "#/components/responses/403Forbidden"
+          },
+          "404": {
+            "$ref": "#/components/responses/404NotFound"
+          },
+          "406": {
+            "$ref": "#/components/responses/406NotAcceptable"
+          }
+        }
       }
     },
     "/{collection}/history/{lastModified}": {
+      "parameters": [
+        {
+          "in": "path",
+          "name": "collection",
+          "description": "Collection to which the operation is targeted",
+          "required": true,
+          "schema": {
+            "$ref": "#/components/schemas/paramCollection"
+          }
+        },
+        {
+          "in": "path",
+          "name": "lastModified",
+          "description": "Starting timestamp (in UNIX epoch format, defined with respect to server's clock) since which the changes in documents are to be listed. Query for modified documents is made using \"greater than\" operator (not including equal timestamps).",
+          "required": true,
+          "schema": {
+            "type": "integer",
+            "format": "int64"
+          }
+        }
+      ],
       "get": {
         "tags": [
           "generic"
         ],
         "summary": "HISTORY: Retrieves incremental changes since timestamp",
-        "description": "This HISTORY operation variant is more precise than the previous one with `Last-Modified` request HTTP header), because it does not loose milliseconds precision.\n\nSince this variant queries for changed documents by timestamp precisely and exclusively, the last modified document does not repeat itself in following calls. That is the reason why is this variant more suitable for continuous synchronization with other systems.\n\nThis variant behaves quite the same as the previous one in all other aspects.",
         "operationId": "HISTORY2",
+        "description": "This HISTORY operation variant is more precise than the previous one with `Last-Modified` request HTTP header), because it does not loose milliseconds precision.\n\nSince this variant queries for changed documents by timestamp precisely and exclusively, the last modified document does not repeat itself in following calls. That is the reason why is this variant more suitable for continuous synchronization with other systems.\n\nThis variant behaves quite the same as the previous one in all other aspects.",
         "parameters": [
           {
-            "name": "collection",
-            "in": "path",
-            "description": "Collection to which the operation is targeted",
-            "required": true,
-            "style": "simple",
-            "explode": false,
-            "schema": {
-              "$ref": "#/components/schemas/paramCollection"
-            }
+            "$ref": "#/components/parameters/limitParam"
           },
           {
-            "name": "lastModified",
-            "in": "path",
-            "description": "Starting timestamp (in UNIX epoch format, defined with respect to server's clock) since which the changes in documents are to be listed. Query for modified documents is made using \"greater than\" operator (not including equal timestamps).",
-            "required": true,
-            "style": "simple",
-            "explode": false,
-            "schema": {
-              "type": "integer",
-              "format": "int64"
-            }
-          },
-          {
-            "name": "limit",
-            "in": "query",
-            "description": "Maximum number of documents to get in result array",
-            "required": false,
-            "style": "form",
-            "explode": true,
-            "schema": {
-              "minimum": 1,
-              "type": "integer",
-              "example": 100
-            }
-          },
-          {
-            "name": "fields",
-            "in": "query",
-            "description": "A chosen set of fields to return in response. Either you can enumerate specific fields of interest or use the predefined set. Sample parameter values&#58;\n\n_all&#58; All fields will be returned (default value)\n\ndate,insulin&#58; Only fields `date` and `insulin` will be returned",
-            "required": false,
-            "style": "form",
-            "explode": true,
-            "schema": {
-              "type": "string",
-              "default": "_all"
-            },
-            "examples": {
-              "all": {
-                "summary": "All fields will be returned (default behaviour)",
-                "value": "_all"
-              },
-              "customSet": {
-                "summary": "Only fields date and insulin will be returned",
-                "value": "date,insulin"
-              }
-            }
+            "$ref": "#/components/parameters/fieldsParam"
           }
         ],
-        "responses": {
-          "200": {
-            "description": "Changed documents since specified timestamp",
-            "headers": {
-              "Last-Modified": {
-                "$ref": "#/components/schemas/headerLastModifiedMaximum"
-              },
-              "ETag": {
-                "$ref": "#/components/schemas/headerEtagLastModifiedMaximum"
-              }
-            },
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/inline_response_200"
-                }
-              },
-              "text/csv": {
-                "schema": {
-                  "$ref": "#/components/schemas/DocumentArray"
-                }
-              },
-              "application/xml": {
-                "schema": {
-                  "$ref": "#/components/schemas/DocumentArray"
-                }
-              }
-            }
-          },
-          "400": {
-            "description": "The request is malformed. There may be some required parameters missing or there are unrecognized parameters present.",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/inline_response_400"
-                }
-              }
-            }
-          },
-          "401": {
-            "description": "The request was not successfully authenticated using JWT, so that the request cannot continue due to the security policy.",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/inline_response_401"
-                }
-              }
-            }
-          },
-          "403": {
-            "description": "Insecure HTTP scheme used or the request has been successfully authenticated, but the security subject is not authorized for the operation.",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/inline_response_403"
-                }
-              }
-            }
-          },
-          "404": {
-            "description": "The collection or document specified was not found.",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/inline_response_404"
-                }
-              }
-            }
-          },
-          "406": {
-            "description": "The requested content type (in `Accept` header) is not supported.",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/inline_response_406"
-                }
-              }
-            }
-          }
-        },
         "security": [
           {
             "jwtoken": []
           }
-        ]
+        ],
+        "responses": {
+          "200": {
+            "$ref": "#/components/responses/history200"
+          },
+          "400": {
+            "$ref": "#/components/responses/400BadRequest"
+          },
+          "401": {
+            "$ref": "#/components/responses/401Unauthorized"
+          },
+          "403": {
+            "$ref": "#/components/responses/403Forbidden"
+          },
+          "404": {
+            "$ref": "#/components/responses/404NotFound"
+          },
+          "406": {
+            "$ref": "#/components/responses/406NotAcceptable"
+          }
+        }
       }
     },
     "/version": {
@@ -1203,7 +486,9 @@
           "other"
         ],
         "summary": "VERSION: Returns actual version information",
-        "description": "No authentication is needed for this commnad (it is public)",
+        "operationId": "VERSION",
+        "description": "No authentication is needed for this command (it is public)",
+        "security": [],
         "responses": {
           "200": {
             "description": "Successful response",
@@ -1224,7 +509,13 @@
           "other"
         ],
         "summary": "STATUS: Returns actual version information and all permissions granted for API",
+        "operationId": "STATUS",
         "description": "This operation requires authorization in contrast with VERSION operation.",
+        "security": [
+          {
+            "jwtoken": []
+          }
+        ],
         "responses": {
           "200": {
             "description": "Successful response",
@@ -1237,31 +528,12 @@
             }
           },
           "401": {
-            "description": "The request was not successfully authenticated using JWT, so that the request cannot continue due to the security policy.",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/inline_response_401"
-                }
-              }
-            }
+            "$ref": "#/components/responses/401Unauthorized"
           },
           "403": {
-            "description": "Insecure HTTP scheme used or the request has been successfully authenticated, but the security subject is not authorized for the operation.",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/inline_response_403"
-                }
-              }
-            }
+            "$ref": "#/components/responses/403Forbidden"
           }
-        },
-        "security": [
-          {
-            "jwtoken": []
-          }
-        ]
+        }
       }
     },
     "/lastModified": {
@@ -1270,69 +542,573 @@
           "other"
         ],
         "summary": "LAST MODIFIED: Retrieves timestamp of the last modification of every collection",
-        "description": "LAST MODIFIED operation inspects collections separately (in parallel) and for each of them it finds the date of any last modification (insertion, update, deletion).\nNot only `srvModified`, but also `date` and `created_at` fields are inspected (as a fallback to previous API).\n\nThis operation requires `read` permission for the API and the collections (e.g. `api:treatments:read`). For each collection the permission is checked separately, you will get timestamps only for those collections that you have access to.",
         "operationId": "LAST-MODIFIED",
-        "responses": {
-          "200": {
-            "description": "Successful operation returning the timestamps",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/inline_response_200_4"
-                }
-              }
-            }
-          },
-          "401": {
-            "description": "The request was not successfully authenticated using JWT, so that the request cannot continue due to the security policy.",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/inline_response_401"
-                }
-              }
-            }
-          },
-          "403": {
-            "description": "Insecure HTTP scheme used or the request has been successfully authenticated, but the security subject is not authorized for the operation.",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/inline_response_403"
-                }
-              }
-            }
-          }
-        },
+        "description": "LAST MODIFIED operation inspects collections separately (in parallel) and for each of them it finds the date of any last modification (insertion, update, deletion).\nNot only `srvModified`, but also `date` and `created_at` fields are inspected (as a fallback to previous API).\n\nThis operation requires `read` permission for the API and the collections (e.g. `api:treatments:read`). For each collection the permission is checked separately, you will get timestamps only for those collections that you have access to.",
         "security": [
           {
             "jwtoken": []
           }
-        ]
+        ],
+        "responses": {
+          "200": {
+            "$ref": "#/components/responses/lastModified200"
+          },
+          "401": {
+            "$ref": "#/components/responses/401Unauthorized"
+          },
+          "403": {
+            "$ref": "#/components/responses/403Forbidden"
+          }
+        }
       }
     }
   },
   "components": {
+    "parameters": {
+      "limitParam": {
+        "in": "query",
+        "name": "limit",
+        "schema": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 1000,
+          "default": 1000,
+          "example": 100
+        },
+        "description": "Maximum number of documents to get in result array. The default and the largest value accepted are `API3_MAX_LIMIT` (1000 unless set). `0`, a value above the maximum, or anything that is not a whole number is refused with 400."
+      },
+      "skipParam": {
+        "in": "query",
+        "name": "skip",
+        "schema": {
+          "type": "integer",
+          "minimum": 0,
+          "default": 0,
+          "example": 0
+        },
+        "description": "Number of documents to skip from collection query before loading them into result array (used for pagination)"
+      },
+      "sortParam": {
+        "in": "query",
+        "name": "sort",
+        "schema": {
+          "type": "string"
+        },
+        "required": false,
+        "description": "Field name by which the sorting of documents is performed. This parameter cannot be combined with `sort$desc` parameter."
+      },
+      "sortDescParam": {
+        "in": "query",
+        "name": "sort$desc",
+        "schema": {
+          "type": "string"
+        },
+        "required": false,
+        "description": "Field name by which the descending (reverse) sorting of documents is performed. This parameter cannot be combined with `sort` parameter."
+      },
+      "permanentParam": {
+        "in": "query",
+        "name": "permanent",
+        "schema": {
+          "type": "boolean"
+        },
+        "required": false,
+        "description": "If true, the deletion will be irreversible and it will not appear in `HISTORY` operation. Normally there is no reason for setting this flag."
+      },
+      "fieldsParam": {
+        "in": "query",
+        "name": "fields",
+        "schema": {
+          "type": "string",
+          "default": "_all"
+        },
+        "required": false,
+        "examples": {
+          "all": {
+            "value": "_all",
+            "summary": "All fields will be returned (default behaviour)"
+          },
+          "customSet": {
+            "value": "date,insulin",
+            "summary": "Only fields date and insulin will be returned"
+          }
+        },
+        "description": "A chosen set of fields to return in response. Either you can enumerate specific fields of interest or use the predefined set. Sample parameter values&#58;\n\n_all&#58; All fields will be returned (default value)\n\ndate,insulin&#58; Only fields `date` and `insulin` will be returned"
+      },
+      "filterParams": {
+        "in": "query",
+        "name": "filter_parameters",
+        "schema": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "style": "spaceDelimited",
+        "description": "Any number of filtering operators.\n\nEach filtering operator has name like `<field-name>$<operator>`, e.g. `carbs$gt=2` which represents filtering rule \"The field carbs must be present and greater than 2\".\n\nYou can choose from operators&#58;\n\n`eq`=equals, `insulin$eq=1.5`\n\n`ne`=not equals, `insulin$ne=1.5`\n\n`gt`=greater than, `carbs$gt=30`\n\n`gte`=greater than or equal, `carbs$gte=30`\n\n`lt`=less than, `carbs$lt=30`\n\n`lte`=less than or equal, `carbs$lte=30`\n\n`in`=in specified set, `type$in=sgv|mbg|cal`\n\n`nin`=not in specified set, `eventType$nin=Temp%20Basal|Temporary%20Target`\n\n`re`=regex pattern, `eventType$re=Temp.%2A`\n\nWhen filtering by field `date`, `created_at`, `srvModified` or `srvCreated`, you can choose from three input formats\n- Unix epoch in milliseconds (1525383610088)\n- Unix epoch in seconds (1525383610)\n- ISO 8601 with optional timezone ('2018-05-03T21:40:10.088Z' or '2018-05-03T23:40:10.088+02:00')\n\nThe date is always queried in a normalized form - UTC with zero offset and with the correct format (1525383610088 for `date`, '2018-05-03T21:40:10.088Z' for `created_at`)."
+      },
+      "lastModifiedRequiredHeader": {
+        "in": "header",
+        "name": "Last-Modified",
+        "schema": {
+          "type": "string"
+        },
+        "required": true,
+        "description": "Starting timestamp (defined with respect to server's clock) since which the changes in documents are to be listed, formatted as&#58;\n\n&lt;day-name&gt;, &lt;day&gt; &lt;month&gt; &lt;year&gt; &lt;hour&gt;&#58;&lt;minute&gt;&#58;&lt;second&gt; GMT\n\nExample&#58;\n\n<pre>Last-Modified&#58; Wed, 17 Oct 2018 05&#58;13&#58;00 GMT</pre>"
+      },
+      "ifModifiedSinceHeader": {
+        "in": "header",
+        "name": "If-Modified-Since",
+        "schema": {
+          "type": "string"
+        },
+        "required": false,
+        "description": "Timestamp (defined with respect to server's clock) of the last document modification formatted as&#58;\n\n&lt;day-name&gt;, &lt;day&gt; &lt;month&gt; &lt;year&gt; &lt;hour&gt;&#58;&lt;minute&gt;&#58;&lt;second&gt; GMT\n\nIf this header is present, the operation will compare its value with the srvModified timestamp of the document at first and the operation result then may differ. The srvModified timestamp was defined by server's clock.\n\nExample&#58;\n\n<pre>If-Modified-Since&#58; Wed, 17 Oct 2018 05&#58;13&#58;00 GMT</pre>"
+      },
+      "ifUnmodifiedSinceHeader": {
+        "in": "header",
+        "name": "If-Unmodified-Since",
+        "schema": {
+          "type": "string"
+        },
+        "required": false,
+        "description": "Timestamp (defined with respect to server's clock) of the last document modification formatted as&#58;\n\n&lt;day-name&gt;, &lt;day&gt; &lt;month&gt; &lt;year&gt; &lt;hour&gt;&#58;&lt;minute&gt;&#58;&lt;second&gt; GMT\n\nIf this header is present, the operation will compare its value with the srvModified timestamp of the document at first and the operation result then may differ. The srvModified timestamp was defined by server's clock.\n\nExample&#58;\n\n<pre>If-Unmodified-Since&#58; Wed, 17 Oct 2018 05&#58;13&#58;00 GMT</pre>"
+      }
+    },
+    "responses": {
+      "200Ok": {
+        "description": "The request was successfully processed",
+        "content": {
+          "application/json": {
+            "schema": {
+              "properties": {
+                "status": {
+                  "type": "integer",
+                  "example": 200
+                }
+              }
+            }
+          }
+        }
+      },
+      "200Updated": {
+        "description": "The document was replaced",
+        "headers": {
+          "Last-Modified": {
+            "$ref": "#/components/headers/LastModified"
+          }
+        },
+        "content": {
+          "application/json": {
+            "schema": {
+              "properties": {
+                "status": {
+                  "type": "integer",
+                  "example": 200
+                },
+                "lastModified": {
+                  "$ref": "#/components/schemas/lastModifiedField"
+                }
+              }
+            }
+          }
+        }
+      },
+      "200Deduplication": {
+        "description": "Successfully updated a duplicate document in the collection",
+        "headers": {
+          "Last-Modified": {
+            "$ref": "#/components/headers/LastModified"
+          },
+          "Location": {
+            "$ref": "#/components/headers/Location"
+          }
+        },
+        "content": {
+          "application/json": {
+            "schema": {
+              "properties": {
+                "status": {
+                  "type": "integer",
+                  "example": 200
+                },
+                "identifier": {
+                  "$ref": "#/components/schemas/identifierField"
+                },
+                "lastModified": {
+                  "$ref": "#/components/schemas/lastModifiedField"
+                },
+                "isDeduplication": {
+                  "$ref": "#/components/schemas/isDeduplicationField"
+                },
+                "deduplicatedIdentifier": {
+                  "$ref": "#/components/schemas/deduplicatedIdentifierField"
+                }
+              }
+            }
+          }
+        }
+      },
+      "201Created": {
+        "description": "Successfully created a new document in collection",
+        "headers": {
+          "Last-Modified": {
+            "$ref": "#/components/headers/LastModified"
+          }
+        },
+        "content": {
+          "application/json": {
+            "schema": {
+              "properties": {
+                "status": {
+                  "type": "integer",
+                  "example": 201
+                },
+                "identifier": {
+                  "$ref": "#/components/schemas/identifierField"
+                },
+                "lastModified": {
+                  "$ref": "#/components/schemas/lastModifiedField"
+                }
+              }
+            }
+          }
+        }
+      },
+      "201CreatedLocation": {
+        "description": "Successfully created a new document in collection",
+        "headers": {
+          "Last-Modified": {
+            "$ref": "#/components/headers/LastModified"
+          },
+          "Location": {
+            "$ref": "#/components/headers/Location"
+          }
+        },
+        "content": {
+          "application/json": {
+            "schema": {
+              "properties": {
+                "status": {
+                  "type": "integer",
+                  "example": 201
+                },
+                "identifier": {
+                  "$ref": "#/components/schemas/identifierField"
+                },
+                "lastModified": {
+                  "$ref": "#/components/schemas/lastModifiedField"
+                }
+              }
+            }
+          }
+        }
+      },
+      "304NotModified": {
+        "description": "The document has not been modified on the server since timestamp specified in If-Modified-Since header",
+        "headers": {
+          "Last-Modified": {
+            "$ref": "#/components/headers/LastModified"
+          }
+        }
+      },
+      "400BadRequest": {
+        "description": "The request is malformed. There may be some required parameters missing or there are unrecognized parameters present.",
+        "content": {
+          "application/json": {
+            "schema": {
+              "properties": {
+                "status": {
+                  "type": "integer",
+                  "example": 400
+                }
+              }
+            }
+          }
+        }
+      },
+      "401Unauthorized": {
+        "description": "The request was not successfully authenticated using JWT, so that the request cannot continue due to the security policy.",
+        "content": {
+          "application/json": {
+            "schema": {
+              "properties": {
+                "status": {
+                  "type": "integer",
+                  "example": 401
+                }
+              }
+            }
+          }
+        }
+      },
+      "403Forbidden": {
+        "description": "The request has been successfully authenticated, but the security subject is not authorized for the operation.",
+        "content": {
+          "application/json": {
+            "schema": {
+              "properties": {
+                "status": {
+                  "type": "integer",
+                  "example": 403
+                }
+              }
+            }
+          }
+        }
+      },
+      "404NotFound": {
+        "description": "The collection or document specified was not found.",
+        "content": {
+          "application/json": {
+            "schema": {
+              "properties": {
+                "status": {
+                  "type": "integer",
+                  "example": 404
+                }
+              }
+            }
+          }
+        }
+      },
+      "406NotAcceptable": {
+        "description": "The requested content type (in `Accept` header) is not supported.",
+        "content": {
+          "application/json": {
+            "schema": {
+              "properties": {
+                "status": {
+                  "type": "integer",
+                  "example": 406
+                }
+              }
+            }
+          }
+        }
+      },
+      "409Conflict": {
+        "description": "A treatment changed while the patch was being validated (with `WRITE_VALIDATION` checks); retry the request.",
+        "content": {
+          "application/json": {
+            "schema": {
+              "properties": {
+                "status": {
+                  "type": "integer",
+                  "example": 409
+                }
+              }
+            }
+          }
+        }
+      },
+      "412PreconditionFailed": {
+        "description": "The document has already been modified on the server since specified timestamp (in If-Unmodified-Since header).",
+        "content": {
+          "application/json": {
+            "schema": {
+              "properties": {
+                "status": {
+                  "type": "integer",
+                  "example": 412
+                }
+              }
+            }
+          }
+        }
+      },
+      "410Gone": {
+        "description": "The requested document has already been deleted.",
+        "content": {
+          "application/json": {
+            "schema": {
+              "properties": {
+                "status": {
+                  "type": "integer",
+                  "example": 410
+                }
+              }
+            }
+          }
+        }
+      },
+      "422UnprocessableEntity": {
+        "description": "The client request is well formed but a server validation error occured. Eg. when trying to modify or delete a read-only document (having `isReadOnly=true`).",
+        "content": {
+          "application/json": {
+            "schema": {
+              "properties": {
+                "status": {
+                  "type": "integer",
+                  "example": 422
+                }
+              }
+            }
+          }
+        }
+      },
+      "search200": {
+        "description": "Successful operation returning array of documents matching the filtering criteria",
+        "headers": {
+          "Nightscout-Data-Warnings": {
+            "$ref": "#/components/headers/DataWarnings"
+          }
+        },
+        "content": {
+          "application/json": {
+            "schema": {
+              "properties": {
+                "status": {
+                  "type": "integer",
+                  "example": 200
+                },
+                "result": {
+                  "$ref": "#/components/schemas/DocumentArray"
+                }
+              }
+            }
+          },
+          "text/csv": {
+            "schema": {
+              "$ref": "#/components/schemas/DocumentArray"
+            }
+          },
+          "application/xml": {
+            "schema": {
+              "$ref": "#/components/schemas/DocumentArray"
+            }
+          }
+        }
+      },
+      "read200": {
+        "description": "The document has been succesfully found and its JSON form returned in the response content.",
+        "content": {
+          "application/json": {
+            "schema": {
+              "properties": {
+                "status": {
+                  "type": "integer",
+                  "example": 200
+                },
+                "result": {
+                  "$ref": "#/components/schemas/Document"
+                }
+              }
+            }
+          },
+          "text/csv": {
+            "schema": {
+              "$ref": "#/components/schemas/Document"
+            }
+          },
+          "application/xml": {
+            "schema": {
+              "$ref": "#/components/schemas/Document"
+            }
+          }
+        },
+        "headers": {
+          "Last-Modified": {
+            "$ref": "#/components/headers/LastModified"
+          },
+          "Nightscout-Data-Warnings": {
+            "$ref": "#/components/headers/DataWarnings"
+          }
+        }
+      },
+      "history200": {
+        "description": "Changed documents since specified timestamp",
+        "content": {
+          "application/json": {
+            "schema": {
+              "properties": {
+                "status": {
+                  "type": "integer",
+                  "example": 200
+                },
+                "result": {
+                  "$ref": "#/components/schemas/DocumentArray"
+                }
+              }
+            }
+          },
+          "text/csv": {
+            "schema": {
+              "$ref": "#/components/schemas/DocumentArray"
+            }
+          },
+          "application/xml": {
+            "schema": {
+              "$ref": "#/components/schemas/DocumentArray"
+            }
+          }
+        },
+        "headers": {
+          "Last-Modified": {
+            "$ref": "#/components/headers/LastModifiedMaximum"
+          },
+          "ETag": {
+            "$ref": "#/components/headers/EtagLastModifiedMaximum"
+          },
+          "Nightscout-Data-Warnings": {
+            "$ref": "#/components/headers/DataWarnings"
+          }
+        }
+      },
+      "lastModified200": {
+        "description": "Successful operation returning the timestamps",
+        "content": {
+          "application/json": {
+            "schema": {
+              "properties": {
+                "status": {
+                  "type": "integer",
+                  "example": 200
+                },
+                "result": {
+                  "$ref": "#/components/schemas/LastModifiedResult"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "headers": {
+      "Location": {
+        "description": "Location of the document, the relative part of the URL. The identifier of a created document can be parsed from it, e.g. /api/v3/treatments/53409478-105f-11e9-ab14-d663bd873d93",
+        "schema": {
+          "type": "string"
+        }
+      },
+      "LastModified": {
+        "description": "Server time of the document's last modification (insertion, update or deletion by API v3), as an HTTP date such as `Wed, 17 Oct 2018 05:13:00 GMT`.",
+        "schema": {
+          "type": "string"
+        }
+      },
+      "LastModifiedMaximum": {
+        "description": "The latest (maximum) `srvModified` of the returned documents, as an HTTP date such as `Wed, 17 Oct 2018 05:13:00 GMT`. Absent when no returned document has a valid `srvModified`, for example when the result is empty.",
+        "schema": {
+          "type": "string"
+        }
+      },
+      "EtagLastModifiedMaximum": {
+        "description": "The latest (maximum) `srvModified` of the returned documents, with milliseconds (unlike `Last-Modified`), e.g. `W/\"1525383610088\"`. Absent when `Last-Modified` is.",
+        "schema": {
+          "type": "string"
+        }
+      },
+      "DataWarnings": {
+        "description": "Experimental, sent only when `API_V3_DATA_WARNINGS` is on (see the README). Counts of stored-data rules the returned documents break, as `rule=count, ...`; no identifiers or values. The header's form is not settled and may change.",
+        "schema": {
+          "type": "string"
+        }
+      }
+    },
     "schemas": {
-      "headerLocation": {
-        "type": "string",
-        "description": "Location of document - the relative part of URL. This can be used to parse the identifier of just created document.\nExample=/api/v3/treatments/53409478-105f-11e9-ab14-d663bd873d93"
-      },
-      "headerLastModified": {
-        "type": "string",
-        "description": "Timestamp of the last document modification on the server, formatted as\n'<day-name>, <day> <month> <year> <hour>:<minute>:<second> GMT'.\nThis field is relevant only for documents which were somehow modified by API v3 (inserted, updated or deleted) and it was generated using server's clock.\nExample='Wed, 17 Oct 2018 05:13:00 GMT'"
-      },
-      "headerLastModifiedMaximum": {
-        "type": "string",
-        "description": "The latest (maximum) `srvModified` field of all returning documents, formatted as\n'<day-name>, <day> <month> <year> <hour>:<minute>:<second> GMT'.\nExample='Wed, 17 Oct 2018 05:13:00 GMT'"
-      },
-      "headerEtagLastModifiedMaximum": {
-        "type": "string",
-        "description": "The latest (maximum) `srvModified` field of all returning documents. This header does not loose milliseconds from the date (unlike the `Last-Modified` header).\nExample='W/\"1525383610088\"'"
-      },
       "paramCollection": {
         "type": "string",
-        "example": "treatments",
         "enum": [
           "devicestatus",
           "entries",
@@ -1340,21 +1116,22 @@
           "profile",
           "settings",
           "treatments"
-        ]
+        ],
+        "example": "treatments"
       },
       "paramIdentifier": {
         "type": "string",
         "example": "53409478-105f-11e9-ab14-d663bd873d93"
       },
       "identifierField": {
-        "type": "string",
         "description": "Identifier of created or modified document",
+        "type": "string",
         "example": "53409478-105f-11e9-ab14-d663bd873d93"
       },
       "lastModifiedField": {
         "type": "integer",
-        "description": "Timestamp of the last document modification on the server, formatted as\nUnix epoch in milliseconds (1525383610088)",
         "format": "int64",
+        "description": "Timestamp of the last document modification on the server, formatted as\nUnix epoch in milliseconds (1525383610088)",
         "example": 1525383610088
       },
       "statusField": {
@@ -1369,24 +1146,21 @@
       },
       "deduplicatedIdentifierField": {
         "type": "string",
-        "description": "The original document that has been marked as a duplicate document and which has been updated",
+        "description": "Identifier of the stored document that was updated, present only when it differs from the identifier sent (a match made by the fallback deduplication rules)",
         "example": "abc09478-105f-11e9-ab14-d663bd873d93"
       },
       "DocumentBase": {
-        "required": [
-          "app",
-          "date"
-        ],
+        "description": "Shared base for all documents",
         "properties": {
           "identifier": {
-            "type": "string",
             "description": "Main addressing, required field that identifies document in the collection.\n\nThe identifier is the record's sync identity, assigned by the client (its own id for the record), the same on every retry and on every device that uploads the same record. It is compared exactly as sent (case-sensitive, no trimming) and does not have to be a UUID. One identifier names one document in the collection.\n\nWhen the client sends none, the server calculates one from the `device`, `date` and `eventType` fields, so the same record uploaded twice gets the same identifier.\n\nA create whose identifier matches a stored document updates that document instead of storing a second one; the reply then carries `isDeduplication`.\n\n`_id` is the storage key Nightscout assigns. API v3 does not return it, and it refuses a request body that carries `_id` with 400; send the record's own id in `identifier` instead.\n\nThe best practise for all applications is not to loose identifiers from received documents, but save them carefully for other consumer applications/systems.\n\nAPI v3 has a fallback mechanism in place, for documents without `identifier` field the `identifier` is set to internal `_id`, when reading or addressing these documents.\n\nNote&#58; this field is immutable by the client (it cannot be updated or patched)",
+            "type": "string",
             "example": "53409478-105f-11e9-ab14-d663bd873d93"
           },
           "date": {
             "type": "integer",
-            "description": "Required timestamp when the record or event occured, you can choose from three input formats\n- Unix epoch in milliseconds (1525383610088)\n- Unix epoch in seconds (1525383610)\n- ISO 8601 with optional timezone ('2018-05-03T21:40:10.088Z' or '2018-05-03T23:40:10.088+02:00')\n\nThe date is always stored in a normalized form - UTC with zero offset. If UTC offset was present, it is going to be set in the `utcOffset` field.\n\nNote&#58; this field is immutable by the client (it cannot be updated or patched)",
             "format": "int64",
+            "description": "Required timestamp when the record or event occured, you can choose from three input formats\n- Unix epoch in milliseconds (1525383610088)\n- Unix epoch in seconds (1525383610)\n- ISO 8601 with optional timezone ('2018-05-03T21:40:10.088Z' or '2018-05-03T23:40:10.088+02:00')\n\nThe date is always stored in a normalized form - UTC with zero offset. If UTC offset was present, it is going to be set in the `utcOffset` field.\n\nNote&#58; this field is immutable by the client (it cannot be updated or patched)",
             "example": 1525383610088
           },
           "utcOffset": {
@@ -1405,14 +1179,14 @@
             "example": "dexcom G5"
           },
           "_id": {
-            "type": "string",
             "description": "Internally assigned database id. This field is for internal server purposes only, clients communicate with API by using identifier field.",
+            "type": "string",
             "example": "58e9dfbc166d88cc18683aac"
           },
           "srvCreated": {
             "type": "integer",
-            "description": "The server's timestamp of document insertion into the database (Unix epoch in ms). This field appears only for documents which were inserted by API v3.\n\nNote&#58; this field is immutable by the client (it cannot be updated or patched)",
             "format": "int64",
+            "description": "The server's timestamp of document insertion into the database (Unix epoch in ms). This field appears only for documents which were inserted by API v3.\n\nNote&#58; this field is immutable by the client (it cannot be updated or patched)",
             "example": 1525383610088
           },
           "subject": {
@@ -1422,8 +1196,8 @@
           },
           "srvModified": {
             "type": "integer",
-            "description": "The server's timestamp of the last document modification in the database (Unix epoch in ms). This field appears  only for documents which were somehow modified by API v3 (inserted, updated or deleted).\n\nNote&#58; this field is immutable by the client (it cannot be updated or patched)",
             "format": "int64",
+            "description": "The server's timestamp of the last document modification in the database (Unix epoch in ms). This field appears  only for documents which were somehow modified by API v3 (inserted, updated or deleted).\n\nNote&#58; this field is immutable by the client (it cannot be updated or patched)",
             "example": 1525383610088
           },
           "modifiedBy": {
@@ -1442,7 +1216,10 @@
             "example": true
           }
         },
-        "description": "Shared base for all documents"
+        "required": [
+          "date",
+          "app"
+        ]
       },
       "DeviceStatus": {
         "description": "State of physical device, which is a technical part of the whole T1D compensation system",
@@ -1485,7 +1262,8 @@
               },
               "noise": {
                 "type": "number",
-                "description": "Noise level at time of reading. (only available for sgv types)"
+                "description": "Noise level at time of reading. (only available for sgv types)",
+                "example": "xdrip: 0, 1, 2=high, 3=high_for_predict, 4=very high, 5=extreme"
               },
               "filtered": {
                 "type": "number",
@@ -1501,8 +1279,8 @@
               },
               "units": {
                 "type": "string",
-                "description": "The units for the glucose value, mg/dl or mmol/l. It is strongly recommended to fill in this field.",
-                "example": "\"mg\", \"mmol\""
+                "example": "\"mg\", \"mmol\"",
+                "description": "The units for the glucose value, mg/dl or mmol/l. It is strongly recommended to fill in this field."
               }
             }
           }
@@ -1539,8 +1317,8 @@
               },
               "unit": {
                 "type": "string",
-                "description": "Unit for the portion",
-                "example": "\"g\", \"ml\", \"oz\""
+                "example": "\"g\", \"ml\", \"oz\"",
+                "description": "Unit for the portion"
               },
               "carbs": {
                 "type": "number",
@@ -1634,8 +1412,8 @@
             "properties": {
               "eventType": {
                 "type": "string",
-                "description": "The type of treatment event.\n\nNote&#58; this field is immutable by the client (it cannot be updated or patched)",
-                "example": "\"BG Check\", \"Snack Bolus\", \"Meal Bolus\", \"Correction Bolus\", \"Carb Correction\", \"Combo Bolus\", \"Announcement\", \"Note\", \"Question\", \"Exercise\", \"Site Change\", \"Sensor Start\", \"Sensor Change\", \"Pump Battery Change\", \"Insulin Change\", \"Temp Basal\", \"Profile Switch\", \"D.A.D. Alert\", \"Temporary Target\", \"OpenAPS Offline\", \"Bolus Wizard\""
+                "example": "\"BG Check\", \"Snack Bolus\", \"Meal Bolus\", \"Correction Bolus\", \"Carb Correction\", \"Combo Bolus\", \"Announcement\", \"Note\", \"Question\", \"Exercise\", \"Site Change\", \"Sensor Start\", \"Sensor Change\", \"Pump Battery Change\", \"Insulin Change\", \"Temp Basal\", \"Profile Switch\", \"D.A.D. Alert\", \"Temporary Target\", \"OpenAPS Offline\", \"Bolus Wizard\"",
+                "description": "The type of treatment event.\n\nNote&#58; this field is immutable by the client (it cannot be updated or patched)"
               },
               "glucose": {
                 "type": "string",
@@ -1643,13 +1421,13 @@
               },
               "glucoseType": {
                 "type": "string",
-                "description": "Method used to obtain glucose, Finger or Sensor.",
-                "example": "\"Sensor\", \"Finger\", \"Manual\""
+                "example": "\"Sensor\", \"Finger\", \"Manual\"",
+                "description": "Method used to obtain glucose, Finger or Sensor."
               },
               "units": {
                 "type": "string",
-                "description": "The units for the glucose value, mg/dl or mmol/l. It is strongly recommended to fill in this field when `glucose` is entered.",
-                "example": "\"mg/dl\", \"mmol/l\""
+                "example": "\"mg/dl\", \"mmol/l\"",
+                "description": "The units for the glucose value, mg/dl or mmol/l. It is strongly recommended to fill in this field when `glucose` is entered."
               },
               "carbs": {
                 "type": "number",
@@ -1720,18 +1498,8 @@
         ]
       },
       "DocumentToPost": {
-        "type": "object",
         "description": "Single document",
-        "example": {
-          "identifier": "53409478-105f-11e9-ab14-d663bd873d93",
-          "date": 1532936118000,
-          "utcOffset": 120,
-          "carbs": 10,
-          "insulin": 1,
-          "eventType": "Snack Bolus",
-          "app": "xdrip",
-          "subject": "uploader"
-        },
+        "type": "object",
         "oneOf": [
           {
             "$ref": "#/components/schemas/DeviceStatus"
@@ -1751,11 +1519,44 @@
           {
             "$ref": "#/components/schemas/Treatment"
           }
-        ]
+        ],
+        "example": {
+          "identifier": "53409478-105f-11e9-ab14-d663bd873d93",
+          "date": 1532936118000,
+          "utcOffset": 120,
+          "carbs": 10,
+          "insulin": 1,
+          "eventType": "Snack Bolus",
+          "app": "xdrip",
+          "subject": "uploader"
+        }
       },
       "Document": {
-        "type": "object",
         "description": "Single document",
+        "xml": {
+          "name": "item"
+        },
+        "type": "object",
+        "oneOf": [
+          {
+            "$ref": "#/components/schemas/DeviceStatus"
+          },
+          {
+            "$ref": "#/components/schemas/Entry"
+          },
+          {
+            "$ref": "#/components/schemas/Food"
+          },
+          {
+            "$ref": "#/components/schemas/Profile"
+          },
+          {
+            "$ref": "#/components/schemas/Settings"
+          },
+          {
+            "$ref": "#/components/schemas/Treatment"
+          }
+        ],
         "example": {
           "identifier": "53409478-105f-11e9-ab14-d663bd873d93",
           "date": 1532936118000,
@@ -1768,69 +1569,46 @@
           "app": "xdrip",
           "subject": "uploader",
           "modifiedBy": "admin"
-        },
-        "xml": {
-          "name": "item"
-        },
-        "oneOf": [
-          {
-            "$ref": "#/components/schemas/DeviceStatus"
-          },
-          {
-            "$ref": "#/components/schemas/Entry"
-          },
-          {
-            "$ref": "#/components/schemas/Food"
-          },
-          {
-            "$ref": "#/components/schemas/Profile"
-          },
-          {
-            "$ref": "#/components/schemas/Settings"
-          },
-          {
-            "$ref": "#/components/schemas/Treatment"
-          }
-        ]
+        }
       },
       "DeviceStatusArray": {
-        "type": "array",
         "description": "Array of documents",
+        "type": "array",
         "items": {
           "$ref": "#/components/schemas/DeviceStatus"
         }
       },
       "EntryArray": {
-        "type": "array",
         "description": "Array of documents",
+        "type": "array",
         "items": {
           "$ref": "#/components/schemas/Entry"
         }
       },
       "FoodArray": {
-        "type": "array",
         "description": "Array of documents",
+        "type": "array",
         "items": {
           "$ref": "#/components/schemas/Food"
         }
       },
       "ProfileArray": {
-        "type": "array",
         "description": "Array of documents",
+        "type": "array",
         "items": {
           "$ref": "#/components/schemas/Profile"
         }
       },
       "SettingsArray": {
-        "type": "array",
         "description": "Array of settings",
+        "type": "array",
         "items": {
           "$ref": "#/components/schemas/Settings"
         }
       },
       "TreatmentArray": {
-        "type": "array",
         "description": "Array of documents",
+        "type": "array",
         "items": {
           "$ref": "#/components/schemas/Treatment"
         }
@@ -1862,6 +1640,7 @@
         ]
       },
       "Version": {
+        "description": "Information about versions",
         "type": "object",
         "properties": {
           "status": {
@@ -1870,33 +1649,45 @@
           "result": {
             "$ref": "#/components/schemas/VersionResult"
           }
-        },
-        "description": "Information about versions"
+        }
       },
       "VersionResult": {
         "type": "object",
         "properties": {
           "version": {
-            "type": "string",
             "description": "The whole Nightscout instance version",
+            "type": "string",
             "example": "0.10.2-release-20171201"
           },
           "apiVersion": {
-            "type": "string",
             "description": "API v3 subsystem version",
+            "type": "string",
             "example": "3.0.0"
           },
           "srvDate": {
-            "type": "number",
             "description": "Actual server date and time in UNIX epoch format",
+            "type": "number",
             "example": 1532936118000
           },
           "storage": {
-            "$ref": "#/components/schemas/VersionResult_storage"
+            "type": "object",
+            "properties": {
+              "storage": {
+                "description": "Type of storage engine used",
+                "type": "string",
+                "example": "mongodb"
+              },
+              "version": {
+                "description": "Version of the storage engine",
+                "type": "string",
+                "example": "4.0.6"
+              }
+            }
           }
         }
       },
       "Status": {
+        "description": "Information about versions and API permissions",
         "properties": {
           "status": {
             "$ref": "#/components/schemas/statusField"
@@ -1904,8 +1695,7 @@
           "result": {
             "$ref": "#/components/schemas/StatusResult"
           }
-        },
-        "description": "Information about versions and API permissions"
+        }
       },
       "StatusResult": {
         "allOf": [
@@ -1916,603 +1706,97 @@
             "type": "object",
             "properties": {
               "apiPermissions": {
-                "$ref": "#/components/schemas/StatusResult_apiPermissions"
+                "type": "object",
+                "properties": {
+                  "devicestatus": {
+                    "type": "string",
+                    "example": "crud"
+                  },
+                  "entries": {
+                    "type": "string",
+                    "example": "r"
+                  },
+                  "food": {
+                    "type": "string",
+                    "example": "crud"
+                  },
+                  "profile": {
+                    "type": "string",
+                    "example": "r"
+                  },
+                  "settings": {
+                    "type": "string",
+                    "example": "r"
+                  },
+                  "treatments": {
+                    "type": "string",
+                    "example": "crud"
+                  }
+                }
               }
             }
           }
         ]
       },
       "LastModifiedResult": {
+        "description": "Result of LAST MODIFIED operation",
         "properties": {
           "srvDate": {
-            "type": "integer",
             "description": "Actual storage server date (Unix epoch in ms).",
+            "type": "integer",
             "format": "int64",
             "example": 1556260878776
           },
           "collections": {
-            "$ref": "#/components/schemas/LastModifiedResult_collections"
-          }
-        },
-        "description": "Result of LAST MODIFIED operation"
-      },
-      "inline_response_200": {
-        "properties": {
-          "status": {
-            "type": "integer",
-            "example": 200
-          },
-          "result": {
-            "$ref": "#/components/schemas/DocumentArray"
-          }
-        }
-      },
-      "inline_response_400": {
-        "properties": {
-          "status": {
-            "type": "integer",
-            "example": 400
-          }
-        }
-      },
-      "inline_response_401": {
-        "properties": {
-          "status": {
-            "type": "integer",
-            "example": 401
-          }
-        }
-      },
-      "inline_response_403": {
-        "properties": {
-          "status": {
-            "type": "integer",
-            "example": 403
-          }
-        }
-      },
-      "inline_response_404": {
-        "properties": {
-          "status": {
-            "type": "integer",
-            "example": 404
-          }
-        }
-      },
-      "inline_response_406": {
-        "properties": {
-          "status": {
-            "type": "integer",
-            "example": 406
-          }
-        }
-      },
-      "inline_response_200_1": {
-        "properties": {
-          "status": {
-            "type": "integer",
-            "example": 200
-          },
-          "identifier": {
-            "$ref": "#/components/schemas/identifierField"
-          },
-          "isDeduplication": {
-            "$ref": "#/components/schemas/isDeduplicationField"
-          },
-          "deduplicatedIdentifier": {
-            "$ref": "#/components/schemas/deduplicatedIdentifierField"
-          }
-        }
-      },
-      "inline_response_201": {
-        "properties": {
-          "status": {
-            "type": "integer",
-            "example": 201
-          },
-          "identifier": {
-            "$ref": "#/components/schemas/identifierField"
-          },
-          "lastModified": {
-            "$ref": "#/components/schemas/lastModifiedField"
-          }
-        }
-      },
-      "inline_response_422": {
-        "properties": {
-          "status": {
-            "type": "integer",
-            "example": 422
-          }
-        }
-      },
-      "inline_response_200_2": {
-        "properties": {
-          "status": {
-            "type": "integer",
-            "example": 200
-          },
-          "result": {
-            "$ref": "#/components/schemas/Document"
-          }
-        }
-      },
-      "inline_response_410": {
-        "properties": {
-          "status": {
-            "type": "integer",
-            "example": 410
-          }
-        }
-      },
-      "inline_response_200_3": {
-        "properties": {
-          "status": {
-            "type": "integer",
-            "example": 200
-          }
-        }
-      },
-      "inline_response_412": {
-        "properties": {
-          "status": {
-            "type": "integer",
-            "example": 412
-          }
-        }
-      },
-      "inline_response_200_4": {
-        "properties": {
-          "status": {
-            "type": "integer",
-            "example": 200
-          },
-          "result": {
-            "$ref": "#/components/schemas/LastModifiedResult"
-          }
-        }
-      },
-      "VersionResult_storage": {
-        "type": "object",
-        "properties": {
-          "type": {
-            "type": "string",
-            "description": "Type of storage engine used",
-            "example": "mongodb"
-          },
-          "version": {
-            "type": "string",
-            "description": "Version of the storage engine",
-            "example": "4.0.6"
-          }
-        }
-      },
-      "StatusResult_apiPermissions": {
-        "type": "object",
-        "properties": {
-          "devicestatus": {
-            "type": "string",
-            "example": "crud"
-          },
-          "entries": {
-            "type": "string",
-            "example": "r"
-          },
-          "food": {
-            "type": "string",
-            "example": "crud"
-          },
-          "profile": {
-            "type": "string",
-            "example": "r"
-          },
-          "treatments": {
-            "type": "string",
-            "example": "crud"
-          }
-        }
-      },
-      "LastModifiedResult_collections": {
-        "type": "object",
-        "properties": {
-          "devicestatus": {
-            "type": "integer",
-            "description": "Timestamp of the last modification (Unix epoch in ms), `null` when there is no timestamp found.",
-            "format": "int64",
-            "example": 1556260760974
-          },
-          "treatments": {
-            "type": "integer",
-            "description": "Timestamp of the last modification (Unix epoch in ms), `null` when there is no timestamp found.",
-            "format": "int64",
-            "example": 1553374184169
-          },
-          "entries": {
-            "type": "integer",
-            "description": "Timestamp of the last modification (Unix epoch in ms), `null` when there is no timestamp found.",
-            "format": "int64",
-            "example": 1556260758768
-          },
-          "profile": {
-            "type": "integer",
-            "description": "Timestamp of the last modification (Unix epoch in ms), `null` when there is no timestamp found.",
-            "format": "int64",
-            "example": 1548524042744
-          }
-        },
-        "description": "Collections which the user have read access to."
-      }
-    },
-    "responses": {
-      "200Ok": {
-        "description": "The request was successfully processed",
-        "content": {
-          "application/json": {
-            "schema": {
-              "$ref": "#/components/schemas/inline_response_200_3"
+            "type": "object",
+            "description": "Collections which the user have read access to.",
+            "properties": {
+              "devicestatus": {
+                "description": "Timestamp of the last modification (Unix epoch in ms), `null` when there is no timestamp found.",
+                "type": "integer",
+                "format": "int64",
+                "example": 1556260760974
+              },
+              "treatments": {
+                "description": "Timestamp of the last modification (Unix epoch in ms), `null` when there is no timestamp found.",
+                "type": "integer",
+                "format": "int64",
+                "example": 1553374184169
+              },
+              "entries": {
+                "description": "Timestamp of the last modification (Unix epoch in ms), `null` when there is no timestamp found.",
+                "type": "integer",
+                "format": "int64",
+                "example": 1556260758768
+              },
+              "profile": {
+                "description": "Timestamp of the last modification (Unix epoch in ms), `null` when there is no timestamp found.",
+                "type": "integer",
+                "format": "int64",
+                "example": 1548524042744
+              },
+              "food": {
+                "description": "Timestamp of the last modification (Unix epoch in ms), `null` when there is no timestamp found.",
+                "type": "integer",
+                "format": "int64",
+                "example": 1548524042744
+              },
+              "settings": {
+                "description": "Timestamp of the last modification (Unix epoch in ms), `null` when there is no timestamp found.",
+                "type": "integer",
+                "format": "int64",
+                "example": 1548524042744
+              }
             }
           }
-        }
-      },
-      "200Deduplication": {
-        "description": "Successfully updated a duplicate document in the collection",
-        "headers": {
-          "Last-Modified": {
-            "$ref": "#/components/schemas/headerLastModified"
-          },
-          "Location": {
-            "$ref": "#/components/schemas/headerLocation"
-          }
-        },
-        "content": {
-          "application/json": {
-            "schema": {
-              "$ref": "#/components/schemas/inline_response_200_1"
-            }
-          }
-        }
-      },
-      "201Created": {
-        "description": "Successfully created a new document in collection",
-        "headers": {
-          "Last-Modified": {
-            "$ref": "#/components/schemas/headerLastModified"
-          }
-        },
-        "content": {
-          "application/json": {
-            "schema": {
-              "$ref": "#/components/schemas/inline_response_201"
-            }
-          }
-        }
-      },
-      "201CreatedLocation": {
-        "description": "Successfully created a new document in collection",
-        "headers": {
-          "Last-Modified": {
-            "$ref": "#/components/schemas/headerLastModified"
-          },
-          "Location": {
-            "$ref": "#/components/schemas/headerLocation"
-          }
-        },
-        "content": {
-          "application/json": {
-            "schema": {
-              "$ref": "#/components/schemas/inline_response_201"
-            }
-          }
-        }
-      },
-      "304NotModified": {
-        "description": "The document has not been modified on the server since timestamp specified in If-Modified-Since header",
-        "headers": {
-          "Last-Modified": {
-            "$ref": "#/components/schemas/headerLastModified"
-          }
-        }
-      },
-      "400BadRequest": {
-        "description": "The request is malformed. There may be some required parameters missing or there are unrecognized parameters present.",
-        "content": {
-          "application/json": {
-            "schema": {
-              "$ref": "#/components/schemas/inline_response_400"
-            }
-          }
-        }
-      },
-      "401Unauthorized": {
-        "description": "The request was not successfully authenticated using JWT, so that the request cannot continue due to the security policy.",
-        "content": {
-          "application/json": {
-            "schema": {
-              "$ref": "#/components/schemas/inline_response_401"
-            }
-          }
-        }
-      },
-      "403Forbidden": {
-        "description": "Insecure HTTP scheme used or the request has been successfully authenticated, but the security subject is not authorized for the operation.",
-        "content": {
-          "application/json": {
-            "schema": {
-              "$ref": "#/components/schemas/inline_response_403"
-            }
-          }
-        }
-      },
-      "404NotFound": {
-        "description": "The collection or document specified was not found.",
-        "content": {
-          "application/json": {
-            "schema": {
-              "$ref": "#/components/schemas/inline_response_404"
-            }
-          }
-        }
-      },
-      "406NotAcceptable": {
-        "description": "The requested content type (in `Accept` header) is not supported.",
-        "content": {
-          "application/json": {
-            "schema": {
-              "$ref": "#/components/schemas/inline_response_406"
-            }
-          }
-        }
-      },
-      "412PreconditionFailed": {
-        "description": "The document has already been modified on the server since specified timestamp (in If-Unmodified-Since header).",
-        "content": {
-          "application/json": {
-            "schema": {
-              "$ref": "#/components/schemas/inline_response_412"
-            }
-          }
-        }
-      },
-      "410Gone": {
-        "description": "The requested document has already been deleted.",
-        "content": {
-          "application/json": {
-            "schema": {
-              "$ref": "#/components/schemas/inline_response_410"
-            }
-          }
-        }
-      },
-      "422UnprocessableEntity": {
-        "description": "The client request is well formed but a server validation error occured. Eg. when trying to modify or delete a read-only document (having `isReadOnly=true`).",
-        "content": {
-          "application/json": {
-            "schema": {
-              "$ref": "#/components/schemas/inline_response_422"
-            }
-          }
-        }
-      },
-      "search200": {
-        "description": "Successful operation returning array of documents matching the filtering criteria",
-        "content": {
-          "application/json": {
-            "schema": {
-              "$ref": "#/components/schemas/inline_response_200"
-            }
-          },
-          "text/csv": {
-            "schema": {
-              "$ref": "#/components/schemas/DocumentArray"
-            }
-          },
-          "application/xml": {
-            "schema": {
-              "$ref": "#/components/schemas/DocumentArray"
-            }
-          }
-        }
-      },
-      "read200": {
-        "description": "The document has been succesfully found and its JSON form returned in the response content.",
-        "headers": {
-          "Last-Modified": {
-            "$ref": "#/components/schemas/headerLastModified"
-          }
-        },
-        "content": {
-          "application/json": {
-            "schema": {
-              "$ref": "#/components/schemas/inline_response_200_2"
-            }
-          },
-          "text/csv": {
-            "schema": {
-              "$ref": "#/components/schemas/Document"
-            }
-          },
-          "application/xml": {
-            "schema": {
-              "$ref": "#/components/schemas/Document"
-            }
-          }
-        }
-      },
-      "history200": {
-        "description": "Changed documents since specified timestamp",
-        "headers": {
-          "Last-Modified": {
-            "$ref": "#/components/schemas/headerLastModifiedMaximum"
-          },
-          "ETag": {
-            "$ref": "#/components/schemas/headerEtagLastModifiedMaximum"
-          }
-        },
-        "content": {
-          "application/json": {
-            "schema": {
-              "$ref": "#/components/schemas/inline_response_200"
-            }
-          },
-          "text/csv": {
-            "schema": {
-              "$ref": "#/components/schemas/DocumentArray"
-            }
-          },
-          "application/xml": {
-            "schema": {
-              "$ref": "#/components/schemas/DocumentArray"
-            }
-          }
-        }
-      },
-      "lastModified200": {
-        "description": "Successful operation returning the timestamps",
-        "content": {
-          "application/json": {
-            "schema": {
-              "$ref": "#/components/schemas/inline_response_200_4"
-            }
-          }
-        }
-      }
-    },
-    "parameters": {
-      "limitParam": {
-        "name": "limit",
-        "in": "query",
-        "description": "Maximum number of documents to get in result array",
-        "required": false,
-        "style": "form",
-        "explode": true,
-        "schema": {
-          "minimum": 1,
-          "type": "integer",
-          "example": 100
-        }
-      },
-      "skipParam": {
-        "name": "skip",
-        "in": "query",
-        "description": "Number of documents to skip from collection query before loading them into result array (used for pagination)",
-        "required": false,
-        "style": "form",
-        "explode": true,
-        "schema": {
-          "minimum": 0,
-          "type": "integer",
-          "example": 0,
-          "default": 0
-        }
-      },
-      "sortParam": {
-        "name": "sort",
-        "in": "query",
-        "description": "Field name by which the sorting of documents is performed. This parameter cannot be combined with `sort$desc` parameter.",
-        "required": false,
-        "style": "form",
-        "explode": true,
-        "schema": {
-          "type": "string"
-        }
-      },
-      "sortDescParam": {
-        "name": "sort$desc",
-        "in": "query",
-        "description": "Field name by which the descending (reverse) sorting of documents is performed. This parameter cannot be combined with `sort` parameter.",
-        "required": false,
-        "style": "form",
-        "explode": true,
-        "schema": {
-          "type": "string"
-        }
-      },
-      "permanentParam": {
-        "name": "permanent",
-        "in": "query",
-        "description": "If true, the deletion will be irreversible and it will not appear in `HISTORY` operation. Normally there is no reason for setting this flag.",
-        "required": false,
-        "style": "form",
-        "explode": true,
-        "schema": {
-          "type": "boolean"
-        }
-      },
-      "fieldsParam": {
-        "name": "fields",
-        "in": "query",
-        "description": "A chosen set of fields to return in response. Either you can enumerate specific fields of interest or use the predefined set. Sample parameter values&#58;\n\n_all&#58; All fields will be returned (default value)\n\ndate,insulin&#58; Only fields `date` and `insulin` will be returned",
-        "required": false,
-        "style": "form",
-        "explode": true,
-        "schema": {
-          "type": "string",
-          "default": "_all"
-        },
-        "examples": {
-          "all": {
-            "summary": "All fields will be returned (default behaviour)",
-            "value": "_all"
-          },
-          "customSet": {
-            "summary": "Only fields date and insulin will be returned",
-            "value": "date,insulin"
-          }
-        }
-      },
-      "filterParams": {
-        "name": "filter_parameters",
-        "in": "query",
-        "description": "Any number of filtering operators.\n\nEach filtering operator has name like `<field-name>$<operator>`, e.g. `carbs$gt=2` which represents filtering rule \"The field carbs must be present and greater than 2\".\n\nYou can choose from operators&#58;\n\n`eq`=equals, `insulin$eq=1.5`\n\n`ne`=not equals, `insulin$ne=1.5`\n\n`gt`=greater than, `carbs$gt=30`\n\n`gte`=greater than or equal, `carbs$gte=30`\n\n`lt`=less than, `carbs$lt=30`\n\n`lte`=less than or equal, `carbs$lte=30`\n\n`in`=in specified set, `type$in=sgv|mbg|cal`\n\n`nin`=not in specified set, `eventType$nin=Temp%20Basal|Temporary%20Target`\n\n`re`=regex pattern, `eventType$re=Temp.%2A`\n\nWhen filtering by field `date`, `created_at`, `srvModified` or `srvCreated`, you can choose from three input formats\n- Unix epoch in milliseconds (1525383610088)\n- Unix epoch in seconds (1525383610)\n- ISO 8601 with optional timezone ('2018-05-03T21:40:10.088Z' or '2018-05-03T23:40:10.088+02:00')\n\nThe date is always queried in a normalized form - UTC with zero offset and with the correct format (1525383610088 for `date`, '2018-05-03T21:40:10.088Z' for `created_at`).",
-        "required": false,
-        "style": "spaceDelimited",
-        "explode": false,
-        "schema": {
-          "type": "array",
-          "items": {
-            "type": "string"
-          }
-        }
-      },
-      "lastModifiedRequiredHeader": {
-        "name": "Last-Modified",
-        "in": "header",
-        "description": "Starting timestamp (defined with respect to server's clock) since which the changes in documents are to be listed, formatted as&#58;\n\n&lt;day-name&gt;, &lt;day&gt; &lt;month&gt; &lt;year&gt; &lt;hour&gt;&#58;&lt;minute&gt;&#58;&lt;second&gt; GMT\n\nExample&#58;\n\n<pre>Last-Modified&#58; Wed, 17 Oct 2018 05&#58;13&#58;00 GMT</pre>",
-        "required": true,
-        "style": "simple",
-        "explode": false,
-        "schema": {
-          "type": "string"
-        }
-      },
-      "ifModifiedSinceHeader": {
-        "name": "If-Modified-Since",
-        "in": "header",
-        "description": "Timestamp (defined with respect to server's clock) of the last document modification formatted as&#58;\n\n&lt;day-name&gt;, &lt;day&gt; &lt;month&gt; &lt;year&gt; &lt;hour&gt;&#58;&lt;minute&gt;&#58;&lt;second&gt; GMT\n\nIf this header is present, the operation will compare its value with the srvModified timestamp of the document at first and the operation result then may differ. The srvModified timestamp was defined by server's clock.\n\nExample&#58;\n\n<pre>If-Modified-Since&#58; Wed, 17 Oct 2018 05&#58;13&#58;00 GMT</pre>",
-        "required": false,
-        "style": "simple",
-        "explode": false,
-        "schema": {
-          "type": "string"
-        }
-      },
-      "ifUnmodifiedSinceHeader": {
-        "name": "If-Unmodified-Since",
-        "in": "header",
-        "description": "Timestamp (defined with respect to server's clock) of the last document modification formatted as&#58;\n\n&lt;day-name&gt;, &lt;day&gt; &lt;month&gt; &lt;year&gt; &lt;hour&gt;&#58;&lt;minute&gt;&#58;&lt;second&gt; GMT\n\nIf this header is present, the operation will compare its value with the srvModified timestamp of the document at first and the operation result then may differ. The srvModified timestamp was defined by server's clock.\n\nExample&#58;\n\n<pre>If-Unmodified-Since&#58; Wed, 17 Oct 2018 05&#58;13&#58;00 GMT</pre>",
-        "required": false,
-        "style": "simple",
-        "explode": false,
-        "schema": {
-          "type": "string"
         }
       }
     },
     "securitySchemes": {
       "jwtoken": {
         "type": "http",
-        "description": "Use this if you know the temporary json webtoken.",
         "scheme": "bearer",
+        "description": "A JWT issued for an access token by `GET /api/v2/authorization/request/{accessToken}`. API v3 accepts only this; the `API_SECRET` and access tokens themselves are refused with 401. Every operation except VERSION needs it unless `API3_SECURITY_ENABLE` is turned off.",
         "bearerFormat": "JWT"
       }
     }

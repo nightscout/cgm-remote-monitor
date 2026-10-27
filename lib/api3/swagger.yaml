@@ -52,6 +52,9 @@ paths:
         3) paging - using `limit` and `skip` parameters
 
 
+        Without `sort` or `sort$desc`, documents are returned in ascending order of `identifier`, then `created_at`, `date` and the internal `_id`; those keys also break ties after a requested sort field. The query parameter names `token`, `sort`, `sort$desc`, `limit`, `skip`, `fields` and `now` are not filters.
+
+
         If successful, HTTP 200 code is returned with JSON array of matching documents as a response content (it may be empty).
 
 
@@ -92,6 +95,7 @@ paths:
       tags:
         - generic
       summary: 'CREATE: Inserts a new document into the collection'
+      operationId: CREATE
       description:
         Using this operation you can insert new documents into collection. Normally the operation ends with 201 HTTP status code, `Last-Modified` and `Location` headers specified.
         `identifier` is included in response body or it can be parsed from the `Location` response header.
@@ -156,6 +160,7 @@ paths:
       tags:
         - generic
       summary: 'READ: Retrieves a single document from the collection'
+      operationId: READ
       description:
         Basically this operation looks for a document matching the `identifier` field returning 200 or 404 HTTP status code.
 
@@ -198,6 +203,7 @@ paths:
       tags:
         - generic
       summary: 'UPDATE: Updates a document in the collection'
+      operationId: UPDATE
       description:
         Normally the document with the matching `identifier` will be replaced in the collection by the whole JSON request body and 200 HTTP status code will be returned.
 
@@ -232,7 +238,7 @@ paths:
 
       responses:
         200:
-          $ref: '#/components/responses/200Ok'
+          $ref: '#/components/responses/200Updated'
         201:
           $ref: '#/components/responses/201Created'
         400:
@@ -256,6 +262,7 @@ paths:
       tags:
         - generic
       summary: 'PATCH: Partially updates document in the collection'
+      operationId: PATCH
       description:
         Normally the document with the matching `identifier` will be retrieved from the collection and it will be patched by all specified fields from the JSON request body. Finally 200 HTTP status code will be returned.
 
@@ -305,6 +312,8 @@ paths:
           $ref: '#/components/responses/403Forbidden'
         404:
           $ref: '#/components/responses/404NotFound'
+        409:
+          $ref: '#/components/responses/409Conflict'
         410:
           $ref: '#/components/responses/410Gone'
         412:
@@ -318,6 +327,7 @@ paths:
       tags:
         - generic
       summary: 'DELETE: Deletes a document from the collection'
+      operationId: DELETE
       description:
         If the document has already been deleted, the operation will succeed anyway. Normally, documents are not really deleted from the collection but they are only marked as deleted. For special cases the deletion can be irreversible using `permanent` parameter.
 
@@ -465,7 +475,9 @@ paths:
       tags:
         - other
       summary: 'VERSION: Returns actual version information'
-      description: No authentication is needed for this commnad (it is public)
+      operationId: VERSION
+      description: No authentication is needed for this command (it is public)
+      security: []
       responses:
         200:
           description: Successful response
@@ -482,6 +494,7 @@ paths:
       tags:
         - other
       summary: 'STATUS: Returns actual version information and all permissions granted for API'
+      operationId: STATUS
       description:
         This operation requires authorization in contrast with VERSION operation.
 
@@ -538,9 +551,13 @@ components:
       schema:
         type: integer
         minimum: 1
-        default: stored in API3_MAX_LIMIT environment variable (usually 1000)
+        maximum: 1000
+        default: 1000
         example: 100
-      description: Maximum number of documents to get in result array
+      description:
+        Maximum number of documents to get in result array. The default and the largest value
+        accepted are `API3_MAX_LIMIT` (1000 unless set). `0`, a value above the maximum, or
+        anything that is not a whole number is refused with 400.
 
     skipParam:
       in: query
@@ -737,13 +754,28 @@ components:
                 type: integer
                 example: 200
 
+    200Updated:
+      description: The document was replaced
+      headers:
+        'Last-Modified':
+          $ref: '#/components/headers/LastModified'
+      content:
+        application/json:
+          schema:
+            properties:
+              status:
+                type: integer
+                example: 200
+              lastModified:
+                $ref: '#/components/schemas/lastModifiedField'
+
     200Deduplication:
       description: Successfully updated a duplicate document in the collection
       headers:
         'Last-Modified':
-          $ref: '#/components/schemas/headerLastModified'
+          $ref: '#/components/headers/LastModified'
         'Location':
-          $ref: '#/components/schemas/headerLocation'
+          $ref: '#/components/headers/Location'
       content:
         application/json:
           schema:
@@ -753,6 +785,8 @@ components:
                 example: 200
               identifier:
                 $ref: '#/components/schemas/identifierField'
+              lastModified:
+                $ref: '#/components/schemas/lastModifiedField'
               isDeduplication:
                 $ref: '#/components/schemas/isDeduplicationField'
               deduplicatedIdentifier:
@@ -763,7 +797,7 @@ components:
       description: Successfully created a new document in collection
       headers:
         'Last-Modified':
-          $ref: '#/components/schemas/headerLastModified'
+          $ref: '#/components/headers/LastModified'
       content:
         application/json:
           schema:
@@ -780,9 +814,9 @@ components:
       description: Successfully created a new document in collection
       headers:
         'Last-Modified':
-          $ref: '#/components/schemas/headerLastModified'
+          $ref: '#/components/headers/LastModified'
         'Location':
-          $ref: '#/components/schemas/headerLocation'
+          $ref: '#/components/headers/Location'
       content:
         application/json:
           schema:
@@ -799,7 +833,7 @@ components:
       description: The document has not been modified on the server since timestamp specified in If-Modified-Since header
       headers:
         'Last-Modified':
-          $ref: '#/components/schemas/headerLastModified'
+          $ref: '#/components/headers/LastModified'
 
     400BadRequest:
       description: The request is malformed. There may be some required parameters missing or there are unrecognized parameters present.
@@ -822,7 +856,7 @@ components:
                 example: 401
 
     403Forbidden:
-      description: Insecure HTTP scheme used or the request has been successfully authenticated, but the security subject is not authorized for the operation.
+      description: The request has been successfully authenticated, but the security subject is not authorized for the operation.
       content:
         application/json:
           schema:
@@ -850,6 +884,16 @@ components:
               status:
                 type: integer
                 example: 406
+
+    409Conflict:
+      description: A treatment changed while the patch was being validated (with `WRITE_VALIDATION` checks); retry the request.
+      content:
+        application/json:
+          schema:
+            properties:
+              status:
+                type: integer
+                example: 409
 
     412PreconditionFailed:
       description: The document has already been modified on the server since specified timestamp (in If-Unmodified-Since header).
@@ -883,6 +927,9 @@ components:
 
     search200:
       description: Successful operation returning array of documents matching the filtering criteria
+      headers:
+        'Nightscout-Data-Warnings':
+          $ref: '#/components/headers/DataWarnings'
       content:
         application/json:
           schema:
@@ -918,7 +965,9 @@ components:
             $ref: '#/components/schemas/Document'
       headers:
         'Last-Modified':
-          $ref: '#/components/schemas/headerLastModified'
+          $ref: '#/components/headers/LastModified'
+        'Nightscout-Data-Warnings':
+          $ref: '#/components/headers/DataWarnings'
 
     history200:
       description:
@@ -940,9 +989,11 @@ components:
             $ref: '#/components/schemas/DocumentArray'
       headers:
         'Last-Modified':
-          $ref: '#/components/schemas/headerLastModifiedMaximum'
+          $ref: '#/components/headers/LastModifiedMaximum'
         'ETag':
-          $ref: '#/components/schemas/headerEtagLastModifiedMaximum'
+          $ref: '#/components/headers/EtagLastModifiedMaximum'
+        'Nightscout-Data-Warnings':
+          $ref: '#/components/headers/DataWarnings'
 
     lastModified200:
       description: Successful operation returning the timestamps
@@ -957,45 +1008,48 @@ components:
                 $ref: '#/components/schemas/LastModifiedResult'
 
 
+  headers:
+
+    Location:
+      description:
+        Location of the document, the relative part of the URL. The identifier
+        of a created document can be parsed from it, e.g. /api/v3/treatments/53409478-105f-11e9-ab14-d663bd873d93
+      schema:
+        type: string
+
+    LastModified:
+      description:
+        Server time of the document's last modification (insertion, update or deletion by API v3),
+        as an HTTP date such as `Wed, 17 Oct 2018 05:13:00 GMT`.
+      schema:
+        type: string
+
+    LastModifiedMaximum:
+      description:
+        The latest (maximum) `srvModified` of the returned documents, as an HTTP date such as
+        `Wed, 17 Oct 2018 05:13:00 GMT`. Absent when no returned document has a valid `srvModified`,
+        for example when the result is empty.
+      schema:
+        type: string
+
+    EtagLastModifiedMaximum:
+      description:
+        The latest (maximum) `srvModified` of the returned documents, with milliseconds
+        (unlike `Last-Modified`), e.g. `W/"1525383610088"`. Absent when `Last-Modified` is.
+      schema:
+        type: string
+
+    DataWarnings:
+      description:
+        Experimental, sent only when `API_V3_DATA_WARNINGS` is on (see the README). Counts of
+        stored-data rules the returned documents break, as `rule=count, ...`; no identifiers or
+        values. The header's form is not settled and may change.
+      schema:
+        type: string
+
+
   ######################################################################################
   schemas:
-
-    headerLocation:
-      type: string
-      description:
-        Location of document - the relative part of URL. This can be used to parse the identifier
-        of just created document.
-
-        Example=/api/v3/treatments/53409478-105f-11e9-ab14-d663bd873d93
-
-    headerLastModified:
-      type: string
-      description:
-          Timestamp of the last document modification on the server, formatted as
-
-            '<day-name>, <day> <month> <year> <hour>:<minute>:<second> GMT'.
-
-            This field is relevant only for documents which were somehow modified by API v3
-            (inserted, updated or deleted) and it was generated using server's clock.
-
-            Example='Wed, 17 Oct 2018 05:13:00 GMT'
-
-    headerLastModifiedMaximum:
-      type: string
-      description:
-          The latest (maximum) `srvModified` field of all returning documents, formatted as
-
-            '<day-name>, <day> <month> <year> <hour>:<minute>:<second> GMT'.
-
-            Example='Wed, 17 Oct 2018 05:13:00 GMT'
-
-    headerEtagLastModifiedMaximum:
-      type: string
-      description:
-        The latest (maximum) `srvModified` field of all returning documents.
-        This header does not loose milliseconds from the date (unlike the `Last-Modified` header).
-
-        Example='W/"1525383610088"'
 
     paramCollection:
       type: string
@@ -1047,7 +1101,8 @@ components:
     deduplicatedIdentifierField:
       type: string
       description:
-        The original document that has been marked as a duplicate document and which has been updated
+        Identifier of the stored document that was updated, present only when it differs from
+        the identifier sent (a match made by the fallback deduplication rules)
       example: 'abc09478-105f-11e9-ab14-d663bd873d93'
 
 
@@ -1592,7 +1647,7 @@ components:
           type: object
           properties:
 
-            type:
+            storage:
               description: Type of storage engine used
               type: string
               example: 'mongodb'
@@ -1632,6 +1687,9 @@ components:
                   type: string
                   example: 'crud'
                 profile:
+                  type: string
+                  example: 'r'
+                settings:
                   type: string
                   example: 'r'
                 treatments:
@@ -1677,6 +1735,18 @@ components:
               type: integer
               format: int64
               example: 1548524042744
+            food:
+              description:
+                Timestamp of the last modification (Unix epoch in ms), `null` when there is no timestamp found.
+              type: integer
+              format: int64
+              example: 1548524042744
+            settings:
+              description:
+                Timestamp of the last modification (Unix epoch in ms), `null` when there is no timestamp found.
+              type: integer
+              format: int64
+              example: 1548524042744
 
   ######################################################################################
   securitySchemes:
@@ -1684,5 +1754,8 @@ components:
     jwtoken:
       type: http
       scheme: bearer
-      description: Use this if you know the temporary json webtoken.
+      description:
+        A JWT issued for an access token by `GET /api/v2/authorization/request/{accessToken}`.
+        API v3 accepts only this; the `API_SECRET` and access tokens themselves are refused with 401.
+        Every operation except VERSION needs it unless `API3_SECURITY_ENABLE` is turned off.
       bearerFormat: JWT
