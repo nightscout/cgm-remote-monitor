@@ -110,16 +110,26 @@ describe('API3: edits by the id shown for a record with an empty identifier', fu
         replaced.identifier.should.equal(_id.toHexString());
       });
 
-      it(colName + ': POST with the shown id as identifier updates the record with identifier ' + shape.label, async () => {
+      // A device status re-sent with the identifier it is shown under is
+      // acknowledged and not rewritten (ID-SIMPLE-MATCH, devicestatus option
+      // (b), decided 2026-10-26); other collections are updated.
+      const updates = colName !== 'devicestatus';
+      it(colName + ': POST with the shown id as identifier ' + (updates ? 'updates' : 'is acknowledged and leaves') + ' the record with identifier ' + shape.label, async () => {
         const _id = await seed(colName, n + 2, { identifier: shape.value, notes: 'before post ' + n });
 
-        await self.instance.post('/api/v3/' + colName, self.jwt.all)
+        const res = await self.instance.post('/api/v3/' + colName, self.jwt.all)
           .send(v3Doc(colName, n + 2, { identifier: _id.toHexString(), notes: 'post ' + n }))
           .expect(200);
+        res.body.isDeduplication.should.equal(true);
 
         (await colFor(colName).countDocuments({ notes: { $in: ['before post ' + n, 'post ' + n] } }))
           .should.equal(1, 'one record after the POST');
-        (await colFor(colName).findOne({ _id })).notes.should.equal('post ' + n);
+        const stored = await colFor(colName).findOne({ _id });
+        stored.notes.should.equal(updates ? 'post ' + n : 'before post ' + n);
+        if (!updates) {
+          Object.is(stored.identifier, shape.value).should.equal(true, 'identifier kept as stored');
+          res.body.identifier.should.equal(_id.toHexString());
+        }
       });
     });
   });
