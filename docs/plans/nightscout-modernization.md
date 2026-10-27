@@ -368,6 +368,9 @@ the merged env-cmd replacement, this completes the M24 implementation decision.
 Revisit when Node provides equivalent portable watch/ignore behavior or the
 project explicitly changes its development restart contract. No production
 runtime or memory improvement is claimed for retaining a development tool.
+From 2026-10-27 nodemon watches an allowlist of the paths the server loads,
+which cuts its Linux file watches from 1,502 to 385
+([addendum](../test-specs/development-watch.md#addendum-2026-10-27-watch-an-allowlist-keep-nodemon)).
 
 ### M09 CSV dependency review
 
