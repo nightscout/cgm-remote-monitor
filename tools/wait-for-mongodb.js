@@ -6,9 +6,11 @@
 // returns without waiting for it. When mongod never came up, every database
 // test failed in its before-all hook instead (212 failing in 47 minutes,
 // pull_request run 40532337252). This fails within about 90 seconds, with the
-// container's log.
+// container's log and the runner's kernel: MongoDB 8.0 refuses to start on
+// Linux 6.19 and newer (SERVER-121912), and only some hosted runners have it.
 
 const { execFileSync } = require('node:child_process');
+const os = require('node:os');
 const { MongoClient } = require('mongodb');
 
 const URL = process.env.WAIT_MONGODB_URL || 'mongodb://127.0.0.1:27017/';
@@ -39,7 +41,8 @@ async function main () {
   for (let attempt = 1; attempt <= ATTEMPTS; attempt++) {
     try {
       const version = await ping();
-      console.log('MongoDB ' + version + ' answers at ' + URL + ' (attempt ' + attempt + ')');
+      console.log('MongoDB ' + version + ' answers at ' + URL + ' (attempt ' + attempt + '); runner kernel '
+        + os.type() + ' ' + os.release());
       return 0;
     } catch (err) {
       last = err;
@@ -47,6 +50,7 @@ async function main () {
     }
   }
   console.error('MongoDB did not answer at ' + URL + ' after ' + ATTEMPTS + ' attempts: ' + (last && last.message));
+  console.error('Runner kernel: ' + os.type() + ' ' + os.release());
   console.error(containerLog());
   return 1;
 }
