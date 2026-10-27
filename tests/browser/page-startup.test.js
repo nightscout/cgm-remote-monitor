@@ -52,10 +52,12 @@ describe('Complete page template startup', function () {
     // Use a native document origin for navigation with in-flight polling.
     // All routes are finite owned responses; CSP bounds subresource traffic.
     const context = await getBrowser().newContext({serviceWorkers, acceptDownloads: false});
-    const external = [], errors = [], messages = [];
+    const external = [], errors = [], messages = [], errorPages = [];
     context.on('console', message => {messages.push(message.text()); if (messages.length > 30) messages.shift();});
     context.on('request', request => {if (new URL(request.url()).origin !== origin) external.push(request.url());});
-    context.on('page', page => page.on('pageerror', error => errors.push(error.message)));
+    // Which document an error came from, for a failure that does not
+    // reproduce locally (WebKit's "due to access control checks").
+    context.on('page', page => page.on('pageerror', error => {errors.push(error.message); errorPages.push(page.url());}));
     try {
       const page = await context.newPage();
       page.setDefaultTimeout(5000);
@@ -63,7 +65,11 @@ describe('Complete page template startup', function () {
       await run({page});
       assert.deepEqual(external, [], 'Unexpected external request');
       assert.deepEqual(errors, [], 'Uncaught browser errors');
-    } catch (error) {error.message += '\nBrowser messages: ' + JSON.stringify(messages); throw error;}
+    } catch (error) {
+      error.message += '\nBrowser messages: ' + JSON.stringify(messages);
+      if (errorPages.length) error.message += '\nError pages: ' + JSON.stringify([...new Set(errorPages)]);
+      throw error;
+    }
     finally {await context.close();}
   }
 
@@ -306,6 +312,8 @@ describe('Complete page template startup', function () {
         stage = 'first controlled navigation';
         await page.goto(origin + '/report/');
         await page.waitForFunction(() => !!navigator.serviceWorker.controller);
+        // This visit, too, leaves /report/ next: wait for its first report.
+        await page.waitForFunction(readyEntry, 'reports');
         stage = 'first visits';
         for (const [url, , , entry] of pages) {
           await page.goto(origin + url);
