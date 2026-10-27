@@ -244,7 +244,7 @@ describe('Complete page template startup', function () {
       await page.goto(origin);
       await page.waitForFunction(() => document.querySelector('.currentBG').textContent.trim() === '123');
       try {
-        for (const [id, pathname] of [['reportlink', '/report'], ['editprofilelink', '/profile'], ['editfoodlink', '/food'], ['admintoolslink', '/admin']]) {
+        for (const [id, pathname, entry] of [['reportlink', '/report', 'reports'], ['editprofilelink', '/profile', 'profile'], ['editfoodlink', '/food', 'food'], ['admintoolslink', '/admin', 'admin']]) {
           await page.locator('#drawerToggle').click();
           const [opened, clicked] = await Promise.allSettled([page.waitForEvent('popup'), page.locator('#' + id).click()]);
           assert.equal(clicked.status, 'fulfilled', id + ': ' + (clicked.reason && clicked.reason.message));
@@ -255,6 +255,10 @@ describe('Complete page template startup', function () {
             await child.waitForFunction(() => window.Nightscout && window.Nightscout.client.socket && window.Nightscout.client.socket.connected);
             assert.equal(new URL(child.url()).pathname.replace(/\/$/, ''), pathname);
             assert.equal(await child.locator('#page-load-error').isVisible(), false);
+            // Leave each page only once it has loaded what it fetches on
+            // arrival (readyEntry): WebKit fails a navigation away from the
+            // reports page while its first report is still loading.
+            await child.waitForFunction(readyEntry, entry);
             await child.locator('.closeButton').click();
             await child.waitForFunction(() => document.querySelector('.currentBG') && document.querySelector('.currentBG').textContent.trim() === '123');
             assert.equal(new URL(child.url()).pathname, '/');
@@ -265,6 +269,7 @@ describe('Complete page template startup', function () {
                 window.Nightscout.client.socket.timeout(3000).emit('startup-probe', (error, data) => error ? reject(error) : resolve(data));
               }));
               assert.deepEqual(reply, {glucose: 123}, 'Back navigation restores a live data connection');
+              await child.waitForFunction(readyEntry, entry);
               await child.goForward();
               await child.waitForFunction(() => document.querySelector('.currentBG') && document.querySelector('.currentBG').textContent.trim() === '123');
             }
