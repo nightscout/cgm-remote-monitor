@@ -32,6 +32,7 @@ describe('glucosedistribution report', function distributionReportTests () {
   // Stands in for a profile whose time zone is UTC. It must not use the
   // machine's zone, or the selected hours move with TZ (BF-177).
   var utcProfile = {
+    parseInTimezone: function parseInTimezone (value) { return moment.utc(value); },
     applyTimezone: function applyTimezone (value) { return moment(value).utc(); }
   };
 
@@ -94,6 +95,20 @@ describe('glucosedistribution report', function distributionReportTests () {
       , displayTime: new Date(Date.parse('2025-01-01T00:00:00.000Z') + minute * 60 * 1000)
     };
   }
+
+  it('updates the pentagon when hours and distribution ranges change', function () {
+    var records = Array.from({length: 288}, function (_, index) { return reading(index * 5, index < 144 ? 60 : 200); });
+    renderReport(records);
+    var score = $('.gd-pentagon-score').text();
+    score.should.match(/^PGR: /);
+    $('#glucosedistribution-rangemode-tight').prop('checked', true).trigger('change');
+    $('.gd-pentagon-score').text().should.equal(score);
+    $('#glucosedistribution-0').trigger('click');
+    $('.gd-pentagon-score').length.should.equal(0);
+    $('.gd-pentagon-message').text().should.match(/all 24 hours/);
+    $('#glucosedistribution-0').trigger('click');
+    $('.gd-pentagon-score').text().should.equal(score);
+  });
 
   [
     { first: 54, label: 'Low', average: '99.8', name: 'low' }
