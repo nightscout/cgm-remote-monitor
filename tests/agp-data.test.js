@@ -36,6 +36,14 @@ describe('AGP calendar data and coverage', function () {
     assert.equal(result.data[0].minute, 60);
     assert.equal(result.data.length, 276);
   });
+  it('retains simultaneous readings only when explicitly requested', function () {
+    const at = Date.UTC(2026, 9, 1);
+    const data = [record(at, 100), record(at, 200)];
+    const normal = model.prepare(data, ['2026-10-01'], profile('UTC'), moment);
+    const simultaneous = model.prepare(data, ['2026-10-01'], profile('UTC'), moment, {preserveSimultaneous: true});
+    assert.equal(normal.data.length, 1);
+    assert.deepEqual(simultaneous.data.map(row => row.bgValue), [100, 200]);
+  });
   it('does not count a twelve-hour absence as CGM coverage', function () {
     const start = Date.UTC(2026, 9, 1);
     const result = model.prepare([record(start), record(start + 12 * 60 * minute)], ['2026-10-01'], profile('UTC'), moment);
