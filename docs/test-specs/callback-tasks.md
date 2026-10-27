@@ -9,7 +9,10 @@ The helper preserves ordered results, synchronous and empty completion,
 multiple callback values, sequential writes and the ten-handler voice limit.
 It avoids a Promise per task and handles 10,000 synchronous sequential items
 without recursive stack growth. The first error completes once and stops
-unscheduled tasks; already running tasks are not cancelled. Duplicate task
+unscheduled tasks; already running tasks are not cancelled. A task that throws
+synchronously stops the run as `async` did: the error reaches the caller, no
+later task starts, and completion is not reported when an earlier task calls
+back. Duplicate task
 callbacks throw rather than advancing the queue twice.
 
 Two intentional corrections accompany the replacement:
