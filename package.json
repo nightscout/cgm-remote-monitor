@@ -55,6 +55,7 @@
     "dev-test": "node bin/with-env.js ./my.devtest.env node_modules/nodemon/bin/nodemon.js --inspect lib/server/server.js 0.0.0.0",
     "prod": "node bin/with-env.js ./my.prod.env lib/server/server.js 0.0.0.0",
     "lint": "eslint lib",
+    "swagger:json": "node scripts/swagger-json.js",
     "test:flaky": "node scripts/flaky-test-runner.js",
     "test:flaky:quick": "FLAKY_TEST_ITERATIONS=3 node scripts/flaky-test-runner.js",
     "test:flaky:thorough": "FLAKY_TEST_ITERATIONS=20 node scripts/flaky-test-runner.js",
@@ -80,10 +81,12 @@
     "nightscout": "bin/nightscout.js"
   },
   "nodemonConfig": {
-    "ignore": [
-      "tests/*",
-      "node_modules/*",
-      "bin/*"
+    "watch": [
+      "lib",
+      "views",
+      "translations",
+      "webpack",
+      "package.json"
     ]
   },
   "config": {

@@ -100,6 +100,12 @@ describe('API3 mongoCollection promise-based helpers', function () {
           observed.limit = value;
           return this;
         },
+        // A real driver cursor has skip(); the mock lacked it because the old
+        // getLastModified never called it. findMany does, with 0.
+        skip: function (value) {
+          observed.skip = value;
+          return this;
+        },
         project: function (projection) {
           observed.projection = projection;
           return this;
@@ -113,8 +119,17 @@ describe('API3 mongoCollection promise-based helpers', function () {
 
     function createStorage (observed, docs) {
       const col = {
-        find: function () {
-          arguments.length.should.equal(0);
+        // EXPECTATION CHANGED. This asserted find() received no arguments,
+        // which pinned how getLastModified built its cursor rather than what it
+        // returns. It now goes through the storage interface's findMany, which
+        // passes an explicit empty filter and the shared read options
+        // (lib/storage/mongo-read-options.js, a batch size). col.find() and
+        // col.find({}) select the same documents, and a batch size does not
+        // change a limit-1 result, so this asserts both instead: the filter is
+        // unrestricted, and the options are exactly the shared ones.
+        find: function (filter, options) {
+          observed.findFilter = filter;
+          observed.findOptions = options;
           observed.findCalls = (observed.findCalls || 0) + 1;
           return createCursor(observed, docs);
         }
@@ -165,7 +180,10 @@ describe('API3 mongoCollection promise-based helpers', function () {
       const lastModified = await storage.getLastModified('srvModified');
 
       observed.findCalls.should.equal(1);
+      observed.findFilter.should.eql({});
+      observed.findOptions.should.equal(require('../lib/storage/mongo-read-options'));
       observed.sort.should.eql({ srvModified: -1 });
+      observed.skip.should.equal(0);
       observed.limit.should.equal(1);
       observed.projection.should.eql({ srvModified: 1 });
       observed.toArrayCalls.should.equal(1);

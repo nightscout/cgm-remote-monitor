@@ -209,10 +209,32 @@ describe('Write-boundary gate controls', function () {
     for (const file of ADAPTERS) {
       const source = fs.readFileSync(path.resolve(__dirname, '..', file), 'utf8');
       assert.deepEqual(check(source), [], file);
-      // Break-it control: replacing the wrapper with an arbitrary pass-through
-      // must fail for every real adapter, not just a toy source string.
-      const bypassed = source.replaceAll('writeStep.collection(', 'passthrough(');
+      // Break-it control: replacing the wrapper with an arbitrary pass-through,
+      // and an interface acquisition with the driver's, must fail for every
+      // real adapter, not just a toy source string. (An adapter that acquires
+      // only through the storage interface, such as the websocket, has no
+      // wrapper of its own to remove.)
+      const bypassed = source.replaceAll('writeStep.collection(', 'passthrough(')
+        .replaceAll('reads.collection(', 'ctx.store.collection(');
       assert(check(bypassed).some(issue => issue.includes('raw collection')), file);
+    }
+  });
+
+  it('counts a storage-interface acquisition and refuses a write around it', function () {
+    const head = "const writeStep = require('../storage/write-step');\n"
+      + "const reads = require('./storage-reads');\n";
+    assert.deepEqual(check(head + 'function store () { return reads.collection(ctx, env, "x", "x"); }\n'
+      + 'store().insertOne({});'), []);
+    assert.deepEqual(check(head + 'function other () { return somewhere.collection(ctx, "x"); }'),
+      ['adapter has no checked collection acquisition']);
+    // A write on a write-step handle is behind the boundary but not the
+    // interface: the v1 modules keep that handle for aggregate.js and tests.
+    const handle = head + 'function api () { return writeStep.collection(ctx.store.collection("x"), {}); }\n';
+    assert.deepEqual(check(handle + 'api().find({});'), []);
+    for (const write of ['api().insertOne({})', 'api().bulkWrite([])',
+      'var c = writeStep.collection(ctx.store.collection("y"), {}); c.deleteMany({})',
+      'writeStep.collection(ctx.store.collection("y"), {}).updateOne({}, {})']) {
+      assert.deepEqual(check(handle + write + ';').filter(issue => issue.startsWith('write bypasses')).length, 1, write);
     }
   });
 });
