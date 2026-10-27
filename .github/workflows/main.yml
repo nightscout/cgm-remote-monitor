@@ -36,7 +36,11 @@ concurrency:
 jobs:
   test:
     name: Run Tests (${{ matrix.node-version }}, ${{ matrix.mongodb-version }})
-    runs-on: ubuntu-latest
+    # MongoDB 8.0 refuses to start on Linux 6.19 to 7.0.13 (SERVER-121912),
+    # and ubuntu-24.04 moved from 6.17 to 7.0 in image 20261026.354, so its
+    # cells run on ubuntu-22.04 (Linux 6.8) until the runners' kernel is
+    # outside that range. tools/wait-for-mongodb.js prints the kernel.
+    runs-on: ${{ startsWith(matrix.mongodb-version, '8') && 'ubuntu-22.04' || 'ubuntu-latest' }}
     strategy:
       # Each lane is the only one testing its edge and setting, so one
       # failing must not cancel the others' results.
@@ -167,7 +171,8 @@ jobs:
 
   maintained-mongo:
     name: Maintained MongoDB
-    runs-on: ubuntu-latest
+    # ubuntu-22.04 for MongoDB 8.0, as in the test job.
+    runs-on: ubuntu-22.04
     strategy:
       fail-fast: false
       matrix:

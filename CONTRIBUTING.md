@@ -277,7 +277,11 @@ setting once.
 
 Two lanes preserve the required check names `Run Tests (24, 6)` and
 `Run Tests (22, 6)`. Once branch protection requires `Tests pass` instead, they
-can be removed. MongoDB 4.4 remains unsupported and has no CI lane. No
+can be removed. MongoDB 4.4 remains unsupported and has no CI lane. The MongoDB
+8.0 jobs run on `ubuntu-22.04`: MongoDB 8.0 refuses to start on Linux 6.19 to
+7.0.13 ([SERVER-121912](https://jira.mongodb.org/browse/SERVER-121912)), and
+`ubuntu-24.04` moved to Linux 7.0. The MongoDB wait step prints each runner's
+kernel. No
 individual test cases are dropped.
 
 Images are published only by these pushes, and each waits for `Tests pass`:
