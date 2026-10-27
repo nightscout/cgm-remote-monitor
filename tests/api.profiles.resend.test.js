@@ -9,7 +9,8 @@
 // its callback. The write contract's re-send rule (decided 2026-10-12) is a
 // merge: the fields sent are written, the fields left out are kept, and a
 // re-send that changes nothing writes nothing. A PUT still replaces. A field
-// sent as null is stored as null, as $set does today.
+// re-sent as null is removed (write-contract Q1b, maintainer decision
+// 2026-10-26; see the test below and tests/api.null-removes.test.js).
 
 var request = require('supertest');
 require('should');
@@ -215,12 +216,18 @@ describe('Profiles API: a profile re-sent with its own _id (BF-166)', function (
     after.created_at.should.equal(before.created_at);
   });
 
-  it('a field re-sent as null is stored as null (no RFC 7386 removal)', async function () {
+  // CHANGED RULE (write-contract Q1b, maintainer decision 2026-10-26): this
+  // test used to read "a field re-sent as null is stored as null (no RFC 7386
+  // removal)" and assert the stored null. The maintainer decided that a null
+  // on a re-send that merges into a stored record removes the field, as a
+  // JSON Merge Patch (RFC 7386) does, so the assertion is now the opposite.
+  // A create and a PUT still store a null as sent.
+  it('a field re-sent as null is removed (RFC 7386; Q1b, decided 2026-10-26)', async function () {
     var hex = nextHex();
     await post(sampleProfile(5, { _id: hex, kept: 'value' })).expect(200);
     await post(sampleProfile(5, { _id: hex, kept: null })).expect(200);
     var stored = (await storedFor(hex))[0];
-    stored.should.have.property('kept', null);
+    stored.should.not.have.property('kept');
   });
 
   it('a PUT still replaces the whole profile', async function () {
