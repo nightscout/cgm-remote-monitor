@@ -30,6 +30,8 @@ const PATHS = {
   , 'Procfile web': ['/bin/sh', ['-c', procfileWeb]]
   // An image run with the old CMD as an explicit command, under the new ENTRYPOINT.
   , 'nightscout node lib/server/server.js': [process.execPath, [BIN, 'node', 'lib/server/server.js']]
+  // ... and with the script alone, which the node image's entrypoint ran with node.
+  , 'nightscout lib/server/server.js': [process.execPath, [BIN, 'lib/server/server.js']]
 };
 
 function freePort () {

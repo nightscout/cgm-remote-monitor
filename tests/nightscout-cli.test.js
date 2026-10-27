@@ -101,6 +101,19 @@ describe('nightscout executable (D21)', function () {
     assert.equal(result.stdout, 'a b');
   });
 
+  it('runs an option or a non-executable script with node, as the node image entrypoint did', function () {
+    const option = cli(['-e', 'process.stdout.write("option"); process.exit(5)']);
+    assert.equal(option.status, 5, option.stderr);
+    assert.equal(option.stdout, 'option');
+    const script = cli(['tests/fixtures/cli-echo-args.js', 'x', 'y']);
+    assert.equal(script.status, 0, script.stderr);
+    assert.equal(script.stdout, 'x y');
+  });
+
+  it('treats a missing path as an unknown subcommand', function () {
+    assert.equal(cli(['./no-such-dir/no-such-script.js']).status, 64);
+  });
+
   it('passes SIGTERM on to a program it runs', function (done) {
     const child = spawn(process.execPath, [BIN, 'node', '-e',
       'process.on("SIGTERM", () => { process.stdout.write("got SIGTERM"); process.exit(3); }); console.log("ready"); setInterval(() => {}, 1000)'],
