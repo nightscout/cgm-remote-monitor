@@ -129,17 +129,14 @@ describe('MongoDB query JavaScript boundary', function ( ) {
   });
 
   // lib/server/aggregate.js refuses a caller's `pipeline` outright (BF-70), so
-  // the JavaScript guard is reached through the caller's `find` and through
-  // the constructor's own pipeline, which is the backstop.
-  function aggregateOver (confPipeline) {
-    const api = Object.assign(function ( ) {
-      return {aggregate: () => assert.fail('aggregate must not run')};
-    }, {query_for: function (opts) { return query(opts, { }); }});
-    return require('../lib/server/aggregate')({pipeline: confPipeline}, api);
+  // the JavaScript guard is reached through the caller's `find`.
+  function aggregateOver ( ) {
+    const api = Object.assign(function ( ) { }, {query_for: function (opts) { return query(opts, { }); }});
+    return require('../lib/server/aggregate')(api, () => ({count: () => assert.fail('count must not run')}));
   }
 
   it('reports an aggregate refusal through its callback once', async function ( ) {
-    const aggregate = aggregateOver([ ]);
+    const aggregate = aggregateOver();
     let calls = 0;
     await new Promise((resolve, reject) => {
       aggregate({find: {$where: 'owned-expression'}}, error => {
@@ -148,14 +145,6 @@ describe('MongoDB query JavaScript boundary', function ( ) {
     });
     await new Promise(resolve => setImmediate(resolve));
     assert.equal(calls, 1);
-  });
-
-  it('refuses aggregate JavaScript in every stage before calling MongoDB', async function ( ) {
-    for (const stage of [{$match: {$where: 'owned-expression'}},
-      {$project: {value: {$function: {body: 'owned-expression', args: [], lang: 'js'}}}},
-      {$group: {_id: null, value: {$accumulator: {init: 'owned-expression', lang: 'js'}}}}]) {
-      await assert.rejects(aggregateOver([stage])({ }), rejected);
-    }
   });
 
   // ------------------------------------------------------- the wire contract

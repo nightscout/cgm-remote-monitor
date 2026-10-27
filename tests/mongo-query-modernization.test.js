@@ -73,7 +73,7 @@ describe('MongoDB query JavaScript boundary', function () {
   });
 
   it('reports aggregate rejection through its callback once', async function () {
-    const aggregate = require('../lib/server/aggregate')({}, () => ({aggregate:() => assert.fail('aggregate must not run')}));
+    const aggregate = require('../lib/server/aggregate')(() => {}, () => ({count:() => assert.fail('count must not run')}));
     let calls = 0;
     await new Promise((resolve, reject) => {
       aggregate({pipeline:[{$match:{$where:'owned-expression'}}]}, error => {
@@ -84,8 +84,8 @@ describe('MongoDB query JavaScript boundary', function () {
     assert.equal(calls, 1);
   });
 
-  it('rejects aggregate JavaScript before calling MongoDB', async function () {
-    const aggregate = require('../lib/server/aggregate')({}, () => ({aggregate:() => assert.fail('aggregate must not run')}));
+  it('rejects aggregate JavaScript before calling storage', async function () {
+    const aggregate = require('../lib/server/aggregate')(() => {}, () => ({count:() => assert.fail('count must not run')}));
     for (const stage of [{$match:{$where:'owned-expression'}},
       {$project:{value:{$function:{body:'owned-expression', args:[], lang:'js'}}}},
       {$group:{_id:null, value:{$accumulator:{init:'owned-expression', lang:'js'}}}}]) {
