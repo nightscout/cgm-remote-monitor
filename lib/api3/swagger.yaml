@@ -101,7 +101,7 @@ paths:
         `identifier` is included in response body or it can be parsed from the `Location` response header.
 
 
-        When the document to post is marked as a duplicate (using rules described at `API3_DEDUP_FALLBACK_ENABLED` switch), the update operation takes place instead of inserting. In this case the original document in the collection is found and it gets updated by the actual operation POST body. Finally the operation ends with 200 HTTP status code along with `Last-Modified` and correct `Location` headers. The response body then includes `isDeduplication`=`true` and `deduplicatedIdentifier` fields.
+        When the document to post is marked as a duplicate (using rules described at `API3_DEDUP_FALLBACK_ENABLED` switch), the update operation takes place instead of inserting. In this case the original document in the collection is found and it gets updated by the actual operation POST body. Finally the operation ends with 200 HTTP status code along with `Last-Modified` and correct `Location` headers. The response body then includes `isDeduplication`=`true` and `deduplicatedIdentifier` fields. For `devicestatus`, a document whose `identifier` is already stored is not updated; the stored document is left as it is and the operation ends with 200 HTTP status code, `isDeduplication`=`true` and the stored `identifier`; a device status is a snapshot, so it is acknowledged and not stored again.
 
 
         This operation provides autopruning of the collection (if autopruning is enabled).

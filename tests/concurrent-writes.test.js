@@ -535,9 +535,12 @@ describe('Concurrent Write Tests - MongoDB 5.x Compatibility', function () {
       for (var i = 0; i < 10; i++) {
         promises.push(
           new Promise(function (resolve, reject) {
+            // Distinct times: a Note with no identifier is matched on its time
+            // and event type, so two random times in the same millisecond were
+            // one record with one _id (about 1 run in 220).
             var treatment = {
               eventType: 'Note',
-              created_at: new Date(baseTime + Math.random() * 10000).toISOString(),
+              created_at: new Date(baseTime + i * 1000).toISOString(),
               notes: 'unique id test ' + Math.random()
             };
 

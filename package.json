@@ -78,10 +78,12 @@
   },
   "main": "lib/server/server.js",
   "nodemonConfig": {
-    "ignore": [
-      "tests/*",
-      "node_modules/*",
-      "bin/*"
+    "watch": [
+      "lib",
+      "views",
+      "translations",
+      "webpack",
+      "package.json"
     ]
   },
   "config": {
