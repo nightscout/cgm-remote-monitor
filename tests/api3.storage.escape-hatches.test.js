@@ -8,8 +8,9 @@ const MongoCollection = require('../lib/api3/storage/mongoCollection');
 const { and, or, cmp } = require('../lib/storage/filter');
 
 // The storage interface methods API v1 and the socket need that API v3 did not
-// expose. Nothing calls them yet (ST-READS and ST-WRITES do). These tests pin
-// what each one hands the driver; tests/api3.storage.filter-semantics.test.js
+// expose (their callers: lib/server/storage-reads.js, storage-writes.js). These
+// tests pin what each one hands the driver; tests/storage.v1-writes.test.js
+// covers the API v1 dialect forms, and tests/api3.storage.filter-semantics.test.js
 // runs them against a live mongod through the write-step boundary.
 
 function fakeCol (observed, results) {
