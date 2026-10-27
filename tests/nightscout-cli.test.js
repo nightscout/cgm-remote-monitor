@@ -64,10 +64,10 @@ describe('nightscout executable (D21)', function () {
     assert.match(result.stderr, /Usage: nightscout <command>/);
   });
 
-  it('exits 64 for `serve`, which is not available yet', function () {
-    const result = cli(['serve', 'api']);
+  it('exits 64 for `serve` of a role that is not available yet', function () {
+    const result = cli(['serve', 'admin']);
     assert.equal(result.status, 64);
-    assert.match(result.stderr, /not yet available/);
+    assert.match(result.stderr, /not yet available: admin/);
   });
 
   it('exits 64 for `single` with arguments and `diagnose` without a target', function () {

@@ -324,6 +324,18 @@ autonomy for your data:
   * `DEBUG_LOGGING` (`false`) - Set to `true` to log routine server heartbeats, data reload summaries and Nightscout Connect diagnostics. Warnings, errors and startup messages remain visible with debugging off. This is a server environment setting; restart Nightscout after changing it. On Heroku, add or edit it under **Settings → Config Vars**. Set it back to `false` or remove it when troubleshooting is complete. It does not control Heroku router/access logs or every plugin's logging.
   * `DE_NORMALIZE_DATES`(`true`) - The Nightscout REST API normalizes all entered dates to UTC zone. Some Nightscout clients have broken date deserialization logic and expect to received back dates in zoned formats. Setting this variable to `true` causes the REST API to serialize dates sent to Nightscout in zoned format back to zoned format when served to clients over REST.
 
+### Hosted roles (`nightscout serve`)
+
+A site run the usual way (`npm start`, `nightscout single`, the Docker image) does not use these. `nightscout serve <role>[,<role>...]` runs parts of Nightscout on their own, for hosting setups. Only the `api` role can be served so far: API v3 and the `/api/v2/authorization` endpoints, without the web pages, the websocket, API v1/v2, alarms and plugins, or the in-memory data that `single` keeps. The other roles (`evaluator`, `realtime`, `vcpool`, `tenant-admin`, `admin`) exit with status 64 and say they are not yet available.
+
+Each role listens on its own address and port, and two roles may not share one:
+
+  * `API_PORT`, `API_HOSTNAME` - where the `api` role listens. Unset, it uses `PORT` and `NIGHTSCOUT_HOSTNAME` (or `HOSTNAME`), as `single` does.
+  * `ADMIN_PORT` (`1338`), `ADMIN_HOSTNAME` (`127.0.0.1`) - reserved for the platform `admin` role. That listener has no password of its own, so it refuses to start on every interface or on the `api` listener's address, and refuses any address that is not loopback unless `ADMIN_INSECURE_BIND_ACKNOWLEDGED=true` is set.
+  * `REALTIME_PORT`, `REALTIME_HOSTNAME`, `TENANT_ADMIN_PORT`, `TENANT_ADMIN_HOSTNAME` - reserved for those roles.
+
+`nightscout serve` exits 78 when these settings would put two roles on one listener or break the `admin` rules. `nightscout healthcheck --role api` checks the `api` role's listener (it asks `/api/v3/version`).
+
 ### Predefined values for your browser settings (optional)
 
   * `TIME_FORMAT` (`12`)- possible values `12` or `24`

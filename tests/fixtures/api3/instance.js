@@ -12,6 +12,13 @@ var fs = require('fs')
   , CacheMonitor = require('./cacheMonitor')
   ;
 
+// API3_TEST_TARGET=serve-api boots each instance as `nightscout serve api`
+// does (lib/server/serve/api.js: bootevent's api profile and the role's app)
+// instead of the full chain with API v3 mounted on a bare app, so the API v3
+// suites can be run against the api role. There is no websocket in that
+// role, so an instance that asks for a storage socket cannot connect.
+const SERVE_API = process.env.API3_TEST_TARGET === 'serve-api';
+
 function configure () {
   const self = { };
 
@@ -126,17 +133,25 @@ function configure () {
         // req.secure see the same proxy trust as in production.
         instance.app.set('trust proxy', require('../../../lib/server/client-ip').trustFor(instance.env));
 
-        require('../../../lib/server/bootevent')(instance.env, language).boot(function booted (ctx) {
+        function booted (ctx) {
           instance.ctx = ctx;
-          instance.ctx.ddata = require('../../../lib/data/ddata')();
-          instance.ctx.apiApp = api(instance.env, ctx);
+          if (SERVE_API) {
+            const role = require('../../../lib/server/serve/api').createApp(instance.env, ctx);
+            instance.app = role.app;
+            instance.ctx.apiApp = role.api3;
+          } else {
+            instance.ctx.ddata = require('../../../lib/data/ddata')();
+            instance.ctx.apiApp = api(instance.env, ctx);
+          }
 
           if (disableSecurity) {
             instance.ctx.apiApp.set('API3_SECURITY_ENABLE', false);
           }
 
-          instance.app.use('/api/v3', instance.ctx.apiApp);
-          instance.app.use('/api/v2/authorization', instance.ctx.authorization.endpoints);
+          if (!SERVE_API) {
+            instance.app.use('/api/v3', instance.ctx.apiApp);
+            instance.app.use('/api/v2/authorization', instance.ctx.authorization.endpoints);
+          }
 
           const transport = useHttps ? https : http;
 
@@ -149,7 +164,9 @@ function configure () {
           self.addSecuredOperations(instance);
           instance.cacheMonitor = new CacheMonitor(instance).listen();
 
-          websocket(instance.env, instance.ctx, instance.server);
+          if (!SERVE_API) {
+            websocket(instance.env, instance.ctx, instance.server);
+          }
 
           self.bindSocket(storageSocket, instance)
             .then((socket) => {
@@ -163,7 +180,13 @@ function configure () {
               console.error(reason);
               reject(reason);
             });
-        });
+        }
+
+        if (SERVE_API) {
+          require('../../../lib/server/serve/api').boot(instance.env, language).then(booted, reject);
+        } else {
+          require('../../../lib/server/bootevent')(instance.env, language).boot(booted);
+        }
 
         setTimeout(function watchDog() {
           if (!hasBooted)
