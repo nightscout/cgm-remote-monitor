@@ -48,3 +48,44 @@ Revisit when Node supports the required ignore/watch policy portably or the
 project explicitly changes its development restart contract. No package/runtime change is made by retaining nodemon. Together with the
 merged environment-runner work, this completes the M24 implementation decision;
 the candidate must pass its fresh CI before integration.
+
+## Addendum 2026-10-27: watch an allowlist, keep nodemon
+
+nodemon now watches only the paths the server loads from the repository:
+`lib`, `views`, `translations`, `webpack` and `package.json`. Before, it watched
+everything except tests, node_modules and bin. The decision to retain nodemon
+is unchanged.
+
+The reason is the per-user Linux limit on file watches (inotify). On
+2026-10-26 this test failed with `ENOSPC: System limit for number of file
+watchers reached`, which is that limit, not a full disk. Counted from
+`/proc/<pid>/fdinfo` on Linux with nodemon 3.1.14 and Node 22.23.4, at `dev`
+`2dc0c1bc` with node_modules installed:
+
+| nodemon configuration | inotify watches |
+| --- | --- |
+| ignore tests, node_modules, bin (before) | 1,502 |
+| watch lib, views | 345 |
+| watch lib, views, translations, webpack, package.json (now) | 385 |
+| watch lib, views, static | 586 |
+
+- **`translations`, `webpack` and `package.json`** are watched because the
+  server reads them at startup: `lib/server/server.js` loads the localization,
+  `lib/server/app.js` requires the webpack configuration, and
+  `lib/server/env.js` reads `package.json`.
+- **`static/` is left out.** `lib/server/app.js` serves it as files, with
+  `maxAge: 1` (one millisecond) in development, and in development
+  webpack-dev-middleware rebuilds the client bundle inside the running server. A restart on a
+  `static/` edit therefore did nothing useful.
+- **Native watch was not chosen.** Scoped the same way,
+  `node --watch-path=lib --watch-path=views` costs 346 watches, as much as
+  nodemon. Switching would reopen the questions this
+  decision answered: ignore rules, Windows, and the debugger reattaching after a
+  restart.
+
+The owned fixture now also has `views`, `translations` and `docs` files. In
+two update cycles, nodemon restarts for `lib`, `views` and `translations`, and
+not for `docs`, `static`, `tests`, `bin` or node_modules. Native watch still
+follows the module graph. With the previous configuration and these
+expectations, the test fails at `docs/unlisted.js`. The raw sample is
+`watchAllowlist` in `../audits/development-watch.json`.
