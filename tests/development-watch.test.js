@@ -10,7 +10,7 @@ const {promisify} = require('node:util');
 
 (process.platform === 'win32' ? describe.skip : describe)('Development watch policy', function () {
   this.timeout(120000);
-  it('preserves configured ignores and application watching through two restart cycles', async function () {
+  it('watches only the configured paths and restarts the application through two cycles', async function () {
     const root = path.resolve(__dirname, '..');
     const tmp = await fs.mkdtemp(path.join(os.tmpdir(), 'nightscout-watch-result-'));
     const output = path.join(tmp, 'result.json');
@@ -20,8 +20,10 @@ const {promisify} = require('node:util');
       const result = JSON.parse(await fs.readFile(output, 'utf8'));
       assert.equal(result.node, process.version);
       for (const [mode, expected] of Object.entries({
-        nodemon:{'tests/ignored.js':0, 'bin/ignored.js':0, 'static/unimported.js':1, 'node_modules/owned-watch-dep/index.js':0, 'lib/loaded.js':1},
-        native:{'tests/ignored.js':0, 'bin/ignored.js':0, 'static/unimported.js':0, 'node_modules/owned-watch-dep/index.js':1, 'lib/loaded.js':1}
+        // nodemon watches only the paths package.json lists: static/ is served
+        // as files and rebuilt by webpack in-process, so it does not restart.
+        nodemon:{'tests/ignored.js':0, 'bin/ignored.js':0, 'docs/unlisted.js':0, 'static/unimported.js':0, 'translations/en.json':1, 'views/page.js':1, 'node_modules/owned-watch-dep/index.js':0, 'lib/loaded.js':1},
+        native:{'tests/ignored.js':0, 'bin/ignored.js':0, 'docs/unlisted.js':0, 'static/unimported.js':0, 'translations/en.json':0, 'views/page.js':0, 'node_modules/owned-watch-dep/index.js':1, 'lib/loaded.js':1}
       })) {
         const variant = result.variants[mode];
         assert.equal(variant.cycles.length, 2);

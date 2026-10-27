@@ -11,6 +11,7 @@
     "unit": {
       "files": [
         "tests/agp-data.test.js",
+        "tests/pentagon-data.test.js",
         "tests/alexa-template.test.js",
         "tests/apn-lifecycle.test.js",
         "tests/apn-transport.test.js",
@@ -63,6 +64,7 @@
         "tests/maker-delivery.test.js",
         "tests/maker-level-names.test.js",
         "tests/maker.test.js",
+        "tests/merge-patch.test.js",
         "tests/mime-negotiation.test.js",
         "tests/mmconnect-connect-compat.test.js",
         "tests/mongo-aws-compat.test.js",
@@ -79,6 +81,7 @@
         "tests/plugin-task-order.test.js",
         "tests/plugins.test.js",
         "tests/profile-cache-contract.test.js",
+        "tests/profile-data-received-order.test.js",
         "tests/profile-empty-name.test.js",
         "tests/profile-switch-percentage.test.js",
         "tests/profile-switch-preprocessing.test.js",
@@ -134,6 +137,7 @@
     "dom": {
       "files": [
         "tests/agp-report.test.js",
+        "tests/pentagon-report.test.js",
         "tests/boluscalc.quickpick-rebuild.test.js",
         "tests/boluscalc.quickpick.test.js",
         "tests/client.alarm-no-reading.test.js",

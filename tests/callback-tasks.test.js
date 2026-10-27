@@ -41,6 +41,18 @@ for (const [name, api] of implementations) {
       });
       order.push('returned'); assert.deepEqual(order, ['done', 'returned']);
     });
+    it('starts no further task after one throws synchronously, even when an earlier task calls back later', function () {
+      const started = [], failure = new Error('Owned throw');
+      let earlier, calls = 0;
+      assert.throws(() => api.parallel([
+        next => {started.push(0); earlier = next;},
+        () => {started.push(1); throw failure;},
+        next => {started.push(2); next(null, 2);}
+      ], () => {calls++;}), failure);
+      assert.deepEqual(started, [0, 1]);
+      earlier(null, 0);
+      assert.deepEqual(started, [0, 1]); assert.equal(calls, 0);
+    });
     it('completes empty inputs immediately', function () {
       let calls = 0;
       api.parallel([], (err, values) => {assert.ifError(err); assert.deepEqual(values, []); calls++;});
