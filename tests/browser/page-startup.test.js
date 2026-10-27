@@ -35,7 +35,14 @@ describe('Complete page template startup', function () {
 
   function readyEntry(entry) {
     if (entry === 'app') return document.querySelector('.currentBG').textContent.trim() === '123';
-    if (entry === 'reports') return !!window.Nightscout.report_plugins;
+    // The reports page loads its first week once the profile arrives. Leaving
+    // the page while those requests are open makes WebKit report each one as
+    // an uncaught error, so ready means that report has been shown: the dates
+    // are filled in, Show is back and no request is in flight.
+    if (entry === 'reports') {
+      return !!window.Nightscout.report_plugins && document.querySelector('#rp_to').value !== ''
+        && document.querySelector('#rp_show').style.display !== 'none' && window.$.active === 0;
+    }
     if (entry === 'admin') return document.querySelector('#admin_placeholder').children.length > 0;
     if (entry === 'profile') return /Values loaded|Default values used/.test(document.querySelector('.pe_status').textContent);
     return document.querySelector('#fe_status').textContent === 'Database loaded';
