@@ -91,9 +91,14 @@ jobs:
 
       - name: Install dependencies
         run: npm ci
+      - name: Wait for MongoDB
+        run: node tools/wait-for-mongodb.js
       # The tiers that pass with no database run in test-no-db.
       - name: Run Tests
         run: node scripts/test-tiers.js run integration,stress --ci
+      - name: Show the MongoDB log
+        if: failure()
+        run: docker logs --tail 200 mongodb
       - name: Run installed connector regression tests
         run: npm run test:connect
       - name: Validate built and pruned runtime
@@ -189,6 +194,8 @@ jobs:
         run: npm ci
       - name: Validate dependency resolution
         run: npm ls brace-expansion postcss mocha nanoid js-yaml eslint nyc dompurify socket.io-parser fast-uri ip-address d3 d3-color express body-parser socket.io socket.io-client engine.io engine.io-client socket.io-adapter ws axios @babel/core @babel/preset-env babel-loader uuid --all
+      - name: Wait for MongoDB
+        run: node tools/wait-for-mongodb.js
       - name: Run Tests
         run: npm run-script test-ci
       - name: Run installed connector regression tests
@@ -217,6 +224,9 @@ jobs:
           path: |
             ${{ runner.temp }}/nightscout-database-upgrade/evidence.json
             ${{ runner.temp }}/nightscout-database-upgrade/metadata.json
+      - name: Show the MongoDB log
+        if: failure()
+        run: docker logs --tail 200 mongodb
 
   browser-test:
     name: Browser tests (${{ matrix.node-version }}, ${{ matrix.browser }})
