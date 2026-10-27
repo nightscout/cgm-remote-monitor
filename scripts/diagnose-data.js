@@ -44,8 +44,7 @@ function collectionNames(source) {
   };
 }
 
-async function main() {
-  const args = process.argv.slice(2);
+async function main(args = process.argv.slice(2)) {
   if (args.length && (args.length !== 2 || args[0] !== '--limit' || !/^[1-9][0-9]*$/.test(args[1]))) {
     throw new Error('Usage: npm run diagnose:data -- [--limit 10000]');
   }
@@ -61,10 +60,15 @@ async function main() {
   } finally { await client.close(); }
 }
 
-if (require.main === module) main().catch(() => {
-  // Driver errors can contain a URI, query or a stored value. Keep CLI output
-  // safe to attach to an issue; deliberately do not echo the driver message.
-  console.error('Data diagnosis failed. Check the URI, read permission and --limit (1–1000000).');
-  process.exitCode = 1;
-});
-module.exports = {report, collectionNames};
+// Resolves to the exit status. Also run as `nightscout diagnose data`.
+function run(args) {
+  return main(args).then(() => 0, () => {
+    // Driver errors can contain a URI, query or a stored value. Keep CLI output
+    // safe to attach to an issue; deliberately do not echo the driver message.
+    console.error('Data diagnosis failed. Check the URI, read permission and --limit (1–1000000).');
+    return 1;
+  });
+}
+
+if (require.main === module) run(process.argv.slice(2)).then(code => { if (code) process.exitCode = code; });
+module.exports = {report, collectionNames, run};

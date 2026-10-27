@@ -76,6 +76,9 @@
     "test:dom:ci": "node scripts/test-tiers.js run dom --ci"
   },
   "main": "lib/server/server.js",
+  "bin": {
+    "nightscout": "bin/nightscout.js"
+  },
   "nodemonConfig": {
     "ignore": [
       "tests/*",
