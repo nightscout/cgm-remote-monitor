@@ -24,6 +24,7 @@
 // Synthetic records only.
 
 var should = require('should');
+var MMOL_TO_MGDL = require('../lib/constants.json').MMOL_TO_MGDL;
 var ObjectID = require('mongodb').ObjectId;
 var io = require('socket.io-client');
 var fs = require('fs');
@@ -546,9 +547,12 @@ describe('CRUD by _id matrix: v1, v3 and websocket, every collection and stored 
         for (const [event, data] of [['dbUpdate', {targetBottom: 9}], ['dbUpdateUnset', {targetTop: ''}]]) {
           const reply = await wsEmit(event, {collection: 'treatments', _id: id.asked, data});
           should(reply.result).equal('Unable to process update');
+          // The unlabelled 5-6 target was stored in mg/dL (BF-194); a
+          // refused edit leaves it as stored.
           const stored = (await storedFor('treatments', id))[0];
-          should(stored.targetBottom).equal(5);
-          should(stored.targetTop).equal(6);
+          should(stored.targetBottom).equal(5 * MMOL_TO_MGDL);
+          should(stored.targetTop).equal(6 * MMOL_TO_MGDL);
+          should(stored.units).equal('mg/dl');
         }
         const edit = await wsEmit('dbUpdate', {collection: 'treatments', _id: id.asked, data: {notes: 'edited'}});
         should(edit.result).equal('success');
