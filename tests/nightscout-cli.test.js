@@ -215,7 +215,7 @@ describe('nightscout executable (D21)', function () {
       answer = (req, res) => { res.statusCode = 500; res.end('<html>boot error</html>'); };
       const result = await cliAsync(['healthcheck'], env(server.address().port));
       assert.equal(result.status, 1);
-      assert.match(result.stderr, /^unhealthy: .* 500/);
+      assert.match(result.stderr, /^unhealthy: .* 500 \(the server is up and showing its boot-error page/);
     });
 
     it('asks as https when INSECURE_USE_HTTP is off, and accepts the redirect only to https', async function () {

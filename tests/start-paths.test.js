@@ -143,11 +143,13 @@ describe('start paths boot the same server (D21)', function () {
     assert.match(read('lib/cli/commands/single.js'), /require\('\.\.\/\.\.\/server\/server'\)/);
   });
 
-  it('the image enters through the dispatcher, runs `single`, and checks its health with it', function () {
+  it('the image enters through the dispatcher, runs `single`, and sets no HEALTHCHECK', function () {
     const dockerfile = read('Dockerfile');
     assert.match(dockerfile, /^ENTRYPOINT \["node", "\/opt\/app\/bin\/nightscout\.js"\]$/m);
     assert.match(dockerfile, /^CMD \["single"\]$/m);
-    assert.match(dockerfile, /^HEALTHCHECK .*CMD \["node", "\/opt\/app\/bin\/nightscout\.js", "healthcheck"\]$/m);
+    // A failing check would let an orchestrator restart a site that is
+    // showing its boot-error page, hiding the page that says what to fix.
+    assert.doesNotMatch(dockerfile, /^HEALTHCHECK/m);
   });
 
   for (const name of Object.keys(PATHS)) {

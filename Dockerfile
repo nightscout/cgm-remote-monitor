@@ -53,6 +53,11 @@ EXPOSE 1337
 # previous CMD, `node lib/server/server.js`, started, in the same process.
 # An explicit command that names a program (`docker run <image> node
 # lib/server/server.js`, `sh`) is still run as given.
-HEALTHCHECK --interval=30s --timeout=10s --start-period=60s --retries=3 CMD ["node", "/opt/app/bin/nightscout.js", "healthcheck"]
+#
+# No HEALTHCHECK: a site that boots with errors keeps serving its error page,
+# which tells the owner what to fix. A failing health check would let swarm or
+# an autoheal container restart it in a loop, and a restart does not fix a
+# configuration error. An operator who wants one can add
+# `nightscout healthcheck` to their compose file.
 ENTRYPOINT ["node", "/opt/app/bin/nightscout.js"]
 CMD ["single"]
