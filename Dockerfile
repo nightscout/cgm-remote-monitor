@@ -39,9 +39,25 @@ COPY --chown=node:node static/ ./static/
 COPY --chown=node:node views/ ./views/
 COPY --chown=node:node translations/ ./translations/
 COPY --chown=node:node server.js ./
+COPY --chown=node:node bin/nightscout.js ./bin/
+COPY --chown=node:node scripts/diagnose-data.js ./scripts/
 COPY --chown=node:node --from=builder /opt/app/node_modules ./node_modules
+
+# `nightscout <command>` from `docker exec`, e.g. `nightscout version`.
+RUN ln -s /opt/app/bin/nightscout.js /usr/local/bin/nightscout
 
 USER node
 EXPOSE 1337
 
-CMD ["node", "lib/server/server.js"]
+# One executable dispatches subcommands (D21). `single` is the server the
+# previous CMD, `node lib/server/server.js`, started, in the same process.
+# An explicit command that names a program (`docker run <image> node
+# lib/server/server.js`, `sh`) is still run as given.
+#
+# No HEALTHCHECK: a site that boots with errors keeps serving its error page,
+# which tells the owner what to fix. A failing health check would let swarm or
+# an autoheal container restart it in a loop, and a restart does not fix a
+# configuration error. An operator who wants one can add
+# `nightscout healthcheck` to their compose file.
+ENTRYPOINT ["node", "/opt/app/bin/nightscout.js"]
+CMD ["single"]
