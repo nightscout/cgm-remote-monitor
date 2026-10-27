@@ -111,7 +111,12 @@ var EXPECT = {
     return ['200 n=1 edited=true', 'v3 PUT by identifier replaces the v1 record, leaving one'];
   }
   , 'v3 delete': function () { return ['200 n=0', 'v3 permanent DELETE by identifier removes the v1 record']; }
-  , 'v3 resend': function () { return ['200 n=1 edited=true', 'v3 POST with the same identifier deduplicates onto the v1 record']; }
+  , 'v3 resend': function (col) {
+    // ID-SIMPLE-MATCH, devicestatus option (b), decided 2026-10-26: a device
+    // status re-sent with a stored identifier is acknowledged, not rewritten.
+    if (col === 'devicestatus') return ['200 n=1 edited=false', 'v3 POST with the same identifier is acknowledged as a deduplication and leaves the v1 status as stored'];
+    return ['200 n=1 edited=true', 'v3 POST with the same identifier deduplicates onto the v1 record'];
+  }
   // websocket dbAdd of a new record carrying its own _id
   , 'ws create': function (col, form) {
     if (isHexForm(form)) return ['[ObjectId]', 'a 24-hex _id is stored as the ObjectId it names, as v1 does'];
@@ -995,7 +1000,7 @@ describe('CRUD by _id matrix: v1, v3 and websocket, every collection and stored 
           async function send(path, marker) {
             const doc = Object.assign(body(col, n, marker), {_id: id.asked, identifier: id.asked});
             if (path === 'v1') return v1('post', v1Base(col)).send(doc)
-              .expect(col === 'entries' && from === 'socket' ? 500 : 200);
+              .expect(200);
             if (path === 'v3') {
               delete doc._id;
               const res = await self.instance.post('/api/v3/' + col, self.jwt.all).send(doc);
@@ -1007,18 +1012,15 @@ describe('CRUD by _id matrix: v1, v3 and websocket, every collection and stored 
               (err, result) => err ? reject(err) : resolve(result)));
           }
           await send(from, 'original');
-          const collides = col === 'entries' && from === 'socket' && ['v1', 'internal'].includes(to);
-          if (collides && to === 'internal') {
-            const assert = require('node:assert/strict');
-            await assert.rejects(send(to, 'edited'), err => err.code === 11000);
-          } else await send(to, 'edited');
+          await send(to, 'edited');
           const stored = await storedFor(col, id);
-          // Baseline differences: v3/socket do not populate v1's sysTime key.
-          // A v3->legacy resend duplicates; socket->v1/internal collides on _id.
-          // Keep these visible until the identity/natural-key policy is changed.
-          const duplicate = col === 'entries' && from === 'v3' && to !== 'v3';
+          // v1 and internal entries now match on identifier first, so a resend
+          // from any path finds the stored entry. v3 does not populate v1's
+          // sysTime key, so a v3->socket resend still duplicates. Keep it visible
+          // until the socket matches on identifier too.
+          const duplicate = col === 'entries' && from === 'v3' && to === 'socket';
           should(stored.length).equal(duplicate ? 2 : 1);
-          if (!duplicate) should(allEdited(stored)).equal(to !== 'socket' && !collides);
+          if (!duplicate) should(allEdited(stored)).equal(to !== 'socket');
         });
       }
     }
