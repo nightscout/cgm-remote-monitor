@@ -427,5 +427,187 @@
         }
       }
     }
+  },
+  "watchAllowlist": {
+    "date": "2026-10-27",
+    "sourceSHA256": "63af8d9efce195722083a2f8c092028440671c07ec81140c7c99709919154bfd",
+    "scope": "Owned Linux fixtures (6.18), Node 22.23.4, nodemon 3.1.14; two update cycles per variant. inotify watch counts read from /proc/<pid>/fdinfo for nodemon and its children over the repository at dev 2dc0c1bc with node_modules installed, an idle child script, 8 s after start.",
+    "inotifyWatches": {
+      "ignore tests/*, node_modules/*, bin/* (before)": 1502,
+      "watch lib, views": 345,
+      "watch lib, views, translations, webpack, package.json": 385,
+      "watch lib, views, static": 586,
+      "node --watch-path=lib --watch-path=views": 346
+    },
+    "sample": {
+      "node": "v22.23.4",
+      "platform": "Linux",
+      "nodemon": "3.1.14",
+      "configuration": {
+        "watch": [
+          "lib",
+          "views",
+          "translations",
+          "webpack",
+          "package.json"
+        ]
+      },
+      "variants": {
+        "nodemon": {
+          "initial": {
+            "pid": 2477738,
+            "inspectorReachable": true,
+            "inspectorEvaluatedPid": 2477738
+          },
+          "cycles": [
+            {
+              "tests/ignored.js": 0,
+              "bin/ignored.js": 0,
+              "docs/unlisted.js": 0,
+              "static/unimported.js": 0,
+              "translations/en.json": 1,
+              "views/page.js": 1,
+              "node_modules/owned-watch-dep/index.js": 0,
+              "lib/loaded.js": 1,
+              "debuggerAfterRestart": {
+                "pid": 2477934,
+                "inspectorReachable": true,
+                "inspectorEvaluatedPid": 2477934
+              }
+            },
+            {
+              "tests/ignored.js": 0,
+              "bin/ignored.js": 0,
+              "docs/unlisted.js": 0,
+              "static/unimported.js": 0,
+              "translations/en.json": 1,
+              "views/page.js": 1,
+              "node_modules/owned-watch-dep/index.js": 0,
+              "lib/loaded.js": 1,
+              "debuggerAfterRestart": {
+                "pid": 2478176,
+                "inspectorReachable": true,
+                "inspectorEvaluatedPid": 2478176
+              }
+            }
+          ],
+          "boots": [
+            {
+              "boot": true,
+              "pid": 2477738,
+              "node": "v22.23.4",
+              "value": 0
+            },
+            {
+              "boot": true,
+              "pid": 2477833,
+              "node": "v22.23.4",
+              "value": 0
+            },
+            {
+              "boot": true,
+              "pid": 2477874,
+              "node": "v22.23.4",
+              "value": 0
+            },
+            {
+              "boot": true,
+              "pid": 2477934,
+              "node": "v22.23.4",
+              "value": 1
+            },
+            {
+              "boot": true,
+              "pid": 2478080,
+              "node": "v22.23.4",
+              "value": 1
+            },
+            {
+              "boot": true,
+              "pid": 2478110,
+              "node": "v22.23.4",
+              "value": 1
+            },
+            {
+              "boot": true,
+              "pid": 2478176,
+              "node": "v22.23.4",
+              "value": 2
+            }
+          ]
+        },
+        "native": {
+          "initial": {
+            "pid": 2478208,
+            "inspectorReachable": true,
+            "inspectorEvaluatedPid": 2478208
+          },
+          "cycles": [
+            {
+              "tests/ignored.js": 0,
+              "bin/ignored.js": 0,
+              "docs/unlisted.js": 0,
+              "static/unimported.js": 0,
+              "translations/en.json": 0,
+              "views/page.js": 0,
+              "node_modules/owned-watch-dep/index.js": 1,
+              "lib/loaded.js": 1,
+              "debuggerAfterRestart": {
+                "pid": 2478414,
+                "inspectorReachable": true,
+                "inspectorEvaluatedPid": 2478414
+              }
+            },
+            {
+              "tests/ignored.js": 0,
+              "bin/ignored.js": 0,
+              "docs/unlisted.js": 0,
+              "static/unimported.js": 0,
+              "translations/en.json": 0,
+              "views/page.js": 0,
+              "node_modules/owned-watch-dep/index.js": 1,
+              "lib/loaded.js": 1,
+              "debuggerAfterRestart": {
+                "pid": 2479035,
+                "inspectorReachable": true,
+                "inspectorEvaluatedPid": 2479035
+              }
+            }
+          ],
+          "boots": [
+            {
+              "boot": true,
+              "pid": 2478208,
+              "node": "v22.23.4",
+              "value": 0
+            },
+            {
+              "boot": true,
+              "pid": 2478406,
+              "node": "v22.23.4",
+              "value": 0
+            },
+            {
+              "boot": true,
+              "pid": 2478414,
+              "node": "v22.23.4",
+              "value": 1
+            },
+            {
+              "boot": true,
+              "pid": 2478985,
+              "node": "v22.23.4",
+              "value": 1
+            },
+            {
+              "boot": true,
+              "pid": 2479035,
+              "node": "v22.23.4",
+              "value": 2
+            }
+          ]
+        }
+      }
+    }
   }
 }
