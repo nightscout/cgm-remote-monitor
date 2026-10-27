@@ -277,9 +277,29 @@ setting once.
 
 Two lanes preserve the required check names `Run Tests (24, 6)` and
 `Run Tests (22, 6)`. Once branch protection requires `Tests pass` instead, they
-can be removed. MongoDB 4.4 remains unsupported and has no CI lane. No
-individual test cases are dropped. Publishing waits for `Tests pass` on the
-actual `dev`/`master` push.
+can be removed. MongoDB 4.4 remains unsupported and has no CI lane. The MongoDB
+8.0 jobs run on `ubuntu-22.04`: MongoDB 8.0 refuses to start on Linux 6.19 to
+7.0.13 ([SERVER-121912](https://jira.mongodb.org/browse/SERVER-121912)), and
+`ubuntu-24.04` moved to Linux 7.0. The MongoDB wait step prints each runner's
+kernel. No
+individual test cases are dropped.
+
+Images are published only by these pushes, and each waits for `Tests pass`:
+
+| Push | Docker Hub tags |
+|---|---|
+| `dev` | `nightscout/cgm-remote-monitor:dev_<sha>` and `:latest_dev` |
+| a release tag `v<version>` | `:<version>`, and `:latest` when it is the newest release |
+| a `preview/<name>` branch | `preview-<name>-<sha>` and `preview-<name>` on the image the repository variable `DOCKER_PREVIEW_IMAGE` names; nothing while it is unset |
+
+A push to `master`, a pull request and a manual run publish nothing. A release
+tag does not rebuild: it re-tags the `dev_<sha>` image whose files are the
+tagged commit's, so merge `dev` into `master` unchanged and tag after that
+`dev` push has published. The tag must name `package.json`'s version, and a
+version already on Docker Hub is never replaced. Preview branches can only be
+created by people with write access, so a pull request from a fork reaches a
+preview image only after a maintainer pushes its code to one. The jobs that
+log in to Docker Hub run in the `docker-hub` environment.
 
 Before a release, use **Actions → CI test and publish Docker image → Run
 workflow**, select the candidate ref and leave **extended** enabled. This tests
