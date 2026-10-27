@@ -258,7 +258,7 @@ To learn more about the Nightscout API, visit https://YOUR-SITE.com/api-docs/ or
     * `denied` - may do nothing. Setting `AUTH_DEFAULT_ROLES` to `denied` requires a token or your `API_SECRET` for every visit.
     * `status-only` - may read only the site's status (`api:status:read`). Using `status-only` will enable api-secret based login.
     * `careportal` - may only add treatments (`api:treatments:create`).
-    * `devicestatus-upload` - may only add device status records (`api:devicestatus:create`).
+    * `devicestatus-upload` - may only add device status records (`api:devicestatus:create`), and, when controller registration is turned on, register the controller that uploads them (`api:registrations:create`, `api:registrations:delete`). A request needs a token to register; this role in `AUTH_DEFAULT_ROLES` gives visitors without one nothing here.
     * `activity` - may only add activity records (`api:activity:create`).
     * `admin` - may do everything (`*`), including deleting data and managing tokens. Do not use it here: it would give anyone full control of your site.
 

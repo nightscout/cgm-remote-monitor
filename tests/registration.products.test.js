@@ -61,7 +61,8 @@ describe('controller registration: the product resource', function () {
     await db.collection(prefix + 'subjects').insertMany([
       { name: 'registration-test-a', roles: ['registration-test-controller'] },
       { name: 'registration-test-b', roles: ['registration-test-controller'] },
-      { name: 'registration-test-reader', roles: ['readable'] }
+      { name: 'registration-test-reader', roles: ['readable'] },
+      { name: 'registration-test-uploader', roles: ['devicestatus-upload'] }
     ]);
     await new Promise((resolve, reject) => self.ctx.authorization.storage.reload(err => err ? reject(err) : resolve()));
     self.tokens = {};
@@ -146,6 +147,28 @@ describe('controller registration: the product resource', function () {
     codes(reader.body).should.eql(['not-authorised']);
     const anonymous = await put(HREF, fixture.registration, { 'If-None-Match': '*' }).expect(403);
     codes(anonymous.body).should.eql(['not-authorised']);
+  });
+
+  it('lets a devicestatus-upload token register and retire with no other grant', async function () {
+    const token = self.tokens['registration-test-uploader'];
+    const created = await put(HREF, fixture.registration, { 'If-None-Match': '*' }, token).expect(201);
+    created.body.registration.boundTo.should.eql({ kind: 'subject', subject: self.ids['registration-test-uploader'] });
+    const retired = await request(self.app).delete(HREF + '?token=' + encodeURIComponent(token))
+      .set('If-Match', created.body.registration.etag).expect(200);
+    retired.body.outcome.should.equal('retired');
+  });
+
+  it('refuses a devicestatus-upload token when a stored role of that name withholds registration', async function () {
+    const roles = self.ctx.store.db.collection(self.env.authentication_collections_prefix + 'roles');
+    await roles.insertOne({ name: 'devicestatus-upload', permissions: ['api:devicestatus:create'] });
+    try {
+      await new Promise((resolve, reject) => self.ctx.authorization.storage.reload(err => err ? reject(err) : resolve()));
+      const res = await put(HREF, fixture.registration, { 'If-None-Match': '*' }, self.tokens['registration-test-uploader']).expect(403);
+      codes(res.body).should.eql(['not-authorised']);
+    } finally {
+      await roles.deleteMany({ name: 'devicestatus-upload' });
+      await new Promise((resolve, reject) => self.ctx.authorization.storage.reload(err => err ? reject(err) : resolve()));
+    }
   });
 
   it('gives a namespace to the first product that claims it', async function () {
