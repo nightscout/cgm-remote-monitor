@@ -8,6 +8,13 @@ on:
     branches:
       - master
       - dev
+      # Maintainer branches with a preview image (docker-build). Creating one
+      # needs write access, so no pull request can publish an image.
+      - 'preview/**'
+    # A release tag publishes the tested dev image of the tagged files as the
+    # version and latest (release-image). A push to master publishes nothing.
+    tags:
+      - 'v*'
   pull_request:
     branches:
       - master
@@ -401,13 +408,25 @@ jobs:
           done
           exit 1
 
+
+  # Image publishing. Three events publish, and nothing else does:
+  #   push to dev         nightscout/cgm-remote-monitor:dev_<sha> and :latest_dev
+  #   push to preview/*   <vars.DOCKER_PREVIEW_IMAGE>:preview-<branch>-<sha> and
+  #                       :preview-<branch>, only when that variable names an
+  #                       image other than the release one
+  #   tag v<version>      :<version> and :latest, re-tagged from the dev image
+  #                       of the same files (release-image); never rebuilt
+  # A push to master, a pull request and a dispatched run publish nothing.
+  # The jobs that log in to Docker Hub run in the docker-hub environment, so
+  # its secrets can be limited to these refs in the repository settings.
   docker-build:
     name: Build Docker image (${{ matrix.arch }})
     needs: [tests-pass]
     # Without a status function GitHub adds success(), which also checks the
     # jobs tests-pass needs. Docker validation is skipped on pushes, so that
     # skipped the build; ask for tests-pass's own result instead.
-    if: ${{ !cancelled() && needs.tests-pass.result == 'success' && github.event_name == 'push' && (github.ref == 'refs/heads/master' || github.ref == 'refs/heads/dev') && github.repository_owner == 'nightscout' }}
+    if: ${{ !cancelled() && needs.tests-pass.result == 'success' && github.event_name == 'push' && github.repository_owner == 'nightscout' && (github.ref == 'refs/heads/dev' || (startsWith(github.ref, 'refs/heads/preview/') && vars.DOCKER_PREVIEW_IMAGE != '' && vars.DOCKER_PREVIEW_IMAGE != 'nightscout/cgm-remote-monitor')) }}
+    environment: docker-hub
     runs-on: ${{ matrix.runner }}
     strategy:
       fail-fast: false
@@ -420,7 +439,7 @@ jobs:
             platform: linux/arm64
             runner: ubuntu-24.04-arm
     env:
-      DOCKER_IMAGE: nightscout/cgm-remote-monitor
+      DOCKER_IMAGE: ${{ github.ref == 'refs/heads/dev' && 'nightscout/cgm-remote-monitor' || vars.DOCKER_PREVIEW_IMAGE }}
     steps:
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@f87e5991a6d7451dcb8d9637bfbc97413f497069 # v4
@@ -432,28 +451,32 @@ jobs:
       - name: Clean git Checkout
         if: success()
         uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5
-      - name: Prepare Docker tags
-        id: docker-tags
-        shell: bash
-        run: |
-          if [[ "${GITHUB_REF}" == "refs/heads/dev" ]]; then
-            echo "version_tag=${DOCKER_IMAGE}:dev_${GITHUB_SHA}-${{ matrix.arch }}" >> "$GITHUB_OUTPUT"
-            echo "latest_tag=${DOCKER_IMAGE}:latest_dev-${{ matrix.arch }}" >> "$GITHUB_OUTPUT"
-          else
-            version="$(node -p "require('./package.json').version")"
-            echo "version_tag=${DOCKER_IMAGE}:${version}-${{ matrix.arch }}" >> "$GITHUB_OUTPUT"
-            echo "latest_tag=${DOCKER_IMAGE}:latest-${{ matrix.arch }}" >> "$GITHUB_OUTPUT"
-          fi
-      - name: Build, tag and push Docker image
+        with:
+          persist-credentials: false
+      # Each architecture is pushed untagged, by digest; publish gives the
+      # pair its tags, so there are no per-architecture tags to list.
+      - name: Build and push the image by digest
+        id: build
         uses: docker/build-push-action@c3c9e263c25d99ce0380d002d59b67737d91b0dc # v7
         with:
           context: .
-          push: true
           no-cache: true
           platforms: ${{ matrix.platform }}
-          tags: |
-            ${{ steps.docker-tags.outputs.version_tag }}
-            ${{ steps.docker-tags.outputs.latest_tag }}
+          tags: ${{ env.DOCKER_IMAGE }}
+          outputs: type=image,push-by-digest=true,name-canonical=true,push=true
+      - name: Record the digest
+        env:
+          DIGEST: ${{ steps.build.outputs.digest }}
+        run: |
+          mkdir -p "$RUNNER_TEMP/digests"
+          touch "$RUNNER_TEMP/digests/${DIGEST#sha256:}"
+      - name: Save the digest
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        with:
+          name: digest-${{ matrix.arch }}
+          path: ${{ runner.temp }}/digests/*
+          if-no-files-found: error
+          retention-days: 1
 
   publish:
     name: Publish to Docker Hub
@@ -461,10 +484,17 @@ jobs:
     runs-on: ubuntu-latest
     # As for docker-build: the implicit success() would see the skipped
     # Docker validation further up the chain.
-    if: ${{ !cancelled() && needs.docker-build.result == 'success' && github.event_name == 'push' && (github.ref == 'refs/heads/master' || github.ref == 'refs/heads/dev') && github.repository_owner == 'nightscout' }}
+    if: ${{ !cancelled() && needs.docker-build.result == 'success' }}
+    environment: docker-hub
     env:
-      DOCKER_IMAGE: nightscout/cgm-remote-monitor
+      DOCKER_IMAGE: ${{ github.ref == 'refs/heads/dev' && 'nightscout/cgm-remote-monitor' || vars.DOCKER_PREVIEW_IMAGE }}
     steps:
+      - name: Collect the digests
+        uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4.3.0
+        with:
+          path: ${{ runner.temp }}/digests
+          pattern: digest-*
+          merge-multiple: true
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@f87e5991a6d7451dcb8d9637bfbc97413f497069 # v4
       - name: Login to Docker Hub
@@ -472,30 +502,83 @@ jobs:
         with:
           username: ${{ secrets.DOCKER_USER }}
           password: ${{ secrets.DOCKER_PASS }}
-      - name: Clean git Checkout
-        uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5
-      - name: Prepare Docker manifest tags
-        id: docker-tags
+      - name: Publish the multi-architecture image
+        working-directory: ${{ runner.temp }}/digests
         shell: bash
         run: |
-          if [[ "${GITHUB_REF}" == "refs/heads/dev" ]]; then
-            echo "version_tag=${DOCKER_IMAGE}:dev_${GITHUB_SHA}" >> "$GITHUB_OUTPUT"
-            echo "version_sources=${DOCKER_IMAGE}:dev_${GITHUB_SHA}-amd64 ${DOCKER_IMAGE}:dev_${GITHUB_SHA}-arm64" >> "$GITHUB_OUTPUT"
-            echo "latest_tag=${DOCKER_IMAGE}:latest_dev" >> "$GITHUB_OUTPUT"
-            echo "latest_sources=${DOCKER_IMAGE}:latest_dev-amd64 ${DOCKER_IMAGE}:latest_dev-arm64" >> "$GITHUB_OUTPUT"
-          else
-            version="$(node -p "require('./package.json').version")"
-            echo "version_tag=${DOCKER_IMAGE}:${version}" >> "$GITHUB_OUTPUT"
-            echo "version_sources=${DOCKER_IMAGE}:${version}-amd64 ${DOCKER_IMAGE}:${version}-arm64" >> "$GITHUB_OUTPUT"
-            echo "latest_tag=${DOCKER_IMAGE}:latest" >> "$GITHUB_OUTPUT"
-            echo "latest_sources=${DOCKER_IMAGE}:latest-amd64 ${DOCKER_IMAGE}:latest-arm64" >> "$GITHUB_OUTPUT"
+          if [[ "$(ls | wc -l)" != 2 ]]; then
+            echo "::error::expected the amd64 and arm64 digests, found: $(ls)"
+            exit 1
           fi
-      - name: Publish Docker manifests
+          if [[ "$GITHUB_REF" == refs/heads/dev ]]; then
+            tags=("dev_${GITHUB_SHA}" latest_dev)
+          else
+            # A Docker tag is [A-Za-z0-9_][A-Za-z0-9_.-]{0,127}.
+            branch="${GITHUB_REF#refs/heads/preview/}"
+            branch="${branch//[^A-Za-z0-9_.-]/-}"
+            branch="${branch:0:100}"
+            tags=("preview-${branch}-${GITHUB_SHA::12}" "preview-${branch}")
+          fi
+          args=()
+          for tag in "${tags[@]}"; do args+=(-t "${DOCKER_IMAGE}:${tag}"); done
+          docker buildx imagetools create "${args[@]}" $(printf "${DOCKER_IMAGE}@sha256:%s " *)
+          docker buildx imagetools inspect "${DOCKER_IMAGE}:${tags[0]}"
+
+  release-image:
+    name: Publish the release image
+    needs: [tests-pass]
+    if: ${{ !cancelled() && needs.tests-pass.result == 'success' && github.event_name == 'push' && startsWith(github.ref, 'refs/tags/v') && github.repository_owner == 'nightscout' }}
+    environment: docker-hub
+    runs-on: ubuntu-latest
+    env:
+      DOCKER_IMAGE: nightscout/cgm-remote-monitor
+    steps:
+      - name: Git Checkout
+        uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5
+        with:
+          persist-credentials: false
+          # dev's history, to find the dev image of the tagged files.
+          fetch-depth: 0
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@f87e5991a6d7451dcb8d9637bfbc97413f497069 # v4
+      - name: Login to Docker Hub
+        uses: docker/login-action@81c6f93d4bc991e510b342a00b419b3bb4efc5c6 # v4
+        with:
+          username: ${{ secrets.DOCKER_USER }}
+          password: ${{ secrets.DOCKER_PASS }}
+      # The release is the image the soak ran, not a rebuild: a rebuild
+      # resolves the base image and system packages again. dev is merged into
+      # master without changes, so the tagged commit's files are those of a dev
+      # commit, whose push published dev_<sha> after its tests passed.
+      - name: Re-tag the dev image of the tagged files
         shell: bash
         run: |
-          docker buildx imagetools create \
-            -t "${{ steps.docker-tags.outputs.version_tag }}" \
-            ${{ steps.docker-tags.outputs.version_sources }}
-          docker buildx imagetools create \
-            -t "${{ steps.docker-tags.outputs.latest_tag }}" \
-            ${{ steps.docker-tags.outputs.latest_sources }}
+          version="$(node -p "require('./package.json').version")"
+          if [[ "$GITHUB_REF_NAME" != "v${version}" ]]; then
+            echo "::error::tag ${GITHUB_REF_NAME} does not name package.json's version ${version}"
+            exit 1
+          fi
+          if docker buildx imagetools inspect "${DOCKER_IMAGE}:${version}" > /dev/null 2>&1; then
+            echo "::error::${DOCKER_IMAGE}:${version} is already published, and a release never replaces one"
+            exit 1
+          fi
+          tree="$(git rev-parse "${GITHUB_SHA}^{tree}")"
+          source=''
+          for commit in $(git log --first-parent --format='%H %T' origin/dev | awk -v tree="$tree" '$2 == tree { print $1 }'); do
+            if docker buildx imagetools inspect "${DOCKER_IMAGE}:dev_${commit}" > /dev/null 2>&1; then
+              source="$commit"
+              break
+            fi
+          done
+          if [[ -z "$source" ]]; then
+            echo "::error::no dev_<sha> image has the files of ${GITHUB_REF_NAME} (tree ${tree}); merge dev into master unchanged, and tag after dev's push published its image"
+            exit 1
+          fi
+          tags=(-t "${DOCKER_IMAGE}:${version}")
+          # latest moves only to the newest release: not to a pre-release, and
+          # not back to an older line's patch.
+          newest="$(git tag --list 'v[0-9]*' | grep -v -- - | sed 's/^v//' | sort -V | tail -n 1)"
+          if [[ "$version" != *-* && "$version" == "$newest" ]]; then tags+=(-t "${DOCKER_IMAGE}:latest"); fi
+          echo "${GITHUB_REF_NAME}: ${DOCKER_IMAGE}:dev_${source} as ${tags[*]}"
+          docker buildx imagetools create "${tags[@]}" "${DOCKER_IMAGE}:dev_${source}"
+          docker buildx imagetools inspect "${DOCKER_IMAGE}:${version}"
