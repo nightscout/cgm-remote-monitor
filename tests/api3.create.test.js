@@ -604,14 +604,18 @@ describe('API3 CREATE', function() {
       eventType: 'Correction Bolus', insulin: 0.3, app: testConst.TEST_APP
     };
     for (let cycle = 0; cycle < 2; cycle++) {
-      let res = await self.instance.post(self.url, self.jwt.create).send(doc).expect(201);
+      // Express accepts case-insensitive routes and a trailing slash; Location
+      // must still identify the canonical, readable resource.
+      const requestUrl = cycle ? self.url.toUpperCase() + '/' : self.url;
+      let res = await self.instance.post(requestUrl, self.jwt.create).send(doc).expect(201);
       res.body.identifier.should.equal(identifier);
       res.headers.location.should.equal(`${self.url}/${identifier}`);
       self.cache.nextShouldEql(self.col, {...doc, identifier});
 
-      res = await self.instance.post(self.url, self.jwt.update).send(doc).expect(200);
+      res = await self.instance.post(requestUrl, self.jwt.update).send(doc).expect(200);
       res.body.identifier.should.equal(identifier);
       res.body.isDeduplication.should.equal(true);
+      res.headers.location.should.equal(`${self.url}/${identifier}`);
       self.cache.nextShouldEql(self.col, {...doc, identifier});
 
       const stored = await self.get(identifier);
@@ -663,8 +667,9 @@ describe('API3 CREATE', function() {
 
   // TEST-V3-ID-002: ObjectId string as identifier uses it directly
   it('should use ObjectId string as identifier (TEST-V3-ID-002)', async () => {
-    // Valid 24-char hex ObjectId format
-    const objectIdIdentifier = '507f1f77bcf86cd799439011';
+    // Valid 24-char hex ObjectId format, fresh each run: the well-known
+    // 507f1f77bcf86cd799439011 is also used by other files' fixtures.
+    const objectIdIdentifier = require('crypto').randomBytes(12).toString('hex');
     const doc = {
       date: (new Date()).getTime(),
       app: testConst.TEST_APP,

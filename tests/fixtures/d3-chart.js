@@ -6,8 +6,8 @@ module.exports = function (d3, window, units, layout) {
   const hour = 3600000;
   const client = {
     now: now, forecastTime: now, defaultForecastTime: 0, focusRangeMS: 3 * hour,
-    entries: [], settings: {language: 'en', scaleY: 'linear', timeFormat: 24,
-      units: units || 'mg/dl', showForecast: '',
+    entries: [], settings: {language: 'en', scaleY: (layout && layout.scaleY) || 'linear', timeFormat: 24,
+      units: units || 'mg/dl', showForecast: '', theme: layout && layout.theme,
       thresholds: {bgLow: 55, bgTargetBottom: 80, bgTargetTop: 180, bgHigh: 260}},
     dataExtent: () => [new Date(now - 12 * hour), new Date(now)],
     ticks: () => [80, 180], translate: value => value, formatTime: () => '12:00',

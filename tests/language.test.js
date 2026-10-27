@@ -75,6 +75,41 @@ describe('language', function ( ) {
     language.translate('virtAsstTitleUploaderBattery').should.equal('當前上傳器電池');
   });
 
+  it('includes the supplied raw glucose reading in Traditional Chinese', function () {
+    var language = require('../lib/language')();
+    language.set('zh_tw');
+    language.loadLocalization(fs);
+    language.translate('virtAsstRawBG', '123').should.equal('您的原始血糖為 123');
+    language.translate('virtAsstRawBG', '87').should.equal('您的原始血糖為 87');
+  });
+
+  it('preserves the warning and urgent distinction in Traditional Chinese stale-data labels', function () {
+    var language = require('../lib/language')();
+    language.set('zh_tw');
+    language.loadLocalization(fs);
+    language.translate('Stale Data: Warn').should.equal('資料過時：警告');
+    language.translate('Stale Data: Urgent').should.equal('資料過時：緊急');
+  });
+
+  it('translates new Traditional Chinese profile and Loop authorization messages', function () {
+    var language = require('../lib/language')();
+    language.set('zh_tw');
+    language.loadLocalization(fs);
+    language.translate('Enter every profile value before saving.').should.equal('儲存前，請先輸入所有設定檔數值。');
+    language.translate('Your profile could not be loaded. Reload before editing.').should.equal('無法載入你的設定檔。請重新載入後再進行編輯。');
+    language.translate('Authorization failed. Reauthorize Nightscout access or ask the administrator to check your Loop command permissions.')
+      .should.equal('授權失敗。請重新授權 Nightscout 存取權限，或請管理員檢查你的 Loop 指令權限。');
+  });
+
+  it('translates Norwegian report counts and profile messages', function () {
+    var language = require('../lib/language')();
+    language.set('nb');
+    language.loadLocalization(fs);
+    language.translate('Showing %1 of %2 records', '3', '10').should.equal('Viser 3 av 10 poster');
+    language.translate('Enter every profile value before saving.').should.equal('Skriv inn alle profilverdier før du lagrer.');
+    language.translate('Your profile could not be loaded. Reload before editing.').should.equal('Profilen din kunne ikke lastes inn. Last inn på nytt før du redigerer.');
+  });
+
   it('preserves Swedish report filters and record count placeholders', function () {
     var language = require('../lib/language')();
     language.set('sv');
