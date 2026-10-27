@@ -143,10 +143,13 @@ describe('start paths boot the same server (D21)', function () {
     assert.match(read('lib/cli/commands/single.js'), /require\('\.\.\/\.\.\/server\/server'\)/);
   });
 
-  it('the image enters through the dispatcher, runs `single`, and sets no HEALTHCHECK', function () {
+  it('the image runs `nightscout single` by default, keeps the base entrypoint, and sets no HEALTHCHECK', function () {
     const dockerfile = read('Dockerfile');
-    assert.match(dockerfile, /^ENTRYPOINT \["node", "\/opt\/app\/bin\/nightscout\.js"\]$/m);
-    assert.match(dockerfile, /^CMD \["single"\]$/m);
+    // The node image's docker-entrypoint.sh stays the entrypoint, so an
+    // explicit command replaces the default exactly as it did before D21.
+    assert.doesNotMatch(dockerfile, /^ENTRYPOINT/m);
+    assert.match(dockerfile, /^CMD \["nightscout", "single"\]$/m);
+    assert.match(dockerfile, /^RUN ln -s \/opt\/app\/bin\/nightscout\.js \/usr\/local\/bin\/nightscout$/m);
     // A failing check would let an orchestrator restart a site that is
     // showing its boot-error page, hiding the page that says what to fix.
     assert.doesNotMatch(dockerfile, /^HEALTHCHECK/m);

@@ -49,15 +49,15 @@ RUN ln -s /opt/app/bin/nightscout.js /usr/local/bin/nightscout
 USER node
 EXPOSE 1337
 
-# One executable dispatches subcommands (D21). `single` is the server the
-# previous CMD, `node lib/server/server.js`, started, in the same process.
-# An explicit command that names a program (`docker run <image> node
-# lib/server/server.js`, `sh`) is still run as given.
+# One executable dispatches subcommands (D21). `nightscout single` is the
+# server the previous CMD, `node lib/server/server.js`, started, in the same
+# process. The entrypoint stays the node image's docker-entrypoint.sh, so an
+# explicit command (`docker run <image> node lib/server/server.js`, `sh`,
+# `env`) is exec'd as it always was: no second process, same output.
 #
 # No HEALTHCHECK: a site that boots with errors keeps serving its error page,
 # which tells the owner what to fix. A failing health check would let swarm or
 # an autoheal container restart it in a loop, and a restart does not fix a
 # configuration error. An operator who wants one can add
 # `nightscout healthcheck` to their compose file.
-ENTRYPOINT ["node", "/opt/app/bin/nightscout.js"]
-CMD ["single"]
+CMD ["nightscout", "single"]
