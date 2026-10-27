@@ -191,6 +191,29 @@ describe('start paths boot the same server (D21)', function () {
     }
   });
 
+  // As PID 1 in the image node ignores a signal it has no handler for, so
+  // `docker stop` only ended the server when the stop timeout killed it. The
+  // server handles SIGTERM itself: it closes and exits 0, rather than dying of
+  // the signal, and well inside docker's 10 s.
+  for (const name of ['nightscout single', 'node lib/server/server.js']) {
+    it('`' + name + '` closes and exits 0 on SIGTERM', async function () {
+      const run = await start(name, await freePort(), secret);
+      let result;
+      try {
+        assert.ok(run.up, name + ' did not answer /api/versions:\n' + run.log().slice(-4000));
+        const sent = Date.now();
+        run.child.kill('SIGTERM');
+        result = await Promise.race([run.exited, new Promise(r => setTimeout(() => r({ timedOut: true }), 9000))]);
+        result.ms = Date.now() - sent;
+      } finally {
+        await stop(run);
+      }
+      assert.deepEqual({ code: result.code, signal: result.signal }, { code: 0, signal: null }, run.log().slice(-2000));
+      assert.ok(result.ms < 8000, 'took ' + result.ms + ' ms');
+      assert.match(run.log(), /Received SIGTERM, shutting down/);
+    });
+  }
+
   it('`nightscout diagnose data` finds the database the way the server does', function (done) {
     const uri = require('../lib/server/env')().storageURI;
     const env = Object.assign({}, process.env);
