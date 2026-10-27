@@ -19,6 +19,19 @@ function noopPurifier () {
   };
 }
 
+// A driver cursor as the storage interface reads one (findFiltered chains
+// sort, skip, limit and project before toArray).
+function cursorOf (docs) {
+  var cursor = {
+    sort: function () { return cursor; },
+    skip: function () { return cursor; },
+    limit: function () { return cursor; },
+    project: function () { return cursor; },
+    toArray: async function () { return docs; }
+  };
+  return cursor;
+}
+
 function fakeContext (collection, includePurifier) {
   var writes = 0;
   var ctx = {
@@ -101,7 +114,7 @@ describe('legacy storage selector hardening', function () {
       var collection = {
         // BF-122: food reads the records a batch replaces (for srvCreated and
         // identifier) before it writes; none are stored here.
-        find: function () { return { toArray: async function () { return []; } }; },
+        find: function () { return cursorOf([]); },
         bulkWrite: async function (operations) {
           capturedOperations = operations;
           return {upsertedIds: {}};
@@ -170,7 +183,7 @@ describe('legacy storage selector hardening', function () {
         return {upsertedIds: {}};
       },
       find: function () {
-        return {toArray: async function () { return []; }};
+        return cursorOf([]);
       }
     };
     var storage = storageFor('treatments', collection).api;
@@ -213,7 +226,7 @@ describe('legacy storage selector hardening', function () {
         return {upsertedIds: {}};
       },
       find: function () {
-        return {toArray: async function () { return []; }};
+        return cursorOf([]);
       }
     };
     var storage = storageFor('treatments', collection).api;
@@ -242,11 +255,7 @@ describe('legacy storage selector hardening', function () {
         return {upsertedIds: {}};
       },
       find: function () {
-        return {
-          toArray: async function () {
-            return [{identifier: '__proto__', _id: existingId}];
-          }
-        };
+        return cursorOf([{identifier: '__proto__', _id: existingId}]);
       }
     };
     var storage = storageFor('treatments', collection).api;
@@ -264,12 +273,7 @@ describe('legacy storage selector hardening', function () {
   it('keeps legacy profile boundary values literal in prune selectors', async function () {
     var boundary = {startDate: {$ne: null}, _id: new ObjectId()};
     var capturedFilter;
-    var cursor = {
-      sort: function () { return this; },
-      skip: function () { return this; },
-      limit: function () { return this; },
-      toArray: async function () { return [boundary]; }
-    };
+    var cursor = cursorOf([boundary]);
     var collection = {
       find: function () { return cursor; },
       deleteMany: async function (filter) {

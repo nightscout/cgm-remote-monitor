@@ -33,7 +33,12 @@ describe('profile store announces a write after it finishes (BF-195)', function 
     }
 
     var collection = {
-      find: function () { return { toArray: async function () { return stored.slice(); } }; }
+      // A cursor with the methods the storage interface's reads call.
+      find: function () {
+        var cursor = { toArray: async function () { return stored.slice(); } };
+        cursor.sort = cursor.skip = cursor.limit = cursor.project = function () { return cursor; };
+        return cursor;
+      }
       , findOne: async function () { return null; }
       , insertMany: held('insertMany', { insertedIds: {} })
       , updateOne: held('updateOne', { matchedCount: 1, modifiedCount: 1 })

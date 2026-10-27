@@ -175,7 +175,12 @@ describe('devicestatus: a re-send of a stored _id is acknowledged, not copied or
         return new Proxy(col, {
           get: function (target, prop) {
             if (prop === 'find') {
-              return function () { return { toArray: function () { return Promise.resolve([]); } }; };
+              return function () {
+                // Chainable, as the storage interface reads a cursor.
+                var cursor = { project: function () { return cursor; },
+                  toArray: function () { return Promise.resolve([]); } };
+                return cursor;
+              };
             }
             var value = target[prop];
             return typeof value === 'function' ? value.bind(target) : value;
