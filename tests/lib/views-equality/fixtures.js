@@ -194,17 +194,41 @@ const SCENARIOS = {
     }).flat();
     return fx;
   }
-  // Loop has failed every cycle for 90 minutes (a pump out of reach): the
-  // newest 18 statuses carry failureReason, the newest without it is 93
-  // minutes old, so "Loop isn't looping" is urgent
-  , loopFailing: (now) => loopHistory(now, 90)
-  // AAPS has not run its loop for 90 minutes: LoopPlugin.buildAndStoreDeviceStatus
+  // Loop has failed every cycle for 150 minutes (a pump out of reach): the
+  // newest 30 statuses carry failureReason, the newest without it is 153
+  // minutes old (past the pump window, which would otherwise bring it in), so
+  // "Loop isn't looping" is urgent
+  , loopFailing: (now) => loopHistory(now, 150)
+  // AAPS has not run its loop for 150 minutes: LoopPlugin.buildAndStoreDeviceStatus
   // still uploads every cycle, but with no suggested, iob or enacted once the
   // last run is over 5 minutes old, so `openaps` is present and empty
   , aapsLoopStopped: (now) => {
     const fx = base(now);
     fx.devicestatus.forEach(function (d) {
-      if (Date.parse(d.created_at) > now - 90 * MIN) d.openaps = {};
+      if (Date.parse(d.created_at) > now - 150 * MIN) d.openaps = {};
+    });
+    return fx;
+  }
+  // as aapsLoopStopped, and before that the loop had set no temp basal for
+  // 150 minutes (AAPS uploads enacted only when the pump took a new temp
+  // basal), so the alarm counts from the newest suggested, not the newest
+  // enacted
+  , aapsNoRecentEnact: (now) => {
+    const fx = base(now);
+    fx.devicestatus.forEach(function (d) {
+      const t = Date.parse(d.created_at);
+      if (t > now - 150 * MIN) d.openaps = {};
+      else if (t > now - 300 * MIN) delete d.openaps.enacted;
+    });
+    return fx;
+  }
+  // an uploader that posts enacted without suggested, then stops: the alarm
+  // counts from the newest received enacted
+  , openapsEnactedOnly: (now) => {
+    const fx = base(now);
+    fx.devicestatus.forEach(function (d) {
+      if (Date.parse(d.created_at) > now - 150 * MIN) d.openaps = {};
+      else delete d.openaps.suggested;
     });
     return fx;
   }
@@ -214,6 +238,49 @@ const SCENARIOS = {
     const fx = base(now);
     const newest = fx.devicestatus.sort((a, b) => Date.parse(b.created_at) - Date.parse(a.created_at))[0];
     delete newest.openaps.enacted.received;
+    return fx;
+  }
+  // two phones upload: one every minute at 70%, the other at 15% 12 minutes
+  // ago. upbat alarms on the lowest battery of each device seen in 30 minutes
+  , twoUploaders: (now) => {
+    const fx = base(now);
+    for (let age = MIN; age < 30 * MIN; age += MIN) {
+      fx.devicestatus.push({ device: 'phone-1', created_at: iso(now - age), uploader: { battery: 70 } });
+    }
+    fx.devicestatus.push({ device: 'phone-2', created_at: iso(now - 12 * MIN), uploader: { battery: 15 } });
+    return fx;
+  }
+  // one phone whose battery reads 26% now and 19% five minutes ago, with a
+  // pump-only uploader posting every 20 seconds: upbat takes the lowest reading
+  // within 10 minutes of a device's newest
+  , batteryDip: (now) => {
+    const fx = base(now, { noDeviceStatus: true });
+    for (let age = 2 * MIN; age <= 26 * HOUR; age += 5 * MIN) {
+      fx.devicestatus.push({ device: 'phone', created_at: iso(now - age), uploader: { battery: age === 7 * MIN ? 19 : 26 } });
+    }
+    for (let age = 20 * 1000; age < 30 * MIN; age += 20 * 1000) {
+      const t = now - age;
+      fx.devicestatus.push({ device: 'pump-uploader', created_at: iso(t), pump: { clock: iso(t), reservoir: 80, battery: { voltage: 1.4 } } });
+    }
+    return fx;
+  }
+  // a pump uploader last posted 43 minutes ago (outside the 30 minutes the
+  // battery window reads), and a second device re-posts a pump state 70
+  // minutes old every 10 seconds: the pump plugin takes the status with the
+  // newest pump clock, not the newest upload, so it warns where the reposts
+  // alone would be urgent
+  , pumpRepost: (now) => {
+    const fx = base(now);
+    fx.devicestatus = fx.devicestatus.map(function (d) {
+      const pumpOnly = { device: 'pump-uploader', created_at: d.created_at, pump: d.pump };
+      const rest = Object.assign({}, d);
+      delete rest.pump;
+      return Date.parse(d.created_at) > now - 40 * MIN ? [rest] : [rest, pumpOnly];
+    }).flat();
+    const stale = iso(now - 70 * MIN);
+    for (let age = 10 * 1000; age < 60 * MIN; age += 10 * 1000) {
+      fx.devicestatus.push({ device: 'reposter', created_at: iso(now - age), pump: { clock: stale, reservoir: 50, battery: { voltage: 1.4 } } });
+    }
     return fx;
   }
   // each change event at or past its urgent age

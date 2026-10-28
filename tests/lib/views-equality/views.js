@@ -350,14 +350,35 @@ const diaHours = productViews.bounds.diaHours;
 // VIEWS_DROP_KIND=<kind,...>: the alarm view's newest-of-kind device-status
 // query for each kind named (lib/data/views/bounds.js DEVICESTATUS_KINDS) answers nothing,
 // the per-kind control.
+//
+// VIEWS_DROP_QUERY=<name,...>: the alarm view's device-status query of each
+// name answers nothing: a test of DEVICESTATUS_TESTS (loopOk,
+// openapsSuggested, openapsEnacted), or a window (upbatWindow, pumpWindow).
+function deviceStatusQueryName (q) {
+  const find = (q && q.find) || {};
+  const tests = productViews.bounds.DEVICESTATUS_TESTS;
+  const named = Object.keys(tests).find(function (name) {
+    return Object.keys(tests[name]).every(k => JSON.stringify(find[k]) === JSON.stringify(tests[name][k]));
+  });
+  if (named) return named;
+  if (q && q.count === undefined && find.created_at) {
+    const keys = Object.keys(find).sort().join(',');
+    if (keys === 'created_at') return 'upbatWindow';
+    if (keys === 'created_at,pump') return 'pumpWindow';
+  }
+  return null;
+}
+
 function productContext (ctx, tamper, now, dry) {
   const pctx = Object.create(ctx);
   const dropKinds = (process.env.VIEWS_DROP_KIND || '').split(',').filter(Boolean);
-  if (dropKinds.length) {
+  const dropQueries = (process.env.VIEWS_DROP_QUERY || '').split(',').filter(Boolean);
+  if (dropKinds.length || dropQueries.length) {
     const real = ctx.devicestatus;
     pctx.devicestatus = {
       list: function (q, cb) {
-        if (q && q.find && dropKinds.some(k => q.find[k] && q.find[k].$exists === true)) return cb(null, []);
+        if (q && q.find && q.count === 1 && dropKinds.some(k => q.find[k] && q.find[k].$exists === true)) return cb(null, []);
+        if (dropQueries.includes(deviceStatusQueryName(q))) return cb(null, []);
         real.list(q, cb);
       }
     };

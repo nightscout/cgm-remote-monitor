@@ -10,6 +10,8 @@
 //                          drop nothing (the untampered control for it)
 // VIEWS_DROP_KIND=<kind>   the alarm view's newest-of-kind device-status query
 //                          for that kind answers nothing (per-kind control)
+// VIEWS_DROP_QUERY=<name>  the alarm view's device-status query of that name
+//                          answers nothing (tests/lib/views-equality/views.js)
 // VIEWS_ONLY=<a,b>         run only these views
 // VIEWS_MEASURE=1          log each arm's ddata size in serialised bytes
 // VIEWS_COB_DIAS=<n>       the properties view's treatment window in DIAs (3)
