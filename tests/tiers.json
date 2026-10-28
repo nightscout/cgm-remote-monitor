@@ -248,6 +248,7 @@
         "tests/storage*.test.js",
         "tests/uuid-handling.test.js",
         "tests/verifyauth.test.js",
+        "tests/views-equality.test.js",
         "tests/websocket*.test.js"
       ],
       "env": true,
