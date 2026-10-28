@@ -10,6 +10,7 @@ var fs = require('fs')
   , websocket = require('../../../lib/server/websocket')
   , io = require('socket.io-client')
   , CacheMonitor = require('./cacheMonitor')
+  , role = require('./role')
   ;
 
 // API3_TEST_TARGET=serve-api boots each instance as `nightscout serve api`
@@ -17,7 +18,25 @@ var fs = require('fs')
 // instead of the full chain with API v3 mounted on a bare app, so the API v3
 // suites can be run against the api role. There is no websocket in that
 // role, so an instance that asks for a storage socket cannot connect.
-const SERVE_API = process.env.API3_TEST_TARGET === 'serve-api';
+const ROLE = role.current();
+const SERVE_API = ROLE === 'serve-api';
+
+// API v1's storage modules for a suite that seeds or checks records the way
+// v1 stores them. `single` has its own (ctx.treatments, ...). `serve api` has
+// none, so they are built on the instance's database as a `single` process
+// writing to the same database would have them, with their own bus: their
+// events do not reach the role, as another process's would not.
+function v1Storage (env, ctx) {
+  if (!SERVE_API) return ctx;
+  const v1 = Object.create(ctx);
+  v1.bus = new (require('events'))();
+  v1.ddata = require('../../../lib/data/ddata')();
+  v1.entries = require('../../../lib/server/entries')(env, v1);
+  v1.treatments = require('../../../lib/server/treatments')(env, v1);
+  v1.devicestatus = require('../../../lib/server/devicestatus')(env, v1);
+  v1.profile = require('../../../lib/server/profile')(env.profile_collection, v1, env);
+  return v1;
+}
 
 function configure () {
   const self = { };
@@ -119,7 +138,7 @@ function configure () {
     return new Promise(function (resolve, reject) {
 
       try {
-        let instance = { },
+        let instance = { role: ROLE },
           hasBooted = false
           ;
 
@@ -162,6 +181,7 @@ function configure () {
           instance.baseUrl = `${useHttps ? 'https' : 'http'}://${loopback}:${instance.env.PORT}`;
 
           self.addSecuredOperations(instance);
+          instance.v1 = v1Storage(instance.env, instance.ctx);
           instance.cacheMonitor = new CacheMonitor(instance).listen();
 
           if (!SERVE_API) {
@@ -198,6 +218,8 @@ function configure () {
       }
     });
   };
+
+  self.role = ROLE;
 
   return self;
 }
