@@ -488,9 +488,10 @@ describe('write(intent) gate G2: one door for the enrolled collections', functio
     // CHANGED EXPECTATION (slice 5): treatments.js joins (API v1 and in-process).
     // CHANGED EXPECTATION (slice 5): entries.js joins (API v1 and in-process).
     // CHANGED EXPECTATION (slice 5): devicestatus.js joins (API v1 and in-process).
+    // CHANGED EXPECTATION (slice 5): profile.js joins (API v1 and in-process).
     // Each slice that routes code through the step adds it here.
     assert.deepEqual(ENROLLED, ['lib/server/food.js', 'lib/server/activity.js', 'lib/server/treatments.js'
-      , 'lib/server/entries.js', 'lib/server/devicestatus.js'
+      , 'lib/server/entries.js', 'lib/server/devicestatus.js', 'lib/server/profile.js'
       , { file: 'lib/server/websocket.js', functions: ['processGenericDbAdd', 'dbRemove'] }]);
     for (const entry of ENROLLED) {
       assert.deepEqual(checkEntry(entry, fs.readFileSync(path.resolve(__dirname, '..', fileOf(entry)), 'utf8')), [], fileOf(entry));

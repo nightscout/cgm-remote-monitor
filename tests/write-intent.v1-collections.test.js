@@ -87,6 +87,8 @@ function shape (value) {
   return JSON.parse(JSON.stringify(value, function (key, v) {
     if (key === 'srvModified' || key === 'time' || key === 'at' || key === 'timestamp') return 'T';
     if (key === 'srvCreated' && typeof v === 'number' && v > 1e12) return 'T';
+    // A created_at the server made now (the inputs' are fixed, in the past).
+    if (key === 'created_at' && typeof v === 'string' && Math.abs(Date.parse(v) - Date.now()) < 3600000) return 'NOW';
     if (v instanceof ObjectId || (v && v._bsontype === 'ObjectId')) v = v.toHexString();
     if (typeof v === 'string' && /^[0-9a-f]{24}$/.test(v) && !FIXED.test(v)) return 'NEWID';
     if (v instanceof Error) return { error: v.message, name: v.name, code: v.code };
@@ -534,5 +536,111 @@ describe('write(intent): the devicestatus rule table (slice 5)', function ( ) {
       return err instanceof writeIntent.WriteRuleError && err.rule === 'status-match' && err.cause.message === 'find down';
     });
     assert.deepEqual(calls.map(c => c[0]), ['find']);
+  });
+});
+
+describe('write(intent): profile from API v1 and in-process callers (equal to db3b9e4e)', function ( ) {
+  const before = require('./fixtures/write-intent/profile-db3b9e4e');
+  const after = require('../lib/server/profile');
+  // profile's storage is built as (collection, ctx, env).
+  const makeBefore = (env, ctx) => before('profile', ctx, env);
+  const makeAfter = (env, ctx) => after('profile', ctx, env);
+
+  const profile = extra => Object.assign({ defaultProfile: 'Default', startDate: T1, units: 'mg/dl'
+    , store: { Default: { dia: 4, basal: [{ time: '00:00', value: 1 }] } } }, extra);
+  const storedProfile = extra => Object.assign({ _id: { $oid: HEX2 }, defaultProfile: 'Default', startDate: T1
+    , units: 'mg/dl', srvCreated: 5, store: { Default: { dia: 4, basal: [{ time: '00:00', value: 1 }] }, Alt: { dia: 3 } } }, extra);
+
+  const cases = [
+    ['new profiles (insert, created_at, srvCreated)', { }, { stored: [ ] }
+      , (api, done) => api.create([profile(), profile({ _id: HEX, created_at: T2 })], done)],
+    ['one profile, not an array', { }, { stored: [ ] }, (api, done) => api.create(profile({ _id: 'custom-id' }), done)],
+    ['a re-send of a stored _id is merged (nulls remove, objects merge)', { }, { stored: [storedProfile()] }
+      , (api, done) => api.create([profile({ _id: HEX2.toUpperCase(), units: 'mmol', store: { Alt: null, Default: { dia: 5 } } })], done)],
+    ['an identical re-send writes nothing', { }, { stored: [storedProfile()] }
+      , (api, done) => api.create([profile({ _id: HEX2, store: { Default: { dia: 4, basal: [{ time: '00:00', value: 1 }] }, Alt: { dia: 3 } } })], done)],
+    ['the same new _id twice: the second merges into the first', { }, { stored: [ ] }
+      , (api, done) => api.create([profile({ _id: HEX }), profile({ _id: HEX, units: 'mmol' })], done)],
+    ['a changing re-send without update permission: nothing written, refused', { }, { stored: [storedProfile()] }
+      , (api, done) => api.create([profile(), profile({ _id: HEX2, units: 'mmol' })], done, { canUpdate: false })],
+    ['an identical re-send without update permission is allowed', { }, { stored: [storedProfile()] }
+      , (api, done) => api.create([profile({ _id: HEX2, store: { Default: { dia: 4, basal: [{ time: '00:00', value: 1 }] }, Alt: { dia: 3 } } }), profile()], done, { canUpdate: false })],
+    ['an insert failure is logged and answered', { }, { stored: [ ], insertManyError: new Error('insert down') }
+      , (api, done) => api.create([profile()], done)],
+    ['a failed read fails the create', { }, { stored: [ ], failFindAt: 0 }
+      , (api, done) => api.create([profile({ _id: HEX })], done)],
+    ['an empty batch announces and answers', { }, { }, (api, done) => api.create([ ], done)],
+    ['a bad startDate is refused before any write', { }, { }, (api, done) => api.create([profile({ startDate: { } })], done)],
+    ['save by upper-case 24-hex _id (carry, replace, twin removal, then the announcement)', { }, { stored: [storedProfile()], replaceUpserts: [false] }
+      , (api, done) => api.save(profile({ _id: HEX2.toUpperCase() }), done)],
+    ['save by ObjectId', { }, { stored: [ ], replaceUpserts: [true] }
+      , (api, done) => api.save(profile({ _id: new ObjectId(HEX), created_at: T2 }), done)],
+    ['save of a non-hex _id gets a new ObjectId and no twin removal', { }, { stored: [ ], replaceUpserts: [true] }
+      , (api, done) => api.save(profile({ _id: 'twelve-chars' }), done)],
+    ['save whose write fails', { }, { fail: { replaceOne: new Error('replace down') } }
+      , (api, done) => api.save(profile({ _id: HEX }), done)],
+    ['remove by 24-hex _id (every form)', { }, { deleted: 2 }, (api, done) => api.remove(HEX, done)],
+    ['remove by a custom _id', { }, { deleted: 0 }, (api, done) => api.remove('custom-id', done)],
+    ['prune past the boundary', { }, { stored: [{ _id: { $oid: HEX }, startDate: T1 }], deleted: 4 }
+      , (api, done) => api.prune(2, done)],
+    ['prune with nothing past the boundary', { }, { stored: [ ] }, (api, done) => api.prune(2, done)]
+  ];
+
+  for (const [name, envExtra, cfg, act] of cases) {
+    it(name, async function ( ) {
+      await same(name, makeBefore, makeAfter, envExtra, cfg, act);
+    });
+  }
+
+  it('the comparison is not vacuous: a merged re-send updates once, then announces (BF-195)', async function ( ) {
+    const seen = await observe(makeAfter, { }, { stored: [storedProfile()] }
+      , (api, done) => api.create([profile({ _id: HEX2, store: { Alt: null } })], done));
+    const update = seen.calls.find(c => c[0] === 'updateOne');
+    // store.Alt: null merges into store: the stored store without Alt is $set.
+    assert.deepEqual(Object.keys(update[2]), ['$set']);
+    assert.deepEqual(Object.keys(update[2].$set.store), ['Default']);
+    assert.deepEqual(seen.timeline.map(e => e[0]), ['storage-write-committed', 'data-received']);
+  });
+});
+
+describe('write(intent): the profile rule table (slice 5)', function ( ) {
+  function step (calls, cfg) {
+    const MongoCollection = require('../lib/api3/storage/mongoCollection');
+    const ctx = { bus: new EventEmitter(), store: { collection: ( ) => driver(calls, cfg || { }) } };
+    const storage = new MongoCollection(ctx, undefined, 'profile', 'profile', [ ], { source: 'v1/internal' });
+    return writeIntent.forCollection(storage, 'profile', 'v1/internal');
+  }
+
+  it('creates by insert or merge, saves by replace with the twin removal after, removes every form, prunes by query', function ( ) {
+    const rules = writeIntent.COLLECTION_RULES.profile['v1/internal'];
+    assert.deepEqual(rules.create, { write: 'profiles', dates: 'stamp-created' });
+    assert.equal(rules.update.id, 'hex-or-new');
+    assert.equal(rules.update.twins, 'remove-string-forms-after');
+    assert.equal(rules.update.dates, 'carry');
+    assert.deepEqual(rules.delete, { target: 'every-form' });
+    assert.deepEqual(rules.prune, { target: 'query' });
+  });
+
+  it('answers inserted, merged and unchanged, in the order sent', async function ( ) {
+    const result = await step([ ], { stored: [{ _id: { $oid: HEX2 }, units: 'mg/dl' }, { _id: { $oid: HEX }, units: 'mmol' }] })
+      .write({ op: 'create', docs: [{ _id: HEX2, units: 'mmol' }, { units: 'x' }, { _id: HEX, units: 'mmol' }] });
+    assert.deepEqual(result.items.map(i => i.outcome), ['merged', 'inserted', 'unchanged']);
+  });
+
+  it('refuses a changing re-send without update permission before any write', async function ( ) {
+    const calls = [ ];
+    const result = await step(calls, { stored: [{ _id: { $oid: HEX2 }, units: 'mg/dl' }] })
+      .write({ op: 'create', docs: [{ units: 'x' }, { _id: HEX2, units: 'mmol' }], canUpdate: false });
+    assert.equal(result.refusedUpdate, true);
+    assert.deepEqual(result.items.map(i => [i.outcome, i.reason]), [['refused', 'batch refused'], ['refused', 'update permission']]);
+    assert.deepEqual(calls.map(c => c[0]), ['find']);
+  });
+
+  it('plans save\'s _id now: a non-hex _id gets a new ObjectId and no twin removal', function ( ) {
+    const planned = step([ ]).plan({ op: 'update', docs: [{ _id: 'twelve-chars' }] });
+    assert(planned.docs[0]._id instanceof ObjectId);
+    assert.notEqual(planned.docs[0]._id.toHexString(), Buffer.from('twelve-chars').toString('hex'));
+    assert.deepEqual(planned.stale[0], [ ]);
+    assert.deepEqual(step([ ]).plan({ op: 'update', docs: [{ _id: HEX.toUpperCase() }] }).stale[0], [HEX, HEX.toUpperCase()]);
   });
 });
