@@ -53,7 +53,7 @@ describe('ST-VIEWS equality: resident ddata vs bounded queries', function () {
       , ALARM_TIMEAGO_WARN: 'on', ALARM_TIMEAGO_URGENT: 'on'
       , TIMEAGO_ENABLE_ALERTS: 'true', CAGE_ENABLE_ALERTS: 'true', SAGE_ENABLE_ALERTS: 'true'
       , IAGE_ENABLE_ALERTS: 'true', BAGE_ENABLE_ALERTS: 'true', UPBAT_ENABLE_ALERTS: 'true'
-      , PUMP_ENABLE_ALERTS: 'true', OPENAPS_ENABLE_ALERTS: 'true'
+      , PUMP_ENABLE_ALERTS: 'true', OPENAPS_ENABLE_ALERTS: 'true', LOOP_ENABLE_ALERTS: 'true'
     });
     const env = require('../lib/server/env')();
     env.settings.authDefaultRoles = 'readable';

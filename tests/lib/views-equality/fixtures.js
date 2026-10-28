@@ -132,6 +132,36 @@ function crowdedStatus (now) {
   return fx;
 }
 
+// A Loop (iOS) history: one status every 5 minutes, shaped as Loop's
+// NightscoutService builds it (StoredDosingDecision.deviceStatus). When the
+// dosing decision has errors Loop still uploads, with `failureReason` set and
+// no `enacted`; the loop plugin's "isn't looping" alarm counts from the newest
+// status without `failureReason`.
+function loopHistory (now, failingMins) {
+  const fx = base(now, { noDeviceStatus: true });
+  for (let age = 3 * MIN; age <= 26 * HOUR; age += 5 * MIN) {
+    const t = now - age;
+    const loop = {
+      name: 'Loop', version: 'views-equality', timestamp: iso(t)
+      , iob: { iob: 1.2, timestamp: iso(t) }
+      , cob: { cob: 10, timestamp: iso(t) }
+      , predicted: { startDate: iso(t), values: [140, 138, 135, 130] }
+    };
+    if (age < failingMins * MIN) {
+      loop.failureReason = 'synthetic pump communication error';
+    } else {
+      loop.enacted = { rate: 0.8, duration: 1800, timestamp: iso(t), received: true, bolusVolume: 0 };
+    }
+    fx.devicestatus.push({
+      device: 'loop://views-equality', created_at: iso(t)
+      , pump: { clock: iso(t), reservoir: 100 - age / HOUR, battery: { percent: 80 } }
+      , uploader: { name: 'views-equality', timestamp: iso(t), battery: 70 }
+      , loop: loop
+    });
+  }
+  return fx;
+}
+
 // Scenario name -> builder(now). Each one moves one thing a view depends on.
 const SCENARIOS = {
   steady: (now) => base(now)
@@ -162,6 +192,28 @@ const SCENARIOS = {
       delete loopOnly.pump;
       return [loopOnly, pumpOnly];
     }).flat();
+    return fx;
+  }
+  // Loop has failed every cycle for 90 minutes (a pump out of reach): the
+  // newest 18 statuses carry failureReason, the newest without it is 93
+  // minutes old, so "Loop isn't looping" is urgent
+  , loopFailing: (now) => loopHistory(now, 90)
+  // AAPS has not run its loop for 90 minutes: LoopPlugin.buildAndStoreDeviceStatus
+  // still uploads every cycle, but with no suggested, iob or enacted once the
+  // last run is over 5 minutes old, so `openaps` is present and empty
+  , aapsLoopStopped: (now) => {
+    const fx = base(now);
+    fx.devicestatus.forEach(function (d) {
+      if (Date.parse(d.created_at) > now - 90 * MIN) d.openaps = {};
+    });
+    return fx;
+  }
+  // a command sent to the pump and not yet confirmed (a bolus still being
+  // delivered): the newest status's enacted has no received
+  , commandPending: (now) => {
+    const fx = base(now);
+    const newest = fx.devicestatus.sort((a, b) => Date.parse(b.created_at) - Date.parse(a.created_at))[0];
+    delete newest.openaps.enacted.received;
     return fx;
   }
   // each change event at or past its urgent age
