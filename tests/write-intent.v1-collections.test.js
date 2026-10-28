@@ -36,7 +36,8 @@ function driver (calls, cfg) {
       const upsertedIds = { };
       (cfg.upserted || [ ]).forEach(index => { upsertedIds[index] = madeId(); });
       return Promise.resolve({ acknowledged: true, upsertedIds, upsertedCount: Object.keys(upsertedIds).length
-        , matchedCount: args[0].length - Object.keys(upsertedIds).length, modifiedCount: 0, insertedCount: 0, deletedCount: 0 });
+        , matchedCount: args[0].length - Object.keys(upsertedIds).length
+        , modifiedCount: args[0].length - Object.keys(upsertedIds).length, insertedCount: 0, deletedCount: 0 });
     }
     if (name === 'replaceOne' || name === 'updateOne' || name === 'updateMany') {
       const up = replaceUpserts.length ? replaceUpserts.shift() : false;
@@ -63,6 +64,9 @@ function driver (calls, cfg) {
   col.find = function (filter, options) {
     calls.push(['find', filter, options]);
     if (cfg.fail && cfg.fail.find) throw cfg.fail.find;
+    if (cfg.failFindAt !== undefined && calls.filter(c => c[0] === 'find').length - 1 === cfg.failFindAt) {
+      throw new Error('find down');
+    }
     const docs = typeof cfg.stored === 'function' ? cfg.stored(filter) : (cfg.stored || [ ]);
     const cursor = { sort: () => cursor, skip: () => cursor, limit: () => cursor, project: () => cursor,
       batchSize: () => cursor, toArray: () => Promise.resolve(JSON.parse(JSON.stringify(docs), revive)) };
@@ -342,5 +346,104 @@ describe('write(intent): the treatments rule table (slice 5)', function ( ) {
     const calls = [ ];
     await assert.rejects(step({ }, calls).write({ op: 'create', form: 'nope', docs: [{ }] }), /No write rules for create form nope/);
     assert.deepEqual(calls, [ ]);
+  });
+});
+
+describe('write(intent): entries from API v1 and in-process callers (equal to db3b9e4e)', function ( ) {
+  const before = require('./fixtures/write-intent/entries-db3b9e4e');
+  const after = require('../lib/server/entries');
+
+  const D1 = Date.parse(T1);
+  const sgv = (minutes, extra) => Object.assign({ type: 'sgv', sgv: 100 + minutes, date: D1 + minutes * 60000
+    , dateString: new Date(D1 + minutes * 60000).toISOString(), device: 'cgm' }, extra);
+  const storedAt = (minutes, extra) => Object.assign({ _id: { $oid: 'dddddddddddddddddddddd' + String(10 + minutes) }
+    , type: 'sgv', sysTime: new Date(D1 + minutes * 60000).toISOString(), sgv: 1, srvCreated: 5 }, extra);
+
+  const cases = [
+    ['new readings (all upserted)', { }, { stored: [ ], upserted: [0, 1] }
+      , (api, done) => api.create([sgv(0), sgv(5)], done)],
+    ['re-sent readings matched by sysTime + type (stored _id read back)', { }, { stored: [storedAt(0), storedAt(5)] }
+      , (api, done) => api.create([sgv(0), sgv(5, { _id: HEX })], done)],
+    ['a stored identifier is the target (ID-SIMPLE-MATCH)', { }, { stored: [storedAt(0, { identifier: 'r-1' })] }
+      , (api, done) => api.create([sgv(1, { identifier: 'r-1' }), sgv(6, { identifier: 'r-2' }), sgv(7, { identifier: 'r-2' })], done)],
+    ['a stored identifier under UUID_HANDLING, with a UUID _id', { uuidHandling: true }, { stored: [storedAt(0, { _id: 'u-1' })], upserted: [1] }
+      , (api, done) => api.create([sgv(1, { _id: 'u-1' }), sgv(2, { _id: 'u-2' })], done)],
+    ['a re-send with a null and an object member is merged (Q1b)', { }, { stored: [storedAt(0, { noise: 1, meta: { a: 1, b: 2 } })] }
+      , (api, done) => api.create([sgv(0, { noise: null, meta: { b: null, c: 3 } }), sgv(0, { meta: { d: 4 } })], done)],
+    ['an entry without a type is an insert-only write by a new _id', { }, { stored: [ ], upserted: [0] }
+      , (api, done) => api.create([{ sgv: 90, date: D1 }, { sgv: 91, date: D1, isValid: true, _id: HEX2 }], done)],
+    ['a failed read-back is logged and the entries are still answered', { }, { stored: [storedAt(0)], failFindAt: 0 }
+      , (api, done) => api.create([sgv(0)], done)],
+    ['a failed identifier read fails the batch', { }, { stored: [ ], failFindAt: 0 }
+      , (api, done) => api.create([sgv(0, { identifier: 'r-1' })], done)],
+    ['a failed bulk write', { }, { fail: { bulkWrite: new Error('bulk down') } }
+      , (api, done) => api.create([sgv(0)], done)],
+    ['an empty batch', { }, { }, (api, done) => api.create([ ], done)],
+    ['a non-string type is refused before any write', { }, { }
+      , (api, done) => api.create([{ type: 5, sgv: 1, date: D1 }], done)],
+    ['remove by 24-hex _id', { }, { deleted: 1 }, (api, done) => api.remove({ find: { _id: HEX } }, done)],
+    ['remove by query', { }, { deleted: 2 }
+      , (api, done) => api.remove({ find: { type: 'sgv', date: { $gte: D1 } } }, done)]
+  ];
+
+  for (const [name, envExtra, cfg, act] of cases) {
+    it(name, async function ( ) {
+      await same(name, before, after, envExtra, cfg, act);
+    });
+  }
+
+  it('the comparison is not vacuous: a merged re-send writes $unset, emits and answers', async function ( ) {
+    const seen = await observe(after, { }, { stored: [storedAt(0, { noise: 1 })] }
+      , (api, done) => api.create([sgv(0, { noise: null })], done));
+    const bulk = seen.calls.find(c => c[0] === 'bulkWrite');
+    assert.deepEqual(bulk[1][0].updateOne.update.$unset, { isValid: '', noise: '' });
+    assert.deepEqual(seen.timeline.map(e => e[0]), ['storage-write-committed', 'data-update', 'data-received']);
+    assert.equal(seen.out.callback[1][0]._id, 'dddddddddddddddddddddd10');
+  });
+});
+
+describe('write(intent): the entries rule table (slice 5)', function ( ) {
+  function step (env, calls, cfg) {
+    const MongoCollection = require('../lib/api3/storage/mongoCollection');
+    const ctx = { bus: new EventEmitter(), store: { collection: ( ) => driver(calls, cfg || { }) } };
+    const storage = new MongoCollection(ctx, env, 'entries', 'entries', [ ], { source: 'v1/internal' });
+    return writeIntent.forCollection(storage, 'entries', 'v1/internal', { env });
+  }
+
+  it('creates by a merging bulk write and deletes by query', function ( ) {
+    const rules = writeIntent.COLLECTION_RULES.entries['v1/internal'];
+    assert.deepEqual(rules.create, { plan: 'entries', write: 'entries-merge-bulk', onMatch: 'merged' });
+    assert.deepEqual(rules.delete, { target: 'query' });
+  });
+
+  it('plans sysTime + type as the target, srvModified now and srvCreated on insert only', function ( ) {
+    const doc = { type: 'sgv', sgv: 1, dateString: T3, _id: 'not-hex' };
+    const planned = step({ }, [ ]).plan({ op: 'create', docs: [doc] });
+    const op = planned.ops[0].updateOne;
+    assert.deepEqual(op.filter, { sysTime: { $eq: '2026-10-27T08:10:00.000Z' }, type: { $eq: 'sgv' } });
+    assert.equal(doc.utcOffset, 120);
+    assert(!('_id' in doc), 'a non-hex _id is not written');
+    assert.equal(op.update.$setOnInsert.srvCreated, doc.srvModified);
+    assert.deepEqual(op.update.$unset, { isValid: '' });
+    assert.equal(planned.insertOnly.size, 0);
+  });
+
+  it('matches a stored identifier, and a repeat within the batch, before sysTime + type', async function ( ) {
+    const calls = [ ];
+    const s = step({ }, calls, { stored: [{ _id: { $oid: HEX2 }, identifier: 'r-1', type: 'sgv', sysTime: T1 }] });
+    const docs = [{ type: 'sgv', sgv: 1, date: 1, identifier: 'r-1' }, { type: 'sgv', sgv: 1, date: 2, identifier: 'new' }
+      , { type: 'sgv', sgv: 1, date: 3, identifier: 'new' }];
+    const result = await s.write({ op: 'create', docs });
+    const ops = calls.find(c => c[0] === 'bulkWrite')[1];
+    assert.deepEqual(ops[0].updateOne.filter, { identifier: { $eq: 'r-1' } });
+    assert(ops[1].updateOne.filter.sysTime, 'a new identifier keeps the time match');
+    assert.deepEqual(ops[2].updateOne.filter, { identifier: { $eq: 'new' } }, 'a repeat in the batch updates the first');
+    assert.equal(String(docs[0]._id), HEX2);
+    assert.deepEqual(result.items.map(i => i.outcome), ['merged', 'merged', 'merged']);
+  });
+
+  it('answers a failed read-back as readBackError, not a failed write', async function ( ) {
+    const result = await step({ }, [ ], { stored: [ ], failFindAt: 0 }).write({ op: 'create', docs: [{ type: 'sgv', sgv: 1, date: 1 }] });
+    assert.equal(result.readBackError.message, 'find down');
   });
 });

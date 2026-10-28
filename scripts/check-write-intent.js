@@ -19,7 +19,7 @@ const fs = require('node:fs');
 const path = require('node:path');
 const babel = require('@babel/core');
 
-const ENROLLED = ['lib/server/food.js', 'lib/server/activity.js', 'lib/server/treatments.js'
+const ENROLLED = ['lib/server/food.js', 'lib/server/activity.js', 'lib/server/treatments.js', 'lib/server/entries.js'
   // The socket's generic dbAdd (entries, food, activity) and its dbRemove
   // (every collection). Treatments, devicestatus and profile dbAdd, dbUpdate
   // and dbUpdateUnset still write through lib/server/storage-writes.js.
