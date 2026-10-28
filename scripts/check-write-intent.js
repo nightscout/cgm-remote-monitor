@@ -15,7 +15,7 @@ const fs = require('node:fs');
 const path = require('node:path');
 const babel = require('@babel/core');
 
-const ENROLLED = ['lib/server/food.js'];
+const ENROLLED = ['lib/server/food.js', 'lib/server/activity.js'];
 
 // The driver's write methods, the storage interface's
 // (lib/api3/storage/mongoCollection/index.js) and lib/server/storage-writes.js's.

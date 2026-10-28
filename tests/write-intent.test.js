@@ -33,6 +33,11 @@ function driver (calls, stored, upserted) {
     if (name === 'deleteMany' || name === 'deleteOne') {
       return Promise.resolve({ acknowledged: true, deletedCount: stored.length });
     }
+    if (name === 'replaceOne') {
+      const up = (upserted || [ ]).includes(0);
+      return Promise.resolve({ acknowledged: true, matchedCount: up ? 0 : 1, modifiedCount: up ? 0 : 1
+        , upsertedCount: up ? 1 : 0, upsertedId: up ? args[0]._id : null });
+    }
     return Promise.resolve({ acknowledged: true });
   };
   const col = { };
@@ -49,12 +54,12 @@ function driver (calls, stored, upserted) {
 
 // The storage interface food.js acquires (storage-reads collection()), over
 // the recording driver, with its commit events.
-function storageOver (calls, stored, upserted) {
+function storageOver (calls, stored, upserted, name = 'food') {
   const bus = new EventEmitter();
   const committed = [ ];
   bus.on('storage-write-committed', e => committed.push(e));
   const ctx = { bus, store: { collection: () => driver(calls, stored, upserted) } };
-  const storage = new MongoCollection(ctx, { }, 'food', 'food', [ ], { source: MongoCollection.SOURCES.V1 });
+  const storage = new MongoCollection(ctx, { }, name, name, [ ], { source: MongoCollection.SOURCES.V1 });
   return { storage, committed };
 }
 
@@ -214,29 +219,160 @@ describe('write(intent): food from API v1 and in-process callers', function ( ) 
 });
 
 
+// What lib/server/activity.js did before the move (db3b9e4e): create is
+// food's create without server dates; save is one upserting replaceOne by
+// plain _id, then a separate removal of the string forms of a 24-hex _id.
+async function legacyActivity (storage, op, docs) {
+  if (op === 'create') {
+    const submitted = [ ];
+    const bulkOps = docs.map(function (doc) {
+      submitted.push(doc._id);
+      if (!doc._id) doc._id = new ObjectId();
+      doc._id = idForms.toStoredId(doc._id);
+      return { replaceOne: { filter: { _id: { $eq: doc._id } }, replacement: doc, upsert: true } };
+    });
+    idForms.withStaleStringsRemoved(bulkOps, submitted);
+    const bulkResult = await writes.bulk(storage, bulkOps, { ordered: true });
+    Object.keys(bulkResult.upsertedIds).forEach(function (index) { docs[index]._id = bulkResult.upsertedIds[index]; });
+    return docs;
+  }
+  const obj = docs[0];
+  const stale = idForms.staleStringForms([obj._id]);
+  try { obj._id = new ObjectId(obj._id); } catch { obj._id = new ObjectId(); }
+  await writes.replace(storage, { _id: obj._id }, obj, { upsert: true });
+  if (stale.length > 0) await writes.remove(storage, { _id: { $in: stale } });
+  return obj;
+}
+
+describe('write(intent): activity from API v1 and in-process callers', function ( ) {
+  const activity = (storage) => writeIntent.forCollection(storage, 'activity', 'v1/internal');
+
+  it('create sends the driver what activity.js sent (no server dates, no read), and the same commit events', async function ( ) {
+    const before = { calls: [ ] };
+    Object.assign(before, storageOver(before.calls, [ ], [0], 'activity'));
+    const legacyDocs = await legacyActivity(before.storage, 'create', batch());
+
+    const after = { calls: [ ] };
+    Object.assign(after, storageOver(after.calls, [ ], [0], 'activity'));
+    const docs = batch();
+    const result = await activity(after.storage).write({ op: 'create', docs });
+
+    assert.deepEqual(JSON.parse(JSON.stringify(after.calls)), JSON.parse(JSON.stringify(before.calls)));
+    assert.deepEqual(after.calls.map(c => c[0]), ['bulkWrite'], 'one bulk write and no find: activity is not stamped');
+    assert.deepEqual(after.committed, before.committed);
+    assert.equal(after.committed.length, 1);
+    assert.deepEqual(JSON.parse(JSON.stringify(docs)), JSON.parse(JSON.stringify(legacyDocs)));
+    for (const doc of docs) {
+      assert(!('srvCreated' in doc) && !('srvModified' in doc), 'no server dates on activity');
+    }
+    assert.deepEqual(result.items.map(i => [i.index, i.outcome]), [[0, 'inserted'], [1, 'replaced'], [2, 'replaced']]);
+    assert.deepEqual(after.calls[0][1][3], { deleteMany: { filter: { _id: { $in: [HEX, HEX.toUpperCase(), HEX2] } } } }
+      , 'the string-twin removal is appended to the same bulk write, as food does');
+  });
+
+  for (const [label, id] of [['an upper-case 24-hex _id', HEX.toUpperCase()], ['an ObjectId _id', new ObjectId(HEX2)]
+    , ['a non-hex _id', null]]) {
+    it('update of ' + label + ' sends the driver what save sent (replaceOne; a twin removal in a call of its own)', async function ( ) {
+      // A non-hex _id becomes a fresh ObjectId, different in each run: those
+      // are compared with the new id replaced by a placeholder.
+      const sent = () => ({ _id: id === null ? 'not-hex' : id, name: 'x', created_at: 'C' });
+      const before = { calls: [ ] };
+      // One stored string twin, so the mock's removal reports a deletion and commits.
+      const twin = [{ _id: HEX }];
+      Object.assign(before, storageOver(before.calls, twin, [ ], 'activity'));
+      const after = { calls: [ ] };
+      Object.assign(after, storageOver(after.calls, twin, [ ], 'activity'));
+      const doc = sent();
+      const result = await activity(after.storage).write({ op: 'update', docs: [doc] });
+      const legacyDoc = await legacyActivity(before.storage, 'update', [sent()]);
+
+      const fresh = (calls, newId) => JSON.parse(JSON.stringify(calls).split(String(newId)).join('NEW'));
+      assert.deepEqual(fresh(after.calls, doc._id), fresh(before.calls, legacyDoc._id));
+      assert.deepEqual(after.committed, before.committed);
+      if (id === null) {
+        assert.deepEqual(after.calls.map(c => c[0]), ['replaceOne'], 'no twin removal for a non-hex _id');
+      } else {
+        assert.deepEqual(after.calls.map(c => c[0]), ['replaceOne', 'deleteMany'], 'two driver calls');
+        assert.equal(after.committed.length, 2, 'the replace and the twin removal each commit');
+        assert.deepEqual(Object.keys(after.calls[0][1]), ['_id'], 'plain _id equality, not $eq');
+        assert.deepEqual(after.calls[0][3], { upsert: true });
+      }
+      assert(doc._id instanceof ObjectId);
+      assert.deepEqual(result.items, [{ index: 0, outcome: 'replaced', _id: doc._id, identifier: null }]);
+      assert.equal(result.adapter.matchedCount, 1);
+    });
+  }
+
+  it('update answers inserted, with the upserted _id, when no record had that _id', async function ( ) {
+    const { storage } = storageOver([ ], [ ], [0], 'activity');
+    const doc = { _id: HEX, name: 'new' };
+    const result = await activity(storage).write({ op: 'update', docs: [doc] });
+    assert.equal(result.items[0].outcome, 'inserted');
+    assert.equal(result.items[0]._id.toHexString(), HEX);
+  });
+
+  it('update writes one document: a batch is refused before any write', async function ( ) {
+    const calls = [ ];
+    const { storage } = storageOver(calls, [ ], [ ], 'activity');
+    await assert.rejects(activity(storage).write({ op: 'update', docs: [{ _id: HEX }, { _id: HEX2 }] }), /writes one document, not 2/);
+    assert.deepEqual(calls, [ ]);
+  });
+
+  it('assigns the update _id before its first await, so save returns with it', function ( ) {
+    const doc = { _id: HEX.toUpperCase() };
+    const pending = activity(storageOver([ ], [ ], [ ], 'activity').storage).write({ op: 'update', docs: [doc] });
+    assert(doc._id instanceof ObjectId);
+    assert.equal(doc._id.toHexString(), HEX);
+    return pending;
+  });
+
+  it('delete removes every stored form, as food does', async function ( ) {
+    const calls = [ ];
+    const { storage, committed } = storageOver(calls, [{ _id: HEX }], [ ], 'activity');
+    const result = await activity(storage).write({ op: 'delete', target: { _id: HEX } });
+    assert.deepEqual(calls.map(c => c[0]), ['deleteMany']);
+    assert.deepEqual(JSON.parse(JSON.stringify(calls[0][1])), { _id: { $in: [HEX, HEX] } });
+    assert.equal(result.items[0].outcome, 'deleted');
+    assert.equal(committed[0].collection, 'activity');
+  });
+
+  it('keeps activity without server dates (write-contract Q5 is the second release)', function ( ) {
+    const rules = writeIntent.COLLECTION_RULES.activity['v1/internal'];
+    assert.equal(rules.create.dates, 'none');
+    assert.equal(rules.update.dates, 'none');
+    assert(Object.isFrozen(rules.update));
+  });
+});
+
+
 describe('write(intent) gate G2: one door for the enrolled collections', function ( ) {
   const { check, ENROLLED } = require('../scripts/check-write-intent');
 
   it('finds no write around the step in an enrolled module', function ( ) {
-    assert.deepEqual(ENROLLED, ['lib/server/food.js']);
+    // CHANGED EXPECTATION (WC-STEP-PATCH slice 2): activity.js joins food.js.
+    // Each slice that routes a module through the step adds it here.
+    assert.deepEqual(ENROLLED, ['lib/server/food.js', 'lib/server/activity.js']);
     for (const file of ENROLLED) {
       assert.deepEqual(check(fs.readFileSync(path.resolve(__dirname, '..', file), 'utf8')), [], file);
     }
   });
 
-  it('fails, naming the line, when a route writes around the step (break-it control)', function ( ) {
-    const file = ENROLLED[0];
-    const source = fs.readFileSync(path.resolve(__dirname, '..', file), 'utf8');
-    const lines = source.split('\n').length;
-    for (const bypass of [
-      'store().bulkUpsert([], { mode: "replace" });'
-      , 'store().insertOne({});'
-      , 'reads.collection(ctx, env, "food", "food").deleteMany(null, { v1: true });'
-      , 'var writes = require("./storage-writes"); writes.remove(store(), {});'
-    ]) {
-      const issues = check(source + '\n' + bypass + '\n');
-      assert(issues.length > 0, bypass);
-      assert(issues.every(issue => issue.endsWith('line ' + (lines + 1))), issues.join('; '));
-    }
-  });
+  // Every enrolled module, not only the first (slice 2 widened this from ENROLLED[0]).
+  for (const file of ENROLLED) {
+    it('fails, naming the line, when ' + file + ' writes around the step (break-it control)', function ( ) {
+      const source = fs.readFileSync(path.resolve(__dirname, '..', file), 'utf8');
+      const lines = source.split('\n').length;
+      for (const bypass of [
+        'store().bulkUpsert([], { mode: "replace" });'
+        , 'store().insertOne({});'
+        , 'store().replaceFiltered(null, {}, { upsert: true, v1: true });'
+        , 'reads.collection(ctx, env, "x", "x").deleteMany(null, { v1: true });'
+        , 'var writes = require("./storage-writes"); writes.remove(store(), {});'
+      ]) {
+        const issues = check(source + '\n' + bypass + '\n');
+        assert(issues.length > 0, bypass);
+        assert(issues.every(issue => issue.endsWith('line ' + (lines + 1))), issues.join('; '));
+      }
+    });
+  }
 });
