@@ -447,3 +447,92 @@ describe('write(intent): the entries rule table (slice 5)', function ( ) {
     assert.equal(result.readBackError.message, 'find down');
   });
 });
+
+describe('write(intent): devicestatus from API v1 and in-process callers (equal to db3b9e4e)', function ( ) {
+  const before = require('./fixtures/write-intent/devicestatus-db3b9e4e');
+  const after = require('../lib/server/devicestatus');
+
+  const status = (minutes, extra) => Object.assign({ device: 'openaps://rig', created_at: new Date(Date.parse(T1) + minutes * 60000).toISOString()
+    , openaps: { suggested: { predBGs: { IOB: [1, 2, 3, 4] } } } }, extra);
+  const dup = Object.assign(new Error('E11000 duplicate key'), { code: 11000 });
+
+  const cases = [
+    ['new statuses', { }, { stored: [ ] }, (api, done) => api.create([status(0), status(5)], done)],
+    ['one status, not an array, predictions capped', { predictionsMaxSize: 2 }, { stored: [ ] }
+      , (api, done) => api.create(status(0), done)],
+    ['a stored identifier is acknowledged, not written; an in-batch repeat takes the first _id', { }
+      , { stored: f => f.identifier ? [{ _id: { $oid: HEX2 }, identifier: 's-1' }] : [ ] }
+      , (api, done) => api.create([status(0, { identifier: 's-1' }), status(1, { identifier: 's-2' }), status(2, { identifier: 's-2' })], done)],
+    ['a stored 24-hex _id (string twin) is acknowledged with the ObjectId form', { }
+      , { stored: f => f._id ? [{ _id: HEX }, { _id: { $oid: HEX } }] : [ ] }
+      , (api, done) => api.create([status(0, { _id: HEX.toUpperCase() }), status(1, { _id: HEX2 }), status(2, { _id: HEX2 })], done)],
+    ['every status already stored: nothing written, nothing announced', { }
+      , { stored: f => f.identifier ? [{ _id: { $oid: HEX2 }, identifier: 's-1' }] : [ ] }
+      , (api, done) => api.create([status(0, { identifier: 's-1' })], done)],
+    ['the same created_at and device as a stored status: a second record', { }, { stored: [{ _id: { $oid: HEX2 }, device: 'openaps://rig', created_at: T1 }] }
+      , (api, done) => api.create([status(0)], done)],
+    ['a duplicate _id stored meanwhile (the race) is dropped, the rest stored', { }
+      , { stored: [ ], insertManyError: Object.assign(new Error('bulk'), { writeErrors: [{ index: 0, code: 11000 }] }) }
+      , (api, done) => api.create([status(0, { _id: HEX }), status(1)], done)],
+    ['any other insert error fails the batch', { }, { stored: [ ], insertManyError: dup }
+      , (api, done) => api.create([status(0)], done)],
+    ['a failed read fails the batch', { }, { stored: [ ], failFindAt: 0 }
+      , (api, done) => api.create([status(0, { identifier: 's-1' })], done)],
+    ['an empty batch', { }, { }, (api, done) => api.create([ ], done)],
+    ['remove by 24-hex _id', { }, { deleted: 1 }, (api, done) => api.remove({ find: { _id: HEX } }, done)],
+    ['remove by query', { }, { deleted: 3 }
+      , (api, done) => api.remove({ find: { device: 'openaps://rig', created_at: { $gte: '2026-01-01' } } }, done)]
+  ];
+
+  for (const [name, envExtra, cfg, act] of cases) {
+    it(name, async function ( ) {
+      await same(name, before, after, envExtra, cfg, act);
+    });
+  }
+
+  it('the comparison is not vacuous: an acknowledged re-send keeps the stored _id and the new one is inserted', async function ( ) {
+    const seen = await observe(after, { }, { stored: f => f.identifier ? [{ _id: { $oid: HEX2 }, identifier: 's-1' }] : [ ] }
+      , (api, done) => api.create([status(0, { identifier: 's-1' }), status(1)], done));
+    const insert = seen.calls.find(c => c[0] === 'insertMany');
+    assert.equal(insert[1].length, 1);
+    assert.deepEqual(insert[2], { ordered: false });
+    assert.equal(seen.out.callback[1][0]._id, HEX2);
+    assert.deepEqual(seen.timeline.map(e => e[0]), ['storage-write-committed', 'data-update', 'data-received']);
+  });
+});
+
+describe('write(intent): the devicestatus rule table (slice 5)', function ( ) {
+  function step (calls, cfg) {
+    const MongoCollection = require('../lib/api3/storage/mongoCollection');
+    const ctx = { bus: new EventEmitter(), store: { collection: ( ) => driver(calls, cfg || { }) } };
+    const storage = new MongoCollection(ctx, { }, 'devicestatus', 'devicestatus', [ ], { source: 'v1/internal' });
+    return writeIntent.forCollection(storage, 'devicestatus', 'v1/internal', { env: { } });
+  }
+
+  it('creates by insert only, with created server dates, and deletes by query', function ( ) {
+    const rules = writeIntent.COLLECTION_RULES.devicestatus['v1/internal'];
+    assert.deepEqual(rules.create, { write: 'statuses', dates: 'stamp-created' });
+    assert.deepEqual(rules.delete, { target: 'query' });
+  });
+
+  it('answers each status: inserted, or refused (already stored, repeated in the batch), and lists what was inserted', async function ( ) {
+    const docs = [{ identifier: 'old' }, { identifier: 'new' }, { identifier: 'new' }, { _id: HEX2 }];
+    const result = await step([ ], { stored: f => f.identifier ? [{ _id: { $oid: HEX }, identifier: 'old' }] : [ ] })
+      .write({ op: 'create', docs });
+    assert.deepEqual(result.items.map(i => [i.outcome, i.reason]), [['refused', 'already stored'], ['inserted', undefined]
+      , ['refused', 'repeated in the batch'], ['inserted', undefined]]);
+    assert.equal(String(docs[0]._id), HEX);
+    assert.equal(String(docs[2]._id), String(docs[1]._id));
+    assert(docs[3]._id instanceof ObjectId, 'a new 24-hex _id is stored as its ObjectId');
+    assert.deepEqual(result.inserted, [docs[1], docs[3]]);
+    assert(docs[1].srvCreated > 0 && docs[1].srvCreated === docs[1].srvModified);
+  });
+
+  it('names a failed read as the status-match rule, with the storage error as cause, before any write', async function ( ) {
+    const calls = [ ];
+    await assert.rejects(step(calls, { failFindAt: 0 }).write({ op: 'create', docs: [{ identifier: 'x' }] }), function (err) {
+      return err instanceof writeIntent.WriteRuleError && err.rule === 'status-match' && err.cause.message === 'find down';
+    });
+    assert.deepEqual(calls.map(c => c[0]), ['find']);
+  });
+});
