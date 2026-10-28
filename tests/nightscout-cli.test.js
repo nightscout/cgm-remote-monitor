@@ -3,7 +3,9 @@
 // covers: bin/nightscout.js, lib/cli/index.js, lib/cli/commands/version.js, lib/cli/commands/env.js, lib/cli/commands/healthcheck.js, lib/cli/commands/serve.js, lib/cli/commands/diagnose.js, package.json
 
 const assert = require('node:assert/strict');
+const fs = require('node:fs');
 const http = require('node:http');
+const https = require('node:https');
 const path = require('node:path');
 const { spawn, spawnSync } = require('node:child_process');
 
@@ -237,6 +239,57 @@ describe('nightscout executable (D21)', function () {
       const result = await cliAsync(['healthcheck', '--timeout', '300'], env(server.address().port));
       assert.equal(result.status, 1);
       assert.ok(Date.now() - started < 5000, 'took ' + (Date.now() - started) + ' ms');
+    });
+
+    describe('over https', function () {
+      // localhost.crt names localhost and is what SSL_CERT points at;
+      // healthcheck-other.crt (CN other.invalid) plays a different server on
+      // the same port. Both are self-signed test fixtures.
+      const fixture = name => path.join(root, 'tests/fixtures', name);
+      const versions = (req, res) => { res.setHeader('content-type', 'application/json'); res.end('[{"version":"1"}]'); };
+      let tlsServer;
+
+      function listen (certName, keyName) {
+        tlsServer = https.createServer({ cert: fs.readFileSync(fixture(certName)), key: fs.readFileSync(fixture(keyName)) }, versions);
+        return new Promise(resolve => tlsServer.listen(0, '127.0.0.1', resolve));
+      }
+      afterEach(function (done) { tlsServer.closeAllConnections(); tlsServer.close(done); });
+
+      function tlsEnv (extra) {
+        return cleanEnv(Object.assign({
+          PORT: String(tlsServer.address().port), NIGHTSCOUT_HOSTNAME: '127.0.0.1'
+          , SSL_KEY: fixture('localhost.key'), SSL_CERT: fixture('localhost.crt')
+        }, extra));
+      }
+
+      it('is green for the certificate SSL_CERT names, reached on loopback', async function () {
+        await listen('localhost.crt', 'localhost.key');
+          const result = await cliAsync(['healthcheck'], tlsEnv());
+          assert.equal(result.status, 0, result.stderr);
+          assert.match(result.stdout, /^healthy: https:\/\/127\.0\.0\.1:\d+\/api\/versions 200/);
+      });
+
+      it('is red when the server presents a different certificate', async function () {
+        await listen('healthcheck-other.crt', 'healthcheck-other.key');
+          const result = await cliAsync(['healthcheck'], tlsEnv());
+          assert.equal(result.status, 1, result.stdout);
+          assert.match(result.stderr, /^unhealthy: https:/);
+      });
+
+      it('is red when SSL_CERT cannot be read', async function () {
+        await listen('localhost.crt', 'localhost.key');
+          const result = await cliAsync(['healthcheck'], tlsEnv({ SSL_CERT: fixture('no-such.crt') }));
+          assert.equal(result.status, 1, result.stdout);
+          assert.match(result.stderr, /cannot read SSL_CERT or SSL_CA \(ENOENT\)/);
+      });
+
+      it('checks a --url as any client would: a self-signed certificate is red', async function () {
+        await listen('localhost.crt', 'localhost.key');
+          const url = 'https://127.0.0.1:' + tlsServer.address().port + '/api/versions';
+          const result = await cliAsync(['healthcheck', '--url', url], tlsEnv());
+          assert.equal(result.status, 1, result.stdout);
+          assert.match(result.stderr, /SELF_SIGNED|self-signed|self signed/i);
+      });
     });
 
     it('reads the address the server listens on', function () {
