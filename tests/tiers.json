@@ -125,6 +125,7 @@
         "tests/webhook.test.js",
         "tests/write-validation.test.js",
         "tests/write-step.test.js",
+        "tests/write-intent.test.js",
         "tests/read-contract.test.js"
       ],
       "env": true,
