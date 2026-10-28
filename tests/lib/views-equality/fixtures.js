@@ -138,6 +138,17 @@ const SCENARIOS = {
   // IOB and COB come from treatments when no device reports them
   , noDeviceStatus: (now) => setNewestSgv(base(now, { noDeviceStatus: true }), 205)
   // each change event at or past its urgent age
+  // the loop's newest status is 70 min old, and a second uploader has posted a
+  // battery-only status every minute since: the 10 newest statuses are all the
+  // second uploader's, while the loop and pump alarms read the loop's
+  , crowdedStatus: (now) => {
+    const fx = base(now);
+    fx.devicestatus = fx.devicestatus.filter(d => Date.parse(d.created_at) <= now - 70 * MIN);
+    for (let age = MIN; age < 60 * MIN; age += MIN) {
+      fx.devicestatus.push({ device: 'uploader-only', created_at: iso(now - age), uploader: { battery: 70 } });
+    }
+    return fx;
+  }
   , deviceAged: (now) => base(now, { siteAgeHours: 72 + 1 / 6, sensorAgeHours: 7 * 24 - 2 + 1 / 6, insulinAgeHours: 72 + 1 / 6, batteryAgeHours: 312 + 1 / 6 })
 };
 
