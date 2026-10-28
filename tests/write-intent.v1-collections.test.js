@@ -1,0 +1,346 @@
+'use strict';
+
+const assert = require('node:assert/strict');
+const { EventEmitter } = require('node:events');
+const { ObjectId } = require('mongodb');
+
+const writeIntent = require('../lib/storage/write-intent');
+
+// write(intent) for treatments, entries, devicestatus and profile from API v1
+// and in-process callers (WC-STEP-PATCH slice 5). Each module's writes moved
+// into the step with today's rules; this file runs the module as it was at
+// dev db3b9e4e (tests/fixtures/write-intent/<collection>-db3b9e4e.js, the
+// reference) and the module as it is now over the same recording driver, and
+// requires the same driver calls, the same commit events, bus emissions and
+// log lines in the same order, the same reply and the same documents. The
+// write matrix (G1) sees stored state and emissions over a real MongoDB; this
+// sees the calls and the order, including inputs the matrix has no cell for
+// (preBolus, UUID_HANDLING, WRITE_VALIDATION log and reject, a bad eventTime).
+
+const OWN_LOG = /lib\/server\/(treatments|entries|devicestatus|profile)\.js|fixtures\/write-intent\/|lib\/storage\/write-intent\.js/;
+
+const FIXED = /^(aaaa|bbbb|cccc|dddd|eeee|0000)/;
+
+// A driver collection that records every call and answers as configured:
+// finds return `cfg.stored`; a bulkWrite upserts the operation indexes in
+// `cfg.upserted`; each replaceOne / updateOne upserts when the next value of
+// `cfg.replaceUpserts` is true; insertMany assigns ids or fails as told.
+function driver (calls, cfg) {
+  let made = 0;
+  const madeId = ( ) => new ObjectId((++made).toString(16).padStart(24, '0'));
+  const replaceUpserts = (cfg.replaceUpserts || [ ]).slice();
+  const answer = name => function (...args) {
+    calls.push([name, ...args]);
+    if (cfg.fail && cfg.fail[name]) return Promise.reject(cfg.fail[name]);
+    if (name === 'bulkWrite') {
+      const upsertedIds = { };
+      (cfg.upserted || [ ]).forEach(index => { upsertedIds[index] = madeId(); });
+      return Promise.resolve({ acknowledged: true, upsertedIds, upsertedCount: Object.keys(upsertedIds).length
+        , matchedCount: args[0].length - Object.keys(upsertedIds).length, modifiedCount: 0, insertedCount: 0, deletedCount: 0 });
+    }
+    if (name === 'replaceOne' || name === 'updateOne' || name === 'updateMany') {
+      const up = replaceUpserts.length ? replaceUpserts.shift() : false;
+      return Promise.resolve({ acknowledged: true, matchedCount: up ? 0 : 1, modifiedCount: up ? 0 : 1
+        , upsertedCount: up ? 1 : 0, upsertedId: up ? madeId() : null });
+    }
+    if (name === 'insertMany') {
+      if (cfg.insertManyError) return Promise.reject(cfg.insertManyError);
+      const insertedIds = { };
+      args[0].forEach((doc, index) => {
+        if (doc._id == null) doc._id = madeId();
+        insertedIds[index] = doc._id;
+      });
+      return Promise.resolve({ acknowledged: true, insertedCount: args[0].length, insertedIds });
+    }
+    if (name === 'deleteMany' || name === 'deleteOne') {
+      return Promise.resolve({ acknowledged: true, deletedCount: cfg.deleted === undefined ? 1 : cfg.deleted });
+    }
+    return Promise.resolve({ acknowledged: true });
+  };
+  const col = { collectionName: 'c' };
+  for (const name of ['bulkWrite', 'insertOne', 'insertMany', 'deleteOne', 'deleteMany',
+    'replaceOne', 'updateOne', 'updateMany']) col[name] = answer(name);
+  col.find = function (filter, options) {
+    calls.push(['find', filter, options]);
+    if (cfg.fail && cfg.fail.find) throw cfg.fail.find;
+    const docs = typeof cfg.stored === 'function' ? cfg.stored(filter) : (cfg.stored || [ ]);
+    const cursor = { sort: () => cursor, skip: () => cursor, limit: () => cursor, project: () => cursor,
+      batchSize: () => cursor, toArray: () => Promise.resolve(JSON.parse(JSON.stringify(docs), revive)) };
+    return cursor;
+  };
+  col.countDocuments = ( ) => Promise.resolve(0);
+  return col;
+}
+
+// Stored documents are written with {$oid} for ObjectIds.
+function revive (key, value) {
+  return value && typeof value === 'object' && typeof value.$oid === 'string' ? new ObjectId(value.$oid) : value;
+}
+
+// Times and ObjectIds the server makes differ between two runs; everything
+// else must be equal.
+function shape (value) {
+  return JSON.parse(JSON.stringify(value, function (key, v) {
+    if (key === 'srvModified' || key === 'time' || key === 'at' || key === 'timestamp') return 'T';
+    if (key === 'srvCreated' && typeof v === 'number' && v > 1e12) return 'T';
+    if (v instanceof ObjectId || (v && v._bsontype === 'ObjectId')) v = v.toHexString();
+    if (typeof v === 'string' && /^[0-9a-f]{24}$/.test(v) && !FIXED.test(v)) return 'NEWID';
+    if (v instanceof Error) return { error: v.message, name: v.name, code: v.code };
+    return v;
+  }));
+}
+
+// Run `act(api, done)` against a module built by `make(env, ctx)`; returns
+// everything observable: driver calls, the ordered bus events and log lines,
+// a synchronous throw, the callback's arguments, and the documents passed in.
+async function observe (make, envExtra, cfg, act) {
+  const calls = [ ];
+  const timeline = [ ];
+  const bus = new EventEmitter();
+  for (const name of ['storage-write-committed', 'data-update', 'data-received']) {
+    bus.on(name, e => timeline.push([name, e]));
+  }
+  const ctx = {
+    bus,
+    store: { collection: ( ) => driver(calls, cfg), ensureIndexes: ( ) => { } },
+    ddata: { processRawDataForRuntime: x => JSON.parse(JSON.stringify(x)) },
+    purifier: { purifyObject: ( ) => { } }
+  };
+  const env = Object.assign({ treatments_collection: 'treatments', entries_collection: 'entries'
+    , devicestatus_collection: 'devicestatus' }, envExtra);
+  const saved = { };
+  for (const level of ['log', 'warn', 'error']) {
+    saved[level] = console[level];
+    // Only the lines the modules under test log: another suite's late timer
+    // can log while this one runs.
+    console[level] = function (...args) {
+      if (!OWN_LOG.test(new Error().stack)) return saved[level].apply(console, args);
+      timeline.push(['console.' + level, args.map(a => a instanceof Error ? a.message : a)]);
+    };
+  }
+  const out = { };
+  try {
+    const api = make(env, ctx);
+    await new Promise(function (resolve) {
+      const timer = setTimeout(resolve, 300);
+      const done = function (...args) { out.callback = args; clearTimeout(timer); setTimeout(resolve, 20); };
+      try {
+        const returned = act(api, done);
+        if (returned && typeof returned.then === 'function') {
+          returned.then(r => { out.resolved = r; }, e => { out.rejected = e; });
+        }
+      } catch (err) {
+        out.threw = err;
+        clearTimeout(timer);
+        setTimeout(resolve, 20);
+      }
+    });
+  } finally {
+    for (const level of Object.keys(saved)) console[level] = saved[level];
+  }
+  return shape({ calls, timeline, out });
+}
+
+// Both modules over the same inputs: `docs()` makes fresh documents each run.
+async function same (name, makeBefore, makeAfter, envExtra, cfg, act) {
+  const before = await observe(makeBefore, envExtra, cfg, act);
+  const after = await observe(makeAfter, envExtra, cfg, act);
+  assert.deepEqual(after, before, name);
+  return after;
+}
+
+const HEX = 'aaaaaaaaaaaaaaaaaaaaaaaa';
+const HEX2 = 'bbbbbbbbbbbbbbbbbbbbbbbb';
+const T1 = '2026-10-27T10:00:00.000Z';
+const T2 = '2026-10-27T10:05:00.000Z';
+const T3 = '2026-10-27T10:10:00.000+02:00';
+
+describe('write(intent): treatments from API v1 and in-process callers (equal to db3b9e4e)', function ( ) {
+  const before = require('./fixtures/write-intent/treatments-db3b9e4e');
+  const after = require('../lib/server/treatments');
+
+  const batch = ( ) => [
+    { eventType: 'Correction Bolus', insulin: '1.5', created_at: T1, _id: HEX.toUpperCase() },
+    { eventType: 'Meal Bolus', carbs: 20, created_at: T2, identifier: 'id-1' },
+    { eventType: 'Note', notes: 'x', created_at: T3, enteredBy: 'loop' },
+    { eventType: 'Carb Correction', carbs: 10, created_at: T1, _id: '1b2c3d4e-uuid', syncIdentifier: 's-1' }
+  ];
+  const stored = [{ _id: { $oid: HEX2 }, identifier: 'id-1', srvCreated: 5, created_at: T2, eventType: 'Meal Bolus' }];
+  const tt = (bottom, top, units) => ({ eventType: 'Temporary Target', targetBottom: bottom, targetTop: top
+    , units, duration: 60, created_at: T1, enteredBy: 'aid' });
+
+  const cases = [
+    ['a batch (bulk write, a twin removal after its _id write, read-backs)', { }, { stored, upserted: [0] }
+      , (api, done) => api.create(batch(), done)],
+    ['a batch under UUID_HANDLING', { uuidHandling: true }, { stored, upserted: [2] }
+      , (api, done) => api.create(batch(), done)],
+    ['a batch where nothing is upserted (every item answered by read-back)', { }, { stored }
+      , (api, done) => api.create(batch(), done)],
+    ['one document by _id (replace, then the twin removal in its own call)', { }, { stored, replaceUpserts: [false] }
+      , (api, done) => api.create(batch()[0], done)],
+    ['one document by fallback key, matched (BF-165 read-back)', { }, { stored, replaceUpserts: [false] }
+      , (api, done) => api.create(batch()[2], done)],
+    ['one document by identifier, inserted', { uuidHandling: true }, { stored: [ ], replaceUpserts: [true] }
+      , (api, done) => api.create(batch()[3], done)],
+    ['a batch with a preBolus (each item alone, then its preBolus record)', { }, { stored, replaceUpserts: [true, true, false, true] }
+      , (api, done) => api.create([Object.assign(batch()[1], { preBolus: '15' }), batch()[0], batch()[2]], done)],
+    ['one document with a preBolus whose record write fails', { }, { stored, replaceUpserts: [true], fail: { } }
+      , (api, done) => api.create({ eventType: 'Meal Bolus', carbs: 30, preBolus: 10, created_at: T1, notes: 'n' }, done)],
+    ['a batch whose bulk write fails', { }, { stored, fail: { bulkWrite: new Error('bulk down') } }
+      , (api, done) => api.create(batch(), done)],
+    ['one document whose write fails', { }, { stored, fail: { replaceOne: new Error('replace down') } }
+      , (api, done) => api.create(batch()[0], done)],
+    ['an empty batch', { }, { }, (api, done) => api.create([ ], done)],
+    ['a Temporary Target in mmol stored in mg/dL (BF-194)', { }, { stored: [ ], upserted: [0] }
+      , (api, done) => api.create([tt(5.5, 6.5, 'mmol'), tt(100, 120, 'mg/dl')], done)],
+    ['a bad eventTime throws synchronously (validation off)', { }, { }
+      , (api, done) => api.create([{ eventType: 'Note', created_at: T1, eventTime: 'not a date' }], done)],
+    ['a bad eventTime under WRITE_VALIDATION=log is an error to the callback', { writeValidation: 'log' }, { }
+      , (api, done) => api.create([{ eventType: 'Note', created_at: T1, eventTime: 'not a date' }], done)],
+    ['WRITE_VALIDATION=log: logs and stores', { writeValidation: 'log' }, { stored: [ ], upserted: [0, 1] }
+      , (api, done) => api.create([tt(120, 100, 'mg/dl'), tt(100, 120, 'mmol')], done)],
+    ['WRITE_VALIDATION=reject: refuses one, stores the other, keeps the slots', { writeValidation: 'reject' }, { stored: [ ], upserted: [0] }
+      , (api, done) => api.create([tt(120, 100, 'mg/dl'), tt(100, 120, 'MG/DL'), tt(100, 120, 'mmol')], done)],
+    ['WRITE_VALIDATION=reject: every item refused is a ValidationError', { writeValidation: 'reject' }, { }
+      , (api, done) => api.create([tt(120, 100, 'mg/dl')], done)],
+    ['a non-string identifier is refused before any write', { }, { }
+      , (api, done) => api.create([{ eventType: 'Note', created_at: T1, identifier: 5 }], done)],
+    ['save by 24-hex _id (replace, twin removal, data-received first)', { }, { stored, replaceUpserts: [false] }
+      , (api, done) => api.save(batch()[0], done)],
+    ['save by identifier, matched (REQ-SYNC-072 read-back)', { }, { stored, replaceUpserts: [false] }
+      , (api, done) => api.save(batch()[1], done)],
+    ['save, inserted', { }, { stored: [ ], replaceUpserts: [true] }
+      , (api, done) => api.save({ eventType: 'Note', notes: 'n', created_at: T1 }, done)],
+    ['save refused by WRITE_VALIDATION=reject', { writeValidation: 'reject' }, { }
+      , (api, done) => api.save(tt(120, 100, 'mg/dl'), done)],
+    ['save with a bad eventTime throws synchronously', { }, { }
+      , (api, done) => api.save({ eventType: 'Note', created_at: T1, eventTime: 'nope' }, done)],
+    ['save whose write fails', { }, { fail: { replaceOne: new Error('replace down') } }
+      , (api, done) => api.save(batch()[0], done)],
+    ['remove by 24-hex _id', { }, { deleted: 1 }
+      , (api, done) => api.remove({ find: { _id: HEX } }, done)],
+    ['remove by query, nothing removed', { }, { deleted: 0 }
+      , (api, done) => api.remove({ find: { eventType: 'Note', created_at: { $gte: '2026-01-01' } } }, done)]
+  ];
+
+  for (const [name, envExtra, cfg, act] of cases) {
+    it(name, async function ( ) {
+      await same(name, before, after, envExtra, cfg, act);
+    });
+  }
+
+  it('the comparison is not vacuous: a batch writes, emits and answers', async function ( ) {
+    const seen = await observe(after, { }, { stored, upserted: [0] }, (api, done) => api.create(batch(), done));
+    const names = seen.timeline.map(e => e[0]);
+    assert.deepEqual(names.filter(n => n !== 'console.log'), ['storage-write-committed', 'data-update', 'data-received']);
+    assert.equal(seen.calls.filter(c => c[0] === 'bulkWrite').length, 1);
+    // The twin removal follows the write of the item matched by _id, in the same bulk write.
+    const ops = seen.calls.find(c => c[0] === 'bulkWrite')[1];
+    assert.deepEqual(ops.map(op => Object.keys(op)[0]), ['replaceOne', 'deleteMany', 'replaceOne', 'replaceOne', 'replaceOne']);
+    assert.equal(seen.out.callback[1].length, 4);
+  });
+
+  it('the comparison sees log lines: WRITE_VALIDATION=reject logs the refusal', async function ( ) {
+    const seen = await observe(after, { writeValidation: 'reject' }, { stored: [ ], upserted: [0] }
+      , (api, done) => api.create([{ eventType: 'Temporary Target', targetBottom: 120, targetTop: 100, units: 'mg/dl'
+        , duration: 60, created_at: T1 }, { eventType: 'Note', created_at: T1 }], done));
+    const warns = seen.timeline.filter(e => e[0] === 'console.warn');
+    assert.equal(warns.length, 1);
+    assert(warns[0][1][0].startsWith('WRITE_VALIDATION API v1 refused: '), warns[0][1][0]);
+    assert.equal(seen.out.callback[1][0].refused !== undefined, true, 'the refused slot');
+  });
+});
+
+describe('write(intent): the treatments rule table (slice 5)', function ( ) {
+  const rules = writeIntent.COLLECTION_RULES.treatments['v1/internal'];
+
+  it('has a batch, a single and a preBolus form of create, an update and a delete by query', function ( ) {
+    assert.deepEqual(Object.keys(rules.create.forms), ['batch', 'one', 'prebolus']);
+    assert.equal(rules.create.forms.batch.twins, 'remove-string-forms-each');
+    assert.equal(rules.create.forms.one.twins, 'remove-string-forms-after');
+    assert.equal(rules.create.forms.prebolus.twins, 'none');
+    assert.equal(rules.update.keyTime, 'doc');
+    assert.equal(rules.create.forms.one.keyTime, 'prepared');
+    assert.equal(rules.delete.target, 'query');
+    assert.equal(rules.check, 'treatment-domain-v1');
+  });
+
+  function step (env, calls, cfg) {
+    const bus = new EventEmitter();
+    const MongoCollection = require('../lib/api3/storage/mongoCollection');
+    const ctx = { bus, store: { collection: ( ) => driver(calls, cfg || { }) } };
+    const storage = new MongoCollection(ctx, env, 'treatments', 'treatments', [ ], { source: 'v1/internal' });
+    return writeIntent.forCollection(storage, 'treatments', 'v1/internal', { env });
+  }
+
+  it('plans the _id form, preparation and target synchronously, and throws there as the module did', function ( ) {
+    const s = step({ }, [ ]);
+    const planned = s.plan({ op: 'create', form: 'one', docs: [{ _id: HEX.toUpperCase(), eventType: 'Note', created_at: T3 }] });
+    assert(planned.docs[0]._id instanceof ObjectId);
+    assert.deepEqual(Object.keys(planned.targets[0]), ['_id']);
+    assert.deepEqual(planned.stale[0], [HEX, HEX.toUpperCase()], 'both string forms are removed after the write');
+    assert.equal(planned.prepared[0].created_at, '2026-10-27T08:10:00.000Z');
+    assert.equal(planned.docs[0].utcOffset, 120);
+    assert.throws(( ) => s.plan({ op: 'create', form: 'one', docs: [{ eventType: 'Note', eventTime: 'x' }] }), RangeError);
+  });
+
+  it('targets the identifier first and drops the _id; under UUID_HANDLING also the identifier as _id', function ( ) {
+    const plain = step({ }, [ ]).plan({ op: 'create', form: 'batch', docs: [{ _id: HEX, identifier: 'i', eventType: 'Note', created_at: T1 }] });
+    assert.deepEqual(plain.targets[0], { identifier: { $eq: 'i' } });
+    assert(!Object.prototype.hasOwnProperty.call(plain.docs[0], '_id'));
+    assert.deepEqual(plain.stale[0], [ ], 'no twin removal for a write that is not by _id');
+    const uuid = step({ uuidHandling: true }, [ ]).plan({ op: 'create', form: 'batch', docs: [{ _id: 'u-1', eventType: 'Note', created_at: T1 }] });
+    assert.deepEqual(uuid.targets[0], { $or: [{ identifier: { $eq: 'u-1' } }, { _id: { $eq: 'u-1' } }] });
+    assert.equal(uuid.docs[0].identifier, 'u-1');
+  });
+
+  it('falls back to created_at + eventType with the amounts when there is no identity (BF-121)', function ( ) {
+    const planned = step({ }, [ ]).plan({ op: 'update', docs: [{ eventType: 'Meal Bolus', carbs: 20, created_at: T1 }] });
+    assert.deepEqual(planned.targets[0].created_at, { $eq: T1 });
+    assert.deepEqual(planned.targets[0].carbs, { $eq: 20 });
+    assert.deepEqual(planned.targets[0].insulin, { $eq: null });
+  });
+
+  it('stores a Temporary Target in mmol as mg/dL, labelled mg/dl (BF-194), and keeps the label without glucose', function ( ) {
+    const planned = step({ }, [ ]).plan({ op: 'update', docs: [{ eventType: 'Temporary Target', targetBottom: 5, targetTop: 6, units: 'mmol', duration: 30, created_at: T1 }] });
+    assert.equal(planned.docs[0].units, 'mg/dl');
+    assert.equal(Math.round(planned.docs[0].targetBottom), 90);
+  });
+
+  it('checks WRITE_VALIDATION on the targets as sent, before BF-194 (reject refuses, log only logs)', function ( ) {
+    const warn = console.warn;
+    const lines = [ ];
+    console.warn = line => lines.push(line);
+    try {
+      const doc = ( ) => ({ eventType: 'Temporary Target', targetBottom: 120, targetTop: 100, units: 'mg/dl', duration: 30, created_at: T1 });
+      assert.deepEqual(step({ }, [ ]).check([doc()]), [ ]);
+      assert.deepEqual(step({ writeValidation: 'log' }, [ ]).check([doc()]), [ ]);
+      const refused = step({ writeValidation: 'reject' }, [ ]).check([doc(), doc()]);
+      assert.deepEqual(refused.map(r => r.index), [0, 1]);
+      assert.equal(refused[0].problems[0].rule, 'tt-order');
+      // mmol numbers labelled mmol are fine as sent, though BF-194 would convert them.
+      assert.deepEqual(step({ writeValidation: 'reject' }, [ ]).check([{ eventType: 'Temporary Target', targetBottom: 5, targetTop: 6, units: 'mmol', duration: 30, created_at: T1 }]), [ ]);
+    } finally {
+      console.warn = warn;
+    }
+    assert.equal(lines.length, 3);
+    assert(lines[0].startsWith('WRITE_VALIDATION API v1: '), lines[0]);
+    assert(lines[1].startsWith('WRITE_VALIDATION API v1 refused: '), lines[1]);
+  });
+
+  it('answers a fallback-key match with the stored _id (BF-165), read back by the same target', async function ( ) {
+    const calls = [ ];
+    const s = step({ }, calls, { stored: [{ _id: { $oid: HEX2 } }] });
+    const doc = { eventType: 'Note', notes: 'n', created_at: T1 };
+    const result = await s.write({ op: 'create', form: 'one', docs: [doc] });
+    assert.equal(String(doc._id), HEX2);
+    assert.deepEqual(result.items.map(i => i.outcome), ['replaced']);
+    assert.equal(calls.filter(c => c[0] === 'find').length, 2, 'the server-date read and the read-back');
+  });
+
+  it('refuses a create without a form it knows, before any write', async function ( ) {
+    const calls = [ ];
+    await assert.rejects(step({ }, calls).write({ op: 'create', form: 'nope', docs: [{ }] }), /No write rules for create form nope/);
+    assert.deepEqual(calls, [ ]);
+  });
+});
