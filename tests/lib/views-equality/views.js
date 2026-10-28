@@ -41,54 +41,18 @@ function treatmentKind (q) {
 }
 
 const sgvNewest = (n) => () => [{ find: { type: 'sgv' }, sort: { date: -1 }, count: n }];
-const typeNewest = (type, n) => ({ find: { type: type }, sort: { date: -1 }, count: n });
 const treatmentsSince = (ms) => ({ find: { created_at: { $gte: iso(ms) } }, sort: { created_at: 1 } });
 
-// The alarm window of execution plan §7b / EXP-MT-060 §4.3, as queries:
-// 12 newest readings, the newest calibration and meter reading, a DIA of
-// treatments, the 10 newest device statuses, the newest of each change event
-// and the newest profile switch (the loader's own count:1 lookups), the
-// active profile.
-const ALARM_SPEC = {
-  entries: () => [{ find: { type: 'sgv' }, sort: { date: -1 }, count: 12 }, typeNewest('mbg', 1), typeNewest('cal', 1)]
-  , treatments: (now, info) => [treatmentsSince(now - info.diaHours * HOUR)]
-  , profileSwitch: 'pass'
-  , latest: 'pass'
-  , devicestatus: () => [{ find: {}, sort: { created_at: -1 }, count: 10 }]
-  , profile: 'pass'
-  , food: 'none'
-  , activity: 'none'
-  , dbstats: 'pass'
-};
-
-// Every property plugin: as the alarm window, but device status over the
-// longest look-back a property plugin takes (xdripjs, 24 h), and readings
-// over the same window as the treatments plus the one reading before it: the loader gives
-// each treatment the glucose of the readings either side of it
-// (lib/data/treatmenttocurve.js, no limit on the gap), and the iob plugin
-// reports the last bolus with that value. The first version of this spec read
-// only the 12 newest readings and failed on scenario noDeviceStatus
-// ($.iob.lastBolus.mgdl 177 !== 161).
-// VIEWS_COB_DIAS: the treatment window of the properties view, in DIAs, for
-// measuring how much history COB from treatments needs on a corpus.
-const COB_DIAS = Number(process.env.VIEWS_COB_DIAS) || 3;
-const PROPERTIES_SPEC = Object.assign({}, ALARM_SPEC, {
-  entries: (now, info) => [
-    { find: { type: 'sgv' }, sort: { date: -1 }, count: 12 }
-    , { find: { type: 'sgv', date: { $gte: now - COB_DIAS * info.diaHours * HOUR } }, sort: { date: -1 } }
-    , { find: { type: 'sgv', date: { $lt: now - COB_DIAS * info.diaHours * HOUR } }, sort: { date: -1 }, count: 1 }
-    , typeNewest('mbg', 1), typeNewest('cal', 1)
-  ]
-  , devicestatus: (now) => [{ find: { created_at: { $gte: iso(now - 24 * HOUR) } }, sort: { created_at: -1 } }]
-  // COB from treatments (cob.fromTreatments) evaluates insulin activity at the
-  // time the previous carbs finished decaying (iob.calcTotal at lastDecayedBy),
-  // which needs a DIA of treatments before that time. With a single DIA the
-  // first run failed on scenario noDeviceStatus ($.cob.decayedBy one minute
-  // apart); two DIAs passed the synthetic scenarios and failed corpus #6, three
-  // passed every fixture (a sweep of 1, 2, 3, 4, 6 and 15 DIAs). Three is what
-  // these fixtures need, not a derived maximum.
-  , treatments: (now, info) => [treatmentsSince(now - COB_DIAS * info.diaHours * HOUR)]
-});
+// The alarm and properties views are product code (lib/data/views): their
+// bounded arm is that module, with its own bounds (lib/data/views/bounds.js).
+// The summary view's bound below extends the product's properties bound, as
+// its own spec did before. In the product bounds a rule is 'loader' where
+// this harness says 'pass'; route() treats the two alike.
+// VIEWS_COB_DIAS: the summary view's treatment window, in DIAs (the product
+// properties view's is fixed at bounds.PROPERTIES_DIAS).
+const productViews = require('../../../lib/data/views');
+const COB_DIAS = Number(process.env.VIEWS_COB_DIAS) || productViews.bounds.PROPERTIES_DIAS;
+const PROPERTIES_SPEC = productViews.bounds.properties;
 
 // GET /api/v2/summary?hours=6: readings and treatments over the hours asked
 // for (plus an hour for a temp basal that started before and runs into it),
@@ -189,7 +153,7 @@ function load (env, ctx, spec, now, info, tamper, done) {
       cb(err, docs);
     }
     if (rule === 'none') { queries.push({ kind, q: 'none' }); return finish(null, []); }
-    if (rule === undefined || rule === 'pass') { queries.push({ kind, q }); return real.list(q, finish); }
+    if (rule === undefined || rule === 'pass' || rule === 'loader') { queries.push({ kind, q }); return real.list(q, finish); }
     const list = rule(now, info);
     let all = [];
     let pending = list.length;
@@ -279,16 +243,20 @@ function normalise (value) {
 
 // view name -> { spec, compute(env, ctx, ddata, now) -> comparable output }
 const VIEWS = {
+  // product: the bounded arm is lib/data/views; `output` maps that module's
+  // result to the same comparable form `compute` gives the resident arm
   alarms: {
-    spec: ALARM_SPEC
+    product: true
     , compute: (env, ctx, ddata, now) => {
       const r = evaluate(env, ctx, ddata, now);
       return { emitted: sig(r.emitted), requested: sig(r.requested) };
     }
+    , output: r => ({ emitted: sig(r.emitted), requested: sig(r.requested) })
   }
   , properties: {
-    spec: PROPERTIES_SPEC
+    product: true
     , compute: (env, ctx, ddata, now) => normalise(evaluate(env, ctx, ddata, now).sbx.properties)
+    , output: r => normalise(r.properties)
   }
   , summary: {
     spec: SUMMARY_SPEC
@@ -370,14 +338,49 @@ function firstDifference (a, b, at) {
   return null;
 }
 
-function diaHours (profileDocs) {
-  let dia = 3;
-  (profileDocs || []).forEach(function (p) {
-    Object.values((p && p.store) || {}).forEach(function (s) {
-      if (Number(s.dia) > dia) dia = Number(s.dia);
-    });
+const diaHours = productViews.bounds.diaHours;
+
+// ------------------------------------------------------ the product arm
+
+// The context the product module is given: the booted server's, with the
+// storage reads of a tampered view wrapped so that the view's bounded query of
+// the tampered kind answers one record short (TAMPER). `dry` installs the same
+// wrapper and drops nothing: the untampered control for the wrapper itself.
+function productContext (ctx, tamper, now, dry) {
+  const pctx = Object.create(ctx);
+  if (!tamper) return pctx;
+  ['entries', 'treatments', 'devicestatus'].forEach(function (collection) {
+    const real = ctx[collection];
+    pctx[collection] = {
+      list: function (q, cb) {
+        real.list(q, function (err, docs) {
+          if (!err && docs && productViews.kindOf(collection, q) === tamper.kind && !dry) {
+            docs = dropOne(docs, tamper.edge, tamper.match, tamper.withinHours ? now - tamper.withinHours * HOUR : null);
+          }
+          cb(err, docs);
+        });
+      }
+    };
   });
-  return dia;
+  return pctx;
 }
 
-module.exports = { VIEWS, TAMPER, load, evaluate, firstDifference, diaHours, MIN };
+// The product view's working set (lib/data/views materialise), evaluated with
+// the wall clock held at `now` as the resident arm's evaluate() does.
+function product (env, ctx, name, now, info, tamper, dry, done) {
+  const views = productViews(env, productContext(ctx, tamper, now, dry));
+  views.materialise(name, { now, dbstats: info.dbstats }, function (err, set) {
+    if (err) return done(err);
+    const realNow = Date.now;
+    Date.now = () => now;
+    let result;
+    try {
+      result = views.evaluate(set);
+    } finally {
+      Date.now = realNow;
+    }
+    done(null, { ddata: set.ddata, queries: set.queries, result });
+  });
+}
+
+module.exports = { VIEWS, TAMPER, load, product, productContext, evaluate, firstDifference, diaHours, sig, normalise, MIN };
