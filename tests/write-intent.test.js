@@ -33,6 +33,12 @@ function driver (calls, stored, upserted) {
     if (name === 'deleteMany' || name === 'deleteOne') {
       return Promise.resolve({ acknowledged: true, deletedCount: stored.length });
     }
+    if (name === 'insertOne') {
+      // As the driver does: a document without an _id gets one, on itself.
+      if (args[0]._id == null) args[0]._id = new ObjectId();
+      if (driver.failInsert) return Promise.reject(driver.failInsert);
+      return Promise.resolve({ acknowledged: true, insertedId: args[0]._id });
+    }
     if (name === 'replaceOne') {
       const up = (upserted || [ ]).includes(0);
       return Promise.resolve({ acknowledged: true, matchedCount: up ? 0 : 1, modifiedCount: up ? 0 : 1
@@ -45,6 +51,7 @@ function driver (calls, stored, upserted) {
     'replaceOne', 'updateOne', 'updateMany']) col[name] = record(name);
   col.find = function (filter, options) {
     calls.push(['find', filter, options]);
+    if (driver.failFind) throw driver.failFind;
     const cursor = { sort: () => cursor, skip: () => cursor, limit: () => cursor, project: () => cursor,
       toArray: () => Promise.resolve(stored.slice()) };
     return cursor;
@@ -54,12 +61,12 @@ function driver (calls, stored, upserted) {
 
 // The storage interface food.js acquires (storage-reads collection()), over
 // the recording driver, with its commit events.
-function storageOver (calls, stored, upserted, name = 'food') {
+function storageOver (calls, stored, upserted, name = 'food', source = MongoCollection.SOURCES.V1, validated = false) {
   const bus = new EventEmitter();
   const committed = [ ];
   bus.on('storage-write-committed', e => committed.push(e));
   const ctx = { bus, store: { collection: () => driver(calls, stored, upserted) } };
-  const storage = new MongoCollection(ctx, { }, name, name, [ ], { source: MongoCollection.SOURCES.V1 });
+  const storage = new MongoCollection(ctx, { }, name, name, [ ], validated ? { source, validated: true } : { source });
   return { storage, committed };
 }
 
@@ -212,7 +219,9 @@ describe('write(intent): food from API v1 and in-process callers', function ( ) 
     const step = writeIntent.forCollection(storage, 'food', 'v1/internal');
     await assert.rejects(step.write({ op: 'patch', target: { _id: HEX }, set: { a: 1 } }), /No write rules for patch on food/);
     await assert.rejects(writeIntent.forCollection(storage, 'treatments', 'v1/internal').write({ op: 'create', docs: [{ }] }), /No write rules/);
-    await assert.rejects(writeIntent.forCollection(storage, 'food', 'socket').write({ op: 'create', docs: [{ }] }), /No write rules/);
+    // CHANGED EXPECTATION (WC-STEP-PATCH slice 3): food from the socket has
+    // rules now (generic dbAdd and dbRemove); API v3 is a source with none yet.
+    await assert.rejects(writeIntent.forCollection(storage, 'food', 'v3').write({ op: 'create', docs: [{ }] }), /No write rules/);
     await assert.rejects(step.write({ op: 'delete', target: { } }), /delete needs target._id/);
     assert.deepEqual(calls, [ ]);
   });
@@ -345,20 +354,147 @@ describe('write(intent): activity from API v1 and in-process callers', function 
 });
 
 
+// What lib/server/websocket.js did before the move (db3b9e4e) for a generic
+// dbAdd (storeIdAsObjectId, stampCreated when API v3 serves the collection,
+// insertDocument) and for dbRemove (idMatch, writes.remove).
+async function legacySocketAdd (storage, name, doc) {
+  if (idForms.isHexId(doc._id)) {
+    const stale = await reads.findOne(storage, { _id: { $in: idForms.stringIdForms(doc._id) } }, { _id: 1 });
+    doc._id = stale ? stale._id : idForms.toStoredId(doc._id);
+  }
+  if (['treatments', 'entries', 'devicestatus', 'profile', 'food'].includes(name)) srvDates.stampCreated(doc);
+  await storage.insertOne(doc, { normalize: false });
+  return doc;
+}
+
+function legacySocketRemove (storage, id) {
+  const match = (id instanceof ObjectId || idForms.isHexId(id))
+    ? { filter: { _id: { $in: idForms.idForms(id) } }, many: true } : { filter: { _id: id }, many: false };
+  return writes.remove(storage, match.filter, { one: !match.many });
+}
+
+describe('write(intent): the socket\'s generic dbAdd and its dbRemove', function ( ) {
+  const SOCKET = MongoCollection.SOURCES.SOCKET;
+  afterEach(function ( ) { delete driver.failInsert; delete driver.failFind; });
+  const over = (calls, stored, name) => storageOver(calls, stored, [ ], name, SOCKET, true);
+  const socket = (storage, name) => writeIntent.forCollection(storage, name, 'socket');
+
+  for (const name of ['entries', 'food', 'activity']) {
+    for (const [label, id, stored] of [['no _id', undefined, [ ]], ['a 24-hex _id', HEX.toUpperCase(), [ ]]
+      , ['a 24-hex _id stored as a string', HEX, [{ _id: HEX }]], ['a custom _id', 'custom-id', [ ]]]) {
+      it(name + ' create with ' + label + ' sends the driver what dbAdd sent, and the same commit events', async function ( ) {
+        const body = () => { const d = { wc: 'x', created_at: 'C' }; if (id !== undefined) d._id = id; return d; };
+        const before = { calls: [ ] };
+        Object.assign(before, over(before.calls, stored, name));
+        const legacyDoc = await legacySocketAdd(before.storage, name, body());
+        const after = { calls: [ ] };
+        Object.assign(after, over(after.calls, stored, name));
+        const doc = body();
+        const result = await socket(after.storage, name).write({ op: 'create', docs: [doc] });
+
+        const fresh = (x, newId) => newId instanceof ObjectId && id === undefined
+          ? JSON.parse(JSON.stringify(x).split(String(newId)).join('NEW')) : JSON.parse(JSON.stringify(x));
+        assert.deepEqual(shape(fresh(after.calls, doc._id)), shape(fresh(before.calls, legacyDoc._id)));
+        assert.deepEqual(after.committed, before.committed);
+        assert.deepEqual(after.calls.map(c => c[0]), idForms.isHexId(id) ? ['find', 'insertOne'] : ['insertOne']
+          , 'one read only for a 24-hex _id');
+        assert.equal(after.committed.length, 1);
+        assert.equal(after.committed[0].source, 'socket');
+        assert.equal('srvCreated' in doc, name !== 'activity', 'server dates where API v3 serves the collection');
+        assert.deepEqual(result.items, [{ index: 0, outcome: 'inserted', _id: doc._id, identifier: null }]);
+        if (stored.length) assert.equal(doc._id, HEX, 'the stored string form is kept, so the insert collides with it');
+        else if (idForms.isHexId(id)) assert.equal(doc._id.toHexString(), HEX);
+      });
+    }
+  }
+
+  it('does not give a document without an _id an `_id: undefined` key before the driver does', async function ( ) {
+    const calls = [ ];
+    const { storage } = over(calls, [ ], 'entries');
+    let seen;
+    const insertOne = storage.insertOne;
+    storage.insertOne = function (doc, opts) { seen = Object.prototype.hasOwnProperty.call(doc, '_id'); return insertOne(doc, opts); };
+    await socket(storage, 'entries').write({ op: 'create', docs: [{ wc: 'x' }] });
+    assert.equal(seen, false);
+  });
+
+  it('answers a duplicate _id as refused, with the driver\'s message, and does not throw', async function ( ) {
+    const { storage, committed } = over([ ], [ ], 'food');
+    driver.failInsert = Object.assign(new Error('E11000 duplicate key error'), { code: 11000 });
+    const result = await socket(storage, 'food').write({ op: 'create', docs: [{ _id: 'custom-id' }] });
+    assert.deepEqual(result.items, [{ index: 0, outcome: 'refused', _id: 'custom-id', identifier: null, reason: 'E11000 duplicate key error' }]);
+    assert.deepEqual(committed, [ ], 'nothing committed');
+  });
+
+  it('passes any other insert error to the caller', async function ( ) {
+    const { storage } = over([ ], [ ], 'food');
+    driver.failInsert = Object.assign(new Error('not primary'), { code: 10107 });
+    await assert.rejects(socket(storage, 'food').write({ op: 'create', docs: [{ _id: 'custom-id' }] }), /not primary/);
+  });
+
+  it('names the _id-form rule when its read fails, with the storage error as cause, before any write', async function ( ) {
+    const calls = [ ];
+    const { storage } = over(calls, [ ], 'entries');
+    driver.failFind = new Error('read failed');
+    const err = await socket(storage, 'entries').write({ op: 'create', docs: [{ _id: HEX }] }).then(() => null, e => e);
+    assert(err instanceof writeIntent.WriteRuleError);
+    assert.equal(err.rule, 'id-form');
+    assert.equal(err.cause.message, 'read failed');
+    assert.deepEqual(calls.map(c => c[0]), ['find']);
+  });
+
+  it('writes one document per create: a batch is refused before any write', async function ( ) {
+    const calls = [ ];
+    const { storage } = over(calls, [ ], 'entries');
+    await assert.rejects(socket(storage, 'entries').write({ op: 'create', docs: [{ }, { }] }), /writes one document, not 2/);
+    assert.deepEqual(calls, [ ]);
+  });
+
+  it('has no socket create rules for the collections dbAdd still matches itself', async function ( ) {
+    for (const name of ['treatments', 'devicestatus', 'profile']) {
+      const calls = [ ];
+      await assert.rejects(socket(over(calls, [ ], name).storage, name).write({ op: 'create', docs: [{ }] }), /No write rules for create/);
+      assert.deepEqual(calls, [ ]);
+    }
+  });
+
+  for (const name of ['treatments', 'entries', 'devicestatus', 'profile', 'food', 'activity']) {
+    for (const [label, id] of [['a 24-hex _id', HEX.toUpperCase()], ['an ObjectId', new ObjectId(HEX2)], ['a custom _id', 'custom-id'], ['a number', 7]]) {
+      it(name + ' delete of ' + label + ' sends the driver what dbRemove sent, and the same reply and commit events', async function ( ) {
+        const before = { calls: [ ] };
+        Object.assign(before, storageOver(before.calls, [{ _id: 1 }], [ ], name, SOCKET));
+        const legacyReply = await legacySocketRemove(before.storage, id);
+        const after = { calls: [ ] };
+        Object.assign(after, storageOver(after.calls, [{ _id: 1 }], [ ], name, SOCKET));
+        const result = await socket(after.storage, name).write({ op: 'delete', target: { _id: id } });
+
+        assert.deepEqual(JSON.parse(JSON.stringify(after.calls)), JSON.parse(JSON.stringify(before.calls)));
+        assert.deepEqual(after.calls.map(c => c[0]), [typeof id === 'string' && !idForms.isHexId(id) || typeof id === 'number' ? 'deleteOne' : 'deleteMany']);
+        assert.deepEqual(after.committed, before.committed);
+        assert.deepEqual(result.adapter, legacyReply);
+        assert.equal(result.items[0].outcome, 'deleted');
+      });
+    }
+  }
+});
+
+
 describe('write(intent) gate G2: one door for the enrolled collections', function ( ) {
-  const { check, ENROLLED } = require('../scripts/check-write-intent');
+  const { check, checkEntry, fileOf, ENROLLED } = require('../scripts/check-write-intent');
 
   it('finds no write around the step in an enrolled module', function ( ) {
     // CHANGED EXPECTATION (WC-STEP-PATCH slice 2): activity.js joins food.js.
-    // Each slice that routes a module through the step adds it here.
-    assert.deepEqual(ENROLLED, ['lib/server/food.js', 'lib/server/activity.js']);
-    for (const file of ENROLLED) {
-      assert.deepEqual(check(fs.readFileSync(path.resolve(__dirname, '..', file), 'utf8')), [], file);
+    // CHANGED EXPECTATION (slice 3): two functions of websocket.js join.
+    // Each slice that routes code through the step adds it here.
+    assert.deepEqual(ENROLLED, ['lib/server/food.js', 'lib/server/activity.js'
+      , { file: 'lib/server/websocket.js', functions: ['processGenericDbAdd', 'dbRemove'] }]);
+    for (const entry of ENROLLED) {
+      assert.deepEqual(checkEntry(entry, fs.readFileSync(path.resolve(__dirname, '..', fileOf(entry)), 'utf8')), [], fileOf(entry));
     }
   });
 
   // Every enrolled module, not only the first (slice 2 widened this from ENROLLED[0]).
-  for (const file of ENROLLED) {
+  for (const file of ENROLLED.filter(entry => typeof entry === 'string')) {
     it('fails, naming the line, when ' + file + ' writes around the step (break-it control)', function ( ) {
       const source = fs.readFileSync(path.resolve(__dirname, '..', file), 'utf8');
       const lines = source.split('\n').length;
@@ -375,4 +511,37 @@ describe('write(intent) gate G2: one door for the enrolled collections', functio
       }
     });
   }
+
+  describe('enrolled functions (the socket\'s generic dbAdd and dbRemove)', function ( ) {
+    const entry = ENROLLED.find(e => typeof e !== 'string');
+    const source = fs.readFileSync(path.resolve(__dirname, '..', entry.file), 'utf8');
+    // The text right after an enrolled function's opening line, where a bypass is put.
+    const into = (name, line) => source.replace(new RegExp('(function ' + name + ' \\([^)]*\\) \\{\\n)'), '$1' + line + '\n');
+
+    for (const name of entry.functions) {
+      for (const bypass of [
+        'socketStore(data.collection).insertOne(data.data, { normalize: false });'
+        , 'writes.remove(socketStore(data.collection), { _id: data._id });'
+        , 'insertDocument(socketStore(data.collection), data.data);'
+      ]) {
+        it('fails when ' + name + ' writes around the step: ' + bypass.split('(')[0], function ( ) {
+          const broken = into(name, bypass);
+          assert.notEqual(broken, source, 'the bypass was put in');
+          const issues = checkEntry(entry, broken);
+          assert(issues.length > 0, bypass);
+          assert(issues.every(issue => issue.startsWith(name + ': ')), issues.join('; '));
+        });
+      }
+    }
+
+    it('fails when an enrolled function cannot be found (a rename cannot empty the gate)', function ( ) {
+      const issues = checkEntry(entry, source.replace('function processGenericDbAdd (', 'function renamedDbAdd ('));
+      assert.deepEqual(issues, ['enrolled function processGenericDbAdd found 0 times, expected once']);
+    });
+
+    it('does not flag the other socket writers, which are not enrolled yet', function ( ) {
+      assert.deepEqual(checkEntry(entry, source), [ ]);
+      assert(check(source).length > 0, 'the module as a whole still writes around the step');
+    });
+  });
 });
