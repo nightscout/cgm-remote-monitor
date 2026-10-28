@@ -45,42 +45,39 @@ function refused (fn, pattern) {
 
 describe('nightscout serve: roles (PLAT-SERVE)', function () {
 
-  it('accepts api, alone, and returns it', function () {
-    assert.deepEqual(serve.parseRoles(['api']), ['api']);
+  it('accepts a multitenant role, and no role is multitenant yet', function () {
+    const roles = { api: Object.assign({}, ROLES.api, { multitenant: true }) };
+    assert.deepEqual(serve.parseRoles(['api'], roles), ['api']);
+    for (const [name, role] of Object.entries(ROLES)) assert.notEqual(role.multitenant, true, name);
   });
 
   it('refuses an unknown role, an empty one, a repeated one, and a missing list', function () {
+    const roles = { api: Object.assign({}, ROLES.api, { multitenant: true }) };
     for (const args of [['bogus'], ['api,bogus'], ['api,'], ['api,api'], [], ['api', 'extra']]) {
-      assert.throws(() => serve.parseRoles(args), serve.RoleError, JSON.stringify(args));
+      assert.throws(() => serve.parseRoles(args, roles), serve.RoleError, JSON.stringify(args));
     }
   });
 
   it('names every role that cannot be served yet', function () {
-    for (const name of ['evaluator', 'realtime', 'vcpool', 'tenant-admin', 'admin']) {
+    for (const name of ['api', 'evaluator', 'realtime', 'vcpool', 'tenant-admin', 'admin']) {
       assert.ok(ROLES[name], name);
       assert.throws(() => serve.parseRoles([name]), new RegExp('not yet available: ' + name + '\\.'));
     }
-    assert.throws(() => serve.parseRoles(['api,admin,realtime']), /not yet available: admin, realtime/);
+    assert.throws(() => serve.parseRoles(['api,admin,realtime']), /not yet available: api, admin, realtime/);
   });
 
   it('exits 64 for an unknown role and for each role not yet available', function () {
     const unknown = cli(['serve', 'bogus']);
     assert.equal(unknown.status, 64);
     assert.match(unknown.stderr, /unknown role: bogus/);
-    for (const name of ['evaluator', 'realtime', 'vcpool', 'tenant-admin', 'admin', 'api,admin']) {
+    for (const name of ['api', 'evaluator', 'realtime', 'vcpool', 'tenant-admin', 'admin', 'api,admin']) {
       const result = cli(['serve', name]);
       assert.equal(result.status, 64, name);
-      assert.match(result.stderr, /not yet available: /, name);
+      assert.match(result.stderr, /not yet available: .*multitenant Nightscout, which is not built yet/, name);
     }
     assert.equal(cli(['serve']).status, 64);
   });
 
-  it('exits 78 for listener settings it cannot use, before booting anything', function () {
-    const result = cli(['serve', 'api'], cleanEnv({ API_PORT: 'eighty' }));
-    assert.equal(result.status, 78);
-    assert.match(result.stderr, /API_PORT must be a port number/);
-    assert.doesNotMatch(result.stdout, /Executing/);
-  });
 });
 
 describe('nightscout serve: listeners (PLAT-SERVE)', function () {

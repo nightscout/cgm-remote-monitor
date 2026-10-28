@@ -326,15 +326,9 @@ autonomy for your data:
 
 ### Multitenant roles (`nightscout serve`)
 
-A site run the usual way (`npm start`, `nightscout single`, the Docker image) does not use these. `nightscout serve <role>[,<role>...]` runs parts of Nightscout on their own, for a multitenant Nightscout. Only the `api` role can be served so far: API v3 and the `/api/v2/authorization` endpoints, without the web pages, the websocket, API v1/v2, alarms and plugins, or the in-memory data that `single` keeps. The other roles (`evaluator`, `realtime`, `vcpool`, `tenant-admin`, `admin`) exit with status 64 and say they are not yet available.
+A site runs `nightscout single` (what `npm start`, `node lib/server/server.js` and the Docker image run). `nightscout serve <role>[,<role>...]` is reserved for a multitenant Nightscout, where each role (`api`, `evaluator`, `realtime`, `vcpool`, `tenant-admin`, `admin`) runs on its own and every tenant has its own settings and credentials. A multitenant Nightscout is not built yet, so every role exits with status 64 and says it is not yet available.
 
-Each role listens on its own address and port, and two roles may not share one:
-
-  * `API_PORT`, `API_HOSTNAME` - where the `api` role listens. Unset, it uses `PORT` and `NIGHTSCOUT_HOSTNAME` (or `HOSTNAME`), as `single` does.
-  * `ADMIN_PORT` (`1338`), `ADMIN_HOSTNAME` (`127.0.0.1`) - reserved for the platform `admin` role. That listener has no password of its own, so it refuses to start on every interface or on the `api` listener's address, and refuses any address that is not loopback unless `ADMIN_INSECURE_BIND_ACKNOWLEDGED=true` is set.
-  * `REALTIME_PORT`, `REALTIME_HOSTNAME`, `TENANT_ADMIN_PORT`, `TENANT_ADMIN_HOSTNAME` - reserved for those roles.
-
-`nightscout serve` exits 78 when these settings would put two roles on one listener or break the `admin` rules. `nightscout healthcheck --role api` checks the `api` role's listener (it asks `/api/v3/version`).
+For contributors: `npm run headless-test-server` (`scripts/headless-test-server.js`) runs the single-tenant code the `api` role starts from: API v3 and the `/api/v2/authorization` endpoints, with `API_SECRET` and the rest of the environment as `single` reads them, and none of the web pages, the websocket, API v1/v2, alarms, plugins or in-memory data. It is for tests and development, not for running a site, and is not in the image. It listens on `API_PORT` and `API_HOSTNAME` (unset, `PORT` and `NIGHTSCOUT_HOSTNAME` or `HOSTNAME`), exits 78 for listener settings it cannot use, and `nightscout healthcheck --role api` checks it.
 
 ### Predefined values for your browser settings (optional)
 

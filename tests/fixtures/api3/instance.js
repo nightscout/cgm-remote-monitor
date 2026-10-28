@@ -13,21 +13,21 @@ var fs = require('fs')
   , role = require('./role')
   ;
 
-// API3_TEST_TARGET=serve-api boots each instance as `nightscout serve api`
-// does (lib/server/serve/api.js: bootevent's api profile and the role's app)
+// API3_TEST_TARGET=headless boots each instance as the headless test server
+// (scripts/headless-test-server.js) does (lib/server/serve/api.js: bootevent's api profile and the role's app)
 // instead of the full chain with API v3 mounted on a bare app, so the API v3
 // suites can be run against the api role. There is no websocket in that
 // role, so an instance that asks for a storage socket cannot connect.
 const ROLE = role.current();
-const SERVE_API = ROLE === 'serve-api';
+const HEADLESS = ROLE === 'headless';
 
 // API v1's storage modules for a suite that seeds or checks records the way
-// v1 stores them. `single` has its own (ctx.treatments, ...). `serve api` has
-// none, so they are built on the instance's database as a `single` process
+// v1 stores them. `single` has its own (ctx.treatments, ...). the headless
+// server has none, so they are built on the instance's database as a `single` process
 // writing to the same database would have them, with their own bus: their
 // events do not reach the role, as another process's would not.
 function v1Storage (env, ctx) {
-  if (!SERVE_API) return ctx;
+  if (!HEADLESS) return ctx;
   const v1 = Object.create(ctx);
   v1.bus = new (require('events'))();
   v1.ddata = require('../../../lib/data/ddata')();
@@ -154,7 +154,7 @@ function configure () {
 
         function booted (ctx) {
           instance.ctx = ctx;
-          if (SERVE_API) {
+          if (HEADLESS) {
             const role = require('../../../lib/server/serve/api').createApp(instance.env, ctx);
             instance.app = role.app;
             instance.ctx.apiApp = role.api3;
@@ -167,7 +167,7 @@ function configure () {
             instance.ctx.apiApp.set('API3_SECURITY_ENABLE', false);
           }
 
-          if (!SERVE_API) {
+          if (!HEADLESS) {
             instance.app.use('/api/v3', instance.ctx.apiApp);
             instance.app.use('/api/v2/authorization', instance.ctx.authorization.endpoints);
           }
@@ -184,7 +184,7 @@ function configure () {
           instance.v1 = v1Storage(instance.env, instance.ctx);
           instance.cacheMonitor = new CacheMonitor(instance).listen();
 
-          if (!SERVE_API) {
+          if (!HEADLESS) {
             websocket(instance.env, instance.ctx, instance.server);
           }
 
@@ -202,7 +202,7 @@ function configure () {
             });
         }
 
-        if (SERVE_API) {
+        if (HEADLESS) {
           require('../../../lib/server/serve/api').boot(instance.env, language).then(booted, reject);
         } else {
           require('../../../lib/server/bootevent')(instance.env, language).boot(booted);

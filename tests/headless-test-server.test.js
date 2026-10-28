@@ -1,9 +1,10 @@
 'use strict';
 
-// covers: lib/server/serve/api.js, lib/server/serve/index.js, lib/server/serve/listeners.js, lib/server/bootevent.js, lib/server/app.js, lib/cli/commands/serve.js, lib/cli/commands/healthcheck.js
+// covers: scripts/headless-test-server.js, lib/server/serve/api.js, lib/server/serve/index.js, lib/server/serve/listeners.js, lib/server/bootevent.js, lib/server/app.js, lib/cli/commands/serve.js, lib/cli/commands/healthcheck.js
 
-// PLAT-SERVE (D21): `nightscout serve api` boots bootevent's api profile and
-// constructs none of the in-memory data layer. Each factory that `single`
+// PLAT-SERVE (D21): the headless test server (scripts/headless-test-server.js)
+// boots bootevent's api profile, the single-tenant code the multitenant api
+// role will be built from, and constructs none of the in-memory data layer. Each factory that `single`
 // uses for it is counted while the api profile boots; the same assertion is
 // run on a `single` boot as its control and must fail there. Then the role is
 // started as a process and stopped with SIGTERM.
@@ -13,12 +14,13 @@ const crypto = require('node:crypto');
 const http = require('node:http');
 const net = require('node:net');
 const path = require('node:path');
-const { spawn } = require('node:child_process');
+const { spawn, spawnSync } = require('node:child_process');
 
 const listeners = require('../lib/server/serve/listeners');
 
 const root = path.resolve(__dirname, '..');
 const BIN = path.join(root, 'bin/nightscout.js');
+const HEADLESS = path.join(root, 'scripts/headless-test-server.js');
 
 // The factories behind what the api role must not construct.
 const FACTORIES = {
@@ -93,7 +95,7 @@ function freePort () {
   });
 }
 
-describe('nightscout serve api (PLAT-SERVE)', function () {
+describe('headless test server (PLAT-SERVE)', function () {
   this.timeout(30000);
 
   let env;
@@ -173,7 +175,7 @@ describe('nightscout serve api (PLAT-SERVE)', function () {
       API_PORT: String(port), API_HOSTNAME: '127.0.0.1', API_SECRET: crypto.randomBytes(24).toString('hex')
     });
     for (const key of Object.keys(childEnv)) if (/^npm_/i.test(key)) delete childEnv[key];
-    const child = spawned = spawn(process.execPath, [BIN, 'serve', 'api'], { cwd: root, env: childEnv });
+    const child = spawned = spawn(process.execPath, [HEADLESS], { cwd: root, env: childEnv });
     let stdout = '';
     let stderr = '';
     child.stderr.on('data', d => { stderr += d; });
@@ -203,5 +205,18 @@ describe('nightscout serve api (PLAT-SERVE)', function () {
     assert.doesNotMatch(stderr, /still open/);
     assert.match(stdout, /SIGTERM, closing listeners and storage/);
     assert.equal(await healthcheck(['--role', 'api']), 1);
+  });
+
+  it('exits 78 for listener settings it cannot use, before booting anything', function () {
+    const result = spawnSync(process.execPath, [HEADLESS], { cwd: root, encoding: 'utf8', timeout: 15000
+      , env: Object.assign({}, process.env, { API_PORT: 'eighty' }) });
+    assert.equal(result.status, 78, result.stderr);
+    assert.match(result.stderr, /API_PORT must be a port number/);
+    assert.doesNotMatch(result.stdout, /Executing/);
+  });
+
+  it('takes no arguments', function () {
+    const result = spawnSync(process.execPath, [HEADLESS, 'api'], { cwd: root, encoding: 'utf8', timeout: 15000 });
+    assert.equal(result.status, 64);
   });
 });

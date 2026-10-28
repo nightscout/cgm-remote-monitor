@@ -252,7 +252,7 @@
         "tests/verifyauth.test.js",
         "tests/websocket*.test.js",
         "tests/start-paths.test.js",
-        "tests/serve-api.test.js"
+        "tests/headless-test-server.test.js"
       ],
       "env": true,
       "require": [

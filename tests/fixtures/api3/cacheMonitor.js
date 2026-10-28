@@ -9,7 +9,7 @@ const should = require('should');
  * cache (lib/api3/storage/mongoCachedCollection) is a data-update on the bus;
  * next* take them in order and check each.
  *
- * `serve api`: there is no cache, so the stored record. Each write API v3
+ * `headless`: there is no cache, so the stored record. Each write API v3
  * announces (the storage-socket-* bus events, which the role emits with no
  * socket attached), and each write of the instance's API v1 storage modules
  * (instance.v1), is taken in order, and the stored record it names is read
@@ -35,7 +35,7 @@ function CacheMonitor (instance) {
     }
   }
 
-  if (instance.role === 'serve-api') {
+  if (instance.role === 'headless') {
     watchStorage(instance, record);
   } else {
     instance.ctx.bus.on('data-update', record);
@@ -67,7 +67,7 @@ function CacheMonitor (instance) {
     operation.type.should.equal(col);
     operation.op.should.equal('update');
 
-    if (instance.role === 'serve-api') {
+    if (instance.role === 'headless') {
       const stored = await operation.stored;
       should.exist(stored, `stored ${col} record ${operation.key}`);
       if (doc) {
@@ -97,9 +97,9 @@ function CacheMonitor (instance) {
     operation.type.should.equal(col);
     operation.op.should.equal('remove');
 
-    if (instance.role === 'serve-api') {
+    if (instance.role === 'headless') {
       if (_id) {
-        throw new Error('nextShouldDelete: checking the _id is not supported under serve-api');
+        throw new Error('nextShouldDelete: checking the _id is not supported under headless');
       }
       should.exist(await operation.before, `stored ${col} record ${operation.key} before the delete`);
       const stored = await operation.stored;
@@ -121,7 +121,7 @@ function CacheMonitor (instance) {
 
 }
 
-// `serve api`: turn each announced write into { type, op, key, count, stored },
+// `headless`: turn each announced write into { type, op, key, count, stored },
 // `stored` being the raw stored record (or null) read as soon as the write is
 // announced, with _id as a string as the cache holds it. A delete also has
 // `before`, the record read just before API v3's storage deleted it: "gone"

@@ -1,11 +1,12 @@
 'use strict';
 
 // The role the API v3 suites boot their instances as (see instance.js).
-// API3_TEST_TARGET unset is `single`, the full chain; `serve-api` is
-// `nightscout serve api` (lib/server/serve/api.js). Any other value is
+// API3_TEST_TARGET unset is `single`, the full chain; `headless` is the
+// headless test server (scripts/headless-test-server.js: bootevent's api
+// profile and lib/server/serve/api.js's app). Any other value is
 // refused, so a typo cannot quietly run the suites as `single`.
 
-const ROLES = ['single', 'serve-api'];
+const ROLES = ['single', 'headless'];
 
 function current () {
   const target = process.env.API3_TEST_TARGET;
