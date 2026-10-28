@@ -123,6 +123,15 @@ function setNewestSgv (fx, value) {
   return fx;
 }
 
+function crowdedStatus (now) {
+  const fx = base(now);
+  fx.devicestatus = fx.devicestatus.filter(d => Date.parse(d.created_at) <= now - 70 * MIN);
+  for (let age = MIN; age < 60 * MIN; age += MIN) {
+    fx.devicestatus.push({ device: 'uploader-only', created_at: iso(now - age), uploader: { battery: 70 } });
+  }
+  return fx;
+}
+
 // Scenario name -> builder(now). Each one moves one thing a view depends on.
 const SCENARIOS = {
   steady: (now) => base(now)
@@ -137,18 +146,25 @@ const SCENARIOS = {
   , stale: (now) => base(now, { newestSgvAgeMins: 45 })
   // IOB and COB come from treatments when no device reports them
   , noDeviceStatus: (now) => setNewestSgv(base(now, { noDeviceStatus: true }), 205)
-  // each change event at or past its urgent age
   // the loop's newest status is 70 min old, and a second uploader has posted a
   // battery-only status every minute since: the 10 newest statuses are all the
   // second uploader's, while the loop and pump alarms read the loop's
-  , crowdedStatus: (now) => {
-    const fx = base(now);
-    fx.devicestatus = fx.devicestatus.filter(d => Date.parse(d.created_at) <= now - 70 * MIN);
-    for (let age = MIN; age < 60 * MIN; age += MIN) {
-      fx.devicestatus.push({ device: 'uploader-only', created_at: iso(now - age), uploader: { battery: 70 } });
-    }
+  , crowdedStatus: (now) => crowdedStatus(now)
+  // as crowdedStatus, with the loop's state and the pump's in separate
+  // statuses from separate devices (an uploader that reports the pump on its
+  // own), so each is found only by its own kind's query
+  , crowdedSeparateKinds: (now) => {
+    const fx = crowdedStatus(now);
+    fx.devicestatus = fx.devicestatus.map(function (d) {
+      if (!d.pump) return d;
+      const pumpOnly = { device: 'pump-uploader', created_at: d.created_at, pump: d.pump };
+      const loopOnly = Object.assign({}, d);
+      delete loopOnly.pump;
+      return [loopOnly, pumpOnly];
+    }).flat();
     return fx;
   }
+  // each change event at or past its urgent age
   , deviceAged: (now) => base(now, { siteAgeHours: 72 + 1 / 6, sensorAgeHours: 7 * 24 - 2 + 1 / 6, insulinAgeHours: 72 + 1 / 6, batteryAgeHours: 312 + 1 / 6 })
 };
 

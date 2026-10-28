@@ -346,11 +346,25 @@ const diaHours = productViews.bounds.diaHours;
 // storage reads of a tampered view wrapped so that the view's bounded query of
 // the tampered kind answers one record short (TAMPER). `dry` installs the same
 // wrapper and drops nothing: the untampered control for the wrapper itself.
+//
+// VIEWS_DROP_KIND=<kind,...>: the alarm view's newest-of-kind device-status
+// query for each kind named (lib/data/views/bounds.js DEVICESTATUS_KINDS) answers nothing,
+// the per-kind control.
 function productContext (ctx, tamper, now, dry) {
   const pctx = Object.create(ctx);
+  const dropKinds = (process.env.VIEWS_DROP_KIND || '').split(',').filter(Boolean);
+  if (dropKinds.length) {
+    const real = ctx.devicestatus;
+    pctx.devicestatus = {
+      list: function (q, cb) {
+        if (q && q.find && dropKinds.some(k => q.find[k] && q.find[k].$exists === true)) return cb(null, []);
+        real.list(q, cb);
+      }
+    };
+  }
   if (!tamper) return pctx;
   ['entries', 'treatments', 'devicestatus'].forEach(function (collection) {
-    const real = ctx[collection];
+    const real = pctx[collection];
     pctx[collection] = {
       list: function (q, cb) {
         real.list(q, function (err, docs) {
