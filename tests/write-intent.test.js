@@ -452,11 +452,17 @@ describe('write(intent): the socket\'s generic dbAdd and its dbRemove', function
     assert.deepEqual(calls, [ ]);
   });
 
-  it('has no socket create rules for the collections dbAdd still matches itself', async function ( ) {
+  // CHANGED EXPECTATION (WC-STEP-PATCH slice 6): treatments, devicestatus and
+  // profile dbAdd now go through the step too, under their own matching
+  // rules (socket-add; tests/write-intent.socket.test.js), so this asserts
+  // that they are not the plain insert of entries, food and activity, where
+  // it asserted that they had no socket create rules at all.
+  it('gives the collections dbAdd matches their own create rules, not the plain insert', async function ( ) {
     for (const name of ['treatments', 'devicestatus', 'profile']) {
-      const calls = [ ];
-      await assert.rejects(socket(over(calls, [ ], name).storage, name).write({ op: 'create', docs: [{ }] }), /No write rules for create/);
-      assert.deepEqual(calls, [ ]);
+      assert.equal(writeIntent.COLLECTION_RULES[name].socket.create.write, 'socket-add');
+    }
+    for (const name of ['entries', 'food', 'activity']) {
+      assert.equal(writeIntent.COLLECTION_RULES[name].socket.create.write, 'insert-one');
     }
   });
 

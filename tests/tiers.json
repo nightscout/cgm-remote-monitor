@@ -128,6 +128,7 @@
         "tests/write-intent.test.js",
         "tests/write-intent.v1-collections.test.js",
         "tests/write-intent.v3.test.js",
+        "tests/write-intent.socket.test.js",
         "tests/read-contract.test.js"
       ],
       "env": true,
