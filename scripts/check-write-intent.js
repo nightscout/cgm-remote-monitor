@@ -24,7 +24,12 @@ const ENROLLED = ['lib/server/food.js', 'lib/server/activity.js', 'lib/server/tr
   // The socket's generic dbAdd (entries, food, activity) and its dbRemove
   // (every collection). Treatments, devicestatus and profile dbAdd, dbUpdate
   // and dbUpdateUnset still write through lib/server/storage-writes.js.
-  , { file: 'lib/server/websocket.js', functions: ['processGenericDbAdd', 'dbRemove'] }];
+  , { file: 'lib/server/websocket.js', functions: ['processGenericDbAdd', 'dbRemove'] }
+  // API v3's generic create, update (PUT), patch and delete, every v3
+  // collection (slice 4). autoPrune (lib/api3/generic/collection.js) still
+  // deletes by query through the cached storage.
+  , 'lib/api3/generic/create/insert.js', 'lib/api3/generic/update/replace.js'
+  , 'lib/api3/generic/patch/operation.js', 'lib/api3/generic/delete/operation.js'];
 
 // The driver's write methods, the storage interface's
 // (lib/api3/storage/mongoCollection/index.js) and lib/server/storage-writes.js's.

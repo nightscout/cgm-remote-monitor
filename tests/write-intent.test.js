@@ -220,8 +220,10 @@ describe('write(intent): food from API v1 and in-process callers', function ( ) 
     await assert.rejects(step.write({ op: 'patch', target: { _id: HEX }, set: { a: 1 } }), /No write rules for patch on food/);
     await assert.rejects(writeIntent.forCollection(storage, 'treatments', 'v1/internal').write({ op: 'create', docs: [{ }] }), /No write rules/);
     // CHANGED EXPECTATION (WC-STEP-PATCH slice 3): food from the socket has
-    // rules now (generic dbAdd and dbRemove); API v3 is a source with none yet.
-    await assert.rejects(writeIntent.forCollection(storage, 'food', 'v3').write({ op: 'create', docs: [{ }] }), /No write rules/);
+    // rules now (generic dbAdd and dbRemove).
+    // CHANGED EXPECTATION (slice 4): food from API v3 has rules now; activity,
+    // which API v3 does not serve, has none from it.
+    await assert.rejects(writeIntent.forCollection(storage, 'activity', 'v3').write({ op: 'create', docs: [{ }] }), /No write rules/);
     await assert.rejects(step.write({ op: 'delete', target: { } }), /delete needs target._id/);
     assert.deepEqual(calls, [ ]);
   });
@@ -489,10 +491,13 @@ describe('write(intent) gate G2: one door for the enrolled collections', functio
     // CHANGED EXPECTATION (slice 5): entries.js joins (API v1 and in-process).
     // CHANGED EXPECTATION (slice 5): devicestatus.js joins (API v1 and in-process).
     // CHANGED EXPECTATION (slice 5): profile.js joins (API v1 and in-process).
+    // CHANGED EXPECTATION (slice 4): API v3's insert, replace, patch and delete modules join.
     // Each slice that routes code through the step adds it here.
     assert.deepEqual(ENROLLED, ['lib/server/food.js', 'lib/server/activity.js', 'lib/server/treatments.js'
       , 'lib/server/entries.js', 'lib/server/devicestatus.js', 'lib/server/profile.js'
-      , { file: 'lib/server/websocket.js', functions: ['processGenericDbAdd', 'dbRemove'] }]);
+      , { file: 'lib/server/websocket.js', functions: ['processGenericDbAdd', 'dbRemove'] }
+      , 'lib/api3/generic/create/insert.js', 'lib/api3/generic/update/replace.js'
+      , 'lib/api3/generic/patch/operation.js', 'lib/api3/generic/delete/operation.js']);
     for (const entry of ENROLLED) {
       assert.deepEqual(checkEntry(entry, fs.readFileSync(path.resolve(__dirname, '..', fileOf(entry)), 'utf8')), [], fileOf(entry));
     }
