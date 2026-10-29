@@ -498,10 +498,13 @@ describe('write(intent) gate G2: one door for the enrolled collections', functio
     // CHANGED EXPECTATION (slice 5): devicestatus.js joins (API v1 and in-process).
     // CHANGED EXPECTATION (slice 5): profile.js joins (API v1 and in-process).
     // CHANGED EXPECTATION (slice 4): API v3's insert, replace, patch and delete modules join.
+    // CHANGED EXPECTATION (slice 6): the rest of websocket.js's writers join (dbAdd of treatments,
+    // devicestatus and profile, dbUpdate, dbUpdateUnset).
     // Each slice that routes code through the step adds it here.
     assert.deepEqual(ENROLLED, ['lib/server/food.js', 'lib/server/activity.js', 'lib/server/treatments.js'
       , 'lib/server/entries.js', 'lib/server/devicestatus.js', 'lib/server/profile.js'
-      , { file: 'lib/server/websocket.js', functions: ['processGenericDbAdd', 'dbRemove'] }
+      , { file: 'lib/server/websocket.js', functions: ['processGenericDbAdd', 'dbRemove', 'processSingleDbAdd', 'dbAdd'
+        , 'dbUpdate', 'dbUpdateUnset'] }
       , 'lib/api3/generic/create/insert.js', 'lib/api3/generic/update/replace.js'
       , 'lib/api3/generic/patch/operation.js', 'lib/api3/generic/delete/operation.js']);
     for (const entry of ENROLLED) {
@@ -528,24 +531,36 @@ describe('write(intent) gate G2: one door for the enrolled collections', functio
     });
   }
 
-  describe('enrolled functions (the socket\'s generic dbAdd and dbRemove)', function ( ) {
+  describe('enrolled functions (every writer of websocket.js)', function ( ) {
     const entry = ENROLLED.find(e => typeof e !== 'string');
     const source = fs.readFileSync(path.resolve(__dirname, '..', entry.file), 'utf8');
     // The text right after an enrolled function's opening line, where a bypass is put.
     const into = (name, line) => source.replace(new RegExp('(function ' + name + ' \\([^)]*\\) \\{\\n)'), '$1' + line + '\n');
+    // CHANGED EXPECTATION (slice 6): websocket.js no longer binds the v1 write
+    // helpers or has a function of its own that writes (insertDocument is
+    // gone), so the second and third bypasses bring their own: the helpers'
+    // require, and a module function that writes, put at the end of the file.
+    const PLANTED_WRITER = '\nfunction plantedWriter (storage, doc) { return storage.insertOne(doc); }\n';
+    // CHANGED EXPECTATION (slice 6): enrolled functions now call each other
+    // (dbAdd -> processSingleDbAdd -> processGenericDbAdd), so a bypass in
+    // one is also reported for each enrolled function that calls it; it
+    // asserted that only the function with the bypass was named.
+    const CALLERS = { processGenericDbAdd: ['processSingleDbAdd', 'dbAdd'], processSingleDbAdd: ['dbAdd'] };
 
     for (const name of entry.functions) {
-      for (const bypass of [
-        'socketStore(data.collection).insertOne(data.data, { normalize: false });'
-        , 'writes.remove(socketStore(data.collection), { _id: data._id });'
-        , 'insertDocument(socketStore(data.collection), data.data);'
+      for (const [bypass, extra] of [
+        ['socketStore(data.collection).insertOne(data.data, { normalize: false });', '']
+        , ['var writes = require(\'./storage-writes\'); writes.remove(socketStore(data.collection), { _id: data._id });', '']
+        , ['plantedWriter(socketStore(data.collection), data.data);', PLANTED_WRITER]
       ]) {
         it('fails when ' + name + ' writes around the step: ' + bypass.split('(')[0], function ( ) {
-          const broken = into(name, bypass);
+          const broken = into(name, bypass) + extra;
           assert.notEqual(broken, source, 'the bypass was put in');
           const issues = checkEntry(entry, broken);
           assert(issues.length > 0, bypass);
-          assert(issues.every(issue => issue.startsWith(name + ': ')), issues.join('; '));
+          assert(issues.some(issue => issue.startsWith(name + ': ')), issues.join('; '));
+          const named = [name].concat(CALLERS[name] || [ ]);
+          assert(issues.every(issue => named.some(n => issue.startsWith(n + ': '))), issues.join('; '));
         });
       }
     }
@@ -555,9 +570,11 @@ describe('write(intent) gate G2: one door for the enrolled collections', functio
       assert.deepEqual(issues, ['enrolled function processGenericDbAdd found 0 times, expected once']);
     });
 
-    it('does not flag the other socket writers, which are not enrolled yet', function ( ) {
+    // CHANGED EXPECTATION (slice 6): there are no other socket writers left;
+    // it asserted that the module as a whole still wrote around the step.
+    it('finds no write around the step anywhere in websocket.js, enrolled function or not', function ( ) {
       assert.deepEqual(checkEntry(entry, source), [ ]);
-      assert(check(source).length > 0, 'the module as a whole still writes around the step');
+      assert.deepEqual(check(source), [ ], 'every socket writer goes through the step');
     });
   });
 });

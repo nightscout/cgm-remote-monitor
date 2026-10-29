@@ -22,9 +22,12 @@ const babel = require('@babel/core');
 const ENROLLED = ['lib/server/food.js', 'lib/server/activity.js', 'lib/server/treatments.js', 'lib/server/entries.js'
   , 'lib/server/devicestatus.js', 'lib/server/profile.js'
   // The socket's generic dbAdd (entries, food, activity) and its dbRemove
-  // (every collection). Treatments, devicestatus and profile dbAdd, dbUpdate
-  // and dbUpdateUnset still write through lib/server/storage-writes.js.
-  , { file: 'lib/server/websocket.js', functions: ['processGenericDbAdd', 'dbRemove'] }
+  // (every collection), slice 3; the dbAdd of treatments, devicestatus and
+  // profile (the handler and processSingleDbAdd), dbUpdate and dbUpdateUnset,
+  // slice 6. Every socket writer is enrolled; the module's other functions
+  // (reconcilePartialWrite's read-back) only read.
+  , { file: 'lib/server/websocket.js', functions: ['processGenericDbAdd', 'dbRemove', 'processSingleDbAdd', 'dbAdd'
+    , 'dbUpdate', 'dbUpdateUnset'] }
   // API v3's generic create, update (PUT), patch and delete, every v3
   // collection (slice 4). autoPrune (lib/api3/generic/collection.js) still
   // deletes by query through the cached storage.
