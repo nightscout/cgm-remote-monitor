@@ -125,7 +125,9 @@
         "tests/webhook.test.js",
         "tests/write-validation.test.js",
         "tests/write-step.test.js",
-        "tests/read-contract.test.js"
+        "tests/read-contract.test.js",
+        "tests/nightscout-cli.test.js",
+        "tests/serve-listeners.test.js"
       ],
       "env": true,
       "require": [
@@ -216,6 +218,7 @@
         "tests/boot-index-ready.test.js",
         "tests/boot-sequence-integration.test.js",
         "tests/cache.remove-by-id.test.js",
+        "tests/cache.remove-by-query.test.js",
         "tests/carb-dose-upload.test.js",
         "tests/client.renderer.test.js",
         "tests/count-pipeline-boundary.test.js",
@@ -249,7 +252,9 @@
         "tests/uuid-handling.test.js",
         "tests/verifyauth.test.js",
         "tests/views-equality.test.js",
-        "tests/websocket*.test.js"
+        "tests/websocket*.test.js",
+        "tests/start-paths.test.js",
+        "tests/headless-test-server.test.js"
       ],
       "env": true,
       "require": [

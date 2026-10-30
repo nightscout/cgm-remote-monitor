@@ -135,7 +135,7 @@ describe('API3 devicestatus: a re-POST with a stored identifier is acknowledged,
     const doc = status({ identifier: 'v3-ds-from-v1', created_at: new Date(Date.UTC(2021, 5, 2)).toISOString() });
     delete doc.date;
     await new Promise(function (resolve, reject) {
-      self.instance.ctx.devicestatus.create([Object.assign({}, doc)], function (err) { if (err) reject(err); else resolve(); });
+      self.instance.v1.devicestatus.create([Object.assign({}, doc)], function (err) { if (err) reject(err); else resolve(); });
     });
     const before = await storedFor('devicestatus', 'v3-ds-from-v1');
     before.length.should.equal(1);

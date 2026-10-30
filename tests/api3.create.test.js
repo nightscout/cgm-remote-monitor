@@ -151,7 +151,7 @@ describe('API3 CREATE', function() {
     let body = await self.get(self.validDoc.identifier);
     body.should.containEql(self.validDoc);
     body.srvModified.should.equal(lastModifiedBody);
-    self.cache.nextShouldEql(self.col, self.validDoc)
+    await self.cache.nextShouldEql(self.col, self.validDoc)
 
     const ms = body.srvModified % 1000;
     (body.srvModified - ms).should.equal(lastModified);
@@ -159,7 +159,7 @@ describe('API3 CREATE', function() {
     body.subject.should.equal(self.subject.apiCreate.name);
 
     await self.delete(self.validDoc.identifier);
-    self.cache.nextShouldDeleteLast(self.col)
+    await self.cache.nextShouldDeleteLast(self.col)
   });
 
 
@@ -256,10 +256,10 @@ describe('API3 CREATE', function() {
 
     let body = await self.get(self.validDoc.identifier);
     body.utcOffset.should.equal(120);
-    self.cache.nextShouldEql(self.col, doc)
+    await self.cache.nextShouldEql(self.col, doc)
 
     await self.delete(self.validDoc.identifier);
-    self.cache.nextShouldDeleteLast(self.col)
+    await self.cache.nextShouldDeleteLast(self.col)
   });
 
 
@@ -314,10 +314,10 @@ describe('API3 CREATE', function() {
     let body = await self.get(self.validDoc.identifier);
     body.date.should.equal(1560146828576);
     body.utcOffset.should.equal(120);
-    self.cache.nextShouldEql(self.col, body)
+    await self.cache.nextShouldEql(self.col, body)
 
     await self.delete(self.validDoc.identifier);
-    self.cache.nextShouldDeleteLast(self.col)
+    await self.cache.nextShouldDeleteLast(self.col)
   });
 
 
@@ -333,7 +333,7 @@ describe('API3 CREATE', function() {
 
     let createdBody = await self.get(doc.identifier);
     createdBody.should.containEql(doc);
-    self.cache.nextShouldEql(self.col, doc)
+    await self.cache.nextShouldEql(self.col, doc)
 
     const doc2 = Object.assign({}, doc);
     let res = await self.instance.post(self.url, self.jwt.create)
@@ -343,7 +343,7 @@ describe('API3 CREATE', function() {
     res.body.status.should.equal(403);
     res.body.message.should.equal('Missing permission api:treatments:update');
     await self.delete(doc.identifier);
-    self.cache.nextShouldDeleteLast(self.col)
+    await self.cache.nextShouldDeleteLast(self.col)
   });
 
 
@@ -359,7 +359,7 @@ describe('API3 CREATE', function() {
 
     let createdBody = await self.get(doc.identifier);
     createdBody.should.containEql(doc);
-    self.cache.nextShouldEql(self.col, doc)
+    await self.cache.nextShouldEql(self.col, doc)
 
     const doc2 = Object.assign({}, doc, {
       insulin: 0.5
@@ -373,10 +373,10 @@ describe('API3 CREATE', function() {
 
     let updatedBody = await self.get(doc2.identifier);
     updatedBody.should.containEql(doc2);
-    self.cache.nextShouldEql(self.col, doc2)
+    await self.cache.nextShouldEql(self.col, doc2)
 
     await self.delete(doc2.identifier);
-    self.cache.nextShouldDeleteLast(self.col)
+    await self.cache.nextShouldDeleteLast(self.col)
   });
 
 
@@ -390,19 +390,15 @@ describe('API3 CREATE', function() {
     delete doc.identifier;
 
     await new Promise((resolve, reject) => {
-      self.instance.ctx.treatments.create([doc], (err) => {  // let's insert the document in APIv1's way
+      self.instance.v1.treatments.create([doc], (err) => {  // let's insert the document in APIv1's way
         if (err) {
           return reject(err);
         }
-        try {
-          doc._id = doc._id.toString();
-          self.cache.nextShouldEql(self.col, doc);
-          resolve(doc);
-        } catch (e) {
-          reject(e);
-        }
+        resolve(doc);
       });
     });
+    doc._id = doc._id.toString();
+    await self.cache.nextShouldEql(self.col, doc);
 
     const doc2 = Object.assign({}, doc, {
       insulin: 0.4,
@@ -427,10 +423,10 @@ describe('API3 CREATE', function() {
 
     let updatedBody = await self.get(doc2.identifier);
     updatedBody.should.containEql(doc2);
-    self.cache.nextShouldEql(self.col, doc2);
+    await self.cache.nextShouldEql(self.col, doc2);
 
     await self.delete(doc2.identifier);
-    self.cache.nextShouldDeleteLast(self.col);
+    await self.cache.nextShouldDeleteLast(self.col);
   });
 
 
@@ -444,19 +440,15 @@ describe('API3 CREATE', function() {
     delete doc.identifier;
 
     await new Promise((resolve, reject) => {
-      self.instance.ctx.treatments.create([doc], (err) => {  // let's insert the document in APIv1's way
+      self.instance.v1.treatments.create([doc], (err) => {  // let's insert the document in APIv1's way
         if (err) {
           return reject(err);
         }
-        try {
-          doc._id = doc._id.toString();
-          self.cache.nextShouldEql(self.col, doc);
-          resolve(doc);
-        } catch (e) {
-          reject(e);
-        }
+        resolve(doc);
       });
     });
+    doc._id = doc._id.toString();
+    await self.cache.nextShouldEql(self.col, doc);
 
 
     const oldBody = await self.get(doc._id);
@@ -483,13 +475,13 @@ describe('API3 CREATE', function() {
     updatedBody.identifier.should.not.equal(oldBody.identifier);
     should.not.exist(updatedBody.isDeduplication);
     should.not.exist(updatedBody.deduplicatedIdentifier);
-    self.cache.nextShouldEql(self.col, doc2);
+    await self.cache.nextShouldEql(self.col, doc2);
 
     await self.delete(doc2.identifier);
-    self.cache.nextShouldDeleteLast(self.col);
+    await self.cache.nextShouldDeleteLast(self.col);
 
     await self.delete(oldBody.identifier);
-    self.cache.nextShouldDeleteLast(self.col);
+    await self.cache.nextShouldDeleteLast(self.col);
   });
 
 
@@ -501,12 +493,12 @@ describe('API3 CREATE', function() {
     await self.instance.post(self.url, self.jwt.create)
       .send(doc)
       .expect(201);
-    self.cache.nextShouldEql(self.col, Object.assign({}, doc, { date: date1.getTime() }));
+    await self.cache.nextShouldEql(self.col, Object.assign({}, doc, { date: date1.getTime() }));
 
     let res = await self.instance.delete(`${self.url}/${identifier}`, self.jwt.delete)
       .expect(200);
     res.body.status.should.equal(200);
-    self.cache.nextShouldDeleteLast(self.col);
+    await self.cache.nextShouldDeleteLast(self.col);
 
     const date2 = new Date();
     res = await self.instance.post(self.url, self.jwt.create)
@@ -524,14 +516,14 @@ describe('API3 CREATE', function() {
 
     res.body.status.should.equal(200);
     res.body.identifier.should.equal(identifier);
-    self.cache.nextShouldEql(self.col, Object.assign({}, doc2, { date: date2.getTime() }));
+    await self.cache.nextShouldEql(self.col, Object.assign({}, doc2, { date: date2.getTime() }));
 
     let body = await self.get(identifier);
     body.date.should.equal(date2.getTime());
     body.identifier.should.equal(identifier);
 
     await self.delete(identifier);
-    self.cache.nextShouldDeleteLast(self.col);
+    await self.cache.nextShouldDeleteLast(self.col);
   });
 
 
@@ -551,10 +543,10 @@ describe('API3 CREATE', function() {
 
     let body = await self.get(validIdentifier);
     body.should.containEql(self.validDoc);
-    self.cache.nextShouldEql(self.col, self.validDoc);
+    await self.cache.nextShouldEql(self.col, self.validDoc);
 
     await self.delete(validIdentifier);
-    self.cache.nextShouldDeleteLast(self.col);
+    await self.cache.nextShouldDeleteLast(self.col);
   });
 
 
@@ -574,7 +566,7 @@ describe('API3 CREATE', function() {
 
     let body = await self.get(validIdentifier);
     body.should.containEql(self.validDoc);
-    self.cache.nextShouldEql(self.col, self.validDoc);
+    await self.cache.nextShouldEql(self.col, self.validDoc);
 
     delete self.validDoc.identifier;
     res = await self.instance.post(`${self.url}`, self.jwt.update)
@@ -587,13 +579,13 @@ describe('API3 CREATE', function() {
     should.not.exist(res.body.deduplicatedIdentifier); // no identifier change occured
     res.headers.location.should.equal(`${self.url}/${validIdentifier}`);
     self.validDoc.identifier = validIdentifier;
-    self.cache.nextShouldEql(self.col, self.validDoc);
+    await self.cache.nextShouldEql(self.col, self.validDoc);
 
     body = await self.search(self.validDoc.date);
     body.length.should.equal(1);
 
     await self.delete(validIdentifier);
-    self.cache.nextShouldDeleteLast(self.col);
+    await self.cache.nextShouldDeleteLast(self.col);
   });
 
 
@@ -610,13 +602,13 @@ describe('API3 CREATE', function() {
       let res = await self.instance.post(requestUrl, self.jwt.create).send(doc).expect(201);
       res.body.identifier.should.equal(identifier);
       res.headers.location.should.equal(`${self.url}/${identifier}`);
-      self.cache.nextShouldEql(self.col, {...doc, identifier});
+      await self.cache.nextShouldEql(self.col, {...doc, identifier});
 
       res = await self.instance.post(requestUrl, self.jwt.update).send(doc).expect(200);
       res.body.identifier.should.equal(identifier);
       res.body.isDeduplication.should.equal(true);
       res.headers.location.should.equal(`${self.url}/${identifier}`);
-      self.cache.nextShouldEql(self.col, {...doc, identifier});
+      await self.cache.nextShouldEql(self.col, {...doc, identifier});
 
       const stored = await self.get(identifier);
       stored.should.containEql({...doc, identifier});
@@ -625,7 +617,7 @@ describe('API3 CREATE', function() {
       records[0].identifier.should.equal(identifier);
 
       await self.delete(identifier);
-      self.cache.nextShouldDeleteLast(self.col);
+      await self.cache.nextShouldDeleteLast(self.col);
       await self.instance.get(`${self.url}/${identifier}`, self.jwt.read).expect(404);
     }
   });
@@ -653,7 +645,7 @@ describe('API3 CREATE', function() {
 
     // Track cache operation - server generated identifier
     const docWithId = Object.assign({}, doc, { identifier: res.body.identifier });
-    self.cache.nextShouldEql(self.col, docWithId);
+    await self.cache.nextShouldEql(self.col, docWithId);
 
     // Verify stored doc has identifier
     let body = await self.get(res.body.identifier);
@@ -661,7 +653,7 @@ describe('API3 CREATE', function() {
     body.notes.should.equal('Test null identifier');
 
     await self.delete(res.body.identifier);
-    self.cache.nextShouldDeleteLast(self.col);
+    await self.cache.nextShouldDeleteLast(self.col);
   });
 
 
@@ -685,7 +677,7 @@ describe('API3 CREATE', function() {
 
     res.body.status.should.equal(201);
     res.body.identifier.should.equal(objectIdIdentifier);
-    self.cache.nextShouldEql(self.col, doc);
+    await self.cache.nextShouldEql(self.col, doc);
 
     // Verify stored doc
     let body = await self.get(objectIdIdentifier);
@@ -693,7 +685,7 @@ describe('API3 CREATE', function() {
     body.notes.should.equal('Test ObjectId identifier');
 
     await self.delete(objectIdIdentifier);
-    self.cache.nextShouldDeleteLast(self.col);
+    await self.cache.nextShouldDeleteLast(self.col);
   });
 
 
@@ -715,7 +707,7 @@ describe('API3 CREATE', function() {
 
     res.body.status.should.equal(201);
     res.body.identifier.should.equal(uuidIdentifier);
-    self.cache.nextShouldEql(self.col, doc);
+    await self.cache.nextShouldEql(self.col, doc);
 
     // Verify stored doc preserves UUID
     let body = await self.get(uuidIdentifier);
@@ -730,13 +722,13 @@ describe('API3 CREATE', function() {
 
     res2.body.status.should.equal(200);
     res2.body.isDeduplication.should.equal(true);
-    self.cache.nextShouldEql(self.col, doc2);
+    await self.cache.nextShouldEql(self.col, doc2);
 
     let body2 = await self.get(uuidIdentifier);
     body2.reason.should.equal('Updated reason');
 
     await self.delete(uuidIdentifier);
-    self.cache.nextShouldDeleteLast(self.col);
+    await self.cache.nextShouldDeleteLast(self.col);
   });
 
 });

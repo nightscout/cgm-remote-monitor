@@ -105,7 +105,7 @@ describe('API3 PATCH', function() {
       .expect(201);
 
     res.body.status.should.equal(201);
-    self.cache.nextShouldEql(self.col, self.validDoc)
+    await self.cache.nextShouldEql(self.col, self.validDoc)
   });
 
 
@@ -234,7 +234,7 @@ describe('API3 PATCH', function() {
     body.subject.should.equal(self.subject.apiCreate.name);
     body.modifiedBy.should.equal(self.subject.apiUpdate.name);
 
-    self.cache.nextShouldEql(self.col, body)
+    await self.cache.nextShouldEql(self.col, body)
   });
 
 
@@ -255,7 +255,7 @@ describe('API3 PATCH', function() {
       .expect(201);
 
     res.body.status.should.equal(201);
-    self.cache.nextShouldEql(self.col, tempBasalDoc)
+    await self.cache.nextShouldEql(self.col, tempBasalDoc)
 
     res = await self.instance.patch(`${self.url}/${tempBasalDoc.identifier}`, self.jwt.update)
       .send({
@@ -274,7 +274,7 @@ describe('API3 PATCH', function() {
     body.endmills.should.equal(tempBasalDoc.date + 26584);
     body.modifiedBy.should.equal(self.subject.apiUpdate.name);
 
-    self.cache.nextShouldEql(self.col, body)
+    await self.cache.nextShouldEql(self.col, body)
   });
 
 });
