@@ -109,9 +109,9 @@ async function processSingleDbAdd (mongoCollection, data, maxtimediff) {
         query_similiar[field] = literal(value);
       }
     });
-    if (data.data.NSCLIENT_ID) {
-      query_similiar.NSCLIENT_ID = literal(data.data.NSCLIENT_ID);
-    }
+    // CHANGED with the dev cf3d4b8f merge (#8877, BF-209): the similar query
+    // follows client identity, as dev's websocket.js does.
+    Object.assign(query_similiar, fallbackKey.identityQuery(data.data, { identifier: true }));
     query_similiar.eventType = literal(data.data.eventType);
     try {
       var similar = await reads.findOne(mongoCollection, softDeleted.visible(query_similiar));

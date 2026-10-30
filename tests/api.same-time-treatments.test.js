@@ -6,7 +6,8 @@
 // eventType. That alone let a second carb entry at the same time replace the
 // first (API v1) or be dropped (socket dbAdd). Now:
 // - a client identity (syncIdentifier, id, uuid, NSCLIENT_ID) must be equal,
-//   and a write without one matches only a record without one (v1 and socket);
+//   and a write without one matches only a record without one (v1, and both
+//   the socket's exact and "similar" match; the similar match since BF-209);
 // - an API v1 write without a client identity must also have equal carbs and
 //   insulin;
 // - the socket's "similar" match (within 2 s, same amounts) also requires the
@@ -286,12 +287,13 @@ describe('Same-time treatments are kept apart (BF-121)', function () {
       docs.map(function (d) { return d.carbs; }).should.eql([20, 15]);
     });
 
-    it('recognises a re-send with the same NSCLIENT_ID and a similar entry of the same type', async function () {
+    it('recognises a re-send with the same NSCLIENT_ID, and keeps a similar entry without one apart (BF-209)', async function () {
       await dbAdd({ eventType: 'Carb Correction', created_at: T, carbs: 20, NSCLIENT_ID: 'ns-1' });
       await dbAdd({ eventType: 'Carb Correction', created_at: T, carbs: 20, NSCLIENT_ID: 'ns-1' });
+      (await stored()).length.should.equal(1);
       await dbAdd({ eventType: 'Carb Correction', created_at: T1, carbs: 20 });
       var docs = await stored();
-      docs.length.should.equal(1);
+      docs.length.should.equal(2);
     });
 
     it('keeps the first of two same-time entries without an identity (amounts are not in the socket key)', async function () {

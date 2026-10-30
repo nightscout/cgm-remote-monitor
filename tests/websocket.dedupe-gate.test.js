@@ -241,21 +241,22 @@ describe('websocket: dedupe gate for the write step (WC-STEP-PATCH slice 6)', fu
       await shouldBeExactMatch('treatments', result, before);
     });
 
-    // today's behaviour; see report. The fallback key keeps a record with
-    // another identity apart, but the similar match has no identity rule
-    // (only NSCLIENT_ID), so the second entry is taken for the first.
-    it('takes an entry with another syncIdentifier, same time, type and carbs, for the stored one (similar match)', async function () {
+    // BF-209: the similar match keeps the fallback key's identity rule, so an
+    // entry with another identity is a second record.
+    it('stores an entry with another syncIdentifier at the same time, type and carbs', async function () {
       var before = await seed('treatments', treatment(0, { carbs: 20, syncIdentifier: 'sync-a' }));
-      var result = await dbAdd('treatments', treatment(0, { carbs: 20, syncIdentifier: 'sync-b' }));
-      await shouldBeSimilarMatch(result, before, at(0));
+      var sent = treatment(0, { carbs: 20, syncIdentifier: 'sync-b' });
+      var result = await dbAdd('treatments', sent);
+      await shouldBeInserted('treatments', result, [before], sent);
     });
 
-    // today's behaviour; see report. Same as above, for a write with no
-    // identity against a stored record that has one.
-    it('takes an entry with no identity, same time, type and carbs, for a stored entry with one (similar match)', async function () {
+    // BF-209: same as above, for a write with no identity against a stored
+    // record that has one.
+    it('stores an entry with no identity at the same time, type and carbs as a stored entry with one', async function () {
       var before = await seed('treatments', treatment(0, { carbs: 20, syncIdentifier: 'sync-a' }));
-      var result = await dbAdd('treatments', treatment(0, { carbs: 20 }));
-      await shouldBeSimilarMatch(result, before, at(0));
+      var sent = treatment(0, { carbs: 20 });
+      var result = await dbAdd('treatments', sent);
+      await shouldBeInserted('treatments', result, [before], sent);
     });
 
     it('stores an entry with another syncIdentifier and another amount at the same time', async function () {
