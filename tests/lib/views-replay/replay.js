@@ -399,10 +399,25 @@ function main () {
       r2.sbx = sbx;
       r2.runtimeState = 'loaded';
     }
+    // minutes on which the view's working set held a status of each kind
+    // (non-vacuity of the newest-of-kind controls: compare main with
+    // dropkind:<kind>); counted after the arm's timing, below
+    const viewKindMinutes = {};
+    let lastViewSet = null;
+    function countKinds (set) {
+      createViews.bounds.DEVICESTATUS_KINDS.forEach(function (k) {
+        if ((set.ddata.devicestatus || []).some(st => st && k in st)) viewKindMinutes[k] = (viewKindMinutes[k] || 0) + 1;
+      });
+    }
     function viewMinute (t) {
       return new Promise(function (resolve, reject) {
-        views.compute('alarms', { now: t, dbstats: currentStats }, function (err, result) {
+        // compute() is materialise() then evaluate(); split here only to keep
+        // the working set for countKinds
+        views.materialise('alarms', { now: t, dbstats: currentStats }, function (err, set) {
           if (err) return reject(err);
+          lastViewSet = set;
+          let result;
+          try { result = views.evaluate(set); } catch (e) { return reject(e); }
           viewRequested = result.requested;
           // the server's step (lib/data/views): hand the requests to durable state
           vDdata.lastUpdated = t;
@@ -528,6 +543,8 @@ function main () {
       await timed('server', serverMinute);
       if (r2) await timed('r2', r2Minute);
       await timed('view', () => viewMinute(t));
+      countKinds(lastViewSet);
+      lastViewSet = null;
       if (PROBE.has(step)) await probe(step, t);
 
       const sS = cur.server.map(sigNotify);
@@ -561,6 +578,7 @@ function main () {
     res.steps = step;
     res.uploads = { preloaded, total: uploaded, refused, undated, profilesMovedToStart: profilesMoved };
     res.acks = ackLog;
+    res.viewKindMinutes = viewKindMinutes;
     if (probes.length) res.probes = probes;
     res.errors = errors.length;
     res.errorSample = errors.slice(0, 5).map(e => e.replace(/\d{2,}/g, '#'));

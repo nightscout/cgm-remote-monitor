@@ -416,6 +416,59 @@ function quiet () {
   };
 }
 
+// One device-status kind per timeline, placed where only the alarm view's
+// newest-of-kind query (lib/data/views/bounds.js DEVICESTATUS_KINDS) brings
+// that kind's newest status: a bridge posts a status with none of the six
+// kinds every minute (so the 10 newest never hold one), and the kind's device
+// posts every 5 minutes until 3 h and then stops (so from 3.5 h its newest
+// status is outside the 30-minute window, and from 5 h outside the default
+// pump window). A status of that kind that fails its alarm test is the newest
+// of its kind, so the loopOk and openaps tests do not bring it either. CGM
+// continues over the whole span, through a high and a low, so alarm messages
+// (with their IOB and COB lines) are compared throughout. No carbs, so COB
+// from treatments is not involved.
+//
+//   kindXdripjs          the Logger reports a low battery A voltage (WARN)
+//                        from 2 h; xdripjs reads 24 h, so the resident path
+//                        keeps raising it after the Logger stops
+//   kindLoop             dosing fails from 2 h; the loop alarm counts from the
+//                        newest OK status (the loopOk query)
+//   kindOpenaps          the AAPS loop stops at 2 h (empty openaps); the
+//                        openaps alarm counts from suggested and enacted (the
+//                        openaps tests)
+//   kindPump             reservoir and pump battery low (URGENT) until 3 h;
+//                        the pump plugin reads twice urgentClock (pumpWindow)
+//   kindUploader         phone battery 15 % until 3 h; upbat reads 30 minutes
+//   kindUploaderBattery  as kindUploader, as the legacy uploaderBattery field
+function kindOnly (kind) {
+  const start = T0;
+  const end = hrs(12);
+  const bg = knots([[-50, 120], [-10, 140], [0, 130], [2, 180], [3, 240], [4, 270], [5, 200], [6, 120], [8, 70], [8.7, 50], [9.5, 90], [12, 130]]);
+  const entries = cgm(hrs(-50), end, bg, {});
+  const bridge = every(hrs(-26), end, MIN, 5 * 1000, (t) => ({ device: 'bridge://replay', created_at: iso(t), radioAdapter: { name: 'replay-bridge', rssi: -70 } }));
+  const until = hrs(3);
+  const byKind = {
+    xdripjs: (t, h) => { const s = xdripjsStatus(t, 6); if (h >= 2) s.xdripjs.voltagea = 280; return s; }
+    , loop: (t, h) => loopStatus(t, { bg: Math.round(bg(h)), failing: h >= 2 })
+    , openaps: (t, h) => aapsStatus(t, { bg: Math.round(bg(h)), stopped: h >= 2 })
+    , pump: (t) => ({ device: 'pump-uploader', created_at: iso(t), pump: pumpState(t, 4, { percent: 15 }) })
+    , uploader: (t) => ({ device: 'phone', created_at: iso(t), uploader: { battery: 15 } })
+    , uploaderBattery: (t) => ({ device: 'legacy-phone', created_at: iso(t), uploaderBattery: 15 })
+  };
+  const devicestatus = bridge.concat(every(hrs(-26), until, 5 * MIN, 30 * 1000, byKind[kind]));
+  const treatments = tempBasals(hrs(-62), end, 30, [])
+    .concat([[1.5, 2], [7, 1]].map(([h, i]) => treatment(hrs(h), { eventType: 'Correction Bolus', insulin: i })))
+    .concat(changeEvents([[-10, 'Site Change'], [-24, 'Sensor Start'], [-20, 'Insulin Change'], [-100, 'Pump Battery Change']]));
+  const name = 'kind' + kind[0].toUpperCase() + kind.slice(1);
+  return {
+    name, start, end
+    , env: kind === 'xdripjs' ? { XDRIPJS_ENABLE_ALERTS: 'true' } : {}
+    , about: 'a bridge posts a status with none of the six kinds every minute; a ' + kind + ' device posts every 5 minutes until 3 h; CGM continues through a high and a low'
+    , records: { entries, treatments, devicestatus, profile: [profileDoc()] }
+    , acks: acksAt([3.2, 8.9], [30, 15])
+  };
+}
+
 const TIMELINES = {
   quiet: quiet,
   aaps: aaps
@@ -424,5 +477,8 @@ const TIMELINES = {
   , edges: () => edges('default')
   , edgesDays2: () => edges('days2')
 };
+['xdripjs', 'loop', 'openaps', 'pump', 'uploader', 'uploaderBattery'].forEach(function (kind) {
+  TIMELINES['kind' + kind[0].toUpperCase() + kind.slice(1)] = () => kindOnly(kind);
+});
 
 module.exports = { TIMELINES, T0, MIN, HOUR, DAY };

@@ -160,3 +160,83 @@ node tests/lib/views-replay/diffshape.js <dir>/main/<dataset>.jsonl
 ```
 
 The `.jsonl` files hold the notification text of every differing minute. For a corpus set that text contains its values: keep them out of any repository.
+
+# Round 2, 2026-10-30: the treatment bound, and the newest-of-kind timelines
+
+Branch `feat/views-bounded-text`, on top of `lab/views-replay`. Same environment as above (Node v22.23.4, MongoDB 7.0.43 in a dedicated container with `--ulimit nofile=64000`), with 15 replays at once.
+
+## The change
+
+`lib/data/views/bounds.js` `treatmentsWindow`: each view reads its DIAs of treatments (1 for alarms, `PROPERTIES_DIAS` for properties, as before) **and the newest treatment within the resident treatment window** (`TREATMENT_CACHE_HOURS`, 60 h: `lib/server/cache.js` retention, and `loadTreatments` loads 2.5 days into an empty cache). The iob and cob plugins show their zero lines whenever they are given any treatment and no line when they are given none. With this one record the view's treatments are empty exactly when the resident path's are. That record is older than the DIA window it is added to, so it adds no IOB. The view now makes one more read per minute.
+
+## Result per dataset (final tree; r2 control on every main run)
+
+| dataset | real differing minutes, round 1 | round 2 | r2 differs |
+|---|---|---|---|
+| corpus #1 | 1335 | 0 | 0 |
+| corpus #2 | 1206 | 0 | 0 |
+| corpus #3 | 19 | 0 | 0 |
+| corpus #4, #5, #7 | 0 | 0 | 0 |
+| corpus #6 | 1471 | 0 | 0 |
+| corpus #3, #4, #5, #7, profiles at start | 0 | 0 | 0 |
+| corpus #6, profiles at start | 1977 | **538** | 0 |
+| synthetic aaps, loop, twoUploaders, edges, edgesDays2 | 0 | 0 | 0 |
+| synthetic quiet | 749 | 0 | 0 |
+| synthetic kindXdripjs, kindLoop, kindOpenaps, kindPump, kindUploader, kindUploaderBattery (new) | - | 0 | 0 |
+
+Noise floor: r2 differed from the server on 0 of 126,092 minutes (every main and profiles-at-start run).
+
+**What remains (corpus #6 with profiles at start, 538 minutes, five runs between 240.5 h and 276.7 h).** All of these minutes fall inside stale-data URGENT (timeago) alarms. In every one, both paths raise the same alarm (level, plugin, group and title) and the messages differ only in the `COB:` line: the view's COB is lower in 500 minutes, and zero against the resident's positive value in 38. This is round 1's kind 2: COB from treatments chains carb absorption across entries. The view has no current device COB in these minutes, so its COB comes from that chain, which needs the carbs older than the view's window. The zero-line minutes round 1 counted in this run are gone; the count went from 506 to 538 because minutes that used to lack the line entirely now carry a lower value.
+
+## Measured alternatives for the COB chain (alarm view only; r2 not run on AF)
+
+Each variant changes the alarm view's treatment and device-status reads only. Columns: differing minutes, then mean KB read per minute by the view.
+
+| dataset | chosen: 1 DIA + newest in 60 h | 3 DIA + newest in 60 h | 60 h of treatments | 3 DIA + newest in 60 h, + 24 h device status | 60 h of treatments + 24 h device status |
+|---|---|---|---|---|---|
+| corpus #1 | 0, 66.8 | 0, 121.0 | 0, 297.8 | 0, 641.6 | 0, 818.5 |
+| corpus #4 | 0, 149.6 | 0, 158.6 | 0, 201.8 | 0, 896.9 | 0, 940.1 |
+| corpus #6, profiles at start | 538, 2.2 | 204, 2.6 | 0, 5.2 | 204, 3.9 | 0, 6.6 |
+| synthetic aaps | 0, 36.7 | 0, 39.9 | 13, 60.2 | 0, 293.5 | 0, 313.8 |
+| synthetic quiet | 0, 16.2 | 1, 17.8 | 1, 37.6 | 0, 148.7 | 0, 168.5 |
+| synthetic twoUploaders | 0, 64.5 | 0, 67.8 | 0, 88.0 | 0, 636.1 | 0, 656.3 |
+
+- Only the last column, the resident path's own windows, was 0 on every dataset. It reads 3 to 12 times the bytes of the chosen bound: 818.5 against 66.8 KB per minute on corpus #1, 680.2 against 11.2 on edgesDays2.
+- Reading more treatments alone is not enough. When COB is computed from treatments, the cob plugin evaluates IOB at each earlier carb's decay time (`cob.fromTreatments`, `iob.calcTotal`). That IOB comes from a device status within 30 minutes of that time, when the resident path holds one. The alarm view reads device status only near now, so with a wider treatment window and no matching device status its COB differs the other way (view higher: synthetic quiet, 1 minute; synthetic aaps, 13 minutes).
+- In this run each difference was in the COB text only. No variant changed an alarm.
+
+## The six newest-of-kind queries
+
+In each `kind*` timeline, a bridge posts a status with none of the six kinds every minute, and the kind's device stops at 3 h. `viewKindMinutes` counts the minutes on which the view's working set held a status of that kind. Under `dropkind:<kind>` it drops to the minutes the other queries cover, so on the remaining minutes the kind query was the only source.
+
+| timeline | minutes with the kind: main / dropkind | drop adds | why |
+|---|---|---|---|
+| kindXdripjs | 721 / 206 | **515 minutes, xdripjs WARN (3.4–12.0 h)** | xdripjs reads 24 h; nothing else brings the Logger's status once it is out of the 30-minute window |
+| kindLoop | 721 / 476 | 0 | the loop alarm counts from the newest OK status (`loopOk`) and its message names only that time |
+| kindOpenaps | 721 / 476 | 0 | the openaps alarm counts from suggested and enacted (the openaps tests) |
+| kindPump | 721 / 296 | 0 | the pump plugin ignores statuses outside twice urgentClock (`pumpWindow`) |
+| kindUploader | 721 / 206 | 0 | upbat ignores statuses older than 30 minutes (`upbatWindow`) |
+| kindUploaderBattery | 721 / 206 (as `uploader`, after the loader's rewrite) | 0 | as kindUploader |
+
+So the xdripjs query is needed. For the other five, each kind's own plugin does not need its query: it was the only source of that kind on 245 to 515 minutes per timeline, and dropping it changed nothing. They do bring device statuses into the view, which the COB chain above can read at an earlier carb's decay time. They are kept.
+
+## Break-it controls (final tree)
+
+Unchanged from round 1 on the round-1 datasets: loopOk, openapsSuggested, openapsEnacted, upbatWindow and pumpWindow are red on the same synthetic minutes for the same plugins, and tamper is red on every dataset. On the new timelines, `drop:loopOk` is red on kindLoop for 331 minutes (loop, 2.4–8.0 h), and tamper is red on all six (259–282 minutes each, led by treatmentnotify). `dropkind:xdripjs` is red on kindXdripjs as above. Every other control is silent on every dataset. In the equality harness, `VIEWS_TAMPER=alarms` fails 4 checks and `VIEWS_TAMPER=properties` fails 20, each on its own view only. Untampered, the harness gives 174 passing.
+
+## Cost per minute, alarm view (mean, final run vs round 1)
+
+| dataset | reads | docs | KB |
+|---|---|---|---|
+| corpus #1 | 24 → 25 | 71 → 72 | 66.2 → 66.8 |
+| corpus #4 | 24 → 25 | 63 → 64 | 149.4 → 149.6 |
+| corpus #6 | 24 → 25 | 5 → 6 | 1.1 → 1.3 |
+| synthetic aaps | 24 → 25 | 112 → 113 | 36.5 → 36.7 |
+| synthetic quiet | 24 → 25 | 29 → 30 | 15.9 → 16.2 |
+
+Wall times are not compared, because this round ran 15 replays at once against round 1's 12.
+
+## Still not covered
+
+- The COB chain on corpus #6 with profiles at start, above. An exact bound needs the resident path's windows.
+- Everything listed under "What this lab does not cover" in round 1, except the six newest-of-kind queries.

@@ -10,7 +10,7 @@ OUT=${OUT:?OUT}; PORT=${PORT:?PORT}; JOBS=${JOBS:-8}
 HERE=$(cd "$(dirname "$0")" && pwd)
 DIR="$OUT/${MODE//:/-}"
 mkdir -p "$DIR"
-SETS="synthetic:quiet synthetic:aaps synthetic:loop synthetic:twoUploaders synthetic:edges synthetic:edgesDays2"
+SETS="synthetic:quiet synthetic:aaps synthetic:loop synthetic:twoUploaders synthetic:edges synthetic:edgesDays2 synthetic:kindXdripjs synthetic:kindLoop synthetic:kindOpenaps synthetic:kindPump synthetic:kindUploader synthetic:kindUploaderBattery"
 if [ -n "${VIEWS_CORPUS_DIR:-}" ]; then
   n=$(ls "$VIEWS_CORPUS_DIR"/*_entries.json | wc -l)
   for i in $(seq 1 "$n"); do SETS="$SETS corpus:$i"; done
