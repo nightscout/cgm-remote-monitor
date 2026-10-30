@@ -256,6 +256,25 @@ describe('controller registration: definitions, instances and roles', function (
       (await holders()).length.should.equal(0);
     });
 
+    it('uses the body\'s product as the address only: it is neither stored nor covered by the etag', async function () {
+      const body = instanceBody(regA(), [OVERRIDE_SOURCE]);
+      const created = await put(INSTANCES + '/' + IA, body, { 'If-None-Match': '*' }).expect(201);
+      const stored = await storedInstance(IA);
+      stored.identity.should.eql({ vendor: 'Example', product: 'NegotiationController' });
+      const content = Object.assign({}, body);
+      delete content.product;
+      stored.instance.should.eql(content);
+      should(stored.instance).not.have.property('product');
+      // Etag: sha256 over the canonical JSON of {instance, boundTo, granted}.
+      const etag = canonical.sha256({ instance: content, boundTo: stored.boundTo, granted: [OVERRIDE_SOURCE] });
+      stored.etag.should.equal(etag);
+      created.body.instance.etag.should.equal(etag);
+      // A retried create of the same content is still the same instance.
+      const retried = await put(INSTANCES + '/' + IA, body, { 'If-None-Match': '*' }).expect(200);
+      retried.body.noop.should.equal(true);
+      retried.body.instance.etag.should.equal(etag);
+    });
+
     it('refuses a renewal that names another product 422 invalid-instance, and changes nothing', async function () {
       const created = await claim(A, IA).expect(201);
       const before = await storedInstance(IA);
