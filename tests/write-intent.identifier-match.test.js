@@ -216,3 +216,100 @@ describe('write(intent): API v3 create\'s identifying read, moved into the step'
   });
 
 });
+
+// ---------------------------------------------------------------------------
+// The socket's dbUpdate, dbUpdateUnset and dbRemove addressed by identifier
+// (decision 4, ID-Q10), at the step: which record an edit lands on (P4), and
+// what a delete reaches. tests/websocket.identifier-address.test.js runs the
+// same end to end against MongoDB.
+
+const reads = require('../lib/server/storage-reads');
+
+// Storage that answers findFiltered with `stored` and records the writes.
+function socketStorage (stored) {
+  const calls = [ ];
+  return {
+    calls,
+    findFiltered: async function (ast, opts) { calls.push(['findFiltered', ast, opts]); return stored.map(snap); },
+    updateMany: async function (ast, changes, opts) { calls.push(['updateMany', ast, changes, opts]); return { matchedCount: 1 }; },
+    deleteMany: async function (ast, opts) { calls.push(['deleteMany', ast, opts]); return { deletedCount: stored.length }; }
+  };
+}
+
+const A_ID = new ObjectId('5f00000000000000000000d1');
+const B_ID = new ObjectId('5f00000000000000000000d2');
+const A = { _id: A_ID, identifier: ID, created_at: '2019-05-11T07:40:00.000Z', notes: 'a' };
+const B = { _id: B_ID, identifier: ID, created_at: '2019-05-11T07:42:00.000Z', notes: 'b' };
+
+async function socketEdit (form, stored, fields) {
+  const storage = socketStorage(stored);
+  const step = writeIntent.forCollection(storage, 'treatments', 'socket', { env: { } });
+  const planned = step.plan({ op: 'update', form: form, target: { identifier: ID }, fields: fields });
+  assert.equal(planned.match, null);
+  const written = await step.write(planned);
+  return { storage, planned, written };
+}
+
+describe('write(intent): the socket\'s edit and remove addressed by identifier (decision 4)', function ( ) {
+
+  it('reads the records identifier-match names, newest _id first, soft-deleted ones included', async function ( ) {
+    const { storage } = await socketEdit('merge', [B, A], { notes: 'x' });
+    assert.deepStrictEqual(storage.calls[0], ['findFiltered', reads.toFilter({ identifier: { $eq: ID } })
+      , { sort: { _id: -1 }, v1: true, options: { normalize: false } }]);
+  });
+
+  it('one record: dbUpdate writes it by every stored form of its _id, as an edit by that _id', async function ( ) {
+    const { storage, planned, written } = await socketEdit('merge', [A], { notes: 'x' });
+    assert.deepStrictEqual(planned.match, { filter: { _id: { $in: require('../lib/server/object-id-forms').idForms(A_ID) } }, many: true });
+    assert.equal(storage.calls[1][0], 'updateMany');
+    assert.deepStrictEqual(storage.calls[1][1], reads.toFilter(planned.match.filter));
+    assert.deepStrictEqual(written.items, [{ index: 0, outcome: 'merged', _id: undefined, identifier: ID }]);
+  });
+
+  it('two records: dbUpdate with the created_at of the older lands on it (P4, time key)', async function ( ) {
+    const { planned } = await socketEdit('merge', [B, A], { created_at: A.created_at, notes: 'x' });
+    assert.deepStrictEqual(planned.match.filter, { _id: { $in: require('../lib/server/object-id-forms').idForms(A_ID) } });
+  });
+
+  it('two records: dbUpdate without a matching time lands on the newest by _id (P4)', async function ( ) {
+    const { planned } = await socketEdit('merge', [B, A], { created_at: '2019-05-11T08:00:00.000Z', notes: 'x' });
+    assert.deepStrictEqual(planned.match.filter, { _id: { $in: require('../lib/server/object-id-forms').idForms(B_ID) } });
+  });
+
+  it('two records: dbUpdateUnset lands on the newest by _id (P4)', async function ( ) {
+    const { planned, storage } = await socketEdit('unset', [B, A], { notes: 1 });
+    assert.deepStrictEqual(planned.match.filter, { _id: { $in: require('../lib/server/object-id-forms').idForms(B_ID) } });
+    assert.equal(storage.calls[1][0], 'updateMany');
+  });
+
+  it('no record: not-found, and nothing is written', async function ( ) {
+    const { storage, planned, written } = await socketEdit('merge', [ ], { notes: 'x' });
+    assert.equal(planned.match, null);
+    assert.deepStrictEqual(storage.calls.map(function (c) { return c[0]; }), ['findFiltered']);
+    assert.deepStrictEqual(written.items, [{ index: 0, outcome: 'not-found', _id: undefined, identifier: ID }]);
+  });
+
+  it('dbRemove: one deleteMany of every record identifier-match names', async function ( ) {
+    const storage = socketStorage([A, B]);
+    const written = await writeIntent.forCollection(storage, 'treatments', 'socket', { env: { } })
+      .write({ op: 'delete', target: { identifier: ID } });
+    assert.deepStrictEqual(storage.calls, [['deleteMany', reads.toFilter({ identifier: { $eq: ID } }), { v1: true }]]);
+    assert.deepStrictEqual(written.items, [{ index: 0, outcome: 'deleted', _id: undefined, identifier: ID }]);
+  });
+
+  it('an _id still decides when it is sent, and a target with neither is refused as before', function ( ) {
+    const step = writeIntent.forCollection(socketStorage([ ]), 'treatments', 'socket', { env: { } });
+    const byId = step.plan({ op: 'update', form: 'merge', target: { _id: A_ID.toHexString(), identifier: ID }, fields: { } });
+    assert.equal(byId.identifier, undefined);
+    assert.deepStrictEqual(byId.match.filter, { _id: { $in: require('../lib/server/object-id-forms').idForms(A_ID.toHexString()) } });
+    assert.throws(function ( ) { step.plan({ op: 'update', form: 'merge', target: { }, fields: { } }); }, /update needs target._id/);
+  });
+
+  it('addresses only by an identifier of 1 to 256 characters that is not a placeholder', function ( ) {
+    const ok = writeIntent.isAddressableIdentifier;
+    assert.equal(ok(ID), true);
+    assert.equal(ok('x'.repeat(256)), true);
+    ['', 'undefined', 'null', 'invalid', 'NaN', 'x'.repeat(257), 42, null, undefined, { $ne: null }, [ID]]
+      .forEach(function (value) { assert.equal(ok(value), false, JSON.stringify(value)); });
+  });
+});

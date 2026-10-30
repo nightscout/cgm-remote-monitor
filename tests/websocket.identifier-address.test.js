@@ -4,7 +4,9 @@
 // when no `_id` is sent (ID-FIRST-MATCH slice 1, decision 4 and ID-Q10 of the
 // design note 2026-10-29). Written first against 9919f8ef, where every such
 // request is refused with { result: 'Missing or invalid _id' } and writes
-// nothing (checkConditions in lib/server/websocket.js).
+// nothing (checkConditions in lib/server/websocket.js); the fixtures that
+// decision 4 changed are marked CHANGED EXPECTATION. An edit lands on the
+// record P4 names; a remove reaches every record sharing the identifier.
 //
 // Each fixture asserts the reply, the stored records and the bus events. A
 // request that sends an `_id` is addressed by it exactly as before, whatever
@@ -188,28 +190,131 @@ describe('websocket: dbUpdate, dbUpdateUnset and dbRemove addressed by identifie
 
   describe('addressed by identifier when no _id is sent (decision 4)', function () {
 
-    it('dbUpdate with an identifier and no _id is refused: Missing or invalid _id', async function () {
-      var before = [await seed('treatments', treatment(0, { carbs: 20, identifier: ID, notes: 'a' }))];
-      await shouldBeRefused(await send('dbUpdate', { collection: 'treatments', identifier: ID, data: { notes: 'edited' } })
-        , 'Missing or invalid _id', before, 'treatments');
+    // The events of an edit that left these records as stored.
+    function updateEvents (docs) {
+      return [
+        { event: 'data-update', payload: { type: 'treatments', op: 'update', changes: self.ctx.ddata.processRawDataForRuntime(docs.map(plain)) } }
+        , { event: 'data-received' }
+      ];
+    }
+
+    // CHANGED EXPECTATION (ID-FIRST-MATCH slice 1, decision 4): was refused, Missing or invalid _id.
+    it('dbUpdate with an identifier and no _id edits the record it names', async function () {
+      var a = await seed('treatments', treatment(0, { carbs: 20, identifier: ID, notes: 'a' }));
+      var b = await seed('treatments', treatment(60000, { carbs: 30, identifier: OTHER, notes: 'b' }));
+      var result = await send('dbUpdate', { collection: 'treatments', identifier: ID, data: { notes: 'edited', carbs: null } });
+      result.reply.should.eql({ result: 'success' });
+      var after = await stored('treatments');
+      var edited = Object.assign({}, a, { notes: 'edited' });
+      delete edited.carbs;
+      withoutServerTime(after[0]).should.eql(withoutServerTime(edited));
+      after[0].srvModified.should.be.above(a.srvModified);
+      plain(after[1]).should.eql(plain(b));
+      result.events.should.eql(updateEvents([after[0]]));
     });
 
-    it('dbUpdateUnset with an identifier and no _id is refused: Missing or invalid _id', async function () {
-      var before = [await seed('treatments', treatment(0, { carbs: 20, identifier: ID, notes: 'a' }))];
-      await shouldBeRefused(await send('dbUpdateUnset', { collection: 'treatments', identifier: ID, data: { notes: 1 } })
-        , 'Missing or invalid _id', before, 'treatments');
+    // CHANGED EXPECTATION (ID-FIRST-MATCH slice 1, decision 4): was refused, Missing or invalid _id.
+    it('dbUpdateUnset with an identifier and no _id removes the fields from the record it names', async function () {
+      var a = await seed('treatments', treatment(0, { carbs: 20, identifier: ID, notes: 'a' }));
+      var b = await seed('treatments', treatment(60000, { carbs: 30, identifier: OTHER, notes: 'b' }));
+      var result = await send('dbUpdateUnset', { collection: 'treatments', identifier: ID, data: { notes: 1 } });
+      result.reply.should.eql({ result: 'success' });
+      var after = await stored('treatments');
+      var edited = Object.assign({}, a);
+      delete edited.notes;
+      withoutServerTime(after[0]).should.eql(withoutServerTime(edited));
+      plain(after[1]).should.eql(plain(b));
+      result.events.should.eql(updateEvents([after[0]]));
     });
 
-    it('dbUpdate with an identifier and _id null is refused: Missing or invalid _id', async function () {
-      var before = [await seed('treatments', treatment(0, { carbs: 20, identifier: ID, notes: 'a' }))];
-      await shouldBeRefused(await send('dbUpdate', { collection: 'treatments', _id: null, identifier: ID, data: { notes: 'edited' } })
-        , 'Missing or invalid _id', before, 'treatments');
+    // CHANGED EXPECTATION (ID-FIRST-MATCH slice 1, decision 4): was refused, Missing or invalid _id.
+    it('dbUpdate with an identifier and _id null edits the record it names', async function () {
+      var a = await seed('treatments', treatment(0, { carbs: 20, identifier: ID, notes: 'a' }));
+      var result = await send('dbUpdate', { collection: 'treatments', _id: null, identifier: ID, data: { notes: 'edited' } });
+      result.reply.should.eql({ result: 'success' });
+      withoutServerTime((await stored('treatments'))[0]).should.eql(withoutServerTime(Object.assign({}, a, { notes: 'edited' })));
     });
 
-    it('dbRemove with an identifier and no _id is refused: Missing or invalid _id', async function () {
-      var before = [await seed('treatments', treatment(0, { carbs: 20, identifier: ID }))];
-      await shouldBeRefused(await send('dbRemove', { collection: 'treatments', identifier: ID })
-        , 'Missing or invalid _id', before, 'treatments');
+    // CHANGED EXPECTATION (ID-FIRST-MATCH slice 1, decision 4): was refused, Missing or invalid _id.
+    it('dbRemove with an identifier and no _id removes the record it names, and drops the cache', async function () {
+      await seed('treatments', treatment(0, { carbs: 20, identifier: ID }));
+      var b = await seed('treatments', treatment(60000, { carbs: 30, identifier: OTHER }));
+      var result = await send('dbRemove', { collection: 'treatments', identifier: ID });
+      result.reply.should.eql({ result: 'success' });
+      (await stored('treatments')).map(plain).should.eql([plain(b)]);
+      result.events.should.eql([
+        { event: 'data-update', payload: { type: 'treatments', op: 'remove', count: 1 } }
+        , { event: 'data-received' }
+      ]);
+    });
+
+    it('two records share the identifier: dbUpdate lands on the one at the created_at it sends (P4)', async function () {
+      var a = await seed('treatments', treatment(0, { carbs: 20, identifier: ID, notes: 'a' }));
+      var b = await seed('treatments', treatment(120000, { carbs: 30, identifier: ID, notes: 'b' }));
+      var result = await send('dbUpdate', { collection: 'treatments', identifier: ID, data: { created_at: a.created_at, notes: 'edited' } });
+      result.reply.should.eql({ result: 'success' });
+      var after = await stored('treatments');
+      withoutServerTime(after[0]).should.eql(withoutServerTime(Object.assign({}, a, { notes: 'edited' })));
+      plain(after[1]).should.eql(plain(b));
+    });
+
+    it('two records share the identifier: dbUpdate without a matching time lands on the newest by _id (P4)', async function () {
+      var a = await seed('treatments', treatment(0, { carbs: 20, identifier: ID, notes: 'a' }));
+      var b = await seed('treatments', treatment(120000, { carbs: 30, identifier: ID, notes: 'b' }));
+      var result = await send('dbUpdate', { collection: 'treatments', identifier: ID, data: { notes: 'edited' } });
+      result.reply.should.eql({ result: 'success' });
+      var after = await stored('treatments');
+      plain(after[0]).should.eql(plain(a));
+      withoutServerTime(after[1]).should.eql(withoutServerTime(Object.assign({}, b, { notes: 'edited' })));
+    });
+
+    it('two records share the identifier: dbUpdateUnset lands on the newest by _id (P4)', async function () {
+      var a = await seed('treatments', treatment(0, { carbs: 20, identifier: ID, notes: 'a' }));
+      var b = await seed('treatments', treatment(120000, { carbs: 30, identifier: ID, notes: 'b' }));
+      var result = await send('dbUpdateUnset', { collection: 'treatments', identifier: ID, data: { notes: 1 } });
+      result.reply.should.eql({ result: 'success' });
+      var after = await stored('treatments');
+      plain(after[0]).should.eql(plain(a));
+      var edited = Object.assign({}, b);
+      delete edited.notes;
+      withoutServerTime(after[1]).should.eql(withoutServerTime(edited));
+    });
+
+    it('two records share the identifier: dbRemove removes both (ID-Q10)', async function () {
+      await seed('treatments', treatment(0, { carbs: 20, identifier: ID }));
+      await seed('treatments', treatment(120000, { carbs: 30, identifier: ID }));
+      var c = await seed('treatments', treatment(240000, { carbs: 40, identifier: OTHER }));
+      var result = await send('dbRemove', { collection: 'treatments', identifier: ID });
+      result.reply.should.eql({ result: 'success' });
+      (await stored('treatments')).map(plain).should.eql([plain(c)]);
+      result.events[0].payload.count.should.equal(2);
+    });
+
+    it('an identifier that names no record: dbUpdate and dbRemove answer success and write nothing', async function () {
+      var before = [await seed('treatments', treatment(0, { carbs: 20, identifier: OTHER, notes: 'a' }))];
+      var update = await send('dbUpdate', { collection: 'treatments', identifier: ID, data: { notes: 'edited' } });
+      update.reply.should.eql({ result: 'success' });
+      update.events.should.eql([{ event: 'data-received' }]);
+      var remove = await send('dbRemove', { collection: 'treatments', identifier: ID });
+      remove.reply.should.eql({ result: 'success' });
+      (await stored('treatments')).map(plain).should.eql(before.map(plain));
+    });
+
+    it('a soft-deleted record is edited by identifier as it is by _id today', async function () {
+      var a = await seed('treatments', treatment(0, { carbs: 20, identifier: ID, notes: 'a', isValid: false }));
+      var result = await send('dbUpdate', { collection: 'treatments', identifier: ID, data: { notes: 'edited' } });
+      result.reply.should.eql({ result: 'success' });
+      withoutServerTime((await stored('treatments'))[0]).should.eql(withoutServerTime(Object.assign({}, a, { notes: 'edited' })));
+    });
+
+    it('food: dbUpdate and dbRemove by identifier', async function () {
+      var f = await seed('food', { created_at: at(0), name: 'apple', carbs: 15, identifier: ID });
+      var update = await send('dbUpdate', { collection: 'food', identifier: ID, data: { carbs: 16 } });
+      update.reply.should.eql({ result: 'success' });
+      withoutServerTime((await stored('food'))[0]).should.eql(withoutServerTime(Object.assign({}, f, { carbs: 16 })));
+      var remove = await send('dbRemove', { collection: 'food', identifier: ID });
+      remove.reply.should.eql({ result: 'success' });
+      (await stored('food')).should.eql([]);
     });
   });
 });
