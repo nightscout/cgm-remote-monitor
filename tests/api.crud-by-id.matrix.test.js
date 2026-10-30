@@ -1020,11 +1020,13 @@ describe('CRUD by _id matrix: v1, v3 and websocket, every collection and stored 
           const stored = await storedFor(col, id);
           // v1 and internal entries now match on identifier first, so a resend
           // from any path finds the stored entry. v3 does not populate v1's
-          // sysTime key, so a v3->socket resend still duplicates. Keep it visible
-          // until the socket matches on identifier too.
-          const duplicate = col === 'entries' && from === 'v3' && to === 'socket';
-          should(stored.length).equal(duplicate ? 2 : 1);
-          if (!duplicate) should(allEdited(stored)).equal(to !== 'socket');
+          // sysTime key, and the socket does not match on identifier yet, so a
+          // v3->socket resend used to store a second entry.
+          // CHANGED EXPECTATION (ID-UNIQUE-INDEX): the unique index on
+          // identifier refuses that second entry; the socket answers it as a
+          // refused insert, and the one stored entry is the original.
+          should(stored.length).equal(1);
+          should(allEdited(stored)).equal(to !== 'socket');
         });
       }
     }
