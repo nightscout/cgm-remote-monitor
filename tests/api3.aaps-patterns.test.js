@@ -672,9 +672,9 @@ describe('API3 AAPS Patterns - Deduplication and Real-world Scenarios', function
       const docs = await profileCollection().find({ defaultProfile: 'aaps-v3-test' }).toArray();
       docs.length.should.equal(2);
 
-      // Verify ctx.profile.last() returns the newer profile (post-fix sort: startDate desc, _id desc)
+      // Verify API v1's profile.last() returns the newer profile (post-fix sort: startDate desc, _id desc)
       await new Promise((resolve, reject) => {
-        self.instance.ctx.profile.last((err, lastDocs) => {
+        self.instance.v1.profile.last((err, lastDocs) => {
           if (err) return reject(err);
           try {
             lastDocs.length.should.equal(1);

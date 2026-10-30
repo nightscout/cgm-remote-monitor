@@ -108,7 +108,7 @@ describe('API3 READ', function () {
     result.should.have.property('subject');
     self.validDoc.subject = result.subject; // let's store subject for later tests
 
-    self.cache.nextShouldEql(self.col, self.validDoc)
+    await self.cache.nextShouldEql(self.col, self.validDoc)
   });
 
 
@@ -168,7 +168,7 @@ describe('API3 READ', function () {
       .expect(200);
 
     res.body.status.should.equal(200);
-    self.cache.nextShouldDeleteLast(self.col);
+    await self.cache.nextShouldDeleteLast(self.col);
 
     res = await self.instance.get(`${self.url}/${self.validDoc.identifier}`, self.jwt.read)
       .expect(410);
@@ -183,7 +183,7 @@ describe('API3 READ', function () {
       .expect(200);
 
     res.body.status.should.equal(200);
-    self.cache.nextShouldDeleteLast(self.col);
+    await self.cache.nextShouldDeleteLast(self.col);
 
     res = await self.instance.get(`${self.url}/${self.validDoc.identifier}`, self.jwt.read)
       .expect(404);
@@ -201,19 +201,15 @@ describe('API3 READ', function () {
     delete doc.identifier;
 
     await new Promise((resolve, reject) => {
-      self.instance.ctx.devicestatus.create([doc], (err) => { // let's insert the document in APIv1's way
+      self.instance.v1.devicestatus.create([doc], (err) => { // let's insert the document in APIv1's way
         if (err) {
           return reject(err);
         }
-        try {
-          doc._id = doc._id.toString();
-          self.cache.nextShouldEql(self.col, doc);
-          resolve(doc);
-        } catch (e) {
-          reject(e);
-        }
+        resolve(doc);
       });
     });
+    doc._id = doc._id.toString();
+    await self.cache.nextShouldEql(self.col, doc);
 
     const identifier = doc._id.toString();
     delete doc._id;
@@ -228,7 +224,7 @@ describe('API3 READ', function () {
       .expect(200);
 
     res.body.status.should.equal(200);
-    self.cache.nextShouldDeleteLast(self.col);
+    await self.cache.nextShouldDeleteLast(self.col);
   });
 })
 ;

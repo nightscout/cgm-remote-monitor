@@ -20,7 +20,7 @@ results = {'node': subprocess.check_output([node, '--version'], text=True).strip
 for mode in ['nodemon', 'native']:
     with tempfile.TemporaryDirectory(prefix='nightscout-owned-watch-') as tmp:
         root = pathlib.Path(tmp)
-        for folder in ['lib', 'static', 'tests', 'bin', 'node_modules/owned-watch-dep']:
+        for folder in ['lib', 'views', 'translations', 'static', 'tests', 'bin', 'docs', 'node_modules/owned-watch-dep']:
             (root / folder).mkdir(parents=True)
         (root / 'watch.json').write_text(json.dumps(package['nodemonConfig']))
         (root / 'lib/loaded.js').write_text('module.exports=0;\n')
@@ -91,7 +91,7 @@ socket.addEventListener('close', () => clearTimeout(timeout));
             record = {'initial': inspector(), 'cycles': []}
             for cycle in range(2):
                 sample = {}
-                for file in ['tests/ignored.js', 'bin/ignored.js', 'static/unimported.js', 'node_modules/owned-watch-dep/index.js', 'lib/loaded.js']:
+                for file in ['tests/ignored.js', 'bin/ignored.js', 'docs/unlisted.js', 'static/unimported.js', 'translations/en.json', 'views/page.js', 'node_modules/owned-watch-dep/index.js', 'lib/loaded.js']:
                     before = len(boots)
                     content = 'module.exports=' + str(cycle+1) + ';\n'
                     (root / file).write_text(content)

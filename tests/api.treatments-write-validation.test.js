@@ -1,11 +1,14 @@
 'use strict';
 
 // WRITE_VALIDATION on API v1 and API v3 treatment writes
-// (lib/server/write-validation.js). Default off: what each API stores is
-// unchanged. Opt-in reject: a Temporary Target that breaks a domain rule is
-// refused with 400 on both APIs and nothing is stored.
+// (lib/server/write-validation.js). Default off: nothing is refused. Opt-in
+// reject: a Temporary Target that breaks a domain rule is refused with 400 on
+// both APIs and nothing is stored. Validation judges the record as sent; a
+// Temporary Target that is stored is then in mg/dL, labelled mg/dl, in every
+// mode (BF-194, lib/treatmentTargetUnits.js, tests/api.treatments-tt-units.test.js).
 
 const should = require('should');
+const MMOL = require('../lib/constants.json').MMOL_TO_MGDL;
 
 describe('Treatment write validation (WRITE_VALIDATION)', function () {
   const self = this
@@ -70,6 +73,12 @@ describe('Treatment write validation (WRITE_VALIDATION)', function () {
       .findOne({ identifier: identifier });
   }
 
+  // A record stored as sent, before BF-194: write it to the collection.
+  function seedV3 (doc) {
+    return self.instance.ctx.store.collection(self.instance.env.treatments_collection)
+      .insertOne(Object.assign({}, doc, { srvModified: doc.date, srvCreated: doc.date }));
+  }
+
   function setMode (mode) {
     self.instance.env.writeValidation = mode;
   }
@@ -102,20 +111,22 @@ describe('Treatment write validation (WRITE_VALIDATION)', function () {
       self.instance.env.writeValidation.should.equal('off');
     });
 
-    it('API v3 stores a mislabelled Temporary Target as sent', async () => {
+    it('API v3 stores mg/dL numbers labelled mmol as mg/dl, not multiplied', async () => {
       const doc = v3Target({ targetTop: 99.085745, targetBottom: 99.085745, units: 'mmol' });
       await self.instance.post(self.url, self.jwt.create).send(doc).expect(201);
 
       const stored = await storedV3(doc.identifier);
       stored.targetTop.should.equal(99.085745);
       stored.targetBottom.should.equal(99.085745);
-      stored.units.should.equal('mmol');
+      stored.units.should.equal('mg/dl');
     });
 
-    it('API v3 stores units spelled mmol/L as sent', async () => {
+    it('API v3 stores a target labelled mmol/L in mg/dL', async () => {
       const doc = v3Target({ targetTop: 6, targetBottom: 5.5, units: 'mmol/L' });
       await self.instance.post(self.url, self.jwt.create).send(doc).expect(201);
-      (await storedV3(doc.identifier)).units.should.equal('mmol/L');
+      const stored = await storedV3(doc.identifier);
+      stored.units.should.equal('mg/dl');
+      stored.targetTop.should.equal(6 * MMOL);
     });
 
     it('API v3 stores targetBottom above targetTop as sent', async () => {
@@ -124,14 +135,17 @@ describe('Treatment write validation (WRITE_VALIDATION)', function () {
       (await storedV3(doc.identifier)).targetBottom.should.equal(140);
     });
 
-    it('API v1 stores the careportal double label as sent', async () => {
+    it('API v1 stores the careportal double label in mg/dL', async () => {
       const body = careportalDoubleLabel(200);
       await v1Post(body).expect(200);
 
+      // The targets are already mg/dL numbers (above 30); the glucose value
+      // is mmol/L and is converted, so the mg/dl label is true for both.
       const stored = await storedV1(body.created_at);
       stored.length.should.equal(1);
       stored[0].targetTop.should.equal(99.085745);
-      stored[0].units.should.equal('mmol');
+      stored[0].glucose.should.equal(6.1 * MMOL);
+      stored[0].units.should.equal('mg/dl');
     });
 
     it('API v3 PATCH retains existing units and duration behavior with validation off', async () => {
@@ -178,12 +192,12 @@ describe('Treatment write validation (WRITE_VALIDATION)', function () {
       res.body.message.should.match(/targetTop must be a number above zero/);
     });
 
-    it('API v3 stores a valid mmol/L target with units spelled mmol', async () => {
+    it('API v3 stores a valid mmol/L target in mg/dL', async () => {
       const doc = v3Target({ targetTop: 6, targetBottom: 5.5, units: 'mmol/L' });
       await self.instance.post(self.url, self.jwt.create).send(doc).expect(201);
       const stored = await storedV3(doc.identifier);
-      stored.units.should.equal('mmol');
-      stored.targetTop.should.equal(6);
+      stored.units.should.equal('mg/dl');
+      stored.targetTop.should.equal(6 * MMOL);
     });
 
     it('API v3 stores a cancel (duration 0, no targets)', async () => {
@@ -197,19 +211,21 @@ describe('Treatment write validation (WRITE_VALIDATION)', function () {
       await self.instance.post(self.url, self.jwt.create).send(doc).expect(201);
     });
 
+    // A target is stored in mg/dL, so a PATCH in mmol/L sends its targets
+    // with the label.
     [
-      { units: 'mmol', alias: 'mmol/L', target: 6 },
-      { units: 'mg/dl', alias: 'mg/dL', target: 100 }
+      { alias: 'mmol/L', target: 6, patch: { targetTop: 6, targetBottom: 6 }, stored: 6 * MMOL },
+      { alias: 'mg/dL', target: 100, patch: {}, stored: 100 }
     ].forEach(example => {
-      it('API v3 PATCH canonicalises ' + example.alias + ' without repeating eventType', async () => {
-        const doc = v3Target({ targetTop: example.target, targetBottom: example.target, units: example.units });
+      it('API v3 PATCH accepts ' + example.alias + ' without repeating eventType', async () => {
+        const doc = v3Target({ targetTop: example.target, targetBottom: example.target, units: example.alias });
         await self.instance.post(self.url, self.jwt.create).send(doc).expect(201);
         await self.instance.patch(`${self.url}/${doc.identifier}`, self.jwt.update)
-          .send({ units: example.alias }).expect(200);
+          .send(Object.assign({ units: example.alias }, example.patch)).expect(200);
         const stored = await storedV3(doc.identifier);
-        stored.units.should.equal(example.units);
-        stored.targetTop.should.equal(example.target);
-        stored.targetBottom.should.equal(example.target);
+        stored.units.should.equal('mg/dl');
+        stored.targetTop.should.equal(example.stored);
+        stored.targetBottom.should.equal(example.stored);
       });
     });
 
@@ -251,10 +267,8 @@ describe('Treatment write validation (WRITE_VALIDATION)', function () {
     });
 
     it('API v3 PATCH checks the record as it would be stored', async () => {
-      setMode('off');
       const doc = v3Target({ targetTop: 6, targetBottom: 5.5, units: 'mmol' });
-      await self.instance.post(self.url, self.jwt.create).send(doc).expect(201);
-      setMode('reject');
+      await seedV3(doc);
 
       await self.instance.patch(`${self.url}/${doc.identifier}`, self.jwt.update)
         .send({ targetTop: 108 }).expect(400);
@@ -262,14 +276,15 @@ describe('Treatment write validation (WRITE_VALIDATION)', function () {
 
       await self.instance.patch(`${self.url}/${doc.identifier}`, self.jwt.update)
         .send({ targetTop: 6.5 }).expect(200);
-      (await storedV3(doc.identifier)).targetTop.should.equal(6.5);
+      const stored = await storedV3(doc.identifier);
+      stored.targetTop.should.equal(6.5 * MMOL);
+      stored.targetBottom.should.equal(5.5 * MMOL);
+      stored.units.should.equal('mg/dl');
     });
 
     it('API v3 PATCH of other fields leaves an already-stored invalid record editable', async () => {
-      setMode('off');
       const doc = v3Target({ targetTop: 99.085745, targetBottom: 99.085745, units: 'mmol' });
-      await self.instance.post(self.url, self.jwt.create).send(doc).expect(201);
-      setMode('reject');
+      await seedV3(doc);
 
       await self.instance.patch(`${self.url}/${doc.identifier}`, self.jwt.update)
         .send({ notes: 'checked' }).expect(200);
@@ -284,7 +299,7 @@ describe('Treatment write validation (WRITE_VALIDATION)', function () {
       const replacement = Object.assign({}, doc, { targetTop: 108, targetBottom: 99 });
       await self.instance.put(`${self.url}/${doc.identifier}`, self.jwt.update)
         .send(replacement).expect(400);
-      (await storedV3(doc.identifier)).targetTop.should.equal(6);
+      (await storedV3(doc.identifier)).targetTop.should.equal(6 * MMOL);
     });
 
     it('API v1 refuses the careportal double label with 400 and stores nothing', async () => {
@@ -297,15 +312,16 @@ describe('Treatment write validation (WRITE_VALIDATION)', function () {
     });
 
     it('API v1 still stores the careportal mmol/L target without a glucose value', async () => {
-      // v1 removes `units` from a treatment without glucose, so the mg/dL
-      // numbers are stored unlabelled, which every reader takes as mg/dL.
+      // v1 validates a treatment without glucose with its `units` removed, as
+      // before; the mg/dL numbers (above 30) are then stored labelled mg/dl.
       const body = careportalDoubleLabel(400);
       delete body.glucose;
       delete body.glucoseType;
       await v1Post(body).expect(200);
       const stored = await storedV1(body.created_at);
       stored.length.should.equal(1);
-      should.not.exist(stored[0].units);
+      stored[0].targetTop.should.equal(99.085745);
+      stored[0].units.should.equal('mg/dl');
     });
 
     it('API v1 stores the valid items of a mixed batch and reports the refused one in its slot', async () => {
@@ -401,7 +417,9 @@ describe('Treatment write validation (WRITE_VALIDATION)', function () {
         console.warn = warn;
       }
 
-      (await storedV3(doc.identifier)).units.should.equal('mmol');
+      const stored = await storedV3(doc.identifier);
+      stored.targetTop.should.equal(99.085745);
+      stored.units.should.equal('mg/dl');
       const line = warnings.find(w => w.indexOf('WRITE_VALIDATION') > -1);
       should.exist(line);
       line.should.match(/tt-units-plausible:targetTop/);

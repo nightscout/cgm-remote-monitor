@@ -64,6 +64,7 @@
         "tests/maker-delivery.test.js",
         "tests/maker-level-names.test.js",
         "tests/maker.test.js",
+        "tests/merge-patch.test.js",
         "tests/mime-negotiation.test.js",
         "tests/mmconnect-connect-compat.test.js",
         "tests/mongo-aws-compat.test.js",
@@ -80,6 +81,7 @@
         "tests/plugin-task-order.test.js",
         "tests/plugins.test.js",
         "tests/profile-cache-contract.test.js",
+        "tests/profile-data-received-order.test.js",
         "tests/profile-empty-name.test.js",
         "tests/profile-switch-percentage.test.js",
         "tests/profile-switch-preprocessing.test.js",
@@ -92,6 +94,7 @@
         "tests/pushover-lifecycle.test.js",
         "tests/pushover-transport.test.js",
         "tests/pushover.test.js",
+        "tests/query-exists-argument.test.js",
         "tests/query-leaf-contract.test.js",
         "tests/query-leaves.test.js",
         "tests/query.operands.test.js",
@@ -123,7 +126,9 @@
         "tests/webhook.test.js",
         "tests/write-validation.test.js",
         "tests/write-step.test.js",
-        "tests/read-contract.test.js"
+        "tests/read-contract.test.js",
+        "tests/nightscout-cli.test.js",
+        "tests/serve-listeners.test.js"
       ],
       "env": true,
       "require": [
@@ -214,6 +219,7 @@
         "tests/boot-index-ready.test.js",
         "tests/boot-sequence-integration.test.js",
         "tests/cache.remove-by-id.test.js",
+        "tests/cache.remove-by-query.test.js",
         "tests/carb-dose-upload.test.js",
         "tests/client.renderer.test.js",
         "tests/count-pipeline-boundary.test.js",
@@ -235,6 +241,7 @@
         "tests/pump*.test.js",
         "tests/pushnotify*.test.js",
         "tests/rawbg*.test.js",
+        "tests/record-log-privacy.test.js",
         "tests/registration.instances.test.js",
         "tests/registration.products.test.js",
         "tests/registration.well-known.test.js",
@@ -248,7 +255,9 @@
         "tests/storage*.test.js",
         "tests/uuid-handling.test.js",
         "tests/verifyauth.test.js",
-        "tests/websocket*.test.js"
+        "tests/websocket*.test.js",
+        "tests/start-paths.test.js",
+        "tests/headless-test-server.test.js"
       ],
       "env": true,
       "require": [
