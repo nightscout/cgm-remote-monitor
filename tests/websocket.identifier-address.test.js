@@ -157,7 +157,10 @@ describe('websocket: dbUpdate, dbUpdateUnset and dbRemove addressed by identifie
         await shouldBeRefused(await send(event, request), 'Missing or invalid _id', before, 'treatments');
       });
 
-      ['', 'undefined', 'null', 'invalid', 'NaN', 'x'.repeat(257), { $ne: null }, 42].forEach(function (value) {
+      // Slice 2 (ID-Q6, ID-PLACEHOLDER-LIST): the shared identifier-format list
+      // adds `unknown`, whitespace-only values and case variants of a placeholder.
+      ['', 'undefined', 'null', 'invalid', 'NaN', 'x'.repeat(257), { $ne: null }, 42
+        , '   ', 'unknown', 'Undefined', 'NULL', 'nan'].forEach(function (value) {
         var label = typeof value === 'string' && value.length > 20 ? '257 characters' : JSON.stringify(value);
         it(event + ' with no _id and the identifier ' + label + ' is refused: Missing or invalid _id', async function () {
           var before = [await seed('treatments', treatment(0, { carbs: 20

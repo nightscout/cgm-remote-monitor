@@ -63,6 +63,11 @@ const result = await step.write({ op: 'create', form: 'batch', docs: docs });
   threw still throws in the same place. `write()` accepts what `plan()` returns.
 - `check(docs)` is the path's WRITE_VALIDATION rule: it returns `[{ index, problems }]` for each
   document refused (only with `WRITE_VALIDATION=reject`), and logs each one in `log` and `reject` modes.
+- `identifiers(docs)` is the identifier-format rule (ID-Q6) at the moment a route can still refuse a
+  document: it removes each invalid `identifier` (`WRITE_IDENTIFIER=lenient`), or, under `strict` on a path
+  that refuses (`IDENTIFIER_STRICT`), returns `[{ index, problems }]` for the route to refuse. The step
+  applies the same rule again right after each path's `_id` step, so a route that does not call it still
+  never matches on or stores an invalid identifier.
 - A storage failure inside a rule surfaces as a `WriteRuleError` naming the rule, so a route can answer
   exactly as it did when the rule was its own code.
 

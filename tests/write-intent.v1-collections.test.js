@@ -209,8 +209,6 @@ describe('write(intent): treatments from API v1 and in-process callers (equal to
       , (api, done) => api.create([tt(120, 100, 'mg/dl'), tt(100, 120, 'MG/DL'), tt(100, 120, 'mmol')], done)],
     ['WRITE_VALIDATION=reject: every item refused is a ValidationError', { writeValidation: 'reject' }, { }
       , (api, done) => api.create([tt(120, 100, 'mg/dl')], done)],
-    ['a non-string identifier is refused before any write', { }, { }
-      , (api, done) => api.create([{ eventType: 'Note', created_at: T1, identifier: 5 }], done)],
     ['save by 24-hex _id (replace, twin removal, data-received first)', { }, { stored, replaceUpserts: [false] }
       , (api, done) => api.save(batch()[0], done)],
     ['save by identifier, matched (REQ-SYNC-072 read-back)', { }, { stored, replaceUpserts: [false] }
@@ -234,6 +232,24 @@ describe('write(intent): treatments from API v1 and in-process callers (equal to
       await same(name, before, after, envExtra, cfg, act);
     });
   }
+
+  // CHANGED EXPECTATION (ID-FIRST-MATCH slice 2, ID-Q6, BF-215): db3b9e4e
+  // refused a non-string identifier before any write (a 500 on API v1). It is
+  // now treated as absent: the write is the one db3b9e4e made for the same
+  // treatment sent without an identifier, plus one warning that names the path,
+  // the collection and the kind of value, not the value.
+  it('a non-string identifier is treated as absent: the write db3b9e4e made without one, and a warning', async function ( ) {
+    const was = await observe(before, { }, { stored: [ ], upserted: [0] }
+      , (api, done) => api.create([{ eventType: 'Note', created_at: T1 }], done));
+    const now = await observe(after, { }, { stored: [ ], upserted: [0] }
+      , (api, done) => api.create([{ eventType: 'Note', created_at: T1, identifier: 5 }], done));
+    const warnings = now.timeline.filter(e => e[0] === 'console.warn');
+    assert.deepEqual(warnings, [['console.warn'
+      , ['WRITE_IDENTIFIER v1/internal treatments: identifier treated as absent, not-a-string (number)']]]);
+    now.timeline = now.timeline.filter(e => e[0] !== 'console.warn');
+    assert.deepEqual(now, was);
+    assert.equal(now.calls.filter(c => c[0] === 'bulkWrite').length, 1);
+  });
 
   it('the comparison is not vacuous: a batch writes, emits and answers', async function ( ) {
     const seen = await observe(after, { }, { stored, upserted: [0] }, (api, done) => api.create(batch(), done));

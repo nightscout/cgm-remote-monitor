@@ -162,8 +162,11 @@ const CREATES = {
     , fallback: ['created_at', 'device'] },
   'a food with only some fallback fields is inserted': { col: 'food', found: [ ]
     , body: body({ created_at: undefined, name: 'apple' }), fallback: ['created_at'] },
-  'a setting with an operator-shaped identifier is refused before any read': { col: 'settings', found: [ ]
-    , body: body({ identifier: { $ne: null } }) },
+  // CHANGED EXPECTATION (slice 2, ID-Q6): the refusal 9919f8ef made is now
+  // WRITE_IDENTIFIER=strict's; under lenient the identifier is treated as absent
+  // (tests/api3.create.operation.test.js, tests/api.identifier-format.test.js).
+  'a setting with an operator-shaped identifier is refused before any read (strict)': { col: 'settings', found: [ ]
+    , body: body({ identifier: { $ne: null } }), env: { write: { identifier: 'strict' } } },
   'a storage that answers nothing is an error (500), as it was': { col: 'treatments', found: undefined
     , body: body({ eventType: 'Note' }) }
 };
@@ -182,7 +185,7 @@ async function runCreate (impl, scenario) {
   const doc = snap(scenario.body);
   Object.keys(doc).forEach(function (key) { if (doc[key] === undefined) delete doc[key]; });
   try {
-    await impl(h.ctx, { }, { }, h.col)({ body: doc, params: { }, query: { }, baseUrl: '/api/v3', path: '/' + scenario.col
+    await impl(h.ctx, scenario.env || { }, { }, h.col)({ body: doc, params: { }, query: { }, baseUrl: '/api/v3', path: '/' + scenario.col
       , get: function ( ) { return undefined; } }, h.res);
   } finally {
     console.error = realError;
@@ -317,11 +320,16 @@ describe('write(intent): the socket\'s edit and remove addressed by identifier (
     assert.throws(function ( ) { step.plan({ op: 'update', form: 'merge', target: { }, fields: { } }); }, /update needs target._id/);
   });
 
+  // CHANGED EXPECTATION (slice 2, ID-Q6, ID-PLACEHOLDER-LIST): socket addressing
+  // uses the shared identifier-format check (isValidIdentifier) instead of
+  // slice 1's own list, so `unknown`, whitespace-only values and case variants
+  // of a placeholder address nothing either.
   it('addresses only by an identifier of 1 to 256 characters that is not a placeholder', function ( ) {
-    const ok = writeIntent.isAddressableIdentifier;
+    const ok = writeIntent.isValidIdentifier;
     assert.equal(ok(ID), true);
     assert.equal(ok('x'.repeat(256)), true);
-    ['', 'undefined', 'null', 'invalid', 'NaN', 'x'.repeat(257), 42, null, undefined, { $ne: null }, [ID]]
+    ['', '   ', 'undefined', 'Undefined', 'null', 'NULL', 'invalid', 'NaN', 'nan', 'unknown', 'x'.repeat(257), 42, null
+      , undefined, { $ne: null }, [ID]]
       .forEach(function (value) { assert.equal(ok(value), false, JSON.stringify(value)); });
   });
 });

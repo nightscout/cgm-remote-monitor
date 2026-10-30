@@ -130,6 +130,7 @@
         "tests/write-intent.v3.test.js",
         "tests/write-intent.socket.test.js",
         "tests/write-intent.identifier-match.test.js",
+        "tests/write-intent.identifier-format.test.js",
         "tests/read-contract.test.js",
         "tests/nightscout-cli.test.js",
         "tests/serve-listeners.test.js"

@@ -158,9 +158,16 @@ describe('API3: DELETE across stored identifier forms', function () {
       , { label: 'null', fields: { identifier: null } }
       , { label: 'empty', fields: { identifier: '' } }
     ].forEach(function (shape) {
+      // CHANGED EXPECTATION (ID-FIRST-MATCH slice 2, ID-Q6): API v1 now treats a
+      // null or empty identifier as absent and does not store it, so the null and
+      // empty forms are records v1 stored before slice 2, seeded as stored.
       it('DELETE' + suffix + ' removes a v1-created treatment with identifier ' + shape.label, async () => {
         const id = new ObjectID();
-        await v1Create('treatments', [sample(10, Object.assign({ _id: id.toHexString() }, shape.fields))]);
+        if (shape.label === 'absent') {
+          await v1Create('treatments', [sample(10, Object.assign({ _id: id.toHexString() }, shape.fields))]);
+        } else {
+          await col().insertOne(sample(10, Object.assign({ _id: id }, shape.fields)));
+        }
 
         const stored = await col().findOne({ _id: id });
         if (shape.label === 'absent') stored.should.not.have.property('identifier');
@@ -220,9 +227,8 @@ describe('API3: DELETE across stored identifier forms', function () {
 
   // BF-142: normalizeDoc (`!doc.identifier`) exposes the _id for every falsy
   // stored identifier, 0 and false included, so a DELETE by that _id must find
-  // the record, as GET does. v1 entries and devicestatus store such values as
-  // sent; v1 treatments refuse a non-string identifier, so treatments are
-  // seeded directly.
+  // the record, as GET does. Since ID-Q6, API v1 stores no non-string
+  // identifier, so such records come from before it and are seeded directly.
   const FALSY = [
     { label: '0', value: 0 }
     , { label: '-0', value: -0, direct: true } // JSON cannot carry -0 or NaN
@@ -241,10 +247,19 @@ describe('API3: DELETE across stored identifier forms', function () {
       , created_at: new Date(Date.UTC(2021, 5, 3, 0, n)).toISOString(), identifier })
   };
 
+  // CHANGED EXPECTATION (ID-FIRST-MATCH slice 2, ID-Q6, BF-215): API v1 now
+  // treats a non-string identifier as absent and does not store it, so 0 and
+  // false on entries and device status are records v1 stored before slice 2,
+  // seeded as stored.
   async function seedFalsy (colName, n, value) {
     if (colName === 'treatments') {
       const _id = new ObjectID();
       await col().insertOne(sample(n, { _id, identifier: value }));
+      return _id;
+    }
+    if (typeof value !== 'string' && value !== null) {
+      const _id = new ObjectID();
+      await colFor(colName).insertOne(Object.assign({ _id }, [].concat(V1_WRITE[colName](n, value))[0]));
       return _id;
     }
     await v1Create(colName, [].concat(V1_WRITE[colName](n, value)));
