@@ -1,0 +1,35 @@
+{
+  "$comment": "Generated from the alignment repository's specs/sync/shared-slots.yaml by tools/nsschema/vendor_catalogue.py. Do not edit; regenerate.",
+  "vendoredFrom": {
+    "repository": "bewest/rag-nightscout-ecosystem-alignment",
+    "path": "specs/sync/shared-slots.yaml",
+    "commit": "dd02d8ed2b5e2fa22165f332b0d6b0ca48595435",
+    "generator": "tools/nsschema/vendor_catalogue.py"
+  },
+  "slots": [
+    {
+      "name": "override",
+      "usedBy": [
+        "loop",
+        "trio"
+      ],
+      "note": "Same name, different carriers: Loop's TemporaryScheduleOverride is written as treatments `Temporary Override`, Trio's OverrideStored as treatments `Exercise` (tools/nsschema/sync_model.py, read 2026-10-16)."
+    },
+    {
+      "name": "loopMode",
+      "usedBy": [
+        "loop",
+        "trio"
+      ],
+      "note": "Loop's dosingEnabled is carried by the profile, Trio's DosingMode by devicestatus. AndroidAPS's RunningMode has the same category (LoopMode) under the slot runningMode; that is a candidate, not a listing."
+    },
+    {
+      "name": "temporaryTarget",
+      "usedBy": [
+        "trio",
+        "androidaps"
+      ],
+      "note": "Both are written as treatments `Temporary Target` with duration in minutes."
+    }
+  ]
+}
