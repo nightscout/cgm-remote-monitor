@@ -6,8 +6,20 @@
 //
 //   node tests/lib/views-replay/replay.js --dataset synthetic:<name>|corpus:<n>
 //        --mode main|shrink:<kind>:<hours>|tamper
+//        [--view alarms|properties] [--properties-bound current|wide]
 //        --db <database> --out <summary.json> [--details <diffs.jsonl>]
 //        [--tail-hours 26] [--no-r2] [--port 27017] [--profiles-at-start]
+//
+// --view properties: compare the properties view (compute('properties'), the
+// main page's pills, GET /api/v2/properties) with each resident path's
+// sbx.properties after its 'data-loaded' cycle, property by property, instead
+// of the alarm view's notifications. --properties-bound wide replaces the
+// properties view's treatment and reading windows, for this process only,
+// with the resident path's: treatments over the 60 h treatment cache and the
+// loader's own reading query (2 days into an empty cache), so each treatment
+// is matched to the readings the resident path matches it to
+// (lib/data/treatmenttocurve.js). Without it the view's bound is the product's
+// (lib/data/views/bounds.js properties).
 //
 // --profiles-at-start: a profile document dated after the replay's last minute
 // (an export's profiles are often its current ones, months newer than its
@@ -62,7 +74,7 @@ const { EventEmitter } = require('events');
 const ROOT = path.resolve(__dirname, '../../..');
 
 function args () {
-  const out = { mode: 'main', tailHours: 26, r2: true, port: 27017 };
+  const out = { mode: 'main', tailHours: 26, r2: true, port: 27017, view: 'alarms', propertiesBound: 'current' };
   const a = process.argv.slice(2);
   for (let i = 0; i < a.length; i++) {
     const k = a[i];
@@ -74,11 +86,15 @@ function args () {
     else if (k === '--tail-hours') out.tailHours = Number(a[++i]);
     else if (k === '--no-r2') out.r2 = false;
     else if (k === '--profiles-at-start') out.profilesAtStart = true;
+    else if (k === '--view') out.view = a[++i];
+    else if (k === '--properties-bound') out.propertiesBound = a[++i];
     else if (k === '--port') out.port = Number(a[++i]);
     else if (k === '--max-steps') out.maxSteps = Number(a[++i]);
     else throw new Error('unknown argument ' + k);
   }
   if (!out.dataset || !out.db || !out.out) throw new Error('--dataset, --db and --out are required');
+  if (['alarms', 'properties'].indexOf(out.view) < 0) throw new Error('--view must be alarms or properties');
+  if (['current', 'wide'].indexOf(out.propertiesBound) < 0) throw new Error('--properties-bound must be current or wide');
   return out;
 }
 
@@ -322,7 +338,17 @@ function main () {
     // ---- the view arm
     const vbase = Object.create(ctx);
     Object.assign(vbase, countingStores(cnt.view));
-    const tamper = opt.mode === 'tamper' ? harness.TAMPER.alarms : null;
+    const PROPS = opt.view === 'properties';
+    if (PROPS && opt.propertiesBound === 'wide') {
+      // the resident path's windows (lib/data/dataloader.js loadEntries,
+      // loadTreatments into an empty cache), for this process only
+      const b = createViews.bounds;
+      b.properties = Object.assign({}, b.properties, {
+        entries: 'loader'
+        , treatments: (now) => [{ find: { created_at: { $gte: new Date(now - b.TREATMENT_CACHE_HOURS * HOUR).toISOString() } }, sort: { created_at: 1 } }]
+      });
+    }
+    const tamper = opt.mode === 'tamper' ? harness.TAMPER[opt.view] : null;
     const views = createViews(env, harness.productContext(vbase, tamper, null, false));
     const vBus = new EventEmitter();
     const vDdata = { lastUpdated: 0 };
@@ -409,15 +435,20 @@ function main () {
         if ((set.ddata.devicestatus || []).some(st => st && k in st)) viewKindMinutes[k] = (viewKindMinutes[k] || 0) + 1;
       });
     }
+    let viewProps = null;
     function viewMinute (t) {
       return new Promise(function (resolve, reject) {
         // compute() is materialise() then evaluate(); split here only to keep
         // the working set for countKinds
-        views.materialise('alarms', { now: t, dbstats: currentStats }, function (err, set) {
+        views.materialise(opt.view, { now: t, dbstats: currentStats }, function (err, set) {
           if (err) return reject(err);
           lastViewSet = set;
           let result;
           try { result = views.evaluate(set); } catch (e) { return reject(e); }
+          if (PROPS) {
+            viewProps = harness.normalise(result.properties);
+            return resolve();
+          }
           viewRequested = result.requested;
           // the server's step (lib/data/views): hand the requests to durable state
           vDdata.lastUpdated = t;
@@ -513,6 +544,31 @@ function main () {
       plugins.forEach(p => { ep.plugins[p] = (ep.plugins[p] || 0) + 1; });
       eps.push(ep);
     }
+    // properties: each property compared on its own; the details carry the
+    // paths that differ inside it (at most 20 each), never a value
+    function allDifferences (a, b, at, out) {
+      if (out.length >= 20 || a === b) return out;
+      if (typeof a !== typeof b || a === null || b === null || typeof a !== 'object') { out.push(at); return out; }
+      if (Array.isArray(a) !== Array.isArray(b)) { out.push(at); return out; }
+      if (Array.isArray(a) && a.length !== b.length) { out.push(at + '.length'); return out; }
+      new Set(Object.keys(a).concat(Object.keys(b))).forEach(k => allDifferences(a[k], b[k], at + '.' + k, out));
+      return out;
+    }
+    const propsPresent = {};
+    function compareProps (bucket, label, step, t, A, B) {
+      const keys = [...new Set(Object.keys(A || {}).concat(Object.keys(B || {})))].sort();
+      const differing = {};
+      keys.forEach(function (k) {
+        const paths = allDifferences((A || {})[k], (B || {})[k], '$.' + k, []);
+        if (paths.length) differing[k] = paths;
+      });
+      const names = Object.keys(differing);
+      if (!names.length) return;
+      bucket.any++;
+      names.forEach(p => { bucket.plugins[p] = (bucket.plugins[p] || 0) + 1; });
+      episode(bucket, step, names);
+      if (details) fs.writeSync(details, JSON.stringify({ pair: label, step, minute: (t - dataset.start) / MIN, props: differing }) + '\n');
+    }
     function compare (bucket, label, step, t, sA, sB, rA, rB) {
       const e = diff(sA, sB);
       const r = diff(rA, rB);
@@ -549,8 +605,16 @@ function main () {
 
       const sS = cur.server.map(sigNotify);
       const rS = req.server.map(sigRequest);
-      compare(res.view, 'server-view', step, t, sS, cur.view.map(sigNotify), rS, viewRequested.map(sigRequest));
-      if (r2) compare(res.r2, 'server-r2', step, t, sS, cur.r2.map(sigNotify), rS, req.r2.map(sigRequest));
+      if (PROPS) {
+        const sP = harness.normalise(ctx.sbx && ctx.sbx.properties);
+        Object.keys(sP || {}).forEach(k => { propsPresent[k] = (propsPresent[k] || 0) + 1; });
+        compareProps(res.view, 'server-view', step, t, sP, viewProps);
+        if (r2) compareProps(res.r2, 'server-r2', step, t, sP, harness.normalise(r2.sbx && r2.sbx.properties));
+        viewProps = null;
+      } else {
+        compare(res.view, 'server-view', step, t, sS, cur.view.map(sigNotify), rS, viewRequested.map(sigRequest));
+        if (r2) compare(res.r2, 'server-r2', step, t, sS, cur.r2.map(sigNotify), rS, req.r2.map(sigRequest));
+      }
 
       // what the resident path did on this minute, for the non-vacuity of the timeline
       const act = res.activity;
@@ -579,6 +643,8 @@ function main () {
     res.uploads = { preloaded, total: uploaded, refused, undated, profilesMovedToStart: profilesMoved };
     res.acks = ackLog;
     res.viewKindMinutes = viewKindMinutes;
+    res.view.name = opt.view;
+    if (PROPS) { res.view.bound = opt.propertiesBound; res.propertiesPresent = propsPresent; }
     if (probes.length) res.probes = probes;
     res.errors = errors.length;
     res.errorSample = errors.slice(0, 5).map(e => e.replace(/\d{2,}/g, '#'));

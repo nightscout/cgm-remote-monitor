@@ -297,3 +297,69 @@ Profiles at start add 1 to 3 KB on each corpus set. The view now reads per minut
 ## Still not covered
 
 As round 1, less the six newest-of-kind queries (gone) and the COB chain (exact here): late uploads beyond the synthetic backfills, updates and deletes, server scheduling and the websocket ack path, other settings and units, notification channels, the properties view under replay, and other Node and MongoDB versions.
+
+# Round 4, 2026-10-30: after official/dev 305a6533, and the properties view
+
+## The alarm view after merging official/dev (305a6533, #8880)
+
+The merge (`4dad5505`) brings BF-213: the pump plugin now raises its reservoir alarm when an uploader sends `reservoir_level_override` without a reservoir value. It also brings the device-status remove reload.
+
+- Alarm replay round 3 again:
+  - 0 differing minutes on every dataset and mode;
+  - r2 0 of 126,092 minutes;
+  - every control red or silent on exactly the minutes it was before the merge.
+- On corpus #3 the resident path now emits pump alarms it used to refuse (WARN 185 → 256 minutes, URGENT 314 → 413). The refused-notify errors are gone (50 → 0), and the view matches it on every minute.
+- Equality harness: 174 passing. `npm test`: 5051 passing, 3 pending.
+
+## The properties view (`--view properties`)
+
+Each minute, `compute('properties')` is compared with each resident path's `sbx.properties` after its `'data-loaded'` cycle. These are the main page's pills, also served by `GET /api/v2/properties`. Every property is compared on its own and the details carry paths only. Same datasets and modes as the alarm runs, with the r2 control.
+
+Two bounds were measured. Device status is the resident 24 h window in both.
+- **current**: the product's `properties` bound. Treatments over 3 DIAs plus the newest within 60 h; readings over 3 DIAs plus the one before.
+- **wide** (`--properties-bound wide`, lab only): treatments over the resident 60 h and the loader's own reading query (2 days into an empty cache), so every treatment is matched to the readings the resident path matches it to.
+
+| dataset | minutes | current: differing minutes (property) | wide | r2 (current / wide) | current: reads, docs, KB mean (max) | wide: reads, docs, KB mean (max) |
+|---|---|---|---|---|---|---|
+| corpus #1 | 4498 | 842 (cob) | 0 | 0 / 0 | 16, 590, 665.3 (1056) | 11, 1187, 945.2 (1504) |
+| corpus #2 | 4436 | 566 (cob) | 0 | 0 / 0 | 16, 423, 315.2 (499) | 11, 749, 385.5 (599) |
+| corpus #3 | 2997 | 0 | 0 | 0 / 0 | 16, 217, 260.0 (531) | 11, 461, 339.3 (622) |
+| corpus #4 | 2998 | 0 | 0 | 0 / 0 | 16, 286, 768.2 (1596) | 11, 622, 849.6 (1683) |
+| corpus #5 | 2997 | 0 | 0 | 0 / 0 | 16, 300, 283.1 (579) | 11, 760, 413.1 (724) |
+| corpus #6 | 37827 | 0 | 0 | 0 / 0 | 16, 17, 3.7 (63) | 11, 42, 9.1 (99) |
+| corpus #7 | 2274 | 0 | 0 | 0 / 0 | 16, 196, 175.2 (321) | 11, 425, 238.7 (341) |
+| corpus #3, profiles at start | 2997 | 1551 (cob) | 0 | 0 / 0 | 16, 297, 288.1 (593) | 11, 462, 341.9 (624) |
+| corpus #4, profiles at start | 2998 | 500 (cob) | 0 | 0 / 0 | 16, 396, 796.9 (1651) | 11, 623, 852.0 (1686) |
+| corpus #5, profiles at start | 2997 | 537 (cob) | 0 | 0 / 0 | 16, 447, 325.4 (673) | 11, 761, 414.4 (726) |
+| corpus #6, profiles at start | 37827 | 14472 (cob) | 0 | 0 / 0 | 16, 18, 4.6 (64) | 11, 43, 10.1 (100) |
+| corpus #7, profiles at start | 2274 | 0 | 0 | 0 / 0 | 16, 293, 202.9 (345) | 11, 426, 240.1 (342) |
+| synthetic aaps | 2881 | 0 | 0 | 0 / 0 | 16, 818, 303.6 (485) | 11, 1327, 440.3 (619) |
+| synthetic loop | 2881 | 0 | 0 | 0 / 0 | 16, 570, 310.4 (321) | 11, 1528, 549.4 (566) |
+| synthetic twoUploaders | 2881 | 0 | 0 | 0 / 0 | 16, 1162, 640.9 (706) | 11, 1749, 801.7 (846) |
+| synthetic edges | 1681 | 582 (cob) | 0 | 0 / 0 | 16, 941, 370.7 (708) | 11, 1459, 509.4 (846) |
+| synthetic edgesDays2 | 3121 | 1404 (cob) | 0 | 0 / 0 | 16, 1664, 696.0 (1359) | 11, 2182, 834.8 (1497) |
+| synthetic quiet | 1201 | 456 (cob) | 0 | 0 / 0 | 16, 306, 169.8 (276) | 11, 818, 307.5 (414) |
+| synthetic kind* (six) | 721 each | 0 | 0 | 0 / 0 | 16, 1876, 372–483 | 11, 2393, 511–622 |
+
+Noise floor: r2 differed from the server on 0 of 252,184 minutes (both bounds).
+
+**What differs under the current bound: only the cob property.** The paths, from a rerun that records every differing path (no values):
+- On corpus #1, #2, #3, #4 and #5 and on synthetic edges, edgesDays2 and quiet, only `cob.decayedBy` and `cob.lastCarbs` differ. corpus #1 also differs in `cob.treatmentCOB` on 9 minutes. The COB value and the pill's text (`cob.cob`, `display`, `displayLine`) are equal on every one of these minutes.
+  - `decayedBy` is the decay time of the last carb entry in the chain, which the main page shows in the COB pill's details.
+  - `lastCarbs` is the newest carb entry; it differs when that entry is older than the view's window.
+- On corpus #6 with profiles at start, the shown COB differs too: `cob.cob` on 1632 of the 14,472 minutes and `display`/`displayLine` on 1630. `isDecaying` and `rawCarbImpact` differ on 23.
+- iob, basal, bwp, pump, loop, openaps, upbat, sensorState and every other property: 0 minutes on every dataset under both bounds.
+
+**Cost.** The wide bound reads 1.1 to 2.5 times the current bound's bytes per minute (corpus #1 665 → 945 KB; quiet 170 → 308 KB) in 11 reads instead of 16.
+
+## Properties controls (both bounds)
+
+| control | red on |
+|---|---|
+| `tamper` (the newest device status dropped, `TAMPER.properties`) | every dataset under both bounds (36 to 3235 minutes; upbat, openaps and others) |
+| `shrink:treatments:4` | corpus #1, #2, #6 and synthetic aaps, edges, edgesDays2, loop, quiet, twoUploaders (iob, cob and others), both bounds |
+| `shrink:treatments:24` | corpus #1 and #2 tails (iob), corpus #6, both bounds; edgesDays2 (cob) under wide |
+| `shrink:devicestatus:0.5` | every dataset except corpus #6, kindUploader and kindUploaderBattery (loop, openaps, pump, sensorState, cob), both bounds |
+| `shrink:devicestatus:6` | corpus #1, synthetic aaps, edges, edgesDays2, kindXdripjs (sensorState 185 minutes), loop, quiet, twoUploaders, both bounds |
+
+The choice between the two bounds is the maintainer's. The product bound is unchanged.

@@ -29,6 +29,7 @@ function readDetails (file) {
 }
 
 function pluginsOf (d) {
+  if (d.props) return Object.keys(d.props).sort();
   return [...new Set([].concat(d.emitted.onlyServer, d.emitted.onlyOther, d.requested.onlyServer, d.requested.onlyOther).map(pluginOf))].sort();
 }
 
