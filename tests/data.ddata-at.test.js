@@ -10,14 +10,25 @@ const ddataEndpoints = require('../lib/data/endpoints');
 
 // Storage stubs answer on a later tick, as the database driver does, and
 // record the queries the loader sends.
-function makeCtx (queries) {
+function makeCtx (queries, stored) {
   function later (callback, result) {
     setImmediate(function () { callback(null, result); });
   }
+  // Answers each query with the stored documents its time range admits.
   function lister (name) {
     return function (query, callback) {
       queries.push({ collection: name, query: query });
-      later(callback, []);
+      const range = query.find && (query.find.date || query.find.created_at);
+      const type = query.find && query.find.eventType;
+      const wanted = type && typeof type === 'object' ? type.$eq : type;
+      const found = ((stored && stored[name]) || []).filter(function (doc) {
+        if (wanted !== undefined && doc.eventType !== wanted) return false;
+        if (!range) return true;
+        const field = query.find.date ? doc.date : doc.created_at;
+        return (range.$gte === undefined || field >= range.$gte)
+          && (range.$lte === undefined || field <= range.$lte);
+      });
+      later(callback, JSON.parse(JSON.stringify(found)));
     };
   }
   const ctx = {
@@ -101,6 +112,80 @@ describe('ddata at endpoint', function () {
         switches.should.have.length(1);
         switches[0].query.find.created_at.$lte.should.equal(at);
       });
+  });
+});
+
+describe('ddata at a past time (BF-204)', function () {
+  const HOUR = 60 * 60 * 1000;
+  let originalError;
+  let originalLog;
+
+  beforeEach(function () {
+    originalError = console.error;
+    originalLog = console.log;
+    console.error = console.log = function () {};
+  });
+
+  afterEach(function () {
+    console.error = originalError;
+    console.log = originalLog;
+  });
+
+  function sgv (id, date) {
+    return { _id: id, type: 'sgv', sgv: 120, date: date, dateString: new Date(date).toISOString() };
+  }
+  function treatment (id, mills) {
+    return { _id: id, eventType: 'Note', created_at: new Date(mills).toISOString() };
+  }
+  function status (id, mills) {
+    return { _id: id, device: 'test', created_at: new Date(mills).toISOString() };
+  }
+
+  // Readings, treatments and device statuses every 5 minutes for the last
+  // 4 days; the live cache is filled from the newest of them first.
+  function seed (now) {
+    const stored = { entries: [], treatments: [], devicestatus: [] };
+    for (let t = now - 96 * HOUR, i = 0; t <= now; t += 5 * 60 * 1000, i++) {
+      stored.entries.push(sgv('e' + i, t));
+      stored.treatments.push(treatment('t' + i, t));
+      stored.devicestatus.push(status('d' + i, t));
+    }
+    return stored;
+  }
+
+  it('answers with the frame ending at the requested time, not the live window, and leaves the cache as it was', function (done) {
+    const now = Date.now();
+    const queries = [];
+    const setup = makeCtx(queries, seed(now));
+    setup.ctx.dataloader.update(setup.ctx.ddata, function liveLoaded () {
+      const cached = {
+        entries: setup.ctx.cache.getData('entries').length,
+        treatments: setup.ctx.cache.getData('treatments').length,
+        devicestatus: setup.ctx.cache.getData('devicestatus').length
+      };
+      cached.entries.should.be.above(500);
+
+      const at = now - 72 * HOUR;
+      const atSpec = new Date(at).toISOString();
+      request(makeApp(setup))
+        .get('/api/v2/ddata/at/' + atSpec)
+        .expect(200)
+        .then(function (res) {
+          res.body.sgvs.length.should.be.above(0);
+          res.body.sgvs.filter(function (s) { return s.mills > at; }).should.have.length(0);
+          res.body.sgvs.filter(function (s) { return s.mills < at - 48 * HOUR - 1; }).should.have.length(0);
+          res.body.treatments.length.should.be.above(0);
+          res.body.treatments.filter(function (t) { return t.mills > at; }).should.have.length(0);
+          res.body.devicestatus.length.should.be.above(0);
+          res.body.devicestatus.filter(function (d) { return d.mills > at; }).should.have.length(0);
+
+          setup.ctx.cache.getData('entries').length.should.equal(cached.entries);
+          setup.ctx.cache.getData('treatments').length.should.equal(cached.treatments);
+          setup.ctx.cache.getData('devicestatus').length.should.equal(cached.devicestatus);
+          done();
+        })
+        .catch(done);
+    });
   });
 });
 
