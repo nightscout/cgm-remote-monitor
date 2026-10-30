@@ -239,6 +239,7 @@
         "tests/openaps*.test.js",
         "tests/pebble*.test.js",
         "tests/pump*.test.js",
+        "tests/pump-level-override.test.js",
         "tests/pushnotify*.test.js",
         "tests/rawbg*.test.js",
         "tests/record-log-privacy.test.js",
