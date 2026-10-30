@@ -38,9 +38,10 @@ const ENROLLED = ['lib/server/food.js', 'lib/server/activity.js', 'lib/server/tr
   , 'lib/api3/generic/create/operation.js'];
 
 // Code whose identifying read is the step's (identifier-match, ID-FIRST-MATCH
-// slice 1): it must not build or run that read itself. API v3's PUT and PATCH
-// still read by identifier through the storage interface and are not here.
-const MATCHED = ['lib/api3/generic/create/operation.js'];
+// slice 1; API v3's PUT and PATCH since slice 5, for P4): it must not build or
+// run that read itself.
+const MATCHED = ['lib/api3/generic/create/operation.js', 'lib/api3/generic/update/operation.js'
+  , 'lib/api3/generic/patch/operation.js'];
 const MATCH_READS = new Set(['identifyingFilter', 'findOneFilter']);
 
 // The driver's write methods, the storage interface's

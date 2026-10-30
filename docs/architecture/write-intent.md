@@ -36,8 +36,10 @@ in one place.
 
 The step calls only the storage interface, never the driver, and emits nothing. API v3 writes through
 the cached wrapper's identifier methods (`insertOne`, `replaceOne`, `updateOne`, `updateEveryForm`,
-`deleteEveryForm`). When the identifying read picked one of several records that share an identifier
-(P4), `replaceOne` and `updateOne` take that record's `_id` as one more argument and write it by `_id`.
+`deleteEveryForm`). API v3's identifying reads are the step's `match()`: create's (`v3-identifying`)
+and PUT and PATCH `/{identifier}`'s (`v3-addressed`). When one of them picked one of several records
+that share an identifier (P4), `replaceOne` and `updateOne` take that record's `_id` as one more
+argument and write it by `_id`.
 Each updates or removes only the record written in the in-memory cache. Do not
 route a v3 write through the query methods (`replaceFiltered`, `updateMany`, `deleteMany`, `bulkUpsert`,
 `insertMany`): in the cached wrapper they empty the whole cache, which the server then reloads from
@@ -93,6 +95,7 @@ named vocabularies in the same file:
 | `write` | the storage call | `insert-one`, `replace-one`, `socket-add`, `socket-merge`, `v3-insert`, `v3-replace`, `v3-merge` |
 | `SOCKET_ADD` | the socket's dbAdd match for treatments, devicestatus and profile | exact match, then the ±2 s similar match for treatments |
 | `IDENTIFIER_ALSO`, `IDENTIFIER_PICKS`, `P4_TIME_KEYS` | identifier-match: what is matched beside `identifier`, and which record a write lands on when one identifier names several | `uuid-id`, `shown-id`; `p4` (the record at the write's time key, else the newest by `_id`; ID-Q5), `every` |
+| `IDENTIFIER_HELD` (a rule's `identifierHeld`) | identifier-held (ID-RULE1-EDIT): an edit by `_id` whose `identifier` another stored record holds, soft-deleted included, is refused 409 and nothing is written (`IdentifierConflictError`; the socket's refusal slot; API v3 PATCH through `identifierHeld()`) | `ignore`, `refuse` |
 
 To change a rule, change the row. To add a rule the vocabulary lacks, add a named entry to the
 vocabulary and use it from the row. Do not write the rule into a route.

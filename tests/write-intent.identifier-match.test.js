@@ -94,6 +94,8 @@ function baseStorage (calls, state) {
   return {
     identifyingFilter: utils.identifyingFilter,
     findOneFilter: record('findOneFilter', function ( ) { return state.found === undefined ? undefined : snap(state.found); }),
+    // The cached wrapper's read-back after a write by identifier.
+    findOne: record('findOne', function ( ) { return snap(state.found || [ ]); }),
     // ID-FIRST-MATCH slice 5: the records that store the identifier, read when
     // the identifying read lands on one (P4); state.named, else what was found.
     findFiltered: record('findFiltered', function ( ) { return snap(state.named || state.found || [ ]); }),
@@ -243,19 +245,158 @@ describe('write(intent): API v3 create\'s identifying read, moved into the step'
     assert.deepStrictEqual(replace[3], NEW_ID);
   });
 
-  it('gate G2: create/operation.js reads by identifier only through the step; a direct read put back fails', function ( ) {
+  it('gate G2: create, PUT and PATCH read by identifier only through the step; a direct read put back fails', function ( ) {
     const { checkMatchReads, MATCHED } = require('../scripts/check-write-intent');
-    assert.deepEqual(MATCHED, ['lib/api3/generic/create/operation.js']);
-    const source = require('node:fs').readFileSync(require.resolve('../lib/api3/generic/create/operation'), 'utf8');
-    assert.deepEqual(checkMatchReads(source), [ ]);
-    const lines = source.split('\n').length;
-    for (const bypass of ['col.storage.findOneFilter(col.storage.identifyingFilter(doc.identifier, doc, []), { });']) {
-      const issues = checkMatchReads(source + '\n' + bypass + '\n');
-      assert.equal(issues.length, 2, issues.join('; '));
-      assert(issues.every(issue => issue.endsWith('line ' + (lines + 1))), issues.join('; '));
+    // CHANGED EXPECTATION (ID-FIRST-MATCH slice 5, P4 on API v3 PUT and
+    // PATCH): their identifying read moved into the step ('v3-addressed'), so
+    // the gate holds them to it as it holds create.
+    assert.deepEqual(MATCHED, ['lib/api3/generic/create/operation.js', 'lib/api3/generic/update/operation.js'
+      , 'lib/api3/generic/patch/operation.js']);
+    for (const file of MATCHED) {
+      const source = require('node:fs').readFileSync(require.resolve('../' + file), 'utf8');
+      assert.deepEqual(checkMatchReads(source), [ ], file);
+      const lines = source.split('\n').length;
+      for (const bypass of ['col.storage.findOneFilter(col.storage.identifyingFilter(doc.identifier, doc, []), { });']) {
+        const issues = checkMatchReads(source + '\n' + bypass + '\n');
+        assert.equal(issues.length, 2, file + ': ' + issues.join('; '));
+        assert(issues.every(issue => issue.endsWith('line ' + (lines + 1))), issues.join('; '));
+      }
     }
   });
 
+});
+
+// ---------------------------------------------------------------------------
+// API v3 PUT and PATCH /{identifier} (ID-FIRST-MATCH slice 5, ID-Q5, ID-Q10):
+// their identifying read is the step's ('v3-addressed'). Of two or more
+// records that store the route's identifier, the write lands on the one P4
+// picks by the body's time key, else the newest, by its _id, and the cache
+// reads back that one. tests/api3.identifier-p4.test.js runs the same against
+// MongoDB.
+
+const NOW_UPDATE = require('../lib/api3/generic/update/operation');
+const NOW_PATCH = require('../lib/api3/generic/patch/operation');
+
+async function runAddressed (impl, scenario) {
+  clock = 1761739200000;
+  const h = harness(scenario.col, scenario.found, [ ], scenario.named);
+  security.authenticate = async function ( ) { return { shiros: [{ check: function ( ) { return true; } }], subject: { name: 'tester' } }; };
+  const errors = [ ];
+  const realError = console.error;
+  const realWarn = console.warn;
+  const warnings = [ ];
+  console.error = function (err) { errors.push(err && err.message); };
+  console.warn = function (...args) { warnings.push(args.join(' ')); };
+  try {
+    await impl(h.ctx, { }, { }, h.col)({ body: snap(scenario.body), params: { identifier: ID }, query: { }
+      , get: function ( ) { return undefined; } }, h.res);
+  } finally {
+    console.error = realError;
+    console.warn = realWarn;
+  }
+  return { calls: h.calls, events: h.events, status: h.res.statusCode, errors, warnings };
+}
+
+describe('write(intent): API v3 PUT and PATCH /{identifier} land on the record P4 picks', function ( ) {
+  beforeEach(function ( ) { srvDates.next = function ( ) { clock += 1; return clock; }; });
+  afterEach(function ( ) { srvDates.next = realNext; security.authenticate = realAuthenticate; });
+
+  const A_TIME = { created_at: '2026-10-29T10:00:00.000Z', date: 1761732000000 };
+  const B_TIME = { created_at: '2026-10-29T10:02:00.000Z', date: 1761732120000 };
+  const a = stored(Object.assign({ _id: STORED_ID, eventType: 'Note', notes: 'a' }, A_TIME));
+  const b = stored(Object.assign({ _id: NEW_ID, eventType: 'Note', notes: 'b' }, B_TIME));
+  const names = function (outcome) { return outcome.calls.map(function (call) { return call[0]; }); };
+
+  it('the rules name the read and the pick: update and patch match \'v3-addressed\' with pick \'p4\'', function ( ) {
+    for (const name of ['treatments', 'entries', 'devicestatus', 'profile', 'food', 'settings']) {
+      for (const op of ['update', 'patch']) {
+        const rule = writeIntent.COLLECTION_RULES[name].v3[op];
+        assert.equal(rule.match, 'v3-addressed', name + ' ' + op);
+        assert.deepStrictEqual(rule.identifier, { also: 'shown-id', pick: 'p4' }, name + ' ' + op);
+      }
+    }
+  });
+
+  it('PUT with A\'s time, the newest being B: replaces A by its _id; the cache reads back A', async function ( ) {
+    const now = await runAddressed(NOW_UPDATE, { col: 'treatments', found: [b, a], named: [b, a]
+      , body: body(Object.assign({ eventType: 'Note', notes: 'a edited' }, A_TIME)) });
+    assert.equal(now.status, 200, JSON.stringify(now.errors));
+    assert.deepStrictEqual(names(now), ['findOneFilter', 'findFiltered', 'replaceOne', 'findOneFilter']);
+    assert.deepStrictEqual(now.calls[0][3], { normalize: false, limit: 2 });
+    const replace = now.calls[2];
+    assert.equal(replace[1], ID);
+    assert.equal(replace[2].notes, 'a edited');
+    assert.deepStrictEqual(replace[3], STORED_ID);
+    assert.deepStrictEqual(now.calls[3].slice(1), [{ _id: STORED_ID }, null, { normalize: false }]);
+    assert.equal(now.warnings.length, 1);
+    assert.ok(now.warnings[0].indexOf('treatments v3 PUT: identifier names 2 records; the write lands on '
+      + String(STORED_ID) + ' (same time)') !== -1, now.warnings[0]);
+    assert.equal(now.warnings[0].indexOf(ID), -1);
+  });
+
+  it('PATCH with B\'s time: updates B by its _id', async function ( ) {
+    const now = await runAddressed(NOW_PATCH, { col: 'treatments', found: [b, a], named: [b, a]
+      , body: { created_at: B_TIME.created_at, notes: 'b edited' } });
+    assert.equal(now.status, 200, JSON.stringify(now.errors));
+    const update = now.calls.find(function (call) { return call[0] === 'updateOne'; });
+    assert.equal(update[1], ID);
+    assert.equal(update[2].notes, 'b edited');
+    assert.deepStrictEqual(update[4], NEW_ID);
+    assert.ok(now.warnings[0].indexOf('treatments v3 PATCH') !== -1 && now.warnings[0].indexOf('(same time)') !== -1);
+  });
+
+  it('PATCH with A\'s time: updates A, which the newest-only read refused (immutable date)', async function ( ) {
+    const now = await runAddressed(NOW_PATCH, { col: 'treatments', found: [b, a], named: [b, a]
+      , body: { date: A_TIME.date, created_at: A_TIME.created_at, notes: 'a edited' } });
+    assert.equal(now.status, 200, JSON.stringify(now.errors));
+    const update = now.calls.find(function (call) { return call[0] === 'updateOne'; });
+    assert.deepStrictEqual(update[4], STORED_ID);
+  });
+
+  it('PATCH with no time key: updates the newest (B), as before, by its _id', async function ( ) {
+    const now = await runAddressed(NOW_PATCH, { col: 'treatments', found: [b, a], named: [b, a]
+      , body: { notes: 'edited' } });
+    assert.equal(now.status, 200, JSON.stringify(now.errors));
+    const update = now.calls.find(function (call) { return call[0] === 'updateOne'; });
+    assert.deepStrictEqual(update[4], NEW_ID);
+    assert.ok(now.warnings[0].indexOf('(newest)') !== -1, now.warnings[0]);
+  });
+
+  it('one record stores the identifier: one read, the write by identifier, nothing logged', async function ( ) {
+    for (const [impl, input] of [[NOW_UPDATE, body(Object.assign({ eventType: 'Note', notes: 'edited' }, A_TIME))]
+      , [NOW_PATCH, { notes: 'edited' }]]) {
+      const now = await runAddressed(impl, { col: 'treatments', found: [a], body: input });
+      assert.equal(now.status, 200, JSON.stringify(now.errors));
+      const write = impl === NOW_UPDATE ? 'replaceOne' : 'updateOne';
+      assert.deepStrictEqual(names(now), ['findOneFilter', write, 'findOne']);
+      assert.equal(now.calls[1].length, impl === NOW_UPDATE ? 3 : 4, 'no _id passed to ' + write);
+      assert.deepStrictEqual(now.warnings, [ ]);
+    }
+  });
+
+  it('the first record stores the identifier, the second is shown by its _id: no P4 read', async function ( ) {
+    const shownById = stored({ _id: NEW_ID, identifier: undefined, eventType: 'Note' });
+    const now = await runAddressed(NOW_PATCH, { col: 'treatments', found: [a, shownById], body: { notes: 'edited' } });
+    assert.equal(now.status, 200, JSON.stringify(now.errors));
+    assert.deepStrictEqual(names(now), ['findOneFilter', 'updateOne', 'findOne']);
+  });
+
+  it('a picked record that is soft deleted is answered 410 and nothing is written', async function ( ) {
+    const deletedA = stored(Object.assign({ _id: STORED_ID, eventType: 'Note', isValid: false }, A_TIME));
+    const now = await runAddressed(NOW_PATCH, { col: 'treatments', found: [b, deletedA], named: [b, deletedA]
+      , body: { created_at: A_TIME.created_at, notes: 'edited' } });
+    assert.equal(now.status, 410);
+    assert.deepStrictEqual(names(now), ['findOneFilter', 'findFiltered']);
+  });
+
+  it('no record: PUT inserts, PATCH answers 404, as before', async function ( ) {
+    const put = await runAddressed(NOW_UPDATE, { col: 'treatments', found: [ ]
+      , body: body(Object.assign({ eventType: 'Note' }, A_TIME)) });
+    assert.equal(put.status, 201, JSON.stringify(put.errors));
+    assert.deepStrictEqual(names(put).slice(0, 2), ['findOneFilter', 'insertOne']);
+    const patch = await runAddressed(NOW_PATCH, { col: 'treatments', found: [ ], body: { notes: 'x' } });
+    assert.equal(patch.status, 404);
+  });
 });
 
 // ---------------------------------------------------------------------------

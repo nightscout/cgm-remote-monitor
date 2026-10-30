@@ -67,7 +67,13 @@ function baseStorage (calls, state) {
     identifyingFilter: utils.identifyingFilter,
     findOne: record('findOne', found),
     findEveryForm: record('findEveryForm', found),
-    findOneFilter: record('findOneFilter', found),
+    // As find.findOneFilter: normalized (identifier from _id, _id removed)
+    // unless options.normalize is false.
+    findOneFilter: record('findOneFilter', function (filter, projection, options) {
+      const docs = found();
+      if (!options || options.normalize !== false) docs.forEach(utils.normalizeDoc);
+      return docs;
+    }),
     findMany: record('findMany', found),
     insertOne: record('insertOne', function (doc) {
       // As modify.insertOne with normalize: false: the document carries the
@@ -263,10 +269,26 @@ describe('write(intent): API v3 create, update, patch and delete (equal to db3b9
     security.authenticate = realAuthenticate;
   });
 
+  // CHANGED EXPECTATION (ID-FIRST-MATCH slice 5, P4 on API v3 PUT and
+  // PATCH): PATCH's identifying read is the step's ('v3-addressed'). It is the
+  // same filter and order, but reads the first two records, not normalized
+  // (the step normalizes the one it answers), to see whether a second record
+  // stores the identifier. That third argument is checked here and lifted;
+  // every other call, emission, reply and stored record stays equal.
+  function liftAddressedRead (outcome) {
+    outcome.calls.forEach(function (call) {
+      if (call[0] === 'findOneFilter' && call.length === 4) {
+        assert.deepStrictEqual(call[3], { normalize: false, limit: 2 });
+        call.pop();
+      }
+    });
+    return outcome;
+  }
+
   Object.keys(SCENARIOS).forEach(function (name) {
     it(name, async function ( ) {
       const before = await run(BEFORE, SCENARIOS[name]);
-      const now = await run(NOW, SCENARIOS[name]);
+      const now = liftAddressedRead(await run(NOW, SCENARIOS[name]));
       assert.deepStrictEqual(now, before);
     });
   });
