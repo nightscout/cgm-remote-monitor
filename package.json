@@ -74,9 +74,13 @@
     "test:write-boundary": "node scripts/check-write-boundary.js",
     "test:harness": "node scripts/test-tiers.js run harness",
     "test:dom": "node scripts/test-tiers.js run dom",
-    "test:dom:ci": "node scripts/test-tiers.js run dom --ci"
+    "test:dom:ci": "node scripts/test-tiers.js run dom --ci",
+    "headless-test-server": "node scripts/headless-test-server.js"
   },
   "main": "lib/server/server.js",
+  "bin": {
+    "nightscout": "bin/nightscout.js"
+  },
   "nodemonConfig": {
     "watch": [
       "lib",

@@ -10,7 +10,33 @@ var fs = require('fs')
   , websocket = require('../../../lib/server/websocket')
   , io = require('socket.io-client')
   , CacheMonitor = require('./cacheMonitor')
+  , role = require('./role')
   ;
+
+// API3_TEST_TARGET=headless boots each instance as the headless test server
+// (scripts/headless-test-server.js) does (lib/server/serve/api.js: bootevent's api profile and the role's app)
+// instead of the full chain with API v3 mounted on a bare app, so the API v3
+// suites can be run against the api role. There is no websocket in that
+// role, so an instance that asks for a storage socket cannot connect.
+const ROLE = role.current();
+const HEADLESS = ROLE === 'headless';
+
+// API v1's storage modules for a suite that seeds or checks records the way
+// v1 stores them. `single` has its own (ctx.treatments, ...). the headless
+// server has none, so they are built on the instance's database as a `single` process
+// writing to the same database would have them, with their own bus: their
+// events do not reach the role, as another process's would not.
+function v1Storage (env, ctx) {
+  if (!HEADLESS) return ctx;
+  const v1 = Object.create(ctx);
+  v1.bus = new (require('events'))();
+  v1.ddata = require('../../../lib/data/ddata')();
+  v1.entries = require('../../../lib/server/entries')(env, v1);
+  v1.treatments = require('../../../lib/server/treatments')(env, v1);
+  v1.devicestatus = require('../../../lib/server/devicestatus')(env, v1);
+  v1.profile = require('../../../lib/server/profile')(env.profile_collection, v1, env);
+  return v1;
+}
 
 function configure () {
   const self = { };
@@ -112,7 +138,7 @@ function configure () {
     return new Promise(function (resolve, reject) {
 
       try {
-        let instance = { },
+        let instance = { role: ROLE },
           hasBooted = false
           ;
 
@@ -126,17 +152,25 @@ function configure () {
         // req.secure see the same proxy trust as in production.
         instance.app.set('trust proxy', require('../../../lib/server/client-ip').trustFor(instance.env));
 
-        require('../../../lib/server/bootevent')(instance.env, language).boot(function booted (ctx) {
+        function booted (ctx) {
           instance.ctx = ctx;
-          instance.ctx.ddata = require('../../../lib/data/ddata')();
-          instance.ctx.apiApp = api(instance.env, ctx);
+          if (HEADLESS) {
+            const role = require('../../../lib/server/serve/api').createApp(instance.env, ctx);
+            instance.app = role.app;
+            instance.ctx.apiApp = role.api3;
+          } else {
+            instance.ctx.ddata = require('../../../lib/data/ddata')();
+            instance.ctx.apiApp = api(instance.env, ctx);
+          }
 
           if (disableSecurity) {
             instance.ctx.apiApp.set('API3_SECURITY_ENABLE', false);
           }
 
-          instance.app.use('/api/v3', instance.ctx.apiApp);
-          instance.app.use('/api/v2/authorization', instance.ctx.authorization.endpoints);
+          if (!HEADLESS) {
+            instance.app.use('/api/v3', instance.ctx.apiApp);
+            instance.app.use('/api/v2/authorization', instance.ctx.authorization.endpoints);
+          }
 
           const transport = useHttps ? https : http;
 
@@ -147,9 +181,12 @@ function configure () {
           instance.baseUrl = `${useHttps ? 'https' : 'http'}://${loopback}:${instance.env.PORT}`;
 
           self.addSecuredOperations(instance);
+          instance.v1 = v1Storage(instance.env, instance.ctx);
           instance.cacheMonitor = new CacheMonitor(instance).listen();
 
-          websocket(instance.env, instance.ctx, instance.server);
+          if (!HEADLESS) {
+            websocket(instance.env, instance.ctx, instance.server);
+          }
 
           self.bindSocket(storageSocket, instance)
             .then((socket) => {
@@ -163,7 +200,13 @@ function configure () {
               console.error(reason);
               reject(reason);
             });
-        });
+        }
+
+        if (HEADLESS) {
+          require('../../../lib/server/serve/api').boot(instance.env, language).then(booted, reject);
+        } else {
+          require('../../../lib/server/bootevent')(instance.env, language).boot(booted);
+        }
 
         setTimeout(function watchDog() {
           if (!hasBooted)
@@ -175,6 +218,8 @@ function configure () {
       }
     });
   };
+
+  self.role = ROLE;
 
   return self;
 }
