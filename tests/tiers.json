@@ -219,6 +219,7 @@
         "tests/boot-sequence-integration.test.js",
         "tests/cache.remove-by-id.test.js",
         "tests/cache.remove-by-query.test.js",
+        "tests/devicestatus.remove-reload.test.js",
         "tests/carb-dose-upload.test.js",
         "tests/client.renderer.test.js",
         "tests/count-pipeline-boundary.test.js",
