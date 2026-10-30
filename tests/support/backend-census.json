@@ -1,5 +1,6 @@
 {
   "interface": [
+    "tests/00_production-safety.test.js",
     "tests/XX_clean.test.js",
     "tests/api-docs.contract.test.js",
     "tests/api-v1-operator-allowlist.test.js",
@@ -33,6 +34,7 @@
     "tests/api.profiles.resend.test.js",
     "tests/api.profiles.test.js",
     "tests/api.read-storage-failure.test.js",
+    "tests/api.root.test.js",
     "tests/api.same-time-treatments.test.js",
     "tests/api.security.test.js",
     "tests/api.shape-handling.test.js",
