@@ -324,6 +324,12 @@ autonomy for your data:
   * `DEBUG_LOGGING` (`false`) - Set to `true` to log routine server heartbeats, data reload summaries and Nightscout Connect diagnostics. Warnings, errors and startup messages remain visible with debugging off. With debugging off, a record that is saved, changed or refused is logged only as a short summary (which collection, which record, its event type); with debugging on, the log also contains the whole record. Those records are health data (glucose readings, insulin, carbs, notes), so anyone who can read your server logs can then read them. This is a server environment setting; restart Nightscout after changing it. On Heroku, add or edit it under **Settings → Config Vars**. Set it back to `false` or remove it as soon as troubleshooting is complete. It does not control Heroku router/access logs or every plugin's logging.
   * `DE_NORMALIZE_DATES`(`true`) - The Nightscout REST API normalizes all entered dates to UTC zone. Some Nightscout clients have broken date deserialization logic and expect to received back dates in zoned formats. Setting this variable to `true` causes the REST API to serialize dates sent to Nightscout in zoned format back to zoned format when served to clients over REST.
 
+### Multitenant roles (`nightscout serve`)
+
+A site runs `nightscout single` (what `npm start`, `node lib/server/server.js` and the Docker image run). `nightscout serve <role>[,<role>...]` is reserved for a multitenant Nightscout, where each role (`api`, `evaluator`, `realtime`, `vcpool`, `tenant-admin`, `admin`) runs on its own and every tenant has its own settings and credentials. A multitenant Nightscout is not built yet, so every role exits with status 64 and says it is not yet available.
+
+For contributors: `npm run headless-test-server` (`scripts/headless-test-server.js`) runs the single-tenant code the `api` role starts from: API v3 and the `/api/v2/authorization` endpoints, with `API_SECRET` and the rest of the environment as `single` reads them, and none of the web pages, the websocket, API v1/v2, alarms, plugins or in-memory data. It is for tests and development, not for running a site, and is not in the image. It listens on `API_PORT` and `API_HOSTNAME` (unset, `PORT` and `NIGHTSCOUT_HOSTNAME` or `HOSTNAME`), exits 78 for listener settings it cannot use, and `nightscout healthcheck --role api` checks it.
+
 ### Predefined values for your browser settings (optional)
 
   * `TIME_FORMAT` (`12`)- possible values `12` or `24`
