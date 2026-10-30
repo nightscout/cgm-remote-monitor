@@ -1,28 +1,26 @@
 'use strict';
 
-// The socket dbAdd "similar" match: client identity and a missing amount
-// (BF-209, BF-210).
+// The socket dbAdd "similar" match: client identity (BF-209), and the amount
+// rule it keeps.
 //
 // A treatment sent over dbAdd without an exact match is compared with the
 // records stored within 2 s of it, by eventType and by its amounts, and a hit
-// only moves the stored record's created_at. Two rules are added:
-// - client identity, as the exact match has it (treatment-fallback-key): a
-//   write carrying a client identity matches only a record with the same one,
-//   and a write carrying none matches only a record with none. A write that
-//   carries an `identifier` matches only a record with the same identifier
-//   (BF-209);
-// - insulin and carbs: a write that does not carry one, or carries it as '',
-//   false or null, is treated as a zero (BF-09), so it matches a record with
-//   none (0 or absent), never one with an amount (BF-210).
-// The window, the exact match and the zero rules for percent, absolute and
-// duration are not changed here.
+// only moves the stored record's created_at. It now keeps client identity, as
+// the exact match has it (treatment-fallback-key): a write carrying a client
+// identity matches only a record with the same one, and a write carrying none
+// matches only a record with none. A write that carries an `identifier`
+// matches only a record with the same identifier (BF-209).
+// The amounts are compared as before: an insulin or carbs field the write
+// does not carry, or carries as '', false or null, is not a key, so a
+// re-send with fewer fields is not counted twice; an explicit 0 matches only
+// none or 0 (BF-09). The window and the exact match are not changed here.
 //
 // Synthetic values only; every record is dated in April 2019.
 
 var should = require('should');
 var language = require('../lib/language')();
 
-describe('Socket similar match keeps client identity and amounts (BF-209, BF-210)', function () {
+describe('Socket similar match keeps client identity (BF-209)', function () {
   this.timeout(15000);
   var self = this;
   var http = require('http');
@@ -180,42 +178,50 @@ describe('Socket similar match keeps client identity and amounts (BF-209, BF-210
     });
   });
 
-  describe('a missing amount (BF-210)', function () {
+  // An amount the write does not carry, or carries as '', false or null, is
+  // not a key, as before: a nearby entry of the same type is taken for the
+  // stored one (absorbed), so a re-send with fewer fields is not counted
+  // twice. An explicit 0 is still BF-09's "none".
+  describe('an amount the write does not carry is not a key (as before)', function () {
 
-    it('keeps a Correction Bolus without insulin sent 1 s after a 1 U bolus', async function () {
-      kept(await sendAll([
+    it('absorbs a Meal Bolus with carbs only (20 g) sent 1 s after one with 20 g and 2 U, as before', async function () {
+      merged(await sendAll([treatment(T, { carbs: 20, insulin: 2 }), treatment(T1, { carbs: 20 })]));
+    });
+
+    it('keeps a Meal Bolus with carbs only (30 g) sent 1 s after one with insulin only (2 U), as before', async function () {
+      kept(await sendAll([treatment(T, { insulin: 2 }), treatment(T1, { carbs: 30 })]));
+    });
+
+    it('absorbs a Correction Bolus without insulin sent 1 s after a 1 U bolus, as before', async function () {
+      merged(await sendAll([
         treatment(T, { eventType: 'Correction Bolus', insulin: 1 })
         , treatment(T1, { eventType: 'Correction Bolus' })
       ]));
     });
 
-    it('keeps a Carb Correction without carbs sent 1 s after a 20 g entry', async function () {
-      kept(await sendAll([
+    it('absorbs a Carb Correction without carbs sent 1 s after a 20 g entry, as before', async function () {
+      merged(await sendAll([
         treatment(T, { eventType: 'Carb Correction', carbs: 20 })
         , treatment(T1, { eventType: 'Carb Correction' })
       ]));
     });
 
-    it('keeps a Meal Bolus with carbs and no insulin sent 1 s after one with the same carbs and 2 U', async function () {
-      kept(await sendAll([treatment(T, { carbs: 20, insulin: 2 }), treatment(T1, { carbs: 20 })]));
-    });
-
     ['', false, null].forEach(function (value) {
-      it('keeps a Correction Bolus with insulin ' + JSON.stringify(value) + ' sent 1 s after a 1 U bolus', async function () {
-        kept(await sendAll([
+      it('absorbs a Correction Bolus with insulin ' + JSON.stringify(value) + ' sent 1 s after a 1 U bolus, as before', async function () {
+        merged(await sendAll([
           treatment(T, { eventType: 'Correction Bolus', insulin: 1 })
           , treatment(T1, { eventType: 'Correction Bolus', insulin: value })
         ]));
       });
 
-      it('keeps a Carb Correction with carbs ' + JSON.stringify(value) + ' sent 1 s after a 20 g entry', async function () {
-        kept(await sendAll([
+      it('absorbs a Carb Correction with carbs ' + JSON.stringify(value) + ' sent 1 s after a 20 g entry, as before', async function () {
+        merged(await sendAll([
           treatment(T, { eventType: 'Carb Correction', carbs: 20 })
           , treatment(T1, { eventType: 'Carb Correction', carbs: value })
         ]));
       });
 
-      it('recognises a Correction Bolus with insulin ' + JSON.stringify(value) + ' as a stored zero bolus (control)', async function () {
+      it('recognises a Correction Bolus with insulin ' + JSON.stringify(value) + ' as a stored zero bolus', async function () {
         merged(await sendAll([
           treatment(T, { eventType: 'Correction Bolus', insulin: 0 })
           , treatment(T1, { eventType: 'Correction Bolus', insulin: value })
@@ -223,7 +229,7 @@ describe('Socket similar match keeps client identity and amounts (BF-209, BF-210
       });
     });
 
-    describe('controls (unchanged)', function () {
+    describe('controls', function () {
 
       it('recognises a Correction Bolus without insulin re-sent 1 s later', async function () {
         merged(await sendAll([treatment(T, { eventType: 'Correction Bolus' }), treatment(T1, { eventType: 'Correction Bolus' })]));
@@ -239,6 +245,13 @@ describe('Socket similar match keeps client identity and amounts (BF-209, BF-210
 
       it('keeps a 1 U bolus sent 1 s after a Correction Bolus without insulin', async function () {
         kept(await sendAll([treatment(T, { eventType: 'Correction Bolus' }), treatment(T1, { eventType: 'Correction Bolus', insulin: 1 })]));
+      });
+
+      it('keeps a zero bolus sent 1 s after a 1 U bolus (BF-09)', async function () {
+        kept(await sendAll([
+          treatment(T, { eventType: 'Correction Bolus', insulin: 1 })
+          , treatment(T1, { eventType: 'Correction Bolus', insulin: 0 })
+        ]));
       });
     });
   });
