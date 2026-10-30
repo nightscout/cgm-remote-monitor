@@ -218,7 +218,7 @@ In each `kind*` timeline, a bridge posts a status with none of the six kinds eve
 | kindUploader | 721 / 206 | 0 | upbat ignores statuses older than 30 minutes (`upbatWindow`) |
 | kindUploaderBattery | 721 / 206 (as `uploader`, after the loader's rewrite) | 0 | as kindUploader |
 
-So the xdripjs query is needed. For the other five, each kind's own plugin does not need its query: it was the only source of that kind on 245 to 515 minutes per timeline, and dropping it changed nothing. They do bring device statuses into the view, which the COB chain above can read at an earlier carb's decay time. They are kept.
+So the xdripjs query is needed. For the other five, each kind's own plugin does not need its query: it was the only source of that kind on 245 to 515 minutes per timeline, and dropping it changed nothing. They do bring device statuses into the view, which the COB chain above can read at an earlier carb's decay time. They were kept in round 2; round 3 replaces all eleven targeted queries with the resident window.
 
 ## Break-it controls (final tree)
 
@@ -240,3 +240,60 @@ Wall times are not compared, because this round ran 15 replays at once against r
 
 - The COB chain on corpus #6 with profiles at start, above. An exact bound needs the resident path's windows.
 - Everything listed under "What this lab does not cover" in round 1, except the six newest-of-kind queries.
+
+# Round 3, 2026-10-30: the resident windows (maintainer decision)
+
+The maintainer chose exactness over cost: the alarm view reads the resident path's own treatment and device-status windows. Environment: same as round 2, a fresh container, 15 replays at once.
+
+## The change
+
+`lib/data/views/bounds.js`, `alarms`:
+- **treatments**: every treatment created within `TREATMENT_CACHE_HOURS` (60 h). This replaces one DIA plus the newest within 60 h, so the alarm view no longer needs the newest-within-60 h record.
+- **devicestatus**: every status created within `devicestatusLookback` (24 h, or 48 h with `DEVICESTATUS_DAYS=2`).
+  - This one query replaces the eleven targeted queries: the 10 newest, the six newest-of-kind, loopOk, the two openaps tests, and the upbat and pump windows.
+  - Each of those lay inside the resident window except the 10 newest, and the resident path holds nothing older than its window.
+  - `DEVICESTATUS_KINDS`, `DEVICESTATUS_TESTS` and `pumpWindowMs` are removed.
+- **properties** keeps its own treatments: `PROPERTIES_DIAS` (3) DIAs plus the newest within 60 h. Its device status was already the resident window and is unchanged; it now inherits it from `alarms`. Reading 60 h of treatments in the properties view would also need readings around each treatment (the loader's treatment-to-curve fit), and the replay lab does not run the properties view.
+
+## Result
+
+Every dataset in every mode: **0 differing minutes**. That is all seven corpus sets as-is and #3 to #7 with profiles at start, plus the 12 synthetic timelines, including the six `kind*`. corpus #6 with profiles at start, 538 in round 2, is now 0. Noise floor: r2 differed from the server on 0 of 126,092 minutes.
+
+## Break-it controls
+
+The drop controls named queries that no longer exist. They are replaced by `shrink:<kind>:<hours>` (`VIEWS_SHRINK`, `tests/lib/views-equality/views.js`), which keeps only the records created within that many hours of the minute.
+
+| control | red on (added minutes, plugin, hours) | silent on |
+|---|---|---|
+| `shrink:treatments:4` (about a DIA, the round-1 bound without the newest-in-60 h record) | corpus #1 1482, #2 1542, #6 1146 (timeago, mostly the zero lines); quiet 749 (ar2, simplealarms, bwp, timeago), as round 1 | the rest |
+| `shrink:treatments:24` | corpus #1 195, 71.7–75.0 h; corpus #2 126, 71.8–73.9 h (timeago: zero lines lost once the last treatment is over 24 h old) | the rest |
+| `shrink:devicestatus:0.5` | loop, openaps and pump alarms on every synthetic timeline that has them and on corpus #1, #3, #4, #5 and #7; xdripjs 515 on kindXdripjs | corpus #2, #6; kindUploader, kindUploaderBattery (upbat reads only 30 minutes) |
+| `shrink:devicestatus:6` | kindXdripjs 185, 8.9–12.0 h (xdripjs reads 24 h); aaps 13, 27.2–27.4 h (the COB line: device IOB at an earlier carb's decay time) | the rest |
+| `tamper` (newest treatment dropped) | every dataset (16 to 2365 minutes, led by treatmentnotify) | none |
+
+So both windows are needed in full. In the equality harness, untampered and `VIEWS_TAMPER_DRY=1` each give 174 passing; `VIEWS_TAMPER=alarms` fails 4, `VIEWS_TAMPER=properties` fails 20 (each on its own view only); `VIEWS_SHRINK=devicestatus:0.5` fails 14 and `VIEWS_SHRINK=treatments:4` fails 8.
+
+## Cost per minute, alarm view (mean; round 2's bound → this one)
+
+| dataset | reads | docs | KB (max) | resident path's incremental load, KB |
+|---|---|---|---|---|
+| corpus #1 | 25 → 13 | 72 → 656 | 66.8 → 785.5 (1229) | 10.4 |
+| corpus #2 | 25 → 13 | 60 → 437 | 32.0 → 317.6 (482) | 5.0 |
+| corpus #3 | 25 → 13 | 49 → 256 | 56.0 → 282.3 (545) | 4.5 |
+| corpus #4 | 25 → 13 | 64 → 419 | 149.6 → 798.3 (1615) | 10.7 |
+| corpus #5 | 25 → 13 | 54 → 308 | 56.2 → 305.1 (581) | 4.8 |
+| corpus #6 | 25 → 13 | 6 → 28 | 1.3 → 5.3 (44) | 1.6 |
+| corpus #7 | 25 → 13 | 43 → 171 | 44.3 → 177.3 (266) | 4.0 |
+| synthetic aaps | 25 → 13 | 113 → 772 | 36.7 → 283.8 (463) | 6.1 |
+| synthetic loop | 25 → 13 | 103 → 964 | 50.1 → 386.0 (402) | 5.6 |
+| synthetic twoUploaders | 25 → 13 | 109 → 1041 | 64.5 → 598.6 (677) | 8.3 |
+| synthetic edges | 25 → 13 | 47 → 894 | 12.2 → 350.5 (687) | 2.9 |
+| synthetic edgesDays2 | 25 → 13 | 44 → 1617 | 11.2 → 675.8 (1338) | 2.6 |
+| synthetic quiet | 25 → 13 | 30 → 284 | 16.2 → 157.0 (255) | 1.2 |
+| synthetic kind* (six) | 25 → 13 | 69–77 → 1829 | 15–18 → 352–463 | 5.5–5.8 |
+
+Profiles at start add 1 to 3 KB on each corpus set. The view now reads per minute what the resident path keeps in memory: 4 to 60 times the round-2 bytes, and 3 to 260 times the resident path's incremental load. The resident path's memory was not measured.
+
+## Still not covered
+
+As round 1, less the six newest-of-kind queries (gone) and the COB chain (exact here): late uploads beyond the synthetic backfills, updates and deletes, server scheduling and the websocket ack path, other settings and units, notification channels, the properties view under replay, and other Node and MongoDB versions.

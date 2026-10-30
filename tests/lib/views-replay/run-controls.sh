@@ -4,7 +4,7 @@
 set -u
 OUT=${OUT:?OUT}; PORT=${PORT:?PORT}; JOBS=${JOBS:-14}
 HERE=$(cd "$(dirname "$0")" && pwd)
-MODES="drop:loopOk drop:openapsSuggested drop:openapsEnacted drop:upbatWindow drop:pumpWindow tamper dropkind:loop dropkind:openaps dropkind:pump dropkind:uploader dropkind:uploaderBattery dropkind:xdripjs"
+MODES="tamper shrink:treatments:4 shrink:treatments:24 shrink:devicestatus:0.5 shrink:devicestatus:6"
 SETS="synthetic:quiet synthetic:aaps synthetic:loop synthetic:twoUploaders synthetic:edges synthetic:edgesDays2 synthetic:kindXdripjs synthetic:kindLoop synthetic:kindOpenaps synthetic:kindPump synthetic:kindUploader synthetic:kindUploaderBattery"
 if [ -n "${VIEWS_CORPUS_DIR:-}" ]; then
   n=$(ls "$VIEWS_CORPUS_DIR"/*_entries.json | wc -l)

@@ -347,42 +347,35 @@ const diaHours = productViews.bounds.diaHours;
 // the tampered kind answers one record short (TAMPER). `dry` installs the same
 // wrapper and drops nothing: the untampered control for the wrapper itself.
 //
-// VIEWS_DROP_KIND=<kind,...>: the alarm view's newest-of-kind device-status
-// query for each kind named (lib/data/views/bounds.js DEVICESTATUS_KINDS) answers nothing,
-// the per-kind control.
-//
-// VIEWS_DROP_QUERY=<name,...>: the alarm view's device-status query of each
-// name answers nothing: a test of DEVICESTATUS_TESTS (loopOk,
-// openapsSuggested, openapsEnacted), or a window (upbatWindow, pumpWindow).
-function deviceStatusQueryName (q) {
-  const find = (q && q.find) || {};
-  const tests = productViews.bounds.DEVICESTATUS_TESTS;
-  const named = Object.keys(tests).find(function (name) {
-    return Object.keys(tests[name]).every(k => JSON.stringify(find[k]) === JSON.stringify(tests[name][k]));
+// VIEWS_SHRINK=<kind>:<hours>[,...]: the view's answer for that read kind
+// (treatments or devicestatus, as productViews.kindOf names it) keeps only
+// the records created within <hours> of the evaluation instant: the control
+// that each window a view reads is needed, not only wide enough.
+function shrinkRules () {
+  return (process.env.VIEWS_SHRINK || '').split(',').filter(Boolean).map(function (r) {
+    const [kind, hours] = r.split(':');
+    if (['treatments', 'devicestatus'].indexOf(kind) < 0 || !(Number(hours) > 0)) throw new Error('VIEWS_SHRINK: not <treatments|devicestatus>:<hours>: ' + r);
+    return { kind, ms: Number(hours) * HOUR };
   });
-  if (named) return named;
-  if (q && q.count === undefined && find.created_at) {
-    const keys = Object.keys(find).sort().join(',');
-    if (keys === 'created_at') return 'upbatWindow';
-    if (keys === 'created_at,pump') return 'pumpWindow';
-  }
-  return null;
 }
 
 function productContext (ctx, tamper, now, dry) {
   const pctx = Object.create(ctx);
-  const dropKinds = (process.env.VIEWS_DROP_KIND || '').split(',').filter(Boolean);
-  const dropQueries = (process.env.VIEWS_DROP_QUERY || '').split(',').filter(Boolean);
-  if (dropKinds.length || dropQueries.length) {
-    const real = ctx.devicestatus;
-    pctx.devicestatus = {
+  shrinkRules().forEach(function (rule) {
+    const real = pctx[rule.kind];
+    pctx[rule.kind] = {
       list: function (q, cb) {
-        if (q && q.find && q.count === 1 && dropKinds.some(k => q.find[k] && q.find[k].$exists === true)) return cb(null, []);
-        if (dropQueries.includes(deviceStatusQueryName(q))) return cb(null, []);
-        real.list(q, cb);
+        real.list(q, function (err, docs) {
+          if (!err && docs && productViews.kindOf(rule.kind, q) === rule.kind) {
+            // the replay pins the wall clock to the evaluated minute
+            const since = (now != null ? now : Date.now()) - rule.ms;
+            docs = docs.filter(d => Date.parse(d.created_at) >= since);
+          }
+          cb(err, docs);
+        });
       }
     };
-  }
+  });
   if (!tamper) return pctx;
   ['entries', 'treatments', 'devicestatus'].forEach(function (collection) {
     const real = pctx[collection];

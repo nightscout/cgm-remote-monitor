@@ -8,7 +8,7 @@ const fs=require("fs"),path=require("path");
 const pl=s=>{const p=s.split("|");return p[0]==="notify"||p[0]==="snooze"?p[3]:(p[6]==="clear"?"clear":p[2])};
 const runs=s=>{const r=[];s.forEach(x=>{const l=r[r.length-1];if(l&&x<=l[1]+1)l[1]=x;else r.push([x,x])});return r};
 const filt=process.argv[3]||"";
-fs.readdirSync(".").filter(d=>/^(drop|tamper)/.test(d)&&fs.statSync(d).isDirectory()).sort().forEach(m=>{
+fs.readdirSync(".").filter(d=>/^(drop|tamper|shrink)/.test(d)&&fs.statSync(d).isDirectory()).sort().forEach(m=>{
  fs.readdirSync(m).filter(f=>f.endsWith(".jsonl")&&f.includes(filt)).sort((a,b)=>a.localeCompare(b,"en",{numeric:true})).forEach(f=>{
   const j=path.join(m,f.replace(".jsonl",".json"));if(!fs.existsSync(j))return;const r=JSON.parse(fs.readFileSync(j));
   const key=d=>JSON.stringify([d.emitted.onlyServer.slice().sort(),d.emitted.onlyOther.slice().sort(),d.requested.onlyServer.slice().sort(),d.requested.onlyOther.slice().sort()]);

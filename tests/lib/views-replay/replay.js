@@ -5,7 +5,7 @@
 // raises?
 //
 //   node tests/lib/views-replay/replay.js --dataset synthetic:<name>|corpus:<n>
-//        --mode main|drop:<query>|dropkind:<kind>|tamper
+//        --mode main|shrink:<kind>:<hours>|tamper
 //        --db <database> --out <summary.json> [--details <diffs.jsonl>]
 //        [--tail-hours 26] [--no-r2] [--port 27017] [--profiles-at-start]
 //
@@ -44,10 +44,10 @@
 //
 // Controls (the view arm only is changed; through the equality harness's own
 // wrapper, tests/lib/views-equality/views.js productContext):
-//   drop:<query>     VIEWS_DROP_QUERY=<query>: that device-status query of the
-//                    alarm view answers nothing
-//   dropkind:<kind>  VIEWS_DROP_KIND=<kind>: that newest-of-kind query answers
-//                    nothing
+//   shrink:<kind>:<hours>
+//                    VIEWS_SHRINK=<kind>:<hours>: the view's treatments or
+//                    devicestatus answer keeps only the records created within
+//                    <hours> of the minute (each window is needed)
 //   tamper           VIEWS_TAMPER=alarms: the view's treatments read is one
 //                    record short at its newest edge
 //
@@ -194,8 +194,7 @@ function main () {
   Object.assign(process.env, ALARM_ENV, dataset.env, {
     CUSTOMCONNSTR_mongo: 'mongodb://127.0.0.1:' + opt.port + '/' + opt.db
   });
-  if (opt.mode.startsWith('drop:')) process.env.VIEWS_DROP_QUERY = opt.mode.slice(5);
-  if (opt.mode.startsWith('dropkind:')) process.env.VIEWS_DROP_KIND = opt.mode.slice(9);
+  if (opt.mode.startsWith('shrink:')) process.env.VIEWS_SHRINK = opt.mode.slice(7);
 
   const clock = require('./clock');
   const createDData = require(path.join(ROOT, 'lib/data/ddata'));
@@ -399,13 +398,14 @@ function main () {
       r2.sbx = sbx;
       r2.runtimeState = 'loaded';
     }
-    // minutes on which the view's working set held a status of each kind
-    // (non-vacuity of the newest-of-kind controls: compare main with
-    // dropkind:<kind>); counted after the arm's timing, below
+    // minutes on which the view's working set held a status of each kind a
+    // device-status alarm plugin selects by (a top-level field); counted after
+    // the arm's timing, below
+    const STATUS_KINDS = ['loop', 'openaps', 'pump', 'uploader', 'uploaderBattery', 'xdripjs'];
     const viewKindMinutes = {};
     let lastViewSet = null;
     function countKinds (set) {
-      createViews.bounds.DEVICESTATUS_KINDS.forEach(function (k) {
+      STATUS_KINDS.forEach(function (k) {
         if ((set.ddata.devicestatus || []).some(st => st && k in st)) viewKindMinutes[k] = (viewKindMinutes[k] || 0) + 1;
       });
     }
