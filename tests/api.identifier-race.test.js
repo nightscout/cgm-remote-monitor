@@ -21,26 +21,35 @@ var language = require('../lib/language')();
 var identifierIndex = require('../lib/storage/identifier-index');
 
 // Hold the first `count` calls of `method` on the collection named `name`
-// until all have arrived (or `waitMs` passed), then let them run together.
-function gate (name, method, count, waitMs) {
+// until all have arrived (or `waitMs` passed), then let them run together;
+// with `inOrder`, one at a time in arrival order, each after the one before
+// has finished (so the later one has still matched before the earlier wrote).
+function gate (name, method, count, waitMs, inOrder) {
   var real = Collection.prototype[method];
   var held = [];
   var state = { arrived: 0 };
   var timer = null;
   function releaseAll () {
     if (timer) clearTimeout(timer);
-    held.splice(0).forEach(function (go) { go(); });
+    var all = held.splice(0);
+    if (!inOrder) return all.forEach(function (go) { go(); });
+    all.reduce(function (previous, go) {
+      return previous.then(function () { return go(); });
+    }, Promise.resolve());
   }
   Collection.prototype[method] = function gated () {
     var self = this;
     var args = arguments;
     if (self.collectionName !== name || state.arrived >= count) return real.apply(self, args);
     state.arrived += 1;
+    var done;
+    var finished = new Promise(function (resolve) { done = resolve; });
     return new Promise(function (resolve) {
-      held.push(resolve);
+      held.push(function go () { resolve(); return finished; });
       if (held.length === count) releaseAll();
       else if (!timer) timer = setTimeout(releaseAll, waitMs || 3000);
-    }).then(function () { return real.apply(self, args); });
+    }).then(function () { return real.apply(self, args); })
+      .then(function (value) { done(); return value; }, function (err) { done(); throw err; });
   };
   state.restore = function restore () { Collection.prototype[method] = real; };
   return state;
@@ -169,37 +178,63 @@ describe('ID-UNIQUE-INDEX: two uploads of one record that race', function () {
         , eventType: 'Carb Correction', carbs: 12 }, extra || {});
     }
 
-    it('treatments: both answered 201 with the identifier, one record', async function () {
+    // The upload that loses the race is answered as a deduplicated POST is:
+    // 200, isDeduplication, the identifier (the step returns the match's
+    // outcome and create/insert.js maps it).
+    function winnerAndLoser (replies) {
+      replies.map(function (r) { return r.status; }).sort().should.eql([200, 201]);
+      var loser = replies.find(function (r) { return r.status === 200; });
+      var winner = replies.find(function (r) { return r.status === 201; });
+      loser.body.isDeduplication.should.equal(true);
+      return { winner: winner, loser: loser };
+    }
+
+    it('treatments: one 201, and the loser 200 isDeduplication as a re-send; one record', async function () {
       var id = 'race-v3-treatment-0001';
       var g = gate(self.instance.env.treatments_collection, 'insertOne', 2);
       opened.push(g);
       var replies = await Promise.all([post('treatments', treatment(id)), post('treatments', treatment(id))]);
       g.arrived.should.equal(2);
-      replies.map(function (r) { return r.status; }).should.eql([201, 201]);
-      replies.forEach(function (r) { r.body.identifier.should.equal(id); });
-      (await col('treatments').find({ identifier: id }).toArray()).length.should.equal(1);
+      var r = winnerAndLoser(replies);
+      r.winner.body.identifier.should.equal(id);
+      r.loser.body.identifier.should.equal(id);
+      r.loser.headers.location.should.endWith('/treatments/' + id);
+      var docs = await col('treatments').find({ identifier: id }).toArray();
+      docs.length.should.equal(1);
+      r.loser.body.lastModified.should.equal(docs[0].srvModified);
     });
 
-    it('device status: both answered 201, one record, written once', async function () {
+    it('device status: one 201, and the loser 200 isDeduplication with the stored lastModified; written once', async function () {
       var id = 'race-v3-status-0001';
       var doc = { identifier: id, date: T, utcOffset: 0, app: 'race-test', device: 'race-test', uploaderBattery: 50 };
       var g = gate(self.instance.env.devicestatus_collection, 'insertOne', 2);
       opened.push(g);
       var replies = await Promise.all([post('devicestatus', Object.assign({}, doc)), post('devicestatus', Object.assign({}, doc))]);
       g.arrived.should.equal(2);
-      replies.map(function (r) { return r.status; }).should.eql([201, 201]);
+      var r = winnerAndLoser(replies);
+      r.loser.body.identifier.should.equal(id);
       var docs = await col('devicestatus').find({ identifier: id }).toArray();
       docs.length.should.equal(1);
+      r.loser.body.lastModified.should.equal(docs[0].srvModified);
+      r.winner.body.lastModified.should.equal(docs[0].srvModified);
     });
 
-    it('a racing upload without the update permission is not applied as a re-send: one 201, one 500', async function () {
+    it('a racing upload without the update permission is not applied as a re-send: it gets a 500, the record stays', async function () {
       var id = 'race-v3-treatment-0002';
-      var g = gate(self.instance.env.treatments_collection, 'insertOne', 2);
+      // The upload with every permission reaches the insert first and is
+      // stored first; the create-only upload has matched nothing before that.
+      var g = gate(self.instance.env.treatments_collection, 'insertOne', 2, 3000, true);
       opened.push(g);
-      var replies = await Promise.all([post('treatments', treatment(id)), post('treatments', treatment(id), self.jwt.create)]);
+      var first = post('treatments', treatment(id)).then(function (r) { return r; });
+      while (g.arrived < 1) await new Promise(function (resolve) { setTimeout(resolve, 5); });
+      var second = post('treatments', treatment(id, { carbs: 13 }), self.jwt.create).then(function (r) { return r; });
+      var replies = await Promise.all([first, second]);
       g.arrived.should.equal(2);
-      replies.map(function (r) { return r.status; }).sort().should.eql([201, 500]);
-      (await col('treatments').find({ identifier: id }).toArray()).length.should.equal(1);
+      replies[0].status.should.equal(201);
+      replies[1].status.should.equal(500);
+      var docs = await col('treatments').find({ identifier: id }).toArray();
+      docs.length.should.equal(1);
+      docs[0].carbs.should.equal(12);
     });
 
     it('two different records racing on one identifier (another date): one 201, one 500, the first kept', async function () {

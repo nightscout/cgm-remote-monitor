@@ -153,14 +153,17 @@ duplicate count run at boot, in `lib/storage/identifier-index.js`:
 - `try`: the index is built online on each collection where no stored records share an identifier.
   Where some do, the server logs, per collection, how many identifiers are shared and by how many
   records (never the values), shows the same counts under `identifierIndex` in `/api/v1/status.json`,
-  raises an admin notification, and runs without the index there.
+  raises an admin notification, and runs without the index there. Records whose stored `identifier` is
+  not a string (null, a number, an array: written before identifier-format treated such a value as absent)
+  are counted on their own line and under `nonStringIdentifiers`.
 - `require`: as `try`, but a collection without the index stops the boot.
 - `off`: nothing is built. An index already there is left as it is.
 
 With the index on, a duplicate key on it means two uploads of one record raced: both ran the identifier
 match before either was stored. The step's `DUPLICATE_IDENTIFIER` entry applies the second upload once
 more as its path applies a re-send (API v3 create: the identifying read again, then the deduplicating
-replace, or the device status acknowledgement), and a second failure is thrown. Only creates are
+replace, or the device status acknowledgement, answered 200 with `isDeduplication` as a re-sent POST
+is), and a second failure is thrown. Only creates are
 retried; an edit whose identifier another record holds is a conflict, not a re-send. Without the index
 the error cannot arise, so the entry does nothing.
 
@@ -170,8 +173,10 @@ the error cannot arise, so the entry does nothing.
   `node tools/identifier-duplicates.js report [--collections treatments,entries] [--show-identifiers]`.
   It connects as the server does (`MONGODB_URI` and the `MONGO_*_COLLECTION` settings).
 - Resolve them: `node tools/identifier-duplicates.js resolve` prints what it would do;
-  `resolve --apply` does it. Stop the server and take a backup first. In each group the record P4
-  picks (`p4Pick`; with no write to compare, the newest by `_id`) keeps the identifier. A twin of it
+  `resolve --apply` does it. Stop the server and take a backup first. It first unsets each stored
+  identifier that is not a string (its value kept in `identifierReleased`). In each group the record P4
+  picks (`p4Pick`; with no write to compare, the newest by `_id`) among the live holders (`isValid` not
+  false), or among all of them when none is live, keeps the identifier. A twin of it
   (the same `_id` stored as an ObjectId and as its string) is removed. Every other record is kept, with
   its identifier moved to `identifierReleased` and a new `srvModified`. Then start the server: under
   `try` it builds the index.
