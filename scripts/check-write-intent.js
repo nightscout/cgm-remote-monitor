@@ -32,7 +32,16 @@ const ENROLLED = ['lib/server/food.js', 'lib/server/activity.js', 'lib/server/tr
   // collection (slice 4). autoPrune (lib/api3/generic/collection.js) still
   // deletes by query through the cached storage.
   , 'lib/api3/generic/create/insert.js', 'lib/api3/generic/update/replace.js'
-  , 'lib/api3/generic/patch/operation.js', 'lib/api3/generic/delete/operation.js'];
+  , 'lib/api3/generic/patch/operation.js', 'lib/api3/generic/delete/operation.js'
+  // API v3's generic create (ID-FIRST-MATCH slice 1): its identifying read is
+  // the step's (identifier-match); it writes through insert.js and replace.js.
+  , 'lib/api3/generic/create/operation.js'];
+
+// Code whose identifying read is the step's (identifier-match, ID-FIRST-MATCH
+// slice 1): it must not build or run that read itself. API v3's PUT and PATCH
+// still read by identifier through the storage interface and are not here.
+const MATCHED = ['lib/api3/generic/create/operation.js'];
+const MATCH_READS = new Set(['identifyingFilter', 'findOneFilter']);
 
 // The driver's write methods, the storage interface's
 // (lib/api3/storage/mongoCollection/index.js) and lib/server/storage-writes.js's.
@@ -161,6 +170,19 @@ function checkFunctions (source, functions) {
   return failures;
 }
 
+// A module whose identifying read is the step's: no identifying read of its own.
+function checkMatchReads (source) {
+  const failures = [];
+  walk(parse(source), function visit (node) {
+    if (node.type !== 'CallExpression') return;
+    const callee = node.callee;
+    if (callee.type === 'MemberExpression' && !callee.computed && MATCH_READS.has(callee.property.name)) {
+      failures.push('identifying read ' + callee.property.name + ' bypasses identifier-match at line ' + node.loc.start.line);
+    }
+  });
+  return failures;
+}
+
 function checkEntry (entry, source) {
   return typeof entry === 'string' ? check(source) : checkFunctions(source, entry.functions);
 }
@@ -178,8 +200,15 @@ function main () {
       failed = true;
     }
   }
+  for (const file of MATCHED) {
+    for (const issue of checkMatchReads(fs.readFileSync(path.resolve(__dirname, '..', file), 'utf8'))) {
+      console.error(file + ': ' + issue);
+      failed = true;
+    }
+  }
   if (failed) process.exitCode = 1;
-  else console.log('Write intent: ' + ENROLLED.length + ' enrolled module(s) write only through write(intent)');
+  else console.log('Write intent: ' + ENROLLED.length + ' enrolled module(s) write only through write(intent); '
+    + MATCHED.length + ' read(s) by identifier-match');
 }
 if (require.main === module) main();
-module.exports = { check, checkFunctions, checkEntry, fileOf, ENROLLED };
+module.exports = { check, checkFunctions, checkEntry, checkMatchReads, fileOf, ENROLLED, MATCHED };

@@ -414,7 +414,11 @@ describe('write(intent): the entries rule table (slice 5)', function ( ) {
 
   it('creates by a merging bulk write and deletes by query', function ( ) {
     const rules = writeIntent.COLLECTION_RULES.entries['v1/internal'];
-    assert.deepEqual(rules.create, { plan: 'entries', write: 'entries-merge-bulk', onMatch: 'merged' });
+    // CHANGED EXPECTATION (ID-FIRST-MATCH slice 1): the create rule names its identifier-match
+    // rule (design note 2026-10-29 §1: the rule as entries in the step's rule table), today's:
+    // the identifier, under UUID_HANDLING also an _id; the update's own pick; the reply's last read.
+    assert.deepEqual(rules.create, { plan: 'entries', write: 'entries-merge-bulk', onMatch: 'merged'
+      , identifier: { also: 'uuid-id', pick: 'driver-first', replyAlso: 'uuid-id', replyPick: 'last-read' } });
     assert.deepEqual(rules.delete, { target: 'query' });
   });
 
@@ -513,7 +517,10 @@ describe('write(intent): the devicestatus rule table (slice 5)', function ( ) {
 
   it('creates by insert only, with created server dates, and deletes by query', function ( ) {
     const rules = writeIntent.COLLECTION_RULES.devicestatus['v1/internal'];
-    assert.deepEqual(rules.create, { write: 'statuses', dates: 'stamp-created' });
+    // CHANGED EXPECTATION (ID-FIRST-MATCH slice 1): the create rule names its identifier-match
+    // rule, today's: the identifier alone, the first by _id.
+    assert.deepEqual(rules.create, { write: 'statuses', dates: 'stamp-created'
+      , identifier: { also: 'none', pick: 'first-by-id' } });
     assert.deepEqual(rules.delete, { target: 'query' });
   });
 

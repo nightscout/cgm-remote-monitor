@@ -1,0 +1,92 @@
+// The pre-move lib/api3/generic/create/operation.js at 9919f8ef (#8874's
+// head), kept as the reference the write step's identifying read is compared
+// with (tests/write-intent.identifier-match.test.js). Only the require paths
+// differ from that file. Not loaded by the server.
+'use strict';
+
+const apiConst = require('../../../lib/api3/const.json')
+  , security = require('../../../lib/api3/security')
+  , insert = require('../../../lib/api3/generic/create/insert')
+  , replace = require('../../../lib/api3/generic/update/replace')
+  , validate = require('../../../lib/api3/generic/create/validate')
+  , opTools = require('../../../lib/api3/shared/operationTools')
+  , writePurifier = require('../../../lib/api3/shared/writePurifier')
+  , acknowledge = require('../../../lib/api3/generic/create/acknowledge')
+  ;
+
+
+/**
+ * CREATE: Inserts a new document into the collection
+ */
+async function create (opCtx) {
+
+  const { col, req, res } = opCtx;
+  const doc = req.body;
+
+  if (!doc || (typeof doc === 'object' && Object.keys(doc).length === 0)) {
+    return opTools.sendJSONStatus(res, apiConst.HTTP.BAD_REQUEST, apiConst.MSG.HTTP_400_BAD_REQUEST_BODY);
+  }
+
+  // POST may resolve to either an insert or a deduplicating replacement.
+  // Reject callers that cannot perform either operation before processing
+  // the request; the selected branch demands the
+  // exact create/update permission below.
+  const canCreate = security.checkPermission(opCtx.auth, `api:${col.colName}:create`)
+    , canUpdate = security.checkPermission(opCtx.auth, `api:${col.colName}:update`);
+  if (!canCreate && !canUpdate) {
+    await security.demandPermission(opCtx, `api:${col.colName}:create`);
+  }
+
+  if (opTools.refuseClientId(doc, res))
+    return;
+
+  writePurifier.purifyWritableDocument(opCtx, doc);
+  col.parseDate(doc);
+  opTools.resolveIdentifier(doc);
+
+  // Validate identifier/dedup fields before using them in a MongoDB selector.
+  if (validate(opCtx, doc) !== true)
+    return;
+
+  const identifyingFilter = col.storage.identifyingFilter(doc.identifier, doc, col.dedupFallbackFields);
+
+  const result = await col.storage.findOneFilter(identifyingFilter, { });
+
+  if (!result)
+    throw new Error('empty result');
+
+  if (result.length > 0) {
+    const storageDoc = result[0];
+    if (acknowledge.applies(col, doc, storageDoc)) {
+      await acknowledge(opCtx, doc, storageDoc);
+    } else {
+      await replace(opCtx, doc, storageDoc, { isDeduplication: true });
+    }
+  }
+  else {
+    await insert(opCtx, doc);
+  }
+}
+
+
+function createOperation (ctx, env, app, col) {
+
+  return async function operation (req, res) {
+
+    const opCtx = { app, ctx, env, col, req, res };
+
+    try {
+      opCtx.auth = await security.authenticate(opCtx);
+
+      await create(opCtx);
+
+    } catch (err) {
+      console.error(err);
+      if (!res.headersSent) {
+        return opTools.sendJSONStatus(res, apiConst.HTTP.INTERNAL_ERROR, apiConst.MSG.STORAGE_ERROR);
+      }
+    }
+  };
+}
+
+module.exports = createOperation;

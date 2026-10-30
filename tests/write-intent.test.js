@@ -500,13 +500,17 @@ describe('write(intent) gate G2: one door for the enrolled collections', functio
     // CHANGED EXPECTATION (slice 4): API v3's insert, replace, patch and delete modules join.
     // CHANGED EXPECTATION (slice 6): the rest of websocket.js's writers join (dbAdd of treatments,
     // devicestatus and profile, dbUpdate, dbUpdateUnset).
+    // CHANGED EXPECTATION (ID-FIRST-MATCH slice 1): API v3's create/operation.js joins; its
+    // identifying read moved into the step (identifier-match), and it writes through insert.js and
+    // replace.js.
     // Each slice that routes code through the step adds it here.
     assert.deepEqual(ENROLLED, ['lib/server/food.js', 'lib/server/activity.js', 'lib/server/treatments.js'
       , 'lib/server/entries.js', 'lib/server/devicestatus.js', 'lib/server/profile.js'
       , { file: 'lib/server/websocket.js', functions: ['processGenericDbAdd', 'dbRemove', 'processSingleDbAdd', 'dbAdd'
         , 'dbUpdate', 'dbUpdateUnset'] }
       , 'lib/api3/generic/create/insert.js', 'lib/api3/generic/update/replace.js'
-      , 'lib/api3/generic/patch/operation.js', 'lib/api3/generic/delete/operation.js']);
+      , 'lib/api3/generic/patch/operation.js', 'lib/api3/generic/delete/operation.js'
+      , 'lib/api3/generic/create/operation.js']);
     for (const entry of ENROLLED) {
       assert.deepEqual(checkEntry(entry, fs.readFileSync(path.resolve(__dirname, '..', fileOf(entry)), 'utf8')), [], fileOf(entry));
     }
