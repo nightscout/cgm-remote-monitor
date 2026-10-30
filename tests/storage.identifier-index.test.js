@@ -104,7 +104,8 @@ describe('ID-UNIQUE-INDEX: the partial unique index on identifier', function () 
       var counts = await identifierIndex.duplicateCounts(probe);
       counts.should.eql({ identifiers: 1, records: 2 });
       var status = await identifierIndex.ensure([{ name: 'probe', collection: probe }], 'try', { log: { warn: function () {} } });
-      status.collections.probe.should.eql({ state: 'blocked', identifiers: 1, records: 2 });
+      // The two arrays are also counted as stored non-string identifiers.
+      status.collections.probe.should.eql({ state: 'blocked', identifiers: 1, records: 2, nonString: 2 });
     });
 
     it('refuses a second record with one identifier, a soft-deleted one included', async function () {
@@ -174,6 +175,47 @@ describe('ID-UNIQUE-INDEX: the partial unique index on identifier', function () 
       JSON.stringify(res.body.identifierIndex).should.not.containEql(ID);
       (booted.ctx.adminnotifies.getNotifies ? booted.ctx.adminnotifies.getNotifies() : booted.ctx.adminnotifies.notifies || [])
         .some(function (n) { return n.title === 'Records share an identifier'; }).should.equal(true);
+    });
+
+    it('try counts stored identifiers that are not strings on their own line, counts only', async function () {
+      await dropIdentifierIndexes();
+      await col('treatments').insertMany([
+        { identifier: ['a7c0ffee-array'], eventType: 'Note', idxTest: true }
+        , { identifier: null, eventType: 'Note', idxTest: true }
+        , { identifier: 42, eventType: 'Note', idxTest: true }
+        , { identifier: ID, eventType: 'Note', idxTest: true }
+      ]);
+      var warnings = [];
+      var realWarn = console.warn;
+      console.warn = function (line) { warnings.push(String(line)); };
+      var booted;
+      try {
+        booted = await bootWith('try');
+      } finally {
+        console.warn = realWarn;
+      }
+      var status = booted.ctx.identifierIndex;
+      status.collections.treatments.state.should.equal('built');
+      status.collections.treatments.nonString.should.equal(3);
+      var line = warnings.filter(function (w) { return w.indexOf('identifier index on treatments: 3 record(s) store an identifier that is not') !== -1; });
+      line.length.should.equal(1);
+      line[0].should.not.containEql('a7c0ffee-array');
+      identifierIndex.summary(status).collections.treatments.should.eql({ state: 'built', nonStringIdentifiers: 3 });
+    });
+
+    it('an identifier array is not stored: writes treat a non-string identifier as absent (slice 2)', async function () {
+      var booted = await bootWith('try');
+      var app = require('express')();
+      app.enable('api');
+      booted.ctx.ddata = require('../lib/data/ddata')();
+      app.use('/api', require('../lib/api/')(booted.env, booted.ctx));
+      await request(app).post('/api/treatments/').set('api-secret', require('crypto')
+        .createHash('sha1').update('this is my long pass phrase').digest('hex'))
+        .send([{ identifier: ['a'], eventType: 'Note', notes: 'array identifier', created_at: '2019-05-11T07:40:00.000Z', idxTest: true }])
+        .expect(200);
+      var docs = await col('treatments').find({ idxTest: true, notes: 'array identifier' }).toArray();
+      docs.length.should.equal(1);
+      docs[0].should.not.have.property('identifier');
     });
 
     it('require with stored duplicates: refuses to start', async function () {
@@ -247,6 +289,62 @@ describe('ID-UNIQUE-INDEX: the partial unique index on identifier', function () 
 
       var again = await tool.run(self.ctx.store.db, names, ['treatments']);
       again.treatments.identifiers.should.equal(0);
+      var status = await identifierIndex.ensure([{ name: 'treatments', collection: col('treatments') }], 'try');
+      status.collections.treatments.state.should.equal('built');
+    });
+
+    it('keeps the identifier on a live record over a newer soft-deleted one', async function () {
+      await dropIdentifierIndexes();
+      var live = new ObjectId('5cd67e000000000000000011');
+      var deleted = new ObjectId('5cd67e000000000000000012');
+      await col('treatments').insertMany([
+        { _id: live, identifier: ID, eventType: 'Carb Correction', carbs: 12, idxTest: true }
+        , { _id: deleted, identifier: ID, eventType: 'Carb Correction', carbs: 20, isValid: false, idxTest: true }
+      ]);
+      var names = tool.collectionNames(self.env);
+      var report = await tool.run(self.ctx.store.db, names, ['treatments']);
+      report.treatments.groups[0].pick.should.eql(live);
+      await tool.run(self.ctx.store.db, names, ['treatments'], { resolve: true, apply: true });
+      (await col('treatments').findOne({ _id: live })).identifier.should.equal(ID);
+      var gone = await col('treatments').findOne({ _id: deleted });
+      should.not.exist(gone.identifier);
+      gone.identifierReleased.should.equal(ID);
+    });
+
+    it('with no live holder, P4 picks among the deleted ones (the newest)', async function () {
+      await dropIdentifierIndexes();
+      var older = new ObjectId('5cd67e000000000000000021');
+      var newer = new ObjectId('5cd67e000000000000000022');
+      await col('treatments').insertMany([
+        { _id: older, identifier: ID, eventType: 'Note', isValid: false, idxTest: true }
+        , { _id: newer, identifier: ID, eventType: 'Note', isValid: false, idxTest: true }
+      ]);
+      var report = await tool.run(self.ctx.store.db, tool.collectionNames(self.env), ['treatments']);
+      report.treatments.groups[0].pick.should.eql(newer);
+    });
+
+    it('reports stored non-string identifiers and unsets them only with --apply', async function () {
+      await dropIdentifierIndexes();
+      await col('treatments').insertMany([
+        { identifier: ['', 'a'], eventType: 'Note', idxTest: true }
+        , { identifier: ['', 'b'], eventType: 'Note', idxTest: true }
+        , { identifier: 7, eventType: 'Note', idxTest: true }
+      ]);
+      var names = tool.collectionNames(self.env);
+      var report = await tool.run(self.ctx.store.db, names, ['treatments']);
+      report.treatments.nonString.should.equal(3);
+      report.treatments.identifiers.should.equal(1, 'the arrays share the key ""');
+      var dry = await tool.run(self.ctx.store.db, names, ['treatments'], { resolve: true });
+      dry.treatments.nonStringReleased.should.equal(0);
+      (await col('treatments').countDocuments({ idxTest: true, identifier: { $exists: true } })).should.equal(3);
+      var applied = await tool.run(self.ctx.store.db, names, ['treatments'], { resolve: true, apply: true });
+      applied.treatments.nonStringReleased.should.equal(3);
+      applied.treatments.identifiers.should.equal(0);
+      var docs = await col('treatments').find({ idxTest: true }).toArray();
+      docs.forEach(function (doc) {
+        doc.should.not.have.property('identifier');
+        should.exist(doc.identifierReleased);
+      });
       var status = await identifierIndex.ensure([{ name: 'treatments', collection: col('treatments') }], 'try');
       status.collections.treatments.state.should.equal('built');
     });

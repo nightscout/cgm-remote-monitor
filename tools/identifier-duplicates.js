@@ -16,9 +16,15 @@
 // record and how many records hold them; per group, the _ids and the record
 // P4 picks. Identifier values are printed only with --show-identifiers.
 //
+// It also counts the records whose stored identifier is not a string (null, a
+// number, an array: written before identifier-format treated such a value as
+// absent). resolve --apply unsets those first, keeping the value in
+// identifierReleased.
+//
 // resolve: per group, the record P4 picks (p4Pick in lib/storage/write-intent.js;
 // with no write to compare a time with, the newest by _id) keeps the
-// identifier. Every other record of the group:
+// identifier; P4 runs among the live holders (isValid not false), and among
+// all of them only when none is live. Every other record of the group:
 //   - a twin of the pick (the string spelling of the pick's ObjectId _id, or
 //     the reverse: one record stored twice, BF-130) is removed, as a write
 //     removes a string twin;
@@ -63,9 +69,13 @@ function isTwin (a, b) {
 // The plan for one group: its records newest _id first (P4's order), the pick
 // and what happens to each other record.
 async function planGroup (collection, name, group) {
-  const records = await collection.find({ _id: { $in: group.ids } }, { projection: { _id: 1, identifier: 1 } })
+  const records = await collection.find({ _id: { $in: group.ids } }, { projection: { _id: 1, identifier: 1, isValid: 1 } })
     .sort({ _id: -1 }).toArray();
-  const pick = writeIntent.p4Pick(records, { }, writeIntent.P4_TIME_KEYS[name] || [ ], name + ' identifier-duplicates');
+  // A live record (isValid not false) keeps the identifier over a deleted one:
+  // P4 among the live holders, and among all only when none is live.
+  const live = records.filter(function (doc) { return doc.isValid !== false; });
+  const pick = writeIntent.p4Pick(live.length > 0 ? live : records, { }, writeIntent.P4_TIME_KEYS[name] || [ ]
+    , name + ' identifier-duplicates');
   const others = records.filter(function (doc) { return doc !== pick; }).map(function (doc) {
     return { _id: doc._id, action: isTwin(doc._id, pick._id) ? 'remove-twin' : 'release' };
   });
@@ -84,6 +94,16 @@ async function run (db, names, which, options) {
   const out = { };
   for (const name of which) {
     const collection = db.collection(names[name]);
+    // Stored identifiers that are not strings (writes treat them as absent):
+    // counted, and under resolve --apply unset first, their value kept in
+    // identifierReleased, before the groups are read.
+    const nonString = await identifierIndex.nonStringCount(collection);
+    let nonStringReleased = 0;
+    if (opts.resolve && opts.apply && nonString > 0) {
+      const released = await collection.updateMany(identifierIndex.NON_STRING
+        , [{ $set: { identifierReleased: '$identifier', srvModified: Date.now() } }, { $unset: 'identifier' }]);
+      nonStringReleased = released.modifiedCount;
+    }
     const counts = await identifierIndex.duplicateCounts(collection);
     const groups = [ ];
     if (counts.identifiers > 0) {
@@ -91,7 +111,9 @@ async function run (db, names, which, options) {
         groups.push(await planGroup(collection, name, group));
       }
     }
-    const result = { identifiers: counts.identifiers, records: counts.records, groups: groups, applied: false };
+    const result = { identifiers: counts.identifiers, records: counts.records, groups: groups, applied: false
+      , nonString: nonString, nonStringReleased: nonStringReleased };
+    if (opts.resolve && opts.apply && nonStringReleased > 0) result.applied = true;
     if (opts.resolve && opts.apply && groups.length > 0) {
       const now = Date.now();
       for (const group of groups) {
@@ -121,6 +143,8 @@ function print (result, options) {
     const r = result[name];
     console.log(name + ': ' + r.identifiers + ' identifier(s) held by more than one record (' + r.records + ' records)'
       + (r.applied ? '; resolved' : ''));
+    console.log(name + ': ' + r.nonString + ' record(s) store an identifier that is not a string'
+      + (r.nonStringReleased > 0 ? '; ' + r.nonStringReleased + ' unset (kept in identifierReleased)' : ''));
     r.groups.forEach(function (group, index) {
       console.log('  group ' + (index + 1) + (options.showIdentifiers ? ' identifier ' + JSON.stringify(group.identifier) : '')
         + ': ' + group.count + ' records; keeps it: ' + printable(group.pick));
