@@ -289,12 +289,24 @@ describe('write(intent): the socket\'s edit and remove addressed by identifier (
     assert.deepStrictEqual(written.items, [{ index: 0, outcome: 'not-found', _id: undefined, identifier: ID }]);
   });
 
-  it('dbRemove: one deleteMany of every record identifier-match names', async function ( ) {
-    const storage = socketStorage([A, B]);
+  it('dbRemove: reads the _ids identifier-match names, deletes those, and returns them as removed', async function ( ) {
+    const storage = socketStorage([B, A]);
     const written = await writeIntent.forCollection(storage, 'treatments', 'socket', { env: { } })
       .write({ op: 'delete', target: { identifier: ID } });
-    assert.deepStrictEqual(storage.calls, [['deleteMany', reads.toFilter({ identifier: { $eq: ID } }), { v1: true }]]);
+    assert.deepStrictEqual(storage.calls, [
+      ['findFiltered', reads.toFilter({ identifier: { $eq: ID } }), { projection: { _id: 1 }, v1: true, options: { normalize: false } }]
+      , ['deleteMany', reads.toFilter({ $and: [{ identifier: { $eq: ID } }, { _id: { $in: [B_ID, A_ID] } }] }), { v1: true }]]);
     assert.deepStrictEqual(written.items, [{ index: 0, outcome: 'deleted', _id: undefined, identifier: ID }]);
+    assert.deepStrictEqual(written.removed, [B_ID, A_ID]);
+  });
+
+  it('dbRemove: an identifier that names nothing deletes nothing and removes none', async function ( ) {
+    const storage = socketStorage([ ]);
+    const written = await writeIntent.forCollection(storage, 'treatments', 'socket', { env: { } })
+      .write({ op: 'delete', target: { identifier: ID } });
+    assert.deepStrictEqual(storage.calls.map(function (c) { return c[0]; }), ['findFiltered']);
+    assert.deepStrictEqual(written.removed, [ ]);
+    assert.deepStrictEqual(written.items, [{ index: 0, outcome: 'not-found', _id: undefined, identifier: ID }]);
   });
 
   it('an _id still decides when it is sent, and a target with neither is refused as before', function ( ) {

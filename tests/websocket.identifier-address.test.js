@@ -236,14 +236,16 @@ describe('websocket: dbUpdate, dbUpdateUnset and dbRemove addressed by identifie
     });
 
     // CHANGED EXPECTATION (ID-FIRST-MATCH slice 1, decision 4): was refused, Missing or invalid _id.
-    it('dbRemove with an identifier and no _id removes the record it names, and drops the cache', async function () {
-      await seed('treatments', treatment(0, { carbs: 20, identifier: ID }));
+    it('dbRemove with an identifier and no _id removes the record it names, and announces its _id', async function () {
+      var a = await seed('treatments', treatment(0, { carbs: 20, identifier: ID }));
       var b = await seed('treatments', treatment(60000, { carbs: 30, identifier: OTHER }));
       var result = await send('dbRemove', { collection: 'treatments', identifier: ID });
       result.reply.should.eql({ result: 'success' });
       (await stored('treatments')).map(plain).should.eql([plain(b)]);
+      // The removed record by its _id, as dbRemove by _id announces it: a
+      // remove that names no record would drop the collection's cache.
       result.events.should.eql([
-        { event: 'data-update', payload: { type: 'treatments', op: 'remove', count: 1 } }
+        { event: 'data-update', payload: { type: 'treatments', op: 'remove', count: 1, changes: [a._id.toHexString()] } }
         , { event: 'data-received' }
       ]);
     });
@@ -280,14 +282,16 @@ describe('websocket: dbUpdate, dbUpdateUnset and dbRemove addressed by identifie
       withoutServerTime(after[1]).should.eql(withoutServerTime(edited));
     });
 
-    it('two records share the identifier: dbRemove removes both (ID-Q10)', async function () {
-      await seed('treatments', treatment(0, { carbs: 20, identifier: ID }));
-      await seed('treatments', treatment(120000, { carbs: 30, identifier: ID }));
+    it('two records share the identifier: dbRemove removes both and announces both _ids (ID-Q10)', async function () {
+      var a = await seed('treatments', treatment(0, { carbs: 20, identifier: ID }));
+      var b = await seed('treatments', treatment(120000, { carbs: 30, identifier: ID }));
       var c = await seed('treatments', treatment(240000, { carbs: 40, identifier: OTHER }));
       var result = await send('dbRemove', { collection: 'treatments', identifier: ID });
       result.reply.should.eql({ result: 'success' });
       (await stored('treatments')).map(plain).should.eql([plain(c)]);
+      result.events.length.should.equal(2);
       result.events[0].payload.count.should.equal(2);
+      result.events[0].payload.changes.slice().sort().should.eql([a._id.toHexString(), b._id.toHexString()].sort());
     });
 
     it('an identifier that names no record: dbUpdate and dbRemove answer success and write nothing', async function () {
@@ -297,6 +301,8 @@ describe('websocket: dbUpdate, dbUpdateUnset and dbRemove addressed by identifie
       update.events.should.eql([{ event: 'data-received' }]);
       var remove = await send('dbRemove', { collection: 'treatments', identifier: ID });
       remove.reply.should.eql({ result: 'success' });
+      // Nothing removed: no remove is announced at all, never one without changes.
+      remove.events.should.eql([{ event: 'data-received' }]);
       (await stored('treatments')).map(plain).should.eql(before.map(plain));
     });
 
@@ -314,6 +320,10 @@ describe('websocket: dbUpdate, dbUpdateUnset and dbRemove addressed by identifie
       withoutServerTime((await stored('food'))[0]).should.eql(withoutServerTime(Object.assign({}, f, { carbs: 16 })));
       var remove = await send('dbRemove', { collection: 'food', identifier: ID });
       remove.reply.should.eql({ result: 'success' });
+      remove.events.should.eql([
+        { event: 'data-update', payload: { type: 'food', op: 'remove', count: 1, changes: [f._id.toHexString()] } }
+        , { event: 'data-received' }
+      ]);
       (await stored('food')).should.eql([]);
     });
   });
