@@ -210,7 +210,11 @@ function install () {
       for (const child of suite.suites) {
         if (child.file !== file || child.nsBackendTracked) continue;
         child.nsBackendTracked = true;
+        // A pending suite runs no hooks, and mocha adds none to it.
+        if (child.isPending()) continue;
+        // First of the suite's before-all hooks, so it runs before the file's own.
         child.beforeAll(function () { running = relative(file); });
+        child._beforeAll.unshift(child._beforeAll.pop());
         child.afterAll(function () { running = null; });
       }
     });

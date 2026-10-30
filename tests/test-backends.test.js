@@ -119,12 +119,12 @@ describe('NS_TEST_BACKEND, the test storage backend selection', function () {
   describe('a run', function () {
     this.timeout(20000);
 
-    function run (value) {
+    function run (value, fixture) {
       const env = Object.assign({}, process.env);
       if (value === undefined) delete env.NS_TEST_BACKEND; else env.NS_TEST_BACKEND = value;
       return spawnSync(process.execPath, [path.join(ROOT, 'node_modules', 'mocha', 'bin', 'mocha.js')
         , '--require', './tests/hooks.js', '--reporter', './scripts/execution-reporter.js'
-        , '--fail-zero', '--exit', './tests/fixtures/backend-selection.fixture.js']
+        , '--fail-zero', '--exit', './tests/fixtures/' + (fixture || 'backend-selection') + '.fixture.js']
       , { cwd: ROOT, env, encoding: 'utf8', timeout: 20000 });
     }
 
@@ -142,6 +142,14 @@ describe('NS_TEST_BACKEND, the test storage backend selection', function () {
       assert.match(result.stdout, /2 pending/);
       assert.match(result.stdout, /\[pending on NS_TEST_BACKEND=postgres: no PostgreSQL storage backend/);
       assert.match(result.stdout, /\[pending on NS_TEST_BACKEND=postgres: MongoDB's own: by nature: fixture/);
+    });
+
+    it('fails under postgres when a file outside the census reaches MongoDB, though its tests pass', function () {
+      const result = run('postgres', 'backend-unclassified');
+      assert.notEqual(result.status, 0, result.stdout + result.stderr);
+      assert.match(result.stdout, /1 passing/);
+      assert.match(result.stdout + result.stderr,
+        /reached MongoDB under NS_TEST_BACKEND=postgres but are not in tests\/support\/backend-census\.json: tests\/fixtures\/backend-unclassified\.fixture\.js/);
     });
 
     it('stops before any test on an unknown name', function () {
