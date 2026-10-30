@@ -227,9 +227,33 @@ describe('write(intent): treatments from API v1 and in-process callers (equal to
       , (api, done) => api.remove({ find: { eventType: 'Note', created_at: { $gte: '2026-01-01' } } }, done)]
   ];
 
+  // CHANGED EXPECTATION (ID-FIRST-MATCH slice 5, ID-Q5): a write that matches a
+  // treatment by identifier first reads the records the identifier names (one
+  // find, newest _id first), so that when it names more than one the write
+  // lands on the one P4 picks. Here it names one, so every other driver call,
+  // event, log line and reply is db3b9e4e's.
+  const P4_READ = new Set(['a batch (bulk write, a twin removal after its _id write, read-backs)'
+    , 'a batch under UUID_HANDLING', 'a batch where nothing is upserted (every item answered by read-back)'
+    , 'one document by identifier, inserted', 'a batch with a preBolus (each item alone, then its preBolus record)'
+    , 'a batch whose bulk write fails', 'save by identifier, matched (REQ-SYNC-072 read-back)']);
+  const isP4Read = call => call[0] === 'find' && call[2] === null && call[1] && Boolean(
+    (call[1].identifier && call[1].identifier.$in)
+    || (call[1].$or && call[1].$or[0].identifier && call[1].$or[0].identifier.$in));
+
   for (const [name, envExtra, cfg, act] of cases) {
     it(name, async function ( ) {
-      await same(name, before, after, envExtra, cfg, act);
+      if (!P4_READ.has(name)) {
+        await same(name, before, after, envExtra, cfg, act);
+        return;
+      }
+      const was = await observe(before, envExtra, cfg, act);
+      const now = await observe(after, envExtra, cfg, act);
+      // One more such read than db3b9e4e made (a batch's reply reads the same
+      // way), and it comes first: the rest is db3b9e4e's, in order.
+      assert.equal(now.calls.filter(isP4Read).length, was.calls.filter(isP4Read).length + 1, name);
+      const first = now.calls.findIndex(isP4Read);
+      assert(now.calls.slice(0, first).every(call => call[0] !== 'bulkWrite' && call[0] !== 'replaceOne'), name);
+      assert.deepEqual(Object.assign({ }, now, { calls: now.calls.filter((call, index) => index !== first) }), was, name);
     });
   }
 
@@ -433,8 +457,10 @@ describe('write(intent): the entries rule table (slice 5)', function ( ) {
     // CHANGED EXPECTATION (ID-FIRST-MATCH slice 1): the create rule names its identifier-match
     // rule (design note 2026-10-29 §1: the rule as entries in the step's rule table), today's:
     // the identifier, under UUID_HANDLING also an _id; the update's own pick; the reply's last read.
+    // CHANGED EXPECTATION (ID-FIRST-MATCH slice 5, ID-Q5): of several entries with the identifier,
+    // the update lands on the one P4 picks (pick 'p4'; it was 'driver-first').
     assert.deepEqual(rules.create, { plan: 'entries', write: 'entries-merge-bulk', onMatch: 'merged'
-      , identifier: { also: 'uuid-id', pick: 'driver-first', replyAlso: 'uuid-id', replyPick: 'last-read' } });
+      , identifier: { also: 'uuid-id', pick: 'p4', replyAlso: 'uuid-id', replyPick: 'last-read' } });
     assert.deepEqual(rules.delete, { target: 'query' });
   });
 
@@ -535,8 +561,10 @@ describe('write(intent): the devicestatus rule table (slice 5)', function ( ) {
     const rules = writeIntent.COLLECTION_RULES.devicestatus['v1/internal'];
     // CHANGED EXPECTATION (ID-FIRST-MATCH slice 1): the create rule names its identifier-match
     // rule, today's: the identifier alone, the first by _id.
+    // CHANGED EXPECTATION (ID-FIRST-MATCH slice 5, ID-Q5): of several statuses with the
+    // identifier, the reply names the one P4 picks (pick 'p4'; it was 'first-by-id').
     assert.deepEqual(rules.create, { write: 'statuses', dates: 'stamp-created'
-      , identifier: { also: 'none', pick: 'first-by-id' } });
+      , identifier: { also: 'none', pick: 'p4' } });
     assert.deepEqual(rules.delete, { target: 'query' });
   });
 

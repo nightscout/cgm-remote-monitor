@@ -94,6 +94,9 @@ function baseStorage (calls, state) {
   return {
     identifyingFilter: utils.identifyingFilter,
     findOneFilter: record('findOneFilter', function ( ) { return state.found === undefined ? undefined : snap(state.found); }),
+    // ID-FIRST-MATCH slice 5: the records that store the identifier, read when
+    // the identifying read lands on one (P4); state.named, else what was found.
+    findFiltered: record('findFiltered', function ( ) { return snap(state.named || state.found || [ ]); }),
     insertOne: record('insertOne', function (doc) {
       if (doc._id === undefined) doc._id = NEW_ID;
       return doc.identifier || String(doc._id);
@@ -103,7 +106,7 @@ function baseStorage (calls, state) {
   };
 }
 
-function harness (colName, found, fallbackFields) {
+function harness (colName, found, fallbackFields, named) {
   const calls = [ ];
   const events = [ ];
   const bus = new EventEmitter();
@@ -115,7 +118,7 @@ function harness (colName, found, fallbackFields) {
     ddata: { processRawDataForRuntime: function (docs) { return docs; } },
     purifier: { purifyObject: function (o) { return o; } }
   };
-  const storage = new MongoCachedCollection(ctx, { }, colName, baseStorage(calls, { found }));
+  const storage = new MongoCachedCollection(ctx, { }, colName, baseStorage(calls, { found, named }));
   const col = {
     colName,
     storage,
@@ -177,7 +180,7 @@ const realAuthenticate = security.authenticate;
 
 async function runCreate (impl, scenario) {
   clock = 1761739200000;
-  const h = harness(scenario.col, scenario.found, scenario.fallback);
+  const h = harness(scenario.col, scenario.found, scenario.fallback, scenario.named);
   security.authenticate = async function ( ) { return { shiros: [{ check: function ( ) { return true; } }], subject: { name: 'tester' } }; };
   const errors = [ ];
   const realError = console.error;
@@ -197,12 +200,47 @@ describe('write(intent): API v3 create\'s identifying read, moved into the step'
   beforeEach(function ( ) { srvDates.next = function ( ) { clock += 1; return clock; }; });
   afterEach(function ( ) { srvDates.next = realNext; security.authenticate = realAuthenticate; });
 
+  // CHANGED EXPECTATION (slice 5, ID-Q5): when the identifying read lands on a
+  // record that stores the identifier, a second read (findFiltered) takes every
+  // record that stores it, for P4. With one such record nothing else changes:
+  // the same calls apart from that read, the same emissions and reply.
   Object.keys(CREATES).forEach(function (label) {
     it(label + ': the same storage calls, emissions and reply as at 9919f8ef', async function ( ) {
       const before = await runCreate(BEFORE_CREATE, CREATES[label]);
       const now = await runCreate(NOW_CREATE, CREATES[label]);
+      const p4Reads = now.calls.filter(function (call) { return call[0] === 'findFiltered'; });
+      const found = CREATES[label].found;
+      const reread = Boolean(found && found.length && found[0].identifier && found[0].identifier === CREATES[label].body.identifier);
+      assert.equal(p4Reads.length, reread ? 1 : 0);
+      if (reread) {
+        assert.deepStrictEqual(p4Reads[0].slice(1), [require('../lib/server/storage-reads').toFilter({ identifier: { $eq: ID } })
+          , { sort: { _id: -1 }, v1: true, options: { normalize: false } }]);
+      }
+      now.calls = now.calls.filter(function (call) { return call[0] !== 'findFiltered'; });
       assert.deepStrictEqual(now, before);
     });
+  });
+
+  it('two records store the identifier: the re-send replaces the one P4 picks, by its _id (slice 5, ID-Q5)', async function ( ) {
+    const a = stored({ _id: STORED_ID, eventType: 'Note', notes: 'a' });
+    const b = stored({ _id: NEW_ID, created_at: '2026-10-29T10:02:00.000Z', date: 1761732120000, eventType: 'Note', notes: 'b' });
+    // API v3's own order names B (the newest); the re-send carries A's time.
+    const now = await runCreate(NOW_CREATE, { col: 'treatments', found: [b], named: [b, a]
+      , body: body({ eventType: 'Note', notes: 'a again' }) });
+    assert.equal(now.status, 200);
+    const replace = now.calls.find(function (call) { return call[0] === 'replaceOne'; });
+    assert.equal(replace[1], ID);
+    assert.equal(replace[2].notes, 'a again');
+    assert.deepStrictEqual(replace[3], STORED_ID);
+  });
+
+  it('two records store the identifier, neither at the re-send\'s time: the newest, by its _id', async function ( ) {
+    const a = stored({ _id: STORED_ID, eventType: 'Note', notes: 'a' });
+    const b = stored({ _id: NEW_ID, eventType: 'Note', notes: 'b' });
+    const now = await runCreate(NOW_CREATE, { col: 'treatments', found: [b], named: [b, a]
+      , body: body({ eventType: 'Note', notes: 'later' , created_at: '2026-10-29T11:00:00.000Z' }) });
+    const replace = now.calls.find(function (call) { return call[0] === 'replaceOne'; });
+    assert.deepStrictEqual(replace[3], NEW_ID);
   });
 
   it('gate G2: create/operation.js reads by identifier only through the step; a direct read put back fails', function ( ) {
@@ -331,5 +369,99 @@ describe('write(intent): the socket\'s edit and remove addressed by identifier (
     ['', '   ', 'undefined', 'Undefined', 'null', 'NULL', 'invalid', 'NaN', 'nan', 'unknown', 'x'.repeat(257), 42, null
       , undefined, { $ne: null }, [ID]]
       .forEach(function (value) { assert.equal(ok(value), false, JSON.stringify(value)); });
+  });
+});
+
+// ---------------------------------------------------------------------------
+// P4 (ID-FIRST-MATCH slice 5, ID-Q5, ID-Q10): of the records one identifier
+// names, newest _id first, the one a write lands on.
+
+describe('write(intent): P4, the pick between records that share an identifier', function ( ) {
+  const { p4Pick, P4_TIME_KEYS } = writeIntent;
+  const OLD = { _id: new ObjectId('5f00000000000000000000e1'), identifier: ID, created_at: '2019-05-11T07:40:00.000Z' };
+  const NEW = { _id: new ObjectId('5f00000000000000000000e2'), identifier: ID, created_at: '2019-05-11T07:42:00.000Z' };
+  let warnings;
+  const realWarn = console.warn;
+  beforeEach(function ( ) { warnings = [ ]; console.warn = function (line) { warnings.push(String(line)); }; });
+  afterEach(function ( ) { console.warn = realWarn; });
+
+  it('every path that matches on identifier picks by P4', function ( ) {
+    const rules = writeIntent.COLLECTION_RULES;
+    assert.equal(rules.treatments['v1/internal'].create.forms.batch.identifier.pick, 'p4');
+    assert.equal(rules.treatments['v1/internal'].create.forms.one.identifier.pick, 'p4');
+    assert.equal(rules.treatments['v1/internal'].update.identifier.pick, 'p4');
+    assert.equal(rules.entries['v1/internal'].create.identifier.pick, 'p4');
+    assert.equal(rules.devicestatus['v1/internal'].create.identifier.pick, 'p4');
+    ['treatments', 'entries', 'devicestatus', 'profile', 'food', 'settings'].forEach(function (name) {
+      assert.equal(rules[name].v3.create.identifier.pick, 'p4', name);
+    });
+    ['treatments', 'entries', 'devicestatus', 'profile', 'food', 'activity'].forEach(function (name) {
+      assert.deepStrictEqual(rules[name].socket.update.forms.merge.identifier.timeKeys, P4_TIME_KEYS[name], name);
+    });
+  });
+
+  it('the time keys per collection', function ( ) {
+    assert.deepStrictEqual(P4_TIME_KEYS, { treatments: ['created_at'], devicestatus: ['created_at'], food: ['created_at']
+      , activity: ['created_at'], entries: ['sysTime', 'date'], profile: ['startDate'], settings: [ ] });
+  });
+
+  it('equal time key: the record at the write\'s time, though another is newer', function ( ) {
+    assert.equal(p4Pick([NEW, OLD], { created_at: OLD.created_at }, P4_TIME_KEYS.treatments, 'treatments test'), OLD);
+    assert.equal(p4Pick([NEW, OLD], { created_at: NEW.created_at }, P4_TIME_KEYS.treatments, 'treatments test'), NEW);
+  });
+
+  it('equal time key spelled another way (offset, precision): the same moment', function ( ) {
+    assert.equal(p4Pick([NEW, OLD], { created_at: '2019-05-11T09:40:00+02:00' }, ['created_at'], 'x'), OLD);
+    assert.equal(p4Pick([NEW, OLD], { created_at: '2019-05-11T07:40:00Z' }, ['created_at'], 'x'), OLD);
+    const entries = [{ _id: NEW._id, date: 1557560520000 }, { _id: OLD._id, date: 1557560400000, sysTime: '2019-05-11T07:40:00.000Z' }];
+    assert.equal(p4Pick(entries, { date: 1557560400000 }, P4_TIME_KEYS.entries, 'x'), entries[1]);
+    assert.equal(p4Pick(entries, { sysTime: '2019-05-11T07:40:00.000Z' }, P4_TIME_KEYS.entries, 'x'), entries[1]);
+  });
+
+  it('two records at the write\'s time: the newer of them', function ( ) {
+    const twin = Object.assign({ }, OLD, { _id: new ObjectId('5f00000000000000000000e3') });
+    assert.equal(p4Pick([twin, NEW, OLD], { created_at: OLD.created_at }, ['created_at'], 'x'), twin);
+  });
+
+  it('a differing time key: the newest by _id', function ( ) {
+    assert.equal(p4Pick([NEW, OLD], { created_at: '2019-05-11T08:00:00.000Z' }, P4_TIME_KEYS.treatments, 'x'), NEW);
+  });
+
+  it('no time key in the write, or none for the collection (settings): the newest by _id', function ( ) {
+    assert.equal(p4Pick([NEW, OLD], { notes: 'x' }, P4_TIME_KEYS.treatments, 'x'), NEW);
+    assert.equal(p4Pick([NEW, OLD], { created_at: OLD.created_at }, P4_TIME_KEYS.settings, 'x'), NEW);
+    assert.equal(p4Pick([NEW, OLD], { created_at: null }, P4_TIME_KEYS.treatments, 'x'), NEW);
+    assert.equal(p4Pick([NEW, OLD], undefined, P4_TIME_KEYS.treatments, 'x'), NEW);
+  });
+
+  it('food: API v1 overwrites created_at with the server time, so a re-send falls back to the newest', function ( ) {
+    const a = { _id: OLD._id, identifier: ID, created_at: OLD.created_at, carbs: 10 };
+    const b = { _id: NEW._id, identifier: ID, created_at: NEW.created_at, carbs: 15 };
+    const resent = { identifier: ID, carbs: 10, created_at: new Date(Date.UTC(2026, 9, 30, 12)).toISOString() };
+    assert.equal(p4Pick([b, a], resent, P4_TIME_KEYS.food, 'food v1/internal re-send'), b);
+  });
+
+  it('no record: null, and nothing logged; one record: that one, and nothing logged', function ( ) {
+    assert.equal(p4Pick([ ], { created_at: OLD.created_at }, ['created_at'], 'x'), null);
+    assert.equal(p4Pick([OLD], { created_at: NEW.created_at }, ['created_at'], 'x'), OLD);
+    assert.deepStrictEqual(warnings, [ ]);
+  });
+
+  it('logs every ambiguous match: the path, the count and the picked _id, never the identifier', function ( ) {
+    p4Pick([NEW, OLD], { created_at: OLD.created_at }, ['created_at'], 'treatments v1/internal re-send');
+    p4Pick([NEW, OLD], { created_at: 'never' }, ['created_at'], 'treatments v1/internal re-send');
+    assert.equal(warnings.length, 2);
+    assert(warnings[0].includes('treatments v1/internal re-send: identifier names 2 records; the write lands on '
+      + OLD._id.toHexString() + ' (same time)'), warnings[0]);
+    assert(warnings[1].endsWith(NEW._id.toHexString() + ' (newest)'), warnings[1]);
+    warnings.forEach(function (line) { assert(!line.includes(ID), line); });
+  });
+
+  it('a string _id (UUID_HANDLING stored the identifier there) is logged by its kind only', function ( ) {
+    const legacy = { _id: ID, created_at: OLD.created_at };
+    assert.equal(p4Pick([NEW, legacy], { created_at: OLD.created_at }, ['created_at'], 'x'), legacy);
+    assert.equal(warnings.length, 1);
+    assert(warnings[0].endsWith('a string _id (same time)'), warnings[0]);
+    assert(!warnings[0].includes(ID), warnings[0]);
   });
 });

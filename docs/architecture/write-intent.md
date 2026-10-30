@@ -36,7 +36,9 @@ in one place.
 
 The step calls only the storage interface, never the driver, and emits nothing. API v3 writes through
 the cached wrapper's identifier methods (`insertOne`, `replaceOne`, `updateOne`, `updateEveryForm`,
-`deleteEveryForm`). Each updates or removes only the record written in the in-memory cache. Do not
+`deleteEveryForm`). When the identifying read picked one of several records that share an identifier
+(P4), `replaceOne` and `updateOne` take that record's `_id` as one more argument and write it by `_id`.
+Each updates or removes only the record written in the in-memory cache. Do not
 route a v3 write through the query methods (`replaceFiltered`, `updateMany`, `deleteMany`, `bulkUpsert`,
 `insertMany`): in the cached wrapper they empty the whole cache, which the server then reloads from
 MongoDB.
@@ -90,6 +92,7 @@ named vocabularies in the same file:
 | `V3_STAMPS` | API v3's ordered stamps per operation | `units`, `dates-created`, `dates-replaced`, `subject`, `duration` |
 | `write` | the storage call | `insert-one`, `replace-one`, `socket-add`, `socket-merge`, `v3-insert`, `v3-replace`, `v3-merge` |
 | `SOCKET_ADD` | the socket's dbAdd match for treatments, devicestatus and profile | exact match, then the ±2 s similar match for treatments |
+| `IDENTIFIER_ALSO`, `IDENTIFIER_PICKS`, `P4_TIME_KEYS` | identifier-match: what is matched beside `identifier`, and which record a write lands on when one identifier names several | `uuid-id`, `shown-id`; `p4` (the record at the write's time key, else the newest by `_id`; ID-Q5), `every` |
 
 To change a rule, change the row. To add a rule the vocabulary lacks, add a named entry to the
 vocabulary and use it from the row. Do not write the rule into a route.
