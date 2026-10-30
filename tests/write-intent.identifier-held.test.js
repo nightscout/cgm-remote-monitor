@@ -18,6 +18,8 @@ const ID_X = 'f1d2c3b4-0000-4000-8000-00000000e001';
 const ID_Y = 'f1d2c3b4-0000-4000-8000-00000000e002';
 const WRITES = ['replaceFiltered', 'bulkUpsert', 'updateMany', 'deleteMany', 'insertOne', 'updateOne', 'replaceOne'];
 
+const { isOnDeletedRead } = require('./lib/on-deleted-read');
+
 // Storage that answers the identifier-held read (a filter on `identifier`)
 // with the holders that read does not exclude, and every other read (the
 // server-date read by _id) with X; it records every call.
@@ -26,6 +28,8 @@ function storage (x, holders) {
   const s = {
     calls,
     findFiltered: async function (ast, opts) {
+      // ID-FIRST-MATCH slice 3: the on-deleted read; X is live here.
+      if (isOnDeletedRead(ast)) return [ ];
       const text = JSON.stringify(ast);
       if (text.indexOf('"field":"identifier"') === -1) { calls.push(['read-x']); return x ? [Object.assign({ }, x)] : [ ]; }
       calls.push(['read-held', ast]);

@@ -309,11 +309,19 @@ describe('websocket: dbUpdate, dbUpdateUnset and dbRemove addressed by identifie
       (await stored('treatments')).map(plain).should.eql(before.map(plain));
     });
 
+    // CHANGED EXPECTATION (ID-FIRST-MATCH slice 3, ID-Q3): an edit of a
+    // soft-deleted record, by identifier as by _id, is answered success and
+    // not applied (WRITE_DELETED_EDIT=ignore); the record stays deleted and
+    // nothing is announced. It was applied.
     it('a soft-deleted record is edited by identifier as it is by _id today', async function () {
       var a = await seed('treatments', treatment(0, { carbs: 20, identifier: ID, notes: 'a', isValid: false }));
       var result = await send('dbUpdate', { collection: 'treatments', identifier: ID, data: { notes: 'edited' } });
       result.reply.should.eql({ result: 'success' });
-      withoutServerTime((await stored('treatments'))[0]).should.eql(withoutServerTime(Object.assign({}, a, { notes: 'edited' })));
+      result.events.should.eql([]);
+      withoutServerTime((await stored('treatments'))[0]).should.eql(withoutServerTime(a));
+      var byId = await send('dbUpdate', { collection: 'treatments', _id: String(a._id), data: { notes: 'edited' } });
+      byId.reply.should.eql({ result: 'success' });
+      withoutServerTime((await stored('treatments'))[0]).should.eql(withoutServerTime(a));
     });
 
     it('food: dbUpdate and dbRemove by identifier', async function () {

@@ -18,6 +18,8 @@ const srvDates = require('../lib/server/srv-dates');
 // before the rules moved, and answer one item per document with what
 // happened to it.
 
+const { isOnDeletedRead } = require('./lib/on-deleted-read');
+
 // A driver collection that records every call and answers from `stored`.
 function driver (calls, stored, upserted) {
   const record = name => function (...args) {
@@ -50,6 +52,13 @@ function driver (calls, stored, upserted) {
   for (const name of ['bulkWrite', 'insertOne', 'insertMany', 'deleteOne', 'deleteMany',
     'replaceOne', 'updateOne', 'updateMany']) col[name] = record(name);
   col.find = function (filter, options) {
+    // ID-FIRST-MATCH slice 3: the on-deleted read finds no deleted record
+    // here and is left out of the calls (tests/lib/on-deleted-read.js).
+    if (isOnDeletedRead(filter)) {
+      const none = { sort: () => none, skip: () => none, limit: () => none, project: () => none,
+        toArray: () => Promise.resolve([ ]) };
+      return none;
+    }
     calls.push(['find', filter, options]);
     if (driver.failFind) throw driver.failFind;
     const cursor = { sort: () => cursor, skip: () => cursor, limit: () => cursor, project: () => cursor,

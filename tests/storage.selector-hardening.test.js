@@ -139,6 +139,12 @@ describe('legacy storage selector hardening', function () {
       bulkWrite: async function (operations) {
         capturedOperations = operations;
         return {upsertedIds: {}};
+      },
+      // ID-FIRST-MATCH slice 3: the on-deleted read before the write; nothing stored.
+      find: function () {
+        var cursor = {sort: () => cursor, skip: () => cursor, limit: () => cursor, project: () => cursor,
+          batchSize: () => cursor, toArray: async () => []};
+        return cursor;
       }
     };
     var storage = storageFor('entries', collection).api;

@@ -408,16 +408,28 @@ describe('write(intent): API v3 PUT and PATCH /{identifier} land on the record P
 const reads = require('../lib/server/storage-reads');
 
 // Storage that answers findFiltered with `stored` and records the writes.
+// ID-FIRST-MATCH slice 3: the on-deleted read is answered with the deleted
+// records of `stored` and kept apart, in `deletedReads` (tests/lib/on-deleted-read.js).
 function socketStorage (stored) {
   const calls = [ ];
+  const deletedReads = [ ];
   return {
     calls,
-    findFiltered: async function (ast, opts) { calls.push(['findFiltered', ast, opts]); return stored.map(snap); },
+    deletedReads,
+    findFiltered: async function (ast, opts) {
+      if (isOnDeletedRead(ast)) {
+        deletedReads.push(ast);
+        return stored.filter(function (doc) { return doc.isValid === false; }).map(snap);
+      }
+      calls.push(['findFiltered', ast, opts]);
+      return stored.map(snap);
+    },
     updateMany: async function (ast, changes, opts) { calls.push(['updateMany', ast, changes, opts]); return { matchedCount: 1 }; },
     deleteMany: async function (ast, opts) { calls.push(['deleteMany', ast, opts]); return { deletedCount: stored.length }; }
   };
 }
 
+const { isOnDeletedRead } = require('./lib/on-deleted-read');
 const A_ID = new ObjectId('5f00000000000000000000d1');
 const B_ID = new ObjectId('5f00000000000000000000d2');
 const A = { _id: A_ID, identifier: ID, created_at: '2019-05-11T07:40:00.000Z', notes: 'a' };
@@ -462,6 +474,17 @@ describe('write(intent): the socket\'s edit and remove addressed by identifier (
     const { planned, storage } = await socketEdit('unset', [B, A], { notes: 1 });
     assert.deepStrictEqual(planned.match.filter, { _id: { $in: require('../lib/server/object-id-forms').idForms(B_ID) } });
     assert.equal(storage.calls[1][0], 'updateMany');
+  });
+
+  // ID-FIRST-MATCH slice 3 (ID-Q3): an edit addressed by identifier that
+  // lands on a soft-deleted record is not applied (WRITE_DELETED_EDIT=ignore).
+  it('one soft-deleted record: dbUpdate by identifier is not applied, and nothing is written', async function ( ) {
+    const deletedA = Object.assign({ }, A, { isValid: false });
+    const { storage, written } = await socketEdit('merge', [deletedA], { notes: 'x' });
+    assert.equal(storage.deletedReads.length, 1);
+    assert.deepStrictEqual(storage.calls.map(function (c) { return c[0]; }), ['findFiltered', 'findFiltered']);
+    assert.deepStrictEqual(written.items, [{ index: 0, outcome: 'unchanged', _id: A_ID, identifier: ID
+      , reason: writeIntent.DELETED_REASON }]);
   });
 
   it('no record: not-found, and nothing is written', async function ( ) {

@@ -19,6 +19,8 @@ const writeIntent = require('../lib/storage/write-intent');
 
 const OWN_LOG = /lib\/server\/(treatments|entries|devicestatus|profile)\.js|fixtures\/write-intent\/|lib\/storage\/write-intent\.js/;
 
+const { isOnDeletedRead } = require('./lib/on-deleted-read');
+
 const FIXED = /^(aaaa|bbbb|cccc|dddd|eeee|0000)/;
 
 // A driver collection that records every call and answers as configured:
@@ -62,6 +64,13 @@ function driver (calls, cfg) {
   for (const name of ['bulkWrite', 'insertOne', 'insertMany', 'deleteOne', 'deleteMany',
     'replaceOne', 'updateOne', 'updateMany']) col[name] = answer(name);
   col.find = function (filter, options) {
+    // ID-FIRST-MATCH slice 3: the on-deleted read, new since the frozen
+    // copies; it finds no deleted record here (tests/lib/on-deleted-read.js).
+    if (isOnDeletedRead(filter)) {
+      const none = { sort: () => none, skip: () => none, limit: () => none, project: () => none,
+        batchSize: () => none, toArray: () => Promise.resolve([ ]) };
+      return none;
+    }
     calls.push(['find', filter, options]);
     if (cfg.fail && cfg.fail.find) throw cfg.fail.find;
     if (cfg.failFindAt !== undefined && calls.filter(c => c[0] === 'find').length - 1 === cfg.failFindAt) {
@@ -459,8 +468,10 @@ describe('write(intent): the entries rule table (slice 5)', function ( ) {
     // the identifier, under UUID_HANDLING also an _id; the update's own pick; the reply's last read.
     // CHANGED EXPECTATION (ID-FIRST-MATCH slice 5, ID-Q5): of several entries with the identifier,
     // the update lands on the one P4 picks (pick 'p4'; it was 'driver-first').
+    // CHANGED EXPECTATION (ID-FIRST-MATCH slice 3, ID-Q4): on-deleted, 'stays-deleted'.
     assert.deepEqual(rules.create, { plan: 'entries', write: 'entries-merge-bulk', onMatch: 'merged'
-      , identifier: { also: 'uuid-id', pick: 'p4', replyAlso: 'uuid-id', replyPick: 'last-read' } });
+      , identifier: { also: 'uuid-id', pick: 'p4', replyAlso: 'uuid-id', replyPick: 'last-read' }
+      , deleted: 'stays-deleted' });
     assert.deepEqual(rules.delete, { target: 'query' });
   });
 
@@ -664,7 +675,8 @@ describe('write(intent): the profile rule table (slice 5)', function ( ) {
 
   it('creates by insert or merge, saves by replace with the twin removal after, removes every form, prunes by query', function ( ) {
     const rules = writeIntent.COLLECTION_RULES.profile['v1/internal'];
-    assert.deepEqual(rules.create, { write: 'profiles', dates: 'stamp-created' });
+    // CHANGED EXPECTATION (ID-FIRST-MATCH slice 3, ID-Q4): on-deleted, 'stays-deleted'.
+    assert.deepEqual(rules.create, { write: 'profiles', dates: 'stamp-created', deleted: 'stays-deleted' });
     assert.equal(rules.update.id, 'hex-or-new');
     assert.equal(rules.update.twins, 'remove-string-forms-after');
     assert.equal(rules.update.dates, 'carry');

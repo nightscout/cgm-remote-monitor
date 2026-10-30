@@ -85,7 +85,9 @@ describe('WRITE_IDENTIFIER and WRITE_VALIDATION: one parse (lib/server/write-set
 
   it('defaults to lenient and off', function ( ) {
     const result = parsed({ });
-    assert.deepStrictEqual(result.write, { validation: 'off', identifier: 'lenient' });
+    // CHANGED EXPECTATION (ID-FIRST-MATCH slice 3, ID-Q3): the parse also
+    // holds WRITE_DELETED_EDIT, `ignore` by default.
+    assert.deepStrictEqual(result.write, { validation: 'off', identifier: 'lenient', deletedEdit: 'ignore' });
     assert.deepStrictEqual(result.errors, [ ]);
   });
 
@@ -115,7 +117,8 @@ describe('WRITE_IDENTIFIER and WRITE_VALIDATION: one parse (lib/server/write-set
       process.env.WRITE_IDENTIFIER = 'strict';
       process.env.WRITE_VALIDATION = 'log';
       let env = require('../lib/server/env')();
-      assert.deepStrictEqual(env.write, { validation: 'log', identifier: 'strict' });
+      // CHANGED EXPECTATION (ID-FIRST-MATCH slice 3, ID-Q3): WRITE_DELETED_EDIT too.
+      assert.deepStrictEqual(env.write, { validation: 'log', identifier: 'strict', deletedEdit: 'ignore' });
       assert.equal(env.writeValidation, 'log');
       assert.equal(env.err.length, 0);
 

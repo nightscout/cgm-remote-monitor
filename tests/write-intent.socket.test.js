@@ -52,6 +52,8 @@ function copy (value) {
   return value;
 }
 
+const { isOnDeletedRead } = require('./lib/on-deleted-read');
+
 // The storage interface (lib/api3/storage/mongoCollection) as the socket's
 // rules use it, recording every call. Each read answers the next of `reads`
 // (a fresh copy); `failAt` makes the call with that index throw `failure`.
@@ -63,7 +65,13 @@ function recorder (reads, failAt, failure, matchedCount) {
     if (calls.length - 1 === failAt) throw failure;
   };
   const storage = {
-    findFiltered: async function (ast, opts) { step('findFiltered', [ast, opts]); return copy(queue.shift() || [ ]); },
+    findFiltered: async function (ast, opts) {
+      // ID-FIRST-MATCH slice 3: the on-deleted read finds no deleted record
+      // here and is left out of the calls (tests/lib/on-deleted-read.js).
+      if (isOnDeletedRead(ast)) return [ ];
+      step('findFiltered', [ast, opts]);
+      return copy(queue.shift() || [ ]);
+    },
     insertOne: async function (doc, opts) {
       step('insertOne', [doc, opts]);
       if (doc._id === undefined || doc._id === null) doc._id = NEW_ID;

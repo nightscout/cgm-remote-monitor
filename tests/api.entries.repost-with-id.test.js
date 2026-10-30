@@ -18,6 +18,7 @@
 // every item in the response has an `_id`).
 
 var request = require('supertest');
+var { isOnDeletedRead } = require('./lib/on-deleted-read');
 require('should');
 var ObjectID = require('mongodb').ObjectId;
 var language = require('../lib/language')();
@@ -229,6 +230,10 @@ describe('entries: a re-POST carrying an _id updates the stored entry', function
             get: function (target, prop) {
               if (prop === 'find') {
                 return function (filter) {
+                  // ID-FIRST-MATCH slice 3: the on-deleted read before the
+                  // write is not one of the reads these fixtures count, and a
+                  // failure of it would fail the write (tests/lib/on-deleted-read.js).
+                  if (isOnDeletedRead(filter)) return target.find.apply(target, arguments);
                   finds.push(filter);
                   if (failFind) throw new Error('test read failure');
                   return target.find.apply(target, arguments);
