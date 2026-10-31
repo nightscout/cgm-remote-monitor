@@ -2,6 +2,10 @@
 // head), kept as the reference the write step's identifying read is compared
 // with (tests/write-intent.identifier-match.test.js). Only the require paths
 // differ from that file. Not loaded by the server.
+// CHANGED (ID-FIRST-MATCH slice 4): acknowledge.applies, the devicestatus rule
+// this file called, left lib/api3/generic/create/acknowledge.js when device
+// status started to merge on an identifier match (ID-Q2); it is kept below as
+// it was, so this copy still answers as 9919f8ef did.
 'use strict';
 
 const apiConst = require('../../../lib/api3/const.json')
@@ -12,6 +16,7 @@ const apiConst = require('../../../lib/api3/const.json')
   , opTools = require('../../../lib/api3/shared/operationTools')
   , writePurifier = require('../../../lib/api3/shared/writePurifier')
   , acknowledge = require('../../../lib/api3/generic/create/acknowledge')
+  , idForms = require('../../../lib/server/object-id-forms')
   ;
 
 
@@ -57,7 +62,7 @@ async function create (opCtx) {
 
   if (result.length > 0) {
     const storageDoc = result[0];
-    if (acknowledge.applies(col, doc, storageDoc)) {
+    if (acknowledgeApplies(col, doc, storageDoc)) {
       await acknowledge(opCtx, doc, storageDoc);
     } else {
       await replace(opCtx, doc, storageDoc, { isDeduplication: true });
@@ -90,3 +95,13 @@ function createOperation (ctx, env, app, col) {
 }
 
 module.exports = createOperation;
+
+// lib/api3/generic/create/acknowledge.js applies() at c9b74404.
+function sameIdentifier (stored, sent) {
+  if (stored === sent) return true;
+  return idForms.isHexId(stored) && idForms.isHexId(sent) && stored.toLowerCase() === sent.toLowerCase();
+}
+
+function acknowledgeApplies (col, doc, storageDoc) {
+  return col.colName === 'devicestatus' && sameIdentifier(storageDoc.identifier, doc.identifier);
+}
