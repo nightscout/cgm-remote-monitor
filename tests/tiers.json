@@ -260,6 +260,7 @@
         "tests/soft-deleted.jl1.test.js",
         "tests/write-intent.on-deleted.test.js",
         "tests/write-intent.merge-on-match.test.js",
+        "tests/write-intent.resend-replace.test.js",
         "tests/storage*.test.js",
         "tests/uuid-handling.test.js",
         "tests/verifyauth.test.js",

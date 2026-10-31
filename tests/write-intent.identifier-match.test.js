@@ -221,12 +221,14 @@ describe('write(intent): API v3 create\'s identifying read, moved into the step'
       now.calls = now.calls.filter(function (call) { return call[0] !== 'findFiltered'; });
       if (label === 'a device status re-sent with its identifier is acknowledged') {
         // CHANGED EXPECTATION (ID-FIRST-MATCH slice 4, ID-Q2): a device status
-        // matched by its identifier is merged into the stored one (updateOne by
-        // identifier, then the cache's read-back), answered with the
-        // deduplication reply of a write, and announced; it was acknowledged
-        // with no write. The identifying read is the same.
+        // matched by its identifier is written into the stored one, answered
+        // with the deduplication reply of a write, and announced; it was
+        // acknowledged with no write. The identifying read is the same.
+        // CHANGED EXPECTATION (maintainer 2026-10-31, compat card B): the write is a
+        // replace (replaceOne by identifier, then the cache's read-back), as on
+        // 15.0.9; slice 4 had it merged (updateOne).
         assert.deepStrictEqual(now.calls.slice(0, before.calls.length), before.calls);
-        assert.deepStrictEqual(now.calls.slice(before.calls.length).map(function (call) { return call[0]; }), ['updateOne', 'findOne']);
+        assert.deepStrictEqual(now.calls.slice(before.calls.length).map(function (call) { return call[0]; }), ['replaceOne', 'findOne']);
         assert.equal(now.calls[before.calls.length][1], ID);
         assert.equal(now.status, 200);
         assert.equal(before.status, 200);

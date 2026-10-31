@@ -110,25 +110,11 @@ async function compareAdd (collection, sent, reads, failAt, failure) {
   const step = writeIntent.forCollection(after.storage, collection, 'socket', { env: { } });
   const now = await settle(step.write({ op: 'create', docs: [doc] }));
 
-  // CHANGED EXPECTATION (ID-FIRST-MATCH slice 4, ID-Q8, ID-Q7): a profile that
-  // matches is merged into the stored one: updateMany(the same _id filter,
-  // { set: the replacement's fields, _id aside }, { one }) where dbAdd made
-  // replaceFiltered. Every other call is the same; the outcome is `merged`,
-  // answered with the replacement document as before (`record`), and `stored`
-  // is the record as merged.
-  const replaced = collection === 'profile' && before.calls.length > 0
-    && before.calls[before.calls.length - 1][0] === 'replaceFiltered';
-  if (replaced) {
-    const last = before.calls.length - 1;
-    const replacement = Object.assign({ }, before.calls[last][2]);
-    delete replacement._id;
-    assert.deepEqual(after.calls.slice(0, last), before.calls.slice(0, last), 'the same storage calls');
-    assert.deepEqual(after.calls[last], ['updateMany', before.calls[last][1], { set: replacement, unset: undefined }
-      , { one: true, v1: true }], 'the merge');
-    assert.equal(after.calls.length, before.calls.length);
-  } else {
-    assert.deepEqual(after.calls, before.calls, 'the same storage calls');
-  }
+  // CHANGED EXPECTATION (maintainer 2026-10-31, compat card B): a profile that
+  // matches is replaced again, so every call is dbAdd's own (replaceFiltered);
+  // slice 4 (ID-Q8, ID-Q7) had it merged (updateMany with { set }) and this
+  // comparison put the merge aside.
+  assert.deepEqual(after.calls, before.calls, 'the same storage calls');
   assert.deepEqual(norm(doc), norm(legacyDoc), 'the document left as it was');
   if (legacy.error) {
     assert(now.error, 'the step fails where the handler failed');
@@ -145,14 +131,6 @@ async function compareAdd (collection, sent, reads, failAt, failure) {
   }
   assert(!now.error, String(now.error));
   const written = now.value.items[0];
-  if (replaced) {
-    assert.equal(written.outcome, 'merged');
-    assert.equal(legacy.value.kind, 'replaced');
-    assert.deepEqual(norm(written.record), norm(legacy.value.record));
-    const storedBefore = reads[0][0];
-    assert.deepEqual(norm(written.stored), norm(Object.assign({ }, storedBefore, legacy.value.record)));
-    return { legacy, now, calls: after.calls };
-  }
   assert.equal(KIND_OF[written.outcome], legacy.value.kind);
   if (written.outcome === 'inserted') {
     assert.deepEqual(norm(written._id), norm(legacy.value.record._id));

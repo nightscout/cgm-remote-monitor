@@ -17,7 +17,17 @@
 //   without a write); API v3's created_at + device fallback keeps its replace
 //   (ID-NATURAL-KEY).
 // The outcome each path reports becomes `merged` where it was `replaced`; the
-// replies are otherwise as before. Every seed carries a field the re-send
+// replies are otherwise as before.
+//
+// CHANGED EXPECTATIONS (maintainer 2026-10-31, compat card B, `c1-replace`):
+// a matched re-send REPLACES again on API v3 POST (every collection), the
+// socket's profile dbAdd, and an API v1 / in-process food or activity create
+// by a stored _id, as on 15.0.9. ID-Q8's merge stays for an API v1 /
+// in-process / socket create that identifier first sent to a stored record,
+// for API v1 entries, device status and profile creates, and for PATCH and
+// dbUpdate. ID-Q7 (`store` whole) is moot where the record is replaced. Each
+// test below that changed says so; tests/write-intent.resend-replace.test.js
+// holds card B's own tests. Every seed carries a field the re-send
 // leaves out (`kept`), so a merge and a replace differ on the stored record.
 // Synthetic values only.
 
@@ -64,22 +74,28 @@ describe('merge on match: the rule (RFC 7386, ID-Q8, ID-Q7)', function ( ) {
       .should.eql({ Default: { dia: 5 } });
   });
 
-  it('every create that matches merges, except a treatment\'s; only PUT and save replace', function ( ) {
+  // CHANGED EXPECTATION (maintainer 2026-10-31, compat card B): food and
+  // activity creates by _id, the socket's profile dbAdd and every API v3 POST
+  // replace; it said `merged` for each.
+  it('a create that matches merges where card B left the merge; only PUT and save replace', function ( ) {
     const rules = writeIntent.COLLECTION_RULES;
     rules.treatments['v1/internal'].create.forms.batch.onMatch.should.equal('replaced');
     rules.treatments['v1/internal'].create.forms.one.onMatch.should.equal('replaced');
     rules.treatments['v1/internal'].update.onMatch.should.equal('replaced');
     // the preBolus record is one the server derives, not a client re-send (Q-H)
     rules.treatments['v1/internal'].create.forms.prebolus.onMatch.should.equal('replaced');
-    rules.food['v1/internal'].create.onMatch.should.equal('merged');
+    rules.food['v1/internal'].create.onMatch.should.equal('replaced');
+    rules.food['v1/internal'].create.onIdentifierMatch.should.equal('merged');
     rules.food['v1/internal'].update.onMatch.should.equal('replaced');
-    rules.activity['v1/internal'].create.onMatch.should.equal('merged');
+    rules.activity['v1/internal'].create.onMatch.should.equal('replaced');
+    rules.activity['v1/internal'].create.onIdentifierMatch.should.equal('merged');
     rules.activity['v1/internal'].update.onMatch.should.equal('replaced');
     rules.devicestatus['v1/internal'].create.onMatch.should.equal('merged');
-    rules.profile.socket.create.onExact.should.equal('merged');
+    rules.profile.socket.create.onExact.should.equal('replaced');
+    rules.profile.socket.create.onIdentifier.should.equal('replaced');
     rules.treatments.v3.create.onMatch.should.equal('replaced');
     ['entries', 'devicestatus', 'profile', 'food', 'settings'].forEach(function (name) {
-      rules[name].v3.create.onMatch.should.equal('merged');
+      rules[name].v3.create.onMatch.should.equal('replaced');
     });
     ['treatments', 'entries', 'devicestatus', 'profile', 'food', 'settings'].forEach(function (name) {
       rules[name].v3.update.write.should.equal('v3-replace');
@@ -88,11 +104,15 @@ describe('merge on match: the rule (RFC 7386, ID-Q8, ID-Q7)', function ( ) {
     rules.devicestatus.v3.create.onTimeMatch.should.equal('replaced');
   });
 
-  it('a profile re-send takes `store` whole on every path (ID-Q7)', function ( ) {
+  // CHANGED EXPECTATION (maintainer 2026-10-31, compat card B): the socket's
+  // profile dbAdd and API v3 POST replace the whole record, so they name no
+  // merge; ID-Q7 holds where a profile re-send still merges (API v1,
+  // in-process).
+  it('a profile re-send that merges takes `store` whole (ID-Q7); where it replaces, no merge is named', function ( ) {
     const rules = writeIntent.COLLECTION_RULES;
     rules.profile['v1/internal'].create.merge.should.equal('rfc7386-store-whole');
-    rules.profile.socket.create.merge.should.equal('rfc7386-store-whole');
-    rules.profile.v3.create.merge.should.equal('rfc7386-store-whole');
+    assert.equal(rules.profile.socket.create.merge, undefined);
+    assert.equal(rules.profile.v3.create.merge, undefined);
     writeIntent.MERGES['rfc7386-store-whole'].whole.should.eql(['store']);
     writeIntent.MERGES.rfc7386.whole.should.eql([ ]);
   });
@@ -109,7 +129,7 @@ describe('merge on match: the rule (RFC 7386, ID-Q8, ID-Q7)', function ( ) {
   });
 });
 
-describe('ID-FIRST-MATCH slice 4: a matched re-send merges, on every path but treatments\'', function ( ) {
+describe('ID-FIRST-MATCH slice 4: a matched re-send merges where compat card B left the merge', function ( ) {
   const self = this
     , instance = require('./fixtures/api3/instance')
     , authSubject = require('./fixtures/api3/authSubject')
@@ -312,7 +332,9 @@ describe('ID-FIRST-MATCH slice 4: a matched re-send merges, on every path but tr
         , carbs: 20, notes: note }, fields);
     }
 
-    it('a re-send merges through updateOne: the reply is the deduplication reply, the cache holds the merged record, no flush', async ( ) => {
+    // CHANGED EXPECTATION (maintainer 2026-10-31, compat card B): an entries
+    // re-send replaces (it merged: `kept` stayed); a null is stored as sent.
+    it('a re-send replaces: the reply is the deduplication reply, the cache holds the replaced record, no flush', async ( ) => {
       const device = tag();
       const identifier = uuid();
       const date = Date.now() - 600000;
@@ -326,14 +348,14 @@ describe('ID-FIRST-MATCH slice 4: a matched re-send merges, on every path but tr
       res.body.identifier.should.equal(identifier);
       res.body.isDeduplication.should.equal(true);
       const stored = await only('entries', 'device', device);
-      stored.kept.should.equal(1);
+      has(stored, 'kept').should.equal(false);
       stored.sgv.should.equal(130);
-      has(stored, 'gone').should.equal(false);
+      assert.strictEqual(stored.gone, null);
       res.body.lastModified.should.equal(stored.srvModified);
       flushes(seen).length.should.equal(0);
       const inCache = cached('entries', stored._id);
       inCache.length.should.equal(1);
-      inCache[0].kept.should.equal(1);
+      has(inCache[0], 'kept').should.equal(false);
       inCache[0].sgv.should.equal(130);
     });
 
@@ -397,7 +419,9 @@ describe('ID-FIRST-MATCH slice 4: a matched re-send merges, on every path but tr
       stored.carbs.should.equal(26);
     });
 
-    it('profile: `store` is replaced whole, the other fields merge (ID-Q7)', async ( ) => {
+    // CHANGED EXPECTATION (maintainer 2026-10-31, compat card B): the whole
+    // profile is replaced (ID-Q7 moot); `kept` was merged in and stayed.
+    it('profile: the whole record is replaced, `store` included', async ( ) => {
       const name = tag();
       const identifier = uuid();
       const date = Date.now() - 600000;
@@ -407,10 +431,12 @@ describe('ID-FIRST-MATCH slice 4: a matched re-send merges, on every path but tr
       await v3('post', '/profile').send(profile({ store: { [name]: { dia: 5 } } })).expect(200);
       const stored = await only('profile', 'defaultProfile', name);
       stored.store.should.eql({ [name]: { dia: 5 } });
-      stored.kept.should.equal(1);
+      has(stored, 'kept').should.equal(false);
     });
 
-    it('devicestatus: a re-send by identifier merges (ID-Q2; it was acknowledged)', async ( ) => {
+    // CHANGED EXPECTATION (maintainer 2026-10-31, compat card B): ID-Q2's
+    // merge on API v3 is reversed; the re-send replaces.
+    it('devicestatus: a re-send by identifier replaces (compat card B; ID-Q2 had it merge)', async ( ) => {
       const device = tag();
       const identifier = uuid();
       const date = Date.now() - 300000;
@@ -418,7 +444,7 @@ describe('ID-FIRST-MATCH slice 4: a matched re-send merges, on every path but tr
       const res = await v3('post', '/devicestatus').send({ identifier, date, utcOffset: 0, app: 'merge', device, uploaderBattery: 60 }).expect(200);
       res.body.isDeduplication.should.equal(true);
       const stored = await only('devicestatus', 'device', device);
-      stored.kept.should.equal(1);
+      has(stored, 'kept').should.equal(false);
       stored.uploaderBattery.should.equal(60);
       res.body.lastModified.should.equal(stored.srvModified);
     });
@@ -471,28 +497,34 @@ describe('ID-FIRST-MATCH slice 4: a matched re-send merges, on every path but tr
       stored.kept.should.equal(1);
     });
 
-    it('food: a create re-send by _id merges; PUT replaces (ID-Q8)', async ( ) => {
+    // CHANGED EXPECTATION (maintainer 2026-10-31, compat card B): a create
+    // re-send by _id replaces, as on 15.0.9 (it merged: `kept` stayed).
+    it('food: a create re-send by _id replaces; PUT replaces', async ( ) => {
       const name = tag();
       const first = await v1('post', '/food/').send({ type: 'food', name, carbs: 10, kept: 1 }).expect(200);
       const id = String(first.body[0]._id);
       await v1('post', '/food/').send({ _id: id, type: 'food', name, carbs: 11 }).expect(200);
       let stored = await only('food', 'name', name);
-      stored.kept.should.equal(1);
+      has(stored, 'kept').should.equal(false);
       stored.carbs.should.equal(11);
+      // a field to show that PUT replaces too
+      await v1('post', '/food/').send({ _id: id, type: 'food', name, carbs: 11, kept: 1 }).expect(200);
       await v1('put', '/food/').send({ _id: id, type: 'food', name, carbs: 12 }).expect(200);
       stored = await only('food', 'name', name);
       has(stored, 'kept').should.equal(false);
       stored.carbs.should.equal(12);
     });
 
-    it('activity: an in-process create re-send by _id merges (ID-Q8)', async ( ) => {
+    // CHANGED EXPECTATION (maintainer 2026-10-31, compat card B): an
+    // in-process create re-send by _id replaces (it merged: `kept` stayed).
+    it('activity: an in-process create re-send by _id replaces', async ( ) => {
       const name = tag();
       const create = (docs) => new Promise((resolve, reject) => self.instance.ctx.activity.create(docs
         , (err, result) => err ? reject(err) : resolve(result)));
       const first = await create([{ name, steps: 100, kept: 1, created_at: iso(Date.now()) }]);
       await create([{ _id: String(first[0]._id), name, steps: 150 }]);
       const stored = await only('activity', 'name', name);
-      stored.kept.should.equal(1);
+      has(stored, 'kept').should.equal(false);
       stored.steps.should.equal(150);
     });
 
@@ -511,7 +543,9 @@ describe('ID-FIRST-MATCH slice 4: a matched re-send merges, on every path but tr
 
   describe('the socket', function ( ) {
 
-    it('profile dbAdd: an exact match merges, `store` whole (ID-Q7); the ack is the document as written', async ( ) => {
+    // CHANGED EXPECTATION (maintainer 2026-10-31, compat card B): an exact
+    // match replaces the stored profile, as on 15.0.9 (`kept` was merged in).
+    it('profile dbAdd: an exact match replaces; the ack is the document as written', async ( ) => {
       const name = tag();
       const startDate = iso(Date.now() - 60000);
       const first = await emit('dbAdd', { collection: 'profile', data: { defaultProfile: name, startDate, units: 'mg/dl', kept: 1
@@ -523,7 +557,7 @@ describe('ID-FIRST-MATCH slice 4: a matched re-send merges, on every path but tr
       has(ack[0], 'kept').should.equal(false);
       ack[0].store.should.eql({ [name]: { dia: 5 } });
       const stored = await only('profile', 'defaultProfile', name);
-      stored.kept.should.equal(1);
+      has(stored, 'kept').should.equal(false);
       stored.units.should.equal('mmol');
       stored.store.should.eql({ [name]: { dia: 5 } });
     });
@@ -536,7 +570,9 @@ describe('ID-FIRST-MATCH slice 4: a matched re-send merges, on every path but tr
       await emit('dbAdd', { collection: 'profile', data: { defaultProfile: name, startDate, units: 'mg/dl', store: { [name]: { dia: 4 } } } });
       const stored = await only('profile', 'defaultProfile', name);
       has(stored, 'isValid').should.equal(false);
-      stored.kept.should.equal(1);
+      // CHANGED EXPECTATION (maintainer 2026-10-31, compat card B): revived by
+      // a replace, so `kept` is gone (the merge kept it).
+      has(stored, 'kept').should.equal(false);
       stored.store.should.eql({ [name]: { dia: 4 } });
     });
   });

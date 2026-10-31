@@ -144,12 +144,12 @@ describe('write(intent): food from API v1 and in-process callers', function ( ) 
       const docs = input();
       const result = await writeIntent.forCollection(after.storage, 'food', 'v1/internal').write({ op, docs });
 
-      // CHANGED EXPECTATION (ID-FIRST-MATCH slice 4, ID-Q8): a create whose _id
-      // names the stored record is merged into it (an upserting updateOne whose
-      // $set is the document food.js replaced with; tests/lib/merge-on-match.js
-      // puts it back and counts it); update (PUT, save) still replaces.
+      // CHANGED EXPECTATION (maintainer 2026-10-31, compat card B): a create whose
+      // _id names the stored record replaces it again, as food.js did, so the
+      // calls are food.js's with no merge to put back (slice 4, ID-Q8, had it
+      // merged and counted one).
       const { calls, merged } = unmerge(shape(after.calls), shape(before.calls));
-      assert.equal(merged, op === 'create' ? 1 : 0);
+      assert.equal(merged, 0);
       assert.deepEqual(calls, shape(before.calls));
       assert.deepEqual(after.committed, before.committed);
       assert.equal(after.committed.length, 1, 'one bulk write, one commit event');
@@ -165,8 +165,9 @@ describe('write(intent): food from API v1 and in-process callers', function ( ) 
     const docs = batch();
     const result = await writeIntent.forCollection(storage, 'food', 'v1/internal').write({ op: 'create', docs });
 
-    // CHANGED EXPECTATION (ID-FIRST-MATCH slice 4, ID-Q8): a create that matched is `merged`; it was `replaced`.
-    assert.deepEqual(result.items.map(i => [i.index, i.outcome]), [[0, 'inserted'], [1, 'merged'], [2, 'inserted']]);
+    // CHANGED EXPECTATION (maintainer 2026-10-31, compat card B): a create that matched by its _id is `replaced`
+    // again (slice 4, ID-Q8, answered `merged`).
+    assert.deepEqual(result.items.map(i => [i.index, i.outcome]), [[0, 'inserted'], [1, 'replaced'], [2, 'inserted']]);
     assert(result.items[0]._id instanceof ObjectId);
     assert.equal(result.items[0]._id.toHexString(), HEX, 'an upper-case 24-hex _id is stored as its ObjectId');
     assert.equal(result.items[2]._id, 'custom-id', 'a create keeps a non-hex _id as given');
@@ -285,21 +286,19 @@ describe('write(intent): activity from API v1 and in-process callers', function 
     const docs = batch();
     const result = await activity(after.storage).write({ op: 'create', docs });
 
-    // CHANGED EXPECTATION (ID-FIRST-MATCH slice 4, ID-Q8): a create reads the
-    // records its _ids name first (one find; activity has no server dates to
-    // carry, so it did not read), so that one that matches is merged. None is
-    // stored here, so the bulk write is activity.js's.
-    assert.equal(after.calls[0][0], 'find');
-    assert.deepEqual(JSON.parse(JSON.stringify(after.calls.slice(1))), JSON.parse(JSON.stringify(before.calls)));
-    assert.deepEqual(after.calls.map(c => c[0]), ['find', 'bulkWrite'], 'one read, one bulk write: activity is not stamped');
+    // CHANGED EXPECTATION (maintainer 2026-10-31, compat card B): a create by _id
+    // replaces again, so it reads nothing first and the calls are activity.js's
+    // (slice 4, ID-Q8, read the records its _ids name, one find, to merge).
+    assert.deepEqual(JSON.parse(JSON.stringify(after.calls)), JSON.parse(JSON.stringify(before.calls)));
+    assert.deepEqual(after.calls.map(c => c[0]), ['bulkWrite'], 'one bulk write and no find: activity is not stamped');
     assert.deepEqual(after.committed, before.committed);
     assert.equal(after.committed.length, 1);
     assert.deepEqual(JSON.parse(JSON.stringify(docs)), JSON.parse(JSON.stringify(legacyDocs)));
     for (const doc of docs) {
       assert(!('srvCreated' in doc) && !('srvModified' in doc), 'no server dates on activity');
     }
-    assert.deepEqual(result.items.map(i => [i.index, i.outcome]), [[0, 'inserted'], [1, 'merged'], [2, 'merged']]);
-    assert.deepEqual(after.calls[1][1][3], { deleteMany: { filter: { _id: { $in: [HEX, HEX.toUpperCase(), HEX2] } } } }
+    assert.deepEqual(result.items.map(i => [i.index, i.outcome]), [[0, 'inserted'], [1, 'replaced'], [2, 'replaced']]);
+    assert.deepEqual(after.calls[0][1][3], { deleteMany: { filter: { _id: { $in: [HEX, HEX.toUpperCase(), HEX2] } } } }
       , 'the string-twin removal is appended to the same bulk write, as food does');
   });
 
