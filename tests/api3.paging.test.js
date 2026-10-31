@@ -29,7 +29,7 @@ describe('API3 PAGING over a tied sort chain', function() {
     self.subject = authResult.subject;
     self.jwt = authResult.jwt;
 
-    self.col = self.instance.ctx.devicestatus();
+    self.col = self.instance.ctx.store.collection(self.instance.env.devicestatus_collection);
     await self.col.deleteMany({ });
 
     const docs = [];

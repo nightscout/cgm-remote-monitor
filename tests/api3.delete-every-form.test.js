@@ -66,12 +66,18 @@ describe('API3: DELETE across stored identifier forms', function () {
     self.instance = await instance.create({});
     self.app = self.instance.app;
     self.env = self.instance.env;
-    self.app.use('/api/v1', require('../lib/api')(self.env, self.instance.ctx));
 
     let authResult = await authSubject(self.instance.ctx.authorization.storage, ['all'], self.instance.app);
     self.jwt = authResult.jwt;
-    self.accessToken = authResult.accessToken.all;
   });
+
+  // Stored the way POST /api/v1/<colName> stores it: through API v1's storage
+  // module, which that route hands the body to.
+  function v1Create (colName, docs) {
+    return new Promise((resolve, reject) => {
+      self.instance.v1[colName].create(docs, (err) => err ? reject(err) : resolve());
+    });
+  }
 
   after(async () => {
     await col().deleteMany({ enteredBy: 'delete-every-form-test' });
@@ -154,10 +160,7 @@ describe('API3: DELETE across stored identifier forms', function () {
     ].forEach(function (shape) {
       it('DELETE' + suffix + ' removes a v1-created treatment with identifier ' + shape.label, async () => {
         const id = new ObjectID();
-        await self.instance.post('/api/v1/treatments')
-          .set('api-secret', self.accessToken)
-          .send(sample(10, Object.assign({ _id: id.toHexString() }, shape.fields)))
-          .expect(200);
+        await v1Create('treatments', [sample(10, Object.assign({ _id: id.toHexString() }, shape.fields))]);
 
         const stored = await col().findOne({ _id: id });
         if (shape.label === 'absent') stored.should.not.have.property('identifier');
@@ -244,10 +247,7 @@ describe('API3: DELETE across stored identifier forms', function () {
       await col().insertOne(sample(n, { _id, identifier: value }));
       return _id;
     }
-    await self.instance.post('/api/v1/' + colName)
-      .set('api-secret', self.accessToken)
-      .send(V1_WRITE[colName](n, value))
-      .expect(200);
+    await v1Create(colName, [].concat(V1_WRITE[colName](n, value)));
     const stored = await colFor(colName).find({ device: 'delete-every-form-test' })
       .sort({ _id: -1 }).limit(1).toArray();
     return stored[0]._id;

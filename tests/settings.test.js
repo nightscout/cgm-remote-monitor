@@ -9,6 +9,7 @@ describe('settings', function ( ) {
   it('have defaults ready', function () {
     settings.timeFormat.should.equal(12);
     settings.nightMode.should.equal(false);
+    settings.showSeconds.should.equal(false);
     settings.showRawbg.should.equal('never');
     settings.customTitle.should.equal('Nightscout');
     settings.theme.should.equal('default');
@@ -39,6 +40,7 @@ describe('settings', function ( ) {
       , 'UNITS'
       , 'TIME_FORMAT'
       , 'NIGHT_MODE'
+      , 'SHOW_SECONDS'
       , 'SHOW_RAWBG'
       , 'CUSTOM_TITLE'
       , 'THEME'
@@ -60,7 +62,7 @@ describe('settings', function ( ) {
       , 'SCALE_Y'
     ];
 
-    expected.length.should.equal(24);
+    expected.length.should.equal(25);
 
     var seen = { };
     settings.eachSettingAsEnv(function markSeenNames(name) {
@@ -73,6 +75,14 @@ describe('settings', function ( ) {
     });
 
     expectedAndSeen.length.should.equal(expected.length);
+  });
+
+  it('maps the SHOW_SECONDS server default without overriding an explicit off value', function () {
+    [ [undefined, false], ['on', true], ['off', false], ['true', true], ['false', false] ].forEach(function (example) {
+      var fresh = require('../lib/settings')();
+      fresh.eachSettingAsEnv(function (name) { return name === 'SHOW_SECONDS' ? example[0] : undefined; });
+      fresh.showSeconds.should.equal(example[1]);
+    });
   });
   it('support setting each', function () {
     var expected = [

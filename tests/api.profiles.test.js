@@ -19,6 +19,7 @@ describe('Profiles API', function ( ) {
     self.env.settings.enable = ['careportal', 'api'];
     this.wares = require('../lib/middleware/')(self.env);
     self.app = require('express')();
+    require('../lib/middleware/configure-request')(self.app);
     self.app.enable('api');
     require('../lib/server/bootevent')(self.env, language).boot(function booted(ctx) {
       self.ctx = ctx;
@@ -26,6 +27,13 @@ describe('Profiles API', function ( ) {
       self.app.use('/api', api(self.env, ctx));
       done();
     });
+  });
+
+  // The two cases below list profiles, delete one and expect one fewer; with
+  // records left by earlier files the list is capped and the count does not
+  // move. Start each from an empty collection.
+  beforeEach(async function () {
+    await self.ctx.profile().deleteMany({});
   });
 
   it('put a profile, query, delete, verify gone', function (done) {

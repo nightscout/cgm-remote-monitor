@@ -16,10 +16,12 @@
  * window; and, on releases that deliver alarms to every page, a page that may
  * not read data at all.
  *
- * What these tests hold fixed as well as the throw: whether the alarm SOUNDS
- * is not changed. A page with no reading still does not raise an alarm - that
- * decision is the handler's, not the throw's - and a page WITH a reading still
- * does, which is also what proves the handlers below are the live ones.
+ * What these tests hold fixed as well as the throw: a GLUCOSE alarm (default
+ * group) still does not sound on a page with no reading, and a page WITH a
+ * reading still sounds, which is also what proves the handlers below are the
+ * live ones. A NON-glucose alarm (pump, loop, age...: its plugin's own group)
+ * sounds on a page with no reading exactly as it does on a page whose reading
+ * is in range, under the page's own alarm settings (BF-92).
  *
  * These run against the production bundle, like the other headless client
  * tests: rebuild it (`npm run bundle`) after changing lib/client.
@@ -64,6 +66,10 @@ describe('client alarm handlers with no reading loaded', function ( ) {
     return { level: 1, group: 'Pump', title: 'Warning, Pump Reservoir Low', message: 'Pump Reservoir Low', timestamp: Date.now() };
   }
 
+  function pumpUrgent ( ) {
+    return { level: 2, group: 'Pump', title: 'URGENT: Pump Reservoir Low', message: 'Pump Reservoir Low', timestamp: Date.now() };
+  }
+
   var client, container;
 
   // One DOM and one bundle for the file, as the other headless client tests
@@ -84,6 +90,8 @@ describe('client alarm handlers with no reading loaded', function ( ) {
     headless.teardown();
   });
 
+  var savedAlarmSettings;
+
   beforeEach(function ( ) {
     window.io = global.io = recordingIo();
     client = window.Nightscout.client;
@@ -97,6 +105,13 @@ describe('client alarm handlers with no reading loaded', function ( ) {
     container = $('#container');
     container.removeClass('alarming urgent warning');
     client.init();
+    savedAlarmSettings = ['alarmHigh', 'alarmLow', 'alarmUrgentHigh', 'alarmUrgentLow'].map(function (name) {
+      return [name, client.settings[name]];
+    });
+  });
+
+  afterEach(function ( ) {
+    savedAlarmSettings.forEach(function (entry) { client.settings[entry[0]] = entry[1]; });
   });
 
   function deliver (event, notify) {
@@ -117,10 +132,45 @@ describe('client alarm handlers with no reading loaded', function ( ) {
     (function ( ) { deliver('alarm', pumpWarning()); }).should.not.throw();
   });
 
-  it('still does not sound an alarm when it has no reading to judge it by (unchanged)', function ( ) {
+  it('still does not sound a glucose alarm when it has no reading to judge it by (unchanged)', function ( ) {
     client.dataUpdate({ sgvs: [], treatments: [], devicestatus: [] }, true);
-    try { deliver('urgent_alarm', urgentLow()); } catch (e) { /* the throw is the test above */ }
-    try { deliver('alarm', pumpWarning()); } catch (e) { /* ditto */ }
+    deliver('urgent_alarm', urgentLow());
+    deliver('alarm', Object.assign(urgentLow(), { level: 1, title: 'Warning, LOW' }));
+    container.hasClass('alarming').should.equal(false);
+  });
+
+  it('BF-92: sounds a pump warning on a page with no reading', function ( ) {
+    client.dataUpdate({ sgvs: [], treatments: [], devicestatus: [] }, true);
+    (client.latestSGV === undefined).should.equal(true);
+    deliver('alarm', pumpWarning());
+    container.hasClass('alarming').should.equal(true);
+    container.hasClass('warning').should.equal(true);
+    container.hasClass('urgent').should.equal(false);
+  });
+
+  it('BF-92: sounds an urgent pump alarm on a page that has received no data at all', function ( ) {
+    (client.latestSGV === undefined).should.equal(true);
+    deliver('urgent_alarm', pumpUrgent());
+    container.hasClass('alarming').should.equal(true);
+    container.hasClass('urgent').should.equal(true);
+  });
+
+  it('BF-92: with no reading, one side enabled is enough, as with an in-range reading', function ( ) {
+    client.dataUpdate({ sgvs: [], treatments: [], devicestatus: [] }, true);
+    client.settings.alarmUrgentHigh = false;
+    client.settings.alarmUrgentLow = true;
+    deliver('urgent_alarm', pumpUrgent());
+    container.hasClass('alarming').should.equal(true);
+  });
+
+  it('BF-92: the page\'s own alarm settings still apply to a non-glucose alarm with no reading', function ( ) {
+    client.dataUpdate({ sgvs: [], treatments: [], devicestatus: [] }, true);
+    client.settings.alarmHigh = false;
+    client.settings.alarmLow = false;
+    client.settings.alarmUrgentHigh = false;
+    client.settings.alarmUrgentLow = false;
+    deliver('alarm', pumpWarning());
+    deliver('urgent_alarm', pumpUrgent());
     container.hasClass('alarming').should.equal(false);
   });
 

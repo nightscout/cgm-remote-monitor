@@ -377,6 +377,8 @@
     "Values loaded.": "Arvot ladattu.",
     "Default values used.": "Oletusarvot ladattu.",
     "Error. Default values used.": "Virhe! Käytetään oletusarvoja.",
+    "Enter every profile value before saving.": "Enter every profile value before saving.",
+    "Your profile could not be loaded. Reload before editing.": "Your profile could not be loaded. Reload before editing.",
     "Time ranges of target_low and target_high don't  match. Values are restored to defaults.": "Matalan ja korkean tavoitteen aikarajat eivät täsmää. Arvot on vaihdettu oletuksiin.",
     "Valid from:": "Alkaen:",
     "Save current record before switching to new?": "Tallenna nykyinen merkintä ennen vaihtamista uuteen?",

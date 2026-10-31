@@ -4,8 +4,24 @@ All notable changes to cgm-remote-monitor are documented in this file.
 
 ## [Unreleased]
 
+## [15.0.9] - 2026-10-21
+
+Release notes: https://github.com/nightscout/cgm-remote-monitor/releases/tag/v15.0.9
+
 ### Fixed
 
+- **Loopalyzer BG line:** Draw the BG line through CGM readings that are on or
+  close to a 5-minute mark. A reading exactly on the mark was dropped, and one
+  that arrived just after the mark left a gap in the line before it, so a day
+  with readings timed like this showed a broken or missing BG line in
+  Loopalyzer while Day to Day showed every reading. Readings away from the
+  marks are drawn as before, and a reading that is really missing still shows
+  as a gap. Fixes #6236.
+- **Snooze without the API secret:** Keep an alarm quiet for the snooze chosen
+  on a page that has not entered the API secret. With the default `readable`
+  role such a page may not acknowledge alarms, so the server ignored its snooze
+  and the alarm sounded again at the next heartbeat, within a minute. A page
+  that is signed in behaves as before. Relates to #8194.
 - **Server stopped by a token for a deleted subject:** Refuse a bearer token
   whose subject was deleted, or lost when the database was dropped, the same way
   as a wrong token. The token still verifies until it expires, and the first
@@ -92,7 +108,11 @@ All notable changes to cgm-remote-monitor are documented in this file.
   range percentages. Five-minute series are unaffected. Range percentages
   continue to count retained readings rather than weight elapsed time.
 
-## [15.0.7] - 2026-03-XX (Unreleased)
+## [15.0.8] - 2026-09-04
+
+See https://github.com/nightscout/cgm-remote-monitor/releases/tag/v15.0.8
+
+## [15.0.7] - 2026-04-29
 
 ### Added
 

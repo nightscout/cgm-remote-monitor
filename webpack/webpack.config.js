@@ -1,7 +1,7 @@
 const path = require('path');
 const webpack = require('webpack');
 const pluginArray = [];
-// In dev mode, webpack-hot-middleware injects the HMR client into both
+// In dev mode, webpack-dev-middleware injects the HMR client into both
 // entries (app + clock). With devtool='source-map' the shared modules
 // emit .map files keyed by [name] and collide ("Multiple assets emit
 // different content to the same filename js/bundle.app.js.map").
@@ -62,7 +62,6 @@ pluginArray.push(new webpack.ProvidePlugin({
 
 pluginArray.push(new webpack.ProvidePlugin({
   process: 'process/browser',
-  Buffer: ['buffer', 'Buffer'],
 }));
 
 // limit Timezone data from Moment
@@ -73,18 +72,8 @@ pluginArray.push(new MomentTimezoneDataPlugin({
 }));
 
 if (process.env.NODE_ENV === 'development') {
-  const ESLintPlugin = require('eslint-webpack-plugin');
-  pluginArray.push(new ESLintPlugin({
-    emitWarning: true,
-    failOnError: false,
-    failOnWarning: false,
-    formatter: require('eslint').CLIEngine.getFormatter('stylish'),
-    overrideConfig: {
-      globals: {
-        '$': 'writeable'
-      }
-    }
-  }));
+  const DevelopmentLintPlugin = require('./lint-plugin');
+  pluginArray.push(new DevelopmentLintPlugin());
 }
 
 const rules = [
@@ -101,36 +90,24 @@ const rules = [
   },
   {
     test: /\.css$/i,
-    use: [ 'style-loader',
-      {
-        loader: 'css-loader',
-        options: {
-          sourceMap: true,
-        },
-      } ],
-    exclude: /node_modules/
+    // Keep ordinary selectors global and inject CSS with webpack's own runtime.
+    type: 'css/global',
+    parser: { exportType: 'style' },
+    // The selected UI structure styles use the same inline runtime as app CSS.
+    exclude: /node_modules[\\/](?!jquery-ui[\\/]themes[\\/]base[\\/])/
   },
   {
     test: /\.(jpe?g|png|gif)$/i,
-    loader: 'file-loader',
-    options: {
-      outputPath: 'images'
-      //the images will be emitted to public/assets/images/ folder
-      //the images will be put in the DOM <style> tag as eg. background: url(assets/images/image.png);
-    },
+    type: 'asset/resource',
+    generator: { filename: 'images/[contenthash][ext]' },
     exclude: /node_modules/
-  },
-  {
-    test: require.resolve('jquery'),
-    loader: 'expose-loader',
-    options: {
-      exposes: ['$']
-    }
   }
 ];
 
 const appEntry = ['./bundle/bundle.source.js'];
 const clockEntry = ['./bundle/bundle.clocks.source.js'];
+const pageEntries = Object.fromEntries(['reports', 'admin', 'profile', 'food'].map(name =>
+  [name, ['./bundle/bundle.' + name + '.source.js']]));
 
 let mode = 'production';
 let publicPath = '/bundle/';
@@ -141,10 +118,14 @@ if (process.env.NODE_ENV === 'development') {
   pluginArray.push(new webpack.HotModuleReplacementPlugin());
   pluginArray.push(new webpack.NoEmitOnErrorsPlugin());
 
-  const hot = 'webpack-hot-middleware/client?port=1337';
+  // Resolve the exported subpath before appending its resource query.
+  // Preserve HMR-only updates and avoid a new progress/runtime-error overlay.
+  const hot = require.resolve('webpack-dev-middleware/client') + '?reload=false&progress=false&overlay=' +
+    encodeURIComponent(JSON.stringify({runtimeErrors: false}));
 
   appEntry.unshift(hot);
   clockEntry.unshift(hot);
+  Object.values(pageEntries).forEach(entry => entry.unshift(hot));
 }
 
 const optimization = {};
@@ -152,15 +133,20 @@ const optimization = {};
 
 module.exports = {
   mode,
+  experiments: { css: true },
   context: projectRoot,
   entry: {
     app: appEntry,
-    clock: clockEntry
+    clock: clockEntry,
+    ...Object.fromEntries(Object.entries(pageEntries).map(([name, entry]) =>
+      [name, {import: entry, dependOn: 'app'}]))
   },
   output: {
     path: path.resolve(projectRoot, './node_modules/.cache/_ns_cache/public'),
     publicPath,
     filename: 'js/bundle.[name].js',
+    // Preserve the 32-character image names previously emitted by file-loader.
+    hashDigestLength: 32,
     sourceMapFilename: 'js/bundle.[name].js.map',
     clean: true,
   },
@@ -174,13 +160,8 @@ module.exports = {
     fallback: {
       'process/browser': require.resolve('process/browser'),
       events: require.resolve('events/'),
-      buffer: require.resolve('buffer/'),
       crypto: false,
       vm: false
-    },
-    alias: {
-      stream: 'stream-browserify',
-      buffer: 'buffer',
     }
   }
 };

@@ -1,0 +1,99 @@
+{
+  "commit": "d79b8a7488fc6632db4284ffffacefd836b2af97",
+  "gzipLevel": 9,
+  "measurements": {
+    "bundles": {
+      "app": {
+        "bytes": 1154563,
+        "gzipBytes": 332151,
+        "sha256": "3827c7943381d6b61075192e88fff7140e2691a7be817d5ace7f5fadc47b3e55"
+      },
+      "reports": {
+        "bytes": 177515,
+        "gzipBytes": 53156,
+        "sha256": "f678270b02e8b3b65496feb02ff64ce150f9823a8c82411b2ffe75715f8a1984"
+      },
+      "admin": {
+        "bytes": 32025,
+        "gzipBytes": 7923,
+        "sha256": "b0b291da267f0e901eeb76ea97582a1c75bbfbbee59e583bf975fe2086e074e2"
+      },
+      "profile": {
+        "bytes": 18498,
+        "gzipBytes": 6665,
+        "sha256": "fb20a691e908237df9da308668e24ca913aebe37e9d6a7cdbfcbc8ebb0a4a6dd"
+      },
+      "food": {
+        "bytes": 15854,
+        "gzipBytes": 5306,
+        "sha256": "3235915435ed50979653d4316d91e317dad2667a5387240ca66deb12feec54c7"
+      },
+      "clock": {
+        "bytes": 152131,
+        "gzipBytes": 61784,
+        "sha256": "c37a1c7dd2460037f3175479fe31a9eb63fd08c0e11f84994168fe81836451d3"
+      }
+    },
+    "allApplicationGzipBytes": 405201
+  },
+  "limits": {
+    "app": 340000,
+    "reports": 55000,
+    "admin": 8500,
+    "profile": 7100,
+    "food": 5700,
+    "clock": 63000,
+    "allApplicationEntries": 410000
+  },
+  "issuerGraph": [
+    {
+      "entry": "profile",
+      "moduleRecords": 10,
+      "reportModuleRecords": 0
+    },
+    {
+      "entry": "clock",
+      "moduleRecords": 18,
+      "reportModuleRecords": 0
+    },
+    {
+      "entry": "food",
+      "moduleRecords": 2,
+      "reportModuleRecords": 0
+    },
+    {
+      "entry": "app",
+      "moduleRecords": 440,
+      "reportModuleRecords": 0
+    },
+    {
+      "entry": "reports",
+      "moduleRecords": 23,
+      "reportModuleRecords": 21
+    },
+    {
+      "entry": "admin",
+      "moduleRecords": 11,
+      "reportModuleRecords": 0
+    }
+  ],
+  "reportEntryIssuers": {
+    "./node_modules/flot/jquery.flot.js": "./bundle/bundle.reports.source.js",
+    "./lib/report_plugins/index.js": "./bundle/bundle.reports.source.js"
+  },
+  "limitsOfEvidence": [
+    "Module record counts include webpack runtime and nested records; they are not package counts.",
+    "Gzip measurements count each emitted JavaScript file once; they are not total navigation traffic.",
+    "Source map and issuer graph checks do not measure populated-page heap or startup latency."
+  ],
+  "runtimes": [
+    {
+      "node": "22.23.2",
+      "zlib": "1.3.1-e00f703"
+    },
+    {
+      "node": "24.20.0",
+      "zlib": "1.3.2.1-motley-42c2f19"
+    }
+  ]
+}

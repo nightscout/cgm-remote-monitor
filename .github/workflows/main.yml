@@ -8,45 +8,310 @@ on:
     branches:
       - master
       - dev
+      # Maintainer branches with a preview image (docker-build). Creating one
+      # needs write access, so no pull request can publish an image.
+      - 'preview/**'
+    # A release tag publishes the tested dev image of the tagged files as the
+    # version and latest (release-image). A push to master publishes nothing.
+    tags:
+      - 'v*'
   pull_request:
     branches:
       - master
       - dev
+      - chore/nightscout-modernization
+
+  workflow_dispatch:
+    inputs:
+      extended:
+        description: Run every patched Node floor/latest alias across MongoDB edges and all browsers
+        type: boolean
+        default: true
+
+# Cancel superseded PR validation without cancelling or collapsing push runs.
+concurrency:
+  group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.run_id }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
 
 jobs:
   test:
-    name: Run Tests
-    runs-on: ubuntu-latest
+    name: Run Tests (${{ matrix.node-version }}, ${{ matrix.mongodb-version }})
+    # MongoDB 8.0 refuses to start on Linux 6.19 to 7.0.13 (SERVER-121912),
+    # and ubuntu-24.04 moved from 6.17 to 7.0 in image 20261026.354, so its
+    # cells run on ubuntu-22.04 (Linux 6.8) until the runners' kernel is
+    # outside that range. tools/wait-for-mongodb.js prints the kernel.
+    runs-on: ${{ startsWith(matrix.mongodb-version, '8') && 'ubuntu-22.04' || 'ubuntu-latest' }}
     strategy:
+      # Each lane is the only one testing its edge and setting, so one
+      # failing must not cancel the others' results.
+      fail-fast: false
       matrix:
-        node-version: [20, 22, 24]
-        mongodb-version: [4.4, 5.0, 6.0]
+        # Test the edges of the supported range, not every point inside it:
+        # the floor, the lowest Node that package.json engines admits
+        # (^22.23.4 || ^24.22.1 || >=26.12.1), and the newest Node release
+        # line ('26' with check-latest), against the oldest and newest
+        # supported MongoDB (5.0 and 8.0, README). The 24.22.1 and 26.12.1
+        # floors are covered by tests/runtime-policy.test.js's boundary cases.
+        node-version: ${{ fromJSON(inputs.extended && '["22.23.4","22","24.22.1","24","26.12.1","26"]' || '["22.23.4","26"]') }}
+        # Quoted, so the MongoDB action pulls mongo:5.0 and mongo:8.0, the
+        # newest patch of each series (unquoted, 8.0 becomes "8": mongo:8).
+        mongodb-version: ['5.0', '8.0']
+        # Pull requests and pushes run the diagonal, which tests each Node
+        # edge and each MongoDB edge once; the extended run keeps every pair.
+        # The newest pair also runs in maintained-mongo.
+        exclude: ${{ fromJSON(inputs.extended && '[]' || '[{"node-version":"22.23.4","mongodb-version":"5.0"},{"node-version":"26","mongodb-version":"8.0"}]') }}
+        include:
+          # Each diagonal cell also takes one other setting at its
+          # non-default value, without adding a cell: the floor shuffles the
+          # test-file order (seeded by the run, printed for replay), and the
+          # newest line runs in a time zone with daylight saving time.
+          - node-version: '22.23.4'
+            mongodb-version: '8.0'
+            shuffle: true
+          - node-version: '26'
+            mongodb-version: '5.0'
+            tz: America/Los_Angeles
+          # Retain "Run Tests (24, 6)" for dev/master and "Run Tests (22, 6)"
+          # for master until the repository settings change. Node 24 is also
+          # the line the Docker images use.
+          - node-version: '24'
+            mongodb-version: 6.0
+          - node-version: '22'
+            mongodb-version: 6.0
+    env:
+      TZ: ${{ matrix.tz || 'UTC' }}
+      TEST_SHUFFLE_SEED: ${{ matrix.shuffle && github.run_id || '' }}
 
     steps:
       - name: Git Checkout
-        uses: actions/checkout@v5
+        uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5
 
       - name: Use Node.js ${{ matrix.node-version }}
-        uses: actions/setup-node@v5
+        uses: actions/setup-node@a0853c24544627f65ddf259abe73b1d18a591444 # v5
         with:
           node-version: ${{ matrix.node-version }}
-          package-manager-cache: false
+          # Major aliases must resolve past any cached vulnerable patch.
+          check-latest: true
+          cache: npm
+          cache-dependency-path: package-lock.json
 
       - name: Start MongoDB ${{ matrix.mongodb-version }}
-        uses: supercharge/mongodb-github-action@1.3.0
+        uses: supercharge/mongodb-github-action@310bd1bbeb878d9de3e54ee492cbd9643b1e8875 # 1.3.0
         with:
           mongodb-version: ${{ matrix.mongodb-version }}
 
       - name: Install dependencies
-        run: npm install
+        run: npm ci
+      - name: Wait for MongoDB
+        run: node tools/wait-for-mongodb.js
+      # The tiers that pass with no database run in test-no-db.
+      - name: Run Tests
+        run: node scripts/test-tiers.js run integration,stress --ci
+      - name: Show the MongoDB log
+        if: failure()
+        run: docker logs --tail 200 mongodb
+      - name: Run installed connector regression tests
+        run: npm run test:connect
+      - name: Validate built and pruned runtime
+        env:
+          NODE_ENV: production
+          CUSTOMCONNSTR_mongo: mongodb://127.0.0.1:27017/testdb
+        run: |
+          npm prune --omit=dev --ignore-scripts
+          node tools/validate-pruned-runtime.js
+
+  test-no-db:
+    name: Tests without a database (${{ matrix.node-version }})
+    runs-on: ubuntu-latest
+    strategy:
+      # Each lane is the only one testing its edge and setting, so one
+      # failing must not cancel the others' results.
+      fail-fast: false
+      matrix:
+        # These tiers pass with no MongoDB reachable (tests/tiers.json), so
+        # they vary only with Node: the same edges as the test matrix.
+        node-version: ${{ fromJSON(inputs.extended && '["22.23.4","22","24.22.1","24","26.12.1","26"]' || '["22.23.4","26"]') }}
+        # The other way round from the test matrix, so each Node edge runs
+        # each setting once across the two jobs.
+        include:
+          - node-version: '22.23.4'
+            tz: America/Los_Angeles
+          - node-version: '26'
+            shuffle: true
+    env:
+      TZ: ${{ matrix.tz || 'UTC' }}
+      TEST_SHUFFLE_SEED: ${{ matrix.shuffle && github.run_id || '' }}
+
+    steps:
+      - name: Git Checkout
+        uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5
+
+      - name: Use Node.js ${{ matrix.node-version }}
+        uses: actions/setup-node@a0853c24544627f65ddf259abe73b1d18a591444 # v5
+        with:
+          node-version: ${{ matrix.node-version }}
+          # Major aliases must resolve past any cached vulnerable patch.
+          check-latest: true
+          cache: npm
+          cache-dependency-path: package-lock.json
+
+      - name: Install dependencies
+        run: npm ci
       - name: Validate dependency resolution
-        run: npm ls brace-expansion postcss mocha nanoid js-yaml eslint nyc dompurify socket.io-parser fast-uri ip-address d3 d3-color express body-parser socket.io socket.io-client engine.io engine.io-client socket.io-adapter ws axios @babel/core @babel/preset-env babel-loader jsdom uuid --all
+        run: npm ls brace-expansion postcss mocha nanoid js-yaml eslint nyc dompurify socket.io-parser fast-uri ip-address d3 d3-color express body-parser socket.io socket.io-client engine.io engine.io-client socket.io-adapter ws axios @babel/core @babel/preset-env babel-loader uuid --all
+      - name: Check the test tier map
+        run: npm run-script test:tiers
+      - name: Check shared write boundary
+        run: npm run test:write-boundary
+      - name: Lint application sources
+        if: matrix.node-version == '22.23.4'
+        run: npm run lint
+      - name: Run Tests
+        run: node scripts/test-tiers.js run unit,dom,dependency,core,harness --ci
+
+  maintained-mongo:
+    name: Maintained MongoDB
+    # ubuntu-22.04 for MongoDB 8.0, as in the test job.
+    runs-on: ubuntu-22.04
+    strategy:
+      fail-fast: false
+      matrix:
+        # The newest pair, which the test matrix's diagonal leaves out: the
+        # newest Node line against the newest tested MongoDB, pinned to the
+        # patch release the README's range was measured on. The whole suite
+        # runs here in one process, as npm run test-ci does. The diagonal
+        # covers the Node floor (22.23.4 against 8.0) and the oldest supported
+        # MongoDB (5.0).
+        node-version: ['26']
+        mongodb-version: ['8.0.29']
+
+    steps:
+      - name: Git Checkout
+        uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5
+
+      - name: Use Node.js ${{ matrix.node-version }}
+        uses: actions/setup-node@a0853c24544627f65ddf259abe73b1d18a591444 # v5
+        with:
+          node-version: ${{ matrix.node-version }}
+          # Major aliases must resolve past any cached vulnerable patch.
+          check-latest: true
+          package-manager-cache: false
+
+      - name: Start MongoDB ${{ matrix.mongodb-version }}
+        uses: supercharge/mongodb-github-action@310bd1bbeb878d9de3e54ee492cbd9643b1e8875 # 1.3.0
+        with:
+          mongodb-version: ${{ matrix.mongodb-version }}
+
+      - name: Install dependencies
+        run: npm ci
+      - name: Validate dependency resolution
+        run: npm ls brace-expansion postcss mocha nanoid js-yaml eslint nyc dompurify socket.io-parser fast-uri ip-address d3 d3-color express body-parser socket.io socket.io-client engine.io engine.io-client socket.io-adapter ws axios @babel/core @babel/preset-env babel-loader uuid --all
+      - name: Wait for MongoDB
+        run: node tools/wait-for-mongodb.js
       - name: Run Tests
         run: npm run-script test-ci
+      - name: Run installed connector regression tests
+        run: npm run test:connect
       - name: Run client-core tests
         run: npm run-script test:core
       - name: Send Coverage
         run: npm run-script coverage
+
+      - name: Validate built and pruned runtime
+        env:
+          NODE_ENV: production
+          CUSTOMCONNSTR_mongo: mongodb://127.0.0.1:27017/testdb
+        run: |
+          npm prune --omit=dev --ignore-scripts
+          node tools/validate-pruned-runtime.js
+
+      - name: Rehearse owned database upgrades and backup recovery
+        if: matrix.node-version == '26' && matrix.mongodb-version == '8.0.29'
+        run: python3 tools/rehearse-database-upgrade.py "$RUNNER_TEMP/nightscout-database-upgrade"
+      - name: Record database upgrade and restore evidence
+        if: always() && matrix.node-version == '26' && matrix.mongodb-version == '8.0.29'
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        with:
+          name: database-upgrade-recovery
+          path: |
+            ${{ runner.temp }}/nightscout-database-upgrade/evidence.json
+            ${{ runner.temp }}/nightscout-database-upgrade/metadata.json
+      - name: Show the MongoDB log
+        if: failure()
+        run: docker logs --tail 200 mongodb
+
+  browser-test:
+    name: Browser tests (${{ matrix.node-version }}, ${{ matrix.browser }})
+    runs-on: ubuntu-latest
+    container:
+      # Keep this version in sync with playwright-core in package.json/package-lock.json.
+      image: mcr.microsoft.com/playwright:v1.63.0-noble
+      options: --init --ipc=host
+    # Firefox's 650-case suite can take about nine minutes on a hosted runner.
+    # Allow setup, production build, evidence and cleanup to finish as well.
+    timeout-minutes: 15
+    strategy:
+      fail-fast: false
+      matrix:
+        # Every engine, on the newest Node release line only: the backend
+        # matrix above covers the Node floor.
+        node-version: ${{ fromJSON(inputs.extended && '["22.23.4","22","24.22.1","24","26.12.1","26"]' || '["26"]') }}
+        browser: [chromium, firefox, webkit]
+    steps:
+      - name: Git Checkout
+        uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5
+        with:
+          persist-credentials: false
+      - name: Use Node.js ${{ matrix.node-version }}
+        uses: actions/setup-node@a0853c24544627f65ddf259abe73b1d18a591444 # v5
+        with:
+          node-version: ${{ matrix.node-version }}
+          check-latest: true
+          cache: npm
+          cache-dependency-path: package-lock.json
+      - name: Install dependencies and build production bundle
+        run: npm ci
+      # The container runs as root over a checkout the runner's user owns, and
+      # actions/checkout's safe.directory entry went to a temporary HOME, so
+      # git refuses the checkout and the tier runner finds no test files.
+      - name: Trust the checkout for git
+        run: git config --system --add safe.directory "$GITHUB_WORKSPACE"
+      - name: Run isolated browser tests
+        env:
+          # Firefox requires HOME to be owned by the container's current user.
+          # GitHub mounts /github/home with the host runner's ownership.
+          HOME: /root
+          NIGHTSCOUT_TEST_BROWSER: ${{ matrix.browser }}
+        run: npm run test:browser
+      - name: Record editor time formatting comparison
+        env:
+          # Firefox needs the same root-owned HOME as the browser test step.
+          HOME: /root
+        run: node tools/audits/browser-intl-editor-probe.cjs ${{ matrix.browser }} > editor-time-comparison.json
+      - name: Save editor time formatting evidence
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        with:
+          name: editor-time-${{ matrix.node-version }}-${{ matrix.browser }}
+          path: editor-time-comparison.json
+          if-no-files-found: error
+          retention-days: 14
+      - name: Install isolated date comparison candidates
+        run: |
+          mkdir -p "$RUNNER_TEMP/nightscout-date-candidates"
+          cp tools/audits/date-candidates/package*.json "$RUNNER_TEMP/nightscout-date-candidates/"
+          npm ci --prefix "$RUNNER_TEMP/nightscout-date-candidates" --ignore-scripts --no-audit --no-fund
+      - name: Compare date candidates with the production browser bundle
+        env:
+          # This probe also launches Firefox in the root-owned container.
+          HOME: /root
+        run: node tools/audits/browser-date-candidate-probe.cjs "$RUNNER_TEMP/nightscout-date-candidates" ${{ matrix.browser }} > date-candidate-comparison.json
+      - name: Save date candidate evidence
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        with:
+          name: date-candidates-${{ matrix.node-version }}-${{ matrix.browser }}
+          path: date-candidate-comparison.json
+          if-no-files-found: error
+          retention-days: 14
 
   npm12-build:
     name: Validate npm 12 install and build
@@ -54,14 +319,16 @@ jobs:
     timeout-minutes: 10
     steps:
       - name: Git Checkout
-        uses: actions/checkout@v5
+        uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5
         with:
           persist-credentials: false
       - name: Use Node.js 24
-        uses: actions/setup-node@v5
+        uses: actions/setup-node@a0853c24544627f65ddf259abe73b1d18a591444 # v5
         with:
           node-version: 24
-          package-manager-cache: false
+          check-latest: true
+          cache: npm
+          cache-dependency-path: package-lock.json
       - name: Use npm 12
         run: npm install --global npm@12
       - name: Install dependencies and build production bundle
@@ -71,30 +338,32 @@ jobs:
       - name: Build development bundle with ESLint integration
         run: NODE_ENV=development npm run bundle-dev
 
-  docker-build-pr:
-    name: Validate Docker image
-    needs: test
-    if: github.event_name == 'pull_request'
+  tests-pass:
+    name: Tests pass
+    # One check for branch protection to require, so the matrices above can
+    # change without a repository settings change. It fails if any test job
+    # failed or was cancelled; Docker validation is skipped outside pull
+    # requests and dispatched runs.
+    if: always()
+    needs: [test, test-no-db, maintained-mongo, browser-test, npm12-build, docker-build-pr]
     runs-on: ubuntu-latest
     steps:
-      - name: Git Checkout
-        uses: actions/checkout@v5
-        with:
-          persist-credentials: false
-      - name: Set up Docker Buildx
-        uses: docker/setup-buildx-action@v4
-      - name: Build Docker image without publishing
-        uses: docker/build-push-action@v7
-        with:
-          context: .
-          push: false
-          platforms: linux/amd64
-          tags: nightscout/cgm-remote-monitor:pr-${{ github.event.pull_request.number }}
+      - name: Every test job succeeded or was skipped
+        env:
+          RESULTS: ${{ join(needs.*.result, ' ') }}
+        run: |
+          echo "$RESULTS"
+          for result in $RESULTS; do
+            case "$result" in
+              success|skipped) ;;
+              *) exit 1 ;;
+            esac
+          done
 
-  docker-build:
-    name: Build Docker image (${{ matrix.arch }})
-    needs: test
-    if: (github.ref == 'refs/heads/master' || github.ref == 'refs/heads/dev') && github.repository_owner == 'nightscout'
+  docker-build-pr:
+    name: Validate Docker image (${{ matrix.arch }})
+    # Validation has no publishing side effects and can run alongside the test matrix.
+    if: github.event_name == 'pull_request' || github.event_name == 'workflow_dispatch'
     runs-on: ${{ matrix.runner }}
     strategy:
       fail-fast: false
@@ -107,80 +376,214 @@ jobs:
             platform: linux/arm64
             runner: ubuntu-24.04-arm
     env:
-      DOCKER_IMAGE: nightscout/cgm-remote-monitor
+      IMAGE: nightscout/cgm-remote-monitor:ci-${{ github.run_id }}-${{ matrix.arch }}
+    steps:
+      - name: Git Checkout
+        uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5
+        with:
+          persist-credentials: false
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@f87e5991a6d7451dcb8d9637bfbc97413f497069 # v4
+      - name: Build Docker image without publishing
+        uses: docker/build-push-action@c3c9e263c25d99ce0380d002d59b67737d91b0dc # v7
+        with:
+          context: .
+          push: false
+          load: true
+          platforms: ${{ matrix.platform }}
+          tags: ${{ env.IMAGE }}
+
+      - name: Validate pruned runtime and startup
+        run: |
+          docker run --rm "$IMAGE" node -e "require('./lib/server/runtime-policy')(); console.log(process.version)"
+          docker run --rm "$IMAGE" node -e 'const load = require("node:module").createRequire(require.resolve("mongodb")); require("node:assert/strict").equal(load("@mongodb-js/saslprep").saslprep("I\u00ADX"), "IX")'
+          docker run --detach --name nightscout-smoke -p 127.0.0.1:1337:1337 "$IMAGE"
+          trap 'docker logs nightscout-smoke; docker rm -f nightscout-smoke' EXIT
+          # With no database credentials the application must serve its setup/error page.
+          for attempt in {1..60}; do
+            status=$(curl --silent --header 'X-Forwarded-Proto: https' --output /tmp/nightscout-smoke.html --write-out '%{http_code}' http://127.0.0.1:1337/ || true)
+            if [[ "$status" == "200" || "$status" == "500" || "$status" == "503" ]]; then
+              grep -qi nightscout /tmp/nightscout-smoke.html
+              # Default proxy compatibility must avoid HTTPS redirect loops,
+              # while unforwarded HTTP still receives a redirect.
+              test "$(curl --silent --output /dev/null --write-out '%{http_code}' http://127.0.0.1:1337/)" = 307
+              exit 0
+            fi
+            sleep 1
+          done
+          exit 1
+
+
+  # Image publishing. Three events publish, and nothing else does:
+  #   push to dev         nightscout/cgm-remote-monitor:dev_<sha> and :latest_dev
+  #   push to preview/*   <vars.DOCKER_PREVIEW_IMAGE>:preview-<branch>-<sha> and
+  #                       :preview-<branch>, only when that variable names an
+  #                       image other than the release one
+  #   tag v<version>      :<version> and :latest, re-tagged from the dev image
+  #                       of the same files (release-image); never rebuilt
+  # A push to master, a pull request and a dispatched run publish nothing.
+  # The jobs that log in to Docker Hub run in the docker-hub environment, so
+  # its secrets can be limited to these refs in the repository settings.
+  docker-build:
+    name: Build Docker image (${{ matrix.arch }})
+    needs: [tests-pass]
+    # Without a status function GitHub adds success(), which also checks the
+    # jobs tests-pass needs. Docker validation is skipped on pushes, so that
+    # skipped the build; ask for tests-pass's own result instead.
+    if: ${{ !cancelled() && needs.tests-pass.result == 'success' && github.event_name == 'push' && github.repository_owner == 'nightscout' && (github.ref == 'refs/heads/dev' || (startsWith(github.ref, 'refs/heads/preview/') && vars.DOCKER_PREVIEW_IMAGE != '' && vars.DOCKER_PREVIEW_IMAGE != 'nightscout/cgm-remote-monitor')) }}
+    environment: docker-hub
+    runs-on: ${{ matrix.runner }}
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - arch: amd64
+            platform: linux/amd64
+            runner: ubuntu-latest
+          - arch: arm64
+            platform: linux/arm64
+            runner: ubuntu-24.04-arm
+    env:
+      DOCKER_IMAGE: ${{ github.ref == 'refs/heads/dev' && 'nightscout/cgm-remote-monitor' || vars.DOCKER_PREVIEW_IMAGE }}
     steps:
       - name: Set up Docker Buildx
-        uses: docker/setup-buildx-action@v4
+        uses: docker/setup-buildx-action@f87e5991a6d7451dcb8d9637bfbc97413f497069 # v4
       - name: Login to Docker Hub
-        uses: docker/login-action@v4
+        uses: docker/login-action@81c6f93d4bc991e510b342a00b419b3bb4efc5c6 # v4
         with:
           username: ${{ secrets.DOCKER_USER }}
           password: ${{ secrets.DOCKER_PASS }}
       - name: Clean git Checkout
         if: success()
-        uses: actions/checkout@v5
-      - name: Prepare Docker tags
-        id: docker-tags
-        shell: bash
-        run: |
-          if [[ "${GITHUB_REF}" == "refs/heads/dev" ]]; then
-            echo "version_tag=${DOCKER_IMAGE}:dev_${GITHUB_SHA}-${{ matrix.arch }}" >> "$GITHUB_OUTPUT"
-            echo "latest_tag=${DOCKER_IMAGE}:latest_dev-${{ matrix.arch }}" >> "$GITHUB_OUTPUT"
-          else
-            version="$(node -p "require('./package.json').version")"
-            echo "version_tag=${DOCKER_IMAGE}:${version}-${{ matrix.arch }}" >> "$GITHUB_OUTPUT"
-            echo "latest_tag=${DOCKER_IMAGE}:latest-${{ matrix.arch }}" >> "$GITHUB_OUTPUT"
-          fi
-      - name: Build, tag and push Docker image
-        uses: docker/build-push-action@v7
+        uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5
+        with:
+          persist-credentials: false
+      # Each architecture is pushed untagged, by digest; publish gives the
+      # pair its tags, so there are no per-architecture tags to list.
+      - name: Build and push the image by digest
+        id: build
+        uses: docker/build-push-action@c3c9e263c25d99ce0380d002d59b67737d91b0dc # v7
         with:
           context: .
-          push: true
           no-cache: true
           platforms: ${{ matrix.platform }}
-          tags: |
-            ${{ steps.docker-tags.outputs.version_tag }}
-            ${{ steps.docker-tags.outputs.latest_tag }}
+          tags: ${{ env.DOCKER_IMAGE }}
+          outputs: type=image,push-by-digest=true,name-canonical=true,push=true
+      - name: Record the digest
+        env:
+          DIGEST: ${{ steps.build.outputs.digest }}
+        run: |
+          mkdir -p "$RUNNER_TEMP/digests"
+          touch "$RUNNER_TEMP/digests/${DIGEST#sha256:}"
+      - name: Save the digest
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        with:
+          name: digest-${{ matrix.arch }}
+          path: ${{ runner.temp }}/digests/*
+          if-no-files-found: error
+          retention-days: 1
 
   publish:
     name: Publish to Docker Hub
     needs: docker-build
     runs-on: ubuntu-latest
-    if: (github.ref == 'refs/heads/master' || github.ref == 'refs/heads/dev') && github.repository_owner == 'nightscout'
+    # As for docker-build: the implicit success() would see the skipped
+    # Docker validation further up the chain.
+    if: ${{ !cancelled() && needs.docker-build.result == 'success' }}
+    environment: docker-hub
     env:
-      DOCKER_IMAGE: nightscout/cgm-remote-monitor
+      DOCKER_IMAGE: ${{ github.ref == 'refs/heads/dev' && 'nightscout/cgm-remote-monitor' || vars.DOCKER_PREVIEW_IMAGE }}
     steps:
+      - name: Collect the digests
+        uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4.3.0
+        with:
+          path: ${{ runner.temp }}/digests
+          pattern: digest-*
+          merge-multiple: true
       - name: Set up Docker Buildx
-        uses: docker/setup-buildx-action@v4
+        uses: docker/setup-buildx-action@f87e5991a6d7451dcb8d9637bfbc97413f497069 # v4
       - name: Login to Docker Hub
-        uses: docker/login-action@v4
+        uses: docker/login-action@81c6f93d4bc991e510b342a00b419b3bb4efc5c6 # v4
         with:
           username: ${{ secrets.DOCKER_USER }}
           password: ${{ secrets.DOCKER_PASS }}
-      - name: Clean git Checkout
-        uses: actions/checkout@v5
-      - name: Prepare Docker manifest tags
-        id: docker-tags
+      - name: Publish the multi-architecture image
+        working-directory: ${{ runner.temp }}/digests
         shell: bash
         run: |
-          if [[ "${GITHUB_REF}" == "refs/heads/dev" ]]; then
-            echo "version_tag=${DOCKER_IMAGE}:dev_${GITHUB_SHA}" >> "$GITHUB_OUTPUT"
-            echo "version_sources=${DOCKER_IMAGE}:dev_${GITHUB_SHA}-amd64 ${DOCKER_IMAGE}:dev_${GITHUB_SHA}-arm64" >> "$GITHUB_OUTPUT"
-            echo "latest_tag=${DOCKER_IMAGE}:latest_dev" >> "$GITHUB_OUTPUT"
-            echo "latest_sources=${DOCKER_IMAGE}:latest_dev-amd64 ${DOCKER_IMAGE}:latest_dev-arm64" >> "$GITHUB_OUTPUT"
-          else
-            version="$(node -p "require('./package.json').version")"
-            echo "version_tag=${DOCKER_IMAGE}:${version}" >> "$GITHUB_OUTPUT"
-            echo "version_sources=${DOCKER_IMAGE}:${version}-amd64 ${DOCKER_IMAGE}:${version}-arm64" >> "$GITHUB_OUTPUT"
-            echo "latest_tag=${DOCKER_IMAGE}:latest" >> "$GITHUB_OUTPUT"
-            echo "latest_sources=${DOCKER_IMAGE}:latest-amd64 ${DOCKER_IMAGE}:latest-arm64" >> "$GITHUB_OUTPUT"
+          if [[ "$(ls | wc -l)" != 2 ]]; then
+            echo "::error::expected the amd64 and arm64 digests, found: $(ls)"
+            exit 1
           fi
-      - name: Publish Docker manifests
+          if [[ "$GITHUB_REF" == refs/heads/dev ]]; then
+            tags=("dev_${GITHUB_SHA}" latest_dev)
+          else
+            # A Docker tag is [A-Za-z0-9_][A-Za-z0-9_.-]{0,127}.
+            branch="${GITHUB_REF#refs/heads/preview/}"
+            branch="${branch//[^A-Za-z0-9_.-]/-}"
+            branch="${branch:0:100}"
+            tags=("preview-${branch}-${GITHUB_SHA::12}" "preview-${branch}")
+          fi
+          args=()
+          for tag in "${tags[@]}"; do args+=(-t "${DOCKER_IMAGE}:${tag}"); done
+          docker buildx imagetools create "${args[@]}" $(printf "${DOCKER_IMAGE}@sha256:%s " *)
+          docker buildx imagetools inspect "${DOCKER_IMAGE}:${tags[0]}"
+
+  release-image:
+    name: Publish the release image
+    needs: [tests-pass]
+    if: ${{ !cancelled() && needs.tests-pass.result == 'success' && github.event_name == 'push' && startsWith(github.ref, 'refs/tags/v') && github.repository_owner == 'nightscout' }}
+    environment: docker-hub
+    runs-on: ubuntu-latest
+    env:
+      DOCKER_IMAGE: nightscout/cgm-remote-monitor
+    steps:
+      - name: Git Checkout
+        uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5
+        with:
+          persist-credentials: false
+          # dev's history, to find the dev image of the tagged files.
+          fetch-depth: 0
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@f87e5991a6d7451dcb8d9637bfbc97413f497069 # v4
+      - name: Login to Docker Hub
+        uses: docker/login-action@81c6f93d4bc991e510b342a00b419b3bb4efc5c6 # v4
+        with:
+          username: ${{ secrets.DOCKER_USER }}
+          password: ${{ secrets.DOCKER_PASS }}
+      # The release is the image the soak ran, not a rebuild: a rebuild
+      # resolves the base image and system packages again. dev is merged into
+      # master without changes, so the tagged commit's files are those of a dev
+      # commit, whose push published dev_<sha> after its tests passed.
+      - name: Re-tag the dev image of the tagged files
         shell: bash
         run: |
-          docker buildx imagetools create \
-            -t "${{ steps.docker-tags.outputs.version_tag }}" \
-            ${{ steps.docker-tags.outputs.version_sources }}
-          docker buildx imagetools create \
-            -t "${{ steps.docker-tags.outputs.latest_tag }}" \
-            ${{ steps.docker-tags.outputs.latest_sources }}
+          version="$(node -p "require('./package.json').version")"
+          if [[ "$GITHUB_REF_NAME" != "v${version}" ]]; then
+            echo "::error::tag ${GITHUB_REF_NAME} does not name package.json's version ${version}"
+            exit 1
+          fi
+          if docker buildx imagetools inspect "${DOCKER_IMAGE}:${version}" > /dev/null 2>&1; then
+            echo "::error::${DOCKER_IMAGE}:${version} is already published, and a release never replaces one"
+            exit 1
+          fi
+          tree="$(git rev-parse "${GITHUB_SHA}^{tree}")"
+          source=''
+          for commit in $(git log --first-parent --format='%H %T' origin/dev | awk -v tree="$tree" '$2 == tree { print $1 }'); do
+            if docker buildx imagetools inspect "${DOCKER_IMAGE}:dev_${commit}" > /dev/null 2>&1; then
+              source="$commit"
+              break
+            fi
+          done
+          if [[ -z "$source" ]]; then
+            echo "::error::no dev_<sha> image has the files of ${GITHUB_REF_NAME} (tree ${tree}); merge dev into master unchanged, and tag after dev's push published its image"
+            exit 1
+          fi
+          tags=(-t "${DOCKER_IMAGE}:${version}")
+          # latest moves only to the newest release: not to a pre-release, and
+          # not back to an older line's patch.
+          newest="$(git tag --list 'v[0-9]*' | grep -v -- - | sed 's/^v//' | sort -V | tail -n 1)"
+          if [[ "$version" != *-* && "$version" == "$newest" ]]; then tags+=(-t "${DOCKER_IMAGE}:latest"); fi
+          echo "${GITHUB_REF_NAME}: ${DOCKER_IMAGE}:dev_${source} as ${tags[*]}"
+          docker buildx imagetools create "${tags[@]}" "${DOCKER_IMAGE}:dev_${source}"
+          docker buildx imagetools inspect "${DOCKER_IMAGE}:${version}"
