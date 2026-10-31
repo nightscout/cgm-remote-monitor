@@ -1,7 +1,7 @@
 'use strict';
 
-// The cached storage wrapper as it is at f5bd2642 (#8879's head), before
-// WC-STEP-PATCH release 2's id resolution (write-contract Q-A): its
+// The cached storage wrapper as it is at 71738792 (#8879's head, ID-FIRST-MATCH
+// 6a), before WC-STEP-PATCH release 2's id resolution (write-contract Q-A): its
 // identifier methods told the cache what they wrote. tests/write-intent.v3.test.js
 // runs the v3 modules as they were at db3b9e4e over it, as the baseline. Not
 // loaded by the server.
@@ -130,7 +130,10 @@ function MongoCachedCollection (ctx, env, colName, baseStorage) {
   self.deleteManyOr = async (filter) => {
     let invalidateDocs
     if (cacheSupported()) {
+      // the same OR as the delete below (BF-222): an AND here missed records
+      // that match one condition only, which then stayed in the cache
       invalidateDocs = await baseStorage.findMany({ filter,
+        logicalOperator: 'or',
         limit: 1000,
         skip: 0,
         projection: { _id: 1 },

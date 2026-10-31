@@ -6,7 +6,7 @@ const { ObjectId } = require('mongodb');
 
 const writeIntent = require('../lib/storage/write-intent');
 const MongoCachedCollection = require('../lib/api3/storage/mongoCachedCollection');
-const MongoCachedCollectionBefore = require('./fixtures/write-intent/api3-cached-collection-f5bd2642');
+const MongoCachedCollectionBefore = require('./fixtures/write-intent/api3-cached-collection-71738792');
 const utils = require('../lib/api3/storage/mongoCollection/utils');
 const security = require('../lib/api3/security');
 const srvDates = require('../lib/server/srv-dates');
@@ -25,7 +25,7 @@ const srvDates = require('../lib/server/srv-dates');
 // the _ids it touches first and names them to the cache itself, so the
 // storage calls differ by design (a resolve before each write, a read back by
 // _id). The baseline runs the db3b9e4e modules over the cached wrapper as it
-// is at f5bd2642 (tests/fixtures/write-intent/api3-cached-collection-f5bd2642.js);
+// is at 71738792 (tests/fixtures/write-intent/api3-cached-collection-71738792.js);
 // the bus emissions, the reply and the stored record must still be equal, and
 // the writes the same methods with the same identifiers and documents.
 //
