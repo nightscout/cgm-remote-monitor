@@ -23,7 +23,7 @@ describe('views profile: one tenant, nonresident (research prototype)', function
     env.settings.authDefaultRoles = 'readable';
     self.env = env;
     self.language = require('../lib/language')(fs);
-    require('../lib/server/serve/views').boot(env, self.language).then(function (ctx) {
+    require('../lib/server/serve/views').boot(env, self.language, { settleMs: 50, maxWaitMs: 200 }).then(function (ctx) {
       self.ctx = ctx;
       if (ctx.bootErrors && ctx.bootErrors.length) return done(new Error('did not boot: ' + JSON.stringify(ctx.bootErrors).slice(0, 400)));
       done();
@@ -95,9 +95,59 @@ describe('views profile: one tenant, nonresident (research prototype)', function
           } catch (e) { err = e; }
           ctx.bus.teardown();
           delete process.env.NIGHTSCOUT_EXECUTION;
-          ctx.store.client.close().then(() => done(err));
+          // the MongoDB client is shared with the views profile's (mongo-storage
+          // keeps one per URI); after() closes it
+          done(err);
         });
       });
+    });
+  });
+
+  describe('trigger', function () {
+    function evaluated (ctx) {
+      return new Promise(resolve => ctx.bus.once('views-evaluated', resolve));
+    }
+    function clear () {
+      const ctx = self.ctx;
+      return Promise.all(['entries', 'treatments', 'devicestatus', 'profile'].map(k => ctx.store.collection(self.env[k + '_collection']).deleteMany({})))
+        .then(() => new Promise(resolve => ctx.evaluator.idle(resolve)));
+    }
+    function sgv (ms, v) { return { type: 'sgv', sgv: v, date: ms, dateString: new Date(ms).toISOString(), device: 'views-profile' }; }
+
+    beforeEach(clear);
+
+    it('a committed write of entries evaluates the alarms view, once per burst', async function () {
+      const ctx = self.ctx;
+      const before = Object.assign({}, ctx.evaluator.stats);
+      const done = evaluated(ctx);
+      const now = Date.now();
+      for (let i = 0; i < 5; i++) {
+        await new Promise((resolve, reject) => ctx.entries.create([sgv(now - i * 5 * 60000, 120 + i)], e => e ? reject(e) : resolve()));
+      }
+      const ev = await done;
+      ev.ok.should.equal(true);
+      ev.why.write.should.be.above(0);
+      await new Promise(resolve => ctx.evaluator.idle(resolve));
+      (ctx.evaluator.stats.writes - before.writes).should.equal(5);
+      (ctx.evaluator.stats.evaluations - before.evaluations).should.be.belowOrEqual(2);
+    });
+
+    it('a write to a collection the views do not read triggers nothing', async function () {
+      const ctx = self.ctx;
+      const before = Object.assign({}, ctx.evaluator.stats);
+      ctx.bus.emit('storage-write-committed', Object.freeze({ collection: 'roles', source: 'internal', operation: 'insertOne', partial: false, counts: { inserted: 1 } }));
+      await new Promise(resolve => setTimeout(resolve, 120));
+      (ctx.evaluator.stats.ignoredWrites - before.ignoredWrites).should.equal(1);
+      ctx.evaluator.stats.evaluations.should.equal(before.evaluations);
+    });
+
+    it('the heartbeat tick evaluates with no write', async function () {
+      const ctx = self.ctx;
+      const done = evaluated(ctx);
+      ctx.bus.emit('tick', { now: new Date(), type: 'heartbeat' });
+      const ev = await done;
+      ev.why.tick.should.equal(1);
+      (ev.why.write === undefined).should.equal(true);
     });
   });
 });
