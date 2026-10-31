@@ -338,4 +338,24 @@ describe('websocket: dbUpdate, dbUpdateUnset and dbRemove addressed by identifie
       (await stored('food')).should.eql([]);
     });
   });
+
+  // WC-STEP-PATCH release 2 (write-contract Q-A): a dbRemove by an identifier
+  // that more than the step's resolve cap of records share cannot be named
+  // (WriteResult.removed is null), so the handler reloads the collection's
+  // cache, as a delete by query always did, instead of naming nothing.
+  describe('dbRemove by an identifier over the resolve cap', function () {
+    it('removes every record that shares it and reloads the treatments cache', async function () {
+      this.timeout(30000);
+      var CAP = require('../lib/storage/write-intent').RESOLVE_CAP;
+      var docs = [];
+      for (var i = 0; i <= CAP; i += 1) docs.push(treatment(i, { identifier: ID, srvModified: 1557000000000 }));
+      await col().insertMany(docs);
+      var result = await send('dbRemove', { collection: 'treatments', identifier: ID });
+      result.reply.should.eql({ result: 'success' });
+      (await col().countDocuments({ identifier: ID })).should.equal(0);
+      var removes = result.events.filter(function (e) { return e.event === 'data-update' && e.payload.op === 'remove'; });
+      removes.should.eql([{ event: 'data-update', payload: { type: 'treatments', op: 'remove', count: CAP + 1, changes: null } }]);
+      result.events[result.events.length - 1].should.eql({ event: 'data-received' });
+    });
+  });
 });
