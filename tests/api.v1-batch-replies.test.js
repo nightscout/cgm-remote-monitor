@@ -198,10 +198,11 @@ describe('API v1 batch replies: one slot per sent item (BF-219, BF-220)', functi
       (await storedAt(33)).length.should.equal(1);
     });
 
-    it('a batch whose every entry is refused: 400, with the slots', async function () {
+    it('a batch whose every entry is refused: 200, with the 409 slots, so clients stop sending it', async function () {
       await collection('entries').insertOne(Object.assign(entry(0), { _id: new ObjectID(HEX.loneEntry), sysTime: iso(0) }));
       var batch = [entry(40, { _id: HEX.loneEntry })];
-      var res = await post('/entries/', batch).expect(400);
+      var res = await post('/entries/', batch).expect(200);
+      res.headers.warning.should.match(/^299 - "1 of 1 entries refused/);
       res.body.length.should.equal(1);
       expectRefused(res.body[0], batch[0]);
       (await storedAt(40)).length.should.equal(0);
