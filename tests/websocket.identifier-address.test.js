@@ -400,12 +400,37 @@ describe('websocket: dbUpdate, dbUpdateUnset and dbRemove addressed by identifie
       var docs = [];
       for (var i = 0; i <= CAP; i += 1) docs.push(treatment(i, { identifier: ID, srvModified: 1557000000000 }));
       await col().insertMany(docs);
-      var result = await send('dbRemove', { collection: 'treatments', identifier: ID });
-      result.reply.should.eql({ result: 'success' });
-      (await col().countDocuments({ identifier: ID })).should.equal(0);
-      var removes = result.events.filter(function (e) { return e.event === 'data-update' && e.payload.op === 'remove'; });
-      removes.should.eql([{ event: 'data-update', payload: { type: 'treatments', op: 'remove', count: CAP + 1, changes: null } }]);
-      result.events[result.events.length - 1].should.eql({ event: 'data-received' });
+      // two recent records the identifier does not name, in the cache before
+      var recent = [new Date(Date.now() - 3600000).toISOString(), new Date(Date.now() - 1800000).toISOString()];
+      var kept = (await col().insertMany(recent.map(function (t) {
+        return { eventType: 'Note', created_at: t, enteredBy: TAG + '-kept', srvModified: Date.now(), srvCreated: Date.now() };
+      }))).insertedIds;
+      var keptIds = Object.keys(kept).map(function (k) { return String(kept[k]); });
+      function cachedKept () {
+        return self.ctx.cache.getData('treatments').filter(function (d) { return keptIds.indexOf(String(d._id)) !== -1; }).length;
+      }
+      async function until (ok, ms) {
+        var t0 = Date.now();
+        while (!ok() && Date.now() - t0 < ms) await new Promise(function (r) { setTimeout(r, 50); });
+        return ok();
+      }
+      try {
+        self.ctx.bus.emit('data-received');
+        (await until(function () { return cachedKept() === 2; }, 8000)).should.equal(true, 'the recent records are cached before');
+        var result = await send('dbRemove', { collection: 'treatments', identifier: ID });
+        result.reply.should.eql({ result: 'success' });
+        (await col().countDocuments({ identifier: ID })).should.equal(0);
+        var removes = result.events.filter(function (e) { return e.event === 'data-update' && e.payload.op === 'remove'; });
+        removes.should.eql([{ event: 'data-update', payload: { type: 'treatments', op: 'remove', count: CAP + 1, changes: null } }]);
+        // the reload is asked for after the invalidate, so the cache (and the
+        // IOB and COB computed from it) is refilled, not left blank
+        var invalidated = result.events.findIndex(function (e) { return e.event === 'data-update' && e.payload.op === 'remove'; });
+        var reload = result.events.findIndex(function (e) { return e.event === 'data-received'; });
+        reload.should.be.above(invalidated, 'data-received after the invalidate');
+        (await until(function () { return cachedKept() === 2; }, 8000)).should.equal(true, 'the cache holds the records again after the reload');
+      } finally {
+        await col().deleteMany({ enteredBy: TAG + '-kept' });
+      }
     });
   });
 });
