@@ -159,7 +159,7 @@ async function observe (make, envExtra, cfg, act) {
 
 // WC-STEP-PATCH release 2 (write-contract Q-A): every write by filter is
 // resolved to _ids first (a find of the filter) and scoped to them
-// ({$and: [filter, {_id: {$in: ids}}]}), and a delete names the _ids it
+// ({$and: [filter, {_id: {$in: ids}}]}), a bulk write's removals too, and a delete names the _ids it
 // removed to the cache. Those calls and names are new by design; with each
 // resolve read dropped and each scope unwrapped, every other driver call,
 // event and reply must still equal db3b9e4e's. `resolved` counts the writes
@@ -178,6 +178,22 @@ function release2 (observed) {
       calls.push([next[0], scope[0]].concat(next.slice(2)));
       resolved += 1;
       i += 1;
+      continue;
+    }
+    // a bulk write's removals by filter: each scoped, each resolved by a find
+    // of its filter just before the bulk write
+    if (call[0] === 'bulkWrite' && Array.isArray(call[1])) {
+      const ops = call[1].map(function (op) {
+        const f = op && op.deleteMany && op.deleteMany.filter;
+        if (!(f && Array.isArray(f.$and) && f.$and.length === 2 && f.$and[1]._id && f.$and[1]._id.$in)) return op;
+        const plain = JSON.stringify(f.$and[0]);
+        for (let j = calls.length - 1; j >= 0; j -= 1) {
+          if (calls[j][0] === 'find' && JSON.stringify(calls[j][1]) === plain) { calls.splice(j, 1); break; }
+        }
+        resolved += 1;
+        return Object.assign({ }, op, { deleteMany: Object.assign({ }, op.deleteMany, { filter: f.$and[0] }) });
+      });
+      calls.push([call[0], ops].concat(call.slice(2)));
       continue;
     }
     calls.push(call);
