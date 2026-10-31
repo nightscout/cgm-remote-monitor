@@ -1028,11 +1028,12 @@ describe('CRUD by _id matrix: v1, v3 and websocket, every collection and stored 
           // entries re-send through the socket lands on the stored entry and
           // merges (written: edited), from every path; the v3->socket duplicate
           // is gone. Was: a socket re-send was not written, and v3->socket stored
-          // a second entry. Treatments through the socket are kept unwritten here
-          // until decision B (the next commit of this PR).
-          const kept = col === 'treatments' && to === 'socket';
+          // a second entry.
+          // CHANGED EXPECTATION (decision B, maintainer 2026-10-31): a treatment
+          // re-send through the socket that matches by identifier replaces the
+          // stored treatment, so it is written (edited) too. Was: kept unwritten.
           should(stored.length).equal(1);
-          should(allEdited(stored)).equal(!kept);
+          should(allEdited(stored)).equal(true);
         });
       }
     }

@@ -202,7 +202,11 @@ describe('ID-FIRST-MATCH slices 6 and 6a: the socket\'s dbAdd matches on identif
 
     // Red on c9b74404: a second record (outside the similar match's window,
     // and the fallback key never matches a stored record with an identifier).
-    it('a re-send with a stored identifier at another time merges into it; a field left out is kept', async ( ) => {
+    // EXPECTATION CHANGED 2026-10-31: maintainer decision B, relayed via session -d1 (decisions.md): a socket
+    // treatment create that matches a stored treatment by identifier REPLACES it, so treatments replace on every
+    // path, socket included, for slice 4's reason (a client shows a cleared field by leaving it out). This
+    // supersedes ID-Q1 (merge) for treatments. Was: merged, the left-out field kept.
+    it('a re-send with a stored identifier at another time replaces it; a field left out is gone', async ( ) => {
       const note = tag();
       const identifier = uuid();
       const seeded = await seed('treatments', treatment(note, { identifier, foodType: 'synthetic' }));
@@ -212,7 +216,8 @@ describe('ID-FIRST-MATCH slices 6 and 6a: the socket\'s dbAdd matches on identif
       stored.length.should.equal(1, 'one record for the identifier');
       shouldName(reply, seeded);
       stored[0].carbs.should.equal(30);
-      stored[0].foodType.should.equal('synthetic');
+      stored[0].should.not.have.property('foodType');
+      stored[0].created_at.should.equal(later);
     });
 
     // Red on c9b74404: a second record (the similar match requires equal
@@ -332,6 +337,12 @@ describe('ID-FIRST-MATCH slices 6 and 6a: the socket\'s dbAdd matches on identif
   // profile reached by identifier is not tested here: the design note's row
   // says acknowledged, while decisions row "slice 3, per collection" keeps
   // the socket profile's revive with Q-R (reported, not resolved).
+  //
+  // EXPECTATIONS CHANGED 2026-10-31: maintainer decision C, relayed via session -d1 (decisions.md): the slice 6
+  // profile-copy rule extends to the socket's dbAdd. A profile whose identifier names a stored profile with
+  // another startDate is stored as a new profile WITHOUT the copied identifier (a warning is logged), as on API v1
+  // and in-process; at the same startDate it is a re-send and merges (`store` replaced whole, ID-Q7). The two
+  // tests below re-send at another startDate and were written for a merge; a same-startDate test is added.
 
   describe('slice 6: profile', function ( ) {
     function profile (mark, fields) {
@@ -339,12 +350,30 @@ describe('ID-FIRST-MATCH slices 6 and 6a: the socket\'s dbAdd matches on identif
         , store: { [mark]: { dia: 3 }, other: { dia: 4 } } }, fields);
     }
 
-    // Red on c9b74404: a second record (startDate differs, no NSCLIENT_ID).
-    it('a re-send with a stored identifier and another startDate: one record; store replaced whole, a field left out kept', async ( ) => {
+    // EXPECTATION CHANGED (decision C): another startDate is a new profile without the identifier. Was: one record,
+    // merged.
+    it('a re-send with a stored identifier and another startDate: a new profile without the identifier', async ( ) => {
       const mark = tag();
       const identifier = uuid();
       const seeded = await seed('profile', profile(mark, { identifier, mills: 1 }));
       const resend = profile(mark, { identifier, startDate: iso(Date.now() - 3600000), store: { [mark]: { dia: 5 } } });
+      delete resend.units;
+      const reply = await add('profile', resend);
+      const stored = await find('profile', { defaultProfile: mark });
+      stored.length.should.equal(2, 'a new profile beside the stored one');
+      await shouldBeAsSeeded('profile', seeded);
+      const created = stored.find((doc) => String(doc._id) !== String(seeded._id));
+      created.should.not.have.property('identifier');
+      plain(created.store).should.eql({ [mark]: { dia: 5 } });
+      String(reply[0]._id).should.equal(String(created._id));
+    });
+
+    // Added with decision C: at the same startDate the re-send merges into the stored profile, store replaced whole.
+    it('a re-send with a stored identifier at the same startDate: one record; store replaced whole, a field left out kept', async ( ) => {
+      const mark = tag();
+      const identifier = uuid();
+      const seeded = await seed('profile', profile(mark, { identifier, mills: 1 }));
+      const resend = profile(mark, { identifier, startDate: seeded.startDate, store: { [mark]: { dia: 5 } } });
       delete resend.units;
       const reply = await add('profile', resend);
       const stored = await find('profile', { defaultProfile: mark });
@@ -354,13 +383,31 @@ describe('ID-FIRST-MATCH slices 6 and 6a: the socket\'s dbAdd matches on identif
       stored[0].units.should.equal('mg/dl');
     });
 
-    // Red on c9b74404: B (the NSCLIENT_ID match) is replaced, A is untouched.
-    it('identifier before NSCLIENT_ID', async ( ) => {
+    // EXPECTATION CHANGED (decision C): the re-send's startDate differs from A's, so the identifier is dropped and
+    // today's order runs: NSCLIENT_ID names B, which is merged; A is untouched. Was: A matched first. The ordering
+    // test at the same startDate below keeps the original intent (identifier before NSCLIENT_ID).
+    it('identifier at another startDate is dropped; NSCLIENT_ID then matches', async ( ) => {
       const mark = tag();
       const identifier = uuid();
       const a = await seed('profile', profile(mark, { identifier }));
       const b = await seed('profile', profile(mark, { NSCLIENT_ID: 'nsc-b-' + mark, startDate: iso(Date.now() - 7200000) }));
       const reply = await add('profile', profile(mark, { identifier, NSCLIENT_ID: 'nsc-b-' + mark, startDate: iso(Date.now() - 3600000)
+        , store: { [mark]: { dia: 6 } } }));
+      shouldName(reply, b);
+      const nowB = await byId('profile', b._id);
+      nowB.store[mark].dia.should.equal(6);
+      nowB.should.not.have.property('identifier');
+      await shouldBeAsSeeded('profile', a);
+      (await find('profile', { defaultProfile: mark })).length.should.equal(2);
+    });
+
+    // Added with decision C: at A's startDate, identifier is matched before NSCLIENT_ID.
+    it('identifier before NSCLIENT_ID at the same startDate', async ( ) => {
+      const mark = tag();
+      const identifier = uuid();
+      const a = await seed('profile', profile(mark, { identifier }));
+      const b = await seed('profile', profile(mark, { NSCLIENT_ID: 'nsc-b-' + mark, startDate: iso(Date.now() - 7200000) }));
+      const reply = await add('profile', profile(mark, { identifier, NSCLIENT_ID: 'nsc-b-' + mark, startDate: a.startDate
         , store: { [mark]: { dia: 6 } } }));
       shouldName(reply, a);
       (await byId('profile', a._id)).store[mark].dia.should.equal(6);
