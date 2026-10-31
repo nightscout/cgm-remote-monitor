@@ -642,7 +642,7 @@ function main () {
       const plugins = [...new Set(e.onlyA.concat(e.onlyB).map(s => 'emit:' + pluginOf(s) + '@' + levelOf(s)).concat(r.onlyA.concat(r.onlyB).map(s => 'req:' + pluginOf(s) + '@' + levelOf(s))))];
       plugins.forEach(p => { bucket.plugins[p] = (bucket.plugins[p] || 0) + 1; });
       episode(bucket, step, plugins);
-      if (details) fs.writeSync(details, JSON.stringify({ pair: label, step, minute: (t - dataset.start) / MIN, emitted: { onlyServer: e.onlyA, onlyOther: e.onlyB }, requested: { onlyServer: r.onlyA, onlyOther: r.onlyB } }) + '\n');
+      if (details) fs.writeSync(details, JSON.stringify({ pair: label, step, minute: (t - dataset.start) / MIN, evaluated: pctx && label === 'server-view' ? evaluatedThisMinute : undefined, emitted: { onlyServer: e.onlyA, onlyOther: e.onlyB }, requested: { onlyServer: r.onlyA, onlyOther: r.onlyB } }) + '\n');
     }
 
     clock.install();
