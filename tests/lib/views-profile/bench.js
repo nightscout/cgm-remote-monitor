@@ -128,6 +128,8 @@ async function main () {
   env.settings.authDefaultRoles = 'readable';
   const language = require(path.join(ROOT, 'lib/language'))(fs);
 
+  // the bench emits each tick itself; no real-time heartbeat interval
+  env.settings.heartbeat = 20 * 24 * 3600;
   const T = dataset.start + opt.atHours * HOUR;
   clock.install();
   clock.pin(T);

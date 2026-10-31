@@ -289,6 +289,11 @@ function main () {
       counted.store = { db: { stats: function () { const cnt = profileShared.cnt; if (cnt && cnt.on) cnt.reads++; return Promise.resolve(profileShared.stats()); } } };
       return arms.viewsContext(counted, opt.mode === 'tamper' ? opt.view : null) || counted;
     }
+    // The replay emits the profile's heartbeat tick itself, once per pinned
+    // minute; the bus's own real-time interval (60 s of wall time) would add
+    // an evaluation at whatever replayed minute it fell on (a first run
+    // showed it: one extra, repeated evaluation in two timelines).
+    env.settings.heartbeat = 20 * 24 * 3600;
     return require(path.join(ROOT, 'lib/server/serve/views')).boot(env, language, {
       settleMs: Infinity
       , tick: opt.mode !== 'notick'
