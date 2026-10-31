@@ -336,7 +336,10 @@ function storage (env, ctx) {
           changes: ctx.ddata.processRawDataForRuntime(treatments)
         });
 
-        fn(err, treatments);
+        // CHANGED with BF-219 (ID-BATCH (iv)): the derived preBolus record
+        // is stored and announced, but left out of the reply, one slot per
+        // sent item, as treatments.js does.
+        fn(err, [obj]);
       } else {
 
         ctx.bus.emit('data-update', {
@@ -453,6 +456,9 @@ function storage (env, ctx) {
 
       return obj;
     }, function (err, result) {
+      // CHANGED with BF-221: data-received is emitted once the write has
+      // finished, before the caller is answered, as treatments.js does.
+      ctx.bus.emit('data-received');
       if (err) {
         console.error('Problem saving treating', err);
         if (typeof fn === 'function') fn(err, obj);
@@ -462,7 +468,6 @@ function storage (env, ctx) {
       if (typeof fn === 'function') fn(null, result);
     });
 
-    ctx.bus.emit('data-received');
     return promise;
   }
 
