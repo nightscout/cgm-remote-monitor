@@ -24,7 +24,7 @@ var identifierIndex = require('../lib/storage/identifier-index');
 // until all have arrived (or `waitMs` passed), then let them run together;
 // with `inOrder`, one at a time in arrival order, each after the one before
 // has finished (so the later one has still matched before the earlier wrote).
-function gate (name, method, count, waitMs, inOrder) {
+function gate (name, method, count, waitMs, inOrder, between) {
   var real = Collection.prototype[method];
   var held = [];
   var state = { arrived: 0 };
@@ -33,8 +33,10 @@ function gate (name, method, count, waitMs, inOrder) {
     if (timer) clearTimeout(timer);
     var all = held.splice(0);
     if (!inOrder) return all.forEach(function (go) { go(); });
-    all.reduce(function (previous, go) {
-      return previous.then(function () { return go(); });
+    all.reduce(function (previous, go, index) {
+      return previous.then(function () {
+        return index > 0 && between ? between() : undefined;
+      }).then(function () { return go(); });
     }, Promise.resolve());
   }
   Collection.prototype[method] = function gated () {
@@ -234,6 +236,28 @@ describe('ID-UNIQUE-INDEX: two uploads of one record that race', function () {
       replies[1].status.should.equal(500);
       var docs = await col('treatments').find({ identifier: id }).toArray();
       docs.length.should.equal(1);
+      docs[0].carbs.should.equal(12);
+    });
+
+    it('a record deleted after the other upload stored it stays deleted: the loser is acknowledged (on-deleted)', async function () {
+      var id = 'race-v3-treatment-0004';
+      var raw = col('treatments');
+      var g = gate(self.instance.env.treatments_collection, 'insertOne', 2, 3000, true, function softDelete () {
+        return raw.updateOne({ identifier: id }, { $set: { isValid: false } });
+      });
+      opened.push(g);
+      // A supertest request is sent when it is awaited or then-ed.
+      var first = post('treatments', treatment(id)).then(function (r) { return r; });
+      while (g.arrived < 1) await new Promise(function (resolve) { setTimeout(resolve, 5); });
+      var second = post('treatments', treatment(id, { carbs: 30 })).then(function (r) { return r; });
+      var replies = await Promise.all([first, second]);
+      g.arrived.should.equal(2);
+      replies[0].status.should.equal(201);
+      replies[1].status.should.equal(200);
+      replies[1].body.isDeduplication.should.equal(true);
+      var docs = await raw.find({ identifier: id }).toArray();
+      docs.length.should.equal(1);
+      docs[0].isValid.should.equal(false);
       docs[0].carbs.should.equal(12);
     });
 
