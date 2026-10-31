@@ -48,24 +48,17 @@ const treatmentsSince = (ms) => ({ find: { created_at: { $gte: iso(ms) } }, sort
 // The summary view's bound below extends the product's properties bound, as
 // its own spec did before. In the product bounds a rule is 'loader' where
 // this harness says 'pass'; route() treats the two alike.
-// VIEWS_COB_DIAS: the summary view's treatment window, in DIAs (the product
-// properties view's is fixed at bounds.PROPERTIES_DIAS).
 const productViews = require('../../../lib/data/views');
-const COB_DIAS = Number(process.env.VIEWS_COB_DIAS) || productViews.bounds.PROPERTIES_DIAS;
 const PROPERTIES_SPEC = productViews.bounds.properties;
 
 // GET /api/v2/summary?hours=6: readings and treatments over the hours asked
 // for (plus an hour for a temp basal that started before and runs into it),
 // temp targets over the treatment cache's 60 h (the route returns every temp
-// target ddata holds), and the properties above for `state`.
+// target ddata holds), and the properties above for `state`. The properties
+// bound already reads the resident reading and treatment windows, which
+// contain all of these.
 const SUMMARY_HOURS = 6;
-const SUMMARY_SPEC = Object.assign({}, PROPERTIES_SPEC, {
-  entries: (now, info) => PROPERTIES_SPEC.entries(now, info).concat([{ find: { type: 'sgv', date: { $gte: now - SUMMARY_HOURS * HOUR } }, sort: { date: -1 } }])
-  , treatments: (now, info) => [
-    treatmentsSince(now - Math.max(COB_DIAS * info.diaHours, SUMMARY_HOURS + 1) * HOUR)
-    , { find: { eventType: 'Temporary Target', created_at: { $gte: iso(now - 60 * HOUR) } }, sort: { created_at: 1 } }
-  ]
-});
+const SUMMARY_SPEC = Object.assign({}, PROPERTIES_SPEC);
 
 // GET /api/v1/entries' Last-Modified (ifModifiedSinceCTX): the newest reading.
 const CURRENT_SPEC = {
@@ -338,7 +331,19 @@ function firstDifference (a, b, at) {
   return null;
 }
 
-const diaHours = productViews.bounds.diaHours;
+// The largest `dia` in any store of the profile documents, and never less
+// than the 3 h the plugins assume when a profile has none.
+function diaHours (profileDocs) {
+  let dia = 3;
+  (profileDocs || []).forEach(function eachProfile (p) {
+    Object.values((p && p.store) || {}).forEach(function eachStore (s) {
+      const d = Number(s && s.dia);
+      if (d > dia) dia = d;
+    });
+  });
+  return dia;
+}
+
 
 // ------------------------------------------------------ the product arm
 

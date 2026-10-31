@@ -6,20 +6,14 @@
 //
 //   node tests/lib/views-replay/replay.js --dataset synthetic:<name>|corpus:<n>
 //        --mode main|shrink:<kind>:<hours>|tamper
-//        [--view alarms|properties] [--properties-bound current|wide]
+//        [--view alarms|properties]
 //        --db <database> --out <summary.json> [--details <diffs.jsonl>]
 //        [--tail-hours 26] [--no-r2] [--port 27017] [--profiles-at-start]
 //
 // --view properties: compare the properties view (compute('properties'), the
 // main page's pills, GET /api/v2/properties) with each resident path's
 // sbx.properties after its 'data-loaded' cycle, property by property, instead
-// of the alarm view's notifications. --properties-bound wide replaces the
-// properties view's treatment and reading windows, for this process only,
-// with the resident path's: treatments over the 60 h treatment cache and the
-// loader's own reading query (2 days into an empty cache), so each treatment
-// is matched to the readings the resident path matches it to
-// (lib/data/treatmenttocurve.js). Without it the view's bound is the product's
-// (lib/data/views/bounds.js properties).
+// of the alarm view's notifications.
 //
 // --profiles-at-start: a profile document dated after the replay's last minute
 // (an export's profiles are often its current ones, months newer than its
@@ -74,7 +68,7 @@ const { EventEmitter } = require('events');
 const ROOT = path.resolve(__dirname, '../../..');
 
 function args () {
-  const out = { mode: 'main', tailHours: 26, r2: true, port: 27017, view: 'alarms', propertiesBound: 'current' };
+  const out = { mode: 'main', tailHours: 26, r2: true, port: 27017, view: 'alarms' };
   const a = process.argv.slice(2);
   for (let i = 0; i < a.length; i++) {
     const k = a[i];
@@ -87,14 +81,12 @@ function args () {
     else if (k === '--no-r2') out.r2 = false;
     else if (k === '--profiles-at-start') out.profilesAtStart = true;
     else if (k === '--view') out.view = a[++i];
-    else if (k === '--properties-bound') out.propertiesBound = a[++i];
     else if (k === '--port') out.port = Number(a[++i]);
     else if (k === '--max-steps') out.maxSteps = Number(a[++i]);
     else throw new Error('unknown argument ' + k);
   }
   if (!out.dataset || !out.db || !out.out) throw new Error('--dataset, --db and --out are required');
   if (['alarms', 'properties'].indexOf(out.view) < 0) throw new Error('--view must be alarms or properties');
-  if (['current', 'wide'].indexOf(out.propertiesBound) < 0) throw new Error('--properties-bound must be current or wide');
   return out;
 }
 
@@ -339,15 +331,6 @@ function main () {
     const vbase = Object.create(ctx);
     Object.assign(vbase, countingStores(cnt.view));
     const PROPS = opt.view === 'properties';
-    if (PROPS && opt.propertiesBound === 'wide') {
-      // the resident path's windows (lib/data/dataloader.js loadEntries,
-      // loadTreatments into an empty cache), for this process only
-      const b = createViews.bounds;
-      b.properties = Object.assign({}, b.properties, {
-        entries: 'loader'
-        , treatments: (now) => [{ find: { created_at: { $gte: new Date(now - b.TREATMENT_CACHE_HOURS * HOUR).toISOString() } }, sort: { created_at: 1 } }]
-      });
-    }
     const tamper = opt.mode === 'tamper' ? harness.TAMPER[opt.view] : null;
     const views = createViews(env, harness.productContext(vbase, tamper, null, false));
     const vBus = new EventEmitter();
@@ -490,7 +473,7 @@ function main () {
     }
     async function probe (step, t) {
       const set = await new Promise((resolve, reject) => views.materialise('alarms', { now: t, dbstats: currentStats }, (e, s) => e ? reject(e) : resolve(s)));
-      const dia = createViews.bounds.diaHours(set.ddata.profiles || []);
+      const dia = harness.diaHours(set.ddata.profiles || []);
       const ev = views.evaluate(set);
       void ev;
       const vs = sandbox().serverInit(env, Object.assign(Object.create(ctx), { ddata: set.ddata, runtimeState: 'loaded', notifications: null }));
@@ -644,7 +627,7 @@ function main () {
     res.acks = ackLog;
     res.viewKindMinutes = viewKindMinutes;
     res.view.name = opt.view;
-    if (PROPS) { res.view.bound = opt.propertiesBound; res.propertiesPresent = propsPresent; }
+    if (PROPS) res.propertiesPresent = propsPresent;
     if (probes.length) res.probes = probes;
     res.errors = errors.length;
     res.errorSample = errors.slice(0, 5).map(e => e.replace(/\d{2,}/g, '#'));

@@ -363,3 +363,46 @@ Noise floor: r2 differed from the server on 0 of 252,184 minutes (both bounds).
 | `shrink:devicestatus:6` | corpus #1, synthetic aaps, edges, edgesDays2, kindXdripjs (sensorState 185 minutes), loop, quiet, twoUploaders, both bounds |
 
 The choice between the two bounds is the maintainer's. The product bound is unchanged.
+
+# Round 5, 2026-10-30: the resident windows for the properties view (maintainer decision)
+
+The maintainer chose round 4's wide bound for the product.
+
+## The change
+
+`lib/data/views/bounds.js` `properties` is now the alarm window with readings by the loader's own query (`entries: 'loader'`, 2 days into an empty cache). Its treatments (60 h) and device status (24 h, or 48 h) come from the alarm window.
+
+Removed, because nothing in the product uses them any more:
+- the 3-DIA window (`PROPERTIES_DIAS`);
+- the newest-within-60 h record (`treatmentsWindow`);
+- the profile's DIA (`diaHours` and `info.diaHours`). `diaHours` moves to the test helper, where the harness and the replay probe use it.
+
+In the equality harness the test-only summary spec is now the properties bound, which contains its readings, treatments and temp targets; `VIEWS_COB_DIAS` is gone. The replay's lab-only `--properties-bound` option is removed, since the product bound is the round-4 wide one.
+
+## Result (fresh container, 15 replays at once)
+
+| view | minutes compared (all datasets, as-is and profiles at start) | view differs | r2 differs |
+|---|---|---|---|
+| alarms | 126,092 | 0 | 0 |
+| properties | 126,092 | 0 | 0 |
+
+Every control was red or silent on exactly the same minutes as before: the alarm controls as round 4, the properties controls as round 4's wide bound. In the equality harness:
+- untampered and dry-run tamper: 174 passing;
+- tamper alarms fails 4, properties 20, summary 23, current 24, page 23, each on its own view only (checked for alarms, properties and summary);
+- `VIEWS_SHRINK=devicestatus:0.5` fails 14 and `treatments:4` fails 8.
+
+`npm test`: 5051 passing, 3 pending.
+
+## Cost per minute, properties view (mean; round 4's current bound → this one)
+
+Reads per minute go from 16 to 11. Selected datasets (mean docs and KB per minute):
+
+| dataset | docs | KB |
+|---|---|---|
+| corpus #1 | 590 → 1187 | 665.3 → 945.2 |
+| corpus #4 | 286 → 622 | 768.2 → 849.6 |
+| corpus #6 | 17 → 42 | 3.7 → 9.1 |
+| synthetic loop | 570 → 1528 | 310.4 → 549.4 |
+| synthetic quiet | 306 → 818 | 169.8 → 307.5 |
+
+The alarm view's cost is round 3's.

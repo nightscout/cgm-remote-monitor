@@ -12,7 +12,6 @@
 //                          records created within <h> hours (window control)
 // VIEWS_ONLY=<a,b>         run only these views
 // VIEWS_MEASURE=1          log each arm's ddata size in serialised bytes
-// VIEWS_COB_DIAS=<n>       the properties view's treatment window in DIAs (3)
 
 const fs = require('fs');
 const express = require('express');
