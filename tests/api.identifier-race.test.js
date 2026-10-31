@@ -261,6 +261,36 @@ describe('ID-UNIQUE-INDEX: two uploads of one record that race', function () {
       docs[0].carbs.should.equal(12);
     });
 
+    it('a treatment matched by its computed identifier and deleted after the other upload stored it is revived'
+      + ' by the loser, as a serial re-send is (V3_COMPUTED_IDENTIFIER: treatments revive)', async function () {
+      // No identifier is sent: API v3 computes one from device, date and
+      // eventType, so both uploads carry the same computed identifier.
+      var marker = 'race-v3-computed-' + Date.now();
+      var raw = col('treatments');
+      var body = function (carbs) {
+        return { date: T + 3 * 60000, utcOffset: 0, app: 'race-test', device: marker, eventType: 'Carb Correction', carbs: carbs };
+      };
+      var g = gate(self.instance.env.treatments_collection, 'insertOne', 2, 3000, true, function softDelete () {
+        return raw.updateOne({ device: marker }, { $set: { isValid: false } });
+      });
+      opened.push(g);
+      // A supertest request is sent when it is awaited or then-ed.
+      var first = post('treatments', body(12)).then(function (r) { return r; });
+      while (g.arrived < 1) await new Promise(function (resolve) { setTimeout(resolve, 5); });
+      var second = post('treatments', body(30)).then(function (r) { return r; });
+      var replies = await Promise.all([first, second]);
+      g.arrived.should.equal(2);
+      replies[0].status.should.equal(201);
+      replies[1].status.should.equal(200);
+      replies[1].body.isDeduplication.should.equal(true);
+      replies[1].body.identifier.should.equal(replies[0].body.identifier);
+      var docs = await raw.find({ device: marker }).toArray();
+      docs.length.should.equal(1);
+      docs[0].identifier.should.equal(replies[0].body.identifier);
+      should(docs[0].isValid).not.equal(false);
+      docs[0].carbs.should.equal(30);
+    });
+
     it('two different records racing on one identifier (another date): one 201, one 500, the first kept', async function () {
       var id = 'race-v3-treatment-0003';
       var g = gate(self.instance.env.treatments_collection, 'insertOne', 2);
