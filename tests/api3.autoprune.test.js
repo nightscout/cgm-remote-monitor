@@ -135,6 +135,31 @@ describe('API3 auto-prune', function () {
     self.unhandled.should.have.length(0);
   });
 
+  it('names a record pruned by one condition only to the cache (BF-222)', async () => {
+    await self.rawCol.deleteMany({});
+    const old = new Date(Date.now() - 40 * DAY);
+    const now = new Date();
+    // past the cutoff by date only: created (and stamped) now
+    const { insertedId } = await self.rawCol.insertOne({ eventType: 'Note', notes: 'autoprune late upload',
+      created_at: now.toISOString(), srvCreated: now.getTime(), date: old.getTime() });
+
+    const removes = [];
+    const onUpdate = (e) => { if (e && e.type === 'treatments' && e.op === 'remove') removes.push(e); };
+    self.instance.ctx.bus.on('data-update', onUpdate);
+    try {
+      await self.col.storage.deleteManyOr([
+        { field: 'srvCreated', operator: 'lt', value: Date.now() - 30 * DAY },
+        { field: 'created_at', operator: 'lt', value: new Date(Date.now() - 30 * DAY).toISOString() },
+        { field: 'date', operator: 'lt', value: Date.now() - 30 * DAY }
+      ]);
+    } finally {
+      self.instance.ctx.bus.removeListener('data-update', onUpdate);
+    }
+
+    (await self.rawCol.countDocuments({ _id: insertedId })).should.equal(0);
+    removes.map((e) => e.changes).should.eql([[insertedId.toString()]]);
+  });
+
   it('a failing prune is logged, does not reject unhandled, and waits for the next hourly slot', async () => {
     const original = self.col.storage.deleteManyOr;
     let calls = 0;

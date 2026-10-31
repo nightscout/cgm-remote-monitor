@@ -211,7 +211,7 @@ describe('write(intent): treatments from API v1 and in-process callers (equal to
       , (api, done) => api.create([tt(120, 100, 'mg/dl')], done)],
     ['a non-string identifier is refused before any write', { }, { }
       , (api, done) => api.create([{ eventType: 'Note', created_at: T1, identifier: 5 }], done)],
-    ['save by 24-hex _id (replace, twin removal, data-received first)', { }, { stored, replaceUpserts: [false] }
+    ['save by 24-hex _id (replace, twin removal, then data-received: BF-221)', { }, { stored, replaceUpserts: [false] }
       , (api, done) => api.save(batch()[0], done)],
     ['save by identifier, matched (REQ-SYNC-072 read-back)', { }, { stored, replaceUpserts: [false] }
       , (api, done) => api.save(batch()[1], done)],
