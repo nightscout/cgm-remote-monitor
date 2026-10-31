@@ -23,6 +23,7 @@ var request = require('supertest');
 var should = require('should');
 var { Collection, ObjectId } = require('mongodb');
 var language = require('../lib/language')();
+var writeIntent = require('../lib/storage/write-intent');
 
 describe('API v1 entries batch: a taken _id and an identifier race together (BF-220 with ID-UNIQUE-INDEX)', function () {
   this.timeout(15000);
@@ -32,6 +33,8 @@ describe('API v1 entries batch: a taken _id and an identifier race together (BF-
   var HOLDER = '5f3200000000000000000e72';
   var RACE = 'entries-taken-and-race-1';
   var realBulkWrite = Collection.prototype.bulkWrite;
+  var realForCollection = writeIntent.forCollection;
+  var updates = [];
 
   function at (minute, second) { return Date.UTC(2021, 7, 8, 8, minute, second || 0); }
   function iso (minute, second) { return new Date(at(minute, second)).toISOString(); }
@@ -55,11 +58,15 @@ describe('API v1 entries batch: a taken _id and an identifier race together (BF-
       self.ctx = ctx;
       self.ctx.ddata = require('../lib/data/ddata')();
       self.app.use('/api', require('../lib/api/')(self.env, ctx));
+      ctx.bus.on('data-update', function (ev) { if (ev.type === 'entries') updates.push(ev); });
       dropAll().then(function () { done(); }, done);
     });
   });
-  beforeEach(dropAll);
-  afterEach(function () { Collection.prototype.bulkWrite = realBulkWrite; });
+  beforeEach(function () { updates = []; return dropAll(); });
+  afterEach(function () {
+    Collection.prototype.bulkWrite = realBulkWrite;
+    writeIntent.forCollection = realForCollection;
+  });
   after(dropAll);
 
   it('slot 1 refused 409 with no _id, slot 2 merged into the record the other upload stored, slots in batch order', async function () {
@@ -79,6 +86,20 @@ describe('API v1 entries batch: a taken _id and an identifier race together (BF-
       return realBulkWrite.apply(this, arguments);
     };
 
+    // Each outcome the entries write step answers (the D-EVENT items[]).
+    var results = [];
+    writeIntent.forCollection = function forCollection (storage, name) {
+      var step = realForCollection.apply(this, arguments);
+      if (name !== 'entries') return step;
+      var write = step.write;
+      step.write = async function (intent) {
+        var result = await write.call(step, intent);
+        results.push(result);
+        return result;
+      };
+      return step;
+    };
+
     var batch = [entry(5), entry(7, { _id: HOLDER }), entry(6, { identifier: RACE }), entry(8)];
     var warned = [];
     var warn = console.warn;
@@ -88,7 +109,14 @@ describe('API v1 entries batch: a taken _id and an identifier race together (BF-
       res = await request(self.app).post('/api/entries/').set('api-secret', known).send(batch).expect(200);
     } finally { console.warn = warn; }
     Collection.prototype.bulkWrite = realBulkWrite;
+    writeIntent.forCollection = realForCollection;
     should.exist(other, 'the other upload was stored at the first bulk write');
+
+    // Only the raced slot is applied again: the slots the ordered bulk write
+    // had committed keep their outcome, and are written once.
+    results.length.should.equal(1, 'one write result');
+    results[0].items.map(function (i) { return i.outcome; }).should.eql(['inserted', 'refused', 'merged', 'inserted']
+      , 'slot 0 inserted (not merged by a re-run), slot 1 refused, slot 2 merged, slot 3 inserted');
 
     res.body.length.should.equal(4);
     should.not.exist(res.body[1]._id, 'slot 1: a refused slot carries no _id');
@@ -106,19 +134,16 @@ describe('API v1 entries batch: a taken _id and an identifier race together (BF-
     var s8 = await col().find({ device: DEVICE, sysTime: iso(8) }).toArray();
     s5.length.should.equal(1); s8.length.should.equal(1);
     String(res.body[0]._id).should.equal(String(s5[0]._id), 'slot 0 names the record stored for it');
+    s5[0].srvModified.should.equal(s5[0].srvCreated, 'slot 0 written once: srvModified is its insert\'s');
     String(res.body[3]._id).should.equal(String(s8[0]._id), 'slot 3 names the record stored for it');
     (await col().countDocuments({ device: DEVICE, sysTime: iso(7) })).should.equal(0, 'the refused entry is not stored');
 
-    // Recorded for the report (not the contract): the retry runs the batch's
-    // write once more, so BF-220's log line is printed once per run.
     warned.filter(function (w) { return /applying this one as its re-send/.test(w); }).length.should.equal(1, 'one retry');
-    warned.filter(function (w) { return /refused entry/.test(w); }).forEach(function (w) {
-      w.should.equal('API v1 refused entry 1 of the batch: its _id is in use by another record (409)');
-    });
-    self.refusedLines = warned.filter(function (w) { return /refused entry/.test(w); }).length;
-  });
+    warned.filter(function (w) { return /refused entry/.test(w); }).should.eql(
+      ['API v1 refused entry 1 of the batch: its _id is in use by another record (409)'], 'BF-220 logs slot 1 once');
 
-  after(function () {
-    if (self.refusedLines !== undefined) console.log('    (BF-220 refused-entry log lines: ' + self.refusedLines + ')');
+    // One announcement, of slots 0, 2 and 3, each once.
+    updates.length.should.equal(1, 'one data-update for entries');
+    updates[0].changes.map(function (e) { return e.sgv; }).sort().should.eql([105, 106, 108]);
   });
 });
