@@ -28,7 +28,10 @@ const {entries, output, measure} = require('../tools/measure-page-bundles');
 // on Node 26.12.1). Increase only that allowance by the measured cost.
 // Source-aware pentagon coverage adds 655 gzip bytes (69,265 -> 69,920
 // on Node 26.12.1); retain the prior reports allowance above the measured cost.
-const limits = {app: 349000, reports: 70693, admin: 8500, profile: 7100, food: 5700, clock: 63000};
+// BF-223: removing a refused saved API secret and saying so adds 43 gzip bytes
+// to clock (62,968 -> 63,011 on Node 22.23.4); the clock allowance moves by
+// that measured cost and keeps its prior 32-byte margin.
+const limits = {app: 349000, reports: 70693, admin: 8500, profile: 7100, food: 5700, clock: 63043};
 
 describe('Production page bundle resource budgets', function () {
   let measurements;
