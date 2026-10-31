@@ -222,7 +222,7 @@ describe('ID-FIRST-MATCH slices 6 and 6a: the socket\'s dbAdd matches on identif
 
     // Red on c9b74404: a second record (the similar match requires equal
     // carbs, so an edited amount inside the window is a new record).
-    it('a re-send with a stored identifier and another amount, same time: merged, the amount applied', async ( ) => {
+    it('a re-send with a stored identifier and another amount, same time: replaced, the amount applied (decision B)', async ( ) => {
       const note = tag();
       const identifier = uuid();
       const seeded = await seed('treatments', treatment(note, { identifier }));
