@@ -73,6 +73,8 @@ describe('API3 PUT and PATCH: an identifier that names two stored records reache
     const authResult = await authSubject(self.instance.ctx.authorization.storage, ['all'], self.instance.app);
     self.jwt = authResult.jwt;
     self.instance.ctx.bus.on('data-update', (update) => { if (updates) updates.push(update); });
+    // The two halves are stored as before the unique index (ID-UNIQUE-INDEX).
+    await require('./fixtures/identifier-index').dropIdentifierIndex(self.instance.ctx.store, self.instance.env);
   });
 
   after(async () => {
