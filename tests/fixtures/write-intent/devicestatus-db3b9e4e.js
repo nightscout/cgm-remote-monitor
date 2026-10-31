@@ -294,6 +294,9 @@ function storage (env, ctx) {
         , changes: idForms.cacheRemoval(asked, stat.deletedCount)
       });
 
+      // CHANGED with the dev 305a6533 merge (#8880, BF-214): a remove
+      // reloads, as dev's devicestatus.js does.
+      ctx.bus.emit('data-received');
       return stat;
     }, fn);
   }
