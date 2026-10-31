@@ -2,6 +2,7 @@
 
 const path = require('node:path');
 const {reporters} = require('mocha');
+const {isBackendPending} = require('../tests/support/backends');
 const root = path.resolve(__dirname, '..');
 const support = new Set(['tests/00_production-safety.test.js', 'tests/XX_clean.test.js']);
 
@@ -15,6 +16,9 @@ class ExecutionReporter extends reporters.Spec {
     const executed = new Set();
     runner.on('pass', test => { if (test.file) executed.add(path.resolve(test.file)); });
     runner.on('fail', test => { if (test.type === 'test' && test.file) executed.add(path.resolve(test.file)); });
+    // A file the selected storage backend cannot run (NS_TEST_BACKEND) reports
+    // its tests pending, with the reason in the title; that is its outcome.
+    runner.on('pending', test => { if (test.file && isBackendPending(test)) executed.add(path.resolve(test.file)); });
     this.done = (failures, done) => {
       let missing = 0, intended = 0;
       for (const file of expected) {

@@ -197,6 +197,7 @@
         "tests/page-hmr-worker.test.js",
         "tests/production-safety.test.js",
         "tests/supertest-loopback.test.js",
+        "tests/test-backends.test.js",
         "tests/test-select.test.js"
       ],
       "covers": [
