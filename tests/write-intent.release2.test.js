@@ -43,7 +43,9 @@ const DAY = 24 * HOUR;
     return new MongoCachedCollection(ctx, { }, logical, new MongoCollection(ctx, { }, physical, logical, [ ]));
   }
   const updates = ( ) => events.filter(e => e.op === 'update' || e.op === 'remove');
-  const hex = ids => ids.map(id => String(id)).sort();
+  // A missing name (undefined, null) compares as no names, so a write left
+  // unnamed fails on the assertion, not here.
+  const hex = ids => (Array.isArray(ids) ? ids : [ ]).map(id => String(id)).sort();
 
   before(async function ( ) {
     const { MongoClient } = require('mongodb');
