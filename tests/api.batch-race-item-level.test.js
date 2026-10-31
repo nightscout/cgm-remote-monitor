@@ -47,6 +47,8 @@ describe('ID-UNIQUE-INDEX: a batch item that loses an identifier race is applied
   async function dropAll () {
     await col('devicestatus').deleteMany({ device: DEVICE });
     await col('treatments').deleteMany({ enteredBy: DEVICE });
+    await col('food').deleteMany({ enteredBy: DEVICE });
+    await col('profile').deleteMany({ enteredBy: DEVICE });
   }
 
   before(function (done) {
@@ -184,5 +186,85 @@ describe('ID-UNIQUE-INDEX: a batch item that loses an identifier race is applied
     }
     console.log('    (treatments rounds that reached the race handling: ' + raced + ' of ' + ROUNDS + ')');
     raced.should.be.above(0, 'the race was reached in at least one round');
+  });
+
+  // ID-FIRST-MATCH slices 6 and 6a: food and profile match a stored
+  // identifier first, so a raced item of their batches is applied as its
+  // re-send too. Deterministic, as device status above: the other upload's
+  // record is stored at the batch's first write call, after identifier first.
+  it('food (slice 6): slot 0 stored once, slot 1 merged into the other upload\'s food, slot 2 stored after it', async function () {
+    self.ctx.identifierIndex.mode.should.equal('try');
+    var RACE = 'batch-race-food-1-' + Date.now();
+    var other = null;
+    var foodName = col('food').collectionName;
+    Collection.prototype.bulkWrite = async function bulkWrite () {
+      if (this.collectionName === foodName && other === null) {
+        other = (await col('food').insertOne({ identifier: RACE, type: 'food', name: 'rival', category: 'race', enteredBy: DEVICE
+          , srvCreated: 1, srvModified: 1 })).insertedId;
+      }
+      return realBulkWrite.apply(this, arguments);
+    };
+    var batch = [
+      { identifier: RACE + '-0', type: 'food', name: 'zero', enteredBy: DEVICE }
+      , { identifier: RACE, type: 'food', name: 'one', enteredBy: DEVICE }
+      , { identifier: RACE + '-2', type: 'food', name: 'two', enteredBy: DEVICE }
+    ];
+    var res = await request(self.app).post('/api/food/').set('api-secret', known).send(batch);
+    Collection.prototype.bulkWrite = realBulkWrite;
+    res.status.should.equal(200);
+    should.exist(other, 'the other upload was stored at the first bulk write');
+    var written = results.filter(function (r) { return r.name === 'food'; });
+    written.length.should.equal(1);
+    written[0].result.items.map(function (i) { return i.outcome; }).should.eql(['inserted', 'merged', 'inserted']);
+    raceLines().should.equal(1, 'one race handled');
+    var s0 = await col('food').find({ identifier: RACE + '-0' }).toArray();
+    s0.length.should.equal(1);
+    s0[0].srvModified.should.equal(s0[0].srvCreated, 'slot 0 written once');
+    (await col('food').countDocuments({ identifier: RACE + '-2' })).should.equal(1, 'slot 2 stored after the raced slot');
+    var s1 = await col('food').find({ identifier: RACE }).toArray();
+    s1.length.should.equal(1, 'one food holds the identifier');
+    String(s1[0]._id).should.equal(String(other));
+    s1[0].name.should.equal('one', 'slot 1 merged');
+    s1[0].category.should.equal('race', 'a merge keeps what slot 1 leaves out');
+    await col('food').deleteMany({ enteredBy: DEVICE });
+  });
+
+  it('profile (slice 6): slot 0 stored once, slot 1 merged into the other upload\'s profile, slot 2 inserted after it', async function () {
+    self.ctx.identifierIndex.mode.should.equal('try');
+    var RACE = 'batch-race-profile-1-' + Date.now();
+    var startDate = new Date(Date.UTC(2021, 8, 9, 0, 0)).toISOString();
+    var other = null;
+    var profileName = col('profile').collectionName;
+    function profile (n, extra) {
+      return Object.assign({ defaultProfile: 'p' + n, startDate: new Date(Date.UTC(2021, 8, 9 + n, 0, 0)).toISOString()
+        , units: 'mg/dl', enteredBy: DEVICE, store: { ['p' + n]: { dia: 3 + n } } }, extra || {});
+    }
+    Collection.prototype.insertMany = async function insertMany () {
+      if (this.collectionName === profileName && other === null) {
+        other = (await col('profile').insertOne(Object.assign(profile(1, { identifier: RACE, startDate: startDate, mills: 1 })
+          , { srvCreated: 1, srvModified: 1 }))).insertedId;
+      }
+      return realInsertMany.apply(this, arguments);
+    };
+    var batch = [profile(0, { identifier: RACE + '-0' }), profile(1, { identifier: RACE, startDate: startDate, defaultProfile: 'one' })
+      , profile(2, { identifier: RACE + '-2' })];
+    var res = await request(self.app).post('/api/profile/').set('api-secret', known).send(batch);
+    Collection.prototype.insertMany = realInsertMany;
+    res.status.should.equal(200);
+    should.exist(other, 'the other upload was stored at the first insertMany');
+    var written = results.filter(function (r) { return r.name === 'profile'; });
+    written.length.should.equal(1);
+    written[0].result.items.map(function (i) { return i.outcome; }).should.eql(['inserted', 'merged', 'inserted']);
+    raceLines().should.equal(1, 'one race handled');
+    var s0 = await col('profile').find({ identifier: RACE + '-0' }).toArray();
+    s0.length.should.equal(1);
+    s0[0].srvModified.should.equal(s0[0].srvCreated, 'slot 0 written once');
+    (await col('profile').countDocuments({ identifier: RACE + '-2' })).should.equal(1, 'slot 2 inserted after the raced slot');
+    var s1 = await col('profile').find({ identifier: RACE }).toArray();
+    s1.length.should.equal(1, 'one profile holds the identifier');
+    String(s1[0]._id).should.equal(String(other));
+    s1[0].defaultProfile.should.equal('one', 'slot 1 merged');
+    s1[0].mills.should.equal(1, 'a merge keeps what slot 1 leaves out');
+    await col('profile').deleteMany({ enteredBy: DEVICE });
   });
 });
