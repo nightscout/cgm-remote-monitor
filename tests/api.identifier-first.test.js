@@ -24,7 +24,7 @@
 // profile create ... carries a different `startDate` is stored as a new profile
 // without the copied identifier"): the four profile tests that re-send at
 // another startDate now expect a new profile without the identifier; the
-// deleted-record one is a reading of that line, flagged for maintainer review.
+// deleted-record one follows the same rule, confirmed by the maintainer 2026-10-31.
 // Same-startDate profile tests were added beside them. Food and activity are
 // unchanged.
 //
@@ -178,7 +178,7 @@ describe('ID-FIRST-MATCH slices 6 and 6a: v1 and in-process profile, food and ac
         const seeded = await seed(name, form.doc(mark, identifier), true);
         const res = await v1('post', form.route).send([form.resend(mark, identifier)]).expect(200);
         await shouldStayDeleted(name, seeded);
-        // EXPECTATION CHANGED (profile): reading of line 90, flagged for maintainer review. A deleted profile the
+        // EXPECTATION CHANGED (profile): line 90, the deleted case confirmed by the maintainer 2026-10-31. A deleted profile the
         // identifier names at another startDate is read as "new profile, identifier dropped"; it stays deleted.
         if (form.newProfileAtOtherStartDate) {
           return shouldBeNewWithoutIdentifier(name, seeded, await find(name, { [form.mark]: mark }), res.body[0]._id, true);
