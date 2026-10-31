@@ -397,7 +397,8 @@ function main () {
     const vNotif = createNotifications(env, { levels: ctx.levels, bus: vBus, ddata: vDdata });
     vBus.on('notification', n => cur.view.push(n));
     let viewRequested = [];
-    const profileMinutes = { evaluated: 0, notEvaluated: 0, withWrites: 0, ticks: 0 };
+    const profileMinutes = { evaluated: 0, notEvaluated: 0, withWrites: 0, withUploads: 0, uploadsWithoutWriteEvent: 0, ticks: 0 };
+    let uploadedThisMinute = 0;
     let evaluatedThisMinute = true;
     if (pctx) {
       profileShared.cnt = cnt.view;
@@ -415,6 +416,10 @@ function main () {
       if (opt.mode !== 'notick') { pctx.bus.emit('tick', { now: new Date(), type: 'heartbeat' }); profileMinutes.ticks++; }
       await new Promise(resolve => ev.flush(resolve));
       if (ev.stats.writes > writesBefore) profileMinutes.withWrites++;
+      // a minute that uploaded records but whose writes emitted no event:
+      // every record a duplicate the store left unchanged, or a missed write
+      if (uploadedThisMinute > 0) profileMinutes.withUploads++;
+      if (uploadedThisMinute > 0 && ev.stats.writes === writesBefore) profileMinutes.uploadsWithoutWriteEvent++;
       evaluatedThisMinute = ev.stats.evaluations > before;
       if (evaluatedThisMinute) profileMinutes.evaluated++; else profileMinutes.notEvaluated++;
       if (ev.stats.errors) throw new Error('the profile evaluation failed');
@@ -459,7 +464,7 @@ function main () {
     }
     async function uploadUntil (t) {
       const batch = { entries: [], treatments: [], devicestatus: [], profile: [] };
-      while (qi < queue.length && queue[qi].t <= t) { batch[queue[qi].c].push(queue[qi].doc); qi++; }
+      while (qi < queue.length && queue[qi].t <= t) { batch[queue[qi].c].push(queue[qi].doc); uploadedThisMinute++; qi++; }
       for (const c of ['profile', 'entries', 'treatments', 'devicestatus']) {
         if (c === 'profile') { for (const p of batch.profile) await create('profile', [p]); continue; }
         for (let i = 0; i < batch[c].length; i += 1000) await create(c, batch[c].slice(i, i + 1000));
@@ -662,6 +667,7 @@ function main () {
       cur.server = []; cur.r2 = []; cur.view = [];
       req.server = []; req.r2 = [];
       const writesAtMinuteStart = pctx ? pctx.evaluator.stats.writes : 0;
+      uploadedThisMinute = 0;
       await uploadUntil(t);
       applyAcks(t);
       currentStats = await realStats();
