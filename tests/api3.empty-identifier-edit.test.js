@@ -113,8 +113,13 @@ describe('API3: edits by the id shown for a record with an empty identifier', fu
       // A device status re-sent with the identifier it is shown under is
       // acknowledged and not rewritten (ID-SIMPLE-MATCH, devicestatus option
       // (b), decided 2026-10-26); other collections are updated.
-      const updates = colName !== 'devicestatus';
-      it(colName + ': POST with the shown id as identifier ' + (updates ? 'updates' : 'is acknowledged and leaves') + ' the record with identifier ' + shape.label, async () => {
+      // CHANGED EXPECTATION (ID-FIRST-MATCH slice 4, ID-Q2): device status is
+      // merged too, as every other collection is, so its POST updates the
+      // record (the title is kept). The merge sets the identifier it was
+      // matched by, as the replace did on the other collections.
+      const updates = true;
+      const title = colName !== 'devicestatus' ? 'updates' : 'is acknowledged and leaves';
+      it(colName + ': POST with the shown id as identifier ' + title + ' the record with identifier ' + shape.label, async () => {
         const _id = await seed(colName, n + 2, { identifier: shape.value, notes: 'before post ' + n });
 
         const res = await self.instance.post('/api/v3/' + colName, self.jwt.all)

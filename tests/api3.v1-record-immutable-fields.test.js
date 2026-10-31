@@ -118,7 +118,11 @@ describe('API3: writes to a record created through API v1', function () {
       const after = await storedAt(T);
       after.length.should.equal(1);
       after[0].carbs.should.equal(30);
-      after[0].should.not.have.properties('notes', 'enteredBy');
+      // CHANGED EXPECTATION (ID-FIRST-MATCH slice 4, ID-Q8): the deduplicating
+      // POST is merged into the v1 record, so the fields it leaves out (the
+      // careportal's notes and enteredBy) are kept; it replaced the record.
+      after[0].should.have.properties('notes', 'enteredBy');
+      after[0].app.should.equal('AAPS');
     });
 
     it('a POST whose eventType differs is not deduplicated and both records stay', async () => {

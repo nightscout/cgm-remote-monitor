@@ -332,7 +332,13 @@ describe('Treatment API', function ( ) {
                 list[0].identifier.should.equal(treatmentId);
                 list[0].created_at.should.equal(repostedCreatedAt);
                 list[0].duration.should.equal(60);
-                should.not.exist(list[0].durationType);
+                // CHANGED EXPECTATION (ID-FIRST-MATCH slice 4, ID-Q8): the re-post is
+                // merged into the stored override (RFC 7386), so `durationType`, which
+                // it leaves out, is kept: the stored override carries both
+                // durationType 'indefinite' and duration 60. A client that ends the
+                // indefinite duration must send durationType: null, or PUT, which
+                // replaces (below). It was replaced, which dropped durationType.
+                list[0].durationType.should.equal('indefinite');
 
                 request(self.app)
                   .put('/api/treatments/')
@@ -362,6 +368,8 @@ describe('Treatment API', function ( ) {
                       updatedList[0].created_at.should.equal(updatedCreatedAt);
                       updatedList[0].duration.should.equal(30);
                       updatedList[0].reason.should.equal('updated override');
+                      // PUT replaces: the durationType the re-post kept is gone.
+                      should.not.exist(updatedList[0].durationType);
 
                       // Delete by server-assigned _id (or could use identifier)
                       request(self.app)

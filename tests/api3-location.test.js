@@ -17,7 +17,9 @@ describe('API3 document Location headers', function () {
           // Location must not depend on arbitrary request URL/proxy metadata.
           req: {baseUrl: '/\\external.example', path: '/elsewhere', headers: {host: 'external.example'}},
           col: {colName: 'treatments', autoPrune() {}, storage: {
-            insertOne: async () => identifier, replaceOne: async () => 1
+            // CHANGED (ID-FIRST-MATCH slice 4, ID-Q8): a deduplicating POST is
+            // merged through updateOne; the stub answers it as one updated.
+            insertOne: async () => identifier, replaceOne: async () => 1, updateOne: async () => ({updated: 1})
           }}};
         if (deduplicate) await replace(opCtx, {...doc}, {...doc}, {isDeduplication: true});
         else await insert(opCtx, {...doc});

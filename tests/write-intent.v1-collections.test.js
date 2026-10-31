@@ -20,6 +20,7 @@ const writeIntent = require('../lib/storage/write-intent');
 const OWN_LOG = /lib\/server\/(treatments|entries|devicestatus|profile)\.js|fixtures\/write-intent\/|lib\/storage\/write-intent\.js/;
 
 const { isOnDeletedRead } = require('./lib/on-deleted-read');
+const { unmerge } = require('./lib/merge-on-match');
 
 const FIXED = /^(aaaa|bbbb|cccc|dddd|eeee|0000)/;
 
@@ -197,7 +198,12 @@ describe('write(intent): treatments from API v1 and in-process callers (equal to
       , (api, done) => api.create(batch()[2], done)],
     ['one document by identifier, inserted', { uuidHandling: true }, { stored: [ ], replaceUpserts: [true] }
       , (api, done) => api.create(batch()[3], done)],
-    ['a batch with a preBolus (each item alone, then its preBolus record)', { }, { stored, replaceUpserts: [true, true, false, true] }
+    // CHANGED EXPECTATION (ID-FIRST-MATCH slice 4, ID-Q8): the first item matches
+    // the stored `id-1` (the server-date read finds it), so the driver answers its
+    // write as a match, not an upsert: a merge writes no upsert, and a scripted
+    // upsert there would be a record gone between the read and the write. It was
+    // [true, true, false, true].
+    ['a batch with a preBolus (each item alone, then its preBolus record)', { }, { stored, replaceUpserts: [false, true, false, true] }
       , (api, done) => api.create([Object.assign(batch()[1], { preBolus: '15' }), batch()[0], batch()[2]], done)],
     ['one document with a preBolus whose record write fails', { }, { stored, replaceUpserts: [true], fail: { } }
       , (api, done) => api.create({ eventType: 'Meal Bolus', carbs: 30, preBolus: 10, created_at: T1, notes: 'n' }, done)],
@@ -249,20 +255,34 @@ describe('write(intent): treatments from API v1 and in-process callers (equal to
     (call[1].identifier && call[1].identifier.$in)
     || (call[1].$or && call[1].$or[0].identifier && call[1].$or[0].identifier.$in));
 
+  // CHANGED EXPECTATION (ID-FIRST-MATCH slice 4, ID-Q8): a create that matches
+  // a stored treatment (here the stored `id-1`) is merged into it: in the bulk
+  // write an upserting updateOne whose $set is the document db3b9e4e replaced
+  // with (tests/lib/merge-on-match.js puts it back and counts it). Every other
+  // call, event, log line and reply is db3b9e4e's.
+  const MERGED = new Set(['a batch (bulk write, a twin removal after its _id write, read-backs)'
+    , 'a batch under UUID_HANDLING', 'a batch where nothing is upserted (every item answered by read-back)'
+    , 'a batch with a preBolus (each item alone, then its preBolus record)', 'a batch whose bulk write fails']);
+
   for (const [name, envExtra, cfg, act] of cases) {
     it(name, async function ( ) {
-      if (!P4_READ.has(name)) {
-        await same(name, before, after, envExtra, cfg, act);
-        return;
-      }
       const was = await observe(before, envExtra, cfg, act);
       const now = await observe(after, envExtra, cfg, act);
-      // One more such read than db3b9e4e made (a batch's reply reads the same
-      // way), and it comes first: the rest is db3b9e4e's, in order.
-      assert.equal(now.calls.filter(isP4Read).length, was.calls.filter(isP4Read).length + 1, name);
-      const first = now.calls.findIndex(isP4Read);
-      assert(now.calls.slice(0, first).every(call => call[0] !== 'bulkWrite' && call[0] !== 'replaceOne'), name);
-      assert.deepEqual(Object.assign({ }, now, { calls: now.calls.filter((call, index) => index !== first) }), was, name);
+      if (P4_READ.has(name)) {
+        // One more such read than db3b9e4e made (a batch's reply reads the same
+        // way), and it comes first: the rest is db3b9e4e's, in order.
+        assert.equal(now.calls.filter(isP4Read).length, was.calls.filter(isP4Read).length + 1, name);
+        const first = now.calls.findIndex(isP4Read);
+        assert(now.calls.slice(0, first).every(call => call[0] !== 'bulkWrite' && call[0] !== 'replaceOne'), name);
+        now.calls = now.calls.filter((call, index) => index !== first);
+      }
+      const { calls, merged } = unmerge(now.calls, was.calls);
+      assert.equal(merged > 0, MERGED.has(name), name + ': merged ' + merged);
+      // A single document's merge commits as the updateOne it is.
+      const timeline = now.timeline.map((event, at) => event[0] === 'storage-write-committed' && merged > 0
+        && event[1].operation === 'updateOne' && was.timeline[at] && was.timeline[at][1].operation === 'replaceOne'
+        ? [event[0], Object.assign({ }, event[1], { operation: 'replaceOne' })] : event);
+      assert.deepEqual(Object.assign({ }, now, { calls, timeline }), was, name);
     });
   }
 
@@ -291,7 +311,9 @@ describe('write(intent): treatments from API v1 and in-process callers (equal to
     assert.equal(seen.calls.filter(c => c[0] === 'bulkWrite').length, 1);
     // The twin removal follows the write of the item matched by _id, in the same bulk write.
     const ops = seen.calls.find(c => c[0] === 'bulkWrite')[1];
-    assert.deepEqual(ops.map(op => Object.keys(op)[0]), ['replaceOne', 'deleteMany', 'replaceOne', 'replaceOne', 'replaceOne']);
+    // CHANGED EXPECTATION (ID-FIRST-MATCH slice 4, ID-Q8): the item that matches
+    // the stored `id-1` is merged (updateOne); it was replaceOne.
+    assert.deepEqual(ops.map(op => Object.keys(op)[0]), ['replaceOne', 'deleteMany', 'updateOne', 'replaceOne', 'replaceOne']);
     assert.equal(seen.out.callback[1].length, 4);
   });
 
@@ -389,7 +411,8 @@ describe('write(intent): the treatments rule table (slice 5)', function ( ) {
     const doc = { eventType: 'Note', notes: 'n', created_at: T1 };
     const result = await s.write({ op: 'create', form: 'one', docs: [doc] });
     assert.equal(String(doc._id), HEX2);
-    assert.deepEqual(result.items.map(i => i.outcome), ['replaced']);
+    // CHANGED EXPECTATION (ID-FIRST-MATCH slice 4, ID-Q8): a matched create is merged; it was replaced.
+    assert.deepEqual(result.items.map(i => i.outcome), ['merged']);
     assert.equal(calls.filter(c => c[0] === 'find').length, 2, 'the server-date read and the read-back');
   });
 
@@ -520,13 +543,13 @@ describe('write(intent): devicestatus from API v1 and in-process callers (equal 
     ['one status, not an array, predictions capped', { predictionsMaxSize: 2 }, { stored: [ ] }
       , (api, done) => api.create(status(0), done)],
     ['a stored identifier is acknowledged, not written; an in-batch repeat takes the first _id', { }
-      , { stored: f => f.identifier ? [{ _id: { $oid: HEX2 }, identifier: 's-1' }] : [ ] }
+      , { stored: f => f.identifier || f._id ? [{ _id: { $oid: HEX2 }, identifier: 's-1' }] : [ ] }
       , (api, done) => api.create([status(0, { identifier: 's-1' }), status(1, { identifier: 's-2' }), status(2, { identifier: 's-2' })], done)],
     ['a stored 24-hex _id (string twin) is acknowledged with the ObjectId form', { }
       , { stored: f => f._id ? [{ _id: HEX }, { _id: { $oid: HEX } }] : [ ] }
       , (api, done) => api.create([status(0, { _id: HEX.toUpperCase() }), status(1, { _id: HEX2 }), status(2, { _id: HEX2 })], done)],
     ['every status already stored: nothing written, nothing announced', { }
-      , { stored: f => f.identifier ? [{ _id: { $oid: HEX2 }, identifier: 's-1' }] : [ ] }
+      , { stored: f => f.identifier || f._id ? [{ _id: { $oid: HEX2 }, identifier: 's-1' }] : [ ] }
       , (api, done) => api.create([status(0, { identifier: 's-1' })], done)],
     ['the same created_at and device as a stored status: a second record', { }, { stored: [{ _id: { $oid: HEX2 }, device: 'openaps://rig', created_at: T1 }] }
       , (api, done) => api.create([status(0)], done)],
@@ -543,9 +566,42 @@ describe('write(intent): devicestatus from API v1 and in-process callers (equal 
       , (api, done) => api.remove({ find: { device: 'openaps://rig', created_at: { $gte: '2026-01-01' } } }, done)]
   ];
 
+  // CHANGED EXPECTATION (ID-FIRST-MATCH slice 4, ID-Q2): a status whose
+  // identifier is stored is merged into the stored status: one read of it by
+  // _id after the identifier read, one updateOne by _id ($set the status sent,
+  // srvModified new), its commit event, and the merged record announced in
+  // data-update. db3b9e4e answered it as already stored and wrote nothing. The
+  // reply (the statuses, with the stored _id) and every other call are as they
+  // were.
+  const MERGED = new Set(['a stored identifier is acknowledged, not written; an in-batch repeat takes the first _id'
+    , 'every status already stored: nothing written, nothing announced']);
+
   for (const [name, envExtra, cfg, act] of cases) {
     it(name, async function ( ) {
-      await same(name, before, after, envExtra, cfg, act);
+      if (!MERGED.has(name)) {
+        await same(name, before, after, envExtra, cfg, act);
+        return;
+      }
+      const was = await observe(before, envExtra, cfg, act);
+      const now = await observe(after, envExtra, cfg, act);
+      const read = now.calls.findIndex(c => c[0] === 'find' && c[1] && c[1]._id && c[1]._id.$in);
+      assert.deepEqual(now.calls[read], ['find', { _id: { $in: [HEX2] } }, null], name);
+      const updates = now.calls.filter(c => c[0] === 'updateOne');
+      assert.equal(updates.length, 1, name);
+      assert.deepEqual(updates[0][1], { _id: HEX2 }, name);
+      assert.deepEqual(Object.keys(updates[0][2]), ['$set'], name);
+      assert.equal(updates[0][2].$set.identifier, 's-1');
+      assert.equal(updates[0][2].$set.srvModified, 'T');
+      assert(!('_id' in updates[0][2].$set) && !('srvCreated' in updates[0][2].$set), name);
+      assert.deepEqual(now.calls.filter((c, index) => index !== read && c[0] !== 'updateOne'), was.calls, name);
+      assert.deepEqual(now.out, was.out, name);
+      const announced = now.timeline.filter(e => e[0] === 'data-update');
+      assert.equal(announced.length, 1, name);
+      assert(announced[0][1].changes.some(change => change._id === HEX2 && change.identifier === 's-1'), name);
+      assert.deepEqual(now.timeline.filter(e => e[0] !== 'console.log').map(e => e[0])
+        , was.timeline.some(e => e[0] === 'data-update')
+          ? ['storage-write-committed', 'storage-write-committed', 'data-update', 'data-received']
+          : ['storage-write-committed', 'data-update', 'data-received'], name);
     });
   }
 
@@ -574,17 +630,25 @@ describe('write(intent): the devicestatus rule table (slice 5)', function ( ) {
     // rule, today's: the identifier alone, the first by _id.
     // CHANGED EXPECTATION (ID-FIRST-MATCH slice 5, ID-Q5): of several statuses with the
     // identifier, the reply names the one P4 picks (pick 'p4'; it was 'first-by-id').
-    assert.deepEqual(rules.create, { write: 'statuses', dates: 'stamp-created'
+    // CHANGED EXPECTATION (ID-FIRST-MATCH slice 4, ID-Q2): a status whose identifier is stored is
+    // merged into it (onMatch 'merged'); it was answered refused, already stored.
+    assert.deepEqual(rules.create, { write: 'statuses', dates: 'stamp-created', onMatch: 'merged'
       , identifier: { also: 'none', pick: 'p4' } });
     assert.deepEqual(rules.delete, { target: 'query' });
   });
 
   it('answers each status: inserted, or refused (already stored, repeated in the batch), and lists what was inserted', async function ( ) {
     const docs = [{ identifier: 'old' }, { identifier: 'new' }, { identifier: 'new' }, { _id: HEX2 }];
-    const result = await step([ ], { stored: f => f.identifier ? [{ _id: { $oid: HEX }, identifier: 'old' }] : [ ] })
+    // CHANGED EXPECTATION (ID-FIRST-MATCH slice 4, ID-Q2): the stored status the identifier
+    // names is read whole and merged into ('merged', listed in `merged`); it was refused,
+    // already stored. A repeat in the batch is still refused.
+    const result = await step([ ], { stored: f => f.identifier || (f._id && f._id.$in && String(f._id.$in[0]) === HEX)
+      ? [{ _id: { $oid: HEX }, identifier: 'old' }] : [ ] })
       .write({ op: 'create', docs });
-    assert.deepEqual(result.items.map(i => [i.outcome, i.reason]), [['refused', 'already stored'], ['inserted', undefined]
+    assert.deepEqual(result.items.map(i => [i.outcome, i.reason]), [['merged', undefined], ['inserted', undefined]
       , ['refused', 'repeated in the batch'], ['inserted', undefined]]);
+    assert.equal(result.merged.length, 1);
+    assert.equal(String(result.merged[0]._id), HEX);
     assert.equal(String(docs[0]._id), HEX);
     assert.equal(String(docs[2]._id), String(docs[1]._id));
     assert(docs[3]._id instanceof ObjectId, 'a new 24-hex _id is stored as its ObjectId');
@@ -650,7 +714,23 @@ describe('write(intent): profile from API v1 and in-process callers (equal to db
 
   for (const [name, envExtra, cfg, act] of cases) {
     it(name, async function ( ) {
-      await same(name, makeBefore, makeAfter, envExtra, cfg, act);
+      if (name !== 'a re-send of a stored _id is merged (nulls remove, objects merge)') {
+        await same(name, makeBefore, makeAfter, envExtra, cfg, act);
+        return;
+      }
+      // CHANGED EXPECTATION (ID-FIRST-MATCH slice 4, ID-Q7): `store` is taken
+      // whole as sent (its nulls removed), not merged member by member: the
+      // update $sets store { Default: { dia: 5 } }, where db3b9e4e merged it into
+      // the stored store (Default's basal kept, Alt removed). The other fields
+      // merge as before; every call, event and reply is otherwise db3b9e4e's.
+      const was = await observe(makeBefore, envExtra, cfg, act);
+      const now = await observe(makeAfter, envExtra, cfg, act);
+      const update = now.calls.find(c => c[0] === 'updateOne');
+      const wasUpdate = was.calls.find(c => c[0] === 'updateOne');
+      assert.deepEqual(update[2].$set.store, { Default: { dia: 5 } });
+      assert.deepEqual(wasUpdate[2].$set.store, { Default: { dia: 5, basal: [{ time: 'T', value: 1 }] } });
+      update[2].$set.store = wasUpdate[2].$set.store;
+      assert.deepEqual(now, was, name);
     });
   }
 
@@ -658,9 +738,11 @@ describe('write(intent): profile from API v1 and in-process callers (equal to db
     const seen = await observe(makeAfter, { }, { stored: [storedProfile()] }
       , (api, done) => api.create([profile({ _id: HEX2, store: { Alt: null } })], done));
     const update = seen.calls.find(c => c[0] === 'updateOne');
-    // store.Alt: null merges into store: the stored store without Alt is $set.
+    // CHANGED EXPECTATION (ID-FIRST-MATCH slice 4, ID-Q7): `store` is taken whole
+    // as sent, its nulls removed: store { Alt: null } $sets an empty store (it
+    // merged into the stored store, which kept Default).
     assert.deepEqual(Object.keys(update[2]), ['$set']);
-    assert.deepEqual(Object.keys(update[2].$set.store), ['Default']);
+    assert.deepEqual(Object.keys(update[2].$set.store), [ ]);
     assert.deepEqual(seen.timeline.map(e => e[0]), ['storage-write-committed', 'data-received']);
   });
 });
@@ -676,7 +758,9 @@ describe('write(intent): the profile rule table (slice 5)', function ( ) {
   it('creates by insert or merge, saves by replace with the twin removal after, removes every form, prunes by query', function ( ) {
     const rules = writeIntent.COLLECTION_RULES.profile['v1/internal'];
     // CHANGED EXPECTATION (ID-FIRST-MATCH slice 3, ID-Q4): on-deleted, 'stays-deleted'.
-    assert.deepEqual(rules.create, { write: 'profiles', dates: 'stamp-created', deleted: 'stays-deleted' });
+    // CHANGED EXPECTATION (ID-FIRST-MATCH slice 4, ID-Q7): a re-send takes `store` whole.
+    assert.deepEqual(rules.create, { write: 'profiles', dates: 'stamp-created', deleted: 'stays-deleted'
+      , merge: 'rfc7386-store-whole' });
     assert.equal(rules.update.id, 'hex-or-new');
     assert.equal(rules.update.twins, 'remove-string-forms-after');
     assert.equal(rules.update.dates, 'carry');

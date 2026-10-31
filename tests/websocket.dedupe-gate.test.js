@@ -656,10 +656,22 @@ describe('websocket: dedupe gate for the write step (WC-STEP-PATCH slice 6)', fu
       await shouldBeReplaced(await dbAdd('profile', sent), before, sent);
     });
 
+    // CHANGED EXPECTATION (ID-FIRST-MATCH slice 4, ID-Q8): a matched re-send is
+    // merged into the stored profile (RFC 7386; `store` whole, ID-Q7), so the
+    // stored NSCLIENT_ID the re-send leaves out is kept. The reply is the
+    // document as written, as before, and the event announces the record as
+    // merged. It was replaced, which dropped NSCLIENT_ID.
     it('replaces the stored profile with the same startDate when no NSCLIENT_ID is sent', async function () {
       var before = await seed('profile', profile({ units: 'mmol', NSCLIENT_ID: 'nsc-p-1' }));
       var sent = profile({});
-      await shouldBeReplaced(await dbAdd('profile', sent), before, sent);
+      var result = await dbAdd('profile', sent);
+      var after = await stored('profile');
+      after.length.should.equal(1);
+      var written = Object.assign(plain(sent), { _id: plain(before)._id, srvCreated: before.srvCreated, srvModified: after[0].srvModified });
+      plain(after[0]).should.eql(Object.assign({ }, written, { NSCLIENT_ID: 'nsc-p-1' }));
+      after[0].srvModified.should.be.above(before.srvModified);
+      result.reply.should.eql([written]);
+      result.events.should.eql(insertEvents('profile', [after[0]]));
     });
 
     it('stores a profile with another startDate', async function () {

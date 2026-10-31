@@ -128,13 +128,16 @@ describe('Q1b: a null on a merge removes the field (RFC 7386)', function () {
       doc.store.should.have.properties(['Default', 'Alt']);
     });
 
+    // CHANGED EXPECTATION (ID-FIRST-MATCH slice 4, ID-Q7): a matched re-send
+    // replaces `store` as a whole (as sent, its nulls removed), so store
+    // { Alt: null } leaves an empty store; the other fields still merge.
     it('removes a nested member sent as null (store.Alt: null) and keeps its siblings', async function () {
       var hex = nextHex();
       await post(profile({ _id: hex })).expect(200);
       await post({ _id: hex, store: { Alt: null } }).expect(200);
       var doc = await stored(hex);
       doc.store.should.not.have.property('Alt');
-      doc.store.Default.dia.should.equal(5);
+      doc.store.should.eql({});
       doc.defaultProfile.should.equal('Default');
     });
 
@@ -143,10 +146,13 @@ describe('Q1b: a null on a merge removes the field (RFC 7386)', function () {
       await post(profile({ _id: hex })).expect(200);
       await post({ _id: hex, store: { Default: { dia: 6, basal: [{ time: '00:00', value: 0.5, timeAsSeconds: 0 }] } } }).expect(200);
       var doc = await stored(hex);
+      // CHANGED EXPECTATION (ID-FIRST-MATCH slice 4, ID-Q7): `store` is taken
+      // whole on a matched re-send: Default is as sent (its units gone), Alt is
+      // gone. The array is still replaced whole.
       doc.store.Default.dia.should.equal(6);
-      doc.store.Default.units.should.equal('mg/dl');
+      doc.store.Default.should.not.have.property('units');
       doc.store.Default.basal.should.eql([{ time: '00:00', value: 0.5, timeAsSeconds: 0 }]);
-      doc.store.Alt.dia.should.equal(4);
+      doc.store.should.not.have.property('Alt');
     });
 
     it('an in-process re-send removes a null field too', async function () {
@@ -378,11 +384,14 @@ describe('Q1b: a null on a merge removes the field (RFC 7386)', function () {
       stored.q1bN.should.eql({ x: null });
     });
 
+    // CHANGED EXPECTATION (ID-FIRST-MATCH slice 4, ID-Q8): a POST that matches
+    // a stored record is merged into it, so a null removes the field (the POST
+    // replaced the record and stored the null as sent).
     it('control: POST that replaces a duplicate stores a null as sent', async function () {
       var doc = treatment();
       var id = await create(doc);
       await self.instance.post(url, self.jwt.all).send(Object.assign({}, doc, { notes: null })).expect(200);
-      (await storedFor(id)).should.have.property('notes', null);
+      (await storedFor(id)).should.not.have.property('notes');
     });
   });
 
@@ -450,10 +459,12 @@ describe('Q1b: a null on a merge removes the field (RFC 7386)', function () {
         .send({ eventType: 'Note', created_at: created, notes: null, enteredBy: DEVICE }).expect(200);
       var docs = await col('treatments').find({ created_at: created, enteredBy: DEVICE }).toArray();
       docs.length.should.equal(1);
-      docs[0].should.not.have.property('q1bKept');
+      // CHANGED EXPECTATION (ID-FIRST-MATCH slice 4, ID-Q8): a matched v1
+      // re-send is merged, so the field it leaves out is kept (it replaced).
+      docs[0].q1bKept.should.equal('value');
       // v1 prepareData removes an empty notes before storage, as it always
-      // has; Q1b does not change what it does.
-      docs[0].should.not.have.property('notes');
+      // has, so the re-send carries no notes and the merge keeps the stored one.
+      docs[0].notes.should.equal('a note');
     });
   });
 });

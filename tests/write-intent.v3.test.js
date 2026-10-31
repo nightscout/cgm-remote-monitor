@@ -289,6 +289,28 @@ describe('write(intent): API v3 create, update, patch and delete (equal to db3b9
     it(name, async function ( ) {
       const before = await run(BEFORE, SCENARIOS[name]);
       const now = liftAddressedRead(await run(NOW, SCENARIOS[name]));
+      if (name === 'POST deduplicated into a stored record without srvCreated') {
+        // CHANGED EXPECTATION (ID-FIRST-MATCH slice 4, ID-Q8): a POST that
+        // matched a stored record is merged into it: updateOne(identifier,
+        // the same stamped document as $set, no $unset) where it was
+        // replaceOne, so a field the POST leaves out (created_at) is kept, and
+        // the storage socket announces the record as merged. The reply, its
+        // headers and every other call are as they were.
+        const at = before.calls.findIndex(function (c) { return c[0] === 'replaceOne'; });
+        assert.deepStrictEqual(now.calls[at], ['updateOne', before.calls[at][1], before.calls[at][2], { }]);
+        assert.deepStrictEqual(now.calls.filter(function (c, i) { return i !== at; })
+          , before.calls.filter(function (c, i) { return i !== at; }));
+        assert.deepStrictEqual([now.status, now.headers, now.body, now.thrown, now.errors]
+          , [before.status, before.headers, before.body, before.thrown, before.errors]);
+        assert.deepStrictEqual(now.events.map(function (e) { return e[0]; }), before.events.map(function (e) { return e[0]; }));
+        const announced = now.events.find(function (e) { return e[0] === 'storage-socket-update'; })[1].doc;
+        assert.equal(announced.created_at, '2026-10-29T10:00:00.000Z');
+        assert.equal(announced.sgv, 101);
+        assert.equal(now.stored.created_at, '2026-10-29T10:00:00.000Z');
+        assert.equal(before.stored.created_at, undefined);
+        assert.deepStrictEqual(Object.assign({ }, now.stored, { created_at: undefined }), Object.assign({ }, before.stored, { created_at: undefined }));
+        return;
+      }
       assert.deepStrictEqual(now, before);
     });
   });

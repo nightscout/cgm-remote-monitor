@@ -87,12 +87,13 @@ named vocabularies in the same file:
 |---|---|---|
 | `ID_FORMS`, `DOC_ID_FORMS` | the `_id` form to write under | `stored-or-new`, `objectid-or-new`, `stored-string-or-objectid`, `treatment-uuid` |
 | `TARGETS`, `DOC_TARGETS`, `DELETE_TARGETS` | which stored record a write or delete names | `id-eq`, `id-plain`, `treatment-key`, `every-form`, `id-match`, `query` |
-| `onMatch`, `onExact` | the outcome when a record matches | `replaced`, `merged`, `unchanged` |
+| `onMatch`, `onExact` | the outcome when a record matches. A matched re-send (a create) is `merged` on every path (ID-Q8, merge on match), and only PUT and save are `replaced`. A rule's `onTimeMatch` overrides it for an API v3 match on the fallback fields alone (device status: `replaced`, left to ID-NATURAL-KEY) | `merged`, `replaced`, `unchanged`, `acknowledged` (API v3: answered without a write) |
+| `MERGES` (a rule's `merge`) | how a merge on match merges: JSON Merge Patch (RFC 7386, `lib/server/merge-patch.js`: a member sent replaces, an object merges member by member, an array is a value, a null removes, a member left out is kept), and which top-level members are taken whole as sent | `rfc7386`, `rfc7386-store-whole` (profile `store`, ID-Q7) |
 | `twins` | removal of a record stored under the other spelling of the same `_id` | `remove-string-forms`, `remove-string-forms-after` |
 | `dates` | server dates | `carry`, `stamp-created`, `stamp-modified`, `none` |
 | `PREPARE`, `CHECKS` | preparation and WRITE_VALIDATION | `treatment`, `treatment-domain-v1`, `treatment-domain-socket` |
 | `V3_STAMPS` | API v3's ordered stamps per operation | `units`, `dates-created`, `dates-replaced`, `subject`, `duration` |
-| `write` | the storage call | `insert-one`, `replace-one`, `socket-add`, `socket-merge`, `v3-insert`, `v3-replace`, `v3-merge` |
+| `write` | the storage call | `insert-one`, `replace-one`, `socket-add`, `socket-merge`, `v3-insert`, `v3-replace`, `v3-merge`, `v3-resend` (a POST that matched: merged by `updateOne`, or replaced, as the create rule's `onMatch` says) |
 | `SOCKET_ADD` | the socket's dbAdd match for treatments, devicestatus and profile | exact match, then the ±2 s similar match for treatments |
 | `IDENTIFIER_ALSO`, `IDENTIFIER_PICKS`, `P4_TIME_KEYS` | identifier-match: what is matched beside `identifier`, and which record a write lands on when one identifier names several | `uuid-id`, `shown-id`; `p4` (the record at the write's time key, else the newest by `_id`; ID-Q5), `every` |
 | `IDENTIFIER_HELD` (a rule's `identifierHeld`) | identifier-held (ID-RULE1-EDIT): an edit by `_id` whose `identifier` another stored record holds, soft-deleted included, is refused 409 and nothing is written (`IdentifierConflictError`; the socket's refusal slot; API v3 PATCH through `identifierHeld()`) | `ignore`, `refuse` |
