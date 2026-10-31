@@ -339,6 +339,56 @@ describe('websocket: dbUpdate, dbUpdateUnset and dbRemove addressed by identifie
     });
   });
 
+  // WC-STEP-PATCH release 2 (write-contract Q-A; the owner's condition 3): one
+  // socket input that reaches several records is announced through the
+  // WriteResult's removed / updated: every record it reached, once, and
+  // nothing else; and a merged socket insert (ID-FIRST-MATCH 6a) is announced
+  // once, by its own handler, not again by the step.
+  describe('several records reached by one socket input', function () {
+    function ids (docs) { return docs.map(function (d) { return String(d._id); }).sort(); }
+
+    it('dbRemove by an identifier three records share: one remove naming exactly those three', async function () {
+      var a = await seed('treatments', treatment(1, { identifier: ID }));
+      var b = await seed('treatments', treatment(2, { identifier: ID }));
+      var c = await seed('treatments', treatment(3, { identifier: ID }));
+      var other = await seed('treatments', treatment(4, { identifier: OTHER }));
+      var result = await send('dbRemove', { collection: 'treatments', identifier: ID });
+      result.reply.should.eql({ result: 'success' });
+      var removes = result.events.filter(function (e) { return e.event === 'data-update'; });
+      removes.length.should.equal(1);
+      removes[0].payload.op.should.equal('remove');
+      removes[0].payload.changes.slice().sort().should.eql(ids([a, b, c]));
+      (await stored()).map(plain).should.eql([plain(other)]);
+    });
+
+    it('dbUpdate by an identifier whose record is stored in two forms: one update naming both', async function () {
+      var ObjectID = require('mongodb').ObjectId;
+      var oid = new ObjectID();
+      await seed('treatments', treatment(1, { _id: oid, identifier: ID }));
+      await seed('treatments', treatment(1, { _id: oid.toHexString(), identifier: ID }));
+      await seed('treatments', treatment(5, { identifier: OTHER }));
+      var result = await send('dbUpdate', { collection: 'treatments', identifier: ID, data: { notes: 'both forms' } });
+      result.reply.should.eql({ result: 'success' });
+      var updates = result.events.filter(function (e) { return e.event === 'data-update'; });
+      updates.length.should.equal(1);
+      updates[0].payload.op.should.equal('update');
+      updates[0].payload.changes.map(function (d) { return d.notes; }).should.eql(['both forms', 'both forms']);
+      updates[0].payload.changes.map(function (d) { return String(d._id); }).should.eql([oid.toHexString(), oid.toHexString()]);
+      (await col().countDocuments({ identifier: ID, notes: 'both forms' })).should.equal(2);
+    });
+
+    it('a socket insert merged by its identifier (6a) is announced once', async function () {
+      await seed('food', { name: 'apple', identifier: ID, created_at: at(0) });
+      var result = await send('dbAdd', { collection: 'food', data: { name: 'apple pie', identifier: ID, created_at: at(0) } });
+      result.reply.length.should.equal(1);
+      var updates = result.events.filter(function (e) { return e.event === 'data-update'; });
+      updates.length.should.equal(1);
+      updates[0].payload.op.should.equal('update');
+      updates[0].payload.changes.length.should.equal(1);
+      updates[0].payload.changes[0].name.should.equal('apple pie');
+    });
+  });
+
   // WC-STEP-PATCH release 2 (write-contract Q-A): a dbRemove by an identifier
   // that more than the step's resolve cap of records share cannot be named
   // (WriteResult.removed is null), so the handler reloads the collection's
