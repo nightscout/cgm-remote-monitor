@@ -70,6 +70,92 @@ const DAY = 24 * HOUR;
     assert.equal(writeIntent.RESOLVE_CAP, 1000);
   });
 
+  describe('removed / updated: three states, never collapsed', function ( ) {
+    const step = (name, source) => writeIntent.forCollectionResolved(source === 'v3' ? v3Storage(name) : v1Storage(name, source)
+      , name, source, { env: { } });
+
+    it('absent: a write that neither removes nor updates by filter', async function ( ) {
+      const written = await step('entries', 'socket').write({ op: 'create', docs: [{ type: 'sgv', sgv: 100, date: 1 }] });
+      assert.equal(Object.prototype.hasOwnProperty.call(written, 'removed'), false);
+      assert.equal(Object.prototype.hasOwnProperty.call(written, 'updated'), false);
+    });
+
+    it('[ ]: it tried and reached none (a delete and an update that match nothing)', async function ( ) {
+      const removedNone = await step('treatments', 'v1/internal').write({ op: 'delete', target: { filter: { enteredBy: 'r2-none' } } });
+      assert.deepStrictEqual(removedNone.removed, [ ]);
+      assert.notStrictEqual(removedNone.removed, null);
+      const s = step('treatments', 'socket');
+      const updatedNone = await s.write(s.plan({ op: 'update', form: 'merge', target: { _id: new ObjectId().toHexString() }, fields: { notes: 'x' } }));
+      assert.deepStrictEqual(updatedNone.updated, [ ]);
+      assert.notStrictEqual(updatedNone.updated, null);
+    });
+
+    it('null: unnamed over the cap; it never collapses into [ ], and the cache reloads for it', async function ( ) {
+      const docs = [ ];
+      for (let i = 0; i <= writeIntent.RESOLVE_CAP; i += 1) docs.push({ type: 'sgv', device: 'r2-states', date: i });
+      await raw.insertMany(docs);
+      const written = await step('entries', 'v1/internal').write({ op: 'delete', target: { filter: { device: 'r2-states' } } });
+      assert.strictEqual(written.removed, null);
+      // the v1 modules' cache removal keeps them apart: null reloads, [ ] removes nothing
+      const idForms = require('../lib/server/object-id-forms');
+      assert.strictEqual(idForms.namedCacheRemoval(null, undefined, 1001), undefined);
+      assert.deepStrictEqual(idForms.namedCacheRemoval([ ], undefined, 0), [ ]);
+    });
+
+    it('a socket remove by an identifier over the cap answers null, not an empty list', async function ( ) {
+      const docs = [ ];
+      for (let i = 0; i <= writeIntent.RESOLVE_CAP; i += 1) docs.push({ eventType: 'Note', identifier: 'r2-shared' });
+      await raw.insertMany(docs);
+      const written = await step('treatments', 'socket').write({ op: 'delete', target: { identifier: 'r2-shared' } });
+      assert.strictEqual(written.removed, null);
+      assert.equal(await raw.countDocuments({ }), 0);
+    });
+  });
+
+  describe('items[0]._id: set only when a one-record write reached exactly one', function ( ) {
+    it('a v3 PATCH whose record is gone by the write reaches none: items[0]._id unset, updated [ ]', async function ( ) {
+      const { insertedId } = await raw.insertOne({ identifier: 'r2-gone', eventType: 'Note', notes: 'a' });
+      const storage = v3Storage('treatments');
+      const resolveOne = storage.resolveOne;
+      storage.resolveOne = async function (...args) {
+        const ids = await resolveOne.apply(this, args);
+        await raw.deleteOne({ _id: insertedId }); // gone between the resolve and the write
+        return ids;
+      };
+      const written = await writeIntent.forCollectionResolved(storage, 'treatments', 'v3', { env: { } })
+        .write({ op: 'patch', docs: [{ notes: 'b' }], target: { identifier: 'r2-gone', stored: { identifier: 'r2-gone', notes: 'a' } } });
+      assert.equal(written.items[0].outcome, 'not-found');
+      assert.equal(written.items[0]._id, null);
+      assert.deepStrictEqual(written.updated, [ ]);
+      assert.deepEqual(updates(), [ ]);
+    });
+
+    it('a v3 DELETE of an identifier that names nothing: items[0]._id unset, removed [ ]', async function ( ) {
+      const written = await writeIntent.forCollectionResolved(v3Storage('treatments'), 'treatments', 'v3', { env: { } })
+        .write({ op: 'delete', form: 'permanent', target: { identifier: 'r2-nothing' } });
+      assert.equal(written.items[0].outcome, 'not-found');
+      assert.equal(written.items[0]._id, null);
+      assert.deepStrictEqual(written.removed, [ ]);
+    });
+
+    it('a v3 DELETE (marked) whose record is gone by the write: nothing named, items[0]._id unset', async function ( ) {
+      const { insertedId } = await raw.insertOne({ identifier: 'r2-gone-mark', eventType: 'Note' });
+      const storage = v3Storage('treatments');
+      const resolveEveryForm = storage.resolveEveryForm;
+      storage.resolveEveryForm = async function (...args) {
+        const ids = await resolveEveryForm.apply(this, args);
+        await raw.deleteOne({ _id: insertedId });
+        return ids;
+      };
+      const written = await writeIntent.forCollectionResolved(storage, 'treatments', 'v3', { env: { } })
+        .write({ op: 'delete', form: 'mark', target: { identifier: 'r2-gone-mark' } });
+      assert.equal(written.items[0].outcome, 'not-found');
+      assert.equal(written.items[0]._id, null);
+      assert.deepStrictEqual(written.removed, [ ]);
+      assert.deepEqual(updates(), [ ]);
+    });
+  });
+
   describe('API v1 delete by query', function ( ) {
     it('names exactly the records it removed and leaves the others', async function ( ) {
       const { insertedIds } = await raw.insertMany([
