@@ -206,19 +206,61 @@ describe('ID-UNIQUE-INDEX: two uploads of one record that race', function () {
       r.loser.body.lastModified.should.equal(docs[0].srvModified);
     });
 
-    it('device status: one 201, and the loser 200 isDeduplication with the stored lastModified; written once', async function () {
-      var id = 'race-v3-status-0001';
-      var doc = { identifier: id, date: T, utcOffset: 0, app: 'race-test', device: 'race-test', uploaderBattery: 50 };
-      var g = gate(self.instance.env.devicestatus_collection, 'insertOne', 2);
+    // Slice 4 (merge on match): the loser is applied as a serial re-send is,
+    // merged into the stored record (a device status too, ID-Q2), and for
+    // treatments replaced. The first upload is stored first and the second,
+    // which has matched nothing, is released after it (deterministic).
+    async function inOrder (name, firstDoc, secondDoc) {
+      var g = gate(self.instance.env[name + '_collection'], 'insertOne', 2, 3000, true);
       opened.push(g);
-      var replies = await Promise.all([post('devicestatus', Object.assign({}, doc)), post('devicestatus', Object.assign({}, doc))]);
+      var announced = [];
+      function onUpdate (event) { if (event.colName === name) announced.push(event.doc); }
+      self.instance.ctx.bus.on('storage-socket-update', onUpdate);
+      // A supertest request is sent when it is awaited or then-ed.
+      var first = post(name, firstDoc).then(function (r) { return r; });
+      while (g.arrived < 1) await new Promise(function (resolve) { setTimeout(resolve, 5); });
+      var second = post(name, secondDoc).then(function (r) { return r; });
+      var replies = await Promise.all([first, second]);
+      self.instance.ctx.bus.removeListener('storage-socket-update', onUpdate);
       g.arrived.should.equal(2);
-      var r = winnerAndLoser(replies);
-      r.loser.body.identifier.should.equal(id);
-      var docs = await col('devicestatus').find({ identifier: id }).toArray();
+      replies[0].status.should.equal(201);
+      replies[1].status.should.equal(200);
+      replies[1].body.isDeduplication.should.equal(true);
+      var docs = await col(name).find({ identifier: firstDoc.identifier }).toArray();
       docs.length.should.equal(1);
-      r.loser.body.lastModified.should.equal(docs[0].srvModified);
-      r.winner.body.lastModified.should.equal(docs[0].srvModified);
+      replies[1].body.lastModified.should.equal(docs[0].srvModified);
+      docs[0].srvModified.should.be.above(replies[0].body.lastModified);
+      announced.length.should.equal(1);
+      return { replies: replies, stored: docs[0], announced: announced[0] };
+    }
+
+    it('device status: the loser is merged into the stored status, as a serial re-send is (ID-Q2); one record', async function () {
+      var id = 'race-v3-status-0001';
+      var base = { identifier: id, date: T, utcOffset: 0, app: 'race-test', device: 'race-test' };
+      var r = await inOrder('devicestatus', Object.assign({ uploaderBattery: 50, pump: { reservoir: 10 } }, base)
+        , Object.assign({ uploaderBattery: 40 }, base));
+      r.replies[1].body.identifier.should.equal(id);
+      r.stored.uploaderBattery.should.equal(40);
+      r.stored.pump.should.eql({ reservoir: 10 });
+      r.announced.pump.should.eql({ reservoir: 10 });
+    });
+
+    it('entries: the loser is merged into the stored entry (merge on match); a field it leaves out is kept', async function () {
+      var id = 'race-v3-entry-0001';
+      var base = { identifier: id, date: T, utcOffset: 0, app: 'race-test', device: 'race-test', type: 'sgv' };
+      var r = await inOrder('entries', Object.assign({ sgv: 101, noise: 1 }, base), Object.assign({ sgv: 102 }, base));
+      r.stored.sgv.should.equal(102);
+      r.stored.noise.should.equal(1);
+    });
+
+    it('treatments: the loser replaces the stored treatment, as a serial re-send does (slice 4 keeps the replace);'
+      + ' an override ended by a re-send without durationType is no longer indefinite', async function () {
+      var id = 'race-v3-treatment-0005';
+      var base = { identifier: id, date: T, utcOffset: 0, app: 'race-test', device: 'race-test', eventType: 'Temporary Override' };
+      var r = await inOrder('treatments', Object.assign({ durationType: 'indefinite', reason: 'race' }, base)
+        , Object.assign({ duration: 30, reason: 'race' }, base));
+      should.not.exist(r.stored.durationType);
+      r.stored.duration.should.equal(30);
     });
 
     it('a racing upload without the update permission is not applied as a re-send: it gets a 500, the record stays', async function () {
