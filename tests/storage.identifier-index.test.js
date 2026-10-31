@@ -1,7 +1,7 @@
 'use strict';
 
 // ID-UNIQUE-INDEX (maintainer, 2026-10-30): the partial unique index on
-// `identifier` per collection, under WRITE_IDENTIFIER_INDEX=try|require|off,
+// `identifier` per collection, under WRITE_IDENTIFIER_INDEX=try|require|off|drop,
 // and the operator tool that reports and resolves the records that block it.
 //
 // The index covers the records whose identifier is a non-empty string,
@@ -9,7 +9,9 @@
 // non-string identifier are left out, so any number of them can be stored.
 // Under `try` stored duplicates leave the collection without the index; their
 // counts (never the values) are logged and shown on the status page. Under
-// `require` they stop the boot. Under `off` nothing is built.
+// `require` they stop the boot. Under `off` nothing is built or dropped, and
+// an index already there is reported as enforced. `drop` removes it at boot
+// and then runs as `off`.
 //
 // Synthetic values only.
 
@@ -23,14 +25,20 @@ var { ObjectId } = require('mongodb');
 var ID = 'a7c0ffee-0000-4000-8000-00000000d001';
 var OTHER = 'a7c0ffee-0000-4000-8000-00000000d002';
 
-function bootWith (mode) {
-  var saved = process.env.WRITE_IDENTIFIER_INDEX;
-  if (mode === undefined) delete process.env.WRITE_IDENTIFIER_INDEX;
-  else process.env.WRITE_IDENTIFIER_INDEX = mode;
+function bootWith (mode, extra) {
+  var vars = Object.assign({ WRITE_IDENTIFIER_INDEX: mode }, extra || { });
+  var saved = { };
+  Object.keys(vars).forEach(function (name) {
+    saved[name] = process.env[name];
+    if (vars[name] === undefined) delete process.env[name];
+    else process.env[name] = vars[name];
+  });
   process.env.API_SECRET = 'this is my long pass phrase';
   var env = require('../lib/server/env')();
-  if (saved === undefined) delete process.env.WRITE_IDENTIFIER_INDEX;
-  else process.env.WRITE_IDENTIFIER_INDEX = saved;
+  Object.keys(saved).forEach(function (name) {
+    if (saved[name] === undefined) delete process.env[name];
+    else process.env[name] = saved[name];
+  });
   env.settings.authDefaultRoles = 'readable';
   env.settings.enable = ['careportal', 'api'];
   return new Promise(function (resolve) {
@@ -249,7 +257,133 @@ describe('ID-UNIQUE-INDEX: the partial unique index on identifier', function () 
     it('an unknown value refuses to start', async function () {
       var booted = await bootWith('maybe');
       should.exist(booted.ctx.bootErrors);
-      JSON.stringify(booted.ctx.bootErrors).should.containEql('WRITE_IDENTIFIER_INDEX must be one of try, require, off');
+      // CHANGED EXPECTATION (2026-10-31): the list names drop as well.
+      JSON.stringify(booted.ctx.bootErrors).should.containEql('WRITE_IDENTIFIER_INDEX must be one of try, require, off, drop');
+    });
+  });
+
+  describe('off with the index already there, and drop (maintainer, 2026-10-31)', function () {
+    var NAMES = ['activity', 'devicestatus', 'entries', 'food', 'profile', 'settings', 'treatments'];
+    var secret = require('crypto').createHash('sha1').update('this is my long pass phrase').digest('hex');
+
+    afterEach(async function () {
+      await clean();
+    });
+
+    async function bootCapturing (mode, extra) {
+      var warnings = [];
+      var realWarn = console.warn;
+      console.warn = function (line) { warnings.push(String(line)); };
+      try {
+        var booted = await bootWith(mode, extra);
+        booted.warnings = warnings;
+        return booted;
+      } finally {
+        console.warn = realWarn;
+      }
+    }
+
+    async function statusOf (booted) {
+      var app = require('express')();
+      app.enable('api');
+      app.use('/api', require('../lib/api/')(booted.env, booted.ctx));
+      return (await request(app).get('/api/status.json').set('api-secret', secret).expect(200)).body;
+    }
+
+    // The other indexes on `identifier` (API v3's identifier_1), by collection.
+    async function otherIdentifierIndexes () {
+      var found = { };
+      for (var name of NAMES) {
+        var indexes = await col(name).indexes().catch(function () { return []; });
+        found[name] = indexes.filter(function (index) {
+          return index.name !== identifierIndex.INDEX_NAME && Object.prototype.hasOwnProperty.call(index.key, 'identifier');
+        }).map(function (index) { return index.name; }).sort();
+      }
+      return found;
+    }
+
+    it('off with the index present: the log and the status page say it is present and enforced', async function () {
+      var built = await bootWith('try');
+      built.ctx.identifierIndex.ready.should.equal(true);
+      var booted = await bootCapturing('off');
+      should.not.exist(booted.ctx.bootErrors && booted.ctx.bootErrors[0]);
+      should.exist(await identifierIndex.existingIndex(col('treatments')), 'off drops nothing');
+      var body = await statusOf(booted);
+      body.identifierIndex.mode.should.equal('off');
+      Object.keys(body.identifierIndex.collections).sort().should.eql(NAMES);
+      NAMES.forEach(function (name) {
+        body.identifierIndex.collections[name].state.should.equal('present', name);
+        body.identifierIndex.collections[name].enforced.should.equal(true, name);
+        body.identifierIndex.collections[name].note.should.equal('present and enforced: a second record with a'
+          + ' stored identifier is refused. WRITE_IDENTIFIER_INDEX=off builds nothing and drops nothing;'
+          + ' WRITE_IDENTIFIER_INDEX=drop removes it');
+        booted.warnings.filter(function (w) {
+          return w.indexOf('identifier index on ' + name + ': present and enforced') === 0;
+        }).length.should.equal(1, name);
+      });
+    });
+
+    it('drop with the index present: removed from every collection, one line each, and a duplicate identifier is stored twice', async function () {
+      await bootWith('try');
+      for (var name of NAMES) should.exist(await identifierIndex.existingIndex(col(name)), name);
+      var before = await otherIdentifierIndexes();
+      var booted = await bootCapturing('drop');
+      should.not.exist(booted.ctx.bootErrors && booted.ctx.bootErrors[0]);
+      for (name of NAMES) {
+        should.not.exist(await identifierIndex.existingIndex(col(name)), name);
+        var lines = booted.warnings.filter(function (w) { return w.indexOf('identifier index on ' + name + ':') === 0; });
+        lines.should.eql(['identifier index on ' + name + ': dropped identifier_unique from collection '
+          + booted.env[name + '_collection'] + ' (WRITE_IDENTIFIER_INDEX=drop); it runs without the unique index']);
+      }
+      booted.warnings.some(function (w) { return w.indexOf('nothing to drop') !== -1; }).should.equal(false);
+      (await otherIdentifierIndexes()).should.eql(before, 'API v3 identifier_1 is left alone');
+      booted.ctx.identifierIndex.mode.should.equal('drop');
+      booted.ctx.identifierIndex.ready.should.equal(false);
+      var body = await statusOf(booted);
+      NAMES.forEach(function (n) { body.identifierIndex.collections[n].should.eql({ state: 'off' }, n); });
+      // The pre-index behaviour: the database takes a second record with one identifier.
+      await col('treatments').insertMany([
+        { identifier: ID, eventType: 'Note', idxTest: true }, { identifier: ID, eventType: 'Note', idxTest: true }]);
+      await col('food').insertOne({ identifier: ID, name: 'a', idxTest: true });
+      await col('food').insertOne({ identifier: ID, name: 'b', idxTest: true });
+      (await col('treatments').countDocuments({ identifier: ID, idxTest: true })).should.equal(2);
+      (await col('food').countDocuments({ identifier: ID, idxTest: true })).should.equal(2);
+    });
+
+    it('drop with nothing to drop: one plain line, and the boot succeeds', async function () {
+      await dropIdentifierIndexes();
+      var booted = await bootCapturing('drop');
+      should.not.exist(booted.ctx.bootErrors && booted.ctx.bootErrors[0]);
+      booted.ctx.identifierIndex.mode.should.equal('drop');
+      var lines = booted.warnings.filter(function (w) { return w.indexOf('identifier index') === 0; });
+      lines.should.eql(['identifier index: WRITE_IDENTIFIER_INDEX=drop found no identifier_unique index on '
+        + 'devicestatus, entries, food, profile, settings, treatments, activity; nothing to drop']);
+      NAMES.forEach(function (n) { booted.ctx.identifierIndex.collections[n].should.eql({ state: 'off' }, n); });
+    });
+
+    it('drop, then a restart under try, builds the index again', async function () {
+      await bootWith('try');
+      await bootWith('drop');
+      should.not.exist(await identifierIndex.existingIndex(col('entries')));
+      var booted = await bootWith('try');
+      booted.ctx.identifierIndex.ready.should.equal(true);
+      for (var name of NAMES) should.exist(await identifierIndex.existingIndex(col(name)), name);
+    });
+
+    it('drop honours a renamed collection', async function () {
+      var renamed = 'idx_treatments_renamed';
+      var extra = { MONGO_TREATMENTS_COLLECTION: renamed };
+      var built = await bootWith('try', extra);
+      built.ctx.identifierIndex.collections.treatments.state.should.be.oneOf('built', 'present');
+      var store = built.ctx.store.collection(renamed);
+      should.exist(await identifierIndex.existingIndex(store));
+      var booted = await bootCapturing('drop', extra);
+      should.not.exist(await identifierIndex.existingIndex(store));
+      booted.warnings.filter(function (w) {
+        return w === 'identifier index on treatments: dropped identifier_unique from collection ' + renamed
+          + ' (WRITE_IDENTIFIER_INDEX=drop); it runs without the unique index';
+      }).length.should.equal(1);
+      await store.drop().catch(function () { });
     });
   });
 

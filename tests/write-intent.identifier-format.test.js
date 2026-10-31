@@ -106,16 +106,20 @@ describe('WRITE_IDENTIFIER and WRITE_VALIDATION: one parse (lib/server/write-set
     assert.match(result.errors[0], /WRITE_IDENTIFIER must be one of lenient, strict/);
   });
 
-  it('WRITE_IDENTIFIER_INDEX reads try, require and off; anything else is an error (ID-UNIQUE-INDEX)', function ( ) {
+  it('WRITE_IDENTIFIER_INDEX reads try, require, off and drop; anything else is an error (ID-UNIQUE-INDEX)', function ( ) {
     assert.equal(parsed({ WRITE_IDENTIFIER_INDEX: 'require' }).write.index, 'require');
     assert.equal(parsed({ WRITE_IDENTIFIER_INDEX: ' OFF ' }).write.index, 'off');
+    assert.equal(parsed({ WRITE_IDENTIFIER_INDEX: 'Drop' }).write.index, 'drop');
+    assert.deepStrictEqual(parsed({ WRITE_IDENTIFIER_INDEX: 'drop' }).errors, [ ]);
     assert.equal(parsed({ WRITE_IDENTIFIER_INDEX: '' }).write.index, 'try');
     const result = parsed({ WRITE_IDENTIFIER_INDEX: 'on' });
     assert.equal(result.write.index, 'try');
     assert.equal(result.errors.length, 1);
-    assert.match(result.errors[0], /WRITE_IDENTIFIER_INDEX must be one of try, require, off/);
+    // CHANGED EXPECTATION (2026-10-31): the list names drop as well.
+    assert.match(result.errors[0], /WRITE_IDENTIFIER_INDEX must be one of try, require, off, drop/);
     assert.equal(writeSettings.indexMode({ }), 'try');
     assert.equal(writeSettings.indexMode({ write: { index: 'off' } }), 'off');
+    assert.equal(writeSettings.indexMode({ write: { index: 'drop' } }), 'drop');
   });
 
   it('WRITE_VALIDATION is parsed as before: any other value is off', function ( ) {

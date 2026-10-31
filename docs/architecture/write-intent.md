@@ -143,7 +143,8 @@ the open question that will unify it. Do not tidy a variant without that questio
 
 ## The unique index on `identifier`
 
-`WRITE_IDENTIFIER_INDEX=try|require|off` (default `try`; ID-UNIQUE-INDEX, decided 2026-10-30) puts one
+`WRITE_IDENTIFIER_INDEX=try|require|off|drop` (default `try`; ID-UNIQUE-INDEX, decided 2026-10-30; `drop`
+decided 2026-10-31) puts one
 partial unique index, `identifier_unique`, on each collection: entries, treatments, devicestatus,
 profile, food, activity and settings. It covers every record whose `identifier` is a non-empty string,
 soft-deleted records included, and leaves out records whose `identifier` is absent, `null`, empty or not
@@ -157,7 +158,14 @@ duplicate count run at boot, in `lib/storage/identifier-index.js`:
   not a string (null, a number, an array: written before identifier-format treated such a value as absent)
   are counted on their own line and under `nonStringIdentifiers`.
 - `require`: as `try`, but a collection without the index stops the boot.
-- `off`: nothing is built. An index already there is left as it is.
+- `off`: nothing is built and nothing is dropped. An index already there is left as it is and is still
+  enforced; the server logs, per collection, `identifier index on <name>: present and enforced: ...`, and
+  `/api/v1/status.json` shows that collection as `present` with `enforced: true` and the same note.
+- `drop`: at boot, the index is removed from each collection that has it, with one log line per
+  collection (`identifier index on <name>: dropped identifier_unique from collection <stored name> ...`)
+  and one line naming the collections that had none (`... nothing to drop`). The server then runs as
+  `off`, without the index. API v3's own non-unique `identifier_1` is a different index and is left
+  alone. A later start under `try` builds the index again.
 
 With the index on, a duplicate key on it means two uploads of one record raced: both ran the identifier
 match before either was stored. The step's `DUPLICATE_IDENTIFIER` entry applies the second upload once
@@ -180,9 +188,10 @@ the error cannot arise, so the entry does nothing.
   (the same `_id` stored as an ObjectId and as its string) is removed. Every other record is kept, with
   its identifier moved to `identifierReleased` and a new `srvModified`. Then start the server: under
   `try` it builds the index.
-- Remove the index, for example after reverting this change or to go back to running without it: set
-  `WRITE_IDENTIFIER_INDEX=off` (or run a version without the setting) and drop it in the MongoDB shell,
-  once per collection:
+- Remove the index, for example before reverting this change or to go back to running without it:
+  start once with `WRITE_IDENTIFIER_INDEX=drop` and check the log lines, then keep `drop` or set `off`.
+  Where that is not possible (a version without the setting is already running), drop it in the MongoDB
+  shell, once per collection:
   `db.treatments.dropIndex('identifier_unique')` (and `entries`, `devicestatus`, `profile`, `food`,
   `activity`, `settings`, under their configured names). A version without the index does not need it
   dropped to run, but it then refuses a second record with a stored identifier on every path,
