@@ -10,6 +10,11 @@
 // treatments delete also made the next reload a long load of entries (48 h)
 // and devicestatus (24 h). Only the deleted type's cache can hold a deleted
 // record; the others keep their contents and generations.
+//
+// Since WC-STEP-PATCH release 2 (write-contract Q-A) the write step names the
+// records a delete by query removed, so even the deleted type's cache removes
+// only those (here every cached record of the type, apart from the delete
+// that matches nothing).
 
 var request = require('supertest');
 require('should');
@@ -42,7 +47,8 @@ describe('cache: a delete by query reloads only the deleted type', function () {
   function state () {
     var out = {};
     TYPES.forEach(function (type) {
-      out[type] = { length: self.ctx.cache[type].length, generation: self.ctx.cache.getRemovalGeneration(type) };
+      out[type] = { length: self.ctx.cache[type].length, generation: self.ctx.cache.getRemovalGeneration(type)
+        , ids: self.ctx.cache[type].map(function (o) { return String(o._id); }) };
     });
     return out;
   }
@@ -84,8 +90,14 @@ describe('cache: a delete by query reloads only the deleted type', function () {
       , type + ' removal generation bumped by ' + kind + ' of ' + deletedType);
   }
 
-  function expectFlushed (type, before, after) {
-    after[type].length.should.equal(0, type + ' cache still holds records after a delete by query of ' + type);
+  // CHANGED EXPECTATION (WC-STEP-PATCH release 2, write-contract Q-A): the
+  // deleted type's cache drops exactly the records the delete removed, and
+  // keeps any other it holds; it was emptied and reloaded.
+  function expectRemoved (type, removed, before, after) {
+    removed.forEach(function (id) {
+      after[type].ids.should.not.containEql(id, type + ' cache still holds ' + id + ' after a delete by query of ' + type);
+    });
+    after[type].length.should.equal(before[type].length - removed.length, type + ' cache keeps what was not removed');
     after[type].generation.should.equal(before[type].generation + 1, type + ' removal generation');
   }
 
@@ -133,7 +145,7 @@ describe('cache: a delete by query reloads only the deleted type', function () {
     var after = await deleteAndWatch('/api/treatments/?find[enteredBy]=' + TAG, 'treatments');
     expectKept('entries', 'treatments', before, after, 'a delete by query');
     expectKept('devicestatus', 'treatments', before, after, 'a delete by query');
-    expectFlushed('treatments', before, after);
+    expectRemoved('treatments', [HEX.note1, HEX.note2], before, after);
     cachedIds('entries').should.containEql(HEX.entry1);
     cachedIds('devicestatus').should.containEql(HEX.status1);
   });
@@ -143,7 +155,19 @@ describe('cache: a delete by query reloads only the deleted type', function () {
     var after = await deleteAndWatch('/api/treatments/?find[enteredBy]=' + TAG + '-none', 'treatments');
     expectKept('entries', 'treatments', before, after, 'a delete by query matching 0 records');
     expectKept('devicestatus', 'treatments', before, after, 'a delete by query matching 0 records');
-    expectFlushed('treatments', before, after);
+    // CHANGED EXPECTATION (WC-STEP-PATCH release 2, write-contract Q-A): the
+    // write step names the records it removed, here none, so the treatments
+    // cache keeps what it holds; it was flushed and reloaded.
+    after.treatments.length.should.equal(before.treatments.length, 'treatments cache kept: nothing was removed');
+    after.treatments.generation.should.equal(before.treatments.generation + 1, 'treatments removal generation');
+  });
+
+  it('a treatments delete by query that matches one of two drops only that one (Q-A)', async function () {
+    var before = state();
+    before.treatments.ids.should.containEql(HEX.note2);
+    var after = await deleteAndWatch('/api/treatments/?find[_id]=' + HEX.note1, 'treatments');
+    expectRemoved('treatments', [HEX.note1], before, after);
+    after.treatments.ids.should.containEql(HEX.note2);
   });
 
   it('an entries delete by query keeps the treatments and devicestatus caches', async function () {
@@ -151,7 +175,7 @@ describe('cache: a delete by query reloads only the deleted type', function () {
     var after = await deleteAndWatch('/api/entries/?find[device]=' + TAG, 'entries');
     expectKept('treatments', 'entries', before, after, 'a delete by query');
     expectKept('devicestatus', 'entries', before, after, 'a delete by query');
-    expectFlushed('entries', before, after);
+    expectRemoved('entries', [HEX.entry1, HEX.entry2], before, after);
     cachedIds('treatments').should.containEql(HEX.note1);
   });
 });
