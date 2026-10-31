@@ -219,7 +219,10 @@ describe('write(intent): treatments from API v1 and in-process callers (equal to
       , (api, done) => api.create([tt(120, 100, 'mg/dl'), tt(100, 120, 'MG/DL'), tt(100, 120, 'mmol')], done)],
     ['WRITE_VALIDATION=reject: every item refused is a ValidationError', { writeValidation: 'reject' }, { }
       , (api, done) => api.create([tt(120, 100, 'mg/dl')], done)],
-    ['save by 24-hex _id (replace, twin removal, data-received first)', { }, { stored, replaceUpserts: [false] }
+    // Merge of official/dev 37b2280f (#8883): the "non-string identifier is
+    // refused" row stays removed (slice 2 replaced it with its own test, below);
+    // the save row takes #8883's name (BF-221: data-received after the write).
+    ['save by 24-hex _id (replace, twin removal, then data-received: BF-221)', { }, { stored, replaceUpserts: [false] }
       , (api, done) => api.save(batch()[0], done)],
     ['save by identifier, matched (REQ-SYNC-072 read-back)', { }, { stored, replaceUpserts: [false] }
       , (api, done) => api.save(batch()[1], done)],
