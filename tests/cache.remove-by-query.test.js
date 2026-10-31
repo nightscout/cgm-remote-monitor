@@ -170,6 +170,18 @@ describe('cache: a delete by query reloads only the deleted type', function () {
     after.treatments.ids.should.containEql(HEX.note2);
   });
 
+  // BF-224 (fixed on the base, 2d79d30b): a plain value under the date field
+  // is equality, so an exact created_at names one treatment.
+  it('a treatments delete by an exact find[created_at] drops only the matched record (Q-A)', async function () {
+    var before = state();
+    before.treatments.ids.should.containEql(HEX.note2);
+    var after = await deleteAndWatch('/api/treatments/?find[created_at]=' + new Date(when(3)).toISOString(), 'treatments');
+    expectKept('entries', 'treatments', before, after, 'a delete by query');
+    expectKept('devicestatus', 'treatments', before, after, 'a delete by query');
+    expectRemoved('treatments', [HEX.note1], before, after);
+    after.treatments.ids.should.containEql(HEX.note2);
+  });
+
   it('an entries delete by query keeps the treatments and devicestatus caches', async function () {
     var before = state();
     var after = await deleteAndWatch('/api/entries/?find[device]=' + TAG, 'entries');
