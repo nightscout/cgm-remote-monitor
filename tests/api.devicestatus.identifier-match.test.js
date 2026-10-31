@@ -11,6 +11,14 @@
 // api.devicestatus.resend-guard). A status with a new `identifier`, or with
 // none, is inserted as before. API v3 does the same
 // (api3.devicestatus.identifier-dedup).
+//
+// CHANGED EXPECTATION (ID-FIRST-MATCH slice 4, ID-Q2): device status now
+// follows the default of the other collections: a status whose `identifier` is
+// stored is merged into the stored status (RFC 7386: what it sends is set,
+// what it leaves out is kept, a null removes), with a new srvModified, and
+// announced; the reply still names the stored `_id`. A re-sent `_id` and a
+// deleted status are still answered without a write. The tests keep their
+// titles and check the merge.
 
 var request = require('supertest');
 require('should');
@@ -76,7 +84,9 @@ describe('devicestatus: a re-send with a stored identifier is acknowledged and n
 
     var docs = await stored({ identifier: 'idm-status-same' });
     docs.length.should.equal(1);
-    docs.should.eql(before);
+    // CHANGED EXPECTATION (slice 4, ID-Q2): merged: the same values, a new srvModified.
+    docs[0].srvModified.should.be.above(before[0].srvModified);
+    Object.assign({}, docs[0], { srvModified: 0 }).should.eql(Object.assign({}, before[0], { srvModified: 0 }));
     String(first.body[0]._id).should.equal(String(docs[0]._id));
     second.body.length.should.equal(1);
     String(second.body[0]._id).should.equal(String(docs[0]._id));
@@ -89,12 +99,14 @@ describe('devicestatus: a re-send with a stored identifier is acknowledged and n
 
     var docs = await stored({ identifier: 'idm-status-a' });
     docs.length.should.equal(1);
-    docs.should.eql(before);
-    docs[0].uploaderBattery.should.equal(50);
-    docs[0].pump.should.eql({ reservoir: 100 });
-    docs[0].should.not.have.property('extra');
-    docs[0].created_at.should.equal(status(0).created_at);
-    docs[0].srvModified.should.equal(before[0].srvModified);
+    // CHANGED EXPECTATION (slice 4, ID-Q2): merged: what it sends is set, the
+    // null removes `pump`, srvCreated is kept and srvModified is new.
+    docs[0].uploaderBattery.should.equal(48);
+    docs[0].should.not.have.property('pump');
+    docs[0].extra.should.equal('x');
+    docs[0].created_at.should.equal(status(1).created_at);
+    docs[0].srvCreated.should.equal(before[0].srvCreated);
+    docs[0].srvModified.should.be.above(before[0].srvModified);
     String(first.body[0]._id).should.equal(String(docs[0]._id));
     String(second.body[0]._id).should.equal(String(docs[0]._id));
     // The reply is the status as sent with the stored _id, the shape a
@@ -112,7 +124,10 @@ describe('devicestatus: a re-send with a stored identifier is acknowledged and n
     } finally {
       self.ctx.bus.removeListener('data-update', seen);
     }
-    events.length.should.equal(0);
+    // CHANGED EXPECTATION (slice 4, ID-Q2): the merge is announced, with the status as merged.
+    events.length.should.equal(1);
+    events[0].changes.length.should.equal(1);
+    events[0].changes[0].identifier.should.equal('idm-status-quiet');
   });
 
   it('a different identifier stores a second status', async function () {
@@ -145,7 +160,9 @@ describe('devicestatus: a re-send with a stored identifier is acknowledged and n
     ]).expect(200);
 
     var docs = await stored();
-    docs.map(function (d) { return d.uploaderBattery; }).should.eql([40, 43, 44, 45, 46]);
+    // CHANGED EXPECTATION (slice 4, ID-Q2): the re-send of the stored status is
+    // merged into it (40 becomes 42); a repeat within the batch is still not written.
+    docs.map(function (d) { return d.uploaderBattery; }).should.eql([42, 43, 44, 45, 46]);
     var byIdentifier = {};
     docs.forEach(function (d) { if (d.identifier) byIdentifier[d.identifier] = String(d._id); });
     res.body.length.should.equal(6);
@@ -178,9 +195,11 @@ describe('devicestatus: a re-send with a stored identifier is acknowledged and n
     var res = await post(status(1, { _id: otherHex, identifier: 'idm-status-d', uploaderBattery: 49 })).expect(200);
 
     var docs = await stored();
-    docs.should.eql(before);
+    // CHANGED EXPECTATION (slice 4, ID-Q2): identifier decides, and the status
+    // it names is merged into; the one the _id names is left as it was.
     String(docs[0]._id).should.equal(storedHex);
-    docs[0].uploaderBattery.should.equal(50);
+    docs[0].uploaderBattery.should.equal(49);
+    docs[1].should.eql(before[1]);
     String(docs[1]._id).should.equal(otherHex);
     docs[1].uploaderBattery.should.equal(30);
     String(res.body[0]._id).should.equal(storedHex);

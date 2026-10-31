@@ -514,13 +514,17 @@ describe('API3 CREATE', function() {
       .send(doc2)
       .expect(200);
 
+    // CHANGED EXPECTATION (ID-FIRST-MATCH slice 3, ID-Q4): the POST names the
+    // deleted document by the identifier the client sent, so it is
+    // acknowledged (200, the deduplication reply) and nothing is written: the
+    // document stays deleted, the cache learns nothing, and a read answers
+    // 410. It overwrote the deleted document and revived it.
     res.body.status.should.equal(200);
     res.body.identifier.should.equal(identifier);
-    await self.cache.nextShouldEql(self.col, Object.assign({}, doc2, { date: date2.getTime() }));
+    res.body.isDeduplication.should.equal(true);
+    self.cache.shouldBeEmpty();
 
-    let body = await self.get(identifier);
-    body.date.should.equal(date2.getTime());
-    body.identifier.should.equal(identifier);
+    await self.instance.get(`${self.url}/${identifier}`, self.jwt.read).expect(410);
 
     await self.delete(identifier);
     await self.cache.nextShouldDeleteLast(self.col);

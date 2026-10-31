@@ -128,13 +128,16 @@ describe('Q1b: a null on a merge removes the field (RFC 7386)', function () {
       doc.store.should.have.properties(['Default', 'Alt']);
     });
 
+    // CHANGED EXPECTATION (ID-FIRST-MATCH slice 4, ID-Q7): a matched re-send
+    // replaces `store` as a whole (as sent, its nulls removed), so store
+    // { Alt: null } leaves an empty store; the other fields still merge.
     it('removes a nested member sent as null (store.Alt: null) and keeps its siblings', async function () {
       var hex = nextHex();
       await post(profile({ _id: hex })).expect(200);
       await post({ _id: hex, store: { Alt: null } }).expect(200);
       var doc = await stored(hex);
       doc.store.should.not.have.property('Alt');
-      doc.store.Default.dia.should.equal(5);
+      doc.store.should.eql({});
       doc.defaultProfile.should.equal('Default');
     });
 
@@ -143,10 +146,13 @@ describe('Q1b: a null on a merge removes the field (RFC 7386)', function () {
       await post(profile({ _id: hex })).expect(200);
       await post({ _id: hex, store: { Default: { dia: 6, basal: [{ time: '00:00', value: 0.5, timeAsSeconds: 0 }] } } }).expect(200);
       var doc = await stored(hex);
+      // CHANGED EXPECTATION (ID-FIRST-MATCH slice 4, ID-Q7): `store` is taken
+      // whole on a matched re-send: Default is as sent (its units gone), Alt is
+      // gone. The array is still replaced whole.
       doc.store.Default.dia.should.equal(6);
-      doc.store.Default.units.should.equal('mg/dl');
+      doc.store.Default.should.not.have.property('units');
       doc.store.Default.basal.should.eql([{ time: '00:00', value: 0.5, timeAsSeconds: 0 }]);
-      doc.store.Alt.dia.should.equal(4);
+      doc.store.should.not.have.property('Alt');
     });
 
     it('an in-process re-send removes a null field too', async function () {
@@ -378,6 +384,8 @@ describe('Q1b: a null on a merge removes the field (RFC 7386)', function () {
       stored.q1bN.should.eql({ x: null });
     });
 
+    // A treatment POST that matches a stored record replaces it (merge on
+    // match leaves treatments out, 2026-10-30), so the null is stored as sent.
     it('control: POST that replaces a duplicate stores a null as sent', async function () {
       var doc = treatment();
       var id = await create(doc);

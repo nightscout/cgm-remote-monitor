@@ -139,6 +139,12 @@ describe('legacy storage selector hardening', function () {
       bulkWrite: async function (operations) {
         capturedOperations = operations;
         return {upsertedIds: {}};
+      },
+      // ID-FIRST-MATCH slice 3: the on-deleted read before the write; nothing stored.
+      find: function () {
+        var cursor = {sort: () => cursor, skip: () => cursor, limit: () => cursor, project: () => cursor,
+          batchSize: () => cursor, toArray: async () => []};
+        return cursor;
       }
     };
     var storage = storageFor('entries', collection).api;
@@ -168,11 +174,35 @@ describe('legacy storage selector hardening', function () {
       return entries.create([{type: {$ne: null}, date: Date.now()}]);
     }, /Entry type must be a string/);
     await expectRejectedPromise(function () {
-      return treatments.create([{identifier: {$ne: null}, eventType: 'Note'}]);
-    }, /Treatment identifier must be a string/);
-    await expectRejectedPromise(function () {
       return treatments.create([{identifier: 'safe', eventType: {$ne: null}}]);
     }, /Treatment eventType must be a string/);
+  });
+
+  // CHANGED EXPECTATION (ID-FIRST-MATCH slice 2, ID-Q6, BF-215): an
+  // object-valued treatment identifier was refused ("Treatment identifier must
+  // be a string", a 500 on API v1). It is now treated as absent: removed before
+  // any selector is built, so the operator object still never reaches MongoDB.
+  it('treats an object-valued treatment identifier as absent, never as a selector', async function () {
+    var capturedOperations;
+    var collection = {
+      bulkWrite: async function (operations) {
+        capturedOperations = operations;
+        return {upsertedIds: {}};
+      },
+      find: function () { return cursorOf([]); }
+    };
+    var treatments = storageFor('treatments', collection).api;
+    var sent = {identifier: {$ne: null}, eventType: 'Note', created_at: '2026-01-01T00:00:00.000Z'};
+
+    await treatments.create([sent]);
+
+    should.exist(capturedOperations);
+    var operation = capturedOperations[0].replaceOne || capturedOperations[0].updateOne;
+    // No operator from the document: the write falls back to the fallback key,
+    // whose identifier clause matches a record without one.
+    JSON.stringify(operation.filter).should.not.match(/\$ne/);
+    operation.filter.identifier.should.deepEqual({$in: [null, ''], $not: {$type: 'array'}});
+    operation.replacement.should.not.have.property('identifier');
   });
 
   it('wraps treatment identifiers and fallback fields in literal equality', async function () {
