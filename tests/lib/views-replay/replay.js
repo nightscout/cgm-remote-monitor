@@ -208,7 +208,7 @@ function main () {
     if (!opt.profile) throw new Error('--mode ' + opt.mode + ' needs --profile');
     process.env.VIEWS_PROFILE_DS_NEWEST = opt.mode.slice(9);
   }
-  if (opt.mode === 'notick' && !opt.profile) throw new Error('--mode notick needs --profile');
+  if ((opt.mode === 'notick' || opt.mode === 'propsonrequest') && !opt.profile) throw new Error('--mode ' + opt.mode + ' needs --profile');
 
   const clock = require('./clock');
   const createDData = require(path.join(ROOT, 'lib/data/ddata'));
@@ -262,8 +262,11 @@ function main () {
   // heartbeat tick (60 s, one per minute) mark it dirty, and flush() runs the
   // one evaluation they coalesce into, at the pinned minute. Its reads are
   // counted under the view arm's counter. Modes for it: notick (the heartbeat
-  // is ignored, control b), dsnewest:<n> (control c), and tamper / shrink as
-  // for the view arm.
+  // is ignored, control b), dsnewest:<n> (control c), propsonrequest (the
+  // properties computed per request on the alarm evaluation's plugin set,
+  // the shape before option A), and tamper / shrink as for the view arm.
+  // --view properties reads the properties the profile kept from the
+  // minute's cycle (GET /api/v2/properties's source).
   const profileShared = { cnt: null, stats: () => null, countDocs: null };
   function bootProfile () {
     const arms = require(path.join(ROOT, 'tests/lib/views-profile/arms'));
@@ -297,6 +300,7 @@ function main () {
     return require(path.join(ROOT, 'lib/server/serve/views')).boot(env, language, {
       settleMs: Infinity
       , tick: opt.mode !== 'notick'
+      , propertiesOnRequest: opt.mode === 'propsonrequest'
       , viewsCtx: countedCtx
     }).then(function (pctx) {
       if (pctx.bootErrors && pctx.bootErrors.length) throw new Error('the views profile did not boot: ' + JSON.stringify(pctx.bootErrors).slice(0, 400));
