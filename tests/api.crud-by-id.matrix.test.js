@@ -1023,13 +1023,16 @@ describe('CRUD by _id matrix: v1, v3 and websocket, every collection and stored 
           await send(from, 'original');
           await send(to, 'edited');
           const stored = await storedFor(col, id);
-          // v1 and internal entries now match on identifier first, so a resend
-          // from any path finds the stored entry. v3 does not populate v1's
-          // sysTime key, so a v3->socket resend still duplicates. Keep it visible
-          // until the socket matches on identifier too.
-          const duplicate = col === 'entries' && from === 'v3' && to === 'socket';
-          should(stored.length).equal(duplicate ? 2 : 1);
-          if (!duplicate) should(allEdited(stored)).equal(to !== 'socket');
+          // CHANGED EXPECTATION (ID-FIRST-MATCH slice 6, 2026-10-31): the socket's
+          // dbAdd now matches on identifier first, as this comment asked for. An
+          // entries re-send through the socket lands on the stored entry and
+          // merges (written: edited), from every path; the v3->socket duplicate
+          // is gone. Was: a socket re-send was not written, and v3->socket stored
+          // a second entry. Treatments through the socket are kept unwritten here
+          // until decision B (the next commit of this PR).
+          const kept = col === 'treatments' && to === 'socket';
+          should(stored.length).equal(1);
+          should(allEdited(stored)).equal(!kept);
         });
       }
     }

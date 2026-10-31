@@ -743,8 +743,10 @@ describe('write(intent): the profile rule table (slice 5)', function ( ) {
     const rules = writeIntent.COLLECTION_RULES.profile['v1/internal'];
     // CHANGED EXPECTATION (ID-FIRST-MATCH slice 3, ID-Q4): on-deleted, 'stays-deleted'.
     // CHANGED EXPECTATION (ID-FIRST-MATCH slice 4, ID-Q7): a re-send takes `store` whole.
+    // CHANGED EXPECTATION (ID-FIRST-MATCH slice 6): identifier first, P4, before the _id; at another
+    // startDate a new profile without the identifier (decisions.md, slice 6 profile-copy rule).
     assert.deepEqual(rules.create, { write: 'profiles', dates: 'stamp-created', deleted: 'stays-deleted'
-      , merge: 'rfc7386-store-whole' });
+      , merge: 'rfc7386-store-whole', identifier: { also: 'none', pick: 'p4', otherTime: 'new-record' } });
     assert.equal(rules.update.id, 'hex-or-new');
     assert.equal(rules.update.twins, 'remove-string-forms-after');
     assert.equal(rules.update.dates, 'carry');

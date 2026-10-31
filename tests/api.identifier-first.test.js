@@ -18,6 +18,16 @@
 // - When the identifier names several records, the write lands on the one P4
 //   picks and no further record is created (ID-Q5).
 //
+// EXPECTATIONS CHANGED 2026-10-31 (profile only, coordinator relaying the
+// maintainer's decision of 2026-10-30 that was recorded after these tests,
+// releases/cgm-remote-monitor-16.0.0/decisions.md "Slice 6: a v1 or in-process
+// profile create ... carries a different `startDate` is stored as a new profile
+// without the copied identifier"): the four profile tests that re-send at
+// another startDate now expect a new profile without the identifier; the
+// deleted-record one is a reading of that line, flagged for maintainer review.
+// Same-startDate profile tests were added beside them. Food and activity are
+// unchanged.
+//
 // Records are seeded straight to MongoDB with an old srvModified. Synthetic
 // values only.
 
@@ -57,6 +67,20 @@ describe('ID-FIRST-MATCH slices 6 and 6a: v1 and in-process profile, food and ac
     now.isValid.should.equal(false);
   }
 
+  async function shouldBeAsSeeded (name, seeded) {
+    plain(await col(name).findOne({ _id: seeded._id })).should.eql(plain(seeded));
+  }
+
+  // decisions.md, slice 6 profile-copy rule (line 90): a new profile, no identifier; the stored one as seeded.
+  async function shouldBeNewWithoutIdentifier (name, seeded, stored, replyId, deleted) {
+    stored.length.should.equal(2, 'a new profile beside the stored one');
+    if (deleted) await shouldStayDeleted(name, seeded);
+    else await shouldBeAsSeeded(name, seeded);
+    const created = stored.find((doc) => String(doc._id) !== String(seeded._id));
+    String(replyId).should.equal(String(created._id));
+    created.should.not.have.property('identifier');
+  }
+
   function inProcess (name, docs) {
     return new Promise((resolve, reject) => self.instance.ctx[name].create(docs
       , (err, result) => err ? reject(err) : resolve(result)));
@@ -83,6 +107,15 @@ describe('ID-FIRST-MATCH slices 6 and 6a: v1 and in-process profile, food and ac
         , store: { [mark]: { dia: 3 }, other: { dia: 4 } }, identifier }, extra),
       // A re-send at another startDate (tconnectsync's add mode sends a new one).
       resend: (mark, identifier) => ({ defaultProfile: mark, startDate: iso(Date.now() - 3600000), store: { [mark]: { dia: 5 } }
+        , identifier }),
+      // EXPECTATION CHANGED after the tests were written (2026-10-31, coordinator): releases/cgm-remote-monitor-16.0.0/
+      // decisions.md, "Slice 6: a v1 or in-process profile create that matches a stored profile by `identifier` but
+      // carries a different `startDate` is stored as a new profile without the copied identifier" (maintainer,
+      // 2026-10-30, recorded after these tests). `resend` above has another startDate, so the four profile tests
+      // below that use it expect a new profile with no identifier, the stored one untouched. Was: merged into it.
+      newProfileAtOtherStartDate: true,
+      // The same startDate: a re-send, merged (store whole, ID-Q7). Added with the change above.
+      sameStart: (seeded, mark, identifier) => ({ defaultProfile: mark, startDate: seeded.startDate, store: { [mark]: { dia: 5 } }
         , identifier }),
       // ID-Q7: store replaced whole; units left out, kept.
       check: (now, mark) => {
@@ -119,6 +152,7 @@ describe('ID-FIRST-MATCH slices 6 and 6a: v1 and in-process profile, food and ac
         const seeded = await seed(name, form.doc(mark, identifier));
         const res = await v1('post', form.route).send([form.resend(mark, identifier)]).expect(200);
         const stored = await find(name, { [form.mark]: mark });
+        if (form.newProfileAtOtherStartDate) return shouldBeNewWithoutIdentifier(name, seeded, stored, res.body[0]._id);
         stored.length.should.equal(1, 'one record for the identifier');
         form.check(stored[0], mark);
         String(res.body[0]._id).should.equal(String(seeded._id));
@@ -131,6 +165,7 @@ describe('ID-FIRST-MATCH slices 6 and 6a: v1 and in-process profile, food and ac
         const seeded = await seed(name, form.doc(mark, identifier));
         const docs = await inProcess(name, [form.resend(mark, identifier)]);
         const stored = await find(name, { [form.mark]: mark });
+        if (form.newProfileAtOtherStartDate) return shouldBeNewWithoutIdentifier(name, seeded, stored, docs[0]._id);
         stored.length.should.equal(1, 'one record for the identifier');
         form.check(stored[0], mark);
         String(docs[0]._id).should.equal(String(seeded._id));
@@ -143,6 +178,11 @@ describe('ID-FIRST-MATCH slices 6 and 6a: v1 and in-process profile, food and ac
         const seeded = await seed(name, form.doc(mark, identifier), true);
         const res = await v1('post', form.route).send([form.resend(mark, identifier)]).expect(200);
         await shouldStayDeleted(name, seeded);
+        // EXPECTATION CHANGED (profile): reading of line 90, flagged for maintainer review. A deleted profile the
+        // identifier names at another startDate is read as "new profile, identifier dropped"; it stays deleted.
+        if (form.newProfileAtOtherStartDate) {
+          return shouldBeNewWithoutIdentifier(name, seeded, await find(name, { [form.mark]: mark }), res.body[0]._id, true);
+        }
         (await find(name, { [form.mark]: mark })).length.should.equal(1);
         String(res.body[0]._id).should.equal(String(seeded._id));
       });
@@ -154,9 +194,53 @@ describe('ID-FIRST-MATCH slices 6 and 6a: v1 and in-process profile, food and ac
         const first = await seed(name, form.doc(mark, identifier));
         const second = await seed(name, form.doc(mark, identifier));
         const res = await v1('post', form.route).send([form.resend(mark, identifier)]).expect(200);
+        if (form.newProfileAtOtherStartDate) {
+          // EXPECTATION CHANGED (profile, line 90): at another startDate a third profile, without the identifier.
+          const all = await find(name, { [form.mark]: mark });
+          all.length.should.equal(3);
+          all.filter((doc) => doc.identifier === identifier).length.should.equal(2);
+          await shouldBeAsSeeded(name, first);
+          await shouldBeAsSeeded(name, second);
+          return;
+        }
         (await find(name, { [form.mark]: mark })).length.should.equal(2);
         assert([String(first._id), String(second._id)].includes(String(res.body[0]._id)), 'the reply names a stored record');
       });
+
+      if (form.sameStart) {
+        // Added with the line-90 change: at the stored startDate a profile create is a re-send and merges.
+        it(`API v1 ${name}: a create with a stored identifier at the same startDate merges into it; the reply names it`, async ( ) => {
+          const mark = tag();
+          const identifier = uuid();
+          const seeded = await seed(name, form.doc(mark, identifier));
+          const res = await v1('post', form.route).send([form.sameStart(seeded, mark, identifier)]).expect(200);
+          const stored = await find(name, { [form.mark]: mark });
+          stored.length.should.equal(1, 'one record for the identifier');
+          form.check(stored[0], mark);
+          String(res.body[0]._id).should.equal(String(seeded._id));
+        });
+
+        it(`in-process ${name}: the same startDate, through ctx.${name}.create`, async ( ) => {
+          const mark = tag();
+          const identifier = uuid();
+          const seeded = await seed(name, form.doc(mark, identifier));
+          const docs = await inProcess(name, [form.sameStart(seeded, mark, identifier)]);
+          const stored = await find(name, { [form.mark]: mark });
+          stored.length.should.equal(1, 'one record for the identifier');
+          form.check(stored[0], mark);
+          String(docs[0]._id).should.equal(String(seeded._id));
+        });
+
+        it(`API v1 ${name}: a deleted profile named at the same startDate is acknowledged; it stays deleted`, async ( ) => {
+          const mark = tag();
+          const identifier = uuid();
+          const seeded = await seed(name, form.doc(mark, identifier), true);
+          const res = await v1('post', form.route).send([form.sameStart(seeded, mark, identifier)]).expect(200);
+          await shouldStayDeleted(name, seeded);
+          (await find(name, { [form.mark]: mark })).length.should.equal(1);
+          String(res.body[0]._id).should.equal(String(seeded._id));
+        });
+      }
 
       // Guard, green before and after: `_id` still matches when no identifier
       // is sent (the order is identifier, then _id).
