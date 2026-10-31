@@ -294,6 +294,17 @@ async function main () {
     const base2 = gcHeap();
     const hP = await held('properties');
     memory.propertiesWorkingSetHeapKB = +((hP - base2) / K / 1024).toFixed(1);
+    // what the profile keeps between cycles: the last cycle's properties
+    const kept = ctx.evaluator.kept();
+    memory.keptPropertiesJsonKB = kept ? +(Buffer.byteLength(JSON.stringify(kept.properties)) / 1024).toFixed(1) : null;
+    if (kept) {
+      // heap of the kept object, approximated by 5 JSON copies of it
+      const h0 = gcHeap();
+      const copies = [];
+      for (let i = 0; i < 5; i++) copies.push(JSON.parse(JSON.stringify(kept.properties)));
+      memory.keptPropertiesHeapKBApprox = +((gcHeap() - h0) / 5 / 1024).toFixed(1);
+      copies.length = 0;
+    }
     memory.heapBetweenEvaluationsKB = +(base / 1024).toFixed(1);
   }
 
@@ -320,10 +331,11 @@ async function main () {
     latest.httpPropertiesBgnow = await lat(() => request(app).get('/properties/bgnow'), 100);
   } else {
     latest.boundedNewestSgvQuery = await lat(() => new Promise(resolve => stores.entries.list({ find: { type: 'sgv' }, count: 1 }, resolve)), REPS);
-    latest.propertiesViewCompute = await lat(() => new Promise(resolve => ctx.evaluator.properties(resolve)), 30);
+    latest.keptPropertiesRead = await lat(() => new Promise(resolve => ctx.evaluator.properties(resolve)), REPS);
+    latest.propertiesViewCompute = await lat(() => new Promise(resolve => require(path.join(ROOT, 'lib/data/views'))(env, ctx).compute('properties', { now: Date.now(), dbstats: currentStats }, resolve)), 30);
     const app = require(path.join(ROOT, 'lib/server/serve/views')).createApp(env, ctx).app;
     const request = require('supertest');
-    latest.httpPropertiesBgnow = await lat(() => request(app).get('/api/v2/properties/bgnow'), 30);
+    latest.httpPropertiesBgnow = await lat(() => request(app).get('/api/v2/properties/bgnow'), 100);
   }
 
   const res = {
