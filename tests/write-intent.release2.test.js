@@ -156,6 +156,42 @@ const DAY = 24 * HOUR;
     });
   });
 
+  // TREATMENTS_V1.create.forms.prebolus answers with the stored record's _id
+  // (reply 'stored-id', -4e 2026-10-31; it was 'upserted-id', which named a
+  // record only when it inserted one). A preBolus record that matches a stored
+  // one by created_at + eventType, with no identifier, is named.
+  describe('API v1 treatments preBolus: the derived record that matched a stored one', function ( ) {
+    function treatments ( ) {
+      const ctx = Object.assign(v1Ctx(), { ddata: { processRawDataForRuntime: d => JSON.parse(JSON.stringify(d)) }
+        , purifier: { purifyObject: ( ) => { } } });
+      return require('../lib/server/treatments')({ treatments_collection: physical }, ctx);
+    }
+    const T = '2026-10-31T10:00:00.000Z';
+    const DERIVED = '2026-10-31T10:15:00.000Z';
+
+    it('is named by its stored _id in the WriteResult', async function ( ) {
+      const { insertedId } = await raw.insertOne({ eventType: 'Meal Bolus', created_at: DERIVED, carbs: 5 });
+      const written = await writeIntent.forCollectionResolved(v1Storage('treatments'), 'treatments', 'v1/internal', { env: { } })
+        .write({ op: 'create', form: 'prebolus', docs: [{ eventType: 'Meal Bolus', created_at: DERIVED, carbs: 30 }] });
+      assert.equal(written.items.length, 1);
+      assert.equal(written.items[0].outcome, 'replaced');
+      assert.equal(String(written.items[0]._id), String(insertedId));
+    });
+
+    it('a v1 create with a preBolus: one reply slot per sent item, and the cache hears the derived record by its stored _id', async function ( ) {
+      const { insertedId } = await raw.insertOne({ eventType: 'Meal Bolus', created_at: DERIVED, carbs: 5 });
+      const api = treatments();
+      const reply = await new Promise((resolve, reject) => api.create([{ eventType: 'Meal Bolus', created_at: T, insulin: 2
+        , carbs: 30, preBolus: 15 }], (err, r) => (err ? reject(err) : resolve(r))));
+      assert.equal(reply.length, 1, 'one slot per sent item (BF-219)');
+      assert.equal(await raw.countDocuments({ created_at: DERIVED }), 1, 'the derived record replaced the stored one');
+      const announced = [ ].concat(...events.filter(e => e.op === 'update').map(e => e.changes));
+      const derived = announced.find(d => d.created_at === DERIVED);
+      assert.ok(derived, 'the derived record is announced');
+      assert.equal(String(derived._id), String(insertedId), 'by the stored _id');
+    });
+  });
+
   describe('API v1 delete by query', function ( ) {
     it('names exactly the records it removed and leaves the others', async function ( ) {
       const { insertedIds } = await raw.insertMany([
