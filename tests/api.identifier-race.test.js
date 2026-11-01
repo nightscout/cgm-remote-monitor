@@ -151,6 +151,7 @@ describe('ID-UNIQUE-INDEX: two uploads of one record that race', function () {
     var authSubject = require('./fixtures/api3/authSubject');
     var utils = require('./fixtures/api3/utils');
     var opened = [];
+    var defaultWrite;
 
     function col (name) {
       return self.instance.ctx.store.collection(self.instance.env[name + '_collection']);
@@ -162,12 +163,14 @@ describe('ID-UNIQUE-INDEX: two uploads of one record that race', function () {
 
     before(async function () {
       self.instance = await instance.create({});
+      defaultWrite = self.instance.env.write;
       var auth = await authSubject(self.instance.ctx.authorization.storage, ['create', 'all'], self.instance.app);
       self.jwt = auth.jwt;
     });
 
     afterEach(function () {
       opened.splice(0).forEach(function (g) { g.restore(); });
+      self.instance.env.write = defaultWrite;
     });
 
     after(async function () {
@@ -233,6 +236,60 @@ describe('ID-UNIQUE-INDEX: two uploads of one record that race', function () {
       announced.length.should.equal(1);
       return { replies: replies, stored: docs[0], announced: announced[0] };
     }
+
+    async function modeRace (name, mode, firstDoc, secondDoc) {
+      self.instance.env.write = Object.freeze(Object.assign({ }, defaultWrite, { resend: mode }));
+      var g = gate(self.instance.env[name + '_collection'], 'insertOne', 2, 3000, true);
+      opened.push(g);
+      var first = post(name, firstDoc).then(function (r) { return r; });
+      while (g.arrived < 1) await new Promise(function (resolve) { setTimeout(resolve, 5); });
+      var second = post(name, secondDoc).then(function (r) { return r; });
+      var replies = await Promise.all([first, second]);
+      g.arrived.should.equal(2);
+      var docs = await col(name).find({ identifier: firstDoc.identifier }).toArray();
+      docs.length.should.equal(1);
+      return { replies: replies, stored: docs[0] };
+    }
+
+    it('API v3 race honors WRITE_RESEND=acknowledge without writing', async function () {
+      var id = 'race-v3-ack-' + Date.now();
+      var r = await modeRace('treatments', 'acknowledge', treatment(id, { carbs: 12 }), treatment(id, { carbs: 30 }));
+      r.replies[0].status.should.equal(201);
+      r.replies[1].status.should.equal(200);
+      r.replies[1].body.isDeduplication.should.equal(true);
+      r.stored.carbs.should.equal(12);
+    });
+
+    it('API v3 race honors WRITE_RESEND=refuse with the normal 409 response', async function () {
+      var id = 'race-v3-refuse-' + Date.now();
+      var r = await modeRace('treatments', 'refuse', treatment(id, { carbs: 12 }), treatment(id, { carbs: 30 }));
+      r.replies[0].status.should.equal(201);
+      r.replies[1].status.should.equal(409, JSON.stringify(r.replies[1].body));
+      r.stored.carbs.should.equal(12);
+    });
+
+    it('API v3 merge-except-treatments merges device status but still replaces treatments', async function () {
+      var statusId = 'race-v3-merge-status-' + Date.now();
+      var status = { identifier: statusId, date: T, utcOffset: 0, app: 'race-test', device: 'race-test'
+        , uploaderBattery: 50, pump: { reservoir: 10 } };
+      var s = await modeRace('devicestatus', 'merge-except-treatments', status, Object.assign({ }, status, { uploaderBattery: 60 }));
+      s.replies[0].status.should.equal(201);
+      s.replies[1].status.should.equal(200, JSON.stringify(s.replies[1].body));
+      s.replies[1].body.lastModified.should.be.above(s.replies[0].body.lastModified);
+      s.stored.uploaderBattery.should.equal(60);
+      s.stored.pump.reservoir.should.equal(10);
+
+      var treatmentId = 'race-v3-merge-treatment-' + Date.now();
+      var base = { identifier: treatmentId, date: T + 60000, utcOffset: 0, app: 'race-test', device: 'race-test'
+        , eventType: 'Temporary Override' };
+      var t = await modeRace('treatments', 'merge-except-treatments'
+        , Object.assign({ durationType: 'indefinite', reason: 'race' }, base)
+        , Object.assign({ duration: 30, reason: 'race' }, base));
+      t.replies[0].status.should.equal(201);
+      t.replies[1].status.should.equal(200);
+      t.stored.duration.should.equal(30);
+      should.not.exist(t.stored.durationType);
+    });
 
     // CHANGED EXPECTATION (compat card B, maintainer 2026-10-31): an API v3
     // re-send replaces on every collection, as on 15.0.9, and the loser of a

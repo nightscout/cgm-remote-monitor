@@ -37,6 +37,7 @@ describe('ID-UNIQUE-INDEX: a batch item that loses an identifier race is applied
   var realInsertMany = Collection.prototype.insertMany;
   var realBulkWrite = Collection.prototype.bulkWrite;
   var realForCollection = writeIntent.forCollectionIntent;
+  var defaultWrite;
   var updates = [];
   var results = [];
   var warned = [];
@@ -57,6 +58,7 @@ describe('ID-UNIQUE-INDEX: a batch item that loses an identifier race is applied
     self.env = require('../lib/server/env')();
     self.env.settings.authDefaultRoles = 'readable';
     self.env.settings.enable = ['careportal', 'api'];
+    defaultWrite = self.env.write;
     self.app = require('express')();
     self.app.enable('api');
     require('../lib/server/bootevent')(self.env, language).boot(function booted (ctx) {
@@ -75,11 +77,12 @@ describe('ID-UNIQUE-INDEX: a batch item that loses an identifier race is applied
     console.warn = function () { warned.push(Array.prototype.join.call(arguments, ' ')); return realWarn.apply(console, arguments); };
     // Each result the write step answers, by collection.
     writeIntent.forCollectionIntent = function forCollectionIntent (storage, name) {
+      var options = arguments[3];
       var step = realForCollection.apply(this, arguments);
       var write = step.write;
       step.write = async function (intent) {
         var result = await write.call(step, intent);
-        results.push({ name: name, result: result });
+        results.push({ name: name, result: result, resend: options && options.env && options.env.write.resend });
         return result;
       };
       return step;
@@ -89,6 +92,7 @@ describe('ID-UNIQUE-INDEX: a batch item that loses an identifier race is applied
 
   afterEach(function () {
     console.warn = realWarn;
+    self.env.write = defaultWrite;
     Collection.prototype.insertMany = realInsertMany;
     Collection.prototype.bulkWrite = realBulkWrite;
     writeIntent.forCollectionIntent = realForCollection;
@@ -99,6 +103,153 @@ describe('ID-UNIQUE-INDEX: a batch item that loses an identifier race is applied
   function raceLines () {
     return warned.filter(function (w) { return /applying this one as its re-send/.test(w); }).length;
   }
+
+  async function raceBatchMode (name, mode, method, url, body, rival, targetId) {
+    self.env.write = Object.freeze(Object.assign({ }, defaultWrite, { resend: mode }));
+    var real = Collection.prototype[method];
+    var target = col(name).collectionName;
+    var inserted = null;
+    var docs = Array.isArray(body) ? body : [body];
+    var identifier = targetId || docs[docs.length - 1].identifier;
+    Collection.prototype[method] = async function raceBeforeWrite () {
+      var that = this;
+      var args = arguments;
+      if (that.collectionName === target && inserted === null) {
+        inserted = (await col(name).insertOne(rival)).insertedId;
+      }
+      return real.apply(that, args);
+    };
+    var response;
+    try {
+      response = await request(self.app).post(url).set('api-secret', known).send(docs);
+    } finally {
+      Collection.prototype[method] = real;
+    }
+    should.exist(inserted, name + ' race reached its write');
+    response.status.should.equal(200, JSON.stringify(response.body));
+    var matches = results.filter(function (r) {
+      return r.name === name && r.result.items.some(function (item) { return item.identifier === identifier; });
+    });
+    matches.length.should.equal(1, name + ' write results ' + JSON.stringify(matches));
+    matches[0].resend.should.equal(mode, name + ' resend mode reached the write step');
+    var result = matches[0].result;
+    var stored = await col(name).findOne({ identifier: identifier });
+    should.exist(stored, name + ' has one record after race');
+    return { response: response, result: result, stored: stored };
+  }
+
+  function assertRaceMode (result, mode, outcome, identifier) {
+    var raced = result.items.filter(function (item) { return item.identifier === identifier; });
+    raced.length.should.equal(1);
+    raced[0].outcome.should.equal(outcome);
+    if (mode === 'acknowledge' || mode === 'refuse') {
+      raced[0].reason.should.equal(writeIntent.RESEND_REASON);
+    }
+  }
+
+  it('status race retries honor acknowledge, refuse and merge-except-treatments', async function () {
+    var modes = [['acknowledge', 'unchanged'], ['refuse', 'refused'], ['merge-except-treatments', 'merged']];
+    for (var entry of modes) {
+      var id = 'batch-race-status-' + entry[0] + '-' + Date.now();
+      var created = iso(20);
+      var r = await raceBatchMode('devicestatus', entry[0], 'insertMany', '/api/devicestatus/'
+        , { identifier: id, device: DEVICE, created_at: created, uploaderBattery: 60 }
+        , { identifier: id, device: DEVICE, created_at: created, uploaderBattery: 50, pump: { reservoir: 10 }
+          , srvCreated: 1, srvModified: 1 });
+      assertRaceMode(r.result, entry[0], entry[1], id);
+      if (entry[0] === 'merge-except-treatments') {
+        r.stored.uploaderBattery.should.equal(60);
+        r.stored.pump.reservoir.should.equal(10);
+      } else {
+        r.stored.uploaderBattery.should.equal(50);
+      }
+    }
+  });
+
+  it('entries identifier race honors acknowledge and refuse while retaining entry matching', async function () {
+    for (var mode of ['acknowledge', 'refuse']) {
+      var id = 'batch-race-entry-' + mode + '-' + Date.now();
+      var date = Date.UTC(2021, 8, 10, 7, 20);
+      var rivalDate = date - 60000;
+      var r = await raceBatchMode('entries', mode, 'bulkWrite', '/api/entries/'
+        , { identifier: id, type: 'sgv', sgv: 110, date: date, dateString: new Date(date).toISOString()
+          , sysTime: new Date(date).toISOString(), device: DEVICE }
+        , { identifier: id, type: 'sgv', sgv: 100, date: rivalDate, dateString: new Date(rivalDate).toISOString()
+          , sysTime: new Date(rivalDate).toISOString(), device: DEVICE
+          , srvCreated: 1, srvModified: 1 });
+      assertRaceMode(r.result, mode, mode === 'acknowledge' ? 'unchanged' : 'refused', id);
+      r.stored.sgv.should.equal(100);
+    }
+  });
+
+  it('profile race retries honor resend modes', async function () {
+    for (var mode of ['acknowledge', 'refuse', 'merge-except-treatments']) {
+      var id = 'batch-race-profile-mode-' + mode + '-' + Date.now();
+      var startDate = new Date(Date.UTC(2021, 8, 9)).toISOString();
+      var r = await raceBatchMode('profile', mode, 'insertMany', '/api/profile/'
+        , { identifier: id, defaultProfile: 'next', startDate: startDate, units: 'mg/dl', enteredBy: DEVICE
+          , store: { p: { dia: 4 } } }
+        , { identifier: id, defaultProfile: 'previous', startDate: startDate, units: 'mg/dl', enteredBy: DEVICE
+          , store: { p: { dia: 3 } }, srvCreated: 1, srvModified: 1 });
+      assertRaceMode(r.result, mode, mode === 'acknowledge' ? 'unchanged' : mode === 'refuse' ? 'refused' : 'merged', id);
+      r.stored.defaultProfile.should.equal(mode === 'merge-except-treatments' ? 'next' : 'previous');
+    }
+  });
+
+  it('profile identifier race does not grant create-only update permission', async function () {
+    var id = 'batch-race-profile-create-only-' + Date.now();
+    var startDate = new Date(Date.UTC(2021, 8, 9)).toISOString();
+    var rival = { identifier: id, defaultProfile: 'previous', startDate: startDate, units: 'mg/dl', enteredBy: DEVICE
+      , store: { p: { dia: 3 } }, srvCreated: 1, srvModified: 1 };
+    var other = null;
+    var profileName = col('profile').collectionName;
+    Collection.prototype.insertMany = async function insertMany () {
+      if (this.collectionName === profileName && other === null) {
+        other = (await col('profile').insertOne(rival)).insertedId;
+      }
+      return realInsertMany.apply(this, arguments);
+    };
+    var err;
+    try {
+      await self.ctx.profile.create([
+        { identifier: id, defaultProfile: 'next', startDate: startDate, units: 'mg/dl', enteredBy: DEVICE
+          , store: { p: { dia: 4 } } }
+      ], null, { canUpdate: false });
+    } catch (error) {
+      err = error;
+    } finally {
+      Collection.prototype.insertMany = realInsertMany;
+    }
+    should.exist(other, 'the create-only upload reached insertMany');
+    should.exist(err, 'the create-only upload is refused');
+    err.code.should.equal('PROFILE_UPDATE_PERMISSION_REQUIRED');
+    var stored = await col('profile').find({ identifier: id }).toArray();
+    stored.length.should.equal(1);
+    String(stored[0]._id).should.equal(String(other));
+    stored[0].defaultProfile.should.equal('previous');
+    stored[0].store.p.dia.should.equal(3);
+  });
+
+  it('food and activity replace-document races honor acknowledge, refuse and merge mode', async function () {
+    for (var name of ['food', 'activity']) {
+      for (var entry of [['acknowledge', 'unchanged'], ['refuse', 'refused'], ['merge-except-treatments', 'merged']]) {
+        var id = 'batch-race-' + name + '-' + entry[0] + '-' + Date.now();
+        var body = name === 'food'
+          ? { identifier: id, type: 'food', name: 'new', enteredBy: DEVICE }
+          : { identifier: id, created_at: iso(22), notes: 'new', steps: 200, enteredBy: DEVICE };
+        var rival = name === 'food'
+          ? { identifier: id, type: 'food', name: 'stored', category: 'keep', enteredBy: DEVICE, srvCreated: 1, srvModified: 1 }
+          : { identifier: id, created_at: iso(22), notes: 'stored', steps: 100, heartrate: 60, enteredBy: DEVICE
+            , srvCreated: 1, srvModified: 1 };
+        var r = await raceBatchMode(name, entry[0], 'bulkWrite', '/api/' + name + '/', body, rival);
+        assertRaceMode(r.result, entry[0], entry[1], id);
+        var changed = entry[0] === 'merge-except-treatments';
+        r.stored[name === 'food' ? 'name' : 'notes'].should.equal(changed ? 'new' : 'stored');
+        if (changed && name === 'food') r.stored.category.should.equal('keep');
+        if (changed && name === 'activity') r.stored.heartrate.should.equal(60);
+      }
+    }
+  });
 
   // CHANGED EXPECTATION (compat card B, extended, maintainer 2026-10-31): an
   // identifier match replaces on every path, so the raced item is applied as
@@ -150,50 +301,53 @@ describe('ID-UNIQUE-INDEX: a batch item that loses an identifier race is applied
 
   it('treatments: in the rounds where slot 1 lost the race, slot 0 keeps its outcome and is written once', async function () {
     self.ctx.identifierIndex.mode.should.equal('try');
-    var ROUNDS = 60;
-    var raced = 0;
     var treatmentsName = col('treatments').collectionName;
-    for (var round = 0; round < ROUNDS; round++) {
-      var stamp = Date.now() + '-' + round;
-      var t0 = { identifier: 'batch-race-t0-' + stamp, eventType: 'Note', notes: 'zero', created_at: iso(10 + round), enteredBy: DEVICE };
-      var p0 = { identifier: 'batch-race-p0-' + stamp, eventType: 'Note', notes: 'pad', created_at: iso(10 + round), enteredBy: DEVICE };
-      var t1 = { identifier: 'batch-race-t1-' + stamp, eventType: 'Note', notes: 'one', created_at: iso(10 + round), enteredBy: DEVICE };
-      // Hold the first two bulk writes on treatments until both arrive.
-      var held = [];
-      Collection.prototype.bulkWrite = function bulkWrite () {
-        var that = this;
-        var args = arguments;
-        if (that.collectionName !== treatmentsName || held.length >= 2 && held.released) return realBulkWrite.apply(that, args);
-        return new Promise(function (resolve) {
-          held.push(resolve);
-          if (held.length === 2) { held.released = true; held.forEach(function (go) { go(); }); }
-        }).then(function () { return realBulkWrite.apply(that, args); });
-      };
-      results = [];
-      var before = raceLines();
-      var replies = await Promise.all([
-        request(self.app).post('/api/treatments/').set('api-secret', known).send([t0, Object.assign({}, t1, { notes: 'one again' })])
-        , request(self.app).post('/api/treatments/').set('api-secret', known).send([p0, t1])
-      ]);
-      Collection.prototype.bulkWrite = realBulkWrite;
-      replies.map(function (r) { return r.status; }).should.eql([200, 200], 'round ' + round);
-      var stored1 = await col('treatments').find({ identifier: t1.identifier }).toArray();
-      stored1.length.should.equal(1, 'round ' + round + ': one record holds slot 1\'s identifier');
-      if (raceLines() === before) continue;
-      raced += 1;
-      var batches = results.filter(function (r) { return r.name === 'treatments' && r.result.items.length === 2; });
-      batches.length.should.equal(2, 'round ' + round + ': one write result per batch');
-      var losers = batches.filter(function (r) { return r.result.items[1].outcome !== 'inserted'; });
-      losers.length.should.equal(1, 'round ' + round + ': one batch lost slot 1');
-      var loser = losers[0].result;
-      loser.items[0].outcome.should.equal('inserted', 'round ' + round + ': the loser\'s slot 0 keeps its outcome');
-      loser.items[1].outcome.should.equal('replaced', 'round ' + round + ': slot 1 applied as its re-send');
-      var slot0 = await col('treatments').find({ identifier: loser.items[0].identifier }).toArray();
-      slot0.length.should.equal(1);
-      slot0[0].srvModified.should.equal(slot0[0].srvCreated, 'round ' + round + ': the loser\'s slot 0 written once');
+    for (var entry of [['replace', 'replaced'], ['merge-except-treatments', 'replaced'], ['acknowledge', 'unchanged'], ['refuse', 'refused']]) {
+      self.env.write = Object.freeze(Object.assign({ }, defaultWrite, { resend: entry[0] }));
+      var ROUNDS = 30;
+      var raced = 0;
+      for (var round = 0; round < ROUNDS; round++) {
+        var stamp = Date.now() + '-' + round;
+        var t0 = { identifier: 'batch-race-t0-' + stamp, eventType: 'Note', notes: 'zero', created_at: iso(10 + round), enteredBy: DEVICE };
+        var p0 = { identifier: 'batch-race-p0-' + stamp, eventType: 'Note', notes: 'pad', created_at: iso(10 + round), enteredBy: DEVICE };
+        var t1 = { identifier: 'batch-race-t1-' + stamp, eventType: 'Note', notes: 'one', created_at: iso(10 + round), enteredBy: DEVICE };
+        // Hold the first two bulk writes on treatments until both arrive.
+        var held = [];
+        Collection.prototype.bulkWrite = function bulkWrite () {
+          var that = this;
+          var args = arguments;
+          if (that.collectionName !== treatmentsName || held.length >= 2 && held.released) return realBulkWrite.apply(that, args);
+          return new Promise(function (resolve) {
+            held.push(resolve);
+            if (held.length === 2) { held.released = true; held.forEach(function (go) { go(); }); }
+          }).then(function () { return realBulkWrite.apply(that, args); });
+        };
+        results = [];
+        var before = raceLines();
+        var replies = await Promise.all([
+          request(self.app).post('/api/treatments/').set('api-secret', known).send([t0, Object.assign({}, t1, { notes: 'one again' })])
+          , request(self.app).post('/api/treatments/').set('api-secret', known).send([p0, t1])
+        ]);
+        Collection.prototype.bulkWrite = realBulkWrite;
+        replies.map(function (r) { return r.status; }).should.eql([200, 200], 'round ' + round);
+        var stored1 = await col('treatments').find({ identifier: t1.identifier }).toArray();
+        stored1.length.should.equal(1, 'round ' + round + ': one record holds slot 1\'s identifier');
+        if (raceLines() === before) continue;
+        raced += 1;
+        var batches = results.filter(function (r) { return r.name === 'treatments' && r.result.items.length === 2; });
+        batches.length.should.equal(2, 'round ' + round + ': one write result per batch');
+        var losers = batches.filter(function (r) { return r.result.items[1].outcome !== 'inserted'; });
+        losers.length.should.equal(1, 'round ' + round + ': one batch lost slot 1');
+        var loser = losers[0].result;
+        loser.items[0].outcome.should.equal('inserted', 'round ' + round + ': the loser\'s slot 0 keeps its outcome');
+        loser.items[1].outcome.should.equal(entry[1], 'round ' + round + ': slot 1 follows resend mode ' + entry[0]);
+        var slot0 = await col('treatments').find({ identifier: loser.items[0].identifier }).toArray();
+        slot0.length.should.equal(1);
+        slot0[0].srvModified.should.equal(slot0[0].srvCreated, 'round ' + round + ': the loser\'s slot 0 written once');
+      }
+      console.log('    (treatments ' + entry[0] + ' rounds that reached race handling: ' + raced + ' of ' + ROUNDS + ')');
+      raced.should.be.above(0, entry[0] + ': the race was reached in at least one round');
     }
-    console.log('    (treatments rounds that reached the race handling: ' + raced + ' of ' + ROUNDS + ')');
-    raced.should.be.above(0, 'the race was reached in at least one round');
   });
 
   // ID-FIRST-MATCH slices 6 and 6a: food and profile match a stored
@@ -280,7 +434,7 @@ describe('ID-UNIQUE-INDEX: a batch item that loses an identifier race is applied
     await col('activity').deleteMany({ enteredBy: DEVICE });
   });
 
-  it('profile (slice 6): slot 0 stored once, slot 1 merged into the other upload\'s profile, slot 2 inserted after it', async function () {
+  it('profile (slice 6): slot 0 stored once, slot 1 replaces the other upload\'s profile, slot 2 inserted after it', async function () {
     self.ctx.identifierIndex.mode.should.equal('try');
     var RACE = 'batch-race-profile-1-' + Date.now();
     var startDate = new Date(Date.UTC(2021, 8, 9, 0, 0)).toISOString();
@@ -305,7 +459,7 @@ describe('ID-UNIQUE-INDEX: a batch item that loses an identifier race is applied
     should.exist(other, 'the other upload was stored at the first insertMany');
     var written = results.filter(function (r) { return r.name === 'profile'; });
     written.length.should.equal(1);
-    written[0].result.items.map(function (i) { return i.outcome; }).should.eql(['inserted', 'merged', 'inserted']);
+    written[0].result.items.map(function (i) { return i.outcome; }).should.eql(['inserted', 'replaced', 'inserted']);
     raceLines().should.equal(1, 'one race handled');
     var s0 = await col('profile').find({ identifier: RACE + '-0' }).toArray();
     s0.length.should.equal(1);
@@ -315,7 +469,7 @@ describe('ID-UNIQUE-INDEX: a batch item that loses an identifier race is applied
     s1.length.should.equal(1, 'one profile holds the identifier');
     String(s1[0]._id).should.equal(String(other));
     s1[0].defaultProfile.should.equal('one', 'slot 1 merged');
-    s1[0].mills.should.equal(1, 'a merge keeps what slot 1 leaves out');
+    s1[0].should.not.have.property('mills', 'a replace drops what slot 1 leaves out');
     await col('profile').deleteMany({ enteredBy: DEVICE });
   });
 });
