@@ -52,6 +52,8 @@ function copy (value) {
   return value;
 }
 
+const { isOnDeletedRead } = require('./lib/on-deleted-read');
+
 // The storage interface (lib/api3/storage/mongoCollection) as the socket's
 // rules use it, recording every call. Each read answers the next of `reads`
 // (a fresh copy); `failAt` makes the call with that index throw `failure`.
@@ -63,7 +65,13 @@ function recorder (reads, failAt, failure, matchedCount) {
     if (calls.length - 1 === failAt) throw failure;
   };
   const storage = {
-    findFiltered: async function (ast, opts) { step('findFiltered', [ast, opts]); return copy(queue.shift() || [ ]); },
+    findFiltered: async function (ast, opts) {
+      // ID-FIRST-MATCH slice 3: the on-deleted read finds no deleted record
+      // here and is left out of the calls (tests/lib/on-deleted-read.js).
+      if (isOnDeletedRead(ast)) return [ ];
+      step('findFiltered', [ast, opts]);
+      return copy(queue.shift() || [ ]);
+    },
     insertOne: async function (doc, opts) {
       step('insertOne', [doc, opts]);
       if (doc._id === undefined || doc._id === null) doc._id = NEW_ID;
@@ -102,7 +110,25 @@ async function compareAdd (collection, sent, reads, failAt, failure) {
   const step = writeIntent.forCollection(after.storage, collection, 'socket', { env: { } });
   const now = await settle(step.write({ op: 'create', docs: [doc] }));
 
-  assert.deepEqual(after.calls, before.calls, 'the same storage calls');
+  // CHANGED EXPECTATION (ID-FIRST-MATCH slice 4, ID-Q8, ID-Q7): a profile that
+  // matches is merged into the stored one: updateMany(the same _id filter,
+  // { set: the replacement's fields, _id aside }, { one }) where dbAdd made
+  // replaceFiltered. Every other call is the same; the outcome is `merged`,
+  // answered with the replacement document as before (`record`), and `stored`
+  // is the record as merged.
+  const replaced = collection === 'profile' && before.calls.length > 0
+    && before.calls[before.calls.length - 1][0] === 'replaceFiltered';
+  if (replaced) {
+    const last = before.calls.length - 1;
+    const replacement = Object.assign({ }, before.calls[last][2]);
+    delete replacement._id;
+    assert.deepEqual(after.calls.slice(0, last), before.calls.slice(0, last), 'the same storage calls');
+    assert.deepEqual(after.calls[last], ['updateMany', before.calls[last][1], { set: replacement, unset: undefined }
+      , { one: true, v1: true }], 'the merge');
+    assert.equal(after.calls.length, before.calls.length);
+  } else {
+    assert.deepEqual(after.calls, before.calls, 'the same storage calls');
+  }
   assert.deepEqual(norm(doc), norm(legacyDoc), 'the document left as it was');
   if (legacy.error) {
     assert(now.error, 'the step fails where the handler failed');
@@ -119,6 +145,14 @@ async function compareAdd (collection, sent, reads, failAt, failure) {
   }
   assert(!now.error, String(now.error));
   const written = now.value.items[0];
+  if (replaced) {
+    assert.equal(written.outcome, 'merged');
+    assert.equal(legacy.value.kind, 'replaced');
+    assert.deepEqual(norm(written.record), norm(legacy.value.record));
+    const storedBefore = reads[0][0];
+    assert.deepEqual(norm(written.stored), norm(Object.assign({ }, storedBefore, legacy.value.record)));
+    return { legacy, now, calls: after.calls };
+  }
   assert.equal(KIND_OF[written.outcome], legacy.value.kind);
   if (written.outcome === 'inserted') {
     assert.deepEqual(norm(written._id), norm(legacy.value.record._id));
