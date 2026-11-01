@@ -49,6 +49,7 @@ describe('ID-UNIQUE-INDEX: a batch item that loses an identifier race is applied
     await col('treatments').deleteMany({ enteredBy: DEVICE });
     await col('food').deleteMany({ enteredBy: DEVICE });
     await col('profile').deleteMany({ enteredBy: DEVICE });
+    await col('activity').deleteMany({ enteredBy: DEVICE });
   }
 
   before(function (done) {
@@ -99,7 +100,11 @@ describe('ID-UNIQUE-INDEX: a batch item that loses an identifier race is applied
     return warned.filter(function (w) { return /applying this one as its re-send/.test(w); }).length;
   }
 
-  it('device status: slot 0 stored once and announced once; slot 1 merged into the other upload\'s status', async function () {
+  // CHANGED EXPECTATION (compat card B, extended, maintainer 2026-10-31): an
+  // identifier match replaces on every path, so the raced item is applied as
+  // the table's onMatch, `replaced`, and what it leaves out is gone. Was:
+  // merged, keeping the other upload's fields.
+  it('device status: slot 0 stored once and announced once; slot 1 replaces the other upload\'s status', async function () {
     self.ctx.identifierIndex.mode.should.equal('try');
     var RACE = 'batch-race-status-1';
     var other = null;
@@ -121,7 +126,7 @@ describe('ID-UNIQUE-INDEX: a batch item that loses an identifier race is applied
 
     var written = results.filter(function (r) { return r.name === 'devicestatus'; });
     written.length.should.equal(1);
-    written[0].result.items.map(function (i) { return i.outcome; }).should.eql(['inserted', 'merged']);
+    written[0].result.items.map(function (i) { return i.outcome; }).should.eql(['inserted', 'replaced']);
     raceLines().should.equal(1, 'one race handled');
 
     var s0 = await col('devicestatus').find({ identifier: 'batch-race-status-0' }).toArray();
@@ -129,8 +134,8 @@ describe('ID-UNIQUE-INDEX: a batch item that loses an identifier race is applied
     s0[0].srvModified.should.equal(s0[0].srvCreated, 'slot 0 written once');
     var s1 = await col('devicestatus').find({ identifier: RACE }).toArray();
     s1.length.should.equal(1, 'one status holds the identifier');
-    s1[0].uploaderBattery.should.equal(40, 'slot 1 merged');
-    s1[0].pump.should.eql({ reservoir: 10 }, 'a merge keeps what slot 1 leaves out');
+    s1[0].uploaderBattery.should.equal(40, 'slot 1 written');
+    s1[0].should.not.have.property('pump', 'a replace drops what slot 1 leaves out');
 
     res.body.length.should.equal(2);
     String(res.body[0]._id).should.equal(String(s0[0]._id));
@@ -192,7 +197,7 @@ describe('ID-UNIQUE-INDEX: a batch item that loses an identifier race is applied
   // identifier first, so a raced item of their batches is applied as its
   // re-send too. Deterministic, as device status above: the other upload's
   // record is stored at the batch's first write call, after identifier first.
-  it('food (slice 6): slot 0 stored once, slot 1 merged into the other upload\'s food, slot 2 stored after it', async function () {
+  it('food (slice 6): slot 0 stored once, slot 1 replaces the other upload\'s food, slot 2 stored after it', async function () {
     self.ctx.identifierIndex.mode.should.equal('try');
     var RACE = 'batch-race-food-1-' + Date.now();
     var other = null;
@@ -215,7 +220,8 @@ describe('ID-UNIQUE-INDEX: a batch item that loses an identifier race is applied
     should.exist(other, 'the other upload was stored at the first bulk write');
     var written = results.filter(function (r) { return r.name === 'food'; });
     written.length.should.equal(1);
-    written[0].result.items.map(function (i) { return i.outcome; }).should.eql(['inserted', 'merged', 'inserted']);
+    // CHANGED EXPECTATION (compat card B, extended): replaced, as the table says.
+    written[0].result.items.map(function (i) { return i.outcome; }).should.eql(['inserted', 'replaced', 'inserted']);
     raceLines().should.equal(1, 'one race handled');
     var s0 = await col('food').find({ identifier: RACE + '-0' }).toArray();
     s0.length.should.equal(1);
@@ -224,9 +230,49 @@ describe('ID-UNIQUE-INDEX: a batch item that loses an identifier race is applied
     var s1 = await col('food').find({ identifier: RACE }).toArray();
     s1.length.should.equal(1, 'one food holds the identifier');
     String(s1[0]._id).should.equal(String(other));
-    s1[0].name.should.equal('one', 'slot 1 merged');
-    s1[0].category.should.equal('race', 'a merge keeps what slot 1 leaves out');
+    s1[0].name.should.equal('one', 'slot 1 written');
+    s1[0].should.not.have.property('category', 'a replace drops what slot 1 leaves out');
+    s1[0].srvCreated.should.equal(1, 'the replace keeps the stored record\'s srvCreated');
     await col('food').deleteMany({ enteredBy: DEVICE });
+  });
+
+  // Activity (slice 6a) has no server dates of its own: a replace carries the
+  // ones the stored record has (compat card B, extended), on the race path too.
+  it('activity (slice 6a): slot 1 replaces the other upload\'s activity and keeps its server dates', async function () {
+    self.ctx.identifierIndex.mode.should.equal('try');
+    var RACE = 'batch-race-activity-1-' + Date.now();
+    var other = null;
+    var activityName = col('activity').collectionName;
+    Collection.prototype.bulkWrite = async function bulkWrite () {
+      if (this.collectionName === activityName && other === null) {
+        other = (await col('activity').insertOne({ identifier: RACE, created_at: iso(41), steps: 900, heartrate: 70, enteredBy: DEVICE
+          , srvCreated: 1, srvModified: 1 })).insertedId;
+      }
+      return realBulkWrite.apply(this, arguments);
+    };
+    var batch = [
+      { identifier: RACE + '-0', created_at: iso(40), steps: 100, enteredBy: DEVICE }
+      , { identifier: RACE, created_at: iso(41), steps: 1000, enteredBy: DEVICE }
+      , { identifier: RACE + '-2', created_at: iso(42), steps: 200, enteredBy: DEVICE }
+    ];
+    var res = await request(self.app).post('/api/activity/').set('api-secret', known).send(batch);
+    Collection.prototype.bulkWrite = realBulkWrite;
+    res.status.should.equal(200);
+    should.exist(other, 'the other upload was stored at the first bulk write');
+    var written = results.filter(function (r) { return r.name === 'activity'; });
+    written.length.should.equal(1);
+    written[0].result.items.map(function (i) { return i.outcome; }).should.eql(['inserted', 'replaced', 'inserted']);
+    raceLines().should.equal(1, 'one race handled');
+    (await col('activity').countDocuments({ identifier: RACE + '-0' })).should.equal(1);
+    (await col('activity').countDocuments({ identifier: RACE + '-2' })).should.equal(1, 'slot 2 stored after the raced slot');
+    var s1 = await col('activity').find({ identifier: RACE }).toArray();
+    s1.length.should.equal(1, 'one activity holds the identifier');
+    String(s1[0]._id).should.equal(String(other));
+    s1[0].steps.should.equal(1000, 'slot 1 written');
+    s1[0].should.not.have.property('heartrate', 'a replace drops what slot 1 leaves out');
+    s1[0].srvCreated.should.equal(1, 'the replace keeps the stored record\'s srvCreated');
+    s1[0].srvModified.should.equal(1, 'and its srvModified');
+    await col('activity').deleteMany({ enteredBy: DEVICE });
   });
 
   it('profile (slice 6): slot 0 stored once, slot 1 merged into the other upload\'s profile, slot 2 inserted after it', async function () {
