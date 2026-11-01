@@ -229,6 +229,7 @@
         "tests/cache.remove-by-query.test.js",
         "tests/write-intent.release2.test.js",
         "tests/write-intent.d-event.test.js",
+        "tests/write-intent.replace-updated.test.js",
         "tests/devicestatus.remove-reload.test.js",
         "tests/carb-dose-upload.test.js",
         "tests/client.renderer.test.js",
