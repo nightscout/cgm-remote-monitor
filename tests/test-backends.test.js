@@ -84,6 +84,7 @@ describe('NS_TEST_BACKEND, the test storage backend selection', function () {
         'tests/mongo-aws-compat.test.js': 'driver authentication against a stubbed connection'
         , 'tests/nightscout-cli.test.js': 'a planted URI on an .invalid host, to check redaction'
         , 'tests/read-contract.test.js': 'collection-name settings only; the child connects to nothing'
+        , 'tests/write-intent.d-event.test.js': 'its only child is git grep over lib/; the database is used in-process'
       };
       const listed = new Set(census.interface.concat(Object.keys(census.mongodb), Object.keys(noDatabase)));
       const missing = fs.readdirSync(path.join(ROOT, 'tests')).filter(name => name.endsWith('.test.js'))
