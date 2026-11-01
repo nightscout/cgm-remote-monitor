@@ -269,6 +269,7 @@
         "tests/uuid-handling.test.js",
         "tests/verifyauth.test.js",
         "tests/views-equality.test.js",
+        "tests/views-profile.test.js",
         "tests/websocket*.test.js",
         "tests/start-paths.test.js",
         "tests/headless-test-server.test.js"

@@ -56,7 +56,12 @@ describe('views profile: one tenant, nonresident (research prototype)', function
       Object.assign(process.env, self.savedEnv);
     };
     if (!self.ctx) return restore();
-    return require('../lib/server/serve/views').stop(self.ctx).then(restore);
+    // Leave the database as found: the cases clear before each run, not after
+    // the last, and the suite's production-safety check counts leftovers.
+    const ctx = self.ctx;
+    return Promise.all(['entries', 'treatments', 'devicestatus', 'profile', 'food', 'activity']
+      .map(k => ctx.store.collection(self.env[k + '_collection']).deleteMany({})))
+      .then(() => require('../lib/server/serve/views').stop(ctx)).then(restore);
   });
 
   describe('boot', function () {
