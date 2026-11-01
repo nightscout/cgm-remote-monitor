@@ -12,6 +12,13 @@ function fixture(rows = [], deNormalizeDates = true, implementation = path.resol
     state.writes.push({ops, options});
     if (state.failure) throw state.failure;
     return {upsertedIds: {}};
+  },
+  // ID-FIRST-MATCH slice 3: the write step's on-deleted read (no record is
+  // stored here, so none is deleted).
+  find: () => {
+    const cursor = {sort: () => cursor, skip: () => cursor, limit: () => cursor, project: () => cursor,
+      batchSize: () => cursor, toArray: async () => []};
+    return cursor;
   }};
   const ctx = {store: {collection: () => collection}, bus: new EventEmitter(),
     purifier: {purifyObject: () => state.purifications++},
