@@ -54,6 +54,19 @@ describe('API3: DELETE across stored identifier forms', function () {
   // the string copy, so it holds the edit. Which copy an unsorted read meets
   // first depends on the order they were stored in, so tests that pick one
   // copy run in both orders.
+  // The cache announcements (data-update) a request makes for treatments.
+  async function announced (send) {
+    const heard = [];
+    const listen = function (e) { if (e.type === 'treatments') heard.push(e); };
+    self.instance.ctx.bus.on('data-update', listen);
+    try {
+      await send();
+    } finally {
+      self.instance.ctx.bus.removeListener('data-update', listen);
+    }
+    return heard;
+  }
+
   async function seedTwin (hex, n, objectIdFirst) {
     const stringCopy = sample(n, { _id: hex, notes: 'string copy' });
     const objectIdCopy = sample(n, { _id: new ObjectID(hex), notes: 'edited copy' });
@@ -111,7 +124,11 @@ describe('API3: DELETE across stored identifier forms', function () {
     await seedTwin(HEX.soft, 1);
     await col().insertOne(sample(3, { _id: new ObjectID(HEX.other) }));
 
-    await self.instance.delete('/api/v3/treatments/' + HEX.soft, self.jwt.all).expect(200);
+    const heard = await announced(() => self.instance.delete('/api/v3/treatments/' + HEX.soft, self.jwt.all).expect(200));
+    // Write-contract Q-A (release 2): both copies named, not a reload of
+    // the whole treatments cache (a remove with no changes).
+    heard.map((e) => e.op).should.eql(['remove']);
+    heard[0].changes.should.eql([HEX.soft, HEX.soft], 'both copies named');
 
     const stored = await storedFor(HEX.soft);
     stored.length.should.equal(2);
@@ -128,7 +145,9 @@ describe('API3: DELETE across stored identifier forms', function () {
   it('DELETE ?permanent=true removes both copies', async () => {
     await seedTwin(HEX.permanent, 2);
 
-    await self.instance.delete('/api/v3/treatments/' + HEX.permanent + '?permanent=true', self.jwt.all).expect(200);
+    const heard = await announced(() => self.instance.delete('/api/v3/treatments/' + HEX.permanent + '?permanent=true', self.jwt.all).expect(200));
+    heard.map((e) => e.op).should.eql(['remove']);
+    heard[0].changes.should.eql([HEX.permanent, HEX.permanent], 'both copies named');
 
     (await storedFor(HEX.permanent)).length.should.equal(0, 'copies left after the DELETE');
     (await col().countDocuments({ _id: new ObjectID(HEX.other) })).should.equal(1, 'the other record');
@@ -208,10 +227,16 @@ describe('API3: DELETE across stored identifier forms', function () {
           const id = (form === 'custom' ? 'legacy-' : '') + objectId.toHexString();
           const unrelatedId = form === 'custom' ? id : objectId;
           const identifier = shape === 'array' ? [null, '', 'another-record-' + id] : 'another-record-' + id;
-          await col().insertOne(sample(6, { _id: new ObjectID(), identifier: id, notes: 'addressed' }));
+          const addressedId = new ObjectID();
+          await col().insertOne(sample(6, { _id: addressedId, identifier: id, notes: 'addressed' }));
           await col().insertOne(sample(7, { _id: unrelatedId, identifier, notes: 'unrelated' }));
 
-          await self.instance.delete('/api/v3/treatments/' + id + (permanent ? '?permanent=true' : ''), self.jwt.all).expect(200);
+          const heard = await announced(() => self.instance.delete('/api/v3/treatments/' + id + (permanent ? '?permanent=true' : ''), self.jwt.all).expect(200));
+          // Write-contract Q-A (release 2): the cache is told exactly the
+          // records the write reached. Naming the unrelated record would drop
+          // it from the cache while it is still stored.
+          heard.map((e) => e.op).should.eql(['remove']);
+          heard[0].changes.should.eql([addressedId.toHexString()], 'only the deleted record named');
 
           const unrelated = await col().findOne({ _id: unrelatedId });
           unrelated.should.be.ok();

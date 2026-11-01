@@ -157,11 +157,74 @@ async function observe (make, envExtra, cfg, act) {
   return shape({ calls, timeline, out });
 }
 
+// WC-STEP-PATCH release 2 (write-contract Q-A): every write by filter is
+// resolved to _ids first (a find of the filter) and scoped to them
+// ({$and: [filter, {_id: {$in: ids}}]}), a bulk write's removals too, and a delete names the _ids it
+// removed to the cache. Those calls and names are new by design; with each
+// resolve read dropped and each scope unwrapped, every other driver call,
+// event and reply must still equal db3b9e4e's. `resolved` counts the writes
+// unwrapped. The named removals are checked over a real MongoDB in
+// tests/write-intent.release2.test.js.
+const SCOPED_WRITES = ['deleteMany', 'deleteOne', 'updateMany', 'updateOne'];
+function release2 (observed) {
+  const calls = [ ];
+  let resolved = 0;
+  for (let i = 0; i < observed.calls.length; i += 1) {
+    const call = observed.calls[i];
+    const next = observed.calls[i + 1];
+    const scope = next && SCOPED_WRITES.indexOf(next[0]) !== -1 && next[1] && next[1].$and;
+    if (call[0] === 'find' && Array.isArray(scope) && scope.length === 2 && scope[1]._id && scope[1]._id.$in
+      && JSON.stringify(scope[0]) === JSON.stringify(call[1])) {
+      calls.push([next[0], scope[0]].concat(next.slice(2)));
+      resolved += 1;
+      i += 1;
+      continue;
+    }
+    // a bulk write's removals by filter: each scoped, each resolved by a find
+    // of its filter just before the bulk write
+    if (call[0] === 'bulkWrite' && Array.isArray(call[1])) {
+      const ops = call[1].map(function (op) {
+        const f = op && op.deleteMany && op.deleteMany.filter;
+        if (!(f && Array.isArray(f.$and) && f.$and.length === 2 && f.$and[1]._id && f.$and[1]._id.$in)) return op;
+        const plain = JSON.stringify(f.$and[0]);
+        for (let j = calls.length - 1; j >= 0; j -= 1) {
+          if (calls[j][0] === 'find' && JSON.stringify(calls[j][1]) === plain) { calls.splice(j, 1); break; }
+        }
+        resolved += 1;
+        return Object.assign({ }, op, { deleteMany: Object.assign({ }, op.deleteMany, { filter: f.$and[0] }) });
+      });
+      calls.push([call[0], ops].concat(call.slice(2)));
+      continue;
+    }
+    calls.push(call);
+  }
+  return Object.assign({ }, observed, { calls: calls, timeline: unnamed(observed.timeline), resolved: resolved });
+}
+function unnamed (timeline) {
+  return timeline.map(function (entry) {
+    if (entry[0] !== 'data-update' || !entry[1] || entry[1].op !== 'remove') return entry;
+    return [entry[0], Object.assign({ }, entry[1], { changes: 'NAMED' })];
+  });
+}
+
+// The reference and the module now over the same inputs, the module's
+// release-2 calls unwrapped as same() does, for the cases with their own
+// comparison.
+async function beforeAndRelease2 (makeBefore, makeAfter, envExtra, cfg, act) {
+  const was = await observe(makeBefore, envExtra, cfg, act);
+  const now = release2(await observe(makeAfter, envExtra, cfg, act));
+  delete now.resolved;
+  return [Object.assign({ }, was, { timeline: unnamed(was.timeline) }), now];
+}
+
 // Both modules over the same inputs: `docs()` makes fresh documents each run.
 async function same (name, makeBefore, makeAfter, envExtra, cfg, act) {
   const before = await observe(makeBefore, envExtra, cfg, act);
-  const after = await observe(makeAfter, envExtra, cfg, act);
-  assert.deepEqual(after, before, name);
+  const after = release2(await observe(makeAfter, envExtra, cfg, act));
+  const resolved = after.resolved;
+  delete after.resolved;
+  assert.deepEqual(after, Object.assign({ }, before, { timeline: unnamed(before.timeline) }), name);
+  after.resolved = resolved;
   return after;
 }
 
@@ -258,8 +321,7 @@ describe('write(intent): treatments from API v1 and in-process callers (equal to
   // must find nothing to put back.
   for (const [name, envExtra, cfg, act] of cases) {
     it(name, async function ( ) {
-      const was = await observe(before, envExtra, cfg, act);
-      const now = await observe(after, envExtra, cfg, act);
+      const [was, now] = await beforeAndRelease2(before, after, envExtra, cfg, act);
       if (P4_READ.has(name)) {
         // One more such read than db3b9e4e made (a batch's reply reads the same
         // way), and it comes first: the rest is db3b9e4e's, in order.
@@ -566,8 +628,7 @@ describe('write(intent): devicestatus from API v1 and in-process callers (equal 
         await same(name, before, after, envExtra, cfg, act);
         return;
       }
-      const was = await observe(before, envExtra, cfg, act);
-      const now = await observe(after, envExtra, cfg, act);
+      const [was, now] = await beforeAndRelease2(before, after, envExtra, cfg, act);
       const read = now.calls.findIndex(c => c[0] === 'find' && c[1] && c[1]._id && c[1]._id.$in);
       assert.deepEqual(now.calls[read], ['find', { _id: { $in: [HEX2] } }, null], name);
       const updates = now.calls.filter(c => c[0] === 'updateOne');
@@ -707,8 +768,7 @@ describe('write(intent): profile from API v1 and in-process callers (equal to db
       // update $sets store { Default: { dia: 5 } }, where db3b9e4e merged it into
       // the stored store (Default's basal kept, Alt removed). The other fields
       // merge as before; every call, event and reply is otherwise db3b9e4e's.
-      const was = await observe(makeBefore, envExtra, cfg, act);
-      const now = await observe(makeAfter, envExtra, cfg, act);
+      const [was, now] = await beforeAndRelease2(makeBefore, makeAfter, envExtra, cfg, act);
       const update = now.calls.find(c => c[0] === 'updateOne');
       const wasUpdate = was.calls.find(c => c[0] === 'updateOne');
       assert.deepEqual(update[2].$set.store, { Default: { dia: 5 } });
