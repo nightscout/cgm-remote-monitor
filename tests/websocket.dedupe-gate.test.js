@@ -135,6 +135,15 @@ describe('websocket: dedupe gate for the write step (WC-STEP-PATCH slice 6)', fu
     (await stored(name)).map(plain).should.eql([plain(before)]);
   }
 
+  // on-deleted (ID-FIRST-MATCH slice 3, ID-Q4): a re-send that reaches a
+  // soft-deleted record by an identity is acknowledged: the reply is the
+  // stored record, nothing is announced, nothing is written, and the record
+  // stays deleted. The same observations as an exact match.
+  async function shouldBeAcknowledgedDeleted (name, result, before) {
+    before.isValid.should.equal(false);
+    await shouldBeExactMatch(name, result, before);
+  }
+
   // A similar match moves the stored record to the sent created_at, stamps
   // srvModified, and announces only data-received.
   async function shouldBeSimilarMatch (result, before, sentAt) {
@@ -428,12 +437,18 @@ describe('websocket: dedupe gate for the write step (WC-STEP-PATCH slice 6)', fu
 
   describe('treatments: 6. a soft-deleted record (isValid: false) is never a match', function () {
 
+    // CHANGED EXPECTATION (ID-FIRST-MATCH slice 3, ID-Q4): NSCLIENT_ID is an
+    // identity, so the re-send is acknowledged and the record stays deleted.
+    // It stored a second record beside the deleted one.
     it('on NSCLIENT_ID', async function () {
       var before = await seed('treatments', treatment(0, { carbs: 20, NSCLIENT_ID: 'nsc-1', isValid: false }));
       var sent = treatment(0, { carbs: 20, NSCLIENT_ID: 'nsc-1' });
-      await shouldBeInserted('treatments', await dbAdd('treatments', sent), [before], sent);
+      await shouldBeAcknowledgedDeleted('treatments', await dbAdd('treatments', sent), before);
     });
 
+    // ID-FIRST-MATCH slice 3 (ID-Q4): a time key alone (the fallback key, the
+    // similar match without a client identity) never matches a deleted
+    // record: a second record is stored beside it, as before.
     it('on the fallback key', async function () {
       var before = await seed('treatments', treatment(0, { carbs: 20, isValid: false }));
       var sent = treatment(0, { carbs: 20 });
@@ -444,6 +459,29 @@ describe('websocket: dedupe gate for the write step (WC-STEP-PATCH slice 6)', fu
       var before = await seed('treatments', treatment(0, { carbs: 20, isValid: false }));
       var sent = treatment(1000, { carbs: 20 });
       await shouldBeInserted('treatments', await dbAdd('treatments', sent), [before], sent);
+    });
+
+    // ID-FIRST-MATCH slice 3 (ID-Q4): a client identity in the fallback key,
+    // or an identifier deciding the similar match (#8877), is an identity.
+    it('acknowledges a re-send whose client identity (syncIdentifier) reaches it by the fallback key', async function () {
+      var before = await seed('treatments', treatment(0, { carbs: 20, syncIdentifier: 'loop-1', isValid: false }));
+      var sent = treatment(0, { carbs: 20, syncIdentifier: 'loop-1' });
+      await shouldBeAcknowledgedDeleted('treatments', await dbAdd('treatments', sent), before);
+    });
+
+    it('acknowledges a re-send whose identifier reaches it in the similar match', async function () {
+      var before = await seed('treatments', treatment(0, { carbs: 20, identifier: 'f1d2c3b4-0000-4000-8000-0000000000d6', isValid: false }));
+      var sent = treatment(1000, { carbs: 20, identifier: 'f1d2c3b4-0000-4000-8000-0000000000d6' });
+      await shouldBeAcknowledgedDeleted('treatments', await dbAdd('treatments', sent), before);
+    });
+
+    it('a live record with the same NSCLIENT_ID is matched first', async function () {
+      var deleted = await seed('treatments', treatment(0, { carbs: 20, NSCLIENT_ID: 'nsc-2', isValid: false }));
+      var live = await seed('treatments', treatment(60000, { carbs: 20, NSCLIENT_ID: 'nsc-2' }));
+      var result = await dbAdd('treatments', treatment(0, { carbs: 20, NSCLIENT_ID: 'nsc-2' }));
+      result.reply.should.eql([plain(live)]);
+      result.events.should.eql([]);
+      (await stored('treatments')).map(plain).should.eql([plain(deleted), plain(live)]);
     });
   });
 
@@ -577,9 +615,19 @@ describe('websocket: dedupe gate for the write step (WC-STEP-PATCH slice 6)', fu
       await shouldBeInserted('devicestatus', await dbAdd('devicestatus', sent), [before], sent);
     });
 
+    // CHANGED EXPECTATION (ID-FIRST-MATCH slice 3, ID-Q4): NSCLIENT_ID is an
+    // identity: acknowledged, the status stays deleted (it stored a second one).
     it('never matches a soft-deleted record', async function () {
       var before = await seed('devicestatus', status(0, { NSCLIENT_ID: 'nsc-ds-1', isValid: false }));
       var sent = status(0, { NSCLIENT_ID: 'nsc-ds-1' });
+      await shouldBeAcknowledgedDeleted('devicestatus', await dbAdd('devicestatus', sent), before);
+    });
+
+    // ID-FIRST-MATCH slice 3 (ID-Q4): created_at is a time key; a status sent
+    // at the time of a deleted one is stored beside it, as before.
+    it('stores a status at the created_at of a soft-deleted one', async function () {
+      var before = await seed('devicestatus', status(0, { isValid: false }));
+      var sent = status(0);
       await shouldBeInserted('devicestatus', await dbAdd('devicestatus', sent), [before], sent);
     });
   });
@@ -608,10 +656,22 @@ describe('websocket: dedupe gate for the write step (WC-STEP-PATCH slice 6)', fu
       await shouldBeReplaced(await dbAdd('profile', sent), before, sent);
     });
 
+    // CHANGED EXPECTATION (ID-FIRST-MATCH slice 4, ID-Q8): a matched re-send is
+    // merged into the stored profile (RFC 7386; `store` whole, ID-Q7), so the
+    // stored NSCLIENT_ID the re-send leaves out is kept. The reply is the
+    // document as written, as before, and the event announces the record as
+    // merged. It was replaced, which dropped NSCLIENT_ID.
     it('replaces the stored profile with the same startDate when no NSCLIENT_ID is sent', async function () {
       var before = await seed('profile', profile({ units: 'mmol', NSCLIENT_ID: 'nsc-p-1' }));
       var sent = profile({});
-      await shouldBeReplaced(await dbAdd('profile', sent), before, sent);
+      var result = await dbAdd('profile', sent);
+      var after = await stored('profile');
+      after.length.should.equal(1);
+      var written = Object.assign(plain(sent), { _id: plain(before)._id, srvCreated: before.srvCreated, srvModified: after[0].srvModified });
+      plain(after[0]).should.eql(Object.assign({ }, written, { NSCLIENT_ID: 'nsc-p-1' }));
+      after[0].srvModified.should.be.above(before.srvModified);
+      result.reply.should.eql([written]);
+      result.events.should.eql(insertEvents('profile', [after[0]]));
     });
 
     it('stores a profile with another startDate', async function () {
@@ -653,6 +713,16 @@ describe('websocket: dedupe gate for the write step (WC-STEP-PATCH slice 6)', fu
 
     // The events of an update: the record read back by the _id (one, even
     // when twins were updated), then data-received.
+    // The update event for both twins, in the order it named them.
+    function twinEvents (events, docs) {
+      var named = events[0] && events[0].payload && events[0].payload.changes || [ ];
+      var order = named.map(function (doc) { return doc.created_at; });
+      var sorted = docs.slice().sort(function (x, y) { return order.indexOf(x.created_at) - order.indexOf(y.created_at); });
+      named.length.should.equal(2);
+      return [{ event: 'data-update', payload: { type: 'treatments', op: 'update', changes: runtime(sorted) } }
+        , { event: 'data-received' }];
+    }
+
     function updateEvents (doc) {
       return [{ event: 'data-update', payload: { type: 'treatments', op: 'update', changes: runtime([doc]) } }
         , { event: 'data-received' }];
@@ -677,8 +747,10 @@ describe('websocket: dedupe gate for the write step (WC-STEP-PATCH slice 6)', fu
       after.length.should.equal(2);
       after.forEach(function (doc) { doc.notes.should.equal('after'); });
       result.reply.should.eql({ result: 'success' });
-      var announced = await col().findOne({ _id: { $in: [oid._id, str._id] } });
-      result.events.should.eql(updateEvents(announced));
+      // CHANGED EXPECTATION (WC-STEP-PATCH release 2, Q-A; Q-V): the cache is
+      // told every stored form the write reached, both twins; it was told the
+      // first only, so the other stayed stale in the cache.
+      result.events.should.eql(twinEvents(result.events, after));
     });
 
     it('dbUpdate by a 24-hex _id reaches a record stored with the string only', async function () {
@@ -730,8 +802,10 @@ describe('websocket: dedupe gate for the write step (WC-STEP-PATCH slice 6)', fu
       after.length.should.equal(2);
       after.forEach(function (doc) { should.not.exist(doc.foodType); });
       result.reply.should.eql({ result: 'success' });
-      var announced = await col().findOne({ _id: { $in: [oid._id, str._id] } });
-      result.events.should.eql(updateEvents(announced));
+      // CHANGED EXPECTATION (WC-STEP-PATCH release 2, Q-A; Q-V): the cache is
+      // told every stored form the write reached, both twins; it was told the
+      // first only, so the other stayed stale in the cache.
+      result.events.should.eql(twinEvents(result.events, after));
     });
 
     it('dbUpdateUnset by a custom string _id reaches that record only', async function () {

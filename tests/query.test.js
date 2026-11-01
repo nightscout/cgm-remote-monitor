@@ -113,6 +113,63 @@ describe('query', function ( ) {
     });
   });
 
+  // BF-224: find[created_at]=<date> with no operator means equality.
+  describe('a plain value under the date field', function () {
+    const iso = '2020-01-15T12:00:00.000Z';
+    const opts = function () { return { dateField: 'created_at', walker: {} }; };
+    const eq = query({ find: { created_at: { $eq: iso } } }, opts());
+
+    it('is unchanged in the $eq form', function () {
+      eq.should.eql({ created_at: { $eq: iso } });
+    });
+
+    [iso, '2020-01-15T12:00:00Z', '2020-01-15T12:00:00.000+00:00', '2020-01-15 12:00:00 00:00'].forEach(function (value) {
+      it('reads the string ' + value + ' as the $eq form does', function () {
+        query({ find: { created_at: value } }, opts()).should.eql(eq);
+      });
+    });
+
+    it('counts as a date filter, so no default window is added', function () {
+      const result = query({ find: { created_at: iso } }, opts());
+      result.created_at.should.not.have.property('$gte');
+    });
+
+    it('still rejects an invalid date', function () {
+      (() => query({ find: { created_at: '2026-99-05T00:00:00Z' } }, opts())).should.throw(/Cannot parse/);
+    });
+
+    it('applies to devicestatus, which names no walker', function () {
+      query({ find: { created_at: iso } }, { collection: 'devicestatus', dateField: 'created_at' })
+        .should.eql({ created_at: { $eq: iso } });
+    });
+
+    it('applies to profile startDate', function () {
+      query({ find: { startDate: iso } }, { collection: 'profile', walker: {}, dateField: 'startDate' })
+        .should.eql({ startDate: { $eq: iso } });
+    });
+
+    it('keeps a plain number as equality, with no default window', function () {
+      query({ find: { date: 1579089600000 } }, { walker: {} }).should.eql({ date: 1579089600000 });
+    });
+
+    it('keeps an entries date walked to a number as equality', function () {
+      query({ find: { date: '1579089600000' } }, { collection: 'entries', useEpoch: true })
+        .should.eql({ date: 1579089600000 });
+    });
+
+    it('reads epoch text with walker: {} as the $eq form does', function () {
+      query({ find: { date: '1579089600000' } }, { walker: {} })
+        .should.eql(query({ find: { date: { $eq: '1579089600000' } } }, { walker: {} }));
+    });
+
+    it('leaves $gte and $in as they were', function () {
+      query({ find: { created_at: { $gte: '2020-01-15T12:00:00Z' } } }, opts())
+        .should.eql({ created_at: { $gte: iso } });
+      query({ find: { created_at: { $in: ['2020-01-15T12:00:00Z', iso] } } }, opts())
+        .should.eql({ created_at: { $in: [iso, iso] } });
+    });
+  });
+
   describe('schema-driven type coercion', function () {
     const fs = require('fs');
     const path = require('path');
