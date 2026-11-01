@@ -356,6 +356,73 @@ describe('ID-RESEND-SWITCH: WRITE_RESEND and WRITE_DELETED_RESEND, per path', fu
   });
 
   // -------------------------------------------------------------------------
+  // refuse: the reply around the slot (Q-R1, decided 2026-10-31).
+  describe('WRITE_RESEND=refuse: the reply', function ( ) {
+
+    it('API v1 batch: the re-send is refused in its slot, the new record stored, 200 with a Warning count', async ( ) => {
+      const seeded = await seed('v1', 'food', false);
+      setWrite({ resend: 'refuse' });
+      const t = tag();
+      const res = await self.instance.post('/api/v1/food/').set('api-secret', HASH)
+        .send([seeded.body, { type: 'food', name: t, carbs: 5, identifier: uuid() }]).expect(200);
+      res.body.length.should.equal(2);
+      res.body[0].refused.status.should.equal(409);
+      res.body[0].refused.rules[0].should.eql({ rule: 'resend', field: 'identifier' });
+      assert.equal(res.body[0]._id, undefined);
+      assert(res.body[1]._id && !res.body[1].refused);
+      res.headers.warning.should.match(/^299 - "1 of 2 food records refused: already stored \(WRITE_RESEND=refuse\)/);
+      (await col('food').find({ name: t }).toArray()).length.should.equal(1);
+      sameRecord(await col('food').findOne({ _id: seeded.stored._id }), seeded.stored);
+    });
+
+    it('API v1 treatments: every item refused still answers 200, with the Warning', async ( ) => {
+      const seeded = await seed('v1', 'treatments', false);
+      setWrite({ resend: 'refuse' });
+      const res = await self.instance.post('/api/v1/treatments/').set('api-secret', HASH).send([seeded.body]).expect(200);
+      res.body[0].refused.status.should.equal(409);
+      res.headers.warning.should.match(/1 of 1 treatments refused: already stored/);
+      assert.doesNotMatch(res.headers.warning, /WRITE_VALIDATION/);
+    });
+
+    it('API v3 POST: 409 with a message, nothing written, no Location', async ( ) => {
+      const seeded = await seed('v3', 'food', false);
+      setWrite({ resend: 'refuse' });
+      const res = await self.instance.post('/api/v3/food', self.jwt.all).send(seeded.body).expect(409);
+      res.body.message.should.equal('a record with this identity is already stored');
+      assert.equal(res.headers.location, undefined);
+      sameRecord(await col('food').findOne({ identifier: seeded.id }), seeded.stored);
+    });
+
+    it('the socket: an exact match by NSCLIENT_ID is refused in its slot (it is answered unchanged otherwise)', async ( ) => {
+      const t = tag();
+      const ms = nextTime();
+      const stored = { eventType: 'Note', created_at: iso(ms), notes: t, NSCLIENT_ID: 'nsc-' + t, srvCreated: OLD, srvModified: OLD };
+      await col('treatments').insertOne(stored);
+      const resent = { eventType: 'Note', created_at: iso(ms), notes: t, NSCLIENT_ID: 'nsc-' + t };
+      setWrite({ resend: 'acknowledge' });
+      const acked = await emit('dbAdd', { collection: 'treatments', data: Object.assign({ }, resent) });
+      String(acked[0]._id).should.equal(String(stored._id));
+      setWrite({ resend: 'refuse' });
+      const refusedReply = await emit('dbAdd', { collection: 'treatments', data: Object.assign({ }, resent) });
+      refusedReply[0].refused.status.should.equal(409);
+      (await col('treatments').find({ notes: t }).toArray()).length.should.equal(1);
+      sameRecord(await col('treatments').findOne({ _id: stored._id }), stored);
+    });
+
+    it('the socket: the similar match (no identity, within 2 s) is never refused', async ( ) => {
+      const t = tag();
+      const ms = nextTime();
+      const stored = { eventType: 'Carb Correction', created_at: iso(ms), carbs: 11, notes: t, srvCreated: OLD, srvModified: OLD };
+      await col('treatments').insertOne(stored);
+      setWrite({ resend: 'refuse' });
+      const reply = await emit('dbAdd', { collection: 'treatments', data: { eventType: 'Carb Correction', created_at: iso(ms + 1000), carbs: 11, notes: t } });
+      assert.equal(reply[0].refused, undefined);
+      String(reply[0]._id).should.equal(String(stored._id));
+      (await col('treatments').find({ notes: t }).toArray()).length.should.equal(1);
+    });
+  });
+
+  // -------------------------------------------------------------------------
   // Exempt under every mode.
   describe('not re-sends: unchanged by WRITE_RESEND', function ( ) {
     ['acknowledge', 'refuse', MERGE].forEach(function (mode) {
