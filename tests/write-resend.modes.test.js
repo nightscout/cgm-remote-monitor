@@ -3,30 +3,28 @@
 // ID-RESEND-SWITCH, the behaviour half: what WRITE_RESEND and
 // WRITE_DELETED_RESEND make a re-send do, per path (API v1, in-process, API
 // v3 POST, the socket's dbAdd) and per collection. Written before the wiring,
-// against the decisions of 2026-10-31 (compatibility B, B extended and C) and
-// the proposals marked below, which the maintainer has not confirmed yet:
+// against the decisions of 2026-10-31 (compatibility B, B extended and C;
+// Q-R1, Q-D1 and Q-M1 by the maintainer, Q-X1 by the plan owner):
 //
 //   WRITE_RESEND (a re-send matched to a stored LIVE record by an identity;
 //   here always by `identifier`):
 //     replace      16.0.0 (compatibility B, extended): the re-send replaces
 //                  the record (a field it leaves out is gone), _id kept.
-//                  API v1 / in-process entries keep merging (B extended).
-//     merge        RFC 7386 merge (a field left out is kept), as #8879 was
-//                  before card B. PROPOSAL Q-M1: treatments keep replacing
-//                  (they replaced before card B: slice 4, 2026-10-30).
+//                  API v1 / in-process entries keep 15.0.9's merge.
+//     merge-except-treatments (writeSettings.RESEND_MERGE)
+//                  RFC 7386 merge (a field left out is kept), as #8879 was
+//                  before card B; treatments still replace (slice 4).
 //     acknowledge  nothing written; the reply names the stored record.
-//     refuse       nothing written; refused. PROPOSAL Q-R1: v1 and
-//                  in-process answer the item's slot with refused.status
-//                  409 (as BF-220), API v3 answers 409, the socket its
-//                  refused slot with status 409.
+//     refuse       nothing written; 409 per item: v1 and in-process the
+//                  item's refused slot (status 409) in a 200 reply, API v3
+//                  409, the socket its refused slot (status 409).
 //   WRITE_DELETED_RESEND (the same re-send, the record soft-deleted):
 //     stay         acknowledged, stays deleted (ID-Q4).
-//     revive       PROPOSAL Q-D1 (i): brought back, on every path, as one
-//                  record (D2_REVIVE below; 'beside' is candidate (ii), a
-//                  second record beside the deleted one, 15.0.9's value
-//                  on the d2 paths).
-//   Exempt under every mode: v1 / in-process entries matched by sysTime +
-//   type, API v3 PATCH, socket dbUpdate, API v1 PUT.
+//     revive       brought back, on every path, as one record (Q-D1),
+//                  also where 15.0.9 stored a second record beside it.
+//                  Under acknowledge or refuse nothing is revived (Q-X1).
+//   Not re-sends, unchanged by every mode: v1 / in-process entries matched
+//   by sysTime + type, API v3 PATCH, socket dbUpdate, API v1 PUT.
 //
 // Records are seeded straight to MongoDB with an old srvModified (API v3:
 // through POST), so "nothing written" is checked on the stored record.
@@ -34,12 +32,12 @@
 
 require('should');
 const assert = require('node:assert/strict');
+const writeSettings = require('../lib/server/write-settings');
 
 const OLD = 1557000000000;
-// Q-D1: 'revive' (candidate (i), recommended) or 'beside' (candidate (ii)).
-const D2_REVIVE = 'revive';
+const MERGE = writeSettings.RESEND_MERGE;
 
-const MODES = ['replace', 'merge', 'acknowledge', 'refuse'];
+const MODES = ['replace', MERGE, 'acknowledge', 'refuse'];
 const PATHS = ['v1', 'inproc', 'v3', 'socket'];
 const V1_COLLECTIONS = ['treatments', 'entries', 'devicestatus', 'profile', 'food', 'activity'];
 const V3_COLLECTIONS = ['treatments', 'entries', 'devicestatus', 'profile', 'food', 'settings'];
@@ -318,7 +316,7 @@ describe('ID-RESEND-SWITCH: WRITE_RESEND and WRITE_DELETED_RESEND, per path', fu
           // The socket's profile dbAdd revives under either (Q-R, open; not this switch).
           if (path === 'socket' && name === 'profile') return;
           const revives = mode === 'revive';
-          it(path + ' ' + name + ': ' + (revives ? (D2_REVIVE === 'revive' ? 'brought back' : 'per 15.0.9') : 'stays deleted'), async ( ) => {
+          it(path + ' ' + name + ': ' + (revives ? 'brought back, one record' : 'stays deleted'), async ( ) => {
             const kind = KINDS[name];
             const seeded = await seed(path, name, true);
             setWrite({ deletedResend: mode });
@@ -331,14 +329,10 @@ describe('ID-RESEND-SWITCH: WRITE_RESEND and WRITE_DELETED_RESEND, per path', fu
               namesStored(path, reply, seeded.stored);
               return;
             }
-            if (D2_REVIVE === 'revive') {
-              now.length.should.equal(1, 'one record carries the identifier');
-              String(now[0]._id).should.equal(String(seeded.stored._id));
-              assert.notEqual(now[0].isValid, false, 'brought back');
-              assert(kind.changed(now[0]), 'the re-sent value is stored');
-            } else {
-              assert(now.some((doc) => doc.isValid !== false && kind.changed(doc)), 'a live record with the re-sent value');
-            }
+            now.length.should.equal(1, 'one record carries the identifier');
+            String(now[0]._id).should.equal(String(seeded.stored._id));
+            assert.notEqual(now[0].isValid, false, 'brought back');
+            assert(kind.changed(now[0]), 'the re-sent value is stored');
             reply.status.should.equal(200);
           });
         });
@@ -346,7 +340,7 @@ describe('ID-RESEND-SWITCH: WRITE_RESEND and WRITE_DELETED_RESEND, per path', fu
     });
   });
 
-  // Q-X1 (proposal): revive writes under WRITE_RESEND's outcome, so
+  // Q-X1: revive writes under WRITE_RESEND's outcome, so
   // acknowledge and refuse revive nothing.
   describe('WRITE_DELETED_RESEND=revive with WRITE_RESEND=acknowledge or refuse', function ( ) {
     ['acknowledge', 'refuse'].forEach(function (mode) {
@@ -364,7 +358,7 @@ describe('ID-RESEND-SWITCH: WRITE_RESEND and WRITE_DELETED_RESEND, per path', fu
   // -------------------------------------------------------------------------
   // Exempt under every mode.
   describe('not re-sends: unchanged by WRITE_RESEND', function ( ) {
-    ['acknowledge', 'refuse', 'merge'].forEach(function (mode) {
+    ['acknowledge', 'refuse', MERGE].forEach(function (mode) {
 
       it(mode + ': API v1 entries matched by sysTime + type merge, as on 15.0.9', async ( ) => {
         const t = tag();

@@ -1,7 +1,7 @@
 'use strict';
 
 // ID-RESEND-SWITCH, the settings half (compatibility C, maintainer
-// 2026-10-31): WRITE_RESEND=replace|merge|acknowledge|refuse (default
+// 2026-10-31): WRITE_RESEND=replace|merge-except-treatments|acknowledge|refuse (default
 // replace) and WRITE_DELETED_RESEND=stay|revive (default stay), parsed by
 // lib/server/write-settings.js with the other WRITE_* settings, read once at
 // boot into env.write, and an unknown value refuses to start (a boot error
@@ -15,6 +15,7 @@ const vm = require('vm');
 const { createRequire } = require('module');
 const writeSettings = require('../lib/server/write-settings');
 
+const MERGE = writeSettings.RESEND_MERGE;
 const MANAGED = ['WRITE_RESEND', 'WRITE_DELETED_RESEND', 'WRITE_IDENTIFIER', 'WRITE_DELETED_EDIT', 'WRITE_VALIDATION'];
 
 // The parse with a reader over `values`, counting how often each name is read.
@@ -63,7 +64,8 @@ function checkEnvErrors (env) {
 describe('WRITE_RESEND and WRITE_DELETED_RESEND (lib/server/write-settings.js)', function ( ) {
 
   it('the modes, default first', function ( ) {
-    assert.deepStrictEqual(writeSettings.RESEND_MODES, ['replace', 'merge', 'acknowledge', 'refuse']);
+    assert.deepStrictEqual(writeSettings.RESEND_MODES, ['replace', 'merge-except-treatments', 'acknowledge', 'refuse']);
+    assert.equal(MERGE, 'merge-except-treatments');
     assert.deepStrictEqual(writeSettings.DELETED_RESEND_MODES, ['stay', 'revive']);
   });
 
@@ -81,7 +83,7 @@ describe('WRITE_RESEND and WRITE_DELETED_RESEND (lib/server/write-settings.js)',
     assert.deepStrictEqual(result.errors, [ ]);
   });
 
-  ['replace', 'merge', 'acknowledge', 'refuse'].forEach(function (mode) {
+  ['replace', MERGE, 'acknowledge', 'refuse'].forEach(function (mode) {
     it('WRITE_RESEND=' + mode + ' is ' + mode + ', case and surrounding space aside', function ( ) {
       assert.equal(parsed({ WRITE_RESEND: mode }).write.resend, mode);
       assert.equal(parsed({ WRITE_RESEND: ' ' + mode.toUpperCase() + ' ' }).write.resend, mode);
@@ -99,11 +101,14 @@ describe('WRITE_RESEND and WRITE_DELETED_RESEND (lib/server/write-settings.js)',
 
   // Values an operator might plausibly type that are not modes: each must stop
   // the site, never fall back silently to the default.
-  ['keep', 'ack', 'acknowledged', 'replaced', 'merged', 'off', 'true', 'none', 'reject', 'refused'].forEach(function (value) {
+  // A bare `merge` is not a mode (maintainer, 2026-10-31): the name says treatments do not merge.
+  ['merge', 'merge-all', 'merge-except-treatment', 'keep', 'ack', 'acknowledged', 'replaced', 'merged', 'off', 'true', 'none'
+    , 'reject', 'refused'].forEach(function (value) {
     it('an unknown WRITE_RESEND (' + JSON.stringify(value) + ') is an error', function ( ) {
       const result = parsed({ WRITE_RESEND: value });
       assert.equal(result.errors.length, 1);
-      assert.equal(result.errors[0], 'WRITE_RESEND must be one of replace, merge, acknowledge, refuse; got ' + JSON.stringify(value));
+      assert.equal(result.errors[0], 'WRITE_RESEND must be one of replace, merge-except-treatments, acknowledge, refuse; got '
+        + JSON.stringify(value));
     });
   });
 
@@ -123,10 +128,10 @@ describe('WRITE_RESEND and WRITE_DELETED_RESEND (lib/server/write-settings.js)',
   });
 
   it('the other WRITE_* settings parse as before beside them', function ( ) {
-    const result = parsed({ WRITE_RESEND: 'merge', WRITE_DELETED_RESEND: 'revive', WRITE_IDENTIFIER: 'strict'
+    const result = parsed({ WRITE_RESEND: MERGE, WRITE_DELETED_RESEND: 'revive', WRITE_IDENTIFIER: 'strict'
       , WRITE_DELETED_EDIT: 'refuse', WRITE_VALIDATION: 'reject' });
     assert.deepStrictEqual(result.write, { validation: 'reject', identifier: 'strict', deletedEdit: 'refuse'
-      , resend: 'merge', deletedResend: 'revive' });
+      , resend: MERGE, deletedResend: 'revive' });
     assert.deepStrictEqual(result.errors, [ ]);
   });
 
@@ -136,7 +141,7 @@ describe('WRITE_RESEND and WRITE_DELETED_RESEND (lib/server/write-settings.js)',
     assert.equal(reads.WRITE_RESEND, 1);
     assert.equal(reads.WRITE_DELETED_RESEND, 1);
     assert.equal(Object.isFrozen(result.write), true);
-    assert.throws(function ( ) { 'use strict'; result.write.resend = 'merge'; }, TypeError);
+    assert.throws(function ( ) { 'use strict'; result.write.resend = MERGE; }, TypeError);
   });
 
   it('read once: env.js reads them at boot; a later change to the process environment does not reach env.write', function ( ) {
@@ -144,7 +149,7 @@ describe('WRITE_RESEND and WRITE_DELETED_RESEND (lib/server/write-settings.js)',
       assert.equal(env.write.resend, 'refuse');
       assert.equal(env.write.deletedResend, 'revive');
       assert.equal(env.err.length, 0);
-      process.env.WRITE_RESEND = 'merge';
+      process.env.WRITE_RESEND = MERGE;
       process.env.WRITE_DELETED_RESEND = 'stay';
       assert.equal(env.write.resend, 'refuse');
       assert.equal(writeSettings.resendMode(env), 'refuse');
@@ -181,7 +186,8 @@ describe('WRITE_RESEND and WRITE_DELETED_RESEND (lib/server/write-settings.js)',
     assert.equal(writeSettings.resendMode({ }), 'replace');
     assert.equal(writeSettings.resendMode(undefined), 'replace');
     assert.equal(writeSettings.resendMode({ write: { resend: 'bogus' } }), 'replace');
-    assert.equal(writeSettings.resendMode({ write: { resend: 'merge' } }), 'merge');
+    assert.equal(writeSettings.resendMode({ write: { resend: MERGE } }), MERGE);
+    assert.equal(writeSettings.resendMode({ write: { resend: 'merge' } }), 'replace');
     assert.equal(writeSettings.deletedResendMode({ }), 'stay');
     assert.equal(writeSettings.deletedResendMode({ write: { deletedResend: 'revive' } }), 'revive');
   });
@@ -192,5 +198,23 @@ describe('WRITE_RESEND and WRITE_DELETED_RESEND (lib/server/write-settings.js)',
     assert.equal(writeSettings.resendModeFor(env, null), 'acknowledge');
     assert.equal(writeSettings.resendModeFor(env, { product: 'synthetic-client', version: '1.0.0' }), 'acknowledge');
     assert.equal(writeSettings.resendModeFor({ }, { product: 'synthetic-client' }), 'replace');
+  });
+
+  it('env.js logs one line naming the exception when merge-except-treatments is selected', function ( ) {
+    assert.equal(writeSettings.RESEND_MERGE_NOTICE, 'WRITE_RESEND=merge-except-treatments: re-sends merge, except treatments,'
+      + ' which always replace (slice 4: clients end an override by leaving durationType out)');
+    const logged = [ ];
+    const log = console.log;
+    console.log = function ( ) { logged.push(Array.prototype.join.call(arguments, ' ')); };
+    try {
+      withEnv({ WRITE_RESEND: MERGE }, function ( ) { });
+      withEnv({ WRITE_RESEND: 'replace' }, function ( ) { });
+      withEnv({ }, function ( ) { });
+      withEnv({ WRITE_RESEND: 'acknowledge' }, function ( ) { });
+    } finally {
+      console.log = log;
+    }
+    assert.deepStrictEqual(logged.filter(function (line) { return /^WRITE_RESEND=/.test(line); })
+      , [writeSettings.RESEND_MERGE_NOTICE]);
   });
 });
