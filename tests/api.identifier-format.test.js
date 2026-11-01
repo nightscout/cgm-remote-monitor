@@ -241,6 +241,25 @@ describe('identifier-format: API v1 and the socket', function () {
       should.not.exist(res.headers.warning);
       (await stored('treatments')).length.should.equal(2);
     });
+
+    // WRITE_IDENTIFIER unset parses to whatever the settings module calls it
+    // (`lenient` today; compat card A names it `default`, where only API v3
+    // refuses whitespace and numeric identifiers). API v1 stays lenient either
+    // way: nothing refused, the invalid identifier dropped.
+    it('WRITE_IDENTIFIER unset on API v1: whitespace and numeric identifiers are dropped, not refused', async function () {
+      setMode(require('../lib/server/write-settings').parseIdentifierMode(undefined).mode);
+      var res = await post('treatments/', [treatment(0, { identifier: '   ', carbs: 11 }), treatment(1, { identifier: 42, carbs: 12 })
+        , treatment(2, { identifier: 'undefined', carbs: 13 })]);
+      res.status.should.equal(200);
+      res.body.forEach(function (slot) { should.exist(slot._id); should.not.exist(slot.refused); });
+      should.not.exist(res.headers.warning);
+      var docs = await stored('treatments');
+      docs.map(function (d) { return d.carbs; }).should.eql([11, 12, 13]);
+      docs.forEach(function (d) { d.should.not.have.property('identifier'); });
+      var entries = await post('entries/', [{ type: 'sgv', sgv: 120, date: Date.parse(at(0)), dateString: at(0), identifier: 7 }]);
+      entries.status.should.equal(200);
+      should.not.exist(entries.body[0].refused);
+    });
   });
 
   describe('the socket', function () {
