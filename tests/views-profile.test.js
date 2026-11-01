@@ -61,7 +61,12 @@ describe('views profile: one tenant, nonresident (research prototype)', function
     const ctx = self.ctx;
     return Promise.all(['entries', 'treatments', 'devicestatus', 'profile', 'food', 'activity']
       .map(k => ctx.store.collection(self.env[k + '_collection']).deleteMany({})))
-      .then(() => require('../lib/server/serve/views').stop(ctx)).then(restore);
+      .then(() => {
+        // Not stop(): it closes the MongoDB client, which mongo-storage shares
+        // per URI with every later test file in the same process. Teardown
+        // stops the evaluator's timer and listeners (nonresident.js).
+        ctx.bus.teardown();
+      }).then(restore);
   });
 
   describe('boot', function () {
