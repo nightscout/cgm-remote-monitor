@@ -83,13 +83,16 @@ describe('WRITE_IDENTIFIER and WRITE_VALIDATION: one parse (lib/server/write-set
     });
   }
 
-  it('defaults to lenient and off', function ( ) {
+  // CHANGED EXPECTATION (maintainer 2026-10-31, compat card A, option (i)): WRITE_IDENTIFIER
+  // unset is its own mode, `default` (API v3 refuses a whitespace-only or
+  // numeric identifier, as 15.0.9 did); it was `lenient`.
+  it('defaults to the unset identifier mode and off', function ( ) {
     const result = parsed({ });
     // CHANGED EXPECTATION (ID-FIRST-MATCH slice 3, ID-Q3): the parse also
     // holds WRITE_DELETED_EDIT, `ignore` by default.
     // CHANGED EXPECTATION (ID-UNIQUE-INDEX): and WRITE_IDENTIFIER_INDEX, `try`
     // by default.
-    assert.deepStrictEqual(result.write, { validation: 'off', identifier: 'lenient', deletedEdit: 'ignore', index: 'try' });
+    assert.deepStrictEqual(result.write, { validation: 'off', identifier: 'default', deletedEdit: 'ignore', index: 'try' });
     assert.deepStrictEqual(result.errors, [ ]);
   });
 
@@ -97,7 +100,9 @@ describe('WRITE_IDENTIFIER and WRITE_VALIDATION: one parse (lib/server/write-set
     assert.equal(parsed({ WRITE_IDENTIFIER: 'strict' }).write.identifier, 'strict');
     assert.equal(parsed({ WRITE_IDENTIFIER: ' STRICT ' }).write.identifier, 'strict');
     assert.equal(parsed({ WRITE_IDENTIFIER: 'Lenient' }).write.identifier, 'lenient');
-    assert.equal(parsed({ WRITE_IDENTIFIER: '' }).write.identifier, 'lenient');
+    // CHANGED EXPECTATION (maintainer 2026-10-31, compat card A, option (i)): empty is unset,
+    // the `default` mode; it was `lenient`.
+    assert.equal(parsed({ WRITE_IDENTIFIER: '' }).write.identifier, 'default');
   });
 
   it('an unknown WRITE_IDENTIFIER is an error, so the server refuses to start', function ( ) {
@@ -153,9 +158,12 @@ describe('WRITE_IDENTIFIER and WRITE_VALIDATION: one parse (lib/server/write-set
     }
   });
 
-  it('identifierMode is lenient for an env without the setting', function ( ) {
-    assert.equal(writeSettings.identifierMode({ }), 'lenient');
-    assert.equal(writeSettings.identifierMode(undefined), 'lenient');
+  // CHANGED EXPECTATION (maintainer 2026-10-31, compat card A, option (i)): an env without
+  // the setting is the setting left unset, the `default` mode; it was `lenient`.
+  it('identifierMode is the unset mode for an env without the setting', function ( ) {
+    assert.equal(writeSettings.identifierMode({ }), 'default');
+    assert.equal(writeSettings.identifierMode(undefined), 'default');
+    assert.equal(writeSettings.identifierMode({ write: { identifier: 'lenient' } }), 'lenient');
     assert.equal(writeSettings.identifierMode({ write: { identifier: 'strict' } }), 'strict');
   });
 });

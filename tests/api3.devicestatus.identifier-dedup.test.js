@@ -29,6 +29,11 @@
 // check the merge. The created_at + device fallback still replaces
 // (ID-NATURAL-KEY).
 //
+// CHANGED EXPECTATION (maintainer 2026-10-31, compat card B): the re-POST matched by
+// its identifier REPLACES the stored status, as on 15.0.9: a field it leaves
+// out is gone. Everything else above (a new srvModified, the announcement,
+// the deduplication reply) is unchanged.
+//
 // Synthetic values only.
 
 require('should');
@@ -112,11 +117,12 @@ describe('API3 devicestatus: a re-POST with a stored identifier is acknowledged,
     res.body.identifier.should.equal('v3-ds-diff');
 
     // CHANGED EXPECTATION (slice 4, ID-Q2): merged: the field sent is set, the one left out kept.
+    // CHANGED EXPECTATION (maintainer 2026-10-31, compat card B): replaced: the field left out (pump) is gone.
     const after = await storedFor('devicestatus', 'v3-ds-diff');
     after.length.should.equal(1);
     String(after[0]._id).should.equal(String(before[0]._id));
     after[0].uploaderBattery.should.equal(20);
-    after[0].pump.should.eql({ reservoir: 100 });
+    after[0].should.not.have.property('pump');
     after[0].extra.should.equal('x');
     after[0].srvCreated.should.equal(before[0].srvCreated);
     after[0].srvModified.should.be.above(before[0].srvModified);

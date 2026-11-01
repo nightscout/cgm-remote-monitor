@@ -181,7 +181,10 @@ describe('P4: a re-send whose identifier names two stored records lands on the o
     var b = docs.find(function (d) { return String(d._id) === String(s.b._id); });
     a.should.eql(before.find(function (d) { return String(d._id) === String(s.a._id); }));
     b.uploaderBattery.should.equal(50);
-    b.half.should.equal('b');
+    // CHANGED EXPECTATION (maintainer 2026-10-31, compat card B, extended): the re-send
+    // replaces B, so B's `half`, which the re-send leaves out, is gone (the
+    // merge kept it); B is still the record P4 picks, and A is as it was.
+    b.should.not.have.property('half');
     should.exist(b.srvModified);
     String(res.body[0]._id).should.equal(String(s.b._id));
     dedupeLines().length.should.equal(1);

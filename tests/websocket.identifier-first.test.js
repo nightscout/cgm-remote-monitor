@@ -141,7 +141,9 @@ describe('ID-FIRST-MATCH slices 6 and 6a: the socket\'s dbAdd matches on identif
     describe(`slice ${form.slice}: ${name}`, function ( ) {
 
       // Red on c9b74404: a second record (socketInsert stores every dbAdd).
-      it(`${name}: a re-send with a stored identifier merges into that record; a field left out is kept`, async ( ) => {
+      // CHANGED EXPECTATION (maintainer 2026-10-31, compat card B, extended): the re-send
+      // replaces the record, so a field it leaves out is gone (it was kept).
+      it(`${name}: a re-send with a stored identifier replaces that record; a field left out is gone`, async ( ) => {
         const mark = tag();
         const identifier = uuid();
         const seeded = await seed(name, form.doc(mark, identifier, form.left));
@@ -151,7 +153,7 @@ describe('ID-FIRST-MATCH slices 6 and 6a: the socket\'s dbAdd matches on identif
         shouldName(reply, seeded);
         const now = stored[0];
         Object.keys(form.changed).forEach((field) => now[field].should.equal(form.changed[field]));
-        Object.keys(form.left).forEach((field) => now[field].should.equal(form.left[field]));
+        Object.keys(form.left).forEach((field) => now.should.not.have.property(field));
         now.identifier.should.equal(identifier);
       });
 
@@ -299,7 +301,9 @@ describe('ID-FIRST-MATCH slices 6 and 6a: the socket\'s dbAdd matches on identif
     }
 
     // Red on c9b74404: a second record (created_at differs, no NSCLIENT_ID).
-    it('a re-send with a stored identifier at another created_at: one record, merged (ID-Q2)', async ( ) => {
+    // CHANGED EXPECTATION (maintainer 2026-10-31, compat card B, extended): replaced, so
+    // uploaderBattery, which the re-send leaves out, is gone (ID-Q2 merged it).
+    it('a re-send with a stored identifier at another created_at: one record, replaced', async ( ) => {
       const mark = tag();
       const identifier = uuid();
       const seeded = await seed('devicestatus', status(mark, { identifier, pump: { reservoir: 100 } }));
@@ -308,7 +312,7 @@ describe('ID-FIRST-MATCH slices 6 and 6a: the socket\'s dbAdd matches on identif
       stored.length.should.equal(1, 'one record for the identifier');
       shouldName(reply, seeded);
       stored[0].pump.reservoir.should.equal(90);
-      stored[0].uploaderBattery.should.equal(50);
+      stored[0].should.not.have.property('uploaderBattery');
     });
 
     // Red on c9b74404: a second record beside the deleted one (created_at is a time key).
@@ -372,8 +376,10 @@ describe('ID-FIRST-MATCH slices 6 and 6a: the socket\'s dbAdd matches on identif
       String(reply[0]._id).should.equal(String(created._id));
     });
 
-    // Added with decision C: at the same startDate the re-send merges into the stored profile, store replaced whole.
-    it('a re-send with a stored identifier at the same startDate: one record; store replaced whole, a field left out kept', async ( ) => {
+    // Added with decision C: at the same startDate the re-send lands on the stored profile.
+    // CHANGED EXPECTATION (maintainer 2026-10-31, compat card B): it replaces the stored profile, so a field it
+    // leaves out (units) is gone; it was merged, `store` whole, and kept units.
+    it('a re-send with a stored identifier at the same startDate: one record, replaced; a field left out is gone', async ( ) => {
       const mark = tag();
       const identifier = uuid();
       const seeded = await seed('profile', profile(mark, { identifier, mills: 1 }));
@@ -384,7 +390,8 @@ describe('ID-FIRST-MATCH slices 6 and 6a: the socket\'s dbAdd matches on identif
       stored.length.should.equal(1, 'one record for the identifier');
       shouldName(reply, seeded);
       plain(stored[0].store).should.eql({ [mark]: { dia: 5 } });
-      stored[0].units.should.equal('mg/dl');
+      stored[0].should.not.have.property('units');
+      stored[0].identifier.should.equal(identifier);
     });
 
     // EXPECTATION CHANGED (decision C): the re-send's startDate differs from A's, so the identifier is dropped and

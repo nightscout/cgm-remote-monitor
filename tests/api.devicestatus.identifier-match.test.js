@@ -101,8 +101,11 @@ describe('devicestatus: a re-send with a stored identifier is acknowledged and n
     docs.length.should.equal(1);
     // CHANGED EXPECTATION (slice 4, ID-Q2): merged: what it sends is set, the
     // null removes `pump`, srvCreated is kept and srvModified is new.
+    // CHANGED EXPECTATION (maintainer 2026-10-31, compat card B, extended): replaced: the
+    // status is the one sent, so its `pump: null` is stored as sent (a replace
+    // stores a null; only a merge removes the member).
     docs[0].uploaderBattery.should.equal(48);
-    docs[0].should.not.have.property('pump');
+    (docs[0].pump === null).should.equal(true);
     docs[0].extra.should.equal('x');
     docs[0].created_at.should.equal(status(1).created_at);
     docs[0].srvCreated.should.equal(before[0].srvCreated);

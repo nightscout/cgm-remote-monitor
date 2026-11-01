@@ -118,9 +118,11 @@ describe('ID-FIRST-MATCH slices 6 and 6a: v1 and in-process profile, food and ac
       sameStart: (seeded, mark, identifier) => ({ defaultProfile: mark, startDate: seeded.startDate, store: { [mark]: { dia: 5 } }
         , identifier }),
       // ID-Q7: store replaced whole; units left out, kept.
+      // CHANGED EXPECTATION (maintainer 2026-10-31, compat card B, extended): the re-send
+      // replaces the stored profile, so units, left out, is gone.
       check: (now, mark) => {
         plain(now.store).should.eql({ [mark]: { dia: 5 } });
-        now.units.should.equal('mg/dl');
+        now.should.not.have.property('units');
       }
     },
     food: {
@@ -129,7 +131,8 @@ describe('ID-FIRST-MATCH slices 6 and 6a: v1 and in-process profile, food and ac
       mark: 'name',
       doc: (mark, identifier, extra) => Object.assign({ type: 'food', name: mark, carbs: 10, gi: 2, identifier }, extra),
       resend: (mark, identifier) => ({ type: 'food', name: mark, carbs: 12, identifier }),
-      check: (now) => { now.carbs.should.equal(12); now.gi.should.equal(2); }
+      // CHANGED EXPECTATION (maintainer 2026-10-31, compat card B, extended): replaced, so gi, left out, is gone (it was kept).
+      check: (now) => { now.carbs.should.equal(12); now.should.not.have.property('gi'); }
     },
     activity: {
       slice: '6a',
@@ -138,7 +141,8 @@ describe('ID-FIRST-MATCH slices 6 and 6a: v1 and in-process profile, food and ac
       doc: (mark, identifier, extra) => Object.assign({ created_at: iso(Date.now() - 3600000), steps: 10, heartrate: 60, notes: mark
         , identifier }, extra),
       resend: (mark, identifier) => ({ created_at: iso(Date.now() - 3600000), steps: 12, notes: mark, identifier }),
-      check: (now) => { now.steps.should.equal(12); now.heartrate.should.equal(60); }
+      // CHANGED EXPECTATION (maintainer 2026-10-31, compat card B, extended): replaced, so heartrate, left out, is gone (it was kept).
+      check: (now) => { now.steps.should.equal(12); now.should.not.have.property('heartrate'); }
     }
   };
 
@@ -146,7 +150,7 @@ describe('ID-FIRST-MATCH slices 6 and 6a: v1 and in-process profile, food and ac
     describe(`slice ${form.slice}: ${name}`, function ( ) {
 
       // Red on c9b74404: a second record (no _id sent, so the create inserts).
-      it(`API v1 ${name}: a create with a stored identifier merges into that record; the reply names it`, async ( ) => {
+      it(`API v1 ${name}: a create with a stored identifier lands on that record (replaced since compat card B, extended); the reply names it`, async ( ) => {
         const mark = tag();
         const identifier = uuid();
         const seeded = await seed(name, form.doc(mark, identifier));
@@ -211,7 +215,7 @@ describe('ID-FIRST-MATCH slices 6 and 6a: v1 and in-process profile, food and ac
 
       if (form.sameStart) {
         // Added with the line-90 change: at the stored startDate a profile create is a re-send and merges.
-        it(`API v1 ${name}: a create with a stored identifier at the same startDate merges into it; the reply names it`, async ( ) => {
+        it(`API v1 ${name}: a create with a stored identifier at the same startDate replaces it (compat card B, extended); the reply names it`, async ( ) => {
           const mark = tag();
           const identifier = uuid();
           const seeded = await seed(name, form.doc(mark, identifier));
