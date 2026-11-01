@@ -174,7 +174,18 @@ describe('P4: a re-send whose identifier names two stored records lands on the o
     var res = await request(self.app).post('/api/devicestatus/').set('api-secret', known)
       .send([{ identifier: ID, device: 'p4-test', created_at: iso(T_B), uploaderBattery: 50 }]).expect(200);
     var docs = await stored('devicestatus');
-    docs.should.eql(before);
+    // CHANGED EXPECTATION (ID-FIRST-MATCH slice 4, ID-Q2): the re-send is merged
+    // into B, the one P4 picks (it was answered without a write); A is as it was.
+    docs.length.should.equal(2);
+    var a = docs.find(function (d) { return String(d._id) === String(s.a._id); });
+    var b = docs.find(function (d) { return String(d._id) === String(s.b._id); });
+    a.should.eql(before.find(function (d) { return String(d._id) === String(s.a._id); }));
+    b.uploaderBattery.should.equal(50);
+    // CHANGED EXPECTATION (maintainer 2026-10-31, compat card B, extended): the re-send
+    // replaces B, so B's `half`, which the re-send leaves out, is gone (the
+    // merge kept it); B is still the record P4 picks, and A is as it was.
+    b.should.not.have.property('half');
+    should.exist(b.srvModified);
     String(res.body[0]._id).should.equal(String(s.b._id));
     dedupeLines().length.should.equal(1);
     dedupeLines()[0].should.containEql('devicestatus v1/internal re-send');

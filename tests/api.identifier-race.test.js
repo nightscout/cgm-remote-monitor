@@ -57,6 +57,14 @@ function gate (name, method, count, waitMs, inOrder, between) {
   return state;
 }
 
+async function waitForGate (state, count, message) {
+  var deadline = Date.now() + 5000;
+  while (state.arrived < count && Date.now() < deadline) {
+    await new Promise(function (resolve) { setTimeout(resolve, 5); });
+  }
+  state.arrived.should.equal(count, message);
+}
+
 var T = Date.parse('2019-05-11T07:40:00.000Z');
 function iso (t) { return new Date(t).toISOString(); }
 
@@ -75,6 +83,7 @@ describe('ID-UNIQUE-INDEX: two uploads of one record that race', function () {
     before(function (done) {
       process.env.API_SECRET = 'this is my long pass phrase';
       self.env = require('../lib/server/env')();
+      self.env.write = Object.freeze(Object.assign({ }, self.env.write, { index: 'try' }));
       self.env.settings.authDefaultRoles = 'readable';
       self.env.settings.enable = ['careportal', 'api'];
       self.app = require('express')();
@@ -143,6 +152,7 @@ describe('ID-UNIQUE-INDEX: two uploads of one record that race', function () {
         return [{ identifier: id, device: 'race-test', created_at: iso(T + round * 60000), uploaderBattery: 70, raceTest: true }];
       });
     });
+
   });
 
   describe('API v3', function () {
@@ -160,6 +170,10 @@ describe('ID-UNIQUE-INDEX: two uploads of one record that race', function () {
       return self.instance.post('/api/v3/' + name, jwt || self.jwt.all).send(doc);
     }
 
+    function setResendMode (mode) {
+      self.instance.env.write = Object.freeze(Object.assign({ }, self.instance.env.write, { resend: mode }));
+    }
+
     before(async function () {
       self.instance = await instance.create({});
       var auth = await authSubject(self.instance.ctx.authorization.storage, ['create', 'all'], self.instance.app);
@@ -168,10 +182,12 @@ describe('ID-UNIQUE-INDEX: two uploads of one record that race', function () {
 
     afterEach(function () {
       opened.splice(0).forEach(function (g) { g.restore(); });
+      setResendMode('replace');
     });
 
     after(async function () {
       await utils.storageClear(self.instance.ctx);
+      await require('./fixtures/identifier-index').dropIdentifierIndex(self.instance.ctx.store, self.instance.env);
       self.instance.ctx.bus.teardown();
     });
 
@@ -206,7 +222,7 @@ describe('ID-UNIQUE-INDEX: two uploads of one record that race', function () {
       r.loser.body.lastModified.should.equal(docs[0].srvModified);
     });
 
-    it('device status: one 201, and the loser 200 isDeduplication with the stored lastModified; written once', async function () {
+    it('device status: the loser 200 isDeduplication with the replaced record\'s lastModified', async function () {
       var id = 'race-v3-status-0001';
       var doc = { identifier: id, date: T, utcOffset: 0, app: 'race-test', device: 'race-test', uploaderBattery: 50 };
       var g = gate(self.instance.env.devicestatus_collection, 'insertOne', 2);
@@ -218,25 +234,83 @@ describe('ID-UNIQUE-INDEX: two uploads of one record that race', function () {
       var docs = await col('devicestatus').find({ identifier: id }).toArray();
       docs.length.should.equal(1);
       r.loser.body.lastModified.should.equal(docs[0].srvModified);
-      r.winner.body.lastModified.should.equal(docs[0].srvModified);
     });
 
-    it('a racing upload without the update permission is not applied as a re-send: it gets a 500, the record stays', async function () {
-      var id = 'race-v3-treatment-0002';
-      // The upload with every permission reaches the insert first and is
-      // stored first; the create-only upload has matched nothing before that.
-      var g = gate(self.instance.env.treatments_collection, 'insertOne', 2, 3000, true);
-      opened.push(g);
-      var first = post('treatments', treatment(id)).then(function (r) { return r; });
-      while (g.arrived < 1) await new Promise(function (resolve) { setTimeout(resolve, 5); });
-      var second = post('treatments', treatment(id, { carbs: 13 }), self.jwt.create).then(function (r) { return r; });
-      var replies = await Promise.all([first, second]);
-      g.arrived.should.equal(2);
-      replies[0].status.should.equal(201);
-      replies[1].status.should.equal(500);
-      var docs = await col('treatments').find({ identifier: id }).toArray();
-      docs.length.should.equal(1);
-      docs[0].carbs.should.equal(12);
+    it('a racing resend follows each mode, including the treatment merge exception', async function () {
+      for (var mode of ['replace', 'merge-except-treatments', 'acknowledge', 'refuse']) {
+        setResendMode(mode);
+        var id = 'race-v3-food-' + mode;
+        var first = { identifier: id, date: T, utcOffset: 0, app: 'race-test', device: 'race-test'
+          , name: 'race-food', carbs: 12, retained: 'from-first' };
+        var second = { identifier: id, date: T, utcOffset: 0, app: 'race-test', device: 'race-test'
+          , name: 'race-food', carbs: 30 };
+        var g = gate(self.instance.env.food_collection, 'insertOne', 2, 3000, true);
+        opened.push(g);
+        var firstUpload = post('food', first).then(function (r) { return r; });
+        await waitForGate(g, 1, mode + ': first upload reached the insert');
+        var secondUpload = post('food', second).then(function (r) { return r; });
+        var replies = await Promise.all([firstUpload, secondUpload]);
+        g.restore();
+        g.arrived.should.equal(2, mode + ': both uploads reached the insert');
+        var docs = await col('food').find({ identifier: id }).toArray();
+        docs.length.should.equal(1, mode);
+        if (mode === 'refuse') {
+          replies.map(function (r) { return r.status; }).sort().should.eql([201, 409], mode);
+          docs[0].carbs.should.equal(12);
+          docs[0].retained.should.equal('from-first');
+        } else {
+          replies.map(function (r) { return r.status; }).sort().should.eql([200, 201], mode);
+          replies.find(function (r) { return r.status === 200; }).body.isDeduplication.should.equal(true);
+          if (mode === 'replace') {
+            docs[0].carbs.should.equal(30);
+            should(docs[0].retained).be.undefined();
+          } else if (mode === 'merge-except-treatments') {
+            docs[0].carbs.should.equal(30);
+            docs[0].retained.should.equal('from-first');
+          } else {
+            docs[0].carbs.should.equal(12);
+            docs[0].retained.should.equal('from-first');
+          }
+        }
+      }
+
+      setResendMode('merge-except-treatments');
+      var treatmentId = 'race-v3-treatment-merge-exception';
+      var firstTreatment = treatment(treatmentId, { durationType: 'indefinite' });
+      var secondTreatment = treatment(treatmentId, { carbs: 30 });
+      var treatmentGate = gate(self.instance.env.treatments_collection, 'insertOne', 2, 3000, true);
+      opened.push(treatmentGate);
+      var firstTreatmentUpload = post('treatments', firstTreatment).then(function (r) { return r; });
+      await waitForGate(treatmentGate, 1, 'first treatment upload reached the insert');
+      var secondTreatmentUpload = post('treatments', secondTreatment).then(function (r) { return r; });
+      var treatmentReplies = await Promise.all([firstTreatmentUpload, secondTreatmentUpload]);
+      treatmentGate.restore();
+      treatmentGate.arrived.should.equal(2);
+      treatmentReplies.map(function (r) { return r.status; }).sort().should.eql([200, 201]);
+      var treatmentDocs = await col('treatments').find({ identifier: treatmentId }).toArray();
+      treatmentDocs.length.should.equal(1);
+      treatmentDocs[0].carbs.should.equal(30);
+      should(treatmentDocs[0].durationType).be.undefined();
+    });
+
+    it('a create-only client still gets 403 in every mode when the race becomes a re-send', async function () {
+      for (var mode of ['replace', 'merge-except-treatments', 'acknowledge', 'refuse']) {
+        setResendMode(mode);
+        var id = 'race-v3-create-only-' + mode;
+        var g = gate(self.instance.env.treatments_collection, 'insertOne', 2, 3000, true);
+        opened.push(g);
+        var first = post('treatments', treatment(id)).then(function (r) { return r; });
+        await waitForGate(g, 1, mode + ': first upload reached the insert');
+        var second = post('treatments', treatment(id, { carbs: 13 }), self.jwt.create).then(function (r) { return r; });
+        var replies = await Promise.all([first, second]);
+        g.arrived.should.equal(2);
+        replies[0].status.should.equal(201);
+        replies[1].status.should.equal(403, mode);
+        var docs = await col('treatments').find({ identifier: id }).toArray();
+        docs.length.should.equal(1, mode);
+        docs[0].carbs.should.equal(12, mode);
+      }
+      setResendMode('replace');
     });
 
     it('a record deleted after the other upload stored it stays deleted: the loser is acknowledged (on-deleted)', async function () {

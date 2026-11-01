@@ -68,6 +68,7 @@ describe('ID-UNIQUE-INDEX: the partial unique index on identifier', function () 
 
   after(async function () {
     await clean();
+    await dropIdentifierIndexes();
   });
 
   describe('which records the index covers', function () {

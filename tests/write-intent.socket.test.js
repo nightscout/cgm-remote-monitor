@@ -110,6 +110,10 @@ async function compareAdd (collection, sent, reads, failAt, failure) {
   const step = writeIntent.forCollection(after.storage, collection, 'socket', { env: { } });
   const now = await settle(step.write({ op: 'create', docs: [doc] }));
 
+  // CHANGED EXPECTATION (maintainer 2026-10-31, compat card B): a profile that
+  // matches is replaced again, so every call is dbAdd's own (replaceFiltered);
+  // slice 4 (ID-Q8, ID-Q7) had it merged (updateMany with { set }) and this
+  // comparison put the merge aside.
   assert.deepEqual(after.calls, before.calls, 'the same storage calls');
   assert.deepEqual(norm(doc), norm(legacyDoc), 'the document left as it was');
   if (legacy.error) {

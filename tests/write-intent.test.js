@@ -19,6 +19,7 @@ const srvDates = require('../lib/server/srv-dates');
 // happened to it.
 
 const { isOnDeletedRead } = require('./lib/on-deleted-read');
+const { unmerge } = require('./lib/merge-on-match');
 
 // A driver collection that records every call and answers from `stored`.
 function driver (calls, stored, upserted) {
@@ -143,7 +144,13 @@ describe('write(intent): food from API v1 and in-process callers', function ( ) 
       const docs = input();
       const result = await writeIntent.forCollection(after.storage, 'food', 'v1/internal').write({ op, docs });
 
-      assert.deepEqual(shape(after.calls), shape(before.calls));
+      // CHANGED EXPECTATION (maintainer 2026-10-31, compat card B): a create whose
+      // _id names the stored record replaces it again, as food.js did, so the
+      // calls are food.js's with no merge to put back (slice 4, ID-Q8, had it
+      // merged and counted one).
+      const { calls, merged } = unmerge(shape(after.calls), shape(before.calls));
+      assert.equal(merged, 0);
+      assert.deepEqual(calls, shape(before.calls));
       assert.deepEqual(after.committed, before.committed);
       assert.equal(after.committed.length, 1, 'one bulk write, one commit event');
       assert.deepEqual(shape(docs), shape(legacyDocs));
@@ -158,6 +165,8 @@ describe('write(intent): food from API v1 and in-process callers', function ( ) 
     const docs = batch();
     const result = await writeIntent.forCollection(storage, 'food', 'v1/internal').write({ op: 'create', docs });
 
+    // CHANGED EXPECTATION (maintainer 2026-10-31, compat card B): a create that matched by its _id is `replaced`
+    // again (slice 4, ID-Q8, answered `merged`).
     assert.deepEqual(result.items.map(i => [i.index, i.outcome]), [[0, 'inserted'], [1, 'replaced'], [2, 'inserted']]);
     assert(result.items[0]._id instanceof ObjectId);
     assert.equal(result.items[0]._id.toHexString(), HEX, 'an upper-case 24-hex _id is stored as its ObjectId');
@@ -267,7 +276,7 @@ async function legacyActivity (storage, op, docs) {
 describe('write(intent): activity from API v1 and in-process callers', function ( ) {
   const activity = (storage) => writeIntent.forCollection(storage, 'activity', 'v1/internal');
 
-  it('create sends the driver what activity.js sent (no server dates, no read), and the same commit events', async function ( ) {
+  it('create sends the driver what activity.js sent (no server dates of its own), and the same commit events', async function ( ) {
     const before = { calls: [ ] };
     Object.assign(before, storageOver(before.calls, [ ], [0], 'activity'));
     const legacyDocs = await legacyActivity(before.storage, 'create', batch());
@@ -277,8 +286,15 @@ describe('write(intent): activity from API v1 and in-process callers', function 
     const docs = batch();
     const result = await activity(after.storage).write({ op: 'create', docs });
 
-    assert.deepEqual(JSON.parse(JSON.stringify(after.calls)), JSON.parse(JSON.stringify(before.calls)));
-    assert.deepEqual(after.calls.map(c => c[0]), ['bulkWrite'], 'one bulk write and no find: activity is not stamped');
+    // CHANGED EXPECTATION (maintainer 2026-10-31, compat card B): a create by _id
+    // replaces again (slice 4, ID-Q8, merged it).
+    // CHANGED EXPECTATION (maintainer 2026-10-31, compat card B, extended): the replace keeps
+    // the server dates a stored record already has, so it reads the records its
+    // _ids name first (one find); none is stored here, so the bulk write is
+    // activity.js's and no date is added.
+    assert.equal(after.calls[0][0], 'find');
+    assert.deepEqual(JSON.parse(JSON.stringify(after.calls.slice(1))), JSON.parse(JSON.stringify(before.calls)));
+    assert.deepEqual(after.calls.map(c => c[0]), ['find', 'bulkWrite'], 'one read, one bulk write: activity is not stamped');
     assert.deepEqual(after.committed, before.committed);
     assert.equal(after.committed.length, 1);
     assert.deepEqual(JSON.parse(JSON.stringify(docs)), JSON.parse(JSON.stringify(legacyDocs)));
@@ -286,8 +302,33 @@ describe('write(intent): activity from API v1 and in-process callers', function 
       assert(!('srvCreated' in doc) && !('srvModified' in doc), 'no server dates on activity');
     }
     assert.deepEqual(result.items.map(i => [i.index, i.outcome]), [[0, 'inserted'], [1, 'replaced'], [2, 'replaced']]);
-    assert.deepEqual(after.calls[0][1][3], { deleteMany: { filter: { _id: { $in: [HEX, HEX.toUpperCase(), HEX2] } } } }
+    assert.deepEqual(after.calls[1][1][3], { deleteMany: { filter: { _id: { $in: [HEX, HEX.toUpperCase(), HEX2] } } } }
       , 'the string-twin removal is appended to the same bulk write, as food does');
+  });
+
+  // maintainer 2026-10-31, compat card B, extended: a replace never drops server-owned fields
+  // the stored record already has. Activity stamps no server dates of its own
+  // (Q5 (a)), so a record stored with them (straight to MongoDB, or by another
+  // path) keeps them when a re-send matched by its identifier replaces it; a
+  // record stored without them gets none.
+  it('a re-send matched by identifier replaces the record and keeps the server dates it already has', async function ( ) {
+    const calls = [ ];
+    const stored = [{ _id: new ObjectId(HEX2), identifier: 'act-1', steps: 1, kept: 1, srvCreated: 1557000000000, srvModified: 1557000060000 }];
+    const { storage } = storageOver(calls, stored, [ ], 'activity');
+    const docs = [{ identifier: 'act-1', steps: 2 }];
+    const result = await activity(storage).write({ op: 'create', docs });
+    assert.deepEqual(result.items.map(i => [i.outcome, String(i._id)]), [['replaced', HEX2]]);
+    const write = calls.find(c => c[0] === 'bulkWrite')[1][0].replaceOne.replacement;
+    assert.equal(write.srvCreated, 1557000000000, 'srvCreated kept');
+    assert.equal(write.srvModified, 1557000060000, 'srvModified kept');
+    assert.equal(write.steps, 2);
+    assert(!('kept' in write), 'a field the re-send leaves out is gone (replace)');
+
+    const bare = [ ];
+    const none = storageOver(bare, [{ _id: new ObjectId(HEX2), identifier: 'act-1', steps: 1 }], [ ], 'activity');
+    await activity(none.storage).write({ op: 'create', docs: [{ identifier: 'act-1', steps: 3 }] });
+    const plain = bare.find(c => c[0] === 'bulkWrite')[1][0].replaceOne.replacement;
+    assert(!('srvCreated' in plain) && !('srvModified' in plain), 'no date added where the record has none');
   });
 
   for (const [label, id] of [['an upper-case 24-hex _id', HEX.toUpperCase()], ['an ObjectId _id', new ObjectId(HEX2)]

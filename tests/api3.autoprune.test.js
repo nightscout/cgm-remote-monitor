@@ -17,6 +17,7 @@ describe('API3 auto-prune', function () {
   const self = this
     , testConst = require('./fixtures/api3/const.json')
     , instance = require('./fixtures/api3/instance')
+    , writeIntent = require('../lib/storage/write-intent')
     , authSubject = require('./fixtures/api3/authSubject')
     , utils = require('./fixtures/api3/utils')
     ;
@@ -133,6 +134,40 @@ describe('API3 auto-prune', function () {
 
     self.col.nextAutoPrune.getTime().should.be.above(Date.now() + 3500 * 1000);
     self.unhandled.should.have.length(0);
+  });
+
+  it('names a record pruned by one condition only to the cache (BF-222)', async () => {
+    await self.rawCol.deleteMany({});
+    const old = new Date(Date.now() - 40 * DAY);
+    const now = new Date();
+    // past the cutoff by date only: created (and stamped) now
+    const { insertedId } = await self.rawCol.insertOne({ eventType: 'Note', notes: 'autoprune late upload',
+      created_at: now.toISOString(), srvCreated: now.getTime(), date: old.getTime() });
+
+    const removes = [];
+    const onUpdate = (e) => { if (e && e.type === 'treatments' && e.op === 'remove') removes.push(e); };
+    self.instance.ctx.bus.on('data-update', onUpdate);
+    try {
+      // !!! REROUTED (WC-STEP-PATCH release 2, write-contract Q-A, Q-U) !!!
+      // This test came with #8883 (merged), where it called the cached storage's
+      // deleteManyOr directly and that method told the cache. In release 2 the
+      // cached storage's write methods no longer announce: autoPrune's delete
+      // goes through the write step, which resolves the records with the
+      // delete's own OR and names them. So the same prune filter is sent
+      // through the step here, as lib/api3/generic/collection.js autoPrune
+      // sends it. BF-222's assertions below are unchanged, word for word.
+      await writeIntent.forCollectionResolved(self.col.storage, 'treatments', 'v3'
+        , { env: self.instance.env }).write({ op: 'prune', target: { filter: [
+          { field: 'srvCreated', operator: 'lt', value: Date.now() - 30 * DAY },
+          { field: 'created_at', operator: 'lt', value: new Date(Date.now() - 30 * DAY).toISOString() },
+          { field: 'date', operator: 'lt', value: Date.now() - 30 * DAY }
+        ] } });
+    } finally {
+      self.instance.ctx.bus.removeListener('data-update', onUpdate);
+    }
+
+    (await self.rawCol.countDocuments({ _id: insertedId })).should.equal(0);
+    removes.map((e) => e.changes).should.eql([[insertedId.toString()]]);
   });
 
   it('a failing prune is logged, does not reject unhandled, and waits for the next hourly slot', async () => {

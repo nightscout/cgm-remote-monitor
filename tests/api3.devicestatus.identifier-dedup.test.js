@@ -19,6 +19,21 @@
 //   - a devicestatus PATCH with a null removes the field (Q1b covers v3
 //     PATCH on every collection).
 //
+// CHANGED EXPECTATION (ID-FIRST-MATCH slice 4, ID-Q2): device status follows
+// the default of the other collections: a re-POST matched by its identifier
+// (sent, or computed by API v3) is merged into the stored status (RFC 7386:
+// what it sends is set, what it leaves out is kept, a null removes), with a
+// new srvModified, and announced on the storage socket. The reply is the
+// deduplication reply of a write (200, isDeduplication, the stored identifier,
+// lastModified the new srvModified). The tests below keep their titles and
+// check the merge. The created_at + device fallback still replaces
+// (ID-NATURAL-KEY).
+//
+// CHANGED EXPECTATION (maintainer 2026-10-31, compat card B): the re-POST matched by
+// its identifier REPLACES the stored status, as on 15.0.9: a field it leaves
+// out is gone. Everything else above (a new srvModified, the announcement,
+// the deduplication reply) is unchanged.
+//
 // Synthetic values only.
 
 require('should');
@@ -79,11 +94,15 @@ describe('API3 devicestatus: a re-POST with a stored identifier is acknowledged,
     res.body.isDeduplication.should.equal(true);
     res.body.identifier.should.equal('v3-ds-same');
     res.body.should.not.have.property('deduplicatedIdentifier');
-    res.body.lastModified.should.equal(before[0].srvModified);
     res.headers.location.should.endWith('/devicestatus/v3-ds-same');
-    res.headers['last-modified'].should.equal(new Date(before[0].srvModified).toUTCString());
 
-    (await storedFor('devicestatus', 'v3-ds-same')).should.eql(before);
+    // CHANGED EXPECTATION (slice 4, ID-Q2): merged, so srvModified is new; the values are as they were.
+    const after = await storedFor('devicestatus', 'v3-ds-same');
+    after.length.should.equal(1);
+    after[0].srvModified.should.be.above(before[0].srvModified);
+    res.body.lastModified.should.equal(after[0].srvModified);
+    res.headers['last-modified'].should.equal(new Date(after[0].srvModified).toUTCString());
+    Object.assign({}, after[0], { srvModified: 0 }).should.eql(Object.assign({}, before[0], { srvModified: 0 }));
   });
 
   it('a different re-POST is a deduplication and writes nothing: no replace, no new srvModified', async function () {
@@ -97,11 +116,16 @@ describe('API3 devicestatus: a re-POST with a stored identifier is acknowledged,
     res.body.isDeduplication.should.equal(true);
     res.body.identifier.should.equal('v3-ds-diff');
 
+    // CHANGED EXPECTATION (slice 4, ID-Q2): merged: the field sent is set, the one left out kept.
+    // CHANGED EXPECTATION (maintainer 2026-10-31, compat card B): replaced: the field left out (pump) is gone.
     const after = await storedFor('devicestatus', 'v3-ds-diff');
-    after.should.eql(before);
-    after[0].uploaderBattery.should.equal(50);
-    after[0].pump.should.eql({ reservoir: 100 });
-    after[0].should.not.have.property('extra');
+    after.length.should.equal(1);
+    String(after[0]._id).should.equal(String(before[0]._id));
+    after[0].uploaderBattery.should.equal(20);
+    after[0].should.not.have.property('pump');
+    after[0].extra.should.equal('x');
+    after[0].srvCreated.should.equal(before[0].srvCreated);
+    after[0].srvModified.should.be.above(before[0].srvModified);
   });
 
   it('a re-POST without identifier computes the same identifier and is acknowledged too', async function () {
@@ -114,7 +138,12 @@ describe('API3 devicestatus: a re-POST with a stored identifier is acknowledged,
     const res = await post('devicestatus', Object.assign({}, doc, { uploaderBattery: 1 })).expect(200);
     res.body.isDeduplication.should.equal(true);
     res.body.identifier.should.equal(identifier);
-    (await storedFor('devicestatus', identifier)).should.eql(before);
+    // CHANGED EXPECTATION (slice 4, ID-Q2): merged into the status the computed identifier names.
+    const after = await storedFor('devicestatus', identifier);
+    after.length.should.equal(1);
+    String(after[0]._id).should.equal(String(before[0]._id));
+    after[0].uploaderBattery.should.equal(1);
+    after[0].pump.should.eql({ reservoir: 100 });
   });
 
   it('the acknowledged re-POST sends no storage-socket update', async function () {
@@ -128,7 +157,10 @@ describe('API3 devicestatus: a re-POST with a stored identifier is acknowledged,
     } finally {
       self.instance.ctx.bus.removeListener('storage-socket-update', seen);
     }
-    events.length.should.equal(0);
+    // CHANGED EXPECTATION (slice 4, ID-Q2): the merge is announced, with the record as merged.
+    events.length.should.equal(1);
+    events[0].doc.identifier.should.equal('v3-ds-quiet');
+    events[0].doc.pump.should.eql({ reservoir: 100 });
   });
 
   it('a status first stored through v1 is acknowledged by a v3 re-POST of its identifier', async function () {
@@ -143,7 +175,12 @@ describe('API3 devicestatus: a re-POST with a stored identifier is acknowledged,
     const res = await post('devicestatus', Object.assign({}, doc, { uploaderBattery: 5 })).expect(200);
     res.body.isDeduplication.should.equal(true);
     res.body.identifier.should.equal('v3-ds-from-v1');
-    (await storedFor('devicestatus', 'v3-ds-from-v1')).should.eql(before);
+    // CHANGED EXPECTATION (slice 4, ID-Q2): merged into the status v1 stored.
+    const after = await storedFor('devicestatus', 'v3-ds-from-v1');
+    after.length.should.equal(1);
+    String(after[0]._id).should.equal(String(before[0]._id));
+    after[0].uploaderBattery.should.equal(5);
+    after[0].pump.should.eql({ reservoir: 100 });
   });
 
   it('control: a status matched through the created_at + device fallback is still replaced', async function () {
@@ -159,6 +196,7 @@ describe('API3 devicestatus: a re-POST with a stored identifier is acknowledged,
     docs[0].uploaderBattery.should.equal(10);
   });
 
+  // ID-FIRST-MATCH slice 4 (ID-Q8): the deduplicating write is a merge now.
   it('control: a treatments re-POST is still a deduplicating replace', async function () {
     const doc = { date: Date.UTC(2021, 5, 4), utcOffset: 0, app: 'v3-dedup-test', device: DEVICE, eventType: 'Note', notes: 'first' };
     doc.identifier = opTools.calculateIdentifier(doc);

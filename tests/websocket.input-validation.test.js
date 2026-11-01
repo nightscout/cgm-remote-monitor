@@ -33,6 +33,10 @@ function matchesValue (actual, condition) {
 
 function matchesQuery (document, query) {
   return Object.keys(query).every(function (field) {
+    // A write the step scoped to the _ids it resolved (WC-STEP-PATCH release 2).
+    if (field === '$and') {
+      return query.$and.every(function (part) { return matchesQuery(document, part); });
+    }
     return matchesValue(document[field], query[field]);
   });
 }

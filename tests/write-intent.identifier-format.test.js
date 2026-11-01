@@ -83,13 +83,17 @@ describe('WRITE_IDENTIFIER and WRITE_VALIDATION: one parse (lib/server/write-set
     });
   }
 
-  it('defaults to lenient and off', function ( ) {
+  // CHANGED EXPECTATION (maintainer 2026-10-31, compat card A, option (i)): WRITE_IDENTIFIER
+  // unset is its own mode, `default` (API v3 refuses a whitespace-only or
+  // numeric identifier, as 15.0.9 did); it was `lenient`.
+  it('defaults to the unset identifier mode and off', function ( ) {
     const result = parsed({ });
     // CHANGED EXPECTATION (ID-FIRST-MATCH slice 3, ID-Q3): the parse also
     // holds WRITE_DELETED_EDIT, `ignore` by default.
-    // CHANGED EXPECTATION (ID-UNIQUE-INDEX): and WRITE_IDENTIFIER_INDEX, `try`
-    // by default.
-    assert.deepStrictEqual(result.write, { validation: 'off', identifier: 'lenient', deletedEdit: 'ignore', index: 'try' });
+    // CHANGED EXPECTATION (ID-UNIQUE-INDEX and ID-RESEND-SWITCH): index
+    // (`try`) and re-send settings (`replace`, `stay`) are added.
+    assert.deepStrictEqual(result.write, { validation: 'off', identifier: 'default', deletedEdit: 'ignore'
+      , index: 'try', resend: 'replace', deletedResend: 'stay' });
     assert.deepStrictEqual(result.errors, [ ]);
   });
 
@@ -97,7 +101,9 @@ describe('WRITE_IDENTIFIER and WRITE_VALIDATION: one parse (lib/server/write-set
     assert.equal(parsed({ WRITE_IDENTIFIER: 'strict' }).write.identifier, 'strict');
     assert.equal(parsed({ WRITE_IDENTIFIER: ' STRICT ' }).write.identifier, 'strict');
     assert.equal(parsed({ WRITE_IDENTIFIER: 'Lenient' }).write.identifier, 'lenient');
-    assert.equal(parsed({ WRITE_IDENTIFIER: '' }).write.identifier, 'lenient');
+    // CHANGED EXPECTATION (maintainer 2026-10-31, compat card A, option (i)): empty is unset,
+    // the `default` mode; it was `lenient`.
+    assert.equal(parsed({ WRITE_IDENTIFIER: '' }).write.identifier, 'default');
   });
 
   it('an unknown WRITE_IDENTIFIER is an error, so the server refuses to start', function ( ) {
@@ -126,14 +132,18 @@ describe('WRITE_IDENTIFIER and WRITE_VALIDATION: one parse (lib/server/write-set
   });
 
   it('env.js sets env.write and keeps env.writeValidation from the same parse', function ( ) {
-    const saved = { WRITE_IDENTIFIER: process.env.WRITE_IDENTIFIER, WRITE_VALIDATION: process.env.WRITE_VALIDATION };
+    const saved = { WRITE_IDENTIFIER: process.env.WRITE_IDENTIFIER, WRITE_IDENTIFIER_INDEX: process.env.WRITE_IDENTIFIER_INDEX
+      , WRITE_VALIDATION: process.env.WRITE_VALIDATION };
     try {
       process.env.WRITE_IDENTIFIER = 'strict';
+      process.env.WRITE_IDENTIFIER_INDEX = 'try';
       process.env.WRITE_VALIDATION = 'log';
       let env = require('../lib/server/env')();
       // CHANGED EXPECTATION (ID-FIRST-MATCH slice 3, ID-Q3): WRITE_DELETED_EDIT too.
-      // CHANGED EXPECTATION (ID-UNIQUE-INDEX): and the index mode, `try` when unset.
-      assert.deepStrictEqual(env.write, { validation: 'log', identifier: 'strict', deletedEdit: 'ignore', index: 'try' });
+      // CHANGED EXPECTATION (ID-UNIQUE-INDEX and ID-RESEND-SWITCH): index,
+      // WRITE_RESEND and WRITE_DELETED_RESEND are parsed at boot.
+      assert.deepStrictEqual(env.write, { validation: 'log', identifier: 'strict', deletedEdit: 'ignore'
+        , index: 'try', resend: 'replace', deletedResend: 'stay' });
       assert.equal(env.writeValidation, 'log');
       assert.equal(env.err.length, 0);
 
@@ -149,9 +159,12 @@ describe('WRITE_IDENTIFIER and WRITE_VALIDATION: one parse (lib/server/write-set
     }
   });
 
-  it('identifierMode is lenient for an env without the setting', function ( ) {
-    assert.equal(writeSettings.identifierMode({ }), 'lenient');
-    assert.equal(writeSettings.identifierMode(undefined), 'lenient');
+  // CHANGED EXPECTATION (maintainer 2026-10-31, compat card A, option (i)): an env without
+  // the setting is the setting left unset, the `default` mode; it was `lenient`.
+  it('identifierMode is the unset mode for an env without the setting', function ( ) {
+    assert.equal(writeSettings.identifierMode({ }), 'default');
+    assert.equal(writeSettings.identifierMode(undefined), 'default');
+    assert.equal(writeSettings.identifierMode({ write: { identifier: 'lenient' } }), 'lenient');
     assert.equal(writeSettings.identifierMode({ write: { identifier: 'strict' } }), 'strict');
   });
 });

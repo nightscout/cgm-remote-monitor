@@ -656,6 +656,9 @@ describe('websocket: dedupe gate for the write step (WC-STEP-PATCH slice 6)', fu
       await shouldBeReplaced(await dbAdd('profile', sent), before, sent);
     });
 
+    // CHANGED EXPECTATION (maintainer 2026-10-31, compat card B): the matched re-send
+    // replaces the stored profile again, so the stored NSCLIENT_ID it leaves out
+    // is gone, as before slice 4 (ID-Q8), which merged it and kept NSCLIENT_ID.
     it('replaces the stored profile with the same startDate when no NSCLIENT_ID is sent', async function () {
       var before = await seed('profile', profile({ units: 'mmol', NSCLIENT_ID: 'nsc-p-1' }));
       var sent = profile({});
@@ -701,6 +704,16 @@ describe('websocket: dedupe gate for the write step (WC-STEP-PATCH slice 6)', fu
 
     // The events of an update: the record read back by the _id (one, even
     // when twins were updated), then data-received.
+    // The update event for both twins, in the order it named them.
+    function twinEvents (events, docs) {
+      var named = events[0] && events[0].payload && events[0].payload.changes || [ ];
+      var order = named.map(function (doc) { return doc.created_at; });
+      var sorted = docs.slice().sort(function (x, y) { return order.indexOf(x.created_at) - order.indexOf(y.created_at); });
+      named.length.should.equal(2);
+      return [{ event: 'data-update', payload: { type: 'treatments', op: 'update', changes: runtime(sorted) } }
+        , { event: 'data-received' }];
+    }
+
     function updateEvents (doc) {
       return [{ event: 'data-update', payload: { type: 'treatments', op: 'update', changes: runtime([doc]) } }
         , { event: 'data-received' }];
@@ -725,8 +738,10 @@ describe('websocket: dedupe gate for the write step (WC-STEP-PATCH slice 6)', fu
       after.length.should.equal(2);
       after.forEach(function (doc) { doc.notes.should.equal('after'); });
       result.reply.should.eql({ result: 'success' });
-      var announced = await col().findOne({ _id: { $in: [oid._id, str._id] } });
-      result.events.should.eql(updateEvents(announced));
+      // CHANGED EXPECTATION (WC-STEP-PATCH release 2, Q-A; Q-V): the cache is
+      // told every stored form the write reached, both twins; it was told the
+      // first only, so the other stayed stale in the cache.
+      result.events.should.eql(twinEvents(result.events, after));
     });
 
     it('dbUpdate by a 24-hex _id reaches a record stored with the string only', async function () {
@@ -778,8 +793,10 @@ describe('websocket: dedupe gate for the write step (WC-STEP-PATCH slice 6)', fu
       after.length.should.equal(2);
       after.forEach(function (doc) { should.not.exist(doc.foodType); });
       result.reply.should.eql({ result: 'success' });
-      var announced = await col().findOne({ _id: { $in: [oid._id, str._id] } });
-      result.events.should.eql(updateEvents(announced));
+      // CHANGED EXPECTATION (WC-STEP-PATCH release 2, Q-A; Q-V): the cache is
+      // told every stored form the write reached, both twins; it was told the
+      // first only, so the other stayed stale in the cache.
+      result.events.should.eql(twinEvents(result.events, after));
     });
 
     it('dbUpdateUnset by a custom string _id reaches that record only', async function () {

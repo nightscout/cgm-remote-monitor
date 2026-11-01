@@ -9,8 +9,10 @@
 // logged. So two apps that both send a placeholder store two records instead
 // of one landing in the other's (BF-216), and a numeric identifier on API v1
 // treatments is stored without it instead of answering 500 (BF-215).
-// WRITE_IDENTIFIER=strict refuses such a document on the socket and API v3;
-// on API v1 it is not enforced yet (ID-STRICT-V1).
+// WRITE_IDENTIFIER=strict refuses such a document on the socket and API v3,
+// and on API v1 with ID-BATCH's per-item replies (ID-STRICT-V1, maintainer
+// 2026-10-30): the item is refused in its slot, the rest of the batch stored.
+// In-process callers still treat the value as absent under strict.
 //
 // Synthetic values only; every record is dated in May 2019.
 
@@ -180,12 +182,83 @@ describe('identifier-format: API v1 and the socket', function () {
       docs[0].should.not.have.property('identifier');
     });
 
-    it('strict is not enforced on API v1 yet (ID-STRICT-V1): the placeholder is treated as absent', async function () {
+    it('strict on API v1 (ID-STRICT-V1): a lone treatment with a placeholder is refused 400, nothing stored', async function () {
       setMode('strict');
-      (await post('treatments/', treatment(0, { identifier: 'null' }))).status.should.equal(200);
+      var res = await post('treatments/', treatment(0, { identifier: 'null' }));
+      res.status.should.equal(400);
+      res.body.message.should.equal('identifier: identifier is a placeholder');
+      (await stored('treatments')).length.should.equal(0);
+    });
+
+    it('strict on API v1: in a treatments batch only the invalid item is refused, in its slot, with a Warning', async function () {
+      setMode('strict');
+      var res = await post('treatments/', [treatment(0, { carbs: 11 }), treatment(1, { identifier: 'x'.repeat(257), carbs: 12 })
+        , treatment(2, { carbs: 13 })]);
+      res.status.should.equal(200);
+      res.body.length.should.equal(3);
+      should.exist(res.body[0]._id);
+      res.body[1].should.not.have.property('_id');
+      res.body[1].carbs.should.equal(12, 'the refused slot is the item as sent');
+      res.body[1].refused.should.eql({ status: 400, message: 'identifier: identifier is longer than 256 characters'
+        , rules: [{ rule: 'identifier-format', field: 'identifier' }] });
+      should.exist(res.body[2]._id);
+      res.headers.warning.should.equal('299 - "1 of 3 treatments refused; see the refused member of each"');
+      (await stored('treatments')).map(function (d) { return d.carbs; }).should.eql([11, 13]);
+    });
+
+    it('strict on API v1: entries and device status refuse per item the same way', async function () {
+      setMode('strict');
+      var d0 = T_MS + 20 * 60000;
+      var res = await post('entries/', [
+        { type: 'sgv', sgv: 101, date: d0, dateString: new Date(d0).toISOString(), enteredBy: TAG, identifier: 'id-format-e0' }
+        , { type: 'sgv', sgv: 102, date: d0 + 60000, dateString: new Date(d0 + 60000).toISOString(), enteredBy: TAG, identifier: 'Unknown' }
+      ]);
+      res.status.should.equal(200);
+      should.exist(res.body[0]._id);
+      res.body[1].refused.message.should.equal('identifier: identifier is a placeholder');
+      res.headers.warning.should.equal('299 - "1 of 2 entries refused; see the refused member of each"');
+      (await col('entries').countDocuments({ enteredBy: TAG })).should.equal(1);
+
+      res = await post('devicestatus/', [{ created_at: at(0), device: 'app-a', enteredBy: TAG, identifier: 42 }
+        , { created_at: at(1), device: 'app-a', enteredBy: TAG }]);
+      res.status.should.equal(200);
+      res.body[0].refused.message.should.equal('identifier: identifier is not a string');
+      should.exist(res.body[1]._id);
+      (await stored('devicestatus')).length.should.equal(1);
+    });
+
+    it('strict on API v1: the refused member is the socket\'s, word for word', async function () {
+      setMode('strict');
+      var v1 = (await post('treatments/', [treatment(0, { identifier: '   ' }), treatment(1)])).body[0].refused;
+      var ws = (await emit('dbAdd', { collection: 'treatments', data: treatment(2, { identifier: '   ' }) }))[0].refused;
+      v1.should.eql(ws);
+    });
+
+    it('lenient on API v1 keeps the reply: the invalid identifier is dropped, no slot refused, no Warning', async function () {
+      var res = await post('treatments/', [treatment(0, { identifier: 'undefined' }), treatment(1)]);
+      res.status.should.equal(200);
+      res.body.forEach(function (slot) { should.exist(slot._id); should.not.exist(slot.refused); });
+      should.not.exist(res.headers.warning);
+      (await stored('treatments')).length.should.equal(2);
+    });
+
+    // WRITE_IDENTIFIER unset parses to whatever the settings module calls it
+    // (`lenient` today; compat card A names it `default`, where only API v3
+    // refuses whitespace and numeric identifiers). API v1 stays lenient either
+    // way: nothing refused, the invalid identifier dropped.
+    it('WRITE_IDENTIFIER unset on API v1: whitespace and numeric identifiers are dropped, not refused', async function () {
+      setMode(require('../lib/server/write-settings').parseIdentifierMode(undefined).mode);
+      var res = await post('treatments/', [treatment(0, { identifier: '   ', carbs: 11 }), treatment(1, { identifier: 42, carbs: 12 })
+        , treatment(2, { identifier: 'undefined', carbs: 13 })]);
+      res.status.should.equal(200);
+      res.body.forEach(function (slot) { should.exist(slot._id); should.not.exist(slot.refused); });
+      should.not.exist(res.headers.warning);
       var docs = await stored('treatments');
-      docs.length.should.equal(1);
-      docs[0].should.not.have.property('identifier');
+      docs.map(function (d) { return d.carbs; }).should.eql([11, 12, 13]);
+      docs.forEach(function (d) { d.should.not.have.property('identifier'); });
+      var entries = await post('entries/', [{ type: 'sgv', sgv: 120, date: Date.parse(at(0)), dateString: at(0), identifier: 7 }]);
+      entries.status.should.equal(200);
+      should.not.exist(entries.body[0].refused);
     });
   });
 

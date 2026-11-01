@@ -214,6 +214,7 @@ describe('entries: a re-POST carrying an _id updates the stored entry', function
     });
 
     describe('reads', function () {
+      var BACKGROUND_LIST = /at Object\.list \([^)]*lib\/server\/storage-reads\.js/;
       var finds;
       var original;
       var failFind;
@@ -234,6 +235,12 @@ describe('entries: a re-POST carrying an _id updates the stored entry', function
                   // write is not one of the reads these fixtures count, and a
                   // failure of it would fail the write (tests/lib/on-deleted-read.js).
                   if (isOnDeletedRead(filter)) return target.find.apply(target, arguments);
+                  // BF-218: the data loader's entries list (a date-range read
+                  // after data-received) can land inside a test; a POST never
+                  // lists, so count only the reads this request makes.
+                  if (BACKGROUND_LIST.test(new Error().stack)) {
+                    return target.find.apply(target, arguments);
+                  }
                   finds.push(filter);
                   if (failFind) throw new Error('test read failure');
                   return target.find.apply(target, arguments);
