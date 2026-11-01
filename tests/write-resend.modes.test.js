@@ -241,6 +241,7 @@ describe('ID-RESEND-SWITCH: WRITE_RESEND and WRITE_DELETED_RESEND, per path', fu
     self.instance.app.use('/api/v1', require('../lib/api/')(self.instance.env, self.instance.ctx));
     const authResult = await authSubject(self.instance.ctx.authorization.storage, ['all'], self.instance.app);
     self.jwt = authResult.jwt;
+    identifierAtBoot = self.instance.env.write.identifier;
     self.socket = io(self.instance.baseUrl, { transports: ['websocket'], reconnection: false });
     await new Promise((resolve, reject) => {
       self.socket.on('connect', function ( ) {
@@ -253,7 +254,8 @@ describe('ID-RESEND-SWITCH: WRITE_RESEND and WRITE_DELETED_RESEND, per path', fu
     });
   });
 
-  afterEach(( ) => setWrite({ resend: 'replace', deletedResend: 'stay' }));
+  let identifierAtBoot;
+  afterEach(( ) => setWrite({ resend: 'replace', deletedResend: 'stay', identifier: identifierAtBoot }));
 
   after(async ( ) => {
     if (self.socket) self.socket.close();
@@ -405,7 +407,7 @@ describe('ID-RESEND-SWITCH: WRITE_RESEND and WRITE_DELETED_RESEND, per path', fu
   // refuse: the reply around the slot (Q-R1, decided 2026-10-31).
   describe('WRITE_RESEND=refuse: the reply', function ( ) {
 
-    it('API v1 batch: the re-send is refused in its slot, the new record stored, 200 with a Warning count', async ( ) => {
+    it('API v1 batch: the re-send is refused in its slot, the new record stored, 200 with the Warning count (ID-BATCH\'s one rule)', async ( ) => {
       const seeded = await seed('v1', 'food', false);
       setWrite({ resend: 'refuse' });
       const t = tag();
@@ -416,7 +418,7 @@ describe('ID-RESEND-SWITCH: WRITE_RESEND and WRITE_DELETED_RESEND, per path', fu
       res.body[0].refused.rules[0].should.eql({ rule: 'resend', field: 'identifier' });
       assert.equal(res.body[0]._id, undefined);
       assert(res.body[1]._id && !res.body[1].refused);
-      res.headers.warning.should.match(/^299 - "1 of 2 food records refused: already stored \(WRITE_RESEND=refuse\)/);
+      res.headers.warning.should.equal('299 - "1 of 2 food refused; see the refused member of each"');
       (await col('food').find({ name: t }).toArray()).length.should.equal(1);
       sameRecord(await col('food').findOne({ _id: seeded.stored._id }), seeded.stored);
     });
@@ -426,8 +428,8 @@ describe('ID-RESEND-SWITCH: WRITE_RESEND and WRITE_DELETED_RESEND, per path', fu
       setWrite({ resend: 'refuse' });
       const res = await self.instance.post('/api/v1/treatments/').set('api-secret', HASH).send([seeded.body]).expect(200);
       res.body[0].refused.status.should.equal(409);
-      res.headers.warning.should.match(/1 of 1 treatments refused: already stored/);
-      assert.doesNotMatch(res.headers.warning, /WRITE_VALIDATION/);
+      // every refusal a 409: 200, not 400 (ID-BATCH R3); the generic count, not WRITE_VALIDATION's wording
+      res.headers.warning.should.equal('299 - "1 of 1 treatments refused; see the refused member of each"');
     });
 
     it('API v3 POST: 409 with a message, nothing written, no Location', async ( ) => {
@@ -465,6 +467,79 @@ describe('ID-RESEND-SWITCH: WRITE_RESEND and WRITE_DELETED_RESEND, per path', fu
       assert.equal(reply[0].refused, undefined);
       String(reply[0]._id).should.equal(String(stored._id));
       (await col('treatments').find({ notes: t }).toArray()).length.should.equal(1);
+    });
+  });
+
+  // -------------------------------------------------------------------------
+  // ID-STRICT-V1 and WRITE_RESEND=refuse compose (#8889 merged into this
+  // branch): each refusal keeps its own slot, status and rule, in batch order,
+  // under ID-BATCH's one Warning count; with both off nothing changes.
+  describe('ID-STRICT-V1 refusals and WRITE_RESEND=refuse refusals in one API v1 batch', function ( ) {
+    const ROUTES = {
+      food: { route: '/api/v1/food/', fresh: (t) => ({ type: 'food', name: t, carbs: 7, identifier: uuid() })
+        , bad: (t) => ({ type: 'food', name: t, carbs: 8, identifier: 'undefined' }), noun: 'food', field: 'name' },
+      treatments: { route: '/api/v1/treatments/', fresh: (t) => ({ eventType: 'Note', created_at: iso(nextTime()), notes: t, enteredBy: TAG, identifier: uuid() })
+        , bad: (t) => ({ eventType: 'Note', created_at: iso(nextTime()), notes: t, enteredBy: TAG, identifier: 'undefined' }), noun: 'treatments', field: 'notes' }
+    };
+
+    Object.keys(ROUTES).forEach(function (name) {
+      const r = ROUTES[name];
+
+      it(name + ': strict identifier refused 400, re-send refused 409, new record stored; two slots in order, one Warning', async ( ) => {
+        const seeded = await seed('v1', name, false);
+        const t = tag();
+        setWrite({ identifier: 'strict', resend: 'refuse' });
+        const res = await self.instance.post(r.route).set('api-secret', HASH).send([r.bad(t + '-bad'), seeded.body, r.fresh(t + '-new')]).expect(200);
+        res.body.length.should.equal(3);
+        res.body[0].refused.status.should.equal(400);
+        res.body[0].refused.rules.should.eql([{ rule: 'identifier-format', field: 'identifier' }]);
+        res.body[1].refused.status.should.equal(409);
+        res.body[1].refused.rules.should.eql([{ rule: 'resend', field: 'identifier' }]);
+        res.body[1].refused.message.should.equal('a record with this identity is already stored');
+        assert.equal(res.body[0]._id, undefined);
+        assert.equal(res.body[1]._id, undefined);
+        assert(res.body[2]._id && !res.body[2].refused);
+        res.headers.warning.should.equal('299 - "2 of 3 ' + r.noun + ' refused; see the refused member of each"');
+        sameRecord(await col(name).findOne({ _id: seeded.stored._id }), seeded.stored);
+        (await col(name).find({ [r.field]: t + '-bad' }).toArray()).length.should.equal(0);
+        (await col(name).find({ [r.field]: t + '-new' }).toArray()).length.should.equal(1);
+      });
+
+      it(name + ', opt-in results: each item keeps its own status and reason, one Warning', async ( ) => {
+        const seeded = await seed('v1', name, false);
+        const t = tag();
+        setWrite({ identifier: 'strict', resend: 'refuse' });
+        const res = await self.instance.post(r.route).set('api-secret', HASH).set('Nightscout-Write-Results', 'items')
+          .send([r.bad(t + '-bad'), seeded.body, r.fresh(t + '-new')]).expect(200);
+        res.body.items.map((it) => [it.index, it.outcome, it.status]).should.eql([[0, 'refused', 400], [1, 'refused', 409], [2, 'inserted', undefined]]);
+        res.body.items[1].reason.should.equal('a record with this identity is already stored');
+        res.body.documents[1].refused.rules.should.eql([{ rule: 'resend', field: 'identifier' }]);
+        res.headers.warning.should.equal('299 - "2 of 3 items refused"');
+      });
+
+      it(name + ': every item refused, one 400 and one 409: ID-BATCH R3 answers 400 for the batch', async ( ) => {
+        const seeded = await seed('v1', name, false);
+        const t = tag();
+        setWrite({ identifier: 'strict', resend: 'refuse' });
+        await self.instance.post(r.route).set('api-secret', HASH).send([r.bad(t + '-bad'), seeded.body]).expect(400);
+        sameRecord(await col(name).findOne({ _id: seeded.stored._id }), seeded.stored);
+        (await col(name).find({ [r.field]: t + '-bad' }).toArray()).length.should.equal(0);
+      });
+
+      it(name + ': strict identifier off and WRITE_RESEND unset: nothing refused, no Warning, the re-send replaces', async ( ) => {
+        const seeded = await seed('v1', name, false);
+        const t = tag();
+        setWrite({ identifier: identifierAtBoot, resend: 'replace' });
+        const res = await self.instance.post(r.route).set('api-secret', HASH).send([r.bad(t + '-bad'), seeded.body, r.fresh(t + '-new')]).expect(200);
+        res.body.forEach((slot) => assert.equal(slot.refused, undefined));
+        assert.equal(res.headers.warning, undefined);
+        String(res.body[1]._id).should.equal(String(seeded.stored._id));
+        const now = await col(name).findOne({ _id: seeded.stored._id });
+        assert.equal(now[KINDS[name].keep], undefined, 'replaced');
+        const bad = await col(name).find({ [r.field]: t + '-bad' }).toArray();
+        bad.length.should.equal(1);
+        assert.equal(bad[0].identifier, undefined, 'the placeholder identifier is treated as absent');
+      });
     });
   });
 
