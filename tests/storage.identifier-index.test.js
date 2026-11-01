@@ -272,15 +272,26 @@ describe('ID-UNIQUE-INDEX: the partial unique index on identifier', function () 
 
     async function bootCapturing (mode, extra) {
       var warnings = [];
+      var infos = [];
       var realWarn = console.warn;
+      var realLog = console.log;
       console.warn = function (line) { warnings.push(String(line)); };
+      console.log = function (line) { infos.push(String(line)); };
       try {
         var booted = await bootWith(mode, extra);
         booted.warnings = warnings;
+        booted.infos = infos;
         return booted;
       } finally {
         console.warn = realWarn;
+        console.log = realLog;
       }
+    }
+
+    var STILL_ENFORCED = 'The unique index on identifier is still enforced';
+
+    function indexNotifications (booted) {
+      return booted.ctx.adminnotifies.getNotifies().filter(function (n) { return n.title === STILL_ENFORCED; });
     }
 
     async function statusOf (booted) {
@@ -323,6 +334,33 @@ describe('ID-UNIQUE-INDEX: the partial unique index on identifier', function () 
       });
     });
 
+    it('off with the index present: one admin notification, with the log text, naming every such collection', async function () {
+      await bootWith('try');
+      await col('treatments').dropIndex(identifierIndex.INDEX_NAME);
+      var booted = await bootCapturing('off');
+      var notes = indexNotifications(booted);
+      notes.length.should.equal(1);
+      notes[0].message.should.equal('identifier index on devicestatus, entries, food, profile, settings, activity:'
+        + ' present and enforced: a second record with a stored identifier is refused.'
+        + ' WRITE_IDENTIFIER_INDEX=off builds nothing and drops nothing; WRITE_IDENTIFIER_INDEX=drop removes it');
+      notes[0].count.should.equal(1);
+    });
+
+    it('try and drop raise no such notification', async function () {
+      var tried = await bootWith('try');
+      indexNotifications(tried).length.should.equal(0);
+      await col('treatments').dropIndex(identifierIndex.INDEX_NAME);
+      var dropped = await bootCapturing('drop');
+      indexNotifications(dropped).length.should.equal(0);
+      // The collection that had none is an info line; each one dropped is a warning.
+      dropped.infos.filter(function (w) { return w.indexOf('identifier index') === 0; }).should.eql(
+        ['identifier index: no identifier_unique index on treatments; nothing to drop there']);
+      dropped.warnings.filter(function (w) { return w.indexOf('identifier index on ') === 0; }).length.should.equal(6);
+      dropped.warnings.some(function (w) { return w.indexOf('nothing to drop') !== -1; }).should.equal(false);
+      var off = await bootCapturing('off');
+      indexNotifications(off).length.should.equal(0, 'off with nothing left to report');
+    });
+
     it('drop with the index present: removed from every collection, one line each, and a duplicate identifier is stored twice', async function () {
       await bootWith('try');
       for (var name of NAMES) should.exist(await identifierIndex.existingIndex(col(name)), name);
@@ -335,7 +373,7 @@ describe('ID-UNIQUE-INDEX: the partial unique index on identifier', function () 
         lines.should.eql(['identifier index on ' + name + ': dropped identifier_unique from collection '
           + booted.env[name + '_collection'] + ' (WRITE_IDENTIFIER_INDEX=drop); it runs without the unique index']);
       }
-      booted.warnings.some(function (w) { return w.indexOf('nothing to drop') !== -1; }).should.equal(false);
+      booted.warnings.concat(booted.infos).some(function (w) { return w.indexOf('nothing to drop') !== -1; }).should.equal(false);
       (await otherIdentifierIndexes()).should.eql(before, 'API v3 identifier_1 is left alone');
       booted.ctx.identifierIndex.mode.should.equal('drop');
       booted.ctx.identifierIndex.ready.should.equal(false);
@@ -355,7 +393,10 @@ describe('ID-UNIQUE-INDEX: the partial unique index on identifier', function () 
       var booted = await bootCapturing('drop');
       should.not.exist(booted.ctx.bootErrors && booted.ctx.bootErrors[0]);
       booted.ctx.identifierIndex.mode.should.equal('drop');
-      var lines = booted.warnings.filter(function (w) { return w.indexOf('identifier index') === 0; });
+      // CHANGED EXPECTATION (-4e review, 2026-10-31): nothing to drop is an
+      // info line (console.log), not a warning.
+      booted.warnings.filter(function (w) { return w.indexOf('identifier index') === 0; }).should.eql([]);
+      var lines = booted.infos.filter(function (w) { return w.indexOf('identifier index') === 0; });
       lines.should.eql(['identifier index: WRITE_IDENTIFIER_INDEX=drop found no identifier_unique index on '
         + 'devicestatus, entries, food, profile, settings, treatments, activity; nothing to drop']);
       NAMES.forEach(function (n) { booted.ctx.identifierIndex.collections[n].should.eql({ state: 'off' }, n); });

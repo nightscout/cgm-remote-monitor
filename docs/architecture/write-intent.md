@@ -160,10 +160,11 @@ duplicate count run at boot, in `lib/storage/identifier-index.js`:
 - `require`: as `try`, but a collection without the index stops the boot.
 - `off`: nothing is built and nothing is dropped. An index already there is left as it is and is still
   enforced; the server logs, per collection, `identifier index on <name>: present and enforced: ...`, and
-  `/api/v1/status.json` shows that collection as `present` with `enforced: true` and the same note.
+  `/api/v1/status.json` shows that collection as `present` with `enforced: true` and the same note. One
+  admin notification, "The unique index on identifier is still enforced", names every such collection.
 - `drop`: at boot, the index is removed from each collection that has it, with one log line per
   collection (`identifier index on <name>: dropped identifier_unique from collection <stored name> ...`)
-  and one line naming the collections that had none (`... nothing to drop`). The server then runs as
+  and one info line naming the collections that had none (`... nothing to drop`). The server then runs as
   `off`, without the index. API v3's own non-unique `identifier_1` is a different index and is left
   alone. A later start under `try` builds the index again.
 
