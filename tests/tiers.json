@@ -263,6 +263,7 @@
         "tests/slice-storage-cache.test.js",
         "tests/soft-deleted.jl1.test.js",
         "tests/write-intent.on-deleted.test.js",
+        "tests/write-resend.modes.test.js",
         "tests/write-intent.merge-on-match.test.js",
         "tests/write-intent.resend-replace.test.js",
         "tests/storage*.test.js",
