@@ -36,7 +36,7 @@ describe('ID-UNIQUE-INDEX: a batch item that loses an identifier race is applied
   var DEVICE = 'batch-race-item-level-test';
   var realInsertMany = Collection.prototype.insertMany;
   var realBulkWrite = Collection.prototype.bulkWrite;
-  var realForCollection = writeIntent.forCollection;
+  var realForCollection = writeIntent.forCollectionIntent;
   var updates = [];
   var results = [];
   var warned = [];
@@ -71,7 +71,7 @@ describe('ID-UNIQUE-INDEX: a batch item that loses an identifier race is applied
     warned = [];
     console.warn = function () { warned.push(Array.prototype.join.call(arguments, ' ')); return realWarn.apply(console, arguments); };
     // Each result the write step answers, by collection.
-    writeIntent.forCollection = function forCollection (storage, name) {
+    writeIntent.forCollectionIntent = function forCollectionIntent (storage, name) {
       var step = realForCollection.apply(this, arguments);
       var write = step.write;
       step.write = async function (intent) {
@@ -88,7 +88,7 @@ describe('ID-UNIQUE-INDEX: a batch item that loses an identifier race is applied
     console.warn = realWarn;
     Collection.prototype.insertMany = realInsertMany;
     Collection.prototype.bulkWrite = realBulkWrite;
-    writeIntent.forCollection = realForCollection;
+    writeIntent.forCollectionIntent = realForCollection;
   });
 
   after(dropAll);

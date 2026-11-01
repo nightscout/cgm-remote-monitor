@@ -33,7 +33,7 @@ describe('API v1 entries batch: a taken _id and an identifier race together (BF-
   var HOLDER = '5f3200000000000000000e72';
   var RACE = 'entries-taken-and-race-1';
   var realBulkWrite = Collection.prototype.bulkWrite;
-  var realForCollection = writeIntent.forCollection;
+  var realForCollection = writeIntent.forCollectionIntent;
   var updates = [];
 
   function at (minute, second) { return Date.UTC(2021, 7, 8, 8, minute, second || 0); }
@@ -65,7 +65,7 @@ describe('API v1 entries batch: a taken _id and an identifier race together (BF-
   beforeEach(function () { updates = []; return dropAll(); });
   afterEach(function () {
     Collection.prototype.bulkWrite = realBulkWrite;
-    writeIntent.forCollection = realForCollection;
+    writeIntent.forCollectionIntent = realForCollection;
   });
   after(dropAll);
 
@@ -88,7 +88,7 @@ describe('API v1 entries batch: a taken _id and an identifier race together (BF-
 
     // Each outcome the entries write step answers (the D-EVENT items[]).
     var results = [];
-    writeIntent.forCollection = function forCollection (storage, name) {
+    writeIntent.forCollectionIntent = function forCollectionIntent (storage, name) {
       var step = realForCollection.apply(this, arguments);
       if (name !== 'entries') return step;
       var write = step.write;
@@ -109,7 +109,7 @@ describe('API v1 entries batch: a taken _id and an identifier race together (BF-
       res = await request(self.app).post('/api/entries/').set('api-secret', known).send(batch).expect(200);
     } finally { console.warn = warn; }
     Collection.prototype.bulkWrite = realBulkWrite;
-    writeIntent.forCollection = realForCollection;
+    writeIntent.forCollectionIntent = realForCollection;
     should.exist(other, 'the other upload was stored at the first bulk write');
 
     // Only the raced slot is applied again: the slots the ordered bulk write
