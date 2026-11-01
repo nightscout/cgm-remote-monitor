@@ -188,6 +188,49 @@ describe('ID-RESEND-SWITCH: the rule table', function ( ) {
     assert.throws(( ) => step.settle({ op: 'create', docs: [doc] }, stored, 'replaced'), TypeError);
   });
 
+  // settle()'s shape (release 2's owner, 2026-11-01): one item, outcome
+  // `unchanged` or `refused`, `removed` and `updated` absent, and exactly one
+  // D-EVENT per answer, so a consumer can tell from either alone that nothing
+  // changed.
+  [
+    ['a v3 acknowledgement (WRITE_RESEND=acknowledge)', 'acknowledge', false, 'unchanged', writeIntent.RESEND_REASON],
+    ['a v3 refusal (WRITE_RESEND=refuse)', 'refuse', false, 'refused', writeIntent.RESEND_REASON],
+    ['the on-deleted acknowledgement (WRITE_DELETED_RESEND=stay)', 'replace', true, 'unchanged', writeIntent.DELETED_REASON]
+  ].forEach(function ([label, mode, deleted, outcome, reason]) {
+    it('settle() shape: ' + label, async function ( ) {
+      const seeded = await seed(Object.assign({ date: NOW - 480000 - (deleted ? 1 : 0), app: 'resend-switch', device: 'resend-switch' }
+        , deleted ? { isValid: false } : { }));
+      const bus = new EventEmitter();
+      const events = [ ];
+      bus.on(writeIntent.INTENT_EVENT, (e) => events.push(e));
+      const env = { write: Object.freeze({ resend: mode, deletedResend: 'stay' }) };
+      const step = writeIntent.forCollectionIntent(storage('food', 'v3', bus), 'food', 'v3', { env, bus });
+      const doc = { date: seeded.date, app: seeded.app, device: seeded.device, identifier: seeded.identifier };
+      const intent = { op: 'create', docs: [doc] };
+      const stored = await step.match(Object.assign({ fallbackFields: ['created_at'] }, intent));
+      // the route's own decision (lib/api3/generic/create/operation.js)
+      const action = step.onDeleted(intent, stored) === 'acknowledged' ? 'acknowledged' : step.resendAction(intent, stored);
+      assert.equal(action, outcome === 'refused' ? 'refused' : 'acknowledged');
+      const written = step.settle(intent, stored, outcome, reason);
+      assert.deepStrictEqual(Object.keys(written).sort(), ['adapter', 'event', 'items']);
+      assert.equal(written.event, null);
+      assert.equal(written.adapter, null);
+      assert.equal('updated' in written, false);
+      assert.equal('removed' in written, false);
+      assert.equal(written.items.length, 1);
+      assert.deepStrictEqual(Object.assign({ }, written.items[0], { _id: undefined }), { index: 0, outcome, _id: undefined
+        , identifier: seeded.identifier, reason });
+      assert.equal(events.length, 1);
+      const e = JSON.parse(JSON.stringify(events[0]));
+      assert.deepStrictEqual(e, { collection: 'food', source: 'v3', op: 'create', collapsed: false
+        , records: [{ _id: e.records[0]._id, identifier: seeded.identifier, outcome, problems: [reason] }]
+        , counts: { records: 1, outcomes: { [outcome]: 1 } } });
+      assert(Object.isFrozen(events[0]));
+      const now = await db.collection(physical).findOne({ _id: seeded._id });
+      assert.deepStrictEqual(JSON.parse(JSON.stringify(now)), JSON.parse(JSON.stringify(seeded)));
+    });
+  });
+
   it('replace (the default): the step writes as the compatibility head does', async function ( ) {
     const seeded = await seed({ type: 'food', name: 'h', carbs: 1 });
     const env = { write: Object.freeze({ resend: 'replace', deletedResend: 'stay' }) };

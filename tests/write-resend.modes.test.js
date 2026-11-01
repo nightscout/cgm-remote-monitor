@@ -356,6 +356,52 @@ describe('ID-RESEND-SWITCH: WRITE_RESEND and WRITE_DELETED_RESEND, per path', fu
   });
 
   // -------------------------------------------------------------------------
+  // Permission does not depend on WRITE_RESEND (owner decision 2026-11-01): a
+  // client with create but not update permission that re-sends a CHANGED
+  // profile gets today's whole-batch 401 (ID-BATCH (iii), no opt-in) under
+  // every mode; nothing in the batch is stored, and the stored profile is as
+  // it was. An opt-in mode must not widen what a create-only client can do or
+  // learn (acknowledge would answer the stored _id).
+  describe('a create-only client re-sending a changed profile: the whole-batch 401 under every mode', function ( ) {
+    let creatorToken;
+
+    before(async ( ) => {
+      const auth = self.instance.ctx.authorization.storage;
+      const name = 'resend-switch-profile-create-only';
+      if (!auth.roles.some((role) => role.name === name)) {
+        await new Promise((resolve, reject) => auth.createRole({ name, permissions: ['api:profile:read', 'api:profile:create'] }
+          , (err) => err ? reject(err) : resolve()));
+      }
+      if (!auth.subjects.some((subject) => subject.name === name)) {
+        await new Promise((resolve, reject) => auth.createSubject({ name, roles: [name] }, (err) => err ? reject(err) : resolve()));
+      }
+      creatorToken = auth.subjects.find((subject) => subject.name === name).accessToken;
+    });
+
+    MODES.forEach(function (mode) {
+      ['identifier', '_id'].forEach(function (key) {
+        it(mode + ', by ' + key + ': 401, nothing stored, the stored profile unchanged', async ( ) => {
+          const seeded = await seed('v1', 'profile', false);
+          const resent = Object.assign({ }, seeded.body);
+          if (key === '_id') {
+            delete resent.identifier;
+            resent._id = String(seeded.stored._id);
+          }
+          const fresh = tag();
+          const ms = nextTime();
+          setWrite({ resend: mode });
+          const res = await self.instance.post('/api/v1/profile/').set('api-secret', creatorToken)
+            .send([resent, { defaultProfile: fresh, startDate: iso(ms), created_at: iso(ms), store: { [fresh]: { dia: 3 } } }]);
+          res.status.should.equal(401);
+          assert.equal(JSON.stringify(res.body).indexOf(String(seeded.stored._id)), -1, 'the reply names no stored _id');
+          sameRecord(await col('profile').findOne({ _id: seeded.stored._id }), seeded.stored);
+          (await col('profile').find({ defaultProfile: fresh }).toArray()).length.should.equal(0);
+        });
+      });
+    });
+  });
+
+  // -------------------------------------------------------------------------
   // refuse: the reply around the slot (Q-R1, decided 2026-10-31).
   describe('WRITE_RESEND=refuse: the reply', function ( ) {
 

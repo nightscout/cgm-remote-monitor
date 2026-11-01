@@ -114,6 +114,12 @@ v3's computed identifier), the step asks `resendOutcome()` instead:
 | `acknowledge` | nothing written; the reply names the stored record | `unchanged`, reason `resend` |
 | `refuse` | nothing written; API v1 and in-process answer the item's refused slot (409, `rules: [{ rule: 'resend', field }]`) in a 200 reply with a `Warning: 299` count, API v3 POST answers 409 after the same permission and immutable-field checks as the acknowledgement, the socket answers its refused slot (409). The socket's exact match (NSCLIENT_ID or a client identity) is refused; its ±2 s similar match never is | `refused`, reason `resend` |
 
+`WRITE_RESEND` covers live matches only; a match on a soft-deleted record is governed by
+`WRITE_DELETED_RESEND` alone (under `refuse` it is acknowledged and stays deleted). No mode changes a
+permission check: the profile create decides the update-permission refusal (the whole-batch 401 for a
+create-only client whose re-send would change a stored profile) from the table's rule, before any mode
+applies.
+
 A time key (an entry's `sysTime` + `type`, a treatment's fallback key without a client identity, device
 status `created_at`, API v3's fallback fields) keeps the table's outcome under every mode: API v1 and
 in-process entries matched that way merge as on 15.0.9.
@@ -125,8 +131,10 @@ time key stores a new record beside the deleted one under either value.
 
 An answer without a write (acknowledged or refused) is still a `write(intent)`: its item names the stored
 record and `isNotWritten()` is true for it, so no module announces it, and `WriteResult.updated` is absent
-or empty. API v3 answers such a POST in the route; the route calls the step's `settle()`, which returns the
-same one-item WriteResult and, through `forCollectionIntent`, emits its D-EVENT. `resendModeFor(env,
+or empty. API v3 answers such a POST in the route; the route calls the step's `settle()`, which returns
+exactly `{ items, event: null, adapter: null }` (one item, `unchanged` or `refused`, `removed` and `updated`
+absent) and, through `forCollectionIntent`, emits one D-EVENT with one record, also for the on-deleted
+acknowledgement. Nothing in `lib/` listens to D-EVENT. `resendModeFor(env,
 client)` in `lib/server/write-settings.js` is where a per-client D20 quirk will select a mode; today it
 answers the site setting.
 
