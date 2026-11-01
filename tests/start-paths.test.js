@@ -118,6 +118,14 @@ async function observe (port, secret) {
   const home = await get(port, '/');
   const statusBody = JSON.parse(status.body);
   for (const key of ['serverTime', 'serverTimeEpoch', 'runtimeState', 'boot']) delete statusBody[key];
+  // `built` describes this boot's work; `present` means the same index was
+  // already there. Both are ready, so compare start paths on that stable state.
+  const identifierIndex = statusBody.identifierIndex;
+  if (identifierIndex && identifierIndex.collections) {
+    for (const collection of Object.values(identifierIndex.collections)) {
+      if (collection.state === 'built' || collection.state === 'present') collection.state = 'ready';
+    }
+  }
   return {
     versions: { status: versions.status, body: JSON.parse(versions.body) }
     , status: { status: status.status, body: statusBody }
