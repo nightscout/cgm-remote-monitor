@@ -6,6 +6,7 @@ const { ObjectId } = require('mongodb');
 
 const writeIntent = require('../lib/storage/write-intent');
 const MongoCachedCollection = require('../lib/api3/storage/mongoCachedCollection');
+const MongoCachedCollectionBefore = require('./fixtures/write-intent/api3-cached-collection-71738792');
 const utils = require('../lib/api3/storage/mongoCollection/utils');
 const security = require('../lib/api3/security');
 const srvDates = require('../lib/server/srv-dates');
@@ -19,6 +20,14 @@ const srvDates = require('../lib/server/srv-dates');
 // db3b9e4e (tests/fixtures/write-intent/api3-*-db3b9e4e.js) and as it is now
 // runs over the same recording storage and bus: the storage calls, the bus
 // emissions, the reply and the stored record must be equal.
+//
+// Write-contract Q-A (WC-STEP-PATCH release 2): every v3 write now resolves
+// the _ids it touches first and names them to the cache itself, so the
+// storage calls differ by design (a resolve before each write, a read back by
+// _id). The baseline runs the db3b9e4e modules over the cached wrapper as it
+// is at 71738792 (tests/fixtures/write-intent/api3-cached-collection-71738792.js);
+// the bus emissions, the reply and the stored record must still be equal, and
+// the writes the same methods with the same identifiers and documents.
 //
 // Synthetic values only.
 
@@ -37,7 +46,10 @@ const BEFORE = {
 
 const STORED_ID = new ObjectId('5f00000000000000000000a1');
 const NEW_ID = new ObjectId('5f00000000000000000000b2');
+// The ObjectId twin of a v1 record stored twice by _id (string and ObjectId).
+const TWIN_ID = new ObjectId('5f00000000000000000000c3');
 const CACHED = ['treatments', 'entries', 'devicestatus'];
+const WRITE_METHODS = ['insertOne', 'replaceOne', 'updateOne', 'updateEveryForm', 'deleteEveryForm'];
 const QUERY_METHODS = ['insertMany', 'deleteMany', 'bulkUpsert', 'updateMany', 'replaceFiltered', 'deleteManyOr'];
 
 // A copy at the moment of the call or emission: plain objects and arrays
@@ -75,6 +87,16 @@ function baseStorage (calls, state) {
       return docs;
     }),
     findMany: record('findMany', found),
+    // Id resolution (write-contract Q-A, release 2): the stored record's _id,
+    // or every form state.forms names; autoPrune's matches from state.pruned
+    // (null: over the cap).
+    resolveOne: record('resolveOne', function ( ) { return state.stored ? [state.stored._id] : [ ]; }),
+    resolveEveryForm: record('resolveEveryForm', function ( ) {
+      if (state.forms !== undefined) return state.forms;
+      return state.stored ? [state.stored._id] : [ ];
+    }),
+    resolveOr: record('resolveOr', function ( ) { return state.pruned === undefined ? [ ] : state.pruned; }),
+    findByIds: record('findByIds', found),
     insertOne: record('insertOne', function (doc) {
       // As modify.insertOne with normalize: false: the document carries the
       // _id it was stored under.
@@ -132,7 +154,8 @@ function harness (colName, stored, options) {
     purifier: { purifyObject: function (o) { return o; } }
   };
   const state = { stored: stored ? snap(stored) : null };
-  const storage = new MongoCachedCollection(ctx, { }, colName, baseStorage(calls, state));
+  const Wrapper = opts.wrapper || MongoCachedCollection;
+  const storage = new Wrapper(ctx, { }, colName, baseStorage(calls, state));
   let pruned = 0;
   const col = {
     colName,
@@ -236,9 +259,11 @@ let clock;
 const realNext = srvDates.next;
 const realAuthenticate = security.authenticate;
 
-async function run (impl, scenario) {
+async function run (impl, scenario, state) {
   clock = 1761739200000;
-  const h = harness(scenario.col, scenario.stored, scenario.options);
+  const options = Object.assign({ }, scenario.options, impl === BEFORE ? { wrapper: MongoCachedCollectionBefore } : { });
+  const h = harness(scenario.col, scenario.stored, options);
+  Object.assign(h.state, state);
   security.authenticate = async function ( ) { return h.auth; };
   let thrown = null;
   const errors = [ ];
@@ -289,17 +314,28 @@ describe('write(intent): API v3 create, update, patch and delete (equal to db3b9
     it(name, async function ( ) {
       const before = await run(BEFORE, SCENARIOS[name]);
       const now = liftAddressedRead(await run(NOW, SCENARIOS[name]));
+      // CHANGED EXPECTATION (WC-STEP-PATCH release 2, write-contract Q-A):
+      // every write method, its identifier and its document as before; the
+      // resolve and read-back calls around them are new by design.
+      const writes = function (o) {
+        // method, identifier, and the document or fields written (a delete
+        // has none: its third argument is now the resolved _ids)
+        return o.calls.filter(function (c) { return WRITE_METHODS.indexOf(c[0]) !== -1; })
+          .map(function (c) { return c.slice(0, c[0] === 'deleteEveryForm' ? 2 : 3); });
+      };
       if (name === 'POST deduplicated into a stored record without srvCreated') {
         // CHANGED EXPECTATION (ID-FIRST-MATCH slice 4, ID-Q8): a POST that
         // matched a stored record is merged into it: updateOne(identifier,
         // the same stamped document as $set, no $unset) where it was
         // replaceOne, so a field the POST leaves out (created_at) is kept, and
         // the storage socket announces the record as merged. The reply, its
-        // headers and every other call are as they were.
-        const at = before.calls.findIndex(function (c) { return c[0] === 'replaceOne'; });
-        assert.deepStrictEqual(now.calls[at], ['updateOne', before.calls[at][1], before.calls[at][2], { }]);
-        assert.deepStrictEqual(now.calls.filter(function (c, i) { return i !== at; })
-          , before.calls.filter(function (c, i) { return i !== at; }));
+        // headers and every other write are as they were.
+        const was = writes(before);
+        const is = writes(now);
+        const at = was.findIndex(function (c) { return c[0] === 'replaceOne'; });
+        assert.deepStrictEqual(is[at], ['updateOne', was[at][1], was[at][2]]);
+        assert.deepStrictEqual(now.calls.find(function (c) { return c[0] === 'updateOne'; })[3], { });
+        assert.deepStrictEqual(is.filter(function (c, i) { return i !== at; }), was.filter(function (c, i) { return i !== at; }));
         assert.deepStrictEqual([now.status, now.headers, now.body, now.thrown, now.errors]
           , [before.status, before.headers, before.body, before.thrown, before.errors]);
         assert.deepStrictEqual(now.events.map(function (e) { return e[0]; }), before.events.map(function (e) { return e[0]; }));
@@ -311,7 +347,8 @@ describe('write(intent): API v3 create, update, patch and delete (equal to db3b9
         assert.deepStrictEqual(Object.assign({ }, now.stored, { created_at: undefined }), Object.assign({ }, before.stored, { created_at: undefined }));
         return;
       }
-      assert.deepStrictEqual(now, before);
+      assert.deepStrictEqual(writes(now), writes(before), name + ': writes');
+      assert.deepStrictEqual(Object.assign({ }, now, { calls: null }), Object.assign({ }, before, { calls: null }), name);
     });
   });
 
@@ -423,10 +460,11 @@ describe('write(intent): API v3 writes by identifier, so the cache hears only th
     assert.equal(updates[0].changes[0].subject, 'tester');
   });
 
-  it('PUT: replaceOne by the stored identifier, then data-update update with the record as read back', async function ( ) {
+  it('PUT: resolved to the stored _id, replaceOne scoped to it, then data-update update with the record as read back', async function ( ) {
     const outcome = await run(NOW, SCENARIOS['PUT a treatment over a stored one (srvCreated carried, duration derived)']);
-    assert.deepStrictEqual(outcome.calls.map(function (c) { return c[0]; }), ['replaceOne', 'findOne']);
-    assert.equal(outcome.calls[0][1], 'wi-v3-stored');
+    assert.deepStrictEqual(outcome.calls.map(function (c) { return c[0]; }), ['resolveOne', 'replaceOne', 'findByIds']);
+    assert.equal(outcome.calls[1][1], 'wi-v3-stored');
+    assert.equal(String(outcome.calls[1][3]), String(STORED_ID));
     const updates = dataUpdates(outcome);
     assert.equal(updates.length, 1);
     assert.equal(updates[0].op, 'update');
@@ -438,9 +476,10 @@ describe('write(intent): API v3 writes by identifier, so the cache hears only th
 
   it('PATCH: updateOne by identifier with the Merge Patch, then data-update update with the record', async function ( ) {
     const outcome = await run(NOW, SCENARIOS['PATCH a treatment: a field set and a null removed']);
-    assert.deepStrictEqual(outcome.calls.map(function (c) { return c[0]; }), ['findOneFilter', 'updateOne', 'findOne']);
-    assert.equal(outcome.calls[1][1], 'wi-v3-stored');
-    assert.deepStrictEqual(outcome.calls[1][3], { carbs: '' });
+    assert.deepStrictEqual(outcome.calls.map(function (c) { return c[0]; }), ['findOneFilter', 'resolveOne', 'updateOne', 'findByIds']);
+    assert.equal(outcome.calls[2][1], 'wi-v3-stored');
+    assert.deepStrictEqual(outcome.calls[2][3], { carbs: '' });
+    assert.equal(String(outcome.calls[2][4]), String(STORED_ID));
     const updates = dataUpdates(outcome);
     assert.equal(updates.length, 1);
     assert.equal(updates[0].op, 'update');
@@ -450,15 +489,38 @@ describe('write(intent): API v3 writes by identifier, so the cache hears only th
 
   it('DELETE: marked invalid by every form, then data-update remove with the record\'s _id', async function ( ) {
     const outcome = await run(NOW, SCENARIOS['DELETE a treatment (marked invalid)']);
-    assert.deepStrictEqual(outcome.calls.map(function (c) { return c[0]; }), ['findOne', 'updateEveryForm', 'findEveryForm']);
-    assert.deepStrictEqual(Object.keys(outcome.calls[1][2]), ['isValid', 'srvModified', 'modifiedBy']);
+    assert.deepStrictEqual(outcome.calls.map(function (c) { return c[0]; }), ['findOne', 'resolveEveryForm', 'updateEveryForm']);
+    assert.deepStrictEqual(Object.keys(outcome.calls[2][2]), ['isValid', 'srvModified', 'modifiedBy']);
+    assert.deepStrictEqual(outcome.calls[2][3].map(String), [String(STORED_ID)]);
     assert.deepStrictEqual(dataUpdates(outcome), [{ type: 'treatments', op: 'remove', changes: [String(STORED_ID)] }]);
   });
 
   it('DELETE permanent: removed by every form, then data-update remove with the record\'s _id', async function ( ) {
     const outcome = await run(NOW, SCENARIOS['DELETE an entry permanently']);
-    assert.deepStrictEqual(outcome.calls.map(function (c) { return c[0]; }), ['findOne', 'findEveryForm', 'deleteEveryForm']);
+    assert.deepStrictEqual(outcome.calls.map(function (c) { return c[0]; }), ['findOne', 'resolveEveryForm', 'deleteEveryForm']);
+    assert.deepStrictEqual(outcome.calls[2][2].map(String), [String(STORED_ID)]);
     assert.deepStrictEqual(dataUpdates(outcome), [{ type: 'entries', op: 'remove', changes: [String(STORED_ID)] }]);
+  });
+
+  // Write-contract Q-A (release 2): a record stored in two forms (the v1
+  // string and ObjectId twins) is deleted by every form and both are named,
+  // where the cached wrapper used to drop the whole cache for more than one.
+  it('DELETE of a record stored in two forms: both _ids named, no cache reload', async function ( ) {
+    const outcome = await run(NOW, SCENARIOS['DELETE an entry permanently'], { forms: [STORED_ID, TWIN_ID] });
+    assert.deepStrictEqual(outcome.calls[2][2].map(String), [String(STORED_ID), String(TWIN_ID)]);
+    assert.deepStrictEqual(dataUpdates(outcome), [{ type: 'entries', op: 'remove', changes: [String(STORED_ID), String(TWIN_ID)] }]);
+  });
+
+  it('DELETE (marked invalid) of a record stored in two forms: both _ids named, no cache reload', async function ( ) {
+    const outcome = await run(NOW, SCENARIOS['DELETE a treatment (marked invalid)'], { forms: [STORED_ID, TWIN_ID] });
+    assert.deepStrictEqual(outcome.calls[2][3].map(String), [String(STORED_ID), String(TWIN_ID)]);
+    assert.deepStrictEqual(dataUpdates(outcome), [{ type: 'treatments', op: 'remove', changes: [String(STORED_ID), String(TWIN_ID)] }]);
+  });
+
+  it('DELETE over the resolve cap: the plain every-form filter, then the collection\'s cache reloads', async function ( ) {
+    const outcome = await run(NOW, SCENARIOS['DELETE an entry permanently'], { forms: null });
+    assert.equal(outcome.calls[2][2], null);
+    assert.deepStrictEqual(dataUpdates(outcome), [{ type: 'entries', op: 'remove', changes: undefined }]);
   });
 });
 
@@ -492,15 +554,17 @@ describe('write(intent): the API v3 rule table (slice 4)', function ( ) {
   it('answers each write with its outcome', async function ( ) {
     const calls = [ ];
     const state = { stored: storedRecord('food') };
-    const step = writeIntent.forCollection(baseStorage(calls, state), 'food', 'v3', { env: { } });
+    const step = writeIntent.forCollectionResolved(baseStorage(calls, state), 'food', 'v3', { env: { } });
     srvDates.next = function ( ) { return 1761739200001; };
     try {
       const created = await step.write({ op: 'create', docs: [{ identifier: 'a' }] });
-      assert.deepStrictEqual(created.items, [{ index: 0, outcome: 'inserted', _id: null, identifier: 'a' }]);
+      // Q-A (release 2): the item names the _id the document was stored under.
+      assert.deepStrictEqual(created.items, [{ index: 0, outcome: 'inserted', _id: NEW_ID, identifier: 'a' }]);
       state.stored = storedRecord('food');
       const replaced = await step.write({ op: 'update', docs: [{ identifier: 'wi-v3-stored' }]
         , target: { identifier: 'wi-v3-stored', stored: storedRecord('food') } });
       assert.equal(replaced.items[0].outcome, 'replaced');
+      assert.equal(String(replaced.items[0]._id), String(STORED_ID));
       const patched = await step.write({ op: 'patch', docs: [{ name: 'b' }]
         , target: { identifier: 'wi-v3-stored', stored: storedRecord('food') } });
       assert.equal(patched.items[0].outcome, 'merged');
@@ -524,5 +588,40 @@ describe('write(intent): the API v3 rule table (slice 4)', function ( ) {
     const step = writeIntent.forCollection(baseStorage(calls, { stored: null }), 'food', 'v3', { env: { } });
     await assert.rejects(step.write({ op: 'delete', target: { identifier: 'a' } }), /No write rules for delete form/);
     assert.deepStrictEqual(calls, [ ]);
+  });
+});
+
+// Write-contract Q-U (release 2): autoPrune goes through the write step. Its
+// matches are resolved and named to the cache; over the resolve cap the plain
+// filter is deleted and the collection's cache reloads, as before.
+describe('write(intent): API v3 autoPrune through the step (Q-U)', function ( ) {
+  const FILTER = [{ field: 'srvCreated', operator: 'lt', value: 1700000000000 }];
+
+  async function prune (pruned) {
+    const h = harness('entries', null);
+    h.state.pruned = pruned;
+    const written = await writeIntent.forCollectionResolved(h.col.storage, 'entries', 'v3', { env: { } })
+      .write({ op: 'prune', target: { filter: FILTER } });
+    return { calls: h.calls, updates: h.events.filter(function (e) { return e[0] === 'data-update'; }).map(function (e) { return e[1]; }), written };
+  }
+
+  it('names every document it removed, scoped to them', async function ( ) {
+    const outcome = await prune([STORED_ID, TWIN_ID]);
+    assert.deepStrictEqual(outcome.calls.map(function (c) { return c[0]; }), ['resolveOr', 'deleteManyOr']);
+    assert.deepStrictEqual(outcome.calls[1][1], FILTER);
+    assert.deepStrictEqual(outcome.calls[1][2].map(String), [String(STORED_ID), String(TWIN_ID)]);
+    assert.deepStrictEqual(outcome.updates, [{ type: 'entries', op: 'remove', changes: [String(STORED_ID), String(TWIN_ID)] }]);
+    assert.equal(outcome.written.adapter.deleted, 1);
+  });
+
+  it('nothing to prune: nothing announced', async function ( ) {
+    const outcome = await prune([ ]);
+    assert.deepStrictEqual(outcome.updates, [ ]);
+  });
+
+  it('over the resolve cap: the plain filter, then the collection\'s cache reloads', async function ( ) {
+    const outcome = await prune(null);
+    assert.equal(outcome.calls[1][2], null);
+    assert.deepStrictEqual(outcome.updates, [{ type: 'entries', op: 'remove', changes: undefined }]);
   });
 });

@@ -17,7 +17,10 @@ describe('API3 document Location headers', function () {
           // Location must not depend on arbitrary request URL/proxy metadata.
           req: {baseUrl: '/\\external.example', path: '/elsewhere', headers: {host: 'external.example'}},
           col: {colName: 'treatments', autoPrune() {}, storage: {
-            insertOne: async () => identifier, replaceOne: async () => 1
+            insertOne: async () => identifier, replaceOne: async () => 1,
+            // write-contract Q-A: the step resolves the stored _id first and
+            // reads the record back by it for the cache
+            resolveOne: async () => ['5f00000000000000000000a1'], findByIds: async () => []
           }}};
         if (deduplicate) await replace(opCtx, {...doc}, {...doc}, {isDeduplication: true});
         else await insert(opCtx, {...doc});
