@@ -315,8 +315,14 @@ describe('legacy storage selector hardening', function () {
 
     await storage.prune(10);
 
-    capturedFilter.$or[1].startDate.should.deepEqual({$eq: boundary.startDate});
-    capturedFilter.$or[2].startDate.should.deepEqual({$eq: null});
+    // CHANGED EXPECTATION (WC-STEP-PATCH release 2, write-contract Q-A): the
+    // prune is resolved to the _ids it matches first and scoped to them; the
+    // prune selector itself is the first part of that $and, unchanged.
+    capturedFilter.$and.length.should.equal(2);
+    capturedFilter.$and[1].should.deepEqual({_id: {$in: [boundary._id]}});
+    var pruneFilter = capturedFilter.$and[0];
+    pruneFilter.$or[1].startDate.should.deepEqual({$eq: boundary.startDate});
+    pruneFilter.$or[2].startDate.should.deepEqual({$eq: null});
   });
 
   it('rejects new object-valued profile start dates before insertion', async function () {

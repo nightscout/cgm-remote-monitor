@@ -104,7 +104,12 @@ function baseStorage (calls, state) {
       return doc.identifier || String(doc._id);
     }),
     replaceOne: record('replaceOne', function ( ) { return 1; }),
-    updateOne: record('updateOne', function ( ) { return { updated: 1 }; })
+    updateOne: record('updateOne', function ( ) { return { updated: 1 }; }),
+    // WC-STEP-PATCH release 2 (write-contract Q-A): the step resolves the
+    // record a write by identifier lands on (writeFilter's read: the first
+    // found) and reads the record back by that _id for the cache.
+    resolveOne: record('resolveOne', function ( ) { return state.found && state.found.length ? [state.found[0]._id] : [ ]; }),
+    findByIds: record('findByIds', function ( ) { return snap(state.found || [ ]); })
   };
 }
 
@@ -225,9 +230,14 @@ describe('write(intent): API v3 create\'s identifying read, moved into the step'
         // identifier, then the cache's read-back), answered with the
         // deduplication reply of a write, and announced; it was acknowledged
         // with no write. The identifying read is the same.
+        // CHANGED EXPECTATION (WC-STEP-PATCH release 2, Q-A): the step resolves
+        // the record the write lands on first, writes scoped to its _id, and the
+        // cache reads it back by that _id (it read it back by identifier).
         assert.deepStrictEqual(now.calls.slice(0, before.calls.length), before.calls);
-        assert.deepStrictEqual(now.calls.slice(before.calls.length).map(function (call) { return call[0]; }), ['updateOne', 'findOne']);
+        assert.deepStrictEqual(now.calls.slice(before.calls.length).map(function (call) { return call[0]; })
+          , ['resolveOne', 'updateOne', 'findByIds']);
         assert.equal(now.calls[before.calls.length][1], ID);
+        assert.equal(now.calls[before.calls.length + 1][1], ID);
         assert.equal(now.status, 200);
         assert.equal(before.status, 200);
         assert.deepStrictEqual(Object.keys(now.body).filter(function (key) { return now.body[key] !== undefined; })
@@ -339,13 +349,15 @@ describe('write(intent): API v3 PUT and PATCH /{identifier} land on the record P
     const now = await runAddressed(NOW_UPDATE, { col: 'treatments', found: [b, a], named: [b, a]
       , body: body(Object.assign({ eventType: 'Note', notes: 'a edited' }, A_TIME)) });
     assert.equal(now.status, 200, JSON.stringify(now.errors));
-    assert.deepStrictEqual(names(now), ['findOneFilter', 'findFiltered', 'replaceOne', 'findOneFilter']);
+    // CHANGED EXPECTATION (WC-STEP-PATCH release 2, Q-A): the read-back for
+    // the cache is by the _id written (findByIds; it was findOneFilter by it).
+    assert.deepStrictEqual(names(now), ['findOneFilter', 'findFiltered', 'replaceOne', 'findByIds']);
     assert.deepStrictEqual(now.calls[0][3], { normalize: false, limit: 2 });
     const replace = now.calls[2];
     assert.equal(replace[1], ID);
     assert.equal(replace[2].notes, 'a edited');
     assert.deepStrictEqual(replace[3], STORED_ID);
-    assert.deepStrictEqual(now.calls[3].slice(1), [{ _id: STORED_ID }, null, { normalize: false }]);
+    assert.deepStrictEqual(now.calls[3].slice(1), [[STORED_ID]]);
     assert.equal(now.warnings.length, 1);
     assert.ok(now.warnings[0].indexOf('treatments v3 PUT: identifier names 2 records; the write lands on '
       + String(STORED_ID) + ' (same time)') !== -1, now.warnings[0]);
@@ -386,8 +398,12 @@ describe('write(intent): API v3 PUT and PATCH /{identifier} land on the record P
       const now = await runAddressed(impl, { col: 'treatments', found: [a], body: input });
       assert.equal(now.status, 200, JSON.stringify(now.errors));
       const write = impl === NOW_UPDATE ? 'replaceOne' : 'updateOne';
-      assert.deepStrictEqual(names(now), ['findOneFilter', write, 'findOne']);
-      assert.equal(now.calls[1].length, impl === NOW_UPDATE ? 3 : 4, 'no _id passed to ' + write);
+      // CHANGED EXPECTATION (WC-STEP-PATCH release 2, Q-A): the step resolves
+      // the record writeFilter would land on and passes its _id, and the cache
+      // reads it back by that _id; it passed none and read back by identifier.
+      assert.deepStrictEqual(names(now), ['findOneFilter', 'resolveOne', write, 'findByIds']);
+      assert.equal(now.calls[2].length, impl === NOW_UPDATE ? 4 : 5, 'the resolved _id passed to ' + write);
+      assert.deepStrictEqual(now.calls[2][now.calls[2].length - 1], STORED_ID);
       assert.deepStrictEqual(now.warnings, [ ]);
     }
   });
@@ -396,7 +412,8 @@ describe('write(intent): API v3 PUT and PATCH /{identifier} land on the record P
     const shownById = stored({ _id: NEW_ID, identifier: undefined, eventType: 'Note' });
     const now = await runAddressed(NOW_PATCH, { col: 'treatments', found: [a, shownById], body: { notes: 'edited' } });
     assert.equal(now.status, 200, JSON.stringify(now.errors));
-    assert.deepStrictEqual(names(now), ['findOneFilter', 'updateOne', 'findOne']);
+    // CHANGED EXPECTATION (WC-STEP-PATCH release 2, Q-A): resolved, then read back by _id.
+    assert.deepStrictEqual(names(now), ['findOneFilter', 'resolveOne', 'updateOne', 'findByIds']);
   });
 
   it('a picked record that is soft deleted is answered 410 and nothing is written', async function ( ) {

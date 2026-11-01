@@ -1023,15 +1023,17 @@ describe('CRUD by _id matrix: v1, v3 and websocket, every collection and stored 
           await send(from, 'original');
           await send(to, 'edited');
           const stored = await storedFor(col, id);
-          // v1 and internal entries now match on identifier first, so a resend
-          // from any path finds the stored entry. v3 does not populate v1's
-          // sysTime key, and the socket does not match on identifier yet, so a
-          // v3->socket resend used to store a second entry.
-          // CHANGED EXPECTATION (ID-UNIQUE-INDEX): the unique index on
-          // identifier refuses that second entry; the socket answers it as a
-          // refused insert, and the one stored entry is the original.
+          // CHANGED EXPECTATION (ID-FIRST-MATCH slice 6, 2026-10-31): the socket's
+          // dbAdd now matches on identifier first, as this comment asked for. An
+          // entries re-send through the socket lands on the stored entry and
+          // merges (written: edited), from every path; the v3->socket duplicate
+          // is gone. Was: a socket re-send was not written, and v3->socket stored
+          // a second entry.
+          // CHANGED EXPECTATION (decision B, maintainer 2026-10-31): a treatment
+          // re-send through the socket that matches by identifier replaces the
+          // stored treatment, so it is written (edited) too. Was: kept unwritten.
           should(stored.length).equal(1);
-          should(allEdited(stored)).equal(to !== 'socket');
+          should(allEdited(stored)).equal(true);
         });
       }
     }
