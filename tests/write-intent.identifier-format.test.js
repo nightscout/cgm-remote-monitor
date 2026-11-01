@@ -90,7 +90,10 @@ describe('WRITE_IDENTIFIER and WRITE_VALIDATION: one parse (lib/server/write-set
     const result = parsed({ });
     // CHANGED EXPECTATION (ID-FIRST-MATCH slice 3, ID-Q3): the parse also
     // holds WRITE_DELETED_EDIT, `ignore` by default.
-    assert.deepStrictEqual(result.write, { validation: 'off', identifier: 'default', deletedEdit: 'ignore' });
+    // CHANGED EXPECTATION (ID-RESEND-SWITCH): and WRITE_RESEND (`replace`)
+    // and WRITE_DELETED_RESEND (`stay`).
+    assert.deepStrictEqual(result.write, { validation: 'off', identifier: 'default', deletedEdit: 'ignore'
+      , resend: 'replace', deletedResend: 'stay' });
     assert.deepStrictEqual(result.errors, [ ]);
   });
 
@@ -123,7 +126,9 @@ describe('WRITE_IDENTIFIER and WRITE_VALIDATION: one parse (lib/server/write-set
       process.env.WRITE_VALIDATION = 'log';
       let env = require('../lib/server/env')();
       // CHANGED EXPECTATION (ID-FIRST-MATCH slice 3, ID-Q3): WRITE_DELETED_EDIT too.
-      assert.deepStrictEqual(env.write, { validation: 'log', identifier: 'strict', deletedEdit: 'ignore' });
+      // CHANGED EXPECTATION (ID-RESEND-SWITCH): WRITE_RESEND and WRITE_DELETED_RESEND too.
+      assert.deepStrictEqual(env.write, { validation: 'log', identifier: 'strict', deletedEdit: 'ignore'
+        , resend: 'replace', deletedResend: 'stay' });
       assert.equal(env.writeValidation, 'log');
       assert.equal(env.err.length, 0);
 
