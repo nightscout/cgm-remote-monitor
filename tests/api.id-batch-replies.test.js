@@ -110,6 +110,18 @@ describe('ID-BATCH: API v1 batch replies', function () {
   beforeEach(function () { setMode(); return dropAll(); });
   after(function () { setMode(); return dropAll(); });
 
+  describe('plan() takes only an array as a batch', function () {
+    var plan = require('../lib/api/shared/batch-reply').plan;
+    it('a string is no item, a lone object is one, an array is itself', function () {
+      plan('abcdef', { env: {} }).n.should.equal(0);
+      plan(null, { env: {} }).n.should.equal(0);
+      var one = plan({ carbs: 5 }, { env: {} });
+      one.n.should.equal(1);
+      one.accepted.should.eql([{ carbs: 5 }]);
+      plan([{ carbs: 1 }, { carbs: 2 }], { env: {} }).n.should.equal(2);
+    });
+  });
+
   describe('G1: the default reply (no opt-in) is an array of slots, as before', function () {
     ['treatments', 'entries', 'devicestatus', 'profile'].forEach(function (name) {
       it(name + ': an array, one slot per item, the stored records, no per-item results', async function () {
@@ -171,7 +183,18 @@ describe('ID-BATCH: API v1 batch replies', function () {
       var res = await post('treatments/', [treatment(0), treatment(1, { preBolus: 10, carbs: 30 })]);
       res.status.should.equal(200);
       res.body.length.should.equal(2);
-      (await col('treatments').countDocuments({ created_at: { $gte: at(0) } })).should.equal(3, 'the derived record is stored');
+      // The derived record carries only created_at, eventType and carbs (no
+      // enteredBy), so it is found by its own created_at: the sent one plus
+      // preBolus minutes. Other files' records in the shared database are
+      // never counted, and the derived record is removed here, since the
+      // cleanup by enteredBy cannot see it.
+      var derived = { created_at: at(11), eventType: 'Carb Correction', enteredBy: { $exists: false } };
+      try {
+        (await col('treatments').countDocuments({ enteredBy: TAG })).should.equal(2, 'both sent items are stored');
+        (await col('treatments').countDocuments(derived)).should.equal(1, 'the derived record is stored');
+      } finally {
+        await col('treatments').deleteMany(derived);
+      }
     });
   });
 
