@@ -86,4 +86,57 @@ describe('Notifications API', function ( ) {
     //2nd call should have no effect, done should NOT be called again
     makeRequest();
   });
+
+  it('answers 200 to a Pushover callback for an unknown receipt', function (done) {
+    var acks = [];
+    var ctx = { pushnotify: { pushoverAck: function (body) { acks.push(body); return false; } } };
+    var app = require('express')();
+    app.use('/', notificationsAPI(app, {}, ctx));
+    request(app)
+      .post('/notifications/pushovercallback')
+      .type('form')
+      .send({ receipt: 'gone', acknowledged: '1' })
+      .expect(200)
+      .end(function (err) {
+        should.not.exist(err);
+        acks.should.have.length(1);
+        acks[0].receipt.should.equal('gone');
+        done();
+      });
+  });
+
+  it('acknowledges a known receipt once and answers 200 to its repeated callback', async function () {
+    var acks = [];
+    var ctx = {
+      bus: new Stream
+      , levels: levels
+      , notifications: { ack: function () { acks.push(Array.from(arguments)); } }
+      , pushover: {
+        send: function (notify, callback) {
+          callback(null, JSON.stringify({ receipt: 'known' }));
+        }
+      }
+    };
+    var env = {
+      settings: {
+        isAlarmEventEnabled: function () { return true; }
+        , snoozeFirstMinsForAlarmEvent: function () { return 15; }
+      }
+    };
+    ctx.pushnotify = require('../lib/server/pushnotify')(env, ctx);
+    var app = require('express')();
+    app.use('/', notificationsAPI(app, {}, ctx));
+
+    try {
+      ctx.pushnotify.emitNotification({ level: levels.WARN, group: 'default', plugin: { name: 'test' } });
+      await request(app).post('/notifications/pushovercallback').type('form')
+        .send({ receipt: 'known', acknowledged: '1' }).expect(200);
+      await request(app).post('/notifications/pushovercallback').type('form')
+        .send({ receipt: 'known', acknowledged: '1' }).expect(200);
+      should.deepEqual(acks, [[levels.WARN, 'default', 15 * 60 * 1000, true]]);
+    } finally {
+      ctx.bus.emit('teardown');
+    }
+  });
+
 });
