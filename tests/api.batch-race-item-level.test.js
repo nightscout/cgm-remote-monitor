@@ -127,6 +127,9 @@ describe('ID-UNIQUE-INDEX: a batch item that loses an identifier race is applied
     var written = results.filter(function (r) { return r.name === 'devicestatus'; });
     written.length.should.equal(1);
     written[0].result.items.map(function (i) { return i.outcome; }).should.eql(['inserted', 'replaced']);
+    // Q-A (#8890): a replace is an update, named in WriteResult.updated, so
+    // the raced item's replace names the other upload's record.
+    (written[0].result.updated || []).map(String).should.eql([String(other)]);
     raceLines().should.equal(1, 'one race handled');
 
     var s0 = await col('devicestatus').find({ identifier: 'batch-race-status-0' }).toArray();
@@ -222,6 +225,7 @@ describe('ID-UNIQUE-INDEX: a batch item that loses an identifier race is applied
     written.length.should.equal(1);
     // CHANGED EXPECTATION (compat card B, extended): replaced, as the table says.
     written[0].result.items.map(function (i) { return i.outcome; }).should.eql(['inserted', 'replaced', 'inserted']);
+    (written[0].result.updated || []).map(String).should.eql([String(other)], 'Q-A: the replace names the holder');
     raceLines().should.equal(1, 'one race handled');
     var s0 = await col('food').find({ identifier: RACE + '-0' }).toArray();
     s0.length.should.equal(1);
@@ -262,6 +266,7 @@ describe('ID-UNIQUE-INDEX: a batch item that loses an identifier race is applied
     var written = results.filter(function (r) { return r.name === 'activity'; });
     written.length.should.equal(1);
     written[0].result.items.map(function (i) { return i.outcome; }).should.eql(['inserted', 'replaced', 'inserted']);
+    (written[0].result.updated || []).map(String).should.eql([String(other)], 'Q-A: the replace names the holder');
     raceLines().should.equal(1, 'one race handled');
     (await col('activity').countDocuments({ identifier: RACE + '-0' })).should.equal(1);
     (await col('activity').countDocuments({ identifier: RACE + '-2' })).should.equal(1, 'slot 2 stored after the raced slot');
