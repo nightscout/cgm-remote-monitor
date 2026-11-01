@@ -4,6 +4,7 @@
   "API3_DEDUP_FALLBACK_ENABLED": true,
   "API3_CREATED_AT_FALLBACK_ENABLED": true,
   "API3_MAX_LIMIT": 1000,
+  "API3_SETTINGS_STRICT_READ_ENABLED": false,
 
   "HTTP": {
     "OK": 200,
@@ -15,6 +16,7 @@
     "FORBIDDEN": 403,
     "NOT_FOUND": 404,
     "NOT_ACCEPTABLE": 406,
+    "CONFLICT": 409,
     "GONE": 410,
     "PRECONDITION_FAILED": 412,
     "UNPROCESSABLE_ENTITY": 422,
@@ -33,6 +35,7 @@
     "HTTP_400_SORT_SORT_DESC": "Parameters sort and sort_desc cannot be combined",
     "HTTP_400_UNSUPPORTED_FILTER_OPERATOR": "Unsupported filter operator {0}",
     "HTTP_400_IMMUTABLE_FIELD": "Field {0} cannot be modified by the client",
+    "HTTP_400_CLIENT_ID": "Field _id is assigned by Nightscout and is not accepted; send the record's own id in the identifier field",
     "HTTP_401_BAD_TOKEN": "Bad access token or JWT",
     "HTTP_401_MISSING_OR_BAD_TOKEN": "Missing or bad access token or JWT",
     "HTTP_403_MISSING_PERMISSION": "Missing permission {0}",

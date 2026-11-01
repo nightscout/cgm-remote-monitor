@@ -1,0 +1,141 @@
+{
+  "scope": "Only installed semver package files; excludes tarballs, filesystem allocation, symlinks and runtime heap",
+  "before": {
+    "lockSha256": "659a1e7ca065f378035f76bd884d8d04abb29ec5eee0136dae01f872878d6503",
+    "copies": [
+      {
+        "path": "node_modules/@babel/core/node_modules/semver",
+        "version": "7.8.5",
+        "devOnly": true,
+        "installedBytes": 101065
+      },
+      {
+        "path": "node_modules/@babel/helper-compilation-targets/node_modules/semver",
+        "version": "7.8.5",
+        "devOnly": true,
+        "installedBytes": 101065
+      },
+      {
+        "path": "node_modules/@babel/helper-create-class-features-plugin/node_modules/semver",
+        "version": "7.8.5",
+        "devOnly": true,
+        "installedBytes": 101065
+      },
+      {
+        "path": "node_modules/@babel/helper-create-regexp-features-plugin/node_modules/semver",
+        "version": "7.8.5",
+        "devOnly": true,
+        "installedBytes": 101065
+      },
+      {
+        "path": "node_modules/@babel/preset-env/node_modules/semver",
+        "version": "7.8.5",
+        "devOnly": true,
+        "installedBytes": 101065
+      },
+      {
+        "path": "node_modules/@parse/node-apn/node_modules/semver",
+        "version": "7.8.0",
+        "devOnly": false,
+        "installedBytes": 100030
+      },
+      {
+        "path": "node_modules/eslint/node_modules/semver",
+        "version": "7.8.0",
+        "devOnly": true,
+        "installedBytes": 100030
+      },
+      {
+        "path": "node_modules/istanbul-lib-instrument/node_modules/@babel/core/node_modules/semver",
+        "version": "6.3.1",
+        "devOnly": true,
+        "installedBytes": 68343
+      },
+      {
+        "path": "node_modules/istanbul-lib-instrument/node_modules/@babel/helper-compilation-targets/node_modules/semver",
+        "version": "6.3.1",
+        "devOnly": true,
+        "installedBytes": 68343
+      },
+      {
+        "path": "node_modules/istanbul-lib-instrument/node_modules/semver",
+        "version": "7.8.0",
+        "devOnly": true,
+        "installedBytes": 100030
+      },
+      {
+        "path": "node_modules/istanbul-lib-report/node_modules/semver",
+        "version": "7.8.0",
+        "devOnly": true,
+        "installedBytes": 100030
+      },
+      {
+        "path": "node_modules/jsonwebtoken/node_modules/semver",
+        "version": "7.8.0",
+        "devOnly": false,
+        "installedBytes": 100030
+      },
+      {
+        "path": "node_modules/nodemon/node_modules/semver",
+        "version": "7.8.0",
+        "devOnly": true,
+        "installedBytes": 100030
+      },
+      {
+        "path": "node_modules/semver",
+        "version": "6.3.1",
+        "devOnly": false,
+        "installedBytes": 68343
+      },
+      {
+        "path": "node_modules/simple-update-notifier/node_modules/semver",
+        "version": "7.8.0",
+        "devOnly": true,
+        "installedBytes": 100030
+      }
+    ],
+    "totalCopies": 15,
+    "productionCopies": 3,
+    "totalInstalledBytes": 1410564,
+    "productionInstalledBytes": 268403
+  },
+  "after": {
+    "lockSha256": "0580ddadf916e7a77f86cea8bd3df03fdab0554cd296f32e43773deec6881d1a",
+    "copies": [
+      {
+        "path": "node_modules/istanbul-lib-instrument/node_modules/@babel/core/node_modules/semver",
+        "version": "6.3.1",
+        "devOnly": true,
+        "installedBytes": 68343
+      },
+      {
+        "path": "node_modules/istanbul-lib-instrument/node_modules/@babel/helper-compilation-targets/node_modules/semver",
+        "version": "6.3.1",
+        "devOnly": true,
+        "installedBytes": 68343
+      },
+      {
+        "path": "node_modules/make-dir/node_modules/semver",
+        "version": "6.3.1",
+        "devOnly": true,
+        "installedBytes": 68343
+      },
+      {
+        "path": "node_modules/semver",
+        "version": "7.8.5",
+        "devOnly": false,
+        "installedBytes": 101065
+      }
+    ],
+    "totalCopies": 4,
+    "productionCopies": 1,
+    "totalInstalledBytes": 306094,
+    "productionInstalledBytes": 101065
+  },
+  "delta": {
+    "totalCopies": -11,
+    "productionCopies": -2,
+    "totalInstalledBytes": -1104470,
+    "productionInstalledBytes": -167338
+  }
+}

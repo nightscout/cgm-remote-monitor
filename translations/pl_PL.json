@@ -377,6 +377,8 @@
     "Values loaded.": "Wartości wczytane.",
     "Default values used.": "Używane domyślne wartości.",
     "Error. Default values used.": "Błąd. Używane domyślne wartości.",
+    "Enter every profile value before saving.": "Enter every profile value before saving.",
+    "Your profile could not be loaded. Reload before editing.": "Your profile could not be loaded. Reload before editing.",
     "Time ranges of target_low and target_high don't  match. Values are restored to defaults.": "Zakres czasu w docelowo niskim i wysokim przedziale nie są dopasowane. Przywrócono wartości domyślne",
     "Valid from:": "Ważne od:",
     "Save current record before switching to new?": "Nagrać bieżący rekord przed przełączeniem na nowy?",

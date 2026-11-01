@@ -2,6 +2,7 @@
 'use strict';
 
 require('should');
+const { onlyIn } = require('./fixtures/api3/role');
 
 /*
  * Acking an alarm silences it for every viewer of the instance, for a duration
@@ -10,7 +11,7 @@ require('should');
  * used not to, so any token that resolved to a known subject could silence
  * everyone's alarms whatever its role said.
  */
-describe('Alarm socket ack authorization', function () {
+onlyIn('single', 'subject is the alarm socket (websocket)').describe('Alarm socket ack authorization', function () {
   const self = this
     , instance = require('./fixtures/api3/instance')
     , authSubject = require('./fixtures/api3/authSubject')

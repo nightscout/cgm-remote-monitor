@@ -1,0 +1,3684 @@
+[
+  {
+    "scope": "real pushnotify with mocked providers and clock; not whole-server memory",
+    "baseline": "9a110324de84ed5d14a189e7a51a755c9b5c8645",
+    "node": "v22.23.2",
+    "beforeLoad": {
+      "rss": 44023808,
+      "heapTotal": 6701056,
+      "heapUsed": 3856856,
+      "external": 1745549,
+      "arrayBuffers": 10475
+    },
+    "loaded": {
+      "rss": 53624832,
+      "heapTotal": 7749632,
+      "heapUsed": 4950680,
+      "external": 1888222,
+      "arrayBuffers": 16619
+    },
+    "cycles": [
+      {
+        "workloadMs": 12.706625000000003,
+        "populated": {
+          "rss": 57720832,
+          "heapTotal": 10371072,
+          "heapUsed": 5480048,
+          "external": 1957558,
+          "arrayBuffers": 16619
+        },
+        "released": {
+          "rss": 58163200,
+          "heapTotal": 9846784,
+          "heapUsed": 5231472,
+          "external": 1957558,
+          "arrayBuffers": 16619
+        },
+        "timers": 2
+      },
+      {
+        "workloadMs": 10.115415999999996,
+        "populated": {
+          "rss": 59686912,
+          "heapTotal": 10895360,
+          "heapUsed": 5539448,
+          "external": 1957558,
+          "arrayBuffers": 16619
+        },
+        "released": {
+          "rss": 59686912,
+          "heapTotal": 10633216,
+          "heapUsed": 5273888,
+          "external": 1957558,
+          "arrayBuffers": 16619
+        },
+        "timers": 2
+      },
+      {
+        "workloadMs": 8.195874999999987,
+        "populated": {
+          "rss": 60030976,
+          "heapTotal": 10633216,
+          "heapUsed": 5562376,
+          "external": 1957558,
+          "arrayBuffers": 16619
+        },
+        "released": {
+          "rss": 60342272,
+          "heapTotal": 10633216,
+          "heapUsed": 5307144,
+          "external": 1957558,
+          "arrayBuffers": 16619
+        },
+        "timers": 2
+      },
+      {
+        "workloadMs": 7.7670829999999995,
+        "populated": {
+          "rss": 64077824,
+          "heapTotal": 15089664,
+          "heapUsed": 5575048,
+          "external": 1957558,
+          "arrayBuffers": 16619
+        },
+        "released": {
+          "rss": 64176128,
+          "heapTotal": 14827520,
+          "heapUsed": 5304304,
+          "external": 1957558,
+          "arrayBuffers": 16619
+        },
+        "timers": 2
+      },
+      {
+        "workloadMs": 7.961917,
+        "populated": {
+          "rss": 64405504,
+          "heapTotal": 15089664,
+          "heapUsed": 5588528,
+          "external": 1957558,
+          "arrayBuffers": 16619
+        },
+        "released": {
+          "rss": 64405504,
+          "heapTotal": 14827520,
+          "heapUsed": 5323648,
+          "external": 1957558,
+          "arrayBuffers": 16619
+        },
+        "timers": 2
+      }
+    ],
+    "closed": {
+      "rss": 64487424,
+      "heapTotal": 14827520,
+      "heapUsed": 5295408,
+      "external": 1957558,
+      "arrayBuffers": 16619
+    },
+    "sends": 5000,
+    "acks": 2500,
+    "cancels": 2500,
+    "suppressed": 25000,
+    "modules": 96,
+    "timers": 0,
+    "sources": {
+      "lib/server/pushnotify.js": "ead3da5a223b2f48980aaae89ab550c972bdecd1907617f4f3d88c64cacf911f",
+      "package-lock.json": "376a459f3e505df6fb88524018d6095a7c6638dced2bc72cc7c0fa1179b88ceb"
+    },
+    "sourceSha256": "986c6700067fc2c87bf6d2024f10ccbaa0744bf6ec9dde9f1dbb471acf09c826",
+    "run": 0,
+    "label": "baseline"
+  },
+  {
+    "scope": "real pushnotify with mocked providers and clock; not whole-server memory",
+    "baseline": "cd5b192bbc191c73988c5d8b58304d86784be757",
+    "node": "v22.23.2",
+    "beforeLoad": {
+      "rss": 44056576,
+      "heapTotal": 6701056,
+      "heapUsed": 3856472,
+      "external": 1745549,
+      "arrayBuffers": 10475
+    },
+    "loaded": {
+      "rss": 53379072,
+      "heapTotal": 7749632,
+      "heapUsed": 5059360,
+      "external": 1938629,
+      "arrayBuffers": 16619
+    },
+    "cycles": [
+      {
+        "workloadMs": 10.487208000000003,
+        "populated": {
+          "rss": 58425344,
+          "heapTotal": 10895360,
+          "heapUsed": 5624360,
+          "external": 2007965,
+          "arrayBuffers": 16619
+        },
+        "released": {
+          "rss": 58720256,
+          "heapTotal": 10371072,
+          "heapUsed": 5326488,
+          "external": 2007965,
+          "arrayBuffers": 16619
+        },
+        "timers": 2
+      },
+      {
+        "workloadMs": 9.188749999999999,
+        "populated": {
+          "rss": 59621376,
+          "heapTotal": 10633216,
+          "heapUsed": 5719408,
+          "external": 2007965,
+          "arrayBuffers": 16619
+        },
+        "released": {
+          "rss": 59686912,
+          "heapTotal": 10371072,
+          "heapUsed": 5374088,
+          "external": 2007965,
+          "arrayBuffers": 16619
+        },
+        "timers": 2
+      },
+      {
+        "workloadMs": 8.003957999999997,
+        "populated": {
+          "rss": 60227584,
+          "heapTotal": 14827520,
+          "heapUsed": 5747952,
+          "external": 2007965,
+          "arrayBuffers": 16619
+        },
+        "released": {
+          "rss": 60325888,
+          "heapTotal": 14565376,
+          "heapUsed": 5414248,
+          "external": 2007965,
+          "arrayBuffers": 16619
+        },
+        "timers": 2
+      },
+      {
+        "workloadMs": 7.448959000000002,
+        "populated": {
+          "rss": 64225280,
+          "heapTotal": 14827520,
+          "heapUsed": 5784056,
+          "external": 2007965,
+          "arrayBuffers": 16619
+        },
+        "released": {
+          "rss": 64225280,
+          "heapTotal": 14565376,
+          "heapUsed": 5426696,
+          "external": 2007965,
+          "arrayBuffers": 16619
+        },
+        "timers": 2
+      },
+      {
+        "workloadMs": 7.299959000000001,
+        "populated": {
+          "rss": 64372736,
+          "heapTotal": 14827520,
+          "heapUsed": 5800280,
+          "external": 2007965,
+          "arrayBuffers": 16619
+        },
+        "released": {
+          "rss": 64372736,
+          "heapTotal": 14565376,
+          "heapUsed": 5445568,
+          "external": 2007965,
+          "arrayBuffers": 16619
+        },
+        "timers": 2
+      }
+    ],
+    "closed": {
+      "rss": 64438272,
+      "heapTotal": 14565376,
+      "heapUsed": 5419448,
+      "external": 2007965,
+      "arrayBuffers": 16619
+    },
+    "sends": 5000,
+    "acks": 2500,
+    "cancels": 2500,
+    "suppressed": 25000,
+    "modules": 13,
+    "timers": 0,
+    "sources": {
+      "lib/server/pushnotify.js": "acc62bc800611674e598376a475c7da02c3e9e809d51a18fcaf5502299175ee8",
+      "lib/utils/notification-cache.js": "43c0c8a331c5f9280fb44dee66a884262001148c38f32ece2eaec745166a8b6e",
+      "package-lock.json": "8e44e03500c5bdc484dbb1f62a815959cf261f5675c081305ccd734d4eaa67da"
+    },
+    "sourceSha256": "986c6700067fc2c87bf6d2024f10ccbaa0744bf6ec9dde9f1dbb471acf09c826",
+    "run": 0,
+    "label": "candidate"
+  },
+  {
+    "scope": "real pushnotify with mocked providers and clock; not whole-server memory",
+    "baseline": "9a110324de84ed5d14a189e7a51a755c9b5c8645",
+    "node": "v22.23.2",
+    "beforeLoad": {
+      "rss": 43745280,
+      "heapTotal": 6701056,
+      "heapUsed": 3856856,
+      "external": 1745549,
+      "arrayBuffers": 10475
+    },
+    "loaded": {
+      "rss": 53362688,
+      "heapTotal": 7749632,
+      "heapUsed": 4950608,
+      "external": 1888222,
+      "arrayBuffers": 16619
+    },
+    "cycles": [
+      {
+        "workloadMs": 11.564499999999999,
+        "populated": {
+          "rss": 57442304,
+          "heapTotal": 10371072,
+          "heapUsed": 5479976,
+          "external": 1957558,
+          "arrayBuffers": 16619
+        },
+        "released": {
+          "rss": 57769984,
+          "heapTotal": 9846784,
+          "heapUsed": 5231400,
+          "external": 1957558,
+          "arrayBuffers": 16619
+        },
+        "timers": 2
+      },
+      {
+        "workloadMs": 9.390707999999997,
+        "populated": {
+          "rss": 59342848,
+          "heapTotal": 10633216,
+          "heapUsed": 5539368,
+          "external": 1957558,
+          "arrayBuffers": 16619
+        },
+        "released": {
+          "rss": 59392000,
+          "heapTotal": 10371072,
+          "heapUsed": 5273808,
+          "external": 1957558,
+          "arrayBuffers": 16619
+        },
+        "timers": 2
+      },
+      {
+        "workloadMs": 8.666584,
+        "populated": {
+          "rss": 59686912,
+          "heapTotal": 10633216,
+          "heapUsed": 5562296,
+          "external": 1957558,
+          "arrayBuffers": 16619
+        },
+        "released": {
+          "rss": 59768832,
+          "heapTotal": 10371072,
+          "heapUsed": 5307064,
+          "external": 1957558,
+          "arrayBuffers": 16619
+        },
+        "timers": 2
+      },
+      {
+        "workloadMs": 8.116917,
+        "populated": {
+          "rss": 63438848,
+          "heapTotal": 14827520,
+          "heapUsed": 5574968,
+          "external": 1957558,
+          "arrayBuffers": 16619
+        },
+        "released": {
+          "rss": 63520768,
+          "heapTotal": 14565376,
+          "heapUsed": 5304224,
+          "external": 1957558,
+          "arrayBuffers": 16619
+        },
+        "timers": 2
+      },
+      {
+        "workloadMs": 7.649916000000005,
+        "populated": {
+          "rss": 63799296,
+          "heapTotal": 15089664,
+          "heapUsed": 5588448,
+          "external": 1957558,
+          "arrayBuffers": 16619
+        },
+        "released": {
+          "rss": 63881216,
+          "heapTotal": 14827520,
+          "heapUsed": 5323568,
+          "external": 1957558,
+          "arrayBuffers": 16619
+        },
+        "timers": 2
+      }
+    ],
+    "closed": {
+      "rss": 63963136,
+      "heapTotal": 14827520,
+      "heapUsed": 5295328,
+      "external": 1957558,
+      "arrayBuffers": 16619
+    },
+    "sends": 5000,
+    "acks": 2500,
+    "cancels": 2500,
+    "suppressed": 25000,
+    "modules": 96,
+    "timers": 0,
+    "sources": {
+      "lib/server/pushnotify.js": "ead3da5a223b2f48980aaae89ab550c972bdecd1907617f4f3d88c64cacf911f",
+      "package-lock.json": "376a459f3e505df6fb88524018d6095a7c6638dced2bc72cc7c0fa1179b88ceb"
+    },
+    "sourceSha256": "986c6700067fc2c87bf6d2024f10ccbaa0744bf6ec9dde9f1dbb471acf09c826",
+    "run": 1,
+    "label": "baseline"
+  },
+  {
+    "scope": "real pushnotify with mocked providers and clock; not whole-server memory",
+    "baseline": "cd5b192bbc191c73988c5d8b58304d86784be757",
+    "node": "v22.23.2",
+    "beforeLoad": {
+      "rss": 43728896,
+      "heapTotal": 6701056,
+      "heapUsed": 3856472,
+      "external": 1745549,
+      "arrayBuffers": 10475
+    },
+    "loaded": {
+      "rss": 53215232,
+      "heapTotal": 7749632,
+      "heapUsed": 5059432,
+      "external": 1938629,
+      "arrayBuffers": 16619
+    },
+    "cycles": [
+      {
+        "workloadMs": 10.854375000000001,
+        "populated": {
+          "rss": 58376192,
+          "heapTotal": 10895360,
+          "heapUsed": 5624432,
+          "external": 2007965,
+          "arrayBuffers": 16619
+        },
+        "released": {
+          "rss": 58638336,
+          "heapTotal": 10371072,
+          "heapUsed": 5326608,
+          "external": 2007965,
+          "arrayBuffers": 16619
+        },
+        "timers": 2
+      },
+      {
+        "workloadMs": 9.276540999999995,
+        "populated": {
+          "rss": 59424768,
+          "heapTotal": 10633216,
+          "heapUsed": 5725352,
+          "external": 2007965,
+          "arrayBuffers": 16619
+        },
+        "released": {
+          "rss": 59523072,
+          "heapTotal": 10371072,
+          "heapUsed": 5374144,
+          "external": 2007965,
+          "arrayBuffers": 16619
+        },
+        "timers": 2
+      },
+      {
+        "workloadMs": 8.194541999999998,
+        "populated": {
+          "rss": 60194816,
+          "heapTotal": 14827520,
+          "heapUsed": 5747968,
+          "external": 2007965,
+          "arrayBuffers": 16619
+        },
+        "released": {
+          "rss": 60276736,
+          "heapTotal": 14565376,
+          "heapUsed": 5414264,
+          "external": 2007965,
+          "arrayBuffers": 16619
+        },
+        "timers": 2
+      },
+      {
+        "workloadMs": 8.034499999999994,
+        "populated": {
+          "rss": 64045056,
+          "heapTotal": 15089664,
+          "heapUsed": 5784104,
+          "external": 2007965,
+          "arrayBuffers": 16619
+        },
+        "released": {
+          "rss": 64176128,
+          "heapTotal": 14565376,
+          "heapUsed": 5426744,
+          "external": 2007965,
+          "arrayBuffers": 16619
+        },
+        "timers": 2
+      },
+      {
+        "workloadMs": 8.150417000000004,
+        "populated": {
+          "rss": 64356352,
+          "heapTotal": 14827520,
+          "heapUsed": 5794520,
+          "external": 2007965,
+          "arrayBuffers": 16619
+        },
+        "released": {
+          "rss": 64405504,
+          "heapTotal": 14565376,
+          "heapUsed": 5445616,
+          "external": 2007965,
+          "arrayBuffers": 16619
+        },
+        "timers": 2
+      }
+    ],
+    "closed": {
+      "rss": 64471040,
+      "heapTotal": 14565376,
+      "heapUsed": 5419496,
+      "external": 2007965,
+      "arrayBuffers": 16619
+    },
+    "sends": 5000,
+    "acks": 2500,
+    "cancels": 2500,
+    "suppressed": 25000,
+    "modules": 13,
+    "timers": 0,
+    "sources": {
+      "lib/server/pushnotify.js": "acc62bc800611674e598376a475c7da02c3e9e809d51a18fcaf5502299175ee8",
+      "lib/utils/notification-cache.js": "43c0c8a331c5f9280fb44dee66a884262001148c38f32ece2eaec745166a8b6e",
+      "package-lock.json": "8e44e03500c5bdc484dbb1f62a815959cf261f5675c081305ccd734d4eaa67da"
+    },
+    "sourceSha256": "986c6700067fc2c87bf6d2024f10ccbaa0744bf6ec9dde9f1dbb471acf09c826",
+    "run": 1,
+    "label": "candidate"
+  },
+  {
+    "scope": "real pushnotify with mocked providers and clock; not whole-server memory",
+    "baseline": "9a110324de84ed5d14a189e7a51a755c9b5c8645",
+    "node": "v22.23.2",
+    "beforeLoad": {
+      "rss": 43761664,
+      "heapTotal": 6701056,
+      "heapUsed": 3856856,
+      "external": 1745549,
+      "arrayBuffers": 10475
+    },
+    "loaded": {
+      "rss": 53428224,
+      "heapTotal": 7749632,
+      "heapUsed": 4950752,
+      "external": 1888222,
+      "arrayBuffers": 16619
+    },
+    "cycles": [
+      {
+        "workloadMs": 11.880667000000003,
+        "populated": {
+          "rss": 57311232,
+          "heapTotal": 10371072,
+          "heapUsed": 5480120,
+          "external": 1957558,
+          "arrayBuffers": 16619
+        },
+        "released": {
+          "rss": 57671680,
+          "heapTotal": 9846784,
+          "heapUsed": 5231544,
+          "external": 1957558,
+          "arrayBuffers": 16619
+        },
+        "timers": 2
+      },
+      {
+        "workloadMs": 9.244916999999994,
+        "populated": {
+          "rss": 59195392,
+          "heapTotal": 10895360,
+          "heapUsed": 5539520,
+          "external": 1957558,
+          "arrayBuffers": 16619
+        },
+        "released": {
+          "rss": 59195392,
+          "heapTotal": 10371072,
+          "heapUsed": 5273960,
+          "external": 1957558,
+          "arrayBuffers": 16619
+        },
+        "timers": 2
+      },
+      {
+        "workloadMs": 8.572375000000008,
+        "populated": {
+          "rss": 59473920,
+          "heapTotal": 10633216,
+          "heapUsed": 5562448,
+          "external": 1957558,
+          "arrayBuffers": 16619
+        },
+        "released": {
+          "rss": 59654144,
+          "heapTotal": 10371072,
+          "heapUsed": 5307216,
+          "external": 1957558,
+          "arrayBuffers": 16619
+        },
+        "timers": 2
+      },
+      {
+        "workloadMs": 7.8948330000000055,
+        "populated": {
+          "rss": 63471616,
+          "heapTotal": 15089664,
+          "heapUsed": 5575120,
+          "external": 1957558,
+          "arrayBuffers": 16619
+        },
+        "released": {
+          "rss": 63619072,
+          "heapTotal": 14827520,
+          "heapUsed": 5304376,
+          "external": 1957558,
+          "arrayBuffers": 16619
+        },
+        "timers": 2
+      },
+      {
+        "workloadMs": 7.7605000000000075,
+        "populated": {
+          "rss": 63782912,
+          "heapTotal": 15089664,
+          "heapUsed": 5588600,
+          "external": 1957558,
+          "arrayBuffers": 16619
+        },
+        "released": {
+          "rss": 63881216,
+          "heapTotal": 14827520,
+          "heapUsed": 5323720,
+          "external": 1957558,
+          "arrayBuffers": 16619
+        },
+        "timers": 2
+      }
+    ],
+    "closed": {
+      "rss": 64012288,
+      "heapTotal": 14827520,
+      "heapUsed": 5295480,
+      "external": 1957558,
+      "arrayBuffers": 16619
+    },
+    "sends": 5000,
+    "acks": 2500,
+    "cancels": 2500,
+    "suppressed": 25000,
+    "modules": 96,
+    "timers": 0,
+    "sources": {
+      "lib/server/pushnotify.js": "ead3da5a223b2f48980aaae89ab550c972bdecd1907617f4f3d88c64cacf911f",
+      "package-lock.json": "376a459f3e505df6fb88524018d6095a7c6638dced2bc72cc7c0fa1179b88ceb"
+    },
+    "sourceSha256": "986c6700067fc2c87bf6d2024f10ccbaa0744bf6ec9dde9f1dbb471acf09c826",
+    "run": 2,
+    "label": "baseline"
+  },
+  {
+    "scope": "real pushnotify with mocked providers and clock; not whole-server memory",
+    "baseline": "cd5b192bbc191c73988c5d8b58304d86784be757",
+    "node": "v22.23.2",
+    "beforeLoad": {
+      "rss": 43843584,
+      "heapTotal": 6701056,
+      "heapUsed": 3856472,
+      "external": 1745549,
+      "arrayBuffers": 10475
+    },
+    "loaded": {
+      "rss": 52985856,
+      "heapTotal": 7749632,
+      "heapUsed": 5059432,
+      "external": 1938629,
+      "arrayBuffers": 16619
+    },
+    "cycles": [
+      {
+        "workloadMs": 10.605457999999999,
+        "populated": {
+          "rss": 58146816,
+          "heapTotal": 10895360,
+          "heapUsed": 5624176,
+          "external": 2007965,
+          "arrayBuffers": 16619
+        },
+        "released": {
+          "rss": 58441728,
+          "heapTotal": 10371072,
+          "heapUsed": 5321424,
+          "external": 2007965,
+          "arrayBuffers": 16619
+        },
+        "timers": 2
+      },
+      {
+        "workloadMs": 9.183082999999996,
+        "populated": {
+          "rss": 59244544,
+          "heapTotal": 10633216,
+          "heapUsed": 5725352,
+          "external": 2007965,
+          "arrayBuffers": 16619
+        },
+        "released": {
+          "rss": 59490304,
+          "heapTotal": 10371072,
+          "heapUsed": 5374144,
+          "external": 2007965,
+          "arrayBuffers": 16619
+        },
+        "timers": 2
+      },
+      {
+        "workloadMs": 8.050667000000004,
+        "populated": {
+          "rss": 59998208,
+          "heapTotal": 14827520,
+          "heapUsed": 5748008,
+          "external": 2007965,
+          "arrayBuffers": 16619
+        },
+        "released": {
+          "rss": 60112896,
+          "heapTotal": 14565376,
+          "heapUsed": 5414160,
+          "external": 2007965,
+          "arrayBuffers": 16619
+        },
+        "timers": 2
+      },
+      {
+        "workloadMs": 7.643625,
+        "populated": {
+          "rss": 63979520,
+          "heapTotal": 15089664,
+          "heapUsed": 5784144,
+          "external": 2007965,
+          "arrayBuffers": 16619
+        },
+        "released": {
+          "rss": 63979520,
+          "heapTotal": 14565376,
+          "heapUsed": 5426784,
+          "external": 2007965,
+          "arrayBuffers": 16619
+        },
+        "timers": 2
+      },
+      {
+        "workloadMs": 7.417583000000008,
+        "populated": {
+          "rss": 63995904,
+          "heapTotal": 14827520,
+          "heapUsed": 5794560,
+          "external": 2007965,
+          "arrayBuffers": 16619
+        },
+        "released": {
+          "rss": 64012288,
+          "heapTotal": 14827520,
+          "heapUsed": 5445656,
+          "external": 2007965,
+          "arrayBuffers": 16619
+        },
+        "timers": 2
+      }
+    ],
+    "closed": {
+      "rss": 64077824,
+      "heapTotal": 14565376,
+      "heapUsed": 5419536,
+      "external": 2007965,
+      "arrayBuffers": 16619
+    },
+    "sends": 5000,
+    "acks": 2500,
+    "cancels": 2500,
+    "suppressed": 25000,
+    "modules": 13,
+    "timers": 0,
+    "sources": {
+      "lib/server/pushnotify.js": "acc62bc800611674e598376a475c7da02c3e9e809d51a18fcaf5502299175ee8",
+      "lib/utils/notification-cache.js": "43c0c8a331c5f9280fb44dee66a884262001148c38f32ece2eaec745166a8b6e",
+      "package-lock.json": "8e44e03500c5bdc484dbb1f62a815959cf261f5675c081305ccd734d4eaa67da"
+    },
+    "sourceSha256": "986c6700067fc2c87bf6d2024f10ccbaa0744bf6ec9dde9f1dbb471acf09c826",
+    "run": 2,
+    "label": "candidate"
+  },
+  {
+    "scope": "real pushnotify with mocked providers and clock; not whole-server memory",
+    "baseline": "9a110324de84ed5d14a189e7a51a755c9b5c8645",
+    "node": "v22.23.2",
+    "beforeLoad": {
+      "rss": 43679744,
+      "heapTotal": 6701056,
+      "heapUsed": 3856856,
+      "external": 1745549,
+      "arrayBuffers": 10475
+    },
+    "loaded": {
+      "rss": 53313536,
+      "heapTotal": 7749632,
+      "heapUsed": 4950608,
+      "external": 1888222,
+      "arrayBuffers": 16619
+    },
+    "cycles": [
+      {
+        "workloadMs": 11.941417000000001,
+        "populated": {
+          "rss": 57262080,
+          "heapTotal": 10371072,
+          "heapUsed": 5480008,
+          "external": 1957558,
+          "arrayBuffers": 16619
+        },
+        "released": {
+          "rss": 57622528,
+          "heapTotal": 9846784,
+          "heapUsed": 5231400,
+          "external": 1957558,
+          "arrayBuffers": 16619
+        },
+        "timers": 2
+      },
+      {
+        "workloadMs": 9.484458000000004,
+        "populated": {
+          "rss": 59523072,
+          "heapTotal": 10633216,
+          "heapUsed": 5539368,
+          "external": 1957558,
+          "arrayBuffers": 16619
+        },
+        "released": {
+          "rss": 59539456,
+          "heapTotal": 10371072,
+          "heapUsed": 5273808,
+          "external": 1957558,
+          "arrayBuffers": 16619
+        },
+        "timers": 2
+      },
+      {
+        "workloadMs": 8.784458,
+        "populated": {
+          "rss": 59670528,
+          "heapTotal": 10633216,
+          "heapUsed": 5555792,
+          "external": 1957558,
+          "arrayBuffers": 16619
+        },
+        "released": {
+          "rss": 59686912,
+          "heapTotal": 10371072,
+          "heapUsed": 5307040,
+          "external": 1957558,
+          "arrayBuffers": 16619
+        },
+        "timers": 2
+      },
+      {
+        "workloadMs": 8.242834000000002,
+        "populated": {
+          "rss": 63569920,
+          "heapTotal": 14827520,
+          "heapUsed": 5574944,
+          "external": 1957558,
+          "arrayBuffers": 16619
+        },
+        "released": {
+          "rss": 63619072,
+          "heapTotal": 14565376,
+          "heapUsed": 5304200,
+          "external": 1957558,
+          "arrayBuffers": 16619
+        },
+        "timers": 2
+      },
+      {
+        "workloadMs": 7.807833000000002,
+        "populated": {
+          "rss": 63832064,
+          "heapTotal": 15089664,
+          "heapUsed": 5588424,
+          "external": 1957558,
+          "arrayBuffers": 16619
+        },
+        "released": {
+          "rss": 63913984,
+          "heapTotal": 14827520,
+          "heapUsed": 5323544,
+          "external": 1957558,
+          "arrayBuffers": 16619
+        },
+        "timers": 2
+      }
+    ],
+    "closed": {
+      "rss": 64045056,
+      "heapTotal": 14827520,
+      "heapUsed": 5295304,
+      "external": 1957558,
+      "arrayBuffers": 16619
+    },
+    "sends": 5000,
+    "acks": 2500,
+    "cancels": 2500,
+    "suppressed": 25000,
+    "modules": 96,
+    "timers": 0,
+    "sources": {
+      "lib/server/pushnotify.js": "ead3da5a223b2f48980aaae89ab550c972bdecd1907617f4f3d88c64cacf911f",
+      "package-lock.json": "376a459f3e505df6fb88524018d6095a7c6638dced2bc72cc7c0fa1179b88ceb"
+    },
+    "sourceSha256": "986c6700067fc2c87bf6d2024f10ccbaa0744bf6ec9dde9f1dbb471acf09c826",
+    "run": 3,
+    "label": "baseline"
+  },
+  {
+    "scope": "real pushnotify with mocked providers and clock; not whole-server memory",
+    "baseline": "cd5b192bbc191c73988c5d8b58304d86784be757",
+    "node": "v22.23.2",
+    "beforeLoad": {
+      "rss": 43843584,
+      "heapTotal": 6701056,
+      "heapUsed": 3856472,
+      "external": 1745549,
+      "arrayBuffers": 10475
+    },
+    "loaded": {
+      "rss": 53477376,
+      "heapTotal": 7749632,
+      "heapUsed": 5059360,
+      "external": 1938629,
+      "arrayBuffers": 16619
+    },
+    "cycles": [
+      {
+        "workloadMs": 10.761624999999999,
+        "populated": {
+          "rss": 58392576,
+          "heapTotal": 10895360,
+          "heapUsed": 5624104,
+          "external": 2007965,
+          "arrayBuffers": 16619
+        },
+        "released": {
+          "rss": 58638336,
+          "heapTotal": 10371072,
+          "heapUsed": 5321352,
+          "external": 2007965,
+          "arrayBuffers": 16619
+        },
+        "timers": 2
+      },
+      {
+        "workloadMs": 9.234125000000006,
+        "populated": {
+          "rss": 59506688,
+          "heapTotal": 10633216,
+          "heapUsed": 5725280,
+          "external": 2007965,
+          "arrayBuffers": 16619
+        },
+        "released": {
+          "rss": 59555840,
+          "heapTotal": 10371072,
+          "heapUsed": 5374072,
+          "external": 2007965,
+          "arrayBuffers": 16619
+        },
+        "timers": 2
+      },
+      {
+        "workloadMs": 8.662457999999994,
+        "populated": {
+          "rss": 60080128,
+          "heapTotal": 14827520,
+          "heapUsed": 5747920,
+          "external": 2007965,
+          "arrayBuffers": 16619
+        },
+        "released": {
+          "rss": 60293120,
+          "heapTotal": 14565376,
+          "heapUsed": 5414072,
+          "external": 2007965,
+          "arrayBuffers": 16619
+        },
+        "timers": 2
+      },
+      {
+        "workloadMs": 7.781958000000003,
+        "populated": {
+          "rss": 64094208,
+          "heapTotal": 14827520,
+          "heapUsed": 5784056,
+          "external": 2007965,
+          "arrayBuffers": 16619
+        },
+        "released": {
+          "rss": 64176128,
+          "heapTotal": 14827520,
+          "heapUsed": 5426696,
+          "external": 2007965,
+          "arrayBuffers": 16619
+        },
+        "timers": 2
+      },
+      {
+        "workloadMs": 7.327750000000009,
+        "populated": {
+          "rss": 64274432,
+          "heapTotal": 14827520,
+          "heapUsed": 5800280,
+          "external": 2007965,
+          "arrayBuffers": 16619
+        },
+        "released": {
+          "rss": 64307200,
+          "heapTotal": 14565376,
+          "heapUsed": 5445568,
+          "external": 2007965,
+          "arrayBuffers": 16619
+        },
+        "timers": 2
+      }
+    ],
+    "closed": {
+      "rss": 64421888,
+      "heapTotal": 14827520,
+      "heapUsed": 5419448,
+      "external": 2007965,
+      "arrayBuffers": 16619
+    },
+    "sends": 5000,
+    "acks": 2500,
+    "cancels": 2500,
+    "suppressed": 25000,
+    "modules": 13,
+    "timers": 0,
+    "sources": {
+      "lib/server/pushnotify.js": "acc62bc800611674e598376a475c7da02c3e9e809d51a18fcaf5502299175ee8",
+      "lib/utils/notification-cache.js": "43c0c8a331c5f9280fb44dee66a884262001148c38f32ece2eaec745166a8b6e",
+      "package-lock.json": "8e44e03500c5bdc484dbb1f62a815959cf261f5675c081305ccd734d4eaa67da"
+    },
+    "sourceSha256": "986c6700067fc2c87bf6d2024f10ccbaa0744bf6ec9dde9f1dbb471acf09c826",
+    "run": 3,
+    "label": "candidate"
+  },
+  {
+    "scope": "real pushnotify with mocked providers and clock; not whole-server memory",
+    "baseline": "9a110324de84ed5d14a189e7a51a755c9b5c8645",
+    "node": "v22.23.2",
+    "beforeLoad": {
+      "rss": 43712512,
+      "heapTotal": 6701056,
+      "heapUsed": 3856856,
+      "external": 1745549,
+      "arrayBuffers": 10475
+    },
+    "loaded": {
+      "rss": 53297152,
+      "heapTotal": 7749632,
+      "heapUsed": 4950608,
+      "external": 1888222,
+      "arrayBuffers": 16619
+    },
+    "cycles": [
+      {
+        "workloadMs": 11.687999999999999,
+        "populated": {
+          "rss": 57475072,
+          "heapTotal": 10371072,
+          "heapUsed": 5479976,
+          "external": 1957558,
+          "arrayBuffers": 16619
+        },
+        "released": {
+          "rss": 57802752,
+          "heapTotal": 9846784,
+          "heapUsed": 5231400,
+          "external": 1957558,
+          "arrayBuffers": 16619
+        },
+        "timers": 2
+      },
+      {
+        "workloadMs": 9.305082999999996,
+        "populated": {
+          "rss": 59457536,
+          "heapTotal": 10895360,
+          "heapUsed": 5539368,
+          "external": 1957558,
+          "arrayBuffers": 16619
+        },
+        "released": {
+          "rss": 59473920,
+          "heapTotal": 10371072,
+          "heapUsed": 5273808,
+          "external": 1957558,
+          "arrayBuffers": 16619
+        },
+        "timers": 2
+      },
+      {
+        "workloadMs": 8.263499999999993,
+        "populated": {
+          "rss": 59801600,
+          "heapTotal": 10371072,
+          "heapUsed": 5562272,
+          "external": 1957558,
+          "arrayBuffers": 16619
+        },
+        "released": {
+          "rss": 60178432,
+          "heapTotal": 10371072,
+          "heapUsed": 5307040,
+          "external": 1957558,
+          "arrayBuffers": 16619
+        },
+        "timers": 2
+      },
+      {
+        "workloadMs": 8.053125000000009,
+        "populated": {
+          "rss": 63930368,
+          "heapTotal": 15089664,
+          "heapUsed": 5574944,
+          "external": 1957558,
+          "arrayBuffers": 16619
+        },
+        "released": {
+          "rss": 63995904,
+          "heapTotal": 14827520,
+          "heapUsed": 5304200,
+          "external": 1957558,
+          "arrayBuffers": 16619
+        },
+        "timers": 2
+      },
+      {
+        "workloadMs": 7.500250000000008,
+        "populated": {
+          "rss": 64159744,
+          "heapTotal": 15089664,
+          "heapUsed": 5588424,
+          "external": 1957558,
+          "arrayBuffers": 16619
+        },
+        "released": {
+          "rss": 64241664,
+          "heapTotal": 14827520,
+          "heapUsed": 5323544,
+          "external": 1957558,
+          "arrayBuffers": 16619
+        },
+        "timers": 2
+      }
+    ],
+    "closed": {
+      "rss": 64339968,
+      "heapTotal": 14827520,
+      "heapUsed": 5295304,
+      "external": 1957558,
+      "arrayBuffers": 16619
+    },
+    "sends": 5000,
+    "acks": 2500,
+    "cancels": 2500,
+    "suppressed": 25000,
+    "modules": 96,
+    "timers": 0,
+    "sources": {
+      "lib/server/pushnotify.js": "ead3da5a223b2f48980aaae89ab550c972bdecd1907617f4f3d88c64cacf911f",
+      "package-lock.json": "376a459f3e505df6fb88524018d6095a7c6638dced2bc72cc7c0fa1179b88ceb"
+    },
+    "sourceSha256": "986c6700067fc2c87bf6d2024f10ccbaa0744bf6ec9dde9f1dbb471acf09c826",
+    "run": 4,
+    "label": "baseline"
+  },
+  {
+    "scope": "real pushnotify with mocked providers and clock; not whole-server memory",
+    "baseline": "cd5b192bbc191c73988c5d8b58304d86784be757",
+    "node": "v22.23.2",
+    "beforeLoad": {
+      "rss": 44007424,
+      "heapTotal": 6701056,
+      "heapUsed": 3856472,
+      "external": 1745549,
+      "arrayBuffers": 10475
+    },
+    "loaded": {
+      "rss": 53248000,
+      "heapTotal": 7749632,
+      "heapUsed": 5059432,
+      "external": 1938629,
+      "arrayBuffers": 16619
+    },
+    "cycles": [
+      {
+        "workloadMs": 10.47475,
+        "populated": {
+          "rss": 58327040,
+          "heapTotal": 10895360,
+          "heapUsed": 5624176,
+          "external": 2007965,
+          "arrayBuffers": 16619
+        },
+        "released": {
+          "rss": 58605568,
+          "heapTotal": 10371072,
+          "heapUsed": 5321424,
+          "external": 2007965,
+          "arrayBuffers": 16619
+        },
+        "timers": 2
+      },
+      {
+        "workloadMs": 9.149499999999996,
+        "populated": {
+          "rss": 59326464,
+          "heapTotal": 10633216,
+          "heapUsed": 5725352,
+          "external": 2007965,
+          "arrayBuffers": 16619
+        },
+        "released": {
+          "rss": 59490304,
+          "heapTotal": 10371072,
+          "heapUsed": 5374200,
+          "external": 2007965,
+          "arrayBuffers": 16619
+        },
+        "timers": 2
+      },
+      {
+        "workloadMs": 7.948542000000003,
+        "populated": {
+          "rss": 60112896,
+          "heapTotal": 14827520,
+          "heapUsed": 5748008,
+          "external": 2007965,
+          "arrayBuffers": 16619
+        },
+        "released": {
+          "rss": 60211200,
+          "heapTotal": 14565376,
+          "heapUsed": 5414160,
+          "external": 2007965,
+          "arrayBuffers": 16619
+        },
+        "timers": 2
+      },
+      {
+        "workloadMs": 7.354500000000002,
+        "populated": {
+          "rss": 64028672,
+          "heapTotal": 14827520,
+          "heapUsed": 5784144,
+          "external": 2007965,
+          "arrayBuffers": 16619
+        },
+        "released": {
+          "rss": 64077824,
+          "heapTotal": 14565376,
+          "heapUsed": 5426784,
+          "external": 2007965,
+          "arrayBuffers": 16619
+        },
+        "timers": 2
+      },
+      {
+        "workloadMs": 7.177499999999995,
+        "populated": {
+          "rss": 64143360,
+          "heapTotal": 14827520,
+          "heapUsed": 5800368,
+          "external": 2007965,
+          "arrayBuffers": 16619
+        },
+        "released": {
+          "rss": 64143360,
+          "heapTotal": 14565376,
+          "heapUsed": 5445656,
+          "external": 2007965,
+          "arrayBuffers": 16619
+        },
+        "timers": 2
+      }
+    ],
+    "closed": {
+      "rss": 64208896,
+      "heapTotal": 14827520,
+      "heapUsed": 5419536,
+      "external": 2007965,
+      "arrayBuffers": 16619
+    },
+    "sends": 5000,
+    "acks": 2500,
+    "cancels": 2500,
+    "suppressed": 25000,
+    "modules": 13,
+    "timers": 0,
+    "sources": {
+      "lib/server/pushnotify.js": "acc62bc800611674e598376a475c7da02c3e9e809d51a18fcaf5502299175ee8",
+      "lib/utils/notification-cache.js": "43c0c8a331c5f9280fb44dee66a884262001148c38f32ece2eaec745166a8b6e",
+      "package-lock.json": "8e44e03500c5bdc484dbb1f62a815959cf261f5675c081305ccd734d4eaa67da"
+    },
+    "sourceSha256": "986c6700067fc2c87bf6d2024f10ccbaa0744bf6ec9dde9f1dbb471acf09c826",
+    "run": 4,
+    "label": "candidate"
+  },
+  {
+    "scope": "real pushnotify with mocked providers and clock; not whole-server memory",
+    "baseline": "9a110324de84ed5d14a189e7a51a755c9b5c8645",
+    "node": "v22.23.2",
+    "beforeLoad": {
+      "rss": 43892736,
+      "heapTotal": 6701056,
+      "heapUsed": 3856856,
+      "external": 1745549,
+      "arrayBuffers": 10475
+    },
+    "loaded": {
+      "rss": 53542912,
+      "heapTotal": 7749632,
+      "heapUsed": 4950608,
+      "external": 1888222,
+      "arrayBuffers": 16619
+    },
+    "cycles": [
+      {
+        "workloadMs": 12.222084000000002,
+        "populated": {
+          "rss": 57655296,
+          "heapTotal": 10371072,
+          "heapUsed": 5479976,
+          "external": 1957558,
+          "arrayBuffers": 16619
+        },
+        "released": {
+          "rss": 57933824,
+          "heapTotal": 10108928,
+          "heapUsed": 5231400,
+          "external": 1957558,
+          "arrayBuffers": 16619
+        },
+        "timers": 2
+      },
+      {
+        "workloadMs": 9.591083000000005,
+        "populated": {
+          "rss": 59817984,
+          "heapTotal": 10633216,
+          "heapUsed": 5539368,
+          "external": 1957558,
+          "arrayBuffers": 16619
+        },
+        "released": {
+          "rss": 59867136,
+          "heapTotal": 10371072,
+          "heapUsed": 5273808,
+          "external": 1957558,
+          "arrayBuffers": 16619
+        },
+        "timers": 2
+      },
+      {
+        "workloadMs": 8.678875000000005,
+        "populated": {
+          "rss": 59998208,
+          "heapTotal": 10633216,
+          "heapUsed": 5562296,
+          "external": 1957558,
+          "arrayBuffers": 16619
+        },
+        "released": {
+          "rss": 60063744,
+          "heapTotal": 10371072,
+          "heapUsed": 5307064,
+          "external": 1957558,
+          "arrayBuffers": 16619
+        },
+        "timers": 2
+      },
+      {
+        "workloadMs": 8.407958000000008,
+        "populated": {
+          "rss": 63848448,
+          "heapTotal": 15089664,
+          "heapUsed": 5574968,
+          "external": 1957558,
+          "arrayBuffers": 16619
+        },
+        "released": {
+          "rss": 64012288,
+          "heapTotal": 14827520,
+          "heapUsed": 5304224,
+          "external": 1957558,
+          "arrayBuffers": 16619
+        },
+        "timers": 2
+      },
+      {
+        "workloadMs": 7.920957999999999,
+        "populated": {
+          "rss": 64143360,
+          "heapTotal": 15089664,
+          "heapUsed": 5588448,
+          "external": 1957558,
+          "arrayBuffers": 16619
+        },
+        "released": {
+          "rss": 64208896,
+          "heapTotal": 14827520,
+          "heapUsed": 5323568,
+          "external": 1957558,
+          "arrayBuffers": 16619
+        },
+        "timers": 2
+      }
+    ],
+    "closed": {
+      "rss": 64290816,
+      "heapTotal": 14827520,
+      "heapUsed": 5295328,
+      "external": 1957558,
+      "arrayBuffers": 16619
+    },
+    "sends": 5000,
+    "acks": 2500,
+    "cancels": 2500,
+    "suppressed": 25000,
+    "modules": 96,
+    "timers": 0,
+    "sources": {
+      "lib/server/pushnotify.js": "ead3da5a223b2f48980aaae89ab550c972bdecd1907617f4f3d88c64cacf911f",
+      "package-lock.json": "376a459f3e505df6fb88524018d6095a7c6638dced2bc72cc7c0fa1179b88ceb"
+    },
+    "sourceSha256": "986c6700067fc2c87bf6d2024f10ccbaa0744bf6ec9dde9f1dbb471acf09c826",
+    "run": 5,
+    "label": "baseline"
+  },
+  {
+    "scope": "real pushnotify with mocked providers and clock; not whole-server memory",
+    "baseline": "cd5b192bbc191c73988c5d8b58304d86784be757",
+    "node": "v22.23.2",
+    "beforeLoad": {
+      "rss": 43778048,
+      "heapTotal": 6701056,
+      "heapUsed": 3856472,
+      "external": 1745549,
+      "arrayBuffers": 10475
+    },
+    "loaded": {
+      "rss": 52953088,
+      "heapTotal": 7749632,
+      "heapUsed": 5059360,
+      "external": 1938629,
+      "arrayBuffers": 16619
+    },
+    "cycles": [
+      {
+        "workloadMs": 11.063000000000002,
+        "populated": {
+          "rss": 58114048,
+          "heapTotal": 10633216,
+          "heapUsed": 5624104,
+          "external": 2007965,
+          "arrayBuffers": 16619
+        },
+        "released": {
+          "rss": 58294272,
+          "heapTotal": 10371072,
+          "heapUsed": 5321352,
+          "external": 2007965,
+          "arrayBuffers": 16619
+        },
+        "timers": 2
+      },
+      {
+        "workloadMs": 9.329458000000002,
+        "populated": {
+          "rss": 59211776,
+          "heapTotal": 10633216,
+          "heapUsed": 5725280,
+          "external": 2007965,
+          "arrayBuffers": 16619
+        },
+        "released": {
+          "rss": 59424768,
+          "heapTotal": 10371072,
+          "heapUsed": 5374072,
+          "external": 2007965,
+          "arrayBuffers": 16619
+        },
+        "timers": 2
+      },
+      {
+        "workloadMs": 8.427042,
+        "populated": {
+          "rss": 59817984,
+          "heapTotal": 14827520,
+          "heapUsed": 5747896,
+          "external": 2007965,
+          "arrayBuffers": 16619
+        },
+        "released": {
+          "rss": 59949056,
+          "heapTotal": 14565376,
+          "heapUsed": 5414048,
+          "external": 2007965,
+          "arrayBuffers": 16619
+        },
+        "timers": 2
+      },
+      {
+        "workloadMs": 7.860166000000007,
+        "populated": {
+          "rss": 63832064,
+          "heapTotal": 14827520,
+          "heapUsed": 5784032,
+          "external": 2007965,
+          "arrayBuffers": 16619
+        },
+        "released": {
+          "rss": 63913984,
+          "heapTotal": 14565376,
+          "heapUsed": 5426672,
+          "external": 2007965,
+          "arrayBuffers": 16619
+        },
+        "timers": 2
+      },
+      {
+        "workloadMs": 7.959915999999993,
+        "populated": {
+          "rss": 63963136,
+          "heapTotal": 14827520,
+          "heapUsed": 5794448,
+          "external": 2007965,
+          "arrayBuffers": 16619
+        },
+        "released": {
+          "rss": 63963136,
+          "heapTotal": 14565376,
+          "heapUsed": 5445544,
+          "external": 2007965,
+          "arrayBuffers": 16619
+        },
+        "timers": 2
+      }
+    ],
+    "closed": {
+      "rss": 64028672,
+      "heapTotal": 14827520,
+      "heapUsed": 5419424,
+      "external": 2007965,
+      "arrayBuffers": 16619
+    },
+    "sends": 5000,
+    "acks": 2500,
+    "cancels": 2500,
+    "suppressed": 25000,
+    "modules": 13,
+    "timers": 0,
+    "sources": {
+      "lib/server/pushnotify.js": "acc62bc800611674e598376a475c7da02c3e9e809d51a18fcaf5502299175ee8",
+      "lib/utils/notification-cache.js": "43c0c8a331c5f9280fb44dee66a884262001148c38f32ece2eaec745166a8b6e",
+      "package-lock.json": "8e44e03500c5bdc484dbb1f62a815959cf261f5675c081305ccd734d4eaa67da"
+    },
+    "sourceSha256": "986c6700067fc2c87bf6d2024f10ccbaa0744bf6ec9dde9f1dbb471acf09c826",
+    "run": 5,
+    "label": "candidate"
+  },
+  {
+    "scope": "real pushnotify with mocked providers and clock; not whole-server memory",
+    "baseline": "9a110324de84ed5d14a189e7a51a755c9b5c8645",
+    "node": "v22.23.2",
+    "beforeLoad": {
+      "rss": 44007424,
+      "heapTotal": 6701056,
+      "heapUsed": 3856856,
+      "external": 1745549,
+      "arrayBuffers": 10475
+    },
+    "loaded": {
+      "rss": 53592064,
+      "heapTotal": 7749632,
+      "heapUsed": 4950608,
+      "external": 1888222,
+      "arrayBuffers": 16619
+    },
+    "cycles": [
+      {
+        "workloadMs": 11.706709000000004,
+        "populated": {
+          "rss": 57442304,
+          "heapTotal": 10371072,
+          "heapUsed": 5479976,
+          "external": 1957558,
+          "arrayBuffers": 16619
+        },
+        "released": {
+          "rss": 57884672,
+          "heapTotal": 9846784,
+          "heapUsed": 5231600,
+          "external": 1957558,
+          "arrayBuffers": 16619
+        },
+        "timers": 2
+      },
+      {
+        "workloadMs": 9.187249999999999,
+        "populated": {
+          "rss": 59621376,
+          "heapTotal": 10633216,
+          "heapUsed": 5539368,
+          "external": 1957558,
+          "arrayBuffers": 16619
+        },
+        "released": {
+          "rss": 59621376,
+          "heapTotal": 10371072,
+          "heapUsed": 5273808,
+          "external": 1957558,
+          "arrayBuffers": 16619
+        },
+        "timers": 2
+      },
+      {
+        "workloadMs": 8.275875,
+        "populated": {
+          "rss": 59850752,
+          "heapTotal": 10633216,
+          "heapUsed": 5555816,
+          "external": 1957558,
+          "arrayBuffers": 16619
+        },
+        "released": {
+          "rss": 59867136,
+          "heapTotal": 10371072,
+          "heapUsed": 5307064,
+          "external": 1957558,
+          "arrayBuffers": 16619
+        },
+        "timers": 2
+      },
+      {
+        "workloadMs": 7.931457999999992,
+        "populated": {
+          "rss": 63930368,
+          "heapTotal": 14827520,
+          "heapUsed": 5574968,
+          "external": 1957558,
+          "arrayBuffers": 16619
+        },
+        "released": {
+          "rss": 63946752,
+          "heapTotal": 14565376,
+          "heapUsed": 5304224,
+          "external": 1957558,
+          "arrayBuffers": 16619
+        },
+        "timers": 2
+      },
+      {
+        "workloadMs": 7.671708999999993,
+        "populated": {
+          "rss": 64143360,
+          "heapTotal": 15089664,
+          "heapUsed": 5588448,
+          "external": 1957558,
+          "arrayBuffers": 16619
+        },
+        "released": {
+          "rss": 64208896,
+          "heapTotal": 14827520,
+          "heapUsed": 5323568,
+          "external": 1957558,
+          "arrayBuffers": 16619
+        },
+        "timers": 2
+      }
+    ],
+    "closed": {
+      "rss": 64307200,
+      "heapTotal": 14827520,
+      "heapUsed": 5295328,
+      "external": 1957558,
+      "arrayBuffers": 16619
+    },
+    "sends": 5000,
+    "acks": 2500,
+    "cancels": 2500,
+    "suppressed": 25000,
+    "modules": 96,
+    "timers": 0,
+    "sources": {
+      "lib/server/pushnotify.js": "ead3da5a223b2f48980aaae89ab550c972bdecd1907617f4f3d88c64cacf911f",
+      "package-lock.json": "376a459f3e505df6fb88524018d6095a7c6638dced2bc72cc7c0fa1179b88ceb"
+    },
+    "sourceSha256": "986c6700067fc2c87bf6d2024f10ccbaa0744bf6ec9dde9f1dbb471acf09c826",
+    "run": 6,
+    "label": "baseline"
+  },
+  {
+    "scope": "real pushnotify with mocked providers and clock; not whole-server memory",
+    "baseline": "cd5b192bbc191c73988c5d8b58304d86784be757",
+    "node": "v22.23.2",
+    "beforeLoad": {
+      "rss": 43794432,
+      "heapTotal": 6701056,
+      "heapUsed": 3856472,
+      "external": 1745549,
+      "arrayBuffers": 10475
+    },
+    "loaded": {
+      "rss": 53002240,
+      "heapTotal": 7749632,
+      "heapUsed": 5059360,
+      "external": 1938629,
+      "arrayBuffers": 16619
+    },
+    "cycles": [
+      {
+        "workloadMs": 10.608792000000001,
+        "populated": {
+          "rss": 58212352,
+          "heapTotal": 10895360,
+          "heapUsed": 5624104,
+          "external": 2007965,
+          "arrayBuffers": 16619
+        },
+        "released": {
+          "rss": 58458112,
+          "heapTotal": 10371072,
+          "heapUsed": 5321352,
+          "external": 2007965,
+          "arrayBuffers": 16619
+        },
+        "timers": 2
+      },
+      {
+        "workloadMs": 9.876916999999999,
+        "populated": {
+          "rss": 59277312,
+          "heapTotal": 10633216,
+          "heapUsed": 5725264,
+          "external": 2007965,
+          "arrayBuffers": 16619
+        },
+        "released": {
+          "rss": 59342848,
+          "heapTotal": 10371072,
+          "heapUsed": 5374056,
+          "external": 2007965,
+          "arrayBuffers": 16619
+        },
+        "timers": 2
+      },
+      {
+        "workloadMs": 8.043958000000003,
+        "populated": {
+          "rss": 59604992,
+          "heapTotal": 10633216,
+          "heapUsed": 5753672,
+          "external": 2007965,
+          "arrayBuffers": 16619
+        },
+        "released": {
+          "rss": 59686912,
+          "heapTotal": 10371072,
+          "heapUsed": 5414072,
+          "external": 2007965,
+          "arrayBuffers": 16619
+        },
+        "timers": 2
+      },
+      {
+        "workloadMs": 7.827332999999996,
+        "populated": {
+          "rss": 63553536,
+          "heapTotal": 14827520,
+          "heapUsed": 5784056,
+          "external": 2007965,
+          "arrayBuffers": 16619
+        },
+        "released": {
+          "rss": 63619072,
+          "heapTotal": 14565376,
+          "heapUsed": 5426696,
+          "external": 2007965,
+          "arrayBuffers": 16619
+        },
+        "timers": 2
+      },
+      {
+        "workloadMs": 7.971250000000012,
+        "populated": {
+          "rss": 63881216,
+          "heapTotal": 14827520,
+          "heapUsed": 5794472,
+          "external": 2007965,
+          "arrayBuffers": 16619
+        },
+        "released": {
+          "rss": 63946752,
+          "heapTotal": 14565376,
+          "heapUsed": 5445568,
+          "external": 2007965,
+          "arrayBuffers": 16619
+        },
+        "timers": 2
+      }
+    ],
+    "closed": {
+      "rss": 64094208,
+      "heapTotal": 14827520,
+      "heapUsed": 5419448,
+      "external": 2007965,
+      "arrayBuffers": 16619
+    },
+    "sends": 5000,
+    "acks": 2500,
+    "cancels": 2500,
+    "suppressed": 25000,
+    "modules": 13,
+    "timers": 0,
+    "sources": {
+      "lib/server/pushnotify.js": "acc62bc800611674e598376a475c7da02c3e9e809d51a18fcaf5502299175ee8",
+      "lib/utils/notification-cache.js": "43c0c8a331c5f9280fb44dee66a884262001148c38f32ece2eaec745166a8b6e",
+      "package-lock.json": "8e44e03500c5bdc484dbb1f62a815959cf261f5675c081305ccd734d4eaa67da"
+    },
+    "sourceSha256": "986c6700067fc2c87bf6d2024f10ccbaa0744bf6ec9dde9f1dbb471acf09c826",
+    "run": 6,
+    "label": "candidate"
+  },
+  {
+    "scope": "real pushnotify with mocked providers and clock; not whole-server memory",
+    "baseline": "9a110324de84ed5d14a189e7a51a755c9b5c8645",
+    "node": "v24.20.0",
+    "beforeLoad": {
+      "rss": 50561024,
+      "heapTotal": 6881280,
+      "heapUsed": 4174240,
+      "external": 2083569,
+      "arrayBuffers": 137467
+    },
+    "loaded": {
+      "rss": 60571648,
+      "heapTotal": 10289152,
+      "heapUsed": 5461528,
+      "external": 2270416,
+      "arrayBuffers": 143611
+    },
+    "cycles": [
+      {
+        "workloadMs": 9.580375000000004,
+        "populated": {
+          "rss": 64323584,
+          "heapTotal": 11075584,
+          "heapUsed": 6031024,
+          "external": 2341476,
+          "arrayBuffers": 143611
+        },
+        "released": {
+          "rss": 64552960,
+          "heapTotal": 10813440,
+          "heapUsed": 5786880,
+          "external": 2341476,
+          "arrayBuffers": 143611
+        },
+        "timers": 2
+      },
+      {
+        "workloadMs": 8.258083,
+        "populated": {
+          "rss": 64782336,
+          "heapTotal": 11075584,
+          "heapUsed": 6063616,
+          "external": 2341476,
+          "arrayBuffers": 143611
+        },
+        "released": {
+          "rss": 64864256,
+          "heapTotal": 10813440,
+          "heapUsed": 5787704,
+          "external": 2341476,
+          "arrayBuffers": 143611
+        },
+        "timers": 2
+      },
+      {
+        "workloadMs": 8.225750000000005,
+        "populated": {
+          "rss": 66715648,
+          "heapTotal": 15269888,
+          "heapUsed": 6073688,
+          "external": 2341476,
+          "arrayBuffers": 143611
+        },
+        "released": {
+          "rss": 66863104,
+          "heapTotal": 15007744,
+          "heapUsed": 5802560,
+          "external": 2341476,
+          "arrayBuffers": 143611
+        },
+        "timers": 2
+      },
+      {
+        "workloadMs": 8.199250000000006,
+        "populated": {
+          "rss": 69730304,
+          "heapTotal": 15269888,
+          "heapUsed": 6076648,
+          "external": 2341476,
+          "arrayBuffers": 143611
+        },
+        "released": {
+          "rss": 69746688,
+          "heapTotal": 15007744,
+          "heapUsed": 5805952,
+          "external": 2341476,
+          "arrayBuffers": 143611
+        },
+        "timers": 2
+      },
+      {
+        "workloadMs": 7.8558749999999975,
+        "populated": {
+          "rss": 69926912,
+          "heapTotal": 15269888,
+          "heapUsed": 6089392,
+          "external": 2341476,
+          "arrayBuffers": 143611
+        },
+        "released": {
+          "rss": 69926912,
+          "heapTotal": 15007744,
+          "heapUsed": 5813656,
+          "external": 2341476,
+          "arrayBuffers": 143611
+        },
+        "timers": 2
+      }
+    ],
+    "closed": {
+      "rss": 70598656,
+      "heapTotal": 14745600,
+      "heapUsed": 5761528,
+      "external": 2341476,
+      "arrayBuffers": 143611
+    },
+    "sends": 5000,
+    "acks": 2500,
+    "cancels": 2500,
+    "suppressed": 25000,
+    "modules": 96,
+    "timers": 0,
+    "sources": {
+      "lib/server/pushnotify.js": "ead3da5a223b2f48980aaae89ab550c972bdecd1907617f4f3d88c64cacf911f",
+      "package-lock.json": "376a459f3e505df6fb88524018d6095a7c6638dced2bc72cc7c0fa1179b88ceb"
+    },
+    "sourceSha256": "986c6700067fc2c87bf6d2024f10ccbaa0744bf6ec9dde9f1dbb471acf09c826",
+    "run": 0,
+    "label": "baseline"
+  },
+  {
+    "scope": "real pushnotify with mocked providers and clock; not whole-server memory",
+    "baseline": "cd5b192bbc191c73988c5d8b58304d86784be757",
+    "node": "v24.20.0",
+    "beforeLoad": {
+      "rss": 50429952,
+      "heapTotal": 6881280,
+      "heapUsed": 4173856,
+      "external": 2083569,
+      "arrayBuffers": 137467
+    },
+    "loaded": {
+      "rss": 55869440,
+      "heapTotal": 8454144,
+      "heapUsed": 5500856,
+      "external": 2270416,
+      "arrayBuffers": 143611
+    },
+    "cycles": [
+      {
+        "workloadMs": 9.229290999999996,
+        "populated": {
+          "rss": 64421888,
+          "heapTotal": 11337728,
+          "heapUsed": 6123264,
+          "external": 2341476,
+          "arrayBuffers": 143611
+        },
+        "released": {
+          "rss": 64880640,
+          "heapTotal": 10813440,
+          "heapUsed": 5841208,
+          "external": 2341476,
+          "arrayBuffers": 143611
+        },
+        "timers": 2
+      },
+      {
+        "workloadMs": 7.497167000000005,
+        "populated": {
+          "rss": 65454080,
+          "heapTotal": 11075584,
+          "heapUsed": 6197744,
+          "external": 2341476,
+          "arrayBuffers": 143611
+        },
+        "released": {
+          "rss": 65454080,
+          "heapTotal": 11075584,
+          "heapUsed": 5847280,
+          "external": 2341476,
+          "arrayBuffers": 143611
+        },
+        "timers": 2
+      },
+      {
+        "workloadMs": 7.8686250000000015,
+        "populated": {
+          "rss": 65798144,
+          "heapTotal": 15532032,
+          "heapUsed": 6209056,
+          "external": 2341476,
+          "arrayBuffers": 143611
+        },
+        "released": {
+          "rss": 65978368,
+          "heapTotal": 15007744,
+          "heapUsed": 5860064,
+          "external": 2341476,
+          "arrayBuffers": 143611
+        },
+        "timers": 2
+      },
+      {
+        "workloadMs": 7.995625000000004,
+        "populated": {
+          "rss": 69844992,
+          "heapTotal": 15532032,
+          "heapUsed": 6215648,
+          "external": 2341476,
+          "arrayBuffers": 143611
+        },
+        "released": {
+          "rss": 69894144,
+          "heapTotal": 15007744,
+          "heapUsed": 5860960,
+          "external": 2341476,
+          "arrayBuffers": 143611
+        },
+        "timers": 2
+      },
+      {
+        "workloadMs": 7.247082999999989,
+        "populated": {
+          "rss": 70008832,
+          "heapTotal": 15269888,
+          "heapUsed": 6226672,
+          "external": 2341476,
+          "arrayBuffers": 143611
+        },
+        "released": {
+          "rss": 70057984,
+          "heapTotal": 15269888,
+          "heapUsed": 5872296,
+          "external": 2341476,
+          "arrayBuffers": 143611
+        },
+        "timers": 2
+      }
+    ],
+    "closed": {
+      "rss": 70696960,
+      "heapTotal": 15269888,
+      "heapUsed": 5826112,
+      "external": 2341476,
+      "arrayBuffers": 143611
+    },
+    "sends": 5000,
+    "acks": 2500,
+    "cancels": 2500,
+    "suppressed": 25000,
+    "modules": 13,
+    "timers": 0,
+    "sources": {
+      "lib/server/pushnotify.js": "acc62bc800611674e598376a475c7da02c3e9e809d51a18fcaf5502299175ee8",
+      "lib/utils/notification-cache.js": "43c0c8a331c5f9280fb44dee66a884262001148c38f32ece2eaec745166a8b6e",
+      "package-lock.json": "8e44e03500c5bdc484dbb1f62a815959cf261f5675c081305ccd734d4eaa67da"
+    },
+    "sourceSha256": "986c6700067fc2c87bf6d2024f10ccbaa0744bf6ec9dde9f1dbb471acf09c826",
+    "run": 0,
+    "label": "candidate"
+  },
+  {
+    "scope": "real pushnotify with mocked providers and clock; not whole-server memory",
+    "baseline": "9a110324de84ed5d14a189e7a51a755c9b5c8645",
+    "node": "v24.20.0",
+    "beforeLoad": {
+      "rss": 50364416,
+      "heapTotal": 6881280,
+      "heapUsed": 4174240,
+      "external": 2083569,
+      "arrayBuffers": 137467
+    },
+    "loaded": {
+      "rss": 60735488,
+      "heapTotal": 10289152,
+      "heapUsed": 5461624,
+      "external": 2270416,
+      "arrayBuffers": 143611
+    },
+    "cycles": [
+      {
+        "workloadMs": 9.845084,
+        "populated": {
+          "rss": 64323584,
+          "heapTotal": 11075584,
+          "heapUsed": 6031120,
+          "external": 2341476,
+          "arrayBuffers": 143611
+        },
+        "released": {
+          "rss": 64634880,
+          "heapTotal": 10813440,
+          "heapUsed": 5789280,
+          "external": 2341476,
+          "arrayBuffers": 143611
+        },
+        "timers": 2
+      },
+      {
+        "workloadMs": 8.421875,
+        "populated": {
+          "rss": 64929792,
+          "heapTotal": 11075584,
+          "heapUsed": 6063704,
+          "external": 2341476,
+          "arrayBuffers": 143611
+        },
+        "released": {
+          "rss": 65028096,
+          "heapTotal": 10813440,
+          "heapUsed": 5787800,
+          "external": 2341476,
+          "arrayBuffers": 143611
+        },
+        "timers": 2
+      },
+      {
+        "workloadMs": 8.474416999999995,
+        "populated": {
+          "rss": 66879488,
+          "heapTotal": 15269888,
+          "heapUsed": 6073784,
+          "external": 2341476,
+          "arrayBuffers": 143611
+        },
+        "released": {
+          "rss": 66977792,
+          "heapTotal": 15007744,
+          "heapUsed": 5802656,
+          "external": 2341476,
+          "arrayBuffers": 143611
+        },
+        "timers": 2
+      },
+      {
+        "workloadMs": 8.023875000000004,
+        "populated": {
+          "rss": 69730304,
+          "heapTotal": 15269888,
+          "heapUsed": 6076744,
+          "external": 2341476,
+          "arrayBuffers": 143611
+        },
+        "released": {
+          "rss": 69746688,
+          "heapTotal": 15007744,
+          "heapUsed": 5806048,
+          "external": 2341476,
+          "arrayBuffers": 143611
+        },
+        "timers": 2
+      },
+      {
+        "workloadMs": 8.001209000000003,
+        "populated": {
+          "rss": 69926912,
+          "heapTotal": 15269888,
+          "heapUsed": 6089488,
+          "external": 2341476,
+          "arrayBuffers": 143611
+        },
+        "released": {
+          "rss": 69926912,
+          "heapTotal": 15007744,
+          "heapUsed": 5820040,
+          "external": 2341476,
+          "arrayBuffers": 143611
+        },
+        "timers": 2
+      }
+    ],
+    "closed": {
+      "rss": 70582272,
+      "heapTotal": 15007744,
+      "heapUsed": 5761672,
+      "external": 2341476,
+      "arrayBuffers": 143611
+    },
+    "sends": 5000,
+    "acks": 2500,
+    "cancels": 2500,
+    "suppressed": 25000,
+    "modules": 96,
+    "timers": 0,
+    "sources": {
+      "lib/server/pushnotify.js": "ead3da5a223b2f48980aaae89ab550c972bdecd1907617f4f3d88c64cacf911f",
+      "package-lock.json": "376a459f3e505df6fb88524018d6095a7c6638dced2bc72cc7c0fa1179b88ceb"
+    },
+    "sourceSha256": "986c6700067fc2c87bf6d2024f10ccbaa0744bf6ec9dde9f1dbb471acf09c826",
+    "run": 1,
+    "label": "baseline"
+  },
+  {
+    "scope": "real pushnotify with mocked providers and clock; not whole-server memory",
+    "baseline": "cd5b192bbc191c73988c5d8b58304d86784be757",
+    "node": "v24.20.0",
+    "beforeLoad": {
+      "rss": 50331648,
+      "heapTotal": 6881280,
+      "heapUsed": 4173856,
+      "external": 2083569,
+      "arrayBuffers": 137467
+    },
+    "loaded": {
+      "rss": 55672832,
+      "heapTotal": 8716288,
+      "heapUsed": 5500784,
+      "external": 2270416,
+      "arrayBuffers": 143611
+    },
+    "cycles": [
+      {
+        "workloadMs": 9.569833000000003,
+        "populated": {
+          "rss": 64421888,
+          "heapTotal": 11075584,
+          "heapUsed": 6123192,
+          "external": 2341476,
+          "arrayBuffers": 143611
+        },
+        "released": {
+          "rss": 64684032,
+          "heapTotal": 11075584,
+          "heapUsed": 5841136,
+          "external": 2341476,
+          "arrayBuffers": 143611
+        },
+        "timers": 2
+      },
+      {
+        "workloadMs": 7.908999999999999,
+        "populated": {
+          "rss": 65159168,
+          "heapTotal": 11337728,
+          "heapUsed": 6198560,
+          "external": 2341476,
+          "arrayBuffers": 143611
+        },
+        "released": {
+          "rss": 65175552,
+          "heapTotal": 11075584,
+          "heapUsed": 5847208,
+          "external": 2341476,
+          "arrayBuffers": 143611
+        },
+        "timers": 2
+      },
+      {
+        "workloadMs": 7.952458,
+        "populated": {
+          "rss": 67452928,
+          "heapTotal": 15532032,
+          "heapUsed": 6208984,
+          "external": 2341476,
+          "arrayBuffers": 143611
+        },
+        "released": {
+          "rss": 67567616,
+          "heapTotal": 15269888,
+          "heapUsed": 5859992,
+          "external": 2341476,
+          "arrayBuffers": 143611
+        },
+        "timers": 2
+      },
+      {
+        "workloadMs": 7.719207999999995,
+        "populated": {
+          "rss": 69730304,
+          "heapTotal": 15532032,
+          "heapUsed": 6215576,
+          "external": 2341476,
+          "arrayBuffers": 143611
+        },
+        "released": {
+          "rss": 69730304,
+          "heapTotal": 15269888,
+          "heapUsed": 5860888,
+          "external": 2341476,
+          "arrayBuffers": 143611
+        },
+        "timers": 2
+      },
+      {
+        "workloadMs": 7.186292000000009,
+        "populated": {
+          "rss": 69795840,
+          "heapTotal": 15532032,
+          "heapUsed": 6226600,
+          "external": 2341476,
+          "arrayBuffers": 143611
+        },
+        "released": {
+          "rss": 69795840,
+          "heapTotal": 15269888,
+          "heapUsed": 5872224,
+          "external": 2341476,
+          "arrayBuffers": 143611
+        },
+        "timers": 2
+      }
+    ],
+    "closed": {
+      "rss": 70418432,
+      "heapTotal": 15269888,
+      "heapUsed": 5826040,
+      "external": 2341476,
+      "arrayBuffers": 143611
+    },
+    "sends": 5000,
+    "acks": 2500,
+    "cancels": 2500,
+    "suppressed": 25000,
+    "modules": 13,
+    "timers": 0,
+    "sources": {
+      "lib/server/pushnotify.js": "acc62bc800611674e598376a475c7da02c3e9e809d51a18fcaf5502299175ee8",
+      "lib/utils/notification-cache.js": "43c0c8a331c5f9280fb44dee66a884262001148c38f32ece2eaec745166a8b6e",
+      "package-lock.json": "8e44e03500c5bdc484dbb1f62a815959cf261f5675c081305ccd734d4eaa67da"
+    },
+    "sourceSha256": "986c6700067fc2c87bf6d2024f10ccbaa0744bf6ec9dde9f1dbb471acf09c826",
+    "run": 1,
+    "label": "candidate"
+  },
+  {
+    "scope": "real pushnotify with mocked providers and clock; not whole-server memory",
+    "baseline": "9a110324de84ed5d14a189e7a51a755c9b5c8645",
+    "node": "v24.20.0",
+    "beforeLoad": {
+      "rss": 50315264,
+      "heapTotal": 6881280,
+      "heapUsed": 4174240,
+      "external": 2083569,
+      "arrayBuffers": 137467
+    },
+    "loaded": {
+      "rss": 60555264,
+      "heapTotal": 10289152,
+      "heapUsed": 5461640,
+      "external": 2270416,
+      "arrayBuffers": 143611
+    },
+    "cycles": [
+      {
+        "workloadMs": 9.738624999999999,
+        "populated": {
+          "rss": 64274432,
+          "heapTotal": 11075584,
+          "heapUsed": 6031208,
+          "external": 2341476,
+          "arrayBuffers": 143611
+        },
+        "released": {
+          "rss": 64520192,
+          "heapTotal": 10813440,
+          "heapUsed": 5789368,
+          "external": 2341476,
+          "arrayBuffers": 143611
+        },
+        "timers": 2
+      },
+      {
+        "workloadMs": 8.145041999999997,
+        "populated": {
+          "rss": 64765952,
+          "heapTotal": 11075584,
+          "heapUsed": 6063792,
+          "external": 2341476,
+          "arrayBuffers": 143611
+        },
+        "released": {
+          "rss": 64831488,
+          "heapTotal": 10813440,
+          "heapUsed": 5787888,
+          "external": 2341476,
+          "arrayBuffers": 143611
+        },
+        "timers": 2
+      },
+      {
+        "workloadMs": 8.478041999999995,
+        "populated": {
+          "rss": 67960832,
+          "heapTotal": 15269888,
+          "heapUsed": 6073872,
+          "external": 2341476,
+          "arrayBuffers": 143611
+        },
+        "released": {
+          "rss": 68042752,
+          "heapTotal": 15007744,
+          "heapUsed": 5802744,
+          "external": 2341476,
+          "arrayBuffers": 143611
+        },
+        "timers": 2
+      },
+      {
+        "workloadMs": 8.090333999999999,
+        "populated": {
+          "rss": 70074368,
+          "heapTotal": 15269888,
+          "heapUsed": 6076832,
+          "external": 2341476,
+          "arrayBuffers": 143611
+        },
+        "released": {
+          "rss": 70090752,
+          "heapTotal": 15007744,
+          "heapUsed": 5806136,
+          "external": 2341476,
+          "arrayBuffers": 143611
+        },
+        "timers": 2
+      },
+      {
+        "workloadMs": 7.791959000000006,
+        "populated": {
+          "rss": 70270976,
+          "heapTotal": 15269888,
+          "heapUsed": 6089576,
+          "external": 2341476,
+          "arrayBuffers": 143611
+        },
+        "released": {
+          "rss": 70287360,
+          "heapTotal": 15007744,
+          "heapUsed": 5813840,
+          "external": 2341476,
+          "arrayBuffers": 143611
+        },
+        "timers": 2
+      }
+    ],
+    "closed": {
+      "rss": 70516736,
+      "heapTotal": 15007744,
+      "heapUsed": 5761760,
+      "external": 2341476,
+      "arrayBuffers": 143611
+    },
+    "sends": 5000,
+    "acks": 2500,
+    "cancels": 2500,
+    "suppressed": 25000,
+    "modules": 96,
+    "timers": 0,
+    "sources": {
+      "lib/server/pushnotify.js": "ead3da5a223b2f48980aaae89ab550c972bdecd1907617f4f3d88c64cacf911f",
+      "package-lock.json": "376a459f3e505df6fb88524018d6095a7c6638dced2bc72cc7c0fa1179b88ceb"
+    },
+    "sourceSha256": "986c6700067fc2c87bf6d2024f10ccbaa0744bf6ec9dde9f1dbb471acf09c826",
+    "run": 2,
+    "label": "baseline"
+  },
+  {
+    "scope": "real pushnotify with mocked providers and clock; not whole-server memory",
+    "baseline": "cd5b192bbc191c73988c5d8b58304d86784be757",
+    "node": "v24.20.0",
+    "beforeLoad": {
+      "rss": 50315264,
+      "heapTotal": 6881280,
+      "heapUsed": 4173856,
+      "external": 2083569,
+      "arrayBuffers": 137467
+    },
+    "loaded": {
+      "rss": 56016896,
+      "heapTotal": 8192000,
+      "heapUsed": 5500784,
+      "external": 2270416,
+      "arrayBuffers": 143611
+    },
+    "cycles": [
+      {
+        "workloadMs": 9.564416000000001,
+        "populated": {
+          "rss": 64585728,
+          "heapTotal": 11337728,
+          "heapUsed": 6123192,
+          "external": 2341476,
+          "arrayBuffers": 143611
+        },
+        "released": {
+          "rss": 64995328,
+          "heapTotal": 10813440,
+          "heapUsed": 5841136,
+          "external": 2341476,
+          "arrayBuffers": 143611
+        },
+        "timers": 2
+      },
+      {
+        "workloadMs": 7.754417000000004,
+        "populated": {
+          "rss": 65552384,
+          "heapTotal": 11337728,
+          "heapUsed": 6198560,
+          "external": 2341476,
+          "arrayBuffers": 143611
+        },
+        "released": {
+          "rss": 65552384,
+          "heapTotal": 10813440,
+          "heapUsed": 5847208,
+          "external": 2341476,
+          "arrayBuffers": 143611
+        },
+        "timers": 2
+      },
+      {
+        "workloadMs": 7.912833999999997,
+        "populated": {
+          "rss": 67584000,
+          "heapTotal": 15269888,
+          "heapUsed": 6208984,
+          "external": 2341476,
+          "arrayBuffers": 143611
+        },
+        "released": {
+          "rss": 67584000,
+          "heapTotal": 15007744,
+          "heapUsed": 5859992,
+          "external": 2341476,
+          "arrayBuffers": 143611
+        },
+        "timers": 2
+      },
+      {
+        "workloadMs": 7.5036249999999995,
+        "populated": {
+          "rss": 70156288,
+          "heapTotal": 15269888,
+          "heapUsed": 6215576,
+          "external": 2341476,
+          "arrayBuffers": 143611
+        },
+        "released": {
+          "rss": 70189056,
+          "heapTotal": 15007744,
+          "heapUsed": 5860888,
+          "external": 2341476,
+          "arrayBuffers": 143611
+        },
+        "timers": 2
+      },
+      {
+        "workloadMs": 7.253166999999991,
+        "populated": {
+          "rss": 70451200,
+          "heapTotal": 15269888,
+          "heapUsed": 6226600,
+          "external": 2341476,
+          "arrayBuffers": 143611
+        },
+        "released": {
+          "rss": 70467584,
+          "heapTotal": 15007744,
+          "heapUsed": 5872224,
+          "external": 2341476,
+          "arrayBuffers": 143611
+        },
+        "timers": 2
+      }
+    ],
+    "closed": {
+      "rss": 71073792,
+      "heapTotal": 15007744,
+      "heapUsed": 5826040,
+      "external": 2341476,
+      "arrayBuffers": 143611
+    },
+    "sends": 5000,
+    "acks": 2500,
+    "cancels": 2500,
+    "suppressed": 25000,
+    "modules": 13,
+    "timers": 0,
+    "sources": {
+      "lib/server/pushnotify.js": "acc62bc800611674e598376a475c7da02c3e9e809d51a18fcaf5502299175ee8",
+      "lib/utils/notification-cache.js": "43c0c8a331c5f9280fb44dee66a884262001148c38f32ece2eaec745166a8b6e",
+      "package-lock.json": "8e44e03500c5bdc484dbb1f62a815959cf261f5675c081305ccd734d4eaa67da"
+    },
+    "sourceSha256": "986c6700067fc2c87bf6d2024f10ccbaa0744bf6ec9dde9f1dbb471acf09c826",
+    "run": 2,
+    "label": "candidate"
+  },
+  {
+    "scope": "real pushnotify with mocked providers and clock; not whole-server memory",
+    "baseline": "9a110324de84ed5d14a189e7a51a755c9b5c8645",
+    "node": "v24.20.0",
+    "beforeLoad": {
+      "rss": 50249728,
+      "heapTotal": 6881280,
+      "heapUsed": 4174312,
+      "external": 2083569,
+      "arrayBuffers": 137467
+    },
+    "loaded": {
+      "rss": 60506112,
+      "heapTotal": 10289152,
+      "heapUsed": 5461632,
+      "external": 2270416,
+      "arrayBuffers": 143611
+    },
+    "cycles": [
+      {
+        "workloadMs": 10.795207999999995,
+        "populated": {
+          "rss": 64307200,
+          "heapTotal": 11075584,
+          "heapUsed": 6031128,
+          "external": 2341476,
+          "arrayBuffers": 143611
+        },
+        "released": {
+          "rss": 64503808,
+          "heapTotal": 10813440,
+          "heapUsed": 5786976,
+          "external": 2341476,
+          "arrayBuffers": 143611
+        },
+        "timers": 2
+      },
+      {
+        "workloadMs": 8.519375000000004,
+        "populated": {
+          "rss": 64765952,
+          "heapTotal": 11075584,
+          "heapUsed": 6063712,
+          "external": 2341476,
+          "arrayBuffers": 143611
+        },
+        "released": {
+          "rss": 64847872,
+          "heapTotal": 10813440,
+          "heapUsed": 5787808,
+          "external": 2341476,
+          "arrayBuffers": 143611
+        },
+        "timers": 2
+      },
+      {
+        "workloadMs": 8.342500000000001,
+        "populated": {
+          "rss": 65175552,
+          "heapTotal": 11075584,
+          "heapUsed": 6073792,
+          "external": 2341476,
+          "arrayBuffers": 143611
+        },
+        "released": {
+          "rss": 65585152,
+          "heapTotal": 15007744,
+          "heapUsed": 5802664,
+          "external": 2341476,
+          "arrayBuffers": 143611
+        },
+        "timers": 2
+      },
+      {
+        "workloadMs": 8.496916999999996,
+        "populated": {
+          "rss": 69615616,
+          "heapTotal": 15269888,
+          "heapUsed": 6076752,
+          "external": 2341476,
+          "arrayBuffers": 143611
+        },
+        "released": {
+          "rss": 69713920,
+          "heapTotal": 15007744,
+          "heapUsed": 5806048,
+          "external": 2341476,
+          "arrayBuffers": 143611
+        },
+        "timers": 2
+      },
+      {
+        "workloadMs": 8.011666000000005,
+        "populated": {
+          "rss": 69877760,
+          "heapTotal": 15269888,
+          "heapUsed": 6091128,
+          "external": 2341476,
+          "arrayBuffers": 143611
+        },
+        "released": {
+          "rss": 69877760,
+          "heapTotal": 15007744,
+          "heapUsed": 5813904,
+          "external": 2341476,
+          "arrayBuffers": 143611
+        },
+        "timers": 2
+      }
+    ],
+    "closed": {
+      "rss": 70369280,
+      "heapTotal": 14745600,
+      "heapUsed": 5761680,
+      "external": 2341476,
+      "arrayBuffers": 143611
+    },
+    "sends": 5000,
+    "acks": 2500,
+    "cancels": 2500,
+    "suppressed": 25000,
+    "modules": 96,
+    "timers": 0,
+    "sources": {
+      "lib/server/pushnotify.js": "ead3da5a223b2f48980aaae89ab550c972bdecd1907617f4f3d88c64cacf911f",
+      "package-lock.json": "376a459f3e505df6fb88524018d6095a7c6638dced2bc72cc7c0fa1179b88ceb"
+    },
+    "sourceSha256": "986c6700067fc2c87bf6d2024f10ccbaa0744bf6ec9dde9f1dbb471acf09c826",
+    "run": 3,
+    "label": "baseline"
+  },
+  {
+    "scope": "real pushnotify with mocked providers and clock; not whole-server memory",
+    "baseline": "cd5b192bbc191c73988c5d8b58304d86784be757",
+    "node": "v24.20.0",
+    "beforeLoad": {
+      "rss": 50364416,
+      "heapTotal": 6881280,
+      "heapUsed": 4173856,
+      "external": 2083569,
+      "arrayBuffers": 137467
+    },
+    "loaded": {
+      "rss": 55803904,
+      "heapTotal": 8192000,
+      "heapUsed": 5500784,
+      "external": 2270416,
+      "arrayBuffers": 143611
+    },
+    "cycles": [
+      {
+        "workloadMs": 9.539082999999998,
+        "populated": {
+          "rss": 64356352,
+          "heapTotal": 11075584,
+          "heapUsed": 6123264,
+          "external": 2341476,
+          "arrayBuffers": 143611
+        },
+        "released": {
+          "rss": 64749568,
+          "heapTotal": 10813440,
+          "heapUsed": 5841208,
+          "external": 2341476,
+          "arrayBuffers": 143611
+        },
+        "timers": 2
+      },
+      {
+        "workloadMs": 7.814540999999998,
+        "populated": {
+          "rss": 65208320,
+          "heapTotal": 11337728,
+          "heapUsed": 6198632,
+          "external": 2341476,
+          "arrayBuffers": 143611
+        },
+        "released": {
+          "rss": 65306624,
+          "heapTotal": 10813440,
+          "heapUsed": 5847280,
+          "external": 2341476,
+          "arrayBuffers": 143611
+        },
+        "timers": 2
+      },
+      {
+        "workloadMs": 7.927959000000001,
+        "populated": {
+          "rss": 67469312,
+          "heapTotal": 15532032,
+          "heapUsed": 6209056,
+          "external": 2341476,
+          "arrayBuffers": 143611
+        },
+        "released": {
+          "rss": 67518464,
+          "heapTotal": 15007744,
+          "heapUsed": 5860064,
+          "external": 2341476,
+          "arrayBuffers": 143611
+        },
+        "timers": 2
+      },
+      {
+        "workloadMs": 7.393874999999994,
+        "populated": {
+          "rss": 69943296,
+          "heapTotal": 15269888,
+          "heapUsed": 6215648,
+          "external": 2341476,
+          "arrayBuffers": 143611
+        },
+        "released": {
+          "rss": 69943296,
+          "heapTotal": 15007744,
+          "heapUsed": 5860960,
+          "external": 2341476,
+          "arrayBuffers": 143611
+        },
+        "timers": 2
+      },
+      {
+        "workloadMs": 7.130416999999994,
+        "populated": {
+          "rss": 69976064,
+          "heapTotal": 15269888,
+          "heapUsed": 6226672,
+          "external": 2341476,
+          "arrayBuffers": 143611
+        },
+        "released": {
+          "rss": 69976064,
+          "heapTotal": 15007744,
+          "heapUsed": 5872296,
+          "external": 2341476,
+          "arrayBuffers": 143611
+        },
+        "timers": 2
+      }
+    ],
+    "closed": {
+      "rss": 70549504,
+      "heapTotal": 15007744,
+      "heapUsed": 5826112,
+      "external": 2341476,
+      "arrayBuffers": 143611
+    },
+    "sends": 5000,
+    "acks": 2500,
+    "cancels": 2500,
+    "suppressed": 25000,
+    "modules": 13,
+    "timers": 0,
+    "sources": {
+      "lib/server/pushnotify.js": "acc62bc800611674e598376a475c7da02c3e9e809d51a18fcaf5502299175ee8",
+      "lib/utils/notification-cache.js": "43c0c8a331c5f9280fb44dee66a884262001148c38f32ece2eaec745166a8b6e",
+      "package-lock.json": "8e44e03500c5bdc484dbb1f62a815959cf261f5675c081305ccd734d4eaa67da"
+    },
+    "sourceSha256": "986c6700067fc2c87bf6d2024f10ccbaa0744bf6ec9dde9f1dbb471acf09c826",
+    "run": 3,
+    "label": "candidate"
+  },
+  {
+    "scope": "real pushnotify with mocked providers and clock; not whole-server memory",
+    "baseline": "9a110324de84ed5d14a189e7a51a755c9b5c8645",
+    "node": "v24.20.0",
+    "beforeLoad": {
+      "rss": 50380800,
+      "heapTotal": 6881280,
+      "heapUsed": 4174240,
+      "external": 2083569,
+      "arrayBuffers": 137467
+    },
+    "loaded": {
+      "rss": 60620800,
+      "heapTotal": 10551296,
+      "heapUsed": 5461712,
+      "external": 2270416,
+      "arrayBuffers": 143611
+    },
+    "cycles": [
+      {
+        "workloadMs": 9.945416999999999,
+        "populated": {
+          "rss": 64208896,
+          "heapTotal": 11075584,
+          "heapUsed": 6031208,
+          "external": 2341476,
+          "arrayBuffers": 143611
+        },
+        "released": {
+          "rss": 64503808,
+          "heapTotal": 11075584,
+          "heapUsed": 5789368,
+          "external": 2341476,
+          "arrayBuffers": 143611
+        },
+        "timers": 2
+      },
+      {
+        "workloadMs": 8.318707999999994,
+        "populated": {
+          "rss": 64684032,
+          "heapTotal": 11075584,
+          "heapUsed": 6063792,
+          "external": 2341476,
+          "arrayBuffers": 143611
+        },
+        "released": {
+          "rss": 64733184,
+          "heapTotal": 11075584,
+          "heapUsed": 5787888,
+          "external": 2341476,
+          "arrayBuffers": 143611
+        },
+        "timers": 2
+      },
+      {
+        "workloadMs": 8.135290999999995,
+        "populated": {
+          "rss": 66617344,
+          "heapTotal": 15532032,
+          "heapUsed": 6073872,
+          "external": 2341476,
+          "arrayBuffers": 143611
+        },
+        "released": {
+          "rss": 66830336,
+          "heapTotal": 15269888,
+          "heapUsed": 5802744,
+          "external": 2341476,
+          "arrayBuffers": 143611
+        },
+        "timers": 2
+      },
+      {
+        "workloadMs": 7.8757499999999965,
+        "populated": {
+          "rss": 69517312,
+          "heapTotal": 15269888,
+          "heapUsed": 6076832,
+          "external": 2341476,
+          "arrayBuffers": 143611
+        },
+        "released": {
+          "rss": 69615616,
+          "heapTotal": 15269888,
+          "heapUsed": 5806128,
+          "external": 2341476,
+          "arrayBuffers": 143611
+        },
+        "timers": 2
+      },
+      {
+        "workloadMs": 7.980209000000002,
+        "populated": {
+          "rss": 69648384,
+          "heapTotal": 15269888,
+          "heapUsed": 6089568,
+          "external": 2341476,
+          "arrayBuffers": 143611
+        },
+        "released": {
+          "rss": 69648384,
+          "heapTotal": 15269888,
+          "heapUsed": 5813840,
+          "external": 2341476,
+          "arrayBuffers": 143611
+        },
+        "timers": 2
+      }
+    ],
+    "closed": {
+      "rss": 70320128,
+      "heapTotal": 15007744,
+      "heapUsed": 5761760,
+      "external": 2341476,
+      "arrayBuffers": 143611
+    },
+    "sends": 5000,
+    "acks": 2500,
+    "cancels": 2500,
+    "suppressed": 25000,
+    "modules": 96,
+    "timers": 0,
+    "sources": {
+      "lib/server/pushnotify.js": "ead3da5a223b2f48980aaae89ab550c972bdecd1907617f4f3d88c64cacf911f",
+      "package-lock.json": "376a459f3e505df6fb88524018d6095a7c6638dced2bc72cc7c0fa1179b88ceb"
+    },
+    "sourceSha256": "986c6700067fc2c87bf6d2024f10ccbaa0744bf6ec9dde9f1dbb471acf09c826",
+    "run": 4,
+    "label": "baseline"
+  },
+  {
+    "scope": "real pushnotify with mocked providers and clock; not whole-server memory",
+    "baseline": "cd5b192bbc191c73988c5d8b58304d86784be757",
+    "node": "v24.20.0",
+    "beforeLoad": {
+      "rss": 50331648,
+      "heapTotal": 6881280,
+      "heapUsed": 4173856,
+      "external": 2083569,
+      "arrayBuffers": 137467
+    },
+    "loaded": {
+      "rss": 55558144,
+      "heapTotal": 8454144,
+      "heapUsed": 5500784,
+      "external": 2270416,
+      "arrayBuffers": 143611
+    },
+    "cycles": [
+      {
+        "workloadMs": 9.302999999999997,
+        "populated": {
+          "rss": 64241664,
+          "heapTotal": 11075584,
+          "heapUsed": 6123264,
+          "external": 2341476,
+          "arrayBuffers": 143611
+        },
+        "released": {
+          "rss": 64503808,
+          "heapTotal": 11075584,
+          "heapUsed": 5841208,
+          "external": 2341476,
+          "arrayBuffers": 143611
+        },
+        "timers": 2
+      },
+      {
+        "workloadMs": 7.784999999999997,
+        "populated": {
+          "rss": 65126400,
+          "heapTotal": 11075584,
+          "heapUsed": 6197744,
+          "external": 2341476,
+          "arrayBuffers": 143611
+        },
+        "released": {
+          "rss": 65191936,
+          "heapTotal": 11075584,
+          "heapUsed": 5847280,
+          "external": 2341476,
+          "arrayBuffers": 143611
+        },
+        "timers": 2
+      },
+      {
+        "workloadMs": 7.769167000000003,
+        "populated": {
+          "rss": 65585152,
+          "heapTotal": 15269888,
+          "heapUsed": 6209056,
+          "external": 2341476,
+          "arrayBuffers": 143611
+        },
+        "released": {
+          "rss": 65601536,
+          "heapTotal": 15269888,
+          "heapUsed": 5860064,
+          "external": 2341476,
+          "arrayBuffers": 143611
+        },
+        "timers": 2
+      },
+      {
+        "workloadMs": 7.965042000000011,
+        "populated": {
+          "rss": 69500928,
+          "heapTotal": 15532032,
+          "heapUsed": 6215648,
+          "external": 2341476,
+          "arrayBuffers": 143611
+        },
+        "released": {
+          "rss": 69550080,
+          "heapTotal": 15007744,
+          "heapUsed": 5860960,
+          "external": 2341476,
+          "arrayBuffers": 143611
+        },
+        "timers": 2
+      },
+      {
+        "workloadMs": 7.320125000000004,
+        "populated": {
+          "rss": 69713920,
+          "heapTotal": 15269888,
+          "heapUsed": 6226672,
+          "external": 2341476,
+          "arrayBuffers": 143611
+        },
+        "released": {
+          "rss": 69779456,
+          "heapTotal": 15269888,
+          "heapUsed": 5872296,
+          "external": 2341476,
+          "arrayBuffers": 143611
+        },
+        "timers": 2
+      }
+    ],
+    "closed": {
+      "rss": 70238208,
+      "heapTotal": 15269888,
+      "heapUsed": 5826112,
+      "external": 2341476,
+      "arrayBuffers": 143611
+    },
+    "sends": 5000,
+    "acks": 2500,
+    "cancels": 2500,
+    "suppressed": 25000,
+    "modules": 13,
+    "timers": 0,
+    "sources": {
+      "lib/server/pushnotify.js": "acc62bc800611674e598376a475c7da02c3e9e809d51a18fcaf5502299175ee8",
+      "lib/utils/notification-cache.js": "43c0c8a331c5f9280fb44dee66a884262001148c38f32ece2eaec745166a8b6e",
+      "package-lock.json": "8e44e03500c5bdc484dbb1f62a815959cf261f5675c081305ccd734d4eaa67da"
+    },
+    "sourceSha256": "986c6700067fc2c87bf6d2024f10ccbaa0744bf6ec9dde9f1dbb471acf09c826",
+    "run": 4,
+    "label": "candidate"
+  },
+  {
+    "scope": "real pushnotify with mocked providers and clock; not whole-server memory",
+    "baseline": "9a110324de84ed5d14a189e7a51a755c9b5c8645",
+    "node": "v24.20.0",
+    "beforeLoad": {
+      "rss": 50446336,
+      "heapTotal": 6881280,
+      "heapUsed": 4174240,
+      "external": 2083569,
+      "arrayBuffers": 137467
+    },
+    "loaded": {
+      "rss": 60555264,
+      "heapTotal": 10551296,
+      "heapUsed": 5461632,
+      "external": 2270416,
+      "arrayBuffers": 143611
+    },
+    "cycles": [
+      {
+        "workloadMs": 9.514416000000004,
+        "populated": {
+          "rss": 64241664,
+          "heapTotal": 11075584,
+          "heapUsed": 6031128,
+          "external": 2341476,
+          "arrayBuffers": 143611
+        },
+        "released": {
+          "rss": 64454656,
+          "heapTotal": 11075584,
+          "heapUsed": 5789288,
+          "external": 2341476,
+          "arrayBuffers": 143611
+        },
+        "timers": 2
+      },
+      {
+        "workloadMs": 8.0445,
+        "populated": {
+          "rss": 64618496,
+          "heapTotal": 11337728,
+          "heapUsed": 6063712,
+          "external": 2341476,
+          "arrayBuffers": 143611
+        },
+        "released": {
+          "rss": 64684032,
+          "heapTotal": 10813440,
+          "heapUsed": 5787808,
+          "external": 2341476,
+          "arrayBuffers": 143611
+        },
+        "timers": 2
+      },
+      {
+        "workloadMs": 8.481916999999996,
+        "populated": {
+          "rss": 65290240,
+          "heapTotal": 15269888,
+          "heapUsed": 6073792,
+          "external": 2341476,
+          "arrayBuffers": 143611
+        },
+        "released": {
+          "rss": 65323008,
+          "heapTotal": 15269888,
+          "heapUsed": 5802664,
+          "external": 2341476,
+          "arrayBuffers": 143611
+        },
+        "timers": 2
+      },
+      {
+        "workloadMs": 8.13283299999999,
+        "populated": {
+          "rss": 69353472,
+          "heapTotal": 15269888,
+          "heapUsed": 6076752,
+          "external": 2341476,
+          "arrayBuffers": 143611
+        },
+        "released": {
+          "rss": 69386240,
+          "heapTotal": 15269888,
+          "heapUsed": 5806048,
+          "external": 2341476,
+          "arrayBuffers": 143611
+        },
+        "timers": 2
+      },
+      {
+        "workloadMs": 8.100583999999998,
+        "populated": {
+          "rss": 69681152,
+          "heapTotal": 15269888,
+          "heapUsed": 6089488,
+          "external": 2341476,
+          "arrayBuffers": 143611
+        },
+        "released": {
+          "rss": 69763072,
+          "heapTotal": 15269888,
+          "heapUsed": 5813760,
+          "external": 2341476,
+          "arrayBuffers": 143611
+        },
+        "timers": 2
+      }
+    ],
+    "closed": {
+      "rss": 70385664,
+      "heapTotal": 15007744,
+      "heapUsed": 5761680,
+      "external": 2341476,
+      "arrayBuffers": 143611
+    },
+    "sends": 5000,
+    "acks": 2500,
+    "cancels": 2500,
+    "suppressed": 25000,
+    "modules": 96,
+    "timers": 0,
+    "sources": {
+      "lib/server/pushnotify.js": "ead3da5a223b2f48980aaae89ab550c972bdecd1907617f4f3d88c64cacf911f",
+      "package-lock.json": "376a459f3e505df6fb88524018d6095a7c6638dced2bc72cc7c0fa1179b88ceb"
+    },
+    "sourceSha256": "986c6700067fc2c87bf6d2024f10ccbaa0744bf6ec9dde9f1dbb471acf09c826",
+    "run": 5,
+    "label": "baseline"
+  },
+  {
+    "scope": "real pushnotify with mocked providers and clock; not whole-server memory",
+    "baseline": "cd5b192bbc191c73988c5d8b58304d86784be757",
+    "node": "v24.20.0",
+    "beforeLoad": {
+      "rss": 50282496,
+      "heapTotal": 6881280,
+      "heapUsed": 4173856,
+      "external": 2083569,
+      "arrayBuffers": 137467
+    },
+    "loaded": {
+      "rss": 55771136,
+      "heapTotal": 8192000,
+      "heapUsed": 5500784,
+      "external": 2270416,
+      "arrayBuffers": 143611
+    },
+    "cycles": [
+      {
+        "workloadMs": 9.600792000000002,
+        "populated": {
+          "rss": 64618496,
+          "heapTotal": 11075584,
+          "heapUsed": 6123192,
+          "external": 2341476,
+          "arrayBuffers": 143611
+        },
+        "released": {
+          "rss": 64962560,
+          "heapTotal": 10813440,
+          "heapUsed": 5841136,
+          "external": 2341476,
+          "arrayBuffers": 143611
+        },
+        "timers": 2
+      },
+      {
+        "workloadMs": 7.960791,
+        "populated": {
+          "rss": 65519616,
+          "heapTotal": 11075584,
+          "heapUsed": 6197672,
+          "external": 2341476,
+          "arrayBuffers": 143611
+        },
+        "released": {
+          "rss": 65552384,
+          "heapTotal": 10813440,
+          "heapUsed": 5847208,
+          "external": 2341476,
+          "arrayBuffers": 143611
+        },
+        "timers": 2
+      },
+      {
+        "workloadMs": 7.853249999999996,
+        "populated": {
+          "rss": 67338240,
+          "heapTotal": 15532032,
+          "heapUsed": 6208984,
+          "external": 2341476,
+          "arrayBuffers": 143611
+        },
+        "released": {
+          "rss": 67452928,
+          "heapTotal": 15007744,
+          "heapUsed": 5859992,
+          "external": 2341476,
+          "arrayBuffers": 143611
+        },
+        "timers": 2
+      },
+      {
+        "workloadMs": 7.643833000000001,
+        "populated": {
+          "rss": 70041600,
+          "heapTotal": 15269888,
+          "heapUsed": 6215576,
+          "external": 2341476,
+          "arrayBuffers": 143611
+        },
+        "released": {
+          "rss": 70041600,
+          "heapTotal": 15007744,
+          "heapUsed": 5860888,
+          "external": 2341476,
+          "arrayBuffers": 143611
+        },
+        "timers": 2
+      },
+      {
+        "workloadMs": 7.132958000000002,
+        "populated": {
+          "rss": 70139904,
+          "heapTotal": 15269888,
+          "heapUsed": 6226600,
+          "external": 2341476,
+          "arrayBuffers": 143611
+        },
+        "released": {
+          "rss": 70156288,
+          "heapTotal": 15007744,
+          "heapUsed": 5872224,
+          "external": 2341476,
+          "arrayBuffers": 143611
+        },
+        "timers": 2
+      }
+    ],
+    "closed": {
+      "rss": 70582272,
+      "heapTotal": 15007744,
+      "heapUsed": 5826040,
+      "external": 2341476,
+      "arrayBuffers": 143611
+    },
+    "sends": 5000,
+    "acks": 2500,
+    "cancels": 2500,
+    "suppressed": 25000,
+    "modules": 13,
+    "timers": 0,
+    "sources": {
+      "lib/server/pushnotify.js": "acc62bc800611674e598376a475c7da02c3e9e809d51a18fcaf5502299175ee8",
+      "lib/utils/notification-cache.js": "43c0c8a331c5f9280fb44dee66a884262001148c38f32ece2eaec745166a8b6e",
+      "package-lock.json": "8e44e03500c5bdc484dbb1f62a815959cf261f5675c081305ccd734d4eaa67da"
+    },
+    "sourceSha256": "986c6700067fc2c87bf6d2024f10ccbaa0744bf6ec9dde9f1dbb471acf09c826",
+    "run": 5,
+    "label": "candidate"
+  },
+  {
+    "scope": "real pushnotify with mocked providers and clock; not whole-server memory",
+    "baseline": "9a110324de84ed5d14a189e7a51a755c9b5c8645",
+    "node": "v24.20.0",
+    "beforeLoad": {
+      "rss": 50413568,
+      "heapTotal": 6881280,
+      "heapUsed": 4174240,
+      "external": 2083569,
+      "arrayBuffers": 137467
+    },
+    "loaded": {
+      "rss": 60506112,
+      "heapTotal": 10289152,
+      "heapUsed": 5461768,
+      "external": 2270416,
+      "arrayBuffers": 143611
+    },
+    "cycles": [
+      {
+        "workloadMs": 9.91675,
+        "populated": {
+          "rss": 64290816,
+          "heapTotal": 10813440,
+          "heapUsed": 6031152,
+          "external": 2341476,
+          "arrayBuffers": 143611
+        },
+        "released": {
+          "rss": 64438272,
+          "heapTotal": 10813440,
+          "heapUsed": 5789312,
+          "external": 2341476,
+          "arrayBuffers": 143611
+        },
+        "timers": 2
+      },
+      {
+        "workloadMs": 8.434750000000001,
+        "populated": {
+          "rss": 64684032,
+          "heapTotal": 10813440,
+          "heapUsed": 6063736,
+          "external": 2341476,
+          "arrayBuffers": 143611
+        },
+        "released": {
+          "rss": 64765952,
+          "heapTotal": 10813440,
+          "heapUsed": 5785888,
+          "external": 2341476,
+          "arrayBuffers": 143611
+        },
+        "timers": 2
+      },
+      {
+        "workloadMs": 8.843084000000005,
+        "populated": {
+          "rss": 66863104,
+          "heapTotal": 15269888,
+          "heapUsed": 6073816,
+          "external": 2341476,
+          "arrayBuffers": 143611
+        },
+        "released": {
+          "rss": 66977792,
+          "heapTotal": 15007744,
+          "heapUsed": 5802688,
+          "external": 2341476,
+          "arrayBuffers": 143611
+        },
+        "timers": 2
+      },
+      {
+        "workloadMs": 8.296832999999992,
+        "populated": {
+          "rss": 69730304,
+          "heapTotal": 15269888,
+          "heapUsed": 6076776,
+          "external": 2341476,
+          "arrayBuffers": 143611
+        },
+        "released": {
+          "rss": 69763072,
+          "heapTotal": 15007744,
+          "heapUsed": 5806072,
+          "external": 2341476,
+          "arrayBuffers": 143611
+        },
+        "timers": 2
+      },
+      {
+        "workloadMs": 7.816208000000003,
+        "populated": {
+          "rss": 69959680,
+          "heapTotal": 15269888,
+          "heapUsed": 6089512,
+          "external": 2341476,
+          "arrayBuffers": 143611
+        },
+        "released": {
+          "rss": 69959680,
+          "heapTotal": 15007744,
+          "heapUsed": 5813784,
+          "external": 2341476,
+          "arrayBuffers": 143611
+        },
+        "timers": 2
+      }
+    ],
+    "closed": {
+      "rss": 70631424,
+      "heapTotal": 15007744,
+      "heapUsed": 5761704,
+      "external": 2341476,
+      "arrayBuffers": 143611
+    },
+    "sends": 5000,
+    "acks": 2500,
+    "cancels": 2500,
+    "suppressed": 25000,
+    "modules": 96,
+    "timers": 0,
+    "sources": {
+      "lib/server/pushnotify.js": "ead3da5a223b2f48980aaae89ab550c972bdecd1907617f4f3d88c64cacf911f",
+      "package-lock.json": "376a459f3e505df6fb88524018d6095a7c6638dced2bc72cc7c0fa1179b88ceb"
+    },
+    "sourceSha256": "986c6700067fc2c87bf6d2024f10ccbaa0744bf6ec9dde9f1dbb471acf09c826",
+    "run": 6,
+    "label": "baseline"
+  },
+  {
+    "scope": "real pushnotify with mocked providers and clock; not whole-server memory",
+    "baseline": "cd5b192bbc191c73988c5d8b58304d86784be757",
+    "node": "v24.20.0",
+    "beforeLoad": {
+      "rss": 50364416,
+      "heapTotal": 6881280,
+      "heapUsed": 4173856,
+      "external": 2083569,
+      "arrayBuffers": 137467
+    },
+    "loaded": {
+      "rss": 55738368,
+      "heapTotal": 8192000,
+      "heapUsed": 5500928,
+      "external": 2270416,
+      "arrayBuffers": 143611
+    },
+    "cycles": [
+      {
+        "workloadMs": 9.393999999999998,
+        "populated": {
+          "rss": 64339968,
+          "heapTotal": 11075584,
+          "heapUsed": 6123312,
+          "external": 2341476,
+          "arrayBuffers": 143611
+        },
+        "released": {
+          "rss": 64749568,
+          "heapTotal": 10813440,
+          "heapUsed": 5841256,
+          "external": 2341476,
+          "arrayBuffers": 143611
+        },
+        "timers": 2
+      },
+      {
+        "workloadMs": 7.996000000000002,
+        "populated": {
+          "rss": 65290240,
+          "heapTotal": 11337728,
+          "heapUsed": 6198680,
+          "external": 2341476,
+          "arrayBuffers": 143611
+        },
+        "released": {
+          "rss": 65372160,
+          "heapTotal": 10813440,
+          "heapUsed": 5847328,
+          "external": 2341476,
+          "arrayBuffers": 143611
+        },
+        "timers": 2
+      },
+      {
+        "workloadMs": 7.905124999999991,
+        "populated": {
+          "rss": 67190784,
+          "heapTotal": 15532032,
+          "heapUsed": 6209104,
+          "external": 2341476,
+          "arrayBuffers": 143611
+        },
+        "released": {
+          "rss": 67305472,
+          "heapTotal": 15007744,
+          "heapUsed": 5860112,
+          "external": 2341476,
+          "arrayBuffers": 143611
+        },
+        "timers": 2
+      },
+      {
+        "workloadMs": 7.365707999999998,
+        "populated": {
+          "rss": 69992448,
+          "heapTotal": 15269888,
+          "heapUsed": 6215696,
+          "external": 2341476,
+          "arrayBuffers": 143611
+        },
+        "released": {
+          "rss": 70025216,
+          "heapTotal": 15007744,
+          "heapUsed": 5861008,
+          "external": 2341476,
+          "arrayBuffers": 143611
+        },
+        "timers": 2
+      },
+      {
+        "workloadMs": 7.089249999999993,
+        "populated": {
+          "rss": 70287360,
+          "heapTotal": 15269888,
+          "heapUsed": 6226720,
+          "external": 2341476,
+          "arrayBuffers": 143611
+        },
+        "released": {
+          "rss": 70303744,
+          "heapTotal": 15007744,
+          "heapUsed": 5872344,
+          "external": 2341476,
+          "arrayBuffers": 143611
+        },
+        "timers": 2
+      }
+    ],
+    "closed": {
+      "rss": 71057408,
+      "heapTotal": 15007744,
+      "heapUsed": 5826184,
+      "external": 2341476,
+      "arrayBuffers": 143611
+    },
+    "sends": 5000,
+    "acks": 2500,
+    "cancels": 2500,
+    "suppressed": 25000,
+    "modules": 13,
+    "timers": 0,
+    "sources": {
+      "lib/server/pushnotify.js": "acc62bc800611674e598376a475c7da02c3e9e809d51a18fcaf5502299175ee8",
+      "lib/utils/notification-cache.js": "43c0c8a331c5f9280fb44dee66a884262001148c38f32ece2eaec745166a8b6e",
+      "package-lock.json": "8e44e03500c5bdc484dbb1f62a815959cf261f5675c081305ccd734d4eaa67da"
+    },
+    "sourceSha256": "986c6700067fc2c87bf6d2024f10ccbaa0744bf6ec9dde9f1dbb471acf09c826",
+    "run": 6,
+    "label": "candidate"
+  }
+]

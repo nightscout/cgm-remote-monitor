@@ -19,7 +19,7 @@
   <link rel="apple-touch-icon" sizes="180x180" href="/images/apple-touch-icon-180x180.png">
 
   <style type="text/css">
-    @import url("//fonts.googleapis.com/css?family=Open+Sans:700|Noto+Color+Emoji");
+    @import url("/css/open-sans-font.css");
     <%- include('clock-shared.css', {}); %>
     <%if (face === 'config') { %>
     <%- include('clock-config.css', {}); %>
@@ -33,7 +33,7 @@
     <div id="inner" data-face="<%= face %>"<%-(face === 'config') ? 'data-face-config="cy10"' : '' %>>
     </div>
   </main>
-  <script src="<%= locals.bundle %>/js/bundle.clock.js"></script>
+  <script src="<%= locals.bundle %>/js/bundle.clock.js?v=<%= encodeURIComponent(locals.cachebuster || '') %>"></script>
 
   <script type="text/javascript">
     var clockFace = "<%= face  %>"; // can now be used in scripts
@@ -47,30 +47,47 @@
     });
 
     var secret = typeof localStorage !== 'undefined' ? localStorage.getItem('apisecrethash') : '';
-    var src = '/api/v1/status.js?t=' + Date.now();
+    var secretRefused = false;
 
-    if (secret) {
-      src += '&secret=' + secret;
-    } else if (token) {
-      src += '&token=' + token;
+    function loadStatus () {
+      var src = '/api/v1/status.js?t=' + Date.now();
+      var sentSecret = secret;
+
+      if (secret) {
+        src += '&secret=' + secret;
+      } else if (token) {
+        src += '&token=' + token;
+      }
+
+      var script = document.createElement('script');
+      script.onload = function() {
+        window.Nightscout.client.init();
+      };
+      // A refused script fires error, not load, and does not expose the status.
+      // Ask once more to read it, and say so on a 401 instead of drawing nothing.
+      script.onerror = function() {
+        $.ajax(src, { dataType: 'text', error: function (xhr) {
+          // A saved API secret is sent in preference to the link's token, so
+          // one the site refuses would block a valid token link (BF-223).
+          // Remove it and start again; with no secret left this cannot repeat.
+          if (sentSecret && xhr && (xhr.status === 401 || xhr.status === 403)) {
+            localStorage.removeItem('apisecrethash');
+            secret = '';
+            secretRefused = true;
+            loadStatus();
+            return;
+          }
+          if (xhr && xhr.status === 401) {
+            window.Nightscout.client.showNotAuthorized(secretRefused);
+          }
+        } });
+      };
+      script.src = src;
+
+      document.head.appendChild(script); //or something of the likes
     }
 
-    var script = document.createElement('script');
-    script.onload = function() {
-      window.Nightscout.client.init();
-    };
-    // A refused script fires error, not load, and does not expose the status.
-    // Ask once more to read it, and say so on a 401 instead of drawing nothing.
-    script.onerror = function() {
-      $.ajax(src, { dataType: 'text', error: function (xhr) {
-        if (xhr && xhr.status === 401) {
-          window.Nightscout.client.showNotAuthorized();
-        }
-      } });
-    };
-    script.src = src;
-
-    document.head.appendChild(script); //or something of the likes
+    loadStatus();
     <%if (face !== 'config') { %>
     var buttonVisible = true;
 

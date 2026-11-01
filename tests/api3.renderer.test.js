@@ -11,7 +11,7 @@ describe('API3 output renderers', function() {
     , opTools = require('../lib/api3/shared/operationTools')
     , utils = require('./fixtures/api3/utils')
     , xml2js = require('xml2js')
-    , csvParse = require('csv-parse/lib/sync')
+    , {parse: csvParse} = require('csv-parse/sync')
     ;
 
   self.historyFrom = (new Date()).getTime() - 1000; // starting timestamp for HISTORY operations
@@ -160,10 +160,10 @@ describe('API3 output renderers', function() {
     }
 
     self.doc1json = await createDoc(self.doc1);
-    self.cache.nextShouldEql(self.col, self.doc1)
+    await self.cache.nextShouldEql(self.col, self.doc1)
 
     self.doc2json = await createDoc(self.doc2);
-    self.cache.nextShouldEql(self.col, self.doc2)
+    await self.cache.nextShouldEql(self.col, self.doc2)
   });
 
 
@@ -287,7 +287,7 @@ describe('API3 output renderers', function() {
         .expect(200);
 
       res.body.status.should.equal(200);
-      self.cache.nextShouldDeleteLast(self.col);
+      await self.cache.nextShouldDeleteLast(self.col);
     }
 
     await deleteDoc(self.doc1.identifier);
