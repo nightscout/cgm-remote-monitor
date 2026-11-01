@@ -377,7 +377,10 @@ describe('websocket: dbUpdate, dbUpdateUnset and dbRemove addressed by identifie
       (await col().countDocuments({ identifier: ID, notes: 'both forms' })).should.equal(2);
     });
 
-    it('a socket insert merged by its identifier (6a) is announced once', async function () {
+    // CHANGED EXPECTATION (maintainer 2026-10-31, compat card B, extended): the
+    // socket insert matched by its identifier (6a) replaces the stored record
+    // (it was merged); it is still announced once, as the record now stored.
+    it('a socket insert replaced by its identifier (6a) is announced once', async function () {
       await seed('food', { name: 'apple', identifier: ID, created_at: at(0) });
       var result = await send('dbAdd', { collection: 'food', data: { name: 'apple pie', identifier: ID, created_at: at(0) } });
       result.reply.length.should.equal(1);

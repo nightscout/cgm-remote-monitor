@@ -323,30 +323,11 @@ describe('write(intent): API v3 create, update, patch and delete (equal to db3b9
         return o.calls.filter(function (c) { return WRITE_METHODS.indexOf(c[0]) !== -1; })
           .map(function (c) { return c.slice(0, c[0] === 'deleteEveryForm' ? 2 : 3); });
       };
-      if (name === 'POST deduplicated into a stored record without srvCreated') {
-        // CHANGED EXPECTATION (ID-FIRST-MATCH slice 4, ID-Q8): a POST that
-        // matched a stored record is merged into it: updateOne(identifier,
-        // the same stamped document as $set, no $unset) where it was
-        // replaceOne, so a field the POST leaves out (created_at) is kept, and
-        // the storage socket announces the record as merged. The reply, its
-        // headers and every other write are as they were.
-        const was = writes(before);
-        const is = writes(now);
-        const at = was.findIndex(function (c) { return c[0] === 'replaceOne'; });
-        assert.deepStrictEqual(is[at], ['updateOne', was[at][1], was[at][2]]);
-        assert.deepStrictEqual(now.calls.find(function (c) { return c[0] === 'updateOne'; })[3], { });
-        assert.deepStrictEqual(is.filter(function (c, i) { return i !== at; }), was.filter(function (c, i) { return i !== at; }));
-        assert.deepStrictEqual([now.status, now.headers, now.body, now.thrown, now.errors]
-          , [before.status, before.headers, before.body, before.thrown, before.errors]);
-        assert.deepStrictEqual(now.events.map(function (e) { return e[0]; }), before.events.map(function (e) { return e[0]; }));
-        const announced = now.events.find(function (e) { return e[0] === 'storage-socket-update'; })[1].doc;
-        assert.equal(announced.created_at, '2026-10-29T10:00:00.000Z');
-        assert.equal(announced.sgv, 101);
-        assert.equal(now.stored.created_at, '2026-10-29T10:00:00.000Z');
-        assert.equal(before.stored.created_at, undefined);
-        assert.deepStrictEqual(Object.assign({ }, now.stored, { created_at: undefined }), Object.assign({ }, before.stored, { created_at: undefined }));
-        return;
-      }
+      // CHANGED EXPECTATION (maintainer 2026-10-31, compat card B): a POST that
+      // matched a stored record replaces it again (replaceOne), as at db3b9e4e,
+      // so 'POST deduplicated into a stored record without srvCreated', which
+      // slice 4 (ID-Q8) and release 2 compared apart as a merge (updateOne), is
+      // compared like every other scenario.
       assert.deepStrictEqual(writes(now), writes(before), name + ': writes');
       assert.deepStrictEqual(Object.assign({ }, now, { calls: null }), Object.assign({ }, before, { calls: null }), name);
     });
