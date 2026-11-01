@@ -127,7 +127,9 @@ describe('websocket: dbUpdate, dbUpdateUnset and dbRemove addressed by identifie
 
   beforeEach(function () {
     self.env.writeValidation = 'off';
-    return dropAll();
+    // Records sharing an identifier are stored as before the unique index
+    // (ID-UNIQUE-INDEX).
+    return require('./fixtures/identifier-index').dropIdentifierIndex(self.ctx.store, self.env).then(dropAll);
   });
 
   after(function (done) {

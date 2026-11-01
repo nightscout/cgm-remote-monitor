@@ -173,6 +173,8 @@ describe('ID-FIRST-MATCH slices 6 and 6a: the socket\'s dbAdd matches on identif
       it(`${name}: two records share the identifier: the write lands on one of them, no third record`, async ( ) => {
         const mark = tag();
         const identifier = uuid();
+        // Two records with one identifier are stored as before the unique index (ID-UNIQUE-INDEX).
+        await require('./fixtures/identifier-index').dropIdentifierIndex(self.instance.ctx.store, self.instance.env);
         await seed(name, form.doc(mark, identifier));
         await seed(name, form.doc(mark, identifier));
         await add(name, form.doc(mark, identifier, form.changed));
@@ -276,6 +278,8 @@ describe('ID-FIRST-MATCH slices 6 and 6a: the socket\'s dbAdd matches on identif
       const note = tag();
       const identifier = uuid();
       const t1 = Date.now() - 3600000;
+      // Two records with one identifier are stored as before the unique index (ID-UNIQUE-INDEX).
+      await require('./fixtures/identifier-index').dropIdentifierIndex(self.instance.ctx.store, self.instance.env);
       const older = await seed('treatments', treatment(note, { identifier, created_at: iso(t1) }));
       const newer = await seed('treatments', treatment(note, { identifier, created_at: iso(t1 + 120000), carbs: 40 }));
       const reply = await add('treatments', treatment(note, { identifier, created_at: iso(t1), carbs: 22 }));

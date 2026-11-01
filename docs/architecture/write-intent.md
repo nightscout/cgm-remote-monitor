@@ -180,6 +180,63 @@ the open question that will unify it. Do not tidy a variant without that questio
 - Break each rule you moved and show the matrix goes red only where you expect, or, where no matrix form
   reaches the rule, a named test. Then show that the revert matches the clean run.
 
+## The unique index on `identifier`
+
+`WRITE_IDENTIFIER_INDEX=try|require|off|drop` (default `try`; ID-UNIQUE-INDEX, decided 2026-10-30; `drop`
+decided 2026-10-31) puts one
+partial unique index, `identifier_unique`, on each collection: entries, treatments, devicestatus,
+profile, food, activity and settings. It covers every record whose `identifier` is a non-empty string,
+soft-deleted records included, and leaves out records whose `identifier` is absent, `null`, empty or not
+a string (`partialFilterExpression: { identifier: { $type: 'string', $gt: '' } }`). The build and the
+duplicate count run at boot, in `lib/storage/identifier-index.js`:
+
+- `try`: the index is built online on each collection where no stored records share an identifier.
+  Where some do, the server logs, per collection, how many identifiers are shared and by how many
+  records (never the values), shows the same counts under `identifierIndex` in `/api/v1/status.json`,
+  raises an admin notification, and runs without the index there. Records whose stored `identifier` is
+  not a string (null, a number, an array: written before identifier-format treated such a value as absent)
+  are counted on their own line and under `nonStringIdentifiers`.
+- `require`: as `try`, but a collection without the index stops the boot.
+- `off`: nothing is built and nothing is dropped. An index already there is left as it is and is still
+  enforced; the server logs, per collection, `identifier index on <name>: present and enforced: ...`, and
+  `/api/v1/status.json` shows that collection as `present` with `enforced: true` and the same note. One
+  admin notification, "The unique index on identifier is still enforced", names every such collection.
+- `drop`: at boot, the index is removed from each collection that has it, with one log line per
+  collection (`identifier index on <name>: dropped identifier_unique from collection <stored name> ...`)
+  and one info line naming the collections that had none (`... nothing to drop`). The server then runs as
+  `off`, without the index. API v3's own non-unique `identifier_1` is a different index and is left
+  alone. A later start under `try` builds the index again.
+
+With the index on, a duplicate key on it means two uploads of one record raced: both ran the identifier
+match before either was stored. The step's `DUPLICATE_IDENTIFIER` entry applies the second upload once
+more as its path applies a re-send (API v3 create: the identifying read again, then the deduplicating
+replace, or the device status acknowledgement, answered 200 with `isDeduplication` as a re-sent POST
+is), and a second failure is thrown. Only creates are
+retried; an edit whose identifier another record holds is a conflict, not a re-send. Without the index
+the error cannot arise, so the entry does nothing.
+
+**Operator steps.**
+
+- Report the records that block the index:
+  `node tools/identifier-duplicates.js report [--collections treatments,entries] [--show-identifiers]`.
+  It connects as the server does (`MONGODB_URI` and the `MONGO_*_COLLECTION` settings).
+- Resolve them: `node tools/identifier-duplicates.js resolve` prints what it would do;
+  `resolve --apply` does it. Stop the server and take a backup first. It first unsets each stored
+  identifier that is not a string (its value kept in `identifierReleased`). In each group the record P4
+  picks (`p4Pick`; with no write to compare, the newest by `_id`) among the live holders (`isValid` not
+  false), or among all of them when none is live, keeps the identifier. A twin of it
+  (the same `_id` stored as an ObjectId and as its string) is removed. Every other record is kept, with
+  its identifier moved to `identifierReleased` and a new `srvModified`. Then start the server: under
+  `try` it builds the index.
+- Remove the index, for example before reverting this change or to go back to running without it:
+  start once with `WRITE_IDENTIFIER_INDEX=drop` and check the log lines, then keep `drop` or set `off`.
+  Where that is not possible (a version without the setting is already running), drop it in the MongoDB
+  shell, once per collection:
+  `db.treatments.dropIndex('identifier_unique')` (and `entries`, `devicestatus`, `profile`, `food`,
+  `activity`, `settings`, under their configured names). A version without the index does not need it
+  dropped to run, but it then refuses a second record with a stored identifier on every path,
+  including the ones that do not match on identifier yet.
+
 ## What the step does not do
 
 - It does not emit or change `storage-write-committed`. That event belongs to the persistence boundary

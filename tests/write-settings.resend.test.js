@@ -16,7 +16,8 @@ const { createRequire } = require('module');
 const writeSettings = require('../lib/server/write-settings');
 
 const MERGE = writeSettings.RESEND_MERGE;
-const MANAGED = ['WRITE_RESEND', 'WRITE_DELETED_RESEND', 'WRITE_IDENTIFIER', 'WRITE_DELETED_EDIT', 'WRITE_VALIDATION'];
+const MANAGED = ['WRITE_RESEND', 'WRITE_DELETED_RESEND', 'WRITE_IDENTIFIER', 'WRITE_IDENTIFIER_INDEX', 'WRITE_DELETED_EDIT'
+  , 'WRITE_VALIDATION'];
 
 // The parse with a reader over `values`, counting how often each name is read.
 function parsed (values, reads) {
@@ -130,7 +131,7 @@ describe('WRITE_RESEND and WRITE_DELETED_RESEND (lib/server/write-settings.js)',
   it('the other WRITE_* settings parse as before beside them', function ( ) {
     const result = parsed({ WRITE_RESEND: MERGE, WRITE_DELETED_RESEND: 'revive', WRITE_IDENTIFIER: 'strict'
       , WRITE_DELETED_EDIT: 'refuse', WRITE_VALIDATION: 'reject' });
-    assert.deepStrictEqual(result.write, { validation: 'reject', identifier: 'strict', deletedEdit: 'refuse'
+    assert.deepStrictEqual(result.write, { validation: 'reject', identifier: 'strict', index: 'try', deletedEdit: 'refuse'
       , resend: MERGE, deletedResend: 'revive' });
     assert.deepStrictEqual(result.errors, [ ]);
   });

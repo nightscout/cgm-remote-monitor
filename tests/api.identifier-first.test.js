@@ -195,6 +195,8 @@ describe('ID-FIRST-MATCH slices 6 and 6a: v1 and in-process profile, food and ac
       it(`API v1 ${name}: two records share the identifier: the write lands on one of them, no third record`, async ( ) => {
         const mark = tag();
         const identifier = uuid();
+        // Two records with one identifier are stored as before the unique index (ID-UNIQUE-INDEX).
+        await require('./fixtures/identifier-index').dropIdentifierIndex(self.instance.ctx.store, self.instance.env);
         const first = await seed(name, form.doc(mark, identifier));
         const second = await seed(name, form.doc(mark, identifier));
         const res = await v1('post', form.route).send([form.resend(mark, identifier)]).expect(200);
