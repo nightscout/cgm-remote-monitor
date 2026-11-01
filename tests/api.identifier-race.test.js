@@ -234,23 +234,29 @@ describe('ID-UNIQUE-INDEX: two uploads of one record that race', function () {
       return { replies: replies, stored: docs[0], announced: announced[0] };
     }
 
-    it('device status: the loser is merged into the stored status, as a serial re-send is (ID-Q2); one record', async function () {
+    // CHANGED EXPECTATION (compat card B, maintainer 2026-10-31): an API v3
+    // re-send replaces on every collection, as on 15.0.9, and the loser of a
+    // race is applied as that re-send, so a field it leaves out is gone. Was:
+    // merged (ID-Q2), keeping it.
+    it('device status: the loser replaces the stored status, as a serial re-send does (card B); one record', async function () {
       var id = 'race-v3-status-0001';
       var base = { identifier: id, date: T, utcOffset: 0, app: 'race-test', device: 'race-test' };
       var r = await inOrder('devicestatus', Object.assign({ uploaderBattery: 50, pump: { reservoir: 10 } }, base)
         , Object.assign({ uploaderBattery: 40 }, base));
       r.replies[1].body.identifier.should.equal(id);
       r.stored.uploaderBattery.should.equal(40);
-      r.stored.pump.should.eql({ reservoir: 10 });
-      r.announced.pump.should.eql({ reservoir: 10 });
+      r.stored.should.not.have.property('pump');
+      r.announced.should.not.have.property('pump');
     });
 
-    it('entries: the loser is merged into the stored entry (merge on match); a field it leaves out is kept', async function () {
+    // CHANGED EXPECTATION (compat card B): replaced, as above. Was: merged
+    // (merge on match), keeping noise.
+    it('entries: the loser replaces the stored entry (card B); a field it leaves out is gone', async function () {
       var id = 'race-v3-entry-0001';
       var base = { identifier: id, date: T, utcOffset: 0, app: 'race-test', device: 'race-test', type: 'sgv' };
       var r = await inOrder('entries', Object.assign({ sgv: 101, noise: 1 }, base), Object.assign({ sgv: 102 }, base));
       r.stored.sgv.should.equal(102);
-      r.stored.noise.should.equal(1);
+      r.stored.should.not.have.property('noise');
     });
 
     it('treatments: the loser replaces the stored treatment, as a serial re-send does (slice 4 keeps the replace);'
