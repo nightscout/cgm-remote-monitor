@@ -115,7 +115,10 @@ var EXPECT = {
   , 'v3 resend': function (col) {
     // ID-SIMPLE-MATCH, devicestatus option (b), decided 2026-10-26: a device
     // status re-sent with a stored identifier is acknowledged, not rewritten.
-    if (col === 'devicestatus') return ['200 n=1 edited=false', 'v3 POST with the same identifier is acknowledged as a deduplication and leaves the v1 status as stored'];
+    // CHANGED EXPECTATION (ID-FIRST-MATCH slice 4, ID-Q2): it is merged into
+    // the v1 status, as every other collection's re-send is; the third entry is
+    // what is observed now, and the cell's title keeps the first.
+    if (col === 'devicestatus') return ['200 n=1 edited=false', 'v3 POST with the same identifier deduplicates onto the v1 status (merged, ID-Q2)', '200 n=1 edited=true'];
     return ['200 n=1 edited=true', 'v3 POST with the same identifier deduplicates onto the v1 record'];
   }
   // websocket dbAdd of a new record carrying its own _id
@@ -258,7 +261,9 @@ describe('CRUD by _id matrix: v1, v3 and websocket, every collection and stored 
   function cell (api, op, col, form, run) {
     var key = api + ' ' + op;
     var exp = EXPECT[key](col, form);
-    it(key + ' | ' + col + ' | ' + form + ' -> ' + exp[0], async function () {
+    var title = exp[0];
+    if (exp[2] !== undefined) exp = [exp[2], exp[1]];
+    it(key + ' | ' + col + ' | ' + form + ' -> ' + title, async function () {
       var observed;
       var beforeCommits = commits.length;
       try {
@@ -1018,13 +1023,17 @@ describe('CRUD by _id matrix: v1, v3 and websocket, every collection and stored 
           await send(from, 'original');
           await send(to, 'edited');
           const stored = await storedFor(col, id);
-          // v1 and internal entries now match on identifier first, so a resend
-          // from any path finds the stored entry. v3 does not populate v1's
-          // sysTime key, so a v3->socket resend still duplicates. Keep it visible
-          // until the socket matches on identifier too.
-          const duplicate = col === 'entries' && from === 'v3' && to === 'socket';
-          should(stored.length).equal(duplicate ? 2 : 1);
-          if (!duplicate) should(allEdited(stored)).equal(to !== 'socket');
+          // CHANGED EXPECTATION (ID-FIRST-MATCH slice 6, 2026-10-31): the socket's
+          // dbAdd now matches on identifier first, as this comment asked for. An
+          // entries re-send through the socket lands on the stored entry and
+          // merges (written: edited), from every path; the v3->socket duplicate
+          // is gone. Was: a socket re-send was not written, and v3->socket stored
+          // a second entry.
+          // CHANGED EXPECTATION (decision B, maintainer 2026-10-31): a treatment
+          // re-send through the socket that matches by identifier replaces the
+          // stored treatment, so it is written (edited) too. Was: kept unwritten.
+          should(stored.length).equal(1);
+          should(allEdited(stored)).equal(true);
         });
       }
     }

@@ -67,7 +67,13 @@ function baseStorage (calls, state) {
     identifyingFilter: utils.identifyingFilter,
     findOne: record('findOne', found),
     findEveryForm: record('findEveryForm', found),
-    findOneFilter: record('findOneFilter', found),
+    // As find.findOneFilter: normalized (identifier from _id, _id removed)
+    // unless options.normalize is false.
+    findOneFilter: record('findOneFilter', function (filter, projection, options) {
+      const docs = found();
+      if (!options || options.normalize !== false) docs.forEach(utils.normalizeDoc);
+      return docs;
+    }),
     findMany: record('findMany', found),
     insertOne: record('insertOne', function (doc) {
       // As modify.insertOne with normalize: false: the document carries the
@@ -263,10 +269,48 @@ describe('write(intent): API v3 create, update, patch and delete (equal to db3b9
     security.authenticate = realAuthenticate;
   });
 
+  // CHANGED EXPECTATION (ID-FIRST-MATCH slice 5, P4 on API v3 PUT and
+  // PATCH): PATCH's identifying read is the step's ('v3-addressed'). It is the
+  // same filter and order, but reads the first two records, not normalized
+  // (the step normalizes the one it answers), to see whether a second record
+  // stores the identifier. That third argument is checked here and lifted;
+  // every other call, emission, reply and stored record stays equal.
+  function liftAddressedRead (outcome) {
+    outcome.calls.forEach(function (call) {
+      if (call[0] === 'findOneFilter' && call.length === 4) {
+        assert.deepStrictEqual(call[3], { normalize: false, limit: 2 });
+        call.pop();
+      }
+    });
+    return outcome;
+  }
+
   Object.keys(SCENARIOS).forEach(function (name) {
     it(name, async function ( ) {
       const before = await run(BEFORE, SCENARIOS[name]);
-      const now = await run(NOW, SCENARIOS[name]);
+      const now = liftAddressedRead(await run(NOW, SCENARIOS[name]));
+      if (name === 'POST deduplicated into a stored record without srvCreated') {
+        // CHANGED EXPECTATION (ID-FIRST-MATCH slice 4, ID-Q8): a POST that
+        // matched a stored record is merged into it: updateOne(identifier,
+        // the same stamped document as $set, no $unset) where it was
+        // replaceOne, so a field the POST leaves out (created_at) is kept, and
+        // the storage socket announces the record as merged. The reply, its
+        // headers and every other call are as they were.
+        const at = before.calls.findIndex(function (c) { return c[0] === 'replaceOne'; });
+        assert.deepStrictEqual(now.calls[at], ['updateOne', before.calls[at][1], before.calls[at][2], { }]);
+        assert.deepStrictEqual(now.calls.filter(function (c, i) { return i !== at; })
+          , before.calls.filter(function (c, i) { return i !== at; }));
+        assert.deepStrictEqual([now.status, now.headers, now.body, now.thrown, now.errors]
+          , [before.status, before.headers, before.body, before.thrown, before.errors]);
+        assert.deepStrictEqual(now.events.map(function (e) { return e[0]; }), before.events.map(function (e) { return e[0]; }));
+        const announced = now.events.find(function (e) { return e[0] === 'storage-socket-update'; })[1].doc;
+        assert.equal(announced.created_at, '2026-10-29T10:00:00.000Z');
+        assert.equal(announced.sgv, 101);
+        assert.equal(now.stored.created_at, '2026-10-29T10:00:00.000Z');
+        assert.equal(before.stored.created_at, undefined);
+        assert.deepStrictEqual(Object.assign({ }, now.stored, { created_at: undefined }), Object.assign({ }, before.stored, { created_at: undefined }));
+        return;
+      }
       assert.deepStrictEqual(now, before);
     });
   });

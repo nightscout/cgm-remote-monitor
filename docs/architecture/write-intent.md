@@ -36,7 +36,11 @@ in one place.
 
 The step calls only the storage interface, never the driver, and emits nothing. API v3 writes through
 the cached wrapper's identifier methods (`insertOne`, `replaceOne`, `updateOne`, `updateEveryForm`,
-`deleteEveryForm`). Each updates or removes only the record written in the in-memory cache. Do not
+`deleteEveryForm`). API v3's identifying reads are the step's `match()`: create's (`v3-identifying`)
+and PUT and PATCH `/{identifier}`'s (`v3-addressed`). When one of them picked one of several records
+that share an identifier (P4), `replaceOne` and `updateOne` take that record's `_id` as one more
+argument and write it by `_id`.
+Each updates or removes only the record written in the in-memory cache. Do not
 route a v3 write through the query methods (`replaceFiltered`, `updateMany`, `deleteMany`, `bulkUpsert`,
 `insertMany`): in the cached wrapper they empty the whole cache, which the server then reloads from
 MongoDB.
@@ -63,6 +67,11 @@ const result = await step.write({ op: 'create', form: 'batch', docs: docs });
   threw still throws in the same place. `write()` accepts what `plan()` returns.
 - `check(docs)` is the path's WRITE_VALIDATION rule: it returns `[{ index, problems }]` for each
   document refused (only with `WRITE_VALIDATION=reject`), and logs each one in `log` and `reject` modes.
+- `identifiers(docs)` is the identifier-format rule (ID-Q6) at the moment a route can still refuse a
+  document: it removes each invalid `identifier` (`WRITE_IDENTIFIER=lenient`), or, under `strict` on a path
+  that refuses (`IDENTIFIER_STRICT`), returns `[{ index, problems }]` for the route to refuse. The step
+  applies the same rule again right after each path's `_id` step, so a route that does not call it still
+  never matches on or stores an invalid identifier.
 - A storage failure inside a rule surfaces as a `WriteRuleError` naming the rule, so a route can answer
   exactly as it did when the rule was its own code.
 
@@ -78,13 +87,17 @@ named vocabularies in the same file:
 |---|---|---|
 | `ID_FORMS`, `DOC_ID_FORMS` | the `_id` form to write under | `stored-or-new`, `objectid-or-new`, `stored-string-or-objectid`, `treatment-uuid` |
 | `TARGETS`, `DOC_TARGETS`, `DELETE_TARGETS` | which stored record a write or delete names | `id-eq`, `id-plain`, `treatment-key`, `every-form`, `id-match`, `query` |
-| `onMatch`, `onExact` | the outcome when a record matches | `replaced`, `merged`, `unchanged` |
+| `onMatch`, `onExact` | the outcome when a record matches. A matched re-send (a create) is `merged` (ID-Q8, merge on match), except a treatment's, which is `replaced` on API v1, in-process and API v3 (decided 2026-10-30: Loop ends an override by re-sending it without `durationType`); PUT and save are `replaced`. A rule's `onTimeMatch` overrides it for an API v3 match on the fallback fields alone (device status: `replaced`, left to ID-NATURAL-KEY) | `merged`, `replaced`, `unchanged`, `acknowledged` (API v3: answered without a write) |
+| `MERGES` (a rule's `merge`) | how a merge on match merges: JSON Merge Patch (RFC 7386, `lib/server/merge-patch.js`: a member sent replaces, an object merges member by member, an array is a value, a null removes, a member left out is kept), and which top-level members are taken whole as sent | `rfc7386`, `rfc7386-store-whole` (profile `store`, ID-Q7) |
 | `twins` | removal of a record stored under the other spelling of the same `_id` | `remove-string-forms`, `remove-string-forms-after` |
 | `dates` | server dates | `carry`, `stamp-created`, `stamp-modified`, `none` |
 | `PREPARE`, `CHECKS` | preparation and WRITE_VALIDATION | `treatment`, `treatment-domain-v1`, `treatment-domain-socket` |
 | `V3_STAMPS` | API v3's ordered stamps per operation | `units`, `dates-created`, `dates-replaced`, `subject`, `duration` |
-| `write` | the storage call | `insert-one`, `replace-one`, `socket-add`, `socket-merge`, `v3-insert`, `v3-replace`, `v3-merge` |
+| `write` | the storage call | `insert-one`, `replace-one`, `socket-add`, `socket-merge`, `v3-insert`, `v3-replace`, `v3-merge`, `v3-resend` (a POST that matched: merged by `updateOne`, or replaced, as the create rule's `onMatch` says) |
 | `SOCKET_ADD` | the socket's dbAdd match for treatments, devicestatus and profile | exact match, then the ±2 s similar match for treatments |
+| `IDENTIFIER_ALSO`, `IDENTIFIER_PICKS`, `P4_TIME_KEYS` | identifier-match: what is matched beside `identifier`, and which record a write lands on when one identifier names several | `uuid-id`, `shown-id`; `p4` (the record at the write's time key, else the newest by `_id`; ID-Q5), `every` |
+| `IDENTIFIER_HELD` (a rule's `identifierHeld`) | identifier-held (ID-RULE1-EDIT): an edit by `_id` whose `identifier` another stored record holds, soft-deleted included, is refused 409 and nothing is written (`IdentifierConflictError`; the socket's refusal slot; API v3 PATCH through `identifierHeld()`) | `ignore`, `refuse` |
+| `ON_DELETED` (a rule's `deleted`) | on-deleted (ID-Q4, ID-Q3): what a write does when the record its match reaches is soft-deleted, by the kind of key that reached it (`identifier`, `identity`, API v3's `computed` identifier, `time`). A re-send on an identity is acknowledged and writes nothing; a time key does not see the deleted record, so a new one is stored; an edit is not applied (`WRITE_DELETED_EDIT=ignore\|refuse`, `DeletedRecordError` 410). API v3's computed identifier by collection (`V3_COMPUTED_IDENTIFIER`: acknowledged, except treatments, which revive in 16.0.0) | `stays-deleted`, `stays-deleted-edit`, `revive`, `hidden`, `matched` (the socket's profile, Q-R) |
 
 To change a rule, change the row. To add a rule the vocabulary lacks, add a named entry to the
 vocabulary and use it from the row. Do not write the rule into a route.
