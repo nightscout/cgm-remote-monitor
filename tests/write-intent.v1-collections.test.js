@@ -570,14 +570,17 @@ describe('write(intent): devicestatus from API v1 and in-process callers (equal 
       const now = await observe(after, envExtra, cfg, act);
       const read = now.calls.findIndex(c => c[0] === 'find' && c[1] && c[1]._id && c[1]._id.$in);
       assert.deepEqual(now.calls[read], ['find', { _id: { $in: [HEX2] } }, null], name);
-      const updates = now.calls.filter(c => c[0] === 'updateOne');
-      assert.equal(updates.length, 1, name);
-      assert.deepEqual(updates[0][1], { _id: HEX2 }, name);
-      assert.deepEqual(Object.keys(updates[0][2]), ['$set'], name);
-      assert.equal(updates[0][2].$set.identifier, 's-1');
-      assert.equal(updates[0][2].$set.srvModified, 'T');
-      assert(!('_id' in updates[0][2].$set) && !('srvCreated' in updates[0][2].$set), name);
-      assert.deepEqual(now.calls.filter((c, index) => index !== read && c[0] !== 'updateOne'), was.calls, name);
+      // CHANGED EXPECTATION (maintainer 2026-10-31, compat card B, extended): the stored status
+      // is replaced (one replaceOne by _id of the status sent, under the stored
+      // _id, srvModified new) where slice 4 merged it (updateOne $set).
+      const writes = now.calls.filter(c => c[0] === 'replaceOne');
+      assert.equal(writes.length, 1, name);
+      assert.deepEqual(writes[0][1], { _id: HEX2 }, name);
+      assert.equal(String(writes[0][2]._id), HEX2, name);
+      assert.equal(writes[0][2].identifier, 's-1');
+      assert.equal(writes[0][2].srvModified, 'T');
+      assert(!now.calls.some(c => c[0] === 'updateOne'), name);
+      assert.deepEqual(now.calls.filter((c, index) => index !== read && c[0] !== 'replaceOne'), was.calls, name);
       assert.deepEqual(now.out, was.out, name);
       const announced = now.timeline.filter(e => e[0] === 'data-update');
       assert.equal(announced.length, 1, name);
@@ -616,7 +619,8 @@ describe('write(intent): the devicestatus rule table (slice 5)', function ( ) {
     // identifier, the reply names the one P4 picks (pick 'p4'; it was 'first-by-id').
     // CHANGED EXPECTATION (ID-FIRST-MATCH slice 4, ID-Q2): a status whose identifier is stored is
     // merged into it (onMatch 'merged'); it was answered refused, already stored.
-    assert.deepEqual(rules.create, { write: 'statuses', dates: 'stamp-created', onMatch: 'merged'
+    // CHANGED EXPECTATION (maintainer 2026-10-31, compat card B, extended): it replaces the stored status.
+    assert.deepEqual(rules.create, { write: 'statuses', dates: 'stamp-created', onMatch: 'replaced'
       , identifier: { also: 'none', pick: 'p4' } });
     assert.deepEqual(rules.delete, { target: 'query' });
   });
@@ -629,7 +633,8 @@ describe('write(intent): the devicestatus rule table (slice 5)', function ( ) {
     const result = await step([ ], { stored: f => f.identifier || (f._id && f._id.$in && String(f._id.$in[0]) === HEX)
       ? [{ _id: { $oid: HEX }, identifier: 'old' }] : [ ] })
       .write({ op: 'create', docs });
-    assert.deepEqual(result.items.map(i => [i.outcome, i.reason]), [['merged', undefined], ['inserted', undefined]
+    // CHANGED EXPECTATION (maintainer 2026-10-31, compat card B, extended): `replaced`, not `merged`.
+    assert.deepEqual(result.items.map(i => [i.outcome, i.reason]), [['replaced', undefined], ['inserted', undefined]
       , ['refused', 'repeated in the batch'], ['inserted', undefined]]);
     assert.equal(result.merged.length, 1);
     assert.equal(String(result.merged[0]._id), HEX);
@@ -745,8 +750,10 @@ describe('write(intent): the profile rule table (slice 5)', function ( ) {
     // CHANGED EXPECTATION (ID-FIRST-MATCH slice 4, ID-Q7): a re-send takes `store` whole.
     // CHANGED EXPECTATION (ID-FIRST-MATCH slice 6): identifier first, P4, before the _id; at another
     // startDate a new profile without the identifier (decisions.md, slice 6 profile-copy rule).
+    // CHANGED EXPECTATION (maintainer 2026-10-31, compat card B, extended): a re-send identifier
+    // first sent to a stored profile replaces it (onIdentifierMatch); one by its stored _id still merges.
     assert.deepEqual(rules.create, { write: 'profiles', dates: 'stamp-created', deleted: 'stays-deleted'
-      , merge: 'rfc7386-store-whole', identifier: { also: 'none', pick: 'p4', otherTime: 'new-record' } });
+      , merge: 'rfc7386-store-whole', onIdentifierMatch: 'replaced', identifier: { also: 'none', pick: 'p4', otherTime: 'new-record' } });
     assert.equal(rules.update.id, 'hex-or-new');
     assert.equal(rules.update.twins, 'remove-string-forms-after');
     assert.equal(rules.update.dates, 'carry');

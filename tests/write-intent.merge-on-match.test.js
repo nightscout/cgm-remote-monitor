@@ -22,10 +22,13 @@
 // CHANGED EXPECTATIONS (maintainer 2026-10-31, compat card B, `c1-replace`):
 // a matched re-send REPLACES again on API v3 POST (every collection), the
 // socket's profile dbAdd, and an API v1 / in-process food or activity create
-// by a stored _id, as on 15.0.9. ID-Q8's merge stays for an API v1 /
-// in-process / socket create that identifier first sent to a stored record,
-// for API v1 entries, device status and profile creates, and for PATCH and
-// dbUpdate. ID-Q7 (`store` whole) is moot where the record is replaced. Each
+// by a stored _id, as on 15.0.9. ID-Q8's merge stays for API v1 entries and
+// profile creates (a profile re-sent by its stored _id, Q1b), and for PATCH
+// and dbUpdate.
+// CHANGED EXPECTATIONS (maintainer 2026-10-31, compat card B, extended):
+// every re-send matched by identifier replaces too, on every path but API v1
+// and in-process entries: API v1 / in-process device status, profile, food and
+// activity, and the socket's entries, food, activity and device status. ID-Q7 (`store` whole) is moot where the record is replaced. Each
 // test below that changed says so; tests/write-intent.resend-replace.test.js
 // holds card B's own tests. Every seed carries a field the re-send
 // leaves out (`kept`), so a merge and a replace differ on the stored record.
@@ -85,12 +88,13 @@ describe('merge on match: the rule (RFC 7386, ID-Q8, ID-Q7)', function ( ) {
     // the preBolus record is one the server derives, not a client re-send (Q-H)
     rules.treatments['v1/internal'].create.forms.prebolus.onMatch.should.equal('replaced');
     rules.food['v1/internal'].create.onMatch.should.equal('replaced');
-    rules.food['v1/internal'].create.onIdentifierMatch.should.equal('merged');
+    // CHANGED EXPECTATION (maintainer 2026-10-31, compat card B, extended): one rule again, replace on any match.
+    assert.equal(rules.food['v1/internal'].create.onIdentifierMatch, undefined);
     rules.food['v1/internal'].update.onMatch.should.equal('replaced');
     rules.activity['v1/internal'].create.onMatch.should.equal('replaced');
-    rules.activity['v1/internal'].create.onIdentifierMatch.should.equal('merged');
+    assert.equal(rules.activity['v1/internal'].create.onIdentifierMatch, undefined);
     rules.activity['v1/internal'].update.onMatch.should.equal('replaced');
-    rules.devicestatus['v1/internal'].create.onMatch.should.equal('merged');
+    rules.devicestatus['v1/internal'].create.onMatch.should.equal('replaced');
     rules.profile.socket.create.onExact.should.equal('replaced');
     rules.profile.socket.create.onIdentifier.should.equal('replaced');
     rules.treatments.v3.create.onMatch.should.equal('replaced');
@@ -462,7 +466,9 @@ describe('ID-FIRST-MATCH slice 4: a matched re-send merges where compat card B l
 
   describe('API v1 device status, profile, food, activity and entries', function ( ) {
 
-    it('devicestatus: a re-send by identifier merges and is announced (ID-Q2); a re-send by a stored _id is still not written', async ( ) => {
+    // CHANGED EXPECTATION (maintainer 2026-10-31, compat card B, extended): a re-send by
+    // identifier replaces the stored status (ID-Q2 merged it), still announced.
+    it('devicestatus: a re-send by identifier replaces and is announced; a re-send by a stored _id is still not written', async ( ) => {
       const device = tag();
       const identifier = uuid();
       const created_at = iso(Date.now() - 300000);
@@ -473,7 +479,7 @@ describe('ID-FIRST-MATCH slice 4: a matched re-send merges where compat card B l
       });
       String(res.body[0]._id).should.equal(String(first.body[0]._id));
       let stored = await only('devicestatus', 'device', device);
-      stored.kept.should.equal(1);
+      has(stored, 'kept').should.equal(false);
       stored.uploaderBattery.should.equal(60);
       stored.srvModified.should.be.above(stored.srvCreated);
       seen.filter((ev) => ev.type === 'devicestatus' && ev.op === 'update').length.should.equal(1);

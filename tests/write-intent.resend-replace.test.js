@@ -16,11 +16,12 @@
 // collection has server dates, and there is still one record. Merge stays
 // where a client asks for it: API v3 PATCH and the socket's dbUpdate.
 //
-// Outside the card's measured scope (write-contract matrix group c1, 136
-// cells) the rules are as they were, and the last block pins them so that this
-// change cannot reach them: an identifier-first match on API v1, in-process or
-// socket creates (new in 16.0.0; 15.0.9 stored a second record there) merges,
-// and API v1 entries merge, as on 15.0.9.
+// Card B, extended (maintainer 2026-10-31): every re-send matched by
+// identifier replaces as well, on every path, the identifier-first matches
+// over API v1, in-process and the socket included (new in 16.0.0; 15.0.9
+// stored a second record there). API v1 and in-process entries keep merging,
+// as on 15.0.9, and so does an API v1 / in-process profile re-sent by its
+// stored _id (Q1b; 15.0.9 refused it as a duplicate). The last block pins both.
 // Synthetic values only.
 
 require('should');
@@ -43,12 +44,28 @@ describe('compat card B: the rule table (maintainer 2026-10-31)', function ( ) {
     assert.equal(rule.onIdentifier, 'replaced');
   });
 
-  it('a v1 or in-process food or activity create by a stored _id replaces; an identifier-first match still merges', function ( ) {
+  // CHANGED EXPECTATION (maintainer 2026-10-31, compat card B, extended): an identifier-first
+  // match replaces too, so food and activity have one rule again (it said
+  // onIdentifierMatch 'merged').
+  it('a v1 or in-process food or activity create that matches replaces, by _id or by identifier', function ( ) {
     ['food', 'activity'].forEach(function (name) {
       const rule = writeIntent.COLLECTION_RULES[name]['v1/internal'].create;
       assert.equal(rule.onMatch, 'replaced', name);
-      assert.equal(rule.onIdentifierMatch, 'merged', name);
+      assert.equal(rule.onIdentifierMatch, undefined, name);
     });
+  });
+
+  // Card B, extended (maintainer 2026-10-31, compat card B, extended): every re-send matched by
+  // identifier replaces, on every path, but API v1 and in-process entries.
+  it('an identifier match replaces on every path but API v1 / in-process entries', function ( ) {
+    const rules = writeIntent.COLLECTION_RULES;
+    assert.equal(rules.devicestatus['v1/internal'].create.onMatch, 'replaced');
+    assert.equal(rules.devicestatus.socket.create.onIdentifier, 'replaced');
+    assert.equal(rules.profile['v1/internal'].create.onIdentifierMatch, 'replaced');
+    ['entries', 'food', 'activity'].forEach(function (name) {
+      assert.equal(rules[name].socket.create.onMatch, 'replaced', name);
+    });
+    assert.equal(rules.entries['v1/internal'].create.onMatch, 'merged');
   });
 });
 
@@ -307,7 +324,9 @@ describe('compat card B: a matched re-send replaces (maintainer 2026-10-31)', fu
       after.steps.should.equal(150);
     });
 
-    it('the step answers `replaced` for a re-send by _id, `merged` for an identifier-first match', async ( ) => {
+    // CHANGED EXPECTATION (maintainer 2026-10-31, compat card B, extended): the identifier-first
+    // match answers `replaced` too (it answered `merged`).
+    it('the step answers `replaced` for a re-send by _id and for an identifier-first match', async ( ) => {
       const name = tag();
       const identifier = uuid();
       const store = ( ) => require('../lib/server/storage-reads').collection(self.instance.ctx, self.instance.env
@@ -318,54 +337,124 @@ describe('compat card B: a matched re-send replaces (maintainer 2026-10-31)', fu
       const byId = await step.write({ op: 'create', docs: [{ _id: String(first.items[0]._id), type: 'food', name, carbs: 2, identifier }] });
       byId.items[0].outcome.should.equal('replaced');
       const byIdentifier = await step.write({ op: 'create', docs: [{ type: 'food', name, carbs: 3, identifier, kept: 2 }] });
-      byIdentifier.items[0].outcome.should.equal('merged');
+      byIdentifier.items[0].outcome.should.equal('replaced');
     });
   });
 
-  // Outside card B's measured scope: these keep #8879's rule. 15.0.9 stored a
-  // second record on an identifier re-send over these paths, so there is no
-  // 15.0.9 replace to restore; API v1 entries merged on 15.0.9.
-  describe('unchanged by card B: identifier-first creates over API v1, in-process and the socket, and v1 entries, merge', function ( ) {
+  // Card B, extended (maintainer 2026-10-31, compat card B, extended): a re-send matched by
+  // identifier replaces on every path, the identifier-first matches over API
+  // v1, in-process and the socket included (new in 16.0.0; 15.0.9 stored a
+  // second record there). API v1 and in-process entries keep merging, as on
+  // 15.0.9; a profile re-sent over API v1 by its stored _id keeps the Q1b
+  // merge (15.0.9 refused it as a duplicate).
+  // CHANGED EXPECTATION: this block said these merge (card B before the
+  // extension).
+  describe('card B, extended: an identifier match replaces on every path but API v1 / in-process entries', function ( ) {
 
-    it('food and activity: an API v1 / in-process create matched by identifier merges', async ( ) => {
+    const create = (name, docs) => new Promise((resolve, reject) => self.instance.ctx[name].create(docs
+      , (err, result) => err ? reject(err) : resolve(result)));
+
+    it('food: an API v1 create matched by identifier replaces', async ( ) => {
       const name = tag();
       const identifier = uuid();
       await v1('post', '/food/').send({ type: 'food', name, carbs: 10, identifier, kept: 1 }).expect(200);
+      const before = await only('food', 'name', name);
+      await later();
       await v1('post', '/food/').send({ type: 'food', name, carbs: 11, identifier }).expect(200);
-      const food = await only('food', 'name', name);
-      food.kept.should.equal(1);
-      food.carbs.should.equal(11);
-      const activityName = tag();
-      const activityId = uuid();
-      const create = (docs) => new Promise((resolve, reject) => self.instance.ctx.activity.create(docs
-        , (err, result) => err ? reject(err) : resolve(result)));
-      await create([{ name: activityName, steps: 1, identifier: activityId, kept: 1, created_at: iso(Date.now()) }]);
-      await create([{ name: activityName, steps: 2, identifier: activityId }]);
-      const activity = await only('activity', 'name', activityName);
-      activity.kept.should.equal(1);
-      activity.steps.should.equal(2);
+      const after = await only('food', 'name', name);
+      replaced(before, after, 'kept');
+      after.carbs.should.equal(11);
     });
 
-    it('entries and food: a socket dbAdd matched by identifier merges', async ( ) => {
-      const device = tag();
+    it('activity: an in-process create matched by identifier replaces', async ( ) => {
+      const name = tag();
       const identifier = uuid();
-      const date = Date.now() - 400000;
-      await emit('dbAdd', { collection: 'entries', data: { type: 'sgv', sgv: 100, date, dateString: iso(date), device, identifier, kept: 1 } });
-      await emit('dbAdd', { collection: 'entries', data: { type: 'sgv', sgv: 101, date, dateString: iso(date), device, identifier } });
-      const entry = await only('entries', 'device', device);
-      entry.kept.should.equal(1);
-      entry.sgv.should.equal(101);
+      await create('activity', [{ name, steps: 1, identifier, kept: 1, created_at: iso(Date.now()) }]);
+      const before = await only('activity', 'name', name);
+      await create('activity', [{ name, steps: 2, identifier }]);
+      const after = await only('activity', 'name', name);
+      replaced(before, after, 'kept');
+      after.steps.should.equal(2);
     });
 
-    it('devicestatus: an API v1 re-send by identifier merges', async ( ) => {
+    it('devicestatus: an API v1 re-send by identifier replaces (ID-Q2\'s merge reversed)', async ( ) => {
       const device = tag();
       const identifier = uuid();
       const created_at = iso(Date.now() - 300000);
       await v1('post', '/devicestatus/').send({ device, created_at, identifier, kept: 1, uploaderBattery: 50 }).expect(200);
+      const before = await only('devicestatus', 'device', device);
+      await later();
       await v1('post', '/devicestatus/').send({ device, created_at, identifier, uploaderBattery: 60 }).expect(200);
-      const stored = await only('devicestatus', 'device', device);
-      stored.kept.should.equal(1);
-      stored.uploaderBattery.should.equal(60);
+      const after = await only('devicestatus', 'device', device);
+      replaced(before, after, 'kept');
+      after.uploaderBattery.should.equal(60);
+    });
+
+    it('devicestatus: a socket dbAdd matched by identifier replaces', async ( ) => {
+      const device = tag();
+      const identifier = uuid();
+      const created_at = iso(Date.now() - 250000);
+      await emit('dbAdd', { collection: 'devicestatus', data: { device, created_at, identifier, kept: 1, uploaderBattery: 50 } });
+      const before = await only('devicestatus', 'device', device);
+      await later();
+      await emit('dbAdd', { collection: 'devicestatus', data: { device, created_at: iso(Date.now() - 240000), identifier, uploaderBattery: 61 } });
+      const after = await only('devicestatus', 'device', device);
+      replaced(before, after, 'kept');
+      after.uploaderBattery.should.equal(61);
+    });
+
+    it('profile: an API v1 / in-process create matched by identifier at the same startDate replaces', async ( ) => {
+      const name = tag();
+      const identifier = uuid();
+      const startDate = iso(Date.now() - 50000);
+      await v1('post', '/profile/').send({ identifier, defaultProfile: name, startDate, units: 'mg/dl', kept: 1
+        , store: { [name]: { dia: 3 } } }).expect(200);
+      const before = await only('profile', 'defaultProfile', name);
+      await later();
+      await create('profile', [{ identifier, defaultProfile: name, startDate, units: 'mmol', store: { [name]: { dia: 4 } } }]);
+      const after = await only('profile', 'defaultProfile', name);
+      replaced(before, after, 'kept');
+      after.units.should.equal('mmol');
+      after.identifier.should.equal(identifier);
+    });
+
+    it('profile: an API v1 re-send by its stored _id still merges (Q1b)', async ( ) => {
+      const name = tag();
+      const startDate = iso(Date.now() - 40000);
+      const first = await v1('post', '/profile/').send({ defaultProfile: name, startDate, units: 'mg/dl', kept: 1
+        , store: { [name]: { dia: 3 } } }).expect(200);
+      await v1('post', '/profile/').send({ _id: String(first.body[0]._id), defaultProfile: name, startDate, units: 'mmol'
+        , store: { [name]: { dia: 4 } } }).expect(200);
+      const after = await only('profile', 'defaultProfile', name);
+      after.kept.should.equal(1);
+      after.units.should.equal('mmol');
+    });
+
+    it('entries, food and activity: a socket dbAdd matched by identifier replaces', async ( ) => {
+      const device = tag();
+      const identifier = uuid();
+      const date = Date.now() - 400000;
+      await emit('dbAdd', { collection: 'entries', data: { type: 'sgv', sgv: 100, date, dateString: iso(date), device, identifier, kept: 1 } });
+      const before = await only('entries', 'device', device);
+      await later();
+      await emit('dbAdd', { collection: 'entries', data: { type: 'sgv', sgv: 101, date, dateString: iso(date), device, identifier } });
+      const after = await only('entries', 'device', device);
+      replaced(before, after, 'kept');
+      after.sgv.should.equal(101);
+      const name = tag();
+      const foodId = uuid();
+      await emit('dbAdd', { collection: 'food', data: { type: 'food', name, carbs: 10, identifier: foodId, kept: 1 } });
+      await emit('dbAdd', { collection: 'food', data: { type: 'food', name, carbs: 12, identifier: foodId } });
+      const food = await only('food', 'name', name);
+      assert.equal(has(food, 'kept'), false);
+      food.carbs.should.equal(12);
+      const activityName = tag();
+      const activityId = uuid();
+      await emit('dbAdd', { collection: 'activity', data: { name: activityName, steps: 1, identifier: activityId, kept: 1 } });
+      await emit('dbAdd', { collection: 'activity', data: { name: activityName, steps: 3, identifier: activityId } });
+      const activity = await only('activity', 'name', activityName);
+      assert.equal(has(activity, 'kept'), false);
+      activity.steps.should.equal(3);
     });
 
     it('entries: an API v1 re-send merges, as on 15.0.9', async ( ) => {
