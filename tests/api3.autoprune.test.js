@@ -17,6 +17,7 @@ describe('API3 auto-prune', function () {
   const self = this
     , testConst = require('./fixtures/api3/const.json')
     , instance = require('./fixtures/api3/instance')
+    , writeIntent = require('../lib/storage/write-intent')
     , authSubject = require('./fixtures/api3/authSubject')
     , utils = require('./fixtures/api3/utils')
     ;
@@ -147,11 +148,20 @@ describe('API3 auto-prune', function () {
     const onUpdate = (e) => { if (e && e.type === 'treatments' && e.op === 'remove') removes.push(e); };
     self.instance.ctx.bus.on('data-update', onUpdate);
     try {
-      await self.col.storage.deleteManyOr([
-        { field: 'srvCreated', operator: 'lt', value: Date.now() - 30 * DAY },
-        { field: 'created_at', operator: 'lt', value: new Date(Date.now() - 30 * DAY).toISOString() },
-        { field: 'date', operator: 'lt', value: Date.now() - 30 * DAY }
-      ]);
+      // !!! REROUTED (WC-STEP-PATCH release 2, write-contract Q-A, Q-U) !!!
+      // This test came with #8883 (merged), where it called the cached storage's
+      // deleteManyOr directly and that method told the cache. In release 2 the
+      // cached storage's write methods no longer announce: autoPrune's delete
+      // goes through the write step, which resolves the records with the
+      // delete's own OR and names them. So the same prune filter is sent
+      // through the step here, as lib/api3/generic/collection.js autoPrune
+      // sends it. BF-222's assertions below are unchanged, word for word.
+      await writeIntent.forCollectionResolved(self.col.storage, 'treatments', 'v3'
+        , { env: self.instance.env }).write({ op: 'prune', target: { filter: [
+          { field: 'srvCreated', operator: 'lt', value: Date.now() - 30 * DAY },
+          { field: 'created_at', operator: 'lt', value: new Date(Date.now() - 30 * DAY).toISOString() },
+          { field: 'date', operator: 'lt', value: Date.now() - 30 * DAY }
+        ] } });
     } finally {
       self.instance.ctx.bus.removeListener('data-update', onUpdate);
     }
