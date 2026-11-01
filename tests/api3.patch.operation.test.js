@@ -50,6 +50,10 @@ describe('API3 PATCH operation', function () {
         identifyingFilter: identifier => ({ identifier }),
         findOneFilter: async () => [Object.assign({}, storageDoc)],
         updateOne: async () => ({ updated: 1 }),
+        // write-contract Q-A: the step resolves the stored _id first and
+        // reads the record back by it, for the cache only
+        resolveOne: async () => ['5f00000000000000000000a1'],
+        findByIds: async () => [Object.assign({}, storageDoc)],
         findOne: async () => {
           throw new Error('PATCH should not re-read the document after update');
         }

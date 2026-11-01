@@ -39,9 +39,14 @@ const development = require('webpack-dev-middleware')(compiler, {publicPath: con
 app.use(development);
 const server = http.createServer(app);
 let origin, latest, closing = false;
+let requestedId = 0, compilingId = 0;
 function notify() {if (origin && latest && process.connected) process.send({...latest, origin});}
+// Capture the edit at compilation START, not when it finishes: an older
+// in-flight compilation may finish after a newer edit has been requested.
+compiler.hooks.watchRun.tap('page-hmr-fixture', () => {compilingId = requestedId;});
 compiler.hooks.done.tap('page-hmr-fixture', stats => {
-  latest = stats.hasErrors() ? {error: stats.toString({all: false, errors: true})} : {hash: stats.hash};
+  latest = {requestId: compilingId, ...(stats.hasErrors()
+    ? {error: stats.toString({all: false, errors: true})} : {hash: stats.hash})};
   notify();
 });
 server.listen(0, '127.0.0.1', () => {origin = 'http://127.0.0.1:' + server.address().port; notify();});
@@ -58,6 +63,8 @@ process.on('disconnect', close);
 process.on('SIGTERM', close);
 process.on('message', message => {
   if (message.close) return close();
+  if (!Number.isInteger(message.requestId) || message.requestId <= requestedId) throw new Error('Invalid HMR fixture request ID');
+  requestedId = message.requestId;
   if (message.broken && sources.has(message.entry)) {
     fs.writeFileSync(path.join(directory, 'bundle', names[message.entry]), sources.get(message.entry) + '\nconst ownedBrokenFixture = ;\n');
     return;

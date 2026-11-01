@@ -1,5 +1,9 @@
 'use strict;'
 
+// NS_TEST_BACKEND: validated here, so an unknown name stops the run before any
+// test file loads (tests/support/backends.js).
+require('./support/backends').install();
+
 require('./lib/supertest-loopback');
 
 var testHelpers = require('./lib/test-helpers');
@@ -82,6 +86,13 @@ exports.mochaHooks = {
       console.log('\n[TIMING STATS] Total: ' + testTimings.length + ' tests, Avg: ' + avgTime + 'ms, Slow: ' + slowTests.length);
     }
     
+    // Under NS_TEST_BACKEND other than mongodb, a file outside the census that
+    // tried to reach MongoDB fails the run (tests/support/backends.js).
+    var reached = require('./support/backends').unclassifiedReached();
+    if (reached.length) {
+      return done(new Error('Test files reached MongoDB under NS_TEST_BACKEND=' + process.env.NS_TEST_BACKEND
+        + ' but are not in tests/support/backend-census.json: ' + reached.join(', ')));
+    }
     done();
   }
 };

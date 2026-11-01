@@ -65,7 +65,7 @@ describe('Axios consumer compatibility', function () {
     await new Promise(resolve => server.close(resolve));
   });
 
-  [['legacy', rootAxios], ['connect', modernAxios]].forEach(([label, axios]) => {
+  [['import', rootAxios], ['connect', modernAxios]].forEach(([label, axios]) => {
     it(label + ' preserves instance headers, nested queries and Unicode JSON', async function () {
       const client = axios.create({baseURL, proxy: false, headers: {Accept: 'application/json'}});
       client.interceptors.request.use(config => { config.headers['X-Fixture'] = 'interceptor'; return config; });
@@ -125,7 +125,7 @@ describe('Axios consumer compatibility', function () {
       assert.strictEqual((await axios.get(baseURL + '/echo', {proxy: false})).status, 200);
     });
     it(label + ' redacts errors with its supported redaction policy', async function () {
-      await assert.rejects(axios.get(baseURL + '/error', {proxy: false, ...(label === 'connect' ? {redact: ['password', 'authorization']} : {}), auth: {username: 'fixture-user', password: 'fixture-password'}, headers: {Authorization: 'Bearer fixture-token'}}), error => {
+      await assert.rejects(axios.get(baseURL + '/error', {proxy: false, redact: ['password', 'authorization'], auth: {username: 'fixture-user', password: 'fixture-password'}, headers: {Authorization: 'Bearer fixture-token'}}), error => {
         const serialized = JSON.stringify(error.toJSON());
         assert.ok(!serialized.includes('fixture-password'));
         assert.ok(!serialized.includes('fixture-token'));
@@ -142,10 +142,37 @@ describe('Axios consumer compatibility', function () {
     });
   });
 
-  it('legacy ignores inherited fields inside Basic auth', async function () {
-    const auth = Object.create({username: 'inherited-user', password: 'inherited-password'});
-    const response = await rootAxios.get(baseURL + '/echo', {proxy: false, auth});
-    assert.strictEqual(response.data.headers.authorization, 'Basic ' + Buffer.from(':').toString('base64'));
+  it('does not inherit Basic-auth fields in actual config imports, and retains URL credentials', async function () {
+    const names = ['username', 'password'];
+    const descriptors = names.map(name => Object.getOwnPropertyDescriptor(Object.prototype, name));
+    try {
+      Object.defineProperty(Object.prototype, 'username', {value: 'inherited-user', configurable: true});
+      Object.defineProperty(Object.prototype, 'password', {value: 'inherited-password', configurable: true});
+      for (let cycle = 0; cycle < 2; cycle++) {
+        const context = {bootErrors: []};
+        const beforeRequests = requests.length;
+        await importSettings({IMPORT_CONFIG: baseURL + '/config', settings: {}, extendedSettings: {}}, context);
+        assert.deepStrictEqual(context.bootErrors, []);
+        assert.strictEqual(requests.at(-1).headers.authorization, undefined);
+        const url = new URL('/config', baseURL);
+        url.username = 'owned-user'; url.password = 'owned-password';
+        await importSettings({IMPORT_CONFIG: url.href, settings: {}, extendedSettings: {}}, context);
+        assert.deepStrictEqual(context.bootErrors, []);
+        assert.strictEqual(requests.at(-1).headers.authorization,
+          'Basic ' + Buffer.from('owned-user:owned-password').toString('base64'));
+        url.username = 'Café-user'; url.password = encodeURIComponent('p:a%ss💉');
+        await importSettings({IMPORT_CONFIG: url.href, settings: {}, extendedSettings: {}}, context);
+        assert.deepStrictEqual(context.bootErrors, []);
+        assert.strictEqual(requests.at(-1).headers.authorization,
+          'Basic ' + Buffer.from('Café-user:p:a%ss💉').toString('base64'));
+        assert.strictEqual(requests.length, beforeRequests + 3);
+      }
+    } finally {
+      names.forEach((name, index) => {
+        if (descriptors[index]) Object.defineProperty(Object.prototype, name, descriptors[index]);
+        else delete Object.prototype[name];
+      });
+    }
   });
 
   it('connect removes ejected interceptors without dropping active or newly registered handlers', async function () {
@@ -165,11 +192,12 @@ describe('Axios consumer compatibility', function () {
     assert.deepStrictEqual(calls, ['active', 'active', 'new']);
   });
 
-  it('keeps null-prototype legacy headers compatible with request interceptors', async function () {
+  it('preserves request interceptor headers through AxiosHeaders', async function () {
     const client = rootAxios.create({proxy: false});
     client.interceptors.request.use(config => {
-      assert.strictEqual(Object.getPrototypeOf(config.headers), null);
-      config.headers['X-Fixture'] = 'safe';
+      assert.ok(config.headers instanceof rootAxios.AxiosHeaders);
+      config.headers.set('X-Fixture', 'safe');
+      assert.strictEqual(config.headers.get('X-Fixture'), 'safe');
       return config;
     });
     assert.strictEqual((await client.get(baseURL + '/echo')).data.headers['x-fixture'], 'safe');
@@ -187,6 +215,11 @@ describe('Axios consumer compatibility', function () {
       assert.strictEqual(login.data.headers.cookie, 'session=fixture');
       for (let cycle = 0; cycle < 2; cycle++) {
         assert.strictEqual((await client.get('/echo')).data.headers.cookie, 'session=fixture');
+        const ctx = {bootErrors: []};
+        await importSettings({IMPORT_CONFIG: baseURL + '/config', settings: {}, extendedSettings: {}}, ctx);
+        assert.deepStrictEqual(ctx.bootErrors, []);
+        assert.strictEqual(requests.at(-1).headers.cookie, undefined);
+        assert.strictEqual(requests.at(-1).headers.authorization, undefined);
       }
       assert.strictEqual(jar.getCookieStringSync(baseURL), 'session=fixture');
     });
@@ -308,6 +341,11 @@ describe('Axios consumer compatibility', function () {
       assert.strictEqual(request.headers.authorization, 'Bearer fixture-bearer');
       assert.strictEqual(request.target.searchParams.get('find[dateString][$gt]'), '2026-01-01T00:00:00.000Z');
       assert.strictEqual(request.target.searchParams.get('count'), '2');
+      const ctx = {bootErrors: []};
+      await importSettings({IMPORT_CONFIG: baseURL + '/config', settings: {}, extendedSettings: {}}, ctx);
+      assert.deepStrictEqual(ctx.bootErrors, []);
+      assert.strictEqual(requests.at(-1).headers.authorization, undefined);
+      assert.strictEqual(requests.at(-1).headers.cookie, undefined);
     }
   });
 });

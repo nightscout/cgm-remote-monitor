@@ -183,6 +183,177 @@ describe('clock says when it is refused (#7377)', function () {
   });
 });
 
+// BF-223: an API secret hash saved in this browser is sent in preference to
+// the clock's ?token=. When the site refuses that hash, the clock used to say
+// "open this clock with a token" to someone who had. A refused saved hash is
+// now removed and the request made again with the token, or with nothing.
+describe('clock with a saved API secret the site refuses (BF-223)', function () {
+  var STALE = 'stale-fixture-api-secret-hash';
+  var GOOD = 'good-fixture-api-secret-hash';
+  var TOKEN = 'follower-0123456789abcdef';
+
+  function fakeStorage (initial) {
+    var items = {};
+    if (initial) { items.apisecrethash = initial; }
+    return {
+      items: items
+      , getItem: function (key) { return Object.prototype.hasOwnProperty.call(items, key) ? items[key] : null; }
+      , setItem: function (key, value) { items[key] = String(value); }
+      , removeItem: function (key) { delete items[key]; }
+    };
+  }
+
+  // The server's order: a secret it accepts, then a token it accepts; anything
+  // else is refused. Anonymous reads are denied.
+  function refuses (url) {
+    return !(url.indexOf('secret=' + GOOD) >= 0 || (url.indexOf('secret=') < 0 && url.indexOf('token=' + TOKEN) >= 0));
+  }
+
+  describe('the properties fetch', function () {
+    var benv = require('./fixtures/benv-loader');
+    var clockClient, storage, asked;
+
+    function setup (saved, search, done) {
+      benv.setup(function () {
+        global.$ = require('jquery');
+        storage = fakeStorage(saved);
+        global.localStorage = storage;
+        global.location = { search: search };
+        global.$('body').html('<main><div id="inner" data-face="bn0-sg40"></div></main>');
+        delete require.cache[require.resolve('../lib/client/clock-client')];
+        clockClient = require('../lib/client/clock-client');
+        clockClient.render = function () {};
+        asked = [];
+        global.$.ajax = function (url, opts) {
+          asked.push(url);
+          if (refuses(url)) { opts.error({ status: 401, statusText: 'Unauthorized' }); } else { opts.success({}); }
+        };
+        done();
+      });
+    }
+
+    afterEach(function (done) {
+      delete require.cache[require.resolve('../lib/client/clock-client')];
+      delete global.$;
+      delete global.localStorage;
+      delete global.location;
+      benv.teardown(true);
+      done();
+    });
+
+    function query () {
+      var origErr = console.error; console.error = function () {};
+      var origInfo = console.info; console.info = function () {};
+      try { clockClient.query(); } finally { console.error = origErr; console.info = origInfo; }
+    }
+
+    it('loads with a valid token and removes the refused saved hash', function (done) {
+      setup(STALE, '?token=' + TOKEN, function () {
+        query();
+        asked.should.deepEqual(['/api/v2/properties?secret=' + STALE, '/api/v2/properties?token=' + TOKEN]);
+        (storage.getItem('apisecrethash') === null).should.equal(true);
+        global.$('#authMessage').length.should.equal(0);
+        done();
+      });
+    });
+
+    it('without a token, removes the refused saved hash and says so', function (done) {
+      setup(STALE, '', function () {
+        query();
+        asked.should.deepEqual(['/api/v2/properties?secret=' + STALE, '/api/v2/properties']);
+        (storage.getItem('apisecrethash') === null).should.equal(true);
+        var text = global.$('#authMessage').text();
+        text.should.match(/saved API secret was refused and removed/);
+        text.should.not.match(/open this clock with a token/);
+        done();
+      });
+    });
+
+    it('keeps a saved hash the site accepts, sent in preference to the token', function (done) {
+      setup(GOOD, '?token=' + TOKEN, function () {
+        query();
+        asked.should.deepEqual(['/api/v2/properties?secret=' + GOOD]);
+        storage.getItem('apisecrethash').should.equal(GOOD);
+        done();
+      });
+    });
+
+    it('still refuses an invalid token, once, after removing the refused saved hash', function (done) {
+      setup(STALE, '?token=reader-fedcba9876543210', function () {
+        query();
+        asked.should.deepEqual(['/api/v2/properties?secret=' + STALE, '/api/v2/properties?token=reader-fedcba9876543210']);
+        global.$('#authMessage').text().should.match(/saved API secret was refused and removed/);
+        done();
+      });
+    });
+  });
+
+  describe('the status script', function () {
+    function renderClock (face) {
+      var file = path.join(__dirname, '../views/clockviews/clock.html');
+      return ejs.render(fs.readFileSync(file, 'utf8'), { face: face, locals: { bundle: '/bundle' } }, { filename: file });
+    }
+
+    function boot (saved, search) {
+      var calls = { shown: 0, init: 0, asked: [] };
+      return new Promise(function (resolve) {
+        var env = createSecureDOM(renderClock('clock-color'), {
+          url: 'http://localhost/clock/clock-color' + search
+          , runScripts: 'dangerously'
+          , virtualConsole: new (require('jsdom').VirtualConsole)()
+          , beforeParse: function (window) {
+            if (saved) { window.localStorage.setItem('apisecrethash', saved); }
+            // Every script load is refused by the secure loader; the second
+            // ask decides what the server would have said.
+            window.$ = { ajax: function (url, opts) {
+              calls.asked.push(url);
+              setTimeout(function () {
+                if (refuses(url)) { opts.error({ status: 401 }); } else if (opts.success) { opts.success(''); }
+              }, 0);
+            } };
+            window.Nightscout = { client: {
+              init: function () { calls.init++; }
+              , showNotAuthorized: function (refused) { calls.shown++; calls.refusedFlag = refused === true; }
+            } };
+          }
+        });
+        setTimeout(function () {
+          calls.stored = env.window.localStorage.getItem('apisecrethash');
+          env.cleanup();
+          resolve(calls);
+        }, 300);
+      });
+    }
+
+    function strip (url) { return url.replace(/t=\d+/, 't=N'); }
+
+    it('asks again with the token after a refused saved hash, and removes it', async function () {
+      var calls = await boot(STALE, '?token=' + TOKEN);
+      calls.asked.map(strip).should.deepEqual([
+        '/api/v1/status.js?t=N&secret=' + STALE
+        , '/api/v1/status.js?t=N&token=' + TOKEN
+      ]);
+      (calls.stored === null).should.equal(true);
+      calls.shown.should.equal(0);
+    });
+
+    it('without a token, asks again with nothing and reports the removal', async function () {
+      var calls = await boot(STALE, '');
+      calls.asked.map(strip).should.deepEqual(['/api/v1/status.js?t=N&secret=' + STALE, '/api/v1/status.js?t=N']);
+      (calls.stored === null).should.equal(true);
+      calls.shown.should.equal(1);
+      calls.refusedFlag.should.equal(true);
+    });
+
+    it('keeps a saved hash the site accepts', async function () {
+      var calls = await boot(GOOD, '?token=' + TOKEN);
+      calls.asked.map(strip).should.deepEqual(['/api/v1/status.js?t=N&secret=' + GOOD]);
+      calls.stored.should.equal(GOOD);
+      calls.shown.should.equal(0);
+    });
+  });
+});
+
 describe('clock configurator link keeps the token, encoded (#7377)', function () {
   function renderConfig () {
     var file = path.join(__dirname, '../views/clockviews/clock.html');

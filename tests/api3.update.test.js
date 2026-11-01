@@ -110,7 +110,7 @@ describe('API3 UPDATE', function() {
 
     res.body.status.should.equal(201);
     res.body.identifier.should.equal(self.validDoc.identifier);
-    self.cache.nextShouldEql(self.col, self.validDoc)
+    await self.cache.nextShouldEql(self.col, self.validDoc)
 
     const lastModified = new Date(res.headers['last-modified']).getTime(); // Last-Modified has trimmed milliseconds
 
@@ -134,7 +134,7 @@ describe('API3 UPDATE', function() {
       .expect(200);
 
     res.body.status.should.equal(200);
-    self.cache.nextShouldEql(self.col, self.validDoc)
+    await self.cache.nextShouldEql(self.col, self.validDoc)
 
     const lastModified = new Date(res.headers['last-modified']).getTime(); // Last-Modified has trimmed milliseconds
 
@@ -165,7 +165,7 @@ describe('API3 UPDATE', function() {
       .expect(200);
 
     res.body.status.should.equal(200);
-    self.cache.nextShouldEql(self.col, doc)
+    await self.cache.nextShouldEql(self.col, doc)
 
     let body = await self.get(self.validDoc.identifier, self.jwt.read);
     body.should.containEql(doc);
@@ -300,7 +300,7 @@ describe('API3 UPDATE', function() {
 
     res.body.status.should.equal(200);
     delete self.validDoc.srvModified;
-    self.cache.nextShouldEql(self.col, self.validDoc)
+    await self.cache.nextShouldEql(self.col, self.validDoc)
   });
 
 
@@ -321,7 +321,7 @@ describe('API3 UPDATE', function() {
       .expect(201);
 
     res.body.status.should.equal(201);
-    self.cache.nextShouldEql(self.col, tempBasalDoc)
+    await self.cache.nextShouldEql(self.col, tempBasalDoc)
 
     const replacedDoc = Object.assign({}, tempBasalDoc, {
       absolute: 0.7,
@@ -334,7 +334,7 @@ describe('API3 UPDATE', function() {
       .expect(200);
 
     res.body.status.should.equal(200);
-    self.cache.nextShouldEql(self.col, replacedDoc)
+    await self.cache.nextShouldEql(self.col, replacedDoc)
 
     const body = await self.get(tempBasalDoc.identifier);
     body.absolute.should.equal(0.7);
@@ -350,7 +350,7 @@ describe('API3 UPDATE', function() {
       .expect(200);
 
     res.body.status.should.equal(200);
-    self.cache.nextShouldDeleteLast(self.col)
+    await self.cache.nextShouldDeleteLast(self.col)
 
     res = await self.instance.put(self.urlIdent, self.jwt.update)
       .send(self.validDoc)

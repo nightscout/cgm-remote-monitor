@@ -48,7 +48,7 @@ describe('careportal in a real browser', function () {
     app.get('/api/v1/status.json', (request, response) => response.json({...settings, settings: {...settings.settings, units: siteUnits}}));
     app.get('/api/v1/verifyauth', (request, response) => response.json({message: 'OK'}));
     app.get('/api/v1/adminnotifies', (request, response) => response.json({message: {notifies: [], notifyCount: 0}}));
-    app.get('/translations/*', (request, response) => response.json({}));
+    app.get('/translations/{*path}', (request, response) => response.json({}));
     app.post('/api/v1/treatments/', (request, response) => response.json({message: 'OK'}));
     app.post('/api/v2/notifications/loop', (request, response) => {
       const {status, body, delay} = loopResponse;

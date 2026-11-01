@@ -12,6 +12,13 @@ function fixture(rows = [], deNormalizeDates = true, implementation = path.resol
     state.writes.push({ops, options});
     if (state.failure) throw state.failure;
     return {upsertedIds: {}};
+  },
+  // ID-FIRST-MATCH slice 3: the write step's on-deleted read (no record is
+  // stored here, so none is deleted).
+  find: () => {
+    const cursor = {sort: () => cursor, skip: () => cursor, limit: () => cursor, project: () => cursor,
+      batchSize: () => cursor, toArray: async () => []};
+    return cursor;
   }};
   const ctx = {store: {collection: () => collection}, bus: new EventEmitter(),
     purifier: {purifyObject: () => state.purifications++},
@@ -19,7 +26,9 @@ function fixture(rows = [], deNormalizeDates = true, implementation = path.resol
     authorization: {isPermitted: () => (req, res, next) => next()}};
   ctx.entries = require(path.join(implementation, 'lib/server/entries'))(env, ctx);
   ctx.entries.list = (query, done) => done(null, structuredClone(rows));
-  const app = express(); app.enable('api');
+  const app = express();
+  require('../../lib/middleware/configure-request')(app);
+  app.enable('api');
   app.use(require(path.join(implementation, 'lib/api/entries'))(app, require(path.join(implementation, 'lib/middleware'))(env), ctx, env));
   return {app, state, entries: ctx.entries};
 }

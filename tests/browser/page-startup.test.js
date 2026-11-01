@@ -35,7 +35,14 @@ describe('Complete page template startup', function () {
 
   function readyEntry(entry) {
     if (entry === 'app') return document.querySelector('.currentBG').textContent.trim() === '123';
-    if (entry === 'reports') return !!window.Nightscout.report_plugins;
+    // The reports page loads its first week once the profile arrives. Leaving
+    // the page while those requests are open makes WebKit report each one as
+    // an uncaught error, so ready means that report has been shown: the dates
+    // are filled in, Show is back and no request is in flight.
+    if (entry === 'reports') {
+      return !!window.Nightscout.report_plugins && document.querySelector('#rp_to').value !== ''
+        && document.querySelector('#rp_show').style.display !== 'none' && window.$.active === 0;
+    }
     if (entry === 'admin') return document.querySelector('#admin_placeholder').children.length > 0;
     if (entry === 'profile') return /Values loaded|Default values used/.test(document.querySelector('.pe_status').textContent);
     return document.querySelector('#fe_status').textContent === 'Database loaded';
@@ -45,10 +52,12 @@ describe('Complete page template startup', function () {
     // Use a native document origin for navigation with in-flight polling.
     // All routes are finite owned responses; CSP bounds subresource traffic.
     const context = await getBrowser().newContext({serviceWorkers, acceptDownloads: false});
-    const external = [], errors = [], messages = [];
+    const external = [], errors = [], messages = [], errorPages = [];
     context.on('console', message => {messages.push(message.text()); if (messages.length > 30) messages.shift();});
     context.on('request', request => {if (new URL(request.url()).origin !== origin) external.push(request.url());});
-    context.on('page', page => page.on('pageerror', error => errors.push(error.message)));
+    // Which document an error came from, for a failure that does not
+    // reproduce locally (WebKit's "due to access control checks").
+    context.on('page', page => page.on('pageerror', error => {errors.push(error.message); errorPages.push(page.url());}));
     try {
       const page = await context.newPage();
       page.setDefaultTimeout(5000);
@@ -56,7 +65,11 @@ describe('Complete page template startup', function () {
       await run({page});
       assert.deepEqual(external, [], 'Unexpected external request');
       assert.deepEqual(errors, [], 'Uncaught browser errors');
-    } catch (error) {error.message += '\nBrowser messages: ' + JSON.stringify(messages); throw error;}
+    } catch (error) {
+      error.message += '\nBrowser messages: ' + JSON.stringify(messages);
+      if (errorPages.length) error.message += '\nError pages: ' + JSON.stringify([...new Set(errorPages)]);
+      throw error;
+    }
     finally {await context.close();}
   }
 
@@ -237,7 +250,7 @@ describe('Complete page template startup', function () {
       await page.goto(origin);
       await page.waitForFunction(() => document.querySelector('.currentBG').textContent.trim() === '123');
       try {
-        for (const [id, pathname] of [['reportlink', '/report'], ['editprofilelink', '/profile'], ['editfoodlink', '/food'], ['admintoolslink', '/admin']]) {
+        for (const [id, pathname, entry] of [['reportlink', '/report', 'reports'], ['editprofilelink', '/profile', 'profile'], ['editfoodlink', '/food', 'food'], ['admintoolslink', '/admin', 'admin']]) {
           await page.locator('#drawerToggle').click();
           const [opened, clicked] = await Promise.allSettled([page.waitForEvent('popup'), page.locator('#' + id).click()]);
           assert.equal(clicked.status, 'fulfilled', id + ': ' + (clicked.reason && clicked.reason.message));
@@ -248,6 +261,10 @@ describe('Complete page template startup', function () {
             await child.waitForFunction(() => window.Nightscout && window.Nightscout.client.socket && window.Nightscout.client.socket.connected);
             assert.equal(new URL(child.url()).pathname.replace(/\/$/, ''), pathname);
             assert.equal(await child.locator('#page-load-error').isVisible(), false);
+            // Leave each page only once it has loaded what it fetches on
+            // arrival (readyEntry): WebKit fails a navigation away from the
+            // reports page while its first report is still loading.
+            await child.waitForFunction(readyEntry, entry);
             await child.locator('.closeButton').click();
             await child.waitForFunction(() => document.querySelector('.currentBG') && document.querySelector('.currentBG').textContent.trim() === '123');
             assert.equal(new URL(child.url()).pathname, '/');
@@ -258,6 +275,7 @@ describe('Complete page template startup', function () {
                 window.Nightscout.client.socket.timeout(3000).emit('startup-probe', (error, data) => error ? reject(error) : resolve(data));
               }));
               assert.deepEqual(reply, {glucose: 123}, 'Back navigation restores a live data connection');
+              await child.waitForFunction(readyEntry, entry);
               await child.goForward();
               await child.waitForFunction(() => document.querySelector('.currentBG') && document.querySelector('.currentBG').textContent.trim() === '123');
             }
@@ -294,6 +312,8 @@ describe('Complete page template startup', function () {
         stage = 'first controlled navigation';
         await page.goto(origin + '/report/');
         await page.waitForFunction(() => !!navigator.serviceWorker.controller);
+        // This visit, too, leaves /report/ next: wait for its first report.
+        await page.waitForFunction(readyEntry, 'reports');
         stage = 'first visits';
         for (const [url, , , entry] of pages) {
           await page.goto(origin + url);

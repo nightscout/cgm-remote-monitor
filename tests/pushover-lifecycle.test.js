@@ -5,15 +5,13 @@ const fs = require('fs');
 const path = require('path');
 const vm = require('vm');
 const {createRequire} = require('module');
-const {EventEmitter} = require('events');
 const levels = require('../lib/levels');
 
-function loadPushover(loadProvider, transport) {
+function loadPushover(loadProvider) {
   const filename = path.resolve(__dirname, '../lib/plugins/pushover.js');
   const localRequire = createRequire(filename);
   const sandbox = {module: {exports: {}}, console: {info() {}, error() {}}, require(name) {
-    if (name === 'pushover-notifications') return loadProvider();
-    if (name === 'https' && transport) return transport;
+    if (name === '../server/pushover-client') return loadProvider();
     return localRequire(name);
   }};
   vm.runInNewContext(fs.readFileSync(filename, 'utf8'), sandbox, {filename});
@@ -95,18 +93,14 @@ describe('Pushover lazy loading and transport lifecycle', function () {
   for (const failed of [false, true]) {
     it('preserves receipt cancellation ' + (failed ? 'errors' : 'success') + ' over repeated calls', function () {
       const failure = new Error('fixture cancellation error');
-      let requests = 0, resumed = 0;
-      const transport = {get(url, callback) {
-        requests++;
-        assert.strictEqual(url, 'https://api.pushover.net/1/receipts/fixture-receipt/cancel.json?token=fixture-token');
-        const request = new EventEmitter();
-        process.nextTick(() => {
-          if (failed) request.emit('error', failure);
-          else callback({statusCode: 200, resume() { resumed++; }});
-        });
-        return request;
-      }};
-      const pushover = loadPushover(() => function Provider() {}, transport)(configuration({apiToken: 'fixture-token', userKey: 'user'}), {levels});
+      let requests = 0;
+      const pushover = loadPushover(() => function Provider() {
+        this.cancel = (receipt, callback) => {
+          requests++;
+          assert.strictEqual(receipt, 'fixture-receipt');
+          process.nextTick(() => callback(failed ? failure : null, {statusCode: 200}));
+        };
+      })(configuration({apiToken: 'fixture-token', userKey: 'user'}), {levels});
       return (async () => {
         for (let cycle = 1; cycle <= 2; cycle++) {
           await new Promise(resolve => pushover.cancelWithReceipt('fixture-receipt', (error, response) => {
@@ -115,7 +109,6 @@ describe('Pushover lazy loading and transport lifecycle', function () {
             resolve();
           }));
           assert.strictEqual(requests, cycle);
-          assert.strictEqual(resumed, failed ? 0 : cycle);
         }
       })();
     });

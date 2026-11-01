@@ -1,0 +1,57 @@
+{
+  "reviewDate": "2026-09-06",
+  "lockfileSha256": "376a459f3e505df6fb88524018d6095a7c6638dced2bc72cc7c0fa1179b88ceb",
+  "compatibleTransitiveUpdates": [],
+  "remainingOutdatedEntryCount": 157,
+  "interpretation": "Remaining entries advertise newer majors outside current parent ranges, or deliberate root holds. This is not a claim that every major upgrade has been implemented.",
+  "directHolds": {
+    "flot": "M28 browser widget migration",
+    "jquery": "M28 browser widget migration",
+    "node-cache": "M25 cache replacement",
+    "xml2js": "0.6.2 has reproduced data-preservation regression; retain 0.5.0"
+  },
+  "fullAudit": {
+    "auditReportVersion": 2,
+    "vulnerabilities": {},
+    "metadata": {
+      "vulnerabilities": {
+        "info": 0,
+        "low": 0,
+        "moderate": 0,
+        "high": 0,
+        "critical": 0,
+        "total": 0
+      },
+      "dependencies": {
+        "prod": 278,
+        "dev": 516,
+        "optional": 3,
+        "peer": 1,
+        "peerOptional": 0,
+        "total": 793
+      }
+    }
+  },
+  "productionAudit": {
+    "auditReportVersion": 2,
+    "vulnerabilities": {},
+    "metadata": {
+      "vulnerabilities": {
+        "info": 0,
+        "low": 0,
+        "moderate": 0,
+        "high": 0,
+        "critical": 0,
+        "total": 0
+      },
+      "dependencies": {
+        "prod": 278,
+        "dev": 516,
+        "optional": 3,
+        "peer": 1,
+        "peerOptional": 0,
+        "total": 793
+      }
+    }
+  }
+}

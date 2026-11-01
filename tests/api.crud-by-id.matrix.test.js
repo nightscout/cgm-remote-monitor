@@ -24,6 +24,7 @@
 // Synthetic records only.
 
 var should = require('should');
+var MMOL_TO_MGDL = require('../lib/constants.json').MMOL_TO_MGDL;
 var ObjectID = require('mongodb').ObjectId;
 var io = require('socket.io-client');
 var fs = require('fs');
@@ -111,7 +112,15 @@ var EXPECT = {
     return ['200 n=1 edited=true', 'v3 PUT by identifier replaces the v1 record, leaving one'];
   }
   , 'v3 delete': function () { return ['200 n=0', 'v3 permanent DELETE by identifier removes the v1 record']; }
-  , 'v3 resend': function () { return ['200 n=1 edited=true', 'v3 POST with the same identifier deduplicates onto the v1 record']; }
+  , 'v3 resend': function (col) {
+    // ID-SIMPLE-MATCH, devicestatus option (b), decided 2026-10-26: a device
+    // status re-sent with a stored identifier is acknowledged, not rewritten.
+    // CHANGED EXPECTATION (ID-FIRST-MATCH slice 4, ID-Q2): it is merged into
+    // the v1 status, as every other collection's re-send is; the third entry is
+    // what is observed now, and the cell's title keeps the first.
+    if (col === 'devicestatus') return ['200 n=1 edited=false', 'v3 POST with the same identifier deduplicates onto the v1 status (merged, ID-Q2)', '200 n=1 edited=true'];
+    return ['200 n=1 edited=true', 'v3 POST with the same identifier deduplicates onto the v1 record'];
+  }
   // websocket dbAdd of a new record carrying its own _id
   , 'ws create': function (col, form) {
     if (isHexForm(form)) return ['[ObjectId]', 'a 24-hex _id is stored as the ObjectId it names, as v1 does'];
@@ -129,6 +138,7 @@ describe('CRUD by _id matrix: v1, v3 and websocket, every collection and stored 
   var authSubject = require('./fixtures/api3/authSubject');
   var results = [];
   var counter = 0;
+  var commits = [];
 
   this.timeout(30000);
 
@@ -251,8 +261,11 @@ describe('CRUD by _id matrix: v1, v3 and websocket, every collection and stored 
   function cell (api, op, col, form, run) {
     var key = api + ' ' + op;
     var exp = EXPECT[key](col, form);
-    it(key + ' | ' + col + ' | ' + form + ' -> ' + exp[0], async function () {
+    var title = exp[0];
+    if (exp[2] !== undefined) exp = [exp[2], exp[1]];
+    it(key + ' | ' + col + ' | ' + form + ' -> ' + title, async function () {
       var observed;
+      var beforeCommits = commits.length;
       try {
         observed = await run();
       } catch (err) {
@@ -260,12 +273,22 @@ describe('CRUD by _id matrix: v1, v3 and websocket, every collection and stored 
       }
       results.push({ api: api, op: op, col: col, form: form, expected: exp[0], observed: observed, why: exp[1] });
       should(observed).equal(exp[0]);
+      // G2: the real transport must cross the common persistence boundary.
+      // No-op resends keep their historical behavior and need not emit.
+      var changes = ['create', 'put', 'update', 'delete', 'remove'].indexOf(op) !== -1;
+      if (changes && !/^400/.test(observed)
+        && !(op === 'delete' && /n=1$/.test(observed))) {
+        var source = api === 'ws' ? 'socket' : api === 'v1' ? 'v1/internal' : 'v3';
+        should(commits.slice(beforeCommits).some(event => event.collection === col && event.source === source))
+          .equal(true, 'write bypassed the shared boundary: ' + key + ' ' + col);
+      }
     });
   }
 
   before(async function () {
     self.instance = await instance.create({ useHttps: false });
     self.env = self.instance.env;
+    self.instance.ctx.bus.on('storage-write-committed', event => commits.push(event));
     self.instance.app.use('/api/v1', require('../lib/api/')(self.env, self.instance.ctx));
     var authResult = await authSubject(self.instance.ctx.authorization.storage, ['all'], self.instance.app);
     self.jwt = authResult.jwt;
@@ -457,4 +480,563 @@ describe('CRUD by _id matrix: v1, v3 and websocket, every collection and stored 
       });
     });
   });
+  // ---- internal/plugin callers ---------------------------------------------
+  Object.keys(COLS).forEach(function (col) {
+    it('internal create and cross-path resend | ' + col, async function () {
+      var n = nextN(), id = idFor(col, 'oid', n);
+      var before = commits.length;
+      var doc = Object.assign(body(col, n), {_id: id.asked});
+      await new Promise((resolve, reject) => self.instance.ctx[col].create([doc],
+        (err, result) => err ? reject(err) : resolve(result)));
+      should(commits.slice(before).some(event => event.collection === col && event.source === 'v1/internal')).equal(true);
+      should((await storedFor(col, id)).length).equal(1);
+      await v1('post', v1Base(col)).send(Object.assign(body(col, n), {_id: id.asked}));
+      should((await storedFor(col, id)).length).equal(1);
+    });
+  });
+
+  describe('WRITE_VALIDATION across all four paths', function () {
+    for (const mode of ['off', 'log', 'reject']) {
+      it(mode + ' preserves each reply contract and checks socket writes too', async function () {
+        const previous = self.env.writeValidation;
+        self.env.writeValidation = mode;
+        try {
+          for (const source of ['v1', 'v3', 'socket', 'internal']) {
+            const n = nextN(), id = idFor('treatments', 'oid', n);
+            const doc = Object.assign(body('treatments', n), {
+              eventType: 'Temporary Target', duration: 30, targetBottom: 12, targetTop: 6,
+              _id: id.asked
+            });
+            if (source === 'v1') {
+              const res = await v1('post', v1Base('treatments')).send(doc);
+              should(res.status).equal(mode === 'reject' ? 400 : 200);
+            } else if (source === 'v3') {
+              delete doc._id;
+              doc.identifier = id.asked;
+              const res = await self.instance.post('/api/v3/treatments', self.jwt.all).send(doc);
+              should(res.status).equal(mode === 'reject' ? 400 : 201);
+            } else if (source === 'socket') {
+              const res = await wsEmit('dbAdd', {collection: 'treatments', data: doc});
+              should(res.length).equal(1);
+              if (mode === 'reject') {
+                should(res[0].refused.status).equal(400);
+                should(res[0]._id).equal(undefined);
+              }
+            } else {
+              const err = await new Promise(resolve => self.instance.ctx.treatments.create([doc], err => resolve(err)));
+              should(Boolean(err)).equal(mode === 'reject');
+            }
+            should((await storedFor('treatments', id)).length).equal(mode === 'reject' ? 0 : 1);
+          }
+        } finally { self.env.writeValidation = previous; }
+      });
+    }
+
+    it('stores valid socket batch items, reports refusals in order and checks edits/unsets', async function () {
+      const previous = self.env.writeValidation;
+      self.env.writeValidation = 'reject';
+      try {
+        const n = nextN(), id = idFor('treatments', 'oid', n);
+        const doc = Object.assign(body('treatments', n), {_id: id.asked,
+          eventType: 'Temporary Target', duration: 30, targetBottom: 5, targetTop: 6});
+        const bad = Object.assign({}, doc, {_id: idFor('treatments', 'oid', nextN()).asked, targetTop: 1});
+        const batch = await wsEmit('dbAdd', {collection: 'treatments', data: [doc, bad]});
+        should(batch.length).equal(2);
+        should(String(batch[0]._id)).equal(id.asked);
+        should(batch[1]._id).equal(undefined);
+        should(batch[1].refused.status).equal(400);
+        should(batch[1].refused.rules).containDeep([{rule: 'tt-order', field: 'targetBottom'}]);
+        should(await collection('treatments').findOne({_id: new ObjectID(bad._id)})).equal(null);
+        should((await storedFor('treatments', id)).length).equal(1);
+        await wsEmit('dbAdd', {collection: 'treatments', data: doc});
+        for (const [event, data] of [['dbUpdate', {targetBottom: 9}], ['dbUpdateUnset', {targetTop: ''}]]) {
+          const reply = await wsEmit(event, {collection: 'treatments', _id: id.asked, data});
+          should(reply.result).equal('Unable to process update');
+          // The unlabelled 5-6 target was stored in mg/dL (BF-194); a
+          // refused edit leaves it as stored.
+          const stored = (await storedFor('treatments', id))[0];
+          should(stored.targetBottom).equal(5 * MMOL_TO_MGDL);
+          should(stored.targetTop).equal(6 * MMOL_TO_MGDL);
+          should(stored.units).equal('mg/dl');
+        }
+        const edit = await wsEmit('dbUpdate', {collection: 'treatments', _id: id.asked, data: {notes: 'edited'}});
+        should(edit.result).equal('success');
+      } finally { self.env.writeValidation = previous; }
+    });
+  });
+
+  for (const mode of ['off', 'log', 'reject']) {
+    for (const invalid of [[true, false, true], [true, true], [false, false]]) {
+      it('keeps ordered socket results for ' + mode + ' with invalid items ' + invalid.join(','), async function () {
+        const previous = self.env.writeValidation;
+        self.env.writeValidation = mode;
+        try {
+          const ids = [], docs = invalid.map((bad, i) => {
+            const n = nextN(), id = idFor('treatments', 'oid', n);
+            ids.push(id);
+            return Object.assign(body('treatments', n, 'slot-' + i), {_id: id.asked,
+              eventType: 'Temporary Target', duration: 30, targetBottom: 5, targetTop: bad ? 1 : 6});
+          });
+          const before = commits.length;
+          const reply = await wsEmit('dbAdd', {collection: 'treatments', data: docs});
+          should(reply.length).equal(docs.length);
+          for (let i = 0; i < docs.length; i++) {
+            should(reply[i].crud).equal('slot-' + i);
+            const refused = mode === 'reject' && invalid[i];
+            should((await storedFor('treatments', ids[i])).length).equal(refused ? 0 : 1);
+            if (refused) {
+              should(reply[i]._id).equal(undefined);
+              should(reply[i].refused.status).equal(400);
+              should(reply[i].refused.message).match(/targetBottom must not be above targetTop/);
+              should(reply[i].refused.rules).containDeep([{rule: 'tt-order', field: 'targetBottom'}]);
+            } else {
+              should(String(reply[i]._id)).equal(ids[i].asked);
+              should(reply[i].refused).equal(undefined);
+            }
+          }
+          should(commits.length - before).equal(invalid.filter(bad => mode !== 'reject' || !bad).length);
+        } finally { self.env.writeValidation = previous; }
+      });
+    }
+  }
+
+  for (const mode of ['off', 'log', 'reject']) {
+    for (const pattern of [['fail', 'bad', 'good'], ['bad', 'fail', 'good'],
+      ['bad', 'good', 'fail'], ['fail', 'bad', 'fail']]) {
+      it('keeps socket batch outcomes for ' + mode + ' with ' + pattern.join(','), async function () {
+        const previous = self.env.writeValidation;
+        self.env.writeValidation = mode;
+        const raw = collection('treatments'), prototype = Object.getPrototypeOf(raw), original = prototype.insertOne;
+        try {
+          const ids = [], docs = pattern.map((kind, i) => {
+            const n = nextN(), id = idFor('treatments', 'oid', n);
+            ids.push(id);
+            return Object.assign(body('treatments', n, kind + '-' + i), {_id: id.asked,
+              eventType: 'Temporary Target', duration: 30, targetBottom: kind === 'bad' ? 9 : 5, targetTop: 6},
+              kind === 'fail' ? {refused: {spoofed: true}} : kind === 'bad' ? {failed: {spoofed: true}} : {});
+          });
+          prototype.insertOne = async function (doc, ...args) {
+            if (typeof doc.crud === 'string' && doc.crud.startsWith('fail-')) throw new Error('synthetic private driver detail');
+            return original.call(this, doc, ...args);
+          };
+          const before = commits.length;
+          const reply = await wsEmit('dbAdd', {collection:'treatments', data:docs});
+          const returned = pattern.map((kind, i) => i).filter(i => mode === 'reject' || pattern[i] !== 'fail');
+          should(reply.length).equal(returned.length);
+          for (let slot = 0; slot < returned.length; slot++) {
+            const i = returned[slot], kind = pattern[i];
+            should(reply[slot].crud).equal(kind + '-' + i);
+            if (mode === 'reject' && kind === 'fail') {
+              should(reply[slot]._id).equal(undefined);
+              should(reply[slot].refused).equal(undefined);
+              should(reply[slot].failed).deepEqual({status: 500, message: 'Treatment write could not be confirmed'});
+              should(reply[slot].srvCreated).equal(undefined);
+              should(reply[slot].srvModified).equal(undefined);
+            } else if (mode === 'reject' && kind === 'bad') {
+              should(reply[slot]._id).equal(undefined);
+              should(reply[slot].refused.status).equal(400);
+              should(reply[slot].failed).equal(undefined);
+            } else {
+              should(String(reply[slot]._id)).equal(ids[i].asked);
+              if (kind === 'bad') should(reply[slot].failed).deepEqual({spoofed: true});
+              else should(reply[slot].failed).equal(undefined);
+            }
+          }
+          should(JSON.stringify(reply).includes('synthetic private driver detail')).equal(false);
+          for (let i = 0; i < pattern.length; i++) {
+            const stored = pattern[i] !== 'fail' && (mode !== 'reject' || pattern[i] !== 'bad');
+            should((await storedFor('treatments', ids[i])).length).equal(stored ? 1 : 0);
+          }
+          should(commits.length - before).equal(pattern.filter(kind => kind !== 'fail' && (mode !== 'reject' || kind !== 'bad')).length);
+        } finally { prototype.insertOne = original; self.env.writeValidation = previous; }
+      });
+    }
+  }
+
+  for (const mode of ['off', 'log', 'reject']) {
+    it('handles an unexpected socket batch exception in ' + mode + ' mode', async function () {
+      const previous = self.env.writeValidation;
+      self.env.writeValidation = mode;
+      const raw = collection('treatments'), prototype = Object.getPrototypeOf(raw), original = prototype.insertOne;
+      try {
+        const docs = ['fail', 'bad', 'good'].map((kind, i) => {
+          const n = nextN(), id = idFor('treatments', 'oid', n);
+          return Object.assign(body('treatments', n, kind + '-' + i), {_id: id.asked,
+            eventType: 'Temporary Target', duration: 30, targetBottom: kind === 'bad' ? 9 : 5, targetTop: 6});
+        });
+        prototype.insertOne = async function (doc, ...args) {
+          if (doc.crud === 'fail-0') throw {};
+          return original.call(this, doc, ...args);
+        };
+        const reply = await wsEmit('dbAdd', {collection: 'treatments', data: docs});
+        if (mode !== 'reject') {
+          should(reply).deepEqual([]);
+          should(await raw.findOne({_id: new ObjectID(docs[1]._id)})).equal(null);
+          should(await raw.findOne({_id: new ObjectID(docs[2]._id)})).equal(null);
+        } else {
+          should(reply.length).equal(3);
+          should(reply[0].failed.status).equal(500);
+          should(reply[1].refused.status).equal(400);
+          should(reply[2]._id).not.equal(undefined);
+          should(reply.map(item => item.crud)).deepEqual(['fail-0', 'bad-1', 'good-2']);
+        }
+      } finally { prototype.insertOne = original; self.env.writeValidation = previous; }
+    });
+  }
+
+  it('keeps non-treatment socket batch failure replies unchanged in reject mode', async function () {
+    const previous = self.env.writeValidation;
+    self.env.writeValidation = 'reject';
+    const raw = collection('food'), prototype = Object.getPrototypeOf(raw), original = prototype.insertOne;
+    try {
+      const ids = [], docs = ['fail', 'good', 'good'].map((kind, i) => {
+        const n = nextN(), id = idFor('food', 'oid', n);
+        ids.push(id);
+        return Object.assign(body('food', n, kind + '-food-' + i), {_id: id.asked});
+      });
+      prototype.insertOne = async function (doc, ...args) {
+        if (doc.crud === 'fail-food-0') throw new Error('synthetic food failure');
+        return original.call(this, doc, ...args);
+      };
+      const reply = await wsEmit('dbAdd', {collection:'food', data:docs});
+      should(reply.length).equal(2);
+      should(reply.map(item => item.crud)).deepEqual(['good-food-1', 'good-food-2']);
+      should((await storedFor('food', ids[0])).length).equal(0);
+      should((await storedFor('food', ids[1])).length).equal(1);
+      should((await storedFor('food', ids[2])).length).equal(1);
+    } finally { prototype.insertOne = original; self.env.writeValidation = previous; }
+  });
+
+  it('marks a lost write acknowledgement as unconfirmed and finds the record on replay', async function () {
+    const previous = self.env.writeValidation;
+    self.env.writeValidation = 'reject';
+    const raw = collection('treatments'), prototype = Object.getPrototypeOf(raw), original = prototype.insertOne;
+    try {
+      const n = nextN(), id = idFor('treatments', 'oid', n);
+      const doc = Object.assign(body('treatments', n, 'ack-lost'), {_id: id.asked,
+        eventType: 'Temporary Target', duration: 30, targetBottom: 5, targetTop: 6});
+      let once = false;
+      prototype.insertOne = async function (input, ...args) {
+        const result = await original.call(this, input, ...args);
+        if (input.crud === 'ack-lost' && !once) { once = true; throw new Error('synthetic acknowledgement loss'); }
+        return result;
+      };
+      const first = await wsEmit('dbAdd', {collection:'treatments', data:[doc]});
+      should(first.length).equal(1);
+      should(first[0]._id).equal(undefined);
+      should(first[0].failed.message).equal('Treatment write could not be confirmed');
+      should((await storedFor('treatments', id)).length).equal(1);
+      const replay = await wsEmit('dbAdd', {collection:'treatments', data:[doc]});
+      should(String(replay[0]._id)).equal(id.asked);
+      should((await storedFor('treatments', id)).length).equal(1);
+    } finally { prototype.insertOne = original; self.env.writeValidation = previous; }
+  });
+
+  for (const mode of ['off', 'log', 'reject']) {
+    for (const batch of [false, true]) {
+      it('keeps late socket refusals in place for ' + mode + ' ' + (batch ? 'batches' : 'single uploads'), async function () {
+        const previous = self.env.writeValidation;
+        self.env.writeValidation = mode;
+        try {
+          const n = nextN(), oldId = idFor('treatments', 'oid', n);
+          const old = Object.assign(body('treatments', n), {_id: oldId.stored,
+            eventType: 'Temporary Target', duration: 30, targetBottom: 9, targetTop: 6});
+          await collection('treatments').insertOne(old);
+          const incomingId = idFor('treatments', 'oid', nextN());
+          // Valid input passes preflight; the +/-2-second match then tries to
+          // change the timestamp of a legacy target that fails validation.
+          const incoming = Object.assign({}, old, {_id: incomingId.asked, targetBottom: 5,
+            created_at: new Date(when(n) + 1000).toISOString(), notes: 'late-refusal-slot',
+            failed: {spoofed: true}});
+          const items = [incoming], ids = [];
+          if (batch) {
+            for (const valid of [false, true]) {
+              const next = nextN(), id = idFor('treatments', 'oid', next);
+              ids.push(id);
+              items.push(Object.assign(body('treatments', next), {_id: id.asked,
+                eventType: 'Temporary Target', duration: 30, targetBottom: valid ? 5 : 9, targetTop: 6,
+                notes: valid ? 'accepted-slot' : 'preflight-refusal-slot'}));
+            }
+          }
+          const before = commits.length;
+          const reply = await wsEmit('dbAdd', {collection: 'treatments', data: batch ? items : incoming});
+          should(reply.length).equal(items.length);
+          const current = (await storedFor('treatments', oldId))[0];
+          should(current.targetBottom).equal(9);
+          if (mode === 'reject') {
+            should(reply[0].notes).equal('late-refusal-slot');
+            should(reply[0]._id).equal(undefined);
+            should(reply[0].refused.status).equal(400);
+            should(reply[0].failed).equal(undefined);
+            should(reply[0].refused.rules).containDeep([{rule: 'tt-order', field: 'targetBottom'}]);
+            should(current.created_at).equal(old.created_at);
+            should(current.srvModified).equal(undefined);
+          } else {
+            should(String(reply[0]._id)).equal(oldId.asked);
+            should(reply[0].refused).equal(undefined);
+            should(current.created_at).equal(incoming.created_at);
+          }
+          should((await storedFor('treatments', incomingId)).length).equal(0);
+          if (batch) {
+            should(reply[1].notes).equal('preflight-refusal-slot');
+            should(reply[2].notes).equal('accepted-slot');
+            should(String(reply[2]._id)).equal(ids[1].asked);
+            should((await storedFor('treatments', ids[0])).length).equal(mode === 'reject' ? 0 : 1);
+            should((await storedFor('treatments', ids[1])).length).equal(1);
+            if (mode === 'reject') {
+              should(reply[1]._id).equal(undefined);
+              should(reply[1].refused.status).equal(400);
+            }
+          }
+          should(commits.length - before).equal(mode === 'reject' ? (batch ? 1 : 0) : items.length);
+        } finally { self.env.writeValidation = previous; }
+      });
+    }
+  }
+
+  it('does not turn a socket persistence failure into a domain refusal', async function () {
+    const previous = self.env.writeValidation;
+    self.env.writeValidation = 'reject';
+    const raw = collection('treatments'), n = nextN(), id = idFor('treatments', 'oid', n);
+    const prototype = Object.getPrototypeOf(raw), original = prototype.updateOne;
+    try {
+      const old = Object.assign(body('treatments', n), {_id: id.stored,
+        eventType: 'Temporary Target', duration: 30, targetBottom: 5, targetTop: 6});
+      await raw.insertOne(old);
+      prototype.updateOne = async function (filter, ...args) {
+        if (JSON.stringify(filter).includes(id.asked)) throw new Error('synthetic storage failure');
+        return original.call(this, filter, ...args);
+      };
+      const reply = await wsEmit('dbAdd', {collection: 'treatments', data: Object.assign({}, old,
+        {_id: id.asked, created_at: new Date(when(n) + 1000).toISOString()})});
+      should(reply).deepEqual([]);
+      should((await raw.findOne({_id: id.stored})).created_at).equal(old.created_at);
+    } finally {
+      prototype.updateOne = original;
+      self.env.writeValidation = previous;
+    }
+  });
+
+  it('gates read/search/history diagnostic headers in every representation without changing response data', async function () {
+    const previous = self.env.apiV3DataWarnings;
+    should(previous).equal(false);
+    const identifier = 'header-opt-in';
+    await collection('treatments').insertOne({identifier, app: 'crud-matrix', eventType: 'Note',
+      duration: {toString: 'broken'}, created_at: new Date().toISOString(), srvModified: Date.now()});
+    try {
+      for (const url of ['/api/v3/treatments/' + identifier + '?fields=duration',
+        '/api/v3/treatments?identifier$eq=' + identifier + '&fields=duration',
+        '/api/v3/treatments/history/1577836800000?limit=1000&fields=duration']) {
+        for (const format of ['application/json', 'text/csv', 'application/xml']) {
+          self.env.apiV3DataWarnings = false;
+          const quiet = await self.instance.get(url, self.jwt.all).set('Accept', format).expect(200);
+          should(quiet.headers['nightscout-data-warnings']).equal(undefined);
+          self.env.apiV3DataWarnings = true;
+          const diagnosed = await self.instance.get(url, self.jwt.all).set('Accept', format).expect(200);
+          should(diagnosed.headers['nightscout-data-warnings']).match(/number-shape/);
+          should(diagnosed.text).equal(quiet.text);
+          should(diagnosed.headers.etag).equal(quiet.headers.etag);
+        }
+      }
+    } finally { self.env.apiV3DataWarnings = previous; }
+  });
+
+  it('returns malformed stored records without default diagnostics or invalid date headers', async function () {
+    const identifier = 'architecture-malformed-time';
+    await collection('treatments').insertOne({identifier, app: 'crud-matrix',
+      eventType: 'Note', srvModified: {toString: 'broken'}, created_at: 'not-a-date'});
+    const res = await self.instance.get('/api/v3/treatments/' + identifier, self.jwt.all).expect(200);
+    should(res.body.result.srvModified).deepEqual({toString: 'broken'});
+    should(res.headers['nightscout-data-warnings']).equal(undefined);
+    should(res.headers['last-modified']).equal(undefined);
+  });
+
+  it('keeps /storage delivery v3-only while observing writes from every path', async function () {
+    const events = [];
+    const listener = event => events.push(event);
+    const bus = self.instance.ctx.bus;
+    bus.on('storage-socket-create', listener);
+    bus.on('storage-socket-update', listener);
+    try {
+      const first = nextN();
+      await v1('post', v1Base('treatments')).send(body('treatments', first));
+      await new Promise((resolve, reject) => self.instance.ctx.treatments.create([body('treatments', nextN())],
+        err => err ? reject(err) : resolve()));
+      await wsEmit('dbAdd', {collection: 'treatments', data: body('treatments', nextN())});
+      should(events.length).equal(0);
+      const doc = body('treatments', nextN());
+      doc.identifier = 'architecture-socket-control';
+      await self.instance.post('/api/v3/treatments', self.jwt.all).send(doc).expect(201);
+      should(events.length).equal(1);
+      should(events[0].colName).equal('treatments');
+    } finally {
+      bus.removeListener('storage-socket-create', listener);
+      bus.removeListener('storage-socket-update', listener);
+    }
+  });
+
+  it('keeps cursor metadata for projected history and avoids false cancellation warnings', async function () {
+    const previous = self.env.apiV3DataWarnings;
+    self.env.apiV3DataWarnings = true;
+    try {
+      const id = 'projected-cancel';
+      await collection('treatments').insertOne({identifier: id, app: 'crud-matrix', eventType: 'Temporary Target',
+        duration: 0, targetBottom: 0, targetTop: 0, srvModified: Date.now()});
+      const res = await self.instance.get('/api/v3/treatments/' + id + '?fields=eventType,targetBottom,targetTop', self.jwt.all).expect(200);
+      should(res.headers['nightscout-data-warnings']).equal(undefined);
+      should(res.body.result.duration).equal(undefined);
+      const hist = await self.instance.get('/api/v3/treatments/history/1577836800000?fields=eventType&limit=1000', self.jwt.all).expect(200);
+      should(hist.headers.etag).match(/^W\/"[0-9]+"$/);
+      should(Number.isFinite(Date.parse(hist.headers['last-modified']))).equal(true);
+      hist.body.result.forEach(doc => should(doc.srvModified).equal(undefined));
+    } finally { self.env.apiV3DataWarnings = previous; }
+  });
+
+  it('refuses conflicting cancellation/end-time inputs through all four writers', async function () {
+    const previous = self.env.writeValidation;
+    self.env.writeValidation = 'reject';
+    try {
+      for (const source of ['v1', 'v3', 'socket', 'internal']) {
+        const n = nextN(), id = idFor('treatments', 'oid', n);
+        const doc = Object.assign(body('treatments', n), {_id: id.asked,
+          eventType: 'Temporary Target', duration: 0, targetBottom: 0, targetTop: 0,
+          mills: when(n), endmills: when(n) + 1800000});
+        if (source === 'v1') await v1('post', v1Base('treatments')).send(doc).expect(400);
+        else if (source === 'v3') {
+          delete doc._id; doc.identifier = id.asked;
+          await self.instance.post('/api/v3/treatments', self.jwt.all).send(doc).expect(400);
+        } else if (source === 'socket') {
+          const reply = await wsEmit('dbAdd', {collection: 'treatments', data: doc});
+          should(reply.length).equal(1);
+          should(reply[0]._id).equal(undefined);
+          should(reply[0].refused.status).equal(400);
+        } else {
+          const err = await new Promise(resolve => self.instance.ctx.treatments.create([doc], err => resolve(err)));
+          should(err.name).equal('WriteValidationError');
+        }
+        should((await storedFor('treatments', id)).length).equal(0);
+      }
+    } finally { self.env.writeValidation = previous; }
+  });
+
+  for (const sources of [['socket', 'socket'], ['v3', 'v3'], ['socket', 'v3']]) {
+    it('conditionally validates concurrent ' + sources.join('/') + ' patches in Mongo', async function () {
+      const step = require('../lib/storage/write-step');
+      const id = idFor('treatments', 'oid', nextN());
+      const raw = collection('treatments');
+      await raw.insertOne({_id: id.stored, app: 'crud-matrix', eventType: 'Temporary Target',
+        duration: 30, targetBottom: 100, targetTop: 140});
+      let calls = 0, release;
+      const barrier = new Promise(resolve => { release = resolve; });
+      const observed = new Proxy(raw, {get(target, key) {
+        if (key === 'updateOne') return async (...args) => {
+          if (++calls <= 2) { if (calls === 2) release(); await barrier; }
+          return target.updateOne(...args);
+        };
+        return typeof target[key] === 'function' ? target[key].bind(target) : target[key];
+      }});
+      const writers = sources.map(source => step.collection(observed,
+        {name: 'treatments', source, env: {writeValidation: 'reject'}}));
+      const outcomes = await Promise.allSettled([
+        writers[0].updateOne({_id: id.stored}, {$set: {targetBottom: 120}}),
+        writers[1].updateOne({_id: id.stored}, {$set: {targetTop: 110}})
+      ]);
+      should(outcomes.filter(o => o.status === 'fulfilled').length).equal(1);
+      should(outcomes.find(o => o.status === 'rejected').reason.name).equal('WriteValidationError');
+      const stored = await raw.findOne({_id: id.stored});
+      should(stored.targetBottom <= stored.targetTop).equal(true);
+    });
+  }
+
+  it('stores a socket cancellation consistently and refuses unsets that reactivate invalid targets', async function () {
+    const previous = self.env.writeValidation;
+    self.env.writeValidation = 'reject';
+    try {
+      const n = nextN(), id = idFor('treatments', 'oid', n), start = when(n);
+      await collection('treatments').insertOne({_id: id.stored, app: 'crud-matrix',
+        eventType: 'Temporary Target', mills: start, duration: 30, durationInMilliseconds: 1800000,
+        endmills: start + 1800000, targetBottom: 100, targetTop: 140});
+      const reply = await wsEmit('dbUpdate', {collection: 'treatments', _id: id.asked,
+        data: {duration: 0, targetBottom: 0, targetTop: 0}});
+      should(reply.result).equal('success');
+      const stored = (await storedFor('treatments', id))[0];
+      should(stored.duration).equal(0);
+      should(stored.durationInMilliseconds).equal(0);
+      should(stored.endmills).equal(start);
+      const unset = await wsEmit('dbUpdateUnset', {collection: 'treatments', _id: id.asked,
+        data: {duration: '', durationInMilliseconds: '', endmills: ''}});
+      should(unset.result).equal('Unable to process update');
+      should((await storedFor('treatments', id))[0].duration).equal(0);
+    } finally { self.env.writeValidation = previous; }
+  });
+
+  for (const expected of [400, 409]) {
+    it('returns HTTP ' + expected + ' for a target changed after v3 route validation', async function () {
+      const previous = self.env.writeValidation;
+      self.env.writeValidation = 'reject';
+      const raw = collection('treatments'), id = idFor('treatments', 'oid', nextN());
+      const prototype = Object.getPrototypeOf(raw), original = prototype.updateOne;
+      let attempts = 0;
+      try {
+        await raw.insertOne({_id: id.stored, identifier: id.asked, app: 'crud-matrix',
+          eventType: 'Temporary Target', duration: 30, targetBottom: 100, targetTop: 140});
+        prototype.updateOne = async function (filter, ...args) {
+          if (filter.$and && JSON.stringify(filter).includes(id.asked)) {
+            attempts++;
+            // Force the race after the conditional boundary's snapshot read.
+            await original.call(raw, {_id: id.stored}, {$set: expected === 400
+              ? {targetTop: 110} : {duration: attempts % 2 ? 31 : 30}});
+          }
+          return original.call(this, filter, ...args);
+        };
+        await self.instance.patch('/api/v3/treatments/' + id.asked, self.jwt.all)
+          .send({targetBottom: 120}).expect(expected);
+        should(attempts).equal(expected === 400 ? 1 : 4);
+        const stored = await raw.findOne({_id: id.stored});
+        should(stored.targetBottom).equal(100);
+      } finally {
+        prototype.updateOne = original;
+        self.env.writeValidation = previous;
+      }
+    });
+  }
+
+  for (const col of ['entries', 'treatments']) {
+    for (const from of ['v1', 'v3', 'socket', 'internal']) {
+      for (const to of ['v1', 'v3', 'socket', 'internal']) {
+        it(col + ' cross-path resend ' + from + ' -> ' + to, async function () {
+          const n = nextN(), id = idFor(col, 'oid', n);
+          async function send(path, marker) {
+            const doc = Object.assign(body(col, n, marker), {_id: id.asked, identifier: id.asked});
+            if (path === 'v1') return v1('post', v1Base(col)).send(doc)
+              .expect(200);
+            if (path === 'v3') {
+              delete doc._id;
+              const res = await self.instance.post('/api/v3/' + col, self.jwt.all).send(doc);
+              should([200, 201].includes(res.status)).equal(true);
+              return res;
+            }
+            if (path === 'socket') return wsEmit('dbAdd', {collection: col, data: doc});
+            return new Promise((resolve, reject) => self.instance.ctx[col].create([doc],
+              (err, result) => err ? reject(err) : resolve(result)));
+          }
+          await send(from, 'original');
+          await send(to, 'edited');
+          const stored = await storedFor(col, id);
+          // CHANGED EXPECTATION (ID-FIRST-MATCH slice 6, 2026-10-31): the socket's
+          // dbAdd now matches on identifier first, as this comment asked for. An
+          // entries re-send through the socket lands on the stored entry and
+          // merges (written: edited), from every path; the v3->socket duplicate
+          // is gone. Was: a socket re-send was not written, and v3->socket stored
+          // a second entry.
+          // CHANGED EXPECTATION (decision B, maintainer 2026-10-31): a treatment
+          // re-send through the socket that matches by identifier replaces the
+          // stored treatment, so it is written (edited) too. Was: kept unwritten.
+          should(stored.length).equal(1);
+          should(allEdited(stored)).equal(true);
+        });
+      }
+    }
+  }
+
 });

@@ -101,7 +101,7 @@ describe('write-validation rules', function () {
     const doc = tt({ identifier: 'abc', targetBottom: 99.09, targetTop: 99.09, units: 'mmol' });
     const line = wv.logLine('API v3', doc, wv.checkTreatment(doc));
     line.should.match(/tt-units-plausible:targetTop/);
-    line.should.not.match(/99\.09/);
+    line.should.not.match(/99\.09|abc/);
   });
 
   it('never words a refusal as a message AndroidAPS string-matches', () => {
@@ -127,5 +127,30 @@ describe('write-validation rules', function () {
     });
     // every rule's message was covered
     Array.from(rulesSeen).sort().should.eql(['tt-duration', 'tt-order', 'tt-target', 'tt-units', 'tt-units-plausible']);
+  });
+});
+
+
+describe('Shared effective Temporary Target candidate', function () {
+  const assert = require('node:assert/strict');
+  const validation = require('../lib/server/write-validation');
+  const at = Date.UTC(2026, 0, 1);
+  it('checks a nominal cancellation against its effective end time without mutating inputs', function () {
+    const doc = {eventType: 'Temporary Target', duration: 0, mills: at,
+      endmills: at + 1800000, targetBottom: 0, targetTop: 0};
+    const copy = JSON.stringify(doc);
+    assert(validation.candidate(doc).problems.some(p => p.rule === 'tt-target'));
+    assert.throws(() => validation.enforce({writeValidation: 'reject'}, 'socket', doc), /above zero/);
+    assert.equal(JSON.stringify(doc), copy);
+  });
+  it('lets a new explicit cancellation supersede the old stored end time', function () {
+    const stored = {eventType: 'Temporary Target', duration: 30, mills: at,
+      endmills: at + 1800000, targetBottom: 0, targetTop: 0};
+    const result = validation.candidate({duration: 0}, stored);
+    assert.deepEqual(result.problems, []);
+    assert.equal(result.target.duration, 0);
+    assert(validation.touchesDomain({endmills: at + 60000}));
+    assert(validation.touchesDomain({}, {mills: 1}));
+    assert(!validation.touchesDomain({notes: 'edit'}));
   });
 });

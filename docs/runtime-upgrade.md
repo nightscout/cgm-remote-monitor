@@ -26,6 +26,11 @@ Do not deploy this release to a host that cannot provide a supported runtime in 
 
 ## Deployment validation and release gate
 
+Maintainer direction on 2026-09-08 assigns actual production hosting, vendor
+accounts and device testing to the maintainer after automated branch completion.
+The [completion evidence](test-specs/modernization-completion.md) records automated
+results separately; no live host or physical-device pass is implied.
+
 Ordinary CI tests the Node edges (22.23.4 and latest 26) and the MongoDB edges (5.0 and 8.0) on the diagonal, 22.23.4 against 8.0 and 26 against 5.0, plus the newest pair (26 against 8.0.29), with the two transitional required lanes (24/6 and 22/6). Tests that need no database run on both Node edges. A weekly extended run tests every pair. Every browser engine runs once on Node 26. MongoDB 4.4 remains unsupported and has no CI lane. Manual extended validation adds the other patched Node floors/latest aliases against both MongoDB edges and all browsers. See [CI coverage and manual release checks](../CONTRIBUTING.md#ci-coverage-and-manual-release-checks). Boundary tests reject the preceding vulnerable patch on each Node line through both server entry points and the public boot API. MongoDB 5/6 remain supported during the migration but are upstream end-of-life; use MongoDB 7.0 or 8.0 for new deployments. Docker PR checks build and smoke-start the pruned image on native amd64 and arm64 runners.
 
 The following remain release checks until a maintainer records actual host evidence. Updating selectors alone does **not** establish hosted compatibility:
@@ -62,6 +67,12 @@ use the documented database recovery procedure and your verified backup.
 See MongoDB's [archived 6.0 standalone upgrade procedure](https://github.com/mongodb/docs/blob/v6.0/source/release-notes/6.0-upgrade-standalone.txt)
 and [legacy documentation](https://www.mongodb.com/docs/legacy/). The existing
 MongoDB end-of-life and final upgrade/restore validation gates above still apply.
+
+The [owned upgrade and recovery rehearsal](test-specs/database-upgrade-recovery.md)
+now verifies successive MongoDB 5→6→7→8 standalone upgrades and fresh-volume
+restoration of the original and final backups with the actual Nightscout
+application. It is automated fixture evidence, not validation of a deployment's
+backup or topology. Deployment rehearsal remains maintainer-owned.
 
 Before deploying the modernization release on a database currently running 4.4:
 
