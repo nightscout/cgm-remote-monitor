@@ -147,7 +147,8 @@
     "socket.io": "~4.8.3",
     "socks": "2.8.10",
     "swagger-ui-dist": "5.32.15",
-    "swagger-ui-express": "5.0.1"
+    "swagger-ui-express": "5.0.1",
+    "umzug": "3.8.3"
   },
   "devDependencies": {
     "@babel/core": "^8.0.1",

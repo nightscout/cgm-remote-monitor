@@ -66,6 +66,7 @@
         "tests/maker.test.js",
         "tests/merge-patch.test.js",
         "tests/mime-negotiation.test.js",
+        "tests/migrations.test.js",
         "tests/mmconnect-connect-compat.test.js",
         "tests/mongo-aws-compat.test.js",
         "tests/mongo-pool-config.test.js",
@@ -220,6 +221,7 @@
       "files": [
         "tests/00_production-safety.test.js",
         "tests/postgres-connection.test.js",
+        "tests/postgres-migrations.integration.test.js",
         "tests/XX_clean*.test.js",
         "tests/adminnotifies*.test.js",
         "tests/api*.test.js",
