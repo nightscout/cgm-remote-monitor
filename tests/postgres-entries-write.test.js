@@ -268,6 +268,10 @@ suite('PostgreSQL entries write differential (requires disposable PostgreSQL and
     await same('deleteEveryForm', HEX);
     await same('deleteEveryForm', 'custom'); // Has its own identifier; not displayed as "custom".
     await same('deleteEveryForm', 'named');
+    const filterDef = [{ field: 'sgv', operator: 'eq', value: null }];
+    assert.deepEqual(await inA(() => writer.resolveOr(filterDef, 1)), ['null']);
+    await same('deleteManyOr', filterDef, []);
+    await same('deleteManyOr', filterDef, ['null']);
   });
 
   function bulkResult (result) {
@@ -375,6 +379,7 @@ suite('PostgreSQL entries write differential (requires disposable PostgreSQL and
       const patch = { op: 'patch', docs: [{ identifier: 'named' }], target: { stored: { identifier: 'other' } } };
       assert.equal(await scope.withTenant(A, () => pgStep.identifierHeld(patch)),
         await scope.withTenant(A, () => mongoStep.identifierHeld(patch)));
+      await compare({ op: 'prune', target: { filter: [{ field: 'sgv', operator: 'eq', value: 103 }] } });
     } finally { srvDates.next = next; }
   });
 
