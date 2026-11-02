@@ -150,6 +150,7 @@ suite('PostgreSQL transaction foundation (requires NS_TEST_POSTGRES_ADMIN_URI)',
   });
 
   it('rejects cross-tenant nesting, non-UUID bindings and privileged application roles', async function () {
+    await assert.rejects(connect({}), /explicit connectionString/);
     await store.withTenant(A, async function () {
       assert.throws(() => store.withTenant(B, () => {}), /cannot rebind/);
     });
