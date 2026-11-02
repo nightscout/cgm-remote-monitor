@@ -14,6 +14,9 @@ const connect = require('../lib/storage/postgres-connection');
 const { encodeDocument } = require('../lib/storage/postgres-identity');
 const entriesRead = require('../lib/storage/postgres-entries-read');
 const entriesWrite = require('../lib/storage/postgres-entries-write');
+const entriesIntent = require('../lib/storage/postgres-entries-intent');
+const intentStep = require('../lib/storage/write-intent');
+const srvDates = require('../lib/server/srv-dates');
 const scope = require('../lib/storage/tenant-scope');
 
 describe('PostgreSQL entries write refusals', function () {
@@ -36,6 +39,10 @@ describe('PostgreSQL entries write refusals', function () {
     await assert.rejects(writer.deleteMany(null), /filter node/);
     await assert.rejects(writer.updateMany(and(), {}), /non-empty/);
     await assert.rejects(writer.insertOne({ _id: 'bad' }, { ordered: false }), bad);
+    await assert.rejects(writer.bulkUpsert([{ filter: and(), doc: { nested: {} } }]), bad);
+    await assert.rejects(writer.bulkUpsert([{ filter: and(), doc: { sgv: 1 }, setOnInsert: { sgv: 2 } }], { mode: 'merge' }), bad);
+    await assert.rejects(writer.bulkUpsert([], { v1: true }), bad);
+    await assert.rejects(writer.replaceFiltered(and(), { _id: 'bad', nested: {} }), bad);
     assert.equal(queries, 0);
   });
 });
@@ -192,14 +199,14 @@ suite('PostgreSQL entries write differential (requires disposable PostgreSQL and
     await same('updateOne', 'ambiguous', { sgv: 105 }, undefined, 'custom');
   });
 
-  it('rolls back failed operations, refuses unbound writes and does not retry duplicate keys', async function () {
+  it('rolls back failed operations, refuses unbound writes and identifies only known duplicate keys', async function () {
     await assert.rejects(writer.insertOne({ _id: 'unbound' }), /tenant/i);
     await assert.rejects(writer.updateOne('named', { sgv: 1 }), /tenant/i);
     await assert.rejects(writer.deleteMany(and()), /tenant/i);
     await assert.rejects(inA(async function () {
       await writer.updateOne('named', { sgv: 1 });
       await writer.insertOne({ _id: HEX });
-    }), error => error.code === '23505' && error.constraint === 'entries_pkey');
+    }), error => error.code === 11000 && error.cause.constraint === 'entries_pkey');
     await sameStored();
     await assert.rejects(inA(async function () {
       await writer.insertOne({ _id: 'rolled-back' });
@@ -208,6 +215,254 @@ suite('PostgreSQL entries write differential (requires disposable PostgreSQL and
     }), /cancel operation/);
     await sameStored();
     await same('updateOne', 'named', { sgv: 104 });
+  });
+
+  it('merges repeated upserts in order, preserving omitted fields, insert-only values and typed identity', async function () {
+    const filter = and(cmp('eq', 'sysTime', '2026-11-02T00:00:00Z'), cmp('eq', 'type', 'sgv'));
+    const ops = [
+      { filter, doc: { sgv: 120, retained: 'first', isValid: false }, setOnInsert: { _id: 'upsert', srvCreated: 1 } },
+      { filter, doc: { sgv: 121, srvModified: 2 }, setOnInsert: { _id: 'ignored', srvCreated: 2 }, unset: { isValid: '' } }
+    ];
+    await same('bulkUpsert', ops, { mode: 'merge' });
+    await same('bulkUpsert', ops.slice(1), { mode: 'merge' });
+    const stored = (await inA(() => reader.findOne('upsert', {}, { normalize: false })))[0];
+    assert.equal(stored.retained, 'first');
+    assert.equal(stored.srvCreated, 1);
+    assert.equal(stored.sgv, 121);
+    assert.ok(!Object.hasOwn(stored, 'isValid'));
+    await same('bulkUpsert', [], { mode: 'merge' });
+  });
+
+  it('replaces without retaining omitted fields, preserves identity, and does not resurrect without upsert', async function () {
+    await same('replaceFiltered', cmp('eq', '_id', 'custom'), { identifier: 'named', sgv: 130 });
+    await assert.rejects(inA(() => writer.replaceFiltered(cmp('eq', '_id', 'custom'),
+      { identifier: 'named', sgv: 130 })), /field-order metadata/);
+    await sameStored();
+    await same('replaceFiltered', cmp('eq', '_id', 'absent'), { sgv: 131 });
+    await same('replaceFiltered', cmp('eq', '_id', 'absent'), { sgv: 131 }, { upsert: true });
+    await same('replaceOne', HEX, { identifier: HEX, sgv: 132 });
+    await same('replaceOne', HEX, { sgv: 133 }, new ObjectId(HEX));
+    await same('replaceOne', 'missing', { _id: 'replacement-insert', identifier: 'missing', sgv: 134 });
+    await assert.rejects(inA(() => writer.replaceFiltered(cmp('eq', '_id', 'new-id'),
+      { _id: 'other-id' }, { upsert: true })), /changes upsert _id/);
+    await assert.rejects(inA(() => writer.bulkUpsert([{
+      filter: cmp('eq', '_id', 'new-id'), doc: { sgv: 1 }, setOnInsert: { _id: 'other-id' }
+    }], { mode: 'merge' })), /changes upsert _id/);
+    await sameStored();
+    await same('bulkUpsert', [
+      { filter: cmp('eq', '_id', 'custom'), doc: { identifier: 'named', sgv: 135 } },
+      { filter: cmp('eq', '_id', 'bulk-replace'), doc: { _id: 'bulk-replace', sgv: 136 } },
+      { filter: cmp('eq', '_id', 'custom'), doc: { note: 'merge override' }, merge: true },
+      { remove: cmp('eq', '_id', 'bulk-replace') }
+    ], { mode: 'replace' });
+  });
+
+  it('updates/removes every displayed form, scopes resolved identities, and reports over-cap resolution', async function () {
+    await same('updateEveryForm', HEX.toUpperCase(), { note: 'upper-case address' });
+    assert.deepEqual(new Set((await inA(() => writer.resolveEveryForm(HEX, 10))).map(String)), new Set([HEX, 'v3']));
+    assert.equal(await inA(() => writer.resolveEveryForm(HEX, 2)), null);
+    assert.deepEqual(await inA(() => writer.resolveOne(HEX)), ['v3']);
+    await same('updateEveryForm', HEX, { isValid: false }, [new ObjectId(HEX)]);
+    await same('deleteEveryForm', HEX, [HEX]);
+    await same('updateEveryForm', HEX, { isValid: false });
+    await same('deleteEveryForm', HEX);
+    await same('deleteEveryForm', 'custom'); // Has its own identifier; not displayed as "custom".
+    await same('deleteEveryForm', 'named');
+  });
+
+  function bulkResult (result) {
+    return Object.fromEntries(['upsertedIds', 'matchedCount', 'modifiedCount', 'upsertedCount'].map(key => [key, result[key]]));
+  }
+
+  it('exposes ordered prefixes and unordered continuation after duplicate _id, with a usable transaction', async function () {
+    for (const ordered of [true, false]) {
+      const suffix = String(ordered);
+      const ops = [
+        { filter: cmp('eq', '_id', 'prefix-' + suffix), doc: { _id: 'prefix-' + suffix, sgv: 140 } },
+        { filter: cmp('eq', 'identifier', 'not-custom'), doc: { _id: 'custom', sgv: 141 } },
+        { filter: cmp('eq', '_id', 'suffix-' + suffix), doc: { _id: 'suffix-' + suffix, sgv: 142 } }
+      ];
+      let actual, expected;
+      try { await mongoA('bulkUpsert', ops, { ordered }); } catch (error) { expected = error; }
+      await inA(async function () {
+        try { await writer.bulkUpsert(ops, { ordered }); } catch (error) { actual = error; }
+        assert.equal((await store.query('SELECT 1 AS usable')).rows[0].usable, 1);
+      });
+      assert.equal(actual.code, expected.code);
+      assert.deepEqual(actual.writeErrors.map(error => [error.index, error.code]),
+        expected.writeErrors.map(error => [error.index, error.code]));
+      assert.deepEqual(actual.result, bulkResult(expected.result));
+      await sameStored();
+    }
+  });
+
+  async function uniqueIdentifiers () {
+    await admin.query(`CREATE UNIQUE INDEX identifier_unique ON "${name}".entries (tenant_id, identifier)` +
+      " WHERE jsonb_typeof(doc -> 'identifier') = 'string' AND identifier <> ''");
+    await mongo.db().collection(name).createIndex({ identifier: 1 }, { name: 'identifier_unique', unique: true,
+      partialFilterExpression: { identifier: { $type: 'string', $gt: '' } } });
+  }
+
+  it('recovers an identifier conflict using a savepoint so a caller can rematch only that operation', async function () {
+    await uniqueIdentifiers();
+    try {
+      const conflict = { filter: cmp('eq', '_id', 'raced'), doc: { identifier: 'named', sgv: 150 } };
+      await inA(async function () {
+        await assert.rejects(writer.bulkUpsert([conflict], { mode: 'merge' }), error =>
+          error.writeErrors.length === 1 && error.writeErrors[0].keyPattern.identifier === 1);
+        assert.equal((await store.query('SELECT 1 AS usable')).rows[0].usable, 1);
+      });
+      await same('bulkUpsert', [{ ...conflict, filter: cmp('eq', 'identifier', 'named') }], { mode: 'merge' });
+      await assert.rejects(inA(() => writer.insertOne({ _id: 'duplicate', identifier: 'named' })), error =>
+        error.code === 11000 && error.keyPattern.identifier === 1);
+      await sameStored();
+    } finally {
+      await admin.query(`DROP INDEX "${name}".identifier_unique`);
+      await mongo.db().collection(name).dropIndex('identifier_unique');
+    }
+  });
+
+  it('does not translate or retry an unrelated unique constraint', async function () {
+    await admin.query(`CREATE UNIQUE INDEX unrelated_unique ON "${name}".entries (tenant_id, (doc ->> 'retained'))`);
+    try {
+      await assert.rejects(inA(() => writer.bulkUpsert([
+        { filter: cmp('eq', '_id', 'other'), doc: { retained: 'v3' } }
+      ])), error => error.code === '23505' && error.constraint === 'unrelated_unique');
+      await sameStored();
+    } finally { await admin.query(`DROP INDEX "${name}".unrelated_unique`); }
+  });
+
+  function cloneIntent (intent) {
+    return { ...intent, docs: intent.docs && intent.docs.map(doc => ({ ...doc })),
+      target: intent.target && { ...intent.target, stored: intent.target.stored && { ...intent.target.stored } } };
+  }
+
+  it('runs shared v3 matching and create/resend/PUT/PATCH/delete rules with the same named results and events', async function () {
+    const pgBus = new EventEmitter(), mongoBus = new EventEmitter();
+    const pgEvents = [], mongoEvents = [];
+    pgBus.on(intentStep.INTENT_EVENT, event => pgEvents.push(event));
+    mongoBus.on(intentStep.INTENT_EVENT, event => mongoEvents.push(event));
+    const pgStep = entriesIntent({ connection: store, table, bus: pgBus });
+    const mongoStep = intentStep.forCollectionIntent(mongoStore, 'entries', 'v3', { bus: mongoBus });
+    const next = srvDates.next;
+    srvDates.next = () => 1793664000000;
+    async function compare (intent) {
+      const expected = await scope.withTenant(A, () => mongoStep.write(cloneIntent(intent)));
+      const actual = await scope.withTenant(A, () => pgStep.write(cloneIntent(intent)));
+      assert.deepEqual(actual, expected);
+      assert.deepEqual(pgEvents, mongoEvents);
+      await sameStored();
+    }
+    try {
+      for (const identifier of [HEX, 'named', 'absent']) {
+        const intent = { op: 'patch', docs: [{ sgv: 160 }], target: { identifier } };
+        assert.deepEqual(await scope.withTenant(A, () => pgStep.match(intent)),
+          await scope.withTenant(A, () => mongoStep.match(intent)));
+      }
+      await compare({ op: 'create', docs: [{ _id: 'intent-new', identifier: 'intent-new', sgv: 160 }], by: 'synthetic' });
+      let stored = (await inA(() => reader.findOne('intent-new')))[0];
+      await compare({ op: 'create', docs: [{ identifier: 'intent-new', sgv: 161 }],
+        target: { identifier: 'intent-new', stored }, by: 'synthetic' });
+      stored = (await inA(() => reader.findOne('intent-new')))[0];
+      await compare({ op: 'patch', docs: [{ sgv: 162, subject: null }],
+        target: { identifier: 'intent-new', stored }, by: 'synthetic' });
+      stored = (await inA(() => reader.findOne('intent-new')))[0];
+      await compare({ op: 'update', docs: [{ identifier: 'intent-new', sgv: 163 }],
+        target: { identifier: 'intent-new', stored }, by: 'synthetic' });
+      await compare({ op: 'delete', form: 'mark', target: { identifier: HEX }, by: 'synthetic' });
+      await compare({ op: 'delete', form: 'permanent', target: { identifier: HEX } });
+      await compare({ op: 'delete', form: 'permanent', target: { identifier: 'intent-new' } });
+      const patch = { op: 'patch', docs: [{ identifier: 'named' }], target: { stored: { identifier: 'other' } } };
+      assert.equal(await scope.withTenant(A, () => pgStep.identifierHeld(patch)),
+        await scope.withTenant(A, () => mongoStep.identifierHeld(patch)));
+    } finally { srvDates.next = next; }
+  });
+
+  it('publishes the shared intent event only after commit; rollback and nested boundaries publish nothing', async function () {
+    const bus = new EventEmitter(), visible = [];
+    let committed = false;
+    const observed = { ...store, transaction: async fn => {
+      const result = await store.transaction(fn);
+      committed = true;
+      return result;
+    } };
+    bus.on(intentStep.INTENT_EVENT, () => {
+      visible.push({ committed, query: admin.query(`SELECT doc FROM "${name}".entries WHERE tenant_id = $1 AND "_id" = 'committed'`, [A]) });
+    });
+    const step = entriesIntent({ connection: observed, table, bus });
+    await scope.withTenant(A, () => step.write({ op: 'create', docs: [{ _id: 'committed', sgv: 170 }] }));
+    assert.equal(visible.length, 1);
+    assert.equal(visible[0].committed, true);
+    assert.equal((await visible[0].query).rows[0].doc.sgv, 170);
+    await assert.rejects(scope.withTenant(A, () => step.write({
+      op: 'create', docs: [{ _id: 'refused', sgv: 171, nested: {} }]
+    })), /unsupported/);
+    await assert.rejects(inA(() => step.write({ op: 'create', docs: [{ _id: 'nested' }] })), /new transaction/);
+    assert.equal(visible.length, 1);
+    assert.equal((await inA(() => reader.findOne('refused'))).length, 0);
+    assert.throws(() => entriesIntent({ connection: store, table, source: 'v1/internal' }), /only.*v3/);
+  });
+
+  it('settles an actual concurrent identifier insert as one v3 resend after recovering the failed SQL statement', async function () {
+    await uniqueIdentifiers();
+    const next = srvDates.next;
+    srvDates.next = () => 1793664000000;
+    let unlock, locked, started, secondPid;
+    const hold = new Promise(resolve => { unlock = resolve; });
+    const firstLocked = new Promise(resolve => { locked = resolve; });
+    const secondStarted = new Promise(resolve => { started = resolve; });
+    const bus = new EventEmitter(), events = [];
+    bus.on(intentStep.INTENT_EVENT, event => events.push(event));
+    const observed = { ...store, transaction: fn => store.transaction(async function () {
+      secondPid = (await store.query('SELECT pg_backend_pid() AS pid')).rows[0].pid;
+      started();
+      return fn();
+    }) };
+    const step = entriesIntent({ connection: observed, table, bus });
+    const winner = { _id: 'winner', identifier: 'raced-identifier', sgv: 180, srvCreated: 1, srvModified: 1 };
+    const first = inA(async function () {
+      await writer.insertOne({ ...winner }, { normalize: false });
+      locked();
+      await hold;
+    });
+    first.catch(locked);
+    let second;
+    try {
+      await firstLocked;
+      const intent = { op: 'create', docs: [{ _id: 'loser', identifier: 'raced-identifier', sgv: 181 }] };
+      second = scope.withTenant(A, () => step.write(cloneIntent(intent)));
+      second.catch(started);
+      await secondStarted;
+      let waiting = false;
+      const deadline = Date.now() + 5000;
+      while (Date.now() < deadline) {
+        const activity = await admin.query("SELECT wait_event_type = 'Lock' AS waiting FROM pg_stat_activity WHERE pid = $1", [secondPid]);
+        if (activity.rows[0] && activity.rows[0].waiting) { waiting = true; break; }
+        await delay(10);
+      }
+      assert.ok(waiting, 'the contender must wait on the unique index held by the other transaction');
+      assert.equal(events.length, 0);
+      unlock();
+      await first;
+      const actual = await second;
+      await mongoA('insertOne', { ...winner }, { normalize: false });
+      const mongoStep = intentStep.forCollectionIntent(mongoStore, 'entries', 'v3');
+      const expected = await scope.withTenant(A, () => mongoStep.write(cloneIntent(intent)));
+      assert.deepEqual(actual, expected);
+      assert.equal(actual.items[0].outcome, 'replaced');
+      assert.equal(events.length, 1);
+      await sameStored();
+      await assert.rejects(scope.withTenant(A, () => step.write({
+        ...cloneIntent(intent), canUpdate: false
+      })), error => error.code === 11000);
+      assert.equal(events.length, 1);
+    } finally {
+      unlock();
+      await Promise.allSettled([first, second]);
+      srvDates.next = next;
+      await admin.query(`DROP INDEX "${name}".identifier_unique`);
+      await mongo.db().collection(name).dropIndex('identifier_unique');
+    }
   });
 
   it('serializes competing patches without losing fields', async function () {

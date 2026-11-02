@@ -182,6 +182,29 @@ suite('PostgreSQL transaction foundation (requires NS_TEST_POSTGRES_ADMIN_URI)',
     assert.equal(stored.rowCount, 0);
   });
 
+  it('recovers statement failure at a savepoint without losing preceding writes, but outer rollback still wins', async function () {
+    await store.withTenant(A, async function () {
+      await store.query(`INSERT INTO ${table} (doc) VALUES ($1)`, [{ _id: 'prefix' }]);
+      await assert.rejects(store.withSavepoint(async function () {
+        await store.query(`INSERT INTO ${table} (doc) VALUES ($1)`, [{ _id: 'discarded' }]);
+        await store.query('SELECT 1 / 0');
+      }), /division by zero/);
+      await store.query(`INSERT INTO ${table} (doc) VALUES ($1)`, [{ _id: 'suffix' }]);
+    });
+    await store.withTenant(A, async function () {
+      assert.equal((await store.query(`SELECT doc FROM ${table} WHERE "_id" IN ('prefix', 'suffix')`)).rowCount, 2);
+      assert.equal((await store.query(`SELECT doc FROM ${table} WHERE "_id" = 'discarded'`)).rowCount, 0);
+      await assert.rejects(store.withSavepoint(() => store.withSavepoint(() => {})), /nested savepoint/);
+    });
+    await assert.rejects(store.withTenant(A, async function () {
+      await store.withSavepoint(() => store.query(`DELETE FROM ${table}`));
+      throw new Error('outer cancellation');
+    }), /outer cancellation/);
+    assert.equal((await store.withTenant(A, () => store.query(`SELECT doc FROM ${table}`))).rowCount, 3);
+    await scope.withTenant(A, () => store.transaction(() => store.query('SELECT 1')));
+    await assert.rejects(store.withTenant(A, () => store.transaction(() => {})), /new transaction/);
+  });
+
   it('red control: removing the row policy exposes the other tenant', async function () {
     assert.equal((await unbound()).rowCount, 0);
     await admin.query(`ALTER TABLE ${table} DISABLE ROW LEVEL SECURITY`);
