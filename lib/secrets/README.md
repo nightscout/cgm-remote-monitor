@@ -127,3 +127,105 @@ cross-instance revocation test fail with `Missing expected rejection`;
 restoring it passes. The owned Vault containers were removed after both runs.
 These results establish this dormant boundary only, not a durable-store,
 distributed-authorization or production-Vault acceptance result.
+
+## PostgreSQL persistence continuation
+
+`createPostgresSecrets({connectionString, namespace})` in `postgres.js` returns
+`{store, audit, close}` for injection into `createSecrets`. This is an optional,
+dormant PostgreSQL adapter, not a requirement on every secrets provider.
+It requires explicit multitenant mode and canonical lowercase UUID tenant IDs.
+No mode, schema, role or migration is changed by constructing it.
+
+The adapter owns a private application pool using the existing tenant-bound
+transaction foundation. Each insert and audit call commits independently,
+with `synchronous_commit=on`, before resolving. In particular, audit must not
+join a caller's uncommitted transaction: an independent connection can observe
+the authorized-attempt row before the provider runs, and rolling back the
+caller's transaction does not remove that row. Database/fsync/storage and
+replication configuration still determine deployment durability; this is not
+a disaster-recovery or failover acceptance claim.
+
+The records table enforces immutable `(tenant_id,id)` uniqueness, format 1,
+and ciphertext of at most 1 MiB. Duplicate writes reject with
+`SECRETS_REFERENCE_EXISTS`; driver error details are redacted. Reads return
+only that tenant/reference, or no record. Audit accepts only the contract's
+exact fields and valid operation/reference combinations, refusing additional
+payload fields rather than logging them. The application has INSERT-only audit
+access: it cannot read, alter, delete or truncate audit records. This is not a
+cryptographically tamper-evident log, and database operators remain privileged.
+
+Startup refuses superuser/BYPASSRLS identities, table owners/members of owner
+roles, missing tables, disabled/unforced RLS, missing INSERT/record SELECT,
+audit SELECT or table-wide mutation privileges. These checks are a safety
+screen, not proof of every PostgreSQL policy, column-level grant, role
+relationship, server setting or migration checksum. Use the reviewed catalogue
+and least-privilege deployment review; the app must not control the schema,
+role grants or RLS policies.
+
+### Explicit operator migration candidate
+
+`postgres-candidate.json` is a checksummed **experimental** catalogue for a
+dedicated secrets namespace. It is not a production-approved catalogue or a
+global Nightscout schema baseline. It creates `secret_records` and
+`secret_audit` with forced tenant RLS, without granting an application role.
+There is no boot migration. After reviewing this candidate, an operator can
+exercise it only against a disposable lab database:
+
+```sh
+# NS_SECRETS_MIGRATION_URI must be an explicit, direct operator connection.
+node bin/nightscout.js migrate up --backend postgres \
+  --namespace ns_secrets_lab --catalogue lib/secrets/postgres-candidate.json \
+  --connection-env NS_SECRETS_MIGRATION_URI --direct
+node bin/nightscout.js migrate check --backend postgres \
+  --namespace ns_secrets_lab --catalogue lib/secrets/postgres-candidate.json \
+  --connection-env NS_SECRETS_MIGRATION_URI --direct
+```
+
+Separately provision a non-owner `NOSUPERUSER NOBYPASSRLS` application login.
+Using its actual role name in place of `secrets_app`, grant only:
+
+```sql
+GRANT USAGE ON SCHEMA ns_secrets_lab TO secrets_app;
+GRANT SELECT, INSERT ON ns_secrets_lab.secret_records TO secrets_app;
+GRANT INSERT ON ns_secrets_lab.secret_audit TO secrets_app;
+```
+
+The operator connection never belongs in the application pool. Grant review,
+schema ownership/default privileges, baseline/import, catalogue distribution,
+backup/restore, retention/export, credential replacement/deletion, and serving
+schema-compatibility wiring remain separate work. There is deliberately no
+application audit-reader API or broad lifecycle mutation method.
+
+### Combined persistence acceptance
+
+```sh
+NS_SECRETS_POSTGRES_DOCKER_TEST=1 NS_VAULT_DOCKER_TEST=1 \
+  node_modules/.bin/mocha --fail-zero --timeout 30000 \
+  tests/secrets.test.js tests/vault-secrets.integration.test.js \
+  tests/postgres-secrets.integration.test.js
+node_modules/.bin/eslint lib/secrets tests/secrets.test.js \
+  tests/vault-secrets.integration.test.js tests/postgres-secrets.integration.test.js
+npm run test:tiers
+```
+
+Measured 2026-11-02: **30 passing, zero pending**; ESLint has zero errors or
+warnings, and all 464 test files are classified. The operator runner applies
+and checks the actual candidate in disposable PostgreSQL 16. Tests cover two
+independent adapters, overlapping tenant IDs, a competing insert, unbound and
+foreign-row RLS refusals, append-only audit privileges, startup refusals,
+audit-before-provider visibility, caller rollback, database restart, and a
+real scoped-Vault ciphertext persisted/reopened/revealed through PostgreSQL.
+Stopping Vault makes the component refuse decrypt, without fallback. Disabling
+the actual records RLS exposes the other tenant's rows to an omitted-predicate
+query; startup refuses that broken configuration. All owned containers are
+removed.
+
+The first restart check failed because Docker reassigned its ephemeral host
+port; the harness now rediscovers the port before reconnecting. The corrected
+combined run is the reported result. The restart is a database/container
+restart on existing container storage, not a volume backup/restore or
+power-loss experiment. Vault remains a disposable development server.
+
+These are persistence and boundary checks, not distributed authorization,
+owner-policy API, HTTP/socket consumers, human identity, evaluator/events,
+MIG-RUNNER MongoDB support, or production-Vault acceptance.

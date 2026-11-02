@@ -225,6 +225,7 @@
         "tests/postgres-connection.test.js",
         "tests/postgres-entries-read.test.js",
         "tests/postgres-migrations.integration.test.js",
+        "tests/postgres-secrets.integration.test.js",
         "tests/vault-secrets.integration.test.js",
         "tests/XX_clean*.test.js",
         "tests/adminnotifies*.test.js",
