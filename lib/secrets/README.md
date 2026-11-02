@@ -320,3 +320,89 @@ Vault and PostgreSQL suite. ESLint reports zero errors/warnings; all 464 test
 files remain classified. The owned disposable databases and Vault containers
 are removed. This completes the bounded rewrap slice, not backup/restore,
 process-crash acceptance, consumer credential cutover or production readiness.
+
+## Synthetic backup/restore and process-crash acceptance
+
+The combined command above now includes a recovery lab in
+`tests/postgres-secrets.integration.test.js` and an isolated child worker in
+`tests/fixtures/secrets-rewrap-worker.js`. Both Docker opt-ins remain required.
+It changes no production code, existing migration/checksum, entries adapter or
+runtime consumer. The worktree was fast-forwarded to integration `6943dccb`
+before this continuation.
+
+### Backup/restore boundary
+
+The lab creates two non-dev, single-node Vault Raft servers using the pinned
+image above, loopback-only published ports, test-only HTTP and disposable
+container storage. It initializes each independently and retains synthetic
+root/unseal credentials only in the test process. Non-exportable Transit keys
+are provisioned explicitly by the fixture; the application adapter still
+does not provision or export them.
+
+With test writers quiescent, the lab takes actual encrypted Raft snapshots
+before and after rotating both data and signing keys, plus a PostgreSQL
+custom-format `pg_dump` of ciphertext, audit and migration state. Archives stay
+in process memory and are never committed. The source Vault is removed before
+snapshot recovery. The database archive is restored using
+`pg_restore --exit-on-error` into a distinct empty database, and the explicit
+operator runner checks its restored catalogue state.
+
+Acceptance checks:
+
+- Every stored reference, ciphertext and audit event is identical immediately
+  after database restoration. Restored RLS still hides unbound/foreign rows;
+  ordinary credentials cannot read audit or update ciphertext.
+- Ciphertext without its data key refuses, using a fixture credential whose
+  key lookup confirms absence rather than merely an ACL denial.
+- Restoring the older Vault snapshot recovers version-1 ciphertext and JWTs,
+  but explicitly refuses version-2 ciphertext and signatures.
+- Restoring the complete snapshot with the retained source unseal credential
+  recovers both data/signing versions. Original immutable references reveal
+  the original synthetic values; earlier/current JWTs verify through scoped
+  credentials. Keys remain non-exportable.
+- Original audit events remain intact, new attempts append, and removing the
+  recovered Vault causes provider-unavailable refusal without fallback.
+
+This is a logical database and single-node encrypted-key snapshot rehearsal,
+not a deployment backup product. The restored database shares the disposable
+PostgreSQL cluster: roles/passwords already exist, and `pg_dump` does not back
+up cluster globals. Production role provisioning, authenticated transport,
+current authorization state, external credentials and consumer configuration
+are not recovered here. The lab retains the required unseal credential
+separately; it does not prove recovery without it, credential-renewal behavior,
+HA, coordinated online snapshots, remote archive integrity/retention,
+RPO/RTO, disk/power-loss durability or fleet-wide key-retirement readiness.
+The single-share unseal setup and forced snapshot restore are lab-only.
+
+### Actual worker termination and retry
+
+The worker uses the real component, scoped rewrap-only Vault credential,
+maintenance-only PostgreSQL identity and committed audit adapter. Parent/child
+IPC carries synthetic fixture credentials, never command-line arguments.
+The parent waits for explicit checkpoints and sends **SIGKILL** to that owned
+child, then asserts its exit signal:
+
+- After Vault rewrap/audit, **before CAS**: the original ciphertext and durable
+  authorized-attempt audit remain. A new process reloads and completes rewrap.
+- **After the actual CAS resolves following commit**, before the component
+  returns: the new ciphertext and audit survive termination. A new process
+  retries the same target version and preserves committed ciphertext bytes.
+
+Both paths preserve the reference/value and append a separate retry attempt.
+Checkpoints wrap the actual adapter call, not a simulated database result.
+A mutation that skips CAS only in the post-commit worker makes acceptance fail
+because the stored ciphertext is still version 4 instead of version 5.
+Restoring the actual CAS passes. This tests application-process termination
+at those two boundaries, not a kill during PostgreSQL commit, database/Vault
+process failure, host failure or a completed consumer credential cutover.
+
+Measured 2026-11-02 on integrated baseline `6943dccb`: **34 passing, zero
+pending** in the combined secrets/Vault/PostgreSQL command. ESLint reports
+zero errors/warnings, all **465 test files** are classified, and
+`git diff --check` passes. The initial Raft fixture needed a longer bounded
+initialization timeout; the restore fixture also needed to handle HTTP 204's
+absent response body. Both were corrected before the reported combined run.
+Owned Vault/PostgreSQL containers and worker processes are removed. No
+upstream push, serving enablement or production-readiness claim is made.
+Settings/subject-policy APIs, MongoDB migration support and the built-in
+encrypted-signer implementation remain unfinished, separate work.

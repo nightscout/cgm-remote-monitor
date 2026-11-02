@@ -2,7 +2,8 @@
 
 const assert = require('node:assert/strict');
 const crypto = require('node:crypto');
-const { execFileSync } = require('node:child_process');
+const { execFileSync, fork } = require('node:child_process');
+const { once } = require('node:events');
 const { Client } = require('pg');
 const { run } = require('../lib/migrations/postgres');
 const catalogue = require('../lib/secrets/postgres-candidate.json');
@@ -16,6 +17,36 @@ const A = '11111111-1111-4111-8111-111111111111';
 const B = '22222222-2222-4222-8222-222222222222';
 const docker = args => execFileSync('docker', args, { encoding: 'utf8', stdio: ['ignore', 'pipe', 'pipe'] }).trim();
 const sleep = ms => new Promise(resolve => setTimeout(resolve, ms));
+
+async function rewrapWorker (options) {
+  const child = fork(require.resolve('./fixtures/secrets-rewrap-worker'), [], {
+    stdio: ['ignore', 'ignore', 'ignore', 'ipc']
+  });
+  try {
+    const message = await new Promise((resolve, reject) => {
+      const timer = setTimeout(() => reject(new Error('Secrets worker checkpoint timeout')), 15000);
+      child.once('error', error => { clearTimeout(timer); reject(error); });
+      child.once('exit', () => { clearTimeout(timer); reject(new Error('Secrets worker exited before reply')); });
+      child.once('message', reply => { clearTimeout(timer); resolve(reply); });
+      child.send(options);
+    });
+    const exited = once(child, 'exit', { signal: AbortSignal.timeout(15000) });
+    if (options.pauseAt) {
+      assert.deepEqual(message, { checkpoint: options.pauseAt });
+      assert.equal(child.kill('SIGKILL'), true);
+      assert.deepEqual(await exited, [null, 'SIGKILL']);
+    } else {
+      assert.deepEqual(message, { reference: { tenant: options.tenant, id: options.id } });
+      assert.deepEqual(await exited, [0, null]);
+    }
+  } finally {
+    if (child.exitCode === null && child.signalCode === null) {
+      const exited = once(child, 'exit');
+      child.kill('SIGKILL');
+      await exited;
+    }
+  }
+}
 
 (process.env.NS_SECRETS_POSTGRES_DOCKER_TEST === '1' ? describe : describe.skip)('secrets persistence (disposable PostgreSQL)', function () {
   this.timeout(30000);
@@ -298,7 +329,188 @@ const sleep = ms => new Promise(resolve => setTimeout(resolve, ms));
       WHERE secret_id = 'audited-failure'`)).rows[0].n, 1);
   });
 
-  (process.env.NS_VAULT_DOCKER_TEST === '1' ? it : it.skip)('persists real Vault ciphertext and safely retries scoped rewrap across competing workers and failures', async function () {
+  (process.env.NS_VAULT_DOCKER_TEST === '1' ? it : it.skip)('restores ciphertext, audit and required Vault key versions from synthetic backups', async function () {
+    this.timeout(90000);
+    const vaults = new Set();
+    let restored, restoredAdmin;
+    async function api (server, path, body) {
+      const response = await fetch(server.address + '/v1/' + path, {
+        method: body === undefined ? 'GET' : 'POST',
+        headers: { 'X-Vault-Token': server.root || '', 'Content-Type': 'application/json' },
+        body: body === undefined ? undefined : JSON.stringify(body), signal: AbortSignal.timeout(15000)
+      });
+      assert.ok(response.ok, 'Vault recovery fixture HTTP ' + response.status);
+      return response.status === 204 ? {} : response.json();
+    }
+    async function waitHealth (server, status) {
+      const deadline = Date.now() + 15000;
+      do {
+        try {
+          const response = await fetch(server.address + '/v1/sys/health', { signal: AbortSignal.timeout(1000) });
+          await response.body.cancel();
+          if (response.status === status) return;
+        } catch (error) {
+          if (!error.cause || !['ECONNREFUSED', 'UND_ERR_SOCKET', 'ECONNRESET'].includes(error.cause.code)) throw error;
+        }
+        await sleep(100);
+      } while (Date.now() < deadline);
+      assert.fail('Vault recovery fixture did not reach expected health ' + status);
+    }
+    async function startVault () {
+      const name = 'ns-secrets-recovery-' + crypto.randomBytes(8).toString('hex');
+      const config = {
+        storage: { raft: { path: '/vault/file', node_id: name } }, disable_mlock: true,
+        listener: { tcp: { address: '0.0.0.0:8200', tls_disable: true } },
+        api_addr: 'http://127.0.0.1:8200', cluster_addr: 'https://127.0.0.1:8201'
+      };
+      execFileSync('docker', ['run', '--rm', '--name', name, '-d', '-p', '127.0.0.1::8200',
+        '-e', 'VAULT_LOCAL_CONFIG',
+        'hashicorp/vault@sha256:962a92876e168d68eaaa24b0b8b49bbce1cb63024060a67bba95cd158a366fc2', 'server'],
+      { env: { ...process.env, VAULT_LOCAL_CONFIG: JSON.stringify(config) }, stdio: ['ignore', 'pipe', 'pipe'] });
+      vaults.add(name);
+      const server = { name, address: 'http://127.0.0.1:' + docker(['port', name, '8200/tcp']).split(':').pop() };
+      await waitHealth(server, 501);
+      const initialized = await api(server, 'sys/init', { secret_shares: 1, secret_threshold: 1 });
+      server.root = initialized.root_token;
+      server.unsealKey = initialized.keys_base64[0];
+      await api(server, 'sys/unseal', { key: server.unsealKey });
+      await waitHealth(server, 200);
+      return server;
+    }
+    async function snapshot (server) {
+      const response = await fetch(server.address + '/v1/sys/storage/raft/snapshot', {
+        headers: { 'X-Vault-Token': server.root }, signal: AbortSignal.timeout(10000)
+      });
+      assert.equal(response.status, 200);
+      return Buffer.from(await response.arrayBuffer());
+    }
+    async function restoreSnapshot (server, archive, source) {
+      const response = await fetch(server.address + '/v1/sys/storage/raft/snapshot-force', {
+        method: 'POST', headers: { 'X-Vault-Token': server.root, 'Content-Type': 'application/octet-stream' },
+        body: archive, signal: AbortSignal.timeout(15000)
+      });
+      if (response.body) await response.body.cancel();
+      assert.equal(response.status, 204);
+      server.root = source.root;
+      await api(server, 'sys/unseal', { key: source.unsealKey });
+      await waitHealth(server, 200);
+    }
+    const state = async client => ({
+      records: (await client.query(`SELECT * FROM ${records} ORDER BY tenant_id, id`)).rows,
+      audit: (await client.query(`SELECT * FROM ${audits} ORDER BY event_id`)).rows
+    });
+    const c = { tenant: A, principal: 'root', consumer: 'issuer' };
+    const make = (p, server, token, signingVersion) => createSecrets({
+      ...p, providerFor: async tenant => {
+        assert.equal(tenant, A);
+        return createVaultTransit({
+          address: server.address, mount: 'transit', encryptionKey: 'tenant-a-data', signingKey: 'tenant-a-signing',
+          signingVersion, getToken: async () => token, allowInsecureLoopback: true
+        });
+      },
+      authorize: async context => context.tenant === A && context.principal === 'root' && context.consumer === 'issuer',
+      maxTokenLifetimeSeconds: 300
+    });
+    try {
+      const source = await startVault();
+      await api(source, 'sys/mounts/transit', { type: 'transit' });
+      for (const key of ['tenant-a-data', 'tenant-a-signing']) {
+        await api(source, 'transit/keys/' + key, { type: 'aes256-gcm96', exportable: false });
+      }
+      const policy = ['encrypt', 'decrypt'].map(operation =>
+        `path "transit/${operation}/tenant-a-data" { capabilities = ["update"] }`).concat(
+        ['hmac', 'verify'].map(operation =>
+          `path "transit/${operation}/tenant-a-signing" { capabilities = ["update"] }`)).join('\n');
+      await api(source, 'sys/policies/acl/runtime', { policy });
+      const scoped = (await api(source, 'auth/token/create', {
+        policies: ['runtime'], no_default_policy: true, ttl: '5m', renewable: false
+      })).auth.client_token;
+      const first = make(persistence, source, scoped, 1);
+      const oldRef = await first.encrypt(c, 'backup-v1', Buffer.from('synthetic-recovery-v1'));
+      const oldJWT = await first.signJWT(c, 'synthetic-subject', 300);
+      const oldKeys = await snapshot(source);
+      for (const key of ['tenant-a-data', 'tenant-a-signing']) await api(source, 'transit/keys/' + key + '/rotate', {});
+      const second = make(persistence, source, scoped, 2);
+      const newRef = await second.encrypt(c, 'backup-v2', Buffer.from('synthetic-recovery-v2'));
+      const newJWT = await second.signJWT(c, 'synthetic-subject', 300);
+      await persistence.store.insert({ tenant: B, id: 'backup-foreign', format: 1, ciphertext: 'opaque-foreign' });
+      const allKeys = await snapshot(source);
+      const expected = await state(admin);
+      const dump = execFileSync('docker', ['exec', container, 'pg_dump', '-U', 'operator', '-Fc', 'secrets_test'],
+        { maxBuffer: 8 * 1024 * 1024, stdio: ['ignore', 'pipe', 'pipe'] });
+      await admin.query('CREATE DATABASE secrets_restored');
+      execFileSync('docker', ['exec', '-i', container, 'pg_restore', '-U', 'operator',
+        '--exit-on-error', '-d', 'secrets_restored'], { input: dump, stdio: ['pipe', 'pipe', 'pipe'] });
+      const adminURL = new URL(adminURI), appURL = new URL(appURI);
+      adminURL.pathname = appURL.pathname = '/secrets_restored';
+      await run('check', { direct: true, connectionString: adminURL.toString(), namespace, catalogue });
+      restoredAdmin = new Client({ connectionString: adminURL.toString() });
+      await restoredAdmin.connect();
+      assert.equal((await restoredAdmin.query('SELECT current_database() AS name')).rows[0].name, 'secrets_restored');
+      assert.deepEqual(await state(restoredAdmin), expected, 'restore preserves every reference and audit event');
+      restored = await createPostgresSecrets({ connectionString: appURL.toString(), namespace });
+      assert.match((await restored.store.get(A, oldRef.id)).ciphertext, /^vault:v1:/);
+      assert.match((await restored.store.get(A, newRef.id)).ciphertext, /^vault:v2:/);
+      const restoredClient = new Client({ connectionString: appURL.toString() });
+      await restoredClient.connect();
+      try {
+        assert.equal((await restoredClient.query(`SELECT * FROM ${records}`)).rowCount, 0);
+        await assert.rejects(restoredClient.query(`SELECT * FROM ${audits}`), { code: '42501' });
+        await assert.rejects(restoredClient.query(`UPDATE ${records} SET ciphertext = 'forged'`), { code: '42501' });
+        await restoredClient.query('BEGIN');
+        await restoredClient.query("SELECT set_config('app.current_tenant_id', $1, true)", [A]);
+        assert.deepEqual((await restoredClient.query(`SELECT tenant_id, id FROM ${records} ORDER BY id`)).rows,
+          expected.records.filter(row => row.tenant_id === A).map(row => ({ tenant_id: row.tenant_id, id: row.id })));
+        await restoredClient.query('ROLLBACK');
+      } finally { await restoredClient.end(); }
+      const target = await startVault();
+      await api(target, 'sys/mounts/transit', { type: 'transit' });
+      const missing = await fetch(target.address + '/v1/transit/keys/tenant-a-data', {
+        headers: { 'X-Vault-Token': target.root }, signal: AbortSignal.timeout(5000)
+      });
+      await missing.body.cancel();
+      assert.equal(missing.status, 404, 'negative control has no data key, not merely a denied credential');
+      await assert.rejects(make(restored, target, target.root, 1).reveal(c, oldRef),
+        { code: 'SECRETS_PROVIDER_REFUSED' });
+      docker(['rm', '-f', source.name]);
+      vaults.delete(source.name);
+      await restoreSnapshot(target, oldKeys, source);
+      assert.equal((await api(target, 'transit/keys/tenant-a-data')).data.latest_version, 1);
+      assert.equal((await make(restored, target, scoped, 1).reveal(c, oldRef)).toString(), 'synthetic-recovery-v1');
+      assert.equal((await make(restored, target, scoped, 1).verifyJWT(c, oldJWT)).accessToken, 'synthetic-subject');
+      await assert.rejects(make(restored, target, scoped, 2).reveal(c, newRef), { code: 'SECRETS_PROVIDER_REFUSED' });
+      await assert.rejects(make(restored, target, scoped, 2).verifyJWT(c, newJWT), { code: 'SECRETS_PROVIDER_REFUSED' });
+      await restoreSnapshot(target, allKeys, source);
+      const recovered = make(restored, target, scoped, 2);
+      for (const key of ['tenant-a-data', 'tenant-a-signing']) {
+        const metadata = (await api(target, 'transit/keys/' + key)).data;
+        assert.equal(metadata.latest_version, 2);
+        assert.equal(metadata.exportable, false);
+      }
+      assert.equal((await recovered.reveal(c, oldRef)).toString(), 'synthetic-recovery-v1');
+      assert.equal((await recovered.reveal(c, newRef)).toString(), 'synthetic-recovery-v2');
+      for (const token of [oldJWT, newJWT]) {
+        assert.equal((await recovered.verifyJWT(c, token)).accessToken, 'synthetic-subject');
+      }
+      const final = await state(restoredAdmin);
+      assert.deepEqual(final.records, expected.records, 'restoration never replaces immutable references');
+      const originalEvents = new Set(expected.audit.map(event => event.event_id));
+      assert.deepEqual(final.audit.filter(event => originalEvents.has(event.event_id)), expected.audit);
+      assert.ok(final.audit.length > expected.audit.length, 'restored audit remains appendable');
+      docker(['rm', '-f', target.name]);
+      vaults.delete(target.name);
+      await assert.rejects(recovered.reveal(c, oldRef), { code: 'SECRETS_PROVIDER_UNAVAILABLE' });
+    } finally {
+      try {
+        if (restored) await restored.close();
+        if (restoredAdmin) await restoredAdmin.end();
+      } finally {
+        for (const name of vaults) docker(['rm', '-f', name]);
+      }
+    }
+  });
+
+  (process.env.NS_VAULT_DOCKER_TEST === '1' ? it : it.skip)('persists real Vault ciphertext and retries scoped rewrap across races, failures and SIGKILL', async function () {
     const vaultName = 'ns-secrets-pg-vault-' + crypto.randomBytes(8).toString('hex');
     const root = crypto.randomBytes(32).toString('hex');
     let vaultOwned = false;
@@ -431,6 +643,30 @@ const sleep = ms => new Promise(resolve => setTimeout(resolve, ms));
         await provision('transit/keys/tenant-a-data/config', { min_decryption_version: 3 });
         await assert.rejects(provider.decrypt(original), { code: 'SECRETS_PROVIDER_REFUSED' });
         assert.equal((await makeComponent().reveal(c, ref)).toString(), 'synthetic-persisted-secret');
+
+        for (const [pauseAt, targetVersion] of [['before-cas', 4], ['after-commit', 5]]) {
+          await provision('transit/keys/tenant-a-data/rotate', {});
+          const before = (await persistence.store.get(A, ref.id)).ciphertext;
+          const count = async () => (await admin.query(`SELECT count(*)::int AS n FROM ${audits}
+            WHERE secret_id = $1 AND operation = 'rewrap'`, [ref.id])).rows[0].n;
+          const attemptsBefore = await count();
+          const workerOptions = {
+            connectionString: maintenanceURI, namespace, address, token: wrapperToken,
+            tenant: A, id: ref.id, targetVersion
+          };
+          await rewrapWorker({ ...workerOptions, pauseAt });
+          const afterKill = (await persistence.store.get(A, ref.id)).ciphertext;
+          if (pauseAt === 'before-cas') assert.equal(afterKill, before);
+          else assert.match(afterKill, /^vault:v5:/);
+          assert.equal(await count(), attemptsBefore + 1, 'audit survives actual worker termination');
+          assert.equal((await makeComponent().reveal(c, ref)).toString(), 'synthetic-persisted-secret');
+          await rewrapWorker(workerOptions);
+          const retried = (await persistence.store.get(A, ref.id)).ciphertext;
+          assert.ok(retried.startsWith('vault:v' + targetVersion + ':'));
+          if (pauseAt === 'after-commit') assert.equal(retried, afterKill, 'retry preserves committed bytes');
+          assert.equal(await count(), attemptsBefore + 2);
+          assert.equal((await makeComponent().reveal(c, ref)).toString(), 'synthetic-persisted-secret');
+        }
       } finally {
         await maintenance.close();
         await secondWorker.close();
