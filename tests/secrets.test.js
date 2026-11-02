@@ -159,6 +159,43 @@ describe('provider-neutral secrets boundary', function () {
     grants.delete('tenant-a:issuer');
     await assert.rejects(component.verifyJWT(a, token), { code: 'SECRETS_FORBIDDEN' });
   });
+
+  it('audits a rewrap target, never decrypts, and refuses a concurrent ciphertext change', async function () {
+    const ref = await component.encrypt(a, 'rewrap', Buffer.from('secret'));
+    let swaps = 0, mode = 'ok';
+    const provider = providers.get(a.tenant);
+    provider.decrypt = async () => { throw new Error('rewrap must never decrypt'); };
+    provider.rewrap = async (ciphertext, targetVersion) => {
+      assert.equal(targetVersion, 2);
+      if (mode === 'provider-failure') throw new Error('rewrap provider outage');
+      return ciphertext + '-rewrapped';
+    };
+    const maintenance = createSecrets({
+      ...options,
+      store: {
+        get: options.store.get,
+        async compareAndSwapCiphertext (tenant, id, expected, replacement) {
+          swaps++;
+          const record = records.get(key(tenant, id));
+          if (mode === 'conflict' || record.ciphertext !== expected) return false;
+          records.set(key(tenant, id), { ...record, ciphertext: replacement });
+          return true;
+        }
+      }
+    });
+    await assert.rejects(component.rewrap(a, ref, 2), { code: 'SECRETS_OPERATION_UNSUPPORTED' });
+    await assert.rejects(maintenance.encrypt(a, 'new', Buffer.from('secret')), { code: 'SECRETS_OPERATION_UNSUPPORTED' });
+    assert.deepEqual(await maintenance.rewrap(a, ref, 2), ref);
+    assert.equal(events.at(-1).operation, 'rewrap');
+    assert.equal(events.at(-1).targetVersion, 2);
+    mode = 'conflict';
+    await assert.rejects(maintenance.rewrap(a, ref, 2), { code: 'SECRETS_REWRAP_CONFLICT' });
+    mode = 'provider-failure';
+    await assert.rejects(maintenance.rewrap(a, ref, 2), /rewrap provider outage/);
+    assert.equal(swaps, 2);
+    grants.delete('tenant-a:issuer');
+    await assert.rejects(maintenance.rewrap(a, ref, 2), { code: 'SECRETS_FORBIDDEN' });
+  });
 });
 
 describe('Vault adapter transport refusal', function () {
@@ -221,5 +258,27 @@ describe('Vault adapter transport refusal', function () {
       assert.doesNotMatch(String(error), /sensitive-token/);
       return true;
     });
+  });
+
+  it('binds rewrap to an explicit version, makes retries no-ops, and refuses downgrade or unexpected versions', async function () {
+    let calls = 0;
+    handler = async (req, res) => {
+      calls++;
+      let body = '';
+      for await (const chunk of req) body += chunk;
+      assert.equal(req.url, '/v1/transit/rewrap/tenant-a-data');
+      assert.deepEqual(JSON.parse(body), {
+        ciphertext: calls === 1 ? 'vault:v1:synthetic' : 'vault:v2:synthetic-new', key_version: 2
+      });
+      res.end(JSON.stringify({ data: { ciphertext: 'vault:v2:synthetic-new' } }));
+    };
+    const provider = createVaultTransit(config());
+    const result = await provider.rewrap('vault:v1:synthetic', 2);
+    assert.equal(result, 'vault:v2:synthetic-new');
+    assert.equal(await provider.rewrap(result, 2), result);
+    assert.equal(calls, 2);
+    await assert.rejects(provider.rewrap(result, 1), /downgrade/);
+    handler = (req, res) => { res.end('{"data":{"ciphertext":"vault:v3:unexpected"}}'); };
+    await assert.rejects(provider.rewrap('vault:v1:synthetic', 2), { code: 'SECRETS_PROVIDER_RESPONSE' });
   });
 });

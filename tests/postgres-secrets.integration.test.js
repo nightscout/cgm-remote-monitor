@@ -6,7 +6,7 @@ const { execFileSync } = require('node:child_process');
 const { Client } = require('pg');
 const { run } = require('../lib/migrations/postgres');
 const catalogue = require('../lib/secrets/postgres-candidate.json');
-const { createPostgresSecrets } = require('../lib/secrets/postgres');
+const { createPostgresSecrets, createPostgresSecretsMaintenance } = require('../lib/secrets/postgres');
 const { createSecrets } = require('../lib/secrets/component');
 const { createVaultTransit } = require('../lib/secrets/vault-transit');
 const scope = require('../lib/storage/tenant-scope');
@@ -24,7 +24,7 @@ const sleep = ms => new Promise(resolve => setTimeout(resolve, ms));
   const appRole = 'secrets_app';
   const records = '"' + namespace + '".secret_records';
   const audits = '"' + namespace + '".secret_audit';
-  let owned = false, admin, adminURI, appURI, persistence, previousMode, port;
+  let owned = false, admin, adminURI, appURI, maintenanceURI, persistence, previousMode, port;
 
   async function connectApp () {
     const client = new Client({ connectionString: appURI });
@@ -59,7 +59,10 @@ const sleep = ms => new Promise(resolve => setTimeout(resolve, ms));
     } while (!ready && Date.now() < deadline);
     assert.ok(ready, 'owned PostgreSQL must become responsive');
     assert.equal(docker(['inspect', '--format', '{{.State.Running}}', container]), 'true');
-    await run('up', { direct: true, connectionString: adminURI, namespace, catalogue });
+    await run('up', { direct: true, connectionString: adminURI, namespace,
+      catalogue: { version: 1, migrations: [catalogue.migrations[0]] } });
+    const upgrade = await run('up', { direct: true, connectionString: adminURI, namespace, catalogue });
+    assert.deepEqual(upgrade.done, ['0002_secrets_rewrap']);
     await run('check', { direct: true, connectionString: adminURI, namespace, catalogue });
     admin = new Client({ connectionString: adminURI });
     await admin.connect();
@@ -72,6 +75,14 @@ const sleep = ms => new Promise(resolve => setTimeout(resolve, ms));
     url.username = appRole;
     url.password = appPassword;
     appURI = url.toString();
+    const maintenancePassword = crypto.randomBytes(24).toString('hex');
+    await admin.query(`CREATE ROLE secrets_maintenance LOGIN NOSUPERUSER NOBYPASSRLS PASSWORD '${maintenancePassword}'`);
+    await admin.query(`GRANT USAGE ON SCHEMA "${namespace}" TO secrets_maintenance`);
+    await admin.query(`GRANT SELECT, UPDATE (ciphertext) ON ${records} TO secrets_maintenance`);
+    await admin.query(`GRANT INSERT ON ${audits} TO secrets_maintenance`);
+    url.username = 'secrets_maintenance';
+    url.password = maintenancePassword;
+    maintenanceURI = url.toString();
     persistence = await open();
   });
 
@@ -182,6 +193,37 @@ const sleep = ms => new Promise(resolve => setTimeout(resolve, ms));
     } finally { await client.end(); }
   });
 
+  it('uses a separate ciphertext-only maintenance role with compare-and-swap protection', async function () {
+    const maintenance = await createPostgresSecretsMaintenance({ connectionString: maintenanceURI, namespace });
+    const client = new Client({ connectionString: maintenanceURI });
+    await client.connect();
+    try {
+      assert.equal(maintenance.store.insert, undefined);
+      assert.equal(persistence.store.compareAndSwapCiphertext, undefined);
+      assert.equal(await maintenance.store.compareAndSwapCiphertext(A, 'same', 'stale', 'replacement'), false);
+      assert.equal(await maintenance.store.compareAndSwapCiphertext(A, 'same', 'opaque-a', 'wrapped-a'), true);
+      assert.equal(await maintenance.store.compareAndSwapCiphertext(A, 'same', 'opaque-a', 'lost-update'), false);
+      assert.equal((await persistence.store.get(B, 'same')).ciphertext, 'opaque-b');
+      assert.equal(await maintenance.store.compareAndSwapCiphertext(A, 'same', 'wrapped-a', 'opaque-a'), true);
+      for (const sql of [`INSERT INTO ${records} VALUES ($1,'forged',1,'opaque')`,
+        `UPDATE ${records} SET id = 'forged'`, `UPDATE ${records} SET tenant_id = $1`,
+        `DELETE FROM ${records}`, `SELECT * FROM ${audits}`]) {
+        await assert.rejects(client.query(sql, sql.includes('$1') ? [A] : []), { code: '42501' });
+      }
+      await assert.rejects(createPostgresSecrets({ connectionString: maintenanceURI, namespace }),
+        { code: 'SECRETS_STORE_UNSAFE' });
+      await assert.rejects(createPostgresSecretsMaintenance({ connectionString: appURI, namespace }),
+        { code: 'SECRETS_STORE_UNSAFE' });
+    } finally {
+      await client.end();
+      await maintenance.close();
+    }
+    await admin.query(`GRANT UPDATE (ciphertext) ON ${records} TO ${appRole}`);
+    try { await assert.rejects(open(), { code: 'SECRETS_STORE_UNSAFE' }); } finally {
+      await admin.query(`REVOKE UPDATE (ciphertext) ON ${records} FROM ${appRole}`);
+    }
+  });
+
   it('refuses unsafe startup roles and missing schemas without migrating', async function () {
     await assert.rejects(createPostgresSecrets({ connectionString: adminURI, namespace }),
       { code: 'SECRETS_STORE_UNAVAILABLE' });
@@ -241,11 +283,13 @@ const sleep = ms => new Promise(resolve => setTimeout(resolve, ms));
     assert.ok(ready);
     // Docker may assign a new ephemeral host port when restarting this container.
     port = docker(['port', container, '5432/tcp']).split(':').pop();
-    const adminURL = new URL(adminURI), appURL = new URL(appURI);
+    const adminURL = new URL(adminURI), appURL = new URL(appURI), maintenanceURL = new URL(maintenanceURI);
     adminURL.port = port;
     appURL.port = port;
+    maintenanceURL.port = port;
     adminURI = adminURL.toString();
     appURI = appURL.toString();
+    maintenanceURI = maintenanceURL.toString();
     admin = new Client({ connectionString: adminURI });
     await admin.connect();
     persistence = await open();
@@ -254,7 +298,7 @@ const sleep = ms => new Promise(resolve => setTimeout(resolve, ms));
       WHERE secret_id = 'audited-failure'`)).rows[0].n, 1);
   });
 
-  (process.env.NS_VAULT_DOCKER_TEST === '1' ? it : it.skip)('round-trips real Vault ciphertext through PostgreSQL and refuses a provider outage', async function () {
+  (process.env.NS_VAULT_DOCKER_TEST === '1' ? it : it.skip)('persists real Vault ciphertext and safely retries scoped rewrap across competing workers and failures', async function () {
     const vaultName = 'ns-secrets-pg-vault-' + crypto.randomBytes(8).toString('hex');
     const root = crypto.randomBytes(32).toString('hex');
     let vaultOwned = false;
@@ -319,6 +363,78 @@ const sleep = ms => new Promise(resolve => setTimeout(resolve, ms));
       const audited = await admin.query(`SELECT * FROM ${audits} WHERE secret_id = 'real-vault' ORDER BY event_time`);
       assert.deepEqual(audited.rows.map(row => row.operation), ['encrypt', 'reveal']);
       assert.doesNotMatch(JSON.stringify([stored.rows, audited.rows]), /synthetic-persisted-secret/);
+      await provision('sys/policies/acl/rewrapper', {
+        policy: 'path "transit/rewrap/tenant-a-data" { capabilities = ["update"] }'
+      });
+      const wrapperToken = (await provision('auth/token/create', {
+        policies: ['rewrapper'], no_default_policy: true, ttl: '5m', renewable: false
+      })).auth.client_token;
+      const wrapper = createVaultTransit({
+        address, mount: 'transit', encryptionKey: 'tenant-a-data', signingKey: 'tenant-a-signing',
+        signingVersion: 1, getToken: async () => wrapperToken, allowInsecureLoopback: true
+      });
+      const original = (await persistence.store.get(A, ref.id)).ciphertext;
+      await assert.rejects(wrapper.decrypt(original), { code: 'SECRETS_PROVIDER_REFUSED' });
+      await assert.rejects(provider.rewrap(original, 2), { code: 'SECRETS_PROVIDER_REFUSED' });
+      await provision('transit/keys/tenant-a-data/rotate', {});
+      const maintenance = await createPostgresSecretsMaintenance({ connectionString: maintenanceURI, namespace });
+      const secondWorker = await createPostgresSecretsMaintenance({ connectionString: maintenanceURI, namespace });
+      const wrapComponent = (p, cryptoProvider = wrapper, store = p.store) => createSecrets({
+        store, audit: p.audit, providerFor: async tenant => { assert.equal(tenant, A); return cryptoProvider; },
+        authorize: async (ctx, action) => ctx.tenant === A && ctx.consumer === 'maintenance' &&
+          ctx.principal === 'operator' && action.operation === 'rewrap',
+        maxTokenLifetimeSeconds: 30
+      });
+      const operator = { tenant: A, principal: 'operator', consumer: 'maintenance' };
+      try {
+        let arrived = 0, release;
+        const barrier = new Promise(resolve => { release = resolve; });
+        const synchronized = { ...wrapper, async rewrap (...args) {
+          if (++arrived === 2) release();
+          await barrier;
+          return wrapper.rewrap(...args);
+        } };
+        const races = await Promise.allSettled([maintenance, secondWorker].map(p =>
+          wrapComponent(p, synchronized).rewrap(operator, ref, 2)));
+        assert.equal(races.filter(result => result.status === 'fulfilled').length, 1);
+        assert.equal(races.find(result => result.status === 'rejected').reason.code, 'SECRETS_REWRAP_CONFLICT');
+        const wrapped = (await persistence.store.get(A, ref.id)).ciphertext;
+        assert.match(wrapped, /^vault:v2:/);
+        await wrapComponent(maintenance).rewrap(operator, ref, 2);
+        assert.equal((await persistence.store.get(A, ref.id)).ciphertext, wrapped);
+        assert.equal((await makeComponent().reveal(c, ref)).toString(), 'synthetic-persisted-secret');
+
+        await provision('transit/keys/tenant-a-data/rotate', {});
+        await admin.query(`REVOKE UPDATE (ciphertext) ON ${records} FROM secrets_maintenance`);
+        try {
+          await assert.rejects(wrapComponent(maintenance).rewrap(operator, ref, 3),
+            { code: 'SECRETS_STORE_UNAVAILABLE' });
+          assert.equal((await persistence.store.get(A, ref.id)).ciphertext, wrapped);
+        } finally { await admin.query(`GRANT UPDATE (ciphertext) ON ${records} TO secrets_maintenance`); }
+        const lostReply = {
+          ...maintenance.store,
+          async compareAndSwapCiphertext (...args) {
+            assert.equal(await maintenance.store.compareAndSwapCiphertext(...args), true);
+            throw new Error('simulated lost reply after commit');
+          }
+        };
+        await assert.rejects(wrapComponent(maintenance, wrapper, lostReply).rewrap(operator, ref, 3), /lost reply/);
+        const committed = (await persistence.store.get(A, ref.id)).ciphertext;
+        assert.match(committed, /^vault:v3:/);
+        await wrapComponent(secondWorker).rewrap(operator, ref, 3);
+        assert.equal((await persistence.store.get(A, ref.id)).ciphertext, committed);
+        assert.equal((await makeComponent().reveal(c, ref)).toString(), 'synthetic-persisted-secret');
+        await assert.rejects(wrapComponent(maintenance).rewrap(operator, ref, 2), /downgrade/);
+        const attempts = await admin.query(`SELECT target_version FROM ${audits}
+          WHERE secret_id = 'real-vault' AND operation = 'rewrap'`);
+        assert.deepEqual(attempts.rows.map(row => row.target_version).sort(), ['2', '2', '2', '2', '3', '3', '3']);
+        await provision('transit/keys/tenant-a-data/config', { min_decryption_version: 3 });
+        await assert.rejects(provider.decrypt(original), { code: 'SECRETS_PROVIDER_REFUSED' });
+        assert.equal((await makeComponent().reveal(c, ref)).toString(), 'synthetic-persisted-secret');
+      } finally {
+        await maintenance.close();
+        await secondWorker.close();
+      }
       docker(['rm', '-f', vaultName]);
       vaultOwned = false;
       await assert.rejects(makeComponent().decrypt(c, ref), { code: 'SECRETS_PROVIDER_UNAVAILABLE' });

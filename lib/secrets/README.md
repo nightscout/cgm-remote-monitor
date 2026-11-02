@@ -48,8 +48,9 @@ those operations or claim distributed/socket revocation acceptance.
 Ciphertext contains the tenant and immutable reference inside authenticated
 plaintext, so copying a ciphertext to another reference is refused. Rotation
 creates new provider key versions without rewriting records or exporting keys.
-Reference deletion, credential replacement/revocation, CAS updates, rewrap and
-provider relocation need separate storage/lifecycle contracts.
+Reference deletion, consumer credential cutover/revocation and provider
+relocation need separate storage/lifecycle contracts. Ciphertext-only rewrap
+and CAS are defined in the rotation continuation below.
 
 ## Provider-neutral cryptographic interface
 
@@ -229,3 +230,93 @@ power-loss experiment. Vault remains a disposable development server.
 These are persistence and boundary checks, not distributed authorization,
 owner-policy API, HTTP/socket consumers, human identity, evaluator/events,
 MIG-RUNNER MongoDB support, or production-Vault acceptance.
+
+## Rotation continuation: audited ciphertext rewrap
+
+The optional provider method `rewrap(ciphertext,targetVersion)` returns an
+opaque ciphertext under an explicit positive integer encryption-key version.
+Vault rewraps internally: no plaintext or key material is returned to the
+component. It refuses key downgrade and unexpected response versions. For an
+already-current ciphertext, it still calls Vault to validate authority and the
+ciphertext, then returns the original bytes so a completed retry is stable.
+Provider outages and revoked credentials therefore refuse even on retries.
+This operates on versions of the **same provisioned key**, not another key path
+or provider.
+
+`component.rewrap(context,reference,targetVersion)` requires separate current
+`rewrap` authority and awaits an audit attempt containing the reference and
+`targetVersion`. The provider rewrap runs before
+`store.compareAndSwapCiphertext(tenant,id,expected,replacement) -> boolean`.
+That update must compare the old ciphertext and commit the replacement as one
+operation. False means `SECRETS_REWRAP_CONFLICT`; callers explicitly reload and
+retry. The reference and encrypted logical value stay unchanged. A missing
+capability rejects with `SECRETS_OPERATION_UNSUPPORTED`. Ordinary stores have
+no CAS method; maintenance stores have no insert method.
+
+Use `createPostgresSecretsMaintenance` with a **separate** non-owner login:
+
+```sql
+GRANT USAGE ON SCHEMA ns_secrets_lab TO secrets_maintenance;
+GRANT SELECT, UPDATE (ciphertext) ON ns_secrets_lab.secret_records TO secrets_maintenance;
+GRANT INSERT ON ns_secrets_lab.secret_audit TO secrets_maintenance;
+```
+
+Do not grant INSERT on records, table-wide UPDATE or mutation of
+`tenant_id`, `id` or `format`. The adapter verifies its expected role shape,
+including column UPDATE grants, and refuses swapped ordinary/maintenance
+identities. Raw database credentials still confer their granted privileges:
+CAS and audit are component behavior, not a database rule against a compromised
+maintenance credential. Keep this identity off owner/data request paths.
+
+The matching Vault credential needs only:
+
+```text
+path "<mount>/rewrap/<tenant-data-key>" { capabilities = ["update"] }
+```
+
+It needs no encrypt/decrypt/HMAC/key-management permission. Operator key
+rotation is still explicit and external to this component. The append-only
+audit records **authorized attempts**, including failed/conflicting/no-op
+rewraps, not an outcome or proof of fleet-wide completion.
+
+The candidate catalogue appends `0002_secrets_rewrap`, preserving `0001` and
+its checksum. It adds the `rewrap` audit operation and constrained
+`target_version` column. Run the existing explicit operator migration/check
+before this adapter version; it does not migrate at boot. Tests apply `0001`
+first and then upgrade through the actual runner, rather than silently
+replacing already-applied DDL.
+
+Failure/retry rules:
+
+- Provider failure or refused database update leaves the original stored
+  ciphertext; retain old key versions and retry explicitly.
+- Concurrent updates have one CAS winner; a stale worker refuses rather than
+  overwriting the winner.
+- A lost reply after commit has an uncertain outcome. Reload and retry at the
+  same target version; the stored bytes and immutable reference remain stable.
+- Reject downgrades. Never retire an old key version based on one successful
+  rewrap: inventory all live records, in-flight operations, signing tokens,
+  backups and recovery requirements first. There is no automatic retirement.
+
+Replacing a connector's actual credential is different: call `encrypt` with a
+**new reference ID** and new plaintext, then use the consuming configuration
+API's version/precondition to switch its reference. Do not overwrite the old
+reference or claim this rewrap method revokes that old credential. Atomic
+consumer cutover, rollback and upstream credential revocation remain deferred
+to the configuration/integration lifecycle.
+
+The combined command above covers real Vault rewrap persisted through
+PostgreSQL, a rewrap-only provider ACL, ciphertext-only DB privileges,
+competing workers, pre-commit refusal and a simulated lost reply **after the
+real CAS commits**. That is an interrupted-call test, not a process-SIGKILL
+proof. A disposable key-retirement control shows old ciphertext refuses while
+the rewritten reference still reveals the same synthetic value. The initial
+privilege probe exposed PostgreSQL `name[]` being returned as text by the
+driver; selecting `text[]` makes the column-grant comparison type-correct.
+No production key version is retired.
+
+Measured 2026-11-02: **33 passing, zero pending** in the combined secrets,
+Vault and PostgreSQL suite. ESLint reports zero errors/warnings; all 464 test
+files remain classified. The owned disposable databases and Vault containers
+are removed. This completes the bounded rewrap slice, not backup/restore,
+process-crash acceptance, consumer credential cutover or production readiness.
