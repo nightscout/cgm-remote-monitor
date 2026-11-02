@@ -75,6 +75,7 @@
         "tests/notification-cache-contract.test.js",
         "tests/notification-state-lifecycle.test.js",
         "tests/object-id-forms.test.js",
+        "tests/postgres-identity.test.js",
         "tests/page-bundle-budget.test.js",
         "tests/page-fixture-traffic.test.js",
         "tests/page-resource-acceptance.test.js",
@@ -218,6 +219,7 @@
     "integration": {
       "files": [
         "tests/00_production-safety.test.js",
+        "tests/postgres-connection.test.js",
         "tests/XX_clean*.test.js",
         "tests/adminnotifies*.test.js",
         "tests/api*.test.js",
