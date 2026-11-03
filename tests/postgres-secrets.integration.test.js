@@ -15,6 +15,9 @@ const postgresConnection = require('../lib/storage/postgres-connection');
 const { createSubjectPolicy } = require('../lib/subject-policy/component');
 const createPostgresSubjectPolicy = require('../lib/subject-policy/postgres');
 const policyCatalogue = require('../lib/subject-policy/postgres-candidate.json');
+const { createTenantSettings } = require('../lib/tenant-settings/component');
+const createPostgresTenantSettings = require('../lib/tenant-settings/postgres');
+const settingsCatalogue = require('../lib/tenant-settings/postgres-candidate.json');
 
 const A = '11111111-1111-4111-8111-111111111111';
 const B = '22222222-2222-4222-8222-222222222222';
@@ -242,6 +245,137 @@ async function rewrapWorker (options) {
     }
   });
 
+  it('persists typed display settings, provenance, version conflicts and whole rollback refusal', async function () {
+        const settingsNamespace = 'settings_test';
+        const settingsTable = '"settings_test".tenant_settings';
+        const historyTable = '"settings_test".tenant_settings_history';
+        await run('up', { direct: true, connectionString: adminURI, namespace: settingsNamespace, catalogue: settingsCatalogue });
+        await run('check', { direct: true, connectionString: adminURI, namespace: settingsNamespace, catalogue: settingsCatalogue });
+        await admin.query(`GRANT USAGE ON SCHEMA "${settingsNamespace}" TO ${appRole}`);
+        await admin.query(`GRANT SELECT, INSERT, UPDATE ON ${settingsTable} TO ${appRole}`);
+        await admin.query(`GRANT SELECT, INSERT ON ${historyTable} TO ${appRole}`);
+        const stores = [];
+        let deployment = {}, overrides = {};
+        const options = {
+          authorize: async ctx => ctx.principal === 'root' && ctx.consumer === 'owner',
+          policyFor: async tenant => {
+            assert.ok([A, B].includes(tenant));
+            return { overrides: tenant === A ? overrides : {}, deployment };
+          }
+        };
+        const owner = tenant => ({ tenant, principal: 'root', consumer: 'owner' });
+        try {
+          for (let n = 0; n < 2; n++) stores.push(await createPostgresTenantSettings({ connectionString: appURI, namespace: settingsNamespace }));
+          const [first, second] = stores.map(store => createTenantSettings({ ...options, store }));
+          await assert.rejects(first.read(owner(A)), { code: 'SETTINGS_NOT_FOUND' });
+          await assert.rejects(first.replace({ ...owner(A), principal: 'uploader' }, 0, {}), { code: 'SETTINGS_FORBIDDEN' });
+          await assert.rejects(first.replace(owner(A), 0, { API_SECRET: 'refused' }), { code: 'SETTINGS_UNSUPPORTED' });
+          await assert.rejects(first.replace(owner(A), 0, { TIMEZONE: 'UTC' }), { code: 'SETTINGS_UNSUPPORTED' });
+          for (const invalid of [{ SHOW_SECONDS: 'true' }, { DISPLAY_UNITS: 'mg/dL' }, { DISPLAY_UNITS: null }]) {
+            await assert.rejects(first.replace(owner(A), 0, invalid), { code: 'SETTINGS_VALUE' });
+          }
+          await assert.rejects(first.replace(owner(A), undefined, {}), /expected version/);
+          const initial = await first.replace(owner(A), 0, {});
+          assert.deepEqual(initial.effective.DISPLAY_UNITS, {
+            value: 'mg/dl', source: 'code', policy: { mode: 'open', source: 'catalogue' }
+          });
+          assert.equal(initial.effective.SHOW_SECONDS.value, false);
+          await first.replace(owner(B), 0, { SHOW_SECONDS: true });
+          const old = { DISPLAY_UNITS: 'mmol', SHOW_SECONDS: true };
+          await second.replace(owner(A), 1, old);
+          assert.equal((await first.read(owner(A))).effective.DISPLAY_UNITS.source, 'owner');
+          const races = await Promise.allSettled([first, second].map(worker => worker.replace(owner(A), 2, { SHOW_SECONDS: false })));
+          assert.equal(races.filter(value => value.status === 'fulfilled').length, 1);
+          assert.equal(races.find(value => value.status === 'rejected').reason.code, 'SETTINGS_VERSION_CONFLICT');
+          assert.equal((await first.read(owner(B))).version, 1);
+          assert.equal((await first.read(owner(B))).effective.SHOW_SECONDS.value, true);
+          await assert.rejects(second.replace(owner(A), 2, old), { code: 'SETTINGS_VERSION_CONFLICT' });
+          await second.rollback(owner(A), 3, 2);
+          assert.deepEqual((await first.read(owner(A))).values, old);
+          deployment = {
+            DISPLAY_UNITS: { mode: 'bounded', default: 'mg/dl', allowed: ['mg/dl'] },
+            SHOW_SECONDS: { mode: 'pinned', pin: false }
+          };
+          const narrowed = await first.read(owner(A));
+          assert.equal(narrowed.effective.DISPLAY_UNITS.value, 'mg/dl');
+          assert.equal(narrowed.effective.DISPLAY_UNITS.source, 'operator-default');
+          assert.equal(narrowed.effective.DISPLAY_UNITS.storedOwnerValue, 'mmol');
+          assert.equal(narrowed.effective.DISPLAY_UNITS.ignoredReason, 'outside-constraint');
+          assert.equal(narrowed.effective.SHOW_SECONDS.value, false);
+          assert.equal(narrowed.effective.SHOW_SECONDS.source, 'operator-pin');
+          assert.equal(narrowed.effective.SHOW_SECONDS.ignoredReason, 'pinned');
+          await assert.rejects(first.rollback(owner(A), 4, 2), error => {
+            assert.equal(error.code, 'SETTINGS_POLICY_REFUSED');
+            assert.deepEqual(error.details, [
+              { name: 'DISPLAY_UNITS', reason: 'outside-constraint', policy: 'deployment' },
+              { name: 'SHOW_SECONDS', reason: 'pinned', policy: 'deployment' }
+            ]);
+            return true;
+          });
+          assert.equal((await first.read(owner(A))).version, 4, 'whole rollback refused with no new version');
+          overrides = { DISPLAY_UNITS: { mode: 'open' }, SHOW_SECONDS: { mode: 'open' } };
+          await first.replace(owner(A), 4, old);
+          deployment = { DISPLAY_UNITS: { mode: 'pinned', pin: 'mg/dl' } };
+          assert.equal((await second.read(owner(A))).effective.DISPLAY_UNITS.value, 'mmol', 'whole override replaces deployment');
+          await first.replace(owner(A), 5, {});
+          const reset = await second.read(owner(A));
+          assert.equal(reset.effective.DISPLAY_UNITS.value, 'mg/dl');
+          assert.equal(reset.effective.DISPLAY_UNITS.source, 'code', 'override does not inherit deployment pin/default');
+          await second.rollback(owner(A), 6, 2);
+          await assert.rejects(first.rollback(owner(A), 7, 100), /rollback target/);
+          const malformed = createTenantSettings({ ...options, store: stores[0], policyFor: async () => ({
+            deployment: { SHOW_SECONDS: { mode: 'pinned', pin: 'false' } }, overrides: {}
+          }) });
+          await assert.rejects(malformed.read(owner(A)), { code: 'SETTINGS_POLICY_INVALID' });
+          const unavailable = createTenantSettings({ ...options, store: stores[0], policyFor: async () => undefined });
+          await assert.rejects(unavailable.read(owner(A)), { code: 'SETTINGS_POLICY_UNAVAILABLE' });
+          await admin.query(`REVOKE INSERT ON ${historyTable} FROM ${appRole}`);
+          try {
+            await assert.rejects(first.replace(owner(A), 7, {}), { code: 'SETTINGS_STORE_UNAVAILABLE' });
+          } finally { await admin.query(`GRANT INSERT ON ${historyTable} TO ${appRole}`); }
+          assert.equal((await first.read(owner(A))).version, 7, 'failed history append rolls back current state');
+          await admin.query(`REVOKE SELECT ON ${settingsTable} FROM ${appRole}`);
+          try {
+            await assert.rejects(second.read(owner(A)), { code: 'SETTINGS_STORE_UNAVAILABLE' });
+          } finally { await admin.query(`GRANT SELECT ON ${settingsTable} TO ${appRole}`); }
+          const history = (await admin.query(`SELECT version, values, principal, consumer, operation, restored_from
+            FROM ${historyTable} WHERE tenant_id = $1 ORDER BY version`, [A])).rows;
+          assert.deepEqual(history.map(row => row.version), [1, 2, 3, 4, 5, 6, 7]);
+          assert.ok(history.every(row => row.principal === 'root' && row.consumer === 'owner'));
+          assert.deepEqual(history.filter(row => row.operation === 'rollback').map(row => row.restored_from), [2, 2]);
+          assert.deepEqual(history[1].values, old);
+          const raw = await connectApp();
+          try {
+            assert.equal((await raw.query(`SELECT * FROM ${settingsTable}`)).rowCount, 0);
+            assert.equal((await raw.query(`SELECT * FROM ${historyTable}`)).rowCount, 0);
+            await assert.rejects(raw.query(`UPDATE ${historyTable} SET principal = 'forged'`), { code: '42501' });
+            await assert.rejects(raw.query(`DELETE FROM ${historyTable}`), { code: '42501' });
+            await raw.query('BEGIN');
+            await raw.query("SELECT set_config('app.current_tenant_id', $1, true)", [A]);
+            assert.ok((await raw.query(`SELECT tenant_id FROM ${settingsTable}`)).rows.every(row => row.tenant_id === A));
+            await assert.rejects(raw.query(`UPDATE ${settingsTable} SET values = '{"API_SECRET":"bad"}'`), { code: '23514' });
+            await raw.query('ROLLBACK');
+            for (const bad of ['{"SHOW_SECONDS":"true"}', '{"DISPLAY_UNITS":null}']) {
+              await raw.query('BEGIN');
+              await raw.query("SELECT set_config('app.current_tenant_id', $1, true)", [A]);
+              await assert.rejects(raw.query(`UPDATE ${settingsTable} SET values = $1`, [bad]), { code: '23514' });
+              await raw.query('ROLLBACK');
+            }
+          } finally { await raw.end(); }
+          await admin.query(`ALTER TABLE ${settingsTable} DISABLE ROW LEVEL SECURITY`);
+          const unbound = await connectApp();
+          try {
+            assert.ok((await unbound.query(`SELECT tenant_id FROM ${settingsTable}`)).rows.some(row => row.tenant_id === B));
+            await assert.rejects(createPostgresTenantSettings({ connectionString: appURI, namespace: settingsNamespace }),
+              { code: 'SETTINGS_STORE_UNSAFE' });
+          } finally {
+            await unbound.end();
+            await admin.query(`ALTER TABLE ${settingsTable} ENABLE ROW LEVEL SECURITY`);
+          }
+        } finally {
+          for (const store of stores) await store.close();
+        }
+      });
   it('serializes competing inserts to exactly one immutable reference', async function () {
     const otherWorker = await open();
     try {
