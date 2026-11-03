@@ -1,6 +1,7 @@
 'use strict';
 
 const assert = require('node:assert/strict');
+const { isDeepStrictEqual } = require('node:util');
 const fs = require('node:fs');
 const path = require('node:path');
 const { randomUUID, randomBytes } = require('node:crypto');
@@ -20,11 +21,30 @@ const srvDates = require('../lib/server/srv-dates');
 const scope = require('../lib/storage/tenant-scope');
 
 describe('PostgreSQL entries write refusals', function () {
+  it('accepts and serializes JSON-safe nested entry values', async function () {
+    const calls = [];
+    const connection = {
+      async query (sql, values) { calls.push({ sql, values }); return { rowCount: 1 }; },
+      async withSavepoint (operation) { return operation(); }
+    };
+    const writer = entriesWrite({ connection });
+    const doc = { _id: 'nested', metadata: { source: 'import', values: [1, null, { ok: true }] } };
+
+    await writer.insertOne(doc, { normalize: false });
+
+    assert.equal(calls.length, 1);
+    assert.deepEqual(JSON.parse(calls[0].values[1]), doc);
+  });
+
   it('refuses lossy or ambiguous input before sending SQL', async function () {
     let queries = 0;
     const writer = entriesWrite({ connection: { query () { queries++; throw new Error('unexpected query'); } } });
     const bad = error => error.unsupported === true;
-    for (const value of [undefined, NaN, Infinity, -0, new Date(), new ObjectId(), /x/, {}, [], Buffer.from('x')]) {
+    for (const value of [undefined, NaN, Infinity, -0, new Date(), new ObjectId(), /x/, Buffer.from('x')]) {
+      await assert.rejects(writer.insertOne({ _id: 'bad', sgv: value }), bad);
+      await assert.rejects(writer.updateOne('bad', { sgv: value }), bad);
+    }
+    for (const value of [{ nested: new Date() }, [new ObjectId()], { nested: undefined }]) {
       await assert.rejects(writer.insertOne({ _id: 'bad', sgv: value }), bad);
       await assert.rejects(writer.updateOne('bad', { sgv: value }), bad);
     }
@@ -39,10 +59,13 @@ describe('PostgreSQL entries write refusals', function () {
     await assert.rejects(writer.deleteMany(null), /filter node/);
     await assert.rejects(writer.updateMany(and(), {}), /non-empty/);
     await assert.rejects(writer.insertOne({ _id: 'bad' }, { ordered: false }), bad);
-    await assert.rejects(writer.bulkUpsert([{ filter: and(), doc: { nested: {} } }]), bad);
+    await assert.rejects(writer.bulkUpsert([{ filter: and(), doc: { nested: { date: new Date() } } }]), bad);
     await assert.rejects(writer.bulkUpsert([{ filter: and(), doc: { sgv: 1 }, setOnInsert: { sgv: 2 } }], { mode: 'merge' }), bad);
     await assert.rejects(writer.bulkUpsert([], { v1: true }), bad);
-    await assert.rejects(writer.replaceFiltered(and(), { _id: 'bad', nested: {} }), bad);
+    await assert.rejects(writer.replaceFiltered(and(), { _id: 'bad', nested: { objectId: new ObjectId() } }), bad);
+    await assert.rejects(writer.resolveEveryForm('id', 1001), bad);
+    await assert.rejects(writer.resolveOr([], 1001), bad);
+    await assert.rejects(writer.findByIds(Array.from({ length: 1001 }, (_, index) => 'id-' + index)), bad);
     assert.equal(queries, 0);
   });
 });
@@ -141,7 +164,7 @@ suite('PostgreSQL entries write differential (requires disposable PostgreSQL and
     return expected;
   }
 
-  it('inserts scalar documents with preserved stored kind and normalizes only the input requested', async function () {
+  it('inserts JSON documents with preserved stored kind and normalizes only the input requested', async function () {
     for (const id of ['new-string', new ObjectId()]) {
       for (const normalize of [true, false]) {
         const _id = typeof id === 'string' ? id + normalize : new ObjectId();
@@ -158,6 +181,11 @@ suite('PostgreSQL entries write differential (requires disposable PostgreSQL and
     assert.equal(identifier, generated._id.toHexString());
     await mongoA('insertOne', { ...generated }, { normalize: false });
     await sameStored();
+
+    await same('insertOne', {
+      _id: 'nested-json', identifier: 'nested-json', metadata: { source: 'import', values: [1, null, { ok: true }] }
+    }, { normalize: false });
+    await same('updateOne', 'nested-json', { metadata: { source: 'reconciled', values: [{ ok: false }] } });
   });
 
   it('matches identifier preference, exact storedId and both kinds, with accurate no-op counts', async function () {
@@ -234,9 +262,15 @@ suite('PostgreSQL entries write differential (requires disposable PostgreSQL and
   });
 
   it('replaces without retaining omitted fields, preserves identity, and does not resurrect without upsert', async function () {
-    await same('replaceFiltered', cmp('eq', '_id', 'custom'), { identifier: 'named', sgv: 130 });
-    await assert.rejects(inA(() => writer.replaceFiltered(cmp('eq', '_id', 'custom'),
-      { identifier: 'named', sgv: 130 })), /field-order metadata/);
+    const filter = cmp('eq', '_id', 'custom');
+    const replacement = { identifier: 'named', sgv: 130 };
+    await same('replaceFiltered', filter, replacement);
+    const mongoResult = await mongoA('replaceFiltered', filter, replacement);
+    const pgResult = await inA(() => writer.replaceFiltered(filter, replacement));
+    assert.equal(mongoResult.matchedCount, 1);
+    assert.equal(mongoResult.modifiedCount, 1);
+    assert.equal(pgResult.matchedCount, 1);
+    assert.equal(pgResult.modifiedCount, 0);
     await sameStored();
     await same('replaceFiltered', cmp('eq', '_id', 'absent'), { sgv: 131 });
     await same('replaceFiltered', cmp('eq', '_id', 'absent'), { sgv: 131 }, { upsert: true });
@@ -255,6 +289,70 @@ suite('PostgreSQL entries write differential (requires disposable PostgreSQL and
       { filter: cmp('eq', '_id', 'custom'), doc: { note: 'merge override' }, merge: true },
       { remove: cmp('eq', '_id', 'bulk-replace') }
     ], { mode: 'replace' });
+  });
+
+  it('uses JSONB value equality for order-only replacement counts when _id is present', async function () {
+    const filter = cmp('eq', '_id', 'ordered');
+    await inA(() => writer.insertOne({ _id: 'ordered', first: 1, second: 2 }, { normalize: false }));
+    const result = await inA(() => writer.replaceFiltered(filter, { _id: 'ordered', second: 2, first: 1 }));
+    assert.equal(result.matchedCount, 1);
+    assert.equal(result.modifiedCount, 0);
+    const stored = (await inA(() => reader.findFiltered(filter, raw)))[0];
+    assert.equal(stored.first, 1);
+    assert.equal(stored.second, 2);
+  });
+
+  it('refuses over-cap update and delete matches without changing any rows', async function () {
+    await admin.query(`INSERT INTO "${name}".entries (tenant_id, id_kind, doc)` +
+      " SELECT $1, 'string', jsonb_build_object('_id', 'limit-' || n::text, 'batch', 'over-cap', 'sgv', 150)" +
+      ' FROM generate_series(1, 1001) AS n', [A]);
+    const filter = cmp('eq', 'batch', 'over-cap');
+    const refused = error => error.unsupported === true && /write target limit of 1000 exceeded/.test(error.message);
+    await assert.rejects(inA(() => writer.updateMany(filter, { set: { sgv: 151 } })), refused);
+    let rows = await admin.query(`SELECT count(*) AS count FROM "${name}".entries` +
+      " WHERE tenant_id = $1 AND doc ->> 'batch' = 'over-cap' AND doc ->> 'sgv' = '150'", [A]);
+    assert.equal(Number(rows.rows[0].count), 1001);
+    await assert.rejects(inA(() => writer.deleteMany(filter)), refused);
+    await assert.rejects(inA(() => writer.replaceFiltered(filter, { sgv: 152 })),
+      error => error.unsupported === true && /ambiguous replacement filter/.test(error.message));
+    rows = await admin.query(`SELECT count(*) AS count FROM "${name}".entries` +
+      " WHERE tenant_id = $1 AND doc ->> 'batch' = 'over-cap'", [A]);
+    assert.equal(Number(rows.rows[0].count), 1001);
+  });
+
+  it('locks overlapping multi-row updates in the same stable order', async function () {
+    await admin.query(`INSERT INTO "${name}".entries (tenant_id, id_kind, doc) VALUES` +
+      ` ($1, 'string', '{"_id":"lock-c","lockBatch":true,"sgv":100}'),` +
+      ` ($1, 'string', '{"_id":"lock-a","lockBatch":true,"sgv":100}'),` +
+      ` ($1, 'string', '{"_id":"lock-b","lockBatch":true,"sgv":100}')`, [A]);
+    const statements = [];
+    let arrivals = 0;
+    let release;
+    const bothReady = new Promise(resolve => { release = resolve; });
+    const observed = {
+      ...store,
+      async query (text, values) {
+        if (text.startsWith('WITH locked AS')) {
+          statements.push(text);
+          if (++arrivals === 2) release();
+          await bothReady;
+        }
+        return store.query(text, values);
+      }
+    };
+    const concurrentWriter = entriesWrite({ connection: observed, table });
+    const filter = cmp('eq', 'lockBatch', true);
+    await Promise.all([
+      inA(() => concurrentWriter.updateMany(filter, { set: { lockPass: 1 } })),
+      inA(() => concurrentWriter.updateMany(filter, { set: { lockPass: 2 } }))
+    ]);
+    assert.equal(statements.length, 2);
+    assert.ok(statements.every(sql => /ORDER BY tenant_id, id_kind, "_id" LIMIT \$\d+ FOR UPDATE/.test(sql)),
+      'each concurrent update must lock rows in tenant/id-kind/id order');
+    const rows = await admin.query(`SELECT doc ->> 'lockPass' AS pass FROM "${name}".entries` +
+      " WHERE tenant_id = $1 AND doc ->> 'lockBatch' = 'true'", [A]);
+    assert.equal(rows.rowCount, 3);
+    assert.ok(rows.rows.every(row => row.pass === '1' || row.pass === '2'));
   });
 
   it('updates/removes every displayed form, scopes resolved identities, and reports over-cap resolution', async function () {
@@ -351,10 +449,35 @@ suite('PostgreSQL entries write differential (requires disposable PostgreSQL and
     const next = srvDates.next;
     srvDates.next = () => 1793664000000;
     async function compare (intent) {
+      const eventCount = mongoEvents.length;
+      assert.equal(pgEvents.length, eventCount);
       const expected = await scope.withTenant(A, () => mongoStep.write(cloneIntent(intent)));
       const actual = await scope.withTenant(A, () => pgStep.write(cloneIntent(intent)));
-      assert.deepEqual(actual, expected);
-      assert.deepEqual(pgEvents, mongoEvents);
+      if (Array.isArray(actual.removed) && Array.isArray(expected.removed)) {
+        // unordered_membership: removed/resolved IDs keep their types, not their order.
+        const typedIds = ids => ids.map(_id => {
+          const row = encodeDocument({ _id });
+          return JSON.stringify([row.id_kind, row.doc._id]);
+        }).sort();
+        assert.deepEqual(typedIds(actual.removed), typedIds(expected.removed));
+        assert.deepEqual({ ...actual, removed: expected.removed }, expected);
+      } else assert.deepEqual(actual, expected);
+      assert.equal(pgEvents.length, mongoEvents.length);
+      for (let index = eventCount; index < mongoEvents.length; index++) {
+        const pgEvent = pgEvents[index], mongoEvent = mongoEvents[index];
+        if (intent.op === 'delete' && actual.items.length === 1
+          && Array.isArray(actual.removed) && actual.removed.length > 1) {
+          // Resolved multi-record events are typed multisets; batch and single-record events remain ordered.
+          const remaining = mongoEvent.records.slice();
+          for (const record of pgEvent.records) {
+            const match = remaining.findIndex(expectedRecord => isDeepStrictEqual(record, expectedRecord));
+            assert.notEqual(match, -1, 'resolved event must contain the same full typed records');
+            remaining.splice(match, 1);
+          }
+          assert.equal(remaining.length, 0, 'resolved event must preserve record multiplicity');
+          assert.deepEqual({ ...pgEvent, records: mongoEvent.records }, mongoEvent);
+        } else assert.deepEqual(pgEvent, mongoEvent);
+      }
       await sameStored();
     }
     try {
@@ -400,7 +523,7 @@ suite('PostgreSQL entries write differential (requires disposable PostgreSQL and
     assert.equal(visible[0].committed, true);
     assert.equal((await visible[0].query).rows[0].doc.sgv, 170);
     await assert.rejects(scope.withTenant(A, () => step.write({
-      op: 'create', docs: [{ _id: 'refused', sgv: 171, nested: {} }]
+      op: 'create', docs: [{ _id: 'refused', sgv: 171, nested: { date: new Date() } }]
     })), /unsupported/);
     await assert.rejects(inA(() => step.write({ op: 'create', docs: [{ _id: 'nested' }] })), /new transaction/);
     assert.equal(visible.length, 1);
