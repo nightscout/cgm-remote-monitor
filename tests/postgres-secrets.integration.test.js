@@ -12,6 +12,9 @@ const { createSecrets } = require('../lib/secrets/component');
 const { createVaultTransit } = require('../lib/secrets/vault-transit');
 const scope = require('../lib/storage/tenant-scope');
 const postgresConnection = require('../lib/storage/postgres-connection');
+const { createSubjectPolicy } = require('../lib/subject-policy/component');
+const createPostgresSubjectPolicy = require('../lib/subject-policy/postgres');
+const policyCatalogue = require('../lib/subject-policy/postgres-candidate.json');
 
 const A = '11111111-1111-4111-8111-111111111111';
 const B = '22222222-2222-4222-8222-222222222222';
@@ -139,6 +142,104 @@ async function rewrapWorker (options) {
         { code: 'SECRETS_REFERENCE_EXISTS' });
     } finally { await otherWorker.close(); }
     assert.equal((await persistence.store.get(A, 'same')).ciphertext, 'opaque-a');
+  });
+
+  it('enforces persistent current subject authority across workers, conflicts, floors and outages', async function () {
+    const policyNamespace = 'policy_test';
+    const policyTable = '"policy_test".subject_policy';
+    const policyAudit = '"policy_test".subject_policy_audit';
+    await run('up', { direct: true, connectionString: adminURI, namespace: policyNamespace, catalogue: policyCatalogue });
+    await run('check', { direct: true, connectionString: adminURI, namespace: policyNamespace, catalogue: policyCatalogue });
+    await admin.query(`GRANT USAGE ON SCHEMA "${policyNamespace}" TO ${appRole}`);
+    await admin.query(`GRANT SELECT, INSERT, UPDATE ON ${policyTable} TO ${appRole}`);
+    await admin.query(`GRANT INSERT ON ${policyAudit} TO ${appRole}`);
+    const stores = [];
+    const grant = { principal: 'subject', consumer: 'connector', operation: 'decrypt', id: 'current' };
+    const additional = { ...grant, id: 'additional' };
+    let operatorCeiling = [grant];
+    const options = {
+      limitsFor: async () => ({ code: [grant, additional], operator: operatorCeiling }),
+      authorizeManagement: async ctx => ctx.principal === 'root' && ctx.consumer === 'owner'
+    };
+    const owner = tenant => ({ tenant, principal: 'root', consumer: 'owner' });
+    const subject = tenant => ({ tenant, principal: 'subject', consumer: 'connector' });
+    const action = { operation: 'decrypt', id: 'current' };
+    try {
+      for (let n = 0; n < 2; n++) stores.push(await createPostgresSubjectPolicy({ connectionString: appURI, namespace: policyNamespace }));
+      const [first, second] = stores.map(store => createSubjectPolicy({ ...options, store }));
+      assert.equal(await second.authorize(subject(A), action), false);
+      assert.deepEqual(await first.replace(owner(A), 0, [grant]), { version: 1, grants: [grant] });
+      await first.replace(owner(B), 0, [grant]);
+      assert.equal(await second.authorize(subject(A), action), true);
+      assert.equal(await second.authorize(subject(B), action), true);
+      assert.equal(await second.authorize(subject(A), { operation: 'decrypt', id: 'foreign' }), false);
+      await assert.rejects(first.replace(subject(A), 1, []), { code: 'POLICY_FORBIDDEN' });
+      await assert.rejects(first.replace(owner(A), 1, [additional]), { code: 'POLICY_FLOOR' });
+      operatorCeiling = [grant, additional];
+      await assert.rejects(first.replace(owner(A), 1, [{ ...grant, operation: 'reveal' }]), { code: 'POLICY_FLOOR' });
+      await assert.rejects(first.replace(owner(A), 1, [{ ...grant, id: '*' }]), /Invalid exact/);
+      await assert.rejects(first.replace(owner(A), 1, [grant, grant]), /Duplicate/);
+      const results = await Promise.allSettled([first, second].map(worker => worker.replace(owner(A), 1, [])));
+      assert.equal(results.filter(value => value.status === 'fulfilled').length, 1);
+      assert.equal(results.find(value => value.status === 'rejected').reason.code, 'POLICY_VERSION_CONFLICT');
+      assert.equal(await second.authorize(subject(A), action), false);
+      assert.equal(await first.authorize(subject(B), action), true);
+      await assert.rejects(first.replace(owner(A), 1, [grant]), { code: 'POLICY_VERSION_CONFLICT' });
+      await second.replace(owner(A), 2, [grant]);
+      const secret = createSecrets({
+        ...persistence, authorize: first.authorize, maxTokenLifetimeSeconds: 28800,
+        providerFor: async () => ({ decrypt: async () => Buffer.from(JSON.stringify({
+          tenant: A, id: 'current', data: Buffer.from('synthetic-current').toString('base64')
+        })) })
+      });
+      await persistence.store.insert({ tenant: A, id: 'current', format: 1, ciphertext: 'synthetic-ciphertext' });
+      assert.equal((await secret.decrypt(subject(A), { tenant: A, id: 'current' })).toString(), 'synthetic-current');
+      await second.replace(owner(A), 3, []);
+      await assert.rejects(secret.decrypt(subject(A), { tenant: A, id: 'current' }), { code: 'SECRETS_FORBIDDEN' });
+      await second.replace(owner(A), 4, [grant]);
+      operatorCeiling = [];
+      assert.equal(await first.authorize(subject(A), action), false, 'narrowed operator limits govern existing rows');
+      operatorCeiling = [grant];
+      await admin.query(`REVOKE SELECT ON ${policyTable} FROM ${appRole}`);
+      try {
+        await assert.rejects(secret.decrypt(subject(A), { tenant: A, id: 'current' }), { code: 'POLICY_STORE_UNAVAILABLE' });
+      } finally { await admin.query(`GRANT SELECT ON ${policyTable} TO ${appRole}`); }
+      docker(['pause', container]);
+      try {
+        await assert.rejects(second.authorize(subject(A), action), { code: 'POLICY_STORE_UNAVAILABLE' });
+      } finally { docker(['unpause', container]); }
+      await admin.query(`REVOKE INSERT ON ${policyAudit} FROM ${appRole}`);
+      try {
+        await assert.rejects(first.replace(owner(A), 5, []), { code: 'POLICY_STORE_UNAVAILABLE' });
+      } finally { await admin.query(`GRANT INSERT ON ${policyAudit} TO ${appRole}`); }
+      assert.equal((await first.read(owner(A))).version, 5, 'audit failure rolls back policy write');
+      const events = (await admin.query(`SELECT principal, consumer, phase, version FROM ${policyAudit}
+        WHERE tenant_id = $1 ORDER BY version`, [A])).rows;
+      assert.deepEqual(events.map(event => event.version), [1, 2, 3, 4, 5]);
+      assert.ok(events.every(event => event.principal === 'root' && event.consumer === 'owner' && event.phase === 'committed'));
+      const raw = await connectApp();
+      try {
+        assert.equal((await raw.query(`SELECT * FROM ${policyTable}`)).rowCount, 0);
+        await assert.rejects(raw.query(`SELECT * FROM ${policyAudit}`), { code: '42501' });
+        await assert.rejects(raw.query(`DELETE FROM ${policyAudit}`), { code: '42501' });
+        await raw.query('BEGIN');
+        await raw.query("SELECT set_config('app.current_tenant_id', $1, true)", [A]);
+        await assert.rejects(raw.query(`UPDATE ${policyTable} SET tenant_id = $1`, [B]), { code: '42501' });
+        await raw.query('ROLLBACK');
+      } finally { await raw.end(); }
+      await admin.query(`ALTER TABLE ${policyTable} DISABLE ROW LEVEL SECURITY`);
+      const unbound = await connectApp();
+      try {
+        assert.ok((await unbound.query(`SELECT tenant_id FROM ${policyTable}`)).rows.some(row => row.tenant_id === B));
+        await assert.rejects(createPostgresSubjectPolicy({ connectionString: appURI, namespace: policyNamespace }),
+          { code: 'POLICY_STORE_UNSAFE' });
+      } finally {
+        await unbound.end();
+        await admin.query(`ALTER TABLE ${policyTable} ENABLE ROW LEVEL SECURITY`);
+      }
+    } finally {
+      for (const store of stores) await store.close();
+    }
   });
 
   it('serializes competing inserts to exactly one immutable reference', async function () {

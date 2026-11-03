@@ -1,0 +1,20 @@
+{
+  "version": 1,
+  "migrations": [
+    {
+      "name": "0001_subject_policy",
+      "checksum": "e087badeacb6e02e4f9e41a45492826ddb2b4efed974638ad4b344e571998ebd",
+      "up": [
+        "CREATE TABLE subject_policy (tenant_id uuid PRIMARY KEY, version integer NOT NULL CHECK (version > 0), grants jsonb NOT NULL CHECK (jsonb_typeof(grants) = 'array' AND jsonb_array_length(grants) <= 1000))",
+        "ALTER TABLE subject_policy ENABLE ROW LEVEL SECURITY",
+        "ALTER TABLE subject_policy FORCE ROW LEVEL SECURITY",
+        "CREATE POLICY subject_policy_tenant ON subject_policy USING (tenant_id = nullif(current_setting('app.current_tenant_id', true), '')::uuid) WITH CHECK (tenant_id = nullif(current_setting('app.current_tenant_id', true), '')::uuid)",
+        "CREATE TABLE subject_policy_audit (event_id uuid PRIMARY KEY, tenant_id uuid NOT NULL, principal text NOT NULL CHECK (principal ~ '^[a-zA-Z0-9_-]{1,128}$'), consumer text NOT NULL CHECK (consumer ~ '^[a-zA-Z0-9_-]{1,128}$'), operation text NOT NULL CHECK (operation = 'policy-replace'), phase text NOT NULL CHECK (phase = 'committed'), event_time bigint NOT NULL CHECK (event_time >= 0), version integer NOT NULL CHECK (version > 0), UNIQUE (tenant_id, version))",
+        "ALTER TABLE subject_policy_audit ENABLE ROW LEVEL SECURITY",
+        "ALTER TABLE subject_policy_audit FORCE ROW LEVEL SECURITY",
+        "CREATE POLICY subject_policy_audit_tenant ON subject_policy_audit USING (tenant_id = nullif(current_setting('app.current_tenant_id', true), '')::uuid) WITH CHECK (tenant_id = nullif(current_setting('app.current_tenant_id', true), '')::uuid)",
+        "REVOKE ALL ON subject_policy, subject_policy_audit FROM PUBLIC"
+      ]
+    }
+  ]
+}
