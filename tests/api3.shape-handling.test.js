@@ -68,8 +68,8 @@ describe('API3 Shape Handling - Single Object vs Array Input', function() {
       res.body.identifier.should.equal(doc.identifier);
 
       await deleteDoc(doc.identifier);
-      self.cache.nextShouldEql(col, doc);
-      self.cache.nextShouldDeleteLast(col);
+      await self.cache.nextShouldEql(col, doc);
+      await self.cache.nextShouldDeleteLast(col);
     });
 
     it('POST rejects array input with 400', async () => {
@@ -132,8 +132,8 @@ describe('API3 Shape Handling - Single Object vs Array Input', function() {
       res.body.status.should.equal(201);
 
       await deleteDoc(doc.identifier);
-      self.cache.nextShouldEql(col, doc);
-      self.cache.nextShouldDeleteLast(col);
+      await self.cache.nextShouldEql(col, doc);
+      await self.cache.nextShouldDeleteLast(col);
     });
   });
 
@@ -166,8 +166,8 @@ describe('API3 Shape Handling - Single Object vs Array Input', function() {
       res.body.identifier.should.equal(doc.identifier);
 
       await deleteDoc(doc.identifier);
-      self.cache.nextShouldEql(col, doc);
-      self.cache.nextShouldDeleteLast(col);
+      await self.cache.nextShouldEql(col, doc);
+      await self.cache.nextShouldDeleteLast(col);
     });
 
     it('POST rejects array of entries with 400', async () => {
@@ -224,8 +224,8 @@ describe('API3 Shape Handling - Single Object vs Array Input', function() {
       res.body.identifier.should.equal(doc.identifier);
 
       await deleteDoc(doc.identifier);
-      self.cache.nextShouldEql(col, doc);
-      self.cache.nextShouldDeleteLast(col);
+      await self.cache.nextShouldEql(col, doc);
+      await self.cache.nextShouldDeleteLast(col);
     });
 
     it('POST rejects array of devicestatus with 400', async () => {
@@ -275,7 +275,7 @@ describe('API3 Shape Handling - Single Object vs Array Input', function() {
         .send(doc)
         .expect(201);
 
-      self.cache.nextShouldEql('treatments', doc);
+      await self.cache.nextShouldEql('treatments', doc);
 
       let getRes = await self.instance.get(`${treatmentsUrl}/${doc.identifier}`, self.jwt.read)
         .expect(200);
@@ -284,7 +284,7 @@ describe('API3 Shape Handling - Single Object vs Array Input', function() {
       getRes.body.result.notes.should.equal('cross-api test');
 
       await deleteDoc(doc.identifier);
-      self.cache.nextShouldDeleteLast('treatments');
+      await self.cache.nextShouldDeleteLast('treatments');
     });
 
     it('deduplication handles re-POST of same document', async () => {
@@ -302,7 +302,7 @@ describe('API3 Shape Handling - Single Object vs Array Input', function() {
         .expect(201);
 
       res1.body.status.should.equal(201);
-      self.cache.nextShouldEql('treatments', doc);
+      await self.cache.nextShouldEql('treatments', doc);
 
       const updatedDoc = Object.assign({}, doc, { notes: 'updated note' });
 
@@ -312,10 +312,10 @@ describe('API3 Shape Handling - Single Object vs Array Input', function() {
 
       res2.body.status.should.equal(200);
       res2.body.isDeduplication.should.equal(true);
-      self.cache.nextShouldEql('treatments', updatedDoc);
+      await self.cache.nextShouldEql('treatments', updatedDoc);
 
       await deleteDoc(doc.identifier);
-      self.cache.nextShouldDeleteLast('treatments');
+      await self.cache.nextShouldDeleteLast('treatments');
     });
   });
 });

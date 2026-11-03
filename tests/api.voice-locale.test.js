@@ -42,6 +42,7 @@ describe('Voice replies use the configured server language', function () {
       jsonParser: express.json(), urlencodedParser: express.urlencoded({ extended: true })
     };
     const app = express();
+    require('../lib/middleware/configure-request')(app);
     app.use('/api/v1', require('../lib/api/' + assistant)(app, wares, ctx));
     return { app, language };
   }

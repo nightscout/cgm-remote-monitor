@@ -33,6 +33,10 @@ function matchesValue (actual, condition) {
 
 function matchesQuery (document, query) {
   return Object.keys(query).every(function (field) {
+    // A write the step scoped to the _ids it resolved (WC-STEP-PATCH release 2).
+    if (field === '$and') {
+      return query.$and.every(function (part) { return matchesQuery(document, part); });
+    }
     return matchesValue(document[field], query[field]);
   });
 }
@@ -57,6 +61,24 @@ function fakeCollection () {
       queries.push(query);
       var index = findIndex(query);
       return Promise.resolve(index === -1 ? null : Object.assign({}, documents[index]));
+    },
+    // The socket reads through the storage interface, which reads a cursor:
+    // find(query).limit(1).toArray() is findOne(query).
+    find: function (query) {
+      queries.push(query);
+      var limit = Infinity;
+      var cursor = {
+        sort: function () { return cursor; },
+        skip: function () { return cursor; },
+        project: function () { return cursor; },
+        limit: function (n) { limit = n; return cursor; },
+        toArray: function () {
+          return Promise.resolve(documents.filter(function (document) {
+            return matchesQuery(document, query);
+          }).slice(0, limit).map(function (document) { return Object.assign({}, document); }));
+        }
+      };
+      return cursor;
     },
     insertOne: function (document) {
       var id = Object.prototype.hasOwnProperty.call(document, '_id') ? document._id : 'generated-' + nextId++;

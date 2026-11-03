@@ -2,6 +2,7 @@
 'use strict';
 
 require('should');
+const { onlyIn } = require('./fixtures/api3/role');
 
 /*
  * The /alarm namespace is the only path by which Nightscout pushes alarms,
@@ -55,7 +56,7 @@ require('should');
  * REST control in the same run shows that same token being refused the same
  * data over HTTP.
  */
-describe('Alarm socket delivery scope', function () {
+onlyIn('single', 'subject is the alarm socket (websocket)').describe('Alarm socket delivery scope', function () {
   const self = this
     , crypto = require('crypto')
     , request = require('supertest')

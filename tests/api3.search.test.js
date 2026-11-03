@@ -489,12 +489,25 @@ describe('API3 SEARCH', function() {
   }
 
 
-  before(async () => {
+  // Earlier api3 files drop the database. On an empty database the first
+  // auth role insert in authSubject waits behind the collections and indexes
+  // boot asks for without awaiting them, which can exceed mocha's 5 s default
+  // on a loaded machine. Allow what the fixture's own boot watchdog allows
+  // (tests/fixtures/api3/instance.js).
+  before(async function () {
+    this.timeout(30000);
     self.testStarted = new Date();
     self.instance = await instance.create({});
 
     self.app = self.instance.app;
     self.env = self.instance.env;
+
+    // Each endpoint suite below counts, sorts and pages only the documents it
+    // inserts. Files that run earlier can leave records in these collections,
+    // so start from empty ones (deleteMany keeps the indexes boot created).
+    for (const name of ['devicestatus', 'entries', 'food', 'profile', 'settings', 'treatments']) {
+      await self.instance.ctx.store.collection(self.env[name + '_collection']).deleteMany({});
+    }
 
     let authResult = await authSubject(self.instance.ctx.authorization.storage, [
       'read',

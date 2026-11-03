@@ -19,6 +19,19 @@ function noopPurifier () {
   };
 }
 
+// A driver cursor as the storage interface reads one (findFiltered chains
+// sort, skip, limit and project before toArray).
+function cursorOf (docs) {
+  var cursor = {
+    sort: function () { return cursor; },
+    skip: function () { return cursor; },
+    limit: function () { return cursor; },
+    project: function () { return cursor; },
+    toArray: async function () { return docs; }
+  };
+  return cursor;
+}
+
 function fakeContext (collection, includePurifier) {
   var writes = 0;
   var ctx = {
@@ -101,7 +114,7 @@ describe('legacy storage selector hardening', function () {
       var collection = {
         // BF-122: food reads the records a batch replaces (for srvCreated and
         // identifier) before it writes; none are stored here.
-        find: function () { return { toArray: async function () { return []; } }; },
+        find: function () { return cursorOf([]); },
         bulkWrite: async function (operations) {
           capturedOperations = operations;
           return {upsertedIds: {}};
@@ -126,6 +139,12 @@ describe('legacy storage selector hardening', function () {
       bulkWrite: async function (operations) {
         capturedOperations = operations;
         return {upsertedIds: {}};
+      },
+      // ID-FIRST-MATCH slice 3: the on-deleted read before the write; nothing stored.
+      find: function () {
+        var cursor = {sort: () => cursor, skip: () => cursor, limit: () => cursor, project: () => cursor,
+          batchSize: () => cursor, toArray: async () => []};
+        return cursor;
       }
     };
     var storage = storageFor('entries', collection).api;
@@ -155,11 +174,35 @@ describe('legacy storage selector hardening', function () {
       return entries.create([{type: {$ne: null}, date: Date.now()}]);
     }, /Entry type must be a string/);
     await expectRejectedPromise(function () {
-      return treatments.create([{identifier: {$ne: null}, eventType: 'Note'}]);
-    }, /Treatment identifier must be a string/);
-    await expectRejectedPromise(function () {
       return treatments.create([{identifier: 'safe', eventType: {$ne: null}}]);
     }, /Treatment eventType must be a string/);
+  });
+
+  // CHANGED EXPECTATION (ID-FIRST-MATCH slice 2, ID-Q6, BF-215): an
+  // object-valued treatment identifier was refused ("Treatment identifier must
+  // be a string", a 500 on API v1). It is now treated as absent: removed before
+  // any selector is built, so the operator object still never reaches MongoDB.
+  it('treats an object-valued treatment identifier as absent, never as a selector', async function () {
+    var capturedOperations;
+    var collection = {
+      bulkWrite: async function (operations) {
+        capturedOperations = operations;
+        return {upsertedIds: {}};
+      },
+      find: function () { return cursorOf([]); }
+    };
+    var treatments = storageFor('treatments', collection).api;
+    var sent = {identifier: {$ne: null}, eventType: 'Note', created_at: '2026-01-01T00:00:00.000Z'};
+
+    await treatments.create([sent]);
+
+    should.exist(capturedOperations);
+    var operation = capturedOperations[0].replaceOne || capturedOperations[0].updateOne;
+    // No operator from the document: the write falls back to the fallback key,
+    // whose identifier clause matches a record without one.
+    JSON.stringify(operation.filter).should.not.match(/\$ne/);
+    operation.filter.identifier.should.deepEqual({$in: [null, ''], $not: {$type: 'array'}});
+    operation.replacement.should.not.have.property('identifier');
   });
 
   it('wraps treatment identifiers and fallback fields in literal equality', async function () {
@@ -170,7 +213,7 @@ describe('legacy storage selector hardening', function () {
         return {upsertedIds: {}};
       },
       find: function () {
-        return {toArray: async function () { return []; }};
+        return cursorOf([]);
       }
     };
     var storage = storageFor('treatments', collection).api;
@@ -213,7 +256,7 @@ describe('legacy storage selector hardening', function () {
         return {upsertedIds: {}};
       },
       find: function () {
-        return {toArray: async function () { return []; }};
+        return cursorOf([]);
       }
     };
     var storage = storageFor('treatments', collection).api;
@@ -242,11 +285,7 @@ describe('legacy storage selector hardening', function () {
         return {upsertedIds: {}};
       },
       find: function () {
-        return {
-          toArray: async function () {
-            return [{identifier: '__proto__', _id: existingId}];
-          }
-        };
+        return cursorOf([{identifier: '__proto__', _id: existingId}]);
       }
     };
     var storage = storageFor('treatments', collection).api;
@@ -264,12 +303,7 @@ describe('legacy storage selector hardening', function () {
   it('keeps legacy profile boundary values literal in prune selectors', async function () {
     var boundary = {startDate: {$ne: null}, _id: new ObjectId()};
     var capturedFilter;
-    var cursor = {
-      sort: function () { return this; },
-      skip: function () { return this; },
-      limit: function () { return this; },
-      toArray: async function () { return [boundary]; }
-    };
+    var cursor = cursorOf([boundary]);
     var collection = {
       find: function () { return cursor; },
       deleteMany: async function (filter) {
@@ -281,8 +315,14 @@ describe('legacy storage selector hardening', function () {
 
     await storage.prune(10);
 
-    capturedFilter.$or[1].startDate.should.deepEqual({$eq: boundary.startDate});
-    capturedFilter.$or[2].startDate.should.deepEqual({$eq: null});
+    // CHANGED EXPECTATION (WC-STEP-PATCH release 2, write-contract Q-A): the
+    // prune is resolved to the _ids it matches first and scoped to them; the
+    // prune selector itself is the first part of that $and, unchanged.
+    capturedFilter.$and.length.should.equal(2);
+    capturedFilter.$and[1].should.deepEqual({_id: {$in: [boundary._id]}});
+    var pruneFilter = capturedFilter.$and[0];
+    pruneFilter.$or[1].startDate.should.deepEqual({$eq: boundary.startDate});
+    pruneFilter.$or[2].startDate.should.deepEqual({$eq: null});
   });
 
   it('rejects new object-valued profile start dates before insertion', async function () {

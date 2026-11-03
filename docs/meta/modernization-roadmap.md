@@ -1,5 +1,10 @@
 # Modernization Roadmap
 
+> For the current Node/runtime and dependency work, follow the
+> [September 2026 execution plan](../plans/nightscout-modernization.md).
+> It supersedes the dated runtime and dependency recommendations below;
+> this document remains historical architecture context.
+
 **Document Version:** 1.0  
 **Last Updated:** January 2026  
 **Purpose:** Technical debt inventory, refactoring priorities, architecture improvements, migration strategies

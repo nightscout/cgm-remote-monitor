@@ -28,7 +28,37 @@ describe('API3 CREATE operation authorization and selector ordering', function (
     console.warn = originalConsoleWarn;
   });
 
-  it('rejects an invalid identifier before querying storage', async function () {
+  // CHANGED EXPECTATION (ID-FIRST-MATCH slice 2, ID-Q6): under
+  // WRITE_IDENTIFIER=lenient (the default) an invalid identifier is treated as
+  // absent and one is computed, so the operator object never reaches a
+  // selector; WRITE_IDENTIFIER=strict refuses it with the 400 it had, before
+  // any read.
+  it('treats an operator-shaped identifier as absent before querying storage (lenient)', async function () {
+    const observed = { findCalls: 0 };
+    const doc = validDocument();
+    doc.identifier = { $ne: null };
+    security.authenticate = async function () {
+      return authWith('api:settings:create');
+    };
+    const collection = createCollection(observed, []);
+    const findOneFilter = collection.storage.findOneFilter;
+    collection.storage.findOneFilter = async function (filter, options) {
+      observed.filter = JSON.stringify(filter);
+      return findOneFilter(filter, options);
+    };
+
+    const handler = createOperation({}, {}, {}, collection);
+    const res = createResponse();
+
+    await handler(createRequest(doc), res);
+
+    res.statusCode.should.equal(201);
+    doc.identifier.should.be.a.String();
+    observed.filter.should.not.match(/\$ne/);
+    observed.insertCalls.should.equal(1);
+  });
+
+  it('rejects an invalid identifier before querying storage (strict)', async function () {
     const observed = { findCalls: 0 };
     const doc = validDocument();
     doc.identifier = { $ne: null };
@@ -36,7 +66,7 @@ describe('API3 CREATE operation authorization and selector ordering', function (
       return authWith('api:settings:create');
     };
 
-    const handler = createOperation({}, {}, {}, createCollection(observed, []));
+    const handler = createOperation({}, { write: { identifier: 'strict' } }, {}, createCollection(observed, []));
     const res = createResponse();
 
     await handler(createRequest(doc), res);

@@ -44,10 +44,15 @@ function installDomGlobals (env, opts) {
   const options = Object.assign({ jquery: true }, opts || {});
 
   if (options.jquery) {
+    // jquery looks at `window` when one is defined, else the global object,
+    // so a window left behind by another suite must be hidden too.
     delete require.cache[require.resolve('jquery')];
+    const priorWindow = global.window;
     const priorDocument = global.document;
+    delete global.window;
     delete global.document;
     const jqueryFactory = require('jquery');
+    if (priorWindow !== undefined) defineConfigurable(global, 'window', priorWindow);
     if (priorDocument !== undefined) global.document = priorDocument;
     jqueryFactory(env.window);
   }

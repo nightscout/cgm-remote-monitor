@@ -24,6 +24,7 @@ describe('Count REST api', function ( ) {
     self.env.settings.authDefaultRoles = 'readable';
     self.wares = require('../lib/middleware/')(self.env);
     self.app = require('express')( );
+    require('../lib/middleware/configure-request')(self.app);
     self.app.enable('api');
     bootevent(self.env, language).boot(function booted (ctx) {
       self.app.use('/', entries(self.app, self.wares, ctx, self.env));
@@ -32,6 +33,13 @@ describe('Count REST api', function ( ) {
       self.ctx = ctx;
       done();
     });
+  });
+
+  // Files that run earlier can leave recent entries and treatments, which
+  // these counts would include; start each test from empty collections.
+  beforeEach(async function () {
+    await self.archive( ).deleteMany({ });
+    await self.treatments( ).deleteMany({ });
   });
 
   beforeEach(function (done) {

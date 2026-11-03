@@ -8,7 +8,10 @@ if (process.env.HISTORY_TEST_NOW) {
 }
 
 require('./api3/instance').create({ useHttps: false, disableSecurity: true }).then(function (instance) {
-  instance.app.use('/api/v1', require('../../lib/api')(instance.env, instance.ctx));
+  // the headless test server has no API v1; the test that writes through it is `single` only.
+  if (instance.role === 'single') {
+    instance.app.use('/api/v1', require('../../lib/api')(instance.env, instance.ctx));
+  }
   process.send({ url: instance.baseUrl });
 }, function (error) {
   process.send({ error: String(error) });

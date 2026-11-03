@@ -35,8 +35,10 @@ const DOM_GLOBALS = [
   'document',
   'location',
   'getComputedStyle',
-  'btoa',
-  'atob',
+  // Not btoa/atob: Node has its own, and jsdom's window.atob calls the global
+  // atob, so mirroring the window's onto the global made every atob call
+  // recurse until it failed as InvalidCharacterError. entities 8 decodes its
+  // tables with atob when the bundle loads, which is how this surfaced.
   'HTMLElement',
   'Element',
   'Node',
@@ -75,6 +77,8 @@ function setup (callback, options) {
   activeEnv = createSecureDOM(html, options);
 
   setGlobal('window', activeEnv.window);
+  // Webpack's chunk runtime in the page bundles reads `self`; RT-JSDOM-REST retires this harness.
+  setGlobal('self', activeEnv.window);
   DOM_GLOBALS.forEach(function (name) {
     setGlobal(name, activeEnv.window[name] || function noop () {});
   });
@@ -162,6 +166,7 @@ function teardown (clearDOM) {
       delete global[name];
     });
     delete global.window;
+    delete global.self;
     if (activeEnv) {
       activeEnv.cleanup();
       activeEnv = null;

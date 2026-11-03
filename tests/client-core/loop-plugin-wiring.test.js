@@ -13,9 +13,12 @@
  *
  * Implementation note: the stub is installed via require.cache before
  * the plugin is required, so the plugin's `var selectLoopState =
- * require('../client-core/devicestatus/loop')` picks it up. We clear
- * the plugin's cache slot on `after()` so subsequent suites pick up
- * the real module.
+ * require('../client-core/devicestatus/loop')` picks it up. Both happen
+ * in before(), not at module top level: mocha loads every file before
+ * running any, so a top-level stub leaks into files loaded after this
+ * one (devicestatus-loop, pill-goldens) when the order changes. We clear
+ * both cache slots on `after()` so subsequent suites pick up the real
+ * module.
  */
 
 require('should');
@@ -37,19 +40,22 @@ var stub = function (records, recent, opts) {
 stub.selectLoopState = stub;
 stub.buildDisplay = function () { return SENTINEL.display; };
 
-require.cache[SELECT_PATH] = { id: SELECT_PATH, filename: SELECT_PATH, loaded: true, exports: stub };
-
 var PLUGIN_PATH = require.resolve('../../lib/plugins/loop');
-delete require.cache[PLUGIN_PATH];
-
 var moment = require('moment');
-var levels = require('../../lib/levels');
-var language = require('../../lib/language')(require('fs'));
-language.set('en');
-var ctx = { language: language, settings: { units: 'mg/dl' }, levels: levels, moment: moment };
-var loop = require(PLUGIN_PATH)(ctx);
 
 describe('plugin wiring: loop.analyzeData → selectLoopState', function () {
+  var loop;
+
+  before(function () {
+    require.cache[SELECT_PATH] = { id: SELECT_PATH, filename: SELECT_PATH, loaded: true, exports: stub };
+    delete require.cache[PLUGIN_PATH];
+    var levels = require('../../lib/levels');
+    var language = require('../../lib/language')(require('fs'));
+    language.set('en');
+    var ctx = { language: language, settings: { units: 'mg/dl' }, levels: levels, moment: moment };
+    loop = require(PLUGIN_PATH)(ctx);
+  });
+
   after(function () {
     delete require.cache[SELECT_PATH];
     delete require.cache[PLUGIN_PATH];

@@ -16,8 +16,9 @@
 // Synthetic values only; not medical advice.
 
 require('should');
+const { onlyIn } = require('./fixtures/api3/role');
 
-describe('BF-146: treatments and device status written through API v3 enter the cache with mills', function () {
+onlyIn('single', 'subject is the cache, the data loader and the plugins that read it').describe('BF-146: treatments and device status written through API v3 enter the cache with mills', function () {
   const self = this
     , instance = require('./fixtures/api3/instance')
     , authSubject = require('./fixtures/api3/authSubject')

@@ -22,6 +22,8 @@
 const assert = require('node:assert/strict');
 const guard = require('../lib/storage/assert-no-query-javascript');
 const query = require('../lib/server/query');
+const find = require('../lib/api3/storage/mongoCollection/find');
+const modify = require('../lib/api3/storage/mongoCollection/modify');
 const { ObjectId } = require('mongodb');
 
 function rejected (error) {
@@ -84,6 +86,20 @@ describe('MongoDB query JavaScript boundary', function ( ) {
     assert.doesNotThrow(function ( ) { guard({notes: {$regex: '\\$where'}}); });
   });
 
+  it('preserves an operator name inside $literal in an expression', function ( ) {
+    const filter = {$expr: {$eq: [{$literal: {$function: 'literal document field'}}, '$payload']}};
+    const snapshot = JSON.stringify(filter);
+    assert.equal(guard(filter), filter);
+    assert.equal(JSON.stringify(filter), snapshot);
+  });
+
+  it('preserves literal values inside nested aggregation match stages', function ( ) {
+    const pipeline = {$expr: {$facet: {rows: [{$match: {payload: {$eq: {$where: 'literal'}}}}]}}};
+    assert.equal(guard(pipeline), pipeline);
+    pipeline.$expr.$facet.rows.push({$match: {$where: 'owned-expression'}});
+    assert.throws(function ( ) { guard(pipeline); }, rejected);
+  });
+
   it('checks cyclic objects in both query and expression contexts', function ( ) {
     const shared = {$eq: {$function: {body: 'owned-expression'}}};
     const root = {literal: shared, $expr: shared};
@@ -97,6 +113,38 @@ describe('MongoDB query JavaScript boundary', function ( ) {
   it('leaves a query with no find at all alone', function ( ) {
     assert.doesNotThrow(function ( ) { query({ }, { }); });
     assert.doesNotThrow(function ( ) { query(undefined, { }); });
+  });
+
+  it('refuses API v3 filters, projections and delete filters before database I/O', async function ( ) {
+    const col = {find: () => assert.fail('find must not run'), deleteMany: () => assert.fail('delete must not run')};
+    for (const filter of dangerous) {
+      await assert.rejects(find.findMany(col, {filter}), rejected);
+      await assert.rejects(find.findOneFilter(col, filter, {}), rejected);
+      await assert.rejects(modify.deleteManyOr(col, filter), rejected);
+    }
+    const projection = {computed: {$function: {body: 'owned-expression', args: [], lang: 'js'}}};
+    await assert.rejects(find.findMany(col, {projection}), rejected);
+    await assert.rejects(find.findOneFilter(col, {}, projection), rejected);
+    await assert.rejects(find.findOne(col, new ObjectId().toHexString(), projection), rejected);
+  });
+
+  // lib/server/aggregate.js refuses a caller's `pipeline` outright (BF-70), so
+  // the JavaScript guard is reached through the caller's `find`.
+  function aggregateOver ( ) {
+    const api = Object.assign(function ( ) { }, {query_for: function (opts) { return query(opts, { }); }});
+    return require('../lib/server/aggregate')(api, () => ({count: () => assert.fail('count must not run')}));
+  }
+
+  it('reports an aggregate refusal through its callback once', async function ( ) {
+    const aggregate = aggregateOver();
+    let calls = 0;
+    await new Promise((resolve, reject) => {
+      aggregate({find: {$where: 'owned-expression'}}, error => {
+        try { calls++; rejected(error); resolve(); } catch (failure) { reject(failure); }
+      });
+    });
+    await new Promise(resolve => setImmediate(resolve));
+    assert.equal(calls, 1);
   });
 
   // ------------------------------------------------------- the wire contract
@@ -126,6 +174,7 @@ describe('MongoDB query JavaScript boundary', function ( ) {
     beforeEach(function ( ) {
       reached = [ ];
       app = express();
+      require('../lib/middleware/configure-request')(app);
       const wares = require('../lib/middleware/')(env);
       const permit = {isPermitted: function ( ) { return function (req, res, next) { next(); }; }};
       const entriesList = stubList({dateField: 'date', useEpoch: true, walker: { }});

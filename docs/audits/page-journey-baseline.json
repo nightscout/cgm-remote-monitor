@@ -1,0 +1,2187 @@
+{
+  "complete": true,
+  "assessment": {
+    "assessed": true,
+    "pass": true,
+    "nonPollingRequests": 176,
+    "requestLimit": 190,
+    "responseBodyBytes": 1412051,
+    "responseBodyLimit": 1500000,
+    "cachedBundleRequests": 0
+  },
+  "node": "22.23.2",
+  "samples": 7,
+  "builds": {
+    "parent": {
+      "bundle.app.js": "4fa03371a8bbf2336b3cbb20b892126f2bf577aaa9f5dedca281eb30cab2a345",
+      "bundle.clock.js": "c37a1c7dd2460037f3175479fe31a9eb63fd08c0e11f84994168fe81836451d3"
+    },
+    "candidate": {
+      "bundle.admin.js": "b0b291da267f0e901eeb76ea97582a1c75bbfbbee59e583bf975fe2086e074e2",
+      "bundle.app.js": "3827c7943381d6b61075192e88fff7140e2691a7be817d5ace7f5fadc47b3e55",
+      "bundle.clock.js": "c37a1c7dd2460037f3175479fe31a9eb63fd08c0e11f84994168fe81836451d3",
+      "bundle.food.js": "3235915435ed50979653d4316d91e317dad2667a5387240ca66deb12feec54c7",
+      "bundle.profile.js": "fb20a691e908237df9da308668e24ca913aebe37e9d6a7cdbfcbc8ebb0a4a6dd",
+      "bundle.reports.js": "f678270b02e8b3b65496feb02ff64ce150f9823a8c82411b2ffe75715f8a1984"
+    }
+  },
+  "scenario": "worker-enabled initial dashboard, every secondary page, then every page revisited",
+  "rows": [
+    {
+      "run": 0,
+      "label": "parent",
+      "browser": "153.0.8010.12",
+      "steps": [
+        {
+          "phase": "initial",
+          "entry": "app",
+          "navigations": 2,
+          "requests": 82,
+          "nonPollingRequests": 64,
+          "completedResponses": 80,
+          "responseBodyBytes": 1360707,
+          "bundleRequests": [
+            {
+              "path": "/bundle/js/bundle.app.js",
+              "method": "GET",
+              "bodyBytes": 393823,
+              "completed": true,
+              "status": 200,
+              "encoding": "br"
+            },
+            {
+              "path": "/bundle/js/bundle.app.js",
+              "method": "GET",
+              "bodyBytes": 393823,
+              "completed": true,
+              "status": 200,
+              "encoding": "br"
+            },
+            {
+              "path": "/bundle/js/bundle.clock.js",
+              "method": "GET",
+              "bodyBytes": 63004,
+              "completed": true,
+              "status": 200,
+              "encoding": "br"
+            }
+          ]
+        },
+        {
+          "phase": "firstVisit",
+          "entry": "reports",
+          "navigations": 3,
+          "requests": 30,
+          "nonPollingRequests": 20,
+          "completedResponses": 29,
+          "responseBodyBytes": 23255,
+          "bundleRequests": []
+        },
+        {
+          "phase": "firstVisit",
+          "entry": "admin",
+          "navigations": 4,
+          "requests": 29,
+          "nonPollingRequests": 19,
+          "completedResponses": 28,
+          "responseBodyBytes": 17726,
+          "bundleRequests": []
+        },
+        {
+          "phase": "firstVisit",
+          "entry": "profile",
+          "navigations": 5,
+          "requests": 24,
+          "nonPollingRequests": 14,
+          "completedResponses": 23,
+          "responseBodyBytes": 15566,
+          "bundleRequests": []
+        },
+        {
+          "phase": "firstVisit",
+          "entry": "food",
+          "navigations": 6,
+          "requests": 25,
+          "nonPollingRequests": 15,
+          "completedResponses": 24,
+          "responseBodyBytes": 14155,
+          "bundleRequests": []
+        },
+        {
+          "phase": "cachedVisit",
+          "entry": "app",
+          "navigations": 7,
+          "requests": 23,
+          "nonPollingRequests": 13,
+          "completedResponses": 22,
+          "responseBodyBytes": 8575,
+          "bundleRequests": []
+        },
+        {
+          "phase": "cachedVisit",
+          "entry": "reports",
+          "navigations": 8,
+          "requests": 31,
+          "nonPollingRequests": 21,
+          "completedResponses": 30,
+          "responseBodyBytes": 10416,
+          "bundleRequests": []
+        },
+        {
+          "phase": "cachedVisit",
+          "entry": "admin",
+          "navigations": 9,
+          "requests": 29,
+          "nonPollingRequests": 19,
+          "completedResponses": 28,
+          "responseBodyBytes": 8575,
+          "bundleRequests": []
+        },
+        {
+          "phase": "cachedVisit",
+          "entry": "profile",
+          "navigations": 10,
+          "requests": 24,
+          "nonPollingRequests": 14,
+          "completedResponses": 23,
+          "responseBodyBytes": 8575,
+          "bundleRequests": []
+        },
+        {
+          "phase": "cachedVisit",
+          "entry": "food",
+          "navigations": 11,
+          "requests": 25,
+          "nonPollingRequests": 15,
+          "completedResponses": 24,
+          "responseBodyBytes": 8575,
+          "bundleRequests": []
+        }
+      ],
+      "totalRequests": 322,
+      "nonPollingRequests": 214,
+      "unfinishedBodyBytes": 1,
+      "totalResponseBodyBytes": 1476130
+    },
+    {
+      "run": 0,
+      "label": "candidate",
+      "browser": "153.0.8010.12",
+      "steps": [
+        {
+          "phase": "initial",
+          "entry": "app",
+          "navigations": 1,
+          "requests": 59,
+          "nonPollingRequests": 49,
+          "completedResponses": 58,
+          "responseBodyBytes": 1222895,
+          "bundleRequests": [
+            {
+              "path": "/bundle/js/bundle.app.js",
+              "method": "GET",
+              "bodyBytes": 329785,
+              "completed": true,
+              "status": 200,
+              "encoding": "br"
+            },
+            {
+              "path": "/bundle/js/bundle.app.js",
+              "method": "GET",
+              "bodyBytes": 329785,
+              "completed": true,
+              "status": 200,
+              "encoding": "br"
+            },
+            {
+              "path": "/bundle/js/bundle.clock.js",
+              "method": "GET",
+              "bodyBytes": 63004,
+              "completed": true,
+              "status": 200,
+              "encoding": "br"
+            }
+          ]
+        },
+        {
+          "phase": "firstVisit",
+          "entry": "reports",
+          "navigations": 2,
+          "requests": 28,
+          "nonPollingRequests": 17,
+          "completedResponses": 27,
+          "responseBodyBytes": 76595,
+          "bundleRequests": [
+            {
+              "path": "/bundle/js/bundle.reports.js",
+              "method": "GET",
+              "bodyBytes": 52637,
+              "completed": true,
+              "status": 200,
+              "encoding": "br"
+            }
+          ]
+        },
+        {
+          "phase": "firstVisit",
+          "entry": "admin",
+          "navigations": 3,
+          "requests": 28,
+          "nonPollingRequests": 17,
+          "completedResponses": 27,
+          "responseBodyBytes": 26586,
+          "bundleRequests": [
+            {
+              "path": "/bundle/js/bundle.admin.js",
+              "method": "GET",
+              "bodyBytes": 7953,
+              "completed": true,
+              "status": 200,
+              "encoding": "br"
+            }
+          ]
+        },
+        {
+          "phase": "firstVisit",
+          "entry": "profile",
+          "navigations": 4,
+          "requests": 24,
+          "nonPollingRequests": 13,
+          "completedResponses": 23,
+          "responseBodyBytes": 22881,
+          "bundleRequests": [
+            {
+              "path": "/bundle/js/bundle.profile.js",
+              "method": "GET",
+              "bodyBytes": 6619,
+              "completed": true,
+              "status": 200,
+              "encoding": "br"
+            }
+          ]
+        },
+        {
+          "phase": "firstVisit",
+          "entry": "food",
+          "navigations": 5,
+          "requests": 24,
+          "nonPollingRequests": 13,
+          "completedResponses": 23,
+          "responseBodyBytes": 20200,
+          "bundleRequests": [
+            {
+              "path": "/bundle/js/bundle.food.js",
+              "method": "GET",
+              "bodyBytes": 5347,
+              "completed": true,
+              "status": 200,
+              "encoding": "br"
+            }
+          ]
+        },
+        {
+          "phase": "cachedVisit",
+          "entry": "app",
+          "navigations": 6,
+          "requests": 22,
+          "nonPollingRequests": 11,
+          "completedResponses": 21,
+          "responseBodyBytes": 8577,
+          "bundleRequests": []
+        },
+        {
+          "phase": "cachedVisit",
+          "entry": "reports",
+          "navigations": 7,
+          "requests": 27,
+          "nonPollingRequests": 16,
+          "completedResponses": 26,
+          "responseBodyBytes": 8577,
+          "bundleRequests": []
+        },
+        {
+          "phase": "cachedVisit",
+          "entry": "admin",
+          "navigations": 8,
+          "requests": 27,
+          "nonPollingRequests": 16,
+          "completedResponses": 26,
+          "responseBodyBytes": 8577,
+          "bundleRequests": []
+        },
+        {
+          "phase": "cachedVisit",
+          "entry": "profile",
+          "navigations": 9,
+          "requests": 23,
+          "nonPollingRequests": 12,
+          "completedResponses": 22,
+          "responseBodyBytes": 8577,
+          "bundleRequests": []
+        },
+        {
+          "phase": "cachedVisit",
+          "entry": "food",
+          "navigations": 10,
+          "requests": 23,
+          "nonPollingRequests": 12,
+          "completedResponses": 22,
+          "responseBodyBytes": 8577,
+          "bundleRequests": []
+        }
+      ],
+      "totalRequests": 285,
+      "nonPollingRequests": 176,
+      "unfinishedBodyBytes": 0,
+      "totalResponseBodyBytes": 1412051
+    },
+    {
+      "run": 1,
+      "label": "candidate",
+      "browser": "153.0.8010.12",
+      "steps": [
+        {
+          "phase": "initial",
+          "entry": "app",
+          "navigations": 1,
+          "requests": 58,
+          "nonPollingRequests": 49,
+          "completedResponses": 57,
+          "responseBodyBytes": 1222893,
+          "bundleRequests": [
+            {
+              "path": "/bundle/js/bundle.app.js",
+              "method": "GET",
+              "bodyBytes": 329785,
+              "completed": true,
+              "status": 200,
+              "encoding": "br"
+            },
+            {
+              "path": "/bundle/js/bundle.app.js",
+              "method": "GET",
+              "bodyBytes": 329785,
+              "completed": true,
+              "status": 200,
+              "encoding": "br"
+            },
+            {
+              "path": "/bundle/js/bundle.clock.js",
+              "method": "GET",
+              "bodyBytes": 63004,
+              "completed": true,
+              "status": 200,
+              "encoding": "br"
+            }
+          ]
+        },
+        {
+          "phase": "firstVisit",
+          "entry": "reports",
+          "navigations": 2,
+          "requests": 28,
+          "nonPollingRequests": 17,
+          "completedResponses": 27,
+          "responseBodyBytes": 76595,
+          "bundleRequests": [
+            {
+              "path": "/bundle/js/bundle.reports.js",
+              "method": "GET",
+              "bodyBytes": 52637,
+              "completed": true,
+              "status": 200,
+              "encoding": "br"
+            }
+          ]
+        },
+        {
+          "phase": "firstVisit",
+          "entry": "admin",
+          "navigations": 3,
+          "requests": 28,
+          "nonPollingRequests": 17,
+          "completedResponses": 27,
+          "responseBodyBytes": 26586,
+          "bundleRequests": [
+            {
+              "path": "/bundle/js/bundle.admin.js",
+              "method": "GET",
+              "bodyBytes": 7953,
+              "completed": true,
+              "status": 200,
+              "encoding": "br"
+            }
+          ]
+        },
+        {
+          "phase": "firstVisit",
+          "entry": "profile",
+          "navigations": 4,
+          "requests": 24,
+          "nonPollingRequests": 13,
+          "completedResponses": 23,
+          "responseBodyBytes": 22881,
+          "bundleRequests": [
+            {
+              "path": "/bundle/js/bundle.profile.js",
+              "method": "GET",
+              "bodyBytes": 6619,
+              "completed": true,
+              "status": 200,
+              "encoding": "br"
+            }
+          ]
+        },
+        {
+          "phase": "firstVisit",
+          "entry": "food",
+          "navigations": 5,
+          "requests": 24,
+          "nonPollingRequests": 13,
+          "completedResponses": 23,
+          "responseBodyBytes": 20200,
+          "bundleRequests": [
+            {
+              "path": "/bundle/js/bundle.food.js",
+              "method": "GET",
+              "bodyBytes": 5347,
+              "completed": true,
+              "status": 200,
+              "encoding": "br"
+            }
+          ]
+        },
+        {
+          "phase": "cachedVisit",
+          "entry": "app",
+          "navigations": 6,
+          "requests": 22,
+          "nonPollingRequests": 11,
+          "completedResponses": 21,
+          "responseBodyBytes": 8577,
+          "bundleRequests": []
+        },
+        {
+          "phase": "cachedVisit",
+          "entry": "reports",
+          "navigations": 7,
+          "requests": 27,
+          "nonPollingRequests": 16,
+          "completedResponses": 26,
+          "responseBodyBytes": 8577,
+          "bundleRequests": []
+        },
+        {
+          "phase": "cachedVisit",
+          "entry": "admin",
+          "navigations": 8,
+          "requests": 27,
+          "nonPollingRequests": 16,
+          "completedResponses": 26,
+          "responseBodyBytes": 8577,
+          "bundleRequests": []
+        },
+        {
+          "phase": "cachedVisit",
+          "entry": "profile",
+          "navigations": 9,
+          "requests": 22,
+          "nonPollingRequests": 12,
+          "completedResponses": 21,
+          "responseBodyBytes": 8575,
+          "bundleRequests": []
+        },
+        {
+          "phase": "cachedVisit",
+          "entry": "food",
+          "navigations": 10,
+          "requests": 23,
+          "nonPollingRequests": 12,
+          "completedResponses": 22,
+          "responseBodyBytes": 8577,
+          "bundleRequests": []
+        }
+      ],
+      "totalRequests": 283,
+      "nonPollingRequests": 176,
+      "unfinishedBodyBytes": 0,
+      "totalResponseBodyBytes": 1412047
+    },
+    {
+      "run": 1,
+      "label": "parent",
+      "browser": "153.0.8010.12",
+      "steps": [
+        {
+          "phase": "initial",
+          "entry": "app",
+          "navigations": 2,
+          "requests": 84,
+          "nonPollingRequests": 64,
+          "completedResponses": 82,
+          "responseBodyBytes": 1360711,
+          "bundleRequests": [
+            {
+              "path": "/bundle/js/bundle.app.js",
+              "method": "GET",
+              "bodyBytes": 393823,
+              "completed": true,
+              "status": 200,
+              "encoding": "br"
+            },
+            {
+              "path": "/bundle/js/bundle.app.js",
+              "method": "GET",
+              "bodyBytes": 393823,
+              "completed": true,
+              "status": 200,
+              "encoding": "br"
+            },
+            {
+              "path": "/bundle/js/bundle.clock.js",
+              "method": "GET",
+              "bodyBytes": 63004,
+              "completed": true,
+              "status": 200,
+              "encoding": "br"
+            }
+          ]
+        },
+        {
+          "phase": "firstVisit",
+          "entry": "reports",
+          "navigations": 3,
+          "requests": 30,
+          "nonPollingRequests": 20,
+          "completedResponses": 29,
+          "responseBodyBytes": 23255,
+          "bundleRequests": []
+        },
+        {
+          "phase": "firstVisit",
+          "entry": "admin",
+          "navigations": 4,
+          "requests": 29,
+          "nonPollingRequests": 19,
+          "completedResponses": 28,
+          "responseBodyBytes": 17726,
+          "bundleRequests": []
+        },
+        {
+          "phase": "firstVisit",
+          "entry": "profile",
+          "navigations": 5,
+          "requests": 24,
+          "nonPollingRequests": 14,
+          "completedResponses": 23,
+          "responseBodyBytes": 15566,
+          "bundleRequests": []
+        },
+        {
+          "phase": "firstVisit",
+          "entry": "food",
+          "navigations": 6,
+          "requests": 25,
+          "nonPollingRequests": 15,
+          "completedResponses": 24,
+          "responseBodyBytes": 14155,
+          "bundleRequests": []
+        },
+        {
+          "phase": "cachedVisit",
+          "entry": "app",
+          "navigations": 7,
+          "requests": 23,
+          "nonPollingRequests": 13,
+          "completedResponses": 22,
+          "responseBodyBytes": 8575,
+          "bundleRequests": []
+        },
+        {
+          "phase": "cachedVisit",
+          "entry": "reports",
+          "navigations": 8,
+          "requests": 31,
+          "nonPollingRequests": 21,
+          "completedResponses": 30,
+          "responseBodyBytes": 10416,
+          "bundleRequests": []
+        },
+        {
+          "phase": "cachedVisit",
+          "entry": "admin",
+          "navigations": 9,
+          "requests": 29,
+          "nonPollingRequests": 19,
+          "completedResponses": 28,
+          "responseBodyBytes": 8575,
+          "bundleRequests": []
+        },
+        {
+          "phase": "cachedVisit",
+          "entry": "profile",
+          "navigations": 10,
+          "requests": 24,
+          "nonPollingRequests": 14,
+          "completedResponses": 23,
+          "responseBodyBytes": 8575,
+          "bundleRequests": []
+        },
+        {
+          "phase": "cachedVisit",
+          "entry": "food",
+          "navigations": 11,
+          "requests": 25,
+          "nonPollingRequests": 15,
+          "completedResponses": 24,
+          "responseBodyBytes": 8575,
+          "bundleRequests": []
+        }
+      ],
+      "totalRequests": 324,
+      "nonPollingRequests": 214,
+      "unfinishedBodyBytes": 1,
+      "totalResponseBodyBytes": 1476134
+    },
+    {
+      "run": 2,
+      "label": "parent",
+      "browser": "153.0.8010.12",
+      "steps": [
+        {
+          "phase": "initial",
+          "entry": "app",
+          "navigations": 2,
+          "requests": 84,
+          "nonPollingRequests": 64,
+          "completedResponses": 82,
+          "responseBodyBytes": 1360711,
+          "bundleRequests": [
+            {
+              "path": "/bundle/js/bundle.app.js",
+              "method": "GET",
+              "bodyBytes": 393823,
+              "completed": true,
+              "status": 200,
+              "encoding": "br"
+            },
+            {
+              "path": "/bundle/js/bundle.app.js",
+              "method": "GET",
+              "bodyBytes": 393823,
+              "completed": true,
+              "status": 200,
+              "encoding": "br"
+            },
+            {
+              "path": "/bundle/js/bundle.clock.js",
+              "method": "GET",
+              "bodyBytes": 63004,
+              "completed": true,
+              "status": 200,
+              "encoding": "br"
+            }
+          ]
+        },
+        {
+          "phase": "firstVisit",
+          "entry": "reports",
+          "navigations": 3,
+          "requests": 30,
+          "nonPollingRequests": 20,
+          "completedResponses": 29,
+          "responseBodyBytes": 23255,
+          "bundleRequests": []
+        },
+        {
+          "phase": "firstVisit",
+          "entry": "admin",
+          "navigations": 4,
+          "requests": 29,
+          "nonPollingRequests": 19,
+          "completedResponses": 28,
+          "responseBodyBytes": 17726,
+          "bundleRequests": []
+        },
+        {
+          "phase": "firstVisit",
+          "entry": "profile",
+          "navigations": 5,
+          "requests": 24,
+          "nonPollingRequests": 14,
+          "completedResponses": 23,
+          "responseBodyBytes": 15566,
+          "bundleRequests": []
+        },
+        {
+          "phase": "firstVisit",
+          "entry": "food",
+          "navigations": 6,
+          "requests": 25,
+          "nonPollingRequests": 15,
+          "completedResponses": 24,
+          "responseBodyBytes": 14155,
+          "bundleRequests": []
+        },
+        {
+          "phase": "cachedVisit",
+          "entry": "app",
+          "navigations": 7,
+          "requests": 23,
+          "nonPollingRequests": 13,
+          "completedResponses": 22,
+          "responseBodyBytes": 8575,
+          "bundleRequests": []
+        },
+        {
+          "phase": "cachedVisit",
+          "entry": "reports",
+          "navigations": 8,
+          "requests": 31,
+          "nonPollingRequests": 21,
+          "completedResponses": 30,
+          "responseBodyBytes": 10416,
+          "bundleRequests": []
+        },
+        {
+          "phase": "cachedVisit",
+          "entry": "admin",
+          "navigations": 9,
+          "requests": 29,
+          "nonPollingRequests": 19,
+          "completedResponses": 28,
+          "responseBodyBytes": 8575,
+          "bundleRequests": []
+        },
+        {
+          "phase": "cachedVisit",
+          "entry": "profile",
+          "navigations": 10,
+          "requests": 24,
+          "nonPollingRequests": 14,
+          "completedResponses": 23,
+          "responseBodyBytes": 8575,
+          "bundleRequests": []
+        },
+        {
+          "phase": "cachedVisit",
+          "entry": "food",
+          "navigations": 11,
+          "requests": 25,
+          "nonPollingRequests": 15,
+          "completedResponses": 24,
+          "responseBodyBytes": 8575,
+          "bundleRequests": []
+        }
+      ],
+      "totalRequests": 324,
+      "nonPollingRequests": 214,
+      "unfinishedBodyBytes": 1,
+      "totalResponseBodyBytes": 1476134
+    },
+    {
+      "run": 2,
+      "label": "candidate",
+      "browser": "153.0.8010.12",
+      "steps": [
+        {
+          "phase": "initial",
+          "entry": "app",
+          "navigations": 1,
+          "requests": 59,
+          "nonPollingRequests": 49,
+          "completedResponses": 58,
+          "responseBodyBytes": 1222895,
+          "bundleRequests": [
+            {
+              "path": "/bundle/js/bundle.app.js",
+              "method": "GET",
+              "bodyBytes": 329785,
+              "completed": true,
+              "status": 200,
+              "encoding": "br"
+            },
+            {
+              "path": "/bundle/js/bundle.app.js",
+              "method": "GET",
+              "bodyBytes": 329785,
+              "completed": true,
+              "status": 200,
+              "encoding": "br"
+            },
+            {
+              "path": "/bundle/js/bundle.clock.js",
+              "method": "GET",
+              "bodyBytes": 63004,
+              "completed": true,
+              "status": 200,
+              "encoding": "br"
+            }
+          ]
+        },
+        {
+          "phase": "firstVisit",
+          "entry": "reports",
+          "navigations": 2,
+          "requests": 28,
+          "nonPollingRequests": 17,
+          "completedResponses": 27,
+          "responseBodyBytes": 76595,
+          "bundleRequests": [
+            {
+              "path": "/bundle/js/bundle.reports.js",
+              "method": "GET",
+              "bodyBytes": 52637,
+              "completed": true,
+              "status": 200,
+              "encoding": "br"
+            }
+          ]
+        },
+        {
+          "phase": "firstVisit",
+          "entry": "admin",
+          "navigations": 3,
+          "requests": 28,
+          "nonPollingRequests": 17,
+          "completedResponses": 27,
+          "responseBodyBytes": 26586,
+          "bundleRequests": [
+            {
+              "path": "/bundle/js/bundle.admin.js",
+              "method": "GET",
+              "bodyBytes": 7953,
+              "completed": true,
+              "status": 200,
+              "encoding": "br"
+            }
+          ]
+        },
+        {
+          "phase": "firstVisit",
+          "entry": "profile",
+          "navigations": 4,
+          "requests": 24,
+          "nonPollingRequests": 13,
+          "completedResponses": 23,
+          "responseBodyBytes": 22881,
+          "bundleRequests": [
+            {
+              "path": "/bundle/js/bundle.profile.js",
+              "method": "GET",
+              "bodyBytes": 6619,
+              "completed": true,
+              "status": 200,
+              "encoding": "br"
+            }
+          ]
+        },
+        {
+          "phase": "firstVisit",
+          "entry": "food",
+          "navigations": 5,
+          "requests": 24,
+          "nonPollingRequests": 13,
+          "completedResponses": 23,
+          "responseBodyBytes": 20200,
+          "bundleRequests": [
+            {
+              "path": "/bundle/js/bundle.food.js",
+              "method": "GET",
+              "bodyBytes": 5347,
+              "completed": true,
+              "status": 200,
+              "encoding": "br"
+            }
+          ]
+        },
+        {
+          "phase": "cachedVisit",
+          "entry": "app",
+          "navigations": 6,
+          "requests": 22,
+          "nonPollingRequests": 11,
+          "completedResponses": 21,
+          "responseBodyBytes": 8577,
+          "bundleRequests": []
+        },
+        {
+          "phase": "cachedVisit",
+          "entry": "reports",
+          "navigations": 7,
+          "requests": 27,
+          "nonPollingRequests": 16,
+          "completedResponses": 26,
+          "responseBodyBytes": 8577,
+          "bundleRequests": []
+        },
+        {
+          "phase": "cachedVisit",
+          "entry": "admin",
+          "navigations": 8,
+          "requests": 27,
+          "nonPollingRequests": 16,
+          "completedResponses": 26,
+          "responseBodyBytes": 8577,
+          "bundleRequests": []
+        },
+        {
+          "phase": "cachedVisit",
+          "entry": "profile",
+          "navigations": 9,
+          "requests": 23,
+          "nonPollingRequests": 12,
+          "completedResponses": 22,
+          "responseBodyBytes": 8577,
+          "bundleRequests": []
+        },
+        {
+          "phase": "cachedVisit",
+          "entry": "food",
+          "navigations": 10,
+          "requests": 23,
+          "nonPollingRequests": 12,
+          "completedResponses": 22,
+          "responseBodyBytes": 8577,
+          "bundleRequests": []
+        }
+      ],
+      "totalRequests": 285,
+      "nonPollingRequests": 176,
+      "unfinishedBodyBytes": 0,
+      "totalResponseBodyBytes": 1412051
+    },
+    {
+      "run": 3,
+      "label": "candidate",
+      "browser": "153.0.8010.12",
+      "steps": [
+        {
+          "phase": "initial",
+          "entry": "app",
+          "navigations": 1,
+          "requests": 59,
+          "nonPollingRequests": 49,
+          "completedResponses": 58,
+          "responseBodyBytes": 1222895,
+          "bundleRequests": [
+            {
+              "path": "/bundle/js/bundle.app.js",
+              "method": "GET",
+              "bodyBytes": 329785,
+              "completed": true,
+              "status": 200,
+              "encoding": "br"
+            },
+            {
+              "path": "/bundle/js/bundle.app.js",
+              "method": "GET",
+              "bodyBytes": 329785,
+              "completed": true,
+              "status": 200,
+              "encoding": "br"
+            },
+            {
+              "path": "/bundle/js/bundle.clock.js",
+              "method": "GET",
+              "bodyBytes": 63004,
+              "completed": true,
+              "status": 200,
+              "encoding": "br"
+            }
+          ]
+        },
+        {
+          "phase": "firstVisit",
+          "entry": "reports",
+          "navigations": 2,
+          "requests": 28,
+          "nonPollingRequests": 17,
+          "completedResponses": 27,
+          "responseBodyBytes": 76595,
+          "bundleRequests": [
+            {
+              "path": "/bundle/js/bundle.reports.js",
+              "method": "GET",
+              "bodyBytes": 52637,
+              "completed": true,
+              "status": 200,
+              "encoding": "br"
+            }
+          ]
+        },
+        {
+          "phase": "firstVisit",
+          "entry": "admin",
+          "navigations": 3,
+          "requests": 28,
+          "nonPollingRequests": 17,
+          "completedResponses": 27,
+          "responseBodyBytes": 26586,
+          "bundleRequests": [
+            {
+              "path": "/bundle/js/bundle.admin.js",
+              "method": "GET",
+              "bodyBytes": 7953,
+              "completed": true,
+              "status": 200,
+              "encoding": "br"
+            }
+          ]
+        },
+        {
+          "phase": "firstVisit",
+          "entry": "profile",
+          "navigations": 4,
+          "requests": 24,
+          "nonPollingRequests": 13,
+          "completedResponses": 23,
+          "responseBodyBytes": 22881,
+          "bundleRequests": [
+            {
+              "path": "/bundle/js/bundle.profile.js",
+              "method": "GET",
+              "bodyBytes": 6619,
+              "completed": true,
+              "status": 200,
+              "encoding": "br"
+            }
+          ]
+        },
+        {
+          "phase": "firstVisit",
+          "entry": "food",
+          "navigations": 5,
+          "requests": 24,
+          "nonPollingRequests": 13,
+          "completedResponses": 23,
+          "responseBodyBytes": 20200,
+          "bundleRequests": [
+            {
+              "path": "/bundle/js/bundle.food.js",
+              "method": "GET",
+              "bodyBytes": 5347,
+              "completed": true,
+              "status": 200,
+              "encoding": "br"
+            }
+          ]
+        },
+        {
+          "phase": "cachedVisit",
+          "entry": "app",
+          "navigations": 6,
+          "requests": 22,
+          "nonPollingRequests": 11,
+          "completedResponses": 21,
+          "responseBodyBytes": 8577,
+          "bundleRequests": []
+        },
+        {
+          "phase": "cachedVisit",
+          "entry": "reports",
+          "navigations": 7,
+          "requests": 27,
+          "nonPollingRequests": 16,
+          "completedResponses": 26,
+          "responseBodyBytes": 8577,
+          "bundleRequests": []
+        },
+        {
+          "phase": "cachedVisit",
+          "entry": "admin",
+          "navigations": 8,
+          "requests": 27,
+          "nonPollingRequests": 16,
+          "completedResponses": 26,
+          "responseBodyBytes": 8577,
+          "bundleRequests": []
+        },
+        {
+          "phase": "cachedVisit",
+          "entry": "profile",
+          "navigations": 9,
+          "requests": 23,
+          "nonPollingRequests": 12,
+          "completedResponses": 22,
+          "responseBodyBytes": 8577,
+          "bundleRequests": []
+        },
+        {
+          "phase": "cachedVisit",
+          "entry": "food",
+          "navigations": 10,
+          "requests": 23,
+          "nonPollingRequests": 12,
+          "completedResponses": 22,
+          "responseBodyBytes": 8577,
+          "bundleRequests": []
+        }
+      ],
+      "totalRequests": 285,
+      "nonPollingRequests": 176,
+      "unfinishedBodyBytes": 0,
+      "totalResponseBodyBytes": 1412051
+    },
+    {
+      "run": 3,
+      "label": "parent",
+      "browser": "153.0.8010.12",
+      "steps": [
+        {
+          "phase": "initial",
+          "entry": "app",
+          "navigations": 2,
+          "requests": 84,
+          "nonPollingRequests": 64,
+          "completedResponses": 82,
+          "responseBodyBytes": 1360711,
+          "bundleRequests": [
+            {
+              "path": "/bundle/js/bundle.app.js",
+              "method": "GET",
+              "bodyBytes": 393823,
+              "completed": true,
+              "status": 200,
+              "encoding": "br"
+            },
+            {
+              "path": "/bundle/js/bundle.app.js",
+              "method": "GET",
+              "bodyBytes": 393823,
+              "completed": true,
+              "status": 200,
+              "encoding": "br"
+            },
+            {
+              "path": "/bundle/js/bundle.clock.js",
+              "method": "GET",
+              "bodyBytes": 63004,
+              "completed": true,
+              "status": 200,
+              "encoding": "br"
+            }
+          ]
+        },
+        {
+          "phase": "firstVisit",
+          "entry": "reports",
+          "navigations": 3,
+          "requests": 30,
+          "nonPollingRequests": 20,
+          "completedResponses": 29,
+          "responseBodyBytes": 23255,
+          "bundleRequests": []
+        },
+        {
+          "phase": "firstVisit",
+          "entry": "admin",
+          "navigations": 4,
+          "requests": 29,
+          "nonPollingRequests": 19,
+          "completedResponses": 28,
+          "responseBodyBytes": 17726,
+          "bundleRequests": []
+        },
+        {
+          "phase": "firstVisit",
+          "entry": "profile",
+          "navigations": 5,
+          "requests": 24,
+          "nonPollingRequests": 14,
+          "completedResponses": 23,
+          "responseBodyBytes": 15566,
+          "bundleRequests": []
+        },
+        {
+          "phase": "firstVisit",
+          "entry": "food",
+          "navigations": 6,
+          "requests": 25,
+          "nonPollingRequests": 15,
+          "completedResponses": 24,
+          "responseBodyBytes": 14155,
+          "bundleRequests": []
+        },
+        {
+          "phase": "cachedVisit",
+          "entry": "app",
+          "navigations": 7,
+          "requests": 23,
+          "nonPollingRequests": 13,
+          "completedResponses": 22,
+          "responseBodyBytes": 8575,
+          "bundleRequests": []
+        },
+        {
+          "phase": "cachedVisit",
+          "entry": "reports",
+          "navigations": 8,
+          "requests": 31,
+          "nonPollingRequests": 21,
+          "completedResponses": 30,
+          "responseBodyBytes": 10416,
+          "bundleRequests": []
+        },
+        {
+          "phase": "cachedVisit",
+          "entry": "admin",
+          "navigations": 9,
+          "requests": 29,
+          "nonPollingRequests": 19,
+          "completedResponses": 28,
+          "responseBodyBytes": 8575,
+          "bundleRequests": []
+        },
+        {
+          "phase": "cachedVisit",
+          "entry": "profile",
+          "navigations": 10,
+          "requests": 24,
+          "nonPollingRequests": 14,
+          "completedResponses": 23,
+          "responseBodyBytes": 8575,
+          "bundleRequests": []
+        },
+        {
+          "phase": "cachedVisit",
+          "entry": "food",
+          "navigations": 11,
+          "requests": 25,
+          "nonPollingRequests": 15,
+          "completedResponses": 24,
+          "responseBodyBytes": 8575,
+          "bundleRequests": []
+        }
+      ],
+      "totalRequests": 324,
+      "nonPollingRequests": 214,
+      "unfinishedBodyBytes": 1,
+      "totalResponseBodyBytes": 1476134
+    },
+    {
+      "run": 4,
+      "label": "parent",
+      "browser": "153.0.8010.12",
+      "steps": [
+        {
+          "phase": "initial",
+          "entry": "app",
+          "navigations": 2,
+          "requests": 84,
+          "nonPollingRequests": 64,
+          "completedResponses": 82,
+          "responseBodyBytes": 1360711,
+          "bundleRequests": [
+            {
+              "path": "/bundle/js/bundle.app.js",
+              "method": "GET",
+              "bodyBytes": 393823,
+              "completed": true,
+              "status": 200,
+              "encoding": "br"
+            },
+            {
+              "path": "/bundle/js/bundle.app.js",
+              "method": "GET",
+              "bodyBytes": 393823,
+              "completed": true,
+              "status": 200,
+              "encoding": "br"
+            },
+            {
+              "path": "/bundle/js/bundle.clock.js",
+              "method": "GET",
+              "bodyBytes": 63004,
+              "completed": true,
+              "status": 200,
+              "encoding": "br"
+            }
+          ]
+        },
+        {
+          "phase": "firstVisit",
+          "entry": "reports",
+          "navigations": 3,
+          "requests": 30,
+          "nonPollingRequests": 20,
+          "completedResponses": 29,
+          "responseBodyBytes": 23255,
+          "bundleRequests": []
+        },
+        {
+          "phase": "firstVisit",
+          "entry": "admin",
+          "navigations": 4,
+          "requests": 29,
+          "nonPollingRequests": 19,
+          "completedResponses": 28,
+          "responseBodyBytes": 17726,
+          "bundleRequests": []
+        },
+        {
+          "phase": "firstVisit",
+          "entry": "profile",
+          "navigations": 5,
+          "requests": 24,
+          "nonPollingRequests": 14,
+          "completedResponses": 23,
+          "responseBodyBytes": 15566,
+          "bundleRequests": []
+        },
+        {
+          "phase": "firstVisit",
+          "entry": "food",
+          "navigations": 6,
+          "requests": 25,
+          "nonPollingRequests": 15,
+          "completedResponses": 24,
+          "responseBodyBytes": 14155,
+          "bundleRequests": []
+        },
+        {
+          "phase": "cachedVisit",
+          "entry": "app",
+          "navigations": 7,
+          "requests": 23,
+          "nonPollingRequests": 13,
+          "completedResponses": 22,
+          "responseBodyBytes": 8575,
+          "bundleRequests": []
+        },
+        {
+          "phase": "cachedVisit",
+          "entry": "reports",
+          "navigations": 8,
+          "requests": 31,
+          "nonPollingRequests": 21,
+          "completedResponses": 30,
+          "responseBodyBytes": 10416,
+          "bundleRequests": []
+        },
+        {
+          "phase": "cachedVisit",
+          "entry": "admin",
+          "navigations": 9,
+          "requests": 29,
+          "nonPollingRequests": 19,
+          "completedResponses": 28,
+          "responseBodyBytes": 8575,
+          "bundleRequests": []
+        },
+        {
+          "phase": "cachedVisit",
+          "entry": "profile",
+          "navigations": 10,
+          "requests": 24,
+          "nonPollingRequests": 14,
+          "completedResponses": 23,
+          "responseBodyBytes": 8575,
+          "bundleRequests": []
+        },
+        {
+          "phase": "cachedVisit",
+          "entry": "food",
+          "navigations": 11,
+          "requests": 25,
+          "nonPollingRequests": 15,
+          "completedResponses": 24,
+          "responseBodyBytes": 8575,
+          "bundleRequests": []
+        }
+      ],
+      "totalRequests": 324,
+      "nonPollingRequests": 214,
+      "unfinishedBodyBytes": 1,
+      "totalResponseBodyBytes": 1476134
+    },
+    {
+      "run": 4,
+      "label": "candidate",
+      "browser": "153.0.8010.12",
+      "steps": [
+        {
+          "phase": "initial",
+          "entry": "app",
+          "navigations": 1,
+          "requests": 59,
+          "nonPollingRequests": 49,
+          "completedResponses": 58,
+          "responseBodyBytes": 1222895,
+          "bundleRequests": [
+            {
+              "path": "/bundle/js/bundle.app.js",
+              "method": "GET",
+              "bodyBytes": 329785,
+              "completed": true,
+              "status": 200,
+              "encoding": "br"
+            },
+            {
+              "path": "/bundle/js/bundle.app.js",
+              "method": "GET",
+              "bodyBytes": 329785,
+              "completed": true,
+              "status": 200,
+              "encoding": "br"
+            },
+            {
+              "path": "/bundle/js/bundle.clock.js",
+              "method": "GET",
+              "bodyBytes": 63004,
+              "completed": true,
+              "status": 200,
+              "encoding": "br"
+            }
+          ]
+        },
+        {
+          "phase": "firstVisit",
+          "entry": "reports",
+          "navigations": 2,
+          "requests": 28,
+          "nonPollingRequests": 17,
+          "completedResponses": 27,
+          "responseBodyBytes": 76595,
+          "bundleRequests": [
+            {
+              "path": "/bundle/js/bundle.reports.js",
+              "method": "GET",
+              "bodyBytes": 52637,
+              "completed": true,
+              "status": 200,
+              "encoding": "br"
+            }
+          ]
+        },
+        {
+          "phase": "firstVisit",
+          "entry": "admin",
+          "navigations": 3,
+          "requests": 28,
+          "nonPollingRequests": 17,
+          "completedResponses": 27,
+          "responseBodyBytes": 26586,
+          "bundleRequests": [
+            {
+              "path": "/bundle/js/bundle.admin.js",
+              "method": "GET",
+              "bodyBytes": 7953,
+              "completed": true,
+              "status": 200,
+              "encoding": "br"
+            }
+          ]
+        },
+        {
+          "phase": "firstVisit",
+          "entry": "profile",
+          "navigations": 4,
+          "requests": 24,
+          "nonPollingRequests": 13,
+          "completedResponses": 23,
+          "responseBodyBytes": 22881,
+          "bundleRequests": [
+            {
+              "path": "/bundle/js/bundle.profile.js",
+              "method": "GET",
+              "bodyBytes": 6619,
+              "completed": true,
+              "status": 200,
+              "encoding": "br"
+            }
+          ]
+        },
+        {
+          "phase": "firstVisit",
+          "entry": "food",
+          "navigations": 5,
+          "requests": 24,
+          "nonPollingRequests": 13,
+          "completedResponses": 23,
+          "responseBodyBytes": 20200,
+          "bundleRequests": [
+            {
+              "path": "/bundle/js/bundle.food.js",
+              "method": "GET",
+              "bodyBytes": 5347,
+              "completed": true,
+              "status": 200,
+              "encoding": "br"
+            }
+          ]
+        },
+        {
+          "phase": "cachedVisit",
+          "entry": "app",
+          "navigations": 6,
+          "requests": 22,
+          "nonPollingRequests": 11,
+          "completedResponses": 21,
+          "responseBodyBytes": 8577,
+          "bundleRequests": []
+        },
+        {
+          "phase": "cachedVisit",
+          "entry": "reports",
+          "navigations": 7,
+          "requests": 27,
+          "nonPollingRequests": 16,
+          "completedResponses": 26,
+          "responseBodyBytes": 8577,
+          "bundleRequests": []
+        },
+        {
+          "phase": "cachedVisit",
+          "entry": "admin",
+          "navigations": 8,
+          "requests": 27,
+          "nonPollingRequests": 16,
+          "completedResponses": 26,
+          "responseBodyBytes": 8577,
+          "bundleRequests": []
+        },
+        {
+          "phase": "cachedVisit",
+          "entry": "profile",
+          "navigations": 9,
+          "requests": 23,
+          "nonPollingRequests": 12,
+          "completedResponses": 22,
+          "responseBodyBytes": 8577,
+          "bundleRequests": []
+        },
+        {
+          "phase": "cachedVisit",
+          "entry": "food",
+          "navigations": 10,
+          "requests": 23,
+          "nonPollingRequests": 12,
+          "completedResponses": 22,
+          "responseBodyBytes": 8577,
+          "bundleRequests": []
+        }
+      ],
+      "totalRequests": 285,
+      "nonPollingRequests": 176,
+      "unfinishedBodyBytes": 0,
+      "totalResponseBodyBytes": 1412051
+    },
+    {
+      "run": 5,
+      "label": "candidate",
+      "browser": "153.0.8010.12",
+      "steps": [
+        {
+          "phase": "initial",
+          "entry": "app",
+          "navigations": 1,
+          "requests": 59,
+          "nonPollingRequests": 49,
+          "completedResponses": 58,
+          "responseBodyBytes": 1222895,
+          "bundleRequests": [
+            {
+              "path": "/bundle/js/bundle.app.js",
+              "method": "GET",
+              "bodyBytes": 329785,
+              "completed": true,
+              "status": 200,
+              "encoding": "br"
+            },
+            {
+              "path": "/bundle/js/bundle.app.js",
+              "method": "GET",
+              "bodyBytes": 329785,
+              "completed": true,
+              "status": 200,
+              "encoding": "br"
+            },
+            {
+              "path": "/bundle/js/bundle.clock.js",
+              "method": "GET",
+              "bodyBytes": 63004,
+              "completed": true,
+              "status": 200,
+              "encoding": "br"
+            }
+          ]
+        },
+        {
+          "phase": "firstVisit",
+          "entry": "reports",
+          "navigations": 2,
+          "requests": 28,
+          "nonPollingRequests": 17,
+          "completedResponses": 27,
+          "responseBodyBytes": 76595,
+          "bundleRequests": [
+            {
+              "path": "/bundle/js/bundle.reports.js",
+              "method": "GET",
+              "bodyBytes": 52637,
+              "completed": true,
+              "status": 200,
+              "encoding": "br"
+            }
+          ]
+        },
+        {
+          "phase": "firstVisit",
+          "entry": "admin",
+          "navigations": 3,
+          "requests": 28,
+          "nonPollingRequests": 17,
+          "completedResponses": 27,
+          "responseBodyBytes": 26586,
+          "bundleRequests": [
+            {
+              "path": "/bundle/js/bundle.admin.js",
+              "method": "GET",
+              "bodyBytes": 7953,
+              "completed": true,
+              "status": 200,
+              "encoding": "br"
+            }
+          ]
+        },
+        {
+          "phase": "firstVisit",
+          "entry": "profile",
+          "navigations": 4,
+          "requests": 24,
+          "nonPollingRequests": 13,
+          "completedResponses": 23,
+          "responseBodyBytes": 22881,
+          "bundleRequests": [
+            {
+              "path": "/bundle/js/bundle.profile.js",
+              "method": "GET",
+              "bodyBytes": 6619,
+              "completed": true,
+              "status": 200,
+              "encoding": "br"
+            }
+          ]
+        },
+        {
+          "phase": "firstVisit",
+          "entry": "food",
+          "navigations": 5,
+          "requests": 24,
+          "nonPollingRequests": 13,
+          "completedResponses": 23,
+          "responseBodyBytes": 20200,
+          "bundleRequests": [
+            {
+              "path": "/bundle/js/bundle.food.js",
+              "method": "GET",
+              "bodyBytes": 5347,
+              "completed": true,
+              "status": 200,
+              "encoding": "br"
+            }
+          ]
+        },
+        {
+          "phase": "cachedVisit",
+          "entry": "app",
+          "navigations": 6,
+          "requests": 22,
+          "nonPollingRequests": 11,
+          "completedResponses": 21,
+          "responseBodyBytes": 8577,
+          "bundleRequests": []
+        },
+        {
+          "phase": "cachedVisit",
+          "entry": "reports",
+          "navigations": 7,
+          "requests": 27,
+          "nonPollingRequests": 16,
+          "completedResponses": 26,
+          "responseBodyBytes": 8577,
+          "bundleRequests": []
+        },
+        {
+          "phase": "cachedVisit",
+          "entry": "admin",
+          "navigations": 8,
+          "requests": 27,
+          "nonPollingRequests": 16,
+          "completedResponses": 26,
+          "responseBodyBytes": 8577,
+          "bundleRequests": []
+        },
+        {
+          "phase": "cachedVisit",
+          "entry": "profile",
+          "navigations": 9,
+          "requests": 23,
+          "nonPollingRequests": 12,
+          "completedResponses": 22,
+          "responseBodyBytes": 8577,
+          "bundleRequests": []
+        },
+        {
+          "phase": "cachedVisit",
+          "entry": "food",
+          "navigations": 10,
+          "requests": 23,
+          "nonPollingRequests": 12,
+          "completedResponses": 22,
+          "responseBodyBytes": 8577,
+          "bundleRequests": []
+        }
+      ],
+      "totalRequests": 285,
+      "nonPollingRequests": 176,
+      "unfinishedBodyBytes": 0,
+      "totalResponseBodyBytes": 1412051
+    },
+    {
+      "run": 5,
+      "label": "parent",
+      "browser": "153.0.8010.12",
+      "steps": [
+        {
+          "phase": "initial",
+          "entry": "app",
+          "navigations": 2,
+          "requests": 84,
+          "nonPollingRequests": 64,
+          "completedResponses": 82,
+          "responseBodyBytes": 1360711,
+          "bundleRequests": [
+            {
+              "path": "/bundle/js/bundle.app.js",
+              "method": "GET",
+              "bodyBytes": 393823,
+              "completed": true,
+              "status": 200,
+              "encoding": "br"
+            },
+            {
+              "path": "/bundle/js/bundle.app.js",
+              "method": "GET",
+              "bodyBytes": 393823,
+              "completed": true,
+              "status": 200,
+              "encoding": "br"
+            },
+            {
+              "path": "/bundle/js/bundle.clock.js",
+              "method": "GET",
+              "bodyBytes": 63004,
+              "completed": true,
+              "status": 200,
+              "encoding": "br"
+            }
+          ]
+        },
+        {
+          "phase": "firstVisit",
+          "entry": "reports",
+          "navigations": 3,
+          "requests": 30,
+          "nonPollingRequests": 20,
+          "completedResponses": 29,
+          "responseBodyBytes": 23255,
+          "bundleRequests": []
+        },
+        {
+          "phase": "firstVisit",
+          "entry": "admin",
+          "navigations": 4,
+          "requests": 29,
+          "nonPollingRequests": 19,
+          "completedResponses": 28,
+          "responseBodyBytes": 17726,
+          "bundleRequests": []
+        },
+        {
+          "phase": "firstVisit",
+          "entry": "profile",
+          "navigations": 5,
+          "requests": 24,
+          "nonPollingRequests": 14,
+          "completedResponses": 23,
+          "responseBodyBytes": 15566,
+          "bundleRequests": []
+        },
+        {
+          "phase": "firstVisit",
+          "entry": "food",
+          "navigations": 6,
+          "requests": 25,
+          "nonPollingRequests": 15,
+          "completedResponses": 24,
+          "responseBodyBytes": 14155,
+          "bundleRequests": []
+        },
+        {
+          "phase": "cachedVisit",
+          "entry": "app",
+          "navigations": 7,
+          "requests": 23,
+          "nonPollingRequests": 13,
+          "completedResponses": 22,
+          "responseBodyBytes": 8575,
+          "bundleRequests": []
+        },
+        {
+          "phase": "cachedVisit",
+          "entry": "reports",
+          "navigations": 8,
+          "requests": 31,
+          "nonPollingRequests": 21,
+          "completedResponses": 30,
+          "responseBodyBytes": 10416,
+          "bundleRequests": []
+        },
+        {
+          "phase": "cachedVisit",
+          "entry": "admin",
+          "navigations": 9,
+          "requests": 29,
+          "nonPollingRequests": 19,
+          "completedResponses": 28,
+          "responseBodyBytes": 8575,
+          "bundleRequests": []
+        },
+        {
+          "phase": "cachedVisit",
+          "entry": "profile",
+          "navigations": 10,
+          "requests": 24,
+          "nonPollingRequests": 14,
+          "completedResponses": 23,
+          "responseBodyBytes": 8575,
+          "bundleRequests": []
+        },
+        {
+          "phase": "cachedVisit",
+          "entry": "food",
+          "navigations": 11,
+          "requests": 25,
+          "nonPollingRequests": 15,
+          "completedResponses": 24,
+          "responseBodyBytes": 8575,
+          "bundleRequests": []
+        }
+      ],
+      "totalRequests": 324,
+      "nonPollingRequests": 214,
+      "unfinishedBodyBytes": 1,
+      "totalResponseBodyBytes": 1476134
+    },
+    {
+      "run": 6,
+      "label": "parent",
+      "browser": "153.0.8010.12",
+      "steps": [
+        {
+          "phase": "initial",
+          "entry": "app",
+          "navigations": 2,
+          "requests": 84,
+          "nonPollingRequests": 64,
+          "completedResponses": 82,
+          "responseBodyBytes": 1360711,
+          "bundleRequests": [
+            {
+              "path": "/bundle/js/bundle.app.js",
+              "method": "GET",
+              "bodyBytes": 393823,
+              "completed": true,
+              "status": 200,
+              "encoding": "br"
+            },
+            {
+              "path": "/bundle/js/bundle.app.js",
+              "method": "GET",
+              "bodyBytes": 393823,
+              "completed": true,
+              "status": 200,
+              "encoding": "br"
+            },
+            {
+              "path": "/bundle/js/bundle.clock.js",
+              "method": "GET",
+              "bodyBytes": 63004,
+              "completed": true,
+              "status": 200,
+              "encoding": "br"
+            }
+          ]
+        },
+        {
+          "phase": "firstVisit",
+          "entry": "reports",
+          "navigations": 3,
+          "requests": 30,
+          "nonPollingRequests": 20,
+          "completedResponses": 29,
+          "responseBodyBytes": 23255,
+          "bundleRequests": []
+        },
+        {
+          "phase": "firstVisit",
+          "entry": "admin",
+          "navigations": 4,
+          "requests": 29,
+          "nonPollingRequests": 19,
+          "completedResponses": 28,
+          "responseBodyBytes": 17726,
+          "bundleRequests": []
+        },
+        {
+          "phase": "firstVisit",
+          "entry": "profile",
+          "navigations": 5,
+          "requests": 24,
+          "nonPollingRequests": 14,
+          "completedResponses": 23,
+          "responseBodyBytes": 15566,
+          "bundleRequests": []
+        },
+        {
+          "phase": "firstVisit",
+          "entry": "food",
+          "navigations": 6,
+          "requests": 25,
+          "nonPollingRequests": 15,
+          "completedResponses": 24,
+          "responseBodyBytes": 14155,
+          "bundleRequests": []
+        },
+        {
+          "phase": "cachedVisit",
+          "entry": "app",
+          "navigations": 7,
+          "requests": 23,
+          "nonPollingRequests": 13,
+          "completedResponses": 22,
+          "responseBodyBytes": 8575,
+          "bundleRequests": []
+        },
+        {
+          "phase": "cachedVisit",
+          "entry": "reports",
+          "navigations": 8,
+          "requests": 31,
+          "nonPollingRequests": 21,
+          "completedResponses": 30,
+          "responseBodyBytes": 10416,
+          "bundleRequests": []
+        },
+        {
+          "phase": "cachedVisit",
+          "entry": "admin",
+          "navigations": 9,
+          "requests": 29,
+          "nonPollingRequests": 19,
+          "completedResponses": 28,
+          "responseBodyBytes": 8575,
+          "bundleRequests": []
+        },
+        {
+          "phase": "cachedVisit",
+          "entry": "profile",
+          "navigations": 10,
+          "requests": 24,
+          "nonPollingRequests": 14,
+          "completedResponses": 23,
+          "responseBodyBytes": 8575,
+          "bundleRequests": []
+        },
+        {
+          "phase": "cachedVisit",
+          "entry": "food",
+          "navigations": 11,
+          "requests": 25,
+          "nonPollingRequests": 15,
+          "completedResponses": 24,
+          "responseBodyBytes": 8575,
+          "bundleRequests": []
+        }
+      ],
+      "totalRequests": 324,
+      "nonPollingRequests": 214,
+      "unfinishedBodyBytes": 1,
+      "totalResponseBodyBytes": 1476134
+    },
+    {
+      "run": 6,
+      "label": "candidate",
+      "browser": "153.0.8010.12",
+      "steps": [
+        {
+          "phase": "initial",
+          "entry": "app",
+          "navigations": 1,
+          "requests": 59,
+          "nonPollingRequests": 49,
+          "completedResponses": 58,
+          "responseBodyBytes": 1222895,
+          "bundleRequests": [
+            {
+              "path": "/bundle/js/bundle.app.js",
+              "method": "GET",
+              "bodyBytes": 329785,
+              "completed": true,
+              "status": 200,
+              "encoding": "br"
+            },
+            {
+              "path": "/bundle/js/bundle.app.js",
+              "method": "GET",
+              "bodyBytes": 329785,
+              "completed": true,
+              "status": 200,
+              "encoding": "br"
+            },
+            {
+              "path": "/bundle/js/bundle.clock.js",
+              "method": "GET",
+              "bodyBytes": 63004,
+              "completed": true,
+              "status": 200,
+              "encoding": "br"
+            }
+          ]
+        },
+        {
+          "phase": "firstVisit",
+          "entry": "reports",
+          "navigations": 2,
+          "requests": 28,
+          "nonPollingRequests": 17,
+          "completedResponses": 27,
+          "responseBodyBytes": 76595,
+          "bundleRequests": [
+            {
+              "path": "/bundle/js/bundle.reports.js",
+              "method": "GET",
+              "bodyBytes": 52637,
+              "completed": true,
+              "status": 200,
+              "encoding": "br"
+            }
+          ]
+        },
+        {
+          "phase": "firstVisit",
+          "entry": "admin",
+          "navigations": 3,
+          "requests": 28,
+          "nonPollingRequests": 17,
+          "completedResponses": 27,
+          "responseBodyBytes": 26586,
+          "bundleRequests": [
+            {
+              "path": "/bundle/js/bundle.admin.js",
+              "method": "GET",
+              "bodyBytes": 7953,
+              "completed": true,
+              "status": 200,
+              "encoding": "br"
+            }
+          ]
+        },
+        {
+          "phase": "firstVisit",
+          "entry": "profile",
+          "navigations": 4,
+          "requests": 24,
+          "nonPollingRequests": 13,
+          "completedResponses": 23,
+          "responseBodyBytes": 22881,
+          "bundleRequests": [
+            {
+              "path": "/bundle/js/bundle.profile.js",
+              "method": "GET",
+              "bodyBytes": 6619,
+              "completed": true,
+              "status": 200,
+              "encoding": "br"
+            }
+          ]
+        },
+        {
+          "phase": "firstVisit",
+          "entry": "food",
+          "navigations": 5,
+          "requests": 24,
+          "nonPollingRequests": 13,
+          "completedResponses": 23,
+          "responseBodyBytes": 20200,
+          "bundleRequests": [
+            {
+              "path": "/bundle/js/bundle.food.js",
+              "method": "GET",
+              "bodyBytes": 5347,
+              "completed": true,
+              "status": 200,
+              "encoding": "br"
+            }
+          ]
+        },
+        {
+          "phase": "cachedVisit",
+          "entry": "app",
+          "navigations": 6,
+          "requests": 22,
+          "nonPollingRequests": 11,
+          "completedResponses": 21,
+          "responseBodyBytes": 8577,
+          "bundleRequests": []
+        },
+        {
+          "phase": "cachedVisit",
+          "entry": "reports",
+          "navigations": 7,
+          "requests": 27,
+          "nonPollingRequests": 16,
+          "completedResponses": 26,
+          "responseBodyBytes": 8577,
+          "bundleRequests": []
+        },
+        {
+          "phase": "cachedVisit",
+          "entry": "admin",
+          "navigations": 8,
+          "requests": 27,
+          "nonPollingRequests": 16,
+          "completedResponses": 26,
+          "responseBodyBytes": 8577,
+          "bundleRequests": []
+        },
+        {
+          "phase": "cachedVisit",
+          "entry": "profile",
+          "navigations": 9,
+          "requests": 23,
+          "nonPollingRequests": 12,
+          "completedResponses": 22,
+          "responseBodyBytes": 8577,
+          "bundleRequests": []
+        },
+        {
+          "phase": "cachedVisit",
+          "entry": "food",
+          "navigations": 10,
+          "requests": 23,
+          "nonPollingRequests": 12,
+          "completedResponses": 22,
+          "responseBodyBytes": 8577,
+          "bundleRequests": []
+        }
+      ],
+      "totalRequests": 285,
+      "nonPollingRequests": 176,
+      "unfinishedBodyBytes": 0,
+      "totalResponseBodyBytes": 1412051
+    }
+  ]
+}

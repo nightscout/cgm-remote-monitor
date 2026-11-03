@@ -108,7 +108,7 @@ describe('API3 READ', function () {
     result.should.have.property('subject');
     self.validDoc.subject = result.subject; // let's store subject for later tests
 
-    self.cache.nextShouldEql(self.col, self.validDoc)
+    await self.cache.nextShouldEql(self.col, self.validDoc)
   });
 
 
@@ -138,8 +138,15 @@ describe('API3 READ', function () {
 
 
   it('should not send unmodified document since', async () => {
+    // srvModified comes from a monotonic server clock that a large batch in an
+    // earlier file (api3.v1-writes-history) can push seconds ahead of
+    // Date.now(), so a header based on now alone can fall before it. Use
+    // whichever is later, rounded up past the header's whole second.
+    const stored = await self.instance.get(`${self.url}/${self.validDoc.identifier}`, self.jwt.read)
+      .expect(200);
+    const since = Math.max(Date.now(), stored.body.result.srvModified);
     let res = await self.instance.get(`${self.url}/${self.validDoc.identifier}`, self.jwt.read)
-      .set('If-Modified-Since', new Date(new Date().getTime() + 1000).toUTCString())
+      .set('If-Modified-Since', new Date(Math.ceil(since / 1000) * 1000 + 1000).toUTCString())
       .expect(304);
 
     res.body.should.be.empty();
@@ -161,7 +168,7 @@ describe('API3 READ', function () {
       .expect(200);
 
     res.body.status.should.equal(200);
-    self.cache.nextShouldDeleteLast(self.col);
+    await self.cache.nextShouldDeleteLast(self.col);
 
     res = await self.instance.get(`${self.url}/${self.validDoc.identifier}`, self.jwt.read)
       .expect(410);
@@ -176,7 +183,7 @@ describe('API3 READ', function () {
       .expect(200);
 
     res.body.status.should.equal(200);
-    self.cache.nextShouldDeleteLast(self.col);
+    await self.cache.nextShouldDeleteLast(self.col);
 
     res = await self.instance.get(`${self.url}/${self.validDoc.identifier}`, self.jwt.read)
       .expect(404);
@@ -194,19 +201,15 @@ describe('API3 READ', function () {
     delete doc.identifier;
 
     await new Promise((resolve, reject) => {
-      self.instance.ctx.devicestatus.create([doc], (err) => { // let's insert the document in APIv1's way
+      self.instance.v1.devicestatus.create([doc], (err) => { // let's insert the document in APIv1's way
         if (err) {
           return reject(err);
         }
-        try {
-          doc._id = doc._id.toString();
-          self.cache.nextShouldEql(self.col, doc);
-          resolve(doc);
-        } catch (e) {
-          reject(e);
-        }
+        resolve(doc);
       });
     });
+    doc._id = doc._id.toString();
+    await self.cache.nextShouldEql(self.col, doc);
 
     const identifier = doc._id.toString();
     delete doc._id;
@@ -221,7 +224,7 @@ describe('API3 READ', function () {
       .expect(200);
 
     res.body.status.should.equal(200);
-    self.cache.nextShouldDeleteLast(self.col);
+    await self.cache.nextShouldDeleteLast(self.col);
   });
 })
 ;

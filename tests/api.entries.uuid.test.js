@@ -33,6 +33,7 @@ describe('Entry sysTime+type dedup (Baseline)', function() {
     self.env.settings.authDefaultRoles = 'readable';
     self.wares = require('../lib/middleware/')(self.env);
     self.app = require('express')();
+    require('../lib/middleware/configure-request')(self.app);
     self.app.enable('api');
     bootevent(self.env, language).boot(function booted(ctx) {
       self.app.use('/', entries(self.app, self.wares, ctx, self.env));
@@ -239,6 +240,7 @@ describe('Entry UUID _id handling (GAP-SYNC-045)', function() {
     self.env.settings.authDefaultRoles = 'readable';
     self.wares = require('../lib/middleware/')(self.env);
     self.app = require('express')();
+    require('../lib/middleware/configure-request')(self.app);
     self.app.enable('api');
     bootevent(self.env, language).boot(function booted(ctx) {
       self.app.use('/', entries(self.app, self.wares, ctx, self.env));

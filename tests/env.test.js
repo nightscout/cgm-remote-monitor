@@ -46,6 +46,24 @@ describe('env', function () {
     }
   });
 
+  it('keeps experimental API v3 warnings disabled by default and permits explicit opt-in', function () {
+    const keys = ['API_V3_DATA_WARNINGS', 'CUSTOMCONNSTR_API_V3_DATA_WARNINGS'];
+    const saved = keys.map(key => process.env[key]);
+    try {
+      keys.forEach(key => { delete process.env[key]; });
+      require('../lib/server/env')().apiV3DataWarnings.should.equal(false);
+      process.env.API_V3_DATA_WARNINGS = 'true';
+      require('../lib/server/env')().apiV3DataWarnings.should.equal(true);
+      process.env.API_V3_DATA_WARNINGS = 'false';
+      require('../lib/server/env')().apiV3DataWarnings.should.equal(false);
+    } finally {
+      keys.forEach((key, i) => {
+        if (saved[i] === undefined) delete process.env[key];
+        else process.env[key] = saved[i];
+      });
+    }
+  });
+
   it('should not set the API key without API_SECRET or API_SECRET_FILE', function () {
     delete process.env.API_SECRET;
     delete process.env.API_SECRET_FILE;
@@ -266,6 +284,52 @@ describe('env', function () {
         process.env.ALLOW_UNRESTRICTED_FRAME_EMBEDDING = originalValue;
       }
     }
+  });
+
+  describe('SECURE_HSTS_HEADER_INCLUDESUBDOMAINS spelling (BF-49)', function () {
+    var KEYS = ['SECURE_HSTS_HEADER_INCLUDESUBDOMAINS', 'SECURE_HSTS_HEADER_INCLUDE_SUBDOMAINS'
+      , 'secure_hsts_header_include_subdomains', 'CUSTOMCONNSTR_SECURE_HSTS_HEADER_INCLUDE_SUBDOMAINS'];
+    var saved, warnings, originalWarn;
+
+    beforeEach(function () {
+      saved = {};
+      KEYS.forEach(function (key) { saved[key] = process.env[key]; delete process.env[key]; });
+      warnings = [];
+      originalWarn = console.warn;
+      console.warn = function (message) { warnings.push(String(message)); };
+    });
+
+    afterEach(function () {
+      console.warn = originalWarn;
+      KEYS.forEach(function (key) {
+        if (saved[key] === undefined) delete process.env[key];
+        else process.env[key] = saved[key];
+      });
+    });
+
+    function hstsWarnings () {
+      return warnings.filter(function (w) { return w.indexOf('SECURE_HSTS_HEADER_INCLUDE_SUBDOMAINS') > -1; });
+    }
+
+    it('says nothing when the underscored name is not set', function () {
+      process.env.SECURE_HSTS_HEADER_INCLUDESUBDOMAINS = 'true';
+      require('../lib/server/env')().secureHstsHeaderIncludeSubdomains.should.equal(true);
+      hstsWarnings().should.eql([]);
+    });
+
+    it('warns that the underscored name has no effect, and still does not use it', function () {
+      ['SECURE_HSTS_HEADER_INCLUDE_SUBDOMAINS', 'secure_hsts_header_include_subdomains'
+        , 'CUSTOMCONNSTR_SECURE_HSTS_HEADER_INCLUDE_SUBDOMAINS'].forEach(function (key) {
+        warnings = [];
+        process.env[key] = 'true';
+        var env = require('../lib/server/env')();
+        env.secureHstsHeaderIncludeSubdomains.should.equal(false);
+        hstsWarnings().length.should.equal(1, key);
+        hstsWarnings()[0].should.match(/has no effect/);
+        hstsWarnings()[0].should.match(/SECURE_HSTS_HEADER_INCLUDESUBDOMAINS=false/);
+        delete process.env[key];
+      });
+    });
   });
 
   describe('HOSTNAME', function () {

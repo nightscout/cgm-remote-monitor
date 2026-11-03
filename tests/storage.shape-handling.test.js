@@ -23,11 +23,17 @@ describe('Storage Layer Shape Handling - Direct Storage Tests', function () {
 
   describe('Treatments Storage - lib/server/treatments.js', function () {
     
-    beforeEach(function (done) {
+    function removeTreatments (done) {
       self.ctx.treatments.remove({ find: { created_at: { '$gte': '1999-01-01T00:00:00.000Z' } } }, function () {
         done();
       });
-    });
+    }
+
+    beforeEach(removeTreatments);
+
+    // The last test's records would otherwise reach later files that count
+    // treatments (API3 SEARCH).
+    after(removeTreatments);
 
     it('create() accepts single object', function (done) {
       var now = new Date().toISOString();
@@ -119,11 +125,17 @@ describe('Storage Layer Shape Handling - Direct Storage Tests', function () {
 
   describe('Devicestatus Storage - lib/server/devicestatus.js', function () {
     
-    beforeEach(function (done) {
+    function removeStatuses (done) {
       self.ctx.devicestatus.remove({ find: { created_at: { '$gte': '1999-01-01T00:00:00.000Z' } } }, function () {
         done();
       });
-    });
+    }
+
+    beforeEach(removeStatuses);
+
+    // The last test's records would otherwise reach later files that count
+    // devicestatus records (API3 SEARCH).
+    after(removeStatuses);
 
     it('create() accepts single object', function (done) {
       var now = new Date().toISOString();

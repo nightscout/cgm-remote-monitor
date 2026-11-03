@@ -44,26 +44,24 @@ function refused (error) {
 
 describe('API v1 count endpoint pipeline parameter', function ( ) {
 
-  function stubCollection (sink) {
-    const api = function ( ) {
-      return {aggregate: function (pipeline) {
-        sink.push(pipeline);
-        return {toArray: async function ( ) { return [{_id: null, count: 0}]; }};
-      }};
-    };
-    // aggregate.js builds its $match through lib/server/query.js either
-    // directly or, once bf/reads (PR #8738, BF-01) lands, through the
-    // collection's own query_for. Both reach the same guards; the stub carries
-    // query_for so this file does not have to care which branch it is on.
+  // aggregate.js builds its filter through the collection's own query_for,
+  // which reaches lib/server/query.js and its guards, and counts through the
+  // storage interface. The stub interface records each count() it is asked
+  // for and answers `n`.
+  function stubAggregate (sink, n) {
+    const api = function ( ) { };
     api.query_for = function (opts) {
       return buildQuery(opts, {dateField: 'date', useEpoch: true, walker: { }});
     };
-    return api;
+    const store = function ( ) {
+      return {count: async function (ast, opts) { sink.push({ast, opts}); return n || 0; }};
+    };
+    return createAggregate(api, store);
   }
 
   it('refuses a caller-supplied pipeline instead of splicing it in', async function ( ) {
     const sent = [ ];
-    const aggregate = createAggregate({ }, stubCollection(sent));
+    const aggregate = stubAggregate(sent);
     const opts = qs.parse('find[date][$gte]=0'
       + '&pipeline[0][$lookup][from]=auth_subjects'
       + '&pipeline[0][$lookup][localField]=nope'
@@ -77,7 +75,7 @@ describe('API v1 count endpoint pipeline parameter', function ( ) {
 
   it('refuses an empty pipeline too, rather than only a populated one', async function ( ) {
     const sent = [ ];
-    const aggregate = createAggregate({ }, stubCollection(sent));
+    const aggregate = stubAggregate(sent);
     await assert.rejects(new Promise(function (resolve, reject) {
       aggregate(qs.parse('find[date][$gte]=0&pipeline[0]='), function (err, r) {
         return err ? reject(err) : resolve(r);
@@ -87,49 +85,33 @@ describe('API v1 count endpoint pipeline parameter', function ( ) {
   });
 
   it('still counts normally when no pipeline is named', async function ( ) {
-    const sent = [ ];
-    const aggregate = createAggregate({ }, stubCollection(sent));
-    const rows = await new Promise(function (resolve, reject) {
-      aggregate(qs.parse('find[date][$gte]=0'), function (err, r) {
-        return err ? reject(err) : resolve(r);
+    for (const [n, expected] of [[3, [{_id: null, count: 3}]], [0, [ ]]]) {
+      const sent = [ ];
+      const aggregate = stubAggregate(sent, n);
+      const rows = await new Promise(function (resolve, reject) {
+        aggregate(qs.parse('find[date][$gte]=0'), function (err, r) {
+          return err ? reject(err) : resolve(r);
+        });
       });
-    });
-    assert.deepEqual(rows, [{_id: null, count: 0}]);
-    assert.equal(sent.length, 1);
-    // $match, then the count template. Nothing between them any more.
-    assert.equal(sent[0].length, 2);
-    assert.deepEqual(Object.keys(sent[0][0]), ['$match']);
-    assert.deepEqual(Object.keys(sent[0][1]), ['$group']);
+      assert.deepEqual(rows, expected);
+      // One count over the caller's filter, in the API v1 dialect.
+      assert.equal(sent.length, 1);
+      assert.equal(sent[0].ast.field, 'date');
+      assert.equal(sent[0].ast.op, 'gte');
+      assert.equal(sent[0].opts.v1, true);
+    }
   });
 
-  it('keeps the server-side conf.pipeline hook working', async function ( ) {
-    const sent = [ ];
-    const aggregate = createAggregate({pipeline: [{$match: {type: 'sgv'}}]}, stubCollection(sent));
-    await new Promise(function (resolve, reject) {
-      aggregate(qs.parse('find[date][$gte]=0'), function (err, r) {
-        return err ? reject(err) : resolve(r);
-      });
-    });
-    assert.equal(sent[0].length, 3);
-    assert.deepEqual(sent[0][1], {$match: {type: 'sgv'}});
-  });
-
-  it('refuses JavaScript reaching the pipeline from the conf side', async function ( ) {
-    const sent = [ ];
-    const aggregate = createAggregate({pipeline: [{$match: {$where: 'owned-expression'}}]}
-      , stubCollection(sent));
-    await assert.rejects(new Promise(function (resolve, reject) {
-      aggregate(qs.parse('find[date][$gte]=0'), function (err, r) {
-        return err ? reject(err) : resolve(r);
-      });
-    }), refused);
-    assert.equal(sent.length, 0);
+  it('cannot be built without a storage interface', function ( ) {
+    const api = Object.assign(function ( ) { }, {query_for: ( ) => ({ })});
+    assert.throws(( ) => createAggregate(api), TypeError);
   });
 
   it('answers 400 on the wire, and storage is never asked', async function ( ) {
     const env = {settings: { }, name: 'test', version: '0', DISPLAY_UNITS: 'mg/dl'};
     const sent = [ ];
     const app = express();
+    require('../lib/middleware/configure-request')(app);
     const wares = require('../lib/middleware/')(env);
     const ctx = {
       authorization: {isPermitted: function ( ) { return function (req, res, next) { next(); }; }}
@@ -140,7 +122,7 @@ describe('API v1 count endpoint pipeline parameter', function ( ) {
         list: function (params, cb) { return runWithCallback(function ( ) { return [ ]; }, cb); }
         , remove: function (params, cb) { return runWithCallback(function ( ) { return [ ]; }, cb); }
         , getEntry: function (id, cb) { cb(null, null); }
-        , aggregate: createAggregate({ }, stubCollection(sent))
+        , aggregate: stubAggregate(sent)
       })
     };
     app.enable('api');
@@ -163,6 +145,7 @@ describe('API v1 count endpoint pipeline parameter', function ( ) {
     const env = {settings: { }, name: 'test', version: '0', DISPLAY_UNITS: 'mg/dl'};
     const sent = [ ];
     const app = express();
+    require('../lib/middleware/configure-request')(app);
     const wares = require('../lib/middleware/')(env);
     const ctx = {
       authorization: {isPermitted: function ( ) { return function (req, res, next) { next(); }; }}
@@ -173,7 +156,7 @@ describe('API v1 count endpoint pipeline parameter', function ( ) {
         list: function (params, cb) { return runWithCallback(function ( ) { return [ ]; }, cb); }
         , remove: function (params, cb) { return runWithCallback(function ( ) { return [ ]; }, cb); }
         , getEntry: function (id, cb) { cb(null, null); }
-        , aggregate: createAggregate({ }, stubCollection(sent))
+        , aggregate: stubAggregate(sent)
       })
     };
     app.enable('api');
@@ -181,7 +164,7 @@ describe('API v1 count endpoint pipeline parameter', function ( ) {
 
     await request(app).get('/api/v1/count/entries/where?find[date][$gte]=0').expect(200);
     assert.equal(sent.length, 1);
-    assert.equal(sent[0].length, 2);
+    assert.equal(sent[0].opts.v1, true);
   });
 
   it('is unreachable through the find filter as well', function ( ) {

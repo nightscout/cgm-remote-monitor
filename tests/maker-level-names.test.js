@@ -25,7 +25,7 @@ describe('BF-125 maker event names use untranslated level keys', function () {
       var q = req.url.indexOf('?');
       var parts = (q < 0 ? req.url : req.url.slice(0, q)).split('/');
       hits.push({ event: decodeURIComponent(parts[2]), key: parts[5], query: q < 0 ? '' : req.url.slice(q) });
-      if (stubMode === 'fail') { req.socket.destroy(); return; }
+      if (stubMode === 'fail' || stubMode === 'partial' && parts[5] === 'broken') { req.socket.destroy(); return; }
       res.end('ok');
     });
     stub.listen(0, '127.0.0.1', function () {
@@ -59,13 +59,13 @@ describe('BF-125 maker event names use untranslated level keys', function () {
   });
 
   // wire language, levels, maker and pushnotify the way lib/server/bootevent.js does
-  function build (lang) {
+  function build (lang, keys) {
     var language = require('../lib/language')();
     language.set(lang);
     language.loadLocalization(fs);
     levels.translate = language.translate;
     var env = require('../lib/server/env')();
-    env.extendedSettings = { maker: { key: 'test-key' } };
+    env.extendedSettings = { maker: { key: keys || 'test-key' } };
     var ctx = { levels: levels, language: language };
     ctx.notifications = require('../lib/notifications')(env, ctx);
     ctx.maker = require('../lib/plugins/maker')(env);
@@ -165,12 +165,23 @@ describe('BF-125 maker event names use untranslated level keys', function () {
     });
   });
 
+  it('delivers every alarm event to a healthy recipient when another connection fails', function (done) {
+    var ctx = build('en', 'broken healthy');
+    stubMode = 'partial';
+    emitAndCollect(ctx, alarm(levels.WARN, 'low'), function (sent) {
+      for (const key of ['broken', 'healthy']) {
+        sent.filter(h => h.key === key).map(h => h.event).should.eql(['ns-event', 'ns-warning', 'ns-warning-low']);
+      }
+      done();
+    });
+  });
+
   it('a failing maker endpoint: the alarm is retried after 30 s, not held for 15 minutes', function (done) {
     var ctx = build('ru');
     stubMode = 'fail';
     emitAndCollect(ctx, alarm(levels.WARN, 'low'), function (first) {
-      // async.series stops at the first error: only ns-event was attempted
-      first.map(function (h) { return h.event; }).should.eql(['ns-event']);
+      // Every stage is attempted, but any failure still keeps the retry TTL.
+      first.map(function (h) { return h.event; }).should.eql(['ns-event', 'ns-warning', 'ns-warning-low']);
       offset = 10 * 1000;
       emitAndCollect(ctx, alarm(levels.WARN, 'low'), function (within) {
         within.length.should.equal(0);

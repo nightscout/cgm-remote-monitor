@@ -1,0 +1,76 @@
+[
+  {
+    "name": "empty export",
+    "data": [],
+    "csv": ""
+  },
+  {
+    "name": "single entry",
+    "data": {
+      "identifier": "owned-entry",
+      "date": 1700000000000,
+      "sgv": 123,
+      "direction": "Flat"
+    },
+    "csv": "identifier,date,sgv,direction\nowned-entry,1700000000000,123,Flat\n"
+  },
+  {
+    "name": "column order and missing values",
+    "data": [
+      {
+        "first": 1,
+        "second": 2
+      },
+      {
+        "second": 3,
+        "first": 4,
+        "later": 5
+      },
+      {
+        "first": 0
+      }
+    ],
+    "csv": "first,second\n1,2\n4,3\n0,\n"
+  },
+  {
+    "name": "quoted unicode notes and mixed newlines",
+    "data": [
+      {
+        "notes": "Café, 漢字 😀 \"quoted\"\nnext\r\nline",
+        "name": " leading and trailing "
+      }
+    ],
+    "csv": "notes,name\n\"Café, 漢字 😀 \"\"quoted\"\"\nnext\r\nline\", leading and trailing \n"
+  },
+  {
+    "name": "nested values",
+    "data": [
+      {
+        "object": {
+          "insulin": 1,
+          "notes": "a,b"
+        },
+        "array": [
+          "x",
+          "y"
+        ],
+        "empty": null,
+        "enabled": true,
+        "disabled": false
+      }
+    ],
+    "csv": "object,array,empty,enabled,disabled\n\"{\"\"insulin\"\":1,\"\"notes\"\":\"\"a,b\"\"}\",\"[\"\"x\"\",\"\"y\"\"]\",,1,\n"
+  },
+  {
+    "name": "literal formula-like values",
+    "data": [
+      {
+        "a": "=SUM(A1:A2)",
+        "b": "+1",
+        "c": "-1",
+        "d": "@name"
+      }
+    ],
+    "csv": "a,b,c,d\n=SUM(A1:A2),+1,-1,@name\n"
+  }
+]

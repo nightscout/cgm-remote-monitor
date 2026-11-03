@@ -1,0 +1,30 @@
+[
+  {
+    "package": "dayjs",
+    "before": "1.11.20",
+    "after": "1.11.23",
+    "bytesBefore": 680073,
+    "bytesAfter": 681693
+  },
+  {
+    "package": "es-module-lexer",
+    "before": "2.1.0",
+    "after": "2.3.2",
+    "bytesBefore": 100716,
+    "bytesAfter": 175452
+  },
+  {
+    "package": "extsprintf",
+    "before": "1.3.0",
+    "after": "1.4.1",
+    "bytesBefore": 22806,
+    "bytesAfter": 30346
+  },
+  {
+    "package": "serialize-javascript",
+    "before": "7.0.5",
+    "after": "7.1.1",
+    "bytesBefore": 19174,
+    "bytesAfter": 22279
+  }
+]

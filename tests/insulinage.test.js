@@ -147,4 +147,16 @@ describe('insulinage', function ( ) {
         });
     });
 
+    it('displays elapsed age correctly across the fall-back DST transition', function () {
+        var now = Date.UTC(2026, 10, 1, 16);
+        var result = iage.findLatestTimeChange({
+            time: now,
+            extendedSettings: {},
+            data: { insulinchangeTreatments: [{ mills: now - 24 * 60 * 60 * 1000 }] }
+        });
+        result.days.should.equal(1);
+        result.hours.should.equal(0);
+        result.display.should.equal('1d0h');
+    });
+
 });

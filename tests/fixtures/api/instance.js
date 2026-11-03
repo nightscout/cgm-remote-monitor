@@ -59,6 +59,7 @@ function configure () {
 
         self.wares = require('../../../lib/middleware/')(instance.env);
         instance.app = require('express')();
+        require('../../../lib/middleware/configure-request')(instance.app);
         instance.app.enable('api');
 
         require('../../../lib/server/bootevent')(instance.env, language).boot(function booted (ctx) {
@@ -73,7 +74,8 @@ function configure () {
           instance.server = transport.createServer(instance.env.ssl || { }, instance.app).listen(0);
           instance.env.PORT = instance.server.address().port;
 
-          instance.baseUrl = `${useHttps ? 'https' : 'http'}://${instance.env.HOSTNAME}:${instance.env.PORT}`;
+          const loopback = instance.server.address().family === 'IPv6' ? '[::1]' : '127.0.0.1';
+          instance.baseUrl = `${useHttps ? 'https' : 'http'}://${loopback}:${instance.env.PORT}`;
 
           console.log(`Started ${useHttps ? 'SSL' : 'HTTP'} instance on ${instance.baseUrl}`);
           hasBooted = true;

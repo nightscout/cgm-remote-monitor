@@ -3,8 +3,9 @@
 'use strict';
 
 require('should');
+const { onlyIn } = require('./fixtures/api3/role');
 
-describe('Socket.IO in REST API3', function() {
+onlyIn('single', 'subject is the API v3 storage socket (websocket)').describe('Socket.IO in REST API3', function() {
   const self = this
     , testConst = require('./fixtures/api3/const.json')
     , apiConst = require('../lib/api3/const.json')

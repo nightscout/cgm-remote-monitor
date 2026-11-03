@@ -31,7 +31,7 @@ describe('API3: writes to a record created through API v1', function () {
   // stored the way POST /api/v1/treatments stores a careportal entry
   function v1Create (doc) {
     return new Promise((resolve, reject) => {
-      self.instance.ctx.treatments.create([doc], (err, docs) => {
+      self.instance.v1.treatments.create([doc], (err, docs) => {
         if (err) return reject(err);
         resolve(docs[0]);
       });

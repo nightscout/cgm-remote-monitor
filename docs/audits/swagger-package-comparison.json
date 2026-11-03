@@ -1,0 +1,38 @@
+[
+  {
+    "root": "modernization-mocha12",
+    "packageBytes": 8677768,
+    "assets": {
+      "swagger-ui-bundle.js": {
+        "raw": 1048219,
+        "gzip9": 326885
+      },
+      "swagger-ui-standalone-preset.js": {
+        "raw": 322770,
+        "gzip9": 103075
+      },
+      "swagger-ui.css": {
+        "raw": 145206,
+        "gzip9": 22225
+      }
+    }
+  },
+  {
+    "root": "modernization-swagger",
+    "packageBytes": 11793971,
+    "assets": {
+      "swagger-ui-bundle.js": {
+        "raw": 1552209,
+        "gzip9": 419362
+      },
+      "swagger-ui-standalone-preset.js": {
+        "raw": 267624,
+        "gzip9": 80071
+      },
+      "swagger-ui.css": {
+        "raw": 185784,
+        "gzip9": 26716
+      }
+    }
+  }
+]

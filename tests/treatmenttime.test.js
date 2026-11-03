@@ -48,6 +48,17 @@ describe('treatmenttime: moving a treatment from the chart', function () {
       copy.notes.should.equal('lunch');
     });
 
+    it('drops every client identity, so the new record does not share the original\'s', function () {
+      var ids = { _id: '65a000000000000000000002', NSCLIENT_ID: 7, syncIdentifier: 'sync-1', id: 'trio-1',
+        uuid: 'xdrip-1', identifier: 'v3-1' };
+      var t = pageTreatment(ids);
+      var copy = treatmentTime.splitRecord(t, 'insulin', NEW);
+      Object.keys(ids).forEach(function (f) {
+        copy.should.not.have.property(f);
+        t[f].should.equal(ids[f]);
+      });
+    });
+
     it('drops the time-derived fields a duration record carries', function () {
       var copy = treatmentTime.splitRecord(pageTreatment({ duration: 30, endmills: OLD + 1800000,
         cuttedby: 'A', cutting: 'B' }), 'carbs', NEW);

@@ -1,0 +1,126 @@
+{
+  "scope": "Application sources under lib; maintained ESLint configuration unchanged. One intentional MongoDB retry loop is locally documented. Security warnings are retained, not suppressed.",
+  "before": {
+    "errors": 53,
+    "warnings": 47
+  },
+  "after": {
+    "files": 227,
+    "errors": 0,
+    "warnings": 16
+  },
+  "remainingWarnings": [
+    {
+      "file": "lib/api/entries/index.js",
+      "line": 595,
+      "column": 16,
+      "ruleId": "security/detect-non-literal-regexp",
+      "message": "Found non-literal argument to RegExp Constructor"
+    },
+    {
+      "file": "lib/middleware/express-extension-to-accept.js",
+      "line": 19,
+      "column": 16,
+      "ruleId": "security/detect-non-literal-regexp",
+      "message": "Found non-literal argument to RegExp Constructor"
+    },
+    {
+      "file": "lib/profilefunctions.js",
+      "line": 220,
+      "column": 30,
+      "ruleId": "security/detect-unsafe-regex",
+      "message": "Unsafe Regular Expression"
+    },
+    {
+      "file": "lib/server/app.js",
+      "line": 13,
+      "column": 7,
+      "ruleId": "security/detect-non-literal-fs-filename",
+      "message": "Found existsSync from package \"fs\" with non literal argument at index 0"
+    },
+    {
+      "file": "lib/server/app.js",
+      "line": 15,
+      "column": 7,
+      "ruleId": "security/detect-non-literal-fs-filename",
+      "message": "Found existsSync from package \"fs\" with non literal argument at index 0"
+    },
+    {
+      "file": "lib/server/app.js",
+      "line": 17,
+      "column": 7,
+      "ruleId": "security/detect-non-literal-fs-filename",
+      "message": "Found existsSync from package \"fs\" with non literal argument at index 0"
+    },
+    {
+      "file": "lib/server/app.js",
+      "line": 173,
+      "column": 21,
+      "ruleId": "security/detect-non-literal-fs-filename",
+      "message": "Found readFileSync from package \"fs\" with non literal argument at index 0"
+    },
+    {
+      "file": "lib/server/app.js",
+      "line": 298,
+      "column": 23,
+      "ruleId": "security/detect-non-literal-fs-filename",
+      "message": "Found readFileSync from package \"fs\" with non literal argument at index 0"
+    },
+    {
+      "file": "lib/server/app.js",
+      "line": 299,
+      "column": 23,
+      "ruleId": "security/detect-non-literal-fs-filename",
+      "message": "Found readFileSync from package \"fs\" with non literal argument at index 0"
+    },
+    {
+      "file": "lib/server/enclave.js",
+      "line": 23,
+      "column": 9,
+      "ruleId": "security/detect-non-literal-fs-filename",
+      "message": "Found existsSync from package \"fs\" with non literal argument at index 0"
+    },
+    {
+      "file": "lib/server/enclave.js",
+      "line": 24,
+      "column": 14,
+      "ruleId": "security/detect-non-literal-fs-filename",
+      "message": "Found readFileSync from package \"fs\" with non literal argument at index 0"
+    },
+    {
+      "file": "lib/server/env.js",
+      "line": 71,
+      "column": 12,
+      "ruleId": "security/detect-non-literal-fs-filename",
+      "message": "Found readFileSync from package \"fs\" with non literal argument at index 0"
+    },
+    {
+      "file": "lib/server/env.js",
+      "line": 72,
+      "column": 15,
+      "ruleId": "security/detect-non-literal-fs-filename",
+      "message": "Found readFileSync from package \"fs\" with non literal argument at index 0"
+    },
+    {
+      "file": "lib/server/env.js",
+      "line": 75,
+      "column": 16,
+      "ruleId": "security/detect-non-literal-fs-filename",
+      "message": "Found readFileSync from package \"fs\" with non literal argument at index 0"
+    },
+    {
+      "file": "lib/server/env.js",
+      "line": 237,
+      "column": 14,
+      "ruleId": "security/detect-non-literal-fs-filename",
+      "message": "Found readFileSync from package \"fs\" with non literal argument at index 0"
+    },
+    {
+      "file": "lib/server/query.js",
+      "line": 242,
+      "column": 12,
+      "ruleId": "security/detect-non-literal-regexp",
+      "message": "Found non-literal argument to RegExp Constructor"
+    }
+  ]
+}

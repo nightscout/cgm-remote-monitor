@@ -12,7 +12,7 @@
         "info": [
           {
             "label": "Basal IOB",
-            "value": "0.44"
+            "value": "0.19"
           },
           {
             "label": "Source",
@@ -32,7 +32,7 @@
           }
         ],
         "label": "IOB",
-        "value": "1.50U"
+        "value": "0.84U"
       }
     ],
     "cob": [

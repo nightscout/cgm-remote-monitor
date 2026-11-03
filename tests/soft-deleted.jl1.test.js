@@ -244,11 +244,17 @@ describe('JL-1: a soft-deleted record (isValid false) stops counting', function 
     (await v1('get', '/entries.json?find[device]=' + device).expect(200)).body.length.should.equal(0);
     self.instance.ctx.cache.getData('entries').filter((e) => e.device === device).length.should.equal(0);
 
+    // CHANGED EXPECTATION (ID-FIRST-MATCH slice 3, ID-Q4): the re-send matches
+    // the deleted reading by sysTime + type alone, a time key, so it is stored
+    // as a new reading beside the deleted one, which stays deleted. It revived
+    // the deleted reading (one record).
     await v1('post', '/entries/').send([{ type: 'sgv', sgv: 150, date, dateString: new Date(date).toISOString(), device }]).expect(200);
-    (await col('entries').countDocuments({ device })).should.equal(1);
+    (await col('entries').countDocuments({ device })).should.equal(2);
+    (await col('entries').findOne({ _id: stored._id })).isValid.should.equal(false);
     const back = (await v1('get', '/entries.json?find[device]=' + device).expect(200)).body;
     back.length.should.equal(1);
     back[0].should.not.have.property('isValid');
+    String(back[0]._id).should.not.equal(String(stored._id));
   });
 
   it('a deleted device status and a deleted food are left out of v1 reads', async () => {
@@ -277,6 +283,23 @@ describe('JL-1: a soft-deleted record (isValid false) stops counting', function 
     (await col('treatments').countDocuments({ notes: note })).should.equal(1);
     await v1('delete', '/treatments/?find[notes]=' + encodeURIComponent(note)).expect(200);
     (await col('treatments').countDocuments({ notes: note })).should.equal(0);
+  });
+
+  // BF-167: devicestatus remove() deletes by the stored filter, deleted
+  // records included; nothing else pinned that.
+  it('a v1 DELETE of device status by query removes deleted ones too', async () => {
+    const device = tag('status-purge');
+    const status = await self.instance.post('/api/v3/devicestatus', self.jwt.all)
+      .send({ date: Date.now() - 60000, utcOffset: 0, app: 'AAPS', device, uploaderBattery: 40 })
+      .expect(201);
+    await self.instance.post('/api/v3/devicestatus', self.jwt.all)
+      .send({ date: Date.now(), utcOffset: 0, app: 'AAPS', device, uploaderBattery: 41 })
+      .expect(201);
+    await self.instance.delete('/api/v3/devicestatus/' + status.body.identifier, self.jwt.all).expect(200);
+    (await col('devicestatus').countDocuments({ device, isValid: false })).should.equal(1);
+
+    await v1('delete', '/devicestatus/?find[device]=' + encodeURIComponent(device)).expect(200);
+    (await col('devicestatus').countDocuments({ device })).should.equal(0);
   });
 
   it('the cache takes out a record updated to isValid false and keeps the others', () => {

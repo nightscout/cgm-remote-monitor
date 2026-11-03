@@ -54,6 +54,19 @@ describe('API3: DELETE across stored identifier forms', function () {
   // the string copy, so it holds the edit. Which copy an unsorted read meets
   // first depends on the order they were stored in, so tests that pick one
   // copy run in both orders.
+  // The cache announcements (data-update) a request makes for treatments.
+  async function announced (send) {
+    const heard = [];
+    const listen = function (e) { if (e.type === 'treatments') heard.push(e); };
+    self.instance.ctx.bus.on('data-update', listen);
+    try {
+      await send();
+    } finally {
+      self.instance.ctx.bus.removeListener('data-update', listen);
+    }
+    return heard;
+  }
+
   async function seedTwin (hex, n, objectIdFirst) {
     const stringCopy = sample(n, { _id: hex, notes: 'string copy' });
     const objectIdCopy = sample(n, { _id: new ObjectID(hex), notes: 'edited copy' });
@@ -66,12 +79,21 @@ describe('API3: DELETE across stored identifier forms', function () {
     self.instance = await instance.create({});
     self.app = self.instance.app;
     self.env = self.instance.env;
-    self.app.use('/api/v1', require('../lib/api')(self.env, self.instance.ctx));
 
     let authResult = await authSubject(self.instance.ctx.authorization.storage, ['all'], self.instance.app);
     self.jwt = authResult.jwt;
-    self.accessToken = authResult.accessToken.all;
+    // Twins and identifier arrays are stored as before the unique index
+    // (ID-UNIQUE-INDEX).
+    await require('./fixtures/identifier-index').dropIdentifierIndex(self.instance.ctx.store, self.env);
   });
+
+  // Stored the way POST /api/v1/<colName> stores it: through API v1's storage
+  // module, which that route hands the body to.
+  function v1Create (colName, docs) {
+    return new Promise((resolve, reject) => {
+      self.instance.v1[colName].create(docs, (err) => err ? reject(err) : resolve());
+    });
+  }
 
   after(async () => {
     await col().deleteMany({ enteredBy: 'delete-every-form-test' });
@@ -105,7 +127,11 @@ describe('API3: DELETE across stored identifier forms', function () {
     await seedTwin(HEX.soft, 1);
     await col().insertOne(sample(3, { _id: new ObjectID(HEX.other) }));
 
-    await self.instance.delete('/api/v3/treatments/' + HEX.soft, self.jwt.all).expect(200);
+    const heard = await announced(() => self.instance.delete('/api/v3/treatments/' + HEX.soft, self.jwt.all).expect(200));
+    // Write-contract Q-A (release 2): both copies named, not a reload of
+    // the whole treatments cache (a remove with no changes).
+    heard.map((e) => e.op).should.eql(['remove']);
+    heard[0].changes.should.eql([HEX.soft, HEX.soft], 'both copies named');
 
     const stored = await storedFor(HEX.soft);
     stored.length.should.equal(2);
@@ -122,7 +148,9 @@ describe('API3: DELETE across stored identifier forms', function () {
   it('DELETE ?permanent=true removes both copies', async () => {
     await seedTwin(HEX.permanent, 2);
 
-    await self.instance.delete('/api/v3/treatments/' + HEX.permanent + '?permanent=true', self.jwt.all).expect(200);
+    const heard = await announced(() => self.instance.delete('/api/v3/treatments/' + HEX.permanent + '?permanent=true', self.jwt.all).expect(200));
+    heard.map((e) => e.op).should.eql(['remove']);
+    heard[0].changes.should.eql([HEX.permanent, HEX.permanent], 'both copies named');
 
     (await storedFor(HEX.permanent)).length.should.equal(0, 'copies left after the DELETE');
     (await col().countDocuments({ _id: new ObjectID(HEX.other) })).should.equal(1, 'the other record');
@@ -152,12 +180,16 @@ describe('API3: DELETE across stored identifier forms', function () {
       , { label: 'null', fields: { identifier: null } }
       , { label: 'empty', fields: { identifier: '' } }
     ].forEach(function (shape) {
+      // CHANGED EXPECTATION (ID-FIRST-MATCH slice 2, ID-Q6): API v1 now treats a
+      // null or empty identifier as absent and does not store it, so the null and
+      // empty forms are records v1 stored before slice 2, seeded as stored.
       it('DELETE' + suffix + ' removes a v1-created treatment with identifier ' + shape.label, async () => {
         const id = new ObjectID();
-        await self.instance.post('/api/v1/treatments')
-          .set('api-secret', self.accessToken)
-          .send(sample(10, Object.assign({ _id: id.toHexString() }, shape.fields)))
-          .expect(200);
+        if (shape.label === 'absent') {
+          await v1Create('treatments', [sample(10, Object.assign({ _id: id.toHexString() }, shape.fields))]);
+        } else {
+          await col().insertOne(sample(10, Object.assign({ _id: id }, shape.fields)));
+        }
 
         const stored = await col().findOne({ _id: id });
         if (shape.label === 'absent') stored.should.not.have.property('identifier');
@@ -198,10 +230,16 @@ describe('API3: DELETE across stored identifier forms', function () {
           const id = (form === 'custom' ? 'legacy-' : '') + objectId.toHexString();
           const unrelatedId = form === 'custom' ? id : objectId;
           const identifier = shape === 'array' ? [null, '', 'another-record-' + id] : 'another-record-' + id;
-          await col().insertOne(sample(6, { _id: new ObjectID(), identifier: id, notes: 'addressed' }));
+          const addressedId = new ObjectID();
+          await col().insertOne(sample(6, { _id: addressedId, identifier: id, notes: 'addressed' }));
           await col().insertOne(sample(7, { _id: unrelatedId, identifier, notes: 'unrelated' }));
 
-          await self.instance.delete('/api/v3/treatments/' + id + (permanent ? '?permanent=true' : ''), self.jwt.all).expect(200);
+          const heard = await announced(() => self.instance.delete('/api/v3/treatments/' + id + (permanent ? '?permanent=true' : ''), self.jwt.all).expect(200));
+          // Write-contract Q-A (release 2): the cache is told exactly the
+          // records the write reached. Naming the unrelated record would drop
+          // it from the cache while it is still stored.
+          heard.map((e) => e.op).should.eql(['remove']);
+          heard[0].changes.should.eql([addressedId.toHexString()], 'only the deleted record named');
 
           const unrelated = await col().findOne({ _id: unrelatedId });
           unrelated.should.be.ok();
@@ -217,9 +255,8 @@ describe('API3: DELETE across stored identifier forms', function () {
 
   // BF-142: normalizeDoc (`!doc.identifier`) exposes the _id for every falsy
   // stored identifier, 0 and false included, so a DELETE by that _id must find
-  // the record, as GET does. v1 entries and devicestatus store such values as
-  // sent; v1 treatments refuse a non-string identifier, so treatments are
-  // seeded directly.
+  // the record, as GET does. Since ID-Q6, API v1 stores no non-string
+  // identifier, so such records come from before it and are seeded directly.
   const FALSY = [
     { label: '0', value: 0 }
     , { label: '-0', value: -0, direct: true } // JSON cannot carry -0 or NaN
@@ -238,16 +275,22 @@ describe('API3: DELETE across stored identifier forms', function () {
       , created_at: new Date(Date.UTC(2021, 5, 3, 0, n)).toISOString(), identifier })
   };
 
+  // CHANGED EXPECTATION (ID-FIRST-MATCH slice 2, ID-Q6, BF-215): API v1 now
+  // treats a non-string identifier as absent and does not store it, so 0 and
+  // false on entries and device status are records v1 stored before slice 2,
+  // seeded as stored.
   async function seedFalsy (colName, n, value) {
     if (colName === 'treatments') {
       const _id = new ObjectID();
       await col().insertOne(sample(n, { _id, identifier: value }));
       return _id;
     }
-    await self.instance.post('/api/v1/' + colName)
-      .set('api-secret', self.accessToken)
-      .send(V1_WRITE[colName](n, value))
-      .expect(200);
+    if (typeof value !== 'string' && value !== null) {
+      const _id = new ObjectID();
+      await colFor(colName).insertOne(Object.assign({ _id }, [].concat(V1_WRITE[colName](n, value))[0]));
+      return _id;
+    }
+    await v1Create(colName, [].concat(V1_WRITE[colName](n, value)));
     const stored = await colFor(colName).find({ device: 'delete-every-form-test' })
       .sort({ _id: -1 }).limit(1).toArray();
     return stored[0]._id;
