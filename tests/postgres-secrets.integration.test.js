@@ -18,9 +18,13 @@ const policyCatalogue = require('../lib/subject-policy/postgres-candidate.json')
 const { createTenantSettings } = require('../lib/tenant-settings/component');
 const createPostgresTenantSettings = require('../lib/tenant-settings/postgres');
 const settingsCatalogue = require('../lib/tenant-settings/postgres-candidate.json');
+const { createOperatorPolicy } = require('../lib/operator-policy/component');
+const createPostgresOperatorPolicy = require('../lib/operator-policy/postgres');
+const operatorPolicyCatalogue = require('../lib/operator-policy/postgres-candidate.json');
 
 const A = '11111111-1111-4111-8111-111111111111';
 const B = '22222222-2222-4222-8222-222222222222';
+const C = '33333333-3333-4333-8333-333333333333';
 const docker = args => execFileSync('docker', args, { encoding: 'utf8', stdio: ['ignore', 'pipe', 'pipe'] }).trim();
 const sleep = ms => new Promise(resolve => setTimeout(resolve, ms));
 
@@ -59,9 +63,13 @@ async function rewrapWorker (options) {
   const container = 'ns-secrets-pg-' + crypto.randomBytes(8).toString('hex');
   const namespace = 'secrets_test';
   const appRole = 'secrets_app';
+  const operatorRole = 'operator_policy_app';
+  const operatorNamespace = 'operator_test';
+  const operatorPolicyTable = '"operator_test".tenant_operator_policy';
   const records = '"' + namespace + '".secret_records';
   const audits = '"' + namespace + '".secret_audit';
-  let owned = false, admin, adminURI, appURI, maintenanceURI, persistence, previousMode, port;
+  let owned = false, admin, adminURI, appURI, maintenanceURI, operatorURI, persistence, operatorStore,
+    operatorPolicy, previousMode, port;
 
   async function connectApp () {
     const client = new Client({ connectionString: appURI });
@@ -101,6 +109,10 @@ async function rewrapWorker (options) {
     const upgrade = await run('up', { direct: true, connectionString: adminURI, namespace, catalogue });
     assert.deepEqual(upgrade.done, ['0002_secrets_rewrap']);
     await run('check', { direct: true, connectionString: adminURI, namespace, catalogue });
+    await run('up', { direct: true, connectionString: adminURI, namespace: operatorNamespace,
+      catalogue: operatorPolicyCatalogue });
+    await run('check', { direct: true, connectionString: adminURI, namespace: operatorNamespace,
+      catalogue: operatorPolicyCatalogue });
     admin = new Client({ connectionString: adminURI });
     await admin.connect();
     const appPassword = crypto.randomBytes(24).toString('hex');
@@ -108,10 +120,27 @@ async function rewrapWorker (options) {
     await admin.query(`GRANT USAGE ON SCHEMA "${namespace}" TO ${appRole}`);
     await admin.query(`GRANT SELECT, INSERT ON ${records} TO ${appRole}`);
     await admin.query(`GRANT INSERT ON ${audits} TO ${appRole}`);
+    await admin.query(`GRANT USAGE ON SCHEMA "${operatorNamespace}" TO ${appRole}`);
+    await admin.query(`GRANT SELECT ON ${operatorPolicyTable} TO ${appRole}`);
     const url = new URL(adminURI);
     url.username = appRole;
     url.password = appPassword;
     appURI = url.toString();
+    const operatorPassword = crypto.randomBytes(24).toString('hex');
+    await admin.query(`CREATE ROLE ${operatorRole} LOGIN NOSUPERUSER NOBYPASSRLS PASSWORD '${operatorPassword}'`);
+    await admin.query(`GRANT USAGE ON SCHEMA "${operatorNamespace}" TO ${operatorRole}`);
+    await admin.query(`GRANT SELECT, INSERT, UPDATE ON ${operatorPolicyTable} TO ${operatorRole}`);
+    url.username = operatorRole;
+    url.password = operatorPassword;
+    operatorURI = url.toString();
+    operatorStore = await createPostgresOperatorPolicy({ connectionString: operatorURI, namespace: operatorNamespace });
+    operatorPolicy = createOperatorPolicy({
+      store: operatorStore,
+      authorizeManagement: async ctx => ctx.principal === 'root' && ctx.consumer === 'owner'
+    });
+    for (const tenant of [A, B]) {
+      await operatorPolicy.replace({ tenant, principal: 'root', consumer: 'owner' }, 0, {});
+    }
     const maintenancePassword = crypto.randomBytes(24).toString('hex');
     await admin.query(`CREATE ROLE secrets_maintenance LOGIN NOSUPERUSER NOBYPASSRLS PASSWORD '${maintenancePassword}'`);
     await admin.query(`GRANT USAGE ON SCHEMA "${namespace}" TO secrets_maintenance`);
@@ -126,6 +155,7 @@ async function rewrapWorker (options) {
   after(async function () {
     try {
       if (persistence) await persistence.close();
+      if (operatorStore) await operatorStore.close();
       if (admin) await admin.end();
     } finally {
       scope.setTenancyMode(previousMode);
@@ -161,14 +191,16 @@ async function rewrapWorker (options) {
     const additional = { ...grant, id: 'additional' };
     let operatorCeiling = [grant];
     const options = {
-      limitsFor: async () => ({ code: [grant, additional], operator: operatorCeiling }),
+      limitsFor: async () => ({ code: [grant, additional], operator: operatorCeiling, generation: 1 }),
       authorizeManagement: async ctx => ctx.principal === 'root' && ctx.consumer === 'owner'
     };
     const owner = tenant => ({ tenant, principal: 'root', consumer: 'owner' });
     const subject = tenant => ({ tenant, principal: 'subject', consumer: 'connector' });
     const action = { operation: 'decrypt', id: 'current' };
     try {
-      for (let n = 0; n < 2; n++) stores.push(await createPostgresSubjectPolicy({ connectionString: appURI, namespace: policyNamespace }));
+      for (let n = 0; n < 2; n++) stores.push(await createPostgresSubjectPolicy({
+        connectionString: appURI, namespace: policyNamespace, policyNamespace: operatorNamespace
+      }));
       const [first, second] = stores.map(store => createSubjectPolicy({ ...options, store }));
       assert.equal(await second.authorize(subject(A), action), false);
       assert.deepEqual(await first.replace(owner(A), 0, [grant]), { version: 1, grants: [grant] });
@@ -234,7 +266,9 @@ async function rewrapWorker (options) {
       const unbound = await connectApp();
       try {
         assert.ok((await unbound.query(`SELECT tenant_id FROM ${policyTable}`)).rows.some(row => row.tenant_id === B));
-        await assert.rejects(createPostgresSubjectPolicy({ connectionString: appURI, namespace: policyNamespace }),
+        await assert.rejects(createPostgresSubjectPolicy({
+          connectionString: appURI, namespace: policyNamespace, policyNamespace: operatorNamespace
+        }),
           { code: 'POLICY_STORE_UNSAFE' });
       } finally {
         await unbound.end();
@@ -260,12 +294,14 @@ async function rewrapWorker (options) {
           authorize: async ctx => ctx.principal === 'root' && ctx.consumer === 'owner',
           policyFor: async tenant => {
             assert.ok([A, B].includes(tenant));
-            return { overrides: tenant === A ? overrides : {}, deployment };
+            return { generation: 1, overrides: tenant === A ? overrides : {}, deployment };
           }
         };
         const owner = tenant => ({ tenant, principal: 'root', consumer: 'owner' });
         try {
-          for (let n = 0; n < 2; n++) stores.push(await createPostgresTenantSettings({ connectionString: appURI, namespace: settingsNamespace }));
+          for (let n = 0; n < 2; n++) stores.push(await createPostgresTenantSettings({
+            connectionString: appURI, namespace: settingsNamespace, policyNamespace: operatorNamespace
+          }));
           const [first, second] = stores.map(store => createTenantSettings({ ...options, store }));
           await assert.rejects(first.read(owner(A)), { code: 'SETTINGS_NOT_FOUND' });
           await assert.rejects(first.replace({ ...owner(A), principal: 'uploader' }, 0, {}), { code: 'SETTINGS_FORBIDDEN' });
@@ -366,7 +402,9 @@ async function rewrapWorker (options) {
           const unbound = await connectApp();
           try {
             assert.ok((await unbound.query(`SELECT tenant_id FROM ${settingsTable}`)).rows.some(row => row.tenant_id === B));
-            await assert.rejects(createPostgresTenantSettings({ connectionString: appURI, namespace: settingsNamespace }),
+            await assert.rejects(createPostgresTenantSettings({
+              connectionString: appURI, namespace: settingsNamespace, policyNamespace: operatorNamespace
+            }),
               { code: 'SETTINGS_STORE_UNSAFE' });
           } finally {
             await unbound.end();
@@ -376,6 +414,145 @@ async function rewrapWorker (options) {
           for (const store of stores) await store.close();
         }
       });
+  it('fences cross-worker settings and grant writes and rollback against stored policy generations', async function () {
+    const settingsNamespace = 'fence_settings_test';
+    const settingsTable = '"' + settingsNamespace + '".tenant_settings';
+    const historyTable = '"' + settingsNamespace + '".tenant_settings_history';
+    const subjectNamespace = 'fence_subject_test';
+    const subjectTable = '"' + subjectNamespace + '".subject_policy';
+    const subjectAudit = '"' + subjectNamespace + '".subject_policy_audit';
+    const grant = { principal: 'subject', consumer: 'connector', operation: 'decrypt', id: 'item' };
+    const owner = { tenant: C, principal: 'root', consumer: 'owner' };
+    await run('up', { direct: true, connectionString: adminURI, namespace: settingsNamespace, catalogue: settingsCatalogue });
+    await run('up', { direct: true, connectionString: adminURI, namespace: subjectNamespace, catalogue: policyCatalogue });
+    await admin.query(`GRANT USAGE ON SCHEMA "${settingsNamespace}" TO ${appRole}`);
+    await admin.query(`GRANT SELECT, INSERT, UPDATE ON ${settingsTable} TO ${appRole}`);
+    await admin.query(`GRANT SELECT, INSERT ON ${historyTable} TO ${appRole}`);
+    await admin.query(`GRANT USAGE ON SCHEMA "${subjectNamespace}" TO ${appRole}`);
+    await admin.query(`GRANT SELECT, INSERT, UPDATE ON ${subjectTable} TO ${appRole}`);
+    await admin.query(`GRANT INSERT ON ${subjectAudit} TO ${appRole}`);
+    const policyStores = [];
+    const settingsStores = [];
+    const subjectStores = [];
+    let settingsGate, subjectGate;
+    function gateNext (kind) {
+      let arrive, release;
+      const gate = {
+        arrived: new Promise(resolve => { arrive = resolve; }),
+        wait: new Promise(resolve => { release = resolve; }),
+        arrive: () => arrive(),
+        release: () => release()
+      };
+      if (kind === 'settings') settingsGate = gate;
+      else subjectGate = gate;
+      return gate;
+    }
+    async function pausePolicyRead (kind) {
+      const gate = kind === 'settings' ? settingsGate : subjectGate;
+      if (!gate) return;
+      if (kind === 'settings') settingsGate = undefined;
+      else subjectGate = undefined;
+      gate.arrive();
+      await gate.wait;
+    }
+    const policyFor = reader => async tenant => {
+      const state = await reader.read({ ...owner, tenant });
+      await pausePolicyRead('settings');
+      return { ...state.policy.settings, generation: state.generation };
+    };
+    const limitsFor = reader => async tenant => {
+      const state = await reader.read({ ...owner, tenant });
+      await pausePolicyRead('subject');
+      return { code: [grant], operator: state.policy.subjectGrants, generation: state.generation };
+    };
+    try {
+      const initialPolicy = { settings: { deployment: {}, overrides: {} }, subjectGrants: [grant] };
+      const created = await operatorPolicy.replace(owner, 0, initialPolicy);
+      assert.equal(created.generation, 1);
+      for (let n = 0; n < 2; n++) {
+        policyStores.push(await createPostgresOperatorPolicy({ connectionString: operatorURI, namespace: operatorNamespace }));
+        settingsStores.push(await createPostgresTenantSettings({
+          connectionString: appURI, namespace: settingsNamespace, policyNamespace: operatorNamespace
+        }));
+        subjectStores.push(await createPostgresSubjectPolicy({
+          connectionString: appURI, namespace: subjectNamespace, policyNamespace: operatorNamespace
+        }));
+      }
+      const readers = policyStores.map(store => createOperatorPolicy({
+        store, authorizeManagement: async ctx => ctx.principal === 'root' && ctx.consumer === 'owner'
+      }));
+      const settingsWorkers = settingsStores.map((store, index) => createTenantSettings({
+        store, authorize: async ctx => ctx.principal === 'root' && ctx.consumer === 'owner',
+        policyFor: policyFor(readers[index])
+      }));
+      const subjectWorkers = subjectStores.map((store, index) => createSubjectPolicy({
+        store,
+        authorizeManagement: async ctx => ctx.principal === 'root' && ctx.consumer === 'owner',
+        limitsFor: limitsFor(readers[index])
+      }));
+      const [settingsWorker, otherSettingsWorker] = settingsWorkers;
+      const [subjectWorker, otherSubjectWorker] = subjectWorkers;
+      await settingsWorker.replace(owner, 0, { DISPLAY_UNITS: 'mmol' });
+      await settingsWorker.replace(owner, 1, { DISPLAY_UNITS: 'mmol', SHOW_SECONDS: true });
+      await subjectWorker.replace(owner, 0, []);
+
+      const subjectRace = gateNext('subject');
+      const staleGrantWrite = otherSubjectWorker.replace(owner, 1, [grant]);
+      await subjectRace.arrived;
+      const gen2 = await operatorPolicy.replace(owner, 1, {
+        settings: initialPolicy.settings, subjectGrants: []
+      });
+      assert.equal(gen2.generation, 2);
+      subjectRace.release();
+      await assert.rejects(staleGrantWrite, { code: 'POLICY_GENERATION_CONFLICT' });
+      assert.deepEqual(await subjectWorker.read(owner), { version: 1, grants: [] });
+
+      const settingsRace = gateNext('settings');
+      const staleSettingsWrite = otherSettingsWorker.replace(owner, 2, { SHOW_SECONDS: true });
+      await settingsRace.arrived;
+      const gen3 = await operatorPolicy.replace(owner, 2, {
+        settings: {
+          deployment: { SHOW_SECONDS: { mode: 'pinned', pin: false } },
+          overrides: {}
+        },
+        subjectGrants: []
+      });
+      assert.equal(gen3.generation, 3);
+      settingsRace.release();
+      await assert.rejects(staleSettingsWrite, { code: 'POLICY_GENERATION_CONFLICT' });
+      assert.deepEqual((await settingsWorker.read(owner)).values,
+        { DISPLAY_UNITS: 'mmol', SHOW_SECONDS: true });
+
+      const rollbackRace = gateNext('settings');
+      const staleRollback = otherSettingsWorker.rollback(owner, 2, 1);
+      await rollbackRace.arrived;
+      const gen4 = await operatorPolicy.replace(owner, 3, {
+        settings: {
+          deployment: {
+            DISPLAY_UNITS: { mode: 'bounded', allowed: ['mg/dl'] },
+            SHOW_SECONDS: { mode: 'pinned', pin: false }
+          },
+          overrides: {}
+        },
+        subjectGrants: []
+      });
+      assert.equal(gen4.generation, 4);
+      rollbackRace.release();
+      await assert.rejects(staleRollback, { code: 'POLICY_GENERATION_CONFLICT' });
+      assert.equal((await settingsWorker.read(owner)).version, 2, 'stale rollback created no version');
+      assert.equal((await operatorPolicy.read(owner)).generation, 4);
+
+      await admin.query(`REVOKE SELECT ON ${operatorPolicyTable} FROM ${operatorRole}`);
+      try {
+        await assert.rejects(otherSettingsWorker.replace(owner, 2, {}), { code: 'OPERATOR_POLICY_STORE_UNAVAILABLE' });
+        await assert.rejects(otherSubjectWorker.replace(owner, 1, []), { code: 'OPERATOR_POLICY_STORE_UNAVAILABLE' });
+      } finally { await admin.query(`GRANT SELECT ON ${operatorPolicyTable} TO ${operatorRole}`); }
+    } finally {
+      for (const store of policyStores) await store.close();
+      for (const store of settingsStores) await store.close();
+      for (const store of subjectStores) await store.close();
+    }
+  });
   it('serializes competing inserts to exactly one immutable reference', async function () {
     const otherWorker = await open();
     try {

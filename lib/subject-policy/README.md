@@ -57,15 +57,19 @@ delegable ceiling. Reveal re-authentication and operator reveal refusal still
 need their owner-policy/transport contract; this slice never adds an implicit
 reveal grant.
 
-`limitsFor(tenant)` must resolve explicit `{code: grants, operator: grants}`
-from trusted tenant provisioning. A grant must belong to **both** sets, at
-write time and on every authorization call. Neither owner rows nor operator
-limits can expand the code ceiling. No limits/unknown tenant/outage rejects,
-never defaults. The service copies limits into sets for that call. These are
-exact secrets-grant bounds, not the general D22 settings-policy engine.
-The callback must provide current trustworthy limits; its service, persistence
-and atomic coordination with operator-policy updates are not implemented here.
-An already-authorized operation may finish; tightening limits is not retroactive.
+`limitsFor(tenant)` must resolve explicit `{code: grants, operator: grants,
+generation}` from trusted tenant provisioning. A grant must belong to **both**
+sets, at write time and on every authorization call. Neither owner rows nor
+operator limits can expand the code ceiling. No limits/unknown tenant/outage
+rejects, never defaults. The service copies limits into sets for that call.
+These are exact secrets-grant bounds, not the general D22 settings-policy
+engine. The operator ceiling and generation can be read from the persisted
+document in `lib/operator-policy/postgres-candidate.json`; code ceilings remain
+separate. Subject-policy replacement takes the tenant's transaction advisory
+lock through commit. A policy update either follows an already-committed
+owner write or commits first and causes a stale grant write to refuse with
+`POLICY_GENERATION_CONFLICT`. An already-authorized operation may finish;
+tightening is not retroactive.
 
 Authorization linearizes at the PostgreSQL SELECT's committed READ COMMITTED
 snapshot after limits are obtained. A policy replacement that commits before
@@ -84,6 +88,8 @@ roles separately. For namespace `ns_policy_lab`:
 GRANT USAGE ON SCHEMA ns_policy_lab TO policy_app;
 GRANT SELECT, INSERT, UPDATE ON ns_policy_lab.subject_policy TO policy_app;
 GRANT INSERT ON ns_policy_lab.subject_policy_audit TO policy_app;
+GRANT USAGE ON SCHEMA ns_operator_lab TO policy_app;
+GRANT SELECT ON ns_operator_lab.tenant_operator_policy TO policy_app;
 ```
 
 Use `NOSUPERUSER NOBYPASSRLS` non-owner credentials for the adapter. Startup

@@ -87,6 +87,8 @@ non-owner `NOSUPERUSER NOBYPASSRLS` application identity:
 GRANT USAGE ON SCHEMA ns_settings_lab TO settings_app;
 GRANT SELECT, INSERT, UPDATE ON ns_settings_lab.tenant_settings TO settings_app;
 GRANT SELECT, INSERT ON ns_settings_lab.tenant_settings_history TO settings_app;
+GRANT USAGE ON SCHEMA ns_policy_lab TO settings_app;
+GRANT SELECT ON ns_policy_lab.tenant_operator_policy TO settings_app;
 ```
 
 Both tables force tenant RLS. Startup screens ownership/RLS/privileges;
@@ -97,16 +99,20 @@ application credentials. Database operators remain privileged.
 Raw database credentials can mutate tenant-bound current values outside
 service version/audit/policy behavior; the database enforces catalogue types,
 not injected operator constraints. Keep them off owner request paths.
-`policyFor` is an explicit trusted dependency, **not** a persistent operator
-policy implementation. Policy selection linearizes at that callback's
-snapshot; current owner state/version linearizes at its conditional committed
-write. A concurrent operator-policy change is not atomically fenced with the
-owner write, and production acceptance must solve that before route enablement.
-The result is a policy-snapshot response, not a promise that policy could not
-change immediately afterward. Settings service tests do not prove current
-grants/limits callback availability, shared policy epochs, socket revocation,
-HTTP authentication, tenant lifecycle, backup of this new state, or serving
-compatibility.
+`policyFor` is a trusted dependency and must return the current policy with its
+persisted `generation`. The separately reviewed candidate at
+`lib/operator-policy/postgres-candidate.json` stores that document. The
+settings adapter requires `policyNamespace` and takes a tenant-specific
+transaction advisory lock before checking the generation and changing current
+state or history. A concurrent policy update must wait for an owner commit, or the
+owner write/rollback sees the newer generation and refuses with
+`POLICY_GENERATION_CONFLICT`. Policy-store outage or a missing tenant policy
+does not fall back to an open policy.
+
+This fences policy selection against settings replacement and rollback, but
+does not provide HTTP authentication, tenant lifecycle, socket revocation,
+backup acceptance or serving compatibility. Operator policy history and
+production role/candidate approval remain open.
 
 ## Acceptance
 

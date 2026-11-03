@@ -1,0 +1,139 @@
+# Dormant tenant HTTP composition
+
+`createTenantApp` and `createOperatorApp` construct separate Express applications.
+They never listen, import global app state, change legacy startup, select a
+database/provider, run migrations, or enable a `serve` role.
+
+## Injected boundaries
+
+The tenant constructor requires:
+
+- `resolver`: the existing `lib/tenant-resolution` service. Configure public host
+  aliases and an explicitly trusted transport/peer predicate there. Express
+  proxy trust stays disabled; resolved-tenant headers never authorize callers.
+- `verifyCredential({tenant, credential, plane})`: verify the Bearer credential
+  **after** resolution, against that tenant's provisioned credential authority.
+  Return authenticated `{tenant, principal, consumer}`, or null for refusal.
+  The returned tenant must match. Throws fail closed with a sanitized 503.
+  No principal/consumer is inferred from unverified claims or request bodies.
+- `authorizeRequest(context, {plane, method, path})`: consult current authority
+  on every request and return exactly `true` to permit it. The path is relative
+  to the plane mount. It must distinguish owner from data permissions and
+  refuse missing/revoked subjects; unavailable authority must reject. No JWT
+  grants or cached authentication result substitutes for this callback.
+- `tenantSettings` and `subjectPolicy`: existing service instances, including
+  their own injected current-policy and management-authorization callbacks.
+- `dataRouter`: tenant-aware Express middleware mounted **only** at `/api/v3`.
+  It receives immutable `req.tenantContext`. Its storage and operation-level
+  authorization must use that context; this seam does not adapt the legacy
+  global-context API3 implementation or make it multitenant-safe.
+
+Credential verification is deliberately an injected port, not a new token
+issuer, token format, human-login system or principal mapping. An adapter using
+`secrets.verifyJWT` must supply its trusted verifier service identity, map the
+verified access-token subject, and check its current authority. The existing
+subject-policy `authorize` method covers **secrets operations only**, not
+data/owner HTTP permissions; it must not be used as a substitute HTTP ACL.
+
+## Routes
+
+| App | Method and path | Body |
+|---|---|---|
+| tenant owner | GET `/api/v1/tenant/settings` | none |
+| tenant owner | PUT `/api/v1/tenant/settings` | `{expectedVersion, values}` |
+| tenant owner | POST `/api/v1/tenant/settings/rollback` | `{expectedVersion, restoredFrom}` |
+| tenant owner | GET `/api/v1/tenant/subject-policy` | none |
+| tenant owner | PUT `/api/v1/tenant/subject-policy` | `{expectedVersion, grants}` |
+| private operator | GET `/api/v1/operator/tenants/:tenant/policy` | none |
+| private operator | PUT `/api/v1/operator/tenants/:tenant/policy` | `{expectedGeneration, policy}` |
+
+These are full-document service operations, not patches. Request bodies cannot
+override authenticated identity. Success returns the service result. Known
+validation/refusal/conflict errors map to 400/403/404/409; unexpected failures
+return only `AUTHORITY_UNAVAILABLE` (503), never exception messages, details,
+credentials or stack traces. Responses are not cacheable.
+
+The operator constructor requires a separately injected
+`authenticateOperator(request)` returning authenticated `{principal, consumer}`
+or null, plus `operatorPolicy`, whose injected `authorizeManagement` checks
+management permission for the target tenant on every operation. The target
+path is not proof of authority. No owner/data routes or tenant verifier are
+installed in that app, and no operator service is supplied to the tenant app.
+Deployment must bind this application to a **distinct private listener/role**
+with isolated operator credentials, never mount it on the public app. Listener
+and deployment integration remain dormant/out of scope.
+
+HTTP coverage: `node_modules/.bin/mocha tests/tenant-app.test.js`.
+
+## M3 entries HTTP integration lab
+
+The opt-in integration tier test owns one disposable `postgres:16` Docker
+container and one random-port loopback HTTP listener. It applies
+`migrations/candidates/postgres-entries-v1.json` using the existing operator
+migration runner, then connects through `postgres-connection` with a separate
+`NOSUPERUSER NOBYPASSRLS` application role. It uses no external database,
+persistent volume, production listener, or legacy startup path. Cleanup closes
+its own HTTP server and pools, restores the prior tenancy mode, and removes only
+its randomly named container.
+
+Run from the CRM worktree:
+
+```sh
+NS_TENANT_HTTP_DOCKER_TEST=1 node node_modules/mocha/bin/mocha.js \
+  --timeout 60000 tests/tenant-entries-http.integration.test.js
+node node_modules/eslint/bin/eslint.js \
+  tests/fixtures/tenant-entries-lab.js tests/tenant-entries-http.integration.test.js
+node scripts/test-tiers.js check
+```
+
+Without that exact opt-in, the ten integration cases are pending and Docker is
+not touched. The test binds aliases and provisioned random test credentials to
+two UUID tenants. A one-client application pool exercises alternating and
+concurrent requests without session tenant leakage. Fixtures have the same
+`_id` and `identifier` in both tenants, plus tenant-only records. Assertions cover
+own-tenant GET/PATCH/POST, explicit cross-tenant credential refusal, absent
+foreign-only documents, rejected body/proxy selectors, committed distinct rows,
+fresh app/pool reconnect, current-authority refusal, and sanitized fail-closed
+HTTP responses for absent schema, pending migrations and checksum drift after
+successful requests. Ledger changes for failure cases are fixture mutations,
+not serving-side migrations. No operator application is mounted or started.
+
+### Exact boundary and remaining work
+
+`tests/fixtures/tenant-entries-lab.js` is a **test-only adapter**, not a mock
+database/router and not a production API3 implementation:
+
+- GET invokes the actual `lib/api3/generic/read/operation.js`, including API3
+  authentication/permission checks, rendering and conditional-read handling,
+  with request-local context and the M1 PostgreSQL reader.
+- POST/PATCH use the actual API3 create/patch validators and purifier, then the
+  existing `postgres-entries-intent` match/write operations. The latter owns its
+  transaction and emits its intent event only after commit. The tenant binding
+  comes only from immutable M2 `req.tenantContext`, never from JSON or selectors.
+- Full legacy POST/PATCH handlers are **not** exercised: they construct
+  `forCollectionIntent` directly around Mongo/cache-oriented storage, rather
+  than accepting the M1 commit-owning step. Using them unchanged would lose
+  that commit boundary; replacing the process-wide factory would affect legacy
+  callers. The lab therefore adapts writes locally without changing those
+  handlers or global authorization. POST requires a valid API3 document and
+  rejects an existing identifier with 409; this is deliberately not legacy
+  POST deduplication/acknowledgment response compatibility.
+- Collection construction, search/history, PUT/DELETE, all response/header
+  compatibility, HTTP date fallback, preconditioned writes, deduplication
+  races, cache/socket consumers and non-entries collections remain unproven.
+  The GET handler contains conditional-read support, but this lab does not
+  assert it. Credentials/current HTTP grants are explicit fixture authorities,
+  not a production issuer or durable policy integration.
+- The lab invokes the real read-only migration `check` before binding its
+  listener and on every data request, using the fixture's separate operator
+  connection. Absent, pending or checksum-stale catalogues refuse startup; a
+  catalogue that becomes stale after startup refuses requests. This proves
+  ledger/checksum readiness, not detection of arbitrary physical schema
+  tampering or a deployable readiness protocol. Production
+  readiness/privilege separation needs its own design; serving must never run
+  `migrate up`.
+
+Local validation (2026-11-02): the opted-in Docker suite passed all ten cases;
+the existing tenant-app/resolver suites passed 17 cases; focused ESLint passed.
+This is bounded HTTP/storage isolation evidence, not release or production
+multitenancy approval.
