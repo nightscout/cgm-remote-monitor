@@ -7,7 +7,7 @@
 // multitenant api role will be built from (PLAT-SERVE, ST-V3-DECOUPLE), run
 // single-tenant: API_SECRET and the rest of the process environment, MongoDB.
 // It is not a way to run a site and is not in the image; a site runs
-// `nightscout single`. `nightscout serve api` refuses until the api role is
+// `nightscout single`. `nightscout multitenant api` refuses until the api role is
 // multitenant.
 //
 //   node scripts/headless-test-server.js        (or npm run headless-test-server)
@@ -26,7 +26,7 @@ if (require.main === module) {
   }
   console.log(LABEL + ': single-tenant API v3 for tests and development; not for running a site');
   const io = { stdout: process.stdout, stderr: process.stderr, env: process.env };
-  Promise.resolve(require('../lib/cli/commands/serve').runRoles(['api'], io, LABEL)).then(code => {
+  Promise.resolve(require('../lib/cli/commands/multitenant').runRoles(['api'], io, LABEL)).then(code => {
     if (code !== undefined) process.exitCode = code;
   });
 }
