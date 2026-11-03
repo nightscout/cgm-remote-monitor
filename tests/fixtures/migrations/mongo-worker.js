@@ -10,7 +10,15 @@ async function checkpoint (name) {
 
 process.once('message', async ({ opts, pause }) => {
   const findOne = Collection.prototype.findOne;
+  const updateOne = Collection.prototype.updateOne;
   const updateMany = Collection.prototype.updateMany;
+  Collection.prototype.updateOne = async function (filter, update, options) {
+    const result = await updateOne.call(this, filter, update, options);
+    if (filter._id === 'lease' && filter.owner && Array.isArray(update)) {
+      process.send({ renewalMatched: result.matchedCount });
+    }
+    return result;
+  };
   Collection.prototype.findOne = async function (filter, options) {
     if (pause === 'before-fence' && filter._id === 'lease' && options && options.session) {
       pause = null;

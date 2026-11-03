@@ -41,6 +41,15 @@ const step = (from, to) => ({ collection: 'samples', filter: { kind: from }, set
     throw new Error('test condition did not become true before deadline');
   }
 
+  async function connectObserver () {
+    if (observer) await observer.close();
+    const port = docker(['port', name, '27017/tcp']).split(':').pop();
+    connectionString = 'mongodb://operator:' + password + '@127.0.0.1:' + port + '/migrations?authSource=admin';
+    observer = await new MongoClient(connectionString, { directConnection: true, serverSelectionTimeoutMS: 15000 }).connect();
+    db = observer.db('migrations');
+    await eventually(async () => (await db.admin().command({ hello: 1 })).isWritablePrimary);
+  }
+
   function worker (o, pause) {
     const child = fork(workerFile, [], { stdio: ['ignore', 'ignore', 'inherit', 'ipc'] });
     workers.add(child);
@@ -77,10 +86,7 @@ const step = (from, to) => ({ collection: 'samples', filter: { kind: from }, set
       input: 'db.getSiblingDB("admin").createUser({user:"operator",pwd:"' + password + '",roles:["root"]})\n',
       stdio: ['pipe', 'pipe', 'pipe']
     });
-    const port = docker(['port', name, '27017/tcp']).split(':').pop();
-    connectionString = 'mongodb://operator:' + password + '@127.0.0.1:' + port + '/migrations?authSource=admin';
-    observer = await new MongoClient(connectionString, { directConnection: true }).connect();
-    db = observer.db('migrations');
+    await connectObserver();
     const info = await db.admin().command({ buildInfo: 1 });
     console.log('    MongoDB acceptance server: ' + info.version);
     assert.equal((await db.admin().command({ hello: 1 })).setName, 'ns_migrations');
@@ -187,6 +193,31 @@ const step = (from, to) => ({ collection: 'samples', filter: { kind: from }, set
     assert.equal(await db.collection(o.namespace + '_schema_migrations').countDocuments(), 1);
   });
 
+  it('refuses an expired renewal after real server pause without reacquiring or attempting data', async function () {
+    const o = opts(catalogue([step('old', 'new')]));
+    const holder = worker(o, 'before-fence');
+    await eventually(() => holder.messages.some(m => m.checkpoint === 'before-fence'));
+    const state = db.collection(o.namespace + '_migration_state');
+    const original = await state.findOne({ _id: 'lease' });
+    const observed = holder.messages.length;
+    docker(['pause', name]);
+    try { await sleep(o.leaseMs * 2); } finally { docker(['unpause', name]); }
+    await eventually(() => holder.messages.slice(observed).some(m => m.renewalMatched !== undefined));
+    assert.equal(holder.messages.slice(observed).find(m => m.renewalMatched !== undefined).renewalMatched, 0);
+    holder.child.send('continue');
+    await holder.exited;
+    assert.equal(holder.messages.find(m => m.error).error, 'MIG_LOCK_LOST');
+    assert.equal(holder.messages.some(m => m.result || m.dataAttempt), false);
+    assert.equal((await state.findOne({ _id: 'lease' })).epoch, original.epoch);
+    assert.equal(await db.collection(o.namespace + '_schema_migrations').countDocuments(), 0);
+    assert.equal((await db.collection('samples').findOne({ _id: 'sample' })).kind, 'old');
+    const retry = worker(o);
+    await retry.exited;
+    assert.deepEqual(retry.messages.find(m => m.result).result.done, ['0001_test']);
+    assert.ok((await state.findOne({ _id: 'lease' })).epoch > original.epoch);
+    assert.equal((await db.collection('samples').findOne({ _id: 'sample' })).kind, 'new');
+  });
+
   it('fences a SIGSTOPed stale worker after expiry and successor takeover', async function () {
     const o = opts(catalogue([step('old', 'new')]));
     const stale = worker(o, 'after-lease');
@@ -259,6 +290,33 @@ const step = (from, to) => ({ collection: 'samples', filter: { kind: from }, set
     assert.deepEqual(await ledger.findOne({ _id: '0001_test' }), row);
     assert.equal((await db.collection('samples').findOne({ _id: 'sample' })).kind, 'new');
   });
+
+  for (const committed of [false, true]) {
+    it('recovers ' + (committed ? 'committed' : 'uncommitted') + ' migration state after actual primary SIGKILL/restart', async function () {
+      const o = opts(catalogue([step('old', 'new')]));
+      const checkpoint = committed ? 'after-commit' : 'after-data';
+      const interrupted = worker(o, checkpoint);
+      await eventually(() => interrupted.messages.some(m => m.checkpoint === checkpoint));
+      const ledgerName = o.namespace + '_schema_migrations';
+      const before = await db.collection(ledgerName).findOne({ _id: '0001_test' });
+      assert.equal(Boolean(before), committed);
+      const oldPid = docker(['inspect', '--format', '{{.State.Pid}}', name]);
+      assert.notEqual(oldPid, '0');
+      docker(['restart', '--signal', 'SIGKILL', name]);
+      assert.notEqual(docker(['inspect', '--format', '{{.State.Pid}}', name]), oldPid);
+      interrupted.child.kill('SIGKILL');
+      assert.equal((await interrupted.exited).signal, 'SIGKILL');
+      await connectObserver();
+      assert.deepEqual(await db.collection(ledgerName).findOne({ _id: '0001_test' }), before);
+      assert.equal((await db.collection('samples').findOne({ _id: 'sample' })).kind, committed ? 'new' : 'old');
+      const retry = worker({ ...o, connectionString });
+      assert.equal((await retry.exited).code, 0);
+      assert.deepEqual(retry.messages.find(m => m.result).result.done, committed ? [] : ['0001_test']);
+      assert.equal((await db.collection('samples').findOne({ _id: 'sample' })).kind, 'new');
+      assert.equal(await db.collection(ledgerName).countDocuments(), 1);
+      if (committed) assert.deepEqual(await db.collection(ledgerName).findOne({ _id: '0001_test' }), before);
+    });
+  }
 
   it('rejects drift, unknown and non-prefix history before applying data', async function () {
     const o = opts(catalogue([step('old', 'middle')], [step('middle', 'new')]));

@@ -191,6 +191,37 @@ changes externally visible and fails the crash assertion. Restored code passes.
 These are synthetic operator checks, not production catalogue/HA acceptance.
 The tier map includes the new test file (466 files); no dependencies changed.
 
+### Primary-process recovery and renewal-loss continuation
+
+The same acceptance commands now execute **56 combined checks**, zero pending,
+and **15 MongoDB checks** at both 5.0.32 and 8.3.9. The original 53/12 results
+above describe the preceding runner slice.
+
+An actual server pause lasting two lease durations causes an in-flight renewal
+to match zero rows after expiry. Its waiting worker refuses with
+`MIG_LOCK_LOST`, attempts no data, does not reacquire its epoch and leaves the
+ledger empty. A new process then acquires a higher epoch and completes.
+Removing the expiry predicate makes renewal incorrectly succeed and fails the
+explicit matched-count assertion; restored code passes.
+
+Two additional cases restart the owned primary container using
+`docker restart --signal SIGKILL`, verifying that its host process PID changes.
+One waits after an actual transactional data update but before ledger/commit;
+the other waits after committed completion. The waiting worker is also killed
+so it cannot replay during inspection. After reconnecting (including
+rediscovery of Docker's published port), independent reads prove respectively
+that uncommitted data/ledger rolled back or committed data/exact ledger row
+survived. A fresh worker completes only the pending migration or does nothing
+for the committed one. Removing the data session makes the uncommitted
+backfill survive the primary crash without its ledger and fails the assertion.
+
+This is abrupt **single-node primary process** recovery, not multi-member
+failover, network partition, lost-disk/host/power recovery, snapshot restore,
+unknown-commit-response recovery or production RPO/RTO acceptance. Same-server
+journal recovery and a new client are exercised; the volume is not exported
+or restored. No implementation/catalogue/checksum/serving behavior changed in
+this tests-and-documentation continuation.
+
 Remaining: MongoDB standalone idempotent/resumable steps with a demonstrably
 fencing-safe renewable exclusive lease; actual reviewed migration catalogues
 and baseline decisions; serving-role compatibility integration; release
