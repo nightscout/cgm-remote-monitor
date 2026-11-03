@@ -6,6 +6,7 @@ const { execFileSync, spawn, spawnSync } = require('node:child_process');
 const { Client } = require('pg');
 const { run } = require('../lib/migrations/postgres');
 const { checksum } = require('../lib/migrations/catalogue');
+const entriesCatalogue = require('../migrations/candidates/postgres-entries-v1.json');
 
 const sleep = ms => new Promise(resolve => setTimeout(resolve, ms));
 const docker = args => execFileSync('docker', args, { encoding: 'utf8', stdio: ['ignore', 'pipe', 'pipe'] }).trim();
@@ -96,6 +97,95 @@ const catalogue = (...steps) => ({
     assert.equal(JSON.parse(check.stdout).current, true);
     assert.doesNotMatch(stale.stdout + stale.stderr + applied.stdout + applied.stderr + check.stdout + check.stderr,
       /postgres:\/\/|password|127\.0\.0\.1/);
+  });
+
+  it('applies the reviewed entries candidate with typed v3 fields, tenant identity and forced RLS', async function () {
+    const o = opts(entriesCatalogue);
+    const applied = await run('up', o);
+    assert.deepEqual(applied.done, ['0001_entries']);
+    assert.equal((await run('check', o)).current, true);
+
+    const columns = await observer.query(
+      'SELECT column_name, data_type, is_generated FROM information_schema.columns ' +
+      'WHERE table_schema = $1 AND table_name = $2',
+      [o.namespace, 'entries']);
+    const types = Object.fromEntries(columns.rows.map(row => [row.column_name, row.data_type]));
+    assert.equal(types.doc, 'jsonb');
+    assert.equal(types.tenant_id, 'uuid');
+    assert.equal(types.id_kind, 'text');
+    assert.equal(types._id, 'text');
+    assert.equal(types.srvModified, 'numeric');
+    assert.equal(types.isValid, 'boolean');
+    assert.equal(columns.rows.find(row => row.column_name === 'srvModified').is_generated, 'ALWAYS');
+    assert.equal(columns.rows.find(row => row.column_name === 'isValid').is_generated, 'ALWAYS');
+
+    const index = await observer.query(
+      'SELECT indexdef FROM pg_indexes WHERE schemaname = $1 AND tablename = $2 AND indexname = $3',
+      [o.namespace, 'entries', 'identifier_unique']);
+    assert.equal(index.rows.length, 1);
+    assert.match(index.rows[0].indexdef, /UNIQUE INDEX identifier_unique ON .*\(tenant_id, identifier\).*WHERE/);
+    assert.match(index.rows[0].indexdef, /identifier.*IS NOT NULL/);
+    assert.match(index.rows[0].indexdef, /identifier.*<> ''/);
+
+    const security = await observer.query(
+      'SELECT c.relrowsecurity, c.relforcerowsecurity, p.qual, p.with_check ' +
+      'FROM pg_class c JOIN pg_namespace n ON n.oid = c.relnamespace ' +
+      'JOIN pg_policies p ON p.schemaname = n.nspname AND p.tablename = c.relname ' +
+      'WHERE n.nspname = $1 AND c.relname = $2 AND p.policyname = $3',
+      [o.namespace, 'entries', 'entries_tenant_isolation']);
+    assert.equal(security.rows.length, 1);
+    assert.equal(security.rows[0].relrowsecurity, true);
+    assert.equal(security.rows[0].relforcerowsecurity, true);
+    assert.match(security.rows[0].qual, /app\.current_tenant_id/);
+    assert.match(security.rows[0].with_check, /app\.current_tenant_id/);
+
+    const tenantA = '11111111-1111-4111-8111-111111111111';
+    const tenantB = '22222222-2222-4222-8222-222222222222';
+    const role = 'entries_reader_' + crypto.randomBytes(6).toString('hex');
+    const qualified = '"' + o.namespace + '".entries';
+    await observer.query('CREATE ROLE "' + role + '" NOSUPERUSER NOBYPASSRLS');
+    await observer.query('GRANT USAGE ON SCHEMA "' + o.namespace + '" TO "' + role + '"');
+    await observer.query('GRANT SELECT, INSERT ON ' + qualified + ' TO "' + role + '"');
+
+    const insert = (tenantId, kind, id, identifier, valid = true) => observer.query(
+      'INSERT INTO ' + qualified + ' (tenant_id, id_kind, doc) VALUES ($1, $2, $3::jsonb)',
+      [tenantId, kind, JSON.stringify({ _id: id, identifier, srvModified: 1700000000000, isValid: valid })]);
+    await observer.query('BEGIN');
+    try {
+      await observer.query('SET LOCAL ROLE "' + role + '"');
+      await observer.query("SELECT set_config('app.current_tenant_id', $1, true)", [tenantA]);
+      const sameSpelling = '0123456789abcdef01234567';
+      await insert(tenantA, 'objectid', sameSpelling, 'sync-objectid');
+      await insert(tenantA, 'string', sameSpelling, 'sync-string');
+      const typed = await observer.query(
+        'SELECT id_kind, "_id", "srvModified", "isValid" FROM ' + qualified +
+        ' WHERE tenant_id = $1 ORDER BY id_kind',
+        [tenantA]);
+      assert.deepEqual(typed.rows.map(row => [row.id_kind, row._id, Number(row.srvModified), row.isValid]), [
+        ['objectid', sameSpelling, 1700000000000, true],
+        ['string', sameSpelling, 1700000000000, true]
+      ]);
+
+      await observer.query('SAVEPOINT duplicate_identifier');
+      await assert.rejects(insert(tenantA, 'string', 'duplicate-id', 'sync-string', false),
+        error => error.code === '23505' && error.constraint === 'identifier_unique');
+      await observer.query('ROLLBACK TO SAVEPOINT duplicate_identifier');
+
+      await observer.query('SAVEPOINT cross_tenant');
+      await assert.rejects(insert(tenantB, 'string', 'cross-tenant-id', 'other-id'),
+        error => error.code === '42501');
+      await observer.query('ROLLBACK TO SAVEPOINT cross_tenant');
+
+      await observer.query("SELECT set_config('app.current_tenant_id', $1, true)", [tenantB]);
+      await insert(tenantB, 'string', 'tenant-b-id', 'sync-string');
+      await observer.query("SELECT set_config('app.current_tenant_id', $1, true)", [tenantA]);
+      const visible = await observer.query('SELECT count(*)::int AS n FROM ' + qualified);
+      assert.equal(visible.rows[0].n, 2);
+      await observer.query('COMMIT');
+    } catch (error) {
+      await observer.query('ROLLBACK');
+      throw error;
+    }
   });
 
   it('does not silently inherit ambient application or PG connection configuration', async function () {
