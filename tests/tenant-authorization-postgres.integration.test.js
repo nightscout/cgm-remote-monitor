@@ -2,6 +2,7 @@
 
 const assert = require('node:assert/strict');
 const crypto = require('node:crypto');
+const { spawn } = require('node:child_process');
 const { Client } = require('pg');
 const { execFileSync } = require('node:child_process');
 const { run } = require('../lib/migrations/postgres');
@@ -191,10 +192,93 @@ optInSuite(process.env.NS_TENANT_AUTHORITY_POSTGRES_DOCKER_TEST === '1',
     }
   });
 
-  it('fails closed after the authority pool becomes unavailable', async function () {
-    const closedStore = await createTenantAuthorization({ connectionString: appURI, namespace: NAMESPACE });
-    await closedStore.close();
-    await assert.rejects(closedStore.authorize({ tenant: A, principal: Object.freeze({ kind: 'anonymous' }),
-      permission: 'api:entries:read' }), { code: 'TENANT_AUTHORITY_UNAVAILABLE' });
+  it('survives idle-connection termination and rejects the next authority query', async function () {
+    await first.close();
+    await second.close();
+    await admin.end();
+    first = null;
+    second = null;
+    admin = null;
+
+    const childSource = `
+      const scope = require('./lib/storage/tenant-scope');
+      scope.setTenancyMode('multi');
+      const create = require('./lib/tenant-authorization/postgres');
+      (async () => {
+        const authority = await create({ connectionString: process.env.AUTHORITY_DATABASE_URL,
+          namespace: process.env.AUTHORITY_NAMESPACE });
+        process.stdout.write('READY\\n');
+        process.stdin.once('data', async () => {
+          let exitCode = 0;
+          try {
+            const allowed = await authority.authorize({ tenant: process.env.AUTHORITY_TENANT,
+              principal: { kind: 'anonymous' }, permission: 'api:entries:read' });
+            process.stdout.write('UNEXPECTED_RESULT ' + allowed + '\\n');
+            exitCode = 2;
+          } catch (error) {
+            if (error.code === 'TENANT_AUTHORITY_UNAVAILABLE') {
+              process.stdout.write('REJECT ' + error.code + '\\n');
+            } else {
+              process.stdout.write('UNEXPECTED_REJECTION ' + error.code + '\\n');
+              exitCode = 3;
+            }
+          } finally {
+            try { await authority.close(); } catch {}
+            process.stdout.write('COMPLETE\\n', () => process.exit(exitCode));
+          }
+        });
+      })().catch(error => {
+        process.stderr.write('STARTUP_FAILURE ' + (error.code || error.name) + '\\n');
+        process.exitCode = 2;
+      });
+    `;
+    const child = spawn(process.execPath, ['-e', childSource], {
+      cwd: process.cwd(),
+      env: {
+        ...process.env,
+        AUTHORITY_DATABASE_URL: appURI,
+        AUTHORITY_NAMESPACE: NAMESPACE,
+        AUTHORITY_TENANT: A
+      },
+      stdio: ['pipe', 'pipe', 'pipe']
+    });
+    let stdout = '', stderr = '', exited = false, exitCode, exitSignal;
+    child.stdout.setEncoding('utf8').on('data', chunk => { stdout += chunk; });
+    child.stderr.setEncoding('utf8').on('data', chunk => { stderr += chunk; });
+    child.on('exit', (code, signal) => {
+      exited = true;
+      exitCode = code;
+      exitSignal = signal;
+    });
+    const waitFor = async (predicate, label, timeout = 10000) => {
+      const deadline = Date.now() + timeout;
+      while (Date.now() < deadline) {
+        if (predicate()) return;
+        if (exited) throw new Error('child exited before ' + label + ': ' + stdout + stderr);
+        await sleep(20);
+      }
+      throw new Error('timed out waiting for ' + label + ': ' + stdout + stderr);
+    };
+    try {
+      await waitFor(() => stdout.includes('READY\n'), 'idle pool readiness');
+      docker(['kill', container]);
+      await waitFor(() => stderr.includes('PostgreSQL idle connection error:'),
+        'repository pool idle-error handler');
+      assert.match(stderr, /PostgreSQL idle connection error: Error/);
+      assert.equal(exited, false, 'idle pool error must not crash the child process');
+      child.stdin.end('GO\n');
+      await waitFor(() => stdout.includes('REJECT TENANT_AUTHORITY_UNAVAILABLE'),
+        'sanitized current-authority rejection');
+      await waitFor(() => stdout.includes('COMPLETE\n'), 'pool cleanup completion');
+      await waitFor(() => exited, 'subprocess exit');
+      assert.equal(exitCode, 0, 'child must exit cleanly: ' + stdout + stderr);
+      assert.equal(exitSignal, null);
+      assert.equal(stdout.includes('UNEXPECTED_RESULT'), false);
+      assert.equal(stdout.includes('UNEXPECTED_REJECTION'), false);
+      assert.equal(stderr.includes('uncaughtException'), false);
+      assert.equal(stderr.includes('Unhandled'), false);
+    } finally {
+      if (!exited) child.kill('SIGKILL');
+    }
   });
 });

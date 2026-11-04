@@ -40,3 +40,7 @@ NS_TENANT_AUTHORITY_POSTGRES_DOCKER_TEST=1 \
 The tests use synthetic principals and data. They measure adapter and database
 behavior only; authentication, principal verification, HTTP wiring, deployment
 readiness/listener contracts, and production provisioning remain unmeasured.
+The opt-in PostgreSQL suite also kills its owned container while an authority
+pool has an idle connection, then verifies the pool error handler runs, the
+next authorization query rejects as unavailable, and a child process exits
+without an unhandled error.
