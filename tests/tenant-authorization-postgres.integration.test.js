@@ -223,7 +223,13 @@ optInSuite(process.env.NS_TENANT_AUTHORITY_POSTGRES_DOCKER_TEST === '1',
               exitCode = 3;
             }
           } finally {
-            try { await authority.close(); } catch {}
+            try {
+              await authority.close();
+              process.stdout.write('POOL_CLOSED\\n');
+            } catch (error) {
+              process.stdout.write('POOL_CLOSE_FAILED ' + error.code + '\\n');
+              exitCode = 4;
+            }
             process.stdout.write('COMPLETE\\n', () => process.exit(exitCode));
           }
         });
@@ -269,12 +275,14 @@ optInSuite(process.env.NS_TENANT_AUTHORITY_POSTGRES_DOCKER_TEST === '1',
       child.stdin.end('GO\n');
       await waitFor(() => stdout.includes('REJECT TENANT_AUTHORITY_UNAVAILABLE'),
         'sanitized current-authority rejection');
+      await waitFor(() => stdout.includes('POOL_CLOSED\n'), 'pool cleanup');
       await waitFor(() => stdout.includes('COMPLETE\n'), 'pool cleanup completion');
       await waitFor(() => exited, 'subprocess exit');
       assert.equal(exitCode, 0, 'child must exit cleanly: ' + stdout + stderr);
       assert.equal(exitSignal, null);
       assert.equal(stdout.includes('UNEXPECTED_RESULT'), false);
       assert.equal(stdout.includes('UNEXPECTED_REJECTION'), false);
+      assert.equal(stdout.includes('POOL_CLOSE_FAILED'), false);
       assert.equal(stderr.includes('uncaughtException'), false);
       assert.equal(stderr.includes('Unhandled'), false);
     } finally {
