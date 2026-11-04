@@ -9,9 +9,9 @@ database/provider, run migrations, or enable a `serve` role.
 The optional trusted `dataAccess({tenant, request})` port replaces only the
 data plane's credential/current-permission callbacks. The dormant
 [legacy credential/GET bridge](../../secrets/legacy-credentials.md) implements
-this port for actual entries GET, including anonymous policy and current
+this port for actual entries GET and POST, including anonymous policy and current
 persisted Shiro authority. Owner/operator authentication remains unchanged;
-all other data operations explicitly refuse in that bridge.
+other collections, history and addressed mutations explicitly refuse in that bridge.
 
 The tenant constructor requires:
 
@@ -196,7 +196,7 @@ canonicalization. This is not a pinned-client replay or deployment acceptance.
 The same dormant bridge now admits the API3 entries list route
 `GET /api/v3/entries`, as well as a single addressed entry GET. Both require
 only the current `api:entries:read` authority; the reserved history route and
-all mutations remain unsupported. The list route invokes the shipping generic
+addressed mutations remain unsupported. The list route invokes the shipping generic
 API3 search handler and its existing filter parser, projection, date resolution
 and response renderer. Its PostgreSQL reader converts the shipping
 `findMany` filter through `utils.parseFilter` and the shared filter AST, then
@@ -208,6 +208,45 @@ HTTP coverage uses exchange-issued JWTs, overlapping IDs with different
 tenant data, current grants across separate pools, root/anonymous policy,
 reserved history rejection and read-only outcomes. This remains a bounded
 entries list/read slice, not full API3 or client acceptance.
+
+## Dormant actual entries POST
+
+The explicit `POST /api/v3/entries` path verifies the existing credential
+carriers and awaits current `api:entries:create` and `api:entries:update`
+checks before binding only the granted synchronous Shiro permissions.
+The shipping create handler selects the exact permission from stored identity:
+a miss requires create; a matched resend, including acknowledgement/refusal,
+requires update. Root remains an internally verified principal; anonymous
+never writes. Subject POST requires its current exact persisted display name
+for attribution: incomplete name metadata returns 401, unavailable metadata
+503. Existing GET does not acquire this metadata requirement.
+
+Trusted code may construct a **separate Collection per tenant** with the
+options from `entries.js`: combined PostgreSQL storage, an owned transactional
+intent factory, submitted-document validation and a create-only error hook.
+Neither request fields nor JWT claims select these options. Create, insert,
+replace and configured autoprune use that factory. Without injected storage
+the existing Mongo/cached construction and error handling remain unchanged.
+Do not share a Collection's prune throttle or bus between tenants.
+
+The data mount reuses API3's 50MiB JSON parser and existing malformed-body
+response; the actual handler still requires its real purifier. Submitted
+nonrepresentable documents return 400, recognized unavailable storage 503,
+and unclassified/internal stored-shape errors retain 500. Unknown ordinary,
+hyphenated and Unicode literal fields are retained in JSONB, including
+configured merge resends. Dotted/operator mutation paths, NUL/unpaired-surrogate
+text and lossy values remain refused; fields are never silently dropped or
+coerced. This is bounded representation support, not all Mongo input or
+pinned-client compatibility.
+
+Configured retention keeps its existing asynchronous OR-of-age-fields
+pruning and hourly per-tenant throttle, in a separate commit boundary; no
+uploader delete grant is invented. Intent notifications occur after commit;
+handler socket/data-received notifications retain their existing multiplicity.
+These are local notifications, not durable cross-worker socket/evaluator
+delivery. Matching, validation, current grants and writing are sequential
+snapshots; already authorized operations may complete after a grant change.
+No stronger race/precondition guarantee is implied.
 
 Legacy single-site request extraction can discard invalid query/body tokens
 (and unrecognized authorization schemes) before anonymous resolution. The test

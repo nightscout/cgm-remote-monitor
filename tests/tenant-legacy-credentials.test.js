@@ -74,7 +74,7 @@ describe('tenant legacy credentials against shipping authentication', function (
     assert.doesNotMatch(JSON.stringify(events), /accessToken|tokenPrefix/);
   });
 
-  describe('trusted data GET bridge boundaries', function () {
+  describe('trusted data bridge boundaries', function () {
     const createDataAccess = require('../lib/server/tenant-app/data-access');
     const authentication = require('../lib/api3/tenant-authentication');
     const security = require('../lib/api3/security');
@@ -124,8 +124,12 @@ describe('tenant legacy credentials against shipping authentication', function (
         assert.equal(authentication.get(req), undefined);
       }
       assert.equal(verified, 0);
-      await assert.rejects(access({ tenant: 'tenant-a',
-        request: { method: 'POST', path: '/entries', rawHeaders: [] } }), { code: 'TENANT_DATA_UNSUPPORTED' });
+      for (const [method, path] of [['POST', '/entries/shared'], ['PUT', '/entries'], ['PATCH', '/entries/shared'],
+        ['DELETE', '/entries/shared'], ['GET', '/entries/history']]) {
+        await assert.rejects(access({ tenant: 'tenant-a', request: { method, path, rawHeaders: [] } }),
+          { code: 'TENANT_DATA_UNSUPPORTED' });
+      }
+      assert.equal(verified, 0);
     });
   });
 

@@ -87,15 +87,17 @@ into `createTenantApp`; `verifierContext(tenant)` is a trusted service identity
 callback. Trusted host/proxy resolution runs first. This data-only callback
 does not replace owner/operator authentication.
 
-The first bridge supports only `GET /api/v3/entries/:identifier`, using existing
+The bridge supports entries list/addressed GET and entries POST, using existing
 Bearer JWT and `api-secret` credential headers. Duplicate or malformed
-credential headers refuse. All other data operations explicitly return 405.
+credential headers refuse. Other collections, history and addressed mutations
+explicitly return 405. POST's exact branch permissions and current-name
+requirement are described in the [tenant application](../server/tenant-app/README.md#dormant-actual-entries-post).
 Legacy v1/v2 query/body credential carriers are explicitly refused here,
 never mistaken for anonymous requests; API3's shipping authenticator does not
 consume those carriers. No new exchange URL, query/body credential convention, JWT format or mutation
 permission rule is introduced. Existing single routes remain unchanged.
 
-After verification the bridge awaits
+For GET, after verification the bridge awaits
 `authority.authorize({tenant,principal,permission:'api:entries:read'})`.
 The existing authority's single SQL statement snapshot is the data permission
 linearization point. It unions current subject and anonymous-default roles,
@@ -153,7 +155,7 @@ synthetic service capabilities and in-memory nonexporting crypto provider are
 explicit lab dependencies, not production Vault/service-policy acceptance.
 The lab never enables a listener through CLI/default startup.
 
-Full REST, POST/PUT storage-branch permissions, client-cohort coverage,
+Full REST, addressed mutation acceptance, client-cohort coverage,
 concurrent cross-process revocation races, owner/operator/lifecycle APIs,
 production credential import, provider recovery and complete milestone
 promotion remain outside this slice.
