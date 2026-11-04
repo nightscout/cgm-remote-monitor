@@ -50,7 +50,8 @@ function documents () {
     { _id: 'e-str', sgv: 'Loop', date: 'not-a-number', dateString: 'a' },
     { _id: 'f-nested', sgv: [[100]], date: 1011, dateString: '\u00e9' },
     { _id: 'g-nodate', sgv: 7 },
-    { _id: 'h-nulldate', sgv: 8, date: null }
+    { _id: 'h-nulldate', sgv: 8, date: null },
+    { _id: 'invalid-numeric', sgv: 150, date: 1012, isValid: false }
   ];
 }
 
@@ -126,6 +127,13 @@ suite('PostgreSQL entries read matches mongod (requires NS_TEST_POSTGRES_ADMIN_U
     return actual;
   }
 
+  async function sameFindMany (args) {
+    const expected = await mongoA('findMany', args);
+    const actual = await inA(() => reader.findMany(args));
+    assert.deepStrictEqual(actual, expected, `findMany ${JSON.stringify(args)}`);
+    return actual;
+  }
+
   const filters = [
     and(),
     ...['eq', 'ne', 'gt', 'gte', 'lt', 'lte'].flatMap(op =>
@@ -154,6 +162,79 @@ suite('PostgreSQL entries read matches mongod (requires NS_TEST_POSTGRES_ADMIN_U
       await same('count', ast);
     }
     assert.ok(nonEmpty > filters.length / 2, 'the matrix exercises matches, not only empty answers');
+  });
+
+  it('matches API3 findMany filters, validity, projection, ordering and pagination', async function () {
+    const page = await sameFindMany({
+      filter: [{ field: 'sgv', operator: 'gte', value: 100 }],
+      sort: { date: 1, _id: 1 },
+      limit: 2,
+      skip: 1,
+      projection: { sgv: 1, date: 1, identifier: 1 },
+      onlyValid: true
+    });
+    assert.equal(page.length, 2);
+    assert.ok(!page.some(doc => doc.identifier === 'invalid-numeric'));
+    assert.ok(page.some(doc => doc.identifier === 'Z-upper'));
+
+    const includingInvalid = await sameFindMany({
+      filter: [{ field: 'sgv', operator: 'gte', value: 100 }],
+      sort: { date: 1, _id: 1 },
+      limit: 20,
+      skip: 0,
+      onlyValid: false
+    });
+    assert.ok(includingInvalid.some(doc => doc.identifier === 'invalid-numeric'));
+
+    const nullAndMissing = await sameFindMany({
+      filter: [{ field: 'sgv', operator: 'eq', value: null }],
+      sort: { _id: 1 },
+      limit: 20,
+      skip: 0,
+      onlyValid: false,
+      options: { normalize: false }
+    });
+    assert.ok(nullAndMissing.some(doc => doc._id === 'uuid-1'));
+    assert.ok(nullAndMissing.some(doc => doc._id === 'uuid-2'));
+    assert.ok(nullAndMissing.some(doc => doc._id === 'a-lower'));
+
+    const stringBracket = await sameFindMany({
+      filter: [{ field: 'sgv', operator: 'eq', value: '120' }],
+      sort: { _id: 1 },
+      limit: 20,
+      skip: 0,
+      onlyValid: false,
+      options: { normalize: false }
+    });
+    assert.deepEqual(stringBracket.map(doc => doc._id.toHexString()), [H2]);
+
+    const inValues = await sameFindMany({
+      filter: [{ field: 'type', operator: 'in', value: 'sgv|mbg' }],
+      sort: { date: -1, _id: -1 },
+      limit: 3,
+      skip: 2,
+      projection: { type: 1, date: 1 },
+      onlyValid: true
+    });
+    assert.equal(inValues.length, 3);
+
+    await assert.rejects(inA(() => reader.findMany({
+      filter: [{ field: 'sgv', operator: 're', value: '.*' }],
+      sort: { _id: 1 },
+      limit: 1,
+      skip: 0
+    })), error => error.unsupported === true);
+    await assert.rejects(inA(() => reader.findMany({
+      filter: [{ field: '__proto__', operator: 'eq', value: 'unmatched' }],
+      sort: { _id: 1 },
+      limit: 1,
+      skip: 0
+    })), error => error.unsupported === true);
+    await assert.rejects(inA(() => reader.findMany({
+      filter: [],
+      limit: 1,
+      skip: 0
+    })), /unsupported findMany sort/);
   });
 
   it('orders across type brackets and both _id kinds, with skip and limit', async function () {

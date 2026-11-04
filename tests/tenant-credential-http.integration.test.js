@@ -3,7 +3,7 @@
 const assert = require('node:assert/strict');
 const crypto = require('node:crypto');
 const { execFileSync } = require('node:child_process');
-const { once } = require('node:events');
+const { EventEmitter, once } = require('node:events');
 const { setTimeout: delay } = require('node:timers/promises');
 const { Client } = require('pg');
 const express = require('express');
@@ -19,9 +19,9 @@ const createDataAccess = require('../lib/server/tenant-app/data-access');
 const createExchange = require('../lib/server/tenant-app/exchange');
 const { createTenantApp } = require('../lib/server/tenant-app');
 const createResolver = require('../lib/tenant-resolution');
+const Api3Collection = require('../lib/api3/generic/collection');
 const reader = require('../lib/storage/postgres-entries-read');
 const writer = require('../lib/storage/postgres-entries-write');
-const readOperation = require('../lib/api3/generic/read/operation');
 const provider = require('./fixtures/tenant-credential-provider');
 const { optInSuite } = require('./support/opt-in');
 
@@ -96,7 +96,26 @@ optInSuite(process.env.NS_TENANT_CREDENTIAL_HTTP_DOCKER_TEST === '1',
     const handlerApp = express();
     handlerApp.set('API3_SECURITY_ENABLE', true);
     data.use((req, res, next) => scope.withTenant(req.tenantContext.tenant, next));
-    data.get('/entries/:identifier', readOperation({}, {}, handlerApp, col));
+    const routeApp = {
+      get: (path, handler) => handler === undefined ? undefined : data.get(path, handler),
+      setENVTruthy: () => undefined
+    };
+    for (const method of ['post', 'put', 'patch', 'delete']) {
+      routeApp[method] = data[method].bind(data);
+    }
+    const routeCollection = new Api3Collection({
+      ctx: {
+        store: { collection: () => ({ collectionName: 'entries' }), ensureIndexes () {} },
+        bus: new EventEmitter()
+      },
+      env: {},
+      app: routeApp,
+      colName: 'entries',
+      storageColName: 'entries'
+    });
+    routeCollection.storage = col.storage;
+    routeCollection.resolveDates = col.resolveDates;
+    routeCollection.mapRoutes();
     const unavailable = async () => { throw new Error('owner services not installed'); };
     worker.server = createTenantApp({
       resolver: createResolver({ aliases: [
@@ -402,6 +421,110 @@ optInSuite(process.env.NS_TENANT_CREDENTIAL_HTTP_DOCKER_TEST === '1',
     assert.equal(conditional.text, '');
     await http(1, A, { Authorization: 'bearer ' + jwt[0] }).expect(200);
     assert.equal((await rows()).length, 2);
+  });
+
+  it('serves the shipping API3 entries search through current tenant authority', async function () {
+    const baseDate = 1793664000000;
+    for (const [tenant, offset] of [[A, 0], [B, 100]]) {
+      await workers[0].connection.withTenant(tenant, async () => {
+        const insert = writer({ connection: workers[0].connection, table: 'credential_data.entries' });
+        for (const [label, delta, isValid] of [
+          ['search-low', 10, true], ['search-mid', 20, undefined],
+          ['search-high', 30, true], ['search-invalid', 40, false]
+        ]) {
+          await insert.insertOne({
+            _id: label, identifier: label, sgv: 110 + offset + delta,
+            date: baseDate + delta, srvModified: baseDate + delta, type: 'sgv',
+            ...(isValid === undefined ? {} : { isValid })
+          }, { normalize: false });
+        }
+      });
+    }
+    const afterSeed = await rows();
+    const searchTokens = await Promise.all([A, B].map((tenant, index) =>
+      exchange(subjectTokens[index], index, tenant).expect(200)));
+    const tokens = searchTokens.map(response => response.body.token);
+
+    function search (worker, tenant, headers = {}, query = {}, path = '/api/v3/entries') {
+      let call = request(workers[worker].server).get(path)
+        .set('Host', tenant === A ? 'one.example.test' : 'two.example.test')
+        .timeout({ response: 5000, deadline: 15000 });
+      for (const [key, value] of Object.entries(headers)) call = call.set(key, value);
+      return call.query(query);
+    }
+
+    const query = { 'sgv$gte': '120', sort: 'date', limit: '1', skip: '1', fields: 'sgv' };
+    for (const [worker, tenant, expected] of [[0, A, 130], [1, B, 220]]) {
+      const response = await search(worker, tenant, bearer(tokens[tenant === A ? 0 : 1]), query).expect(200);
+      assert.deepEqual(response.body.result, [{ sgv: expected }]);
+      assert.equal(response.headers['cache-control'], 'no-store');
+    }
+
+    await search(1, B, bearer(tokens[0]), query).expect(401);
+    const isolated = await search(1, B, bearer(tokens[1]), { 'sgv$eq': '130', limit: '1' }).expect(200);
+    assert.deepEqual(isolated.body.result, []);
+    await search(0, A, {}, query).expect(403);
+    await search(0, A, secret(hash(roots[0])), query).expect(200);
+    await search(0, A, { 'api-secret': 'invalid' }, query).expect(401);
+
+    await admin.query(`UPDATE credential_auth.tenant_authorization_config
+      SET anonymous_roles = ARRAY['readable'] WHERE tenant_id = $1`, [A]);
+    try {
+      await search(0, A, {}, query).expect(200);
+      await admin.query(`UPDATE credential_auth.tenant_authorization_config
+        SET anonymous_roles = ARRAY['status-only'] WHERE tenant_id = $1`, [A]);
+      await search(1, A, {}, query).expect(403);
+    } finally {
+      await admin.query(`UPDATE credential_auth.tenant_authorization_config
+        SET anonymous_roles = ARRAY['denied'] WHERE tenant_id = $1`, [A]);
+    }
+
+    await admin.query(`DELETE FROM credential_auth.tenant_authorization_subject_roles
+      WHERE tenant_id = $1 AND subject_id = $2`, [A, SUBJECT]);
+    try {
+      await search(1, A, bearer(tokens[0]), query).expect(403);
+    } finally {
+      await admin.query(`INSERT INTO credential_auth.tenant_authorization_subject_roles
+        VALUES ($1, $2, 'viewer')`, [A, SUBJECT]);
+    }
+
+    await search(0, A, bearer(tokens[0]), query).expect(200);
+    await search(1, A, bearer(tokens[0]), {}, '/api/v3/entries/history').expect(405);
+    await search(1, A, bearer(tokens[0]), {}, '/api/v3/entries/history/1793664000000').expect(405);
+    await search(1, A, bearer(jwt[0]), { 'sgv$re': '.*' }).expect(500);
+    await search(1, A, bearer(jwt[0]), { limit: '1' }).expect(200);
+
+    await admin.query(`REVOKE SELECT ON credential_data.entries FROM ${role}`);
+    try {
+      await search(1, A, bearer(tokens[0]), query).expect(500);
+    } finally {
+      await admin.query(`GRANT SELECT ON credential_data.entries TO ${role}`);
+    }
+    await search(1, A, bearer(tokens[0]), query).expect(200);
+    assert.deepEqual(await rows(), afterSeed);
+  });
+
+  it('rechecks revoked API3 search authority across independently pooled workers', async function () {
+    const issued = (await exchange(subjectTokens[0], 0, A).expect(200)).body.token;
+    const query = { limit: '1' };
+    const before = await searchForAuthority(0, A, bearer(issued), query).expect(200);
+    assert.equal(before.body.result.length, 1);
+    await admin.query(`DELETE FROM credential_auth.tenant_authorization_subject_roles
+      WHERE tenant_id = $1 AND subject_id = $2`, [A, SUBJECT]);
+    try {
+      await searchForAuthority(1, A, bearer(issued), query).expect(403);
+    } finally {
+      await admin.query(`INSERT INTO credential_auth.tenant_authorization_subject_roles
+        VALUES ($1, $2, 'viewer')`, [A, SUBJECT]);
+    }
+
+    function searchForAuthority (worker, tenant, headers, query) {
+      return request(workers[worker].server).get('/api/v3/entries')
+        .set('Host', tenant === A ? 'one.example.test' : 'two.example.test')
+        .set('Authorization', headers.Authorization)
+        .query(query)
+        .timeout({ response: 5000, deadline: 15000 });
+    }
   });
 
   it('verifies root without returning its material and keeps uploader distinct', async function () {

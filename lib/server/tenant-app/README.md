@@ -193,6 +193,22 @@ signing/audit/metadata outages. Its provider is synthetic; the real Vault
 boundary campaign remains separate. Unit differentials compare shipping
 canonicalization. This is not a pinned-client replay or deployment acceptance.
 
+The same dormant bridge now admits the API3 entries list route
+`GET /api/v3/entries`, as well as a single addressed entry GET. Both require
+only the current `api:entries:read` authority; the reserved history route and
+all mutations remain unsupported. The list route invokes the shipping generic
+API3 search handler and its existing filter parser, projection, date resolution
+and response renderer. Its PostgreSQL reader converts the shipping
+`findMany` filter through `utils.parseFilter` and the shared filter AST, then
+uses the bounded PostgreSQL compiler. It refuses unsupported filter/sort/
+projection shapes rather than approximating MongoDB answers. Differential
+coverage compares live MongoDB and tenant-bound PostgreSQL for pagination,
+projection, validity filtering, missing/null/type behavior and ordering.
+HTTP coverage uses exchange-issued JWTs, overlapping IDs with different
+tenant data, current grants across separate pools, root/anonymous policy,
+reserved history rejection and read-only outcomes. This remains a bounded
+entries list/read slice, not full API3 or client acceptance.
+
 Legacy single-site request extraction can discard invalid query/body tokens
 (and unrecognized authorization schemes) before anonymous resolution. The test
 records that conflict separately: shipping exchange itself refuses invalid
