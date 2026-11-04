@@ -46,7 +46,7 @@ describe('PostgreSQL entries read: refusals and parameterization', function () {
     const ast = cmp('eq', 'type', 'sgv');
     await refused(reader.findFiltered(ast, { v1: true }), /API v1 dialect/);
     await refused(reader.findFiltered(ast, { readOptions: { batchSize: 1000 } }), /readOptions/);
-    await refused(reader.findFiltered(ast, { projection: { sgv: 1 } }), /projection/);
+    await refused(reader.findFiltered(ast, { projection: { type: 0 } }), /projection/);
     await refused(reader.findFiltered(ast, { hint: 'x' }), /find option 'hint'/);
     await refused(reader.findFiltered(ast, { limit: 2 }), /without a sort/);
     await refused(reader.findFiltered(ast, { skip: 1 }), /without a sort/);
@@ -54,11 +54,20 @@ describe('PostgreSQL entries read: refusals and parameterization', function () {
     await refused(reader.findFiltered(ast, { sort: { date: 'asc' } }), /sort direction/);
     await refused(reader.findFiltered(ast, { sort: { 'a.b': 1 } }), /field path/);
     await refused(reader.findFiltered(ast, { sort: { a: 1, b: 1, c: 1, d: 1, e: 1 } }), /more than 4/);
-    await refused(reader.findOne('abc', { sgv: 1 }), /projection/);
+    await refused(reader.findOne('abc', { sgv: 2 }), /projection/);
     await refused(reader.count(ast, { v1: true }), /API v1 dialect/);
     await assert.rejects(reader.findFiltered(ast, { sort: { date: 1 }, limit: 'x' }), /limit must be an integer/);
     await assert.rejects(reader.count(null), /filter node must be an object/);
     assert.deepEqual(sent, []);
+  });
+
+  it('accepts simple inclusion projections for entries reads', async function () {
+    const ast = cmp('eq', 'type', 'sgv');
+    assert.deepEqual(await reader.findFiltered(ast, { projection: { sgv: 1 } }), []);
+    assert.equal(sent.length, 1);
+    sent.length = 0;
+    assert.deepEqual(await reader.findOne('abc', { sgv: 1 }), []);
+    assert.equal(sent.length, 1);
   });
 
   it('binds every operand and field name rather than writing it into SQL', function () {

@@ -8,6 +8,8 @@ const { EventEmitter } = require('node:events');
 const { Client } = require('pg');
 const { MongoClient, ObjectId } = require('mongodb');
 const MongoCollection = require('../lib/api3/storage/mongoCollection');
+const readOperation = require('../lib/api3/generic/read/operation');
+const FieldsProjector = require('../lib/api3/shared/fieldsProjector');
 const { and, or, cmp } = require('../lib/storage/filter');
 const connect = require('../lib/storage/postgres-connection');
 const { encodeDocument } = require('../lib/storage/postgres-identity');
@@ -191,6 +193,66 @@ suite('PostgreSQL entries read matches mongod (requires NS_TEST_POSTGRES_ADMIN_U
 
   it('normalizes listed documents as find.js does', async function () {
     await same('findFiltered', and(), { sort: { _id: 1 } });
+  });
+
+  it('serves projected and conditional entry reads through the API3 handler', async function () {
+    const doc = {
+      _id: 'handler-entry',
+      identifier: 'handler-entry',
+      sgv: 123,
+      uploader: { battery: 80, type: 'phone' },
+      srvCreated: 1700000000000,
+      srvModified: 1700000000000
+    };
+    await mongo.db().collection(name).insertOne(doc);
+    const row = encodeDocument(doc);
+    await admin.query(
+      'INSERT INTO "' + name + '".entries (tenant_id, id_kind, doc) VALUES ($1, $2, $3)',
+      [A, row.id_kind, row.doc]
+    );
+
+    function response () {
+      return {
+        headers: {},
+        statusCode: 200,
+        headersSent: false,
+        setHeader (key, value) { this.headers[key] = value; return this; },
+        status (code) { this.statusCode = code; return this; },
+        format (formats) { formats.json(); return this; },
+        json (body) { this.body = body; this.headersSent = true; return this; },
+        send (body) { this.body = body; this.headersSent = true; return this; },
+        end () { this.headersSent = true; return this; }
+      };
+    }
+
+    async function readWithHandler (fields, ifModifiedSince) {
+      const req = {
+        query: { fields },
+        params: { identifier: doc.identifier },
+        get: name => name === 'If-Modified-Since' ? ifModifiedSince : undefined
+      };
+      const res = response();
+      const app = { get: () => false };
+      const col = {
+        colName: 'entries',
+        storage: reader,
+        resolveDates: stored => new Date(stored.srvModified)
+      };
+      const operation = readOperation({}, { apiV3DataWarnings: false }, app, col);
+      await inA(() => operation(req, res));
+      return res;
+    }
+
+    const projected = await readWithHandler('uploader.battery');
+    assert.equal(projected.statusCode, 200);
+    assert.deepEqual(projected.body.result, { uploader: { battery: 80 } });
+    assert.equal(projected.headers['Last-Modified'], new Date(doc.srvModified).toUTCString());
+    await same('findOne', doc.identifier, new FieldsProjector('uploader.battery').storageProjection());
+
+    const unchanged = await readWithHandler('sgv',
+      new Date(Math.ceil(doc.srvModified / 1000) * 1000).toUTCString());
+    assert.equal(unchanged.statusCode, 304);
+    assert.equal(unchanged.body, undefined);
   });
 
   it('reads only the bound tenant and refuses an unbound read', async function () {
