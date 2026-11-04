@@ -75,7 +75,7 @@ async function sendEntry (date) {
       if (!latestEntry) {
         // Fill in history
         console.log('I would fill in history');
-        const totalToSave = 24;
+        const totalToSave = 24; // 24 hours of data
         const now = Date.now();
         const start = now - ( totalToSave * FIVE_MINUTES);
         let current = start;
@@ -111,7 +111,8 @@ async function sendEntry (date) {
       sendFail();
 
     } catch (error) {
-      console.log(error.response.data);
+      console.log(error.response.data); 
+      //console.log(error.code.error.message); 
     }
   })();
 
