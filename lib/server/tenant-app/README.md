@@ -145,32 +145,60 @@ the existing tenant-app/resolver suites passed 17 cases; focused ESLint passed.
 This is bounded HTTP/storage isolation evidence, not release or production
 multitenancy approval.
 
-### Exchange compatibility boundary
+### Dormant tenant exchange and GET join
 
-Tenant exchange is not mounted. The shipping exchange contract is measured
+The optional trusted `exchange` callback mounts only
+`GET /api/v2/authorization/request/:accessToken`. Construct it with
+`require('./exchange')({secrets, authority, verifierContext})`. Trusted tenant
+resolution precedes verification. Without that callback no exchange is mounted,
+and default single startup is unchanged. The shipping exchange contract is measured
 independently by `tests/authorization-exchange-contract.test.js`, using the
 shipping authorization/storage/enclave modules, disposable MongoDB records and
 HTTP requests. It covers path credentials, subject-only issuance, canonical
 subject tokens, JWT renewal, response permissions/current display name,
 current reloaded grants, expiry/removal and anonymous distinctions.
 
-The response's `sub` is the subject's exact display name, not its stable ID or
-token prefix. The current tenant authority and legacy credential candidate
-tables do not retain that name. A compatible response therefore needs an
-explicit import/current-name provisioning contract before implementation.
-The existing permission-only authority callback also does not expose a
-current permission-group snapshot; a future adapter must preserve shipping
-arrays of permission strings, not serialize Shiro tries.
+The response preserves `token`, `sub`, `permissionGroups`, `iat`, `exp`.
+The path supplies the sole exchange credential; unrelated headers, query and
+body fields are not authentication inputs, including AndroidAPS's empty-bearer
+handshake. Accepted subject credentials and JWTs canonicalize inside secrets;
+root credentials do not exchange. A missing/invalid/expired/removed subject
+returns the shipping 401 status object, never anonymous defaults.
 
-Shipping exchange inherits the enclave's eight-hour default; the tenant secrets
-component instead requires an explicit lifetime and configured maximum.
-No tenant exchange lifetime policy is selected here.
+The response's `sub` is the exact current display name, not its stable ID or
+token prefix. The appended operator-run `0002_subject_display_name` migration
+in the [authority candidate](../../tenant-authorization/postgres-candidate.json)
+adds nullable display metadata without rewriting the applied first migration.
+Import exact names and update on rename; incomplete imports refuse exchange,
+without invented names. Stable IDs remain identity. The fresh
+`authority.subjectSnapshot` reads name, current role permission arrays and
+defaults together; those response arrays do not confer future authority.
+Current subject roles are ordered by role name, then defaults not already
+present. Every protected GET checks current persisted Shiro grants again.
+
+For this exchange issuer/verifier, explicitly configure the secrets component
+maximum to **28800 seconds**. Issuance is exactly eight hours; a different
+configured maximum refuses exchange. The existing tenant JWT envelope
+`{accessToken,aud,iat,exp}` and signing provider remain unchanged, and provider
+signing keys remain nonexportable. Expiry/duration validation is distinct from
+next-request subject/credential revocation and grant changes. No single-site
+JWT portability is presumed.
+
+`tests/tenant-credential-http.integration.test.js` measures the exchange-issued
+JWT -> actual entries GET join using persisted PostgreSQL/RLS authority,
+credential metadata, secrets/audit and independently pooled adapters. It covers
+cross-tenant refusal, canonicalization, names/rename/import completeness,
+current grants, bad/unknown/expired/removed subjects, anonymous modes and
+signing/audit/metadata outages. Its provider is synthetic; the real Vault
+boundary campaign remains separate. Unit differentials compare shipping
+canonicalization. This is not a pinned-client replay or deployment acceptance.
 
 Legacy single-site request extraction can discard invalid query/body tokens
 (and unrecognized authorization schemes) before anonymous resolution. The test
 records that conflict separately: shipping exchange itself refuses invalid
 path credentials. Do not copy extraction's anonymous fallback into tenant
 authentication, silently change single-site behavior, or treat a root
-credential as a subject exchange credential. Owner/operator planes remain
-separate. No client, default startup, signing envelope or production route is
-changed by this compatibility inventory.
+credential as a subject exchange credential. Strict invalid-supplied-credential
+refusal is an intentional multitenant difference. Owner/operator planes remain
+separate. No client, default startup, signing envelope or v1/v2 data route is
+changed by this dormant exchange/GET join.

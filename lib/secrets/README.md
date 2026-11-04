@@ -12,7 +12,8 @@ Vault here makes no comparative cost, efficiency or production-readiness claim.
 The dormant [legacy credential verifier](legacy-credentials.md) adds an
 optional trusted current-reference/subject-metadata port and a data-only
 entries-GET bridge. It does not change the JWT envelope, export signing keys
-or enable roles, owner authentication or token exchange.
+or enable roles or owner authentication. The optional dormant tenant exchange
+composition is described in [legacy credentials](legacy-credentials.md).
 
 `createSecrets` in `component.js` requires these injected boundaries:
 
@@ -41,6 +42,7 @@ Methods:
 | `reveal(context,reference)` | Separate `reveal` permission and audit event, not an alias for the consumer permission. The eventual owner policy must refuse operator reveal and enforce its selected re-authentication policy. |
 | `signJWT(context,accessToken,lifetimeSeconds)` | `sign` permission is **tenant-wide minting authority**, reserved for a trusted token issuer, not an owner-config permission. Return an HS256 JWT with `accessToken`, tenant `aud`, `iat`, `exp` and version `kid`. Reject lifetimes outside the configured bound. |
 | `verifyJWT(context,token)` | `verify` consumer permission; verify signature/key version, tenant audience, algorithm, issued time, expiry and lifetime, then return only the selected claims. Invalid tokens reject; they never become anonymous/default authority. |
+| `exchangeLegacyCredential(context,credential,currentSubject)` | Trusted issuer only: verify the path credential against current imported tenant metadata, refuse root/anonymous, await the current-subject callback, and sign the canonical subject token inside secrets. Returns only `{token,iat,exp}`. Requires an explicitly configured maximum of 28800 seconds and issues exactly that duration. |
 
 Authorization linearizes at the successful current-state `authorize` check.
 An already-authorized in-flight operation may finish; the next operation must

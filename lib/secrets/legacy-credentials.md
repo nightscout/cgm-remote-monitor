@@ -1,7 +1,8 @@
 # Dormant tenant legacy credential verifier
 
 This is the first credential/entries-GET bridge, not an enabled server role,
-owner/operator authenticator, token-exchange endpoint or complete API surface.
+owner/operator authenticator or complete API surface. The optional dormant
+exchange/GET join below reuses the same credential boundary.
 Single-site enclave, authorization, startup and JWT issuance are unchanged.
 
 ## Trusted import and current state
@@ -76,8 +77,8 @@ scheme or provider choice is introduced.
 The existing tenant secrets JWT verifier/envelope is unchanged. Preexisting
 single-site JWTs with unrelated keys/envelopes are not assumed portable.
 Legacy raw subject/root credential compatibility is not a claim that the
-unimplemented tenant exchange route or every preexisting JWT deployment has
-been accepted.
+tenant exchange route or every preexisting JWT deployment has client-cohort
+acceptance.
 
 ## GET bridge and linearization
 
@@ -118,6 +119,22 @@ data root credential is not owner/operator authentication.
 
 ## Focused validation
 
+The optional exchange callback is documented in the
+[tenant application](../server/tenant-app/README.md#dormant-tenant-exchange-and-get-join).
+`exchangeLegacyCredential(context,credential,currentSubject)` reuses the verifier
+and keeps its canonical derived token inside a private per-principal map.
+It refuses root/anonymous, awaits the trusted current-subject callback, signs
+through the authorized/audited provider, verifies the issued envelope, and
+returns only `{token,iat,exp}`. That callback obtains current name and permission
+arrays from the persisted authority; it is not supplied by an HTTP client.
+This issuer/verifier requires an explicit eight-hour maximum and issues exactly
+eight-hour tokens. Current grants and revocation are checked independently
+on each subsequent GET, not copied from the exchange response or JWT.
+
+The serving service needs decrypt, verify and sign capabilities, not root
+reveal or an owner permission. Signing keys remain nonexportable. No client,
+JWT format, single-site path or v1/v2 data route changes follow.
+
 ```sh
 NODE_ENV=test node_modules/.bin/mocha --no-config --no-package --fail-zero \
   --reporter ./scripts/execution-reporter.js \
@@ -136,7 +153,7 @@ synthetic service capabilities and in-memory nonexporting crypto provider are
 explicit lab dependencies, not production Vault/service-policy acceptance.
 The lab never enables a listener through CLI/default startup.
 
-Full REST, POST/PUT storage-branch permissions, exchange/client-cohort coverage,
+Full REST, POST/PUT storage-branch permissions, client-cohort coverage,
 concurrent cross-process revocation races, owner/operator/lifecycle APIs,
 production credential import, provider recovery and complete milestone
 promotion remain outside this slice.

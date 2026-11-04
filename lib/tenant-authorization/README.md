@@ -46,3 +46,25 @@ The opt-in PostgreSQL suite also kills its owned container while an authority
 pool has an idle connection, then verifies the pool error handler runs, the
 next authorization query rejects as unavailable, and a child process exits
 without an unhandled error.
+
+## Current exchange metadata
+
+The appended `0002_subject_display_name` candidate migration adds nullable
+`display_name` to existing stable subjects. The first migration and checksum
+are unchanged. Apply through the operator-only migration runner, never from a
+serving process. Imported rows initially retain their IDs and have no invented
+name. Preserve the exact shipping subject name on import, and update it on
+rename together with the legacy presentation prefix (which still follows the
+shipping name transformation). Name is display metadata, not identity. When
+both namespaces use the same database, update both in one operator transaction.
+
+`subjectSnapshot({tenant,principal})` is a read-only exchange adapter for a
+verified subject. One fresh tenant-bound SQL statement reads current name,
+roles, permission arrays and defaults. Missing subject/name returns null;
+invalid or unavailable authority rejects. The response is `{sub,
+permissionGroups}`, with arrays of permission strings as in shipping
+authorization, not serialized Shiro objects. Role groups use the existing
+role-name order, then defaults not already present. They are informational
+response metadata, never cached authorization for a later data operation.
+The separate exact-permission `authorize` callback remains mandatory for
+protected GET. Table and column write privileges are refused at startup.

@@ -16,6 +16,7 @@ const createLegacyAuthority = require('../lib/secrets/legacy-postgres');
 const { createPostgresSecrets } = require('../lib/secrets/postgres');
 const { createSecrets } = require('../lib/secrets/component');
 const createDataAccess = require('../lib/server/tenant-app/data-access');
+const createExchange = require('../lib/server/tenant-app/exchange');
 const { createTenantApp } = require('../lib/server/tenant-app');
 const createResolver = require('../lib/tenant-resolution');
 const reader = require('../lib/storage/postgres-entries-read');
@@ -41,7 +42,7 @@ optInSuite(process.env.NS_TENANT_CREDENTIAL_HTTP_DOCKER_TEST === '1',
   const roots = [crypto.randomBytes(24).toString('hex'), crypto.randomBytes(24).toString('hex')];
   const providers = [provider(), provider()];
   const workers = [];
-  let owned = false, admin, previousMode, appURI, time = Date.now(), subjectTokens, jwt;
+  let owned = false, admin, previousMode, appURI, time = Date.now(), subjectTokens, jwt, signingUnavailable = false;
   const schemas = [
     ['credential_data', require('../migrations/candidates/postgres-entries-v1.json')],
     ['credential_auth', require('../lib/tenant-authorization/postgres-candidate.json')],
@@ -73,14 +74,18 @@ optInSuite(process.env.NS_TENANT_CREDENTIAL_HTTP_DOCKER_TEST === '1',
       ...worker.persistence,
       providerFor: async tenant => {
         assert.ok([A, B].includes(tenant));
-        return providers[tenant === A ? 0 : 1];
+        const current = providers[tenant === A ? 0 : 1];
+        return { ...current, async sign (input) {
+          if (signingUnavailable) throw new Error('synthetic signer unavailable');
+          return current.sign(input);
+        } };
       },
       // These are synthetic trusted service capabilities, not user/data grants.
       // User permissions below always come from the real authority repository.
       authorize: async (identity, action) => identity.consumer === 'api' &&
-        ((identity.principal === 'verifier' && ['decrypt', 'verify'].includes(action.operation)) ||
+        ((identity.principal === 'verifier' && ['decrypt', 'verify', 'sign'].includes(action.operation)) ||
          (identity.principal === 'issuer' && ['encrypt', 'sign'].includes(action.operation))),
-      maxTokenLifetimeSeconds: 300,
+      maxTokenLifetimeSeconds: 28800,
       now: () => time,
       legacyAuthorityFor: tenant => worker.legacy.read(tenant)
     });
@@ -98,6 +103,7 @@ optInSuite(process.env.NS_TENANT_CREDENTIAL_HTTP_DOCKER_TEST === '1',
         { host: 'one.example.test', tenant: A }, { host: 'two.example.test', tenant: B }
       ] }),
       dataAccess: createDataAccess({ secrets: worker.secrets, authority: worker.authority, verifierContext: ctx }),
+      exchange: createExchange({ secrets: worker.secrets, authority: worker.authority, verifierContext: ctx }),
       verifyCredential: async () => null,
       authorizeRequest: async () => false,
       tenantSettings: { read: unavailable, replace: unavailable, rollback: unavailable },
@@ -153,8 +159,11 @@ optInSuite(process.env.NS_TENANT_CREDENTIAL_HTTP_DOCKER_TEST === '1',
       await admin.query(`INSERT INTO credential_identity.legacy_credential_subjects VALUES
         ($1, $2, 'sameviewer'), ($1, $3, 'sameviewer')`, [tenant, SUBJECT, OTHER]);
       await admin.query(`INSERT INTO credential_auth.tenant_authorization_config VALUES ($1, ARRAY['denied'])`, [tenant]);
-      await admin.query(`INSERT INTO credential_auth.tenant_authorization_subjects VALUES ($1, $2), ($1, $3)`,
+      await admin.query(`INSERT INTO credential_auth.tenant_authorization_subjects (tenant_id, subject_id) VALUES ($1, $2), ($1, $3)`,
         [tenant, SUBJECT, OTHER]);
+      await admin.query(`UPDATE credential_auth.tenant_authorization_subjects
+        SET display_name = 'Same Viewer Exact ' || CASE WHEN tenant_id = $1 THEN 'A' ELSE 'B' END
+        WHERE tenant_id = $2`, [A, tenant]);
       await admin.query(`INSERT INTO credential_auth.tenant_authorization_roles VALUES
         ($1, 'viewer', ARRAY['api:entries:read']), ($1, 'uploader', ARRAY['api:entries:create'])`, [tenant]);
       await admin.query(`INSERT INTO credential_auth.tenant_authorization_subject_roles VALUES
@@ -174,6 +183,194 @@ optInSuite(process.env.NS_TENANT_CREDENTIAL_HTTP_DOCKER_TEST === '1',
     jwt = await Promise.all([A, B].map((tenant, index) =>
       workers[0].secrets.signJWT(ctx(tenant, 'issuer'), subjectTokens[index], 300)));
     await http(0, A, bearer(jwt[0])).expect(200);
+  });
+
+  function exchange (credential, worker = 0, tenant = A, headers = {}) {
+    return http(worker, tenant, headers, 'get',
+      '/api/v2/authorization/request/' + encodeURIComponent(credential));
+  }
+
+  it('exchanges persisted own-tenant subjects into canonical eight-hour JWTs for actual GET, not root exchange', async function () {
+    const before = await rows();
+    for (const [tenant, index] of [[A, 0], [B, 1]]) {
+      const digest = hash(hash(roots[index]) + SUBJECT);
+      for (const credential of [subjectTokens[index], digest, digest.slice(0, 16),
+        hash(subjectTokens[index]), hash(subjectTokens[index]).slice(0, 16),
+        'alternate-prefix-' + digest.slice(0, 16), jwt[index]]) {
+        const response = await exchange(credential, index, tenant, { Authorization: 'Bearer' }).expect(200);
+        assert.deepEqual(Object.keys(response.body).sort(), ['exp', 'iat', 'permissionGroups', 'sub', 'token']);
+        assert.equal(response.body.sub, 'Same Viewer Exact ' + (index === 0 ? 'A' : 'B'));
+        assert.deepEqual(response.body.permissionGroups, [['api:entries:read'], []]);
+        assert.equal(response.body.iat, Math.floor(time / 1000));
+        assert.equal(response.body.exp - response.body.iat, 28800);
+        const decoded = await workers[1 - index].secrets.verifyJWT(ctx(tenant), response.body.token);
+        assert.deepEqual(Object.keys(decoded).sort(), ['accessToken', 'aud', 'exp', 'iat']);
+        assert.equal(decoded.accessToken, subjectTokens[index]);
+        assert.equal(decoded.aud, tenant);
+        await http(1 - index, tenant, bearer(response.body.token)).expect(200);
+        await http(index, tenant === A ? B : A, bearer(response.body.token)).expect(401);
+        await exchange(response.body.token, 1 - index, tenant === A ? B : A).expect(401);
+      }
+      for (const credential of [roots[index], hash(roots[index]),
+        crypto.createHash('sha512').update(roots[index]).digest('hex')]) {
+        const denied = await exchange(credential, index, tenant).expect(401);
+        assert.deepEqual(denied.body, { status: 401, message: 'Unauthorized', description: 'Invalid/Missing' });
+      }
+      await exchange(subjectTokens[1 - index], index, tenant).expect(401);
+      const issued = (await exchange(subjectTokens[index], index, tenant).expect(200)).body.token;
+      await http(index, tenant, bearer(issued), 'get', '/api/v1/tenant/settings').expect(401);
+      await http(index, tenant, bearer(issued), 'post', '/api/v3/entries').expect(405);
+    }
+    await exchange('invalid', 0, A, { 'api-secret': subjectTokens[0] }).expect(401);
+    await exchange('invalid').query({ token: subjectTokens[0], secret: hash(roots[0]) })
+      .send({ token: subjectTokens[0], secret: hash(roots[0]) }).expect(401);
+    await exchange(subjectTokens[0], 1, A, { Authorization: 'Basic ignored' })
+      .query({ token: 'ignored' }).send({ token: 'ignored' }).expect(200);
+    await exchange(subjectTokens[0], 0, 'unknown').expect(404);
+    await exchange(subjectTokens[0]).set('X-Resolved-Tenant', B).expect(400);
+    await http(0, A, {}, 'get', '/api/v2/authorization/request?token=' + subjectTokens[0]).expect(404);
+    await http(0, A, {}, 'post', '/api/v2/authorization/request/' + subjectTokens[0]).expect(404);
+    assert.deepEqual(await rows(), before);
+  });
+
+  it('reads current names and grants across pools, refuses incomplete imports and applies revocation to issued JWT GET', async function () {
+    const issued = (await exchange(subjectTokens[0]).expect(200)).body.token;
+    const parts = issued.split('.');
+    const claims = JSON.parse(Buffer.from(parts[1], 'base64url'));
+    claims.exp++;
+    const input = parts[0] + '.' + Buffer.from(JSON.stringify(claims)).toString('base64url');
+    const overlong = input + '.' + (await providers[0].sign(Buffer.from(input))).toString('base64url');
+    await exchange(overlong, 1).expect(401);
+    await http(1, A, bearer(overlong)).expect(401);
+    await admin.query(`UPDATE credential_auth.tenant_authorization_subjects SET display_name = NULL
+      WHERE tenant_id = $1 AND subject_id = $2`, [A, SUBJECT]);
+    try {
+      await exchange(subjectTokens[0], 1).expect(401);
+    } finally {
+      await admin.query(`UPDATE credential_auth.tenant_authorization_subjects SET display_name = 'Same Viewer Renamed'
+        WHERE tenant_id = $1 AND subject_id = $2`, [A, SUBJECT]);
+    }
+    const renamed = await exchange(issued, 1).expect(200);
+    assert.equal(renamed.body.sub, 'Same Viewer Renamed');
+    await admin.query('BEGIN');
+    try {
+      await admin.query(`UPDATE credential_auth.tenant_authorization_subjects SET display_name = 'New Display Exact'
+        WHERE tenant_id = $1 AND subject_id = $2`, [A, SUBJECT]);
+      await admin.query(`UPDATE credential_identity.legacy_credential_subjects SET token_prefix = 'newdisplay'
+        WHERE tenant_id = $1 AND subject_id = $2`, [A, SUBJECT]);
+      await admin.query('COMMIT');
+      const current = await exchange(issued, 1).expect(200);
+      assert.equal(current.body.sub, 'New Display Exact');
+      assert.equal((await workers[1].secrets.verifyJWT(ctx(A), current.body.token)).accessToken,
+        'newdisplay-' + hash(hash(roots[0]) + SUBJECT).slice(0, 16));
+      await http(0, A, bearer(current.body.token)).expect(200);
+    } finally {
+      await admin.query(`UPDATE credential_identity.legacy_credential_subjects SET token_prefix = 'sameviewer'
+        WHERE tenant_id = $1 AND subject_id = $2`, [A, SUBJECT]);
+    }
+    await admin.query(`DELETE FROM credential_auth.tenant_authorization_subject_roles
+      WHERE tenant_id = $1 AND subject_id = $2`, [A, SUBJECT]);
+    try {
+      const response = await exchange(issued, 1).expect(200);
+      assert.deepEqual(response.body.permissionGroups, [[]]);
+      await http(1, A, bearer(response.body.token)).expect(403);
+      await http(0, A, bearer(issued)).expect(403);
+    } finally {
+      await admin.query(`INSERT INTO credential_auth.tenant_authorization_subject_roles VALUES ($1, $2, 'viewer')`,
+        [A, SUBJECT]);
+    }
+    await http(1, A, bearer(issued)).expect(200);
+    await admin.query(`UPDATE credential_auth.tenant_authorization_roles SET permissions = ARRAY['api:profile:read']
+      WHERE tenant_id = $1 AND name = 'viewer'`, [A]);
+    try {
+      const response = await exchange(issued, 1).expect(200);
+      assert.deepEqual(response.body.permissionGroups, [['api:profile:read'], []]);
+      await http(1, A, bearer(issued)).expect(403);
+    } finally {
+      await admin.query(`UPDATE credential_auth.tenant_authorization_roles SET permissions = ARRAY['api:entries:read']
+        WHERE tenant_id = $1 AND name = 'viewer'`, [A]);
+    }
+    await admin.query(`DELETE FROM credential_identity.legacy_credential_subjects WHERE tenant_id = $1 AND subject_id = $2`,
+      [A, SUBJECT]);
+    try {
+      await exchange(issued, 1).expect(401);
+      await http(1, A, bearer(issued)).expect(401);
+    } finally {
+      await admin.query(`INSERT INTO credential_identity.legacy_credential_subjects VALUES ($1, $2, 'sameviewer')`,
+        [A, SUBJECT]);
+    }
+    await http(1, A, bearer(issued)).expect(200);
+    await admin.query(`DELETE FROM credential_auth.tenant_authorization_subject_roles
+      WHERE tenant_id = $1 AND subject_id = $2`, [A, SUBJECT]);
+    await admin.query(`DELETE FROM credential_auth.tenant_authorization_subjects
+      WHERE tenant_id = $1 AND subject_id = $2`, [A, SUBJECT]);
+    try {
+      await exchange(issued, 1).expect(401);
+      await http(1, A, bearer(issued)).expect(403);
+    } finally {
+      await admin.query(`INSERT INTO credential_auth.tenant_authorization_subjects VALUES ($1, $2, 'Same Viewer Exact A')`,
+        [A, SUBJECT]);
+      await admin.query(`INSERT INTO credential_auth.tenant_authorization_subject_roles VALUES ($1, $2, 'viewer')`,
+        [A, SUBJECT]);
+    }
+    await exchange(issued, 1).expect(200);
+  });
+
+  it('keeps exchange invalid-token refusal distinct from anonymous policies and enforces expiry and eight-hour bounds', async function () {
+    for (const mode of ['denied', 'readable', 'status-only']) {
+      await admin.query(`UPDATE credential_auth.tenant_authorization_config SET anonymous_roles = ARRAY[$1]
+        WHERE tenant_id = $2`, [mode, A]);
+      try {
+        const response = await exchange(subjectTokens[0], 1).expect(200);
+        assert.deepEqual(response.body.permissionGroups, [['api:entries:read'],
+          mode === 'readable' ? ['*:*:read'] : mode === 'status-only' ? ['api:status:read'] : []]);
+        await http(0, A).expect(mode === 'readable' ? 200 : 403);
+        for (const value of ['invalid', 'null', await workers[0].secrets.signJWT(ctx(A, 'issuer'), 'unknown', 60)]) {
+          await exchange(value, 1).expect(401);
+        }
+        await http(0, A, { Authorization: 'Bearer' }).expect(401);
+      } finally {
+        await admin.query(`UPDATE credential_auth.tenant_authorization_config SET anonymous_roles = ARRAY['denied']
+          WHERE tenant_id = $1`, [A]);
+      }
+    }
+    const issued = (await exchange(subjectTokens[0]).expect(200)).body.token;
+    const previous = time;
+    try {
+      time += 28800000;
+      await exchange(issued, 1).expect(401);
+      await http(1, A, bearer(issued)).expect(401);
+    } finally {
+      time = previous;
+    }
+    await assert.rejects(workers[0].secrets.signJWT(ctx(A, 'issuer'), subjectTokens[0], 28801),
+      { code: 'SECRETS_TOKEN_LIFETIME' });
+    await exchange(subjectTokens[0], 1).expect(200);
+  });
+
+  it('fails exchange closed during signing, durable-audit, credential metadata and current authority outages', async function () {
+    signingUnavailable = true;
+    try {
+      const response = await exchange(subjectTokens[0]).expect(503);
+      assert.deepEqual(response.body, { error: 'AUTHORITY_UNAVAILABLE' });
+    } finally {
+      signingUnavailable = false;
+    }
+    for (const [privilege, table] of [
+      ['INSERT', 'credential_secrets.secret_audit'],
+      ['SELECT', 'credential_identity.legacy_credential_subjects'],
+      ['SELECT', 'credential_auth.tenant_authorization_subjects'],
+      ['SELECT', 'credential_auth.tenant_authorization_roles']
+    ]) {
+      await admin.query(`REVOKE ${privilege} ON ${table} FROM ${role}`);
+      try {
+        assert.deepEqual((await exchange(subjectTokens[0], 1).expect(503)).body, { error: 'AUTHORITY_UNAVAILABLE' });
+      } finally {
+        await admin.query(`GRANT ${privilege} ON ${table} TO ${role}`);
+      }
+      const response = await exchange(subjectTokens[0], 1).expect(200);
+      await http(0, A, bearer(response.body.token)).expect(200);
+    }
   });
 
   after(async function () {
@@ -346,6 +543,13 @@ optInSuite(process.env.NS_TENANT_CREDENTIAL_HTTP_DOCKER_TEST === '1',
         { code: 'SECRETS_LEGACY_AUTHORITY_UNSAFE' });
     } finally {
       await admin.query(`REVOKE UPDATE (token_prefix) ON credential_identity.legacy_credential_subjects FROM ${role}`);
+    }
+    await admin.query(`GRANT UPDATE (display_name) ON credential_auth.tenant_authorization_subjects TO ${role}`);
+    try {
+      await assert.rejects(createAuthority({ connectionString: appURI, namespace: 'credential_auth' }),
+        { code: 'TENANT_AUTHORITY_UNSAFE' });
+    } finally {
+      await admin.query(`REVOKE UPDATE (display_name) ON credential_auth.tenant_authorization_subjects FROM ${role}`);
     }
   });
 });

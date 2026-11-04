@@ -100,6 +100,25 @@ optInSuite(process.env.NS_TENANT_AUTHORITY_POSTGRES_DOCKER_TEST === '1',
     }
   });
 
+  it('appends current display metadata without rewriting the applied candidate or inventing imported names', async function () {
+    const namespace = NAMESPACE + '_names_upgrade';
+    const options = { direct: true, connectionString: adminURI, namespace };
+    const original = { version: 1, migrations: catalogue.migrations.slice(0, 1) };
+    await run('up', { ...options, catalogue: original });
+    await admin.query(`INSERT INTO "${namespace}".tenant_authorization_subjects VALUES ($1, $2)`, [A, SUBJECT]);
+    const pending = await run('status', { ...options, catalogue });
+    assert.deepEqual(pending.pending, ['0002_subject_display_name']);
+    await assert.rejects(run('check', { ...options, catalogue }), { code: 'MIG_STALE' });
+    await run('up', { ...options, catalogue });
+    assert.equal((await run('check', { ...options, catalogue })).current, true);
+    const row = (await admin.query(`SELECT subject_id, display_name
+      FROM "${namespace}".tenant_authorization_subjects WHERE tenant_id = $1`, [A])).rows[0];
+    assert.deepEqual(row, { subject_id: SUBJECT, display_name: null });
+    const ledger = (await admin.query(`SELECT checksum FROM "${namespace}".schema_migrations
+      WHERE name = '0001_tenant_authorization'`)).rows[0];
+    assert.equal(ledger.checksum, original.migrations[0].checksum);
+  });
+
   it('uses tenant anonymous defaults and enforces the no-anonymous-write floor', async function () {
     const anonymous = kind => Object.freeze({ kind });
     assert.equal(await first.authorize({ tenant: A, principal: anonymous('anonymous'), permission: 'api:entries:read' }), true);

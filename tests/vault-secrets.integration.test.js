@@ -176,6 +176,38 @@ optInSuite(process.env.NS_VAULT_DOCKER_TEST === '1', 'NS_VAULT_DOCKER_TEST=1')('
     assert.equal(JSON.stringify([...records.values(), ...events]).includes(rootSecret), false);
   });
 
+  it('exchanges verified legacy subjects through real nonexportable Transit keys with an eight-hour bound', async function () {
+    const rootSecret = crypto.randomBytes(24).toString('hex');
+    const subjectId = '000000000000000000000001';
+    const sha1 = value => crypto.createHash('sha1').update(value).digest('hex');
+    const canonical = 'same_name-' + sha1(sha1(rootSecret) + subjectId).slice(0, 16);
+    await component.encrypt(context('tenant-a'), 'exchange-authority', Buffer.from(rootSecret));
+    const issuer = createSecrets({
+      providerFor: async tenant => providers.get(tenant),
+      authorize: async c => c.principal === 'test-issuer' && c.consumer === 'test-runtime',
+      audit: async event => { events.push(event); },
+      store: { async get (tenant, id) { return records.get(JSON.stringify([tenant, id])); },
+        async insert () { throw new Error('issuer cannot provision'); } },
+      maxTokenLifetimeSeconds: 28800,
+      legacyAuthorityFor: async tenant => ({
+        reference: { tenant, id: 'exchange-authority' },
+        subjects: [{ subjectId, tokenPrefix: 'same_name' }]
+      })
+    });
+    const issued = await issuer.exchangeLegacyCredential(context('tenant-a'), sha1(canonical), async principal => {
+      assert.deepEqual(principal, { kind: 'subject', subjectId });
+      return true;
+    });
+    assert.equal(issued.exp - issued.iat, 28800);
+    assert.equal((await issuer.verifyJWT(context('tenant-a'), issued.token)).accessToken, canonical);
+    // Tenant A rotated to v2 above; B has only v1. Transit refuses the
+    // unsupported version before the component can check the tenant audience.
+    await assert.rejects(issuer.verifyJWT(context('tenant-b'), issued.token), { code: 'SECRETS_PROVIDER_REFUSED' });
+    assert.equal(await issuer.exchangeLegacyCredential(context('tenant-a'), sha1(rootSecret), async () => true), null);
+    assert.equal((await api('transit/keys/tenant-a-signing')).data.exportable, false);
+    assert.equal(JSON.stringify([...records.values(), ...events]).includes(rootSecret), false);
+  });
+
   it('refuses revoked provider credentials without plaintext or local-signer fallback', async function () {
     await api('auth/token/revoke', { token: tokens.get('tenant-b') });
     await assert.rejects(component.signJWT(context('tenant-b'), 'synthetic-subject', 30),

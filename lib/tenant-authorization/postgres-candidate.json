@@ -23,6 +23,13 @@
         "CREATE POLICY tenant_authorization_subject_roles_tenant ON tenant_authorization_subject_roles USING (tenant_id = nullif(current_setting('app.current_tenant_id', true), '')::uuid) WITH CHECK (tenant_id = nullif(current_setting('app.current_tenant_id', true), '')::uuid)",
         "REVOKE ALL ON tenant_authorization_config, tenant_authorization_roles, tenant_authorization_subjects, tenant_authorization_subject_roles FROM PUBLIC"
       ]
+    },
+    {
+      "name": "0002_subject_display_name",
+      "checksum": "5c3ae2cd33a1e097fb3f4fcc176c681f651a85b88ca08b447190f017a643530c",
+      "up": [
+        "ALTER TABLE tenant_authorization_subjects ADD COLUMN display_name text CHECK (display_name IS NULL OR length(btrim(display_name)) > 0)"
+      ]
     }
   ]
 }

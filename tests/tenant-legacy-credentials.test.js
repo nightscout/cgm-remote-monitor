@@ -42,7 +42,7 @@ describe('tenant legacy credentials against shipping authentication', function (
         async insert (record) { records.set(record.tenant + ':' + record.id, record); } },
       authorize: async () => true,
       audit: async event => { events.push(event); },
-      maxTokenLifetimeSeconds: 300,
+      maxTokenLifetimeSeconds: 28800,
       async legacyAuthorityFor (tenant) {
         if (unavailable) throw new Error('authority unavailable');
         return { reference: { tenant, id: 'imported-root' }, subjects: metadata };
@@ -157,5 +157,39 @@ describe('tenant legacy credentials against shipping authentication', function (
     // Existing single-site JWT keys/envelopes are not assumed portable.
     const single = enclave.signJWT({ accessToken: subjects[0].accessToken });
     assert.equal(await component.verifyLegacyCredential(context, { token: single }), null);
+  });
+
+  it('canonicalizes exchange credentials like shipping without exposing root material or adding JWT authority', async function () {
+    const shipping = require('../lib/authorization')({
+      enclave, settings: { authDefaultRoles: 'readable', authFailDelay: 0 }, trustProxy: false
+    }, { store: { collection: () => ({}) }, settings: {}, moment: require('moment'),
+      language: { translate: value => value } });
+    shipping.storage.subjects = subjects;
+    shipping.storage.roles = storage.roles;
+    for (const subject of subjects) {
+      for (const credential of [subject.accessToken, subject.digest, subject.digest.slice(0, 16),
+        subject.accessTokenDigest, subject.accessTokenDigest.slice(0, 16),
+        'other-prefix-' + subject.digest.slice(0, 16)]) {
+        const expected = shipping.authorize(credential);
+        const issued = await component.exchangeLegacyCredential(context, credential, async principal => {
+          assert.equal(principal.subjectId, subject._id.toHexString());
+          return true;
+        });
+        const decoded = await component.verifyJWT(context, issued.token);
+        assert.equal(decoded.accessToken, enclave.verifyJWT(expected.token).accessToken);
+        assert.equal(issued.exp - issued.iat, expected.exp - expected.iat);
+        assert.equal(issued.exp - issued.iat, 28800);
+        assert.deepEqual(Object.keys(issued).sort(), ['exp', 'iat', 'token']);
+        assert.equal((await component.exchangeLegacyCredential(context, issued.token, async () => true)).exp -
+          issued.iat, 28800);
+      }
+    }
+    for (const value of [hash(root), root, 'invalid']) {
+      assert.equal(await component.exchangeLegacyCredential(context, value, async () => true), null);
+      assert.equal(shipping.authorize(value), null);
+    }
+    assert.equal(await component.exchangeLegacyCredential(context, subjects[0].accessToken, async () => false), null);
+    assert.equal(JSON.stringify(events).includes(root), false);
+    assert.doesNotMatch(JSON.stringify(events), /accessToken|tokenPrefix/);
   });
 });
