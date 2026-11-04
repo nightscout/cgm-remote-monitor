@@ -9,6 +9,11 @@ Vault here makes no comparative cost, efficiency or production-readiness claim.
 
 ## Component contract
 
+The dormant [legacy credential verifier](legacy-credentials.md) adds an
+optional trusted current-reference/subject-metadata port and a data-only
+entries-GET bridge. It does not change the JWT envelope, export signing keys
+or enable roles, owner authentication or token exchange.
+
 `createSecrets` in `component.js` requires these injected boundaries:
 
 | Dependency | Required behavior |

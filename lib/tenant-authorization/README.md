@@ -9,8 +9,10 @@ and the Shiro permission required by the handler. It never derives permission
 from an HTTP method or path. The principal boundary is trusted input:
 `{ kind: 'anonymous' }`, `{ kind: 'subject', subjectId }`, or
 `{ kind: 'root' }`. No production credential verifier, credential-to-stable-
-subject mapping, token format, or end-to-end HTTP enforcement is implemented
-or proven here. In particular, callers must not construct `root` from request
+subject mapping or token format is implemented in this adapter. The separate
+[legacy credential/GET bridge](../secrets/legacy-credentials.md) now supplies
+verified internal principals and current exact-read authority in a dormant
+composition. In particular, callers must not construct `root` from request
 data or JWT claims.
 
 Each authorization call obtains a fresh PostgreSQL snapshot in its own tenant-

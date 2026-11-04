@@ -6,6 +6,13 @@ database/provider, run migrations, or enable a `serve` role.
 
 ## Injected boundaries
 
+The optional trusted `dataAccess({tenant, request})` port replaces only the
+data plane's credential/current-permission callbacks. The dormant
+[legacy credential/GET bridge](../../secrets/legacy-credentials.md) implements
+this port for actual entries GET, including anonymous policy and current
+persisted Shiro authority. Owner/operator authentication remains unchanged;
+all other data operations explicitly refuse in that bridge.
+
 The tenant constructor requires:
 
 - `resolver`: the existing `lib/tenant-resolution` service. Configure public host

@@ -142,6 +142,40 @@ optInSuite(process.env.NS_VAULT_DOCKER_TEST === '1', 'NS_VAULT_DOCKER_TEST=1')('
     assert.equal((await broad.decrypt(ciphertext)).toString(), 'synthetic-control');
   });
 
+  it('verifies imported legacy credentials inside the boundary using Transit decrypt, not Transit HMAC', async function () {
+    const rootSecret = crypto.randomBytes(24).toString('hex');
+    const subjectId = '000000000000000000000001';
+    const sha1 = value => crypto.createHash('sha1').update(value).digest('hex');
+    const digest = sha1(sha1(rootSecret) + subjectId);
+    await component.encrypt(context('tenant-a'), 'imported-authority', Buffer.from(rootSecret));
+    const verifier = createSecrets({
+      providerFor: async tenant => ({
+        ...providers.get(tenant),
+        async sign () { throw new Error('legacy verification must not call Transit HMAC'); }
+      }),
+      authorize: async c => c.principal === 'test-issuer' && c.consumer === 'test-runtime',
+      audit: async event => { events.push(event); },
+      store: { async get (tenant, id) { return records.get(JSON.stringify([tenant, id])); },
+        async insert () { throw new Error('verifier cannot provision'); } },
+      maxTokenLifetimeSeconds: 60,
+      legacyAuthorityFor: async tenant => ({
+        reference: { tenant, id: 'imported-authority' },
+        subjects: [{ subjectId, tokenPrefix: 'same_name' }]
+      })
+    });
+    assert.deepEqual(await verifier.verifyLegacyCredential(context('tenant-a'), { apiSecret: sha1(rootSecret) }),
+      { kind: 'root' });
+    assert.deepEqual(await verifier.verifyLegacyCredential(context('tenant-a'),
+      { apiSecret: 'same_name-' + digest.slice(0, 16) }), { kind: 'subject', subjectId });
+    assert.equal(await verifier.verifyLegacyCredential(context('tenant-a'), { apiSecret: 'invalid' }), null);
+    await assert.rejects(verifier.verifyLegacyCredential(context('tenant-b'), { apiSecret: sha1(rootSecret) }),
+      { code: 'SECRETS_NOT_FOUND' });
+    const transitHmac = await providers.get('tenant-a').sign(Buffer.from(subjectId));
+    assert.notEqual(transitHmac.toString('hex'), digest, 'Transit HMAC is not the legacy SHA1 construction');
+    assert.equal(events.at(-1).operation, 'decrypt');
+    assert.equal(JSON.stringify([...records.values(), ...events]).includes(rootSecret), false);
+  });
+
   it('refuses revoked provider credentials without plaintext or local-signer fallback', async function () {
     await api('auth/token/revoke', { token: tokens.get('tenant-b') });
     await assert.rejects(component.signJWT(context('tenant-b'), 'synthetic-subject', 30),
