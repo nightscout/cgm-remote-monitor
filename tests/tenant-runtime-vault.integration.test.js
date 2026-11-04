@@ -21,8 +21,9 @@ const createExchange = require('../lib/server/tenant-app/exchange');
 const { createTenantApp } = require('../lib/server/tenant-app');
 const createResolver = require('../lib/tenant-resolution');
 const Api3Collection = require('../lib/api3/generic/collection');
-const reader = require('../lib/storage/postgres-entries-read');
 const writer = require('../lib/storage/postgres-entries-write');
+const entriesOptions = require('../lib/server/tenant-app/entries');
+const purifier = require('../lib/server/purifier');
 const { optInSuite } = require('./support/opt-in');
 
 const image = 'hashicorp/vault@sha256:962a92876e168d68eaaa24b0b8b49bbce1cb63024060a67bba95cd158a366fc2';
@@ -145,32 +146,26 @@ optInSuite(process.env.NS_TENANT_RUNTIME_VAULT_DOCKER_TEST === '1',
       worker.connection = await connect({ connectionString: appURI, max: 1 });
       const data = express.Router();
       data.use((req, res, next) => scope.withTenant(req.tenantContext.tenant, next));
-      const col = {
-        colName: 'entries',
-        storage: reader({ connection: worker.connection, table: 'runtime_data.entries' }),
-        resolveDates: doc => new Date(doc.srvModified)
-      };
-      const routeApp = {
-        get: (path, handler) => handler === undefined ? undefined : data.get(path, handler),
-        setENVTruthy: () => undefined,
-        post: data.post.bind(data),
-        put: data.put.bind(data),
-        patch: data.patch.bind(data),
-        delete: data.delete.bind(data)
-      };
-      const collection = new Api3Collection({
-        ctx: {
-          store: { collection: () => ({ collectionName: 'entries' }), ensureIndexes () {} },
-          bus: new EventEmitter()
-        },
-        env: {},
-        app: routeApp,
-        colName: 'entries',
-        storageColName: 'entries'
-      });
-      collection.storage = col.storage;
-      collection.resolveDates = col.resolveDates;
-      collection.mapRoutes();
+      for (const tenant of [A, B]) {
+        const routes = express.Router();
+        const bus = new EventEmitter();
+        const env = {};
+        const routeApp = {
+          get: (path, handler) => handler === undefined
+            ? (path === 'API3_DEDUP_FALLBACK_ENABLED' ? true : undefined) : routes.get(path, handler),
+          setENVTruthy: () => undefined
+        };
+        for (const method of ['post', 'put', 'patch', 'delete']) routeApp[method] = routes[method].bind(routes);
+        const collection = new Api3Collection({
+          ctx: { bus, purifier: purifier({}, {}) },
+          env, app: routeApp, colName: 'entries', storageColName: 'entries',
+          fallbackGetDate: doc => new Date(doc.srvModified),
+          dedupFallbackFields: ['date', 'type'], fallbackDateField: 'date',
+          ...entriesOptions({ connection: worker.connection, table: 'runtime_data.entries', bus, env })
+        });
+        collection.mapRoutes();
+        data.use((req, res, next) => req.tenantContext.tenant === tenant ? routes(req, res, next) : next());
+      }
       const unavailable = async () => { throw new Error('owner services are not installed in this test'); };
       const app = createTenantApp({
         resolver: createResolver({ aliases: [
@@ -245,6 +240,24 @@ optInSuite(process.env.NS_TENANT_RUNTIME_VAULT_DOCKER_TEST === '1',
         }, { normalize: false }));
       }
     }
+
+    async function permissions (tenant, grants = ['api:entries:read']) {
+      await admin.query(`UPDATE runtime_auth.tenant_authorization_roles
+        SET permissions = $2 WHERE tenant_id = $1 AND name = 'viewer'`, [tenant, grants]);
+    }
+
+    async function mutationRows () {
+      return (await admin.query(`SELECT tenant_id, doc FROM runtime_data.entries
+        WHERE identifier = 'runtime-post' ORDER BY tenant_id`)).rows;
+    }
+
+    async function clearMutations () {
+      await admin.query("DELETE FROM runtime_data.entries WHERE identifier = 'runtime-post'");
+    }
+
+    beforeEach(async function () {
+      if (!workers.length) await startRuntime();
+    });
 
     before(async function () {
       previousMode = scope.getTenancyMode();
@@ -372,6 +385,48 @@ optInSuite(process.env.NS_TENANT_RUNTIME_VAULT_DOCKER_TEST === '1',
         (await exchange(0, B, subjectTokens[1]).expect(200)).body.token).expect(200);
     });
 
+    it('POSTs through real Transit across workers with tenant-local replacement and fresh create/update grants', async function () {
+      const tokens = [];
+      const payload = sgv => ({
+        identifier: 'runtime-post', date: 1793664001000, utcOffset: 0, app: 'synthetic-runtime', type: 'sgv', sgv
+      });
+      try {
+        for (const [index, tenant] of [[0, A], [1, B]]) {
+          tokens[index] = (await exchange(index, tenant, subjectTokens[index]).expect(200)).body.token;
+          await permissions(tenant, ['api:entries:read', 'api:entries:create', 'api:entries:update']);
+          await http(index, tenant, 'post', '/api/v3/entries', tokens[index])
+            .send({ ...payload(index ? 222 : 111), syntheticUnknown: 'remove-on-replacement' })
+            .expect(res => assert.equal(res.status, 201, JSON.stringify(res.body)));
+          const read = await http(1 - index, tenant, 'get', '/api/v3/entries/runtime-post', tokens[index]).expect(200);
+          assert.equal(read.body.result.sgv, index ? 222 : 111);
+          assert.equal(read.body.result.syntheticUnknown, 'remove-on-replacement');
+        }
+        const before = await mutationRows();
+        await permissions(A, ['api:entries:read', 'api:entries:create']);
+        await http(1, A, 'post', '/api/v3/entries', tokens[0]).send(payload(333)).expect(403);
+        assert.deepEqual(await mutationRows(), before);
+        await permissions(A, ['api:entries:read', 'api:entries:update']);
+        await http(1, A, 'post', '/api/v3/entries', tokens[0]).send(payload(333)).expect(200);
+        const replaced = await http(0, A, 'get', '/api/v3/entries/runtime-post', tokens[0]).expect(200);
+        assert.equal(replaced.body.result.sgv, 333);
+        assert.equal(Object.hasOwn(replaced.body.result, 'syntheticUnknown'), false);
+        const after = await mutationRows();
+        assert.deepEqual(after.find(row => row.tenant_id === B), before.find(row => row.tenant_id === B));
+        await http(0, A, 'post', '/api/v3/entries', tokens[0])
+          .send({ ...payload(444), identifier: 'runtime-post-new' }).expect(403);
+        assert.equal((await admin.query("SELECT count(*)::int AS n FROM runtime_data.entries WHERE identifier = 'runtime-post-new'")).rows[0].n, 0);
+        await permissions(A);
+        await http(0, A, 'post', '/api/v3/entries', tokens[0]).send(payload(444)).expect(403);
+        assert.deepEqual(await mutationRows(), after);
+        const other = await http(0, B, 'get', '/api/v3/entries/runtime-post', tokens[1]).expect(200);
+        assert.equal(other.body.result.sgv, 222);
+      } finally {
+        await permissions(A);
+        await permissions(B);
+        await clearMutations();
+      }
+    });
+
     it('fails closed on a real cross-tenant Transit ACL refusal and provider outage, then recovers without local signing', async function () {
       const valid = await exchange(0, A, subjectTokens[0]).expect(200);
       const ciphertext = (await workers[0].persistence.store.get(A, 'root-a')).ciphertext;
@@ -386,23 +441,41 @@ optInSuite(process.env.NS_TENANT_RUNTIME_VAULT_DOCKER_TEST === '1',
       }
 
       const pausedVaultProvider = transit(A, providerTokens.get(A), vaultAddress, 250);
+      await permissions(A, ['api:entries:read', 'api:entries:create']);
+      const before = await mutationRows();
       docker(['pause', vaultName]);
       assert.equal(docker(['inspect', '--format', '{{.State.Paused}}', vaultName]), 'true');
       providerOverrides.set(A, pausedVaultProvider);
       try {
         for (const operation of [() => exchange(0, A, subjectTokens[0]),
-          () => http(1, A, 'get', '/api/v3/entries/shared-entry', valid.body.token)]) {
+          () => http(1, A, 'get', '/api/v3/entries/shared-entry', valid.body.token),
+          () => http(1, A, 'post', '/api/v3/entries', valid.body.token)
+            .send({ identifier: 'runtime-post', date: 1793664001000, utcOffset: 0,
+              app: 'synthetic-runtime', type: 'sgv', sgv: 123 })]) {
           const response = await operation().expect(503);
           assert.deepEqual(response.body, { error: 'AUTHORITY_UNAVAILABLE' });
         }
+        assert.deepEqual(await mutationRows(), before);
       } finally {
         docker(['unpause', vaultName]);
         providerOverrides.delete(A);
         await waitForVault();
+        await permissions(A);
       }
       const recovered = await exchange(1, A, subjectTokens[0]).expect(200);
       await http(0, A, 'get', '/api/v3/entries/shared-entry', recovered.body.token).expect(200);
       await http(1, A, 'get', '/api/v3/entries/shared-entry', valid.body.token).expect(200);
+      try {
+        await permissions(A, ['api:entries:read', 'api:entries:create']);
+        await http(0, A, 'post', '/api/v3/entries', valid.body.token)
+          .send({ identifier: 'runtime-post', date: 1793664001000, utcOffset: 0,
+            app: 'synthetic-runtime', type: 'sgv', sgv: 123 }).expect(201);
+        const read = await http(1, A, 'get', '/api/v3/entries/runtime-post', valid.body.token).expect(200);
+        assert.equal(read.body.result.sgv, 123);
+      } finally {
+        await permissions(A);
+        await clearMutations();
+      }
     });
 
     it('refuses unsafe serving privileges and refuses stale required schema before listener bind', async function () {
