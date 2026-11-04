@@ -230,7 +230,7 @@ optInSuite(process.env.NS_TENANT_AUTHORITY_POSTGRES_DOCKER_TEST === '1',
               process.stdout.write('POOL_CLOSE_FAILED ' + error.code + '\\n');
               exitCode = 4;
             }
-            process.stdout.write('COMPLETE\\n', () => process.exit(exitCode));
+            process.stdout.write('COMPLETE\\n', () => { process.exitCode = exitCode; });
           }
         });
       })().catch(error => {
