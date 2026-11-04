@@ -200,6 +200,33 @@ describe('Executed test-file accounting', function () {
   this.timeout(15000);
   const fs = require('node:fs'), os = require('node:os');
   const reporter = path.resolve(__dirname, '../scripts/execution-reporter.js');
+  it('accounts for disabled opt-in labs but still rejects enabled skips, failures and empty labs', function () {
+    const fixture = path.join(__dirname, 'fixtures/opt-in.fixture.js');
+    for (const parallel of [[], ['--parallel', '--jobs', '2']]) {
+      for (const [settings, expected] of [
+        [{NS_OPT_IN_FIXTURE: ''}, 0],
+        [{NS_OPT_IN_FIXTURE: '1'}, 0],
+        [{NS_OPT_IN_FIXTURE: '1', NS_OPT_IN_SKIP: '1'}, 1],
+        [{NS_OPT_IN_FIXTURE: '1', NS_OPT_IN_FAIL: '1'}, 1],
+        [{NS_OPT_IN_FIXTURE: '', NS_OPT_IN_EMPTY: '1'}, 1]
+      ]) {
+        const env = {...process.env, NS_OPT_IN_SKIP: '', NS_OPT_IN_FAIL: '', NS_OPT_IN_EMPTY: '', ...settings};
+        const run = spawnSync(process.execPath, [require.resolve('mocha/bin/mocha'), '--no-config', '--no-package',
+          '--fail-zero', '--reporter', reporter, ...parallel, fixture], {env, encoding: 'utf8', timeout: 5000});
+        assert.ifError(run.error);
+        assert.equal(run.status === 0, expected === 0, run.stdout + run.stderr);
+        if (!settings.NS_OPT_IN_FIXTURE && !settings.NS_OPT_IN_EMPTY) {
+          assert.match(run.stdout, /0 passing/);
+          assert.match(run.stdout, /1 pending/);
+          assert.match(run.stdout, /\[pending opt-in: NS_OPT_IN_FIXTURE=1\]/);
+        }
+        if (settings.NS_OPT_IN_SKIP || settings.NS_OPT_IN_EMPTY) {
+          assert.match(run.stderr, /TEST_EXECUTION: no test body completed/);
+        }
+      }
+    }
+  });
+
   it('fails empty/pending intended files even alongside passing helpers, serially and in parallel', function () {
     const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'ns-execution-'));
     try {

@@ -7,6 +7,7 @@ const { Client } = require('pg');
 const { run } = require('../lib/migrations/postgres');
 const { checksum } = require('../lib/migrations/catalogue');
 const entriesCatalogue = require('../migrations/candidates/postgres-entries-v1.json');
+const { optInSuite } = require('./support/opt-in');
 
 const sleep = ms => new Promise(resolve => setTimeout(resolve, ms));
 const docker = args => execFileSync('docker', args, { encoding: 'utf8', stdio: ['ignore', 'pipe', 'pipe'] }).trim();
@@ -17,7 +18,7 @@ const catalogue = (...steps) => ({
 
 // Opt-in: these tests own a disposable container, loopback-only random port,
 // random credentials, no persistent volume, and remove precisely that resource.
-(process.env.NS_MIGRATION_DOCKER_TEST === '1' ? describe : describe.skip)('operator PostgreSQL migrations (disposable Docker)', function () {
+optInSuite(process.env.NS_MIGRATION_DOCKER_TEST === '1', 'NS_MIGRATION_DOCKER_TEST=1')('operator PostgreSQL migrations (disposable Docker)', function () {
   this.timeout(30000);
   const name = 'ns-migration-test-' + crypto.randomBytes(8).toString('hex');
   let observer;

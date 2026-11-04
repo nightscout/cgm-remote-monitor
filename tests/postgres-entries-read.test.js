@@ -13,6 +13,7 @@ const connect = require('../lib/storage/postgres-connection');
 const { encodeDocument } = require('../lib/storage/postgres-identity');
 const entriesRead = require('../lib/storage/postgres-entries-read');
 const scope = require('../lib/storage/tenant-scope');
+const { optInSuite } = require('./support/opt-in');
 
 // Differential: the same documents in a scratch mongod collection (read through
 // the real API v3 storage) and in tenant A of the generated typed-identity
@@ -23,7 +24,7 @@ const scope = require('../lib/storage/tenant-scope');
 // answer. Requires both disposable databases; skipped (not passed) otherwise.
 const pgURI = process.env.NS_TEST_POSTGRES_ADMIN_URI;
 const mongoURI = process.env.CUSTOMCONNSTR_mongo;
-const suite = pgURI && mongoURI ? describe : describe.skip;
+const suite = optInSuite(pgURI && mongoURI, 'NS_TEST_POSTGRES_ADMIN_URI and CUSTOMCONNSTR_mongo');
 const A = '11111111-1111-4111-8111-111111111111';
 const B = '22222222-2222-4222-8222-222222222222';
 const H1 = '65a1b2c3d4e5f60718293a4b';

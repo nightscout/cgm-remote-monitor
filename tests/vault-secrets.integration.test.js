@@ -5,11 +5,12 @@ const crypto = require('node:crypto');
 const { execFileSync } = require('node:child_process');
 const { createSecrets } = require('../lib/secrets/component');
 const { createVaultTransit } = require('../lib/secrets/vault-transit');
+const { optInSuite } = require('./support/opt-in');
 
 const image = 'hashicorp/vault@sha256:962a92876e168d68eaaa24b0b8b49bbce1cb63024060a67bba95cd158a366fc2';
 const docker = args => execFileSync('docker', args, { encoding: 'utf8', stdio: ['ignore', 'pipe', 'pipe'] }).trim();
 
-(process.env.NS_VAULT_DOCKER_TEST === '1' ? describe : describe.skip)('Vault secrets adapter (disposable Docker)', function () {
+optInSuite(process.env.NS_VAULT_DOCKER_TEST === '1', 'NS_VAULT_DOCKER_TEST=1')('Vault secrets adapter (disposable Docker)', function () {
   this.timeout(30000);
   const name = 'ns-secrets-test-' + crypto.randomBytes(8).toString('hex');
   const root = crypto.randomBytes(32).toString('hex');

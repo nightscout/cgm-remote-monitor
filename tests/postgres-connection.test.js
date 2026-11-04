@@ -5,9 +5,10 @@ const { randomUUID, randomBytes } = require('node:crypto');
 const { Client } = require('pg');
 const connect = require('../lib/storage/postgres-connection');
 const scope = require('../lib/storage/tenant-scope');
+const { optInSuite } = require('./support/opt-in');
 
 const uri = process.env.NS_TEST_POSTGRES_ADMIN_URI;
-const suite = uri ? describe : describe.skip;
+const suite = optInSuite(uri, 'NS_TEST_POSTGRES_ADMIN_URI');
 const A = '11111111-1111-4111-8111-111111111111';
 const B = '22222222-2222-4222-8222-222222222222';
 

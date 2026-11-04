@@ -7,6 +7,7 @@ const path = require('node:path');
 const { MongoClient } = require('mongodb');
 const { run } = require('../lib/migrations/mongodb');
 const { checksum } = require('../lib/migrations/catalogue');
+const { optInSuite } = require('./support/opt-in');
 
 const sleep = ms => new Promise(resolve => setTimeout(resolve, ms));
 const docker = args => execFileSync('docker', args, { encoding: 'utf8', stdio: ['ignore', 'pipe', 'pipe'] }).trim();
@@ -17,7 +18,7 @@ const catalogue = (...steps) => ({
 });
 const step = (from, to) => ({ collection: 'samples', filter: { kind: from }, set: { kind: to } });
 
-(process.env.NS_MIGRATION_MONGO_DOCKER_TEST === '1' ? describe : describe.skip)('operator MongoDB migrations (disposable replica set)', function () {
+optInSuite(process.env.NS_MIGRATION_MONGO_DOCKER_TEST === '1', 'NS_MIGRATION_MONGO_DOCKER_TEST=1')('operator MongoDB migrations (disposable replica set)', function () {
   this.timeout(40000);
   const name = 'ns-mongo-migrations-' + crypto.randomBytes(8).toString('hex');
   const password = crypto.randomBytes(24).toString('hex');

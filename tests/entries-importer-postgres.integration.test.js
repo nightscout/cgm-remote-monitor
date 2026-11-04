@@ -8,11 +8,12 @@ const { Client } = require('pg');
 const postgresConnection = require('../lib/storage/postgres-connection');
 const scope = require('../lib/storage/tenant-scope');
 const { createPostgresTarget } = require('../lib/import/entries');
+const { optInSuite } = require('./support/opt-in');
 
 const A = '11111111-1111-4111-8111-111111111111';
 const B = '22222222-2222-4222-8222-222222222222';
 const pgURI = process.env.NS_TEST_POSTGRES_ADMIN_URI;
-const suite = pgURI ? describe : describe.skip;
+const suite = optInSuite(pgURI, 'NS_TEST_POSTGRES_ADMIN_URI');
 
 suite('PostgreSQL one-time entries import target (requires disposable PostgreSQL)', function () {
   this.timeout(30000);

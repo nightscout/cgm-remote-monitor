@@ -15,6 +15,7 @@ const { createTenantApp } = require('../lib/server/tenant-app');
 const entriesLab = require('./fixtures/tenant-entries-lab');
 const { run } = require('../lib/migrations/postgres');
 const catalogue = require('../migrations/candidates/postgres-entries-v1.json');
+const { optInSuite } = require('./support/opt-in');
 
 const A = '11111111-1111-4111-8111-111111111111';
 const B = '22222222-2222-4222-8222-222222222222';
@@ -23,7 +24,7 @@ const docker = args => execFileSync('docker', args, {
   encoding: 'utf8', stdio: ['ignore', 'pipe', 'pipe'], timeout: 20000
 }).trim();
 
-(process.env.NS_TENANT_HTTP_DOCKER_TEST === '1' ? describe : describe.skip)(
+optInSuite(process.env.NS_TENANT_HTTP_DOCKER_TEST === '1', 'NS_TENANT_HTTP_DOCKER_TEST=1')(
   'M3 tenant entries HTTP lab (disposable PostgreSQL Docker)', function () {
     this.timeout(60000);
     const name = 'ns-tenant-http-' + randomBytes(8).toString('hex');

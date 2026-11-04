@@ -21,6 +21,7 @@ const settingsCatalogue = require('../lib/tenant-settings/postgres-candidate.jso
 const { createOperatorPolicy } = require('../lib/operator-policy/component');
 const createPostgresOperatorPolicy = require('../lib/operator-policy/postgres');
 const operatorPolicyCatalogue = require('../lib/operator-policy/postgres-candidate.json');
+const { optInSuite } = require('./support/opt-in');
 
 const A = '11111111-1111-4111-8111-111111111111';
 const B = '22222222-2222-4222-8222-222222222222';
@@ -58,7 +59,7 @@ async function rewrapWorker (options) {
   }
 }
 
-(process.env.NS_SECRETS_POSTGRES_DOCKER_TEST === '1' ? describe : describe.skip)('secrets persistence (disposable PostgreSQL)', function () {
+optInSuite(process.env.NS_SECRETS_POSTGRES_DOCKER_TEST === '1', 'NS_SECRETS_POSTGRES_DOCKER_TEST=1')('secrets persistence (disposable PostgreSQL)', function () {
   this.timeout(30000);
   const container = 'ns-secrets-pg-' + crypto.randomBytes(8).toString('hex');
   const namespace = 'secrets_test';
