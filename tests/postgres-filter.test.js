@@ -70,6 +70,18 @@ describe('PostgreSQL entries read: refusals and parameterization', function () {
     assert.equal(sent.length, 1);
   });
 
+  it('refuses excluded, mixed, and invalid projection forms before querying', async function () {
+    const ast = cmp('eq', 'type', 'sgv');
+    for (const projection of [
+      { sgv: 0 },
+      { sgv: 1, type: 0 },
+      { sgv: 2 }
+    ]) {
+      await refused(reader.findFiltered(ast, { projection }), /projection/);
+    }
+    await refused(reader.findOne('abc', { sgv: 0 }), /projection/);
+  });
+
   it('binds every operand and field name rather than writing it into SQL', function () {
     const hostile = "x'); DROP TABLE entries; --";
     const params = new Params();

@@ -200,7 +200,7 @@ suite('PostgreSQL entries read matches mongod (requires NS_TEST_POSTGRES_ADMIN_U
       _id: 'handler-entry',
       identifier: 'handler-entry',
       sgv: 123,
-      uploader: { battery: 80, type: 'phone' },
+      uploader: { battery: 80, type: 'phone', radios: [{ id: 'loop', signal: 4 }, { id: 'pump', signal: 8 }] },
       srvCreated: 1700000000000,
       srvModified: 1700000000000
     };
@@ -248,6 +248,21 @@ suite('PostgreSQL entries read matches mongod (requires NS_TEST_POSTGRES_ADMIN_U
     assert.deepEqual(projected.body.result, { uploader: { battery: 80 } });
     assert.equal(projected.headers['Last-Modified'], new Date(doc.srvModified).toUTCString());
     await same('findOne', doc.identifier, new FieldsProjector('uploader.battery').storageProjection());
+
+    for (const fields of ['uploader.radios.id', 'uploader.missing']) {
+      const actual = await inA(() => reader.findOne(doc.identifier,
+        new FieldsProjector(fields).storageProjection()));
+      const expected = await mongoA('findOne', doc.identifier,
+        new FieldsProjector(fields).storageProjection());
+      assert.deepStrictEqual(actual, expected, `projected ${fields}`);
+    }
+
+    for (const fields of ['_id', '_id,uploader.battery']) {
+      const projection = new FieldsProjector(fields).storageProjection();
+      const actual = await inA(() => reader.findOne(doc.identifier, projection, { normalize: false }));
+      const expected = await mongoA('findOne', doc.identifier, projection, { normalize: false });
+      assert.deepStrictEqual(actual, expected, `projected ${fields}`);
+    }
 
     const unchanged = await readWithHandler('sgv',
       new Date(Math.ceil(doc.srvModified / 1000) * 1000).toUTCString());
