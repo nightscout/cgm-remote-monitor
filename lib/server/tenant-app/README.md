@@ -16,8 +16,10 @@ other collections, history and addressed mutations explicitly refuse in that bri
 The tenant constructor requires:
 
 - `resolver`: the existing `lib/tenant-resolution` service. Configure public host
-  aliases and an explicitly trusted transport/peer predicate there. Express
-  proxy trust stays disabled; resolved-tenant headers never authorize callers.
+  aliases there for the default `direct-alias` mode, or explicitly configure
+  `canonical-internal` names and a trusted immediate-peer predicate when an edge
+  rewrites `Host`. Express proxy trust stays disabled; resolved-tenant headers
+  never select a tenant or authorize callers.
 - `verifyCredential({tenant, credential, plane})`: verify the Bearer credential
   **after** resolution, against that tenant's provisioned credential authority.
   Return authenticated `{tenant, principal, consumer}`, or null for refusal.

@@ -9,7 +9,7 @@ const { createSubjectPolicy } = require('../lib/subject-policy/component');
 const { createOperatorPolicy } = require('../lib/operator-policy/component');
 const { createTenantApp, createOperatorApp } = require('../lib/server/tenant-app');
 
-function fixture ({ trustedProxy = () => false } = {}) {
+function fixture ({ trustedProxy = () => false, resolver: suppliedResolver, exchange } = {}) {
   const events = [];
   const state = {
     revoked: false, unavailable: false, managementDenied: false,
@@ -63,7 +63,7 @@ function fixture ({ trustedProxy = () => false } = {}) {
     limitsFor: async () => state.limitsUnavailable ? null : { code: [grant], operator: [grant], generation: 1 },
     authorizeManagement: ownerManagement
   });
-  const resolver = createResolver({
+  const tenantResolver = suppliedResolver || createResolver({
     aliases: [
       { host: 'one.example.org', tenant: 'A' },
       { host: 'rotated.example.org', tenant: 'A' },
@@ -78,7 +78,7 @@ function fixture ({ trustedProxy = () => false } = {}) {
     res.json(req.tenantContext);
   });
   const options = {
-    resolver,
+    resolver: tenantResolver,
     async verifyCredential ({ tenant, credential, plane }) {
       events.push(['verify', tenant, plane]);
       if (state.verificationError) throw new Error('provider credential secret-value');
@@ -91,7 +91,7 @@ function fixture ({ trustedProxy = () => false } = {}) {
       if (state.unavailable) throw new Error('authority database secret-value');
       return !state.revoked && (action.plane === 'data' ? context.principal === 'data' : context.principal === 'owner');
     },
-    tenantSettings, subjectPolicy, dataRouter: data
+    tenantSettings, subjectPolicy, dataRouter: data, exchange
   };
   const operatorPolicy = createOperatorPolicy({
     store: {
@@ -280,5 +280,89 @@ describe('dormant tenant HTTP composition', function () {
     const { options } = fixture();
     assert.throws(() => createTenantApp({ ...options, authorizeRequest: undefined }), TypeError);
     assert.throws(() => createTenantApp({ ...options, verifyCredential: undefined }), TypeError);
+  });
+
+  it('uses canonical Host for exchange, data and owner planes without changing their authorization', async function () {
+    const resolver = createResolver({
+      mode: 'canonical-internal',
+      internalNames: [
+        { host: 'internal-a.example.net', tenant: 'A' },
+        { host: 'internal-b.example.net', tenant: 'B' }
+      ],
+      aliases: [
+        { host: 'one.example.org', tenant: 'A' },
+        { host: 'two.example.org', tenant: 'B' }
+      ],
+      trustedProxy: () => true
+    });
+    const { app, events } = fixture({
+      resolver,
+      exchange: async ({ tenant, credential }) => ({ tenant, credential })
+    });
+    await request(app).get('/api/v2/authorization/request/exchange-token')
+      .set('Host', 'internal-a.example.net')
+      .set('X-Forwarded-Host', 'rotated.example.org')
+      .expect(200, { tenant: 'A', credential: 'exchange-token' });
+    await tenantRequest(app, '/api/v3/entries', 'A-data', 'internal-a.example.net')
+      .set('X-Forwarded-Host', 'one.example.org')
+      .expect(200, { tenant: 'A', principal: 'data', consumer: 'client' });
+    await tenantRequest(app, '/api/v1/tenant/settings', 'A-owner', 'internal-a.example.net')
+      .set('X-Forwarded-Host', 'rotated.example.org').expect(200);
+    await tenantRequest(app, '/api/v3/entries', 'B-data', 'internal-a.example.net')
+      .set('X-Forwarded-Host', 'two.example.org')
+      .expect(400, { error: 'TENANT_REFUSED' });
+    assert.deepEqual(events.filter(event => event[0] === 'verify'),
+      [['verify', 'A', 'data'], ['verify', 'A', 'owner']]);
+    assert.deepEqual(events.filter(event => event[0] === 'authorize').map(event => event[2].plane),
+      ['data', 'owner']);
+  });
+
+  it('refuses unknown canonical Hosts, untrusted requests and sanitizes trust outages', async function () {
+    const canonical = options => createResolver({
+      mode: 'canonical-internal',
+      internalNames: [{ host: 'internal-a.example.net', tenant: 'A' }],
+      aliases: [{ host: 'one.example.org', tenant: 'A' }],
+      trustedProxy: () => true,
+      ...options
+    });
+    const unknown = fixture({ resolver: canonical() });
+    await tenantRequest(unknown.app, '/api/v3/entries', 'A-data', 'unknown.example.net')
+      .set('X-Forwarded-Host', 'one.example.org').set('X-Resolved-Tenant', 'A')
+      .expect(404, { error: 'TENANT_REFUSED' });
+    assert.deepEqual(unknown.events, []);
+    const untrusted = fixture({ resolver: canonical({ trustedProxy: () => false }) });
+    await tenantRequest(untrusted.app, '/api/v3/entries', 'A-data', 'internal-a.example.net')
+      .expect(400, { error: 'TENANT_REFUSED' });
+    const unavailable = fixture({
+      resolver: canonical({ trustedProxy: () => { throw new Error('transport secret-value'); } })
+    });
+    await tenantRequest(unavailable.app, '/api/v3/entries', 'A-data', 'internal-a.example.net')
+      .expect(503, { error: 'AUTHORITY_UNAVAILABLE' })
+      .then(result => assert.equal(JSON.stringify(result.body).includes('secret-value'), false));
+  });
+
+  it('replaces an injected resolver snapshot without preserving retired tenant mappings', async function () {
+    const make = internalNames => createResolver({
+      mode: 'canonical-internal',
+      internalNames,
+      trustedProxy: () => true
+    });
+    let active = make([
+      { host: 'retired-a.example.net', tenant: 'A' },
+      { host: 'internal-b.example.net', tenant: 'B' }
+    ]);
+    const resolver = { resolve: req => active.resolve(req) };
+    const { app } = fixture({ resolver });
+    await tenantRequest(app, '/api/v3/entries', 'A-data', 'retired-a.example.net').expect(200);
+
+    active = make([
+      { host: 'internal-a.example.net', tenant: 'A' },
+      { host: 'internal-b.example.net', tenant: 'B' }
+    ]);
+    await tenantRequest(app, '/api/v3/entries', 'A-data', 'retired-a.example.net')
+      .expect(404, { error: 'TENANT_REFUSED' });
+    await tenantRequest(app, '/api/v3/entries', 'A-data', 'internal-a.example.net').expect(200);
+    await tenantRequest(app, '/api/v3/entries', 'B-data', 'internal-a.example.net')
+      .expect(401, { error: 'CREDENTIAL_REFUSED' });
   });
 });
