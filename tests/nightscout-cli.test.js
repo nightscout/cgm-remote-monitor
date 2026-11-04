@@ -1,6 +1,6 @@
 'use strict';
 
-// covers: bin/nightscout.js, lib/cli/index.js, lib/cli/commands/version.js, lib/cli/commands/env.js, lib/cli/commands/healthcheck.js, lib/cli/commands/serve.js, lib/cli/commands/diagnose.js, package.json
+// covers: bin/nightscout.js, lib/cli/index.js, lib/cli/commands/version.js, lib/cli/commands/env.js, lib/cli/commands/healthcheck.js, lib/cli/commands/multitenant.js, lib/cli/commands/diagnose.js, package.json
 
 const assert = require('node:assert/strict');
 const fs = require('node:fs');
@@ -52,7 +52,7 @@ describe('nightscout executable (D21)', function () {
       const result = cli(args);
       assert.equal(result.status, 0, args.join(' ') + ': ' + result.stderr);
       assert.match(result.stdout, /^Usage: nightscout <command>/);
-      for (const name of ['single', 'serve', 'diagnose', 'healthcheck', 'version', 'env', 'help']) {
+      for (const name of ['single', 'multitenant', 'diagnose', 'healthcheck', 'version', 'env', 'help']) {
         assert.match(result.stdout, new RegExp('nightscout ' + name + '\\b'), name + ' is listed');
       }
     }
@@ -66,10 +66,16 @@ describe('nightscout executable (D21)', function () {
     assert.match(result.stderr, /Usage: nightscout <command>/);
   });
 
-  it('exits 64 for `serve` of a role that is not available yet', function () {
-    const result = cli(['serve', 'admin']);
+  it('exits 64 for `multitenant` roles that are not available yet', function () {
+    const result = cli(['multitenant', 'admin']);
     assert.equal(result.status, 64);
     assert.match(result.stderr, /not yet available: admin/);
+  });
+
+  it('does not retain `serve` as an alias for the tenancy command', function () {
+    const result = cli(['serve', 'admin']);
+    assert.equal(result.status, 64);
+    assert.match(result.stderr, /unknown command: serve/);
   });
 
   it('exits 64 for `single` with arguments and `diagnose` without a target', function () {

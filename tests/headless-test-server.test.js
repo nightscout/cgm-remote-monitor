@@ -1,6 +1,6 @@
 'use strict';
 
-// covers: scripts/headless-test-server.js, lib/server/serve/api.js, lib/server/serve/index.js, lib/server/serve/listeners.js, lib/server/bootevent.js, lib/server/app.js, lib/cli/commands/serve.js, lib/cli/commands/healthcheck.js
+// covers: scripts/headless-test-server.js, lib/server/serve/api.js, lib/server/serve/index.js, lib/server/serve/listeners.js, lib/server/bootevent.js, lib/server/app.js, lib/cli/commands/multitenant.js, lib/cli/commands/healthcheck.js
 
 // PLAT-SERVE (D21): the headless test server (scripts/headless-test-server.js)
 // boots bootevent's api profile, the single-tenant code the multitenant api

@@ -1,8 +1,8 @@
 'use strict';
 
-// covers: lib/server/serve/listeners.js, lib/server/serve/roles.js, lib/server/serve/index.js, lib/cli/commands/serve.js, lib/cli/commands/healthcheck.js
+// covers: lib/server/serve/listeners.js, lib/server/serve/roles.js, lib/server/serve/index.js, lib/cli/commands/multitenant.js, lib/cli/commands/healthcheck.js
 
-// PLAT-SERVE (D21): the role list `nightscout serve` takes, and the listener
+// PLAT-SERVE (D21): the role list `nightscout multitenant` takes, and the listener
 // rules. Nothing here boots a server or needs a database. The plane rule is
 // exercised through a stub internal-plane role, because `admin`, the one
 // real internal-plane role, cannot be served yet.
@@ -43,7 +43,7 @@ function refused (fn, pattern) {
   assert.throws(fn, err => err instanceof listeners.ListenerError && pattern.test(err.message));
 }
 
-describe('nightscout serve: roles (PLAT-SERVE)', function () {
+describe('nightscout multitenant: roles (PLAT-SERVE)', function () {
 
   it('accepts a multitenant role, and no role is multitenant yet', function () {
     const roles = { api: Object.assign({}, ROLES.api, { multitenant: true }) };
@@ -67,20 +67,20 @@ describe('nightscout serve: roles (PLAT-SERVE)', function () {
   });
 
   it('exits 64 for an unknown role and for each role not yet available', function () {
-    const unknown = cli(['serve', 'bogus']);
+    const unknown = cli(['multitenant', 'bogus']);
     assert.equal(unknown.status, 64);
     assert.match(unknown.stderr, /unknown role: bogus/);
     for (const name of ['api', 'evaluator', 'realtime', 'vcpool', 'tenant-admin', 'admin', 'api,admin']) {
-      const result = cli(['serve', name]);
+      const result = cli(['multitenant', name]);
       assert.equal(result.status, 64, name);
       assert.match(result.stderr, /not yet available: .*multitenant Nightscout, which is not built yet/, name);
     }
-    assert.equal(cli(['serve']).status, 64);
+    assert.equal(cli(['multitenant']).status, 64);
   });
 
 });
 
-describe('nightscout serve: listeners (PLAT-SERVE)', function () {
+describe('multitenant role listeners (PLAT-SERVE)', function () {
 
   it('reads <PREFIX>_HOSTNAME and <PREFIX>_PORT, and api falls back to HOSTNAME and PORT', function () {
     assert.deepEqual(listeners.resolve(['api'], {}, { host: 'example.test', port: 1337 })
