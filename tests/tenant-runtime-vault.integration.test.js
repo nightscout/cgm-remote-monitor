@@ -30,6 +30,12 @@ const image = 'hashicorp/vault@sha256:962a92876e168d68eaaa24b0b8b49bbce1cb630240
 const A = '11111111-1111-4111-8111-111111111111';
 const B = '22222222-2222-4222-8222-222222222222';
 const SUBJECT = '000000000000000000000001';
+const ALIASES = [
+  { host: 'one.example.test', tenant: A }, { host: 'two.example.test', tenant: B }
+];
+const INTERNAL_NAMES = [
+  { host: 'tenant-a.internal.test', tenant: A }, { host: 'tenant-b.internal.test', tenant: B }
+];
 const NAMESPACES = [
   ['runtime_data', require('../migrations/candidates/postgres-entries-v1.json')],
   ['runtime_auth', require('../lib/tenant-authorization/postgres-candidate.json')],
@@ -53,6 +59,8 @@ optInSuite(process.env.NS_TENANT_RUNTIME_VAULT_DOCKER_TEST === '1',
     const providerTokens = new Map();
     const providerOverrides = new Map();
     const workers = [];
+    const testTransport = { trusted: true, decisions: 0 };
+    let resolverMode = 'direct-alias';
     let pgOwned = false, vaultOwned = false, admin, adminURI, appURI, vaultAddress;
     let previousMode, vaultRoot;
 
@@ -168,9 +176,18 @@ optInSuite(process.env.NS_TENANT_RUNTIME_VAULT_DOCKER_TEST === '1',
       }
       const unavailable = async () => { throw new Error('owner services are not installed in this test'); };
       const app = createTenantApp({
-        resolver: createResolver({ aliases: [
-          { host: 'one.example.test', tenant: A }, { host: 'two.example.test', tenant: B }
-        ] }),
+        resolver: resolverMode === 'canonical-internal'
+          ? createResolver({
+            mode: 'canonical-internal',
+            internalNames: INTERNAL_NAMES,
+            aliases: ALIASES,
+            // Test-local loopback provenance only; this is not a production trust adapter.
+            trustedProxy: req => {
+              testTransport.decisions++;
+              return testTransport.trusted && req.socket.remoteAddress === '127.0.0.1';
+            }
+          })
+          : createResolver({ aliases: ALIASES }),
         dataAccess: createDataAccess({
           secrets: worker.secrets, authority: worker.authority,
           verifierContext: tenant => context(tenant)
@@ -214,19 +231,27 @@ optInSuite(process.env.NS_TENANT_RUNTIME_VAULT_DOCKER_TEST === '1',
       assert.equal(workers.length, 0);
     }
 
-    function http (worker, tenant, method, path, credential) {
-      const host = tenant === A ? 'one.example.test' : 'two.example.test';
-      return request(workers[worker].server)[method](path)
-        .set('Host', host)
+    function ingress (outgoing, tenant, options = {}) {
+      const defaultHost = resolverMode === 'canonical-internal'
+        ? (tenant === A ? 'tenant-a.internal.test' : 'tenant-b.internal.test')
+        : (tenant === A ? 'one.example.test' : 'two.example.test');
+      outgoing.set('Host', options.host || defaultHost);
+      if (options.forwardedHost !== undefined) outgoing.set('X-Forwarded-Host', options.forwardedHost);
+      if (options.resolvedTenant !== undefined) outgoing.set('X-Resolved-Tenant', options.resolvedTenant);
+      return outgoing;
+    }
+
+    function http (worker, tenant, method, path, credential, options) {
+      return ingress(request(workers[worker].server)[method](path), tenant, options)
         .set('Authorization', 'Bearer ' + credential)
         .set('Accept', 'application/json')
         .timeout({ response: 5000, deadline: 15000 });
     }
 
-    function exchange (worker, tenant, credential) {
-      const host = tenant === A ? 'one.example.test' : 'two.example.test';
-      return request(workers[worker].server).get('/api/v2/authorization/request/' + encodeURIComponent(credential))
-        .set('Host', host).set('Accept', 'application/json')
+    function exchange (worker, tenant, credential, options) {
+      return ingress(request(workers[worker].server)
+        .get('/api/v2/authorization/request/' + encodeURIComponent(credential)), tenant, options)
+        .set('Accept', 'application/json')
         .timeout({ response: 5000, deadline: 15000 });
     }
 
@@ -424,6 +449,106 @@ optInSuite(process.env.NS_TENANT_RUNTIME_VAULT_DOCKER_TEST === '1',
         await permissions(A);
         await permissions(B);
         await clearMutations();
+      }
+    });
+
+    it('composes canonical ingress with test-local loopback trust and real Vault-backed POST across workers', async function () {
+      const previousMode = resolverMode;
+      const previousTrust = testTransport.trusted;
+      const payload = sgv => ({
+        identifier: 'runtime-post', date: 1793664001000, utcOffset: 0,
+        app: 'synthetic-runtime', type: 'sgv', sgv
+      });
+      async function checked (operation) {
+        const before = testTransport.decisions;
+        const response = await operation;
+        assert.equal(testTransport.decisions, before + 1, 'canonical trust is evaluated for every request');
+        return response;
+      }
+
+      try {
+        await stopRuntime();
+        resolverMode = 'canonical-internal';
+        testTransport.trusted = true;
+        await startRuntime();
+        await permissions(A, ['api:entries:read', 'api:entries:create', 'api:entries:update']);
+
+        const issued = await checked(exchange(0, A, subjectTokens[0], {
+          forwardedHost: 'disposable-first.example.test'
+        }).expect(200));
+        assert.equal(issued.body.sub, 'Same Viewer A');
+        assert.deepEqual(issued.body.permissionGroups, [['api:entries:read', 'api:entries:create', 'api:entries:update'], []]);
+
+        await checked(http(1, A, 'post', '/api/v3/entries', issued.body.token, {
+          forwardedHost: 'disposable-write.example.test'
+        }).send(payload(111)).expect(201));
+        const read = await checked(http(0, A, 'get', '/api/v3/entries/runtime-post', issued.body.token, {
+          forwardedHost: 'disposable-rotated.example.test'
+        }).expect(200));
+        assert.equal(read.body.result.sgv, 111);
+        const initialRows = await mutationRows();
+        assert.equal(initialRows.length, 1);
+        assert.equal(initialRows[0].tenant_id, A);
+
+        const rotated = await checked(exchange(0, A, subjectTokens[0], {
+          forwardedHost: 'disposable-next-name.example.test'
+        }).expect(200));
+        assert.equal(rotated.body.sub, issued.body.sub);
+        const rotatedRead = await checked(http(1, A, 'get', '/api/v3/entries/runtime-post', issued.body.token, {
+          forwardedHost: 'disposable-final-name.example.test'
+        }).expect(200));
+        assert.equal(rotatedRead.body.result.sgv, 111);
+
+        await checked(http(1, A, 'post', '/api/v3/entries', issued.body.token, {
+          forwardedHost: 'two.example.test'
+        }).send(payload(222)).expect(400));
+        assert.deepEqual(await mutationRows(), initialRows);
+
+        await checked(exchange(0, A, subjectTokens[0], {
+          host: 'missing.internal.test',
+          forwardedHost: 'one.example.test',
+          resolvedTenant: A
+        }).expect(404));
+        assert.deepEqual(await mutationRows(), initialRows);
+
+        const tenantB = await checked(exchange(0, B, subjectTokens[1], {
+          forwardedHost: 'disposable-tenant-b.example.test'
+        }).expect(200));
+        const tenantBRead = await checked(http(0, B, 'get', '/api/v3/entries/shared-entry', tenantB.body.token, {
+          forwardedHost: 'disposable-tenant-b-read.example.test'
+        }).expect(200));
+        assert.equal(tenantBRead.body.result.sgv, 202);
+        await checked(http(1, B, 'get', '/api/v3/entries/runtime-post', issued.body.token, {
+          forwardedHost: 'disposable-tenant-b-foreign-read.example.test'
+        }).expect(401));
+        await checked(http(1, B, 'post', '/api/v3/entries', issued.body.token, {
+          forwardedHost: 'disposable-tenant-b-foreign-write.example.test'
+        }).send(payload(333)).expect(401));
+        assert.deepEqual(await mutationRows(), initialRows);
+
+        testTransport.trusted = false;
+        await checked(http(1, A, 'post', '/api/v3/entries', issued.body.token)
+          .send(payload(444)).expect(400));
+        assert.deepEqual(await mutationRows(), initialRows);
+
+        testTransport.trusted = true;
+        await checked(http(1, A, 'post', '/api/v3/entries', issued.body.token, {
+          forwardedHost: 'disposable-restored.example.test'
+        }).send(payload(555)).expect(200));
+        const restoredRead = await checked(http(0, A, 'get', '/api/v3/entries/runtime-post', issued.body.token, {
+          forwardedHost: 'disposable-restored-read.example.test'
+        }).expect(200));
+        assert.equal(restoredRead.body.result.sgv, 555);
+      } finally {
+        resolverMode = previousMode;
+        testTransport.trusted = previousTrust;
+        try {
+          await permissions(A);
+          await permissions(B);
+          await clearMutations();
+        } finally {
+          await stopRuntime();
+        }
       }
     });
 
