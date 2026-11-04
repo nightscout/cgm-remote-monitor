@@ -226,6 +226,7 @@
       "files": [
         "tests/00_production-safety.test.js",
         "tests/tenant-jwt-http.integration.test.js",
+        "tests/tenant-authorization-postgres.integration.test.js",
         "tests/postgres-connection.test.js",
         "tests/postgres-entries-read.test.js",
         "tests/postgres-entries-write.test.js",
