@@ -172,6 +172,8 @@ optInSuite(process.env.NS_TENANT_AUTHORITY_POSTGRES_DOCKER_TEST === '1',
       await admin.query(`ALTER TABLE ${SUBJECTS} NO FORCE ROW LEVEL SECURITY`);
       await admin.query(`ALTER TABLE ${SUBJECTS} DISABLE ROW LEVEL SECURITY`);
       try {
+        await assert.rejects(createTenantAuthorization({ connectionString: appURI, namespace: NAMESPACE }),
+          { code: 'TENANT_AUTHORITY_UNSAFE' });
         await client.query('BEGIN');
         await client.query("SELECT set_config('app.current_tenant_id', $1, true)", [A]);
         const ablated = await client.query(`SELECT tenant_id::text FROM ${SUBJECTS} ORDER BY tenant_id`);
