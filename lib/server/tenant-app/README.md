@@ -144,3 +144,33 @@ Local validation (2026-11-02): the opted-in Docker suite passed all ten cases;
 the existing tenant-app/resolver suites passed 17 cases; focused ESLint passed.
 This is bounded HTTP/storage isolation evidence, not release or production
 multitenancy approval.
+
+### Exchange compatibility boundary
+
+Tenant exchange is not mounted. The shipping exchange contract is measured
+independently by `tests/authorization-exchange-contract.test.js`, using the
+shipping authorization/storage/enclave modules, disposable MongoDB records and
+HTTP requests. It covers path credentials, subject-only issuance, canonical
+subject tokens, JWT renewal, response permissions/current display name,
+current reloaded grants, expiry/removal and anonymous distinctions.
+
+The response's `sub` is the subject's exact display name, not its stable ID or
+token prefix. The current tenant authority and legacy credential candidate
+tables do not retain that name. A compatible response therefore needs an
+explicit import/current-name provisioning contract before implementation.
+The existing permission-only authority callback also does not expose a
+current permission-group snapshot; a future adapter must preserve shipping
+arrays of permission strings, not serialize Shiro tries.
+
+Shipping exchange inherits the enclave's eight-hour default; the tenant secrets
+component instead requires an explicit lifetime and configured maximum.
+No tenant exchange lifetime policy is selected here.
+
+Legacy single-site request extraction can discard invalid query/body tokens
+(and unrecognized authorization schemes) before anonymous resolution. The test
+records that conflict separately: shipping exchange itself refuses invalid
+path credentials. Do not copy extraction's anonymous fallback into tenant
+authentication, silently change single-site behavior, or treat a root
+credential as a subject exchange credential. Owner/operator planes remain
+separate. No client, default startup, signing envelope or production route is
+changed by this compatibility inventory.
