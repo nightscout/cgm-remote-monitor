@@ -529,7 +529,7 @@ optInSuite(process.env.NS_REST_TREATMENTS_HTTP_TEST === '1' &&
     });
 
     it('bounds the shared edit corpus with explicit PostgreSQL nonrepresentable-text refusals', async function () {
-      // postgres-entries-write.js validateJSON rejects U+0000 and unpaired
+      // postgres-entries-write.js jsonValue rejects U+0000 and unpaired
       // surrogates: PostgreSQL JSONB cannot represent them. This is an explicit
       // preview refusal, not a Mongo-equivalent response or a normalized value.
       for (const text of ['synthetic\u0000extension', 'synthetic\ud800extension']) {
@@ -538,7 +538,8 @@ optInSuite(process.env.NS_REST_TREATMENTS_HTTP_TEST === '1' &&
         const foreign = await rows(B);
         const doc = { extension: { text } };
         await request(referenceApp).patch('/api/v3/treatments/same-treatment').send(doc).expect(200);
-        await http('patch', '/api/v3/treatments/same-treatment').send(doc).expect(400);
+        const refusal = await http('patch', '/api/v3/treatments/same-treatment').send(doc).expect(400);
+        assert.deepEqual(refusal.body, { status: 400, message: 'Document cannot be represented by this storage' });
         assert.deepEqual(await rows(), before);
         assert.deepEqual(await rows(B), foreign);
         assert.deepEqual(workers[0].events, []);
