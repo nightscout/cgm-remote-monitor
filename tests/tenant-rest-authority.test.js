@@ -19,7 +19,7 @@ describe('version-aware tenant REST authority invocation', function () {
     const dataAccess = createAccess({
       secrets: { async verifyLegacyCredential (context, credentials) {
         return credentials.token === 'synthetic' ? { kind: 'subject', subjectId: 'subject' } : null;
-      } },
+      }, async exchangeLegacyCredential (context, token) { return token === 'synthetic' ? { token } : null; } },
       verifierContext: async tenant => ({ tenant, consumer: 'api' }),
       authority: {
         async authorize (input) { calls.push(input); return true; },
