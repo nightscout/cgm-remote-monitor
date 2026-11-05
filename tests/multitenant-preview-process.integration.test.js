@@ -504,7 +504,11 @@ optInSuite(process.env.NS_MULTITENANT_PREVIEW_PROCESS_DOCKER_TEST === '1',
           assert.equal((await http(worker, tenant, 'HEAD', '/api/v2/entries', credentials[i])).status, 200);
           assert.equal((await http(worker, tenant, 'PUT', '/api/v1/entries', credentials[i], bodies.entries)).status, 405);
           assert.equal((await http(worker, tenant, 'GET', '/api/v3/activity', credentials[i])).status, 405);
-          assert.equal((await http(worker, tenant, 'GET', '/api/v2/summary', credentials[i])).status, 405);
+          const summary = await http(worker, tenant, 'GET', '/api/v2/summary', credentials[i]);
+          assert.equal(summary.status, 200);
+          assert.ok(summary.body.sgvs.some(reading => reading.sgv === 141));
+          assert.equal((await http(worker, tenant, 'GET', '/api/v1/summary', credentials[i])).status, 405);
+          assert.equal((await http(worker, tenant, 'POST', '/api/v2/summary', credentials[i], {})).status, 405);
         }
         await admin.query('REVOKE SELECT ON preview_activity.activity FROM preview_app');
         try {
