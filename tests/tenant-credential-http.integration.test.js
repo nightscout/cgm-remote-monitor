@@ -1060,7 +1060,8 @@ optInSuite(process.env.NS_TENANT_CREDENTIAL_HTTP_DOCKER_TEST === '1',
 
     await admin.query(`REVOKE SELECT ON credential_data.entries FROM ${role}`);
     try {
-      await search(1, A, bearer(tokens[0]), query).expect(500);
+      const outage = await search(1, A, bearer(tokens[0]), query).expect(503);
+      assert.deepEqual(outage.body, { error: 'STORAGE_UNAVAILABLE' });
     } finally {
       await admin.query(`GRANT SELECT ON credential_data.entries TO ${role}`);
     }

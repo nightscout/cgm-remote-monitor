@@ -121,7 +121,7 @@ optInSuite(process.env.NS_TENANT_HTTP_DOCKER_TEST === '1', 'NS_TENANT_HTTP_DOCKE
       admin = new Client({ connectionString });
       await admin.connect();
       migration = { direct: true, connectionString, namespace, catalogue };
-      assert.deepEqual((await run('up', migration)).done, ['0001_entries']);
+      assert.deepEqual((await run('up', migration)).done, ['0001_entries', '0002_entries_insertion_order']);
       const appPassword = randomBytes(24).toString('hex');
       // Fixture-only role grants, following the migration integration harness.
       // All entries DDL comes from the reviewed candidate via the real runner.
@@ -303,9 +303,9 @@ optInSuite(process.env.NS_TENANT_HTTP_DOCKER_TEST === '1', 'NS_TENANT_HTTP_DOCKE
     it('refuses a pending required migration even when the entries table still exists', async function () {
       const before = await persisted();
       const removed = await admin.query('DELETE FROM "' + namespace + '".schema_migrations WHERE name = $1 RETURNING *',
-        ['0001_entries']);
+        ['0002_entries_insertion_order']);
       try {
-        assert.deepEqual((await run('status', migration)).pending, ['0001_entries']);
+        assert.deepEqual((await run('status', migration)).pending, ['0002_entries_insertion_order']);
         await http(A).expect(503);
         await http(B, 'patch').send({ sgv: 999 }).expect(503);
         await http(A, 'post', '/api/v3/entries').send({

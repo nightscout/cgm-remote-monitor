@@ -137,6 +137,11 @@
     "tests/mongo-storage.test.js": "by nature: the MongoDB storage module itself: connection, read-only role check, index creation",
     "tests/slice-storage-cache.test.js": "by mechanism: proves which reads the cache saves by counting MongoDB find commands (monitorCommands)",
     "tests/storage-read-permissions.test.js": "by mechanism: proves read permissions by counting MongoDB find commands (monitorCommands)",
-    "tests/tenant-credential-http.integration.test.js": "by mechanism: actual PostgreSQL HTTP mutations are compared with MongoDB handlers and synchronized identifier races"
+    "tests/tenant-credential-http.integration.test.js": "by mechanism: actual PostgreSQL HTTP mutations are compared with MongoDB handlers and synchronized identifier races",
+    "tests/tenant-rest-context.integration.test.js": "by mechanism: tenant PostgreSQL status and settings use the actual shipping MongoDB HTTP oracle",
+    "tests/tenant-rest-device-activity.integration.test.js": "by mechanism: tenant PostgreSQL devicestatus and activity use the actual shipping MongoDB HTTP oracle",
+    "tests/tenant-rest-entries.integration.test.js": "by mechanism: tenant PostgreSQL legacy entries use the actual shipping MongoDB HTTP oracle",
+    "tests/tenant-rest-profile-food.integration.test.js": "by mechanism: tenant PostgreSQL profile and food use the actual shipping MongoDB HTTP oracle",
+    "tests/tenant-rest-treatments.integration.test.js": "by mechanism: tenant PostgreSQL treatments use the actual shipping MongoDB HTTP oracle"
   }
 }

@@ -1,7 +1,7 @@
 # Explicit multitenant API preview
 
 `nightscout multitenant api` runs the existing tenant credential exchange and
-PostgreSQL entries API using Vault Transit. It requires an explicit JSON file:
+PostgreSQL collection APIs using Vault Transit. It requires an explicit JSON file:
 
 ```sh
 MULTITENANT_PREVIEW_CONFIG=/operator/config/preview.json \
@@ -67,9 +67,30 @@ Use explicit PostgreSQL connection URLs with host, user, password and database;
 the only supported URL option is `sslmode=verify-full` or `sslmode=disable`.
 Use verified TLS for remote databases. Readiness and serving must use different
 database usernames on the same host, port and database. Namespaces must be
-distinct non-system schema names. This version fixes API3 settings to the
-shipping `lib/api3/const.json` defaults, separately per tenant; process-wide
-single-tenant API3/settings overrides do not configure tenants.
+distinct non-system schema names. API3 flags use the shipping `lib/api3/const.json` defaults, separately per tenant;
+process-wide single-tenant API3 overrides do not configure tenants. Each tenant
+may supply `settings` and `extendedSettings`: only the typed display allowlist
+in `lib/server/tenant-app/environment.js` is copied. Database, provider and other
+process values cannot enter this client-facing environment.
+
+The default remains API3 entries only. To opt into the implemented collection
+ports, add these top-level fields:
+
+```json
+{
+  "domains": ["entries", "treatments", "devicestatus", "profile", "food", "activity", "settings"],
+  "legacy": true,
+  "context": true
+}
+```
+
+`domains` must be a unique explicit list containing `entries`. Add a distinct
+`postgres.namespaces` entry for every selected additional domain. Each domain has
+an independent migration ledger; do not share schemas. `legacy: true` requires
+all six legacy domains because its real shipping dataloader snapshot reads
+entries, treatments, devicestatus, profile, food and activity. `context: true`
+adds tenant-safe status, verification and discovery routes. Neither option
+enables evaluation, realtime, derived reports or other single-process services.
 
 The listener reuses `API_HOSTNAME`/`API_PORT` (including the existing lowercase
 and `CUSTOMCONNSTR_` aliases), then `HOSTNAME`/`PORT`; absent settings default
@@ -122,6 +143,14 @@ Startup never creates roles, schemas, keys, tenants or grants and never runs
 | `secrets` | `lib/secrets/postgres-candidate.json` |
 | `legacy` | `lib/secrets/legacy-credentials-candidate.json` |
 
+For each selected additional domain, prepare
+`migrations/candidates/postgres-<domain>-v1.json` in its own configured namespace.
+All selected catalogues are checked read-only before the listener binds.
+Legacy entries natural-order reads require the entries catalogue's insertion
+ordinal migration. Fresh writes preserve their actual insertion order; ordinal
+backfill on an already populated PostgreSQL table has not been measured against
+a MongoDB import's natural order.
+
 Use the existing explicit `nightscout migrate` operator command for schema
 preparation; schema migration does **not** import tenant identities or roots.
 
@@ -131,11 +160,12 @@ table/column mutation grants, SUPERUSER, BYPASSRLS, CREATEROLE, CREATEDB or
 REPLICATION. The actual migration `check` executes read-only and requires the
 exact known checksummed catalogue prefix to be current.
 
-The distinct serving credential needs schema USAGE, entries SELECT/INSERT/
-UPDATE/DELETE, read-only current authorization/legacy metadata, and the existing
+The distinct serving credential needs schema USAGE, SELECT/INSERT/UPDATE/DELETE
+on each selected domain table, USAGE on their insertion-order sequences,
+read-only current authorization/legacy metadata, and the existing
 secrets adapter's SELECT/INSERT on `secret_records` plus INSERT-only
 `secret_audit`. The adapters reject ownership/bypass and unsafe extra grants;
-entries must have enabled **forced** RLS and no TRUNCATE/REFERENCES/TRIGGER
+all selected domain tables must have enabled **forced** RLS and no TRUNCATE/REFERENCES/TRIGGER
 privileges. Serving must have no candidate-schema CREATE or elevated role
 creation/replication privileges. Do not reuse the migration/operator credential.
 
@@ -162,15 +192,36 @@ writes are never enabled.
 
 ## Serving and stopping
 
-This preview offers the existing entries GET/search and POST bridge plus
-`GET /api/v2/authorization/request/:accessToken`. Additional entries mutations
-and history depend on their separately implemented bridge capabilities; other
-collections and unsupported operations refuse. Owner/operator management
-paths are unmounted (404), not permitted by data credentials.
+The credential exchange remains
+`GET /api/v2/authorization/request/:accessToken`. Explicitly selected domains
+mount actual shipping handlers:
+
+| Surface | Admitted capabilities |
+|---|---|
+| API3 entries, treatments, devicestatus, profile, food, settings | create, read/search, replace, patch, logical/permanent delete and history |
+| Legacy v1 and actual inherited v2 entries | read/current/model/format, POST/object/array/resend/preview, DELETE and count/slice/echo/time helpers |
+| Legacy treatments, devicestatus, profile, food, activity | their existing collection handlers and supported mutations; no invented entries PUT/PATCH or API3 activity |
+| Optional context | legacy status/verifyauth, v2 permissions/trie, API3 version/status/lastModified and root `/api/versions` |
+
+Unknown collections and methods refuse; owner/operator management paths remain
+unmounted (404). Public query semantics are not extended to arbitrary MongoDB
+features. The PostgreSQL compiler still refuses unrepresentable predicates,
+sorts and read options. Legacy entries time helpers translate only their
+bounded literal pattern grammar; this is not general PCRE support. Existing
+shipping preconditions and error envelopes remain in the handlers.
+
+Legacy authentication runs after shipping body parsers and consumes selected
+body credentials before writes. Presented invalid credentials never become
+anonymous. Every protected mutation reads current persisted grants and exact
+subject names. v1/v2 storage, API3 collections, clocks and snapshot frames are
+tenant-local. Snapshot reads use the genuine shipping loader and caches;
+partial snapshots fail. Tenant data-size statistics sum only RLS-visible
+documents. Attribution of shared physical index pages is unmeasured, so
+`indexSize` is omitted rather than replaced by a database-wide number or zero.
 
 Use a configured Host and tenant credential when probing data. The generic
 `healthcheck --role api` version probe is for the single-tenant headless app;
-this bounded preview does not expose a global unauthenticated version route.
+this preview does not expose a global unauthenticated version route.
 
 SIGTERM/SIGINT close the existing listener boundary and all acquired PG pools.
 Partial initialization and bind failures close acquired resources. The existing
@@ -187,8 +238,13 @@ evaluation, connector actors or the complete multitenant platform.
 With Docker available and dependencies installed:
 
 ```sh
+set -a
+. tests/ci.test.env
+set +a
+ulimit -n 64000
+TZ=UTC TEST_SHUFFLE_SEED=41574423920 TEST_ENV_FILE=/dev/null \
 NS_MULTITENANT_PREVIEW_PROCESS_DOCKER_TEST=1 \
-node node_modules/mocha/bin/mocha.js --timeout 120000 --exit \
+node node_modules/mocha/bin/mocha.js --require ./tests/hooks.js --timeout 120000 --exit \
   tests/multitenant-preview-process.integration.test.js
 ```
 
@@ -197,7 +253,9 @@ containers on random loopback ports, prepares schemas and roots explicitly,
 then launches **`bin/nightscout.js multitenant api` as an actual child process**
 from outside the package. Credentials exist only in process environments or
 memory. It checks two-tenant exchange/POST/read/search, persistence across
-restart, foreign credentials, current revocation, provider outage/recovery,
+restart, explicitly selected domains through legacy/API3 handlers and real
+snapshots, overlapping tenant IDs, cross-version reads/history, metadata,
+foreign credentials, current revocation, provider outage/recovery,
 direct/canonical trust refusal, prebind readiness and privilege rejection, late
 failure cleanup and signal shutdown. Its owned files, children, pools and
 containers are removed on teardown.
