@@ -139,6 +139,7 @@
     "tests/storage-read-permissions.test.js": "by mechanism: proves read permissions by counting MongoDB find commands (monitorCommands)",
     "tests/tenant-credential-http.integration.test.js": "by mechanism: actual PostgreSQL HTTP mutations are compared with MongoDB handlers and synchronized identifier races",
     "tests/tenant-rest-context.integration.test.js": "by mechanism: tenant PostgreSQL status and settings use the actual shipping MongoDB HTTP oracle",
+    "tests/tenant-rest-derived.integration.test.js": "by mechanism: actual MongoDB derived-read oracle against tenant PostgreSQL/RLS",
     "tests/tenant-rest-device-activity.integration.test.js": "by mechanism: tenant PostgreSQL devicestatus and activity use the actual shipping MongoDB HTTP oracle",
     "tests/tenant-rest-entries.integration.test.js": "by mechanism: tenant PostgreSQL legacy entries use the actual shipping MongoDB HTTP oracle",
     "tests/tenant-rest-profile-food.integration.test.js": "by mechanism: tenant PostgreSQL profile and food use the actual shipping MongoDB HTTP oracle",

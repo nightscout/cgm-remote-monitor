@@ -89,8 +89,15 @@ ports, add these top-level fields:
 an independent migration ledger; do not share schemas. `legacy: true` requires
 all six legacy domains because its real shipping dataloader snapshot reads
 entries, treatments, devicestatus, profile, food and activity. `context: true`
-adds tenant-safe status, verification and discovery routes. Neither option
-enables evaluation, realtime, derived reports or other single-process services.
+adds tenant-safe status, verification and discovery routes. The legacy selection
+also admits the shipping v2 properties, ddata-at and summary GET/HEAD/OPTIONS
+handlers over a request-local snapshot and sandbox. Properties and ddata retain
+the shipping entries **and** treatments read checks; the complete ddata response
+includes secondary profile, food, device and activity fields under that inherited
+permission boundary. Summary retains the shipping `api:*:read` wildcard check;
+separate concrete collection grants do not imply that permission. Property
+computation runs the enabled shipping property setters only. Notification and
+connector phases, the background evaluator and realtime remain separate work.
 
 The listener reuses `API_HOSTNAME`/`API_PORT` (including the existing lowercase
 and `CUSTOMCONNSTR_` aliases), then `HOSTNAME`/`PORT`; absent settings default
