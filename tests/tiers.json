@@ -238,6 +238,7 @@
         "tests/tenant-runtime-vault.integration.test.js",
         "tests/multitenant-preview-process.integration.test.js",
         "tests/tenant-rest-entries.integration.test.js",
+        "tests/tenant-rest-client-replay.integration.test.js",
         "tests/tenant-rest-treatments.integration.test.js",
         "tests/tenant-rest-device-activity.integration.test.js",
         "tests/tenant-rest-profile-food.integration.test.js",
