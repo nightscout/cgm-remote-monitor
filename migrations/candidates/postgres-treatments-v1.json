@@ -1,0 +1,29 @@
+{
+  "version": 1,
+  "status": "review candidate; apply only with the explicit operator migration runner",
+  "evidence": [
+    "lib/server/treatments.js: indexedFields, created_at ordering and stored_query_for",
+    "lib/storage/write-intent.js: treatments v1/internal preparation and created_at/eventType fallback",
+    "lib/api3/generic/setup.js: treatments created_at/eventType fallback and created_at history",
+    "lib/storage/postgres-identity.js: typed _id",
+    "lib/storage/identifier-index.js: partial unique identifier"
+  ],
+  "migrations": [
+    {
+      "name": "0001_treatments",
+      "up": [
+        "CREATE TABLE treatments (\n  tenant_id uuid NOT NULL,\n  doc jsonb NOT NULL CHECK (jsonb_typeof(doc) = 'object'),\n  id_kind text NOT NULL CHECK (id_kind IN ('objectid', 'string')),\n  \"_id\" text NOT NULL GENERATED ALWAYS AS (CASE WHEN jsonb_typeof(doc -> '_id') = 'string' THEN doc ->> '_id' END) STORED,\n  created_at text GENERATED ALWAYS AS (CASE WHEN jsonb_typeof(doc -> 'created_at') = 'string' THEN doc ->> 'created_at' END) STORED,\n  \"eventType\" text GENERATED ALWAYS AS (CASE WHEN jsonb_typeof(doc -> 'eventType') = 'string' THEN doc ->> 'eventType' END) STORED,\n  identifier text GENERATED ALWAYS AS (CASE WHEN jsonb_typeof(doc -> 'identifier') = 'string' THEN doc ->> 'identifier' END) STORED,\n  duration numeric GENERATED ALWAYS AS (CASE WHEN jsonb_typeof(doc -> 'duration') = 'number' THEN (doc ->> 'duration')::numeric END) STORED,\n  date numeric GENERATED ALWAYS AS (CASE WHEN jsonb_typeof(doc -> 'date') = 'number' THEN (doc ->> 'date')::numeric END) STORED,\n  \"srvModified\" numeric GENERATED ALWAYS AS (CASE WHEN jsonb_typeof(doc -> 'srvModified') = 'number' THEN (doc ->> 'srvModified')::numeric END) STORED,\n  \"isValid\" boolean GENERATED ALWAYS AS (CASE WHEN jsonb_typeof(doc -> 'isValid') = 'boolean' THEN (doc ->> 'isValid')::boolean END) STORED,\n  CHECK (\"_id\" <> ''),\n  CHECK (id_kind <> 'objectid' OR \"_id\" ~ '^[0-9a-f]{24}$'),\n  PRIMARY KEY (tenant_id, id_kind, \"_id\")\n)",
+        "CREATE INDEX treatments_tenant_created_at ON treatments (tenant_id, created_at DESC)",
+        "CREATE INDEX treatments_tenant_event_duration_created ON treatments (tenant_id, \"eventType\", duration, created_at)",
+        "CREATE INDEX treatments_tenant_event_created_identifier_date ON treatments (tenant_id, \"eventType\", created_at DESC, identifier DESC, date DESC)",
+        "CREATE INDEX treatments_tenant_history ON treatments (tenant_id, \"srvModified\", created_at)",
+        "CREATE INDEX treatments_tenant_visibility ON treatments (tenant_id, \"isValid\")",
+        "CREATE UNIQUE INDEX treatments_identifier_unique ON treatments (tenant_id, identifier) WHERE identifier IS NOT NULL AND identifier <> ''",
+        "ALTER TABLE treatments ENABLE ROW LEVEL SECURITY",
+        "ALTER TABLE treatments FORCE ROW LEVEL SECURITY",
+        "CREATE POLICY treatments_tenant_isolation ON treatments USING (tenant_id = NULLIF(current_setting('app.current_tenant_id', true), '')::uuid) WITH CHECK (tenant_id = NULLIF(current_setting('app.current_tenant_id', true), '')::uuid)"
+      ],
+      "checksum": "b29ddcf7789472ad87fa14e309a47e45e275fb123b549814595dc7aaed2977a5"
+    }
+  ]
+}
