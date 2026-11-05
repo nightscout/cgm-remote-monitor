@@ -242,6 +242,7 @@
         "tests/tenant-rest-device-activity.integration.test.js",
         "tests/tenant-rest-profile-food.integration.test.js",
         "tests/tenant-rest-context.integration.test.js",
+        "tests/tenant-rest-authority-review.test.js",
         "tests/authorization-exchange-contract.test.js",
         "tests/postgres-connection.test.js",
         "tests/postgres-entries-read.test.js",
