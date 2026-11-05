@@ -6,7 +6,7 @@ const { execFileSync } = require('node:child_process');
 const { EventEmitter, once } = require('node:events');
 const { setTimeout: delay } = require('node:timers/promises');
 const { Client } = require('pg');
-const { MongoClient } = require('mongodb');
+const { MongoClient, ObjectId } = require('mongodb');
 const shiro = require('shiro-trie');
 const authentication = require('../lib/api3/tenant-authentication');
 const srvDates = require('../lib/server/srv-dates');
@@ -39,6 +39,38 @@ const docker = args => execFileSync('docker', args, {
   encoding: 'utf8', stdio: ['ignore', 'pipe', 'pipe'], timeout: 30000
 }).trim();
 
+// Shipping-only synthetic source fixture; this is test choreography, not an importer.
+async function shippingCredentialSource (root, displayName) {
+  const enclave = require('../lib/server/enclave')();
+  enclave.setApiKey(root);
+  enclave.setJWTKey(crypto.randomBytes(32).toString('hex'));
+  const docs = [
+    { _id: new ObjectId(SUBJECT), name: displayName, roles: ['viewer'] },
+    { _id: new ObjectId(OTHER), name: displayName, roles: ['uploader'] }
+  ];
+  const roles = [
+    { name: 'viewer', permissions: ['api:entries:read'] },
+    { name: 'uploader', permissions: ['api:entries:create'] }
+  ];
+  const ctx = {
+    store: { collection: () => ({}) }, settings: {}, moment: require('moment'),
+    language: { translate: value => value }
+  };
+  const storage = require('../lib/authorization/storage')({
+    authentication_collections_prefix: 'auth_', enclave
+  }, ctx);
+  storage.listRoles = (_options, callback) => callback(null, roles);
+  storage.listSubjects = (_options, callback) => callback(null, docs.map(doc => ({ ...doc })));
+  await new Promise((resolve, reject) => storage.reload(error => error ? reject(error) : resolve()));
+
+  const authorization = require('../lib/authorization')({
+    enclave, settings: { authDefaultRoles: 'denied', authFailDelay: 0 }, trustProxy: false
+  }, ctx);
+  authorization.storage.subjects = storage.subjects;
+  authorization.storage.roles = storage.roles;
+  return { authorization, enclave, subjects: storage.subjects };
+}
+
 optInSuite(process.env.NS_TENANT_CREDENTIAL_HTTP_DOCKER_TEST === '1',
   'NS_TENANT_CREDENTIAL_HTTP_DOCKER_TEST=1')('tenant credential/current-authority actual GET (PostgreSQL)', function () {
   this.timeout(90000);
@@ -46,8 +78,8 @@ optInSuite(process.env.NS_TENANT_CREDENTIAL_HTTP_DOCKER_TEST === '1',
   const role = 'credential_http_app';
   const roots = [crypto.randomBytes(24).toString('hex'), crypto.randomBytes(24).toString('hex')];
   const providers = [provider(), provider()];
-  const workers = [];
-  let owned = false, admin, previousMode, appURI, time = Date.now(), subjectTokens, jwt, signingUnavailable = false;
+  const workers = [], shippingSources = [];
+  let owned = false, admin, previousMode, adminURI, appURI, time = Date.now(), subjectTokens, jwt, signingUnavailable = false;
   const schemas = [
     ['credential_data', require('../migrations/candidates/postgres-entries-v1.json')],
     ['credential_auth', require('../lib/tenant-authorization/postgres-candidate.json')],
@@ -126,7 +158,7 @@ optInSuite(process.env.NS_TENANT_CREDENTIAL_HTTP_DOCKER_TEST === '1',
       data.use((req, res, next) => req.tenantContext.tenant === tenant ? routes(req, res, next) : next());
     }
     const unavailable = async () => { throw new Error('owner services not installed'); };
-    worker.server = createTenantApp({
+    worker.app = createTenantApp({
       resolver: createResolver({ aliases: [
         { host: 'one.example.test', tenant: A }, { host: 'two.example.test', tenant: B }
       ] }),
@@ -137,12 +169,20 @@ optInSuite(process.env.NS_TENANT_CREDENTIAL_HTTP_DOCKER_TEST === '1',
       tenantSettings: { read: unavailable, replace: unavailable, rollback: unavailable },
       subjectPolicy: { read: unavailable, replace: unavailable },
       dataRouter: data
-    }).listen(0, '127.0.0.1');
+    });
+  }
+
+  async function exposeWorker (worker) {
+    worker.server = worker.app.listen(0, '127.0.0.1');
     await once(worker.server, 'listening');
     assert.equal(worker.server.address().address, '127.0.0.1');
   }
 
   before(async function () {
+    for (const [index, tenant] of [A, B].entries()) {
+      shippingSources.push(await shippingCredentialSource(roots[index],
+        'Same Viewer Exact ' + (tenant === A ? 'A' : 'B')));
+    }
     previousMode = scope.getTenancyMode();
     scope.setTenancyMode('multi');
     const password = crypto.randomBytes(24).toString('hex');
@@ -151,7 +191,7 @@ optInSuite(process.env.NS_TENANT_CREDENTIAL_HTTP_DOCKER_TEST === '1',
     { env: { ...process.env, POSTGRES_PASSWORD: password }, stdio: ['ignore', 'pipe', 'pipe'], timeout: 30000 });
     owned = true;
     const port = docker(['port', container, '5432/tcp']).split(':').pop();
-    const adminURI = 'postgres://operator:' + password + '@127.0.0.1:' + port + '/credential_test';
+    adminURI = 'postgres://operator:' + password + '@127.0.0.1:' + port + '/credential_test';
     const deadline = Date.now() + 20000;
     for (;;) {
       try {
@@ -183,9 +223,12 @@ optInSuite(process.env.NS_TENANT_CREDENTIAL_HTTP_DOCKER_TEST === '1',
     appURI = url.toString();
     await admin.query(`INSERT INTO credential_identity.legacy_credential_config VALUES
       ($1, 'operator-import-a'), ($2, 'operator-import-b')`, [A, B]);
-    for (const tenant of [A, B]) {
+    for (const [index, tenant] of [A, B].entries()) {
+      const sourceSubjects = shippingSources[index].subjects;
       await admin.query(`INSERT INTO credential_identity.legacy_credential_subjects VALUES
-        ($1, $2, 'sameviewer'), ($1, $3, 'sameviewer')`, [tenant, SUBJECT, OTHER]);
+        ($1, $2, $3), ($1, $4, $5)`, [tenant,
+        sourceSubjects[0]._id.toHexString(), sourceSubjects[0].accessToken.split('-')[0],
+        sourceSubjects[1]._id.toHexString(), sourceSubjects[1].accessToken.split('-')[0]]);
       await admin.query(`INSERT INTO credential_auth.tenant_authorization_config VALUES ($1, ARRAY['denied'])`, [tenant]);
       await admin.query(`INSERT INTO credential_auth.tenant_authorization_subjects (tenant_id, subject_id) VALUES ($1, $2), ($1, $3)`,
         [tenant, SUBJECT, OTHER]);
@@ -207,9 +250,11 @@ optInSuite(process.env.NS_TENANT_CREDENTIAL_HTTP_DOCKER_TEST === '1',
       }).insertOne({ _id: 'same-id', identifier: 'shared-entry', sgv: index === 0 ? 101 : 202,
         date: 1793664000000, srvModified: 1793664000000, type: 'sgv' }, { normalize: false }));
     }
-    subjectTokens = roots.map(root => 'sameviewer-' + hash(hash(root) + SUBJECT).slice(0, 16));
+    subjectTokens = shippingSources.map(source =>
+      source.subjects.find(subject => subject._id.toHexString() === SUBJECT).accessToken);
     jwt = await Promise.all([A, B].map((tenant, index) =>
       workers[0].secrets.signJWT(ctx(tenant, 'issuer'), subjectTokens[index], 300)));
+    for (const worker of workers) await exposeWorker(worker);
     await http(0, A, bearer(jwt[0])).expect(200);
   });
 
@@ -217,6 +262,92 @@ optInSuite(process.env.NS_TENANT_CREDENTIAL_HTTP_DOCKER_TEST === '1',
     return http(worker, tenant, headers, 'get',
       '/api/v2/authorization/request/' + encodeURIComponent(credential));
   }
+
+  it('preserves shipping IDs, credentials, names and effective grants through explicit operator preparation', async function () {
+    const source = shippingSources[0];
+    const sourceSubjects = source.subjects;
+    for (const [namespace, catalogue] of schemas) {
+      const state = await run('up', { direct: true, connectionString: adminURI, namespace, catalogue });
+      assert.deepEqual(state.done, []);
+    }
+    const metadata = await admin.query(`SELECT subject_id, token_prefix FROM credential_identity.legacy_credential_subjects
+      WHERE tenant_id = $1 ORDER BY subject_id`, [A]);
+    assert.deepEqual(metadata.rows, sourceSubjects.map(subject => ({
+      subject_id: subject._id.toHexString(), token_prefix: subject.accessToken.split('-')[0]
+    })).sort((left, right) => left.subject_id.localeCompare(right.subject_id)));
+    assert.notEqual(sourceSubjects[0]._id.toHexString(), sourceSubjects[1]._id.toHexString());
+    assert.equal(sourceSubjects[0].accessToken.split('-')[0], sourceSubjects[1].accessToken.split('-')[0]);
+    assert.deepEqual((await admin.query(`SELECT anonymous_roles FROM credential_auth.tenant_authorization_config
+      WHERE tenant_id = $1`, [A])).rows[0].anonymous_roles, ['denied']);
+    assert.equal((await admin.query(`SELECT root_reference_id FROM credential_identity.legacy_credential_config
+      WHERE tenant_id = $1`, [A])).rows[0].root_reference_id, 'operator-import-a');
+
+    for (const [index, subject] of sourceSubjects.entries()) {
+      const sourceExchange = source.authorization.authorize(subject.accessToken);
+      assert.equal(sourceExchange.sub, subject.name);
+      const targetExchange = await exchange(subject.accessToken).expect(200);
+      assert.equal(targetExchange.body.sub, sourceExchange.sub);
+      assert.deepEqual(targetExchange.body.permissionGroups, sourceExchange.permissionGroups);
+      const sourceClaims = source.enclave.verifyJWT(sourceExchange.token);
+      const targetClaims = await workers[0].secrets.verifyJWT(ctx(A), targetExchange.body.token);
+      assert.equal(targetClaims.accessToken, sourceClaims.accessToken);
+      assert.equal(targetClaims.exp - targetClaims.iat, 28800);
+      assert.equal(targetExchange.body.exp - targetExchange.body.iat, 28800);
+
+      const snapshot = await workers[0].authority.subjectSnapshot({
+        tenant: A, principal: { kind: 'subject', subjectId: subject._id.toHexString() }
+      });
+      assert.equal(snapshot.sub, subject.name);
+      assert.deepEqual(snapshot.permissionGroups, sourceExchange.permissionGroups);
+
+      const expectedRead = index === 0 ? 200 : 403;
+      const expectedCreate = index === 0 ? 403 : 201;
+      await http(0, A, secret(subject.accessToken)).expect(expectedRead);
+      await http(0, A, bearer(targetExchange.body.token)).expect(expectedRead);
+      await http(0, B, secret(subject.accessToken)).expect(401);
+      await http(1, B, bearer(targetExchange.body.token)).expect(401);
+      const created = await http(0, A, secret(subject.accessToken), 'post', '/api/v3/entries')
+        .send({ identifier: 'operator-fidelity-' + index, date: 1793664000000,
+          utcOffset: 0, app: 'synthetic-import-fidelity', type: 'sgv', sgv: 123 });
+      assert.equal(created.status, expectedCreate);
+      if (created.status === 201) {
+        await admin.query('DELETE FROM credential_data.entries WHERE tenant_id = $1 AND identifier = $2',
+          [A, 'operator-fidelity-' + index]);
+      }
+    }
+
+    const uploader = sourceSubjects[1];
+    await exchange(hash(roots[0])).expect(401);
+    await http(0, A, secret(hash(roots[0])), 'get', '/api/v1/tenant/settings').expect(401);
+    await http(0, A).expect(403);
+    await http(0, A, {}, 'post', '/api/v3/entries')
+      .send({ identifier: 'operator-fidelity-anonymous', date: 1793664000000,
+        utcOffset: 0, app: 'synthetic-import-fidelity', type: 'sgv', sgv: 123 }).expect(403);
+
+    const name = uploader.name;
+    await admin.query(`UPDATE credential_auth.tenant_authorization_subjects SET display_name = NULL
+      WHERE tenant_id = $1 AND subject_id = $2`, [A, OTHER]);
+    try {
+      await exchange(uploader.accessToken).expect(401);
+      await http(0, A, secret(uploader.accessToken), 'post', '/api/v3/entries')
+        .send({ identifier: 'operator-fidelity-missing-name', date: 1793664000000,
+          utcOffset: 0, app: 'synthetic-import-fidelity', type: 'sgv', sgv: 123 }).expect(401);
+      await http(1, A, bearer(jwt[0])).expect(200);
+    } finally {
+      await admin.query(`UPDATE credential_auth.tenant_authorization_subjects SET display_name = $3
+        WHERE tenant_id = $1 AND subject_id = $2`, [A, OTHER, name]);
+    }
+
+    const alternateRoot = crypto.randomBytes(24).toString('hex');
+    await assert.rejects(workers[0].secrets.encrypt(ctx(A, 'issuer'), 'operator-import-a',
+      Buffer.from(alternateRoot)), { code: 'SECRETS_REFERENCE_EXISTS' });
+    assert.deepEqual(await workers[0].secrets.verifyLegacyCredential(ctx(A),
+      { apiSecret: hash(roots[0]) }), { kind: 'root' });
+    assert.equal(await workers[0].secrets.verifyLegacyCredential(ctx(A),
+      { apiSecret: hash(alternateRoot) }), null);
+    await http(0, A, secret(hash(roots[0]))).expect(200);
+    await http(0, A, secret(hash(alternateRoot))).expect(401);
+  });
 
   it('packet: distinguishes root plaintext from accepted SHA1 and SHA512 headers on actual GET', async function () {
     const before = await rows();
