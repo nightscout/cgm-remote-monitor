@@ -145,6 +145,45 @@ optInSuite(process.env.NS_REST_CLIENT_REPLAY_TEST === '1',
       assert.deepEqual((await follower('treatments')).body, []);
     });
 
+    // Server composition acceptance, beyond either pinned client's extracted
+    // workflow: prove the new reads use the real CLI and Vault-backed authority.
+    it('composes derived reads with real executable provider authority and persisted tenant data', async function () {
+      const shift = Date.now() - patterns.BASE - 300000;
+      function current (value) {
+        if (Array.isArray(value)) return value.map(current);
+        if (value && typeof value === 'object') return Object.fromEntries(Object.entries(value).map(([key, item]) => [key, current(item)]));
+        if (typeof value === 'number' && value >= patterns.BASE) return value + shift;
+        if (typeof value === 'string' && /^\d{13}$/.test(value)) return String(Number(value) + shift);
+        if (typeof value === 'string' && /^\d{4}-\d{2}-\d{2}T/.test(value)) return new Date(Date.parse(value) + shift).toISOString();
+        return value;
+      }
+      for (const [index, tenant] of [lab.A, lab.B].entries()) {
+        const docs = current(patterns.documents(index));
+        for (const domain of domains) patterns.consumeUpload(await upload(domain, docs[domain], tenant), docs[domain].length);
+        await lab.grants(['api:*:read'], tenant);
+      }
+      const read = (tenant, resource) => lab.http(worker, tenant, 'GET', resource + '?token=' + lab.credential(tenant));
+      for (const [index, tenant] of [lab.A, lab.B].entries()) {
+        const props = await read(tenant, '/api/v2/properties/bgnow');
+        assert.equal(props.status, 200);
+        assert.equal(props.body.bgnow.last, 121 + index * 80);
+        const data = await read(tenant, '/api/v2/ddata/at');
+        assert.equal(data.status, 200);
+        assert.deepEqual(data.body.sgvs.map(doc => doc.mgdl).sort(), [120 + index * 80, 121 + index * 80]);
+        const summary = await read(tenant, '/api/v2/summary');
+        assert.equal(summary.status, 200);
+        assert.equal(summary.body.profile.basal[0].value, 0.5 + index);
+      }
+      await lab.grants(['api:entries:read']);
+      assert.equal((await read(lab.A, '/api/v2/properties/bgnow')).status, 401);
+      assert.equal((await read(lab.B, '/api/v2/properties/bgnow')).status, 200);
+      await lab.stop(worker);
+      worker = lab.start();
+      await lab.ready(worker);
+      assert.equal((await read(lab.B, '/api/v2/properties/bgnow')).body.bgnow.last, 201);
+      assert.equal((await read(lab.A, '/api/v2/ddata/at')).status, 401);
+    });
+
     it('rechecks follower current authority and refuses wrong-tenant tokens after successful source-pattern reads', async function () {
       await fill();
       await fill(lab.B, 1);
