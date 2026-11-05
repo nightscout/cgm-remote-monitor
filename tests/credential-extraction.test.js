@@ -35,6 +35,7 @@ describe('Tenant version-aware credential extraction', function () {
     assert.equal(extract(req, { version: 3 }).invalid, true);
     assert.equal(extract(request({}, { token: 'legacy' }), { version: 3 }).invalid, true);
     assert.equal(extract(request({}, {}, { secret: 'legacy' }), { version: 3 }).invalid, true);
+    assert.equal(extract(request({ authorization: 'Bearer one,two' }), { version: 3 }).invalid, true);
     assert.equal(extract(request({ 'api-secret': 'root' }), { version: 3 }).apiSecret, 'root');
   });
 });
