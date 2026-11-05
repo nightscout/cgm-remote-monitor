@@ -35,7 +35,7 @@ const GRANTS = ['read', 'create', 'update', 'delete'].map(action => 'api:entries
 
 // Only service I/O and deployment composition are fixtures. Every CRUD route,
 // parser, purifier, permission check and intent is the shipping implementation.
-module.exports = function crudHTTP () {
+module.exports = function crudHTTP ({ legacy = false } = {}) {
   const name = 'crud_' + crypto.randomBytes(8).toString('hex');
   const auth = name + '_auth';
   const role = name + '_app';
@@ -73,7 +73,7 @@ module.exports = function crudHTTP () {
     }
 
     for (let index = 0; index < 2; index++) {
-      const worker = { events: [], visible: [], collections: new Map(), environments: new Map() };
+      const worker = { events: [], visible: [], collections: new Map(), environments: new Map(), legacy: new Map() };
       workers.push(worker);
       worker.connection = await connect({ connectionString: uri.toString(), max: 1 });
       worker.authority = { ...await createAuthority({ connectionString: uri.toString(), namespace: auth }) };
@@ -106,7 +106,8 @@ module.exports = function crudHTTP () {
           setENVTruthy: () => undefined
         };
         for (const method of ['post', 'put', 'patch', 'delete']) app[method] = routes[method].bind(routes);
-        const env = {};
+        const env = legacy ? { entries_collection: name, settings: { enable: [], deNormalizeDates: false },
+          extendedSettings: {}, DISPLAY_UNITS: 'mg/dl', name: 'synthetic', version: 'test' } : {};
         const col = new Collection({
           ctx: { bus, purifier: purifier({}, {}) }, env, app, colName: 'entries', storageColName: 'entries',
           fallbackGetDate: doc => new Date(doc.srvModified), fallbackDateField: 'date',
@@ -116,6 +117,13 @@ module.exports = function crudHTTP () {
         col.mapRoutes();
         worker.collections.set(tenant, col);
         worker.environments.set(tenant, env);
+        if (legacy) {
+          const port = entriesOptions({ connection: worker.connection, table: lab.table, env, bus, source: 'v1/internal' });
+          const ctx = { bus, purifier: purifier({}, {}), ddata: require('../../lib/data/ddata')(),
+            storagePorts: { resolve: selection => selection.logical === 'entries' ? port : null } };
+          ctx.cache = require('../../lib/server/cache')(env, ctx);
+          worker.legacy.set(tenant, require('../../lib/server/tenant-app/legacy-domains')({ env, ctx, domains: ['entries'] }));
+        }
         data.use((req, res, next) => req.tenantContext.tenant === tenant ? routes(req, res, next) : next());
       }
       const unavailable = async () => { throw new Error('unused owner capability'); };
@@ -124,10 +132,12 @@ module.exports = function crudHTTP () {
           { host: 'one.example.test', tenant: A }, { host: 'two.example.test', tenant: B }
         ] }),
         dataAccess: createDataAccess({ secrets: worker.secrets, authority: worker.authority,
+          legacyCollections: legacy ? ['entries'] : [],
           verifierContext: async tenant => ({ tenant, principal: 'verifier', consumer: 'api' }) }),
         verifyCredential: async () => null, authorizeRequest: async () => false,
         tenantSettings: { read: unavailable, replace: unavailable, rollback: unavailable },
-        subjectPolicy: { read: unavailable, replace: unavailable }, dataRouter: data
+        subjectPolicy: { read: unavailable, replace: unavailable }, dataRouter: data,
+        ...(legacy ? { legacyRouter: (req, res, next) => worker.legacy.get(scope.currentTenant())(req, res, next) } : {})
       }).listen(0, '127.0.0.1');
       await once(worker.server, 'listening');
       assert.equal(worker.server.address().address, '127.0.0.1');
@@ -157,6 +167,30 @@ module.exports = function crudHTTP () {
     lab.mongoCol = api.get('collections').entries;
     app.use(api);
     lab.mongoApp = app;
+    if (legacy) {
+      const env = { entries_collection: name, settings: { enable: [], deNormalizeDates: false },
+        extendedSettings: {}, DISPLAY_UNITS: 'mg/dl', name: 'synthetic', version: 'test' };
+      const ctx = { store: { collection: n => mongo.db().collection(n) },
+        bus, purifier: purifier({}, {}), ddata: require('../../lib/data/ddata')(),
+        authorization: require('../../lib/server/tenant-app/legacy-authorization')(),
+        wares: require('../../lib/middleware')(env) };
+      ctx.cache = require('../../lib/server/cache')(env, ctx);
+      ctx.entries = require('../../lib/server/entries')(env, ctx);
+      const v1 = require('../../lib/api')(env, ctx, { domains: ['entries'], apiEnabled: true });
+      const v2 = require('../../lib/api2')(env, ctx, v1, { compatibilityOnly: true });
+      const reference = express();
+      reference.use((req, res, next) => {
+        const grants = shiro.new();
+        lab.mongoGrants.forEach(grant => grants.add(grant));
+        authentication.bind(req, { shiros: [grants], subject: { name: lab.mongoName } });
+        req.tenantAuthenticate = async () => ({ tenant: A, principal: SUBJECT, consumer: 'api' });
+        scope.withTenant(A, next);
+      });
+      reference.use('/api/v1', v1);
+      reference.use('/api/v2', v2);
+      lab.mongoLegacyApp = reference;
+      lab.mongoLegacyContext = ctx;
+    }
   };
   lab.rows = async (tenant = A) =>
     (await admin.query(`SELECT doc FROM "${name}".entries WHERE tenant_id = $1 ORDER BY "_id", id_kind`, [tenant])).rows.map(row => row.doc);
@@ -173,6 +207,14 @@ module.exports = function crudHTTP () {
     return call;
   };
   lab.reference = (method, path) => request(lab.mongoApp)[method](path);
+  lab.legacyHttp = (method, path, { worker = 0, tenant = A, credential = lab.credentials[0] } = {}) => {
+    let call = request(workers[worker].server)[method](path)
+      .set('Host', tenant === A ? 'one.example.test' : 'two.example.test')
+      .set('Accept', 'application/json').timeout({ response: 5000, deadline: 15000 });
+    if (credential !== null) call = call.set('api-secret', credential);
+    return call;
+  };
+  lab.legacyReference = (method, path) => request(lab.mongoLegacyApp)[method](path).set('Accept', 'application/json');
   lab.seed = async docs => {
     await admin.query(`DELETE FROM "${name}".entries`);
     await lab.mongoCollection.deleteMany({});
@@ -189,12 +231,14 @@ module.exports = function crudHTTP () {
     lab.mongoEvents.length = 0;
     lab.mongoCol.autoPruneDays = undefined;
     for (const worker of workers) {
+      if (legacy) for (const graph of worker.legacy.values()) graph.context.cache.invalidate('entries');
       worker.events.length = 0;
       worker.visible.length = 0;
       for (const col of worker.collections.values()) {
         col.autoPruneDays = undefined;
         col.nextAutoPrune = new Date(0);
       }
+      if (legacy) lab.mongoLegacyContext.cache.invalidate('entries');
     }
   };
   lab.close = async () => {

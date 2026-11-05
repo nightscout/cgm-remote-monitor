@@ -36,7 +36,7 @@ describe('trusted PostgreSQL collection translation', function () {
 
   it('does not turn unsupported regex predicates into empty or unfiltered reads', async function () {
     const { port, calls } = fixture();
-    await assert.rejects(reads.findAll(port.storage, { dateString: /^2020/ }), /unsupported/);
+    await assert.rejects(reads.findAll(port.storage, { dateString: /^[0-9]/ }), /unsupported/);
     assert.equal(calls.length, 0);
   });
 
