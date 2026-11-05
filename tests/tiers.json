@@ -230,6 +230,7 @@
         "tests/tenant-authorization-postgres.integration.test.js",
         "tests/tenant-credential-http.integration.test.js",
         "tests/api3.entries-create.http.test.js",
+        "tests/api3.entries-crud.http.test.js",
         "tests/tenant-runtime-vault.integration.test.js",
         "tests/authorization-exchange-contract.test.js",
         "tests/postgres-connection.test.js",
