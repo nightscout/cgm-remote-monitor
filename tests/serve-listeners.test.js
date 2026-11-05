@@ -45,10 +45,9 @@ function refused (fn, pattern) {
 
 describe('nightscout multitenant: roles (PLAT-SERVE)', function () {
 
-  it('accepts a multitenant role, and no role is multitenant yet', function () {
-    const roles = { api: Object.assign({}, ROLES.api, { multitenant: true }) };
-    assert.deepEqual(serve.parseRoles(['api'], roles), ['api']);
-    for (const [name, role] of Object.entries(ROLES)) assert.notEqual(role.multitenant, true, name);
+  it('accepts only the implemented explicit-preview api role', function () {
+    assert.deepEqual(serve.parseRoles(['api']), ['api']);
+    for (const [name, role] of Object.entries(ROLES)) assert.equal(role.multitenant === true, name === 'api', name);
   });
 
   it('refuses an unknown role, an empty one, a repeated one, and a missing list', function () {
@@ -59,23 +58,30 @@ describe('nightscout multitenant: roles (PLAT-SERVE)', function () {
   });
 
   it('names every role that cannot be served yet', function () {
-    for (const name of ['api', 'evaluator', 'realtime', 'vcpool', 'tenant-admin', 'admin']) {
+    for (const name of ['evaluator', 'realtime', 'vcpool', 'tenant-admin', 'admin']) {
       assert.ok(ROLES[name], name);
       assert.throws(() => serve.parseRoles([name]), new RegExp('not yet available: ' + name + '\\.'));
     }
-    assert.throws(() => serve.parseRoles(['api,admin,realtime']), /not yet available: api, admin, realtime/);
+    assert.throws(() => serve.parseRoles(['api,admin,realtime']), /not yet available: admin, realtime/);
   });
 
   it('exits 64 for an unknown role and for each role not yet available', function () {
     const unknown = cli(['multitenant', 'bogus']);
     assert.equal(unknown.status, 64);
     assert.match(unknown.stderr, /unknown role: bogus/);
-    for (const name of ['api', 'evaluator', 'realtime', 'vcpool', 'tenant-admin', 'admin', 'api,admin']) {
+    for (const name of ['evaluator', 'realtime', 'vcpool', 'tenant-admin', 'admin', 'api,admin']) {
       const result = cli(['multitenant', name]);
       assert.equal(result.status, 64, name);
-      assert.match(result.stderr, /not yet available: .*multitenant Nightscout, which is not built yet/, name);
+      assert.match(result.stderr, /not yet available: .*role that is not implemented/, name);
     }
     assert.equal(cli(['multitenant']).status, 64);
+  });
+
+  it('refuses api without explicit preview configuration before single-tenant bootstrap', function () {
+    const result = cli(['multitenant', 'api']);
+    assert.equal(result.status, 78);
+    assert.match(result.stderr, /MULTITENANT_PREVIEW_CONFIG/);
+    assert.doesNotMatch(result.stdout + result.stderr, /API_SECRET|Mongo|Listening/);
   });
 
 });

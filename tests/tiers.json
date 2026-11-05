@@ -231,6 +231,7 @@
         "tests/tenant-credential-http.integration.test.js",
         "tests/api3.entries-create.http.test.js",
         "tests/tenant-runtime-vault.integration.test.js",
+        "tests/multitenant-preview-process.integration.test.js",
         "tests/authorization-exchange-contract.test.js",
         "tests/postgres-connection.test.js",
         "tests/postgres-entries-read.test.js",
