@@ -28,8 +28,11 @@ optInSuite(process.env.NS_REST_CLIENT_REPLAY_TEST === '1',
         { 'api-secret': lab.rootCredential(tenant) });
     async function fill (tenant = lab.A, index = 0) {
       const docs = patterns.documents(index);
-      for (const domain of domains) patterns.consumeUpload(await upload(domain, docs[domain], tenant), docs[domain].length);
-      return docs;
+      const uploadIDs = {};
+      for (const domain of domains) {
+        uploadIDs[domain] = patterns.consumeUpload(await upload(domain, docs[domain], tenant), docs[domain].length);
+      }
+      return { ...docs, uploadIDs };
     }
     const follower = (domain, tenant = lab.A, version = 1) => lab.http(worker, tenant, 'GET',
       patterns.followerPath(domain, lab.credential(tenant), version));
@@ -120,8 +123,9 @@ optInSuite(process.env.NS_REST_CLIENT_REPLAY_TEST === '1',
 
     it('consumes returned profile and treatment IDs for pinned caller-managed PUT and DELETE workflows', async function () {
       const docs = await fill();
-      const profile = (await lab.rows('profile'))[0];
-      const replacement = { ...docs.profile[0], _id: profile._id,
+      const profileID = docs.uploadIDs.profile[0];
+      assert.equal(profileID, (await lab.rows('profile'))[0]._id);
+      const replacement = { ...docs.profile[0], _id: profileID,
         loopSettings: { dosingEnabled: false, overridePresets: [], maximumBolus: 2 } };
       const updated = await upload('profile', replacement, lab.A, 'PUT');
       assert.equal(updated.status, 200);
@@ -130,10 +134,11 @@ optInSuite(process.env.NS_REST_CLIENT_REPLAY_TEST === '1',
         undefined, { 'api-secret': lab.rootCredential(lab.A) });
       assert.equal(current.status, 200);
       assert.deepEqual(current.body.loopSettings, replacement.loopSettings);
-      const treatment = (await lab.rows('treatments'))[0];
-      assert.equal((await upload('treatments', { ...docs.treatments[0], _id: treatment._id, carbs: 20 }, lab.A, 'PUT')).status, 200);
+      const treatmentID = docs.uploadIDs.treatments[0];
+      assert.equal(treatmentID, (await lab.rows('treatments'))[0]._id);
+      assert.equal((await upload('treatments', { ...docs.treatments[0], _id: treatmentID, carbs: 20 }, lab.A, 'PUT')).status, 200);
       assert.equal((await follower('treatments')).body[0].carbs, 20);
-      const removed = await lab.http(worker, lab.A, 'DELETE', '/api/v1/treatments/' + treatment._id,
+      const removed = await lab.http(worker, lab.A, 'DELETE', '/api/v1/treatments/' + treatmentID,
         undefined, undefined, { 'api-secret': lab.rootCredential(lab.A) });
       assert.equal(removed.status, 200);
       assert.deepEqual(await lab.rows('treatments'), []);
