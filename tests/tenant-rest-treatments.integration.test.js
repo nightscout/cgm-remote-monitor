@@ -468,20 +468,23 @@ optInSuite(process.env.NS_REST_TREATMENTS_HTTP_TEST === '1' &&
     it('mixed-version edit workflow distinguishes omitted fields, nulls and replacement retries', async function () {
       await seed([treatment({ notes: 'remove-on-replace', extension: { stale: true } })]);
       const foreign = await rows(B);
-      const replacement = { ...submitted({ carbs: 0, notes: null, extension: {
+      const replacement = { ...submitted({ carbs: 0, notes: null, nullableExtension: null, extension: {
         _id: 'nested-identity', srvCreated: 7, lastModified: 'extension-value',
         keep: false, remove: 'explicit-null', nested: { keep: 0, remove: 'explicit-null' }, list: [1, null]
       } }), _id: 'same-id' };
       await same('put', '/api/v2/treatments', replacement, 200);
       let stored = await workflowRows();
-      assert.equal(stored.notes, null, 'PUT stores an explicit null');
+      // Legacy treatment preparation deliberately removes empty notes and
+      // zero carbs (write-intent.js prepareTreatment), unlike extension data.
+      assert.equal(Object.hasOwn(stored, 'notes'), false);
+      assert.equal(Object.hasOwn(stored, 'carbs'), false);
+      assert.equal(stored.nullableExtension, null, 'PUT stores an explicit extension null');
       assert.equal(stored.extension.stale, undefined, 'PUT removes omitted nested members');
-      assert.equal(stored.carbs, 0);
       const patch = { extension: { remove: null, nested: { remove: null, added: false }, list: [] } };
       for (let retry = 0; retry < 2; retry++) {
         await same('patch', '/api/v3/treatments/same-treatment', patch, 200);
         stored = await workflowRows();
-        assert.equal(stored.notes, null, 'PATCH keeps an omitted top-level null');
+        assert.equal(stored.nullableExtension, null, 'PATCH keeps an omitted top-level extension null');
         assert.deepEqual(stored.extension, { _id: 'nested-identity', srvCreated: 7,
           lastModified: 'extension-value', keep: false, nested: { keep: 0, added: false }, list: [] });
         for (const version of [1, 2]) await workflowRead(`/api/v${version}/treatments`);
@@ -493,6 +496,7 @@ optInSuite(process.env.NS_REST_TREATMENTS_HTTP_TEST === '1' &&
         await same('put', '/api/v3/treatments/same-treatment', whole, 200);
         stored = await workflowRows();
         assert.equal(Object.hasOwn(stored, 'notes'), false, 'PUT removes omitted top-level fields');
+        assert.equal(Object.hasOwn(stored, 'nullableExtension'), false);
         assert.deepEqual(stored.extension, whole.extension, 'PUT replaces the whole extension');
       }
       assert.deepEqual(await rows(B), foreign);
