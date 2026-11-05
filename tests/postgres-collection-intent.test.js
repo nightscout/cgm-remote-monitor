@@ -44,4 +44,19 @@ describe('trusted PostgreSQL collection translation', function () {
     assert.throws(() => create({ logical: 'arbitrary', source: 'v3' }), /trusted logical/);
     assert.throws(() => create({ logical: 'entries', source: 'legacy' }), /trusted logical/);
   });
+
+  it('canonicalizes only a derived UTC offset before JSON storage validation', function () {
+    const Collection = require('../lib/api3/generic/collection');
+    const app = { get: () => false, setENVTruthy: () => undefined };
+    const collection = new Collection({
+      app, ctx: {}, env: {}, colName: 'entries', storage: {}, intentFactory () {}
+    });
+    const derived = { date: '2026-11-03T00:00:00.123Z' };
+    collection.parseDate(derived);
+    assert.equal(Object.is(derived.utcOffset, -0), false);
+    assert.equal(derived.utcOffset, 0);
+    const supplied = { date: 1793664000123, utcOffset: -0 };
+    collection.parseDate(supplied);
+    assert.equal(Object.is(supplied.utcOffset, -0), true);
+  });
 });
