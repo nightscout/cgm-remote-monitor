@@ -11,11 +11,12 @@ describe('Tenant version-aware credential extraction', function () {
   it('retains legacy bearer/query/body precedence and consumes only selected body credentials', function () {
     const body = [{ token: 'body-token', secret: 'body-secret', extension: { retained: true } }];
     const req = request({ authorization: 'Bearer jwt', 'api-secret': 'header-secret' }, { token: 'query-token', secret: 'query-secret' }, body);
-    assert.deepEqual(extract(req, { version: 1 }), { token: 'jwt', apiSecret: 'query-secret', presented: true, invalid: false });
+    assert.deepEqual(extract(req, { version: 1 }),
+      { token: 'jwt', apiSecret: 'query-secret', presented: true, invalid: false, tokenCarrier: 'bearer' });
     assert.equal(body[0].token, 'body-token');
     assert.equal(body[0].secret, 'body-secret');
     assert.deepEqual(extract(request({}, {}, body), { version: 2 }),
-      { token: 'body-token', apiSecret: 'body-secret', presented: true, invalid: false });
+      { token: 'body-token', apiSecret: 'body-secret', presented: true, invalid: false, tokenCarrier: 'legacy' });
     assert.deepEqual(body, [{ extension: { retained: true } }]);
   });
 
