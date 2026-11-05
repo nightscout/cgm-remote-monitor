@@ -31,6 +31,13 @@
         "CREATE POLICY entries_tenant_isolation ON entries USING (tenant_id = NULLIF(current_setting('app.current_tenant_id', true), '')::uuid) WITH CHECK (tenant_id = NULLIF(current_setting('app.current_tenant_id', true), '')::uuid)"
       ],
       "checksum": "44c79e68411bf7fcfe088fc0446327bd13181fafc17ff9c05b0acd86d95623f7"
+    },
+    {
+      "name": "0002_entries_insertion_order",
+      "up": [
+        "ALTER TABLE entries ADD COLUMN insertion_ordinal bigint GENERATED ALWAYS AS IDENTITY"
+      ],
+      "checksum": "edda7b234df342d121cda2e655b2a6fdae1c59a0c92a0bdf604007204c278cce"
     }
   ]
 }
