@@ -9,9 +9,9 @@ database/provider, run migrations, or enable a `serve` role.
 The optional trusted `dataAccess({tenant, request})` port replaces only the
 data plane's credential/current-permission callbacks. The dormant
 [legacy credential/GET bridge](../../secrets/legacy-credentials.md) implements
-this port for actual entries GET and POST, including anonymous policy and current
+this port for actual entries CRUD and history reads, including anonymous policy and current
 persisted Shiro authority. Owner/operator authentication remains unchanged;
-other collections, history and addressed mutations explicitly refuse in that bridge.
+other collections and unmapped method/path families explicitly refuse in that bridge.
 
 The tenant constructor requires:
 
@@ -197,8 +197,7 @@ canonicalization. This is not a pinned-client replay or deployment acceptance.
 
 The same dormant bridge now admits the API3 entries list route
 `GET /api/v3/entries`, as well as a single addressed entry GET. Both require
-only the current `api:entries:read` authority; the reserved history route and
-addressed mutations remain unsupported. The list route invokes the shipping generic
+only the current `api:entries:read` authority. The list route invokes the shipping generic
 API3 search handler and its existing filter parser, projection, date resolution
 and response renderer. Its PostgreSQL reader converts the shipping
 `findMany` filter through `utils.parseFilter` and the shared filter AST, then
@@ -208,7 +207,7 @@ coverage compares live MongoDB and tenant-bound PostgreSQL for pagination,
 projection, validity filtering, missing/null/type behavior and ordering.
 HTTP coverage uses exchange-issued JWTs, overlapping IDs with different
 tenant data, current grants across separate pools, root/anonymous policy,
-reserved history rejection and read-only outcomes. This remains a bounded
+read-only outcomes. This remains a bounded
 entries list/read slice, not full API3 or client acceptance.
 
 ## Dormant actual entries POST
@@ -225,7 +224,7 @@ for attribution: incomplete name metadata returns 401, unavailable metadata
 
 Trusted code may construct a **separate Collection per tenant** with the
 options from `entries.js`: combined PostgreSQL storage, an owned transactional
-intent factory, submitted-document validation and a create-only error hook.
+intent factory, submitted-document validation and narrow storage error hooks.
 Neither request fields nor JWT claims select these options. Create, insert,
 replace and configured autoprune use that factory. Without injected storage
 the existing Mongo/cached construction and error handling remain unchanged.
@@ -259,3 +258,53 @@ credential as a subject exchange credential. Strict invalid-supplied-credential
 refusal is an intentional multitenant difference. Owner/operator planes remain
 separate. No client, default startup, signing envelope or v1/v2 data route is
 changed by this dormant exchange/GET join.
+
+## Actual entries PUT, PATCH, DELETE and history
+
+The bridge additionally admits the shipping addressed routes
+`PUT|PATCH|DELETE /api/v3/entries/:identifier` and
+`GET /api/v3/entries/history[/:lastModified]`. There is no filter DELETE or
+unaddressed PUT/PATCH/DELETE route; tenant admission refuses these with 405
+(the shipping API3 subapplication answers 404). No extra upsert API is invented:
+the existing addressed PUT inserts on a miss with create permission and replaces
+on a match with update permission. PATCH always requires update; DELETE always
+requires delete, including `?permanent=true`. Every subject mutation requires
+the current exact name (missing 401, authority unavailable 503); verified root
+writes invent no subject. History, like other GETs, requires only read authority.
+
+All identifying and writing calls use the trusted Collection intent seam,
+including both PATCH calls and PUT matching. The PostgreSQL step alone owns
+its transaction: never wrap it in another connection transaction or
+`connection.withTenant`. Request-local tenant context is not a transaction.
+Separate tenant/worker Collections retain independent buses and prune throttles.
+
+PATCH preserves the shipping JSON Merge Patch, immutable/read-only/deleted/
+conflicting-identifier checks, server stamps, Last-Modified and local events.
+PUT preserves replacement, date parsing, route-derived identifier and response
+headers. Both preserve read-then-write, seconds-floor conditional checks and
+the shipping invalid-date behavior; this is not atomic compare-and-swap.
+DELETE has no conditional-header contract: it marks all stored identifier
+forms invalid with modification attribution/time, or permanently removes them.
+It preserves the shipping read-only and missing responses and event order.
+
+History is an incremental current-document feed, not revision storage.
+URL timestamps are exclusive; the Last-Modified request header is seconds-floor
+inclusive. Logical deletion remains visible with `isValid:false`; permanent
+deletion and configured retention leave no tombstone. No schema/lifecycle
+extension or stronger deletion-history guarantee is introduced.
+
+The same narrow error classification applies: explicitly validated submitted
+nonrepresentable data is 400, recognized unavailable storage 503, and
+stored/internal/unclassified failures 500. In particular Mongo top-level
+dotted PATCH members act as paths, whereas PostgreSQL refuses them with 400
+without partial writes. Nested literal dotted members are ordinary JSON
+values. No Mongo path approximation or blanket TypeError-to-400 mapping exists.
+
+`tests/api3.entries-crud.http.test.js` runs the actual shipping handlers against
+Mongo and two independently pooled tenant workers with real PostgreSQL/RLS,
+persisted current Shiro authority and synthetic cryptographic providers. Enable
+`NS_ENTRIES_CRUD_HTTP_TEST=1` with **disposable** `NS_TEST_POSTGRES_ADMIN_URI`
+and `CUSTOMCONNSTR_mongo`. This independently measured opt-in checks stored
+outcomes, history boundaries, two tenants, current grants/names, rollback and
+postcommit visibility. It does not claim real-provider, pinned-client, socket
+delivery or deployment acceptance.

@@ -127,6 +127,7 @@
   "mongodb": {
     "tests/api3.diagnose-data-collections.test.js": "by nature: the diagnose data CLI resolves MongoDB collection settings (MONGO_*_COLLECTION and the Azure connection-string forms)",
     "tests/api3.entries-create.http.test.js": "by mechanism: actual MongoDB HTTP reference characterizes entries POST and configured pruning",
+    "tests/api3.entries-crud.http.test.js": "by mechanism: actual MongoDB and tenant-bound PostgreSQL HTTP CRUD differential through the shipping handlers",
     "tests/authorization-reload-boundary.test.js": "by mechanism: proves the authorization reload reads by counting MongoDB find commands (monitorCommands); needs a per-backend command observer",
     "tests/boot-index-ready.test.js": "by nature: MongoDB index builds at boot (createIndexes on an empty database)",
     "tests/count-pipeline-boundary.test.js": "by mechanism: proves the count endpoint's query by reading the MongoDB aggregate pipeline it sends (monitorCommands)",

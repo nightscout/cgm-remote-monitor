@@ -124,8 +124,8 @@ describe('tenant legacy credentials against shipping authentication', function (
         assert.equal(authentication.get(req), undefined);
       }
       assert.equal(verified, 0);
-      for (const [method, path] of [['POST', '/entries/shared'], ['PUT', '/entries'], ['PATCH', '/entries/shared'],
-        ['DELETE', '/entries/shared'], ['GET', '/entries/history']]) {
+      for (const [method, path] of [['POST', '/entries/shared'], ['PUT', '/entries'], ['PATCH', '/entries'],
+        ['DELETE', '/entries'], ['GET', '/entries/history/one/two']]) {
         await assert.rejects(access({ tenant: 'tenant-a', request: { method, path, rawHeaders: [] } }),
           { code: 'TENANT_DATA_UNSUPPORTED' });
       }

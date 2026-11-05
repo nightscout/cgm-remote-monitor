@@ -87,10 +87,11 @@ into `createTenantApp`; `verifierContext(tenant)` is a trusted service identity
 callback. Trusted host/proxy resolution runs first. This data-only callback
 does not replace owner/operator authentication.
 
-The bridge supports entries list/addressed GET and entries POST, using existing
+The bridge supports entries list/addressed GET, POST, addressed PUT/PATCH/DELETE
+and history GET, using existing
 Bearer JWT and `api-secret` credential headers. Duplicate or malformed
-credential headers refuse. Other collections, history and addressed mutations
-explicitly return 405. POST's exact branch permissions and current-name
+credential headers refuse. Other collections and unmapped method/path families
+explicitly return 405. POST/PUT's exact branch permissions and current-name
 requirement are described in the [tenant application](../server/tenant-app/README.md#dormant-actual-entries-post).
 Legacy v1/v2 query/body credential carriers are explicitly refused here,
 never mistaken for anonymous requests; API3's shipping authenticator does not
