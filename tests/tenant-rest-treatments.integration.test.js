@@ -472,7 +472,9 @@ optInSuite(process.env.NS_REST_TREATMENTS_HTTP_TEST === '1' &&
         treatment({ _id: new ObjectId(hex), identifier: 'object' })]);
       await same('delete', '/api/v1/treatments/' + hex, undefined, 200);
       assert.equal((await rows()).length, 0);
+      await seed();
       await same('delete', '/api/v2/treatments?find[eventType]=Carb%20Correction', undefined, 200);
+      assert.equal((await rows()).length, 0);
     });
 
     it('isolates overlapping identifiers and writes across workers and physical RLS sessions', async function () {
@@ -547,6 +549,7 @@ optInSuite(process.env.NS_REST_TREATMENTS_HTTP_TEST === '1' &&
         connection.transaction = async () => { throw error; };
         try {
           await http('put', '/api/v1/treatments').send({ ...submitted(), _id: 'same-id' }).expect(status);
+          await http('delete', '/api/v2/treatments/same-id').expect(status);
           await http('patch', '/api/v3/treatments/same-treatment').send({ carbs: 44 }).expect(status);
         } finally { connection.transaction = original; }
       }
