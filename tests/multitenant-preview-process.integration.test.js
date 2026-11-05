@@ -161,7 +161,7 @@ optInSuite(process.env.NS_MULTITENANT_PREVIEW_PROCESS_DOCKER_TEST === '1',
           response.setEncoding('utf8');
           response.on('data', chunk => { bytes += chunk; });
           response.on('end', () => {
-            try { resolve({ status: response.statusCode, body: JSON.parse(bytes) }); } catch (error) { reject(error); }
+            try { resolve({ status: response.statusCode, body: JSON.parse(bytes), headers: response.headers }); } catch (error) { reject(error); }
           });
           response.on('error', reject);
         });
@@ -323,6 +323,122 @@ optInSuite(process.env.NS_MULTITENANT_PREVIEW_PROCESS_DOCKER_TEST === '1',
       await stop(second);
       const active = await admin.query("SELECT count(*)::int AS count FROM pg_stat_activity WHERE usename IN ('preview_app','preview_check')");
       assert.equal(active.rows[0].count, 0, 'signal shutdown must release all PG pools');
+    });
+
+    it('runs entries replace, PATCH, logical delete, history and permanent delete through the executable', async function () {
+      const baseGrants = ['api:entries:read', 'api:entries:create', 'api:entries:update'];
+      const worker = start();
+      await ready(worker);
+      const credentials = [];
+      for (const [i, tenant] of [A, B].entries()) {
+        const exchanged = await exchange(worker, tenant);
+        assert.equal(exchanged.status, 200);
+        credentials[i] = exchanged.body.token;
+        const created = await http(worker, tenant, 'POST', '/api/v3/entries', credentials[i], {
+          identifier: 'crud-overlap', type: 'sgv', date: 1793664000000,
+          utcOffset: 0, app: 'synthetic-crud', sgv: 111 + i
+        });
+        assert.equal(created.status, 201, JSON.stringify(created.body));
+      }
+
+      const rows = async tenant => (await admin.query(
+        `SELECT doc FROM preview_data.entries WHERE tenant_id = $1 AND doc->>'identifier' = $2`,
+        [tenant, 'crud-overlap'])).rows.map(row => row.doc);
+      const changeGrants = permissions => admin.query(
+        'UPDATE preview_auth.tenant_authorization_roles SET permissions = $1 WHERE tenant_id = $2 AND name = $3',
+        [permissions, A, 'viewer']);
+      const originalA = await rows(A);
+      const originalB = await rows(B);
+      assert.equal(originalA.length, 1);
+      assert.equal(originalB.length, 1);
+      if (process.env.NS_PREVIEW_PROCESS_CONTROL === 'intent') {
+        const failedMutation = await http(worker, A, 'PATCH', '/api/v3/entries/crud-overlap',
+          credentials[0], { sgv: 125 });
+        assert.equal(failedMutation.status, 500);
+        assert.deepEqual(await rows(A), originalA);
+        return;
+      }
+
+      try {
+        await changeGrants(['api:entries:read', 'api:entries:create']);
+        const deniedReplace = await http(worker, A, 'PUT', '/api/v3/entries/crud-overlap',
+          credentials[0], { identifier: 'body-identifier-is-ignored', type: 'sgv', date: 1793664000000,
+            utcOffset: 0, app: 'synthetic-crud', sgv: 120 });
+        assert.equal(deniedReplace.status, 403);
+        assert.deepEqual(await rows(A), originalA);
+
+        await changeGrants(baseGrants);
+        const replaced = await http(worker, A, 'PUT', '/api/v3/entries/crud-overlap',
+          credentials[0], { identifier: 'body-identifier-is-ignored', type: 'sgv', date: 1793664000000,
+            utcOffset: 0, app: 'synthetic-crud', sgv: 121 });
+        assert.equal(replaced.status, 200, JSON.stringify(replaced.body));
+        assert.ok(replaced.headers['last-modified']);
+        assert.equal((await http(worker, A, 'GET', '/api/v3/entries/crud-overlap', credentials[0])).body.result.sgv, 121);
+        assert.equal((await http(worker, B, 'GET', '/api/v3/entries/crud-overlap', credentials[1])).body.result.sgv, 112);
+
+        const patched = await http(worker, A, 'PATCH', '/api/v3/entries/crud-overlap', credentials[0],
+          { sgv: 122, extension: { retained: true } });
+        assert.equal(patched.status, 200, JSON.stringify(patched.body));
+        const afterPatch = (await rows(A))[0];
+        assert.equal(afterPatch.identifier, 'crud-overlap');
+        assert.equal(afterPatch.sgv, 122);
+        assert.deepEqual(afterPatch.extension, { retained: true });
+        assert.equal(afterPatch.modifiedBy, 'Synthetic Viewer 0');
+        assert.deepEqual(await rows(B), originalB);
+
+        await admin.query('UPDATE preview_auth.tenant_authorization_subjects SET display_name = NULL WHERE tenant_id = $1 AND subject_id = $2',
+          [A, SUBJECT]);
+        try {
+          const missingName = await http(worker, A, 'PATCH', '/api/v3/entries/crud-overlap', credentials[0], { sgv: 123 });
+          assert.equal(missingName.status, 401);
+          assert.deepEqual(await rows(A), [afterPatch]);
+        } finally {
+          await admin.query('UPDATE preview_auth.tenant_authorization_subjects SET display_name = $1 WHERE tenant_id = $2 AND subject_id = $3',
+            ['Synthetic Viewer 0', A, SUBJECT]);
+        }
+        assert.equal((await http(worker, A, 'PATCH', '/api/v3/entries/crud-overlap', undefined, { sgv: 123 })).status, 403);
+        assert.equal((await http(worker, B, 'PATCH', '/api/v3/entries/crud-overlap', credentials[0], { sgv: 123 })).status, 401);
+
+        const deniedDelete = await http(worker, A, 'DELETE', '/api/v3/entries/crud-overlap', credentials[0]);
+        assert.equal(deniedDelete.status, 403);
+        assert.deepEqual(await rows(A), [afterPatch]);
+        await changeGrants([...baseGrants, 'api:entries:delete']);
+
+        const logicalDelete = await http(worker, A, 'DELETE', '/api/v3/entries/crud-overlap', credentials[0]);
+        assert.equal(logicalDelete.status, 200, JSON.stringify(logicalDelete.body));
+        assert.equal((await http(worker, A, 'GET', '/api/v3/entries/crud-overlap', credentials[0])).status, 410);
+        const history = await http(worker, A, 'GET', '/api/v3/entries/history/1793664000000', credentials[0]);
+        assert.equal(history.status, 200, JSON.stringify(history.body));
+        const tombstone = history.body.result.find(entry => entry.identifier === 'crud-overlap');
+        assert.ok(tombstone);
+        assert.equal(tombstone.isValid, false);
+        assert.equal((await http(worker, B, 'GET', '/api/v3/entries/crud-overlap', credentials[1])).body.result.sgv, 112);
+
+        const permanentDelete = await http(worker, A, 'DELETE', '/api/v3/entries/crud-overlap?permanent=true', credentials[0]);
+        assert.equal(permanentDelete.status, 200, JSON.stringify(permanentDelete.body));
+        assert.deepEqual(await rows(A), []);
+        assert.equal((await http(worker, A, 'GET', '/api/v3/entries/crud-overlap', credentials[0])).status, 404);
+        const historyAfterPermanentDelete = await http(worker, A, 'GET',
+          '/api/v3/entries/history/1793664000000', credentials[0]);
+        assert.equal(historyAfterPermanentDelete.status, 200);
+        assert.equal(historyAfterPermanentDelete.body.result.some(entry => entry.identifier === 'crud-overlap'), false);
+        assert.deepEqual(await rows(B), originalB);
+      } finally {
+        await changeGrants(baseGrants);
+        await admin.query('UPDATE preview_auth.tenant_authorization_subjects SET display_name = $1 WHERE tenant_id = $2 AND subject_id = $3',
+          ['Synthetic Viewer 0', A, SUBJECT]);
+      }
+
+      await stop(worker);
+      const restarted = start();
+      await ready(restarted);
+      assert.equal((await http(restarted, A, 'GET', '/api/v3/entries/crud-overlap', credentials[0])).status, 404);
+      const restartedHistory = await http(restarted, A, 'GET',
+        '/api/v3/entries/history/1793664000000', credentials[0]);
+      assert.equal(restartedHistory.status, 200);
+      assert.equal(restartedHistory.body.result.some(entry => entry.identifier === 'crud-overlap'), false);
+      assert.equal((await http(restarted, B, 'GET', '/api/v3/entries/crud-overlap', credentials[1])).body.result.sgv, 112);
+      await stop(restarted);
     });
 
     it('refuses invalid config, missing environment references and unsafe/read-write readiness before binding', async function () {

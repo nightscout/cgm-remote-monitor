@@ -547,8 +547,10 @@ optInSuite(process.env.NS_TENANT_CREDENTIAL_HTTP_DOCKER_TEST === '1',
         await post(doc(), 0, B, headers).expect(401);
         await post(doc(), 0, A, secret('invalid')).expect(401);
         await post(doc(), 0, A, {}).expect(403);
-        for (const method of ['put', 'patch', 'delete']) await http(0, A, headers, method).send(doc()).expect(405);
-        await http(0, A, headers, 'get', '/api/v3/entries/history').expect(405);
+        for (const method of ['put', 'patch', 'delete']) {
+          await http(0, A, headers, method).send(method === 'patch' ? { sgv: 125 } : doc()).expect(403);
+        }
+        await http(0, A, headers, 'get', '/api/v3/entries/history/1793664000000').expect(200);
       });
 
       it('refuses the next legacy-carrier POST on another worker after persisted write revocation', async function () {
@@ -1051,8 +1053,8 @@ optInSuite(process.env.NS_TENANT_CREDENTIAL_HTTP_DOCKER_TEST === '1',
     }
 
     await search(0, A, bearer(tokens[0]), query).expect(200);
-    await search(1, A, bearer(tokens[0]), {}, '/api/v3/entries/history').expect(405);
-    await search(1, A, bearer(tokens[0]), {}, '/api/v3/entries/history/1793664000000').expect(405);
+    await search(1, A, bearer(tokens[0]), {}, '/api/v3/entries/history').expect(400);
+    await search(1, A, bearer(tokens[0]), {}, '/api/v3/entries/history/1793664000000').expect(200);
     await search(1, A, bearer(jwt[0]), { 'sgv$re': '.*' }).expect(500);
     await search(1, A, bearer(jwt[0]), { limit: '1' }).expect(200);
 
@@ -1137,9 +1139,8 @@ optInSuite(process.env.NS_TENANT_CREDENTIAL_HTTP_DOCKER_TEST === '1',
         await http(1, A, secret(uploader)).expect(200);
       }
       await http(0, A, {}, 'post', '/api/v3/entries').expect(403);
-      for (const method of ['post', 'put', 'patch', 'delete']) {
-        await http(0, A, {}, method).expect(405);
-      }
+      await http(0, A, {}, 'post').expect(405);
+      for (const method of ['put', 'patch', 'delete']) await http(0, A, {}, method).send({}).expect(403);
       await http(0, A, {}, 'get', '/api/v1/tenant/settings').expect(401);
       await http(0, A, secret(hash(roots[0])), 'get', '/api/v1/tenant/settings').expect(401);
       await http(0, A, {}, 'get', '/api/v3/status').expect(405);
