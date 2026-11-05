@@ -7,7 +7,7 @@ const { createSecrets } = require('../lib/secrets/component');
 const provider = require('./fixtures/tenant-credential-provider');
 
 describe('tenant legacy credentials against shipping authentication', function () {
-  let component, enclave, storage, root, subjects, metadata, events, records, unavailable;
+  let component, enclave, storage, root, subjects, metadata, events, records, unavailable, docs;
   const context = { tenant: 'tenant-a', principal: 'verifier', consumer: 'api' };
   const hash = value => crypto.createHash('sha1').update(value).digest('hex');
 
@@ -17,7 +17,7 @@ describe('tenant legacy credentials against shipping authentication', function (
     enclave.setApiKey(root);
     enclave.setJWTKey(crypto.randomBytes(32).toString('hex'));
     // Shipping storage/lookup, with only its Mongo I/O port replaced.
-    const docs = ['Same Display', 'Same Display', '!!!', 'Test_user'].map((name, index) => ({
+    docs = ['Same Display', 'Same Display', '!!!', 'Test_user'].map((name, index) => ({
       _id: new ObjectId((index + 1).toString().padStart(24, '0')), name, roles: []
     }));
     storage = require('../lib/authorization/storage')({
@@ -72,6 +72,53 @@ describe('tenant legacy credentials against shipping authentication', function (
     assert.equal(subjects[0].name, subjects[1].name);
     assert.equal(JSON.stringify(events).includes(root), false);
     assert.doesNotMatch(JSON.stringify(events), /accessToken|tokenPrefix/);
+  });
+
+  async function renameFirstSubject () {
+    docs[0].name = 'Renamed Display';
+    await new Promise((resolve, reject) => storage.reload(error => error ? reject(error) : resolve()));
+    const current = storage.subjects[0];
+    metadata[0].tokenPrefix = current.name.toLowerCase().replace(/[\W]/g, '').substring(0, 10);
+    return current;
+  }
+
+  it('keeps shipping raw subject suffixes and previously issued JWTs valid after a display-prefix rename', async function () {
+    const original = { ...subjects[0] };
+    const shippingJWT = enclave.signJWT({ accessToken: original.accessToken });
+    const tenantJWT = await component.signJWT(context, original.accessToken, 60);
+    const current = await renameFirstSubject();
+    assert.notEqual(current.accessToken, original.accessToken, 'rename actually changes the displayed prefix');
+    assert.equal(current.digest, original.digest, 'suffix derives from immutable identity and root');
+    for (const credential of [original.accessToken, current.accessToken, original.digest, original.digest.slice(0, 16)]) {
+      assert.equal(storage.findSubject(credential).name, 'Renamed Display');
+      assert.deepEqual(await component.verifyLegacyCredential(context, { apiSecret: credential }),
+        { kind: 'subject', subjectId: original._id.toHexString() });
+    }
+    // Shipping JWT verification yields the old raw token. Current shipping
+    // lookup accepts its immutable suffix, exactly as the tenant bridge does.
+    assert.equal(storage.findSubject(enclave.verifyJWT(shippingJWT).accessToken).name, 'Renamed Display');
+    assert.deepEqual(await component.verifyLegacyCredential(context, { token: tenantJWT }),
+      { kind: 'subject', subjectId: original._id.toHexString() });
+  });
+
+  it('retires the shipping full-token hash after a prefix rename while accepting the newly derived hash', async function () {
+    const original = { ...subjects[0] };
+    for (const credential of [original.accessTokenDigest, original.accessTokenDigest.slice(0, 16)]) {
+      assert.equal(storage.findSubject(credential)._id.toHexString(), original._id.toHexString());
+      assert.deepEqual(await component.verifyLegacyCredential(context, { apiSecret: credential }),
+        { kind: 'subject', subjectId: original._id.toHexString() });
+    }
+    const current = await renameFirstSubject();
+    assert.notEqual(current.accessTokenDigest, original.accessTokenDigest);
+    for (const credential of [original.accessTokenDigest, original.accessTokenDigest.slice(0, 16)]) {
+      assert.equal(storage.findSubject(credential), null, 'old hash includes the old display prefix');
+      assert.equal(await component.verifyLegacyCredential(context, { apiSecret: credential }), null);
+    }
+    for (const credential of [current.accessTokenDigest, current.accessTokenDigest.slice(0, 16)]) {
+      assert.equal(storage.findSubject(credential).name, 'Renamed Display');
+      assert.deepEqual(await component.verifyLegacyCredential(context, { apiSecret: credential }),
+        { kind: 'subject', subjectId: original._id.toHexString() });
+    }
   });
 
   describe('trusted data bridge boundaries', function () {
