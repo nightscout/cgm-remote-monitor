@@ -440,6 +440,111 @@ optInSuite(process.env.NS_REST_TREATMENTS_HTTP_TEST === '1' &&
       assert.deepEqual(workers[0].events, []);
     });
 
+    // Server-side current compatibility, not execution of a client binary.
+    // These records deliberately use the same stable storage and semantic IDs
+    // in both databases. Ignore only top-level server clock stamps: extension
+    // members named _id/srvCreated/lastModified remain part of the comparison.
+    const workflowDocument = doc => Object.fromEntries(Object.entries(JSON.parse(JSON.stringify(doc)))
+      .filter(([key]) => !['srvCreated', 'srvModified'].includes(key)));
+    async function workflowRows () {
+      const actual = await rows();
+      const expected = await mongoCollection.find({}).sort({ identifier: 1 }).toArray();
+      const ordered = docs => docs.map(workflowDocument).sort((a, b) => a.identifier.localeCompare(b.identifier));
+      assert.deepEqual(ordered(actual), ordered(expected), 'whole stored documents, including IDs and nested metadata');
+      assert.equal(actual.length, 1);
+      assert.equal(actual[0]._id, 'same-id');
+      assert.equal(actual[0].identifier, 'same-treatment');
+      return actual[0];
+    }
+    async function workflowRead (path, history = false) {
+      const actual = await same('get', path, undefined, 200);
+      const expected = await request(referenceApp).get(path).set('Accept', 'application/json').expect(200);
+      const docs = reply => path.includes('/api/v3/') ? (history ? reply.body.result : [reply.body.result]) : reply.body;
+      assert.deepEqual(docs(actual).map(workflowDocument), docs(expected).map(workflowDocument),
+        'HTTP documents retain semantic identity and extension metadata');
+      return docs(actual);
+    }
+
+    it('mixed-version edit workflow distinguishes omitted fields, nulls and replacement retries', async function () {
+      await seed([treatment({ notes: 'remove-on-replace', extension: { stale: true } })]);
+      const foreign = await rows(B);
+      const replacement = { ...submitted({ carbs: 0, notes: null, extension: {
+        _id: 'nested-identity', srvCreated: 7, lastModified: 'extension-value',
+        keep: false, remove: 'explicit-null', nested: { keep: 0, remove: 'explicit-null' }, list: [1, null]
+      } }), _id: 'same-id' };
+      await same('put', '/api/v2/treatments', replacement, 200);
+      let stored = await workflowRows();
+      assert.equal(stored.notes, null, 'PUT stores an explicit null');
+      assert.equal(stored.extension.stale, undefined, 'PUT removes omitted nested members');
+      assert.equal(stored.carbs, 0);
+      const patch = { extension: { remove: null, nested: { remove: null, added: false }, list: [] } };
+      for (let retry = 0; retry < 2; retry++) {
+        await same('patch', '/api/v3/treatments/same-treatment', patch, 200);
+        stored = await workflowRows();
+        assert.equal(stored.notes, null, 'PATCH keeps an omitted top-level null');
+        assert.deepEqual(stored.extension, { _id: 'nested-identity', srvCreated: 7,
+          lastModified: 'extension-value', keep: false, nested: { keep: 0, added: false }, list: [] });
+        for (const version of [1, 2]) await workflowRead(`/api/v${version}/treatments`);
+        await workflowRead('/api/v3/treatments/same-treatment');
+        await workflowRead('/api/v3/treatments/history/' + (BASE - 1), true);
+      }
+      const whole = submitted({ carbs: 15, extension: { replaced: [null, false, 0] } });
+      for (let retry = 0; retry < 2; retry++) {
+        await same('put', '/api/v3/treatments/same-treatment', whole, 200);
+        stored = await workflowRows();
+        assert.equal(Object.hasOwn(stored, 'notes'), false, 'PUT removes omitted top-level fields');
+        assert.deepEqual(stored.extension, whole.extension, 'PUT replaces the whole extension');
+      }
+      assert.deepEqual(await rows(B), foreign);
+    });
+
+    it('mixed-version edit workflow preserves failed conditionals and soft-delete history across retry', async function () {
+      const foreign = await rows(B);
+      await same('patch', '/api/v3/treatments/same-treatment', { notes: 'edited', extension: { nested: [null, 0, false] } }, 200);
+      await workflowRows();
+      const before = await rows();
+      const expectedBefore = await mongoCollection.find({}).toArray();
+      const eventsBefore = workers[0].events.length;
+      await same('patch', '/api/v3/treatments/same-treatment', { notes: null }, 412,
+        { 'If-Unmodified-Since': new Date(BASE - 1000).toUTCString() });
+      assert.deepEqual(await rows(), before, 'failed PATCH cannot change even server stamps');
+      assert.deepEqual(await mongoCollection.find({}).toArray(), expectedBefore);
+      assert.equal(workers[0].events.length, eventsBefore);
+      for (let retry = 0; retry < 2; retry++) {
+        await same('delete', '/api/v3/treatments/same-treatment', undefined, 200);
+        const stored = await workflowRows();
+        assert.equal(stored.isValid, false);
+        assert.equal(stored.notes, 'edited');
+        assert.deepEqual(stored.extension, { nested: [null, 0, false] });
+        await same('get', '/api/v3/treatments/same-treatment', undefined, 410);
+        const history = await workflowRead('/api/v3/treatments/history/' + (BASE - 1), true);
+        assert.equal(history.length, 1);
+        assert.equal(history[0].isValid, false, 'incremental readers receive the tombstone');
+      }
+      assert.deepEqual(await rows(B), foreign);
+    });
+
+    it('bounds the shared edit corpus with explicit PostgreSQL nonrepresentable-text refusals', async function () {
+      // postgres-entries-write.js validateJSON rejects U+0000 and unpaired
+      // surrogates: PostgreSQL JSONB cannot represent them. This is an explicit
+      // preview refusal, not a Mongo-equivalent response or a normalized value.
+      for (const text of ['synthetic\u0000extension', 'synthetic\ud800extension']) {
+        await seed();
+        const before = await rows();
+        const foreign = await rows(B);
+        const doc = { extension: { text } };
+        await request(referenceApp).patch('/api/v3/treatments/same-treatment').send(doc).expect(200);
+        await http('patch', '/api/v3/treatments/same-treatment').send(doc).expect(400);
+        assert.deepEqual(await rows(), before);
+        assert.deepEqual(await rows(B), foreign);
+        assert.deepEqual(workers[0].events, []);
+        const reference = await mongoCollection.findOne({ identifier: 'same-treatment' });
+        // BSON replaces an unpaired surrogate with U+FFFD; Mongo's accepted
+        // wire value is observed separately instead of equating it to PG.
+        assert.equal(reference.extension.text, text.includes('\u0000') ? text : 'synthetic\ufffdextension');
+      }
+    });
+
     it('recovers concurrent duplicate identifier uploads across workers without extra rows', async function () {
       await seed([]);
       const responses = await Promise.all([0, 1].map(worker =>
