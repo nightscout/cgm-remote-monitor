@@ -97,6 +97,15 @@ describe('tenant legacy credentials against shipping authentication', function (
     // Shipping JWT verification yields the old raw token. Current shipping
     // lookup accepts its immutable suffix, exactly as the tenant bridge does.
     assert.equal(storage.findSubject(enclave.verifyJWT(shippingJWT).accessToken).name, 'Renamed Display');
+    const shipping = require('../lib/authorization')({
+      enclave, settings: { authDefaultRoles: 'denied', authFailDelay: 0 }, trustProxy: false
+    }, { store: { collection: () => ({}) }, settings: {}, moment: require('moment'),
+      language: { translate: value => value } });
+    shipping.storage.subjects = storage.subjects;
+    shipping.storage.roles = storage.roles;
+    const exchanged = shipping.authorize(shippingJWT);
+    assert.equal(exchanged.sub, 'Renamed Display');
+    assert.equal(enclave.verifyJWT(exchanged.token).accessToken, current.accessToken);
     assert.deepEqual(await component.verifyLegacyCredential(context, { token: tenantJWT }),
       { kind: 'subject', subjectId: original._id.toHexString() });
   });
