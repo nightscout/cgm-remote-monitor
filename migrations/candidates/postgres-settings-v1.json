@@ -1,0 +1,26 @@
+{
+  "version": 1,
+  "status": "review candidate; apply only with the explicit operator migration runner",
+  "evidence": [
+    "lib/api3/generic/setup.js: settings has no fallback date",
+    "lib/api3/generic/history/operation.js: modified-document history",
+    "lib/api3/generic/read/operation.js: strict settings read permission",
+    "lib/storage/postgres-identity.js: typed document identity"
+  ],
+  "migrations": [
+    {
+      "name": "0001_settings",
+      "up": [
+        "CREATE TABLE settings (\n  tenant_id uuid NOT NULL,\n  doc jsonb NOT NULL CHECK (jsonb_typeof(doc) = 'object'),\n  id_kind text NOT NULL CHECK (id_kind IN ('objectid', 'string')),\n  \"_id\" text NOT NULL GENERATED ALWAYS AS (CASE WHEN jsonb_typeof(doc #> '{_id}') = 'string' THEN (doc #>> '{_id}') END) STORED,\n  \"identifier\" text GENERATED ALWAYS AS (CASE WHEN jsonb_typeof(doc #> '{identifier}') = 'string' THEN (doc #>> '{identifier}') END) STORED,\n  \"created_at\" text GENERATED ALWAYS AS (CASE WHEN jsonb_typeof(doc #> '{created_at}') = 'string' THEN (doc #>> '{created_at}') END) STORED,\n  \"srvModified\" numeric GENERATED ALWAYS AS (CASE WHEN jsonb_typeof(doc #> '{srvModified}') = 'number' THEN (doc #>> '{srvModified}')::numeric END) STORED,\n  \"isValid\" boolean GENERATED ALWAYS AS (CASE WHEN jsonb_typeof(doc #> '{isValid}') = 'boolean' THEN (doc #>> '{isValid}')::boolean END) STORED,\n  CHECK (\"_id\" <> ''),\n  CHECK (id_kind <> 'objectid' OR \"_id\" ~ '^[0-9a-f]{24}$'),\n  PRIMARY KEY (tenant_id, id_kind, \"_id\")\n)",
+        "CREATE UNIQUE INDEX settings_identifier_unique ON settings (tenant_id, \"identifier\") WHERE \"identifier\" IS NOT NULL AND \"identifier\" <> ''",
+        "CREATE INDEX settings_tenant_modified ON settings (tenant_id, \"srvModified\" ASC)",
+        "CREATE INDEX settings_tenant_created ON settings (tenant_id, \"created_at\" DESC)",
+        "CREATE INDEX settings_tenant_valid ON settings (tenant_id, \"isValid\" ASC)",
+        "ALTER TABLE settings ENABLE ROW LEVEL SECURITY",
+        "ALTER TABLE settings FORCE ROW LEVEL SECURITY",
+        "CREATE POLICY settings_tenant_isolation ON settings USING (tenant_id = NULLIF(current_setting('app.current_tenant_id', true), '')::uuid) WITH CHECK (tenant_id = NULLIF(current_setting('app.current_tenant_id', true), '')::uuid)"
+      ],
+      "checksum": "62e107c27422aefa8f0a93222fb439678bea06b3541d312ed5580a071e541a3c"
+    }
+  ]
+}
