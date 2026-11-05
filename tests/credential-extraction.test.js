@@ -20,6 +20,13 @@ describe('Tenant version-aware credential extraction', function () {
     assert.deepEqual(body, [{ extension: { retained: true } }]);
   });
 
+  it('retains the selected consumed credential for a later inherited legacy status handler', function () {
+    const req = request({}, {}, [{ token: 'body-token', secret: 'body-secret' }]);
+    const first = extract(req, { version: 2 });
+    assert.deepEqual(req.body, [{}]);
+    assert.equal(extract(req, { version: 1 }), first);
+  });
+
   it('does not consume later array credentials or invent an anonymous fallback', function () {
     const req = request({}, {}, [{ value: 1 }, { token: 'not-first' }]);
     assert.equal(extract(req, { version: 1 }).presented, false);

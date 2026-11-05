@@ -19,6 +19,13 @@ authentication, tenant scope and explicit completed collection registrations.
   tenant exchange; its default issues nothing. Legacy status retains no-store
   and its format negotiation. API3 status and modification discovery use
   actual authorized collection ports, never the configured six-collection list.
+* `status-authorization({tenant, exchange})` supplies that status callback using
+  the tenant exchange. It preserves shipping issuance precedence: a validated
+  extracted token, then header secret, then query secret. Permission
+  authentication has different secret precedence; a consumed body secret does
+  not itself issue status authorization material. The extraction helper retains
+  selected credentials only for the lifetime of that request, including body
+  tokens consumed before an inherited v2 status handler runs.
 * `settings({connection, table, bus, env})` returns API3 Collection constructor
   options over the shared PostgreSQL document intent. Apply the separate
   `postgres-settings-v1.json` candidate explicitly. Settings documents retain
@@ -29,7 +36,9 @@ authentication, tenant scope and explicit completed collection registrations.
   The six required ports are `entries`, `treatments`, `devicestatus`, `activity`,
   `profile` and `food`, each `{tenant, store}` with the shipping `list` method
   (`last` for profile). `stats` is `{tenant, read}` and must return tenant-only
-  `dataSize`/`indexSize`, not database-wide statistics. Missing or crosswired
+  `dataSize`/`indexSize`, not database-wide statistics. An unmeasured tenant
+  index-size attribution may be absent, never replaced with database-wide bytes.
+  Missing or crosswired
   ports and individual loader failures refuse; no empty-data substitute is
   supplied. Historical frames are loaded as frames, not from a live cache.
 

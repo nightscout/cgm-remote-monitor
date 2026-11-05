@@ -28,7 +28,7 @@ const writeIntent = require('../lib/storage/write-intent');
 const createDataAccess = require('../lib/server/tenant-app/data-access');
 const createExchange = require('../lib/server/tenant-app/exchange');
 const legacyAuthorization = require('../lib/server/tenant-app/legacy-authorization');
-const extract = require('../lib/authorization/credential-extraction');
+const statusAuthorization = require('../lib/server/tenant-app/status-authorization');
 const A = '11111111-1111-4111-8111-111111111111';
 const B = '22222222-2222-4222-8222-222222222222';
 const SUBJECT = '000000000000000000000001';
@@ -85,6 +85,7 @@ describe('Tenant-local display environment and shipping snapshot loader', functi
     assert.throws(() => snapshot({ tenant: A, ports: { ...aPorts, entries: ports(B).entries }, env: environment(), language }),
       /tenant-bound entries/);
     await assert.rejects(scope.withTenant(B, () => a.load()), /scope mismatch/);
+    await assert.rejects(a.load({ at: NaN }), /milliseconds/);
   });
 
   it('refuses partial success when the shipping loader logs and continues after a failed port', async function () {
@@ -102,7 +103,8 @@ const enabled = process.env.NS_REST_CONTEXT_HTTP_TEST === '1' &&
   const namespaces = { data: prefix + '_data', auth: prefix + '_auth', identity: prefix + '_identity', secrets: prefix + '_secrets' };
   const vaultName = 'ns-rest-context-vault-' + suffix;
   const rootToken = random(), roots = [random(), random()];
-  const providers = new Map(), apps = {}, mongoStores = {}, collections = {};
+  const providers = new Map(), apps = {}, mongoStores = {}, collections = {}, oracleJWT = {};
+  const settingsFlags = {};
   const tokens = [], events = [];
   let mode, admin, connection, authority, legacy, persistence, secrets, exchange, mongo, vaultOwned, address, appURI;
   const docker = args => execFileSync('docker', args, { encoding: 'utf8', stdio: ['ignore', 'pipe', 'pipe'], timeout: 30000 }).trim();
@@ -151,7 +153,7 @@ const enabled = process.env.NS_REST_CONTEXT_HTTP_TEST === '1' &&
       await admin.query(`INSERT INTO ${namespaces.identity}.legacy_credential_subjects VALUES ($1,$2,'sameviewer')`, [tenant, SUBJECT]);
       await admin.query(`INSERT INTO ${namespaces.auth}.tenant_authorization_config VALUES ($1,ARRAY['status-only'])`, [tenant]);
       await admin.query(`INSERT INTO ${namespaces.auth}.tenant_authorization_subjects
-        (tenant_id,subject_id,display_name) VALUES ($1,$2,$3)`, [tenant, SUBJECT, 'Synthetic Viewer ' + i]);
+        (tenant_id,subject_id,display_name) VALUES ($1,$2,$3)`, [tenant, SUBJECT, 'Same Viewer ' + i]);
       await admin.query(`INSERT INTO ${namespaces.auth}.tenant_authorization_roles VALUES
         ($1,'viewer',ARRAY['api:settings:read','api:settings:create','api:settings:update','api:settings:delete','api:status:read'])`, [tenant]);
       await admin.query(`INSERT INTO ${namespaces.auth}.tenant_authorization_subject_roles VALUES ($1,$2,'viewer')`, [tenant, SUBJECT]);
@@ -203,10 +205,12 @@ const enabled = process.env.NS_REST_CONTEXT_HTTP_TEST === '1' &&
     for (const backend of ['pg', 'mongo']) {
       apps[backend] = {};
       collections[backend] = {};
+      settingsFlags[backend] = {};
       for (const [i, tenant] of [A, B].entries()) {
         const app = express(), v3 = express.Router(), bus = new EventEmitter();
         bus.on('storage-intent-committed', value => events.push({ tenant, value }));
-        const env = environment({ settings: { customTitle: 'Tenant ' + i, apiSecret: 'PROCESS-SENTINEL', enable: ['careportal'] } });
+        const env = environment({ settings: { customTitle: 'Tenant ' + i, apiSecret: 'PROCESS-SENTINEL', enable: ['careportal'] },
+          extendedSettings: { devicestatus: { days: 2, token: 'PROCESS-SENTINEL' } } });
         const ctx = { bus, purifier: require('../lib/server/purifier')({}, {}) };
         const routeApp = express();
         routeApp.setENVTruthy = () => undefined;
@@ -227,21 +231,23 @@ const enabled = process.env.NS_REST_CONTEXT_HTTP_TEST === '1' &&
           }) });
         col.mapRoutes();
         collections[backend][tenant] = col;
-        const dataAccess = createDataAccess({ secrets, authority, verifierContext: identity, collections: ['settings'],
+        const accessOptions = { secrets, authority, verifierContext: identity, collections: ['settings'],
           safeRoutes: { 1: ['/status','/verifyauth'], 2: ['/status','/verifyauth','/authorization/permissions','/authorization/permissions/trie'],
-            3: ['/status','/version','/lastModified','/versions'] } });
+            3: ['/status','/version','/lastModified','/versions'] } };
+        const dataAccess = createDataAccess(accessOptions);
+        const strictAccess = createDataAccess({ ...accessOptions, strictSettingsRead: true });
+        const flags = settingsFlags[backend][tenant] = { strict: false, app: routeApp };
         const routers = context({ env, authorization: legacyAuthorization(), collections: { settings: col },
           versionInfo: { name: 'Nightscout', version: 'test', storage: { storage: backend, version: 'fixture' } },
           admitted: { 1: [], 2: [], 3: ['settings'] },
-          statusAuthorization: req => {
-            const credential = extract(req, { version: 1 });
-            return exchange({ tenant, credential: credential.token || credential.apiSecret || '' });
-          } });
+          statusAuthorization: statusAuthorization({ tenant, exchange }) });
         app.disable('etag');
         app.use((req, res, next) => {
           res.set('Cache-Control', 'no-store');
           req.tenantAuthenticate = async version => {
-            const who = await dataAccess({ tenant, request: req, version: version || Number(req.baseUrl.slice(-1)) });
+            const who = await (flags.strict ? strictAccess : dataAccess)({
+              tenant, request: req, version: version || Number(req.baseUrl.slice(-1))
+            });
             if (!who) throw Object.assign(new Error('invalid credential'), { status: 401 });
             req.tenantContext = who;
           };
@@ -261,6 +267,42 @@ const enabled = process.env.NS_REST_CONTEXT_HTTP_TEST === '1' &&
         });
         apps[backend][tenant] = app;
       }
+    }
+    apps.oracle = {};
+    for (const [i, tenant] of [A, B].entries()) {
+      const db = mongoStores[tenant];
+      await db.collection('auth_subjects').insertOne({ _id: new ObjectId(SUBJECT), name: 'Same Viewer ' + i, roles: ['viewer'] });
+      await db.collection('auth_roles').insertOne({ name: 'viewer', permissions: [
+        'api:settings:read', 'api:settings:create', 'api:settings:update', 'api:settings:delete', 'api:status:read'
+      ] });
+      const enclave = require('../lib/server/enclave')();
+      enclave.setApiKey(roots[i]);
+      enclave.setJWTKey(random());
+      const settings = require('../lib/settings')();
+      settings.enable = ['careportal'];
+      settings.authDefaultRoles = 'status-only';
+      settings.authFailDelay = 0;
+      settings.customTitle = 'Tenant ' + i;
+      const env = { settings, extendedSettings: {}, enclave, authentication_collections_prefix: 'auth_', trustProxy: false };
+      const ctx = { store: { db, collection: name => db.collection(name) }, bus: new EventEmitter(), language,
+        settings, moment: require('moment') };
+      ctx.authorization = require('../lib/authorization')(env, ctx);
+      await scope.withTenant(tenant, () => new Promise((resolve, reject) =>
+        ctx.authorization.storage.reload(error => error ? reject(error) : resolve())));
+      assert.equal(ctx.authorization.storage.subjects[0].accessToken, tokens[i]);
+      oracleJWT[tenant] = ctx.authorization.authorize(tokens[i]).token;
+      const app = express(), parent = express(), wares = require('../lib/middleware')(env);
+      parent.set('name', 'Nightscout');
+      parent.set('version', 'test');
+      parent.enable('api');
+      parent.extendedClientSettings = {};
+      parent.use(wares.rawParser, wares.jsonParser, wares.urlencodedParser, wares.sendJSONStatus);
+      parent.use(require('../lib/api/status')(parent, wares, env, ctx));
+      parent.use(require('../lib/api/verifyauth')(ctx));
+      app.use((req, res, next) => scope.withTenant(tenant, next));
+      app.use('/api/v1', parent);
+      app.use('/api/v2', parent);
+      apps.oracle[tenant] = app;
     }
   });
 
@@ -283,6 +325,7 @@ const enabled = process.env.NS_REST_CONTEXT_HTTP_TEST === '1' &&
       const status = await http(backend, A, '/api/v1/status.json', credential).expect(200);
       assert.equal(status.headers['cache-control'], 'no-store');
       assert.equal(status.body.settings.customTitle, 'Tenant 0');
+      assert.deepEqual(status.body.extendedSettings, { devicestatus: { days: 2 } });
       assert.equal(JSON.stringify(status.body).includes('PROCESS-SENTINEL'), false);
       const probe = await http(backend, A, '/api/v2/verifyauth', credential).expect(200);
       assert.equal(probe.body.message.canRead, true);
@@ -292,9 +335,82 @@ const enabled = process.env.NS_REST_CONTEXT_HTTP_TEST === '1' &&
       const versions = await http(backend, A, '/api/versions', tokens[0]).expect(200);
       assert.deepEqual(versions.body.map(row => row.collections), [[], [], ['settings']]);
       await http(backend, A, '/api/v3/version', undefined).expect(200);
-      await http(backend, A, '/api/v2/authorization/permissions', credential).expect(200);
+      const permissions = await http(backend, A, '/api/v2/authorization/permissions', credential).expect(200);
+      assert.ok(permissions.body.includes('api:settings:read'));
+      assert.ok(!permissions.body.includes('api:entries:read'));
       await http(backend, A, '/api/v2/authorization/permissions/trie', credential).expect(200);
       await http(backend, A, '/api/v2/authorization/permissions', tokens[0]).expect(401);
+    }
+  });
+
+  it('matches shipping carrier precedence and body consumption without anonymous credential fallback', async function () {
+    const issued = await exchange({ tenant: A, credential: tokens[0] });
+    const scenarios = [
+      { query: { token: tokens[0] }, body: { token: 'ignored-body' } },
+      { query: { secret: tokens[0] }, headers: { 'api-secret': 'ignored-header' } },
+      { body: [{ token: tokens[0], extension: { retained: true } }] },
+      { body: { secret: tokens[0], extension: { retained: true } } },
+      { headers: { 'api-secret': hash(roots[0]) }, query: { token: tokens[0] } },
+      { headers: { Authorization: 'malformed' }, query: { token: tokens[0] } }
+    ];
+    for (const version of [1, 2]) {
+      for (const [index, scenario] of scenarios.entries()) {
+        const results = [];
+        for (const backend of ['pg', 'oracle']) {
+          let call = request(apps[backend][A]).get('/api/v' + version + '/status').set('Accept', 'application/json');
+          if (scenario.query) call = call.query(scenario.query);
+          if (scenario.headers) call = call.set(scenario.headers);
+          if (scenario.body) call = call.send(scenario.body);
+          const response = await call.expect(200);
+          results.push(response.body.authorized?.sub);
+          assert.equal(response.headers['cache-control'], 'no-store');
+        }
+        const expected = [1, 3].includes(index) ? undefined : 'Same Viewer 0';
+        assert.deepEqual(results, [expected, expected], 'carrier scenario ' + index + ', version ' + version);
+      }
+      for (const backend of ['pg', 'oracle']) {
+        const token = backend === 'pg' ? issued.token : oracleJWT[A];
+        const result = await request(apps[backend][A]).get('/api/v' + version + '/status')
+          .set('Accept', 'application/json').set('Authorization', 'Bearer ' + token)
+          .query({ token: 'ignored-invalid' }).expect(200);
+        assert.equal(result.body.authorized.sub, 'Same Viewer 0');
+        const root = await http(backend, A, '/api/v' + version + '/verifyauth', hash(roots[0])).expect(200);
+        assert.deepEqual(root.body.message, {
+          canRead: true, canWrite: true, isAdmin: true, message: 'OK', rolefound: 'NOTFOUND', permissions: 'ROLE'
+        });
+      }
+    }
+    for (const query of [{ token: '' }, { token: ['one', 'two'] }, { secret: '' }, { token: 'invalid' }]) {
+      await request(apps.pg[A]).get('/api/v1/status').query(query).expect(401);
+    }
+    await request(apps.pg[A]).get('/api/v1/status').set('Authorization', 'malformed').expect(401);
+    await request(apps.pg[A]).get('/api/v1/status').set('Authorization', ['Bearer one', 'Bearer two']).expect(401);
+    // Shipping single falls through an empty query token to its configured
+    // public status role. Tenant mode deliberately rejects a presented token.
+    await request(apps.oracle[A]).get('/api/v1/status').query({ token: '' }).expect(200);
+  });
+
+  it('retains status format/header negotiation and inherited HEAD/OPTIONS', async function () {
+    for (const backend of ['pg', 'oracle']) {
+      for (const version of [1, 2]) {
+        const prefix = '/api/v' + version + '/status';
+        for (const [suffix, type] of [['.json', 'application/json'], ['.js', 'application/javascript'],
+          ['.txt', 'text/plain'], ['.html', 'text/html']]) {
+          const response = await http(backend, A, prefix + suffix, hash(roots[0])).expect(200);
+          assert.equal(response.type, type);
+          assert.equal(response.headers['cache-control'], 'no-store');
+        }
+        for (const suffix of ['.svg', '.png']) {
+          const response = await http(backend, A, prefix + suffix, hash(roots[0])).expect(302);
+          assert.equal(response.headers.location, 'http://img.shields.io/badge/Nightscout-OK-green' + suffix);
+        }
+        await http(backend, A, prefix, hash(roots[0]), 'head').expect(200);
+        const options = await http(backend, A, prefix, hash(roots[0]), 'options').expect(200);
+        assert.ok(options.headers.allow.includes('HEAD'));
+        const denied = await http(backend, A, '/api/v' + version + '/verifyauth', undefined).expect(200);
+        assert.equal(denied.body.message.message, 'UNAUTHORIZED');
+        assert.equal(denied.body.message.permissions, 'DEFAULT');
+      }
     }
   });
 
@@ -307,8 +423,23 @@ const enabled = process.env.NS_REST_CONTEXT_HTTP_TEST === '1' &&
         value: { arbitrary: [{ nested: 'retained' }] }
       }).expect(201);
       assert.equal(created.body.identifier, 'same-settings');
+      await http(backend, B, '/api/v3/settings', tokens[1], 'post', {
+        identifier: 'same-settings', app: 'synthetic', date: 1700000000000, utcOffset: 0,
+        value: { foreignSentinel: 'TENANT-B-ONLY' }
+      }).expect(201);
       const read = await http(backend, A, '/api/v3/settings/same-settings', tokens[0]).expect(200);
       assert.deepEqual(read.body.result.value, { arbitrary: [{ nested: 'retained' }] });
+      assert.equal(JSON.stringify(read.body).includes('TENANT-B-ONLY'), false);
+      const flags = settingsFlags[backend][A];
+      flags.strict = true;
+      flags.app.set('API3_SETTINGS_STRICT_READ_ENABLED', true);
+      try {
+        await http(backend, A, '/api/v3/settings/same-settings', tokens[0]).expect(403);
+        await http(backend, A, '/api/v3/settings/same-settings', root).expect(200);
+      } finally {
+        flags.strict = false;
+        flags.app.set('API3_SETTINGS_STRICT_READ_ENABLED', false);
+      }
       await request(apps[backend][A]).get('/api/v3/settings/same-settings').set('api-secret', tokens[0])
         .set('If-Modified-Since', read.headers['last-modified']).expect(304);
       await http(backend, A, '/api/v3/settings', tokens[0]).expect(403);
@@ -345,6 +476,33 @@ const enabled = process.env.NS_REST_CONTEXT_HTTP_TEST === '1' &&
     assert.equal(two.body.result.collections.settings, 9999999999999);
     const table = await admin.query('SELECT relrowsecurity,relforcerowsecurity FROM pg_class WHERE oid=$1::regclass', [namespaces.data + '.settings']);
     assert.deepEqual(table.rows, [{ relrowsecurity: true, relforcerowsecurity: true }]);
+  });
+
+  it('refuses nonrepresentable submitted extensions without writes and sanitizes recognized outages', async function () {
+    const before = events.length;
+    await request(apps.pg[A]).post('/api/v3/settings').set('api-secret', tokens[0])
+      .set('Content-Type', 'application/json')
+      .send('{"identifier":"unrepresentable","date":1700000000000,"utcOffset":0,"app":"synthetic","value":{"bad":1e999}}')
+      .expect(400);
+    await http('pg', A, '/api/v3/settings/unrepresentable', tokens[0]).expect(404);
+    assert.equal(events.length, before);
+    await http('pg', A, '/api/v3/settings', undefined, 'post', {
+      identifier: 'anonymous-write', app: 'synthetic', date: 1700000000000, utcOffset: 0
+    }).expect(403);
+    await admin.query(`REVOKE SELECT ON ${namespaces.data}.settings FROM "${prefix}_app"`);
+    try {
+      const outage = await http('pg', A, '/api/v3/settings/same-settings', hash(roots[0])).expect(503);
+      assert.deepEqual(outage.body, { error: 'STORAGE_UNAVAILABLE' });
+    } finally {
+      await admin.query(`GRANT SELECT ON ${namespaces.data}.settings TO "${prefix}_app"`);
+    }
+    await admin.query(`REVOKE SELECT ON ${namespaces.auth}.tenant_authorization_roles FROM "${prefix}_app"`);
+    try {
+      const outage = await http('pg', A, '/api/v3/status', tokens[0]).expect(503);
+      assert.deepEqual(outage.body, { error: 'TENANT_AUTHORITY_UNAVAILABLE' });
+    } finally {
+      await admin.query(`GRANT SELECT ON ${namespaces.auth}.tenant_authorization_roles TO "${prefix}_app"`);
+    }
   });
 
   it('consults current persisted grants and exact subject names on later requests', async function () {
