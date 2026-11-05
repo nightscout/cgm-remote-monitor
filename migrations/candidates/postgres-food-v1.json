@@ -1,0 +1,22 @@
+{
+  "version": 1,
+  "status": "Review candidate; explicit operator migration only",
+  "evidence": ["lib/server/food.js: list, listquickpicks, listregular, indexedFields", "lib/api3/generic/setup.js: food created_at fallback"],
+  "migrations": [{
+    "name": "0001_food",
+    "up": [
+      "CREATE TABLE food (tenant_id uuid NOT NULL, id_kind text NOT NULL CHECK (id_kind IN ('objectid', 'string')), doc jsonb NOT NULL CHECK (jsonb_typeof(doc) = 'object'), insertion_ordinal bigint GENERATED ALWAYS AS IDENTITY, \"_id\" text GENERATED ALWAYS AS (CASE WHEN jsonb_typeof(doc->'_id') = 'string' THEN doc->>'_id' END) STORED, identifier text GENERATED ALWAYS AS (CASE WHEN jsonb_typeof(doc->'identifier') = 'string' THEN doc->>'identifier' END) STORED, CHECK (\"_id\" <> ''), CHECK (id_kind <> 'objectid' OR \"_id\" ~ '^[0-9a-f]{24}$'), PRIMARY KEY (tenant_id, id_kind, \"_id\"))",
+      "CREATE UNIQUE INDEX food_identifier_unique ON food (tenant_id, identifier) WHERE identifier IS NOT NULL AND identifier <> ''",
+      "CREATE INDEX food_tenant_insertion ON food (tenant_id, insertion_ordinal)",
+      "CREATE INDEX food_tenant_type ON food (tenant_id, (doc->'type'))",
+      "CREATE INDEX food_tenant_position ON food (tenant_id, (doc->'position'))",
+      "CREATE INDEX food_tenant_hidden ON food (tenant_id, (doc->'hidden'))",
+      "CREATE INDEX food_tenant_created_at ON food (tenant_id, (doc->>'created_at'))",
+      "CREATE INDEX food_tenant_srvmodified ON food (tenant_id, (doc->'srvModified'))",
+      "ALTER TABLE food ENABLE ROW LEVEL SECURITY",
+      "ALTER TABLE food FORCE ROW LEVEL SECURITY",
+      "CREATE POLICY food_tenant_isolation ON food USING (tenant_id = NULLIF(current_setting('app.current_tenant_id', true), '')::uuid) WITH CHECK (tenant_id = NULLIF(current_setting('app.current_tenant_id', true), '')::uuid)"
+    ],
+    "checksum": "a14ca01a345a686ce754c9066db71b83f17aa465a18b65ff5ff99814593bba78"
+  }]
+}
