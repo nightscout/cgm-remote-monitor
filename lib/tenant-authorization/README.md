@@ -68,3 +68,12 @@ role-name order, then defaults not already present. They are informational
 response metadata, never cached authorization for a later data operation.
 The separate exact-permission `authorize` callback remains mandatory for
 protected GET. Table and column write privileges are refused at startup.
+
+## Bounded subject administration
+
+The append-only `0003_subject_management_metadata` migration adds nullable
+notes/creation metadata and a redacted mutation audit table. The separate
+[subject administration service](../subject-admin/README.md) updates existing
+subjects and known-role links with legacy credential metadata in one transaction.
+This authority reader remains read-only; serving credentials do not acquire
+management grants or routes.

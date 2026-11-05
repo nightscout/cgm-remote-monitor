@@ -107,7 +107,7 @@ optInSuite(process.env.NS_TENANT_AUTHORITY_POSTGRES_DOCKER_TEST === '1',
     await run('up', { ...options, catalogue: original });
     await admin.query(`INSERT INTO "${namespace}".tenant_authorization_subjects VALUES ($1, $2)`, [A, SUBJECT]);
     const pending = await run('status', { ...options, catalogue });
-    assert.deepEqual(pending.pending, ['0002_subject_display_name']);
+    assert.deepEqual(pending.pending, ['0002_subject_display_name', '0003_subject_management_metadata']);
     await assert.rejects(run('check', { ...options, catalogue }), { code: 'MIG_STALE' });
     await run('up', { ...options, catalogue });
     assert.equal((await run('check', { ...options, catalogue })).current, true);

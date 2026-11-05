@@ -30,6 +30,18 @@
       "up": [
         "ALTER TABLE tenant_authorization_subjects ADD COLUMN display_name text CHECK (display_name IS NULL OR length(btrim(display_name)) > 0)"
       ]
+    },
+    {
+      "name": "0003_subject_management_metadata",
+      "checksum": "69932c5cdc4aa8040005994f1382150e0e55383224cbc88ba59e771bab025576",
+      "up": [
+        "ALTER TABLE tenant_authorization_subjects ADD COLUMN notes text, ADD COLUMN created_at text",
+        "CREATE TABLE tenant_subject_admin_audit (event_id uuid PRIMARY KEY, tenant_id uuid NOT NULL, principal text NOT NULL, consumer text NOT NULL, subject_id text NOT NULL, operation text NOT NULL CHECK (operation IN ('update', 'remove')), event_time bigint NOT NULL)",
+        "ALTER TABLE tenant_subject_admin_audit ENABLE ROW LEVEL SECURITY",
+        "ALTER TABLE tenant_subject_admin_audit FORCE ROW LEVEL SECURITY",
+        "CREATE POLICY tenant_subject_admin_audit_tenant ON tenant_subject_admin_audit USING (tenant_id = nullif(current_setting('app.current_tenant_id', true), '')::uuid) WITH CHECK (tenant_id = nullif(current_setting('app.current_tenant_id', true), '')::uuid)",
+        "REVOKE ALL ON tenant_subject_admin_audit FROM PUBLIC"
+      ]
     }
   ]
 }
