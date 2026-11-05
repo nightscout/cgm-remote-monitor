@@ -114,8 +114,8 @@ optInSuite(process.env.NS_REST_DEVICE_ACTIVITY_TEST === '1' &&
       };
     }
 
-    async function start () {
-      connection = await connect({ connectionString: appURI, max: 1 });
+    async function start ({ max = 1 } = {}) {
+      connection = await connect({ connectionString: appURI, max });
       authority = await createAuthority({ connectionString: appURI, namespace: auth });
       const data = express.Router();
       const legacyRouter = express.Router();
@@ -210,7 +210,7 @@ optInSuite(process.env.NS_REST_DEVICE_ACTIVITY_TEST === '1' &&
       const pgReply = await actual;
       assert.equal(pgReply.status, status, JSON.stringify(pgReply.body));
       assert.deepEqual(comparable(pgReply.body), comparable(mongoReply.body));
-      for (const header of ['location', 'content-type', 'deprecation']) {
+      for (const header of ['location', 'content-type', 'deprecation', 'warning', 'allow']) {
         assert.equal(pgReply.headers[header], mongoReply.headers[header], header);
       }
       if (['post', 'put', 'patch', 'delete'].includes(method) && status < 400) {
@@ -295,6 +295,9 @@ optInSuite(process.env.NS_REST_DEVICE_ACTIVITY_TEST === '1' &&
       mongo = new MongoClient(process.env.CUSTOMCONNSTR_mongo);
       await mongo.connect();
       mongoCollections = Object.fromEntries(domains.map(domain => [domain, mongo.db().collection(name + '_' + domain)]));
+      const indexes = await require('../lib/storage/identifier-index').ensure(
+        domains.map(domain => ({ name: domain, collection: mongoCollections[domain] })), 'require');
+      assert.equal(indexes.ready, true);
       const env = { settings: { deNormalizeDates: false, authDefaultRoles: 'denied', authFailDelay: 0 }, predictionsMaxSize: 2,
         authentication_collections_prefix: name + '_oracle_', enclave: require('../lib/server/enclave')() };
       env.enclave.setApiKey(roots[0]);
@@ -385,6 +388,11 @@ optInSuite(process.env.NS_REST_DEVICE_ACTIVITY_TEST === '1' &&
         }
         await same('delete', `/api/v${version}/devicestatus/${ID}`);
         assert.equal((await rows('devicestatus')).length, 1);
+        await same('post', `/api/v${version}/devicestatus?results=items`, [
+          { _id: 'invalid', device: 'refused' },
+          { _id: '85a1b2c3d4e5f60718293a4b', created_at: CREATED, device: 'accepted' }
+        ]);
+        await same('post', `/api/v${version}/devicestatus`, ['invalid'], 400);
         for (const method of ['put', 'patch']) {
           await reference(method, `/api/v${version}/devicestatus/${ID}`).send({}).expect(404);
           await http(method, `/api/v${version}/devicestatus/${ID}`).send({}).expect(405);
@@ -408,6 +416,53 @@ optInSuite(process.env.NS_REST_DEVICE_ACTIVITY_TEST === '1' &&
       assert.equal(denormalized.body[1].utcOffset, undefined);
       assert.equal((await http('get', '/api/v2/devicestatus?count=1', { tenant: B, credential: credentials[1] }).expect(200)).body[0].device, 'foreign');
       assert.equal(foreign.length, 1);
+    });
+
+    it('retains distinct default counts, bounded-window compatibility, literal filters, HEAD and OPTIONS', async function () {
+      const docs = Array.from({ length: 12 }, (_, i) => ({
+        _id: new ObjectId((BigInt('0x' + ID) + BigInt(i)).toString(16)),
+        created_at: new Date(BASE + i * 3600000).toISOString(), date: BASE + i, device: 'rig-' + i
+      }));
+      for (const domain of domains) {
+        await seed(domain, docs);
+        for (const version of [1, 2]) {
+          const path = `/api/v${version}/${domain}`;
+          assert.equal((await same('get', path)).body.length, domain === 'devicestatus' ? 10 : 12);
+          await same('get', path + '?count=0');
+          assert.equal((await same('get', path + '?count=3')).body.length, 3);
+          const all = await same('get', path +
+            '?count=0&find[created_at][$gte]=2026-11-02&find[created_at][$lte]=2026-11-05');
+          assert.equal(all.body.length, 12);
+          assert.equal((await same('get', path + '?find[device][$regex]=%5Erig-&count=3')).body.length, 3);
+          await same('head', path);
+          await same('options', path);
+        }
+      }
+    });
+
+    it('uses shipping creation-time defaults and invalid-date handling rather than imposing entries normalization', async function () {
+      for (const domain of domains) for (const version of [1, 2]) for (const invalid of [false, true]) {
+        await seed(domain, []);
+        const doc = { _id: ID, device: 'rig', extension: { future: true } };
+        if (invalid) doc.created_at = 'synthetic-invalid-date';
+        const before = Date.now();
+        const expected = await reference('post', `/api/v${version}/${domain}`).send(doc).expect(200);
+        const actual = await http('post', `/api/v${version}/${domain}`).send(doc).expect(200);
+        const expectedDoc = expected.body[0], actualDoc = actual.body[0];
+        if (domain === 'activity' && invalid) {
+          assert.equal(actualDoc.created_at, doc.created_at);
+          assert.equal(expectedDoc.created_at, doc.created_at);
+        } else {
+          for (const result of [actualDoc, expectedDoc]) {
+            assert.ok(Date.parse(result.created_at) >= before && Date.parse(result.created_at) <= Date.now());
+          }
+        }
+        assert.deepEqual(comparable({ ...actualDoc, created_at: undefined }),
+          comparable({ ...expectedDoc, created_at: undefined }));
+        const stored = (await rows(domain))[0];
+        assert.equal(stored.created_at, actualDoc.created_at);
+        assert.deepEqual(stored.extension, { future: true });
+      }
     });
 
     it('preserves activity CRUD, source-specific dates, Last-Modified, numeric coercion and item batch outcomes', async function () {
@@ -470,17 +525,28 @@ optInSuite(process.env.NS_REST_DEVICE_ACTIVITY_TEST === '1' &&
     });
 
     it('preserves device resend collision outcomes under concurrent uploads and tenant-prefixed uniqueness', async function () {
-      for (const version of [1, 3]) {
-        const body = version === 1 ? { identifier: 'concurrent-device', created_at: CREATED, device: 'rig' }
-          : { identifier: 'concurrent-device', date: BASE, utcOffset: 0, app: 'synthetic', device: 'rig' };
-        for (const tenant of [A, B]) {
-          const replies = await Promise.all([0, 1].map(() => http('post', `/api/v${version}/devicestatus`,
-            { tenant, credential: credentials[tenant === A ? 0 : 1] }).send(body)));
-          assert.ok(replies.every(reply => [200, 201].includes(reply.status)), replies.map(reply => reply.status).join(','));
-          assert.equal((await rows('devicestatus', tenant)).filter(doc => doc.identifier === body.identifier).length, 1);
+      await stop(); await start({ max: 2 });
+      try {
+        for (const version of [1, 3]) {
+          const path = `/api/v${version}/devicestatus`;
+          const body = version === 1 ? { identifier: 'concurrent-device', created_at: CREATED, device: 'rig' }
+            : { identifier: 'concurrent-device', date: BASE, utcOffset: 0, app: 'synthetic', device: 'rig' };
+          const expected = await Promise.all([0, 1].map(() => reference('post', path).send(body)));
+          assert.ok(expected.every(reply => [200, 201].includes(reply.status)));
+          const expectedRows = await mongoCollections.devicestatus.find({}).toArray();
+          assert.equal(expectedRows.length, 1);
+          for (const tenant of [A, B]) {
+            const replies = await Promise.all([0, 1].map(() => http('post', path,
+              { tenant, credential: credentials[tenant === A ? 0 : 1] }).send(body)));
+            assert.deepEqual(replies.map(reply => reply.status).sort(), expected.map(reply => reply.status).sort());
+            const stored = await rows('devicestatus', tenant);
+            assert.equal(stored.length, 1);
+            assert.deepEqual(comparable({ ...stored[0], _id: undefined }),
+              comparable({ ...json(expectedRows[0]), _id: undefined }));
+          }
+          await seed('devicestatus', []);
         }
-        await seed('devicestatus', []);
-      }
+      } finally { await stop(); await start(); }
     });
 
     it('API3 device addressed writes, search, tombstone history and permanent delete retain their own responses', async function () {
@@ -528,10 +594,46 @@ optInSuite(process.env.NS_REST_DEVICE_ACTIVITY_TEST === '1' &&
           await http('get', '/api/v3/devicestatus').expect(status);
           await http('post', '/api/v3/devicestatus')
             .send({ created_at: CREATED, device: 'rig', app: 'synthetic' }).expect(status);
+          await http('get', '/api/v3/devicestatus?device$eq=rig').expect(status);
+          await http('get', '/api/v3/devicestatus/history/' + BASE).expect(status);
+          for (const method of ['put', 'patch', 'delete']) {
+            const call = http(method, '/api/v3/devicestatus/device-record');
+            if (method !== 'delete') call.send({ created_at: CREATED, device: 'rig', app: 'synthetic' });
+            await call.expect(status);
+          }
         }
       } finally { connection.query = original; }
       for (const domain of domains) assert.deepEqual(await rows(domain), []);
       assert.deepEqual(pgEvents, []);
+    });
+
+    it('rolls legacy writes back before emitting events for either domain and isolates successful tenant events', async function () {
+      for (const domain of domains) await seed(domain, [{ _id: new ObjectId(ID), created_at: CREATED,
+        device: 'rig', identifier: domain + '-record' }]);
+      const before = Object.fromEntries(await Promise.all(domains.map(async domain => [domain, await rows(domain)])));
+      const foreign = Object.fromEntries(await Promise.all(domains.map(async domain => [domain, await rows(domain, B)])));
+      const original = connection.transaction;
+      connection.transaction = fn => original(async () => { await fn(); throw new Error('synthetic legacy rollback'); });
+      try {
+        for (const version of [1, 2]) for (const domain of domains) {
+          await http('post', `/api/v${version}/${domain}`).send({
+            _id: ID, identifier: domain + '-record', created_at: CREATED, extension: 'must-rollback'
+          }).expect(500);
+          await http('delete', `/api/v${version}/${domain}/${ID}`).expect(500);
+          if (domain === 'activity') await http('put', `/api/v${version}/activity`)
+            .send({ _id: ID, created_at: CREATED, steps: 99 }).expect(500);
+          assert.deepEqual(await rows(domain), before[domain]);
+          assert.deepEqual(await rows(domain, B), foreign[domain]);
+        }
+      } finally { connection.transaction = original; }
+      assert.deepEqual(pgEvents, []);
+      for (const domain of domains) {
+        await http('delete', `/api/v2/${domain}/${ID}`).expect(200);
+        assert.deepEqual(await rows(domain), []);
+        assert.deepEqual(await rows(domain, B), foreign[domain]);
+      }
+      assert.ok(pgEvents.some(event => event.event === 'storage-intent-committed'));
+      assert.ok(pgEvents.every(event => event.tenant === A));
     });
 
     it('consults persisted current grants and exact current name, rejects foreign/invalid credentials and never writes anonymously', async function () {
@@ -543,12 +645,18 @@ optInSuite(process.env.NS_REST_DEVICE_ACTIVITY_TEST === '1' &&
       await http('post', '/api/v2/activity', { credential: null }).send({ steps: 1 }).expect(401);
       await grants(['api:devicestatus:read']);
       await http('patch', '/api/v3/devicestatus/device-record').send({ extension: true }).expect(403);
+      for (const version of [1, 2]) {
+        await http('post', `/api/v${version}/devicestatus`).send({ device: 'rig' }).expect(401);
+      }
       await grants(GRANTS);
       await admin.query(`UPDATE "${auth}".tenant_authorization_subjects SET display_name='Renamed Exact Name' WHERE tenant_id=$1`, [A]);
       await http('patch', '/api/v3/devicestatus/device-record').send({ extension: true }).expect(200);
       assert.equal((await rows('devicestatus'))[0].modifiedBy, 'Renamed Exact Name');
       await admin.query(`UPDATE "${auth}".tenant_authorization_subjects SET display_name=NULL WHERE tenant_id=$1`, [A]);
       await http('patch', '/api/v3/devicestatus/device-record').send({ extension: false }).expect(401);
+      for (const version of [1, 2]) for (const domain of domains) {
+        await http('post', `/api/v${version}/${domain}`).send({ device: 'rig' }).expect(401);
+      }
       await http('patch', '/api/v3/devicestatus/device-record', { credential: hash(roots[0]) })
         .send({ rootOnly: true }).expect(200);
       assert.equal((await rows('devicestatus'))[0].rootOnly, true);
@@ -559,13 +667,24 @@ optInSuite(process.env.NS_REST_DEVICE_ACTIVITY_TEST === '1' &&
     it('keeps overlapping tenant IDs across pool/listener restart, enforces FORCE RLS and preserves rollback/event isolation', async function () {
       await seed('devicestatus', [{ _id: new ObjectId(ID), identifier: 'device-record', created_at: CREATED,
         date: BASE, app: 'synthetic', utcOffset: 0, device: 'rig' }]);
+      await seed('activity', [{ _id: new ObjectId(ID), created_at: CREATED, steps: 10 }]);
       const before = await rows('devicestatus'), foreign = await rows('devicestatus', B);
-      const state = await admin.query(`SELECT relrowsecurity, relforcerowsecurity FROM pg_class WHERE oid=$1::regclass`,
-        [tables.devicestatus]);
-      assert.deepEqual(state.rows[0], { relrowsecurity: true, relforcerowsecurity: true });
-      await connection.withTenant(A, async () => {
-        assert.equal((await connection.query(`SELECT count(*)::int AS n FROM "${schemas.devicestatus}".devicestatus`)).rows[0].n, 1);
-      });
+      const activityBefore = await rows('activity'), activityForeign = await rows('activity', B);
+      const unbound = new Client({ connectionString: appURI });
+      await unbound.connect();
+      try {
+        for (const domain of domains) {
+          const state = await admin.query(`SELECT relrowsecurity, relforcerowsecurity FROM pg_class WHERE oid=$1::regclass`, [tables[domain]]);
+          assert.deepEqual(state.rows[0], { relrowsecurity: true, relforcerowsecurity: true });
+          assert.equal((await unbound.query(`SELECT count(*)::int AS n FROM "${schemas[domain]}".${domain}`)).rows[0].n, 0);
+          await connection.withTenant(A, async () => {
+            assert.equal((await connection.query(`SELECT count(*)::int AS n FROM "${schemas[domain]}".${domain}`)).rows[0].n, 1);
+          });
+          await assert.rejects(connection.withTenant(A, () =>
+            connection.query(`INSERT INTO "${schemas[domain]}".${domain} (tenant_id,id_kind,doc) VALUES ($1,'string',$2)`,
+              [B, { _id: 'forbidden-tenant-write', created_at: CREATED }])), { code: '42501' });
+        }
+      } finally { await unbound.end(); }
       const original = connection.transaction;
       connection.transaction = fn => original(async () => { await fn(); throw new Error('synthetic post-write rollback'); });
       try { await http('patch', '/api/v3/devicestatus/device-record').send({ extension: 'must-rollback' }).expect(500); }
@@ -577,6 +696,10 @@ optInSuite(process.env.NS_REST_DEVICE_ACTIVITY_TEST === '1' &&
       assert.equal((await http('get', '/api/v3/devicestatus/device-record',
         { tenant: B, credential: credentials[1] }).expect(200)).body.result.tenantMarker, 'two');
       assert.deepEqual(await rows('devicestatus', B), foreign);
+      assert.equal((await http('get', '/api/v2/activity',
+        { tenant: B, credential: credentials[1] }).expect(200)).body[0].tenantMarker, 'two');
+      assert.deepEqual(await rows('activity'), activityBefore);
+      assert.deepEqual(await rows('activity', B), activityForeign);
       for (const domain of domains) assert.throws(() => contexts.get(A)[domain](), /no driver accessor/);
     });
   });
