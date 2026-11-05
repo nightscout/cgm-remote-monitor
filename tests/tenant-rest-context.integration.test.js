@@ -9,6 +9,7 @@ const express = require('express');
 const request = require('supertest');
 const { Client } = require('pg');
 const { MongoClient, ObjectId } = require('mongodb');
+const { optInSuite } = require('./support/opt-in');
 const environment = require('../lib/server/tenant-app/environment');
 const snapshot = require('../lib/server/tenant-app/snapshot');
 const context = require('../lib/server/tenant-app/rest-context');
@@ -96,7 +97,8 @@ describe('Tenant-local display environment and shipping snapshot loader', functi
 
 const enabled = process.env.NS_REST_CONTEXT_HTTP_TEST === '1' &&
   process.env.NS_TEST_POSTGRES_ADMIN_URI && process.env.CUSTOMCONNSTR_mongo;
-(enabled ? describe : describe.skip)('Tenant H actual HTTP (owned PostgreSQL/RLS, Mongo oracle, real Vault)', function () {
+optInSuite(enabled, 'NS_REST_CONTEXT_HTTP_TEST=1 with disposable PG/Mongo/Docker Vault')(
+  'Tenant H actual HTTP (owned PostgreSQL/RLS, Mongo oracle, real Vault)', function () {
   this.timeout(90000);
   const suffix = random().slice(0, 12);
   const prefix = 'h_' + suffix;
