@@ -7,6 +7,7 @@ const os = require('node:os');
 const path = require('node:path');
 const { spawn } = require('node:child_process');
 const { once } = require('node:events');
+const { request: httpRequest } = require('node:http');
 const { Client } = require('pg');
 const express = require('express');
 const request = require('supertest');
@@ -72,10 +73,27 @@ optInSuite(process.env.NS_OWNER_PREVIEW_TEST === '1' && !!process.env.NS_TEST_PO
       if (worker.child.exitCode === null) worker.child.kill('SIGTERM');
       await worker.closed; children.delete(worker);
     }
-    async function http (worker, credential = token(), body = { _id: TARGET, name: 'Updated', roles: ['reader'] }, host = 'one.example.test', method = 'PUT') {
-      const response = await fetch('http://127.0.0.1:' + worker.port + endpoint, { method,
-        headers: { Host: host, Authorization: 'Bearer ' + credential, 'Content-Type': 'application/json' }, body: JSON.stringify(body), signal: AbortSignal.timeout(5000) });
-      return { status: response.status, body: await response.json() };
+    async function http (worker, credential = token(), body = { _id: TARGET, name: 'Updated', roles: ['reader'] }, host = 'one.example.test', method = 'PUT', resource = endpoint) {
+      // Node22 global fetch replaces explicit Host with the loopback URL host.
+      // Use the established replica fixture's node:http wire semantics; never
+      // relax the product resolver or pretend an IP host selects a tenant.
+      const payload = method === 'DELETE' ? undefined : JSON.stringify(body);
+      return new Promise((resolve, reject) => {
+        const request = httpRequest({ hostname: '127.0.0.1', port: worker.port, path: resource, method,
+          headers: { Host: host, Authorization: 'Bearer ' + credential,
+            ...(payload === undefined ? {} : { 'Content-Type': 'application/json' }) },
+          signal: AbortSignal.timeout(5000), agent: false
+        }, response => {
+          let bytes = ''; response.setEncoding('utf8');
+          response.on('data', chunk => { bytes += chunk; });
+          response.on('end', () => {
+            try { resolve({ status: response.statusCode, body: JSON.parse(bytes) }); }
+            catch (error) { reject(error); }
+          });
+          response.on('error', reject);
+        });
+        request.on('error', reject); request.end(payload);
+      });
     }
     async function snapshot () {
       const result = {};
@@ -184,8 +202,7 @@ optInSuite(process.env.NS_OWNER_PREVIEW_TEST === '1' && !!process.env.NS_TEST_PO
       const before = await snapshot();
       const response = await request(app).put(endpoint).set('Host', 'one.example.test').set('Authorization', 'Bearer ' + token()).send({ _id: TARGET, name: 'Refused' });
       assert([401, 403, 404, 405].includes(response.status), 'data app must not expose owner handler: ' + response.status); assert.deepEqual(await snapshot(), before);
-      const removed = await fetch('http://127.0.0.1:' + workers[0].port + endpoint + '/' + TARGET,
-        { method: 'DELETE', headers: { Host: 'one.example.test', Authorization: 'Bearer ' + token() } });
+      const removed = await http(workers[0], token(), undefined, 'one.example.test', 'DELETE', endpoint + '/' + TARGET);
       assert.equal(removed.status, 403); assert.deepEqual(await snapshot(), before);
     });
     it('uses separate actual API and owner listeners in one CLI process with real PostgreSQL and Vault', async function () {
