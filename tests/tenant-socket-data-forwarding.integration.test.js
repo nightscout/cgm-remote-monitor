@@ -18,6 +18,7 @@ const { createApiReceiver, createForwarder } = require('../lib/server/tenant-soc
 const createLab = require('./fixtures/tenant-commit-clock-port');
 const { context } = require('./fixtures/socket-forwarding/recording-context');
 const pattern = require('./fixtures/socket-forwarding/patterns');
+const createReference = require('./fixtures/socket-forwarding/mongo-reference');
 const { optInSuite } = require('./support/opt-in');
 
 // Real Socket.IO and database pattern replay, NOT an Android binary run. The
@@ -33,7 +34,7 @@ optInSuite(process.env.NS_SOCKET_DATA_FORWARDING_TEST === '1' && !!process.env.N
     const role = auth + '_reader';
     const database = 'socket_reference_' + crypto.randomBytes(8).toString('hex');
     const sockets = [], servers = [];
-    let mongo, authority, reference, forwarded, substitute = false, refusalObserved;
+    let mongo, authority, reference, singleReference, forwarded, substitute = false, refusalObserved;
     const events = [];
     const fixtureCredential = Object.freeze({ token: 'synthetic-client' });
     const roleCredential = Object.freeze({ token: 'synthetic-role' });
@@ -60,8 +61,9 @@ optInSuite(process.env.NS_SOCKET_DATA_FORWARDING_TEST === '1' && !!process.env.N
       socket.emit(event, payload, (...args) => { clearTimeout(timer); resolve(args); });
     });
     async function client (server) {
-      server.listen(0, '127.0.0.1'); await once(server, 'listening');
-      const socket = ioClient('http://127.0.0.1:' + server.address().port, { reconnection: false, transports: ['websocket'] });
+      let port = server;
+      if (typeof server !== 'number') { server.listen(0, '127.0.0.1'); await once(server, 'listening'); port = server.address().port; }
+      const socket = ioClient('http://127.0.0.1:' + port, { reconnection: false, transports: ['websocket'] });
       sockets.push(socket); await once(socket, 'connect'); return socket;
     }
     before(async function () {
@@ -87,10 +89,9 @@ optInSuite(process.env.NS_SOCKET_DATA_FORWARDING_TEST === '1' && !!process.env.N
       authority = await createAuthority({ connectionString: uri.toString(), namespace: auth });
       mongo = new MongoClient(process.env.CUSTOMCONNSTR_mongo); await mongo.connect();
       const fixture = context();
-      fixture.ctx.store = { collection: name => mongo.db(database).collection(name) };
-      const baselineServer = http.createServer(); servers.push({ server: baselineServer, bus: fixture.ctx.bus });
-      require('../lib/server/websocket')(fixture.env, fixture.ctx, baselineServer);
-      reference = await client(baselineServer);
+      singleReference = await createReference({ connectionString: process.env.CUSTOMCONNSTR_mongo, database });
+      assert.equal(scope.getTenancyMode(), 'multi', 'parent stays multitenant while reference child is single');
+      reference = await client(singleReference.port);
       await send(reference, 'authorize', pattern.authorization());
       const env = fixture.env, bus = new EventEmitter();
       bus.on('storage-intent-committed', event => events.push(event));
@@ -126,9 +127,10 @@ optInSuite(process.env.NS_SOCKET_DATA_FORWARDING_TEST === '1' && !!process.env.N
     });
     beforeEach(async function () {
       await lab.reset();
-      await mongo.db(database).dropDatabase();
+      await singleReference.reset();
       events.length = 0;
     });
+    afterEach(function () { singleReference.assertHealthy(); });
     after(async function () {
       for (const socket of sockets) socket.disconnect();
       for (const resource of servers) {
@@ -137,6 +139,7 @@ optInSuite(process.env.NS_SOCKET_DATA_FORWARDING_TEST === '1' && !!process.env.N
         if (resource.server.listening) await new Promise(resolve => resource.server.close(resolve));
       }
       try {
+        if (singleReference) { await singleReference.close(); singleReference.assertHealthy(); }
         if (mongo) { await mongo.db(database).dropDatabase();
           assert.equal((await mongo.db(database).listCollections().toArray()).length, 0); await mongo.close(); }
         if (authority) await authority.close();
