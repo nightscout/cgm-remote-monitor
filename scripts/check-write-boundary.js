@@ -3,9 +3,11 @@
 const fs = require('node:fs');
 const path = require('node:path');
 const babel = require('@babel/core');
-const ADAPTERS = ['entries', 'treatments', 'devicestatus', 'profile', 'food', 'activity', 'websocket']
+const ADAPTERS = ['entries', 'treatments', 'devicestatus', 'profile', 'food', 'activity', 'socket-write-handlers']
   .map(name => 'lib/server/' + name + '.js')
   .concat('lib/api3/storage/mongoCollection/index.js', 'lib/authorization/storage.js');
+const socketIntent = require('./check-write-intent');
+const SOCKET_WRAPPER = 'lib/server/websocket.js';
 const WRITES = new Set(['insertOne', 'insertMany', 'replaceOne', 'updateOne',
   'updateMany', 'deleteOne', 'deleteMany', 'bulkWrite']);
 
@@ -93,14 +95,24 @@ function check(source) {
   return failures;
 }
 
+// The wrapper delegates acquisition to the canonical handlers. It must retain
+// that binding and contain no direct writes; absence of an acquisition is valid
+// only for this separately checked delegating module.
+function checkSocketWrapper(source) {
+  return socketIntent.checkSocketBinding(source).concat(socketIntent.check(source));
+}
+
 function main() {
   let failed = false;
   for (const file of ADAPTERS) {
     const issues = check(fs.readFileSync(path.resolve(__dirname, '..', file), 'utf8'));
     for (const issue of issues) { console.error(file + ': ' + issue); failed = true; }
   }
+  for (const issue of checkSocketWrapper(fs.readFileSync(path.resolve(__dirname, '..', SOCKET_WRAPPER), 'utf8'))) {
+    console.error(SOCKET_WRAPPER + ': ' + issue); failed = true;
+  }
   if (failed) process.exitCode = 1;
-  else console.log('Write boundary: all ' + ADAPTERS.length + ' adapter entry points checked');
+  else console.log('Write boundary: all ' + ADAPTERS.length + ' adapter entry points and canonical socket delegation checked');
 }
 if (require.main === module) main();
-module.exports = {check, ADAPTERS};
+module.exports = {check, checkSocketWrapper, ADAPTERS, SOCKET_WRAPPER};
