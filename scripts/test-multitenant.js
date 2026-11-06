@@ -322,6 +322,10 @@ async function main (argv) {
   // Nothing in this run may reach a MongoDB the caller did not name: the env
   // file's default points at whatever listens on 127.0.0.1:27017.
   delete env.CUSTOMCONNSTR_mongo;
+  // The CI jobs run every tier under TZ=UTC; the corpus runs the same way
+  // wherever the machine's zone points, so a zone-dependent suite fails
+  // the same way locally as it would in CI.
+  env.TZ = 'UTC';
   for (const suite of suites) Object.assign(env, suite.flags);
 
   const signal = { child: null };

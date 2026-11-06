@@ -33,6 +33,8 @@ added there and in the table below.
     did not name;
   - one Vault dev server (the digest the suites pin) when a selected suite reads a
     Vault address from the environment; it is always disposable.
+- Sets `TZ=UTC` in the child environment, as every CI job does, so a
+  zone-dependent suite fails the same way on a developer machine as in CI.
 - Sets the selected suites' flags, then runs their files through mocha the way
   `scripts/test-tiers.js` runs the `integration` tier: `--fail-zero`, the
   execution reporter, `tests/hooks.js`, `--exit`, the tier's 15 s default
