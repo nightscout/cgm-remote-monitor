@@ -63,10 +63,11 @@ module.exports = function settingsFixture () {
     let mode, admin, mongo, uri, referenceApp, mongoGrants = GRANTS, mongoName = 'Exact Synthetic Name';
     let writeFault = false;
     let storageFault;
+    let ownsTransitMount = false;
 
-    async function vault (resource, body) {
+    async function vault (resource, body, method = 'POST') {
       const response = await fetch(process.env.NS_SETTINGS_VAULT_ADDRESS + '/v1/' + resource, {
-        method: 'POST',
+        method,
         headers: { 'X-Vault-Token': process.env.NS_SETTINGS_VAULT_TOKEN, 'Content-Type': 'application/json' },
         body: JSON.stringify(body), signal: AbortSignal.timeout(5000)
       });
@@ -255,6 +256,7 @@ module.exports = function settingsFixture () {
       const url = new URL(process.env.NS_TEST_POSTGRES_ADMIN_URI);
       url.username = role; url.password = password; uri = url.toString();
       await vault('sys/mounts/' + transitMount, { type: 'transit' });
+      ownsTransitMount = true;
       for (const [i, tenant] of [A, B].entries()) {
         for (const purpose of ['data', 'signing']) await vault(`${transitMount}/keys/${name}-${i}-${purpose}`, { type: 'aes256-gcm96' });
         providers.push(createVaultTransit({
@@ -309,7 +311,14 @@ module.exports = function settingsFixture () {
           await admin.query(`DROP ROLE IF EXISTS "${role}"`);
           await admin.end();
         }
-      } finally { if (mode !== undefined) scope.setTenancyMode(mode); }
+      } finally {
+        try {
+          if (ownsTransitMount) {
+            await vault('sys/mounts/' + transitMount, undefined, 'DELETE');
+            ownsTransitMount = false;
+          }
+        } finally { if (mode !== undefined) scope.setTenancyMode(mode); }
+      }
     });
 
 
