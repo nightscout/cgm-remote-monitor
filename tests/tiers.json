@@ -125,6 +125,7 @@
         "tests/tenant-rest-authority.test.js",
         "tests/tenant-write-clock.test.js",
         "tests/postgres-collection-intent.test.js",
+        "tests/postgres-connection-failure.test.js",
         "tests/timeago.test.js",
         "tests/times.test.js",
         "tests/timezone-modernization.test.js",
