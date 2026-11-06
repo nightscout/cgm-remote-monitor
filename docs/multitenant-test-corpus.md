@@ -62,8 +62,8 @@ themselves.
 
 ## Inventory
 
-37 suites. 19 use the admin URI the script provides; 22 start at least one
-container of their own through Docker. Disabled, 36 register their
+39 suites. 21 use the admin URI the script provides; 22 start at least one
+container of their own through Docker. Disabled, 38 register their
 tests as pending with `[pending opt-in: <requirement>]` in the title; one
 (`postgres-entries-write`) uses a bare `describe.skip`.
 
@@ -96,6 +96,7 @@ tests as pending with `[pending opt-in: <requirement>]` in the title; one
 | `tests/tenant-runtime-vault.integration.test.js` | `NS_TENANT_RUNTIME_VAULT_DOCKER_TEST=1` | | PostgreSQL, Vault | |
 | `tests/tenant-entries-http.integration.test.js` | `NS_TENANT_HTTP_DOCKER_TEST=1` | | PostgreSQL | |
 | `tests/tenant-socket-data-forwarding.integration.test.js` | `NS_SOCKET_DATA_FORWARDING_TEST=1` | PostgreSQL, MongoDB | | real sockets and canonical forwarded PG DATA writes; pinned AAPS pattern replay, not binary |
+| `tests/tenant-socket-order-capability.integration.test.js` | `NS_SOCKET_ORDER_CAPABILITY_TEST=1` | PostgreSQL | | prototype optional successor: old/new ledger matrix, populated refusal, fresh insertion order |
 | `tests/tenant-credential-http.integration.test.js` | `NS_TENANT_CREDENTIAL_HTTP_DOCKER_TEST=1` | MongoDB | PostgreSQL | its differential cases open `CUSTOMCONNSTR_mongo` |
 | `tests/tenant-authorization-postgres.integration.test.js` | `NS_TENANT_AUTHORITY_POSTGRES_DOCKER_TEST=1` | | PostgreSQL | |
 | `tests/owner-preview.integration.test.js` | `NS_OWNER_PREVIEW_TEST=1` | PostgreSQL | PostgreSQL, Vault | explicit headless owner CLI and real combined data/owner listeners; provisioned machine tokens/current state, no human session promises |

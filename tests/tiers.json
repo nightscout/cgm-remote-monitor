@@ -339,7 +339,8 @@
         "tests/tenant-durable-replay.integration.test.js",
         "tests/tenant-projection-evaluator.integration.test.js",
         "tests/owner-preview.integration.test.js",
-        "tests/tenant-socket-data-forwarding.integration.test.js"
+        "tests/tenant-socket-data-forwarding.integration.test.js",
+        "tests/tenant-socket-order-capability.integration.test.js"
       ],
       "env": true,
       "require": [

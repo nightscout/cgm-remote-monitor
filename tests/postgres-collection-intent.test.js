@@ -34,6 +34,24 @@ describe('trusted PostgreSQL collection translation', function () {
     assert.equal(calls.length, 0);
   });
 
+  it('keeps optional socket order successor histories append-only and refuses unsupported domains', async function () {
+    const selected = require('../lib/server/tenant-socket-order-port');
+    const { validateCatalogue } = require('../lib/migrations/catalogue');
+    const catalogues = { treatments: require('../migrations/candidates/postgres-treatments-v1.json'),
+      devicestatus: require('../migrations/candidates/postgres-devicestatus-v1.json') };
+    for (const logical of ['treatments', 'devicestatus']) {
+      const old = catalogues[logical];
+      const next = selected.catalogues[logical];
+      assert.deepEqual(next.migrations.slice(0, old.migrations.length), old.migrations);
+      assert.equal(validateCatalogue(next).length, old.migrations.length + 1);
+      const sql = next.migrations.at(-1).up;
+      assert.match(sql[0], /CHECK \(false\) NOT VALID/);
+      assert.match(sql[1], /VALIDATE CONSTRAINT socket_order_requires_empty/);
+      assert.match(sql[3], /insertion_ordinal bigint GENERATED ALWAYS AS IDENTITY/);
+    }
+    await assert.rejects(selected({ logical: 'entries' }), /reviewed DATA domain/);
+  });
+
   it('does not turn unsupported regex predicates into empty or unfiltered reads', async function () {
     const { port, calls } = fixture();
     await assert.rejects(reads.findAll(port.storage, { dateString: /^[0-9]/ }), /unsupported/);
