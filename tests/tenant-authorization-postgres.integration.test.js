@@ -31,7 +31,7 @@ optInSuite(process.env.NS_TENANT_AUTHORITY_POSTGRES_DOCKER_TEST === '1',
   this.timeout(30000);
   const container = 'ns-tenant-authority-pg-' + crypto.randomBytes(8).toString('hex');
   const appRole = 'tenant_authority_app';
-  let owned = false, previousMode, admin, adminURI, appURI, first, second;
+  let owned = false, previousMode, admin, adminURI, appURI, first, second, selected;
 
   before(async function () {
     previousMode = scope.getTenancyMode();
@@ -39,7 +39,7 @@ optInSuite(process.env.NS_TENANT_AUTHORITY_POSTGRES_DOCKER_TEST === '1',
     const password = crypto.randomBytes(24).toString('hex');
     execFileSync('docker', ['run', '--name', container, '-d', '-p', '127.0.0.1::5432',
       '-e', 'POSTGRES_USER=operator', '-e', 'POSTGRES_PASSWORD', '-e', 'POSTGRES_DB=tenant_authority',
-      'postgres:16'], {
+      'postgres:16', '-c', 'shared_preload_libraries=pg_stat_statements', '-c', 'pg_stat_statements.track=all'], {
       env: { ...process.env, POSTGRES_PASSWORD: password },
       stdio: ['ignore', 'pipe', 'pipe']
     });
@@ -91,12 +91,13 @@ optInSuite(process.env.NS_TENANT_AUTHORITY_POSTGRES_DOCKER_TEST === '1',
 
   after(async function () {
     try {
+      if (selected) await selected.close();
       if (first) await first.close();
       if (second) await second.close();
       if (admin) await admin.end();
     } finally {
       scope.setTenancyMode(previousMode);
-      if (owned) docker(['rm', '-f', container]);
+      if (owned) docker(['rm', '-f', '-v', container]);
     }
   });
 
@@ -214,7 +215,28 @@ optInSuite(process.env.NS_TENANT_AUTHORITY_POSTGRES_DOCKER_TEST === '1',
     }
   });
 
+  it('bounds old subject grants on fresh selected PostgreSQL snapshots across independent pools', async function () {
+    selected = await require('./fixtures/owner-clamping-acceptance')({ admin, adminURI, appURI, appRole });
+    await selected.currentSnapshots();
+  });
+
+  it('fails selected readers closed on missing, mismatched, wildcard and unsupported current policy', async function () {
+    assert.ok(selected, 'selected PostgreSQL fixture must have initialized');
+    await selected.policyRefusals();
+  });
+
+  it('requires read-only forced-RLS current owner policy and refuses authority outages', async function () {
+    assert.ok(selected, 'selected PostgreSQL fixture must have initialized');
+    await selected.policySecurity();
+  });
+
+  it('enforces selected current ceilings through actual signed-token HTTP on separate pools', async function () {
+    assert.ok(selected, 'selected PostgreSQL fixture must have initialized');
+    await selected.newTokenHTTP();
+  });
+
   it('survives idle-connection termination and rejects the next authority query', async function () {
+    if (selected) await selected.close();
     await first.close();
     await second.close();
     await admin.end();

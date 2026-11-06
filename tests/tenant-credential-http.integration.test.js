@@ -101,11 +101,11 @@ optInSuite(process.env.NS_TENANT_CREDENTIAL_HTTP_DOCKER_TEST === '1',
     return (await admin.query('SELECT tenant_id, doc FROM credential_data.entries ORDER BY tenant_id, "_id"')).rows;
   }
 
-  async function makeWorker () {
+  async function makeWorker (authorityOptions = {}) {
     const worker = {};
     workers.push(worker);
     worker.legacy = await createLegacyAuthority({ connectionString: appURI, namespace: 'credential_identity' });
-    worker.authority = await createAuthority({ connectionString: appURI, namespace: 'credential_auth' });
+    worker.authority = await createAuthority({ connectionString: appURI, namespace: 'credential_auth', ...authorityOptions });
     worker.persistence = await createPostgresSecrets({ connectionString: appURI, namespace: 'credential_secrets' });
     worker.secrets = createSecrets({
       ...worker.persistence,
@@ -176,6 +176,14 @@ optInSuite(process.env.NS_TENANT_CREDENTIAL_HTTP_DOCKER_TEST === '1',
     worker.server = worker.app.listen(0, '127.0.0.1');
     await once(worker.server, 'listening');
     assert.equal(worker.server.address().address, '127.0.0.1');
+  }
+
+  async function closeWorker (worker) {
+    if (worker.server) await new Promise(resolve => worker.server.close(resolve));
+    if (worker.connection) await worker.connection.end();
+    if (worker.legacy) await worker.legacy.close();
+    if (worker.authority) await worker.authority.close();
+    if (worker.persistence) await worker.persistence.close();
   }
 
   before(async function () {
@@ -959,16 +967,12 @@ optInSuite(process.env.NS_TENANT_CREDENTIAL_HTTP_DOCKER_TEST === '1',
   after(async function () {
     try {
       for (const worker of workers) {
-        if (worker.server) await new Promise(resolve => worker.server.close(resolve));
-        if (worker.connection) await worker.connection.end();
-        if (worker.legacy) await worker.legacy.close();
-        if (worker.authority) await worker.authority.close();
-        if (worker.persistence) await worker.persistence.close();
+        await closeWorker(worker);
       }
       if (admin) await admin.end();
     } finally {
       scope.setTenancyMode(previousMode);
-      if (owned) docker(['rm', '-f', container]);
+      if (owned) docker(['rm', '-f', '-v', container]);
     }
   });
 
@@ -1238,6 +1242,58 @@ optInSuite(process.env.NS_TENANT_CREDENTIAL_HTTP_DOCKER_TEST === '1',
         { code: 'TENANT_AUTHORITY_UNSAFE' });
     } finally {
       await admin.query(`REVOKE UPDATE (display_name) ON credential_auth.tenant_authorization_subjects FROM ${role}`);
+    }
+  });
+
+  it('keeps unselected HTTP carriers unchanged while explicitly selected subject workers observe current ceiling', async function () {
+    // Synthetic HTTP credential exercise, not execution of a pinned uploader.
+    // Existing unselected workers remain live throughout this comparison.
+    const { catalogueDigest } = require('../lib/subject-admin/owner-policy');
+    const catalogue = ['api:entries:read', 'api:entries:create'];
+    const policyTable = 'credential_auth.tenant_owner_policy';
+    const savedPolicy = (await admin.query(`SELECT tenant_id,catalogue_digest,ceiling FROM ${policyTable}`)).rows;
+    const start = workers.length;
+    const before = await rows();
+    const baseline = await http(0, A, bearer(jwt[0])).expect(200);
+    try {
+      for (const tenant of [A, B]) {
+        await admin.query(`INSERT INTO ${policyTable} (tenant_id,catalogue_digest,ceiling) VALUES ($1,$2,$3)
+          ON CONFLICT (tenant_id) DO UPDATE SET catalogue_digest=EXCLUDED.catalogue_digest,ceiling=EXCLUDED.ceiling`,
+        [tenant, catalogueDigest(catalogue), catalogue]);
+      }
+      for (let i = 0; i < 2; i++) {
+        await makeWorker({ ownerPolicy: { catalogue } });
+        await exposeWorker(workers[start + i]);
+      }
+      for (const index of [start, start + 1]) {
+        assert.deepEqual((await http(index, A, bearer(jwt[0])).expect(200)).body, baseline.body);
+        assert.deepEqual((await http(index, A, secret(subjectTokens[0])).expect(200)).body, baseline.body);
+        const issued = await exchange(subjectTokens[0], index).expect(200);
+        assert.ok(issued.body.permissionGroups.flat().includes('api:entries:read'));
+        await http(index, A, bearer(issued.body.token)).expect(200);
+        await http(index, B, secret(subjectTokens[0])).expect(401);
+      }
+      await admin.query(`UPDATE ${policyTable} SET ceiling=ARRAY[]::text[] WHERE tenant_id=$1`, [A]);
+      await http(start, A, bearer(jwt[0])).expect(403);
+      await http(start + 1, A, secret(subjectTokens[0])).expect(403);
+      // No global mode selection: old workers retain their old data semantics.
+      assert.deepEqual((await http(1, A, bearer(jwt[0])).expect(200)).body, baseline.body);
+      await http(0, A, secret(hash(roots[0]))).expect(200);
+      await admin.query(`UPDATE ${policyTable} SET ceiling=$2 WHERE tenant_id=$1`, [A, catalogue]);
+      await http(start + 1, A, bearer(jwt[0])).expect(200);
+      await admin.query(`UPDATE ${policyTable} SET catalogue_digest=$2 WHERE tenant_id=$1`, [A, '0'.repeat(64)]);
+      await http(start, A, bearer(jwt[0])).expect(503);
+      await admin.query(`UPDATE ${policyTable} SET catalogue_digest=$2 WHERE tenant_id=$1`, [A, catalogueDigest(catalogue)]);
+      await http(start, A, secret(subjectTokens[0])).expect(200);
+      assert.deepEqual(await rows(), before, 'all protected reads/refusals leave stored entries unchanged');
+    } finally {
+      for (const worker of workers.slice(start)) await closeWorker(worker);
+      workers.splice(start);
+      await admin.query(`DELETE FROM ${policyTable} WHERE tenant_id=ANY($1::uuid[])`, [[A, B]]);
+      for (const row of savedPolicy.filter(row => [A, B].includes(row.tenant_id))) {
+        await admin.query(`INSERT INTO ${policyTable} (tenant_id,catalogue_digest,ceiling) VALUES ($1,$2,$3)`,
+          [row.tenant_id, row.catalogue_digest, row.ceiling]);
+      }
     }
   });
 });
