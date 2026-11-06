@@ -37,6 +37,7 @@ const ROOT = path.resolve(__dirname, '..');
 const TIER = 'integration';
 const ENV_FILE = path.join(ROOT, 'tests/ci.test.env');
 const LABEL = 'ns.multitenant.run';
+const POSTGRES_DATABASE = 'nightscout_multitenant_test';
 const IMAGES = {
   postgres: process.env.NS_MULTITENANT_POSTGRES_IMAGE || 'postgres:16',
   mongo: process.env.NS_MULTITENANT_MONGO_IMAGE || 'mongo:8.0',
@@ -204,12 +205,13 @@ function start (run, kind, { image, options = [], command = [], env = {} }) {
 async function provisionPostgres (run) {
   const password = crypto.randomBytes(24).toString('hex');
   const record = start(run, 'postgres', { image: IMAGES.postgres,
-    options: ['--publish', '127.0.0.1::5432', '--env', 'POSTGRES_PASSWORD'], env: { POSTGRES_PASSWORD: password } });
+    options: ['--publish', '127.0.0.1::5432', '--env', 'POSTGRES_PASSWORD', '--env', 'POSTGRES_DB'],
+    env: { POSTGRES_PASSWORD: password, POSTGRES_DB: POSTGRES_DATABASE } });
   // The container's init pass starts a socket-only server and restarts; wait
   // for the TCP listener and for a real session, the way the fixtures do.
   const port = publishedPort(record.id, 5432);
-  const uri = 'postgres://postgres:' + password + '@127.0.0.1:' + port + '/postgres';
-  await until(() => !dockerFails(['exec', record.id, 'pg_isready', '-h', '127.0.0.1', '-U', 'postgres']), 'postgres');
+  const uri = 'postgres://postgres:' + password + '@127.0.0.1:' + port + '/' + POSTGRES_DATABASE;
+  await until(() => !dockerFails(['exec', record.id, 'pg_isready', '-h', '127.0.0.1', '-U', 'postgres', '-d', POSTGRES_DATABASE]), 'postgres');
   await until(() => reachablePostgres(uri).then(() => true), 'postgres session');
   log('postgres ready on 127.0.0.1:' + port);
   return uri;

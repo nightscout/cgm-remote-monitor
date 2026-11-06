@@ -22,10 +22,13 @@ added there and in the table below.
 
 - Starts, on random loopback ports with credentials generated per run and passed
   only through the child's environment:
-  - one PostgreSQL 16 (`postgres:16`) when a selected suite reads
+  - one PostgreSQL 16 (`postgres:16`), creating and selecting
+    `nightscout_multitenant_test` through `POSTGRES_DB`, when a selected suite reads
     `NS_TEST_POSTGRES_ADMIN_URI`, unless the caller has already set that
     variable (the script then opens a session on it first and stops with exit 2 if
-    it cannot);
+    it cannot). The explicit test database satisfies the clock-port fixture's
+    disposable-database safety check; the guard and caller-provided URI are
+    unchanged;
   - one MongoDB (`mongo:8.0`) when a selected suite opens `CUSTOMCONNSTR_mongo`,
     unless the caller has set it. The variable is removed from the child
     environment otherwise: `tests/ci.test.env` points it at
