@@ -212,11 +212,14 @@ optInSuite(process.env.NS_TENANT_COMMIT_CLOCK_TEST === '1' && !!process.env.NS_T
       assert.deepEqual(await lab.rows(), []);
     });
 
-    it('characterizes existing multirow soft-delete ties across an exclusive history page boundary', async function () {
+    it('characterizes soft-delete ties of legacy identifier-absent typed twins across an exclusive history page boundary', async function () {
       // Preexisting typed twins are a seed, not concurrent raw-import coverage.
+      // A truthy identifier would address each row by that identifier instead
+      // of its legacy _id, so it would not exercise everyForm's twin selector.
       const hex = '1234567890abcdef12345678';
-      for (const [kind, identifier] of [['objectid', 'twin-object'], ['string', 'twin-string']]) {
-        const doc = { _id: hex, ...document(identifier), srvCreated: lab.initial, srvModified: lab.initial };
+      for (const kind of ['objectid', 'string']) {
+        const doc = { _id: hex, ...document('unused'), srvCreated: lab.initial, srvModified: lab.initial };
+        delete doc.identifier;
         await lab.admin.query('INSERT INTO "' + lab.namespaces.entries +
           '".entries (tenant_id,id_kind,doc) VALUES ($1,$2,$3)', [lab.A, kind, doc]);
       }
@@ -231,6 +234,6 @@ optInSuite(process.env.NS_TENANT_COMMIT_CLOCK_TEST === '1' && !!process.env.NS_T
         { sort: { srvModified: 1 }, limit: 1, options: { normalize: false } }));
       assert.equal(page.length, 1);
       assert.deepEqual(await lab.rows(lab.A, page[0].srvModified), [],
-        'Existing one-allocation bulk semantics omit the tied second row after an exclusive cursor');
+        'One allocation for these legacy twins omits the tied second row after an exclusive cursor');
     });
   });
