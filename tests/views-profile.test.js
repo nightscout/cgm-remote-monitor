@@ -769,6 +769,148 @@ describe('views profile: one tenant, nonresident (research prototype)', function
     });
   });
 
+  describe('actual frame acquisition across independent Mongo writes', function () {
+    const barrier = require('./lib/views-profile/read-barrier');
+    const NOW = Date.UTC(2026, 9, 15, 12, 0, 0);
+    const json = value => JSON.parse(JSON.stringify(value));
+    const flush = () => new Promise(resolve => self.ctx.evaluator.flush(resolve));
+    const create = (store, documents) => new Promise((resolve, reject) => store.create(documents, error => error ? reject(error) : resolve()));
+    const mainQuery = query => Object.keys(query.find || {}).length === 1;
+    let savedNotifications;
+    let closeNotifications;
+    let liveStats;
+    let sequence = 0;
+
+    before(function () {
+      clock.install();
+      savedNotifications = self.ctx.notifications;
+      liveStats = self.ctx.store.db.stats;
+      self.ctx.store.db.stats = () => Promise.resolve({ dataSize: 1024, indexSize: 1024 });
+    });
+    after(function () {
+      if (closeNotifications) closeNotifications();
+      self.ctx.notifications = savedNotifications;
+      self.ctx.store.db.stats = liveStats;
+      clock.uninstall();
+    });
+
+    beforeEach(async function () {
+      await flush();
+      clock.pin(NOW);
+      const ctx = self.ctx;
+      if (closeNotifications) closeNotifications();
+      const before = new Set(ctx.bus.rawListeners('teardown'));
+      ctx.notifications = require('../lib/notifications')(self.env, { levels: ctx.levels, bus: ctx.bus, ddata: ctx.notificationsClock });
+      const owned = ctx.bus.rawListeners('teardown').filter(listener => !before.has(listener));
+      closeNotifications = () => owned.forEach(listener => { listener(); ctx.bus.removeListener('teardown', listener); });
+      await Promise.all(['entries', 'treatments', 'devicestatus', 'profile', 'food', 'activity']
+        .map(name => ctx.store.collection(self.env[name + '_collection']).deleteMany({})));
+      for (const profile of SCENARIOS.steady(NOW).profile) await create(ctx.profile, profile);
+      await create(ctx.entries, Array.from({ length: 12 }, (_, index) => ({
+        identifier: 'synthetic-frame-entry-' + index, frameGeneration: 'A', type: 'sgv', sgv: 140,
+        date: NOW - (1 + index * 5) * MIN, dateString: new Date(NOW - (1 + index * 5) * MIN).toISOString(), device: 'synthetic-frame'
+      })));
+      await create(ctx.treatments, [{ identifier: 'synthetic-frame-carbs', frameGeneration: 'A', eventType: 'Carb Correction',
+        carbs: 15, created_at: new Date(NOW - MIN).toISOString(), enteredBy: 'synthetic-frame' }]);
+      await flush();
+      assert.equal(ctx.evaluator.kept().properties.bgnow.mean, 140, 'successful initial clinical BG');
+      assert.equal(ctx.evaluator.kept().properties.cob.cob, 15, 'successful initial treatment-derived COB');
+    });
+
+    async function trigger () {
+      const current = await self.ctx.store.collection(self.env.entries_collection).findOne({ identifier: 'synthetic-frame-entry-0' });
+      // A real storage write changes only a marker, so it starts the actual
+      // subscribed evaluator without manufacturing its physical event.
+      await create(self.ctx.entries, [Object.assign({}, current, { frameTrigger: ++sequence })]);
+    }
+
+    it('retains the observed entries A and treatments B acquisition, then refreshes to B and B', async function () {
+      const ctx = self.ctx;
+      const entries = barrier(ctx.entries, query => Object.hasOwn(query.find || {}, 'date'), 'after');
+      const treatments = barrier(ctx.treatments, query => mainQuery(query) && Object.hasOwn(query.find || {}, 'created_at'), 'before');
+      let complete;
+      let observed;
+      try {
+        await trigger();
+        complete = flush();
+        await Promise.all([entries.entered, treatments.entered]);
+        assert(entries.observed[0].documents.every(doc => doc.generation === 'A' && doc.sgv === 140));
+        // These raw Mongo operations model an independent writer; they do not
+        // emit this process's events or claim cross-process event delivery.
+        // Fix commit order: A/A -> B/A -> B/B. The eventual A/B acquisition
+        // therefore does not merely reproduce a committed intermediate state.
+        await ctx.store.collection(self.env.entries_collection).updateMany({}, { $set: { frameGeneration: 'B', sgv: 240 } });
+        assert.equal((await ctx.store.collection(self.env.treatments_collection).findOne({ identifier: 'synthetic-frame-carbs' })).frameGeneration, 'A');
+        await ctx.store.collection(self.env.treatments_collection).updateOne({ identifier: 'synthetic-frame-carbs' }, { $set: { frameGeneration: 'B', carbs: 45 } });
+        treatments.release();
+        entries.release();
+        await complete;
+        assert.equal(treatments.observed[0].documents[0].generation, 'B');
+        assert.equal(treatments.observed[0].documents[0].carbs, 45);
+        assert.equal(ctx.evaluator.kept().properties.bgnow.mean, 140, 'held real entries A reach retained BG');
+        assert.equal(ctx.evaluator.kept().properties.cob.cob, 45, 'later real treatments B reach retained COB');
+        assert.equal(ctx.evaluator.stats.errors, 0);
+        observed = {
+          independentCommitOrder: ['entries B', 'treatments B'],
+          entries: [...new Set(entries.observed[0].documents.map(doc => doc.generation))],
+          treatments: [...new Set(treatments.observed[0].documents.map(doc => doc.generation))],
+          retained: { bg: ctx.evaluator.kept().properties.bgnow.mean, cob: ctx.evaluator.kept().properties.cob.cob }
+        };
+      } finally {
+        entries.restore();
+        treatments.restore();
+        if (complete) await complete;
+      }
+      clock.pin(NOW + MIN);
+      await trigger();
+      await flush();
+      assert.equal(ctx.evaluator.kept().properties.bgnow.mean, 240, 'next actual trigger observes entries B');
+      assert.equal(ctx.evaluator.kept().properties.cob.cob, 45, 'next actual trigger observes treatments B');
+      assert.equal(ctx.evaluator.kept().now, NOW + MIN);
+      if (process.env.VIEWS_PROFILE_FRAME_TRACE) console.log('frame acquisition:', JSON.stringify({ observed,
+        nextRetained: { bg: ctx.evaluator.kept().properties.bgnow.mean, cob: ctx.evaluator.kept().properties.cob.cob } }));
+    });
+
+    it('a failed real materialization retains the successful cycle and recovers on the next actual trigger', async function () {
+      const ctx = self.ctx;
+      const previous = json(ctx.evaluator.kept());
+      const errors = ctx.evaluator.stats.errors;
+      const evaluations = ctx.evaluator.stats.evaluations;
+      const handoffs = self.localOnly.handoffs.length;
+      const reading = barrier(ctx.entries, query => Object.hasOwn(query.find || {}, 'date'), 'after');
+      let complete;
+      try {
+        clock.pin(NOW + MIN);
+        await trigger();
+        complete = flush();
+        await reading.entered;
+        assert(reading.observed[0].documents.length > 0, 'real Mongo rows arrived before the injected read failure');
+        reading.release(new Error('synthetic selected acquisition failure'));
+        await complete;
+        assert.equal(ctx.evaluator.stats.errors, errors + 1, 'one failed cycle is accounted for');
+        assert.equal(ctx.evaluator.stats.evaluations, evaluations + 1, 'the failed materialization completes one attempted cycle');
+        assert.deepEqual(json(ctx.evaluator.kept()), previous, 'failed materialization preserves the previous timestamp and clinical properties');
+        assert.equal(self.localOnly.handoffs.length, handoffs, 'partial materialization cannot hand off notifications');
+      } finally {
+        reading.restore();
+        if (complete) await complete;
+      }
+      clock.pin(NOW + 2 * MIN);
+      await trigger();
+      await flush();
+      assert.equal(ctx.evaluator.stats.errors, errors + 1, 'recovery introduces no additional failure');
+      assert.equal(ctx.evaluator.stats.evaluations, evaluations + 2, 'one subsequent successful recovery cycle');
+      assert.equal(ctx.evaluator.kept().now, NOW + 2 * MIN);
+      assert.equal(ctx.evaluator.kept().properties.bgnow.mean, 140);
+      assert.equal(ctx.evaluator.kept().properties.cob.cob, 15);
+      assert(self.localOnly.handoffs.length > handoffs, 'successful recovery reaches the live notification handoff');
+      if (process.env.VIEWS_PROFILE_FRAME_TRACE) console.log('frame recovery:', JSON.stringify({
+        failedCycleErrorDelta: ctx.evaluator.stats.errors - errors, previousRetainedAt: previous.now,
+        recoveredAt: ctx.evaluator.kept().now, bg: ctx.evaluator.kept().properties.bgnow.mean, cob: ctx.evaluator.kept().properties.cob.cob
+      }));
+    });
+  });
+
   describe('shutdown', function () {
     it('a read completing after teardown cannot reach the fake delivery boundary', async function () {
       const context = Object.create(self.ctx);
@@ -777,28 +919,39 @@ describe('views profile: one tenant, nonresident (research prototype)', function
       context.notifications = require('../lib/notifications')(self.env, { levels: context.levels, bus: context.bus, ddata: context.notificationsClock });
       const provider = require('../lib/server/pushnotify')(self.env, context);
       context.bus.on('notification', provider.emitNotification);
-      let release;
-      let entered;
-      const reading = new Promise(resolve => { entered = resolve; });
+      // Earlier cohorts pin a historical instant and restore the clock. Seed
+      // this late-callback cohort at its own real instant, independently.
+      const now = Date.now();
+      await context.store.collection(self.env.entries_collection).insertOne({
+        identifier: require('node:crypto').randomUUID(), frameGeneration: 'late', type: 'sgv', sgv: 140,
+        date: now - MIN, dateString: new Date(now - MIN).toISOString(), device: 'synthetic-late-frame'
+      });
       context.entries = Object.create(self.ctx.entries);
-      context.entries.list = function (query, callback) {
-        if (!release) {
-          release = () => self.ctx.entries.list(query, callback);
-          entered();
-        } else self.ctx.entries.list(query, callback);
-      };
+      const reading = require('./lib/views-profile/read-barrier')(context.entries,
+        query => Object.hasOwn(query.find || {}, 'date'), 'after');
       const evaluator = require('../lib/server/nonresident')(self.env, context, { settleMs: Infinity });
       const before = self.localOnly.handoffs.length;
       context.bus.emit('tick', { now: new Date(), type: 'heartbeat' });
       const complete = new Promise(resolve => evaluator.flush(resolve));
-      await reading;
-      context.bus.emit('teardown');
-      release();
-      await complete;
-      assert.equal(evaluator.stats.evaluations, 1, 'the outstanding read actually completed');
-      assert.equal(evaluator.stats.errors, 0);
-      assert.equal(self.localOnly.handoffs.length, before, 'no late delivery after teardown');
-      assert.equal(context.bus.listenerCount('notification'), 0);
+      try {
+        await reading.entered;
+        assert(reading.observed[0].documents.length > 0, 'real rows arrived before teardown');
+        context.bus.emit('teardown');
+        reading.release();
+        await complete;
+        assert.equal(evaluator.stats.evaluations, 1, 'the outstanding read actually completed');
+        assert.equal(evaluator.stats.errors, 0);
+        assert.equal(self.localOnly.handoffs.length, before, 'no late delivery after teardown');
+        assert.equal(context.bus.listenerCount('notification'), 0);
+        if (process.env.VIEWS_PROFILE_FRAME_TRACE) console.log('late acquisition:', JSON.stringify({
+          rowsReadBeforeTeardown: reading.observed[0].documents.length, completedEvaluations: evaluator.stats.evaluations,
+          errors: evaluator.stats.errors, deliveryDelta: self.localOnly.handoffs.length - before
+        }));
+      } finally {
+        context.bus.emit('teardown');
+        reading.restore();
+        await complete;
+      }
     });
 
     it('delivers only to the fake provider and teardown removes both triggers', async function () {
