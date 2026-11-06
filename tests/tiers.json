@@ -241,6 +241,8 @@
         "tests/tenant-rest-entries.integration.test.js",
         "tests/tenant-rest-identity-differential.integration.test.js",
         "tests/tenant-rest-identifier-race.integration.test.js",
+        "tests/tenant-frame-acquisition.integration.test.js",
+        "tests/tenant-frame-concurrency.integration.test.js",
         "tests/tenant-rest-client-replay.integration.test.js",
         "tests/tenant-rest-treatments.integration.test.js",
         "tests/tenant-rest-device-activity.integration.test.js",
