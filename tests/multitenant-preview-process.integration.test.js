@@ -1,6 +1,6 @@
 'use strict';
 
-// covers: lib/server/serve/preview-api.js, lib/server/serve/preview-config.js, lib/cli/commands/multitenant.js, lib/server/serve/index.js
+// covers: lib/server/serve/preview-api.js, lib/server/serve/preview-config.js, lib/cli/commands/multitenant.js, lib/server/serve/index.js, lib/tenant-authorization/access-token.js, lib/tenant-authorization/access-postgres.js
 const assert = require('node:assert/strict');
 const crypto = require('node:crypto');
 const fs = require('node:fs');
@@ -63,7 +63,7 @@ optInSuite(process.env.NS_MULTITENANT_PREVIEW_PROCESS_DOCKER_TEST === '1',
     // Outside the package: no cwd-relative implicit config or secrets file.
     const fixtureDirectory = path.resolve(root, '..', '.runnable-preview-fixtures-' + suffix);
     const configFile = path.join(fixtureDirectory, 'preview.json');
-    const roots = [random(), random()], children = new Set(), tokens = [];
+    const roots = [random(), random()], children = new Set(), tokens = [], publicKeys = [];
     let pgOwned = false, vaultOwned = false, admin, adminURI, appURI, checkURI, address, vaultRoot;
 
     async function until (probe, label) {
@@ -75,10 +75,10 @@ optInSuite(process.env.NS_MULTITENANT_PREVIEW_PROCESS_DOCKER_TEST === '1',
       throw new Error(label + ' did not become ready');
     }
 
-    async function vault (resource, body) {
+    async function vault (resource, body, credential = vaultRoot) {
       const response = await fetch(address + '/v1/' + resource, {
-        method: 'POST', headers: { 'X-Vault-Token': vaultRoot, 'Content-Type': 'application/json' },
-        body: JSON.stringify(body), signal: AbortSignal.timeout(5000)
+        method: body === undefined ? 'GET' : 'POST', headers: { 'X-Vault-Token': credential, 'Content-Type': 'application/json' },
+        body: body === undefined ? undefined : JSON.stringify(body), signal: AbortSignal.timeout(5000)
       });
       assert.ok(response.ok, 'operator Vault preparation HTTP ' + response.status);
       return response.status === 204 ? {} : response.json();
@@ -186,6 +186,26 @@ optInSuite(process.env.NS_MULTITENANT_PREVIEW_PROCESS_DOCKER_TEST === '1',
       return http(worker, tenant, 'GET', '/api/v2/authorization/request/' + credential);
     }
 
+    function localConfiguration () {
+      const config = configuration(address, true);
+      config.postgres.namespaces = { ...config.postgres.namespaces, access: 'preview_access' };
+      config.accessTokens = { issuer: 'nightscout-test', audience: 'nightscout-data', keys: publicKeys.map(key => ({ ...key })) };
+      return config;
+    }
+
+    async function localToken (tenant, overrides = {}, headerOverrides = {}) {
+      const now = Math.floor(Date.now() / 1000), i = tenant === A ? 0 : 1;
+      const header = Buffer.from(JSON.stringify({ alg: 'EdDSA', typ: 'ns-access+jwt', kid: 'key1', ...headerOverrides })).toString('base64url');
+      const body = Buffer.from(JSON.stringify({ iss: 'nightscout-test', aud: 'nightscout-data', tid: tenant,
+        purpose: 'data', sub: SUBJECT, sid: 'local-session', cv: 1, iat: now, nbf: now, exp: now + 28800,
+        ...overrides })).toString('base64url');
+      const input = header + '.' + body;
+      const signed = await vault('transit/sign/tenant-' + i + '-access', {
+        input: Buffer.from(input).toString('base64'), key_version: 1
+      }, tokens[i]);
+      return input + '.' + Buffer.from(signed.data.signature.split(':')[2], 'base64').toString('base64url');
+    }
+
     before(async function () {
       fs.mkdirSync(fixtureDirectory, { mode: 0o700 });
       const pgPassword = random();
@@ -204,12 +224,14 @@ optInSuite(process.env.NS_MULTITENANT_PREVIEW_PROCESS_DOCKER_TEST === '1',
       for (const [kind, catalogue] of Object.entries(catalogues)) {
         await run('up', { direct: true, connectionString: adminURI, namespace: allNamespaces[kind], catalogue });
       }
+      await run('up', { direct: true, connectionString: adminURI, namespace: 'preview_access',
+        catalogue: require('../lib/tenant-authorization/access-candidate.json') });
       admin = new Client({ connectionString: adminURI });
       await admin.connect();
       for (const name of ['preview_app', 'preview_check']) {
         const password = random();
         await admin.query(`CREATE ROLE ${name} LOGIN NOSUPERUSER NOBYPASSRLS PASSWORD '${password}'`);
-        await admin.query(`GRANT USAGE ON SCHEMA ${Object.values(allNamespaces).join(', ')} TO ${name}`);
+        await admin.query(`GRANT USAGE ON SCHEMA ${Object.values(allNamespaces).concat(['preview_access']).join(', ')} TO ${name}`);
         const url = new URL(adminURI);
         url.username = name;
         url.password = password;
@@ -223,6 +245,8 @@ optInSuite(process.env.NS_MULTITENANT_PREVIEW_PROCESS_DOCKER_TEST === '1',
         await admin.query(`GRANT USAGE ON ALL SEQUENCES IN SCHEMA ${allNamespaces[logical]} TO preview_app`);
       }
       await admin.query('GRANT SELECT ON ALL TABLES IN SCHEMA preview_auth, preview_legacy TO preview_app');
+      await admin.query('GRANT SELECT ON ALL TABLES IN SCHEMA preview_access TO preview_app');
+      await admin.query('GRANT SELECT ON preview_access.schema_migrations TO preview_check');
       await admin.query('GRANT SELECT, INSERT ON preview_secrets.secret_records TO preview_app');
       await admin.query('GRANT INSERT ON preview_secrets.secret_audit TO preview_app');
       for (const [i, tenant] of [A, B].entries()) {
@@ -253,10 +277,18 @@ optInSuite(process.env.NS_MULTITENANT_PREVIEW_PROCESS_DOCKER_TEST === '1',
         for (const purpose of ['data', 'signing']) {
           await vault('transit/keys/tenant-' + i + '-' + purpose, { type: 'aes256-gcm96', exportable: false });
         }
+        await vault('transit/keys/tenant-' + i + '-access', { type: 'ed25519', exportable: false });
+        publicKeys[i] = { tenant, kid: 'key1', publicKey: (await vault('transit/keys/tenant-' + i + '-access')).data.keys['1'].public_key };
+        await admin.query('INSERT INTO preview_access.access_tenants VALUES ($1,true)', [tenant]);
+        await admin.query('INSERT INTO preview_access.access_credentials VALUES ($1,$2,$2,1,true)', [tenant, SUBJECT]);
+        await admin.query(`INSERT INTO preview_access.access_sessions VALUES ($1,'local-session',$2,$2,1,$3,true,'data')`,
+          [tenant, SUBJECT, Math.floor(Date.now() / 1000) + 86400]);
+        await admin.query(`INSERT INTO preview_access.access_keys VALUES ($1,'key1','data',true)`, [tenant]);
         const policy = ['decrypt'].map(operation =>
           `path "transit/${operation}/tenant-${i}-data" { capabilities = ["update"] }`).concat(
           ['hmac', 'verify'].map(operation =>
-            `path "transit/${operation}/tenant-${i}-signing" { capabilities = ["update"] }`)).join('\n');
+            `path "transit/${operation}/tenant-${i}-signing" { capabilities = ["update"] }`)).concat(
+          [`path "transit/sign/tenant-${i}-access" { capabilities = ["update"] }`]).join('\n');
         await vault('sys/policies/acl/tenant-' + i, { policy });
         tokens[i] = (await vault('auth/token/create', {
           policies: ['tenant-' + i], no_default_policy: true, ttl: '15m', renewable: false
@@ -285,6 +317,124 @@ optInSuite(process.env.NS_MULTITENANT_PREVIEW_PROCESS_DOCKER_TEST === '1',
         await worker.exited;
         children.delete(worker);
       }
+    });
+
+    it('new-format actual API reads and writes use local keys and current PostgreSQL across processes', async function () {
+      const first = start(localConfiguration()), second = start(localConfiguration());
+      await ready(first); await ready(second);
+      const a = await localToken(A), b = await localToken(B);
+      const auditBefore = Number((await admin.query('SELECT count(*) FROM preview_secrets.secret_audit')).rows[0].count);
+      for (const worker of [first, second]) {
+        assert.equal((await http(worker, A, 'GET', '/api/v3/entries', a)).status, 200);
+        assert.equal((await http(worker, B, 'GET', '/api/v3/entries', b)).status, 200);
+        const write = await http(worker, A, 'POST', '/api/v3/entries', a, {
+          identifier: 'local-' + worker.port, date: 1793664000000, utcOffset: 0, type: 'sgv', sgv: 140, app: 'synthetic-local'
+        });
+        assert.equal(write.status, 201, JSON.stringify(write.body));
+        assert.equal((await http(worker, A, 'GET', '/api/v3/entries/local-' + worker.port, a)).body.result.subject, 'Synthetic Viewer 0');
+        assert.equal((await http(worker, A, 'PATCH', '/api/v3/entries/local-' + worker.port, a, { sgv: 143 })).status, 200);
+        assert.equal((await http(worker, A, 'GET', '/api/v3/entries/local-' + worker.port, a)).body.result.modifiedBy, 'Synthetic Viewer 0');
+        const foreign = await http(worker, B, 'GET', '/api/v3/entries', a);
+        assert.equal(foreign.status, 401); assert.equal(foreign.body.error, 'TOKEN_SIGNATURE');
+        assert.equal((await http(worker, A, 'GET', '/api/v1/entries', a)).status, 200);
+        assert.equal((await http(worker, A, 'GET', '/api/v2/authorization/permissions', a)).status, 401);
+      }
+      assert.equal(Number((await admin.query('SELECT count(*) FROM preview_secrets.secret_audit')).rows[0].count), auditBefore,
+        'new-format requests must never call the audited secrets component');
+      const old = await exchange(first, A);
+      assert.equal(old.status, 200); assert.equal(old.body.exp - old.body.iat, 28800);
+      assert.equal((await http(first, A, 'GET', '/api/v3/entries', old.body.token)).status, 200);
+      await stop(first); await stop(second);
+    });
+
+    it('new-format signature and audience controls refuse before any handler effect', async function () {
+      const worker = start(localConfiguration()); await ready(worker);
+      const token = await localToken(A), parts = token.split('.');
+      const signature = Buffer.from(parts[2], 'base64url'); signature[0] ^= 1;
+      parts[2] = signature.toString('base64url');
+      const invalid = [parts.join('.'), await localToken(A, { aud: 'wrong-audience' }),
+        await localToken(A, { purpose: 'management' }), await localToken(A, { tid: B }),
+        await localToken(A, {}, { kid: 'unknown' }), await localToken(A, { exp: Math.floor(Date.now() / 1000) - 1 })];
+      for (const credential of invalid) {
+        const result = await http(worker, A, 'POST', '/api/v3/entries', credential, {
+          identifier: 'must-not-write-local', date: 1793664000000, utcOffset: 0, type: 'sgv', sgv: 999, app: 'synthetic-local'
+        });
+        assert.equal(result.status, 401, 'invalid new token must refuse: ' + JSON.stringify(result.body));
+      }
+      assert.equal((await admin.query("SELECT count(*)::int n FROM preview_data.entries WHERE doc->>'identifier'='must-not-write-local'")).rows[0].n, 0);
+      await stop(worker);
+    });
+
+    it('new-format same-token grant and session revocation are current across independent API processes', async function () {
+      const first = start(localConfiguration()), second = start(localConfiguration());
+      await ready(first); await ready(second);
+      const token = await localToken(A);
+      for (const worker of [first, second]) assert.equal((await http(worker, A, 'GET', '/api/v3/entries', token)).status, 200);
+      await admin.query('BEGIN');
+      await admin.query("UPDATE preview_auth.tenant_authorization_roles SET permissions=ARRAY['denied'] WHERE tenant_id=$1", [A]);
+      assert.equal((await http(second, A, 'GET', '/api/v3/entries', token)).status, 200);
+      await admin.query('COMMIT');
+      try {
+        for (const worker of [first, second]) assert.equal((await http(worker, A, 'GET', '/api/v3/entries', token)).status, 403);
+      } finally {
+        await admin.query("UPDATE preview_auth.tenant_authorization_roles SET permissions=ARRAY['api:entries:read','api:entries:create','api:entries:update'] WHERE tenant_id=$1", [A]);
+      }
+      for (const [table, change, restore] of [
+        ['access_sessions', 'active=false', 'active=true'],
+        ['access_credentials', 'generation=2', 'generation=1'],
+        ['access_keys', 'active=false', 'active=true'],
+        ['access_tenants', 'active=false', 'active=true']
+      ]) {
+        for (const worker of [first, second]) assert.equal((await http(worker, A, 'GET', '/api/v3/entries', token)).status, 200);
+        await admin.query('UPDATE preview_access.' + table + ' SET ' + change + ' WHERE tenant_id=$1', [A]);
+        try {
+          for (const worker of [first, second]) {
+            assert.equal((await http(worker, A, 'GET', '/api/v3/entries', token)).status, 403, table);
+            assert.equal((await http(worker, A, 'POST', '/api/v3/entries', token, {
+              identifier: 'local-revoked-' + table, date: 1793664000000, utcOffset: 0, type: 'sgv', sgv: 999, app: 'synthetic-local'
+            })).status, 403, table + ' write');
+          }
+          assert.equal((await admin.query("SELECT count(*)::int n FROM preview_data.entries WHERE doc->>'identifier'=$1", ['local-revoked-' + table])).rows[0].n, 0);
+        } finally { await admin.query('UPDATE preview_access.' + table + ' SET ' + restore + ' WHERE tenant_id=$1', [A]); }
+      }
+      await stop(first); await stop(second);
+    });
+
+    it('new-format startup refuses shared tenant keys and unsafe access-state privileges before binding', async function () {
+      const config = localConfiguration();
+      config.accessTokens.keys[1].publicKey = config.accessTokens.keys[0].publicKey;
+      await refused(config);
+      await admin.query('GRANT UPDATE ON preview_access.access_sessions TO preview_app');
+      try { await refused(localConfiguration()); }
+      finally { await admin.query('REVOKE UPDATE ON preview_access.access_sessions FROM preview_app'); }
+      await admin.query('ALTER TABLE preview_access.access_keys DISABLE ROW LEVEL SECURITY');
+      try { await refused(localConfiguration()); }
+      finally { await admin.query('ALTER TABLE preview_access.access_keys ENABLE ROW LEVEL SECURITY'); }
+    });
+
+    it('new-format API continues through Vault outage but refuses an unavailable PostgreSQL authority', async function () {
+      const worker = start(localConfiguration()); await ready(worker);
+      const token = await localToken(A), old = await exchange(worker, A);
+      docker(['pause', vaultName]);
+      try {
+        assert.equal((await http(worker, A, 'GET', '/api/v3/entries', token)).status, 200);
+        assert.equal((await http(worker, A, 'POST', '/api/v3/entries', token, {
+          identifier: 'local-vault-down', date: 1793664000000, utcOffset: 0, type: 'sgv', sgv: 142, app: 'synthetic-local'
+        })).status, 201);
+        assert.equal((await http(worker, A, 'GET', '/api/v3/entries', old.body.token)).status, 503);
+        await admin.query('UPDATE preview_access.access_sessions SET active=false WHERE tenant_id=$1', [A]);
+        try { assert.equal((await http(worker, A, 'GET', '/api/v3/entries', token)).status, 403); }
+        finally { await admin.query('UPDATE preview_access.access_sessions SET active=true WHERE tenant_id=$1', [A]); }
+      } finally { docker(['unpause', vaultName]); }
+      docker(['pause', pgName]);
+      try {
+        assert.equal((await http(worker, A, 'GET', '/api/v3/entries', token)).status, 503);
+        assert.equal((await http(worker, A, 'POST', '/api/v3/entries', token, {
+          identifier: 'local-pg-down', date: 1793664000000, utcOffset: 0, type: 'sgv', sgv: 999, app: 'synthetic-local'
+        })).status, 503);
+      } finally { docker(['unpause', pgName]); }
+      assert.equal((await http(worker, A, 'GET', '/api/v3/entries/local-pg-down', token)).status, 404);
+      await stop(worker);
     });
 
     it('runs the executable with no single secrets/Mongo and preserves tenant writes across process restart', async function () {
