@@ -332,15 +332,21 @@ module.exports = function createReplicaFixture () {
     }
 
     async function cleanup () {
+      const errors = [];
       for (const worker of children) {
-        if (!worker.exit) worker.child.kill('SIGKILL');
-        await worker.exited;
+        try {
+          if (!worker.exit) worker.child.kill('SIGKILL');
+          await worker.exited;
+        } catch (error) { errors.push(error); }
       }
-      if (admin) await admin.end();
-      if (vaultOwned) removeOwnedContainer(vaultName);
-      if (pgOwned) removeOwnedContainer(pgName);
-      fs.rmSync(fixtureDirectory, { recursive: true, force: true });
-
+      try { if (admin) await admin.end(); } catch (error) { errors.push(error); }
+      // Attempt every owned cleanup even when one resource is unavailable.
+      for (const name of [vaultOwned && vaultName, pgOwned && pgName].filter(Boolean)) {
+        try { removeOwnedContainer(name); } catch (error) { errors.push(error); }
+      }
+      try { fs.rmSync(fixtureDirectory, { recursive: true, force: true }); }
+      catch (error) { errors.push(error); }
+      if (errors.length) throw new AggregateError(errors, 'Owned replica fixture cleanup failed');
     }
     async function kill (worker) {
       worker.child.kill('SIGKILL');
