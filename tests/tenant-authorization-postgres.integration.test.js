@@ -107,7 +107,10 @@ optInSuite(process.env.NS_TENANT_AUTHORITY_POSTGRES_DOCKER_TEST === '1',
     await run('up', { ...options, catalogue: original });
     await admin.query(`INSERT INTO "${namespace}".tenant_authorization_subjects VALUES ($1, $2)`, [A, SUBJECT]);
     const pending = await run('status', { ...options, catalogue });
-    assert.deepEqual(pending.pending, ['0002_subject_display_name', '0003_subject_management_metadata']);
+    // Every candidate migration after the one applied is pending; read the
+    // list from the catalogue so a new migration does not stale this test.
+    assert.deepEqual(pending.pending, catalogue.migrations.slice(1).map(migration => migration.name));
+    assert.ok(pending.pending.includes('0002_subject_display_name'));
     await assert.rejects(run('check', { ...options, catalogue }), { code: 'MIG_STALE' });
     await run('up', { ...options, catalogue });
     assert.equal((await run('check', { ...options, catalogue })).current, true);
