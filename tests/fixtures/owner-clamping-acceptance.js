@@ -90,6 +90,12 @@ module.exports = async function acceptance ({ admin, adminURI, appURI, appRole }
   }
   return {
     close,
+    async authorityOutage () {
+      for (let worker = 0; worker < 2; worker++) {
+        await assert.rejects(ask(worker), { code: 'TENANT_AUTHORITY_UNAVAILABLE' });
+        await assert.rejects(local[worker].snapshot(claims(D)), { code: 'ACCESS_AUTHORITY_UNAVAILABLE' });
+      }
+    },
     async currentSnapshots () {
       const before = await policyCalls();
       assert.deepEqual(await effective(), [true, true, true]);
@@ -201,6 +207,10 @@ module.exports = async function acceptance ({ admin, adminURI, appURI, appRole }
       finally { await ceiling(catalogue); }
       await get(1).expect(200);
       await get(0, 'two.example.test').expect(401);
+      await admin.query(`REVOKE SELECT ON ${policy} FROM ${appRole}`);
+      try { await get(1).expect(503); }
+      finally { await admin.query(`GRANT SELECT ON ${policy} TO ${appRole}`); }
+      await get(1).expect(200);
       const stored = await admin.query(`SELECT permissions FROM ${roles} WHERE tenant_id=$1`, [D]);
       assert.deepEqual(stored.rows, [{ permissions: [permission] }]);
     }

@@ -236,7 +236,6 @@ optInSuite(process.env.NS_TENANT_AUTHORITY_POSTGRES_DOCKER_TEST === '1',
   });
 
   it('survives idle-connection termination and rejects the next authority query', async function () {
-    if (selected) await selected.close();
     await first.close();
     await second.close();
     await admin.end();
@@ -312,6 +311,7 @@ optInSuite(process.env.NS_TENANT_AUTHORITY_POSTGRES_DOCKER_TEST === '1',
     try {
       await waitFor(() => stdout.includes('READY\n'), 'idle pool readiness');
       docker(['kill', container]);
+      if (selected) await selected.authorityOutage();
       await waitFor(() => stderr.includes('PostgreSQL idle connection error:'),
         'repository pool idle-error handler');
       assert.match(stderr, /PostgreSQL idle connection error: Error/);
@@ -330,6 +330,7 @@ optInSuite(process.env.NS_TENANT_AUTHORITY_POSTGRES_DOCKER_TEST === '1',
       assert.equal(stderr.includes('uncaughtException'), false);
       assert.equal(stderr.includes('Unhandled'), false);
     } finally {
+      if (selected) await selected.close();
       if (!exited) child.kill('SIGKILL');
     }
   });
