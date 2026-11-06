@@ -97,6 +97,7 @@ tests as pending with `[pending opt-in: <requirement>]` in the title; one
 | `tests/tenant-entries-http.integration.test.js` | `NS_TENANT_HTTP_DOCKER_TEST=1` | | PostgreSQL | |
 | `tests/tenant-credential-http.integration.test.js` | `NS_TENANT_CREDENTIAL_HTTP_DOCKER_TEST=1` | MongoDB | PostgreSQL | its differential cases open `CUSTOMCONNSTR_mongo` |
 | `tests/tenant-authorization-postgres.integration.test.js` | `NS_TENANT_AUTHORITY_POSTGRES_DOCKER_TEST=1` | | PostgreSQL | |
+| `tests/owner-preview.integration.test.js` | `NS_OWNER_PREVIEW_TEST=1` | PostgreSQL | | explicit headless owner CLI, provisioned machine tokens/current state, no human session promises |
 | `tests/subject-management-http.integration.test.js` | `NS_SUBJECT_MANAGEMENT_HTTP_DOCKER_TEST=1` | | PostgreSQL | |
 | `tests/subject-admin-postgres.integration.test.js` | `NS_SUBJECT_ADMIN_POSTGRES_DOCKER_TEST=1` | | PostgreSQL | |
 | `tests/owner-subject-policy.integration.test.js` | `NS_OWNER_SUBJECT_POLICY_DOCKER_TEST=1` | | PostgreSQL | verifies its own volume removal |

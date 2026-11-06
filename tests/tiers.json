@@ -155,6 +155,7 @@
         "tests/serve-roles.test.js",
         "tests/subject-admin.test.js",
         "tests/owner-policy-catalogue.test.js",
+        "tests/owner-preview.test.js",
         "tests/tenant-durable-replay.test.js",
         "tests/tenant-projection-evaluator.test.js"
       ],
@@ -334,7 +335,8 @@
         "tests/subject-management-http.integration.test.js",
         "tests/owner-subject-policy.integration.test.js",
         "tests/tenant-durable-replay.integration.test.js",
-        "tests/tenant-projection-evaluator.integration.test.js"
+        "tests/tenant-projection-evaluator.integration.test.js",
+        "tests/owner-preview.integration.test.js"
       ],
       "env": true,
       "require": [
