@@ -205,7 +205,21 @@ refuses before subject/credential/link/audit mutation. Unknown roles retain thei
 existing explicit refusal. Each operation obtains fresh locked state; no prior
 permission snapshot is retained across requests.
 
-Only concrete permission strings are admitted in this dormant subset. `denied`
+Only members of the reviewed terminal operation universe are admitted in this
+dormant subset: the seven `domain-catalogue.names` collections crossed with
+`create`, `read`, `update`, `delete`, `admin`, plus `api:status:read` and
+`admin:api:permissions:read`. The exported frozen `TERMINAL_OPERATIONS` list is
+shared by catalogue, ceiling, delegation and role validation. Lists may include
+reviewed operations omitted from the project catalogue; proposed effective grants
+must still fit each intersection independently. Namespace prefixes, unknown
+collections/actions and arbitrary descendants refuse.
+
+Selected catalogue preparation checks that this universe is prefix-free and that
+the installed Shiro checker implies only the identical operation for every pair
+within it. Shiro still implies descendants outside this bounded universe, including
+from an accepted terminal permission. Future collections, actions or deeper API
+permission checks therefore require explicit review of this boundary before use;
+this is not a bound over arbitrary Shiro permission strings. `denied`
 contributes nothing; `status-only` contributes `api:status:read` and requires it to
 fit the same intersection. The wildcard `readable` default and wildcard role
 permissions refuse; there is no finite projection that silently accepts their wider
