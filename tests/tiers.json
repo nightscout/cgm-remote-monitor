@@ -157,7 +157,8 @@
         "tests/owner-policy-catalogue.test.js",
         "tests/owner-preview.test.js",
         "tests/tenant-durable-replay.test.js",
-        "tests/tenant-projection-evaluator.test.js"
+        "tests/tenant-projection-evaluator.test.js",
+        "tests/tenant-socket-forwarding.test.js"
       ],
       "env": true,
       "require": [
