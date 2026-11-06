@@ -64,8 +64,16 @@ if (control && control !== 'history-clock') {
           if (req.method !== 'GET' || req.tenantContext.tenant !== tenants[0]) return domains.data(req, res, next);
           // Authentication has already accepted tenant A. Deliberately substitute
           // B only for data routing, reproducing an authorization/storage misbind.
-          const shadow = Object.create(req);
+          // Express resets the request prototype on entry to a subapp. Keep
+          // actual wire fields as own properties so the control reaches data.
+          const descriptors = Object.getOwnPropertyDescriptors(req);
+          delete descriptors.tenantContext;
+          const shadow = Object.create(Object.getPrototypeOf(req), descriptors);
           Object.defineProperty(shadow, 'tenantContext', { value: Object.freeze({ ...req.tenantContext, tenant: tenants[1] }) });
+          const authentication = require('../../lib/api3/tenant-authentication');
+          const bound = authentication.get(req);
+          if (!bound) throw new Error('Cross-tenant control requires verified authority');
+          authentication.bind(shadow, bound);
           return domains.data(shadow, res, next);
         } };
       };
