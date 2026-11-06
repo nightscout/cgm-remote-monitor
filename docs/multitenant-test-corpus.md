@@ -59,9 +59,8 @@ themselves.
 
 ## Inventory
 
-31 suites. 15 use the admin URI the script provides; 18 start at least one
-container of their own through Docker (16 own every service they use, 2 share
-PostgreSQL and MongoDB but start their own Vault). Disabled, 30 register their
+34 suites. 16 use the admin URI the script provides; 20 start at least one
+container of their own through Docker. Disabled, 33 register their
 tests as pending with `[pending opt-in: <requirement>]` in the title; one
 (`postgres-entries-write`) uses a bare `describe.skip`.
 
@@ -76,6 +75,9 @@ tests as pending with `[pending opt-in: <requirement>]` in the title; one
 | `tests/tenant-rest-identifier-race.integration.test.js` | `NS_ENTRIES_CRUD_HTTP_TEST=1` | PostgreSQL, MongoDB | | |
 | `tests/tenant-rest-identity-differential.integration.test.js` | `NS_ENTRIES_CRUD_HTTP_TEST=1` | PostgreSQL, MongoDB | | |
 | `tests/tenant-frame-concurrency.integration.test.js` | `NS_ENTRIES_CRUD_HTTP_TEST=1` | PostgreSQL, MongoDB | | |
+| `tests/tenant-commit-clock-port.integration.test.js` | `NS_TENANT_COMMIT_CLOCK_TEST=1` | PostgreSQL | | |
+| `tests/tenant-commit-clock-http.integration.test.js` | `NS_TENANT_COMMIT_CLOCK_HTTP_DOCKER_TEST=1` | | PostgreSQL, Vault | functional cases enabled; benchmark separately opt-in |
+| `tests/multitenant-preview-replicas.integration.test.js` | `NS_MULTITENANT_PREVIEW_REPLICAS_DOCKER_TEST=1` | | PostgreSQL, Vault | independent CLI processes on one host |
 | `tests/tenant-rest-derived.integration.test.js` | `NS_REST_DERIVED_HTTP_TEST=1` | PostgreSQL, MongoDB | | |
 | `tests/tenant-rest-treatments.integration.test.js` | `NS_REST_TREATMENTS_HTTP_TEST=1` | PostgreSQL, MongoDB | | |
 | `tests/tenant-rest-context.integration.test.js` | `NS_REST_CONTEXT_HTTP_TEST=1` | PostgreSQL, MongoDB | Vault | |
@@ -108,11 +110,19 @@ the storage backend for a whole run (`tests/support/backends.js`, tested by
 Every suite in the table runs under the one command; none is held out. The
 whole-corpus run is a batch-slot measurement, not a property of this page.
 
+The HTTP clock suite's performance benchmark stays pending unless the caller
+explicitly sets `NS_TENANT_COMMIT_CLOCK_BENCHMARK=1`. Its functional cases run by
+default with the corpus. One pending benchmark is therefore expected in a default
+whole-corpus run; it is not a skipped functional suite or performance acceptance.
+The runner reports pending counts and requires passing tests with no Mocha
+failure; it does not require zero pending tests. Do not reuse a pre-clock run's
+passing count or zero-pending prediction for this expanded inventory.
+
 ## CI
 
 The `multitenant-postgres` job in `.github/workflows/main.yml` runs
 `npm run test:multitenant` on the newest Node line, on `ubuntu-22.04`, with no
-service containers: 18 suites start their own containers through Docker
+service containers: 20 suites start their own containers through Docker
 whatever the job provides, so the script starting the shared PostgreSQL, MongoDB
 and Vault the same way is the simpler arrangement. The job is one of the
 `Tests pass` aggregate's dependencies.
