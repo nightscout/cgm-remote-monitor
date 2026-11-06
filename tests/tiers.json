@@ -154,7 +154,8 @@
         "tests/serve-listeners.test.js",
         "tests/serve-roles.test.js",
         "tests/subject-admin.test.js",
-        "tests/owner-policy-catalogue.test.js"
+        "tests/owner-policy-catalogue.test.js",
+        "tests/tenant-durable-replay.test.js"
       ],
       "env": true,
       "require": [
@@ -330,7 +331,8 @@
         "tests/subject-admin-postgres.integration.test.js",
         "tests/storage-port-contract.integration.test.js",
         "tests/subject-management-http.integration.test.js",
-        "tests/owner-subject-policy.integration.test.js"
+        "tests/owner-subject-policy.integration.test.js",
+        "tests/tenant-durable-replay.integration.test.js"
       ],
       "env": true,
       "require": [

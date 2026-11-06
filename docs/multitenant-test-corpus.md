@@ -62,8 +62,8 @@ themselves.
 
 ## Inventory
 
-34 suites. 16 use the admin URI the script provides; 20 start at least one
-container of their own through Docker. Disabled, 33 register their
+35 suites. 17 use the admin URI the script provides; 20 start at least one
+container of their own through Docker. Disabled, 34 register their
 tests as pending with `[pending opt-in: <requirement>]` in the title; one
 (`postgres-entries-write`) uses a bare `describe.skip`.
 
@@ -78,6 +78,7 @@ tests as pending with `[pending opt-in: <requirement>]` in the title; one
 | `tests/tenant-rest-identifier-race.integration.test.js` | `NS_ENTRIES_CRUD_HTTP_TEST=1` | PostgreSQL, MongoDB | | |
 | `tests/tenant-rest-identity-differential.integration.test.js` | `NS_ENTRIES_CRUD_HTTP_TEST=1` | PostgreSQL, MongoDB | | |
 | `tests/tenant-frame-concurrency.integration.test.js` | `NS_ENTRIES_CRUD_HTTP_TEST=1` | PostgreSQL, MongoDB | | |
+| `tests/tenant-durable-replay.integration.test.js` | `NS_TENANT_DURABLE_REPLAY_TEST=1` | PostgreSQL | | dormant current-state consumer; producer SIGKILL/snapshot/RLS/rollback |
 | `tests/tenant-commit-clock-port.integration.test.js` | `NS_TENANT_COMMIT_CLOCK_TEST=1` | PostgreSQL | | |
 | `tests/tenant-commit-clock-http.integration.test.js` | `NS_TENANT_COMMIT_CLOCK_HTTP_DOCKER_TEST=1` | | PostgreSQL, Vault | functional cases enabled; benchmark separately opt-in |
 | `tests/multitenant-preview-replicas.integration.test.js` | `NS_MULTITENANT_PREVIEW_REPLICAS_DOCKER_TEST=1` | | PostgreSQL, Vault | independent CLI processes on one host |

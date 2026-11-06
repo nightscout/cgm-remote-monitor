@@ -63,6 +63,7 @@ const INVENTORY = [
   { file: 'tests/tenant-rest-identifier-race.integration.test.js', flags: CRUD, shared: ['postgres', 'mongo'], own: [], gate: PENDING },
   { file: 'tests/tenant-rest-identity-differential.integration.test.js', flags: CRUD, shared: ['postgres', 'mongo'], own: [], gate: PENDING },
   { file: 'tests/tenant-frame-concurrency.integration.test.js', flags: CRUD, shared: ['postgres', 'mongo'], own: [], gate: PENDING },
+  { file: 'tests/tenant-durable-replay.integration.test.js', flags: { NS_TENANT_DURABLE_REPLAY_TEST: '1' }, shared: ['postgres'], own: [], gate: PENDING },
   { file: 'tests/tenant-commit-clock-port.integration.test.js', flags: { NS_TENANT_COMMIT_CLOCK_TEST: '1' }, shared: ['postgres'], own: [], gate: PENDING },
   { file: 'tests/tenant-commit-clock-http.integration.test.js', flags: { NS_TENANT_COMMIT_CLOCK_HTTP_DOCKER_TEST: '1' }, shared: [], own: ['postgres', 'vault'], gate: PENDING,
     note: 'functional cases enabled; benchmark remains pending unless NS_TENANT_COMMIT_CLOCK_BENCHMARK=1' },

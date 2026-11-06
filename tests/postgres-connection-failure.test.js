@@ -52,6 +52,30 @@ describe('checked-out PostgreSQL client failure propagation', function () {
     return { store, clients, calls, setAction: fn => { action = fn; } };
   }
 
+  it('declares repeatable-read snapshots explicitly and refuses to upgrade an outer transaction', async function () {
+    const f = await fixture();
+    try {
+      await scope.withTenant(TENANT, () => f.store.snapshotTransaction(() => f.store.query('SELECT snapshot_work')));
+      assert.equal(f.calls.filter(call => call.text === 'BEGIN ISOLATION LEVEL REPEATABLE READ').length, 1);
+      await scope.withTenant(TENANT, () => f.store.transaction(async () => {
+        await assert.rejects(async () => f.store.snapshotTransaction(() => {}), /snapshot requires a new transaction/);
+      }));
+      assert.equal(f.calls.filter(call => call.text === 'BEGIN').length, 1, 'ordinary transactions retain their default');
+    } finally { await f.store.end(); }
+  });
+
+  it('returns no successful snapshot when its COMMIT fails', async function () {
+    const f = await fixture();
+    f.setAction(async (client, text) => {
+      if (text === 'COMMIT') throw new Error('synthetic snapshot commit failure');
+    });
+    try {
+      await scope.withTenant(TENANT, () => assert.rejects(f.store.snapshotTransaction(async () => 'uncommitted projection'),
+        /synthetic snapshot commit failure/));
+      assert.equal(f.calls.some(call => call.text === 'ROLLBACK'), true);
+    } finally { await f.store.end(); }
+  });
+
   for (const phase of ['BEGIN', 'config', 'SELECT synthetic_work', 'COMMIT']) {
     it('rejects a client event during ' + phase + ', evicts it, and admits a fresh healthy connection', async function () {
       const f = await fixture();
