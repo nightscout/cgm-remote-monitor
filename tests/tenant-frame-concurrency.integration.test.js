@@ -73,8 +73,8 @@ optInSuite(process.env.NS_ENTRIES_CRUD_HTTP_TEST === '1' &&
             'the intended real driver failure must occur after another domain read succeeded');
         } finally {
           barrier.restore();
-          if (pending) await pending;
-          if (changed) await lab.restoreRead(kind);
+          try { if (pending) await pending; }
+          finally { if (changed) await lab.restoreRead(kind); }
         }
         assert.deepEqual(values(await lab.http().expect(200)), { glucose: 101, carbs: 20, treatmentGeneration: 0 });
       });
