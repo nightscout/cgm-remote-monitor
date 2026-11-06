@@ -16,6 +16,24 @@ describe('PostgreSQL entries read: refusals and parameterization', function () {
 
   beforeEach(function () { sent.length = 0; });
 
+  it('accepts the escaped literal slashes emitted by the legacy oref0 lookup', function () {
+    const params = new Params();
+    const expression = /openaps:\/\//;
+    const pattern = expression.source;
+    const sql = compileFilter(fromMongo({ enteredBy: expression }), params, { legacyPatterns: true });
+    assert.match(sql, /regexp_like/);
+    assert.ok(!sql.includes('openaps'));
+    assert.ok(params.values.includes(pattern));
+    assert.throws(() => compileFilter(fromMongo({ enteredBy: expression }), new Params()),
+      /unsupported operator 're'/);
+    for (const unsupported of [/openaps\d/, /openaps[ab]/, /openaps$/]) {
+      assert.throws(() => compileFilter(fromMongo({ enteredBy: unsupported }), new Params(), { legacyPatterns: true }),
+        /outside the literal\/time-helper subset/);
+    }
+    assert.throws(() => compileFilter(fromMongo({ enteredBy: /openaps/i }), new Params(), { legacyPatterns: true }),
+      /regular expression dialect/);
+  });
+
   async function refused (promise, pattern) {
     await assert.rejects(promise, error => error.unsupported === true && pattern.test(error.message));
     assert.deepEqual(sent, [], 'refused before querying');
