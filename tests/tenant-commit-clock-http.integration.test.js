@@ -43,12 +43,20 @@ optInSuite(enabled, 'NS_TENANT_COMMIT_CLOCK_HTTP_DOCKER_TEST=1')(
     }
     before(() => f.setup());
     after(() => f.cleanup());
-    afterEach(async () => {
+    afterEach(async function () {
       // Attempt all cleanup even if one rollback or child shutdown fails.
       const errors = [];
       try { await f.releaseControls(); } catch (error) { errors.push(error); }
       for (const worker of [...f.workers]) {
-        try { await f.stop(worker); } catch (error) { errors.push(error); }
+        try { await f.stop(worker); } catch (error) {
+          // Keep the primary ready() failure without a second shutdown error
+          // only for a confirmed startup refusal that never bound a listener.
+          if (this.currentTest.state === 'failed' && worker.exit?.code === 78 &&
+              worker.exit.signal === null && worker.port === undefined && !/Listening/.test(worker.stdout)) {
+            f.workers.delete(worker);
+            console.log('TENANT_COMMIT_CLOCK_STARTUP_REFUSAL_CLEANUP ' + JSON.stringify(worker.exit));
+          } else errors.push(error);
+        }
       }
       if (errors.length) throw new AggregateError(errors, 'Clock HTTP case cleanup failed');
     });
