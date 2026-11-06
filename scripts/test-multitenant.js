@@ -54,7 +54,7 @@ const IMAGES = {
 const PENDING = 'pending opt-in';
 const CRUD = { NS_ENTRIES_CRUD_HTTP_TEST: '1' };
 const INVENTORY = [
-  { file: 'tests/owner-preview.integration.test.js', flags: { NS_OWNER_PREVIEW_TEST: '1' }, shared: ['postgres'], own: [], gate: PENDING,
+  { file: 'tests/owner-preview.integration.test.js', flags: { NS_OWNER_PREVIEW_TEST: '1' }, shared: ['postgres'], own: ['postgres', 'vault'], gate: PENDING,
     note: 'actual headless tenant-admin CLI workers; operator-provisioned synthetic management credentials, no human issuer' },
   { file: 'tests/postgres-connection.test.js', flags: {}, shared: ['postgres'], own: [], gate: PENDING },
   { file: 'tests/entries-importer-postgres.integration.test.js', flags: { NS_POPULATED_RECOVERY_DOCKER_TEST: '1' }, shared: ['postgres'], own: ['postgres', 'postgres'], gate: PENDING,

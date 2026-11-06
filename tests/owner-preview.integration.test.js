@@ -188,6 +188,85 @@ optInSuite(process.env.NS_OWNER_PREVIEW_TEST === '1' && !!process.env.NS_TEST_PO
         { method: 'DELETE', headers: { Host: 'one.example.test', Authorization: 'Bearer ' + token() } });
       assert.equal(removed.status, 403); assert.deepEqual(await snapshot(), before);
     });
+    it('uses separate actual API and owner listeners in one CLI process with real PostgreSQL and Vault', async function () {
+      // Reuse the real data-preview provider fixture, including its private
+      // restricted connections, Vault transit and persisted data-token state.
+      // The owner writer/reader remain the distinct operator-provisioned roles
+      // above. No fake boot, app injection or credential translation is used.
+      const data = require('./fixtures/multitenant-preview-replicas')();
+      let combined, ownerPort;
+      try {
+        await data.setup();
+        const ownerFile = path.join(directory, 'combined-owner.json');
+        fs.writeFileSync(ownerFile, JSON.stringify(config()), { mode: 0o600 });
+        combined = data.start(data.configuration(), {
+          MULTITENANT_OWNER_PREVIEW_CONFIG: ownerFile, OWNER_WRITER: writerURI, OWNER_READER: readerURI,
+          TENANT_ADMIN_HOSTNAME: '127.0.0.1', TENANT_ADMIN_PORT: '0'
+        }, { roles: 'tenant-admin,api' });
+        await data.until(async () => {
+          assert.equal(combined.exit, null, 'combined actual CLI must remain alive before both binds');
+          const api = /Listening for role api on 127\.0\.0\.1:(\d+)/.exec(combined.stdout);
+          if (api) combined.port = Number(api[1]);
+          return api && /Listening for role tenant-admin on 127\.0\.0\.1:(\d+)/.test(combined.stdout);
+        }, 'both actual CLI listeners');
+        const match = /Listening for role tenant-admin on 127\.0\.0\.1:(\d+)/.exec(combined.stdout);
+        assert.ok(match, 'the same actual CLI process must bind its owner listener');
+        ownerPort = Number(match[1]);
+        assert.notEqual(ownerPort, combined.port, 'data and management require separate actual sockets');
+        const before = await snapshot();
+        const response = await http({ port: combined.port }, token(), { _id: TARGET, name: 'Wrong Plane', roles: ['reader'] });
+        assert([401, 403, 404, 405].includes(response.status), 'data listener must not expose management route: ' + response.status);
+        assert.deepEqual(await snapshot(), before, 'data listener refusal must not mutate owner rows or audit');
+        const dataToken = await data.localToken(A);
+        const seed = await data.http(combined, A, 'POST', '/api/v3/entries', dataToken,
+          { identifier: 'owner-plane-data-canary', type: 'sgv', date: 1793664000000, utcOffset: 0,
+            app: 'synthetic-owner-plane', sgv: 145 });
+        assert.equal(seed.status, 201, 'real data provider must independently persist a canary');
+        const beforeData = (await data.admin.query('SELECT tenant_id,doc FROM preview_data.entries ORDER BY tenant_id,doc::text')).rows;
+        assert.equal(beforeData.length, 1); assert.equal(beforeData[0].doc.sgv, 145);
+        const accepted = await http({ port: ownerPort }, token(), { _id: TARGET, name: 'Owner Plane', roles: ['reader'] });
+        assert.equal(accepted.status, 200, JSON.stringify(accepted.body));
+        const target = (await admin.query(`SELECT display_name FROM ${t('tenant_authorization_subjects')} WHERE tenant_id=$1 AND subject_id=$2`, [A, TARGET])).rows;
+        assert.deepEqual(target, [{ display_name: 'Owner Plane' }]);
+        assert.equal((await admin.query(`SELECT count(*)::int AS count FROM ${t('tenant_subject_admin_audit')}`)).rows[0].count,
+          before[t('tenant_subject_admin_audit')].length + 1, 'owner plane must persist exactly one audit event');
+        assert.deepEqual((await data.admin.query('SELECT tenant_id,doc FROM preview_data.entries ORDER BY tenant_id,doc::text')).rows, beforeData,
+          'management update must not mutate the independently provisioned data plane');
+        console.log('OWNER_PREVIEW_COMBINED_LISTENERS ' + JSON.stringify({ sameProcess: true, distinctSockets: true,
+          realProviders: ['PostgreSQL', 'Vault'], dataManagementStatus: response.status, ownerManagementStatus: accepted.status,
+          independentOwnerAuditDelta: 1, independentDataUnchanged: true }));
+        await data.stop(combined);
+        await assert.rejects(fetch('http://127.0.0.1:' + ownerPort + '/', { signal: AbortSignal.timeout(1000) }),
+          'same process shutdown must also close the owner socket');
+      } finally { await data.cleanup(); }
+    });
+    it('sanitizes an exact-owned reader SQL refusal as 503 without mutation and recovers after restoration', async function () {
+      const credential = token();
+      // Revoke only this fixture-owned reader's existing SELECT grant. This is
+      // a real PostgreSQL permission refusal, not a callback/stub or a claim of
+      // transport/network failure. No unknown backend or service is touched.
+      await admin.query(`REVOKE SELECT ON ${a('credentials')} FROM "${readerRole}"`);
+      try {
+        assert.equal((await admin.query("SELECT has_table_privilege($1,$2,'SELECT') AS allowed",
+          [readerRole, a('credentials')])).rows[0].allowed, false);
+        for (const worker of workers) {
+          const before = await snapshot();
+          const response = await http(worker, credential);
+          assert.equal(response.status, 503);
+          assert.deepEqual(response.body, { error: 'AUTHORITY_UNAVAILABLE' }, 'private database details must be sanitized');
+          assert.deepEqual(await snapshot(), before, 'authority refusal must precede every owner mutation');
+        }
+      } finally { await admin.query(`GRANT SELECT ON ${a('credentials')} TO "${readerRole}"`); }
+      const before = await snapshot();
+      const response = await http(workers[0], credential, { _id: TARGET, name: 'After Authority Restore', roles: ['reader'] });
+      assert.equal(response.status, 200, JSON.stringify(response.body));
+      assert.equal((await admin.query(`SELECT display_name FROM ${t('tenant_authorization_subjects')} WHERE tenant_id=$1 AND subject_id=$2`, [A, TARGET])).rows[0].display_name,
+        'After Authority Restore');
+      assert.equal((await admin.query(`SELECT count(*)::int AS count FROM ${t('tenant_subject_admin_audit')}`)).rows[0].count,
+        before[t('tenant_subject_admin_audit')].length + 1);
+      console.log('OWNER_PREVIEW_READER_SQL_REFUSAL ' + JSON.stringify({ scope: 'exact-owned reader SELECT privilege', workers: workers.length,
+        refusedStatus: 503, sanitized: true, independentStateUnchangedDuringRefusal: true, restoredStatus: response.status, auditDeltaAfterRestore: 1 }));
+    });
     it('closes actual CLI listeners and storage cleanly on SIGTERM', async function () {
       const worker = await start(); await stop(worker); assert.equal(worker.child.exitCode, 0);
     });

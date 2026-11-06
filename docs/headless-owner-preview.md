@@ -99,3 +99,22 @@ revocation across workers, startup no-bind and SIGTERM checks. Human provider
 interoperability, production JOSE/key provisioning, time/resource bounds and full
 human session behavior remain unmeasured. Native cases and controls must run on
 the frozen joined head before making a runtime acceptance claim.
+
+## Prepared joined native boundaries
+
+The native suite additionally prepares a real `tenant-admin,api` CLI process
+using the existing PostgreSQL/Vault replica fixture and the separately
+provisioned restricted owner writer/reader identities. It checks distinct actual
+loopback sockets, a refused management PUT on the data socket with independently
+unchanged owner rows/audit, and a successful owner-socket update with exactly one
+audit event while the independently provisioned data rows remain unchanged.
+Normal process shutdown must close both sockets. No API bootstrap is stubbed.
+
+A second prepared case revokes SELECT on this fixture-owned reader's exact
+access-credentials table. Both existing owner workers must return sanitized503
+without changing either tenant's subject/link/credential/audit state. Restoring
+that same grant must allow the next current-token update and one persisted audit
+event. This is an actual PostgreSQL permission-refusal schedule, not a claim of
+network outage or a universal connection-recovery bound. No foreign backend, role
+or service is touched. These cases remain UNMEASURED until the joined native
+invocation; pure configuration/authentication tests do not certify these effects.

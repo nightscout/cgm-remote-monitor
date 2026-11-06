@@ -62,8 +62,8 @@ themselves.
 
 ## Inventory
 
-36 suites. 18 use the admin URI the script provides; 21 start at least one
-container of their own through Docker. Disabled, 35 register their
+37 suites. 19 use the admin URI the script provides; 22 start at least one
+container of their own through Docker. Disabled, 36 register their
 tests as pending with `[pending opt-in: <requirement>]` in the title; one
 (`postgres-entries-write`) uses a bare `describe.skip`.
 
@@ -97,7 +97,7 @@ tests as pending with `[pending opt-in: <requirement>]` in the title; one
 | `tests/tenant-entries-http.integration.test.js` | `NS_TENANT_HTTP_DOCKER_TEST=1` | | PostgreSQL | |
 | `tests/tenant-credential-http.integration.test.js` | `NS_TENANT_CREDENTIAL_HTTP_DOCKER_TEST=1` | MongoDB | PostgreSQL | its differential cases open `CUSTOMCONNSTR_mongo` |
 | `tests/tenant-authorization-postgres.integration.test.js` | `NS_TENANT_AUTHORITY_POSTGRES_DOCKER_TEST=1` | | PostgreSQL | |
-| `tests/owner-preview.integration.test.js` | `NS_OWNER_PREVIEW_TEST=1` | PostgreSQL | | explicit headless owner CLI, provisioned machine tokens/current state, no human session promises |
+| `tests/owner-preview.integration.test.js` | `NS_OWNER_PREVIEW_TEST=1` | PostgreSQL | PostgreSQL, Vault | explicit headless owner CLI and real combined data/owner listeners; provisioned machine tokens/current state, no human session promises |
 | `tests/subject-management-http.integration.test.js` | `NS_SUBJECT_MANAGEMENT_HTTP_DOCKER_TEST=1` | | PostgreSQL | |
 | `tests/subject-admin-postgres.integration.test.js` | `NS_SUBJECT_ADMIN_POSTGRES_DOCKER_TEST=1` | | PostgreSQL | |
 | `tests/owner-subject-policy.integration.test.js` | `NS_OWNER_SUBJECT_POLICY_DOCKER_TEST=1` | | PostgreSQL | verifies its own volume removal |
@@ -128,7 +128,7 @@ passing count or zero-pending prediction for this expanded inventory.
 
 The `multitenant-postgres` job in `.github/workflows/main.yml` runs
 `npm run test:multitenant` on the newest Node line, on `ubuntu-22.04`, with no
-service containers: 20 suites start their own containers through Docker
+service containers: 22 suites start their own containers through Docker
 whatever the job provides, so the script starting the shared PostgreSQL, MongoDB
 and Vault the same way is the simpler arrangement. The job is one of the
 `Tests pass` aggregate's dependencies.

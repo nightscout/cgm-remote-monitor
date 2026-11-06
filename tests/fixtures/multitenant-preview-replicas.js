@@ -5,7 +5,6 @@ const assert = require('node:assert/strict');
 const crypto = require('node:crypto');
 const fs = require('node:fs');
 const path = require('node:path');
-const net = require('node:net');
 const httpRequest = require('node:http').request;
 const { spawn, execFileSync } = require('node:child_process');
 const { setTimeout: delay } = require('node:timers/promises');
@@ -114,7 +113,9 @@ module.exports = function createReplicaFixture () {
       const preload = (extra.NS_PREVIEW_REPLICA_CONTROL || process.env.NS_PREVIEW_REPLICA_CONTROL) ?
         ['--require', path.join(__dirname, 'multitenant-preview-replica-controls.js')] : [];
       if (options.holdResponse) preload.push('--require', __filename);
-      const child = spawn(process.execPath, [...preload, BIN, 'multitenant', 'api'], {
+      const roles = options.roles || 'api';
+      assert.ok(['api', 'api,tenant-admin', 'tenant-admin,api'].includes(roles), 'explicit fixture CLI roles required');
+      const child = spawn(process.execPath, [...preload, BIN, 'multitenant', roles], {
         cwd: fixtureDirectory, env: environment({ ...extra, MULTITENANT_PREVIEW_CONFIG: workerConfig,
           ...(options.holdResponse ? { NS_PREVIEW_REPLICA_HOLD_RESPONSE: '1' } : {}) }), stdio: ['ignore', 'pipe', 'pipe']
       });
@@ -346,7 +347,7 @@ module.exports = function createReplicaFixture () {
       }
       try { fs.rmSync(fixtureDirectory, { recursive: true, force: true }); }
       catch (error) { errors.push(error); }
-      if (errors.length) throw new AggregateError(errors, 'Owned replica fixture cleanup failed');
+      if (errors.length) throw new globalThis.AggregateError(errors, 'Owned replica fixture cleanup failed');
     }
     async function kill (worker) {
       worker.child.kill('SIGKILL');
