@@ -35,11 +35,12 @@ describe('notifications multi-instance', function () {
   function makeInstance (storage) {
     delete require.cache[require.resolve('../lib/notifications')];
     var emits = [];
+    var teardownHandlers = [];
     var ctx = {
       ddata: { lastUpdated: Date.now() },
       bus: {
         emit: function (evt, data) { emits.push({ evt: evt, data: data }); },
-        once: function () {}
+        once: function (evt, fn) { if (evt === 'teardown') teardownHandlers.push(fn); }
       },
       levels: { URGENT: 2, WARN: 1, INFO: 0, toDisplay: function (l) { return 'L' + l; } },
       alarmStorage: storage
@@ -48,6 +49,7 @@ describe('notifications multi-instance', function () {
     n.resetStateForTests();
     n.__ctx = ctx;
     n.__emits = emits;
+    n.__teardown = function () { teardownHandlers.forEach(function (fn) { fn(); }); };
     return n;
   }
 
@@ -218,6 +220,46 @@ describe('notifications multi-instance', function () {
       setImmediate(function () {
         (alarm.lastAckTime + alarm.silenceTime).should.equal(expiryAfterAutoAck,
           'stale refresh resurrected a pre-auto-ack snooze -- regression on the generation gate');
+        done();
+      });
+    });
+  });
+
+  it('teardown cancels a pending snooze refresh so nothing is emitted afterwards', function (done) {
+    var resolvers = {};
+    var deferredStorage = {
+      getSnooze: function (level, group) {
+        var key = level + '-' + (group || 'default');
+        return new Promise(function (resolve) { resolvers[key] = resolve; });
+      },
+      setSnooze: async function () { return null; }
+    };
+    var inst = makeInstance(deferredStorage);
+
+    // Cold path: the first emit is deferred while the storage read is pending.
+    inst.initRequests();
+    inst.requestNotify({
+      level: 2, group: 'default',
+      title: 'High', message: 'High BG',
+      plugin: { name: 'test' }
+    });
+    inst.process();
+
+    var alarm = inst.getAlarmForTests(2, 'default');
+    alarm.refreshPending.should.equal(true, 'refresh must be pending before teardown');
+
+    inst.__teardown();
+    (alarm.refreshTimer === null).should.equal(true, 'teardown must clear the refresh timer');
+
+    // The in-flight read resolves after teardown.
+    resolvers['2-default'](null);
+
+    setImmediate(function () {
+      setImmediate(function () {
+        var emitted = inst.__emits.some(function (e) {
+          return e.evt === 'notification' && !e.data.clear;
+        });
+        emitted.should.equal(false, 'notification emitted after teardown');
         done();
       });
     });
