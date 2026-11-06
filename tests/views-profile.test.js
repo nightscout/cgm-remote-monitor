@@ -481,13 +481,14 @@ describe('views profile: one tenant, nonresident (research prototype)', function
     });
   });
 
-  describe('actual API v3 writers refresh the retained cycle', function () {
+  describe('actual HTTP writers refresh the retained cycle', function () {
     const request = require('supertest');
     const intentEvent = require('../lib/storage/write-intent').INTENT_EVENT;
     const NOW = Date.UTC(2026, 9, 15, 12, 0, 0);
     const json = value => JSON.parse(JSON.stringify(value));
     const flush = () => new Promise(resolve => self.ctx.evaluator.flush(resolve));
     let app;
+    let v1App;
     let jwt;
     let liveStats;
     let physical = [];
@@ -502,6 +503,16 @@ describe('views profile: one tenant, nonresident (research prototype)', function
 
     before(async function () {
       app = require('../lib/server/serve/views').createApp(self.env, self.ctx).app;
+      // Test-only compatibility composition. The profile executable still
+      // exposes API v3 only; these are the shipping v1 mutation configurators
+      // on the real nonresident context, not new production route admission.
+      v1App = require('../lib/server/app').front(self.env);
+      v1App.enable('api');
+      v1App.enable('careportal');
+      const wares = require('../lib/middleware')(self.env);
+      v1App.use('/api/v1', require('../lib/api/entries')(v1App, wares, self.ctx, self.env));
+      v1App.use('/api/v1', require('../lib/api/treatments')(v1App, wares, self.ctx, self.env));
+      v1App.use(require('../lib/server/error-handler')());
       const auth = await require('./fixtures/api3/authSubject')(self.ctx.authorization.storage, ['all'], app);
       jwt = auth.jwt.all;
       await flush();
@@ -569,12 +580,13 @@ describe('views profile: one tenant, nonresident (research prototype)', function
     async function changed (method, url, body, status, collection, observe) {
       const before = self.ctx.evaluator.stats.evaluations;
       physical = []; logical = []; requested = []; emitted = [];
-      let operation = request(app)[method](url).set('Authorization', 'Bearer ' + jwt);
+      const legacy = url.startsWith('/api/v1/');
+      let operation = request(legacy ? v1App : app)[method](url).set('Authorization', 'Bearer ' + jwt);
       if (body) operation = operation.send(body);
       const response = await operation.expect(status);
       await observe(response);
       await flush();
-      assert(physical.some(event => event.collection === collection && event.source === 'v3'), 'actual API v3 commit event');
+      assert(physical.some(event => event.collection === collection && event.source === (legacy ? 'v1/internal' : 'v3')), 'actual ' + (legacy ? 'v1' : 'v3') + ' commit event');
       assert.equal(self.ctx.evaluator.stats.evaluations - before, 1, method + ' refreshes one coalesced retained cycle');
       assert.equal(self.ctx.evaluator.stats.errors, 0, 'the evaluator remains live');
       const resident = arms.createResident(self.env, self.ctx);
@@ -661,6 +673,100 @@ describe('views profile: one tenant, nonresident (research prototype)', function
         }
       });
     }
+
+    describe('actual v1 configurators over the nonresident context', function () {
+      const identifier = () => require('node:crypto').randomUUID();
+      const entry = (id, offset, value) => ({ identifier: id, type: 'sgv', sgv: value, date: NOW - offset * MIN,
+        dateString: new Date(NOW - offset * MIN).toISOString(), device: 'synthetic-profile-v1' });
+
+      it('entries batch, identity resend and hard delete refresh the live retained cycle', async function () {
+        const collection = self.ctx.store.collection(self.env.entries_collection);
+        const first = identifier(); const second = identifier();
+        await changed('post', '/api/v1/entries/', [entry(first, 1, 90), entry(second, 3, 110)], 200, 'entries', async response => {
+          assert.equal(response.body.length, 2, 'one reply for each batch item');
+          assert.equal((await collection.findOne({ identifier: first })).sgv, 90);
+          assert.equal((await collection.findOne({ identifier: second })).sgv, 110);
+        });
+        assert.equal(logical.length, 1, 'one v1 batch intent');
+        assert.equal(logical[0].records.length, 2, 'both batch records are represented');
+        const stored = await collection.findOne({ identifier: first });
+        await changed('post', '/api/v1/entries/', [entry(first, 1, 240)], 200, 'entries', async response => {
+          assert.equal(response.body[0]._id, String(stored._id), 'a resend names the same stored record');
+          assert.equal((await collection.findOne({ identifier: first })).sgv, 240);
+        });
+        // The extra earlier batch reading changes the forecast: this fixture
+        // selects BWP's urgent high, unlike the API3 single-reading AR2 case.
+        assert(emitted.some(notification => notification.plugin && notification.plugin.name === 'bwp' && notification.level === 2 && /BG Now: 240/.test(notification.message)), 'the live notification service emits the v1 BWP high alarm');
+        await changed('delete', '/api/v1/entries/' + String(stored._id), null, 200, 'entries', async () => {
+          assert.equal(await collection.findOne({ identifier: first }), null, 'v1 physically deletes its addressed record');
+          assert.equal((await collection.findOne({ identifier: second })).sgv, 110, 'the other batch record remains');
+        });
+      });
+
+      it('treatments POST, PUT and hard delete refresh the live retained cycle', async function () {
+        const collection = self.ctx.store.collection(self.env.treatments_collection);
+        const id = identifier();
+        const document = { identifier: id, eventType: 'Carb Correction', carbs: 15,
+          created_at: new Date(NOW - MIN).toISOString(), enteredBy: 'synthetic-profile-v1' };
+        const created = await changed('post', '/api/v1/treatments/', [document], 200, 'treatments', async response => {
+          assert.equal(response.body.length, 1);
+          assert.equal((await collection.findOne({ identifier: id })).carbs, 15);
+        });
+        assert(emitted.some(notification => notification.plugin && notification.plugin.name === 'treatmentnotify' && /Carbs: 15g/.test(notification.message)), 'the live notification service emits the v1 treatment notification');
+        const storedId = created.body[0]._id;
+        await changed('put', '/api/v1/treatments/', Object.assign({}, document, { _id: storedId, carbs: 45 }), 200, 'treatments', async () => {
+          assert.equal((await collection.findOne({ identifier: id })).carbs, 45);
+        });
+        assert(emitted.some(notification => notification.plugin && notification.plugin.name === 'treatmentnotify' && /Carbs: 45g/.test(notification.message)), 'a committed v1 edit reaches the live handoff');
+        await changed('delete', '/api/v1/treatments/' + storedId, null, 200, 'treatments', async () => {
+          assert.equal(await collection.findOne({ identifier: id }), null);
+        });
+      });
+
+      for (const mode of ['replace', 'merge-except-treatments', 'acknowledge', 'refuse']) {
+        it('v1 ' + mode + ' identity resend preserves its reply, outcome and cycle cadence', async function () {
+          const savedWrite = self.env.write;
+          self.env.write = Object.freeze(Object.assign({}, savedWrite, { resend: mode }));
+          try {
+            const id = identifier();
+            const collection = self.ctx.store.collection(self.env.entries_collection);
+            const created = await changed('post', '/api/v1/entries/', [entry(id, 1, 90)], 200, 'entries', async response => {
+              assert.equal(response.body.length, 1);
+              assert.equal((await collection.findOne({ identifier: id })).sgv, 90);
+            });
+            const before = self.ctx.evaluator.stats.evaluations;
+            const retained = json(self.ctx.evaluator.kept());
+            physical = []; logical = []; requested = []; emitted = [];
+            clock.pin(NOW + MIN);
+            const response = await request(v1App).post('/api/v1/entries/').set('Authorization', 'Bearer ' + jwt)
+              .send([entry(id, 1, 160)]).expect(200);
+            await flush();
+            const writes = mode === 'acknowledge' || mode === 'refuse' ? 0 : 1;
+            assert.equal(physical.length, writes);
+            assert(physical.every(event => event.source === 'v1/internal'));
+            assert.equal(self.ctx.evaluator.stats.evaluations - before, writes);
+            assert.equal(logical.length, 1, 'one actual v1 resend intent');
+            assert.equal(logical[0].records[0].outcome, mode === 'acknowledge' ? 'unchanged' : mode === 'refuse' ? 'refused' : 'merged');
+            assert.equal((await collection.findOne({ identifier: id })).sgv, writes ? 160 : 90);
+            if (mode === 'refuse') {
+              assert.equal(response.body[0].refused.status, 409, 'v1 reports refusal inside its 200 batch reply');
+              assert.equal(response.body[0]._id, undefined);
+            } else {
+              assert.equal(response.body[0]._id, created.body[0]._id);
+            }
+            if (!writes) {
+              assert.deepEqual(json(self.ctx.evaluator.kept()), retained);
+              assert.equal(requested.length, 0);
+              assert.equal(emitted.length, 0);
+            } else {
+              assert.equal(self.ctx.evaluator.kept().now, NOW + MIN);
+            }
+          } finally {
+            self.env.write = savedWrite;
+          }
+        });
+      }
+    });
   });
 
   describe('shutdown', function () {
