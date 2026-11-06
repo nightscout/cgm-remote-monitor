@@ -1,6 +1,7 @@
 'use strict';
 const assert = require('node:assert/strict');
 const scope = require('../lib/storage/tenant-scope');
+const { fromMongo } = require('../lib/storage/filter');
 const { optInSuite } = require('./support/opt-in');
 const fixture = require('./fixtures/tenant-rest-settings-differential');
 
@@ -42,6 +43,8 @@ optInSuite(process.env.NS_SETTINGS_DIFFERENTIAL_TEST === '1' &&
       await f.same('delete', '/api/v3/settings/synthetic-client');
       await persistedSame();
       assert.equal((await f.rows('settings'))[0].isValid, false);
+      const history = await f.same('get', '/api/v3/settings/history/' + (f.BASE - 1));
+      assert.equal(history.body.result[0].isValid, false);
       await f.same('get', '/api/v3/settings/synthetic-client', undefined, 410);
       await f.same('delete', '/api/v3/settings/synthetic-client?permanent=true');
       assert.deepEqual(await f.rows('settings'), []);
@@ -89,6 +92,68 @@ optInSuite(process.env.NS_SETTINGS_DIFFERENTIAL_TEST === '1' &&
       const before = await f.rows('settings');
       await f.http('patch', '/api/v3/settings/synthetic-client').send({ rank: 10 }).expect(403);
       assert.deepEqual(await f.rows('settings'), before);
+    });
+
+    it('creates settings and reopens persisted options through a separate worker', async function () {
+      const before = await f.rows('settings', f.B);
+      await f.same('post', '/api/v3/settings', { identifier: 'synthetic-new', app: 'synthetic',
+        date: f.BASE, utcOffset: 0, extension: { unknown: [1, null, false] } }, 201);
+      await persistedSame();
+      const worker = await f.makeWorker();
+      const reopened = await f.http('get', '/api/v3/settings/synthetic-new', { worker }).expect(200);
+      assert.deepEqual(reopened.body.result.extension, { unknown: [1, null, false] });
+      assert.deepEqual(await f.rows('settings', f.B), before);
+    });
+
+    it('preserves typed raw identities and matching shown identity', async function () {
+      const object = { ...doc(), rank: 1 }, string = { ...doc(), _id: f.ID, rank: 2 };
+      delete object.identifier;
+      delete string.identifier;
+      await f.seed('settings', [object, string]);
+      const addressed = await f.same('get', '/api/v3/settings/' + f.ID);
+      assert.equal(addressed.body.result.rank, 1);
+      const listed = await f.same('get', '/api/v3/settings?sort=identifier');
+      assert.equal(listed.body.result.length, 2);
+      assert.deepEqual(listed.body.result.map(row => row.identifier), [f.ID, f.ID]);
+      const raw = await f.mongoRows();
+      assert.equal(raw.filter(row => typeof row._id === 'string').length, 1);
+      assert.equal(raw.filter(row => row._id instanceof f.ObjectId).length, 1);
+      assert.equal((await f.rows('settings')).length, 2);
+    });
+
+    it('characterizes regex and dotted predicates as explicit PG refusals', async function () {
+      await f.seed('settings', [doc()]);
+      for (const query of ['identifier$re=synthetic', 'extension.visible$eq=2']) {
+        const expected = await f.reference('get', '/api/v3/settings?' + query).expect(200);
+        assert.equal(expected.body.result.length, 1);
+        const actual = await f.http('get', '/api/v3/settings?' + query).expect(500);
+        assert.deepEqual(actual.body, { status: 500, message: 'Database error' });
+      }
+    });
+
+    it('refuses nested cross-binding writes and preserves both tenants', async function () {
+      await f.seed('settings', [doc()]);
+      const beforeA = await f.rows('settings'), beforeB = await f.rows('settings', f.B);
+      await assert.rejects(scope.withTenant(f.A, () => f.workers[0].connection.transaction(async () =>
+        scope.withTenant(f.B, () => f.storage().updateMany(fromMongo({ identifier: 'synthetic-client' }),
+          { set: { rank: 99 } })))), /cannot rebind|belongs to another tenant/);
+      assert.deepEqual(await f.rows('settings'), beforeA);
+      assert.deepEqual(await f.rows('settings', f.B), beforeB);
+    });
+
+    it('maps actual connection unavailability and failed commit without persistence', async function () {
+      await f.seed('settings', [doc()]);
+      const beforeA = await f.rows('settings'), beforeB = await f.rows('settings', f.B);
+      f.setStorageFault('ECONNRESET');
+      const unavailable = await f.http('get', '/api/v3/settings/synthetic-client').expect(503);
+      assert.deepEqual(unavailable.body, { error: 'STORAGE_UNAVAILABLE' });
+      f.setStorageFault(undefined);
+      f.setWriteFault(true);
+      await f.http('patch', '/api/v3/settings/synthetic-client').send({ rank: 99 }).expect(500);
+      f.setWriteFault(false);
+      assert.deepEqual(await f.rows('settings'), beforeA);
+      assert.deepEqual(await f.rows('settings', f.B), beforeB);
+      await f.same('get', '/api/v3/settings/synthetic-client');
     });
 
     it('refuses malformed query and immutable client identity consistently', async function () {
