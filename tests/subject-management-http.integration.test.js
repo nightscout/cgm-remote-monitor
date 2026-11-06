@@ -295,6 +295,22 @@ optInSuite(process.env.NS_SUBJECT_MANAGEMENT_HTTP_DOCKER_TEST === '1',
     await data(1, 403, B);
   });
 
+  it('rejects malformed encoded paths before authentication without misclassifying callback failures', async function () {
+    const before = await snapshot();
+    const calls = state.authenticationCalls;
+    assertResponse(await management('delete', path + '/%zz', undefined, { credential: null }), 400, 'REQUEST_INVALID');
+    assert.equal(state.authenticationCalls, calls);
+    for (const error of [new TypeError('synthetic private provider detail'), new URIError('synthetic private provider detail'),
+      Object.assign(new URIError('synthetic private provider detail'), { status: 400 })]) {
+      const unavailable = createSubjectManagementApp({ resolver, subjectAdmin: service,
+        authenticateManagement () { throw error; }
+      });
+      assertResponse(await management('delete', path + '/' + SUBJECT, undefined, { app: unavailable }),
+        503, 'AUTHORITY_UNAVAILABLE');
+    }
+    assert.deepEqual(await snapshot(), before);
+  });
+
   it('sanitizes prefixed and plain resolver outages as unavailable before any authentication or write', async function () {
     const before = await snapshot();
     let calls = 0;

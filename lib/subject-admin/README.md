@@ -144,6 +144,9 @@ media/encoding to 415. PostgreSQL adapter
 their bounded code. Other authentication, authority and persistence exceptions
 return 503 `AUTHORITY_UNAVAILABLE`. Unknown tenant aliases return 404
 `TENANT_REFUSED`; malformed or conflicting tenant selectors return 400.
+Malformed percent-encoded path parameters produce a sanitized 400
+`REQUEST_INVALID` before authentication. Only the router's marked decode
+`URIError` is classified this way; callback type/decode errors remain unavailable.
 
 The opt-in HTTP lab uses a unique disposable PostgreSQL service and random
 database, persistent writer and independent serving readers, synthetic management
