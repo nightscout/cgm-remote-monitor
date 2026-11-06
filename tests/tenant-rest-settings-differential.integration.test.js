@@ -13,7 +13,7 @@ optInSuite(process.env.NS_SETTINGS_DIFFERENTIAL_TEST === '1' &&
   'settings actual single/Mongo and tenant/PostgreSQL differential', function () {
     this.timeout(60000);
     const f = fixture();
-    const doc = () => ({ _id: new f.ObjectId(f.ID), identifier: 'synthetic-client', app: 'synthetic',
+    const doc = () => ({ _id: new f.ObjectId(f.ID), identifier: 'synthetic-client', app: 'synthetic', date: f.BASE, utcOffset: 0,
       srvCreated: f.BASE, srvModified: f.BASE, isValid: true, rank: 2,
       extension: { secret: 'synthetic-private', visible: 2, removed: true },
       markup: '<b>client settings retained verbatim</b>' });
@@ -64,6 +64,7 @@ optInSuite(process.env.NS_SETTINGS_DIFFERENTIAL_TEST === '1' &&
       assert.equal(expected.body.result.length, 1);
       const refused = await f.http('get', '/api/v3/settings?sort=rank').expect(500);
       assert.deepEqual(refused.body, { status: 500, message: 'Database error' });
+      assert.deepEqual(f.workers[0].sorts.at(-1), { rank: 1, identifier: 1, created_at: 1, date: 1, _id: 1 });
     });
 
     it('checks projection at actual storage port before renderer pruning', async function () {

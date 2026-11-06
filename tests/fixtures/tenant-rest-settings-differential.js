@@ -125,6 +125,13 @@ module.exports = function settingsFixture () {
         const col = new Collection({
           ctx, env, app, colName: logical, storageColName: env[logical + '_collection'], ...options
         });
+        if (!reference) {
+          const findMany = col.storage.findMany.bind(col.storage);
+          col.storage.findMany = args => {
+            worker.sorts.push({ ...args.sort });
+            return findMany(args);
+          };
+        }
         ports[logical] = col.storage;
         col.mapRoutes();
       }
@@ -132,7 +139,7 @@ module.exports = function settingsFixture () {
     }
 
     async function makeWorker () {
-      const worker = { events: [], visible: [], graphs: new Map() };
+      const worker = { events: [], visible: [], sorts: [], graphs: new Map() };
       workers.push(worker);
       worker.connection = await connect({ connectionString: uri, max: 1 });
       const query = worker.connection.query.bind(worker.connection);
@@ -287,7 +294,7 @@ module.exports = function settingsFixture () {
       await seed('settings', []);
       await grants(GRANTS);
       await displayName('Exact Synthetic Name');
-      for (const worker of workers) { worker.events.length = 0; worker.visible.length = 0; }
+      for (const worker of workers) { worker.events.length = 0; worker.visible.length = 0; worker.sorts.length = 0; }
     });
     after(async function () {
       try {
