@@ -2,6 +2,7 @@
 
 // covers: lib/subject-admin/owner-policy.js, lib/subject-admin/postgres.js, lib/server/subject-management-app.js
 const assert = require('node:assert/strict');
+const { isDeepStrictEqual } = require('node:util');
 const { createFixture, A, B, TARGET, CATALOGUE } = require('./fixtures/owner-subject-policy');
 const { optInSuite } = require('./support/opt-in');
 
@@ -16,8 +17,10 @@ optInSuite(process.env.NS_OWNER_SUBJECT_POLICY_DOCKER_TEST === '1',
     async function refused (body, status = 403, options) {
       const before = await f.snapshot();
       const response = await f.http(body, options);
-      assert.equal(response.status, status, JSON.stringify(response.body));
-      assert.deepEqual(await f.snapshot(), before, 'a refusal must preserve every target/link/credential/audit row in both tenants');
+      const after = await f.snapshot();
+      assert.equal(response.status, status, JSON.stringify(response.body) +
+        '; persistent effects changed: ' + !isDeepStrictEqual(after, before));
+      assert.deepEqual(after, before, 'a refusal must preserve every target/link/credential/audit row in both tenants');
       return response;
     }
 
