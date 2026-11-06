@@ -12,6 +12,22 @@ describe('dormant durable replay source protocol', function () {
   beforeEach(function () { previous = scope.getTenancyMode(); scope.setTenancyMode('multi'); });
   afterEach(function () { scope.setTenancyMode(previous); });
 
+  it('compares recovered documents with stored typed metadata and rejects flattened or swapped kinds', function () {
+    const { ObjectId } = require('mongodb');
+    const { assertDocuments } = require('./fixtures/tenant-durable-replay');
+    const id = '0123456789abcdef01234567';
+    const stored = [
+      { id_kind: 'objectid', doc: { _id: id, sgv: 111, nested: { value: null } } },
+      { id_kind: 'string', doc: { _id: id, sgv: 112, nested: { value: false } } }
+    ];
+    const actual = [{ ...stored[0].doc, _id: new ObjectId(id) }, { ...stored[1].doc }];
+    assertDocuments(actual, stored);
+    assert.throws(() => assertDocuments(stored.map(row => ({ ...row.doc })), stored), assert.AssertionError);
+    const swapped = stored.map(row => ({ ...row, id_kind: row.id_kind === 'string' ? 'objectid' : 'string' }));
+    assert.throws(() => assertDocuments(actual, swapped), assert.AssertionError);
+    assert.throws(() => assertDocuments([{ ...actual[0], nested: { value: false } }, actual[1]], stored), assert.AssertionError);
+  });
+
   function fixture (overrides = {}) {
     const calls = [];
     let saved, floor = 0, source = [], failUpdate = false, failCommit = false;

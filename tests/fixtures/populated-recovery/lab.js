@@ -118,7 +118,7 @@ function install (describe, it, before, beforeEach, after) {
     function restore (file) {
       docker(['exec', '-i', target.id, 'pg_restore', '-U', USER, '-d', DB,
         '--exit-on-error', '--single-transaction', '--no-owner', '--no-privileges'],
-      { input: fs.readFileSync(file), encoding: null, maxBuffer: 1024 * 1024 });
+      { input: fs.readFileSync(file), stdio: ['pipe', 'pipe', 'pipe'], encoding: null, maxBuffer: 1024 * 1024 });
     }
     before(async function () {
       previousMode = scope.getTenancyMode();

@@ -1,11 +1,12 @@
 'use strict';
 
 const crypto = require('node:crypto');
+const assert = require('node:assert/strict');
 const baseLab = require('./tenant-commit-clock-port');
 const connect = require('../../lib/storage/postgres-connection');
 const createReplay = require('../../lib/storage/postgres-durable-replay');
 const { run } = require('../../lib/migrations/postgres');
-const { encodeDocument } = require('../../lib/storage/postgres-identity');
+const { encodeDocument, decodeDocument } = require('../../lib/storage/postgres-identity');
 const scope = require('../../lib/storage/tenant-scope');
 const dates = require('../../lib/server/srv-dates');
 
@@ -67,6 +68,9 @@ module.exports = function replayLab () {
   lab.checkpoint = async (consumer = 'evaluator', tenant = lab.A) =>
     (await lab.admin.query(`SELECT checkpoint,projection,contract_digest FROM "${lab.replayNamespace}".tenant_consumer_checkpoint
       WHERE tenant_id=$1 AND consumer=$2`, [tenant, consumer])).rows[0];
+  lab.typedRows = async (tenant = lab.A) => (await lab.admin.query(
+    `SELECT id_kind,doc FROM "${lab.namespaces.entries}".entries WHERE tenant_id=$1
+      ORDER BY "srvModified",id_kind COLLATE "C","_id" COLLATE "C"`, [tenant])).rows;
   lab.close = async () => {
     try {
       if (lab.reader) await lab.reader.end();
@@ -80,3 +84,7 @@ module.exports = function replayLab () {
   };
   return lab;
 };
+
+// Compare against independent stored kind metadata, not JSON's string form of
+// ObjectId. Both typed identity and all document values remain in the oracle.
+module.exports.assertDocuments = (actual, stored) => assert.deepEqual(actual, stored.map(decodeDocument));

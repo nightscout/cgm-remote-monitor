@@ -37,11 +37,11 @@ optInSuite(process.env.NS_TENANT_DURABLE_REPLAY_TEST === '1' && !!process.env.NS
       });
       assert.equal(stopped.signal, 'SIGKILL', stderr);
       assert.deepEqual(publications, []);
-      const rows = await lab.rows();
+      const rows = await lab.typedRows();
       assert.equal(rows.length, 1, 'producer data must have committed before death');
       const result = await catchUp(consumer);
       assert.equal(result.rows.length, 1);
-      assert.deepEqual(result.rows[0].document, rows[0]);
+      createLab.assertDocuments(result.rows.map(row => row.document), rows);
       assert.equal(result.checkpoint, await lab.floor(lab.A));
     });
 
