@@ -161,20 +161,12 @@ describe('mongo storage', function () {
     done();
   });
 
-  it('An invalid connection-string should throw an error.', function (done) {
+  it('An invalid connection-string should throw an error.', async function () {
     env.storageURI = 'This is not a MongoDB connection-string';
-
-    (async function () {
-      try {
-        let foo = await require('../lib/storage/mongo-storage')(env, false, true);
-        false.should.be.true();
-      }
-      catch (err) {
-        console.log('We have failed, this is good!');
-        done();
-      }
-    })();
-    
+    // The old try/catch also caught its own assertion after a successful
+    // connection. Require the actual parser refusal, not just any thrown error.
+    await assert.rejects(async () => require('../lib/storage/mongo-storage')(env, false, true),
+      /MONGODB_URI seems invalid: Invalid scheme/);
   });
 
 });
