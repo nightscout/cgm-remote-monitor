@@ -1,0 +1,17 @@
+{
+  "version": 1,
+  "migrations": [
+    {
+      "name": "0001_tenant_lifecycle_requests",
+      "up": [
+        "CREATE TABLE tenant_lifecycle_requests (request_id uuid PRIMARY KEY, tenant_id uuid NOT NULL, artifact_digest text NOT NULL CHECK (artifact_digest ~ ^[a-f0-9]{64}), phase text NOT NULL CHECK (phase IN (requested, executed)), requested_at bigint NOT NULL CHECK (requested_at >= 0), executed_at bigint CHECK (executed_at >= 0), CHECK ((phase = executed) = (executed_at IS NOT NULL)))",
+        "CREATE INDEX tenant_lifecycle_requests_tenant ON tenant_lifecycle_requests (tenant_id, requested_at)",
+        "ALTER TABLE tenant_lifecycle_requests ENABLE ROW LEVEL SECURITY",
+        "ALTER TABLE tenant_lifecycle_requests FORCE ROW LEVEL SECURITY",
+        "CREATE POLICY tenant_lifecycle_requests_tenant ON tenant_lifecycle_requests USING (tenant_id = nullif(current_setting(app.current_tenant_id, true), )::uuid) WITH CHECK (tenant_id = nullif(current_setting(app.current_tenant_id, true), )::uuid)",
+        "REVOKE ALL ON tenant_lifecycle_requests FROM PUBLIC"
+      ],
+      "checksum": "f78136a1b5f58113b53a86f5c9a008d774cf5ddbf2656fa3ff5a739069f8fb32"
+    }
+  ]
+}
