@@ -95,7 +95,7 @@ module.exports = function tenantFrameConcurrency () {
     let held = 0, released = false, release;
     const blocked = new Promise(resolve => { release = resolve; });
     connection.query = async function observedQuery (text, values) {
-      const logical = typeof text === 'string' && ['entries', 'treatments'].find(name =>
+      const logical = typeof text === 'string' && text.startsWith('SELECT id_kind, doc') && ['entries', 'treatments'].find(name =>
         text.includes(' FROM "' + namespaces[name] + '"."' + name + '"'));
       if (logical === 'treatments' && !released) { held++; await blocked; }
       try {
