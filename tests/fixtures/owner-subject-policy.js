@@ -35,7 +35,14 @@ async function createFixture () {
       docker(['rm', '-f', '-v', name]); owned = false;
       for (const volume of f.ownedVolumes || []) {
         let exists = true;
-        try { docker(['volume', 'inspect', volume]); } catch { exists = false; }
+        try { docker(['volume', 'inspect', volume]); } catch (error) {
+          const message = String(error.stderr || '').trim();
+          if (error.status !== 1 || ![
+            'Error response from daemon: get ' + volume + ': no such volume',
+            'Error: No such volume: ' + volume
+          ].includes(message)) throw error;
+          exists = false;
+        }
         if (exists) throw new Error('Owned PostgreSQL volume survived explicit owned-container cleanup');
       }
     }
@@ -45,11 +52,12 @@ async function createFixture () {
   try {
     scope.setTenancyMode('multi');
     const password = crypto.randomBytes(24).toString('hex');
-    execFileSync('docker', ['create', '--name', name, '-p', '127.0.0.1::5432', '-e', 'POSTGRES_USER=operator',
+    const createdContainer = execFileSync('docker', ['create', '--name', name, '-p', '127.0.0.1::5432', '-e', 'POSTGRES_USER=operator',
       '-e', 'POSTGRES_PASSWORD', '-e', 'POSTGRES_DB=' + database, 'postgres:16'],
-    { env: { ...process.env, POSTGRES_PASSWORD: password }, stdio: ['ignore', 'pipe', 'pipe'], timeout: 30000 });
+    { encoding: 'utf8', env: { ...process.env, POSTGRES_PASSWORD: password }, stdio: ['ignore', 'pipe', 'pipe'], timeout: 30000 });
     owned = true;
     f.ownedContainer = docker(['inspect', '--format', '{{.Id}}', name]);
+    if (createdContainer.trim() !== f.ownedContainer) throw new Error('Owned PostgreSQL container identity mismatch');
     f.ownedVolumes = docker(['inspect', '--format', '{{range .Mounts}}{{if eq .Type "volume"}}{{.Name}} {{end}}{{end}}', name]).split(' ').filter(Boolean);
     docker(['start', name]);
     const port = docker(['port', name, '5432/tcp']).split(':').pop();
@@ -62,6 +70,7 @@ async function createFixture () {
     }
     f.admin = admin;
     f.versions = { postgres: (await admin.query('SHOW server_version')).rows[0].server_version, node: process.version };
+    console.log('Owner policy fixture evidence ' + JSON.stringify({ ...f.versions, ownershipVerified: true, ownedVolumeCount: f.ownedVolumes.length }));
     await run('up', { direct: true, connectionString: adminURI, namespace: NS, catalogue: require('../../lib/tenant-authorization/postgres-candidate.json') });
     await run('check', { direct: true, connectionString: adminURI, namespace: NS, catalogue: require('../../lib/tenant-authorization/postgres-candidate.json') });
     await run('up', { direct: true, connectionString: adminURI, namespace: CREDENTIAL_NS, catalogue: require('../../lib/secrets/legacy-credentials-candidate.json') });
