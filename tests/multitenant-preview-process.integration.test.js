@@ -400,6 +400,34 @@ optInSuite(process.env.NS_MULTITENANT_PREVIEW_PROCESS_DOCKER_TEST === '1',
       await stop(first); await stop(second);
     });
 
+    it('new-format preserves default-role validation from the current authority', async function () {
+      const worker = start(localConfiguration()); await ready(worker);
+      const local = await localToken(A), old = (await exchange(worker, A)).body.token;
+      await admin.query("UPDATE preview_auth.tenant_authorization_config SET anonymous_roles=ARRAY['readable','readable'] WHERE tenant_id=$1", [A]);
+      try {
+        assert.equal((await http(worker, A, 'GET', '/api/v3/entries', old)).status, 503, 'existing authority rejects malformed defaults');
+        assert.equal((await http(worker, A, 'GET', '/api/v3/entries', local)).status, 503, 'new snapshot must reject malformed defaults too');
+      } finally { await admin.query("UPDATE preview_auth.tenant_authorization_config SET anonymous_roles=ARRAY['denied'] WHERE tenant_id=$1", [A]); }
+      await stop(worker);
+    });
+
+    it('new-format preserves incomplete-name reads and refuses unattributed writes', async function () {
+      const worker = start(localConfiguration()); await ready(worker);
+      const local = await localToken(A), old = (await exchange(worker, A)).body.token;
+      assert.equal((await http(worker, A, 'POST', '/api/v3/entries', local, {
+        identifier: 'local-null-name', date: 1793664000000, utcOffset: 0, type: 'sgv', sgv: 145, app: 'synthetic-local'
+      })).status, 201);
+      await admin.query('UPDATE preview_auth.tenant_authorization_subjects SET display_name=NULL WHERE tenant_id=$1', [A]);
+      try {
+        assert.equal((await http(worker, A, 'GET', '/api/v3/entries/local-null-name', old)).status, 200, 'existing read allows incomplete name metadata');
+        assert.equal((await http(worker, A, 'GET', '/api/v3/entries/local-null-name', local)).status, 200, 'new read preserves this metadata behavior');
+        for (const credential of [old, local]) assert.equal((await http(worker, A, 'PATCH', '/api/v3/entries/local-null-name', credential, { sgv: 999 })).status, 401);
+        const stored = await admin.query("SELECT doc FROM preview_data.entries WHERE tenant_id=$1 AND doc->>'identifier'='local-null-name'", [A]);
+        assert.equal(stored.rows[0].doc.sgv, 145);
+      } finally { await admin.query("UPDATE preview_auth.tenant_authorization_subjects SET display_name='Synthetic Viewer 0' WHERE tenant_id=$1", [A]); }
+      await stop(worker);
+    });
+
     it('new-format startup refuses shared tenant keys and unsafe access-state privileges before binding', async function () {
       const config = localConfiguration();
       config.accessTokens.keys[1].publicKey = config.accessTokens.keys[0].publicKey;
