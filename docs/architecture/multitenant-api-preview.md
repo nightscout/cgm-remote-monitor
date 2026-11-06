@@ -240,6 +240,44 @@ This is an explicit static-config preview, not production HA, durable tenant
 registry, owner/operator administration, automatic provisioning, realtime,
 evaluation, connector actors or the complete multitenant platform.
 
+## Optional PostgreSQL write-clock prototype
+
+The explicit `writeClock: true` configuration field requires a separate
+`postgres.namespaces.clock` namespace. Omitting the field preserves the existing
+preview behavior. This prototype is awaiting real-database acceptance; enabling
+it is not a claim of production replica readiness or measured throughput.
+
+Before starting any enabled writer, an operator applies
+`migrations/candidates/postgres-write-clock-v1.json` with the explicit migration
+runner and provisions one `tenant_write_clock` row per configured tenant. Its
+`last_stamp` must be at least the ceiling of the largest valid stored
+`srvModified` across every configured domain (zero if none). Quiesce writers
+during initial provisioning or offline import/reseeding. Serving performs no DDL,
+tenant insertion, or floor repair. Startup refuses missing or stale rows and
+unsafe privileges using read-only checks.
+
+Grant the serving identity schema `USAGE`, table `SELECT`, and column
+`UPDATE(last_stamp)` only on this clock table. Retain forced tenant RLS; serving
+must not own the table, bypass RLS, update `tenant_id`, insert, delete, truncate,
+or create objects. The separate readiness identity needs schema `USAGE` and
+read-only access including `schema_migrations`; it receives no mutation grants.
+
+The data transaction locks its tenant clock row, assigns server times from the
+larger of requested JavaScript wall time and the next persisted floor, and
+commits the data and final floor together. The tenant lock is held through
+commit. Nested data writes join that clock context; logical events publish only
+after the outer commit. Authorization still happens before the handler: waiting
+for this lock is not a session-expiry or revocation barrier. This clock does not
+provide a durable event outbox or exactly-once delivery.
+
+All concurrent participating writers must use this protocol. Mixed enabled and
+old writers, raw operator writes, and the bulk-import path bypass it and are
+outside its guarantee. Existing multirow soft deletion can assign one timestamp
+to several rows; this prototype does not promise unique row timestamps across
+history page boundaries. Hard deletion creates no history tombstone. Shared-pool
+contention, tenant progress, ingestion latency, and commit-order visibility
+remain to be measured with the dedicated integration proof.
+
 ## Reproduce the executable acceptance
 
 With Docker available and dependencies installed:

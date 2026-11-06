@@ -1,0 +1,16 @@
+{
+  "version": 1,
+  "status": "prototype review candidate; explicit operator migration and tenant floor provisioning required",
+  "migrations": [
+    {
+      "name": "0001_tenant_write_clock",
+      "up": [
+        "CREATE TABLE tenant_write_clock (tenant_id uuid PRIMARY KEY, last_stamp bigint NOT NULL CHECK (last_stamp >= 0 AND last_stamp < 8640000000000000))",
+        "ALTER TABLE tenant_write_clock ENABLE ROW LEVEL SECURITY",
+        "ALTER TABLE tenant_write_clock FORCE ROW LEVEL SECURITY",
+        "CREATE POLICY tenant_write_clock_isolation ON tenant_write_clock USING (tenant_id = NULLIF(current_setting('app.current_tenant_id', true), '')::uuid) WITH CHECK (tenant_id = NULLIF(current_setting('app.current_tenant_id', true), '')::uuid)"
+      ],
+      "checksum": "704d5a8d0fc9162f9ff4ec652109c466ccc903d77e249bd7ec879012b900554d"
+    }
+  ]
+}
