@@ -180,3 +180,72 @@ current grant/deletion refusal, overlapping tenant identities, known-role bounds
 concurrent replacements, final-audit rollback, serving privilege refusal and an
 RLS exposure control. Production provider/deployment policy acceptance remains
 with their existing gates.
+
+
+## Selected dormant owner-policy enforcement
+
+The existing PostgreSQL store accepts an optional trusted constructor argument:
+`ownerPolicy: { catalogue: ['api:entries:read', 'api:entries:create'] }`.
+These illustrative concrete permissions are not a complete reviewed role catalogue.
+The caller must provide its explicit, nonempty, distinct concrete catalogue. The
+existing service and separately authenticated HTTP facade still call the same store
+update. No data-token/root credential is promoted to management authority and no
+listener or identity issuer is enabled by this option.
+
+In this selected mode, the store snapshots/validates the proposed update before its
+first await. Inside its existing tenant-bound transaction it locks the current
+configuration defaults, operator ceiling and matching management actor, then the
+proposed tenant-local role definitions in name order. It evaluates the union of the
+proposed role permissions and supported implicit defaults against all three sets:
+code catalogue, current operator ceiling, current actor explicit delegation. The
+actor must currently be active and allowed to update, with both principal and consumer
+matching. Use permission alone does not supply delegation. A catalogue digest mismatch,
+missing authority, unsupported wildcard, inactive actor or excess proposed grant
+refuses before subject/credential/link/audit mutation. Unknown roles retain their
+existing explicit refusal. Each operation obtains fresh locked state; no prior
+permission snapshot is retained across requests.
+
+Only concrete permission strings are admitted in this dormant subset. `denied`
+contributes nothing; `status-only` contributes `api:status:read` and requires it to
+fit the same intersection. The wildcard `readable` default and wildcard role
+permissions refuse; there is no finite projection that silently accepts their wider
+meaning. Unselected/default store behavior is unchanged. Selected-mode removal
+refuses explicitly, pending its separate ownership/removal policy; this does not
+change the existing default remove operation.
+
+The appended `0004_owner_policy_fencing` authority candidate preserves all earlier
+migrations/checksums. It adds `tenant_owner_policy` (catalogue digest, ceiling) and
+`tenant_owner_actors` (tenant/principal/consumer, active/update flags, delegation),
+both forced-RLS, plus harmless `owner_fence` boolean columns on these tables and the
+existing configuration and role tables. Catalogue digest is SHA256 over
+`JSON.stringify(catalogue.slice().sort())`; `owner-policy.js` exports the same digest
+helper for operator preparation. Updating code catalogue therefore requires explicit
+matching operator-policy preparation; it does not silently widen old delegation.
+
+A selected-mode management writer needs its existing subject/link/legacy/audit
+privileges plus SELECT and **only UPDATE(owner_fence)** on these four authority
+tables. It receives no UPDATE of role permissions/name, operator ceiling/digest,
+actor active/update/delegation fields or configuration defaults. Startup screens
+forced RLS, nonownership and exact column grants; broader authority grants refuse.
+The fence-column UPDATE privilege permits PostgreSQL `SELECT ... FOR SHARE`; the
+application does not update the fence value or derive authority from it. Default
+mode still rejects any role-column UPDATE grant. Serving authority readers retain
+their separate read-only credentials.
+
+Row SHARE locks remain until the subject/link/audit transaction commits or rolls
+back, and conflict with ordinary private-operator UPDATE/DELETE. Lock order is
+configuration, policy, actor, sorted proposed roles, target subject, legacy metadata.
+A revoker committing before proposal locks must be observed; a proposal that already
+holds the authority locks may finish before the waiting revoker. Concurrent private
+operator transactions should use the same order; conflicting order can produce a
+bounded transaction refusal, not permission fallback. A role change must not race
+between validation and assignment. This boundary requires real lock/race controls
+before claiming reproduced enforcement; code reading alone is not acceptance.
+
+This is proposed-assignment enforcement, not a complete owner platform. Human or
+refresh/session issuance, arbitrary role CRUD/wildcard compatibility, ownership
+transfer/removal, and applying a newly tightened ceiling to all already stored
+subject data grants remain separate integration work. The accepted data-token
+reader and preview configuration are unchanged. Raw privileged operator/database
+credentials remain trusted; the code and audit are not a defense against a stolen
+management writer credential issuing arbitrary SQL within its existing grants.
