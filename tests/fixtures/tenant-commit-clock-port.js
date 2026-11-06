@@ -11,12 +11,13 @@ const scope = require('../../lib/storage/tenant-scope');
 module.exports = function clockPortLab () {
   const name = 'clock_test_' + crypto.randomBytes(8).toString('hex');
   const role = name + '_app';
-  const namespaces = { entries: name + '_data', clock: name + '_clock' };
+  const domains = ['entries', 'treatments', 'devicestatus', 'profile', 'food', 'activity', 'settings'];
+  const namespaces = { ...Object.fromEntries(domains.map(domain => [domain, name + '_' + domain])), clock: name + '_clock' };
   const A = '11111111-1111-4111-8111-111111111111';
   const B = '22222222-2222-4222-8222-222222222222';
   const raw = [], clocks = [];
   let admin, mode;
-  const lab = { name, role, namespaces, A, B, raw, clocks,
+  const lab = { name, role, namespaces, domains, A, B, raw, clocks,
     table: namespaces.entries + '.entries',
     async open () {
       mode = scope.getTenancyMode();
@@ -30,13 +31,16 @@ module.exports = function clockPortLab () {
       const password = crypto.randomBytes(24).toString('hex');
       await admin.query(`CREATE ROLE "${role}" LOGIN NOSUPERUSER NOBYPASSRLS PASSWORD '${password}'`);
       for (const [kind, catalogue] of Object.entries({
-        entries: require('../../migrations/candidates/postgres-entries-v1.json'),
+        ...Object.fromEntries(domains.map(domain => [domain,
+          require('../../lib/server/serve/postgres-domains').get(domain).catalogue])),
         clock: require('../../migrations/candidates/postgres-write-clock-v1.json')
       })) {
         await run('up', { direct: true, connectionString, namespace: namespaces[kind], catalogue });
         await admin.query(`GRANT USAGE ON SCHEMA "${namespaces[kind]}" TO "${role}"`);
       }
-      await admin.query(`GRANT SELECT,INSERT,UPDATE,DELETE ON "${namespaces.entries}".entries TO "${role}"`);
+      for (const domain of domains) {
+        await admin.query(`GRANT SELECT,INSERT,UPDATE,DELETE ON "${namespaces[domain]}"."${domain}" TO "${role}"`);
+      }
       await admin.query(`GRANT SELECT,UPDATE(last_stamp) ON "${namespaces.clock}".tenant_write_clock TO "${role}"`);
       url.username = role;
       url.password = password;
@@ -49,7 +53,7 @@ module.exports = function clockPortLab () {
       await lab.reset();
     },
     async reset () {
-      await admin.query(`TRUNCATE "${namespaces.entries}".entries`);
+      for (const domain of domains) await admin.query(`TRUNCATE "${namespaces[domain]}"."${domain}"`);
       await admin.query(`DELETE FROM "${namespaces.clock}".tenant_write_clock`);
       lab.initial = Date.now() + 100000;
       await admin.query(`INSERT INTO "${namespaces.clock}".tenant_write_clock VALUES ($1,$3),($2,$3)`, [A, B, lab.initial]);

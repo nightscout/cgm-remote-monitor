@@ -239,4 +239,45 @@ optInSuite(process.env.NS_TENANT_COMMIT_CLOCK_TEST === '1' && !!process.env.NS_T
       assert.deepEqual(await lab.rows(lab.A, page[0].srvModified), [],
         'One allocation for these legacy twins omits the tied second row after an exclusive cursor');
     });
+
+    it('admits valid floors across all seven catalogues and ignores nonnumeric or out-of-range legacy server dates', async function () {
+      const config = { writeClock: true, domains: lab.domains, namespaces: lab.namespaces,
+        bindings: new Map([[lab.A, {}], [lab.B, {}]]) };
+      // Real catalogues, real serving grants and RLS. Profile has no physical
+      // srvModified projection; its fractional JSON value is the highest.
+      for (const domain of lab.domains) {
+        const values = [domain === 'profile' ? 103.25 : 100, '7000000000000000', null,
+          false, [999999], { value: 999999 }, -1, 8640000000000000, 1e100];
+        for (let index = 0; index < values.length; index++) {
+          await lab.admin.query('INSERT INTO "' + lab.namespaces[domain] + '"."' + domain +
+            '" (tenant_id,id_kind,doc) VALUES ($1,$2,$3)', [lab.A, 'string',
+            { _id: 'legacy-date-' + index, srvModified: values[index] }]);
+        }
+        await lab.admin.query('INSERT INTO "' + lab.namespaces[domain] + '"."' + domain +
+          '" (tenant_id,id_kind,doc) VALUES ($1,$2,$3)', [lab.A, 'string', { _id: 'missing-server-date' }]);
+        await lab.admin.query('INSERT INTO "' + lab.namespaces[domain] + '"."' + domain +
+          '" (tenant_id,id_kind,doc) VALUES ($1,$2,$3)', [lab.B, 'string',
+          { _id: 'foreign-high-date', srvModified: 1000000 }]);
+      }
+      await lab.admin.query('UPDATE "' + lab.namespaces.clock +
+        '".tenant_write_clock SET last_stamp=CASE WHEN tenant_id=$1 THEN 104 ELSE 1000000 END', [lab.A]);
+      await postgresDomains.assertServing(config, lab.raw[0]);
+      await lab.admin.query('UPDATE "' + lab.namespaces.clock +
+        '".tenant_write_clock SET last_stamp=103 WHERE tenant_id=$1', [lab.A]);
+      await assert.rejects(postgresDomains.assertServing(config, lab.raw[0]), /missing or stale/);
+      assert.equal(await lab.floor(lab.A), 103, 'Readiness must not repair a stale floor');
+      for (const domain of lab.domains) {
+        await lab.admin.query('DELETE FROM "' + lab.namespaces[domain] + '"."' + domain +
+          '" WHERE tenant_id=$1 AND doc->>\'_id\'=$2', [lab.A, 'legacy-date-0']);
+      }
+      await lab.admin.query('UPDATE "' + lab.namespaces.clock +
+        '".tenant_write_clock SET last_stamp=0 WHERE tenant_id=$1', [lab.A]);
+      await postgresDomains.assertServing(config, lab.raw[0]);
+      await lab.admin.query('GRANT UPDATE(tenant_id) ON "' + lab.namespaces.clock + '".tenant_write_clock TO "' + lab.role + '"');
+      try { await assert.rejects(postgresDomains.assertServing(config, lab.raw[0]), /unsafe write clock privileges/); }
+      finally { await lab.admin.query('REVOKE UPDATE(tenant_id) ON "' + lab.namespaces.clock + '".tenant_write_clock FROM "' + lab.role + '"'); }
+      await postgresDomains.assertServing(config, lab.raw[0]);
+      await lab.admin.query('DELETE FROM "' + lab.namespaces.clock + '".tenant_write_clock WHERE tenant_id=$1', [lab.A]);
+      await assert.rejects(postgresDomains.assertServing(config, lab.raw[0]), /missing or stale/);
+    });
   });
