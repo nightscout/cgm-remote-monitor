@@ -22,6 +22,11 @@ const createViews = require('../../lib/data/views');
 const createSnapshot = require('../../lib/server/tenant-app/snapshot');
 const derivedFrame = require('../../lib/server/tenant-app/derived-frame');
 const language = require('../../lib/language')();
+const wrappers = {
+  entries: require('../../lib/server/entries'), treatments: require('../../lib/server/treatments'),
+  devicestatus: require('../../lib/server/devicestatus'), profile: require('../../lib/server/profile'),
+  food: require('../../lib/server/food'), activity: require('../../lib/server/activity')
+};
 
 const A = '11111111-1111-4111-8111-111111111111';
 const B = '22222222-2222-4222-8222-222222222222';
@@ -151,8 +156,8 @@ module.exports = function frameAcquisition () {
     }
     for (const logical of DOMAINS) {
       env[logical + '_collection'] = name + '_' + (tenant === A ? 'a' : 'b') + '_' + logical;
-      const wrapper = logical === 'profile' ? require('../../lib/server/profile')(env.profile_collection, ctx, env)
-        : require('../../lib/server/' + logical)(env, ctx);
+      const wrapper = logical === 'profile' ? wrappers.profile(env.profile_collection, ctx, env)
+        : wrappers[logical](env, ctx);
       const method = logical === 'profile' ? 'last' : 'list';
       ctx[logical] = { [method] (...args) {
         const callback = args.pop();
@@ -200,7 +205,7 @@ module.exports = function frameAcquisition () {
     if (admin) try { await admin.end(); } catch (error) { failures.push(error); }
     for (const name of containers.reverse()) try { docker(['rm', '--force', name]); } catch (error) { failures.push(error); }
     if (oldMode !== undefined) scope.setTenancyMode(oldMode);
-    if (failures.length) throw new AggregateError(failures, 'frame acquisition cleanup');
+    if (failures.length) throw new globalThis.AggregateError(failures, 'frame acquisition cleanup');
   }
   return { A, B, NOW, HOUR, HEX, open, seed, context, acquire, properties, liveness, release, close, language };
 };

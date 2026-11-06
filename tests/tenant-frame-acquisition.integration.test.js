@@ -1,12 +1,12 @@
 'use strict';
 
 const assert = require('node:assert/strict');
-const { ObjectId } = require('mongodb');
 const { mock } = require('node:test');
 const { optInSuite } = require('./support/opt-in');
 const fixture = require('./fixtures/frame-acquisition');
 const snapshot = require('../lib/server/tenant-app/snapshot');
 const scope = require('../lib/storage/tenant-scope');
+const http = require('node:http'), https = require('node:https');
 
 optInSuite(process.env.NS_FRAME_ACQUISITION_TEST === '1',
   'NS_FRAME_ACQUISITION_TEST=1 with Docker for disposable PostgreSQL/MongoDB')(
@@ -18,8 +18,8 @@ optInSuite(process.env.NS_FRAME_ACQUISITION_TEST === '1',
     beforeEach(async function () {
       await lab.seed();
       mock.timers.enable({ apis: ['Date'], now: lab.NOW });
-      for (const name of ['http', 'https']) for (const method of ['request', 'get']) {
-        mock.method(require('node:' + name), method, () => {
+      for (const [name, module] of [['http', http], ['https', https]]) for (const method of ['request', 'get']) {
+        mock.method(module, method, () => {
           attempts.push(name + '.' + method); throw new Error('forbidden acquisition provider egress');
         });
       }
