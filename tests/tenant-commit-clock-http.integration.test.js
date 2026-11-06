@@ -161,7 +161,7 @@ optInSuite(enabled, 'NS_TENANT_COMMIT_CLOCK_HTTP_DOCKER_TEST=1')(
       } finally { await blocker.release(); }
     });
 
-    it('rolls back an operator-terminated PostgreSQL writer while the original data row remains locked', async function () {
+    it('survives an operator-terminated PostgreSQL writer with rollback and healthy follow-up', async function () {
       const monitor = process.env.NS_TENANT_CLOCK_ABORT_MONITOR;
       if (monitor) assert.ok(require('node:path').isAbsolute(monitor) && !/\s/.test(monitor),
         'diagnostic monitor must be an explicit absolute path without whitespace');
@@ -170,7 +170,6 @@ optInSuite(enabled, 'NS_TENANT_COMMIT_CLOCK_HTTP_DOCKER_TEST=1')(
       const floorBefore = await f.floor(A), foreign = await f.foreignRows(B);
       const blocker = await f.lockEntry(A, original.identifier);
       let w1, w2, dataWait;
-      let assertionsComplete = false;
       try {
         w1 = f.tracked(call(first, A, 'PATCH', '/api/v3/entries/' + original.identifier, token, { sgv: 199 }));
         dataWait = await f.waitForBlocked(w1, blocker.pid, 'data-update');
@@ -182,8 +181,18 @@ optInSuite(enabled, 'NS_TENANT_COMMIT_CLOCK_HTTP_DOCKER_TEST=1')(
         // W2 must commit while the original data-row locker is STILL held.
         await f.completed(w2, 201, 'clock waiter after operator backend termination', dataWait.deadline);
         const failed = await w1.promise;
-        assert.ok(failed.error || (failed.response.status >= 400 && failed.response.status < 600),
-          'terminated writer must not acknowledge a successful write');
+        assert.equal(failed.error, null, 'database abort must propagate as HTTP failure, not process loss');
+        if (failed.response.status === 503) {
+          assert.deepEqual(failed.response.body, { error: 'STORAGE_UNAVAILABLE' },
+            'typed unavailable cause retains the existing sanitized response');
+        } else {
+          assert.equal(failed.response.status, 500, 'only existing sanitized storage failure contracts are accepted');
+          assert.deepEqual(failed.response.body, { status: 500, message: 'Database error' });
+        }
+        const publicFailure = JSON.stringify(failed.response.body);
+        assert.ok(!publicFailure.includes(token), 'public failure must not disclose the data credential');
+        assert.doesNotMatch(publicFailure, /postgres(?:ql)?:\/\/|node_modules|Connection terminated|uncaughtException/,
+          'public failure must not expose connection internals or stack');
         assert.deepEqual((await f.rows(A, original.identifier))[0], original);
         const survivor = (await f.rows(A, 'commit-clock-after-backend-abort'))[0];
         assert.equal(survivor.srvModified, floorBefore + 1, 'operator-aborted allocation rolls back in the same transaction');
@@ -192,17 +201,30 @@ optInSuite(enabled, 'NS_TENANT_COMMIT_CLOCK_HTTP_DOCKER_TEST=1')(
         assert.ok((await history(second, token, floorBefore)).some(doc => doc.identifier === survivor.identifier));
         console.log('TENANT_COMMIT_CLOCK_OPERATOR_BACKEND_ABORT ' + JSON.stringify({
           termination: 'operator pg_terminate_backend of observed W1',
-          firstWriterOutcome: failed.error ? 'transport-failure' : 'HTTP-' + failed.response.status,
+          firstWriterOutcome: 'HTTP-' + failed.response.status,
           originalDataLockStillHeld: true, before: floorBefore, survivor: survivor.srvModified,
           killedRowUnchanged: true }));
-        assertionsComplete = true;
-      } finally {
-        await blocker.release();
-        // This child received an explicit database fault. Record and dispose it
-        // after the correctness assertions; unaffected workers still use strict
-        // graceful shutdown. This is not a process-survival acceptance test.
-        if (assertionsComplete) await f.disposeBackendFaultTarget(first);
-      }
+      } finally { await blocker.release(); }
+      assert.equal(first.exit, null, 'API worker must survive its checked-out connection failure');
+      const read = await call(first, A, 'GET', '/api/v3/entries/' + original.identifier, token);
+      assert.equal(read.status, 200, 'same API process must acquire a healthy connection for a read');
+      assert.equal(read.body.result.sgv, original.sgv);
+      const afterAbort = (await f.rows(A, 'commit-clock-after-backend-abort'))[0];
+      const followup = await seed(first, token, 'commit-clock-recovered-worker', A);
+      assert.ok(followup.srvModified > afterAbort.srvModified, 'same process must commit beyond the survivor cursor');
+      assert.ok((await history(second, token, afterAbort.srvModified))
+        .some(doc => doc.identifier === followup.identifier), 'other API sees the recovered worker write after that cursor');
+      assert.equal(await f.floor(A), followup.srvModified);
+      assert.deepEqual(await f.foreignRows(B), foreign);
+      assert.equal(first.exit, null, 'same API worker remains alive after the follow-up write');
+      const diagnostic = f.workerDiagnostic(first);
+      assert.equal(diagnostic.fatalMonitor, null, 'no uncaught exception observed by optional passive monitor');
+      assert.equal(diagnostic.stderrSignals.unhandledError, false, 'no unhandled emitter error');
+      console.log('TENANT_COMMIT_CLOCK_BACKEND_RECOVERY ' + JSON.stringify({
+        sameProcessRead: 200, sameProcessWrite: 201, followupStamp: followup.srvModified,
+        diagnostic, normalStrictShutdownRequired: true
+      }));
+      // Both workers remain tracked for the normal strict exit0/socket checks.
     });
 
     it('rolls back the clock when an actual PostgreSQL data constraint rejects insertion', async function () {
