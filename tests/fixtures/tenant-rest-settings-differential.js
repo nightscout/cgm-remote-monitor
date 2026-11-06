@@ -55,6 +55,7 @@ module.exports = function settingsFixture () {
     const name = 'settings_test_' + random();
     const schemas = Object.fromEntries(Object.keys(catalogues).map(key => [key, name + '_' + key]));
     const role = name + '_app';
+    const transitMount = name + '_transit';
     const roots = [random(), random()];
     const credentials = roots.map(root => 'synthetic-' + hash(hash(root) + SUBJECT).slice(0, 16));
     const workers = [], providers = [];
@@ -253,11 +254,11 @@ module.exports = function settingsFixture () {
       await admin.query(`GRANT INSERT ON "${schemas.secrets}".secret_audit TO "${role}"`);
       const url = new URL(process.env.NS_TEST_POSTGRES_ADMIN_URI);
       url.username = role; url.password = password; uri = url.toString();
-      await vault('sys/mounts/transit', { type: 'transit' });
+      await vault('sys/mounts/' + transitMount, { type: 'transit' });
       for (const [i, tenant] of [A, B].entries()) {
-        for (const purpose of ['data', 'signing']) await vault(`transit/keys/${name}-${i}-${purpose}`, { type: 'aes256-gcm96' });
+        for (const purpose of ['data', 'signing']) await vault(`${transitMount}/keys/${name}-${i}-${purpose}`, { type: 'aes256-gcm96' });
         providers.push(createVaultTransit({
-          address: process.env.NS_SETTINGS_VAULT_ADDRESS, mount: 'transit',
+          address: process.env.NS_SETTINGS_VAULT_ADDRESS, mount: transitMount,
           encryptionKey: `${name}-${i}-data`, signingKey: `${name}-${i}-signing`, signingVersion: 1,
           getToken: async () => process.env.NS_SETTINGS_VAULT_TOKEN, allowInsecureLoopback: true
         }));
