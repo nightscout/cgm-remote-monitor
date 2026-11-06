@@ -318,14 +318,27 @@ module.exports = function createReplicaFixture () {
       }
 
     }
+    function removeOwnedContainer (name) {
+      // Images may declare anonymous database volumes. Capture exact ownership
+      // before removal, then verify that rm -v removed only these owned volumes.
+      const mounts = JSON.parse(docker(['inspect', '--format', '{{json .Mounts}}', name]));
+      const volumes = mounts.filter(mount => mount.Type === 'volume').map(mount => mount.Name);
+      console.log('REPLICA_OWNED_VOLUME_CLEANUP ' + JSON.stringify({ container: name, volumes }));
+      docker(['rm', '-fv', name]);
+      for (const volume of volumes) {
+        assert.throws(() => docker(['volume', 'inspect', volume]), /no such volume/i,
+          'owned anonymous volume must be removed with its container');
+      }
+    }
+
     async function cleanup () {
       for (const worker of children) {
         if (!worker.exit) worker.child.kill('SIGKILL');
         await worker.exited;
       }
       if (admin) await admin.end();
-      if (vaultOwned) docker(['rm', '-fv', vaultName]);
-      if (pgOwned) docker(['rm', '-fv', pgName]);
+      if (vaultOwned) removeOwnedContainer(vaultName);
+      if (pgOwned) removeOwnedContainer(pgName);
       fs.rmSync(fixtureDirectory, { recursive: true, force: true });
 
     }
