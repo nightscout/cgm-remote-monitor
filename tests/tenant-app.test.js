@@ -8,6 +8,8 @@ const { createTenantSettings } = require('../lib/tenant-settings/component');
 const { createSubjectPolicy } = require('../lib/subject-policy/component');
 const { createOperatorPolicy } = require('../lib/operator-policy/component');
 const { createTenantApp, createOperatorApp } = require('../lib/server/tenant-app');
+const createDataAccess = require('../lib/server/tenant-app/data-access');
+const legacyAuthorization = require('../lib/server/tenant-app/legacy-authorization');
 
 function fixture ({ trustedProxy = () => false, resolver: suppliedResolver, exchange } = {}) {
   const events = [];
@@ -364,5 +366,97 @@ describe('dormant tenant HTTP composition', function () {
     await tenantRequest(app, '/api/v3/entries', 'A-data', 'internal-a.example.net').expect(200);
     await tenantRequest(app, '/api/v3/entries', 'B-data', 'internal-a.example.net')
       .expect(401, { error: 'CREDENTIAL_REFUSED' });
+  });
+});
+
+describe('legacy tenant data refusal compatibility', function () {
+  const unauthorized = { status: 401, message: 'Unauthorized', description: 'Invalid/Missing' };
+  const scope = require('../lib/storage/tenant-scope');
+  let originalMode;
+  before(function () { originalMode = scope.getTenancyMode(); scope.setTenancyMode('multi'); });
+  after(function () { scope.setTenancyMode(originalMode); });
+
+  function legacyFixture () {
+    const original = fixture();
+    const state = { credential: false, permission: false, error: null, reached: 0 };
+    const access = createDataAccess({
+      secrets: {
+        async verifyLegacyCredential () {
+          if (state.error) throw state.error;
+          return state.credential ? { kind: 'subject', subjectId: 'client' } : null;
+        },
+        async exchangeLegacyCredential () { return null; }
+      },
+      authority: {
+        async authorize () { return state.permission; },
+        async subjectSnapshot () { return { sub: 'client', permissionGroups: [] }; }
+      },
+      verifierContext: async tenant => ({ tenant, consumer: 'client' }),
+      legacyCollections: ['entries']
+    });
+    const legacy = express.Router();
+    legacy.get('/entries', legacyAuthorization().isPermitted('api:entries:read'), (req, res) => {
+      state.reached++;
+      res.json([]);
+    });
+    const app = createTenantApp({ ...original.options,
+      // Keep admission in the actual authentication callback; this router also
+      // falls through to the separate owner plane, which must retain its errors.
+      dataAccess: input => access(input), legacyRouter: legacy });
+    return { app, state, operator: original.operator };
+  }
+
+  it('preserves the shipping v1/v2 401 envelope for rejected credentials before any data handler', async function () {
+    const { app, state } = legacyFixture();
+    for (const version of [1, 2]) {
+      await request(app).get('/api/v' + version + '/entries?token=synthetic-invalid')
+        .set('Host', 'one.example.org').expect(401, unauthorized);
+      await request(app).get('/api/v' + version + '/entries')
+        .set('Host', 'one.example.org').set('api-secret', 'synthetic-invalid')
+        .expect(401, unauthorized);
+    }
+    assert.equal(state.reached, 0);
+  });
+
+  it('preserves that envelope for current permission denial and lets an authorized request reach data', async function () {
+    const { app, state } = legacyFixture();
+    state.credential = true;
+    for (const version of [1, 2]) {
+      await request(app).get('/api/v' + version + '/entries')
+        .set('Host', 'one.example.org').set('api-secret', 'synthetic-credential')
+        .expect(401, unauthorized);
+    }
+    assert.equal(state.reached, 0);
+    state.permission = true;
+    await request(app).get('/api/v1/entries').set('Host', 'one.example.org')
+      .set('api-secret', 'synthetic-credential').expect(200, []);
+    assert.equal(state.reached, 1);
+  });
+
+  it('formats known token refusals statically while retaining sanitized dependency failure', async function () {
+    const { app, state } = legacyFixture();
+    for (const code of ['TOKEN_FORMAT', 'TOKEN_HEADER', 'TOKEN_KEY', 'TOKEN_SIGNATURE', 'TOKEN_CLAIMS']) {
+      state.error = Object.assign(new Error('private synthetic provider detail'), { code });
+      await request(app).get('/api/v1/entries').set('Host', 'one.example.org')
+        .set('api-secret', 'synthetic-credential').expect(401, unauthorized);
+    }
+    state.error = new Error('private synthetic provider detail');
+    await request(app).get('/api/v1/entries').set('Host', 'one.example.org')
+      .set('api-secret', 'synthetic-credential').expect(503, { error: 'AUTHORITY_UNAVAILABLE' });
+    assert.equal(state.reached, 0);
+  });
+
+  it('keeps API3, owner and operator refusal contracts even with a legacy router mounted', async function () {
+    const { app, operator, state } = legacyFixture();
+    await request(app).get('/api/v3/entries').set('Host', 'one.example.org')
+      .expect(401, { error: 'CREDENTIAL_REFUSED' });
+    await request(app).get('/api/v1/tenant/settings').set('Host', 'one.example.org')
+      .expect(401, { error: 'CREDENTIAL_REFUSED' });
+    await request(operator).get('/api/v1/operator/tenants/A/policy')
+      .expect(401, { error: 'CREDENTIAL_REFUSED' });
+    state.error = Object.assign(new Error('private synthetic provider detail'), { code: 'TOKEN_SIGNATURE' });
+    await request(app).get('/api/v3/entries').set('Host', 'one.example.org')
+      .set('api-secret', 'synthetic-credential').expect(401, { error: 'TOKEN_SIGNATURE' });
+    assert.equal(state.reached, 0);
   });
 });
