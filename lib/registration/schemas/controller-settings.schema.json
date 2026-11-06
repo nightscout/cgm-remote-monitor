@@ -1,0 +1,226 @@
+{
+  "$comment": "Generated from the alignment repository's specs/sync/controller-settings.schema.json by tools/nsschema/vendor_catalogue.py. Do not edit; regenerate. Source commit 831acb9e0b9816e5d47a54a35f9b32f3c39c4ba3.",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://nightscout.dev/schemas/sync/controller-settings.json",
+  "title": "ControllerSettings",
+  "description": "What a controller was configured to do, at a moment in time. Written to the `settings` collection, which cgm-remote-monitor already enables on v3 — so this needs no new endpoint. Publish on change, not per cycle. Everything here is effective-dated and build-versioned, because a setting that changed mid-history invalidates a replay that assumed one value.",
+  "type": "object",
+  "required": [
+    "effectiveFrom",
+    "controller",
+    "settings"
+  ],
+  "additionalProperties": false,
+  "properties": {
+    "effectiveFrom": {
+      "type": "string",
+      "format": "date-time",
+      "description": "When these settings took effect. Not when the document was written."
+    },
+    "effectiveUntil": {
+      "type": [
+        "string",
+        "null"
+      ],
+      "format": "date-time",
+      "description": "Null while current."
+    },
+    "controller": {
+      "type": "object",
+      "required": [
+        "product",
+        "version"
+      ],
+      "additionalProperties": false,
+      "properties": {
+        "vendor": {
+          "type": "string"
+        },
+        "product": {
+          "type": "string"
+        },
+        "version": {
+          "type": "string",
+          "description": "The build. Algorithm behaviour changes between releases, so a setting without one cannot be replayed against the right code."
+        },
+        "algorithmFamily": {
+          "enum": [
+            "oref0",
+            "loop",
+            "other"
+          ]
+        }
+      }
+    },
+    "settings": {
+      "type": "object",
+      "description": "Every member optional: a controller publishes what it has. Absent means not published, which is different from a default — and is exactly what a replay needs to know.",
+      "additionalProperties": true,
+      "properties": {
+        "automaticBolusApplicationFactor": {
+          "type": "number",
+          "description": "The fraction of a recommended bolus that is actually delivered, defaulting to 0.4. It scales every automatic dose Loop gives, is user-adjustable in some builds, and is recorded nowhere. Two sites with identical therapy settings and identical glucose will dose differently, and nothing in Nightscout says why.",
+          "x-source": "LoopAlgorithm/Sources/LoopAlgorithm/AlgorithmInput.swift",
+          "x-status-today": "absent",
+          "x-algorithm": "loop",
+          "minimum": 0
+        },
+        "carbAbsorptionModel": {
+          "type": "string",
+          "description": "Piecewise-linear versus nonlinear carb absorption changes the carb effect curve, and so the dose.",
+          "x-source": "LoopAlgorithm/Sources/LoopAlgorithm/AlgorithmInput.swift",
+          "x-status-today": "absent",
+          "x-algorithm": "loop"
+        },
+        "dia": {
+          "type": "number",
+          "description": "dia, a oref0 dosing input.",
+          "x-source": "oref0 profile / AAPS preference keys",
+          "x-status-today": "recorded",
+          "x-algorithm": "oref0",
+          "x-unit": "hours",
+          "minimum": 0,
+          "x-published-today-as": "store.{}.dia"
+        },
+        "dosingStrategy": {
+          "type": "string",
+          "description": "dosingStrategy, a oref0 dosing input.",
+          "x-source": "oref0 profile / AAPS preference keys",
+          "x-status-today": "partial",
+          "x-algorithm": "oref0",
+          "x-published-today-as": "loopSettings.dosingStrategy"
+        },
+        "gradualTransitionsThreshold": {
+          "type": "number",
+          "description": "gradualTransitionsThreshold, a loop dosing input.",
+          "x-source": "LoopAlgorithm/Sources/LoopAlgorithm/AlgorithmInput.swift",
+          "x-status-today": "absent",
+          "x-algorithm": "loop",
+          "minimum": 0
+        },
+        "includePositiveVelocityAndRC": {
+          "type": "boolean",
+          "description": "includePositiveVelocityAndRC, a loop dosing input.",
+          "x-source": "LoopAlgorithm/Sources/LoopAlgorithm/AlgorithmInput.swift",
+          "x-status-today": "absent",
+          "x-algorithm": "loop"
+        },
+        "maxActiveInsulinMultiplier": {
+          "type": "number",
+          "description": "Loop's IOB ceiling, as a multiple of maxBolus. Defaults to 2.",
+          "x-source": "LoopAlgorithm/Sources/LoopAlgorithm/AlgorithmInput.swift",
+          "x-status-today": "absent",
+          "x-algorithm": "loop",
+          "minimum": 0
+        },
+        "maxBasal": {
+          "type": "number",
+          "description": "Loop records this as loopSettings.maximumBasalRatePerHour. AAPS and Trio record no equivalent.",
+          "x-source": "oref0 profile / AAPS preference keys",
+          "x-status-today": "partial",
+          "x-algorithm": "oref0",
+          "x-unit": "U/hr",
+          "minimum": 0,
+          "x-published-today-as": "loopSettings.maximumBasalRatePerHour"
+        },
+        "maxBasalRate": {
+          "type": "number",
+          "description": "maxBasalRate, a loop dosing input.",
+          "x-source": "LoopAlgorithm/Sources/LoopAlgorithm/AlgorithmInput.swift",
+          "x-status-today": "recorded",
+          "x-algorithm": "loop",
+          "x-unit": "U/hr",
+          "minimum": 0,
+          "x-published-today-as": "loopSettings.maximumBasalRatePerHour"
+        },
+        "maxBolus": {
+          "type": "number",
+          "description": "maxBolus, a loop dosing input.",
+          "x-source": "LoopAlgorithm/Sources/LoopAlgorithm/AlgorithmInput.swift",
+          "x-status-today": "recorded",
+          "x-algorithm": "loop",
+          "x-unit": "U",
+          "minimum": 0,
+          "x-published-today-as": "loopSettings.maximumBolus"
+        },
+        "maxDailyBasal": {
+          "type": "number",
+          "description": "maxDailyBasal, a oref0 dosing input.",
+          "x-source": "oref0 profile / AAPS preference keys",
+          "x-status-today": "derivable",
+          "x-algorithm": "oref0",
+          "x-unit": "U/hr",
+          "minimum": 0
+        },
+        "maxIob": {
+          "type": "number",
+          "description": "A dosing *safety limit*. Loop records its equivalents in profile.loopSettings. The corpus holds no maxIob from any oref0 derivative, so a replay of corpus data must assume it. oref0's own rig uploads its preferences file, max_iob included, as devicestatus.preferences (oref0 d219baf9 bin/ns-status.js:40-49,175-177, called with --preferences by bin/oref0-ns-loop.sh:221-227); the corpus has no oref0 rig. Trio and AndroidAPS upload no equivalent.",
+          "x-source": "oref0 profile / AAPS preference keys",
+          "x-status-today": "absent",
+          "x-algorithm": "oref0",
+          "x-unit": "U",
+          "minimum": 0
+        },
+        "microBolusAllowed": {
+          "type": "boolean",
+          "description": "Whether SMB was permitted on this run. Inferable after the fact from whether an SMB was enacted, which is not the same thing — a run that allowed SMB and chose not to is indistinguishable from one that forbade it.",
+          "x-source": "oref0 profile / AAPS preference keys",
+          "x-status-today": "absent",
+          "x-algorithm": "oref0"
+        },
+        "recommendationInsulinModel": {
+          "type": "string",
+          "description": "Which insulin activity curve the recommendation uses. `insulinType` on a treatment names the product, which is related but not the same choice.",
+          "x-source": "LoopAlgorithm/Sources/LoopAlgorithm/AlgorithmInput.swift",
+          "x-status-today": "absent",
+          "x-algorithm": "loop"
+        },
+        "recommendationType": {
+          "type": "string",
+          "description": "`dosingStrategy` distinguishes automaticBolus from tempBasalOnly, which covers the common case but is not the same enumeration.",
+          "x-source": "LoopAlgorithm/Sources/LoopAlgorithm/AlgorithmInput.swift",
+          "x-status-today": "partial",
+          "x-algorithm": "loop",
+          "x-published-today-as": "loopSettings.dosingStrategy"
+        },
+        "suspendThreshold": {
+          "type": "number",
+          "description": "Loop-only, under the same subtree. oref0 derivatives write `openaps.suggested.threshold`, which is the computed threshold rather than the configured one.",
+          "x-source": "LoopAlgorithm/Sources/LoopAlgorithm/AlgorithmInput.swift",
+          "x-status-today": "partial",
+          "x-algorithm": "oref0",
+          "x-unit": "mg/dL",
+          "minimum": 0,
+          "x-published-today-as": "loopSettings.minimumBGGuard"
+        },
+        "units": {
+          "type": "string",
+          "description": "units, a oref0 dosing input.",
+          "x-source": "oref0 profile / AAPS preference keys",
+          "x-status-today": "recorded",
+          "x-algorithm": "oref0",
+          "x-published-today-as": "units"
+        },
+        "useIntegralRetrospectiveCorrection": {
+          "type": "boolean",
+          "description": "Integral RC is a materially different correction behaviour and a user-facing toggle.",
+          "x-source": "LoopAlgorithm/Sources/LoopAlgorithm/AlgorithmInput.swift",
+          "x-status-today": "absent",
+          "x-algorithm": "loop"
+        },
+        "useMidAbsorptionISF": {
+          "type": "boolean",
+          "description": "useMidAbsorptionISF, a loop dosing input.",
+          "x-source": "LoopAlgorithm/Sources/LoopAlgorithm/AlgorithmInput.swift",
+          "x-status-today": "absent",
+          "x-algorithm": "loop"
+        }
+      }
+    },
+    "x-aid-extensions": {
+      "type": "object",
+      "description": "Vendor settings with no agreed name yet.",
+      "additionalProperties": true
+    }
+  }
+}
