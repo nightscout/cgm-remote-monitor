@@ -162,11 +162,14 @@ optInSuite(process.env.NS_TENANT_COMMIT_CLOCK_TEST === '1' && !!process.env.NS_T
       const step = createLegacy({ connection: lab.clocks[0], table: lab.table, logical: 'entries',
         source: 'v1/internal', env: {}, naturalOrder: true });
       await scope.withTenant(lab.A, async () => {
-        const docs = [0, 1].map(i => ({ identifier: 'legacy-' + i, dateString: '2026-11-06T01:00:00+01:00',
+        // New identifiers still use the legacy time+type upsert key. Distinct
+        // reading times admit two rows rather than an intentional re-send.
+        const docs = [0, 1].map(i => ({ identifier: 'legacy-' + i, dateString: '2026-11-06T01:00:0' + i + '+01:00',
           type: 'sgv', sgv: 120 + i, nested: { falsy: false, zero: 0 } }));
         const planned = step.plan({ op: 'create', docs });
         const before = docs.map(doc => ({ ...doc }));
         const filters = planned.ops.map(op => structuredClone(op.updateOne.filter));
+        assert.notDeepEqual(filters[0], filters[1], 'The fixture must admit two distinct legacy readings');
         await write(1, 'intervening-cursor');
         const cursor = (await lab.rows())[0].srvModified;
         await step.write(planned);
