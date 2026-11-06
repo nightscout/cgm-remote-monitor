@@ -3,7 +3,9 @@
 This bounded service updates and deletes existing tenant subjects and assigns
 already provisioned tenant-local roles. It has no HTTP routes, listener imports,
 subject creation, role CRUD, credential issuance, operator lifecycle or default
-role policy. It does not complete the owner/administration REST surface.
+role policy. A separate dormant [HTTP factory](../server/subject-management-app.js)
+composes this service as described below. Neither component completes the
+owner/administration REST surface.
 
 ## Trusted service boundary
 
@@ -85,7 +87,80 @@ time, never name, notes, credentials or role payload. Raw writer credentials
 remain trusted privileged persistence access; application validation and audit
 are not protection against stolen database credentials.
 
-## Verification
+## Separately authenticated dormant HTTP factory
+
+`createSubjectManagementApp({resolver, authenticateManagement, subjectAdmin})`
+returns an Express application without opening a socket. It is never imported
+or mounted by `createTenantApp` or a CLI. A deployment must separately compose
+its management listener and reviewed authentication policy before exposure.
+
+The trusted `authenticateManagement({tenant, credential, request})` callback
+receives the resolved tenant, one strictly parsed bearer credential and the
+request. It must authenticate management credentials and return a matching
+`{tenant, principal, consumer}`, or return a false value to refuse. A host, body
+field or route identifier supplies no authentication. Cross-tenant results are
+refused. Data/root/JWT credentials supply no management grant through this
+factory; a deployment must keep its callback separate from data verification.
+The factory supplies no credential issuer, human identity provider or fallback.
+The accepted service's `authorizeManagement` callback still independently
+authorizes the complete action, including every proposed known role assignment.
+It receives the operation and target ID, rather than proposed roles. This is
+whole-operation authority; no delegable owner grant ceiling is selected here.
+
+- `PUT /api/v2/authorization/subjects` accepts JSON
+  `{_id, name, roles?, notes?, created_at?}` and returns the accepted service's
+  `{subjectId, name, roles, notes, created_at}`. `_id` identifies an existing
+  subject; it cannot rename the identity. Omitted roles revoke all roles;
+  omitted notes and omitted/empty creation time preserve stored metadata.
+- `DELETE /api/v2/authorization/subjects/:_id` returns `{}` after the committed
+  deletion. It accepts no body fields; an optional body must be JSON `{}`.
+
+Source characterization is **read-derived**: shipping
+[`api2/index.js`](../api2/index.js) mounts `/authorization`, and
+[`authorization/endpoints.js`](../authorization/endpoints.js) uses this PUT
+body `_id` and DELETE path `_id`. Shipping
+[`authorization/storage.js`](../authorization/storage.js) preserves omitted
+notes and empty/omitted creation time while allowing omitted role assignment
+to revoke access. The facade preserves those bounded verb/identity/omission
+contracts. It does not claim API v1 or complete shipping facade compatibility:
+shipping also accepts form encoding and serves derived credentials, while this
+factory accepts bounded JSON and returns the existing service shape. Stable
+role-ID and roles CRUD compatibility remain separate work; this factory assigns
+only already provisioned tenant-local role names accepted by the service.
+
+Bodies are limited to 64 KiB, compressed bodies and non-JSON mutation bodies
+are refused, and unknown fields (including tenant/actor/derived-token fields)
+are invalid. Every response sets `Cache-Control: no-store` and
+`Referrer-Policy: no-referrer`; Express signature and entity tags are disabled.
+No credential or private exception detail is reflected. Supported paths with
+other methods return 405 with `Allow`; unmounted paths return 404.
+
+This factory's explicit HTTP contract, rather than a shipping status-parity
+claim, maps invalid input/unknown roles to 400, credential refusal to 401,
+`SUBJECT_ADMIN_FORBIDDEN` to 403, absent subjects to 404,
+`SUBJECT_ADMIN_METADATA_MISSING` to 409, body overflow to 413 and unsupported
+media/encoding to 415. PostgreSQL adapter
+`SUBJECT_ADMIN_STORE_UNAVAILABLE`/`SUBJECT_ADMIN_STORE_UNSAFE` map to 503 with
+their bounded code. Other authentication, authority and persistence exceptions
+return 503 `AUTHORITY_UNAVAILABLE`. Unknown tenant aliases return 404
+`TENANT_REFUSED`; malformed or conflicting tenant selectors return 400.
+
+The opt-in HTTP lab uses a unique disposable PostgreSQL service and random
+database, persistent writer and independent serving readers, synthetic management
+authentication, and earlier JWT/raw credentials. HTTP grant removal/deletion is
+checked against the same earlier JWT on subsequent protected data HTTP
+operations. It also checks matching authenticated tenant identity, metadata,
+concurrent replacement/deletion, audit rollback, wrong-plane refusal, the
+unchanged data application's absent management mounts and loopback-only network
+connections. It supplies no production identity or owner policy acceptance.
+
+```sh
+NS_SUBJECT_MANAGEMENT_HTTP_DOCKER_TEST=1 NODE_ENV=test \
+  node_modules/.bin/mocha --no-config --no-package --fail-zero --timeout 90000 \
+  tests/subject-management-http.integration.test.js
+```
+
+## Service verification
 
 ```sh
 NS_SUBJECT_ADMIN_POSTGRES_DOCKER_TEST=1 NODE_ENV=test \
