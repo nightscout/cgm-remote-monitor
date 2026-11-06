@@ -481,6 +481,168 @@ describe('views profile: one tenant, nonresident (research prototype)', function
     });
   });
 
+  describe('actual API v3 writers refresh the retained cycle', function () {
+    const request = require('supertest');
+    const intentEvent = require('../lib/storage/write-intent').INTENT_EVENT;
+    const NOW = Date.UTC(2026, 9, 15, 12, 0, 0);
+    const json = value => JSON.parse(JSON.stringify(value));
+    const flush = () => new Promise(resolve => self.ctx.evaluator.flush(resolve));
+    let app;
+    let jwt;
+    let liveStats;
+    let physical = [];
+    let logical = [];
+    let requested = [];
+    let requestNotify;
+    let requestSnooze;
+    const onPhysical = event => physical.push(event);
+    const onLogical = event => logical.push(event);
+
+    before(async function () {
+      app = require('../lib/server/serve/views').createApp(self.env, self.ctx).app;
+      const auth = await require('./fixtures/api3/authSubject')(self.ctx.authorization.storage, ['all'], app);
+      jwt = auth.jwt.all;
+      await flush();
+      clock.install();
+      liveStats = self.ctx.store.db.stats;
+      self.ctx.store.db.stats = () => Promise.resolve({ dataSize: 1024, indexSize: 1024 });
+      self.ctx.bus.on('storage-write-committed', onPhysical);
+      self.ctx.bus.on(intentEvent, onLogical);
+      requestNotify = self.ctx.notifications.requestNotify;
+      requestSnooze = self.ctx.notifications.requestSnooze;
+      self.ctx.notifications.requestNotify = function (notification) {
+        requested.push(Object.assign({ kind: 'notify' }, notification));
+        return requestNotify(notification);
+      };
+      self.ctx.notifications.requestSnooze = function (notification) {
+        requested.push(Object.assign({ kind: 'snooze' }, notification));
+        return requestSnooze(notification);
+      };
+    });
+
+    after(function () {
+      self.ctx.bus.removeListener('storage-write-committed', onPhysical);
+      self.ctx.bus.removeListener(intentEvent, onLogical);
+      self.ctx.notifications.requestNotify = requestNotify;
+      self.ctx.notifications.requestSnooze = requestSnooze;
+      self.ctx.store.db.stats = liveStats;
+      clock.uninstall();
+    });
+
+    beforeEach(async function () {
+      await flush();
+      clock.pin(NOW);
+      await Promise.all(['entries', 'treatments', 'devicestatus', 'profile', 'food', 'activity']
+        .map(k => self.ctx.store.collection(self.env[k + '_collection']).deleteMany({})));
+      const fixture = SCENARIOS.steady(NOW);
+      for (const profile of fixture.profile) {
+        await new Promise((resolve, reject) => self.ctx.profile.create(profile, err => err ? reject(err) : resolve()));
+      }
+      for (const name of ['entries', 'treatments', 'devicestatus']) {
+        await new Promise((resolve, reject) => self.ctx[name].create(fixture[name], err => err ? reject(err) : resolve()));
+      }
+      await flush();
+      physical = []; logical = []; requested = [];
+    });
+
+    // Assert the writer's reply and durable effect before asking whether its
+    // actual physical commit event refreshed the same evaluator the app uses.
+    // No harness-forwarded logical event or timer is used to make this pass.
+    async function changed (method, url, body, status, collection, observe) {
+      const before = self.ctx.evaluator.stats.evaluations;
+      physical = []; logical = []; requested = [];
+      let operation = request(app)[method](url).set('Authorization', 'Bearer ' + jwt);
+      if (body) operation = operation.send(body);
+      const response = await operation.expect(status);
+      await observe(response);
+      await flush();
+      assert(physical.some(event => event.collection === collection && event.source === 'v3'), 'actual API v3 commit event');
+      assert.equal(self.ctx.evaluator.stats.evaluations - before, 1, method + ' refreshes one coalesced retained cycle');
+      assert.equal(self.ctx.evaluator.stats.errors, 0, 'the evaluator remains live');
+      const resident = arms.createResident(self.env, self.ctx);
+      try {
+        const expected = await resident.evaluate();
+        assert.deepEqual(json(self.ctx.evaluator.kept().properties), json(expected.properties), method + ' retained properties match resident');
+        assert.deepEqual(arms.sig(requested), arms.sig(expected.requested), method + ' alarm requests match resident');
+      } finally {
+        resident.ctx.bus.emit('teardown');
+      }
+      return response;
+    }
+
+    it('entries POST, PATCH and DELETE refresh properties from their committed values', async function () {
+      const collection = self.ctx.store.collection(self.env.entries_collection);
+      const document = { type: 'sgv', sgv: 90, date: NOW - MIN, utcOffset: 0, dateString: new Date(NOW - MIN).toISOString(), device: 'synthetic-profile-http', app: 'synthetic-profile-http' };
+      const created = await changed('post', '/api/v3/entries', document, 201, 'entries', async response => {
+        assert.equal((await collection.findOne({ identifier: response.body.identifier })).sgv, 90);
+      });
+      const identifier = created.body.identifier;
+      const afterCreate = json(self.ctx.evaluator.kept().properties);
+      await changed('patch', '/api/v3/entries/' + identifier, { sgv: 240 }, 200, 'entries', async () => {
+        assert.equal((await collection.findOne({ identifier })).sgv, 240);
+      });
+      assert.notDeepEqual(json(self.ctx.evaluator.kept().properties), afterCreate, 'changed glucose must affect the retained properties');
+      await changed('delete', '/api/v3/entries/' + identifier, null, 200, 'entries', async () => {
+        assert.equal((await collection.findOne({ identifier })).isValid, false);
+      });
+      assert.equal(logical.length, 1, 'one logical delete intent is also observed without subscribing to it');
+    });
+
+    it('treatments POST, PATCH and DELETE refresh properties from their committed values', async function () {
+      const collection = self.ctx.store.collection(self.env.treatments_collection);
+      const document = { eventType: 'Carb Correction', carbs: 15, date: NOW - MIN, utcOffset: 0, created_at: new Date(NOW - MIN).toISOString(), enteredBy: 'synthetic-profile-http', app: 'synthetic-profile-http' };
+      const created = await changed('post', '/api/v3/treatments', document, 201, 'treatments', async response => {
+        assert.equal((await collection.findOne({ identifier: response.body.identifier })).carbs, 15);
+      });
+      const identifier = created.body.identifier;
+      const afterCreate = json(self.ctx.evaluator.kept().properties);
+      await changed('patch', '/api/v3/treatments/' + identifier, { carbs: 45 }, 200, 'treatments', async () => {
+        assert.equal((await collection.findOne({ identifier })).carbs, 45);
+      });
+      assert.notDeepEqual(json(self.ctx.evaluator.kept().properties), afterCreate, 'changed carbs must affect the retained properties');
+      await changed('delete', '/api/v3/treatments/' + identifier, null, 200, 'treatments', async () => {
+        assert.equal((await collection.findOne({ identifier })).isValid, false);
+      });
+      assert.equal(logical.length, 1, 'one logical delete intent is also observed without subscribing to it');
+    });
+
+    for (const mode of ['replace', 'merge-except-treatments', 'acknowledge', 'refuse']) {
+      it('API v3 ' + mode + ' resend preserves the measured physical versus logical cadence', async function () {
+        const savedWrite = self.env.write;
+        self.env.write = Object.freeze(Object.assign({}, savedWrite, { resend: mode }));
+        try {
+          const document = { type: 'sgv', sgv: 90, date: NOW - MIN, utcOffset: 0, device: 'synthetic-profile-http-resend', app: 'synthetic-profile-http' };
+          const created = await changed('post', '/api/v3/entries', document, 201, 'entries', async response => {
+            assert.equal((await self.ctx.store.collection(self.env.entries_collection).findOne({ identifier: response.body.identifier })).sgv, 90);
+          });
+          const identifier = created.body.identifier;
+          const before = self.ctx.evaluator.stats.evaluations;
+          const retained = json(self.ctx.evaluator.kept());
+          physical = []; logical = []; requested = [];
+          clock.pin(NOW + MIN);
+          const response = await request(app).post('/api/v3/entries').set('Authorization', 'Bearer ' + jwt)
+            .send(Object.assign({}, document, { identifier, sgv: 160 })).expect(mode === 'refuse' ? 409 : 200);
+          await flush();
+          const writes = mode === 'acknowledge' || mode === 'refuse' ? 0 : 1;
+          assert.equal(physical.length, writes, 'physical events follow actual persistence');
+          assert.equal(self.ctx.evaluator.stats.evaluations - before, writes, 'the unchanged physical subscriber preserves no-op cadence');
+          assert.equal(logical.length, 1, 'one completed HTTP resend intent');
+          assert.equal(logical[0].records[0].outcome, mode === 'acknowledge' ? 'unchanged' : mode === 'refuse' ? 'refused' : mode === 'replace' ? 'replaced' : 'merged');
+          assert.equal((await self.ctx.store.collection(self.env.entries_collection).findOne({ identifier })).sgv, writes ? 160 : 90);
+          if (!writes) {
+            assert.deepEqual(json(self.ctx.evaluator.kept()), retained, 'a no-op HTTP resend does not refresh cycle time or properties');
+            assert.equal(requested.length, 0, 'a no-op resend does not initiate alarm evaluation');
+          } else {
+            assert.equal(response.body.identifier, identifier);
+            assert.equal(self.ctx.evaluator.kept().now, NOW + MIN);
+          }
+        } finally {
+          self.env.write = savedWrite;
+        }
+      });
+    }
+  });
+
   describe('shutdown', function () {
     it('a read completing after teardown cannot reach the fake delivery boundary', async function () {
       const context = Object.create(self.ctx);
