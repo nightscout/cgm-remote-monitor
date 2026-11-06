@@ -35,6 +35,7 @@ module.exports = function createClockHttpFixture ({ clockEnabled = true } = {}) 
   const base = createReplicaFixture();
   const clients = new Set();
   const locked = new Set();
+  const backendFaultTargets = new WeakSet();
 
   function configuration () {
     const config = base.configuration();
@@ -150,12 +151,48 @@ module.exports = function createClockHttpFixture ({ clockEnabled = true } = {}) 
     return result.rows[0] || null;
   }
 
-  async function terminateBackend (pid) {
+  async function terminateBackend (pid, worker) {
+    assert.ok(base.workers.has(worker), 'fault target must be an owned API child');
     const backend = await backendState(pid);
     assert.ok(backend, 'exact previously observed writer backend must still exist');
     assert.equal(backend.usename, 'preview_app', 'operator termination targets only the owned API writer');
     assert.equal(backend.application_name, 'nightscout-preview-data');
-    return (await base.admin.query('SELECT pg_terminate_backend($1::int) AS terminated', [pid])).rows[0].terminated;
+    const terminated = (await base.admin.query('SELECT pg_terminate_backend($1::int) AS terminated', [pid])).rows[0].terminated;
+    if (terminated) backendFaultTargets.add(worker);
+    return terminated;
+  }
+
+  function workerDiagnostic (worker) {
+    // Bounded classifications only: never dump child stderr/config/credentials.
+    return { exit: worker.exit, portPresent: Number.isInteger(worker.port),
+      listeningMarker: /Listening/.test(worker.stdout),
+      backendFaultInjected: backendFaultTargets.has(worker),
+      stderrSignals: {
+        administratorTermination: /administrator command|57P01/.test(worker.stderr),
+        unhandledError: /Unhandled 'error'|unhandledRejection|uncaughtException/.test(worker.stderr),
+        connectionTerminated: /Connection terminated|connection terminated/.test(worker.stderr),
+        storageShutdownFailure: /storage shutdown failed/.test(worker.stderr)
+      } };
+  }
+
+  async function disposeBackendFaultTarget (worker) {
+    assert.ok(base.workers.has(worker) && backendFaultTargets.has(worker),
+      'only the confirmed owned backend-fault child may use fault disposal');
+    const before = workerDiagnostic(worker);
+    const forcedKill = worker.exit === null;
+    if (forcedKill) worker.child.kill('SIGKILL');
+    await Promise.race([worker.exited, delay(5000).then(() => {
+      throw new Error('Injected backend-fault child did not exit during disposal');
+    })]);
+    assert.ok(worker.exit, 'fault disposal must confirm actual process exit');
+    assert.ok(Number.isInteger(worker.port), 'injected child previously bound its owned listener');
+    await assert.rejects(fetch('http://127.0.0.1:' + worker.port + '/', { signal: AbortSignal.timeout(1000) }));
+    const after = workerDiagnostic(worker);
+    base.workers.delete(worker);
+    console.log('TENANT_COMMIT_CLOCK_FAULT_TARGET_DISPOSAL ' + JSON.stringify({
+      scope: 'explicit injected-fault child disposal; no graceful-exit or survival guarantee',
+      forcedKill, before, after, socketClosed: true
+    }));
   }
 
   async function connectionSettings () {
@@ -209,7 +246,7 @@ module.exports = function createClockHttpFixture ({ clockEnabled = true } = {}) 
 
   return { ...base, setup, cleanup, configuration, start, pair, rows, floor,
     foreignRows, storedEntriesWatermark, lockEntry, waitForBlocked, assertClockHeld, completed,
-    backendState, terminateBackend, connectionSettings,
+    backendState, terminateBackend, connectionSettings, workerDiagnostic, disposeBackendFaultTarget,
     tracked, releaseControls,
     get admin () { return base.admin; }, get workers () { return base.workers; } };
 };

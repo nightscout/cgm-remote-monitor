@@ -55,7 +55,10 @@ optInSuite(enabled, 'NS_TENANT_COMMIT_CLOCK_HTTP_DOCKER_TEST=1')(
               worker.exit.signal === null && worker.port === undefined && !/Listening/.test(worker.stdout)) {
             f.workers.delete(worker);
             console.log('TENANT_COMMIT_CLOCK_STARTUP_REFUSAL_CLEANUP ' + JSON.stringify(worker.exit));
-          } else errors.push(error);
+          } else {
+            console.log('TENANT_COMMIT_CLOCK_CLEANUP_FAILURE ' + JSON.stringify(f.workerDiagnostic(worker)));
+            errors.push(error);
+          }
         }
       }
       if (errors.length) throw new AggregateError(errors, 'Clock HTTP case cleanup failed');
@@ -164,6 +167,7 @@ optInSuite(enabled, 'NS_TENANT_COMMIT_CLOCK_HTTP_DOCKER_TEST=1')(
       const floorBefore = await f.floor(A), foreign = await f.foreignRows(B);
       const blocker = await f.lockEntry(A, original.identifier);
       let w1, w2, dataWait;
+      let assertionsComplete = false;
       try {
         w1 = f.tracked(call(first, A, 'PATCH', '/api/v3/entries/' + original.identifier, token, { sgv: 199 }));
         dataWait = await f.waitForBlocked(w1, blocker.pid, 'data-update');
@@ -171,7 +175,7 @@ optInSuite(enabled, 'NS_TENANT_COMMIT_CLOCK_HTTP_DOCKER_TEST=1')(
         w2 = f.tracked(call(second, A, 'POST', '/api/v3/entries', token, entry('commit-clock-after-backend-abort', 149)));
         await f.waitForBlocked(w2, dataWait.pid, 'clock-select', dataWait.deadline);
         assert.ok(Date.now() < dataWait.deadline, 'operator abort occurs within the shared pre-timeout budget');
-        assert.equal(await f.terminateBackend(dataWait.pid), true, 'operator terminates the exact observed W1 database backend');
+        assert.equal(await f.terminateBackend(dataWait.pid, first), true, 'operator terminates the exact observed W1 database backend');
         // W2 must commit while the original data-row locker is STILL held.
         await f.completed(w2, 201, 'clock waiter after operator backend termination', dataWait.deadline);
         const failed = await w1.promise;
@@ -188,7 +192,14 @@ optInSuite(enabled, 'NS_TENANT_COMMIT_CLOCK_HTTP_DOCKER_TEST=1')(
           firstWriterOutcome: failed.error ? 'transport-failure' : 'HTTP-' + failed.response.status,
           originalDataLockStillHeld: true, before: floorBefore, survivor: survivor.srvModified,
           killedRowUnchanged: true }));
-      } finally { await blocker.release(); }
+        assertionsComplete = true;
+      } finally {
+        await blocker.release();
+        // This child received an explicit database fault. Record and dispose it
+        // after the correctness assertions; unaffected workers still use strict
+        // graceful shutdown. This is not a process-survival acceptance test.
+        if (assertionsComplete) await f.disposeBackendFaultTarget(first);
+      }
     });
 
     it('rolls back the clock when an actual PostgreSQL data constraint rejects insertion', async function () {
