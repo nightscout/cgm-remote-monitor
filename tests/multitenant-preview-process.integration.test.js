@@ -31,7 +31,7 @@ const catalogues = {
   legacy: require('../lib/secrets/legacy-credentials-candidate.json')
 };
 for (const logical of domainNames) catalogues[logical] =
-  require('../lib/server/tenant-app/domain-catalogue').get(logical).catalogue;
+  require('../lib/server/serve/postgres-domains').get(logical).catalogue;
 const random = () => crypto.randomBytes(24).toString('hex');
 const hash = value => crypto.createHash('sha1').update(value).digest('hex');
 const docker = args => execFileSync('docker', args, {
@@ -586,6 +586,20 @@ optInSuite(process.env.NS_MULTITENANT_PREVIEW_PROCESS_DOCKER_TEST === '1',
       try { await refused(configuration(address)); } finally {
         await admin.query('REVOKE INSERT ON preview_data.entries FROM preview_check');
       }
+    });
+
+    it('refuses an incomplete injected intent before the preview listener binds', async function () {
+      await refused(configuration(address), {
+        NODE_OPTIONS: '--require=' + path.join(__dirname, 'fixtures/preview-composition-control.cjs'),
+        NS_PREVIEW_COMPOSITION_FAULT: 'intent'
+      });
+    });
+
+    it('refuses a wrong backend catalogue before the preview listener binds', async function () {
+      await refused(configuration(address), {
+        NODE_OPTIONS: '--require=' + path.join(__dirname, 'fixtures/preview-composition-control.cjs'),
+        NS_PREVIEW_COMPOSITION_FAULT: 'catalogue'
+      });
     });
 
     it('cleans acquired pools after late initialization or listener failure', async function () {

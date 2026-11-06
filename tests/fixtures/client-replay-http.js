@@ -28,7 +28,7 @@ const catalogues = {
   legacy: require('../../lib/secrets/legacy-credentials-candidate.json')
 };
 for (const logical of domainNames) catalogues[logical] =
-  require('../../lib/server/tenant-app/domain-catalogue').get(logical).catalogue;
+  require('../../lib/server/serve/postgres-domains').get(logical).catalogue;
 const random = () => crypto.randomBytes(24).toString('hex');
 const hash = value => crypto.createHash('sha1').update(value).digest('hex');
 const docker = args => execFileSync('docker', args, {

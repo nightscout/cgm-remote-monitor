@@ -308,3 +308,21 @@ and `CUSTOMCONNSTR_mongo`. This independently measured opt-in checks stored
 outcomes, history boundaries, two tenants, current grants/names, rollback and
 postcommit visibility. It does not claim real-provider, pinned-client, socket
 delivery or deployment acceptance.
+
+
+## Preview composition boundary
+
+`domain-catalogue.js` describes logical collections, admitted API versions and
+shipping date/deduplication defaults. It selects no backend or migration schema.
+The explicit PostgreSQL API entrypoint composes these definitions through
+`../serve/postgres-domains.js`, which owns its factory/catalogue bindings and
+read-only schema, readiness-identity and serving-privilege checks. Default
+single keeps its existing Mongo selection; incomplete preview capabilities
+cannot select a fallback backend.
+
+`../../storage/failures.js` recognizes wrapped storage dependency outages,
+including cause cycles. Domain HTTP options retain their submitted-validation
+provenance and version-specific responses. An arbitrary `unsupported` marker
+on an operational failure is not evidence of submitted-document validation.
+The composition does not change projections, write policy, schema creation,
+tenant binding or commit ownership.

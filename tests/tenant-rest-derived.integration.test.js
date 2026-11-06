@@ -13,6 +13,7 @@ const scope = require('../lib/storage/tenant-scope');
 const { run } = require('../lib/migrations/postgres');
 const connect = require('../lib/storage/postgres-connection');
 const catalogue = require('../lib/server/tenant-app/domain-catalogue');
+const postgresDomains = require('../lib/server/serve/postgres-domains');
 const environment = require('../lib/server/tenant-app/environment');
 const previewDomains = require('../lib/server/serve/preview-domains');
 const dataAccess = require('../lib/server/tenant-app/data-access');
@@ -120,7 +121,7 @@ optInSuite(process.env.NS_REST_DERIVED_HTTP_TEST === '1' &&
     before(async function () {
       mode = scope.getTenancyMode(); scope.setTenancyMode('multi');
       for (const logical of catalogue.names) await run('up', { direct: true,
-        connectionString: process.env.NS_TEST_POSTGRES_ADMIN_URI, namespace: namespaces[logical], catalogue: catalogue.get(logical).catalogue });
+        connectionString: process.env.NS_TEST_POSTGRES_ADMIN_URI, namespace: namespaces[logical], catalogue: postgresDomains.get(logical).catalogue });
       await run('up', { direct: true, connectionString: process.env.NS_TEST_POSTGRES_ADMIN_URI,
         namespace: namespaces.authorization, catalogue: require('../lib/tenant-authorization/postgres-candidate.json') });
       admin = new Client({ connectionString: process.env.NS_TEST_POSTGRES_ADMIN_URI }); await admin.connect();

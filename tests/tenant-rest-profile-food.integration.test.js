@@ -176,7 +176,8 @@ optInSuite(process.env.NS_PROFILE_FOOD_HTTP_TEST === '1' &&
       worker.connection = await connect({ connectionString: uri, max: 1 });
       const query = worker.connection.query.bind(worker.connection);
       worker.connection.query = (text, values) => storageFault
-        ? Promise.reject(Object.assign(new Error('synthetic storage failure'), { code: storageFault }))
+        ? Promise.reject(typeof storageFault === 'string'
+          ? Object.assign(new Error('synthetic storage failure'), { code: storageFault }) : storageFault)
         : query(text, values);
       worker.authority = await createAuthority({ connectionString: uri, namespace: schemas.auth });
       worker.legacy = await createLegacyAuthority({ connectionString: uri, namespace: schemas.identity });
@@ -595,8 +596,10 @@ optInSuite(process.env.NS_PROFILE_FOOD_HTTP_TEST === '1' &&
         }).expect(400);
         assert.deepEqual(await rows(logical), []);
         assert.deepEqual(workers[0].events, []);
-        for (const [code, status] of [['ECONNRESET', 503], ['42P01', 500]]) {
-          storageFault = code;
+        for (const [fault, status] of [['ECONNRESET', 503], ['42P01', 500],
+          [new Error('wrapped dependency', { cause: Object.assign(new Error('synthetic outage'), { code: '08006' }) }), 503],
+          [Object.assign(new Error('untrusted unsupported marker'), { unsupported: true }), 500]]) {
+          storageFault = fault;
           await http('get', `/api/v2/${logical}`).expect(status);
           await http('get', `/api/v3/${logical}`).expect(status);
           await http('get', `/api/v3/${logical}/absent`).expect(status);
