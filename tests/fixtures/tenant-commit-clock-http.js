@@ -3,6 +3,7 @@
 // Owned synthetic services/processes come from the frozen replica fixture.
 // No clock candidate is loaded until an explicitly enabled suite calls setup.
 const assert = require('node:assert/strict');
+const path = require('node:path');
 const { Client } = require('pg');
 const { run } = require('../../lib/migrations/postgres');
 const { setTimeout: delay } = require('node:timers/promises');
@@ -163,10 +164,24 @@ module.exports = function createClockHttpFixture ({ clockEnabled = true } = {}) 
   }
 
   function workerDiagnostic (worker) {
-    // Bounded classifications only: never dump child stderr/config/credentials.
+    // Capture only error headings/emitter/stack frames, never arbitrary stderr.
+    // Runtime credentials are random; redact their known shapes and every URI.
+    const sourceRoot = path.resolve(__dirname, '../..') + path.sep;
+    const redact = line => line
+      .replaceAll(sourceRoot, '[worktree]/')
+      .replace(/\b(?:postgres(?:ql)?|mongodb(?:\+srv)?|https?):\/\/[^\s"'<>)]*/gi, '[redacted-uri]')
+      .replace(/\bhv[bsr]\.[A-Za-z0-9._-]+\b/g, '[redacted-vault-token]')
+      .replace(/\b[A-Za-z0-9_-]{12,}\.[A-Za-z0-9_-]{12,}\.[A-Za-z0-9_-]{12,}\b/g, '[redacted-token]')
+      .replace(/\b[0-9a-f]{32,}\b/gi, '[redacted-hex]')
+      .replace(/\bsameviewer-[A-Za-z0-9_-]+\b/g, '[redacted-legacy-credential]')
+      .slice(0, 320);
+    const stderrStack = worker.stderr.split('\n')
+      .filter(line => /^\s*at\s|^Emitted 'error' event on |^(?:Error|TypeError|RangeError|error):|^node:[^ ]+:\d+/.test(line))
+      .slice(0, 24).map(redact);
     return { exit: worker.exit, portPresent: Number.isInteger(worker.port),
       listeningMarker: /Listening/.test(worker.stdout),
       backendFaultInjected: backendFaultTargets.has(worker),
+      stderrStack,
       stderrSignals: {
         administratorTermination: /administrator command|57P01/.test(worker.stderr),
         unhandledError: /Unhandled 'error'|unhandledRejection|uncaughtException/.test(worker.stderr),
