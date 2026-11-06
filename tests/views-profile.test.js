@@ -1,9 +1,15 @@
 'use strict';
 
-// Research prototype (proto/views-nonresident): the single-tenant,
-// nonresident `views` profile (lib/server/serve/views.js,
-// lib/server/nonresident.js) against today's resident `single`.
+// Research prototype: the single-tenant nonresident `views` profile
+// (lib/server/serve/views.js and lib/server/nonresident.js) against resident single.
+//
+// Controls: VIEWS_PROFILE_NO_TICK, VIEWS_PROFILE_NO_WRITE,
+// VIEWS_PROFILE_DS_NEWEST=10, VIEWS_PROFILE_ON_REQUEST. Run each against
+// its named cohort and require failure, then restore and run this whole file.
+// Database-size input is fixed only in the parity cohorts: this does not
+// measure Mongo statistics freshness or an atomic cross-collection snapshot.
 
+const assert = require('node:assert/strict');
 const fs = require('fs');
 const path = require('path');
 const { spawnSync } = require('child_process');
@@ -32,6 +38,7 @@ describe('views profile: one tenant, nonresident (research prototype)', function
 
   before(function (done) {
     self.savedEnv = Object.assign({}, process.env);
+    self.localOnly = require('./lib/views-profile/local-only')();
     self.secret = process.env.API_SECRET || 'this is my long pass phrase';
     process.env.API_SECRET = self.secret;
     Object.assign(process.env, ALARM_ENV);
@@ -42,9 +49,11 @@ describe('views profile: one tenant, nonresident (research prototype)', function
     require('../lib/server/serve/views').boot(env, self.language, {
       settleMs: 400, maxWaitMs: 3000
       , tick: process.env.VIEWS_PROFILE_NO_TICK ? false : undefined
+      , propertiesOnRequest: Boolean(process.env.VIEWS_PROFILE_ON_REQUEST)
       , viewsCtx: ctx => arms.viewsContext(ctx, process.env.VIEWS_TAMPER)
     }).then(function (ctx) {
       self.ctx = ctx;
+      if (process.env.VIEWS_PROFILE_NO_WRITE) ctx.bus.removeAllListeners('storage-write-committed');
       if (ctx.bootErrors && ctx.bootErrors.length) return done(new Error('did not boot: ' + JSON.stringify(ctx.bootErrors).slice(0, 400)));
       done();
     }, done);
@@ -54,6 +63,7 @@ describe('views profile: one tenant, nonresident (research prototype)', function
     const restore = () => {
       Object.keys(process.env).forEach(k => { if (!(k in self.savedEnv)) delete process.env[k]; });
       Object.assign(process.env, self.savedEnv);
+      self.localOnly.restore();
     };
     if (!self.ctx) return restore();
     // Leave the database as found: the cases clear before each run, not after
@@ -70,6 +80,19 @@ describe('views profile: one tenant, nonresident (research prototype)', function
   });
 
   describe('boot', function () {
+    it('denies provider network connections before opening a socket', function () {
+      const socket = new (require('node:net').Socket)();
+      assert.throws(() => socket.connect({ host: 'provider.invalid', port: 443 }), /denies external socket/);
+      socket.destroy();
+      assert.equal(self.localOnly.blocked(), 1);
+    });
+
+    it('runs the identifier index prerequisite before profile listeners', function () {
+      const stages = require('../lib/server/bootevent').PROFILES.views;
+      assert(stages.indexOf('ensureIdentifierIndex') > stages.indexOf('ensureIndexes'));
+      assert(stages.indexOf('ensureIdentifierIndex') < stages.indexOf('setupViewsListeners'));
+      assert(self.ctx.identifierIndex);
+    });
     it('holds no resident state: no data loader, cache, plugin registry or sbx', function () {
       const ctx = self.ctx;
       ['dataloader', 'cache', 'plugins', 'sbx'].forEach(k => (ctx[k] === undefined).should.equal(true, 'ctx.' + k));
@@ -88,7 +111,7 @@ describe('views profile: one tenant, nonresident (research prototype)', function
       require('../lib/server/bootevent').PROFILES.single.should.eql([
         'checkNodeVersion', 'startBoot', 'checkEnv', 'augmentSettings', 'checkSettings',
         'setupStorage', 'restoreHistoryClock', 'setupAuthorization', 'setupInternals',
-        'ensureIndexes', 'setupListeners', 'setupConnect', 'finishBoot'
+        'ensureIndexes', 'ensureIdentifierIndex', 'setupListeners', 'setupConnect', 'finishBoot'
       ]);
     });
 
@@ -181,6 +204,84 @@ describe('views profile: one tenant, nonresident (research prototype)', function
     });
   });
 
+  describe('D-EVENT characterization through real entry writes', function () {
+    const { EventEmitter } = require('node:events');
+    const intentEvent = require('../lib/storage/write-intent').INTENT_EVENT;
+    const modes = ['replace', 'merge-except-treatments', 'acknowledge', 'refuse'];
+    let candidate;
+    let forward;
+    let savedWrite;
+    let physical = [];
+    let logical = [];
+    const onPhysical = event => physical.push(event);
+    const onLogical = event => logical.push(event);
+    const flush = evaluator => new Promise(resolve => evaluator.flush(resolve));
+    const create = docs => new Promise((resolve, reject) => self.ctx.entries.create(docs, (err, result) => err ? reject(err) : resolve(result)));
+    const entry = (date, identifier, sgv) => ({ type: 'sgv', sgv, date, dateString: new Date(date).toISOString(), identifier, device: 'synthetic-profile-events' });
+
+    beforeEach(async function () {
+      await flush(self.ctx.evaluator);
+      await self.ctx.store.collection(self.env.entries_collection).deleteMany({});
+      savedWrite = self.env.write;
+      const context = Object.create(self.ctx);
+      context.bus = new EventEmitter();
+      context.notificationsClock = { lastUpdated: 0 };
+      context.notifications = require('../lib/notifications')(self.env, { levels: context.levels, bus: context.bus, ddata: context.notificationsClock });
+      candidate = require('../lib/server/nonresident')(self.env, context, { settleMs: Infinity, tick: false });
+      // Harness-only candidate subscription. Product remains on the physical
+      // event pending a policy decision about no-op evaluation/freshness.
+      forward = event => context.bus.emit('storage-write-committed', event);
+      self.ctx.bus.on(intentEvent, forward);
+      self.ctx.bus.on(intentEvent, onLogical);
+      self.ctx.bus.on('storage-write-committed', onPhysical);
+    });
+    afterEach(async function () {
+      self.ctx.bus.removeListener(intentEvent, forward);
+      self.ctx.bus.removeListener(intentEvent, onLogical);
+      self.ctx.bus.removeListener('storage-write-committed', onPhysical);
+      candidate.close();
+      self.env.write = savedWrite;
+      await flush(self.ctx.evaluator);
+    });
+
+    for (const mode of modes) {
+      it(mode + ': one intent per batch; unchanged/refused writes differ from physical events', async function () {
+        self.env.write = Object.freeze(Object.assign({}, savedWrite, { resend: mode }));
+        const now = Date.now();
+        const id = require('node:crypto').randomUUID();
+        await create([entry(now, id, 120)]);
+        await flush(self.ctx.evaluator);
+        await flush(candidate);
+        physical = []; logical = [];
+        const before = self.ctx.evaluator.stats.evaluations;
+        const cbefore = candidate.stats.evaluations;
+        await create([entry(now, id, 150)]);
+        await flush(self.ctx.evaluator);
+        await flush(candidate);
+        assert.equal(logical.length, 1, 'one logical event for the resend intent');
+        assert.equal(candidate.stats.evaluations - cbefore, 1, 'logical candidate evaluates even without a physical write');
+        const writes = mode === 'acknowledge' || mode === 'refuse' ? 0 : 1;
+        assert.equal(physical.length, writes);
+        assert.equal(self.ctx.evaluator.stats.evaluations - before, writes);
+        assert.equal(logical[0].records[0].outcome, mode === 'acknowledge' ? 'unchanged' : mode === 'refuse' ? 'refused' : 'merged');
+        const stored = await self.ctx.store.collection(self.env.entries_collection).findOne({ identifier: id });
+        assert.equal(stored.sgv, writes ? 150 : 120);
+
+        physical = []; logical = [];
+        const next = self.ctx.evaluator.stats.evaluations;
+        const cnext = candidate.stats.evaluations;
+        await create([entry(now, id, 160), entry(now + MIN, require('node:crypto').randomUUID(), 130)]);
+        await flush(self.ctx.evaluator);
+        await flush(candidate);
+        assert.equal(logical.length, 1, 'one event for a mixed two-record batch');
+        assert.equal(logical[0].records.length, 2);
+        assert(physical.length > 0, 'the new record changed storage');
+        assert.equal(self.ctx.evaluator.stats.evaluations - next, 1, 'physical burst coalesces');
+        assert.equal(candidate.stats.evaluations - cnext, 1, 'logical batch coalesces');
+      });
+    }
+  });
+
   // The cases of the execution plan's section 7b, each uploaded through the
   // profile's own storage modules so the profile's trigger evaluates it; the
   // last evaluation is compared with a resident path on the same database at
@@ -190,6 +291,8 @@ describe('views profile: one tenant, nonresident (research prototype)', function
     let last = null;
     let evaluations = 0;
     let resident = null;
+    let liveStats;
+    let closeNotifications;
 
     function onNotification (n) { cur.emitted.push(n); }
     function onEvaluated () {
@@ -201,12 +304,18 @@ describe('views profile: one tenant, nonresident (research prototype)', function
 
     before(function () {
       clock.install();
+      // Both arms get identical exogenous database-size input; Mongo index
+      // statistics can change between reads even with no application writes.
+      liveStats = self.ctx.store.db.stats;
+      self.ctx.store.db.stats = () => Promise.resolve({ dataSize: 1024, indexSize: 1024 });
       self.ctx.bus.on('notification', onNotification);
       self.ctx.bus.on('views-evaluated', onEvaluated);
     });
     after(function () {
       self.ctx.bus.removeListener('notification', onNotification);
       self.ctx.bus.removeListener('views-evaluated', onEvaluated);
+      if (closeNotifications) closeNotifications();
+      self.ctx.store.db.stats = liveStats;
       clock.uninstall();
     });
 
@@ -217,7 +326,11 @@ describe('views profile: one tenant, nonresident (research prototype)', function
       return Promise.all(['entries', 'treatments', 'devicestatus', 'profile', 'food', 'activity'].map(k => ctx.store.collection(self.env[k + '_collection']).deleteMany({})))
         .then(() => new Promise(resolve => ctx.evaluator.idle(resolve)))
         .then(function () {
+          if (closeNotifications) closeNotifications();
+          const before = new Set(ctx.bus.rawListeners('teardown'));
           const notifications = require('../lib/notifications')(self.env, { levels: ctx.levels, bus: ctx.bus, ddata: ctx.notificationsClock });
+          const owned = ctx.bus.rawListeners('teardown').filter(listener => !before.has(listener));
+          closeNotifications = () => owned.forEach(listener => { listener(); ctx.bus.removeListener('teardown', listener); });
           const rn = notifications.requestNotify;
           const rs = notifications.requestSnooze;
           notifications.requestNotify = function (n) { cur.requested.push(Object.assign({ kind: 'notify' }, n)); return rn(n); };
@@ -269,12 +382,31 @@ describe('views profile: one tenant, nonresident (research prototype)', function
       (out.profile !== null).should.equal(true, 'the profile evaluated');
       arms.sig(out.profile.emitted).should.eql(arms.sig(out.resident.emitted), 'emitted');
       arms.sig(out.profile.requested).should.eql(arms.sig(out.resident.requested), 'requested');
+      assert.deepEqual(JSON.parse(JSON.stringify(self.ctx.evaluator.kept().properties)), JSON.parse(JSON.stringify(out.resident.properties)), 'cycle properties');
     }
     function has (list, kind, plugin, level) {
       return list.some(n => (kind ? n.kind === kind : true) && n.plugin && n.plugin.name === plugin && (level === undefined || n.level === level));
     }
 
     const NOW = Date.UTC(2026, 9, 15, 12, 0, 0);
+
+    it('retains cycle properties as time advances until the next trigger', async function () {
+      const out = await runCase('steady', NOW);
+      arms.sig(out.profile.emitted).should.eql(arms.sig(out.resident.emitted));
+      arms.sig(out.profile.requested).should.eql(arms.sig(out.resident.requested));
+      const read = () => new Promise((resolve, reject) => self.ctx.evaluator.properties((err, props) => err ? reject(err) : resolve(props)));
+      const before = JSON.parse(JSON.stringify(await read()));
+      clock.pin(NOW + 40 * MIN);
+      const retained = JSON.parse(JSON.stringify(await read()));
+      assert.deepEqual(retained, before, 'a request must serve the previous cycle');
+      const fresh = await resident.evaluate();
+      assert.notDeepEqual(JSON.parse(JSON.stringify(fresh.properties)), retained, 'the time advance must affect derived properties');
+      self.ctx.bus.emit('tick', { now: new Date(), type: 'heartbeat' });
+      await settled();
+      const updated = JSON.parse(JSON.stringify(await read()));
+      assert.notDeepEqual(updated, before, 'the tick refreshes retained properties');
+      assert.deepEqual(updated, JSON.parse(JSON.stringify(fresh.properties)));
+    });
 
     it('a treatment 4 minutes old snoozes the URGENT low for 10 minutes', async function () {
       const out = await runCase('recentTreatment', NOW);
@@ -346,6 +478,55 @@ describe('views profile: one tenant, nonresident (research prototype)', function
       has(last.emitted, undefined, 'timeago', 2).should.equal(true, 'stale-data URGENT emitted');
       arms.sig(last.emitted).should.eql(arms.sig(r.emitted));
       arms.sig(last.requested).should.eql(arms.sig(r.requested));
+    });
+  });
+
+  describe('shutdown', function () {
+    it('a read completing after teardown cannot reach the fake delivery boundary', async function () {
+      const context = Object.create(self.ctx);
+      context.bus = new (require('node:events').EventEmitter)();
+      context.notificationsClock = { lastUpdated: 0 };
+      context.notifications = require('../lib/notifications')(self.env, { levels: context.levels, bus: context.bus, ddata: context.notificationsClock });
+      const provider = require('../lib/server/pushnotify')(self.env, context);
+      context.bus.on('notification', provider.emitNotification);
+      let release;
+      let entered;
+      const reading = new Promise(resolve => { entered = resolve; });
+      context.entries = Object.create(self.ctx.entries);
+      context.entries.list = function (query, callback) {
+        if (!release) {
+          release = () => self.ctx.entries.list(query, callback);
+          entered();
+        } else self.ctx.entries.list(query, callback);
+      };
+      const evaluator = require('../lib/server/nonresident')(self.env, context, { settleMs: Infinity });
+      const before = self.localOnly.handoffs.length;
+      context.bus.emit('tick', { now: new Date(), type: 'heartbeat' });
+      const complete = new Promise(resolve => evaluator.flush(resolve));
+      await reading;
+      context.bus.emit('teardown');
+      release();
+      await complete;
+      assert.equal(evaluator.stats.evaluations, 1, 'the outstanding read actually completed');
+      assert.equal(evaluator.stats.errors, 0);
+      assert.equal(self.localOnly.handoffs.length, before, 'no late delivery after teardown');
+      assert.equal(context.bus.listenerCount('notification'), 0);
+    });
+
+    it('delivers only to the fake provider and teardown removes both triggers', async function () {
+      assert(self.localOnly.handoffs.length > 0, 'an alarm reached the fake delivery boundary');
+      assert.equal(self.localOnly.blocked(), 1, 'only the explicit egress control attempted an external socket');
+      const ctx = self.ctx;
+      await new Promise(resolve => ctx.evaluator.idle(resolve));
+      const before = ctx.evaluator.stats.evaluations;
+      ctx.bus.emit('tick', { now: new Date(), type: 'heartbeat' });
+      ctx.bus.teardown();
+      assert.equal(ctx.bus.listenerCount('storage-write-committed'), 0);
+      assert.deepEqual(ctx.bus.listeners('tick'), [ctx.adminnotifies.clean], 'only the unrelated admin cleanup listener remains');
+      ctx.bus.emit('storage-write-committed', { collection: 'entries' });
+      ctx.bus.emit('tick', { now: new Date(), type: 'heartbeat' });
+      await new Promise(resolve => ctx.evaluator.flush(resolve));
+      assert.equal(ctx.evaluator.stats.evaluations, before);
     });
   });
 });
