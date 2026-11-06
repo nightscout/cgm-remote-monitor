@@ -324,8 +324,8 @@ module.exports = function createReplicaFixture () {
         await worker.exited;
       }
       if (admin) await admin.end();
-      if (vaultOwned) docker(['rm', '-f', vaultName]);
-      if (pgOwned) docker(['rm', '-f', pgName]);
+      if (vaultOwned) docker(['rm', '-fv', vaultName]);
+      if (pgOwned) docker(['rm', '-fv', pgName]);
       fs.rmSync(fixtureDirectory, { recursive: true, force: true });
 
     }
