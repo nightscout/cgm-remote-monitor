@@ -493,10 +493,12 @@ describe('views profile: one tenant, nonresident (research prototype)', function
     let physical = [];
     let logical = [];
     let requested = [];
-    let requestNotify;
-    let requestSnooze;
+    let emitted = [];
+    let previousNotifications;
+    let closeNotifications;
     const onPhysical = event => physical.push(event);
     const onLogical = event => logical.push(event);
+    const onNotification = notification => emitted.push(notification);
 
     before(async function () {
       app = require('../lib/server/serve/views').createApp(self.env, self.ctx).app;
@@ -508,23 +510,36 @@ describe('views profile: one tenant, nonresident (research prototype)', function
       self.ctx.store.db.stats = () => Promise.resolve({ dataSize: 1024, indexSize: 1024 });
       self.ctx.bus.on('storage-write-committed', onPhysical);
       self.ctx.bus.on(intentEvent, onLogical);
-      requestNotify = self.ctx.notifications.requestNotify;
-      requestSnooze = self.ctx.notifications.requestSnooze;
-      self.ctx.notifications.requestNotify = function (notification) {
+      self.ctx.bus.on('notification', onNotification);
+      previousNotifications = self.ctx.notifications;
+    });
+
+    function freshNotifications () {
+      const ctx = self.ctx;
+      if (closeNotifications) closeNotifications();
+      const before = new Set(ctx.bus.rawListeners('teardown'));
+      const notifications = require('../lib/notifications')(self.env, { levels: ctx.levels, bus: ctx.bus, ddata: ctx.notificationsClock });
+      const owned = ctx.bus.rawListeners('teardown').filter(listener => !before.has(listener));
+      closeNotifications = () => owned.forEach(listener => { listener(); ctx.bus.removeListener('teardown', listener); });
+      const requestNotify = notifications.requestNotify;
+      const requestSnooze = notifications.requestSnooze;
+      notifications.requestNotify = function (notification) {
         requested.push(Object.assign({ kind: 'notify' }, notification));
         return requestNotify(notification);
       };
-      self.ctx.notifications.requestSnooze = function (notification) {
+      notifications.requestSnooze = function (notification) {
         requested.push(Object.assign({ kind: 'snooze' }, notification));
         return requestSnooze(notification);
       };
-    });
+      ctx.notifications = notifications;
+    }
 
     after(function () {
       self.ctx.bus.removeListener('storage-write-committed', onPhysical);
       self.ctx.bus.removeListener(intentEvent, onLogical);
-      self.ctx.notifications.requestNotify = requestNotify;
-      self.ctx.notifications.requestSnooze = requestSnooze;
+      self.ctx.bus.removeListener('notification', onNotification);
+      if (closeNotifications) closeNotifications();
+      self.ctx.notifications = previousNotifications;
       self.ctx.store.db.stats = liveStats;
       clock.uninstall();
     });
@@ -532,6 +547,9 @@ describe('views profile: one tenant, nonresident (research prototype)', function
     beforeEach(async function () {
       await flush();
       clock.pin(NOW);
+      // The preceding alarm cohorts close their last service. Own this
+      // cohort's real handoff, rather than record calls into that closed one.
+      freshNotifications();
       await Promise.all(['entries', 'treatments', 'devicestatus', 'profile', 'food', 'activity']
         .map(k => self.ctx.store.collection(self.env[k + '_collection']).deleteMany({})));
       const fixture = SCENARIOS.steady(NOW);
@@ -542,7 +560,7 @@ describe('views profile: one tenant, nonresident (research prototype)', function
         await new Promise((resolve, reject) => self.ctx[name].create(fixture[name], err => err ? reject(err) : resolve()));
       }
       await flush();
-      physical = []; logical = []; requested = [];
+      physical = []; logical = []; requested = []; emitted = [];
     });
 
     // Assert the writer's reply and durable effect before asking whether its
@@ -550,7 +568,7 @@ describe('views profile: one tenant, nonresident (research prototype)', function
     // No harness-forwarded logical event or timer is used to make this pass.
     async function changed (method, url, body, status, collection, observe) {
       const before = self.ctx.evaluator.stats.evaluations;
-      physical = []; logical = []; requested = [];
+      physical = []; logical = []; requested = []; emitted = [];
       let operation = request(app)[method](url).set('Authorization', 'Bearer ' + jwt);
       if (body) operation = operation.send(body);
       const response = await operation.expect(status);
@@ -581,6 +599,7 @@ describe('views profile: one tenant, nonresident (research prototype)', function
       await changed('patch', '/api/v3/entries/' + identifier, { sgv: 240 }, 200, 'entries', async () => {
         assert.equal((await collection.findOne({ identifier })).sgv, 240);
       });
+      assert(emitted.some(notification => notification.plugin && notification.plugin.name === 'ar2' && notification.level === 2), 'the live notification service emits the committed high alarm');
       assert.notDeepEqual(json(self.ctx.evaluator.kept().properties), afterCreate, 'changed glucose must affect the retained properties');
       await changed('delete', '/api/v3/entries/' + identifier, null, 200, 'entries', async () => {
         assert.equal((await collection.findOne({ identifier })).isValid, false);
@@ -594,6 +613,7 @@ describe('views profile: one tenant, nonresident (research prototype)', function
       const created = await changed('post', '/api/v3/treatments', document, 201, 'treatments', async response => {
         assert.equal((await collection.findOne({ identifier: response.body.identifier })).carbs, 15);
       });
+      assert(emitted.some(notification => notification.plugin && notification.plugin.name === 'treatmentnotify' && /Carbs: 15g/.test(notification.message)), 'the live notification service emits the committed treatment notification');
       const identifier = created.body.identifier;
       const afterCreate = json(self.ctx.evaluator.kept().properties);
       await changed('patch', '/api/v3/treatments/' + identifier, { carbs: 45 }, 200, 'treatments', async () => {
