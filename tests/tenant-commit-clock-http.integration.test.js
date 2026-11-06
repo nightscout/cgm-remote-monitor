@@ -252,12 +252,20 @@ optInSuite(enabled, 'NS_TENANT_COMMIT_CLOCK_HTTP_DOCKER_TEST=1')(
           assert.ok(Number.isSafeInteger(sampleCount) && sampleCount >= 1 && sampleCount <= 1000);
           assert.ok(Number.isSafeInteger(concurrency) && concurrency >= 1 && concurrency <= 16);
           const warmupRequests = 8;
-          for (const cohort of ['single-hot-tenant', 'balanced-two-tenants']) {
+          // OFF is an optional descriptive baseline, never a correctness claim
+          // for multiple uncoordinated writers. Each mode has independent data.
+          const clockModes = process.env.NS_TENANT_COMMIT_CLOCK_OFF_BASELINE === '1' ? [false, true] : [true];
+          const cohorts = clockModes.flatMap(clockEnabled =>
+            ['single-hot-tenant', 'balanced-two-tenants'].map(cohort => ({ clockEnabled, cohort })));
+          for (const { clockEnabled, cohort } of cohorts) {
             // Fresh services/data for EACH cohort: no +1h allocator fixtures,
             // and no hot-first/balanced-second shared cache/data history.
-            const bench = createFixture();
+            const bench = createFixture({ clockEnabled });
             try {
               await bench.setup();
+              const config = bench.configuration();
+              assert.equal(Object.hasOwn(config, 'writeClock'), clockEnabled);
+              assert.equal(Object.hasOwn(config.postgres.namespaces, 'clock'), clockEnabled);
               const initialClockFloors = await Promise.all(bench.tenants.map(tenant => bench.floor(tenant)));
               const workers = await bench.pair();
               const credentials = await Promise.all(bench.tenants.map(tenant => bench.localToken(tenant)));
@@ -274,8 +282,10 @@ optInSuite(enabled, 'NS_TENANT_COMMIT_CLOCK_HTTP_DOCKER_TEST=1')(
               }
               const floorToWallClock = [];
               for (const [index, tenant] of bench.tenants.entries()) {
-                const floor = await bench.floor(tenant), wallClockMs = Date.now();
-                floorToWallClock.push({ tenant: index, floor, wallClockMs, leadMs: floor - wallClockMs });
+                const floor = await bench.floor(tenant);
+                const entriesWatermark = await bench.storedEntriesWatermark(tenant), wallClockMs = Date.now();
+                floorToWallClock.push({ tenant: index, floor, entriesWatermark, wallClockMs,
+                  leadMs: entriesWatermark - wallClockMs });
               }
               const payloads = Array.from({ length: sampleCount }, (_, i) => entry('commit-clock-bench-' + cohort + '-' + i));
               const payloadSizes = payloads.map(payload => Buffer.byteLength(JSON.stringify(payload)));
@@ -299,7 +309,12 @@ optInSuite(enabled, 'NS_TENANT_COMMIT_CLOCK_HTTP_DOCKER_TEST=1')(
               }
               await Promise.all(Array.from({ length: concurrency }, work));
               const result = createFixture.metrics(samples, performance.now() - started, {
-                cohort, sampleCount, concurrency, configuredTenants: bench.tenants.length, processes: workers.length,
+                cohort, clockEnabled, sampleCount, concurrency, configuredTenants: bench.tenants.length, processes: workers.length,
+                configuration: { role: 'api', writeClock: config.writeClock ?? 'omitted',
+                  namespaces: config.postgres.namespaces, domains: config.domains,
+                  legacy: config.legacy, context: config.context, resolution: config.resolution.mode,
+                  accessTokenIssuer: config.accessTokens.issuer, accessTokenAudience: config.accessTokens.audience,
+                  unusedClockSchemaProvisioned: !clockEnabled },
                 nodeVersion: process.version, postgresVersion, freshFixturePerCohort: true,
                 initialClockFloors, floorToWallClock, warmupRequests,
                 warmupPurpose: 'exercise each process/tenant pairing; not a steady-state proof', retryPolicy: 'none', credentialKind: 'tenant data token with current persisted authority',

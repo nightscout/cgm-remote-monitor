@@ -30,15 +30,18 @@ function requestSummary (request) {
   return request.error ? 'transport failure' : 'HTTP ' + request.response?.status;
 }
 
-module.exports = function createClockHttpFixture () {
+module.exports = function createClockHttpFixture ({ clockEnabled = true } = {}) {
+  assert.equal(typeof clockEnabled, 'boolean');
   const base = createReplicaFixture();
   const clients = new Set();
   const locked = new Set();
 
   function configuration () {
     const config = base.configuration();
-    config.writeClock = true;
-    config.postgres.namespaces.clock = CLOCK;
+    if (clockEnabled) {
+      config.writeClock = true;
+      config.postgres.namespaces.clock = CLOCK;
+    }
     return config;
   }
 
@@ -114,8 +117,11 @@ module.exports = function createClockHttpFixture () {
   }
   const rows = async (tenant, identifier) => (await base.admin.query(
     "SELECT doc FROM preview_data.entries WHERE tenant_id=$1 AND doc->>'identifier'=$2", [tenant, identifier])).rows.map(row => row.doc);
-  const floor = async tenant => Number((await base.admin.query(
-    'SELECT last_stamp FROM preview_clock.tenant_write_clock WHERE tenant_id=$1', [tenant])).rows[0].last_stamp);
+  const floor = async tenant => clockEnabled ? Number((await base.admin.query(
+    'SELECT last_stamp FROM preview_clock.tenant_write_clock WHERE tenant_id=$1', [tenant])).rows[0].last_stamp) : null;
+  const storedEntriesWatermark = async tenant => Number((await base.admin.query(
+    "SELECT COALESCE(max((doc->>'srvModified')::numeric),0)::text AS stamp FROM preview_data.entries WHERE tenant_id=$1 AND jsonb_typeof(doc->'srvModified')='number'",
+    [tenant])).rows[0].stamp);
   const foreignRows = async tenant => (await base.admin.query(
     'SELECT doc FROM preview_data.entries WHERE tenant_id=$1 ORDER BY doc::text', [tenant])).rows;
 
@@ -202,7 +208,7 @@ module.exports = function createClockHttpFixture () {
   }
 
   return { ...base, setup, cleanup, configuration, start, pair, rows, floor,
-    foreignRows, lockEntry, waitForBlocked, assertClockHeld, completed,
+    foreignRows, storedEntriesWatermark, lockEntry, waitForBlocked, assertClockHeld, completed,
     backendState, terminateBackend, connectionSettings,
     tracked, releaseControls,
     get admin () { return base.admin; }, get workers () { return base.workers; } };
