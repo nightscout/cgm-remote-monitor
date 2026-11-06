@@ -67,7 +67,7 @@ optInSuite(process.env.NS_STORAGE_PORT_CONTRACT_DOCKER_TEST === '1',
     const password = randomBytes(24).toString('hex');
     docker('run', '--detach', '--rm', '--name', containers[0], '--publish', '127.0.0.1::5432',
       '--env', 'POSTGRES_PASSWORD=' + password, '--env', 'POSTGRES_DB=' + name, 'postgres:16');
-    docker('run', '--detach', '--rm', '--name', containers[1], '--publish', '127.0.0.1::27017', 'mongo:7.0');
+    docker('run', '--detach', '--rm', '--name', containers[1], '--publish', '127.0.0.1::27017', '--ulimit', 'nofile=64000:64000', 'mongo:7.0');
     const pgPort = docker('port', containers[0], '5432/tcp').split(':').pop();
     const mongoPort = docker('port', containers[1], '27017/tcp').split(':').pop();
     const url = new URL('postgresql://127.0.0.1:' + pgPort + '/' + name);
@@ -391,4 +391,92 @@ optInSuite(process.env.NS_STORAGE_PORT_CONTRACT_DOCKER_TEST === '1',
     await assert.rejects(ports.pg.run(() => step.write({ op: 'create', docs: [{ _id: 'nested' }] })), /new transaction/);
     assert.equal(observed.length, 1);
   });
+
+  const intentFactories = [
+    ['entries-v3', options => entriesIntent(options)],
+    ['collection-v3', options => collectionIntent({ ...options, logical: 'entries' })],
+    ['collection-legacy', options => collectionIntent({ ...options, logical: 'entries', source: 'v1/internal' })]
+  ];
+  for (const [adapter, create] of intentFactories) {
+    it(adapter + ' shared identifying read preserves identifier then ObjectId then string priority', async function () {
+      const step = create({ connection, table });
+      const filter = { $or: [{ _id: new ObjectId(HEX) }, { _id: HEX }, { identifier: HEX }] };
+      const rows = await ports.pg.run(() => step.storage.findOneFilter(filter, undefined, { normalize: false, limit: 3 }));
+      assert.deepEqual(rows.map(doc => doc.label), ['identifier', 'objectid', 'string']);
+      assert.ok(rows[1]._id instanceof ObjectId);
+      assert.equal(typeof rows[2]._id, 'string');
+      assert.equal((await ports.pg.run(() => step.storage.findOneFilter(filter)))[0].identifier, HEX);
+      const other = await scope.withTenant(B, () => step.storage.findOneFilter(filter, undefined, { normalize: false }));
+      assert.equal(other[0].owner, 'tenant-b');
+    });
+
+    it(adapter + ' shared projection preserves inclusion, exclusion and exact refusal classes', async function () {
+      const step = create({ connection, table });
+      const label = adapter === 'entries-v3' ? 'PostgreSQL entries intent' : 'PostgreSQL collection intent';
+      const read = projection => ports.pg.run(() =>
+        step.storage.findOneFilter({ _id: 'missing' }, projection, { normalize: false }));
+      assert.deepEqual(await read({ nested: 1, _id: 0 }), [{ nested: { keep: null, drop: 1 } }]);
+      assert.deepEqual(await read({ order: 0 }), [{ _id: 'missing', nested: { keep: null, drop: 1 } }]);
+      assert.deepEqual(await read({ _id: 1 }), [{ _id: 'missing' }]);
+      await assert.rejects(read({ 'nested.keep': 1 }), { name: 'TypeError', message: label + ': unsupported projection' });
+      await assert.rejects(read({ nested: 1, order: 0 }), { name: 'TypeError', message: label + ': mixed projection' });
+      await assert.rejects(ports.pg.run(() => step.storage.findOneFilter({}, undefined, { arbitrary: true })),
+        { name: 'TypeError', message: label + ': unsupported findOneFilter option' });
+    });
+
+    it(adapter + ' common commit wrapper emits nothing for a mutating failed commit', async function () {
+      const bus = new EventEmitter(), observed = [];
+      bus.on(intentStep.INTENT_EVENT, event => observed.push(event));
+      let mutated = false;
+      const failed = create({ connection: { ...connection,
+        transaction: fn => connection.transaction(async function () {
+          const result = await fn();
+          const inside = await connection.query(`SELECT doc FROM "${name}".entries WHERE doc->>'identifier' = 'rollback-common'`);
+          assert.equal(inside.rows.length, 1, 'the control must reach a real mutation before forced failure');
+          mutated = true;
+          assert.equal(result.items[0].outcome, 'inserted');
+          throw new Error('synthetic common commit failure');
+        }) }, table, bus });
+      await assert.rejects(scope.withTenant(A, () => failed.write({ op: 'create',
+        docs: [{ _id: 'rollback-common', identifier: 'rollback-common', value: false }] })), /synthetic common commit failure/);
+      assert.equal(mutated, true);
+      assert.equal(observed.length, 0, 'a failed commit must not publish a logical event');
+      assert.deepEqual(await ports.pg.run(() => ports.pg.read.findOne('rollback-common')), []);
+      assert.deepEqual(await scope.withTenant(B, () => ports.pg.read.findOne('rollback-common')), []);
+    });
+
+    it(adapter + ' common commit wrapper preserves committed results and synchronous settle without a transaction', async function () {
+      const bus = new EventEmitter(), observed = [];
+      let transactions = 0;
+      const step = create({ connection: { ...connection,
+        transaction (fn) { transactions++; return connection.transaction(fn); } }, table, bus });
+      bus.on(intentStep.INTENT_EVENT, event => observed.push({ event,
+        visible: admin.query(`SELECT doc FROM "${name}".entries WHERE tenant_id = $1 AND doc->>'identifier' = 'success-common'`, [A]) }));
+      const written = await scope.withTenant(A, () => step.write({ op: 'create',
+        docs: [{ _id: 'success-common', identifier: 'success-common', value: false }] }));
+      assert.equal(written.items[0].outcome, 'inserted');
+      const committed = (await ports.pg.run(() => ports.pg.read.findOne('success-common', undefined, { normalize: false })))[0];
+      assert.deepEqual(written.items[0]._id, committed._id);
+      if (adapter === 'collection-legacy') assert.ok(committed._id instanceof ObjectId);
+      else assert.equal(committed._id, 'success-common');
+      assert.equal(transactions, 1);
+      assert.equal(observed.length, 1);
+      assert.equal((await observed[0].visible).rows[0].doc.value, false);
+      for (const outcome of ['unchanged', 'refused']) {
+        const settled = scope.withTenant(A, () => step.settle({ op: 'create' },
+          committed, outcome, 'synthetic settled intent'));
+        assert.equal(typeof settled.then, 'undefined', 'settle stays synchronous');
+        assert.equal(settled.items[0].outcome, outcome);
+      }
+      assert.equal(transactions, 1, 'settle must not manufacture transaction ownership');
+      assert.equal(observed.length, 3);
+      assert.ok(observed.every(value => value.event.collection === 'entries' &&
+        value.event.source === (adapter === 'collection-legacy' ? 'v1/internal' : 'v3')));
+      bus.on(intentStep.INTENT_EVENT, () => { throw new Error('synthetic observer failure'); });
+      assert.doesNotThrow(() => scope.withTenant(A, () => step.settle({ op: 'create' },
+        committed, 'unchanged', 'synthetic observer')));
+      assert.equal(transactions, 1);
+    });
+  }
+
 });

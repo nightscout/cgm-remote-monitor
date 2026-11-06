@@ -30,7 +30,8 @@ services. No external connection settings are consumed.
 
 The parameterized corpus covers MongoCollection, the lower PostgreSQL reader and
 writer, and the entries v3 `postgres-collection-intent.storage` object. Intent
-event tests cover MongoCollection plus `postgres-entries-intent`. Other logical
+event tests cover MongoCollection plus both PostgreSQL intent wrappers, including
+the general wrapper with its legacy source. Other logical
 collections and HTTP rendering keep their own integration tests.
 
 ## Identity and document representation
@@ -126,3 +127,20 @@ The existing event helper also collapses unnamed or over-cap record lists; this
 bounded corpus does not measure that branch, durable delivery, restart recovery,
 or retry ambiguity after a lost reply. MongoDB standalone operations do not
 provide PostgreSQL's multi-operation rollback guarantee.
+
+
+## Shared PostgreSQL intent mechanics
+
+`postgres-intent-common.js` contains the identical top-level projection,
+identifying-read ordering/limit/normalization and owned-commit event wrapper used
+by both PostgreSQL intent adapters. Each adapter retains its existing error label,
+source-specific filter translation and admission rules. Lower-reader nested
+inclusion projections remain separate from preview top-level projections; legacy
+natural-order reads remain explicitly owned by the general collection adapter.
+
+The common wrapper emits only after an owned transaction returns successfully.
+A failed mutating transaction publishes nothing. Synchronous settle emits a
+no-write logical outcome without opening a transaction. Observer failures retain
+the shared write-intent emitter's behavior; they cannot roll back a committed
+write or convert settle to an asynchronous operation. These local events do not
+establish durable delivery or recovery.
