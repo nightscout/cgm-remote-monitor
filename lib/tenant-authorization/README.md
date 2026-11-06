@@ -77,3 +77,33 @@ notes/creation metadata and a redacted mutation audit table. The separate
 subjects and known-role links with legacy credential metadata in one transaction.
 This authority reader remains read-only; serving credentials do not acquire
 management grants or routes.
+
+## Dormant selected owner ceiling
+
+Both `postgres.js` and `access-postgres.js` accept the optional trusted constructor
+argument `ownerPolicy: { catalogue: ['api:entries:read'] }`. No runtime configuration
+selects this mode. Omitting the option retains the existing reader behavior and
+does not read owner-policy tables.
+
+Selected readers require subject identity and a concrete catalogue using the same
+reviewed terminal operation universe as the subject-management writer. The current
+catalogue digest and operator ceiling are joined into each existing authority SQL
+statement. Effective groups are intersected with the code catalogue and that
+snapshot's ceiling. Missing or mismatched policy, malformed/unknown permissions,
+wildcard roles and the `readable` default refuse. `denied` and `status-only` retain
+their defined concrete expansion within the intersection. The legacy reader
+rejects root and anonymous principals in selected mode. The new-format reader
+already requires subject/session claims; it does not acquire a root bypass.
+
+Startup additionally requires nonownership, forced RLS and SELECT-only access to
+the owner-policy table. The reader never edits stored grants. Code-catalogue
+changes require explicitly matching operator digest preparation; unknown future
+permissions do not silently enter effective authority. This bounds the current
+tenant ceiling, not the current authority of whichever actor issued an old grant:
+the subject-role assignment has no delegation lineage.
+
+Selection and rollout require separate PostgreSQL, cross-worker revocation and
+actual-client compatibility verification. The source probe
+`node scripts/probe-owner-policy-clamping.js --selected --require-clamp` exercises
+the dormant option using synthetic SQL responses only. It establishes no database,
+client, production policy or performance acceptance.
