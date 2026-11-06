@@ -82,6 +82,9 @@ describe('API3: DELETE across stored identifier forms', function () {
 
     let authResult = await authSubject(self.instance.ctx.authorization.storage, ['all'], self.instance.app);
     self.jwt = authResult.jwt;
+    // Twins and identifier arrays are stored as before the unique index
+    // (ID-UNIQUE-INDEX).
+    await require('./fixtures/identifier-index').dropIdentifierIndex(self.instance.ctx.store, self.env);
   });
 
   // Stored the way POST /api/v1/<colName> stores it: through API v1's storage

@@ -89,7 +89,9 @@ describe('P4: a re-send whose identifier names two stored records lands on the o
       self.ctx = ctx;
       self.ctx.ddata = require('../lib/data/ddata')();
       self.app.use('/api', api(self.env, ctx));
-      dropAll().then(function () { done(); }, done);
+      // The two halves are stored as before the unique index (ID-UNIQUE-INDEX).
+      require('./fixtures/identifier-index').dropIdentifierIndex(ctx.store, self.env)
+        .then(dropAll).then(function () { done(); }, done);
     });
   });
 

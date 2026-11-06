@@ -538,9 +538,10 @@ describe('write(intent): the entries rule table (slice 5)', function ( ) {
     // CHANGED EXPECTATION (ID-FIRST-MATCH slice 5, ID-Q5): of several entries with the identifier,
     // the update lands on the one P4 picks (pick 'p4'; it was 'driver-first').
     // CHANGED EXPECTATION (ID-FIRST-MATCH slice 3, ID-Q4): on-deleted, 'stays-deleted'.
+    // CHANGED EXPECTATION (ID-RESEND-SWITCH): a re-send rule (resend: true).
     assert.deepEqual(rules.create, { plan: 'entries', write: 'entries-merge-bulk', onMatch: 'merged'
       , identifier: { also: 'uuid-id', pick: 'p4', replyAlso: 'uuid-id', replyPick: 'last-read' }
-      , deleted: 'stays-deleted' });
+      , deleted: 'stays-deleted', resend: true });
     assert.deepEqual(rules.delete, { target: 'query' });
   });
 
@@ -681,8 +682,11 @@ describe('write(intent): the devicestatus rule table (slice 5)', function ( ) {
     // CHANGED EXPECTATION (ID-FIRST-MATCH slice 4, ID-Q2): a status whose identifier is stored is
     // merged into it (onMatch 'merged'); it was answered refused, already stored.
     // CHANGED EXPECTATION (maintainer 2026-10-31, compat card B, extended): it replaces the stored status.
+    // CHANGED EXPECTATION (ID-RESEND-SWITCH): a re-send rule, and on-deleted 'stays-deleted' (a
+    // status whose identifier names a deleted one was already not written; now named in the table, so
+    // WRITE_DELETED_RESEND=revive can bring it back).
     assert.deepEqual(rules.create, { write: 'statuses', dates: 'stamp-created', onMatch: 'replaced'
-      , identifier: { also: 'none', pick: 'p4' } });
+      , identifier: { also: 'none', pick: 'p4' }, deleted: 'stays-deleted', resend: true });
     assert.deepEqual(rules.delete, { target: 'query' });
   });
 
@@ -812,8 +816,10 @@ describe('write(intent): the profile rule table (slice 5)', function ( ) {
     // startDate a new profile without the identifier (decisions.md, slice 6 profile-copy rule).
     // CHANGED EXPECTATION (maintainer 2026-10-31, compat card B, extended): a re-send identifier
     // first sent to a stored profile replaces it (onIdentifierMatch); one by its stored _id still merges.
+    // CHANGED EXPECTATION (ID-RESEND-SWITCH): a re-send rule (resend: true).
     assert.deepEqual(rules.create, { write: 'profiles', dates: 'stamp-created', deleted: 'stays-deleted'
-      , merge: 'rfc7386-store-whole', onIdentifierMatch: 'replaced', identifier: { also: 'none', pick: 'p4', otherTime: 'new-record' } });
+      , merge: 'rfc7386-store-whole', onIdentifierMatch: 'replaced', identifier: { also: 'none', pick: 'p4', otherTime: 'new-record' }
+      , resend: true });
     assert.equal(rules.update.id, 'hex-or-new');
     assert.equal(rules.update.twins, 'remove-string-forms-after');
     assert.equal(rules.update.dates, 'carry');

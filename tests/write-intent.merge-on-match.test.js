@@ -112,11 +112,15 @@ describe('merge on match: the rule (RFC 7386, ID-Q8, ID-Q7)', function ( ) {
   // profile dbAdd and API v3 POST replace the whole record, so they name no
   // merge; ID-Q7 holds where a profile re-send still merges (API v1,
   // in-process).
-  it('a profile re-send that merges takes `store` whole (ID-Q7); where it replaces, no merge is named', function ( ) {
+  // CHANGED EXPECTATION (ID-RESEND-SWITCH, Q-M2 decided 2026-10-31): under
+  // WRITE_RESEND=merge-except-treatments the socket's profile dbAdd and API v3
+  // POST merge again, `store` whole, so they name the merge; under the default
+  // (replace) it is not used.
+  it('a profile re-send that merges takes `store` whole (ID-Q7), on every path', function ( ) {
     const rules = writeIntent.COLLECTION_RULES;
     rules.profile['v1/internal'].create.merge.should.equal('rfc7386-store-whole');
-    assert.equal(rules.profile.socket.create.merge, undefined);
-    assert.equal(rules.profile.v3.create.merge, undefined);
+    rules.profile.socket.create.merge.should.equal('rfc7386-store-whole');
+    rules.profile.v3.create.merge.should.equal('rfc7386-store-whole');
     writeIntent.MERGES['rfc7386-store-whole'].whole.should.eql(['store']);
     writeIntent.MERGES.rfc7386.whole.should.eql([ ]);
   });

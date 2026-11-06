@@ -647,6 +647,7 @@ describe('Entries REST api', function ( ) {
    */
   it('does not write to the cached documents while serving a read', function (done) {
     var ctx = self.ctx;
+    var assert = require('node:assert/strict');
     var ObjectId = require('mongodb').ObjectId;
     var seeded = {
       _id: new ObjectId( )
@@ -657,17 +658,31 @@ describe('Entries REST api', function ( ) {
     };
     ctx.bus.emit('data-update', { type: 'entries', op: 'update', changes: [seeded] });
 
-    var cached = ctx.cache.entries[0];
+    function cachedSeed () {
+      return ctx.cache.entries.find(function (entry) {
+        return String(entry._id) === String(seeded._id);
+      });
+    }
+
+    var cached = cachedSeed();
+    assert.ok(cached, 'seeded entry should be in the cache');
     cached.should.not.have.property('mills');
+    var count = ctx.cache.entries.length;
 
     request(self.app)
-      .get('/entries.json?count=10')
+      .get('/entries.json?count=' + count)
       .expect(200)
       .end(function (err, res) {
         if (err) return done(err);
-        res.body[0].sgv.should.equal(123);
-        res.body[0].mills.should.equal(seeded.date);
-        ctx.cache.entries[0].should.not.have.property('mills');
+        var served = res.body.find(function (entry) {
+          return entry.sgv === 123 && entry.date === seeded.date;
+        });
+        assert.ok(served, 'seeded entry should be served');
+        served.sgv.should.equal(123);
+        served.mills.should.equal(seeded.date);
+        var cachedAfter = cachedSeed();
+        assert.ok(cachedAfter, 'seeded entry should remain in the cache');
+        cachedAfter.should.not.have.property('mills');
         done( );
       });
   });

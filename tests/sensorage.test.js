@@ -50,6 +50,18 @@ describe('sage', function ( ) {
     });
   });
 
+  it('displays elapsed age correctly across the fall-back DST transition', function () {
+    var now = Date.UTC(2026, 10, 1, 16);
+    var result = sage.findLatestTimeChange({
+      time: now,
+      extendedSettings: {},
+      data: { sensorTreatments: [{ eventType: 'Sensor Start', mills: now - times.days(1).msecs }] }
+    });
+    result['Sensor Start'].days.should.equal(1);
+    result['Sensor Start'].hours.should.equal(0);
+    result['Sensor Start'].display.should.equal('1d0h');
+  });
+
   it('set a pill to the current age since start with change', function (done) {
 
     var data = {
