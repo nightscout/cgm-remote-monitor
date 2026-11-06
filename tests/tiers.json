@@ -247,6 +247,7 @@
         "tests/tenant-rest-treatments.integration.test.js",
         "tests/tenant-rest-device-activity.integration.test.js",
         "tests/tenant-rest-profile-food.integration.test.js",
+        "tests/tenant-rest-settings-differential.integration.test.js",
         "tests/tenant-rest-context.integration.test.js",
         "tests/tenant-rest-authority-review.test.js",
         "tests/tenant-rest-derived.integration.test.js",
