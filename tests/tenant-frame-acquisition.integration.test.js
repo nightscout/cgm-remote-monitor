@@ -123,7 +123,7 @@ optInSuite(process.env.NS_FRAME_ACQUISITION_TEST === '1',
         assert.ok(recent.some(doc => doc.device === 'synthetic-pump'), 'an older pump kind is not displaced by uploader volume');
         assert.ok(!recent.some(doc => doc._id === 'old-status'));
         assert.equal(setup.ctx.ddata.sgvs.length, 0, 'private view loader must leave the supplied resident ddata untouched');
-        assert.equal(setup.ctx.cache.isEmpty('entries'), true, 'private view loader must leave the supplied resident cache untouched');
+        assert.deepEqual(setup.ctx.cache.getDataRef('entries'), [], 'private view loader must leave the supplied resident cache untouched');
       });
     }
 
