@@ -124,9 +124,10 @@ after a failed commit boundary. A resolved no-op `settle` can emit without a
 database mutation/commit; the logical event is not proof of a physical write.
 Resolved deletes preserve typed stored forms in event records.
 The event carries `tenant` (the bound tenant id, or null under single tenancy)
-and `stamp` (the tenant write clock floor allocated by the owned transaction
-that committed the write, read inside that transaction; null for `settle`, for
-a write that allocated nothing, and on every backend without the clock).
+and `stamp` (the final tenant write clock floor of the transaction that
+committed the write, handed to the queued publication after COMMIT; null for
+`settle`, for a transaction that allocated nothing, and on every backend
+without the clock).
 The existing event helper also collapses unnamed or over-cap record lists; this
 bounded corpus does not measure that branch, durable delivery, restart recovery,
 or retry ambiguity after a lost reply. MongoDB standalone operations do not
