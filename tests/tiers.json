@@ -242,6 +242,8 @@
         "tests/api3.entries-crud.http.test.js",
         "tests/tenant-runtime-vault.integration.test.js",
         "tests/multitenant-preview-process.integration.test.js",
+        "tests/multitenant-preview-replicas.integration.test.js",
+        "tests/tenant-commit-clock-http.integration.test.js",
         "tests/tenant-rest-entries.integration.test.js",
         "tests/tenant-rest-identity-differential.integration.test.js",
         "tests/tenant-rest-identifier-race.integration.test.js",
