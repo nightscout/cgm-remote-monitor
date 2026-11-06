@@ -118,8 +118,10 @@ not own.
 
 The logical `storage-intent-committed` event describes one resolved intent,
 including no-op outcomes. Backend write instrumentation is a different event.
-PostgreSQL intent events occur after commit and do not occur after a failed
-commit boundary. Resolved deletes preserve typed stored forms in event records.
+Mutating PostgreSQL `write` events follow the owned commit and do not occur
+after a failed commit boundary. A resolved no-op `settle` can emit without a
+database mutation/commit; the logical event is not proof of a physical write.
+Resolved deletes preserve typed stored forms in event records.
 The existing event helper also collapses unnamed or over-cap record lists; this
 bounded corpus does not measure that branch, durable delivery, restart recovery,
 or retry ambiguity after a lost reply. MongoDB standalone operations do not

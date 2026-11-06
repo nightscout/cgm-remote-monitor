@@ -282,7 +282,13 @@ const typedKey = id => (id instanceof ObjectId ? 'oid:' : typeof id + ':') + Str
   it('nothing in lib/ listens', function ( ) {
     const { execFileSync } = require('node:child_process');
     let found;
-    try { found = execFileSync('git', ['grep', '-n', 'INTENT_EVENT\\|storage-intent-committed', '--', 'lib'], { encoding: 'utf8' }); } catch { found = ''; }
+    try {
+      found = execFileSync('git', ['grep', '-n', 'INTENT_EVENT\\|storage-intent-committed', '--',
+        ':(glob)lib/**/*.js', ':(glob)lib/**/*.cjs', ':(glob)lib/**/*.mjs'], { encoding: 'utf8' });
+    } catch (error) {
+      if (error.status !== 1) throw error;
+      found = '';
+    }
     const listeners = found.split('\n').filter(l => l && !/lib\/storage\/write-intent\.js/.test(l));
     assert.deepEqual(listeners, [ ]);
   });
