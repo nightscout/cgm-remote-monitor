@@ -140,13 +140,21 @@ optInSuite(process.env.NS_SUBJECT_ADMIN_POSTGRES_DOCKER_TEST === '1',
     const original = { version: 1, migrations: catalogue.migrations.slice(0, 2) };
     await run('up', { ...options, catalogue: original });
     await admin.query('INSERT INTO subject_upgrade.tenant_authorization_subjects (tenant_id,subject_id) VALUES ($1,$2)', [A, SUBJECT]);
-    assert.deepEqual((await run('status', { ...options, catalogue })).pending, ['0003_subject_management_metadata']);
+    assert.deepEqual((await run('status', { ...options, catalogue })).pending,
+      ['0003_subject_management_metadata', '0004_owner_policy_fencing']);
+    const metadata = { version: 1, migrations: catalogue.migrations.slice(0, 3) };
+    await run('up', { ...options, catalogue: metadata });
+    const applied = (await admin.query('SELECT name,checksum FROM subject_upgrade.schema_migrations ORDER BY name')).rows;
+    assert.deepEqual(applied, metadata.migrations.map(({ name, checksum }) => ({ name, checksum })));
+    assert.deepEqual((await run('status', { ...options, catalogue })).pending, ['0004_owner_policy_fencing']);
     await run('up', { ...options, catalogue });
     assert.equal((await run('check', { ...options, catalogue })).current, true);
     assert.deepEqual((await admin.query('SELECT notes,created_at FROM subject_upgrade.tenant_authorization_subjects')).rows,
       [{ notes: null, created_at: null }]);
-    const checksums = (await admin.query("SELECT checksum FROM subject_upgrade.schema_migrations WHERE name <> '0003_subject_management_metadata' ORDER BY name")).rows;
-    assert.deepEqual(checksums.map(row => row.checksum), original.migrations.map(migration => migration.checksum));
+    const checksums = (await admin.query(
+      'SELECT name,checksum FROM subject_upgrade.schema_migrations WHERE name=ANY($1::text[]) ORDER BY name',
+      [applied.map(row => row.name)])).rows;
+    assert.deepEqual(checksums, applied);
   });
 
   it('atomically renames stable identity and credential prefix while preserving omitted notes/time and foreign state', async function () {
