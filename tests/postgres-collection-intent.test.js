@@ -45,6 +45,23 @@ describe('trusted PostgreSQL collection translation', function () {
     assert.throws(() => create({ logical: 'entries', source: 'legacy' }), /trusted logical/);
   });
 
+  it('admits the literal socket source only with an owned commit boundary', async function () {
+    assert.throws(() => create({ logical: 'treatments', source: 'socket', connection: {} }), /owned commit boundary/);
+    const { EventEmitter } = require('node:events');
+    const bus = new EventEmitter();
+    const events = [];
+    let committed = false;
+    bus.on('storage-intent-committed', event => { assert.equal(committed, true); events.push(event); });
+    const connection = { async query (sql) { return { rows: sql.includes('AS deleted')
+      ? [{ deleted: '0', over_cap: false, unsortable: false }] : [] }; },
+      async transaction (fn) { const value = await fn(); committed = true; return value; } };
+    const port = create({ logical: 'treatments', source: 'socket', table: 'test.treatments', connection, bus });
+    // A missing-record delete still crosses the owned boundary and emits its
+    // socket intent only after it returns; actual persisted writes need the lab.
+    await port.write({ op: 'delete', target: { _id: 'synthetic-absent' } });
+    assert.equal(events.length, 1); assert.equal(events[0].source, 'socket');
+  });
+
   it('canonicalizes only a derived UTC offset before JSON storage validation', function () {
     const Collection = require('../lib/api3/generic/collection');
     const app = { get: () => false, setENVTruthy: () => undefined };

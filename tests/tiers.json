@@ -158,7 +158,8 @@
         "tests/owner-preview.test.js",
         "tests/tenant-durable-replay.test.js",
         "tests/tenant-projection-evaluator.test.js",
-        "tests/tenant-socket-forwarding.test.js"
+        "tests/tenant-socket-forwarding.test.js",
+        "tests/socket-write-handlers.test.js"
       ],
       "env": true,
       "require": [
@@ -337,7 +338,8 @@
         "tests/owner-subject-policy.integration.test.js",
         "tests/tenant-durable-replay.integration.test.js",
         "tests/tenant-projection-evaluator.integration.test.js",
-        "tests/owner-preview.integration.test.js"
+        "tests/owner-preview.integration.test.js",
+        "tests/tenant-socket-data-forwarding.integration.test.js"
       ],
       "env": true,
       "require": [

@@ -56,6 +56,9 @@ const CRUD = { NS_ENTRIES_CRUD_HTTP_TEST: '1' };
 const INVENTORY = [
   { file: 'tests/owner-preview.integration.test.js', flags: { NS_OWNER_PREVIEW_TEST: '1' }, shared: ['postgres'], own: ['postgres', 'vault'], gate: PENDING,
     note: 'actual headless tenant-admin CLI workers; operator-provisioned synthetic management credentials, no human issuer' },
+  { file: 'tests/tenant-socket-data-forwarding.integration.test.js', flags: { NS_SOCKET_DATA_FORWARDING_TEST: '1' }, shared: ['postgres', 'mongo'], own: [], gate: PENDING,
+    note: 'real sockets; pinned AAPS DATA pattern replay, not an actual Android binary; selected fixture transport only' },
+
   { file: 'tests/postgres-connection.test.js', flags: {}, shared: ['postgres'], own: [], gate: PENDING },
   { file: 'tests/entries-importer-postgres.integration.test.js', flags: { NS_POPULATED_RECOVERY_DOCKER_TEST: '1' }, shared: ['postgres'], own: ['postgres', 'postgres'], gate: PENDING,
     note: 'existing import target plus owned stopped-write populated source/restore-target reference' },

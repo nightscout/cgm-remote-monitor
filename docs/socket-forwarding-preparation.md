@@ -27,12 +27,11 @@ transport workload is trusted. It passes the exact event arguments and fixed
 `source: 'socket'` to an explicitly injected executor. Omitted alarm persistence
 refuses; it cannot fall back to clinical writes. Errors are fixed finite codes.
 
-The execute callback must adapt the existing socket handler/write step without
-reimplementing its validation, matching, permissions or reply semantics, and
-must resolve only after commit/result confirmation. That actual adapter is
-**not implemented here**: current handlers also own purification, treatment
-preflight and reply/read-entitlement rules in `websocket.js`. The source tests'
-injected executor is not clinical storage or proof those rules already match.
+The dormant DATA executor calls the extracted existing socket handlers, including
+purification, treatment preflight and reply/read-entitlement rules. It resolves
+their callback vector after their existing write/result work; a selected native
+PostgreSQL port supplies its owned commit boundary. Source comparison covers the
+bounded pattern below; actual database and client parity require the opt-in lab.
 There is no HTTP serializer or production transport authentication implementation;
 those require explicit trusted composition, bounded requests, credential privacy
 and cross-tenant current-authorization acceptance before runtime wiring.
@@ -69,42 +68,72 @@ baseline delivery and settle the supported namespace/ack-row contract before
 claiming unchanged alarm behavior. Ack-row shape, retention and evaluator
 restart acceptance remain absent and are not replaced by callback counters.
 
-## Source checks and authored controls
+## Canonical DATA executor and source checks
+
+`socket-write-handlers.js` extracts the existing four DATA handlers, their
+purifier/domain preparation, matching rules and write-intent calls. The single
+listener still uses those handlers with live connection authorization getters.
+`tenant-socket-write-executor.js` invokes precisely those handlers from the
+trusted API composition, binds the verified tenant, and resolves their unchanged
+callback argument vector. It admits only main-namespace DATA writes; it does not
+implement main-namespace alarm ack.
+
+A trusted storage port must supply its owned `intentFactory`; a missing factory
+refuses. Mongo without a selected port keeps the existing write-intent fallback.
+The PostgreSQL collection constructor explicitly admits source `socket`, retains
+socket-specific write rules and legacy predicate translation, and uses the
+existing transaction/clock/event wrapper. Socket is never relabelled as REST.
+No listener or default selects the forwarding executor.
 
 ```bash
 NODE_ENV=test TZ=UTC node node_modules/mocha/bin/mocha.js --exit \
-  --timeout 5000 tests/tenant-socket-forwarding.test.js
-node scripts/test-socket-forwarding-controls.js /tmp/ns-socket-source-controls
+  --timeout 5000 tests/tenant-socket-forwarding.test.js \
+  tests/socket-write-handlers.test.js tests/postgres-collection-intent.test.js \
+  tests/write-intent.socket.test.js
+node scripts/test-socket-data-controls.js /tmp/ns-socket-data-controls
 ```
 
-These use injected callbacks only: no Socket.IO listener, HTTP server, database,
-Vault, clinical writer, evaluator or external notification. Tests preserve all
-four data events, per-operation credentials, no early/failed acknowledgement,
-strict transport/client/tenant separation, ack tenant arguments and exact reply
-vectors. Repeated dbAdd reaches the injected API twice; actual write-step dedupe
-must later establish one stored result. Authored scratch controls acknowledge
-early, replace client authority with role authority, and drop tenant on ack;
-each must fail its property assertion, then restore green. Working source is
-never changed by the control runner.
+Source tests compare the frozen pre-extraction listener with the shared DATA
+handlers over recording storage. Pinned AAPS DATA pattern replay includes
+withheld client handling/retried treatment add, device status add, update by
+returned `_id`, unset and remove, exact callback vectors, stored values and one
+logical retried row. Only server-owned clocks are normalized; identity kinds and
+clinical values remain distinct. Stable explicit synthetic ids make this source
+comparison independent of generated identifiers. It is not a real socket,
+database, Android binary or clock acceptance claim.
 
-## Required focused runtime campaign (not run)
+The DATA source controls must fail for an early acknowledgement while the
+canonical insert remains blocked, and for bypassing the current client authority
+so a foreign role reaches context acquisition. Both must restore green. The
+original broader dispatcher source controls remain separately available.
 
-After the adopted D23 entry conditions and a runtime slot are satisfied, compose
-the actual socket executor and internal API adapter in an isolated two-tenant
-fixture. Replay the pinned envelope sequence against same-head single/Mongo
-baseline and forwarding reader/API with independent stored-value oracles. Keep
-single boot unchanged. Include treatment/devicestatus add, withheld add callback
-and retry, update by returned `_id`, unset/remove and supported alarm namespace.
+## Focused runtime selector (prepared, not run)
 
-Predicted green: identical supported acknowledgements and stored values, one
-logical stored add on retry, socket source label, no clinical writes on realtime,
-current client authority, tenant-local persisted ack observed after evaluator
-restart. Predicted red controls: acknowledge before API confirms then fail the
-write (acknowledged-but-absent row); substitute role credential (foreign write
-refuses without effects); omit ack tenant (cross-tenant/restarted state mismatch).
-Outage must not synthesize an acknowledgement. These actual assertions are
-**UNMEASURED**, as are hop latency, client timeout behavior, resource bounds,
-provider/transport identity, current delivery revocation and durable ack/snooze.
-No M5/M6, default enablement or application-ready claim follows from this source
-preparation. Later frozen runtime batch gets full/browser/enabled corpus and
-final prcheck once; no leaf campaign is requested here.
+```bash
+node scripts/test-multitenant.js --only tenant-socket-data-forwarding \
+  --record /tmp/socket-data-forwarding-record.json
+```
+
+This opt-in suite uses actual Socket.IO clients, a same-head single Mongo
+reference, current restricted PostgreSQL subject authority, canonical PostgreSQL
+DATA ports with the durable tenant clock, and independent typed stored-value
+oracles. All schemas/roles and the Mongo reference database have random owned
+names. Transport identity and credential-to-principal lookup are explicit lab
+injections; no production workload authenticator or cryptographic client verifier
+is claimed. The pinned sequence is **pattern replay, not an Android binary**.
+
+Predicted positives: exact supported callback/stored-value parity; retry leaves
+one logical row; socket source; foreign credential refusal without effects;
+client callback and intent only after API COMMIT; forced post-write abort leaves
+no success identity, data, event or clock advance. Prepared controls for the
+runtime owner: early callback plus forced abort must expose acknowledged missing
+write; replacing current subject authority with transport role must fail the
+foreign-subject oracle; bypassing the port transaction must fail independent
+visibility/event/rollback/clock checks. Runtime controls and all actual socket/DB
+outcomes are **UNMEASURED** until a coordinator-owned slot runs them.
+
+Production transport/credential-origin resolution, actual pinned client binaries,
+resource/latency bounds, current delivery revocation and durable alarm ack/snooze
+remain open. The main-namespace ack gap above still requires a supported contract;
+no ack row, evaluator behavior or M5/M6 completion is inferred from DATA work.
+A later frozen batch owns full/browser/enabled corpus and final prcheck.
