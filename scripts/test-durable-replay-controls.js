@@ -27,7 +27,9 @@ function run (name, mutation) {
   try {
     fs.cpSync(path.join(root, 'lib'), path.join(scratch, 'lib'), { recursive: true });
     fs.mkdirSync(path.join(scratch, 'tests'));
-    for (const file of ['tenant-durable-replay.test.js', 'postgres-connection-failure.test.js']) {
+    for (const file of ['tenant-durable-replay.test.js', 'postgres-connection-failure.test.js',
+      'fixtures/tenant-durable-replay.js', 'fixtures/tenant-commit-clock-port.js']) {
+      fs.mkdirSync(path.dirname(path.join(scratch, 'tests', file)), { recursive: true });
       fs.copyFileSync(path.join(root, 'tests', file), path.join(scratch, 'tests', file));
     }
     fs.mkdirSync(path.join(scratch, 'migrations/candidates'), { recursive: true });
@@ -47,7 +49,7 @@ function run (name, mutation) {
     if (result.error) throw result.error;
     const text = (result.stdout || '') + (result.stderr || '');
     fs.writeFileSync(path.join(output, name + '.log'), text);
-    assert.doesNotMatch(text, /MODULE_NOT_FOUND|SyntaxError|EPERM/);
+    assert.doesNotMatch(text, /MODULE_NOT_FOUND|Cannot find module|SyntaxError|EPERM/);
     return { text, status: result.status };
   } finally { fs.rmSync(scratch, { recursive: true, force: true }); }
 }
