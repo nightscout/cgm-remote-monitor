@@ -59,15 +59,16 @@ optInSuite(process.env.NS_SETTINGS_DIFFERENTIAL_TEST === '1' &&
       await f.same('get', '/api/v3/settings?rank$gte=2&sort$desc=identifier&skip=1&limit=1');
     });
 
-    // Measured compatibility gap: requested rank plus four generic stable keys
-    // exceeds the PG compiler's four-key capability. Preserve the refusal here.
-    it('characterizes requested nonstable sort as Mongo success and PG refusal', async function () {
-      await f.seed('settings', [doc()]);
-      const expected = await f.reference('get', '/api/v3/settings?sort=rank').expect(200);
-      assert.equal(expected.body.result.length, 1);
-      const refused = await f.http('get', '/api/v3/settings?sort=rank').expect(500);
-      assert.deepEqual(refused.body, { status: 500, message: 'Database error' });
+    // The original pre-fix vector returned Mongo200/PG500 with five sort keys.
+    // Keep the exact vector as a regression and retain every stable tie-breaker.
+    it('admits requested scalar sort with all stable tie-breakers', async function () {
+      await f.seed('settings', [doc(), { ...doc(), _id: new f.ObjectId('65a1b2c3d4e5f60718293a4c'),
+        identifier: 'synthetic-distractor', rank: 9 }]);
+      const actual = await f.same('get', '/api/v3/settings?sort=rank');
+      assert.deepEqual(actual.body.result.map(row => row.rank), [2, 9]);
       assert.deepEqual(f.workers[0].sorts.at(-1), { rank: 1, identifier: 1, created_at: 1, date: 1, _id: 1 });
+      const page = await f.same('get', '/api/v3/settings?sort$desc=rank&skip=1&limit=1');
+      assert.deepEqual(page.body.result.map(row => row.rank), [2]);
     });
 
     it('checks projection at actual storage port before renderer pruning', async function () {

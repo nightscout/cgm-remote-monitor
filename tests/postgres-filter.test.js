@@ -53,12 +53,27 @@ describe('PostgreSQL entries read: refusals and parameterization', function () {
     await refused(reader.findFiltered(ast, { sort: { date: 1 }, limit: -1 }), /negative limit/);
     await refused(reader.findFiltered(ast, { sort: { date: 'asc' } }), /sort direction/);
     await refused(reader.findFiltered(ast, { sort: { 'a.b': 1 } }), /field path/);
-    await refused(reader.findFiltered(ast, { sort: { a: 1, b: 1, c: 1, d: 1, e: 1 } }), /more than 4/);
+    await refused(reader.findFiltered(ast, { sort: { a: 1, b: 1, c: 1, d: 1, e: 1, f: 1 } }), /more than 5/);
     await refused(reader.findOne('abc', { sgv: 2 }), /projection/);
     await refused(reader.count(ast, { v1: true }), /API v1 dialect/);
     await assert.rejects(reader.findFiltered(ast, { sort: { date: 1 }, limit: 'x' }), /limit must be an integer/);
     await assert.rejects(reader.count(null), /filter node must be an object/);
     assert.deepEqual(sent, []);
+  });
+
+  it('accepts one requested scalar sort plus all four API3 tie-breakers', async function () {
+    const sort = { rank: -1, identifier: -1, created_at: -1, date: -1, _id: -1 };
+    await reader.findFiltered(cmp('eq', 'type', 'sgv'), { sort, limit: 2, skip: 1 });
+    assert.equal(sent.length, 1);
+    assert.match(sent[0].text, /ORDER BY/);
+    assert.deepEqual(sent[0].values.slice(-2), [2, 1]);
+    const params = new Params();
+    const order = compileSort(sort, params);
+    assert.deepEqual(params.values, ['rank', 'identifier', 'created_at', 'date']);
+    assert.ok(order.orderBy.indexOf('$1') < order.orderBy.indexOf('$2'));
+    assert.ok(order.orderBy.indexOf('$2') < order.orderBy.indexOf('$3'));
+    assert.ok(order.orderBy.indexOf('$3') < order.orderBy.indexOf('$4'));
+    assert.ok(order.orderBy.indexOf('$4') < order.orderBy.indexOf('CASE id_kind'));
   });
 
   it('accepts simple inclusion projections for entries reads', async function () {
