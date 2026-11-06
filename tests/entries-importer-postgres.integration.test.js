@@ -72,3 +72,10 @@ suite('PostgreSQL one-time entries import target (requires disposable PostgreSQL
     assert.deepEqual(rowsB, [{ _id: 'shared', date: 4, sgv: 200 }]);
   });
 });
+
+
+// Separate opt-in owns source and restore-target containers; never uses caller DB.
+require('./fixtures/populated-recovery/lab').install(
+  optInSuite(process.env.NS_POPULATED_RECOVERY_DOCKER_TEST === '1', 'NS_POPULATED_RECOVERY_DOCKER_TEST=1'),
+  it, before, beforeEach, after
+);

@@ -62,7 +62,7 @@ themselves.
 
 ## Inventory
 
-35 suites. 17 use the admin URI the script provides; 20 start at least one
+35 suites. 17 use the admin URI the script provides; 21 start at least one
 container of their own through Docker. Disabled, 34 register their
 tests as pending with `[pending opt-in: <requirement>]` in the title; one
 (`postgres-entries-write`) uses a bare `describe.skip`.
@@ -70,7 +70,7 @@ tests as pending with `[pending opt-in: <requirement>]` in the title; one
 | Suite | Flag(s) the script sets | Script provides | Starts its own | Note |
 |---|---|---|---|---|
 | `tests/postgres-connection.test.js` | admin URI only | PostgreSQL | | |
-| `tests/entries-importer-postgres.integration.test.js` | admin URI only | PostgreSQL | | |
+| `tests/entries-importer-postgres.integration.test.js` | admin URI plus `NS_POPULATED_RECOVERY_DOCKER_TEST=1` | PostgreSQL | PostgreSQL source and fresh restore target | populated stopped-write snapshot/ledger/typed identity reference; no key recovery |
 | `tests/postgres-entries-read.test.js` | admin URI only | PostgreSQL, MongoDB | | |
 | `tests/postgres-entries-write.test.js` | admin URI only | PostgreSQL, MongoDB | | `describe.skip`, silent when disabled |
 | `tests/api3.entries-crud.http.test.js` | `NS_ENTRIES_CRUD_HTTP_TEST=1` | PostgreSQL, MongoDB | | |
@@ -130,3 +130,34 @@ service containers: 20 suites start their own containers through Docker
 whatever the job provides, so the script starting the shared PostgreSQL, MongoDB
 and Vault the same way is the simpler arrangement. The job is one of the
 `Tests pass` aggregate's dependencies.
+
+
+## Populated PostgreSQL recovery reference
+
+The existing importer integration file also registers seven owned-container cases
+behind `NS_POPULATED_RECOVERY_DOCKER_TEST=1`. The default enabled corpus sets this
+flag; no extra benchmark or pending-as-pass is added. For a focused reference:
+
+```bash
+NODE_ENV=test TZ=UTC NS_POPULATED_RECOVERY_DOCKER_TEST=1 \
+  node node_modules/mocha/bin/mocha.js --fail-zero --exit --timeout 120000 \
+  tests/entries-importer-postgres.integration.test.js --grep 'populated PostgreSQL'
+```
+
+This source-prepared lab uses the actual operator migration runner and existing
+review-candidate entries catalogue, actual identity codec and string-only API
+importer. It stops writers before `pg_dump --format=custom` and restores into a
+fresh target using `pg_restore --single-transaction --exit-on-error`. Independent
+populated tenant/kind/document and ledger oracles, restricted read-only migration
+checking, truncated/schema-only snapshots, typed-kind corruption, paired RLS break,
+failed dump selection and importer interruption/rerun are exercised by the cases.
+The lab uses two specifically owned loopback-only PostgreSQL16 containers with
+tmpfs data directories, random credentials and private0700/0600 scratch files;
+teardown checks labels/mount identity and verifies owned resource absence.
+
+**Source prepared; database execution UNMEASURED.** The catalogue remains a review
+candidate; this is not deployment/schema certification or a production backup tool.
+Dump ownership/ACLs are deliberately excluded and separate restricted application
+privileges are recreated in the target; no production privilege fidelity claim.
+No Vault/provider key recovery, live-write snapshot, Mongo snapshot, operational
+activation/deletion, numeric budget or full M6 acceptance follows from this lab.

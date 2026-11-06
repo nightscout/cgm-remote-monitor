@@ -112,3 +112,39 @@ describe('one-time entries importer', function () {
     assert.equal(writes, 1);
   });
 });
+
+
+describe('populated recovery value oracle (no services)', function () {
+  const { oracle } = require('./fixtures/populated-recovery/lab');
+  const codec = require('../lib/storage/postgres-identity');
+  const fixture = require('./fixtures/populated-recovery/fixture');
+  const values = () => fixture.documents().map(row => ({ tenant_id: row.tenant, ...codec.encodeDocument(row.doc) }));
+  it('keeps typed twins and foreign tenant distinct regardless of row or object member order', function () {
+    const expected = values();
+    const actual = expected.slice().reverse().map(row => ({ doc: row.doc, id_kind: row.id_kind, tenant_id: row.tenant_id }));
+    oracle(actual, expected);
+    assert.equal(new Set(expected.map(row => row.tenant_id + row.id_kind + row.doc._id)).size, 3);
+  });
+  it('rejects missing/foreign/kind-flattened candidate values', function () {
+    const expected = values();
+    assert.throws(() => oracle(expected.slice(1), expected), assert.AssertionError);
+    const foreign = JSON.parse(JSON.stringify(expected));
+    foreign[0].tenant_id = fixture.B;
+    assert.throws(() => oracle(foreign, expected), assert.AssertionError);
+    const flattened = JSON.parse(JSON.stringify(expected));
+    flattened[0].id_kind = 'string';
+    assert.throws(() => oracle(flattened, expected), assert.AssertionError);
+  });
+  it('rejects array reorder and null/absent collapse while retaining nested source values', function () {
+    const expected = values();
+    const reordered = JSON.parse(JSON.stringify(expected));
+    reordered[0].doc.extension.ordered.reverse();
+    assert.throws(() => oracle(reordered, expected), assert.AssertionError);
+    const absent = JSON.parse(JSON.stringify(expected));
+    delete absent[0].doc.extension.nullable;
+    assert.throws(() => oracle(absent, expected), assert.AssertionError);
+    const source = JSON.parse(JSON.stringify(expected));
+    source[0].doc.source.app = 'synthetic-wrong-source';
+    assert.throws(() => oracle(source, expected), assert.AssertionError);
+  });
+});

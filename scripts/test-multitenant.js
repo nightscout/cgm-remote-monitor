@@ -55,7 +55,8 @@ const PENDING = 'pending opt-in';
 const CRUD = { NS_ENTRIES_CRUD_HTTP_TEST: '1' };
 const INVENTORY = [
   { file: 'tests/postgres-connection.test.js', flags: {}, shared: ['postgres'], own: [], gate: PENDING },
-  { file: 'tests/entries-importer-postgres.integration.test.js', flags: {}, shared: ['postgres'], own: [], gate: PENDING },
+  { file: 'tests/entries-importer-postgres.integration.test.js', flags: { NS_POPULATED_RECOVERY_DOCKER_TEST: '1' }, shared: ['postgres'], own: ['postgres', 'postgres'], gate: PENDING,
+    note: 'existing import target plus owned stopped-write populated source/restore-target reference' },
   { file: 'tests/postgres-entries-read.test.js', flags: {}, shared: ['postgres', 'mongo'], own: [], gate: PENDING },
   { file: 'tests/postgres-entries-write.test.js', flags: {}, shared: ['postgres', 'mongo'], own: [], gate: 'describe.skip, silent' },
   { file: 'tests/api3.entries-crud.http.test.js', flags: CRUD, shared: ['postgres', 'mongo'], own: [], gate: PENDING },
