@@ -129,7 +129,8 @@ module.exports = function tenantFrameConcurrency () {
   };
   fixture.egressGuard = () => {
     const original = net.Socket.prototype.connect;
-    const allowed = new Set([Number(new URL(process.env.NS_TEST_POSTGRES_ADMIN_URI).port), server.address().port]);
+    const allowed = new Set([Number(new URL(process.env.NS_TEST_POSTGRES_ADMIN_URI).port),
+      Number(new URL(process.env.CUSTOMCONNSTR_mongo).port), server.address().port]);
     let denied = 0;
     net.Socket.prototype.connect = function observedConnect (...args) {
       const first = Array.isArray(args[0]) ? args[0][0] : args[0];

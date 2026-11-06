@@ -88,7 +88,9 @@ optInSuite(process.env.NS_ENTRIES_CRUD_HTTP_TEST === '1' &&
         socket.destroy();
         assert.equal(guard.denied(), 1, 'the socket guard must prove it can detect application egress');
         for (const path of ['/api/v2/ddata/at', '/api/v2/properties/bgnow', '/api/v2/summary']) {
-          await lab.http(path).expect(200);
+          const response = await lab.http(path);
+          assert.equal(guard.denied(), 1, 'the actual derived read must not attempt a non-dependency socket');
+          assert.equal(response.status, 200);
         }
         assert.equal(guard.denied(), 1, 'derived reads must open only owned dependency/server sockets');
       } finally { guard.restore(); }
