@@ -14,9 +14,9 @@ const packages = Object.entries(lock.packages);
 // Include the final resource-limit fixes on each supported API line.
 // A global 5.x override breaks minimatch 3/5/9, which call a function export.
 const patchedRanges = {
-  1: '>=1.1.18 <2',
-  2: '>=2.1.4 <3',
-  5: '>=5.0.9 <6'
+  1: '>=1.1.21 <2',
+  2: '>=2.1.7 <3',
+  5: '>=5.0.12 <6'
 };
 
 describe('brace-expansion dependency regressions', function () {
@@ -54,6 +54,12 @@ describe('brace-expansion dependency regressions', function () {
         assert.deepStrictEqual(expand('{a,,b}', { max: 2 }), ['a', 'b']);
       });
 
+      it('expands deeply nested alternatives without exhausting the stack', function () {
+        // 1.1.20 / 2.1.6 / 5.0.11 and earlier recurse once per level and throw RangeError.
+        const results = expand('{a,'.repeat(5000) + 'b' + '}'.repeat(5000));
+        assert.ok(results.length > 0);
+      });
+
       it('bounds expansion length while generating padded sequences', function () {
         assert.deepStrictEqual(expand('prefix{a,b}{1,2}', { maxLength: 8 }), ['prefixa1']);
         // Unbounded output is just over 6 MB, so a regression fails safely.
@@ -81,15 +87,6 @@ describe('brace-expansion dependency regressions', function () {
       });
     });
 
-  it('preserves file selection through the production EJS/Jake/FileList chain', function () {
-    const ejsRequire = createRequire(require.resolve('ejs'));
-    const jakeRequire = createRequire(ejsRequire.resolve('jake'));
-    const { FileList } = jakeRequire('filelist');
-    const files = new FileList();
-    files.include(path.join(__dirname, '{api,api3}.security.test.js'));
-    assert.deepStrictEqual(files.toArray().sort(), [
-      path.join(__dirname, 'api.security.test.js'),
-      path.join(__dirname, 'api3.security.test.js')
-    ]);
-  });
+  // EJS 6 no longer installs Jake/FileList. Remaining consumers are exercised
+  // from the committed dependency graph above.
 });

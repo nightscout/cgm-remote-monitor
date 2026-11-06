@@ -23,6 +23,7 @@ main {
   flex-flow: wrap;
   height: 100%;
   width: 100%;
+  font-weight: 700;
 }
 
 #inner div {
@@ -43,6 +44,11 @@ main {
 
 #errorMessage {
   font-size: 25em;
+}
+
+#authMessage {
+  font-size: 2em;
+  padding: 2em 1em;
 }
 
 .stale {

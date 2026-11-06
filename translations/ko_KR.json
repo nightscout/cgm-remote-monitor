@@ -377,6 +377,8 @@
     "Values loaded.": "값이 로드됨",
     "Default values used.": "초기 설정 값이 사용됨",
     "Error. Default values used.": "에러. 초기 설정 값이 사용됨",
+    "Enter every profile value before saving.": "Enter every profile value before saving.",
+    "Your profile could not be loaded. Reload before editing.": "Your profile could not be loaded. Reload before editing.",
     "Time ranges of target_low and target_high don't  match. Values are restored to defaults.": "설정한 저혈당과 고혈당의 시간 범위와 일치하지 않습니다. 값은 초기 설정값으로 다시 저장 될 것입니다.",
     "Valid from:": "유효",
     "Save current record before switching to new?": "새 데이터로 변환하기 전에 현재의 기록을 저장하겠습니까?",

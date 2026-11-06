@@ -1,0 +1,141 @@
+{
+  "provenance": "Analytic duration bins, independently evaluated with Python Decimal at 60-digit precision. No application model or JavaScript results used. See docs/test-specs/glucose-pentagon.md. Numerical regression only; not clinical validation.",
+  "cases": [
+    {
+      "name": "two complete varied days",
+      "days": [
+        {
+          "day": "2026-10-01",
+          "segments": [
+            [
+              180,
+              55
+            ],
+            [
+              180,
+              70
+            ],
+            [
+              360,
+              100
+            ],
+            [
+              360,
+              180
+            ],
+            [
+              360,
+              240
+            ]
+          ]
+        },
+        {
+          "day": "2026-10-02",
+          "segments": [
+            [
+              120,
+              65
+            ],
+            [
+              240,
+              90
+            ],
+            [
+              480,
+              130
+            ],
+            [
+              360,
+              200
+            ],
+            [
+              240,
+              300
+            ]
+          ]
+        }
+      ],
+      "expected": {
+        "observedMinutes": 2880.0,
+        "weightedGlucoseSum": 445500.0,
+        "weightedSquaredGlucoseSum": 83989500.0,
+        "outOfRangeMinutes": 1260.0,
+        "coverage": 100.0,
+        "values": [
+          630.0,
+          46.77294877601461,
+          1667.8883063535072,
+          147601.48213528545,
+          154.6875
+        ],
+        "score": 4.794097269391343
+      }
+    },
+    {
+      "name": "second day missing its final four hours",
+      "days": [
+        {
+          "day": "2026-10-01",
+          "segments": [
+            [
+              180,
+              55
+            ],
+            [
+              180,
+              70
+            ],
+            [
+              360,
+              100
+            ],
+            [
+              360,
+              180
+            ],
+            [
+              360,
+              240
+            ]
+          ]
+        },
+        {
+          "day": "2026-10-02",
+          "segments": [
+            [
+              120,
+              65
+            ],
+            [
+              240,
+              90
+            ],
+            [
+              480,
+              130
+            ],
+            [
+              360,
+              200
+            ]
+          ]
+        }
+      ],
+      "expected": {
+        "observedMinutes": 2640.0,
+        "weightedGlucoseSum": 373500.0,
+        "weightedSquaredGlucoseSum": 62389500.0,
+        "outOfRangeMinutes": 1020.0,
+        "coverage": 91.66666666666667,
+        "values": [
+          556.3636363636364,
+          42.50711385344277,
+          1819.5145160220077,
+          121746.88051111161,
+          141.47727272727272
+        ],
+        "score": 3.89035671512699
+      }
+    }
+  ]
+}

@@ -249,6 +249,46 @@ describe('IOB', function() {
       });
     });
 
+    describe('an IOB without its own timestamp (BF-206)', function () {
+      // Fresh documents per call: deepMerge writes into its target, so the
+      // shared fixtures above carry timestamps from earlier tests.
+      function openaps (fields, iobFields) {
+        return Object.assign({ device: 'openaps://pi1'
+          , openaps: { iob: Object.assign({ iob: 0.047, basaliob: -0.298, activity: 0.0147 }, iobFields) } }, fields);
+      }
+      function loop (fields, iobFields) {
+        return Object.assign({ device: 'loop://iPhone', loop: { iob: Object.assign({ iob: 0.75 }, iobFields) } }, fields);
+      }
+
+      it('takes the device status time, not now', function () {
+        iob.fromDeviceStatus(openaps({ mills: time - 600000 })).mills.should.equal(time - 600000);
+        iob.fromDeviceStatus(loop({ created_at: new Date(time - 600000).toISOString() })).mills.should.equal(time - 600000);
+        iob.fromDeviceStatus(loop({ mills: time - 600000 }, { timestamp: 'not a time' })).mills.should.equal(time - 600000);
+      });
+
+      it('does not win over a newer timestamped OpenAPS IOB', function () {
+        var devicestatus = [
+          openaps({ mills: time - 20 * 60000 }, { iob: 9 })
+          , openaps({ mills: time - 60000 }, { timestamp: time - 60000 })
+        ];
+        iob.calcTotal(treatments, devicestatus, profile, time).should.containEql({
+          iob: 0.047,
+          source: 'OpenAPS'
+        });
+      });
+
+      it('does not win over a newer timestamped Loop IOB', function () {
+        var devicestatus = [
+          loop({ mills: time - 20 * 60000 }, { iob: 9 })
+          , loop({ mills: time - 60000 }, { timestamp: time - 60000 })
+        ];
+        iob.calcTotal(treatments, devicestatus, profile, time).should.containEql({
+          iob: 0.75,
+          source: 'Loop'
+        });
+      });
+    });
+
     it('should return IOB data from MiniMed Connect', function () {
       var devicestatus = [{
         device: 'connect://paradigm',

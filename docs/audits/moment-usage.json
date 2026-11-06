@@ -1,0 +1,2204 @@
+{
+  "sourceCommit": "87340f5986d3d997d288d7555b21febfe76ff9f3",
+  "scope": "Report lexical Moment references in tracked application/test/tool JavaScript.\n\nThis is an inventory aid, not an alias-aware call graph or proof of non-use.\nComments count; indirect aliases without a Moment token may not appear.",
+  "versions": {
+    "moment": "2.30.1",
+    "moment-timezone": "0.5.48",
+    "moment-timezone-data-webpack-plugin": "1.5.1"
+  },
+  "fileCountsByRoot": {
+    "bin": 1,
+    "bundle": 2,
+    "lib": 53,
+    "tests": 20,
+    "tools": 2,
+    "webpack": 1
+  },
+  "matchingFiles": 79,
+  "matchingLines": 447,
+  "files": [
+    {
+      "path": "bin/testdatarunner.js",
+      "references": [
+        {
+          "line": 5,
+          "text": "const moment = require('moment');"
+        },
+        {
+          "line": 58,
+          "text": "const m = moment(date);"
+        }
+      ]
+    },
+    {
+      "path": "bundle/bundle.admin.source.js",
+      "references": [
+        {
+          "line": 4,
+          "text": "window.Nightscout.admin_plugins = require('../lib/admin_plugins/')({moment: window.moment});"
+        }
+      ]
+    },
+    {
+      "path": "bundle/bundle.source.js",
+      "references": [
+        {
+          "line": 17,
+          "text": "const moment = require('moment-timezone');"
+        },
+        {
+          "line": 19,
+          "text": "window.moment = moment;"
+        }
+      ]
+    },
+    {
+      "path": "lib/admin_plugins/cleanentriesdb.js",
+      "references": [
+        {
+          "line": 4,
+          "text": "var moment;"
+        },
+        {
+          "line": 13,
+          "text": "moment = ctx.moment;"
+        },
+        {
+          "line": 56,
+          "text": "var endDate = moment().subtract(numDays, 'days');"
+        }
+      ]
+    },
+    {
+      "path": "lib/admin_plugins/cleanstatusdb.js",
+      "references": [
+        {
+          "line": 4,
+          "text": "var moment;"
+        },
+        {
+          "line": 13,
+          "text": "moment = ctx.moment;"
+        },
+        {
+          "line": 109,
+          "text": "var endDate = moment().subtract(numDays, 'days');"
+        }
+      ]
+    },
+    {
+      "path": "lib/admin_plugins/cleantreatmentsdb.js",
+      "references": [
+        {
+          "line": 4,
+          "text": "var moment;"
+        },
+        {
+          "line": 13,
+          "text": "moment = ctx.moment;"
+        },
+        {
+          "line": 56,
+          "text": "var endDate = moment().subtract(numDays, 'days');"
+        }
+      ]
+    },
+    {
+      "path": "lib/admin_plugins/daterangedelete.js",
+      "references": [
+        {
+          "line": 3,
+          "text": "var moment;"
+        },
+        {
+          "line": 13,
+          "text": "moment = ctx.moment;"
+        },
+        {
+          "line": 140,
+          "text": "var start = moment(startDate);"
+        },
+        {
+          "line": 141,
+          "text": "var end = moment(endDate);"
+        },
+        {
+          "line": 153,
+          "text": "var now = moment();"
+        },
+        {
+          "line": 192,
+          "text": "var startDate = zone ? moment.tz(startDateStr, zone) : moment(startDateStr);"
+        },
+        {
+          "line": 193,
+          "text": "var endDate = zone ? moment.tz(endDateStr, zone) : moment(endDateStr);"
+        },
+        {
+          "line": 339,
+          "text": "var startDate = zone ? moment.tz(startDateStr, zone) : moment(startDateStr);"
+        },
+        {
+          "line": 340,
+          "text": "var endDate = zone ? moment.tz(endDateStr, zone) : moment(endDateStr);"
+        }
+      ]
+    },
+    {
+      "path": "lib/api/activity/index.js",
+      "references": [
+        {
+          "line": 4,
+          "text": "var moment = require('moment');"
+        },
+        {
+          "line": 52,
+          "text": "if (ifModifiedSince && d1.getTime() <= moment(ifModifiedSince).valueOf()) {"
+        }
+      ]
+    },
+    {
+      "path": "lib/api/alexa/index.js",
+      "references": [
+        {
+          "line": 3,
+          "text": "var moment = require('moment');"
+        },
+        {
+          "line": 29,
+          "text": "moment.locale(locale);"
+        }
+      ]
+    },
+    {
+      "path": "lib/api/devicestatus/index.js",
+      "references": [
+        {
+          "line": 4,
+          "text": "const moment = require('moment');"
+        },
+        {
+          "line": 62,
+          "text": "const d = moment(e.created_at).utcOffset(e.utcOffset);"
+        }
+      ]
+    },
+    {
+      "path": "lib/api/entries/index.js",
+      "references": [
+        {
+          "line": 3,
+          "text": "const moment = require('moment');"
+        },
+        {
+          "line": 60,
+          "text": "data.dateString = moment(data.dateString).utcOffset(data.utcOffset).toISOString(true);"
+        }
+      ]
+    },
+    {
+      "path": "lib/api/googlehome/index.js",
+      "references": [
+        {
+          "line": 3,
+          "text": "var moment = require('moment');"
+        },
+        {
+          "line": 28,
+          "text": "moment.locale(locale);"
+        }
+      ]
+    },
+    {
+      "path": "lib/api/treatments/index.js",
+      "references": [
+        {
+          "line": 4,
+          "text": "const moment = require('moment');"
+        },
+        {
+          "line": 40,
+          "text": "const d = moment(t.created_at).utcOffset(t.utcOffset);"
+        },
+        {
+          "line": 64,
+          "text": "if (ifModifiedSince && d1.getTime() <= moment(ifModifiedSince).valueOf()) {"
+        },
+        {
+          "line": 120,
+          "text": "const d = moment(t.created_at);"
+        }
+      ]
+    },
+    {
+      "path": "lib/api3/shared/dateTools.js",
+      "references": [
+        {
+          "line": 3,
+          "text": "const moment = require('moment')"
+        },
+        {
+          "line": 21,
+          "text": "* Parse date as moment object from value or array of values."
+        },
+        {
+          "line": 44,
+          "text": "let m = moment(value);"
+        },
+        {
+          "line": 50,
+          "text": "m = moment.unix(m);"
+        },
+        {
+          "line": 59,
+          "text": "let m = moment.parseZone(value, moment.ISO_8601);"
+        },
+        {
+          "line": 62,
+          "text": "m = moment.parseZone(value, moment.RFC_2822);"
+        }
+      ]
+    },
+    {
+      "path": "lib/client-core/devicestatus/cob.js",
+      "references": [
+        {
+          "line": 10,
+          "text": "* `moment` must be supplied via `opts.moment` (defaults to the"
+        },
+        {
+          "line": 11,
+          "text": "* top-level `moment` package). The document is not mutated."
+        },
+        {
+          "line": 25,
+          "text": "var defaultMoment = require('moment');"
+        },
+        {
+          "line": 27,
+          "text": "function toMills (value, moment) {"
+        },
+        {
+          "line": 30,
+          "text": "var m = moment(value);"
+        },
+        {
+          "line": 34,
+          "text": "function blockMills (block, entry, moment) {"
+        },
+        {
+          "line": 35,
+          "text": "var mills = toMills(block.timestamp, moment);"
+        },
+        {
+          "line": 36,
+          "text": "return mills === null ? toMills(entry.mills, moment) : mills;"
+        },
+        {
+          "line": 45,
+          "text": "function candidate (block, key, entry, moment) {"
+        },
+        {
+          "line": 51,
+          "text": "var mills = blockMills(block, entry, moment);"
+        },
+        {
+          "line": 59,
+          "text": "var moment = opts.moment || defaultMoment;"
+        },
+        {
+          "line": 64,
+          "text": "var enacted = candidate(entry.openaps.enacted, 'COB', entry, moment);"
+        },
+        {
+          "line": 65,
+          "text": "var suggested = candidate(entry.openaps.suggested, 'COB', entry, moment);"
+        },
+        {
+          "line": 82,
+          "text": "var loopCOB = candidate(entry.loop.cob, 'cob', entry, moment);"
+        }
+      ]
+    },
+    {
+      "path": "lib/client-core/devicestatus/loop.js",
+      "references": [
+        {
+          "line": 17,
+          "text": "* `moment` must be supplied via `opts.moment` (defaults to the"
+        },
+        {
+          "line": 18,
+          "text": "* top-level `moment` package). This keeps the module loadable in"
+        },
+        {
+          "line": 19,
+          "text": "* environments that vendor moment differently."
+        },
+        {
+          "line": 22,
+          "text": "*   - mutates `status.loop.moment` (sandbox consumers read this)"
+        },
+        {
+          "line": 23,
+          "text": "*   - mutates `enacted.moment` and `override.moment`"
+        },
+        {
+          "line": 24,
+          "text": "*   - lastOkMoment is the latest moment among non-failureReason"
+        },
+        {
+          "line": 31,
+          "text": "var defaultMoment = require('moment');"
+        },
+        {
+          "line": 33,
+          "text": "function buildDisplay (status, recent, moment) {"
+        },
+        {
+          "line": 34,
+          "text": "moment = moment || defaultMoment;"
+        },
+        {
+          "line": 41,
+          "text": "if (status.enacted && moment(status.timestamp).isAfter(recent)) {"
+        },
+        {
+          "line": 44,
+          "text": "if (status.recommendedTempBasal && moment(status.recommendedTempBasal.timestamp).isAfter(recent)) {"
+        },
+        {
+          "line": 47,
+          "text": "if (status.moment && status.moment.isAfter(recent)) {"
+        },
+        {
+          "line": 55,
+          "text": "var moment = opts.moment || defaultMoment;"
+        },
+        {
+          "line": 66,
+          "text": "result.display = buildDisplay(null, recent, moment);"
+        },
+        {
+          "line": 74,
+          "text": "loopStatus.moment = moment(loopStatus.timestamp);"
+        },
+        {
+          "line": 78,
+          "text": "enacted.moment = moment(enacted.timestamp);"
+        },
+        {
+          "line": 79,
+          "text": "if (!result.lastEnacted || enacted.moment.isAfter(result.lastEnacted.moment)) {"
+        },
+        {
+          "line": 84,
+          "text": "if (!result.lastLoop || loopStatus.moment.isAfter(result.lastLoop.moment)) {"
+        },
+        {
+          "line": 94,
+          "text": "override.moment = moment(override.timestamp);"
+        },
+        {
+          "line": 95,
+          "text": "if (!result.lastOverride || override.moment.isAfter(result.lastOverride.moment)) {"
+        },
+        {
+          "line": 100,
+          "text": "if (!loopStatus.failureReason && (!result.lastOkMoment || loopStatus.moment.isAfter(result.lastOkMoment))) {"
+        },
+        {
+          "line": 101,
+          "text": "result.lastOkMoment = loopStatus.moment;"
+        },
+        {
+          "line": 105,
+          "text": "result.display = buildDisplay(result.lastLoop, recent, moment);"
+        }
+      ]
+    },
+    {
+      "path": "lib/client-core/devicestatus/openaps.js",
+      "references": [
+        {
+          "line": 14,
+          "text": "* already-filtered devicestatus list plus the `recent` cutoff moment"
+        },
+        {
+          "line": 21,
+          "text": "* `moment` must be supplied via `opts.moment` (defaults to the"
+        },
+        {
+          "line": 22,
+          "text": "* top-level `moment` package). `opts.deviceName` is used to derive"
+        },
+        {
+          "line": 31,
+          "text": "*     `.moment` field (sandbox consumers read this)."
+        },
+        {
+          "line": 32,
+          "text": "*   - `lastIOB.moment` is the moment derived from iob.timestamp/mills."
+        },
+        {
+          "line": 45,
+          "text": "var defaultMoment = require('moment');"
+        },
+        {
+          "line": 54,
+          "text": "function toMoments (status, moment) {"
+        },
+        {
+          "line": 59,
+          "text": "enacted = moment(status.openaps.enacted.mills);"
+        },
+        {
+          "line": 61,
+          "text": "enacted = moment(status.openaps.enacted.timestamp);"
+        },
+        {
+          "line": 65,
+          "text": "notEnacted = moment(status.openaps.enacted.mills);"
+        },
+        {
+          "line": 67,
+          "text": "notEnacted = moment(status.openaps.enacted.timestamp);"
+        },
+        {
+          "line": 73,
+          "text": "suggested = moment(status.openaps.suggested.mills);"
+        },
+        {
+          "line": 75,
+          "text": "suggested = moment(status.openaps.suggested.timestamp);"
+        },
+        {
+          "line": 80,
+          "text": "iob = moment(status.openaps.iob.mills);"
+        },
+        {
+          "line": 82,
+          "text": "iob = moment(status.openaps.iob.timestamp);"
+        },
+        {
+          "line": 86,
+          "text": "when: moment(status.mills)"
+        },
+        {
+          "line": 135,
+          "text": "var moment = opts.moment || defaultMoment;"
+        },
+        {
+          "line": 168,
+          "text": "var moments = toMoments(status, moment);"
+        },
+        {
+          "line": 177,
+          "text": "if (enacted && moments.enacted && (!result.lastEnacted || moments.enacted.isAfter(result.lastEnacted.moment))) {"
+        },
+        {
+          "line": 179,
+          "text": "enacted.moment = moment(enacted.mills);"
+        },
+        {
+          "line": 181,
+          "text": "enacted.moment = moment(enacted.timestamp);"
+        },
+        {
+          "line": 184,
+          "text": "if (enacted.predBGs && (!result.lastPredBGs || enacted.moment.isAfter(result.lastPredBGs.moment))) {"
+        },
+        {
+          "line": 186,
+          "text": "result.lastPredBGs.moment = enacted.moment;"
+        },
+        {
+          "line": 190,
+          "text": "if (enacted && moments.notEnacted && (!result.lastNotEnacted || moments.notEnacted.isAfter(result.lastNotEnacted.moment))) {"
+        },
+        {
+          "line": 192,
+          "text": "enacted.moment = moment(enacted.mills);"
+        },
+        {
+          "line": 194,
+          "text": "enacted.moment = moment(enacted.timestamp);"
+        },
+        {
+          "line": 200,
+          "text": "if (suggested && moments.suggested && (!result.lastSuggested || moments.suggested.isAfter(result.lastSuggested.moment))) {"
+        },
+        {
+          "line": 202,
+          "text": "suggested.moment = moment(suggested.mills);"
+        },
+        {
+          "line": 204,
+          "text": "suggested.moment = moment(suggested.timestamp);"
+        },
+        {
+          "line": 207,
+          "text": "if (suggested.predBGs && (!result.lastPredBGs || suggested.moment.isAfter(result.lastPredBGs.moment))) {"
+        },
+        {
+          "line": 209,
+          "text": "result.lastPredBGs.moment = suggested.moment;"
+        },
+        {
+          "line": 214,
+          "text": "if (moments.iob && (!result.lastIOB || moment(iob.timestamp).isAfter(result.lastIOB.moment))) {"
+        },
+        {
+          "line": 215,
+          "text": "iob.moment = moments.iob;"
+        },
+        {
+          "line": 220,
+          "text": "status.mmtune.moment = moment(status.mmtune.timestamp);"
+        },
+        {
+          "line": 221,
+          "text": "if (!device.mmtune || moments.when.isAfter(device.mmtune.moment)) {"
+        },
+        {
+          "line": 228,
+          "text": "if (result.lastEnacted.moment.isAfter(result.lastSuggested.moment)) {"
+        },
+        {
+          "line": 229,
+          "text": "result.lastLoopMoment = result.lastEnacted.moment;"
+        },
+        {
+          "line": 232,
+          "text": "result.lastLoopMoment = result.lastSuggested.moment;"
+        },
+        {
+          "line": 235,
+          "text": "} else if (result.lastEnacted && result.lastEnacted.moment) {"
+        },
+        {
+          "line": 236,
+          "text": "result.lastLoopMoment = result.lastEnacted.moment;"
+        },
+        {
+          "line": 238,
+          "text": "} else if (result.lastSuggested && result.lastSuggested.moment) {"
+        },
+        {
+          "line": 239,
+          "text": "result.lastLoopMoment = result.lastSuggested.moment;"
+        },
+        {
+          "line": 244,
+          "text": "enacted: result.lastEnacted && result.lastEnacted.moment"
+        },
+        {
+          "line": 245,
+          "text": ", notEnacted: result.lastNotEnacted && result.lastNotEnacted.moment"
+        },
+        {
+          "line": 246,
+          "text": ", suggested: result.lastSuggested && result.lastSuggested.moment"
+        }
+      ]
+    },
+    {
+      "path": "lib/client-core/devicestatus/pump.js",
+      "references": [
+        {
+          "line": 22,
+          "text": "var defaultMoment = require('moment');"
+        },
+        {
+          "line": 26,
+          "text": "var moment = opts.moment || defaultMoment;"
+        },
+        {
+          "line": 34,
+          "text": "? moment(status.pump.clock).valueOf()"
+        }
+      ]
+    },
+    {
+      "path": "lib/client/boluscalc.js",
+      "references": [
+        {
+          "line": 48,
+          "text": "time = time ? (time.format ? time : client.ctx.moment(time)) : client.ctx.moment();"
+        }
+      ]
+    },
+    {
+      "path": "lib/client/careportal.js",
+      "references": [
+        {
+          "line": 47,
+          "text": "time = time || client.ctx.moment();"
+        }
+      ]
+    },
+    {
+      "path": "lib/client/index.js",
+      "references": [
+        {
+          "line": 19,
+          "text": "var moment = window.moment;"
+        },
+        {
+          "line": 20,
+          "text": "var timezones = moment.tz.names();"
+        },
+        {
+          "line": 215,
+          "text": ", moment: moment"
+        },
+        {
+          "line": 223,
+          "text": ", moment: moment"
+        },
+        {
+          "line": 237,
+          "text": ", moment: moment"
+        }
+      ]
+    },
+    {
+      "path": "lib/data/endpoints.js",
+      "references": [
+        {
+          "line": 3,
+          "text": "var moment = require('moment');"
+        },
+        {
+          "line": 6,
+          "text": "return moment(spec).toDate();"
+        }
+      ]
+    },
+    {
+      "path": "lib/plugins/ar2.js",
+      "references": [
+        {
+          "line": 18,
+          "text": "var moment = ctx.moment;"
+        },
+        {
+          "line": 165,
+          "text": ", moment(maxForecastMills).from(moment(sbx.time))"
+        },
+        {
+          "line": 173,
+          "text": ", moment(maxForecastMills).from(moment(sbx.time))"
+        }
+      ]
+    },
+    {
+      "path": "lib/plugins/basalprofile.js",
+      "references": [
+        {
+          "line": 6,
+          "text": "var moment = ctx.moment;"
+        },
+        {
+          "line": 124,
+          "text": "var minutesLeft = moment(basalValue.treatment.endmills).from(moment(sbx.time));"
+        }
+      ]
+    },
+    {
+      "path": "lib/plugins/batteryage.js",
+      "references": [
+        {
+          "line": 5,
+          "text": "var moment = ctx.moment;"
+        },
+        {
+          "line": 63,
+          "text": "var a = moment(sbx.time);"
+        },
+        {
+          "line": 64,
+          "text": "var b = moment(batteryInfo.treatmentDate);"
+        }
+      ]
+    },
+    {
+      "path": "lib/plugins/bgnow.js",
+      "references": [
+        {
+          "line": 9,
+          "text": "var moment = ctx.moment;"
+        },
+        {
+          "line": 203,
+          "text": "time: utils.timeFormat(moment(entry.mills), sbx)"
+        },
+        {
+          "line": 224,
+          "text": "time: utils.timeFormat(moment(entry.mills), sbx)"
+        },
+        {
+          "line": 265,
+          "text": ", moment(delta.times.recent).from(moment(sbx.time))"
+        },
+        {
+          "line": 266,
+          "text": ", moment(delta.times.previous).from(moment(sbx.time))"
+        }
+      ]
+    },
+    {
+      "path": "lib/plugins/cannulaage.js",
+      "references": [
+        {
+          "line": 5,
+          "text": "var moment = ctx.moment;"
+        },
+        {
+          "line": 64,
+          "text": "var a = moment(sbx.time);"
+        },
+        {
+          "line": 65,
+          "text": "var b = moment(cannulaInfo.treatmentDate);"
+        }
+      ]
+    },
+    {
+      "path": "lib/plugins/cob.js",
+      "references": [
+        {
+          "line": 8,
+          "text": "var moment = ctx.moment;"
+        },
+        {
+          "line": 124,
+          "text": "return selectCOB(devicestatusEntry, { moment: moment });"
+        }
+      ]
+    },
+    {
+      "path": "lib/plugins/insulinage.js",
+      "references": [
+        {
+          "line": 4,
+          "text": "var moment = ctx.moment;"
+        },
+        {
+          "line": 61,
+          "text": "var a = moment(sbx.time);"
+        },
+        {
+          "line": 62,
+          "text": "var b = moment(insulinInfo.treatmentDate);"
+        }
+      ]
+    },
+    {
+      "path": "lib/plugins/iob.js",
+      "references": [
+        {
+          "line": 5,
+          "text": "var moment = ctx.moment;"
+        },
+        {
+          "line": 124,
+          "text": ", mills: moment(iobOpenAPS.timestamp).valueOf( )"
+        },
+        {
+          "line": 131,
+          "text": ", mills: moment(iobLoop.timestamp).valueOf( )"
+        }
+      ]
+    },
+    {
+      "path": "lib/plugins/loop.js",
+      "references": [
+        {
+          "line": 9,
+          "text": "var moment = ctx.moment;"
+        },
+        {
+          "line": 54,
+          "text": "var recent = moment(sbx.time).subtract(prefs.warn / 2, 'minutes');"
+        },
+        {
+          "line": 56,
+          "text": "return selectLoopState(recentData, recent, { moment: moment });"
+        },
+        {
+          "line": 71,
+          "text": "var now = moment();"
+        },
+        {
+          "line": 219,
+          "text": "time: moment(recommendedTempBasal.timestamp)"
+        },
+        {
+          "line": 235,
+          "text": "var entryMoment = moment(entry.created_at);"
+        },
+        {
+          "line": 300,
+          "text": "time: prop.lastEnacted.moment"
+        },
+        {
+          "line": 388,
+          "text": "var startTime = moment(predicted.startDate);"
+        },
+        {
+          "line": 399,
+          "text": "time: prop.lastLoop.moment"
+        },
+        {
+          "line": 440,
+          "text": "utils.timeFormat(prop.lastLoop.moment, sbx) + eventualBGValue : null;"
+        },
+        {
+          "line": 462,
+          "text": "var startPrediction = moment(predicted.startDate);"
+        },
+        {
+          "line": 480,
+          "text": ", moment(endPrediction).from(moment(sbx.time))"
+        },
+        {
+          "line": 488,
+          "text": ", moment(endPrediction).from(moment(sbx.time))"
+        },
+        {
+          "line": 505,
+          "text": "moment(sbx.properties.loop.lastOkMoment).from(moment(sbx.time))"
+        },
+        {
+          "line": 540,
+          "text": "var now = moment(sbx.time);"
+        }
+      ]
+    },
+    {
+      "path": "lib/plugins/openaps.js",
+      "references": [
+        {
+          "line": 9,
+          "text": "var moment = ctx.moment;"
+        },
+        {
+          "line": 86,
+          "text": "var recent = moment(sbx.time).subtract(prefs.warn / 2, 'minutes');"
+        },
+        {
+          "line": 89,
+          "text": "moment: moment"
+        },
+        {
+          "line": 169,
+          "text": "var now = moment();"
+        },
+        {
+          "line": 225,
+          "text": "time: prop.lastSuggested.moment"
+        },
+        {
+          "line": 261,
+          "text": ", mills: prop.lastPredBGs.moment.valueOf() + times.mins(5 * index).msecs + offset"
+        },
+        {
+          "line": 316,
+          "text": "if (prop.lastSuggested && prop.lastSuggested.moment.isAfter(prop.lastEnacted.moment)) {"
+        },
+        {
+          "line": 323,
+          "text": "time: prop.lastEnacted.moment"
+        },
+        {
+          "line": 400,
+          "text": "moment(lastLoopMoment).from(moment(sbx.time))"
+        },
+        {
+          "line": 427,
+          "text": "var now = moment(sbx.time);"
+        }
+      ]
+    },
+    {
+      "path": "lib/plugins/override.js",
+      "references": [
+        {
+          "line": 15,
+          "text": "var endMoment = overrideStatus.duration ? overrideStatus.moment.clone().add(overrideStatus.duration, 'seconds') : null;"
+        }
+      ]
+    },
+    {
+      "path": "lib/plugins/pump.js",
+      "references": [
+        {
+          "line": 9,
+          "text": "var moment = ctx.moment;"
+        },
+        {
+          "line": 73,
+          "text": "var pumpStatus = selectLatestPumpStatus(filtered, { moment: moment }) || { };"
+        },
+        {
+          "line": 208,
+          "text": "var urgent = moment(sbx.time).subtract(prefs.urgentClock, 'minutes');"
+        },
+        {
+          "line": 209,
+          "text": "var warn = moment(sbx.time).subtract(prefs.warnClock, 'minutes');"
+        },
+        {
+          "line": 303,
+          "text": "var time = sbx.data.profile ? sbx.data.profile.applyTimezone(moment(sbx.time)) : moment(sbx.time);"
+        },
+        {
+          "line": 308,
+          "text": ", clock: pump.clock ? { value: moment(pump.clock) } : null"
+        }
+      ]
+    },
+    {
+      "path": "lib/plugins/sensorage.js",
+      "references": [
+        {
+          "line": 6,
+          "text": "var moment = ctx.moment;"
+        },
+        {
+          "line": 90,
+          "text": "var a = moment(sbx.time);"
+        },
+        {
+          "line": 91,
+          "text": "var b = moment(treatmentDate);"
+        }
+      ]
+    },
+    {
+      "path": "lib/plugins/virtAsstBase.js",
+      "references": [
+        {
+          "line": 4,
+          "text": "var moment = ctx.moment;"
+        },
+        {
+          "line": 27,
+          "text": "moment(records[0].date).from(moment(sbx.time))"
+        },
+        {
+          "line": 54,
+          "text": "moment(records[0].date).from(moment(sbx.time))]"
+        }
+      ]
+    },
+    {
+      "path": "lib/plugins/xdripjs.js",
+      "references": [
+        {
+          "line": 6,
+          "text": "var moment = ctx.moment;"
+        },
+        {
+          "line": 95,
+          "text": "when:  moment(status.mills)"
+        },
+        {
+          "line": 96,
+          "text": ", timestamp: status.xdripjs && status.xdripjs.timestamp && moment(status.xdripjs.timestamp)"
+        },
+        {
+          "line": 127,
+          "text": "result.lastStateTime = moment(status.xdripjs.timestamp);"
+        },
+        {
+          "line": 145,
+          "text": "if (!lastStateNotification || (lastStateNotification.state != sensorInfo.xdripjs.state) || !prefs.stateNotifyIntrvl || (moment().diff(lastStateNotification.timestamp, 'minutes') > (prefs.stateNotifyIn"
+        },
+        {
+          "line": 148,
+          "text": "timestamp: moment()"
+        },
+        {
+          "line": 226,
+          "text": "info.push( { label: 'State Time: ', value: (sensor && sensor.lastStateTime && moment().diff(sensor.lastStateTime, 'minutes') + ' minutes ago') || 'Unknown' } );"
+        },
+        {
+          "line": 232,
+          "text": "var diffTime = moment().diff(moment(sensor.lastSessionStart));"
+        },
+        {
+          "line": 233,
+          "text": "var duration = moment.duration(diffTime);"
+        },
+        {
+          "line": 245,
+          "text": "info.push( { label: 'Tx Age: ', value: moment().diff(moment(sensor.lastTxActivation), 'days') + ' days' } );"
+        },
+        {
+          "line": 277,
+          "text": "info.push( { label: 'Calibration: ', value: moment().diff(moment(sensor.lastCalibrationDate), 'hours') + ' hours ago' } );"
+        },
+        {
+          "line": 281,
+          "text": "info.push( { label: 'Battery: ', value: moment().diff(moment(sensor.lastBatteryTimestamp), 'minutes') + ' minutes ago' } );"
+        },
+        {
+          "line": 325,
+          "text": ", moment(sbx.properties.sensorState.lastStateTime).from(moment(sbx.time))"
+        },
+        {
+          "line": 356,
+          "text": "var duration = moment.duration(moment().diff(moment(lastSessionStart)));"
+        },
+        {
+          "line": 386,
+          "text": "? translate('virtAsstCGMTxAge', {params:[moment().diff(moment(lastTxActivation), 'days')]})"
+        },
+        {
+          "line": 410,
+          "text": ", moment(lastBatteryTimestamp).from(moment(sbx.time))"
+        },
+        {
+          "line": 418,
+          "text": ", moment(lastBatteryTimestamp).from(moment(sbx.time))"
+        }
+      ]
+    },
+    {
+      "path": "lib/profile/profileeditor.js",
+      "references": [
+        {
+          "line": 154,
+          "text": "timeInput.val(client.ctx.moment(mongorecords[currentrecord].startDate).format('HH:mm'));"
+        },
+        {
+          "line": 155,
+          "text": "dateInput.val(client.ctx.moment(mongorecords[currentrecord].startDate).format('YYYY-MM-DD'));"
+        },
+        {
+          "line": 593,
+          "text": "var time = client.ctx.moment.utc().startOf('day').add(minfrommidnight,'minutes'); // using utc to avoid daylight saving offset"
+        }
+      ]
+    },
+    {
+      "path": "lib/profilefunctions.js",
+      "references": [
+        {
+          "line": 23,
+          "text": "var moment = ctx.moment;"
+        },
+        {
+          "line": 143,
+          "text": "var t = profile.applyTimezone(moment(minuteTime), spec_profile);"
+        },
+        {
+          "line": 219,
+          "text": "// these via utcOffset / parseZone instead of moment.tz()."
+        },
+        {
+          "line": 237,
+          "text": "// Apply the profile's timezone to an existing moment object."
+        },
+        {
+          "line": 239,
+          "text": "// Use this instead of `moment(t).tz(profile.getTimezone())` at call sites."
+        },
+        {
+          "line": 244,
+          "text": "return mom.tz(tz);"
+        },
+        {
+          "line": 248,
+          "text": "// Use this instead of `moment.tz(str, profile.getTimezone())` at call sites."
+        },
+        {
+          "line": 251,
+          "text": "if (!tz) return moment(str);"
+        },
+        {
+          "line": 254,
+          "text": "return moment.parseZone(str + sep + tz);"
+        },
+        {
+          "line": 256,
+          "text": "return moment.tz(str, tz);"
+        }
+      ]
+    },
+    {
+      "path": "lib/report/reportclient.js",
+      "references": [
+        {
+          "line": 20,
+          "text": "var moment = client.ctx.moment;"
+        },
+        {
+          "line": 299,
+          "text": "return profile.applyTimezone(moment(treatment.created_at)).format('YYYY-MM-DD');"
+        },
+        {
+          "line": 336,
+          "text": "return profile.applyTimezone(moment(treatment.created_at)).format('YYYY-MM-DD');"
+        },
+        {
+          "line": 373,
+          "text": "return profile.applyTimezone(moment(treatment.created_at)).format('YYYY-MM-DD');"
+        },
+        {
+          "line": 570,
+          "text": "$('#rp_to').val(moment().format('YYYY-MM-DD'));"
+        },
+        {
+          "line": 571,
+          "text": "$('#rp_from').val(moment().add(-days + 1, 'days').format('YYYY-MM-DD'));"
+        },
+        {
+          "line": 590,
+          "text": "} else if (datastorage[day] && day !== moment().format('YYYY-MM-DD')) {"
+        }
+      ]
+    },
+    {
+      "path": "lib/report_plugins/daytoday.js",
+      "references": [
+        {
+          "line": 3,
+          "text": "var moment = window.moment;"
+        },
+        {
+          "line": 374,
+          "text": "var d = profile.applyTimezone(moment(entry.startDate));"
+        },
+        {
+          "line": 380,
+          "text": "end = moment(treatmentsTimestamps[treatmentsIndex + 1]);"
+        },
+        {
+          "line": 384,
+          "text": "end = moment(treatmentsTimestamps[treatmentsIndex]);"
+        },
+        {
+          "line": 407,
+          "text": "var ts = moment(timestamp).add(offset, 'minutes');"
+        },
+        {
+          "line": 411,
+          "text": "if (predictions[i] && predictions[i].startDate && moment(predictions[i].startDate) <= ts) {"
+        },
+        {
+          "line": 417,
+          "text": "if (predictions[i] && predictions[i].startDate && moment(predictions[i].startDate) >= ts) {"
+        },
+        {
+          "line": 438,
+          "text": "var to = moment(from.clone( )).add(1, 'days');"
+        },
+        {
+          "line": 469,
+          "text": "iobpolyline += (xScale2(moment(from)) + padding.left) + ',' + (yInsulinScale(0) + padding.top) + ' ';"
+        },
+        {
+          "line": 470,
+          "text": "cobpolyline += (xScale2(moment(from)) + padding.left) + ',' + (yCarbsScale(0) + padding.top) + ' ';"
+        },
+        {
+          "line": 478,
+          "text": "for (var dt = moment(from); dt < to; dt.add(5, 'minutes')) {"
+        },
+        {
+          "line": 509,
+          "text": "var hournow = profile.applyTimezone(moment(date)).hour();"
+        }
+      ]
+    },
+    {
+      "path": "lib/report_plugins/glucosedistribution.js",
+      "references": [
+        {
+          "line": 98,
+          "text": "var moment = window.moment;"
+        },
+        {
+          "line": 250,
+          "text": "return enabledHours[profile.applyTimezone(moment(r.displayTime)).hour()]"
+        }
+      ]
+    },
+    {
+      "path": "lib/report_plugins/hourlystats.js",
+      "references": [
+        {
+          "line": 43,
+          "text": "var moment = window.moment;"
+        },
+        {
+          "line": 60,
+          "text": "var d = profile.applyTimezone(moment(record.displayTime));"
+        }
+      ]
+    },
+    {
+      "path": "lib/report_plugins/loopalyzer.js",
+      "references": [
+        {
+          "line": 3,
+          "text": "var moment = window.moment;"
+        },
+        {
+          "line": 118,
+          "text": "var recDate = profile.applyTimezone(moment(record.displayTime));"
+        },
+        {
+          "line": 191,
+          "text": "var index = Math.floor(profile.applyTimezone(moment(entry.mills)).diff(dayStart, 'minutes') / 5);"
+        },
+        {
+          "line": 254,
+          "text": "var index = Math.floor(profile.applyTimezone(moment(entry.mills)).diff(dayStart, 'minutes') / 5);"
+        },
+        {
+          "line": 310,
+          "text": "var treatmentDate = profile.applyTimezone(moment(treatment.date));"
+        },
+        {
+          "line": 356,
+          "text": "if (profile.applyTimezone(moment(treatment.created_at)).isBetween(startDate, endDate)) {"
+        },
+        {
+          "line": 371,
+          "text": "if (profile.applyTimezone(moment(treatment.created_at)).isBetween(startDate, endDate)) {"
+        },
+        {
+          "line": 399,
+          "text": "if (profile.applyTimezone(moment(predicted.startDate)).isSame(dayStart, 'day'))"
+        },
+        {
+          "line": 426,
+          "text": "var ts = moment(timestamp).add(offset, 'minutes');"
+        },
+        {
+          "line": 430,
+          "text": "if (predictions[i] && predictions[i].startDate && moment(predictions[i].startDate) <= ts) {"
+        },
+        {
+          "line": 436,
+          "text": "if (predictions[i] && predictions[i].startDate && moment(predictions[i].startDate) >= ts) {"
+        },
+        {
+          "line": 454,
+          "text": "var date = moment();"
+        },
+        {
+          "line": 476,
+          "text": "var d = profile.applyTimezone(moment(entry.startDate));"
+        },
+        {
+          "line": 482,
+          "text": "end = moment(treatmentTimestamps[treatmentsIndex + 1]);"
+        },
+        {
+          "line": 486,
+          "text": "end = moment(treatmentTimestamps[treatmentsIndex]);"
+        },
+        {
+          "line": 515,
+          "text": "var todayStart = moment().startOf('day');"
+        },
+        {
+          "line": 516,
+          "text": "var todayEnd = moment().endOf('day');"
+        },
+        {
+          "line": 652,
+          "text": "var entryDate = profile.applyTimezone(moment(entry.date));"
+        },
+        {
+          "line": 742,
+          "text": "if ((newEntry.basal || newEntry.carbratio || newEntry.sens) && profile.applyTimezone(moment(entry.startDate)).isBefore(endOfLastDay))"
+        },
+        {
+          "line": 785,
+          "text": "console.log(entry.startDate + ' isBefore ' + beginningOfFirstDay + ' = ' + profile.applyTimezone(moment(entry.startDate)).isBefore(beginningOfFirstDay));"
+        },
+        {
+          "line": 786,
+          "text": "if (profile.applyTimezone(moment(entry.startDate)).isBefore(beginningOfFirstDay))"
+        },
+        {
+          "line": 797,
+          "text": "console.log(entry.startDate + ' isAfter ' + beginningOfFirstDay + ' = ' + profile.applyTimezone(moment(entry.startDate)).isAfter(beginningOfFirstDay));"
+        },
+        {
+          "line": 798,
+          "text": "if (profile.applyTimezone(moment(entry.startDate)).isAfter(beginningOfFirstDay))"
+        },
+        {
+          "line": 817,
+          "text": "tableHtml += '<caption>' + textAsHtml(theProfile.profileName) + ' (' + profile.applyTimezone(moment(theProfile.startDate)).format('L LT') + ')</caption>';"
+        },
+        {
+          "line": 975,
+          "text": "var timeShiftBegin = moment();"
+        },
+        {
+          "line": 978,
+          "text": "var timeShiftEnd = moment();"
+        },
+        {
+          "line": 991,
+          "text": "var date = profile.applyTimezone(moment(entry.date));"
+        },
+        {
+          "line": 994,
+          "text": "var startOfDay = profile.applyTimezone(moment(entry.date));"
+        },
+        {
+          "line": 1021,
+          "text": "timeShiftStartTime = moment(todayJSON);"
+        },
+        {
+          "line": 1023,
+          "text": "timeShiftStopTime = moment(todayJSON);"
+        },
+        {
+          "line": 1205,
+          "text": "var treatmentDate = profile.applyTimezone(moment(treatment.date));"
+        },
+        {
+          "line": 1206,
+          "text": "var startDate = moment(todayJSON);"
+        },
+        {
+          "line": 1240,
+          "text": "var treatmentDate = profile.applyTimezone(moment(treatment.date));"
+        },
+        {
+          "line": 1241,
+          "text": "var startDate = moment(todayJSON);"
+        }
+      ]
+    },
+    {
+      "path": "lib/report_plugins/percentile.js",
+      "references": [
+        {
+          "line": 43,
+          "text": "var moment = window.moment;"
+        },
+        {
+          "line": 53,
+          "text": "var recdate = profile.applyTimezone(moment(record.displayTime));"
+        }
+      ]
+    },
+    {
+      "path": "lib/report_plugins/profiles.js",
+      "references": [
+        {
+          "line": 40,
+          "text": "var moment = window.moment;"
+        },
+        {
+          "line": 48,
+          "text": "databaseRecords.append('<option value=\"' + r + '\">' + translate('Valid from:') + ' ' + profile.applyTimezone(moment(profileRecords[r].startDate)).format('L LT') + '</option>');"
+        }
+      ]
+    },
+    {
+      "path": "lib/report_plugins/success.js",
+      "references": [
+        {
+          "line": 52,
+          "text": "var moment = window.moment;"
+        },
+        {
+          "line": 178,
+          "text": "profile.applyTimezone(moment(quarter.starting)).format('L') + ' - ' + profile.applyTimezone(moment(quarter.ending)).format('L')"
+        }
+      ]
+    },
+    {
+      "path": "lib/report_plugins/treatments.js",
+      "references": [
+        {
+          "line": 3,
+          "text": "var moment = window.moment;"
+        },
+        {
+          "line": 157,
+          "text": "text.push(translate('Event Time') + ': ' + (eventTime ? profile.applyTimezone(moment(eventTime)).format('L LT') : profile.applyTimezone(moment()).format('L LT')));"
+        },
+        {
+          "line": 263,
+          "text": "var eventTime = profile.applyTimezone(moment(data.created_at));"
+        },
+        {
+          "line": 373,
+          "text": ".append($('<td>').text(profile.applyTimezone(moment(tr.created_at)).format(client.settings.timeFormat === 24 ? 'HH:mm' : 'h:mm A')))"
+        }
+      ]
+    },
+    {
+      "path": "lib/report_plugins/utils.js",
+      "references": [
+        {
+          "line": 5,
+          "text": "var moment = window.moment;"
+        },
+        {
+          "line": 21,
+          "text": "date = profile.applyTimezone(moment(day));"
+        },
+        {
+          "line": 36,
+          "text": "date = profile.applyTimezone(moment(day));"
+        }
+      ]
+    },
+    {
+      "path": "lib/report_plugins/weektoweek.js",
+      "references": [
+        {
+          "line": 3,
+          "text": "var moment = window.moment;"
+        },
+        {
+          "line": 108,
+          "text": "var sgvDate = profile.applyTimezone(moment(sgv.date));"
+        }
+      ]
+    },
+    {
+      "path": "lib/server/bootevent.js",
+      "references": [
+        {
+          "line": 17,
+          "text": "ctx.moment = require('moment-timezone');"
+        },
+        {
+          "line": 203,
+          "text": ", moment: ctx.moment"
+        }
+      ]
+    },
+    {
+      "path": "lib/server/devicestatus.js",
+      "references": [
+        {
+          "line": 3,
+          "text": "var moment = require('moment');"
+        },
+        {
+          "line": 59,
+          "text": "var d = moment(obj.created_at).isValid() ? moment.parseZone(obj.created_at) : moment();"
+        }
+      ]
+    },
+    {
+      "path": "lib/server/entries.js",
+      "references": [
+        {
+          "line": 6,
+          "text": "var moment = require('moment');"
+        },
+        {
+          "line": 127,
+          "text": "if (doc.dateString) { _sysTime = moment.parseZone(doc.dateString); }"
+        },
+        {
+          "line": 128,
+          "text": "if (!_sysTime && doc.date) { _sysTime = moment(doc.date); }"
+        },
+        {
+          "line": 129,
+          "text": "if (!_sysTime) _sysTime = moment();"
+        }
+      ]
+    },
+    {
+      "path": "lib/server/query.js",
+      "references": [
+        {
+          "line": 7,
+          "text": "const moment = require('moment');"
+        },
+        {
+          "line": 71,
+          "text": "const validDate = moment(dateString).isValid();"
+        },
+        {
+          "line": 78,
+          "text": "const d = moment.parseZone(dateString);"
+        }
+      ]
+    },
+    {
+      "path": "lib/server/treatments.js",
+      "references": [
+        {
+          "line": 5,
+          "text": "var moment = require('moment');"
+        },
+        {
+          "line": 447,
+          "text": "const d = moment(obj.created_at).isValid() ? moment.parseZone(obj.created_at) : moment();"
+        }
+      ]
+    },
+    {
+      "path": "lib/utils.js",
+      "references": [
+        {
+          "line": 10,
+          "text": "* @param {Object} ctx.moment - Moment.js instance"
+        },
+        {
+          "line": 17,
+          "text": "var moment = ctx.moment;"
+        },
+        {
+          "line": 84,
+          "text": "return moment(datestring + ' ' + timestring, 'YYYY-MM-D HH:mm');"
+        }
+      ]
+    },
+    {
+      "path": "tests/api.treatments.test.js",
+      "references": [
+        {
+          "line": 6,
+          "text": "var _moment = require('moment');"
+        }
+      ]
+    },
+    {
+      "path": "tests/bgnow.test.js",
+      "references": [
+        {
+          "line": 69,
+          "text": ", moment: helper.ctx.moment"
+        },
+        {
+          "line": 92,
+          "text": ", moment: helper.ctx.moment"
+        },
+        {
+          "line": 138,
+          "text": ", moment: helper.ctx.moment"
+        },
+        {
+          "line": 185,
+          "text": ", moment: helper.ctx.moment"
+        }
+      ]
+    },
+    {
+      "path": "tests/boluswizardpreview.test.js",
+      "references": [
+        {
+          "line": 158,
+          "text": ", moment: helper.ctx.moment"
+        },
+        {
+          "line": 201,
+          "text": ", moment: helper.ctx.moment"
+        },
+        {
+          "line": 356,
+          "text": ", moment: helper.ctx.moment"
+        }
+      ]
+    },
+    {
+      "path": "tests/browser/profile-settings.test.js",
+      "references": [
+        {
+          "line": 112,
+          "text": "authorized: false, ctx: {moment: window.moment}, plugins: {getAllEventTypes: () => []},"
+        },
+        {
+          "line": 129,
+          "text": "browserUtils: {}, ctx: {moment: window.moment}, entries: [], plugins: () => ({}),"
+        },
+        {
+          "line": 174,
+          "text": "applyTimezone: value => window.moment.utc(value), parseInTimezone: value => window.moment.utc(value)"
+        },
+        {
+          "line": 193,
+          "text": "sbx: {data: {profile: {applyTimezone: value => value, parseInTimezone: value => window.moment(value)}}},"
+        },
+        {
+          "line": 217,
+          "text": "const ctx = {moment: window.moment, timezones: ['UTC'], settings: {units: 'mg/dl'}, language: {translate: value => value}};"
+        }
+      ]
+    },
+    {
+      "path": "tests/browser/report-sgv-pipeline.test.js",
+      "references": [
+        {
+          "line": 82,
+          "text": "const $ = window.$, moment = window.moment, Nightscout = window.Nightscout;"
+        },
+        {
+          "line": 83,
+          "text": "const ctx = {moment, settings: {units}, language: {translate: value => value}};"
+        },
+        {
+          "line": 88,
+          "text": "sbx: {data: {profile: {parseInTimezone: value => moment.tz(value, timezone), applyTimezone: value => value.tz(timezone)}}},"
+        },
+        {
+          "line": 305,
+          "text": "const $ = window.$, moment = window.moment, Nightscout = window.Nightscout;"
+        },
+        {
+          "line": 306,
+          "text": "const ctx = {moment, settings: {units: 'mg/dl'}, language: {translate: value => value}};"
+        }
+      ]
+    },
+    {
+      "path": "tests/browser/stored-outputs.test.js",
+      "references": [
+        {
+          "line": 68,
+          "text": "sbx: {data: {profile: {applyTimezone: value => window.moment(value)}}},"
+        },
+        {
+          "line": 196,
+          "text": "const d3 = window.d3, moment = window.moment, day = '2025-01-01', firstTime = Date.parse(day + 'T00:00:00.000Z');"
+        },
+        {
+          "line": 198,
+          "text": "const profile = {applyTimezone: value => moment.utc(value), loadData: () => {}, parseInTimezone: value => moment.utc(value), updateTreatments: () => {}};"
+        },
+        {
+          "line": 237,
+          "text": "const client = {ctx: {moment: window.moment}, plugins: () => ({}), translate: value => value,"
+        }
+      ]
+    },
+    {
+      "path": "tests/client-core/devicestatus-loop.test.js",
+      "references": [
+        {
+          "line": 6,
+          "text": "var moment = require('moment');"
+        },
+        {
+          "line": 19,
+          "text": "var RECENT = moment(NOW_MILLS).subtract(15, 'minutes'); // mirrors warn/2 default of 30min"
+        },
+        {
+          "line": 49,
+          "text": "// Deep-clone captured data so mutations (loopStatus.moment etc.)"
+        },
+        {
+          "line": 58,
+          "text": "moment.isMoment(result.lastLoop.moment).should.be.true();"
+        },
+        {
+          "line": 68,
+          "text": "it('lastOkMoment is the latest non-failure loop moment', function () {"
+        },
+        {
+          "line": 69,
+          "text": "moment.isMoment(result.lastOkMoment).should.be.true();"
+        },
+        {
+          "line": 70,
+          "text": "result.lastOkMoment.valueOf().should.equal(result.lastLoop.moment.valueOf());"
+        },
+        {
+          "line": 83,
+          "text": "it('lastEnacted (when present) carries timestamp and a moment', function () {"
+        },
+        {
+          "line": 86,
+          "text": "moment.isMoment(result.lastEnacted.moment).should.be.true();"
+        },
+        {
+          "line": 103,
+          "text": "var ts = moment(NOW_MILLS).subtract(2, 'minutes').toISOString();"
+        },
+        {
+          "line": 120,
+          "text": "var ts = moment(NOW_MILLS).subtract(2, 'minutes').toISOString();"
+        }
+      ]
+    },
+    {
+      "path": "tests/client-core/devicestatus-openaps.test.js",
+      "references": [
+        {
+          "line": 6,
+          "text": "var moment = require('moment');"
+        },
+        {
+          "line": 39,
+          "text": "var recent = moment(now).subtract(15, 'minutes');"
+        },
+        {
+          "line": 52,
+          "text": "var recent = moment().subtract(15, 'minutes');"
+        },
+        {
+          "line": 58,
+          "text": "var recent = moment().subtract(15, 'minutes');"
+        },
+        {
+          "line": 76,
+          "text": "var recent = moment(Date.parse(ts)).subtract(15, 'minutes');"
+        },
+        {
+          "line": 90,
+          "text": "it('grafts enacted.moment onto the input enacted object', function () {"
+        },
+        {
+          "line": 98,
+          "text": "var recent = moment(Date.parse(ts)).subtract(15, 'minutes');"
+        },
+        {
+          "line": 101,
+          "text": "moment.isMoment(enacted.moment).should.be.true();"
+        },
+        {
+          "line": 104,
+          "text": "it('grafts suggested.moment onto the input suggested object', function () {"
+        },
+        {
+          "line": 112,
+          "text": "var recent = moment(Date.parse(ts)).subtract(15, 'minutes');"
+        },
+        {
+          "line": 115,
+          "text": "moment.isMoment(suggested.moment).should.be.true();"
+        },
+        {
+          "line": 118,
+          "text": "it('grafts mmtune.moment when status.mmtune.timestamp is present', function () {"
+        },
+        {
+          "line": 127,
+          "text": "var recent = moment(Date.parse(ts)).subtract(15, 'minutes');"
+        },
+        {
+          "line": 130,
+          "text": "moment.isMoment(mmtune.moment).should.be.true();"
+        },
+        {
+          "line": 141,
+          "text": "var recent = moment(Date.parse(ts)).subtract(15, 'minutes');"
+        },
+        {
+          "line": 151,
+          "text": "it('uses an enacted.predBGs bare Array as lastPredBGs.values and stamps a moment', function () {"
+        },
+        {
+          "line": 159,
+          "text": "var recent = moment(Date.parse(ts)).subtract(15, 'minutes');"
+        },
+        {
+          "line": 162,
+          "text": "moment.isMoment(r.lastPredBGs.moment).should.be.true();"
+        },
+        {
+          "line": 178,
+          "text": "var recent = moment(Date.parse(suggestedTs)).subtract(15, 'minutes');"
+        },
+        {
+          "line": 181,
+          "text": "r.lastPredBGs.moment.toISOString().should.equal(moment(suggestedTs).toISOString());"
+        },
+        {
+          "line": 184,
+          "text": "it('populates seenDevices[uri].mmtune and stamps mmtune.moment', function () {"
+        },
+        {
+          "line": 194,
+          "text": "var recent = moment(Date.parse(ts)).subtract(15, 'minutes');"
+        },
+        {
+          "line": 197,
+          "text": "moment.isMoment(r.seenDevices[uri].mmtune.moment).should.be.true();"
+        },
+        {
+          "line": 209,
+          "text": "recent = moment(now).subtract(15, 'minutes');"
+        },
+        {
+          "line": 248,
+          "text": "var recent = moment(now).subtract(15, 'minutes');"
+        },
+        {
+          "line": 255,
+          "text": "moment.isMoment(result.lastSuggested.moment).should.be.true();"
+        },
+        {
+          "line": 266,
+          "text": "moment.isMoment(result.lastEnacted.moment).should.be.true();"
+        },
+        {
+          "line": 272,
+          "text": "// lastPredBGs and stamp a moment."
+        },
+        {
+          "line": 274,
+          "text": "moment.isMoment(result.lastPredBGs.moment).should.be.true();"
+        },
+        {
+          "line": 293,
+          "text": "var recent = moment(now).subtract(15, 'minutes');"
+        },
+        {
+          "line": 310,
+          "text": "var ts = moment(NOW).subtract(2, 'minutes').toISOString();"
+        },
+        {
+          "line": 317,
+          "text": "var recent = moment(NOW).subtract(15, 'minutes');"
+        },
+        {
+          "line": 323,
+          "text": "var ts = moment(NOW).subtract(2, 'minutes').toISOString();"
+        },
+        {
+          "line": 329,
+          "text": "var recent = moment(NOW).subtract(15, 'minutes');"
+        },
+        {
+          "line": 335,
+          "text": "var ts = moment(NOW).subtract(2, 'minutes').toISOString();"
+        },
+        {
+          "line": 341,
+          "text": "var recent = moment(NOW).subtract(15, 'minutes');"
+        },
+        {
+          "line": 347,
+          "text": "var enactedTs = moment(NOW).subtract(4, 'minutes').toISOString();"
+        },
+        {
+          "line": 348,
+          "text": "var notEnactedTs = moment(NOW).subtract(2, 'minutes').toISOString();"
+        },
+        {
+          "line": 358,
+          "text": "var recent = moment(NOW).subtract(15, 'minutes');"
+        },
+        {
+          "line": 364,
+          "text": "var ts = moment(NOW).subtract(2, 'hours').toISOString();"
+        },
+        {
+          "line": 370,
+          "text": "var recent = moment(NOW).subtract(15, 'minutes');"
+        },
+        {
+          "line": 378,
+          "text": "var ts = moment().subtract(2, 'minutes').toISOString();"
+        },
+        {
+          "line": 384,
+          "text": "var recent = moment().subtract(15, 'minutes');"
+        },
+        {
+          "line": 392,
+          "text": "var ts = moment().subtract(2, 'minutes').toISOString();"
+        },
+        {
+          "line": 398,
+          "text": "var recent = moment().subtract(15, 'minutes');"
+        }
+      ]
+    },
+    {
+      "path": "tests/client-core/devicestatus-pump.test.js",
+      "references": [
+        {
+          "line": 6,
+          "text": "var moment = require('moment');"
+        },
+        {
+          "line": 25,
+          "text": "r.clockMills.should.equal(moment('2026-05-09T00:00:00Z').valueOf());"
+        }
+      ]
+    },
+    {
+      "path": "tests/client-core/loop-plugin-wiring.test.js",
+      "references": [
+        {
+          "line": 7,
+          "text": "* (filtered devicestatus, recent moment, { moment }) to the pure"
+        },
+        {
+          "line": 45,
+          "text": "var moment = require('moment');"
+        },
+        {
+          "line": 49,
+          "text": "var ctx = { language: language, settings: { units: 'mg/dl' }, levels: levels, moment: moment };"
+        },
+        {
+          "line": 58,
+          "text": "it('forwards (recentData, recent, { moment }) and filters out non-loop / out-of-window records', function () {"
+        },
+        {
+          "line": 78,
+          "text": "moment.isMoment(calls[0].recent).should.be.true();"
+        },
+        {
+          "line": 79,
+          "text": "(typeof calls[0].opts.moment).should.equal('function');"
+        }
+      ]
+    },
+    {
+      "path": "tests/client-core/openaps-plugin-wiring.test.js",
+      "references": [
+        {
+          "line": 29,
+          "text": "var moment = require('moment');"
+        },
+        {
+          "line": 33,
+          "text": "var ctx = { language: language, settings: { units: 'mg/dl' }, levels: levels, moment: moment };"
+        },
+        {
+          "line": 43,
+          "text": "it('forwards (recentData, recent, { moment, deviceName }) to the pure module', function () {"
+        },
+        {
+          "line": 58,
+          "text": "moment.isMoment(calls[0].recent).should.be.true();"
+        },
+        {
+          "line": 59,
+          "text": "(typeof calls[0].opts.moment).should.equal('function');"
+        }
+      ]
+    },
+    {
+      "path": "tests/client-core/profile-editor-defaults-and-time.test.js",
+      "references": [
+        {
+          "line": 51,
+          "text": "it('wraps 1440 to 00:00 (matches moment behaviour)', function () {"
+        }
+      ]
+    },
+    {
+      "path": "tests/client-core/pump-plugin-wiring.test.js",
+      "references": [
+        {
+          "line": 38,
+          "text": "var moment = require('moment');"
+        },
+        {
+          "line": 42,
+          "text": "var ctx = { language: language, settings: { units: 'mg/dl' }, levels: levels, moment: moment };"
+        },
+        {
+          "line": 51,
+          "text": "it('forwards filtered pump records and { moment } to the pure module', function () {"
+        },
+        {
+          "line": 73,
+          "text": "(typeof calls[0].opts.moment).should.equal('function');"
+        }
+      ]
+    },
+    {
+      "path": "tests/inithelper.js",
+      "references": [
+        {
+          "line": 2,
+          "text": "const moment = require('moment-timezone');"
+        },
+        {
+          "line": 17,
+          "text": ", moment: moment"
+        }
+      ]
+    },
+    {
+      "path": "tests/loop.test.js",
+      "references": [
+        {
+          "line": 105,
+          "text": "var now = ctx_top.moment(statuses[0].created_at);"
+        },
+        {
+          "line": 108,
+          "text": "status.mills = ctx_top.moment(status.created_at).valueOf();"
+        },
+        {
+          "line": 172,
+          "text": "var errorTime = ctx_top.moment(statuses[1].created_at);"
+        }
+      ]
+    },
+    {
+      "path": "tests/openaps.missingPill.test.js",
+      "references": [
+        {
+          "line": 19,
+          "text": "status.mills = top_ctx.moment(status.created_at).valueOf();"
+        },
+        {
+          "line": 40,
+          "text": "now = top_ctx.moment(missingRateOnLastEnacted[0].created_at);"
+        }
+      ]
+    },
+    {
+      "path": "tests/openaps.test.js",
+      "references": [
+        {
+          "line": 245,
+          "text": "var now = top_ctx.moment(statuses[0].created_at);"
+        },
+        {
+          "line": 248,
+          "text": "status.mills = top_ctx.moment(status.created_at).valueOf();"
+        }
+      ]
+    },
+    {
+      "path": "tests/profile.test.js",
+      "references": [
+        {
+          "line": 3,
+          "text": "const moment = helper.ctx.moment;"
+        },
+        {
+          "line": 95,
+          "text": "'timezone': moment.tz().zoneName(),  //Assume these are in the localtime zone so tests pass when not on UTC time"
+        },
+        {
+          "line": 201,
+          "text": "\"timezone\": moment.tz().zoneName(),  //Assume these are in the localtime zone so tests pass when not on UTC time"
+        },
+        {
+          "line": 273,
+          "text": "\"timezone\": moment.tz().zoneName(),  //Assume these are in the localtime zone so tests pass when not on UTC time"
+        },
+        {
+          "line": 612,
+          "text": "var moment = helper.ctx.moment;"
+        },
+        {
+          "line": 613,
+          "text": "var t = indiaProfile.applyTimezone(moment.utc('2026-01-15T00:00:00Z'));"
+        },
+        {
+          "line": 661,
+          "text": "var moment = helper.ctx.moment;"
+        },
+        {
+          "line": 662,
+          "text": "var treatmentTime = indiaProfile.applyTimezone(moment.utc('2026-01-14T19:00:00.000Z'));"
+        },
+        {
+          "line": 692,
+          "text": "var moment = helper.ctx.moment;"
+        },
+        {
+          "line": 693,
+          "text": "var t = ianaProfile.applyTimezone(moment.utc('2026-07-15T12:00:00Z'));"
+        }
+      ]
+    },
+    {
+      "path": "tests/pump.test.js",
+      "references": [
+        {
+          "line": 6,
+          "text": "const moment = helper.ctx.moment;"
+        },
+        {
+          "line": 55,
+          "text": "'timezone': moment.tz.guess()"
+        },
+        {
+          "line": 94,
+          "text": "var now = moment(statuses[1].created_at);"
+        },
+        {
+          "line": 97,
+          "text": "status.mills = moment(status.created_at).valueOf();"
+        },
+        {
+          "line": 101,
+          "text": "status.mills = moment(status.created_at).valueOf();"
+        }
+      ]
+    },
+    {
+      "path": "tests/query.test.js",
+      "references": [
+        {
+          "line": 5,
+          "text": "var moment = require('moment');"
+        },
+        {
+          "line": 13,
+          "text": "var low = moment().utc().subtract(4, 'days').subtract(1, 'minutes').format();"
+        },
+        {
+          "line": 14,
+          "text": "var high = moment().utc().subtract(4, 'days').add(1, 'minutes').format();"
+        },
+        {
+          "line": 26,
+          "text": "var low = moment().utc().subtract(2, 'days').subtract(1, 'minutes').format();"
+        },
+        {
+          "line": 27,
+          "text": "var high = moment().utc().subtract(2, 'days').add(1, 'minutes').format();"
+        }
+      ]
+    },
+    {
+      "path": "tools/captured-fixtures/pill-runner.js",
+      "references": [
+        {
+          "line": 46,
+          "text": "const moment = require('moment-timezone');"
+        },
+        {
+          "line": 129,
+          "text": "moment,"
+        }
+      ]
+    },
+    {
+      "path": "tools/measure-profile-cache-workload.js",
+      "references": [
+        {
+          "line": 6,
+          "text": "const moment = require(path.join(root, 'node_modules/moment-timezone'));"
+        },
+        {
+          "line": 8,
+          "text": "const profile = create([{startDate: '2020-01-01T00:00:00Z', timezone: 'UTC', dia: 3, carbs_hr: 30, carbratio: 7, sens: 35, target_low: 95, target_high: 120, basal: [{time:'00:00',value:0.8},{time:'12:"
+        }
+      ]
+    },
+    {
+      "path": "webpack/webpack.config.js",
+      "references": [
+        {
+          "line": 13,
+          "text": "const MomentTimezoneDataPlugin = require('moment-timezone-data-webpack-plugin');"
+        }
+      ]
+    }
+  ]
+}

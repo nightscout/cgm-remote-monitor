@@ -377,6 +377,8 @@
     "Values loaded.": "Valeurs chargées.",
     "Default values used.": "Valeurs par défaut utilisées.",
     "Error. Default values used.": "Erreur! Valeurs par défaut utilisées.",
+    "Enter every profile value before saving.": "Enter every profile value before saving.",
+    "Your profile could not be loaded. Reload before editing.": "Your profile could not be loaded. Reload before editing.",
     "Time ranges of target_low and target_high don't  match. Values are restored to defaults.": "Les intervalles de temps pour la cible glycémique supérieure et inférieure diffèrent. Les valeurs par défaut sont restaurées.",
     "Valid from:": "Valide à partir de:",
     "Save current record before switching to new?": "Sauvegarder cette entrée avant de procéder à l'entrée suivante?",

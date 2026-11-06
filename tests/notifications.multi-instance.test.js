@@ -37,7 +37,10 @@ describe('notifications multi-instance', function () {
     var emits = [];
     var ctx = {
       ddata: { lastUpdated: Date.now() },
-      bus: { emit: function (evt, data) { emits.push({ evt: evt, data: data }); } },
+      bus: {
+        emit: function (evt, data) { emits.push({ evt: evt, data: data }); },
+        once: function () {}
+      },
       levels: { URGENT: 2, WARN: 1, INFO: 0, toDisplay: function (l) { return 'L' + l; } },
       alarmStorage: storage
     };

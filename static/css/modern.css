@@ -1,0 +1,701 @@
+/* Opt-in modern theme. THEME, plugin states and alarm colours retain their meaning. */
+html.modern-ui {
+  color-scheme: dark;
+  background: #101419;
+}
+.modern-ui body {
+  background: #101419;
+  color: #e5e9ef;
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+  font-variant-numeric: tabular-nums;
+  line-height: 1.4;
+}
+.modern-ui #container {
+  position: relative;
+  /* Contain legacy/plugin layers below the body-level drawers and dialogs. */
+  z-index: 0;
+  isolation: isolate;
+  top: auto;
+  padding: 0;
+}
+.modern-ui #container #toolbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  float: none;
+  position: relative;
+  box-sizing: border-box;
+  width: 100%;
+  height: auto;
+  min-height: 48px;
+  margin: 0;
+  padding: 2px max(14px, env(safe-area-inset-right)) 2px max(14px, env(safe-area-inset-left));
+  border-bottom: 1px solid #2b323c;
+  background: #171c23;
+}
+.modern-ui #toolbar .customTitle {
+  display: block;
+  flex: 1;
+  min-width: 0;
+  box-sizing: border-box;
+  margin: 0;
+  padding: 4px 0 4px 38px;
+  font-size: 18px;
+  font-weight: 650;
+  overflow-wrap: anywhere;
+  background-position: left center;
+  background-size: 26px auto;
+  background-image: url('../images/logo2.png');
+  background-repeat: no-repeat;
+  white-space: normal;
+  text-shadow: none;
+}
+.modern-ui #buttonbar {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  position: static;
+  flex: 0 1 auto;
+  width: auto;
+  height: auto;
+  margin: 0;
+  padding: 0;
+  opacity: 1;
+}
+.modern-ui #buttonbar a {
+  display: inline-flex;
+  justify-content: center;
+  align-items: center;
+  box-sizing: border-box;
+  width: 44px;
+  height: 44px;
+  margin: 0;
+  color: #bfc8d4;
+  font-size: 20px;
+  border-radius: 8px;
+}
+.modern-ui #buttonbar i {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 1em;
+  height: 1em;
+  margin: 0;
+  padding: 0;
+  line-height: 1;
+}
+.modern-ui #buttonbar i::before { margin: 0; }
+.modern-ui a:focus-visible,
+.modern-ui [tabindex]:focus-visible {
+  outline: 2px solid #91c9ff;
+  outline-offset: 3px;
+}
+.modern-ui #buttonbar a:hover { background: #242c36; }
+.modern-ui #buttonbar .selected { color: red; }
+.modern-ui body > svg { position: absolute; width: 0; height: 0; overflow: hidden; }
+.modern-ui .modern-dashboard {
+  display: grid;
+  position: relative;
+  grid-template-columns: minmax(0, 0.9fr) minmax(0, 1.1fr);
+  grid-template-areas: "clock glucose" "status major" "range minor" "chart chart";
+  grid-template-rows: auto auto auto minmax(320px, 1fr);
+  gap: 6px 20px;
+  box-sizing: border-box;
+  min-height: calc(100vh - 48px);
+  min-height: calc(100svh - 48px);
+  padding: 8px max(14px, env(safe-area-inset-right)) max(12px, env(safe-area-inset-bottom)) max(14px, env(safe-area-inset-left));
+  font-family: inherit;
+  white-space: normal;
+}
+.modern-ui .status,
+.modern-ui .statusBox,
+.modern-ui .bgStatus {
+  display: contents;
+  float: none;
+  width: auto;
+  padding: 0;
+  font-size: inherit;
+}
+.modern-ui #currentTime {
+  grid-area: clock;
+  align-self: center;
+  display: block;
+  color: #c9d0da;
+  font-size: clamp(56px, 6vw, 100px);
+  line-height: 1.1;
+  letter-spacing: -0.045em;
+  text-align: left;
+}
+.modern-ui .bgButton {
+  grid-area: glucose;
+  justify-self: end;
+  align-self: center;
+  box-sizing: border-box;
+  max-width: 100%;
+  width: auto;
+  margin: 0;
+  padding: 2px 6px;
+  border: 2px solid transparent;
+  border-radius: 12px;
+  cursor: pointer;
+}
+.modern-ui .bgStatus .currentBG {
+  font-size: clamp(76px, 7.3vw, 120px);
+  line-height: 1;
+  font-weight: 600;
+  letter-spacing: -0.055em;
+}
+.modern-ui .bgStatus .currentBG.bg-limit,
+.modern-ui .bgStatus .currentBG.icon-hourglass { font-size: clamp(64px, 7vw, 100px); }
+.modern-ui .bgStatus .pill.direction {
+  display: inline;
+  margin: 0 0 0 8px;
+  padding: 0;
+  font-size: clamp(48px, 5vw, 80px);
+  line-height: 1;
+  border: 0;
+  background: none;
+  color: inherit;
+}
+.modern-ui .modern-glucose-unit {
+  display: block;
+  margin-top: 2px;
+  color: #aab5c3;
+  font-size: 14px;
+  font-weight: 400;
+  letter-spacing: normal;
+  text-align: right;
+}
+.modern-ui .statusPills,
+.modern-ui .majorPills,
+.modern-ui .minorPills {
+  display: flex;
+  align-items: start;
+  align-content: start;
+  flex-wrap: wrap;
+  gap: 5px;
+  min-width: 0;
+  margin: 0;
+  font-size: 14px;
+  line-height: 1.4;
+}
+.modern-ui .statusPills { grid-area: status; }
+.modern-ui .bgStatus .majorPills { grid-area: major; justify-content: flex-end; font-size: 18px; }
+.modern-ui .minorPills { grid-area: minor; justify-content: flex-end; font-size: 13px; z-index: auto; }
+.modern-ui .modern-dashboard .pill:not(.direction):not(.rawbg) {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex-wrap: wrap;
+  gap: 5px;
+  box-sizing: border-box;
+  min-width: 0;
+  max-width: 100%;
+  min-height: 28px;
+  white-space: normal;
+  overflow-wrap: anywhere;
+  margin: 0;
+  padding: 4px 8px;
+  border: 1px solid #29313b;
+  border-radius: 7px;
+  background: #161c23;
+  color: #e5e9ef;
+}
+.modern-ui .modern-dashboard .pill em,
+.modern-ui .modern-dashboard .pill label {
+  margin: 0;
+  padding: 0;
+  border-radius: 0;
+  background: none;
+  line-height: 1.35;
+}
+.modern-ui .modern-dashboard .pill label {
+  color: #aab5c3;
+  white-space: normal;
+  overflow-wrap: anywhere;
+}
+.modern-ui .modern-dashboard .pill em { color: #e7ecf3; font-weight: 600; }
+.modern-ui .modern-dashboard .pill.warn:not(.direction):not(.rawbg) { border-color: #5b4c20; background: #211f18; }
+.modern-ui .modern-dashboard .pill.warn em { color: #ffff00; }
+.modern-ui .modern-dashboard .pill.urgent:not(.direction):not(.rawbg) { border-color: #ff5353; background: #371d24; }
+.modern-ui .modern-dashboard .pill.urgent em { color: #ff6565; }
+.modern-ui .modern-dashboard .pill.hidden { display: none !important; }
+.modern-ui .modern-dashboard .pill.rawbg { vertical-align: middle; font-size: 14px; }
+/* Retain alarm emphasis and stale-reading strike-through from the classic UI. */
+.modern-ui .alarming .bgButton { border-color: #e5e9ef; color: #000; }
+.modern-ui .alarming.urgent .bgButton { background: red; }
+.modern-ui .alarming.warning .bgButton { background: yellow; }
+.modern-ui .alarming-timeago .timeago.pill.warn { border: 2px solid yellow; }
+.modern-ui .alarming-timeago .timeago.pill.urgent { border: 2px solid red; }
+.modern-ui .alarming-timeago .timeago.pill label { background: none; }
+.modern-ui .focus-range {
+  grid-area: range;
+  display: flex;
+  flex-wrap: wrap;
+  justify-self: start;
+  position: static;
+  box-sizing: border-box;
+  width: auto;
+  max-width: 100%;
+  margin: 0;
+  padding: 2px;
+  border: 1px solid #29313b;
+  border-radius: 8px;
+  background: #141a21;
+  text-align: center;
+}
+.modern-ui .focus-range li {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  box-sizing: border-box;
+  min-width: 36px;
+  min-height: 32px;
+  padding: 3px 8px;
+  font-size: 13px;
+  border: 0;
+  border-radius: 7px;
+  color: #b8c2cf;
+}
+.modern-ui .focus-range li[data-hours]:not(:first-child)::after { content: "h"; }
+.modern-ui .focus-range li:first-child { display: none; }
+.modern-ui .focus-range .selected { color: #fff; background: #394454; }
+.modern-ui .focus-range li:hover { background: #29333f; }
+.modern-ui .section1 { grid-area: chart; min-width: 0; min-height: 320px; }
+.modern-ui #chartContainer {
+  position: relative;
+  inset: auto;
+  width: 100%;
+  height: 100%;
+  min-height: 320px;
+  margin: 0;
+  background: #101419;
+  font-family: inherit;
+  font-size: 14px;
+}
+.modern-ui #chartContainer .axis { font-size: 12px !important; }
+.modern-ui #chartContainer .axis text { fill: #b8c2cf; }
+.modern-ui #chartContainer .axis path,
+.modern-ui #chartContainer .axis line { stroke: #43505f; stroke-opacity: .45; }
+.modern-ui #chartContainer .target-top-line,
+.modern-ui #chartContainer .target-bottom-line { stroke: #a5b6c9; stroke-opacity: .6; }
+.modern-ui .modern-target-band { fill: #8fc8b0; fill-opacity: .045; pointer-events: none; }
+.modern-ui .modern-trace,
+.modern-ui .modern-forecast-line { fill: none; stroke-linejoin: round; stroke-linecap: round; vector-effect: non-scaling-stroke; pointer-events: none; }
+.modern-ui .modern-trace { stroke-width: 2.25; }
+.modern-ui .chart-context .modern-trace { stroke-width: 1.25; opacity: .7; }
+.modern-ui .modern-forecast-line { stroke-width: 1.25; stroke-dasharray: 4 6; opacity: .55; }
+.modern-ui .modern-hover-dot { stroke: #101419; stroke-width: 2; vector-effect: non-scaling-stroke; pointer-events: none; }
+.modern-ui .modern-connected-sample { fill: transparent; }
+.modern-ui .modern-trace-label { fill: #9faec0; font-size: 11px; pointer-events: none; }
+.modern-ui .modern-now-label { fill: #c9d0da; font-size: 12px; text-anchor: end; pointer-events: none; }
+/* Rates remain stepped: corners mark real changes in insulin delivery. */
+.modern-ui .chart-basals { pointer-events: none; }
+.modern-ui .chart-basals .basalline,
+.modern-ui .chart-basals .notempline {
+  stroke-linejoin: round;
+  stroke-linecap: round;
+  vector-effect: non-scaling-stroke;
+}
+.modern-ui .chart-basals .basalline { stroke: #8abde5; stroke-width: 1.75; stroke-opacity: .9; }
+.modern-ui .chart-basals .notempline { stroke: #a4b3c5; stroke-width: 1; stroke-dasharray: 3 5; stroke-opacity: .55; }
+.modern-ui .chart-basals .basalarea { fill-opacity: .5; }
+.modern-ui .chart-basals .tempbasalarea,
+.modern-ui .chart-basals .comboarea { fill-opacity: 1; }
+.modern-ui .chart-basals .tempbasaltext {
+  font-size: 11px !important;
+  font-weight: 500;
+  fill: #b3cde3;
+  stroke: #101419;
+  stroke-width: 4px;
+  stroke-linejoin: round;
+  paint-order: stroke fill;
+}
+.modern-ui .tooltip { z-index: 50; box-sizing: border-box; max-width: min(360px, calc(100vw - 16px)); padding: 10px; border: 1px solid #46576b; border-radius: 8px; background: #202a36; color: #f0f3f7; }
+.modern-ui .modern-hover-guide { stroke: #a5b6c9; stroke-width: 1; stroke-opacity: .65; stroke-dasharray: 3 4; pointer-events: none; }
+.modern-ui .modern-hover-area { cursor: crosshair; }
+.modern-ui .modern-chart-tooltip { pointer-events: none; }
+.modern-ui .modern-tooltip-heading { margin-bottom: 6px; color: #b8c5d5; font-size: 12px; }
+.modern-ui .modern-tooltip-row { display: flex; justify-content: space-between; gap: 18px; line-height: 1.55; }
+.modern-ui .modern-tooltip-meta { margin: -1px 0 4px; color: #aebdce; font-size: 11px; }
+.modern-ui #viewMenu { grid-area: range; top: 100%; left: 0; right: auto; max-width: calc(100vw - 24px); font-size: 16px; }
+.modern-ui #viewMenu li { white-space: normal; }
+.modern-ui #silenceBtn { grid-area: glucose; top: 100%; right: 0; max-width: calc(100vw - 24px); }
+.modern-ui #silenceBtn a { box-sizing: border-box; min-height: 44px; padding: 10px 12px; font-size: 18px; white-space: normal; }
+.modern-ui #drawer,
+.modern-ui #treatmentDrawer,
+.modern-ui #boluscalcDrawer,
+.modern-ui #adminNotifiesDrawer {
+  position: fixed;
+  z-index: 100;
+  margin-top: 48px;
+  max-height: calc(100vh - 48px);
+  max-height: calc(100dvh - 48px);
+  box-sizing: border-box;
+  background-color: #202833;
+  color: #e5e9ef;
+}
+/* Keep jQuery UI's dynamic dialog ordering above the dashboard and drawers. */
+.modern-ui .ui-front { z-index: 300; }
+@media (max-width: 1000px) and (min-width: 601px) {
+  .modern-ui .modern-dashboard { gap: 6px 12px; }
+  .modern-ui .statusPills,
+  .modern-ui .minorPills { font-size: 13px; }
+  .modern-ui .modern-dashboard .pill:not(.direction):not(.rawbg) { padding: 4px 7px; }
+}
+@media (max-width: 600px) {
+  .modern-ui .modern-dashboard {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    grid-template-areas: "clock freshness" "glucose glucose" "major major" "range range" "chart chart";
+    grid-template-rows: auto auto auto auto clamp(340px, calc(100svh - 300px), 480px);
+    grid-auto-rows: auto;
+    align-content: start;
+    gap: 6px;
+    min-height: 0;
+    padding: 8px max(12px, env(safe-area-inset-right)) max(12px, env(safe-area-inset-bottom)) max(12px, env(safe-area-inset-left));
+  }
+  .modern-ui #container #toolbar { padding-left: 12px; padding-right: 12px; }
+  .modern-ui #toolbar .customTitle { min-width: 110px; font-size: 16px; padding-left: 30px; background-size: 23px auto; }
+  .modern-ui #buttonbar { max-width: 100%; }
+  .modern-ui #currentTime { font-size: 20px; font-weight: 600; letter-spacing: -.025em; text-align: left; }
+  .modern-ui .bgButton { justify-self: center; padding: 4px; }
+  .modern-ui .modern-glucose-unit { text-align: center; }
+  .modern-ui .bgStatus .currentBG { font-size: clamp(72px, 20vw, 104px); }
+  .modern-ui .bgStatus .currentBG.bg-limit,
+  .modern-ui .bgStatus .currentBG.icon-hourglass { font-size: 64px; }
+  .modern-ui .bgStatus .pill.direction { font-size: clamp(44px, 13vw, 68px); margin-left: 6px; }
+  .modern-ui .bgStatus .majorPills { justify-content: center; font-size: 18px; }
+  .modern-ui .statusPills,
+  .modern-ui .minorPills { display: contents; }
+  /* Reserve the freshness cell even before the first plugin update. */
+  .modern-ui .statusBox::after { content: ""; grid-area: freshness; }
+  .modern-ui .statusPills > .timeago {
+    grid-area: freshness;
+    justify-self: end;
+    align-self: center;
+    min-height: 26px !important;
+    padding: 3px 6px !important;
+    font-size: 13px;
+  }
+  .modern-ui .statusPills > .pill:not(.timeago),
+  .modern-ui .minorPills > .pill { justify-content: space-between !important; align-self: stretch; font-size: 13px; }
+  .modern-ui .minorPills > .basal { grid-column: 1 / -1; }
+  .modern-ui .modern-dashboard .pill:not(.direction):not(.rawbg) { min-height: 36px; padding: 6px 8px; }
+  .modern-ui .focus-range { justify-self: stretch; justify-content: center; margin: 2px 0; }
+  .modern-ui .focus-range li { min-width: 34px; min-height: 44px; padding: 4px 7px; font-size: 14px; flex: 1; }
+  .modern-ui .section1,
+  .modern-ui #chartContainer { min-height: 340px; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .modern-ui *, .modern-ui *::before, .modern-ui *::after { scroll-behavior: auto !important; transition: none !important; }
+}
+
+/* Settings drawer: native controls, quiet sections and accessible actions. */
+.modern-ui #drawer {
+  background: #151c25;
+  border-left: 1px solid #34404f;
+  box-shadow: -8px 0 24px rgb(0 0 0 / 16%);
+  font-size: 14px;
+  scrollbar-width: thin;
+  scrollbar-color: #465466 #151c25;
+  overscroll-behavior: contain;
+}
+.modern-ui :is(#drawer, #adminNotifiesDrawer, #treatmentDrawer) .modern-drawer-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  position: sticky;
+  top: 0;
+  z-index: 2;
+  padding: 10px 16px;
+  border-bottom: 1px solid #2d3846;
+  background: #171f2a;
+}
+.modern-ui :is(#drawer, #adminNotifiesDrawer, #treatmentDrawer) .modern-drawer-header h2 {
+  margin: 0;
+  font-size: 20px;
+  line-height: 1.3;
+  font-weight: 650;
+  letter-spacing: -.025em;
+}
+.modern-ui :is(#drawer, #adminNotifiesDrawer, #treatmentDrawer) .modern-drawer-close {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 40px;
+  height: 40px;
+  margin: 0;
+  padding: 0;
+  border: 0;
+  border-radius: 8px;
+  background: transparent;
+  color: #b8c5d5;
+  line-height: 1;
+  font-weight: 400;
+  font-size: 26px;
+  box-shadow: none;
+  cursor: pointer;
+}
+.modern-ui :is(#drawer, #adminNotifiesDrawer, #treatmentDrawer) .modern-drawer-close:hover { background: #293442; color: #fff; }
+.modern-ui #drawer form { padding: 0 16px; }
+.modern-ui #drawer fieldset { min-width: 0; margin: 0; padding: 0; border: 0; }
+.modern-ui #drawer legend { padding: 0; font-size: 13px; font-weight: 600; color: #b7c4d4; text-shadow: none; }
+.modern-ui #drawer #browserSettings > legend { display: none; }
+.modern-ui #drawer .navigation {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 6px;
+  padding: 14px 0;
+  border-bottom: 1px solid #2b3542;
+}
+.modern-ui #drawer .navigation > li:first-child,
+.modern-ui #drawer .navigation > .multilink { grid-column: 1 / -1; }
+.modern-ui #drawer .navigation a {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  box-sizing: border-box;
+  min-height: 40px;
+  margin: 0;
+  padding: 8px 10px;
+  border: 1px solid #334151;
+  border-radius: 8px;
+  background: #1c2633;
+  color: #dbe7f5;
+  font-size: 13px;
+  text-align: center;
+  white-space: normal;
+}
+.modern-ui #drawer .navigation a:hover { background: #273547; border-color: #54708d; }
+.modern-ui #drawer .navigation li.multilink { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 6px; }
+.modern-ui #drawer .navigation .multilink > a:first-child {
+  grid-column: 1 / -1;
+  justify-content: flex-start;
+  min-height: 0;
+  padding: 7px 0 2px;
+  border: 0;
+  background: none;
+  color: #9faec0;
+  font-size: 12px;
+  font-weight: 600;
+}
+.modern-ui #drawer dl { display: block; margin: 0; padding: 13px 0; border-bottom: 1px solid #293441; }
+.modern-ui #drawer dt { margin-bottom: 7px; color: #b7c4d4; font-size: 13px; font-weight: 600; }
+.modern-ui #drawer dd { display: flex; align-items: center; gap: 8px; box-sizing: border-box; min-width: 0; min-height: 36px; margin: 0; }
+.modern-ui #drawer label { flex: 1; min-width: 0; line-height: 1.4; color: #e1e8f1; cursor: pointer; }
+.modern-ui #drawer input,
+.modern-ui #drawer select,
+.modern-ui #drawer button { font-family: inherit; }
+.modern-ui #drawer input[type="checkbox"],
+.modern-ui #drawer input[type="radio"] {
+  flex: 0 0 auto;
+  width: 18px;
+  height: 18px;
+  margin: 0;
+  accent-color: #9bcdfb;
+  cursor: pointer;
+}
+.modern-ui #drawer dl.radio { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 6px; }
+.modern-ui #drawer dl.radio dt { grid-column: 1 / -1; margin-bottom: 1px; }
+.modern-ui #drawer dl.radio dd { padding: 8px; min-height: 42px; border: 1px solid #334151; border-radius: 8px; background: #1b2430; }
+.modern-ui #drawer dl.radio dd:has(input:checked) { border-color: #729dc5; background: #23344a; }
+.modern-ui #drawer dl.radio label { font-size: 13px; }
+.modern-ui #drawer select,
+.modern-ui #drawer input[type="text"],
+.modern-ui #drawer input[type="number"] {
+  box-sizing: border-box;
+  width: 100%;
+  min-width: 0;
+  min-height: 42px;
+  padding: 8px 10px;
+  border: 1px solid #3c4a5c;
+  border-radius: 8px;
+  background: #1a2330;
+  color: #e9eff7;
+  font-size: 14px;
+}
+.modern-ui #drawer input.timeago-mins { flex: 0 0 52px; width: 52px; min-height: 36px; padding: 6px; text-align: center; }
+.modern-ui #drawer input:focus-visible,
+.modern-ui #drawer select:focus-visible,
+.modern-ui #drawer button:focus-visible { outline: 2px solid #9bcdfb; outline-offset: 2px; }
+.modern-ui #drawer #show-plugins { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 4px 10px; }
+.modern-ui #drawer #show-plugins dt { grid-column: 1 / -1; }
+.modern-ui #drawer #show-plugins label { font-size: 13px; }
+.modern-ui #drawer .actions {
+  position: sticky;
+  bottom: 0;
+  z-index: 2;
+  margin: 0;
+  padding: 12px 0;
+  border-top: 1px solid #344151;
+  background: #151c25;
+}
+.modern-ui #drawer #save { min-height: 44px; padding: 10px 14px; border: 1px solid #9bcdfb; border-radius: 8px; background: #9bcdfb; color: #122033; font-size: 15px; font-weight: 650; box-shadow: none; cursor: pointer; }
+.modern-ui #drawer #save:hover { background: #bbdfff; border-color: #bbdfff; }
+.modern-ui #drawer .actions a { padding: 9px 0 0; color: #aebed1; text-align: center; font-size: 12px; text-underline-offset: 3px; }
+.modern-ui #drawer .authentication-status { margin: 0; padding: 16px 0; border-top: 0; border-bottom: 1px solid #293441; font-size: 13px; line-height: 1.65; color: #acbbcd; }
+.modern-ui #drawer .authentication-status > strong { display: block; margin-bottom: 6px; font-weight: 600; color: #c4d1e1; }
+.modern-ui #drawer .authentication-status a { display: inline-flex; align-items: center; min-height: 32px; padding: 2px 9px; border: 1px solid #3b5068; border-radius: 6px; background: #1d2c3e; color: #c6e1ff; text-decoration: none; }
+.modern-ui #drawer #about { padding: 16px 0; color: #9faec0; font-size: 12px; }
+.modern-ui #drawer #about legend { padding-top: 16px; }
+.modern-ui #drawer #about div { font-size: 12px; }
+.modern-ui #drawer #about .links { margin: 10px 0 0; }
+.modern-ui #drawer #about a { color: #a9c7e7; text-underline-offset: 3px; }
+/* Chart options and alarm menus use the same surfaces as Settings. */
+.modern-ui #viewMenu,
+.modern-ui #silenceBtn { overflow: hidden; border: 1px solid #45556b; border-radius: 9px; background: #1b2634; }
+.modern-ui .dropdown-menu li a,
+.modern-ui .dropdown-menu li label { display: flex; align-items: center; gap: 8px; box-sizing: border-box; min-height: 42px; padding: 9px 12px; background: #1b2634; color: #e1eaf5; font-size: 14px; white-space: normal; }
+.modern-ui .dropdown-menu li a:hover,
+.modern-ui .dropdown-menu li label:hover { background: #2a3b50; }
+.modern-ui #viewMenu input { accent-color: #9bcdfb; }
+
+/* Keep the existing authentication dialog and focus handling, with a compact surface. */
+.modern-ui .modern-auth-dialog.ui-dialog {
+  position: fixed;
+  top: 50% !important;
+  left: 50% !important;
+  transform: translate(-50%, -50%);
+  display: flex;
+  flex-direction: column;
+  box-sizing: border-box;
+  width: min(440px, calc(100vw - 32px)) !important;
+  max-height: calc(100vh - 32px);
+  max-height: calc(100dvh - 32px);
+  margin: 0;
+  padding: 0;
+  overflow: hidden;
+  border: 1px solid #3c4a5c;
+  border-radius: 14px;
+  background: #151c25;
+  color: #e5e9ef;
+  font-family: inherit;
+  font-size: 14px;
+  box-shadow: 0 18px 64px rgb(0 0 0 / 45%);
+}
+.modern-ui .modern-auth-dialog .ui-dialog-titlebar {
+  flex: 0 0 auto;
+  margin: 0;
+  padding: 18px 60px 18px 22px;
+  border: 0;
+  border-bottom: 1px solid #2d3846;
+  border-radius: 0;
+  background: #171f2a;
+  color: #e9eff7;
+  font-size: 20px;
+  font-weight: 650;
+  line-height: 1.3;
+  letter-spacing: -.025em;
+}
+.modern-ui .modern-auth-dialog .ui-dialog-title { float: none; display: block; width: auto; margin: 0; white-space: normal; }
+.modern-ui .modern-auth-dialog .ui-dialog-titlebar-close {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  top: 50%;
+  right: 12px;
+  width: 40px;
+  height: 40px;
+  margin-top: -20px;
+  padding: 0;
+  border: 0;
+  border-radius: 8px;
+  background: transparent;
+  color: #b8c5d5;
+  font-size: 0;
+  box-shadow: none;
+}
+.modern-ui .modern-auth-dialog .ui-dialog-titlebar-close::before {
+  content: '';
+  width: 14px;
+  height: 14px;
+  background: linear-gradient(45deg, transparent 44%, currentColor 45%, currentColor 55%, transparent 56%), linear-gradient(-45deg, transparent 44%, currentColor 45%, currentColor 55%, transparent 56%);
+}
+.modern-ui .modern-auth-dialog .ui-dialog-titlebar-close .ui-icon,
+.modern-ui .modern-auth-dialog .ui-dialog-titlebar-close .ui-button-icon-space { display: none; }
+.modern-ui .modern-auth-dialog .ui-dialog-titlebar-close:hover { background: #293442; color: #fff; }
+.modern-ui .modern-auth-dialog #requestauthenticationdialog {
+  display: grid !important;
+  grid-template-columns: 18px minmax(0, 1fr);
+  align-items: start;
+  gap: 12px 10px;
+  flex: 1 1 auto;
+  min-height: 0 !important;
+  height: auto !important;
+  padding: 22px;
+  overflow: auto;
+  background: #151c25;
+  color: #b7c4d4;
+  line-height: 1.5;
+}
+.modern-ui #requestauthenticationdialog > br { display: none; }
+.modern-ui #requestauthenticationdialog label[for="apisecret"] { grid-column: 1 / -1; color: #dbe5f0; font-size: 14px; font-weight: 600; }
+.modern-ui #requestauthenticationdialog #apisecret {
+  grid-column: 1 / -1;
+  box-sizing: border-box;
+  min-width: 0;
+  min-height: 46px;
+  margin: -4px 0 6px;
+  padding: 10px 12px;
+  border: 1px solid #52677f;
+  border-radius: 8px;
+  background: #101720;
+  color: #e9eff7;
+  font: inherit;
+  font-size: 16px;
+}
+.modern-ui #requestauthenticationdialog #storeapisecret { width: 18px; height: 18px; margin: 2px 0 0; accent-color: #9bcdfb; }
+.modern-ui #requestauthenticationdialog label[for="storeapisecret"] { cursor: pointer; overflow-wrap: anywhere; }
+.modern-ui .modern-auth-dialog .ui-dialog-buttonpane { flex: 0 0 auto; margin: 0; padding: 16px 22px; border: 0; border-top: 1px solid #2d3846; background: #151c25; }
+.modern-ui .modern-auth-dialog .ui-dialog-buttonset { float: none; }
+.modern-ui .modern-auth-dialog #requestauthenticationdialog-btn { box-sizing: border-box; width: 100%; min-height: 44px; margin: 0; padding: 10px 14px; border: 1px solid #9bcdfb; border-radius: 8px; background: #9bcdfb; color: #122033; font: inherit; font-size: 15px; font-weight: 650; box-shadow: none; cursor: pointer; }
+.modern-ui .modern-auth-dialog #requestauthenticationdialog-btn:hover { background: #bbdfff; border-color: #bbdfff; }
+.modern-ui .modern-auth-dialog #requestauthenticationdialog-btn .ui-button-text { padding: 0; }
+.modern-ui .modern-auth-dialog input:focus-visible,
+.modern-ui .modern-auth-dialog button:focus-visible { outline: 2px solid #9bcdfb; outline-offset: 3px; }
+@media (max-width: 360px) {
+  .modern-ui .modern-auth-dialog .ui-dialog-titlebar { padding-left: 16px; font-size: 18px; }
+  .modern-ui .modern-auth-dialog #requestauthenticationdialog { padding: 18px 16px; }
+  .modern-ui .modern-auth-dialog .ui-dialog-buttonpane { padding: 14px 16px; }
+}
+
+/* Administration uses the same panel hierarchy as Settings. */
+.modern-ui #adminNotifiesDrawer { background: #151c25; border-left: 1px solid #34404f; box-shadow: -8px 0 24px rgb(0 0 0 / 16%); font-size: 14px; scrollbar-width: thin; scrollbar-color: #465466 #151c25; overscroll-behavior: contain; }
+.modern-ui #adminNotifyContent { margin: 0; padding: 16px; }
+.modern-ui #adminNotifyContent > p { margin: 0 0 16px; color: #acbbcd; line-height: 1.5; }
+.modern-ui #adminNotifyContent > p b { font-weight: 500; }
+.modern-ui .modern-admin-message { margin: 0 0 12px; padding: 16px; border: 1px solid #334151; border-radius: 10px; background: #1b2430; overflow-wrap: anywhere; }
+.modern-ui .modern-admin-message h3 { margin: 0 0 8px; font-size: 15px; font-weight: 650; color: #e9eff7; line-height: 1.4; }
+.modern-ui .modern-admin-message .adminNotifyMessage { margin: 0; color: #c4d1e1; font-size: 14px; line-height: 1.55; white-space: pre-line; }
+.modern-ui .modern-admin-message .adminNotifyMessageAdditionalInfo { margin: 12px 0 0; color: #9faec0; font-size: 12px; line-height: 1.5; }
+
+/* Care Portal uses the existing dynamically shown treatment fields. */
+.modern-ui #treatmentDrawer { width: min(440px, 100vw); padding: 0; background: #151c25; border-left: 1px solid #34404f; font-size: 14px; overscroll-behavior: contain; scrollbar-width: thin; }
+.modern-ui #treatment-form { padding: 0 16px; }
+.modern-ui #treatmentDrawer fieldset { min-width: 0; margin: 16px 0; padding: 12px; border: 1px solid #354252; border-radius: 9px; }
+.modern-ui #treatmentDrawer .treatmentData { margin: 0; padding: 18px 0; border: 0; }
+.modern-ui #treatmentDrawer .treatmentData > legend { display: none; }
+.modern-ui #treatmentDrawer legend { padding: 0 6px; color: #b9c9dc; font-size: 13px; font-weight: 600; text-shadow: none; }
+.modern-ui #treatmentDrawer label.left-column { width: 100%; margin: 0 0 14px; }
+.modern-ui #treatmentDrawer label.left-column > span { display: block; width: auto; margin: 0 0 6px; color: #b8c7da; white-space: normal; overflow: visible; }
+.modern-ui #treatmentDrawer :is(input, select, textarea) { box-sizing: border-box; width: 100%; max-width: 100%; min-height: 42px; padding: 9px 10px; border: 1px solid #435168; border-radius: 7px; background: #0f1721; color: #edf2f9; font: inherit; }
+.modern-ui #treatmentDrawer :is(input[type="radio"], input[type="checkbox"]) { width: 18px; height: 18px; min-height: 0; padding: 0; margin: 0 6px 0 0; vertical-align: middle; accent-color: #9bcdfb; }
+.modern-ui #treatmentDrawer #bg label { display: inline-block; margin: 8px 10px 0 0; }
+.modern-ui #treatmentDrawer #bg label br { display: none; }
+.modern-ui #treatmentDrawer #bg label:has(br) { display: block; color: #b8c7da; }
+.modern-ui #treatmentDrawer #bg label[for="sensor"] { display: inline-block; }
+.modern-ui #treatmentDrawer #insulinSplitLabel input { width: 70px !important; }
+.modern-ui #treatmentDrawer textarea { min-height: 84px; margin-top: 6px; resize: vertical; }
+.modern-ui #treatmentDrawer #eventTime { display: flex; flex-wrap: wrap; align-items: center; gap: 10px; margin: 4px 0 16px; }
+.modern-ui #treatmentDrawer #eventTime > span { flex-basis: 100%; width: auto; color: #b8c7da; }
+.modern-ui #treatmentDrawer #eventTime label { display: inline-flex; align-items: center; min-height: 32px; }
+.modern-ui #treatmentDrawer #eventTime label span { width: auto; }
+.modern-ui #treatmentDrawer #eventTime .eventinput { width: auto; flex: 1 1 130px; }
+.modern-ui #treatmentDrawer .modern-treatment-actions { position: sticky; bottom: 0; padding: 12px 0 max(12px, env(safe-area-inset-bottom)); border-top: 1px solid #334052; background: #151c25; }
+.modern-ui #treatmentDrawer #treatment-submit { width: 100%; min-height: 44px; margin: 0; padding: 10px 14px; border: 1px solid #9bcdfb; border-radius: 8px; background: #9bcdfb; color: #122033; font: inherit; font-weight: 650; box-shadow: none; }
+.modern-ui #treatmentDrawer :is(input, select, textarea, button):focus-visible { outline: 2px solid #9bcdfb; outline-offset: 3px; }
+/* Drawer JS supplies legacy pixel widths; constrain the modern panel on resize. */
+.modern-ui #treatmentDrawer { width: min(440px, 100vw) !important; max-width: 100vw; }
+.modern-ui #treatmentDrawer :is(#glucoseValue, #notes) { width: 100%; }
+.modern-ui #treatmentDrawer input:invalid { border-color: #ff9b9f; background: #34232d; }

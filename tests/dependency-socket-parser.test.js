@@ -6,7 +6,6 @@ const { once } = require('events');
 const { Encoder, Decoder, PacketType } = require('socket.io-parser');
 const { Server } = require('socket.io');
 const ioClient = require('socket.io-client');
-const { JSDOM } = require('jsdom');
 
 function roundTrip(packet) {
   const decoder = new Decoder();
@@ -81,14 +80,14 @@ describe('Socket.IO parser dependency compatibility', function () {
   });
 });
 
-// Exercise the installed Node client AND the prebuilt browser script actually
-// served by Socket.IO. npm overrides do not rewrite that prebuilt script.
-describe('Socket.IO transport and served browser client compatibility', function () {
+// Exercise the installed Node client here. The prebuilt browser script served
+// by Socket.IO is exercised separately in tests/browser/socket-client.test.js;
+// npm overrides do not rewrite that script.
+describe('Socket.IO Node transport compatibility', function () {
   this.timeout(10000);
   let io;
   let url;
   let socket;
-  let dom;
 
   beforeEach(async function () {
     const server = http.createServer();
@@ -107,8 +106,7 @@ describe('Socket.IO transport and served browser client compatibility', function
 
   afterEach(async function () {
     if (socket) socket.disconnect();
-    if (dom) dom.window.close();
-    socket = dom = undefined;
+    socket = undefined;
     await new Promise(resolve => io.close(resolve));
   });
 
@@ -134,64 +132,44 @@ describe('Socket.IO transport and served browser client compatibility', function
     });
   }
 
-  ['node', 'served browser'].forEach(function (clientKind) {
-    ['polling', 'websocket', 'upgrade'].forEach(function (transport) {
-      it(clientKind + ' exchanges updates and acknowledgements across two reconnects over ' + transport, async function () {
-        let client = ioClient;
-        if (clientKind === 'served browser') {
-          const response = await fetch(url + '/socket.io/socket.io.js');
-          assert.strictEqual(response.status, 200);
-          dom = new JSDOM('', { url, runScripts: 'outside-only' });
-          dom.window.eval(await response.text());
-          client = dom.window.io;
+  ['polling', 'websocket', 'upgrade'].forEach(function (transport) {
+    it('node exchanges updates and acknowledgements across two reconnects over ' + transport, async function () {
+      socket = ioClient(url, { autoConnect: false, forceNew: true, reconnection: false, transports: transport === 'upgrade' ? ['polling', 'websocket'] : [transport] });
+      for (let cycle = 0; cycle < 3; cycle++) {
+        await connect(socket);
+        if (transport === 'upgrade' && socket.io.engine.transport.name !== 'websocket') {
+          await once(socket.io.engine, 'upgrade', {signal: AbortSignal.timeout(3000)});
         }
-        socket = client(url, { autoConnect: false, forceNew: true, reconnection: false, transports: transport === 'upgrade' ? ['polling', 'websocket'] : [transport] });
-        for (let cycle = 0; cycle < 3; cycle++) {
-          await connect(socket);
-          if (transport === 'upgrade' && socket.io.engine.transport.name !== 'websocket') {
-            await once(socket.io.engine, 'upgrade', {signal: AbortSignal.timeout(3000)});
-          }
-          assert.strictEqual(socket.io.engine.transport.name, transport === 'upgrade' ? 'websocket' : transport);
-          const update = once(socket, 'dataUpdate');
-          assert.strictEqual((await acknowledge('snapshot')).ok, true);
-          assert.deepStrictEqual(JSON.parse(JSON.stringify((await update)[0])), {
-            sgvs: [{ sgv: 123 }], treatments: [{ notes: 'Fish & Chips' }]
-          });
-          const large = {notes: 'Café 💉'.repeat(2048)};
-          const largeReply = await acknowledge('echo', large);
-          assert.strictEqual(largeReply.notes, large.notes);
-          const bytes = dom ? new dom.window.Uint8Array([0, 127, 255]) : Buffer.from([0, 127, 255]);
-          const reply = await acknowledge('echo', { notes: 'Café 💉', binary: bytes });
-          assert.strictEqual(reply.notes, 'Café 💉');
-          assert.deepStrictEqual(Array.from(dom ? new dom.window.Uint8Array(reply.binary) : reply.binary), [0, 127, 255]);
-          socket.disconnect();
-        }
-      });
+        assert.strictEqual(socket.io.engine.transport.name, transport === 'upgrade' ? 'websocket' : transport);
+        const update = once(socket, 'dataUpdate');
+        assert.strictEqual((await acknowledge('snapshot')).ok, true);
+        assert.deepStrictEqual(JSON.parse(JSON.stringify((await update)[0])), {
+          sgvs: [{ sgv: 123 }], treatments: [{ notes: 'Fish & Chips' }]
+        });
+        const large = {notes: 'Café 💉'.repeat(2048)};
+        const largeReply = await acknowledge('echo', large);
+        assert.strictEqual(largeReply.notes, large.notes);
+        const reply = await acknowledge('echo', { notes: 'Café 💉', binary: Buffer.from([0, 127, 255]) });
+        assert.strictEqual(reply.notes, 'Café 💉');
+        assert.deepStrictEqual(Array.from(reply.binary), [0, 127, 255]);
+        socket.disconnect();
+      }
     });
   });
 
-  ['node', 'served browser'].forEach(function (clientKind) {
-    it(clientKind + ' automatically reconnects and receives updates after two network drops', async function () {
-      let client = ioClient;
-      if (clientKind === 'served browser') {
-        const response = await fetch(url + '/socket.io/socket.io.js');
-        dom = new JSDOM('', {url, runScripts: 'outside-only'});
-        dom.window.eval(await response.text());
-        client = dom.window.io;
-      }
-      socket = client(url, {autoConnect: false, forceNew: true, reconnectionDelay: 10,
-        reconnectionDelayMax: 20, randomizationFactor: 0, transports: ['polling', 'websocket']});
-      await connect(socket);
-      for (let cycle = 0; cycle < 2; cycle++) {
-        const reconnected = once(socket, 'connect', {signal: AbortSignal.timeout(3000)});
-        socket.io.engine.close();
-        await reconnected;
-        const update = once(socket, 'dataUpdate', {signal: AbortSignal.timeout(3000)});
-        assert.strictEqual((await acknowledge('snapshot')).ok, true);
-        assert.strictEqual((await update)[0].sgvs[0].sgv, 123);
-        assert.strictEqual(io.of('/').sockets.size, 1);
-      }
-    });
+  it('node automatically reconnects and receives updates after two network drops', async function () {
+    socket = ioClient(url, {autoConnect: false, forceNew: true, reconnectionDelay: 10,
+      reconnectionDelayMax: 20, randomizationFactor: 0, transports: ['polling', 'websocket']});
+    await connect(socket);
+    for (let cycle = 0; cycle < 2; cycle++) {
+      const reconnected = once(socket, 'connect', {signal: AbortSignal.timeout(3000)});
+      socket.io.engine.close();
+      await reconnected;
+      const update = once(socket, 'dataUpdate', {signal: AbortSignal.timeout(3000)});
+      assert.strictEqual((await acknowledge('snapshot')).ok, true);
+      assert.strictEqual((await update)[0].sgvs[0].sgv, 123);
+      assert.strictEqual(io.of('/').sockets.size, 1);
+    }
   });
 
   it('closes a malformed binary connection and accepts a fresh connection', async function () {

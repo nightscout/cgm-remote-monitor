@@ -153,9 +153,9 @@ Older versions or other browsers might work, but are untested and unsupported. W
 
 ## Installation software requirements:
 
-- [Node.js](http://nodejs.org/) Node v20 LTS or later (v22, v24 also supported). Node versions that do not have the latest security patches will not be supported. Use [Install instructions for Node](https://nodejs.org/en/download/package-manager/) or use `bin/setup.sh`)
-- [MongoDB](https://www.mongodb.com/download-center?jmp=nav#community) 5.0.32 or later, 6.0.27 or later 
-  NOTE: MongoDB 4.4 or lower is *not supported*. Nightscout 15.0.7 is the latest version that works with Mongo 4.4.
+- [Node.js](http://nodejs.org/) Node 22.23.4+ within Node 22, 24.22.1+ within Node 24, or 26.12.1 and later (`^22.23.4 || ^24.22.1 || >=26.12.1`). These minimum versions include the fix for CVE-2026-111497. Node 24 LTS is recommended for new source installations. Nightscout refuses unsupported runtimes at startup, including Node 20, Node 25 and earlier unpatched releases. Future stable majors remain permitted by the range; prereleases are excluded. Keep your runtime patched. Use [Install instructions for Node](https://nodejs.org/en/download/package-manager/) or use `bin/setup.sh`.
+- [MongoDB](https://www.mongodb.com/download-center?jmp=nav#community) 5.0 through 8.0: 5.0.32+ within the 5.0 series, 6.0.27+ within the 6.0 series, or MongoDB 7.0 or 8.0. CI tests the edges of that range, 5.0 and 8.0.
+  MongoDB 4.4 and earlier are unsupported. MongoDB 5/6 are upstream end-of-life, so use 7.0 or 8.0 for new deployments. See the [MongoDB support and upgrade notice](docs/runtime-upgrade.md#mongodb-support-during-modernization) before upgrading an existing deployment.
 
 As a non-root user clone this repo then install dependencies into the root of the project:
 
@@ -165,19 +165,30 @@ $ npm install
 
 ## Installation notes for users with nginx or Apache reverse proxy for SSL/TLS offloading:
 
-- Your site redirects insecure connections to `https` by default. If you use a reverse proxy like nginx or Apache to handle the connection security for you, make sure it sets the `X-Forwarded-Proto` header. Otherwise nightscout will be unable to know if it was called through a secure connection and will try to redirect you to the https version. If you're unable to set this Header, you can change the `INSECURE_USE_HTTP` setting in nightscout to true in order to allow insecure connections without being redirected.
+- Your site redirects insecure connections to `https` by default. Reverse-proxy compatibility remains enabled by default. The proxy must sanitize forwarded headers and control access to the backend. Optional `TRUST_PROXY` settings provide direct-only, hop-count, trust-every-hop or explicit IP/CIDR trust; see the [proxy configuration guide](docs/proposals/trusted-proxy-migration.md).
 - In case you use a proxy. Do not use an external network interfaces for hosting Nightscout. Make sure the unsecure port is not available from a remote network connection
 - HTTP Strict Transport Security (HSTS) headers are enabled by default, use settings `SECURE_HSTS_HEADER` and `SECURE_HSTS_HEADER_*`
 - See [Predefined values for your server settings](#predefined-values-for-your-server-settings-optional) for more details
 
+### Protecting authentication credentials in URLs
+
+GET parameters (`token` and `secret`) remain supported for existing clients and shared links. Use authentication headers for new API clients, and use a subject token with only the necessary permissions for shared links. Treat credential-bearing URLs as secrets: they can remain in browser history and copied links even over HTTPS.
+
+Nightscout sends `Referrer-Policy: no-referrer` independently of CSP/HSTS settings and prevents caching of credential-bearing responses. Its default production error logger omits URL queries, fragments and userinfo, redacts request credentials repeated in error details, and excludes arbitrary error properties. CSP logging retains selected diagnostics without URL queries or script samples. Custom logging integrations must apply equivalent protections.
+
+Configure your reverse proxy, CDN, hosting access logs, analytics and error monitoring separately: do not record query strings, `Referer`, `Authorization` or `api-secret` values for authenticated requests. These systems may record the original request before Nightscout can sanitize diagnostic output. Terminate TLS at the public endpoint and restrict access to the backend. Nightscout's response headers cannot remove credentials already captured by upstream logs or browser history.
+
 ## Installation notes for Microsoft Azure, Windows:
 
-- If deploying the software to Microsoft Azure, you must set ** in the app settings for *WEBSITE_NODE_DEFAULT_VERSION* and *SCM_COMMAND_IDLE_TIMEOUT* **before** you deploy the latest Nightscout or the site deployment will likely fail. Other hosting environments do not require this setting. Additionally, if using the Azure free hosting tier, the installation might fail due to resource constraints imposed by Azure on the free hosting. Please set the following settings to the environment in Azure:
+- If deploying the software to Microsoft Azure, you must set *WEBSITE_NODE_DEFAULT_VERSION* and *SCM_COMMAND_IDLE_TIMEOUT* in the app settings **before** you deploy the latest Nightscout or the site deployment will likely fail. Other hosting environments do not require this setting. Additionally, if using the Azure free hosting tier, the installation might fail due to resource constraints imposed by Azure on the free hosting. Please set the following settings to the environment in Azure:
 ```
-WEBSITE_NODE_DEFAULT_VERSION=16.16.0
+WEBSITE_NODE_DEFAULT_VERSION=~24
 SCM_COMMAND_IDLE_TIMEOUT=300
 ```
-- See [install MongoDB, Node.js, and Nightscouton a single Windows system](https://github.com/jaylagorio/Nightscout-on-Windows-Server). if you want to host your Nightscout outside of the cloud. Although the instructions are intended for Windows Server the procedure is compatible with client versions of Windows such as Windows 7 and Windows 10.
+  `~24` asks Azure for the newest Node 24 it offers. The one-click template `azuredeploy.json` sets both, and its `WEBSITE_NODE_DEFAULT_VERSION` field (default `~24`) is the Node version the deployed site uses.
+- Check the actual Node version in both the Azure build and application environments before upgrading: `~24` does not guarantee a particular patch, and both must provide at least Node 24.22.1. See the [runtime upgrade and deployment validation guide](docs/runtime-upgrade.md), including outstanding hosted-platform release checks.
+
+- See [install MongoDB, Node.js, and Nightscouton a single Windows system](https://github.com/jaylagorio/Nightscout-on-Windows-Server). if you want to host your Nightscout outside of the cloud. Use a Windows version supported by your chosen Node LTS release. These external instructions may contain obsolete runtime versions.
 - If you deploy to Windows and want to develop or test you need to install [Cygwin](https://www.cygwin.com/) (use [setup-x86_64.exe](https://www.cygwin.com/setup-x86_64.exe) and make sure to install `build-essential` package. Test your configuration by executing `make` and check if all tests are ok.
 
 # Development
@@ -211,6 +222,9 @@ You can get many more results, by using the `count`, `date`, `dateString`, and `
 
 Once you've installed Nightscout, you can access API documentation by loading `/api-docs/` URL in your instance.
 
+The `/api/v1/count/:storage/where` endpoint accepts `find` filters for counting records.
+Custom aggregation `pipeline` parameters are rejected with HTTP 400; they are not part of the public count API.
+
 #### Example Queries
 
 (replace `http://localhost:1337` with your own URL)
@@ -232,7 +246,6 @@ To learn more about the Nightscout API, visit https://YOUR-SITE.com/api-docs/ or
 
   * `MONGODB_URI` - The connection string for your Mongo database. Something like `mongodb://sally:sallypass@ds099999.mongolab.com:99999/nightscout`.
   * `API_SECRET` - A secret passphrase that must be at least 12 characters long. Alternatively, if `API_SECRET_FILE` is defined, the secret passphrase will be read from the specified file.
-  * `MONGODB_COLLECTION` (`entries`) - The Mongo collection where CGM entries are stored.
   * `DISPLAY_UNITS` (`mg/dl`) - Options are `mg/dl` or `mmol/L` (or just `mmol`).  Setting to `mmol/L` puts the entire server into `mmol/L` mode by default, no further settings needed.
 
 ### Features
@@ -240,12 +253,31 @@ To learn more about the Nightscout API, visit https://YOUR-SITE.com/api-docs/ or
   * `ENABLE` - Used to enable optional features, expects a space delimited list, such as: `careportal rawbg iob`, see [plugins](#plugins) below
   * `DISABLE` - Used to disable default features, expects a space delimited list, such as: `direction upbat`, see [plugins](#plugins) below
   * `BASE_URL` - Used for building links to your site's API, i.e. Pushover callbacks, usually the URL of your Nightscout site.
-  * `AUTH_DEFAULT_ROLES` (`readable`) - possible values `readable`, `denied`, or any valid role
-    name.  When `readable`, anyone can view Nightscout without a token.
-    Setting it to `denied` will require a token from every visit, using `status-only` will enable api-secret based login.
+  * `AUTH_DEFAULT_ROLES` (`readable`) - **This is the setting that decides who can see or change your data without logging in.** It lists the roles given to anyone who opens your Nightscout site, or calls its API v1, without your `API_SECRET` or an access token. (API v3 is not affected: unless `API3_SECURITY_ENABLE` is turned off, it asks for a token on every request, see [API v3](#api-v3-optional).) The value is one or more role names separated by spaces, commas or colons, for example `denied` or `readable careportal`. Nightscout comes with these roles:
+    * `readable` - may read everything (`*:*:read`). This is the default: anyone who has your site's address can view your data without a token.
+    * `denied` - may do nothing. Setting `AUTH_DEFAULT_ROLES` to `denied` requires a token or your `API_SECRET` for every visit.
+    * `status-only` - may read only the site's status (`api:status:read`). Using `status-only` will enable api-secret based login.
+    * `careportal` - may only add treatments (`api:treatments:create`).
+    * `devicestatus-upload` - may only add device status records (`api:devicestatus:create`).
+    * `activity` - may only add activity records (`api:activity:create`).
+    * `admin` - may do everything (`*`), including deleting data and managing tokens. Do not use it here: it would give anyone full control of your site.
+
+    **`careportal`, `devicestatus-upload` and `activity` do nothing here unless `readable` is also in the list.** Nightscout refuses an API v1 request to add a treatment, device status or activity record from anyone who may not also read that kind of record. So `careportal` on its own, or `denied careportal`, does not let anyone add treatments without a token: the request is refused (`401`), and Nightscout does not warn about this when it starts. The combination that lets visitors add treatments without a token is `readable careportal`, and it also lets anyone read all of your data.
+
+    Roles you create on the admin page can also be named here. A role you create there with the same name as one of the roles above replaces it.
   * `IMPORT_CONFIG` - Used to import settings and extended settings from a url such as a gist.  Structure of file should be something like: `{"settings": {"theme": "colors"}, "extendedSettings": {"upbat": {"enableAlerts": true}}}`
-  * `TREATMENTS_AUTH` (`on`) - possible values `on` or `off`. Deprecated, if set to `off` the `careportal` role will be added to `AUTH_DEFAULT_ROLES`
+  * `TREATMENTS_AUTH` (`on`) - possible values `on` or `off`. Deprecated. Setting it to `off` (or `false`) is not a separate switch: when Nightscout starts it adds `careportal` to the end of the `AUTH_DEFAULT_ROLES` list. With the default `readable`, the list becomes `readable careportal`, so anyone can read your data and add treatments without a token. With `AUTH_DEFAULT_ROLES=denied`, it becomes `denied careportal`, which does not let anyone add treatments without a token (see `careportal` above).
+  * `AUTHENTICATION_PROMPT_ON_LOAD` (`false`) - Set to `true` or `on` to make the Nightscout web page ask for your API secret or a token when it opens and has none saved. **It does not grant or refuse anything:** it does not change who can see or change your data, and on a site where `AUTH_DEFAULT_ROLES` lets visitors read, the data is still readable without logging in. To require a login, set `AUTH_DEFAULT_ROLES` to `denied`.
   * `UUID_HANDLING` (`true`) - Controls how UUID `_id` values are handled for treatments and entries. When `true` (default), if a client sends a UUID string as the `_id` field, it is extracted to the `identifier` field (for sync deduplication) and the server generates a proper ObjectId for `_id`. Queries by UUID (`GET`/`DELETE`) are also routed through the `identifier` field. When `false`, UUID `_id` values are silently stripped on write (no identifier is preserved) and UUID-based queries return empty results. This only affects the specific case where a UUID is sent as `_id` (e.g., Loop overrides, Trio CGM entries).
+  * `API_V1_COUNT_LEADING_NUMBER` (`true`) - On API v1 reads, a `count` that is a whole number followed by `?` and other text, such as `1?token=...`, is read as that number, as 15.0.8 read it. OpenAPS (oref0) sends its latest-treatment lookup this way. The answer carries a `Deprecation: true` header and a `Warning`; the text after the `?` is never logged. Set to `false` to refuse it with `400 Bad count`, like any other malformed count. The default is temporarily `true` for compatibility and is expected to become `false` in a future release.
+  * `API_V1_COUNT_ZERO_WINDOW` (`true`) - On API v1 reads, `count=0` with a `find` that bounds one date field from both sides (for example `find[created_at][$gte]=...&find[created_at][$lte]=...`) returns every record in that range, as 15.0.8 did; without such a range it returns the endpoint's default number of records. GluPredKit asks this way. The answer carries a `Deprecation: true` header and a `Warning`. Set to `false` to answer every read with `count=0` with an empty list. The default is temporarily `true` for compatibility and is expected to become `false` in a future release.
+  * `WRITE_VALIDATION` (`off`) - Checks Temporary Target treatments written through API v1, API v3, the legacy socket and internal treatment storage against rules that hold for every app: the low and high targets are numbers above zero, the low target is not above the high one, `units` is `mg/dl` or `mmol` (other spellings of these two, such as `mmol/L`, are accepted), and each target is plausible for the units it is labelled with (a target labelled `mmol` above 30 is a mg/dL number, one labelled `mg/dl` below 20 is a mmol/L number). `off` checks nothing. `log` stores every record as before and writes a log line naming the rule a record breaks. `reject` refuses such a record with a 400 error that names the rule, and stores a known `units` value as `mmol` or `mg/dl`. In an API v1 batch, the other items are stored: the reply still has one object per item sent, in order, and a refused item's object has no `_id` and a `refused` member with the reason; a `Warning` header gives the count. A batch whose items are all refused gets the 400. API v3 also checks the effective duration derived from `endmills` and timestamps, so a cancellation cannot become an active target without valid targets; units-only PATCH requests use the stored event type when canonicalising units. `off` and `log` preserve existing stored units, and PATCH requests for unrelated fields still leave existing invalid records editable. It does not apply the target limits an app such as AndroidAPS or Trio sets for itself, and it does not change records already stored. Socket `dbAdd` uses the same per-item `refused` object (without `_id`): valid items are stored and refusals retain their input order. Unlike HTTP, the socket returns an array of refusal objects even when every item is refused, including a single-item request. In reject-mode treatment batches, a write that cannot be confirmed retains its slot without `_id`, with `failed: {status: 500, message: "Treatment write could not be confirmed"}`. A confirmed `_id` indicates success; otherwise the `refused` and `failed` members distinguish validation from an unconfirmed write. An unconfirmed write does not prove the record is absent: an acknowledgement can be lost after a write. Check or reconcile the record before retrying. Off/log modes, single-object uploads and non-treatment persistence-error replies retain their existing behavior; deduplication replies are unchanged. A refusal does not assert that an older matching record was deleted. Socket `dbUpdate`/`dbUpdateUnset` refuse invalid edits with the existing update-error reply. In reject mode, partial domain updates also revalidate concurrent changes before committing.
+  * `WRITE_IDENTIFIER` (unset) - How a record's `identifier` is checked on every write path (API v1, API v3, the legacy socket and internal storage) and every collection. An identifier is any string of 1 to 256 characters, with no character restriction; in an API v3 URL path it is percent-encoded. A placeholder (`undefined`, `null`, `invalid`, `NaN` or `unknown`, in any case), an empty or whitespace-only string, a string over 256 characters, JSON `null`, or a value that is not a string is not an identifier. `lenient` treats such a value as absent: the record is not matched on it, it is stored without the field (API v3 computes an identifier, as for a record sent without one), and the server logs a warning naming the write path, the collection and the kind of value, never the value. `strict` refuses such a record instead: API v3 answers 400 (`Bad or missing identifier field`), and the socket's `dbAdd` answers with the same per-item `refused` object as `WRITE_VALIDATION`. On API v1 and internal storage `strict` is not enforced yet and acts as `lenient`. Unset (the default), API v3 refuses what 15.0.9's API v3 refused, and only that: an identifier that is a whitespace-only string or a number is answered 400 (`Bad or missing identifier field`); every other value that is not an identifier is treated as absent, as under `lenient`, and API v1, the socket and internal storage are `lenient`. Set `lenient` to accept a whitespace-only or numeric identifier on API v3 too (treated as absent). Any other value stops the server from starting. The same check decides which identifiers a socket `dbUpdate`, `dbUpdateUnset` or `dbRemove` without `_id` can be addressed by.
+  * `WRITE_DELETED_EDIT` (`ignore`) - What an edit of a soft-deleted record (one deleted through API v3 `DELETE` or a socket `dbUpdate` with `isValid: false`) gets on API v1 `PUT` (treatments, profile, food, activity), the legacy socket's `dbUpdate` and `dbUpdateUnset`, and internal storage's `save`. Under either value the edit is not applied and the record stays deleted. `ignore` answers it as if it had been applied (API v1: 200 with the record as sent; the socket: `{ result: 'success' }`), so a client that retries every error does not retry it forever. `refuse` answers 410 (`record is deleted`) on API v1, and the socket answers with a per-item `refused` object with status 410. API v3 `PUT` and `PATCH` of a deleted record answer 410 under either value. A re-send (a create) of a deleted record is not an edit: when it names the record by an identity (`identifier`, `_id`, `NSCLIENT_ID`, `syncIdentifier`, `id` or `uuid`) it is acknowledged with the stored record's `_id` and nothing is written; when it only shares a time key with it (for example a treatment's `created_at` and `eventType`, or an entry's `sysTime` and `type`) it is stored as a new record. Restoring a deleted record is not possible through these paths. Any other value stops the server from starting.
+  * `WRITE_IDENTIFIER_INDEX` (`try`) - `try`, `require`, `off` or `drop`. A unique index on `identifier` in each data collection (entries, treatments, devicestatus, profile, food, activity, settings), so no two records of a collection carry one identifier. It covers every record whose `identifier` is a non-empty string, deleted records included; records without one are not affected. `try` builds the index when the server starts, on each collection where no stored records already share an identifier; where some do, the server logs how many identifiers are shared and by how many records (never the values), shows the same counts under `identifierIndex` on the status page (`/api/v1/status.json`), and runs that collection without the index; records whose stored `identifier` is not a string are counted the same way. `require` stops the server from starting until every collection has the index. `off` builds nothing and drops nothing: an index already built stays and is still enforced, and the log and the status page say so for each collection. `drop` removes the index from each collection when the server starts, logging each collection it was removed from (or that there was nothing to drop), and then runs as `off`; start again with `try` to build it again. When two uploads of the same record arrive at once, the second is answered as a re-send of the first instead of failing. `node tools/identifier-duplicates.js report` lists the records that share an identifier, and `resolve --apply` resolves them (see `docs/architecture/write-intent.md`). Any other value stops the server from starting.
+  * `WRITE_RESEND` (`replace`) - What happens when an app uploads a record again that the server already has, recognised by the same `identifier` (or another identity the app sends: `_id`, `NSCLIENT_ID`, `syncIdentifier`, `id` or `uuid`; on API v3 also the identifier API v3 computes from the device, date and event type). Apps do this routinely, for example after a lost reply or when a dose is finalized, so this setting decides what the stored record ends up as. It applies to API v1, API v3 `POST`, the legacy socket's `dbAdd` and internal storage, for every collection. `replace` stores the new upload in place of the old one: a field the app leaves out is removed. This is what most apps expect, and how they show that a field was cleared. `merge-except-treatments` combines the new upload with the stored record: a field the app sends replaces the stored one, a field it leaves out is kept, and a field sent as `null` is removed (for a profile, the whole `store` is taken from the upload). Treatments are never merged, under this value too: they are always replaced, because apps such as Loop end an override early by uploading it again without its `durationType`, and a merge would keep the override running. `acknowledge` stores nothing and answers with the stored record, so the first upload of a record always wins. `refuse` stores nothing and refuses the upload with status 409: in an API v1 batch the other items are stored, the refused item's object has no `_id` and a `refused` member, and a `Warning` header gives the count; API v3 answers 409; the socket answers with a per-item `refused` object. This setting covers re-uploads of records that are still stored; a re-upload of a deleted record is governed only by `WRITE_DELETED_RESEND` (so under `refuse` it is not refused: by default nothing is stored and the record stays deleted). No value changes who may do what: an app allowed to create profiles but not to change them still gets 401 for an upload that would change a stored profile, under every value. Use `acknowledge` or `refuse` only if every app writing to the site expects it: an app that sends a corrected dose as a re-upload will not see the correction stored, and some apps may retry a refused upload without end. Not affected by any value: edits (API v1 `PUT`, API v3 `PUT` and `PATCH`, the socket's `dbUpdate` and `dbUpdateUnset`), and API v1 and internal entries (glucose readings) matched by their time and type, which are merged as in 15.0.9. A record that only shares a time with a stored one is not a re-upload. Any other value stops the server from starting.
+  * `WRITE_DELETED_RESEND` (`stay`) - What happens when an app uploads a record again, by the same identity as above, after it was deleted (through API v3 `DELETE` or a socket `dbUpdate` with `isValid: false`). `stay` keeps it deleted: nothing is stored and the reply names the deleted record, so a deleted treatment or reading does not come back on its own. `revive` brings the record back, written as `WRITE_RESEND` says, as 15.0.9 did on API v1 treatments and entries and on API v3; on the other paths, where 15.0.9 stored a second copy beside the deleted record, `revive` brings back the one record instead. A record brought back this way is counted again wherever the site counts it (for example insulin and carbohydrates on board), so choose `revive` only if an app relies on it. With `WRITE_RESEND=acknowledge` or `refuse` nothing is brought back. A record that only shares a time with a deleted one is stored as a new record under either value. Any other value stops the server from starting.
+  * `API_V3_DATA_WARNINGS` (`false`) - Experimental, opt-in read diagnostics. Set `true` to add aggregate rule counts in `Nightscout-Data-Warnings` on API v3 read/search/history responses. No record identifiers or values are included. The header convention is not stable and remains separate from API v1's `Warning: 299` write-refusal signal pending agreement. Stored-data read guards and `npm run diagnose:data` work regardless of this setting.
 
 #### Data Rights
 
@@ -264,6 +296,7 @@ autonomy for your data:
   * `BG_TARGET_TOP` (`180`) - the top of the target range, also used to draw the line on the chart (interprets units based on DISPLAY_UNITS setting)
   * `BG_TARGET_BOTTOM` (`80`) - the bottom of the target range, also used to draw the line on the chart (interprets units based on DISPLAY_UNITS setting)
   * `BG_LOW` (`55`) - the low BG outside the target range that is considered urgent (interprets units based on DISPLAY_UNITS setting)
+  * On a `DISPLAY_UNITS=mmol` site each of the four `BG_` thresholds is read on its own: a value below 30 is taken as mmol/L and converted, and a value of 30 or more (including the defaults above, for any you leave unset) is taken as mg/dl. So you can set only some of them in mmol/L. The server log shows one line for each threshold it converts.
   * `ALARM_URGENT_HIGH` (`on`) - possible values `on` or `off`
   * `ALARM_URGENT_HIGH_MINS` (`30 60 90 120`) - Number of minutes to snooze urgent high alarms, space separated for options in browser, first used for pushover
   * `ALARM_HIGH` (`on`) - possible values `on` or `off`
@@ -277,6 +310,7 @@ autonomy for your data:
 
 ### Core
 
+  * `ENTRIES_COLLECTION` (`entries`) - The collection used to store CGM entries. The older name `MONGO_COLLECTION` is read when `ENTRIES_COLLECTION` is not set.
   * `MONGO_TREATMENTS_COLLECTION` (`treatments`) -The collection used to store treatments entered in the Care Portal, see the `ENABLE` env var above
   * `MONGO_DEVICESTATUS_COLLECTION`(`devicestatus`) - The collection used to store device status information such as uploader battery
   * `MONGO_PROFILE_COLLECTION`(`profile`) - The collection used to store your profiles
@@ -293,18 +327,26 @@ autonomy for your data:
   * `SSL_CERT` - Path to your ssl cert file, so that ssl(https) can be enabled directly in node.js. If using Let's Encrypt, make this variable the path to fullchain.pem file (cert + ca).
   * `SSL_CA` - Path to your ssl ca file, so that ssl(https) can be enabled directly in node.js. If using Let's Encrypt, make this variable the path to chain.pem file (chain).
   * `HEARTBEAT` (`60`)  - Number of seconds to wait in between database checks
-  * `DEBUG_MINIFY` (`true`)  - Debug option, setting to `false` will disable bundle minification to help tracking down error and speed up development
+  * `DEBUG_MINIFY` - Deprecated compatibility setting; it does not control webpack bundle minification. Use `NODE_ENV=development` for development bundles and hot updates. Production bundles are built during installation.
+  * `DEBUG_LOGGING` (`false`) - Set to `true` to log routine server heartbeats, data reload summaries and Nightscout Connect diagnostics. Warnings, errors and startup messages remain visible with debugging off. With debugging off, a record that is saved, changed or refused is logged only as a short summary (which collection, which record, its event type); with debugging on, the log also contains the whole record. Those records are health data (glucose readings, insulin, carbs, notes), so anyone who can read your server logs can then read them. This is a server environment setting; restart Nightscout after changing it. On Heroku, add or edit it under **Settings → Config Vars**. Set it back to `false` or remove it as soon as troubleshooting is complete. It does not control Heroku router/access logs or every plugin's logging.
   * `DE_NORMALIZE_DATES`(`true`) - The Nightscout REST API normalizes all entered dates to UTC zone. Some Nightscout clients have broken date deserialization logic and expect to received back dates in zoned formats. Setting this variable to `true` causes the REST API to serialize dates sent to Nightscout in zoned format back to zoned format when served to clients over REST.
+
+### Multitenant roles (`nightscout multitenant`)
+
+A site runs `nightscout single` (what `npm start`, `node lib/server/server.js` and the Docker image run). `nightscout multitenant <role>[,<role>...]` names the distinct PostgreSQL/RLS multitenant deployment, where each role (`api`, `evaluator`, `realtime`, `vcpool`, `tenant-admin`, `admin`) runs on its own and every tenant has its own settings and credentials. A multitenant Nightscout is not built yet, so every role exits with status 64 and says it is not yet available. The single-tenant API v3 headless server is for tests and development, not a supported deployment profile.
+
+For contributors: `npm run headless-test-server` (`scripts/headless-test-server.js`) runs the single-tenant code the `api` role starts from: API v3 and the `/api/v2/authorization` endpoints, with `API_SECRET` and the rest of the environment as `single` reads them, and none of the web pages, the websocket, API v1/v2, alarms, plugins or in-memory data. It is for tests and development, not for running a site, and is not in the image. It listens on `API_PORT` and `API_HOSTNAME` (unset, `PORT` and `NIGHTSCOUT_HOSTNAME` or `HOSTNAME`), exits 78 for listener settings it cannot use, and `nightscout healthcheck --role api` checks it.
 
 ### Predefined values for your browser settings (optional)
 
   * `TIME_FORMAT` (`12`)- possible values `12` or `24`
+  * `SHOW_SECONDS` (`off`) - Set to `on` to show seconds on the dashboard clock in either time format. Users can override this default with **Show Seconds** in their browser settings. Only the clock display updates every second; chart, plugin and alarm maintenance retain their existing cadence.
   * `DAY_START` (`7.0`) - time for start of day (0.0 - 24.0) for features using day time / night time options
   * `DAY_END` (`21.0`) - time for end of day (0.0 - 24.0) for features using day time / night time options
   * `NIGHT_MODE` (`off`) - possible values `on` or `off`
   * `SHOW_RAWBG` (`never`) - possible values `always`, `never` or `noise`
   * `CUSTOM_TITLE` (`Nightscout`) - Title for the main view
-  * `THEME` (`colors`) - possible values `default`, `colors`, or `colorblindfriendly`
+  * `THEME` (`colors`) - possible values `default`, `colors`, `colorblindfriendly`, or `modern`. Set `THEME=modern` to opt into the responsive dark dashboard, refined data pills, and connected glucose trace with dashed forecasts. Existing themes retain their existing layout. As with other themes, a saved browser theme preference takes precedence; select Modern in Settings or reset browser preferences to use the server default. See [Modern dashboard](docs/modern-dashboard.md).
   * `ALARM_TIMEAGO_WARN` (`on`) - possible values `on` or `off`
   * `ALARM_TIMEAGO_WARN_MINS` (`15`) - minutes since the last reading to trigger a warning
   * `ALARM_TIMEAGO_URGENT` (`on`) - possible values `on` or `off`
@@ -320,13 +362,32 @@ autonomy for your data:
   * `EDIT_MODE` (`on`) - possible values `on` or `off`. Enables the icon allowing for editing of treatments in the main view.
 
 ### Predefined values for your server settings (optional)
+  * `TRUST_PROXY` (empty) - Empty preserves reverse-proxy compatibility without listing proxy addresses. Set `false` to ignore all forwarded metadata, a whole number of proxy hops (for example `1`) to trust that many proxies, `true` to trust every hop, or comma-separated trusted proxy IP addresses/CIDRs for restricted trust. While it is empty, the client address comes from headers any caller can set, so the failed-login delay (`AUTH_FAIL_DELAY`) does not protect against guessing, and Nightscout logs a `SECURITY:` warning at startup. Behind a TLS-terminating proxy, `false` causes an https redirect loop; remove the setting to undo any value. See the [proxy configuration guide](docs/proposals/trusted-proxy-migration.md) for which value fits which deployment, the security boundary and client-header rules.
   * `INSECURE_USE_HTTP` (`false`) - Redirect unsafe http traffic to https. Possible values `false`, or `true`. Your site redirects to `https` by default. If you don't want that from Nightscout, but want to implement that with a Nginx or Apache proxy, set `INSECURE_USE_HTTP` to `true`. Note: This will allow (unsafe) http traffic to your Nightscout instance and is not recommended.
   * `SECURE_HSTS_HEADER` (`true`) - Add HTTP Strict Transport Security (HSTS) header. Possible values `false`, or `true`.
-  * `SECURE_HSTS_HEADER_INCLUDESUBDOMAINS` (`false`) - includeSubdomains options for HSTS. Possible values `false`, or `true`.
+  * `SECURE_HSTS_HEADER_INCLUDESUBDOMAINS` (`false`) - includeSubdomains options for HSTS. Possible values `false`, or `true`. Note the spelling: `INCLUDESUBDOMAINS` is one word. `SECURE_HSTS_HEADER_INCLUDE_SUBDOMAINS`, with an underscore between `INCLUDE` and `SUBDOMAINS`, is not the name Nightscout uses for this header; setting it has no effect.
   * `SECURE_HSTS_HEADER_PRELOAD` (`false`) - ask for preload in browsers for HSTS. Possible values `false`, or `true`.
   * `SECURE_CSP` (`false`) - Add Content Security Policy headers. Possible values `false`, or `true`.
   * `SECURE_CSP_REPORT_ONLY` (`false`) - If set to `true` allows to experiment with policies by monitoring (but not enforcing) their effects. Possible values `false`, or `true`.
   * `ALLOW_UNRESTRICTED_FRAME_EMBEDDING` (`true`) - Allow other origins to embed this Nightscout site in an iframe. The default `true` preserves compatibility with existing dashboards and split-view installations, but allows clickjacking attacks against users who are already authorized in the embedded browser. Set this to `false` to send `X-Frame-Options: SAMEORIGIN` and an enforced CSP `frame-ancestors 'self'` policy. The default is temporarily `true` for compatibility and is expected to become `false` in a future release. Existing cross-origin embedding installations can set it explicitly to `true` to preserve their intended behavior when that default changes.
+
+### API v3 (optional)
+
+  These settings control API v3 (`/api/v3`). API v3 reads them straight from the environment when Nightscout starts, so they do not appear in Nightscout's settings list or in `/api/v1/status`; restart Nightscout after changing one. Each name is looked up in four spellings, and the first one that is set and not empty is used: `CUSTOMCONNSTR_<NAME>`, `CUSTOMCONNSTR_<name>` (the name in lowercase), `<NAME>`, and `<name>` in lowercase. For example, `API3_MAX_LIMIT` is also read as `CUSTOMCONNSTR_API3_MAX_LIMIT`, `CUSTOMCONNSTR_api3_max_limit` and `api3_max_limit`. For the on/off settings below, `true` or `on` turns the setting on and `false` or `off` turns it off, in any mix of upper and lower case; any other value leaves the setting on.
+
+  * `API3_SECURITY_ENABLE` (`true`) - Every API v3 request must carry a valid access token, and is allowed only what that token's roles allow (see [API v3 security](lib/api3/doc/security.md)). Only `false` or `off` turns this off. **Do not turn it off on a site that holds real data:** with it off, every API v3 request is given full access without any token, so anyone who can reach your site can read, change and delete every record through API v3. It exists for development and testing.
+  * `API3_MAX_LIMIT` (`1000`) - The number of records an API v3 search or history request returns when the client does not ask for a number, and the most a client may ask for; a request for more is refused with `400`. Use a whole number above zero. A value that is not a number, or `0`, is replaced by `1000`.
+  * `API3_SETTINGS_STRICT_READ_ENABLED` (`false`) - The `settings` collection holds the saved settings of the apps that use your site. Listing it, following its changes (history), or getting its changes pushed over the websocket needs the `api:settings:admin` permission. Reading one settings record by its `identifier` needs only read permission (`api:settings:read`, which the built-in `readable` role has) while this is off. Turn it on (`true` or `on`; any other value that is not `false` or `off` also turns it on) to ask for `api:settings:admin` for that read too. **Before turning it on, check your apps:** an app that reads its own settings record with a token that has read permission only gets `403` instead, for example the AndroidAPS 4.0 follower app (AAPSClient) when it uses such a token. Tokens with the `admin` role are not affected. Restart Nightscout after changing it.
+  * `API3_DEDUP_FALLBACK_ENABLED` (`true`) - When a record is created through API v3, Nightscout first looks for a stored record with the same `identifier` and updates that record instead of adding a duplicate. With this on, it also treats the new record as a duplicate of a stored record that has no `identifier` and the same values in these fields: `created_at` and `device` (devicestatus), `date` and `type` (entries), `created_at` (food and profile), `created_at` and `eventType` (treatments). Records written by API v1 clients usually have no `identifier`, so this is what stops an API v3 upload from repeating them. The settings collection has no such fields and is not affected.
+  * `API3_CREATED_AT_FALLBACK_ENABLED` (`true`) - When a record is created or replaced through API v3, its time is read from `date` or, if `date` is missing or not a valid time, from `created_at`, and `created_at` is written next to `date` as an ISO 8601 time, so that clients which read `created_at` keep working. When off, only `date` is read, and `created_at` is removed from the record being written.
+  * `API3_AUTOPRUNE_DEVICESTATUS`, `API3_AUTOPRUNE_ENTRIES`, `API3_AUTOPRUNE_FOOD`, `API3_AUTOPRUNE_PROFILE`, `API3_AUTOPRUNE_SETTINGS`, `API3_AUTOPRUNE_TREATMENTS` (not set: nothing is deleted) - **Permanently deletes** older records from that one collection. The value is a number of days, for example `90`. It takes effect only when the value is a number above zero; it is off unless you set it.
+    * **What is deleted:** every record in that collection where *any one* of `srvCreated`, `created_at` or `date` is older than that many days, however the record was uploaded (API v1 or API v3). `entries` is your CGM glucose history; `treatments` holds insulin, carbohydrate and other care entries; `devicestatus` holds pump, uploader and closed-loop status. The age test does not know whether a record is still in use: with `API3_AUTOPRUNE_PROFILE`, a profile created longer ago than that many days is deleted even if it is the profile Nightscout is using now, and the same applies to `food` and `settings`.
+    * **Deleted records cannot be recovered** from Nightscout. Make your own backup of the database first if you may need the history later.
+    * **When it runs:** there is no timer. It runs after an API v3 create, update, patch or delete in that same collection succeeds, and then at most once an hour for that collection; the first such request after Nightscout starts triggers it at once. Uploads through API v1 do not trigger it, so on a site that receives no API v3 writes for a collection, nothing in that collection is deleted.
+    * Nightscout does not wait for the deletion to finish, and does not log how many records were deleted.
+  * `CI` (not set) - When set to any value, API v3 also serves `/api/v3/test`, a route used by the test suite that checks a token for `api:entries:read` permission. It is also served when `NODE_ENV` is `development` or `test`, and Express treats an unset `NODE_ENV` as `development`. Only this exact upper-case name is read.
+
+  The API v3 `settings` collection is storage for apps, for example an app keeping a copy of its own configuration. Nightscout's own pages do not show it. Unlike the other five API v3 collections (`devicestatus`, `entries`, `food`, `profile` and `treatments`), whose text has unsafe HTML removed when it is written, a `settings` record is stored exactly as it was sent. An app that shows `settings` values on a web page or in a web view must treat them as untrusted and escape them itself.
 
 ### Views
 
@@ -466,7 +527,7 @@ autonomy for your data:
   * `IAGE_ENABLE_ALERTS` (`false`) - Set to `true` to enable notifications to remind you of upcoming insulin reservoir change.
   * `IAGE_INFO` (`44`) - If time since last `Insulin Change` matches `IAGE_INFO`, user will be warned of upcoming insulin reservoir change
   * `IAGE_WARN` (`48`) - If time since last `Insulin Change` matches `IAGE_WARN`, user will be alarmed to to change the insulin reservoir
-  * `IAGE_URGENT` (`72`) - If time since last `Insulin Change` matches `IAGE_URGENT`, user will be issued a persistent warning of overdue change.
+  * `IAGE_URGENT` (`72`) - Marks the insulin age as urgent at and beyond this many hours since the last `Insulin Change`. With `IAGE_ENABLE_ALERTS` enabled, an urgent notification is requested during the first 20 minutes of the threshold hour (through minute 20). Starting or upgrading Nightscout after that window does not issue a catch-up notification; the urgent indicator remains until the insulin age resets.
 
 ##### `bage` (Battery Age)
   Calculates the number of days and hours since the last `Pump Battery Change` treatment that was recorded.
@@ -497,6 +558,7 @@ Connect common diabetes cloud resources to Nightscout.
 Include the keyword `connect` in the `ENABLE` list.
 Nightscout connection uses extended settings using the environment variable prefix `CONNECT_`.
   * `CONNECT_SOURCE` - The name for the source of one of the supported inputs.  one of `nightscout`, `dexcomshare`, etc...
+  * `CONNECT_DEBUG` (inherits `DEBUG_LOGGING`, which defaults to `false`) - Set to `true` for connector-only debugging, or `false` to keep the connector quiet while server debugging is enabled. Diagnostic output uses operation summaries, without dumping credentials, sessions or patient records. Warnings and failures remain visible. Restart Nightscout after changing this setting.
   * `CONNECT_SOURCE_COLLECTIONS` - For Nightscout source sync, a comma-separated list of collections. Default: `entries,treatments,devicestatus,profiles`.
   * `CONNECT_SOURCE_MAX_COUNT` - For Nightscout source sync, maximum records per collection request. Default: `1000`.
 ###### Nightscout
@@ -600,34 +662,37 @@ For folks using the new Many to Many feature, please provide the username of the
 patient to follow using `CONNECT_CARELINK_PATIENT_USERNAME` variable.
 
 
-##### `bridge` (Share2Nightscout bridge)
+##### Legacy Dexcom bridge (removed)
 
-> **Deprecated** Please consider using the `connect` plugin instead.
+Use the `connect` plugin with `CONNECT_SOURCE=dexcomshare`. The bundled legacy
+Share2Nightscout engine and `DEXCOM_BRIDGE_USE_LEGACY` fallback are removed;
+if `DEXCOM_BRIDGE_USE_LEGACY` is still set, Nightscout logs that it is ignored.
+Existing complete `BRIDGE_USER_NAME`/`BRIDGE_PASSWORD` credentials automatically
+map to Connect; explicit Connect settings take precedence. `BRIDGE_SERVER=EU`
+maps to the outside-US region and a custom hostname maps to `CONNECT_SHARE_SERVER`.
+Legacy polling/retry settings no longer configure ingestion. Mixed legacy Dexcom
+and non-Dexcom Connect configurations require operator migration.
 
-Fetch glucose reading directly from the Dexcom Share service, uses these extended settings:
-  * `BRIDGE_USER_NAME` - Your username for the Share service.
-  * `BRIDGE_PASSWORD` - Your password for the Share service.
-  * `BRIDGE_INTERVAL` (`150000` *2.5 minutes*) - The time (in milliseconds) to wait between each update.
-  * `BRIDGE_MAX_COUNT` (`1`) - The number of records to attempt to fetch per update.
-  * `BRIDGE_FIRST_FETCH_COUNT` (`3`) - Changes max count during the very first update only.
-  * `BRIDGE_MAX_FAILURES` (`3`) - How many failures before giving up.
-  * `BRIDGE_MINUTES` (`1400`) - The time window to search for new data per update (the default value is one day in minutes).
-  * `BRIDGE_SERVER` (``) - The default blank value is used to fetch data from Dexcom servers in the US. Set to (`EU`) to fetch from European servers instead.
-  * `DEXCOM_BRIDGE_USE_LEGACY` (`false`) - Set to `true` to force the legacy `share2nightscout-bridge` module. By default, compatible `BRIDGE_*` Dexcom settings are mapped to the `connect` plugin's Dexcom Share source because it has newer G7-era compatibility.
+See the [Dexcom migration guide](docs/runtime-upgrade.md#legacy-dexcom-bridge-retirement)
+for settings, changed behavior and rollback. MiniMed migration is described below.
 
-##### `mmconnect` (MiniMed Connect bridge)
+##### `mmconnect` (removed)
 
-> **Deprecated** Please consider using the `connect` plugin instead.
+Add `connect` to `ENABLE` and use Nightscout Connect with `CONNECT_SOURCE=minimedcarelink`,
+`CONNECT_CARELINK_USERNAME`, `CONNECT_CARELINK_PASSWORD` and
+`CONNECT_COUNTRY_CODE` (the two-letter country where the account was created).
+The bundled `minimed-connect-to-nightscout` engine is removed.
 
-  Transfer real-time MiniMed Connect data from the Medtronic CareLink server into Nightscout ([read more](https://github.com/mddub/minimed-connect-to-nightscout))
-  * `MMCONNECT_USER_NAME` - Your user name for CareLink Connect.
-  * `MMCONNECT_PASSWORD` - Your password for CareLink Connect.
-  * `MMCONNECT_INTERVAL` (`60000` *1 minute*) - Number of milliseconds to wait between requests to the CareLink server.
-  * `MMCONNECT_MAX_RETRY_DURATION` (`32`) - Maximum number of total seconds to spend retrying failed requests before giving up.
-  * `MMCONNECT_SGV_LIMIT` (`24`) - Maximum number of recent sensor glucose values to send to Nightscout on each request.
-  * `MMCONNECT_VERBOSE` - Set this to "true" to log CareLink request information to the console.
-  * `MMCONNECT_STORE_RAW_DATA` - Set this to "true" to store raw data returned from CareLink as `type: "carelink_raw"` database entries (useful for development).
-  * `MMCONNECT_SERVER` - Set this to `EU` if you're using the European Medtronic services
+Complete `MMCONNECT_USER_NAME`/`MMCONNECT_PASSWORD` credentials map to Connect
+when `connect` is in `ENABLE` and `CONNECT_COUNTRY_CODE` is supplied; explicit Connect values take precedence.
+`MMCONNECT_SERVER=EU`/`US` maps to the corresponding Connect region. The country
+cannot be inferred from that region, so missing country configuration prevents
+the site from starting: Nightscout shows an error page naming the settings to add.
+
+Legacy interval, retry, SGV-limit, verbose and raw-data storage flags are retired.
+Connect owns scheduling and ingestion. Existing `carelink_raw` records are not
+deleted. See the [MiniMed migration guide](docs/runtime-upgrade.md#legacy-minimed-mmconnect-retirement)
+for configuration, changed behavior and validation before upgrading.
 
 ##### `pump` (Pump Monitoring)
   Generic Pump Monitoring for OpenAPS, MiniMed Connect, RileyLink, t:slim, with more on the way
@@ -735,10 +800,21 @@ When APNs provides no failure details, the message says so. Unexpected failures 
   
   This plugin should be enabled by default, if needed can be diasabled by adding `dbsize` to the list of disabled plugins, for example: `DISABLE="dbsize"`.
 
+##### `webhook` (Webhook Notifier)
+  Sends your latest glucose reading to another server, for example a display on your home network, each time a new reading arrives. Add `webhook` to `ENABLE` to turn it on. For each new reading it sends an HTTP `POST` with a JSON body of the form `{"source": "nightscout", "mgdl": 120, "mills": 1700000000000, "iso": "2023-11-14T22:13:20.000Z"}`; the value is always in mg/dl, whatever `DISPLAY_UNITS` is set to. The reading already present when Nightscout starts is not sent. A request that fails, times out after 5 seconds, or gets a response other than `2xx` is sent again the next time Nightscout checks for notifications, as long as it is still the latest reading. The request carries no token or password, so send it only to a server you control.
+
+  The address is `<WEBHOOK_PROTOCOL>://<WEBHOOK_HOST>:<WEBHOOK_PORT><WEBHOOK_PATH>`, so the defaults give `http://localhost:3000/nightscout`. These settings are read straight from the environment when Nightscout starts, using exactly these upper-case names (not the `CUSTOMCONNSTR_` or lowercase forms other settings accept):
+  * `WEBHOOK_PROTOCOL` (`http`) - `http` or `https`.
+  * `WEBHOOK_HOST` (`localhost`) - The host name or IP address of the receiving server.
+  * `WEBHOOK_PORT` (`3000`) - The port of the receiving server. The port is always part of the address, so for a standard `https` server set this to `443`.
+  * `WEBHOOK_PATH` (`/nightscout`) - The path the reading is sent to. Start it with `/`.
+
 #### Extended Settings
   Some plugins support additional configuration using extra environment variables.  These are prefixed with the name of the plugin and a `_`.  For example setting `MYPLUGIN_EXAMPLE_VALUE=1234` would make `extendedSettings.exampleValue` available to the `MYPLUGIN` plugin.
 
   Plugins only have access to their own extended settings, all the extended settings of client plugins will be sent to the browser.
+
+  Values that look numeric are converted to numbers before the plugin sees them, and `on`/`true`/`off`/`false` are converted to booleans.  Settings whose value must reach the plugin as written — passwords, account names, and account or device identifiers — are listed in `stringSettings` in `lib/server/env.js` and are never converted to numbers.  Add yours there when you introduce one.
 
   * `DEVICESTATUS_ADVANCED` (`true`) - Defaults to true. Users who only have a single device uploading data to Nightscout can set this to false to reduce the data use of the site.
   * `DEVICESTATUS_DAYS` (`1`) - Defaults to 1, can optionally be set to 2. Users can use this to show 48 hours of device status data for in retro mode, rather than the default 24 hours. Setting this value to 2 will roughly double the bandwidth usage of nightscout, so users with a data cap may not want to update this setting.
@@ -876,3 +952,11 @@ License
 
     You should have received a copy of the GNU Affero General Public License
     along with this program.  If not, see <http://www.gnu.org/licenses/>.
+
+### Third party Assets
+
+The following third-party font assets have been converted from `.ttf` to WOFF2 using [woff2_compress](https://github.com/google/woff2); WOFF fallbacks are derived from the WOFF2 files. This project does not relicense these assets.
+
+- The folder `static/font/ubuntu/` contains the Ubuntu font family, renamed in its font metadata as the Nightscout derivative following conversion. Glyphs and font metrics are unchanged. The fonts remain under the Ubuntu Font Licence Version 1.0; the original copyright and licence are included in that folder.
+
+- The folder `static/font/open-sans/` contains a modified version of Open Sans and is licensed under SIL Open Font License 1.1.

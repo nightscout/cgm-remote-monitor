@@ -92,6 +92,62 @@ describe('mongo storage', function () {
     });
   });
 
+  it('ensureIndexes builds a collection\'s indexes in one request and resolves when they exist', function (done) {
+    var store = require('../lib/storage/mongo-storage');
+    var batches = [];
+    var singles = [];
+    var created = false;
+
+    store(env, function (err, db) {
+      should.not.exist(err);
+
+      var result = db.ensureIndexes({
+        collectionName: 'entries',
+        createIndexes: function (specs) {
+          batches.push(specs);
+          return new Promise(function (resolve) {
+            setTimeout(function () { created = true; resolve(); }, 20);
+          });
+        },
+        createIndex: function (field) {
+          singles.push(field);
+          return Promise.resolve();
+        }
+      }, ['date', { type: 1, date: -1 }, 'date']);
+
+      created.should.be.false();
+      result.then(function () {
+        created.should.be.true();
+        batches.should.eql([[{ key: { date: 1 } }, { key: { type: 1, date: -1 } }]]);
+        singles.should.eql([]);
+        done();
+      }, done);
+    });
+  });
+
+  it('ensureIndexes retries one at a time when the combined request fails, and never rejects', function (done) {
+    var store = require('../lib/storage/mongo-storage');
+    var singles = [];
+
+    store(env, function (err, db) {
+      should.not.exist(err);
+
+      db.ensureIndexes({
+        collectionName: 'entries',
+        createIndexes: function () {
+          return Promise.reject(new Error('one definition conflicts'));
+        },
+        createIndex: function (field) {
+          singles.push(field);
+          return field === 'sgv' ? Promise.reject(new Error('conflict')) : Promise.resolve();
+        }
+      }, ['date', 'sgv', 'type']).then(function () {
+        singles.should.eql(['date', 'sgv', 'type']);
+        done();
+      }, done);
+    });
+  });
+
   it('When no connection-string is given the storage-class should throw an error.', function (done) {
     delete env.storageURI;
     should.not.exist(env.storageURI);

@@ -21,6 +21,7 @@ describe('Treatment API', function ( ) {
     self.env.settings.enable = ['careportal', 'api'];
     this.wares = require('../lib/middleware/')(self.env);
     self.app = require('express')();
+    require('../lib/middleware/configure-request')(self.app);
     self.app.enable('api');
     require('../lib/server/bootevent')(self.env, language).boot(function booted(ctx) {
       self.ctx = ctx;
@@ -60,7 +61,7 @@ describe('Treatment API', function ( ) {
               // AND the security invariants (no javascript:, no alert,
               // no XSS, no surviving src attribute) so any future
               // sanitizer swap that still satisfies the invariants is
-              // accepted. See tests/sanitizer-differential.test.js for
+              // accepted. See tests/browser/sanitizer-differential.test.js for
               // the cross-sanitizer behavior matrix.
               sorted[0].notes.should.equal('<img />');
               sorted[0].notes.should.not.match(/javascript:/i);
@@ -196,6 +197,21 @@ describe('Treatment API', function ( ) {
           }
         });
     });
+  });
+
+  it('does not duplicate pre-bolus records when the same array is uploaded twice', async function () {
+    await new Promise((resolve, reject) => self.ctx.treatments.remove({find: {created_at: {'$gte': '1999-01-01T00:00:00.000Z'}}}, err => err ? reject(err) : resolve()));
+    const now = new Date().toISOString();
+    const batch = [
+      {eventType: 'BG Check', created_at: now, glucose: 100, units: 'mg/dl'},
+      {eventType: 'Meal Bolus', created_at: now, carbs: '30', insulin: '2.00', preBolus: '15', units: 'mg/dl'}
+    ];
+    for (let cycle = 0; cycle < 2; cycle++) {
+      await request(self.app).post('/api/treatments/').set('api-secret', api_secret_hash).send(batch).expect(200);
+      const result = await request(self.app).get('/api/treatments/?count=10').set('api-secret', api_secret_hash).expect(200);
+      result.body.length.should.equal(3);
+      new Set(result.body.map(row => row._id)).size.should.equal(3);
+    }
   });
 
   it('post a treatment, query, delete, verify gone', function (done) {

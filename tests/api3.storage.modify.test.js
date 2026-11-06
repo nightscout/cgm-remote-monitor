@@ -28,9 +28,15 @@ describe('API3 mongoCollection promise-based helpers', function () {
     it('replaceOne uses promise-based upsert without a callback', async function () {
       const doc = { value: 42 };
       const col = {
+        findOne: function (filter, options) {
+          // CHANGED EXPECTATION (BF-117): the sort adds _id: -1, so of two copies
+          // stored by _id the ObjectId one is read and written.
+          options.should.eql({ sort: { identifier: -1, _id: -1 }, projection: { _id: 1 } });
+          return Promise.resolve(null);
+        },
         replaceOne: function (filter, receivedDoc, options) {
           arguments.length.should.equal(3);
-          filter.should.eql({ $or: [{ identifier: { $eq: 'record-1' } }] });
+          filter.should.eql({ $or: [{ identifier: { $eq: 'record-1' } }, { _id: { $eq: 'record-1' } }] });
           receivedDoc.should.equal(doc);
           options.should.eql({ upsert: true });
           return Promise.resolve({ matchedCount: 1 });
@@ -42,17 +48,25 @@ describe('API3 mongoCollection promise-based helpers', function () {
       matchedCount.should.equal(1);
     });
 
-    it('update and delete helpers use promise-based collection methods', async function () {
+    it('update and delete helpers write the document a read returns', async function () {
+      const target = new ObjectId();
       const col = {
+        findOne: function (filter, options) {
+          filter.should.eql({ $or: [{ identifier: { $eq: 'record-2' } }, { _id: { $eq: 'record-2' } }] });
+          // CHANGED EXPECTATION (BF-117): the sort adds _id: -1, so of two copies
+          // stored by _id the ObjectId one is read and written.
+          options.should.eql({ sort: { identifier: -1, _id: -1 }, projection: { _id: 1 } });
+          return Promise.resolve({ _id: target });
+        },
         updateOne: function (filter, update) {
           arguments.length.should.equal(2);
-          filter.should.eql({ $or: [{ identifier: { $eq: 'record-2' } }] });
+          filter.should.eql({ _id: target });
           update.should.eql({ $set: { value: 84 } });
           return Promise.resolve({ modifiedCount: 1 });
         },
         deleteOne: function (filter) {
           arguments.length.should.equal(1);
-          filter.should.eql({ $or: [{ identifier: { $eq: 'record-2' } }] });
+          filter.should.eql({ _id: target });
           return Promise.resolve({ deletedCount: 1 });
         },
         deleteMany: function (filter) {
@@ -86,6 +100,12 @@ describe('API3 mongoCollection promise-based helpers', function () {
           observed.limit = value;
           return this;
         },
+        // A real driver cursor has skip(); the mock lacked it because the old
+        // getLastModified never called it. findMany does, with 0.
+        skip: function (value) {
+          observed.skip = value;
+          return this;
+        },
         project: function (projection) {
           observed.projection = projection;
           return this;
@@ -99,8 +119,17 @@ describe('API3 mongoCollection promise-based helpers', function () {
 
     function createStorage (observed, docs) {
       const col = {
-        find: function () {
-          arguments.length.should.equal(0);
+        // EXPECTATION CHANGED. This asserted find() received no arguments,
+        // which pinned how getLastModified built its cursor rather than what it
+        // returns. It now goes through the storage interface's findMany, which
+        // passes an explicit empty filter and the shared read options
+        // (lib/storage/mongo-read-options.js, a batch size). col.find() and
+        // col.find({}) select the same documents, and a batch size does not
+        // change a limit-1 result, so this asserts both instead: the filter is
+        // unrestricted, and the options are exactly the shared ones.
+        find: function (filter, options) {
+          observed.findFilter = filter;
+          observed.findOptions = options;
           observed.findCalls = (observed.findCalls || 0) + 1;
           return createCursor(observed, docs);
         }
@@ -151,7 +180,10 @@ describe('API3 mongoCollection promise-based helpers', function () {
       const lastModified = await storage.getLastModified('srvModified');
 
       observed.findCalls.should.equal(1);
+      observed.findFilter.should.eql({});
+      observed.findOptions.should.equal(require('../lib/storage/mongo-read-options'));
       observed.sort.should.eql({ srvModified: -1 });
+      observed.skip.should.equal(0);
       observed.limit.should.equal(1);
       observed.projection.should.eql({ srvModified: 1 });
       observed.toArrayCalls.should.equal(1);

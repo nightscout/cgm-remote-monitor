@@ -3,37 +3,31 @@
 This checklist covers browser behavior that automated tests do not currently
 exercise end-to-end. Current automated coverage includes:
 
-1. `tests/bundle.smoke.test.js`, a structural check that the built bundle
-   executes and exposes `Nightscout.client`, `.reportclient`, `.profileclient`,
-   and `.units`.
-2. `tests/reportstorage.test.js`, which covers persisted report preferences,
-   plus selected output-safety checks in `tests/stored-output-sinks.test.js`
-   and `tests/profile-sinks.test.js`.
-3. `tests/uniqsgv.test.js`, which covers the report's one-minute SGV filter,
-   including cascading rejection, millisecond boundaries, dense series with
-   timing jitter, duplicates and input preservation.
-4. `tests/report-sgv-pipeline.test.js`, which drives the report's Show action
-   with newest-first API fixtures and checks retained chart data, Daily Stats
-   reading counts, range percentages and estimated A1c in mg/dL and mmol/L.
-   Multi-day fixtures cover separate daily averages, empty days and repeated
-   rendering from cached data. These tests use the real loading, filtering,
-   unit conversion and table renderer; network responses and canvas drawing
-   are mocked, so they do not replace browser smoke checks.
-5. `tests/dependency-d3.test.js` drives the real chart/renderer with mouse and
-   touch events: glucose and forecast hovers in both units, brush centering,
-   clamping and dragging, treatment move/remove/split confirmation and cleanup,
-   plus bounded color parsing. `stored-output-sinks.test.js` also checks the
-   Day to Day OpenAPS tooltip. CommonJS fixtures load D3's official UMD build
-   via `tests/fixtures/d3.js`; production webpack resolves its ES modules.
-6. Node-only suites under `tests/client-core/`, which cover already-extracted
-   business logic.
+1. The required `tests/browser/` suite runs actual built assets in Chromium,
+   Firefox and WebKit on both Node floors. It covers bundle wiring, served
+   Socket.IO transports/reconnect, authentication/storage, care portal forms,
+   profile/admin controls, output-safety corpora and tooltip lifecycle.
+2. `tests/browser/report-sgv-pipeline.test.js` covers real loading, filtering,
+   conversion, Flot and Daily Stats in both glucose units, including empty
+   days, cache reuse and repeated initialization. `legacy-reports.test.js`
+   restores both former report quarantines with native HTTP/charts/dialogs
+   and the original historical output expectations.
+3. `tests/browser/chart-interactions.test.js` exercises mouse hit-testing,
+   native DOM touch events, glucose/forecast hovers, brush clamping and
+   repeated treatment confirmation/cancellation. `stored-outputs.test.js`
+   covers day-to-day annotation/forecast output; `profile-settings.test.js`
+   covers actual profile forms and treatment dialogs.
+4. Node suites retain report preferences (`reportstorage.test.js`), SGV
+   filtering (`uniqsgv.test.js`), D3 color/security checks and the extracted
+   business logic under `tests/client-core/`.
 
-The legacy full-bundle report suite remains intentionally skipped, and the
-profile-editor suite remains retired, because their jsdom-based assertions
-were brittle and did not faithfully represent a real browser. Report
-calculations are not yet comprehensively covered by deterministic DOM-free
-tests. Run this checklist before tagging a release or merging a UI- or
-report-related change.
+The older retired profile-editor integration suite is not reinstated wholesale;
+the new profile cases cover the specific form/output contracts listed above.
+The old jsdom harness is removed. Native fixtures improve browser fidelity,
+but finite backend responses do not prove production persistence, every
+uploader/report calculation, physical-device gesture handling or older iOS
+compatibility. See [browser coverage](browser-tests.md) for those boundaries.
+Run this checklist before tagging a release or merging a UI/report change.
 
 ## Setup
 
@@ -136,6 +130,20 @@ readings. Reload Reports after changing fixtures or display units.
       modes show **2 readings** and the same **6.9% / 51** A1c estimates, using
       the mean glucose rather than averaging rounded A1c values per reading.
 
+### Day to Day events with a duration past midnight (#8223)
+
+Use the same local test instance with readings on two consecutive days. Enter an
+**Exercise** of **240 minutes** at **22:00** on the first day, and tick **Notes**
+and **Other treatments** in the Day to Day options.
+
+- [ ] Show both days. The first day's violet band runs from 22:00 to the right
+      edge of the chart, and the second day's runs from the left edge to 02:00.
+      Each label sits over the part of the band on its own chart.
+- [ ] Show only the second day. The band from midnight to 02:00 is still drawn.
+- [ ] Repeat with a **Note** and a **Temporary Target** of the same length. Each
+      appears on both days.
+- [ ] An event that ends exactly at midnight appears only on its own day.
+
 ## 4. Care portal (treatment entry)
 
 - [ ] Open Care Portal, choose **Snack Bolus** as the event type.
@@ -152,13 +160,24 @@ readings. Reload Reports after changing fixtures or display units.
       `Target bottom` for a Temporary Target — the confirm-text shows
       mmol values, not mg/dL.
 
+## 5. Food Editor (`/food`) on a touch screen (#8192)
+
+Enter at least eight foods and two quick picks, then open `/food` on a phone, or
+in Chrome's device toolbar with a phone selected.
+
+- [ ] Swipe up on a food in the list. The list scrolls to the foods below.
+- [ ] Swipe up on a quick pick. The page scrolls.
+- [ ] On a computer, with the device toolbar off, drag a food onto a quick pick
+      with the mouse; the food is added to it. Drag a quick pick by the empty end
+      of its title line above another; the order changes.
+
 ## When this checklist fails
 
 A failure may be in data loading, report calculations, bundle wiring, or
 browser rendering. Record the selected date range and inspect:
 
 - Browser DevTools console and network tabs.
-- `tests/bundle.smoke.test.js` for bundle entry-point failures.
+- `tests/browser/bundle.test.js` for bundle entry-point failures.
 - `tests/reportstorage.test.js` for preference persistence.
 - `tests/uniqsgv.test.js` for SGV filtering and
   `tests/report-sgv-pipeline.test.js` for loading-to-statistics regressions.

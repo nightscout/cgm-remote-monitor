@@ -243,7 +243,7 @@ describe('notifications snooze state externalization (#8194)', function () {
     fakeStorage = makeStorage();
     ctx = {
       ddata: { lastUpdated: 0 },
-      bus: { emit: function () {} },
+      bus: { emit: function () {}, once: function () {} },
       levels: { URGENT: 2, WARN: 1, INFO: 0, toDisplay: function (l) { return 'L' + l; } },
       alarmStorage: fakeStorage
     };

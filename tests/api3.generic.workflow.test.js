@@ -136,7 +136,7 @@ describe('Generic REST API3', function() {
       .send(self.docOriginal)
       .expect(201);
 
-    self.cache.nextShouldEql(self.col, self.docOriginal)
+    await self.cache.nextShouldEql(self.col, self.docOriginal)
   });
 
 
@@ -183,7 +183,7 @@ describe('Generic REST API3', function() {
     self.docActual.subject = self.subject.apiUpdate.name;
     delete self.docActual.srvModified;
 
-    self.cache.nextShouldEql(self.col, self.docActual)
+    await self.cache.nextShouldEql(self.col, self.docActual)
   });
 
 
@@ -214,7 +214,7 @@ describe('Generic REST API3', function() {
     res.body.status.should.equal(200);
     delete self.docActual.srvModified;
 
-    self.cache.nextShouldEql(self.col, self.docActual)
+    await self.cache.nextShouldEql(self.col, self.docActual)
   });
 
 
@@ -239,7 +239,7 @@ describe('Generic REST API3', function() {
       .expect(200);
 
     res.body.status.should.equal(200);
-    self.cache.nextShouldDeleteLast(self.col)
+    await self.cache.nextShouldDeleteLast(self.col)
   });
 
 
@@ -273,7 +273,7 @@ describe('Generic REST API3', function() {
       .expect(200);
 
     res.body.status.should.equal(200);
-    self.cache.nextShouldDeleteLast(self.col)
+    await self.cache.nextShouldDeleteLast(self.col)
   });
 
 
@@ -306,7 +306,7 @@ describe('Generic REST API3', function() {
     delete self.docActual.srvModified;
     const readOnlyMessage = 'Trying to modify read-only document';
 
-    self.cache.nextShouldEql(self.col, self.docActual)
+    await self.cache.nextShouldEql(self.col, self.docActual)
     self.cache.shouldBeEmpty()
 
     res = await self.instance.post(`${self.urlCol}`, self.jwt.update)

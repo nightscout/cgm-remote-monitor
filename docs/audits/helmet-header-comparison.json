@@ -1,0 +1,83 @@
+{
+  "cases": 24,
+  "differences": [
+    {
+      "opts": {
+        "insecureUseHttp": false,
+        "secureHstsHeader": true,
+        "allowUnrestrictedFrameEmbedding": false,
+        "secureCsp": false,
+        "secureCspReportOnly": false
+      },
+      "header": "expect-ct",
+      "old": "max-age=0",
+      "candidate": null
+    },
+    {
+      "opts": {
+        "insecureUseHttp": false,
+        "secureHstsHeader": true,
+        "allowUnrestrictedFrameEmbedding": false,
+        "secureCsp": true,
+        "secureCspReportOnly": false
+      },
+      "header": "expect-ct",
+      "old": "max-age=0",
+      "candidate": null
+    },
+    {
+      "opts": {
+        "insecureUseHttp": false,
+        "secureHstsHeader": true,
+        "allowUnrestrictedFrameEmbedding": false,
+        "secureCsp": true,
+        "secureCspReportOnly": true
+      },
+      "header": "expect-ct",
+      "old": "max-age=0",
+      "candidate": null
+    },
+    {
+      "opts": {
+        "insecureUseHttp": false,
+        "secureHstsHeader": true,
+        "allowUnrestrictedFrameEmbedding": true,
+        "secureCsp": false,
+        "secureCspReportOnly": false
+      },
+      "header": "expect-ct",
+      "old": "max-age=0",
+      "candidate": null
+    },
+    {
+      "opts": {
+        "insecureUseHttp": false,
+        "secureHstsHeader": true,
+        "allowUnrestrictedFrameEmbedding": true,
+        "secureCsp": true,
+        "secureCspReportOnly": false
+      },
+      "header": "expect-ct",
+      "old": "max-age=0",
+      "candidate": null
+    },
+    {
+      "opts": {
+        "insecureUseHttp": false,
+        "secureHstsHeader": true,
+        "allowUnrestrictedFrameEmbedding": true,
+        "secureCsp": true,
+        "secureCspReportOnly": true
+      },
+      "header": "expect-ct",
+      "old": "max-age=0",
+      "candidate": null
+    }
+  ],
+  "baseline": "c4eb117ba88ab293901c2b89b9298e36d01af082",
+  "versions": {
+    "old": "4.6.0",
+    "candidate": "8.3.0",
+    "node": "22.23.2"
+  }
+}

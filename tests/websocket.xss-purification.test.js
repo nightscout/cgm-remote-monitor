@@ -38,6 +38,7 @@ describe('WebSocket write path purification (Stored XSS regression)', function (
       self.ctx.ddata = require('../lib/data/ddata')();
 
       var app = require('express')();
+      require('../lib/middleware/configure-request')(app);
       app.enable('api');
 
       var server = http.createServer(app);

@@ -7,8 +7,17 @@ var should = require('should');
 
 function matchesValue (actual, condition) {
   if (condition && typeof condition === 'object') {
+    if (condition.$in) {
+      return !Array.isArray(actual) && condition.$in.some(function (value) {
+        return actual === value || (actual === undefined && value === null);
+      });
+    }
     if (Object.prototype.hasOwnProperty.call(condition, '$eq')) {
-      return actual === condition.$eq;
+      return actual === condition.$eq || (actual === undefined && condition.$eq === null);
+    }
+    // The dedup lookups skip deleted records with {isValid: {$ne: false}} (BF-122 / JL-1).
+    if (Object.prototype.hasOwnProperty.call(condition, '$ne')) {
+      return actual !== condition.$ne;
     }
     if (Object.prototype.hasOwnProperty.call(condition, '$gte') && actual < condition.$gte) {
       return false;
@@ -24,6 +33,10 @@ function matchesValue (actual, condition) {
 
 function matchesQuery (document, query) {
   return Object.keys(query).every(function (field) {
+    // A write the step scoped to the _ids it resolved (WC-STEP-PATCH release 2).
+    if (field === '$and') {
+      return query.$and.every(function (part) { return matchesQuery(document, part); });
+    }
     return matchesValue(document[field], query[field]);
   });
 }
@@ -48,6 +61,24 @@ function fakeCollection () {
       queries.push(query);
       var index = findIndex(query);
       return Promise.resolve(index === -1 ? null : Object.assign({}, documents[index]));
+    },
+    // The socket reads through the storage interface, which reads a cursor:
+    // find(query).limit(1).toArray() is findOne(query).
+    find: function (query) {
+      queries.push(query);
+      var limit = Infinity;
+      var cursor = {
+        sort: function () { return cursor; },
+        skip: function () { return cursor; },
+        project: function () { return cursor; },
+        limit: function (n) { limit = n; return cursor; },
+        toArray: function () {
+          return Promise.resolve(documents.filter(function (document) {
+            return matchesQuery(document, query);
+          }).slice(0, limit).map(function (document) { return Object.assign({}, document); }));
+        }
+      };
+      return cursor;
     },
     insertOne: function (document) {
       var id = Object.prototype.hasOwnProperty.call(document, '_id') ? document._id : 'generated-' + nextId++;
@@ -304,9 +335,11 @@ describe('WebSocket database input validation', function () {
       data: {defaultProfile: 'new', startDate: '2026-01-01T00:00:00.000Z'}
     });
 
-    collections.treatments.queries[0].should.eql({NSCLIENT_ID: {$eq: '$ne'}});
+    // CHANGED EXPECTATION (BF-122 / JL-1): was the literal selector alone, now it also
+    // carries isValid: {$ne: false}, because a deleted record is not a copy of a new one.
+    collections.treatments.queries[0].should.eql({NSCLIENT_ID: {$eq: '$ne'}, isValid: {$ne: false}});
     collections.devicestatus.queries[0].should.eql({
-      created_at: {$eq: '2026-01-01T00:00:00.000Z'}
+      created_at: {$eq: '2026-01-01T00:00:00.000Z'}, isValid: {$ne: false}
     });
     collections.profile.queries[0].should.eql({
       startDate: {$eq: '2026-01-01T00:00:00.000Z'}
@@ -390,15 +423,27 @@ describe('WebSocket database input validation', function () {
 
     await updateStarted;
     replyCount.should.equal(0);
+    // BF-121: a write without a client identity matches only a record
+    // without one (expectation changed from created_at + eventType alone).
+    // CHANGED EXPECTATION (BF-122 / JL-1): it also carries isValid: {$ne: false},
+    // because a deleted record is not a copy of a new one.
     treatmentCollection.queries[0].should.eql({
       created_at: {$eq: '2026-04-01T00:00:01.000Z'},
-      eventType: {$eq: 'Meal Bolus'}
+      eventType: {$eq: 'Meal Bolus'},
+      syncIdentifier: {$in: [null, ''], $not: {$type: 'array'}},
+      id: {$in: [null, ''], $not: {$type: 'array'}},
+      uuid: {$in: [null, ''], $not: {$type: 'array'}},
+      NSCLIENT_ID: {$in: [null, ''], $not: {$type: 'array'}},
+      identifier: {$in: [null, ''], $not: {$type: 'array'}},
+      isValid: {$ne: false}
     });
     treatmentCollection.queries[1].created_at.should.eql({
       $gte: '2026-03-31T23:59:59.000Z',
       $lte: '2026-04-01T00:00:03.000Z'
     });
     treatmentCollection.queries[1].insulin.should.eql({$eq: 1});
+    // BF-121: the similar match always requires the eventType (new expectation).
+    treatmentCollection.queries[1].eventType.should.eql({$eq: 'Meal Bolus'});
     releaseUpdate();
 
     var reply = await replyPromise;
