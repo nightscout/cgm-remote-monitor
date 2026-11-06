@@ -112,8 +112,8 @@ module.exports = function createClockHttpFixture ({ clockEnabled = true } = {}) 
   }
 
   function start (extra = {}) { return base.start(configuration(), extra); }
-  async function pair (extra = {}) {
-    const first = start(extra), second = start(extra);
+  async function pair (extra = {}, firstExtra = {}) {
+    const first = start({ ...extra, ...firstExtra }), second = start(extra);
     await base.ready(first); await base.ready(second);
     return [first, second];
   }
@@ -178,10 +178,23 @@ module.exports = function createClockHttpFixture ({ clockEnabled = true } = {}) 
     const stderrStack = worker.stderr.split('\n')
       .filter(line => /^\s*at\s|^Emitted 'error' event on |^(?:Error|TypeError|RangeError|error):|^node:[^ ]+:\d+/.test(line))
       .slice(0, 24).map(redact);
+    const monitor = worker.stderr.split('\n').find(line => line.startsWith('CLOCK_FATAL_DIAGNOSTIC '));
+    let fatalMonitor = null;
+    if (monitor) {
+      const observed = JSON.parse(monitor.slice('CLOCK_FATAL_DIAGNOSTIC '.length));
+      fatalMonitor = {
+        origin: ['uncaughtException', 'unhandledRejection'].includes(observed.origin) ? observed.origin : 'other',
+        name: ['Error', 'DatabaseError', 'AggregateError'].includes(observed.name) ? observed.name : 'other',
+        code: /^[0-9A-Z]{5}$/.test(observed.code || '') ? observed.code : null,
+        connectionTerminated: observed.connectionTerminated === true,
+        locations: (observed.locations || []).filter(value => typeof value === 'string' &&
+          /^(?:node:events|node_modules\/pg\/lib\/client\.js|node_modules\/pg-pool\/index\.js|lib\/storage\/postgres-connection\.js|lib\/storage\/postgres-write-clock\.js):[0-9]+(?::[0-9]+)?$/.test(value)).slice(0, 16)
+      };
+    }
     return { exit: worker.exit, portPresent: Number.isInteger(worker.port),
       listeningMarker: /Listening/.test(worker.stdout),
       backendFaultInjected: backendFaultTargets.has(worker),
-      stderrStack,
+      stderrStack, fatalMonitor,
       stderrSignals: {
         administratorTermination: /administrator command|57P01/.test(worker.stderr),
         unhandledError: /Unhandled 'error'|unhandledRejection|uncaughtException/.test(worker.stderr),

@@ -162,7 +162,10 @@ optInSuite(enabled, 'NS_TENANT_COMMIT_CLOCK_HTTP_DOCKER_TEST=1')(
     });
 
     it('rolls back an operator-terminated PostgreSQL writer while the original data row remains locked', async function () {
-      const [first, second] = await f.pair(clockOptions());
+      const monitor = process.env.NS_TENANT_CLOCK_ABORT_MONITOR;
+      if (monitor) assert.ok(require('node:path').isAbsolute(monitor) && !/\s/.test(monitor),
+        'diagnostic monitor must be an explicit absolute path without whitespace');
+      const [first, second] = await f.pair(clockOptions(), monitor ? { NODE_OPTIONS: '--require ' + monitor } : {});
       const token = await f.localToken(A), original = await seed(first, token, 'commit-clock-backend-update');
       const floorBefore = await f.floor(A), foreign = await f.foreignRows(B);
       const blocker = await f.lockEntry(A, original.identifier);
