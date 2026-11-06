@@ -197,16 +197,15 @@ module.exports = function settingsFixture () {
     const reference = (method, path) => request(referenceApp)[method](path);
     async function same (method, path, body, status = 200, referenceBody = body) {
       // Only wall-clock construction is frozen; socket/database deadlines run
-      // normally. In particular legacy food's server-created date is compared.
+      // normally. Server timestamps are excluded explicitly by withoutClocks.
       mock.timers.enable({ apis: ['Date'], now: Date.now() });
       try {
         let expected = reference(method, path), actual = http(method, path);
         if (body !== undefined) { expected = expected.send(referenceBody); actual = actual.send(body); }
-        expected = await expected.expect(status);
-        try { actual = await actual.expect(status); } catch (error) {
-          error.message = method + ' ' + path + ': ' + error.message;
-          throw error;
-        }
+        expected = await expected;
+        actual = await actual;
+        assert.equal(expected.status, status, "Mongo " + method + " " + path + " " + JSON.stringify(expected.body));
+        assert.equal(actual.status, status, "PG " + method + " " + path + " " + JSON.stringify(actual.body));
         assert.deepEqual(withoutClocks(actual.body), withoutClocks(expected.body), path);
         assert.equal(actual.headers.location, expected.headers.location);
         return actual;

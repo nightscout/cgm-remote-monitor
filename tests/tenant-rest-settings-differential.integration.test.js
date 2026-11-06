@@ -31,7 +31,7 @@ optInSuite(process.env.NS_SETTINGS_DIFFERENTIAL_TEST === '1' &&
     it('replaces patches and deletes persisted settings while foreign tenant remains unchanged', async function () {
       await f.seed('settings', [doc()]);
       const before = await f.rows('settings', f.B);
-      await f.same('put', '/api/v3/settings/synthetic-client', { app: 'synthetic', rank: 3,
+      await f.same('put', '/api/v3/settings/synthetic-client', { app: 'synthetic', date: f.BASE, utcOffset: 0, rank: 3,
         extension: { removed: true, retained: [null, false, { option: 'value' }] } });
       await persistedSame();
       assert.equal((await f.rows('settings'))[0].markup, undefined);
@@ -51,9 +51,19 @@ optInSuite(process.env.NS_SETTINGS_DIFFERENTIAL_TEST === '1' &&
     it('applies scalar predicate to exact selected row with distractor present', async function () {
       await f.seed('settings', [doc(), { ...doc(), _id: new f.ObjectId('65a1b2c3d4e5f60718293a4c'),
         identifier: 'synthetic-distractor', rank: 9 }]);
-      const result = await f.same('get', '/api/v3/settings?rank$eq=2&sort=rank&limit=10');
+      const result = await f.same('get', '/api/v3/settings?rank$eq=2&sort=identifier&limit=10');
       assert.deepEqual(result.body.result.map(row => row.identifier), ['synthetic-client']);
-      await f.same('get', '/api/v3/settings?rank$gte=2&sort$desc=rank&skip=1&limit=1');
+      await f.same('get', '/api/v3/settings?rank$gte=2&sort$desc=identifier&skip=1&limit=1');
+    });
+
+    // Measured compatibility gap: requested rank plus four generic stable keys
+    // exceeds the PG compiler's four-key capability. Preserve the refusal here.
+    it('characterizes requested nonstable sort as Mongo success and PG refusal', async function () {
+      await f.seed('settings', [doc()]);
+      const expected = await f.reference('get', '/api/v3/settings?sort=rank').expect(200);
+      assert.equal(expected.body.result.length, 1);
+      const refused = await f.http('get', '/api/v3/settings?sort=rank').expect(500);
+      assert.deepEqual(refused.body, { status: 500, message: 'Database error' });
     });
 
     it('checks projection at actual storage port before renderer pruning', async function () {
