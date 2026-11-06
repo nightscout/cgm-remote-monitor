@@ -25,6 +25,7 @@
         "tests/bootevent-debounce.test.js",
         "tests/bootevent-history-clock.test.js",
         "tests/tenant-commit-clock.test.js",
+        "tests/write-intent.event-payload.test.js",
         "tests/bootevent-readable-warning.test.js",
         "tests/bridge-connect-compat.test.js",
         "tests/browser-utils.queryparms.test.js",
