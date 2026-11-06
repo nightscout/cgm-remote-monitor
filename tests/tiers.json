@@ -152,6 +152,7 @@
         "tests/read-contract.test.js",
         "tests/nightscout-cli.test.js",
         "tests/serve-listeners.test.js",
+        "tests/serve-roles.test.js",
         "tests/subject-admin.test.js",
         "tests/owner-policy-catalogue.test.js"
       ],
