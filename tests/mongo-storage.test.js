@@ -6,7 +6,9 @@ var assert = require('assert');
 var productionSafety = require('./lib/production-safety');
 
 describe('mongo storage', function () {
-  var env = require('../lib/server/env')();
+  // This suite deliberately removes/corrupts top-level connection settings.
+  // The config module returns a shared object; keep those faults local.
+  var env = Object.assign({}, require('../lib/server/env')());
 
   before(function (done) {
     delete env.api_secret;
