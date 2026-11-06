@@ -314,7 +314,9 @@
         "tests/websocket*.test.js",
         "tests/start-paths.test.js",
         "tests/headless-test-server.test.js",
-        "tests/subject-admin-postgres.integration.test.js"
+        "tests/subject-admin-postgres.integration.test.js",
+        "tests/storage-port-contract.integration.test.js",
+        "tests/subject-management-http.integration.test.js"
       ],
       "env": true,
       "require": [
