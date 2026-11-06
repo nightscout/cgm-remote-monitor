@@ -18,7 +18,12 @@ optInSuite(process.env.NS_SETTINGS_DIFFERENTIAL_TEST === '1' &&
       srvCreated: f.BASE, srvModified: f.BASE, isValid: true, rank: 2,
       extension: { secret: 'synthetic-private', visible: 2, removed: true },
       markup: '<b>client settings retained verbatim</b>' });
-    const clean = docs => JSON.parse(JSON.stringify(docs)).map(({ _id, srvCreated, srvModified, ...rest }) => rest);
+    const clean = docs => JSON.parse(JSON.stringify(docs)).map(doc => {
+      delete doc._id;
+      delete doc.srvCreated;
+      delete doc.srvModified;
+      return doc;
+    });
     const persistedSame = async () => assert.deepEqual(clean(await f.rows('settings')), clean(await f.mongoRows()));
 
     it('reads addressed settings verbatim and agrees on missing identity', async function () {
