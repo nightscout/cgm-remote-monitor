@@ -438,7 +438,7 @@ optInSuite(process.env.NS_STORAGE_PORT_CONTRACT_DOCKER_TEST === '1',
           throw new Error('synthetic common commit failure');
         }) }, table, bus });
       await assert.rejects(scope.withTenant(A, () => failed.write({ op: 'create',
-        docs: [{ _id: 'rollback-common', identifier: 'rollback-common', value: false }] })), /synthetic common commit failure/);
+        docs: [{ _id: 'rollback-common', identifier: 'rollback-common', value: false, dateString: '2026-11-05T00:00:00.000+01:00' }] })), /synthetic common commit failure/);
       assert.equal(mutated, true);
       assert.equal(observed.length, 0, 'a failed commit must not publish a logical event');
       assert.deepEqual(await ports.pg.run(() => ports.pg.read.findOne('rollback-common')), []);
@@ -453,11 +453,14 @@ optInSuite(process.env.NS_STORAGE_PORT_CONTRACT_DOCKER_TEST === '1',
       bus.on(intentStep.INTENT_EVENT, event => observed.push({ event,
         visible: admin.query(`SELECT doc FROM "${name}".entries WHERE tenant_id = $1 AND doc->>'identifier' = 'success-common'`, [A]) }));
       const written = await scope.withTenant(A, () => step.write({ op: 'create',
-        docs: [{ _id: 'success-common', identifier: 'success-common', value: false }] }));
+        docs: [{ _id: 'success-common', identifier: 'success-common', value: false, dateString: '2026-11-05T00:00:00.000+01:00' }] }));
       assert.equal(written.items[0].outcome, 'inserted');
       const committed = (await ports.pg.run(() => ports.pg.read.findOne('success-common', undefined, { normalize: false })))[0];
       assert.deepEqual(written.items[0]._id, committed._id);
-      if (adapter === 'collection-legacy') assert.ok(committed._id instanceof ObjectId);
+      if (adapter === 'collection-legacy') {
+        assert.ok(committed._id instanceof ObjectId);
+        assert.equal(committed.utcOffset, 60, 'fixed parseZone fixture avoids host-timezone-dependent offset');
+      }
       else assert.equal(committed._id, 'success-common');
       assert.equal(transactions, 1);
       assert.equal(observed.length, 1);
