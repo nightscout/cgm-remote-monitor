@@ -92,6 +92,25 @@ describe('storage intent event payload: tenant and stamp', function () {
     assert.equal(f.calls.filter(call => call === 'BEGIN').length, 1);
   });
 
+  it('a nested write whose outer transaction allocates again afterwards carries the final floor', async function () {
+    const f = fixture();
+    const bus = new EventEmitter();
+    const events = listen(bus);
+    let atResolve;
+    await scope.withTenant(A, () => f.connection.transaction(async () => {
+      dates.next();
+      await port(f.connection, bus).write({ op: 'create' });
+      atResolve = f.connection.currentStamp();
+      dates.next();
+      assert.deepEqual(events, []);
+    }));
+    assert.equal(atResolve, f.initial + 2, 'the floor when the nested write resolved');
+    assert.equal(f.floor(), f.initial + 3, 'the floor the clock wrote');
+    assert.equal(events.length, 1);
+    assert.equal(events[0].stamp, f.initial + 3, 'the event carries the final floor, not the floor at resolve');
+    assert.equal(events[0].tenant, A);
+  });
+
   it('a decorated write that allocates nothing carries stamp null', async function () {
     const f = fixture();
     const bus = new EventEmitter();
