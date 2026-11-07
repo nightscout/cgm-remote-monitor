@@ -54,3 +54,14 @@ floor; otherwise refuse. No setval/ALTER/renumbering workaround is enabled here.
 Focused source tests distinguish protocol doubles from PostgreSQL evidence.
 Comprehensive acceptance is deferred until the coherent source/role integration
 is frozen; this isolated prototype is not a completed M6 capability or promotion.
+
+
+The subsequent source prototype adds a private lower-port installation scope:
+when the boot coordinator selects an actual live window, every subsequently
+constructed common PostgreSQL connection uses it, including helpers that omit
+the per-connection option. Replacing it or installing a fabricated/closed window
+refuses; only the owning closure clears that installation. Existing connections
+retain their selected adapter. No CLI installation or startup metadata exception
+is enabled: unknown/sentinel tenants still fail closed until their explicit
+read-only startup admission is designed. This central coupling does not prove
+that direct pg clients, older workers or an entire deployment are admitted.

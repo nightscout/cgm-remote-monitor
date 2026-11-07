@@ -17,7 +17,7 @@ function fixture (options = {}) {
     if (text.startsWith('SELECT lock_key')) return { rows: [{ lock_key: options.key || (values[0] === B ? '19' : '17'), phase: options.phase || 'active', generation: '1' }] };
     if (text.startsWith('INSERT INTO')) { pending.set(values[1], false); return { rows: [], rowCount: 1 }; }
     if (text.startsWith('UPDATE')) { pending.set(values[1], true); return { rows: [], rowCount: 1 }; }
-    return { rows: [] };
+    return { rows: [], ...(['COMMIT','ROLLBACK'].includes(text) ? { command: text } : {}) };
   };
   const pool = { connect: async () => client };
   return { client, log, pending, window: create({ namespace: 'synthetic_window', locks: [{ tenant: A, key: '17' }, { tenant: B, key: '19' }], pool }) };
@@ -162,6 +162,51 @@ describe('Actual consumers use operation-window lifetimes (source protocol)', fu
     const input = { namespace: '/', event: 'dbAdd', args: [], acknowledge: () => { f.window.assertCurrent(A); replies++; } };
     assert.equal((await forward.forward(input)).delivered, true); assert.equal(replies, 1);
     options.phase = 'suspended'; assert.equal((await forward.forward(input)).delivered, false); assert.equal(replies, 1);
+    await f.window.close();
+  });
+});
+
+
+describe('Selected lower-port window cannot be omitted (source protocol)', function () {
+  function lowerModule (f) {
+    const fs = require('node:fs'), path = require('node:path'), vm = require('node:vm');
+    const file = path.resolve(__dirname, '../lib/storage/postgres-connection.js');
+    const originalRequire = require('node:module').createRequire(file);
+    class Pool {
+      constructor (options) { assert.equal(Object.hasOwn(options, 'operationWindow'), false); }
+      on () {}
+      async query () { return { rows: [{ rolsuper: false, rolbypassrls: false }] }; }
+      async connect () { return f.client; }
+      async end () {}
+    }
+    const output = { exports: {} };
+    const body = vm.runInNewContext('(function(require,module,exports){' + fs.readFileSync(file, 'utf8') + '\n})', {}, { filename: file });
+    body(name => name === 'pg' ? { Pool } : originalRequire(name), output, output.exports);
+    return output.exports;
+  }
+  it('applies the actual selected window when a helper omits it and refuses suspended body SQL', async function () {
+    const options = {}, f = fixture(options), lower = lowerModule(f), scope = require('../lib/storage/tenant-scope');
+    const previous = scope.getTenancyMode(); scope.setTenancyMode('multi');
+    const release = lower.installOperationWindow(f.window); let store;
+    try {
+      store = await lower({ connectionString: 'postgresql://synthetic/disposable_test' });
+      await scope.withTenant(A, () => store.query('SELECT synthetic_actual_body'));
+      assert.ok(f.log.some(row => row[0].includes('pg_try_advisory_lock_shared')));
+      options.phase = 'suspended';
+      await assert.rejects(scope.withTenant(A, () => store.query('SELECT forbidden_after_suspension')), { code: 'LIFECYCLE_WINDOW_SUSPENDED' });
+      assert.equal(f.log.some(row => row[0] === 'SELECT forbidden_after_suspension'), false);
+      await assert.rejects(lower({ connectionString: 'postgresql://synthetic/disposable_test', operationWindow: {} }), /cannot be replaced/);
+    } finally { if (store) await store.end(); release(); await f.window.close(); scope.setTenancyMode(previous); }
+  });
+  it('refuses fabricated/duplicate/closed installation and stale release cannot clear a newer owner', async function () {
+    const f = fixture(), other = fixture(), lower = lowerModule(f);
+    assert.throws(() => lower.installOperationWindow({ acquireClient () {}, assertClient () {} }), /actual live/);
+    const release = lower.installOperationWindow(f.window);
+    assert.throws(() => lower.installOperationWindow(other.window), /already selected/);
+    release(); const releaseOther = lower.installOperationWindow(other.window); release();
+    assert.throws(() => lower.installOperationWindow(f.window), /already selected/);
+    releaseOther(); await other.window.close();
+    assert.throws(() => lower.installOperationWindow(other.window), /actual live/);
     await f.window.close();
   });
 });
