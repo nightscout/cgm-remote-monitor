@@ -171,6 +171,8 @@
         "tests/evaluator-consumers.test.js",
         "tests/evaluator-consumer-metadata.test.js",
         "tests/evaluator-consumer-open-order.test.js",
+        "tests/evaluator-consumer-native-observation.test.js",
+        "tests/tenant-notification-native-restoration.test.js",
         "tests/notification-readiness-diagnostic.test.js",
         "tests/notification-public-policy.test.js",
         "tests/realtime-evaluator-observer.test.js",
