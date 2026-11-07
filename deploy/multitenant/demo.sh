@@ -23,7 +23,7 @@ case "${1:-}" in
     ;;
   up)
     "${compose[@]}" --profile ops run --rm bootstrap
-    exec "${compose[@]}" up -d api realtime evaluator tenant-admin ui nginx
+    exec "${compose[@]}" up -d --wait --wait-timeout 90 api realtime evaluator tenant-admin ui nginx
     ;;
   demo)
     exec "${compose[@]}" --profile ops run --rm --no-deps demo

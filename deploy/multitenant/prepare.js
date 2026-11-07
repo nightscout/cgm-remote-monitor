@@ -22,6 +22,9 @@ function prepare (args) {
   if (!/^[0-9]+$/.test(options.port) || Number(options.port) < 1024 || Number(options.port) > 65535) throw new Error('Invalid unprivileged port');
   const state = path.resolve(options.state);
   if (!/^\/[A-Za-z0-9_./-]+$/.test(state) || state.split('/').includes('..')) throw new Error('State path must be absolute without spaces or shell syntax');
+  let ancestor = path.dirname(state);
+  while (!fs.existsSync(ancestor)) ancestor = path.dirname(ancestor);
+  if (fs.realpathSync(ancestor) !== ancestor) throw new Error('State path must not traverse symlink ancestors');
   const sourceRoot = path.resolve(base, '../..');
   if (state.startsWith(sourceRoot + '/') && state !== path.join(base, '.state')) throw new Error('Custom state must be outside the source/build context');
   if (fs.existsSync(state) || fs.existsSync(path.join(base, '.env'))) throw new Error('State or deployment .env already exists; reuse it or choose a clean deployment checkout');

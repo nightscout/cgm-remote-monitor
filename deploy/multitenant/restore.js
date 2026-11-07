@@ -88,6 +88,12 @@ async function capture (config, tenant, env = process.env) {
   finally { await connection.end(); }
 }
 
+async function ready (config) {
+  const cohort = await require('../../lib/server/serve/operation-cohort').createRemote({namespace: config.control.namespace,
+    tenants: config.tenants.map(t => t.id), participants: config.control.participants});
+  await cohort.close();
+}
+
 async function restore (config, artifact, env = process.env, hooks = {}) {
   const tenant = tenantFor(config, artifact?.manifest?.tenant);
   const lifecycle = lifecycleFor(config);
@@ -145,4 +151,4 @@ if (require.main === module) main().then(result => process.stdout.write(JSON.str
     recovery: 'Inspect persisted operation state. Do not automatically replay or reopen the tenant.' }) + '\n');
   process.exitCode = 1;
 });
-module.exports = { validateConfig, loadConfig, lifecycleFor, tenantFor, capture, restore, argumentsFor, main };
+module.exports = { validateConfig, loadConfig, lifecycleFor, tenantFor, ready, capture, restore, argumentsFor, main };

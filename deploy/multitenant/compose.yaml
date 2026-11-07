@@ -105,6 +105,11 @@ services:
     command: [node, deploy/multitenant/entrypoint.js, evaluator]
     depends_on:
       realtime: {condition: service_healthy}
+    healthcheck:
+      test: [CMD, node, deploy/multitenant/health.js, evaluator]
+      interval: 2s
+      timeout: 3s
+      retries: 30
     volumes:
       - ${NS_DEMO_STATE}/evaluator:/run/ns-config:ro
       - ${NS_DEMO_STATE}/ipc:/run/ns-ipc
@@ -113,6 +118,11 @@ services:
   tenant-admin:
     <<: *app
     command: [node, deploy/multitenant/entrypoint.js, tenant-admin]
+    healthcheck:
+      test: [CMD, node, deploy/multitenant/health.js, tenant-admin]
+      interval: 2s
+      timeout: 3s
+      retries: 30
     volumes:
       - ${NS_DEMO_STATE}/tenant-admin:/run/ns-config:ro
       - ${NS_DEMO_STATE}/ipc:/run/ns-ipc

@@ -53,7 +53,7 @@ function scenario (control) {
     else if (options.method === 'PATCH') table.set(id, { ...table.get(id), ...options.body, srvModified: ++stamp });
     return { status: 200, result: structuredClone(table.get(id)) };
   };
-  return { config: c, env, call, now: () => stamp,
+  return { config: c, env, call, ready: async () => {}, now: () => stamp,
     uuid: () => '00000000-0000-4000-8000-' + String(++count).padStart(12, '0'),
     capture: async () => { snapshot = structuredClone(rows.get(A)); return { digest: 'a'.repeat(64), manifest: { tenant: A } }; }, save: async () => {},
     restore: async (unused, artifact, unusedEnv, hooks) => {
@@ -73,4 +73,13 @@ test('demo ordinary protocol passes; missing A restoration, deletion, B progress
   await assert.rejects(runDemo(scenario('no-during')), { code: 'COMPOSE_DEMO_REQUIRED_PHASE_NOT_OBSERVED' });
   await assert.rejects(runDemo(scenario('b-corruption')), /COMPOSE_DEMO_OLD_B_CHANGED/);
   assert.equal((await runDemo(scenario())).state, 'passed');
+});
+
+test('missing cohort refuses before the first demo mutation', async () => {
+  let called = false;
+  const input = scenario();
+  input.ready = async () => { throw Object.assign(new Error('missing peer'), {code: 'RESTORE_COHORT_INCOMPLETE'}); };
+  input.call = async () => { called = true; throw new Error('unexpected request'); };
+  await assert.rejects(runDemo(input), {code: 'RESTORE_COHORT_INCOMPLETE'});
+  assert.equal(called, false);
 });

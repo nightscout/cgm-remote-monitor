@@ -23,10 +23,11 @@ function document (identifier, date, sgv) {
     type: 'sgv', sgv, direction: 'Flat', device: 'synthetic-compose-demo', app: 'synthetic-compose-demo' };
 }
 
-async function runDemo ({ config, env = process.env, call = request, capture = operator.capture, restore = operator.restore,
+async function runDemo ({ config, env = process.env, call = request, ready = operator.ready, capture = operator.capture, restore = operator.restore,
   save = async artifact => require('../../lib/tenant-lifecycle/filesystem-artifact').saveTenantArtifact(artifact, { directory: '/run/ns-artifacts' }),
   now = Date.now, uuid = randomUUID } = {}) {
   if (env.NS_DEMO_CONFIRM_SYNTHETIC !== '1') throw fail('COMPOSE_DEMO_SYNTHETIC_CONFIRMATION_REQUIRED');
+  await ready(config);
   const [a, b] = config.tenants, date = now();
   const [kept, extra, beforeB, duringB] = [uuid(), uuid(), uuid(), uuid()];
   const api = (tenant, route, options = {}) => call(config, tenant, route, { ...options, env });
