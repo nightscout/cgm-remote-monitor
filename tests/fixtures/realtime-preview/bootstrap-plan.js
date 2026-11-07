@@ -4,12 +4,13 @@
 const path = require('node:path');
 const fs = require('node:fs');
 const crypto = require('node:crypto');
-const phases = Object.freeze(['joined-role-recovery','joined-data-parity','joined-consumer-handoff','joined-browser-consumer']);
+const phases = Object.freeze(['joined-role-recovery','joined-data-parity','joined-consumer-handoff','joined-consumer-plugin-ack','joined-browser-consumer']);
 const A='11111111-1111-4111-8111-111111111111', B='22222222-2222-4222-8222-222222222222';
 const SUBJECT='000000000000000000000001', STALE='000000000000000000000002';
 const optionsKeys = Object.freeze(['timeoutMs','recoveryIntervalMs','timeIntervalMs','pollIntervalMs','retryIntervalMs','retryDelayMs',
   'attemptTimeoutMs','maxRows','maxBytes','pageSize','maxMessageBytes','maxPayloadBytes','maxConnections','maxInflight','maxSockets',
   'snoozeMs','settleMs','observationMs','credentialLifetimeSeconds']);
+const optionalOptionsKeys = Object.freeze(['evaluatorMaxRows','realtimeMaxRows']);
 const fail = () => {throw new Error('JOINED_BOOTSTRAP_INPUT_REFUSED');};
 const exact = (value,keys) => value && typeof value==='object' && !Array.isArray(value) && keys.length===Object.keys(value).length && keys.every(key=>Object.hasOwn(value,key));
 function parse (input) {
@@ -17,8 +18,10 @@ function parse (input) {
       !path.isAbsolute(input.captureDir || '') || !input.env || !Array.isArray(input.resources) || typeof input.onObservation!=='function') fail();
   let options, ui;
   try {options=JSON.parse(input.env.NS_RT_BOOTSTRAP_OPTIONS_JSON);ui=JSON.parse(input.env.NS_RT_BOOTSTRAP_UI_JSON);} catch {fail();}
-  if (!exact(options,optionsKeys) || optionsKeys.some(key=>!Number.isSafeInteger(options[key]) || options[key]<1 || options[key]>2147483647) ||
-      options.pageSize>options.maxRows || options.maxPayloadBytes>options.maxBytes || options.timeoutMs>options.attemptTimeoutMs ||
+  if (!options || typeof options!=='object' || Array.isArray(options) || !optionsKeys.every(key=>Object.hasOwn(options,key)) ||
+      Object.keys(options).some(key=>!optionsKeys.includes(key)&&!optionalOptionsKeys.includes(key)) ||
+      [...optionsKeys,...optionalOptionsKeys.filter(key=>Object.hasOwn(options,key))].some(key=>!Number.isSafeInteger(options[key]) || options[key]<1 || options[key]>2147483647) ||
+      options.pageSize>options.maxRows || options.pageSize>(options.evaluatorMaxRows??options.maxRows) || options.pageSize>(options.realtimeMaxRows??options.maxRows) || options.maxPayloadBytes>options.maxBytes || options.timeoutMs>options.attemptTimeoutMs ||
       options.timeoutMs>60000 || options.credentialLifetimeSeconds>28800 ||
       !exact(ui,['bundleDirectory','expectedBundleSha256','settings']) || !path.isAbsolute(ui.bundleDirectory || '') ||
       !/^[a-f0-9]{64}$/.test(ui.expectedBundleSha256) || !ui.settings || typeof ui.settings!=='object' || Array.isArray(ui.settings)) fail();
@@ -41,7 +44,7 @@ function parse (input) {
   try {stat=fs.lstatSync(directory.path);}catch{fail();}
   if (!path.isAbsolute(directory.path || '') || !stat.isDirectory() || stat.isSymbolicLink() || (stat.mode&0o777)!==0o700 ||
       stat.uid!==process.getuid() || directory.ownerUid!==stat.uid || directory.mode!==0o700 || Buffer.byteLength(directory.path)>56) fail();
-  return {options,ui,pg,mongo,vault,directory};
+  return {options:{...options,evaluatorMaxRows:options.evaluatorMaxRows??options.maxRows,realtimeMaxRows:options.realtimeMaxRows??options.maxRows},ui,pg,mongo,vault,directory};
 }
 function layout (suffix=crypto.randomBytes(8).toString('hex')) {
   if (!/^[a-f0-9]{16}$/.test(suffix)) fail();
@@ -56,10 +59,10 @@ function documents ({selected,layout: l,publicKeys,paths}) {
   const clinical=Object.fromEntries(['entries','treatments','devicestatus','profile','food','activity'].map(d=>[d,ns[d]]));
   const tenants=[A,B].map(id=>({id,revision:'joined-fixture-v1',settings:{enable:['bgnow','delta','direction','simplealarms','treatmentnotify']}}));
   const common={version:1,postgres:{connectionEnv:'RT_BOOTSTRAP_RT_PG',namespaces:{...clinical,clock:ns.clock,checkpoint:ns.rt_checkpoint}},
-    consumer:'realtime-joined-fixture',pageSize:o.pageSize,maxRows:o.maxRows,maxBytes:o.maxBytes,maxTenants:2,recoveryIntervalMs:o.recoveryIntervalMs,
+    consumer:'realtime-joined-fixture',pageSize:o.pageSize,maxRows:o.realtimeMaxRows,maxBytes:o.maxBytes,maxTenants:2,recoveryIntervalMs:o.recoveryIntervalMs,
     socketOrderDomains:['treatments','devicestatus','profile'],tenants};
   const evaluator={...common,datastore:{hostname:selected.pg.url.hostname,port:Number(selected.pg.url.port),database:selected.pg.own.database},postgres:{connectionEnv:'RT_BOOTSTRAP_EVAL_PG',namespaces:{...clinical,clock:ns.clock,checkpoint:ns.eval_checkpoint}},
-    consumer:'evaluator-joined-fixture',timeIntervalMs:o.timeIntervalMs,consumers:{realtime:{
+    consumer:'evaluator-joined-fixture',maxRows:o.evaluatorMaxRows,timeIntervalMs:o.timeIntervalMs,consumers:{realtime:{
       outbox:{connectionEnv:'RT_BOOTSTRAP_OUTBOX_PG',namespace:ns.outbox,maxRows:o.maxRows,maxBytes:o.maxBytes,maxConnections:o.maxConnections},
       suppression:{connectionEnv:'RT_BOOTSTRAP_SUPPRESSION_PG',namespace:ns.alarm,maxRows:o.maxRows,maxBytes:o.maxBytes,maxConnections:o.maxConnections},
       route:{id:'realtime-joined-fixture',socketPathEnv:'RT_BOOTSTRAP_ALARM_SOCKET',maxMessageBytes:o.maxMessageBytes,operationTimeoutMs:o.timeoutMs},
@@ -80,4 +83,4 @@ function documents ({selected,layout: l,publicKeys,paths}) {
       consumerState:{evaluatorConfigEnv:'MULTITENANT_EVALUATOR_CONFIG'}}};
   return {api,evaluator,realtime,admission:{version:1,mode:'preview-socket-allowlist',tenants:[A,B].map((id,i)=>({id,enabled:true,aliases:aliases[i]}))},paths};
 }
-module.exports={parse,layout,documents,phases,optionsKeys,A,B,SUBJECT,STALE};
+module.exports={parse,layout,documents,phases,optionsKeys,optionalOptionsKeys,A,B,SUBJECT,STALE};

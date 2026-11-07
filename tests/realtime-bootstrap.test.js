@@ -50,4 +50,26 @@ describe('parent-owned realtime bootstrap source contract',function(){
     assert.equal(Object.keys(realtime).some(key=>/VAULT|SIGN|DECRYPT|SECRET/.test(key)),false);
     assert.deepEqual(Object.keys(require('./fixtures/realtime-preview/bootstrap-grants').catalogues()).sort(),Object.keys(layout.namespaces).sort());
   });
+  it('keeps the initial explicit cold evaluator bound below realtime while both actual role configuration parsers accept it and infrastructure stays pinned',async function(){
+    const options={...bounds(),pageSize:1,evaluatorMaxRows:3,realtimeMaxRows:100};
+    const selected=plan.parse({...input,env:{...input.env,NS_RT_BOOTSTRAP_OPTIONS_JSON:JSON.stringify(options)}});
+    assert.equal(plan.parse(input).options.evaluatorMaxRows,options.maxRows);
+    assert.equal(plan.parse(input).options.realtimeMaxRows,options.maxRows);
+    const layout=plan.layout('0123456789abcdef'),paths=Object.fromEntries(['api','realtime','evaluator','admission'].map(n=>[n,path.join(dir,n+'.json')]));
+    const docs=plan.documents({selected,layout,publicKeys:[],paths});fs.writeFileSync(paths.evaluator,JSON.stringify(docs.evaluator));
+    const url=name=>'postgres://synthetic-'+name+':synthetic@127.0.0.1:15432/bootstrap_test';
+    const env={RT_BOOTSTRAP_EVAL_PG:url('evaluator'),RT_BOOTSTRAP_OUTBOX_PG:url('outbox'),RT_BOOTSTRAP_SUPPRESSION_PG:url('suppression'),
+      RT_BOOTSTRAP_RT_PG:url('realtime'),RT_BOOTSTRAP_API_SOCKET:path.join(dir,'api.sock'),RT_BOOTSTRAP_ALARM_SOCKET:path.join(dir,'alarm.sock'),RT_BOOTSTRAP_ADMISSION:paths.admission};
+    const evaluated=require('../lib/server/serve/evaluator-config').parse(docs.evaluator,env);
+    const delivered=require('../lib/server/realtime/config').parse(docs.realtime,env);
+    assert.equal(evaluated.maxRows,3,'BOOTSTRAP_COLD_EVALUATOR_BOUND');assert.equal(delivered.maxRows,100,'BOOTSTRAP_REALTIME_REMAINS_ADMITTED');
+    const link=require('../lib/server/realtime/notification-state-config')({evaluatorConfigEnv:'LINK'},{LINK:paths.evaluator},{namespace:layout.namespaces.alarm,connectionString:url('ack')});
+    assert.equal((await link.readCurrent(plan.A)).identity,evaluated.tenants.get(plan.A).identity);
+    docs.evaluator.maxRows++;fs.writeFileSync(paths.evaluator,JSON.stringify(docs.evaluator));await assert.rejects(link.readCurrent(plan.A),/restart/,'cold test must not change infrastructure after API boot');
+    for(const changes of [{evaluatorMaxRows:0},{evaluatorMaxRows:3,pageSize:4},{realtimeMaxRows:3,pageSize:4}]) {
+      assert.throws(()=>plan.parse({...input,env:{...input.env,NS_RT_BOOTSTRAP_OPTIONS_JSON:JSON.stringify({...options,...changes})}}),/INPUT_REFUSED/);
+    }
+    assert.ok(plan.phases.includes('joined-consumer-plugin-ack'));
+  });
+
 });
