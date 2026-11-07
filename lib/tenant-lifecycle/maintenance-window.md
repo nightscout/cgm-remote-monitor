@@ -9,7 +9,8 @@ use a global write pause or treat a callback's `quiesced:true` as evidence.
 
 `create({namespace,locks,pool,cohort,drainTimeoutMs})` requires an explicit positive
 representable timeout (maximum2147483647 milliseconds); no default or recovery-time
-budget is adopted. The first-reference private pool has maximum one client. Each
+budget is adopted. The first-reference private pool has maximum one client. The opaque cohort pin remains held through all checks/effects and is released in
+finally before destroying the client, including failures. Each
 checked-out controller backend is destroyed after success or failure, avoiding
 unregistered privileged idle actors. The caller owns and closes the pool.
 
@@ -33,7 +34,8 @@ never substitute for the provisioned current authority relation.
 
 ## Durable ordering and failures
 
-1. Verify the branded complete cohort using the held private client, exact schema
+1. Pin the source-created participant incarnations/schema identities using the held
+   private client, then verify the branded complete cohort, exact schema
    and current role authority. Commit A's suspended phase, new generation, claim
    and artifact digest with an append-only audit record.
 2. New A ordinary operations refuse. Poll existing durable unfinished markers and
