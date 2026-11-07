@@ -189,6 +189,7 @@
         "tests/realtime-preview.test.js",
         "tests/realtime-browser-diagnostics.test.js",
         "tests/preview-socket-port-composition.test.js",
+        "tests/preview-serving-status.test.js",
         "tests/profile-socket-order.test.js",
         "tests/profile-timestamp-oracle.test.js",
         "tests/profile-wire-response.test.js",
