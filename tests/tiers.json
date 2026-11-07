@@ -156,6 +156,7 @@
         "tests/serve-roles.test.js",
         "tests/subject-admin.test.js",
         "tests/owner-policy-catalogue.test.js",
+        "tests/legacy-rest-time-fixtures.test.js",
         "tests/owner-preview.test.js",
         "tests/tenant-durable-replay.test.js",
         "tests/tenant-projection-evaluator.test.js",

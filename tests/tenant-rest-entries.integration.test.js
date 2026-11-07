@@ -4,7 +4,8 @@ const assert = require('node:assert/strict');
 const crudHTTP = require('./fixtures/entries-crud-http');
 const { optInSuite } = require('./support/opt-in');
 
-const BASE = 1793664000123;
+const time = require('./fixtures/legacy-rest-time').capture();
+const BASE = time.base;
 const ID = '000000000000000000000101';
 const record = extra => ({ _id: ID, date: BASE, dateString: new Date(BASE).toISOString(),
   sysTime: new Date(BASE).toISOString(), type: 'sgv', sgv: 123, device: 'synthetic', ...extra });
@@ -42,6 +43,31 @@ optInSuite(process.env.NS_ENTRIES_CRUD_HTTP_TEST === '1' &&
       return actual;
     }
 
+    it('calibrates the real default date window with independently stored recent and stale rows', async function () {
+      const stale = record({ _id: '000000000000000000000102', date: BASE - 5 * 86400000,
+        dateString: new Date(BASE - 5 * 86400000).toISOString(),
+        sysTime: new Date(BASE - 5 * 86400000).toISOString(), sgv: 88 });
+      await lab.seed([record(), stale]);
+      const foreign = await lab.rows(lab.B);
+      assert.equal((await lab.rows()).length, 2, 'physical PG rows precede HTTP');
+      assert.equal(await lab.mongoCollection.countDocuments({}), 2, 'physical Mongo rows precede HTTP');
+      assert.equal(foreign.length, 2, 'physical foreign rows precede HTTP');
+      for (const request of [lab.legacyReference, lab.legacyHttp]) {
+        const reply = await request('get', '/api/v1/entries').expect(200);
+        assert.equal((await lab.rows()).length, 2, 'HTTP leaves physical PG rows unchanged');
+        assert.equal(await lab.mongoCollection.countDocuments({}), 2, 'HTTP leaves physical Mongo rows unchanged');
+        assert.deepEqual(await lab.rows(lab.B), foreign, 'foreign physical rows unchanged');
+        console.log('TEMPORAL_ORACLE ' + JSON.stringify({ pg: 2, mongo: 2, foreign: 2, defaultCount: reply.body.length }));
+        assert.equal(reply.body.length, 1, 'temporal default excludes stale and retains recent');
+        assert.equal(reply.body[0].sgv, 123);
+        const all = await request('get', '/api/v1/entries?find[date][$gte]=' + (BASE - 6 * 86400000)).expect(200);
+        assert.equal(all.body.length, 2, 'explicit window retains stale row');
+        const byId = await request('get', '/api/v1/entries/' + stale._id).expect(200);
+        assert.equal(byId.body.length, 1, 'ID read bypasses default window');
+        assert.equal(byId.body[0].sgv, 88);
+      }
+    });
+
     it('serves v1 and inherited v2 default/current/model/id/missing and exact query/count semantics', async function () {
       for (const version of [1, 2]) {
         for (const path of ['/entries', '/entries/current', '/entries/sgv', '/entries/' + ID,
@@ -59,6 +85,8 @@ optInSuite(process.env.NS_ENTRIES_CRUD_HTTP_TEST === '1' &&
         const first = await lab.legacyHttp('get', '/api/v' + version + '/entries').expect(200);
         const second = await lab.legacyHttp('get', '/api/v' + version + '/entries',
           { tenant: lab.B, credential: lab.credentials[1] }).expect(200);
+        assert.equal(first.body.length, 1, 'own tenant default entry count');
+        assert.equal(second.body.length, 1, 'foreign tenant default entry count');
         assert.equal(first.body[0].sgv, 123);
         assert.equal(second.body[0].sgv, 902);
       }
@@ -84,9 +112,9 @@ optInSuite(process.env.NS_ENTRIES_CRUD_HTTP_TEST === '1' &&
       await lab.seed([record(), record({ _id: '000000000000000000000102', date: BASE + 3600000,
         dateString: new Date(BASE + 3600000).toISOString(), sysTime: new Date(BASE + 3600000).toISOString() })]);
       for (const version of [1, 2]) {
-        await same('get', '/api/v' + version + '/times/2026-11-03/T00:00');
-        await same('get', '/api/v' + version + '/times/echo/2026-11-03/T00:00');
-        await same('get', '/api/v' + version + '/slice/entries/dateString/sgv/2026-11-03/T0%7B0..1%7D:00');
+        await same('get', '/api/v' + version + '/times/' + time.day() + '/T00:00');
+        await same('get', '/api/v' + version + '/times/echo/' + time.day() + '/T00:00');
+        await same('get', '/api/v' + version + '/slice/entries/dateString/sgv/' + time.day() + '/T0%7B0..1%7D:00');
       }
     });
 

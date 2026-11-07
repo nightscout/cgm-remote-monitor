@@ -42,7 +42,8 @@ const A = '11111111-1111-4111-8111-111111111111';
 const B = '22222222-2222-4222-8222-222222222222';
 const SUBJECT = '000000000000000000000001';
 const ID = '65a1b2c3d4e5f60718293a4b';
-const BASE = 1793664000123;
+const time = require('./fixtures/legacy-rest-time').capture();
+const BASE = time.base;
 const CREATED = new Date(BASE).toISOString();
 const GRANTS = domains.flatMap(domain => ['read', 'create', 'update', 'delete'].map(action => `api:${domain}:${action}`));
 const EVENTS = ['storage-intent-committed', 'storage-socket-create', 'storage-socket-update',
@@ -370,19 +371,19 @@ optInSuite(process.env.NS_REST_DEVICE_ACTIVITY_TEST === '1' &&
       for (const version of [1, 2]) {
         await seed('devicestatus', []);
         await same('post', `/api/v${version}/devicestatus`, [
-          { _id: ID, identifier: 'device-retry', created_at: '2026-11-03T02:00:00+02:00', device: '12345',
+          { _id: ID, identifier: 'device-retry', created_at: time.day() + 'T02:00:00+02:00', device: '12345',
             date: BASE, sgv: 123, extension: { future: [null, true] },
             openaps: { suggested: { predBGs: { IOB: [1, 2, 3], FUTURE: [4, 5, 6] } } } },
-          { _id: '75a1b2c3d4e5f60718293a4b', created_at: '2026-11-04T00:00:00Z', device: 'newer', date: BASE + 1, sgv: 150 }
+          { _id: '75a1b2c3d4e5f60718293a4b', created_at: time.day(1) + 'T00:00:00Z', device: 'newer', date: BASE + 1, sgv: 150 }
         ]);
         const stored = await rows('devicestatus');
         assert.equal(stored.length, 2);
-        assert.equal(stored[0].created_at, '2026-11-03T00:00:00.000Z');
+        assert.equal(stored[0].created_at, time.day() + 'T00:00:00.000Z');
         assert.equal(stored[0].utcOffset, 120);
         assert.deepEqual(stored[0].openaps.suggested.predBGs, { IOB: [1, 2], FUTURE: [4, 5, 6] });
         assert.deepEqual(stored[0].extension, { future: [null, true] });
         for (const suffix of ['', '.json', '?count=0', '?count=1', '?count=1?deprecated',
-          '?count=0&find[created_at][$gte]=2026-11-02&find[created_at][$lte]=2026-11-05', '?count=100&find[sgv][$gte]=130',
+          '?count=0&find[created_at][$gte]=' + time.day(-1) + '&find[created_at][$lte]=' + time.day(2), '?count=100&find[sgv][$gte]=130',
           '?find[device]=12345', '?find[date][$gte]=' + BASE]) {
           await same('get', `/api/v${version}/devicestatus${suffix}`);
         }
@@ -402,7 +403,7 @@ optInSuite(process.env.NS_REST_DEVICE_ACTIVITY_TEST === '1' &&
 
     it('uses tenant-local actual runtime cache ordering and date denormalization without sharing arrays', async function () {
       const docs = [
-        { _id: new ObjectId(ID), created_at: '2026-11-03T00:00:00.000Z', utcOffset: 120, device: 'earlier' },
+        { _id: new ObjectId(ID), created_at: time.day() + 'T00:00:00.000Z', utcOffset: 120, device: 'earlier' },
         { _id: new ObjectId('75a1b2c3d4e5f60718293a4b'), created_at: CREATED, utcOffset: 0, device: 'later' }
       ];
       for (const ctx of [contexts.get(A), mongoContext]) ctx.cache.devicestatus = ctx.ddata.processRawDataForRuntime(docs);
@@ -412,7 +413,7 @@ optInSuite(process.env.NS_REST_DEVICE_ACTIVITY_TEST === '1' &&
       assert.equal(reply.body[0].device, 'later');
       for (const ctx of [contexts.get(A), mongoContext]) ctx.deviceEnv.settings.deNormalizeDates = true;
       const denormalized = await same('get', '/api/v2/devicestatus?count=2');
-      assert.equal(denormalized.body[1].created_at, '2026-11-03T02:00:00.000+02:00');
+      assert.equal(denormalized.body[1].created_at, time.day() + 'T02:00:00.000+02:00');
       assert.equal(denormalized.body[1].utcOffset, undefined);
       assert.equal((await http('get', '/api/v2/devicestatus?count=1', { tenant: B, credential: credentials[1] }).expect(200)).body[0].device, 'foreign');
       assert.equal(foreign.length, 1);
@@ -431,7 +432,7 @@ optInSuite(process.env.NS_REST_DEVICE_ACTIVITY_TEST === '1' &&
           await same('get', path + '?count=0');
           assert.equal((await same('get', path + '?count=3')).body.length, 3);
           const all = await same('get', path +
-            '?count=0&find[created_at][$gte]=2026-11-02&find[created_at][$lte]=2026-11-05');
+            '?count=0&find[created_at][$gte]=' + time.day(-1) + '&find[created_at][$lte]=' + time.day(2));
           assert.equal(all.body.length, 12);
           assert.equal((await same('get', path + '?find[device][$regex]=%5Erig-&count=3')).body.length, 3);
           await same('head', path);
@@ -514,7 +515,7 @@ optInSuite(process.env.NS_REST_DEVICE_ACTIVITY_TEST === '1' &&
     it('matches typed identity twins and permanently removes both forms through the legacy paths', async function () {
       for (const domain of domains) {
         await seed(domain, [{ _id: new ObjectId(ID), created_at: CREATED, steps: 10, device: 'object-id' },
-          { _id: ID, created_at: '2026-11-04T00:00:00.000Z', steps: 20, device: 'string-id' }]);
+          { _id: ID, created_at: time.day(1) + 'T00:00:00.000Z', steps: 20, device: 'string-id' }]);
         const reply = await same('get', `/api/v1/${domain}?find[_id]=${ID}&count=100`);
         assert.equal(reply.body.length, 2);
         const foreign = await rows(domain, B);
@@ -696,8 +697,10 @@ optInSuite(process.env.NS_REST_DEVICE_ACTIVITY_TEST === '1' &&
       assert.equal((await http('get', '/api/v3/devicestatus/device-record',
         { tenant: B, credential: credentials[1] }).expect(200)).body.result.tenantMarker, 'two');
       assert.deepEqual(await rows('devicestatus', B), foreign);
-      assert.equal((await http('get', '/api/v2/activity',
-        { tenant: B, credential: credentials[1] }).expect(200)).body[0].tenantMarker, 'two');
+      const foreignActivity = await http('get', '/api/v2/activity',
+        { tenant: B, credential: credentials[1] }).expect(200);
+      assert.equal(foreignActivity.body.length, 1, 'foreign activity default count after restart');
+      assert.equal(foreignActivity.body[0].tenantMarker, 'two');
       assert.deepEqual(await rows('activity'), activityBefore);
       assert.deepEqual(await rows('activity', B), activityForeign);
       for (const domain of domains) assert.throws(() => contexts.get(A)[domain](), /no driver accessor/);

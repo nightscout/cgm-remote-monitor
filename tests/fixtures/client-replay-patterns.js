@@ -25,34 +25,6 @@ const sources = Object.freeze({
         'LoopFollow/Controllers/Nightscout/' + name + '.swift')]
   }
 });
-const BASE = 1793664000000;
-const iso = offset => new Date(BASE + offset).toISOString();
-const schedule = value => [{ time: '00:00', timeAsSeconds: 0, value }];
-
-function documents (tenant = 0) {
-  return {
-    // The uploader has not yet received server IDs. Resend these exact payloads.
-    entries: [0, 300000].map(offset => ({ date: BASE + offset, dateString: iso(offset),
-      device: 'loop://synthetic', type: 'sgv', sgv: 120 + tenant * 80 + offset / 300000,
-      direction: 'Flat', trend: 4, trendRate: 0, isCalibration: false })),
-    treatments: [{ created_at: iso(0), timestamp: iso(0), enteredBy: 'synthetic-loop',
-      eventType: 'Carb Correction', carbs: 12 + tenant, absorptionTime: 180,
-      syncIdentifier: 'synthetic-shared-sync', notes: 'synthetic meal' }],
-    devicestatus: [{ device: 'loop://synthetic', created_at: iso(0),
-      identifier: 'synthetic-shared-device', uploader: { name: 'synthetic', timestamp: iso(0), battery: 70 + tenant },
-      loop: { name: 'Loop', version: 'synthetic', timestamp: iso(0),
-        iob: { timestamp: iso(0), iob: 1 + tenant },
-        predicted: { startDate: iso(0), values: [120 + tenant, 121 + tenant] } } }],
-    // ProfileSet does not serialize syncIdentifier or _id. uploadProfile does
-    // not automatically requeue failures. Do not invent a profile retry key.
-    profile: [{ defaultProfile: 'Default', startDate: iso(0), mills: String(BASE),
-      units: 'mg/dl', enteredBy: 'synthetic-loop', loopSettings: { dosingEnabled: false, overridePresets: [] },
-      store: { Default: { dia: 6, carbs_hr: '0', delay: '0', timezone: 'UTC', units: 'mg/dl',
-        basal: schedule(0.5 + tenant), carbratio: schedule(10), sens: schedule(45),
-        target_low: schedule(100), target_high: schedule(110) } } }]
-  };
-}
-
 // NightscoutClient.callNS/postToNS: exactly HTTP 200; exactly one object
 // per submitted item. Missing string _id is accepted as NA by the Swift code.
 function consumeUpload (reply, count) {
@@ -63,15 +35,45 @@ function consumeUpload (reply, count) {
   return reply.body.map(value => typeof value._id === 'string' ? value._id : 'NA');
 }
 
-function followerPath (domain, token, version = 1) {
-  const query = new URLSearchParams({ token, count: domain === 'entries' ? '576' : domain === 'treatments' ? '100' : '1' });
-  if (domain === 'entries') {
-    query.set('find[date][$gte]', String(BASE));
-    query.set('find[type][$ne]', 'cal');
-  } else if (domain === 'treatments') {
-    query.set('find[created_at][$gte]', iso(0));
-    query.set('find[created_at][$lte]', iso(60000));
-  } else if (domain === 'profile') query.set('find[startDate][$lte]', iso(60000));
-  return '/api/v' + version + '/' + (domain === 'profile' ? 'profiles' : domain) + '.json?' + query;
+function at (BASE) {
+  const iso = offset => new Date(BASE + offset).toISOString();
+  const schedule = value => [{ time: '00:00', timeAsSeconds: 0, value }];
+
+  function documents (tenant = 0) {
+    return {
+      // The uploader has not yet received server IDs. Resend these exact payloads.
+      entries: [0, 300000].map(offset => ({ date: BASE + offset, dateString: iso(offset),
+        device: 'loop://synthetic', type: 'sgv', sgv: 120 + tenant * 80 + offset / 300000,
+        direction: 'Flat', trend: 4, trendRate: 0, isCalibration: false })),
+      treatments: [{ created_at: iso(0), timestamp: iso(0), enteredBy: 'synthetic-loop',
+        eventType: 'Carb Correction', carbs: 12 + tenant, absorptionTime: 180,
+        syncIdentifier: 'synthetic-shared-sync', notes: 'synthetic meal' }],
+      devicestatus: [{ device: 'loop://synthetic', created_at: iso(0),
+        identifier: 'synthetic-shared-device', uploader: { name: 'synthetic', timestamp: iso(0), battery: 70 + tenant },
+        loop: { name: 'Loop', version: 'synthetic', timestamp: iso(0),
+          iob: { timestamp: iso(0), iob: 1 + tenant },
+          predicted: { startDate: iso(0), values: [120 + tenant, 121 + tenant] } } }],
+      // ProfileSet does not serialize syncIdentifier or _id. uploadProfile does
+      // not automatically requeue failures. Do not invent a profile retry key.
+      profile: [{ defaultProfile: 'Default', startDate: iso(0), mills: String(BASE),
+        units: 'mg/dl', enteredBy: 'synthetic-loop', loopSettings: { dosingEnabled: false, overridePresets: [] },
+        store: { Default: { dia: 6, carbs_hr: '0', delay: '0', timezone: 'UTC', units: 'mg/dl',
+          basal: schedule(0.5 + tenant), carbratio: schedule(10), sens: schedule(45),
+          target_low: schedule(100), target_high: schedule(110) } } }]
+    };
+  }
+
+  function followerPath (domain, token, version = 1) {
+    const query = new URLSearchParams({ token, count: domain === 'entries' ? '576' : domain === 'treatments' ? '100' : '1' });
+    if (domain === 'entries') {
+      query.set('find[date][$gte]', String(BASE));
+      query.set('find[type][$ne]', 'cal');
+    } else if (domain === 'treatments') {
+      query.set('find[created_at][$gte]', iso(0));
+      query.set('find[created_at][$lte]', iso(60000));
+    } else if (domain === 'profile') query.set('find[startDate][$lte]', iso(60000));
+    return '/api/v' + version + '/' + (domain === 'profile' ? 'profiles' : domain) + '.json?' + query;
+  }
+  return Object.freeze({ BASE, iso, documents, followerPath });
 }
-module.exports = { sources, BASE, iso, documents, consumeUpload, followerPath };
+module.exports = { sources, consumeUpload, at, ...at(require('./legacy-rest-time').capture().base - 123) };

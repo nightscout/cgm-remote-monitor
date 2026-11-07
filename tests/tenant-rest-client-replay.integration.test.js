@@ -148,17 +148,9 @@ optInSuite(process.env.NS_REST_CLIENT_REPLAY_TEST === '1',
     // Server composition acceptance, beyond either pinned client's extracted
     // workflow: prove the new reads use the real CLI and Vault-backed authority.
     it('composes derived reads with real executable provider authority and persisted tenant data', async function () {
-      const shift = Date.now() - patterns.BASE - 300000;
-      function current (value) {
-        if (Array.isArray(value)) return value.map(current);
-        if (value && typeof value === 'object') return Object.fromEntries(Object.entries(value).map(([key, item]) => [key, current(item)]));
-        if (typeof value === 'number' && value >= patterns.BASE) return value + shift;
-        if (typeof value === 'string' && /^\d{13}$/.test(value)) return String(Number(value) + shift);
-        if (typeof value === 'string' && /^\d{4}-\d{2}-\d{2}T/.test(value)) return new Date(Date.parse(value) + shift).toISOString();
-        return value;
-      }
+      const current = patterns.at(Date.now() - 300000);
       for (const [index, tenant] of [lab.A, lab.B].entries()) {
-        const docs = current(patterns.documents(index));
+        const docs = current.documents(index);
         for (const domain of domains) patterns.consumeUpload(await upload(domain, docs[domain], tenant), docs[domain].length);
         await lab.grants(['api:*:read'], tenant);
       }

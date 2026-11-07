@@ -27,8 +27,9 @@ const { optInSuite } = require('./support/opt-in');
 const A = '11111111-1111-4111-8111-111111111111';
 const B = '22222222-2222-4222-8222-222222222222';
 const SUBJECT = '000000000000000000000001';
-const BASE = 1793664000123;
-const CREATED = '2026-11-03T00:00:00.123Z';
+const time = require('./fixtures/legacy-rest-time').capture();
+const BASE = time.base;
+const CREATED = time.iso();
 const GRANTS = ['read', 'create', 'update', 'delete'].map(action => 'api:treatments:' + action);
 const EVENTS = ['storage-intent-committed', 'storage-socket-create', 'storage-socket-update',
   'storage-socket-delete', 'data-update', 'data-received'];
@@ -328,18 +329,19 @@ optInSuite(process.env.NS_REST_TREATMENTS_HTTP_TEST === '1' &&
     });
 
     it('serves legacy inheritance, query defaults, created_at order, suffixes and conditional responses', async function () {
-      await seed([treatment(), treatment({ _id: 'older', identifier: 'older', created_at: '2026-11-02T00:00:00.000Z' })]);
+      await seed([treatment(), treatment({ _id: 'older', identifier: 'older', created_at: time.day(-1) + 'T00:00:00.000Z' })]);
       for (const version of [1, 2]) {
         for (const suffix of ['', '.json', '.csv', '.txt', '.xml']) {
           // Legacy treatments always answers JSON for recognized suffixes.
           const path = `/api/v${version}/treatments${suffix}`;
           if (suffix === '.xml') continue;
           const response = await same('get', path, undefined, 200);
+          assert.ok(response.body.length > 0, 'default treatment list retains recent row');
           assert.equal(response.body[0].identifier, 'same-treatment');
         }
         await same('get', `/api/v${version}/treatments?count=1&find[eventType]=Carb%20Correction`, undefined, 200);
-        await same('get', `/api/v${version}/treatments?find[created_at][$gte]=2026-11-03`, undefined, 200);
-        await same('get', `/api/v${version}/treatments`, undefined, 304, { 'If-Modified-Since': 'Wed, 04 Nov 2026 00:00:00 GMT' });
+        await same('get', `/api/v${version}/treatments?find[created_at][$gte]=${time.day()}`, undefined, 200);
+        await same('get', `/api/v${version}/treatments`, undefined, 304, { 'If-Modified-Since': new Date(BASE + 86400000 - 123).toUTCString() });
       }
     });
 
