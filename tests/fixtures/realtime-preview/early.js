@@ -73,7 +73,15 @@ async function uds (input) {
   }
 }
 async function execute (input) {
-  if (input.env?.NS_RT_EARLY_NATIVE !== '1' || input.control !== null || !plan.phases.includes(input.phaseId)) throw new Error('EXPLICIT_PARENT_NATIVE_PHASE_REQUIRED');
+  if (input.env?.NS_RT_EARLY_NATIVE !== '1' || !plan.phases.includes(input.phaseId) ||
+      input.control !== null && (input.env.NS_RT_CONTROL_ID !== input.control || !/^[a-z0-9][a-z0-9_-]{0,95}$/.test(input.control))) throw new Error('EXPLICIT_PARENT_NATIVE_PHASE_REQUIRED');
+  assert.equal(path.resolve(input.sourceDir), path.resolve(__dirname, '../../..'), 'stop source directory mismatch');
+  const causal = ['lib/server/realtime/ipc.js', 'lib/server/realtime/protocol.js', 'lib/server/realtime/private-api.js',
+    'lib/server/tenant-socket-write-executor.js', 'lib/server/socket-write-handlers.js', 'lib/server/tenant-app/profile.js',
+    'lib/storage/postgres-collection-intent.js', 'lib/storage/write-intent.js'];
+  const sourceFiles = Object.fromEntries(causal.map(file => [file, require('node:crypto').createHash('sha256').update(fs.readFileSync(path.join(input.sourceDir, file))).digest('hex')]));
+  fs.writeFileSync(path.join(input.captureDir, 'phase-source.json'), JSON.stringify({ sourceHead: input.env.NS_RT_SOURCE_HEAD || null,
+    phaseId: input.phaseId, control: input.control, sourceFiles }, null, 2) + '\n');
   if (input.phaseId === 'joined-data-parity') return require('./data-parity')(input);
   if (input.phaseId === 'joined-role-recovery') return require('./joined')(input);
   if (input.phaseId === 'uds-ownership') return uds(input);
