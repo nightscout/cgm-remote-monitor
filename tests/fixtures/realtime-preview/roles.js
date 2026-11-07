@@ -34,13 +34,20 @@ async function startRole ({ sourceDir, role, env, timeoutMs, captureDir, onBirth
   try {
     const deadline = Date.now() + timeoutMs;
     while (Date.now() < deadline) {
-      const found = stdout.match(new RegExp('Listening for role ' + role + ' on 127\\.0\\.0\\.1:([0-9]+)'));
-      if (found) { port = Number(found[1]); break; }
       if (exited) throw new Error('REALTIME_CLI_STARTUP_REFUSED');
+      // Evaluator is headless. Its boot marker attests startup only; the joined
+      // consumer fixture separately requires actual SQL/pipeline progress.
+      if (role === 'evaluator') {
+        if (/Evaluator preview started; configured tenants: [1-9][0-9]*/.test(stdout)) break;
+      } else {
+        const found = stdout.match(new RegExp('Listening for role ' + role + ' on 127\\.0\\.0\\.1:([0-9]+)'));
+        if (found) { port = Number(found[1]); break; }
+      }
       await new Promise(resolve => setTimeout(resolve, 10));
     }
-    assert(port > 0, 'REALTIME_CLI_STARTUP_DEADLINE'); save();
-    return Object.freeze({ port, pid: child.pid, close });
+    assert(role === 'evaluator' ? /Evaluator preview started; configured tenants: [1-9][0-9]*/.test(stdout) : port > 0,
+      'REALTIME_CLI_STARTUP_DEADLINE'); save();
+    return Object.freeze({ port: role === 'evaluator' ? null : port, readiness: role === 'evaluator' ? 'headless-started' : 'listener-started', pid: child.pid, close });
   } catch (error) { await close(); throw error; }
 }
 async function start (input) {
@@ -73,8 +80,11 @@ async function start (input) {
         assert(vault && url.hostname === vault.host && Number(url.port) === vault.port && url.hostname === '127.0.0.1',
           'native API Vault must be the handed-in owned endpoint');
       }
-      assert.equal(selected[role.toUpperCase() + '_HOSTNAME'], '127.0.0.1');
-      assert.equal(selected[role.toUpperCase() + '_PORT'], '0');
+      if (role === 'evaluator') assert(selected.MULTITENANT_EVALUATOR_CONFIG, 'explicit headless evaluator configuration required');
+      else {
+        assert.equal(selected[role.toUpperCase() + '_HOSTNAME'], '127.0.0.1');
+        assert.equal(selected[role.toUpperCase() + '_PORT'], '0');
+      }
       if (role === 'realtime') assert(Object.keys(selected).every(key => !/VAULT|SIGN|DECRYPT|ROOT_SECRET/.test(key)), 'RT_HAS_NO_SECRET_AUTHORITY');
       return { PATH: input.env.PATH, HOME: input.env.HOME, NODE_PATH: input.env.NODE_PATH, NODE_ENV: 'test', TZ: 'UTC', ...selected };
     };
