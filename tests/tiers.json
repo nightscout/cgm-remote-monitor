@@ -43,6 +43,7 @@
         "tests/credential-privacy.test.js",
         "tests/credential-extraction.test.js",
         "tests/data.*.test.js",
+        "tests/data-timestamp-oracle.test.js",
         "tests/dataloader.test.js",
         "tests/ddata.test.js",
         "tests/debug-logging.test.js",
