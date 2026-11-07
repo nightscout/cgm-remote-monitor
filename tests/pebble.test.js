@@ -96,6 +96,7 @@ describe('Pebble Endpoint', function ( ) {
     var env = require('../lib/server/env')( );
     env.settings.authDefaultRoles = 'readable';
     this.app = require('express')( );
+    require('../lib/middleware/configure-request')(this.app);
     this.app.enable('api');
     var self = this;
     bootevent(env, language).boot(function booted (context) {
@@ -234,6 +235,7 @@ describe('Pebble Endpoint with Raw and IOB and COB', function ( ) {
     env.settings.enable = ['rawbg', 'iob', 'cob'];
     env.settings.authDefaultRoles = 'readable';
     this.appRaw = require('express')( );
+    require('../lib/middleware/configure-request')(this.appRaw);
     this.appRaw.enable('api');
     var self = this;
     bootevent(env, language).boot(function booted (context) {

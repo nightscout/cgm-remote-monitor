@@ -64,6 +64,54 @@ describe('Data', function ( ) {
     delta.cals.length.should.equal(1);
   });
 
+  describe('food (BF-93: food changes reach an open page)', function () {
+    function withFood (food) {
+      var ddata = require('../lib/data/ddata')();
+      ddata.sgvs = [{mgdl: 100, mills: before},{mgdl: 100, mills: now}];
+      ddata.food = food;
+      return ddata;
+    }
+    var pick = {_id: 'food_1', type: 'quickpick', name: 'Breakfast', carbs: 30, foods: []};
+    var apple = {_id: 'food_2', type: 'food', name: 'Apple', carbs: 15};
+
+    it('an added food is in the delta', function () {
+      var delta = calcDelta(withFood([pick]), withFood([pick, apple]));
+      delta.delta.should.equal(true);
+      delta.food.should.eql([apple]);
+    });
+
+    it('an edited quick pick carb total is in the delta as an update', function () {
+      var edited = Object.assign({}, pick, {carbs: 45});
+      var delta = calcDelta(withFood([pick, apple]), withFood([edited, apple]));
+      delta.delta.should.equal(true);
+      delta.food.length.should.equal(1);
+      delta.food[0].action.should.equal('update');
+      delta.food[0].carbs.should.equal(45);
+    });
+
+    it('a removed food is in the delta as a removal', function () {
+      var delta = calcDelta(withFood([pick, apple]), withFood([pick]));
+      delta.delta.should.equal(true);
+      delta.food.should.eql([{_id: 'food_2', mills: undefined, action: 'remove'}]);
+    });
+
+    it('unchanged food sends no delta', function () {
+      var delta = calcDelta(withFood([pick, apple]), withFood([Object.assign({}, pick), Object.assign({}, apple)]));
+      (delta.delta === undefined).should.equal(true);
+    });
+
+    it('an open page merges the food delta (receiveddata)', function () {
+      var receiveDData = require('../lib/client/receiveddata');
+      var page = require('../lib/data/ddata')();
+      page.food = [Object.assign({}, pick), Object.assign({}, apple)];
+      var edited = Object.assign({}, pick, {carbs: 45});
+      var delta = calcDelta(withFood([pick, apple]), withFood([edited]));
+      receiveDData(delta, page, {extendedSettings: {}});
+      page.food.length.should.equal(1);
+      page.food[0].carbs.should.equal(45);
+    });
+  });
+
   it('delta should include profile', function() {
     var ddata = require('../lib/data/ddata')();
     ddata.sgvs = [{mgdl: 100, mills: before},{mgdl: 100, mills: now}];
@@ -73,6 +121,81 @@ describe('Data', function ( ) {
     newData.profiles = {bar:true};
     var delta = calcDelta(ddata,newData);
     delta.profiles.bar.should.equal(true);
+  });
+
+  it('should not report a treatment update when only object key order changes', function() {
+    var ddata = require('../lib/data/ddata')();
+    ddata.sgvs = [{mgdl: 100, mills: before}];
+    ddata.treatments = [{
+      _id: 'someid_1',
+      mills: before,
+      eventType: 'Note',
+      details: {source: 'manual', values: {first: 1, second: 2}}
+    }];
+    var newData = ddata.clone();
+    newData.treatments = [{
+      details: {values: {second: 2, first: 1}, source: 'manual'},
+      eventType: 'Note',
+      mills: before,
+      _id: 'someid_1'
+    }];
+
+    calcDelta(ddata, newData).should.equal(newData);
+  });
+
+  it('should report a treatment update when a nested value changes', function() {
+    var ddata = require('../lib/data/ddata')();
+    ddata.sgvs = [{mgdl: 100, mills: before}];
+    ddata.treatments = [{
+      _id: 'someid_1',
+      mills: before,
+      details: {source: 'manual', values: {first: 1, second: 2}}
+    }];
+    var newData = ddata.clone();
+    newData.treatments = [{
+      _id: 'someid_1',
+      mills: before,
+      details: {source: 'manual', values: {first: 1, second: 3}}
+    }];
+
+    var delta = calcDelta(ddata, newData);
+    delta.treatments.should.have.length(1);
+    delta.treatments[0].action.should.equal('update');
+    delta.treatments[0].details.values.second.should.equal(3);
+  });
+
+  it('should not report a profile update when only object key order changes', function() {
+    var ddata = require('../lib/data/ddata')();
+    ddata.sgvs = [{mgdl: 100, mills: before}];
+    ddata.profiles = {
+      defaultProfile: 'Default',
+      store: {Default: {dia: 3, units: 'mg/dl', basal: {first: 1, second: 2}}}
+    };
+    var newData = ddata.clone();
+    newData.profiles = {
+      store: {Default: {basal: {second: 2, first: 1}, units: 'mg/dl', dia: 3}},
+      defaultProfile: 'Default'
+    };
+
+    calcDelta(ddata, newData).should.equal(newData);
+  });
+
+  it('should report a profile update when a nested value changes', function() {
+    var ddata = require('../lib/data/ddata')();
+    ddata.sgvs = [{mgdl: 100, mills: before}];
+    ddata.profiles = {
+      defaultProfile: 'Default',
+      store: {Default: {dia: 3, basal: {first: 1, second: 2}}}
+    };
+    var newData = ddata.clone();
+    newData.profiles = {
+      defaultProfile: 'Default',
+      store: {Default: {dia: 3, basal: {first: 1, second: 3}}}
+    };
+
+    var delta = calcDelta(ddata, newData);
+    delta.profiles.should.equal(newData.profiles);
+    delta.profiles.store.Default.basal.second.should.equal(3);
   });
 
 });

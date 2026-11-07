@@ -69,4 +69,30 @@ describe('renderer', () => {
       });
     });
   });
+
+  describe('addBasals without an active profile', () => {
+    it('raises the profile dialog once however often the chart redraws', () => {
+      const alerts = [];
+      const savedWindow = global.window;
+      global.window = { alert: message => alerts.push(message), location: {} };
+
+      const mockClient = {
+        settings: {
+          isEnabled: () => true
+          , extendedSettings: { basal: { render: 'default' } }
+        }
+        , sbx: { data: { profile: null } }
+        , chart: { createAdjustedRange: () => [new Date(0), new Date(1)] }
+        , translate: value => value
+      };
+
+      const basals = renderer(mockClient, {});
+      basals.addBasals(mockClient);
+      basals.addBasals(mockClient);
+      basals.addBasals(mockClient);
+
+      alerts.length.should.equal(1);
+      global.window = savedWindow;
+    });
+  });
 });

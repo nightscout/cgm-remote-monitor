@@ -36,6 +36,7 @@ describe('v1 API Partial Failures and Edge Cases', function() {
     self.env.settings.enable = ['careportal', 'api'];
     const wares = require('../lib/middleware/')(self.env);
     self.app = require('express')();
+    require('../lib/middleware/configure-request')(self.app);
     self.app.enable('api');
     require('../lib/server/bootevent')(self.env, language).boot(function booted(ctx) {
       self.ctx = ctx;
@@ -107,29 +108,29 @@ describe('v1 API Partial Failures and Edge Cases', function() {
         });
     });
 
-    it('batch response preserves order even with partial failure', function(done) {
-      // CRITICAL FOR LOOP: Response order must match request order
-      // Even if some items fail, response indices must align with request
-      
+    it('batch response keeps one slot per item, in order, each with its own _id (ID-BATCH R1)', function(done) {
+      // CRITICAL FOR LOOP: NightscoutKit requires as many slots as it sent and
+      // reads _id by position. The duplicate `id` values are not a refusal:
+      // four items, four slots, in the order sent.
       const batch = fixtures.partialFailures.batchWithDuplicateKeyInMiddle.input;
-      
+
       request(self.app)
         .post('/api/treatments/')
         .set('api-secret', api_secret_hash)
         .send(batch)
+        .expect(200)
         .end(function(err, res) {
-          // Check if response is array
-          if (Array.isArray(res.body)) {
-            console.log(`      ℹ Response is array with ${res.body.length} items`);
-            
-            // If partial, check order preservation
-            if (res.body.length > 0 && res.body.length < batch.length) {
-              console.log('      ✓ Partial response returned - order preservation critical');
-            }
-          } else {
-            console.log(`      ⚠ Response is not array: ${JSON.stringify(res.body)}`);
-          }
-          
+          if (err) return done(err);
+          res.body.should.be.an.Array();
+          res.body.length.should.equal(batch.length, 'one slot per submitted item');
+          res.body.map(function (slot) { return slot.notes; })
+            .should.eql(batch.map(function (item) { return item.notes; }), 'slots in the order sent');
+          res.body.forEach(function (slot) {
+            slot._id.should.be.a.String();
+            should.not.exist(slot.refused);
+          });
+          new Set(res.body.map(function (slot) { return slot._id; })).size.should.equal(batch.length, 'each slot names its own record');
+          should.not.exist(res.headers.warning);
           done();
         });
     });
@@ -546,31 +547,29 @@ describe('v1 API Partial Failures and Edge Cases', function() {
 
   describe('Validation Error Handling', function() {
 
-    it('batch with validation error in middle - ordered insert stops', function(done) {
-      // SPEC: Invalid data (e.g., sgv: 'invalid') should cause validation error
-      // Ordered insert stops at first error
-      
+    it('batch with a non-numeric sgv in the middle: every entry stored, one slot each, in order', function(done) {
+      // Measured (ID-BATCH, 2026-10-31): v1 entries do not type-check `sgv`,
+      // so the middle entry is not a refusal and the whole batch is stored;
+      // the reply has one slot per entry, in order, each with its _id.
       const batch = fixtures.partialFailures.batchWithValidationErrorInMiddle.input;
-      
+
       request(self.app)
         .post('/api/entries/')
         .set('api-secret', api_secret_hash)
         .set('Accept', 'application/json')
         .send(batch)
+        .expect(200)
         .end(function(err, res) {
-          // May return error or partial success
-          
+          if (err) return done(err);
+          res.body.length.should.equal(batch.length, 'one slot per submitted entry');
+          res.body.map(function (slot) { return slot.sgv; }).should.eql([120, 'invalid', 125], 'slots in the order sent');
+          res.body.forEach(function (slot) { slot._id.should.be.a.String(); should.not.exist(slot.refused); });
+          should.not.exist(res.headers.warning);
+
           self.ctx.entries.list({}, function(err, list) {
             should.not.exist(err);
-            
-            console.log(`      Entries inserted: ${list.length} (expected: 1 with ordered, 2 with unordered)`);
-            
-            // At least first valid entry should be inserted
-            list.length.should.be.greaterThan(0, 'Valid entries before error should be inserted');
-            
-            const validEntries = list.filter(item => typeof item.sgv === 'number');
-            console.log(`      Valid entries: ${validEntries.length}`);
-            
+            list.length.should.equal(3, 'every entry of the batch is stored');
+            list.filter(function (item) { return typeof item.sgv === 'number'; }).length.should.equal(2);
             done();
           });
         });

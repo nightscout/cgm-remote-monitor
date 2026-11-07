@@ -1,0 +1,48 @@
+<% if (pageEntry !== 'app') { %>
+<div id="centerMessagePanel" role="status" style="display: none; position: fixed; inset: 0; background: #000; color: #fff; z-index: 1000; text-align: center; padding-top: 30vh;">
+  <p id="loadingMessageText">Connecting to Nightscout</p>
+</div>
+<% } %>
+<div id="page-load-error" role="alert" hidden style="background: #fff; color: #222; padding: 1rem; position: relative; z-index: 1000;">
+  <p>Nightscout could not load this page. Check your connection and try again.</p>
+  <button id="page-load-retry" type="button">Reload page</button>
+</div>
+<script src="<%= locals.bundle %>/js/bundle.app.js?v=<%= encodeURIComponent(locals.cachebuster || '') %>"></script>
+<% if (pageEntry !== 'app') { %>
+<script src="<%= locals.bundle %>/js/bundle.<%= pageEntry %>.js?v=<%= encodeURIComponent(locals.cachebuster || '') %>"></script>
+<% } %>
+<script src="/socket.io/socket.io.js"></script>
+<script>
+(function () {
+  'use strict';
+  var error = document.getElementById('page-load-error');
+  var retry = document.getElementById('page-load-retry');
+  retry.addEventListener('click', function () { window.location.reload(); });
+  function failed() {
+    var loading = document.getElementById('centerMessagePanel');
+    if (loading) loading.style.display = 'none';
+    error.hidden = false;
+    retry.focus();
+  }
+  var ns = window.Nightscout;
+  var entry = <%- JSON.stringify(pageEntry) %>;
+  var required = {reports: 'reportclient', admin: 'admin_plugins', profile: 'profileclient', food: 'foodclient'};
+  if (!window.$ || !window.io || !ns || !ns.client || typeof ns.client.init !== 'function' ||
+      (required[entry] && typeof ns[required[entry]] !== 'function')) {
+    failed();
+    return;
+  }
+  // Keep startup scripts in their existing order. A failed download must not
+  // run later initializers against a partially loaded page.
+  var scripts = <%- JSON.stringify(startupScripts) %>;
+  function next() {
+    if (!scripts.length) return;
+    var script = document.createElement('script');
+    script.src = scripts.shift();
+    script.onload = next;
+    script.onerror = failed;
+    document.body.appendChild(script);
+  }
+  next();
+})();
+</script>

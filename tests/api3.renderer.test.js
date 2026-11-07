@@ -1,8 +1,7 @@
 /* eslint require-atomic-updates: 0 */
-/* global should */
 'use strict';
 
-require('should');
+const should = require('should');
 
 describe('API3 output renderers', function() {
   const self = this
@@ -12,7 +11,7 @@ describe('API3 output renderers', function() {
     , opTools = require('../lib/api3/shared/operationTools')
     , utils = require('./fixtures/api3/utils')
     , xml2js = require('xml2js')
-    , csvParse = require('csv-parse/lib/sync')
+    , {parse: csvParse} = require('csv-parse/sync')
     ;
 
   self.historyFrom = (new Date()).getTime() - 1000; // starting timestamp for HISTORY operations
@@ -99,7 +98,7 @@ describe('API3 output renderers', function() {
   self.checkItems = function checkItems(arrModel, arr) {
     for (let itemModel of arrModel) {
       const item = arr.find(doc => doc.identifier === itemModel.identifier);
-      item.should.not.be.empty();
+      should(item).not.be.empty();
       self.checkProps(itemModel, item);
     }
   };
@@ -117,9 +116,9 @@ describe('API3 output renderers', function() {
     xmlText.should.startWith('<?xml version=\'1.0\' encoding=\'utf-8\'?>');
 
     const xml = await self.xmlParser.parseStringPromise(xmlText);
-    xml.items.should.not.be.empty();
+    should(xml.items).not.be.empty();
     let items = xml.items.item;
-    items.should.be.Array();
+    should(items).be.Array();
     items.length.should.equal(arrModel.length);
 
     self.checkItems(arrModel, items);
@@ -161,10 +160,10 @@ describe('API3 output renderers', function() {
     }
 
     self.doc1json = await createDoc(self.doc1);
-    self.cache.nextShouldEql(self.col, self.doc1)
+    await self.cache.nextShouldEql(self.col, self.doc1)
 
     self.doc2json = await createDoc(self.doc2);
-    self.cache.nextShouldEql(self.col, self.doc2)
+    await self.cache.nextShouldEql(self.col, self.doc2)
   });
 
 
@@ -199,7 +198,7 @@ describe('API3 output renderers', function() {
     res.text.should.startWith('<?xml version=\'1.0\' encoding=\'utf-8\'?>');
 
     const xml = await self.xmlParser.parseStringPromise(res.text);
-    xml.item.should.not.be.empty();
+    should(xml.item).not.be.empty();
     self.checkProps(self.doc1, xml.item);
 
     let res2 = await self.instance.get(`${self.url}/${self.doc1.identifier}?fields=_all`, self.jwt.read)
@@ -288,7 +287,7 @@ describe('API3 output renderers', function() {
         .expect(200);
 
       res.body.status.should.equal(200);
-      self.cache.nextShouldDeleteLast(self.col);
+      await self.cache.nextShouldDeleteLast(self.col);
     }
 
     await deleteDoc(self.doc1.identifier);

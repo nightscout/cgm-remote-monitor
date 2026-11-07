@@ -9,6 +9,7 @@ describe('settings', function ( ) {
   it('have defaults ready', function () {
     settings.timeFormat.should.equal(12);
     settings.nightMode.should.equal(false);
+    settings.showSeconds.should.equal(false);
     settings.showRawbg.should.equal('never');
     settings.customTitle.should.equal('Nightscout');
     settings.theme.should.equal('default');
@@ -39,6 +40,7 @@ describe('settings', function ( ) {
       , 'UNITS'
       , 'TIME_FORMAT'
       , 'NIGHT_MODE'
+      , 'SHOW_SECONDS'
       , 'SHOW_RAWBG'
       , 'CUSTOM_TITLE'
       , 'THEME'
@@ -60,7 +62,7 @@ describe('settings', function ( ) {
       , 'SCALE_Y'
     ];
 
-    expected.length.should.equal(24);
+    expected.length.should.equal(25);
 
     var seen = { };
     settings.eachSettingAsEnv(function markSeenNames(name) {
@@ -73,6 +75,14 @@ describe('settings', function ( ) {
     });
 
     expectedAndSeen.length.should.equal(expected.length);
+  });
+
+  it('maps the SHOW_SECONDS server default without overriding an explicit off value', function () {
+    [ [undefined, false], ['on', true], ['off', false], ['true', true], ['false', false] ].forEach(function (example) {
+      var fresh = require('../lib/settings')();
+      fresh.eachSettingAsEnv(function (name) { return name === 'SHOW_SECONDS' ? example[0] : undefined; });
+      fresh.showSeconds.should.equal(example[1]);
+    });
   });
   it('support setting each', function () {
     var expected = [
@@ -111,6 +121,30 @@ describe('settings', function ( ) {
 
     expectedAndSeen.length.should.equal(expected.length);
 
+  });
+
+  it('support setting numbered camel-case env vars', function () {
+    var userSetting = {
+      SHOW_RAWBG: 'always'
+      , SECURE_CSP: 'true'
+    };
+
+    for (var i = 1; i <= 8; i++) {
+      userSetting['FRAME_URL_' + i] = 'https://example' + i + '.com';
+      userSetting['FRAME_NAME_' + i] = 'Site ' + i;
+    }
+
+    var fresh = require('../lib/settings')();
+    fresh.eachSettingAsEnv(function (name) {
+      return userSetting[name];
+    });
+
+    for (var frameIndex = 1; frameIndex <= 8; frameIndex++) {
+      fresh['frameUrl' + frameIndex].should.equal('https://example' + frameIndex + '.com');
+      fresh['frameName' + frameIndex].should.equal('Site ' + frameIndex);
+    }
+    fresh.showRawbg.should.equal('always');
+    fresh.secureCsp.should.equal(true);
   });
 
   it('have default features', function () {
@@ -171,6 +205,66 @@ describe('settings', function ( ) {
     fresh.thresholds.bgLow.should.equal(60);
 
     should.deepEqual(fresh.alarmTypes, ['simple']);
+  });
+
+  describe('thresholds on an mmol site', function () {
+    function thresholdsFor (vars) {
+      var fresh = require('../lib/settings')();
+      var realInfo = console.info;
+      console.info = function () {};
+      try {
+        fresh.eachSettingAsEnv(function (name) {
+          return Object.assign({ UNITS: 'mmol' }, vars)[name];
+        });
+      } finally {
+        console.info = realInfo;
+      }
+      return fresh.thresholds;
+    }
+
+    it('convert all four when all four are set in mmol/L', function () {
+      thresholdsFor({ BG_HIGH: '14', BG_TARGET_TOP: '10', BG_TARGET_BOTTOM: '4', BG_LOW: '3.0' })
+        .should.eql({ bgHigh: 252, bgTargetTop: 180, bgTargetBottom: 72, bgLow: 54 });
+    });
+
+    it('keep all four when all four are set in mg/dl', function () {
+      thresholdsFor({ BG_HIGH: '260', BG_TARGET_TOP: '180', BG_TARGET_BOTTOM: '80', BG_LOW: '55' })
+        .should.eql({ bgHigh: 260, bgTargetTop: 180, bgTargetBottom: 80, bgLow: 55 });
+    });
+
+    it('convert the targets set in mmol/L and keep the mg/dl defaults of the rest', function () {
+      thresholdsFor({ BG_TARGET_TOP: '8.5', BG_TARGET_BOTTOM: '3.9' })
+        .should.eql({ bgHigh: 260, bgTargetTop: 153, bgTargetBottom: 70, bgLow: 55 });
+    });
+
+    it('convert the targets and BG_LOW set in mmol/L and keep the mg/dl default of BG_HIGH', function () {
+      thresholdsFor({ BG_TARGET_TOP: '8.5', BG_TARGET_BOTTOM: '3.9', BG_LOW: '3.5' })
+        .should.eql({ bgHigh: 260, bgTargetTop: 153, bgTargetBottom: 70, bgLow: 63 });
+    });
+
+    it('keep a target set in mg/dl when BG_HIGH is set in mmol/L', function () {
+      thresholdsFor({ BG_HIGH: '14', BG_TARGET_TOP: '180' })
+        .should.eql({ bgHigh: 252, bgTargetTop: 180, bgTargetBottom: 80, bgLow: 55 });
+    });
+
+    it('log each threshold it converts', function () {
+      var fresh = require('../lib/settings')();
+      var lines = [];
+      var realInfo = console.info;
+      console.info = function () { lines.push(Array.prototype.join.call(arguments, ' ')); };
+      try {
+        fresh.eachSettingAsEnv(function (name) {
+          return { UNITS: 'mmol', BG_TARGET_TOP: '8.5', BG_TARGET_BOTTOM: '3.9' }[name];
+        });
+      } finally {
+        console.info = realInfo;
+      }
+      var converted = lines.filter(function (line) { return line.indexOf('converted to') > -1; });
+      converted.should.eql([
+        'Threshold bgTargetTop 8.5 taken as mmol/L, converted to 153 mg/dl'
+        , 'Threshold bgTargetBottom 3.9 taken as mmol/L, converted to 70 mg/dl'
+      ]);
+    });
   });
 
   it('default to predict if no thresholds are set', function () {

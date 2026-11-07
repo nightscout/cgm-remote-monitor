@@ -38,11 +38,17 @@ describe('WebSocket Shape Handling - dbAdd Single vs Array Input', function () {
     });
   });
 
-  after(function (done) {
+  // Remove what these tests wrote, so later files (and a second run on the
+  // same database) start from the collections they expect (BF-158).
+  after(async function () {
+    if (self.ctx && self.ctx.store) {
+      for (const name of [self.env.entries_collection, self.env.treatments_collection,
+        self.env.devicestatus_collection, self.env.profile_collection]) {
+        await self.ctx.store.collection(name).deleteMany({ });
+      }
+    }
     if (self.server) {
-      self.server.close(done);
-    } else {
-      done();
+      await new Promise(function (resolve) { self.server.close(resolve); });
     }
   });
 

@@ -81,11 +81,13 @@ The `treatments` collection stores all user interventions and system events rela
 
 | Field | Type | Constraints | Description |
 |-------|------|-------------|-------------|
-| `targetTop` | Number | In user's units | Upper bound of temporary target range |
-| `targetBottom` | Number | In user's units | Lower bound of temporary target range |
+| `targetTop` | Number | Stored in mg/dL | Upper bound of temporary target range |
+| `targetBottom` | Number | Stored in mg/dL | Lower bound of temporary target range |
 | `correctionRange` | Array[2] | `[min, max]` | Alternative format for target range |
 | `reason` | String | Optional | Reason for temporary target (e.g., "Eating Soon", "Activity") |
 | `insulinNeedsScaleFactor` | Number | Multiplier | Adjustment factor for insulin sensitivity |
+
+**Note:** A Temporary Target with targets is stored in mg/dL with `units: "mg/dl"`, whatever it was sent in (BF-194, `lib/treatmentTargetUnits.js`), on API v1, API v3 and the socket. Targets labelled `mmol` or `mmol/L` (any case) are multiplied by `MMOL_TO_MGDL`, unless one is above 30, which is already a mg/dL number. Unlabelled targets are converted when one is below 20, as Nightscout reads them. A glucose value on the record is converted by the same tests. Records stored before this are not migrated.
 
 ---
 
