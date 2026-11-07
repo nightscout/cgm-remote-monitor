@@ -3,11 +3,14 @@
 // Relay drops one response AFTER actual handoff to create uncertain-send evidence.
 const fs = require('node:fs'), path = require('node:path'), assert = require('node:assert/strict');
 module.exports = async function consumer (input) {
-  const roles = await require('./roles').start(input), config = roles.config, sockets = [], events = [], attempts = [];
+  const roles = await require('./roles').start(input), config = roles.config, sockets = [], events = [], attempts = [], observations = {};
   const { Client } = require('pg'), admin = new Client({ connectionString: input.env.NS_TEST_POSTGRES_ADMIN_URI });
-  let connected = false, relay, directory, dropped = false, staleGrants;
+  let connected = false, relay, directory, runtimeDirectory, dropped = false, staleGrants;
   const table = name => { assert.match(name, /^[a-z][a-z0-9_]{0,62}$/); return '"' + name + '"'; };
-  const record = extra => fs.writeFileSync(path.join(input.captureDir, 'actual-consumer-handoff.json'), JSON.stringify({ events, attempts, ...extra }, null, 2) + '\n');
+  const record = (extra = {}) => {
+    Object.assign(observations, extra);
+    fs.writeFileSync(path.join(input.captureDir, 'actual-consumer-handoff.json'), JSON.stringify({ events, attempts, ...observations }, null, 2) + '\n');
+  };
   const pause = ms => new Promise(resolve => setTimeout(resolve, ms));
   async function wait (check, marker) { const until = Date.now() + config.timeoutMs; while (Date.now() < until) { const result = await check(); if (result) return result; await pause(10); } throw new Error(marker); }
   async function subscribe (credential, recipient) {
@@ -22,7 +25,6 @@ module.exports = async function consumer (input) {
   try {
     assert.equal(roles.owned.tenant, config.tenant); assert.equal(roles.owned.outboxNamespace, config.outboxNamespace);
     assert.equal(roles.owned.authorizationNamespace, config.authorizationNamespace);
-    assert(Buffer.byteLength(input.captureDir) <= 56, 'owned relay requires short captureDir');
     await admin.connect(); connected = true;
     await subscribe(JSON.parse(input.env[config.staleCredentialEnv]), 'stale');
     const good = await subscribe(JSON.parse(input.env[config.credentialEnv]), 'current');
@@ -31,7 +33,8 @@ module.exports = async function consumer (input) {
     staleGrants = (await admin.query('SELECT role_name FROM ' + auth + '.tenant_authorization_subject_roles WHERE tenant_id=$1 AND subject_id=$2', [config.tenant, config.staleSubjectId])).rows;
     assert(staleGrants.length > 0, 'owned sparse-recipient subject must have removable grants');
     await admin.query('DELETE FROM ' + auth + '.tenant_authorization_subject_roles WHERE tenant_id=$1 AND subject_id=$2', [config.tenant, config.staleSubjectId]);
-    directory = fs.mkdtempSync(path.join(input.captureDir, 'route-')); fs.chmodSync(directory, 0o700);
+    runtimeDirectory = require('./runtime-directory')({ captureDir: input.captureDir, phaseId: input.phaseId });
+    directory = runtimeDirectory.path;
     const socketPath = path.join(directory, 'relay.sock'), ipc = require('../../../lib/server/realtime/ipc');
     const deliver = ipc.client({ socketPath: config.alarmSocketPath, maxBytes: config.maxMessageBytes, timeoutMs: config.timeoutMs });
     relay = await ipc.open({ socketPath, maxBytes: config.maxMessageBytes, timeoutMs: config.timeoutMs }, token => ({
@@ -48,6 +51,7 @@ module.exports = async function consumer (input) {
       const rows = (await admin.query('SELECT request_id,consumer,payload,state,attempt,receipt FROM ' + requests + ' WHERE tenant_id=$1 AND consumer=$2', [config.tenant, config.consumerId])).rows;
       record({ requests: rows }); return rows.find(row => row.state === 'accepted' && row.attempt >= 2 && !row.payload.clear);
     }, 'CONSUMER_SAME_ID_RETRY_NOT_ACCEPTED');
+    record({ accepted });
     const same = attempts.filter(row => row.id === accepted.request_id && !row.notification.clear);
     assert(same.length >= 2, 'CONSUMER_UNCERTAIN_SAME_ID actual retry must retain UUID');
     assert.deepEqual(same[0].notification, same[1].notification, 'CONSUMER_RETRY_UNCHANGED_PAYLOAD');
@@ -62,6 +66,7 @@ module.exports = async function consumer (input) {
     assert.equal(roles.owned.alarmNamespace, config.alarmNamespace);
     const suppressed = (await admin.query('SELECT alarm_group,alarm_level,acked_at,expires_at FROM ' + table(config.alarmNamespace) +
       '.tenant_alarm_suppression WHERE tenant_id=$1 AND alarm_group=$2', [config.tenant, accepted.payload.group || 'default'])).rows;
+    record({ accepted, suppressed });
     assert.deepEqual(suppressed.map(row => row.alarm_level).sort(), [1, 2]);
     assert(Number.isSafeInteger(config.settleMs) && config.settleMs > 0 && config.settleMs <= 60000);
     assert(Number.isSafeInteger(config.observationMs) && config.observationMs > 0 && config.observationMs <= 60000);
@@ -74,7 +79,7 @@ module.exports = async function consumer (input) {
     // Stop producer before relay/RT; role fixture owns its children only.
     try { await roles.close(); } catch { errors.push('ROLE_CLOSE'); }
     if (relay) try { await relay.close(); } catch { errors.push('RELAY_CLOSE'); }
-    if (directory) { const names = fs.readdirSync(directory); if (names.length) errors.push('RELAY_ENDPOINT_REMAINED'); else fs.rmdirSync(directory); }
+    if (runtimeDirectory) try { runtimeDirectory.close(); } catch { errors.push('RELAY_RUNTIME_DIRECTORY_CLEANUP'); }
     if (connected && staleGrants) try {
       for (const row of staleGrants) await admin.query('INSERT INTO ' + table(config.authorizationNamespace) +
         '.tenant_authorization_subject_roles(tenant_id,subject_id,role_name) VALUES($1,$2,$3) ON CONFLICT DO NOTHING', [config.tenant, config.staleSubjectId, row.role_name]);
