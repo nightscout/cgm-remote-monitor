@@ -62,8 +62,8 @@ themselves.
 
 ## Inventory
 
-43 suites. 24 use the admin URI the script provides; 23 start at least one
-container of their own through Docker. Disabled, 42 register their
+44 suites. 25 use the admin URI the script provides; 23 start at least one
+container of their own through Docker. Disabled, 43 register their
 tests as pending with `[pending opt-in: <requirement>]` in the title; one
 (`postgres-entries-write`) uses a bare `describe.skip`.
 
@@ -83,6 +83,7 @@ tests as pending with `[pending opt-in: <requirement>]` in the title; one
 | `tests/tenant-current-state-recovery-proof.integration.test.js` | `NS_M5_CURRENT_STATE_PROOF_TEST=1` | PostgreSQL | | bounded current-state acquisition plus explicit evaluator preview lifecycle; backstop/time/config/close/readiness; notification/provider acceptance separate |
 | `tests/tenant-alarm-state.integration.test.js` | `NS_TENANT_ALARM_TEST=1` | PostgreSQL | | durable tenant-wide suppression, current transaction authority, original expiry/restart and restricted-role isolation; four disabled cases |
 | `tests/tenant-notifications.integration.test.js` | `NS_TENANT_NOTIFICATIONS_TEST=1` | PostgreSQL | | durable request/attempt identity, current consumer eligibility and unsafe-schema refusal; seven disabled cases; no provider/device guarantee |
+| `tests/evaluator-consumers.integration.test.js` | `NS_EVALUATOR_CONSUMERS_TEST=1` | PostgreSQL | | actual selected evaluator, atomic private state and intent, controlled UDS sink, restart/retry and committed ACK clears; real recipient delivery has separate joined fixtures |
 | `tests/tenant-commit-clock-port.integration.test.js` | `NS_TENANT_COMMIT_CLOCK_TEST=1` | PostgreSQL | | |
 | `tests/tenant-commit-clock-http.integration.test.js` | `NS_TENANT_COMMIT_CLOCK_HTTP_DOCKER_TEST=1` | | PostgreSQL, Vault | functional cases enabled; benchmark separately opt-in |
 | `tests/multitenant-preview-replicas.integration.test.js` | `NS_MULTITENANT_PREVIEW_REPLICAS_DOCKER_TEST=1` | | PostgreSQL, Vault | independent CLI processes on one host |

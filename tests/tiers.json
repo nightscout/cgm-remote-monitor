@@ -168,6 +168,11 @@
         "tests/tenant-alarm-state.test.js",
         "tests/tenant-alarm-composition.test.js",
         "tests/tenant-notifications.test.js",
+        "tests/evaluator-consumers.test.js",
+        "tests/notification-ack-admission.test.js",
+        "tests/notification-private-state.test.js",
+        "tests/notification-producer-state.test.js",
+        "tests/notification-producer.test.js",
         "tests/realtime-preview.test.js",
         "tests/profile-socket-order.test.js",
         "tests/realtime-database-binding.test.js"
@@ -355,7 +360,8 @@
         "tests/tenant-socket-data-forwarding.integration.test.js",
         "tests/tenant-socket-order-capability.integration.test.js",
         "tests/tenant-alarm-state.integration.test.js",
-        "tests/tenant-notifications.integration.test.js"
+        "tests/tenant-notifications.integration.test.js",
+        "tests/evaluator-consumers.integration.test.js"
       ],
       "env": true,
       "require": [
