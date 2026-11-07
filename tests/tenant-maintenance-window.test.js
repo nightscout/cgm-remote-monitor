@@ -56,13 +56,15 @@ function fixture (options = {}) {
     throw new Error('Unexpected simulated query: ' + text);
   };
   client.release = error => { m.released = true; m.releaseError = error; };
-  const cohort = {};
+  const cohort = {}, pin = {};
   const original = Module._load;
   let api;
   try {
     Module._load = function (request, ...rest) {
       if (request === '../server/serve/operation-cohort') return {
-        assertComplete (given, tenant, options) { assert.equal(options.client, client); if (given !== cohort || tenant !== A || m.incomplete) throw Object.assign(new Error('incomplete'), { code: 'COHORT_INCOMPLETE' }); },
+        async pin (given, tenant, options) { assert.equal(given,cohort);assert.equal(tenant,A);assert.equal(options.client,client);if(m.incomplete)throw Object.assign(new Error('incomplete'),{code:'COHORT_INCOMPLETE'});m.pinned=true;return pin; },
+        async releasePin (given) { assert.equal(given,pin);assert(m.pinned);m.pinned=false;m.pinReleased=true; },
+        assertComplete (given, tenant, options) { assert.equal(options.client, client); assert(m.pinned); if (given !== cohort || tenant !== A || m.incomplete) throw Object.assign(new Error('incomplete'), { code: 'COHORT_INCOMPLETE' }); },
         async invalidate (given, tenant) { assert.equal(given, cohort); assert.equal(tenant, A); assert.equal(m.durable.window.phase, 'suspended'); assert.equal(m.durable.audit.state, 'restored'); await new Promise(resolve=>setImmediate(resolve)); m.invalidated = true; if (m.invalidateFails) throw Object.assign(new Error('invalidate failed'), { code: 'INVALIDATE_FAILED' }); }
       };
       return original.call(this, request, ...rest);
@@ -88,7 +90,7 @@ describe('private tenant restore controller (simulated backend protocol)', funct
       return 'verified';
     });
     assert.equal(result.state, 'activated'); assert.equal(result.generation, '2'); assert.equal(result.result, 'verified');
-    assert.deepEqual(m.durable.rows, ['restored-A']); assert.equal(m.durable.audit.state, 'activated'); assert(m.invalidated && m.released && !m.locked); assert.equal(m.releaseError, true, 'controller backend is destroyed after success');
+    assert.deepEqual(m.durable.rows, ['restored-A']); assert.equal(m.durable.audit.state, 'activated'); assert(m.invalidated && m.released && !m.locked); assert.equal(m.releaseError, true, 'controller backend is destroyed after success'); assert(m.pinReleased && !m.pinned);
     assert.deepEqual(m.foreign, { ordinal: 100, doc: 'B-current' });
     await scope.withTenant(A, () => assert.rejects(controller.assertHeld(saved.maintenanceClaim, { connection: saved.connection, tenant: A, artifactDigest: DIGEST }), code('LIFECYCLE_RESTORE_CLAIM_INVALID')));
     await assert.rejects(saved.connection.transaction(async () => {}), code('LIFECYCLE_RESTORE_CONNECTION_CLOSED'));
