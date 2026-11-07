@@ -32,12 +32,37 @@ optInSuite(process.env.NS_TENANT_COMMIT_CLOCK_TEST === '1' && !!process.env.NS_T
     const write = (worker, identifier, tenant = lab.A) => scope.withTenant(tenant, () =>
       port(worker).write({ op: 'create', docs: [document(identifier)], canUpdate: true }));
 
-    it('characterizes a durable uniqueness-only counter losing a lower late commit behind an observed higher cursor', async function () {
+    async function insertionState () {
+      const ordinals = await lab.admin.query('SELECT id_kind,"_id",insertion_ordinal FROM "' +
+        lab.namespaces.entries + '".entries WHERE tenant_id=$1 ORDER BY id_kind,"_id"', [lab.A]);
+      const counter = await lab.admin.query('SELECT last_ordinal FROM "' + lab.namespaces.entries +
+        '".tenant_insertion_ordinal WHERE tenant_id=$1', [lab.A]);
+      return { ordinals: ordinals.rows, counter: counter.rows };
+    }
+    async function seedIndependentRows () {
+      await write(0, 'lower-existing');
+      await write(1, 'higher-existing');
+      const stored = await scope.withTenant(lab.A, async () => Promise.all(
+        ['lower-existing', 'higher-existing'].map(identifier => port(0).storage.findOneFilter({ identifier }))));
+      assert.equal(stored.length, 2);
+      assert.ok(stored.every(row => row && row._id));
+      assert.notEqual(String(stored[0]._id), String(stored[1]._id));
+      const baseline = await lab.floor(lab.A);
+      assert.equal(baseline, Math.max(...stored.map(row => row.srvModified)));
+      return { stored, baseline, insertion: await insertionState() };
+    }
+    const replacement = stored => ({ op: 'update', docs: [{ ...document(stored.identifier), sgv: 124 }],
+      target: { identifier: stored.identifier, stored } });
+
+    it('characterizes a durable uniqueness-only counter losing a lower late replacement behind an observed higher cursor', async function () {
+      const { stored, baseline, insertion } = await seedIndependentRows();
       const acquired = deferred(), release = deferred();
-      // Authored alternative-design control, not a production mode: commit
-      // the atomic counter before the data transaction. Real driver UPDATE
-      // allocates the values; shipping step/adapter persist the documents.
-      async function detached (worker, identifier, hold) {
+      // The earlier INSERT control timed out because the tenant-local insertion
+      // counter serialized both creates. Use independent existing rows so this
+      // alternative tests history-clock commit order without that other lock.
+      // Commit the atomic stamp before the raw data transaction; shipping
+      // intent/adapter replacement must retain both insertion ordinals/floor.
+      async function detached (worker, row, hold) {
         return scope.withTenant(lab.A, async () => {
           const allocated = await lab.raw[worker].query('UPDATE "' + lab.namespaces.clock +
             '".tenant_write_clock SET last_stamp=last_stamp+1 WHERE tenant_id=$1 RETURNING last_stamp', [lab.A]);
@@ -51,40 +76,47 @@ optInSuite(process.env.NS_TENANT_COMMIT_CLOCK_TEST === '1' && !!process.env.NS_T
           try {
             return await lab.raw[worker].transaction(() => dates.withAllocator(allocator, async () => {
               const step = intent.forCollectionResolved(port(worker).storage, 'entries', 'v3', { env: {} });
-              await step.write({ op: 'create', docs: [document(identifier)] });
+              const result = await step.write(replacement(row));
+              assert.equal(result.items[0].outcome, 'replaced');
               if (hold) { acquired.resolve(); await release.promise; }
             }));
           } finally { allocator.active = false; }
         });
       }
-      const first = detached(0, 'lower-late', true);
+      const first = detached(0, stored[0], true);
       first.catch(() => {});
       let cursor;
       try {
         await Promise.race([acquired.promise, first.then(() => { throw new Error('Held write ended before its barrier'); })]);
-        await detached(1, 'higher-visible', false);
-        const visible = await lab.rows();
-        assert.deepEqual(visible.map(row => row.identifier), ['higher-visible']);
+        await detached(1, stored[1], false);
+        const visible = await lab.rows(lab.A, baseline);
+        assert.deepEqual(visible.map(row => row.identifier), ['higher-existing']);
         cursor = visible[0].srvModified;
-        assert.equal(cursor, lab.initial + 2);
+        assert.equal(cursor, baseline + 2);
+        assert.equal((await lab.rows()).find(row => row.identifier === 'lower-existing').srvModified, stored[0].srvModified);
+        assert.deepEqual(await insertionState(), insertion, 'Replacement must not acquire a new insertion ordinal');
       } finally {
         release.resolve();
         await Promise.allSettled([first]);
       }
       await first;
-      const final = await lab.rows();
-      assert.deepEqual(final.map(row => row.identifier), ['lower-late', 'higher-visible']);
-      assert.equal(final[0].srvModified, lab.initial + 1);
-      assert.deepEqual(await lab.rows(lab.A, cursor), [], 'Exclusive cursor misses the actual lower late commit');
+      const final = await lab.rows(lab.A, baseline);
+      assert.deepEqual(final.map(row => row.identifier), ['lower-existing', 'higher-existing']);
+      assert.equal(final[0].srvModified, baseline + 1);
+      assert.ok(final.every(row => row.sgv === 124));
+      assert.deepEqual(await insertionState(), insertion);
+      assert.deepEqual(await lab.rows(lab.A, cursor), [], 'Exclusive cursor misses the actual lower late replacement');
     });
 
-    it('holds lower allocation through COMMIT before an independent connection can expose a higher cursor', async function () {
+    it('holds lower replacement allocation through COMMIT before an independent row can expose a higher cursor', async function () {
+      const { stored, baseline, insertion } = await seedIndependentRows();
       const acquired = deferred(), release = deferred();
       const bus = new EventEmitter();
       let events = 0;
       bus.on(intent.INTENT_EVENT, () => { events++; });
       const first = scope.withTenant(lab.A, () => lab.clocks[0].transaction(async () => {
-        await port(0, bus).write({ op: 'create', docs: [document('lower-held')] });
+        const result = await port(0, bus).write(replacement(stored[0]));
+        assert.equal(result.items[0].outcome, 'replaced');
         acquired.resolve();
         await release.promise;
       }));
@@ -92,24 +124,28 @@ optInSuite(process.env.NS_TENANT_COMMIT_CLOCK_TEST === '1' && !!process.env.NS_T
       let second;
       try {
         await Promise.race([acquired.promise, first.then(() => { throw new Error('Held write ended before its barrier'); })]);
-        assert.deepEqual(await lab.rows(), [], 'Lower write must still be uncommitted');
+        assert.deepEqual(await lab.rows(lab.A, baseline), [], 'Lower replacement must still be uncommitted');
         assert.equal(events, 0);
-        assert.equal(await lab.floor(lab.A), lab.initial);
-        second = write(1, 'higher-waiting');
+        assert.equal(await lab.floor(lab.A), baseline);
+        second = scope.withTenant(lab.A, () => port(1).write(replacement(stored[1])));
         second.catch(() => {});
-        await lab.waitForClockLock();
-        assert.deepEqual(await lab.rows(), [], 'Higher cursor must not become visible ahead of held lower write');
+        const waiting = await lab.waitForClockLock();
+        assert.ok(waiting.blockers.length > 0, 'Actual clock SELECT FOR UPDATE must have a blocking backend');
+        assert.deepEqual(await lab.rows(lab.A, baseline), [], 'Higher cursor must not become visible ahead of held lower replacement');
+        assert.deepEqual(await insertionState(), insertion);
         assert.equal(events, 0);
       } finally {
         release.resolve();
         await Promise.allSettled([first, second].filter(Boolean));
       }
       await first;
-      await second;
-      const rows = await lab.rows();
-      assert.deepEqual(rows.map(row => row.identifier), ['lower-held', 'higher-waiting']);
-      assert.deepEqual(rows.map(row => row.srvModified), [lab.initial + 1, lab.initial + 2]);
-      assert.deepEqual((await lab.rows(lab.A, rows[0].srvModified)).map(row => row.identifier), ['higher-waiting']);
+      assert.equal((await second).items[0].outcome, 'replaced');
+      const rows = await lab.rows(lab.A, baseline);
+      assert.deepEqual(rows.map(row => row.identifier), ['lower-existing', 'higher-existing']);
+      assert.deepEqual(rows.map(row => row.srvModified), [baseline + 1, baseline + 2]);
+      assert.ok(rows.every(row => row.sgv === 124));
+      assert.deepEqual((await lab.rows(lab.A, rows[0].srvModified)).map(row => row.identifier), ['higher-existing']);
+      assert.deepEqual(await insertionState(), insertion);
       assert.equal(events, 1);
       assert.equal(await lab.floor(lab.A), rows[1].srvModified);
     });
