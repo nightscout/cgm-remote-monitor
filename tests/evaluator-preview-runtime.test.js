@@ -51,6 +51,33 @@ describe('evaluator preview trusted configuration', function () {
   });
 });
 
+describe('tenant-local evaluator statistics source protocol', function () {
+  it('reuses logical tenant bytes and never assigns shared index bytes or foreign growth', async function () {
+    const scope = require('../lib/storage/tenant-scope');
+    const createStats = require('../lib/storage/postgres-tenant-stats');
+    const previous = scope.getTenancyMode(); scope.setTenancyMode('multi');
+    const bytes = new Map([[A, 1000], [B, 2000]]), calls = [];
+    const stats = createStats({ tables: { entries: 'scope_entries.entries' }, connection: { async query (sql) {
+      const tenant = scope.requireTenant('synthetic stats port'); calls.push({ tenant, sql });
+      // Independent supplied-port oracle: logical query has tenant bytes; a
+      // shared physical-size query would expose both. No actual PG/RLS claim.
+      return { rows: [{ bytes: /pg_column_size\(doc\)/.test(sql) ? bytes.get(tenant) : [...bytes.values()].reduce((n, v) => n + v, 0) }] };
+    } } });
+    try {
+      const first = await scope.withTenant(A, () => stats.read(A));
+      bytes.set(B, 400 * 1024 * 1024);
+      const afterForeign = await scope.withTenant(A, () => stats.read(A));
+      assert.deepEqual(afterForeign, first, 'M5_EVAL_TENANT_STATS foreign logical growth cannot change A');
+      assert.equal(first.dataSize, 1000); assert.equal(first.indexSize, undefined);
+      assert.ok((await scope.withTenant(B, () => stats.read(B))).dataSize > first.dataSize);
+      const before = calls.length;
+      await assert.rejects(scope.withTenant(B, () => stats.read(A)), /scope mismatch/);
+      assert.equal(calls.length, before);
+      await assert.rejects(stats.read(A), /no tenant bound/);
+    } finally { scope.setTenancyMode(previous); }
+  });
+});
+
 describe('evaluator preview readiness protocol', function () {
   it('requires exact read-only/owned-bookkeeping scope and refuses every unsafe metadata class', async function () {
     const screen = require('../lib/server/serve/evaluator-readiness').screen;

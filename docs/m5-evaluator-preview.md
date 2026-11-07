@@ -53,6 +53,10 @@ The current-state backstop is deliberately separate from the time-only schedule.
 A time tick uses only the last successfully computed retained input and its
 acquisition statistics, advances no input checkpoint and performs no current-table
 acquisition. Projection reads still use the existing JSON-source SQL reader.
+Statistics reuse the existing REST context contract: RLS-bound tenant logical
+JSONB dataSize from pg_column_size(doc); unmeasured indexSize is absent. Shared
+physical table/index sizes never enter a tenant clinical frame. The same helper
+serves existing REST contexts; statistics are retained for time-only computation.
 
 A changed config retires the old retained frame and creates a new component. A
 time tick on that new component refuses until an independent acquisition succeeds;
