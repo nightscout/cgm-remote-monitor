@@ -40,7 +40,13 @@ services:
       - vault-data:/vault/file
       - ${NS_DEMO_STATE}/tls/server.crt:/run/ns-tls/server.crt:ro
       - ${NS_DEMO_STATE}/tls/server.key:/run/ns-tls/server.key:ro
+      - ${NS_DEMO_STATE}/tls/ca.crt:/run/ns-ca/ca.crt:ro
       - ${NS_DEMO_STATE}/vault/demo.hcl:/vault/config/demo.hcl:ro
+    healthcheck:
+      test: [CMD-SHELL, 'vault status -address=https://vault:8200 -ca-cert=/run/ns-ca/ca.crt >/dev/null 2>&1; result=$$?; [ "$$result" -eq 0 ] || [ "$$result" -eq 2 ]']
+      interval: 2s
+      timeout: 2s
+      retries: 30
     networks: [backend]
 
   bootstrap:
@@ -50,7 +56,7 @@ services:
     command: [node, deploy/multitenant/bootstrap.js]
     depends_on:
       postgres: {condition: service_healthy}
-      vault: {condition: service_started}
+      vault: {condition: service_healthy}
     environment:
       NODE_EXTRA_CA_CERTS: /run/ns-ca/ca.crt
       VAULT_ADDR: https://vault:8200
