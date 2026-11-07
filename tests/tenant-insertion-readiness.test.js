@@ -13,7 +13,7 @@ function fixture () {
   const structure = { clinical_secured: true, counter_secured: true, independent: true, same_owner: true,
     owns: false, plain_ordinal: true, counter_columns: [{ name: 'tenant_id', type: 'uuid', required: true, identity: '', generated: '' },
       { name: 'last_ordinal', type: 'bigint', required: true, identity: '', generated: '' }],
-    body: proposal.build({ namespace, domain }).up.find(s => s.startsWith('CREATE FUNCTION ')).split('$tenant_insertion$')[1],
+    body: proposal.effectiveFunctionBody({ namespace, domain }),
     definer: false, volatility: 'v', config: ['search_path=pg_catalog'], language: 'plpgsql', trigger_function: true,
     triggers: [{ name: 'tenant_insertion_allocate', enabled: 'O', type: 23, internal: false, function: true, args: 0, conditional: false }],
     counter_policies: policy, clinical_policies: structuredClone(policy), unique_order: true, counter_primary: true, no_sequence: true,
@@ -71,6 +71,7 @@ describe('tenant insertion read-only physical admission protocol', function () {
   it('refuses missing/disabled/rebound triggers and altered function bodies, restoring pristine each time', async function () {
     for (const mutate of [s => { s.triggers = null; }, s => { s.triggers[0].enabled = 'D'; },
       s => { s.triggers[0].function = false; }, s => { s.body = s.body.replace('counter.last_ordinal+1', 'counter.last_ordinal'); },
+      s => { s.body = proposal.build({ namespace, domain }).up.find(statement => statement.startsWith('CREATE FUNCTION ')).split('$tenant_insertion$')[1]; },
       s => { s.definer = true; }, s => { s.config = ['search_path=public']; }, s => { s.no_sequence = false; },
       s => { s.same_owner = false; }, s => { s.counter_policies[0].using = 'true'; }, s => { s.counter_policies.push(s.counter_policies[0]); },
       s => { s.unique_order = false; }, s => { s.counter_primary = false; },
