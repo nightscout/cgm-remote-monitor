@@ -24,6 +24,46 @@ function credentials (index,subject,token) {
   if (index===0&&subject===STATUS) return {RT_BOOTSTRAP_EPOCH_STATUS_JSON:JSON.stringify({token,accessToken:token})};
   return {};
 }
+// Exact fixture-owned phase reset. Encrypted bootstrap roots must survive phase
+// resets; all other selected data/audit tables reset, never migration ledgers.
+function resetTables () {
+  return {entries:['entries'],treatments:['treatments'],devicestatus:['devicestatus'],profile:['profile'],food:['food'],activity:['activity'],settings:['settings'],
+    authorization:['tenant_authorization_config','tenant_authorization_roles','tenant_authorization_subjects','tenant_authorization_subject_roles',
+      'tenant_subject_admin_audit','tenant_owner_policy','tenant_owner_actors'],secrets:['secret_audit'],
+    legacy:['legacy_credential_config','legacy_credential_subjects'],access:['access_tenants','access_credentials','access_sessions','access_keys'],
+    clock:['tenant_write_clock'],rt_checkpoint:['tenant_consumer_checkpoint'],eval_checkpoint:['tenant_consumer_checkpoint'],
+    alarm:['tenant_alarm_suppression'],outbox:['tenant_notification_state','tenant_notification_heads','tenant_notification_requests']};
+}
+function resetPlan (layout, catalogues, reset=resetTables()) {
+  const preserve={secrets:['secret_records']}, known=resetTables(), tables=new Map(), foreignKeys=[];
+  const refuse=code=>{throw new Error(code);};
+  if (Object.keys(catalogues).sort().join(',')!==Object.keys(known).sort().join(',') ||
+      Object.keys(reset).sort().join(',')!==Object.keys(known).sort().join(',')) refuse('JOINED_BOOTSTRAP_RESET_DOMAINS');
+  for (const [domain,catalogue] of Object.entries(catalogues)) {
+    const names=new Set();tables.set(domain,names);
+    for (const migration of catalogue.migrations) for (const sql of migration.up) {
+      const create=/^CREATE TABLE ([a-z][a-z0-9_]*) \(/.exec(sql);
+      if (/CREATE TABLE/i.test(sql)&&!create) refuse('JOINED_BOOTSTRAP_RESET_DDL_UNREVIEWED');
+      if (create) { if(names.has(create[1]))refuse('JOINED_BOOTSTRAP_RESET_DDL_UNREVIEWED');names.add(create[1]); }
+      if (/REFERENCES/i.test(sql)) {
+        const owner=/^(?:CREATE|ALTER) TABLE ([a-z][a-z0-9_]*) /.exec(sql), references=[...sql.matchAll(/REFERENCES ([a-z][a-z0-9_]*) \(/g)];
+        if (!owner||references.length!==(sql.match(/REFERENCES/gi)||[]).length) refuse('JOINED_BOOTSTRAP_RESET_DDL_UNREVIEWED');
+        for (const target of references) foreignKeys.push({domain,from:owner[1],to:target[1]});
+      }
+    }
+    if (!Array.isArray(reset[domain])||new Set(reset[domain]).size!==reset[domain].length) refuse('JOINED_BOOTSTRAP_RESET_TABLES');
+  }
+  for (const relation of foreignKeys) {
+    if (!tables.get(relation.domain).has(relation.from)||!tables.get(relation.domain).has(relation.to)) refuse('JOINED_BOOTSTRAP_RESET_DDL_UNREVIEWED');
+    if (reset[relation.domain].includes(relation.to)&&!reset[relation.domain].includes(relation.from)) refuse('JOINED_BOOTSTRAP_RESET_FK_CLOSURE');
+  }
+  for (const [domain,names] of tables) {
+    const accounted=[...reset[domain],...(preserve[domain]||[])];
+    if (new Set(accounted).size!==accounted.length||accounted.length!==names.size||accounted.some(name=>!names.has(name))) refuse('JOINED_BOOTSTRAP_RESET_TABLE_COVERAGE');
+  }
+  const expand=map=>Object.entries(map).flatMap(([domain,names])=>names.map(table=>({domain,namespace:layout.namespaces[domain],table})));
+  return {reset:expand(reset),preserved:expand(preserve),foreignKeys};
+}
 const optionsKeys = Object.freeze(['timeoutMs','recoveryIntervalMs','timeIntervalMs','pollIntervalMs','retryIntervalMs','retryDelayMs',
   'attemptTimeoutMs','maxRows','maxBytes','pageSize','maxMessageBytes','maxPayloadBytes','maxConnections','maxInflight','maxSockets',
   'snoozeMs','settleMs','observationMs','credentialLifetimeSeconds']);
@@ -100,4 +140,4 @@ function documents ({selected,layout: l,publicKeys,paths}) {
       consumerState:{evaluatorConfigEnv:'MULTITENANT_EVALUATOR_CONFIG'}}};
   return {api,evaluator,realtime,admission:{version:1,mode:'preview-socket-allowlist',tenants:[A,B].map((id,i)=>({id,enabled:true,aliases:aliases[i]}))},paths};
 }
-module.exports={parse,layout,documents,phases,optionsKeys,optionalOptionsKeys,A,B,SUBJECT,STALE,STATUS,rolePermissions,subjects,phaseConfiguration,credentials};
+module.exports={parse,layout,documents,phases,optionsKeys,optionalOptionsKeys,A,B,SUBJECT,STALE,STATUS,rolePermissions,subjects,phaseConfiguration,credentials,resetTables,resetPlan};
