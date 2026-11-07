@@ -99,6 +99,7 @@ tests as pending with `[pending opt-in: <requirement>]` in the title; one
 | `tests/tenant-socket-order-capability.integration.test.js` | `NS_SOCKET_ORDER_CAPABILITY_TEST=1` | PostgreSQL | | prototype optional successor: old/new ledger matrix, populated refusal, fresh insertion order |
 | `tests/tenant-credential-http.integration.test.js` | `NS_TENANT_CREDENTIAL_HTTP_DOCKER_TEST=1` | MongoDB | PostgreSQL | its differential cases open `CUSTOMCONNSTR_mongo` |
 | `tests/tenant-authorization-postgres.integration.test.js` | `NS_TENANT_AUTHORITY_POSTGRES_DOCKER_TEST=1` | | PostgreSQL | |
+| `tests/owner-configuration.integration.test.js` | `NS_OWNER_CONFIGURATION_DOCKER_TEST=1` | none | PostgreSQL, Vault | separate explicit configure authority, owner settings/version history and presentation-only DATA reads; default opt-out |
 | `tests/owner-preview.integration.test.js` | `NS_OWNER_PREVIEW_TEST=1` | PostgreSQL | PostgreSQL, Vault | explicit headless owner CLI and real combined data/owner listeners; provisioned machine tokens/current state, no human session promises |
 | `tests/subject-management-http.integration.test.js` | `NS_SUBJECT_MANAGEMENT_HTTP_DOCKER_TEST=1` | | PostgreSQL | |
 | `tests/subject-admin-postgres.integration.test.js` | `NS_SUBJECT_ADMIN_POSTGRES_DOCKER_TEST=1` | | PostgreSQL | |
