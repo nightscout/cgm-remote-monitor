@@ -162,9 +162,14 @@
         "tests/owner-configuration-persistence.test.js",
         "tests/tenant-durable-replay.test.js",
         "tests/tenant-projection-evaluator.test.js",
-      "tests/evaluator-preview-runtime.test.js",
+        "tests/evaluator-preview-runtime.test.js",
         "tests/tenant-socket-forwarding.test.js",
-        "tests/socket-write-handlers.test.js"
+        "tests/socket-write-handlers.test.js",
+        "tests/tenant-alarm-state.test.js",
+        "tests/tenant-alarm-composition.test.js",
+        "tests/tenant-notifications.test.js",
+        "tests/realtime-preview.test.js",
+        "tests/realtime-database-binding.test.js"
       ],
       "env": true,
       "require": [
@@ -347,7 +352,9 @@
         "tests/owner-preview.integration.test.js",
         "tests/owner-configuration.integration.test.js",
         "tests/tenant-socket-data-forwarding.integration.test.js",
-        "tests/tenant-socket-order-capability.integration.test.js"
+        "tests/tenant-socket-order-capability.integration.test.js",
+        "tests/tenant-alarm-state.integration.test.js",
+        "tests/tenant-notifications.integration.test.js"
       ],
       "env": true,
       "require": [

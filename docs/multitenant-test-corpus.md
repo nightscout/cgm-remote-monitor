@@ -81,6 +81,8 @@ tests as pending with `[pending opt-in: <requirement>]` in the title; one
 | `tests/tenant-durable-replay.integration.test.js` | `NS_TENANT_DURABLE_REPLAY_TEST=1` | PostgreSQL | | dormant current-state consumer; producer SIGKILL/snapshot/RLS/rollback |
 | `tests/tenant-projection-evaluator.integration.test.js` | `NS_TENANT_PROJECTION_EVALUATOR_TEST=1` | PostgreSQL | | dormant recovered projection to actual clinical views; fresh-table/restart/tenant/failure checks |
 | `tests/tenant-current-state-recovery-proof.integration.test.js` | `NS_M5_CURRENT_STATE_PROOF_TEST=1` | PostgreSQL | | bounded current-state acquisition plus explicit evaluator preview lifecycle; backstop/time/config/close/readiness; notification/provider acceptance separate |
+| `tests/tenant-alarm-state.integration.test.js` | `NS_TENANT_ALARM_TEST=1` | PostgreSQL | | durable tenant-wide suppression, current transaction authority, original expiry/restart and restricted-role isolation; four disabled cases |
+| `tests/tenant-notifications.integration.test.js` | `NS_TENANT_NOTIFICATIONS_TEST=1` | PostgreSQL | | durable request/attempt identity, current consumer eligibility and unsafe-schema refusal; seven disabled cases; no provider/device guarantee |
 | `tests/tenant-commit-clock-port.integration.test.js` | `NS_TENANT_COMMIT_CLOCK_TEST=1` | PostgreSQL | | |
 | `tests/tenant-commit-clock-http.integration.test.js` | `NS_TENANT_COMMIT_CLOCK_HTTP_DOCKER_TEST=1` | | PostgreSQL, Vault | functional cases enabled; benchmark separately opt-in |
 | `tests/multitenant-preview-replicas.integration.test.js` | `NS_MULTITENANT_PREVIEW_REPLICAS_DOCKER_TEST=1` | | PostgreSQL, Vault | independent CLI processes on one host |
