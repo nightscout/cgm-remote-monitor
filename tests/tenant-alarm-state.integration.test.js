@@ -68,8 +68,9 @@ optInSuite(process.env.NS_TENANT_ALARM_TEST === '1' && !!process.env.NS_TEST_POS
     } }) });
     const denied = await ack(revoked); const afterRevoked = await lab.physical();
     trace('native-rollback-revocation', { failure, staged, afterFailure, denied, afterRevoked, callbacks, commits: lab.commits });
-    assert.equal(failure.delivered, false); assert.ok(lab.commits.every(value => value.status === 'aborted')); assert.deepEqual(staged, []); assert.deepEqual(afterFailure, []);
+    assert.equal(failure.delivered, false); assert.equal(lab.commits[0].status, 'aborted'); assert.deepEqual(staged, []); assert.deepEqual(afterFailure, []);
     assert.equal(denied.delivered, false, 'ALARM_NATIVE_CURRENT_AUTHORITY transaction recheck denies revoked actor');
+    assert.ok(lab.commits.every(value => value.status === 'aborted'));
     assert.deepEqual(afterRevoked, []); assert.equal(callbacks, 1, 'ALARM_NATIVE_FAILURE_NOACK no synthesized success');
   });
   it('keeps foreign state unreadable and realtime unable to write, with unsafe privilege refusal', async function () {
