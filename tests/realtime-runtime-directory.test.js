@@ -1,4 +1,5 @@
 'use strict';
+// covers: tests/fixtures/realtime-preview/runtime-directory.js
 const assert = require('node:assert/strict'), fs = require('node:fs'), os = require('node:os'), path = require('node:path');
 const create = require('./fixtures/realtime-preview/runtime-directory');
 describe('owned realtime fixture runtime directory', function () {
