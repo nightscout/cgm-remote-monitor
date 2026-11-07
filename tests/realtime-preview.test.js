@@ -124,6 +124,21 @@ describe('explicit realtime preview source contracts', function () {
     await assert.rejects(auth.verify({ tenant: B, namespace: '/', credential: { token } }), /TOKEN_KEY/);
     active = false; await assert.rejects(auth.verify({ tenant: A, namespace: '/', credential: { token } }), /AUTHORITY_FORBIDDEN/);
   });
+  it('disconnects restored A sockets and discards A projection while retaining B sockets/output', async function () {
+    const f = await fixture();
+    try {
+      const a=await f.socket(), b=await f.socket('b.test');
+      await a.receive('authorize',{secret:'synthetic'}); await b.receive('authorize',{secret:'synthetic'});
+      const bOutput=f.runtime.last(B);
+      f.protocol.invalidateTenant(A); await f.runtime.invalidateTenant(A);
+      assert.equal(a.disconnected,true); assert.notEqual(b.disconnected,true);
+      assert.equal(f.runtime.last(A),null); assert.equal(f.runtime.last(B),bOutput);
+      f.state.rows=[]; await f.runtime.refresh(A);
+      assert.deepEqual(f.runtime.last(A).frame.sgvs,[]); assert.equal(f.runtime.last(B),bOutput);
+      const before=b.sent.length; await f.runtime.refresh(B);
+      assert.ok(b.sent.length>before); assert.notEqual(b.disconnected,true);
+    } finally { await f.close(); }
+  });
   it('full replacement reaches browser consumer and tenant-local current fanout stops after revocation', async function () {
     const f = await fixture();
     try {
@@ -331,7 +346,10 @@ describe('explicit realtime preview source contracts', function () {
       operations: { '/authorize': async (ctx, value) => { assert.equal(ctx.transport, token); called.push(value); return { allowed: true }; } } });
     async function run (body, url = '/authorize', owned = true) {
       const req = Readable.from([Buffer.from(body)]); Object.assign(req, { owned, method: 'POST', url, headers: { 'content-type': 'application/json' } });
-      const res = { writeHead (code) { this.code = code; }, end (bytes) { this.bytes = String(bytes); }, destroy () {} };
+      const res = new EventEmitter();
+      res.writeHead = function (code) { this.code=code; this.headersSent=true; };
+      res.end = function (bytes) { this.bytes=String(bytes); this.emit('finish'); };
+      res.destroy = function () { this.destroyed=true; this.emit('close'); };
       await handler(req, res); return res;
     }
     assert.equal((await run('{"a":1}')).code, 200);

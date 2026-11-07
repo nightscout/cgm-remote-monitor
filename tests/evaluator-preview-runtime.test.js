@@ -139,6 +139,21 @@ describe('evaluator preview owned jobs and lifecycle', function () {
     assert.deepEqual(l.cancelled, [1, 2]);
     assert.equal(l.ctx.health().closed, true); assert.equal(l.ctx.last(A).eligible, false);
   });
+  it('discards restored A retained output and reacquires without changing B', async function () {
+    const l = await lab();
+    try {
+      const b = l.ctx.last(B), aComponent = l.instances[0];
+      await l.ctx.invalidateTenant(A);
+      assert.equal(l.ctx.last(A),null); assert.equal(aComponent.closed,true);
+      assert.deepEqual(l.ctx.last(B),b); assert.equal(l.instances[1].closed,false);
+      const before=l.calls.filter(row => row[0]===A && row[1]==='acquire').length;
+      await l.ctx.tick(A); assert.equal(l.ctx.last(A),null);
+      assert.equal(l.calls.filter(row => row[0]===A && row[1]==='acquire').length,before);
+      await l.ctx.acquire(A);
+      assert.equal(l.calls.filter(row => row[0]===A && row[1]==='acquire').length,before+1);
+      assert.equal(l.ctx.last(A).eligible,true); assert.deepEqual(l.ctx.last(B),b);
+    } finally { await l.ctx.close(); }
+  });
   it('coalesces concurrent work per tenant while another tenant progresses', async function () {
     let gate, entered, active = 0, maximum = 0, calls = 0;
     const l = await lab({ create: async current => ({ async evaluate () {
