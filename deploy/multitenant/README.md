@@ -44,6 +44,11 @@ the synthetic aliases declared in the generated public UI config, then use that
 hostname in the browser. The two aliases select separate tenants at the same
 origin port. Read the generated private operator environment only when you need
 the synthetic browser token; keep it out of shell history, screenshots and logs.
+This is a legacy subject credential. The stock browser and the restore-demo
+client exchange it through `GET /api/v2/authorization/request/:accessToken`,
+then send the returned JWT as the API3 Bearer credential. A raw legacy token
+sent directly as API3 Bearer is refused. The exchange path contains a credential;
+keep request URLs and transport errors out of logs.
 
 To use an **already configured** dummy interface instead:
 

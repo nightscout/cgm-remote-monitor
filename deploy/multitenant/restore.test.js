@@ -40,7 +40,7 @@ test('HTTP failures with sensitive bodies are refused without returning their pa
   const c = config();
   await assert.rejects(request(c, c.tenants[0], '/api/v3/entries', { env,
     fetchImpl: async () => ({ status: 403, body: { cancel: async () => { cancelled = true; } } }) }),
-  error => error.code === 'COMPOSE_DEMO_HTTP_REFUSED' && !error.message.includes(env.A_TOKEN));
+  error => error.code === 'COMPOSE_DEMO_EXCHANGE_REFUSED' && !error.message.includes(env.A_TOKEN));
   assert.equal(cancelled, true);
 });
 

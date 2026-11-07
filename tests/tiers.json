@@ -37,6 +37,7 @@
         "tests/client-ip.test.js",
         "tests/cob.test.js",
         "tests/compose-ui.test.js",
+        "tests/compose-deployment-protocol.test.js",
         "tests/connect-dexcom-transport.test.js",
         "tests/connect-lifecycle.test.js",
         "tests/connect-minimed-cutover.test.js",

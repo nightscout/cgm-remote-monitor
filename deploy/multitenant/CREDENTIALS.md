@@ -100,7 +100,13 @@ credentials through nginx.
 ## Login and credential lifetime
 
 Generated `ops/tenants.json` contains valid synthetic legacy subject tokens for
-the actual existing browser/data protocol. Management tokens are independently
+the actual existing browser/data protocol. These raw tokens are exchanged using
+the existing `GET /api/v2/authorization/request/:accessToken` endpoint. Its
+response has `token`, `iat`, `exp`, `sub` and `permissionGroups`; the issued JWT
+is the API3 Bearer credential. The demo exchanges separately for each operation
+and tenant, preserving current-authority refusal without a credential cache or
+an alternate carrier. Exchange URLs contain credentials and stay out of logs.
+Management tokens are independently
 signed under per-tenant management keys, purpose/audience bound and expire after
 ten minutes. These are operator-issued demonstration credentials; no provider
 login, human renewal or implicit management grant is claimed.
