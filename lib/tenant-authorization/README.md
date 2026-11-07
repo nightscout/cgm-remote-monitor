@@ -77,3 +77,14 @@ notes/creation metadata and a redacted mutation audit table. The separate
 subjects and known-role links with legacy credential metadata in one transaction.
 This authority reader remains read-only; serving credentials do not acquire
 management grants or routes.
+
+## Owner policy and the readers
+
+Neither `postgres.js` nor `access-postgres.js` reads the owner-policy tables
+(`tenant_owner_policy`, `tenant_owner_actors`). The owner catalogue bounds the grants
+an owner may propose through the [subject administration
+writer](../subject-admin/README.md#selected-dormant-owner-policy-enforcement); the
+readers serve the stored grants as they are. An optional reader-side mode that
+intersected stored grants with the current owner ceiling was removed on 2026-11-06
+as a backward-compatibility break: a tenant's own `api-secret` has no subject row,
+so under that mode it was refused on its own tenant resource.

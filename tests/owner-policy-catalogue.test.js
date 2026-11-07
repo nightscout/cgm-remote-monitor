@@ -48,6 +48,26 @@ describe('owner policy reviewed operation catalogue', function () {
     }
   });
 
+  it('refuses a proposed grant once the current operator ceiling tightens and admits it again when restored', async function () {
+    const permission = 'api:entries:read';
+    const state = { ceiling: [permission] };
+    const connection = { async query (sql) {
+      if (sql.includes('SELECT anonymous_roles')) return { rows: [{ anonymous_roles: ['denied'] }] };
+      if (sql.includes('SELECT catalogue_digest')) return { rows: [{ catalogue_digest: catalogueDigest([permission]), ceiling: state.ceiling.slice() }] };
+      if (sql.includes('SELECT active,can_update,delegable')) return { rows: [{ active: true, can_update: true, delegable: [permission] }] };
+      if (sql.includes('SELECT name,permissions')) return { rows: [{ name: 'synthetic_reader', permissions: [permission] }] };
+      throw new Error('unexpected policy query');
+    } };
+    const policy = createOwnerPolicy({ namespace, catalogue: [permission] });
+    const actor = { tenant: '11111111-1111-4111-8111-111111111111', principal: 'synthetic_owner', consumer: 'management' };
+    const proposal = { roles: ['synthetic_reader'] };
+    await policy.authorizeUpdate(connection, actor, 'synthetic_subject', proposal);
+    state.ceiling = [];
+    await assert.rejects(policy.authorizeUpdate(connection, actor, 'synthetic_subject', proposal), { code: 'SUBJECT_ADMIN_FORBIDDEN' });
+    state.ceiling = [permission];
+    await policy.authorizeUpdate(connection, actor, 'synthetic_subject', proposal);
+  });
+
   it('digests an independent sorted copy and leaves the caller catalogue unchanged', function () {
     const catalogue = ['api:treatments:delete', 'api:entries:read', 'admin:api:permissions:read'];
     const original = catalogue.slice();
