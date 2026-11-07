@@ -25,6 +25,25 @@ configuration authority was missing from old R69 inventory: the new independent
 source check failed before its joined-tree repair. The current extension interface
 refuses unknown new candidate paths, missing namespaces and incomplete table lists.
 
+## Frozen alarm inputs prepared (not joined or executed)
+
+The reviewed alarm source is `e9121a6e2e4b857701df8e443d831e794b68c03c`, candidate
+`migrations/candidates/postgres-alarm-suppression-v1.json`, table
+`tenant_alarm_suppression`. Source-only inputs are prepared in
+`tests/fixtures/tenant-deployment-alarm.js`, with its exact candidate snapshot in
+`tests/fixtures/tenant-deployment-alarm-candidate.json` for focused admission tests.
+These fixture files do not install the candidate or import/merge alarm runtime.
+
+The extension pins its canonical digest. Re-census refuses any changed candidate
+until the input is explicitly re-admitted. Seed rows cover both original tenants,
+both group/level keys and original absolute expiries with active/expired examples
+under an explicit synthetic clock. Writer grants are SELECT, INSERT and column-only
+UPDATE(acked_at,expires_at); reader SELECT only; realtime no grants and no role alias
+with either database actor. Real PostgreSQL privilege/expiry behavior remains
+UNMEASURED at this C join. The notifier's final repaired source is still awaited;
+its candidate/seed/roles are not copied or guessed. Final OLD/NEW join/freeze follows
+that reviewed input, not this preparation checkpoint.
+
 ## Preconditions to freeze for native review
 
 1. Root supplies the actual frozen M5 suppression/outbox catalogue paths/heads and

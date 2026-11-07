@@ -72,13 +72,60 @@ describe('whole deployment source admission and filesystem durability', function
     await fs.promises.writeFile(path.join(scratch, file), JSON.stringify(candidate()));
     const options = { root: scratch, namespaces: namespaces() };
     assert.throws(() => operations.deploymentAdmission(options), { code: 'OPERATIONS_CATALOGUE_UNADMITTED', detail: file });
-    const extension = { kind: 'synthetic', candidatePath: file, tables: ['synthetic_state'] };
+    const extension = { kind: 'synthetic', candidatePath: file, candidateDigest: common.sha256(common.canonical(candidate())), tables: ['synthetic_state'] };
     assert.throws(() => operations.deploymentAdmission({ ...options, extensions: [extension] }), { code: 'OPERATIONS_NAMESPACE_INVALID' });
     const admitted = { ...options, namespaces: { ...namespaces(), synthetic: 'deploy_synthetic' }, extensions: [extension] };
     assert.throws(() => operations.deploymentAdmission({ ...admitted, extensions: [{ ...extension, tables: [] }] }), { code: 'OPERATIONS_CENSUS_TABLES_MISMATCH' });
     const plan = operations.deploymentAdmission(admitted);
     assert.equal(plan.census.tables, 32);
     assert.ok(plan.lifecycle.CATALOGUE.some(entry => entry.kind === 'synthetic'));
+  });
+
+  it('prepares the frozen alarm extension, both-tenant expiry seeds and narrowly separated roles', function () {
+    const { alarmInputs } = require('./fixtures/tenant-deployment-alarm');
+    const inputs = alarmInputs({ tenants: [A, '22222222-2222-4222-8222-222222222222'], now: 1700000000000,
+      writerRole: 'alarm_writer', readerRole: 'alarm_reader', realtimeRole: 'realtime' });
+    const candidate = require('./fixtures/tenant-deployment-alarm-candidate.json');
+    assert.equal(inputs.extension.candidateDigest, common.sha256(common.canonical(candidate)));
+    assert.equal(inputs.extension.sourceCommit, 'e9121a6e2e4b857701df8e443d831e794b68c03c');
+    assert.equal(inputs.extension.sourceSha256, common.sha256(fs.readFileSync(require.resolve('./fixtures/tenant-deployment-alarm-candidate.json'), 'utf8')));
+    assert.equal(inputs.rows.tenant_alarm_suppression.length, 4);
+    for (const tenant of [A, '22222222-2222-4222-8222-222222222222']) {
+      const rows = inputs.rows.tenant_alarm_suppression.filter(row => row.tenant_id === tenant);
+      assert.deepEqual(rows.map(row => row.alarm_level), [1, 2]);
+      assert.ok(rows.some(row => Number(row.expires_at) > 1700000000000));
+      assert.ok(rows.some(row => Number(row.expires_at) < 1700000000000));
+      for (const row of rows) assert.equal(Number(row.expires_at) - Number(row.acked_at), 1800000);
+    }
+    assert.deepEqual(inputs.acl.grants, [
+      { role: 'alarm_writer', kind: 'alarm_suppression', table: 'tenant_alarm_suppression', privileges: ['SELECT', 'INSERT'], columnPrivileges: { UPDATE: ['acked_at', 'expires_at'] } },
+      { role: 'alarm_reader', kind: 'alarm_suppression', table: 'tenant_alarm_suppression', privileges: ['SELECT'] }
+    ]);
+    assert.ok(!inputs.acl.grants.some(grant => grant.role === 'realtime'));
+    assert.throws(() => alarmInputs({ tenants: [A, '22222222-2222-4222-8222-222222222222'], now: 1700000000000, writerRole: 'shared', readerRole: 'shared' }), { code: 'ALARM_INPUT_ROLES_INVALID' });
+  });
+
+  it('refuses a changed pinned extension even when its new migration checksum and table inventory are valid', async function () {
+    for (const entry of operations.discoverCatalogues()) {
+      await fs.promises.mkdir(path.dirname(path.join(scratch, entry.file)), { recursive: true });
+      await fs.promises.copyFile(path.join(ROOT, entry.file), path.join(scratch, entry.file));
+    }
+    const { alarmInputs } = require('./fixtures/tenant-deployment-alarm');
+    const inputs = alarmInputs({ tenants: [A, '22222222-2222-4222-8222-222222222222'], now: 1700000000000,
+      writerRole: 'alarm_writer', readerRole: 'alarm_reader', realtimeRole: 'realtime' });
+    const file = inputs.extension.candidatePath;
+    const candidate = JSON.parse(JSON.stringify(require('./fixtures/tenant-deployment-alarm-candidate.json')));
+    await fs.promises.writeFile(path.join(scratch, file), JSON.stringify(candidate));
+    const options = { root: scratch, namespaces: { ...namespaces(), alarm_suppression: 'deploy_alarm' }, extensions: [inputs.extension] };
+    const admitted = operations.deploymentAdmission(options);
+    assert.equal(admitted.census.tables, 32);
+    assert.equal(admitted.census.selected.find(entry => entry.kind === 'alarm_suppression').candidateDigest, inputs.extension.candidateDigest);
+    const added = ['ALTER TABLE tenant_alarm_suppression ADD COLUMN synthetic_flag boolean'];
+    candidate.migrations.push({ name: '0002_changed_shape', up: added, checksum: checksum(added) });
+    await fs.promises.writeFile(path.join(scratch, file), JSON.stringify(candidate));
+    assert.throws(() => operations.deploymentAdmission(options), { code: 'OPERATIONS_CENSUS_EXTENSION_CHANGED', detail: file });
+    const changed = { ...inputs.extension, candidateDigest: common.sha256(common.canonical(candidate)) };
+    assert.equal(operations.deploymentAdmission({ ...options, extensions: [changed] }).census.tables, 32, 'explicit new admission required');
   });
 
   it('requires an explicit reviewed selection and refuses omitted namespace mappings', function () {

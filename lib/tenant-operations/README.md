@@ -46,13 +46,15 @@ read from PostgreSQL during capture; generated columns are recomputed on restore
 | lifecycle | tenant_lifecycle_requests |
 
 New M5 suppression/outbox candidates must be explicitly admitted when their frozen
-source joins. No active peer source or guessed schema is imported:
+source joins. Each extension must pin its canonical candidate digest; a changed
+catalogue refuses until its explicit admission is updated. No active peer source or guessed schema is imported:
 
 ```js
 const admission = operations.deploymentAdmission({
   namespaces: explicitNamespaces,
   selection: { treatments: 'migrations/candidates/postgres-treatments-socket-order-v1.json' },
   extensions: [{ kind: reviewedKind, candidatePath: reviewedJsonPath,
+    candidateDigest: reviewedCandidateDigest,
     tables: reviewedParentFirstTables, secrets: reviewedCiphertextTables }]
 });
 // admission.catalogues: operator migration/backup plan
