@@ -20,6 +20,26 @@ describe('alarmStorage', function () {
     storage.ensureIndexes.should.be.a.Function();
   });
 
+  describe('collection name', function () {
+    function nameUsed (env) {
+      var used = null;
+      var storage = alarmStorage({ store: { collection: function (name) {
+        used = name;
+        return { findOne: function () { return Promise.resolve(null); } };
+      } } }, env);
+      return storage.getSnooze(2, 'default').then(function () { return used; });
+    }
+
+    it('defaults to alarmsnooze', async function () {
+      (await nameUsed(undefined)).should.equal('alarmsnooze');
+      (await nameUsed({})).should.equal('alarmsnooze');
+    });
+
+    it('uses env.alarmsnooze_collection so sites sharing a database stay apart', async function () {
+      (await nameUsed({ alarmsnooze_collection: 'siteb_alarmsnooze' })).should.equal('siteb_alarmsnooze');
+    });
+  });
+
   describe('getSnooze', function () {
     it('resolves to null when store is unavailable', async function () {
       var storage = alarmStorage({ store: null });
