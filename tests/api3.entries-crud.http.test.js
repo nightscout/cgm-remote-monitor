@@ -316,4 +316,84 @@ optInSuite(process.env.NS_ENTRIES_CRUD_HTTP_TEST === '1' &&
     assert.equal((await lab.rows())[0].sgv, 124);
     assert.equal(names(lab.workers[0].events).filter(event => event === 'storage-intent-committed').length, 2);
   });
+
+  it('pages fully tied entries exactly once in the independent stored identity order for both tenants', async function () {
+    const control = process.env.NS_M1_PAGING_CONTROL;
+    if (control && (control !== 'reverse-identity' || process.env.NS_M1_ARCHIVE_CONTROL !== '1')) {
+      throw new Error('M1 paging control requires explicit archived reverse-identity selection');
+    }
+    const common = document();
+    delete common._id;
+    delete common.identifier;
+    const docs = Array.from({ length: 12 }, (_, index) => ({
+      ...common, _id: 'm1-page-' + String(index).padStart(2, '0'),
+      device: 'synthetic-tied-paging', created_at: '2026-11-03T00:00:00.123Z'
+    }));
+    await lab.seed(docs);
+    const physical = async tenant => (await lab.admin.query(
+      `SELECT tenant_id, id_kind, doc FROM "${lab.name}".entries WHERE tenant_id = $1 ORDER BY "_id", id_kind`, [tenant])).rows;
+    const before = { A: await physical(lab.A), B: await physical(lab.B) };
+    console.log('M1_PAGING_FIXTURE ' + JSON.stringify(before));
+    for (const rows of Object.values(before)) {
+      assert.equal(rows.length, docs.length, 'M1_PAGING_FIXTURE populated identity oracle');
+      assert.ok(rows.every(row => row.id_kind === 'string'));
+      assert.ok(rows.every(row => !Object.hasOwn(row.doc, 'identifier')));
+      for (const field of ['created_at', 'date', 'srvCreated', 'srvModified', 'sgv', 'device']) {
+        assert.equal(new Set(rows.map(row => row.doc[field])).size, 1, 'M1_PAGING_FIXTURE tied ' + field);
+      }
+    }
+    const originals = [];
+    let flipped = 0;
+    if (control) for (const tenant of [lab.A, lab.B]) {
+      const col = lab.workers[0].collections.get(tenant), storage = col.storage;
+      originals.push([col, storage]);
+      // Archived test-instance ablation of the actual PG sort argument. Real
+      // SQL still reads the unchanged stored rows; the Mongo oracle is intact.
+      col.storage = { ...storage, findMany (options) {
+        assert.ok([1, -1].includes(options.sort._id), 'M1_PAGING_CONTROL identity comparator reached');
+        flipped++;
+        return storage.findMany({ ...options, sort: { ...options.sort, _id: -options.sort._id } });
+      } };
+    }
+    try {
+      const observations = [];
+      for (const scenario of [{ label: 'default', query: '', direction: 1 },
+        { label: 'custom-descending', query: '&sort$desc=sgv', direction: -1 }]) {
+        const mongo = [];
+        for (let skip = 0; skip <= docs.length; skip += 3) {
+          const response = await lab.reference('get', '/entries?limit=3&skip=' + skip + scenario.query).expect(200);
+          mongo.push(...response.body.result.map(doc => doc.identifier));
+        }
+        for (const [index, tenant] of [lab.A, lab.B].entries()) {
+          const pages = [];
+          for (let skip = 0; skip <= docs.length; skip += 3) {
+            const response = await lab.http('get', '/entries?limit=3&skip=' + skip + scenario.query,
+              { tenant, credential: lab.credentials[index] }).expect(200);
+            pages.push(response.body.result);
+          }
+          const rows = before[index === 0 ? 'A' : 'B'];
+          const expected = rows.map(row => row.doc._id).sort();
+          if (scenario.direction === -1) expected.reverse();
+          observations.push({ tenant, scenario: scenario.label, expected, mongo,
+            pages, actual: pages.flat().map(doc => doc.identifier) });
+        }
+      }
+      const after = { A: await physical(lab.A), B: await physical(lab.B) };
+      console.log('M1_PAGING_OBSERVATION ' + JSON.stringify({ control: control || null, flipped, observations, after }));
+      assert.deepEqual(after, before, 'M1_PAGING_STORED both physical tenants unchanged');
+      if (control) assert.ok(flipped > 0, 'M1_PAGING_CONTROL actual PG comparator flipped');
+      for (const observation of observations) {
+        assert.deepEqual(observation.mongo, observation.expected, 'M1_PAGING_ORACLE Mongo and stored identity order agree');
+        assert.deepEqual(observation.actual, observation.expected,
+          'M1_PAGING_ORDER ' + observation.tenant + ' ' + observation.scenario);
+        assert.equal(new Set(observation.actual).size, docs.length, 'M1_PAGING_COMPLETE no duplicates or omissions');
+        const sgv = observation.tenant === lab.A ? 123 : 902;
+        assert.ok(observation.pages.flat().every(doc => doc.sgv === sgv), 'M1_PAGING_TENANT values stay local');
+        assert.deepEqual(observation.pages.at(-1), [], 'M1_PAGING_COMPLETE exhausted final page');
+      }
+    } finally {
+      for (const [col, storage] of originals) col.storage = storage;
+    }
+  });
+
 });

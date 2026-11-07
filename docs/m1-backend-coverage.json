@@ -712,5 +712,144 @@
       "Suppress/alter one importer target row or collapse null/array/source value only in scratch observation: independent oracle must reject the exact mismatch; transaction-bypass control should be used only if the existing fixture can prove reached partial writes and predicted leftover rows."
     ],
     "sequencing": "Source instrument plan only. Root approval/grant precedes any test edit or native run. Join source-only instrumentation with M2/settings and temporal fixture changes, freeze once, then execute the one authorized comprehensive/corpus batch. No new queue gate, runtime policy or PostgreSQL registry flag."
+  },
+  "source_instrument_preparation": {
+    "source_base": "a7422f16dd194782e7e829313300703475cc6587",
+    "documentation_parent": "922b938fca880ad6a2b55752f896d7ef7415bc8c",
+    "scope": "Only two existing opt-in native fixture cases and archive-control branches; no product, admission, registry, external source transport or lifecycle change. Original crosswalk source hashes remain the a742 snapshot; the hashes below describe prepared fixtures.",
+    "prepared_cases": [
+      {
+        "file": "tests/api3.entries-crud.http.test.js",
+        "sha256": "cb701e6366c81ccc4736851f93a2e98e2d7b4a5b6c84bbe00bad0687e652e120",
+        "line": 320,
+        "declaration": "it('pages fully tied entries exactly once in the independent stored identity order for both tenants', async function () {",
+        "title_expression": "'pages fully tied entries exactly once in the independent stored identity order for both tenants'",
+        "assertion_anchors": [
+          {
+            "line": 338,
+            "text": "assert.equal(rows.length, docs.length, 'M1_PAGING_FIXTURE populated identity oracle')"
+          },
+          {
+            "line": 339,
+            "text": "assert.ok(rows.every(row => row.id_kind === 'string'))"
+          },
+          {
+            "line": 340,
+            "text": "assert.ok(rows.every(row => !Object.hasOwn(row.doc, 'identifier')))"
+          },
+          {
+            "line": 342,
+            "text": "assert.equal(new Set(rows.map(row => row.doc[field])).size, 1, 'M1_PAGING_FIXTURE tied ' + field)"
+          },
+          {
+            "line": 353,
+            "text": "assert.ok([1, -1].includes(options.sort._id), 'M1_PAGING_CONTROL identity comparator reached')"
+          },
+          {
+            "line": 364,
+            "text": "lab.reference('get', '/entries?limit=3&skip=' + skip + scenario.query).expect(200)"
+          },
+          {
+            "line": 370,
+            "text": "lab.http('get', '/entries?limit=3&skip=' + skip + scenario.query, { tenant, credential: lab.credentials[index] }).expect(200)"
+          },
+          {
+            "line": 383,
+            "text": "assert.deepEqual(after, before, 'M1_PAGING_STORED both physical tenants unchanged')"
+          },
+          {
+            "line": 384,
+            "text": "assert.ok(flipped > 0, 'M1_PAGING_CONTROL actual PG comparator flipped')"
+          },
+          {
+            "line": 386,
+            "text": "assert.deepEqual(observation.mongo, observation.expected, 'M1_PAGING_ORACLE Mongo and stored identity order agree')"
+          },
+          {
+            "line": 387,
+            "text": "assert.deepEqual(observation.actual, observation.expected, 'M1_PAGING_ORDER ' + observation.tenant + ' ' + observation.scenario)"
+          },
+          {
+            "line": 389,
+            "text": "assert.equal(new Set(observation.actual).size, docs.length, 'M1_PAGING_COMPLETE no duplicates or omissions')"
+          },
+          {
+            "line": 391,
+            "text": "assert.ok(observation.pages.flat().every(doc => doc.sgv === sgv), 'M1_PAGING_TENANT values stay local')"
+          },
+          {
+            "line": 392,
+            "text": "assert.deepEqual(observation.pages.at(-1), [], 'M1_PAGING_COMPLETE exhausted final page')"
+          }
+        ],
+        "state": "source-prepared; native execution UNMEASURED"
+      },
+      {
+        "file": "tests/entries-importer-postgres.integration.test.js",
+        "sha256": "02e643cf9a60a523126276167fba2acb8a1816c046693b628a45f203398c5e2f",
+        "line": 75,
+        "declaration": "it('retains committed pages, rolls back an interrupted native page and reruns supplier history with exact fidelity', async function () {",
+        "title_expression": "'retains committed pages, rolls back an interrupted native page and reruns supplier history with exact fidelity'",
+        "assertion_anchors": [
+          {
+            "line": 133,
+            "text": "assert.equal(failure && failure.message, 'synthetic-m1-after-native-insert', 'M1_IMPORT_REACHED actual insert then interruption')"
+          },
+          {
+            "line": 134,
+            "text": "assert.deepEqual(interruption.inside.map(row => row.doc._id), baseline.slice(0, 3).map(doc => doc._id), 'M1_IMPORT_REACHED later page row visible inside actual transaction')"
+          },
+          {
+            "line": 136,
+            "text": "assert.deepEqual(interruption.outside.map(row => row.doc), baseline.slice(0, 2), 'M1_IMPORT_BOUNDARY independent reader sees only earlier committed page')"
+          },
+          {
+            "line": 138,
+            "text": "assert.deepEqual(interrupted.A.map(row => row.doc), baseline.slice(0, 2), 'M1_IMPORT_ROLLBACK interrupted page absent, earlier committed page retained')"
+          },
+          {
+            "line": 140,
+            "text": "assert.deepEqual(interrupted.B, foreign, 'M1_IMPORT_FOREIGN interruption preserves B')"
+          },
+          {
+            "line": 145,
+            "text": "assert.deepEqual(result, { baselineCount: 4, historyCount: 2, phase: 'done', cursor: 10000 }, 'M1_IMPORT_RECEIPT supplier algorithm completed baseline and history')"
+          },
+          {
+            "line": 147,
+            "text": "assert.deepEqual(completed.B, foreign, 'M1_IMPORT_FOREIGN completed import preserves B')"
+          },
+          {
+            "line": 148,
+            "text": "assert.ok(completed.A.every(row => row.id_kind === 'string' && row.tenant_id === A))"
+          },
+          {
+            "line": 149,
+            "text": "assert.deepEqual(completed.A.map(row => row.doc), expected, 'M1_IMPORT_FIDELITY stored logical source/history rows')"
+          },
+          {
+            "line": 153,
+            "text": "assert.deepEqual(replay, result, 'M1_IMPORT_RECEIPT complete replay receipt')"
+          },
+          {
+            "line": 154,
+            "text": "assert.deepEqual(replayed, completed, 'M1_IMPORT_REPLAY exact stored fidelity without duplicates')"
+          }
+        ],
+        "state": "source-prepared; native execution UNMEASURED"
+      }
+    ],
+    "control_environment": {
+      "explicit_archive_guard": "NS_M1_ARCHIVE_CONTROL=1",
+      "paging": "NS_M1_PAGING_CONTROL=reverse-identity",
+      "importer": "NS_M1_IMPORT_CONTROL=drop-target-row"
+    },
+    "predictions": {
+      "ordinary": "Native test bodies must pass once actually run; source-only checks do not establish this.",
+      "paging_control": "Actual PG findMany sort argument reverses only final _id direction in test-instance wrapper; raw tenants unchanged, independently tied fixture and Mongo/stored oracle agree, flipped count positive, then exact M1_PAGING_ORDER mismatch. Not a production-source edit.",
+      "importer_control": "Defective supplied target drops m1-import-3 while importer receipt still counts four baseline/two history documents. Real interrupted-page rollback proof remains; B unchanged; final physical A has missing row and exact M1_IMPORT_FIDELITY failure. This proves independent fidelity-oracle sensitivity, not a product import ablation.",
+      "restoration": "Fresh archived ordinary selection, no control variables, both added cases pass. Missing reached marker, wrong assertion, setup/SQL failure, timeout or cleanup uncertainty is not a sensitive control."
+    },
+    "native_gate": "No native/services/build/full unit/full/browser/corpus/prcheck performed. Root reviews exact joined source and explicitly grants the batched M1+M2 native phase before any runtime."
   }
 }

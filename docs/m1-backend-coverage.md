@@ -190,3 +190,20 @@ This is a source applicability inventory, not a file-count coverage metric. Ever
 ## Before one joined acceptance campaign
 
 The source plan above requires root's grant before instrumentation or runtime work. This deliverable only adds documentation. Existing native controls keep their original executed source heads; the crosswalk neither repeats nor relabels them. Once M2 composition, temporal fixture repair and approved minimal instrumentation are joined, freeze one candidate and execute the existing native/corpus/comprehensive acceptance as a batch. Pending tests and exact unsupported capabilities stay explicit. No generic PG selector change, new numeric budget, all-client claim, imported natural-order guarantee or M6 transport/lifecycle requirement is introduced.
+
+
+## Source preparation added after the plan grant
+
+The two existing native fixtures now contain the proposed tied-page and supplier→real-PG interrupted-page/rerun cases. The original crosswalk remains an **a742 source snapshot**; `source_instrument_preparation` in the JSON records the prepared fixture hashes and new assertion anchors separately. Native results remain **UNMEASURED**. No product, admission, global registry, CLI/source transport or lifecycle change was made.
+
+- Paging prints `M1_PAGING_FIXTURE` raw admin rows and `M1_PAGING_OBSERVATION` (Mongo/stored expected order, every actual page, raw unchanged tenants, reached flip count) before verdicts. Both default ascending and custom descending sort cross A/B. The ordinary case must preserve exact identity order/completeness and tenant-local values.
+- Import prints `M1_IMPORT_INTERRUPTION`, `M1_IMPORT_COMPLETION` and `M1_IMPORT_REPLAY` with raw SQL rows, submitted/forwarded target receipts and importer receipt before the corresponding verdicts. The interruption is injected after a real later-page INSERT: the current transaction must see that row while independent admin sees only the prior committed page. After rollback only that prior page remains; rerun/history and complete replay must restore exact logical JSON/source/null/array values without touching B. This is page rollback, not whole-import rollback.
+
+Archive controls require `NS_M1_ARCHIVE_CONTROL=1` as an explicit guard:
+
+| Selection | Actual damage | Required semantic red |
+|---|---|---|
+| `NS_M1_PAGING_CONTROL=reverse-identity` | Test-instance PG `findMany` wrapper reverses only its actual final `_id` sort argument; real SQL still reads unchanged stored rows and Mongo remains intact | Reached flip count >0, unchanged A/B, independent oracle agreement, then `M1_PAGING_ORDER` mismatch. This is the archived sort-argument ablation, not a production-source edit. |
+| `NS_M1_IMPORT_CONTROL=drop-target-row` | Deliberately defective supplied target omits `m1-import-3` while returning successful page completion | Normal importer receipt, actual missing stored row with B unchanged, then `M1_IMPORT_FIDELITY`. This is target/oracle sensitivity, not an ablation of the production importer. |
+
+No flag means ordinary restoration. A setup/SQL failure, timeout, unreached mutation, wrong assertion or resource uncertainty is not an accepted red. Root reviews source first, then grants one joined M1+M2 targeted native phase and the later comprehensive frozen campaign; these control branches have not been executed by this preparation lane.
