@@ -133,7 +133,8 @@ describe('explicit realtime preview source contracts', function () {
       assert.ok(update, 'RT_BACKSTOP_CONSUMED quiet absence yields current frame');
       assert.equal(update.value.delta, false, 'RT_FULL_RESET deletion cannot be an SGV-only merge');
       assert.deepEqual(update.value.sgvs, []);
-      const browser = { sgvs: [{ mills: 1000, mgdl: 250 }], processTreatments () {} };
+      const browser = { ...Object.fromEntries(Object.entries(acquired.frame).filter(([, value]) => Array.isArray(value)).map(([key]) => [key, []])),
+      sgvs: [{ mills: Date.now(), mgdl: 250 }], processTreatments () {} };
       require('../lib/client/receiveddata')(update.value, browser, { extendedSettings: {} });
       assert.deepEqual(browser.sgvs, [], 'RT_BROWSER_ABSENCE actual receiveddata discards physically removed SGV');
       assert.equal(b.sent.some(x => x.event === 'dataUpdate'), false, 'RT_TENANT_FANOUT foreign socket receives nothing');
@@ -168,10 +169,11 @@ describe('explicit realtime preview source contracts', function () {
     const config = { namespaces: Object.fromEntries(['entries','treatments','devicestatus','profile','food','activity','clock','checkpoint'].map(k => [k, 'rt_' + k])),
       consumer: 'realtime-source', pageSize: 3, maxRows: 100, maxBytes: 100000 };
     const acquired = await require('../lib/server/realtime/projection')({ config, connection, current: current(A) }).acquire({ at: 10000000 });
-    const browser = { sgvs: [{ mills: 1000, mgdl: 250 }], processTreatments () {} };
+    const browser = { ...Object.fromEntries(Object.entries(acquired.frame).filter(([, value]) => Array.isArray(value)).map(([key]) => [key, []])),
+      sgvs: [{ mills: Date.now(), mgdl: 250 }], processTreatments () {} };
     require('../lib/client/receiveddata')(acquired.frame, browser, { extendedSettings: {} });
-    assert.equal(acquired.frame.delta, false, 'RT_ACTUAL_FULL_RESET source acquisition sets a full snapshot');
     assert.deepEqual(browser.sgvs, [], 'RT_ACTUAL_BROWSER_ABSENCE no SGV is retained by actual browser merge');
+    assert.equal(acquired.frame.delta, false, 'RT_ACTUAL_FULL_RESET source acquisition sets a full snapshot');
   });
   it('uses the explicit recovery backstop with no wake and contains a failed tenant', async function () {
     const f = await fixture();
