@@ -237,3 +237,167 @@ optInSuite(process.env.NS_M5_CURRENT_STATE_PROOF_TEST === '1' && !!process.env.N
       assert.equal(fresh.clinical.checkpoint, after.floor);
     });
   });
+
+optInSuite(process.env.NS_M5_CURRENT_STATE_PROOF_TEST === '1' && !!process.env.NS_TEST_POSTGRES_ADMIN_URI,
+  'NS_M5_CURRENT_STATE_PROOF_TEST=1 with disposable PostgreSQL')(
+  'M5 evaluator preview lifecycle actual PostgreSQL', function () {
+    this.timeout(60000);
+    const lab = require('./fixtures/evaluator-preview-lab')();
+    before(() => lab.open()); beforeEach(async () => { await lab.reset(); await lab.provisionPreview(); });
+    afterEach(() => lab.stopChildren()); after(() => lab.close());
+    const runtimeReading = (id, sgv, minutes) => { const instant = Date.now() - minutes * 60000;
+      return { _id: id, type: 'sgv', sgv, date: instant, dateString: new Date(instant).toISOString(), direction: 'Flat' }; };
+    const value = reply => reply && reply.result && reply.result.properties.bgnow?.mean;
+    async function seed (tenant = lab.A, id = 'preview-reading', sgv = 111) {
+      return lab.writeCanonical({ tenant, planned: { op: 'create', docs: [runtimeReading(id, sgv, 2)] } });
+    }
+    async function start (config = lab.configure()) {
+      const worker = await lab.worker(config);
+      lab.tracePreview('preview-startup', { startup: worker.startup, physical: await lab.previewPhysical(), logs: worker.logs() });
+      assert.equal(worker.startup.bootError, undefined, 'M5_EVAL_STARTUP privileged/schema/provisioning readiness');
+      assert.deepEqual(worker.startup.contexts, ['evaluator'], 'M5_EVAL_LISTENERLESS_BOOT selected evaluator must start');
+      assert.equal(worker.startup.servers, 0);
+      return worker;
+    }
+    it('boots listenerless role and actual CLI and recovers current state on restart', async function () {
+      const a = await seed(), b = await seed(lab.B, 'preview-reading', 333); committed(a); committed(b);
+      const config = lab.configure(), worker = await start(config);
+      const first = await worker.call('last'), physical = await lab.previewPhysical();
+      lab.tracePreview('preview-first-result', { first, physical });
+      assert.equal(value(first), 111); assert.equal(first.eligible, true);
+      assert.equal(value(await worker.call('last', lab.B)), 333);
+      const stopped = await lab.stopWorker(worker); assert.equal(stopped.code, 0);
+      const removed = await lab.writeCanonical({ planned: { op: 'delete', target: { _id: 'preview-reading' } } });
+      const activity = await lab.writeCanonical({ logical: 'activity', planned: { op: 'create', docs: [
+        { _id: 'preview-activity', created_at: new Date().toISOString(), steps: 1 }
+      ] } });
+      committed(removed); committed(activity);
+      const beforeRestart = await lab.previewPhysical();
+      const cli = lab.cli(config);
+      await lab.wait(async () => {
+        if (cli.child.exitCode !== null || cli.child.signalCode !== null) throw new Error('Evaluator CLI exited before acquisition');
+        const checkpoint = await lab.previewCheckpoint(lab.A);
+        return checkpoint.projection?.length === 1 && checkpoint.projection[0].domain === 'activity';
+      });
+      const afterRestart = await lab.previewPhysical();
+      lab.tracePreview('preview-cli-restart', { beforeRestart, afterRestart, logs: cli.logs(), removed, activity });
+      assert.equal(afterRestart.A.tables.entries.length, 0);
+      assert.equal(afterRestart.A.checkpoint.projection.length, 1);
+      assert.equal(afterRestart.A.checkpoint.projection[0].doc.steps, 1);
+      assert.equal(afterRestart.A.floor, beforeRestart.A.floor);
+      assert.deepEqual(afterRestart.B, beforeRestart.B);
+      assert.match(cli.logs().stdout, /Evaluator preview started/);
+      const exit = new Promise(resolve => cli.child.once('exit', (code, signal) => resolve({ code, signal })));
+      cli.child.kill('SIGTERM'); const result = await exit; assert.equal(result.code, 0); assert.equal(result.signal, null);
+    });
+    it('finds quiet canonical absence and unstamped activity through the explicit recovery backstop', async function () {
+      await seed(); const config = lab.configure(d => { d.recoveryIntervalMs = 5; d.timeIntervalMs = 15; });
+      const worker = await start(config), first = await worker.call('last');
+      const removed = await lab.writeCanonical({ planned: { op: 'delete', target: { _id: 'preview-reading' } } });
+      const activity = await lab.writeCanonical({ logical: 'activity', planned: { op: 'create', docs: [
+        { _id: 'quiet-activity', created_at: new Date().toISOString(), steps: 2 }
+      ] } });
+      const afterWrites = await worker.call('last');
+      await lab.wait(async () => (await worker.call('last')).outputRevision >= afterWrites.outputRevision + 3);
+      const observed = lab.tracePreview('preview-backstop', { first, afterWrites, last: await worker.call('last'),
+        physical: await lab.previewPhysical(), removed, activity });
+      committed(removed); committed(activity);
+      assert.equal(observed.physical.A.tables.entries.length, 0);
+      assert.equal(observed.physical.A.checkpoint.projection.length, 1, 'M5_EVAL_BACKSTOP_RECOVERY full current absence/activity converges without wake');
+      assert.equal(observed.physical.A.checkpoint.projection[0].domain, 'activity', 'M5_EVAL_BACKSTOP_RECOVERY no stale deleted entry');
+      assert.equal(observed.physical.A.checkpoint.projection[0].doc.steps, 2);
+      assert.equal(observed.physical.A.floor, removed.before.floor);
+      assert.ok(observed.last.outputRevision > first.outputRevision);
+    });
+    it('uses retained input for time-only ticks until explicit acquisition', async function () {
+      await seed(); const worker = await start(), first = await worker.call('last');
+      const written = await lab.writeCanonical({ planned: { op: 'create', docs: [runtimeReading('new-physical', 222, 1)] } });
+      const before = await lab.previewPhysical(), tick = await worker.call('tick'), after = await lab.previewPhysical();
+      lab.tracePreview('preview-retained-time', { first, written, before, tick, after });
+      committed(written); assert.equal(before.A.tables.entries.length, 2);
+      assert.equal(value(tick), 111, 'M5_EVAL_TIME_RETAINED new physical row cannot leak through retained timer');
+      assert.deepEqual(after.A.checkpoint, before.A.checkpoint, 'M5_EVAL_TIME_RETAINED no input checkpoint/projection advance');
+      assert.equal(tick.inputCheckpoint, first.inputCheckpoint); assert.equal(tick.trigger, 'time-only');
+      assert.ok(tick.outputRevision > first.outputRevision);
+      const acquired = await worker.call('acquire'); lab.tracePreview('preview-time-acquired', { acquired, physical: await lab.previewPhysical() });
+      assert.equal(value(acquired), 222); assert.equal(acquired.inputCheckpoint, before.A.floor);
+    });
+    it('discards a reused-revision changed config and refuses stale cached eligibility', async function () {
+      await seed(); const initial = lab.configure(), worker = await start(initial), first = await worker.call('last');
+      const changed = lab.configure(d => { d.tenants[0].settings.enable = ['timeago']; });
+      const tick = await worker.call('tick'), physical = await lab.previewPhysical();
+      lab.tracePreview('preview-config-identity', { first, expectedIdentity: changed.identity(lab.A), tick, physical });
+      assert.notEqual(changed.identity(lab.A), first.identity);
+      assert.equal(tick, null, 'M5_EVAL_CONFIG_REBUILD changed content drops retained clinical frame even if revision reused');
+      const acquired = await worker.call('acquire');
+      assert.equal(acquired.identity, changed.identity(lab.A)); assert.equal(acquired.eligible, true);
+      assert.equal(await worker.call('current', lab.A, { identity: first.identity }), false);
+      assert.equal((await worker.call('last')).identity, acquired.identity);
+      const disabled = lab.configure(d => { d.tenants.shift(); });
+      const current = await worker.call('current', lab.A, { identity: acquired.identity });
+      lab.tracePreview('preview-config-disabled', { disabledTenants: disabled.document.tenants.length, current,
+        last: await worker.call('last'), physical: await lab.previewPhysical() });
+      assert.equal(current, false); assert.equal(await worker.call('last'), null);
+    });
+    it('keeps tenant B progressing while A row or byte refusal retains last good output', async function () {
+      for (const scenario of ['row', 'byte']) {
+        if (scenario === 'byte') { await lab.reset(); await lab.provisionPreview(); }
+        await seed(); await seed(lab.B, 'preview-reading', 333);
+        const config = lab.configure(d => { if (scenario === 'row') { d.maxRows = 1; d.pageSize = 1; } else d.maxBytes = 10000; });
+        const worker = await start(config), first = await worker.call('last'), checkpoint = await lab.previewCheckpoint(lab.A);
+        const written = await lab.writeCanonical({ planned: { op: 'create', docs: [
+          { ...runtimeReading('oversized-a', 222, 1), ...(scenario === 'byte' ? { extension: 'x'.repeat(11000) } : {}) }
+        ] } });
+        const refused = await worker.call('acquire'), b = await worker.call('acquire', lab.B), health = await worker.call('health');
+        lab.tracePreview('preview-refusal-' + scenario, { written, first, refused, b, health, physical: await lab.previewPhysical(), checkpoint });
+        assert.equal(refused.outputRevision, first.outputRevision, 'M5_EVAL_REFUSAL retains successful output revision');
+        assert.equal(refused.eligible, false); assert.equal(value(refused), 111);
+        assert.deepEqual(await lab.previewCheckpoint(lab.A), checkpoint, 'M5_EVAL_REFUSAL keeps good input');
+        assert.equal(b.eligible, true); assert.equal(value(b), 333);
+        await lab.stopWorker(worker);
+      }
+    });
+    it('drains and fences a real in-flight clinical read before role shutdown', async function () {
+      await seed(); const worker = await start(), first = await worker.call('last');
+      await lab.writeCanonical({ planned: { op: 'create', docs: [runtimeReading('pending-new', 222, 1)] } });
+      await worker.call('arm'); const held = worker.held(), running = worker.call('acquire'); await held;
+      let finished = false; const stopping = worker.call('close').then(() => { finished = true; });
+      await new Promise(resolve => setImmediate(resolve));
+      const physicalWhileHeld = await lab.previewPhysical();
+      await worker.call('release'); await Promise.all([running, stopping]);
+      const last = await worker.call('last'), health = await worker.call('health');
+      lab.tracePreview('preview-close-fence', { first, physicalWhileHeld, last, health, finished, physicalAfter: await lab.previewPhysical() });
+      assert.equal(physicalWhileHeld.A.tables.entries.length, 2);
+      assert.equal(health.closed, true); assert.equal(finished, true);
+      assert.equal(last.outputRevision, first.outputRevision, 'M5_EVAL_CLOSE_FENCE no late output after shutdown starts');
+      assert.equal(last.eligible, false); assert.equal(value(last), 111);
+      await lab.stopWorker(worker);
+    });
+    it('refuses actual unsafe clinical clock checkpoint and unrelated grants before starting jobs', async function () {
+      const grants = [[lab.namespaces.entries + '.entries', 'doc', 'UPDATE'],
+        [lab.namespaces.clock + '.tenant_write_clock', 'last_stamp', 'UPDATE'],
+        [lab.replayNamespace + '.tenant_consumer_checkpoint', 'tenant_id', 'UPDATE'],
+        [lab.namespaces.settings + '.settings', null, 'SELECT']];
+      for (const [table, column, privilege] of grants) {
+        const quoted = table.split('.').map(n => '"' + n + '"').join('.');
+        const action = column ? privilege + '(' + column + ')' : privilege;
+        if (!column) await lab.admin.query('GRANT USAGE ON SCHEMA "' + lab.namespaces.settings + '" TO "' + lab.previewRole + '"');
+        await lab.admin.query('GRANT ' + action + ' ON ' + quoted + ' TO "' + lab.previewRole + '"');
+        try {
+          const allowed = (await lab.admin.query(column ? 'SELECT has_column_privilege($1,$2,$3,$4) AS allowed'
+            : 'SELECT has_table_privilege($1,$2,$3) AS allowed', column ? [lab.previewRole, table, column, privilege]
+            : [lab.previewRole, table, privilege])).rows[0].allowed;
+          const before = await lab.previewPhysical(), worker = await lab.worker(lab.configure());
+          lab.tracePreview('preview-unsafe-grant', { table, column, privilege, allowed, startup: worker.startup,
+            before, after: await lab.previewPhysical() });
+          assert.equal(allowed, true, 'M5_EVAL_PRIVILEGE physical forbidden grant exists');
+          assert.equal(worker.startup.bootError?.name, 'PreviewConfigError', 'M5_EVAL_PRIVILEGE refuse before worker starts');
+          assert.equal(worker.startup.ready, undefined);
+          assert.deepEqual(await lab.previewPhysical(), before);
+        } finally {
+          await lab.admin.query('REVOKE ' + action + ' ON ' + quoted + ' FROM "' + lab.previewRole + '"');
+          if (!column) await lab.admin.query('REVOKE USAGE ON SCHEMA "' + lab.namespaces.settings + '" FROM "' + lab.previewRole + '"');
+        }
+      }
+    });
+  });

@@ -147,12 +147,12 @@ describe('parseRoles is unchanged by the typed fields', function () {
 
   it('accepts explicitly configured api and headless tenant-admin previews', function () {
     assert.deepEqual(serve.parseRoles(['api']), ['api']);
-    assert.deepEqual(NAMES.filter(name => ROLES[name].multitenant === true), ['api', 'tenant-admin']);
+    assert.deepEqual(NAMES.filter(name => ROLES[name].multitenant === true), ['api', 'evaluator', 'tenant-admin']);
   });
 
   it('still says realtime is not yet available, with the text index.js carries', function () {
     assert.throws(() => serve.parseRoles(['realtime']), err => err instanceof serve.RoleError
-      && err.message === 'not yet available: realtime. `nightscout multitenant` is for a multitenant role that is not implemented. Only api and tenant-admin have explicit preview runtimes.');
+      && err.message === 'not yet available: realtime. `nightscout multitenant` is for a multitenant role that is not implemented. Only api, tenant-admin and evaluator have explicit preview runtimes.');
   });
 
   it('still refuses an unknown role, listing the roles', function () {

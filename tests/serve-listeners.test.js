@@ -47,7 +47,7 @@ describe('nightscout multitenant: roles (PLAT-SERVE)', function () {
 
   it('accepts the implemented explicitly configured preview roles', function () {
     assert.deepEqual(serve.parseRoles(['api']), ['api']);
-    for (const [name, role] of Object.entries(ROLES)) assert.equal(role.multitenant === true, ['api', 'tenant-admin'].includes(name), name);
+    for (const [name, role] of Object.entries(ROLES)) assert.equal(role.multitenant === true, ['api', 'evaluator', 'tenant-admin'].includes(name), name);
   });
 
   it('refuses an unknown role, an empty one, a repeated one, and a missing list', function () {
@@ -58,7 +58,7 @@ describe('nightscout multitenant: roles (PLAT-SERVE)', function () {
   });
 
   it('names every role that cannot be served yet', function () {
-    for (const name of ['evaluator', 'realtime', 'vcpool', 'admin']) {
+    for (const name of ['realtime', 'vcpool', 'admin']) {
       assert.ok(ROLES[name], name);
       assert.throws(() => serve.parseRoles([name]), new RegExp('not yet available: ' + name + '\\.'));
     }
@@ -69,12 +69,18 @@ describe('nightscout multitenant: roles (PLAT-SERVE)', function () {
     const unknown = cli(['multitenant', 'bogus']);
     assert.equal(unknown.status, 64);
     assert.match(unknown.stderr, /unknown role: bogus/);
-    for (const name of ['evaluator', 'realtime', 'vcpool', 'admin', 'api,admin']) {
+    for (const name of ['realtime', 'vcpool', 'admin', 'api,admin']) {
       const result = cli(['multitenant', name]);
       assert.equal(result.status, 64, name);
       assert.match(result.stderr, /not yet available: .*role that is not implemented/, name);
     }
     assert.equal(cli(['multitenant']).status, 64);
+  });
+
+  it('refuses evaluator without explicit preview configuration before any storage boot', function () {
+    const result = cli(['multitenant', 'evaluator']);
+    assert.equal(result.status, 78);
+    assert.match(result.stderr, /explicit evaluator preview configuration/);
   });
 
   it('refuses headless tenant-admin without explicit preview configuration before any storage boot', function () {

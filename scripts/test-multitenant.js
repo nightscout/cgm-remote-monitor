@@ -77,7 +77,7 @@ const INVENTORY = [
   { file: 'tests/tenant-durable-replay.integration.test.js', flags: { NS_TENANT_DURABLE_REPLAY_TEST: '1' }, shared: ['postgres'], own: [], gate: PENDING },
   { file: 'tests/tenant-projection-evaluator.integration.test.js', flags: { NS_TENANT_PROJECTION_EVALUATOR_TEST: '1' }, shared: ['postgres'], own: [], gate: PENDING },
   { file: 'tests/tenant-current-state-recovery-proof.integration.test.js', flags: { NS_M5_CURRENT_STATE_PROOF_TEST: '1' }, shared: ['postgres'], own: [], gate: PENDING,
-    note: 'bounded current-state reconciliation: canonical deletes, unstamped activity, bounds/rollback and snapshot interleaving; no distributed runtime acceptance' },
+    note: 'bounded current-state acquisition and explicit evaluator preview lifecycle; no notification/provider acceptance' },
   { file: 'tests/tenant-commit-clock-port.integration.test.js', flags: { NS_TENANT_COMMIT_CLOCK_TEST: '1' }, shared: ['postgres'], own: [], gate: PENDING },
   { file: 'tests/tenant-commit-clock-http.integration.test.js', flags: { NS_TENANT_COMMIT_CLOCK_HTTP_DOCKER_TEST: '1' }, shared: [], own: ['postgres', 'vault'], gate: PENDING,
     note: 'functional cases enabled; benchmark remains pending unless NS_TENANT_COMMIT_CLOCK_BENCHMARK=1' },

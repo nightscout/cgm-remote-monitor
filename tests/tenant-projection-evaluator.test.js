@@ -60,11 +60,11 @@ describe('dormant tenant projection evaluator source contract', function () {
     await assert.rejects(scope.withTenant(A, () => s.reader.findFiltered(fromMongo({}), { v1: true, sort: { date: -1 }, madeUp: true })), /find option/);
     assert.equal(s.calls.length, 0);
   });
-  function component (replay, suppliedConnection) {
+  function component (replay, suppliedConnection, suppliedStats) {
     const env = require('../lib/server/tenant-app/environment')({ settings: { enable: ['bgnow'] } });
     const connection = suppliedConnection || { async query () { throw new Error('No SQL allowed in this contract case'); } };
     const language = require('../lib/language')();
-    return evaluator({ tenant: A, replay, connection, env, language, dbstats: async () => ({ dataSize: 0, indexSize: 0 }),
+    return evaluator({ tenant: A, replay, connection, env, language, dbstats: suppliedStats || (async () => ({ dataSize: 0, indexSize: 0 })),
       maxRows: 10, maxBytes: 10000 });
   }
   it('does not retain or publish when replay commit refuses', async function () {
@@ -92,6 +92,20 @@ describe('dormant tenant projection evaluator source contract', function () {
     assert.equal(acquisitions, 3, 'unchanged input checkpoint never suppresses a clinical retry');
     assert.equal(retry.checkpoint, first.checkpoint);
     assert.deepEqual(retry.properties, first.properties);
+  });
+  it('evaluates time-only from successful retained input without acquisition or statistics reload', async function () {
+    let acquisitions = 0, statistics = 0;
+    const v = component({ async reconcile () { acquisitions++; return { checkpoint: 7, rows: [] }; } },
+      { async query () { return { rows: [] }; } }, async () => { statistics++; return { dataSize: 0, indexSize: 0 }; });
+    await assert.rejects(v.evaluateTime(), /no successful retained input/, 'M5_EVAL_TIME_COMPONENT time-only cannot bootstrap acquisition');
+    const first = await v.evaluate({ at: 1000 });
+    const time = await v.evaluateTime({ at: 2000 });
+    assert.equal(acquisitions, 1, 'M5_EVAL_TIME_COMPONENT no acquisition from time tick');
+    assert.equal(statistics, 1, 'M5_EVAL_TIME_COMPONENT retains acquisition statistics');
+    assert.equal(time.checkpoint, first.checkpoint);
+    assert.equal(time.trigger, 'time-only');
+    assert.equal(time.evaluationRevision, first.evaluationRevision + 1);
+    assert.equal(time.now, 2000);
   });
   it('enforces tenant scope before replay and retained-state access', async function () {
     let reads = 0;
