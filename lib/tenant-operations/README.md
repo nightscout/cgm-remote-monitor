@@ -21,7 +21,7 @@ belongs to the coherent assembled candidate.
 JSON migration catalogues under `lib/` and `migrations/candidates/`. It never selects
 all database schemas. It refuses an unadmitted candidate, missing namespace,
 omitted/extra table, unsupported DDL, shared namespace or unknown selection.
-Current source census: **22 candidate files, 20 selected kinds, 35 tables**; the two
+Current source census: **23 candidate files, 20 selected kinds, 35 tables**; the three
 socket-order successors are explicit alternative selections, not additional domains.
 
 The lifecycle list owns tenant export/import/delete order. It now includes A74's

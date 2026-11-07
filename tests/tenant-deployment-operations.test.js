@@ -48,8 +48,8 @@ describe('whole deployment source admission and filesystem durability', function
     const admission = admit({ namespaces: namespaces() });
     assert.deepEqual(admission.census.selected.map(entry => entry.kind), KINDS);
     assert.equal(admission.census.tables, 35);
-    assert.equal(admission.census.candidates.length, 22);
-    assert.equal(admission.census.candidates.filter(entry => entry.disposition === 'reviewed alternative').length, 2);
+    assert.equal(admission.census.candidates.length, 23);
+    assert.equal(admission.census.candidates.filter(entry => entry.disposition === 'reviewed alternative').length, 3);
     assert.ok(admission.lifecycle.CATALOGUE.some(entry => entry.tables.includes('tenant_owner_configuration_authority')));
     assert.ok(!admission.lifecycle.CATALOGUE.some(entry => entry.tables.includes('tenant_lifecycle_requests')));
     assert.deepEqual(admission.catalogues.find(entry => entry.kind === 'lifecycle').tables, ['tenant_lifecycle_requests', 'tenant_lifecycle_ceremony']);
@@ -157,6 +157,41 @@ describe('whole deployment source admission and filesystem durability', function
     assert.deepEqual(inputs.acl.grants[1].columnPrivileges.UPDATE, ['request_id', 'blocked_until']);
     assert.deepEqual(inputs.acl.grants[2].columnPrivileges.UPDATE, ['state', 'next_at', 'attempt', 'attempt_token', 'attempt_until', 'accepted_at', 'receipt', 'cleared_at']);
     assert.throws(() => notificationInputs({ tenants: [A, '22222222-2222-4222-8222-222222222222'], now: 1700000000000, outboxRole: 'same', checkpointWriterRole: 'same' }), { code: 'NOTIFICATION_INPUT_ROLES_INVALID' });
+  });
+
+  it('pins the profile successor, preserves base0001 and gives only its writer exact sequence USAGE', function () {
+    const { profileInputs } = require('./fixtures/tenant-deployment-profile');
+    const inputs = profileInputs({ writerRole: 'profile_writer', readerRole: 'profile_reader', realtimeRole: 'realtime' });
+    const selected = admit({ namespaces: namespaces(), selection: inputs.selection });
+    const profile = selected.catalogues.find(entry => entry.kind === 'profile');
+    const base = require('../migrations/candidates/postgres-profile-v1.json');
+    assert.deepEqual(profile.catalogue.migrations[0], base.migrations[0]);
+    assert.equal(common.sha256(common.canonical(profile.catalogue)), inputs.candidateDigest);
+    assert.equal(common.sha256(fs.readFileSync(path.join(ROOT, inputs.selection.profile), 'utf8')), inputs.sourceSha256);
+    assert.equal(selected.census.tables, 35);
+    assert.equal(profile.catalogue.migrations.length, 2);
+    const up = profile.catalogue.migrations[1].up;
+    assert.ok(up.indexOf('ALTER TABLE profile VALIDATE CONSTRAINT socket_order_requires_empty') < up.indexOf('ALTER TABLE profile ADD COLUMN insertion_ordinal bigint GENERATED ALWAYS AS IDENTITY'));
+    assert.deepEqual(inputs.acl.grants.filter(grant => grant.sequencePrivileges), [{ role: 'profile_writer', kind: 'profile', table: 'profile', privileges: ['SELECT', 'INSERT', 'UPDATE', 'DELETE'], sequencePrivileges: ['USAGE'] }]);
+    assert.equal(inputs.sequence, 'profile_insertion_ordinal_seq');
+    const { populatedRows } = require('./fixtures/tenant-deployment-data');
+    assert.deepEqual(populatedRows({ profileSocketOrder: true }).profile.map(row => row.insertion_ordinal), ['11', '3', '29', '17']);
+    assert.ok(populatedRows().profile.every(row => !Object.hasOwn(row, 'insertion_ordinal')));
+  });
+
+  it('refuses a changed valid profile successor pin and still admits an OLD archive without that optional file', async function () {
+    for (const entry of operations.discoverCatalogues()) {
+      await fs.promises.mkdir(path.dirname(path.join(scratch, entry.file)), { recursive: true });
+      await fs.promises.copyFile(path.join(ROOT, entry.file), path.join(scratch, entry.file));
+    }
+    const file = 'migrations/candidates/postgres-profile-socket-order-v1.json';
+    const candidate = JSON.parse(await fs.promises.readFile(path.join(scratch, file), 'utf8'));
+    candidate.status += ' changed valid input';
+    await fs.promises.writeFile(path.join(scratch, file), JSON.stringify(candidate));
+    assert.throws(() => admit({ root: scratch, namespaces: namespaces() }), { code: 'OPERATIONS_CENSUS_ALTERNATIVE_CHANGED' });
+    await fs.promises.unlink(path.join(scratch, file));
+    assert.equal(admit({ root: scratch, namespaces: namespaces() }).catalogues.find(entry => entry.kind === 'profile').catalogue.migrations.length, 1);
+    assert.throws(() => admit({ root: scratch, namespaces: namespaces(), selection: { profile: file } }), { code: 'OPERATIONS_CENSUS_SELECTION_INVALID' });
   });
 
   it('requires an explicit reviewed selection and refuses omitted namespace mappings', function () {

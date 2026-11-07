@@ -19,8 +19,8 @@ operator migration runner, durable filesystem callback and original-ID restore.
 extensions. It adds the separate lifecycle ledger only to deployment backup.
 No active M5 worktree is imported and no application serving/default path changes.
 
-Current read-derived inventory is 22 JSON candidates / 20 selected kinds / 35
-selected tables; two socket-order successors are explicit alternatives. A74 owner
+Current read-derived inventory is 23 JSON candidates / 20 selected kinds / 35
+selected tables; three socket-order successors are explicit alternatives. A74 owner
 configuration authority was missing from old R69 inventory: the new independent
 source check failed before its joined-tree repair. The current extension interface
 refuses unknown new candidate paths, missing namespaces and incomplete table lists.
@@ -213,3 +213,41 @@ one alarm-clear/retry loss; require exact oracle failure and restored passes.
 Source-pattern request replay is client-shape evidence, not execution of actual
 mobile binaries. Provider sends, browsers and real mobile clients require their
 own scope; this supplement does not claim those ran.
+
+## Frozen profile successor recovery input (source only)
+
+Owner `0bf5cf6daef4bd1adc04f0e689ac179ed63283d8`, joined root
+`ad3c0b66832a1975638f9a9c0e0e4f3ef510e05b`, supplies exact
+`migrations/candidates/postgres-profile-socket-order-v1.json` (byte SHA256
+3838b60a7fd4cedbd3297dba6022ddff1ba998895bcf113dc85a4339e295bb08).
+The candidate is explicitly pinned as an optional profile alternative. BASE
+remains the default. OLD archives without this optional file remain admissible;
+selecting it there refuses. Changed valid successor input requires source review.
+
+Unchanged0001 is followed by0002 CHECKfalse validation before adding the bigint
+identity ordinal and tenant/ordinal index. Populated BASE upgrade must refuse
+atomically: record original rows, columns, guard and ledger before/after, with no
+inferred historical order/backfill. Empty upgrade/fresh successor should succeed.
+This actual PostgreSQL migration behavior is UNMEASURED here. The source SQL-order
+check is not a database execution substitute.
+
+`tests/fixtures/tenant-deployment-profile.js` binds writer/reader/RT rights and
+exact profile_insertion_ordinal_seq. Only the API writer receives sequence USAGE;
+no reader/RT sequence rights, no sequence SELECT/UPDATE. Explicit API socket
+selection applies whole-domain readiness including REST/editor. RT/evaluator must
+explicitly select profile in socketOrderDomains (also T/D when used). BASE/default
+consumer refuses successor; selected consumer refuses stale BASE. Owner admin is
+not a clinical profile consumer. C recovery preparation does not merge these
+runtime changes or invent a generic union of roles.
+
+Populate the successor only after fresh/empty migration with
+`populatedRows({ profileSocketOrder: true })`: both tenants, typed twins and
+noncontiguous ordinals. Source recovery check retains exact ordinal gaps and
+foreign rows, advances next identity above max, and emits exact writer-only
+sequence grant. Planted pin bypass, ordinal loss and skipped sequence recovery
+must red then restore. Native must independently inspect ordinals/next writer
+insert, exact grants/denials and actual selected consumer startup, then replay
+unchanged profile empty/addretry/preseed-b-then-a requests and record raw replies
+and physical state. Existing populated OLD profile remains on its prior catalogue
+unless an independently reviewed provenance migration is supplied; don't label a
+refused populated upgrade successful. Final notifier0002 contract is still pending.

@@ -47,6 +47,12 @@ function column (spec) {
 const create = (schema, table, specs) => schema.tables.set(table, { columns: specs.split(',').map(column), rows: [], next: 1 });
 const EFFECTS = {
   '0001_synthetic_state': schema => create(schema, 'synthetic_state', 'tenant_id uuid, value text'),
+  '0001_profile': schema => create(schema, 'profile', 'tenant_id uuid, doc jsonb, id_kind text'),
+  '0002_profile_socket_order': schema => {
+    const table = schema.tables.get('profile');
+    if (table.rows.length) throw common.refuse('PROFILE_ORDER_REQUIRES_EMPTY');
+    table.columns.push(column('insertion_ordinal bigint identity'));
+  },
   '0001_entries': schema => create(schema, 'entries', 'tenant_id uuid, doc jsonb, id_kind text'),
   '0002_entries_insertion_order': schema => {
     const table = schema.tables.get('entries');
@@ -113,6 +119,10 @@ function fakeConnection ({ identity = { rolsuper: false, rolbypassrls: true }, l
     if (compact === 'SELECT to_regclass($1) IS NOT NULL AS present') {
       const found = schemaOf(values[0]);
       return { rows: [{ present: Boolean(found.schema && (found.name === 'schema_migrations' ? found.schema.ledger : found.table)) }] };
+    }
+    if (/^SELECT n.nspname AS namespace, c.relname AS name FROM pg_class/.test(compact)) {
+      const found = schemaOf(values[0]);
+      return { rows: [{ namespace: found.namespace, name: found.name + '_' + values[1] + '_seq' }] };
     }
     if (/FROM pg_attribute/.test(compact)) {
       const found = schemaOf(values[0]);
@@ -401,6 +411,28 @@ describe('tenant operations: deployment backup, restore, upgrade and rollback', 
       assert.deepEqual(operations.compareSummaries(expected, actual), []);
       assert.deepEqual(target.connection.rows(FRESH.entries, 'entries').map(r => r.insertion_ordinal).sort(), ['1', '2', '3', '4']);
       assert.deepEqual(target.connection.rows(FRESH.secrets, 'secret_records').map(r => r.ciphertext).sort(), ['vault:v1:c3ludGhldGljLWNpcGhlcnRleHQ=', 'vault:v2:Zm9yZWlnbg==']);
+    });
+
+    it('preserves profile successor ordinal gaps across restore and grants only exact writer sequence USAGE', async function () {
+      const candidate = require('../migrations/candidates/postgres-profile-socket-order-v1.json');
+      const selected = namespace => [{ kind: 'profile', namespace, catalogue: candidate, tables: ['profile'] }];
+      const source = fakeConnection(), target = fakeConnection();
+      await fakeMigrate(source, [])('up', { namespace: 'source_profile', catalogue: candidate });
+      await fakeMigrate(target, [])('up', { namespace: 'fresh_profile', catalogue: candidate });
+      const rows = [
+        { ...typed(A, 'string', { _id: 'b', NSCLIENT_ID: 'same', flag: false }), insertion_ordinal: '11' },
+        { ...typed(A, 'string', { _id: 'a', NSCLIENT_ID: 'same', nullable: null }), insertion_ordinal: '3' },
+        { ...typed(B, 'string', { _id: 'foreign', NSCLIENT_ID: 'same', value: 0 }), insertion_ordinal: '29' }
+      ];
+      await source.seed('source_profile', 'profile', rows);
+      const artifact = await operations.backup(source, { catalogues: selected('source_profile'), sourceCommit: COMMIT, now: NOW });
+      const inputs = require('./fixtures/tenant-deployment-profile').profileInputs({ writerRole: 'profile_writer', readerRole: 'profile_reader', realtimeRole: 'realtime' });
+      await operations.restore(target, artifact, { catalogues: selected('fresh_profile'), acl: inputs.acl });
+      assert.deepEqual(target.rows('fresh_profile', 'profile').sort((a, b) => Number(a.insertion_ordinal) - Number(b.insertion_ordinal)), rows.slice().sort((a, b) => Number(a.insertion_ordinal) - Number(b.insertion_ordinal)));
+      assert.equal(target.schemas.get('fresh_profile').tables.get('profile').next, 30);
+      assert.deepEqual(target.statements(/^GRANT .* ON SEQUENCE/).map(entry => entry.text), ['GRANT USAGE ON SEQUENCE "fresh_profile"."profile_insertion_ordinal_seq" TO "profile_writer"']);
+      const restored = await operations.summarize(target, selected('fresh_profile'));
+      assert.deepEqual(operations.compareSummaries(await operations.summarize(source, selected('source_profile')), restored), []);
     });
 
     it('control: a backup that lost one tenant from one table restores cleanly, and the independent oracle names the tenant and table', async function () {

@@ -8,7 +8,7 @@ const HEX = '0123456789abcdef01234567';
 const digest = 'a'.repeat(64);
 const uuid = n => '00000000-0000-4000-8000-' + String(n).padStart(12, '0');
 
-function populatedRows ({ now = 1700000000000 } = {}) {
+function populatedRows ({ now = 1700000000000, profileSocketOrder = false } = {}) {
   const rows = {};
   const add = (table, row) => { (rows[table] = rows[table] || []).push(row); };
   for (const [offset, tenant] of [A, B].entries()) {
@@ -52,6 +52,9 @@ function populatedRows ({ now = 1700000000000 } = {}) {
       confirmed_by: principal, confirmed_consumer: consumer, confirmed_at: '600', cancelled_by: null, cancelled_consumer: null, cancelled_at: null,
       claim_id: event(5), started_by: principal, started_consumer: consumer, started_at: '800', executed_by: principal, executed_consumer: consumer, executed_at: '1000' });
   }
+  // Explicit successor only: preserve non-ID insertion order, including gaps and
+  // both tenants, so recovery must retain ordinals rather than regenerate them.
+  if (profileSocketOrder) rows.profile.forEach((row, index) => { row.insertion_ordinal = ['11', '3', '29', '17'][index]; });
   const { alarmInputs } = require('./tenant-deployment-alarm');
   const { notificationInputs } = require('./tenant-deployment-notifications');
   Object.assign(rows, alarmInputs({ tenants: [A, B], now, writerRole: 'alarm_writer', readerRole: 'alarm_reader' }).rows,
