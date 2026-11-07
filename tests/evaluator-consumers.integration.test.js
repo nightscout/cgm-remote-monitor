@@ -38,7 +38,9 @@ optInSuite(process.env.NS_EVALUATOR_CONSUMERS_TEST === '1' && !!process.env.NS_T
       const capture=lab.observations.find(row=>row.phase==='sink-before-accept' && row.id===first[0].id);
       assert.equal(capture.ownRow.request_id,first[0].id); assert.equal(capture.ownRow.state,'attempting','M5_CONSUMER_COMMIT_BEFORE_SINK');
       const before=await lab.requests(); assert.equal(before[0].state,'accepted'); assert.ok(Number(before[0].created_at)>=epoch);
+      const producerBefore = await lab.producerState();
       await worker.call('wake'); await worker.call('flush'); assert.equal(lab.sinkEffects.length,1,'M5_CONSUMER_SAME_OUTPUT_ONCE');
+      assert.equal((await lab.producerState())[0].revision,producerBefore[0].revision,'M5_CONSUMER_JSONB_UNCHANGED_NO_REVISION');
       await worker.call('tick'); await worker.call('flush'); assert.equal(lab.sinkEffects.length,2);
       assert.notEqual(lab.sinkEffects[0].id,lab.sinkEffects[1].id,'M5_CONSUMER_NEW_RT_CYCLE');
       assert.deepEqual(await lab.requests(lab.B),[]); lab.traceConsumer('committed-per-cycle',{rows:await lab.requests(),state:await lab.producerState(),foreign:await lab.requests(lab.B)});
