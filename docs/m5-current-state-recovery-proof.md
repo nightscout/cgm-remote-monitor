@@ -32,6 +32,11 @@ There is no timestamp predicate. Ordered `(domain,id_kind,identity)` paging keep
 string/ObjectId twins distinct. Bounds count all scanned rows including invalid
 rows, and check both persisted and decoded projection envelopes before UPDATE.
 Oversize refuses visibly; it never truncates or persists a partial result.
+COUNT/SUM still traverses the full admitted source before refusal; these are
+row/result-volume bounds, not SQL time/IO budgets. Full-scan cost and cadence
+remain unmeasured. Unchanged persisted JSONB is compared semantically, ignoring
+plain-object key order while preserving array order and scalar types, so an
+unchanged floor/state does not trigger a checkpoint UPDATE.
 
 Projection/checkpoint replacement and its floor are one tenant snapshot, returned
 only after COMMIT. Acquisition/bound/COMMIT failure keeps the last persisted

@@ -81,6 +81,11 @@ describe('dormant durable replay source protocol', function () {
       },
       setSource (rows, high) { source = rows; floor = high; },
       saved: () => structuredClone(saved),
+      reorderSaved () {
+        const reorder = value => Array.isArray(value) ? value.map(reorder)
+          : value && typeof value === 'object' ? Object.fromEntries(Object.keys(value).sort().map(key => [key, reorder(value[key])])) : value;
+        saved = reorder(saved);
+      },
       failUpdate () { failUpdate = true; }, failCommit () { failCommit = true; },
       reconcile: (bounds = { maxRows: 10, maxBytes: 10000 }) => scope.withTenant(A, () => consumer.reconcile(bounds)),
       run: () => scope.withTenant(A, () => consumer.catchUp()) };
@@ -183,6 +188,29 @@ describe('dormant durable replay source protocol', function () {
     assert.equal((await f.reconcile()).rows[0].document.sgv, 333);
     f.setSource([], 1);
     assert.deepEqual((await f.reconcile()).rows, []);
+  });
+
+  it('does not UPDATE semantically unchanged JSONB-reordered projection but preserves array order', async function () {
+    const f = fixture(); f.provision();
+    const row = f.row('one', 'string', 1, 111);
+    row.doc.extension = { z: [1, 2, { z: true, a: 'typed' }], a: null };
+    f.setSource([row], 1); await f.reconcile();
+    f.reorderSaved();
+    const before = f.saved(), updates = () => f.calls.filter(call => call.sql && call.sql.startsWith('UPDATE')).length;
+    const count = updates(), scans = f.calls.filter(call => call.sql && call.sql.startsWith('SELECT count(*)')).length;
+    const unchanged = await f.reconcile();
+    assert.equal(unchanged.changed, false, 'M5_JSONB_SEMANTIC_EQUAL unchanged object keys must not trigger replacement');
+    assert.equal(updates(), count, 'M5_JSONB_SEMANTIC_EQUAL unchanged floor/state issues no UPDATE');
+    assert.equal(f.calls.filter(call => call.sql && call.sql.startsWith('SELECT count(*)')).length, scans + 1,
+      'unchanged floor still performs full current-state acquisition');
+    assert.deepEqual(f.saved(), before);
+    row.doc.extension.z.reverse();
+    const changed = await f.reconcile();
+    assert.equal(changed.changed, true, 'JSON arrays retain order semantics');
+    assert.equal(updates(), count + 1);
+    row.doc.extension.z[0].z = 'true';
+    assert.equal((await f.reconcile()).changed, true, 'scalar types retain their semantics');
+    assert.equal(updates(), count + 2);
   });
 
   it('requires explicit snapshot bounds and rolls back row, byte, update and commit refusals', async function () {
