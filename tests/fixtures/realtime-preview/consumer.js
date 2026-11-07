@@ -6,11 +6,17 @@ module.exports = async function consumer (input) {
   const roles = await require('./roles').start(input), config = roles.config, sockets = [], events = [], attempts = [], observations = {};
   const { Client } = require('pg'), admin = new Client({ connectionString: input.env.NS_TEST_POSTGRES_ADMIN_URI });
   let connected = false, relay, directory, runtimeDirectory, dropped = false, staleGrants, cold;
+  const oracle = require('./consumer-oracles'), evaluatorEnvironment = require('./roles').roleEnvironment(JSON.parse(fs.readFileSync(config.evaluatorEnvFile)), input.env);
+  const limits = JSON.parse(fs.readFileSync(evaluatorEnvironment.MULTITENANT_EVALUATOR_CONFIG)).consumers.realtime.outbox;
   const table = name => { assert.match(name, /^[a-z][a-z0-9_]{0,62}$/); return '"' + name + '"'; };
   const record = (extra = {}) => {
     Object.assign(observations, extra);
     fs.writeFileSync(path.join(input.captureDir, 'actual-consumer-handoff.json'), JSON.stringify({ events, attempts, ...observations }, null, 2) + '\n');
   };
+  const requests = table(config.outboxNamespace) + '.tenant_notification_requests';
+  const states = table(config.outboxNamespace) + '.tenant_notification_state';
+  const requestRows = async () => oracle.bounded((await admin.query('SELECT tenant_id,request_id,consumer,payload,state,attempt,receipt,origin,config_identity,dedup_key FROM ' + requests + ' WHERE tenant_id=$1 AND consumer=$2 LIMIT $3', [config.tenant, config.consumerId, limits.maxRows + 1])).rows, limits);
+  const producerRows = async () => oracle.bounded((await admin.query('SELECT revision,config_identity,producer FROM ' + states + ' WHERE tenant_id=$1 AND consumer=$2 LIMIT $3', [config.tenant, config.consumerId, limits.maxRows + 1])).rows, limits);
   const pause = ms => new Promise(resolve => setTimeout(resolve, ms));
   async function wait (check, marker) { const until = Date.now() + config.timeoutMs; while (Date.now() < until) { const result = await check(); if (result) return result; await pause(10); } throw new Error(marker); }
   async function subscribe (credential, recipient) {
@@ -41,26 +47,39 @@ module.exports = async function consumer (input) {
       async '/alarm' (request, body) {
         assert.equal(request.transport, token);
         assert([roles.owned.tenant, roles.owned.foreignTenant].includes(body.tenant), 'handoff must belong to an attested fixture tenant');
-        const result = await deliver('/alarm', body); attempts.push({ tenant: body.tenant, id: body.id, attempt: body.attempt, notification: body.notification, result }); record();
-        if (!dropped && body.tenant === config.tenant && !body.notification.clear) { dropped = true; throw new Error('INTENTIONAL_UNCERTAIN_RESPONSE_AFTER_HANDOFF'); }
+        const result = await deliver('/alarm', body);
+        if (result?.accepted !== true) throw new Error('CONSUMER_RELAY_HANDOFF_NOT_ACCEPTED');
+        const attempt = {tenant:body.tenant,id:body.id,attempt:body.attempt,notification:body.notification,result};
+        if (body.tenant === config.tenant && !body.notification.clear) {
+          const rows = await requestRows(), first = attempts.find(row=>row.responseLost);
+          attempt.durable = oracle.bindAttempt(attempt,rows,first);
+          record({relayPhysicalRows:rows});
+        }
+        attempts.push(attempt);
+        if (!dropped && body.tenant === config.tenant && !body.notification.clear) {
+          dropped = true; attempt.responseLost = true; record(); throw new Error('INTENTIONAL_UNCERTAIN_RESPONSE_AFTER_HANDOFF');
+        }
+        record();
         return result;
       }
     }));
     const warm = await roles.startEvaluator({ alarmRoutePath: socketPath });
-    const requests = table(config.outboxNamespace) + '.tenant_notification_requests';
+    record({warmEvaluatorPid:warm.pid});
+    const boundary = await wait(()=>oracle.retryBoundary(attempts,config.tenant),'CONSUMER_ACTUAL_RETRY_BOUNDARY_NOT_OBSERVED');
+    const physicalRetryRows = await requestRows();
+    const original = oracle.retry({...boundary,rows:physicalRetryRows},record);
     const accepted = await wait(async () => {
-      const rows = (await admin.query('SELECT request_id,consumer,payload,state,attempt,receipt FROM ' + requests + ' WHERE tenant_id=$1 AND consumer=$2', [config.tenant, config.consumerId])).rows;
-      record({ requests: rows }); return rows.find(row => row.state === 'accepted' && row.attempt >= 2 && !row.payload.clear);
-    }, 'CONSUMER_SAME_ID_RETRY_NOT_ACCEPTED');
-    record({ accepted });
-    const same = attempts.filter(row => row.id === accepted.request_id && !row.notification.clear);
-    assert(same.length >= 2, 'CONSUMER_UNCERTAIN_SAME_ID actual retry must retain UUID');
-    assert.deepEqual(same[0].notification, same[1].notification, 'CONSUMER_RETRY_UNCHANGED_PAYLOAD');
-    assert.deepEqual(same[0].notification, accepted.payload, 'CONSUMER_PERSISTED_PAYLOAD actual relay preserves durable notification');
+      const rows = await requestRows(); record({requests:rows});
+      return rows.find(row=>row.request_id===original.request_id&&row.state==='accepted'&&row.attempt>=2);
+    },'CONSUMER_RETRY_COMPLETION_NOT_OBSERVED');
+    record({accepted});
     assert.equal(events.some(row => row.recipient === 'stale' && row.kind === 'urgent_alarm'), false, 'CONSUMER_STALE_RECIPIENT no protected alarm');
     assert(events.some(row => row.recipient === 'current' && row.kind === 'urgent_alarm'), 'CONSUMER_VALID_RECIPIENT actual sparse failure must not block valid socket');
     assert.equal(accepted.receipt, null, 'RT_HANDOFF_NOT_DEVICE_RECEIPT');
     cold = await require('./cold-acquisition')({ input, roles, admin, warm, alarmRoutePath: socketPath, record, wait, sockets });
+    const beforeProducer = (await producerRows())[0];
+    if (!beforeProducer) throw new Error('CONSUMER_COLD_PRODUCER_STATE_REQUIRED');
+    record({beforeAckProducer:beforeProducer});
     const beforeAckIds = new Set((await admin.query('SELECT request_id FROM ' + requests + ' WHERE tenant_id=$1 AND consumer=$2', [config.tenant, config.consumerId])).rows.map(row => row.request_id));
     const beforeAckClearEvents = events.filter(row => row.recipient === 'current' && row.kind === 'clear_alarm').length;
     record({ beforeAckRequestIds: [...beforeAckIds], beforeAckClearEvents });
@@ -73,10 +92,18 @@ module.exports = async function consumer (input) {
     const suppressed = (await admin.query('SELECT alarm_group,alarm_level,acked_at,expires_at FROM ' + table(config.alarmNamespace) +
       '.tenant_alarm_suppression WHERE tenant_id=$1 AND alarm_group=$2', [config.tenant, accepted.payload.group || 'default'])).rows;
     record({ accepted, suppressed });
+    const keys = oracle.ackKeys(suppressed);
+    const producer = await wait(async () => {
+      const rows = await producerRows(); record({coldAckProducerObservations:rows});
+      return oracle.consumed(rows[0],keys,beforeProducer.revision) ? rows[0] : null;
+    },'CONSUMER_COLD_ACK_CONSUMPTION_NOT_OBSERVED');
+    const coldBoundary = await wait(()=>cold.observe(ackStartedAt),'CONSUMER_COLD_POST_ACK_OBSERVATION_REQUIRED');
+    const physicalClear = oracle.clear({producer,ackKeys:keys,beforeRevision:beforeProducer.revision,
+      beforeAckRequestIds:[...beforeAckIds],rows:await requestRows(),cold:coldBoundary,suppressed},record);
     const clear = await wait(async () => {
-      const rows = (await admin.query('SELECT request_id,consumer,payload,state,attempt,receipt FROM ' + requests + ' WHERE tenant_id=$1 AND consumer=$2', [config.tenant, config.consumerId])).rows;
-      record({ coldAfterAckRequests: rows }); return rows.find(row => !beforeAckIds.has(row.request_id) && row.state === 'accepted' && row.payload.clear);
-    }, 'CONSUMER_COLD_ACK_CLEAR_NOT_ACCEPTED');
+      const rows = await requestRows(); record({coldAfterAckRequests:rows});
+      return rows.find(row=>row.request_id===physicalClear.request_id&&row.state==='accepted');
+    },'CONSUMER_COLD_CLEAR_COMPLETION_NOT_OBSERVED');
     await wait(() => events.filter(row => row.recipient === 'current' && row.kind === 'clear_alarm').length > beforeAckClearEvents, 'CONSUMER_COLD_ACK_CLEAR_NOT_DELIVERED');
     const coldAfterAck = await wait(() => cold.observe(ackStartedAt), 'CONSUMER_COLD_POST_ACK_OBSERVATION_REQUIRED'); record({ coldClear: clear, coldAfterAck });
     assert(coldAfterAck, 'CONSUMER_COLD_CLEAR_CLINICAL_STILL_REFUSED_LAST_NULL');
