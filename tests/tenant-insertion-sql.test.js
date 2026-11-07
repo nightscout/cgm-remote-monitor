@@ -38,7 +38,7 @@ describe('standalone tenant insertion conversion SQL proposal', function () {
     assert.throws(() => value.verifyGrants('x;GRANT ALL'), /identifier/);
     assert.throws(() => value.verifyGrants('synthetic_app', { restore: 'yes' }), /selection/);
   });
-  it('is explicitly rejected by the unchanged migration catalogue control grammar', function () {
+  it('keeps untyped control SQL rejected by the migration catalogue grammar', function () {
     const { up } = source.build({ namespace: 'synthetic', domain: 'entries' });
     assert.throws(() => validateCatalogue({ version: 1, migrations: [{ name: '0003_tenant_local_insertion', up, checksum: checksum(up) }] }), error => error.code === 'MIG_CATALOGUE');
     assert(up[0].startsWith('LOCK TABLE')); assert(up[1].startsWith('SET LOCAL')); assert(up[2].startsWith('DO '));

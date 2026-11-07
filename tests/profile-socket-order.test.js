@@ -17,7 +17,8 @@ describe('explicit profile socket insertion-order source contract', function () 
   it('keeps exact reviewed base migration/checksum as the validated successor prefix', function () {
     assert.deepEqual(successor.migrations.slice(0, old.migrations.length), old.migrations, 'PROFILE_CATALOGUE_PREFIX pinned base is unchanged');
     require('../lib/migrations/catalogue').validateCatalogue(successor);
-    assert.equal(successor.migrations.length, old.migrations.length + 1);
+    assert.equal(successor.migrations.length, old.migrations.length + 2);
+    assert.deepEqual(successor.migrations.at(-1).operation, { kind: 'tenant-insertion-v1', domain: 'profile' });
   });
   it('selected full-record profile first match uses persistent arrival order, not existence or sorted identity', async function () {
     const first = { id_kind: 'string', doc: { _id: 'z-first', NSCLIENT_ID: 'synthetic', startDate: '2026-11-06', store: { Synthetic: { dia: 3 } } } };

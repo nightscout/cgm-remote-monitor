@@ -27,12 +27,30 @@ The new counter table ends with enabled FORCE RLS and tenant policy. DDL/schema,
 identity source, inheritance and source ordinal refusal checks must remain within
 the same transaction, so interruption rolls conversion back.
 
-**Current MIG-RUNNER integration is unsupported:** validateCatalogue accepts only
-CREATE/ALTER/DROP/INSERT/UPDATE/DELETE/GRANT/REVOKE/COMMENT statement prefixes;
-this standalone list deliberately exposes LOCK,SET and DO instead of hiding them
-inside executable functions or changing its validator. An append-only reviewed
-catalogue/runner integration must be designed separately. Existing immutable
-catalogue bytes/checksums stay untouched.
+## Reviewed operator migration integration
+
+Current candidate successors append a typed `tenant-insertion-v1` migration for
+entries/food and the selected treatments/devicestatus/profile socket-order
+catalogues. The complete SQL list is stored in JSON at the reserved namespace
+`nightscout_migration_namespace`; its checksum covers every statement. The
+validator accepts the exact operation kind/domain/metadata shape only when the
+SQL bytes equal the reviewed version-one builder plan. Generic LOCK/SET/DO,
+transaction control and arbitrary templates remain rejected.
+
+`renderMigration(migration, namespace)` validates the same operation and replaces
+only that reserved namespace with the runner's validated non-system identifier.
+The PostgreSQL runner owns BEGIN/COMMIT/ROLLBACK and executes each exposed plan
+statement via extended protocol before appending the ledger row in the same
+transaction. There is no function hiding transaction or session control. The
+fixed v1 statement contract must remain immutable; future conversion changes need
+a new reviewed operation version and append-only migration, not a changed applied
+checksum. Old SQL/checksum prefixes remain bytewise identical as migration data.
+
+The conversion is operator-only. Serving still performs read-only catalogue
+checks, never schema migration. Older binaries with the prior catalogue refuse
+the new ledger entry as unknown instead of accepting the converted schema.
+Readiness, effective grants and lifecycle inventory must consume the joined
+counter schema contract; this migration lane does not change their defaults.
 
 ## Runtime primitive and trust
 
