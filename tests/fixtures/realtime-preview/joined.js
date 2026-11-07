@@ -31,6 +31,7 @@ module.exports = async function joined (input) {
     assert.equal(roles.owned.tenant, config.tenant); assert.equal(roles.owned.entriesNamespace, config.entriesNamespace);
     assert.equal(roles.owned.authorizationNamespace, config.authorizationNamespace);
     assert(Number.isSafeInteger(config.observationMs) && config.observationMs > 0 && config.observationMs <= 60000);
+    await require('./reader-grants')({ config, owned: roles.owned, captureDir: input.captureDir });
     await admin.connect(); connected = true;
     const clients = [];
     for (const transport of ['polling', 'websocket']) {

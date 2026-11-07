@@ -63,3 +63,26 @@ source controls require the final root composition/instrument join. These helper
 and role recovery are a prepared slice, never a comprehensive completion claim.
 Profile/role/API/Vault/Mongo phases have NOT run in this lane. Only the explicitly
 granted bounded generated local UDS ownership experiments ran.
+
+`joined-data-parity` additionally consumes root-owned CUSTOMCONNSTR_mongo,
+config.mongoDatabase (`rt_data_`+randomhex) matching ownership.mongoDatabase,
+config.namespaces matching ownership.namespaces, and explicit
+profileUncertaintyResolved:true (root evidence prerequisite, never inferred).
+It runs all six actual dbAdd+same stableidentity retry packets through realRT
+polling/websocket-selected native transport and actual Mongo reference, capturing
+raw replies/noack and independent typed physical rows before assertions. Noack
+parity is recorded as baseline refusal, never synthesized success; expected
+canonical duplicate logs remain in parent capture. This phase has not executed.
+Role-recovery now consumes real RT SQL six-table INSERT-denial probes with
+rollback and exact42501 oracles; no grants are modified. Root fullcampaign still
+owns callback COMMIT/outage/restart/config controls and outbox-coordinator join.
+
+Browser native proposal: tests/browser/realtime-preview.native.test.js with
+existing real-browser hooks, NS_RT_JOINED_BROWSER=1 + NS_RT_JOINED_NATIVE=1 and
+root config. Supply browserHost127.0.0.1 admitted alias, browserCredentialEnv
+(original subject opaque token), alarmSocketPath,maxMessageBytes and current
+clinical settings permitting urgent alarms. It serves unchanged actual page and
+startup assets via controlled fixture, observes same-origin actual socket paths,
+actual browser receiveddata SGV replacement and urgent DOM path; no monkeypatch
+of io.connect, no production UI mount or device audio delivery promise. This test
+is source prepared only. Root supplies built same-head bundle/hash at campaign.
