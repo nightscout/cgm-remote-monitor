@@ -83,8 +83,9 @@ no stable tenant IDs, credentials or connection addresses. `/state/ops` contains
 private per-tenant demo tokens and the operator configuration. Do not commit or
 publish generated files or copy them into the image.
 
-Bootstrap initialization material stays root-owned in `/state/bootstrap`. TLS
-runtime mounts contain only the CA certificate; the Vault server alone receives
+Bootstrap initialization material stays in the bootstrap-only private directory
+`/state/bootstrap`; this Compose file runs bootstrap as UID/GID `1000:1000`.
+TLS runtime mounts contain only the CA certificate; the Vault server alone receives
 its private TLS key. Private sockets under `/run/ns-ipc` require a real 0700
 same-UID directory; socket files use the product transport's private permissions.
 A configured participant endpoint is not a substitute for filesystem isolation.
