@@ -5,7 +5,7 @@
 const fs = require('node:fs');
 const path = require('node:path');
 const assert = require('node:assert/strict');
-const plan = Object.freeze({ version: 1, phases: ['uds-ownership', 'profile-port-differential', 'profile-differential'],
+const plan = Object.freeze({ version: 1, phases: ['uds-ownership', 'profile-port-differential', 'profile-differential', 'joined-role-recovery'],
   invoke: 'node tests/fixtures/realtime-preview/early.js --execute <phase> <captureDir> (NS_RT_EARLY_NATIVE=1)',
   adapter: '{sourceDir,captureDir,phaseId,control:null,env}',
   profileEnv: ['NS_RT_PROFILE_CONFIG', 'NS_TEST_POSTGRES_ADMIN_URI', 'CUSTOMCONNSTR_mongo', 'NS_RT_SOURCE_HEAD', 'NS_RT_PROFILE_WRITER_URI (direct port phase only)'],
@@ -74,6 +74,7 @@ async function uds (input) {
 }
 async function execute (input) {
   if (input.env?.NS_RT_EARLY_NATIVE !== '1' || input.control !== null || !plan.phases.includes(input.phaseId)) throw new Error('EXPLICIT_PARENT_NATIVE_PHASE_REQUIRED');
+  if (input.phaseId === 'joined-role-recovery') return require('./joined')(input);
   if (input.phaseId === 'uds-ownership') return uds(input);
   return require('./profile-differential')(input);
 }
