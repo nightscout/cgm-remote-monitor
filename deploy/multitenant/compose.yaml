@@ -75,6 +75,11 @@ services:
     command: [node, deploy/multitenant/entrypoint.js, api]
     depends_on:
       postgres: {condition: service_healthy}
+    healthcheck:
+      test: [CMD, node, deploy/multitenant/health.js, api]
+      interval: 2s
+      timeout: 2s
+      retries: 30
     volumes:
       - ${NS_DEMO_STATE}/api:/run/ns-config:ro
       - ${NS_DEMO_STATE}/ipc:/run/ns-ipc
@@ -83,6 +88,13 @@ services:
   realtime:
     <<: *app
     command: [node, deploy/multitenant/entrypoint.js, realtime]
+    depends_on:
+      api: {condition: service_healthy}
+    healthcheck:
+      test: [CMD, node, deploy/multitenant/health.js, realtime]
+      interval: 2s
+      timeout: 2s
+      retries: 30
     volumes:
       - ${NS_DEMO_STATE}/realtime:/run/ns-config:ro
       - ${NS_DEMO_STATE}/ipc:/run/ns-ipc
@@ -91,6 +103,8 @@ services:
   evaluator:
     <<: *app
     command: [node, deploy/multitenant/entrypoint.js, evaluator]
+    depends_on:
+      realtime: {condition: service_healthy}
     volumes:
       - ${NS_DEMO_STATE}/evaluator:/run/ns-config:ro
       - ${NS_DEMO_STATE}/ipc:/run/ns-ipc
@@ -111,12 +125,20 @@ services:
       UI_HOSTNAME: 0.0.0.0
       UI_PORT: "1340"
       UI_PUBLIC_CONFIG: /run/ns-config/config.json
+    healthcheck:
+      test: [CMD, node, deploy/multitenant/health.js, ui]
+      interval: 2s
+      timeout: 2s
+      retries: 30
     volumes:
       - ${NS_DEMO_STATE}/ui:/run/ns-config:ro
 
   nginx:
     image: nginx@sha256:65645c7bb6a0661892a8b03b89d0743208a18dd2f3f17a54ef4b76fb8e2f2a10
-    depends_on: [api, realtime, ui]
+    depends_on:
+      api: {condition: service_healthy}
+      realtime: {condition: service_healthy}
+      ui: {condition: service_healthy}
     ports:
       - ${NS_DEMO_BIND:-127.0.0.1}:${NS_DEMO_PORT:-18080}:8080
     volumes:
