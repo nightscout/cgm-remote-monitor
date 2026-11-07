@@ -1,69 +1,73 @@
-# M5 current-state recovery uncertainty probe
+# M5 bounded current-state reconciliation
 
-Source preparation, based on application `7015fbae42e5c3e2f26acf79488e5a7328ff3b29`.
-Native results are **UNMEASURED**. This probe characterizes dormant reference
-primitives; it changes no product behavior and adds no M1–M4 criterion.
+The dormant reference evaluator consumes `reconcile({maxRows,maxBytes})` from
+`lib/storage/postgres-durable-replay.js`. It replaces the full admitted typed
+current identity set on every acquisition, independent of floor movement or
+recent timestamp windows. Hard-delete and legacy/socket activity writers retain
+their existing timestamps, results, commit events and clock behavior. No live
+role, scheduler, provider or default is enabled.
 
-The adopted B7 durable-delivery contract keeps hard deletes outside the stamped
-row spine and defers tombstones. D23 assigns writes to API, including forwarded
-realtime writes. Neither decision establishes absent-row reconciliation or every
-intermediate transition recovery. Those decisions live in the alignment workspace,
-in `docs/30-design/tenancy/durable-event-delivery-contract-2026-11-06.md` and
-`docs/30-design/tenancy/multitenancy-decisions.md`.
+This implements the adopted bounded-snapshot direction in the alignment
+workspace's release decision `m5-bounded-snapshot-reconciliation` and B7 §11.
+The historical native `0bcdec2275c478de0307a0fd90e210d43dc56f01` characterization
+and its immutable captures remain the baseline: absent deleted keys stayed
+projected, and strict replay refused unstamped activity. The earlier scratch
+projection-NULL bypass was diagnostic oracle sensitivity, not a production fix
+or the new product's ablation. Current implementation native acceptance remains
+**UNMEASURED** until the separately granted frozen-source proof executes.
 
-## Executable characterization
+## Two acquisition contracts
 
-`tests/tenant-current-state-recovery-proof.integration.test.js` extends the actual
-PostgreSQL replay/evaluator fixtures through
-`tests/fixtures/m5-current-state-proof.js`. Each canonical write uses its real
-clocked collection port, not raw fixture insertion. Socket create is one document
-per write, as in the real socket caller. Legacy entries use the existing natural
-insertion-order policy; activity does not acquire that policy.
-
-| Case | Read-derived prediction and independent observations |
+| API | Contract |
 |---|---|
-| Hard delete | Two distinct typed entry identities produce newest clinical value 222. Canonical socket delete physically removes that ObjectId; transaction is committed, floor unchanged and intent stamp null. Restricted replay and new evaluator handles retain the absent typed key/value 222, while independently materialized current tables yield survivor value 111. A new handle and a later unrelated stamped legacy write do not repair absence. Foreign tenant stored values, floor and checkpoint remain unchanged. |
-| Diagnostic bootstrap and soft-delete positive | In scratch only, set the persisted projection to SQL NULL while retaining the advanced checkpoint, source rows and digest. Full bootstrap is predicted to restore typed identity and clinical parity. Canonical v3 soft-delete then retains an invalid stamped row and removes its key from the recovered projection. |
-| Legacy and socket activity | Actual create and update physically store the intended activity values but allocate no dates. Capture committed transaction, null event stamp, unchanged floor, absent srvModified and reader refusal `REPLAY_UNSTAMPED_OR_UNFENCED_ROW`, with unchanged checkpoint and foreign tenant. Both canonical sources are separate cases. |
+| `catchUp()` | Existing strict stamped spine: rejects unstamped/unfenced rows, replays complete equal-stamp cohorts and retains its original digest and checkpoint semantics. |
+| `reconcile({maxRows,maxBytes})` | Full current snapshot: accepts absent legacy dates, validates any present dates against the same snapshot floor, excludes retained isValid:false rows and removes physically absent identities by replacement. Requires explicit per-call bounds within the constructor row ceiling. Uses its own digest. |
 
-`M5_CURRENT_STATE_OBSERVATION` records independent SQL tables/floor/checkpoint,
-canonical event metadata, real transaction identity/status and clinical results
-before strict verdicts. Nonfinite numbers and undefined values are tagged in raw
-JSON, while assertions retain the original values. Clinical comparison uses the
-actual physical-table view materializer; it never constructs expected clinical
-properties from recovered projection contents. Typed identity checks use independent
-physical `id_kind` metadata. The existing R67 clinical-domain properties and their
-controls are not re-attributed or repeated here.
+Both require operator-provisioned consumer/clock rows, tenant binding and the
+existing forced-RLS reader. No boot DDL, schema change, clinical write or clock
+write is added. A single `snapshotTransaction` uses the existing repeatable-read
+transaction: lock owned consumer row, read floor, preflight count/document bytes,
+page the entire typed identity set and atomically replace projection/checkpoint.
+There is no timestamp predicate. Ordered `(domain,id_kind,identity)` paging keeps
+string/ObjectId twins distinct. Bounds count all scanned rows including invalid
+rows, and check both persisted and decoded projection envelopes before UPDATE.
+Oversize refuses visibly; it never truncates or persists a partial result.
 
-## Meaningful diagnostic control and restoration
+Projection/checkpoint replacement and its floor are one tenant snapshot, returned
+only after COMMIT. Acquisition/bound/COMMIT failure keeps the last persisted
+projection/checkpoint and last successful clinical result. The checkpoint is an
+**input snapshot floor**, not an evaluated-output revision or delivery receipt.
+Clinical computation remains after input COMMIT: downstream failure may retain
+that successfully committed input projection while retaining the prior clinical
+result. The next cycle recomputes even with unchanged floor/projection; no
+checkpoint-based suppression prevents retry.
 
-Only an explicitly selected scratch control
-`NS_M5_CURRENT_STATE_DIAGNOSTIC=skip-bootstrap`, together with
-`NS_M5_CURRENT_STATE_ARCHIVE_CONTROL=1`, bypasses the diagnostic projection reset.
-On a fresh fixture it must reach the independently observed physical absence,
-advanced floor/checkpoint and stale recovered key, then fail exactly at
-`M5_ABSENCE_DIAGNOSTIC_RESTORED typed physical identities`. A SQL error, TypeError,
-timeout, missing physical deletion, missing marker or pending test is invalid.
-This is a diagnostic absence-oracle sensitivity control, not a production
-reconciliation ablation. A fresh ordinary run restores the scratch reset and
-must pass all three characterizations with zero pending.
+## Executable acceptance preparation
 
-A passing characterization establishes the predicted limitation on its executed
-source. It does **not** establish a shipping defect, a selected reconciliation or
-tombstone policy, distributed runtime recovery, retained clinical transitions,
-notification delivery, M5 completion or activation. A refuted hypothesis stops
-this capability for review; the probe must not substitute a different writer,
-soft delete or stamped activity to obtain the expected result.
+`tests/tenant-current-state-recovery-proof.integration.test.js` uses actual clocked
+canonical write ports, restricted actual PG replay/evaluator and independent SQL
+and current-table clinical materialization. It captures raw observations before
+asserting status. Source/unit protocol tests are not native PostgreSQL evidence.
 
-## Execution boundary
+| Native vector | Required physical oracle |
+|---|---|
+| Canonical hard delete | Real committed physical typed-key absence, unchanged floor/null event; recovered projection and clinical output equal current tables through new handles/restart and later unrelated floor advance. Foreign tenant unchanged; canonical soft-delete positive retained. |
+| Legacy and socket activity | Actual physical create/update, absent srvModified, unchanged floor/null event; full snapshot retains the changed current values, while strict `catchUp()` still refuses the unstamped spine without changing its checkpoint. |
+| Row/byte/persistence refusal | Independent oversized physical inputs and before/after checkpoint/projection; explicit row and byte refusal retains last good input/clinical state. Force failure after actual checkpoint UPDATE, observe its external invisibility and rollback, then retry successfully. |
+| Snapshot interleaving | Actual four-row canonical cohort; reader pauses after its first nonempty page while a different writer commits all changed values atomically. Persist complete old cohort with old snapshot floor, never mixed pages; next acquisition converges to full new current cohort. Foreign tenant unchanged. |
 
-The suite remains opt-in and is registered in the integration tier and
-`scripts/test-multitenant.js`. Source/loading checks can run without services;
-disabled cases are pending, never green native evidence. Native execution needs
-a separately granted disposable PostgreSQL fixture and private capture runner.
-The prepared runner must pin the existing image by exact ID, refuse pulling,
-archive the exact source, retain raw observations before verdict, and remove only
-its recorded labelled container and volumes. Independent before/after baseline
-and child PID/start-time observation belong to the private ownership envelope.
-No provider, listener, MongoDB, Vault, application build or comprehensive campaign
-is needed for this bounded proof.
+Existing R67 typed-twin and clinical-domain vectors remain in their original
+suite and use the new evaluator acquisition; their historical measurements are
+not re-attributed. New product controls are separately archived source changes:
+retain absent saved keys after full scan; return saved projection on unchanged
+floor (loses actual activity update); bypass row/byte checks (wrongly persists
+oversize input). Each must fail at an independent physical-state assertion,
+then restore on fresh ordinary source. SQL/setup errors, TypeErrors, timeouts,
+missing observations or pending cases cannot qualify as semantic red.
+
+Native execution stays opt-in with `NS_M5_CURRENT_STATE_PROOF_TEST=1`, a separately
+granted disposable PG fixture, exact archived source/pinned image and independent
+resource/birth observation. No MongoDB, Vault, provider or listener is needed.
+Passing supports bounded current-state recovery only: no retained intermediate
+transitions, notification delivery, lease/failover, retention/cadence/capacity
+budget, production activation, M5 completion or new M1–M4 criterion follows.

@@ -44,7 +44,7 @@ module.exports = function currentStateProof () {
   lab.currentKeys = physical => Object.entries(physical.tables).flatMap(([domain, rows]) =>
     rows.filter(row => row.doc.isValid !== false).map(row => key(domain, row))).sort();
   lab.projectionKeys = recovered => projected(recovered.rows).map(row => key(row.domain, row)).sort();
-  lab.catchUp = async (tenant = lab.A) => scope.withTenant(tenant, () => lab.consumer().catchUp());
+  lab.catchUp = async (tenant = lab.A) => scope.withTenant(tenant, () => lab.consumer().reconcile({ maxRows: 10000, maxBytes: 4 * 1024 * 1024 }));
   lab.compare = async (at, tenant = lab.A) => lab.at(at, async () => {
     const recovered = await lab.catchUp(tenant);
     const instance = lab.evaluator(tenant);
@@ -82,14 +82,22 @@ module.exports = function currentStateProof () {
     return { logical, source, op: planned.op, result: copy(result), commits, events,
       before, after: await lab.physical(tenant) };
   };
-  lab.resetProjectionOnly = async () => {
-    const before = await lab.checkpointView(lab.A);
-    const result = await lab.admin.query('UPDATE "' + lab.replayNamespace +
-      '".tenant_consumer_checkpoint SET projection=NULL WHERE tenant_id=$1 AND consumer=$2', [lab.A, 'clinical-view']);
-    return { affected: result.rowCount, before, after: await lab.checkpointView(lab.A) };
+  lab.writeAtomicEntries = async updates => {
+    const clock = lab.clocks[1], events = [], bus = new EventEmitter();
+    bus.on(INTENT_EVENT, event => events.push(copy(event)));
+    const port = createPort({ connection: clock, table: lab.tables.entries, logical: 'entries', source: 'socket', bus, env: lab.env });
+    let xid, earlyEvents;
+    const before = await lab.physical();
+    await scope.withTenant(lab.A, () => clock.transaction(async () => {
+      xid = (await clock.query('SELECT pg_current_xact_id()::text AS xid')).rows[0].xid;
+      for (const { id, value } of updates) await port.write({ op: 'update', form: 'merge', target: { _id: id }, fields: { sgv: value } });
+      earlyEvents = events.length;
+    }));
+    const status = (await lab.admin.query('SELECT pg_xact_status($1::xid8) AS status', [xid])).rows[0].status;
+    return { before, after: await lab.physical(), xid, status, earlyEvents, events };
   };
   lab.replayAttempt = async () => {
-    try { return { recovered: await lab.catchUp(), error: null }; }
+    try { return { recovered: await scope.withTenant(lab.A, () => lab.consumer().catchUp()), error: null }; }
     catch (error) { return { recovered: null, error: { name: error.name, code: error.code || null, message: error.message } }; }
   };
   return lab;

@@ -49,6 +49,14 @@ describe('dormant durable replay source protocol', function () {
         if (sql.startsWith('SELECT checkpoint')) return { rows: saved ? [structuredClone(saved)] : [] };
         if (sql.startsWith('SELECT last_stamp')) return { rows: [{ last_stamp: String(floor) }] };
         if (sql.startsWith('SELECT 1')) return { rows: [] };
+        if (sql.startsWith('SELECT count(*)')) return { rows: [{ row_count: String(source.length),
+          document_bytes: String(source.reduce((n, row) => n + Buffer.byteLength(JSON.stringify(row.doc)), 0)) }] };
+        if (sql.startsWith('SELECT domain') && sql.includes('snapshot_source')) {
+          const compareIdentity = (a, b) => a.domain.localeCompare(b.domain) || a.id_kind.localeCompare(b.id_kind) || a.doc._id.localeCompare(b.doc._id);
+          const after = values.length === 4 ? { domain: values[0], id_kind: values[1], doc: { _id: values[2] } } : null;
+          return { rows: source.filter(row => !after || compareIdentity(row, after) > 0).sort(compareIdentity)
+            .slice(0, values.at(-1)).map(row => structuredClone(row)) };
+        }
         if (sql.startsWith('SELECT domain')) {
           const after = values.length === 7 ? { stamp: values[2], domain: values[3], id_kind: values[4], doc: { _id: values[5] } } : null;
           return { rows: source.filter(row => row.stamp > values[0] && row.stamp <= values[1] &&
@@ -74,6 +82,7 @@ describe('dormant durable replay source protocol', function () {
       setSource (rows, high) { source = rows; floor = high; },
       saved: () => structuredClone(saved),
       failUpdate () { failUpdate = true; }, failCommit () { failCommit = true; },
+      reconcile: (bounds = { maxRows: 10, maxBytes: 10000 }) => scope.withTenant(A, () => consumer.reconcile(bounds)),
       run: () => scope.withTenant(A, () => consumer.catchUp()) };
   }
 
@@ -152,6 +161,58 @@ describe('dormant durable replay source protocol', function () {
     const before = f.saved();
     await assert.rejects(f.run(), /REPLAY_ROW_BOUND/);
     assert.deepEqual(f.saved(), before);
+  });
+
+  it('replaces full current identities without floor movement and includes unstamped typed current state', async function () {
+    const f = fixture(); f.provision();
+    const id = '0123456789abcdef01234567';
+    const activity = { domain: 'entries', id_kind: 'objectid', stamp: null, doc: { _id: id, sgv: 222 } };
+    f.setSource([f.row(id, 'string', 1, 111), activity], 1);
+    const first = await f.reconcile();
+    assert.equal(first.rows.length, 2);
+    assert.equal(first.progress, 'current-snapshot');
+    assert.equal(f.saved().contract_digest, f.consumer.snapshotDigest);
+    activity.doc.sgv = 333;
+    assert.equal((await f.reconcile()).rows.find(row => typeof row.document._id !== 'string').document.sgv, 333, 'M5_SNAPSHOT_UNSTAMPED_UPDATE unchanged floor must refresh current values');
+    f.setSource([activity], 1);
+    const afterDelete = await f.reconcile();
+    assert.equal(afterDelete.checkpoint, first.checkpoint);
+    assert.equal(afterDelete.rows.length, 1, 'M5_SNAPSHOT_ABSENCE_TYPED_CURRENT physical source absence replaces saved key');
+    assert.equal(typeof afterDelete.rows[0].document._id.toHexString, 'function');
+    activity.doc.sgv = 333;
+    assert.equal((await f.reconcile()).rows[0].document.sgv, 333);
+    f.setSource([], 1);
+    assert.deepEqual((await f.reconcile()).rows, []);
+  });
+
+  it('requires explicit snapshot bounds and rolls back row, byte, update and commit refusals', async function () {
+    const f = fixture(); f.provision(); f.setSource([f.row('a', 'string', 1, 111)], 1);
+    await f.reconcile(); const before = f.saved();
+    await assert.rejects(f.reconcile({ maxRows: 1 }), /row\/byte bounds/);
+    f.setSource([f.row('a', 'string', 1, 111), f.row('b', 'string', 1, 222)], 1);
+    await assert.rejects(f.reconcile({ maxRows: 1, maxBytes: 10000 }), /SNAPSHOT_ROW_BOUND/, 'M5_SNAPSHOT_BOUND_REFUSAL row refusal before persistence');
+    await assert.rejects(f.reconcile({ maxRows: 10, maxBytes: 1 }), /SNAPSHOT_BYTE_BOUND/);
+    const docs = f.row('x', 'string', 1, 111);
+    f.setSource([docs], 1);
+    await assert.rejects(f.reconcile({ maxRows: 10, maxBytes: Buffer.byteLength(JSON.stringify(docs.doc)) + 1 }), /SNAPSHOT_BYTE_BOUND/);
+    assert.deepEqual(f.saved(), before);
+    for (const fail of ['failUpdate', 'failCommit']) {
+      const g = fixture(); g.provision(); g.setSource([g.row('one', 'string', 1, 111)], 1);
+      await g.reconcile(); const saved = g.saved();
+      g.setSource([g.row('two', 'string', 2, 222)], 2); g[fail]();
+      await assert.rejects(g.reconcile(), /synthetic/);
+      assert.deepEqual(g.saved(), saved);
+      assert.equal(g.calls.at(-1), 'ROLLBACK');
+    }
+  });
+
+  it('keeps snapshot stamp fences and the strict replay API separate', async function () {
+    const f = fixture(); f.provision();
+    f.setSource([f.row('future', 'string', 2, 111)], 1);
+    await assert.rejects(f.reconcile(), /UNSTAMPED_OR_UNFENCED/);
+    const g = fixture(); g.provision(); g.setSource([g.row('one', 'string', 1, 111)], 1);
+    await g.reconcile(); assert.notEqual(g.consumer.digest, g.consumer.snapshotDigest);
+    await g.run(); assert.equal(g.saved().contract_digest, g.consumer.digest);
   });
 
   it('validates the append-only forced-RLS candidate and never grants clinical writes', function () {

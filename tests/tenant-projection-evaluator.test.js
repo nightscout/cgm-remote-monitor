@@ -60,28 +60,49 @@ describe('dormant tenant projection evaluator source contract', function () {
     await assert.rejects(scope.withTenant(A, () => s.reader.findFiltered(fromMongo({}), { v1: true, sort: { date: -1 }, madeUp: true })), /find option/);
     assert.equal(s.calls.length, 0);
   });
-  function component (replay) {
+  function component (replay, suppliedConnection) {
     const env = require('../lib/server/tenant-app/environment')({ settings: { enable: ['bgnow'] } });
-    const connection = { async query () { throw new Error('No SQL allowed in this contract case'); } };
+    const connection = suppliedConnection || { async query () { throw new Error('No SQL allowed in this contract case'); } };
     const language = require('../lib/language')();
     return evaluator({ tenant: A, replay, connection, env, language, dbstats: async () => ({ dataSize: 0, indexSize: 0 }),
       maxRows: 10, maxBytes: 10000 });
   }
   it('does not retain or publish when replay commit refuses', async function () {
-    const v = component({ async catchUp () { throw new Error('COMMIT refused'); } });
+    const v = component({ async reconcile () { throw new Error('COMMIT refused'); } });
     await assert.rejects(v.evaluate(), /COMMIT refused/);
     assert.equal(v.last(), null);
   });
+  it('retries clinical computation after a downstream failure despite unchanged snapshot progress', async function () {
+    let acquisitions = 0, fail = false;
+    const v = component({ async reconcile (bounds) {
+      assert.deepEqual(bounds, { maxRows: 10, maxBytes: 10000 });
+      acquisitions++;
+      return { checkpoint: 1, progress: 'current-snapshot', rows: [] };
+    } }, { async query () {
+      if (fail) throw new Error('Synthetic downstream clinical read failure');
+      return { rows: [] };
+    } });
+    const instant = Date.UTC(2026, 10, 6, 12);
+    const first = await v.evaluate({ at: instant });
+    fail = true;
+    await assert.rejects(v.evaluate({ at: instant }), /downstream clinical read failure/);
+    assert.equal(v.last(), first);
+    fail = false;
+    const retry = await v.evaluate({ at: instant });
+    assert.equal(acquisitions, 3, 'unchanged input checkpoint never suppresses a clinical retry');
+    assert.equal(retry.checkpoint, first.checkpoint);
+    assert.deepEqual(retry.properties, first.properties);
+  });
   it('enforces tenant scope before replay and retained-state access', async function () {
     let reads = 0;
-    const v = component({ async catchUp () { reads++; } });
+    const v = component({ async reconcile () { reads++; } });
     await assert.rejects(scope.withTenant(B, () => v.evaluate()), /tenant scope/);
     assert.throws(() => scope.withTenant(B, () => v.last()), /tenant scope/);
     assert.equal(reads, 0);
   });
   it('refuses concurrent evaluation and late publication after close', async function () {
     let release;
-    const v = component({ catchUp: () => new Promise(resolve => { release = resolve; }) });
+    const v = component({ reconcile: () => new Promise(resolve => { release = resolve; }) });
     const first = v.evaluate();
     await assert.rejects(v.evaluate(), /already running/);
     v.close();
@@ -94,7 +115,7 @@ describe('dormant tenant projection evaluator source contract', function () {
       { checkpoint: 1, rows: [{ domain: 'other', document: { _id: 'one' } }] },
       { checkpoint: 1, rows: Array.from({ length: 11 }, (_, i) => ({ domain: 'entries', document: { _id: String(i) } })) },
       { checkpoint: 1, rows: [{ domain: 'entries', document: { _id: 'large', text: 'x'.repeat(10001) } }] }]) {
-      const v = component({ async catchUp () { return output; } });
+      const v = component({ async reconcile () { return output; } });
       await assert.rejects(v.evaluate(), /invalid|bound|unsupported/);
       assert.equal(v.last(), null);
     }
