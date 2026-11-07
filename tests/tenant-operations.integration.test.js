@@ -84,7 +84,16 @@ optInSuite(process.env.NS_TENANT_OPERATIONS_PG_TEST === '1', 'NS_TENANT_OPERATIO
     }
     client = new Client({ connectionString });
     await client.connect();
+    audit({ phase: 'server', version: (await client.query('SHOW server_version')).rows[0].server_version });
     await client.query('CREATE ROLE "' + role + '" NOSUPERUSER NOBYPASSRLS');
+  });
+  beforeEach(async function () {
+    assert.equal((await client.query('SELECT 1 AS alive')).rows[0].alive, 1);
+    audit({ phase: 'test-start', title: this.currentTest.title });
+  });
+  afterEach(async function () {
+    assert.equal((await client.query('SELECT 1 AS alive')).rows[0].alive, 1);
+    audit({ phase: 'test-end', title: this.currentTest.title });
   });
   after(async function () {
     try { if (client) await client.end(); } finally {

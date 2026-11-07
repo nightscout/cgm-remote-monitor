@@ -151,9 +151,9 @@ refusal/rollback. It checks all rollback targets before preparation, including a
 empty existing schema and cross-kind alias of a source namespace. It is a
 recording SQL model, not PostgreSQL acceptance.
 
-`tests/tenant-operations.integration.test.js` is explicitly opt-in and remains
-**UNMEASURED** until the integration coordinator grants a focused runtime slot.
-With the flag absent it registers pending tests and opens no services. After a
+`tests/tenant-operations.integration.test.js` is explicitly opt-in and requires
+a focused runtime grant. With the flag absent it registers pending tests and
+opens no services. After a
 grant, this command creates one owned disposable PostgreSQL 16 Docker container,
 random loopback port and ephemeral credentials, and removes exactly that container:
 
@@ -163,7 +163,10 @@ NS_TENANT_OPERATIONS_PG_TEST=1 ./node_modules/.bin/mocha --no-config --no-packag
 
 It is prepared to measure native type/identity behavior, grants and RLS, digest
 and ACL refusal, independent row loss, lying insert/rollback, interruption/rerun,
-old-catalogue refusal and later-target freshness. Native source mutations and
-restored reruns, full-inventory restoration, durable storage/key recovery and
-assembled application acceptance remain coordinator-owned pending work. A disabled
+old-catalogue refusal and later-target freshness. The representative five-case baseline and final restoration, plus four native
+semantic controls and their targeted restorations, passed on exact
+`f77c025f8e797775faca0e179cc84fc3ca9c5874`; the alignment programme's dated
+`reports/tenancy/backup-upgrade-native-f77-2026-11-06.md` records the scope and hashes.
+Full-inventory restoration, durable storage/key recovery and assembled application
+acceptance remain coordinator-owned pending work. A disabled
 suite, syntax check or registration count is not native evidence.
