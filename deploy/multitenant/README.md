@@ -101,6 +101,11 @@ The operator must retain the actual source's transaction, authority and clock
 checks. An uncertain outcome or missing participant must refuse; do not clear
 maintenance state or force reopening to make the demonstration finish.
 
+See the canonical [failure recovery and shared-role restart boundary](../../docs/tenant-operation-cohort.md#failure-recovery-and-shared-role-restart-boundary).
+B's continued work during a restore on a running cohort does not establish
+independent B restart or high availability when A remains suspended. Do not
+restart the whole shared cohort as a substitute for resolving uncertain state.
+
 Artifacts remain in the private state directory. They include synthetic
 clinical records and metadata; do not commit generated state or credentials.
 
