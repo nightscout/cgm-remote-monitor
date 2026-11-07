@@ -125,3 +125,42 @@ describe('Window and lower lease actual datastore binding',function(){
     await assert.rejects(bindingCheck(s=>s.replace("if (!same(await datastore.read(client),database)) throw fail('LIFECYCLE_WINDOW_DATASTORE_CHANGED');",'')),/Missing expected rejection/);await bindingCheck();
   });
 });
+
+describe('Actual private IPC client cohort path admission',function(){
+  function actualClient(mutate=s=>s,onFilesystem=()=>{}){
+    const file=path.resolve(__dirname,'../lib/server/realtime/ipc.js'), output={exports:{}};
+    const original=require('node:module').createRequire(file), uid=process.getuid();
+    const filesystem={lstatSync:target=>{onFilesystem();return {uid,mode:target==='/synthetic'?0o700:0o600,isDirectory:()=>target==='/synthetic',isSymbolicLink:()=>false,isSocket:()=>target==='/synthetic/cohort.sock'};},realpathSync:target=>target};
+    vm.runInThisContext('(function(require,module,exports){'+mutate(fs.readFileSync(file,'utf8'))+'\n})',{filename:file})(name=>name==='node:fs'?filesystem:original(name),output,output.exports);
+    return output.exports.client;
+  }
+  function transport(){
+    const {EventEmitter}=require('node:events'), calls=[];
+    const request=(options,callback)=>{
+      const req=new EventEmitter();req.setTimeout=()=>{};req.destroy=()=>req.emit('close');
+      req.end=bytes=>{
+        calls.push({options,body:JSON.parse(bytes.toString())});
+        const res=new EventEmitter();res.statusCode=200;res.headers={'content-type':'application/json'};res.destroy=()=>{};
+        callback(res);queueMicrotask(()=>{res.emit('data',Buffer.from(JSON.stringify({accepted:true,path:options.path})));res.emit('end');req.emit('close');});
+      };return req;
+    };return {calls,request};
+  }
+  async function invoke(path,mutate){
+    const recording=transport(), client=actualClient(mutate)({socketPath:'/synthetic/cohort.sock',maxBytes:1000,timeoutMs:1000},recording.request);
+    const result=await client(path,{request:'11111111-1111-4111-8111-111111111111'});
+    assert.deepEqual(result,{accepted:true,path});assert.equal(recording.calls.length,1);assert.equal(recording.calls[0].options.path,path);assert.equal(recording.calls[0].options.method,'POST');
+  }
+  it('admits exactly both cohort paths through the actual client allowlist',async function(){
+    await invoke('/cohort/status');await invoke('/cohort/invalidate');
+  });
+  it('detects either missing cohort path before transport and passes restored source',async function(){
+    for(const path of ['/cohort/status','/cohort/invalidate']){
+      await assert.rejects(invoke(path,s=>s.replace(", '"+path+"'",'')),{code:'SOCKET_IPC_REQUEST_REFUSED'});
+      await invoke(path);
+    }
+  });
+  it('keeps unknown paths refused before filesystem or transport access',async function(){
+    let called=false,filesystem=false;const client=actualClient(undefined,()=>{filesystem=true;})({socketPath:'/synthetic/cohort.sock',maxBytes:1000,timeoutMs:1000},()=>{called=true;throw new Error('must not send');});
+    await assert.rejects(client('/cohort/arbitrary',{request:'synthetic'}),{code:'SOCKET_IPC_REQUEST_REFUSED'});assert.equal(called,false);assert.equal(filesystem,false);
+  });
+});
