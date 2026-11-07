@@ -12,6 +12,7 @@ COPY migrations/ ./migrations/
 COPY scripts/diagnose-data.js ./scripts/diagnose-data.js
 COPY deploy/multitenant/ ./deploy/multitenant/
 COPY server.js ./
+COPY .browserslistrc ./
 RUN npm ci --include=dev --omit=optional --force \
     && npm prune --omit=dev --omit=optional --ignore-scripts
 

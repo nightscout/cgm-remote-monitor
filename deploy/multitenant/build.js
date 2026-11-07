@@ -8,7 +8,7 @@ const path = require('node:path');
 const os = require('node:os');
 const {execFileSync} = require('node:child_process');
 const ROOT = path.resolve(__dirname, '../..');
-const INPUTS = ['package.json', 'package-lock.json', '.babelrc', 'bundle', 'webpack', 'bin', 'lib', 'static', 'views', 'translations', 'migrations', 'scripts/diagnose-data.js', 'deploy/multitenant', 'server.js'];
+const INPUTS = ['package.json', 'package-lock.json', '.babelrc', '.browserslistrc', 'bundle', 'webpack', 'bin', 'lib', 'static', 'views', 'translations', 'migrations', 'scripts/diagnose-data.js', 'deploy/multitenant', 'server.js'];
 function assertCleanSource (root, expected) {
   const head = execFileSync('git', ['rev-parse', 'HEAD'], {cwd: root, encoding: 'utf8'}).trim();
   if (!/^[a-f0-9]{40}$/.test(head) || expected && expected !== head) throw new Error('BUILD_SOURCE_COMMIT_CHANGED');
