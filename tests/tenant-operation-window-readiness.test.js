@@ -12,6 +12,18 @@ describe('Operation-window admission (catalog protocol double, not native Postgr
     assert.equal(identity.windowsOid,42);
     assert.deepEqual(await admit(client(),'synthetic_window',{identity}),identity);
   });
+  it('admits the separate private maintenance profile without granting authority mutation or operation clearance', async function () {
+    const identity=await admit(client(),'synthetic_window',{maintenance:true});
+    assert(identity.authorityOid && identity.auditOid);
+    for (const [kind,column,field] of [
+      ['tenant_lifecycle_restore_authority','active','updates'],
+      ['tenant_lifecycle_restore_audit','owner_pid','inserts'],
+      ['tenant_lifecycle_restore_audit','artifact_digest','updates'],
+      ['tenant_lifecycle_windows','lock_key','updates'],
+      ['tenant_lifecycle_operations','finished','updates']
+    ]) await assert.rejects(admit(client((type,rows)=>{if(type===kind)rows[0].columns.find(c=>c.name===column)[field]=true;}),'synthetic_window',{maintenance:true}),{code:'LIFECYCLE_WINDOW_SCHEMA_UNSAFE'});
+    await assert.rejects(admit(client(),'synthetic_window',{maintenance:true,lifetime:true}),{code:'LIFECYCLE_WINDOW_SCHEMA_UNSAFE'});
+  });
   const controls = [
     ['elevated membership', 'role', r=>{r.elevated_membership=true;}],
     ['non-system executable function bypass','role',r=>{r.foreign_functions=true;}],
@@ -59,14 +71,15 @@ describe('Operation-window admission (catalog protocol double, not native Postgr
   });
   it('appends checksummed owner defaults and both physical-backend checks without grants or clearance SQL',function () {
     const migrations=require('../lib/migrations/catalogue').validateCatalogue(candidate);
-    const sql=migrations.at(-1).up.join('\n');
+    const physical=migrations.find(row=>row.name==='0003_tenant_lifecycle_operation_windows');
+    const sql=physical.up.join('\n');
     assert.match(sql,/owner_pid integer NOT NULL DEFAULT pg_backend_pid\(\)/);
     assert.match(sql,/owner_birth timestamp with time zone NOT NULL DEFAULT tenant_lifecycle_backend_birth\(\)/);
     for(const command of ['INSERT','UPDATE']) {
-      const policy=migrations.at(-1).up.find(v=>v.includes('FOR '+command));
+      const policy=physical.up.find(v=>v.includes('FOR '+command));
       assert.match(policy,/owner_pid = pg_backend_pid\(\)/);
       assert.match(policy,/owner_birth = tenant_lifecycle_backend_birth\(\)/);
     }
-    assert.equal(migrations.at(-1).up.some(v=>/^(GRANT|DELETE|TRUNCATE|UPDATE) /i.test(v)),false);
+    assert.equal(physical.up.some(v=>/^(GRANT|DELETE|TRUNCATE|UPDATE) /i.test(v)),false);
   });
 });
