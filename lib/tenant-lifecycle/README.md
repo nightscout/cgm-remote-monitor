@@ -1,107 +1,124 @@
-# Tenant lifecycle primitives: typed export, import and confirmed deletion
+# Tenant lifecycle: export, logical restore and confirmed deletion
 
-Dormant, opt-in research module for the Batch C early proof (tenant export/import
-fidelity and tenant deletion with recoverable key material). Nothing imports it
-from a serving role, no CLI command or endpoint exposes it, and it selects no
-backup format, retention rule or owner capability. The artifact it writes is a
-**research artifact format, not an adopted backup format**.
+Explicit private-plane library. Serving roles do not expose a restore endpoint or
+CLI through this module. Its typed artifact remains a research format. The caller
+supplies a lower-port PostgreSQL connection for a `NOSUPERUSER NOBYPASSRLS`
+private role; tenant binding and forced row-level security bound data access.
+Vault provider keys are never exported or deleted here.
 
-## What it does
+## Export and restore
 
-The caller supplies a lower-port connection (`lib/storage/postgres-connection`)
-for a private-plane role that is `NOSUPERUSER NOBYPASSRLS`, so every statement
-runs under the tenant binding and row-level security bounds reads and deletes.
+`exportTenant(connection,{tenant,namespaces,sourceCommit,keyNames})` captures one
+`REPEATABLE READ` snapshot of the complete selected reviewed catalogue. It preserves
+typed `id_kind`, public documents, private insertion ordinals and tenant counter
+floors. Secret records remain ciphertext with recovery references, never plaintext
+or provider keys. Export requires current exact migration ledgers and physical
+relation inventory; agreement between unknown artifact/database schemas is insufficient.
 
-| Operation | Boundary |
-|---|---|
-| `exportTenant(connection, { tenant, namespaces, sourceCommit, keyNames })` | One `REPEATABLE READ` snapshot under `withTenant(tenant)`. Reads the non-generated columns of every admitted table, preserving `id_kind` beside the JSONB document (the `postgres-identity` codec's kind travels as a column, so ObjectId/string twins stay distinct). Secret records travel as stored ciphertext plus a key reference parsed from the Transit prefix (`vault:vN:`). No plaintext, no provider key. |
-| `importArtifact(connection, artifact, { tenant, namespaces, onRow })` | One transaction. Refuses before any write when the artifact's tenant is not the target, a row's `tenant_id` differs from the manifest tenant, a key reference has no ciphertext, the target namespace's applied migration ledger (`schema_migrations` names and checksums) differs from the manifest, a table's columns differ, a catalogue is missing or unmapped, or the target already holds rows for the tenant. The artifact and live ledgers must both equal the full selected reviewed catalogue. Any identity-bearing plan refuses `LIFECYCLE_IDENTITY_IMPORT_UNSUPPORTED` before INSERT/sequence effects; same-ID tenant restoration is incomplete. |
-| `requestDeletion(connection, { tenant, ledgerNamespace, artifact, now })` | Current-authorized explicit intent only; creates a requested ledger/ceremony record, deletes nothing. |
-| `confirmDeletion(connection, { tenant, ledgerNamespace, artifact, requestId, now })` | Separately current-authorized operator confirms the exact request/durably verified artifact. No minimum wait. |
-| `cancelDeletion(connection, { tenant, ledgerNamespace, requestId, now })` | Current-authorized cancellation under the request row lock; only requested/confirmed can become cancelled. |
-| `claimDeletion(...)` / `executeDeletion(...)` | Operator claim commits before destructive work and permanently closes cancellation. Execution separately rechecks current operator authority, durable artifact, explicit quiescent window and complete admitted current data/key fidelity. Destructive rollback retains executing state; same-artifact retry reauthorizes. Upgraded ceremony/audit ledger stays outside per-tenant deletion. |
+`createLifecycle({catalogues}).importArtifact(connection,artifact,{tenant,namespaces,
+maintenanceClaim,onRow,onCommitted})` selects logical reconciliation when the
+selected catalogue contains the current tenant-local insertion schema and clock.
+`restoreLogical(connection,artifact,options)` exposes that operation explicitly
+with the same options and constructor-owned catalogue selection. Obtain its
+connection and opaque claim from the actual controller:
 
-The complete current contract, trusted capability inputs and source/native acceptance
-boundary are in [CEREMONY.md](CEREMONY.md). Raw/default lifecycle objects refuse
-execution without a complete admission check. Compose the census-selected instance
-through `admission.lifecycle.withCapabilities(...)`; do not bypass the inventory with
-an old static list. The append-only ledger migration adds the ceremony table while
-leaving migration0001 unchanged. Legacy pending requests are never auto-confirmed.
+```js
+await controller.withRestore(tenant, { artifactDigest: artifact.digest },
+  async ({ connection, maintenanceClaim }) => lifecycle.importArtifact(
+    connection, artifact, {
+      tenant, namespaces, maintenanceClaim,
+      onCommitted: summary => publishCommittedSummary(summary)
+    }));
+```
 
+The controller holds A's real exclusion capability and outer DATA transaction.
+Restore asserts it before effects and before returning to commit. A callback's
+`quiesced:true`, a caller boolean or a lease expiry cannot replace that capability.
+B has independent tenant locks and counters; this operation requests no shared
+allocator reset or global write pause. See [maintenance-window.md](maintenance-window.md)
+for the controller's precise cohort and failure contract.
 
-The admitted catalogue (`CATALOGUE` in `index.js`) lists every tenant-bound table
-the reviewed candidates in this tree create, parents before children; the unit test
-derives that set from the candidates' `CREATE TABLE` statements and fails when a
-new tenant-bound table is not admitted. The lifecycle ledger has its own candidate
-(`postgres-candidate.json`) and namespace; its rows are the deletion tombstones and
-are not exported.
+Logical restore reconciles the union of captured and currently retained clinical
+identities. Entries, treatments, devicestatus, profile, food and settings use their
+existing history protocol: changed captured records receive forward `srvModified`,
+missing captured records receive normal new-record server dates, and current-only
+records become forward soft-deletion records. Existing changed records retain their
+live `srvCreated`; unchanged public documents retain live server metadata. Clinical
+fields come from the artifact. Private insertion numbers may change: rows are
+allocated in artifact relative order from A's retained current counter floor.
 
-Error codes are `LIFECYCLE_*` with the offending `kind.table` in `detail`. Tests:
-`tests/tenant-lifecycle.test.js` (unit tier, in-memory recording connection that
-honours the real tenant scope and rolls back on throw). The populated PostgreSQL
-and Vault run lives in the alignment repository's
-`tools/lab/tenant-export-delete/` instrument.
+Activity has no v3 history protocol. It uses physical snapshot replacement/removal
+and the controller's actual cache/socket/evaluator invalidation, preserving its
+existing full-read behavior. No activity incremental-history guarantee is added.
 
-## Current contract and remaining acceptance
+Current access, credentials, authorization, secrets, owner configuration, checkpoints,
+alarm suppression, notification outbox and private lifecycle authority/window/audit
+state remain current. Logical restore does not rewind them from an old artifact.
+Historical IDs hard-purged before restore and absent from both sources remain
+outside the existing retained-history scope; this is not an all-time or all-client
+cache convergence guarantee.
 
-- Same-ID tenant restoration must retain compatible keys and preserve current
-  foreign data. Identity-bearing import is unsupported; whole-deployment rollback
-  is not equivalent. See [IDENTITY-IMPORT-REVIEW.md](IDENTITY-IMPORT-REVIEW.md).
-- Export and destructive admission require the complete current selected reviewed
-  ledger. An artifact and database agreeing on unknown DDL is insufficient. Explicit
-  older non-identity catalogue cohorts are supported; no implicit prefix upgrade.
-- Entries carries an insertion ordinal; selected treatment/devicestatus/profile
-  successors do too. Food does not acquire an identity in the reviewed catalogue.
-  Export preserves exact values. Tenant import never regenerates them or attempts
-  tenant-local sequence maintenance.
-- Current authorization, durable artifact and held execution window are mandatory
-  capability inputs; operator confirmation/claim/execute are distinct from owner
-  intent/cancellation. Production adapters and native transaction/race evidence
-  remain separate acceptance work; source protocol checks are not those outcomes.
-- The adopted post-deletion retention/provider-destruction contract remains
-  separate. This module implements no automatic expiry or key destruction. The
-  same-ID artifact keeps ciphertext/recovery references; clone/cryptographic
-  rehoming is unsupported.
-- Artifact size/transaction limits and the global allocator-maintenance outage
-  budget remain unmeasured. No numeric cap or safe maintenance lease is inferred
-  from the source fixture.
+## Admission and commit boundary
 
+A live provisioned tenant clock is required. Its floor remains authoritative and
+must be valid and at least every observed current clinical `srvModified`. Restore
+checks its current exact ledger, relation inventory, columns, forced tenant policy
+and effective role privileges before effects. The private role needs schema USAGE,
+clock SELECT and **column UPDATE(last_stamp)**, plus SELECT on its migration ledger.
+Clock INSERT, DELETE, tenant_id UPDATE, schema CREATE, ownership and elevated roles
+are refused. Provisioning that live floor is a separate operator action; an empty
+or deleted tenant without a trustworthy retained clock cannot silently recreate it
+from an old artifact.
 
-Current lifecycle admission requires the **full exact selected catalogue ledger**
-for export, artifact import and destructive admission. Unknown, stale, drifted or
-reordered rows refuse; artifact/live agreement is not catalogue authority. A known
-prefix requires an explicitly selected older inventory rather than current tables.
-Identity-bearing tenant import is unsupported and refuses before any INSERT or
-sequence effect. Same-ID TENANT restore remains OPEN: whole-deployment rollback can
-revert foreign B and global API namespaces cannot transparently split A/B routing.
-See `lib/tenant-lifecycle/IDENTITY-IMPORT-REVIEW.md` for the source-only maintenance
-contract proposal and compatibility implications. No allocator workaround is enabled.
+Selected clinical ledgers must be current. Captured clinical ledgers must be known
+reviewed prefixes. Current ordered tables additionally require exact insertion
+schema/trigger/ACL and floor admission. Missing live floor, a floor behind observed
+metadata, ambiguous or reassigned public identifiers, unavailable artifact ordering,
+unknown schema/history semantics, foreign tenant rows and forged claims refuse.
+Clone/cryptographic rehoming is unsupported. Legacy shared-identity component import
+still refuses `LIFECYCLE_IDENTITY_IMPORT_UNSUPPORTED` before sequence effects.
+Component-only raw import retains its separate exact/empty-target contract.
 
+`onRow({kind,written,action})` runs within logical restore; throwing rolls back A's
+data and clock/counter changes. It is not a committed notification. `onCommitted`
+is registered through the controller's actual `connection.afterCommit` seam and
+runs only after acknowledged outer DATA commit, before invalidation/activation.
+It must not reuse the closed restore connection or require ordinary A admission
+while A is suspended. Rollback and ambiguous DATA commit do not automatically
+publish. Failed restore normally retains durable suspension; an uncertain commit
+requires persisted-state inspection. Activation response loss may mean A is already
+active. There is no automatic retry, expiry-based reopening or exactly-once
+notification replay promise.
 
-Physical relation admission: within every explicitly selected owned namespace,
-lifecycle export/import/destructive preflight and deployment backup/restore/summary
-now compare live `pg_class` metadata against the exact reviewed ordinary tables plus
-the ordinary `schema_migrations` ledger. Agreement of ledgers alone is insufficient.
-Unlisted ordinary/partitioned/foreign/materialized/view relations refuse; listed
-partition parents/children or nonordinary relation kinds are unsupported. No unknown
-relation is adopted, read for data, exported, dropped or granted permissions by the
-guard. Indexes and sequences are not independent dataset entries in this guard;
-known identity allocator contracts remain separate. There is no explicit allowance
-for unlisted tenant tables in the selected namespace contract.
+## Physical backup and deletion
 
-This is a read-only snapshot/transaction guard, not a namespace DDL fence. The
-private operator must coordinate a stable no-DDL window with privileged migration/
-maintenance jobs; restricted serving roles already lack schema DDL. Concurrent
-privileged DDL exclusion has not been proved by this metadata query. Configured
-37-table census is not a measurement of the database until live admission passes.
-Same-ID identity tenant restore remains unsupported; this check does not close it.
+Logical reconciliation deliberately changes public history metadata. Raw physical
+backup fidelity and whole-deployment rollback belong to
+[tenant operations](../tenant-operations/README.md); they preserve a separate exact
+snapshot contract, including forensic control state. A whole-deployment rollback
+can affect B and is not tenant-local logical restore.
 
+Deletion retains its distinct current-authorized request/confirm/cancel/claim/execute
+ceremony. The complete capability and recoverable-key contract is in
+[CEREMONY.md](CEREMONY.md). Compose the census-selected lifecycle through
+`admission.lifecycle.withCapabilities(...)`; do not substitute an old static list.
+Private control relations remain outside ordinary tenant artifact/deletion data.
+No retention expiry or provider key destruction is automatic.
 
-Ordinary inheritance is also unsupported. A selected ordinary relation can have
-parents or descendants in another namespace while remaining `relkind=r` and not
-a partition. Admission therefore checks both `pg_inherits.inhrelid` and
-`inhparent` for each selected relation, including the migration ledger, and refuses
-any participation. It does not adopt foreign descendants or substitute `ONLY` to
-silently narrow the operation. This remains metadata-only point-in-time admission,
-not a concurrent privileged-DDL fence. The configured 37-table selection and
-same-ID tenant-restore gap retain their prior scope.
+The catalogue admits validated typed migration table descriptors, with counters
+before clinical rows and reverse deletion order. Physical admission compares live
+`pg_class` against the exact selected ordinary tables plus `schema_migrations`.
+Unknown relations, partitions and inheritance refuse. This is a point-in-time
+metadata check, not exclusion of concurrent privileged DDL: the operator must
+coordinate the selected no-DDL window.
+
+## Evidence boundary
+
+The logical-restore source/protocol cohort has 86 passing focused tests, including
+actual history-handler/cache-model, profile first-match, activity-reader and
+controller commit-outcome checks. Authored missing-tombstone and stale-stamp
+controls make the cache test fail; restored source passes. Protocol doubles are
+not native PostgreSQL role, advisory-lock or independent-process evidence.
+Native joined acceptance is pending for this capability; final full/browser/corpus
+acceptance belongs to the coordinator's coherent candidate. No readiness or M6
+completion claim follows from the focused source cohort.

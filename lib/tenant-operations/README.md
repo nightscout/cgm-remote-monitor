@@ -4,6 +4,12 @@ Dormant, explicitly invoked Batch C library. No serving route, listener, startup
 migration, provider, role default or CLI is enabled. Nightscout is a secondary
 display for CGM and pump data. The NDJSON artifact remains a research format.
 
+These operations preserve raw physical snapshot fidelity. Tenant-local same-ID
+clinical restore instead publishes forward history corrections/deletions and keeps
+current authority, checkpoints and live clock state; see the
+[lifecycle contract](../tenant-lifecycle/README.md). Whole-deployment rollback is
+not that logical operation and can revert other tenants.
+
 ## Source boundary and evidence
 
 This source joins accepted A74, R69 lifecycle and the backup/upgrade continuation.
@@ -173,7 +179,10 @@ an explicit `acl: { grants: [...] }` or null (operator-only restored data, no gr
 const acl = { grants: [
   { role: 'data_reader', kind: 'entries', table: 'entries', privileges: ['SELECT'] },
   { role: 'checkpoint_writer', kind: 'checkpoint', table: 'tenant_consumer_checkpoint',
-    privileges: ['SELECT'], columnPrivileges: { UPDATE: ['checkpoint', 'projection', 'contract_digest'] } }
+    privileges: ['SELECT'], columnPrivileges: { UPDATE: ['checkpoint', 'projection', 'contract_digest'] } },
+  { role: 'clinical_restorer', kind: 'clock', table: 'tenant_write_clock',
+    privileges: ['SELECT'], columnPrivileges: { UPDATE: ['last_stamp'] } },
+  { role: 'clinical_restorer', kind: 'clock', table: 'schema_migrations', privileges: ['SELECT'] }
 ] };
 ```
 
