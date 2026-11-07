@@ -342,6 +342,7 @@
         "tests/owner-subject-policy.integration.test.js",
         "tests/tenant-durable-replay.integration.test.js",
         "tests/tenant-projection-evaluator.integration.test.js",
+        "tests/tenant-current-state-recovery-proof.integration.test.js",
         "tests/owner-preview.integration.test.js",
         "tests/owner-configuration.integration.test.js",
         "tests/tenant-socket-data-forwarding.integration.test.js",
