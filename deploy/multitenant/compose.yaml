@@ -27,7 +27,7 @@ services:
       - postgres-data:/var/lib/postgresql/data
       - ${NS_DEMO_STATE:?Run prepare.js first}/bootstrap/postgres-password:/run/secrets/postgres-password:ro
     healthcheck:
-      test: [CMD-SHELL, pg_isready -U postgres -d postgres]
+      test: [CMD-SHELL, pg_isready -h 127.0.0.1 -U postgres -d postgres]
       interval: 2s
       timeout: 2s
       retries: 30

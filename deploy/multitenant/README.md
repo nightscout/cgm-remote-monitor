@@ -85,7 +85,8 @@ roles and maintenance operator mount that directory. This is fixed single-host
 composition, not dynamic replica discovery.
 
 Image references are immutable digests. PostgreSQL readiness probes connect to
-the separate `postgres` maintenance database, so a probe cannot become an
+the final TCP server and the separate `postgres` maintenance database, so a probe
+does not accept the socket-only initialization server or become an
 unregistered administrator in the application's restore-session census. Both
 Vault image-declared storage paths have explicit volumes; no anonymous volume
 is needed. The scoped demo Vault credentials expire after 24 hours; restart does
