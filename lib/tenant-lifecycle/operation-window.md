@@ -2,19 +2,48 @@
 
 Source-only incremental protocol. Same-ID identity-bearing import remains
 `LIFECYCLE_IDENTITY_IMPORT_UNSUPPORTED`. No CLI/configuration parser selects this
-adapter, no migration installs its control tables, and the current preview roles
-do not claim a complete restore fence. Synthetic native proof, schema/privilege
-admission and the final joined role contract remain required before use.
+adapter, and current preview roles do not claim a complete restore fence. The
+appended lifecycle-control migration supplies prospective tables, backend-owner
+RLS and a narrow helper. Native SQL execution, catalogue deparsing, role grants
+and RLS enforcement remain UNMEASURED. A complete serving cohort and private
+operator controller remain required before use.
 
-The private composer supplies a restricted pg pool, an explicit control namespace
-and a provisioned unique positive bigint lock key for every selected tenant.
-Tenant A and B have distinct keys; no global allocator lock or B outage is selected.
-The prospective control tables are tenant_lifecycle_windows
-(tenant_id,lock_key,phase,generation) and tenant_lifecycle_operations
-(tenant_id,operation_id,generation,finished), both forced-RLS/tenant-bound. Serving
-roles must read the former without mutation and insert/finish only their tenant's
-operation rows. Exact schema, policy, role and ledger admission is not yet supplied
-by this prototype. A table name is not authority to create/adopt unknown schema.
+The private composer supplies `create({namespace,locks,pool})`: a dedicated raw pg
+pool, an explicit control namespace and `locks` containing `{tenant,key}` rows
+with a unique positive bigint-string key for every selected tenant. Tenant A and
+B have distinct keys; no global allocator lock or B outage is selected. Before
+lower-port installation it must await `window.ready()` (resolves without a value).
+That method reads metadata directly through the dedicated pool, without the lower
+connection module, so it must precede global lower-port installation.
+`window.namespace` is immutable. `window.identity` is initially null, then a frozen
+object with namespaceOid, ownerOid, ledgerOid, windowsOid, operationsOid and
+backendBirthOid. Each acquired backend is readmitted against that identity.
+
+The new control tables are tenant_lifecycle_windows
+(tenant_id,lock_key,phase,generation,claim_id) and tenant_lifecycle_operations
+(tenant_id,operation_id,generation,finished,owner_pid,owner_birth). The windows
+phase and claim are coherent; lock keys and generations are positive. Both tables
+use forced tenant-bound RLS. INSERT and UPDATE operation policies additionally
+bind owner_pid and owner_birth to the current backend's PID and birth timestamp;
+a replacement backend cannot finish an earlier backend's orphan. The serving
+INSERT omits finished and both owner columns so database defaults establish them.
+The SQL stable SECURITY INVOKER birth helper has a fixed pg_catalog search_path
+and PUBLIC execution revoked. There is no operation deletion or orphan-clear API.
+
+Read-only admission checks the exact lifecycle migration ledger, column shapes,
+defaults, keys, constraints, policies, helper definition and grants, relation
+identities and shared schema/table/helper owner. That owner must be a dedicated
+nonlogin, nonelevated role. Callers cannot own these objects, inherit elevated
+roles or CREATE schemas/database objects. The dedicated lifetime role needs
+schema USAGE; SELECT on windows, operations and schema_migrations; column INSERT
+on operations(tenant_id,operation_id,generation); column UPDATE on
+operations(finished); and EXECUTE on the birth helper. Table-level mutation,
+foreign relation/sequence writes and execution of other non-system functions
+refuse, including effective privileges inherited through PUBLIC or memberships.
+Lower data roles need only USAGE and SELECT on these control relations, with no
+operation writes or helper EXECUTE. Their clinical-data grants remain separate.
+A table name is not authority to create or adopt unknown schema. These checks
+have source/catalogue protocol controls; their native enforcement is unmeasured.
 
 The lower PostgreSQL connection can explicitly select operationWindow. It acquires
 a nonblocking shared session lock BEFORE BEGIN, then binds the tenant and checks
