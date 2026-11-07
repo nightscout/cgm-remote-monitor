@@ -73,9 +73,9 @@ module.exports = function clockPortLab () {
     async waitForClockLock () {
       const deadline = Date.now() + 5000;
       do {
-        const state = await admin.query(`SELECT count(*)::int AS n FROM pg_stat_activity
+        const state = await admin.query(`SELECT pid,pg_blocking_pids(pid) AS blockers,query FROM pg_stat_activity
           WHERE application_name LIKE $1 AND wait_event_type='Lock' AND query LIKE '%tenant_write_clock%FOR UPDATE%'`, [name + '_%']);
-        if (state.rows[0].n > 0) return;
+        if (state.rows.length > 0 && state.rows[0].blockers.length > 0) return state.rows[0];
         await new Promise(resolve => setTimeout(resolve, 10));
       } while (Date.now() < deadline);
       throw new Error('No actual PostgreSQL clock-row lock wait was observed');
