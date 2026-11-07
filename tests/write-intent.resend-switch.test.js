@@ -222,7 +222,8 @@ describe('ID-RESEND-SWITCH: the rule table', function ( ) {
         , identifier: seeded.identifier, reason });
       assert.equal(events.length, 1);
       const e = JSON.parse(JSON.stringify(events[0]));
-      assert.deepStrictEqual(e, { collection: 'food', source: 'v3', op: 'create', collapsed: false
+      // B7 rule 3: a single-site, unclocked settle carries explicit null metadata.
+      assert.deepStrictEqual(e, { collection: 'food', source: 'v3', op: 'create', tenant: null, stamp: null, collapsed: false
         , records: [{ _id: e.records[0]._id, identifier: seeded.identifier, outcome, problems: [reason] }]
         , counts: { records: 1, outcomes: { [outcome]: 1 } } });
       assert(Object.isFrozen(events[0]));
