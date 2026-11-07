@@ -113,7 +113,22 @@ async function start (input) {
       return { PATH: input.env.PATH, HOME: input.env.HOME, NODE_PATH: input.env.NODE_PATH, NODE_ENV: 'test', TZ: 'UTC', ...selected };
     };
     const api = await startRole({ ...input, role: 'api', env: roleEnv('api'), timeoutMs: config.timeoutMs }); children.push(api);
-    const realtime = await startRole({ ...input, role: 'realtime', env: roleEnv('realtime'), timeoutMs: config.timeoutMs }); children.push(realtime);
+    const realtimeEnvironment = roleEnv('realtime');
+    if (input.beforeRealtime !== undefined) {
+      assert.equal(typeof input.beforeRealtime, 'function', 'trusted realtime setup hook required');
+      const document = JSON.parse(fs.readFileSync(realtimeEnvironment.MULTITENANT_REALTIME_CONFIG, 'utf8'));
+      assert(typeof document.apiSocketPathEnv === 'string' && /^[A-Z][A-Z0-9_]{0,127}$/.test(document.apiSocketPathEnv),
+        'explicit configured API socket reference required');
+      const relay = await input.beforeRealtime({ api, env: Object.freeze({ ...realtimeEnvironment }), config });
+      assert(relay && typeof relay === 'object' && Object.keys(relay).length === 2 &&
+        typeof relay.close === 'function' && typeof relay.apiSocketPath === 'string', 'owned API authority relay capability required');
+      // Keep it in reverse ownership order: RT closes before relay, then API.
+      children.push(relay);
+      const validated = require('../../../lib/server/realtime/ipc').options({ socketPath: relay.apiSocketPath,
+        maxBytes: document.maxMessageBytes, timeoutMs: document.operationTimeoutMs });
+      realtimeEnvironment[document.apiSocketPathEnv] = validated.socketPath;
+    }
+    const realtime = await startRole({ ...input, role: 'realtime', env: realtimeEnvironment, timeoutMs: config.timeoutMs }); children.push(realtime);
     const ui = config.uiFixture ? await require('./ui')({ sourceDir: input.sourceDir, ...config.uiFixture }) : undefined;
     ingress = await require('./ingress')({ ui, apiPort: api.port, realtimePort: realtime.port, timeoutMs: config.timeoutMs, onBirth: input.onBirth });
     return Object.freeze({ api, realtime, ingress, config, owned, close,
