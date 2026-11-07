@@ -71,7 +71,7 @@ describe('tenant-local insertion lifecycle inventory and refusal', function () {
     await assert.rejects(selectedLifecycle.importArtifact(connection, artifact(), { tenant: A, namespaces: { entries: 'owned_entries' } }), { code: 'LIFECYCLE_MAINTENANCE_REQUIRED' });
   });
 
-  it('keeps full clock-bearing snapshot restore closed pending public-history reconciliation', async function () {
+  it('requires actual held maintenance for clock-bearing logical reconciliation', async function () {
     const clock = require('../migrations/candidates/postgres-write-clock-v1.json');
     const selectedLifecycle = lifecycle.createLifecycle({ catalogues: [
       { kind: 'entries', candidate, tables: [counter, 'entries'] },
@@ -86,10 +86,11 @@ describe('tenant-local insertion lifecycle inventory and refusal', function () {
       rows: [{ tenant_id: A, last_stamp: '1000' }]
     }] });
     const snapshot = artifacts.buildArtifact({ tenant: A, sourceCommit: 'f'.repeat(40), exportedAt: 1700000000000, catalogues });
-    const connection = { transaction: () => assert.fail('history guard must refuse before effects') };
-    await assert.rejects(selectedLifecycle.importArtifact(connection, snapshot, { tenant: A,
+    const connection = { transaction: fn => fn(), query: () => assert.fail('forged claim must refuse before SQL') };
+    const scope = require('../lib/storage/tenant-scope'), previous = scope.getTenancyMode(); scope.setTenancyMode('multi');
+    try { await assert.rejects(selectedLifecycle.importArtifact(connection, snapshot, { tenant: A,
       namespaces: { entries: 'owned_entries', clock: 'owned_clock' }, maintenanceClaim: Object.freeze({})
-    }), { code: 'LIFECYCLE_HISTORY_CONTINUITY_REQUIRED' });
+    }), { code: 'LIFECYCLE_RESTORE_CLAIM_INVALID' }); } finally { scope.setTenancyMode(previous); }
   });
 
   it('requires a typed narrow ACL instead of blanket INSERT on new counter schemas', function () {

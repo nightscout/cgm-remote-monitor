@@ -85,6 +85,7 @@
         "tests/postgres-identity.test.js",
         "tests/tenant-lifecycle.test.js",
         "tests/tenant-insertion-lifecycle.test.js",
+        "tests/tenant-logical-restore.test.js",
         "tests/tenant-insertion-sql.test.js",
         "tests/tenant-insertion-migrations.test.js",
         "tests/tenant-insertion-readiness.test.js",
