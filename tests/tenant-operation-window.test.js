@@ -14,6 +14,7 @@ function fixture (options = {}) {
     if (text.includes('FROM pg_roles')) return { rows: [{ rolsuper: !!options.superuser, rolbypassrls: false }] };
     if (text.includes('pg_try_advisory_lock_shared')) return { rows: [{ held: options.held !== false }] };
     if (text.includes('pg_advisory_unlock_shared')) return { rows: [{ released: options.unlock !== false }] };
+    if (text === 'SHOW transaction_read_only') return { rows: [{ transaction_read_only: options.metadataReadOnly || 'on' }] };
     if (text.startsWith('SELECT lock_key')) return { rows: [{ lock_key: options.key || (values[0] === B ? '19' : '17'), phase: options.phase || 'active', generation: '1' }] };
     if (text.startsWith('INSERT INTO')) { pending.set(values[1], false); return { rows: [], rowCount: 1 }; }
     if (text.startsWith('UPDATE')) { pending.set(values[1], true); return { rows: [], rowCount: 1 }; }
@@ -196,6 +197,23 @@ describe('Selected lower-port window cannot be omitted (source protocol)', funct
       await assert.rejects(scope.withTenant(A, () => store.query('SELECT forbidden_after_suspension')), { code: 'LIFECYCLE_WINDOW_SUSPENDED' });
       assert.equal(f.log.some(row => row[0] === 'SELECT forbidden_after_suspension'), false);
       await assert.rejects(lower({ connectionString: 'postgresql://synthetic/disposable_test', operationWindow: {} }), /cannot be replaced/);
+    } finally { if (store) await store.end(); release(); await f.window.close(); scope.setTenancyMode(previous); }
+  });
+  it('admits the reserved startup metadata binding only in a DB-confirmed read-only transaction', async function () {
+    const options = {}, f = fixture(options), lower = lowerModule(f), scope = require('../lib/storage/tenant-scope');
+    const previous = scope.getTenancyMode(); scope.setTenancyMode('multi'); const zero = '00000000-0000-0000-0000-000000000000';
+    const release = lower.installOperationWindow(f.window); let store;
+    try {
+      store = await lower({ connectionString: 'postgresql://synthetic/disposable_test' });
+      await store.withTenant(zero, () => store.query('SELECT synthetic_metadata'));
+      assert.ok(f.log.some(row => row[0] === 'BEGIN READ ONLY'));
+      assert.equal(f.log.some(row => row[0].includes('pg_try_advisory_lock_shared')), false);
+      options.metadataReadOnly = 'off';
+      await assert.rejects(scope.withTenant(zero, () => store.snapshotTransaction(() => store.query('SELECT forbidden_metadata_body'))), { code: 'LIFECYCLE_WINDOW_METADATA_READ_ONLY_REQUIRED' });
+      assert.ok(f.log.some(row => row[0] === 'BEGIN ISOLATION LEVEL REPEATABLE READ READ ONLY'));
+      assert.equal(f.log.some(row => row[0] === 'SELECT forbidden_metadata_body'), false);
+      await assert.rejects(f.window.run(zero, () => {}), { code: 'LIFECYCLE_WINDOW_TENANT_UNKNOWN' });
+      assert.throws(() => create({namespace:'synthetic_window',locks:[{tenant:zero,key:'1'}],pool:{connect(){}}}), /Unique provisioned/);
     } finally { if (store) await store.end(); release(); await f.window.close(); scope.setTenancyMode(previous); }
   });
   it('refuses fabricated/duplicate/closed installation and stale release cannot clear a newer owner', async function () {

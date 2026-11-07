@@ -61,7 +61,9 @@ when the boot coordinator selects an actual live window, every subsequently
 constructed common PostgreSQL connection uses it, including helpers that omit
 the per-connection option. Replacing it or installing a fabricated/closed window
 refuses; only the owning closure clears that installation. Existing connections
-retain their selected adapter. No CLI installation or startup metadata exception
-is enabled: unknown/sentinel tenants still fail closed until their explicit
-read-only startup admission is designed. This central coupling does not prove
+retain their selected adapter. No CLI installation is enabled. The reserved all-zero startup binding may only
+enter an explicitly requested and DB-confirmed READ ONLY transaction; it is
+forbidden as a serving-tenant lock binding or operation lifetime. Other unknown
+tenants refuse. This admits metadata screening, not a missing control schema or
+a serving cohort. This central coupling does not prove
 that direct pg clients, older workers or an entire deployment are admitted.
