@@ -9,13 +9,11 @@ module.exports = async function dataParity (input) {
   const record = () => fs.writeFileSync(path.join(input.captureDir, 'socket-data-physical-parity.json'), JSON.stringify(observations, null, 2) + '\n');
   const names = ['entries', 'treatments', 'devicestatus', 'profile', 'food', 'activity'];
   const table = logical => { const name = config.namespaces[logical]; assert.match(name, /^[a-z][a-z0-9_]{0,62}$/); assert.equal(roles.owned.namespaces[logical], name); return '"' + name + '"."' + logical + '"'; };
-  const norm = (value, key) => {
-    if (value?._bsontype === 'ObjectId') return { objectId: value.toHexString() };
-    if (value instanceof Date) return { date: value.toISOString() };
-    if (['srvCreated', 'srvModified'].includes(key) && Number.isFinite(value) && value > 1e12) return 'server-clock';
-    if (Array.isArray(value)) return value.map(item => norm(item));
-    if (value && typeof value === 'object') return Object.fromEntries(Object.entries(value).map(([k, v]) => [k, norm(v, k)]));
-    return value;
+  const timestamps = require('./data-timestamps'), oracleState = timestamps.initialState();
+  const pgClock = async () => {
+    assert.match(config.clockNamespace, /^[a-z][a-z0-9_]{0,62}$/); assert.equal(roles.owned.clockNamespace, config.clockNamespace);
+    const rows = (await admin.query('SELECT last_stamp FROM "' + config.clockNamespace + '".tenant_write_clock WHERE tenant_id=$1', [config.tenant])).rows;
+    assert.equal(rows.length, 1, 'DATA_CLOCK_TENANT_PROVISIONED'); return Number(rows[0].last_stamp);
   };
   const send = (socket, event, payload) => new Promise(resolve => {
     const timer = setTimeout(() => resolve({ outcome: 'noack' }), config.timeoutMs);
@@ -48,34 +46,31 @@ module.exports = async function dataParity (input) {
       await admin.query('DELETE FROM ' + table(logical) + ' WHERE tenant_id=$1', [config.tenant]);
       for (const attempt of [1, 2]) {
         const payload = { collection: logical, data: structuredClone(documents[logical]) };
-        const producer = structuredClone(payload), before = logical === 'profile' ? {
+        const producer = structuredClone(payload), before = {
           pgDocuments: (await admin.query('SELECT id_kind,doc FROM ' + table(logical) + ' WHERE tenant_id=$1', [config.tenant])).rows.map(require('../../../lib/storage/postgres-identity').decodeDocument),
           mongoRaw: await mongo.db(config.mongoDatabase).collection(logical).find({}).toArray()
-        } : undefined;
+        };
         const wireCall = require('./wire-call');
         const expectedCall = await wireCall(producer, sent => send(expectedSocket, 'dbAdd', sent));
+        const beforeClock = await pgClock();
         const actualCall = await wireCall(producer, sent => send(actualSocket, 'dbAdd', sent));
+        const afterClock = await pgClock();
         const expected = expectedCall.result, actual = actualCall.result;
+        const clocks = { mongo: { ...oracleState.mongoClock }, postgres: { kind: 'postgres', before: beforeClock, after: afterClock } };
         const windows = { mongo: expectedCall.window, postgres: actualCall.window };
         const pgRaw = (await admin.query('SELECT ctid::text,id_kind,doc FROM ' + table(logical) + ' WHERE tenant_id=$1', [config.tenant])).rows;
         const mongoRaw = await mongo.db(config.mongoDatabase).collection(logical).find({}).toArray();
-        observations.push({ logical, attempt, producer, before, windows, expected, actual, pgRaw, mongoRaw }); record();
+        const operation = timestamps.capture({ logical, attempt, producer, before, windows, clocks, expected, actual, pgRaw, mongoRaw });
+        observations.push(operation); record();
         assert(expectedCall.producerUnchanged && actualCall.producerUnchanged, 'SOCKET_DATA_PRODUCER_IMMUTABLE');
         assert.equal(pgRaw.length, 1, 'SOCKET_DATA_RETRY_STORE_ONCE explicit stable identity');
         assert.equal(mongoRaw.length, 1, 'SOCKET_DATA_SINGLE_RETRY_STORE_ONCE explicit stable identity');
-        if (logical === 'profile') {
-          assert.equal(actual.outcome, 'reply'); assert.equal(expected.outcome, 'reply');
-          require('./profile-timestamps').compare({ producer, before, windows, expected: expected.args, actual: actual.args,
-            pgDocuments: pgRaw.map(require('../../../lib/storage/postgres-identity').decodeDocument), mongoRaw });
-          continue;
-        }
-        assert.deepEqual(norm(actual), norm(expected), 'SOCKET_DATA_CALLBACK_PARITY ' + logical + '/' + attempt);
-        const documentsFor = rows => rows.map(row => norm(row)).sort((a, b) => JSON.stringify(a._id).localeCompare(JSON.stringify(b._id)));
-        assert.deepEqual(documentsFor(pgRaw.map(require('../../../lib/storage/postgres-identity').decodeDocument)), documentsFor(mongoRaw), 'SOCKET_DATA_STORED_PARITY ' + logical + '/' + attempt);
+        require('./wire-response').assertAndRecord(operation, record, () => timestamps.replay(operation, oracleState));
+
       }
     }
-    // Duplicate-ID retry may be a canonical baseline noack/refusal. Its raw
-    // stderr is retained by the parent; do not relabel it transport success.
+    // Generic duplicate-ID retries acknowledge [] without changing stored rows;
+    // deduplicated domains return the stored record. No timeout counts as parity.
   } finally {
     const cleanup = []; for (const socket of sockets) socket.close();
     if (reference) try { await reference.close(); } catch { cleanup.push('REFERENCE_CLOSE'); }
