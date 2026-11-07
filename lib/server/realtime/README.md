@@ -29,7 +29,11 @@ permissions are checked again after asynchronous acquisition and on each fanout.
 The API config's optional `socketForwarding` has socketPathEnv, admissionFileEnv,
 maxTenants, maxMessageBytes, operationTimeoutMs and alarm {connectionEnv,namespace}.
 It requires explicitly selected legacy authorization and the write clock. Its
-narrow alarm writer must also SELECT authorization config/subjects/links/roles
+narrow alarm writer uses a distinct decoded user on the same hostname/port/database
+endpoint as DATA/readiness (passwords are not datastore identity). Boot checks
+the installed alarm catalogue through both readiness and the selected writer.
+The writer needs SELECT on its alarm schema_migrations ledger; this adds no
+ledger mutation permission. The narrow alarm writer must also SELECT authorization config/subjects/links/roles
 for transaction-bound current admission. Apply the append-only alarm catalogue
 and existing devicestatus/treatments socket-order successors before API startup.
 The API independently resolves original Host and verifies original client
