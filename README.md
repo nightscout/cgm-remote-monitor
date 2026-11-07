@@ -320,7 +320,7 @@ autonomy for your data:
   * `MONGO_POOL_SIZE` (`5`) - MongoDB connection pool size. Adjust for your deployment needs.
   * `MONGO_MIN_POOL_SIZE` (`0`) - Minimum pool connections to keep open.
   * `MONGO_MAX_IDLE_TIME_MS` (`30000`) - Max idle time (ms) before closing a connection.
-  * `ALARM_REFRESH_TIMEOUT_MS` (`5000`) - Maximum milliseconds an alarm notification waits for the cross-instance snooze refresh to load before emitting from in-memory state. Lower for low-RTT databases; raise for cold-start paths against distant primaries.
+  * `ALARM_REFRESH_TIMEOUT_MS` (`5000`) - Maximum milliseconds an alarm notification waits for the cross-instance snooze refresh to load before emitting from in-memory state. Values above `15000` are ignored and the default is used.
   * `ALARM_REFRESH_STALE_MS` (`30000`) - Milliseconds before an existing process reloads shared snooze state. Lower values honor cross-instance acknowledgements sooner at the cost of more database reads.
   * `PORT` (`1337`) - The port that the node.js application will listen on.
   * `NIGHTSCOUT_HOSTNAME` - The hostname or address that the node.js application will listen on. Leave unset to listen on all interfaces. Docker users can set this to `0.0.0.0` when Nightscout is reached through another container or reverse proxy. The older `HOSTNAME` setting is still accepted for compatibility, but should not be used for new installs because container platforms often set it automatically.

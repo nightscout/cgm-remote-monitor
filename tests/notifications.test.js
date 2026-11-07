@@ -278,16 +278,22 @@ describe('notifications snooze state externalization (#8194)', function () {
   });
 
   it('ack does not persist malformed snooze lengths, levels or groups', function (done) {
-    notifications.ack(2, 'default', 25 * 60 * 60 * 1000);
-    notifications.ack(2, 'default', '1800000');
-    notifications.ack(2, 'default', -5);
-    notifications.ack(NaN, 'default', 60000);
+    // Each case gets its own group so an earlier snooze cannot end the call early.
+    notifications.ack(2, 'too-long', 25 * 60 * 60 * 1000);
+    notifications.ack(2, 'as-string', '1800000');
+    notifications.ack(2, 'negative', -5);
+    notifications.ack(2, 'auto-ack', 1);
+    notifications.ack(NaN, 'bad-level', 60000);
+    notifications.ack(0, 'info-level', 60000);
     notifications.ack(2, { $ne: 1 }, 60000);
     notifications.ack(2, new Array(70).join('x'), 60000);
-    notifications.ack(0, 'default', 60000);
     setImmediate(function () {
       captures.setSnooze.length.should.equal(0);
-      done();
+      notifications.ack(2, 'ok', 60000);
+      setImmediate(function () {
+        captures.setSnooze.length.should.equal(2);
+        done();
+      });
     });
   });
 
@@ -315,6 +321,27 @@ describe('notifications snooze state externalization (#8194)', function () {
     setImmediate(function () {
       captures.setSnooze.length.should.equal(0);
       done();
+    });
+  });
+
+  it('ignores a stored snooze that expires further ahead than the allowed maximum', function (done) {
+    fakeStorage.getSnooze = async function () {
+      return { lastAckTime: Date.now() + 30 * 24 * 60 * 60 * 1000, silenceTime: 30 * 60 * 1000 };
+    };
+    notifications.resetStateForTests();
+    var emitted = 0;
+    ctx.bus.emit = function (evt, data) { if (evt === 'notification' && !data.clear) emitted++; };
+    ctx.ddata.lastUpdated = Date.now() + 1000;
+    notifications.initRequests();
+    notifications.requestNotify({
+      level: 2, group: 'default', title: 'Test', message: 'msg', plugin: { name: 'test' }
+    });
+    notifications.process();
+    setImmediate(function () {
+      setImmediate(function () {
+        emitted.should.equal(1);
+        done();
+      });
     });
   });
 
