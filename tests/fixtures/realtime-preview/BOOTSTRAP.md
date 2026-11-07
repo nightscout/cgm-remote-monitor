@@ -16,9 +16,9 @@ await prepared.close();
 ```
 
 `prepared` also provides phaseConfigurations, the in-memory roleEnvironments and
-phaseEnvironment, ownership, and activePhase. Four exact phase IDs are
-joined-role-recovery, joined-data-parity, joined-consumer-handoff and
-joined-browser-consumer. The parent supplies sourceHead, ownershipFile and each
+phaseEnvironment, ownership, and activePhase. Five exact phase IDs are
+joined-role-recovery, joined-data-parity, joined-consumer-handoff,
+joined-consumer-plugin-ack and joined-browser-consumer. The parent supplies sourceHead, ownershipFile and each
 role's env-reference filename in phase configuration. It may set
 profileUncertaintyResolved only after the actual profile campaign establishes it;
 bootstrap leaves it false. No helper readiness or profile completion is inferred.
@@ -37,6 +37,17 @@ Required private environment values:
 
 Timer bounds fit Node timers; timeoutMs fits the actual Vault provider's bound;
 credentialLifetimeSeconds cannot exceed the actual local credential lifetime limit.
+Optional evaluatorMaxRows/realtimeMaxRows choose distinct clinical row bounds; each
+defaults to explicit common maxRows. pageSize must fit both chosen values. Initial
+per-tenant synthetic baseline has one clinical row, so the lower evaluator bound
+must admit that actual baseline. A cold test declares entryCount exceeding the
+evaluator bound while total actual realtime data still fits the realtime bound.
+Set these limits before initial API/evaluator boot; changing infrastructure after
+the linked API starts correctly requires restart. Parent coldAcquisition contains
+evaluatorConfigFile, observerFile, revision and entryCount. The evaluator file is
+returned and attested in ownership.configurationFiles. Parent owns the explicit
+actual CLI observer preload/env/path; bootstrap never invents a health result.
+Tenant revision may change independently of infrastructure.
 There are no inferred capacity, retry or retention defaults. Bounds must also pass
 the actual API/evaluator/realtime configuration parsers.
 

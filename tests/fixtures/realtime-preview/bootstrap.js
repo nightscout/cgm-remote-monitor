@@ -111,7 +111,7 @@ module.exports=async function bootstrap(input) {
     require('../../../lib/server/serve/preview-config').load(roleEnvironments.api);
     const configurationBase={version:1,timeoutMs:o.timeoutMs,observationMs:o.observationMs,settleMs:o.settleMs,snoozeMs:o.snoozeMs,
       tenant:plan.A,foreignTenant:plan.B,host:'one.example.test',foreignHost:'two.example.test',browserHost:'one.example.test',
-      subjectId:plan.SUBJECT,staleSubjectId:plan.STALE,mainCredentialEnv:'RT_BOOTSTRAP_MAIN_A_JSON',namespaces:Object.fromEntries(['entries','treatments','devicestatus','profile','food','activity'].map(d=>[d,ns[d]])),
+      subjectId:plan.SUBJECT,staleSubjectId:plan.STALE,mainCredentialEnv:'RT_BOOTSTRAP_MAIN_A_JSON',dataCredentialEnv:'RT_BOOTSTRAP_MAIN_A_JSON',evaluatorConfigFile:paths.evaluator,namespaces:Object.fromEntries(['entries','treatments','devicestatus','profile','food','activity'].map(d=>[d,ns[d]])),
       entriesNamespace:ns.entries,authorizationNamespace:ns.authorization,clockNamespace:ns.clock,alarmNamespace:ns.alarm,outboxNamespace:ns.outbox,
       consumerId:docs.evaluator.consumers.realtime.route.id,alarmSocketPath:socketPaths.alarm,maxMessageBytes:o.maxMessageBytes,
       mongoDatabase:l.mongoDatabase,profileUncertaintyResolved:false};
@@ -132,7 +132,7 @@ module.exports=async function bootstrap(input) {
       const now=Number((await admin.query('SELECT floor(extract(epoch FROM clock_timestamp())*1000)::bigint AS now_ms')).rows[0].now_ms);
       if(!Number.isSafeInteger(now)||now<1)throw new Error('JOINED_BOOTSTRAP_CLOCK_REFUSED');
       const exp=Math.floor(now/1000)+o.credentialLifetimeSeconds;
-      const mgdl=phaseId==='joined-consumer-handoff'?50:123,foreign=177;
+      const mgdl=['joined-consumer-handoff','joined-consumer-plugin-ack'].includes(phaseId)?50:123,foreign=177;
       for(const [i,tenant]of [plan.A,plan.B].entries()) {
         await admin.query('INSERT INTO '+q(ns.legacy)+'.legacy_credential_config VALUES ($1,$2)',[tenant,'root-'+i]);
         await admin.query('INSERT INTO '+q(ns.authorization)+'.tenant_authorization_config VALUES ($1,ARRAY[\'denied\'])',[tenant]);
@@ -161,7 +161,7 @@ module.exports=async function bootstrap(input) {
           const replay=require('../../../lib/storage/postgres-durable-replay')({connection:{query(){throw new Error('constructor only');},snapshotTransaction(){throw new Error('constructor only');}},
             checkpointTable:ns[kind]+'.tenant_consumer_checkpoint',clockTable:ns.clock+'.tenant_write_clock',consumer:document.consumer,
             domains:Object.fromEntries(Object.keys(configurationBase.namespaces).map(d=>[d,ns[d]+'.'+d])),
-            projectionVersion:kind==='rt_checkpoint'?'realtime-current-rows-v1':'clinical-current-rows-v1',pageSize:o.pageSize,maxRows:o.maxRows});
+            projectionVersion:kind==='rt_checkpoint'?'realtime-current-rows-v1':'clinical-current-rows-v1',pageSize:o.pageSize,maxRows:document.maxRows});
           await admin.query('INSERT INTO '+q(ns[kind])+'.tenant_consumer_checkpoint(tenant_id,consumer,contract_digest,checkpoint,projection) VALUES($1,$2,$3,0,NULL)',[tenant,document.consumer,replay.digest]);
         }
       }
@@ -177,7 +177,7 @@ module.exports=async function bootstrap(input) {
       catalogues:Object.fromEntries(Object.entries(provisioning.catalogues()).map(([kind,c])=>[kind,c.migrations.map(({name,checksum})=>({name,checksum}))]))});
     return Object.freeze({phaseConfigurations,roleEnvironments,phaseEnvironment,resetForPhase,close,ownership:{tenant:plan.A,foreignTenant:plan.B,
       entriesNamespace:ns.entries,authorizationNamespace:ns.authorization,clockNamespace:ns.clock,alarmNamespace:ns.alarm,outboxNamespace:ns.outbox,
-      namespaces:configurationBase.namespaces,mongoDatabase:l.mongoDatabase},get activePhase(){return activePhase;}});
+      namespaces:configurationBase.namespaces,mongoDatabase:l.mongoDatabase,configurationFiles:[paths.api,paths.evaluator,paths.realtime,paths.admission]},get activePhase(){return activePhase;}});
   }catch(error){await close();throw Object.assign(new Error('JOINED_BOOTSTRAP_REFUSED'),{code:safeCode(error),step});}
 };
 module.exports.plan=plan;
