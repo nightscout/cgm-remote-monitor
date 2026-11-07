@@ -1,0 +1,37 @@
+{
+  "version": 1,
+  "status": "Optional socket profile insertion-order successor; empty-table upgrade only; populated upgrade refuses atomically",
+  "evidence": [
+    "lib/storage/write-intent.js: socket profile full-record NSCLIENT_ID/startDate first match",
+    "lib/server/tenant-socket-order-port.js: explicitly selected persisted insertion-order capability",
+    "Actual early native e863: first empty profile add refuses bounded unsorted lookup; retry and multiple-match restoration pending"
+  ],
+  "migrations": [
+    {
+      "name": "0001_profile",
+      "up": [
+        "CREATE TABLE profile (tenant_id uuid NOT NULL, id_kind text NOT NULL CHECK (id_kind IN ('objectid', 'string')), doc jsonb NOT NULL CHECK (jsonb_typeof(doc) = 'object'), \"_id\" text GENERATED ALWAYS AS (CASE WHEN jsonb_typeof(doc->'_id') = 'string' THEN doc->>'_id' END) STORED, identifier text GENERATED ALWAYS AS (CASE WHEN jsonb_typeof(doc->'identifier') = 'string' THEN doc->>'identifier' END) STORED, CHECK (\"_id\" <> ''), CHECK (id_kind <> 'objectid' OR \"_id\" ~ '^[0-9a-f]{24}$'), PRIMARY KEY (tenant_id, id_kind, \"_id\"))",
+        "CREATE UNIQUE INDEX profile_identifier_unique ON profile (tenant_id, identifier) WHERE identifier IS NOT NULL AND identifier <> ''",
+        "CREATE INDEX profile_tenant_startdate_id ON profile (tenant_id, (doc->'startDate') DESC, \"_id\" DESC)",
+        "CREATE INDEX profile_tenant_created_at ON profile (tenant_id, (doc->>'created_at'))",
+        "CREATE INDEX profile_tenant_nsclient ON profile (tenant_id, (doc->'NSCLIENT_ID'))",
+        "CREATE INDEX profile_tenant_srvmodified ON profile (tenant_id, (doc->'srvModified'))",
+        "ALTER TABLE profile ENABLE ROW LEVEL SECURITY",
+        "ALTER TABLE profile FORCE ROW LEVEL SECURITY",
+        "CREATE POLICY profile_tenant_isolation ON profile USING (tenant_id = NULLIF(current_setting('app.current_tenant_id', true), '')::uuid) WITH CHECK (tenant_id = NULLIF(current_setting('app.current_tenant_id', true), '')::uuid)"
+      ],
+      "checksum": "9fe44ff376aa7ad61e0273e294d71ac76bbf5efe16a3619f9f187c28eab5e19b"
+    },
+    {
+      "name": "0002_profile_socket_order",
+      "up": [
+        "ALTER TABLE profile ADD CONSTRAINT socket_order_requires_empty CHECK (false) NOT VALID",
+        "ALTER TABLE profile VALIDATE CONSTRAINT socket_order_requires_empty",
+        "ALTER TABLE profile DROP CONSTRAINT socket_order_requires_empty",
+        "ALTER TABLE profile ADD COLUMN insertion_ordinal bigint GENERATED ALWAYS AS IDENTITY",
+        "CREATE INDEX profile_tenant_insertion ON profile (tenant_id, insertion_ordinal)"
+      ],
+      "checksum": "0de4dc9493a4122cf843dccd741077b3fa0b906daad839d1b123ab85325121df"
+    }
+  ]
+}

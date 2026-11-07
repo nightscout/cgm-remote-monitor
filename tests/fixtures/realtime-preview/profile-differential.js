@@ -8,6 +8,7 @@ function configuration (input) {
   assert.equal(config.version, 1); assert.match(config.sourceHead, /^[a-f0-9]{40}$/);
   assert.equal(config.sourceHead, input.env.NS_RT_SOURCE_HEAD, 'immutable joined source attribution required');
   assert.equal(config.phaseId, input.phaseId);
+  if (config.profileOrderCatalogue !== undefined) assert.equal(config.profileOrderCatalogue, 'socket-order-v1');
   assert.match(config.tenant, /^[a-f0-9-]{36}$/); assert.match(config.profileNamespace, /^[a-z][a-z0-9_]{0,62}$/);
   assert.match(config.mongoDatabase, /^rt_profile_[a-f0-9]{16,32}$/);
   assert(config.maxMessageBytes > 0 && Number.isSafeInteger(config.timeoutMs) && config.timeoutMs > 0);
@@ -15,7 +16,7 @@ function configuration (input) {
   assert.equal(ownership.phaseId, input.phaseId); assert.equal(ownership.sourceHead, config.sourceHead);
   assert.equal(ownership.tenant, config.tenant); assert.equal(ownership.profileNamespace, config.profileNamespace);
   assert.equal(ownership.mongoDatabase, config.mongoDatabase);
-  for (const kind of (input.phaseId === 'profile-port-differential' ? ['postgres', 'mongo'] : ['postgres', 'mongo', 'vault'])) {
+  for (const kind of (['profile-port-differential', 'profile-catalogue-upgrade'].includes(input.phaseId) ? ['postgres', 'mongo'] : ['postgres', 'mongo', 'vault'])) {
     const resource = ownership.resources.find(row => row.kind === kind);
     assert(resource && resource.host === '127.0.0.1' && resource.labelValue && resource.containerId && resource.mounts);
     assert.equal(resource.image, require('./early').plan.pins[kind], 'root verified actual image identity required');
@@ -25,7 +26,7 @@ function configuration (input) {
     assert.equal(parsed.hostname, resource.host); assert.equal(Number(parsed.port), resource.port);
     if (name === 'postgres') assert.equal(decodeURIComponent(parsed.pathname.slice(1)), resource.database);
   }
-  if (input.phaseId === 'profile-port-differential') {
+  if (['profile-port-differential', 'profile-catalogue-upgrade'].includes(input.phaseId)) {
     assert.equal(config.authorityBoundary, 'synthetic-preauthorized-canonical-port-only');
     assert(input.env.NS_RT_PROFILE_WRITER_URI); return config;
   }

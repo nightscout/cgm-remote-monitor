@@ -2,18 +2,22 @@
 // Root-owned plain HTTP same-origin reference only. No trusted proxy/TLS claim.
 const http = require('node:http');
 const net = require('node:net');
-module.exports = async function ingress ({ apiPort, realtimePort, timeoutMs, onBirth = () => {} }) {
+module.exports = async function ingress ({ apiPort, realtimePort, timeoutMs, ui, onBirth = () => {} }) {
   if (![apiPort, realtimePort].every(n => Number.isSafeInteger(n) && n > 0 && n < 65536) ||
       !Number.isSafeInteger(timeoutMs) || timeoutMs < 1) throw new TypeError('Explicit owned local listeners and deadline required');
   const sockets = new Set(); let closed = false;
   const destination = req => req.url.split('?')[0].startsWith('/socket.io/') ? realtimePort : apiPort;
-  const server = http.createServer((req, res) => {
+  function forward (req, res) {
     if (closed) { res.destroy(); return; }
     const upstream = http.request({ host: '127.0.0.1', port: destination(req), method: req.method, path: req.url,
       headers: req.headers, timeout: timeoutMs }, reply => { res.writeHead(reply.statusCode, reply.headers); reply.pipe(res); });
     const timer = setTimeout(() => upstream.destroy(), timeoutMs);
     upstream.once('close', () => clearTimeout(timer)); upstream.on('error', () => { if (!res.headersSent) res.writeHead(502); res.end(); });
     req.on('aborted', () => upstream.destroy()); req.pipe(upstream);
+  }
+  const server = http.createServer((req, res) => {
+    if (ui && !req.url.startsWith('/api/') && !req.url.startsWith('/socket.io/')) return ui(req, res, () => forward(req, res));
+    return forward(req, res);
   });
   server.on('connection', socket => { sockets.add(socket); socket.once('close', () => sockets.delete(socket)); });
   server.on('upgrade', (req, socket, head) => {
