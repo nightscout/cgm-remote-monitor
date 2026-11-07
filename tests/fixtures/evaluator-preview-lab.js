@@ -62,7 +62,7 @@ module.exports = function evaluatorPreviewLab () {
   }
   lab.worker = config => new Promise((resolve, reject) => {
     const child = fork(path.join(__dirname, 'evaluator-preview-worker.js'), [], { env: env(config), silent: true });
-    const pending = new Map(); let sequence = 0, stdout = '', stderr = '', heldResolve;
+    const pending = new Map(); child.fixtureBootRefused = false; let sequence = 0, stdout = '', stderr = '', heldResolve;
     children.add(child); child.stdout.on('data', b => { stdout += b; }); child.stderr.on('data', b => { stderr += b; });
     const timeout = setTimeout(() => { child.kill('SIGTERM'); reject(new Error('Evaluator worker startup watchdog')); }, 15000);
     const handle = { child, logs: () => ({ stdout, stderr }), held: () => new Promise(done => { heldResolve = done; }),
@@ -71,7 +71,7 @@ module.exports = function evaluatorPreviewLab () {
         pending.set(id, { done, fail, timer }); child.send({ id, action, tenant, ...extra });
       }); } };
     child.on('message', message => {
-      if (message.ready || message.bootError) { clearTimeout(timeout); resolve({ ...handle, startup: message }); }
+      if (message.ready || message.bootError) { child.fixtureBootRefused = !!message.bootError; clearTimeout(timeout); resolve({ ...handle, startup: message }); }
       else if (message.held) { if (heldResolve) heldResolve(); }
       else if (pending.has(message.id)) {
         const p = pending.get(message.id); pending.delete(message.id); clearTimeout(p.timer);
@@ -79,7 +79,8 @@ module.exports = function evaluatorPreviewLab () {
       }
     });
     child.once('error', error => { clearTimeout(timeout); reject(error); });
-    child.on('exit', () => {
+    child.on('exit', (code, signal) => {
+      console.log('M5_EVALUATOR_CHILD_EXIT ' + JSON.stringify({ kind: 'worker', pid: child.pid, code, signal, bootRefused: child.fixtureBootRefused }));
       children.delete(child);
       for (const p of pending.values()) { clearTimeout(p.timer); p.fail(new Error('Evaluator worker exited with pending command')); }
       pending.clear();
@@ -96,7 +97,8 @@ module.exports = function evaluatorPreviewLab () {
       { env: env(config), stdio: ['ignore', 'pipe', 'pipe'] });
     children.add(child); let stdout = '', stderr = '';
     child.stdout.on('data', b => { stdout += b; }); child.stderr.on('data', b => { stderr += b; });
-    child.once('exit', () => children.delete(child));
+    child.once('exit', (code, signal) => { children.delete(child);
+      console.log('M5_EVALUATOR_CHILD_EXIT ' + JSON.stringify({ kind: 'cli', pid: child.pid, code, signal })); });
     return { child, logs: () => ({ stdout, stderr }) };
   };
   lab.wait = async check => {
@@ -107,8 +109,14 @@ module.exports = function evaluatorPreviewLab () {
   lab.stopChildren = async () => {
     for (const child of [...children]) {
       if (child.exitCode !== null || child.signalCode !== null) continue;
-      child.kill('SIGTERM'); await new Promise(resolve => { const t = setTimeout(() => { child.kill('SIGKILL'); }, 10000);
-        child.once('exit', () => { clearTimeout(t); resolve(); }); });
+      let forced = false;
+      const stopped = new Promise(resolve => {
+        const t = setTimeout(() => { forced = true; child.kill('SIGKILL'); }, 10000);
+        child.once('exit', (code, signal) => { clearTimeout(t); resolve({ code, signal }); });
+      });
+      child.kill('SIGTERM'); const result = await stopped;
+      if (!forced && result.code !== 0 && !child.fixtureBootRefused) throw new Error('Evaluator child shutdown refused');
+      if (forced) throw new Error('Evaluator child shutdown watchdog; forced cleanup is not a passing lifecycle result');
     }
   };
   lab.close = async () => {

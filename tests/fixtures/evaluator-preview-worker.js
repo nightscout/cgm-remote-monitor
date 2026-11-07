@@ -4,7 +4,7 @@
 // listener or control API. IPC is inherited only by the explicitly forked test.
 const pg = require('pg');
 const query = pg.Client.prototype.query;
-let held, release, armed = false, running, context;
+let held, release, armed = false, running, context, starting;
 const encode = value => JSON.parse(JSON.stringify(value, (key, item) => item === undefined
   ? { probeType: 'undefined' } : typeof item === 'number' && (!Number.isFinite(item) || Object.is(item, -0))
     ? { probeType: 'number', value: Object.is(item, -0) ? '-0' : String(item) } : item));
@@ -35,7 +35,7 @@ process.on('message', async request => {
     process.send({ id: request.id, value: encode(value) });
   } catch (error) { process.send({ id: request.id, error: { name: error.name, message: error.message } }); }
 });
-(async () => {
+starting = (async () => {
   const config = require('../../lib/server/serve/evaluator-config').load(process.env);
   running = await require('../../lib/server/serve').start(['evaluator'], { HOSTNAME: '127.0.0.1', PORT: 1337 }, null,
     process.env, { evaluatorPreview: config });
@@ -43,3 +43,10 @@ process.on('message', async request => {
   process.send({ ready: true, contexts: Object.keys(running.contexts), servers: running.servers.length,
     health: context ? context.health() : null });
 })().catch(error => { process.send({ bootError: { name: error.name, message: error.message } }); process.disconnect(); process.exitCode = 1; });
+
+process.once('SIGTERM', async () => {
+  if (release) release();
+  await starting;
+  if (running) await running.stop();
+  if (process.connected) process.disconnect();
+});
