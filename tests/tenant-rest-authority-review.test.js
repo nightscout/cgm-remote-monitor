@@ -132,7 +132,7 @@ optInSuite(process.env.NS_REST_AUTHORITY_REVIEW_TEST === '1', 'NS_REST_AUTHORITY
     afterEach(() => assert.equal(docker(['inspect', '--format', '{{.State.Running}}', container]), 'true'));
     after(async function () {
       try { if (authority) await authority.close(); if (admin) await admin.end(); }
-      finally { if (owned) docker(['rm', '-f', container]); if (mode !== undefined) scope.setTenancyMode(mode); }
+      finally { if (owned) docker(['rm', '-f', '-v', container]); if (mode !== undefined) scope.setTenancyMode(mode); }
     });
 
     it('binds a verified JWT to its host tenant despite shared keys and overlapping subject identifiers', async function () {

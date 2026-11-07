@@ -364,8 +364,8 @@ optInSuite(process.env.NS_TENANT_RUNTIME_VAULT_DOCKER_TEST === '1',
     after(async function () {
       try { await stopRuntime(); } finally {
         if (admin) await admin.end();
-        if (vaultOwned) docker(['rm', '-f', vaultName]);
-        if (pgOwned) docker(['rm', '-f', pgName]);
+        if (vaultOwned) docker(['rm', '-f', '-v', vaultName]);
+        if (pgOwned) docker(['rm', '-f', '-v', pgName]);
         scope.setTenancyMode(previousMode);
       }
     });

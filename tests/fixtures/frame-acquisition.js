@@ -203,7 +203,7 @@ module.exports = function frameAcquisition () {
     for (const connection of connections) try { await connection.end(); } catch (error) { failures.push(error); }
     if (mongo) try { await db.dropDatabase(); await mongo.close(); } catch (error) { failures.push(error); }
     if (admin) try { await admin.end(); } catch (error) { failures.push(error); }
-    for (const name of containers.reverse()) try { docker(['rm', '--force', name]); } catch (error) { failures.push(error); }
+    for (const name of containers.reverse()) try { docker(['rm', '--force', '--volumes', name]); } catch (error) { failures.push(error); }
     if (oldMode !== undefined) scope.setTenancyMode(oldMode);
     if (failures.length) throw new globalThis.AggregateError(failures, 'frame acquisition cleanup');
   }

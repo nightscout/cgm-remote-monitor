@@ -165,7 +165,7 @@ optInSuite(process.env.NS_TENANT_HTTP_DOCKER_TEST === '1', 'NS_TENANT_HTTP_DOCKE
           if (connection) await connection.end();
         } finally {
           try { if (admin) await admin.end(); } finally {
-            try { if (owned) docker(['rm', '-f', name]); } finally {
+            try { if (owned) docker(['rm', '-f', '-v', name]); } finally {
               if (mode !== undefined) scope.setTenancyMode(mode);
             }
           }

@@ -362,7 +362,7 @@ optInSuite(process.env.NS_REST_DEVICE_ACTIVITY_TEST === '1' &&
           await admin.end();
         }
       } finally {
-        if (vaultOwned) docker(['rm', '-f', vaultName]);
+        if (vaultOwned) docker(['rm', '-f', '-v', vaultName]);
         if (mode !== undefined) scope.setTenancyMode(mode);
       }
     });

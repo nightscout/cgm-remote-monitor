@@ -91,7 +91,7 @@ optInSuite(process.env.NS_VAULT_DOCKER_TEST === '1', 'NS_VAULT_DOCKER_TEST=1')('
     });
   });
 
-  after(function () { if (owned) docker(['rm', '-f', name]); });
+  after(function () { if (owned) docker(['rm', '-f', '-v', name]); });
 
   it('encrypts stored references and reveals only through the audited component', async function () {
     const ref = await component.encrypt(context('tenant-a'), 'connector', Buffer.from('synthetic-secret'));

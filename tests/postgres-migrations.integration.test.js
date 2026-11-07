@@ -64,7 +64,7 @@ optInSuite(process.env.NS_MIGRATION_DOCKER_TEST === '1', 'NS_MIGRATION_DOCKER_TE
 
   after(async function () {
     try { if (observer) await observer.end(); } finally {
-      if (owned) docker(['rm', '-f', name]);
+      if (owned) docker(['rm', '-f', '-v', name]);
     }
   });
 

@@ -317,7 +317,7 @@ optInSuite(enabled, 'NS_REST_CONTEXT_HTTP_TEST=1 with disposable PG/Mongo/Docker
       await admin.query(`DROP ROLE IF EXISTS "${prefix}_app"`);
       await admin.end();
     }
-    if (vaultOwned) docker(['rm', '-f', vaultName]);
+    if (vaultOwned) docker(['rm', '-f', '-v', vaultName]);
     if (mode) scope.setTenancyMode(mode);
   });
 

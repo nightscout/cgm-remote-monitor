@@ -131,7 +131,7 @@ optInSuite(process.env.NS_SUBJECT_ADMIN_POSTGRES_DOCKER_TEST === '1',
       if (admin) await admin.end();
     } finally {
       scope.setTenancyMode(previousMode);
-      if (owned) docker(['rm', '-f', container]);
+      if (owned) docker(['rm', '-f', '-v', container]);
     }
   });
 

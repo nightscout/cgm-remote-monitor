@@ -255,8 +255,8 @@ module.exports = function clientReplayHTTP () {
         await worker.exited;
       }
       if (admin) await admin.end();
-      if (vaultOwned) docker(['rm', '-f', vaultName]);
-      if (pgOwned) docker(['rm', '-f', pgName]);
+      if (vaultOwned) docker(['rm', '-f', '-v', vaultName]);
+      if (pgOwned) docker(['rm', '-f', '-v', pgName]);
       fs.rmSync(fixtureDirectory, { recursive: true, force: true });
     }
 

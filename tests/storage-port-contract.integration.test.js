@@ -126,7 +126,7 @@ optInSuite(process.env.NS_STORAGE_PORT_CONTRACT_DOCKER_TEST === '1',
       try { await close(); } catch (error) { failures.push(error); }
     }
     for (const container of containers) {
-      try { docker('rm', '--force', container); } catch (error) {
+      try { docker('rm', '--force', '--volumes', container); } catch (error) {
         if (!String(error.stderr).includes('No such container')) failures.push(error);
       }
     }

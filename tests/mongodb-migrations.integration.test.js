@@ -100,7 +100,7 @@ optInSuite(process.env.NS_MIGRATION_MONGO_DOCKER_TEST === '1', 'NS_MIGRATION_MON
         child.kill('SIGKILL');
       })));
       if (observer) await observer.close();
-    } finally { if (owned) docker(['rm', '-f', name]); }
+    } finally { if (owned) docker(['rm', '-f', '-v', name]); }
   });
 
   beforeEach(async function () {
@@ -149,7 +149,7 @@ optInSuite(process.env.NS_MIGRATION_MONGO_DOCKER_TEST === '1', 'NS_MIGRATION_MON
       for (const action of ['up', 'status', 'check']) await assert.rejects(run(action, o), /replica-set primary/);
       assert.deepEqual(await client.db('migrations').listCollections().toArray(), []);
     } finally {
-      try { if (client) await client.close(); } finally { if (active) docker(['rm', '-f', standalone]); }
+      try { if (client) await client.close(); } finally { if (active) docker(['rm', '-f', '-v', standalone]); }
     }
   });
 

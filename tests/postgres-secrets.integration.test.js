@@ -160,7 +160,7 @@ optInSuite(process.env.NS_SECRETS_POSTGRES_DOCKER_TEST === '1', 'NS_SECRETS_POST
       if (admin) await admin.end();
     } finally {
       scope.setTenancyMode(previousMode);
-      if (owned) docker(['rm', '-f', container]);
+      if (owned) docker(['rm', '-f', '-v', container]);
     }
   });
 
@@ -885,7 +885,7 @@ optInSuite(process.env.NS_SECRETS_POSTGRES_DOCKER_TEST === '1', 'NS_SECRETS_POST
       assert.equal(missing.status, 404, 'negative control has no data key, not merely a denied credential');
       await assert.rejects(make(restored, target, target.root, 1).reveal(c, oldRef),
         { code: 'SECRETS_PROVIDER_REFUSED' });
-      docker(['rm', '-f', source.name]);
+      docker(['rm', '-f', '-v', source.name]);
       vaults.delete(source.name);
       await restoreSnapshot(target, oldKeys, source);
       assert.equal((await api(target, 'transit/keys/tenant-a-data')).data.latest_version, 1);
@@ -910,7 +910,7 @@ optInSuite(process.env.NS_SECRETS_POSTGRES_DOCKER_TEST === '1', 'NS_SECRETS_POST
       const originalEvents = new Set(expected.audit.map(event => event.event_id));
       assert.deepEqual(final.audit.filter(event => originalEvents.has(event.event_id)), expected.audit);
       assert.ok(final.audit.length > expected.audit.length, 'restored audit remains appendable');
-      docker(['rm', '-f', target.name]);
+      docker(['rm', '-f', '-v', target.name]);
       vaults.delete(target.name);
       await assert.rejects(recovered.reveal(c, oldRef), { code: 'SECRETS_PROVIDER_UNAVAILABLE' });
     } finally {
@@ -918,7 +918,7 @@ optInSuite(process.env.NS_SECRETS_POSTGRES_DOCKER_TEST === '1', 'NS_SECRETS_POST
         if (restored) await restored.close();
         if (restoredAdmin) await restoredAdmin.end();
       } finally {
-        for (const name of vaults) docker(['rm', '-f', name]);
+        for (const name of vaults) docker(['rm', '-f', '-v', name]);
       }
     }
   });
@@ -1084,9 +1084,9 @@ optInSuite(process.env.NS_SECRETS_POSTGRES_DOCKER_TEST === '1', 'NS_SECRETS_POST
         await maintenance.close();
         await secondWorker.close();
       }
-      docker(['rm', '-f', vaultName]);
+      docker(['rm', '-f', '-v', vaultName]);
       vaultOwned = false;
       await assert.rejects(makeComponent().decrypt(c, ref), { code: 'SECRETS_PROVIDER_UNAVAILABLE' });
-    } finally { if (vaultOwned) docker(['rm', '-f', vaultName]); }
+    } finally { if (vaultOwned) docker(['rm', '-f', '-v', vaultName]); }
   });
 });
