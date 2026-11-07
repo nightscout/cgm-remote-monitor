@@ -36,6 +36,8 @@ describe('multitenant inventory executable environment consumption', function ()
       'const {NS_TEST_POSTGRES_ADMIN_URI: uri} = process.env;',
       "let uri; ({NS_TEST_POSTGRES_ADMIN_URI: uri} = process['env']);",
       'const env = process.env; const uri = env.NS_TEST_POSTGRES_ADMIN_URI;',
+      'const copied = {...process.env}; const uri = copied.NS_TEST_POSTGRES_ADMIN_URI;',
+      "const key = 'NS_TEST_POSTGRES_ADMIN_URI'; const uri = process.env[key];",
       "const {env: inherited} = process; const uri = inherited['NS_TEST_POSTGRES_ADMIN_URI'];",
       "const p = require('node:process'); const uri = p.env.NS_TEST_POSTGRES_ADMIN_URI;",
       "import process from 'node:process'; const uri = process.env.NS_TEST_POSTGRES_ADMIN_URI;"

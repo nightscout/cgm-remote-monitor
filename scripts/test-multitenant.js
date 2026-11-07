@@ -159,7 +159,7 @@ function parseArgs (argv) {
 function classifyOptInSource (text) {
   const babel = require('@babel/core');
   const ast = babel.parseSync(text, { configFile: false, babelrc: false, sourceType: 'unambiguous' });
-  const reads = new Set(); let optIn = false;
+  const reads = new Set(); let optIn = false, unknownEnvironmentRead = false;
   const member = p => p && (p.isMemberExpression() || p.isOptionalMemberExpression());
   function key (p, computed) {
     if (!computed && p.isIdentifier()) return p.node.name;
@@ -208,8 +208,25 @@ function classifyOptInSource (text) {
     const writesOnly = parent.isAssignmentExpression({operator: '='}) && parent.node.left === p.node || parent.isUnaryExpression({operator: 'delete'});
     if (!writesOnly && environment(p.get('object'))) add(key(p.get('property'), p.node.computed));
   }
+  // A copied, passed or dynamically indexed real environment cannot be
+  // certified synthetic. Keep candidate files conservative on unresolved flow.
+  function inspectEnvironmentUse (p) {
+    if (!environment(p)) return;
+    const parent = p.parentPath;
+    if (member(parent) && parent.node.object === p.node) {
+      if (key(parent.get('property'), parent.node.computed) === null) unknownEnvironmentRead = true;
+      return;
+    }
+    if (parent.isVariableDeclarator() && parent.node.init === p.node &&
+        (parent.get('id').isIdentifier() || parent.get('id').isObjectPattern() && !parent.node.id.properties.some(property => property.type === 'RestElement'))) return;
+    if (parent.isAssignmentExpression() && parent.node.left === p.node) return;
+    if (parent.isAssignmentExpression() && parent.node.right === p.node && parent.get('left').isObjectPattern()) return;
+    unknownEnvironmentRead = true;
+  }
   babel.traverse(ast, {
-    MemberExpression: inspectMember, OptionalMemberExpression: inspectMember,
+    MemberExpression (p) { inspectMember(p); inspectEnvironmentUse(p); },
+    OptionalMemberExpression (p) { inspectMember(p); inspectEnvironmentUse(p); },
+    ReferencedIdentifier: inspectEnvironmentUse,
     VariableDeclarator (p) { if (environment(p.get('init'))) pattern(p.get('id')); },
     AssignmentExpression (p) { if (environment(p.get('right'))) pattern(p.get('left')); },
     CallExpression (p) {
@@ -223,8 +240,9 @@ function classifyOptInSource (text) {
       }
     }
   });
-  return { needed: reads.has('NS_TEST_POSTGRES_ADMIN_URI') || optIn && [...reads].some(name => name.startsWith('NS_')),
-    environmentReads: [...reads].sort(), optIn };
+  return { needed: reads.has('NS_TEST_POSTGRES_ADMIN_URI') || optIn && [...reads].some(name => name.startsWith('NS_')) ||
+      unknownEnvironmentRead && (/NS_TEST_POSTGRES_ADMIN_URI/.test(text) || optIn && /\bNS_[A-Z0-9_]+\b/.test(text)),
+    environmentReads: [...reads].sort(), optIn, unknownEnvironmentRead };
 }
 
 // The inventory must name files that exist, in the integration tier, and no
