@@ -38,8 +38,9 @@ optInSuite(process.env.NS_ENTRIES_CRUD_HTTP_TEST === '1' &&
         const identifier = 'synthetic-race-' + mode;
         await lab.seed([]);
         const foreign = encodeDocument({ _id: 'foreign-same-id', ...first(identifier), sgv: 902 });
-        await lab.admin.query(`INSERT INTO ${lab.table} (tenant_id,id_kind,doc) VALUES ($1,$2,$3)`,
-          [lab.B, foreign.id_kind, foreign.doc]);
+        await require('./fixtures/tenant-insertion-grants').withTenant(lab.admin, lab.B, () =>
+          lab.admin.query(`INSERT INTO ${lab.table} (tenant_id,id_kind,doc) VALUES ($1,$2,$3)`,
+            [lab.B, foreign.id_kind, foreign.doc]));
         const foreignBefore = await lab.rows(lab.B);
         const observed = {};
 
