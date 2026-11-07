@@ -112,6 +112,18 @@ describe('tenant-local insertion lifecycle inventory and refusal', function () {
     assert.deepEqual(prepared.roleChecks, [{ namespace: 'owned_entries', domain: 'entries', role: 'reader', mode: 'reader' }]);
   });
 
+  it('admits counter DELETE only for the declared private restore role and verifies its effective role', async function () {
+    const steps = common.plan([selected()]);
+    const declaration = { kind: 'entries', role: 'restorer', mode: 'restore' };
+    const acl = { grants: [{ kind: 'entries', table: counter, role: 'restorer', privileges: ['SELECT', 'DELETE'] }], tenantInsertion: [declaration] };
+    restore.validateAcl(acl, steps);
+    const prepared = await restore.prepareAcl({}, steps, [], acl);
+    assert(prepared.statements.includes('GRANT DELETE ON "owned_entries"."tenant_insertion_ordinal" TO "restorer"'));
+    assert.deepEqual(prepared.roleChecks, [{ namespace: 'owned_entries', domain: 'entries', role: 'restorer', mode: 'restore' }]);
+    assert(!prepared.statements.some(sql => sql.includes('$tenant_insertion_acl$')), 'shared current restore-role oracle replaces the older narrower verifier');
+    assert.throws(() => restore.validateAcl({ ...acl, tenantInsertion: [{ ...declaration, mode: 'serving' }] }, steps), { code: 'RESTORE_TENANT_COUNTER_BROAD_GRANT' });
+  });
+
   it('captures full SQL timestamp precision before the driver Date conversion', async function () {
     const expected = [{ tenant_id: A, owner_birth: '2026-11-07T00:00:00.123456Z' }];
     let sql;

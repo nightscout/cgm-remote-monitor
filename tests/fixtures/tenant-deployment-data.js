@@ -52,9 +52,15 @@ function populatedRows ({ now = 1700000000000, profileSocketOrder = false } = {}
     add('tenant_lifecycle_ceremony', { request_id: event(4), tenant_id: tenant, phase: 'executed', requested_by: 'owner_' + suffix, requested_consumer: consumer,
       confirmed_by: principal, confirmed_consumer: consumer, confirmed_at: '600', cancelled_by: null, cancelled_consumer: null, cancelled_at: null,
       claim_id: event(5), started_by: principal, started_consumer: consumer, started_at: '800', executed_by: principal, executed_consumer: consumer, executed_at: '1000' });
-    add('tenant_lifecycle_windows', { tenant_id: tenant, lock_key: String(100 + offset), phase: 'active', generation: '1', claim_id: null });
+    add('tenant_lifecycle_windows', { tenant_id: tenant, lock_key: String(100 + offset), phase: 'active', generation: '1', claim_id: null, artifact_digest: null });
     add('tenant_lifecycle_operations', { tenant_id: tenant, operation_id: event(6), generation: '1', finished: true,
       owner_pid: 1, owner_birth: '2026-11-07T00:00:00.123456Z' });
+    // Historical inactive authority/audit rows test SQL fidelity only. They
+    // authorize no current actor and are never imported over live control state.
+    add('tenant_lifecycle_restore_authority', { tenant_id: tenant, role_oid: 1, active: false });
+    add('tenant_lifecycle_restore_audit', { tenant_id: tenant, claim_id: event(7), generation: '1', artifact_digest: digest,
+      role_oid: 1, owner_pid: 1, owner_birth: '2026-11-07T00:00:00.123456Z', state: 'activated',
+      started_at: '2026-11-07T00:00:01.123456Z', restored_at: '2026-11-07T00:00:02.123456Z', activated_at: '2026-11-07T00:00:03.123456Z' });
   }
   // Explicit successor only: preserve non-ID insertion order, including gaps and
   // both tenants, so recovery must retain ordinals rather than regenerate them.
