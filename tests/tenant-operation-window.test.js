@@ -206,7 +206,6 @@ describe('Selected lower-port window cannot be omitted (source protocol)', funct
     const options = {}, f = fixture(options), lower = lowerModule(f), scope = require('../lib/storage/tenant-scope');
     await f.window.ready();
     const previous = scope.getTenancyMode(); scope.setTenancyMode('multi'); const zero = '00000000-0000-0000-0000-000000000000';
-    await f.window.ready();
     const release = lower.installOperationWindow(f.window); let store;
     try {
       store = await lower({ connectionString: 'postgresql://synthetic/disposable_test' });
