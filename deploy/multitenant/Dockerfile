@@ -1,4 +1,4 @@
-FROM node:24.22.1-alpine AS build
+FROM node:24.22.1-alpine@sha256:06d7adf3e0ef61a13f1d28682726366f97a15aa1888c934d3ecec86c33918b53 AS build
 WORKDIR /opt/app
 COPY package.json package-lock.json .babelrc ./
 COPY bundle/ ./bundle/
@@ -15,7 +15,7 @@ COPY server.js ./
 RUN npm ci --include=dev --omit=optional --force \
     && npm prune --omit=dev --omit=optional --ignore-scripts
 
-FROM node:24.22.1-alpine
+FROM node:24.22.1-alpine@sha256:06d7adf3e0ef61a13f1d28682726366f97a15aa1888c934d3ecec86c33918b53
 WORKDIR /opt/app
 ENV NODE_ENV=production
 ARG NS_SOURCE_COMMIT

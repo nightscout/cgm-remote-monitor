@@ -77,6 +77,13 @@ shared uid, mode-0700 directory and mode-0600 endpoints; only the participating
 roles and maintenance operator mount that directory. This is fixed single-host
 composition, not dynamic replica discovery.
 
+Image references are immutable digests. PostgreSQL readiness probes connect to
+the separate `postgres` maintenance database, so a probe cannot become an
+unregistered administrator in the application's restore-session census. Both
+Vault image-declared storage paths have explicit volumes; no anonymous volume
+is needed. The scoped demo Vault credentials expire after 24 hours; restart does
+not renew them.
+
 ## Tenant-local restore demonstration
 
 `demo.sh demo` exercises the actual REST and lifecycle/controller modules. The

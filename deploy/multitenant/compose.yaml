@@ -19,7 +19,7 @@ x-app: &app
 
 services:
   postgres:
-    image: postgres:16.6-alpine
+    image: postgres@sha256:721873c34ceb9f8d8fc265984940dc982404c105f19ad51be9fdc5970a6080ea
     environment:
       POSTGRES_DB: nightscout_compose_test
       POSTGRES_PASSWORD_FILE: /run/secrets/postgres-password
@@ -27,17 +27,18 @@ services:
       - postgres-data:/var/lib/postgresql/data
       - ${NS_DEMO_STATE:?Run prepare.js first}/bootstrap/postgres-password:/run/secrets/postgres-password:ro
     healthcheck:
-      test: [CMD-SHELL, pg_isready -U postgres -d nightscout_compose_test]
+      test: [CMD-SHELL, pg_isready -U postgres -d postgres]
       interval: 2s
       timeout: 2s
       retries: 30
     networks: [backend]
 
   vault:
-    image: hashicorp/vault:1.18.3
+    image: hashicorp/vault@sha256:962a92876e168d68eaaa24b0b8b49bbce1cb63024060a67bba95cd158a366fc2
     command: [vault, server, -config=/vault/config/demo.hcl]
     volumes:
       - vault-data:/vault/file
+      - vault-logs:/vault/logs
       - ${NS_DEMO_STATE}/tls/server.crt:/run/ns-tls/server.crt:ro
       - ${NS_DEMO_STATE}/tls/server.key:/run/ns-tls/server.key:ro
       - ${NS_DEMO_STATE}/tls/ca.crt:/run/ns-ca/ca.crt:ro
@@ -114,7 +115,7 @@ services:
       - ${NS_DEMO_STATE}/ui:/run/ns-config:ro
 
   nginx:
-    image: nginx:1.27.3-alpine
+    image: nginx@sha256:65645c7bb6a0661892a8b03b89d0743208a18dd2f3f17a54ef4b76fb8e2f2a10
     depends_on: [api, realtime, ui]
     ports:
       - ${NS_DEMO_BIND:-127.0.0.1}:${NS_DEMO_PORT:-18080}:8080
@@ -142,3 +143,4 @@ networks:
 volumes:
   postgres-data:
   vault-data:
+  vault-logs:
