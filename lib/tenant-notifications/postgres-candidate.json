@@ -17,6 +17,23 @@
         "CREATE POLICY tenant_notification_requests_tenant ON tenant_notification_requests USING (tenant_id = nullif(current_setting('app.current_tenant_id', true), '')::uuid) WITH CHECK (tenant_id = nullif(current_setting('app.current_tenant_id', true), '')::uuid)",
         "REVOKE ALL ON tenant_notification_requests FROM PUBLIC"
       ]
+    },
+    {
+      "name": "0002_tenant_notification_producer_state",
+      "checksum": "abd52ebd614047bb3f0b751fc1fa7fd0ce9518351560af144c14d7ced1c4cf6d",
+      "up": [
+        "ALTER TABLE tenant_notification_heads ADD CONSTRAINT notification_state_empty_upgrade CHECK (false) NOT VALID",
+        "ALTER TABLE tenant_notification_heads VALIDATE CONSTRAINT notification_state_empty_upgrade",
+        "ALTER TABLE tenant_notification_heads DROP CONSTRAINT notification_state_empty_upgrade",
+        "ALTER TABLE tenant_notification_requests ADD CONSTRAINT notification_state_empty_upgrade CHECK (false) NOT VALID",
+        "ALTER TABLE tenant_notification_requests VALIDATE CONSTRAINT notification_state_empty_upgrade",
+        "ALTER TABLE tenant_notification_requests DROP CONSTRAINT notification_state_empty_upgrade",
+        "CREATE TABLE tenant_notification_state (tenant_id uuid NOT NULL, consumer text NOT NULL CHECK (consumer ~ '^[A-Za-z0-9_-]{1,128}$'), revision bigint NOT NULL CHECK (revision > 0), config_identity text NOT NULL, producer jsonb NOT NULL CHECK (jsonb_typeof(producer)='object'), PRIMARY KEY (tenant_id,consumer))",
+        "ALTER TABLE tenant_notification_state ENABLE ROW LEVEL SECURITY",
+        "ALTER TABLE tenant_notification_state FORCE ROW LEVEL SECURITY",
+        "CREATE POLICY tenant_notification_state_tenant ON tenant_notification_state USING (tenant_id = nullif(current_setting('app.current_tenant_id', true), '')::uuid) WITH CHECK (tenant_id = nullif(current_setting('app.current_tenant_id', true), '')::uuid)",
+        "REVOKE ALL ON tenant_notification_state FROM PUBLIC"
+      ]
     }
   ]
 }
