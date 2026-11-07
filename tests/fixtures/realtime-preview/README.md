@@ -115,3 +115,9 @@ configuration reads it. Restoring exports-after-CLI is a calibrated source setup
 control (undefined plan/pins, exit1); repaired validation exits0. This is fixture
 loading evidence, never backend natural-order evidence. Failed original native
 setup remains UNMEASURED; no alternate-invocation sidestep.
+
+Role-recovery requires foreignTenant/foreignHost/foreignCredentialEnv/
+foreignSyntheticMgdl and ownership.foreignTenant too. Actual polling/websocket
+A/B frames must contain only their synthetic tenant values; A quiet deletion
+must preserve B current output. These are required native isolation oracles,
+not optional singletenant fallback. Root seeds matching current fixtures.
