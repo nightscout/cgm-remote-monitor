@@ -2,7 +2,9 @@
 
 Dormant standalone operator proposal; no current catalogue or default is changed.
 `require('./tenant-insertion-sql').build({namespace,domain})` returns SQL statements
-in `up`, plus `servingGrants(role)` and `restoreGrants(role)` statements. Only
+in `up`, plus `servingGrants(role)` and `restoreGrants(role)` statements.
+`verifyGrants(role,{restore:false})` returns required effective ACL validation SQL
+after deployment grants; use `{restore:true}` for the separately named restore role. Only
 entries,food,treatments,devicestatus,profile are recognized. Each uses its existing
 separate physical domain namespace; applying two conversions in one namespace
 refuses on the counter/function names rather than silently sharing a counter.
@@ -61,6 +63,11 @@ granting ordinary INSERT(tenant_id,id_kind,doc), or operator INSERT including or
 Runtime counter rights are SELECT,INSERT(tenant_id,last_ordinal),UPDATE(last_ordinal).
 Inherited table/column INSERT, PUBLIC privileges and role memberships must be
 independently reviewed: revoking a direct grant does not cancel inherited grants.
+The explicit ACL validator rejects inherited/PUBLIC ordinal INSERT for serving,
+missing ordinary input grants, counter tenant-id UPDATE/destructive rights,
+sequence-equivalent counter ownership and privileged bypass roles. Run it after
+all grants/role memberships are final. It is not a startup hook and cannot detect
+future privilege changes; runtime readiness integration remains open.
 Do not claim normal ACL enforcement until actual role tests pass. Function PUBLIC
 execute is revoked; named roles get explicit execute.
 

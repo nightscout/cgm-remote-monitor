@@ -27,6 +27,17 @@ describe('standalone tenant insertion conversion SQL proposal', function () {
     assert(ordinary.some(sql => sql.includes('UPDATE (last_ordinal)')));
     assert(Object.isFrozen(ordinary));
   });
+  it('provides explicit effective ACL validation including inherited/public ordinal grants', function () {
+    const value = source.build({ namespace: 'synthetic', domain: 'profile' });
+    const serving = value.verifyGrants('synthetic_app');
+    const restore = value.verifyGrants('synthetic_operator', { restore: true });
+    assert(serving.includes("'insertion_ordinal','INSERT') IS DISTINCT FROM false"));
+    assert(restore.includes("'insertion_ordinal','INSERT') IS DISTINCT FROM true"));
+    assert(serving.includes("'tenant_id','UPDATE')"));
+    assert(serving.includes('DELETE,TRUNCATE,REFERENCES,TRIGGER'));
+    assert.throws(() => value.verifyGrants('x;GRANT ALL'), /identifier/);
+    assert.throws(() => value.verifyGrants('synthetic_app', { restore: 'yes' }), /selection/);
+  });
   it('is explicitly rejected by the unchanged migration catalogue control grammar', function () {
     const { up } = source.build({ namespace: 'synthetic', domain: 'entries' });
     assert.throws(() => validateCatalogue({ version: 1, migrations: [{ name: '0003_tenant_local_insertion', up, checksum: checksum(up) }] }), error => error.code === 'MIG_CATALOGUE');
