@@ -153,23 +153,101 @@ function parseArgs (argv) {
   return options;
 }
 
+// Inspect executable source, not mentions in fixture documents, comments or
+// source-code examples. Babel is an existing direct test/build dependency; no
+// repository Babel config/plugins or test code are executed by this parse.
+function classifyOptInSource (text) {
+  const babel = require('@babel/core');
+  const ast = babel.parseSync(text, { configFile: false, babelrc: false, sourceType: 'unambiguous' });
+  const reads = new Set(); let optIn = false;
+  const member = p => p && (p.isMemberExpression() || p.isOptionalMemberExpression());
+  function key (p, computed) {
+    if (!computed && p.isIdentifier()) return p.node.name;
+    if (p.isStringLiteral()) return p.node.value;
+    if (p.isTemplateLiteral() && !p.node.expressions.length) return p.node.quasis[0].value.cooked;
+    return null;
+  }
+  function processObject (p, seen = new Set()) {
+    if (!p?.node) return false;
+    if (p.isIdentifier({name: 'process'}) && !p.scope.getBinding('process')) return true;
+    if (member(p) && key(p.get('property'), p.node.computed) === 'process' &&
+        p.get('object').isIdentifier() && ['globalThis', 'global'].includes(p.node.object.name) && !p.scope.getBinding(p.node.object.name)) return true;
+    if (p.isCallExpression() && p.get('callee').isIdentifier({name: 'require'}) && !p.scope.getBinding('require') &&
+        p.node.arguments.length === 1 && p.get('arguments.0').isStringLiteral() && ['process', 'node:process'].includes(p.node.arguments[0].value)) return true;
+    if (p.isIdentifier()) {
+      const binding = p.scope.getBinding(p.node.name);
+      if (!binding || seen.has(binding)) return false;
+      seen.add(binding);
+      if (binding.path.isVariableDeclarator() && binding.path.get('id').isIdentifier()) return processObject(binding.path.get('init'), seen);
+      if (binding.path.isImportDefaultSpecifier() || binding.path.isImportNamespaceSpecifier()) return ['process', 'node:process'].includes(binding.path.parent.source.value);
+    }
+    return false;
+  }
+  function environment (p, seen = new Set()) {
+    if (!p?.node) return false;
+    if (member(p) && key(p.get('property'), p.node.computed) === 'env' && processObject(p.get('object'))) return true;
+    if (!p.isIdentifier()) return false;
+    const binding = p.scope.getBinding(p.node.name);
+    if (!binding || seen.has(binding) || !binding.path.isVariableDeclarator()) return false;
+    seen.add(binding);
+    const declaration = binding.path;
+    if (declaration.get('id').isIdentifier()) return environment(declaration.get('init'), seen);
+    if (declaration.get('id').isObjectPattern() && processObject(declaration.get('init'))) {
+      return declaration.get('id.properties').some(property => property.isObjectProperty() &&
+        key(property.get('key'), property.node.computed) === 'env' && property.get('value').isIdentifier({name: p.node.name}));
+    }
+    return false;
+  }
+  function add (name) { if (typeof name === 'string') reads.add(name); }
+  function pattern (p) {
+    if (!p.isObjectPattern()) return;
+    for (const property of p.get('properties')) if (property.isObjectProperty()) add(key(property.get('key'), property.node.computed));
+  }
+  function inspectMember (p) {
+    const parent = p.parentPath;
+    const writesOnly = parent.isAssignmentExpression({operator: '='}) && parent.node.left === p.node || parent.isUnaryExpression({operator: 'delete'});
+    if (!writesOnly && environment(p.get('object'))) add(key(p.get('property'), p.node.computed));
+  }
+  babel.traverse(ast, {
+    MemberExpression: inspectMember, OptionalMemberExpression: inspectMember,
+    VariableDeclarator (p) { if (environment(p.get('init'))) pattern(p.get('id')); },
+    AssignmentExpression (p) { if (environment(p.get('right'))) pattern(p.get('left')); },
+    CallExpression (p) {
+      const callee = p.get('callee');
+      if (callee.isIdentifier({name: 'optInSuite'}) || member(callee) && key(callee.get('property'), callee.node.computed) === 'optInSuite') optIn = true;
+      else if (callee.isIdentifier()) {
+        const binding = callee.scope.getBinding(callee.node.name);
+        if (binding?.path.isVariableDeclarator() && binding.path.get('id').isObjectPattern() &&
+            binding.path.get('id.properties').some(property => property.isObjectProperty() &&
+              key(property.get('key'), property.node.computed) === 'optInSuite' && property.get('value').isIdentifier({name: callee.node.name}))) optIn = true;
+      }
+    }
+  });
+  return { needed: reads.has('NS_TEST_POSTGRES_ADMIN_URI') || optIn && [...reads].some(name => name.startsWith('NS_')),
+    environmentReads: [...reads].sort(), optIn };
+}
+
 // The inventory must name files that exist, in the integration tier, and no
 // opt-in test file may be missing from it: a new suite is added here (and to
 // the docs table), never silently left out of the corpus.
-function checkInventory () {
+function checkInventory ({ inventory = INVENTORY, testFiles = tiers.listTestFiles(), tierOf = tiers.tierOf,
+  readSource = file => fs.readFileSync(path.join(ROOT, file), 'utf8') } = {}) {
   const problems = [];
-  const known = new Set(tiers.listTestFiles());
-  const listed = new Set(INVENTORY.map(suite => suite.file));
-  for (const suite of INVENTORY) {
+  const known = new Set(testFiles);
+  const listed = new Set(inventory.map(suite => suite.file));
+  for (const suite of inventory) {
     if (!known.has(suite.file)) problems.push(suite.file + ': in the inventory but not a test file');
-    else if (tiers.tierOf(suite.file) !== TIER) problems.push(suite.file + ': in tier ' + tiers.tierOf(suite.file) + ', not ' + TIER);
+    else if (tierOf(suite.file) !== TIER) problems.push(suite.file + ': in tier ' + tierOf(suite.file) + ', not ' + TIER);
   }
   for (const file of known) {
     if (listed.has(file) || file.startsWith('tests/fixtures/')) continue;
-    const text = fs.readFileSync(path.join(ROOT, file), 'utf8');
-    const optIn = /optInSuite\s*\(/.test(text) && /process\.env\.NS_/.test(text);
-    if (optIn || /NS_TEST_POSTGRES_ADMIN_URI/.test(text)) {
-      problems.push(file + ': opt-in test file missing from scripts/test-multitenant.js INVENTORY');
+    const text = readSource(file);
+    // Avoid parsing unrelated files; these names alone never establish a read.
+    if (!/NS_TEST_POSTGRES_ADMIN_URI|optInSuite|process/.test(text)) continue;
+    try {
+      if (classifyOptInSource(text).needed) problems.push(file + ': opt-in test file missing from scripts/test-multitenant.js INVENTORY');
+    } catch {
+      problems.push(file + ': cannot classify opt-in source; inventory validation refuses a parse failure');
     }
   }
   return problems;
@@ -439,7 +517,7 @@ async function main (argv) {
   return status;
 }
 
-module.exports = { INVENTORY, checkInventory, select, mochaArgs };
+module.exports = { INVENTORY, checkInventory, classifyOptInSource, select, mochaArgs };
 
 if (require.main === module) {
   main(process.argv.slice(2)).then(status => { process.exitCode = status; }, error => {
