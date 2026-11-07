@@ -2,6 +2,7 @@
 // Bounded observational fixture only: no client/provider behavior or timeout changes.
 const assert = require('node:assert/strict');
 const { createHash } = require('node:crypto');
+const SNAPSHOT_TIMEOUT_MS = 1000; // Fixture observation only; acceptance waits stay unchanged.
 const STAGES = Object.freeze(['navigation', 'initial-client', 'empty-sgvs', 'urgent-event', 'urgent-ui']);
 const NAMES = new Set(['Error', 'TimeoutError', 'TypeError', 'ReferenceError', 'SyntaxError', 'AssertionError', 'RangeError']);
 const NET = new Set(['ERR_ABORTED', 'ERR_FAILED', 'ERR_CONNECTION_REFUSED', 'ERR_CONNECTION_RESET', 'ERR_CONNECTION_CLOSED',
@@ -72,8 +73,17 @@ function create ({ write, hosts, runtime, expectedMgdl }) {
     // Flush before evaluate too: a destroyed/unresponsive page cannot erase
     // the exact consumed stage. Snapshot refusal is distinct from wait failure.
     state.activeStage = stage; state.status = edge; state.stages.push(row); assert(state.stages.length <= 24); flush();
-    if (page) try { row.snapshot = safeSnapshot(await page.evaluate(pageSnapshot, expectedMgdl)); }
-    catch (failure) { row.snapshotError = errorInfo(failure); }
+    if (page) {
+      let timer;
+      const pending = Promise.resolve().then(() => page.evaluate(pageSnapshot, expectedMgdl));
+      // The renderer may settle after the bound. Always observe its rejection;
+      // never cancel/replace the actual wait or mutate the real page.
+      const snapshot = pending.then(value => ({ snapshot: safeSnapshot(value) }), failure => ({ snapshotError: errorInfo(failure) }));
+      snapshot.catch(() => {});
+      const timeout = new Promise(resolve => { timer = setTimeout(() => resolve({ snapshotUnavailable: 'timeout' }), SNAPSHOT_TIMEOUT_MS); });
+      try { Object.assign(row, await Promise.race([snapshot, timeout])); }
+      finally { clearTimeout(timer); }
+    }
     flush();
   }
   async function wait (stage, page, action) {
@@ -85,4 +95,4 @@ function create ({ write, hosts, runtime, expectedMgdl }) {
   function complete () { state.status = 'complete'; flush(); }
   return { attach, wait, failure, complete };
 }
-module.exports = { create, STAGES, errorInfo, network, pageSnapshot, safeSnapshot };
+module.exports = { create, SNAPSHOT_TIMEOUT_MS, STAGES, errorInfo, network, pageSnapshot, safeSnapshot };
