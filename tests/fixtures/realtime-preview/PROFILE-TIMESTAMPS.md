@@ -46,3 +46,21 @@ Cleanup requires the same directory inode and empty contents, never recursive
 unknown-entry deletion. Capture location and unchanged browser URLs are untouched.
 Consumer observation accumulation preserves accepted/suppressed physical rows
 through the final cleanup record instead of overwriting them.
+
+## Direct reply boundary and typed diagnostic correction
+
+The canonical executor returns live BSON ObjectId values in-process. Actual
+private HTTP uses JSON.stringify/parse and actual Socket.IO ACK parser emits the
+hex string. Direct preauthorized fixture now applies that exact response JSON
+envelope after the real canonical callback. It does not strip/normalize IDs;
+wire IDs remain compared, while independently read physical BSON IDs retain their
+real type and are compared separately. A real canonical source-component reply
+is checked against actual ipc.handler output and Socket.IO encoder/decoder.
+
+Every native observation records raw direct reply ID types BEFORE encoding,
+wire reply types, physical decoded Mongo/PG ID types, stored PG id_kind/JSON ID,
+and producer/before identities. Assertion code/message/operator/actual/expected
+and inspected details are persisted before propagating a red. JSON capture alone
+loses BSON class information; offline replay must not pretend it preserves live
+types. The f663 failed native capture is immutable; these fixture-only corrections
+have no native restoration result yet.
