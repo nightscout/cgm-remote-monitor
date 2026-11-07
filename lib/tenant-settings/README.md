@@ -1,10 +1,11 @@
-# Dormant minimum scalar tenant settings
+# Minimum scalar tenant settings
 
 Bounded MT-CONFIG-MIN continuation after `1dd8990b` (subject authority).
 Only the reviewed `DISPLAY_UNITS` and `SHOW_SECONDS` catalogue subset is
-implemented. Nothing imports this from serving roles, owner routes, legacy
-settings, evaluators, sockets or consumers. No migration runs at boot, and
-existing secrets/subject-policy/entries migration bytes are unchanged.
+implemented. The optional headless owner/settings and presentation-read
+composition is described in [the source implementation note](../../docs/owner-settings-preview.md);
+its native acceptance remains UNMEASURED. No migration runs at boot, and existing
+secrets/subject-policy/entries migration bytes are unchanged.
 
 ## Catalogue and merge contract
 
