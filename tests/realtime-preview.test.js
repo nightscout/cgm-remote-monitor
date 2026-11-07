@@ -133,7 +133,7 @@ describe('explicit realtime preview source contracts', function () {
       assert.ok(update, 'RT_BACKSTOP_CONSUMED quiet absence yields current frame');
       assert.equal(update.value.delta, false, 'RT_FULL_RESET deletion cannot be an SGV-only merge');
       assert.deepEqual(update.value.sgvs, []);
-      const browser = { ...Object.fromEntries(Object.entries(acquired.frame).filter(([, value]) => Array.isArray(value)).map(([key]) => [key, []])),
+      const browser = { ...Object.fromEntries(Object.entries(update.value).filter(([, value]) => Array.isArray(value)).map(([key]) => [key, []])),
       sgvs: [{ mills: Date.now(), mgdl: 250 }], processTreatments () {} };
       require('../lib/client/receiveddata')(update.value, browser, { extendedSettings: {} });
       assert.deepEqual(browser.sgvs, [], 'RT_BROWSER_ABSENCE actual receiveddata discards physically removed SGV');
