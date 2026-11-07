@@ -43,9 +43,17 @@ optInSuite(process.env.NS_TENANT_COMMIT_CLOCK_TEST === '1' && !!process.env.NS_T
       await write(0, 'lower-existing');
       await write(1, 'higher-existing');
       const stored = await scope.withTenant(lab.A, async () => Promise.all(
-        ['lower-existing', 'higher-existing'].map(identifier => port(0).storage.findOneFilter({ identifier }))));
+        ['lower-existing', 'higher-existing'].map(async identifier => {
+          // This API returns an array; options are its third argument. Read
+          // two at most so duplicate targets fail instead of hiding at LIMIT 1.
+          const rows = await port(0).storage.findOneFilter({ identifier }, undefined,
+            { normalize: false, limit: 2 });
+          assert.equal(rows.length, 1, 'Seed identifier must resolve exactly one stored row');
+          assert.equal(rows[0].identifier, identifier);
+          assert.equal(rows[0]._id._bsontype, 'ObjectId', 'Retain the actual decoded seed identity kind');
+          return rows[0];
+        })));
       assert.equal(stored.length, 2);
-      assert.ok(stored.every(row => row && row._id));
       assert.notEqual(String(stored[0]._id), String(stored[1]._id));
       const baseline = await lab.floor(lab.A);
       assert.equal(baseline, Math.max(...stored.map(row => row.srvModified)));

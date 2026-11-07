@@ -93,7 +93,7 @@ describe('tenant logical restore forward history', function () {
   it('refuses missing/behind live floor and forged maintenance before clinical effects', async function () {
     for (const change of [f => { delete f.durable.clock[A]; }, f => { f.durable.clock[A] = '1'; }]) {
       const f = fixture(); change(f); f.begin();
-      await assert.rejects(withAdmission(f, () => logical.restore(f.connection, f.artifact, args(f))), e => ['LIFECYCLE_LOGICAL_LIVE_FLOOR_REQUIRED', 'LIFECYCLE_LOGICAL_LIVE_FLOOR_BEHIND'].includes(e.code));
+      await assert.rejects(withAdmission(f, () => logical.restore(f.connection, f.artifact, args(f))), e => ['LIFECYCLE_LOGICAL_LIVE_FLOOR_REQUIRED', 'LIFECYCLE_LOGICAL_LIVE_FLOOR_BEHIND', 'LIFECYCLE_LOGICAL_ARTIFACT_FLOOR_AHEAD'].includes(e.code));
       assert(!f.trace.some(item => item.sql.startsWith('DELETE'))); f.rollback();
     }
     const f = fixture(); f.begin(); await assert.rejects(logical.restore(f.connection, f.artifact, args(f)), { code: 'LIFECYCLE_RESTORE_CLAIM_INVALID' }); assert.equal(f.trace.length, 0); f.rollback();
@@ -105,6 +105,29 @@ describe('tenant logical restore forward history', function () {
     assert.throws(() => logical.planRows({ kind: 'entries', current: f.durable.tables.entries.filter(row => row.tenant_id === A), desired, ordered: true }), { code: 'LIFECYCLE_LOGICAL_ORDER_UNAVAILABLE' });
     const twin = clone(f.desired.entries[0]); twin.id_kind = 'objectid'; twin.doc._id = '0123456789abcdef01234567';
     assert.throws(() => logical.planRows({ kind: 'entries', current: [], desired: [...f.desired.entries, twin], ordered: true }), { code: 'LIFECYCLE_LOGICAL_IDENTITY_AMBIGUOUS' });
+  });
+
+  it('refuses known captured clocks or modification metadata ahead of the live floor before effects', async function () {
+    const artifacts = require('../lib/tenant-lifecycle/artifact');
+    const cases = [
+      { change: tables => { tables['clock.tenant_write_clock'][0].last_stamp = String(BASE + 50000); }, code: 'LIFECYCLE_LOGICAL_ARTIFACT_FLOOR_AHEAD' },
+      { change: tables => { tables['clock.tenant_write_clock'][0].last_stamp = 'malformed'; }, code: 'LIFECYCLE_LOGICAL_ARTIFACT_FLOOR_INVALID' },
+      { change: tables => { tables['clock.tenant_write_clock'] = []; }, code: 'LIFECYCLE_LOGICAL_ARTIFACT_FLOOR_INVALID' },
+      { change: tables => { tables['entries.entries'].find(row => row.doc._id === 'changed').doc.srvModified = BASE + 50000; }, code: 'LIFECYCLE_LOGICAL_ARTIFACT_METADATA_AHEAD' },
+      { change: tables => { tables['entries.entries'][0].doc.srvModified = 'malformed'; }, code: 'LIFECYCLE_LOGICAL_HISTORY_INVALID' }
+    ];
+    for (const { change, code } of cases) {
+      const f = fixture(), before = clone(f.durable), tables = clone(f.artifact.tables); let effects = 0; change(tables);
+      f.artifact = artifacts.buildArtifact({ tenant: A, sourceCommit: 'f'.repeat(40), exportedAt: BASE + 60000,
+        catalogues: f.artifact.manifest.catalogues.map(c => ({ ...c, tables: c.tables.map(t => ({ ...t, rows: tables[c.kind + '.' + t.table] })) })) });
+      f.begin();
+      await assert.rejects(withAdmission(f, () => logical.restore(f.connection, f.artifact, { ...args(f), onCommitted: () => effects++ })), { code });
+      assert(!f.trace.some(item => /^(DELETE|INSERT|UPDATE)/.test(item.sql)), 'input refusal before row/counter/clock effects');
+      assert.deepEqual(f.working, before, 'all A/B rows, authority, clocks and counters unchanged');
+      f.rollback(); assert.deepEqual(f.durable, before); assert.equal(effects, 0);
+    }
+    const fresh = fixture(); fresh.begin(); await withAdmission(fresh, () => logical.restore(fresh.connection, fresh.artifact, args(fresh))); await fresh.commit();
+    assert.equal(fresh.durable.tables.entries.find(row => row.doc._id === 'changed').doc.value, 'old');
   });
 
   it('default clock-bearing import selects logical reconciliation instead of stale raw metadata replay', async function () {

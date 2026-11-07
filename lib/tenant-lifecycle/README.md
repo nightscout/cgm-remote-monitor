@@ -62,7 +62,9 @@ cache convergence guarantee.
 
 A live provisioned tenant clock is required. Its floor remains authoritative and
 must be valid and at least every observed current clinical `srvModified`. Restore
-checks its current exact ledger, relation inventory, columns, forced tenant policy
+also refuses a live floor below the known captured clock or any captured clinical
+`srvModified`; malformed or missing captured clock evidence refuses before effects.
+Restore checks its current exact ledger, relation inventory, columns, forced tenant policy
 and effective role privileges before effects. The private role needs schema USAGE,
 clock SELECT and **column UPDATE(last_stamp)**, plus SELECT on its migration ledger.
 Clock INSERT, DELETE, tenant_id UPDATE, schema CREATE, ownership and elevated roles
