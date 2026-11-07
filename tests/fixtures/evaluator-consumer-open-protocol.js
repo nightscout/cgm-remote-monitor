@@ -51,6 +51,7 @@ module.exports=function openProtocol({env,...options}={}) {
       if(id==='pg')return {Client};
       if(id==='process'||id==='node:process')return processFacade;
       const resolved=actual.resolve(id);
+      if(resolved===path.join(app,'lib/server/realtime/ipc.js')&&options.ipc)return options.ipc;
       if(resolved===path.join(app,'lib/storage/postgres-connection.js'))return connection;
       if(resolved===path.join(app,'lib/migrations/postgres.js'))return {async run(action,input){beforeEffect();calls.push({kind:'migration',namespace:input.namespace});schemas.add(input.namespace);return [];}};
       if(resolved.startsWith(fixtures+path.sep)&&resolved.endsWith('.js'))return load(resolved);

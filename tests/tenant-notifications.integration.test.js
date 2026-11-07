@@ -104,7 +104,8 @@ optInSuite(process.env.NS_TENANT_NOTIFICATIONS_TEST === '1' && !!process.env.NS_
     const component = lab.component({ adapter: { id: 'synthetic', send (row, callback) { effects++; callback(null, { accepted: true }); } } });
     const cases = [
       { name: 'rls-disabled', up: `ALTER TABLE "${lab.name}".tenant_notification_heads DISABLE ROW LEVEL SECURITY`, down: `ALTER TABLE "${lab.name}".tenant_notification_heads ENABLE ROW LEVEL SECURITY` },
-      { name: 'broad-table-update', up: `GRANT UPDATE ON "${lab.name}".tenant_notification_requests TO "${lab.role}"`, down: `REVOKE UPDATE ON "${lab.name}".tenant_notification_requests FROM "${lab.role}"` },
+      { name: 'broad-table-update', up: `GRANT UPDATE ON "${lab.name}".tenant_notification_requests TO "${lab.role}"`, down: `REVOKE UPDATE ON "${lab.name}".tenant_notification_requests FROM "${lab.role}"`,
+        restore: `GRANT UPDATE(state,next_at,attempt,attempt_token,attempt_until,accepted_at,receipt,cleared_at) ON "${lab.name}".tenant_notification_requests TO "${lab.role}"` },
       { name: 'schema-create', up: `GRANT CREATE ON SCHEMA "${lab.name}" TO "${lab.role}"`, down: `REVOKE CREATE ON SCHEMA "${lab.name}" FROM "${lab.role}"` },
       { name: 'foreign-clinical-write', up: `GRANT INSERT ON "${lab.name}".forbidden_clinical TO "${lab.role}"`, down: `REVOKE INSERT ON "${lab.name}".forbidden_clinical FROM "${lab.role}"` }
     ];
@@ -117,7 +118,12 @@ optInSuite(process.env.NS_TENANT_NOTIFICATIONS_TEST === '1' && !!process.env.NS_
         assert.equal(effects, 0, 'NOTIFICATION_NATIVE_UNSAFE_NO_EFFECT');
         assert.equal(error?.message, 'NOTIFICATION_SCHEMA_UNSAFE', 'NOTIFICATION_NATIVE_UNSAFE_REFUSAL');
         assert.deepEqual(physical, []);
-      } finally { await lab.admin.query(scenario.down); }
+      } finally {
+        await lab.admin.query(scenario.down);
+        // Table-level REVOKE also removes the existing column UPDATE grants.
+        // Restore only the original attempt/state columns, never broad UPDATE.
+        if (scenario.restore) await lab.admin.query(scenario.restore);
+      }
     }
     await component.run(lab.A); assert.equal(effects, 1, 'restored leastprivilege path recovers');
   });
