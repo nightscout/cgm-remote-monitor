@@ -127,7 +127,7 @@ optInSuite(process.env.NS_TENANT_HTTP_DOCKER_TEST === '1', 'NS_TENANT_HTTP_DOCKE
       // All entries DDL comes from the reviewed candidate via the real runner.
       await admin.query('CREATE ROLE "' + role + '" LOGIN NOSUPERUSER NOBYPASSRLS PASSWORD \'' + appPassword + '\'');
       await admin.query('GRANT USAGE ON SCHEMA "' + namespace + '" TO "' + role + '"');
-      await admin.query('GRANT SELECT, INSERT, UPDATE, DELETE ON "' + namespace + '".entries TO "' + role + '"');
+      await require('./fixtures/tenant-insertion-grants').grant(admin, { namespace, domain: 'entries', role, catalogue });
       const url = new URL(connectionString);
       url.username = role;
       url.password = appPassword;
