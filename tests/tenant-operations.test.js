@@ -47,6 +47,11 @@ function column (spec) {
 const create = (schema, table, specs) => schema.tables.set(table, { columns: specs.split(',').map(column), rows: [], next: 1 });
 const EFFECTS = {
   '0001_synthetic_state': schema => create(schema, 'synthetic_state', 'tenant_id uuid, value text'),
+  '0001_tenant_notification_outbox': schema => {
+    create(schema, 'tenant_notification_heads', 'tenant_id uuid, consumer text, dedup_key text, request_id uuid, blocked_until bigint');
+    create(schema, 'tenant_notification_requests', 'tenant_id uuid, request_id uuid, consumer text, dedup_key text, origin text, config_identity text, payload jsonb, state text, created_at bigint, next_at bigint, attempt integer, attempt_token uuid, attempt_until bigint, accepted_at bigint, receipt jsonb, cleared_at bigint');
+  },
+  '0002_tenant_notification_producer_state': schema => create(schema, 'tenant_notification_state', 'tenant_id uuid, consumer text, revision bigint, config_identity text, producer jsonb'),
   '0001_profile': schema => create(schema, 'profile', 'tenant_id uuid, doc jsonb, id_kind text'),
   '0002_profile_socket_order': schema => {
     const table = schema.tables.get('profile');
@@ -433,6 +438,30 @@ describe('tenant operations: deployment backup, restore, upgrade and rollback', 
       assert.deepEqual(target.statements(/^GRANT .* ON SEQUENCE/).map(entry => entry.text), ['GRANT USAGE ON SEQUENCE "fresh_profile"."profile_insertion_ordinal_seq" TO "profile_writer"']);
       const restored = await operations.summarize(target, selected('fresh_profile'));
       assert.deepEqual(operations.compareSummaries(await operations.summarize(source, selected('source_profile')), restored), []);
+    });
+
+    it('restores exact outbox private clear/ACK/revision state and keeps ACK principal SELECT-only', async function () {
+      const candidate = require('../lib/tenant-notifications/postgres-candidate.json');
+      const inputs = require('./fixtures/tenant-deployment-notifications').notificationInputs({ tenants: [A, B], now: NOW(), outboxRole: 'outbox_writer', checkpointWriterRole: 'checkpoint_writer', ackReaderRole: 'ack_reader' });
+      const selected = namespace => [{ kind: 'notification_outbox', namespace, catalogue: candidate, tables: inputs.extension.tables }];
+      const source = fakeConnection(), target = fakeConnection();
+      await fakeMigrate(source, [])('up', { namespace: 'source_outbox', catalogue: candidate });
+      await fakeMigrate(target, [])('up', { namespace: 'fresh_outbox', catalogue: candidate });
+      for (const [table, rows] of Object.entries(inputs.rows)) await source.seed('source_outbox', table, rows);
+      const artifact = await operations.backup(source, { catalogues: selected('source_outbox'), sourceCommit: COMMIT, now: NOW });
+      await operations.restore(target, artifact, { catalogues: selected('fresh_outbox'), acl: inputs.acl });
+      for (const table of inputs.extension.tables) {
+        const rows = target.rows('fresh_outbox', table);
+        assert.deepEqual(rows.sort((a, b) => JSON.stringify(a).localeCompare(JSON.stringify(b))), source.rows('source_outbox', table).sort((a, b) => JSON.stringify(a).localeCompare(JSON.stringify(b))));
+      }
+      const grants = target.statements(/^GRANT/).map(entry => entry.text);
+      assert.deepEqual(grants.filter(sql => sql.endsWith('TO "ack_reader"')), [
+        'GRANT USAGE ON SCHEMA "fresh_outbox" TO "ack_reader"',
+        'GRANT SELECT ON "fresh_outbox"."schema_migrations" TO "ack_reader"',
+        'GRANT SELECT ON "fresh_outbox"."tenant_notification_state" TO "ack_reader"'
+      ]);
+      assert.ok(grants.includes('GRANT SELECT, INSERT, UPDATE ("revision", "config_identity", "producer") ON "fresh_outbox"."tenant_notification_state" TO "outbox_writer"'));
+      assert.deepEqual(operations.compareSummaries(await operations.summarize(source, selected('source_outbox')), await operations.summarize(target, selected('fresh_outbox'))), []);
     });
 
     it('control: a backup that lost one tenant from one table restores cleanly, and the independent oracle names the tenant and table', async function () {

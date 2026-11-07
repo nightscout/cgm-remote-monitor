@@ -18,7 +18,7 @@ const namespaces = () => Object.fromEntries(KINDS.map(kind => [kind, 'deploy_' +
 const ROOT = path.resolve(__dirname, '..');
 function defaultExtensions () {
   return [require('./fixtures/tenant-deployment-alarm').alarmInputs({ tenants: [A, '22222222-2222-4222-8222-222222222222'], now: 1700000000000, writerRole: 'alarm_writer', readerRole: 'alarm_reader' }).extension,
-    require('./fixtures/tenant-deployment-notifications').notificationInputs({ tenants: [A, '22222222-2222-4222-8222-222222222222'], now: 1700000000000, outboxRole: 'outbox_writer', checkpointWriterRole: 'checkpoint_writer' }).extension];
+    require('./fixtures/tenant-deployment-notifications').notificationInputs({ tenants: [A, '22222222-2222-4222-8222-222222222222'], now: 1700000000000, outboxRole: 'outbox_writer', checkpointWriterRole: 'checkpoint_writer', ackReaderRole: 'ack_reader' }).extension];
 }
 function admit ({ extensions = [], ...options }) {
   const selected = new Map(defaultExtensions().map(entry => [entry.kind, entry]));
@@ -47,7 +47,7 @@ describe('whole deployment source admission and filesystem durability', function
   it('censuses all selected A74/R69 kinds, owner configuration and the independent lifecycle ledger', function () {
     const admission = admit({ namespaces: namespaces() });
     assert.deepEqual(admission.census.selected.map(entry => entry.kind), KINDS);
-    assert.equal(admission.census.tables, 35);
+    assert.equal(admission.census.tables, 36);
     assert.equal(admission.census.candidates.length, 23);
     assert.equal(admission.census.candidates.filter(entry => entry.disposition === 'reviewed alternative').length, 3);
     assert.ok(admission.lifecycle.CATALOGUE.some(entry => entry.tables.includes('tenant_owner_configuration_authority')));
@@ -88,7 +88,7 @@ describe('whole deployment source admission and filesystem durability', function
     const admitted = { ...options, namespaces: { ...namespaces(), synthetic: 'deploy_synthetic' }, extensions: [extension] };
     assert.throws(() => admit({ ...admitted, extensions: [{ ...extension, tables: [] }] }), { code: 'OPERATIONS_CENSUS_TABLES_MISMATCH' });
     const plan = admit(admitted);
-    assert.equal(plan.census.tables, 36);
+    assert.equal(plan.census.tables, 37);
     assert.ok(plan.lifecycle.CATALOGUE.some(entry => entry.kind === 'synthetic'));
   });
 
@@ -130,20 +130,20 @@ describe('whole deployment source admission and filesystem durability', function
     await fs.promises.writeFile(path.join(scratch, file), JSON.stringify(candidate));
     const options = { root: scratch, namespaces: { ...namespaces(), alarm_suppression: 'deploy_alarm' }, extensions: [inputs.extension] };
     const admitted = admit(options);
-    assert.equal(admitted.census.tables, 35);
+    assert.equal(admitted.census.tables, 36);
     assert.equal(admitted.census.selected.find(entry => entry.kind === 'alarm_suppression').candidateDigest, inputs.extension.candidateDigest);
     const added = ['ALTER TABLE tenant_alarm_suppression ADD COLUMN synthetic_flag boolean'];
     candidate.migrations.push({ name: '0002_changed_shape', up: added, checksum: checksum(added) });
     await fs.promises.writeFile(path.join(scratch, file), JSON.stringify(candidate));
     assert.throws(() => admit(options), { code: 'OPERATIONS_CENSUS_EXTENSION_CHANGED', detail: file });
     const changed = { ...inputs.extension, candidateDigest: common.sha256(common.canonical(candidate)) };
-    assert.equal(admit({ ...options, extensions: [changed] }).census.tables, 35, 'explicit new admission required');
+    assert.equal(admit({ ...options, extensions: [changed] }).census.tables, 36, 'explicit new admission required');
   });
 
   it('pins the actual notifier catalogue and preserves both normalPolicy key families with narrow outbox grants', function () {
     const { notificationInputs } = require('./fixtures/tenant-deployment-notifications');
     const inputs = notificationInputs({ tenants: [A, '22222222-2222-4222-8222-222222222222'], now: 1700000000000,
-      outboxRole: 'outbox_writer', checkpointWriterRole: 'checkpoint_writer' });
+      outboxRole: 'outbox_writer', checkpointWriterRole: 'checkpoint_writer', ackReaderRole: 'ack_reader' });
     const file = path.join(ROOT, inputs.extension.candidatePath);
     const text = fs.readFileSync(file, 'utf8');
     assert.equal(common.sha256(text), inputs.extension.sourceSha256);
@@ -153,10 +153,53 @@ describe('whole deployment source admission and filesystem durability', function
     assert.deepEqual([...new Set(records.map(row => row.dedup_key.split(':')[0]))].sort(), ['pushnotify', 'realtime-cycle']);
     assert.ok(records.every(row => !Object.hasOwn(row, 'normalPolicy') && !Object.hasOwn(row, 'policy')));
     assert.ok(records.some(row => row.receipt !== null && row.accepted_at !== null));
-    assert.deepEqual(inputs.acl.grants.map(grant => grant.privileges), [['SELECT'], ['SELECT', 'INSERT'], ['SELECT', 'INSERT']]);
+    assert.deepEqual(inputs.acl.grants.map(grant => grant.privileges), [['SELECT'], ['SELECT', 'INSERT'], ['SELECT', 'INSERT'], ['SELECT', 'INSERT'], ['SELECT'], ['SELECT']]);
     assert.deepEqual(inputs.acl.grants[1].columnPrivileges.UPDATE, ['request_id', 'blocked_until']);
     assert.deepEqual(inputs.acl.grants[2].columnPrivileges.UPDATE, ['state', 'next_at', 'attempt', 'attempt_token', 'attempt_until', 'accepted_at', 'receipt', 'cleared_at']);
     assert.throws(() => notificationInputs({ tenants: [A, '22222222-2222-4222-8222-222222222222'], now: 1700000000000, outboxRole: 'same', checkpointWriterRole: 'same' }), { code: 'NOTIFICATION_INPUT_ROLES_INVALID' });
+  });
+
+  it('admits bounded producer recovery fields and distinct SELECT-only ACK state without broadening old request columns', function () {
+    const { notificationInputs } = require('./fixtures/tenant-deployment-notifications');
+    const inputs = notificationInputs({ tenants: [A, '22222222-2222-4222-8222-222222222222'], now: 1700000000000, outboxRole: 'outbox_writer', checkpointWriterRole: 'checkpoint_writer', ackReaderRole: 'ack_reader' });
+    assert.equal(inputs.extension.sourceCommit, '5600192558a10462c159d00ef53ba770a647765d');
+    const candidate = require('../lib/tenant-notifications/postgres-candidate.json');
+    assert.equal(candidate.migrations[0].checksum, 'fb87dbc786bef689cb33c35e15c0927bdec2f0f81dda173b3c40af1a4fb5c59d');
+    const up = candidate.migrations[1].up;
+    const created = up.findIndex(sql => sql.startsWith('CREATE TABLE tenant_notification_state'));
+    for (const table of ['tenant_notification_heads', 'tenant_notification_requests']) {
+      const checked = up.indexOf('ALTER TABLE ' + table + ' VALIDATE CONSTRAINT notification_state_empty_upgrade');
+      assert.ok(checked >= 0 && checked < created, 'both populated predecessor guards precede state creation');
+    }
+    const states = inputs.rows.tenant_notification_state;
+    assert.equal(states.length, 4);
+    assert.equal(new Set(states.map(row => row.tenant_id)).size, 2);
+    for (const row of states) {
+      assert.ok(Number(row.revision) > 1);
+      assert.ok(row.producer.alarms[0].lastEmitTime > 0);
+      assert.equal(row.producer.effects[0].payload.clear, true);
+      assert.equal(row.producer.acks.length, 1);
+      assert.equal(row.producer.output.length, 4);
+      assert.equal(row.producer.clinicalIdentity, row.producer.output[0]);
+    }
+    assert.deepEqual(inputs.acl.grants.filter(grant => grant.role === 'ack_reader'), [
+      { role: 'ack_reader', kind: 'notification_outbox', table: 'schema_migrations', privileges: ['SELECT'] },
+      { role: 'ack_reader', kind: 'notification_outbox', table: 'tenant_notification_state', privileges: ['SELECT'] }
+    ]);
+    assert.throws(() => notificationInputs({ tenants: [A, '22222222-2222-4222-8222-222222222222'], now: 1700000000000, outboxRole: 'worker', checkpointWriterRole: 'checkpoint', ackReaderRole: 'worker' }), { code: 'NOTIFICATION_INPUT_ROLES_INVALID' });
+  });
+
+  it('refuses a changed valid outbox successor until new producer fields are explicitly readmitted', async function () {
+    for (const entry of operations.discoverCatalogues()) {
+      await fs.promises.mkdir(path.dirname(path.join(scratch, entry.file)), { recursive: true });
+      await fs.promises.copyFile(path.join(ROOT, entry.file), path.join(scratch, entry.file));
+    }
+    const file = 'lib/tenant-notifications/postgres-candidate.json';
+    const candidate = JSON.parse(await fs.promises.readFile(path.join(scratch, file), 'utf8'));
+    candidate.migrations[1].up.push('CREATE TABLE synthetic_state (tenant_id uuid NOT NULL, value jsonb NOT NULL)');
+    candidate.migrations[1].checksum = checksum(candidate.migrations[1].up);
+    await fs.promises.writeFile(path.join(scratch, file), JSON.stringify(candidate));
+    assert.throws(() => admit({ root: scratch, namespaces: namespaces() }), { code: 'OPERATIONS_CENSUS_EXTENSION_CHANGED', detail: file });
   });
 
   it('pins the profile successor, preserves base0001 and gives only its writer exact sequence USAGE', function () {
@@ -168,7 +211,7 @@ describe('whole deployment source admission and filesystem durability', function
     assert.deepEqual(profile.catalogue.migrations[0], base.migrations[0]);
     assert.equal(common.sha256(common.canonical(profile.catalogue)), inputs.candidateDigest);
     assert.equal(common.sha256(fs.readFileSync(path.join(ROOT, inputs.selection.profile), 'utf8')), inputs.sourceSha256);
-    assert.equal(selected.census.tables, 35);
+    assert.equal(selected.census.tables, 36);
     assert.equal(profile.catalogue.migrations.length, 2);
     const up = profile.catalogue.migrations[1].up;
     assert.ok(up.indexOf('ALTER TABLE profile VALIDATE CONSTRAINT socket_order_requires_empty') < up.indexOf('ALTER TABLE profile ADD COLUMN insertion_ordinal bigint GENERATED ALWAYS AS IDENTITY'));
@@ -200,7 +243,7 @@ describe('whole deployment source admission and filesystem durability', function
     assert.throws(() => admit({ namespaces: namespaces(), selection: { unknown: 'ignored' } }), { code: 'OPERATIONS_CENSUS_SELECTION_INVALID' });
     const plan = admit({ namespaces: namespaces(), selection: { treatments: 'migrations/candidates/postgres-treatments-socket-order-v1.json' } });
     assert.match(plan.census.selected.find(entry => entry.kind === 'treatments').candidatePath, /socket-order/);
-    assert.equal(plan.census.tables, 35);
+    assert.equal(plan.census.tables, 36);
     assert.throws(() => createdTables({ version: 1, migrations: [{ name: '0001_bad', up: ['CREATE TABLE unbound (value text)'], checksum: checksum(['CREATE TABLE unbound (value text)']) }] }), { code: 'OPERATIONS_CENSUS_DDL_UNSUPPORTED' });
   });
 

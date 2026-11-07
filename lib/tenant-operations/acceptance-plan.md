@@ -19,7 +19,7 @@ operator migration runner, durable filesystem callback and original-ID restore.
 extensions. It adds the separate lifecycle ledger only to deployment backup.
 No active M5 worktree is imported and no application serving/default path changes.
 
-Current read-derived inventory is 23 JSON candidates / 20 selected kinds / 35
+Current read-derived inventory is 23 JSON candidates / 20 selected kinds / 36
 selected tables; three socket-order successors are explicit alternatives. A74 owner
 configuration authority was missing from old R69 inventory: the new independent
 source check failed before its joined-tree repair. The current extension interface
@@ -38,21 +38,25 @@ tree. Alarm schema pin remains e912; its narrow writer additionally receives SEL
 on its own migration ledger for the reviewed e016 selected-datastore check.
 Writer S/I/UPDATE(acked_at,expires_at), reader SELECT, realtime none remain unchanged.
 
-Notifier input is `d06c990ca2c00e8689be5c56e37301f5c71ffc67`, exact candidate
-`lib/tenant-notifications/postgres-candidate.json`, heads/requests tables.
+Historical notifier input was `d06c990ca2c00e8689be5c56e37301f5c71ffc67`; its
+evidence remains immutable. Current recovery input is
+`5600192558a10462c159d00ef53ba770a647765d`, exact candidate
+`lib/tenant-notifications/postgres-candidate.json`, heads/requests/state tables.
 `tests/fixtures/tenant-deployment-notifications.js` pins canonical and byte digests,
 contains both normalPolicy prefixes in dedup_key (no invented policy column), and
 supplies pending/attempting/uncertain/accepted/cancelled/head/receipt rows. Dedicated
 outbox grants are schema usage, ledger SELECT, both tables SELECT/INSERT; heads
 UPDATE(request_id,blocked_until); requests
 UPDATE(state,next_at,attempt,attempt_token,attempt_until,accepted_at,receipt,cleared_at).
+Worker state SELECT/INSERT plus UPDATE(revision,config_identity,producer);
+distinct ACK writer adds only state/ledger SELECT and schema USAGE.
 No table-wide UPDATE/DELETE/DDL or checkpoint-principal reuse is supplied.
 
 The complete proposed seed accepts an explicit `now`, so a native runner can use
 the common actual PostgreSQL epoch for alarm/outbox state. All extension changes
 refuse until digest re-admission. Final full C archive must merge the actual final
-B runtime and re-census, including the forthcoming append-only notifier0002
-transition-state contract and any profile schema change justified by its early
+B runtime and re-census, including the frozen append-only notifier0002
+transition-state contract and profile schema change justified by its early
 native comparison. This recovery-input preparation is not joined M5 acceptance.
 
 ## Preconditions to freeze for native review
@@ -97,7 +101,8 @@ schema wildcard. Backup/migration operator identity remains separate.
 | Versioned settings writer | tenant_settings SELECT/INSERT/UPDATE; history SELECT/INSERT; required policy SELECT and owner_configuration authority SELECT/UPDATE(owner_fence); own ledger SELECT | Alter can_configure/active/principal, clinical writes, secret access |
 | DATA presentation reader | SELECT tenant_settings and required policy/own ledger metadata only | Any INSERT/UPDATE/DELETE, authority-bit mutation, clinical/secret writes |
 | Alarm writer/reader | Exact e912 table rights above plus writer-only own ledger SELECT (e016) | Reader DML; writer broad UPDATE/DELETE; wrong datastore/foreign/authority writes |
-| Dedicated outbox | Exact d06 table/column/ledger grants above, separately from checkpoint writer | Broad UPDATE/DELETE/DDL/ownership/BYPASS/membership and writes outside outbox |
+| Dedicated outbox | Exact560 table/column/ledger grants above, separately from checkpoint writer and ACK principal | Broad UPDATE/DELETE/DDL/ownership/BYPASS/membership and writes outside outbox |
+| ACK state reader | Producer-state and ledger SELECT/schema USAGE only; existing suppression mutations separate | State INSERT/UPDATE/FOR UPDATE, head/request rights, clinical/checkpoint writes |
 | Deletion request/cancel | Current-authorized request fields and pre-start cancellation fields only; no clinical DELETE | Operator confirmation/start/finalization columns and all destructive effects |
 | Deletion operator | Separately current-authorized confirmation/claim/execution plus verified artifact/window; explicit reviewed ceremony/request update columns and tenant DELETE | Execution from owner route, cancellation after durable start, stale authority/artifact/window or omitted inventory |
 | Other metadata/secrets/lifecycle tables | No automatic application grant; any consumed private capability must be enumerated before its acceptance claim | No schema-wide or blanket automatic grant |
@@ -250,4 +255,48 @@ insert, exact grants/denials and actual selected consumer startup, then replay
 unchanged profile empty/addretry/preseed-b-then-a requests and record raw replies
 and physical state. Existing populated OLD profile remains on its prior catalogue
 unless an independently reviewed provenance migration is supplied; don't label a
-refused populated upgrade successful. Final notifier0002 contract is still pending.
+refused populated upgrade successful. Final consumed runtime equality/admission review is still pending; schema560 is frozen.
+
+
+## Frozen notifier0002 recovery contract (source only)
+
+Exact consumer source5600192558a10462c159d00ef53ba770a647765d candidate byteSHA
+0d998333640f4415dfb93edd789edb0277c1067ccd79f8583f902b3e1b0e1ec2,
+canonicalSHA6373384e7e3c7e4059d2d1bd01cd36d29a38964bd96a1a239f28438d598d563b.
+Exact0001 remains unchanged; append0002 producer-state checksum
+abd52ebd614047bb3f0b751fc1fa7fd0ce9518351560af144c14d7ced1c4cf6d.
+Both heads and requests must validate falseguards before state creation, so any
+populated predecessor refuses atomically rather than assuming missing private
+provenance is empty. Native must independently capture rows/columns/ledger/guards
+before and after each populated-head and populated-request refusal; empty
+predecessor succeeds. No historical private-state importer is supplied.
+
+New tenant_notification_state has tenant/consumer primary key, positive revision,
+config identity and JSONB producer. The complete both-tenant seed retains alarms
+with lastAckTime/silenceTime/lastEmitTime, stable pending clear effects/origins,
+ACK keys, output cycle identity and separate clinicalIdentity. Bounds/configuration
+are explicit native inputs; these synthetic fidelity rows are not a successful
+runtime producer-readiness claim. Preserve all JSON values and revisions exactly
+through fresh restore and OLD rollback; do not infer empty private state or rewrite
+JSON key ordering into false data loss. Earlier d06 artifact/pins remain in their
+immutable capsules and must not be relabelled as schema560 evidence.
+
+Outbox worker gains only state SELECT/INSERT and UPDATE(revision,config_identity,
+producer), ledger SELECT/schema USAGE. Existing request/head column grants stay
+unchanged. Distinct ACK principal gains only state+ledger SELECT/schema USAGE,
+no state INSERT/UPDATE/FOR UPDATE, heads/requests or clinical/checkpoint rights.
+Existing suppression mutation rights remain separate. Recovery grant generation
+must match this split; actual SQL denials and locks are native acceptance.
+
+The actual consumed producer/ACK runtime uses common advisory fence before state,
+head/request/suppression; ACK plain SELECT and database time/current authority are
+read after waiting. Final B must join those actual readiness/admission modules,
+including current datastore/principal/ledger/forced-RLS checks. C snapshots schema
+and fixtures only; source recording clients do not prove cross-process fencing.
+Native consumer plan from source560 names committed-intent-before-sink, repeated
+output/new cycle, restart normal clear, uncertain process death/same UUID, ACK-only
+clear after cold acquisition failure/current config, A/B isolation, SELECT-only
+ACK state/RLS refusal and owned process exits. Root must bind these to final
+actual Socket.IO/journey compatibility and recovery observations, with planted
+lost-clear, regenerated retry and privilege-broadening controls. JSONB equality
+review may still change runtime; recheck final source, schema and admissions.

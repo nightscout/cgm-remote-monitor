@@ -16,7 +16,7 @@ const trustedCapabilities = {
 };
 const selectedCatalogues = [...lifecycleModule.admittedCatalogue(),
   { kind: 'alarm_suppression', candidate: require('../migrations/candidates/postgres-alarm-suppression-v1.json'), tables: ['tenant_alarm_suppression'], secrets: [] },
-  { kind: 'notification_outbox', candidate: require('../lib/tenant-notifications/postgres-candidate.json'), tables: ['tenant_notification_heads', 'tenant_notification_requests'], secrets: [] }];
+  { kind: 'notification_outbox', candidate: require('../lib/tenant-notifications/postgres-candidate.json'), tables: ['tenant_notification_heads', 'tenant_notification_requests', 'tenant_notification_state'], secrets: [] }];
 function currentAdmission ({ catalogues, namespaces }) {
   const ops = require('../lib/tenant-operations');
   const { alarmInputs } = require('./fixtures/tenant-deployment-alarm');
@@ -24,7 +24,7 @@ function currentAdmission ({ catalogues, namespaces }) {
   const inputs = { tenants: [A, B], now: 1700000000000 };
   const full = ops.deploymentAdmission({ namespaces: { ...namespaces, lifecycle: ledgerNamespace }, extensions: [
     alarmInputs({ ...inputs, writerRole: 'alarm_writer', readerRole: 'alarm_reader' }).extension,
-    notificationInputs({ ...inputs, outboxRole: 'outbox_writer', checkpointWriterRole: 'checkpoint_writer' }).extension
+    notificationInputs({ ...inputs, outboxRole: 'outbox_writer', checkpointWriterRole: 'checkpoint_writer', ackReaderRole: 'ack_reader' }).extension
   ] });
   assert.deepEqual(catalogues.map(entry => [entry.kind, entry.tables]), full.lifecycle.CATALOGUE.map(entry => [entry.kind, entry.tables]));
 }
@@ -62,6 +62,7 @@ const COLUMNS = {
   secret_audit: 'event_id uuid, tenant_id uuid, principal text, consumer text, operation text, secret_id text, phase text, event_time bigint, target_version bigint',
   tenant_lifecycle_requests: 'request_id uuid, tenant_id uuid, artifact_digest text, phase text, requested_at bigint, executed_at bigint',
   tenant_alarm_suppression: 'tenant_id uuid, alarm_group text, alarm_level integer, acked_at bigint, expires_at bigint',
+  tenant_notification_state: 'tenant_id uuid, consumer text, revision bigint, config_identity text, producer jsonb',
   tenant_notification_heads: 'tenant_id uuid, consumer text, dedup_key text, request_id uuid, blocked_until bigint',
   tenant_notification_requests: 'tenant_id uuid, request_id uuid, consumer text, dedup_key text, origin text, config_identity text, payload jsonb, state text, created_at bigint, next_at bigint, attempt integer, attempt_token uuid, attempt_until bigint, accepted_at bigint, receipt jsonb, cleared_at bigint',
   tenant_lifecycle_ceremony: 'request_id uuid, tenant_id uuid, phase text, requested_by text, requested_consumer text, confirmed_by text, confirmed_consumer text, confirmed_at bigint, cancelled_by text, cancelled_consumer text, cancelled_at bigint, claim_id uuid, started_by text, started_consumer text, started_at bigint, executed_by text, executed_consumer text, executed_at bigint'
@@ -415,7 +416,7 @@ describe('tenant lifecycle: typed export, import and two-phase deletion', functi
     assert.equal(started.phase, 'executing', 'destructive rollback cannot reopen cancellation');
     assert.equal(started.started_at, 7);
     await assert.rejects(lifecycle.cancelDeletion(connection, { tenant: A, ledgerNamespace, requestId: request.requestId }), { code: 'LIFECYCLE_EXECUTION_STARTED' });
-    assert.equal(order[0], 'notification_outbox.tenant_notification_requests', 'deletion walks the catalogue in reverse');
+    assert.equal(order[0], 'notification_outbox.tenant_notification_state', 'deletion walks the catalogue in reverse');
 
     const executed = await lifecycle.executeDeletion(connection, { tenant: A, namespaces, ledgerNamespace, artifact, requestId: request.requestId, now: () => 9 });
     assert.equal(executed.total, before.a);

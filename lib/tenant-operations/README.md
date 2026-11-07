@@ -21,7 +21,7 @@ belongs to the coherent assembled candidate.
 JSON migration catalogues under `lib/` and `migrations/candidates/`. It never selects
 all database schemas. It refuses an unadmitted candidate, missing namespace,
 omitted/extra table, unsupported DDL, shared namespace or unknown selection.
-Current source census: **23 candidate files, 20 selected kinds, 35 tables**; the three
+Current source census: **23 candidate files, 20 selected kinds, 36 tables**; the three
 socket-order successors are explicit alternative selections, not additional domains.
 
 The lifecycle list owns tenant export/import/delete order. It now includes A74's
@@ -45,7 +45,7 @@ read from PostgreSQL during capture; generated columns are recomputed on restore
 | secrets | secret_records, secret_audit |
 | lifecycle | tenant_lifecycle_requests, tenant_lifecycle_ceremony |
 | alarm_suppression | tenant_alarm_suppression |
-| notification_outbox | tenant_notification_heads, tenant_notification_requests |
+| notification_outbox | tenant_notification_heads, tenant_notification_requests, tenant_notification_state |
 
 Exact frozen alarm/outbox catalogue JSON is now present as recovery input, with
 explicit pinned extensions in the prepared fixtures. This is not a full M5 runtime

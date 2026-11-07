@@ -58,7 +58,7 @@ function populatedRows ({ now = 1700000000000, profileSocketOrder = false } = {}
   const { alarmInputs } = require('./tenant-deployment-alarm');
   const { notificationInputs } = require('./tenant-deployment-notifications');
   Object.assign(rows, alarmInputs({ tenants: [A, B], now, writerRole: 'alarm_writer', readerRole: 'alarm_reader' }).rows,
-    notificationInputs({ tenants: [A, B], now, outboxRole: 'outbox_writer', checkpointWriterRole: 'checkpoint_writer' }).rows);
+    notificationInputs({ tenants: [A, B], now, outboxRole: 'outbox_writer', checkpointWriterRole: 'checkpoint_writer', ackReaderRole: 'ack_reader' }).rows);
   return rows;
 }
 module.exports = { A, B, populatedRows };
