@@ -34,7 +34,7 @@ optInSuite(process.env.NS_EVALUATOR_CONSUMERS_TEST === '1' && !!process.env.NS_T
     }
     it('commits immutable tenant intent before actual adapter handoff and admits same-output once plus a new realtime cycle', async function () {
       const epoch=await reading(50); await reading(111,lab.B); const worker=await boot();
-      const first=lab.sinkEffects.filter(row=>row.tenant===lab.A); assert.equal(first.length,1);
+      const first=lab.sinkEffects.filter(row=>row.tenant===lab.A); lab.traceConsumer('first-output-before-verdict',{effects:first,requests:await lab.requests(),state:await lab.producerState(),health:await worker.call('health')}); assert.equal(first.length,1,'M5_CONSUMER_COMMIT_BEFORE_SINK');
       const capture=lab.observations.find(row=>row.phase==='sink-before-accept' && row.id===first[0].id);
       assert.equal(capture.ownRow.request_id,first[0].id); assert.equal(capture.ownRow.state,'attempting','M5_CONSUMER_COMMIT_BEFORE_SINK');
       const before=await lab.requests(); lab.traceConsumer('committed-before-verdict',{rows:before,state:await lab.producerState(),foreign:await lab.requests(lab.B)}); assert.equal(before[0].state,'accepted'); assert.ok(Number(before[0].created_at)>=epoch);
@@ -60,11 +60,11 @@ optInSuite(process.env.NS_EVALUATOR_CONSUMERS_TEST === '1' && !!process.env.NS_T
       await reading(50); lab.sinkMode='lost-response'; const first=await boot();
       const original=(await lab.requests())[0]; lab.traceConsumer('uncertain-before-death',{original,state:await lab.producerState()}); assert.equal(original.state,'uncertain');
       const exited=new Promise(resolve=>first.child.once('exit',(code,signal)=>resolve({code,signal}))); first.child.kill('SIGKILL');
-      const death=await exited; assert.equal(death.signal,'SIGKILL'); lab.sinkMode='accept'; await waitDue(original.request_id);
+      const death={...await exited,pid:first.child.pid}; assert.equal(death.signal,'SIGKILL'); lab.sinkMode='accept'; await waitDue(original.request_id);
       const next=await lab.workerConsumers(lab.configureConsumers()); assert.equal(next.startup.ready,true); await next.call('flush');
       const after=(await lab.requests()).find(row=>row.request_id===original.request_id);
       lab.traceConsumer('uncertain-restart-before-verdict',{original,after,death,all:await lab.requests(),state:await lab.producerState()});
-      assert.equal(after.state,'accepted'); assert.ok(after.attempt>=2,'M5_CONSUMER_PROCESS_DEATH_SAME_UUID'); assert.deepEqual(after.payload,original.payload);
+      assert.equal(after.state,'accepted','M5_CONSUMER_PROCESS_DEATH_SAME_UUID'); assert.ok(after.attempt>=2,'M5_CONSUMER_PROCESS_DEATH_SAME_UUID'); assert.deepEqual(after.payload,original.payload);
       assert.equal(lab.sinkEffects.filter(row=>row.id===original.request_id).length,2);
       lab.traceConsumer('uncertain-process-restart',{original,after,death,all:await lab.requests()}); await lab.stopConsumer(next);
     });
@@ -82,7 +82,7 @@ optInSuite(process.env.NS_EVALUATOR_CONSUMERS_TEST === '1' && !!process.env.NS_T
       const at=await lab.epoch(); assert.ok(suppression.every(row=>Number(row.acked_at)<=at && Number(row.expires_at)>at));
       await worker.call('retry',lab.A); const after=lab.sinkEffects.slice(before);
       lab.traceConsumer('control-clear-before-verdict',{suppression,after,state:await lab.producerState(),clinical:await worker.call('last',lab.A)});
-      assert.equal(after.length,1); assert.equal(after[0].notification.clear,true,'M5_CONSUMER_CONTROL_CLEAR_FAILED_CLINICAL');
+      assert.equal(after.length,1,'M5_CONSUMER_CONTROL_CLEAR_FAILED_CLINICAL'); assert.equal(after[0].notification.clear,true,'M5_CONSUMER_CONTROL_CLEAR_FAILED_CLINICAL');
       assert.equal(after[0].notification.message,"default - Urgent was ack'd");
       await worker.call('tick',lab.B); await worker.call('flush',lab.B); assert.ok(lab.sinkEffects.at(-1).tenant===lab.B);
       lab.traceConsumer('control-ack-with-failed-clinical',{suppression,after,health:await worker.call('health'),state:await lab.producerState()}); await lab.stopConsumer(worker);
