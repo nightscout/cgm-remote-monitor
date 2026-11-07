@@ -80,7 +80,10 @@ async function execute (input) {
     'lib/server/tenant-socket-write-executor.js', 'lib/server/socket-write-handlers.js', 'lib/server/tenant-app/profile.js',
     'lib/storage/postgres-collection-intent.js', 'lib/storage/postgres-entries-read.js', 'lib/storage/write-intent.js',
     'lib/server/tenant-socket-order-port.js', 'lib/server/serve/postgres-domains.js', 'lib/server/serve/evaluator-readiness.js',
-    'migrations/candidates/postgres-profile-socket-order-v1.json'];
+    'migrations/candidates/postgres-profile-socket-order-v1.json',
+    'tests/fixtures/realtime-preview/profile-differential.js', 'tests/fixtures/realtime-preview/profile-timestamps.js',
+    'tests/fixtures/realtime-preview/wire-call.js', 'tests/fixtures/realtime-preview/profile-port.js',
+    'tests/fixtures/realtime-preview/consumer.js', 'tests/fixtures/realtime-preview/runtime-directory.js'];
   const sourceFiles = Object.fromEntries(causal.map(file => [file, require('node:crypto').createHash('sha256').update(fs.readFileSync(path.join(input.sourceDir, file))).digest('hex')]));
   fs.writeFileSync(path.join(input.captureDir, 'phase-source.json'), JSON.stringify({ sourceHead: input.env.NS_RT_SOURCE_HEAD || null,
     phaseId: input.phaseId, control: input.control, sourceFiles }, null, 2) + '\n');
