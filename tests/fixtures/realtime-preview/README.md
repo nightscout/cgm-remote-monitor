@@ -106,3 +106,12 @@ notification owner's approved transition semantics; this fixture does not invent
 cancellation or device receipts. Only serverhand off/nullreceipt is asserted.
 Fixture restores removed owned grants, closes actual CLI children producer first,
 then exact owned relay and driver. NONE of this broader consumer phase has run.
+
+Read-only setup preflight:
+`node tests/fixtures/realtime-preview/early.js --validate-config profile-port-differential`
+validates private JSON/handed-in ownership metadata/source identity without
+connecting to PG/Mongo/Vault or starting listeners. CLI exports its plan before
+configuration reads it. Restoring exports-after-CLI is a calibrated source setup
+control (undefined plan/pins, exit1); repaired validation exits0. This is fixture
+loading evidence, never backend natural-order evidence. Failed original native
+setup remains UNMEASURED; no alternate-invocation sidestep.

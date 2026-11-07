@@ -91,6 +91,14 @@ async function execute (input) {
 module.exports = { plan, execute };
 if (require.main === module) {
   if (process.argv[2] === '--plan') process.stdout.write(JSON.stringify(plan, null, 2) + '\n');
+  else if (process.argv[2] === '--validate-config') {
+    try {
+      const phaseId = process.argv[3];
+      if (!['profile-port-differential', 'profile-differential'].includes(phaseId)) throw new Error('PROFILE_VALIDATION_PHASE_REQUIRED');
+      const value = require('./profile-differential').configuration({ phaseId, env: process.env });
+      process.stdout.write(JSON.stringify({ valid: true, phaseId, sourceHead: value.sourceHead, authorityBoundary: value.authorityBoundary || 'actual-private-api-current-client' }) + '\n');
+    } catch (error) { console.error(error.code || error.message); process.exitCode = 1; }
+  }
   else if (process.argv[2] === '--execute') execute({ sourceDir: path.resolve(__dirname, '../../..'), captureDir: process.argv[4],
     phaseId: process.argv[3], control: null, env: process.env }).catch(error => { console.error(error.code || error.message); process.exitCode = 1; });
   else { console.error('Use --plan or explicitly granted --execute'); process.exitCode = 64; }
