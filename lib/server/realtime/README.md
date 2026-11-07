@@ -43,7 +43,12 @@ permissions. It reuses canonical socket handlers and the durable ack receiver.
 Private HTTP over filesystem UDS accepts fixed authorize/mutate/alarm operations
 only, with bounded JSON and absolute deadlines. Each endpoint owns a dedicated
 restrictive real directory and refuses every pre-existing socket/path. Parent and
-socket ownership/modes are checked. This is same-service-UID trust, not process
+socket ownership/modes are checked. Linux binds an unadvertised unique internal
+UDS and atomically hard-links it to the configured endpoint: Node auto-unlinks
+its internal name while inode-guarded cleanup preserves a replaced public path.
+Both paths must fit the explicit transport pathname bounds. This is the measured
+one-machine Linux reference; malicious same-service-UID processes are outside
+its process identity contract. This is same-service-UID trust, not process
 identity or a deployment-wide bearer. Place endpoints outside public HTTP and
 operator DATA surfaces. Cleanup is limited to the owned socket; no stale unlink.
 
