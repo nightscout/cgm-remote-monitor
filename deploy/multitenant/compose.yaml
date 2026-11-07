@@ -1,0 +1,133 @@
+name: nightscout-multitenant-demo
+
+x-app: &app
+  image: ${NS_DEMO_IMAGE:-nightscout-multitenant-demo:local}
+  build:
+    context: ../..
+    dockerfile: deploy/multitenant/Dockerfile
+    args:
+      NS_SOURCE_COMMIT: ${NS_SOURCE_COMMIT:?Run prepare.js first}
+  init: true
+  restart: "no"
+  environment:
+    NODE_EXTRA_CA_CERTS: /run/ns-ca/ca.crt
+  networks: [backend]
+  security_opt: [no-new-privileges:true]
+  cap_drop: [ALL]
+  read_only: true
+  tmpfs: [/tmp:mode=1777]
+
+services:
+  postgres:
+    image: postgres:16.6-alpine
+    environment:
+      POSTGRES_DB: nightscout_compose_test
+      POSTGRES_PASSWORD_FILE: /run/secrets/postgres-password
+    volumes:
+      - postgres-data:/var/lib/postgresql/data
+      - ${NS_DEMO_STATE:?Run prepare.js first}/bootstrap/postgres-password:/run/secrets/postgres-password:ro
+    healthcheck:
+      test: [CMD-SHELL, pg_isready -U postgres -d nightscout_compose_test]
+      interval: 2s
+      timeout: 2s
+      retries: 30
+    networks: [backend]
+
+  vault:
+    image: hashicorp/vault:1.18.3
+    command: [vault, server, -config=/vault/config/demo.hcl]
+    volumes:
+      - vault-data:/vault/file
+      - ${NS_DEMO_STATE}/tls/server.crt:/run/ns-tls/server.crt:ro
+      - ${NS_DEMO_STATE}/tls/server.key:/run/ns-tls/server.key:ro
+      - ${NS_DEMO_STATE}/vault/demo.hcl:/vault/config/demo.hcl:ro
+    networks: [backend]
+
+  bootstrap:
+    <<: *app
+    profiles: [ops]
+    user: "1000:1000"
+    command: [node, deploy/multitenant/bootstrap.js, --output, /state]
+    depends_on:
+      postgres: {condition: service_healthy}
+      vault: {condition: service_started}
+    environment:
+      NODE_EXTRA_CA_CERTS: /run/ns-ca/ca.crt
+      VAULT_ADDR: https://vault:8200
+      NS_POSTGRES_HOST: postgres
+      NS_POSTGRES_DATABASE: nightscout_compose_test
+      NS_POSTGRES_PASSWORD_FILE: /state/bootstrap/postgres-password
+    volumes:
+      - ${NS_DEMO_STATE}:/state
+      - ${NS_DEMO_STATE}/tls/ca.crt:/run/ns-ca/ca.crt:ro
+
+  api:
+    <<: *app
+    command: [node, deploy/multitenant/entrypoint.js, api]
+    depends_on:
+      postgres: {condition: service_healthy}
+    volumes:
+      - ${NS_DEMO_STATE}/api:/run/ns-config:ro
+      - ${NS_DEMO_STATE}/ipc:/run/ns-ipc
+      - ${NS_DEMO_STATE}/tls/ca.crt:/run/ns-ca/ca.crt:ro
+
+  realtime:
+    <<: *app
+    command: [node, deploy/multitenant/entrypoint.js, realtime]
+    volumes:
+      - ${NS_DEMO_STATE}/realtime:/run/ns-config:ro
+      - ${NS_DEMO_STATE}/ipc:/run/ns-ipc
+      - ${NS_DEMO_STATE}/tls/ca.crt:/run/ns-ca/ca.crt:ro
+
+  evaluator:
+    <<: *app
+    command: [node, deploy/multitenant/entrypoint.js, evaluator]
+    volumes:
+      - ${NS_DEMO_STATE}/evaluator:/run/ns-config:ro
+      - ${NS_DEMO_STATE}/ipc:/run/ns-ipc
+      - ${NS_DEMO_STATE}/tls/ca.crt:/run/ns-ca/ca.crt:ro
+
+  tenant-admin:
+    <<: *app
+    command: [node, deploy/multitenant/entrypoint.js, tenant-admin]
+    volumes:
+      - ${NS_DEMO_STATE}/tenant-admin:/run/ns-config:ro
+      - ${NS_DEMO_STATE}/ipc:/run/ns-ipc
+      - ${NS_DEMO_STATE}/tls/ca.crt:/run/ns-ca/ca.crt:ro
+
+  ui:
+    <<: *app
+    command: [node, deploy/multitenant/ui.js]
+    environment:
+      UI_HOSTNAME: 0.0.0.0
+      UI_PORT: "1340"
+      UI_PUBLIC_CONFIG: /run/ns-config/config.json
+    volumes:
+      - ${NS_DEMO_STATE}/ui:/run/ns-config:ro
+
+  nginx:
+    image: nginx:1.27.3-alpine
+    depends_on: [api, realtime, ui]
+    ports:
+      - ${NS_DEMO_BIND:-127.0.0.1}:${NS_DEMO_PORT:-18080}:8080
+    volumes:
+      - ./nginx.conf:/etc/nginx/nginx.conf:ro
+    networks: [backend]
+
+  demo:
+    <<: *app
+    profiles: [ops]
+    command: [node, -r, ./deploy/multitenant/load-env.js, deploy/multitenant/demo.js]
+    volumes:
+      - ${NS_DEMO_STATE}/ops:/run/ns-config:ro
+      - ${NS_DEMO_STATE}/ipc:/run/ns-ipc
+      - ${NS_DEMO_STATE}/artifacts:/artifacts
+      - ${NS_DEMO_STATE}/tls/ca.crt:/run/ns-ca/ca.crt:ro
+
+networks:
+  backend:
+    internal: true
+
+volumes:
+  postgres-data:
+  vault-data:

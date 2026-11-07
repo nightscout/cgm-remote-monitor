@@ -1,0 +1,13 @@
+.git
+node_modules
+tests
+testing
+docs
+.github
+.env
+*.env
+my.*.env
+deploy/multitenant/.state
+deploy/multitenant/.env
+coverage
+npm-debug.log
