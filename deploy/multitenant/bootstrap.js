@@ -173,5 +173,5 @@ async function bootstrap(options) {
     return {state:'synthetic-demo-provisioned',sourceCommit};
   }finally{await admin.end();}
 }
-if(require.main===module){bootstrap(input()).then(result=>process.stdout.write(JSON.stringify(result)+'\n')).catch(error=>{process.stderr.write(JSON.stringify({error:/^[A-Z0-9_]{1,80}$/.test(error?.code||'')?error.code:'COMPOSE_BOOTSTRAP_FAILED'})+'\n');process.exitCode=1;});}
+if(require.main===module){Promise.resolve().then(()=>bootstrap(input())).then(result=>process.stdout.write(JSON.stringify(result)+'\n')).catch(error=>{process.stderr.write(JSON.stringify({error:/^[A-Z0-9_]{1,80}$/.test(error?.code||'')?error.code:'COMPOSE_BOOTSTRAP_FAILED'})+'\n');process.exitCode=1;});}
 module.exports={input,writePrivate,bootstrap};
