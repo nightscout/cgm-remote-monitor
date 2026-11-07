@@ -16,7 +16,8 @@ module.exports = function clockPortLab () {
   const A = '11111111-1111-4111-8111-111111111111';
   const B = '22222222-2222-4222-8222-222222222222';
   const raw = [], clocks = [];
-  let admin, mode;
+  let admin, mode, roleCreated = false;
+  const ownedSchemas = new Set();
   const lab = { name, role, namespaces, domains, A, B, raw, clocks,
     table: namespaces.entries + '.entries',
     async open () {
@@ -30,11 +31,14 @@ module.exports = function clockPortLab () {
       lab.version = (await admin.query('SELECT version() AS version')).rows[0].version;
       const password = crypto.randomBytes(24).toString('hex');
       await admin.query(`CREATE ROLE "${role}" LOGIN NOSUPERUSER NOBYPASSRLS PASSWORD '${password}'`);
+      roleCreated = true;
       for (const [kind, catalogue] of Object.entries({
         ...Object.fromEntries(domains.map(domain => [domain,
           require('../../lib/server/serve/postgres-domains').get(domain).catalogue])),
         clock: require('../../migrations/candidates/postgres-write-clock-v1.json')
       })) {
+        await admin.query('CREATE SCHEMA "' + namespaces[kind] + '"');
+        ownedSchemas.add(namespaces[kind]);
         await run('up', { direct: true, connectionString, namespace: namespaces[kind], catalogue });
         await admin.query(`GRANT USAGE ON SCHEMA "${namespaces[kind]}" TO "${role}"`);
       }
@@ -76,16 +80,17 @@ module.exports = function clockPortLab () {
       throw new Error('No actual PostgreSQL clock-row lock wait was observed');
     },
     async close () {
-      try {
-        await Promise.all(raw.map(connection => connection.end()));
-        if (admin) {
-          for (const namespace of Object.values(namespaces)) await admin.query(`DROP SCHEMA IF EXISTS "${namespace}" CASCADE`);
-          await admin.query(`DROP ROLE IF EXISTS "${role}"`);
-        }
-      } finally {
-        if (admin) await admin.end();
-        if (mode) scope.setTenancyMode(mode);
+      const errors = [], attempt = async fn => {try {await fn();} catch(error) {errors.push(error);}};
+      for (const connection of raw) await attempt(() => connection.end());
+      if (admin) {
+        for (const namespace of [...ownedSchemas]) await attempt(async () => {
+          await admin.query(`DROP SCHEMA IF EXISTS "${namespace}" CASCADE`); ownedSchemas.delete(namespace);
+        });
+        if (roleCreated) await attempt(async () => {await admin.query(`DROP ROLE IF EXISTS "${role}"`); roleCreated = false;});
+        await attempt(() => admin.end());
       }
+      if (mode) scope.setTenancyMode(mode);
+      if (errors.length) throw new globalThis.AggregateError(errors, 'Clock fixture owned cleanup refused');
     }
   };
   return lab;

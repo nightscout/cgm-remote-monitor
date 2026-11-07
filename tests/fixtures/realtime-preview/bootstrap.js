@@ -54,10 +54,9 @@ module.exports=async function bootstrap(input) {
     mongoOwned=true;
     step='catalogues';
     for(const [kind,catalogue]of Object.entries(provisioning.catalogues())) {
-      // Record ownership before runner so a partially-created own namespace also
-      // drains on a migration refusal. Names are random and must not preexist.
-      const found=await admin.query('SELECT 1 FROM pg_namespace WHERE nspname=$1',[ns[kind]]);
-      if(found.rows.length)throw new Error('JOINED_BOOTSTRAP_NAMESPACE_EXISTS');
+      // CREATE without IF NOT EXISTS establishes actual ownership before a
+      // runner can partially fail; an existing namespace is never adopted.
+      await admin.query('CREATE SCHEMA '+q(ns[kind]));
       schemas.push(ns[kind]);
       await run('up',{direct:true,connectionString:input.env.NS_TEST_POSTGRES_ADMIN_URI,namespace:ns[kind],catalogue,statementTimeoutMs:o.timeoutMs});
     }

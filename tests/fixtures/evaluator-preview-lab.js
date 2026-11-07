@@ -12,13 +12,14 @@ const configParser = require('../../lib/server/serve/evaluator-config');
 
 module.exports = function evaluatorPreviewLab () {
   const lab = base(), open = lab.open.bind(lab), close = lab.close.bind(lab);
-  const children = new Set(); let directory, connectionString;
+  const children = new Set(); let directory, connectionString, previewCreated = false;
   lab.consumerName = 'evaluator-native-proof';
   lab.previewRole = lab.name + '_evaluator';
   lab.open = async () => {
     await open(); directory = fs.mkdtempSync(path.join(os.tmpdir(), 'evaluator-preview-'));
     const password = crypto.randomBytes(24).toString('hex');
     await lab.admin.query('CREATE ROLE "' + lab.previewRole + '" LOGIN NOSUPERUSER NOBYPASSRLS PASSWORD \'' + password + '\'');
+    previewCreated = true;
     const namespaces = { ...Object.fromEntries(Object.entries(lab.tables).map(([logical, table]) => [logical, table.split('.')[0]])),
       clock: lab.namespaces.clock, checkpoint: lab.replayNamespace };
     for (const namespace of Object.values(namespaces)) {
@@ -120,10 +121,15 @@ module.exports = function evaluatorPreviewLab () {
     }
   };
   lab.close = async () => {
-    await lab.stopChildren();
-    try { if (lab.admin) { await lab.admin.query('DROP OWNED BY "' + lab.previewRole + '"');
-      await lab.admin.query('DROP ROLE IF EXISTS "' + lab.previewRole + '"'); } }
-    finally { if (directory) fs.rmSync(directory, { recursive: true, force: true }); await close(); }
+    const errors = [], attempt = async fn => {try {await fn();} catch(error) {errors.push(error);}};
+    await attempt(() => lab.stopChildren());
+    if (lab.admin && previewCreated) await attempt(async () => {
+      await lab.admin.query('DROP OWNED BY "' + lab.previewRole + '"');
+      await lab.admin.query('DROP ROLE IF EXISTS "' + lab.previewRole + '"'); previewCreated = false;
+    });
+    if (directory) await attempt(async () => fs.rmSync(directory, {recursive:true,force:true}));
+    await attempt(() => close());
+    if (errors.length) throw new globalThis.AggregateError(errors, 'Evaluator fixture owned cleanup refused');
   };
   lab.foreignScope = fn => scope.withTenant(lab.B, fn);
   return lab;
