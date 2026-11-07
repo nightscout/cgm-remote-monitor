@@ -34,6 +34,7 @@ async function fixture () {
     if (state.unavailable) throw new Error('UNAVAILABLE');
     if (operation === '/mutate') { state.writes.push(body); return { replyArgs: [{ result: 'success' }] }; }
     const read = state.allowed && Object.keys(body.credential).length > 0;
+    if (state.holdAuthority) { const held = state.holdAuthority; state.holdAuthority = null; held.entered.resolve(); await held.release.promise; }
     return { permissions: { read, write: read, write_treatment: read, ack: read }, collections: read ? ['entries', 'treatments'] : [] };
   };
   const protocol = protocolFactory.create({ admission, api, readCurrent, runtime: () => runtime, maxSockets: 10, domains: ['entries', 'treatments'] });
@@ -232,6 +233,36 @@ describe('explicit realtime preview source contracts', function () {
       f.state.allowed = false; socket.sent.length = 0;
       await ops['/alarm']({ transport: token }, body);
       assert.equal(socket.sent.length, 0, 'RT_ALARM_CURRENT_AUTHORITY revocation stops protected alarm delivery');
+    } finally { await f.close(); }
+  });
+  for (const mgdl of [190, 300]) it('preserves actual treatmentnotify alarm precedence for announcement at ' + mgdl, async function () {
+    const levels = require('../lib/levels'), notifications = [];
+    const ctx = { levels };
+    require('../lib/plugins/treatmentnotify')(ctx).checkNotifications({ levels, data: { mbgs: [], treatments: [{ eventType: 'Announcement', notes: 'Synthetic', mgdl, mills: Date.now(), isAnnouncement: true }] },
+      extendedSettings: {}, language: { translate: value => value }, lastEntry: rows => rows.at(-1), scaleMgdl: value => value,
+      settings: { alarmUrgentHigh: true, alarmHigh: true, thresholds: { bgHigh: 260, bgTargetTop: 180 } },
+      notifications: { requestNotify: value => notifications.push(value) } });
+    assert.equal(notifications.length, 1); const notification = notifications[0]; assert.equal(notification.isAnnouncement, true);
+    const baseline = []; const single = new (require('../lib/api3/alarmSocket'))({}, {}, ctx);
+    single.namespace = { to: () => ({ emit: (event, value) => baseline.push({ event, value }) }) }; single.emitNotification(notification);
+    const f = await fixture();
+    try {
+      const socket = await f.socket('a.test', '/alarm'); await socket.receive('subscribe', { secret: 'synthetic' });
+      await f.protocol.alarm({ tenant: A, notification });
+      assert.deepEqual(socket.sent.find(row => ['announcement', 'alarm', 'urgent_alarm'].includes(row.event)), baseline[0], 'RT_ALARM_PRECEDENCE actual producer and actual single event match');
+    } finally { await f.close(); }
+  });
+  for (const namespace of ['/', '/alarm', 'retro']) it('fences old delivery when socket credential epoch changes in ' + namespace, async function () {
+    const f = await fixture();
+    try {
+      const socket = await f.socket('a.test', namespace === 'retro' ? '/' : namespace);
+      await socket.receive(namespace !== '/alarm' ? 'authorize' : 'subscribe', { secret: 'old-allowed' }); socket.sent.length = 0;
+      const held = { entered: deferred(), release: deferred() }; f.state.holdAuthority = held;
+      const pending = namespace === 'retro' ? socket.receive('loadRetro', {}, () => {}) : namespace === '/' ? f.schedule.callback() : f.protocol.alarm({ tenant: A, notification: { level: 2, message: 'protected' } });
+      await held.entered.promise; f.state.allowed = false;
+      await socket.receive(namespace !== '/alarm' ? 'authorize' : 'subscribe', { secret: 'new-denied' });
+      held.release.resolve(); await Promise.allSettled([pending]);
+      assert.equal(socket.sent.some(row => ['dataUpdate', 'urgent_alarm', 'retroUpdate'].includes(row.event)), false, 'RT_SOCKET_EPOCH old authority cannot deliver after reauthorization');
     } finally { await f.close(); }
   });
   it('matches actual single storage subscribe without inventing offline cursor or replay', async function () {
