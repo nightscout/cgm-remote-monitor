@@ -18,6 +18,8 @@ Preparation and build refuse modified tracked build inputs. The build takes a
 Git archive of the recorded commit, so ignored runtime state and untracked files
 cannot enter the image. Re-run preparation in a fresh deployment state when the
 source commit changes.
+Runtime commands require the already-built image's source revision to match
+that preparation. They never use a missing image as an implicit build request.
 
 ```bash
 cd deploy/multitenant

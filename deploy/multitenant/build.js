@@ -16,10 +16,19 @@ function assertCleanSource (root, expected) {
   catch { throw new Error('BUILD_INPUTS_DIRTY'); }
   return head;
 }
-function build () {
+function configuration () {
   const source = assertCleanSource(ROOT);
   const config = JSON.parse(execFileSync('docker', ['compose', '--env-file', '.env', '-f', 'compose.yaml', 'config', '--format', 'json'], {cwd: __dirname, encoding: 'utf8'}));
   if (config.services.api.build.args.NS_SOURCE_COMMIT !== source) throw new Error('PREPARED_SOURCE_COMMIT_CHANGED');
+  return {source, config};
+}
+function checkImage () {
+  const {source, config} = configuration();
+  const labels = JSON.parse(execFileSync('docker', ['image', 'inspect', '--format', '{{json .Config.Labels}}', config.services.api.image], {encoding: 'utf8', stdio: ['ignore', 'pipe', 'pipe']}));
+  if (labels?.['org.opencontainers.image.revision'] !== source) throw new Error('BUILT_SOURCE_COMMIT_CHANGED');
+}
+function build () {
+  const {source, config} = configuration();
   const temporary = fs.mkdtempSync(path.join(os.tmpdir(), 'ns-compose-build-'));
   try {
     const context = path.join(temporary, 'context'); fs.mkdirSync(context);
@@ -32,9 +41,13 @@ function build () {
   } finally { fs.rmSync(temporary, {recursive: true, force: true}); }
 }
 if (require.main === module) {
-  try { build(); } catch (error) {
+  try {
+    if (process.argv.length === 3 && process.argv[2] === '--check-image') checkImage();
+    else if (process.argv.length === 2) build();
+    else throw new Error('COMPOSE_BUILD_USAGE');
+  } catch (error) {
     process.stderr.write((/^[A-Z_]+$/.test(error.message) ? error.message : 'COMPOSE_IMAGE_BUILD_FAILED') + '\n');
     process.exitCode = 1;
   }
 }
-module.exports = {assertCleanSource};
+module.exports = {assertCleanSource, checkImage};

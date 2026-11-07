@@ -19,13 +19,16 @@ case "${1:-}" in
     exec node build.js
     ;;
   bootstrap)
+    node build.js --check-image
     exec "${compose[@]}" --profile ops run --rm bootstrap
     ;;
   up)
+    node build.js --check-image
     "${compose[@]}" --profile ops run --rm bootstrap
-    exec "${compose[@]}" up -d --wait --wait-timeout 90 api realtime evaluator tenant-admin ui nginx
+    exec "${compose[@]}" up -d --no-build --pull never --wait --wait-timeout 90 api realtime evaluator tenant-admin ui nginx
     ;;
   demo)
+    node build.js --check-image
     exec "${compose[@]}" --profile ops run --rm --no-deps demo
     ;;
   status)
