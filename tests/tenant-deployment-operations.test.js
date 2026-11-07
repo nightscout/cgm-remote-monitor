@@ -213,12 +213,12 @@ describe('whole deployment source admission and filesystem durability', function
   it('censuses all selected A74/R69 kinds, owner configuration and the independent lifecycle ledger', function () {
     const admission = admit({ namespaces: namespaces() });
     assert.deepEqual(admission.census.selected.map(entry => entry.kind), KINDS);
-    assert.equal(admission.census.tables, 40);
+    assert.equal(admission.census.tables, 42);
     assert.equal(admission.census.candidates.length, 23);
     assert.equal(admission.census.candidates.filter(entry => entry.disposition === 'reviewed alternative').length, 3);
     assert.ok(admission.lifecycle.CATALOGUE.some(entry => entry.tables.includes('tenant_owner_configuration_authority')));
     assert.ok(!admission.lifecycle.CATALOGUE.some(entry => entry.tables.includes('tenant_lifecycle_requests')));
-    assert.deepEqual(admission.catalogues.find(entry => entry.kind === 'lifecycle').tables, ['tenant_lifecycle_requests', 'tenant_lifecycle_ceremony', 'tenant_lifecycle_windows', 'tenant_lifecycle_operations']);
+    assert.deepEqual(admission.catalogues.find(entry => entry.kind === 'lifecycle').tables, ['tenant_lifecycle_requests', 'tenant_lifecycle_ceremony', 'tenant_lifecycle_windows', 'tenant_lifecycle_operations', 'tenant_lifecycle_restore_authority', 'tenant_lifecycle_restore_audit']);
   });
 
   it('has an explicit two-tenant populated seed for every selected table; no empty-domain acceptance', function () {
@@ -254,7 +254,7 @@ describe('whole deployment source admission and filesystem durability', function
     const admitted = { ...options, namespaces: { ...namespaces(), synthetic: 'deploy_synthetic' }, extensions: [extension] };
     assert.throws(() => admit({ ...admitted, extensions: [{ ...extension, tables: [] }] }), { code: 'OPERATIONS_CENSUS_TABLES_MISMATCH' });
     const plan = admit(admitted);
-    assert.equal(plan.census.tables, 40);
+    assert.equal(plan.census.tables, 42);
     assert.ok(plan.lifecycle.CATALOGUE.some(entry => entry.kind === 'synthetic'));
   });
 
@@ -267,7 +267,7 @@ describe('whole deployment source admission and filesystem durability', function
     const checkpoints = checkpointInputs(input);
     const admission = admit({ namespaces: input.namespaces, instances: checkpoints.instances });
     assert.equal(admission.census.selected.length, 21);
-    assert.equal(admission.census.tables, 41);
+    assert.equal(admission.census.tables, 43);
     assert.equal(admission.census.candidates.length, 23);
     assert.deepEqual(admission.census.selected.filter(entry => entry.kind.includes('checkpoint')).map(entry => [entry.kind, entry.namespace, entry.instanceOf]),
       [['checkpoint', input.realtime.namespace, null], ['evaluator_checkpoint', input.evaluator.namespace, 'checkpoint']]);
@@ -327,14 +327,14 @@ describe('whole deployment source admission and filesystem durability', function
     await fs.promises.writeFile(path.join(scratch, file), JSON.stringify(candidate));
     const options = { root: scratch, namespaces: { ...namespaces(), alarm_suppression: 'deploy_alarm' }, extensions: [inputs.extension] };
     const admitted = admit(options);
-    assert.equal(admitted.census.tables, 40);
+    assert.equal(admitted.census.tables, 42);
     assert.equal(admitted.census.selected.find(entry => entry.kind === 'alarm_suppression').candidateDigest, inputs.extension.candidateDigest);
     const added = ['ALTER TABLE tenant_alarm_suppression ADD COLUMN synthetic_flag boolean'];
     candidate.migrations.push({ name: '0002_changed_shape', up: added, checksum: checksum(added) });
     await fs.promises.writeFile(path.join(scratch, file), JSON.stringify(candidate));
     assert.throws(() => admit(options), { code: 'OPERATIONS_CENSUS_EXTENSION_CHANGED', detail: file });
     const changed = { ...inputs.extension, candidateDigest: common.sha256(common.canonical(candidate)) };
-    assert.equal(admit({ ...options, extensions: [changed] }).census.tables, 40, 'explicit new admission required');
+    assert.equal(admit({ ...options, extensions: [changed] }).census.tables, 42, 'explicit new admission required');
   });
 
   it('pins the actual notifier catalogue and preserves both normalPolicy key families with narrow outbox grants', function () {
@@ -408,7 +408,7 @@ describe('whole deployment source admission and filesystem durability', function
     assert.deepEqual(profile.catalogue.migrations[0], base.migrations[0]);
     assert.equal(common.sha256(common.canonical(profile.catalogue)), inputs.candidateDigest);
     assert.equal(common.sha256(fs.readFileSync(path.join(ROOT, inputs.selection.profile), 'utf8')), inputs.sourceSha256);
-    assert.equal(selected.census.tables, 41);
+    assert.equal(selected.census.tables, 43);
     assert.equal(profile.catalogue.migrations.length, 4);
     const up = profile.catalogue.migrations[1].up;
     assert.ok(up.indexOf('ALTER TABLE profile VALIDATE CONSTRAINT socket_order_requires_empty') < up.indexOf('ALTER TABLE profile ADD COLUMN insertion_ordinal bigint GENERATED ALWAYS AS IDENTITY'));
@@ -446,7 +446,7 @@ describe('whole deployment source admission and filesystem durability', function
     assert.throws(() => admit({ namespaces: namespaces(), selection: { unknown: 'ignored' } }), { code: 'OPERATIONS_CENSUS_SELECTION_INVALID' });
     const plan = admit({ namespaces: namespaces(), selection: { treatments: 'migrations/candidates/postgres-treatments-socket-order-v1.json' } });
     assert.match(plan.census.selected.find(entry => entry.kind === 'treatments').candidatePath, /socket-order/);
-    assert.equal(plan.census.tables, 41);
+    assert.equal(plan.census.tables, 43);
     assert.throws(() => createdTables({ version: 1, migrations: [{ name: '0001_bad', up: ['CREATE TABLE unbound (value text)'], checksum: checksum(['CREATE TABLE unbound (value text)']) }] }), { code: 'OPERATIONS_CENSUS_DDL_UNSUPPORTED' });
   });
 
