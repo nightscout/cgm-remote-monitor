@@ -174,3 +174,21 @@ any participation. It does not adopt foreign descendants or substitute `ONLY` to
 silently narrow the operation. This remains metadata-only point-in-time admission,
 not a concurrent privileged-DDL fence. The configured 37-table selection and
 same-ID tenant-restore gap retain their prior scope.
+
+
+Execute, confirm, cancel and claim acquire current authority (including the
+same-transaction policy fence) before the parent request and ceremony locks.
+Execution retains later current-authority checks before destructive effects. A
+source concurrency control using the actual ceremony and SQL authority adapter
+reproduces a policy/request cycle when only the first execute authority check is
+removed; its SOURCE_MODEL_DEADLOCK is a controlled model result, not PostgreSQL
+40P01. Restoring the check removes that cycle and preserves the durable claim
+across destructive rollback.
+
+The same C5 fixture prepares an already committed executing claim, holds the
+parent request on an independent connection, and starts execute/cancel in both
+orders. Raw pg_stat_activity barriers and blocker graphs precede verdicts. The
+expected deliberate destructive interruption rolls back every row; cancellation
+refuses because execution has started. The native lock-order ablation must expose
+actual 40P01 with both contention barriers. Setup failure, timeout, or source-model
+cycles cannot qualify. Native execution of this expanded control is UNMEASURED.

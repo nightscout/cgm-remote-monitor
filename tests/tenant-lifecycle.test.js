@@ -260,6 +260,67 @@ describe('tenant lifecycle: typed export, import and two-phase deletion', functi
     return artifacts.buildArtifact({ tenant: A, sourceCommit: COMMIT, exportedAt: 1, catalogues });
   }
 
+  it('serializes execute versus cancel with the actual SQL authority fence before request locks', async function () {
+    const createCeremony = require('../lib/tenant-lifecycle/ceremony');
+    const { currentAuthority } = require('../tools/lab/tenant-whole-c/authority');
+    const artifact = await lifecycle.exportTenant(recordingConnection(), options());
+    const requestId = '10000000-0000-4000-8000-000000000001', claimId = '10000000-0000-4000-8000-000000000002';
+    const trace = [], owners = new Map(), waits = new Map(), queue = new Map();
+    let releaseFirst, firstAcquired, cancelWaiting;
+    const first = new Promise(resolve => { firstAcquired = resolve; });
+    const firstGate = new Promise(resolve => { releaseFirst = resolve; });
+    const waiting = new Promise(resolve => { cancelWaiting = resolve; });
+    let firstKey;
+    async function acquire (id, key) {
+      if (owners.get(key) === id) return;
+      if (!owners.has(key)) {
+        owners.set(key, id); trace.push({ id, event: 'acquired', key });
+        if (id === 'execute' && firstKey === undefined) { firstKey = key; firstAcquired(); await firstGate; }
+        return;
+      }
+      const owner = owners.get(key); trace.push({ id, event: 'waiting', key, owner }); waits.set(id, owner);
+      if (id === 'cancel') cancelWaiting();
+      if (waits.get(owner) === id) { trace.push({ event: 'cycle', id, owner }); throw Object.assign(new Error('controlled lock graph cycle'), { code: 'SOURCE_MODEL_DEADLOCK' }); }
+      await new Promise(resolve => { const entries = queue.get(key) || []; entries.push({ id, resolve }); queue.set(key, entries); });
+      waits.delete(id);
+    }
+    function release (id) {
+      waits.delete(id);
+      for (const [key, owner] of owners) if (owner === id) {
+        const next = (queue.get(key) || []).shift();
+        if (next) { owners.set(key, next.id); next.resolve(); } else owners.delete(key);
+      }
+    }
+    const principal = { principal: 'model_operator', consumer: 'model_core', plane: 'operator' };
+    const authorize = currentAuthority({ namespace: 'model_policy', ...principal });
+    const ceremony = createCeremony({ authorize, namespaceOf: mapping => mapping.ledger, timestamp: () => 2,
+      verifyDurableArtifact: async () => ({ tenant: A, verified: true, digest: artifact.digest }), executionWindow: async () => ({ tenant: A, current: true, quiesced: true }),
+      verifyRows: async () => [], eraseRows: async () => { throw Object.assign(new Error('controlled destructive rollback'), { code: 'SOURCE_EXEC_INTERRUPT' }); } });
+    const connection = id => ({
+      transaction: async fn => { try { return await fn(); } finally { release(id); } },
+      query: async text => {
+        assert.equal(tenantScope.requireTenant('controlled ceremony query'), A);
+        if (text.includes('reviewed-relation-inventory')) return { rows: ['schema_migrations','tenant_lifecycle_requests','tenant_lifecycle_ceremony'].map(name => ({ name, kind: 'r', partition: false, inherited: false })) };
+        if (text.includes('SELECT name, checksum')) return { rows: validateCatalogue(ledgerCandidate).map(({ name, checksum }) => ({ name, checksum })) };
+        if (text.includes('pg_advisory_xact_lock')) { await acquire(id, 'policy'); return { rows: [] }; }
+        if (text.includes('SELECT generation, policy')) return { rows: [{ generation: 1, policy: { wholeCFixtureActors: [{ ...principal, active: true, actions: ['execute','cancel'] }] } }] };
+        if (text.includes('tenant_lifecycle_requests')) { await acquire(id, 'request'); return { rows: [{ request_id: requestId, tenant_id: A, phase: 'requested', artifact_digest: artifact.digest }] }; }
+        if (text.includes('tenant_lifecycle_ceremony')) { await acquire(id, 'ceremony'); return { rows: [{ phase: 'executing', claim_id: claimId, started_at: '1', confirmed_at: '1' }] }; }
+        throw new Error('unexpected controlled query');
+      }
+    });
+    const args = { tenant: A, ledgerNamespace: 'model_lifecycle', artifact, requestId, claimId };
+    const execute = ceremony.executeDeletion(connection('execute'), args).then(() => 'unexpected-success', error => error.code);
+    await first;
+    const cancel = ceremony.cancelDeletion(connection('cancel'), args).then(() => 'unexpected-success', error => error.code);
+    await waiting; releaseFirst();
+    const outcomes = await Promise.all([execute, cancel]);
+    console.log('CEREMONY_LOCK_ORDER_SOURCE', JSON.stringify({ scope: 'actual component/SQL adapter with controlled lock model, not PostgreSQL', trace, outcomes }));
+    assert.equal(trace.some(event => event.event === 'cycle'), false, 'execute and cancel must not create policy/request inversion');
+    assert.equal(firstKey, 'policy');
+    assert.deepEqual(outcomes, ['SOURCE_EXEC_INTERRUPT', 'LIFECYCLE_EXECUTION_STARTED']);
+  });
+
   it('refuses ordinary inheritance participation even when descendant is outside selected namespaces', async function () {
     const source = recordingConnection(); source.addInheritance(namespaces.entries, 'entries');
     let artifact, exportFailure, eraseFailure;

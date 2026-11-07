@@ -91,5 +91,14 @@
     "after": "",
     "assertion": "WHOLE_C_INHERITANCE_EXPORT_REFUSED",
     "physical": "actual parent projection omits outside-descendant extra column; parent DELETE removes descendantA and its extra data while foreignB remains"
+  },
+  {
+    "id": "execute-cancel-lock-order",
+    "phase": "C5",
+    "path": "lib/tenant-lifecycle/ceremony.js",
+    "before": "      // Same global order as confirm/cancel/claim: current authority fence,\n      // parent request, then ceremony. Later checks retain this same-tx fence.\n      await authority(connection, options, 'execute');",
+    "after": "      /* controlled execute row-before-policy inversion */",
+    "assertion": "WHOLE_C_EXECUTE_CANCEL_NO_DEADLOCK",
+    "physical": "actual execute/cancel lock contention barriers and PostgreSQL40P01 under inversion, with separately committed claim and clinical rows retained after rollback"
   }
 ]

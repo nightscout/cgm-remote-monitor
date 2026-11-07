@@ -465,6 +465,41 @@ async function run (config, selected = 'all') {
         assert.equal(outcomes[1].code, claimFirst ? 'LIFECYCLE_EXECUTION_STARTED' : 'LIFECYCLE_REQUEST_CANCELLED');
         return { options, claim: claimFirst ? outcomes[0].value : null, rows };
       }
+      async function executeCancelRace (state, claimed, executeFirst) {
+        const { cohort, ports, operator, owner } = state;
+        await admin.query('BEGIN');
+        await admin.query('SELECT request_id FROM ' + q(cohort.ns.lifecycle) + '.tenant_lifecycle_requests WHERE request_id=$1 FOR UPDATE', [claimed.options.requestId]);
+        const pending = [], barriers = [];
+        const launch = execute => {
+          const operation = execute ? operator.executeDeletion(ports.operator, { ...claimed.options, claimId: claimed.claim.claimId,
+            onRow: () => { throw Object.assign(new Error('owned concurrent execution rollback'), { code: 'WHOLE_C_EXEC_CANCEL_INTERRUPT' }); } }) : owner.cancelDeletion(ports.owner, claimed.options);
+          pending.push(operation.then(value => ({ execute, ok: true, value }), error => ({ execute, ok: false, codes: codes(error) })));
+        };
+        const waitFor = async name => {
+          for (let i = 0; i < 200; i++) {
+            const rows = (await observer.query("SELECT pid,application_name,wait_event_type,wait_event,pg_blocking_pids(pid) AS blockers FROM pg_stat_activity WHERE application_name=$1 AND wait_event_type='Lock'", [cohort.prefix + '_' + name])).rows;
+            if (rows.length) { barriers.push(...rows); emit('C5-execute-cancel-real-barrier', { executeFirst, rows }); return; }
+            await new Promise(resolve => setTimeout(resolve, 10));
+          }
+          throw new Error('WHOLE_C_EXEC_CANCEL_BARRIER_TIMEOUT');
+        };
+        try { launch(executeFirst); await waitFor(executeFirst ? 'operator' : 'owner'); launch(!executeFirst); await waitFor(executeFirst ? 'owner' : 'operator'); }
+        finally { await admin.query('COMMIT'); }
+        let settled = false;
+        const completion = Promise.all(pending).then(value => { settled = true; return value; });
+        const graphs = [];
+        while (!settled) {
+          const rows = (await observer.query("SELECT pid,application_name,wait_event_type,pg_blocking_pids(pid) AS blockers FROM pg_stat_activity WHERE application_name=ANY($1::text[])", [[cohort.prefix + '_operator', cohort.prefix + '_owner']])).rows;
+          graphs.push(rows); if (!settled) await new Promise(resolve => setTimeout(resolve, 10));
+        }
+        const outcomes = await completion;
+        const after = await physical('C5-execute-cancel-after-before-verdict', cohort.admission);
+        emit('C5-execute-cancel-outcomes-before-verdict', { executeFirst, barriers, graphs, outcomes });
+        assert.ok(outcomes.every(outcome => !outcome.codes?.includes('40P01')), 'WHOLE_C_EXECUTE_CANCEL_NO_DEADLOCK');
+        assert.deepEqual(outcomes.find(outcome => outcome.execute).codes, ['WHOLE_C_EXEC_CANCEL_INTERRUPT'], 'WHOLE_C_EXECUTE_CANCEL_EXPECTED_EXECUTION_ROLLBACK');
+        assert.deepEqual(outcomes.find(outcome => !outcome.execute).codes, ['LIFECYCLE_EXECUTION_STARTED'], 'WHOLE_C_EXECUTE_CANCEL_CANCELLATION_CLOSED');
+        oracle.sameRows(claimed.rows, after);
+      }
       const state = await fixture();
       try {
         // Ordinary inheritance is not a partition and can cross the selected
@@ -561,6 +596,8 @@ async function run (config, selected = 'all') {
         await expectedFailure(() => state.operator.claimDeletion(state.ports.operator, { ...state.args, tenant: B, artifact: foreignArtifact, requestId: request.requestId }), 'LIFECYCLE_REQUEST_MISSING', 'actual-foreign-request-RLS', () => physical('C5-foreign-request-before-verdict', state.cohort.admission));
         await race(state, false);
         const claimed = await race(state, true);
+        await executeCancelRace(state, claimed, true);
+        await executeCancelRace(state, claimed, false);
         await assert.rejects(state.operator.executeDeletion(state.ports.operator, { ...claimed.options, claimId: claimed.claim.claimId,
           onRow: () => { throw Object.assign(new Error('owned delete interruption'), { code: 'WHOLE_C_DELETE_INTERRUPT' }); } }), { code: 'WHOLE_C_DELETE_INTERRUPT' });
         oracle.sameRows(claimed.rows, await physical('C5-destructive-rollback-before-verdict', state.cohort.admission));

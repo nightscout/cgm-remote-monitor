@@ -17,7 +17,7 @@ symlinks/install/write to that copy. Exact source, control patches, stdout/stder
 raw observations, process identities, cleanup and hashes are retained. A mismatch
 stops dependent stages; failed attempts stay immutable. An unmodified all-case invocation reserves at most214schemas and creates108roles
 (three C5 writer births plus probe/observer =5Node births); all stages comprise
-22invocations on the same explicitly parent-owned PG resource. Cleanup is checked
+24invocations on the same explicitly parent-owned PG resource. Cleanup is checked
 after every invocation. These are fixture bounds, not capacity measurements.
 Ten causal controls in
 `controls.json` must produce the named assertion **and** physical symptom; setup,
@@ -199,7 +199,7 @@ extra field and actual descendant-A deletion with foreign B unchanged. Other
 relation/ledger controls retain the inheritance predicate so an earlier guard does
 not mask their own causal witness. The fixture then removes only its owned child
 and namespace. No extra service, role or Node birth; maximum registered namespaces
-becomes214 and ten control pairs make22total invocations.
+becomes214 and eleven control pairs make24total invocations.
 
 The optional private CACHE8/two-session research probe remains in this SAME C5
 cohort, disabled by omission and separately reviewable. It changes no application
@@ -210,3 +210,21 @@ remain UNMEASURED.
 Source mechanisms are documented in the [PostgreSQL16 inheritance manual](https://www.postgresql.org/docs/16/ddl-inherit.html)
 and [CREATE TABLE inheritance/identity description](https://www.postgresql.org/docs/16/sql-createtable.html).
 These support the predicted semantics; they are not a substitute for native results.
+
+
+Execute, confirm, cancel and claim acquire current authority (including the
+same-transaction policy fence) before the parent request and ceremony locks.
+Execution retains later current-authority checks before destructive effects. A
+source concurrency control using the actual ceremony and SQL authority adapter
+reproduces a policy/request cycle when only the first execute authority check is
+removed; its SOURCE_MODEL_DEADLOCK is a controlled model result, not PostgreSQL
+40P01. Restoring the check removes that cycle and preserves the durable claim
+across destructive rollback.
+
+The same C5 fixture prepares an already committed executing claim, holds the
+parent request on an independent connection, and starts execute/cancel in both
+orders. Raw pg_stat_activity barriers and blocker graphs precede verdicts. The
+expected deliberate destructive interruption rolls back every row; cancellation
+refuses because execution has started. The native lock-order ablation must expose
+actual 40P01 with both contention barriers. Setup failure, timeout, or source-model
+cycles cannot qualify. Native execution of this expanded control is UNMEASURED.

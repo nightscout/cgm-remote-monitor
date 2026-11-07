@@ -125,6 +125,9 @@ def physical_control(control, events):
         effect = by_phase('C5-inheritance-effects-before-verdict')[-1]
         tenant = '11111111-1111-4111-8111-111111111111'
         return effect['exportAccepted'] and effect['extraOmitted'] and any(row['tenant_id'] == tenant and row.get('descendant_only') for row in effect['childBefore']) and not any(row['tenant_id'] == tenant for row in effect['childAfter']) and effect['eraseCodes'] == [] and [row for row in effect['childBefore'] if row['tenant_id'] != tenant] == [row for row in effect['childAfter'] if row['tenant_id'] != tenant]
+    if cid == 'execute-cancel-lock-order':
+        values = by_phase('C5-execute-cancel-outcomes-before-verdict')
+        return any(value['executeFirst'] and len(value['barriers']) >= 2 and any('40P01' in row.get('codes', []) for row in value['outcomes']) for value in values)
     if cid == 'running-writer-window':
         proof = by_phase('C5-live-writer-physical-before-verdict')[-1]
         observation = by_phase('C5-live-writer-observation')[-1]
