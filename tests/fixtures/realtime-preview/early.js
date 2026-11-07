@@ -38,6 +38,19 @@ async function uds (input) {
       assert.deepEqual(stat(file), before, 'UDS_FOREIGN_PATH_REFUSAL leaves preexisting owned test object untouched');
       events.push({ kind, before, after: stat(file), refused: true }); write();
     }
+    // Controlled same-UID test replacement exactly between publication and
+    // lstat: never a real foreign endpoint, never suppress a mismatched inode.
+    const raced = path.join(directory, 'raced.sock'), standby = path.join(directory, 'standby.sock');
+    await server(standby); const replacementBefore = stat(standby), originalLink = fs.linkSync;
+    fs.linkSync = function (from, to) {
+      originalLink(from, to);
+      if (to === raced) { fs.renameSync(to, path.join(directory, 'published-backup.sock')); fs.renameSync(standby, to); }
+    };
+    try { await assert.rejects(ipc.open(options(raced), () => ({ '/authorize': async () => ({ ok: true }) })), /OWNERSHIP_REFUSED/); }
+    finally { fs.linkSync = originalLink; }
+    const replacementAfter = fs.existsSync(raced) ? stat(raced) : null;
+    events.push({ kind: 'post-link-replacement', before: replacementBefore, after: replacementAfter }); write();
+    assert.deepEqual(replacementAfter, replacementBefore, 'UDS_POST_LINK_OWNERSHIP failed publication must not adopt or unlink replacement');
     const file = path.join(directory, 'api.sock');
     channel = await ipc.open(options(file), () => ({ '/authorize': async () => ({ ok: true }) }));
     const before = stat(file); const internal = fs.readdirSync(directory).filter(name => name.startsWith('.ns-')).map(name => ({ path: path.join(directory, name), ...stat(path.join(directory, name)) })); const reply = await ipc.client(options(file))('/authorize', {});
