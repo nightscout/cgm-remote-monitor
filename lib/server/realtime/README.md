@@ -46,9 +46,11 @@ operator DATA surfaces. Cleanup is limited to the owned socket; no stale unlink.
 Main connections receive full `dataUpdate` frames (`delta:false`) so absent SGVs
 replace browser state. Reconciliation runs on boot, reconnect and the explicit
 independent backstop; connected `/storage` subscribers receive normalized typed
-identity changes in tenant/namespace/collection rooms. **Arbitrary offline
-/storage hard-delete recovery remains unresolved:** its existing subscribe packet
-contains no known IDs/cursor/reset. No new reset or journal is invented here.
+identity changes in tenant/namespace/collection rooms. The inherited /storage subscribe packet contains no known IDs/cursor/reset;
+arbitrary offline client-cache deletion is not a promised socket recovery
+contract. Actual single subscribe has the same limitation. No new reset or
+journal is invented here. Role projection recovery and connected diffs remain
+required. Pinned client reconnect REST behavior is characterized separately.
 ObjectId/string twins have separate internal identities but the inherited
 normalized delete wire identifier can coincide; client behavior needs native
 characterization. Profile first/retry natural-order parity also remains
@@ -62,9 +64,10 @@ reply/storage retry parity separately; do not claim a single main-ack baseline.
 `alarm-transport.createAdapter` implements
 `send({tenant,id,attempt,notification,receipts,signal}, callback)`. The durable ID
 and serialized notification pass unchanged. The sink rechecks current socket
-rights and emits the existing event. Acceptance and receipts mean server handoff,
-not device delivery; uncertain replies can repeat. Clear confirms only retained
-realtime handoff refs shaped `{request_id,receipt}`. The root's joined outbox
+rights and emits the existing event. Acceptance means server handoff,
+not device delivery; uncertain replies can repeat. The callback returns `{accepted:true,receipt:null,clearedRequestIds:[]}`;
+there is no provider receipt cancellation API. Clear broadcasts the unchanged
+event under current rights. The root's joined outbox
 composition must preserve realtime repeat cadence rather than applying push
 provider repeat windows. No native socket, database, browser or provider result
 is implied by source protocol tests.

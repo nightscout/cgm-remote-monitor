@@ -224,15 +224,43 @@ describe('explicit realtime preview source contracts', function () {
       const id = '33333333-3333-4333-8333-333333333333';
       const body = { tenant: A, id, attempt: 1, notification, receipts: [] };
       const accepted = await ops['/alarm']({ transport: token }, body);
-      assert.equal(accepted.accepted, true); assert.equal(accepted.receipt.id, id);
+      assert.equal(accepted.accepted, true); assert.equal(accepted.receipt, null);
       assert.deepEqual(socket.sent.find(item => item.event === 'urgent_alarm').value, notification);
       const clear = await ops['/alarm']({ transport: token }, { ...body, notification: { clear: true },
-        receipts: [{ request_id: id, receipt: accepted.receipt }, { request_id: B, receipt: { kind: 'other', id: B } }] });
-      assert.deepEqual(clear.clearedRequestIds, [id], 'RT_CLEAR_RECEIPTS only owned handoff receipts are released');
+        receipts: [{ request_id: id, receipt: { kind: 'legacy-realtime', id } }, { request_id: B, receipt: { kind: 'other', id: B } }] });
+      assert.deepEqual(clear.clearedRequestIds, [], 'RT_NO_PROVIDER_RECEIPT socket clear never manufactures provider cancellation');
       f.state.allowed = false; socket.sent.length = 0;
       await ops['/alarm']({ transport: token }, body);
       assert.equal(socket.sent.length, 0, 'RT_ALARM_CURRENT_AUTHORITY revocation stops protected alarm delivery');
     } finally { await f.close(); }
+  });
+  it('matches actual single storage subscribe without inventing offline cursor or replay', async function () {
+    const single = new (require('../lib/api3/storageSocket'))({ get: () => ['entries', 'treatments'] }, {}, {
+      authorization: { resolveAccessToken: (token, cb) => cb(null, { shiros: [] }), checkMultiple: () => true } });
+    const old = new Socket('a.test'); let oldReply;
+    single.subscribe(old, { accessToken: 'synthetic', collections: ['entries'] }, value => { oldReply = value; });
+    assert.deepEqual(oldReply, { success: true, collections: ['entries'] });
+    assert.deepEqual(old.sent, [], 'RT_STORAGE_BASELINE no subscribe data replay or reset exists');
+    const f = await fixture();
+    try {
+      const now = await f.socket('a.test', '/storage'); let reply;
+      await now.receive('subscribe', { accessToken: 'synthetic', collections: ['entries'] }, value => { reply = value; });
+      assert.deepEqual(reply, oldReply);
+      assert.deepEqual(now.sent, [], 'RT_STORAGE_BASELINE matching subscribe does not invent reset/replay');
+      f.state.rows = []; await f.schedule.callback();
+      assert.equal(now.sent.filter(row => row.event === 'delete').length, 1, 'RT_STORAGE_CONNECTED_LOSS connected absence still emits delete');
+    } finally { await f.close(); }
+  });
+  it('classifies normalized typed twin ambiguity against actual single normalization and broadcaster', function () {
+    const normalize = require('../lib/api3/storage/mongoCollection/utils').normalizeDoc;
+    const { ObjectId } = require('mongodb'), id = '0123456789abcdef01234567';
+    const first = { _id: new ObjectId(id) }, second = { _id: id }; normalize(first); normalize(second);
+    assert.deepEqual(first, second, 'RT_TYPED_WIRE_BASELINE actual normalization collapses the wire identifiers');
+    const single = new (require('../lib/api3/storageSocket'))({}, {}, {}); const sent = [];
+    single.namespace = { to: collection => ({ emit: (event, value) => sent.push({ collection, event, value }) }) };
+    single.emitDelete({ colName: 'entries', identifier: first.identifier });
+    const changes = protocolFactory.storageChanges([{ domain: 'entries', document: { _id: new ObjectId(id) } }], []);
+    assert.deepEqual(changes[0].value, sent[0].value, 'RT_TYPED_WIRE_BASELINE actual single broadcaster has the same delete wire');
   });
   it('storage changes use existing normalized wire shapes and include connected typed identity absence', function () {
     const { ObjectId } = require('mongodb'); const id = '0123456789abcdef01234567';
