@@ -277,7 +277,10 @@ optInSuite(process.env.NS_M5_CURRENT_STATE_PROOF_TEST === '1' && !!process.env.N
       await lab.wait(async () => {
         if (cli.child.exitCode !== null || cli.child.signalCode !== null) throw new Error('Evaluator CLI exited before acquisition');
         const checkpoint = await lab.previewCheckpoint(lab.A);
-        return checkpoint.projection?.length === 1 && checkpoint.projection[0].domain === 'activity';
+        // Input projection COMMIT can precede the actual CLI startup log. Wait
+        // for both before inspecting readiness or sending shutdown signals.
+        return checkpoint.projection?.length === 1 && checkpoint.projection[0].domain === 'activity' &&
+          /Evaluator preview started/.test(cli.logs().stdout);
       });
       const afterRestart = await lab.previewPhysical();
       lab.tracePreview('preview-cli-restart', { beforeRestart, afterRestart, logs: cli.logs(), removed, activity });
