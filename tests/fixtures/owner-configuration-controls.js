@@ -79,7 +79,7 @@ Module._extensions['.js'] = function (loaded, filename) {
 const http = require('node:http');
 const end = http.ServerResponse.prototype.end;
 http.ServerResponse.prototype.end = function (...args) {
-  if (this.req.method === 'GET' && /^\/api\/v1\/status(?:[/.]|$)/.test(this.req.url) &&
+  if (this.req.method === 'GET' && /^\/api\/v1\/status(?:[/.]|$)/.test(this.req.originalUrl || this.req.url) &&
       this.req.headers['x-owner-configuration-hold'] === '1' && process.env.NS_OWNER_CONFIGURATION_STATUS_BARRIER) {
     hold('status').then(() => end.apply(this, args)).catch(error => this.destroy(error));
     return this;
