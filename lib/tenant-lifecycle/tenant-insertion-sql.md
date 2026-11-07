@@ -46,6 +46,14 @@ fixed v1 statement contract must remain immutable; future conversion changes nee
 a new reviewed operation version and append-only migration, not a changed applied
 checksum. Old SQL/checksum prefixes remain bytewise identical as migration data.
 
+A separate append-only `tenant-insertion-binding-v1` operation changes the binding
+refusal to SQLSTATE 42501, matching existing RLS refusal behavior. It stores and
+pins the full CREATE OR REPLACE FUNCTION SQL without modifying the conversion's
+already-committed bytes/checksum. `bindingCorrectionUp(options)` exposes that
+operation; `effectiveFunctionBody(options)` exposes the final body for readiness.
+`operationTables` returns no new relation for the corrective operation. The
+original `build().up` remains the immutable initial conversion plan.
+
 The conversion is operator-only. Serving still performs read-only catalogue
 checks, never schema migration. Older binaries with the prior catalogue refuse
 the new ledger entry as unknown instead of accepting the converted schema.

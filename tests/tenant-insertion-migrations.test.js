@@ -11,6 +11,13 @@ const PREFIX = {
   devicestatus: [2, '139bcd14c75841267e8c6c46cb9bed15a563b4e8163b6f4e5d4faa0555193655'],
   profile: [2, '919166cd5fdfa5608e4a178766b1cf2e6f1c101cd24bededc59d02a1d88853d0']
 };
+const CONVERSION_PREFIX = {
+  entries: '4425dcf6a570194ca8c47717ebbb086357a34e35fae744083bb7e4c34b71f9a9',
+  food: 'e7e3f1750325c449cfa8a52953217e78b591a8ae1594df779c6be0d20f5b3e27',
+  treatments: '0ae7b112d1d63e2c0d16a7dc079e69bbc75c24814ca7ff9626a8d9739d3d1744',
+  devicestatus: '5b5ddb36ae11a4aeead56c1b81bcb3248fd61e3461910153cbc7e68a9be40c9f',
+  profile: '1392378ac0e969f8dbd0f4787d1e1525af0e703d61abfbe2dea7e87f67ca80e2'
+};
 const CANDIDATES = {
   entries: require('../migrations/candidates/postgres-entries-v1.json'),
   food: require('../migrations/candidates/postgres-food-v1.json'),
@@ -28,8 +35,8 @@ describe('reviewed tenant-local insertion migration operation', function () {
       const source = candidate(domain), [count, hash] = PREFIX[domain];
       const prefix = source.migrations.slice(0, count);
       assert.equal(crypto.createHash('sha256').update(JSON.stringify(prefix)).digest('hex'), hash);
-      assert.equal(source.migrations.length, count + 1);
-      const reviewed = validateCatalogue(source), migration = reviewed.at(-1);
+      assert.equal(source.migrations.length, count + 2);
+      const reviewed = validateCatalogue(source), migration = reviewed.at(-2);
       assert.deepEqual(migration.operation, { kind: 'tenant-insertion-v1', domain });
       assert.deepEqual(operationTables(migration), ['tenant_insertion_ordinal', domain]);
       assert.deepEqual(migration.up, builder.build({ namespace: INSERTION_NAMESPACE, domain }).up);
@@ -39,27 +46,39 @@ describe('reviewed tenant-local insertion migration operation', function () {
       assert(Object.isFrozen(migration.operation) && Object.isFrozen(sql));
     });
   }
+  it('appends the binding SQLSTATE correction without changing the conversion plan', function () {
+    for (const domain of builder.DOMAINS) {
+      const source = candidate(domain);
+      assert.equal(crypto.createHash('sha256').update(JSON.stringify(source.migrations.slice(0,-1))).digest('hex'), CONVERSION_PREFIX[domain]);
+      const migration = validateCatalogue(source).at(-1);
+      assert.deepEqual(migration.operation, { kind: 'tenant-insertion-binding-v1', domain });
+      assert.deepEqual(operationTables(migration), []);
+      assert.deepEqual(renderMigration(migration, 'actual_'+domain), builder.bindingCorrectionUp({namespace:'actual_'+domain,domain}));
+      assert.match(builder.effectiveFunctionBody({namespace:'actual_'+domain,domain}), /BINDING_REQUIRED' USING ERRCODE='42501'/);
+      assert.doesNotMatch(builder.build({namespace:INSERTION_NAMESPACE,domain}).up.join('\n'), /BINDING_REQUIRED' USING ERRCODE/);
+    }
+  });
   it('takes immutable typed metadata and SQL snapshots', function () {
-    const source = clone(candidate('entries')), result = validateCatalogue(source), operation = result.at(-1).operation;
-    source.migrations.at(-1).operation.domain = 'food'; source.migrations.at(-1).up[0] = 'COMMIT';
-    assert.equal(operation.domain, 'entries'); assert(result.at(-1).up[0].startsWith('LOCK TABLE'));
+    const source = clone(candidate('entries')), result = validateCatalogue(source), operation = result.at(-2).operation;
+    source.migrations.at(-2).operation.domain = 'food'; source.migrations.at(-2).up[0] = 'COMMIT';
+    assert.equal(operation.domain, 'entries'); assert(result.at(-2).up[0].startsWith('LOCK TABLE'));
   });
   it('refuses altered typed SQL even with a recomputed catalogue checksum', function () {
-    const source = clone(candidate('entries')), migration = source.migrations.at(-1);
+    const source = clone(candidate('entries')), migration = source.migrations.at(-2);
     migration.up[1] = 'SET LOCAL row_security = on'; migration.checksum = checksum(migration.up);
     assert.throws(() => validateCatalogue(source), errorCode('MIG_OPERATION_SQL'));
   });
   it('refuses arbitrary operation kinds, domains, extra metadata and untyped controls', function () {
     for (const operation of [{ kind: 'run-sql', domain: 'entries' }, { kind: 'tenant-insertion-v1', domain: 'activity' },
       { kind: 'tenant-insertion-v1', domain: 'entries', namespace: 'untrusted' }, null, []]) {
-      const source = clone(candidate('entries')); source.migrations.at(-1).operation = operation;
+      const source = clone(candidate('entries')); source.migrations.at(-2).operation = operation;
       assert.throws(() => validateCatalogue(source), errorCode('MIG_OPERATION'));
     }
-    const source = clone(candidate('entries')); delete source.migrations.at(-1).operation;
+    const source = clone(candidate('entries')); delete source.migrations.at(-2).operation;
     assert.throws(() => validateCatalogue(source), errorCode('MIG_CATALOGUE'));
   });
   it('refuses unsafe namespaces and preserves ordinary SQL bytes without rendering', function () {
-    const migration = validateCatalogue(candidate('entries')).at(-1);
+    const migration = validateCatalogue(candidate('entries')).at(-2);
     for (const namespace of ['public', 'pg_temp', 'information_schema', 'x";COMMIT', 'a.b', undefined]) {
       assert.throws(() => renderMigration(migration, namespace), errorCode('MIG_NAMESPACE'));
     }

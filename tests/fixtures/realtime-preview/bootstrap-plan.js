@@ -45,6 +45,7 @@ function resetPlan (layout, catalogues, reset=resetTables()) {
     for (const migration of catalogue.migrations) {
       if (migration.operation !== undefined) {
         const reviewed = operationTables(migration);
+        if (!reviewed.length) continue;
         if (reviewed.length !== 2 || reviewed[1] !== domain || !names.has(domain) || names.has(reviewed[0])) refuse('JOINED_BOOTSTRAP_RESET_OPERATION');
         names.add(reviewed[0]);
         continue;
