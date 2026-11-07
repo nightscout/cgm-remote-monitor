@@ -183,8 +183,8 @@ describe('Selected lower-port window cannot be omitted (source protocol)', funct
     return output.exports;
   }
   it('rejects a transaction-pooler identity instead of adopting SQL labels', async function () {
-    const f = fixture({sqlPid:456}), lower = lowerModule(f);
-    await f.window.ready(); const release = lower.installOperationWindow(f.window);
+    const options={}, f = fixture(options), lower = lowerModule(f);
+    await f.window.ready(); options.sqlPid=456; const release = lower.installOperationWindow(f.window);
     try { await assert.rejects(lower({connectionString:'postgresql://synthetic/disposable_test'}), {code:'POSTGRES_COHORT_BACKEND_IDENTITY'}); }
     finally { release(); await f.window.close(); }
   });
