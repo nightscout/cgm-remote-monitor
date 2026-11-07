@@ -1,4 +1,5 @@
 'use strict';
+// covers: tests/fixtures/realtime-preview/consumer-oracles.js
 const assert=require('node:assert/strict'),oracle=require('./fixtures/realtime-preview/consumer-oracles');
 describe('actual consumer driver physical oracles (synthetic source vectors)',function(){
   const payload={level:2,group:'default',message:'Synthetic low'},row={tenant_id:'synthetic-tenant',request_id:'request-original',state:'attempting',attempt:1,payload,
