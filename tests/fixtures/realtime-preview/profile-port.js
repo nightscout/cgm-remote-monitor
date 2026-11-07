@@ -11,12 +11,16 @@ module.exports = async function profilePort ({ env, config }) {
   const connection = await require('../../../lib/storage/postgres-connection')({ connectionString: env.NS_RT_PROFILE_WRITER_URI,
     max: 2, connectionTimeoutMillis: config.timeoutMs, statement_timeout: config.timeoutMs });
   try {
-    await require('../../../lib/migrations/postgres').run('check', { direct: true, connectionString: env.NS_RT_PROFILE_WRITER_URI,
+    if (config.profileOrderCatalogue === undefined) await require('../../../lib/migrations/postgres').run('check', { direct: true, connectionString: env.NS_RT_PROFILE_WRITER_URI,
       namespace: config.profileNamespace, catalogue: require('../../../migrations/candidates/postgres-profile-v1.json') });
     const fixture = require('../socket-forwarding/recording-context').context();
     const events = [], bus = fixture.ctx.bus;
     for (const name of ['data-update', 'data-received']) bus.on(name, event => events.push({ name, event }));
-    const port = require('../../../lib/server/serve/postgres-domains').get('profile').factory({ connection,
+    if (config.profileOrderCatalogue !== undefined) assert.equal(config.profileOrderCatalogue, 'socket-order-v1');
+    const port = config.profileOrderCatalogue === 'socket-order-v1'
+      ? await require('../../../lib/server/tenant-socket-order-port')({ readinessConnectionString: env.NS_RT_PROFILE_WRITER_URI,
+        namespace: config.profileNamespace, connection, logical: 'profile', env: fixture.env, bus })
+      : require('../../../lib/server/serve/postgres-domains').get('profile').factory({ connection,
       table: config.profileNamespace + '.profile', bus, env: fixture.env, source: 'socket' });
     const ctx = { ...fixture.ctx, store: { collection: () => { throw new Error('EARLY_PROFILE_MONGO_FALLBACK_FORBIDDEN'); } },
       storagePorts: { resolve ({ logical, source }) { assert.equal(logical, 'profile'); assert.equal(source, 'socket'); return port; } } };
