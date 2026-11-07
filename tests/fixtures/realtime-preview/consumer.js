@@ -5,7 +5,7 @@ const fs = require('node:fs'), path = require('node:path'), assert = require('no
 module.exports = async function consumer (input) {
   const roles = await require('./roles').start(input), config = roles.config, sockets = [], events = [], attempts = [], observations = {};
   const { Client } = require('pg'), admin = new Client({ connectionString: input.env.NS_TEST_POSTGRES_ADMIN_URI });
-  let connected = false, relay, directory, runtimeDirectory, dropped = false, staleGrants;
+  let connected = false, relay, directory, runtimeDirectory, dropped = false, staleGrants, cold;
   const table = name => { assert.match(name, /^[a-z][a-z0-9_]{0,62}$/); return '"' + name + '"'; };
   const record = (extra = {}) => {
     Object.assign(observations, extra);
@@ -39,13 +39,14 @@ module.exports = async function consumer (input) {
     const deliver = ipc.client({ socketPath: config.alarmSocketPath, maxBytes: config.maxMessageBytes, timeoutMs: config.timeoutMs });
     relay = await ipc.open({ socketPath, maxBytes: config.maxMessageBytes, timeoutMs: config.timeoutMs }, token => ({
       async '/alarm' (request, body) {
-        assert.equal(request.transport, token); assert.equal(body.tenant, config.tenant);
-        const result = await deliver('/alarm', body); attempts.push({ id: body.id, attempt: body.attempt, notification: body.notification, result }); record();
-        if (!dropped && !body.notification.clear) { dropped = true; throw new Error('INTENTIONAL_UNCERTAIN_RESPONSE_AFTER_HANDOFF'); }
+        assert.equal(request.transport, token);
+        assert([roles.owned.tenant, roles.owned.foreignTenant].includes(body.tenant), 'handoff must belong to an attested fixture tenant');
+        const result = await deliver('/alarm', body); attempts.push({ tenant: body.tenant, id: body.id, attempt: body.attempt, notification: body.notification, result }); record();
+        if (!dropped && body.tenant === config.tenant && !body.notification.clear) { dropped = true; throw new Error('INTENTIONAL_UNCERTAIN_RESPONSE_AFTER_HANDOFF'); }
         return result;
       }
     }));
-    await roles.startEvaluator({ alarmRoutePath: socketPath });
+    const warm = await roles.startEvaluator({ alarmRoutePath: socketPath });
     const requests = table(config.outboxNamespace) + '.tenant_notification_requests';
     const accepted = await wait(async () => {
       const rows = (await admin.query('SELECT request_id,consumer,payload,state,attempt,receipt FROM ' + requests + ' WHERE tenant_id=$1 AND consumer=$2', [config.tenant, config.consumerId])).rows;
@@ -59,14 +60,27 @@ module.exports = async function consumer (input) {
     assert.equal(events.some(row => row.recipient === 'stale' && row.kind === 'urgent_alarm'), false, 'CONSUMER_STALE_RECIPIENT no protected alarm');
     assert(events.some(row => row.recipient === 'current' && row.kind === 'urgent_alarm'), 'CONSUMER_VALID_RECIPIENT actual sparse failure must not block valid socket');
     assert.equal(accepted.receipt, null, 'RT_HANDOFF_NOT_DEVICE_RECEIPT');
+    cold = await require('./cold-acquisition')({ input, roles, admin, warm, alarmRoutePath: socketPath, record, wait, sockets });
+    const beforeAckIds = new Set((await admin.query('SELECT request_id FROM ' + requests + ' WHERE tenant_id=$1 AND consumer=$2', [config.tenant, config.consumerId])).rows.map(row => row.request_id));
+    const beforeAckClearEvents = events.filter(row => row.recipient === 'current' && row.kind === 'clear_alarm').length;
+    record({ beforeAckRequestIds: [...beforeAckIds], beforeAckClearEvents });
     // API durable ACK on actual /alarm; observable suppression/cascade is a
     // separate persisted state, never a clinical checkpoint/request identity.
+    const ackStartedAt = Date.now();
     await new Promise((resolve, reject) => { const timer = setTimeout(() => reject(new Error('CONSUMER_ACK_NOACK')), config.timeoutMs);
       good.emit('ack', 2, accepted.payload.group || 'default', config.snoozeMs, () => { clearTimeout(timer); resolve(); }); });
     assert.equal(roles.owned.alarmNamespace, config.alarmNamespace);
     const suppressed = (await admin.query('SELECT alarm_group,alarm_level,acked_at,expires_at FROM ' + table(config.alarmNamespace) +
       '.tenant_alarm_suppression WHERE tenant_id=$1 AND alarm_group=$2', [config.tenant, accepted.payload.group || 'default'])).rows;
     record({ accepted, suppressed });
+    const clear = await wait(async () => {
+      const rows = (await admin.query('SELECT request_id,consumer,payload,state,attempt,receipt FROM ' + requests + ' WHERE tenant_id=$1 AND consumer=$2', [config.tenant, config.consumerId])).rows;
+      record({ coldAfterAckRequests: rows }); return rows.find(row => !beforeAckIds.has(row.request_id) && row.state === 'accepted' && row.payload.clear);
+    }, 'CONSUMER_COLD_ACK_CLEAR_NOT_ACCEPTED');
+    await wait(() => events.filter(row => row.recipient === 'current' && row.kind === 'clear_alarm').length > beforeAckClearEvents, 'CONSUMER_COLD_ACK_CLEAR_NOT_DELIVERED');
+    const coldAfterAck = await wait(() => cold.observe(ackStartedAt), 'CONSUMER_COLD_POST_ACK_OBSERVATION_REQUIRED'); record({ coldClear: clear, coldAfterAck });
+    assert(coldAfterAck, 'CONSUMER_COLD_CLEAR_CLINICAL_STILL_REFUSED_LAST_NULL');
+    assert.equal(clear.receipt, null);
     assert.deepEqual(suppressed.map(row => row.alarm_level).sort(), [1, 2]);
     assert(Number.isSafeInteger(config.settleMs) && config.settleMs > 0 && config.settleMs <= 60000);
     assert(Number.isSafeInteger(config.observationMs) && config.observationMs > 0 && config.observationMs <= 60000);
@@ -78,6 +92,7 @@ module.exports = async function consumer (input) {
     const errors = []; for (const socket of sockets) socket.close();
     // Stop producer before relay/RT; role fixture owns its children only.
     try { await roles.close(); } catch { errors.push('ROLE_CLOSE'); }
+    if (cold) try { cold.restore(); } catch { errors.push('COLD_CONFIG_RESTORE'); }
     if (relay) try { await relay.close(); } catch { errors.push('RELAY_CLOSE'); }
     if (runtimeDirectory) try { runtimeDirectory.close(); } catch { errors.push('RELAY_RUNTIME_DIRECTORY_CLEANUP'); }
     if (connected && staleGrants) try {

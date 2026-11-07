@@ -5,7 +5,7 @@
 const fs = require('node:fs');
 const path = require('node:path');
 const assert = require('node:assert/strict');
-const plan = Object.freeze({ version: 1, phases: ['uds-ownership', 'profile-port-differential', 'profile-catalogue-upgrade', 'profile-differential', 'joined-role-recovery', 'joined-data-parity', 'joined-consumer-handoff', 'joined-browser-consumer'],
+const plan = Object.freeze({ version: 1, phases: ['uds-ownership', 'profile-port-differential', 'profile-catalogue-upgrade', 'profile-differential', 'joined-role-recovery', 'joined-data-parity', 'joined-consumer-handoff', 'joined-consumer-plugin-ack', 'joined-socket-epoch', 'joined-browser-consumer'],
   invoke: 'node tests/fixtures/realtime-preview/early.js --execute <phase> <captureDir> (NS_RT_EARLY_NATIVE=1)',
   adapter: '{sourceDir,captureDir,phaseId,control:null,env}',
   profileEnv: ['NS_RT_PROFILE_CONFIG', 'NS_TEST_POSTGRES_ADMIN_URI', 'CUSTOMCONNSTR_mongo', 'NS_RT_SOURCE_HEAD', 'NS_RT_PROFILE_WRITER_URI (direct port phase only)'],
@@ -83,11 +83,16 @@ async function execute (input) {
     'migrations/candidates/postgres-profile-socket-order-v1.json',
     'tests/fixtures/realtime-preview/profile-differential.js', 'tests/fixtures/realtime-preview/profile-timestamps.js',
     'tests/fixtures/realtime-preview/wire-call.js', 'tests/fixtures/realtime-preview/wire-response.js', 'tests/fixtures/realtime-preview/profile-port.js',
-    'tests/fixtures/realtime-preview/consumer.js', 'tests/fixtures/realtime-preview/runtime-directory.js'];
+    'tests/fixtures/realtime-preview/authority-epoch.js', 'tests/fixtures/realtime-preview/observe-evaluator.js',
+    'tests/fixtures/realtime-preview/plugin-ack.js', 'tests/fixtures/realtime-preview/cold-acquisition.js',
+    'tests/fixtures/realtime-preview/consumer.js', 'tests/fixtures/realtime-preview/roles.js',
+    'tests/fixtures/realtime-preview/reader-grants.js', 'tests/fixtures/realtime-preview/joined.js', 'tests/fixtures/realtime-preview/runtime-directory.js'];
   const sourceFiles = Object.fromEntries(causal.map(file => [file, require('node:crypto').createHash('sha256').update(fs.readFileSync(path.join(input.sourceDir, file))).digest('hex')]));
   fs.writeFileSync(path.join(input.captureDir, 'phase-source.json'), JSON.stringify({ sourceHead: input.env.NS_RT_SOURCE_HEAD || null,
     phaseId: input.phaseId, control: input.control, sourceFiles }, null, 2) + '\n');
   if (input.phaseId === 'profile-catalogue-upgrade') return require('./profile-upgrade')(input);
+  if (input.phaseId === 'joined-consumer-plugin-ack') return require('./plugin-ack')(input);
+  if (input.phaseId === 'joined-socket-epoch') return require('./authority-epoch')(input);
   if (input.phaseId === 'joined-consumer-handoff') return require('./consumer')(input);
   if (input.phaseId === 'joined-browser-consumer') return require('./browser')(input);
   if (input.phaseId === 'joined-data-parity') return require('./data-parity')(input);

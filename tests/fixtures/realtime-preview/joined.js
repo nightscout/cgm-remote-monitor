@@ -31,11 +31,11 @@ module.exports = async function joined (input) {
     assert.equal(roles.owned.tenant, config.tenant); assert.equal(roles.owned.entriesNamespace, config.entriesNamespace);
     assert.equal(roles.owned.authorizationNamespace, config.authorizationNamespace);
     assert(Number.isSafeInteger(config.observationMs) && config.observationMs > 0 && config.observationMs <= 60000);
-    await require('./reader-grants')({ config, owned: roles.owned, captureDir: input.captureDir });
+    await require('./reader-grants')({ config, owned: roles.owned, captureDir: input.captureDir, env: input.env });
     await admin.connect(); connected = true;
     assert.equal(roles.owned.foreignTenant, config.foreignTenant);
     assert(config.foreignTenant !== config.tenant && config.foreignHost !== config.host);
-    const realtimeEnv = JSON.parse(fs.readFileSync(config.realtimeEnvFile, 'utf8'));
+    const realtimeEnv = require('./roles').roleEnvironment(JSON.parse(fs.readFileSync(config.realtimeEnvFile, 'utf8')), input.env);
     const realtimeConfig = require('../../../lib/server/realtime/config').parse(JSON.parse(fs.readFileSync(realtimeEnv.MULTITENANT_REALTIME_CONFIG, 'utf8')), realtimeEnv);
     assert.equal(realtimeConfig.tenants.get(config.tenant).identity, realtimeConfig.tenants.get(config.foreignTenant).identity,
       'native isolation fixture needs equal effective config identities so an identity mismatch cannot mask a broken tenant filter');

@@ -1,8 +1,8 @@
 'use strict';
 const fs = require('node:fs');
 const assert = require('node:assert/strict');
-module.exports = async function readerGrants ({ config, owned, captureDir }) {
-  const selected = JSON.parse(fs.readFileSync(config.realtimeEnvFile, 'utf8'));
+module.exports = async function readerGrants ({ config, owned, captureDir, env }) {
+  const selected = require('./roles').roleEnvironment(JSON.parse(fs.readFileSync(config.realtimeEnvFile, 'utf8')), env);
   const document = JSON.parse(fs.readFileSync(selected.MULTITENANT_REALTIME_CONFIG, 'utf8'));
   const connectionString = selected[document.postgres.connectionEnv]; assert(connectionString);
   const { Client } = require('pg'), connection = new Client({ connectionString }); const results = [];

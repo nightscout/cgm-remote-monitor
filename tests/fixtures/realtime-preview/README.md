@@ -124,3 +124,8 @@ A/B effective realtime config identities must match in the isolation fixture so
 config mismatch cannot mask a removed tenant filter; synthetic clinical rows
 supply distinct values. This is a fixture calibration constraint, not a product
 restriction on tenant configuration.
+
+The finite joined consumer/plugin-ACK/socket-epoch acceptance inputs and disclosed
+actual-CLI getter observer are specified in [CONSUMER-EPOCH.md](CONSUMER-EPOCH.md).
+Those source-prepared phases remain UNMEASURED until the coordinator grants the
+owned service campaign; the observer's unit checks validate instrumentation only.
