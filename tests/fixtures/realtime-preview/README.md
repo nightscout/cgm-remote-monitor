@@ -7,9 +7,9 @@ phase and capture. This adapter never starts/pulls/removes containers.
 The callable interface is `execute({sourceDir,captureDir,phaseId,control:null,env})`.
 An immutable source archive contains product and fixtures; parent independently
 pins source/files/resource identity and begins birth observation before services.
-Native Mocha inventory proposal: `tests/realtime-preview.native.test.js`, enabled
-only with `NS_RT_NATIVE_PHASE`, `NS_RT_NATIVE_CAPTURE` and explicit early flag.
-No shared inventory was edited.
+These parent-owned phases execute explicitly through the reviewed joined campaign
+CLI/adapter, outside tier/corpus test inventory. Generic pending native wrappers
+were removed; no shared inventory was edited.
 
 - `uds-ownership`: generated unique0700 capture child; file/symlink/socket refuse,
   post-link replacement startup failure, actual request/normalclose, replacement
@@ -77,18 +77,17 @@ Role-recovery now consumes real RT SQL six-table INSERT-denial probes with
 rollback and exact42501 oracles; no grants are modified. Root fullcampaign still
 owns callback COMMIT/outage/restart/config controls and outbox-coordinator join.
 
-Browser native proposal: tests/browser/realtime-preview.native.test.js with
-existing real-browser hooks, NS_RT_JOINED_BROWSER=1 + NS_RT_JOINED_NATIVE=1 and
-root config. Supply browserHost127.0.0.1 admitted alias, browserCredentialEnv
+Browser phase `joined-browser-consumer` uses the existing real-browser hooks,
+NS_RT_JOINED_BROWSER=1 + NS_RT_JOINED_NATIVE=1 and root config. Supply browserHost127.0.0.1 admitted alias, browserCredentialEnv
 (original subject opaque token), alarmSocketPath,maxMessageBytes and current
 clinical settings permitting urgent alarms. It serves unchanged actual page and
 startup assets via controlled fixture, observes same-origin actual socket paths,
 actual browser receiveddata SGV replacement and urgent DOM path; no monkeypatch
-of io.connect, no production UI mount or device audio delivery promise. This test
+of io.connect, no production UI mount or device audio delivery promise. This driver
 is source prepared only. Root supplies built same-head bundle/hash at campaign.
 
-Full consumed-outbox proposal: `tests/realtime-consumer.native.test.js` requires
-NS_RT_CONSUMER_NATIVE=1 + NS_RT_JOINED_NATIVE=1 on the ROOT final consumer source.
+Full consumed-outbox phase `joined-consumer-handoff` requires
+NS_RT_JOINED_NATIVE=1 on the ROOT final consumer source.
 Role config additionally has evaluatorEnvFile (actual final evaluator consumers
 config), outboxNamespace/consumerId, staleCredentialEnv/staleSubjectId,
 alarmNamespace,snoozeMs,settleMs,observationMs,maxMessageBytes,alarmSocketPath.

@@ -5,7 +5,7 @@
 const fs = require('node:fs');
 const path = require('node:path');
 const assert = require('node:assert/strict');
-const plan = Object.freeze({ version: 1, phases: ['uds-ownership', 'profile-port-differential', 'profile-differential', 'joined-role-recovery', 'joined-data-parity'],
+const plan = Object.freeze({ version: 1, phases: ['uds-ownership', 'profile-port-differential', 'profile-differential', 'joined-role-recovery', 'joined-data-parity', 'joined-consumer-handoff', 'joined-browser-consumer'],
   invoke: 'node tests/fixtures/realtime-preview/early.js --execute <phase> <captureDir> (NS_RT_EARLY_NATIVE=1)',
   adapter: '{sourceDir,captureDir,phaseId,control:null,env}',
   profileEnv: ['NS_RT_PROFILE_CONFIG', 'NS_TEST_POSTGRES_ADMIN_URI', 'CUSTOMCONNSTR_mongo', 'NS_RT_SOURCE_HEAD', 'NS_RT_PROFILE_WRITER_URI (direct port phase only)'],
@@ -82,6 +82,8 @@ async function execute (input) {
   const sourceFiles = Object.fromEntries(causal.map(file => [file, require('node:crypto').createHash('sha256').update(fs.readFileSync(path.join(input.sourceDir, file))).digest('hex')]));
   fs.writeFileSync(path.join(input.captureDir, 'phase-source.json'), JSON.stringify({ sourceHead: input.env.NS_RT_SOURCE_HEAD || null,
     phaseId: input.phaseId, control: input.control, sourceFiles }, null, 2) + '\n');
+  if (input.phaseId === 'joined-consumer-handoff') return require('./consumer')(input);
+  if (input.phaseId === 'joined-browser-consumer') return require('./browser')(input);
   if (input.phaseId === 'joined-data-parity') return require('./data-parity')(input);
   if (input.phaseId === 'joined-role-recovery') return require('./joined')(input);
   if (input.phaseId === 'uds-ownership') return uds(input);
