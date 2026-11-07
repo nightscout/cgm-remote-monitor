@@ -10,11 +10,11 @@ module.exports = async function consumer (input) {
   const record = extra => fs.writeFileSync(path.join(input.captureDir, 'actual-consumer-handoff.json'), JSON.stringify({ events, attempts, ...extra }, null, 2) + '\n');
   const pause = ms => new Promise(resolve => setTimeout(resolve, ms));
   async function wait (check, marker) { const until = Date.now() + config.timeoutMs; while (Date.now() < until) { const result = await check(); if (result) return result; await pause(10); } throw new Error(marker); }
-  async function subscribe (credential) {
+  async function subscribe (credential, recipient) {
     const socket = require('socket.io-client')('http://127.0.0.1:' + roles.ingress.port + '/alarm', { transports: ['websocket'], forceNew: true,
       reconnection: false, timeout: config.timeoutMs, extraHeaders: { Host: config.host } }); sockets.push(socket);
-    socket.on('urgent_alarm', notification => { events.push({ kind: 'urgent_alarm', notification }); record(); });
-    socket.on('clear_alarm', notification => { events.push({ kind: 'clear_alarm', notification }); record(); });
+    socket.on('urgent_alarm', notification => { events.push({ recipient, kind: 'urgent_alarm', notification }); record(); });
+    socket.on('clear_alarm', notification => { events.push({ recipient, kind: 'clear_alarm', notification }); record(); });
     await new Promise((resolve, reject) => { socket.once('connect', resolve); socket.once('connect_error', reject); });
     const result = await new Promise((resolve, reject) => { const timer = setTimeout(() => reject(new Error('CONSUMER_SUBSCRIBE_NOACK')), config.timeoutMs);
       socket.emit('subscribe', credential, value => { clearTimeout(timer); resolve(value); }); }); assert.equal(result.success, true); return socket;
@@ -24,8 +24,8 @@ module.exports = async function consumer (input) {
     assert.equal(roles.owned.authorizationNamespace, config.authorizationNamespace);
     assert(Buffer.byteLength(input.captureDir) <= 56, 'owned relay requires short captureDir');
     await admin.connect(); connected = true;
-    await subscribe(JSON.parse(input.env[config.staleCredentialEnv]));
-    const good = await subscribe(JSON.parse(input.env[config.credentialEnv]));
+    await subscribe(JSON.parse(input.env[config.staleCredentialEnv]), 'stale');
+    const good = await subscribe(JSON.parse(input.env[config.credentialEnv]), 'current');
     const auth = table(config.authorizationNamespace);
     // Sparse refused first recipient exercises real per-socket admission on RT.
     staleGrants = (await admin.query('SELECT role_name FROM ' + auth + '.tenant_authorization_subject_roles WHERE tenant_id=$1 AND subject_id=$2', [config.tenant, config.staleSubjectId])).rows;
@@ -51,7 +51,9 @@ module.exports = async function consumer (input) {
     const same = attempts.filter(row => row.id === accepted.request_id && !row.notification.clear);
     assert(same.length >= 2, 'CONSUMER_UNCERTAIN_SAME_ID actual retry must retain UUID');
     assert.deepEqual(same[0].notification, same[1].notification, 'CONSUMER_RETRY_UNCHANGED_PAYLOAD');
-    assert(events.some(row => row.kind === 'urgent_alarm'), 'CONSUMER_VALID_RECIPIENT actual sparse failure must not block valid socket');
+    assert.deepEqual(same[0].notification, accepted.payload, 'CONSUMER_PERSISTED_PAYLOAD actual relay preserves durable notification');
+    assert.equal(events.some(row => row.recipient === 'stale' && row.kind === 'urgent_alarm'), false, 'CONSUMER_STALE_RECIPIENT no protected alarm');
+    assert(events.some(row => row.recipient === 'current' && row.kind === 'urgent_alarm'), 'CONSUMER_VALID_RECIPIENT actual sparse failure must not block valid socket');
     assert.equal(accepted.receipt, null, 'RT_HANDOFF_NOT_DEVICE_RECEIPT');
     // API durable ACK on actual /alarm; observable suppression/cascade is a
     // separate persisted state, never a clinical checkpoint/request identity.
