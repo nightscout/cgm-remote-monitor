@@ -122,6 +122,7 @@
         "tests/entries-importer.test.js",
         "tests/import-entries-cli.test.js",
         "tests/tenant-resolution.test.js",
+        "tests/tenant-operations.test.js",
         "tests/tenant-rest-authority.test.js",
         "tests/tenant-write-clock.test.js",
         "tests/postgres-collection-intent.test.js",
@@ -238,6 +239,7 @@
       "files": [
         "tests/00_production-safety.test.js",
         "tests/tenant-jwt-http.integration.test.js",
+        "tests/tenant-operations.integration.test.js",
         "tests/tenant-authorization-postgres.integration.test.js",
         "tests/tenant-credential-http.integration.test.js",
         "tests/api3.entries-create.http.test.js",
