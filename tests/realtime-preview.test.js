@@ -32,6 +32,7 @@ async function fixture () {
   const readCurrent = async tenant => state.config ? current(tenant) : null;
   const api = async (operation, body) => {
     if (state.unavailable) throw new Error('UNAVAILABLE');
+    if (state.deniedCredential && state.deniedCredential === body.credential?.secret) return { denied: true };
     if (operation === '/mutate') { state.writes.push(body); return { replyArgs: [{ result: 'success' }] }; }
     const read = state.allowed && Object.keys(body.credential).length > 0;
     if (state.holdAuthority) { const held = state.holdAuthority; state.holdAuthority = null; held.entered.resolve(); await held.release.promise; }
@@ -233,6 +234,20 @@ describe('explicit realtime preview source contracts', function () {
       f.state.allowed = false; socket.sent.length = 0;
       await ops['/alarm']({ transport: token }, body);
       assert.equal(socket.sent.length, 0, 'RT_ALARM_CURRENT_AUTHORITY revocation stops protected alarm delivery');
+    } finally { await f.close(); }
+  });
+  it('isolates refused alarm subscribers while preserving API outage failure', async function () {
+    const f = await fixture();
+    try {
+      const bad = await f.socket('a.test', '/alarm'), good = await f.socket('a.test', '/alarm');
+      await bad.receive('subscribe', { secret: 'rotated' }); await good.receive('subscribe', { secret: 'valid' });
+      f.state.deniedCredential = 'rotated';
+      await f.protocol.alarm({ tenant: A, notification: { level: 2 } });
+      assert.equal(bad.sent.some(row => row.event === 'urgent_alarm'), false);
+      assert.equal(bad.disconnected, true, 'RT_BAD_ALARM_SOCKET refused credential is retired');
+      assert.equal(good.sent.some(row => row.event === 'urgent_alarm'), true, 'RT_GOOD_ALARM_SOCKET later valid recipient is not blocked');
+      f.state.unavailable = true;
+      await assert.rejects(f.protocol.alarm({ tenant: A, notification: { level: 2 } }), /UNAVAILABLE/, 'RT_ALARM_OUTAGE transport outage never becomes successful handoff');
     } finally { await f.close(); }
   });
   for (const mgdl of [190, 300]) it('preserves actual treatmentnotify alarm precedence for announcement at ' + mgdl, async function () {
