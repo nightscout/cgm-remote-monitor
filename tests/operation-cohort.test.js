@@ -19,7 +19,7 @@ function load (relative, overrides, mutate = s => s) {
 async function setup ({ mutate, boot } = {}) {
   const f = fixture(), invalidations = [], observed = [{pid:123,role:'synthetic_worker',birth:'1700000000.000001'}];
   let released = false;
-  const lower = {installOperationWindow: () => () => { released = true; }, cohortBackends: () => observed};
+  const lower = {...require('../lib/storage/postgres-connection'),installOperationWindow: () => () => { released = true; }, cohortBackends: () => observed,cohortDatastore:() => f.window.datastore};
   const module = load('../lib/server/serve/operation-cohort.js', {
     '../../storage/postgres-connection':lower,
     ...Object.fromEntries(['preview-api','evaluator-preview','preview-realtime','owner-preview'].map((name,i) => ['./' + name, {
@@ -48,7 +48,7 @@ describe('Actual operation cohort composition source protocol', function () {
   async function censusCheck (mutate) {
     const s = await setup({mutate}); await s.complete();
     const actors = [{...s.observed[0],application_name:'unrelated-label'}];
-    const client = {async query (sql, values) { assert.deepEqual(values,[['clinical','outbox','suppression']]); return {rows:actors}; }};
+    const client = {async query (sql, values) { if (!sql.includes('restore-cohort-actors')) return {rows:[s.f.window.datastore]}; assert.deepEqual(values,[['clinical','outbox','suppression']]); return {rows:actors}; }};
     try {
       assert.equal((await s.module.assertComplete(s.cohort,A,{client})).backends,1);
       for (const change of [{pid:124},{birth:'1700000000.000002'},{role:'other_worker'},{birth:null}]) {
