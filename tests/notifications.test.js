@@ -277,6 +277,68 @@ describe('notifications snooze state externalization (#8194)', function () {
     });
   });
 
+  it('ack does not persist malformed snooze lengths, levels or groups', function (done) {
+    notifications.ack(2, 'default', 25 * 60 * 60 * 1000);
+    notifications.ack(2, 'default', '1800000');
+    notifications.ack(2, 'default', -5);
+    notifications.ack(NaN, 'default', 60000);
+    notifications.ack(2, { $ne: 1 }, 60000);
+    notifications.ack(2, new Array(70).join('x'), 60000);
+    notifications.ack(0, 'default', 60000);
+    setImmediate(function () {
+      captures.setSnooze.length.should.equal(0);
+      done();
+    });
+  });
+
+  it('ack does not throw when setSnooze rejects without an error object', function (done) {
+    fakeStorage.setSnooze = function () { return Promise.reject(undefined); };
+    notifications.ack(2, 'default', 60000);
+    setImmediate(function () {
+      setImmediate(done);
+    });
+  });
+
+  it('announcements never wait for the snooze refresh and are not shared', function (done) {
+    var emitted = [];
+    ctx.bus.emit = function (evt, data) { if (evt === 'notification' && !data.clear) emitted.push(data); };
+    ctx.ddata.lastUpdated = Date.now();
+    notifications.initRequests();
+    notifications.requestNotify({
+      level: 2, group: 'Announcement', title: 'Note', message: 'msg',
+      plugin: { name: 'test' }, isAnnouncement: true
+    });
+    notifications.process();
+    emitted.length.should.be.above(0);
+    captures.getSnooze.length.should.equal(0);
+    notifications.ack(2, 'Announcement', 60000);
+    setImmediate(function () {
+      captures.setSnooze.length.should.equal(0);
+      done();
+    });
+  });
+
+  it('ignores a stored snooze longer than the allowed maximum', function (done) {
+    fakeStorage.getSnooze = async function () {
+      return { lastAckTime: Date.now(), silenceTime: 25 * 60 * 60 * 1000 };
+    };
+    notifications.resetStateForTests();
+    var emitted = 0;
+    ctx.bus.emit = function (evt, data) { if (evt === 'notification' && !data.clear) emitted++; };
+    ctx.ddata.lastUpdated = Date.now() + 1000;
+    notifications.initRequests();
+    notifications.requestNotify({
+      level: 2, group: 'default', title: 'Test', message: 'msg', plugin: { name: 'test' }
+    });
+    notifications.process();
+    setImmediate(function () {
+      setImmediate(function () {
+        emitted.should.equal(1);
+        done();
+      });
+    });
+  });
+
   it('ack does not throw when ctx.alarmStorage is missing (single-instance fallback)', function () {
     ctx.alarmStorage = undefined;
     notifications.ack(2, 'default', 60000);

@@ -1,7 +1,7 @@
 # Alarm Snooze Schema Documentation
 
 **Document Version:** 1.0
-**Last Updated:** May 2026
+**Last Updated:** November 2026
 **Status:** Active
 **Source:** Code analysis (`lib/storage/alarmStorage.js`, `lib/notifications.js`)
 
@@ -77,7 +77,7 @@ This isn't a one-time startup cost. A warm instance re-checks storage every `ALA
 
 ## Compatibility
 
-Aggregation-pipeline updates (`updateOne` with a `[{$set: ...}]` array) require MongoDB 4.2 or later.
+Aggregation-pipeline updates (`updateOne` with a `[{$set: ...}]` array) need MongoDB 4.2 or later. Nightscout requires 5.0 or later, so this adds no constraint.
 
 ## Related
 

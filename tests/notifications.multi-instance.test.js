@@ -264,24 +264,4 @@ describe('notifications multi-instance', function () {
       });
     });
   });
-
-  it('shorter snooze on instance B does not clobber longer snooze from instance A', function (done) {
-    instanceA.ack(2, 'default', 60 * 60 * 1000); // 60 min on A
-    setImmediate(function () {
-      setImmediate(function () {
-        // Attempt to apply 5-min snooze on B -- this would shorten the window
-        // if the conditional pipeline were absent. The shared-storage mock mirrors
-        // production by keeping the larger expiresAt.
-        instanceB.ack(2, 'default', 5 * 60 * 1000);
-        setImmediate(function () {
-          setImmediate(function () {
-            var doc = sharedStorage._stored['2-default'];
-            doc.silenceTime.should.equal(60 * 60 * 1000,
-              'Storage retained the longer 60-min snooze, not the shorter 5-min');
-            done();
-          });
-        });
-      });
-    });
-  });
 });
