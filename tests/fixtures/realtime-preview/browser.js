@@ -10,7 +10,7 @@ module.exports = async function browserConsumer (input) {
   const hooks = require('../../browser/hooks');
   const planned = JSON.parse(fs.readFileSync(input.env.NS_RT_JOINED_CONFIG, 'utf8'));
   hooks.validateFixtureHosts(planned.browserResolverHosts);
-  await hooks.launchNamedFixtureBrowser(planned.browserResolverHosts); let roles;
+  await hooks.launchNamedFixtureBrowser(planned.browserResolverHosts, planned.browserRuntime); let roles;
   try {
     roles = await require('./roles').start(input);
     assert(roles.config.uiFixture, 'explicit controlled UI fixture required; API alone does not serve UI');
@@ -44,7 +44,7 @@ module.exports = async function browserConsumer (input) {
         await page.waitForFunction(() => !!document.querySelector('.container.alarming.urgent'), null, { timeout: config.timeoutMs });
         const result = await page.evaluate(() => ({ urgentUi: !!document.querySelector('.container.alarming.urgent'), sgvs: window.Nightscout.client.ddata.sgvs, events: window.__rtObservedAlarmEvents }));
         assert.equal(result.urgentUi, true); assert.deepEqual(result.sgvs, []); assert.equal(result.events.some(row => row.event === 'announcement'), false);
-        fs.writeFileSync(path.join(input.captureDir, 'actual-browser-consumer.json'), JSON.stringify({ classification: 'controlled fixture UI, unchanged client, actual API/RT', origin, resolverHosts: config.browserResolverHosts, redirectRefusals: roles.ingress.redirectRefusals, initial, result }) + '\n');
+        fs.writeFileSync(path.join(input.captureDir, 'actual-browser-consumer.json'), JSON.stringify({ classification: 'controlled fixture UI, unchanged client, actual API/RT', origin, resolverHosts: config.browserResolverHosts, browserRuntime: hooks.getFixtureRuntime(), redirectRefusals: roles.ingress.redirectRefusals, initial, result }) + '\n');
       }, {fixtureHosts: config.browserResolverHosts});
     } finally { await admin.end(); }
   } catch (error) {
