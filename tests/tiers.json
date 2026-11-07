@@ -179,6 +179,7 @@
         "tests/realtime-api-startup-observer.test.js",
         "tests/realtime-consumer-oracles.test.js",
         "tests/realtime-named-fixture-transport.test.js",
+        "tests/realtime-storage-proof.test.js",
         "tests/realtime-bootstrap.test.js",
         "tests/notification-ack-admission.test.js",
         "tests/notification-private-state.test.js",
