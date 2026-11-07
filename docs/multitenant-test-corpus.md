@@ -62,8 +62,8 @@ themselves.
 
 ## Inventory
 
-41 suites. 22 use the admin URI the script provides; 23 start at least one
-container of their own through Docker. Disabled, 40 register their
+43 suites. 24 use the admin URI the script provides; 23 start at least one
+container of their own through Docker. Disabled, 42 register their
 tests as pending with `[pending opt-in: <requirement>]` in the title; one
 (`postgres-entries-write`) uses a bare `describe.skip`.
 
