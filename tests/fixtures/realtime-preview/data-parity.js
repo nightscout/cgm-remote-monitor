@@ -48,12 +48,27 @@ module.exports = async function dataParity (input) {
       await admin.query('DELETE FROM ' + table(logical) + ' WHERE tenant_id=$1', [config.tenant]);
       for (const attempt of [1, 2]) {
         const payload = { collection: logical, data: structuredClone(documents[logical]) };
-        const expected = await send(expectedSocket, 'dbAdd', structuredClone(payload)); const actual = await send(actualSocket, 'dbAdd', payload);
+        const producer = structuredClone(payload), before = logical === 'profile' ? {
+          pgDocuments: (await admin.query('SELECT id_kind,doc FROM ' + table(logical) + ' WHERE tenant_id=$1', [config.tenant])).rows.map(require('../../../lib/storage/postgres-identity').decodeDocument),
+          mongoRaw: await mongo.db(config.mongoDatabase).collection(logical).find({}).toArray()
+        } : undefined;
+        const wireCall = require('./wire-call');
+        const expectedCall = await wireCall(producer, sent => send(expectedSocket, 'dbAdd', sent));
+        const actualCall = await wireCall(producer, sent => send(actualSocket, 'dbAdd', sent));
+        const expected = expectedCall.result, actual = actualCall.result;
+        const windows = { mongo: expectedCall.window, postgres: actualCall.window };
         const pgRaw = (await admin.query('SELECT ctid::text,id_kind,doc FROM ' + table(logical) + ' WHERE tenant_id=$1', [config.tenant])).rows;
         const mongoRaw = await mongo.db(config.mongoDatabase).collection(logical).find({}).toArray();
-        observations.push({ logical, attempt, expected, actual, pgRaw, mongoRaw }); record();
+        observations.push({ logical, attempt, producer, before, windows, expected, actual, pgRaw, mongoRaw }); record();
+        assert(expectedCall.producerUnchanged && actualCall.producerUnchanged, 'SOCKET_DATA_PRODUCER_IMMUTABLE');
         assert.equal(pgRaw.length, 1, 'SOCKET_DATA_RETRY_STORE_ONCE explicit stable identity');
         assert.equal(mongoRaw.length, 1, 'SOCKET_DATA_SINGLE_RETRY_STORE_ONCE explicit stable identity');
+        if (logical === 'profile') {
+          assert.equal(actual.outcome, 'reply'); assert.equal(expected.outcome, 'reply');
+          require('./profile-timestamps').compare({ producer, before, windows, expected: expected.args, actual: actual.args,
+            pgDocuments: pgRaw.map(require('../../../lib/storage/postgres-identity').decodeDocument), mongoRaw });
+          continue;
+        }
         assert.deepEqual(norm(actual), norm(expected), 'SOCKET_DATA_CALLBACK_PARITY ' + logical + '/' + attempt);
         const documentsFor = rows => rows.map(row => norm(row)).sort((a, b) => JSON.stringify(a._id).localeCompare(JSON.stringify(b._id)));
         assert.deepEqual(documentsFor(pgRaw.map(require('../../../lib/storage/postgres-identity').decodeDocument)), documentsFor(mongoRaw), 'SOCKET_DATA_STORED_PARITY ' + logical + '/' + attempt);

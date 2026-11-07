@@ -36,14 +36,6 @@ function configuration (input) {
   assert(input.env[config.credentialEnv]);
   return config;
 }
-function normalize (value, key) {
-  if (value?._bsontype === 'ObjectId') return { objectId: value.toHexString() };
-  if (value instanceof Date) return { date: value.toISOString() };
-  if (['srvCreated', 'srvModified'].includes(key) && Number.isFinite(value) && value > 1e12) return 'server-clock';
-  if (Array.isArray(value)) return value.map(row => normalize(row));
-  if (value && typeof value === 'object') return Object.fromEntries(Object.entries(value).map(([k, v]) => [k, normalize(v, k)]));
-  return value;
-}
 module.exports = async function run (input) {
   const config = configuration(input), { Client } = require('pg'), { MongoClient, ObjectId } = require('mongodb');
   const { encodeDocument, decodeDocument } = require('../../../lib/storage/postgres-identity');
@@ -62,14 +54,21 @@ module.exports = async function run (input) {
     return { pgRaw: pgRows, pgDocuments: pgRows.map(decodeDocument), mongoRaw: await mongo.db(config.mongoDatabase).collection('profile').find({}).toArray() };
   }
   async function add (label, payload) {
-    const expected = await emit('dbAdd', structuredClone(payload)); let actual, refusal;
-    try { actual = direct ? await directPort.send(payload) : (await invoke('/mutate', { host: config.host, envelope: { tenant: config.tenant, namespace: '/', event: 'dbAdd',
-      credential: JSON.parse(input.env[config.credentialEnv]), args: [payload] } })).replyArgs; } catch (error) { refusal = error.code || error.message; }
-    const stored = await physical(); rows.push({ label, expected, actual, refusal, ...stored }); save();
+    const producer = structuredClone(payload), before = await physical(), wireCall = require('./wire-call');
+    const mongoCall = await wireCall(producer, sent => emit('dbAdd', sent));
+    if (mongoCall.error) throw mongoCall.error;
+    const postgresCall = await wireCall(producer, sent => direct ? directPort.send(sent) : invoke('/mutate', { host: config.host,
+      envelope: { tenant: config.tenant, namespace: '/', event: 'dbAdd', credential: JSON.parse(input.env[config.credentialEnv]), args: [sent] } }).then(result => result.replyArgs));
+    const expected = mongoCall.result, actual = postgresCall.result, refusal = postgresCall.error && (postgresCall.error.code || postgresCall.error.message);
+    const windows = { mongo: mongoCall.window, postgres: postgresCall.window }, stored = await physical();
+    const operation = { label, producer, before, windows, producerUnchanged: mongoCall.producerUnchanged && postgresCall.producerUnchanged,
+      expected, actual, refusal, ...stored };
+    rows.push(operation); save();
+    assert(operation.producerUnchanged, 'PROFILE_PRODUCER_IMMUTABLE received-copy mutation cannot alter next retry');
+    assert.deepEqual(payload, producer, 'PROFILE_PRODUCER_IMMUTABLE original request remains unchanged');
     assert.equal(refusal, undefined, 'PROFILE_NATIVE_REFUSAL actual canonical PG socket profile refused');
-    assert.deepEqual(normalize(actual), normalize(expected), 'PROFILE_CALLBACK_PARITY raw canonical reply mismatch');
-    const ordered = docs => docs.map(row => normalize(row)).sort((a, b) => JSON.stringify(a._id).localeCompare(JSON.stringify(b._id)));
-    assert.deepEqual(ordered(stored.pgDocuments), ordered(stored.mongoRaw), 'PROFILE_PHYSICAL_PARITY independently stored rows differ');
+    require('./profile-timestamps').compare(operation);
+
   }
   try {
     await pg.connect(); pgConnected = true; await mongo.connect(); mongoConnected = true;
