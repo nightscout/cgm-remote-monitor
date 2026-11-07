@@ -47,7 +47,7 @@ describe('nightscout multitenant: roles (PLAT-SERVE)', function () {
 
   it('accepts the implemented explicitly configured preview roles', function () {
     assert.deepEqual(serve.parseRoles(['api']), ['api']);
-    for (const [name, role] of Object.entries(ROLES)) assert.equal(role.multitenant === true, ['api', 'evaluator', 'tenant-admin'].includes(name), name);
+    for (const [name, role] of Object.entries(ROLES)) assert.equal(role.multitenant === true, ['api', 'evaluator', 'realtime', 'tenant-admin'].includes(name), name);
   });
 
   it('refuses an unknown role, an empty one, a repeated one, and a missing list', function () {
@@ -58,23 +58,29 @@ describe('nightscout multitenant: roles (PLAT-SERVE)', function () {
   });
 
   it('names every role that cannot be served yet', function () {
-    for (const name of ['realtime', 'vcpool', 'admin']) {
+    for (const name of ['vcpool', 'admin']) {
       assert.ok(ROLES[name], name);
       assert.throws(() => serve.parseRoles([name]), new RegExp('not yet available: ' + name + '\\.'));
     }
-    assert.throws(() => serve.parseRoles(['api,admin,realtime']), /not yet available: admin, realtime/);
+    assert.throws(() => serve.parseRoles(['api,admin,realtime']), /not yet available: admin/);
   });
 
   it('exits 64 for an unknown role and for each role not yet available', function () {
     const unknown = cli(['multitenant', 'bogus']);
     assert.equal(unknown.status, 64);
     assert.match(unknown.stderr, /unknown role: bogus/);
-    for (const name of ['realtime', 'vcpool', 'admin', 'api,admin']) {
+    for (const name of ['vcpool', 'admin', 'api,admin']) {
       const result = cli(['multitenant', name]);
       assert.equal(result.status, 64, name);
       assert.match(result.stderr, /not yet available: .*role that is not implemented/, name);
     }
     assert.equal(cli(['multitenant']).status, 64);
+  });
+
+  it('refuses realtime without explicit preview configuration before any socket or storage boot', function () {
+    const result = cli(['multitenant', 'realtime']);
+    assert.equal(result.status, 78);
+    assert.match(result.stderr, /REALTIME_CONFIG_REFUSED/);
   });
 
   it('refuses evaluator without explicit preview configuration before any storage boot', function () {
