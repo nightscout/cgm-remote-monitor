@@ -84,6 +84,8 @@ const INVENTORY = [
     note: 'durable notification intent, attempt/retry identity and selected-consumer semantics; no device-delivery claim' },
   { file: 'tests/evaluator-consumers.integration.test.js', flags: { NS_EVALUATOR_CONSUMERS_TEST: '1' }, shared: ['postgres'], own: [], gate: PENDING,
     note: 'actual selected evaluator role, committed private producer state/outbox, controlled UDS sink and current ACK semantics; real recipient delivery is separate' },
+  { file: 'tests/tenant-operations.integration.test.js', flags: { NS_TENANT_OPERATIONS_PG_TEST: '1' }, shared: [], own: ['postgres'], gate: PENDING,
+    note: 'representative entries/clock recovery and upgrade contracts; full populated deployment recovery is separate' },
   { file: 'tests/tenant-commit-clock-port.integration.test.js', flags: { NS_TENANT_COMMIT_CLOCK_TEST: '1' }, shared: ['postgres'], own: [], gate: PENDING },
   { file: 'tests/tenant-commit-clock-http.integration.test.js', flags: { NS_TENANT_COMMIT_CLOCK_HTTP_DOCKER_TEST: '1' }, shared: [], own: ['postgres', 'vault'], gate: PENDING,
     note: 'functional cases enabled; benchmark remains pending unless NS_TENANT_COMMIT_CLOCK_BENCHMARK=1' },
