@@ -155,10 +155,10 @@ optInSuite(process.env.NS_TENANT_OPERATIONS_PG_TEST === '1', 'NS_TENANT_OPERATIO
     const artifact = await capture(ns);
     const fresh = namespaces();
     await prepare(fresh);
+    await assert.rejects(operations.restore(client, artifact, { catalogues: catalogues(fresh), onRow: ({ total }) => { if (total === 2) throw new Error('synthetic interruption'); } }), /synthetic interruption/);
+    assert.deepEqual(await observe(fresh), { rows: [], stamps: [] });
     const liar = { query: (text, values) => /^INSERT INTO .*tenant_write_clock/.test(text) ? Promise.resolve({ rowCount: 1, rows: [] }) : client.query(text, values) };
     await assert.rejects(operations.restore(liar, artifact, { catalogues: catalogues(fresh) }), { code: 'RESTORE_ORACLE_MISMATCH' });
-    assert.deepEqual(await observe(fresh), { rows: [], stamps: [] });
-    await assert.rejects(operations.restore(client, artifact, { catalogues: catalogues(fresh), onRow: ({ total }) => { if (total === 2) throw new Error('synthetic interruption'); } }), /synthetic interruption/);
     assert.deepEqual(await observe(fresh), { rows: [], stamps: [] });
     await operations.restore(client, artifact, { catalogues: catalogues(fresh) });
     assert.deepEqual(await observe(fresh), await observe(ns));
