@@ -13,6 +13,22 @@ class Socket{
 }
 const object={id_kind:'objectid',doc:{_id:id,type:'sgv',sgv:111}},string={id_kind:'string',doc:{_id:id,type:'sgv',sgv:222}};
 describe('joined storage physical/wire/current-collection oracles',function(){
+  it('captures bounded stage events independently of later socket pushes and nested payload mutations',function(){
+    const live=[oracle.single('create',object),oracle.single('create',string)],group=[{transport:'polling',events:live}],limits={maxRows:10,maxBytes:10000};
+    const observations={CREATE:{clients:oracle.eventSnapshots(group,limits)}};
+    live.push(oracle.single('update',{...string,doc:{...string.doc,sgv:333}}));
+    observations.UPDATE={clients:oracle.eventSnapshots(group,limits)};
+    live.push(oracle.single('delete',object),oracle.single('delete',string));
+    live[0].value.doc.sgv=999;
+    const saved=JSON.parse(JSON.stringify(observations));
+    assert.equal(saved.CREATE.clients[0].events.length,2,'STORAGE_CREATE_SNAPSHOT_IMMUTABLE');
+    assert.equal(saved.UPDATE.clients[0].events.length,3,'STORAGE_UPDATE_SNAPSHOT_IMMUTABLE');
+    assert.deepEqual(saved.CREATE.clients[0].events,[oracle.single('create',object),oracle.single('create',string)],'STORAGE_SNAPSHOT_ORIGINAL_WIRE_VALUES');
+    assert.equal(live.length,5,'all later actual events remain retained in the live collection');
+    assert.equal(live[0].value.doc.sgv,999,'capture does not freeze or edit the transport-owned object');
+    assert.throws(()=>oracle.eventSnapshots(group,{...limits,maxRows:4}),/PROOF_BOUND/);
+    assert.throws(()=>oracle.eventSnapshots(group,{...limits,maxBytes:1}),/PROOF_BOUND/);
+  });
   it('compares actual single normalizer/broadcaster shapes with actual typed protocol changes and pins inherited ambiguity',function(){
     const rows=[{domain:'entries',document:{...object.doc,_id:new ObjectId(id)}},{domain:'entries',document:string.doc}];
     assert.deepEqual(protocolFactory.storageChanges([],rows).map(row=>({event:row.event,value:row.value})),[oracle.single('create',object),oracle.single('create',string)]);
