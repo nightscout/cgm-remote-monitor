@@ -9,7 +9,7 @@ module.exports = function protocol (mutate = () => {}) {
   return (sql,values) => {
     let rows, kind;
     if (sql.includes('operation-window-role')) {
-      lifetime = sql.includes('lifetime'); kind='role'; rows=[{namespace_oid:40,owner_oid:39,uses_schema:true,elevated:false,owns_schema:false,database_create:false,elevated_membership:false,schema_writes:false,foreign_writes:false}];
+      lifetime = sql.includes('lifetime'); kind='role'; rows=[{namespace_oid:40,owner_oid:39,uses_schema:true,elevated:false,owns_schema:false,database_create:false,elevated_membership:false,schema_writes:false,foreign_writes:false,foreign_functions:false}];
     } else if (sql.includes('operation-window-table')) {
       kind=values[0].split('.').at(-1); const op=kind==='tenant_lifecycle_operations';
       rows=[{owner_oid:39,dropped:false,oid:Object.keys(layouts).indexOf(kind)+41,kind:'r',persistence:'p',secured:kind!=='schema_migrations',owns:false,reads:true,owner_safe:true,broad_writes:false,triggers:false,rules:false,inherited:false,bad_indexes:false,

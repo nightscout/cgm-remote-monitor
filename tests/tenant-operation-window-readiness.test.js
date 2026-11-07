@@ -14,6 +14,7 @@ describe('Operation-window admission (catalog protocol double, not native Postgr
   });
   const controls = [
     ['elevated membership', 'role', r=>{r.elevated_membership=true;}],
+    ['non-system executable function bypass','role',r=>{r.foreign_functions=true;}],
     ['unrelated lifetime writes','role',r=>{r.foreign_writes=true;}],
     ['unknown role metadata','role',r=>{delete r.elevated;}],
     ['schema ownership','role',r=>{r.owns_schema=true;}],
