@@ -94,6 +94,24 @@ describe('private tenant restore controller (simulated backend protocol)', funct
     await assert.rejects(saved.connection.transaction(async () => {}), code('LIFECYCLE_RESTORE_CONNECTION_CLOSED'));
     await api.close();
   });
+  it('publishes claim-bound effects only after definite outer DATA commit', async function () {
+    const {m,api}=fixture();let effects=0;
+    await api.withRestore(A,{artifactDigest:DIGEST},async({connection,maintenanceClaim})=>{
+      await assert.rejects(async()=>controller.registerAfterCommit({}, {connection,tenant:A,artifactDigest:DIGEST},()=>{}),code('LIFECYCLE_RESTORE_EFFECT_INVALID'));
+      assert.throws(()=>controller.registerAfterCommit(maintenanceClaim,{connection,tenant:B,artifactDigest:DIGEST},()=>{}),code('LIFECYCLE_RESTORE_EFFECT_INVALID'));
+      connection.afterCommit(async()=>{assert.deepEqual(m.durable.rows,['effect-A']);assert.equal(m.durable.audit.state,'restored');assert.equal(m.durable.window.phase,'suspended');effects++;});
+      await connection.query('INSERT INTO synthetic_data(value) VALUES ($1)',['effect-A']);assert.equal(effects,0);
+    });
+    assert.equal(effects,1);await api.close();
+  });
+  for (const uncertain of [false,true]) it('never publishes effects after '+(uncertain?'ambiguous DATA commit':'rollback'),async function(){
+    const {m,api}=fixture(uncertain?{loseCommit:'DATA'}:{});let effects=0;
+    await assert.rejects(api.withRestore(A,{artifactDigest:DIGEST},async({connection})=>{
+      connection.afterCommit(()=>{effects++;});await connection.query('INSERT INTO synthetic_data(value) VALUES ($1)',['effect-A']);
+      if(!uncertain)throw Object.assign(new Error('interrupt'),{code:'CONTROL_INTERRUPT'});
+    }),code(uncertain?'LIFECYCLE_RESTORE_DATA_OUTCOME_UNCERTAIN':'CONTROL_INTERRUPT'));
+    assert.equal(effects,0);assert.equal(m.durable.window.phase,'suspended');assert.deepEqual(m.durable.rows,uncertain?['effect-A']:[]);await api.close();
+  });
   it('refuses an incomplete cohort before metadata or mutation and releases its client', async function () {
     const { m, api } = fixture({ incomplete: true });
     await assert.rejects(api.withRestore(A, { artifactDigest: DIGEST }, async () => {}), code('COHORT_INCOMPLETE'));
