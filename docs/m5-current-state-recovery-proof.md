@@ -1,6 +1,6 @@
 # M5 bounded current-state reconciliation
 
-The dormant reference evaluator consumes `reconcile({maxRows,maxBytes})` from
+The reference evaluator consumes `reconcile({maxRows,maxBytes})` from
 `lib/storage/postgres-durable-replay.js`. It replaces the full admitted typed
 current identity set on every acquisition, independent of floor movement or
 recent timestamp windows. Hard-delete and legacy/socket activity writers retain
@@ -76,3 +76,7 @@ resource/birth observation. No MongoDB, Vault, provider or listener is needed.
 Passing supports bounded current-state recovery only: no retained intermediate
 transitions, notification delivery, lease/failover, retention/cadence/capacity
 budget, production activation, M5 completion or new M1–M4 criterion follows.
+
+The later explicit role lifecycle and its separate source/native proof contract
+are in [the evaluator preview guide](m5-evaluator-preview.md). Historical57
+bounded acquisition evidence is not re-attributed to that later candidate.
