@@ -5,10 +5,10 @@
 const fs = require('node:fs');
 const path = require('node:path');
 const assert = require('node:assert/strict');
-const plan = Object.freeze({ version: 1, phases: ['uds-ownership', 'profile-differential'],
+const plan = Object.freeze({ version: 1, phases: ['uds-ownership', 'profile-port-differential', 'profile-differential'],
   invoke: 'node tests/fixtures/realtime-preview/early.js --execute <phase> <captureDir> (NS_RT_EARLY_NATIVE=1)',
   adapter: '{sourceDir,captureDir,phaseId,control:null,env}',
-  profileEnv: ['NS_RT_PROFILE_CONFIG', 'NS_TEST_POSTGRES_ADMIN_URI', 'CUSTOMCONNSTR_mongo', 'NS_RT_SOURCE_HEAD'],
+  profileEnv: ['NS_RT_PROFILE_CONFIG', 'NS_TEST_POSTGRES_ADMIN_URI', 'CUSTOMCONNSTR_mongo', 'NS_RT_SOURCE_HEAD', 'NS_RT_PROFILE_WRITER_URI (direct port phase only)'],
   profileContract: 'root-owned existing API private UDS, original socketcredential env, admitted tenant/profile namespace, owned Mongo database; no substitute auth/executor',
   noProvisioning: true, evidence: 'read independent physical rows and real replies before assertions; stop first mismatch',
   udsCapture: 'short absolute captureDir (<=65 UTF8 bytes), unique owned child0700, no real foreign paths',

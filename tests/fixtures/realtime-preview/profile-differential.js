@@ -15,7 +15,7 @@ function configuration (input) {
   assert.equal(ownership.phaseId, input.phaseId); assert.equal(ownership.sourceHead, config.sourceHead);
   assert.equal(ownership.tenant, config.tenant); assert.equal(ownership.profileNamespace, config.profileNamespace);
   assert.equal(ownership.mongoDatabase, config.mongoDatabase);
-  for (const kind of ['postgres', 'mongo', 'vault']) {
+  for (const kind of (input.phaseId === 'profile-port-differential' ? ['postgres', 'mongo'] : ['postgres', 'mongo', 'vault'])) {
     const resource = ownership.resources.find(row => row.kind === kind);
     assert(resource && resource.host === '127.0.0.1' && resource.labelValue && resource.containerId && resource.mounts);
     assert.equal(resource.image, require('./early').plan.pins[kind], 'root verified actual image identity required');
@@ -24,6 +24,10 @@ function configuration (input) {
     const parsed = new URL(url), resource = ownership.resources.find(row => row.kind === name);
     assert.equal(parsed.hostname, resource.host); assert.equal(Number(parsed.port), resource.port);
     if (name === 'postgres') assert.equal(decodeURIComponent(parsed.pathname.slice(1)), resource.database);
+  }
+  if (input.phaseId === 'profile-port-differential') {
+    assert.equal(config.authorityBoundary, 'synthetic-preauthorized-canonical-port-only');
+    assert(input.env.NS_RT_PROFILE_WRITER_URI); return config;
   }
   assert(ownership.api && Number.isSafeInteger(ownership.api.pid) && ownership.api.sourceHead === config.sourceHead);
   process.kill(ownership.api.pid, 0); // handed-in owned actual CLI, never another substitute
@@ -42,9 +46,10 @@ function normalize (value, key) {
 module.exports = async function run (input) {
   const config = configuration(input), { Client } = require('pg'), { MongoClient, ObjectId } = require('mongodb');
   const { encodeDocument, decodeDocument } = require('../../../lib/storage/postgres-identity');
-  const invoke = require('../../../lib/server/realtime/ipc').client({ socketPath: config.apiSocketPath, maxBytes: config.maxMessageBytes, timeoutMs: config.timeoutMs });
+  const direct = input.phaseId === 'profile-port-differential';
+  const invoke = direct ? null : require('../../../lib/server/realtime/ipc').client({ socketPath: config.apiSocketPath, maxBytes: config.maxMessageBytes, timeoutMs: config.timeoutMs });
   const rows = [], pg = new Client({ connectionString: input.env.NS_TEST_POSTGRES_ADMIN_URI });
-  const mongo = new MongoClient(input.env.CUSTOMCONNSTR_mongo); let reference, socket, pgConnected = false, mongoConnected = false;
+  const mongo = new MongoClient(input.env.CUSTOMCONNSTR_mongo); let reference, socket, directPort, pgConnected = false, mongoConnected = false;
   const table = '"' + config.profileNamespace + '".profile';
   const save = () => fs.writeFileSync(path.join(input.captureDir, 'profile-physical-results.json'), JSON.stringify(rows, null, 2) + '\n');
   const emit = (event, data) => new Promise((resolve, reject) => {
@@ -57,7 +62,7 @@ module.exports = async function run (input) {
   }
   async function add (label, payload) {
     const expected = await emit('dbAdd', structuredClone(payload)); let actual, refusal;
-    try { actual = (await invoke('/mutate', { host: config.host, envelope: { tenant: config.tenant, namespace: '/', event: 'dbAdd',
+    try { actual = direct ? await directPort.send(payload) : (await invoke('/mutate', { host: config.host, envelope: { tenant: config.tenant, namespace: '/', event: 'dbAdd',
       credential: JSON.parse(input.env[config.credentialEnv]), args: [payload] } })).replyArgs; } catch (error) { refusal = error.code || error.message; }
     const stored = await physical(); rows.push({ label, expected, actual, refusal, ...stored }); save();
     assert.equal(refusal, undefined, 'PROFILE_NATIVE_REFUSAL actual canonical PG socket profile refused');
@@ -67,6 +72,7 @@ module.exports = async function run (input) {
   }
   try {
     await pg.connect(); pgConnected = true; await mongo.connect(); mongoConnected = true;
+    if (direct) directPort = await require('./profile-port')({ env: input.env, config });
     reference = await require('../socket-forwarding/mongo-reference')({ connectionString: input.env.CUSTOMCONNSTR_mongo, database: config.mongoDatabase });
     socket = require('socket.io-client')('http://127.0.0.1:' + reference.port, { reconnection: false, timeout: config.timeoutMs, transports: ['websocket'] });
     await new Promise((resolve, reject) => { socket.once('connect', resolve); socket.once('connect_error', reject); });
@@ -103,10 +109,10 @@ module.exports = async function run (input) {
       await mongo.db(config.mongoDatabase).dropDatabase();
       mongoEmpty = (await mongo.db(config.mongoDatabase).listCollections().toArray()).length === 0;
     } catch (error) { cleanupErrors.push(error.code || 'MONGO_CLEANUP_FAILED'); }
-    const ends = await Promise.allSettled([pg.end(), mongo.close()]);
+    const ends = await Promise.allSettled([pg.end(), mongo.close(), ...(directPort ? [directPort.close()] : [])]);
     for (const end of ends) if (end.status === 'rejected') cleanupErrors.push('DRIVER_CLOSE_FAILED');
     fs.writeFileSync(path.join(input.captureDir, 'profile-cleanup.json'), JSON.stringify({ referenceClosed, socketClosed: !socket?.connected,
-      pgEmpty, mongoEmpty, cleanupErrors, containersUntouched: true, schemasUntouched: true }) + '\n');
+      pgEmpty, mongoEmpty, cleanupErrors, authorityBoundary: direct ? 'synthetic-preauthorized-canonical-port-only' : 'actual-private-api-current-client', containersUntouched: true, schemasUntouched: true }) + '\n');
     assert.equal(cleanupErrors.length, 0, 'PROFILE_OWNED_CLEANUP exact owned fixture resources must close');
 
   }
