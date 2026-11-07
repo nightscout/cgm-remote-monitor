@@ -1,0 +1,29 @@
+{
+  "version": 1,
+  "migrations": [
+    {
+      "name": "0001_tenant_lifecycle_requests",
+      "up": [
+        "CREATE TABLE tenant_lifecycle_requests (request_id uuid PRIMARY KEY, tenant_id uuid NOT NULL, artifact_digest text NOT NULL CHECK (artifact_digest ~ '^[a-f0-9]{64}$'), phase text NOT NULL CHECK (phase IN ('requested', 'executed')), requested_at bigint NOT NULL CHECK (requested_at >= 0), executed_at bigint CHECK (executed_at >= 0), CHECK ((phase = 'executed') = (executed_at IS NOT NULL)))",
+        "CREATE INDEX tenant_lifecycle_requests_tenant ON tenant_lifecycle_requests (tenant_id, requested_at)",
+        "ALTER TABLE tenant_lifecycle_requests ENABLE ROW LEVEL SECURITY",
+        "ALTER TABLE tenant_lifecycle_requests FORCE ROW LEVEL SECURITY",
+        "CREATE POLICY tenant_lifecycle_requests_tenant ON tenant_lifecycle_requests USING (tenant_id = nullif(current_setting('app.current_tenant_id', true), '')::uuid) WITH CHECK (tenant_id = nullif(current_setting('app.current_tenant_id', true), '')::uuid)",
+        "REVOKE ALL ON tenant_lifecycle_requests FROM PUBLIC"
+      ],
+      "checksum": "b2ba6bea2887d4661919992db2f816b0a1e1c79d490977b58070531972d0a00d"
+    },
+    {
+      "name": "0002_tenant_lifecycle_ceremony",
+      "up": [
+        "ALTER TABLE tenant_lifecycle_requests ADD CONSTRAINT tenant_lifecycle_requests_request_tenant_unique UNIQUE (request_id,tenant_id)",
+        "CREATE TABLE tenant_lifecycle_ceremony (request_id uuid PRIMARY KEY, tenant_id uuid NOT NULL, phase text NOT NULL CHECK (phase IN ('requested','confirmed','cancelled','executing','executed')), requested_by text, requested_consumer text, confirmed_by text, confirmed_consumer text, confirmed_at bigint, cancelled_by text, cancelled_consumer text, cancelled_at bigint, claim_id uuid, started_by text, started_consumer text, started_at bigint, executed_by text, executed_consumer text, executed_at bigint, FOREIGN KEY (request_id,tenant_id) REFERENCES tenant_lifecycle_requests (request_id,tenant_id), CHECK ((requested_by IS NULL) = (requested_consumer IS NULL)), CHECK ((confirmed_at IS NULL) = (confirmed_by IS NULL) AND (confirmed_at IS NULL) = (confirmed_consumer IS NULL)), CHECK (phase NOT IN ('confirmed','executing','executed') OR confirmed_at IS NOT NULL), CHECK ((phase = 'cancelled') = (cancelled_at IS NOT NULL) AND (cancelled_at IS NULL) = (cancelled_by IS NULL) AND (cancelled_at IS NULL) = (cancelled_consumer IS NULL)), CHECK ((phase IN ('executing','executed')) = (started_at IS NOT NULL) AND (started_at IS NULL) = (claim_id IS NULL) AND (started_at IS NULL) = (started_by IS NULL) AND (started_at IS NULL) = (started_consumer IS NULL)), CHECK ((phase = 'executed') = (executed_at IS NOT NULL) AND (executed_at IS NULL) = (executed_by IS NULL) AND (executed_at IS NULL) = (executed_consumer IS NULL)), CHECK (confirmed_at IS NULL OR confirmed_at >= 0), CHECK (cancelled_at IS NULL OR cancelled_at >= 0), CHECK (started_at IS NULL OR started_at >= confirmed_at), CHECK (executed_at IS NULL OR executed_at >= started_at))",
+        "ALTER TABLE tenant_lifecycle_ceremony ENABLE ROW LEVEL SECURITY",
+        "ALTER TABLE tenant_lifecycle_ceremony FORCE ROW LEVEL SECURITY",
+        "CREATE POLICY tenant_lifecycle_ceremony_tenant ON tenant_lifecycle_ceremony USING (tenant_id = nullif(current_setting('app.current_tenant_id', true), '')::uuid) WITH CHECK (tenant_id = nullif(current_setting('app.current_tenant_id', true), '')::uuid)",
+        "REVOKE ALL ON tenant_lifecycle_ceremony FROM PUBLIC"
+      ],
+      "checksum": "42cc13ca9fedd3b751d8b2ad1e37032ca84242901989574c43b978d5d264c31f"
+    }
+  ]
+}
