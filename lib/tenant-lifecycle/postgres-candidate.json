@@ -44,6 +44,27 @@
         "CREATE POLICY tenant_lifecycle_operations_finish ON tenant_lifecycle_operations FOR UPDATE USING (tenant_id = nullif(current_setting('app.current_tenant_id', true), '')::uuid AND owner_pid = pg_backend_pid() AND owner_birth = tenant_lifecycle_backend_birth() AND finished = false) WITH CHECK (tenant_id = nullif(current_setting('app.current_tenant_id', true), '')::uuid AND owner_pid = pg_backend_pid() AND owner_birth = tenant_lifecycle_backend_birth() AND finished = true)"
       ],
       "checksum": "bb6de44f9c21752e4f437f61b2c1b6b83298934ba6fcd983ea9fc48aff2db2db"
+    },
+    {
+      "name": "0004_tenant_restore_control",
+      "up": [
+        "ALTER TABLE tenant_lifecycle_windows ADD COLUMN artifact_digest text CHECK (artifact_digest ~ '^[a-f0-9]{64}$')",
+        "ALTER TABLE tenant_lifecycle_windows ADD CONSTRAINT tenant_restore_window_digest CHECK ((phase = 'suspended') = (artifact_digest IS NOT NULL))",
+        "CREATE TABLE tenant_lifecycle_restore_authority (tenant_id uuid NOT NULL REFERENCES tenant_lifecycle_windows (tenant_id), role_oid oid NOT NULL, active boolean NOT NULL DEFAULT false, PRIMARY KEY (tenant_id,role_oid))",
+        "ALTER TABLE tenant_lifecycle_restore_authority ENABLE ROW LEVEL SECURITY",
+        "ALTER TABLE tenant_lifecycle_restore_authority FORCE ROW LEVEL SECURITY",
+        "REVOKE ALL ON tenant_lifecycle_restore_authority FROM PUBLIC",
+        "CREATE POLICY tenant_restore_authority_read ON tenant_lifecycle_restore_authority FOR SELECT USING (tenant_id = nullif(current_setting('app.current_tenant_id', true), '')::uuid AND role_oid = CURRENT_USER::regrole::oid)",
+        "CREATE POLICY tenant_restore_windows_update ON tenant_lifecycle_windows FOR UPDATE USING (tenant_id = nullif(current_setting('app.current_tenant_id', true), '')::uuid AND EXISTS (SELECT 1 FROM tenant_lifecycle_restore_authority a WHERE a.tenant_id = tenant_lifecycle_windows.tenant_id AND a.role_oid = CURRENT_USER::regrole::oid AND a.active)) WITH CHECK (tenant_id = nullif(current_setting('app.current_tenant_id', true), '')::uuid AND EXISTS (SELECT 1 FROM tenant_lifecycle_restore_authority a WHERE a.tenant_id = tenant_lifecycle_windows.tenant_id AND a.role_oid = CURRENT_USER::regrole::oid AND a.active))",
+        "CREATE TABLE tenant_lifecycle_restore_audit (tenant_id uuid NOT NULL REFERENCES tenant_lifecycle_windows (tenant_id), claim_id uuid PRIMARY KEY, generation bigint NOT NULL CHECK (generation > 0), artifact_digest text NOT NULL CHECK (artifact_digest ~ '^[a-f0-9]{64}$'), role_oid oid NOT NULL DEFAULT CURRENT_USER::regrole::oid, owner_pid integer NOT NULL DEFAULT pg_backend_pid(), owner_birth timestamp with time zone NOT NULL DEFAULT tenant_lifecycle_backend_birth(), state text NOT NULL DEFAULT 'suspended' CHECK (state IN ('suspended','restored','activated')), started_at timestamp with time zone NOT NULL DEFAULT clock_timestamp(), restored_at timestamp with time zone, activated_at timestamp with time zone, CHECK ((state IN ('restored','activated')) = (restored_at IS NOT NULL)), CHECK ((state = 'activated') = (activated_at IS NOT NULL)), CHECK (activated_at IS NULL OR activated_at >= restored_at))",
+        "ALTER TABLE tenant_lifecycle_restore_audit ENABLE ROW LEVEL SECURITY",
+        "ALTER TABLE tenant_lifecycle_restore_audit FORCE ROW LEVEL SECURITY",
+        "REVOKE ALL ON tenant_lifecycle_restore_audit FROM PUBLIC",
+        "CREATE POLICY tenant_restore_audit_read ON tenant_lifecycle_restore_audit FOR SELECT USING (tenant_id = nullif(current_setting('app.current_tenant_id', true), '')::uuid AND role_oid = CURRENT_USER::regrole::oid)",
+        "CREATE POLICY tenant_restore_audit_insert ON tenant_lifecycle_restore_audit FOR INSERT WITH CHECK (tenant_id = nullif(current_setting('app.current_tenant_id', true), '')::uuid AND role_oid = CURRENT_USER::regrole::oid AND owner_pid = pg_backend_pid() AND owner_birth = tenant_lifecycle_backend_birth() AND state = 'suspended')",
+        "CREATE POLICY tenant_restore_audit_update ON tenant_lifecycle_restore_audit FOR UPDATE USING (tenant_id = nullif(current_setting('app.current_tenant_id', true), '')::uuid AND role_oid = CURRENT_USER::regrole::oid AND owner_pid = pg_backend_pid() AND owner_birth = tenant_lifecycle_backend_birth()) WITH CHECK (tenant_id = nullif(current_setting('app.current_tenant_id', true), '')::uuid AND role_oid = CURRENT_USER::regrole::oid AND owner_pid = pg_backend_pid() AND owner_birth = tenant_lifecycle_backend_birth())"
+      ],
+      "checksum": "f353bf4cd6a1ac348ae1da77e8416cce20e26164838e678a4127a65fb78c5b4c"
     }
   ]
 }
