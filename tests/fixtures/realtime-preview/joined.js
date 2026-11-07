@@ -72,8 +72,9 @@ module.exports = async function joined (input) {
     grantRows = (await admin.query('SELECT role_name FROM ' + auth + '.tenant_authorization_subject_roles WHERE tenant_id=$1 AND subject_id=$2', [config.tenant, config.subjectId])).rows;
     assert(grantRows.length > 0, 'fixture subject must have explicit removable grants');
     await admin.query('DELETE FROM ' + auth + '.tenant_authorization_subject_roles WHERE tenant_id=$1 AND subject_id=$2', [config.tenant, config.subjectId]);
+    const prior = reconnected.frames.length;
     await storage.afterRevocation();
-    const prior = reconnected.frames.length; await pause(config.observationMs);
+    await pause(config.observationMs);
     assert.equal(reconnected.frames.length, prior, 'JOINED_CACHED_AUTHORITY no protected frame after grant tightening');
     observations.push({ tightened: true, noProtectedDelivery: true }); write();
     // Browser is driven by root's real-browser phase through this unchanged
