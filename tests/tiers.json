@@ -185,6 +185,7 @@
         "tests/tenant-alarm-composition.test.js",
         "tests/tenant-notifications.test.js",
         "tests/evaluator-consumers.test.js",
+        "tests/evaluator-control-readiness.test.js",
         "tests/evaluator-consumer-metadata.test.js",
         "tests/evaluator-consumer-open-order.test.js",
         "tests/evaluator-consumer-native-observation.test.js",

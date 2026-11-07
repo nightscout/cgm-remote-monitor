@@ -71,6 +71,22 @@ are tenant-specific and released after cleanup, so a fresh restore can explicitl
 register current incarnations after an earlier attempt ends. Dynamic membership,
 autoscaling and automatic orphan recovery are outside this first manifest.
 
+## Failure recovery and shared-role restart boundary
+
+The bounded continuity claim is that B continues while the configured cohort
+remains running. **Read-derived limitation:** current API startup performs guarded
+legacy/authority preparation for every configured tenant; realtime startup checks
+checkpoints and acquires initial frames for every tenant. If A remains suspended
+after a failed restore, that refusal can prevent a shared role from restarting,
+including B's listener. The running-cohort proof does not establish independent
+B restart availability or automatic recovery of a suspended tenant.
+
+Pending operations, uncertain outcomes and suspension must not be cleared merely
+to make startup succeed. This preview does not provide an automatic orphan clear
+or a suspended-restore resume command. Operator-verified recovery and independent
+restart admission remain separate work; no HA or deterministic recovery bound is
+claimed. Ordinary successful tenant-local restoration requires no global pause.
+
 Shutdown quiesces and drains role resources before releasing the cohort registry.
 A failed database-pool drain leaves the registry selected and blocks an
 unwindowed fallback. This reference assumes trusted service roles and private
