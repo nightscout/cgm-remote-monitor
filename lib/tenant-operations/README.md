@@ -211,3 +211,27 @@ explicit privilege matrix, pending actual M5 extensions and required controls.
 Deletion now requires the [confirmed ceremony](../tenant-lifecycle/CEREMONY.md);
 complete recovery inventory includes both lifecycle ledgers. No provider/key
 destruction or all-credential blackout is inferred from that ceremony.
+
+
+### Explicit physical catalogue instances
+
+Joined realtime and evaluator use distinct checkpoint namespaces and principals.
+The source census counts unique candidate files; recovery counts every physical
+instance. Keep `checkpoint` mapped to the actual realtime namespace and declare:
+
+```js
+instances: [{ kind: 'evaluator_checkpoint', of: 'checkpoint' }]
+// namespaces.evaluator_checkpoint is the actual evaluator checkpoint namespace.
+```
+
+This bounded interface admits only reviewed checkpoint duplicates. Each instance
+has independent artifact keys, ledgers, rows, namespace and ACL kind. Namespace
+aliasing, duplicate instance keys and supplied namespace mappings omitted from the
+admission refuse. Both `createDeploymentOperations` and lifecycle re-admission
+retain these declarations. `tests/fixtures/tenant-deployment-checkpoints.js` binds
+actual consumer config/digests/principals and emits instance-keyed seeds/grants;
+never collapse its rows into a dictionary keyed only by SQL table name.
+
+With both instances selected the projected B+C inventory is23candidate files,
+21physical instances and37tables; the one-checkpoint baseline above remains
+20instances/36tables. These are source inventory measurements, not native results.

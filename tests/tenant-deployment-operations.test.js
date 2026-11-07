@@ -92,6 +92,37 @@ describe('whole deployment source admission and filesystem durability', function
     assert.ok(plan.lifecycle.CATALOGUE.some(entry => entry.kind === 'synthetic'));
   });
 
+  it('enumerates both actual checkpoint instances with independent tenants, consumers and precise grants', function () {
+    const { checkpointInputs, populatedInstanceRows } = require('./fixtures/tenant-deployment-checkpoints');
+    const input = { namespaces: { ...namespaces(), evaluator_checkpoint: 'deploy_eval_checkpoint' },
+      tenants: [A, '22222222-2222-4222-8222-222222222222'], realtimeRole: 'realtime_reader', evaluatorRole: 'evaluator_reader',
+      realtime: { namespace: namespaces().checkpoint, consumer: 'realtime-joined-fixture', contractDigest: 'a'.repeat(64) },
+      evaluator: { namespace: 'deploy_eval_checkpoint', consumer: 'evaluator-joined-fixture', contractDigest: 'b'.repeat(64) } };
+    const checkpoints = checkpointInputs(input);
+    const admission = admit({ namespaces: input.namespaces, instances: checkpoints.instances });
+    assert.equal(admission.census.selected.length, 21);
+    assert.equal(admission.census.tables, 37);
+    assert.equal(admission.census.candidates.length, 23);
+    assert.deepEqual(admission.census.selected.filter(entry => entry.kind.includes('checkpoint')).map(entry => [entry.kind, entry.namespace, entry.instanceOf]),
+      [['checkpoint', input.realtime.namespace, null], ['evaluator_checkpoint', input.evaluator.namespace, 'checkpoint']]);
+    assert.ok(admission.lifecycle.CATALOGUE.some(entry => entry.kind === 'evaluator_checkpoint'));
+    const seed = populatedInstanceRows(admission, require('./fixtures/tenant-deployment-data').populatedRows(), checkpoints);
+    for (const [index, kind] of ['checkpoint', 'evaluator_checkpoint'].entries()) {
+      const key = kind + '.tenant_consumer_checkpoint';
+      assert.equal(seed[key].length, 2);
+      assert.ok(seed[key].every(row => row.consumer === [input.realtime, input.evaluator][index].consumer));
+      assert.equal(checkpoints.acl.grants.filter(grant => grant.kind === kind).length, 2);
+      assert.ok(checkpoints.acl.grants.filter(grant => grant.kind === kind).every(grant => grant.role === [input.realtimeRole, input.evaluatorRole][index]));
+    }
+    assert.throws(() => populatedInstanceRows(admit({ namespaces: namespaces() }), require('./fixtures/tenant-deployment-data').populatedRows(), checkpoints), { code: 'CHECKPOINT_INPUT_INSTANCE_OMITTED' });
+    assert.throws(() => admit({ namespaces: { ...input.namespaces, evaluator_checkpoint: input.namespaces.checkpoint }, instances: checkpoints.instances }), { code: 'OPERATIONS_NAMESPACE_SHARED' });
+    assert.throws(() => admit({ namespaces: input.namespaces }), { code: 'OPERATIONS_CENSUS_NAMESPACE_UNADMITTED', detail: 'evaluator_checkpoint' });
+    assert.throws(() => checkpointInputs({ ...input, evaluator: { ...input.evaluator, namespace: input.realtime.namespace } }), { code: 'CHECKPOINT_INPUT_INVALID' });
+    assert.throws(() => checkpointInputs({ ...input, evaluatorRole: input.realtimeRole }), { code: 'CHECKPOINT_INPUT_INVALID' });
+    assert.throws(() => admit({ namespaces: input.namespaces, instances: [{ kind: 'extra', of: 'secrets' }] }), { code: 'OPERATIONS_CENSUS_INSTANCE_INVALID' });
+    assert.throws(() => admit({ namespaces: input.namespaces, instances: [{ kind: 'checkpoint', of: 'checkpoint' }] }), { code: 'OPERATIONS_CENSUS_INSTANCE_INVALID' });
+  });
+
   it('prepares the frozen alarm extension, both-tenant expiry seeds and narrowly separated roles', function () {
     const { alarmInputs } = require('./fixtures/tenant-deployment-alarm');
     const inputs = alarmInputs({ tenants: [A, '22222222-2222-4222-8222-222222222222'], now: 1700000000000,

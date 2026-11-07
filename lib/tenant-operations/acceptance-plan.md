@@ -300,3 +300,81 @@ ACK state/RLS refusal and owned process exits. Root must bind these to final
 actual Socket.IO/journey compatibility and recovery observations, with planted
 lost-clear, regenerated retry and privilege-broadening controls. JSONB equality
 review may still change runtime; recheck final source, schema and admissions.
+
+
+## Frozen B3b9f preparation: exact whole-C cohorts and ordering
+
+B3b9f7c2eb4616b058c0bce67f47ccf93cf8d9efa/tree6cacbb3c6f487878c2d478b7607527805b6cb738
+has distinct rt_checkpoint/eval_checkpoint namespaces and realtime/evaluator
+principals. Its schema snapshots match C0a; C adds lifecycle schema. Candidate-only
+projection, not a source merge, measures23files/21physical instances/37tables when
+T/D/profile successors and both checkpoint instances are explicitly selected.
+New bounded instances interface and config-bound seed helper preserve both.
+Do not copy B bootstrap's broad ALL-table/ALL-sequence grants into recovery:
+freeze its final actual-roleV2 matrix, then enumerate exact tables/columns/sequences
+and each actual factory's separate readiness principal. C helper role names are
+synthetic inputs, not a grant to combine capabilities.
+
+Keep these cohorts distinct:
+
+| Cohort | Exact setup and expected result |
+|---|---|
+| CURRENT full recovery | Final coherent B+C source;21instances/37tables, every table populated for both tenants, actual replay contract digests per checkpoint; exact snapshot/durable artifact/fresh restore/independent SQL and role denials. |
+| Real schema-version upgrade | OLD a7f5cbf71ab9016855976fae74730727d0a78024/tree461b9a291e37372616101e1c9c6295a2b0d5e68c; T/D successors already current, profileBASE physically empty, all other OLD tables populated. OLD has18instances/31tables; NEW adds lifecycle0002, profile0002, fresh alarm/outbox/evaluator-checkpoint namespaces. Source artifact covers actual OLD only. Schema success is actual lifecycle0001→0002 with populated parent requests, not a synthetic/config-only migration. |
+| Guarded populated predecessors | Separate populated profileBASE, outbox0001 heads-only and requests-only fixtures each refuse actual successor migration atomically. Empty counterpart succeeds. No invented natural order/private state backfill. |
+| Configuration expansion | Adding separate evaluator checkpoint is a real namespace/configuration change. It supplements schema evidence, never replaces lifecycle version-upgrade evidence. |
+| Deletion ceremony | CURRENT inventory and current trusted operator fixture authority; durable real artifact and held stopped-writer window, actual connections/barriers, no implicit confirmation or restored cancellation after committed start. |
+
+The success-upgrade cohort deliberately has empty OLD profile and absent NEW
+domains. It is not whole-populated upgrade across unsupported guards. OLD a7
+source admission and its original operator binary must be independently archived,
+not edited to understand NEW. Compare lifecycle0001 checksum byte-for-byte; capture
+legacy requested/executed rows in the durable OLDartifact before any up. After NEW,
+parent rows and all old projected columns remain exact, ceremony table exists and
+legacy intent remains unconfirmed. Actual OLD checkRecord rejects NEW unknown/newer
+inventory, actual migration check rejects lifecycle0002; rollback uses retained
+artifact/record into fresh OLDnamespaces, never in-place down. NEWnamespaces and
+postbackup writes remain untouched; rollback loss is explicit.
+
+Native sequence: freeze joint source/dependency lock/actual-roleV2 manifest,
+namespace-instance maps/current config/replay digests/outage contract/grant;
+parent provisions exact owned loopback resources; inspect CURRENT physical seed
+and role readiness before running core cases. Run durable capture/fresh restore,
+refusal/interruption/rerun, actual lifecycle upgrade+OLD readiness/rollback,
+guarded predecessor refusals, then deletion/races/retry. Use second operator raw
+SQL snapshots before assertions; source summary routines are not the independent
+oracle. Record each phase's config/head/resource birth/clock/statement category,
+physical observations and predicted named refusal. An unexpected outcome stops
+that phase and keeps all previous/failed captures. A repaired source needs a new
+head/capture and re-review. Run planned mutations only in scratch archives, one
+fault/family at a time; require assertion plus physical symptom, restore target,
+then a complete final unmodified CURRENT/core sequence.
+
+Controls must include omitted evaluator instance and namespace/role aliasing;
+artifact/durability refusal before INSERT/GRANT/setval/up; self-consistent second
+checkpoint tenant loss; identity ordinal/sequence loss; producer clear/retry loss;
+COMMIT-for-ROLLBACK interruption; lifecycle confirmation/current-operator bypass;
+cancel-after-durable-start; and actual privilege broadening. Do not count ordinary
+setup/permission/timeout failures as semantic reds. Real barriers must show either
+cancel commits with no claim, or claim commits and cancel refuses; destructive
+rollback retains executing and permits same-artifact current-authorized retry.
+
+Journey supplement consumes frozen clients.js descriptors and final actual
+endpoints after fresh restore/OLDrollback, never Mongo-only launcher or synthetic
+success responses. Compare headers/status/body/history/typed identity and actual
+alarm/clear/retry handoff; classify unsupported/differences explicitly. Full-current
+37table SQL fidelity and admitted runtime-compatible fixture data are separate:
+placeholder policy/config/ciphertext fixtures do not make real consumer readiness.
+Use real synthetic provider-owned keys/config identities for consumers; retain
+same tenant/key material in fresh restore and test decryption/signing with existing
+keys without exporting keys. Provider destruction/rotation is outside this plan.
+
+Outstanding integration inputs, not new policy questions: final coherent source
+join; physically validated exact actual-roleV2 manifest and selected readiness
+factories; parent-approved operator/quiescence fixture adapter and pending outage
+contract; implementation/review of full-populated native instrument. Historical
+f77 two-domain instrument cannot be invoked unchanged as whole-C evidence. It owns
+its containers itself; the new parent must enumerate full domains/instances, use
+parent-owned resource identity and isolated configs. These inputs and the explicit
+runtime grant must be concrete before any service action. No source test/census
+or prepared plan promotes M5/M6/native acceptance.

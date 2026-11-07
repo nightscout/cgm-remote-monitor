@@ -52,6 +52,7 @@ const EFFECTS = {
     create(schema, 'tenant_notification_requests', 'tenant_id uuid, request_id uuid, consumer text, dedup_key text, origin text, config_identity text, payload jsonb, state text, created_at bigint, next_at bigint, attempt integer, attempt_token uuid, attempt_until bigint, accepted_at bigint, receipt jsonb, cleared_at bigint');
   },
   '0002_tenant_notification_producer_state': schema => create(schema, 'tenant_notification_state', 'tenant_id uuid, consumer text, revision bigint, config_identity text, producer jsonb'),
+  '0001_consumer_checkpoint_projection': schema => create(schema, 'tenant_consumer_checkpoint', 'tenant_id uuid, consumer text, contract_digest text, checkpoint bigint, projection jsonb'),
   '0001_profile': schema => create(schema, 'profile', 'tenant_id uuid, doc jsonb, id_kind text'),
   '0002_profile_socket_order': schema => {
     const table = schema.tables.get('profile');
@@ -462,6 +463,32 @@ describe('tenant operations: deployment backup, restore, upgrade and rollback', 
       ]);
       assert.ok(grants.includes('GRANT SELECT, INSERT, UPDATE ("revision", "config_identity", "producer") ON "fresh_outbox"."tenant_notification_state" TO "outbox_writer"'));
       assert.deepEqual(operations.compareSummaries(await operations.summarize(source, selected('source_outbox')), await operations.summarize(target, selected('fresh_outbox'))), []);
+    });
+
+    it('restores both physical checkpoint instances without mixing their consumers, tenant rows or grants', async function () {
+      const candidate = require('../migrations/candidates/postgres-consumer-checkpoint-v1.json');
+      const selected = prefix => ['checkpoint', 'evaluator_checkpoint'].map(kind => ({ kind, namespace: prefix + '_' + kind, catalogue: candidate, tables: ['tenant_consumer_checkpoint'] }));
+      const inputs = require('./fixtures/tenant-deployment-checkpoints').checkpointInputs({ namespaces: { checkpoint: 'source_checkpoint', evaluator_checkpoint: 'source_evaluator_checkpoint' }, tenants: [A, B],
+        realtime: { namespace: 'source_checkpoint', consumer: 'realtime-joined-fixture', contractDigest: 'a'.repeat(64) },
+        evaluator: { namespace: 'source_evaluator_checkpoint', consumer: 'evaluator-joined-fixture', contractDigest: 'b'.repeat(64) }, realtimeRole: 'realtime_reader', evaluatorRole: 'evaluator_reader' });
+      const source = fakeConnection(), target = fakeConnection();
+      for (const entry of selected('source')) {
+        await fakeMigrate(source, [])('up', { namespace: entry.namespace, catalogue: candidate });
+        await source.seed(entry.namespace, 'tenant_consumer_checkpoint', inputs.rows[entry.kind + '.tenant_consumer_checkpoint']);
+      }
+      for (const entry of selected('fresh')) await fakeMigrate(target, [])('up', { namespace: entry.namespace, catalogue: candidate });
+      const artifact = await operations.backup(source, { catalogues: selected('source'), sourceCommit: COMMIT, now: NOW });
+      assert.deepEqual(Object.keys(artifact.tables).sort(), ['checkpoint.tenant_consumer_checkpoint', 'evaluator_checkpoint.tenant_consumer_checkpoint']);
+      await operations.restore(target, artifact, { catalogues: selected('fresh'), acl: inputs.acl });
+      assert.deepEqual(operations.compareSummaries(await operations.summarize(source, selected('source')), await operations.summarize(target, selected('fresh'))), []);
+      assert.ok(target.rows('fresh_checkpoint', 'tenant_consumer_checkpoint').every(row => row.consumer === 'realtime-joined-fixture'));
+      assert.ok(target.rows('fresh_evaluator_checkpoint', 'tenant_consumer_checkpoint').every(row => row.consumer === 'evaluator-joined-fixture'));
+      const grants = target.statements(/^GRANT/).map(entry => entry.text);
+      assert.ok(grants.filter(sql => sql.includes('fresh_evaluator_checkpoint')).every(sql => sql.endsWith('TO "evaluator_reader"')));
+      assert.ok(grants.filter(sql => sql.includes('"fresh_checkpoint"')).every(sql => sql.endsWith('TO "realtime_reader"')));
+      target.schemas.get('fresh_evaluator_checkpoint').tables.get('tenant_consumer_checkpoint').rows.pop();
+      const differences = operations.compareSummaries(await operations.summarize(source, selected('source')), await operations.summarize(target, selected('fresh')));
+      assert.ok(differences.some(row => row.key === 'evaluator_checkpoint.tenant_consumer_checkpoint'), 'independent summary must expose a lost second-instance tenant');
     });
 
     it('control: a backup that lost one tenant from one table restores cleanly, and the independent oracle names the tenant and table', async function () {
