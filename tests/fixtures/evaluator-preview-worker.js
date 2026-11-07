@@ -42,7 +42,8 @@ starting = (async () => {
   context = running.contexts.evaluator;
   process.send({ ready: true, contexts: Object.keys(running.contexts), servers: running.servers.length,
     health: context ? context.health() : null });
-})().catch(error => { process.send({ bootError: { name: error.name, message: error.message } }); process.disconnect(); process.exitCode = 1; });
+})().catch(error => { process.send({ bootError: { name: error.name, message: error.message,
+  previewConfigError: error instanceof require('../../lib/server/serve/preview-config').PreviewConfigError } }); process.disconnect(); process.exitCode = 1; });
 
 process.once('SIGTERM', async () => {
   if (release) release();

@@ -323,7 +323,14 @@ optInSuite(process.env.NS_M5_CURRENT_STATE_PROOF_TEST === '1' && !!process.env.N
       assert.equal(tick.inputCheckpoint, first.inputCheckpoint); assert.equal(tick.trigger, 'time-only');
       assert.ok(tick.outputRevision > first.outputRevision);
       const acquired = await worker.call('acquire'); lab.tracePreview('preview-time-acquired', { acquired, physical: await lab.previewPhysical() });
-      assert.equal(value(acquired), 222); assert.equal(acquired.inputCheckpoint, before.A.floor);
+      // Both one-minute-apart readings enter the same shipping five-minute
+      // bucket. Acquisition changes the mean; `last` remains the newest value.
+      assert.equal(value(acquired), (111 + 222) / 2, 'M5_EVAL_ACQUIRED_BUCKET_MEAN');
+      assert.equal(acquired.result.properties.bgnow.last, 222, 'M5_EVAL_ACQUIRED_NEWEST_LAST');
+      assert.deepEqual(acquired.result.properties.bgnow.sgvs.map(row => [row._id, row.mgdl]).sort((a, b) => a[0].localeCompare(b[0])),
+        [['new-physical', 222], ['preview-reading', 111]], 'M5_EVAL_ACQUIRED_EXACT_BUCKET_INPUT');
+      assert.equal(acquired.inputCheckpoint, before.A.floor);
+      assert.ok(acquired.inputCheckpoint > first.inputCheckpoint, 'M5_EVAL_ACQUIRED_INPUT_ADVANCED');
     });
     it('discards a reused-revision changed config and refuses stale cached eligibility', async function () {
       await seed(); const initial = lab.configure(), worker = await start(initial), first = await worker.call('last');
@@ -394,7 +401,8 @@ optInSuite(process.env.NS_M5_CURRENT_STATE_PROOF_TEST === '1' && !!process.env.N
           lab.tracePreview('preview-unsafe-grant', { table, column, privilege, allowed, startup: worker.startup,
             before, after: await lab.previewPhysical() });
           assert.equal(allowed, true, 'M5_EVAL_PRIVILEGE physical forbidden grant exists');
-          assert.equal(worker.startup.bootError?.name, 'PreviewConfigError', 'M5_EVAL_PRIVILEGE refuse before worker starts');
+          assert.equal(worker.startup.bootError?.previewConfigError, true, 'M5_EVAL_PRIVILEGE actual PreviewConfigError class');
+          assert.equal(worker.startup.bootError.message, 'evaluator preview readiness or initialization refused', 'M5_EVAL_PRIVILEGE bounded readiness refusal');
           assert.equal(worker.startup.ready, undefined);
           assert.deepEqual(await lab.previewPhysical(), before);
         } finally {
