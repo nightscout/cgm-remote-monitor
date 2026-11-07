@@ -324,9 +324,9 @@ describe('notifications snooze state externalization (#8194)', function () {
     });
   });
 
-  it('ignores a stored snooze that expires further ahead than the allowed maximum', function (done) {
+  it('ignores a stored snooze acked by a clock that is ahead of this one', function (done) {
     fakeStorage.getSnooze = async function () {
-      return { lastAckTime: Date.now() + 30 * 24 * 60 * 60 * 1000, silenceTime: 30 * 60 * 1000 };
+      return { lastAckTime: Date.now() + 10 * 60 * 60 * 1000, silenceTime: 30 * 60 * 1000 };
     };
     notifications.resetStateForTests();
     var emitted = 0;
@@ -347,7 +347,7 @@ describe('notifications snooze state externalization (#8194)', function () {
 
   it('ignores a stored snooze longer than the allowed maximum', function (done) {
     fakeStorage.getSnooze = async function () {
-      return { lastAckTime: Date.now(), silenceTime: 25 * 60 * 60 * 1000 };
+      return { lastAckTime: Date.now() - 23 * 60 * 60 * 1000, silenceTime: 47 * 60 * 60 * 1000 };
     };
     notifications.resetStateForTests();
     var emitted = 0;
@@ -557,8 +557,16 @@ describe('notifications snooze state externalization (#8194)', function () {
     }, 100);
   });
 
-  it('rejects timeout values above the Node timer limit', function () {
-    process.env.ALARM_REFRESH_TIMEOUT_MS = '2147483648';
+  it('rejects timeout values above the 15 second cap and accepts the cap itself', function () {
+    process.env.ALARM_REFRESH_TIMEOUT_MS = '15000';
+    delete require.cache[require.resolve('../lib/notifications')];
+    var capped = require('../lib/notifications')({ testMode: true }, ctx);
+    capped.resetStateForTests();
+    var atCap = capped.getAlarmForTests(2, 'default');
+    (atCap.refreshDeadline - atCap.lastRefreshTime).should.equal(15000);
+    capped.resetStateForTests();
+
+    process.env.ALARM_REFRESH_TIMEOUT_MS = '15001';
     delete require.cache[require.resolve('../lib/notifications')];
     var notifs = require('../lib/notifications')({ testMode: true }, ctx);
     notifs.resetStateForTests();
@@ -619,7 +627,11 @@ describe('notifications snooze state externalization (#8194)', function () {
       level: 2, group: 'default', title: 'Test', message: 'msg', plugin: { name: 'test' }
     });
     notifs.process();
+    var pendingAlarm = notifs.getAlarmForTests(2, 'default');
+    pendingAlarm.refreshPending.should.equal(true);
     notifs.ack(2, 'default', 60000);
+    pendingAlarm.refreshPending.should.equal(false, 'ack must end the pending refresh');
+    (pendingAlarm.refreshTimer === null).should.equal(true, 'ack must clear the refresh timer');
 
     setTimeout(function () {
       emitCount.should.equal(0, 'ack must prevent the pending timeout from emitting');

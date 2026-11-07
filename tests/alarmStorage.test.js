@@ -20,6 +20,27 @@ describe('alarmStorage', function () {
     storage.ensureIndexes.should.be.a.Function();
   });
 
+  describe('hasSharedNameHazard', function () {
+    var defaults = { entries_collection: 'entries', treatments_collection: 'treatments',
+      profile_collection: 'profile', devicestatus_collection: 'devicestatus',
+      alarmsnooze_collection: 'alarmsnooze' };
+
+    it('is false when every collection has its default name', function () {
+      alarmStorage.hasSharedNameHazard(defaults).should.equal(false);
+    });
+
+    it('is true when a data collection is renamed but the snooze collection is not', function () {
+      alarmStorage.hasSharedNameHazard(Object.assign({}, defaults, { treatments_collection: 'site_b_treatments' }))
+        .should.equal(true);
+    });
+
+    it('is false once the snooze collection has its own name', function () {
+      alarmStorage.hasSharedNameHazard(Object.assign({}, defaults,
+        { treatments_collection: 'site_b_treatments', alarmsnooze_collection: 'site_b_alarmsnooze' }))
+        .should.equal(false);
+    });
+  });
+
   describe('collection name', function () {
     function nameUsed (env) {
       var used = null;

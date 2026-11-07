@@ -221,6 +221,7 @@
         "tests/00_production-safety.test.js",
         "tests/XX_clean*.test.js",
         "tests/adminnotifies*.test.js",
+        "tests/alarmStorage.boot.test.js",
         "tests/alarmStorage.mongo.test.js",
         "tests/api*.test.js",
         "tests/api3*.test.js",

@@ -63,7 +63,7 @@ Where `winner = { $gt: [newExpiresAt, { $ifNull: ['$expiresAt', new Date(0)] }] 
 
 ## Read Semantics
 
-`alarmStorage.getSnooze(level, group)` reads only unexpired docs by filtering `expiresAt: { $gt: new Date() }`. This guards against the up-to-60s lag between expiry and TTL sweep.
+`alarmStorage.getSnooze(level, group)` reads only unexpired docs by filtering `expiresAt: { $gt: new Date() }`. This guards against the lag between expiry and the TTL sweep, which runs about once a minute and can fall behind.
 
 ---
 
@@ -74,6 +74,17 @@ If `ctx.store` is unavailable, `alarmStorage` methods are no-ops that resolve to
 This isn't a one-time startup cost. A warm instance re-checks storage every `ALARM_REFRESH_STALE_MS` (default 30s) while an alarm condition stays active, so a degraded Mongo can add up to `ALARM_REFRESH_TIMEOUT_MS` of delay to alarm delivery on a recurring basis, not just at process start.
 
 ---
+
+## Clearing a stuck snooze
+
+Snoozes survive a restart. To clear one by hand, delete its document, or all of them:
+
+```javascript
+db.alarmsnooze.deleteOne({ _id: '2-default' })
+db.alarmsnooze.deleteMany({})
+```
+
+Use the collection name set by `MONGO_ALARMSNOOZE_COLLECTION` if you changed it. Running instances reload the stored state at the next refresh, so an instance that already loaded a snooze keeps it until it is restarted.
 
 ## Compatibility
 
