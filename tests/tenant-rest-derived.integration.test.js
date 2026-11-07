@@ -128,7 +128,8 @@ optInSuite(process.env.NS_REST_DERIVED_HTTP_TEST === '1' &&
       await admin.query(`CREATE ROLE ${role} LOGIN NOSUPERUSER NOBYPASSRLS PASSWORD '${random()}'`);
       const password = random(); await admin.query(`ALTER ROLE ${role} PASSWORD '${password}'`);
       await admin.query(`GRANT USAGE ON SCHEMA ${Object.values(namespaces).join(',')} TO ${role}`);
-      for (const logical of catalogue.names) await admin.query(`GRANT SELECT, INSERT, UPDATE, DELETE ON ${namespaces[logical]}.${logical} TO ${role}`);
+      for (const logical of catalogue.names) await require('./fixtures/tenant-insertion-grants').grant(admin, {
+        namespace: namespaces[logical], domain: logical, role, catalogue: postgresDomains.get(logical).catalogue });
       await admin.query(`GRANT SELECT ON ALL TABLES IN SCHEMA ${namespaces.authorization} TO ${role}`);
       const url = new URL(process.env.NS_TEST_POSTGRES_ADMIN_URI); url.username = role; url.password = password; uri = url.toString();
       for (const tenant of [A, B]) {
@@ -138,8 +139,9 @@ optInSuite(process.env.NS_REST_DERIVED_HTTP_TEST === '1' &&
         await admin.query(`INSERT INTO ${namespaces.authorization}.tenant_authorization_subject_roles VALUES ($1,$2,'reader')`, [tenant, SUBJECT]);
         for (const logical of catalogue.names) for (const doc of documents(logical, tenant)) {
           const row = encodeDocument(doc);
-          await admin.query(`INSERT INTO ${namespaces[logical]}.${logical} (tenant_id,id_kind,doc) VALUES ($1,$2,$3)`,
-            [tenant, row.id_kind, row.doc]);
+          await require('./fixtures/tenant-insertion-grants').withTenant(admin, tenant, () =>
+            admin.query(`INSERT INTO ${namespaces[logical]}.${logical} (tenant_id,id_kind,doc) VALUES ($1,$2,$3)`,
+              [tenant, row.id_kind, row.doc]));
         }
       }
       mongo = new MongoClient(process.env.CUSTOMCONNSTR_mongo); await mongo.connect();

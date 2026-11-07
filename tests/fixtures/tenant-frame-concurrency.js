@@ -29,7 +29,8 @@ module.exports = function tenantFrameConcurrency () {
       await run('up', { direct: true, connectionString: process.env.NS_TEST_POSTGRES_ADMIN_URI,
         namespace: namespaces[logical], catalogue: postgresDomains.get(logical).catalogue });
       await base.admin.query(`GRANT USAGE ON SCHEMA ${namespaces[logical]} TO ${role}`);
-      await base.admin.query(`GRANT SELECT,INSERT,UPDATE,DELETE ON ${namespaces[logical]}.${logical} TO ${role}`);
+      await require('./tenant-insertion-grants').grant(base.admin, { namespace: namespaces[logical], domain: logical,
+        role, catalogue: postgresDomains.get(logical).catalogue });
     }
     const config = { domains: [...catalogue.names], legacyEnabled: true, contextEnabled: false, namespaces,
       bindings: new Map([[base.A, {}], [base.B, {}]]), environments: new Map([base.A, base.B].map(tenant =>
@@ -69,8 +70,9 @@ module.exports = function tenantFrameConcurrency () {
           carbs: foreign ? 920 : 20, created_at: new Date(at).toISOString(), frameGeneration: foreign ? 9 : 0 }]
       ]) {
         const row = encodeDocument(doc);
-        await base.admin.query(`INSERT INTO ${namespaces[logical]}.${logical} (tenant_id,id_kind,doc) VALUES ($1,$2,$3)`,
-          [tenant, row.id_kind, row.doc]);
+        await require('./tenant-insertion-grants').withTenant(base.admin, tenant, () =>
+          base.admin.query(`INSERT INTO ${namespaces[logical]}.${logical} (tenant_id,id_kind,doc) VALUES ($1,$2,$3)`,
+            [tenant, row.id_kind, row.doc]));
       }
       await base.grants(['api:*:read'], tenant);
     }
@@ -78,6 +80,7 @@ module.exports = function tenantFrameConcurrency () {
   fixture.advance = async () => {
     await writer.query('BEGIN');
     try {
+      await writer.query("SELECT set_config('app.current_tenant_id',$1,true)", [base.A]);
       for (const [logical, field, value] of [['entries', 'sgv', 111], ['treatments', 'carbs', 30]]) {
         await writer.query(`UPDATE ${namespaces[logical]}.${logical} SET doc=jsonb_set(jsonb_set(doc,
           '{${field}}',$1::jsonb),'{frameGeneration}','1'::jsonb) WHERE tenant_id=$2`, [JSON.stringify(value), base.A]);

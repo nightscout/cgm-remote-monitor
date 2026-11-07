@@ -43,10 +43,12 @@ module.exports = async function upgrade (input) {
     assert.equal((await run('check', options(empty, successor))).current, true);
     let oldCode; try { await run('check', options(empty, old)); } catch (error) { oldCode = error.code; }
     assert.equal(oldCode, 'MIG_UNKNOWN', 'PROFILE_OLD_CATALOGUE_REFUSES_SUCCESSOR explicit rollback boundary');
-    for (const id of ['z-first', 'a-second']) await admin.query('INSERT INTO "' + empty + '".profile(tenant_id,id_kind,doc) VALUES($1,$2,$3::jsonb)',
-      [config.tenant, 'string', JSON.stringify({ _id: id, NSCLIENT_ID: 'synthetic-match' })]);
+    for (const id of ['z-first', 'a-second']) await require('../tenant-insertion-grants').withTenant(admin, config.tenant, () =>
+      admin.query('INSERT INTO "' + empty + '".profile(tenant_id,id_kind,doc) VALUES($1,$2,$3::jsonb)',
+        [config.tenant, 'string', JSON.stringify({ _id: id, NSCLIENT_ID: 'synthetic-match' })]));
     const ordinals = (await admin.query('SELECT "_id",insertion_ordinal FROM "' + empty + '".profile ORDER BY insertion_ordinal')).rows;
-    await admin.query('UPDATE "' + empty + '".profile SET doc=doc || $1::jsonb WHERE "_id"=$2', [JSON.stringify({ marker: 'synthetic-edit' }), 'z-first']);
+    await require('../tenant-insertion-grants').withTenant(admin, config.tenant, () =>
+      admin.query('UPDATE "' + empty + '".profile SET doc=doc || $1::jsonb WHERE "_id"=$2', [JSON.stringify({ marker: 'synthetic-edit' }), 'z-first']));
     const retained = (await admin.query('SELECT "_id",insertion_ordinal FROM "' + empty + '".profile ORDER BY insertion_ordinal')).rows;
     observations.push({ kind: 'empty', oldCode, ordinals, retained }); save();
     assert.deepEqual(ordinals.map(row => row._id), ['z-first', 'a-second']); assert.deepEqual(retained, ordinals, 'PROFILE_ORDINAL_RETAINED edit cannot reorder insertion');

@@ -3,6 +3,8 @@
 // The coordinator supplies a disposable PostgreSQL URI; no Docker/global cleanup.
 const assert = require('node:assert/strict');
 const crypto = require('node:crypto');
+const fs = require('node:fs');
+const path = require('node:path');
 const { Client } = require('pg');
 const { run } = require('../lib/migrations/postgres');
 const admission = require('../lib/storage/postgres-insertion-readiness');
@@ -15,6 +17,18 @@ optInSuite(process.env.NS_TENANT_INSERTION_READINESS_TEST === '1' && !!process.e
   const prefix = 'ordread_' + crypto.randomBytes(7).toString('hex');
   const schemas = [], roles = [], clients = [], selected = {};
   let admin, owner;
+  const observations = [], capture = process.env.NS_TENANT_INSERTION_READINESS_CAPTURE;
+  function observe (client, role) {
+    const query = client.query.bind(client);
+    client.query = async (text, values) => {
+      const result = await query(text, values);
+      if (typeof text === 'string' && /tenant-insertion-(structure|effective-acl|floor)/.test(text)) {
+        observations.push({ role, kind: text.match(/tenant-insertion-(structure|effective-acl|floor)/)[1], rows: structuredClone(result.rows) });
+      }
+      return result;
+    };
+    return client;
+  }
   const q = name => '"' + name + '"';
   async function bind (client, fn) {
     await client.query('BEGIN READ ONLY');
@@ -22,12 +36,18 @@ optInSuite(process.env.NS_TENANT_INSERTION_READINESS_TEST === '1' && !!process.e
     finally { await client.query('ROLLBACK'); }
   }
   const check = (domain, role = 'serving') => bind(selected[domain][role], async () => {
-    await admission.metadata(selected[domain][role], { namespace: selected[domain].namespace, domain, mode: role });
-    await admission.floor(selected[domain][role], { namespace: selected[domain].namespace, domain, tenant: A });
+    try {
+      await admission.metadata(selected[domain][role], { namespace: selected[domain].namespace, domain, mode: role });
+      await admission.floor(selected[domain][role], { namespace: selected[domain].namespace, domain, tenant: A });
+    } catch (error) {
+      if (Array.isArray(error.predicates)) error.message += ' [' + error.predicates.join(',') + ']';
+      throw error;
+    }
   });
   before(async () => {
     const uri = process.env.NS_TEST_POSTGRES_ADMIN_URI; assert.match(new URL(uri).pathname, /test/i);
-    admin = new Client({ connectionString: uri, statement_timeout: 10000 }); await admin.connect();
+    if (capture) assert(path.isAbsolute(capture), 'explicit absolute observation capture required');
+    admin = observe(new Client({ connectionString: uri, statement_timeout: 10000 }), 'operator'); await admin.connect();
     owner = (await admin.query('SELECT current_user AS owner')).rows[0].owner;
     assert.match(owner, /^[a-z][a-z0-9_]*$/);
     for (const mode of ['serving', 'reader', 'restore', 'inherited']) {
@@ -35,7 +55,7 @@ optInSuite(process.env.NS_TENANT_INSERTION_READINESS_TEST === '1' && !!process.e
       await admin.query('CREATE ROLE ' + q(role) + " LOGIN NOSUPERUSER NOBYPASSRLS NOCREATEDB NOCREATEROLE NOREPLICATION PASSWORD '" + password + "'");
       roles.push(role);
       const url = new URL(uri); url.username = role; url.password = password;
-      const client = new Client({ connectionString: url.toString(), statement_timeout: 10000 }); await client.connect();
+      const client = observe(new Client({ connectionString: url.toString(), statement_timeout: 10000 }), mode); await client.connect();
       clients.push(client); selected[mode] = { client, role };
     }
     for (const domain of proposal.DOMAINS) {
@@ -75,6 +95,7 @@ optInSuite(process.env.NS_TENANT_INSERTION_READINESS_TEST === '1' && !!process.e
       for (const role of [...roles].reverse()) try { await admin.query('DROP ROLE ' + q(role)); } catch (error) { errors.push(error); }
       await admin.end();
     }
+    if (capture) fs.writeFileSync(capture, JSON.stringify({ observations, cleanupErrors: errors.map(error => error.code || 'UNKNOWN') }, null, 2) + '\n', { flag: 'wx', mode: 0o600 });
     if (errors.length) throw new globalThis.AggregateError(errors, 'Owned insertion readiness cleanup refused');
   });
   it('admits all five actual schemas for serving/read-only/restore roles', async () => {

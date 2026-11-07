@@ -43,7 +43,8 @@ module.exports = function clockPortLab () {
         await admin.query(`GRANT USAGE ON SCHEMA "${namespaces[kind]}" TO "${role}"`);
       }
       for (const domain of domains) {
-        await admin.query(`GRANT SELECT,INSERT,UPDATE,DELETE ON "${namespaces[domain]}"."${domain}" TO "${role}"`);
+        await require('./tenant-insertion-grants').grant(admin, { namespace: namespaces[domain], domain, role,
+          catalogue: require('../../lib/server/serve/postgres-domains').get(domain).catalogue });
       }
       await admin.query(`GRANT SELECT,UPDATE(last_stamp) ON "${namespaces.clock}".tenant_write_clock TO "${role}"`);
       url.username = role;

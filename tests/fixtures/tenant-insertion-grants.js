@@ -24,4 +24,12 @@ function statements ({ namespace, domain, role, catalogue, mode = 'serving' }) {
   return [...base, 'GRANT USAGE ON ALL SEQUENCES IN SCHEMA ' + quote(namespace) + ' TO ' + who];
 }
 async function grant (client, options) { for (const sql of statements(options)) await client.query(sql); }
-module.exports = { statements, grant };
+async function withTenant (client, tenant, fn) {
+  if (typeof tenant !== 'string' || !/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(tenant) || typeof fn !== 'function') throw new TypeError('Explicit fixture tenant and operation required');
+  await client.query('BEGIN');
+  try {
+    await client.query("SELECT set_config('app.current_tenant_id',$1,true)", [tenant]);
+    const result = await fn(); await client.query('COMMIT'); return result;
+  } catch (error) { await client.query('ROLLBACK'); throw error; }
+}
+module.exports = { statements, grant, withTenant };
