@@ -53,6 +53,15 @@ describe('actual durable producer and outbox recreation protocol', function () {
     assert.equal(runtime.last(f.A),null,'CONTROL_CLEAR_NO_FABRICATED_CLINICAL');
     assert.deepEqual(selected.result.emitted,[{clear:true,title:'All Clear',message:"default - Urgent was ack'd",group:'default'}], 'PRODUCER_COLD_FAILED_CLINICAL_CONTROL_CLEAR');
   });
+  it('does not advance durable producer revision for an unchanged output after JSONB-like object-key reordering', async function () {
+    clinical(50); const value=open((row,callback)=>callback(null,{accepted:true})); await value.p.select(f.A);
+    const before=f.producerStates()[0]; f.jsonbRoundTrip();
+    assert.notEqual(JSON.stringify(f.producerStates()[0].producer),JSON.stringify(before.producer),'roundtrip actually changes object-key insertion order');
+    assert.deepEqual(f.producerStates()[0].producer,before.producer,'roundtrip preserves JSON values and array order');
+    await value.p.select(f.A); const after=f.producerStates()[0];
+    assert.equal(after.revision,before.revision,'PRODUCER_JSONB_UNCHANGED_NO_REVISION');
+    assert.deepEqual(after.producer,before.producer); assert.equal(f.snapshot().requests.length,1);
+  });
   it('rolls producer state and request intents back together when durable COMMIT refuses', async function () {
     clinical(50); let attempts=0; const value=open((row,callback)=>{attempts++;callback(null,{accepted:true});});
     f.failCommit(true); await assert.rejects(value.p.select(f.A),/SYNTHETIC_COMMIT_FAILURE/);

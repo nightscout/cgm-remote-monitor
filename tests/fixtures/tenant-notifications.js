@@ -125,6 +125,11 @@ module.exports = function fixture () {
   };
   return { A, B, connection, store, hooks, calls, effects, completions, observedAttempts,
     producerStates: () => copy(states),
+    jsonbRoundTrip () {
+      const reorder = value => Array.isArray(value) ? value.map(reorder) : value && typeof value === 'object'
+        ? Object.fromEntries(Object.keys(value).sort().map(key => [key,reorder(value[key])])) : value;
+      for (const row of states) row.producer = reorder(row.producer);
+    },
     component: overrides => createComponent({ ...hooks, ...overrides }),
     snapshot: () => ({ requests: copy(requests), heads: copy(heads) }),
     current: () => current,
