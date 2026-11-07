@@ -6,8 +6,9 @@ origin. PostgreSQL and TLS-enabled Vault stay on the private network. It does
 not change `nightscout single` or the existing Mongo Compose deployment.
 
 The deployment uses synthetic tenants and generated private credentials. Keep
-real records and identities out of this demonstration. Native deployment
-acceptance is pending; source checks do not establish restore acceptance.
+real records and identities out of this demonstration. Executed sources and
+acceptance belong to the [alignment release record](https://github.com/bewest/rag-nightscout-ecosystem-alignment/blob/main/releases/cgm-remote-monitor-16.0.0/contents.md);
+source checks do not establish restore acceptance.
 
 ## Prepare and start
 
