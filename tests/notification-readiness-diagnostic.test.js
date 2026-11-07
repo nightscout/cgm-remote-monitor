@@ -16,7 +16,7 @@ describe('bounded notification readiness metadata observations',function(){
       using:"tenant_id = nullif(current_setting('app.current_tenant_id',true),'')::uuid",check:"tenant_id = nullif(current_setting('app.current_tenant_id',true),'')::uuid"}]}}});
     await assert.rejects(scope.withTenant(f.A,()=>f.connection.transaction(()=>ready(f.connection,'notification_test',{
       diagnosticMaxRows:10,diagnosticMaxBytes:100000,onMetadata(record){records.push(structuredClone(record));
-        if(record.kind==='table')record.rows[0].policies[0].roles=[0];}
+        if(record.kind==='table'&&record.table==='tenant_notification_heads')record.rows[0].policies[0].roles=[0];}
     }))),/NOTIFICATION_SCHEMA_UNSAFE/);
     const table=records.find(record=>record.kind==='table');assert.ok(table,'NOTIFICATION_METADATA_BEFORE_ASSERT');
     assert.deepEqual(table.rows[0].policies[0].roles,['0']);assert.deepEqual(table.policyRoleTypes,[[['string']]],'NOTIFICATION_METADATA_TYPES_UNCHANGED');
