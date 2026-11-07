@@ -21,7 +21,9 @@ optInSuite(process.env.NS_OWNER_CONFIGURATION_DOCKER_TEST === '1', 'NS_OWNER_CON
       return lab.data.http(worker, tenant, 'GET', '/api/v1/status.json', await lab.data.localToken(tenant), undefined, headers);
     }
     async function current (tenant) {
-      return (await lab.state()).current.find(row => row.tenant_id === tenant);
+      const rows = (await lab.state()).current.filter(row => row.tenant_id === tenant);
+      assert.equal(rows.length, 1, 'independent settings snapshot must contain exactly one tenant row');
+      return rows[0];
     }
     async function wait (worker, marker) {
       await lab.data.until(async () => {
@@ -88,7 +90,8 @@ optInSuite(process.env.NS_OWNER_CONFIGURATION_DOCKER_TEST === '1', 'NS_OWNER_CON
       assert.equal(restored.operation, 'rollback'); assert.equal(restored.restored_from, 1);
       await lab.policy(A, { deployment: {}, overrides: { SHOW_SECONDS: { mode: 'pinned', pin: false } } });
       await refuseUnchanged(() => owner(left, A, 'POST', { expectedVersion: 3, restoredFrom: 2 }, lab.token(A), endpoint + '/rollback'), 403);
-      const shown = await owner(right, A, 'GET'); assert.equal(shown.body.effective.SHOW_SECONDS.value, false);
+      const shown = await owner(right, A, 'GET'); assert.equal(shown.status, 200);
+      assert.equal(shown.body.effective.SHOW_SECONDS.value, false);
       assert.equal(shown.body.effective.SHOW_SECONDS.source, 'operator-pin');
     });
     it('enforces current configure revoke with the same JWT on the next operation in another worker', async function () {
@@ -135,9 +138,11 @@ optInSuite(process.env.NS_OWNER_CONFIGURATION_DOCKER_TEST === '1', 'NS_OWNER_CON
       const next = await status(right, A), foreign = await status(left, B);
       assert.equal(next.status, 200); assert.equal(next.body.settings.units, 'mmol', 'NEXT_STATUS_UNITS: actual DATA handler must use fresh committed config');
       assert.equal(next.body.settings.showSeconds, true, 'NEXT_STATUS_SECONDS');
+      assert.equal(foreign.status, 200);
       assert.equal(foreign.body.settings.units, 'mg/dl'); assert.equal(foreign.body.settings.showSeconds, false);
       await lab.policy(A, { deployment: {}, overrides: { DISPLAY_UNITS: { mode: 'pinned', pin: 'mg/dl' } } });
-      const pinned = await status(left, A); assert.equal(pinned.body.settings.units, 'mg/dl');
+      const pinned = await status(left, A); assert.equal(pinned.status, 200);
+      assert.equal(pinned.body.settings.units, 'mg/dl');
       assert.equal((await current(A)).values.DISPLAY_UNITS, 'mmol', 'operator pin must not delete owner history/value');
     });
     it('keeps held presentation response and concurrent tenants bound to their operation-local environment', async function () {
@@ -149,8 +154,11 @@ optInSuite(process.env.NS_OWNER_CONFIGURATION_DOCKER_TEST === '1', 'NS_OWNER_CON
         await wait(worker, 'OWNER_CONFIGURATION_STATUS_HELD');
         assert.equal((await owner(left, A, 'PUT', { expectedVersion: 1, values: { DISPLAY_UNITS: 'mmol', SHOW_SECONDS: true } })).status, 200);
         const [next, foreign] = await Promise.all([status(right, A), status(worker, B)]);
+        assert.equal(next.status, 200, 'next presentation must succeed before value comparisons');
+        assert.equal(foreign.status, 200, 'foreign presentation must succeed before value comparisons');
         assert.equal(next.body.settings.units, 'mmol'); assert.equal(foreign.body.settings.units, 'mg/dl');
         barrier.release(); const old = await request;
+        assert.equal(old.status, 200, 'held presentation must succeed before value comparisons');
         assert.equal(old.body.settings.units, 'mg/dl'); assert.equal(old.body.settings.showSeconds, false);
       } finally { barrier.release(); if (request) await request.catch(() => {}); await lab.stop(worker); }
     });
