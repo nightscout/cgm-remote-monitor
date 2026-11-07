@@ -14,7 +14,7 @@ image with no pull/build; capture container/volume baselines and Node birth IDs
 before startup; verify exact image/owner/mounts and independent absence after.
 Unknown resources are never cleaned up. This file authorizes no invocation.
 
-Predicted ordinary **six passing, zero pending/failing**:
+Predicted ordinary **seven passing, zero pending/failing**:
 
 1. Actual committed request/attempt is independently visible when the fake
    consumer enters. New handles retain accepted dedup; a new legitimate output
@@ -34,7 +34,11 @@ Predicted ordinary **six passing, zero pending/failing**:
 5. Actual RLS hides B from A; cross-tenant insert, clinical write and schema DDL
    return42501. Independent role inspection says non-superuser/non-bypass and B
    remains byte-for-byte unchanged.
-6. Persisted selected-consumer receipt references survive handles; a clear without
+6. Unsafe installed RLS, broad table UPDATE, schema CREATE or foreign clinical
+   write grants must refuse before request insertion/adapter effects; restoring
+   exact privileges recovers. Readiness also requires read-only matching migration
+   ledger and rejects owner/elevated memberships.
+7. Persisted selected-consumer receipt references survive handles; a clear without
    plugin/level reaches the adapter, and only explicitly acknowledged cancellation
    references are marked cleared. Actual provider cancellation remains unmeasured.
 
@@ -56,13 +60,13 @@ Meaningful source-archive controls for the native grant:
   Red `NOTIFICATION_NATIVE_FAILED_SEND_NOT_ACCEPTED`.
 - `suppression`, case4: ignore the current gate and invoke the fake consumer after
   snooze. Red `NOTIFICATION_NATIVE_SUPPRESSION_NO_DISPATCH`.
-- Actual RLS-off case5: in an archive-only candidate remove ENABLE/FORCE RLS for
-  both owned outbox tables and recompute only that candidate's checksum. Physical
-  A SELECT now includes B. Red `NOTIFICATION_NATIVE_RLS_FOREIGN_READ`. This is an
-  authored product schema control, not a forbidden-role setup error. Preserve
-  ordinary candidate/checksum untouched.
+- `readiness`, case6: archive-only skip of the consumed readiness guard admits
+  an actual request while operator-owned heads RLS is disabled. Independent stored
+  rows/fake effect become visible. Red `NOTIFICATION_NATIVE_UNSAFE_NO_EFFECT`.
+  Other ordinary case6 grant mutations remain expected fail-closed refusals; never
+  count an unrelated SQL permission/setup error as the intended control.
 
-A fresh ordinary6 restores after this family. Token/close/config/condition
+A fresh ordinary7 restores after this family. Token/close/config/condition
 controls already have source-protocol assertions; they are not relabelled native
 proof. Choose the final focused sequence with root rather than rerun a full
 campaign for every helper. A mismatch stops after exact cleanup; preserve failure,
@@ -75,3 +79,11 @@ enabled-corpus/final-prcheck campaign. That joined testing must cover consumer
 impacts, actual current config/tenant and durable alarm read failures, accepted
 and ambiguous outcomes, clear versus pending alarm retry, restart and shutdown.
 Source-protocol fakes alone close none of those joined native claims.
+
+Native preparation uses PG clock_timestamp for reset/start and updates child
+configuration with that same epoch. Later deadline/rearm boundary instants are
+explicit fixture inputs, not measured wall-clock wait guarantees. Native lifecycle
+result envelopes carry tenant/requested/inputCheckpoint. The joined actual alarm
+fixture must align evaluation/attempt instants with actual accepted ackAt/expiresAt
+(or a common actual DB epoch); it must not compare1970 synthetic instants to a
+current database ack. Root owns that actual lifecycle→alarm→outbox integration.

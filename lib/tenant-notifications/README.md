@@ -8,7 +8,10 @@ protocol and synthetic callback tests do not establish actual provider delivery.
 `component({store,adapter,selectCycle,isCurrent,allows,now,maxRows,maxPayloadBytes,
 maxInflight,attemptTimeoutMs,retryDelayMs})` consumes a successful eligible cycle
 through `run(tenant)`. The cycle envelope is
-`{tenant?,identity,runtimeId,outputRevision,eligible,result:{emitted}}`.
+`{tenant?,identity,runtimeId,outputRevision,inputCheckpoint,eligible,result:{emitted}}`.
+Alarm filtering creates a fresh result envelope on each read. Stability uses the
+trusted config/runtime/output/checkpoint tags and rechecked semantic eligibility,
+never the filtered result object's identity.
 `selectCycle` must obtain the current successful output, not cache an earlier
 `eligible:true` value. Failed acquisition/evaluation/config reads make that output
 ineligible even when a prior successful display result is retained.
@@ -23,10 +26,16 @@ The store uses a separate operator-created namespace from clinical storage.
 edit to any installed migration. The application role requires USAGE on this
 namespace; SELECT/INSERT and UPDATE(request_id,blocked_until) on heads; and
 SELECT/INSERT and UPDATE(state,next_at,attempt,attempt_token,attempt_until,
-accepted_at,receipt,cleared_at) on requests. Both tables force tenant RLS and
+accepted_at,receipt,cleared_at) on requests; and SELECT on its schema_migrations
+ledger. Both data tables force tenant RLS and
 revoke PUBLIC privileges. No schema/clinical/credential/operator write authority
-is needed. Database permissions and actual process death are native acceptance
-work; source-protocol fakes are not RLS evidence.
+is needed. Every store transaction consumes installed-schema readiness before its SQL effects:
+non-elevated role/membership, non-owner schema/table, no schema/database CREATE or
+foreign writes, forced RLS and exact tenant policy, column types/nullability/primary
+keys, exact narrow updates and read-only matching migration ledger. Privileges are
+not cached. `store.ready(tenant)` exposes the same consumed guard for role startup.
+Database enforcement and actual process death remain native acceptance work;
+source-protocol fakes are not RLS evidence.
 
 Request admission and attempt registration each require a **new transaction**
 using the existing PostgreSQL connection's verified COMMIT boundary. They cannot
@@ -41,10 +50,13 @@ plugin name + level; announcement/informational title/message hash. The normal
 key intentionally follows existing group behavior. Pending/uncertain attempts
 reuse their persisted UUID across component/process restarts and new output
 instances. Runtime/output revision and input checkpoint are **not** retry IDs.
-Success reserves the normal key for the existing15minute window; a later output
-can create a new request at expiry. Failed attempts use the existing30second
-minimum retry window, together with the explicit operator retry delay. Calling
-retry does not extend that window. One already-consumed output instance does not
+Success reserves the normal key through the existing15minute expiry instant; a
+later output can create a new request strictly after expiry. Failed attempts use the existing30second
+minimum retry window, including the exact expiry instant, together with the
+explicit operator retry delay. Calling retry within that window does not extend
+it. A new actual attempt registers its dispatch marker in a separate consumed
+COMMIT; restart cannot bypass an active marker merely because an attempt deadline
+expired. One already-consumed output instance does not
 create a new request merely because its old window elapsed.
 
 `retry(tenant)` reads a bounded page of durable pending/uncertain work and expired
@@ -58,7 +70,7 @@ acceptance is not delivery to a device. No external exactly-once effect is claim
 
 Clear events are handled before normal alarm validation/dedup and may omit plugin
 and level. They carry the selected consumer's bounded persisted active receipt
-references for the same tenant. As in `pushnotify`, clear cancellation can address
+references (one hour inclusive of exact expiry, matching the existing cache) for the same tenant. As in `pushnotify`, clear cancellation can address
 all that consumer's retained receipts across groups. The adapter returns only
 explicitly confirmed `clearedRequestIds`; no unknown/foreign consumer receipt is
 released. Maker-style all-clear and Pushover-style cancellation remain explicit
@@ -84,3 +96,21 @@ Bounds are explicit admission/page/payload/inflight/attempt-wait limits, not SQL
 execution, wall-clock delivery, total retention or capacity guarantees. Queue
 retention, cadence, backlog and latency budgets remain unmeasured operational
 work. No production/default role enablement or M5 completion follows.
+
+Normal admission keys are not delivery-effect identity: actual simplealarms LOW
+and HIGH share plugin+urgent level, and one LOW condition can have a new reading
+message. Eligibility compares all serialized delivery fields, with canonical
+object-key ordering and array/type preservation. Only the plugin implementation
+graph, pushnotify's derived key and debug diagnostics are excluded. Runtime and
+evaluation revision/timestamp metadata live outside the notification payload.
+A materially changed pending effect is retired without overwriting its UUID or
+payload; its current replacement can be admitted in the SAME run strictly after
+the original normal window. Same meaningful payload with changed diagnostics or
+runtime identity retries the same UUID. Head-before-request locking and attempt
+tokens fence retired late callbacks from completing/updating a new head.
+
+The source-composition regression requires the actual tenant-alarms selector. In
+the coordinator's joined tree it loads the sibling module normally. Before that
+join, the focused lane supplies an explicit NS_NOTIFICATION_ALARM_CYCLE test-only
+path to an immutable archive of the actual alarm source, with source head/hashes
+in the private capture. No stable-return fake substitutes for that regression.

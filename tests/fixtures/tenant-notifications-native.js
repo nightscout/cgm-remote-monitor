@@ -14,7 +14,7 @@ module.exports = function nativeLab () {
   const lab = { A, B, name, role: name + '_worker', current: null, now: 2000000, components: [] };
   lab.cycle = (emitted = [notification()], tenant = A, identity = 'native-config') => {
     lab.current = { tenant, identity, runtimeId: 'native-runtime', outputRevision: (lab.current?.outputRevision || 0) + 1,
-      eligible: true, result: { now: lab.now, emitted } };
+      inputCheckpoint: 0, eligible: true, result: { tenant, now: lab.now, emitted, requested: [] } };
     return lab.current;
   };
   lab.open = async () => {
@@ -26,6 +26,7 @@ module.exports = function nativeLab () {
       catalogue: require('../../lib/tenant-notifications/postgres-candidate.json') });
     const password = randomBytes(24).toString('hex');
     await lab.admin.query(`CREATE ROLE "${lab.role}" LOGIN NOSUPERUSER NOBYPASSRLS PASSWORD '${password}'`);
+    await lab.admin.query(`GRANT SELECT ON "${name}".schema_migrations TO "${lab.role}"`);
     await lab.admin.query(`GRANT USAGE ON SCHEMA "${name}" TO "${lab.role}"`);
     await lab.admin.query(`GRANT SELECT,INSERT,UPDATE(request_id,blocked_until) ON "${name}".tenant_notification_heads TO "${lab.role}"`);
     await lab.admin.query(`GRANT SELECT,INSERT,UPDATE(state,next_at,attempt,attempt_token,attempt_until,accepted_at,receipt,cleared_at) ON "${name}".tenant_notification_requests TO "${lab.role}"`);
@@ -33,13 +34,15 @@ module.exports = function nativeLab () {
     const url = new URL(uri); url.username = lab.role; url.password = password;
     lab.childConfig = { connectionString: url.toString(), namespace: name, tenant: A, at: lab.now };
     lab.connection = await connect({ connectionString: url.toString(), max: 2, statement_timeout: 5000 });
+    lab.now = Number((await lab.admin.query('SELECT floor(extract(epoch FROM clock_timestamp())*1000)::bigint AS now')).rows[0].now);
+    lab.childConfig.at = lab.now;
     lab.store = createStore({ connection: lab.connection, namespace: name, maxRows: 10, maxBytes: 65536 });
   };
   lab.component = overrides => {
     const value = createComponent({ store: lab.store, adapter: { id: 'synthetic', send (row, callback) { callback(null, { accepted: true }); } },
       selectCycle: async () => lab.current, isCurrent: async (tenant, identity) => lab.current?.tenant === tenant && lab.current.identity === identity,
       allows: async () => !lab.suppressed, now: () => lab.now, maxRows: 10, maxPayloadBytes: 10000, maxInflight: 1,
-      attemptTimeoutMs: 100, retryDelayMs: 1, ...overrides });
+      attemptTimeoutMs: 1000, retryDelayMs: 1, ...overrides });
     lab.components.push(value); return value;
   };
   lab.rows = async (tenant = A) => (await lab.admin.query(`SELECT * FROM "${name}".tenant_notification_requests WHERE tenant_id=$1 ORDER BY created_at,request_id`, [tenant])).rows;
@@ -48,7 +51,8 @@ module.exports = function nativeLab () {
   lab.reset = async () => {
     await Promise.all(lab.components.map(value => value.close())); lab.components = [];
     await lab.admin.query(`TRUNCATE "${name}".tenant_notification_requests,"${name}".tenant_notification_heads`);
-    lab.now = 2000000; lab.suppressed = false; lab.current = null;
+    lab.now = Number((await lab.admin.query('SELECT floor(extract(epoch FROM clock_timestamp())*1000)::bigint AS now')).rows[0].now);
+    lab.childConfig.at = lab.now; lab.suppressed = false; lab.current = null;
   };
   lab.close = async () => {
     try {

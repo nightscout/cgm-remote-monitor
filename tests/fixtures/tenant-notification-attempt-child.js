@@ -12,7 +12,7 @@ const { notification } = require('./tenant-notifications-native');
   const connection = await connect({ connectionString: config.connectionString, max: 1, statement_timeout: 5000 });
   const store = createStore({ connection, namespace: config.namespace, maxRows: 10, maxBytes: 65536 });
   const cycle = { tenant: config.tenant, identity: 'native-config', runtimeId: 'native-child', outputRevision: 1,
-    eligible: true, result: { now: config.at, emitted: [notification()] } };
+    inputCheckpoint: 0, eligible: true, result: { tenant: config.tenant, now: config.at, emitted: [notification()], requested: [] } };
   const component = createComponent({ store, adapter: { id: 'synthetic', send (row) {
     // This fake consumer records acceptance but deliberately never calls completion.
     process.send({ phase: 'synthetic-acceptance-no-completion', id: row.id, attempt: row.attempt });

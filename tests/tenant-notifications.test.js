@@ -31,12 +31,13 @@ describe('durable tenant notification source protocol', function () {
     const first = open({ adapter: { id: 'synthetic', send } }); await first.run(f.A);
     const id = f.snapshot().requests[0].request_id; assert.equal(f.snapshot().requests[0].state, 'uncertain');
     await first.retry(f.A); assert.equal(f.effects.length, 1, 'legacy short window not extended by retry call');
-    f.advance(30000); await first.close();
+    f.advance(30001); await first.close();
     f.setCycle([notification()], { runtimeId: 'new-runtime' });
     const second = open({ adapter: { id: 'synthetic', send } }); await second.run(f.A);
     assert.equal(f.effects.length, 2); assert.equal(f.effects[1].id, id, 'NOTIFICATION_RETRY_IDENTITY persisted request reused');
     assert.equal(f.snapshot().requests.length, 1); assert.equal(f.snapshot().requests[0].state, 'accepted');
     f.advance(899999); f.setCycle([notification()]); await second.run(f.A); assert.equal(f.effects.length, 2);
+    f.advance(1); f.setCycle([notification()]); await second.run(f.A); assert.equal(f.effects.length, 2, 'exact success expiry is still cached');
     f.advance(1); f.setCycle([notification()]); await second.run(f.A);
     assert.equal(f.effects.length, 3); assert.notEqual(f.effects[2].id, id, 'legitimate rearmed alarm is a new logical request');
   });
@@ -53,10 +54,10 @@ describe('durable tenant notification source protocol', function () {
   it('rechecks current suppression and condition before retries; cannot replay a cleared alarm', async function () {
     f.setCycle([notification()]);
     const c = open({ adapter: { id: 'synthetic', send (row, callback) { f.effects.push(row); callback(new Error('uncertain')); } } });
-    await c.run(f.A); f.advance(30000); f.suppressed(); await c.retry(f.A);
+    await c.run(f.A); f.advance(30001); f.suppressed(); await c.retry(f.A);
     assert.equal(f.effects.length, 1, 'NOTIFICATION_SNOOZED_RETRY_NO_EFFECT'); assert.equal(f.snapshot().requests[0].state, 'cancelled');
     f.suppressed(false); f.setCycle([notification({ level: 2 })]); await c.run(f.A);
-    f.advance(30000); f.setCycle([]); await c.retry(f.A);
+    f.advance(30001); f.setCycle([]); await c.retry(f.A);
     assert.equal(f.effects.length, 2, 'NOTIFICATION_CLEARED_CONDITION_NO_STALE_RETRY');
     assert.ok(f.snapshot().requests.every(row => row.state === 'cancelled'));
   });
@@ -81,12 +82,14 @@ describe('durable tenant notification source protocol', function () {
     f.setCycle([notification()]); const callbacks = [];
     const first = open({ adapter: { id: 'synthetic', send (row, callback) { callbacks.push(callback); } }, attemptTimeoutMs: 5 });
     await first.run(f.A); assert.equal(f.snapshot().requests[0].state, 'uncertain');
-    f.advance(30000); const second = open({ adapter: { id: 'synthetic', send (row, callback) { callbacks.push(callback); } } });
+    f.advance(30001); const second = open({ adapter: { id: 'synthetic', send (row, callback) { callbacks.push(callback); } } });
     const pending = second.retry(f.A); await new Promise(resolve => setImmediate(resolve)); await second.close(); await pending;
     const before = f.snapshot(); callbacks.forEach(done => done(null, { accepted: true, receipt: 'late' }));
     await new Promise(resolve => setImmediate(resolve)); assert.deepEqual(f.snapshot(), before, 'NOTIFICATION_LATE_CALLBACK_FENCE');
     assert.equal(before.requests[0].state, 'attempting', 'NOTIFICATION_CLOSED_ATTEMPT_REMAINS_RECOVERABLE');
     f.advance(31); const third = open(); await third.retry(f.A);
+    assert.equal(f.snapshot().requests[0].state, 'attempting', 'restart cannot bypass the active normal retry window');
+    f.advance(30001); await third.retry(f.A);
     assert.equal(f.snapshot().requests[0].state, 'accepted');
     const stale = await scope.withTenant(f.A, () => f.store.finish({ tenant: f.A, id: before.requests[0].request_id,
       token: before.requests[0].attempt_token, state: 'uncertain', at: f.now(), nextAt: f.now(), receipt: null, cleared: [] }));
@@ -144,6 +147,69 @@ describe('durable tenant notification source protocol', function () {
     f.setCycle(Array.from({ length: 11 }, () => notification())); await assert.rejects(open().run(f.A), /CYCLE_UNAVAILABLE/);
   });
 
+  it('keeps immutable SAME-payload retries across runtime and diagnostic changes', async function () {
+    const original = notification({ eventName: 'low', message: 'Synthetic first reading' });
+    const effects = [];
+    const c = open({ adapter: { id: 'synthetic', send (row, callback) {
+      effects.push(row); callback(effects.length === 1 ? new Error('uncertain') : null, { accepted: true });
+    } } });
+    f.setCycle([original]); await c.run(f.A); const id = f.snapshot().requests[0].request_id;
+    f.advance(30001); f.setCycle([{ ...original, debug: { lastSGV: 55, now: f.now() } }], { runtimeId: 'different-runtime' }); await c.retry(f.A);
+    assert.equal(effects.length, 2); assert.equal(effects[1].id, id);
+    assert.equal(effects[1].notification.message, original.message, 'same named-condition retry never rewrites original payload');
+    const first = contract.notification(notification(), 10000);
+    assert.equal(contract.sameEffect(first, { ...first, message: 'Changed unnamed condition' }), false,
+      'unnamed message changes require conservative new admission rather than guessing a condition');
+    assert.equal(contract.sameEffect({ ...first, eventName: 'low' }, { ...first, eventName: 'low', eventType: 'another' }), false);
+  });
+
+  it('retires obsolete in-flight effects without allowing their late completion to update a new head', async function () {
+    f.setCycle([notification({ eventName: 'low', message: 'Synthetic LOW 60' })]);
+    let complete, entered;
+    const started = new Promise(resolve => { entered = resolve; });
+    const first = open({ attemptTimeoutMs: 60000, adapter: { id: 'synthetic', send (row, callback) { complete = callback; entered(); } } });
+    const oldWork = first.run(f.A); await started;
+    const old = f.snapshot().requests[0];
+    f.advance(30001); f.setCycle([notification({ eventName: 'low', message: 'Synthetic LOW 55' })]);
+    const second = open(); await second.run(f.A);
+    const before = f.snapshot(); complete(null, { accepted: true, receipt: 'late-old' });
+    const finished = await oldWork;
+    assert.equal(finished.results[0].state, 'superseded');
+    assert.deepEqual(f.snapshot(), before, 'NOTIFICATION_RETIRED_ATTEMPT_FENCE');
+    assert.equal(before.requests.find(row => row.request_id === old.request_id).state, 'cancelled');
+    assert.equal(before.requests.filter(row => row.state === 'accepted').length, 1);
+    assert.notEqual(before.heads[0].request_id, old.request_id);
+  });
+
+  it('consumes readiness before every SQL effect and refuses unsafe role RLS grants shape and ledger', async function () {
+    f.setCycle([notification()]);
+    const cases = [
+      { role: { rolsuper: true } }, { role: { rolbypassrls: true } }, { role: { rolcreaterole: true } },
+      { role: { owns_schema: true } }, { role: { any_schema_writes: true } }, { role: { database_create: true } },
+      { role: { elevated_membership: true } }, { role: { foreign_writes: true } },
+      { tables: { tenant_notification_heads: { secured: false } } },
+      { tables: { tenant_notification_requests: { owns: true } } },
+      { tables: { tenant_notification_requests: { broad_writes: true } } },
+      { tables: { tenant_notification_requests: { columns: [] } } },
+      { tables: { tenant_notification_requests: { primary_key: ['request_id'] } } },
+      { tables: { tenant_notification_requests: { policies: [{ command: '*', roles: [0], permissive: true, using: 'true', check: 'true' }] } } },
+      { tables: { schema_migrations: { any_writes: true } } }, { ledger: [] },
+      { ledger: [{ name: '0001_tenant_notification_outbox', checksum: 'wrong' }] }
+    ];
+    for (const unsafe of cases) {
+      f.unsafe(unsafe);
+      await assert.rejects(open().run(f.A), /NOTIFICATION_SCHEMA_UNSAFE/, 'NOTIFICATION_READINESS_REFUSAL');
+      assert.equal(f.snapshot().requests.length, 0, 'unsafe metadata cannot insert a request');
+    }
+    assert.equal(f.effects.length, 0); f.unsafe();
+    const c = open(); await c.run(f.A);
+    const queries = f.calls.filter(call => call.sql?.includes('notification-readiness-role')).length;
+    f.unsafe({ tables: { tenant_notification_requests: { broad_writes: true } } });
+    await assert.rejects(c.retry(f.A), /NOTIFICATION_SCHEMA_UNSAFE/);
+    assert.ok(f.calls.filter(call => call.sql?.includes('notification-readiness-role')).length > queries,
+      'readiness is consumed again after privilege change, never cached');
+  });
+
   it('declares isolated forced-RLS outbox schema without clinical authority', function () {
     const catalogue = validateCatalogue(require('../lib/tenant-notifications/postgres-candidate.json'));
     const sql = catalogue[0].up.join('\n');
@@ -181,5 +247,142 @@ describe('notification consumer source compatibility', function () {
       assert.equal(cancelled.length, 4, 'actual clear cancels retained receipts without plugin/level');
       assert.equal(maker.at(-1).clear, true); assert.equal(sends.length, 4);
     } finally { bus.emit('teardown'); }
+  });
+});
+
+describe('actual alarm selector notification composition', function () {
+  it('consumes freshly filtered alarm envelopes without confusing stable output tags with result object identity', async function () {
+    // Test-only frozen sibling source before the coordinator joins the two owned branches.
+    // eslint-disable-next-line security/detect-non-literal-require
+    const createAlarmCycle = require(process.env.NS_NOTIFICATION_ALARM_CYCLE || '../lib/tenant-alarms/cycle');
+    const mode = scope.getTenancyMode(); scope.setTenancyMode('multi');
+    const f = fixture(); f.setCycle([notification()]);
+    const current = { ...f.current(), inputCheckpoint: 0,
+      result: { ...f.current().result, tenant: f.A, requested: [] } };
+    const alarms = createAlarmCycle({ reader: { read: async () => [] }, current: () => current, isCurrent: async () => true });
+    const component = f.component({ selectCycle: tenant => alarms.select(tenant) });
+    try {
+      const one = await alarms.select(f.A), two = await alarms.select(f.A);
+      assert.notEqual(one.result, two.result, 'actual alarm selector returns a fresh filtered result');
+      assert.equal(one.outputRevision, two.outputRevision);
+      const observed = await component.run(f.A);
+      assert.equal(f.effects.length, 1, 'NOTIFICATION_ACTUAL_ALARM_COMPOSITION_LIVE');
+      assert.equal(observed.results[0].state, 'accepted');
+    } finally { await component.close(); alarms.close(); scope.setTenancyMode(mode); }
+  });
+});
+
+describe('actual simple alarm condition eligibility', function () {
+  it('keeps legacy low/high normal dedup but cannot retry an obsolete low effect against a current high alarm', async function () {
+    const mode = scope.getTenancyMode(); scope.setTenancyMode('multi');
+    const f = fixture(), effects = [];
+    const levels = { URGENT: 2, WARN: 1, INFO: 0, isAlarm: level => [1, 2].includes(level), toDisplay: level => level === 2 ? 'Urgent' : 'Warning' };
+    const plugin = require('../lib/plugins/simplealarms')({ levels });
+    function actual (mgdl) {
+      let output;
+      plugin.checkNotifications({ time: f.now(), lastSGVEntry: () => ({ mgdl, mills: f.now() }), scaleEntry: row => row.mgdl,
+        scaleMgdl: value => value, buildDefaultMessage: () => 'Synthetic reading ' + mgdl,
+        settings: { alarmUrgentHigh: true, alarmHigh: true, alarmUrgentLow: true, alarmLow: true,
+          thresholds: { bgHigh: 250, bgTargetTop: 180, bgLow: 70, bgTargetBottom: 80 } },
+        notifications: { requestNotify: row => { output = row; } } });
+      return output;
+    }
+    const low = actual(60), high = actual(300);
+    assert.equal(low.eventName, 'low'); assert.equal(high.eventName, 'high');
+    assert.equal(low.level, high.level); assert.equal(contract.key(low), contract.key(high), 'legacy normal admission key stays shared');
+    const component = f.component({ adapter: { id: 'synthetic', send (row, callback) {
+      effects.push(row); callback(effects.length === 1 ? new Error('synthetic uncertain low') : null, { accepted: true });
+    } } });
+    try {
+      f.setCycle([low]); await component.run(f.A); const lowId = f.snapshot().requests[0].request_id;
+      f.advance(29999); f.setCycle([high]); await component.run(f.A); assert.equal(effects.length, 1, 'normal short window is preserved');
+      f.advance(1); await component.retry(f.A); assert.equal(effects.length, 1, 'exact failure expiry remains cached');
+      f.advance(1); await component.retry(f.A);
+      assert.equal(effects.length, 1, 'NOTIFICATION_CONDITION_DISCRIMINATOR obsolete LOW cannot qualify as current HIGH');
+      assert.equal(f.snapshot().requests[0].state, 'cancelled');
+      await component.run(f.A); assert.equal(effects.length, 2);
+      assert.notEqual(effects[1].id, lowId, 'new condition has new admitted identity after normal rearm');
+      assert.equal(effects[1].notification.eventName, 'high');
+      assert.equal(f.snapshot().requests[0].payload.eventName, 'low', 'old request payload never overwritten');
+    } finally { await component.close(); scope.setTenancyMode(mode); }
+  });
+});
+
+describe('actual notification current payload compatibility', function () {
+  it('matches the actual consumer current LOW reading after the failure window rather than retrying stale text', async function () {
+    const { EventEmitter } = require('node:events');
+    const fs = require('node:fs'), path = require('node:path'), vm = require('node:vm');
+    const { createRequire } = require('node:module');
+    const filename = path.resolve(__dirname, '../lib/server/pushnotify.js');
+    const box = { module: { exports: {} }, console: { info () {}, warn () {}, error () {} }, require: createRequire(filename) };
+    vm.runInNewContext(fs.readFileSync(filename, 'utf8'), box, { filename });
+    const levels = { URGENT: 2, WARN: 1, INFO: 0, isAlarm: level => [1, 2].includes(level), toDisplay: () => 'Urgent' };
+    const plugin = require('../lib/plugins/simplealarms')({ levels });
+    const f = fixture(), bus = new EventEmitter(), legacy = [], durable = [];
+    const originalNow = Date.now, mode = scope.getTenancyMode(); scope.setTenancyMode('multi'); Date.now = f.now;
+    const real = box.module.exports({ settings: { isAlarmEventEnabled: () => true } }, { bus, levels,
+      pushover: { send (row, callback) { legacy.push(row.message); callback(legacy.length === 1 ? new Error('synthetic uncertain') : null, JSON.stringify({})); } } });
+    const component = f.component({ adapter: { id: 'synthetic', send (row, callback) {
+      durable.push(row.notification.message); callback(durable.length === 1 ? new Error('synthetic uncertain') : null, { accepted: true });
+    } } });
+    function actual (mgdl) {
+      let emitted;
+      plugin.checkNotifications({ time: f.now(), lastSGVEntry: () => ({ mgdl, mills: f.now() }), scaleEntry: row => row.mgdl,
+        scaleMgdl: value => value, buildDefaultMessage: () => 'Synthetic reading ' + mgdl,
+        settings: { alarmUrgentHigh: true, alarmHigh: true, alarmUrgentLow: true, alarmLow: true,
+          thresholds: { bgHigh: 250, bgTargetTop: 180, bgLow: 70, bgTargetBottom: 80 } },
+        notifications: { requestNotify: row => { emitted = row; } } });
+      return emitted;
+    }
+    try {
+      const low60 = actual(60); real.emitNotification(low60); f.setCycle([low60]); await component.run(f.A);
+      f.advance(30001); const low55 = actual(55); real.emitNotification(low55); f.setCycle([low55]); await component.run(f.A);
+      assert.deepEqual(durable, legacy, 'NOTIFICATION_CURRENT_PAYLOAD_COMPAT actual same-condition consumer sends current reading');
+    } finally { await component.close(); bus.emit('teardown'); Date.now = originalNow; scope.setTenancyMode(mode); }
+  });
+});
+
+describe('actual notification cache boundary compatibility', function () {
+  it('matches actual failure and success consumer calls before at and after cache expiry', async function () {
+    const { EventEmitter } = require('node:events');
+    const fs = require('node:fs'), path = require('node:path'), vm = require('node:vm');
+    const { createRequire } = require('node:module');
+    const filename = path.resolve(__dirname, '../lib/server/pushnotify.js');
+    const originalNow = Date.now, mode = scope.getTenancyMode(); scope.setTenancyMode('multi');
+    try {
+      for (const [failed, ttl] of [[true, 30000], [false, 900000]]) {
+        const f = fixture(), legacy = [], durable = [], bus = new EventEmitter(); Date.now = f.now;
+        const box = { module: { exports: {} }, console: { info () {}, warn () {}, error () {} }, require: createRequire(filename) };
+        vm.runInNewContext(fs.readFileSync(filename, 'utf8'), box, { filename });
+        const real = box.module.exports({ settings: { isAlarmEventEnabled: () => true } }, { bus, levels: { isAlarm: value => [1, 2].includes(value) },
+          pushover: { send (row, callback) { legacy.push(row.message); callback(failed ? new Error('synthetic') : null, JSON.stringify({})); } } });
+        const c = f.component({ adapter: { id: 'synthetic', send (row, callback) {
+          durable.push(row.notification.message); callback(failed ? new Error('synthetic') : null, { accepted: true });
+        } } });
+        try {
+          f.setCycle([notification()]); real.emitNotification(notification()); await c.run(f.A);
+          for (const advance of [ttl - 1, 1, 1]) {
+            f.advance(advance); f.setCycle([notification()]); real.emitNotification(notification()); await c.run(f.A);
+            assert.equal(durable.length, legacy.length, 'NOTIFICATION_NORMAL_CACHE_BOUNDARY exact legacy expiry retained');
+          }
+          assert.equal(durable.length, 2);
+        } finally { await c.close(); bus.emit('teardown'); }
+      }
+    } finally { Date.now = originalNow; scope.setTenancyMode(mode); }
+  });
+
+  it('supplies active persisted receipt references through exact one-hour expiry only', async function () {
+    const mode = scope.getTenancyMode(); scope.setTenancyMode('multi');
+    const f = fixture(), c = f.component();
+    try {
+      f.setCycle([notification()]); await c.run(f.A);
+      const counts = [];
+      for (const step of [3599999, 1, 1]) {
+        f.advance(step);
+        const rows = await scope.withTenant(f.A, () => f.store.receipts({ tenant: f.A, consumer: 'synthetic', at: f.now() }));
+        counts.push(rows.length);
+      }
+      assert.deepEqual(counts, [1, 1, 0], 'NOTIFICATION_RECEIPT_CACHE_BOUNDARY');
+    } finally { await c.close(); scope.setTenancyMode(mode); }
   });
 });

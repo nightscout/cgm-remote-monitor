@@ -1,44 +1,128 @@
 {
   "premature-dispatch": {
     "file": "lib/tenant-notifications/component.js",
-    "replacements": [["          const row = await store.enqueue({ tenant, consumer: adapter.id, key:", "          await callAdapter({ tenant_id: tenant, request_id: '00000000-0000-4000-8000-000000000000', attempt: 0, payload }, []);\n          const row = await store.enqueue({ tenant, consumer: adapter.id, key:"]],
+    "replacements": [
+      [
+        "          const row = await store.enqueue({ tenant, consumer: adapter.id, key:",
+        "          await callAdapter({ tenant_id: tenant, request_id: '00000000-0000-4000-8000-000000000000', attempt: 0, payload }, []);\n          const row = await store.enqueue({ tenant, consumer: adapter.id, key:"
+      ]
+    ],
     "grep": "commits durable request and attempt before composed",
     "failure": "NOTIFICATION_DURABLE_BEFORE_EFFECT",
     "classification": "actual component dispatch before any persisted request; fake adapter independently observes absent durable row"
   },
   "retry-identity": {
     "file": "lib/tenant-notifications/postgres.js",
-    "replacements": [["saved.origin === origin || ['pending', 'attempting', 'uncertain'].includes(saved.state) || Number(head.blocked_until) > at", "saved.origin === origin || Number(head.blocked_until) > at"]],
+    "replacements": [
+      [
+        "if (same && (saved.origin === origin || active)) return saved;",
+        "if (same && saved.origin === origin) return saved;"
+      ]
+    ],
     "grep": "retains one logical identity across uncertain",
     "failure": "NOTIFICATION_RETRY_IDENTITY",
     "classification": "actual admission forgets unresolved work across output/runtime change and creates another logical request"
   },
   "failed-accepted": {
     "file": "lib/tenant-notifications/component.js",
-    "replacements": [["const state = outcome.accepted ? 'accepted' : 'uncertain';", "const state = 'accepted';"]],
+    "replacements": [
+      [
+        "const state = outcome.accepted ? 'accepted' : 'uncertain';",
+        "const state = 'accepted';"
+      ]
+    ],
     "grep": "does not dispatch before failed enqueue COMMIT",
     "failure": "NOTIFICATION_FAILED_SEND_NOT_ACCEPTED",
     "classification": "actual failure path incorrectly persists acceptance"
   },
   "suppression": {
     "file": "lib/tenant-notifications/component.js",
-    "replacements": [["if (await allows({ tenant, notification: payload, at: c.instant(now()) }) !== true) return false;", "await allows({ tenant, notification: payload, at: c.instant(now()) });"]],
+    "replacements": [
+      [
+        "if (await allows({ tenant, notification: payload, at: c.instant(now()) }) !== true) return false;",
+        "await allows({ tenant, notification: payload, at: c.instant(now()) });"
+      ]
+    ],
     "grep": "rechecks current suppression and condition",
     "failure": "NOTIFICATION_SNOOZED_RETRY_NO_EFFECT",
     "classification": "actual component disregards fresh suppression and invokes adapter again"
   },
   "condition": {
     "file": "lib/tenant-notifications/component.js",
-    "replacements": [["if (cycle.identity !== identity || !cycle.result.emitted.some(row => c.sameEffect(c.notification(row, maxPayloadBytes), payload))) return false;", "if (cycle.identity !== identity) return false;"], ["current.result.emitted.some(row => c.sameEffect(c.notification(row, maxPayloadBytes), payload)) &&", "true &&"]],
+    "replacements": [
+      [
+        "if (cycle.identity !== identity || !cycle.result.emitted.some(row => c.sameEffect(c.notification(row, maxPayloadBytes), payload))) return false;",
+        "if (cycle.identity !== identity) return false;"
+      ],
+      [
+        "current.result.emitted.some(row => c.sameEffect(c.notification(row, maxPayloadBytes), payload)) &&",
+        "true &&"
+      ]
+    ],
     "grep": "rechecks current suppression and condition",
     "failure": "NOTIFICATION_CLEARED_CONDITION_NO_STALE_RETRY",
     "classification": "actual retry disregards cleared current alarm condition"
   },
   "close-fence": {
     "file": "lib/tenant-notifications/component.js",
-    "replacements": [["      closed = true;", "      // control: close fence omitted"]],
+    "replacements": [
+      [
+        "      closed = true;",
+        "      // control: close fence omitted"
+      ]
+    ],
     "grep": "fences callback timeout, close, restart",
     "failure": "NOTIFICATION_CLOSED_ATTEMPT_REMAINS_RECOVERABLE",
     "classification": "actual component publishes uncertain completion after close instead of retaining attempting state for restart"
+  },
+  "readiness": {
+    "file": "lib/tenant-notifications/postgres.js",
+    "replacements": [
+      [
+        "      await assertReady(connection, namespace);",
+        "      // control: readiness guard omitted"
+      ]
+    ],
+    "grep": "consumes readiness before every SQL effect",
+    "failure": "NOTIFICATION_READINESS_REFUSAL",
+    "classification": "actual SQL composition bypasses metadata guard and admits request under unsafe role/schema flags"
+  },
+  "filtered-result-reference": {
+    "file": "lib/tenant-notifications/component.js",
+    "replacements": [
+      [
+        "current.outputRevision === cycle.outputRevision && current.inputCheckpoint === cycle.inputCheckpoint &&",
+        "current.outputRevision === cycle.outputRevision && current.inputCheckpoint === cycle.inputCheckpoint && current.result === cycle.result &&"
+      ]
+    ],
+    "grep": "consumes freshly filtered alarm envelopes",
+    "failure": "NOTIFICATION_ACTUAL_ALARM_COMPOSITION_LIVE",
+    "classification": "actual notifier rejects every eligible actual alarm selection by conflating filtered clone with trusted output identity"
+  },
+  "effect-identity": {
+    "file": "lib/tenant-notifications/contract.js",
+    "replacements": [
+      [
+        "!!a.isAnnouncement === !!b.isAnnouncement && condition(a) === condition(b);",
+        "!!a.isAnnouncement === !!b.isAnnouncement;"
+      ]
+    ],
+    "grep": "keeps legacy low/high normal dedup|matches the actual consumer current LOW",
+    "failure": "NOTIFICATION_CONDITION_DISCRIMINATOR",
+    "classification": "actual current-effect comparison loses condition discriminator, retries oldLOW against currentHIGH despite samelegacykey",
+    "expectedFailures": 2,
+    "alsoFailure": "NOTIFICATION_CURRENT_PAYLOAD_COMPAT"
+  },
+  "cache-expiry": {
+    "file": "lib/tenant-notifications/postgres.js",
+    "replacements": [
+      [
+        "if (!saved.payload.clear && Number(head.blocked_until) >= at) return saved;",
+        "if (!saved.payload.clear && Number(head.blocked_until) > at) return saved;"
+      ]
+    ],
+    "grep": "matches actual failure and success consumer calls",
+    "failure": "NOTIFICATION_NORMAL_CACHE_BOUNDARY",
+    "classification": "actual normal admission opens at exact expiry while real consumer cache is still active"
   }
 }

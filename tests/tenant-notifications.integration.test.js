@@ -26,7 +26,7 @@ optInSuite(process.env.NS_TENANT_NOTIFICATIONS_TEST === '1' && !!process.env.NS_
     assert.equal(seen[0].rows[0].state, 'attempting', 'NOTIFICATION_NATIVE_COMMITTED_ATTEMPT');
     assert.equal(saved[0].state, 'accepted'); await first.close();
     lab.cycle(); await lab.component({ adapter }).run(lab.A); assert.equal(seen.length, 1);
-    lab.now += 900000; lab.cycle(); await lab.component({ adapter }).run(lab.A);
+    lab.now += 900001; lab.cycle(); await lab.component({ adapter }).run(lab.A);
     assert.equal(seen.length, 2); assert.notEqual(seen[1].id, seen[0].id, 'legitimate new alarm rearmed');
   });
 
@@ -75,14 +75,14 @@ optInSuite(process.env.NS_TENANT_NOTIFICATIONS_TEST === '1' && !!process.env.NS_
     lab.cycle(undefined, lab.B); await lab.component().run(lab.B); const foreign = await lab.rows(lab.B);
     lab.cycle(); let attempts = 0;
     const component = lab.component({ adapter: { id: 'synthetic', send (row, callback) { attempts++; callback(new Error('synthetic uncertain')); } } });
-    await component.run(lab.A); const pending = await lab.rows(); lab.now += 30000; lab.suppressed = true;
+    await component.run(lab.A); const pending = await lab.rows(); lab.now += 30001; lab.suppressed = true;
     await component.retry(lab.A); const suppressed = await lab.rows();
     lab.trace('queued-suppression', { pending, suppressed, attempts, foreign, foreignAfter: await lab.rows(lab.B) });
     assert.equal(attempts, 1, 'NOTIFICATION_NATIVE_SUPPRESSION_NO_DISPATCH'); assert.equal(suppressed[0].state, 'cancelled');
     assert.deepEqual(await lab.rows(lab.B), foreign);
     lab.suppressed = false; lab.cycle([notification({ level: 2 })]);
     // Explicitly create another normal request, then make the current condition disappear.
-    lab.current.result.emitted[0].level = 2; await component.run(lab.A); lab.now += 30000; lab.cycle([]);
+    lab.current.result.emitted[0].level = 2; await component.run(lab.A); lab.now += 30001; lab.cycle([]);
     await component.retry(lab.A); assert.equal(attempts, 2, 'NOTIFICATION_NATIVE_NO_STALE_CONDITION');
   });
 
@@ -97,6 +97,29 @@ optInSuite(process.env.NS_TENANT_NOTIFICATIONS_TEST === '1' && !!process.env.NS_
     const roles = (await lab.admin.query('SELECT rolsuper,rolbypassrls FROM pg_roles WHERE rolname=$1', [lab.role])).rows;
     lab.trace('restricted-role-rls', { a, b, observed: observed.rows, roles, foreignAfter: await lab.rows(lab.B) });
     assert.deepEqual(roles, [{ rolsuper: false, rolbypassrls: false }]); assert.deepEqual(await lab.rows(lab.B), b);
+  });
+
+  it('refuses unsafe RLS schema or inherited table authority before any consumed request effect', async function () {
+    lab.cycle(); let effects = 0;
+    const component = lab.component({ adapter: { id: 'synthetic', send (row, callback) { effects++; callback(null, { accepted: true }); } } });
+    const cases = [
+      { name: 'rls-disabled', up: `ALTER TABLE "${lab.name}".tenant_notification_heads DISABLE ROW LEVEL SECURITY`, down: `ALTER TABLE "${lab.name}".tenant_notification_heads ENABLE ROW LEVEL SECURITY` },
+      { name: 'broad-table-update', up: `GRANT UPDATE ON "${lab.name}".tenant_notification_requests TO "${lab.role}"`, down: `REVOKE UPDATE ON "${lab.name}".tenant_notification_requests FROM "${lab.role}"` },
+      { name: 'schema-create', up: `GRANT CREATE ON SCHEMA "${lab.name}" TO "${lab.role}"`, down: `REVOKE CREATE ON SCHEMA "${lab.name}" FROM "${lab.role}"` },
+      { name: 'foreign-clinical-write', up: `GRANT INSERT ON "${lab.name}".forbidden_clinical TO "${lab.role}"`, down: `REVOKE INSERT ON "${lab.name}".forbidden_clinical FROM "${lab.role}"` }
+    ];
+    for (const scenario of cases) {
+      await lab.admin.query(scenario.up);
+      try {
+        let error;
+        try { await component.run(lab.A); } catch (caught) { error = { name: caught.name, message: caught.message }; }
+        const physical = await lab.rows(); lab.trace('unsafe-readiness-' + scenario.name, { scenario: scenario.name, error, effects, physical });
+        assert.equal(effects, 0, 'NOTIFICATION_NATIVE_UNSAFE_NO_EFFECT');
+        assert.equal(error?.message, 'NOTIFICATION_SCHEMA_UNSAFE', 'NOTIFICATION_NATIVE_UNSAFE_REFUSAL');
+        assert.deepEqual(physical, []);
+      } finally { await lab.admin.query(scenario.down); }
+    }
+    await component.run(lab.A); assert.equal(effects, 1, 'restored leastprivilege path recovers');
   });
 
   it('persists selected consumer receipts and clears only explicitly acknowledged references without alarm fields', async function () {
