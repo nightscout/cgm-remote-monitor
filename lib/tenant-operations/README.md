@@ -17,11 +17,11 @@ belongs to the coherent assembled candidate.
 
 ## Explicit catalogue admission
 
-`deploymentAdmission({ root?, namespaces, selection?, extensions? })` reads reviewed
+`deploymentAdmission({ root?, namespaces, selection?, extensions?, instances? })` reads reviewed
 JSON migration catalogues under `lib/` and `migrations/candidates/`. It never selects
 all database schemas. It refuses an unadmitted candidate, missing namespace,
 omitted/extra table, unsupported DDL, shared namespace or unknown selection.
-Current source census: **23 candidate files, 20 selected kinds, 36 tables**; the three
+Current assembled whole-C selection: **23 candidate files, 21 physical instances, 37 tables**; the three
 socket-order successors are explicit alternative selections, not additional domains.
 
 The lifecycle list owns tenant export/import/delete order. It now includes A74's
@@ -34,7 +34,7 @@ read from PostgreSQL during capture; generated columns are recomputed on restore
 |---|---|
 | entries, treatments, devicestatus, profile, food, activity, settings | One corresponding clinical/document table each |
 | clock | tenant_write_clock |
-| checkpoint | tenant_consumer_checkpoint |
+| checkpoint, evaluator_checkpoint | Separate tenant_consumer_checkpoint table in each actual namespace |
 | authorization | tenant_authorization_config, tenant_authorization_roles, tenant_authorization_subjects, tenant_authorization_subject_roles, tenant_subject_admin_audit, tenant_owner_policy, tenant_owner_actors |
 | access | access_tenants, access_credentials, access_sessions, access_keys |
 | subject_policy | subject_policy, subject_policy_audit |
@@ -48,14 +48,16 @@ read from PostgreSQL during capture; generated columns are recomputed on restore
 | notification_outbox | tenant_notification_heads, tenant_notification_requests, tenant_notification_state |
 
 Exact frozen alarm/outbox catalogue JSON is now present as recovery input, with
-explicit pinned extensions in the prepared fixtures. This is not a full M5 runtime
-join. Any later catalogue must be explicitly admitted. Each extension must pin its canonical candidate digest; a changed
+explicit pinned extensions in the prepared fixtures. This assembled source includes frozen B runtime ancestry; runtime acceptance is
+UNMEASURED here. Earlier C-only snapshot capsules retain their historical scope. Any later catalogue must be explicitly admitted. Each extension must pin its canonical candidate digest; a changed
 catalogue refuses until its explicit admission is updated. No active peer source or guessed schema is imported:
 
 ```js
 const admission = operations.deploymentAdmission({
   namespaces: explicitNamespaces,
-  selection: { treatments: 'migrations/candidates/postgres-treatments-socket-order-v1.json' },
+  selection: Object.fromEntries(['treatments', 'devicestatus', 'profile'].map(kind =>
+    [kind, 'migrations/candidates/postgres-' + kind + '-socket-order-v1.json'])),
+  instances: [{ kind: 'evaluator_checkpoint', of: 'checkpoint' }],
   extensions: [{ kind: reviewedKind, candidatePath: reviewedJsonPath,
     candidateDigest: reviewedCandidateDigest,
     tables: reviewedParentFirstTables, secrets: reviewedCiphertextTables }]
@@ -233,5 +235,12 @@ actual consumer config/digests/principals and emits instance-keyed seeds/grants;
 never collapse its rows into a dictionary keyed only by SQL table name.
 
 With both instances selected the projected B+C inventory is23candidate files,
-21physical instances and37tables; the one-checkpoint baseline above remains
+21physical instances and37tables; the historical C0a one-checkpoint configuration was
 20instances/36tables. These are source inventory measurements, not native results.
+
+
+The assembled SQL-core instrument is `tools/lab/tenant-whole-c/run.py`; start with
+`--check` for source-only syntax/causal-signature checks. Its README/manifest bind
+all five cohorts, independent observer, controls, current SQL authority and actual
+writer birth/quiescence inputs. Native execution requires the parent's explicit
+fixture/grant/outage/role contract; no instrument case has run merely by joining it.

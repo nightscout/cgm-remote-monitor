@@ -1,0 +1,68 @@
+[
+  {
+    "id": "second-checkpoint-loss",
+    "phase": "C1",
+    "path": "lib/tenant-operations/backup.js",
+    "before": "const rows = await common.readRows(connection, step.namespace, table, columns);",
+    "after": "const rows = step.kind === 'evaluator_checkpoint' ? [] : await common.readRows(connection, step.namespace, table, columns);",
+    "assertion": "WHOLE_C_ARTIFACT_SQL_ROWS evaluator_checkpoint",
+    "physical": "external observer source contains evaluator checkpoint rows, but independently read durable self-consistent artifact file is empty before any restore"
+  },
+  {
+    "id": "skip-identity-sequence",
+    "phase": "C1",
+    "path": "lib/tenant-operations/restore.js",
+    "before": "await advanceIdentity(connection, item);",
+    "after": "/* controlled sequence recovery omission */",
+    "assertion": "WHOLE_C_NEXT_IDENTITY",
+    "physical": "actual restricted API insert returns ordinal not above restored maximum"
+  },
+  {
+    "id": "realtime-write-broadening",
+    "phase": "C1",
+    "path": "lib/tenant-operations/restore.js",
+    "before": "scopedPrivileges.join(', ')",
+    "after": "(grant.role.endsWith('_realtime') && ['entries','treatments','devicestatus','profile','food','activity'].includes(grant.table) ? scopedPrivileges.concat('INSERT') : scopedPrivileges).join(', ')",
+    "assertion": "WHOLE_C_ROLE_DENIAL realtime",
+    "physical": "actual RT INSERT rowCount positive instead of42501; transaction then rolled back"
+  },
+  {
+    "id": "tampered-digest-bypass",
+    "phase": "C2",
+    "path": "lib/tenant-operations/restore.js",
+    "before": "if (common.sha256(text) !== entry.digest) throw refuse('RESTORE_DIGEST_MISMATCH', key);",
+    "after": "/* controlled digest refusal omission */",
+    "assertion": "WHOLE_C_REFUSAL tampered-file",
+    "physical": "actual successful INSERT/setval before later oracle rollback; independent target stays empty, documenting the second defense rather than claiming durable tampered data"
+  },
+  {
+    "id": "commit-interrupted-restore",
+    "phase": "C2",
+    "path": "lib/tenant-operations/common.js",
+    "before": "await connection.query('ROLLBACK');",
+    "after": "await connection.query('COMMIT');",
+    "assertion": "WHOLE_C_PHYSICAL_ROWS",
+    "physical": "partial restored rows visible to external observer after onRow interruption"
+  },
+  {
+    "id": "profile-populated-guard",
+    "phase": "C4",
+    "candidate": "migrations/candidates/postgres-profile-socket-order-v1.json",
+    "remove": [
+      "ALTER TABLE profile ADD CONSTRAINT socket_order_requires_empty CHECK (false) NOT VALID",
+      "ALTER TABLE profile VALIDATE CONSTRAINT socket_order_requires_empty",
+      "ALTER TABLE profile DROP CONSTRAINT socket_order_requires_empty"
+    ],
+    "assertion": "WHOLE_C_POPULATED_GUARD profile",
+    "physical": "actual guarded migration instead adds ordinal and advances ledger on populated profile; original probe unchanged"
+  },
+  {
+    "id": "running-writer-window",
+    "phase": "C5",
+    "path": "tools/lab/tenant-whole-c/window.js",
+    "before": "const held = observations.every(",
+    "after": "const held = true || observations.every(",
+    "assertion": "WHOLE_C_RUNNING_WRITER_REFUSED",
+    "physical": "recorded real writer pid is running/S notT and has performed actual bound clock update, but proof wrongly reports quiesced"
+  }
+]

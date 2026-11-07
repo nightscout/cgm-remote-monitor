@@ -44,6 +44,87 @@ describe('whole deployment source admission and filesystem durability', function
   beforeEach(async function () { scratch = await fs.promises.mkdtemp(path.join(os.tmpdir(), 'tenant-deployment-unit-')); });
   afterEach(async function () { await fs.promises.rm(scratch, { recursive: true, force: true }); });
 
+  it('whole-C fixture authority locks the current SQL policy and rereads revocation on the same connection', async function () {
+    const { currentAuthority } = require('../tools/lab/tenant-whole-c/authority');
+    const actor = { principal: 'fixture_operator', consumer: 'fixture_core', plane: 'operator' };
+    const calls = [];
+    let active = true;
+    const connection = { query: async (text, values) => {
+      calls.push({ text, values });
+      return text.startsWith('SELECT generation') ? { rows: [{ generation: 1, policy: { wholeCFixtureActors: [{ ...actor, active, actions: ['execute'] }] } }] } : { rows: [] };
+    } };
+    const authority = currentAuthority({ namespace: 'fixture_policy', ...actor });
+    assert.deepEqual(await authority({ connection, tenant: A, action: 'execute' }), { ...actor, tenant: A, allowed: true, current: true });
+    assert.ok(calls[0].text.includes('pg_advisory_xact_lock'));
+    assert.equal(calls[0].values[0], 'nightscout:tenant-operator-policy:' + A);
+    assert.ok(calls[1].text.includes('tenant_operator_policy'));
+    active = false;
+    assert.equal(await authority({ connection, tenant: A, action: 'execute' }), null);
+    assert.equal(await authority({ connection, tenant: A, action: 'confirm' }), null);
+    assert.equal(calls.length, 6, 'no cached authority or out-of-transaction connection fallback');
+  });
+
+  it('whole-C window refuses real running process, reused birth and changed identity; only stopped/absent owned births pass', async function () {
+    const { processIdentity, stoppedWindow } = require('../tools/lab/tenant-whole-c/window');
+    const birth = { ...processIdentity(process.pid), kind: 'owned-sql-fixture-writer' };
+    assert.equal((await stoppedWindow({ tenant: A, births: [birth] })({ tenant: A })).quiesced, false);
+    const stopped = { ...birth, state: 'T' };
+    assert.equal((await stoppedWindow({ tenant: A, births: [birth], observe: () => stopped })({ tenant: A })).quiesced, true);
+    for (const changed of [{ startTicks: String(BigInt(birth.startTicks) + 1n) }, { uid: birth.uid + 1 }, { commandDigest: 'a'.repeat(64) }, { state: 'S' }]) {
+      assert.equal((await stoppedWindow({ tenant: A, births: [birth], observe: () => ({ ...stopped, ...changed }) })({ tenant: A })).quiesced, false);
+    }
+    assert.equal((await stoppedWindow({ tenant: A, births: [birth], observe: () => null })({ tenant: A })).quiesced, true);
+    assert.equal((await stoppedWindow({ tenant: A, births: [birth], observe: () => stopped })({ tenant: '22222222-2222-4222-8222-222222222222' })).quiesced, false);
+    assert.throws(() => stoppedWindow({ tenant: A, births: [] }), /WHOLE_C_WRITER_BIRTHS/);
+  });
+
+  it('whole-C independent physical oracle exposes second-instance row loss and preserves typed values', function () {
+    const { sameRows, sorted, preserved } = require('../tools/lab/tenant-whole-c/oracle');
+    const before = { 'evaluator_checkpoint.tenant_consumer_checkpoint': { rows: sorted([{ tenant_id: A, checkpoint: '9007199254740993', projection: [false, 0, null] }]), ledger: [], columns: [{ attname: 'tenant_id' }, { attname: 'checkpoint' }, { attname: 'projection' }], policies: [], isolation: [] } };
+    const after = structuredClone(before);
+    sameRows(before, after);
+    after['evaluator_checkpoint.tenant_consumer_checkpoint'].rows = [];
+    assert.throws(() => sameRows(before, after), /WHOLE_C_PHYSICAL_ROWS evaluator_checkpoint/);
+    assert.throws(() => preserved(before, after), /WHOLE_C_OLD_ROWS evaluator_checkpoint/);
+  });
+
+  it('whole-C independent closed-file oracle compares durable artifact to raw SQL-shaped rows before upgrade', async function () {
+    const { artifact: independentArtifact } = require('../tools/lab/tenant-whole-c/oracle');
+    const value = artifact();
+    await operations.saveArtifact(value, { directory: scratch });
+    const before = { 'entries.entries': { ledger: value.manifest.catalogues[0].ledger,
+      rows: [{ tenant_id: A, doc: { _id: 'synthetic', nullable: null, flag: false } }] } };
+    let observation;
+    await independentArtifact(scratch, before, captured => { observation = captured; });
+    assert.equal(observation.files['entries.entries'].rows.length, 1);
+    const missing = structuredClone(before); missing['entries.entries'].rows = [];
+    await assert.rejects(independentArtifact(scratch, missing, () => {}), /WHOLE_C_ARTIFACT_SQL_ROWS entries.entries/);
+  });
+
+  it('whole-C runtime config binds immutable heads, role manifest and explicit loopback fixture without opening services', async function () {
+    const { parse, OLD } = require('../tools/lab/tenant-whole-c/config');
+    const source = path.join(scratch, 'source'), oldRoot = path.join(scratch, 'old'), captureDirectory = path.join(scratch, 'capture');
+    for (const directory of [source, oldRoot, captureDirectory]) await fs.promises.mkdir(directory, { mode: 0o700 });
+    const head = 'a'.repeat(40);
+    await fs.promises.writeFile(path.join(source, 'whole-c-source.json'), JSON.stringify({ head }));
+    await fs.promises.writeFile(path.join(oldRoot, 'whole-c-source.json'), JSON.stringify({ head: OLD }));
+    const acl = ['api', 'readiness', 'alarm', 'realtime', 'evaluator', 'suppression', 'outbox'].map(role => ({ role, kind: 'entries', table: 'entries', privileges: ['SELECT'] }));
+    const manifest = JSON.stringify({ grants: acl }), actualRoleManifestPath = path.join(captureDirectory, 'roles.json');
+    await fs.promises.writeFile(actualRoleManifestPath, manifest);
+    const config = { version: 1, sourceHead: head, oldHead: OLD, oldRoot, captureDirectory, prefix: 'wc_0123456789ab', adminEnv: 'WHOLE_C_FIXTURE_URI',
+      expectedEndpoint: { host: '127.0.0.1', port: 5432, database: 'whole_c_test' }, grant: 'synthetic-source-contract-only',
+      acl, actualRoleManifestPath, actualRoleManifestSha256: common.sha256(manifest), outageContract: { status: 'approved-by-root', reference: 'synthetic-source-test' },
+      parentResource: { containerId: 'synthetic', image: 'synthetic', owner: 'synthetic', database: 'whole_c_test' } };
+    const env = { WHOLE_C_FIXTURE_URI: 'postgres://synthetic:synthetic@127.0.0.1:5432/whole_c_test' };
+    assert.equal(parse(config, env, source).classes.length, 9);
+    assert.throws(() => parse({ ...config, grant: '' }, env, source));
+    assert.throws(() => parse({ ...config, outageContract: { ...config.outageContract, status: 'pending' } }, env, source));
+    assert.throws(() => parse({ ...config, acl: [{ ...acl[0], kind: 'rt_checkpoint' }, ...acl.slice(1)] }, env, source), /WHOLE_C_UNMAPPED_ACL_KIND/);
+    assert.throws(() => parse(config, { WHOLE_C_FIXTURE_URI: env.WHOLE_C_FIXTURE_URI.replace('127.0.0.1', 'example.test') }, source));
+    await fs.promises.writeFile(actualRoleManifestPath, JSON.stringify({ grants: [] }));
+    assert.throws(() => parse(config, env, source));
+  });
+
   it('censuses all selected A74/R69 kinds, owner configuration and the independent lifecycle ledger', function () {
     const admission = admit({ namespaces: namespaces() });
     assert.deepEqual(admission.census.selected.map(entry => entry.kind), KINDS);

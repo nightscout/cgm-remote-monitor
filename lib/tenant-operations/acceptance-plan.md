@@ -1,6 +1,6 @@
 # Whole populated C recovery: source boundary and proposed native plan
 
-Status: SOURCE-ONLY. No runtime, image probe, build, dependency change, fetch,
+Status: assembled SOURCE-REVIEW preparation from BC94c09afdc4466bc2257300570587237d7fb6fed3. SQL-core instrument implemented; native execution remains UNMEASURED. No runtime, image probe, build, dependency change, fetch,
 prcheck, full suite, browser or corpus campaign is authorized by this plan.
 The coordinator reviews the frozen source/inputs before granting services.
 The accepted f77 representative proof remains frozen and is not repeated here.
@@ -17,15 +17,15 @@ fixes are retained without relabelling f77's historical execution.
 operator migration runner, durable filesystem callback and original-ID restore.
 `deploymentAdmission` also returns a tenant lifecycle instance for the same reviewed
 extensions. It adds the separate lifecycle ledger only to deployment backup.
-No active M5 worktree is imported and no application serving/default path changes.
+Frozen B runtime ancestry is now joined in this source. No active peer worktree is imported or edited; ancestry is not acceptance.
 
-Current read-derived inventory is 23 JSON candidates / 20 selected kinds / 36
-selected tables; three socket-order successors are explicit alternatives. A74 owner
+Current assembled selection is 23 JSON candidates / 21 physical instances / 37
+physical tables; three socket-order successors are explicit alternatives. A74 owner
 configuration authority was missing from old R69 inventory: the new independent
 source check failed before its joined-tree repair. The current extension interface
 refuses unknown new candidate paths, missing namespaces and incomplete table lists.
 
-## Frozen recovery catalogue inputs (not whole M5 runtime integration)
+## Frozen catalogue inputs (earlier C-only captures remain historical)
 
 The reviewed alarm source is `e9121a6e2e4b857701df8e443d831e794b68c03c`, candidate
 `migrations/candidates/postgres-alarm-suppression-v1.json`, table
@@ -33,8 +33,8 @@ The reviewed alarm source is `e9121a6e2e4b857701df8e443d831e794b68c03c`, candida
 `tests/fixtures/tenant-deployment-alarm.js`, with its exact candidate snapshot in
 `tests/fixtures/tenant-deployment-alarm-candidate.json` for focused admission tests.
 The exact frozen alarm and notifier candidate JSON is now present as recovery
-input; actual alarm/notifier runtime modules are NOT merged into this C operator
-tree. Alarm schema pin remains e912; its narrow writer additionally receives SELECT
+input, and the frozen runtime modules are joined in this assembled source. Earlier
+C-only capsules did not contain that join and keep their original attribution. Alarm schema pin remains e912; its narrow writer additionally receives SELECT
 on its own migration ledger for the reviewed e016 selected-datastore check.
 Writer S/I/UPDATE(acked_at,expires_at), reader SELECT, realtime none remain unchanged.
 
@@ -54,15 +54,12 @@ No table-wide UPDATE/DELETE/DDL or checkpoint-principal reuse is supplied.
 
 The complete proposed seed accepts an explicit `now`, so a native runner can use
 the common actual PostgreSQL epoch for alarm/outbox state. All extension changes
-refuse until digest re-admission. Final full C archive must merge the actual final
-B runtime and re-census, including the frozen append-only notifier0002
-transition-state contract and profile schema change justified by its early
-native comparison. This recovery-input preparation is not joined M5 acceptance.
+refuse until digest re-admission. The final executed archive must re-census its exact assembled source, including
+both checkpoint instances, notifier0002 and profile successor. This recovery-input preparation is not joined M5 acceptance.
 
 ## Preconditions to freeze for native review
 
-1. Root joins the actual final B runtime and supplies any remaining realtime/
-   profile schema change. The frozen suppression/outbox inputs above are prepared;
+1. Root confirms the final assembled B+C head and any subsequent source repair. The frozen suppression/outbox inputs above are prepared;
    census the exact final merged source again. Do not invent a synthetic replacement
    migration or copy an agent's active uncommitted schema.
 2. Select OLD and NEW immutable source archives and exact namespace maps. OLD is
@@ -219,7 +216,7 @@ Source-pattern request replay is client-shape evidence, not execution of actual
 mobile binaries. Provider sends, browsers and real mobile clients require their
 own scope; this supplement does not claim those ran.
 
-## Frozen profile successor recovery input (source only)
+## Frozen profile successor input (historical C-only preparation, unchanged in assembled source)
 
 Owner `0bf5cf6daef4bd1adc04f0e689ac179ed63283d8`, joined root
 `ad3c0b66832a1975638f9a9c0e0e4f3ef510e05b`, supplies exact
@@ -242,8 +239,8 @@ no reader/RT sequence rights, no sequence SELECT/UPDATE. Explicit API socket
 selection applies whole-domain readiness including REST/editor. RT/evaluator must
 explicitly select profile in socketOrderDomains (also T/D when used). BASE/default
 consumer refuses successor; selected consumer refuses stale BASE. Owner admin is
-not a clinical profile consumer. C recovery preparation does not merge these
-runtime changes or invent a generic union of roles.
+not a clinical profile consumer. Earlier C-only preparation did not merge these runtime changes. Assembled BC
+now includes that runtime ancestry; no generic role union or runtime outcome is implied.
 
 Populate the successor only after fresh/empty migration with
 `populatedRows({ profileSocketOrder: true })`: both tenants, typed twins and
@@ -258,7 +255,7 @@ unless an independently reviewed provenance migration is supplied; don't label a
 refused populated upgrade successful. Final consumed runtime equality/admission review is still pending; schema560 is frozen.
 
 
-## Frozen notifier0002 recovery contract (source only)
+## Frozen notifier0002 input (historical C-only preparation, unchanged in assembled source)
 
 Exact consumer source5600192558a10462c159d00ef53ba770a647765d candidate byteSHA
 0d998333640f4415dfb93edd789edb0277c1067ccd79f8583f902b3e1b0e1ec2,
@@ -290,9 +287,9 @@ must match this split; actual SQL denials and locks are native acceptance.
 
 The actual consumed producer/ACK runtime uses common advisory fence before state,
 head/request/suppression; ACK plain SELECT and database time/current authority are
-read after waiting. Final B must join those actual readiness/admission modules,
-including current datastore/principal/ledger/forced-RLS checks. C snapshots schema
-and fixtures only; source recording clients do not prove cross-process fencing.
+read after waiting. The final executed head must retain and reverify those joined readiness/admission modules,
+including current datastore/principal/ledger/forced-RLS checks. Earlier C-only captures contained schema
+and fixtures only; assembled BC now contains runtime ancestry, while source recording clients do not prove cross-process fencing.
 Native consumer plan from source560 names committed-intent-before-sink, repeated
 output/new cycle, restart normal clear, uncertain process death/same UUID, ACK-only
 clear after cold acquisition failure/current config, A/B isolation, SELECT-only
@@ -302,7 +299,7 @@ lost-clear, regenerated retry and privilege-broadening controls. JSONB equality
 review may still change runtime; recheck final source, schema and admissions.
 
 
-## Frozen B3b9f preparation: exact whole-C cohorts and ordering
+## B3b9f review history and retained whole-C cohort requirements
 
 B3b9f7c2eb4616b058c0bce67f47ccf93cf8d9efa/tree6cacbb3c6f487878c2d478b7607527805b6cb738
 has distinct rt_checkpoint/eval_checkpoint namespaces and realtime/evaluator
@@ -372,9 +369,42 @@ keys without exporting keys. Provider destruction/rotation is outside this plan.
 Outstanding integration inputs, not new policy questions: final coherent source
 join; physically validated exact actual-roleV2 manifest and selected readiness
 factories; parent-approved operator/quiescence fixture adapter and pending outage
-contract; implementation/review of full-populated native instrument. Historical
+contract; review of the implemented full-populated native instrument. Historical
 f77 two-domain instrument cannot be invoked unchanged as whole-C evidence. It owns
 its containers itself; the new parent must enumerate full domains/instances, use
 parent-owned resource identity and isolated configs. These inputs and the explicit
 runtime grant must be concrete before any service action. No source test/census
 or prepared plan promotes M5/M6/native acceptance.
+
+
+## Executable SQL-core entry (source reviewed independently of native outcome)
+
+`tools/lab/tenant-whole-c/{run.py,probe.js,core.js,oracle.js,observer.js,authority.js,window.js,writer.js}`
+implements C1–C5. The parent archives exact committed NEW/OLD, validates private
+lock-matched dependencies, parent container identity/owner/image/mount/endpoint,
+actual role-manifest hash and explicit outage/grant inputs; it allocates no service.
+A separate observer process uses read-only snapshots/raw pg_catalog/SELECT with no
+backup encoder/summary. Actual restricted-role SQL and writer identity effects are
+recorded before verdict. Parent control classifier requires an intended assertion
+and designated physical symptom, targeted fresh restoration and final C1–C5.
+
+Authority prototype uses actual operator-policy table and shipping advisory fence
+on the supplied lifecycle transaction, with a clearly fixture-only typed actor
+payload. It rereads SQL per admission; it does not call the existing store.read()
+which owns another transaction. All fixture policy writes use the same fence.
+Revocation changes an exported row and can stale an artifact; that fixture is a
+terminal refusal, never a generation rollback workaround. Successful same-artifact
+retry uses destructive rollback without changing authority or captured data.
+
+The owned writer performs a real tenant-bound clock UPDATE using the actual API
+principal, drains, then is independently observed SIGSTOPped by pid/start ticks/
+uid/command hash. A live-writer check must refuse before the stopped window can
+pass. This is SQL-fixture trusted operator quiescence, not serving ingress or a DB
+fence. Exact child births are checked before cleanup signals. The parent retains
+its fixture for independent teardown and does not report runtime RELEASED.
+
+Seven prepared native controls have strict causal signatures and physical oracles;
+none are native evidence until run. The full config contract and five-case
+instrument are separate from staged journey descriptors. Mongo/Vault/actual API/
+RT/evaluator/browser/current-token/IPC/provider behavior need separate composition
+grant and runtime-ready synthetic configs, not SQL-fidelity fixtures.
