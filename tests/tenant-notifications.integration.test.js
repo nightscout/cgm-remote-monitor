@@ -22,7 +22,7 @@ optInSuite(process.env.NS_TENANT_NOTIFICATIONS_TEST === '1' && !!process.env.NS_
     const first = lab.component({ adapter }); await first.run(lab.A);
     const saved = await lab.rows();
     lab.trace('commit-before-dispatch', { seen, saved, heads: await lab.heads() });
-    assert.equal(seen.length, 1); assert.equal(seen[0].rows.length, 1, 'NOTIFICATION_NATIVE_DURABLE_REQUEST');
+    assert.equal(seen[0].rows.length, 1, 'NOTIFICATION_NATIVE_DURABLE_REQUEST'); assert.equal(seen.length, 1);
     assert.equal(seen[0].rows[0].state, 'attempting', 'NOTIFICATION_NATIVE_COMMITTED_ATTEMPT');
     assert.equal(saved[0].state, 'accepted'); await first.close();
     lab.cycle(); await lab.component({ adapter }).run(lab.A); assert.equal(seen.length, 1);
@@ -47,12 +47,28 @@ optInSuite(process.env.NS_TENANT_NOTIFICATIONS_TEST === '1' && !!process.env.NS_
       assert.equal(accepted.phase, 'synthetic-acceptance-no-completion');
       assert.equal(before.length, 1); assert.equal(before[0].state, 'attempting');
       child.kill('SIGKILL'); const died = await stopped; assert.equal(died.signal, 'SIGKILL');
-      lab.now = Number(before[0].attempt_until) + 1; lab.cycle(); const retried = [];
-      await lab.component({ adapter: { id: 'synthetic', send (row, callback) { retried.push(row); callback(null, { accepted: true }); } } }).retry(lab.A);
+      lab.now = Math.max(Number(before[0].attempt_until), Number(before[0].created_at) + 30000) + 1; lab.cycle(); const retried = [];
+      await lab.component({ adapter: { id: 'synthetic', send (row, callback) { retried.push(row); callback(null, { accepted: true }); } } }).run(lab.A);
       const after = await lab.rows(); lab.trace('child-death-uncertain-retry', { accepted, before, died, retried: retried.map(row => ({ id: row.id, attempt: row.attempt })), after });
       assert.equal(retried.length, 1); assert.equal(retried[0].id, accepted.id, 'NOTIFICATION_NATIVE_RETRY_IDENTITY');
       assert.equal(after.length, 1); assert.equal(after[0].state, 'accepted'); assert.equal(after[0].attempt, 2);
     } finally { clearTimeout(timer); if (child.exitCode === null && child.signalCode === null) child.kill('SIGKILL'); await stopped; }
+  });
+
+  it('rolls back inserted intent before failed transaction completion and persists uncertain callback instead of acceptance', async function () {
+    lab.cycle(); let visibleDuringInsert;
+    const observed = { ...lab.connection, transaction: fn => lab.connection.transaction(async () => {
+      await fn(); visibleDuringInsert = await lab.rows(); throw new Error('SYNTHETIC_TRANSACTION_ABORT');
+    }) };
+    const failedStore = require('../lib/tenant-notifications/postgres')({ connection: observed, namespace: lab.name, maxRows: 10, maxBytes: 65536 });
+    let attempts = 0;
+    const adapter = { id: 'synthetic', send (row, callback) { attempts++; callback(new Error('synthetic uncertain callback')); } };
+    await assert.rejects(lab.component({ store: failedStore, adapter }).run(lab.A), /SYNTHETIC_TRANSACTION_ABORT/);
+    assert.deepEqual(visibleDuringInsert, []); assert.deepEqual(await lab.rows(), []);
+    assert.equal(attempts, 0, 'NOTIFICATION_NATIVE_FAILED_COMMIT_NO_EFFECT');
+    await lab.component({ adapter }).run(lab.A); const uncertain = await lab.rows();
+    lab.trace('transaction-abort-and-uncertain-callback', { visibleDuringInsert, uncertain, attempts });
+    assert.equal(uncertain.length, 1); assert.equal(uncertain[0].state, 'uncertain', 'NOTIFICATION_NATIVE_FAILED_SEND_NOT_ACCEPTED');
   });
 
   it('refuses new suppression and cleared condition on queued retry while foreign tenant is unchanged', async function () {
