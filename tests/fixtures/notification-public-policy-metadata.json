@@ -1,0 +1,128 @@
+{
+  "classification": "Synthetic generic metadata projection from actual PostgreSQL diagnostic; no fixture database, role or namespace identifiers retained.",
+  "outboxHeads": {
+    "kind": "r",
+    "persistence": "p",
+    "secured": true,
+    "owns": false,
+    "schema_writes": false,
+    "reads": true,
+    "inserts": true,
+    "broad_writes": false,
+    "any_writes": true,
+    "columns": [
+      {
+        "name": "tenant_id",
+        "type": "uuid",
+        "inserts": true,
+        "updates": false,
+        "not_null": true
+      },
+      {
+        "name": "consumer",
+        "type": "text",
+        "inserts": true,
+        "updates": false,
+        "not_null": true
+      },
+      {
+        "name": "dedup_key",
+        "type": "text",
+        "inserts": true,
+        "updates": false,
+        "not_null": true
+      },
+      {
+        "name": "request_id",
+        "type": "uuid",
+        "inserts": true,
+        "updates": true,
+        "not_null": false
+      },
+      {
+        "name": "blocked_until",
+        "type": "bigint",
+        "inserts": true,
+        "updates": true,
+        "not_null": true
+      }
+    ],
+    "primary_key": [
+      "tenant_id",
+      "consumer",
+      "dedup_key"
+    ],
+    "policies": [
+      {
+        "check": "(tenant_id = (NULLIF(current_setting('app.current_tenant_id'::text, true), ''::text))::uuid)",
+        "roles": [
+          "0"
+        ],
+        "using": "(tenant_id = (NULLIF(current_setting('app.current_tenant_id'::text, true), ''::text))::uuid)",
+        "command": "*",
+        "permissive": true
+      }
+    ]
+  },
+  "suppression": {
+    "kind": "r",
+    "persistence": "p",
+    "secured": true,
+    "columns": [
+      [
+        "tenant_id",
+        "uuid",
+        true
+      ],
+      [
+        "alarm_group",
+        "text",
+        true
+      ],
+      [
+        "alarm_level",
+        "integer",
+        true
+      ],
+      [
+        "acked_at",
+        "bigint",
+        true
+      ],
+      [
+        "expires_at",
+        "bigint",
+        true
+      ]
+    ],
+    "primary_key": [
+      "tenant_id",
+      "alarm_group",
+      "alarm_level"
+    ],
+    "policies": [
+      {
+        "check": "(tenant_id = (NULLIF(current_setting('app.current_tenant_id'::text, true), ''::text))::uuid)",
+        "roles": [
+          "0"
+        ],
+        "using": "(tenant_id = (NULLIF(current_setting('app.current_tenant_id'::text, true), ''::text))::uuid)",
+        "command": "*",
+        "permissive": true
+      }
+    ]
+  },
+  "suppressionRole": {
+    "rolsuper": false,
+    "rolbypassrls": false,
+    "rolcreaterole": false,
+    "rolcreatedb": false,
+    "rolreplication": false,
+    "owns_schema": false,
+    "uses_schema": true,
+    "database_create": false,
+    "operator": false,
+    "creates": false,
+    "unrelated": false
+  }
+}
