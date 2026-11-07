@@ -47,9 +47,12 @@ host interface such as `169.254.1.1`. It does not create host interfaces.
 
 The public Host is preserved for **direct-alias** tenant resolution. Supplied
 forwarded/internal-selector headers are stripped; this configuration does not
-establish canonical-ingress trust. Application credentials are forwarded only to
-the responsible API/realtime handler. Request logging is disabled because legacy
-browser links may include credentials. Public management/operator paths are not
+establish canonical-ingress trust. Authorization/api-secret headers reach the
+API/realtime handlers; those headers and cookies are stripped from UI upstream
+requests. Existing browser navigation links may carry a legacy query token to
+the UI listener: the page does not reflect it and request logging is disabled.
+The unchanged browser reads its own navigation URL and authenticates subsequent
+API/socket operations. Public management/operator paths are not
 proxied to tenant-admin or the restore controller. Keep those components on
 private listeners/networks and mount private Unix sockets only in their actual
 participants.
