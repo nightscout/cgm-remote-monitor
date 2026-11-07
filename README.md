@@ -320,6 +320,7 @@ autonomy for your data:
   * `MONGO_POOL_SIZE` (`5`) - MongoDB connection pool size. Adjust for your deployment needs.
   * `MONGO_MIN_POOL_SIZE` (`0`) - Minimum pool connections to keep open.
   * `MONGO_MAX_IDLE_TIME_MS` (`30000`) - Max idle time (ms) before closing a connection.
+  * `ALARM_SNOOZE_SHARING` (`on`) - Set to `off` to keep alarm snoozes in memory in each process, as before sharing existed. No database read is added before alarms and snoozes do not survive a restart.
   * `ALARM_REFRESH_TIMEOUT_MS` (`5000`) - Maximum milliseconds an alarm notification waits for the cross-instance snooze refresh to load before emitting from in-memory state. Values above `15000` are ignored and the default is used.
   * `ALARM_REFRESH_STALE_MS` (`30000`) - Milliseconds before an existing process reloads shared snooze state. Lower values honor cross-instance acknowledgements sooner at the cost of more database reads.
   * `PORT` (`1337`) - The port that the node.js application will listen on.

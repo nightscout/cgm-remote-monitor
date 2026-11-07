@@ -20,6 +20,31 @@ describe('alarmStorage', function () {
     storage.ensureIndexes.should.be.a.Function();
   });
 
+  describe('ALARM_SNOOZE_SHARING setting', function () {
+    function readSetting (value) {
+      var saved = process.env.ALARM_SNOOZE_SHARING;
+      if (value === undefined) delete process.env.ALARM_SNOOZE_SHARING;
+      else process.env.ALARM_SNOOZE_SHARING = value;
+      try {
+        return require('../lib/server/env')().alarm_snooze_sharing;
+      } finally {
+        if (saved === undefined) delete process.env.ALARM_SNOOZE_SHARING;
+        else process.env.ALARM_SNOOZE_SHARING = saved;
+      }
+    }
+
+    it('is on by default and for unrecognised values', function () {
+      readSetting(undefined).should.equal(true);
+      readSetting('maybe').should.equal(true);
+      readSetting('on').should.equal(true);
+    });
+
+    it('is off for off and false in any case', function () {
+      readSetting('off').should.equal(false);
+      readSetting('FALSE').should.equal(false);
+    });
+  });
+
   describe('hasSharedNameHazard', function () {
     var defaults = { entries_collection: 'entries', treatments_collection: 'treatments',
       profile_collection: 'profile', devicestatus_collection: 'devicestatus',

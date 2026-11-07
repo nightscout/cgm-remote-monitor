@@ -53,6 +53,15 @@ var uri = process.env.STORAGE_URI || process.env.MONGO_CONNECTION || process.env
     }
   });
 
+  it('leaves sharing off when ALARM_SNOOZE_SHARING is off', async function () {
+    var ctx = await bootWith(function (env) { env.alarm_snooze_sharing = false; });
+    try {
+      (ctx.alarmStorage === undefined).should.equal(true);
+    } finally {
+      ctx.bus.teardown();
+    }
+  });
+
   it('leaves sharing off when another collection is renamed and the snooze one is not', async function () {
     var ctx = await bootWith(function (env) { env.treatments_collection = 'boot_test_treatments'; });
     try {
