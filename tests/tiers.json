@@ -175,6 +175,8 @@
         "tests/notification-producer.test.js",
         "tests/realtime-preview.test.js",
         "tests/profile-socket-order.test.js",
+        "tests/profile-timestamp-oracle.test.js",
+        "tests/realtime-runtime-directory.test.js",
         "tests/realtime-database-binding.test.js"
       ],
       "env": true,
