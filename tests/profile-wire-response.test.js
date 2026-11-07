@@ -1,6 +1,7 @@
 'use strict';
 const assert = require('node:assert/strict');
 const { Readable } = require('node:stream');
+const { EventEmitter } = require('node:events');
 const { ObjectId } = require('mongodb');
 const codec = require('./fixtures/realtime-preview/wire-response');
 const scope = require('../lib/storage/tenant-scope');
@@ -17,7 +18,10 @@ async function canonicalReply () {
 async function actualPrivateCodec (raw) {
   const token = Symbol(), req = Readable.from([Buffer.from('{}')]); req.method = 'POST'; req.url = '/mutate'; req.headers = { 'content-type': 'application/json' };
   let status, result;
-  const res = { headersSent: false, destroyed: false, writeHead (value) { status = value; }, end (bytes) { result = JSON.parse(bytes.toString()); }, destroy () { this.destroyed = true; } };
+  const res = new EventEmitter(); res.headersSent = false; res.destroyed = false;
+  res.writeHead = function (value) { status = value; this.headersSent = true; };
+  res.end = function (bytes) { result = JSON.parse(bytes.toString()); this.emit('finish'); };
+  res.destroy = function () { this.destroyed = true; this.emit('close'); };
   await require('../lib/server/realtime/ipc').handler({ token, admitted: () => true, maxBytes: 100000, timeoutMs: 1000,
     operations: { '/mutate': async () => ({ replyArgs: raw }) } })(req, res);
   assert.equal(status, 200); return result.replyArgs;
