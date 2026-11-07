@@ -21,7 +21,7 @@ belongs to the coherent assembled candidate.
 JSON migration catalogues under `lib/` and `migrations/candidates/`. It never selects
 all database schemas. It refuses an unadmitted candidate, missing namespace,
 omitted/extra table, unsupported DDL, shared namespace or unknown selection.
-Current source census: **20 candidate files, 18 selected kinds, 31 tables**; the two
+Current source census: **22 candidate files, 20 selected kinds, 35 tables**; the two
 socket-order successors are explicit alternative selections, not additional domains.
 
 The lifecycle list owns tenant export/import/delete order. It now includes A74's
@@ -43,10 +43,13 @@ read from PostgreSQL during capture; generated columns are recomputed on restore
 | owner_configuration | tenant_owner_configuration_authority |
 | legacy | legacy_credential_config, legacy_credential_subjects |
 | secrets | secret_records, secret_audit |
-| lifecycle | tenant_lifecycle_requests |
+| lifecycle | tenant_lifecycle_requests, tenant_lifecycle_ceremony |
+| alarm_suppression | tenant_alarm_suppression |
+| notification_outbox | tenant_notification_heads, tenant_notification_requests |
 
-New M5 suppression/outbox candidates must be explicitly admitted when their frozen
-source joins. Each extension must pin its canonical candidate digest; a changed
+Exact frozen alarm/outbox catalogue JSON is now present as recovery input, with
+explicit pinned extensions in the prepared fixtures. This is not a full M5 runtime
+join. Any later catalogue must be explicitly admitted. Each extension must pin its canonical candidate digest; a changed
 catalogue refuses until its explicit admission is updated. No active peer source or guessed schema is imported:
 
 ```js
@@ -204,3 +207,7 @@ unmeasured. The coordinator owns the frozen candidate and one assembled campaign
 
 The [whole populated native plan](acceptance-plan.md) names the source boundary,
 explicit privilege matrix, pending actual M5 extensions and required controls.
+
+Deletion now requires the [confirmed ceremony](../tenant-lifecycle/CEREMONY.md);
+complete recovery inventory includes both lifecycle ledgers. No provider/key
+destruction or all-credential blackout is inferred from that ceremony.

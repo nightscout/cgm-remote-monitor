@@ -1,4 +1,4 @@
-# Tenant lifecycle primitives: typed export, import and two-phase deletion
+# Tenant lifecycle primitives: typed export, import and confirmed deletion
 
 Dormant, opt-in research module for the Batch C early proof (tenant export/import
 fidelity and tenant deletion with recoverable key material). Nothing imports it
@@ -16,8 +16,18 @@ runs under the tenant binding and row-level security bounds reads and deletes.
 |---|---|
 | `exportTenant(connection, { tenant, namespaces, sourceCommit, keyNames })` | One `REPEATABLE READ` snapshot under `withTenant(tenant)`. Reads the non-generated columns of every admitted table, preserving `id_kind` beside the JSONB document (the `postgres-identity` codec's kind travels as a column, so ObjectId/string twins stay distinct). Secret records travel as stored ciphertext plus a key reference parsed from the Transit prefix (`vault:vN:`). No plaintext, no provider key. |
 | `importArtifact(connection, artifact, { tenant, namespaces, onRow })` | One transaction. Refuses before any write when the artifact's tenant is not the target, a row's `tenant_id` differs from the manifest tenant, a key reference has no ciphertext, the target namespace's applied migration ledger (`schema_migrations` names and checksums) differs from the manifest, a table's columns differ, a catalogue is missing or unmapped, or the target already holds rows for the tenant. Identity columns are written with `OVERRIDING SYSTEM VALUE`. |
-| `requestDeletion(connection, { tenant, ledgerNamespace, artifact })` | Phase one: records `tenant_lifecycle_requests` row with the artifact digest. Deletes nothing. |
-| `executeDeletion(connection, { tenant, namespaces, ledgerNamespace, artifact, requestId, onRow })` | Phase two, one transaction: locks the request, refuses an executed or digest-mismatched request, re-reads every admitted table and refuses `LIFECYCLE_ARTIFACT_STALE` if any row changed since the export, verifies each secret record's ciphertext and key reference are present in the artifact (`LIFECYCLE_KEY_MATERIAL_UNVERIFIED` otherwise), deletes in reverse catalogue order with exact-count checks, then marks the request executed. Any refusal or interruption rolls the whole transaction back. |
+| `requestDeletion(connection, { tenant, ledgerNamespace, artifact, now })` | Current-authorized explicit intent only; creates a requested ledger/ceremony record, deletes nothing. |
+| `confirmDeletion(connection, { tenant, ledgerNamespace, artifact, requestId, now })` | Separately current-authorized operator confirms the exact request/durably verified artifact. No minimum wait. |
+| `cancelDeletion(connection, { tenant, ledgerNamespace, requestId, now })` | Current-authorized cancellation under the request row lock; only requested/confirmed can become cancelled. |
+| `claimDeletion(...)` / `executeDeletion(...)` | Operator claim commits before destructive work and permanently closes cancellation. Execution separately rechecks current operator authority, durable artifact, explicit quiescent window and complete admitted current data/key fidelity. Destructive rollback retains executing state; same-artifact retry reauthorizes. Upgraded ceremony/audit ledger stays outside per-tenant deletion. |
+
+The complete current contract, trusted capability inputs and source/native acceptance
+boundary are in [CEREMONY.md](CEREMONY.md). Raw/default lifecycle objects refuse
+execution without a complete admission check. Compose the census-selected instance
+through `admission.lifecycle.withCapabilities(...)`; do not bypass the inventory with
+an old static list. The append-only ledger migration adds the ceremony table while
+leaving migration0001 unchanged. Legacy pending requests are never auto-confirmed.
+
 
 The admitted catalogue (`CATALOGUE` in `index.js`) lists every tenant-bound table
 the reviewed candidates in this tree create, parents before children; the unit test

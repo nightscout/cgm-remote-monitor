@@ -1,0 +1,136 @@
+# Preview deletion ceremony and execution boundary
+
+Source-only implementation of the adopted explicit request + operator confirmation,
+cancellation until execution starts, and no mandatory pre-deletion wait. Native
+transaction/privilege/claim-race acceptance remains UNMEASURED. Post-deletion
+30-day key/artifact retention is a separate contract; no key destruction or
+automatic artifact/tombstone expiry is implemented.
+
+## Capability composition
+
+Obtain the complete selected inventory through deployment admission, including
+pinned alarm/outbox extensions. Compose the returned tenant lifecycle instance:
+
+```js
+const controlled = admission.lifecycle.withCapabilities({
+  authorize: trustedCurrentAuthority,
+  verifyDurableArtifact: lifecycle.createFilesystemArtifactVerifier({ directory }),
+  executionWindow: trustedQuiescentOperatorWindow
+});
+```
+
+`authorize({ connection, tenant, requestId, action })` must use current authority
+in the same transaction, including any authority-row locks needed to retain that
+snapshot until COMMIT. It returns `{ allowed: true, current: true, tenant, plane,
+principal, consumer }`; all fields are checked. Request/cancellation may use a
+currently permitted owner/operator actor. Confirmation, claim and execution
+REQUIRE the separate operator plane even when an owner callback says allowed.
+Options supplied to an owner route cannot impersonate that trusted capability.
+Current authority is checked again immediately before destructive effects.
+
+The durable verifier reloads the complete tenant artifact from private immutable
+filesystem storage, verifies its digest, rows and ciphertext/key references, and
+binds it to the original tenant/request. `saveTenantArtifact` uses exclusive 0600
+files, file/directory fsync, verified staging, atomic publication and a verified
+reload. No plaintext secret/provider key is fetched or returned. Missing/corrupt
+storage refuses before claim/destruction. No memory-only success fallback exists.
+
+The execution-window capability must report the exact tenant as current and
+quiesced. The operator/controller must hold that stopped-writer window across
+claim and destructive transaction; the library rechecks it at both admissions.
+This is a controlled preview/fixture precondition, NOT D15 all-credential blackout,
+not a PostgreSQL writer fence and not an inference from access_tenants.active.
+No production quiescence adapter is selected. Native fixtures own/control their
+writers and must separately exercise late-write refusal; production lifecycle
+remains a separate integration boundary.
+
+A raw lifecycle object without full admission refuses destructive operations.
+`withCapabilities` preserves the census/selected catalogues and does not permit
+an injected capability object to replace them. Current candidate changes are
+re-censused before destructive admission; unreviewed/missing M5 tables cannot be
+silently omitted. Tenant export/import retains the same-ID binding; clone/new-ID
+credentials or cryptographic remapping are outside this interface.
+
+## State transitions and cancellation cutoff
+
+Migration0001 remains unchanged. Append-only0002 adds a composite request/tenant
+key and forced-RLS `tenant_lifecycle_ceremony`, with actor/time/confirmation/claim
+metadata and state constraints. The parent request row and ceremony row are locked
+in the same order by confirmation, cancellation and claim.
+
+| State/action | Observable result |
+|---|---|
+| Request | Ledger + requested ceremony commit together; no deletion. Owner intent never executes. |
+| Confirm | Current operator + durable artifact; requested becomes confirmed. Repeated confirmation retains its original time. |
+| Cancel before start | Current authorized actor locks the same request; requested/confirmed becomes cancelled. Execution can never win afterward. |
+| Start execution | Current operator + durable artifact + quiescent window + full current row/key fidelity; confirmed becomes executing with a claim UUID. Successful COMMIT is the cancellation cutoff. |
+| Cancel after start | Refuses EXECUTION_STARTED, including after destructive rollback or process interruption. |
+| Execute | Reuses/creates the durable claim, opens a fresh transaction, rechecks all prerequisites and current operator authority, deletes tenant data in reverse dependency order, and marks both request/ceremony executed atomically. |
+| Interrupted destructive transaction | All deletions/final markers roll back. The already committed executing claim remains; cancellation is not reopened. A current-authorized operator may retry only the same request/artifact/claim. |
+| Source/artifact changes after claim | Refuses without deletion; claim remains executing for explicit operator recovery. No automatic artifact rebind, restart of cancellation, abandon or destructive workaround. |
+
+There is no waiting timer. Confirmation/start/execution can share the request
+instant; clock rewinds behind a persisted confirmation/start refuse.
+The lower-port `transaction` requires a fresh transaction and acknowledges COMMIT;
+calling inside an outer transaction is not allowed to pretend the claim committed.
+Callbacks must not wrap the whole protocol in one uncommitted outer transaction.
+
+Legacy requested rows have no implicit confirmation. After migration they may
+obtain a lazy requested ceremony row under the same parent lock, then require
+explicit operator confirmation and full current-artifact checks. A legacy artifact
+that omits newly admitted domains refuses; use an explicitly reviewed new request/
+artifact rather than silently upgrading its meaning. Historical executed rows
+remain executed. The original request/ceremony ledgers are retained independently
+of deleted tenant rows and are included in whole-deployment backup/restore.
+
+## Privilege and secret boundary
+
+Owner request/cancel rights never confer clinical DELETE, operator confirmation,
+claim or execution. Final native role inputs must enumerate request/ceremony
+column grants: owner request fields only, cancellation fields only; operator
+confirmation fields and separate start/finalization effects as explicitly reviewed.
+The shared parent `SELECT FOR UPDATE` requires an UPDATE privilege. The owner
+request/cancel backend receives only `UPDATE(phase)` on that parent, never
+`executed_at`; the original paired-state CHECK prevents phase alone from marking
+the request executed. Owner request INSERT lists only request/tenant/digest/phase/
+requested-at columns. Ceremony INSERT lists request/tenant/phase/requested actor
+columns; cancellation UPDATE lists phase/cancelled actor/time columns. Confirmation,
+claim/start and finalization columns remain operator-only. These are backend
+capabilities, not raw SQL credentials returned to an owner client. Native checks
+must prove both the row lock and forbidden state/clinical effects under these
+precise grants.
+
+Do not grant blanket table UPDATE, DELETE, TRUNCATE, DDL, BYPASSRLS or elevated
+membership. Schema/ledger SELECT is limited to the actual selected principal.
+Check actual allowed/denied SQL and row effects under both tenants, not metadata
+inspection alone. Request IDs/claim IDs are identifiers, not bearer authority.
+
+Neither confirmation nor failure returns credential material. The export retains
+ciphertext/recovery references; provider/key retention/destruction is not selected
+or invoked by this code.
+
+## Verification and native plan
+
+Source recording-client tests cover operator/current-authority/confirmation guards,
+no wait, durable-file tamper, missing window/admission, old ledger/legacy intent,
+interruption/retry, late writes and both cancellation/claim orderings. The test
+transaction queue models serialization; it is NOT a PostgreSQL concurrency proof.
+Auth hooks used in unit tests are synthetic fixtures, not an accepted production
+operator adapter. Meaningful planted bypasses must fail, then restored source pass.
+
+At the coherent C native boundary, apply actual0001 then0002 to populated history;
+verify old migration checksum unchanged; provision exact current owner/operator
+roles/capabilities; persist/reload real artifacts. Use separate real connections
+and barriers to race cancellation versus claim in both orderings. Independently
+observe the committed start before any DELETE, kill/interrupt after that boundary,
+verify rollback retains executing and cancellation refuses, then retry with current
+operator authority and the same artifact. Revoke authority between confirm/claim/
+execute; lose/corrupt storage or the stopped-writer window; inject a late write;
+require named refusal, no unauthorized SQL/effect, foreign preservation and exact
+cleanup. Test duplicate execution and cross-tenant request/claim use. Run one final
+unmodified whole populated capability suite after the source-control family.
+Root owns that grant, final B merge/census and comprehensive acceptance.
+
+Journey-map client/consumer tests and probes should supplement the final native
+run with single-tenant/multitenant behavior comparisons, including recovery and
+deleted-tenant refusal. This source package does not claim that comparison ran.

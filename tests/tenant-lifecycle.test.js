@@ -1,11 +1,36 @@
 'use strict';
-// covers: lib/tenant-lifecycle/index.js, lib/tenant-lifecycle/artifact.js
+// covers: lib/tenant-lifecycle/index.js, lib/tenant-lifecycle/artifact.js, lib/tenant-lifecycle/ceremony.js, lib/tenant-lifecycle/filesystem-artifact.js
 
 const assert = require('node:assert/strict');
+const fs = require('node:fs');
+const os = require('node:os');
+const path = require('node:path');
 const { ObjectId } = require('mongodb');
 const tenantScope = require('../lib/storage/tenant-scope');
 const codec = require('../lib/storage/postgres-identity');
-const lifecycle = require('../lib/tenant-lifecycle');
+const lifecycleModule = require('../lib/tenant-lifecycle');
+const trustedCapabilities = {
+  authorize: async ({ tenant }) => ({ tenant, allowed: true, current: true, plane: 'operator', principal: 'synthetic_operator', consumer: 'synthetic_control' }),
+  verifyDurableArtifact: async ({ tenant, artifact }) => ({ tenant, verified: true, digest: artifact.digest }),
+  executionWindow: async ({ tenant }) => ({ tenant, current: true, quiesced: true })
+};
+const selectedCatalogues = [...lifecycleModule.admittedCatalogue(),
+  { kind: 'alarm_suppression', candidate: require('../migrations/candidates/postgres-alarm-suppression-v1.json'), tables: ['tenant_alarm_suppression'], secrets: [] },
+  { kind: 'notification_outbox', candidate: require('../lib/tenant-notifications/postgres-candidate.json'), tables: ['tenant_notification_heads', 'tenant_notification_requests'], secrets: [] }];
+function currentAdmission ({ catalogues, namespaces }) {
+  const ops = require('../lib/tenant-operations');
+  const { alarmInputs } = require('./fixtures/tenant-deployment-alarm');
+  const { notificationInputs } = require('./fixtures/tenant-deployment-notifications');
+  const inputs = { tenants: [A, B], now: 1700000000000 };
+  const full = ops.deploymentAdmission({ namespaces: { ...namespaces, lifecycle: ledgerNamespace }, extensions: [
+    alarmInputs({ ...inputs, writerRole: 'alarm_writer', readerRole: 'alarm_reader' }).extension,
+    notificationInputs({ ...inputs, outboxRole: 'outbox_writer', checkpointWriterRole: 'checkpoint_writer' }).extension
+  ] });
+  assert.deepEqual(catalogues.map(entry => [entry.kind, entry.tables]), full.lifecycle.CATALOGUE.map(entry => [entry.kind, entry.tables]));
+}
+trustedCapabilities.catalogues = selectedCatalogues;
+trustedCapabilities.admissionCheck = currentAdmission;
+const lifecycle = lifecycleModule.createLifecycle(trustedCapabilities);
 const artifacts = require('../lib/tenant-lifecycle/artifact');
 const ledgerCandidate = require('../lib/tenant-lifecycle/postgres-candidate.json');
 const { validateCatalogue } = require('../lib/migrations/catalogue');
@@ -35,7 +60,11 @@ const COLUMNS = {
   tenant_settings: 'tenant_id uuid, version integer, values jsonb',
   secret_records: 'tenant_id uuid, id text, format integer, ciphertext text',
   secret_audit: 'event_id uuid, tenant_id uuid, principal text, consumer text, operation text, secret_id text, phase text, event_time bigint, target_version bigint',
-  tenant_lifecycle_requests: 'request_id uuid, tenant_id uuid, artifact_digest text, phase text, requested_at bigint, executed_at bigint'
+  tenant_lifecycle_requests: 'request_id uuid, tenant_id uuid, artifact_digest text, phase text, requested_at bigint, executed_at bigint',
+  tenant_alarm_suppression: 'tenant_id uuid, alarm_group text, alarm_level integer, acked_at bigint, expires_at bigint',
+  tenant_notification_heads: 'tenant_id uuid, consumer text, dedup_key text, request_id uuid, blocked_until bigint',
+  tenant_notification_requests: 'tenant_id uuid, request_id uuid, consumer text, dedup_key text, origin text, config_identity text, payload jsonb, state text, created_at bigint, next_at bigint, attempt integer, attempt_token uuid, attempt_until bigint, accepted_at bigint, receipt jsonb, cleared_at bigint',
+  tenant_lifecycle_ceremony: 'request_id uuid, tenant_id uuid, phase text, requested_by text, requested_consumer text, confirmed_by text, confirmed_consumer text, confirmed_at bigint, cancelled_by text, cancelled_consumer text, cancelled_at bigint, claim_id uuid, started_by text, started_consumer text, started_at bigint, executed_by text, executed_consumer text, executed_at bigint'
 };
 const namespaces = Object.fromEntries(lifecycle.CATALOGUE.map(entry => [entry.kind, 'ns_' + entry.kind]));
 const ledgerNamespace = 'ns_lifecycle';
@@ -94,7 +123,9 @@ function recordingConnection (seed = seedRows()) {
   }
   ledgers.set(ledgerNamespace, ledgerCandidate.migrations.map(m => ({ name: m.name, checksum: m.checksum })));
   tables.set('"' + ledgerNamespace + '"."tenant_lifecycle_requests"', { columns: columnsFor('tenant_lifecycle_requests'), rows: [] });
+  tables.set('"' + ledgerNamespace + '"."tenant_lifecycle_ceremony"', { columns: columnsFor('tenant_lifecycle_ceremony'), rows: [] });
   let active = false;
+  let pending = Promise.resolve();
   const bound = () => {
     const tenant = tenantScope.requireTenant('recording query');
     if (typeof tenant !== 'string') throw new Error('unbound');
@@ -114,7 +145,7 @@ function recordingConnection (seed = seedRows()) {
     if ((match = /^SELECT count\(\*\)::int AS n FROM ("[a-z0-9_]+"\."[a-z0-9_]+") WHERE tenant_id = \$1$/.exec(text))) {
       return { rows: [{ n: tables.get(match[1]).rows.filter(row => row.tenant_id === tenant && row.tenant_id === values[0]).length }] };
     }
-    if ((match = /^SELECT (.+) FROM ("[a-z0-9_]+"\."tenant_lifecycle_requests") WHERE request_id = \$1 AND tenant_id = \$2 FOR UPDATE$/.exec(text))) {
+    if ((match = /^SELECT (.+) FROM ("[a-z0-9_]+"\."tenant_lifecycle_(?:requests|ceremony)") WHERE request_id = \$1 AND tenant_id = \$2 FOR UPDATE$/.exec(text))) {
       return { rows: clone(tables.get(match[2]).rows.filter(row => row.tenant_id === tenant && row.request_id === values[0] && row.tenant_id === values[1])) };
     }
     if ((match = /^SELECT (.+) FROM ("[a-z0-9_]+"\."[a-z0-9_]+") WHERE tenant_id = \$1$/.exec(text))) {
@@ -142,6 +173,17 @@ function recordingConnection (seed = seedRows()) {
       table.rows = table.rows.filter(row => !(row.tenant_id === tenant && row.tenant_id === values[0]));
       return { rowCount: before - table.rows.length, rows: [] };
     }
+    if ((match = /^UPDATE ("[a-z0-9_]+"\."tenant_lifecycle_ceremony") SET (.+) WHERE request_id = \$1 AND tenant_id = \$2 AND phase = ANY\(\$3::text\[\]\)$/.exec(text))) {
+      const assignments = match[2].split(',').map(item => { const parts = /([a-z_]+) = \$(\d+)/.exec(item.trim()); return { name: parts[1], index: Number(parts[2]) - 1 }; });
+      let count = 0;
+      for (const row of tables.get(match[1]).rows) {
+        if (row.tenant_id === tenant && row.request_id === values[0] && row.tenant_id === values[1] && values[2].includes(row.phase)) {
+          for (const part of assignments) row[part.name] = clone(values[part.index]);
+          count++;
+        }
+      }
+      return { rowCount: count, rows: [] };
+    }
     if ((match = /^UPDATE ("[a-z0-9_]+"\."tenant_lifecycle_requests") SET phase = \$3, executed_at = \$4 WHERE request_id = \$1 AND tenant_id = \$2$/.exec(text))) {
       let count = 0;
       for (const row of tables.get(match[1]).rows) {
@@ -153,6 +195,10 @@ function recordingConnection (seed = seedRows()) {
   }
   async function transaction (fn, begin) {
     bound();
+    const previous = pending;
+    let release;
+    pending = new Promise(resolve => { release = resolve; });
+    await previous;
     if (active) throw new Error('nested transaction');
     const snapshot = new Map([...tables].map(([key, table]) => [key, clone(table.rows)]));
     active = true;
@@ -165,7 +211,7 @@ function recordingConnection (seed = seedRows()) {
       for (const [key, rows] of snapshot) tables.get(key).rows = rows;
       log.push({ text: 'ROLLBACK' });
       throw error;
-    } finally { active = false; }
+    } finally { active = false; release(); }
   }
   return {
     log,
@@ -357,14 +403,19 @@ describe('tenant lifecycle: typed export, import and two-phase deletion', functi
     await assert.rejects(lifecycle.executeDeletion(connection, { tenant: A, namespaces, ledgerNamespace, artifact: other, requestId: request.requestId }), { code: 'LIFECYCLE_REQUEST_DIGEST_MISMATCH' });
     assert.equal(totalRows(connection, A), before.a);
 
+    await lifecycle.confirmDeletion(connection, { tenant: A, ledgerNamespace, artifact, requestId: request.requestId, now: () => 6 });
     const order = [];
-    await assert.rejects(lifecycle.executeDeletion(connection, { tenant: A, namespaces, ledgerNamespace, artifact, requestId: request.requestId, onRow: event => {
+    await assert.rejects(lifecycle.executeDeletion(connection, { tenant: A, namespaces, ledgerNamespace, artifact, requestId: request.requestId, now: () => 7, onRow: event => {
       order.push(event.key);
       if (event.total >= 2) throw new Error('synthetic-delete-interruption');
     } }), /synthetic-delete-interruption/);
     assert.equal(connection.log.at(-1).text, 'ROLLBACK');
     assert.equal(totalRows(connection, A), before.a, 'interrupted deletion removed nothing durable');
-    assert.equal(order[0], 'secrets.secret_audit', 'deletion walks the catalogue in reverse');
+    const started = connection.rows(ledgerNamespace, 'tenant_lifecycle_ceremony')[0];
+    assert.equal(started.phase, 'executing', 'destructive rollback cannot reopen cancellation');
+    assert.equal(started.started_at, 7);
+    await assert.rejects(lifecycle.cancelDeletion(connection, { tenant: A, ledgerNamespace, requestId: request.requestId }), { code: 'LIFECYCLE_EXECUTION_STARTED' });
+    assert.equal(order[0], 'notification_outbox.tenant_notification_requests', 'deletion walks the catalogue in reverse');
 
     const executed = await lifecycle.executeDeletion(connection, { tenant: A, namespaces, ledgerNamespace, artifact, requestId: request.requestId, now: () => 9 });
     assert.equal(executed.total, before.a);
@@ -383,10 +434,170 @@ describe('tenant lifecycle: typed export, import and two-phase deletion', functi
     assert.equal(again.digest, artifact.digest);
   });
 
+  it('requires operator confirmation, current authority and durable/quiescent capabilities before deletion', async function () {
+    const connection = recordingConnection();
+    const artifact = await lifecycle.exportTenant(connection, options());
+    const args = { tenant: A, namespaces, ledgerNamespace, artifact };
+    const request = await lifecycle.requestDeletion(connection, { ...args, now: () => 1 });
+    const input = { ...args, requestId: request.requestId, now: () => 2 };
+    const before = totalRows(connection, A);
+    await assert.rejects(lifecycle.executeDeletion(connection, input), { code: 'LIFECYCLE_CONFIRMATION_REQUIRED' });
+    const owner = lifecycleModule.createLifecycle({ ...trustedCapabilities,
+      authorize: async ({ tenant }) => ({ tenant, allowed: true, current: true, plane: 'owner', principal: 'synthetic_owner', consumer: 'owner_client' }) });
+    await assert.rejects(owner.confirmDeletion(connection, input), { code: 'LIFECYCLE_OPERATOR_REQUIRED' });
+    await lifecycle.confirmDeletion(connection, input);
+    await assert.rejects(owner.executeDeletion(connection, input), { code: 'LIFECYCLE_OPERATOR_REQUIRED' });
+    const revoked = lifecycleModule.createLifecycle({ ...trustedCapabilities,
+      authorize: async ({ tenant }) => ({ tenant, allowed: true, current: false, plane: 'operator', principal: 'revoked_operator', consumer: 'control' }) });
+    await assert.rejects(revoked.executeDeletion(connection, input), { code: 'LIFECYCLE_AUTHORITY_REFUSED' });
+    const memoryOnly = lifecycleModule.createLifecycle({ ...trustedCapabilities, verifyDurableArtifact: null });
+    await assert.rejects(memoryOnly.executeDeletion(connection, input), { code: 'LIFECYCLE_DURABLE_ARTIFACT_REQUIRED' });
+    const noWindow = lifecycleModule.createLifecycle({ ...trustedCapabilities, executionWindow: null });
+    await assert.rejects(noWindow.executeDeletion(connection, input), { code: 'LIFECYCLE_EXECUTION_WINDOW_REQUIRED' });
+    const incomplete = lifecycleModule.createLifecycle({ ...trustedCapabilities, admissionCheck: null });
+    await assert.rejects(incomplete.executeDeletion(connection, input), { code: 'LIFECYCLE_FULL_ADMISSION_REQUIRED' });
+    assert.equal(totalRows(connection, A), before);
+    assert.equal(connection.log.filter(entry => /^DELETE/.test(entry.text)).length, 0);
+  });
+
+  it('cancellation is final and cancel-versus-start has exactly one winner in either ordering', async function () {
+    for (const cancelFirst of [true, false]) {
+      const connection = recordingConnection();
+      const artifact = await lifecycle.exportTenant(connection, options());
+      const request = await lifecycle.requestDeletion(connection, { tenant: A, ledgerNamespace, artifact, now: () => 1 });
+      const args = { tenant: A, namespaces, ledgerNamespace, artifact, requestId: request.requestId, now: () => 3 };
+      await lifecycle.confirmDeletion(connection, { ...args, now: () => 2 });
+      const before = totalRows(connection, A);
+      const first = cancelFirst ? lifecycle.cancelDeletion(connection, args) : lifecycle.claimDeletion(connection, args);
+      const second = cancelFirst ? lifecycle.claimDeletion(connection, args) : lifecycle.cancelDeletion(connection, args);
+      const results = await Promise.allSettled([first, second]);
+      assert.equal(results.filter(result => result.status === 'fulfilled').length, 1, 'cancel and execution claim cannot both win');
+      assert.equal(results.filter(result => result.status === 'rejected').length, 1);
+      const state = connection.rows(ledgerNamespace, 'tenant_lifecycle_ceremony')[0];
+      assert.equal(state.phase, cancelFirst ? 'cancelled' : 'executing');
+      assert.equal(totalRows(connection, A), before, 'claim and cancellation never delete rows');
+      if (cancelFirst) await assert.rejects(lifecycle.executeDeletion(connection, args), { code: 'LIFECYCLE_REQUEST_CANCELLED' });
+      else await assert.rejects(lifecycle.cancelDeletion(connection, args), { code: 'LIFECYCLE_EXECUTION_STARTED' });
+    }
+  });
+
+  it('rechecks execution authority after a durable start and keeps the same claim on denied retry', async function () {
+    const connection = recordingConnection();
+    const artifact = await lifecycle.exportTenant(connection, options());
+    const request = await lifecycle.requestDeletion(connection, { tenant: A, ledgerNamespace, artifact, now: () => 1 });
+    const args = { tenant: A, namespaces, ledgerNamespace, artifact, requestId: request.requestId, now: () => 3 };
+    await lifecycle.confirmDeletion(connection, { ...args, now: () => 2 });
+    const claim = await lifecycle.claimDeletion(connection, args);
+    const before = totalRows(connection, A);
+    const changed = lifecycleModule.createLifecycle({ ...trustedCapabilities, authorize: async ({ tenant, action }) => ({
+      tenant, allowed: action !== 'execute', current: true, plane: 'operator', principal: 'operator', consumer: 'control'
+    }) });
+    await assert.rejects(changed.executeDeletion(connection, { ...args, claimId: claim.claimId }), { code: 'LIFECYCLE_AUTHORITY_REFUSED' });
+    assert.equal(totalRows(connection, A), before);
+    const state = connection.rows(ledgerNamespace, 'tenant_lifecycle_ceremony')[0];
+    assert.equal(state.phase, 'executing'); assert.equal(state.claim_id, claim.claimId);
+    const result = await lifecycle.executeDeletion(connection, { ...args, claimId: claim.claimId, now: () => 4 });
+    assert.equal(result.claimId, claim.claimId); assert.equal(totalRows(connection, A), 0);
+  });
+
+  it('old pending requests require explicit confirmation and old ledgers refuse before ceremony writes', async function () {
+    const connection = recordingConnection();
+    const artifact = await lifecycle.exportTenant(connection, options());
+    const requestId = '99999999-9999-4999-8999-999999999999';
+    await connection.withTenant(A, () => connection.query('INSERT INTO "ns_lifecycle"."tenant_lifecycle_requests" (request_id, tenant_id, artifact_digest, phase, requested_at) VALUES ($1, $2, $3, $4, $5)', [requestId, A, artifact.digest, 'requested', 1]));
+    const args = { tenant: A, namespaces, ledgerNamespace, artifact, requestId, now: () => 2 };
+    await assert.rejects(lifecycle.executeDeletion(connection, args), { code: 'LIFECYCLE_CONFIRMATION_REQUIRED' });
+    assert.equal(connection.rows(ledgerNamespace, 'tenant_lifecycle_ceremony').length, 0, 'failed legacy claim rolls back lazy initialization');
+    await lifecycle.confirmDeletion(connection, args);
+    assert.equal(connection.rows(ledgerNamespace, 'tenant_lifecycle_ceremony')[0].phase, 'confirmed');
+    const old = recordingConnection(); old.ledgers.set(ledgerNamespace, ledgerCandidate.migrations.slice(0, 1));
+    await assert.rejects(lifecycle.requestDeletion(old, { tenant: A, ledgerNamespace, artifact }), { code: 'LIFECYCLE_CEREMONY_SCHEMA_REQUIRED' });
+    assert.equal(old.rows(ledgerNamespace, 'tenant_lifecycle_requests').length, 0);
+  });
+
+  it('refuses late source changes after the durable claim without reopening cancellation', async function () {
+    const connection = recordingConnection();
+    const artifact = await lifecycle.exportTenant(connection, options());
+    const request = await lifecycle.requestDeletion(connection, { tenant: A, ledgerNamespace, artifact, now: () => 1 });
+    const args = { tenant: A, namespaces, ledgerNamespace, artifact, requestId: request.requestId, now: () => 3 };
+    await lifecycle.confirmDeletion(connection, { ...args, now: () => 2 });
+    const claim = await lifecycle.claimDeletion(connection, args);
+    await connection.withTenant(A, () => connection.query('INSERT INTO "ns_entries"."entries" ("tenant_id", "doc", "id_kind") VALUES ($1::uuid, $2::jsonb, $3::text)',
+      [A, JSON.stringify({ _id: 'after-claim', date: 3000 }), 'string']));
+    const before = totalRows(connection, A);
+    await assert.rejects(lifecycle.executeDeletion(connection, { ...args, claimId: claim.claimId, now: () => 4 }), { code: 'LIFECYCLE_ARTIFACT_STALE', detail: 'entries.entries' });
+    assert.equal(totalRows(connection, A), before);
+    assert.equal(connection.rows(ledgerNamespace, 'tenant_lifecycle_ceremony')[0].phase, 'executing');
+    await assert.rejects(lifecycle.cancelDeletion(connection, args), { code: 'LIFECYCLE_EXECUTION_STARTED' });
+    assert.equal(connection.log.filter(entry => /^DELETE/.test(entry.text)).length, 0);
+  });
+
+  it('permits confirmation and execution at the request instant with no mandatory waiting timer', async function () {
+    const connection = recordingConnection();
+    const artifact = await lifecycle.exportTenant(connection, options({ now: () => 1000 }));
+    const request = await lifecycle.requestDeletion(connection, { tenant: A, ledgerNamespace, artifact, now: () => 1000 });
+    const args = { tenant: A, namespaces, ledgerNamespace, artifact, requestId: request.requestId, now: () => 1000 };
+    await lifecycle.confirmDeletion(connection, args);
+    await lifecycle.executeDeletion(connection, args);
+    const state = connection.rows(ledgerNamespace, 'tenant_lifecycle_ceremony')[0];
+    assert.equal(state.confirmed_at, 1000); assert.equal(state.started_at, 1000); assert.equal(state.executed_at, 1000);
+  });
+
+  it('tenant artifact persistence refuses missing file fsync and restores verified publication', async function () {
+    const directory = await fs.promises.mkdtemp(path.join(os.tmpdir(), 'tenant-artifact-sync-'));
+    try {
+      const artifact = await lifecycle.exportTenant(recordingConnection(), options());
+      const events = [];
+      const io = fail => ({ ...fs.promises,
+        open: async (...args) => {
+          // eslint-disable-next-line security/detect-non-literal-fs-filename -- Owned private artifact instrumentation.
+          const handle = await fs.promises.open(...args);
+          return { writeFile: (...values) => handle.writeFile(...values), readFile: (...values) => handle.readFile(...values), stat: () => handle.stat(),
+            sync: async () => { events.push(['sync', args[0]]); if (fail && args[0].endsWith('artifact.json')) throw new Error('synthetic tenant artifact fsync failure'); await handle.sync(); }, close: () => handle.close() };
+        },
+        // eslint-disable-next-line security/detect-non-literal-fs-filename -- Exact owned staging/publication paths.
+        rename: async (...args) => { events.push(['rename']); return fs.promises.rename(...args); }
+      });
+      await assert.rejects(lifecycleModule.saveTenantArtifact(artifact, { directory, io: io(true) }), { code: 'LIFECYCLE_ARTIFACT_DURABILITY_FAILED' });
+      // eslint-disable-next-line security/detect-non-literal-fs-filename -- Owned temporary directory only.
+      assert.deepEqual(await fs.promises.readdir(directory), []);
+      events.length = 0;
+      assert.deepEqual(await lifecycleModule.saveTenantArtifact(artifact, { directory, io: io(false) }), artifact);
+      const renamed = events.findIndex(event => event[0] === 'rename');
+      assert.ok(events.slice(0, renamed).some(event => event[0] === 'sync' && event[1].endsWith('artifact.json')));
+      assert.ok(events.slice(renamed + 1).some(event => event[0] === 'sync' && event[1] === directory));
+    } finally { await fs.promises.rm(directory, { recursive: true, force: true }); }
+  });
+
+  it('filesystem evidence is reloaded before confirmation and a corrupt retained artifact blocks destructive admission', async function () {
+    const directory = await fs.promises.mkdtemp(path.join(os.tmpdir(), 'tenant-ceremony-artifact-'));
+    try {
+      const connection = recordingConnection();
+      const artifact = await lifecycle.exportTenant(connection, options());
+      await lifecycleModule.saveTenantArtifact(artifact, { directory });
+      const durable = lifecycleModule.createLifecycle({ ...trustedCapabilities, verifyDurableArtifact: lifecycleModule.createFilesystemArtifactVerifier({ directory }) });
+      const request = await durable.requestDeletion(connection, { tenant: A, ledgerNamespace, artifact, now: () => 1 });
+      const args = { tenant: A, namespaces, ledgerNamespace, artifact, requestId: request.requestId, now: () => 2 };
+      await durable.confirmDeletion(connection, args);
+      const file = path.join(directory, 'tenant-artifact-' + artifact.digest, 'artifact.json');
+      // eslint-disable-next-line security/detect-non-literal-fs-filename -- Owned temporary recovery artifact.
+      const text = await fs.promises.readFile(file, 'utf8');
+      assert.ok(text.includes('"sgv":100'));
+      // eslint-disable-next-line security/detect-non-literal-fs-filename -- Corrupt only the owned temporary artifact control.
+      await fs.promises.writeFile(file, text.replace('"sgv":100', '"sgv":999'));
+      const before = totalRows(connection, A);
+      await assert.rejects(durable.executeDeletion(connection, { ...args, now: () => 3 }), { code: 'LIFECYCLE_ARTIFACT_TABLE_DIGEST' });
+      assert.equal(totalRows(connection, A), before);
+      assert.equal(connection.rows(ledgerNamespace, 'tenant_lifecycle_ceremony')[0].phase, 'confirmed');
+      assert.equal(connection.log.filter(entry => /^DELETE/.test(entry.text)).length, 0);
+    } finally { await fs.promises.rm(directory, { recursive: true, force: true }); }
+  });
+
   it('refuses to execute against rows that changed after the export, and unverified key material', async function () {
     const connection = recordingConnection();
     const artifact = await lifecycle.exportTenant(connection, options());
     const request = await lifecycle.requestDeletion(connection, { tenant: A, ledgerNamespace, artifact });
+    await lifecycle.confirmDeletion(connection, { tenant: A, ledgerNamespace, artifact, requestId: request.requestId });
     const count = totalRows(connection, A);
     await connection.withTenant(A, () => connection.query('INSERT INTO "ns_entries"."entries" ("tenant_id", "doc", "id_kind") VALUES ($1::uuid, $2::jsonb, $3::text)',
       [A, JSON.stringify({ _id: 'late-row', date: 3000 }), 'string']));

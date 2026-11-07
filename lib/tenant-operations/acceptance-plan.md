@@ -19,36 +19,47 @@ operator migration runner, durable filesystem callback and original-ID restore.
 extensions. It adds the separate lifecycle ledger only to deployment backup.
 No active M5 worktree is imported and no application serving/default path changes.
 
-Current read-derived inventory is 20 JSON candidates / 18 selected kinds / 31
+Current read-derived inventory is 22 JSON candidates / 20 selected kinds / 35
 selected tables; two socket-order successors are explicit alternatives. A74 owner
 configuration authority was missing from old R69 inventory: the new independent
 source check failed before its joined-tree repair. The current extension interface
 refuses unknown new candidate paths, missing namespaces and incomplete table lists.
 
-## Frozen alarm inputs prepared (not joined or executed)
+## Frozen recovery catalogue inputs (not whole M5 runtime integration)
 
 The reviewed alarm source is `e9121a6e2e4b857701df8e443d831e794b68c03c`, candidate
 `migrations/candidates/postgres-alarm-suppression-v1.json`, table
 `tenant_alarm_suppression`. Source-only inputs are prepared in
 `tests/fixtures/tenant-deployment-alarm.js`, with its exact candidate snapshot in
 `tests/fixtures/tenant-deployment-alarm-candidate.json` for focused admission tests.
-These fixture files do not install the candidate or import/merge alarm runtime.
+The exact frozen alarm and notifier candidate JSON is now present as recovery
+input; actual alarm/notifier runtime modules are NOT merged into this C operator
+tree. Alarm schema pin remains e912; its narrow writer additionally receives SELECT
+on its own migration ledger for the reviewed e016 selected-datastore check.
+Writer S/I/UPDATE(acked_at,expires_at), reader SELECT, realtime none remain unchanged.
 
-The extension pins its canonical digest. Re-census refuses any changed candidate
-until the input is explicitly re-admitted. Seed rows cover both original tenants,
-both group/level keys and original absolute expiries with active/expired examples
-under an explicit synthetic clock. Writer grants are SELECT, INSERT and column-only
-UPDATE(acked_at,expires_at); reader SELECT only; realtime no grants and no role alias
-with either database actor. Real PostgreSQL privilege/expiry behavior remains
-UNMEASURED at this C join. The notifier's final repaired source is still awaited;
-its candidate/seed/roles are not copied or guessed. Final OLD/NEW join/freeze follows
-that reviewed input, not this preparation checkpoint.
+Notifier input is `d06c990ca2c00e8689be5c56e37301f5c71ffc67`, exact candidate
+`lib/tenant-notifications/postgres-candidate.json`, heads/requests tables.
+`tests/fixtures/tenant-deployment-notifications.js` pins canonical and byte digests,
+contains both normalPolicy prefixes in dedup_key (no invented policy column), and
+supplies pending/attempting/uncertain/accepted/cancelled/head/receipt rows. Dedicated
+outbox grants are schema usage, ledger SELECT, both tables SELECT/INSERT; heads
+UPDATE(request_id,blocked_until); requests
+UPDATE(state,next_at,attempt,attempt_token,attempt_until,accepted_at,receipt,cleared_at).
+No table-wide UPDATE/DELETE/DDL or checkpoint-principal reuse is supplied.
+
+The complete proposed seed accepts an explicit `now`, so a native runner can use
+the common actual PostgreSQL epoch for alarm/outbox state. All extension changes
+refuse until digest re-admission. Final full C archive must merge the actual final
+B runtime and re-census, including the forthcoming append-only notifier0002
+transition-state contract and any profile schema change justified by its early
+native comparison. This recovery-input preparation is not joined M5 acceptance.
 
 ## Preconditions to freeze for native review
 
-1. Root supplies the actual frozen M5 suppression/outbox catalogue paths/heads and
-   their existing namespace/role contracts. Add them via explicit extensions and
-   census the exact final source again. Do not invent a synthetic replacement
+1. Root joins the actual final B runtime and supplies any remaining realtime/
+   profile schema change. The frozen suppression/outbox inputs above are prepared;
+   census the exact final merged source again. Do not invent a synthetic replacement
    migration or copy an agent's active uncommitted schema.
 2. Select OLD and NEW immutable source archives and exact namespace maps. OLD is
    the complete currently installed admission; NEW adds the actual reviewed table/
@@ -85,7 +96,10 @@ schema wildcard. Backup/migration operator identity remains separate.
 | OWNER subject writer | Existing subject/legacy-subject SELECT/UPDATE/DELETE, subject-role SELECT/INSERT/DELETE, subject audit INSERT, owner_fence column-only updates as required by accepted A74 | Other authority columns, owner configuration state, clinical/secrets writes |
 | Versioned settings writer | tenant_settings SELECT/INSERT/UPDATE; history SELECT/INSERT; required policy SELECT and owner_configuration authority SELECT/UPDATE(owner_fence); own ledger SELECT | Alter can_configure/active/principal, clinical writes, secret access |
 | DATA presentation reader | SELECT tenant_settings and required policy/own ledger metadata only | Any INSERT/UPDATE/DELETE, authority-bit mutation, clinical/secret writes |
-| New alarm/outbox capabilities | Await frozen M5 role/table/column contracts, then enumerate exact inputs | Clinical-source, unrelated authority/settings/secret and foreign writes |
+| Alarm writer/reader | Exact e912 table rights above plus writer-only own ledger SELECT (e016) | Reader DML; writer broad UPDATE/DELETE; wrong datastore/foreign/authority writes |
+| Dedicated outbox | Exact d06 table/column/ledger grants above, separately from checkpoint writer | Broad UPDATE/DELETE/DDL/ownership/BYPASS/membership and writes outside outbox |
+| Deletion request/cancel | Current-authorized request fields and pre-start cancellation fields only; no clinical DELETE | Operator confirmation/start/finalization columns and all destructive effects |
+| Deletion operator | Separately current-authorized confirmation/claim/execution plus verified artifact/window; explicit reviewed ceremony/request update columns and tenant DELETE | Execution from owner route, cancellation after durable start, stale authority/artifact/window or omitted inventory |
 | Other metadata/secrets/lifecycle tables | No automatic application grant; any consumed private capability must be enumerated before its acceptance claim | No schema-wide or blanket automatic grant |
 
 `acl.grants` supports table and validated column privileges; schema USAGE is only
@@ -148,3 +162,54 @@ owner/OIDC lifecycle and actual client/journey equivalence remain separate expli
 acceptance families. The coordinator may reuse the existing pure journey request
 builders for restored/rollback single-versus-multitenant comparison after assembly;
 the old Mongo-only launcher is not an unchanged PostgreSQL recovery instrument.
+
+## Adopted ceremony in this recovery input
+
+[Lifecycle CEREMONY.md](../tenant-lifecycle/CEREMONY.md) defines the append-only0002
+state machine and native race/retry plan. Include both lifecycle tables in full
+backup. The exact cancellation cutoff is a separately acknowledged start COMMIT;
+a failed destructive transaction keeps executing state and cannot reopen cancel.
+Confirm/request/claim/execution can occur at the same instant; no mandatory wait.
+Legacy pending intent requires confirmation and current full artifact admission.
+
+The native grant must bind a real current-authority adapter in the operation's
+transaction, a real durable tenant artifact verifier and a controlled quiescent
+operator-window capability. Current fixtures/protocol hooks are not production
+identity or D15 blackout. Prove the same-row cancellation/start race with separate
+connections/barriers; authority revocation, storage/window loss and late writers
+must refuse before DELETE and preserve foreign state. Interrupt after the durable
+start and during deletion, observe persisted claim/rollback, then retry only with
+current operator authority and the same artifact. Keep inherited R69/f77/a7/b0
+captures at their original scope. No new native/comprehensive campaign is granted
+by this source plan.
+
+## Journey-map compatibility supplement (proposed; UNMEASURED)
+
+Use alignment `tools/review/journey-lab/clients.js` pure descriptors and the
+step/readback definitions in `journey.js`, not the Mongo-only `lab.sh` launcher.
+Freeze both alignment descriptor head and final application head before runtime.
+Replay the identical synthetic descriptors/time under same-head single-tenant
+Mongo, original multitenant PG, fresh restored PG and OLD rollback PG. Provision
+tenant credentials through each actual admitted authority interface. Do not reuse
+one backend's bearer material on another; preserve each descriptor's auth shape.
+
+| Consumer/descriptor | Actual boundary and independent observation |
+|---|---|
+| Loop/Trio connect/onboard/backfill | GET experiments/test and profile/current; POST profile/profile.json and treatment/entry/devicestatus descriptors; read profile history, exact typed stored rows and v1 response shapes. |
+| AAPS3.4 v3 /4.0 descriptors | Token request/Bearer path and actual v3 create/update/history selectors; retain returned identifier/version mapping across subsequent descriptors and restore. Unsupported routes remain explicit. |
+| AAPS v1 socket descriptors | Actual authorize and descriptor event/collection/ack; record ack and persisted effects, replay/retry identity, tenant isolation. No HTTP substitution for socket evidence. |
+| Followers/readers | LoopFollow query token, nightguard raw API-SECRET token and JWT request, Reporter query shapes; compare response status/body/order, content type and relevant auth/cache headers. |
+| Alarm/normal/ack/retry | Drive actual consumed evaluator with synthetic boundary readings and actual ack path; compare observed alarm/clear_alarm payload/order with legacy, and independent suppression/outbox rows, claims/retry receipts and consumer delivery capture. Use the final notifier transition schema and actual selected principal. |
+| Recovery/deletion | Replay admitted reads/writes before backup, after fresh restore, after failed upgrade/OLD rollback; verify history, identifier links and foreign tenant unchanged. After deletion, prove actual tenant admission/read/write/notification refusal and retained audit/artifact identity. |
+
+Record endpoint, descriptor source citation, backend/head, tenant class, synthetic
+clock, request descriptor hash, status/body/headers, independent stored/history
+comparison, consumer capture and resource cleanup. Redact credentials entirely.
+Normalize only captured clocks/generated IDs via explicit stable correspondence;
+never normalize ordering/type/null/false/zero, headers or missing history away.
+Classify each result: equal, intentional decision-linked difference, preserved
+legacy quirk, unsupported or UNMEASURED. Plant one admitted typed/history loss and
+one alarm-clear/retry loss; require exact oracle failure and restored passes.
+Source-pattern request replay is client-shape evidence, not execution of actual
+mobile binaries. Provider sends, browsers and real mobile clients require their
+own scope; this supplement does not claim those ran.

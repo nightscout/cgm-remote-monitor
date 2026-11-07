@@ -8,7 +8,7 @@ const HEX = '0123456789abcdef01234567';
 const digest = 'a'.repeat(64);
 const uuid = n => '00000000-0000-4000-8000-' + String(n).padStart(12, '0');
 
-function populatedRows () {
+function populatedRows ({ now = 1700000000000 } = {}) {
   const rows = {};
   const add = (table, row) => { (rows[table] = rows[table] || []).push(row); };
   for (const [offset, tenant] of [A, B].entries()) {
@@ -17,7 +17,7 @@ function populatedRows () {
     const principal = 'operator_' + suffix, consumer = 'synthetic_' + suffix;
     for (const table of ['entries', 'treatments', 'devicestatus', 'profile', 'food', 'activity', 'settings']) {
       for (const id_kind of ['objectid', 'string']) add(table, { tenant_id: tenant, id_kind,
-        doc: { _id: HEX, date: 1700000000000, created_at: '2023-11-14T22:13:20Z', srvModified: 1000,
+        doc: { _id: HEX, date: now, created_at: new Date(now).toISOString(), srvModified: 1000,
           extension: { flag: false, zero: 0, nullable: null, ordered: [3, 1, 2] } } });
     }
     add('tenant_write_clock', { tenant_id: tenant, last_stamp: '1000' });
@@ -32,7 +32,7 @@ function populatedRows () {
     add('access_tenants', { tenant_id: tenant, active: true });
     add('access_credentials', { tenant_id: tenant, credential_id: 'credential_' + suffix, subject_id: 'subject_' + suffix, generation: 1, enabled: true });
     add('access_sessions', { tenant_id: tenant, session_id: 'session_' + suffix, subject_id: 'subject_' + suffix,
-      credential_id: 'credential_' + suffix, generation: 1, expires_at: '1700000600000', active: true, purpose: 'data' });
+      credential_id: 'credential_' + suffix, generation: 1, expires_at: String(now + 600000), active: true, purpose: 'data' });
     add('access_keys', { tenant_id: tenant, kid: 'key_' + suffix, purpose: 'data', active: true });
     add('subject_policy', { tenant_id: tenant, version: 1, grants: [] });
     add('subject_policy_audit', { event_id: event(2), tenant_id: tenant, principal, consumer, operation: 'policy-replace', phase: 'committed', event_time: '1000', version: 1 });
@@ -48,7 +48,14 @@ function populatedRows () {
     add('secret_audit', { event_id: event(3), tenant_id: tenant, principal, consumer, operation: 'encrypt', secret_id: 'reference_' + suffix,
       phase: 'authorized', event_time: '1000', target_version: null });
     add('tenant_lifecycle_requests', { request_id: event(4), tenant_id: tenant, artifact_digest: digest, phase: 'executed', requested_at: '500', executed_at: '1000' });
+    add('tenant_lifecycle_ceremony', { request_id: event(4), tenant_id: tenant, phase: 'executed', requested_by: 'owner_' + suffix, requested_consumer: consumer,
+      confirmed_by: principal, confirmed_consumer: consumer, confirmed_at: '600', cancelled_by: null, cancelled_consumer: null, cancelled_at: null,
+      claim_id: event(5), started_by: principal, started_consumer: consumer, started_at: '800', executed_by: principal, executed_consumer: consumer, executed_at: '1000' });
   }
+  const { alarmInputs } = require('./tenant-deployment-alarm');
+  const { notificationInputs } = require('./tenant-deployment-notifications');
+  Object.assign(rows, alarmInputs({ tenants: [A, B], now, writerRole: 'alarm_writer', readerRole: 'alarm_reader' }).rows,
+    notificationInputs({ tenants: [A, B], now, outboxRole: 'outbox_writer', checkpointWriterRole: 'checkpoint_writer' }).rows);
   return rows;
 }
 module.exports = { A, B, populatedRows };

@@ -26,10 +26,12 @@ function alarmInputs ({ tenants, now, writerRole, readerRole, realtimeRole = nul
     extension: { kind: 'alarm_suppression', candidatePath: FILE, candidateDigest: DIGEST,
       sourceCommit: SOURCE, sourceSha256: SOURCE_SHA256, tables: ['tenant_alarm_suppression'], secrets: [] },
     rows: { tenant_alarm_suppression: rows },
+    aclSourceCommit: 'e016c882638e292344fdd91a26d4cedab7fdf3ac',
     acl: { grants: [
       { role: writerRole, kind: 'alarm_suppression', table: 'tenant_alarm_suppression', privileges: ['SELECT', 'INSERT'],
         columnPrivileges: { UPDATE: ['acked_at', 'expires_at'] } },
-      { role: readerRole, kind: 'alarm_suppression', table: 'tenant_alarm_suppression', privileges: ['SELECT'] }
+      { role: readerRole, kind: 'alarm_suppression', table: 'tenant_alarm_suppression', privileges: ['SELECT'] },
+      { role: writerRole, kind: 'alarm_suppression', table: 'schema_migrations', privileges: ['SELECT'] }
     ] }
   };
 }
