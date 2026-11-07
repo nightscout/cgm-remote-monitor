@@ -87,10 +87,11 @@ async function execute (input) {
   if (input.phaseId === 'uds-ownership') return uds(input);
   return require('./profile-differential')(input);
 }
+// The profile adapter reads this plan during CLI execution too.
+module.exports = { plan, execute };
 if (require.main === module) {
   if (process.argv[2] === '--plan') process.stdout.write(JSON.stringify(plan, null, 2) + '\n');
   else if (process.argv[2] === '--execute') execute({ sourceDir: path.resolve(__dirname, '../../..'), captureDir: process.argv[4],
     phaseId: process.argv[3], control: null, env: process.env }).catch(error => { console.error(error.code || error.message); process.exitCode = 1; });
   else { console.error('Use --plan or explicitly granted --execute'); process.exitCode = 64; }
 }
-module.exports = { plan, execute };
