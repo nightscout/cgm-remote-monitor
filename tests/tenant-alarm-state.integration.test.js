@@ -55,9 +55,14 @@ optInSuite(process.env.NS_TENANT_ALARM_TEST === '1' && !!process.env.NS_TEST_POS
     const receiver = lab.receiver({ beforeCommit: async () => { reached(); await held; } });
     let callbacks = 0;
     const pending = lab.forwarder({ receiver }).forward({ namespace: '/alarm', event: 'ack', args: [2, 'default', 60000], acknowledge: () => { callbacks++; } });
-    await ready; const outside = await lab.physical(); trace('native-before-commit', { outside, callbacks });
-    assert.equal(callbacks, 0, 'ALARM_NATIVE_NO_EARLY_ACK before commit'); assert.deepEqual(outside, []);
-    release(); assert.equal((await pending).delivered, true); assert.equal(callbacks, 1);
+    await ready; let outside, earlyCallbacks;
+    try {
+      outside = await lab.physical(); earlyCallbacks = callbacks;
+      trace('native-before-commit', { outside, callbacks: earlyCallbacks });
+    } finally { release(); }
+    const completed = await pending;
+    assert.equal(earlyCallbacks, 0, 'ALARM_NATIVE_NO_EARLY_ACK before commit'); assert.deepEqual(outside, []);
+    assert.equal(completed.delivered, true); assert.equal(callbacks, 1);
     await lab.reset();
     let staged;
     const failed = lab.forwarder({ receiver: lab.receiver({ afterUpdate: async () => { staged = await lab.physical(); }, failCommit: true }) });
