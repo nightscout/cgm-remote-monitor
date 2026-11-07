@@ -172,6 +172,7 @@
         "tests/evaluator-consumer-metadata.test.js",
         "tests/evaluator-consumer-open-order.test.js",
         "tests/notification-readiness-diagnostic.test.js",
+        "tests/notification-public-policy.test.js",
         "tests/realtime-evaluator-observer.test.js",
         "tests/realtime-bootstrap.test.js",
         "tests/notification-ack-admission.test.js",
