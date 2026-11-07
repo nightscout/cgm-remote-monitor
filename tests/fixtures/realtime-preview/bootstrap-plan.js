@@ -4,6 +4,7 @@
 const path = require('node:path');
 const fs = require('node:fs');
 const crypto = require('node:crypto');
+const { operationTables } = require('../../../lib/migrations/catalogue');
 const phases = Object.freeze(['joined-role-recovery','joined-data-parity','joined-consumer-handoff','joined-consumer-plugin-ack','joined-socket-epoch','joined-browser-consumer']);
 const A='11111111-1111-4111-8111-111111111111', B='22222222-2222-4222-8222-222222222222';
 const SUBJECT='000000000000000000000001', STALE='000000000000000000000002';
@@ -27,7 +28,7 @@ function credentials (index,subject,token) {
 // Exact fixture-owned phase reset. Encrypted bootstrap roots must survive phase
 // resets; all other selected data/audit tables reset, never migration ledgers.
 function resetTables () {
-  return {entries:['entries'],treatments:['treatments'],devicestatus:['devicestatus'],profile:['profile'],food:['food'],activity:['activity'],settings:['settings'],
+  return {entries:['tenant_insertion_ordinal','entries'],treatments:['tenant_insertion_ordinal','treatments'],devicestatus:['tenant_insertion_ordinal','devicestatus'],profile:['tenant_insertion_ordinal','profile'],food:['tenant_insertion_ordinal','food'],activity:['activity'],settings:['settings'],
     authorization:['tenant_authorization_config','tenant_authorization_roles','tenant_authorization_subjects','tenant_authorization_subject_roles',
       'tenant_subject_admin_audit','tenant_owner_policy','tenant_owner_actors'],secrets:['secret_audit'],
     legacy:['legacy_credential_config','legacy_credential_subjects'],access:['access_tenants','access_credentials','access_sessions','access_keys'],
@@ -41,7 +42,14 @@ function resetPlan (layout, catalogues, reset=resetTables()) {
       Object.keys(reset).sort().join(',')!==Object.keys(known).sort().join(',')) refuse('JOINED_BOOTSTRAP_RESET_DOMAINS');
   for (const [domain,catalogue] of Object.entries(catalogues)) {
     const names=new Set();tables.set(domain,names);
-    for (const migration of catalogue.migrations) for (const sql of migration.up) {
+    for (const migration of catalogue.migrations) {
+      if (migration.operation !== undefined) {
+        const reviewed = operationTables(migration);
+        if (reviewed.length !== 2 || reviewed[1] !== domain || !names.has(domain) || names.has(reviewed[0])) refuse('JOINED_BOOTSTRAP_RESET_OPERATION');
+        names.add(reviewed[0]);
+        continue;
+      }
+      for (const sql of migration.up) {
       const create=/^CREATE TABLE ([a-z][a-z0-9_]*) \(/.exec(sql);
       if (/CREATE TABLE/i.test(sql)&&!create) refuse('JOINED_BOOTSTRAP_RESET_DDL_UNREVIEWED');
       if (create) { if(names.has(create[1]))refuse('JOINED_BOOTSTRAP_RESET_DDL_UNREVIEWED');names.add(create[1]); }
@@ -49,6 +57,7 @@ function resetPlan (layout, catalogues, reset=resetTables()) {
         const owner=/^(?:CREATE|ALTER) TABLE ([a-z][a-z0-9_]*) /.exec(sql), references=[...sql.matchAll(/REFERENCES ([a-z][a-z0-9_]*) \(/g)];
         if (!owner||references.length!==(sql.match(/REFERENCES/gi)||[]).length) refuse('JOINED_BOOTSTRAP_RESET_DDL_UNREVIEWED');
         for (const target of references) foreignKeys.push({domain,from:owner[1],to:target[1]});
+      }
       }
     }
     if (!Array.isArray(reset[domain])||new Set(reset[domain]).size!==reset[domain].length) refuse('JOINED_BOOTSTRAP_RESET_TABLES');
