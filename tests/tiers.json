@@ -169,6 +169,8 @@
         "tests/tenant-alarm-composition.test.js",
         "tests/tenant-notifications.test.js",
         "tests/evaluator-consumers.test.js",
+        "tests/evaluator-consumer-metadata.test.js",
+        "tests/realtime-bootstrap.test.js",
         "tests/notification-ack-admission.test.js",
         "tests/notification-private-state.test.js",
         "tests/notification-producer-state.test.js",
@@ -176,6 +178,7 @@
         "tests/realtime-preview.test.js",
         "tests/profile-socket-order.test.js",
         "tests/profile-timestamp-oracle.test.js",
+        "tests/profile-wire-response.test.js",
         "tests/realtime-runtime-directory.test.js",
         "tests/realtime-database-binding.test.js"
       ],
