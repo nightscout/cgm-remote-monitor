@@ -39,12 +39,14 @@ function parse (value, env = process.env, sourceRoot = path.resolve(__dirname, '
   assert.equal(path.dirname(value.actualRoleManifestPath), value.captureDirectory);
   const roleManifest = fs.readFileSync(value.actualRoleManifestPath);
   assert.equal(crypto.createHash('sha256').update(roleManifest).digest('hex'), value.actualRoleManifestSha256);
-  assert.deepEqual(JSON.parse(roleManifest).grants, value.acl);
+  const parsedManifest = JSON.parse(roleManifest);
+  assert.deepEqual(parsedManifest.grants, value.acl);
+  require('./versioned-acl').validateManifest(parsedManifest, value.sourceHead, OLD);
   if (value.guardCandidatePath) {
     assert.equal(value.controlName, 'profile-populated-guard');
     assert.equal(value.guardCandidatePath, path.join(value.captureDirectory, 'profile-guard-mutant.json'));
   }
   if (value.allocatorResearch !== undefined) assert.equal(value.allocatorResearch, 'private-cache-counterexample-v1');
-  return { ...value, connectionString: url.toString(), classes: [...classes, 'lifecycle_operator', 'lifecycle_owner'] };
+  return { ...value, roleManifest: parsedManifest, connectionString: url.toString(), classes: [...classes, 'lifecycle_operator', 'lifecycle_owner'] };
 }
 module.exports = { parse, OLD };

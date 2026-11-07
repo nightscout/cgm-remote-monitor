@@ -71,5 +71,6 @@
     "scope": "cached allocator counterexample only, native UNMEASURED; no application sequence maintenance or rights changes"
   },
   "physicalInventory": "Exact ordinary reviewed relations + ordinary schema_migrations in each selected owned namespace; unlisted r/p/f/m/v and partitions refuse. Point-in-time snapshot, requires coordinated no-DDL operator window; no namespace DDL fence implied. Ordinary inheritance participation in either pg_inherits direction refuses even across namespace boundaries; foreign descendants not adopted.",
-  "lockOrder": "current same-transaction authority fence then parent request then ceremony for confirm/cancel/claim/execute; C5 execute/cancel barriers in both orderings with destructive rollback and no cancellation reopening"
+  "lockOrder": "current same-transaction authority fence then parent request then ceremony for confirm/cancel/claim/execute; C5 execute/cancel barriers in both orderings with destructive rollback and no cancellation reopening",
+  "aclProjection": "Explicit source-derived OLD/CURRENT contexts bind whole selected candidate digests/tables. Source ALL SEQUENCES expansion is empty for OLD profile. Complete table/column/sequence compilation upfront; product guards strict; CURRENT fixture grants explicitly applied after successful upgrade; interrupted source/rollback remain OLD."
 }

@@ -146,7 +146,7 @@ describe('whole deployment source admission and filesystem durability', function
     await fs.promises.writeFile(path.join(source, 'whole-c-source.json'), JSON.stringify({ head }));
     await fs.promises.writeFile(path.join(oldRoot, 'whole-c-source.json'), JSON.stringify({ head: OLD }));
     const acl = ['api', 'readiness', 'alarm', 'realtime', 'evaluator', 'suppression', 'outbox'].map(role => ({ role, kind: 'entries', table: 'entries', privileges: ['SELECT'] }));
-    const manifest = JSON.stringify({ grants: acl }), actualRoleManifestPath = path.join(captureDirectory, 'roles.json');
+    const manifest = JSON.stringify({ versionedAclVersion: 1, grants: acl, contexts: Object.fromEntries([['CURRENT', head], ['OLD', OLD]].map(([context, sourceHead]) => [context, { sourceHead, catalogues: [{ kind: 'entries' }], grants: acl }])) }), actualRoleManifestPath = path.join(captureDirectory, 'roles.json');
     await fs.promises.writeFile(actualRoleManifestPath, manifest);
     const config = { version: 1, sourceHead: head, oldHead: OLD, oldRoot, captureDirectory, prefix: 'wc_0123456789ab', adminEnv: 'WHOLE_C_FIXTURE_URI',
       expectedEndpoint: { host: '127.0.0.1', port: 5432, database: 'whole_c_test' }, grant: 'synthetic-source-contract-only',
@@ -160,6 +160,53 @@ describe('whole deployment source admission and filesystem durability', function
     assert.throws(() => parse(config, { WHOLE_C_FIXTURE_URI: env.WHOLE_C_FIXTURE_URI.replace('127.0.0.1', 'example.test') }, source));
     await fs.promises.writeFile(actualRoleManifestPath, JSON.stringify({ grants: [] }));
     assert.throws(() => parse(config, env, source));
+  });
+
+  function versionedAclFixture () {
+    const versioned = require('../tools/lab/tenant-whole-c/versioned-acl');
+    const old = { catalogues: [{ kind: 'profile', namespace: 'fixture_profile', tables: ['profile'], catalogue: require('../migrations/candidates/postgres-profile-v1.json') }] };
+    const current = { catalogues: [{ ...old.catalogues[0], catalogue: require('../migrations/candidates/postgres-profile-socket-order-v1.json') }] };
+    const baseGrant = { role: 'api', kind: 'profile', table: 'profile', privileges: ['SELECT', 'INSERT'] };
+    const grants = [{ ...baseGrant, sequencePrivileges: ['USAGE'] }];
+    const manifest = { versionedAclVersion: 1, grants, contexts: {
+      CURRENT: { sourceHead: COMMIT, catalogues: versioned.fingerprint(current), grants },
+      OLD: { sourceHead: 'a7f5cbf71ab9016855976fae74730727d0a78024', catalogues: versioned.fingerprint(old), grants: [baseGrant] }
+    } };
+    return { versioned, old, current, manifest, names: { api: 'fixture_api' } };
+  }
+
+  it('binds OLD and CURRENT ACL contexts to exact selected catalogues without copying identity rights', function () {
+    const { versioned, old, current, manifest, names } = versionedAclFixture();
+    versioned.validateManifest(manifest, COMMIT, manifest.contexts.OLD.sourceHead);
+    const oldPlan = versioned.project(manifest, old, 'OLD', names), currentPlan = versioned.project(manifest, current, 'CURRENT', names);
+    assert.equal(oldPlan.grants[0].sequencePrivileges, undefined);
+    assert.deepEqual(currentPlan.grants[0].sequencePrivileges, ['USAGE']);
+    assert.equal(oldPlan.grants[0].role, 'fixture_api');
+    assert.notEqual(oldPlan.evidence.candidateSetDigest, currentPlan.evidence.candidateSetDigest);
+  });
+
+  it('refuses unknown, crossed or changed ACL catalogue contexts and operational role substitution', function () {
+    const { versioned, old, current, manifest, names } = versionedAclFixture();
+    assert.throws(() => versioned.project(manifest, old, 'CURRENT', names), /WHOLE_C_ACL_CATALOGUE_CHANGED/);
+    assert.throws(() => versioned.project(manifest, current, 'OLD', names), /WHOLE_C_ACL_CATALOGUE_CHANGED/);
+    assert.throws(() => versioned.project(manifest, old, 'FALLBACK', names), /WHOLE_C_ACL_CONTEXT_UNKNOWN/);
+    const changed = JSON.parse(JSON.stringify(current)); changed.catalogues[0].tables.push('unreviewed');
+    assert.throws(() => versioned.project(manifest, changed, 'CURRENT', names), /WHOLE_C_ACL_CATALOGUE_CHANGED/);
+    const widened = JSON.parse(JSON.stringify(manifest)); widened.contexts.OLD.grants[0].role = 'lifecycle_operator';
+    assert.throws(() => versioned.project(widened, old, 'OLD', { ...names, lifecycle_operator: 'fixture_operator' }), /WHOLE_C_ACL_ROLE_CLASS/);
+    assert.throws(() => versioned.validateManifest({ ...manifest, versionedAclVersion: 0 }, COMMIT, manifest.contexts.OLD.sourceHead), /WHOLE_C_VERSIONED_ACL_REQUIRED/);
+  });
+
+  it('retains strict sequence and column guards while the explicit OLD ACL compiles without a sequence', async function () {
+    const { versioned, old, manifest, names } = versionedAclFixture();
+    const restore = require('../lib/tenant-operations/restore'), steps = common.plan(old.catalogues);
+    const work = [{ kind: 'profile', table: 'profile', columns: [{ name: 'doc', identity: false }] }];
+    const connection = { query: async () => { throw new Error('OLD profile must not resolve any identity sequence'); } };
+    const selected = versioned.project(manifest, old, 'OLD', names).grants;
+    const compiled = await restore.prepareAcl(connection, steps, work, { grants: selected });
+    assert.equal(compiled.statements.some(sql => sql.includes('ON SEQUENCE')), false);
+    await assert.rejects(() => restore.prepareAcl(connection, steps, work, { grants: [{ ...selected[0], sequencePrivileges: ['USAGE'] }] }), { code: 'RESTORE_ACL_SEQUENCE_INVALID' });
+    await assert.rejects(() => restore.prepareAcl(connection, steps, work, { grants: [{ ...selected[0], columnPrivileges: { UPDATE: ['unknown'] } }] }), { code: 'RESTORE_ACL_COLUMN_INVALID' });
   });
 
   it('censuses all selected A74/R69 kinds, owner configuration and the independent lifecycle ledger', function () {

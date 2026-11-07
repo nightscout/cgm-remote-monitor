@@ -20,6 +20,7 @@ const { notificationInputs } = require('../../../tests/fixtures/tenant-deploymen
 const { currentAuthority } = require('./authority');
 const { processIdentity, stoppedWindow } = require('./window');
 const { fork } = require('node:child_process');
+const versionedAcl = require('./versioned-acl');
 const q = oracle.quote;
 const sourceRoot = path.resolve(__dirname, '../../..');
 const actions = ['request', 'confirm', 'cancel', 'claim', 'execute'];
@@ -108,9 +109,10 @@ async function run (config, selected = 'all') {
     }
     return grants;
   }
-  function acl (admission, names) {
-    const kinds = new Set(admission.catalogues.map(e => e.kind));
-    return { grants: config.acl.filter(g => kinds.has(g.kind)).map(g => ({ ...g, role: names[g.role] })).concat(operationalAcl(admission, names)) };
+  function acl (admission, names, context) {
+    const selected = versionedAcl.project(config.roleManifest, admission, context, names);
+    emit('versioned-acl-context', selected.evidence);
+    return { grants: selected.grants.concat(operationalAcl(admission, names)) };
   }
   async function applyAcl (admission, selectedAcl) {
     const work = [];
@@ -136,7 +138,7 @@ async function run (config, selected = 'all') {
     const directory = path.join(config.captureDirectory, prefix); await fs.promises.mkdir(directory, { mode: 0o700 });
     const deployment = operations.createDeploymentOperations({ directory, root: old ? config.oldRoot : sourceRoot, namespaces: ns, selection, extensions, instances });
     const cohort = { prefix, ns, admission, deployment, directory, epoch, runtime, selection, instances, extensions };
-    cohort.acl = acl(admission, runtime.names);
+    cohort.acl = acl(admission, runtime.names, old ? 'OLD' : 'CURRENT');
     emit('cohort-admission', { prefix, old, census: admission.census, selectedRoleClasses: Object.keys(runtime.names) });
     if (prepare) {
       for (const entry of admission.catalogues) await migrate('up', entry);
@@ -303,6 +305,9 @@ async function run (config, selected = 'all') {
       };
       const result = await target.deployment.upgrade(admin, { source: { root: config.oldRoot, sourceCommit: config.oldHead, namespaces: old.ns, selection: old.selection }, sourceCommit: config.sourceHead, migrate: observedMigrate });
       assert.equal(independentOldArtifact, true, 'WHOLE_C_OLD_ARTIFACT_PRECEDES_NEW');
+      // Fixture bootstrap explicitly applies the reviewed CURRENT role context
+      // after successful schema migration; product upgrade does not grant rights.
+      await applyAcl(target.admission, target.acl);
       emit('C3-upgrade-record', result.record);
       const retained = await operations.loadArtifact({ directory: target.directory, name: result.record.backup.name });
       assert.deepEqual(retained, result.artifact, 'WHOLE_C_OLD_DURABLE_ARTIFACT');

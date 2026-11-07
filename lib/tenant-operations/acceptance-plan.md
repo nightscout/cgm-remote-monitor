@@ -466,3 +466,28 @@ expected deliberate destructive interruption rolls back every row; cancellation
 refuses because execution has started. The native lock-order ablation must expose
 actual 40P01 with both contention barriers. Setup failure, timeout, or source-model
 cycles cannot qualify. Native execution of this expanded control is UNMEASURED.
+
+
+### Versioned fixture role contexts
+
+The parent role manifest must pin separate OLD and CURRENT expansions of the
+actual consumer grant-builder SQL. ALL TABLES uses only reviewed candidate tables
+and the migration ledger; ALL SEQUENCES uses only reviewed identity columns.
+OLD profile has no identity, so its source ALL SEQUENCES grant expands to no
+sequence statement. Alarm/outbox/evaluator-checkpoint namespaces absent in OLD
+are explicitly omitted by the source projection; unknown domains never enter it.
+The CURRENT serving grant rows remain the reviewed current contract.
+
+Each context binds the whole selected candidate digest/table set. Fixture startup
+refuses missing, crossed or changed contexts before applying grants. The product
+RESTORE_ACL_SEQUENCE_INVALID and RESTORE_ACL_COLUMN_INVALID guards stay strict;
+there is no error-triggered removal of a right or live-object adoption. C1/C2/C5
+and fresh CURRENT restore use CURRENT. OLD preparation, interrupted upgrade source
+and fresh OLD rollback use OLD. After a successful C3 schema upgrade the fixture
+explicitly applies CURRENT grants; product upgrade itself does not implement a
+permission migration. The interrupted schema upgrade does not apply CURRENT.
+C4 populated/empty migration-guard probes use only their fixture admin, no serving
+ACL. Both contexts, including operational table/column/sequence plans, compile in
+source audit before another native slot. Source compilation is not a physical
+ACL or migration measurement. The stopped6a17 attempt remains separate evidence:
+C1/C2 passed; C3 refused; later cases/controls/final were unmeasured.
