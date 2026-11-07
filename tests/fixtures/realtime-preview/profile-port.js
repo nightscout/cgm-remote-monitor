@@ -26,12 +26,17 @@ module.exports = async function profilePort ({ env, config }) {
       storagePorts: { resolve ({ logical, source }) { assert.equal(logical, 'profile'); assert.equal(source, 'socket'); return port; } } };
     const execute = require('../../../lib/server/tenant-socket-write-executor').createExecutor({ contextForOperation: () => ({
       env: fixture.env, ctx, clientId: 'synthetic-preauthorized-profile', authorizationFor: () => ({ read: true, write: true, write_treatment: true }) }) });
-    return { events, close: () => connection.end(),
+    let replyMetadata;
+    return { events, replyMetadata: () => replyMetadata, close: () => connection.end(),
       async send (payload) {
-        let timer;
-        try { return await Promise.race([execute({ tenant: config.tenant, namespace: '/', source: 'socket', event: 'dbAdd', args: [payload],
+        let timer; replyMetadata = undefined;
+        try { const raw = await Promise.race([execute({ tenant: config.tenant, namespace: '/', source: 'socket', event: 'dbAdd', args: [payload],
           actor: { tenant: config.tenant, permissions: { read: true, write: true, write_treatment: true } } }),
-        new Promise((resolve, reject) => { timer = setTimeout(() => reject(new Error('PROFILE_CANONICAL_CALLBACK_MISSING')), config.timeoutMs); })]); }
+        new Promise((resolve, reject) => { timer = setTimeout(() => reject(new Error('PROFILE_CANONICAL_CALLBACK_MISSING')), config.timeoutMs); })]);
+          const codec = require('./wire-response'); replyMetadata = { raw: codec.replyIds(raw) };
+          const wire = codec.encode(raw); replyMetadata.wire = codec.replyIds(wire);
+          return wire;
+        }
         finally { clearTimeout(timer); }
       }
     };

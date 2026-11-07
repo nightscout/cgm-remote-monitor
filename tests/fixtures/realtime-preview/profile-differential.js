@@ -63,12 +63,18 @@ module.exports = async function run (input) {
     const windows = { mongo: mongoCall.window, postgres: postgresCall.window }, stored = await physical();
     const operation = { label, producer, before, windows, producerUnchanged: mongoCall.producerUnchanged && postgresCall.producerUnchanged,
       expected, actual, refusal, ...stored };
+    const types = require('./wire-response');
+    operation.idTypes = { producer: types.idType(producer.data._id), expectedReply: types.replyIds(expected), actualReply: types.replyIds(actual),
+      directReplyBoundary: direct ? directPort.replyMetadata() : undefined, postgresPhysical: types.physicalIds(stored.pgDocuments),
+      mongoPhysical: types.physicalIds(stored.mongoRaw), beforePostgresPhysical: types.physicalIds(before.pgDocuments), beforeMongoPhysical: types.physicalIds(before.mongoRaw),
+      postgresStorage: stored.pgRaw.map(row => ({ id_kind: row.id_kind, id: types.idType(row.doc._id) })) };
     rows.push(operation); save();
+    types.assertAndRecord(operation, save, () => {
     assert(operation.producerUnchanged, 'PROFILE_PRODUCER_IMMUTABLE received-copy mutation cannot alter next retry');
     assert.deepEqual(payload, producer, 'PROFILE_PRODUCER_IMMUTABLE original request remains unchanged');
     assert.equal(refusal, undefined, 'PROFILE_NATIVE_REFUSAL actual canonical PG socket profile refused');
     require('./profile-timestamps').compare(operation);
-
+    });
   }
   try {
     await pg.connect(); pgConnected = true; await mongo.connect(); mongoConnected = true;
@@ -89,7 +95,8 @@ module.exports = async function run (input) {
           await pg.query('INSERT INTO ' + table + '(tenant_id,id_kind,doc) VALUES($1,$2,$3::jsonb)', [config.tenant, encoded.id_kind, JSON.stringify(encoded.doc)]);
           await mongo.db(config.mongoDatabase).collection('profile').insertOne(seed);
         }
-        rows.push({ label: 'preseed-natural-order', ...await physical() }); save();
+        const seeded = await physical(), types = require('./wire-response');
+        rows.push({ label: 'preseed-natural-order', ...seeded, idTypes: { postgres: types.physicalIds(seeded.pgDocuments), mongo: types.physicalIds(seeded.mongoRaw) } }); save();
       }
       const payload = { collection: 'profile', data: document };
       await add('case-' + number + '-first', payload);
