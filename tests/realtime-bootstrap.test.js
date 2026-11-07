@@ -163,4 +163,31 @@ describe('parent-owned realtime bootstrap source contract',function(){
     assert.throws(()=>plan.resetPlan(layout,changed),/RESET_DDL_UNREVIEWED/);
   });
 
+  it('actual private API boot checks the installed alarm catalogue with BOTH readiness and selected ACK identities (source protocol only)',async function(){
+    const layout=plan.layout('0123456789abcdef'),grants=require('./fixtures/realtime-preview/bootstrap-grants').grants(layout);
+    const quote=name=>'"'+name+'"',ledger=quote(layout.namespaces.alarm)+'."schema_migrations"';
+    const expected='GRANT SELECT ON '+ledger+' TO '+quote(layout.roles.alarm);
+    const admission=path.join(dir,'admission.json');fs.writeFileSync(admission,JSON.stringify({version:1,mode:'preview-socket-allowlist',tenants:[{id:plan.A,enabled:true,aliases:['one.example.test']}]}));
+    const migrations=require('../lib/migrations/postgres'),original=migrations.run,boot=require('../lib/server/realtime/private-api').boot;
+    const config={bindings:new Map([[plan.A,{}]]),readinessConnectionString:'synthetic-readiness',socketForwarding:{admissionFile:admission,maxTenants:1,
+      alarm:{namespace:layout.namespaces.alarm,connectionString:'synthetic-ack-writer'}}};
+    try {
+      for(const selected of [grants,grants.filter(sql=>sql!==expected)]) {
+        const calls=[],afterLedger=new Error('SOURCE_PROTOCOL_STOP_AFTER_LEDGER'),denied=Object.assign(new Error('synthetic denied ledger'),{code:'42501'});
+        migrations.run=async(action,options)=>{
+          calls.push({action,principal:options.connectionString,namespace:options.namespace});
+          assert.equal(action,'check');assert.equal(options.catalogue,require('../migrations/candidates/postgres-alarm-suppression-v1.json'));
+          const who=options.connectionString==='synthetic-readiness'?'readiness':'alarm';
+          if(!selected.includes('GRANT SELECT ON '+ledger+' TO '+quote(layout.roles[who])))throw denied;
+          if(calls.length===2)throw afterLedger; // no connection/listener beyond actual ledger boundary
+        };
+        await assert.rejects(boot({config}),error=>error===(selected===grants?afterLedger:denied));
+        assert.deepEqual(calls,[{action:'check',principal:'synthetic-readiness',namespace:layout.namespaces.alarm},
+          {action:'check',principal:'synthetic-ack-writer',namespace:layout.namespaces.alarm}]);
+      }
+      assert(grants.includes(expected),'BOOTSTRAP_SELECTED_ALARM_LEDGER_SELECT');
+      assert.equal(grants.filter(sql=>sql.includes(ledger)&&sql.endsWith('TO '+quote(layout.roles.alarm))).length,1);
+    } finally { migrations.run=original; }
+  });
+
 });

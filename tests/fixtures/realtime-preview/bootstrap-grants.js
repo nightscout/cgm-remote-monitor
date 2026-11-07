@@ -33,6 +33,7 @@ function grants (layout) {
   grant('SELECT,INSERT,UPDATE(revision,config_identity,producer)',table('outbox','tenant_notification_state'),'outbox');
   for(const name of ['alarm','authorization','access','outbox'])schema(name,'alarm');
   grant('SELECT,INSERT,UPDATE(acked_at,expires_at)',table('alarm','tenant_alarm_suppression'),'alarm');
+  grant('SELECT',table('alarm','schema_migrations'),'alarm');
   for(const name of ['authorization','access'])sql.push('GRANT SELECT ON ALL TABLES IN SCHEMA '+quote(ns[name])+' TO '+quote(roles.alarm));
   grant('SELECT',table('outbox','tenant_notification_state'),'alarm');grant('SELECT',table('outbox','schema_migrations'),'alarm');
   return sql;
