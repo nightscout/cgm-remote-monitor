@@ -7,7 +7,7 @@ const assert = require('node:assert/strict');
 module.exports = async function joined (input) {
   const roles = await require('./roles').start(input), config = roles.config, sockets = [], observations = [];
   const { Client } = require('pg'); const admin = new Client({ connectionString: input.env.NS_TEST_POSTGRES_ADMIN_URI });
-  let connected = false, grantRows;
+  let connected = false, grantRows,storage;
   const write = () => fs.writeFileSync(path.join(input.captureDir, 'joined-recovery-observations.json'), JSON.stringify(observations, null, 2) + '\n');
   const table = name => { assert.match(name, /^[a-z][a-z0-9_]{0,62}$/); return '"' + name + '"'; };
   const pause = ms => new Promise(resolve => setTimeout(resolve, ms));
@@ -17,8 +17,7 @@ module.exports = async function joined (input) {
     throw new Error(label);
   }
   async function client (transport, namespace = '/', host = config.host, credentialEnv = config.credentialEnv) {
-    const socket = require('socket.io-client')('http://127.0.0.1:' + roles.ingress.port + (namespace === '/' ? '' : namespace), {
-      transports: [transport], reconnection: false, forceNew: true, timeout: config.timeoutMs, extraHeaders: { Host: host } });
+    const socket = roles.client({host,namespace,transports:[transport]});
     sockets.push(socket); const frames = []; socket.on('dataUpdate', frame => frames.push(frame));
     await new Promise((resolve, reject) => { socket.once('connect', resolve); socket.once('connect_error', reject); });
     const reply = await new Promise((resolve, reject) => {
@@ -26,6 +25,12 @@ module.exports = async function joined (input) {
       socket.emit(namespace === '/' ? 'authorize' : 'subscribe', JSON.parse(input.env[credentialEnv]), value => { clearTimeout(timer); resolve(value); });
     });
     return { socket, frames, reply };
+  }
+  async function storageConnect({transport,namespace,host}) {
+    assert.equal(namespace,'/storage');
+    const socket=roles.client({host,namespace,transports:[transport]});
+    await new Promise((resolve,reject)=>{socket.once('connect',resolve);socket.once('connect_error',error=>{socket.close();reject(error);});});
+    return socket;
   }
   try {
     assert.equal(roles.owned.tenant, config.tenant); assert.equal(roles.owned.entriesNamespace, config.entriesNamespace);
@@ -39,6 +44,7 @@ module.exports = async function joined (input) {
     const realtimeConfig = require('../../../lib/server/realtime/config').parse(JSON.parse(fs.readFileSync(realtimeEnv.MULTITENANT_REALTIME_CONFIG, 'utf8')), realtimeEnv);
     assert.equal(realtimeConfig.tenants.get(config.tenant).identity, realtimeConfig.tenants.get(config.foreignTenant).identity,
       'native isolation fixture needs equal effective config identities so an identity mismatch cannot mask a broken tenant filter');
+    storage=await require('./storage-proof')({input,roles,admin,connect:storageConnect,realtimeConfig});
     const clients = [], foreignClients = [];
     for (const transport of ['polling', 'websocket']) {
       const item = await client(transport); clients.push(item);
@@ -50,6 +56,7 @@ module.exports = async function joined (input) {
       const foreignFrame = await wait(() => foreign.frames.find(row => row.sgvs.some(sgv => sgv.mgdl === config.foreignSyntheticMgdl)), 'JOINED_FOREIGN_TENANT_FRAME_MISSING');
       assert.equal(foreignFrame.sgvs.some(row => row.mgdl === config.syntheticMgdl), false, 'JOINED_FOREIGN_ROOM_NO_A_SGV');
     }
+    await storage.exercise();
     // Physical quiet removal bypasses producer hints/clock updates deliberately.
     // This is an attested dedicated fixture tenant, never operator data.
     const before = (await admin.query('SELECT last_stamp FROM ' + table(config.clockNamespace) + '.tenant_write_clock WHERE tenant_id=$1', [config.tenant])).rows;
@@ -65,6 +72,7 @@ module.exports = async function joined (input) {
     grantRows = (await admin.query('SELECT role_name FROM ' + auth + '.tenant_authorization_subject_roles WHERE tenant_id=$1 AND subject_id=$2', [config.tenant, config.subjectId])).rows;
     assert(grantRows.length > 0, 'fixture subject must have explicit removable grants');
     await admin.query('DELETE FROM ' + auth + '.tenant_authorization_subject_roles WHERE tenant_id=$1 AND subject_id=$2', [config.tenant, config.subjectId]);
+    await storage.afterRevocation();
     const prior = reconnected.frames.length; await pause(config.observationMs);
     assert.equal(reconnected.frames.length, prior, 'JOINED_CACHED_AUTHORITY no protected frame after grant tightening');
     observations.push({ tightened: true, noProtectedDelivery: true }); write();
@@ -74,6 +82,7 @@ module.exports = async function joined (input) {
   } finally {
     const cleanup = [];
     for (const socket of sockets) socket.close();
+    if(storage)try{await storage.close();}catch{cleanup.push('STORAGE_CLOSE_FAILED');}
     try {
       if (connected && grantRows) for (const row of grantRows) await admin.query('INSERT INTO ' + table(config.authorizationNamespace) +
         '.tenant_authorization_subject_roles(tenant_id,subject_id,role_name) VALUES($1,$2,$3) ON CONFLICT DO NOTHING', [config.tenant, config.subjectId, row.role_name]);

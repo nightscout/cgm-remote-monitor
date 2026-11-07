@@ -81,8 +81,10 @@ async function start (input) {
   assert.match(config.sourceHead, /^[a-f0-9]{40}$/);
   const owned = JSON.parse(fs.readFileSync(config.ownershipFile, 'utf8'));
   assert.equal(owned.sourceHead, config.sourceHead); assert.equal(owned.phaseId, input.phaseId);
-  const children = []; let ingress;
+  const children = []; let ingress,transport;
+  const diagnostics=require('./transport-diagnostics').create({captureDir:input.captureDir,maxEvents:128,maxBytes:65536});
   async function close () {
+    if (transport) transport.close();
     if (ingress) await ingress.close();
     const errors = [];
     for (const child of [...children].reverse()) try { await child.close(); } catch (error) { errors.push(error); }
@@ -130,8 +132,9 @@ async function start (input) {
     }
     const realtime = await startRole({ ...input, role: 'realtime', env: realtimeEnvironment, timeoutMs: config.timeoutMs }); children.push(realtime);
     const ui = config.uiFixture ? await require('./ui')({ sourceDir: input.sourceDir, ...config.uiFixture }) : undefined;
-    ingress = await require('./ingress')({ ui, redirectFixtureHosts: config.browserResolverHosts, apiPort: api.port, realtimePort: realtime.port, timeoutMs: config.timeoutMs, onBirth: input.onBirth });
-    return Object.freeze({ api, realtime, ingress, config, owned, close,
+    ingress = await require('./ingress')({ ui, redirectFixtureHosts: config.browserResolverHosts, apiPort: api.port, realtimePort: realtime.port, timeoutMs: config.timeoutMs, onBirth: input.onBirth,diagnostics,fixtureHosts:[config.host,config.foreignHost] });
+    transport=require('./named-client')({hosts:[config.host,config.foreignHost],port:ingress.port,timeoutMs:config.timeoutMs,record:diagnostics.record});
+    return Object.freeze({ api, realtime, ingress, config, owned, close,client:transport.socket,
       async startEvaluator ({ alarmRoutePath } = {}) {
         assert(config.evaluatorEnvFile, 'explicit evaluator role environment required');
         const env = roleEnv('evaluator');

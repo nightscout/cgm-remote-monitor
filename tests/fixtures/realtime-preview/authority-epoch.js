@@ -56,8 +56,7 @@ module.exports = async function authorityEpoch (input) {
     } catch (error) { await closeRelay(); throw error; }
   }
   async function client (namespace) {
-    const socket = require('socket.io-client')('http://127.0.0.1:' + roles.ingress.port + (namespace === '/' ? '' : namespace), {
-      transports: ['websocket'], forceNew: true, reconnection: false, timeout: config.timeoutMs, extraHeaders: { Host: config.host } });
+    const socket = roles.client({namespace,transports:['websocket']});
     sockets.push(socket); const events = [];
     for (const name of ['dataUpdate', 'urgent_alarm', 'retroUpdate']) socket.on(name, value => events.push({ name, value }));
     await new Promise((resolve, reject) => { socket.once('connect', resolve); socket.once('connect_error', reject); });

@@ -10,8 +10,7 @@ module.exports = async function pluginAck (input) {
   const pause = ms => new Promise(resolve => setTimeout(resolve, ms));
   async function wait (check, marker) { const until = Date.now() + config.timeoutMs; while (Date.now() < until) { const found = await check(); if (found) return found; await pause(10); } throw new Error(marker); }
   async function client (namespace) {
-    const socket = require('socket.io-client')('http://127.0.0.1:' + roles.ingress.port + namespace, {transports: ['websocket'], forceNew: true,
-      reconnection: false, timeout: config.timeoutMs, extraHeaders: {Host: config.host}}); sockets.push(socket);
+    const socket = roles.client({namespace,transports:['websocket']}); sockets.push(socket);
     await new Promise((resolve, reject) => { socket.once('connect', resolve); socket.once('connect_error', reject); });
     return {send: (event, ...args) => new Promise((resolve, reject) => {
       const timer = setTimeout(() => reject(new Error('PLUGIN_ACK_' + event + '_NOACK')), config.timeoutMs);
