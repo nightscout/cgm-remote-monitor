@@ -140,6 +140,10 @@ function recordingConnection (seed = seedRows(), legacy = false) {
     const tenant = bound();
     log.push({ text: text.replace(/\s+/g, ' ').trim(), values: clone(values), tenant });
     let match;
+    if (text.includes('reviewed-relation-inventory')) return { rows: [
+      ...(ledgers.has(values[0]) ? [{ name: 'schema_migrations', kind: 'r', partition: false }] : []),
+      ...[...tables].filter(([name]) => name.startsWith('"' + values[0] + '".')).map(([name, table]) => ({ name: name.split('"')[3], kind: table.kind || 'r', partition: table.partition || false }))
+    ] };
     if (/FROM pg_attribute/.test(text)) {
       const table = tables.get(values[0]);
       return { rows: table ? table.columns.map(c => ({ ...c })) : [] };
@@ -220,6 +224,7 @@ function recordingConnection (seed = seedRows(), legacy = false) {
     log,
     rows: (ns, table, tenant) => clone(tables.get('"' + ns + '"."' + table + '"').rows.filter(row => tenant === undefined || row.tenant_id === tenant)),
     ledgers,
+    addRelation: (ns, name, kind = 'r', partition = false) => tables.set('"' + ns + '"."' + name + '"', { kind, partition, columns: [{ name: 'tenant_id', type: 'uuid' }], rows: [{ tenant_id: A }, { tenant_id: B }] }),
     query,
     transaction: fn => transaction(fn, 'BEGIN'),
     snapshotTransaction: fn => transaction(fn, 'BEGIN ISOLATION LEVEL REPEATABLE READ'),
@@ -250,6 +255,23 @@ describe('tenant lifecycle: typed export, import and two-phase deletion', functi
       tables: entry.tables.map(table => ({ ...table, rows: artifact.tables[entry.kind + '.' + table.table], secrets: table.keyReferences !== undefined, keyReferences: table.keyReferences })) }));
     return artifacts.buildArtifact({ tenant: A, sourceCommit: COMMIT, exportedAt: 1, catalogues });
   }
+
+  it('refuses unadmitted physical relations with an unchanged known ledger before export or erase', async function () {
+    const source = recordingConnection(); const artifact = await lifecycle.exportTenant(source, options());
+    source.addRelation(namespaces.entries, 'unreviewed_state');
+    const request = await lifecycle.requestDeletion(source, { tenant: A, ledgerNamespace, artifact });
+    await lifecycle.confirmDeletion(source, { tenant: A, ledgerNamespace, artifact, requestId: request.requestId });
+    let exportFailure, eraseFailure;
+    try { await lifecycle.exportTenant(source, options()); } catch (error) { exportFailure = error; }
+    try { await lifecycle.executeDeletion(source, { tenant: A, namespaces, ledgerNamespace, artifact, requestId: request.requestId }); } catch (error) { eraseFailure = error; }
+    console.log('LIFECYCLE_PHYSICAL_INVENTORY_SOURCE', JSON.stringify({ scope: 'recording-client protocol, not PostgreSQL', deletes: source.log.filter(entry => /^DELETE/.test(entry.text)).length, knownA: totalRows(source, A), hiddenA: source.rows(namespaces.entries, 'unreviewed_state', A).length }));
+    assert.equal(exportFailure?.code, 'LIFECYCLE_RELATION_UNADMITTED');
+    assert.equal(eraseFailure?.code, 'LIFECYCLE_RELATION_UNADMITTED');
+    assert.equal(source.log.filter(entry => /^DELETE/.test(entry.text)).length, 0);
+    const target = recordingConnection({}); target.addRelation(namespaces.entries, 'unreviewed_state');
+    await assert.rejects(lifecycle.importArtifact(target, artifact, { tenant: A, namespaces }), { code: 'LIFECYCLE_RELATION_UNADMITTED', detail: 'entries.unreviewed_state' });
+    assert.equal(target.log.some(entry => /^INSERT/.test(entry.text)), false);
+  });
 
   it('requires full current reviewed ledger for export, including unknown, stale and drifted clinical ledgers', async function () {
     for (const [mutation, code] of [

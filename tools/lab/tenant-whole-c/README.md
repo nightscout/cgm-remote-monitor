@@ -17,9 +17,9 @@ symlinks/install/write to that copy. Exact source, control patches, stdout/stder
 raw observations, process identities, cleanup and hashes are retained. A mismatch
 stops dependent stages; failed attempts stay immutable. An unmodified all-case invocation reserves at most213schemas and creates108roles
 (three C5 writer births plus probe/observer =5Node births); all stages comprise
-18invocations on the same explicitly parent-owned PG resource. Cleanup is checked
+20invocations on the same explicitly parent-owned PG resource. Cleanup is checked
 after every invocation. These are fixture bounds, not capacity measurements.
-Eight causal controls in
+Nine causal controls in
 `controls.json` must produce the named assertion **and** physical symptom; setup,
 permission, timeout or parser failures do not qualify. Each restored target gets a
 fresh fixture namespace/role cohort; final unmodified C1–C5 is mandatory.
@@ -148,3 +148,32 @@ a retained session's CACHE8 block, then closes both and removes only that sequen
 It does not touch application sequences, grant new rights or implement tenant
 restoration. Omission keeps this research disabled; no new service is allocated.
 All new native observations remain UNMEASURED until root grants the core batch.
+
+
+Physical relation admission: within every explicitly selected owned namespace,
+lifecycle export/import/destructive preflight and deployment backup/restore/summary
+now compare live `pg_class` metadata against the exact reviewed ordinary tables plus
+the ordinary `schema_migrations` ledger. Agreement of ledgers alone is insufficient.
+Unlisted ordinary/partitioned/foreign/materialized/view relations refuse; listed
+partition parents/children or nonordinary relation kinds are unsupported. No unknown
+relation is adopted, read for data, exported, dropped or granted permissions by the
+guard. Indexes and sequences are not independent dataset entries in this guard;
+known identity allocator contracts remain separate. There is no explicit allowance
+for unlisted tenant tables in the selected namespace contract.
+
+This is a read-only snapshot/transaction guard, not a namespace DDL fence. The
+private operator must coordinate a stable no-DDL window with privileged migration/
+maintenance jobs; restricted serving roles already lack schema DDL. Concurrent
+privileged DDL exclusion has not been proved by this metadata query. Configured
+37-table census is not a measurement of the database until live admission passes.
+Same-ID identity tenant restore remains unsupported; this check does not close it.
+
+
+C5 uses the same owned hidden-table witness in three sequential, independently
+observed states: known full ledger plus hidden table; unknown ledger with otherwise
+exact physical relations; and combined unknown ledger plus hidden table. The
+physical-guard and ledger-guard mutations target the first and second states
+respectively, so a different guard's refusal is not misgraded as the intended
+unsafe effect. The independent observer records actual namespace relation names,
+kinds and partition flags before verdict, as well as the hidden synthetic rows.
+The drift guard covers deployment backup too. No new service cohort is allocated.

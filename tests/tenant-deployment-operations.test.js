@@ -1,6 +1,6 @@
 'use strict';
 /* eslint-disable security/detect-non-literal-fs-filename -- All filesystem paths are owned private temporary fixtures. */
-// covers: lib/tenant-operations/catalogues.js, lib/tenant-operations/filesystem.js, lib/tenant-operations/deployment.js
+// covers: lib/storage/postgres-relation-inventory.js, lib/tenant-operations/catalogues.js, lib/tenant-operations/filesystem.js, lib/tenant-operations/deployment.js
 
 const assert = require('node:assert/strict');
 const fs = require('node:fs');
@@ -43,6 +43,21 @@ describe('whole deployment source admission and filesystem durability', function
   let scratch;
   beforeEach(async function () { scratch = await fs.promises.mkdtemp(path.join(os.tmpdir(), 'tenant-deployment-unit-')); });
   afterEach(async function () { await fs.promises.rm(scratch, { recursive: true, force: true }); });
+
+  it('admits only exact ordinary reviewed relations plus the ordinary migration ledger', async function () {
+    const { assertRelationInventory } = require('../lib/storage/postgres-relation-inventory');
+    const expected = [{ name: 'schema_migrations', kind: 'r', partition: false }, { name: 'entries', kind: 'r', partition: false }];
+    const calls = [];
+    const check = rows => assertRelationInventory({ query: async (sql, values) => { calls.push({ sql, values }); return { rows }; } }, { namespace: 'owned_entries', tables: ['entries'], fail: (reason, name) => Object.assign(new Error(reason), { code: reason, detail: name }) });
+    await check(expected);
+    for (const kind of ['r','p','f','m','v']) await assert.rejects(check([...expected, { name: 'unreviewed', kind, partition: false }]), { code: 'UNADMITTED', detail: 'unreviewed' });
+    for (const variant of [{ kind: 'p' }, { kind: 'f' }, { kind: 'v' }, { kind: 'm' }, { partition: true }]) await assert.rejects(check([expected[0], { ...expected[1], ...variant }]), { code: 'UNSUPPORTED', detail: 'entries' });
+    await assert.rejects(check([{ ...expected[0], partition: true }, expected[1]]), { code: 'UNSUPPORTED', detail: 'schema_migrations' });
+    await assert.rejects(check([expected[0]]), { code: 'MISSING', detail: 'entries' });
+    await assert.rejects(check([...expected, expected[1]]), { code: 'UNSUPPORTED', detail: 'entries' });
+    assert.ok(calls.every(call => call.sql.startsWith('SELECT') && call.values[0] === 'owned_entries'));
+    assert.ok(calls[0].sql.includes("c.relkind IN ('r','p','f','m','v')"));
+  });
 
   it('stages a private cached-allocator counterexample without application grants or an import workaround', async function () {
     const { cachedAllocatorCounterexample } = require('../tools/lab/tenant-whole-c/allocator-research');
@@ -456,6 +471,7 @@ describe('whole deployment source admission and filesystem durability', function
     const second = { name: '0002_extension', up: ['ALTER TABLE entries ADD COLUMN flag boolean'], checksum: checksum(['ALTER TABLE entries ADD COLUMN flag boolean']) };
     const catalogues = [{ kind: 'entries', namespace: 'upgrade_entries', tables: ['entries'], catalogue: { version: 1, migrations: [first, second] } }];
     const connection = { query: async text => {
+      if (text.includes('reviewed-relation-inventory')) return { rows: ['schema_migrations','entries'].map(name => ({ name, kind: 'r', partition: false })) };
       if (/FROM pg_attribute/.test(text)) return { rows: old.manifest.catalogues[0].tables[0].columns };
       if (/to_regclass/.test(text)) return { rows: [{ present: true }] };
       if (/SELECT name, checksum/.test(text)) return { rows: [first, second].map(({ name, checksum }) => ({ name, checksum })) };

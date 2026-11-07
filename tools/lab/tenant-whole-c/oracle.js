@@ -24,10 +24,11 @@ async function physical (observer, catalogues) {
       const columns = (await observer.query("SELECT attname,format_type(atttypid,atttypmod) AS type,attidentity,attgenerated,attnotnull FROM pg_attribute WHERE attrelid=$1::regclass AND attnum>0 AND NOT attisdropped ORDER BY attnum", [qualified])).rows;
       const rows = (await observer.query('SELECT * FROM ' + qualified)).rows;
       const constraints = (await observer.query('SELECT conname,pg_get_constraintdef(oid) AS definition FROM pg_constraint WHERE conrelid=$1::regclass ORDER BY conname', [qualified])).rows;
+      const relations = (await observer.query("SELECT c.relname,c.relkind,c.relispartition FROM pg_class c JOIN pg_namespace n ON n.oid=c.relnamespace WHERE n.nspname=$1 AND c.relkind IN ('r','p','f','m','v') ORDER BY c.relname", [entry.namespace])).rows;
       const policies = (await observer.query('SELECT relrowsecurity,relforcerowsecurity FROM pg_class WHERE oid=$1::regclass', [qualified])).rows;
       const sequences = (await observer.query('SELECT sequencename,start_value,increment_by,last_value FROM pg_sequences WHERE schemaname=$1 ORDER BY sequencename', [entry.namespace])).rows;
       const isolation = (await observer.query('SELECT polcmd,polpermissive,polroles::text,pg_get_expr(polqual,polrelid) AS using,pg_get_expr(polwithcheck,polrelid) AS check FROM pg_policy WHERE polrelid=$1::regclass ORDER BY polname', [qualified])).rows;
-      result[entry.kind + '.' + table] = { ledger, columns, rows: sorted(rows), constraints, policies, isolation, sequences };
+      result[entry.kind + '.' + table] = { ledger, columns, rows: sorted(rows), constraints, policies, isolation, sequences, relations };
     }
   }
   return result;
@@ -39,6 +40,7 @@ function sameRows (before, after) {
     assert.deepEqual(after[key].ledger, before[key].ledger, 'WHOLE_C_PHYSICAL_LEDGER ' + key);
     assert.deepEqual(after[key].columns, before[key].columns, 'WHOLE_C_PHYSICAL_COLUMNS ' + key);
     assert.deepEqual(after[key].policies, before[key].policies, 'WHOLE_C_PHYSICAL_RLS ' + key);
+    assert.deepEqual(after[key].relations, before[key].relations, 'WHOLE_C_PHYSICAL_RELATIONS ' + key);
     assert.deepEqual(after[key].isolation, before[key].isolation, 'WHOLE_C_PHYSICAL_ISOLATION ' + key);
   }
 }

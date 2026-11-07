@@ -130,6 +130,10 @@ function fakeConnection ({ identity = { rolsuper: false, rolbypassrls: true }, l
       const found = schemaOf(values[0]);
       return { rows: [{ namespace: found.namespace, name: found.name + '_' + values[1] + '_seq' }] };
     }
+    if (compact.includes('reviewed-relation-inventory')) {
+      const schema = schemas.get(values[0]);
+      return { rows: schema ? [{ name: 'schema_migrations', kind: 'r', partition: false }, ...[...schema.tables].map(([name, table]) => ({ name, kind: table.kind || 'r', partition: table.partition || false }))] : [] };
+    }
     if (/FROM pg_attribute/.test(compact)) {
       const found = schemaOf(values[0]);
       return { rows: found.table ? clone(found.table.columns) : [] };
@@ -302,6 +306,22 @@ describe('tenant operations: deployment backup, restore, upgrade and rollback', 
   });
 
   describe('backup', function () {
+    it('refuses hidden physical relations with a known ledger in deployment backup and restore', async function () {
+      const state = await scenario();
+      await operations.backup(state.connection, options());
+      create(state.connection.schemas.get(NS.entries), 'unreviewed_state', 'tenant_id uuid, value text');
+      await state.connection.seed(NS.entries, 'unreviewed_state', [{ tenant_id: A, value: 'synthetic' }]);
+      await assert.rejects(operations.backup(state.connection, options()), { code: 'OPERATIONS_RELATION_UNADMITTED', detail: 'entries.unreviewed_state' });
+    });
+
+    it('refuses hidden target physical relations before any deployment restore effect', async function () {
+      const state = await scenario(); const artifact = await operations.backup(state.connection, options());
+      const target = await scenario({ namespaces: FRESH, populate: false });
+      create(target.connection.schemas.get(FRESH.entries), 'unreviewed_state', 'tenant_id uuid, value text');
+      await assert.rejects(operations.restore(target.connection, artifact, { catalogues: catalogues(FRESH) }), { code: 'OPERATIONS_RELATION_UNADMITTED', detail: 'entries.unreviewed_state' });
+      assert.equal(target.connection.statements(/^(INSERT|GRANT|SELECT setval)/).length, 0);
+    });
+
     it('captures every catalogued table for every tenant in one read-only snapshot, with ledgers, checksums and key references', async function () {
       const { connection } = await scenario();
       const artifact = await operations.backup(connection, options());

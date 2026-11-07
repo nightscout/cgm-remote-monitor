@@ -467,12 +467,32 @@ async function run (config, selected = 'all') {
       }
       const state = await fixture();
       try {
-        // Controlled unknown migration/new table; both artifact and live ledger
-        // agree on the unknown row, which must still be refused before erase.
         const unknownName = '0999_whole_c_unknown', unknownChecksum = 'e'.repeat(64);
         const hidden = q(state.cohort.ns.entries) + '.whole_c_unreviewed_state';
-        await admin.query('CREATE TABLE ' + hidden + '(tenant_id uuid NOT NULL,value text NOT NULL)');
-        await admin.query('INSERT INTO ' + hidden + ' VALUES($1,\'synthetic-a\'),($2,\'synthetic-b\')', [A, B]);
+        const createHidden = async () => {
+          await admin.query('CREATE TABLE ' + hidden + '(tenant_id uuid NOT NULL,value text NOT NULL)');
+          await admin.query('INSERT INTO ' + hidden + ' VALUES($1,\'synthetic-a\'),($2,\'synthetic-b\')', [A, B]);
+        };
+        // Keep physical drift and ledger drift orthogonal: a guard control must
+        // fail at its intended boundary, not be masked by the other protection.
+        await createHidden();
+        const driftRequest = await state.owner.requestDeletion(state.ports.owner, state.args);
+        const driftArgs = { ...state.args, requestId: driftRequest.requestId };
+        await state.operator.confirmDeletion(state.ports.operator, driftArgs);
+        const driftBefore = await physical('C5-known-ledger-drift-before', state.cohort.admission);
+        let driftExport, driftErase, driftBackup, acceptedBackup;
+        try { await state.cohort.admission.lifecycle.exportTenant(state.ports.operator, { tenant: A, namespaces: state.cohort.ns, sourceCommit: config.sourceHead }); } catch (error) { driftExport = error; }
+        try { acceptedBackup = await state.cohort.deployment.backup(admin, { sourceCommit: config.sourceHead }); } catch (error) { driftBackup = error; }
+        try { await state.operator.executeDeletion(state.ports.operator, driftArgs); } catch (error) { driftErase = error; }
+        const driftAfter = await physical('C5-known-ledger-drift-after-before-verdict', state.cohort.admission);
+        emit('C5-known-ledger-drift-effects-before-verdict', { exportCodes: codes(driftExport), backupCodes: codes(driftBackup), eraseCodes: codes(driftErase), backupAccepted: Boolean(acceptedBackup), hiddenRows: (await observer.query('SELECT * FROM ' + hidden + ' ORDER BY tenant_id')).rows });
+        assert.ok(codes(driftExport).includes('LIFECYCLE_RELATION_UNADMITTED'), 'WHOLE_C_PHYSICAL_DRIFT_EXPORT_REFUSED');
+        assert.ok(codes(driftBackup).includes('OPERATIONS_RELATION_UNADMITTED'), 'WHOLE_C_PHYSICAL_DRIFT_BACKUP_REFUSED');
+        assert.ok(codes(driftErase).includes('LIFECYCLE_RELATION_UNADMITTED'), 'WHOLE_C_PHYSICAL_DRIFT_ERASE_REFUSED');
+        oracle.sameRows(driftBefore, driftAfter);
+        await admin.query('DROP TABLE ' + hidden); // Exact owned fixture fault only.
+        // Unknown ledger with otherwise exact physical relations: remove only
+        // the ledger guard to calibrate that causal boundary independently.
         await admin.query('INSERT INTO ' + q(state.cohort.ns.entries) + '.schema_migrations(name,checksum) VALUES($1,$2)', [unknownName, unknownChecksum]);
         const build = require('../../../lib/tenant-lifecycle/artifact');
         const poisoned = build.buildArtifact({ tenant: A, sourceCommit: config.sourceHead, exportedAt: state.args.artifact.manifest.exportedAt,
@@ -489,10 +509,14 @@ async function run (config, selected = 'all') {
         try { await state.operator.executeDeletion(state.ports.operator, badArgs); } catch (error) { eraseFailure = error; }
         const unknownAfter = await physical('C5-unknown-ledger-after-before-verdict', state.cohort.admission);
         emit('C5-unknown-ledger-effects-before-verdict', { exportCodes: codes(exportFailure), eraseCodes: codes(eraseFailure),
-          hiddenRows: (await observer.query('SELECT * FROM ' + hidden + ' ORDER BY tenant_id')).rows });
+          relations: (await observer.query("SELECT c.relname FROM pg_class c JOIN pg_namespace n ON n.oid=c.relnamespace WHERE n.nspname=$1 AND c.relkind IN ('r','p','f','m','v') ORDER BY c.relname", [state.cohort.ns.entries])).rows });
         assert.ok(codes(exportFailure).includes('LIFECYCLE_SCHEMA_UNKNOWN'), 'WHOLE_C_UNKNOWN_EXPORT_REFUSED');
         assert.ok(codes(eraseFailure).includes('LIFECYCLE_SCHEMA_UNKNOWN'), 'WHOLE_C_UNKNOWN_ERASE_REFUSED');
         oracle.sameRows(unknownBefore, unknownAfter);
+        await createHidden();
+        const combinedBefore = await physical('C5-combined-ledger-physical-before', state.cohort.admission);
+        await expectedFailure(() => state.operator.executeDeletion(state.ports.operator, badArgs), 'LIFECYCLE_SCHEMA_UNKNOWN', 'combined-unknown-ledger-physical-drift', () => physical('C5-combined-ledger-physical-after-before-verdict', state.cohort.admission));
+        oracle.sameRows(combinedBefore, await physical('C5-combined-ledger-physical-preserved', state.cohort.admission));
         // Restore only this explicitly injected fixture fault; no operator
         // migration rollback or production unknown-schema workaround is implied.
         await admin.query('DELETE FROM ' + q(state.cohort.ns.entries) + '.schema_migrations WHERE name=$1', [unknownName]);

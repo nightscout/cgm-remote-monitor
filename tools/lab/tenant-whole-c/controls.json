@@ -72,6 +72,15 @@
     "before": "function assertCurrentLedger (entry, ledger) {",
     "after": "function assertCurrentLedger (entry, ledger) { return;",
     "assertion": "WHOLE_C_UNKNOWN_EXPORT_REFUSED",
-    "physical": "actual same-unknown artifact/live ledger allows clinical target erasure while unreviewed hidden tenant rows remain; external raw observer before verdict"
+    "physical": "unknown-ledger-only witness: actual knownA erased despite otherwise exact physical relation set; physical guard remains enabled"
+  },
+  {
+    "id": "unadmitted-physical-relation",
+    "phase": "C5",
+    "path": "lib/storage/postgres-relation-inventory.js",
+    "before": "async function assertRelationInventory (connection, { namespace, tables, fail }) {",
+    "after": "async function assertRelationInventory (connection, { namespace, tables, fail }) { return;",
+    "assertion": "WHOLE_C_PHYSICAL_DRIFT_EXPORT_REFUSED",
+    "physical": "known full ledger unchanged, hiddenA persists while knownA erased and deployment backup falsely accepts omitted relation"
   }
 ]

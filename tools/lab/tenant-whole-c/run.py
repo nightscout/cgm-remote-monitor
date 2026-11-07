@@ -114,7 +114,13 @@ def physical_control(control, events):
         after = by_phase('C5-unknown-ledger-after-before-verdict')[-1]['entries.entries']['rows']
         effects = by_phase('C5-unknown-ledger-effects-before-verdict')[-1]
         tenant = '11111111-1111-4111-8111-111111111111'
-        return any(row['tenant_id'] == tenant for row in before) and not any(row['tenant_id'] == tenant for row in after) and any(row['tenant_id'] == tenant for row in effects['hiddenRows']) and effects['eraseCodes'] == []
+        return any(row['tenant_id'] == tenant for row in before) and not any(row['tenant_id'] == tenant for row in after) and not any(row['relname'] == 'whole_c_unreviewed_state' for row in effects['relations']) and effects['eraseCodes'] == []
+    if cid == 'unadmitted-physical-relation':
+        before = by_phase('C5-known-ledger-drift-before')[-1]['entries.entries']['rows']
+        after = by_phase('C5-known-ledger-drift-after-before-verdict')[-1]['entries.entries']['rows']
+        effects = by_phase('C5-known-ledger-drift-effects-before-verdict')[-1]
+        tenant = '11111111-1111-4111-8111-111111111111'
+        return any(row['tenant_id'] == tenant for row in before) and not any(row['tenant_id'] == tenant for row in after) and any(row['tenant_id'] == tenant for row in effects['hiddenRows']) and effects['backupAccepted'] and effects['eraseCodes'] == []
     if cid == 'running-writer-window':
         proof = by_phase('C5-live-writer-physical-before-verdict')[-1]
         observation = by_phase('C5-live-writer-observation')[-1]

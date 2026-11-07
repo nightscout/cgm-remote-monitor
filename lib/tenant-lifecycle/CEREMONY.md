@@ -145,3 +145,22 @@ sequence effect. Same-ID TENANT restore remains OPEN: whole-deployment rollback 
 revert foreign B and global API namespaces cannot transparently split A/B routing.
 See `lib/tenant-lifecycle/IDENTITY-IMPORT-REVIEW.md` for the source-only maintenance
 contract proposal and compatibility implications. No allocator workaround is enabled.
+
+
+Physical relation admission: within every explicitly selected owned namespace,
+lifecycle export/import/destructive preflight and deployment backup/restore/summary
+now compare live `pg_class` metadata against the exact reviewed ordinary tables plus
+the ordinary `schema_migrations` ledger. Agreement of ledgers alone is insufficient.
+Unlisted ordinary/partitioned/foreign/materialized/view relations refuse; listed
+partition parents/children or nonordinary relation kinds are unsupported. No unknown
+relation is adopted, read for data, exported, dropped or granted permissions by the
+guard. Indexes and sequences are not independent dataset entries in this guard;
+known identity allocator contracts remain separate. There is no explicit allowance
+for unlisted tenant tables in the selected namespace contract.
+
+This is a read-only snapshot/transaction guard, not a namespace DDL fence. The
+private operator must coordinate a stable no-DDL window with privileged migration/
+maintenance jobs; restricted serving roles already lack schema DDL. Concurrent
+privileged DDL exclusion has not been proved by this metadata query. Configured
+37-table census is not a measurement of the database until live admission passes.
+Same-ID identity tenant restore remains unsupported; this check does not close it.

@@ -31,7 +31,7 @@
   ],
   "authority": "fixture-only typed actor document in actual tenant_operator_policy, shared shipping advisory fence held on same lifecycle transaction; current SQL reread per admission; no production management adapter selected",
   "quiescence": "actual writer pid/startTicks/uid/cmdline digest + stopped/absent state. Trusted operator SQL-fixture quiescence only; not DB fence, D15 blackout or serving-ingress proof",
-  "causalEvidence": "Eight native controls require designated AssertionError plus independent physical symptom; all native UNMEASURED until granted",
+  "causalEvidence": "Nine native controls require designated AssertionError + independent physical symptom, all native UNMEASURED. Ledger-only and known-ledger/hidden-table drift are separate causal witnesses.",
   "cleanup": "child validates exact pid birth and drops only registered absent-at-start namespace/roles; parent inventories exact resources and leaves its fixture intact for independent teardown. No runtime RELEASED claim from this child",
   "excluded": [
     "MongoDB/Vault/serving listeners",
@@ -53,7 +53,7 @@
     "maximumReservedSchemasPerAllInvocation": 213,
     "createdRolesPerAllInvocation": 108,
     "NodeBirthsPerAllInvocation": 5,
-    "allStagesInvocations": 18,
+    "allStagesInvocations": 20,
     "roleClasses": 7,
     "operationalFixtureRoleClasses": 2,
     "maximumChildDeadlineSeconds": 1800
@@ -69,5 +69,6 @@
     "input": "allocatorResearch:private-cache-counterexample-v1",
     "resources": "one exact private sequence and two operator SQL sessions within existing C5 owned namespace",
     "scope": "cached allocator counterexample only, native UNMEASURED; no application sequence maintenance or rights changes"
-  }
+  },
+  "physicalInventory": "Exact ordinary reviewed relations + ordinary schema_migrations in each selected owned namespace; unlisted r/p/f/m/v and partitions refuse. Point-in-time snapshot, requires coordinated no-DDL operator window; no namespace DDL fence implied."
 }
