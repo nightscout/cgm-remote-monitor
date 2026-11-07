@@ -10,8 +10,11 @@ module.exports = async function browserConsumer (input) {
   const hooks = require('../../browser/hooks');
   const planned = JSON.parse(fs.readFileSync(input.env.NS_RT_JOINED_CONFIG, 'utf8'));
   hooks.validateFixtureHosts(planned.browserResolverHosts);
-  await hooks.launchNamedFixtureBrowser(planned.browserResolverHosts, planned.browserRuntime); let roles;
+  await hooks.launchNamedFixtureBrowser(planned.browserResolverHosts, planned.browserRuntime); let roles, diagnostics;
   try {
+    diagnostics = require('./browser-diagnostics').create({ hosts: planned.browserResolverHosts,
+      runtime: hooks.getFixtureRuntime(), expectedMgdl: planned.syntheticMgdl,
+      write: text => fs.writeFileSync(path.join(input.captureDir, 'actual-browser-diagnostics.json'), text, { mode: 0o600 }) });
     roles = await require('./roles').start(input);
     assert(roles.config.uiFixture, 'explicit controlled UI fixture required; API alone does not serve UI');
     const config = roles.config, origin = 'http://' + config.browserHost + ':' + roles.ingress.port;
@@ -23,31 +26,37 @@ module.exports = async function browserConsumer (input) {
     try {
       await admin.connect();
       await withPage(origin, async ({ page }) => {
-        await page.goto(origin + '/?token=' + encodeURIComponent(token));
-        await page.waitForFunction(mgdl => window.Nightscout?.client?.socket?.connected &&
-          window.Nightscout.client.alarmSocket?.connected && window.Nightscout.client.ddata?.sgvs?.some(row => row.mgdl === mgdl), config.syntheticMgdl, { timeout: config.timeoutMs });
-        const initial = await page.evaluate(() => ({ main: new URL(window.Nightscout.client.socket.io.uri).origin,
-          alarm: new URL(window.Nightscout.client.alarmSocket.io.uri).origin, count: window.Nightscout.client.ddata.sgvs.length }));
-        assert(initial.main.startsWith(origin) && initial.alarm.startsWith(origin), 'BROWSER_SAME_ORIGIN unchanged sockets must not use a separate RT port');
-        await admin.query('DELETE FROM "' + config.entriesNamespace + '".entries WHERE tenant_id=$1', [config.tenant]);
-        await page.waitForFunction(() => window.Nightscout.client.ddata.sgvs.length === 0, null, { timeout: config.timeoutMs });
-        await page.evaluate(() => {
-          window.__rtObservedAlarmEvents = [];
-          for (const event of ['urgent_alarm', 'alarm', 'announcement']) window.Nightscout.client.alarmSocket.on(event, value => window.__rtObservedAlarmEvents.push({ event, value }));
-        });
-        const notification = { plugin: { name: 'treatmentnotify', pluginType: 'notification' }, level: 2, isAnnouncement: true, group: 'Announcement', title: 'Synthetic urgent announcement', message: 'Synthetic current-role fixture' };
-        const accepted = require('../../../lib/server/realtime/alarm-transport').createAdapter({ socketPath: config.alarmSocketPath,
-          maxBytes: config.maxMessageBytes, timeoutMs: config.timeoutMs }).send;
-        await new Promise((resolve, reject) => accepted({ tenant: config.tenant, id: require('node:crypto').randomUUID(), attempt: 1,
-          notification, receipts: [] }, (error, result) => { if (error) reject(error); else { assert.deepEqual(result, { accepted: true, receipt: null, clearedRequestIds: [] }); resolve(); } }));
-        await page.waitForFunction(() => window.__rtObservedAlarmEvents.some(row => row.event === 'urgent_alarm'), null, { timeout: config.timeoutMs });
-        await page.waitForFunction(() => !!document.querySelector('.container.alarming.urgent'), null, { timeout: config.timeoutMs });
-        const result = await page.evaluate(() => ({ urgentUi: !!document.querySelector('.container.alarming.urgent'), sgvs: window.Nightscout.client.ddata.sgvs, events: window.__rtObservedAlarmEvents }));
-        assert.equal(result.urgentUi, true); assert.deepEqual(result.sgvs, []); assert.equal(result.events.some(row => row.event === 'announcement'), false);
-        fs.writeFileSync(path.join(input.captureDir, 'actual-browser-consumer.json'), JSON.stringify({ classification: 'controlled fixture UI, unchanged client, actual API/RT', origin, resolverHosts: config.browserResolverHosts, browserRuntime: hooks.getFixtureRuntime(), redirectRefusals: roles.ingress.redirectRefusals, initial, result }) + '\n');
+        const detach = diagnostics.attach(page);
+        try {
+          await diagnostics.wait('navigation', page, () => page.goto(origin + '/?token=' + encodeURIComponent(token)));
+          await diagnostics.wait('initial-client', page, () => page.waitForFunction(mgdl => window.Nightscout?.client?.socket?.connected &&
+            window.Nightscout.client.alarmSocket?.connected && window.Nightscout.client.ddata?.sgvs?.some(row => row.mgdl === mgdl), config.syntheticMgdl, { timeout: config.timeoutMs }));
+          const initial = await page.evaluate(() => ({ main: new URL(window.Nightscout.client.socket.io.uri).origin,
+            alarm: new URL(window.Nightscout.client.alarmSocket.io.uri).origin, count: window.Nightscout.client.ddata.sgvs.length }));
+          assert(initial.main.startsWith(origin) && initial.alarm.startsWith(origin), 'BROWSER_SAME_ORIGIN unchanged sockets must not use a separate RT port');
+          await admin.query('DELETE FROM "' + config.entriesNamespace + '".entries WHERE tenant_id=$1', [config.tenant]);
+          await diagnostics.wait('empty-sgvs', page, () => page.waitForFunction(() => window.Nightscout.client.ddata.sgvs.length === 0, null, { timeout: config.timeoutMs }));
+          await page.evaluate(() => {
+            window.__rtObservedAlarmEvents = [];
+            for (const event of ['urgent_alarm', 'alarm', 'announcement']) window.Nightscout.client.alarmSocket.on(event, value => window.__rtObservedAlarmEvents.push({ event, value }));
+          });
+          const notification = { plugin: { name: 'treatmentnotify', pluginType: 'notification' }, level: 2, isAnnouncement: true, group: 'Announcement', title: 'Synthetic urgent announcement', message: 'Synthetic current-role fixture' };
+          const accepted = require('../../../lib/server/realtime/alarm-transport').createAdapter({ socketPath: config.alarmSocketPath,
+            maxBytes: config.maxMessageBytes, timeoutMs: config.timeoutMs }).send;
+          await new Promise((resolve, reject) => accepted({ tenant: config.tenant, id: require('node:crypto').randomUUID(), attempt: 1,
+            notification, receipts: [] }, (error, result) => { if (error) reject(error); else { assert.deepEqual(result, { accepted: true, receipt: null, clearedRequestIds: [] }); resolve(); } }));
+          await diagnostics.wait('urgent-event', page, () => page.waitForFunction(() => window.__rtObservedAlarmEvents.some(row => row.event === 'urgent_alarm'), null, { timeout: config.timeoutMs }));
+          await diagnostics.wait('urgent-ui', page, () => page.waitForFunction(() => !!document.querySelector('.container.alarming.urgent'), null, { timeout: config.timeoutMs }));
+          const result = await page.evaluate(() => ({ urgentUi: !!document.querySelector('.container.alarming.urgent'), sgvs: window.Nightscout.client.ddata.sgvs, events: window.__rtObservedAlarmEvents }));
+          assert.equal(result.urgentUi, true); assert.deepEqual(result.sgvs, []); assert.equal(result.events.some(row => row.event === 'announcement'), false);
+          fs.writeFileSync(path.join(input.captureDir, 'actual-browser-consumer.json'), JSON.stringify({ classification: 'controlled fixture UI, unchanged client, actual API/RT', origin, resolverHosts: config.browserResolverHosts, browserRuntime: hooks.getFixtureRuntime(), redirectRefusals: roles.ingress.redirectRefusals, initial, result }) + '\n');
+          diagnostics.complete();
+        } catch (error) { await diagnostics.failure(error, page); throw error; }
+        finally { detach(); }
       }, {fixtureHosts: config.browserResolverHosts});
     } finally { await admin.end(); }
   } catch (error) {
+    if (diagnostics) await diagnostics.failure(error);
     // Browser navigation errors can contain the unchanged client's token URL.
     // Preserve the error kind/code while withholding inherited credentials.
     const secrets = Object.values(input.env).filter(value => typeof value === 'string' && value.length > 5);
