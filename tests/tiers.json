@@ -86,6 +86,7 @@
         "tests/tenant-lifecycle.test.js",
         "tests/tenant-insertion-sql.test.js",
         "tests/tenant-insertion-migrations.test.js",
+        "tests/tenant-insertion-readiness.test.js",
         "tests/tenant-operation-window.test.js",
         "tests/tenant-operation-window-readiness.test.js",
         "tests/postgres-filter.test.js",
@@ -284,6 +285,7 @@
     },
     "integration": {
       "files": [
+        "tests/tenant-insertion-readiness.integration.test.js",
         "tests/00_production-safety.test.js",
         "tests/tenant-jwt-http.integration.test.js",
         "tests/tenant-operations.integration.test.js",

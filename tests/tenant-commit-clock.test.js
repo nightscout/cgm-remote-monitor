@@ -148,9 +148,15 @@ describe('tenant commit clock admitted-domain readiness source contract', functi
   const domains = require('../lib/server/serve/postgres-domains');
   const names = ['entries', 'treatments', 'devicestatus', 'profile', 'food', 'activity', 'settings'];
   const B = '22222222-2222-4222-8222-222222222222';
-  let previous;
-  beforeEach(function () { previous = scope.getTenancyMode(); scope.setTenancyMode('multi'); });
-  afterEach(function () { scope.setTenancyMode(previous); });
+  let previous, savedInsertion;
+  const insertion = require('../lib/storage/postgres-insertion-readiness');
+  // This recorder characterizes clock queries only. Actual insertion metadata
+  // has separate protocol/native admission tests; do not fake its SQL rows here.
+  beforeEach(function () { previous = scope.getTenancyMode(); scope.setTenancyMode('multi');
+    savedInsertion = { metadata: insertion.metadata, floor: insertion.floor };
+    insertion.metadata = async () => {}; insertion.floor = async () => {};
+  });
+  afterEach(function () { Object.assign(insertion, savedInsertion); scope.setTenancyMode(previous); });
 
   function fixture () {
     const calls = [];
