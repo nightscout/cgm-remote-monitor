@@ -121,3 +121,7 @@ foreignSyntheticMgdl and ownership.foreignTenant too. Actual polling/websocket
 A/B frames must contain only their synthetic tenant values; A quiet deletion
 must preserve B current output. These are required native isolation oracles,
 not optional singletenant fallback. Root seeds matching current fixtures.
+A/B effective realtime config identities must match in the isolation fixture so
+config mismatch cannot mask a removed tenant filter; synthetic clinical rows
+supply distinct values. This is a fixture calibration constraint, not a product
+restriction on tenant configuration.

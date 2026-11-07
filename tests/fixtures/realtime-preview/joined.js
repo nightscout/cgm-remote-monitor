@@ -35,6 +35,10 @@ module.exports = async function joined (input) {
     await admin.connect(); connected = true;
     assert.equal(roles.owned.foreignTenant, config.foreignTenant);
     assert(config.foreignTenant !== config.tenant && config.foreignHost !== config.host);
+    const realtimeEnv = JSON.parse(fs.readFileSync(config.realtimeEnvFile, 'utf8'));
+    const realtimeConfig = require('../../../lib/server/realtime/config').parse(JSON.parse(fs.readFileSync(realtimeEnv.MULTITENANT_REALTIME_CONFIG, 'utf8')), realtimeEnv);
+    assert.equal(realtimeConfig.tenants.get(config.tenant).identity, realtimeConfig.tenants.get(config.foreignTenant).identity,
+      'native isolation fixture needs equal effective config identities so an identity mismatch cannot mask a broken tenant filter');
     const clients = [], foreignClients = [];
     for (const transport of ['polling', 'websocket']) {
       const item = await client(transport); clients.push(item);
