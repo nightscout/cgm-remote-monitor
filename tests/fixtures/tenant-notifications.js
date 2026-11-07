@@ -67,9 +67,9 @@ module.exports = function fixture () {
       if (sql.startsWith('UPDATE') && sql.includes('SET request_id=')) {
         const row = heads.find(headKey(v)); row.request_id = v[3]; row.blocked_until = v[4]; return { rows: [], rowCount: 1 };
       }
-      if (sql.startsWith('SELECT *') && sql.includes('state IN')) return { rows: requests.filter(row => row.tenant_id === v[0] && row.consumer === v[1] &&
-        ((['pending', 'uncertain'].includes(row.state) && row.next_at <= v[2]) || (row.state === 'attempting' && row.attempt_until <= v[2])))
-        .sort((a, b) => a.created_at - b.created_at).slice(0, v[3]).map(copy) };
+      if (sql.startsWith('SELECT *') && sql.includes('state IN')) return { rows: requests.filter(row => row.tenant_id === v[0] && row.consumer === v[1] && row.dedup_key.startsWith(v[2].slice(0,-1)) &&
+        ((['pending', 'uncertain'].includes(row.state) && row.next_at <= v[3]) || (row.state === 'attempting' && row.attempt_until <= v[3])))
+        .sort((a, b) => a.created_at - b.created_at).slice(0, v[4]).map(copy) };
       if (sql.startsWith('UPDATE') && sql.includes("SET state='cancelled'")) {
         const row = request(v); row.state = 'cancelled'; return { rows: [], rowCount: 1 };
       }
@@ -88,9 +88,9 @@ module.exports = function fixture () {
         const row = heads.find(headKey(v)); if (row.request_id === v[4]) row.blocked_until = v[3]; return { rows: [], rowCount: 1 };
       }
       if (sql.startsWith('SELECT request_id,receipt')) return { rows: requests.filter(row => row.tenant_id === v[0] && row.consumer === v[1] &&
-        row.state === 'accepted' && row.receipt != null && row.cleared_at == null && row.accepted_at >= v[2]).slice(0, v[3]).map(row => ({ request_id: row.request_id, receipt: copy(row.receipt) })) };
+        row.dedup_key.startsWith(v[2].slice(0,-1)) && row.state === 'accepted' && row.receipt != null && row.cleared_at == null && row.accepted_at >= v[3]).slice(0, v[4]).map(row => ({ request_id: row.request_id, receipt: copy(row.receipt) })) };
       if (sql.startsWith('UPDATE') && sql.includes('SET cleared_at=')) {
-        requests.filter(row => row.tenant_id === v[0] && row.consumer === v[1] && v[2].includes(row.request_id) && row.state === 'accepted')
+        requests.filter(row => row.tenant_id === v[0] && row.consumer === v[1] && v[2].includes(row.request_id) && row.state === 'accepted' && row.dedup_key.startsWith(v[4].slice(0,-1)))
           .forEach(row => { row.cleared_at = v[3]; }); return { rows: [], rowCount: 1 };
       }
       throw new Error('UNKNOWN_NOTIFICATION_SQL ' + sql);
@@ -98,7 +98,7 @@ module.exports = function fixture () {
   };
   const store = createStore({ connection, namespace: 'notification_test', maxRows: 10, maxBytes: 65536 });
   const hooks = {
-    store, now: () => at, maxRows: 10, maxPayloadBytes: 10000, maxInflight: 2, attemptTimeoutMs: 30, retryDelayMs: 1,
+    store, now: () => at, normalPolicy: 'pushnotify', maxRows: 10, maxPayloadBytes: 10000, maxInflight: 2, attemptTimeoutMs: 30, retryDelayMs: 1,
     adapter: { id: 'synthetic', send (row, callback) {
       assert.equal(inTransaction, false, 'NOTIFICATION_COMMIT_BEFORE_DISPATCH');
       const stored = requests.find(r => r.request_id === row.id && r.tenant_id === row.tenant);

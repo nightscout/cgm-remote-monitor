@@ -41,7 +41,7 @@ module.exports = function nativeLab () {
   lab.component = overrides => {
     const value = createComponent({ store: lab.store, adapter: { id: 'synthetic', send (row, callback) { callback(null, { accepted: true }); } },
       selectCycle: async () => lab.current, isCurrent: async (tenant, identity) => lab.current?.tenant === tenant && lab.current.identity === identity,
-      allows: async () => !lab.suppressed, now: () => lab.now, maxRows: 10, maxPayloadBytes: 10000, maxInflight: 1,
+      allows: async () => !lab.suppressed, now: () => lab.now, normalPolicy: 'pushnotify', maxRows: 10, maxPayloadBytes: 10000, maxInflight: 1,
       attemptTimeoutMs: 1000, retryDelayMs: 1, ...overrides });
     lab.components.push(value); return value;
   };

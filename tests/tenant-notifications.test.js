@@ -92,7 +92,7 @@ describe('durable tenant notification source protocol', function () {
     f.advance(30001); await third.retry(f.A);
     assert.equal(f.snapshot().requests[0].state, 'accepted');
     const stale = await scope.withTenant(f.A, () => f.store.finish({ tenant: f.A, id: before.requests[0].request_id,
-      token: before.requests[0].attempt_token, state: 'uncertain', at: f.now(), nextAt: f.now(), receipt: null, cleared: [] }));
+      token: before.requests[0].attempt_token, normalPolicy: 'pushnotify', state: 'uncertain', at: f.now(), nextAt: f.now(), receipt: null, cleared: [] }));
     assert.equal(stale, false); assert.equal(f.snapshot().requests[0].state, 'accepted');
   });
 
@@ -133,7 +133,7 @@ describe('durable tenant notification source protocol', function () {
     const foreign = { ...f.snapshot().requests[0], tenant_id: f.B };
     await assert.rejects(open({ store: { ...f.store, due: async () => [foreign] } }).retry(f.A), /TENANT_MISMATCH/);
     assert.equal(f.effects.length, 3);
-    await assert.rejects(scope.withTenant(f.A, () => f.store.due({ tenant: f.B, consumer: 'synthetic', at: f.now() })), /TENANT_MISMATCH/);
+    await assert.rejects(scope.withTenant(f.A, () => f.store.due({ tenant: f.B, consumer: 'synthetic', normalPolicy: 'pushnotify', at: f.now() })), /TENANT_MISMATCH/);
   });
 
   it('matches frozen pushnotify normal keys, announcement precedence and explicit payload/batch bounds', async function () {
@@ -379,10 +379,100 @@ describe('actual notification cache boundary compatibility', function () {
       const counts = [];
       for (const step of [3599999, 1, 1]) {
         f.advance(step);
-        const rows = await scope.withTenant(f.A, () => f.store.receipts({ tenant: f.A, consumer: 'synthetic', at: f.now() }));
+        const rows = await scope.withTenant(f.A, () => f.store.receipts({ tenant: f.A, consumer: 'synthetic', normalPolicy: 'pushnotify', at: f.now() }));
         counts.push(rows.length);
       }
       assert.deepEqual(counts, [1, 1, 0], 'NOTIFICATION_RECEIPT_CACHE_BOUNDARY');
     } finally { await c.close(); scope.setTenancyMode(mode); }
+  });
+});
+
+describe('selected realtime event admission compatibility', function () {
+  let mode, f, owned;
+  beforeEach(function () { mode = scope.getTenancyMode(); scope.setTenancyMode('multi'); f = fixture(); owned = []; });
+  afterEach(async function () { await Promise.all(owned.map(value => value.close())); scope.setTenancyMode(mode); });
+  const open = overrides => { const value = f.component({ normalPolicy: 'realtime-cycle', ...overrides }); owned.push(value); return value; };
+
+  it('requires selected policy and matches actual AlarmSocket same-alarm repeats on each new cycle', async function () {
+    assert.throws(() => f.component({ normalPolicy: undefined }), /normalPolicy/);
+    const { createRequire } = require('node:module'), { EventEmitter } = require('node:events');
+    const fs = require('node:fs'), path = require('node:path'), vm = require('node:vm');
+    const filename = path.resolve(__dirname, '../lib/api3/alarmSocket.js'), legacy = [];
+    const box = { module: { exports: {} }, console: { info () {}, log () {} }, require: createRequire(filename) };
+    vm.runInNewContext(fs.readFileSync(filename, 'utf8'), box, { filename });
+    const alarm = new box.module.exports({}, { trustProxy: false }, { levels: { WARN: 1, URGENT: 2 } });
+    alarm.namespace = { to (room) { assert.equal(room, 'AlarmReceivers'); return { emit (event, payload) { legacy.push({ event, message: payload.message }); } }; } };
+    const emitted = [], bus = new EventEmitter();
+    const component = open({ adapter: { id: 'realtime', send (row, callback) {
+      emitted.push({ event: row.notification.clear ? 'clear_alarm' : 'urgent_alarm', message: row.notification.message });
+      assert.deepEqual(row.receipts, [], 'RT clear has no upstream provider cancellation receipts');
+      callback(null, { accepted: true, receipt: null, clearedRequestIds: [] });
+    } } });
+    try {
+      const notify = notification({ level: 2 });
+      f.setCycle([notify]); alarm.emitNotification(notify); await component.run(f.A);
+      await component.run(f.A); assert.equal(emitted.length, 1, 'same output/event repeated run is one durable request');
+      f.setCycle([notify]); alarm.emitNotification(notify); await component.run(f.A);
+      f.setCycle([{ clear: true, title: 'All Clear', message: 'Synthetic clear' }]); alarm.emitNotification(f.current().result.emitted[0]); await component.run(f.A);
+      assert.deepEqual(emitted, legacy, 'NOTIFICATION_RT_CYCLE_COMPAT no pushnotify15minute suppression');
+      assert.equal(f.snapshot().requests.length, 3);
+      assert.ok(f.snapshot().requests.every(row => row.dedup_key.startsWith('realtime-cycle:')));
+    } finally { bus.emit('teardown'); }
+  });
+
+  it('admits later RT output while old request is uncertain and retries the same durable UUID without provider window', async function () {
+    const effects = [];
+    let fail = true;
+    const component = open({ adapter: { id: 'realtime', send (row, callback) {
+      effects.push(row); callback(fail ? new Error('synthetic uncertain RT handoff') : null, { accepted: true });
+    } } });
+    f.setCycle([notification()]); await component.run(f.A); const oldId = f.snapshot().requests[0].request_id;
+    await component.run(f.A); assert.equal(effects.length, 1);
+    f.setCycle([notification()]); await component.run(f.A);
+    assert.equal(effects.length, 2, 'NOTIFICATION_RT_PENDING_NO_GLOBAL_BLOCK new output is independent');
+    assert.notEqual(effects[1].id, oldId);
+    fail = false; f.advance(1); await component.retry(f.A);
+    assert.equal(effects.length, 4, 'operator delay1ms is not inherited pushnotify30seconds');
+    assert.equal(effects[2].id, oldId, 'NOTIFICATION_RT_RETRY_IDENTITY original request UUID reused');
+    assert.equal(f.snapshot().requests.length, 2); assert.ok(f.snapshot().requests.every(row => row.state === 'accepted'));
+  });
+
+  it('keeps policy signatures and due work isolated when the selected consumer changes policy', async function () {
+    f.setCycle([notification()]);
+    const push = f.component({ adapter: { id: 'same-consumer', send (row, callback) { callback(new Error('uncertain push')); } } }); owned.push(push);
+    await push.run(f.A); await push.close();
+    const old = f.snapshot().requests[0];
+    const effects = [];
+    const realtime = open({ adapter: { id: 'same-consumer', send (row, callback) { effects.push(row); callback(new Error('uncertain RT')); } } });
+    await realtime.run(f.A); const next = f.snapshot().requests.find(row => row.request_id !== old.request_id);
+    assert.ok(old.dedup_key.startsWith('pushnotify:')); assert.ok(next.dedup_key.startsWith('realtime-cycle:'));
+    f.advance(30001); await realtime.retry(f.A);
+    assert.ok(effects.every(row => row.id === next.request_id), 'NOTIFICATION_POLICY_ISOLATED_RETRY');
+    assert.equal(f.snapshot().requests.find(row => row.request_id === old.request_id).attempt, 1);
+  });
+
+  it('uses meaningful event occurrence instead of filtered array index for same output admission', async function () {
+    const one = notification({ group: 'one', plugin: { name: 'one' } }), two = notification({ group: 'two', plugin: { name: 'two' } });
+    f.setCycle([one, two]);
+    const component = open(); await component.run(f.A); assert.equal(f.effects.length, 2);
+    const before = f.current();
+    f.hooks.selectCycle = async () => before;
+    const filtered = open({ selectCycle: async () => ({ ...before, result: { ...before.result, emitted: [two] } }) });
+    await filtered.run(f.A);
+    assert.equal(f.effects.length, 2, 'same stable event cannot repeat merely because another event was filtered');
+    assert.equal(f.snapshot().requests.length, 2);
+  });
+
+  it('retains current suppression and late-close fences for RT uncertain work', async function () {
+    f.setCycle([notification()]); const effects = [];
+    const component = open({ adapter: { id: 'realtime', send (row, callback) { effects.push(row); callback(new Error('uncertain')); } } });
+    await component.run(f.A); f.advance(1); f.suppressed(); await component.retry(f.A);
+    assert.equal(effects.length, 1); assert.equal(f.snapshot().requests[0].state, 'cancelled');
+    f.suppressed(false); f.setCycle([notification()]); let done, entered;
+    const started = new Promise(resolve => { entered = resolve; });
+    const closing = open({ adapter: { id: 'realtime', send (row, callback) { done = callback; entered(); } } });
+    const work = closing.run(f.A); await started; await closing.close(); await work;
+    const saved = f.snapshot(); done(null, { accepted: true }); await new Promise(resolve => setImmediate(resolve));
+    assert.deepEqual(f.snapshot(), saved, 'RT closed callback cannot publish acceptance');
   });
 });

@@ -117,12 +117,36 @@
     "file": "lib/tenant-notifications/postgres.js",
     "replacements": [
       [
-        "if (!saved.payload.clear && Number(head.blocked_until) >= at) return saved;",
-        "if (!saved.payload.clear && Number(head.blocked_until) > at) return saved;"
+        "if (normalPolicy === 'pushnotify' && !saved.payload.clear && Number(head.blocked_until) >= at) return saved;",
+        "if (normalPolicy === 'pushnotify' && !saved.payload.clear && Number(head.blocked_until) > at) return saved;"
       ]
     ],
     "grep": "matches actual failure and success consumer calls",
     "failure": "NOTIFICATION_NORMAL_CACHE_BOUNDARY",
     "classification": "actual normal admission opens at exact expiry while real consumer cache is still active"
+  },
+  "rt-normal-key": {
+    "file": "lib/tenant-notifications/component.js",
+    "replacements": [
+      [
+        "(normalPolicy === 'realtime-cycle' ? origin : c.key(payload))",
+        "c.key(payload)"
+      ]
+    ],
+    "grep": "admits later RT output while old request is uncertain",
+    "failure": "NOTIFICATION_RT_PENDING_NO_GLOBAL_BLOCK",
+    "classification": "actual RT admission collapses later output events behind one unresolved normal key"
+  },
+  "rt-new-origin": {
+    "file": "lib/tenant-notifications/component.js",
+    "replacements": [
+      [
+        "cycle.identity, cycle.runtimeId, cycle.outputRevision, effect, occurrence",
+        "cycle.identity, cycle.runtimeId, 0, effect, occurrence"
+      ]
+    ],
+    "grep": "requires selected policy and matches actual AlarmSocket",
+    "failure": "NOTIFICATION_RT_CYCLE_COMPAT",
+    "classification": "actual RT event identity forgets output revision and loses legitimate repeated same alarms"
   }
 }

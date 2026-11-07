@@ -87,3 +87,13 @@ result envelopes carry tenant/requested/inputCheckpoint. The joined actual alarm
 fixture must align evaluation/attempt instants with actual accepted ackAt/expiresAt
 (or a common actual DB epoch); it must not compare1970 synthetic instants to a
 current database ack. Root owns that actual lifecycle→alarm→outbox integration.
+
+Root joined-native inputs must select `normalPolicy:'realtime-cycle'` for the RT
+adapter and `normalPolicy:'pushnotify'` for the synthetic provider-compatible
+comparison. Required SQL/component operations now carry the selected policy;
+head/request keys and due scans isolate them. RT adapter acceptance is null receipt
+and empty cleared IDs. Include same-output/event once, new-output same-alarm
+repeat, old uncertain request not blocking later cycles, same-ID retry, policy
+change/isolation and current suppression/close in actual RT consumer testing.
+Independent outbox tests default explicitly to pushnotify; that is not proof that
+provider cache windows are suitable for browser realtime.

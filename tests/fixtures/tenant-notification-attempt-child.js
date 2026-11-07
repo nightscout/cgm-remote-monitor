@@ -17,6 +17,6 @@ const { notification } = require('./tenant-notifications-native');
     // This fake consumer records acceptance but deliberately never calls completion.
     process.send({ phase: 'synthetic-acceptance-no-completion', id: row.id, attempt: row.attempt });
   } }, selectCycle: async () => cycle, isCurrent: async () => true, allows: async () => true, now: () => config.at,
-  maxRows: 10, maxPayloadBytes: 10000, maxInflight: 1, attemptTimeoutMs: 10000, retryDelayMs: 1 });
+  normalPolicy: 'pushnotify', maxRows: 10, maxPayloadBytes: 10000, maxInflight: 1, attemptTimeoutMs: 10000, retryDelayMs: 1 });
   await component.run(config.tenant); await component.close(); await connection.end();
 })().catch(() => { process.exitCode = 1; });

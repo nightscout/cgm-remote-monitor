@@ -5,7 +5,7 @@ single-tenant code, starts no listener or timer, selects no provider and perform
 no network I/O. Its adapter is an explicitly supplied bounded capability. Source
 protocol and synthetic callback tests do not establish actual provider delivery.
 
-`component({store,adapter,selectCycle,isCurrent,allows,now,maxRows,maxPayloadBytes,
+`component({store,adapter,selectCycle,isCurrent,allows,now,normalPolicy,maxRows,maxPayloadBytes,
 maxInflight,attemptTimeoutMs,retryDelayMs})` consumes a successful eligible cycle
 through `run(tenant)`. The cycle envelope is
 `{tenant?,identity,runtimeId,outputRevision,inputCheckpoint,eligible,result:{emitted}}`.
@@ -114,3 +114,25 @@ the coordinator's joined tree it loads the sibling module normally. Before that
 join, the focused lane supplies an explicit NS_NOTIFICATION_ALARM_CYCLE test-only
 path to an immutable archive of the actual alarm source, with source head/hashes
 in the private capture. No stable-return fake substitutes for that regression.
+
+Consumer normal admission is REQUIRED: `normalPolicy:'pushnotify'` preserves the
+provider-side30second/15minute/1hour behavior measured above;
+`normalPolicy:'realtime-cycle'` preserves actual AlarmSocket event delivery, which
+has no provider rate-limit cache. Policy identity is immutable in the persistent
+request/head signature and due reads are filtered by policy. Switching selected
+policy cannot reuse or retry the other policy's work. Operator rollout closes the
+old composition before replacing it; unselected uncertain history is not falsely
+marked accepted or silently dispatched.
+
+Realtime admits each trusted output-instance/event separately, even when another
+cycle's request is uncertain. Re-running the same event does not create a second
+request. Event occurrence derives from canonical meaningful payload plus its
+same-effect occurrence, not filtered-array index: suppression of another event
+cannot cause a duplicate. The persisted UUID remains retry identity across
+uncertainty/restart; later eligible cycles may emit the same alarm again, matching
+existing RT behavior. RT uses only explicit retry delay/attempt deadlines, never
+provider30second or15minute windows. Current payload/config/suppression guards
+still apply. RT clear is a normal clear event under current socket authority, with
+`receipts:[]`; acceptance returns `receipt:null,clearedRequestIds:[]`. It has no
+Pushover/device cancellation receipt. Callback acceptance is server handoff only,
+not device delivery or external exactly-once. Existing single path is unchanged.
