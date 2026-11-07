@@ -7,7 +7,7 @@ const proposal = require('../lib/tenant-lifecycle/tenant-insertion-sql');
 const A = '11111111-1111-4111-8111-111111111111';
 const namespace = 'insertion_admission', domain = 'entries';
 function fixture () {
-  const policy = [{ command: '*', permissive: true, roles: [0],
+  const policy = [{ command: '*', permissive: true, roles: ['0'],
     using: "(tenant_id = (NULLIF(current_setting('app.current_tenant_id'::text, true), ''::text))::uuid)",
     check: "(tenant_id = (NULLIF(current_setting('app.current_tenant_id'::text, true), ''::text))::uuid)" }];
   const structure = { clinical_secured: true, counter_secured: true, independent: true, same_owner: true,
@@ -73,7 +73,8 @@ describe('tenant insertion read-only physical admission protocol', function () {
       s => { s.triggers[0].function = false; }, s => { s.body = s.body.replace('counter.last_ordinal+1', 'counter.last_ordinal'); },
       s => { s.body = proposal.build({ namespace, domain }).up.find(statement => statement.startsWith('CREATE FUNCTION ')).split('$tenant_insertion$')[1]; },
       s => { s.definer = true; }, s => { s.config = ['search_path=public']; }, s => { s.no_sequence = false; },
-      s => { s.same_owner = false; }, s => { s.counter_policies[0].using = 'true'; }, s => { s.counter_policies.push(s.counter_policies[0]); },
+      s => { s.same_owner = false; }, s => { s.counter_policies[0].roles = ['1']; }, s => { s.counter_policies[0].roles = [0]; },
+      s => { s.counter_policies[0].using = 'true'; }, s => { s.counter_policies.push(s.counter_policies[0]); },
       s => { s.unique_order = false; }, s => { s.counter_primary = false; },
       s => { s.counter_checks = null; }, s => { s.ordinal_checks[0].validated = false; }]) {
       const f = fixture(); await admission.metadata(f.connection, options);
