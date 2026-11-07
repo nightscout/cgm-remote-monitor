@@ -37,10 +37,11 @@ optInSuite(process.env.NS_EVALUATOR_CONSUMERS_TEST === '1' && !!process.env.NS_T
       const first=lab.sinkEffects.filter(row=>row.tenant===lab.A); assert.equal(first.length,1);
       const capture=lab.observations.find(row=>row.phase==='sink-before-accept' && row.id===first[0].id);
       assert.equal(capture.ownRow.request_id,first[0].id); assert.equal(capture.ownRow.state,'attempting','M5_CONSUMER_COMMIT_BEFORE_SINK');
-      const before=await lab.requests(); assert.equal(before[0].state,'accepted'); assert.ok(Number(before[0].created_at)>=epoch);
+      const before=await lab.requests(); lab.traceConsumer('committed-before-verdict',{rows:before,state:await lab.producerState(),foreign:await lab.requests(lab.B)}); assert.equal(before[0].state,'accepted'); assert.ok(Number(before[0].created_at)>=epoch);
       const producerBefore = await lab.producerState();
       await worker.call('wake'); await worker.call('flush'); assert.equal(lab.sinkEffects.length,1,'M5_CONSUMER_SAME_OUTPUT_ONCE');
-      assert.equal((await lab.producerState())[0].revision,producerBefore[0].revision,'M5_CONSUMER_JSONB_UNCHANGED_NO_REVISION');
+      const producerAfter=await lab.producerState(); lab.traceConsumer('unchanged-wake-before-verdict',{before:producerBefore,after:producerAfter});
+      assert.equal(producerAfter[0].revision,producerBefore[0].revision,'M5_CONSUMER_JSONB_UNCHANGED_NO_REVISION');
       await worker.call('tick'); await worker.call('flush'); assert.equal(lab.sinkEffects.length,2);
       assert.notEqual(lab.sinkEffects[0].id,lab.sinkEffects[1].id,'M5_CONSUMER_NEW_RT_CYCLE');
       assert.deepEqual(await lab.requests(lab.B),[]); lab.traceConsumer('committed-per-cycle',{rows:await lab.requests(),state:await lab.producerState(),foreign:await lab.requests(lab.B)});
@@ -50,18 +51,19 @@ optInSuite(process.env.NS_EVALUATOR_CONSUMERS_TEST === '1' && !!process.env.NS_T
       await reading(50); const first=await boot(); const alarm=(await lab.requests())[0]; await lab.stopConsumer(first);
       await lab.writeCanonical({planned:{op:'update',form:'merge',target:{_id:'synthetic-0'},fields:{sgv:111}}});
       const next=await lab.workerConsumers(lab.configureConsumers()); assert.equal(next.startup.ready,true); await next.call('flush');
-      const clears=(await lab.requests()).filter(row=>row.payload.clear); assert.equal(clears.length,1,'M5_CONSUMER_RESTART_CLEAR');
+      const clears=(await lab.requests()).filter(row=>row.payload.clear); lab.traceConsumer('restart-clear-before-verdict',{alarm,clears,state:await lab.producerState()}); assert.equal(clears.length,1,'M5_CONSUMER_RESTART_CLEAR');
       assert.equal(clears[0].payload.message,"Auto ack'd alarm(s)"); assert.equal(clears[0].state,'accepted');
       await next.call('tick'); await next.call('flush'); assert.equal((await lab.requests()).filter(row=>row.payload.clear).length,1,'M5_CONSUMER_CLEAR_ORIGIN_ONCE');
       lab.traceConsumer('restart-normal-clear',{alarm,clears:await lab.requests(),state:await lab.producerState()}); await lab.stopConsumer(next);
     });
     it('retries a still-current uncertain request with the same UUID after actual process death while permitting one fresh cycle event', async function () {
       await reading(50); lab.sinkMode='lost-response'; const first=await boot();
-      const original=(await lab.requests())[0]; assert.equal(original.state,'uncertain');
+      const original=(await lab.requests())[0]; lab.traceConsumer('uncertain-before-death',{original,state:await lab.producerState()}); assert.equal(original.state,'uncertain');
       const exited=new Promise(resolve=>first.child.once('exit',(code,signal)=>resolve({code,signal}))); first.child.kill('SIGKILL');
       const death=await exited; assert.equal(death.signal,'SIGKILL'); lab.sinkMode='accept'; await waitDue(original.request_id);
       const next=await lab.workerConsumers(lab.configureConsumers()); assert.equal(next.startup.ready,true); await next.call('flush');
       const after=(await lab.requests()).find(row=>row.request_id===original.request_id);
+      lab.traceConsumer('uncertain-restart-before-verdict',{original,after,death,all:await lab.requests(),state:await lab.producerState()});
       assert.equal(after.state,'accepted'); assert.ok(after.attempt>=2,'M5_CONSUMER_PROCESS_DEATH_SAME_UUID'); assert.deepEqual(after.payload,original.payload);
       assert.equal(lab.sinkEffects.filter(row=>row.id===original.request_id).length,2);
       lab.traceConsumer('uncertain-process-restart',{original,after,death,all:await lab.requests()}); await lab.stopConsumer(next);
@@ -79,6 +81,7 @@ optInSuite(process.env.NS_EVALUATOR_CONSUMERS_TEST === '1' && !!process.env.NS_T
       const before=lab.sinkEffects.length; await lab.ack(lab.A,2,60000); const suppression=await lab.suppressions();
       const at=await lab.epoch(); assert.ok(suppression.every(row=>Number(row.acked_at)<=at && Number(row.expires_at)>at));
       await worker.call('retry',lab.A); const after=lab.sinkEffects.slice(before);
+      lab.traceConsumer('control-clear-before-verdict',{suppression,after,state:await lab.producerState(),clinical:await worker.call('last',lab.A)});
       assert.equal(after.length,1); assert.equal(after[0].notification.clear,true,'M5_CONSUMER_CONTROL_CLEAR_FAILED_CLINICAL');
       assert.equal(after[0].notification.message,"default - Urgent was ack'd");
       await worker.call('tick',lab.B); await worker.call('flush',lab.B); assert.ok(lab.sinkEffects.at(-1).tenant===lab.B);
@@ -88,11 +91,16 @@ optInSuite(process.env.NS_EVALUATOR_CONSUMERS_TEST === '1' && !!process.env.NS_T
       await reading(50); const worker=await boot(); const writer=lab.writerConnection(), table='"'+lab.consumerNamespaces.outbox+'".tenant_notification_state';
       for (const sql of ['UPDATE '+table+' SET revision=revision+1','SELECT * FROM '+table+' FOR UPDATE',
         'INSERT INTO '+table+' SELECT * FROM '+table]) {
-        await assert.rejects(scope.withTenant(lab.A,()=>writer.transaction(()=>writer.query(sql))), error=>error.code==='42501','M5_CONSUMER_ACK_STATE_READ_ONLY');
+        let refusal;
+        try {await scope.withTenant(lab.A,()=>writer.transaction(()=>writer.query(sql)));} catch (error) {refusal=error.code || error.name;}
+        lab.traceConsumer('ack-privilege-before-verdict',{operation:sql.split(' ')[0],refusal,state:await lab.producerState()});
+        assert.equal(refusal,'42501','M5_CONSUMER_ACK_STATE_READ_ONLY');
       }
       await lab.ack(lab.A,2,60000); const before=lab.sinkEffects.length;
       await lab.admin.query('ALTER TABLE '+table+' NO FORCE ROW LEVEL SECURITY');
-      try {await worker.call('retry'); assert.equal(lab.sinkEffects.length,before); assert.equal((await worker.call('health')).consumers.tenants.find(row=>row.tenant===lab.A).state,'refused','M5_CONSUMER_UNSAFE_STATE_REFUSED');}
+      try {await worker.call('retry'); const health=await worker.call('health');
+        lab.traceConsumer('unsafe-state-before-verdict',{state:await lab.producerState(),effectsBefore:before,effectsAfter:lab.sinkEffects.length,health});
+        assert.equal(lab.sinkEffects.length,before); assert.equal(health.consumers.tenants.find(row=>row.tenant===lab.A).state,'refused','M5_CONSUMER_UNSAFE_STATE_REFUSED');}
       finally {await lab.admin.query('ALTER TABLE '+table+' FORCE ROW LEVEL SECURITY');}
       lab.traceConsumer('ack-state-readonly-and-rls-refusal',{state:await lab.producerState(),effectsBefore:before,effectsAfter:lab.sinkEffects.length}); await lab.stopConsumer(worker);
     });

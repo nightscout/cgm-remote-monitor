@@ -101,7 +101,7 @@ observations precede assertions. Marker `M5_CONSUMER_OBSERVATION` carries phases
 `sink-before-accept`, `committed-per-cycle`, `restart-normal-clear`,
 `uncertain-process-restart`, `control-ack-with-failed-clinical`, and
 `ack-state-readonly-and-rls-refusal`; child exits use `M5_CONSUMER_CHILD_EXIT`.
-All clocks come from actual database/current epoch, never a 1970 fixture clock.
+Physical observations for committed intent, unchanged wake revisions, restart clears/retries, control-only clears, SQL refusal codes and unsafe-state health are emitted before their semantic assertions. Additional phase names end in `before-verdict` (plus `uncertain-before-death`); final summaries remain separate. All clocks come from actual database/current epoch, never a 1970 fixture clock.
 
 Native controls must target these actual boundaries: uncommitted/missing intent at
 sink; regenerated retry UUID; state/head/request tenant scope or forced-RLS removal;
