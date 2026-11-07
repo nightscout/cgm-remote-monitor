@@ -7,10 +7,12 @@ const B = '22222222-2222-4222-8222-222222222222';
 
 function fixture (options = {}) {
   const log = [], pending = new Map();
+  const admission = require('./fixtures/operation-window-admission-protocol')();
   const client = new EventEmitter();
   client.release = error => log.push(['release', !!error]);
   client.query = async (text, values) => {
     log.push([text, values]);
+    const metadata = admission(text, values); if (metadata) return metadata;
     if (text.includes('FROM pg_roles')) return { rows: [{ rolsuper: !!options.superuser, rolbypassrls: false }] };
     if (text.includes('pg_try_advisory_lock_shared')) return { rows: [{ held: options.held !== false }] };
     if (text.includes('pg_advisory_unlock_shared')) return { rows: [{ released: options.unlock !== false }] };
@@ -188,6 +190,7 @@ describe('Selected lower-port window cannot be omitted (source protocol)', funct
   it('applies the actual selected window when a helper omits it and refuses suspended body SQL', async function () {
     const options = {}, f = fixture(options), lower = lowerModule(f), scope = require('../lib/storage/tenant-scope');
     const previous = scope.getTenancyMode(); scope.setTenancyMode('multi');
+    await f.window.ready();
     const release = lower.installOperationWindow(f.window); let store;
     try {
       store = await lower({ connectionString: 'postgresql://synthetic/disposable_test' });
@@ -201,7 +204,9 @@ describe('Selected lower-port window cannot be omitted (source protocol)', funct
   });
   it('admits the reserved startup metadata binding only in a DB-confirmed read-only transaction', async function () {
     const options = {}, f = fixture(options), lower = lowerModule(f), scope = require('../lib/storage/tenant-scope');
+    await f.window.ready();
     const previous = scope.getTenancyMode(); scope.setTenancyMode('multi'); const zero = '00000000-0000-0000-0000-000000000000';
+    await f.window.ready();
     const release = lower.installOperationWindow(f.window); let store;
     try {
       store = await lower({ connectionString: 'postgresql://synthetic/disposable_test' });

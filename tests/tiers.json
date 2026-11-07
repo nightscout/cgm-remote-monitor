@@ -85,6 +85,7 @@
         "tests/postgres-identity.test.js",
         "tests/tenant-lifecycle.test.js",
         "tests/tenant-operation-window.test.js",
+        "tests/tenant-operation-window-readiness.test.js",
         "tests/postgres-filter.test.js",
         "tests/page-bundle-budget.test.js",
         "tests/page-fixture-traffic.test.js",
