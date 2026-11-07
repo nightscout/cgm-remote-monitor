@@ -136,4 +136,31 @@ describe('parent-owned realtime bootstrap source contract',function(){
     }
   });
 
+  it('preflights the explicit owned reset against every actual selected catalogue table and FK edge',function(){
+    const catalogues=require('./fixtures/realtime-preview/bootstrap-grants').catalogues(),layout=plan.layout('0123456789abcdef');
+    const reset=plan.resetPlan(layout,catalogues);
+    for(const table of ['tenant_owner_policy','tenant_owner_actors','tenant_subject_admin_audit'])assert(reset.reset.some(row=>row.domain==='authorization'&&row.table===table),'RESET_INCLUDES_'+table);
+    assert(reset.reset.some(row=>row.domain==='secrets'&&row.table==='secret_audit'));
+    assert.deepEqual(reset.preserved,[{domain:'secrets',namespace:layout.namespaces.secrets,table:'secret_records'}]);
+    assert.equal(reset.reset.length,28);assert.equal(reset.foreignKeys.length,8);
+    assert(reset.foreignKeys.some(row=>row.from==='tenant_owner_actors'&&row.to==='tenant_owner_policy'));
+    assert(reset.foreignKeys.some(row=>row.from==='tenant_owner_policy'&&row.to==='tenant_authorization_config'));
+    assert(reset.reset.every(row=>row.namespace===layout.namespaces[row.domain]&&row.table!=='schema_migrations'));
+  });
+  it('rejects omitted FK referencers and incomplete audit coverage before any SQL or foreign-schema adoption',function(){
+    const catalogues=require('./fixtures/realtime-preview/bootstrap-grants').catalogues(),layout=plan.layout('0123456789abcdef');
+    for(const table of ['tenant_owner_policy','tenant_owner_actors']) {
+      const tables=plan.resetTables();tables.authorization=tables.authorization.filter(name=>name!==table);
+      assert.throws(()=>plan.resetPlan(layout,catalogues,tables),/RESET_FK_CLOSURE/);
+    }
+    for(const mutate of [tables=>{tables.authorization=tables.authorization.filter(name=>name!=='tenant_subject_admin_audit');},
+      tables=>tables.authorization.push('foreign_owned_elsewhere'),tables=>tables.secrets.push('secret_records')]) {
+      const tables=plan.resetTables();mutate(tables);assert.throws(()=>plan.resetPlan(layout,catalogues,tables),/RESET_TABLE_COVERAGE/);
+    }
+    const changed=structuredClone(catalogues);changed.authorization.migrations[0].up.push('CREATE TABLE unknown_new_table (tenant_id uuid)');
+    assert.throws(()=>plan.resetPlan(layout,changed),/RESET_TABLE_COVERAGE/,'new catalogue data table needs explicit review, never dynamic adoption');
+    changed.authorization.migrations[0].up.push('ALTER TABLE unknown_new_table ADD FOREIGN KEY (tenant_id) REFERENCES foreign_schema.foreign_table (tenant_id)');
+    assert.throws(()=>plan.resetPlan(layout,changed),/RESET_DDL_UNREVIEWED/);
+  });
+
 });

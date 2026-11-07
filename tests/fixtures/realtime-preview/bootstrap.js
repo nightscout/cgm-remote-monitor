@@ -12,6 +12,7 @@ module.exports=async function bootstrap(input) {
   if(input.env.NS_RT_BOOTSTRAP_NATIVE!=='1')throw new Error('EXPLICIT_PARENT_BOOTSTRAP_REQUIRED');
   const {Client}=require('pg'),{MongoClient}=require('mongodb'),{run}=require('../../../lib/migrations/postgres');
   const l=plan.layout(),ns=l.namespaces,o=selected.options;
+  const reset=plan.resetPlan(l,provisioning.catalogues());
   const schemas=[],roles=[],policies=[],tokens=[],publicKeys=[],rootSecrets=[random(),random()];
   let admin,mongo,mounted=false,connected=false,mongoConnected=false,mongoOwned=false,closing,activePhase,step='connect';
   const roleURLs={},phaseEnvironment={},paths=Object.fromEntries(['api','evaluator','realtime','admission'].map(name=>[name,path.join(selected.directory.path,name+'.json')]));
@@ -123,12 +124,10 @@ module.exports=async function bootstrap(input) {
     async function resetForPhase(phaseId) {
       if(closing||!plan.phases.includes(phaseId))throw new Error('JOINED_BOOTSTRAP_PHASE_REFUSED');
       activePhase=phaseId;step='reset-'+phaseId;
-      const tables=[...['entries','treatments','devicestatus','profile','food','activity','settings'].map(d=>q(ns[d])+'.'+q(d)),
-        q(ns.clock)+'.tenant_write_clock',q(ns.rt_checkpoint)+'.tenant_consumer_checkpoint',q(ns.eval_checkpoint)+'.tenant_consumer_checkpoint',
-        q(ns.alarm)+'.tenant_alarm_suppression',...['tenant_notification_state','tenant_notification_heads','tenant_notification_requests'].map(t=>q(ns.outbox)+'.'+q(t)),
-        ...['tenant_authorization_config','tenant_authorization_subject_roles','tenant_authorization_subjects','tenant_authorization_roles'].map(t=>q(ns.authorization)+'.'+q(t)),
-        ...['legacy_credential_config','legacy_credential_subjects'].map(t=>q(ns.legacy)+'.'+q(t)),
-        ...['access_tenants','access_credentials','access_sessions','access_keys'].map(t=>q(ns.access)+'.'+q(t))];
+      const tables=reset.reset.map(row=>q(row.namespace)+'.'+q(row.table));
+      // Record the exact explicit, preflighted owned reset before PostgreSQL can
+      // refuse it. No credentials/provider data and no CASCADE/adopted tables.
+      await observe({phase:'bootstrap-reset-plan',phaseId,reset:reset.reset,preserved:reset.preserved,foreignKeys:reset.foreignKeys});
       await admin.query('TRUNCATE '+tables.join(','));await mongo.db(l.mongoDatabase).dropDatabase();
       const now=Number((await admin.query('SELECT floor(extract(epoch FROM clock_timestamp())*1000)::bigint AS now_ms')).rows[0].now_ms);
       if(!Number.isSafeInteger(now)||now<1)throw new Error('JOINED_BOOTSTRAP_CLOCK_REFUSED');
