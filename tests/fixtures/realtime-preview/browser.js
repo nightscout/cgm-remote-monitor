@@ -8,12 +8,14 @@ const { withPage } = require('../../browser/fixture');
 module.exports = async function browserConsumer (input) {
   assert.equal(input.env.NS_RT_JOINED_BROWSER, '1');
   const hooks = require('../../browser/hooks');
-  await hooks.mochaHooks.beforeAll(); let roles;
+  const planned = JSON.parse(fs.readFileSync(input.env.NS_RT_JOINED_CONFIG, 'utf8'));
+  hooks.validateFixtureHosts(planned.browserResolverHosts);
+  await hooks.launchNamedFixtureBrowser(planned.browserResolverHosts); let roles;
   try {
     roles = await require('./roles').start(input);
     assert(roles.config.uiFixture, 'explicit controlled UI fixture required; API alone does not serve UI');
-    const config = roles.config, origin = 'http://127.0.0.1:' + roles.ingress.port;
-    assert.equal(config.browserHost, '127.0.0.1', 'root alias admission must select this unchanged browser origin');
+    const config = roles.config, origin = 'http://' + config.browserHost + ':' + roles.ingress.port;
+    assert(config.browserResolverHosts.includes(config.browserHost), 'root named alias admission must select this actual browser origin');
     const token = input.env[config.browserCredentialEnv]; assert(token);
     const { Client } = require('pg'), admin = new Client({ connectionString: input.env.NS_TEST_POSTGRES_ADMIN_URI });
     assert.match(config.entriesNamespace, /^[a-z][a-z0-9_]{0,62}$/); assert.equal(roles.owned.entriesNamespace, config.entriesNamespace);
@@ -42,9 +44,17 @@ module.exports = async function browserConsumer (input) {
         await page.waitForFunction(() => !!document.querySelector('.container.alarming.urgent'), null, { timeout: config.timeoutMs });
         const result = await page.evaluate(() => ({ urgentUi: !!document.querySelector('.container.alarming.urgent'), sgvs: window.Nightscout.client.ddata.sgvs, events: window.__rtObservedAlarmEvents }));
         assert.equal(result.urgentUi, true); assert.deepEqual(result.sgvs, []); assert.equal(result.events.some(row => row.event === 'announcement'), false);
-        fs.writeFileSync(path.join(input.captureDir, 'actual-browser-consumer.json'), JSON.stringify({ classification: 'controlled fixture UI, unchanged client, actual API/RT', initial, result }) + '\n');
-      });
+        fs.writeFileSync(path.join(input.captureDir, 'actual-browser-consumer.json'), JSON.stringify({ classification: 'controlled fixture UI, unchanged client, actual API/RT', origin, resolverHosts: config.browserResolverHosts, redirectRefusals: roles.ingress.redirectRefusals, initial, result }) + '\n');
+      }, {fixtureHosts: config.browserResolverHosts});
     } finally { await admin.end(); }
+  } catch (error) {
+    // Browser navigation errors can contain the unchanged client's token URL.
+    // Preserve the error kind/code while withholding inherited credentials.
+    const secrets = Object.values(input.env).filter(value => typeof value === 'string' && value.length > 5);
+    const scrub = value => secrets.reduce((text, secret) => text.split(secret).join('[private-env]').split(encodeURIComponent(secret)).join('[private-env]'), String(value));
+    if (error && typeof error.message === 'string') error.message = scrub(error.message);
+    if (error && typeof error.stack === 'string') error.stack = scrub(error.stack);
+    throw error;
   } finally {
     try { if (roles) await roles.close(); } finally { await hooks.mochaHooks.afterAll(); }
   }

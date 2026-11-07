@@ -130,7 +130,7 @@ async function start (input) {
     }
     const realtime = await startRole({ ...input, role: 'realtime', env: realtimeEnvironment, timeoutMs: config.timeoutMs }); children.push(realtime);
     const ui = config.uiFixture ? await require('./ui')({ sourceDir: input.sourceDir, ...config.uiFixture }) : undefined;
-    ingress = await require('./ingress')({ ui, apiPort: api.port, realtimePort: realtime.port, timeoutMs: config.timeoutMs, onBirth: input.onBirth });
+    ingress = await require('./ingress')({ ui, redirectFixtureHosts: config.browserResolverHosts, apiPort: api.port, realtimePort: realtime.port, timeoutMs: config.timeoutMs, onBirth: input.onBirth });
     return Object.freeze({ api, realtime, ingress, config, owned, close,
       async startEvaluator ({ alarmRoutePath } = {}) {
         assert(config.evaluatorEnvFile, 'explicit evaluator role environment required');
