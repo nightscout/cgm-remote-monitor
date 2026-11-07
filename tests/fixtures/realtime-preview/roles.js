@@ -53,8 +53,9 @@ async function start (input) {
   const children = []; let ingress;
   async function close () {
     if (ingress) await ingress.close();
-    const results = await Promise.allSettled([...children].reverse().map(child => child.close()));
-    assert(results.every(result => result.status === 'fulfilled'), 'REALTIME_JOINED_CHILD_CLEANUP');
+    const errors = [];
+    for (const child of [...children].reverse()) try { await child.close(); } catch (error) { errors.push(error); }
+    assert.equal(errors.length, 0, 'REALTIME_JOINED_CHILD_CLEANUP');
   }
   try {
     const roleEnv = role => {
@@ -68,7 +69,18 @@ async function start (input) {
     const realtime = await startRole({ ...input, role: 'realtime', env: roleEnv('realtime'), timeoutMs: config.timeoutMs }); children.push(realtime);
     const ui = config.uiFixture ? await require('./ui')({ sourceDir: input.sourceDir, ...config.uiFixture }) : undefined;
     ingress = await require('./ingress')({ ui, apiPort: api.port, realtimePort: realtime.port, timeoutMs: config.timeoutMs, onBirth: input.onBirth });
-    return Object.freeze({ api, realtime, ingress, config, owned, close });
+    return Object.freeze({ api, realtime, ingress, config, owned, close,
+      async startEvaluator ({ alarmRoutePath } = {}) {
+        assert(config.evaluatorEnvFile, 'explicit evaluator role environment required');
+        const env = roleEnv('evaluator');
+        if (alarmRoutePath) {
+          const document = JSON.parse(fs.readFileSync(env.MULTITENANT_EVALUATOR_CONFIG, 'utf8'));
+          assert(document.consumers?.realtime?.route?.socketPathEnv, 'actual joined realtime consumer route required');
+          env[document.consumers.realtime.route.socketPathEnv] = alarmRoutePath;
+        }
+        const evaluator = await startRole({ ...input, role: 'evaluator', env, timeoutMs: config.timeoutMs }); children.push(evaluator); return evaluator;
+      }
+    });
   } catch (error) { await close(); throw error; }
 }
 module.exports = { startRole, start };

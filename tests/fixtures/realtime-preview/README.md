@@ -86,3 +86,23 @@ startup assets via controlled fixture, observes same-origin actual socket paths,
 actual browser receiveddata SGV replacement and urgent DOM path; no monkeypatch
 of io.connect, no production UI mount or device audio delivery promise. This test
 is source prepared only. Root supplies built same-head bundle/hash at campaign.
+
+Full consumed-outbox proposal: `tests/realtime-consumer.native.test.js` requires
+NS_RT_CONSUMER_NATIVE=1 + NS_RT_JOINED_NATIVE=1 on the ROOT final consumer source.
+Role config additionally has evaluatorEnvFile (actual final evaluator consumers
+config), outboxNamespace/consumerId, staleCredentialEnv/staleSubjectId,
+alarmNamespace,snoozeMs,settleMs,observationMs,maxMessageBytes,alarmSocketPath.
+Root ownership attests outbox/auth/alarm namespaces and synthetic subjects. Short
+captureDir<=56bytes permits a generated0700 fixed-/alarm-only UDS relay. It forwards
+to actual RT, intentionally loses ONE response after actual handoff, then permits
+same-ID retry. This is an explicit test instrument, not a production genericproxy.
+The actual evaluator coordinator (timers/current output) creates durable intents;
+fixture never calls a detached enqueue helper or substitutes currentauth. Real
+first stale /alarm subject has its owned grants removed; valid second subscriber
+must receive. Independent outbox rows/attemptIDs/payloads precede assertions.
+Actual socket ACK persists suppression, level2→1, and stops further alarm delivery
+after configured settle. Cleared/normal residual-state acceptance must join final
+notification owner's approved transition semantics; this fixture does not invent
+cancellation or device receipts. Only serverhand off/nullreceipt is asserted.
+Fixture restores removed owned grants, closes actual CLI children producer first,
+then exact owned relay and driver. NONE of this broader consumer phase has run.
