@@ -5,6 +5,30 @@ const fs = require('node:fs');
 const path = require('node:path');
 const assert = require('node:assert/strict');
 const { spawn } = require('node:child_process');
+// Trusted fixture transport only. New parent JSON stores references, never
+// credentials; hydration reads only the explicit invocation environment.
+function roleEnvironment (document, inputEnvironment) {
+  const object = value => value && typeof value === 'object' && !Array.isArray(value);
+  const name = value => typeof value === 'string' && /^[A-Z][A-Z0-9_]{0,127}$/.test(value);
+  assert(object(document), 'ROLE_ENV_DOCUMENT_INVALID');
+  if (!Object.hasOwn(document, 'version')) {
+    // Existing fixture documents remain compatible; the new parent always uses
+    // version1 and never persists credential values in this legacy format.
+    assert(Object.entries(document).every(([key, value]) => name(key) && typeof value === 'string'), 'ROLE_ENV_LEGACY_INVALID');
+    return { ...document };
+  }
+  assert(document.version === 1 && Object.keys(document).length === 3 &&
+    object(document.values) && object(document.references), 'ROLE_ENV_SCHEMA_INVALID');
+  assert(Object.entries(document.values).every(([key, value]) => name(key) && typeof value === 'string'), 'ROLE_ENV_VALUES_INVALID');
+  const selected = { ...document.values };
+  for (const [key, reference] of Object.entries(document.references)) {
+    assert(name(key) && name(reference) && !Object.hasOwn(selected, key), 'ROLE_ENV_REFERENCE_COLLISION');
+    assert(Object.hasOwn(inputEnvironment, reference) && typeof inputEnvironment[reference] === 'string' && inputEnvironment[reference].length > 0,
+      'ROLE_ENV_REFERENCE_MISSING');
+    selected[key] = inputEnvironment[reference];
+  }
+  return selected;
+}
 async function startRole ({ sourceDir, role, env, timeoutMs, captureDir, onBirth = () => {} }) {
   assert(['api', 'realtime', 'evaluator'].includes(role));
   const child = spawn(process.execPath, [path.join(sourceDir, 'bin/nightscout.js'), 'multitenant', role], {
@@ -66,7 +90,7 @@ async function start (input) {
   }
   try {
     const roleEnv = role => {
-      const selected = JSON.parse(fs.readFileSync(config[role + 'EnvFile'], 'utf8'));
+      const selected = roleEnvironment(JSON.parse(fs.readFileSync(config[role + 'EnvFile'], 'utf8')), input.env);
       const pg = owned.resources.find(row => row.kind === 'postgres');
       assert(pg && pg.host === '127.0.0.1' && pg.port && pg.database, 'root-owned PG endpoint attestation required');
       for (const value of Object.values(selected)) if (typeof value === 'string' && /^postgres(?:ql)?:/.test(value)) {
@@ -106,4 +130,4 @@ async function start (input) {
     });
   } catch (error) { await close(); throw error; }
 }
-module.exports = { startRole, start };
+module.exports = { startRole, start, roleEnvironment };
