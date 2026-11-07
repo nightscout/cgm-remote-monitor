@@ -1,4 +1,5 @@
 'use strict';
+// covers: tests/fixtures/realtime-preview/observe-evaluator.js
 // Instrument correctness only; fake frozen capability is not a native result.
 const assert = require('node:assert/strict'), fs = require('node:fs'), os = require('node:os'), path = require('node:path');
 const observer = require('./fixtures/realtime-preview/observe-evaluator');

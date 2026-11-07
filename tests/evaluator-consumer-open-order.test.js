@@ -1,4 +1,5 @@
 'use strict';
+// covers: tests/fixtures/evaluator-consumers-native.js, tests/fixtures/evaluator-preview-lab.js, tests/fixtures/tenant-durable-replay.js, tests/fixtures/tenant-commit-clock-port.js
 const assert=require('node:assert/strict');
 const protocol=require('./fixtures/evaluator-consumer-open-protocol');
 describe('actual inherited evaluator consumer fixture setup protocol',function(){

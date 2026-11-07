@@ -170,6 +170,9 @@
         "tests/tenant-notifications.test.js",
         "tests/evaluator-consumers.test.js",
         "tests/evaluator-consumer-metadata.test.js",
+        "tests/evaluator-consumer-open-order.test.js",
+        "tests/notification-readiness-diagnostic.test.js",
+        "tests/realtime-evaluator-observer.test.js",
         "tests/realtime-bootstrap.test.js",
         "tests/notification-ack-admission.test.js",
         "tests/notification-private-state.test.js",
@@ -247,7 +250,8 @@
         "tests/production-safety.test.js",
         "tests/supertest-loopback.test.js",
         "tests/test-backends.test.js",
-        "tests/test-select.test.js"
+        "tests/test-select.test.js",
+        "tests/multitenant-inventory.test.js"
       ],
       "covers": [
         "scripts/flaky-test-runner.js"
