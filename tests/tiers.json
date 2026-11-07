@@ -392,7 +392,8 @@
         "tests/tenant-socket-order-capability.integration.test.js",
         "tests/tenant-alarm-state.integration.test.js",
         "tests/tenant-notifications.integration.test.js",
-        "tests/evaluator-consumers.integration.test.js"
+        "tests/evaluator-consumers.integration.test.js",
+        "tests/tenant-insertion-upgrade.integration.test.js"
       ],
       "env": true,
       "require": [

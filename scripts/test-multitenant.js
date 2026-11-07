@@ -54,6 +54,8 @@ const IMAGES = {
 const PENDING = 'pending opt-in';
 const CRUD = { NS_ENTRIES_CRUD_HTTP_TEST: '1' };
 const INVENTORY = [
+  { file: 'tests/tenant-insertion-upgrade.integration.test.js', flags: { NS_TENANT_INSERTION_UPGRADE_TEST: '1' }, shared: ['postgres'], own: [], gate: PENDING,
+    note: 'populated immutable-prefix upgrades through actual runner, per-tenant floors, old catalogue refusal and transaction rollback' },
   { file: 'tests/tenant-insertion-readiness.integration.test.js', flags: { NS_TENANT_INSERTION_READINESS_TEST: '1' }, shared: ['postgres'], own: [], gate: PENDING,
     note: 'actual typed tenant-local allocator schemas, exact function/trigger/RLS/ACL/floor admission with physical red/restored controls' },
   { file: 'tests/owner-configuration.integration.test.js', flags: { NS_OWNER_CONFIGURATION_DOCKER_TEST: '1' }, shared: [], own: ['postgres', 'vault'], gate: PENDING,

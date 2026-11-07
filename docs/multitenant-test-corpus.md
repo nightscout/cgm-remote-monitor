@@ -101,6 +101,7 @@ tests as pending with `[pending opt-in: <requirement>]` in the title; one
 | `tests/tenant-runtime-vault.integration.test.js` | `NS_TENANT_RUNTIME_VAULT_DOCKER_TEST=1` | | PostgreSQL, Vault | |
 | `tests/tenant-entries-http.integration.test.js` | `NS_TENANT_HTTP_DOCKER_TEST=1` | | PostgreSQL | |
 | `tests/tenant-socket-data-forwarding.integration.test.js` | `NS_SOCKET_DATA_FORWARDING_TEST=1` | PostgreSQL, MongoDB | | real sockets and canonical forwarded PG DATA writes; pinned AAPS pattern replay, not binary |
+| `tests/tenant-insertion-upgrade.integration.test.js` | `NS_TENANT_INSERTION_UPGRADE_TEST=1` | PostgreSQL | Populated five-domain runner upgrade, original ordinal preservation, tenant floors, old catalogue refusal and rollback |
 | `tests/tenant-insertion-readiness.integration.test.js` | `NS_TENANT_INSERTION_READINESS_TEST=1` | PostgreSQL | | all five selected tenant-local allocator schemas; exact trigger/function/RLS/effective-ACL/floor admission and physical red/restored controls |
 | `tests/tenant-socket-order-capability.integration.test.js` | `NS_SOCKET_ORDER_CAPABILITY_TEST=1` | PostgreSQL | | prototype optional successor: old/new ledger matrix, populated refusal, fresh insertion order |
 | `tests/tenant-credential-http.integration.test.js` | `NS_TENANT_CREDENTIAL_HTTP_DOCKER_TEST=1` | MongoDB | PostgreSQL | its differential cases open `CUSTOMCONNSTR_mongo` |
