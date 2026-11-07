@@ -22,6 +22,8 @@ function prepare (args) {
   if (!/^[0-9]+$/.test(options.port) || Number(options.port) < 1024 || Number(options.port) > 65535) throw new Error('Invalid unprivileged port');
   const state = path.resolve(options.state);
   if (!/^\/[A-Za-z0-9_./-]+$/.test(state) || state.split('/').includes('..')) throw new Error('State path must be absolute without spaces or shell syntax');
+  const sourceRoot = path.resolve(base, '../..');
+  if (state.startsWith(sourceRoot + '/') && state !== path.join(base, '.state')) throw new Error('Custom state must be outside the source/build context');
   if (fs.existsSync(state) || fs.existsSync(path.join(base, '.env'))) throw new Error('State or deployment .env already exists; reuse it or choose a clean deployment checkout');
   const source = execFileSync('git', ['rev-parse', 'HEAD'], {cwd: path.join(base, '../..'), encoding: 'utf8'}).trim();
   if (!/^[a-f0-9]{40}$/.test(source)) throw new Error('Source commit unavailable');

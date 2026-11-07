@@ -47,13 +47,15 @@ services:
     <<: *app
     profiles: [ops]
     user: "1000:1000"
-    command: [node, deploy/multitenant/bootstrap.js, --output, /state]
+    command: [node, deploy/multitenant/bootstrap.js]
     depends_on:
       postgres: {condition: service_healthy}
       vault: {condition: service_started}
     environment:
       NODE_EXTRA_CA_CERTS: /run/ns-ca/ca.crt
       VAULT_ADDR: https://vault:8200
+      NS_COMPOSE_BOOTSTRAP: "1"
+      NS_BOOTSTRAP_OUTPUT: /state
       NS_POSTGRES_HOST: postgres
       NS_POSTGRES_DATABASE: nightscout_compose_test
       NS_POSTGRES_PASSWORD_FILE: /state/bootstrap/postgres-password
@@ -118,10 +120,13 @@ services:
     <<: *app
     profiles: [ops]
     command: [node, -r, ./deploy/multitenant/load-env.js, deploy/multitenant/demo.js]
+    environment:
+      NODE_EXTRA_CA_CERTS: /run/ns-ca/ca.crt
+      NS_DEMO_CONFIRM_SYNTHETIC: "1"
     volumes:
       - ${NS_DEMO_STATE}/ops:/run/ns-config:ro
       - ${NS_DEMO_STATE}/ipc:/run/ns-ipc
-      - ${NS_DEMO_STATE}/artifacts:/artifacts
+      - ${NS_DEMO_STATE}/artifacts:/run/ns-artifacts
       - ${NS_DEMO_STATE}/tls/ca.crt:/run/ns-ca/ca.crt:ro
 
 networks:
