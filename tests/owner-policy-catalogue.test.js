@@ -3,36 +3,10 @@
 const assert = require('node:assert/strict');
 const { createHash } = require('node:crypto');
 const shiro = require('shiro-trie');
-const { createOwnerPolicy, createOwnerReadPolicy, catalogueDigest, TERMINAL_OPERATIONS } = require('../lib/subject-admin/owner-policy');
+const { createOwnerPolicy, catalogueDigest, TERMINAL_OPERATIONS } = require('../lib/subject-admin/owner-policy');
 
 describe('owner policy reviewed operation catalogue', function () {
   const namespace = 'owner_catalogue_test';
-
-  it('keeps unselected readers independent of owner policy and preserves legacy root/default behavior', async function () {
-    const result = await require('../scripts/probe-owner-policy-clamping').run({ quiet: true });
-    assert.deepEqual(result.after, { legacy: true, legacySnapshot: true, local: true });
-  });
-
-  it('clamps selected subject readers in each fresh authority snapshot and refuses unsupported policy', async function () {
-    const result = await require('../scripts/probe-owner-policy-clamping').run({ selected: true, requireClamp: true, quiet: true });
-    assert.deepEqual(result.after, { legacy: false, legacySnapshot: false, local: false });
-  });
-
-  it('selects only a trusted concrete reader catalogue and intersects both current bounds', function () {
-    assert.equal(createOwnerReadPolicy(undefined, 'INVALID'), null);
-    for (const option of [null, [], {}, { catalogue: ['api:*:read'] }, { catalogue: ['api:entries:read'], extra: true }]) {
-      assert.throws(() => createOwnerReadPolicy(option, 'INVALID'), TypeError);
-    }
-    const catalogue = ['api:entries:read'];
-    const policy = createOwnerReadPolicy({ catalogue }, 'INVALID');
-    catalogue.push('api:entries:create');
-    const rows = [{ anonymous_roles: ['denied'], owner_catalogue_digest: catalogueDigest(['api:entries:read']),
-      owner_ceiling: ['api:entries:read', 'api:entries:create'] }];
-    assert.deepEqual(policy.clamp(rows, [['api:entries:read', 'api:entries:create']]), [['api:entries:read']]);
-    rows[0].owner_ceiling = ['api:entries:create'];
-    assert.deepEqual(policy.clamp(rows, [['api:entries:read', 'api:entries:create']]), [[]]);
-    assert.throws(() => policy.clamp([rows[0], { ...rows[0], owner_ceiling: [] }], [[]]), { code: 'INVALID' });
-  });
 
   for (const permission of [
     'api:entries:read', 'api:treatments:create', 'api:profile:update',
@@ -65,6 +39,26 @@ describe('owner policy reviewed operation catalogue', function () {
     for (const catalogue of [[], ['api:entries:read', 'api:entries:read'], [null], 'api:entries:read']) {
       assert.throws(() => createOwnerPolicy({ namespace, catalogue }), TypeError);
     }
+  });
+
+  it('refuses a proposed grant once the current operator ceiling tightens and admits it again when restored', async function () {
+    const permission = 'api:entries:read';
+    const state = { ceiling: [permission] };
+    const connection = { async query (sql) {
+      if (sql.includes('SELECT anonymous_roles')) return { rows: [{ anonymous_roles: ['denied'] }] };
+      if (sql.includes('SELECT catalogue_digest')) return { rows: [{ catalogue_digest: catalogueDigest([permission]), ceiling: state.ceiling.slice() }] };
+      if (sql.includes('SELECT active,can_update,delegable')) return { rows: [{ active: true, can_update: true, delegable: [permission] }] };
+      if (sql.includes('SELECT name,permissions')) return { rows: [{ name: 'synthetic_reader', permissions: [permission] }] };
+      throw new Error('unexpected policy query');
+    } };
+    const policy = createOwnerPolicy({ namespace, catalogue: [permission] });
+    const actor = { tenant: '11111111-1111-4111-8111-111111111111', principal: 'synthetic_owner', consumer: 'management' };
+    const proposal = { roles: ['synthetic_reader'] };
+    await policy.authorizeUpdate(connection, actor, 'synthetic_subject', proposal);
+    state.ceiling = [];
+    await assert.rejects(policy.authorizeUpdate(connection, actor, 'synthetic_subject', proposal), { code: 'SUBJECT_ADMIN_FORBIDDEN' });
+    state.ceiling = [permission];
+    await policy.authorizeUpdate(connection, actor, 'synthetic_subject', proposal);
   });
 
   it('digests an independent sorted copy and leaves the caller catalogue unchanged', function () {

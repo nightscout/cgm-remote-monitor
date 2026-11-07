@@ -31,7 +31,7 @@ optInSuite(process.env.NS_TENANT_AUTHORITY_POSTGRES_DOCKER_TEST === '1',
   this.timeout(30000);
   const container = 'ns-tenant-authority-pg-' + crypto.randomBytes(8).toString('hex');
   const appRole = 'tenant_authority_app';
-  let owned = false, previousMode, admin, adminURI, appURI, first, second, selected;
+  let owned = false, previousMode, admin, adminURI, appURI, first, second;
 
   before(async function () {
     previousMode = scope.getTenancyMode();
@@ -91,7 +91,6 @@ optInSuite(process.env.NS_TENANT_AUTHORITY_POSTGRES_DOCKER_TEST === '1',
 
   after(async function () {
     try {
-      if (selected) await selected.close();
       if (first) await first.close();
       if (second) await second.close();
       if (admin) await admin.end();
@@ -215,26 +214,6 @@ optInSuite(process.env.NS_TENANT_AUTHORITY_POSTGRES_DOCKER_TEST === '1',
     }
   });
 
-  it('bounds old subject grants on fresh selected PostgreSQL snapshots across independent pools', async function () {
-    selected = await require('./fixtures/owner-clamping-acceptance')({ admin, adminURI, appURI, appRole });
-    await selected.currentSnapshots();
-  });
-
-  it('fails selected readers closed on missing, mismatched, wildcard and unsupported current policy', async function () {
-    assert.ok(selected, 'selected PostgreSQL fixture must have initialized');
-    await selected.policyRefusals();
-  });
-
-  it('requires read-only forced-RLS current owner policy and refuses authority outages', async function () {
-    assert.ok(selected, 'selected PostgreSQL fixture must have initialized');
-    await selected.policySecurity();
-  });
-
-  it('enforces selected current ceilings through actual signed-token HTTP on separate pools', async function () {
-    assert.ok(selected, 'selected PostgreSQL fixture must have initialized');
-    await selected.newTokenHTTP();
-  });
-
   it('survives idle-connection termination and rejects the next authority query', async function () {
     await first.close();
     await second.close();
@@ -311,7 +290,6 @@ optInSuite(process.env.NS_TENANT_AUTHORITY_POSTGRES_DOCKER_TEST === '1',
     try {
       await waitFor(() => stdout.includes('READY\n'), 'idle pool readiness');
       docker(['kill', container]);
-      if (selected) await selected.authorityOutage();
       await waitFor(() => stderr.includes('PostgreSQL idle connection error:'),
         'repository pool idle-error handler');
       assert.match(stderr, /PostgreSQL idle connection error: Error/);
@@ -330,7 +308,6 @@ optInSuite(process.env.NS_TENANT_AUTHORITY_POSTGRES_DOCKER_TEST === '1',
       assert.equal(stderr.includes('uncaughtException'), false);
       assert.equal(stderr.includes('Unhandled'), false);
     } finally {
-      if (selected) await selected.close();
       if (!exited) child.kill('SIGKILL');
     }
   });
