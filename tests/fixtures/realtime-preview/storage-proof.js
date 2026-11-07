@@ -15,7 +15,7 @@ module.exports=async function start({input,roles,admin,connect,realtimeConfig}){
   async function wait(check,label){const deadline=Date.now()+config.timeoutMs;while(Date.now()<deadline){const value=await check();if(value)return value;await pause(10);}throw new Error(label);}
   const rows=async tenant=>oracle.bounded((await admin.query('SELECT id_kind,doc FROM '+entries+' WHERE tenant_id=$1 ORDER BY id_kind,doc->>\'_id\' LIMIT $2',[tenant,limits.maxRows+1])).rows,limits);
   const floor=async()=> (await admin.query('SELECT last_stamp FROM '+clock+' WHERE tenant_id=$1',[config.tenant])).rows;
-  const events=group=>group.map(client=>({transport:client.transport,events:oracle.bounded(client.events,limits)}));
+  const events=group=>oracle.eventSnapshots(group,limits);
   async function projection(check){return wait(async()=>{
     const row=(await admin.query('SELECT checkpoint,projection FROM '+checkpoint+' WHERE tenant_id=$1 AND consumer=$2',[config.tenant,realtimeConfig.consumer])).rows[0];
     record({lastCheckpoint:row});return check(row)?row:null;

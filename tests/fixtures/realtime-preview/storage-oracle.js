@@ -14,6 +14,11 @@ function bounded(value,{maxRows,maxBytes}){
   if(Array.isArray(value)&&value.length>maxRows||Buffer.byteLength(JSON.stringify(value))>maxBytes)throw new Error('STORAGE_PROOF_BOUND');
   return value;
 }
+// Capture owned wire values now; later socket events must not rewrite a prior
+// stage's evidence. Bounds still apply to the entire live collection first.
+function eventSnapshots(group,limits){
+  return group.map(client=>({transport:client.transport,events:structuredClone(bounded(client.events,limits))}));
+}
 function verdict(label,physical,record,verify){
   record({[label]:physical});
   try{return verify();}catch(error){if(error instanceof assert.AssertionError)record({semanticFailure:{name:'AssertionError',code:'ERR_ASSERTION',message:label}});throw error;}
@@ -43,4 +48,4 @@ function revoked(physical,record){
     for(const client of physical.foreignClients)assert.deepEqual(client.events,[],'STORAGE_REVOCATION_FOREIGN_WIRE_UNCHANGED');
   });
 }
-module.exports={single,bounded,typed,revoked};
+module.exports={single,bounded,eventSnapshots,typed,revoked};
