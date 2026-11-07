@@ -78,9 +78,18 @@
     "id": "unadmitted-physical-relation",
     "phase": "C5",
     "path": "lib/storage/postgres-relation-inventory.js",
-    "before": "async function assertRelationInventory (connection, { namespace, tables, fail }) {",
-    "after": "async function assertRelationInventory (connection, { namespace, tables, fail }) { return;",
+    "before": "if (!expected.has(row.name)) throw fail('UNADMITTED', row.name);",
+    "after": "if (!expected.has(row.name)) continue;",
     "assertion": "WHOLE_C_PHYSICAL_DRIFT_EXPORT_REFUSED",
-    "physical": "known full ledger unchanged, hiddenA persists while knownA erased and deployment backup falsely accepts omitted relation"
+    "physical": "Ignore only extra relation names, retain inheritance predicate; known ledger hidden witness causes actual knownA erasure/hiddenA retained/false whole backup acceptance"
+  },
+  {
+    "id": "ordinary-inheritance",
+    "phase": "C5",
+    "path": "lib/storage/postgres-relation-inventory.js",
+    "before": " || row.inherited !== false",
+    "after": "",
+    "assertion": "WHOLE_C_INHERITANCE_EXPORT_REFUSED",
+    "physical": "actual parent projection omits outside-descendant extra column; parent DELETE removes descendantA and its extra data while foreignB remains"
   }
 ]

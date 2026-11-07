@@ -141,8 +141,8 @@ function recordingConnection (seed = seedRows(), legacy = false) {
     log.push({ text: text.replace(/\s+/g, ' ').trim(), values: clone(values), tenant });
     let match;
     if (text.includes('reviewed-relation-inventory')) return { rows: [
-      ...(ledgers.has(values[0]) ? [{ name: 'schema_migrations', kind: 'r', partition: false }] : []),
-      ...[...tables].filter(([name]) => name.startsWith('"' + values[0] + '".')).map(([name, table]) => ({ name: name.split('"')[3], kind: table.kind || 'r', partition: table.partition || false }))
+      ...(ledgers.has(values[0]) ? [{ name: 'schema_migrations', kind: 'r', partition: false, inherited: false }] : []),
+      ...[...tables].filter(([name]) => name.startsWith('"' + values[0] + '".')).map(([name, table]) => ({ name: name.split('"')[3], kind: table.kind || 'r', partition: table.partition || false, inherited: table.inherited || false }))
     ] };
     if (/FROM pg_attribute/.test(text)) {
       const table = tables.get(values[0]);
@@ -224,6 +224,10 @@ function recordingConnection (seed = seedRows(), legacy = false) {
     log,
     rows: (ns, table, tenant) => clone(tables.get('"' + ns + '"."' + table + '"').rows.filter(row => tenant === undefined || row.tenant_id === tenant)),
     ledgers,
+    addInheritance: (ns, name) => {
+      const table = tables.get('"' + ns + '"."' + name + '"'); table.inherited = true;
+      table.rows.push({ tenant_id: A, id_kind: 'string', doc: { _id: 'inherited-a', date: 1000 }, insertion_ordinal: '991', descendant_only: 'synthetic child extra' });
+    },
     addRelation: (ns, name, kind = 'r', partition = false) => tables.set('"' + ns + '"."' + name + '"', { kind, partition, columns: [{ name: 'tenant_id', type: 'uuid' }], rows: [{ tenant_id: A }, { tenant_id: B }] }),
     query,
     transaction: fn => transaction(fn, 'BEGIN'),
@@ -255,6 +259,22 @@ describe('tenant lifecycle: typed export, import and two-phase deletion', functi
       tables: entry.tables.map(table => ({ ...table, rows: artifact.tables[entry.kind + '.' + table.table], secrets: table.keyReferences !== undefined, keyReferences: table.keyReferences })) }));
     return artifacts.buildArtifact({ tenant: A, sourceCommit: COMMIT, exportedAt: 1, catalogues });
   }
+
+  it('refuses ordinary inheritance participation even when descendant is outside selected namespaces', async function () {
+    const source = recordingConnection(); source.addInheritance(namespaces.entries, 'entries');
+    let artifact, exportFailure, eraseFailure;
+    try { artifact = await lifecycle.exportTenant(source, options()); } catch (error) { exportFailure = error; }
+    // Old source accepts parent projection and omits the descendant-only column.
+    if (artifact) {
+      const request = await lifecycle.requestDeletion(source, { tenant: A, ledgerNamespace, artifact });
+      await lifecycle.confirmDeletion(source, { tenant: A, ledgerNamespace, artifact, requestId: request.requestId });
+      try { await lifecycle.executeDeletion(source, { tenant: A, namespaces, ledgerNamespace, artifact, requestId: request.requestId }); } catch (error) { eraseFailure = error; }
+    }
+    console.log('LIFECYCLE_INHERITANCE_SOURCE', JSON.stringify({ scope: 'actual-component recording model, not PostgreSQL', accepted: Boolean(artifact), omittedExtra: artifact ? artifact.tables['entries.entries'].every(row => !Object.hasOwn(row, 'descendant_only')) : null, deletes: source.log.filter(entry => /^DELETE/.test(entry.text)).length, remainingParentA: source.rows(namespaces.entries, 'entries', A).length }));
+    assert.equal(exportFailure?.code, 'LIFECYCLE_RELATION_UNSUPPORTED');
+    assert.equal(eraseFailure, undefined);
+    assert.equal(source.log.filter(entry => /^DELETE/.test(entry.text)).length, 0);
+  });
 
   it('refuses unadmitted physical relations with an unchanged known ledger before export or erase', async function () {
     const source = recordingConnection(); const artifact = await lifecycle.exportTenant(source, options());

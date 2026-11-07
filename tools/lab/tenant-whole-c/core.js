@@ -467,6 +467,37 @@ async function run (config, selected = 'all') {
       }
       const state = await fixture();
       try {
+        // Ordinary inheritance is not a partition and can cross the selected
+        // namespace boundary. Never use ONLY as a silent recovery workaround.
+        const external = (await reserve(config.prefix + '_inherit_' + (++serial), ['outside'])).outside;
+        await admin.query('CREATE SCHEMA ' + q(external));
+        const descendant = q(external) + '.whole_c_descendant';
+        await admin.query('CREATE TABLE ' + descendant + '(descendant_only text NOT NULL) INHERITS (' + q(state.cohort.ns.entries) + '.entries)');
+        const inheritedA = { tenant_id: A, id_kind: 'string', doc: { _id: 'whole_c_inherited_a', type: 'sgv', sgv: 123, date: state.cohort.epoch }, insertion_ordinal: '991' };
+        const inheritedB = { ...inheritedA, tenant_id: B, doc: { ...inheritedA.doc, _id: 'whole_c_inherited_b' }, insertion_ordinal: '992' };
+        for (const row of [inheritedA, inheritedB]) await admin.query('INSERT INTO ' + descendant + '(tenant_id,id_kind,doc,insertion_ordinal,descendant_only) VALUES($1,$2,$3::jsonb,$4,$5)', [row.tenant_id, row.id_kind, JSON.stringify(row.doc), row.insertion_ordinal, 'synthetic descendant-only ' + (row.tenant_id === A ? 'a' : 'b')]);
+        const inheritedArtifact = require('../../../lib/tenant-lifecycle/artifact').buildArtifact({ tenant: A, sourceCommit: config.sourceHead, exportedAt: state.args.artifact.manifest.exportedAt,
+          catalogues: state.args.artifact.manifest.catalogues.map(entry => ({ ...entry, tables: entry.tables.map(table => ({ ...table,
+            rows: state.args.artifact.tables[entry.kind + '.' + table.table].concat(entry.kind === 'entries' && table.table === 'entries' ? [inheritedA] : []), secrets: table.keyReferences !== undefined, keyReferences: table.keyReferences })) })) });
+        await lifecycle.saveTenantArtifact(inheritedArtifact, { directory: state.artifactDirectory });
+        const inheritedRequest = await state.owner.requestDeletion(state.ports.owner, { ...state.args, artifact: inheritedArtifact });
+        const inheritedArgs = { ...state.args, artifact: inheritedArtifact, requestId: inheritedRequest.requestId };
+        await state.operator.confirmDeletion(state.ports.operator, inheritedArgs);
+        const inheritanceBefore = await physical('C5-inheritance-before', state.cohort.admission);
+        const childBefore = (await observer.query('SELECT * FROM ONLY ' + descendant + ' ORDER BY tenant_id')).rows;
+        let inheritanceExport, inheritanceErase, inheritanceBackup, acceptedInheritedExport;
+        try { acceptedInheritedExport = await state.cohort.admission.lifecycle.exportTenant(state.ports.operator, { tenant: A, namespaces: state.cohort.ns, sourceCommit: config.sourceHead }); } catch (error) { inheritanceExport = error; }
+        try { await state.cohort.deployment.backup(admin, { sourceCommit: config.sourceHead }); } catch (error) { inheritanceBackup = error; }
+        try { await state.operator.executeDeletion(state.ports.operator, inheritedArgs); } catch (error) { inheritanceErase = error; }
+        const inheritanceAfter = await physical('C5-inheritance-after-before-verdict', state.cohort.admission);
+        const childAfter = (await observer.query('SELECT * FROM ONLY ' + descendant + ' ORDER BY tenant_id')).rows;
+        emit('C5-inheritance-effects-before-verdict', { exportCodes: codes(inheritanceExport), backupCodes: codes(inheritanceBackup), eraseCodes: codes(inheritanceErase), childBefore, childAfter,
+          exportAccepted: Boolean(acceptedInheritedExport), extraOmitted: acceptedInheritedExport ? acceptedInheritedExport.tables['entries.entries'].every(row => !Object.hasOwn(row, 'descendant_only')) : null });
+        assert.ok(codes(inheritanceExport).includes('LIFECYCLE_RELATION_UNSUPPORTED'), 'WHOLE_C_INHERITANCE_EXPORT_REFUSED');
+        assert.ok(codes(inheritanceBackup).includes('OPERATIONS_RELATION_UNSUPPORTED'), 'WHOLE_C_INHERITANCE_BACKUP_REFUSED');
+        assert.ok(codes(inheritanceErase).includes('LIFECYCLE_RELATION_UNSUPPORTED'), 'WHOLE_C_INHERITANCE_ERASE_REFUSED');
+        oracle.sameRows(inheritanceBefore, inheritanceAfter); assert.deepEqual(childAfter, childBefore);
+        await admin.query('DROP TABLE ' + descendant); await admin.query('DROP SCHEMA ' + q(external));
         const unknownName = '0999_whole_c_unknown', unknownChecksum = 'e'.repeat(64);
         const hidden = q(state.cohort.ns.entries) + '.whole_c_unreviewed_state';
         const createHidden = async () => {

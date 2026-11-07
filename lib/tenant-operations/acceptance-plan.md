@@ -403,7 +403,7 @@ pass. This is SQL-fixture trusted operator quiescence, not serving ingress or a 
 fence. Exact child births are checked before cleanup signals. The parent retains
 its fixture for independent teardown and does not report runtime RELEASED.
 
-Nine prepared native controls have strict causal signatures and physical oracles;
+Ten prepared native controls have strict causal signatures and physical oracles;
 none are native evidence until run. The full config contract and five-case
 instrument are separate from staged journey descriptors. Mongo/Vault/actual API/
 RT/evaluator/browser/current-token/IPC/provider behavior need separate composition
@@ -438,3 +438,13 @@ maintenance jobs; restricted serving roles already lack schema DDL. Concurrent
 privileged DDL exclusion has not been proved by this metadata query. Configured
 37-table census is not a measurement of the database until live admission passes.
 Same-ID identity tenant restore remains unsupported; this check does not close it.
+
+
+Ordinary inheritance is also unsupported. A selected ordinary relation can have
+parents or descendants in another namespace while remaining `relkind=r` and not
+a partition. Admission therefore checks both `pg_inherits.inhrelid` and
+`inhparent` for each selected relation, including the migration ledger, and refuses
+any participation. It does not adopt foreign descendants or substitute `ONLY` to
+silently narrow the operation. This remains metadata-only point-in-time admission,
+not a concurrent privileged-DDL fence. The configured 37-table selection and
+same-ID tenant-restore gap retain their prior scope.

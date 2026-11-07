@@ -31,7 +31,7 @@
   ],
   "authority": "fixture-only typed actor document in actual tenant_operator_policy, shared shipping advisory fence held on same lifecycle transaction; current SQL reread per admission; no production management adapter selected",
   "quiescence": "actual writer pid/startTicks/uid/cmdline digest + stopped/absent state. Trusted operator SQL-fixture quiescence only; not DB fence, D15 blackout or serving-ingress proof",
-  "causalEvidence": "Nine native controls require designated AssertionError + independent physical symptom, all native UNMEASURED. Ledger-only and known-ledger/hidden-table drift are separate causal witnesses.",
+  "causalEvidence": "Ten native controls with designated assertion + physical symptom, all native UNMEASURED",
   "cleanup": "child validates exact pid birth and drops only registered absent-at-start namespace/roles; parent inventories exact resources and leaves its fixture intact for independent teardown. No runtime RELEASED claim from this child",
   "excluded": [
     "MongoDB/Vault/serving listeners",
@@ -50,10 +50,10 @@
   "priorEvidence": "f77 representative native, prior source capsules and bounded root profile captures remain separate; this instrument does not relabel them",
   "bounds": {
     "allCasesPerInvocation": 5,
-    "maximumReservedSchemasPerAllInvocation": 213,
+    "maximumReservedSchemasPerAllInvocation": 214,
     "createdRolesPerAllInvocation": 108,
     "NodeBirthsPerAllInvocation": 5,
-    "allStagesInvocations": 20,
+    "allStagesInvocations": 22,
     "roleClasses": 7,
     "operationalFixtureRoleClasses": 2,
     "maximumChildDeadlineSeconds": 1800
@@ -70,5 +70,5 @@
     "resources": "one exact private sequence and two operator SQL sessions within existing C5 owned namespace",
     "scope": "cached allocator counterexample only, native UNMEASURED; no application sequence maintenance or rights changes"
   },
-  "physicalInventory": "Exact ordinary reviewed relations + ordinary schema_migrations in each selected owned namespace; unlisted r/p/f/m/v and partitions refuse. Point-in-time snapshot, requires coordinated no-DDL operator window; no namespace DDL fence implied."
+  "physicalInventory": "Exact ordinary reviewed relations + ordinary schema_migrations in each selected owned namespace; unlisted r/p/f/m/v and partitions refuse. Point-in-time snapshot, requires coordinated no-DDL operator window; no namespace DDL fence implied. Ordinary inheritance participation in either pg_inherits direction refuses even across namespace boundaries; foreign descendants not adopted."
 }

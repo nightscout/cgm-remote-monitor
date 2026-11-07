@@ -15,11 +15,11 @@ The entry archives a clean committed head plus exact OLD a7, verifies both packa
 locks against the existing private dependency copy, and uses `NODE_PATH` without
 symlinks/install/write to that copy. Exact source, control patches, stdout/stderr,
 raw observations, process identities, cleanup and hashes are retained. A mismatch
-stops dependent stages; failed attempts stay immutable. An unmodified all-case invocation reserves at most213schemas and creates108roles
+stops dependent stages; failed attempts stay immutable. An unmodified all-case invocation reserves at most214schemas and creates108roles
 (three C5 writer births plus probe/observer =5Node births); all stages comprise
-20invocations on the same explicitly parent-owned PG resource. Cleanup is checked
+22invocations on the same explicitly parent-owned PG resource. Cleanup is checked
 after every invocation. These are fixture bounds, not capacity measurements.
-Nine causal controls in
+Ten causal controls in
 `controls.json` must produce the named assertion **and** physical symptom; setup,
 permission, timeout or parser failures do not qualify. Each restored target gets a
 fresh fixture namespace/role cohort; final unmodified C1–C5 is mandatory.
@@ -177,3 +177,36 @@ respectively, so a different guard's refusal is not misgraded as the intended
 unsafe effect. The independent observer records actual namespace relation names,
 kinds and partition flags before verdict, as well as the hidden synthetic rows.
 The drift guard covers deployment backup too. No new service cohort is allocated.
+
+
+Ordinary inheritance is also unsupported. A selected ordinary relation can have
+parents or descendants in another namespace while remaining `relkind=r` and not
+a partition. Admission therefore checks both `pg_inherits.inhrelid` and
+`inhparent` for each selected relation, including the migration ledger, and refuses
+any participation. It does not adopt foreign descendants or substitute `ONLY` to
+silently narrow the operation. This remains metadata-only point-in-time admission,
+not a concurrent privileged-DDL fence. The configured 37-table selection and
+same-ID tenant-restore gap retain their prior scope.
+
+
+C5 stages ordinary inheritance in one additional registered private namespace
+within the existing cohort: an outside child adds a descendant-only column and
+synthetic A/B rows. The manually prepared structural artifact contains parent
+projection fields only; actual export/backup/erase must refuse participation.
+The observer records raw inheritance edges and descendant columns before verdict.
+Removing only the inheritance predicate must expose accepted projection/omitted
+extra field and actual descendant-A deletion with foreign B unchanged. Other
+relation/ledger controls retain the inheritance predicate so an earlier guard does
+not mask their own causal witness. The fixture then removes only its owned child
+and namespace. No extra service, role or Node birth; maximum registered namespaces
+becomes214 and ten control pairs make22total invocations.
+
+The optional private CACHE8/two-session research probe remains in this SAME C5
+cohort, disabled by omission and separately reviewable. It changes no application
+allocator/grant and proves no tenant-restoration availability contract. Physical
+observations are separate from acceptance. All inheritance/cache native outcomes
+remain UNMEASURED.
+
+Source mechanisms are documented in the [PostgreSQL16 inheritance manual](https://www.postgresql.org/docs/16/ddl-inherit.html)
+and [CREATE TABLE inheritance/identity description](https://www.postgresql.org/docs/16/sql-createtable.html).
+These support the predicted semantics; they are not a substitute for native results.

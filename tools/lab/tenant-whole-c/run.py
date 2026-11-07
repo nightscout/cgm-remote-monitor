@@ -121,6 +121,10 @@ def physical_control(control, events):
         effects = by_phase('C5-known-ledger-drift-effects-before-verdict')[-1]
         tenant = '11111111-1111-4111-8111-111111111111'
         return any(row['tenant_id'] == tenant for row in before) and not any(row['tenant_id'] == tenant for row in after) and any(row['tenant_id'] == tenant for row in effects['hiddenRows']) and effects['backupAccepted'] and effects['eraseCodes'] == []
+    if cid == 'ordinary-inheritance':
+        effect = by_phase('C5-inheritance-effects-before-verdict')[-1]
+        tenant = '11111111-1111-4111-8111-111111111111'
+        return effect['exportAccepted'] and effect['extraOmitted'] and any(row['tenant_id'] == tenant and row.get('descendant_only') for row in effect['childBefore']) and not any(row['tenant_id'] == tenant for row in effect['childAfter']) and effect['eraseCodes'] == [] and [row for row in effect['childBefore'] if row['tenant_id'] != tenant] == [row for row in effect['childAfter'] if row['tenant_id'] != tenant]
     if cid == 'running-writer-window':
         proof = by_phase('C5-live-writer-physical-before-verdict')[-1]
         observation = by_phase('C5-live-writer-observation')[-1]

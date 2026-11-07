@@ -132,7 +132,7 @@ function fakeConnection ({ identity = { rolsuper: false, rolbypassrls: true }, l
     }
     if (compact.includes('reviewed-relation-inventory')) {
       const schema = schemas.get(values[0]);
-      return { rows: schema ? [{ name: 'schema_migrations', kind: 'r', partition: false }, ...[...schema.tables].map(([name, table]) => ({ name, kind: table.kind || 'r', partition: table.partition || false }))] : [] };
+      return { rows: schema ? [{ name: 'schema_migrations', kind: 'r', partition: false, inherited: false }, ...[...schema.tables].map(([name, table]) => ({ name, kind: table.kind || 'r', partition: table.partition || false, inherited: table.inherited || false }))] : [] };
     }
     if (/FROM pg_attribute/.test(compact)) {
       const found = schemaOf(values[0]);
