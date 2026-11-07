@@ -71,7 +71,8 @@ optInSuite(process.env.NS_SOCKET_DATA_FORWARDING_TEST === '1' && !!process.env.N
       for (const logical of ['treatments', 'devicestatus']) {
         await run('up', { direct: true, connectionString: process.env.NS_TEST_POSTGRES_ADMIN_URI,
           namespace: lab.namespaces[logical], catalogue: createOrderPort.catalogues[logical] });
-        await lab.admin.query(`GRANT USAGE ON ALL SEQUENCES IN SCHEMA "${lab.namespaces[logical]}" TO "${lab.role}"`);
+        await require('./fixtures/tenant-insertion-grants').grant(lab.admin, { namespace: lab.namespaces[logical], domain: logical,
+          role: lab.role, catalogue: require('../lib/server/tenant-socket-order-port').catalogues[logical] });
       }
       await run('up', { direct: true, connectionString: process.env.NS_TEST_POSTGRES_ADMIN_URI,
         namespace: auth, catalogue: require('../lib/tenant-authorization/postgres-candidate.json') });

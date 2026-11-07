@@ -84,7 +84,11 @@ describe('evaluator preview readiness protocol', function () {
     const cfg = config.parse(document(), source);
     async function check (kind) {
       let count = 0;
-      await screen({ async query () {
+      const insertion = require('../lib/storage/postgres-insertion-readiness'), metadata = insertion.metadata;
+      // This recorder proves evaluator scope checks; insertion physical metadata
+      // is independently exercised by its own protocol/native suites.
+      insertion.metadata = async () => {};
+      try { await screen({ async query () {
         count++;
         if (count === 1) return { rows: [{ rolsuper: false, rolbypassrls: false, rolcreaterole: false,
           rolcreatedb: false, rolreplication: false, operator: kind === 'operator' }] };
@@ -92,7 +96,7 @@ describe('evaluator preview readiness protocol', function () {
         const checkpoint = count === 10;
         return { rows: [{ secured: kind !== 'rls', reads: kind !== 'select', forbidden: kind === 'insert',
           updates: !checkpoint && kind === 'update', bookkeeping: checkpoint && kind !== 'missing-owned-update', extra: kind === 'extra-update' }] };
-      } }, cfg);
+      } }, cfg); } finally { insertion.metadata = metadata; }
     }
     await check(null);
     for (const kind of ['operator', 'schema', 'unrelated', 'rls', 'select', 'insert', 'update', 'missing-owned-update', 'extra-update']) {

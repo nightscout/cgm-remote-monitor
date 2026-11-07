@@ -103,7 +103,8 @@ optInSuite(process.env.NS_MIGRATION_DOCKER_TEST === '1', 'NS_MIGRATION_DOCKER_TE
   it('applies the reviewed entries candidate with typed v3 fields, tenant identity and forced RLS', async function () {
     const o = opts(entriesCatalogue);
     const applied = await run('up', o);
-    assert.deepEqual(applied.done, ['0001_entries', '0002_entries_insertion_order']);
+    assert.deepEqual(applied.done, entriesCatalogue.migrations.map(row => row.name));
+    assert.deepEqual(entriesCatalogue.migrations.at(-1).operation, { kind: 'tenant-insertion-binding-v1', domain: 'entries' });
     assert.equal((await run('check', o)).current, true);
 
     const columns = await observer.query(
@@ -147,6 +148,7 @@ optInSuite(process.env.NS_MIGRATION_DOCKER_TEST === '1', 'NS_MIGRATION_DOCKER_TE
     await observer.query('CREATE ROLE "' + role + '" NOSUPERUSER NOBYPASSRLS');
     await observer.query('GRANT USAGE ON SCHEMA "' + o.namespace + '" TO "' + role + '"');
     await observer.query('GRANT SELECT, INSERT ON ' + qualified + ' TO "' + role + '"');
+    for (const statement of require('../lib/tenant-lifecycle/tenant-insertion-sql').build({ namespace: o.namespace, domain: 'entries' }).servingGrants(role)) await observer.query(statement);
 
     const insert = (tenantId, kind, id, identifier, valid = true) => observer.query(
       'INSERT INTO ' + qualified + ' (tenant_id, id_kind, doc) VALUES ($1, $2, $3::jsonb)',

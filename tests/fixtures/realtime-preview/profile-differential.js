@@ -92,7 +92,8 @@ module.exports = async function run (input) {
       if (number === 3) {
         for (const id of ['bbbbbbbbbbbbbbbbbbbbbbbb', 'aaaaaaaaaaaaaaaaaaaaaaaa']) {
           const seed = { ...document, _id: new ObjectId(id) }, encoded = encodeDocument(seed);
-          await pg.query('INSERT INTO ' + table + '(tenant_id,id_kind,doc) VALUES($1,$2,$3::jsonb)', [config.tenant, encoded.id_kind, JSON.stringify(encoded.doc)]);
+          await require('../tenant-insertion-grants').withTenant(pg, config.tenant, () =>
+            pg.query('INSERT INTO ' + table + '(tenant_id,id_kind,doc) VALUES($1,$2,$3::jsonb)', [config.tenant, encoded.id_kind, JSON.stringify(encoded.doc)]));
           await mongo.db(config.mongoDatabase).collection('profile').insertOne(seed);
         }
         const seeded = await physical(), types = require('./wire-response');

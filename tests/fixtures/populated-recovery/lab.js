@@ -89,7 +89,7 @@ function install (describe, it, before, beforeEach, after) {
     }
     async function grants (service) {
       await service.admin.query('GRANT USAGE ON SCHEMA ' + SCHEMA + ' TO ' + ROLE);
-      await service.admin.query('GRANT SELECT, INSERT, UPDATE, DELETE ON ' + SCHEMA + '.entries TO ' + ROLE);
+      await require('../tenant-insertion-grants').grant(service.admin, { namespace: SCHEMA, domain: 'entries', role: ROLE, catalogue: candidate });
       await service.admin.query('GRANT SELECT ON ' + SCHEMA + '.schema_migrations TO ' + ROLE);
       await service.admin.query('GRANT USAGE, SELECT ON ALL SEQUENCES IN SCHEMA ' + SCHEMA + ' TO ' + ROLE);
     }
@@ -212,7 +212,8 @@ function install (describe, it, before, beforeEach, after) {
       const file = snapshot();
       restore(file);
       await target.admin.query('DELETE FROM ' + SCHEMA + '.entries WHERE tenant_id=$1 AND id_kind=$2 AND "_id"=$3', [fixture.A, 'string', fixture.HEX]);
-      await target.admin.query('UPDATE ' + SCHEMA + '.entries SET id_kind=$1 WHERE tenant_id=$2 AND id_kind=$3', ['string', fixture.A, 'objectid']);
+      await require('../tenant-insertion-grants').withTenant(target.admin, fixture.A, () =>
+        target.admin.query('UPDATE ' + SCHEMA + '.entries SET id_kind=$1 WHERE tenant_id=$2 AND id_kind=$3', ['string', fixture.A, 'objectid']));
       const changed = await rows(target);
       assert.throws(() => oracle(changed, expected), assert.AssertionError);
       await resetTarget();

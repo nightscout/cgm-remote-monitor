@@ -303,7 +303,8 @@ optInSuite(process.env.NS_TENANT_RUNTIME_VAULT_DOCKER_TEST === '1',
       const appPassword = crypto.randomBytes(24).toString('hex');
       await admin.query(`CREATE ROLE ${role} LOGIN NOSUPERUSER NOBYPASSRLS PASSWORD '${appPassword}'`);
       await admin.query(`GRANT USAGE ON SCHEMA runtime_data, runtime_auth, runtime_secrets, runtime_identity TO ${role}`);
-      await admin.query(`GRANT SELECT, INSERT, UPDATE, DELETE ON runtime_data.entries TO ${role}`);
+      await require('./fixtures/tenant-insertion-grants').grant(admin, { namespace: 'runtime_data', domain: 'entries', role,
+        catalogue: require('../migrations/candidates/postgres-entries-v1.json') });
       await admin.query(`GRANT SELECT ON ALL TABLES IN SCHEMA runtime_auth, runtime_identity TO ${role}`);
       await admin.query('GRANT SELECT, INSERT ON runtime_secrets.secret_records TO ' + role);
       await admin.query('GRANT INSERT ON runtime_secrets.secret_audit TO ' + role);

@@ -27,8 +27,8 @@ optInSuite(process.env.NS_SOCKET_ORDER_CAPABILITY_TEST === '1' && !!process.env.
   };
   const connection = { query: (...args) => admin.query(...args), transaction: fn => fn() };
   const selected = (o, logical) => createOrderPort({ readinessConnectionString: uri, namespace: o.namespace, logical, connection });
-  const insert = (o, logical, id) => admin.query(`INSERT INTO "${o.namespace}"."${logical}"(tenant_id,id_kind,doc) VALUES($1,'string',$2::jsonb)`,
-    [A, JSON.stringify({ _id: id, eventType: 'Note', created_at: '2026-11-06T00:00:00.000Z' })]);
+  const insert = (o, logical, id) => require('./fixtures/tenant-insertion-grants').withTenant(admin, A, () => admin.query(`INSERT INTO "${o.namespace}"."${logical}"(tenant_id,id_kind,doc) VALUES($1,'string',$2::jsonb)`,
+    [A, JSON.stringify({ _id: id, eventType: 'Note', created_at: '2026-11-06T00:00:00.000Z' })]));
   before(async () => {
     assert.match(new URL(uri).pathname, /test/i);
     admin = new Client({ connectionString: uri }); await admin.connect();
@@ -79,7 +79,8 @@ optInSuite(process.env.NS_SOCKET_ORDER_CAPABILITY_TEST === '1' && !!process.env.
       const ordinals = await admin.query(`SELECT "_id",insertion_ordinal FROM "${o.namespace}"."${logical}" ORDER BY insertion_ordinal`);
       assert.deepEqual(ordinals.rows.map(row => row._id), ['z-first', 'a-second']);
       assert(BigInt(ordinals.rows[0].insertion_ordinal) < BigInt(ordinals.rows[1].insertion_ordinal));
-      await admin.query(`UPDATE "${o.namespace}"."${logical}" SET doc=doc || '{"notes":"synthetic-edit"}'::jsonb WHERE "_id"='z-first'`);
+      await require('./fixtures/tenant-insertion-grants').withTenant(admin, A, () =>
+        admin.query(`UPDATE "${o.namespace}"."${logical}" SET doc=doc || '{"notes":"synthetic-edit"}'::jsonb WHERE "_id"='z-first'`));
       assert.deepEqual((await admin.query(`SELECT "_id",insertion_ordinal FROM "${o.namespace}"."${logical}" ORDER BY insertion_ordinal`)).rows, ordinals.rows);
       const port = await selected(o, logical);
       assert.equal((await reads.findOne(port.storage, { eventType: 'Note' }))._id, 'z-first');

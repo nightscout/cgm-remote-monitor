@@ -223,8 +223,9 @@ optInSuite(process.env.NS_TENANT_COMMIT_CLOCK_TEST === '1' && !!process.env.NS_T
       for (const kind of ['objectid', 'string']) {
         const doc = { _id: hex, ...document('unused'), srvCreated: lab.initial, srvModified: lab.initial };
         delete doc.identifier;
-        await lab.admin.query('INSERT INTO "' + lab.namespaces.entries +
-          '".entries (tenant_id,id_kind,doc) VALUES ($1,$2,$3)', [lab.A, kind, doc]);
+        await require('./fixtures/tenant-insertion-grants').withTenant(lab.admin, lab.A, () =>
+          lab.admin.query('INSERT INTO "' + lab.namespaces.entries +
+            '".entries (tenant_id,id_kind,doc) VALUES ($1,$2,$3)', [lab.A, kind, doc]));
       }
       await scope.withTenant(lab.A, () => port(0).write({ op: 'delete', form: 'mark', target: { identifier: hex } }));
       const rows = await lab.rows();
@@ -249,15 +250,18 @@ optInSuite(process.env.NS_TENANT_COMMIT_CLOCK_TEST === '1' && !!process.env.NS_T
         const values = [domain === 'profile' ? 103.25 : 100, '7000000000000000', null,
           false, [999999], { value: 999999 }, -1, 8640000000000000, 1e100];
         for (let index = 0; index < values.length; index++) {
-          await lab.admin.query('INSERT INTO "' + lab.namespaces[domain] + '"."' + domain +
-            '" (tenant_id,id_kind,doc) VALUES ($1,$2,$3)', [lab.A, 'string',
-            { _id: 'legacy-date-' + index, srvModified: values[index] }]);
+          await require('./fixtures/tenant-insertion-grants').withTenant(lab.admin, lab.A, () =>
+            lab.admin.query('INSERT INTO "' + lab.namespaces[domain] + '"."' + domain +
+              '" (tenant_id,id_kind,doc) VALUES ($1,$2,$3)', [lab.A, 'string',
+              { _id: 'legacy-date-' + index, srvModified: values[index] }]));
         }
-        await lab.admin.query('INSERT INTO "' + lab.namespaces[domain] + '"."' + domain +
-          '" (tenant_id,id_kind,doc) VALUES ($1,$2,$3)', [lab.A, 'string', { _id: 'missing-server-date' }]);
-        await lab.admin.query('INSERT INTO "' + lab.namespaces[domain] + '"."' + domain +
-          '" (tenant_id,id_kind,doc) VALUES ($1,$2,$3)', [lab.B, 'string',
-          { _id: 'foreign-high-date', srvModified: 1000000 }]);
+        await require('./fixtures/tenant-insertion-grants').withTenant(lab.admin, lab.A, () =>
+          lab.admin.query('INSERT INTO "' + lab.namespaces[domain] + '"."' + domain +
+            '" (tenant_id,id_kind,doc) VALUES ($1,$2,$3)', [lab.A, 'string', { _id: 'missing-server-date' }]));
+        await require('./fixtures/tenant-insertion-grants').withTenant(lab.admin, lab.B, () =>
+          lab.admin.query('INSERT INTO "' + lab.namespaces[domain] + '"."' + domain +
+            '" (tenant_id,id_kind,doc) VALUES ($1,$2,$3)', [lab.B, 'string',
+            { _id: 'foreign-high-date', srvModified: 1000000 }]));
       }
       await lab.admin.query('UPDATE "' + lab.namespaces.clock +
         '".tenant_write_clock SET last_stamp=CASE WHEN tenant_id=$1 THEN 104 ELSE 1000000 END', [lab.A]);

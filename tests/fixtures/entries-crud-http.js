@@ -59,7 +59,8 @@ module.exports = function crudHTTP ({ legacy = false } = {}) {
     const password = crypto.randomBytes(24).toString('hex');
     await admin.query(`CREATE ROLE "${role}" LOGIN NOSUPERUSER NOBYPASSRLS PASSWORD '${password}'`);
     await admin.query(`GRANT USAGE ON SCHEMA "${name}", "${auth}" TO "${role}"`);
-    await admin.query(`GRANT SELECT, INSERT, UPDATE, DELETE ON "${name}".entries TO "${role}"`);
+    await require('./tenant-insertion-grants').grant(admin, { namespace: name, domain: 'entries', role,
+      catalogue: require('../../migrations/candidates/postgres-entries-v1.json') });
     await admin.query(`GRANT SELECT ON ALL TABLES IN SCHEMA "${auth}" TO "${role}"`);
     const uri = new URL(process.env.NS_TEST_POSTGRES_ADMIN_URI);
     uri.username = role;
@@ -220,8 +221,9 @@ module.exports = function crudHTTP ({ legacy = false } = {}) {
     await lab.mongoCollection.deleteMany({});
     for (const tenant of [A, B]) for (const doc of docs) {
       const row = encodeDocument({ ...doc, ...(tenant === B ? { sgv: 902 } : {}) });
-      await admin.query(`INSERT INTO "${name}".entries (tenant_id, id_kind, doc) VALUES ($1, $2, $3)`,
-        [tenant, row.id_kind, row.doc]);
+      await require('./tenant-insertion-grants').withTenant(admin, tenant, () =>
+        admin.query(`INSERT INTO "${name}".entries (tenant_id, id_kind, doc) VALUES ($1, $2, $3)`,
+          [tenant, row.id_kind, row.doc]));
     }
     if (docs.length) await lab.mongoCollection.insertMany(docs.map(doc => ({ ...doc })));
     await lab.grants(GRANTS);

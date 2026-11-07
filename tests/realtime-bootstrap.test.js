@@ -142,7 +142,8 @@ describe('parent-owned realtime bootstrap source contract',function(){
     for(const table of ['tenant_owner_policy','tenant_owner_actors','tenant_subject_admin_audit'])assert(reset.reset.some(row=>row.domain==='authorization'&&row.table===table),'RESET_INCLUDES_'+table);
     assert(reset.reset.some(row=>row.domain==='secrets'&&row.table==='secret_audit'));
     assert.deepEqual(reset.preserved,[{domain:'secrets',namespace:layout.namespaces.secrets,table:'secret_records'}]);
-    assert.equal(reset.reset.length,28);assert.equal(reset.foreignKeys.length,8);
+    assert.equal(reset.reset.length,33);assert.equal(reset.foreignKeys.length,8);
+    assert.deepEqual(reset.reset.filter(row=>row.table==='tenant_insertion_ordinal').map(row=>row.domain).sort(), ['devicestatus','entries','food','profile','treatments']);
     assert(reset.foreignKeys.some(row=>row.from==='tenant_owner_actors'&&row.to==='tenant_owner_policy'));
     assert(reset.foreignKeys.some(row=>row.from==='tenant_owner_policy'&&row.to==='tenant_authorization_config'));
     assert(reset.reset.every(row=>row.namespace===layout.namespaces[row.domain]&&row.table!=='schema_migrations'));
@@ -157,6 +158,11 @@ describe('parent-owned realtime bootstrap source contract',function(){
       tables=>tables.authorization.push('foreign_owned_elsewhere'),tables=>tables.secrets.push('secret_records')]) {
       const tables=plan.resetTables();mutate(tables);assert.throws(()=>plan.resetPlan(layout,catalogues,tables),/RESET_TABLE_COVERAGE/);
     }
+    const missingCounter=plan.resetTables();missingCounter.entries=missingCounter.entries.filter(name=>name!=='tenant_insertion_ordinal');
+    assert.throws(()=>plan.resetPlan(layout,catalogues,missingCounter),/RESET_TABLE_COVERAGE/);
+    const alteredOperation=structuredClone(catalogues), operation=alteredOperation.entries.migrations.at(-2);
+    operation.up[1]='SET LOCAL row_security = on';operation.checksum=require('../lib/migrations/catalogue').checksum(operation.up);
+    assert.throws(()=>plan.resetPlan(layout,alteredOperation),error=>error.code==='MIG_OPERATION_SQL','rehashed unknown typed SQL never becomes reset inventory');
     const changed=structuredClone(catalogues);changed.authorization.migrations[0].up.push('CREATE TABLE unknown_new_table (tenant_id uuid)');
     assert.throws(()=>plan.resetPlan(layout,changed),/RESET_TABLE_COVERAGE/,'new catalogue data table needs explicit review, never dynamic adoption');
     changed.authorization.migrations[0].up.push('ALTER TABLE unknown_new_table ADD FOREIGN KEY (tenant_id) REFERENCES foreign_schema.foreign_table (tenant_id)');
