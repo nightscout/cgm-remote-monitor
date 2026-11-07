@@ -26,6 +26,24 @@ describe('bounded browser stage diagnostics fixture', function () {
     assert.equal(diagnostic.errorInfo({ name: marker, message: 'net::ERR_NAME_NOT_RESOLVED ' + marker }).networkCode, 'ERR_NAME_NOT_RESOLVED');
     assert(!JSON.stringify(diagnostic.errorInfo({ name: marker, message: marker })).includes(marker));
   });
+  it('bounds a never-resolving renderer snapshot and preserves original wait error and late rejection handling', async function () {
+    const writes = [], probe = diagnostic.create({ write: text => writes.push(text), hosts, runtime, expectedMgdl: 123 });
+    assert(diagnostic.SNAPSHOT_TIMEOUT_MS > 0 && diagnostic.SNAPSHOT_TIMEOUT_MS <= 1000);
+    const rejectPending = [], page = { evaluate: () => new Promise((resolve, reject) => { rejectPending.push(reject); }) };
+    const original = Object.assign(new Error(marker), { name: 'TimeoutError' }); let actionEntered = false, timer;
+    const run = probe.wait('initial-client', page, async () => { actionEntered = true; throw original; }).then(() => ({ success: true }), error => ({ error }));
+    const watchdog = new Promise(resolve => { timer = setTimeout(() => resolve({ expired: true }), diagnostic.SNAPSHOT_TIMEOUT_MS * 2 + 1000); });
+    let result;
+    try { result = await Promise.race([run, watchdog]); } finally { clearTimeout(timer); }
+    assert.equal(result.expired, undefined, 'BROWSER_SNAPSHOT_OPERATION_BOUNDED');
+    assert.equal(result.error, original, 'BROWSER_ORIGINAL_WAIT_ERROR_IDENTITY'); assert(actionEntered);
+    const raw = JSON.parse(writes.at(-1)); assert.equal(raw.status, 'error');
+    assert.equal(raw.stages.length, 2); assert(raw.stages.every(row => row.snapshotUnavailable === 'timeout'));
+    assert.equal(raw.stages.at(-1).error.name, 'TimeoutError'); assert(!writes.join('').includes(marker));
+    for (const reject of rejectPending) reject(new Error(marker));
+    await new Promise(resolve => setImmediate(resolve)); // Rejections remain handled after race completion.
+    assert.equal(JSON.parse(writes.at(-1)).stages.at(-1).snapshotUnavailable, 'timeout');
+  });
   for (const [index, stage] of ['initial-client', 'empty-sgvs', 'urgent-event', 'urgent-ui', 'success'].entries()) it('actual driver persists '+stage+' disposition and safe snapshot before teardown', async function () {
     const directory = fs.mkdtempSync(path.join(os.tmpdir(), 'rt-browser-diag-')); fs.chmodSync(directory, 0o700);
     const origin = 'http://' + hosts[0] + ':12345', config = { browserResolverHosts: hosts, browserRuntime: runtime, syntheticMgdl: 123,
