@@ -64,5 +64,14 @@
     "after": "const held = true || observations.every(",
     "assertion": "WHOLE_C_RUNNING_WRITER_REFUSED",
     "physical": "recorded real writer pid is running/S notT and has performed actual bound clock update, but proof wrongly reports quiesced"
+  },
+  {
+    "id": "unknown-lifecycle-ledger",
+    "phase": "C5",
+    "path": "lib/tenant-lifecycle/index.js",
+    "before": "function assertCurrentLedger (entry, ledger) {",
+    "after": "function assertCurrentLedger (entry, ledger) { return;",
+    "assertion": "WHOLE_C_UNKNOWN_EXPORT_REFUSED",
+    "physical": "actual same-unknown artifact/live ledger allows clinical target erasure while unreviewed hidden tenant rows remain; external raw observer before verdict"
   }
 ]

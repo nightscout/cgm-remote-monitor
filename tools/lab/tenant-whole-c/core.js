@@ -168,6 +168,13 @@ async function run (config, selected = 'all') {
         await admin.query(restoreModule.insertStatement(entry.namespace, table, selectedColumns), restoreModule.insertValues(selectedColumns, row));
       }
     }
+    // Fresh private fixture only: no allocator sessions exist yet and all rows
+    // are globally visible to this operator. This is not tenant-import recovery.
+    for (const entry of cohort.admission.catalogues) for (const table of entry.tables) {
+      for (const column of (await common.columnsOf(admin, entry.namespace, table)).filter(column => column.identity)) {
+        await admin.query('SELECT setval(pg_get_serial_sequence($1,$2), (SELECT max(' + q(column.name) + ') FROM ' + q(entry.namespace) + '.' + q(table) + '), true)', [q(entry.namespace) + '.' + q(table), column.name]);
+      }
+    }
   }
   async function writeProbe (cohort, roleClass, kind, table, operation = 'INSERT', column) {
     const conn = new Client({ connectionString: cohort.runtime.urls[roleClass] }); await conn.connect();
@@ -427,7 +434,7 @@ async function run (config, selected = 'all') {
         const operator = cohort.admission.lifecycle.withCapabilities(capabilities(identity));
         const owner = cohort.admission.lifecycle.withCapabilities(capabilities(ownerIdentity));
         const args = { tenant: A, namespaces: cohort.ns, ledgerNamespace: cohort.ns.lifecycle, artifact };
-        return { cohort, ports, operator, owner, args, writer, async close () { for (const port of Object.values(ports)) { await port.end(); owned.ports.delete(port); } } };
+        return { cohort, ports, operator, owner, args, writer, artifactDirectory: directory, async close () { for (const port of Object.values(ports)) { await port.end(); owned.ports.delete(port); } } };
       }
       async function race (state, claimFirst) {
         const { cohort, ports, operator, owner, args } = state;
@@ -460,6 +467,36 @@ async function run (config, selected = 'all') {
       }
       const state = await fixture();
       try {
+        // Controlled unknown migration/new table; both artifact and live ledger
+        // agree on the unknown row, which must still be refused before erase.
+        const unknownName = '0999_whole_c_unknown', unknownChecksum = 'e'.repeat(64);
+        const hidden = q(state.cohort.ns.entries) + '.whole_c_unreviewed_state';
+        await admin.query('CREATE TABLE ' + hidden + '(tenant_id uuid NOT NULL,value text NOT NULL)');
+        await admin.query('INSERT INTO ' + hidden + ' VALUES($1,\'synthetic-a\'),($2,\'synthetic-b\')', [A, B]);
+        await admin.query('INSERT INTO ' + q(state.cohort.ns.entries) + '.schema_migrations(name,checksum) VALUES($1,$2)', [unknownName, unknownChecksum]);
+        const build = require('../../../lib/tenant-lifecycle/artifact');
+        const poisoned = build.buildArtifact({ tenant: A, sourceCommit: config.sourceHead, exportedAt: state.args.artifact.manifest.exportedAt,
+          catalogues: state.args.artifact.manifest.catalogues.map(entry => ({ ...entry,
+            ledger: entry.kind === 'entries' ? [...entry.ledger, { name: unknownName, checksum: unknownChecksum }] : entry.ledger,
+            tables: entry.tables.map(table => ({ ...table, rows: state.args.artifact.tables[entry.kind + '.' + table.table], secrets: table.keyReferences !== undefined, keyReferences: table.keyReferences })) })) });
+        await lifecycle.saveTenantArtifact(poisoned, { directory: state.artifactDirectory });
+        const badRequest = await state.owner.requestDeletion(state.ports.owner, { ...state.args, artifact: poisoned });
+        const badArgs = { ...state.args, artifact: poisoned, requestId: badRequest.requestId };
+        await state.operator.confirmDeletion(state.ports.operator, badArgs);
+        const unknownBefore = await physical('C5-unknown-ledger-before', state.cohort.admission);
+        let exportFailure, eraseFailure;
+        try { await state.cohort.admission.lifecycle.exportTenant(state.ports.operator, { tenant: A, namespaces: state.cohort.ns, sourceCommit: config.sourceHead }); } catch (error) { exportFailure = error; }
+        try { await state.operator.executeDeletion(state.ports.operator, badArgs); } catch (error) { eraseFailure = error; }
+        const unknownAfter = await physical('C5-unknown-ledger-after-before-verdict', state.cohort.admission);
+        emit('C5-unknown-ledger-effects-before-verdict', { exportCodes: codes(exportFailure), eraseCodes: codes(eraseFailure),
+          hiddenRows: (await observer.query('SELECT * FROM ' + hidden + ' ORDER BY tenant_id')).rows });
+        assert.ok(codes(exportFailure).includes('LIFECYCLE_SCHEMA_UNKNOWN'), 'WHOLE_C_UNKNOWN_EXPORT_REFUSED');
+        assert.ok(codes(eraseFailure).includes('LIFECYCLE_SCHEMA_UNKNOWN'), 'WHOLE_C_UNKNOWN_ERASE_REFUSED');
+        oracle.sameRows(unknownBefore, unknownAfter);
+        // Restore only this explicitly injected fixture fault; no operator
+        // migration rollback or production unknown-schema workaround is implied.
+        await admin.query('DELETE FROM ' + q(state.cohort.ns.entries) + '.schema_migrations WHERE name=$1', [unknownName]);
+        await admin.query('DROP TABLE ' + hidden);
         const request = await state.owner.requestDeletion(state.ports.owner, state.args);
         await expectedFailure(() => state.operator.claimDeletion(state.ports.operator, { ...state.args, requestId: request.requestId }), 'LIFECYCLE_CONFIRMATION_REQUIRED', 'operator-must-have-confirmation', () => physical('C5-unconfirmed-before-verdict', state.cohort.admission));
         await expectedFailure(() => state.owner.confirmDeletion(state.ports.owner, { ...state.args, requestId: request.requestId }), 'LIFECYCLE_OPERATOR_REQUIRED', 'owner-never-confirms');
@@ -481,6 +518,28 @@ async function run (config, selected = 'all') {
         }
         const ceremony = final['lifecycle.tenant_lifecycle_ceremony'].rows.find(row => row.request_id === claimed.options.requestId);
         assert.equal(ceremony.phase, 'executed');
+        const sequenceBefore = (await observer.query('SELECT schemaname,sequencename,last_value FROM pg_sequences WHERE schemaname=ANY($1::text[]) ORDER BY schemaname,sequencename', [Object.values(state.cohort.ns)])).rows;
+        await expectedFailure(() => state.cohort.admission.lifecycle.importArtifact(state.ports.operator, state.args.artifact, { tenant: A, namespaces: state.cohort.ns }), 'LIFECYCLE_IDENTITY_IMPORT_UNSUPPORTED', 'bound-shared-identity-import', () => physical('C5-identity-import-refusal-before-verdict', state.cohort.admission));
+        const sequenceAfter = (await observer.query('SELECT schemaname,sequencename,last_value FROM pg_sequences WHERE schemaname=ANY($1::text[]) ORDER BY schemaname,sequencename', [Object.values(state.cohort.ns)])).rows;
+        emit('C5-identity-refusal-sequences-before-verdict', { before: sequenceBefore, after: sequenceAfter, tenantRestoreComplete: false });
+        assert.deepEqual(sequenceAfter, sequenceBefore, 'WHOLE_C_IMPORT_NO_SEQUENCE_EFFECT');
+        oracle.sameRows(final, await physical('C5-identity-refusal-foreign-before-verdict', state.cohort.admission));
+        const api = await lowerPort({ connectionString: state.cohort.runtime.urls.api, max: 1, application_name: state.cohort.prefix + '_canonical_writer' });
+        owned.ports.add(api);
+        try {
+          const id = marker();
+          const entryPort = require('../../../lib/server/tenant-app/entries')({ connection: api, table: state.cohort.ns.entries + '.entries', source: 'v3', bus: new (require('node:events').EventEmitter)() });
+          await scope.withTenant(A, () => entryPort.intentFactory().write({ op: 'create', docs: [{ _id: id, sgv: 123, date: state.cohort.epoch }] }));
+          const inserted = (await observer.query('SELECT tenant_id,insertion_ordinal,doc FROM ' + q(state.cohort.ns.entries) + '.entries WHERE tenant_id=$1 AND doc->>\'_id\'=$2', [A, id])).rows;
+          const priorCounter = sequenceBefore.find(row => row.schemaname === state.cohort.ns.entries && row.sequencename === 'entries_insertion_ordinal_seq');
+          emit('C5-next-canonical-writer-before-verdict', { inserted, priorCounter, scope: 'actual selected entries v3 write-intent component, not HTTP/current-token admission or a completed tenant restore' });
+          assert.equal(inserted.length, 1);
+          assert.ok(BigInt(inserted[0].insertion_ordinal) > BigInt(priorCounter.last_value), 'WHOLE_C_CANONICAL_NEXT_AFTER_REFUSAL');
+          const afterWriter = await physical('C5-canonical-writer-foreign-before-verdict', state.cohort.admission);
+          for (const key of Object.keys(final)) assert.deepEqual(afterWriter[key].rows.filter(row => row.tenant_id === B), final[key].rows.filter(row => row.tenant_id === B), 'WHOLE_C_CANONICAL_FOREIGN_PRESERVED ' + key);
+        } finally { await api.end(); owned.ports.delete(api); }
+        if (config.allocatorResearch === 'private-cache-counterexample-v1') await require('./allocator-research').cachedAllocatorCounterexample({ admin, observer, connectionString: config.connectionString, namespace: state.cohort.ns.lifecycle, emit });
+
       } finally { await state.close(); }
       // A late write/authority change invalidates this terminal fixture. Do not
       // silently restore policy generations or claim a same-artifact workaround.

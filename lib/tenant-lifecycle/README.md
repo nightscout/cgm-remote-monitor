@@ -15,7 +15,7 @@ runs under the tenant binding and row-level security bounds reads and deletes.
 | Operation | Boundary |
 |---|---|
 | `exportTenant(connection, { tenant, namespaces, sourceCommit, keyNames })` | One `REPEATABLE READ` snapshot under `withTenant(tenant)`. Reads the non-generated columns of every admitted table, preserving `id_kind` beside the JSONB document (the `postgres-identity` codec's kind travels as a column, so ObjectId/string twins stay distinct). Secret records travel as stored ciphertext plus a key reference parsed from the Transit prefix (`vault:vN:`). No plaintext, no provider key. |
-| `importArtifact(connection, artifact, { tenant, namespaces, onRow })` | One transaction. Refuses before any write when the artifact's tenant is not the target, a row's `tenant_id` differs from the manifest tenant, a key reference has no ciphertext, the target namespace's applied migration ledger (`schema_migrations` names and checksums) differs from the manifest, a table's columns differ, a catalogue is missing or unmapped, or the target already holds rows for the tenant. Identity columns are written with `OVERRIDING SYSTEM VALUE`. |
+| `importArtifact(connection, artifact, { tenant, namespaces, onRow })` | One transaction. Refuses before any write when the artifact's tenant is not the target, a row's `tenant_id` differs from the manifest tenant, a key reference has no ciphertext, the target namespace's applied migration ledger (`schema_migrations` names and checksums) differs from the manifest, a table's columns differ, a catalogue is missing or unmapped, or the target already holds rows for the tenant. The artifact and live ledgers must both equal the full selected reviewed catalogue. Any identity-bearing plan refuses `LIFECYCLE_IDENTITY_IMPORT_UNSUPPORTED` before INSERT/sequence effects; same-ID tenant restoration is incomplete. |
 | `requestDeletion(connection, { tenant, ledgerNamespace, artifact, now })` | Current-authorized explicit intent only; creates a requested ledger/ceremony record, deletes nothing. |
 | `confirmDeletion(connection, { tenant, ledgerNamespace, artifact, requestId, now })` | Separately current-authorized operator confirms the exact request/durably verified artifact. No minimum wait. |
 | `cancelDeletion(connection, { tenant, ledgerNamespace, requestId, now })` | Current-authorized cancellation under the request row lock; only requested/confirmed can become cancelled. |
@@ -44,25 +44,35 @@ and Vault run lives in the alignment repository's
 
 ## Current contract and remaining acceptance
 
-- Restore preserves the original tenant ID and compatible retained key material.
-  New-tenant cloning/import establishes new secrets/credentials; data sync does
-  not transfer source authority. No cryptographic rehoming workflow is implemented.
-- Deleted-tenant keys and artifact remain for the adopted 30-day window, then an
-  operator destroys keys through a separately reviewed provider capability. This
-  module never destroys keys or proves after-window refusal. Pre-deletion
-  confirmation/cancellation is a separate open ceremony contract.
-- The joined catalogue includes accepted owner configuration authority. Use
-  `createLifecycle({ catalogues })` for reviewed M5 extensions; whole-deployment
-  admission in `../tenant-operations/catalogues.js` independently refuses omitted
-  candidate files and includes the separate lifecycle ledger in deployment backup.
+- Same-ID tenant restoration must retain compatible keys and preserve current
+  foreign data. Identity-bearing import is unsupported; whole-deployment rollback
+  is not equivalent. See [IDENTITY-IMPORT-REVIEW.md](IDENTITY-IMPORT-REVIEW.md).
+- Export and destructive admission require the complete current selected reviewed
+  ledger. An artifact and database agreeing on unknown DDL is insufficient. Explicit
+  older non-identity catalogue cohorts are supported; no implicit prefix upgrade.
+- Entries carries an insertion ordinal; selected treatment/devicestatus/profile
+  successors do too. Food does not acquire an identity in the reviewed catalogue.
+  Export preserves exact values. Tenant import never regenerates them or attempts
+  tenant-local sequence maintenance.
+- Current authorization, durable artifact and held execution window are mandatory
+  capability inputs; operator confirmation/claim/execute are distinct from owner
+  intent/cancellation. Production adapters and native transaction/race evidence
+  remain separate acceptance work; source protocol checks are not those outcomes.
+- The adopted post-deletion retention/provider-destruction contract remains
+  separate. This module implements no automatic expiry or key destruction. The
+  same-ID artifact keeps ciphertext/recovery references; clone/cryptographic
+  rehoming is unsupported.
+- Artifact size/transaction limits and the global allocator-maintenance outage
+  budget remain unmeasured. No numeric cap or safe maintenance lease is inferred
+  from the source fixture.
 
-- Ordering ordinals across databases. `food.insertion_ordinal` is an
-  identity column; the import preserves its value with `OVERRIDING SYSTEM VALUE`,
-  which keeps relative order inside the tenant but may interleave with another
-  tenant's ordinals in the target table. Nothing joins on it today.
-- Artifact size and transaction bounds. The import and the deletion are
-  each one transaction with no numeric cap; a bound is a policy choice.
-- Execution authority: who may call `requestDeletion` versus `executeDeletion`. The owner
-  authority amendment places export and deletion *requests* with the owner and
-  lifecycle *execution* on the private operator plane; this module exposes both as
-  functions and enforces neither authorization.
+
+Current lifecycle admission requires the **full exact selected catalogue ledger**
+for export, artifact import and destructive admission. Unknown, stale, drifted or
+reordered rows refuse; artifact/live agreement is not catalogue authority. A known
+prefix requires an explicitly selected older inventory rather than current tables.
+Identity-bearing tenant import is unsupported and refuses before any INSERT or
+sequence effect. Same-ID TENANT restore remains OPEN: whole-deployment rollback can
+revert foreign B and global API namespaces cannot transparently split A/B routing.
+See `lib/tenant-lifecycle/IDENTITY-IMPORT-REVIEW.md` for the source-only maintenance
+contract proposal and compatibility implications. No allocator workaround is enabled.

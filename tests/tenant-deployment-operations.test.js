@@ -44,6 +44,26 @@ describe('whole deployment source admission and filesystem durability', function
   beforeEach(async function () { scratch = await fs.promises.mkdtemp(path.join(os.tmpdir(), 'tenant-deployment-unit-')); });
   afterEach(async function () { await fs.promises.rm(scratch, { recursive: true, force: true }); });
 
+  it('stages a private cached-allocator counterexample without application grants or an import workaround', async function () {
+    const { cachedAllocatorCounterexample } = require('../tools/lab/tenant-whole-c/allocator-research');
+    const calls = [];
+    let clients = 0, counter = '8';
+    class AllocatorProtocol {
+      constructor () { this.index = clients++; this.calls = 0; }
+      async connect () {}
+      async end () {}
+      async query (sql) { calls.push(sql); return { rows: [{ value: this.index === 0 ? (++this.calls === 1 ? '1' : '2') : '101' }] }; }
+    }
+    const admin = { query: async sql => { calls.push(sql); if (sql.startsWith('SELECT setval')) counter = '108'; return { rows: [] }; } };
+    const observer = { query: async sql => { calls.push(sql); return { rows: sql.includes('to_regclass') ? [{ found: null }] : [{ last_value: counter, is_called: true }] }; } };
+    const events = [];
+    const result = await cachedAllocatorCounterexample({ admin, observer, connectionString: 'synthetic-source-only', namespace: 'private_fixture', emit: (phase, value) => events.push({ phase, value }), ClientType: AllocatorProtocol });
+    assert.equal(result.cached, '2'); assert.equal(result.newer, '101');
+    assert.equal(calls.some(sql => /GRANT|ALTER TABLE|INSERT|UPDATE/.test(sql)), false);
+    assert.ok(calls.at(-1).startsWith('DROP SEQUENCE'));
+    assert.ok(events.some(event => event.phase === 'C5-private-cache-counterexample-before-verdict'));
+  });
+
   it('whole-C fixture authority locks the current SQL policy and rereads revocation on the same connection', async function () {
     const { currentAuthority } = require('../tools/lab/tenant-whole-c/authority');
     const actor = { principal: 'fixture_operator', consumer: 'fixture_core', plane: 'operator' };

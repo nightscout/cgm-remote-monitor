@@ -17,9 +17,9 @@ symlinks/install/write to that copy. Exact source, control patches, stdout/stder
 raw observations, process identities, cleanup and hashes are retained. A mismatch
 stops dependent stages; failed attempts stay immutable. An unmodified all-case invocation reserves at most213schemas and creates108roles
 (three C5 writer births plus probe/observer =5Node births); all stages comprise
-16invocations on the same explicitly parent-owned PG resource. Cleanup is checked
+18invocations on the same explicitly parent-owned PG resource. Cleanup is checked
 after every invocation. These are fixture bounds, not capacity measurements.
-Seven causal controls in
+Eight causal controls in
 `controls.json` must produce the named assertion **and** physical symptom; setup,
 permission, timeout or parser failures do not qualify. Each restored target gets a
 fresh fixture namespace/role cohort; final unmodified C1–C5 is mandatory.
@@ -120,3 +120,31 @@ index. No Mongo/Vault/browser/mobile/provider resource is implicitly allocated b
 SQL-core commands. The lane hands root raw captures, all failures/repairs, source
 and manifest hashes, exact scope, unmeasured gaps and final cleanup evidence before
 broader Batch C acceptance.
+
+
+Current lifecycle admission requires the **full exact selected catalogue ledger**
+for export, artifact import and destructive admission. Unknown, stale, drifted or
+reordered rows refuse; artifact/live agreement is not catalogue authority. A known
+prefix requires an explicitly selected older inventory rather than current tables.
+Identity-bearing tenant import is unsupported and refuses before any INSERT or
+sequence effect. Same-ID TENANT restore remains OPEN: whole-deployment rollback can
+revert foreign B and global API namespaces cannot transparently split A/B routing.
+See `lib/tenant-lifecycle/IDENTITY-IMPORT-REVIEW.md` for the source-only maintenance
+contract proposal and compatibility implications. No allocator workaround is enabled.
+
+
+C5 additionally stages an unknown clinical ledger with matching poisoned artifact
+and an owned omitted table; actual export and erase must refuse before any clinical
+effect. It then tests identity-import prewrite refusal, unchanged foreign rows and
+sequence counters, and the actual selected entries v3 write-intent allocator after
+refusal (not completed restore). Fixture seeding initializes counters only while
+all namespaces are newly created/private and no allocator session exists; that is
+not a tenant import algorithm.
+
+Optional `allocatorResearch:"private-cache-counterexample-v1"` is a separately
+reviewed C5 research input. It stages one absent-at-start private sequence and two
+owned operator SQL sessions, demonstrates why raising a counter cannot invalidate
+a retained session's CACHE8 block, then closes both and removes only that sequence.
+It does not touch application sequences, grant new rights or implement tenant
+restoration. Omission keeps this research disabled; no new service is allocated.
+All new native observations remain UNMEASURED until root grants the core batch.

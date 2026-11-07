@@ -7,7 +7,7 @@ const assert = require('node:assert/strict');
 const OLD = 'a7f5cbf71ab9016855976fae74730727d0a78024';
 function parse (value, env = process.env, sourceRoot = path.resolve(__dirname, '../../..')) {
   const keys = ['version','sourceHead','oldHead','oldRoot','captureDirectory','prefix','adminEnv','expectedEndpoint','grant','acl','outageContract','parentResource','actualRoleManifestPath','actualRoleManifestSha256'];
-  assert.ok(Object.keys(value).every(key => keys.includes(key) || ['controlName','guardCandidatePath'].includes(key)));
+  assert.ok(Object.keys(value).every(key => keys.includes(key) || ['controlName','guardCandidatePath','allocatorResearch'].includes(key)));
   assert.equal(value.version, 1);
   assert.match(value.sourceHead, /^[a-f0-9]{40}$/);
   assert.equal(JSON.parse(fs.readFileSync(path.join(sourceRoot, 'whole-c-source.json'), 'utf8')).head, value.sourceHead);
@@ -44,6 +44,7 @@ function parse (value, env = process.env, sourceRoot = path.resolve(__dirname, '
     assert.equal(value.controlName, 'profile-populated-guard');
     assert.equal(value.guardCandidatePath, path.join(value.captureDirectory, 'profile-guard-mutant.json'));
   }
+  if (value.allocatorResearch !== undefined) assert.equal(value.allocatorResearch, 'private-cache-counterexample-v1');
   return { ...value, connectionString: url.toString(), classes: [...classes, 'lifecycle_operator', 'lifecycle_owner'] };
 }
 module.exports = { parse, OLD };

@@ -44,11 +44,11 @@ const CIPHER = 'vault:v1:c3ludGhldGljLWNpcGhlcnRleHQ=';
 // Column specs mirror the reviewed candidates' non-generated columns for the
 // tables this test populates; unpopulated tables keep only their binding.
 const COLUMNS = {
-  entries: 'tenant_id uuid, doc jsonb, id_kind text',
+  entries: 'tenant_id uuid, doc jsonb, id_kind text, insertion_ordinal bigint identity',
   treatments: 'tenant_id uuid, doc jsonb, id_kind text',
   devicestatus: 'tenant_id uuid, doc jsonb, id_kind text',
   profile: 'tenant_id uuid, id_kind text, doc jsonb',
-  food: 'tenant_id uuid, id_kind text, doc jsonb, insertion_ordinal bigint identity',
+  food: 'tenant_id uuid, id_kind text, doc jsonb',
   activity: 'tenant_id uuid, doc jsonb, id_kind text',
   settings: 'tenant_id uuid, doc jsonb, id_kind text',
   tenant_write_clock: 'tenant_id uuid, last_stamp bigint',
@@ -83,7 +83,7 @@ function seedRows () {
     const encoded = codec.encodeDocument(kind === 'objectid' ? { ...doc, _id: new ObjectId(doc._id) } : doc);
     return { tenant_id: tenant, id_kind: encoded.id_kind, doc: encoded.doc };
   };
-  return {
+  const seeded = {
     entries: [
       typed(A, 'objectid', { _id: HEX, date: 1000, sgv: 100, extension: { nullable: null, ordered: [3, 1, 2] } }),
       typed(A, 'string', { _id: HEX, date: 1000, sgv: 101 }),
@@ -91,8 +91,8 @@ function seedRows () {
       typed(B, 'string', { _id: HEX, date: 1000, sgv: 200 })
     ],
     food: [
-      { ...typed(A, 'string', { _id: 'food-a', name: 'synthetic' }), insertion_ordinal: '7' },
-      { ...typed(B, 'string', { _id: 'food-b', name: 'synthetic' }), insertion_ordinal: '8' }
+      typed(A, 'string', { _id: 'food-a', name: 'synthetic' }),
+      typed(B, 'string', { _id: 'food-b', name: 'synthetic' })
     ],
     tenant_write_clock: [{ tenant_id: A, last_stamp: '2000' }, { tenant_id: B, last_stamp: '1000' }],
     tenant_authorization_config: [{ tenant_id: A, anonymous_roles: ['denied'], owner_fence: false }, { tenant_id: B, anonymous_roles: ['readable'], owner_fence: false }],
@@ -107,19 +107,21 @@ function seedRows () {
     secret_audit: [{ event_id: '33333333-3333-4333-8333-333333333333', tenant_id: A, principal: 'issuer', consumer: 'runtime',
       operation: 'encrypt', secret_id: 'vendor-a', phase: 'authorized', event_time: '5', target_version: null }]
   };
+  seeded.entries.forEach((row, index) => { row.insertion_ordinal = ['7', '11', '17', '900'][index]; });
+  return seeded;
 }
 
 // An in-memory lower-port double: it honours the real tenant scope as the RLS
 // binding, records every statement, and discards writes when a transaction
 // throws, so rollback is observable. It is not a SQL engine.
-function recordingConnection (seed = seedRows()) {
+function recordingConnection (seed = seedRows(), legacy = false) {
   const tables = new Map();
   const ledgers = new Map();
   const log = [];
   for (const entry of lifecycle.admittedCatalogue()) {
-    ledgers.set(namespaces[entry.kind], validateCatalogue(entry.candidate).map(m => ({ name: m.name, checksum: m.checksum })));
+    ledgers.set(namespaces[entry.kind], validateCatalogue(legacy && entry.kind === 'entries' ? { ...entry.candidate, migrations: entry.candidate.migrations.slice(0, 1) } : entry.candidate).map(m => ({ name: m.name, checksum: m.checksum })));
     for (const table of entry.tables) {
-      tables.set('"' + namespaces[entry.kind] + '"."' + table + '"', { columns: columnsFor(table), rows: (seed[table] || []).map(row => ({ ...row })) });
+      tables.set('"' + namespaces[entry.kind] + '"."' + table + '"', { columns: columnsFor(table).filter(c => !(legacy && c.identity)), rows: (seed[table] || []).map(row => { const copy = { ...row }; if (legacy) delete copy.insertion_ordinal; return copy; }) });
     }
   }
   ledgers.set(ledgerNamespace, ledgerCandidate.migrations.map(m => ({ name: m.name, checksum: m.checksum })));
@@ -225,6 +227,13 @@ function recordingConnection (seed = seedRows()) {
   };
 }
 
+
+// Explicit older, non-identity protocol cohort. Current entries0002 is covered
+// separately and refuses tenant import; these successes do not claim otherwise.
+const nonIdentityLifecycle = lifecycleModule.createLifecycle({ ...trustedCapabilities,
+  catalogues: selectedCatalogues.map(entry => entry.kind === 'entries' ? { ...entry, candidate: { ...entry.candidate, migrations: entry.candidate.migrations.slice(0, 1) } } : entry) });
+const recordingLegacyConnection = seed => recordingConnection(seed, true);
+
 const sorted = rows => rows.map(artifacts.canonical).sort();
 const totalRows = (connection, tenant) => lifecycle.CATALOGUE.reduce((sum, entry) =>
   sum + entry.tables.reduce((inner, table) => inner + connection.rows(namespaces[entry.kind], table, tenant).length, 0), 0);
@@ -234,6 +243,63 @@ describe('tenant lifecycle: typed export, import and two-phase deletion', functi
   let previousMode;
   before(function () { previousMode = tenantScope.getTenancyMode(); tenantScope.setTenancyMode('multi'); });
   after(function () { tenantScope.setTenancyMode(previousMode); });
+
+  function unknownArtifact (artifact) {
+    const catalogues = artifact.manifest.catalogues.map(entry => ({ ...entry,
+      ledger: entry.kind === 'entries' ? [...entry.ledger, { name: '0999_unknown', checksum: 'a'.repeat(64) }] : entry.ledger,
+      tables: entry.tables.map(table => ({ ...table, rows: artifact.tables[entry.kind + '.' + table.table], secrets: table.keyReferences !== undefined, keyReferences: table.keyReferences })) }));
+    return artifacts.buildArtifact({ tenant: A, sourceCommit: COMMIT, exportedAt: 1, catalogues });
+  }
+
+  it('requires full current reviewed ledger for export, including unknown, stale and drifted clinical ledgers', async function () {
+    for (const [mutation, code] of [
+      [rows => rows.push({ name: '0999_unknown', checksum: 'a'.repeat(64) }), 'LIFECYCLE_SCHEMA_UNKNOWN'],
+      [rows => rows.pop(), 'LIFECYCLE_SCHEMA_STALE'],
+      [rows => { rows[0].checksum = 'f'.repeat(64); }, 'LIFECYCLE_SCHEMA_DRIFT'],
+      [rows => rows.reverse(), 'LIFECYCLE_SCHEMA_HISTORY']
+    ]) {
+      const connection = recordingConnection(); mutation(connection.ledgers.get(namespaces.entries));
+      await assert.rejects(lifecycle.exportTenant(connection, options()), { code, detail: 'entries' });
+    }
+  });
+
+  it('refuses matching unknown artifact and live ledgers before import or deletion effects', async function () {
+    const source = recordingConnection();
+    const knownArtifact = await lifecycle.exportTenant(source, options());
+    const artifact = unknownArtifact(knownArtifact);
+    const target = recordingConnection({});
+    const unknown = { name: '0999_unknown', checksum: 'a'.repeat(64) };
+    target.ledgers.get(namespaces.entries).push(unknown);
+    await assert.rejects(lifecycle.importArtifact(target, artifact, { tenant: A, namespaces }), { code: 'LIFECYCLE_SCHEMA_UNKNOWN', detail: 'entries' });
+    await assert.rejects(lifecycle.importArtifact(target, knownArtifact, { tenant: A, namespaces }), { code: 'LIFECYCLE_SCHEMA_UNKNOWN', detail: 'entries' });
+    assert.equal(target.log.filter(entry => /^INSERT|^DELETE/.test(entry.text)).length, 0);
+  });
+
+  it('refuses matching unknown clinical ledger before destructive execution', async function () {
+    const source = recordingConnection();
+    const artifact = unknownArtifact(await lifecycle.exportTenant(source, options()));
+    const unknown = { name: '0999_unknown', checksum: 'a'.repeat(64) };
+    source.ledgers.get(namespaces.entries).push(unknown);
+    const request = await lifecycle.requestDeletion(source, { tenant: A, ledgerNamespace, artifact });
+    await lifecycle.confirmDeletion(source, { tenant: A, ledgerNamespace, artifact, requestId: request.requestId });
+    let failure;
+    try { await lifecycle.executeDeletion(source, { tenant: A, namespaces, ledgerNamespace, artifact, requestId: request.requestId }); } catch (error) { failure = error; }
+    const observed = { scope: 'actual-component recording-client protocol, not PostgreSQL', deleteStatements: source.log.filter(entry => /^DELETE/.test(entry.text)).length, remainingTenantRows: totalRows(source, A) };
+    console.log('LIFECYCLE_UNKNOWN_LEDGER_SOURCE_OBSERVATION', JSON.stringify(observed));
+    assert.equal(failure?.code, 'LIFECYCLE_SCHEMA_UNKNOWN');
+    assert.equal(observed.deleteStatements, 0);
+  });
+
+  it('refuses current identity-bearing tenant import before inserts or any shared sequence maintenance', async function () {
+    const source = recordingConnection();
+    const artifact = await lifecycle.exportTenant(source, options());
+    const foreign = seedRows(); for (const rows of Object.values(foreign)) for (let i = rows.length - 1; i >= 0; i--) if (rows[i].tenant_id === A) rows.splice(i, 1);
+    const target = recordingConnection(foreign);
+    const before = target.rows(namespaces.entries, 'entries', B);
+    await assert.rejects(lifecycle.importArtifact(target, artifact, { tenant: A, namespaces }), { code: 'LIFECYCLE_IDENTITY_IMPORT_UNSUPPORTED', detail: 'entries.entries' });
+    assert.equal(target.log.some(entry => /^(INSERT|UPDATE|DELETE|ALTER)|setval|nextval/.test(entry.text)), false);
+    assert.deepEqual(target.rows(namespaces.entries, 'entries', B), before);
+  });
 
   it('includes the accepted owner configuration authority in tenant lifecycle operations', function () {
     const expected = require('../lib/tenant-settings/owner-authority-candidate.json');
@@ -300,11 +366,11 @@ describe('tenant lifecycle: typed export, import and two-phase deletion', functi
   });
 
   it('imports into an empty target in one transaction and the rows read back identical', async function () {
-    const source = recordingConnection();
-    const artifact = await lifecycle.exportTenant(source, options());
-    const target = recordingConnection({});
+    const source = recordingLegacyConnection();
+    const artifact = await nonIdentityLifecycle.exportTenant(source, options());
+    const target = recordingLegacyConnection({});
     const seen = [];
-    const result = await lifecycle.importArtifact(target, artifact, { tenant: A, namespaces, onRow: event => { seen.push(event.total); } });
+    const result = await nonIdentityLifecycle.importArtifact(target, artifact, { tenant: A, namespaces, onRow: event => { seen.push(event.total); } });
     assert.equal(result.total, totalRows(source, A));
     assert.deepEqual(seen, seen.map((_, i) => i + 1));
     assert.equal(target.log.filter(e => e.text.startsWith('BEGIN')).length, 1);
@@ -315,18 +381,18 @@ describe('tenant lifecycle: typed export, import and two-phase deletion', functi
       }
     }
     const food = target.log.find(e => e.text.startsWith('INSERT INTO "ns_food"."food"'));
-    assert.match(food.text, / OVERRIDING SYSTEM VALUE VALUES \(\$1::uuid, \$2::text, \$3::jsonb, \$4::bigint\)$/);
+    assert.ok(!food.text.includes('OVERRIDING SYSTEM VALUE'));
     assert.equal(typeof food.values[2], 'string');
-    assert.equal(target.rows(namespaces.food, 'food', A)[0].insertion_ordinal, '7');
+    assert.equal(target.log.some(entry => /setval|nextval|ALTER SEQUENCE/.test(entry.text)), false);
     assert.equal(totalRows(target, B), 0);
   });
 
   it('refuses before any write: tenant, row tenant, ledger, columns, key reference, non-empty target, missing catalogue', async function () {
-    const source = recordingConnection();
-    const artifact = await lifecycle.exportTenant(source, options());
+    const source = recordingLegacyConnection();
+    const artifact = await nonIdentityLifecycle.exportTenant(source, options());
     const writes = connection => connection.log.filter(e => /^(INSERT|DELETE|UPDATE)/.test(e.text)).length;
-    let target = recordingConnection({});
-    await assert.rejects(lifecycle.importArtifact(target, artifact, { tenant: B, namespaces }), { code: 'LIFECYCLE_TENANT_MISMATCH' });
+    let target = recordingLegacyConnection({});
+    await assert.rejects(nonIdentityLifecycle.importArtifact(target, artifact, { tenant: B, namespaces }), { code: 'LIFECYCLE_TENANT_MISMATCH' });
     assert.equal(writes(target), 0);
 
     const rebuilt = mutate => {
@@ -348,47 +414,47 @@ describe('tenant lifecycle: typed export, import and two-phase deletion', functi
 
     const tampered = JSON.parse(JSON.stringify(artifact));
     tampered.tables['entries.entries'].pop();
-    await assert.rejects(lifecycle.importArtifact(recordingConnection({}), tampered, { tenant: A, namespaces }), { code: 'LIFECYCLE_ARTIFACT_COUNT' });
+    await assert.rejects(nonIdentityLifecycle.importArtifact(recordingLegacyConnection({}), tampered, { tenant: A, namespaces }), { code: 'LIFECYCLE_ARTIFACT_COUNT' });
     tampered.manifest.exportedAt += 1;
-    await assert.rejects(lifecycle.importArtifact(recordingConnection({}), tampered, { tenant: A, namespaces }), { code: 'LIFECYCLE_ARTIFACT_DIGEST' });
+    await assert.rejects(nonIdentityLifecycle.importArtifact(recordingLegacyConnection({}), tampered, { tenant: A, namespaces }), { code: 'LIFECYCLE_ARTIFACT_DIGEST' });
 
     const stale = rebuilt(c => { c.find(x => x.kind === 'entries').ledger[0].checksum = 'f'.repeat(64); });
-    target = recordingConnection({});
-    await assert.rejects(lifecycle.importArtifact(target, stale, { tenant: A, namespaces }), { code: 'LIFECYCLE_LEDGER_MISMATCH', detail: 'entries' });
+    target = recordingLegacyConnection({});
+    await assert.rejects(nonIdentityLifecycle.importArtifact(target, stale, { tenant: A, namespaces }), { code: 'LIFECYCLE_SCHEMA_DRIFT', detail: 'entries' });
     assert.equal(writes(target), 0);
 
     assert.throws(() => rebuilt(c => { delete c.find(x => x.kind === 'entries').tables[0].rows[0].id_kind; }), { code: 'LIFECYCLE_ARTIFACT_COLUMN', detail: 'entries.entries.id_kind' });
     const narrowed = rebuilt(c => { c.find(x => x.kind === 'entries').tables[0].columns.pop(); });
-    await assert.rejects(lifecycle.importArtifact(recordingConnection({}), narrowed, { tenant: A, namespaces }), { code: 'LIFECYCLE_COLUMNS_MISMATCH', detail: 'entries.entries' });
+    await assert.rejects(nonIdentityLifecycle.importArtifact(recordingLegacyConnection({}), narrowed, { tenant: A, namespaces }), { code: 'LIFECYCLE_COLUMNS_MISMATCH', detail: 'entries.entries' });
     const retyped = rebuilt(c => { c.find(x => x.kind === 'entries').tables[0].columns[1].type = 'text'; });
-    await assert.rejects(lifecycle.importArtifact(recordingConnection({}), retyped, { tenant: A, namespaces }), { code: 'LIFECYCLE_COLUMNS_MISMATCH', detail: 'entries.entries' });
+    await assert.rejects(nonIdentityLifecycle.importArtifact(recordingLegacyConnection({}), retyped, { tenant: A, namespaces }), { code: 'LIFECYCLE_COLUMNS_MISMATCH', detail: 'entries.entries' });
 
     const missing = rebuilt(c => { c.splice(c.findIndex(x => x.kind === 'food'), 1); });
-    target = recordingConnection({});
-    await assert.rejects(lifecycle.importArtifact(target, missing, { tenant: A, namespaces }), { code: 'LIFECYCLE_CATALOGUE_INCOMPLETE', detail: 'food' });
+    target = recordingLegacyConnection({});
+    await assert.rejects(nonIdentityLifecycle.importArtifact(target, missing, { tenant: A, namespaces }), { code: 'LIFECYCLE_CATALOGUE_INCOMPLETE', detail: 'food' });
     assert.equal(writes(target), 0);
 
-    await assert.rejects(lifecycle.importArtifact(source, artifact, { tenant: A, namespaces }), { code: 'LIFECYCLE_TARGET_NOT_EMPTY', detail: 'entries.entries' });
-    await assert.rejects(lifecycle.importArtifact(recordingConnection({}), artifact, { tenant: A, namespaces: { ...namespaces, food: undefined } }), { code: 'LIFECYCLE_CATALOGUE_UNMAPPED', detail: 'food' });
+    await assert.rejects(nonIdentityLifecycle.importArtifact(source, artifact, { tenant: A, namespaces }), { code: 'LIFECYCLE_TARGET_NOT_EMPTY', detail: 'entries.entries' });
+    await assert.rejects(nonIdentityLifecycle.importArtifact(recordingLegacyConnection({}), artifact, { tenant: A, namespaces: { ...namespaces, food: undefined } }), { code: 'LIFECYCLE_CATALOGUE_UNMAPPED', detail: 'food' });
   });
 
   it('rolls back an interrupted import completely and a rerun completes', async function () {
-    const source = recordingConnection();
-    const artifact = await lifecycle.exportTenant(source, options());
-    const target = recordingConnection({});
+    const source = recordingLegacyConnection();
+    const artifact = await nonIdentityLifecycle.exportTenant(source, options());
+    const target = recordingLegacyConnection({});
     let partial;
-    await assert.rejects(lifecycle.importArtifact(target, artifact, { tenant: A, namespaces, onRow: event => {
+    await assert.rejects(nonIdentityLifecycle.importArtifact(target, artifact, { tenant: A, namespaces, onRow: event => {
       if (event.total === 3) { partial = totalRows(target, A); throw new Error('synthetic-interruption'); }
     } }), /synthetic-interruption/);
     assert.equal(partial, 3, 'three rows were visible inside the transaction before the throw');
     assert.equal(target.log.at(-1).text, 'ROLLBACK');
     assert.equal(totalRows(target, A), 0);
-    const rerun = await lifecycle.importArtifact(target, artifact, { tenant: A, namespaces });
+    const rerun = await nonIdentityLifecycle.importArtifact(target, artifact, { tenant: A, namespaces });
     assert.equal(rerun.total, totalRows(source, A));
     assert.equal(totalRows(target, A), rerun.total);
   });
 
-  it('deletes in two phases: request, verified execute, foreign tenant untouched, re-import restores byte-for-byte', async function () {
+  it('deletes with verified ceremony, preserves foreign tenant and refuses identity-bearing tenant re-import', async function () {
     const connection = recordingConnection();
     const artifact = await lifecycle.exportTenant(connection, options());
     const before = { a: totalRows(connection, A), b: totalRows(connection, B) };
@@ -427,12 +493,9 @@ describe('tenant lifecycle: typed export, import and two-phase deletion', functi
     assert.equal(connection.log.filter(e => e.text === 'BEGIN').at(-1) !== undefined, true);
     await assert.rejects(lifecycle.executeDeletion(connection, { tenant: A, namespaces, ledgerNamespace, artifact, requestId: request.requestId }), { code: 'LIFECYCLE_REQUEST_ALREADY_EXECUTED' });
 
-    const restored = await lifecycle.importArtifact(connection, artifact, { tenant: A, namespaces });
-    assert.equal(restored.total, before.a);
-    const again = await lifecycle.exportTenant(connection, options());
-    assert.deepEqual(again.tables, artifact.tables);
-    assert.equal(again.tables['secrets.secret_records'][0].ciphertext, CIPHER);
-    assert.equal(again.digest, artifact.digest);
+    await assert.rejects(lifecycle.importArtifact(connection, artifact, { tenant: A, namespaces }), { code: 'LIFECYCLE_IDENTITY_IMPORT_UNSUPPORTED', detail: 'entries.entries' });
+    assert.equal(totalRows(connection, A), 0);
+    assert.equal(artifact.tables['secrets.secret_records'][0].ciphertext, CIPHER);
   });
 
   it('requires operator confirmation, current authority and durable/quiescent capabilities before deletion', async function () {
@@ -523,8 +586,8 @@ describe('tenant lifecycle: typed export, import and two-phase deletion', functi
     const args = { tenant: A, namespaces, ledgerNamespace, artifact, requestId: request.requestId, now: () => 3 };
     await lifecycle.confirmDeletion(connection, { ...args, now: () => 2 });
     const claim = await lifecycle.claimDeletion(connection, args);
-    await connection.withTenant(A, () => connection.query('INSERT INTO "ns_entries"."entries" ("tenant_id", "doc", "id_kind") VALUES ($1::uuid, $2::jsonb, $3::text)',
-      [A, JSON.stringify({ _id: 'after-claim', date: 3000 }), 'string']));
+    await connection.withTenant(A, () => connection.query('INSERT INTO "ns_entries"."entries" ("tenant_id", "doc", "id_kind", "insertion_ordinal") OVERRIDING SYSTEM VALUE VALUES ($1::uuid, $2::jsonb, $3::text, $4::bigint)',
+      [A, JSON.stringify({ _id: 'after-claim', date: 3000 }), 'string', '999']));
     const before = totalRows(connection, A);
     await assert.rejects(lifecycle.executeDeletion(connection, { ...args, claimId: claim.claimId, now: () => 4 }), { code: 'LIFECYCLE_ARTIFACT_STALE', detail: 'entries.entries' });
     assert.equal(totalRows(connection, A), before);
@@ -600,8 +663,8 @@ describe('tenant lifecycle: typed export, import and two-phase deletion', functi
     const request = await lifecycle.requestDeletion(connection, { tenant: A, ledgerNamespace, artifact });
     await lifecycle.confirmDeletion(connection, { tenant: A, ledgerNamespace, artifact, requestId: request.requestId });
     const count = totalRows(connection, A);
-    await connection.withTenant(A, () => connection.query('INSERT INTO "ns_entries"."entries" ("tenant_id", "doc", "id_kind") VALUES ($1::uuid, $2::jsonb, $3::text)',
-      [A, JSON.stringify({ _id: 'late-row', date: 3000 }), 'string']));
+    await connection.withTenant(A, () => connection.query('INSERT INTO "ns_entries"."entries" ("tenant_id", "doc", "id_kind", "insertion_ordinal") OVERRIDING SYSTEM VALUE VALUES ($1::uuid, $2::jsonb, $3::text, $4::bigint)',
+      [A, JSON.stringify({ _id: 'late-row', date: 3000 }), 'string', '999']));
     await assert.rejects(lifecycle.executeDeletion(connection, { tenant: A, namespaces, ledgerNamespace, artifact, requestId: request.requestId }), { code: 'LIFECYCLE_ARTIFACT_STALE', detail: 'entries.entries' });
     assert.equal(totalRows(connection, A), count + 1);
 

@@ -403,8 +403,19 @@ pass. This is SQL-fixture trusted operator quiescence, not serving ingress or a 
 fence. Exact child births are checked before cleanup signals. The parent retains
 its fixture for independent teardown and does not report runtime RELEASED.
 
-Seven prepared native controls have strict causal signatures and physical oracles;
+Eight prepared native controls have strict causal signatures and physical oracles;
 none are native evidence until run. The full config contract and five-case
 instrument are separate from staged journey descriptors. Mongo/Vault/actual API/
 RT/evaluator/browser/current-token/IPC/provider behavior need separate composition
 grant and runtime-ready synthetic configs, not SQL-fidelity fixtures.
+
+
+Current lifecycle admission requires the **full exact selected catalogue ledger**
+for export, artifact import and destructive admission. Unknown, stale, drifted or
+reordered rows refuse; artifact/live agreement is not catalogue authority. A known
+prefix requires an explicitly selected older inventory rather than current tables.
+Identity-bearing tenant import is unsupported and refuses before any INSERT or
+sequence effect. Same-ID TENANT restore remains OPEN: whole-deployment rollback can
+revert foreign B and global API namespaces cannot transparently split A/B routing.
+See `lib/tenant-lifecycle/IDENTITY-IMPORT-REVIEW.md` for the source-only maintenance
+contract proposal and compatibility implications. No allocator workaround is enabled.

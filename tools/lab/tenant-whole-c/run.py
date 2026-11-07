@@ -109,6 +109,12 @@ def physical_control(control, events):
     if cid == 'profile-populated-guard':
         value = by_phase('C4-guard-after-before-verdict-profile-true')[-1]['profile.profile']
         return len(value['ledger']) == 2 and any(col['attname'] == 'insertion_ordinal' for col in value['columns']) and len(value['rows']) > 0
+    if cid == 'unknown-lifecycle-ledger':
+        before = by_phase('C5-unknown-ledger-before')[-1]['entries.entries']['rows']
+        after = by_phase('C5-unknown-ledger-after-before-verdict')[-1]['entries.entries']['rows']
+        effects = by_phase('C5-unknown-ledger-effects-before-verdict')[-1]
+        tenant = '11111111-1111-4111-8111-111111111111'
+        return any(row['tenant_id'] == tenant for row in before) and not any(row['tenant_id'] == tenant for row in after) and any(row['tenant_id'] == tenant for row in effects['hiddenRows']) and effects['eraseCodes'] == []
     if cid == 'running-writer-window':
         proof = by_phase('C5-live-writer-physical-before-verdict')[-1]
         observation = by_phase('C5-live-writer-observation')[-1]
