@@ -20,8 +20,7 @@ module.exports = async function consumer (input) {
   const pause = ms => new Promise(resolve => setTimeout(resolve, ms));
   async function wait (check, marker) { const until = Date.now() + config.timeoutMs; while (Date.now() < until) { const result = await check(); if (result) return result; await pause(10); } throw new Error(marker); }
   async function subscribe (credential, recipient) {
-    const socket = require('socket.io-client')('http://127.0.0.1:' + roles.ingress.port + '/alarm', { transports: ['websocket'], forceNew: true,
-      reconnection: false, timeout: config.timeoutMs, extraHeaders: { Host: config.host } }); sockets.push(socket);
+    const socket = roles.client({namespace:'/alarm',transports:['websocket']}); sockets.push(socket);
     socket.on('urgent_alarm', notification => { events.push({ recipient, kind: 'urgent_alarm', notification }); record(); });
     socket.on('clear_alarm', notification => { events.push({ recipient, kind: 'clear_alarm', notification }); record(); });
     await new Promise((resolve, reject) => { socket.once('connect', resolve); socket.once('connect_error', reject); });

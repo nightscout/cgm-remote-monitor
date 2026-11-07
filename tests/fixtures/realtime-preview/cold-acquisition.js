@@ -33,8 +33,7 @@ module.exports = async function coldAcquisition ({ input, roles, admin, warm, al
     if (health?.code === 'EVALUATOR_ACQUISITION_REFUSED' && last?.value === null) return actual;
   }
   try {
-    const socket = require('socket.io-client')('http://127.0.0.1:' + roles.ingress.port, { transports: ['websocket'], forceNew: true,
-      reconnection: false, timeout: config.timeoutMs, extraHeaders: { Host: config.host } }); sockets.push(socket);
+    const socket = roles.client({transports:['websocket']}); sockets.push(socket);
     await new Promise((resolve, reject) => { socket.once('connect', resolve); socket.once('connect_error', reject); });
     const send = (event, ...args) => new Promise((resolve, reject) => {
       const timer = setTimeout(() => reject(new Error('COLD_API_' + event + '_NOACK')), config.timeoutMs);

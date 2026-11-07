@@ -22,8 +22,8 @@ module.exports = async function dataParity (input) {
     socket.emit(event, payload, (...reply) => { clearTimeout(timer); resolve({ outcome: 'reply', args: reply }); });
   });
   async function connect (port, host, credential) {
-    const socket = require('socket.io-client')('http://127.0.0.1:' + port, { transports: ['websocket'], reconnection: false,
-      timeout: config.timeoutMs, ...(host ? { extraHeaders: { Host: host } } : {}) }); sockets.push(socket);
+    if(host)assert.equal(port,roles.ingress.port,'named client must use owned ingress port');
+    const socket = host?roles.client({host,transports:['websocket']}):require('socket.io-client')('http://127.0.0.1:' + port, {transports:['websocket'],reconnection:false,timeout:config.timeoutMs}); sockets.push(socket);
     await new Promise((resolve, reject) => { socket.once('connect', resolve); socket.once('connect_error', reject); });
     const result = await send(socket, 'authorize', credential); assert.equal(result.args?.[0]?.read, true); return socket;
   }
