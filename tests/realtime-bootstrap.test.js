@@ -10,7 +10,7 @@ describe('parent-owned realtime bootstrap source contract',function(){
   let dir,input;
   beforeEach(function(){dir=fs.mkdtempSync(path.join(os.tmpdir(),'rt-b-'));fs.chmodSync(dir,0o700);
     const pins=require('./fixtures/realtime-preview/early').plan.pins;
-    const resource=(kind,port,database)=>({kind,host:'127.0.0.1',port,database,containerId:'synthetic-owned-'+kind,image:kind+'@'+pins[kind],labelKey:'synthetic-owner',labelValue:'synthetic-phase',mounts:[]});
+    const resource=(kind,port,database)=>({kind,host:'127.0.0.1',port,database,containerId:'synthetic-owned-'+kind,image:pins[kind],labelKey:'synthetic-owner',labelValue:'synthetic-phase',mounts:[]});
     input={sourceDir,captureDir:dir,onObservation(){},env:{NS_TEST_POSTGRES_ADMIN_URI:'postgres://synthetic-admin:synthetic@127.0.0.1:15432/bootstrap_test',
       CUSTOMCONNSTR_mongo:'mongodb://127.0.0.1:27017/synthetic',NS_RT_BOOTSTRAP_VAULT_ADDRESS:'http://127.0.0.1:18200',NS_RT_BOOTSTRAP_VAULT_ROOT_TOKEN:'synthetic-vault-root',
       NS_RT_BOOTSTRAP_OPTIONS_JSON:JSON.stringify(bounds()),NS_RT_BOOTSTRAP_UI_JSON:JSON.stringify({bundleDirectory:'/tmp/synthetic-bundle',expectedBundleSha256:'0'.repeat(64),settings:{units:'mg/dl'}})},
@@ -70,6 +70,70 @@ describe('parent-owned realtime bootstrap source contract',function(){
       assert.throws(()=>plan.parse({...input,env:{...input.env,NS_RT_BOOTSTRAP_OPTIONS_JSON:JSON.stringify({...options,...changes})}}),/INPUT_REFUSED/);
     }
     assert.ok(plan.phases.includes('joined-consumer-plugin-ack'));
+  });
+
+  it('uses the callable export, exact immutable image IDs and six exact consumed phase/carrier bindings',function(){
+    assert.equal(typeof fixture,'function');
+    assert.deepEqual(plan.phases,['joined-role-recovery','joined-data-parity','joined-consumer-handoff','joined-consumer-plugin-ack','joined-socket-epoch','joined-browser-consumer']);
+    assert.equal(plan.phaseConfiguration('joined-consumer-plugin-ack').credentialEnv,'RT_BOOTSTRAP_ALARM_A_JSON');
+    assert.equal(plan.phaseConfiguration('joined-consumer-handoff').credentialEnv,'RT_BOOTSTRAP_ALARM_A_JSON');
+    assert.equal(plan.phaseConfiguration('joined-socket-epoch').epochStatusCredentialEnv,'RT_BOOTSTRAP_EPOCH_STATUS_JSON');
+    assert.throws(()=>plan.phaseConfiguration('nearest-epoch'),/INPUT_REFUSED/);
+    assert.equal(plan.parse(input).options.maxRows,100);
+    for(const kind of ['postgres','mongo','vault'])for(const image of [kind+'@'+require('./fixtures/realtime-preview/early').plan.pins[kind],
+      'prefix'+require('./fixtures/realtime-preview/early').plan.pins[kind],require('./fixtures/realtime-preview/early').plan.pins[kind].slice(0,-1)+'x']) {
+      const resources=structuredClone(input.resources);resources.find(row=>row.kind===kind).image=image;
+      assert.throws(()=>plan.parse({...input,resources}),/INPUT_REFUSED/,'BOOTSTRAP_IMAGE_EXACT_NOT_LOOKALIKE');
+    }
+  });
+  it('seeds status as a separate least-privilege subject and encodes real token carriers for both namespaces',function(){
+    const actor=plan.subjects.find(row=>row.id===plan.STATUS);assert(actor);assert.equal(actor.role,'status');
+    assert.deepEqual(plan.rolePermissions.status,['api:status:read']);assert.notEqual(plan.STATUS,plan.SUBJECT);assert.notEqual(plan.STATUS,plan.STALE);
+    const current=plan.credentials(0,plan.SUBJECT,'synthetic-wire-token'),status=plan.credentials(0,plan.STATUS,'synthetic-status-token');
+    const {credentialFor}=require('../lib/server/realtime/authority');
+    assert.deepEqual(credentialFor('/',JSON.parse(current.RT_BOOTSTRAP_EPOCH_READ_JSON)),{token:'synthetic-wire-token'});
+    assert.deepEqual(credentialFor('/alarm',JSON.parse(current.RT_BOOTSTRAP_EPOCH_READ_JSON)),{accessToken:'synthetic-wire-token'});
+    assert.deepEqual(credentialFor('/',JSON.parse(status.RT_BOOTSTRAP_EPOCH_STATUS_JSON)),{token:'synthetic-status-token'});
+    assert.deepEqual(credentialFor('/alarm',JSON.parse(status.RT_BOOTSTRAP_EPOCH_STATUS_JSON)),{accessToken:'synthetic-status-token'});
+    assert.deepEqual(credentialFor('/alarm',JSON.parse(current[plan.phaseConfiguration('joined-consumer-plugin-ack').credentialEnv])),{accessToken:'synthetic-wire-token'});
+  });
+  it('verifies signed status credentials through actual token/access-SQL/socket authority modules and current revocation (source protocol only)',async function(){
+    const connectionPath=require.resolve('../lib/storage/postgres-connection'),accessPath=require.resolve('../lib/tenant-authorization/access-postgres');
+    require(connectionPath);const priorConnect=require.cache[connectionPath].exports,priorAccess=require.cache[accessPath];
+    const scope=require('../lib/storage/tenant-scope'),oldMode=scope.getTenancyMode();let current=true,authority;
+    // Synthetic query-row protocol, not a PostgreSQL or native permission claim.
+    const connection={withTenant:async(tenant,fn)=>fn(),end:async()=>{},query:async(sql,args)=>{
+      if(sql.includes('FROM pg_class'))return {rows:Array.from({length:8},()=>({secured:true,owns:false,reads:true,writes:false}))};
+      assert(sql.includes('JOIN')&&sql.includes('tenant_authorization_roles'));assert.equal(args[0],plan.A);
+      const subject=plan.subjects.find(row=>row.id===args[1]);assert(subject);
+      return {rows:[{active:current,credential_enabled:true,generation:1,session_active:true,session_generation:1,expires_at:2000,
+        key_active:true,display_name:'Synthetic status actor',anonymous_roles:['denied'],role_name:subject.role,found_role:subject.role,permissions:plan.rolePermissions[subject.role]}]};
+    }};
+    try {
+      require.cache[connectionPath].exports=async()=>connection;delete require.cache[accessPath];scope.setTenancyMode('multi');
+      authority=await require(accessPath)({namespace:'synthetic_access',authorityNamespace:'synthetic_auth'});
+      const pair=crypto.generateKeyPairSync('ed25519'),tokens=require('../lib/tenant-authorization/access-token');
+      const verifyToken=tokens.createVerifier({issuer:'synthetic-source',audience:'synthetic-data',purpose:'data',maxLifetimeSeconds:3600,now:()=>1000,
+        resolveKey:(tenant,kid)=>({tenant,kid,issuer:'synthetic-source',purpose:'data',publicKey:pair.publicKey})});
+      const authenticate=tokens.createAuthentication({verifyToken,snapshot:authority.snapshot,now:()=>1000});
+      const socket=require('../lib/server/realtime/authority').create({accessTokens:{authenticate},admission:{allows:async()=>true},
+        verifierContext:async tenant=>({tenant}),secrets:{verifyLegacyCredential(){throw new Error('NO_LEGACY_FALLBACK');}},
+        authority:{subjectSnapshot(){throw new Error('NO_SNAPSHOT_BYPASS');},authorize(){throw new Error('NO_PERMISSION_BYPASS');}}});
+      const signed=subject=>{const header=Buffer.from(JSON.stringify({alg:'EdDSA',typ:'ns-access+jwt',kid:'key1'})).toString('base64url');
+        const body=Buffer.from(JSON.stringify({iss:'synthetic-source',aud:'synthetic-data',tid:plan.A,purpose:'data',sub:subject,sid:'session-'+subject,cv:1,iat:1000,nbf:1000,exp:2000})).toString('base64url');
+        return header+'.'+body+'.'+crypto.sign(null,Buffer.from(header+'.'+body),pair.privateKey).toString('base64url');};
+      const full=await socket.verify({tenant:plan.A,namespace:'/',credential:{token:signed(plan.SUBJECT)}});
+      assert.deepEqual(full.permissions,{read:true,write:true,write_treatment:true,ack:true},'BOOTSTRAP_FULL_WRITER_SEPARATE_FROM_STATUS');
+      for(const namespace of ['/','/alarm']) {
+        const credential=require('../lib/server/realtime/authority').credentialFor(namespace,JSON.parse(plan.credentials(0,plan.STATUS,signed(plan.STATUS)).RT_BOOTSTRAP_EPOCH_STATUS_JSON));
+        const admitted=await socket.verify({tenant:plan.A,namespace,credential});
+        assert.deepEqual(admitted.permissions,{read:false,write:false,write_treatment:false,ack:false});assert.deepEqual(admitted.collections,[]);
+        current=false;await assert.rejects(socket.verify({tenant:plan.A,namespace,credential}),error=>error.code==='AUTHORITY_FORBIDDEN');current=true;
+      }
+    } finally {
+      if(authority)await authority.close();require.cache[connectionPath].exports=priorConnect;
+      if(priorAccess)require.cache[accessPath]=priorAccess;else delete require.cache[accessPath];scope.setTenancyMode(oldMode);
+    }
   });
 
 });

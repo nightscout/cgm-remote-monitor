@@ -116,7 +116,8 @@ module.exports=async function bootstrap(input) {
       consumerId:docs.evaluator.consumers.realtime.route.id,alarmSocketPath:socketPaths.alarm,maxMessageBytes:o.maxMessageBytes,
       mongoDatabase:l.mongoDatabase,profileUncertaintyResolved:false};
     const phaseConfigurations=Object.fromEntries(plan.phases.map(phase=>[phase,{...configurationBase,
-      credentialEnv:phase==='joined-consumer-handoff'?'RT_BOOTSTRAP_ALARM_A_JSON':'RT_BOOTSTRAP_MAIN_A_JSON',
+      ...plan.phaseConfiguration(phase),
+      ...(phase==='joined-socket-epoch'?{epochObservationMs:o.observationMs}:{}),
       foreignCredentialEnv:'RT_BOOTSTRAP_MAIN_B_JSON',staleCredentialEnv:'RT_BOOTSTRAP_STALE_ALARM_JSON',browserCredentialEnv:'RT_BOOTSTRAP_BROWSER_TOKEN',
       ...(phase==='joined-browser-consumer'?{uiFixture:selected.ui,browserResolverHosts:['one.example.test','two.example.test']}:{})}]));
     async function resetForPhase(phaseId) {
@@ -136,13 +137,14 @@ module.exports=async function bootstrap(input) {
       for(const [i,tenant]of [plan.A,plan.B].entries()) {
         await admin.query('INSERT INTO '+q(ns.legacy)+'.legacy_credential_config VALUES ($1,$2)',[tenant,'root-'+i]);
         await admin.query('INSERT INTO '+q(ns.authorization)+'.tenant_authorization_config VALUES ($1,ARRAY[\'denied\'])',[tenant]);
-        await admin.query('INSERT INTO '+q(ns.authorization)+'.tenant_authorization_roles VALUES ($1,\'fixture\',$2)',[tenant,['api:*:read','api:*:create,update,delete','notifications:*:ack']]);
+        for(const [name,permissions] of Object.entries(plan.rolePermissions))await admin.query('INSERT INTO '+q(ns.authorization)+'.tenant_authorization_roles VALUES ($1,$2,$3)',[tenant,name,permissions]);
         await admin.query('INSERT INTO '+q(ns.access)+'.access_tenants VALUES ($1,true)',[tenant]);
         await admin.query('INSERT INTO '+q(ns.access)+'.access_keys VALUES ($1,\'key1\',\'data\',true)',[tenant]);
-        for(const subject of [plan.SUBJECT,plan.STALE]) {
+        for(const selectedSubject of plan.subjects) {
+          const subject=selectedSubject.id;
           await admin.query('INSERT INTO '+q(ns.authorization)+'.tenant_authorization_subjects (tenant_id,subject_id,display_name) VALUES($1,$2,$3)',[tenant,subject,'Synthetic '+subject.slice(-1)]);
-          await admin.query('INSERT INTO '+q(ns.authorization)+'.tenant_authorization_subject_roles VALUES($1,$2,\'fixture\')',[tenant,subject]);
-          await admin.query('INSERT INTO '+q(ns.legacy)+'.legacy_credential_subjects VALUES($1,$2,$3)',[tenant,subject,subject===plan.SUBJECT?'fixture':'stale']);
+          await admin.query('INSERT INTO '+q(ns.authorization)+'.tenant_authorization_subject_roles VALUES($1,$2,$3)',[tenant,subject,selectedSubject.role]);
+          await admin.query('INSERT INTO '+q(ns.legacy)+'.legacy_credential_subjects VALUES($1,$2,$3)',[tenant,subject,selectedSubject.legacy]);
           await admin.query('INSERT INTO '+q(ns.access)+'.access_credentials VALUES($1,$2,$2,1,true)',[tenant,subject]);
           await admin.query('INSERT INTO '+q(ns.access)+'.access_sessions VALUES($1,$2,$3,$3,1,$4,true,\'data\')',[tenant,'session-'+subject,subject,exp]);
           const header=Buffer.from(JSON.stringify({alg:'EdDSA',typ:'ns-access+jwt',kid:'key1'})).toString('base64url');
@@ -150,9 +152,7 @@ module.exports=async function bootstrap(input) {
           const signingInput=header+'.'+body;
           const signed=await vault(l.mount+'/sign/tenant-'+i+'-access',{input:Buffer.from(signingInput).toString('base64'),key_version:1},tokens[i]);
           const token=signingInput+'.'+Buffer.from(signed.data.signature.split(':')[2],'base64').toString('base64url');
-          if(subject===plan.SUBJECT){phaseEnvironment[i?'RT_BOOTSTRAP_MAIN_B_JSON':'RT_BOOTSTRAP_MAIN_A_JSON']=JSON.stringify({token});
-            if(!i)phaseEnvironment.RT_BOOTSTRAP_ALARM_A_JSON=JSON.stringify({accessToken:token});}
-          else if(!i)phaseEnvironment.RT_BOOTSTRAP_STALE_ALARM_JSON=JSON.stringify({accessToken:token});
+          Object.assign(phaseEnvironment,plan.credentials(i,subject,token));
         }
         const doc={_id:'synthetic-reading-'+i,type:'sgv',sgv:i?foreign:mgdl,date:now-1000,dateString:new Date(now-1000).toISOString(),direction:'Flat',device:'synthetic-bootstrap',srvModified:now};
         await admin.query('INSERT INTO '+q(ns.entries)+'.entries(tenant_id,id_kind,doc) VALUES($1,\'string\',$2::jsonb)',[tenant,JSON.stringify(doc)]);
@@ -175,7 +175,7 @@ module.exports=async function bootstrap(input) {
     }
     await observe({phase:'bootstrap-provisioned',tenants:[plan.A,plan.B],namespaces:ns,roles:l.roles,mongoDatabase:l.mongoDatabase,
       catalogues:Object.fromEntries(Object.entries(provisioning.catalogues()).map(([kind,c])=>[kind,c.migrations.map(({name,checksum})=>({name,checksum}))]))});
-    return Object.freeze({phaseConfigurations,roleEnvironments,phaseEnvironment,resetForPhase,close,ownership:{tenant:plan.A,foreignTenant:plan.B,
+    return Object.freeze({phaseConfigurations,roleEnvironments,phaseEnvironment,resetForPhase,close,configurationFiles:[paths.api,paths.evaluator,paths.realtime,paths.admission],ownership:{tenant:plan.A,foreignTenant:plan.B,
       entriesNamespace:ns.entries,authorizationNamespace:ns.authorization,clockNamespace:ns.clock,alarmNamespace:ns.alarm,outboxNamespace:ns.outbox,
       namespaces:configurationBase.namespaces,mongoDatabase:l.mongoDatabase,configurationFiles:[paths.api,paths.evaluator,paths.realtime,paths.admission]},get activePhase(){return activePhase;}});
   }catch(error){await close();throw Object.assign(new Error('JOINED_BOOTSTRAP_REFUSED'),{code:safeCode(error),step});}

@@ -4,9 +4,26 @@
 const path = require('node:path');
 const fs = require('node:fs');
 const crypto = require('node:crypto');
-const phases = Object.freeze(['joined-role-recovery','joined-data-parity','joined-consumer-handoff','joined-consumer-plugin-ack','joined-browser-consumer']);
+const phases = Object.freeze(['joined-role-recovery','joined-data-parity','joined-consumer-handoff','joined-consumer-plugin-ack','joined-socket-epoch','joined-browser-consumer']);
 const A='11111111-1111-4111-8111-111111111111', B='22222222-2222-4222-8222-222222222222';
 const SUBJECT='000000000000000000000001', STALE='000000000000000000000002';
+const STATUS='000000000000000000000003';
+const rolePermissions=Object.freeze({fixture:Object.freeze(['api:*:read','api:*:create,update,delete','notifications:*:ack']),status:Object.freeze(['api:status:read'])});
+const subjects=Object.freeze([{id:SUBJECT,role:'fixture',legacy:'fixture'},{id:STALE,role:'fixture',legacy:'stale'},{id:STATUS,role:'status',legacy:'status'}].map(Object.freeze));
+function phaseConfiguration (phase) {
+  if (!phases.includes(phase)) fail();
+  return {credentialEnv:['joined-consumer-handoff','joined-consumer-plugin-ack'].includes(phase)?'RT_BOOTSTRAP_ALARM_A_JSON':'RT_BOOTSTRAP_MAIN_A_JSON',
+    dataCredentialEnv:'RT_BOOTSTRAP_MAIN_A_JSON',
+    ...(phase==='joined-socket-epoch'?{epochReadCredentialEnv:'RT_BOOTSTRAP_EPOCH_READ_JSON',epochStatusCredentialEnv:'RT_BOOTSTRAP_EPOCH_STATUS_JSON'}:{})};
+}
+function credentials (index,subject,token) {
+  if (![0,1].includes(index) || !subjects.some(row=>row.id===subject) || typeof token!=='string' || !token) fail();
+  if (subject===SUBJECT) return index?{RT_BOOTSTRAP_MAIN_B_JSON:JSON.stringify({token})}:{RT_BOOTSTRAP_MAIN_A_JSON:JSON.stringify({token}),
+    RT_BOOTSTRAP_ALARM_A_JSON:JSON.stringify({accessToken:token}),RT_BOOTSTRAP_EPOCH_READ_JSON:JSON.stringify({token,accessToken:token})};
+  if (index===0&&subject===STALE) return {RT_BOOTSTRAP_STALE_ALARM_JSON:JSON.stringify({accessToken:token})};
+  if (index===0&&subject===STATUS) return {RT_BOOTSTRAP_EPOCH_STATUS_JSON:JSON.stringify({token,accessToken:token})};
+  return {};
+}
 const optionsKeys = Object.freeze(['timeoutMs','recoveryIntervalMs','timeIntervalMs','pollIntervalMs','retryIntervalMs','retryDelayMs',
   'attemptTimeoutMs','maxRows','maxBytes','pageSize','maxMessageBytes','maxPayloadBytes','maxConnections','maxInflight','maxSockets',
   'snoozeMs','settleMs','observationMs','credentialLifetimeSeconds']);
@@ -30,7 +47,7 @@ function parse (input) {
     const own=resource(kind);let url;try{url=new URL(input.env[envKey]);}catch{fail();}
     if (!protocols.includes(url.protocol) || url.hostname!=='127.0.0.1' || own.host!==url.hostname || Number(url.port)!==own.port ||
         !Number.isSafeInteger(own.port) || own.port<1 || own.port>65535 || typeof own.containerId!=='string' || !own.containerId ||
-        typeof own.image!=='string' || !own.image.endsWith('@'+require('./early').plan.pins[kind]) || !own.labelKey || !own.labelValue || !Array.isArray(own.mounts)) fail();
+        typeof own.image!=='string' || own.image!==require('./early').plan.pins[kind] || !own.labelKey || !own.labelValue || !Array.isArray(own.mounts)) fail();
     return {own,url};
   }
   const pg=endpoint('postgres','NS_TEST_POSTGRES_ADMIN_URI',['postgres:','postgresql:']);
@@ -83,4 +100,4 @@ function documents ({selected,layout: l,publicKeys,paths}) {
       consumerState:{evaluatorConfigEnv:'MULTITENANT_EVALUATOR_CONFIG'}}};
   return {api,evaluator,realtime,admission:{version:1,mode:'preview-socket-allowlist',tenants:[A,B].map((id,i)=>({id,enabled:true,aliases:aliases[i]}))},paths};
 }
-module.exports={parse,layout,documents,phases,optionsKeys,optionalOptionsKeys,A,B,SUBJECT,STALE};
+module.exports={parse,layout,documents,phases,optionsKeys,optionalOptionsKeys,A,B,SUBJECT,STALE,STATUS,rolePermissions,subjects,phaseConfiguration,credentials};
