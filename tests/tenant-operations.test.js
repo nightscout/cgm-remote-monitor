@@ -7,6 +7,7 @@ const codec = require('../lib/storage/postgres-identity');
 const { validateCatalogue, checksum } = require('../lib/migrations/catalogue');
 const common = require('../lib/tenant-operations/common');
 const operations = require('../lib/tenant-operations');
+const { legacyInsertionCatalogue } = require('./fixtures/legacy-insertion-catalogue');
 
 const A = '11111111-1111-4111-8111-111111111111';
 const B = '22222222-2222-4222-8222-222222222222';
@@ -15,7 +16,7 @@ const COMMIT = '83582e876dd193f4448f44c28e379fb5464a26c7';
 const NOW = () => 1700000000000;
 
 const CANDIDATES = {
-  entries: require('../migrations/candidates/postgres-entries-v1.json'),
+  entries: legacyInsertionCatalogue(require('../migrations/candidates/postgres-entries-v1.json')),
   clock: require('../migrations/candidates/postgres-write-clock-v1.json'),
   access: require('../lib/tenant-authorization/access-candidate.json'),
   secrets: require('../lib/secrets/postgres-candidate.json')
@@ -440,7 +441,7 @@ describe('tenant operations: deployment backup, restore, upgrade and rollback', 
     });
 
     it('preserves profile successor ordinal gaps across restore and grants only exact writer sequence USAGE', async function () {
-      const candidate = require('../migrations/candidates/postgres-profile-socket-order-v1.json');
+      const candidate = legacyInsertionCatalogue(require('../migrations/candidates/postgres-profile-socket-order-v1.json'));
       const selected = namespace => [{ kind: 'profile', namespace, catalogue: candidate, tables: ['profile'] }];
       const source = fakeConnection(), target = fakeConnection();
       await fakeMigrate(source, [])('up', { namespace: 'source_profile', catalogue: candidate });
@@ -452,7 +453,7 @@ describe('tenant operations: deployment backup, restore, upgrade and rollback', 
       ];
       await source.seed('source_profile', 'profile', rows);
       const artifact = await operations.backup(source, { catalogues: selected('source_profile'), sourceCommit: COMMIT, now: NOW });
-      const inputs = require('./fixtures/tenant-deployment-profile').profileInputs({ writerRole: 'profile_writer', readerRole: 'profile_reader', realtimeRole: 'realtime' });
+      const inputs = require('./fixtures/tenant-deployment-profile').profileInputs({ writerRole: 'profile_writer', readerRole: 'profile_reader', realtimeRole: 'realtime', legacy: true });
       await operations.restore(target, artifact, { catalogues: selected('fresh_profile'), acl: inputs.acl });
       assert.deepEqual(target.rows('fresh_profile', 'profile').sort((a, b) => Number(a.insertion_ordinal) - Number(b.insertion_ordinal)), rows.slice().sort((a, b) => Number(a.insertion_ordinal) - Number(b.insertion_ordinal)));
       assert.equal(target.schemas.get('fresh_profile').tables.get('profile').next, 30);

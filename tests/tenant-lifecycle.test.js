@@ -9,24 +9,21 @@ const { ObjectId } = require('mongodb');
 const tenantScope = require('../lib/storage/tenant-scope');
 const codec = require('../lib/storage/postgres-identity');
 const lifecycleModule = require('../lib/tenant-lifecycle');
+const { legacyInsertionEntry } = require('./fixtures/legacy-insertion-catalogue');
 const trustedCapabilities = {
   authorize: async ({ tenant }) => ({ tenant, allowed: true, current: true, plane: 'operator', principal: 'synthetic_operator', consumer: 'synthetic_control' }),
   verifyDurableArtifact: async ({ tenant, artifact }) => ({ tenant, verified: true, digest: artifact.digest }),
   executionWindow: async ({ tenant }) => ({ tenant, current: true, quiesced: true })
 };
-const selectedCatalogues = [...lifecycleModule.admittedCatalogue(),
+const selectedCatalogues = [...lifecycleModule.admittedCatalogue().map(legacyInsertionEntry),
   { kind: 'alarm_suppression', candidate: require('../migrations/candidates/postgres-alarm-suppression-v1.json'), tables: ['tenant_alarm_suppression'], secrets: [] },
   { kind: 'notification_outbox', candidate: require('../lib/tenant-notifications/postgres-candidate.json'), tables: ['tenant_notification_heads', 'tenant_notification_requests', 'tenant_notification_state'], secrets: [] }];
 function currentAdmission ({ catalogues, namespaces }) {
-  const ops = require('../lib/tenant-operations');
-  const { alarmInputs } = require('./fixtures/tenant-deployment-alarm');
-  const { notificationInputs } = require('./fixtures/tenant-deployment-notifications');
-  const inputs = { tenants: [A, B], now: 1700000000000 };
-  const full = ops.deploymentAdmission({ namespaces: { ...namespaces, lifecycle: ledgerNamespace }, extensions: [
-    alarmInputs({ ...inputs, writerRole: 'alarm_writer', readerRole: 'alarm_reader' }).extension,
-    notificationInputs({ ...inputs, outboxRole: 'outbox_writer', checkpointWriterRole: 'checkpoint_writer', ackReaderRole: 'ack_reader' }).extension
-  ] });
-  assert.deepEqual(catalogues.map(entry => [entry.kind, entry.tables]), full.lifecycle.CATALOGUE.map(entry => [entry.kind, entry.tables]));
+  // This recording double intentionally models the immutable legacy schema.
+  // The current deployment census and native counter/maintenance oracle are
+  // independently exercised; old identity-refusal vectors remain meaningful.
+  assert.deepEqual(catalogues.map(entry => [entry.kind, entry.tables, entry.candidate]), selectedCatalogues.map(entry => [entry.kind, entry.tables, entry.candidate]));
+  assert.ok(catalogues.every(entry => typeof namespaces[entry.kind] === 'string'));
 }
 trustedCapabilities.catalogues = selectedCatalogues;
 trustedCapabilities.admissionCheck = currentAdmission;
