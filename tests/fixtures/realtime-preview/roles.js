@@ -60,6 +60,19 @@ async function start (input) {
   try {
     const roleEnv = role => {
       const selected = JSON.parse(fs.readFileSync(config[role + 'EnvFile'], 'utf8'));
+      const pg = owned.resources.find(row => row.kind === 'postgres');
+      assert(pg && pg.host === '127.0.0.1' && pg.port && pg.database, 'root-owned PG endpoint attestation required');
+      for (const value of Object.values(selected)) if (typeof value === 'string' && /^postgres(?:ql)?:/.test(value)) {
+        const url = new URL(value);
+        assert(url.hostname === pg.host && Number(url.port || 5432) === pg.port && decodeURIComponent(url.pathname.slice(1)) === pg.database,
+          'native role database must be the handed-in owned endpoint');
+      }
+      if (role === 'api') {
+        const document = JSON.parse(fs.readFileSync(selected.MULTITENANT_PREVIEW_CONFIG, 'utf8'));
+        const vault = owned.resources.find(row => row.kind === 'vault'), url = new URL(document.vault.address);
+        assert(vault && url.hostname === vault.host && Number(url.port) === vault.port && url.hostname === '127.0.0.1',
+          'native API Vault must be the handed-in owned endpoint');
+      }
       assert.equal(selected[role.toUpperCase() + '_HOSTNAME'], '127.0.0.1');
       assert.equal(selected[role.toUpperCase() + '_PORT'], '0');
       if (role === 'realtime') assert(Object.keys(selected).every(key => !/VAULT|SIGN|DECRYPT|ROOT_SECRET/.test(key)), 'RT_HAS_NO_SECRET_AUTHORITY');

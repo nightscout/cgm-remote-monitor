@@ -69,7 +69,7 @@ config.mongoDatabase (`rt_data_`+randomhex) matching ownership.mongoDatabase,
 config.namespaces matching ownership.namespaces, and explicit
 profileUncertaintyResolved:true (root evidence prerequisite, never inferred).
 It runs all six actual dbAdd+same stableidentity retry packets through realRT
-polling/websocket-selected native transport and actual Mongo reference, capturing
+websocket transport (role recovery separately tests polling) and actual Mongo reference, capturing
 raw replies/noack and independent typed physical rows before assertions. Noack
 parity is recorded as baseline refusal, never synthesized success; expected
 canonical duplicate logs remain in parent capture. This phase has not executed.
