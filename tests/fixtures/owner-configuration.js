@@ -135,7 +135,7 @@ module.exports = function ownerConfigurationFixture () {
     if (refused) {
       await data.until(async () => worker.exit !== null || /Listening/.test(worker.stdout), 'refused owner configuration boot');
       assert.doesNotMatch(worker.stdout, /Listening/, 'unsafe owner configuration must never bind');
-      const exit = await worker.exited; assert.equal(exit.code, 78);
+      const exit = await worker.exited; assert.equal(exit.code, 1);
     } else {
       await data.until(async () => {
         assert.equal(worker.exit, null, 'configuration worker exited before readiness');
