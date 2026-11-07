@@ -179,6 +179,7 @@
         "tests/notification-readiness-diagnostic.test.js",
         "tests/notification-public-policy.test.js",
         "tests/realtime-evaluator-observer.test.js",
+        "tests/api-startup-observer.test.js",
         "tests/realtime-consumer-oracles.test.js",
         "tests/realtime-bootstrap.test.js",
         "tests/notification-ack-admission.test.js",
