@@ -45,6 +45,16 @@ never substitute for the provisioned current authority relation.
 4. Await actual cohort cache/socket/evaluator invalidation, recheck the complete
    cohort and current authority, then commit explicit activation and audit state.
 
+`connection.afterCommit(fn)` registers through the same private claim/context;
+`registerAfterCommit(claim,{connection,tenant,artifactDigest},fn)` is its explicit
+branded registration seam. Queued hooks run only after acknowledged outer DATA
+commit, before cohort invalidation/activation. They never run on rollback or an
+ambiguous data commit. They cannot reuse the closed restore connection, and must
+not require ordinary A admission while A remains suspended. A hook failure can
+leave some notifications published with committed data and retained suspension;
+there is no exactly-once or automatic publication replay promise. Persisted history
+and durable consumers retain their own delivery contract.
+
 No automatic retry/reclaim/recovery API is introduced. A normal pre-activation
 failure leaves the committed window suspended; errors after the data commit can
 leave restored data with that suspension. COMMIT response loss is not proof of
