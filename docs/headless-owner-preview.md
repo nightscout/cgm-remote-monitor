@@ -52,6 +52,10 @@ The explicit bounded JSON file has this shape (synthetic public metadata only):
 }
 ```
 
+`ownerPolicy` configures only the management writer's proposed-grant catalogue,
+operator ceiling and current actor fencing. It does not alter data-reader grants
+or the tenant's legacy root/subject credentials.
+
 Replace the public-key placeholder; configuration never contains private keys or
 database credentials. Connection values come from the referenced environment.
 Writer and current-access reader must be distinct database identities on the same

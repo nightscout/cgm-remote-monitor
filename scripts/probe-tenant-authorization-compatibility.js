@@ -2,7 +2,6 @@
 
 // Source-only characterization using real policy/readers and synthetic SQL
 // responses. No connection, schema, credential, or runtime default is changed.
-// --selected --require-clamp asserts the dormant selected-mode requirement.
 const assert = require('node:assert/strict');
 const fs = require('node:fs');
 const path = require('node:path');
@@ -14,7 +13,7 @@ const tenant = '11111111-1111-4111-8111-111111111111';
 const permission = 'api:entries:read';
 const actor = { tenant, principal: 'synthetic_owner', consumer: 'management' };
 const state = { ceiling: [permission], permissions: [permission], unavailable: false,
-  digest: catalogueDigest([permission]), anonymous: ['denied'], missingPolicy: false };
+  anonymous: ['denied'] };
 const queries = [];
 
 function reader (filename) {
@@ -34,12 +33,7 @@ function reader (filename) {
       }
       const readsPolicy = sql.includes('tenant_owner_policy');
       queries.push({ reader: filename, readsPolicy });
-      if (readsPolicy) {
-        assert.match(sql, /LEFT JOIN .*tenant_owner_policy/);
-        assert.match(sql, /op\.catalogue_digest AS owner_catalogue_digest/);
-        assert.match(sql, /op\.ceiling AS owner_ceiling/);
-        assert.match(sql, /op\.tenant_id = [ct]\.tenant_id/);
-      }
+      assert.equal(readsPolicy, false, 'data-reader SQL must not depend on writer policy');
       if (state.unavailable) throw new Error('synthetic unavailable');
       // The stored assignment and role stay unchanged as the separate policy
       // record tightens. These are independently mutable records in the DDL.
@@ -47,9 +41,7 @@ function reader (filename) {
         found_subject: 'synthetic_subject', display_name: 'Synthetic Subject',
         role_name: 'synthetic_reader', found_role: 'synthetic_reader', permissions: state.permissions.slice(),
         active: true, credential_enabled: true, generation: 1, session_active: true,
-        session_generation: 1, expires_at: 2000000000, key_active: true,
-        ...(readsPolicy ? { owner_catalogue_digest: state.missingPolicy ? null : state.digest,
-          owner_ceiling: state.missingPolicy ? null : state.ceiling } : {}) }] };
+        session_generation: 1, expires_at: 2000000000, key_active: true }] };
     },
     async end () {}
   };
@@ -65,9 +57,9 @@ function reader (filename) {
   return module.exports;
 }
 
-async function run ({ selected = false, requireClamp = false, quiet = false } = {}) {
+async function run ({ quiet = false } = {}) {
   Object.assign(state, { ceiling: [permission], permissions: [permission], unavailable: false,
-    digest: catalogueDigest([permission]), anonymous: ['denied'], missingPolicy: false });
+    anonymous: ['denied'] });
   queries.length = 0;
   const policy = createOwnerPolicy({ namespace: 'synthetic_authority', catalogue: [permission] });
   const writerConnection = { async query (sql) {
@@ -77,9 +69,8 @@ async function run ({ selected = false, requireClamp = false, quiet = false } = 
     if (sql.includes('SELECT name,permissions')) return { rows: [{ name: 'synthetic_reader', permissions: state.permissions.slice() }] };
     throw new Error('unexpected policy query');
   } };
-  const option = selected ? { ownerPolicy: { catalogue: [permission] } } : {};
-  const legacy = await reader('postgres.js')({ namespace: 'synthetic_authority', ...option });
-  const local = await reader('access-postgres.js')({ namespace: 'synthetic_access', authorityNamespace: 'synthetic_authority', ...option });
+  const legacy = await reader('postgres.js')({ namespace: 'synthetic_authority' });
+  const local = await reader('access-postgres.js')({ namespace: 'synthetic_access', authorityNamespace: 'synthetic_authority' });
   const principal = { kind: 'subject', subjectId: 'synthetic_subject' };
   const claims = { tid: tenant, sub: principal.subjectId, sid: 'synthetic_session', kid: 'synthetic_key', purpose: 'data' };
   async function snapshot () {
@@ -101,10 +92,7 @@ async function run ({ selected = false, requireClamp = false, quiet = false } = 
     { code: 'SUBJECT_ADMIN_FORBIDDEN' });
   const after = await snapshot();
   assert.equal(inFlight.allows(permission), true, 'an already-authorized operation retains its own snapshot');
-  if (requireClamp) {
-    assert.deepEqual(after, { legacy: false, legacySnapshot: false, local: false },
-      'fresh authority must clamp an existing grant after current policy tightens');
-  }
+  assert.deepEqual(after, before, 'writer ceiling changes do not rewrite data-reader grants');
   // Control: removing the actual stored role permission must change all readers.
   state.permissions = [];
   const removed = await snapshot();
@@ -112,55 +100,17 @@ async function run ({ selected = false, requireClamp = false, quiet = false } = 
   state.permissions = [permission];
   const restored = await snapshot();
   assert.deepEqual(restored, after);
-  if (selected) {
-    const legacyInvalid = { code: 'TENANT_AUTHORITY_INVALID' };
-    const accessInvalid = { code: 'ACCESS_AUTHORITY_INVALID' };
-    async function policyRefuses () {
-      await assert.rejects(legacy.authorize({ tenant, principal, permission }), legacyInvalid);
-      await assert.rejects(legacy.subjectSnapshot({ tenant, principal }), legacyInvalid);
-      await assert.rejects(local.snapshot(claims), accessInvalid);
-    }
-    for (const kind of ['root', 'anonymous']) {
-      await assert.rejects(legacy.authorize({ tenant, principal: { kind }, permission }),
-        { code: 'TENANT_AUTHORITY_PRINCIPAL_INVALID' });
-      await assert.rejects(legacy.subjectSnapshot({ tenant, principal: { kind } }),
-        { code: 'TENANT_AUTHORITY_PRINCIPAL_INVALID' });
-    }
-    state.missingPolicy = true;
-    await policyRefuses();
-    state.missingPolicy = false;
-    state.digest = '0'.repeat(64);
-    await policyRefuses();
-    state.digest = catalogueDigest([permission]);
-    for (const ceiling of [null, ['api:*:read'], [permission, permission], ['api:entries:invented']]) {
-      state.ceiling = ceiling;
-      await policyRefuses();
-    }
-    state.ceiling = [permission];
-    state.permissions = ['api:*:read'];
-    await policyRefuses();
-    state.permissions = [permission];
-    state.anonymous = ['readable'];
-    await policyRefuses();
-    state.anonymous = ['denied'];
-    assert.deepEqual(await snapshot(), { legacy: true, legacySnapshot: true, local: true },
-      'restoring current policy restores the existing stored grant on fresh operations');
-    assert.equal(await legacy.authorize({ tenant, principal, permission: permission + ':descendant' }), false);
-    assert.equal((await local.snapshot(claims)).allows(permission + ':descendant'), false);
-    assert.ok(queries.every(query => query.readsPolicy), 'each authority statement must include current policy');
-  } else {
-    assert.equal(await legacy.authorize({ tenant, principal: { kind: 'root' }, permission }), true);
-    state.anonymous = ['readable'];
-    assert.equal(await legacy.authorize({ tenant, principal: { kind: 'anonymous' }, permission }), true);
-    state.anonymous = ['denied'];
-    assert.ok(queries.every(query => !query.readsPolicy), 'unselected SQL must not depend on owner policy');
-  }
+  assert.equal(await legacy.authorize({ tenant, principal: { kind: 'root' }, permission }), true);
+  state.anonymous = ['readable'];
+  assert.equal(await legacy.authorize({ tenant, principal: { kind: 'anonymous' }, permission }), true);
+  state.anonymous = ['denied'];
+  assert.ok(queries.every(query => !query.readsPolicy), 'reader SQL must not depend on owner policy');
   state.unavailable = true;
   await assert.rejects(legacy.authorize({ tenant, principal, permission }), { code: 'TENANT_AUTHORITY_UNAVAILABLE' });
   await assert.rejects(local.snapshot(claims), { code: 'ACCESS_AUTHORITY_UNAVAILABLE' });
   await legacy.close();
   await local.close();
-  const observation = { grade: 'reproduced source-only; SQL responses synthetic', selected,
+  const observation = { grade: 'reproduced source-only; SQL responses synthetic',
     before, tightenedCeiling: [], proposedGrantRefused: true, after, removed, restored,
     protectedOutageRefused: true, queries };
   if (!quiet) console.log(JSON.stringify(observation, null, 2));
@@ -168,7 +118,7 @@ async function run ({ selected = false, requireClamp = false, quiet = false } = 
 }
 
 if (require.main === module) {
-  run({ selected: process.argv.includes('--selected'), requireClamp: process.argv.includes('--require-clamp') })
+  run()
     .catch(error => { console.error(error); process.exitCode = 1; });
 }
 module.exports = { run };
