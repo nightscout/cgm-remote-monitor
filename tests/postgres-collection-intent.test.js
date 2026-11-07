@@ -36,18 +36,28 @@ describe('trusted PostgreSQL collection translation', function () {
 
   it('keeps optional socket order successor histories append-only and refuses unsupported domains', async function () {
     const selected = require('../lib/server/tenant-socket-order-port');
-    const { validateCatalogue } = require('../lib/migrations/catalogue');
+    const { validateCatalogue, INSERTION_NAMESPACE } = require('../lib/migrations/catalogue');
+    const insertion = require('../lib/tenant-lifecycle/tenant-insertion-sql');
     const catalogues = { treatments: require('../migrations/candidates/postgres-treatments-v1.json'),
       devicestatus: require('../migrations/candidates/postgres-devicestatus-v1.json') };
     for (const logical of ['treatments', 'devicestatus']) {
       const old = catalogues[logical];
       const next = selected.catalogues[logical];
       assert.deepEqual(next.migrations.slice(0, old.migrations.length), old.migrations);
-      assert.equal(validateCatalogue(next).length, old.migrations.length + 1);
-      const sql = next.migrations.at(-1).up;
+      const validated = validateCatalogue(next);
+      assert.equal(validated.length, old.migrations.length + 3);
+      // The original socket ordering DDL stays at its immutable prefix position.
+      const sql = validated[old.migrations.length].up;
       assert.match(sql[0], /CHECK \(false\) NOT VALID/);
       assert.match(sql[1], /VALIDATE CONSTRAINT socket_order_requires_empty/);
       assert.match(sql[3], /insertion_ordinal bigint GENERATED ALWAYS AS IDENTITY/);
+      const conversion = validated[old.migrations.length + 1];
+      assert.deepEqual(conversion.operation, { kind: 'tenant-insertion-v1', domain: logical });
+      assert.deepEqual(conversion.up, insertion.build({ namespace: INSERTION_NAMESPACE, domain: logical }).up);
+      const correction = validated[old.migrations.length + 2];
+      assert.deepEqual(correction.operation, { kind: 'tenant-insertion-binding-v1', domain: logical });
+      assert.deepEqual(correction.up, insertion.bindingCorrectionUp({ namespace: INSERTION_NAMESPACE, domain: logical }));
+      assert.match(correction.up[0], /ERRCODE='42501'/);
     }
     await assert.rejects(selected({ logical: 'entries' }), /reviewed DATA domain/);
   });
