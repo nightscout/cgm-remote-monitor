@@ -297,8 +297,9 @@ optInSuite(process.env.NS_M5_CURRENT_STATE_PROOF_TEST === '1' && !!process.env.N
       const activity = await lab.writeCanonical({ logical: 'activity', planned: { op: 'create', docs: [
         { _id: 'quiet-activity', created_at: new Date().toISOString(), steps: 2 }
       ] } });
-      await lab.wait(async () => (await worker.call('last')).outputRevision >= first.outputRevision + 3);
-      const observed = lab.tracePreview('preview-backstop', { first, last: await worker.call('last'),
+      const afterWrites = await worker.call('last');
+      await lab.wait(async () => (await worker.call('last')).outputRevision >= afterWrites.outputRevision + 3);
+      const observed = lab.tracePreview('preview-backstop', { first, afterWrites, last: await worker.call('last'),
         physical: await lab.previewPhysical(), removed, activity });
       committed(removed); committed(activity);
       assert.equal(observed.physical.A.tables.entries.length, 0);

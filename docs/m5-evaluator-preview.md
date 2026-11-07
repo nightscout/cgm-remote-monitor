@@ -46,7 +46,9 @@ legacy credentials are substituted.
 Role boot is independent of listener resolution, so evaluator-only starts work
 without HTTP. Each configured tenant acquires at startup/restart and then on an
 explicit recovery backstop; trusted in-process composition may request acquire.
-Per-tenant jobs serialize and coalesce; different tenants can progress independently.
+Per-tenant jobs serialize and coalesce, alternate pending recovery/time work fairly,
+and complete each coalesced request without waiting for future scheduled work.
+Different tenants can progress independently.
 The current-state backstop is deliberately separate from the time-only schedule.
 A time tick uses only the last successfully computed retained input and its
 acquisition statistics, advances no input checkpoint and performs no current-table

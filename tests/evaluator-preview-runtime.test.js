@@ -124,6 +124,27 @@ describe('evaluator preview owned jobs and lifecycle', function () {
       assert.equal(maximum, 1); assert.equal(calls, 3, 'M5_EVAL_COALESCE startup + held work + one coalesced recovery');
     } finally { await l.ctx.close(); }
   });
+  it('completes one request without waiting for later work and alternates pending job kinds', async function () {
+    const gates = [], entered = [];
+    const order = [];
+    const l = await lab({ create: async current => ({ async evaluate () {
+      if (current.tenant === A) {
+        order.push('acquire'); const gate = gates.shift(), signal = entered.shift();
+        if (gate) { signal.resolve(); await gate.promise; }
+      }
+      return { checkpoint: 1 };
+    }, async evaluateTime () { if (current.tenant === A) order.push('time'); return { checkpoint: 1 }; }, close () {} }) });
+    const one = deferred(), two = deferred(), e1 = deferred(), e2 = deferred();
+    try {
+      gates.push(one, two); entered.push(e1, e2);
+      let completed = false; const first = l.ctx.acquire(A).then(() => { completed = true; }); await e1.promise;
+      const later = l.ctx.acquire(A), time = l.ctx.tick(A);
+      one.resolve(); await e2.promise; await Promise.resolve();
+      assert.equal(completed, true, 'M5_EVAL_TICKET completed request does not await future pending jobs');
+      assert.deepEqual(order.slice(-3), ['acquire', 'time', 'acquire'], 'M5_EVAL_FAIR recovery and retained-time jobs both progress');
+      two.resolve(); await Promise.all([first, later, time]);
+    } finally { one.resolve(); two.resolve(); await l.ctx.close(); }
+  });
   it('drops retained context on content identity change and checks current eligibility independently', async function () {
     const l = await lab();
     try {
