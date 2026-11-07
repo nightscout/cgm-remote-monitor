@@ -24,6 +24,26 @@
         "REVOKE ALL ON tenant_lifecycle_ceremony FROM PUBLIC"
       ],
       "checksum": "42cc13ca9fedd3b751d8b2ad1e37032ca84242901989574c43b978d5d264c31f"
+    },
+    {
+      "name": "0003_tenant_lifecycle_operation_windows",
+      "up": [
+        "CREATE FUNCTION tenant_lifecycle_backend_birth() RETURNS timestamp with time zone LANGUAGE sql STABLE SECURITY INVOKER SET search_path = pg_catalog AS 'SELECT backend_start FROM pg_catalog.pg_stat_activity WHERE pid = pg_catalog.pg_backend_pid()'",
+        "REVOKE ALL ON FUNCTION tenant_lifecycle_backend_birth() FROM PUBLIC",
+        "CREATE TABLE tenant_lifecycle_windows (tenant_id uuid PRIMARY KEY, lock_key bigint NOT NULL UNIQUE CHECK (lock_key > 0), phase text NOT NULL CHECK (phase IN ('active','suspended')), generation bigint NOT NULL CHECK (generation > 0), claim_id uuid, CHECK ((phase = 'suspended') = (claim_id IS NOT NULL)), CHECK (tenant_id <> '00000000-0000-0000-0000-000000000000'::uuid))",
+        "CREATE TABLE tenant_lifecycle_operations (tenant_id uuid NOT NULL REFERENCES tenant_lifecycle_windows (tenant_id), operation_id uuid PRIMARY KEY, generation bigint NOT NULL CHECK (generation > 0), finished boolean NOT NULL DEFAULT false, owner_pid integer NOT NULL DEFAULT pg_backend_pid(), owner_birth timestamp with time zone NOT NULL DEFAULT tenant_lifecycle_backend_birth())",
+        "ALTER TABLE tenant_lifecycle_windows ENABLE ROW LEVEL SECURITY",
+        "ALTER TABLE tenant_lifecycle_windows FORCE ROW LEVEL SECURITY",
+        "REVOKE ALL ON tenant_lifecycle_windows FROM PUBLIC",
+        "CREATE POLICY tenant_lifecycle_windows_read ON tenant_lifecycle_windows FOR SELECT USING (tenant_id = nullif(current_setting('app.current_tenant_id', true), '')::uuid)",
+        "ALTER TABLE tenant_lifecycle_operations ENABLE ROW LEVEL SECURITY",
+        "ALTER TABLE tenant_lifecycle_operations FORCE ROW LEVEL SECURITY",
+        "REVOKE ALL ON tenant_lifecycle_operations FROM PUBLIC",
+        "CREATE POLICY tenant_lifecycle_operations_read ON tenant_lifecycle_operations FOR SELECT USING (tenant_id = nullif(current_setting('app.current_tenant_id', true), '')::uuid)",
+        "CREATE POLICY tenant_lifecycle_operations_insert ON tenant_lifecycle_operations FOR INSERT WITH CHECK (tenant_id = nullif(current_setting('app.current_tenant_id', true), '')::uuid AND owner_pid = pg_backend_pid() AND owner_birth = tenant_lifecycle_backend_birth() AND finished = false)",
+        "CREATE POLICY tenant_lifecycle_operations_finish ON tenant_lifecycle_operations FOR UPDATE USING (tenant_id = nullif(current_setting('app.current_tenant_id', true), '')::uuid AND owner_pid = pg_backend_pid() AND owner_birth = tenant_lifecycle_backend_birth() AND finished = false) WITH CHECK (tenant_id = nullif(current_setting('app.current_tenant_id', true), '')::uuid AND owner_pid = pg_backend_pid() AND owner_birth = tenant_lifecycle_backend_birth() AND finished = true)"
+      ],
+      "checksum": "bb6de44f9c21752e4f437f61b2c1b6b83298934ba6fcd983ea9fc48aff2db2db"
     }
   ]
 }
