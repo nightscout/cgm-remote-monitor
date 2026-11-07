@@ -1,15 +1,15 @@
 'use strict';
 const assert=require('node:assert/strict');
-const protocol=require('./fixtures/evaluator-consumer-open-protocol');
+const createProtocol=require('./fixtures/evaluator-consumer-open-protocol');
+const syntheticAdminURI='postgres://synthetic:synthetic@127.0.0.1:15432/open_order_test';
+const protocol=(options={})=>createProtocol({...options,env:{NS_TEST_POSTGRES_ADMIN_URI:syntheticAdminURI,...options.env}});
 describe('actual inherited evaluator consumer fixture setup protocol',function(){
-  let original;
-  beforeEach(function(){original=process.env.NS_TEST_POSTGRES_ADMIN_URI;process.env.NS_TEST_POSTGRES_ADMIN_URI='postgres://synthetic:synthetic@127.0.0.1:15432/open_order_test';});
-  afterEach(function(){if(original===undefined)delete process.env.NS_TEST_POSTGRES_ADMIN_URI;else process.env.NS_TEST_POSTGRES_ADMIN_URI=original;});
   it('runs base reset during inherited open before extension schemas exist and waits to reset extension until installed',async function(){
     const p=protocol(),lab=p.factory();
     let primary, cleanup;
     try {
       await lab.open();
+      assert.equal(p.clients[0].role,new URL(syntheticAdminURI).username,'CONSUMER_SUPPLIED_SYNTHETIC_ADMIN_IDENTITY');
       const firstExtension=p.calls.findIndex(row=>row.kind==='migration'&&row.namespace===lab.consumerNamespaces.outbox);
       const firstBaseReset=p.calls.findIndex(row=>row.kind==='truncate');assert.ok(firstBaseReset>=0&&firstBaseReset<firstExtension);
       assert.equal(p.calls.slice(0,firstExtension).some(row=>row.kind==='truncate'&&row.schemas.includes(lab.consumerNamespaces.outbox)),false,'CONSUMER_EXTENSION_RESET_AFTER_SCHEMA_READY');
@@ -51,6 +51,17 @@ describe('actual inherited evaluator consumer fixture setup protocol',function()
     await assert.rejects(lab.open(),error=>error.code==='42710');await lab.close();
     assert.deepEqual([...p.roles],[foreign],'CONSUMER_ROLE_CREATE_REFUSAL_NO_ADOPTION');
     assert.equal(p.calls.some(row=>row.kind==='drop-role'&&row.name===foreign),false);assert.equal(p.schemas.size,0);
+  });
+
+  it('consumes each explicitly supplied synthetic environment in actual fixture open without sharing a process environment',async function(){
+    for(const identity of ['synthetic-isolated-a','synthetic-isolated-b']) {
+      const address=new URL(syntheticAdminURI);address.username=identity;
+      const p=protocol({env:{NS_TEST_POSTGRES_ADMIN_URI:address.toString()}}),lab=p.factory();
+      try {await lab.open();assert.equal(p.clients[0].role,identity,'CONSUMER_ISOLATED_SYNTHETIC_ENV');}
+      finally {await lab.close();}
+      assert.equal(p.roles.size,0);assert.equal(p.schemas.size,0);assert.ok(p.clients.every(client=>client.closed));
+    }
+    assert.throws(()=>createProtocol(),/Explicit synthetic fixture environment required/);
   });
 
 });
