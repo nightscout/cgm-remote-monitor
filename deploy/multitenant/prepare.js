@@ -28,7 +28,7 @@ function prepare (args) {
   const sourceRoot = path.resolve(base, '../..');
   if (state.startsWith(sourceRoot + '/') && state !== path.join(base, '.state')) throw new Error('Custom state must be outside the source/build context');
   if (fs.existsSync(state) || fs.existsSync(path.join(base, '.env'))) throw new Error('State or deployment .env already exists; reuse it or choose a clean deployment checkout');
-  const source = execFileSync('git', ['rev-parse', 'HEAD'], {cwd: path.join(base, '../..'), encoding: 'utf8'}).trim();
+  const source = require('./build').assertCleanSource(path.join(base, '../..'));
   if (!/^[a-f0-9]{40}$/.test(source)) throw new Error('Source commit unavailable');
   fs.mkdirSync(state, {mode: 0o700});
   const write = (file, value) => fs.writeFileSync(file, value, {mode: 0o600, flag: 'wx'});

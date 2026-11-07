@@ -14,6 +14,10 @@ acceptance is pending; source checks do not establish restore acceptance.
 Requirements: Docker Engine with Compose v2, Node.js, OpenSSL, and a host user
 with uid/gid 1000 matching the image's `node` account. Use a dedicated checkout.
 The image builds the production webpack bundle from that checkout's lockfile.
+Preparation and build refuse modified tracked build inputs. The build takes a
+Git archive of the recorded commit, so ignored runtime state and untracked files
+cannot enter the image. Re-run preparation in a fresh deployment state when the
+source commit changes.
 
 ```bash
 cd deploy/multitenant

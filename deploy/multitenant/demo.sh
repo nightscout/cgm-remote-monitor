@@ -16,7 +16,7 @@ case "${1:-}" in
     exec "${compose[@]}" config --quiet
     ;;
   build)
-    exec "${compose[@]}" build api
+    exec node build.js
     ;;
   bootstrap)
     exec "${compose[@]}" --profile ops run --rm bootstrap
