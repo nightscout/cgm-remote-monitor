@@ -18,7 +18,8 @@ module.exports = function consumersLab () {
   const name = 'consumer_join_' + randomUUID().replace(/-/g, '').slice(0, 16), children = new Set();
   const roles = { outbox: name + '_outbox', reader: name + '_reader', writer: name + '_writer' };
   const namespaces = { outbox: name + '_outbox', alarm: name + '_alarm' };
-  let directory, source, sink, writer, configuredFile; const held = [];
+  let directory, source, sink, writer, configuredFile, schemaReady = false;
+  const createdRoles = new Set(), ownedSchemas = new Set(); const held = [];
   lab.consumerNamespaces = namespaces; lab.consumerRoles = roles; lab.observations = []; lab.sinkEffects = [];
   lab.sinkMode = 'accept';
   lab.open = async () => {
@@ -32,13 +33,15 @@ module.exports = function consumersLab () {
     const urls = {};
     for (const [kind, role] of Object.entries(roles)) {
       const password = randomBytes(24).toString('hex');
-      await lab.admin.query(`CREATE ROLE "${role}" LOGIN NOSUPERUSER NOBYPASSRLS PASSWORD '${password}'`);
+      await lab.admin.query(`CREATE ROLE "${role}" LOGIN NOSUPERUSER NOBYPASSRLS PASSWORD '${password}'`); createdRoles.add(role);
       const url = new URL(adminUrl); url.username = role; url.password = password; urls[kind] = url.toString();
     }
-    await run('up', { direct: true, connectionString: adminUrl.toString(), namespace: namespaces.outbox,
-      catalogue: require('../../lib/tenant-notifications/postgres-candidate.json') });
-    await run('up', { direct: true, connectionString: adminUrl.toString(), namespace: namespaces.alarm,
-      catalogue: require('../../migrations/candidates/postgres-alarm-suppression-v1.json') });
+    for (const [namespace, catalogue] of [[namespaces.outbox, require('../../lib/tenant-notifications/postgres-candidate.json')],
+      [namespaces.alarm, require('../../migrations/candidates/postgres-alarm-suppression-v1.json')]]) {
+      await lab.admin.query('CREATE SCHEMA "' + namespace + '"');
+      ownedSchemas.add(namespace);
+      await run('up', {direct:true, connectionString:adminUrl.toString(), namespace, catalogue});
+    }
     await lab.admin.query(`GRANT USAGE ON SCHEMA "${namespaces.outbox}" TO "${roles.outbox}"`);
     await lab.admin.query(`GRANT SELECT ON "${namespaces.outbox}".schema_migrations TO "${roles.outbox}"`);
     await lab.admin.query(`GRANT SELECT,INSERT,UPDATE(request_id,blocked_until) ON "${namespaces.outbox}".tenant_notification_heads TO "${roles.outbox}"`);
@@ -77,6 +80,7 @@ module.exports = function consumersLab () {
       suppression: { connectionEnv: 'NS_COMPOSED_READER', namespace: namespaces.alarm, maxRows: 100, maxBytes: 1048576, maxConnections: 2 },
       route: { id: 'realtime-joined-native', socketPathEnv: 'NS_COMPOSED_RT_PATH', maxMessageBytes: 131072, operationTimeoutMs: 1000 },
       maxPayloadBytes: 65536, maxInflight: 2, attemptTimeoutMs: 5000, retryDelayMs: 10, pollIntervalMs: 1000000, retryIntervalMs: 1000000 } };
+    schemaReady = true;
   };
   lab.configureConsumers = (change = () => {}) => {
     const document = structuredClone(lab.document); change(document);
@@ -143,17 +147,28 @@ module.exports = function consumersLab () {
   lab.reset = async () => {
     await lab.stopConsumers(); lab.releaseSink(); if (sink) await sink.close(); sink = null;
     await reset();
+    if (!schemaReady) return; // base.open calls the overridden reset before extension preparation
     await lab.admin.query(`TRUNCATE "${namespaces.outbox}".tenant_notification_requests,"${namespaces.outbox}".tenant_notification_heads,"${namespaces.outbox}".tenant_notification_state,"${namespaces.alarm}".tenant_alarm_suppression`);
     lab.sinkEffects.length = 0; lab.observations.length = 0; lab.sinkMode = 'accept';
   };
   lab.close = async () => {
-    try {
-      await lab.stopConsumers(); lab.releaseSink(); if (sink) await sink.close(); if (writer) await writer.end();
-      if (lab.admin) {
-        await lab.admin.query(`DROP SCHEMA IF EXISTS "${namespaces.outbox}" CASCADE`); await lab.admin.query(`DROP SCHEMA IF EXISTS "${namespaces.alarm}" CASCADE`);
-        for (const role of Object.values(roles)) { await lab.admin.query(`DROP OWNED BY "${role}"`); await lab.admin.query(`DROP ROLE IF EXISTS "${role}"`); }
-      }
-    } finally { if (directory) fs.rmSync(directory, { recursive: true, force: true }); await close(); }
+    schemaReady = false;
+    const errors = [];
+    const attempt = async fn => {try {await fn();} catch(error) {errors.push(error);}};
+    await attempt(() => lab.stopConsumers()); lab.releaseSink();
+    if (sink) await attempt(() => sink.close());
+    if (writer) await attempt(() => writer.end());
+    if (lab.admin) {
+      for (const namespace of [...ownedSchemas].reverse()) await attempt(async () => {
+        await lab.admin.query(`DROP SCHEMA IF EXISTS "${namespace}" CASCADE`); ownedSchemas.delete(namespace);
+      });
+      for (const role of [...createdRoles].reverse()) await attempt(async () => {
+        await lab.admin.query(`DROP OWNED BY "${role}"`); await lab.admin.query(`DROP ROLE IF EXISTS "${role}"`); createdRoles.delete(role);
+      });
+    }
+    if (directory) await attempt(async () => fs.rmSync(directory, {recursive:true,force:true}));
+    await attempt(() => close());
+    if (errors.length) throw new globalThis.AggregateError(errors, 'Consumer fixture owned cleanup refused');
   };
   return lab;
 };

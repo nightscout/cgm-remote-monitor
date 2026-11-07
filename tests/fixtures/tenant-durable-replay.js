@@ -13,6 +13,7 @@ const dates = require('../../lib/server/srv-dates');
 module.exports = function replayLab () {
   const lab = baseLab();
   const open = lab.open.bind(lab), close = lab.close.bind(lab), reset = lab.reset.bind(lab);
+  let readerCreated = false, childCreated = false, replayOwned = false;
   lab.replayNamespace = lab.name + '_replay';
   lab.readerRole = lab.name + '_reader';
   lab.makeConsumer = (consumer = 'evaluator', connection = lab.reader, overrides = {}) => createReplay({
@@ -23,10 +24,13 @@ module.exports = function replayLab () {
   lab.open = async () => {
     await open();
     const adminUri = process.env.NS_TEST_POSTGRES_ADMIN_URI;
+    await lab.admin.query('CREATE SCHEMA "' + lab.replayNamespace + '"');
+    replayOwned = true;
     await run('up', { direct: true, connectionString: adminUri, namespace: lab.replayNamespace,
       catalogue: require('../../migrations/candidates/postgres-consumer-checkpoint-v1.json') });
     const password = crypto.randomBytes(24).toString('hex');
     await lab.admin.query(`CREATE ROLE "${lab.readerRole}" LOGIN NOSUPERUSER NOBYPASSRLS PASSWORD '${password}'`);
+    readerCreated = true;
     for (const namespace of [lab.namespaces.entries, lab.namespaces.clock, lab.replayNamespace]) {
       await lab.admin.query(`GRANT USAGE ON SCHEMA "${namespace}" TO "${lab.readerRole}"`);
     }
@@ -41,6 +45,7 @@ module.exports = function replayLab () {
     lab.childRole = lab.name + '_child';
     const childPassword = crypto.randomBytes(24).toString('hex');
     await lab.admin.query(`CREATE ROLE "${lab.childRole}" LOGIN NOSUPERUSER NOBYPASSRLS PASSWORD '${childPassword}'`);
+    childCreated = true;
     await lab.admin.query(`GRANT "${credentials.rows[0].role}" TO "${lab.childRole}"`);
     writerUrl.username = lab.childRole; writerUrl.password = childPassword;
     lab.childConfig = { connectionString: writerUrl.toString(), clockNamespace: lab.namespaces.clock, table: lab.table, tenant: lab.A };
@@ -72,15 +77,18 @@ module.exports = function replayLab () {
     `SELECT id_kind,doc FROM "${lab.namespaces.entries}".entries WHERE tenant_id=$1
       ORDER BY "srvModified",id_kind COLLATE "C","_id" COLLATE "C"`, [tenant])).rows;
   lab.close = async () => {
-    try {
-      if (lab.reader) await lab.reader.end();
-      if (lab.admin) {
-        await lab.admin.query(`DROP SCHEMA IF EXISTS "${lab.replayNamespace}" CASCADE`);
-        if (lab.childRole) await lab.admin.query(`DROP ROLE IF EXISTS "${lab.childRole}"`);
+    const errors = [], attempt = async fn => {try {await fn();} catch(error) {errors.push(error);}};
+    if (lab.reader) await attempt(() => lab.reader.end());
+    if (lab.admin) {
+      if (replayOwned) await attempt(async () => {await lab.admin.query(`DROP SCHEMA IF EXISTS "${lab.replayNamespace}" CASCADE`); replayOwned = false;});
+      if (childCreated) await attempt(async () => {await lab.admin.query(`DROP ROLE IF EXISTS "${lab.childRole}"`); childCreated = false;});
+      if (readerCreated) await attempt(async () => {
         await lab.admin.query(`DROP OWNED BY "${lab.readerRole}"`);
-        await lab.admin.query(`DROP ROLE IF EXISTS "${lab.readerRole}"`);
-      }
-    } finally { await close(); }
+        await lab.admin.query(`DROP ROLE IF EXISTS "${lab.readerRole}"`); readerCreated = false;
+      });
+    }
+    await attempt(() => close());
+    if (errors.length) throw new globalThis.AggregateError(errors, 'Replay fixture owned cleanup refused');
   };
   return lab;
 };
