@@ -253,3 +253,21 @@ ACL. Both contexts, including operational table/column/sequence plans, compile i
 source audit before another native slot. Source compilation is not a physical
 ACL or migration measurement. The stopped6a17 attempt remains separate evidence:
 C1/C2 passed; C3 refused; later cases/controls/final were unmeasured.
+
+
+### Live process identity and terminal samples
+
+The driver retains the first nonempty live PID/startTicks/UID/process-group/
+command-hash identity. Later terminal Z/empty-command observations are recorded
+separately in terminal-process-samples.json and never replace that ownership
+identity. Terminal-only, incomplete or changed live identities refuse; PID reuse
+with different start ticks remains a distinct birth. Timeout signalling also
+requires the exact retained command hash. Pure source regressions run in --check.
+
+The completed9298 campaign is preserved with its original false parent closure.
+Its nine disputed driver records were overwritten with terminal Z/empty hashes;
+all nine have exact independent live probe observations, source-derived argv
+hashes and final absence. Any offline reconciliation must require those exact
+predicates, all other identities unchanged, complete SQL/control outcomes and
+indexed independent resource release. This collector fix does not rewrite or
+rerun that measurement or relax generic cross-observer identity matching.

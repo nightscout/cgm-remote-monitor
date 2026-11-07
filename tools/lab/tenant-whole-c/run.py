@@ -10,6 +10,7 @@ import os
 from pathlib import Path
 import signal
 import subprocess
+import sys
 import tarfile
 import time
 import tempfile
@@ -49,7 +50,8 @@ def source_check(worktree):
         else:
             candidate = json.loads((worktree / control['candidate']).read_text())
             assert all(candidate['migrations'][1]['up'].count(sql) == 1 for sql in control['remove'])
-    print(json.dumps({'sourceSyntax': 'pass', 'controlSignatures': len(controls), 'native': 'UNMEASURED'}))
+    subprocess.run([sys.executable, str(HERE / 'test-process-births.py')], check=True, capture_output=True)
+    print(json.dumps({'sourceSyntax': 'pass', 'controlSignatures': len(controls), 'sourceBirthControls': 10, 'native': 'UNMEASURED'}))
 
 def proc(pid):
     try:
@@ -60,6 +62,21 @@ def proc(pid):
                 'commandDigest': digest(Path('/proc', str(pid), 'cmdline').read_bytes())}
     except (FileNotFoundError, ProcessLookupError):
         return None
+
+def remember_birth(known, terminal, birth):
+    # Linux clears /proc/<pid>/cmdline for a zombie. Keep the exact live
+    # ownership identity; termination samples are separate evidence, not births.
+    key = (birth['pid'], birth['startTicks'])
+    if birth['state'] == 'Z' and birth['commandDigest'] == digest(b''):
+        terminal.append(dict(birth))
+        assert key in known, 'terminal process observed before live birth identity'
+        return
+    assert birth['state'] != 'Z' and birth['commandDigest'] != digest(b''), 'incomplete live birth identity'
+    if key in known:
+        assert all(known[key][field] == birth[field] for field in
+                   ['pid', 'startTicks', 'uid', 'group', 'commandDigest']), 'live process identity changed'
+    else:
+        known[key] = dict(birth)
 
 def group_births(group):
     result = []
@@ -201,21 +218,23 @@ def campaign(args):
             env = {key: os.environ[key] for key in [current['adminEnv']]}
             env.update({'NODE_PATH': str(deps), 'PATH': os.environ['PATH'], 'TZ': 'UTC'})
             known = {}
+            terminal = []
             with (capture / 'stdout.log').open('wb') as stdout, (capture / 'stderr.log').open('wb') as stderr:
                 child = subprocess.Popen(['node', str(source / 'tools/lab/tenant-whole-c/probe.js'), str(capture / 'config.json'), phase], env=env, stdout=stdout, stderr=stderr, start_new_session=True)
                 deadline = time.monotonic() + args.timeout
                 while child.poll() is None:
                     for birth in group_births(child.pid):
-                        known[(birth['pid'], birth['startTicks'])] = birth
+                        remember_birth(known, terminal, birth)
                     if time.monotonic() >= deadline:
                         # Exact group created above; never signal an unknown pid.
                         for birth in known.values():
                             now = proc(birth['pid'])
-                            if now and now['startTicks'] == birth['startTicks'] and now['uid'] == birth['uid'] and now['group'] == child.pid:
+                            if now and now['startTicks'] == birth['startTicks'] and now['uid'] == birth['uid'] and now['group'] == child.pid and now['commandDigest'] == birth['commandDigest']:
                                 os.kill(birth['pid'], signal.SIGCONT); os.kill(birth['pid'], signal.SIGTERM)
                         child.wait(timeout=10)
                         raise AssertionError('timeout is ordinary failure, never semantic red')
                     time.sleep(0.1)
+            write(capture / 'terminal-process-samples.json', terminal)
             absence = [{'birth': birth, 'current': proc(birth['pid'])} for birth in known.values()]
             write(capture / 'process-audit.json', absence)
             assert all(row['current'] is None for row in absence), 'owned Node birth remains'
