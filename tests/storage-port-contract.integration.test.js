@@ -56,6 +56,7 @@ optInSuite(process.env.NS_STORAGE_PORT_CONTRACT_DOCKER_TEST === '1',
   this.timeout(90000);
   const name = 'ns_port_test_' + randomUUID().replace(/-/g, '');
   const containers = [name + '_pg', name + '_mongo'];
+  const ownedContainers = [];
   const role = name + '_app';
   const table = name + '.entries';
   let admin, connection, mongo, db, mode, pgURI;
@@ -67,7 +68,9 @@ optInSuite(process.env.NS_STORAGE_PORT_CONTRACT_DOCKER_TEST === '1',
     const password = randomBytes(24).toString('hex');
     docker('run', '--detach', '--rm', '--name', containers[0], '--publish', '127.0.0.1::5432',
       '--env', 'POSTGRES_PASSWORD=' + password, '--env', 'POSTGRES_DB=' + name, 'postgres:16');
+    ownedContainers.push(containers[0]);
     docker('run', '--detach', '--rm', '--name', containers[1], '--publish', '127.0.0.1::27017', '--ulimit', 'nofile=64000:64000', 'mongo:7.0');
+    ownedContainers.push(containers[1]);
     const pgPort = docker('port', containers[0], '5432/tcp').split(':').pop();
     const mongoPort = docker('port', containers[1], '27017/tcp').split(':').pop();
     const url = new URL('postgresql://127.0.0.1:' + pgPort + '/' + name);
@@ -125,7 +128,7 @@ optInSuite(process.env.NS_STORAGE_PORT_CONTRACT_DOCKER_TEST === '1',
       async () => { if (connection) await connection.end(); }, async () => { if (admin) await admin.end(); }]) {
       try { await close(); } catch (error) { failures.push(error); }
     }
-    for (const container of containers) {
+    for (const container of ownedContainers) {
       try { docker('rm', '--force', '--volumes', container); } catch (error) {
         if (!String(error.stderr).includes('No such container')) failures.push(error);
       }

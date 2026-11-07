@@ -87,6 +87,7 @@
         "tests/postgres-filter.test.js",
         "tests/page-bundle-budget.test.js",
         "tests/page-fixture-traffic.test.js",
+        "tests/fixture-success-ownership.test.js",
         "tests/page-resource-acceptance.test.js",
         "tests/plugin-task-order.test.js",
         "tests/plugins.test.js",

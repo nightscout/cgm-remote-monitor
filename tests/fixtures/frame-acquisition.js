@@ -89,12 +89,12 @@ module.exports = function frameAcquisition () {
     oldMode = scope.getTenancyMode(); scope.setTenancyMode('multi');
     const password = randomBytes(24).toString('hex');
     const pg = name + '_pg', mg = name + '_mongo';
-    containers.push(pg);
     execFileSync('docker', ['run', '--name', pg, '--detach', '--publish', '127.0.0.1::5432',
       '--env', 'POSTGRES_PASSWORD', '--env', 'POSTGRES_DB=' + name, 'postgres:16'],
     { env: { ...process.env, POSTGRES_PASSWORD: password }, stdio: 'pipe', timeout: 30000 });
-    containers.push(mg);
+    containers.push(pg);
     docker(['run', '--name', mg, '--detach', '--ulimit', 'nofile=64000:64000', '--publish', '127.0.0.1::27017', 'mongo:8.0.34']);
+    containers.push(mg);
     const url = new URL('postgres://postgres@127.0.0.1:' + docker(['port', pg, '5432/tcp']).split(':').pop() + '/' + name);
     url.password = password;
     const adminURI = url.toString();
