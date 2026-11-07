@@ -104,7 +104,7 @@ optInSuite(process.env.NS_MIGRATION_DOCKER_TEST === '1', 'NS_MIGRATION_DOCKER_TE
     const o = opts(entriesCatalogue);
     const applied = await run('up', o);
     assert.deepEqual(applied.done, entriesCatalogue.migrations.map(row => row.name));
-    assert.deepEqual(entriesCatalogue.migrations.at(-1).operation, { kind: 'tenant-insertion-v1', domain: 'entries' });
+    assert.deepEqual(entriesCatalogue.migrations.at(-1).operation, { kind: 'tenant-insertion-binding-v1', domain: 'entries' });
     assert.equal((await run('check', o)).current, true);
 
     const columns = await observer.query(

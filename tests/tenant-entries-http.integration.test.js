@@ -122,7 +122,7 @@ optInSuite(process.env.NS_TENANT_HTTP_DOCKER_TEST === '1', 'NS_TENANT_HTTP_DOCKE
       await admin.connect();
       migration = { direct: true, connectionString, namespace, catalogue };
       assert.deepEqual((await run('up', migration)).done, catalogue.migrations.map(row => row.name));
-      assert.deepEqual(catalogue.migrations.at(-1).operation, { kind: 'tenant-insertion-v1', domain: 'entries' });
+      assert.deepEqual(catalogue.migrations.at(-1).operation, { kind: 'tenant-insertion-binding-v1', domain: 'entries' });
       const appPassword = randomBytes(24).toString('hex');
       // Fixture-only role grants, following the migration integration harness.
       // All entries DDL comes from the reviewed candidate via the real runner.
