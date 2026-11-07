@@ -35,6 +35,42 @@
         "CREATE INDEX treatments_tenant_insertion ON treatments (tenant_id, insertion_ordinal)"
       ],
       "checksum": "a5f082b38c47255bd9f69d23ffedf39fbb272500686806c5c09f4f21ec53c9c8"
+    },
+    {
+      "name": "0003_treatments_tenant_local_insertion",
+      "operation": {
+        "kind": "tenant-insertion-v1",
+        "domain": "treatments"
+      },
+      "up": [
+        "LOCK TABLE \"nightscout_migration_namespace\".\"treatments\" IN ACCESS EXCLUSIVE MODE",
+        "SET LOCAL row_security = off",
+        "DO $tenant_insertion_upgrade$\nBEGIN\n  IF NOT EXISTS (SELECT 1 FROM pg_class t JOIN pg_attribute a ON a.attrelid=t.oid\n      WHERE t.oid='\"nightscout_migration_namespace\".\"treatments\"'::regclass AND a.attname='insertion_ordinal'\n        AND a.attidentity='a' AND a.atttypid='pg_catalog.int8'::regtype\n        AND t.relkind='r' AND NOT t.relispartition AND t.relrowsecurity AND t.relforcerowsecurity)\n     OR EXISTS (SELECT 1 FROM pg_inherits WHERE inhrelid='\"nightscout_migration_namespace\".\"treatments\"'::regclass OR inhparent='\"nightscout_migration_namespace\".\"treatments\"'::regclass) THEN\n    RAISE EXCEPTION 'TENANT_ORDINAL_SOURCE_UNSUPPORTED';\n  END IF;\n  IF EXISTS (SELECT 1 FROM \"nightscout_migration_namespace\".\"treatments\" WHERE insertion_ordinal IS NULL OR insertion_ordinal<=0)\n     OR EXISTS (SELECT 1 FROM \"nightscout_migration_namespace\".\"treatments\" GROUP BY tenant_id,insertion_ordinal HAVING count(*)>1) THEN\n    RAISE EXCEPTION 'TENANT_ORDINAL_SOURCE_INVALID';\n  END IF;\nEND\n$tenant_insertion_upgrade$",
+        "CREATE TABLE \"nightscout_migration_namespace\".\"tenant_insertion_ordinal\" (tenant_id uuid PRIMARY KEY, last_ordinal bigint NOT NULL CHECK (last_ordinal>=0))",
+        "INSERT INTO \"nightscout_migration_namespace\".\"tenant_insertion_ordinal\" (tenant_id,last_ordinal) SELECT tenant_id,max(insertion_ordinal) FROM \"nightscout_migration_namespace\".\"treatments\" GROUP BY tenant_id",
+        "ALTER TABLE \"nightscout_migration_namespace\".\"tenant_insertion_ordinal\" ENABLE ROW LEVEL SECURITY",
+        "ALTER TABLE \"nightscout_migration_namespace\".\"tenant_insertion_ordinal\" FORCE ROW LEVEL SECURITY",
+        "CREATE POLICY tenant_insertion_isolation ON \"nightscout_migration_namespace\".\"tenant_insertion_ordinal\" USING (tenant_id=NULLIF(current_setting('app.current_tenant_id',true),'')::uuid) WITH CHECK (tenant_id=NULLIF(current_setting('app.current_tenant_id',true),'')::uuid)",
+        "ALTER TABLE \"nightscout_migration_namespace\".\"treatments\" ALTER COLUMN insertion_ordinal DROP IDENTITY",
+        "ALTER TABLE \"nightscout_migration_namespace\".\"treatments\" ADD CONSTRAINT tenant_insertion_positive CHECK (insertion_ordinal>0)",
+        "CREATE UNIQUE INDEX \"treatments_tenant_ordinal_unique\" ON \"nightscout_migration_namespace\".\"treatments\" (tenant_id,insertion_ordinal)",
+        "CREATE FUNCTION \"nightscout_migration_namespace\".\"allocate_tenant_insertion_ordinal\"() RETURNS trigger LANGUAGE plpgsql SECURITY INVOKER SET search_path=pg_catalog AS $tenant_insertion$\nBEGIN\n  IF NEW.tenant_id IS DISTINCT FROM NULLIF(current_setting('app.current_tenant_id',true),'')::uuid THEN\n    RAISE EXCEPTION 'TENANT_ORDINAL_BINDING_REQUIRED';\n  END IF;\n  IF TG_OP='UPDATE' THEN\n    IF NEW.tenant_id IS DISTINCT FROM OLD.tenant_id OR NEW.insertion_ordinal IS DISTINCT FROM OLD.insertion_ordinal THEN\n      RAISE EXCEPTION 'TENANT_ORDINAL_IMMUTABLE';\n    END IF;\n    RETURN NEW;\n  END IF;\n  IF NOT EXISTS (SELECT 1 FROM \"nightscout_migration_namespace\".\"tenant_insertion_ordinal\" WHERE tenant_id=NEW.tenant_id)\n     AND EXISTS (SELECT 1 FROM \"nightscout_migration_namespace\".\"treatments\" WHERE tenant_id=NEW.tenant_id) THEN\n    RAISE EXCEPTION 'TENANT_ORDINAL_COUNTER_MISSING';\n  END IF;\n  IF NEW.insertion_ordinal IS NULL THEN\n    INSERT INTO \"nightscout_migration_namespace\".\"tenant_insertion_ordinal\" AS counter (tenant_id,last_ordinal) VALUES (NEW.tenant_id,1)\n      ON CONFLICT (tenant_id) DO UPDATE SET last_ordinal=counter.last_ordinal+1\n      WHERE counter.last_ordinal<9223372036854775807\n      RETURNING counter.last_ordinal INTO NEW.insertion_ordinal;\n    IF NOT FOUND THEN RAISE EXCEPTION 'TENANT_ORDINAL_EXHAUSTED' USING ERRCODE='22003'; END IF;\n  ELSE\n    IF NEW.insertion_ordinal<=0 THEN RAISE EXCEPTION 'TENANT_ORDINAL_INVALID'; END IF;\n    INSERT INTO \"nightscout_migration_namespace\".\"tenant_insertion_ordinal\" AS counter (tenant_id,last_ordinal) VALUES (NEW.tenant_id,NEW.insertion_ordinal)\n      ON CONFLICT (tenant_id) DO UPDATE SET last_ordinal=GREATEST(counter.last_ordinal,EXCLUDED.last_ordinal);\n  END IF;\n  RETURN NEW;\nEND\n$tenant_insertion$",
+        "REVOKE ALL ON FUNCTION \"nightscout_migration_namespace\".\"allocate_tenant_insertion_ordinal\"() FROM PUBLIC",
+        "CREATE TRIGGER tenant_insertion_allocate BEFORE INSERT OR UPDATE ON \"nightscout_migration_namespace\".\"treatments\" FOR EACH ROW EXECUTE FUNCTION \"nightscout_migration_namespace\".\"allocate_tenant_insertion_ordinal\"()",
+        "SET LOCAL row_security = on"
+      ],
+      "checksum": "5df51c58d02846f5e6c76ef08b91483b9319dffd12051f5fc29fa260c6618d34"
+    },
+    {
+      "name": "0004_treatments_binding_sqlstate",
+      "operation": {
+        "kind": "tenant-insertion-binding-v1",
+        "domain": "treatments"
+      },
+      "up": [
+        "CREATE OR REPLACE FUNCTION \"nightscout_migration_namespace\".\"allocate_tenant_insertion_ordinal\"() RETURNS trigger LANGUAGE plpgsql SECURITY INVOKER SET search_path=pg_catalog AS $tenant_insertion$\nBEGIN\n  IF NEW.tenant_id IS DISTINCT FROM NULLIF(current_setting('app.current_tenant_id',true),'')::uuid THEN\n    RAISE EXCEPTION 'TENANT_ORDINAL_BINDING_REQUIRED' USING ERRCODE='42501';\n  END IF;\n  IF TG_OP='UPDATE' THEN\n    IF NEW.tenant_id IS DISTINCT FROM OLD.tenant_id OR NEW.insertion_ordinal IS DISTINCT FROM OLD.insertion_ordinal THEN\n      RAISE EXCEPTION 'TENANT_ORDINAL_IMMUTABLE';\n    END IF;\n    RETURN NEW;\n  END IF;\n  IF NOT EXISTS (SELECT 1 FROM \"nightscout_migration_namespace\".\"tenant_insertion_ordinal\" WHERE tenant_id=NEW.tenant_id)\n     AND EXISTS (SELECT 1 FROM \"nightscout_migration_namespace\".\"treatments\" WHERE tenant_id=NEW.tenant_id) THEN\n    RAISE EXCEPTION 'TENANT_ORDINAL_COUNTER_MISSING';\n  END IF;\n  IF NEW.insertion_ordinal IS NULL THEN\n    INSERT INTO \"nightscout_migration_namespace\".\"tenant_insertion_ordinal\" AS counter (tenant_id,last_ordinal) VALUES (NEW.tenant_id,1)\n      ON CONFLICT (tenant_id) DO UPDATE SET last_ordinal=counter.last_ordinal+1\n      WHERE counter.last_ordinal<9223372036854775807\n      RETURNING counter.last_ordinal INTO NEW.insertion_ordinal;\n    IF NOT FOUND THEN RAISE EXCEPTION 'TENANT_ORDINAL_EXHAUSTED' USING ERRCODE='22003'; END IF;\n  ELSE\n    IF NEW.insertion_ordinal<=0 THEN RAISE EXCEPTION 'TENANT_ORDINAL_INVALID'; END IF;\n    INSERT INTO \"nightscout_migration_namespace\".\"tenant_insertion_ordinal\" AS counter (tenant_id,last_ordinal) VALUES (NEW.tenant_id,NEW.insertion_ordinal)\n      ON CONFLICT (tenant_id) DO UPDATE SET last_ordinal=GREATEST(counter.last_ordinal,EXCLUDED.last_ordinal);\n  END IF;\n  RETURN NEW;\nEND\n$tenant_insertion$"
+      ],
+      "checksum": "ed999d5afc77013bc2bfb51a4f6a892e31254879b16be6c85e9cdd2b3fe74ae4"
     }
   ]
 }

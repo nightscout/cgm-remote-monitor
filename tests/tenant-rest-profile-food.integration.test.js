@@ -259,8 +259,9 @@ optInSuite(process.env.NS_PROFILE_FOOD_HTTP_TEST === '1' &&
       await mongoCollections[logical].deleteMany({});
       for (const tenant of [A, B]) for (const doc of docs) {
         const row = encodeDocument({ ...doc, tenantMarker: tenant });
-        await admin.query(`INSERT INTO "${schemas[logical]}".${logical} (tenant_id, id_kind, doc) VALUES ($1, $2, $3)`,
-          [tenant, row.id_kind, row.doc]);
+        await require('./fixtures/tenant-insertion-grants').withTenant(admin, tenant, () =>
+          admin.query(`INSERT INTO "${schemas[logical]}".${logical} (tenant_id, id_kind, doc) VALUES ($1, $2, $3)`,
+            [tenant, row.id_kind, row.doc]));
       }
       if (docs.length) await mongoCollections[logical].insertMany(docs.map(doc => ({ ...doc, tenantMarker: A })));
     }
@@ -280,7 +281,8 @@ optInSuite(process.env.NS_PROFILE_FOOD_HTTP_TEST === '1' &&
       await admin.query(`CREATE ROLE "${role}" LOGIN NOSUPERUSER NOBYPASSRLS PASSWORD '${password}'`);
       await admin.query(`GRANT USAGE ON SCHEMA ${Object.values(schemas).map(n => '"' + n + '"').join(',')} TO "${role}"`);
       for (const logical of ['profile', 'food']) {
-        await admin.query(`GRANT SELECT, INSERT, UPDATE, DELETE ON "${schemas[logical]}".${logical} TO "${role}"`);
+        await require('./fixtures/tenant-insertion-grants').grant(admin, { namespace: schemas[logical], domain: logical, role,
+          catalogue: catalogues[logical] });
       }
       await admin.query(`GRANT USAGE, SELECT ON ALL SEQUENCES IN SCHEMA "${schemas.food}" TO "${role}"`);
       for (const logical of ['auth', 'identity']) {

@@ -200,8 +200,8 @@ module.exports = function clientReplayHTTP () {
         await admin.query(`GRANT SELECT ON ${namespace}.schema_migrations TO preview_check`);
       }
       for (const logical of domainNames) {
-        await admin.query(`GRANT SELECT, INSERT, UPDATE, DELETE ON ${allNamespaces[logical]}.${logical} TO preview_app`);
-        await admin.query(`GRANT USAGE ON ALL SEQUENCES IN SCHEMA ${allNamespaces[logical]} TO preview_app`);
+        await require('./tenant-insertion-grants').grant(admin, { namespace: allNamespaces[logical], domain: logical,
+          role: 'preview_app', catalogue: catalogues[logical] });
       }
       await admin.query('GRANT SELECT ON ALL TABLES IN SCHEMA preview_auth, preview_legacy TO preview_app');
       await admin.query('GRANT SELECT, INSERT ON preview_secrets.secret_records TO preview_app');

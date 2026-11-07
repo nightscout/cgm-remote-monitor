@@ -221,7 +221,8 @@ optInSuite(process.env.NS_TENANT_CREDENTIAL_HTTP_DOCKER_TEST === '1',
     const appPassword = crypto.randomBytes(24).toString('hex');
     await admin.query(`CREATE ROLE ${role} LOGIN NOSUPERUSER NOBYPASSRLS PASSWORD '${appPassword}'`);
     await admin.query(`GRANT USAGE ON SCHEMA credential_data, credential_auth, credential_secrets, credential_identity TO ${role}`);
-    await admin.query(`GRANT SELECT, INSERT, UPDATE, DELETE ON credential_data.entries TO ${role}`);
+    await require('./fixtures/tenant-insertion-grants').grant(admin, { namespace: 'credential_data', domain: 'entries', role,
+        catalogue: require('../migrations/candidates/postgres-entries-v1.json') });
     await admin.query(`GRANT SELECT ON ALL TABLES IN SCHEMA credential_auth, credential_identity TO ${role}`);
     await admin.query(`GRANT SELECT, INSERT ON credential_secrets.secret_records TO ${role}`);
     await admin.query(`GRANT INSERT ON credential_secrets.secret_audit TO ${role}`);
@@ -637,8 +638,9 @@ optInSuite(process.env.NS_TENANT_CREDENTIAL_HTTP_DOCKER_TEST === '1',
           assert.deepEqual(workers[0].events.map(event => event.event), ['storage-intent-committed']);
           assert.deepEqual((await rows()).find(row => row.doc.identifier === 'mutation-entry').doc, stored);
         }
-        await admin.query(`UPDATE credential_data.entries SET doc = doc || '{"isValid":false}'::jsonb
-          WHERE tenant_id = $1 AND identifier = 'mutation-entry'`, [A]);
+        await require('./fixtures/tenant-insertion-grants').withTenant(admin, A, () =>
+          admin.query(`UPDATE credential_data.entries SET doc = doc || '{"isValid":false}'::jsonb
+            WHERE tenant_id = $1 AND identifier = 'mutation-entry'`, [A]));
         workers[0].events.length = 0;
         const acknowledged = await post(doc(), 0, A, bearer(jwt[0])).expect(200);
         assert.equal(acknowledged.body.lastModified, stored.srvModified);

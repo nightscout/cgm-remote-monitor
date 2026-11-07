@@ -104,7 +104,8 @@ module.exports = function frameAcquisition () {
       namespace: namespaces[logical], catalogue: postgresDomains.get(logical).catalogue });
     await admin.query(`CREATE ROLE ${role} LOGIN NOSUPERUSER NOBYPASSRLS PASSWORD '${password}'`);
     await admin.query(`GRANT USAGE ON SCHEMA ${Object.values(namespaces).join(',')} TO ${role}`);
-    for (const logical of DOMAINS) await admin.query(`GRANT SELECT, INSERT, UPDATE, DELETE ON ${namespaces[logical]}.${logical} TO ${role}`);
+    for (const logical of DOMAINS) await require('./tenant-insertion-grants').grant(admin, {
+      namespace: namespaces[logical], domain: logical, role, catalogue: postgresDomains.get(logical).catalogue });
     url.username = role; uri = url.toString();
     mongo = new MongoClient('mongodb://127.0.0.1:' + docker(['port', mg, '27017/tcp']).split(':').pop(), { serverSelectionTimeoutMS: 500 });
     await ready(() => mongo.connect()); db = mongo.db(name);
@@ -125,8 +126,9 @@ module.exports = function frameAcquisition () {
         if (docs[logical].length) await store.insertMany(docs[logical]);
         for (const document of docs[logical]) {
           const row = encodeDocument(document);
-          await admin.query(`INSERT INTO ${namespaces[logical]}.${logical}(tenant_id,id_kind,doc) VALUES($1,$2,$3)`,
-            [tenant, row.id_kind, row.doc]);
+          await require('./tenant-insertion-grants').withTenant(admin, tenant, () =>
+            admin.query(`INSERT INTO ${namespaces[logical]}.${logical}(tenant_id,id_kind,doc) VALUES($1,$2,$3)`,
+              [tenant, row.id_kind, row.doc]));
         }
       }
     }

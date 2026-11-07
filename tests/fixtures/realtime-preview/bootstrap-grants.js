@@ -11,8 +11,7 @@ function grants (layout) {
   const clinical=['entries','treatments','devicestatus','profile','food','activity'];
   for(const name of [...clinical,'settings','authorization','secrets','legacy','access','clock'])schema(name,'api');
   for(const name of [...clinical,'settings']) {
-    grant('SELECT,INSERT,UPDATE,DELETE',table(name),'api');
-    sql.push('GRANT USAGE ON ALL SEQUENCES IN SCHEMA '+quote(ns[name])+' TO '+quote(roles.api));
+    sql.push(...require('../tenant-insertion-grants').statements({namespace:ns[name],domain:name,role:roles.api,catalogue:catalogues()[name]}));
   }
   for(const name of ['authorization','legacy','access'])sql.push('GRANT SELECT ON ALL TABLES IN SCHEMA '+quote(ns[name])+' TO '+quote(roles.api));
   grant('SELECT,INSERT',table('secrets','secret_records'),'api');grant('INSERT',table('secrets','secret_audit'),'api');
@@ -22,7 +21,7 @@ function grants (layout) {
   }
   for(const [who,checkpoint] of [['realtime','rt_checkpoint'],['evaluator','eval_checkpoint']]) {
     for(const name of [...clinical,'clock',checkpoint]) {schema(name,who);grant('SELECT',table(name,'schema_migrations'),who);}
-    for(const name of clinical)grant('SELECT',table(name),who);
+    for(const name of clinical)sql.push(...require('../tenant-insertion-grants').statements({namespace:ns[name],domain:name,role:roles[who],catalogue:catalogues()[name],mode:'reader'}));
     grant('SELECT',table('clock','tenant_write_clock'),who);
     grant('SELECT,UPDATE(checkpoint,projection,contract_digest)',table(checkpoint,'tenant_consumer_checkpoint'),who);
   }

@@ -29,6 +29,9 @@ module.exports = function evaluatorPreviewLab () {
     for (const table of [...Object.values(lab.tables), lab.namespaces.clock + '.tenant_write_clock', lab.replayNamespace + '.tenant_consumer_checkpoint']) {
       await lab.admin.query('GRANT SELECT ON ' + table.split('.').map(n => '"' + n + '"').join('.') + ' TO "' + lab.previewRole + '"');
     }
+    for (const domain of Object.keys(lab.tables)) await require('./tenant-insertion-grants').grant(lab.admin, {
+      namespace: namespaces[domain], domain, role: lab.previewRole,
+      catalogue: require('../../lib/server/serve/postgres-domains').get(domain).catalogue, mode: 'reader' });
     await lab.admin.query('GRANT UPDATE(checkpoint,projection,contract_digest) ON "' + lab.replayNamespace +
       '".tenant_consumer_checkpoint TO "' + lab.previewRole + '"');
     const url = new URL(process.env.NS_TEST_POSTGRES_ADMIN_URI); url.username = lab.previewRole; url.password = password;
