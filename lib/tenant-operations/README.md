@@ -1,69 +1,38 @@
-# Deployment backup, restore, upgrade and rollback primitives
+# Original-tenant deployment recovery operations
 
-Dormant Batch C source prototype. No serving path, role default, CLI or endpoint
-loads this module. Its NDJSON artifact is a versioned research format; adoption,
-operator authorization and production backup/key recovery remain separate work.
-Nightscout is a secondary display for CGM and pump data.
+Dormant, explicitly invoked Batch C library. No serving route, listener, startup
+migration, provider, role default or CLI is enabled. Nightscout is a secondary
+display for CGM and pump data. The NDJSON artifact remains a research format.
 
-## Interface and ownership
+## Source boundary and evidence
 
-`require('./lib/tenant-operations')` exports `plan`, `backup`, `restore`, `upgrade`,
-`rollback`, `verifyArtifact`, `serialize`, `deserialize`, `artifactName`,
-`summarize`, `compareSummaries` and `assertSameSummary`, plus `FORMAT` and `VERSION`.
+This source joins accepted A74, R69 lifecycle and the backup/upgrade continuation.
+The historical f77 representative PostgreSQL proof remains attributed to
+`f77c025f8e797775faca0e179cc84fc3ca9c5874`: entries/clock, five cases and four
+physical semantic controls/restorations. It does not verify the subsequent whole
+catalogue, filesystem callback or explicit privilege-plan implementation.
+Whole populated native/assembled acceptance is **UNMEASURED** until the coordinator
+reviews the frozen plan and grants a focused run. Full/browser/corpus acceptance
+belongs to the coherent assembled candidate.
 
-The caller owns one dedicated, idle operator `query(text, values)` connection
-returning `{ rows, rowCount }`. Do not share it with a pool, serving transaction
-or another operation. Backup and restore explicitly require PostgreSQL
-`rolsuper` or `rolbypassrls`; FORCE RLS otherwise permits an internally consistent
-empty backup. This is a private operator interface, distinct from R69's
-NOBYPASSRLS tenant-scoped export/import/delete interface. No authorization or
-listener activation is supplied here.
+## Explicit catalogue admission
 
-All operations accept an explicit ordered plan:
+`deploymentAdmission({ root?, namespaces, selection?, extensions? })` reads reviewed
+JSON migration catalogues under `lib/` and `migrations/candidates/`. It never selects
+all database schemas. It refuses an unadmitted candidate, missing namespace,
+omitted/extra table, unsupported DDL, shared namespace or unknown selection.
+Current source census: **20 candidate files, 18 selected kinds, 31 tables**; the two
+socket-order successors are explicit alternative selections, not additional domains.
 
-```js
-const catalogues = [
-  { kind: 'entries', namespace: 'deployment_entries',
-    catalogue: reviewedEntriesCandidate, tables: ['entries'], secrets: [] }
-];
-```
-
-Each namespace must be distinct, valid and outside `public`/system namespaces.
-Tables must be tenant-bound, with `tenant_id`; preserve parent-before-child order.
-The plan validates and checksums the injected migration catalogue. It does not
-discover database tables or certify that the caller listed the entire deployment.
-Any newly admitted domain needs a plan/inventory review before capture.
-
-R69 owns `lib/tenant-lifecycle` and its `admittedCatalogue()` inventory. Where
-that independent lane is assembled, its interface adapts explicitly:
-
-```js
-const catalogues = lifecycle.admittedCatalogue().map(({ candidate, ...entry }) => ({
-  ...entry,
-  catalogue: candidate,
-  namespace: namespaces[entry.kind]
-}));
-operations.plan(catalogues); // Missing namespace mappings refuse here.
-```
-
-This module does not import that unjoined lane or implement its deletion workflow.
-
-## Reviewed inventory and limits
-
-Read-derived inventory from lifecycle head
-`fd827e350a185ad73c838b013b25fe889434b036`, compared with application base
-`83582e876dd193f4448f44c28e379fb5464a26c7`: 16 catalogue kinds, 29 tenant-bound
-tables. This is an inventory review, not a restored-deployment measurement.
+The lifecycle list owns tenant export/import/delete order. It now includes A74's
+`tenant_owner_configuration_authority`. The deployment plan additionally includes
+the separate `tenant_lifecycle_requests` tombstone ledger; ordinary tenant exports
+exclude that ledger. Every table must be tenant-bound. Non-generated columns are
+read from PostgreSQL during capture; generated columns are recomputed on restore.
 
 | Kind | Tables |
 |---|---|
-| entries | entries |
-| treatments | treatments |
-| devicestatus | devicestatus |
-| profile | profile |
-| food | food |
-| activity | activity |
-| settings | settings |
+| entries, treatments, devicestatus, profile, food, activity, settings | One corresponding clinical/document table each |
 | clock | tenant_write_clock |
 | checkpoint | tenant_consumer_checkpoint |
 | authorization | tenant_authorization_config, tenant_authorization_roles, tenant_authorization_subjects, tenant_authorization_subject_roles, tenant_subject_admin_audit, tenant_owner_policy, tenant_owner_actors |
@@ -71,102 +40,165 @@ tables. This is an inventory review, not a restored-deployment measurement.
 | subject_policy | subject_policy, subject_policy_audit |
 | operator_policy | tenant_operator_policy |
 | tenant_settings | tenant_settings, tenant_settings_history |
+| owner_configuration | tenant_owner_configuration_authority |
 | legacy | legacy_credential_config, legacy_credential_subjects |
 | secrets | secret_records, secret_audit |
+| lifecycle | tenant_lifecycle_requests |
 
-The independent lifecycle ledger `tenant_lifecycle_requests` is outside R69's
-export inventory. A deployment including it must explicitly add its reviewed
-candidate, namespace and table to this plan to preserve deletion tombstones.
-`schema_migrations` is captured separately as ledger names/checksums and recreated
-by migrations; its `applied_at` values are not restored. PostgreSQL roles, passwords,
-role membership, ownership, arbitrary ACLs, extensions, server configuration,
-provider state, Vault key material and filesystem data are outside the artifact.
-Generated columns are recomputed by the target schema. Ciphertext stays opaque;
-Transit version references travel, but decryptability depends on separately
-retained matching keys. Restore never selects retention or destroys keys.
+New M5 suppression/outbox candidates must be explicitly admitted when their frozen
+source joins. No active peer source or guessed schema is imported:
 
-The recording-client unit fixture covers entries, clock, access and secrets.
-The prepared native suite uses entries and clock. Neither proves the full
-inventory, real secret decryptability, populated policy/FK restoration, large
-artifacts or bounded resource consumption. All rows/files are held in memory.
-
-## Operation contracts
-
-| Operation | Boundary |
-|---|---|
-| `backup(connection, { catalogues, sourceCommit, registry?, now? })` | One REPEATABLE READ READ ONLY transaction captures every listed namespace's applied ledger, non-generated columns and rows across all tenants. Refuses unknown/drifted/empty ledgers, bound identities and malformed tenant rows. Optional `registry: { kind, table }` requires every seen tenant to occur in that table. Returns artifact, not files written to storage. |
-| `serialize(artifact)` / `deserialize(files)` | Map between the in-memory artifact and `manifest.json` plus `tables/<kind>.<table>.ndjson`. No filesystem I/O. `deserialize` is parsing; call `verifyArtifact` or `restore` for integrity validation. Digests detect corruption and internal inconsistency, not malicious replacement of an entire self-consistent artifact. |
-| `restore(connection, artifact, { catalogues, acl?, onRow? })` | Verify manifest/file digests, counts, tenant bindings and key references before BEGIN. Validate optional `acl: { role }` syntax before BEGIN. Inside one transaction, check unbound identity, exact table inventory, compatible supplied catalogue, exact applied target/artifact ledger equality, exact writable columns and emptiness of every table before INSERT/GRANT/setval. Target namespaces must already be prepared at the artifact's ledger version. Use OVERRIDING SYSTEM VALUE for identities, advance their sequences, grant the explicitly named role, then read back counts/digests/per-tenant counts before COMMIT. |
-| `upgrade(connection, { migrate, catalogues, sourceCommit, registry?, now?, backup? })` | Precheck every new catalogue with `status`; refuse if nothing pending. Capture backup, compare captured ledgers with the precheck, then run each pending `up`, then every `check`. Returns `{ record, artifact }`. Migration/postcheck failure attaches `.artifact` and `.applied`. Separate runner transactions mean earlier migrations can remain committed after failure. |
-| `rollback(connection, { migrate, artifact, catalogues, upgraded, acl?, restore? })` | Use the older binary's catalogues and absent target namespaces. Verify artifact, ACL, exact older catalogue ledgers and target/source separation. The older `check` must return current or `MIG_UNKNOWN` on every upgraded namespace, with at least one `MIG_UNKNOWN`. Inspect **all** target namespaces for absence before any `up`. Prepare targets sequentially, restore once, then run older `check` on all targets. Upgraded namespaces stay unchanged. Returns an explicit statement that writes after backup `takenAt` are absent from the restored target. |
-
-`migrate(action, { namespace, catalogue })` is an injected wrapper over
-`lib/migrations/postgres.run`, closing over the explicit operator connection URL
-and `direct: true` attestation. The runner owns its own connections and commits.
-No down migration or automatic traffic cutover is attempted.
-
-Stop writers, migrations and competing operators for the entire upgrade/rollback
-workflow and keep restore targets exclusive. The prechecks are not a deployment
-lock; concurrent changes after them can invalidate the result. Backup alone
-provides a consistent read snapshot, but cross-system/Vault state is not in it.
-The recorded `takenAt` is captured before the backup transaction and is a time
-label, not a commit watermark or replay offset.
-
-The default backup callback keeps the artifact in memory. Before using upgrade
-operationally, inject `backup` that captures, verifies, durably stores and reads
-back the artifact before its promise resolves. An ordinary returned artifact
-cannot recover a process crash during migration. The module cannot attest the
-callback's storage durability. Preserve the artifact and partial application
-record on failure; do not infer whole-workflow rollback or retry preparation into
-existing namespaces. Inspect partial preparation, choose new absent target
-namespaces and retain the upgraded source for investigation.
-
-Validation refusals occur before restore writes. Execution failures (constraints,
-missing roles, privileges, connection loss, oracle mismatch, `onRow` interruption)
-can occur later; restore attempts ROLLBACK. Failed rollback itself raises
-AggregateError and leaves the outcome uncertain. PostgreSQL sequence `setval`
-changes are not transactional: row rollback does not promise pristine sequence
-state. A rerun on the same prepared empty tables resets nonempty restored identity
-sequences from restored maxima. No callback may perform external side effects if
-it expects database rollback to undo them.
-
-ACL recreation grants schema usage, SELECT/INSERT/UPDATE/DELETE on listed tables,
-SELECT on their migration ledgers and USAGE/SELECT on all sequences in each listed
-schema. The named role must already exist. It does not revoke existing grants,
-create roles, grant BYPASSRLS, restore arbitrary privileges or guarantee that a
-preexisting role has no extra rights. Use dedicated reviewed namespaces and roles.
-
-## Checks and pending native proof
-
-Database-free units, without global hooks:
-
-```bash
-./node_modules/.bin/mocha --no-config --no-package --fail-zero tests/tenant-operations.test.js
+```js
+const admission = operations.deploymentAdmission({
+  namespaces: explicitNamespaces,
+  selection: { treatments: 'migrations/candidates/postgres-treatments-socket-order-v1.json' },
+  extensions: [{ kind: reviewedKind, candidatePath: reviewedJsonPath,
+    tables: reviewedParentFirstTables, secrets: reviewedCiphertextTables }]
+});
+// admission.catalogues: operator migration/backup plan
+// admission.census: selected/alternative paths, checksums and table inventory
+// admission.lifecycle: tenant-scoped lifecycle instance with the same extensions
 ```
 
-The suite distinguishes file-digest refusal before statements, ACL prewrite
-refusal, independent source/oracle detection of a self-consistent lost tenant row,
-a lying insert followed by rollback, interruption and rerun, and older-catalogue
-refusal/rollback. It checks all rollback targets before preparation, including an
-empty existing schema and cross-kind alias of a source namespace. It is a
-recording SQL model, not PostgreSQL acceptance.
+The census recognizes reviewed CREATE TABLE and parent-first LIKE inheritance.
+Other table-creation forms refuse for review. A different source `root` must be an
+explicit reviewed immutable archive; its own catalogue versions/table census are
+used. The source and target admissions remain separate throughout upgrade.
 
-`tests/tenant-operations.integration.test.js` is explicitly opt-in and requires
-a focused runtime grant. With the flag absent it registers pending tests and
-opens no services. After a
-grant, this command creates one owned disposable PostgreSQL 16 Docker container,
-random loopback port and ephemeral credentials, and removes exactly that container:
+## Durable filesystem artifact callback
 
-```bash
-NS_TENANT_OPERATIONS_PG_TEST=1 ./node_modules/.bin/mocha --no-config --no-package --fail-zero tests/tenant-operations.integration.test.js
+`createFilesystemBackup({ directory, io?, backup? })` implements the existing
+injected upgrade callback. The default `io` is Node's filesystem promises API;
+`io`/`backup` injection supports narrow fault controls. No peer filesystem is used.
+
+The destination is an absolute, same-owner private directory, with an existing
+parent. A newly created root and its parent are synced. Each artifact is written
+to one owned private staging directory with exclusive files (0600), and each file
+is fsynced. Tables/staging directories are synced; the artifact is reloaded and
+verified before atomic rename. The published parent is synced, then the artifact
+is independently reloaded and verified again before the callback resolves.
+`saveArtifact(artifact, { directory })` and `loadArtifact({ directory, name })` expose
+the same persistence/readback boundary without a database.
+
+A write, sync, rename or readback failure refuses. Only this invocation's staging
+directory is removable. Failure after rename retains the published artifact and
+reports failure; operators can inspect/reload it, but no migration may infer success.
+An existing artifact name is never overwritten. This is a local POSIX filesystem
+contract, not a power-loss/storage-device or distributed-filesystem acceptance claim.
+
+The kernel's default `backup` still returns memory-only data. Whole-deployment
+operations below force the durable callback before migration. They do not rotate,
+expire or destroy artifacts or keys. Optional registry checks retain their literal
+contract (every seen tenant must be registered); historic lifecycle tombstones can
+outlive registry rows, so do not silently apply that check to a deletion archive.
+
+## Whole-deployment interface
+
+```js
+const target = operations.createDeploymentOperations({
+  directory: privateArtifactDirectory,
+  root: reviewedTargetSourceArchive,
+  namespaces: targetNamespaces,
+  selection: targetSelection,
+  extensions: targetExtensions
+});
+const { record, artifact } = await target.upgrade(operator, {
+  migrate: explicitNewMigrationRunner,
+  sourceCommit: targetCommit,
+  source: { root: reviewedOldSourceArchive, sourceCommit: oldCommit,
+    namespaces: oldNamespaces, selection: oldSelection, extensions: oldExtensions }
+});
 ```
 
-It is prepared to measure native type/identity behavior, grants and RLS, digest
-and ACL refusal, independent row loss, lying insert/rollback, interruption/rerun,
-old-catalogue refusal and later-target freshness. The representative five-case baseline and final restoration, plus four native
-semantic controls and their targeted restorations, passed on exact
-`f77c025f8e797775faca0e179cc84fc3ca9c5874`; the alignment programme's dated
-`reports/tenancy/backup-upgrade-native-f77-2026-11-06.md` records the scope and hashes.
-Full-inventory restoration, durable storage/key recovery and assembled application
-acceptance remain coordinator-owned pending work. A disabled
-suite, syntax check or registration count is not native evidence.
+All namespace maps and extensions are explicit; the wrapper re-enumerates current
+admission before each operation. `source` is mandatory for upgrade. It supplies the
+actual old inventory, fully applied ledgers and old source commit; the target
+admission supplies the proposed new inventory. Existing kinds must preserve their
+namespace, existing tables/order and migration checksum prefix. New namespaces
+must be absent. No down migration, dropped table or silent data transformation is
+accepted by this append-only transition contract.
+
+Upgrade prechecks the target, persists only the OLD inventory, verifies the captured
+source ledgers, then runs the explicit target migration runner. It checks all target
+ledgers/tables, projects old writable columns from the upgraded source and compares
+old row digests/counts/per-tenant counts with the retained artifact. Added columns
+can change full target shape; lost/changed old data refuses with the artifact and
+partial application record retained. Separate runner transactions can remain
+committed after failure; the workflow is not globally atomic.
+
+The record names source and target inventories, backup digest and applied steps.
+`older.checkRecord(record)` refuses a newly added unknown kind or newer ledger;
+per-namespace old migration checks alone cannot detect a wholly new namespace.
+This is an explicit operator readiness contract, not an automatically wired serving
+startup gate. A rollback requires the matching upgrade record and old admission:
+
+```js
+const older = operations.createDeploymentOperations({ directory: privateArtifactDirectory,
+  root: reviewedOldSourceArchive, namespaces: freshOldNamespaces,
+  selection: oldSelection, extensions: oldExtensions });
+await older.rollback(operator, artifact, {
+  migrate: explicitOldMigrationRunner, upgradeRecord: record,
+  upgraded: Object.fromEntries(record.targetCatalogues.map(item => [item.kind, item.namespace])),
+  acl: explicitOldRoleGrants
+});
+```
+
+Rollback verifies the record/old artifact binding, recorded target ledgers and old
+binary refusal. It preflights ALL fresh old target namespaces before preparation,
+then migrates those old namespaces and restores the old artifact once. Upgraded
+namespaces, including newly added kinds, remain untouched for investigation.
+Writes after the backup are absent from the restored target. No traffic cutover,
+writer pause, deployment lock or recovery scheduling is implicit: stop competing
+writers/operators and keep targets exclusive for the entire workflow.
+
+## Restore identity and privileges
+
+Restore preserves every original tenant UUID and compatible retained ciphertext/key
+reference. `tenant`, `targetTenant`, `mapTenant` and `clone` options refuse. New-tenant
+cloning/import needs new destination secrets and credentials; ordinary data sync
+never transfers credential authority. No transparent decrypt/re-encrypt workflow,
+provider selection or cloning acceptance is supplied.
+
+Whole-deployment restore/rollback refuses legacy blanket `acl: { role }`. It accepts
+an explicit `acl: { grants: [...] }` or null (operator-only restored data, no grants):
+
+```js
+const acl = { grants: [
+  { role: 'data_reader', kind: 'entries', table: 'entries', privileges: ['SELECT'] },
+  { role: 'checkpoint_writer', kind: 'checkpoint', table: 'tenant_consumer_checkpoint',
+    privileges: ['SELECT'], columnPrivileges: { UPDATE: ['checkpoint', 'projection', 'contract_digest'] } }
+] };
+```
+
+This abbreviated example is not the full deployment role matrix. Enumerate every
+role/table/column at the integration boundary, preserving read-only clinical DATA/
+evaluator access and narrowly owned settings/checkpoint/ack/outbox effects. No
+wildcards, ALL privileges, DDL grants or write access to migration ledgers are
+accepted. Sequence rights must be requested explicitly and resolve only that
+table's identity sequences before writes. Schema USAGE is limited to the named
+role/kind. Roles must already exist; no role creation, membership, BYPASSRLS or
+revocation of preexisting rights is implied. Fresh reviewed roles and denied-write
+checks are required to establish least privilege in native acceptance.
+
+Kernel restore validates artifact/file integrity, ACL syntax/columns/sequence
+bindings, exact target ledgers/columns and every table's emptiness before INSERT/
+GRANT/setval. It restores in one transaction, reads back the restored rows and
+compares its oracle before COMMIT. Errors attempt rollback; failed rollback leaves
+outcome uncertain. PostgreSQL sequence setval is not transactional, so row rollback
+does not promise pristine sequence state. The legacy low-level `{ role }` kernel
+interface remains only for historical representative callers.
+
+## Remaining acceptance
+
+Focused source tests use recording clients plus owned temporary filesystem
+artifacts. They do not establish PostgreSQL privilege/type/FK/sequence behavior or
+hardware durability. The next native plan must populate every selected table,
+include deletion tombstones and ciphertext references, exercise actual new M5
+namespace transition/older-tool refusal/fresh old restore, and independently deny
+foreign/cross-capability writes. Retained-key destroy/after-window refusal needs
+its own explicit provider boundary under the adopted retention decision; none is
+implemented or silently enabled here. Numeric resource/cadence budgets remain
+unmeasured. The coordinator owns the frozen candidate and one assembled campaign.
+
+The [whole populated native plan](acceptance-plan.md) names the source boundary,
+explicit privilege matrix, pending actual M5 extensions and required controls.

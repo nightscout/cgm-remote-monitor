@@ -125,6 +125,7 @@
         "tests/import-entries-cli.test.js",
         "tests/tenant-resolution.test.js",
         "tests/tenant-operations.test.js",
+        "tests/tenant-deployment-operations.test.js",
         "tests/tenant-rest-authority.test.js",
         "tests/tenant-write-clock.test.js",
         "tests/postgres-collection-intent.test.js",

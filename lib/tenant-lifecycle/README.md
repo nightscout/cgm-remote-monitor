@@ -32,26 +32,27 @@ honours the real tenant scope and rolls back on throw). The populated PostgreSQL
 and Vault run lives in the alignment repository's
 `tools/lab/tenant-export-delete/` instrument.
 
-## Decision questions left for the maintainer
+## Current contract and remaining acceptance
 
-- DECISION: key retention after tenant deletion. `executeDeletion` removes the
-  tenant's `secret_records` and `secret_audit` rows only after their ciphertext and
-  key references are verified in the artifact; the Vault Transit keys named by
-  `keyNames` are never deleted, so the artifact remains decryptable. Whether, when
-  and by whom the keys are destroyed (and the retention period of the artifact
-  and the `tenant_lifecycle_requests` tombstone) is a policy choice, not a default.
-- DECISION: re-homing a tenant under a new tenant id. The secrets component binds
-  the tenant id inside the authenticated plaintext envelope
-  (`lib/secrets/component.js`, `read()` checks `value.tenant === identity.tenant`),
-  so an artifact imported under a different id could not decrypt its secrets.
-  This module therefore requires the import target tenant to equal the artifact's.
-- DECISION: ordering ordinals across databases. `food.insertion_ordinal` is an
+- Restore preserves the original tenant ID and compatible retained key material.
+  New-tenant cloning/import establishes new secrets/credentials; data sync does
+  not transfer source authority. No cryptographic rehoming workflow is implemented.
+- Deleted-tenant keys and artifact remain for the adopted 30-day window, then an
+  operator destroys keys through a separately reviewed provider capability. This
+  module never destroys keys or proves after-window refusal. Pre-deletion
+  confirmation/cancellation is a separate open ceremony contract.
+- The joined catalogue includes accepted owner configuration authority. Use
+  `createLifecycle({ catalogues })` for reviewed M5 extensions; whole-deployment
+  admission in `../tenant-operations/catalogues.js` independently refuses omitted
+  candidate files and includes the separate lifecycle ledger in deployment backup.
+
+- Ordering ordinals across databases. `food.insertion_ordinal` is an
   identity column; the import preserves its value with `OVERRIDING SYSTEM VALUE`,
   which keeps relative order inside the tenant but may interleave with another
   tenant's ordinals in the target table. Nothing joins on it today.
-- DECISION: artifact size and transaction bounds. The import and the deletion are
+- Artifact size and transaction bounds. The import and the deletion are
   each one transaction with no numeric cap; a bound is a policy choice.
-- DECISION: who may call `requestDeletion` versus `executeDeletion`. The owner
+- Execution authority: who may call `requestDeletion` versus `executeDeletion`. The owner
   authority amendment places export and deletion *requests* with the owner and
   lifecycle *execution* on the private operator plane; this module exposes both as
   functions and enforces neither authorization.

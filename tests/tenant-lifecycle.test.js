@@ -188,6 +188,14 @@ describe('tenant lifecycle: typed export, import and two-phase deletion', functi
   before(function () { previousMode = tenantScope.getTenancyMode(); tenantScope.setTenancyMode('multi'); });
   after(function () { tenantScope.setTenancyMode(previousMode); });
 
+  it('includes the accepted owner configuration authority in tenant lifecycle operations', function () {
+    const expected = require('../lib/tenant-settings/owner-authority-candidate.json');
+    const entry = lifecycle.admittedCatalogue().find(item => item.kind === 'owner_configuration');
+    assert.ok(entry, 'accepted owner authority must not be omitted');
+    assert.deepEqual(entry.candidate, expected);
+    assert.deepEqual(entry.tables, ['tenant_owner_configuration_authority']);
+  });
+
   it('admits every tenant-bound table the reviewed candidates create, parents before children', function () {
     const created = new Set();
     for (const entry of lifecycle.admittedCatalogue()) {

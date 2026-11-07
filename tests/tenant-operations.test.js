@@ -4,7 +4,7 @@
 const assert = require('node:assert/strict');
 const { ObjectId } = require('mongodb');
 const codec = require('../lib/storage/postgres-identity');
-const { validateCatalogue } = require('../lib/migrations/catalogue');
+const { validateCatalogue, checksum } = require('../lib/migrations/catalogue');
 const common = require('../lib/tenant-operations/common');
 const operations = require('../lib/tenant-operations');
 
@@ -46,6 +46,7 @@ function column (spec) {
 }
 const create = (schema, table, specs) => schema.tables.set(table, { columns: specs.split(',').map(column), rows: [], next: 1 });
 const EFFECTS = {
+  '0001_synthetic_state': schema => create(schema, 'synthetic_state', 'tenant_id uuid, value text'),
   '0001_entries': schema => create(schema, 'entries', 'tenant_id uuid, doc jsonb, id_kind text'),
   '0002_entries_insertion_order': schema => {
     const table = schema.tables.get('entries');
@@ -513,6 +514,80 @@ describe('tenant operations: deployment backup, restore, upgrade and rollback', 
       const report = await operations.restore(target.connection, artifact, { catalogues: catalogues(FRESH) });
       assert.equal(report.total, 14); // 4 entries + 2 clocks + 2 tenants + 1 credential + 2 keys + 2 secrets + 1 audit
       assert.deepEqual(operations.compareSummaries(await operations.summarize(source.connection, catalogues()), await operations.summarize(target.connection, catalogues(FRESH))), []);
+    });
+  });
+
+  describe('explicit old/new inventory and table-scoped privileges', function () {
+    const up = ['CREATE TABLE synthetic_state (tenant_id uuid NOT NULL, value text)'];
+    const extension = { kind: 'synthetic', namespace: 'ns_synthetic', tables: ['synthetic_state'],
+      catalogue: { version: 1, migrations: [{ name: '0001_synthetic_state', up, checksum: checksum(up) }] } };
+
+    it('backs up only old populated inventory, upgrades a new namespace, refuses older readiness and restores old inventory', async function () {
+      const state = await scenario();
+      const before = await operations.summarize(state.connection, catalogues());
+      const result = await operations.upgrade(state.connection, { migrate: state.migrate, catalogues: [...catalogues(), extension],
+        sourceCatalogues: catalogues(), sourceCommit: COMMIT, backupSourceCommit: COMMIT, now: NOW });
+      assert.equal(result.artifact.manifest.catalogues.length, 4);
+      assert.equal(result.record.targetCatalogues.length, 5);
+      assert.deepEqual(result.record.sourceCatalogues.map(item => item.kind), Object.keys(TABLES));
+      assert.throws(() => operations.assertUpgradeCompatible(result.record, catalogues()), { code: 'OPERATIONS_BINARY_CATALOGUE_UNKNOWN' });
+      await state.connection.seed(extension.namespace, 'synthetic_state', [{ tenant_id: B, value: 'after-upgrade' }]);
+      const record = await operations.rollback(state.connection, { migrate: state.migrate, artifact: result.artifact,
+        catalogues: catalogues(FRESH), upgraded: { ...NS, synthetic: extension.namespace }, upgradeRecord: result.record });
+      assert.equal(record.refusal.catalogue, 'OPERATIONS_BINARY_CATALOGUE_UNKNOWN');
+      assert.deepEqual(operations.compareSummaries(before, await operations.summarize(state.connection, catalogues(FRESH))), []);
+      assert.deepEqual(state.connection.rows(extension.namespace, 'synthetic_state'), [{ tenant_id: B, value: 'after-upgrade' }]);
+      assert.equal(state.connection.rows(FRESH.entries, 'entries').length, 4);
+    });
+
+    it('refuses occupied new namespaces before backup and detects row loss during an otherwise successful migration', async function () {
+      const occupied = await scenario();
+      occupied.connection.schemas.set(extension.namespace, { ledger: [], tables: new Map() });
+      await refused(operations.upgrade(occupied.connection, { migrate: occupied.migrate, catalogues: [...catalogues(), extension], sourceCatalogues: catalogues(), sourceCommit: COMMIT }), 'UPGRADE_NEW_NAMESPACE_NOT_FRESH');
+      assert.equal(occupied.connection.statements(/^BEGIN/).length, 0);
+      assert.equal(occupied.calls.filter(call => call.action === 'up').length, 0);
+      const lossy = await scenario();
+      const migrate = async (action, input) => {
+        const result = await lossy.migrate(action, input);
+        if (action === 'up') {
+          const table = lossy.connection.schemas.get(NS.entries).tables.get('entries');
+          table.rows = table.rows.filter(row => row.tenant_id !== B);
+        }
+        return result;
+      };
+      const error = await refused(operations.upgrade(lossy.connection, { migrate, catalogues: [...catalogues(), extension], sourceCatalogues: catalogues(), sourceCommit: COMMIT }), 'UPGRADE_TARGET_VALIDATION_FAILED');
+      assert.equal(error.cause.code, 'UPGRADE_PRESERVATION_MISMATCH');
+      assert.ok(error.cause.differences.some(item => item.key === 'entries.entries' && item.tenant === B));
+      assert.equal(error.artifact.manifest.catalogues[0].tables[0].count, 4, 'retained backup still has the lost row');
+    });
+
+    it('emits only caller-supplied table grants; invalid wildcard/escalation plans refuse before statements', async function () {
+      const source = await scenario();
+      const artifact = await operations.backup(source.connection, options());
+      const target = await scenario({ namespaces: FRESH, populate: false });
+      const acl = { grants: [
+        { role: 'data_reader', kind: 'entries', table: 'entries', privileges: ['SELECT'] },
+        { role: 'evaluator_reader', kind: 'clock', table: 'tenant_write_clock', privileges: ['SELECT'] },
+        { role: 'session_writer', kind: 'access', table: 'access_sessions', privileges: ['SELECT'], columnPrivileges: { UPDATE: ['expires_at'] } }
+      ] };
+      const result = await operations.restore(target.connection, artifact, { catalogues: catalogues(FRESH), acl });
+      assert.deepEqual(result.acl.roles, ['data_reader', 'evaluator_reader', 'session_writer']);
+      const grants = target.connection.statements(/^GRANT/).map(entry => entry.text);
+      assert.equal(grants.length, 6);
+      assert.ok(grants.includes('GRANT SELECT ON "fresh_entries"."entries" TO "data_reader"'));
+      assert.ok(!grants.some(sql => /ALL|secret|schema_migrations/.test(sql)));
+      assert.ok(grants.includes('GRANT SELECT, UPDATE ("expires_at") ON "fresh_access"."access_sessions" TO "session_writer"'));
+      assert.ok(!grants.some(sql => /UPDATE ON/.test(sql)));
+      for (const grant of [
+        { role: 'reader', kind: 'entries', table: '*', privileges: ['SELECT'] },
+        { role: 'reader', kind: 'entries', table: 'entries', privileges: ['ALL'] },
+        { role: 'reader', kind: 'entries', table: 'schema_migrations', privileges: ['UPDATE'] },
+        { role: 'reader', kind: 'entries', table: 'entries', privileges: [], columnPrivileges: { DELETE: ['doc'] } }
+      ]) {
+        const invalid = await scenario({ namespaces: FRESH, populate: false });
+        await refused(operations.restore(invalid.connection, artifact, { catalogues: catalogues(FRESH), acl: { grants: [grant] } }), 'RESTORE_ACL_PLAN_INVALID');
+        assert.equal(invalid.connection.log.length, 0);
+      }
     });
   });
 
