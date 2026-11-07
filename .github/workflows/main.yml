@@ -338,6 +338,39 @@ jobs:
       - name: Build development bundle with ESLint integration
         run: NODE_ENV=development npm run bundle-dev
 
+  multitenant-postgres:
+    name: Multitenant opt-in corpus (PostgreSQL, MongoDB, Vault)
+    # The preview's opt-in suites (docs/multitenant-test-corpus.md), which the
+    # Mongo-only jobs above leave pending. The script starts its own disposable
+    # PostgreSQL 16, MongoDB and Vault containers on the runner's Docker and
+    # removes them, as 18 of the suites do for themselves, so the job declares
+    # no service containers. ubuntu-22.04 as in the test job: MongoDB 8.0
+    # refuses to start on the newer runner kernel (SERVER-121912).
+    runs-on: ubuntu-22.04
+    timeout-minutes: 45
+    steps:
+      - name: Git Checkout
+        uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5
+        with:
+          persist-credentials: false
+
+      - name: Use Node.js 26
+        uses: actions/setup-node@a0853c24544627f65ddf259abe73b1d18a591444 # v5
+        with:
+          node-version: '26'
+          # Major aliases must resolve past any cached vulnerable patch.
+          check-latest: true
+          cache: npm
+          cache-dependency-path: package-lock.json
+
+      - name: Install dependencies
+        run: npm ci
+      - name: Run the opt-in corpus against disposable services
+        run: npm run test:multitenant
+      - name: Show containers this run left behind
+        if: failure()
+        run: docker ps -a --filter label=ns.multitenant.run
+
   tests-pass:
     name: Tests pass
     # One check for branch protection to require, so the matrices above can
@@ -345,7 +378,7 @@ jobs:
     # failed or was cancelled; Docker validation is skipped outside pull
     # requests and dispatched runs.
     if: always()
-    needs: [test, test-no-db, maintained-mongo, browser-test, npm12-build, docker-build-pr]
+    needs: [test, test-no-db, maintained-mongo, browser-test, npm12-build, docker-build-pr, multitenant-postgres]
     runs-on: ubuntu-latest
     steps:
       - name: Every test job succeeded or was skipped

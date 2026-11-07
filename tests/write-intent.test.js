@@ -538,7 +538,7 @@ describe('write(intent): the socket\'s generic dbAdd and its dbRemove', function
 
 
 describe('write(intent) gate G2: one door for the enrolled collections', function ( ) {
-  const { check, checkEntry, fileOf, ENROLLED } = require('../scripts/check-write-intent');
+  const { check, checkEntry, checkSocketBinding, fileOf, ENROLLED } = require('../scripts/check-write-intent');
 
   it('finds no write around the step in an enrolled module', function ( ) {
     // CHANGED EXPECTATION (WC-STEP-PATCH slice 2): activity.js joins food.js.
@@ -553,10 +553,13 @@ describe('write(intent) gate G2: one door for the enrolled collections', functio
     // CHANGED EXPECTATION (ID-FIRST-MATCH slice 1): API v3's create/operation.js joins; its
     // identifying read moved into the step (identifier-match), and it writes through insert.js and
     // replace.js.
+    // The canonical extraction keeps all six functions enrolled in their new
+    // file and the remaining websocket wrapper enrolled as a whole module.
     // Each slice that routes code through the step adds it here.
     assert.deepEqual(ENROLLED, ['lib/server/food.js', 'lib/server/activity.js', 'lib/server/treatments.js'
       , 'lib/server/entries.js', 'lib/server/devicestatus.js', 'lib/server/profile.js'
-      , { file: 'lib/server/websocket.js', functions: ['processGenericDbAdd', 'dbRemove', 'processSingleDbAdd', 'dbAdd'
+      , 'lib/server/websocket.js'
+      , { file: 'lib/server/socket-write-handlers.js', whole: true, functions: ['processGenericDbAdd', 'dbRemove', 'processSingleDbAdd', 'dbAdd'
         , 'dbUpdate', 'dbUpdateUnset'] }
       , 'lib/api3/generic/create/insert.js', 'lib/api3/generic/update/replace.js'
       , 'lib/api3/generic/patch/operation.js', 'lib/api3/generic/delete/operation.js'
@@ -585,12 +588,12 @@ describe('write(intent) gate G2: one door for the enrolled collections', functio
     });
   }
 
-  describe('enrolled functions (every writer of websocket.js)', function ( ) {
+  describe('enrolled functions (every canonical socket DATA writer)', function ( ) {
     const entry = ENROLLED.find(e => typeof e !== 'string');
     const source = fs.readFileSync(path.resolve(__dirname, '..', entry.file), 'utf8');
     // The text right after an enrolled function's opening line, where a bypass is put.
     const into = (name, line) => source.replace(new RegExp('(function ' + name + ' \\([^)]*\\) \\{\\n)'), '$1' + line + '\n');
-    // CHANGED EXPECTATION (slice 6): websocket.js no longer binds the v1 write
+    // The extracted canonical handler module no longer binds the v1 write
     // helpers or has a function of its own that writes (insertDocument is
     // gone), so the second and third bypasses bring their own: the helpers'
     // require, and a module function that writes, put at the end of the file.
@@ -614,7 +617,9 @@ describe('write(intent) gate G2: one door for the enrolled collections', functio
           assert(issues.length > 0, bypass);
           assert(issues.some(issue => issue.startsWith(name + ': ')), issues.join('; '));
           const named = [name].concat(CALLERS[name] || [ ]);
-          assert(issues.every(issue => named.some(n => issue.startsWith(n + ': '))), issues.join('; '));
+          assert(issues.some(issue => issue.startsWith('module: ')), 'whole handler module also detects the bypass');
+          for (const caller of named) assert(issues.some(issue => issue.startsWith(caller + ': ')), 'missing caller propagation: ' + caller);
+          assert(issues.every(issue => issue.startsWith('module: ') || named.some(n => issue.startsWith(n + ': '))), issues.join('; '));
         });
       }
     }
@@ -626,9 +631,39 @@ describe('write(intent) gate G2: one door for the enrolled collections', functio
 
     // CHANGED EXPECTATION (slice 6): there are no other socket writers left;
     // it asserted that the module as a whole still wrote around the step.
-    it('finds no write around the step anywhere in websocket.js, enrolled function or not', function ( ) {
+    it('finds no write around the step anywhere in the canonical handler module, enrolled function or not', function ( ) {
       assert.deepEqual(checkEntry(entry, source), [ ]);
       assert.deepEqual(check(source), [ ], 'every socket writer goes through the step');
     });
   });
+  describe('remaining websocket wrapper delegates the canonical handlers', function () {
+    const source = fs.readFileSync(path.resolve(__dirname, '../lib/server/websocket.js'), 'utf8');
+    it('contains no direct write and binds the canonical factory result', function () {
+      assert.deepEqual(check(source), []); assert.deepEqual(checkSocketBinding(source), []);
+    });
+    for (const [label, before, after] of [
+      ['factory import', "require('./socket-write-handlers')", "require('./other-write-handlers')"],
+      ['factory call', 'const writeHandlers = createHandlers(', 'const writeHandlers = otherHandlers('],
+      ['result delegation', 'Object.entries(writeHandlers)', 'Object.entries({})'],
+      ['handler registration', 'socket.on(event, handler)', 'socket.once(event, handler)'],
+      ['trusted context', 'createHandlers({ env, ctx,', 'createHandlers({ environment: env, ctx,'],
+      ['factory binding shadow', 'function onConnection (socket)', 'function onConnection (socket, createHandlers)']
+    ]) {
+      it('refuses broken canonical ' + label, function () {
+        assert.equal(source.split(before).length, 2, 'one deliberate mutation boundary');
+        assert(checkSocketBinding(source.replace(before, after)).length > 0);
+      });
+    }
+    it('detects a direct DATA bypass in the remaining wrapper', function () {
+      const broken = source + '\nsocket.on("dbAdd", function extraDataWrite () { storage.insertOne({}); });\n';
+      assert(check(broken).some(issue => issue.includes('insertOne')));
+      assert(checkSocketBinding(broken).some(issue => issue.includes('direct DATA registration')));
+    });
+    it('cannot hide an unenrolled top-level write beside the canonical functions', function () {
+      const entry = ENROLLED.find(item => typeof item !== 'string');
+      const handlers = fs.readFileSync(path.resolve(__dirname, '..', entry.file), 'utf8');
+      assert(checkEntry(entry, handlers + '\nstorage.insertOne({});\n').some(issue => issue.startsWith('module: ')));
+    });
+  });
+
 });

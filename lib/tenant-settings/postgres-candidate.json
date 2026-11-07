@@ -1,0 +1,20 @@
+{
+  "version": 1,
+  "migrations": [
+    {
+      "name": "0001_tenant_settings",
+      "checksum": "aa1cbc036cf23e2930cd08a91ecb5027a9c80fb82dfa0f05ef6e57f06ddab9d2",
+      "up": [
+        "CREATE TABLE tenant_settings (tenant_id uuid PRIMARY KEY, version integer NOT NULL CHECK (version > 0), values jsonb NOT NULL CHECK (jsonb_typeof(values) = 'object' AND values - 'DISPLAY_UNITS' - 'SHOW_SECONDS' = '{}'::jsonb AND (NOT values ? 'DISPLAY_UNITS' OR values->'DISPLAY_UNITS' IN ('\"mg/dl\"'::jsonb, '\"mmol\"'::jsonb)) AND (NOT values ? 'SHOW_SECONDS' OR jsonb_typeof(values->'SHOW_SECONDS') = 'boolean')))",
+        "ALTER TABLE tenant_settings ENABLE ROW LEVEL SECURITY",
+        "ALTER TABLE tenant_settings FORCE ROW LEVEL SECURITY",
+        "CREATE POLICY tenant_settings_tenant ON tenant_settings USING (tenant_id = nullif(current_setting('app.current_tenant_id', true), '')::uuid) WITH CHECK (tenant_id = nullif(current_setting('app.current_tenant_id', true), '')::uuid)",
+        "CREATE TABLE tenant_settings_history (LIKE tenant_settings INCLUDING CONSTRAINTS, principal text NOT NULL CHECK (principal ~ '^[a-zA-Z0-9_-]{1,128}$'), consumer text NOT NULL CHECK (consumer ~ '^[a-zA-Z0-9_-]{1,128}$'), operation text NOT NULL CHECK (operation IN ('replace','rollback')), event_time bigint NOT NULL CHECK (event_time >= 0), restored_from integer CHECK (restored_from > 0 AND restored_from < version), CHECK ((operation = 'rollback') = (restored_from IS NOT NULL)), PRIMARY KEY (tenant_id,version))",
+        "ALTER TABLE tenant_settings_history ENABLE ROW LEVEL SECURITY",
+        "ALTER TABLE tenant_settings_history FORCE ROW LEVEL SECURITY",
+        "CREATE POLICY tenant_settings_history_tenant ON tenant_settings_history USING (tenant_id = nullif(current_setting('app.current_tenant_id', true), '')::uuid) WITH CHECK (tenant_id = nullif(current_setting('app.current_tenant_id', true), '')::uuid)",
+        "REVOKE ALL ON tenant_settings, tenant_settings_history FROM PUBLIC"
+      ]
+    }
+  ]
+}

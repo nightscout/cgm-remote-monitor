@@ -1,0 +1,31 @@
+{
+  "version": 1,
+  "migrations": [
+    {
+      "name": "0001_access_state",
+      "checksum": "d09cf6a2990dd68af735c6b2ed658a56ab4fa5c23355272896c6408af3628893",
+      "up": [
+        "CREATE TABLE access_tenants (tenant_id uuid PRIMARY KEY, active boolean NOT NULL)",
+        "CREATE TABLE access_credentials (tenant_id uuid NOT NULL REFERENCES access_tenants (tenant_id), credential_id text NOT NULL CHECK (credential_id ~ '^[A-Za-z0-9_-]{1,128}$'), subject_id text NOT NULL CHECK (subject_id ~ '^[A-Za-z0-9_-]{1,128}$'), generation integer NOT NULL CHECK (generation > 0), enabled boolean NOT NULL, PRIMARY KEY (tenant_id,credential_id), UNIQUE (tenant_id,credential_id,subject_id))",
+        "CREATE TABLE access_sessions (tenant_id uuid NOT NULL, session_id text NOT NULL CHECK (session_id ~ '^[A-Za-z0-9_-]{1,128}$'), subject_id text NOT NULL, credential_id text NOT NULL, generation integer NOT NULL CHECK (generation > 0), expires_at bigint NOT NULL CHECK (expires_at > 0), active boolean NOT NULL, purpose text NOT NULL CHECK (purpose IN ('data','management')), PRIMARY KEY (tenant_id,session_id), FOREIGN KEY (tenant_id,credential_id,subject_id) REFERENCES access_credentials (tenant_id,credential_id,subject_id))",
+        "CREATE TABLE access_keys (tenant_id uuid NOT NULL REFERENCES access_tenants (tenant_id), kid text NOT NULL CHECK (kid ~ '^[A-Za-z0-9_-]{1,128}$'), purpose text NOT NULL CHECK (purpose IN ('data','management')), active boolean NOT NULL, PRIMARY KEY (tenant_id,kid,purpose))",
+        "ALTER TABLE access_tenants ENABLE ROW LEVEL SECURITY",
+        "ALTER TABLE access_tenants FORCE ROW LEVEL SECURITY",
+        "CREATE POLICY access_tenants_tenant ON access_tenants USING (tenant_id = nullif(current_setting('app.current_tenant_id', true), '')::uuid) WITH CHECK (tenant_id = nullif(current_setting('app.current_tenant_id', true), '')::uuid)",
+        "REVOKE ALL ON access_tenants FROM PUBLIC",
+        "ALTER TABLE access_credentials ENABLE ROW LEVEL SECURITY",
+        "ALTER TABLE access_credentials FORCE ROW LEVEL SECURITY",
+        "CREATE POLICY access_credentials_tenant ON access_credentials USING (tenant_id = nullif(current_setting('app.current_tenant_id', true), '')::uuid) WITH CHECK (tenant_id = nullif(current_setting('app.current_tenant_id', true), '')::uuid)",
+        "REVOKE ALL ON access_credentials FROM PUBLIC",
+        "ALTER TABLE access_sessions ENABLE ROW LEVEL SECURITY",
+        "ALTER TABLE access_sessions FORCE ROW LEVEL SECURITY",
+        "CREATE POLICY access_sessions_tenant ON access_sessions USING (tenant_id = nullif(current_setting('app.current_tenant_id', true), '')::uuid) WITH CHECK (tenant_id = nullif(current_setting('app.current_tenant_id', true), '')::uuid)",
+        "REVOKE ALL ON access_sessions FROM PUBLIC",
+        "ALTER TABLE access_keys ENABLE ROW LEVEL SECURITY",
+        "ALTER TABLE access_keys FORCE ROW LEVEL SECURITY",
+        "CREATE POLICY access_keys_tenant ON access_keys USING (tenant_id = nullif(current_setting('app.current_tenant_id', true), '')::uuid) WITH CHECK (tenant_id = nullif(current_setting('app.current_tenant_id', true), '')::uuid)",
+        "REVOKE ALL ON access_keys FROM PUBLIC"
+      ]
+    }
+  ]
+}

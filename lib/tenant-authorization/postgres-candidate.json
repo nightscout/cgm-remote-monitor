@@ -1,0 +1,65 @@
+{
+  "version": 1,
+  "migrations": [
+    {
+      "name": "0001_tenant_authorization",
+      "checksum": "394f7abe92ada63ef192d5668785880ab02338785e000c2009fa0ed8c52687da",
+      "up": [
+        "CREATE TABLE tenant_authorization_config (tenant_id uuid PRIMARY KEY, anonymous_roles text[] NOT NULL CHECK (cardinality(anonymous_roles) <= 3 AND anonymous_roles <@ ARRAY['denied','readable','status-only']::text[] AND array_position(anonymous_roles, NULL) IS NULL))",
+        "CREATE TABLE tenant_authorization_roles (tenant_id uuid NOT NULL, name text NOT NULL CHECK (name ~ '^[a-zA-Z0-9_-]{1,128}$'), permissions text[] NOT NULL CHECK (cardinality(permissions) <= 256 AND array_position(permissions, NULL) IS NULL), PRIMARY KEY (tenant_id, name))",
+        "CREATE TABLE tenant_authorization_subjects (tenant_id uuid NOT NULL, subject_id text NOT NULL CHECK (subject_id ~ '^[a-zA-Z0-9_-]{1,128}$'), PRIMARY KEY (tenant_id, subject_id))",
+        "CREATE TABLE tenant_authorization_subject_roles (tenant_id uuid NOT NULL, subject_id text NOT NULL, role_name text NOT NULL, PRIMARY KEY (tenant_id, subject_id, role_name), FOREIGN KEY (tenant_id, subject_id) REFERENCES tenant_authorization_subjects (tenant_id, subject_id), FOREIGN KEY (tenant_id, role_name) REFERENCES tenant_authorization_roles (tenant_id, name))",
+        "ALTER TABLE tenant_authorization_config ENABLE ROW LEVEL SECURITY",
+        "ALTER TABLE tenant_authorization_config FORCE ROW LEVEL SECURITY",
+        "CREATE POLICY tenant_authorization_config_tenant ON tenant_authorization_config USING (tenant_id = nullif(current_setting('app.current_tenant_id', true), '')::uuid) WITH CHECK (tenant_id = nullif(current_setting('app.current_tenant_id', true), '')::uuid)",
+        "ALTER TABLE tenant_authorization_roles ENABLE ROW LEVEL SECURITY",
+        "ALTER TABLE tenant_authorization_roles FORCE ROW LEVEL SECURITY",
+        "CREATE POLICY tenant_authorization_roles_tenant ON tenant_authorization_roles USING (tenant_id = nullif(current_setting('app.current_tenant_id', true), '')::uuid) WITH CHECK (tenant_id = nullif(current_setting('app.current_tenant_id', true), '')::uuid)",
+        "ALTER TABLE tenant_authorization_subjects ENABLE ROW LEVEL SECURITY",
+        "ALTER TABLE tenant_authorization_subjects FORCE ROW LEVEL SECURITY",
+        "CREATE POLICY tenant_authorization_subjects_tenant ON tenant_authorization_subjects USING (tenant_id = nullif(current_setting('app.current_tenant_id', true), '')::uuid) WITH CHECK (tenant_id = nullif(current_setting('app.current_tenant_id', true), '')::uuid)",
+        "ALTER TABLE tenant_authorization_subject_roles ENABLE ROW LEVEL SECURITY",
+        "ALTER TABLE tenant_authorization_subject_roles FORCE ROW LEVEL SECURITY",
+        "CREATE POLICY tenant_authorization_subject_roles_tenant ON tenant_authorization_subject_roles USING (tenant_id = nullif(current_setting('app.current_tenant_id', true), '')::uuid) WITH CHECK (tenant_id = nullif(current_setting('app.current_tenant_id', true), '')::uuid)",
+        "REVOKE ALL ON tenant_authorization_config, tenant_authorization_roles, tenant_authorization_subjects, tenant_authorization_subject_roles FROM PUBLIC"
+      ]
+    },
+    {
+      "name": "0002_subject_display_name",
+      "checksum": "5c3ae2cd33a1e097fb3f4fcc176c681f651a85b88ca08b447190f017a643530c",
+      "up": [
+        "ALTER TABLE tenant_authorization_subjects ADD COLUMN display_name text CHECK (display_name IS NULL OR length(btrim(display_name)) > 0)"
+      ]
+    },
+    {
+      "name": "0003_subject_management_metadata",
+      "checksum": "69932c5cdc4aa8040005994f1382150e0e55383224cbc88ba59e771bab025576",
+      "up": [
+        "ALTER TABLE tenant_authorization_subjects ADD COLUMN notes text, ADD COLUMN created_at text",
+        "CREATE TABLE tenant_subject_admin_audit (event_id uuid PRIMARY KEY, tenant_id uuid NOT NULL, principal text NOT NULL, consumer text NOT NULL, subject_id text NOT NULL, operation text NOT NULL CHECK (operation IN ('update', 'remove')), event_time bigint NOT NULL)",
+        "ALTER TABLE tenant_subject_admin_audit ENABLE ROW LEVEL SECURITY",
+        "ALTER TABLE tenant_subject_admin_audit FORCE ROW LEVEL SECURITY",
+        "CREATE POLICY tenant_subject_admin_audit_tenant ON tenant_subject_admin_audit USING (tenant_id = nullif(current_setting('app.current_tenant_id', true), '')::uuid) WITH CHECK (tenant_id = nullif(current_setting('app.current_tenant_id', true), '')::uuid)",
+        "REVOKE ALL ON tenant_subject_admin_audit FROM PUBLIC"
+      ]
+    },
+    {
+      "name": "0004_owner_policy_fencing",
+      "checksum": "2ee34edbe4b0d9f4072308af914f235b992584933034020fe89b3e43ae3c1087",
+      "up": [
+        "ALTER TABLE tenant_authorization_config ADD COLUMN owner_fence boolean NOT NULL DEFAULT false",
+        "ALTER TABLE tenant_authorization_roles ADD COLUMN owner_fence boolean NOT NULL DEFAULT false",
+        "CREATE TABLE tenant_owner_policy (tenant_id uuid PRIMARY KEY REFERENCES tenant_authorization_config (tenant_id), catalogue_digest text NOT NULL CHECK (catalogue_digest ~ '^[a-f0-9]{64}$'), ceiling text[] NOT NULL CHECK (cardinality(ceiling) <= 256 AND array_position(ceiling,NULL) IS NULL), owner_fence boolean NOT NULL DEFAULT false)",
+        "CREATE TABLE tenant_owner_actors (tenant_id uuid NOT NULL REFERENCES tenant_owner_policy (tenant_id), principal text NOT NULL CHECK (principal ~ '^[a-zA-Z0-9_-]{1,128}$'), consumer text NOT NULL CHECK (consumer ~ '^[a-zA-Z0-9_-]{1,128}$'), active boolean NOT NULL, can_update boolean NOT NULL, delegable text[] NOT NULL CHECK (cardinality(delegable) <= 256 AND array_position(delegable,NULL) IS NULL), owner_fence boolean NOT NULL DEFAULT false, PRIMARY KEY (tenant_id,principal,consumer))",
+        "ALTER TABLE tenant_owner_policy ENABLE ROW LEVEL SECURITY",
+        "ALTER TABLE tenant_owner_policy FORCE ROW LEVEL SECURITY",
+        "CREATE POLICY tenant_owner_policy_tenant ON tenant_owner_policy USING (tenant_id = nullif(current_setting('app.current_tenant_id', true), '')::uuid) WITH CHECK (tenant_id = nullif(current_setting('app.current_tenant_id', true), '')::uuid)",
+        "REVOKE ALL ON tenant_owner_policy FROM PUBLIC",
+        "ALTER TABLE tenant_owner_actors ENABLE ROW LEVEL SECURITY",
+        "ALTER TABLE tenant_owner_actors FORCE ROW LEVEL SECURITY",
+        "CREATE POLICY tenant_owner_actors_tenant ON tenant_owner_actors USING (tenant_id = nullif(current_setting('app.current_tenant_id', true), '')::uuid) WITH CHECK (tenant_id = nullif(current_setting('app.current_tenant_id', true), '')::uuid)",
+        "REVOKE ALL ON tenant_owner_actors FROM PUBLIC"
+      ]
+    }
+  ]
+}

@@ -1,0 +1,27 @@
+{
+  "version": 1,
+  "status": "review candidate; apply only with the explicit operator migration runner",
+  "evidence": [
+    "lib/server/devicestatus.js: created_at normalization, prediction cap and latest ordering",
+    "lib/api3/generic/setup.js: created_at/device fallback",
+    "lib/storage/write-intent.js: DEVICESTATUS_V1 and V3_DEVICESTATUS",
+    "lib/storage/postgres-identity.js: distinct ObjectId and string identities"
+  ],
+  "migrations": [
+    {
+      "name": "0001_devicestatus",
+      "up": [
+        "CREATE TABLE devicestatus (tenant_id uuid NOT NULL, doc jsonb NOT NULL CHECK (jsonb_typeof(doc) = 'object'), id_kind text NOT NULL CHECK (id_kind IN ('objectid', 'string')), \"_id\" text NOT NULL GENERATED ALWAYS AS (CASE WHEN jsonb_typeof(doc -> '_id') = 'string' THEN doc ->> '_id' END) STORED, created_at text GENERATED ALWAYS AS (CASE WHEN jsonb_typeof(doc -> 'created_at') = 'string' THEN doc ->> 'created_at' END) STORED, device text GENERATED ALWAYS AS (CASE WHEN jsonb_typeof(doc -> 'device') = 'string' THEN doc ->> 'device' END) STORED, \"date\" numeric GENERATED ALWAYS AS (CASE WHEN jsonb_typeof(doc -> 'date') = 'number' THEN (doc ->> 'date')::numeric END) STORED, identifier text GENERATED ALWAYS AS (CASE WHEN jsonb_typeof(doc -> 'identifier') = 'string' THEN doc ->> 'identifier' END) STORED, \"srvModified\" numeric GENERATED ALWAYS AS (CASE WHEN jsonb_typeof(doc -> 'srvModified') = 'number' THEN (doc ->> 'srvModified')::numeric END) STORED, \"isValid\" boolean GENERATED ALWAYS AS (CASE WHEN jsonb_typeof(doc -> 'isValid') = 'boolean' THEN (doc ->> 'isValid')::boolean END) STORED, CHECK (\"_id\" <> ''), CHECK (id_kind <> 'objectid' OR \"_id\" ~ '^[0-9a-f]{24}$'), PRIMARY KEY (tenant_id, id_kind, \"_id\"))",
+        "CREATE INDEX devicestatus_tenant_created_at ON devicestatus (tenant_id, created_at DESC)",
+        "CREATE INDEX devicestatus_tenant_created_identifier_date ON devicestatus (tenant_id, created_at DESC, identifier DESC, \"date\" DESC)",
+        "CREATE INDEX devicestatus_tenant_created_device ON devicestatus (tenant_id, created_at, device)",
+        "CREATE INDEX devicestatus_tenant_modified ON devicestatus (tenant_id, \"srvModified\" ASC)",
+        "CREATE UNIQUE INDEX devicestatus_identifier_unique ON devicestatus (tenant_id, identifier) WHERE identifier IS NOT NULL AND identifier <> ''",
+        "ALTER TABLE devicestatus ENABLE ROW LEVEL SECURITY",
+        "ALTER TABLE devicestatus FORCE ROW LEVEL SECURITY",
+        "CREATE POLICY devicestatus_tenant_isolation ON devicestatus USING (tenant_id = NULLIF(current_setting('app.current_tenant_id', true), '')::uuid) WITH CHECK (tenant_id = NULLIF(current_setting('app.current_tenant_id', true), '')::uuid)"
+      ],
+      "checksum": "46bc46a67a529129a09861a9b19d487a4ace64d0dd150e819a7e73effe03e3e3"
+    }
+  ]
+}

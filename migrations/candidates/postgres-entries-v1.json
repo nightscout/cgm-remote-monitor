@@ -1,0 +1,43 @@
+{
+  "version": 1,
+  "status": "review candidate; apply only with the explicit operator migration runner",
+  "sourceFixture": "tests/fixtures/postgres/entries-identity-kinds.sql",
+  "evidence": [
+    "lib/server/entries.js: indexedFields",
+    "lib/api3/storage/mongoCollection/index.js: indexedFields",
+    "lib/api3/generic/history/operation.js: srvModified filter and sort",
+    "lib/api3/storage/mongoCollection/utils.js: isValid visibility behavior",
+    "lib/storage/identifier-index.js: partial unique identifier contract"
+  ],
+  "migrations": [
+    {
+      "name": "0001_entries",
+      "up": [
+        "CREATE TABLE entries (\n  tenant_id uuid NOT NULL,\n  doc jsonb NOT NULL CHECK (jsonb_typeof(doc) = 'object'),\n  id_kind text NOT NULL CHECK (id_kind IN ('objectid', 'string')),\n  \"_id\" text NOT NULL GENERATED ALWAYS AS (CASE WHEN jsonb_typeof(doc #> '{_id}') = 'string' THEN (doc #>> '{_id}') END) STORED,\n  \"date\" numeric GENERATED ALWAYS AS (CASE WHEN jsonb_typeof(doc #> '{date}') = 'number' THEN (doc #>> '{date}')::numeric END) STORED,\n  \"type\" text GENERATED ALWAYS AS (CASE WHEN jsonb_typeof(doc #> '{type}') = 'string' THEN (doc #>> '{type}') END) STORED,\n  \"sgv\" numeric GENERATED ALWAYS AS (CASE WHEN jsonb_typeof(doc #> '{sgv}') = 'number' THEN (doc #>> '{sgv}')::numeric END) STORED,\n  \"mbg\" numeric GENERATED ALWAYS AS (CASE WHEN jsonb_typeof(doc #> '{mbg}') = 'number' THEN (doc #>> '{mbg}')::numeric END) STORED,\n  \"sysTime\" text GENERATED ALWAYS AS (CASE WHEN jsonb_typeof(doc #> '{sysTime}') = 'string' THEN (doc #>> '{sysTime}') END) STORED,\n  \"dateString\" text GENERATED ALWAYS AS (CASE WHEN jsonb_typeof(doc #> '{dateString}') = 'string' THEN (doc #>> '{dateString}') END) STORED,\n  \"identifier\" text GENERATED ALWAYS AS (CASE WHEN jsonb_typeof(doc #> '{identifier}') = 'string' THEN (doc #>> '{identifier}') END) STORED,\n  \"created_at\" text GENERATED ALWAYS AS (CASE WHEN jsonb_typeof(doc #> '{created_at}') = 'string' THEN (doc #>> '{created_at}') END) STORED,\n  \"srvModified\" numeric GENERATED ALWAYS AS (CASE WHEN jsonb_typeof(doc #> '{srvModified}') = 'number' THEN (doc #>> '{srvModified}')::numeric END) STORED,\n  \"isValid\" boolean GENERATED ALWAYS AS (CASE WHEN jsonb_typeof(doc #> '{isValid}') = 'boolean' THEN (doc #>> '{isValid}')::boolean END) STORED,\n  CHECK (\"_id\" <> ''),\n  CHECK (id_kind <> 'objectid' OR \"_id\" ~ '^[0-9a-f]{24}$'),\n  PRIMARY KEY (tenant_id, id_kind, \"_id\")\n)",
+        "CREATE INDEX entries_tenant_date ON entries (tenant_id, \"date\" ASC)",
+        "CREATE INDEX entries_tenant_type ON entries (tenant_id, \"type\" ASC)",
+        "CREATE INDEX entries_tenant_sgv ON entries (tenant_id, \"sgv\" ASC)",
+        "CREATE INDEX entries_tenant_mbg ON entries (tenant_id, \"mbg\" ASC)",
+        "CREATE INDEX entries_tenant_systime ON entries (tenant_id, \"sysTime\" ASC)",
+        "CREATE INDEX entries_tenant_datestring ON entries (tenant_id, \"dateString\" ASC)",
+        "CREATE INDEX entries_tenant_identifier ON entries (tenant_id, \"identifier\" ASC)",
+        "CREATE INDEX entries_tenant_srvmodified ON entries (tenant_id, \"srvModified\" ASC)",
+        "CREATE INDEX entries_tenant_isvalid ON entries (tenant_id, \"isValid\" ASC)",
+        "CREATE INDEX entries_tenant_type_date_datestring ON entries (tenant_id, \"type\" ASC, \"date\" DESC, \"dateString\" ASC)",
+        "CREATE INDEX entries_tenant_date_identifier_created_at ON entries (tenant_id, \"date\" DESC, \"identifier\" DESC, \"created_at\" DESC)",
+        "CREATE UNIQUE INDEX identifier_unique ON entries (tenant_id, \"identifier\") WHERE \"identifier\" IS NOT NULL AND \"identifier\" <> ''",
+        "ALTER TABLE entries ENABLE ROW LEVEL SECURITY",
+        "ALTER TABLE entries FORCE ROW LEVEL SECURITY",
+        "CREATE POLICY entries_tenant_isolation ON entries USING (tenant_id = NULLIF(current_setting('app.current_tenant_id', true), '')::uuid) WITH CHECK (tenant_id = NULLIF(current_setting('app.current_tenant_id', true), '')::uuid)"
+      ],
+      "checksum": "44c79e68411bf7fcfe088fc0446327bd13181fafc17ff9c05b0acd86d95623f7"
+    },
+    {
+      "name": "0002_entries_insertion_order",
+      "up": [
+        "ALTER TABLE entries ADD COLUMN insertion_ordinal bigint GENERATED ALWAYS AS IDENTITY"
+      ],
+      "checksum": "edda7b234df342d121cda2e655b2a6fdae1c59a0c92a0bdf604007204c278cce"
+    }
+  ]
+}
