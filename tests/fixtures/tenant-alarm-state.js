@@ -18,7 +18,7 @@ module.exports = function alarmLab () {
   const roles = { writer: name + '_writer', reader: name + '_reader', realtime: name + '_realtime' };
   const table = '"' + namespace + '".tenant_alarm_suppression';
   const clients = []; let admin, mode;
-  const lab = { A, B, namespace, roles, table,
+  const lab = { A, B, namespace, roles, table, commits: [],
     async open () {
       const uri = process.env.NS_TEST_POSTGRES_ADMIN_URI, parsed = new URL(uri);
       assert.match(parsed.pathname, /test/i, 'Native fixture requires explicitly disposable test database');
@@ -43,6 +43,7 @@ module.exports = function alarmLab () {
       lab.suppressionReader = createReader({ connection: lab.reader, namespace, maxRows: 100, maxBytes: 100000 });
     },
     async reset () {
+      lab.commits.length = 0;
       await admin.query(`DELETE FROM ${table}`);
       await admin.query(`UPDATE "${namespace}".fixture_authority SET active=true`);
     },
@@ -69,13 +70,24 @@ module.exports = function alarmLab () {
           return result;
         },
         async transaction (fn) {
-          return connection.transaction(async () => {
-            const result = await fn();
-            if (beforeCommit) await beforeCommit();
-            if (failCommit) throw new Error('SYNTHETIC_ACK_TRANSACTION_FAILURE');
+          let xid;
+          try {
+            const result = await connection.transaction(async () => {
+              xid = (await connection.query('SELECT pg_current_xact_id()::text AS xid')).rows[0].xid;
+              const value = await fn();
+              if (beforeCommit) await beforeCommit();
+              if (failCommit) throw new Error('SYNTHETIC_ACK_TRANSACTION_FAILURE');
+              return value;
+            });
+            const status = (await admin.query('SELECT pg_xact_status($1::xid8) AS status', [xid])).rows[0].status;
+            lab.commits.push({ xid, status });
             return result;
-          });
+          } catch (error) {
+            if (xid) lab.commits.push({ xid, status: (await admin.query('SELECT pg_xact_status($1::xid8) AS status', [xid])).rows[0].status });
+            throw error;
+          }
         } };
+
       return createReceiver({ connection: db, namespace,
         authenticateTransport: async request => request.syntheticTrustedTransport === true,
         resolveTenant: async request => request.tenant,
