@@ -1,7 +1,7 @@
 # Explicit headless owner settings composition
 
 Source implementation; native PostgreSQL/CLI acceptance is UNMEASURED. This is
-the two-name tenant configuration surface, separate from API3 settings documents,
+the projected tenant configuration surface, separate from API3 settings documents,
 subject grants, operator policy administration and human identity/session issuance.
 
 The existing tenant-admin preview remains subject-only unless its explicit JSON
@@ -20,7 +20,7 @@ The third identity must differ from subject writer/current-access reader, use
 the same database, and have no schema creation, table ownership, bypass RLS or
 unrelated write authority. Operator applies existing settings/operator policy
 catalogues and NEW `lib/tenant-settings/owner-authority-candidate.json` explicitly
-in separate namespaces. Existing catalogue bytes/ledgers are unchanged; boot
+in separate namespaces. The original settings migration is unchanged; its appended projected-catalogue migration must be applied explicitly. Boot
 runs checks, never migrations or credential/row provisioning. Omitted optional
 configuration needs no new tables or identity.
 
@@ -47,7 +47,7 @@ introduced.
 | PUT /api/v1/tenant/settings | expectedVersion, values | full typed replacement and new version |
 | POST /api/v1/tenant/settings/rollback | expectedVersion, restoredFrom | validate old full snapshot against current policy; append new version |
 
-Only DISPLAY_UNITS strings mg/dl/mmol and SHOW_SECONDS boolean are accepted.
+The [typed projected catalogue](../lib/tenant-settings/README.md#catalogue) accepts actual projected client keys plus enable and complete mg/dL threshold bundles. DISPLAY_UNITS strings mg/dl/mmol and SHOW_SECONDS boolean retain their persisted spellings.
 Unknown names, null/wrong types and extra request fields refuse. Reads and
 writes require explicit configure authority. Invalid credential401, valid actor
 without configure403, missing state/history404, stale version/policy generation409,
@@ -71,16 +71,11 @@ pool and the next presentation retries fresh; shutdown drains pending
 initialization and closes late-created pools before finishing. OWNER selected
 settings readiness still refuses unsafe/unavailable configuration before bind.
 The reader joins current owner state and operator policy and reuses the same
-strict merge. DISPLAY_UNITS and SHOW_SECONDS affect presentation/status/derived
-READs only. Each operation gets a separate safe environment; shared boot objects
+strict merge. All projected values affect presentation/status/derived READs. Each operation gets a separate safe environment; shared boot objects
 are never mutated. The next authenticated status operation in another worker
 must show a committed change/pin. Raw uploads, credential exchange and raw
 collection paths never invoke the presentation reader or reinterpret incoming
-SGV/treatment/date values. Existing static units/showSeconds must be migrated
-explicitly before selecting persisted settings; overlapping static values reject.
-Other static display configuration is preserved. No common clinical revision,
-push invalidation, notification, timezone/alarms or full catalogue expansion is
-claimed. Older binaries reject the new explicit optional keys; rolling migration
+SGV/treatment/date values. All static projected values must be migrated explicitly before selecting persisted settings; overlapping static values reject. Extended settings stay separate. Only the actual projected catalogue is supported. Older binaries reject the new explicit optional keys; rolling migration
 requires operator coordination.
 
 The separate default-opt-out owner-configuration native suite prepares actual
@@ -90,3 +85,33 @@ controls. Original owner9 remains unchanged. Source fixtures include meaningful
 GET-authority, write-authority, generation and boot-environment controls; their
 modeled/source effects are not native acceptance. Whole application, provider,
 performance and production identity acceptance remain separate.
+
+
+## Evaluator and notification identity
+
+The evaluator JSON may select the same `tenantSettings` shape shown above with
+an independent SELECT-only identity, separate from clinical storage and its
+settings/operator-policy namespaces. Its tenant `settings` object must then be
+empty: migrate static projected values to operator defaults or owner snapshots
+before selection. Older configurations without this key keep existing behavior.
+
+Every `readCurrent` reads committed settings and current operator policy, then
+closes its finite reader before returning or refusing. This also applies to the
+notification metadata reader: the API uses its own settings-reader environment
+reference, never the worker credential. The data-store endpoint must match the
+explicit descriptor when present. Per-operation pool/check cost and latency are
+UNMEASURED; no capacity claim follows from source tests.
+
+The effective values and settings version enter evaluator output identity.
+Settings-only changes preserve the source identity and rebuild clinical views
+over retained committed input, so changed thresholds and alarm enables take
+effect on the next time-only cycle without acquiring records again. A changed
+tenant revision or extended source configuration still discards the component.
+Notification current-identity checks refuse old output while retaining input
+for the settings-only transition. Stored SGV values and mg/dL thresholds never
+change because presentation switches to mmol.
+
+The expansion is source-tested with listener-free synthetic persistence and SQL
+read doubles. Native migration, actual HTTP, PostgreSQL cross-worker behavior,
+browser presentation and joined notification/evaluator acceptance remain
+UNMEASURED for the next coherent candidate.
