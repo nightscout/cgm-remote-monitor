@@ -1,155 +1,86 @@
-# Minimum scalar tenant settings
+# Projected tenant settings
 
-Bounded MT-CONFIG-MIN continuation after `1dd8990b` (subject authority).
-Only the reviewed `DISPLAY_UNITS` and `SHOW_SECONDS` catalogue subset is
-implemented. The optional headless owner/settings and presentation-read
-composition is described in [the source implementation note](../../docs/owner-settings-preview.md);
-its native acceptance remains UNMEASURED. No migration runs at boot, and existing
-secrets/subject-policy/entries migration bytes are unchanged.
+Source implementation of the adopted first-preview owner catalogue. Native
+PostgreSQL, actual HTTP, cross-worker and browser acceptance of this expansion
+remain UNMEASURED. The prior two-name acceptance does not establish this broader
+capability. [Composition](../../docs/owner-settings-preview.md) describes the
+explicit deployment selection; boot checks never apply migrations.
 
-## Catalogue and merge contract
+## Catalogue
 
-| Name | Accepted owner values | Code default / existing source |
-|---|---|---|
-| `DISPLAY_UNITS` | Exact strings `mg/dl`, `mmol` | `mg/dl`, `lib/server/env.js:233` |
-| `SHOW_SECONDS` | JSON boolean | `false`, `lib/settings.js:13` |
+`catalogue.js` derives names and defaults from the actual
+`lib/server/tenant-app/environment.js` `CLIENT_KEYS`, plus `enable` and all four
+threshold names. `DISPLAY_UNITS` (`mg/dl` or `mmol`) and `SHOW_SECONDS` (boolean)
+retain their persisted spellings. Their projected aliases `units` and
+`showSeconds` are accepted on write and normalized; supplying both spellings
+refuses. Every other projected name keeps its client spelling. Values retain
+JSON types: boolean, string, finite number or numeric array as the shipped
+setting requires; `enable` is a distinct list of valid plugin names. No string
+truthiness or number coercion is performed. Other names, including credentials,
+integrations, process/security settings, `IMPORT_CONFIG` and debug logging,
+refuse by name. Owner integration configuration remains unsupported.
 
-This preserves the measured configuration lab's spellings, grammar and defaults
-(`tools/lab/tenant-config-schema/migrations/0004_catalogue_seed.up.sql:56-59`,
-`tools/lab/tenant-config-schema/lib/merge.js:16-18` in the alignment workspace).
-Legacy environment aliases and truthy-string parsing remain in legacy code;
-this typed internal API deliberately refuses strings such as `"true"`.
-Unsupported names reject with `SETTINGS_UNSUPPORTED`. Credentials,
-timezone (not yet a reviewed catalogue entry here), alarms, deployment/runtime
-names and anonymous-role settings cannot enter this two-name catalogue.
-The database independently checks the exact keys/types in current and history
-rows, including JSON null refusal. This subset introduces no clinical setting.
+`bgHigh`, `bgTargetTop`, `bgTargetBottom`, `bgLow` are stored as mg/dL numbers in
+30–600. A replacement supplies all four or none; the complete `thresholds`
+object is accepted as a normalized input spelling. Partial or out-of-range
+bundles refuse before state/history writes. Display units never convert these
+stored values or clinical documents. A default per threshold comes from the
+current operator rule or shipped settings.
 
-`createTenantSettings({store, policyFor, authorize})` requires already
-authenticated `{tenant, principal, consumer}` context and an explicit current
-management authorization callback. Exactly `true` permits `read`, `replace`
-or `rollback`; a caller-provided root name is not authentication. Context
-principal/consumer are copied into committed version history, never interpreted
-as a verified human identity.
+## Authority, merge and persistence
 
-`policyFor(tenant)` must supply trusted current
-`{deployment: {name: rule}, overrides: {name: rule}}`. Unknown tenants and
-policy failures must reject, not produce an empty policy. Empty maps are an
-explicit provisioned open policy, not an outage fallback. Tenant overrides
-replace a deployment rule **whole**, regardless of JSON property order.
-Missing rules use the shipped open catalogue policy.
+`createTenantSettings({store, policyFor, authorize})` requires authenticated
+`{tenant,principal,consumer}` and explicit current configuration authority.
+Data/root permission possession supplies none. Existing PostgreSQL actor locks,
+operator-generation fence, tenant RLS, CAS, atomic current/history commit and
+history attribution remain in place. Every consumer reads a committed snapshot;
+unavailability refuses instead of supplying cached or open-policy fallback.
 
-A rule has `mode` (`open`, `bounded`, `pinned`) and an optional typed `default`.
-Bounded rules require a nonempty typed `allowed` list; pinned rules require a
-typed `pin`. Invalid or unsupported rule fields refuse. Precedence:
-code default, operator default, permissible owner value, operator pin.
-Bounded constraints govern owner values; operator defaults/pins must obey the
-code catalogue's grammar. Operator policy is injected, not owner writable.
+Rules retain `open`, `bounded` (nonempty `allowed` list) and `pinned` (`pin`), plus
+an optional typed `default`. Array constraints compare complete typed values,
+not JavaScript object identity. Tenant overrides replace whole deployment
+rules. Precedence is code default, operator default, permitted owner value,
+operator pin. Current policy may ignore an old stored owner value without
+rewriting it. Returned snapshots cannot mutate stored state or catalogue arrays.
 
-`read(context)` returns the current version, stored owner snapshot, and for
-each name: effective value/source, governing policy/source, stored owner value
-if present, and an explicit ignored reason (`pinned` or `outside-constraint`)
-when a later operator policy excludes it. Stored values are not deleted or
-silently rewritten. With no policy/state cache, another adapter's next read
-sees a committed settings update. This is not runtime invalidation or push
-notification acceptance.
+`replace` is a full snapshot with explicit expected version. `rollback` checks
+all values against current policy and either appends one version or refuses
+whole with named conflicts; it never rewinds history. Version, authority or
+policy races cannot produce a partial replacement.
 
-## Versioned writes and rollback
+The immutable `0001_tenant_settings` bytes remain unchanged.
+`0002_projected_owner_settings` replaces the two-name constraints on current
+and history tables with a typed projected-catalogue validator and complete,
+bounded threshold checks. The operator applies it explicitly through the
+migration runner. Native execution of this new migration is UNMEASURED.
+Existing RLS and restricted role grants remain required; database operators
+remain privileged. Raw database credentials do not enforce injected owner
+policy and stay off owner request paths.
 
-- `replace(context, expectedVersion, values)` replaces the **full** owner
-  snapshot. Omission resets a setting to current policy/code precedence, not
-  a partial PATCH. Version 0 provisions an absent row; later versions match
-  exactly. Unsupported/invalid/pinned/out-of-bounds values refuse before write.
-- `rollback(context, expectedVersion, targetVersion)` retrieves that tenant's
-  immutable old snapshot and validates **every** value against current policy.
-  A blocked rollback rejects whole with a deterministic list of names,
-  reasons and governing policy sources. It neither partially applies nor
-  creates a version. A permitted rollback creates a new version and records
-  `restored_from`; it never rewinds the version counter.
-- Two same-version writers have exactly one committed winner. A stale write
-  rejects with `SETTINGS_VERSION_CONFLICT`. Versions are bounded positive
-  PostgreSQL integers; missing versions and future rollback targets reject.
-  An absent state is `SETTINGS_NOT_FOUND`, not implicit provisioning.
+## Consumers and bounded source checks
 
-Current state and full version history/attribution commit in one private-pool
-transaction with `synchronous_commit=on`. A failed history append rolls back
-the state change. This reuses the existing configuration version-history
-approach, rather than introducing another event bus or storing secret payloads
-in audit. Consumers and shared history/audit export infrastructure remain open.
+Presentation reads construct a fresh safe environment for all effective
+projected values. Raw uploads, exchange and raw collection reads never load
+this capability. The evaluator optionally selects the same settings/policy
+reader and includes the resulting effective configuration in its output
+identity. Compatible settings-only changes rebuild the actual clinical views
+over retained committed input on the next cycle, including a time-only cycle;
+no hidden acquisition/statistics reload occurs. Tenant/source revision changes
+still discard the component. Old output identity refuses notification use.
 
-## Candidate persistence and trust boundary
-
-The new `postgres-candidate.json` is experimental and separately reviewable,
-for a dedicated namespace. Use the existing explicit operator migration/check
-runner; production catalogue approval is not implied. Separately provision a
-non-owner `NOSUPERUSER NOBYPASSRLS` application identity:
-
-```sql
-GRANT USAGE ON SCHEMA ns_settings_lab TO settings_app;
-GRANT SELECT, INSERT, UPDATE ON ns_settings_lab.tenant_settings TO settings_app;
-GRANT SELECT, INSERT ON ns_settings_lab.tenant_settings_history TO settings_app;
-GRANT USAGE ON SCHEMA ns_policy_lab TO settings_app;
-GRANT SELECT ON ns_policy_lab.tenant_operator_policy TO settings_app;
-```
-
-Both tables force tenant RLS. Startup screens ownership/RLS/privileges;
-it is not proof of every policy, role relationship or catalogue authenticity.
-History is tenant-readable for rollback, but cannot be updated/deleted by
-application credentials. Database operators remain privileged.
-
-Raw database credentials can mutate tenant-bound current values outside
-service version/audit/policy behavior; the database enforces catalogue types,
-not injected operator constraints. Keep them off owner request paths.
-`policyFor` is a trusted dependency and must return the current policy with its
-persisted `generation`. The separately reviewed candidate at
-`lib/operator-policy/postgres-candidate.json` stores that document. The
-settings adapter requires `policyNamespace` and takes a tenant-specific
-transaction advisory lock before checking the generation and changing current
-state or history. A concurrent policy update must wait for an owner commit, or the
-owner write/rollback sees the newer generation and refuses with
-`POLICY_GENERATION_CONFLICT`. Policy-store outage or a missing tenant policy
-does not fall back to an open policy.
-
-This fences policy selection against settings replacement and rollback, but
-does not provide HTTP authentication, tenant lifecycle, socket revocation,
-backup acceptance or serving compatibility. Operator policy history and
-production role/candidate approval remain open.
-
-## Acceptance
-
-From this worktree:
+Listener-free focused checks:
 
 ```sh
-NS_SECRETS_POSTGRES_DOCKER_TEST=1 NS_VAULT_DOCKER_TEST=1 \
-  node_modules/.bin/mocha --fail-zero --timeout 30000 \
-  tests/secrets.test.js tests/vault-secrets.integration.test.js \
-  tests/postgres-secrets.integration.test.js
-node_modules/.bin/eslint lib/secrets lib/subject-policy lib/tenant-settings \
-  tests/secrets.test.js tests/vault-secrets.integration.test.js \
-  tests/postgres-secrets.integration.test.js tests/fixtures/secrets-rewrap-worker.js
-npm run test:tiers
+node_modules/.bin/mocha --timeout 10000 \
+  tests/owner-configuration-persistence.test.js \
+  tests/evaluator-preview-runtime.test.js \
+  tests/tenant-projection-evaluator.test.js \
+  tests/evaluator-consumer-metadata.test.js
 ```
 
-The PostgreSQL suite exercises both independently pooled settings adapters,
-typed/unsupported names, defaults/provenance, A/B isolation, same-version
-concurrency, whole overrides (including reversed input property order),
-policy narrowing/pins without stored-value loss, whole rollback refusal,
-new-version rollback, durable history/attribution, failed append rollback,
-unavailable reads, raw SQL type/key/RLS refusals, immutable history grants and
-a disabled-RLS exposure/startup-refusal control. The fixture callbacks are
-synthetic trusted provisioning, not production authentication/policy stores.
-Both Docker opt-ins must execute, never count pending cases as acceptance.
-Owned fixtures are removed; no upstream push is authorized.
-
-Measured 2026-11-02, based on subject-authority commit `1dd8990b`:
-**36 passing, zero pending** in the combined command; ESLint clean, all
-**465 test files** classified, and diff checks pass. Removing current-policy
-refusal specifically for rollback in the actual service makes the rollback
-test fail with `Missing expected rejection`; restoring it passes.
-The first targeted run detected a mistakenly nested test (zero tests, nonzero
-exit with `--fail-zero`); it was moved to suite level before acceptance.
-JSONB changes object-field order, so blocked-setting reports are explicitly
-name-sorted rather than depending on stored key order.
-No full application, public owner API or production-policy acceptance is
-claimed. The full settings catalogue, persistent operator policy and atomic
-operator/owner-policy fencing remain unfinished.
+These use synthetic stores/SQL read doubles with the actual clinical evaluator
+and plugins. Stale-settings corruption suppresses the independently expected
+high alarm; restoration produces it. Removing complete-bundle validation admits
+a partial value and falsifies the complete-bundle oracle. Existing authority,
+policy-fence and atomic-history controls remain in this command. They establish
+source behavior, not native SQL, HTTP, worker or production acceptance.
