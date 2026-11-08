@@ -184,4 +184,41 @@ describe('independent tenant startup admission (source protocol)', function () {
     }finally{release();await f.window.close();}
   });
 
+  it('preserves actual resolver refusals before the API3 parser when lazy startup has no window', async function () {
+    const {EventEmitter}=require('node:events'),{Readable}=require('node:stream');
+    const create=require('../lib/server/tenant-app').createTenantApp,resolve=require('../lib/tenant-resolution');
+    const direct=resolve({aliases:[{host:'a.test',tenant:A}]}),canonical=resolve({mode:'canonical-internal',
+      aliases:[{host:'a.test',tenant:A}],internalNames:[{host:'tenant-0.internal.test',tenant:A}],
+      trustedProxy:req=>req.socket.remoteAddress==='127.0.0.2'});
+    const unsupported={read:async()=>{},replace:async()=>{},rollback:async()=>{}};
+    async function request({resolver=direct,host='a.test',extra={},prepare=true,unavailable=false,json}={}) {
+      const events=[];
+      const app=create({resolver,prepareTenant:prepare?async tenant=>{events.push(['initialize',tenant]);if(unavailable)throw new Error('synthetic startup unavailable');}:undefined,
+        verifyCredential:async()=>null,authorizeRequest:async()=>false,tenantSettings:unsupported,subjectPolicy:unsupported,
+        dataAccess:async({tenant})=>({tenant,principal:'synthetic',consumer:'source'}),dataRouter:(req,res)=>{events.push(['data',req.tenantContext.tenant]);res.json({ok:true});}});
+      const headers={host,...extra,...(json===undefined?{}:{'content-type':'application/json','content-length':String(Buffer.byteLength(json))})};
+      const req=new Readable({autoDestroy:false,read(){this.push(json===undefined?null:json);this.push(null);}});
+      Object.assign(req,{method:json===undefined?'GET':'POST',url:'/api/v3/entries',headers,
+        rawHeaders:Object.entries(headers).flat(),socket:{remoteAddress:'127.0.0.1'}});
+      const res=new EventEmitter(),recorded={};res.statusCode=200;res.setHeader=(key,value)=>{recorded[key.toLowerCase()]=value;};res.getHeader=key=>recorded[key.toLowerCase()];
+      res.removeHeader=key=>delete recorded[key.toLowerCase()];res.end=value=>{res.body=JSON.parse(String(value));res.finished=true;res.emit('finish');};
+      await new Promise((done,reject)=>{res.once('finish',done);res.once('error',reject);app.handle(req,res,error=>reject(error||new Error('unhandled route')));});
+      return {status:res.statusCode,body:res.body,events};
+    }
+    for(const prepare of [false,true]) {
+      const unknown=await request({host:'unknown.test',prepare});
+      assert.deepEqual(unknown,{status:404,body:{error:'TENANT_REFUSED'},events:[]},'UNKNOWN_HOST_PRESERVES_404');
+      for(const options of [{extra:{'x-forwarded-host':'a.test'}},{resolver:canonical,host:'tenant-0.internal.test',extra:{'x-forwarded-for':'127.0.0.2'}}]) {
+        assert.deepEqual(await request({...options,prepare}),{status:400,body:{error:'TENANT_REFUSED'},events:[]},'UNTRUSTED_SELECTOR_PRESERVES_400');
+      }
+    }
+    assert.deepEqual(await request({unavailable:true}),{status:503,body:{error:'AUTHORITY_UNAVAILABLE'},events:[['initialize',A]]});
+    assert.deepEqual(await request(),{status:200,body:{ok:true},events:[['initialize',A],['data',A]]});
+    // The existing API3 parser owns malformed JSON behavior. Lazy admission must
+    // not change that downstream response or reinterpret its parser errors.
+    const malformed=[];
+    for(const prepare of [false,true]) {const response=await request({prepare,json:'{'});malformed.push({status:response.status,body:response.body});}
+    assert.equal(malformed[0].status,500);assert.deepEqual(malformed[1],malformed[0]);
+  });
+
 });
