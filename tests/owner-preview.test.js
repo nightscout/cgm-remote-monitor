@@ -35,10 +35,27 @@ describe('explicit headless owner preview trust boundary', function () {
     for (const mutate of [c => { c.management.maxLifetimeSeconds = 601; }, c => { c.management.purpose = 'data'; },
       c => { delete c.management.consumer; }, c => { c.management.keys[0].tenant = B; },
       c => { c.management.keys.push(c.management.keys[0]); }, c => { c.postgres.namespaces.access = c.postgres.namespaces.authorization; },
-      c => { c.ownerPolicy.catalogue = ['*']; }, c => { c.resolution.trustedPeers = ['127.0.0.1']; }]) {
+      c => { c.ownerPolicy.catalogue = ['*', '*']; }, c => { c.resolution.trustedPeers = ['127.0.0.1']; }]) {
       const value = config(); mutate(value); assert.throws(() => parse(value, environment));
     }
     assert.throws(() => parse(config(), { ...environment, OWNER_READ_PG: environment.OWNER_WRITE_PG }));
+  });
+  it('admits explicitly selected shipping wildcard catalogues without widening headless management trust', function () {
+    for (const catalogue of [['*'], ['*:*:read'], ['api:treatments:*']]) {
+      const value = config(); value.ownerPolicy.catalogue = catalogue;
+      const parsed = parse(value, environment);
+      assert.deepEqual(parsed.ownerPolicy.catalogue, catalogue);
+      assert.notEqual(parsed.ownerPolicy.catalogue, catalogue, 'the selected catalogue is copied');
+      assert.equal(parsed.verification.maxLifetimeSeconds, 600);
+      assert.equal(parsed.verification.purpose, 'management');
+      assert.equal(parsed.verification.issuer, value.management.issuer);
+      assert.equal(parsed.verification.audience, value.management.audience);
+      assert.equal(parsed.consumer, value.management.consumer);
+      const selected = parsed.verification.resolveKey(A, 'management-key');
+      assert.equal(selected.tenant, A); assert.equal(selected.purpose, 'management');
+      assert.equal(Buffer.from(selected.publicKey.export({ format: 'jwk' }).x, 'base64url').toString('base64'), publicKey);
+      assert.equal(parsed.verification.resolveKey(B, 'management-key'), undefined);
+    }
   });
   it('returns null for root/legacy/data/foreign/unknown-key/invalid signatures without reading current state', async function () {
     let reads = 0;
