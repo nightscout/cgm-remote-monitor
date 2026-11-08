@@ -73,19 +73,45 @@ autoscaling and automatic orphan recovery are outside this first manifest.
 
 ## Failure recovery and shared-role restart boundary
 
-The bounded continuity claim is that B continues while the configured cohort
-remains running. **Read-derived limitation:** current API startup performs guarded
-legacy/authority preparation for every configured tenant; realtime startup checks
-checkpoints and acquires initial frames for every tenant. If A remains suspended
-after a failed restore, that refusal can prevent a shared role from restarting,
-including B's listener. The running-cohort proof does not establish independent
-B restart availability or automatic recovery of a suspended tenant.
+Source checks: **SOURCECHECKED**. Joined native cold-restart acceptance:
+**PENDING**. The source protocol checks cover independent tenant startup;
+they do not establish a native recovery or availability bound.
+
+A configured shared process can finish booting while A remains durably suspended.
+Shared schema, catalogue, effective privileges, tenant lock bindings and datastore
+identity checks remain mandatory. Only a suspension produced by the actual
+operation window defers tenant-local warmup. A remains unavailable: its HTTP and
+socket admissions refuse, and its evaluator and realtime output stay empty.
+B can initialize through its own window. The full fixed participant manifest and
+tenant roster remain in place, including when every tenant is suspended.
+
+API tenant floors, root/authority preparation and server-date restoration run
+inside the tenant window. Realtime provisioning, checkpoint checks and private
+API preparation do too. Evaluator provisioning uses its registered lower
+connection; consumer schema and privilege checks run independently of tenant
+phase. The consumer same-datastore advisory-lock challenge uses the reserved
+read-only metadata binding, without tenant data reads. Native verification of
+that read-only challenge remains part of the pending joined acceptance.
+
+After explicit operator activation, the first admitted operation or scheduled
+refresh repeats deferred initialization before serving tenant data or producing
+output. Invalidation resets initialization for the affected tenant; an obsolete
+in-flight initialization cannot mark a new generation ready. Startup does not
+activate tenants or clear claims, audit records or unfinished operations.
+
+Realtime health keeps `ready` as strict readiness of every configured tenant.
+The additive `live` and per-tenant readiness fields distinguish a live process
+from unavailable tenant data, including an all-suspended deployment. Its `/health`
+response remains 503 when any tenant is not ready. The Compose health probe uses
+TCP, private UDS and cohort status; it does not consume that `/health` response.
 
 Pending operations, uncertain outcomes and suspension must not be cleared merely
 to make startup succeed. This preview does not provide an automatic orphan clear
-or a suspended-restore resume command. Operator-verified recovery and independent
-restart admission remain separate work; no HA or deterministic recovery bound is
-claimed. Ordinary successful tenant-local restoration requires no global pause.
+or a suspended-restore resume command. Operator-verified recovery remains
+separate work. A restarted participant has a new incarnation, so an old restore
+pin cannot activate A using the replacement process. No HA or deterministic
+recovery bound is claimed. Ordinary successful tenant-local restoration requires
+no global pause.
 
 Shutdown quiesces and drains role resources before releasing the cohort registry.
 A failed database-pool drain leaves the registry selected and blocks an
@@ -93,7 +119,8 @@ unwindowed fallback. This reference assumes trusted service roles and private
 transport ownership. Cross-process coordination uses the fixed private participant protocol above.
 
 Source protocol checks are in `tests/operation-cohort.test.js`, `tests/operation-cohort-peers.test.js`,
-`tests/tenant-operation-window.test.js`, `tests/evaluator-preview-runtime.test.js`
+`tests/tenant-operation-window.test.js`, `tests/tenant-startup-admission.test.js`,
+`tests/evaluator-preview-runtime.test.js`
 and `tests/realtime-preview.test.js`. Recording SQL and role constructors do not
 establish native PostgreSQL readiness or end-to-end restore acceptance; the
 coordinator runs those on the coherent joined candidate.
