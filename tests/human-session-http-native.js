@@ -58,6 +58,7 @@ async function run () {
     });
     await new Promise((resolve, reject) => { server.once('error', reject); server.listen(0, '127.0.0.1', resolve); });
     assertPort(server.address().port);
+    console.log(JSON.stringify({ event: 'owned-listener', pid: process.pid, host: '127.0.0.1', port: server.address().port }));
     return 'https://127.0.0.1:' + server.address().port;
   }
   const allowed = new Set();
