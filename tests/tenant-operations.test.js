@@ -828,3 +828,88 @@ describe('tenant operations: deployment backup, restore, upgrade and rollback', 
     });
   });
 });
+
+
+// Recording the actual current native fixture inputs. The historical SQL fake
+// above remains a pre-counter compatibility vector, not a current PG emulator.
+describe('tenant operations current native fixture contract (recording only)', function () {
+  const current = require('./fixtures/tenant-operations-current');
+  const restore = require('../lib/tenant-operations/restore');
+  const ns = { entries: 'fixture_entries', clock: 'fixture_clock' };
+
+  it('admits parent-first counter inventory while retaining the exact old source for upgrade', async function () {
+    const input = current.upgradePlan(ns);
+    const target = common.plan(input.catalogues);
+    assert.deepEqual(target[0].tables, ['tenant_insertion_ordinal', 'entries']);
+    assert.deepEqual(common.plan(input.sourceCatalogues)[0].tables, ['entries']);
+    const oldNames = validateCatalogue(input.sourceCatalogues[0].catalogue).map(m => m.name);
+    let reachedBackup = false;
+    const stop = new Error('recorded backup boundary');
+    const connection = { query: async (sql, values) => {
+      assert.equal(sql, 'SELECT to_regclass($1) IS NOT NULL AS present');
+      assert.equal(values[0], '"fixture_entries"."tenant_insertion_ordinal"');
+      return { rows: [{ present: false }] };
+    } };
+    const migrate = async (action, step) => {
+      assert.equal(action, 'status');
+      const names = validateCatalogue(step.catalogue).map(m => m.name);
+      return step.namespace === ns.entries ? { applied: oldNames, pending: names.slice(oldNames.length) } : { applied: names, pending: [] };
+    };
+    await assert.rejects(operations.upgrade(connection, { ...input, migrate, sourceCommit: COMMIT, backup: async (given, options) => {
+      assert.equal(given, connection);
+      assert.deepEqual(common.plan(options.catalogues)[0].tables, ['entries']);
+      assert.deepEqual(validateCatalogue(options.catalogues[0].catalogue).map(m => m.name), oldNames);
+      reachedBackup = true;
+      throw stop;
+    } }), error => error === stop);
+    assert(reachedBackup);
+    const stale = input.catalogues.map(entry => entry.kind === 'entries' ? { ...entry, tables: ['entries'] } : entry);
+    assert.throws(() => common.plan(stale), { code: 'LIFECYCLE_COUNTER_INVENTORY_INCOMPLETE' });
+  });
+
+  it('binds every actual native seed insert transaction-locally and rolls back interrupted setup', async function () {
+    function recording (interrupt = false) {
+      let binding = null, active = false, rows = [], staged;
+      const log = [];
+      return { log, rows: () => rows, binding: () => binding, query: async (sql, values = []) => {
+        log.push({ sql, values });
+        if (sql === 'BEGIN') { assert(!active); active = true; staged = []; }
+        else if (sql.includes("set_config('app.current_tenant_id'")) { assert(active); assert(sql.endsWith(',$1,true)')); binding = values[0]; }
+        else if (sql.startsWith('INSERT INTO')) {
+          if (binding !== values[0]) throw Object.assign(new Error('TENANT_ORDINAL_BINDING_REQUIRED'), { code: '42501' });
+          assert(active); if (interrupt && staged.length) throw new Error('synthetic seed interruption');
+          staged.push({ tenant: values[0], kind: values[1], doc: JSON.parse(values[2]) });
+        } else if (sql === 'COMMIT') { rows = staged; active = false; binding = null; }
+        else if (sql === 'ROLLBACK') { staged = []; active = false; binding = null; }
+        else assert.fail('Unexpected fixture SQL');
+        return { rows: [], rowCount: 1 };
+      } };
+    }
+    const rows = [{ tenant: A, kind: 'objectid', doc: { _id: HEX, sgv: 100 } },
+      { tenant: B, kind: 'string', doc: { _id: HEX, sgv: 200 } }];
+    const ok = recording(); await current.seedEntries(ok, ns.entries, rows);
+    assert.deepEqual(ok.rows(), rows); assert.equal(ok.binding(), null);
+    assert.equal(ok.log.filter(entry => entry.sql.startsWith('INSERT')).length, 2);
+    const broken = recording(true);
+    await assert.rejects(current.seedEntries(broken, ns.entries, rows), /synthetic seed interruption/);
+    assert.deepEqual(broken.rows(), []); assert.equal(broken.binding(), null); assert.equal(broken.log.at(-1).sql, 'ROLLBACK');
+  });
+
+  it('uses explicit serving ACL declarations and observes raw ordinals and floors independently', async function () {
+    const steps = common.plan(current.catalogues(ns));
+    restore.validateAcl(current.applicationAcl('fixture_app'), steps);
+    assert.throws(() => restore.validateAcl({ role: 'fixture_app' }, steps), { code: 'RESTORE_TENANT_COUNTER_EXPLICIT_ACL_REQUIRED' });
+    const invalidAcl = current.applicationAcl('fixture_app'); invalidAcl.grants[0].role = 'bad-role';
+    assert.throws(() => restore.validateAcl(invalidAcl, steps), { code: 'RESTORE_ACL_ROLE_INVALID' });
+    const state = { rows: [{ tenant_id: A, id_kind: 'objectid', doc: { _id: HEX } }], stamps: [{ tenant_id: A, last_stamp: '9223372036854775806' }],
+      counters: [{ tenant_id: A, last_ordinal: '9007199254740993' }], ordinals: [{ tenant_id: A, id_kind: 'objectid', doc: { _id: HEX }, insertion_ordinal: '9007199254740993' }] };
+    const log = [];
+    const connection = { query: async sql => {
+      log.push(sql);
+      return { rows: sql.includes('last_ordinal') ? state.counters : sql.includes('insertion_ordinal') ? state.ordinals : sql.includes('last_stamp') ? state.stamps : state.rows };
+    } };
+    assert.deepEqual(await current.observe(connection, ns), state);
+    assert.equal(log.length, 4); assert(log.every(sql => sql.startsWith('SELECT')));
+    assert.deepEqual(await current.observe(connection, ns, true), { ...state, counters: [], ordinals: [] });
+  });
+});

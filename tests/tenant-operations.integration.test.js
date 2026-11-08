@@ -10,9 +10,8 @@ const { run } = require('../lib/migrations/postgres');
 const operations = require('../lib/tenant-operations');
 const common = require('../lib/tenant-operations/common');
 const { optInSuite } = require('./support/opt-in');
-const entries = require('../migrations/candidates/postgres-entries-v1.json');
+const { upgradePlan, catalogues, seedEntries, applicationAcl, observe: observeState, older } = require('./fixtures/tenant-operations-current');
 const clock = require('../migrations/candidates/postgres-write-clock-v1.json');
-const older = { version: 1, migrations: [entries.migrations[0]] };
 const A = '11111111-1111-4111-8111-111111111111';
 const B = '22222222-2222-4222-8222-222222222222';
 const COMMIT = '83582e876dd193f4448f44c28e379fb5464a26c7';
@@ -35,10 +34,6 @@ optInSuite(process.env.NS_TENANT_OPERATIONS_PG_TEST === '1', 'NS_TENANT_OPERATIO
     if (process.env.NS_TENANT_OPERATIONS_AUDIT) fs.appendFileSync(process.env.NS_TENANT_OPERATIONS_AUDIT, JSON.stringify({ ...event, name, at: new Date().toISOString() }) + '\n');
   };
   const namespaces = () => ({ entries: 'ops_entries_' + (++serial), clock: 'ops_clock_' + serial });
-  const catalogues = (ns, old = false) => [
-    { kind: 'entries', namespace: ns.entries, catalogue: old ? older : entries, tables: ['entries'] },
-    { kind: 'clock', namespace: ns.clock, catalogue: clock, tables: ['tenant_write_clock'] }
-  ];
   const migrate = (action, input) => run(action, { ...input, connectionString, direct: true });
   async function prepare (ns, old = false) {
     for (const entry of catalogues(ns, old)) await migrate('up', entry);
@@ -46,19 +41,13 @@ optInSuite(process.env.NS_TENANT_OPERATIONS_PG_TEST === '1', 'NS_TENANT_OPERATIO
   async function source (old = false) {
     const ns = namespaces();
     await prepare(ns, old);
-    for (const [tenant, kind, id, value] of [[A, 'objectid', '0123456789abcdef01234567', 100], [A, 'string', '0123456789abcdef01234567', 101], [B, 'string', 'synthetic-b', 200]]) {
-      await client.query('INSERT INTO "' + ns.entries + '".entries (tenant_id, id_kind, doc) VALUES ($1,$2,$3::jsonb)', [tenant, kind, JSON.stringify({ _id: id, date: 1000, sgv: value })]);
-    }
+    await seedEntries(client, ns.entries, [[A, 'objectid', '0123456789abcdef01234567', 100], [A, 'string', '0123456789abcdef01234567', 101], [B, 'string', 'synthetic-b', 200]]
+      .map(([tenant, kind, id, value]) => ({ tenant, kind, doc: { _id: id, date: 1000, sgv: value } })));
     await client.query('INSERT INTO "' + ns.clock + '".tenant_write_clock (tenant_id,last_stamp) VALUES ($1,1000),($2,2000)', [A, B]);
     return ns;
   }
   const capture = ns => operations.backup(client, { catalogues: catalogues(ns), sourceCommit: COMMIT });
-  async function observe (ns) {
-    // Independent SQL readback, without the artifact encoder or summary helper.
-    const rows = await client.query('SELECT tenant_id, id_kind, doc FROM "' + ns.entries + '".entries ORDER BY tenant_id,id_kind,doc::text');
-    const stamps = await client.query('SELECT tenant_id,last_stamp FROM "' + ns.clock + '".tenant_write_clock ORDER BY tenant_id');
-    return { rows: rows.rows, stamps: stamps.rows };
-  }
+  const observe = (ns, old = false) => observeState(client, ns, old);
   const recording = () => {
     const statements = [];
     return { statements, query: async (text, values) => { statements.push(text); return client.query(text, values); } };
@@ -112,7 +101,8 @@ optInSuite(process.env.NS_TENANT_OPERATIONS_PG_TEST === '1', 'NS_TENANT_OPERATIO
     const wire = recording();
     const damaged = { ...artifact, tables: { ...artifact.tables, 'entries.entries': artifact.tables['entries.entries'].replace('"sgv":100', '"sgv":999') } };
     await assert.rejects(operations.restore(wire, damaged, { catalogues: catalogues(fresh) }), { code: 'RESTORE_DIGEST_MISMATCH' });
-    await assert.rejects(operations.restore(wire, artifact, { catalogues: catalogues(fresh), acl: { role: 'bad-role' } }), { code: 'RESTORE_ACL_ROLE_INVALID' });
+    const invalidAcl = applicationAcl(role); invalidAcl.grants[0].role = 'bad-role';
+    await assert.rejects(operations.restore(wire, artifact, { catalogues: catalogues(fresh), acl: invalidAcl }), { code: 'RESTORE_ACL_ROLE_INVALID' });
     assert.equal(wire.statements.length, 0);
     await client.query('SET ROLE "' + role + '"');
     try {
@@ -121,13 +111,15 @@ optInSuite(process.env.NS_TENANT_OPERATIONS_PG_TEST === '1', 'NS_TENANT_OPERATIO
     } finally { await client.query('RESET ROLE'); }
   });
 
-  it('restores typed rows and clock, grants application access with RLS, advances bigint identity', async function () {
+  it('restores typed rows, clock and tenant-local ordinals with explicit RLS application grants', async function () {
     const ns = await source();
     const artifact = await capture(ns);
     const expected = await observe(ns);
+    assert.deepEqual(expected.counters, [{ tenant_id: A, last_ordinal: '2' }, { tenant_id: B, last_ordinal: '1' }]);
+    assert.deepEqual(expected.ordinals.map(row => [row.tenant_id, row.insertion_ordinal]), [[A, '1'], [A, '2'], [B, '1']]);
     const fresh = namespaces();
     await prepare(fresh);
-    await operations.restore(client, artifact, { catalogues: catalogues(fresh), acl: { role } });
+    await operations.restore(client, artifact, { catalogues: catalogues(fresh), acl: applicationAcl(role) });
     assert.deepEqual(await observe(fresh), expected);
     await client.query('SET ROLE "' + role + '"');
     try {
@@ -135,8 +127,9 @@ optInSuite(process.env.NS_TENANT_OPERATIONS_PG_TEST === '1', 'NS_TENANT_OPERATIO
       const visible = await client.query('SELECT tenant_id FROM "' + fresh.entries + '".entries');
       assert.deepEqual(visible.rows, [{ tenant_id: B }]);
       const next = await client.query('INSERT INTO "' + fresh.entries + '".entries (tenant_id,id_kind,doc) VALUES ($1,$2,$3::jsonb) RETURNING insertion_ordinal', [B, 'string', JSON.stringify({ _id: 'after-restore' })]);
-      assert.equal(next.rows[0].insertion_ordinal, '4');
+      assert.equal(next.rows[0].insertion_ordinal, '2', 'B advances its own restored floor, independent of A');
       await assert.rejects(client.query('INSERT INTO "' + fresh.entries + '".entries (tenant_id,id_kind,doc) VALUES ($1,$2,$3::jsonb)', [A, 'string', JSON.stringify({ _id: 'foreign' })]), { code: '42501' });
+      await assert.rejects(client.query('INSERT INTO "' + fresh.entries + '".entries (tenant_id,id_kind,doc,insertion_ordinal) VALUES ($1,$2,$3::jsonb,99)', [B, 'string', JSON.stringify({ _id: 'explicit-ordinal-refused' })]), { code: '42501' });
     } finally { await client.query('RESET ROLE'); await client.query("RESET app.current_tenant_id"); }
   });
 
@@ -148,7 +141,7 @@ optInSuite(process.env.NS_TENANT_OPERATIONS_PG_TEST === '1', 'NS_TENANT_OPERATIO
     const forged = JSON.parse(JSON.stringify(artifact));
     const encoded = common.encodeTable(common.decodeTable(forged.tables['entries.entries']).filter(row => row.tenant_id !== B));
     forged.tables['entries.entries'] = encoded.text;
-    Object.assign(forged.manifest.catalogues[0].tables[0], { count: encoded.count, digest: encoded.digest });
+    Object.assign(forged.manifest.catalogues.find(c => c.kind === 'entries').tables.find(t => t.table === 'entries'), { count: encoded.count, digest: encoded.digest });
     delete forged.manifest.tenants.find(t => t.tenant_id === B).rows['entries.entries'];
     forged.digest = common.manifestDigest(forged.manifest);
     const fresh = namespaces();
@@ -164,30 +157,30 @@ optInSuite(process.env.NS_TENANT_OPERATIONS_PG_TEST === '1', 'NS_TENANT_OPERATIO
     const artifact = await capture(ns);
     const fresh = namespaces();
     await prepare(fresh);
-    await assert.rejects(operations.restore(client, artifact, { catalogues: catalogues(fresh), onRow: ({ total }) => { if (total === 2) throw new Error('synthetic interruption'); } }), /synthetic interruption/);
-    assert.deepEqual(await observe(fresh), { rows: [], stamps: [] });
+    await assert.rejects(operations.restore(client, artifact, { catalogues: catalogues(fresh), onRow: ({ key, written }) => { if (key === 'entries.entries' && written === 1) throw new Error('synthetic interruption'); } }), /synthetic interruption/);
+    assert.deepEqual(await observe(fresh), { rows: [], stamps: [], counters: [], ordinals: [] });
     const liar = { query: (text, values) => /^INSERT INTO .*tenant_write_clock/.test(text) ? Promise.resolve({ rowCount: 1, rows: [] }) : client.query(text, values) };
     await assert.rejects(operations.restore(liar, artifact, { catalogues: catalogues(fresh) }), { code: 'RESTORE_ORACLE_MISMATCH' });
-    assert.deepEqual(await observe(fresh), { rows: [], stamps: [] });
+    assert.deepEqual(await observe(fresh), { rows: [], stamps: [], counters: [], ordinals: [] });
     await operations.restore(client, artifact, { catalogues: catalogues(fresh) });
     assert.deepEqual(await observe(fresh), await observe(ns));
   });
 
   it('upgrades then refuses old catalogue; rollback preflights every target and restores pre-upgrade rows', async function () {
     const ns = await source(true);
-    const expected = await observe(ns);
-    const { artifact } = await operations.upgrade(client, { migrate, catalogues: catalogues(ns), sourceCommit: COMMIT });
+    const expected = await observe(ns, true);
+    const { artifact } = await operations.upgrade(client, { migrate, ...upgradePlan(ns), sourceCommit: COMMIT });
     await assert.rejects(migrate('check', { namespace: ns.entries, catalogue: older }), { code: 'MIG_UNKNOWN' });
     const fresh = namespaces();
     await migrate('up', { namespace: fresh.clock, catalogue: clock });
     await assert.rejects(operations.rollback(client, { migrate, artifact, catalogues: catalogues(fresh, true), upgraded: ns }), { code: 'ROLLBACK_TARGET_NOT_FRESH' });
     assert.equal((await client.query('SELECT to_regnamespace($1) AS schema', [fresh.entries])).rows[0].schema, null);
     const target = namespaces();
-    await client.query('INSERT INTO "' + ns.entries + '".entries (tenant_id,id_kind,doc) VALUES ($1,$2,$3::jsonb)', [A, 'string', JSON.stringify({ _id: 'after-upgrade' })]);
+    await seedEntries(client, ns.entries, [{ tenant: A, kind: 'string', doc: { _id: 'after-upgrade' } }]);
     const upgraded = await observe(ns);
-    const record = await operations.rollback(client, { migrate, artifact, catalogues: catalogues(target, true), upgraded: ns, acl: { role } });
+    const record = await operations.rollback(client, { migrate, artifact, catalogues: catalogues(target, true), upgraded: ns, acl: applicationAcl(role, true) });
     assert.equal(record.refusal.entries, 'MIG_UNKNOWN');
-    assert.deepEqual(await observe(target), expected);
+    assert.deepEqual(await observe(target, true), expected);
     assert.deepEqual(await observe(ns), upgraded);
     assert.match(record.lost, /writes committed after takenAt/);
   });
