@@ -1,9 +1,25 @@
 'use strict';
 
 const assert = require('node:assert/strict');
-const { run, closeOwned, closeBrowser, assertPort, admitOwnerExtension, closeOwnerAndNative } = require('./human-session-http-native');
+const { run, closeOwned, closeBrowser, assertPort, admitOwnerExtension, closeOwnerAndNative, fixtureOrigins } = require('./human-session-http-native');
 
 describe('bounded human HTTPS instrument (no listeners)', function () {
+  it('uses a real owner hostname accepted by the unchanged resolver while keeping provider cookies on a different host', async function () {
+    const tenant = '11111111-1111-4111-8111-111111111111';
+    const resolver = require('../lib/tenant-resolution')({ aliases: [{ host: 'localhost', tenant }] });
+    const first = 'https://127.0.0.1:23456', second = 'https://127.0.0.1:23457';
+    for (const browser of [false, true]) {
+      const { site, issuer } = fixtureOrigins(first, second, { owner: true, browser });
+      const host = new URL(site).host;
+      assert.equal(await resolver.resolve({ rawHeaders: ['Host', host] }), tenant);
+      assert.notEqual(new URL(site).hostname, new URL(issuer).hostname, 'cookie hosts must differ');
+    }
+    assert.deepEqual(fixtureOrigins(first, second), { site: first, issuer: second });
+    const defaults = fixtureOrigins(first, second, { browser: true });
+    assert.equal(defaults.site, first);
+    assert.equal(new URL(defaults.issuer).hostname, 'localhost');
+  });
+
   it('refuses owner extension setup before TLS or runtime acquisition without complete reserved native inputs', async function () {
     const source = { HUMAN_HTTPS_RESERVED: '1', HUMAN_SESSION_NATIVE_RESERVED: '1', HUMAN_HTTP_STORE: 'postgres',
       HUMAN_HTTP_SIGNER_CONFIG: 'synthetic-config', HUMAN_SESSION_PG_ADMIN_URL: 'synthetic-admin', HUMAN_SESSION_PG_APP_URL: 'synthetic-app' };

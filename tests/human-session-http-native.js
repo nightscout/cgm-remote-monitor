@@ -20,6 +20,15 @@ function assertPort (port) {
   if ([18080, 18081, 18082].includes(port)) throw new Error('Fixture assigned a reserved port');
 }
 
+function fixtureOrigins (siteListener, issuerListener, { owner = false, browser = false } = {}) {
+  const site = new URL(siteListener), issuer = new URL(issuerListener);
+  // Real owner hostname resolution refuses IP selectors. Keep distinct cookie
+  // hosts for the provider in both modes; ports alone cannot isolate cookies.
+  if (owner) site.hostname = 'localhost';
+  else if (browser) issuer.hostname = 'localhost';
+  return { site: site.origin, issuer: issuer.origin };
+}
+
 async function closeOwned ({ servers, sockets, socketClosures, resources = [], timeoutMs = 15000, onDeadline = () => {} }) {
   let timer;
   const closing = Promise.resolve().then(async () => {
@@ -138,7 +147,7 @@ async function run ({ createOwnerExtension } = {}) {
     if (!allowed.has(url.origin)) throw new Error('Fixture outbound URL refused');
     const body = request.method === 'GET' || request.method === 'HEAD' ? undefined : Buffer.from(await request.arrayBuffer());
     return new Promise((resolve, reject) => {
-      const req = https.request(url, { method: request.method, headers: Object.fromEntries(request.headers), ca: tls.cert,
+      const req = https.request(url, { method: request.method, headers: Object.fromEntries(request.headers), ca: tls.cert, family: 4,
         timeout: 3000, agent: false }, res => {
         const chunks = []; let length = 0;
         res.once('error', reject); res.once('aborted', () => reject(new Error('Fixture TLS response aborted')));
@@ -149,7 +158,7 @@ async function run ({ createOwnerExtension } = {}) {
     });
   }
   try {
-    const site = await listen((req, res) => mounted ? mounted(req, res) : res.writeHead(503).end()); allowed.add(site);
+    const siteListener = await listen((req, res) => mounted ? mounted(req, res) : res.writeHead(503).end());
     const issuerListener = await listen(async (req, res) => {
       try {
         const url = new URL(req.url, issuer);
@@ -164,9 +173,10 @@ async function run ({ createOwnerExtension } = {}) {
     // Browser scope acceptance uses two distinct loopback hosts, rather than
     // pretending ports isolate cookies. The certificate needs DNS:localhost as
     // well as IP:127.0.0.1 in that separately reserved browser fixture.
-    const issuer = process.env.HUMAN_BROWSER_RESERVED === '1'
-      ? 'https://localhost:' + new URL(issuerListener).port : issuerListener;
-    allowed.add(issuer);
+    const { site, issuer } = fixtureOrigins(siteListener, issuerListener, {
+      owner: !!createOwnerExtension, browser: process.env.HUMAN_BROWSER_RESERVED === '1'
+    });
+    allowed.add(site); allowed.add(issuer);
     providerFixture = await fixture({ issuer, redirectUri: site + PREFIX + '/callback' });
     const provider = await createProvider({ ...providerFixture, fetch: transport });
     const persistence = process.env.HUMAN_HTTP_STORE || 'double';
@@ -366,4 +376,4 @@ if (require.main === module) run().catch(error => {
   for (const failure of failures) console.error(failure.name + ': ' + failure.message);
   process.exit(1);
 });
-module.exports = { run, closeOwned, closeBrowser, assertPort, admitOwnerExtension, closeOwnerAndNative };
+module.exports = { run, closeOwned, closeBrowser, assertPort, admitOwnerExtension, closeOwnerAndNative, fixtureOrigins };
