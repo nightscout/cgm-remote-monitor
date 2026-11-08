@@ -43,7 +43,10 @@ async function fixture () {
       if (sql.startsWith('SELECT subject_id')) return rows(data.metadata[key] ? [{ subject_id: args[1] }] : []);
       if (sql.startsWith('INSERT INTO "auth".tenant_authorization_subjects')) data.subjects[key] = { display_name: args[2], notes: args[3], created_at: args[4] };
       else if (sql.startsWith('INSERT INTO "cred".legacy_credential_subjects')) data.metadata[key] = { token_prefix: args[2] };
-      else if (sql.startsWith('INSERT INTO "auth".tenant_authorization_subject_roles')) (data.links[key] ||= []).push(args[2]);
+      else if (sql.startsWith('INSERT INTO "auth".tenant_authorization_subject_roles')) {
+        if (!data.links[key]) data.links[key] = [];
+        data.links[key].push(args[2]);
+      }
       else if (sql.startsWith('INSERT INTO "auth".tenant_authorization_roles')) {
         if (data.roles[key]) throw Object.assign(new Error('duplicate'), { code: '23505' }); data.roles[key] = args[2].slice();
       } else if (sql.startsWith('INSERT INTO "auth".tenant_subject_admin_audit')) {
@@ -88,6 +91,10 @@ describe('owner subject persistence source boundary (synthetic connection)', fun
     assert.equal(f.snapshot().subjects[key], undefined); assert.equal(f.snapshot().metadata[key], undefined);
     assert.equal(f.snapshot().links[key], undefined); assert.deepEqual(f.snapshot().roles[B + '/foreign'], before.roles[B + '/foreign']);
     await assert.rejects(f.store.withCredential(actor, subject.subjectId, async () => { throw new Error('must not issue'); }), { code: 'SUBJECT_ADMIN_NOT_FOUND' });
+    const live = await f.store.create(actor, { name: 'Revocation control', roles: [] });
+    f.control.active = false; const prior = f.snapshot();
+    await assert.rejects(f.store.remove(actor, live.subjectId), { code: 'SUBJECT_ADMIN_FORBIDDEN' });
+    assert.deepEqual(f.snapshot(), prior);
     await f.store.close();
   });
   it('refuses current revocation, overceiling and undelegated proposals with unchanged independently read rows', async function () {

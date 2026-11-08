@@ -4,6 +4,10 @@ const assert = require('node:assert/strict');
 const { createSubjectAdmin } = require('../lib/subject-admin/component');
 const { createSubjectManagementApp } = require('../lib/server/subject-management-app');
 const dispatch = require('./fixtures/listener-free-http');
+const { createSecrets } = require('../lib/secrets/component');
+const { createHash } = require('node:crypto');
+const ROOT = 'synthetic-owner-issuer-root-2026';
+const sha1 = value => createHash('sha1').update(value).digest('hex');
 const A = '11111111-1111-4111-8111-111111111111', B = '22222222-2222-4222-8222-222222222222';
 const actor = { tenant: A, principal: 'owner', consumer: 'owner' };
 const PATH = '/api/v2/authorization/subjects';
@@ -28,10 +32,21 @@ function fixture () {
       state.events.push('locked'); const value = await issue(); state.events.push('committed'); return value;
     }
   };
+  const secrets = createSecrets({ maxTokenLifetimeSeconds: 28800,
+    providerFor: async tenant => ({ async decrypt () {
+      state.events.push('derive');
+      return Buffer.from(JSON.stringify({ tenant, id: 'synthetic-root', data: Buffer.from(ROOT).toString('base64') }));
+    } }),
+    store: { async get (tenant, id) { return { tenant, id, format: 1, ciphertext: 'synthetic-ciphertext' }; }, async insert () {} },
+    audit: async event => { assert.equal(event.operation, 'issue-legacy'); },
+    authorize: async (who, action) => who.principal === 'owner' && who.consumer === 'owner' && action.operation === 'issue-legacy',
+    legacyAuthorityFor: async tenant => ({ reference: { tenant, id: 'synthetic-root' },
+      subjects: [...state.subjects.entries()].filter(([key]) => key.startsWith(tenant + '/')).map(([key, value]) => ({
+        subjectId: key.slice(tenant.length + 1), tokenPrefix: value.name.toLowerCase().replace(/[\W]/g, '').substring(0, 10)
+      })) })
+  });
   const service = createSubjectAdmin({ store, authorizeManagement: async who => state.active && who.principal === 'owner',
-    issueCredential: async (who, id, fence) => fence({ tenant: who.tenant, subjectId: id }, async () => {
-      state.events.push('derive'); return { token: 'synthetic-derived' };
-    }) });
+    issueCredential: secrets.issueLegacyCredential });
   const authenticateManagement = async ({ tenant, credential, sensitive }) => {
     state.sensitive.push(sensitive === true);
     return credential === 'synthetic-management' ? { ...actor, tenant } : null;
@@ -51,7 +66,7 @@ describe('owner credential management source boundaries', function () {
     const made = await call('POST', PATH, { name: 'Synthetic reader', roles: ['reader'] });
     assert.equal(made.status, 200); assert.deepEqual(f.state.subjects.get(A + '/created'), { name: 'Synthetic reader', roles: ['reader'] });
     const issued = await call('POST', PATH + '/created/credential', {});
-    assert.equal(issued.status, 200); assert.deepEqual(issued.body, { token: 'synthetic-derived' });
+    assert.equal(issued.status, 200); assert.deepEqual(issued.body, { token: 'syntheticr-' + sha1(sha1(ROOT) + 'created').slice(0, 16) });
     assert.deepEqual(f.state.events.slice(-3), ['locked', 'derive', 'committed']);
     assert.equal((await call('DELETE', PATH + '/created')).status, 200);
     assert.equal(f.state.subjects.has(A + '/created'), false);

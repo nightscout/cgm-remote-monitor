@@ -81,7 +81,7 @@ optInSuite(process.env.NS_OWNER_SUBJECT_POLICY_DOCKER_TEST === '1',
       await refused(f.proposal(), 401, { host: 'two.example.test' });
     });
 
-    it('preserves unknown-role and malformed-body refusal while bounding wildcard roles/defaults and catalogue versions', async function () {
+    it('preserves unknown-role and malformed-body refusal while bounding wildcard roles and catalogue versions while preserving anonymous readable', async function () {
       await refused(f.proposal(['foreign-only']), 400);
       await refused(f.proposal(['reader', 'reader']), 400);
       await refused(f.proposal(['wildcard']));
@@ -89,7 +89,8 @@ optInSuite(process.env.NS_OWNER_SUBJECT_POLICY_DOCKER_TEST === '1',
       await refused(f.proposal());
       await f.admin.query('UPDATE ' + f.tables.policy + ' SET catalogue_digest=$2 WHERE tenant_id=$1', [A, f.digest(CATALOGUE)]);
       await f.admin.query('UPDATE ' + f.tables.config + ' SET anonymous_roles=ARRAY[\'readable\'] WHERE tenant_id=$1', [A]);
-      await refused(f.proposal());
+      // Adopted readable is an independent read-clamped default, not an owner grant.
+      assert.equal((await f.http(f.proposal())).status, 200);
     });
 
     it('includes concrete status-only defaults in the effective-grant ceiling and preserves metadata omission', async function () {
@@ -106,8 +107,10 @@ optInSuite(process.env.NS_OWNER_SUBJECT_POLICY_DOCKER_TEST === '1',
       assert.equal(response.created_at, '2026-01-01T00:00:00.000Z');
     });
 
-    it('keeps selected DELETE refused and legacy/default update/remove behavior available', async function () {
-      await refused(undefined, 403, { method: 'delete' });
+    it('allows explicit owner revocation and preserves legacy/default update/remove behavior', async function () {
+      // Adopted subject revoke supersedes the earlier R53 selected DELETE refusal.
+      assert.equal((await f.http(undefined, { method: 'delete' })).status, 200);
+      await f.reset();
       await f.admin.query('UPDATE ' + f.tables.policy + ' SET ceiling=ARRAY[]::text[] WHERE tenant_id=$1', [A]);
       const old = await f.http({ ...f.proposal(['uploader']), notes: '' }, { app: f.legacyApp });
       assert.equal(old.status, 200); assert.deepEqual(old.body.roles, ['uploader']); assert.equal(old.body.notes, '');
@@ -138,7 +141,7 @@ optInSuite(process.env.NS_OWNER_SUBJECT_POLICY_DOCKER_TEST === '1',
       ['policy', table => 'UPDATE ' + table + ' SET ceiling=ARRAY[]::text[] WHERE tenant_id=$1'],
       ['actors', table => 'UPDATE ' + table + ' SET delegable=ARRAY[]::text[] WHERE tenant_id=$1'],
       ['roles', table => 'UPDATE ' + table + ' SET permissions=ARRAY[\'api:settings:admin\'] WHERE tenant_id=$1 AND name=\'reader\''],
-      ['config', table => 'UPDATE ' + table + ' SET anonymous_roles=ARRAY[\'readable\'] WHERE tenant_id=$1']
+      ['config', table => 'UPDATE ' + table + ' SET anonymous_roles=ARRAY[\'status-only\'] WHERE tenant_id=$1']
     ];
     for (const [key, update] of races) {
       it('fences a prior committed ' + key + ' narrowing before the waiting proposal can mutate', async function () {
