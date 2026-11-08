@@ -87,6 +87,8 @@ async function createFixture () {
       await admin.query(`GRANT SELECT,INSERT,DELETE ON ${tables.links} TO ${role}`);
       await admin.query(`GRANT INSERT ON ${tables.audit} TO ${role}`);
     }
+    // Adopted owner create/role capability extends the writer's insert shape.
+    await admin.query(`GRANT INSERT ON ${tables.subjects},${tables.credentials},${tables.roles} TO owner_writer`);
     for (const table of [tables.config, tables.roles, tables.policy, tables.actors]) await admin.query(`GRANT SELECT,UPDATE(owner_fence) ON ${table} TO owner_writer`);
     await admin.query(`GRANT SELECT ON ${tables.subjects},${tables.roles},${tables.links},${tables.config},${tables.credentials} TO owner_reader`);
     f.writerURI = uris.owner_writer; f.legacyURI = uris.legacy_writer; f.readerURI = uris.owner_reader;
