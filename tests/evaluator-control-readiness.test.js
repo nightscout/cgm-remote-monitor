@@ -51,21 +51,40 @@ describe('Selected suppression control read scope source protocol',function(){
       for(const table of ['tenant_lifecycle_restore_authority','tenant_lifecycle_restore_audit']){l.flags.privateRead=table;await assert.rejects(ready.suppression(l.db,'alarm_test',{operationWindow:l.f.window}),{code:'LIFECYCLE_WINDOW_SCHEMA_UNSAFE'});delete l.flags.privateRead;await ready.suppression(l.db,'alarm_test',{operationWindow:l.f.window});}
     }finally{await l.f.window.close();}
   });
-  async function prepareCheck(mutate){
+  async function prepareCheck(mutate,{unsafeOutbox=false}={}){
     const l=lab();let reader,effects=0;
-    const prepare=loadPrepare({'../../storage/postgres-connection':async()=>({...l.db}),'../../tenant-notifications/postgres':()=>({ready:async()=>{}}),
+    // prepare now screens outbox metadata before tenant provisioning. Keep that
+    // actual guard: use the existing notification SQL protocol on a distinct
+    // connection instead of answering its new metadata queries with empty rows.
+    const outbox=require('./fixtures/tenant-notifications')();
+    if(unsafeOutbox)outbox.unsafe({role:{foreign_writes:true}});
+    const outboxConnection={...outbox.connection,async query(sql,values){
+      if(sql.includes('datastore-challenge'))return {rows:[{acquired:false}]};
+      return outbox.connection.query(sql,values);
+    },async end(){}};
+    const prepare=loadPrepare({'../../storage/postgres-connection':async settings=>{
+      assert(['synthetic-outbox','synthetic-suppression'].includes(settings.connectionString));
+      return settings.connectionString==='synthetic-outbox'?outboxConnection:{...l.db};
+    },'../../tenant-notifications/postgres':()=>({ready:async()=>{}}),
       '../../tenant-alarms/postgres':{createReader:({connection})=>(reader={read:({tenant})=>scope.withTenant(tenant,()=>connection.snapshotTransaction(async()=>{effects++;return {};}))})},
       '../../tenant-notifications/producer':()=>({close(){}}),'../../tenant-notifications/component':()=>({close:async()=>{}}),'../realtime/alarm-transport':{createAdapter:()=>({send(){}})}},mutate);
-    const config={tenants:new Map([[A,true],[B,true]]),readCurrent:async()=>({}),consumers:{realtime:{outbox:{connectionString:'synthetic',namespace:'outbox',maxRows:10,maxBytes:10000},suppression:{connectionString:'synthetic',namespace:'alarm_test',maxRows:10,maxBytes:10000},route:{id:'synthetic',socketPath:'/synthetic/unused',maxBytes:10000,timeoutMs:1000},maxPayloadBytes:1000,maxInflight:1,attemptTimeoutMs:1000,retryDelayMs:100,pollIntervalMs:100,retryIntervalMs:100}}};
+    const config={tenants:new Map([[A,true],[B,true]]),readCurrent:async()=>({}),consumers:{realtime:{outbox:{connectionString:'synthetic-outbox',namespace:'outbox',maxRows:10,maxBytes:10000},suppression:{connectionString:'synthetic-suppression',namespace:'alarm_test',maxRows:10,maxBytes:10000},route:{id:'synthetic',socketPath:'/synthetic/unused',maxBytes:10000,timeoutMs:1000},maxPayloadBytes:1000,maxInflight:1,attemptTimeoutMs:1000,retryDelayMs:100,pollIntervalMs:100,retryIntervalMs:100}}};
     let composed;try{
       composed=await prepare({config,clinicalConnection:{transaction:fn=>fn(),query:async()=>({rows:[]})},operationWindow:l.f.window,current:()=>null,isCurrent:async()=>false});
+      assert(outbox.calls.some(call=>call.sql?.includes('notification-readiness-role')),'OUTBOX_METADATA_SCREEN_REQUIRED');
+      assert.equal(outbox.calls.filter(call=>call.sql?.includes('notification-readiness-table')).length,4,'COMPLETE_OUTBOX_TABLE_SCREEN');
       assert.equal(effects,2);await reader.read({tenant:A});assert.equal(effects,3);
       l.flags.foreignRead=true;await assert.rejects(reader.read({tenant:A}),/READINESS_REFUSED/);assert.equal(effects,3);
       l.flags.foreignRead=false;await reader.read({tenant:B});assert.equal(effects,4);
+    }catch(error){if(unsafeOutbox)assert.equal(effects,0,'UNSAFE_OUTBOX_REFUSES_BEFORE_READER_EFFECTS');throw error;
     }finally{await composed?.close();await l.f.window.close();}
   }
   it('threads actual selection into prepare and every later screened reader snapshot',()=>prepareCheck());
   it('detects omission at the actual prepare call site and passes fresh restored source',async function(){
     await assert.rejects(prepareCheck(s=>s.replace('selected.suppression.namespace, {operationWindow}','selected.suppression.namespace')),/READINESS_REFUSED/);await prepareCheck();
+  });
+  it('retains actual unconditional outbox metadata refusal before any tenant reader effects',async function(){
+    await assert.rejects(prepareCheck(undefined,{unsafeOutbox:true}),/NOTIFICATION_SCHEMA_UNSAFE/);
+    await prepareCheck();
   });
 });
