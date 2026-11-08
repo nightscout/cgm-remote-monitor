@@ -67,6 +67,43 @@ describe('dormant tenant projection evaluator source contract', function () {
     return evaluator({ tenant: A, replay, connection, env, language, dbstats: suppliedStats || (async () => ({ dataSize: 0, indexSize: 0 })),
       maxRows: 10, maxBytes: 10000 });
   }
+  it('replays the committed clinical reading at an explicit instant without widening its age window', async function () {
+    const clock = require('./lib/views-replay/clock');
+    const document = { _id: 'synthetic-crash', type: 'sgv', sgv: 123,
+      date: 1793923200000, utcOffset: 0, srvModified: 1793923200001 };
+    const original = JSON.stringify(document);
+    const calls = [];
+    let at;
+    // Recording SQL double, not PostgreSQL execution: admit only the actual
+    // loader's numeric date/isValid predicate for this one recovered entry.
+    // Unknown query shapes fail instead of returning the entry unfiltered.
+    const connection = { async query (text, values) {
+      const rows = JSON.parse(values.at(-1));
+      if (!rows.length) return { rows: [] };
+      assert.match(text, /FROM jsonb_to_recordset\(\$8::jsonb\)/);
+      assert.match(text, /::numeric >= \$2::numeric/);
+      assert.match(text, /AND NOT COALESCE/);
+      assert.deepEqual(values.slice(0, -1), ['date', at - 2 * 24 * 60 * 60000,
+        at - 2 * 24 * 60 * 60000, 'isValid', false, false, 'date']);
+      calls.push(values[1]);
+      return { rows: rows.filter(row => row.doc.date >= values[1] && row.doc.isValid !== false)
+        .map(row => ({ ...row, unsortable: false })) };
+    } };
+    const replay = { async reconcile () { return { checkpoint: document.srvModified,
+      rows: [{ domain: 'entries', document }] }; } };
+    clock.install();
+    try {
+      for (const [instant, expected] of [[document.date + 2 * 60000, 123],
+        [document.date + 2 * 24 * 60 * 60000 + 1, undefined], [document.date + 2 * 60000, 123]]) {
+        at = instant; clock.pin(at);
+        const result = await component(replay, connection).evaluate({ at });
+        assert.equal(result.properties.bgnow.mean, expected, 'clinical freshness follows the explicit replay instant');
+        assert.equal(result.checkpoint, document.srvModified, 'clinical time does not change the committed watermark');
+      }
+    } finally { clock.uninstall(); }
+    assert.equal(calls.length, 3, 'fresh, aged, and restored instants use the actual loader query');
+    assert.equal(JSON.stringify(document), original, 'evaluation never changes the committed document');
+  });
   it('does not retain or publish when replay commit refuses', async function () {
     const v = component({ async reconcile () { throw new Error('COMMIT refused'); } });
     await assert.rejects(v.evaluate(), /COMMIT refused/);
