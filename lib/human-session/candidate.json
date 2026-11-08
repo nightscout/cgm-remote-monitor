@@ -27,6 +27,13 @@
         "CREATE POLICY human_logout_events_tenant ON human_logout_events USING (tenant_id = nullif(current_setting('app.current_tenant_id', true), '')::uuid) WITH CHECK (tenant_id = nullif(current_setting('app.current_tenant_id', true), '')::uuid)",
         "REVOKE ALL ON human_logout_events FROM PUBLIC"
       ]
+    },
+    {
+      "name": "0002_signed_access_binding",
+      "checksum": "0e38b59286d9d710015c1fba14fcaf6b5339f730714f98632ccb7974dcc32e3c",
+      "up": [
+        "ALTER TABLE human_access_tokens ADD COLUMN kid text CHECK (kid IS NULL OR kid ~ '^[A-Za-z0-9_-]{1,128}$'), ADD COLUMN issued_at bigint CHECK (issued_at IS NULL OR issued_at >= 0)"
+      ]
     }
   ]
 }

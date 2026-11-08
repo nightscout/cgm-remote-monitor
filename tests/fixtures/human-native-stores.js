@@ -7,7 +7,7 @@ const { MongoClient } = require('mongodb');
 const { Pool } = require('pg');
 const scope = require('../../lib/storage/tenant-scope');
 const { validateCatalogue } = require('../../lib/migrations/catalogue');
-const { createMongoStore, principalId } = require('../../lib/human-session/mongo');
+const { createMongoStore, authorityId, principalId } = require('../../lib/human-session/mongo');
 const { createPostgresStore } = require('../../lib/human-session/postgres');
 const quote = name => '"' + name.replaceAll('"', '""') + '"';
 let postgresFixtureActive = false;
@@ -22,16 +22,22 @@ function requiredEnvironment (kind) {
   }
 }
 
-function validate ({ kind, issuer, providerSubject, providerSession, tenant, consumer }) {
+function validate ({ kind, issuer, providerSubject, providerSession, tenant, consumer, acceptedKeys }) {
   if (!['mongo', 'postgres'].includes(kind) || typeof issuer !== 'string' || !issuer || issuer.length > 2048 ||
       typeof providerSubject !== 'string' || !providerSubject || providerSubject.length > 512 ||
       providerSession !== undefined && (typeof providerSession !== 'string' || !providerSession || providerSession.length > 512) ||
       tenant !== undefined && (typeof tenant !== 'string' || !tenant || tenant.length > 128) ||
-      typeof consumer !== 'string' || !/^[A-Za-z0-9_-]{1,128}$/.test(consumer)) {
+      typeof consumer !== 'string' || !/^[A-Za-z0-9_-]{1,128}$/.test(consumer) ||
+      !Array.isArray(acceptedKeys) || !acceptedKeys.length || acceptedKeys.length > 128 ||
+      acceptedKeys.some(key => !key || !/^[A-Za-z0-9_-]{1,128}$/.test(key.kid) ||
+        !['data', 'management'].includes(key.purpose) || typeof key.active !== 'boolean')) {
     throw new TypeError('Explicit native fixture kind and bounded synthetic identity required');
   }
   if (kind === 'postgres' && tenant !== undefined && !/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/.test(tenant)) {
     throw new TypeError('PostgreSQL native fixture requires a canonical UUID tenant');
+  }
+  if (kind === 'mongo' && tenant !== undefined && tenant !== 'single') {
+    throw new TypeError('MongoDB human fixture uses only the fixed private single binding');
   }
 }
 
@@ -40,7 +46,7 @@ function cleanupFailure (primary, errors, label) {
   return primary || (errors.length ? new globalThis.AggregateError(errors, label + ' owned cleanup failed') : null);
 }
 
-async function mongoFixture ({ issuer, providerSubject, providerSession, tenant = 'single-native-synthetic', consumer }) {
+async function mongoFixture ({ issuer, providerSubject, providerSession, tenant = 'single', consumer, acceptedKeys }) {
   const clientOptions = {
     serverSelectionTimeoutMS: 1000, connectTimeoutMS: 1000, socketTimeoutMS: 2000,
     readPreference: 'primary', retryWrites: false, writeConcern: { w: 'majority', j: true, wtimeoutMS: 2000 }
@@ -73,12 +79,11 @@ async function mongoFixture ({ issuer, providerSubject, providerSession, tenant 
     const db = process.env.HUMAN_SESSION_MONGO_DB ? client.db(process.env.HUMAN_SESSION_MONGO_DB) : client.db();
     collection = await db.createCollection(name);
     created = true;
-    await collection.createIndex({ tenant: 1, 'sessions.tokens.hash': 1 });
-    await collection.createIndex({ tenant: 1, issuer: 1, 'sessions.providerSession': 1 });
-    const id = principalId(tenant, issuer, providerSubject);
-    await collection.insertOne({ _id: id, tenant, issuer, providerSubject, subject, consumer,
-      enabled: true, generation: 1, revision: 1, purposes: ['data', 'management'],
-      permissionGroups: [['api:entries:read']], sessions: [], logoutEvents: [] });
+    const id = authorityId(tenant);
+    await collection.insertOne({ _id: id, tenant, revision: 1, keys: acceptedKeys,
+      principals: [{ id: principalId(tenant, issuer, providerSubject), issuer, providerSubject, subject, consumer,
+        enabled: true, generation: 1, credentialGeneration: 1, purposes: ['data', 'management'],
+        permissionGroups: [['api:entries:read']] }], sessions: [], logoutEvents: [] });
     const createWorkerStore = async () => {
       if (closed) throw new Error('Native Mongo fixture is closed');
       const worker = new MongoClient(process.env.HUMAN_SESSION_MONGO_URL, clientOptions);
@@ -103,8 +108,9 @@ async function mongoFixture ({ issuer, providerSubject, providerSession, tenant 
         if (!document) throw new Error('Owned native Mongo principal disappeared');
         return { kind: 'mongo', tenant, subject,
           execution: { nodeProcesses: 1, engineClientPools: workerClients.size, fixtureClientPools: 1 },
-          identity: { enabled: document.enabled, generation: document.generation,
-          purposes: document.purposes, permissionGroups: document.permissionGroups, revision: document.revision },
+          keys: document.keys, identity: { enabled: document.principals[0].enabled, generation: document.principals[0].generation,
+          credentialGeneration: document.principals[0].credentialGeneration, purposes: document.principals[0].purposes,
+          permissionGroups: document.principals[0].permissionGroups, revision: document.revision },
         sessions: document.sessions.map(session => {
           const { tokens, ...state } = session;
           return { ...state, access: tokens.map(token => ({ expiresAt: token.expiresAt, issuedAt: token.issuedAt })) };
@@ -118,7 +124,7 @@ async function mongoFixture ({ issuer, providerSubject, providerSession, tenant 
   }
 }
 
-async function postgresFixture ({ issuer, providerSubject, providerSession, tenant = randomUUID(), consumer }) {
+async function postgresFixture ({ issuer, providerSubject, providerSession, tenant = randomUUID(), consumer, acceptedKeys }) {
   if (postgresFixtureActive) throw new Error('Only one native PostgreSQL fixture may own the process tenancy mode');
   postgresFixtureActive = true;
   const previousMode = scope.getTenancyMode();
@@ -185,7 +191,7 @@ async function postgresFixture ({ issuer, providerSubject, providerSession, tena
     await migrate(human, require('../../lib/human-session/candidate.json'));
     for (const schema of created) await admin.query('GRANT USAGE ON SCHEMA ' + quote(schema) + ' TO ' + quote(appRole.name));
     const reads = [[human,'human_identities'],[human,'human_sessions'],[human,'human_access_tokens'],[human,'human_logout_events'],
-      [access,'access_tenants'],[access,'access_credentials'],[authority,'tenant_authorization_subjects'],
+      [access,'access_tenants'],[access,'access_credentials'],[access,'access_keys'],[authority,'tenant_authorization_subjects'],
       [authority,'tenant_authorization_roles'],[authority,'tenant_authorization_subject_roles'],
       [authority,'tenant_authorization_config'],[authority,'tenant_owner_actors']];
     for (const [schema, table] of reads) await admin.query('GRANT SELECT ON ' + quote(schema) + '.' + table + ' TO ' + quote(appRole.name));
@@ -193,6 +199,7 @@ async function postgresFixture ({ issuer, providerSubject, providerSession, tena
     await admin.query('GRANT INSERT ON ' + quote(human) + '.human_access_tokens,' + quote(human) + '.human_logout_events TO ' + quote(appRole.name));
     await boundAdmin(async client => {
       await client.query('INSERT INTO ' + quote(access) + '.access_tenants VALUES ($1,true)', [tenant]);
+      for (const key of acceptedKeys) await client.query('INSERT INTO ' + quote(access) + '.access_keys VALUES ($1,$2,$3,$4)', [tenant,key.kid,key.purpose,key.active]);
       await client.query('INSERT INTO ' + quote(access) + '.access_credentials VALUES ($1,$2,$3,1,true)', [tenant,'synthetic_human',subject]);
       await client.query('INSERT INTO ' + quote(authority) + '.tenant_authorization_config (tenant_id,anonymous_roles) VALUES ($1,$2)', [tenant,['denied']]);
       await client.query('INSERT INTO ' + quote(authority) + '.tenant_authorization_subjects (tenant_id,subject_id) VALUES ($1,$2)', [tenant,subject]);
@@ -220,7 +227,8 @@ async function postgresFixture ({ issuer, providerSubject, providerSession, tena
           const sessions = await client.query('SELECT session_id AS id,subject_id AS subject,purpose,authenticated_at,created_at,absolute_expires_at,idle_expires_at,active FROM ' + quote(human) + '.human_sessions WHERE tenant_id=$1 ORDER BY created_at,session_id', [tenant]);
           const identity = await client.query('SELECT enabled,generation,purposes FROM ' + quote(human) + '.human_identities WHERE tenant_id=$1 AND issuer=$2 AND provider_subject=$3', [tenant,issuer,providerSubject]);
           const events = await client.query('SELECT event_id,issued_at FROM ' + quote(human) + '.human_logout_events WHERE tenant_id=$1 AND issuer=$2 ORDER BY issued_at,event_id', [tenant,issuer]);
-          return { kind: 'postgres', tenant, subject, identity: identity.rows[0],
+          const keys = await client.query('SELECT kid,purpose,active FROM ' + quote(access) + '.access_keys WHERE tenant_id=$1 ORDER BY purpose,kid', [tenant]);
+          return { kind: 'postgres', tenant, subject, keys: keys.rows, identity: identity.rows[0],
             sessions: sessions.rows.map(session => ({ id: session.id, tenant, subject: session.subject, purpose: session.purpose,
               authenticatedAt: Number(session.authenticated_at), createdAt: Number(session.created_at),
               absoluteExpiresAt: session.absolute_expires_at === null ? null : Number(session.absolute_expires_at),
@@ -236,8 +244,8 @@ async function postgresFixture ({ issuer, providerSubject, providerSession, tena
   }
 }
 
-async function createNativeStore ({ kind, issuer, providerSubject, providerSession, tenant, consumer = 'oidc' } = {}) {
-  const options = { kind, issuer, providerSubject, providerSession, tenant, consumer };
+async function createNativeStore ({ kind, issuer, providerSubject, providerSession, tenant, consumer = 'oidc', acceptedKeys } = {}) {
+  const options = { kind, issuer, providerSubject, providerSession, tenant, consumer, acceptedKeys };
   validate(options);
   // Keep this before every driver constructor/connection, not just before DDL.
   requiredEnvironment(kind);

@@ -7,7 +7,8 @@ const { randomBytes } = require('node:crypto');
 const { Pool } = require('pg');
 const scope = require('../lib/storage/tenant-scope');
 const { validateCatalogue } = require('../lib/migrations/catalogue');
-const { createEngine } = require('../lib/human-session/engine');
+const { createEngine, tokenHash } = require('../lib/human-session/engine');
+const humanAccessFixture = require('./fixtures/human-access-issuer');
 const { createPostgresStore } = require('../lib/human-session/postgres');
 const quote = name => '"' + name.replaceAll('"', '""') + '"';
 const tenant = '00000000-0000-0000-0000-000000000001';
@@ -27,6 +28,8 @@ async function run () {
   const created = [], stores = [], checks = [], cleanupErrors = [];
   let probeClosed = false, result, primary;
   let clock = 1000;
+  const crypto = humanAccessFixture({ tenant, now: () => clock });
+  const foreignCrypto = humanAccessFixture({ tenant: foreignTenant, now: () => clock });
   const proof = () => ({ issuer, subject: 'provider-a', providerSession: 'provider-session-a', authenticatedAt: clock });
   async function check (name, fn) { await fn(); checks.push({ name, pass: true }); }
   async function migrate (schema, candidate) {
@@ -55,7 +58,7 @@ async function run () {
     for (const schema of created) await admin.query('GRANT USAGE ON SCHEMA ' + quote(schema) + ' TO ' + quote(appRole.name));
     const readTables = [
       [human, 'human_identities'], [human, 'human_sessions'], [human, 'human_access_tokens'], [human, 'human_logout_events'],
-      [access, 'access_tenants'], [access, 'access_credentials'],
+      [access, 'access_tenants'], [access, 'access_credentials'], [access, 'access_keys'],
       [authority, 'tenant_authorization_subjects'], [authority, 'tenant_authorization_roles'],
       [authority, 'tenant_authorization_subject_roles'], [authority, 'tenant_authorization_config'], [authority, 'tenant_owner_actors']
     ];
@@ -64,6 +67,7 @@ async function run () {
     await admin.query('GRANT INSERT ON ' + quote(human) + '.human_access_tokens,' + quote(human) + '.human_logout_events TO ' + quote(appRole.name));
     for (const [id, localSubject, providerSubject] of [[tenant,'local_a','provider-a'],[foreignTenant,'local_b','provider-b']]) {
       await admin.query('INSERT INTO ' + quote(access) + '.access_tenants VALUES ($1,true)', [id]);
+      for (const key of (id === tenant ? crypto : foreignCrypto).acceptedKeys) await admin.query('INSERT INTO ' + quote(access) + '.access_keys VALUES ($1,$2,$3,$4)', [id,key.kid,key.purpose,key.active]);
       await admin.query('INSERT INTO ' + quote(access) + '.access_credentials VALUES ($1,$2,$3,1,true)', [id,'credential_a',localSubject]);
       await admin.query('INSERT INTO ' + quote(authority) + '.tenant_authorization_config (tenant_id,anonymous_roles) VALUES ($1,$2)', [id,['denied']]);
       await admin.query('INSERT INTO ' + quote(authority) + '.tenant_authorization_subjects (tenant_id,subject_id) VALUES ($1,$2)', [id,localSubject]);
@@ -79,8 +83,8 @@ async function run () {
       connectionString: process.env.HUMAN_SESSION_PG_APP_URL, namespace: human,
       authorityNamespace: authority, accessNamespace: access, consumer: 'oidc'
     }));
-    const engine = createEngine({ store: stores[0], now: () => clock });
-    const worker = createEngine({ store: stores[1], now: () => clock });
+    const engine = createEngine({ store: stores[0], access: crypto.access, now: () => clock });
+    const worker = createEngine({ store: stores[1], access: crypto.access, now: () => clock });
     const login = () => engine.login({ tenant, identity: proof(), purpose: 'management' });
     const authenticate = token => worker.authenticate({ tenant, token, purpose: 'management' });
     let issued;
@@ -89,8 +93,18 @@ async function run () {
       assert.equal((await authenticate(issued.token)).actor.allows('api:status:read'), true);
       await assert.rejects(engine.login({ tenant, identity: { ...proof(), subject: 'unknown' }, purpose: 'management' }), { code: 'HUMAN_AUTHORITY_REFUSED' });
     });
-    await check('foreign tenant replay refuses under current RLS binding', async () => {
+    await check('actual PG same-second signed renewal is idempotent under the session-row fence', async () => {
+      const renewed = await Promise.all(Array.from({ length: 4 }, () => worker.renew({ tenant, token: issued.token, identity: proof() })));
+      assert.equal(new Set(renewed.map(result => result.token)).size, 1);
+      const stored = await admin.query('SELECT count(*)::integer AS count FROM ' + quote(human) + '.human_access_tokens WHERE tenant_id=$1 AND session_id=$2', [tenant,issued.session.id]);
+      assert.equal(stored.rows[0].count, 1);
+      for (const result of renewed) await authenticate(result.token);
+    });
+    await check('foreign tenant replay refuses signed binding and actual RLS token lookup', async () => {
       await assert.rejects(worker.authenticate({ tenant: foreignTenant, token: issued.token, purpose: 'management' }), { code: 'HUMAN_SESSION_REFUSED' });
+      await stores[1].transaction({ tenant: foreignTenant, tokenHash: tokenHash(issued.token), keyIds: [] }, async tx => {
+        assert.equal(tx.session, null); assert.equal(tx.token, null);
+      });
     });
     await check('committed role removal is visible to second worker next operation', async () => {
       await admin.query('UPDATE ' + quote(authority) + '.tenant_authorization_roles SET permissions=$2 WHERE tenant_id=$1', [tenant,[]]);
@@ -101,6 +115,14 @@ async function run () {
       await admin.query('UPDATE ' + quote(authority) + '.tenant_owner_actors SET active=false WHERE tenant_id=$1', [tenant]);
       await assert.rejects(authenticate(issued.token), { code: 'HUMAN_AUTHORITY_REFUSED' });
       await admin.query('UPDATE ' + quote(authority) + '.tenant_owner_actors SET active=true WHERE tenant_id=$1', [tenant]);
+    });
+    await check('actual PG current key retirement refuses access and renewal while known logout remains available', async () => {
+      await admin.query('UPDATE ' + quote(access) + '.access_keys SET active=false WHERE tenant_id=$1 AND purpose=$2', [tenant,'management']);
+      await assert.rejects(authenticate(issued.token), { code: 'HUMAN_AUTHORITY_REFUSED' });
+      await assert.rejects(worker.renew({ tenant, token: issued.token, identity: proof() }), { code: 'HUMAN_AUTHORITY_REFUSED' });
+      await engine.logout({ tenant, token: issued.token });
+      await admin.query('UPDATE ' + quote(access) + '.access_keys SET active=true WHERE tenant_id=$1 AND purpose=$2', [tenant,'management']);
+      issued = await login();
     });
     await check('logout through worker A refuses copied access through worker B', async () => {
       await engine.logout({ tenant, token: issued.token });

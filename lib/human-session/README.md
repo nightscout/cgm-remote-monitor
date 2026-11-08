@@ -25,6 +25,7 @@ configuration files.
 | `OIDC_SIGNING_ALGORITHM` | Optional pinned ID/logout token algorithm: RS256 (default), PS256, ES256 or EdDSA. Unsupported algorithms refuse; no negotiated downgrade. |
 | `OIDC_ORIGIN` | Exact canonical HTTPS origin, with no path or trailing slash. |
 | `OIDC_COOKIE_KEY` | Canonical base64 encoding of 32 random bytes shared by workers serving the same origins. It seals pending browser flows and binds CSRF tokens; rotating it expires pending flows. |
+| `OIDC_ACCESS_CONFIG` | Private operator-selected JSON file specifying the separate Nightscout access issuer, distinct data/management audiences, provisioned public keys and bound Transit signing references. Required only when OIDC is enabled. |
 | `OIDC_TENANT_ORIGINS` | Multitenant only: JSON object mapping every configured tenant ID to its canonical HTTPS origin. Register each origin's callback at the provider. |
 | `OIDC_POSTGRES_CONNECTION` | Multitenant only: explicit scoped session service connection from the environment. |
 | `OIDC_NAMESPACE`, `OIDC_AUTHORITY_NAMESPACE`, `OIDC_ACCESS_NAMESPACE` | Multitenant only: distinct operator-migrated human, current authorization and access namespaces. |
@@ -33,6 +34,48 @@ No secret is derived from `API_SECRET`, and enabling OIDC never provisions a
 human mapping or management entitlement. Apply the additive catalogue and
 service grants before starting an opted-in multitenant role. Existing operator
 readiness and lifecycle admission still apply; serving code never creates tables.
+
+The access file is separate from the provider's OIDC discovery configuration:
+provider ID tokens authenticate identity and never become Nightscout authority.
+Its closed version1 shape is:
+
+```js
+{
+  version: 1,
+  issuer: 'synthetic-nightscout-human-access',
+  audiences: { data: 'synthetic-human-data', management: 'synthetic-human-management' },
+  vault: { addressEnv: 'OIDC_VAULT_ADDRESS', tokenEnv: 'OIDC_VAULT_TOKEN', mount: 'transit' },
+  keys: [{
+    tenant: 'single', purpose: 'data', kid: 'human-data-v1',
+    publicKey: '<canonical base64 of32 provisioned Ed25519 public bytes>',
+    current: true, signingKey: 'human-data', signingVersion: 1
+  }, /* a distinct management key is also required */]
+}
+```
+
+Use canonical UUID bindings for multitenant keys. The private single human
+profile accepts only the literal auth scope `single`; this is not a clinical
+tenant ID and never serializes or changes storage's `SINGLE_TENANT` symbol.
+Per-site issuer, audience and public-key bindings isolate sites. Default and
+multitenant verifiers remain UUID strict. Arbitrary validators or auth scopes
+cannot be selected by configuration or request. Human and existing headless
+issuer/audience namespaces must be disjoint; a recognized failed human proof
+never falls back to machine or legacy authentication.
+
+The access issuer is Ed25519/EdDSA through the configured private Transit sign
+capability, separate from the existing legacy HMAC methods. The provider's
+`OIDC_SIGNING_ALGORITHM` setting does not select the Nightscout access algorithm.
+Provision non-exportable Ed25519 keys and sign-only service ACLs, and separately
+admit their type, public-key binding and custody through operator proof. Serving
+never reads or exports private keys. The current runtime token reference is the
+development/staging environment seam; production additionally requires the
+adopted service-login/lease-renewal adapter. Explicit `allowInsecureLoopback:true`
+in the Vault object permits developer loopback HTTP only; staging/production use
+HTTPS and their operator-managed CA configuration. No default-off dependency is
+added. Existing access verification is local to provisioned public keys plus
+current local authority, so Vault outage refuses new signing, not otherwise
+valid current access. Current accepted keys remain an authoritative store fact,
+not the `current` selection in this public verification/signing file.
 
 The shared routes live under `/api/v2/oidc`: same-origin JSON POST `login` and
 `renew`, GET `callback`, GET `session`, JSON POST `logout`, and signed provider
@@ -53,16 +96,26 @@ moving the absolute/authentication clocks; secret reveal and privileged
 credential/grant changes additionally require current authentication freshness.
 Existing legacy sign-in/sign-out retain their separate browser-forgetting
 meaning. Explicit OIDC logout invalidates only its selected local human session,
-then clears its cookie and optionally returns a trusted provider logout location.
+then clears its cookie. The browser subsequently calls the configured provider
+logout endpoint when available; provider failure never reverses local revocation.
 If the current store is unavailable, local browser material is cleared but the
 response explicitly reports local revocation unconfirmed.
+
+The existing browser consumer probes the human session before selecting legacy
+headers. Current local permission groups drive its display decisions; only the
+server authorizes operations. While a human session is active or uncertain,
+stored legacy secrets and URL credentials remain dormant. Explicit human Sign
+Out uses durable logout and also forgets this browser's legacy material, without
+revoking unrelated device credentials. An unconfirmed result remains visible and
+cannot trigger a success reload or silently resume legacy authority. External
+provider Sign In/Renew actions reuse the existing authentication dialog.
 
 Provider capability details accompany the session response. A provider without a
 verifiable logout signal is supported with its expiry/renewal limitation
 disclosed. No Authentik or Kratos runtime acceptance is implied by these routes;
 the selected provider configuration needs the adopted actual reference proof.
 
-`createEngine({store,now})` exports `login`, `renew`, `authenticate`, `logout` and
+`createEngine({store,access,now})` exports `login`, `renew`, `authenticate`, `logout` and
 `logoutProvider`. Time is server-side integer epoch seconds. Management access is
 bounded to 600 seconds, its idle deadline to 1800 seconds and its absolute deadline
 to 43200 seconds. Sensitive authorization refuses at authentication age 300
@@ -73,8 +126,15 @@ expired access token may identify a still-live session for provider-backed
 renewal; it never authorizes a protected operation. Renewal preserves original
 authentication and absolute timestamps and never counts as management activity.
 
-Access credentials contain 256 random bits. Persistence keeps their SHA-256
-verifiers, not recoverable bearer copies. Concurrent renewal can produce multiple
+Access credentials use the adopted `ns-access+jwt` asymmetric profile through a
+required issuer/verification capability. Production private signing remains
+behind the configured secrets boundary; only provisioned public keys are used
+for local verification. Persisted SHA-256 token hashes are secondary issuance
+bindings, never a replacement for signature, issuer/audience, purpose, subject,
+session, credential-generation and lifetime checks. Token key ID, issuance time
+and expiry must match the verified claims exactly. Login checks its selected
+current key; renewal checks both its old token key and its newly selected issuer
+key inside the current authority/session transaction. Concurrent renewal can produce multiple
 valid access credentials bound to the same session. Durable logout invalidates
 that session before any provider operation. Every protected operation reads
 current local authority and session state. Call `authenticate` with `activity:
@@ -91,50 +151,63 @@ access remains bounded by its own expiry and current local authority.
 
 ## Single MongoDB adapter
 
-`createMongoStore({collection,tenant,consumer})` takes an actual MongoDB driver
-collection, a fixed internal single-site binding and trusted consumer spelling.
-It requires no PostgreSQL or multi-document MongoDB transactions. One aggregate
-document is authoritative for the opted-in human's explicit local mapping,
-grants and sessions. It is not a cache of legacy subject roles. The operator
-provisions the document; login never inserts it. Synthetic shape:
+The adapter uses `createMongoStore({collection,tenant,consumer})` with
+one operator-provisioned **single-site human-authority aggregate**, separate from
+clinical storage's unchanged `SINGLE_TENANT` scope. The private authentication
+binding is not a clinical tenant identifier. One document owns current accepted
+signing-key state, human mappings/grants and sessions; accepted-key state is never
+copied into each principal. No PostgreSQL or multi-document MongoDB transaction
+is required. Synthetic provisioning shape:
+
+The single serving collection is `human_authority` under the existing
+`MONGO_AUTHENTICATION_COLLECTIONS_PREFIX` (default `auth_`). Its document ID is
+`authorityId('single')`; it is provisioned privately before login is admitted.
 
 ```js
 {
-  _id: principalId(fixedSiteBinding, configuredIssuer, providerSubject),
-  tenant: fixedSiteBinding,
-  issuer: configuredIssuer,
-  providerSubject,
-  subject: 'local_subject',
-  consumer: 'oidc',
-  enabled: true,
-  generation: 1,
+  _id: authorityId(privateSiteBinding),
+  tenant: privateSiteBinding,
   revision: 1,
-  purposes: ['data'],
-  permissionGroups: [['api:status:read']],
+  keys: [{ kid: 'current_data_key', purpose: 'data', active: true }],
+  principals: [{
+    id: principalId(privateSiteBinding, configuredIssuer, providerSubject),
+    issuer: configuredIssuer,
+    providerSubject,
+    subject: 'local_subject',
+    consumer: 'oidc',
+    enabled: true,
+    generation: 1,
+    credentialGeneration: 1,
+    purposes: ['data'],
+    permissionGroups: [['api:status:read']]
+  }],
   sessions: [],
   logoutEvents: []
 }
 ```
 
-Adding `management` is an explicit local management entitlement. Do not import
-legacy root/data wildcards as management membership. All operator edits increment
-`revision`; changing the mapping/credential generation increments `generation`
-and invalidates existing human sessions. Grants are read directly from this
-document at each operation. Primary majority reads and journaled majority atomic document
-replacement compare mapping, grants, revision and sessions, so a racing logout or
-grant change causes a fresh evaluation. Even read-only authentication commits a
-revision CAS; an unavailable store refuses rather than serving cached grants.
+Login never inserts a principal or key. Adding `management` is an explicit local
+management entitlement, distinct from legacy root/data wildcards. Every operation
+checks current global key acceptance and that principal's current grants. Operator
+edits increment `revision`; mapping generation or credential generation changes
+invalidate existing sessions. Current key retirement affects the next protected
+operation and provider-backed renewal, even with a valid signature and cached
+provisioned public key. Logout may still invalidate its known session after
+retirement without receiving a grant or issuance entitlement.
 
-Provision indexes on `{tenant:1,'sessions.tokens.hash':1}` and
-`{tenant:1,issuer:1,'sessions.providerSession':1}` through operator migrations.
-There are bounded admission limits of 32 live sessions per principal, 128 retained
-access-token selectors per session, and 256 retained logout event IDs. Capacity
-exhaustion refuses issuance/event processing with `HUMAN_SESSION_CAPACITY`; it
-never drops live selectors or forgets replay protection to manufacture success.
-Issuance reclaims revoked or already-expired management sessions. No operating
-capacity is inferred from these defensive bounds. A sid-only event that maps to
-multiple principal documents refuses as unsupported instead of selecting an
-arbitrary identity. The configured provider must honor issuer-scoped session IDs.
+Primary majority reads and journaled-majority atomic replacement compare the
+aggregate revision, global keys, principals, sessions and event history together.
+A racing logout, key retirement or grant edit causes a fresh evaluation, including
+when a signer call is in flight. Read-only authentication also commits a revision
+CAS. An unavailable store refuses rather than serving a cached grant/key snapshot.
+
+The implementation has defensive admission bounds of 64 principals, 128 sessions across
+the site (32 per principal), 128 retained token selectors per session, 1024 retained
+logout event IDs and 8 MiB serialized aggregate size. Exhaustion refuses rather
+than evicting live selectors, grants or replay protection. Issuance may reclaim
+revoked or expired management sessions. These are defensive bounds,
+not measured operating capacity. Native acceptance of the new aggregate remains
+UNMEASURED; earlier per-principal opaque-token results do not prove it.
 
 ## Multitenant PostgreSQL adapter
 
@@ -143,12 +216,20 @@ accessNamespace,consumer})` requires explicit multi mode and a non-superuser,
 non-bypass-RLS connection. Apply `candidate.json` through the explicit migration
 runner to the human-session namespace. Serving startup performs no DDL. The
 catalogue adds RLS-forced `human_identities`, `human_sessions`,
-`human_access_tokens` and `human_logout_events` tables.
+`human_access_tokens` and `human_logout_events` tables. Additive migration
+`0002_signed_access_binding` preserves the first catalogue and adds the token
+key ID and issuance timestamp. Historical opaque-prototype rows have no key
+binding and cannot authorize a signed-profile request; no opaque fallback or
+backfilled invented signing key is allowed.
 
 Operator-provisioned identity rows bind configured issuer/provider subject to a
 current local subject and access credential, explicit purposes, enabled state
 and generation. Current authority joins the existing access tenant/credential
-and subject/role records in the session transaction. Management additionally
+and subject/role records in the session transaction, plus SELECT-only
+`access_keys` state for every old and newly selected signing key. Issuance and
+renewal require all selected keys to be currently accepted for the exact purpose.
+An already-authorized operation may finish if key retirement commits while it is
+in flight; the next protected operation obtains the current refusal. Management additionally
 requires an active `tenant_owner_actors` relationship for the configured
 consumer. Data permissions remain the current subject roles and existing default
 role policy; they never create management membership.
@@ -163,6 +244,13 @@ the same transaction with synchronous commit. Protected management mutations
 retain the consuming service's policy/grant fence.
 
 ## Verification scope
+
+Earlier `nsh_` opaque-access prototype evidence is retained as a nonconforming
+implementation result. It does not satisfy the adopted asymmetric access-token
+contract. Signed-profile signature, issuance binding, current key retirement and
+current-authority source controls are separate from that prototype capture.
+Native persistence, actual private signing and actual browser evidence require
+new attributed reserved execution.
 
 `tests/human-session-lifecycle.test.js` exercises the actual engine and aggregate
 adapter using a synthetic collection double, including concurrent CAS, current
@@ -185,11 +273,31 @@ constitute executing it.
 
 `tests/human-session-mongo-native.js` similarly requires a reserved window
 (`HUMAN_SESSION_NATIVE_RESERVED=1`) and an explicit `HUMAN_SESSION_MONGO_URL`.
-It creates a randomly named collection, provisions only synthetic identity/grants,
+It creates a randomly named collection, provisions only synthetic identity/grants/accepted keys,
 and exercises the actual driver and aggregate adapter through two workers. Its
 scheduling barrier retains actual database operations while forcing logout/grant
 updates between a renewal/read and its CAS. It drops only the owned collection
-and closes its client. Optional `HUMAN_SESSION_NATIVE_ENGINE` and
+and closes its independent clients. The engines run in one Node process and use distinct MongoClient pools; this is not a separate-process claim. Optional `HUMAN_SESSION_NATIVE_ENGINE` and
 `HUMAN_SESSION_NATIVE_STORE` load physically mutated scratch modules for semantic
 controls. These are instrument hooks, not production switches. Parse and lint
 checks do not imply an actual MongoDB run.
+
+
+`tests/human-access-vault-native.js` is a separately reserved, finite Vault
+instrument. It refuses before transport without both native/Vault reservation
+flags, explicit loopback service/admin credential and an exact single or UUID
+authentication binding. It creates a unique owned Transit mount, nonexportable
+Ed25519 keys and sign-only tokens, then consumes production configuration and
+issuance. It checks forbidden read/export/mutation paths, unchanged legacy HMAC
+behavior and local verification after deliberately revoking a still-valid
+signing capability. Token revocation is a signer-refusal case, not proof of a
+network outage. Owned tokens, policies, mount and public scratch configuration
+are removed with verified closure; unknown outcomes fail.
+
+Its optional awaited `consume({accessConfigPath,accessSource,tenant,mode})`
+callback can run an explicitly bounded native HTTP child using the same private
+sign-only capability. The callback receives no administrator capability. A
+standalone Vault pass does not imply HTTP, browser or database acceptance;
+claim those boundaries only from an actual attributed child run. The external
+reservation must bound the entire composite and independently prove process,
+listener and service closure. Inert guard tests perform no Vault transport.

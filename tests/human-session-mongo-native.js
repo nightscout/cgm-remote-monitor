@@ -10,8 +10,9 @@ const { MongoClient } = require('mongodb');
 // eslint-disable-next-line security/detect-non-literal-require
 const { createEngine } = require(process.env.HUMAN_SESSION_NATIVE_ENGINE || '../lib/human-session/engine');
 // eslint-disable-next-line security/detect-non-literal-require
-const { createMongoStore, principalId } = require(process.env.HUMAN_SESSION_NATIVE_STORE || '../lib/human-session/mongo');
-const tenant = 'single-native-synthetic';
+const { createMongoStore, authorityId, principalId } = require(process.env.HUMAN_SESSION_NATIVE_STORE || '../lib/human-session/mongo');
+const humanAccessFixture = require('./fixtures/human-access-issuer');
+const tenant = 'single';
 const issuer = 'https://synthetic-provider.invalid';
 
 async function run () {
@@ -26,6 +27,7 @@ async function run () {
   const name = 'human_session_native_' + randomBytes(8).toString('hex');
   const checks = [], cleanupErrors = [];
   let collection, workerClient, created = false, beforeReplace = null, clock = 1000, primary;
+  const crypto = humanAccessFixture({ tenant, now: () => clock });
   const proof = () => ({ issuer, subject: 'provider-a', authenticatedAt: clock, providerSession: 'provider-session-a' });
   async function check (label, fn) { await fn(); checks.push({ name: label, pass: true }); }
   try {
@@ -33,12 +35,11 @@ async function run () {
     const db = process.env.HUMAN_SESSION_MONGO_DB ? client.db(process.env.HUMAN_SESSION_MONGO_DB) : client.db();
     collection = await db.createCollection(name);
     created = true;
-    await collection.createIndex({ tenant: 1, 'sessions.tokens.hash': 1 });
-    await collection.createIndex({ tenant: 1, issuer: 1, 'sessions.providerSession': 1 });
-    const id = principalId(tenant, issuer, 'provider-a');
-    await collection.insertOne({ _id: id, tenant, issuer, providerSubject: 'provider-a',
-      subject: 'local_a', consumer: 'oidc', enabled: true, generation: 1, revision: 1,
-      purposes: ['data', 'management'], permissionGroups: [['api:status:read']], sessions: [], logoutEvents: [] });
+    const id = authorityId(tenant);
+    await collection.insertOne({ _id: id, tenant, revision: 1, keys: crypto.acceptedKeys,
+      principals: [{ id: principalId(tenant, issuer, 'provider-a'), issuer, providerSubject: 'provider-a',
+        subject: 'local_a', consumer: 'oidc', enabled: true, generation: 1, credentialGeneration: 1,
+        purposes: ['data', 'management'], permissionGroups: [['api:status:read']] }], sessions: [], logoutEvents: [] });
     // The barrier changes scheduling only; every operation goes to the actual
     // driver collection. Both engines remain in this one Node process, while
     // the second engine uses an independent MongoClient and real driver pool.
@@ -54,8 +55,8 @@ async function run () {
     await workerClient.connect();
     const workerDB = process.env.HUMAN_SESSION_MONGO_DB ? workerClient.db(process.env.HUMAN_SESSION_MONGO_DB) : workerClient.db();
     const workerCollection = workerDB.collection(name);
-    const engine = createEngine({ store: createMongoStore({ collection: barrierCollection, tenant, consumer: 'oidc' }), now: () => clock });
-    const worker = createEngine({ store: createMongoStore({ collection: workerCollection, tenant, consumer: 'oidc' }), now: () => clock });
+    const engine = createEngine({ store: createMongoStore({ collection: barrierCollection, tenant, consumer: 'oidc' }), access: crypto.access, now: () => clock });
+    const worker = createEngine({ store: createMongoStore({ collection: workerCollection, tenant, consumer: 'oidc' }), access: crypto.access, now: () => clock });
     const login = (purpose = 'management') => engine.login({ tenant, identity: proof(), purpose });
     const authenticate = (token, extra = {}) => worker.authenticate({ tenant, token, purpose: 'management', ...extra });
     let issued;
@@ -66,12 +67,18 @@ async function run () {
       const stored = await collection.findOne({ _id: id });
       assert.equal(JSON.stringify(stored).includes(issued.token), false);
     });
+    await check('actual Mongo same-second signed concurrent renewal is idempotent', async () => {
+      const renewed = await Promise.all(Array.from({ length: 4 }, () => worker.renew({ tenant, token: issued.token, identity: proof() })));
+      assert.equal(new Set(renewed.map(result => result.token)).size, 1);
+      assert.equal((await collection.findOne({ _id: id })).sessions[0].tokens.length, 1);
+      for (const result of renewed) await authenticate(result.token);
+    });
     await check('current grant removal and explicit management entitlement are effective next operation', async () => {
-      await collection.updateOne({ _id: id }, { $set: { permissionGroups: [] }, $inc: { revision: 1 } });
+      await collection.updateOne({ _id: id }, { $set: { 'principals.0.permissionGroups': [] }, $inc: { revision: 1 } });
       assert.equal((await authenticate(issued.token)).actor.allows('api:status:read'), false);
-      await collection.updateOne({ _id: id }, { $set: { purposes: ['data'] }, $inc: { revision: 1 } });
+      await collection.updateOne({ _id: id }, { $set: { 'principals.0.purposes': ['data'] }, $inc: { revision: 1 } });
       await assert.rejects(authenticate(issued.token), { code: 'HUMAN_AUTHORITY_REFUSED' });
-      await collection.updateOne({ _id: id }, { $set: { purposes: ['data', 'management'], permissionGroups: [['api:status:read']] }, $inc: { revision: 1 } });
+      await collection.updateOne({ _id: id }, { $set: { 'principals.0.purposes': ['data', 'management'], 'principals.0.permissionGroups': [['api:status:read']] }, $inc: { revision: 1 } });
     });
     await check('durable local logout refuses copied access through another worker and preserves other session', async () => {
       const other = await login();
@@ -137,9 +144,18 @@ async function run () {
     });
     await check('actual Mongo grant CAS rereads an authority change racing protected access', async () => {
       issued = await login();
-      beforeReplace = () => collection.updateOne({ _id: id }, { $set: { enabled: false }, $inc: { revision: 1 } });
+      beforeReplace = () => collection.updateOne({ _id: id }, { $set: { 'principals.0.enabled': false }, $inc: { revision: 1 } });
       await assert.rejects(engine.authenticate({ tenant, token: issued.token, purpose: 'management' }), { code: 'HUMAN_AUTHORITY_REFUSED' });
-      await collection.updateOne({ _id: id }, { $set: { enabled: true }, $inc: { revision: 1 } });
+      await collection.updateOne({ _id: id }, { $set: { 'principals.0.enabled': true }, $inc: { revision: 1 } });
+    });
+    await check('actual Mongo global key retirement refuses access and renewal while known logout remains available', async () => {
+      await collection.updateOne({ _id: id }, { $set: { 'keys.$[key].active': false }, $inc: { revision: 1 } },
+        { arrayFilters: [{ 'key.purpose': 'management' }] });
+      await assert.rejects(authenticate(issued.token), { code: 'HUMAN_AUTHORITY_REFUSED' });
+      await assert.rejects(worker.renew({ tenant, token: issued.token, identity: proof() }), { code: 'HUMAN_AUTHORITY_REFUSED' });
+      await engine.logout({ tenant, token: issued.token });
+      await collection.updateOne({ _id: id }, { $set: { 'keys.$[key].active': true }, $inc: { revision: 1 } },
+        { arrayFilters: [{ 'key.purpose': 'management' }] });
     });
     await check('data sessions remain free of management idle and absolute policy', async () => {
       issued = await login('data');

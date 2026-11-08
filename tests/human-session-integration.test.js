@@ -2,16 +2,28 @@
 
 const assert = require('node:assert/strict');
 const { EventEmitter } = require('node:events');
-const { randomBytes } = require('node:crypto');
+const humanAccessFixture = require('./fixtures/human-access-issuer');
 const runtime = require('../lib/human-session/runtime');
 const management = require('../lib/human-session/management');
 const { credential, COOKIE, MANAGEMENT_COOKIE } = require('../lib/human-session/http');
 const createDataAccess = require('../lib/server/tenant-app/data-access');
 const tenantAuthentication = require('../lib/api3/tenant-authentication');
+const { createVerifier, createAuthentication } = require('../lib/tenant-authorization/access-token');
 
 describe('human sessions consumed by existing authentication factories (source doubles)', function () {
   const tenant = '11111111-1111-4111-8111-111111111111';
-  const token = 'nsh_' + randomBytes(32).toString('base64url');
+  let token, managementToken, singleToken, singleManagementToken, profile;
+  before(async function () {
+    const at = Math.floor(Date.now() / 1000);
+    profile = humanAccessFixture({ tenant });
+    const single = humanAccessFixture({ tenant: 'single' });
+    const issue = (access, tenant, purpose) => access.issue({ tenant, subject: 'reader', session: 'synthetic-' + purpose,
+      purpose, credentialVersion: 1, issuedAt: at, expiresAt: at + 600 });
+    token = await issue(profile.access, tenant, 'data');
+    managementToken = await issue(profile.access, tenant, 'management');
+    singleToken = await issue(single.access, 'single', 'data');
+    singleManagementToken = await issue(single.access, 'single', 'management');
+  });
   function request (headers = {}, extra = {}) {
     return { headers, rawHeaders: Object.entries(headers).flat(), query: {}, body: undefined,
       method: 'GET', path: '/entries', header: name => headers[name.toLowerCase()],
@@ -42,9 +54,10 @@ describe('human sessions consumed by existing authentication factories (source d
   });
 
   it('selects human management purpose without legacy fallback and touches only after explicit success', async function () {
+    const token = managementToken;
     const calls = [];
     const actor = { tenant, principal: 'owner', consumer: 'management' };
-    const human = { async authenticate (input) { calls.push(input); return { actor }; } };
+    const human = { credential, accepts: value => profile.access.accepts(value), async authenticate (input) { calls.push(input); return { actor }; } };
     const auth = management({ human, legacy: () => { throw new Error('legacy fallback forbidden'); } });
     const req = request({ authorization: 'Bearer ' + token });
     assert.equal(await auth({ tenant, credential: token, request: req }), actor);
@@ -58,7 +71,7 @@ describe('human sessions consumed by existing authentication factories (source d
 
   it('uses current human data grants in actual multitenant data factory without root or legacy authority', async function () {
     let legacy = 0, reads = 0;
-    const sessions = { credential, async authenticate (input) {
+    const sessions = { credential, accepts: value => profile.access.accepts(value), async authenticate (input) {
       reads++;
       assert.equal(input.tenant, tenant);
       assert.equal(input.purpose, 'data');
@@ -82,7 +95,7 @@ describe('human sessions consumed by existing authentication factories (source d
 
   it('rechecks human grant failure for each data operation without anonymous fallback', async function () {
     let active = true, legacy = 0;
-    const access = createDataAccess({ humanSessions: { credential, async authenticate () {
+    const access = createDataAccess({ humanSessions: { credential, accepts: value => profile.access.accepts(value), async authenticate () {
       if (!active) throw Object.assign(new Error(), { code: 'HUMAN_AUTHORITY_REFUSED' });
       return { actor: { subject: 'reader', permissionGroups: [['api:entries:read']], allows: () => true } };
     } }, secrets: { verifyLegacyCredential: async () => { legacy++; return { kind: 'anonymous' }; } },
@@ -94,7 +107,7 @@ describe('human sessions consumed by existing authentication factories (source d
   });
 
   it('refuses human data write with read-only grants in the actual data factory', async function () {
-    const access = createDataAccess({ humanSessions: { credential, authenticate: async () => ({ actor: {
+    const access = createDataAccess({ humanSessions: { credential, accepts: value => profile.access.accepts(value), authenticate: async () => ({ actor: {
       subject: 'reader', permissionGroups: [['api:entries:read']], allows: permission => permission === 'api:entries:read'
     } }) }, secrets: { verifyLegacyCredential: async () => { throw new Error('legacy fallback forbidden'); } },
     authority: { authorize: async () => true }, verifierContext: async tenant => ({ tenant, consumer: 'api' }) });
@@ -104,7 +117,7 @@ describe('human sessions consumed by existing authentication factories (source d
 
   it('refuses ambiguous legacy/human credentials instead of promoting a human into root', async function () {
     let human = 0;
-    const access = createDataAccess({ humanSessions: { credential, authenticate: async () => { human++; throw new Error(); } },
+    const access = createDataAccess({ humanSessions: { credential, accepts: value => profile.access.accepts(value), authenticate: async () => { human++; throw new Error(); } },
       secrets: { verifyLegacyCredential: async () => { throw new Error('legacy fallback forbidden'); } },
       authority: { authorize: async () => true }, verifierContext: async tenant => ({ tenant, consumer: 'api' }) });
     assert.equal(await access({ tenant, request: request({ authorization: 'Bearer ' + token, 'api-secret': 'synthetic-secret-hash' }) }), null);
@@ -112,13 +125,14 @@ describe('human sessions consumed by existing authentication factories (source d
   });
 
   it('consumes human session in actual single authorization with current grants and never calls legacy resolver', async function () {
+    const token = singleToken;
     const env = { trustProxy: false, authentication_collections_prefix: 'synthetic_',
       settings: { authDefaultRoles: 'denied', authFailDelay: 0 },
       enclave: { isApiKeySet: () => false } };
     let active = true;
     const ctx = { store: { collection: () => ({}) }, bus: new EventEmitter(), settings: {},
       moment: require('moment'), language: { translate: value => value },
-      humanSessions: { credential, async authenticate (input) {
+      humanSessions: { credential, accepts: value => profile.access.accepts(value), async authenticate (input) {
         assert.equal(input.tenant, 'single');
         assert.equal(input.purpose, 'data');
         if (!active) throw Object.assign(new Error(), { code: 'HUMAN_SESSION_REFUSED' });
@@ -144,12 +158,13 @@ describe('human sessions consumed by existing authentication factories (source d
   });
 
   it('checks explicit single management purpose and touches after successful JSON only', async function () {
+    const token = singleManagementToken;
     const calls = [];
     const env = { trustProxy: false, authentication_collections_prefix: 'synthetic_',
       settings: { authDefaultRoles: 'denied', authFailDelay: 0 }, enclave: { isApiKeySet: () => false } };
     const ctx = { store: { collection: () => ({}) }, bus: new EventEmitter(), settings: {},
       moment: require('moment'), language: { translate: value => value },
-      humanSessions: { credential, async authenticate (input) {
+      humanSessions: { credential, accepts: value => profile.access.accepts(value), async authenticate (input) {
         calls.push(input);
         assert.equal(input.purpose, 'management');
         return { actor: { subject: 'owner', permissionGroups: [['admin:api:roles:read']] } };
@@ -168,5 +183,51 @@ describe('human sessions consumed by existing authentication factories (source d
     assert.equal(calls[0].activity, undefined);
     assert.equal(calls[1].activity, true);
     assert.deepEqual(sent, [{ synthetic: true }]);
+  });
+
+  it('preserves a real signed-machine verifier for direct data access but never falls back to it from a human cookie', async function () {
+    const machine = humanAccessFixture({ tenant, issuer: 'synthetic-machine-access',
+      audiences: { data: 'synthetic-machine-data', management: 'synthetic-machine-management' } });
+    const at = Math.floor(Date.now() / 1000);
+    const machineToken = await machine.access.issue({ tenant, subject: 'machine-reader', session: 'machine-session',
+      purpose: 'data', credentialVersion: 1, issuedAt: at, expiresAt: at + 600 });
+    const authenticate = createAuthentication({ verifyToken: createVerifier({ issuer: machine.issuer,
+      audience: machine.audiences.data, purpose: 'data', maxLifetimeSeconds: 28800,
+      resolveKey: (tenant, kid) => {
+        const key = machine.keys.find(key => key.tenant === tenant && key.kid === kid);
+        return key && { ...key, issuer: machine.issuer };
+      } }), snapshot: async () => ({ active: true, sessionActive: true, keyActive: true,
+      credentialVersion: 1, sessionExpiresAt: at + 600, name: 'machine-reader', permissionGroups: [['api:entries:read']],
+      allows: permission => permission === 'api:entries:read' }) });
+    const counts = { human: 0, machine: 0, legacy: 0 };
+    const access = createDataAccess({
+      humanSessions: { credential, accepts: value => profile.access.accepts(value), async authenticate (input) {
+        counts.human++;
+        profile.access.verify({ tenant: input.tenant, token: input.credential });
+        throw new Error('Foreign machine profile must refuse in the human verifier');
+      } },
+      accessTokens: { authenticate: input => { counts.machine++; return authenticate(input); } },
+      secrets: { verifyLegacyCredential: async () => { counts.legacy++; throw new Error('Unexpected legacy fallback'); } },
+      authority: { authorize: async () => false }, verifierContext: async tenant => ({ tenant, consumer: 'api' }) });
+    assert.equal(profile.access.accepts(machineToken), false);
+    const direct = await access({ tenant, request: request({ authorization: 'Bearer ' + machineToken }) });
+    assert.equal(direct.principal, 'machine-reader');
+    await assert.rejects(access({ tenant, request: request({ cookie: COOKIE + '=' + machineToken }) }), { code: 'HUMAN_SESSION_REFUSED' });
+    assert.deepEqual(counts, { human: 1, machine: 1, legacy: 0 });
+  });
+
+  it('refuses an unrecognized signed profile in a management cookie without calling headless legacy management', async function () {
+    const foreign = humanAccessFixture({ tenant, issuer: 'foreign-management-issuer' });
+    const at = Math.floor(Date.now() / 1000);
+    const foreignToken = await foreign.access.issue({ tenant, subject: 'foreign-owner', session: 'foreign-session',
+      purpose: 'management', credentialVersion: 1, issuedAt: at, expiresAt: at + 600 });
+    let legacy = 0;
+    const auth = management({ human: { credential, accepts: value => profile.access.accepts(value),
+      authenticate: async input => { profile.access.verify({ tenant: input.tenant, token: input.credential }); } },
+    legacy: async () => { legacy++; throw new Error('Unexpected headless management fallback'); } });
+    assert.equal(profile.access.accepts(foreignToken), false);
+    await assert.rejects(auth({ tenant, credential: foreignToken,
+      request: request({ cookie: MANAGEMENT_COOKIE + '=' + foreignToken }) }), { code: 'HUMAN_SESSION_REFUSED' });
+    assert.equal(legacy, 0);
   });
 });

@@ -31,7 +31,7 @@ function guardedFixture (env) {
   return { createNativeStore: module.exports.createNativeStore, attempted };
 }
 
-const identity = { issuer: 'https://provider.synthetic.invalid', providerSubject: 'synthetic-subject', providerSession: 'synthetic-session' };
+const identity = { issuer: 'https://provider.synthetic.invalid', providerSubject: 'synthetic-subject', providerSession: 'synthetic-session', acceptedKeys: [{ kid: 'synthetic-data', purpose: 'data', active: true }] };
 
 describe('native human store fixture admission (no runtime)', function () {
   it('requires an explicit reservation before any Mongo driver construction', async function () {

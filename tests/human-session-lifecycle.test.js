@@ -3,18 +3,22 @@
 // Source-double acceptance of the actual engine and Mongo aggregate adapter.
 // No result in this file is actual Mongo/PostgreSQL/provider/browser evidence.
 const assert = require('node:assert/strict');
-const { createEngine } = require(process.env.HUMAN_SESSION_TEST_SOURCE || '../lib/human-session/engine');
-const { createMongoStore, principalId } = require(process.env.HUMAN_SESSION_TEST_STORE || '../lib/human-session/mongo');
+const { createEngine, tokenHash } = require(process.env.HUMAN_SESSION_TEST_SOURCE || '../lib/human-session/engine');
+const { createMongoStore, authorityId, principalId } = require(process.env.HUMAN_SESSION_TEST_STORE || '../lib/human-session/mongo');
+const humanAccessFixture = require('./fixtures/human-access-issuer');
+const { createHumanAccess } = require('../lib/human-session/access');
 const clone = value => JSON.parse(JSON.stringify(value));
-const tenant = '00000000-0000-0000-0000-000000000001';
+const tenant = 'single';
 const issuer = 'https://synthetic-provider.invalid';
 
 function fixture () {
   let clock = 1000;
+  const crypto = humanAccessFixture({ tenant, now: () => clock });
   const collection = {
-    document: { _id: principalId(tenant, issuer, 'human-a'), tenant, issuer, providerSubject: 'human-a',
-      subject: 'local_a', consumer: 'oidc', enabled: true, generation: 1, revision: 1,
-      purposes: ['data', 'management'], permissionGroups: [['api:status:read']], sessions: [], logoutEvents: [] },
+    document: { _id: authorityId(tenant), tenant, revision: 1, keys: crypto.acceptedKeys,
+      principals: [{ id: principalId(tenant, issuer, 'human-a'), issuer, providerSubject: 'human-a',
+        subject: 'local_a', consumer: 'oidc', enabled: true, generation: 1, credentialGeneration: 1,
+        purposes: ['data', 'management'], permissionGroups: [['api:status:read']] }], sessions: [], logoutEvents: [] },
     beforeReplace: null,
     async findOne (query) {
       if (this.unavailable) throw new Error('synthetic store disconnected');
@@ -38,18 +42,27 @@ function fixture () {
     }
   };
   const store = createMongoStore({ collection, tenant, consumer: 'oidc' });
-  const engine = createEngine({ store, now: () => clock });
-  const workerB = createEngine({ store: createMongoStore({ collection, tenant, consumer: 'oidc' }), now: () => clock });
+  const engine = createEngine({ store, access: crypto.access, now: () => clock });
+  const workerB = createEngine({ store: createMongoStore({ collection, tenant, consumer: 'oidc' }), access: crypto.access, now: () => clock });
   const proof = (subject = 'human-a') => ({ issuer, subject, authenticatedAt: clock, providerSession: 'provider-session-a' });
   const login = (purpose = 'management') => engine.login({ tenant, identity: proof(), purpose });
   const auth = (token, extra = {}) => engine.authenticate({ tenant, token, purpose: 'management', ...extra });
-  return { engine, workerB, collection, proof, login, auth, setTime: time => { clock = time; } };
+  return { engine, workerB, collection, crypto, now: () => clock, proof, login, auth, setTime: time => { clock = time; } };
 }
 
 describe('human-session lifecycle (source doubles, actual engine and aggregate CAS)', function () {
+  it('serving Mongo authority refuses UUID bindings rather than simulating multitenant storage', function () {
+    const f = fixture();
+    assert.throws(() => createMongoStore({ collection: f.collection, tenant: '00000000-0000-0000-0000-000000000001', consumer: 'oidc' }),
+      /fixed private single binding/);
+  });
   it('maps explicit local authority and keeps access credentials one-way', async function () {
     const f = fixture(), issued = await f.login();
-    assert.match(issued.token, /^nsh_[A-Za-z0-9_-]{43}$/);
+    assert.match(issued.token, /^[A-Za-z0-9_-]+\.[A-Za-z0-9_-]+\.[A-Za-z0-9_-]+$/);
+    const claims = f.crypto.access.verify({ tenant, token: issued.token });
+    assert.equal(claims.cv, 1);
+    assert.equal(claims.sid, issued.session.id);
+    assert.equal(JSON.parse(Buffer.from(issued.token.split('.')[0], 'base64url')).typ, 'ns-access+jwt');
     assert.equal(issued.expiresAt, 1600);
     assert.equal(issued.session.subject, 'local_a');
     assert.equal(issued.session.absoluteExpiresAt, 44200);
@@ -63,27 +76,29 @@ describe('human-session lifecycle (source doubles, actual engine and aggregate C
   it('provider identity alone grants neither local data nor management access', async function () {
     const f = fixture();
     await assert.rejects(f.engine.login({ tenant, identity: f.proof('unmapped'), purpose: 'management' }), { code: 'HUMAN_AUTHORITY_REFUSED' });
-    f.collection.document.purposes = ['data'];
+    f.collection.document.principals[0].purposes = ['data'];
     await assert.rejects(f.login(), { code: 'HUMAN_AUTHORITY_REFUSED' });
     assert.equal((await f.login('data')).session.purpose, 'data');
   });
 
   it('reads current grants and refuses disabled or generation-changed authority', async function () {
     const f = fixture(), issued = await f.login();
-    f.collection.document.permissionGroups = [['api:entries:read']];
+    f.collection.document.principals[0].permissionGroups = [['api:entries:read']];
     let current = await f.auth(issued.token);
     assert.equal(current.actor.allows('api:status:read'), false);
     assert.equal(current.actor.allows('api:entries:read'), true);
-    f.collection.document.enabled = false;
+    f.collection.document.principals[0].enabled = false;
     await assert.rejects(f.auth(issued.token), { code: 'HUMAN_AUTHORITY_REFUSED' });
-    f.collection.document.enabled = true;
-    f.collection.document.generation++;
+    f.collection.document.principals[0].enabled = true;
+    f.collection.document.principals[0].generation++;
     await assert.rejects(f.auth(issued.token), { code: 'HUMAN_AUTHORITY_REFUSED' });
   });
 
-  it('refuses foreign-tenant replay before local human authority is used', async function () {
+  it('single-site access cannot be replayed against another configured issuer and public keys', async function () {
     const f = fixture(), issued = await f.login();
-    await assert.rejects(f.engine.authenticate({ tenant: '00000000-0000-0000-0000-000000000002', token: issued.token, purpose: 'management' }), { code: 'HUMAN_SESSION_REFUSED' });
+    const foreign = humanAccessFixture({ tenant, issuer: 'other-synthetic-site', now: f.now });
+    const otherSite = createEngine({ store: createMongoStore({ collection: f.collection, tenant, consumer: 'oidc' }), access: foreign.access, now: f.now });
+    await assert.rejects(otherSite.authenticate({ tenant, token: issued.token, purpose: 'management' }), { code: 'HUMAN_SESSION_REFUSED' });
   });
 
   it('durable logout refuses replay and renewal through a second worker', async function () {
@@ -190,7 +205,7 @@ describe('human-session lifecycle (source doubles, actual engine and aggregate C
 
   it('a grant edit racing authorization retries against the committed current grant', async function () {
     const f = fixture(), issued = await f.login();
-    f.collection.beforeReplace = async () => { f.collection.document.permissionGroups = []; };
+    f.collection.beforeReplace = async () => { f.collection.document.principals[0].permissionGroups = []; };
     const current = await f.auth(issued.token);
     assert.equal(current.actor.allows('api:status:read'), false);
   });
@@ -231,5 +246,91 @@ describe('human-session lifecycle (source doubles, actual engine and aggregate C
     const f = fixture(), issued = await f.login();
     delete f.collection.document.sessions[0].idleExpiresAt;
     await assert.rejects(f.auth(issued.token), { code: 'HUMAN_SESSION_REFUSED' });
+  });
+
+  it('rejects a bad signature and any persisted kid, expiry or issuance-time mismatch', async function () {
+    const f = fixture(), issued = await f.login();
+    const parts = issued.token.split('.');
+    const signature = Buffer.from(parts[2], 'base64url'); signature[0] ^= 1;
+    await assert.rejects(f.auth(parts[0] + '.' + parts[1] + '.' + signature.toString('base64url')), { code: 'HUMAN_SESSION_REFUSED' });
+    const stored = f.collection.document.sessions[0].tokens[0];
+    const original = { ...stored };
+    for (const [name, value] of [['kid', 'different-key'], ['expiresAt', 1601], ['issuedAt', 999]]) {
+      stored[name] = value;
+      await assert.rejects(f.auth(issued.token), { code: 'HUMAN_SESSION_REFUSED' });
+      Object.assign(stored, original);
+    }
+  });
+
+  it('current key retirement refuses access and renewal but permits known-session logout', async function () {
+    const f = fixture(), issued = await f.login();
+    f.collection.document.keys.find(key => key.purpose === 'management').active = false;
+    await assert.rejects(f.auth(issued.token), { code: 'HUMAN_AUTHORITY_REFUSED' });
+    await assert.rejects(f.engine.renew({ tenant, token: issued.token, identity: f.proof() }), { code: 'HUMAN_AUTHORITY_REFUSED' });
+    await f.engine.logout({ tenant, token: issued.token });
+    assert.equal(f.collection.document.sessions[0].active, false);
+  });
+
+  it('renewal requires both the old accepted key and newly selected issuer key', async function () {
+    const f = fixture(), issued = await f.login();
+    const next = humanAccessFixture({ tenant, now: f.now }).keys.find(key => key.purpose === 'management');
+    next.kid = 'human-management-v2';
+    const keys = f.crypto.keys.map(key => ({ ...key, current: key.purpose !== 'management' })).concat(next);
+    const rotated = createHumanAccess({ issuer: f.crypto.issuer, audiences: f.crypto.audiences, keys, mode: 'single', now: f.now });
+    const engine = createEngine({ store: createMongoStore({ collection: f.collection, tenant, consumer: 'oidc' }), access: rotated, now: f.now });
+    f.collection.document.keys.push({ kid: next.kid, purpose: 'management', active: false });
+    await assert.rejects(engine.renew({ tenant, token: issued.token, identity: f.proof() }), { code: 'HUMAN_AUTHORITY_REFUSED' });
+    f.collection.document.keys.find(key => key.kid === next.kid).active = true;
+    const renewed = await engine.renew({ tenant, token: issued.token, identity: f.proof() });
+    assert.equal(rotated.verify({ tenant, token: renewed.token }).kid, next.kid);
+    f.collection.document.keys.find(key => key.kid !== next.kid && key.purpose === 'management').active = false;
+    await assert.rejects(engine.renew({ tenant, token: issued.token, identity: f.proof() }), { code: 'HUMAN_AUTHORITY_REFUSED' });
+    await engine.authenticate({ tenant, token: renewed.token, purpose: 'management' });
+  });
+
+  it('a global key retirement during issuance is retried and cannot return usable access', async function () {
+    const f = fixture(), issued = await f.login();
+    f.collection.beforeReplace = async () => { f.collection.document.keys.find(key => key.purpose === 'management').active = false; };
+    await assert.rejects(f.engine.renew({ tenant, token: issued.token, identity: f.proof() }), { code: 'HUMAN_AUTHORITY_REFUSED' });
+    await assert.rejects(f.auth(issued.token), { code: 'HUMAN_AUTHORITY_REFUSED' });
+  });
+
+  it('same-second signed renewal is idempotent in persisted issuance binding', async function () {
+    const f = fixture(), issued = await f.login();
+    const renewed = await Promise.all(Array.from({ length: 4 }, () => f.engine.renew({ tenant, token: issued.token, identity: f.proof() })));
+    assert.equal(new Set(renewed.map(result => result.token)).size, 1);
+    assert.equal(f.collection.document.sessions[0].tokens.length, 1);
+    for (const result of renewed) await f.auth(result.token);
+  });
+
+  it('signature validation refuses even if a stored secondary hash binding is corrupted', async function () {
+    const f = fixture(), issued = await f.login();
+    const parts = issued.token.split('.');
+    const signature = Buffer.from(parts[2], 'base64url'); signature[0] ^= 1;
+    const corrupt = parts[0] + '.' + parts[1] + '.' + signature.toString('base64url');
+    // This synthetic corruption deliberately neutralizes the independent
+    // issuance-hash guard so this assertion measures the signature guard itself.
+    f.collection.document.sessions[0].tokens[0].hash = tokenHash(corrupt);
+    await assert.rejects(f.auth(corrupt), { code: 'HUMAN_SESSION_REFUSED' });
+  });
+
+  it('a valid signer result discarded after failed CAS cannot authorize and is never returned', async function () {
+    const f = fixture(), issued = await f.login(), signed = [];
+    const access = { ...f.crypto.access, async issue (request) {
+      const token = await f.crypto.access.issue(request);
+      signed.push(token);
+      return token;
+    } };
+    const engine = createEngine({ store: createMongoStore({ collection: f.collection, tenant, consumer: 'oidc' }), access, now: f.now });
+    f.setTime(1001);
+    f.collection.beforeReplace = async () => { f.collection.document.revision++; f.setTime(1002); };
+    const renewed = await engine.renew({ tenant, token: issued.token, identity: f.proof() });
+    assert.equal(signed.length, 2);
+    assert.notEqual(signed[0], signed[1]);
+    assert.equal(f.crypto.access.verify({ tenant, token: signed[0] }).iat, 1001);
+    assert.equal(renewed.token, signed[1]);
+    assert.equal(f.collection.document.sessions[0].tokens.some(token => token.hash === tokenHash(signed[0])), false);
+    await assert.rejects(f.auth(signed[0]), { code: 'HUMAN_SESSION_REFUSED' });
+    await f.auth(renewed.token);
   });
 });

@@ -6,6 +6,7 @@ const { randomBytes } = require('node:crypto');
 const { createHumanHTTP, credential, COOKIE, MANAGEMENT_COOKIE, FLOW, PREFIX } = require('../lib/human-session/http');
 const { createProvider } = require('../lib/human-session/provider');
 const fixture = require('./fixtures/human-oidc-provider');
+const humanAccessFixture = require('./fixtures/human-access-issuer');
 
 // Real Express router/body parser and real protocol adapter over synthetic HTTP
 // Request/Response transport. This helper never opens a socket; browser, native
@@ -40,8 +41,7 @@ describe('shared human OIDC HTTP boundary (Express without listening)', function
   const tenant = '11111111-1111-4111-8111-111111111111';
   const other = '22222222-2222-4222-8222-222222222222';
   const origin = 'https://nightscout.synthetic.invalid';
-  const token = 'nsh_' + randomBytes(32).toString('base64url');
-  let source, provider, service, calls, time, resolvedTenant, engine;
+  let token, managementToken, profile, source, provider, service, calls, time, resolvedTenant, engine;
 
   beforeEach(async function () {
     time = Math.floor(Date.now() / 1000);
@@ -49,13 +49,27 @@ describe('shared human OIDC HTTP boundary (Express without listening)', function
     calls = [];
     source = await fixture({ redirectUri: origin + PREFIX + '/callback' });
     provider = await createProvider(source);
+    profile = humanAccessFixture({ tenant, now: () => time });
+    async function issue (purpose) {
+      return profile.access.issue({ tenant, subject: 'synthetic-subject', session: 'synthetic-' + purpose,
+        purpose, credentialVersion: 1, issuedAt: time, expiresAt: time + 600 });
+    }
+    token = await issue('data'); managementToken = await issue('management');
+    // Transport fake only; actual signature/profile validation is retained.
+    // Durable/current-authority evidence belongs to engine/adapter acceptance.
     engine = {
-      async login (input) { calls.push(['login', input]); return { token, expiresAt: time + 600, session: {
+      accepts: value => profile.access.accepts(value),
+      async login (input) { calls.push(['login', input]); return { token: input.purpose === 'management' ? managementToken : token, expiresAt: time + 600, session: {
         id: 'synthetic-session', purpose: input.purpose, absoluteExpiresAt: input.purpose === 'management' ? time + 43200 : null
       } }; },
       async renew (input) { calls.push(['renew', input]); return { token, expiresAt: time + 600, session: { id: 'synthetic-session', purpose: 'data', absoluteExpiresAt: null } }; },
-      async authenticate (input) { calls.push(['authenticate', input]); return { session: { id: 'synthetic-session' } }; },
-      async logout (input) { calls.push(['logout', input]); }
+      async authenticate (input) {
+        calls.push(['authenticate', input]);
+        const claims = profile.access.verify({ tenant: input.tenant, token: input.token });
+        if (claims.purpose !== input.purpose) throw Object.assign(new Error(), { code: 'HUMAN_SESSION_REFUSED' });
+        return { session: { id: claims.sid, purpose: claims.purpose }, actor: { permissionGroups: [['api:entries:read']] } };
+      },
+      async logout (input) { calls.push(['logout', input]); profile.access.verify({ tenant: input.tenant, token: input.token, allowExpiredLookup: true }); }
     };
     service = createHumanHTTP({ engine, provider, resolver: { resolve: async () => resolvedTenant },
       originFor: () => origin, cookieKey: randomBytes(32), now: () => time });
@@ -89,7 +103,7 @@ describe('shared human OIDC HTTP boundary (Express without listening)', function
     assert.equal(reply.status, 303);
     assert.equal(reply.location, '/');
     const session = reply.cookies.find(cookie => cookie.name === MANAGEMENT_COOKIE);
-    assert.equal(session.value, token);
+    assert.equal(session.value, managementToken);
     assert.equal(session.options.httpOnly, true);
     assert.equal(session.options.secure, true);
     assert.equal(session.options.sameSite, 'strict');
@@ -169,7 +183,6 @@ describe('shared human OIDC HTTP boundary (Express without listening)', function
   });
 
   it('keeps data and management cookies independent and logs out only the selected purpose', async function () {
-    const managementToken = 'nsh_' + randomBytes(32).toString('base64url');
     const jar = COOKIE + '=' + token + '; ' + MANAGEMENT_COOKIE + '=' + managementToken;
     const req = { headers: { cookie: jar }, rawHeaders: [] };
     assert.equal(credential(req).token, token);
@@ -223,7 +236,74 @@ describe('shared human OIDC HTTP boundary (Express without listening)', function
     }
   });
 
-  it('refuses duplicate credentials and cross-origin bearer browser requests while preserving headless bearer', async function () {
+  it('discloses enabled/absent without inventing a session or permission groups', async function () {
+    const reply = await request(service.router, { path: '/session' });
+    assert.equal(reply.status, 401);
+    assert.deepEqual(reply.body, { error: 'HUMAN_SESSION_ABSENT', enabled: true, credentialPresent: false });
+    assert.equal(calls.length, 0);
+  });
+
+  it('returns transport CSRF without grants for an actually expired signed selector, and requires new provider proof for renewal', async function () {
+    const parts = token.split('.');
+    const claims = JSON.parse(Buffer.from(parts[1], 'base64url'));
+    claims.iat = time - 1200; claims.nbf = claims.iat; claims.exp = time - 600;
+    const input = parts[0] + '.' + Buffer.from(JSON.stringify(claims)).toString('base64url');
+    const expired = input + '.' + (await profile.keys.find(key => key.purpose === 'data').sign(Buffer.from(input))).toString('base64url');
+    assert.equal(profile.access.accepts(expired), true);
+    assert.throws(() => profile.access.verify({ tenant, token: expired }), { code: 'HUMAN_SESSION_REFUSED' });
+    const auth = { cookie: COOKIE + '=' + expired };
+    const probe = await request(service.router, { path: '/session', headers: auth });
+    assert.equal(probe.status, 401);
+    assert.equal(probe.body.credentialPresent, true);
+    assert.match(probe.body.csrf, /^[A-Za-z0-9_-]{43}$/);
+    for (const key of ['session', 'permissionGroups', 'provider']) assert.equal(Object.hasOwn(probe.body, key), false);
+    const renewed = await request(service.router, { method: 'POST', path: '/renew',
+      headers: { ...auth, origin, 'x-ns-csrf': probe.body.csrf }, body: {} });
+    assert.equal(renewed.status, 200);
+    assert.equal(new URL(renewed.body.location).searchParams.get('prompt'), 'none');
+    assert.equal(calls.filter(call => call[0] === 'renew').length, 0, 'CSRF alone does not invoke provider-backed issuance');
+    const logout = await request(service.router, { method: 'POST', path: '/logout',
+      headers: { ...auth, origin, 'x-ns-csrf': probe.body.csrf }, body: {} });
+    assert.equal(logout.status, 200);
+    assert.equal(calls.find(call => call[0] === 'logout')[1].token, expired);
+    assert.ok(logout.cleared.some(cookie => cookie.name === COOKIE));
+  });
+
+  it('returns CSRF without authority on current-grant refusal or store outage and never discloses it cross-origin', async function () {
+    for (const [code, expected] of [['HUMAN_AUTHORITY_REFUSED', 403], ['HUMAN_SESSION_UNAVAILABLE', 503]]) {
+      engine.authenticate = async () => { throw Object.assign(new Error(code), { code }); };
+      const auth = { cookie: COOKIE + '=' + token };
+      const probe = await request(service.router, { path: '/session', headers: auth });
+      assert.equal(probe.status, expected);
+      assert.equal(probe.body.enabled, true);
+      assert.equal(probe.body.credentialPresent, true);
+      assert.match(probe.body.csrf, /^[A-Za-z0-9_-]{43}$/);
+      assert.equal(probe.body.error, code);
+      assert.equal(Object.hasOwn(probe.body, 'permissionGroups'), false);
+      assert.equal(Object.hasOwn(probe.body, 'session'), false);
+      const foreign = await request(service.router, { path: '/session', headers: { ...auth, origin: 'https://foreign.synthetic.invalid' } });
+      assert.equal(foreign.status, 403);
+      assert.equal(foreign.body.csrf, undefined);
+    }
+  });
+
+  it('lets the same-origin browser clear malformed human material without authorizing it or falling back', async function () {
+    const auth = { cookie: COOKIE + '=malformed-selector' };
+    const probe = await request(service.router, { path: '/session', headers: auth });
+    assert.equal(probe.status, 401);
+    assert.equal(probe.body.error, 'HUMAN_COOKIE_REFUSED');
+    assert.equal(probe.body.credentialPresent, true);
+    assert.match(probe.body.csrf, /^[A-Za-z0-9_-]{43}$/);
+    assert.equal(calls.length, 0, 'strict access syntax refuses before the fake engine');
+    const logout = await request(service.router, { method: 'POST', path: '/logout',
+      headers: { ...auth, origin, 'x-ns-csrf': probe.body.csrf }, body: {} });
+    assert.equal(logout.status, 401);
+    assert.equal(logout.body.error, 'HUMAN_SESSION_REFUSED');
+    assert.ok(logout.cleared.some(cookie => cookie.name === COOKIE));
+    assert.equal(logout.body.local, undefined, 'a malformed selector never claims durable revocation');
+  });
+
+  it('refuses duplicate credentials and cross-origin browser requests while preserving Origin-less direct human bearer', async function () {
     assert.throws(() => credential({ headers: { cookie: COOKIE + '=' + token }, rawHeaders: ['Authorization', 'Bearer ' + token] }),
       /HUMAN_CREDENTIAL_AMBIGUOUS/);
     assert.throws(() => credential({ headers: {}, rawHeaders: ['Authorization', 'Bearer ' + token, 'Authorization', 'Bearer ' + token] }),

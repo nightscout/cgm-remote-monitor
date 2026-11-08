@@ -12,7 +12,8 @@ const { randomBytes } = require('node:crypto');
 const { createProvider } = require('../lib/human-session/provider');
 const { createHumanHTTP, COOKIE, FLOW, PREFIX } = require('../lib/human-session/http');
 const { createEngine } = require('../lib/human-session/engine');
-const { createMongoStore, principalId } = require('../lib/human-session/mongo');
+const { createMongoStore, principalId, authorityId } = require('../lib/human-session/mongo');
+const accessFixture = require('./fixtures/human-access-issuer');
 const fixture = require('./fixtures/human-oidc-provider');
 
 function assertPort (port) {
@@ -143,12 +144,21 @@ async function run () {
     const provider = await createProvider({ ...providerFixture, fetch: transport });
     const persistence = process.env.HUMAN_HTTP_STORE || 'double';
     if (!['double', 'mongo', 'postgres'].includes(persistence)) throw new Error('Explicit fixture persistence kind refused');
+    const tenant = persistence === 'postgres' ? '11111111-1111-4111-8111-111111111111' : 'single';
+    const subject = 'synthetic-subject';
+    let access;
+    if (process.env.HUMAN_HTTP_SIGNER_CONFIG) {
+      if (process.env.HUMAN_SESSION_NATIVE_RESERVED !== '1') throw new Error('Native signing provider reservation required');
+      access = require('../lib/human-session/access-config').loadHumanAccess({ mode: tenant === 'single' ? 'single' : 'multi',
+        tenants: [tenant], source: { ...process.env, OIDC_ACCESS_CONFIG: process.env.HUMAN_HTTP_SIGNER_CONFIG } });
+    } else access = accessFixture({ tenant }).access;
+    const acceptedKeys = access.keyBindings.map(({ kid, purpose }) => ({ kid, purpose, active: true }));
     if (persistence !== 'double') nativeStore = await require('./fixtures/human-native-stores').createNativeStore({
-      kind: persistence, issuer, providerSubject: 'synthetic-subject', providerSession: 'synthetic-provider-session' });
-    const tenant = nativeStore?.tenant || 'single', subject = 'synthetic-subject';
-    let document = { _id: principalId(tenant, issuer, subject), tenant, issuer, providerSubject: subject,
-      subject: 'synthetic_local', consumer: 'oidc', enabled: true, generation: 1, revision: 1,
-      purposes: ['data', 'management'], permissionGroups: [['api:entries:read']], sessions: [], logoutEvents: [] };
+      kind: persistence, tenant, issuer, providerSubject: subject, providerSession: 'synthetic-provider-session', acceptedKeys });
+    let document = { _id: authorityId(tenant), tenant, revision: 1, keys: acceptedKeys,
+      principals: [{ id: principalId(tenant, issuer, subject), issuer, providerSubject: subject,
+        subject: 'synthetic_local', consumer: 'oidc', enabled: true, generation: 1, credentialGeneration: 1,
+        purposes: ['data', 'management'], permissionGroups: [['api:entries:read']] }], sessions: [], logoutEvents: [] };
     const clone = value => JSON.parse(JSON.stringify(value));
     const collection = {
       async findOne (query) {
@@ -162,9 +172,9 @@ async function run () {
       },
       find () { return { limit: () => ({ toArray: async () => [clone(document)] }) }; }
     };
-    const engine = createEngine({ store: nativeStore?.store || createMongoStore({ collection, tenant, consumer: 'oidc' }) });
+    const engine = createEngine({ store: nativeStore?.store || createMongoStore({ collection, tenant, consumer: 'oidc' }), access });
     const workerB = createEngine({ store: nativeStore ? await nativeStore.createWorkerStore()
-      : createMongoStore({ collection, tenant, consumer: 'oidc' }) });
+      : createMongoStore({ collection, tenant, consumer: 'oidc' }), access });
     const http = createHumanHTTP({ engine, provider, resolver: { resolve: async () => tenant }, originFor: () => site, cookieKey: randomBytes(32) });
     const app = express(); app.use(PREFIX, http.router);
     app.get('/', (req, res) => res.set('Cache-Control', 'no-store').type('html').send('<!doctype html><title>Synthetic session fixture</title><p>Session acceptance fixture</p>'));
@@ -259,7 +269,7 @@ async function run () {
         }, PREFIX);
         const directResponse = await page.goto(directLocation);
         const direct = (await directResponse.json()).token;
-        assert(/^nsh_[A-Za-z0-9_-]{43}$/.test(direct)); counts.assertions++;
+        assert.equal(access.accepts(direct), true); access.verify({ tenant, token: direct }); counts.assertions++;
         check(new URL(page.url()).searchParams.has('token'), false);
         check((await context.cookies()).some(value => value.name === COOKIE), false);
         const bearerRequest = (target, selected) => target.evaluate(async value => (await fetch('/protected', {
@@ -291,7 +301,8 @@ async function run () {
         await context.close();
         counts.browser = 'actual-chromium-cookie-and-bearer-https';
     }
-    result = { kind: 'actual-https-synthetic-provider', persistence: persistence === 'double' ? 'source-double' : persistence, ...counts, verdict: 'pass' };
+    result = { kind: 'actual-https-synthetic-provider', persistence: persistence === 'double' ? 'source-double' : persistence,
+      accessSigning: process.env.HUMAN_HTTP_SIGNER_CONFIG ? 'configured-transit' : 'synthetic-local-ed25519', ...counts, verdict: 'pass' };
   } catch (error) { primary = error; }
   finally {
     clearTimeout(deadline);
