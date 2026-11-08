@@ -35,7 +35,15 @@ function fixture (options = {}) {
     if (text.includes("set_config('app.current_tenant_id'")) { assert.equal(values[0], A); return { rows: [] }; }
     if (text.includes('restore-current-authority')) return { rows: [{ active: m.authority }] };
     if (text.includes('restore-backend')) return { rows: [{ ...packet, ...(m.backendChanged ? { birth: 'replacement-birth' } : {}) }] };
-    if (text.includes('restore-window-claim') || text.includes('restore-window-current')) return { rows: [clone(target().window)] };
+    if (text.includes('restore-window-claim')) {
+      // Model the compatibility measured by the bounded A1 PostgreSQL FK/claim probe;
+      // this protocol fixture is not a replacement for that native evidence.
+      if (m.claimBlocker === 'maintenance' || m.claimBlocker === 'registration-fk' && /FOR UPDATE NOWAIT$/.test(text)) {
+        throw Object.assign(new Error('could not obtain lock on row in relation tenant_lifecycle_windows'), { code: '55P03' });
+      }
+      return { rows: [clone(target().window)] };
+    }
+    if (text.includes('restore-window-current')) return { rows: [clone(target().window)] };
     if (text.startsWith('UPDATE ') && text.includes('tenant_lifecycle_windows')) {
       const w = target().window;
       if (text.includes("SET phase='suspended'")) { w.phase = 'suspended'; w.generation = values[1]; w.claim_id = values[2]; w.artifact_digest = values[3]; }
@@ -94,6 +102,33 @@ describe('private tenant restore controller (simulated backend protocol)', funct
     assert.deepEqual(m.foreign, { ordinal: 100, doc: 'B-current' });
     await scope.withTenant(A, () => assert.rejects(controller.assertHeld(saved.maintenanceClaim, { connection: saved.connection, tenant: A, artifactDigest: DIGEST }), code('LIFECYCLE_RESTORE_CLAIM_INVALID')));
     await assert.rejects(saved.connection.transaction(async () => {}), code('LIFECYCLE_RESTORE_CONNECTION_CLOSED'));
+    await api.close();
+  });
+  it('admits registration FK references with a bounded non-key claim and still drains before restore', async function () {
+    const { m, api } = fixture({ claimBlocker: 'registration-fk', pending: [{ operation_id: 'old-generation' }], finishOnPoll: true });
+    await api.withRestore(A, { artifactDigest: DIGEST }, async () => {
+      assert.equal(m.durable.window.phase, 'suspended');
+      assert.deepEqual(m.pending, []);
+      assert.equal(m.locked, true);
+    });
+    const claim = m.trace.find(sql => sql.includes('restore-window-claim'));
+    assert.match(claim, /WHERE tenant_id=\$1 FOR NO KEY UPDATE NOWAIT$/);
+    const pending = m.trace.find(sql => sql.includes('restore-pending'));
+    assert(!/generation\s*=/.test(pending), 'drain must include unfinished registrations from every generation');
+    assert.equal(m.trace.filter(sql => sql.includes('restore-window-claim')).length, 1, 'claim must never retry');
+    assert.equal(m.durable.audit.state, 'activated');
+    assert.deepEqual(m.foreign, { ordinal: 100, doc: 'B-current' });
+    await api.close();
+  });
+  it('refuses a competing maintenance row lock before suspension without retry or effects', async function () {
+    const { m, api } = fixture({ claimBlocker: 'maintenance' });
+    await assert.rejects(api.withRestore(A, { artifactDigest: DIGEST }, async () => assert.fail('restore must not run')), code('55P03'));
+    assert.equal(m.durable.window.phase, 'active');
+    assert.equal(m.durable.audit, null);
+    assert.deepEqual(m.durable.rows, []);
+    assert.equal(m.trace.filter(sql => sql.includes('restore-window-claim')).length, 1);
+    assert(!m.trace.some(sql => sql.startsWith('UPDATE ') || sql.startsWith('INSERT INTO ')));
+    assert(m.released && m.pinReleased && !m.invalidated);
     await api.close();
   });
   it('publishes claim-bound effects only after definite outer DATA commit', async function () {
