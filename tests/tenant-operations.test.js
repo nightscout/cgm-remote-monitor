@@ -81,6 +81,15 @@ const EFFECTS = {
     const table = schema.tables.get('secret_audit');
     table.columns.push(column('target_version bigint'));
     for (const row of table.rows) row.target_version = null;
+  },
+  '0003_secrets_legacy_issuance': (schema, migration) => {
+    // This source model records columns/rows and ledgers, not SQL constraints.
+    // The appended issuance migration changes only audit CHECK constraints;
+    // preserve its real ledger entry without inventing a column/table change.
+    // Actual constraint enforcement remains a native PostgreSQL measurement.
+    assert(schema.tables.has('secret_audit'));
+    assert(migration.up.every(sql => /^ALTER TABLE secret_audit (?:DROP|ADD) CONSTRAINT /.test(sql)),
+      'issuance inventory model admits only constraint changes');
   }
 };
 
@@ -215,8 +224,10 @@ function fakeMigrate (connection, calls = []) {
     if (action !== 'up') throw fail('MIG_UNSUPPORTED');
     connection.schemas.set(namespace, schema);
     for (const name of pending) {
-      EFFECTS[name](schema);
-      schema.ledger.push({ name, checksum: files.find(m => m.name === name).checksum });
+      const migration = files.find(m => m.name === name);
+      assert.equal(typeof EFFECTS[name], 'function', 'Unmodelled migration: ' + name);
+      EFFECTS[name](schema, migration);
+      schema.ledger.push({ name, checksum: migration.checksum });
     }
     return { current: true, applied: applied.concat(pending), pending: [], done: pending };
   };
@@ -295,6 +306,40 @@ async function refused (promise, code) {
 
 describe('tenant operations: deployment backup, restore, upgrade and rollback', function () {
   describe('plan', function () {
+    it('preserves issuance audit rows and the exact appended ledger without manufacturing inventory changes', async function () {
+      const prior = { version: 1, migrations: CANDIDATES.secrets.migrations.slice(0, -1) };
+      const state = await scenario({ overrides: { secrets: prior } });
+      const columns = structuredClone(state.connection.schemas.get(NS.secrets).tables.get('secret_audit').columns);
+      await state.migrate('up', { namespace: NS.secrets, catalogue: CANDIDATES.secrets });
+      assert.deepEqual(state.connection.schemas.get(NS.secrets).tables.get('secret_audit').columns, columns);
+      const issued = { event_id: '44444444-4444-4444-8444-444444444444', tenant_id: A,
+        principal: 'synthetic-owner', consumer: 'oidc', operation: 'issue-legacy', secret_id: 'vendor-a',
+        phase: 'authorized', event_time: '6', target_version: null };
+      await state.connection.seed(NS.secrets, 'secret_audit', [issued]);
+      const artifact = await operations.backup(state.connection, options());
+      assert.deepEqual(artifact.manifest.catalogues.find(row => row.kind === 'secrets').ledger,
+        validateCatalogue(CANDIDATES.secrets).map(({ name, checksum }) => ({ name, checksum })));
+      assert.deepEqual(common.decodeTable(artifact.tables['secrets.secret_audit']).find(row => row.operation === 'issue-legacy'), issued);
+      const target = await scenario({ namespaces: FRESH, populate: false });
+      await operations.restore(target.connection, artifact, { catalogues: catalogues(FRESH), acl: { role: 'ns_app' } });
+      const byEvent = (left, right) => left.event_id.localeCompare(right.event_id);
+      assert.deepEqual(target.connection.rows(FRESH.secrets, 'secret_audit').sort(byEvent),
+        state.connection.rows(NS.secrets, 'secret_audit').sort(byEvent));
+    });
+
+    it('refuses unknown migration effects and a column-changing issuance model instead of silently accepting them', async function () {
+      const prior = { version: 1, migrations: CANDIDATES.secrets.migrations.slice(0, -1) };
+      const state = await scenario({ overrides: { secrets: prior }, populate: false });
+      const up = ['ALTER TABLE secret_audit ADD COLUMN unreviewed text'];
+      const changed = { name: '0003_secrets_legacy_issuance', up, checksum: checksum(up) };
+      await assert.rejects(state.migrate('up', { namespace: NS.secrets,
+        catalogue: { version: 1, migrations: prior.migrations.concat(changed) } }), /only constraint changes/);
+      const unknown = { ...changed, name: '0003_unmodelled' };
+      await assert.rejects(state.migrate('up', { namespace: NS.secrets,
+        catalogue: { version: 1, migrations: prior.migrations.concat(unknown) } }), /Unmodelled migration/);
+      assert.deepEqual(state.connection.ledger(NS.secrets), validateCatalogue(prior).map(({ name, checksum }) => ({ name, checksum })));
+    });
+
     it('validates the injected catalogue list and refuses a shared namespace', function () {
       const steps = operations.plan(catalogues());
       assert.deepEqual(steps.map(s => s.kind), ['entries', 'clock', 'access', 'secrets']);
