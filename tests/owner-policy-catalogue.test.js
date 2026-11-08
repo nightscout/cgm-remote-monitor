@@ -36,9 +36,10 @@ describe('owner policy reviewed operation catalogue', function () {
     'admin:api', 'admin:api:permissions', 'admin:api:permissions:create',
     'admin:api:permissions:read:descendant', 'other:entries:read'
   ]) {
-    it('rejects a prefix, wildcard, descendant, or unselected namespace ' + permission, function () {
-      assert.throws(() => createOwnerPolicy({ namespace, catalogue: [permission] }), TypeError);
-      assert.throws(() => catalogueDigest([permission]), TypeError);
+    // Adopted single-tenant equivalence supersedes the former terminal-only refusals.
+    it('accepts shipped Shiro prefix, wildcard, descendant, or extension ' + permission, function () {
+      assert.doesNotThrow(() => createOwnerPolicy({ namespace, catalogue: [permission] }));
+      assert.doesNotThrow(() => catalogueDigest([permission]));
     });
   }
 

@@ -187,7 +187,7 @@ with their existing gates.
 The existing PostgreSQL store accepts an optional trusted constructor argument:
 `ownerPolicy: { catalogue: ['api:entries:read', 'api:entries:create'] }`.
 These illustrative concrete permissions are not a complete reviewed role catalogue.
-The caller must provide its explicit, nonempty, distinct concrete catalogue. The
+The caller must provide its explicit, nonempty, distinct Shiro catalogue. The
 existing service and separately authenticated HTTP facade still call the same store
 update. No data-token/root credential is promoted to management authority and no
 listener or identity issuer is enabled by this option.
@@ -200,32 +200,32 @@ proposed role permissions and supported implicit defaults against all three sets
 code catalogue, current operator ceiling, current actor explicit delegation. The
 actor must currently be active and allowed to update, with both principal and consumer
 matching. Use permission alone does not supply delegation. A catalogue digest mismatch,
-missing authority, unsupported wildcard, inactive actor or excess proposed grant
+missing authority, inactive actor or excess proposed grant
 refuses before subject/credential/link/audit mutation. Unknown roles retain their
 existing explicit refusal. Each operation obtains fresh locked state; no prior
 permission snapshot is retained across requests.
 
-Only members of the reviewed terminal operation universe are admitted in this
-dormant subset: the seven `domain-catalogue.names` collections crossed with
-`create`, `read`, `update`, `delete`, `admin`, plus `api:status:read` and
-`admin:api:permissions:read`. The exported frozen `TERMINAL_OPERATIONS` list is
-shared by catalogue, ceiling, delegation and role validation. Lists may include
-reviewed operations omitted from the project catalogue; proposed effective grants
-must still fit each intersection independently. Namespace prefixes, unknown
-collections/actions and arbitrary descendants refuse.
+The adopted first-preview policy accepts shipped Shiro strings, including prefixes,
+unknown extensions, comma alternatives and wildcards. `TERMINAL_OPERATIONS` remains
+an exported inventory for old probes; it is not an authority boundary. Catalogue,
+current operator ceiling and explicit actor delegation each bound the complete
+meaning of the proposed grants. For unrestricted equivalent data permissions,
+prepare the project catalogue as `['*']`, with the matching catalogue digest;
+operator ceilings and actor delegation remain separately explicit.
 
-Selected catalogue preparation checks that this universe is prefix-free and that
-the installed Shiro checker implies only the identical operation for every pair
-within it. Shiro still implies descendants outside this bounded universe, including
-from an accepted terminal permission. Future collections, actions or deeper API
-permission checks therefore require explicit review of this boundary before use;
-this is not a bound over arbitrary Shiro permission strings. `denied`
-contributes nothing; `status-only` contributes `api:status:read` and requires it to
-fit the same intersection. The wildcard `readable` default and wildcard role
-permissions refuse; there is no finite projection that silently accepts their wider
-meaning. Unselected/default store behavior is unchanged. Selected-mode removal
-refuses explicitly, pending its separate ownership/removal policy; this does not
-change the existing default remove operation.
+`permission-implication.js` compiles through the installed `shiro-trie` and checks
+language containment over the compiled tries. It explores determinized state pairs
+using each literal segment and one representative for every other segment, including
+arbitrary suffix depth. It preserves the checker's implicit final wildcard and its
+prefix semantics. A wildcard request passed to `trie.check` alone cannot establish
+containment. Comma alternatives are compiled by Shiro itself. Resource/shape bounds
+match the current authority reader; implication complexity exhaustion fails closed.
+`authorizePermissions(connection, actor, permissions)` exposes the same locked
+current ceiling/delegation check for role creation. `authorizeUpdate` also locks and
+checks the proposed role rows. Data role possession never supplies management
+membership or delegation. Anonymous `readable` is admitted as a configuration name;
+its data-plane authority remains read-clamped by the existing authority reader.
+Selected-mode removal remains separately implemented by the capability owner.
 
 The appended `0004_owner_policy_fencing` authority candidate preserves all earlier
 migrations/checksums. It adds `tenant_owner_policy` (catalogue digest, ceiling) and
@@ -257,7 +257,7 @@ between validation and assignment. This boundary requires real lock/race control
 before claiming reproduced enforcement; code reading alone is not acceptance.
 
 This is proposed-assignment enforcement, not a complete owner platform. Human or
-refresh/session issuance, arbitrary role CRUD/wildcard compatibility, ownership
+refresh/session issuance, role CRUD, ownership
 transfer/removal, and applying a newly tightened ceiling to all already stored
 subject data grants remain separate integration work. The accepted data-token
 reader and preview configuration are unchanged. Raw privileged operator/database
