@@ -5,7 +5,7 @@ require('should');
 // and the TTL index are exercised by the database and not by a stand-in.
 // Skipped when no connection string is configured.
 var uri = process.env.STORAGE_URI || process.env.MONGO_CONNECTION || process.env.MONGO ||
-  process.env.MONGODB_URI;
+  process.env.MONGODB_URI || process.env.CUSTOMCONNSTR_mongo || process.env.CUSTOMCONNSTR_MONGO;
 
 (uri ? describe : describe.skip)('alarmStorage against MongoDB', function () {
   this.timeout(30000);

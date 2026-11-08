@@ -5,7 +5,7 @@ require('should');
 // is wired in, and that it stays off when another site could share its name.
 // Skipped when no connection string is configured.
 var uri = process.env.STORAGE_URI || process.env.MONGO_CONNECTION || process.env.MONGO ||
-  process.env.MONGODB_URI;
+  process.env.MONGODB_URI || process.env.CUSTOMCONNSTR_mongo || process.env.CUSTOMCONNSTR_MONGO;
 
 (uri ? describe : describe.skip)('alarm snooze storage at boot', function () {
   this.timeout(60000);
