@@ -2,6 +2,11 @@
 
 const assert = require('node:assert/strict');
 const crypto = require('node:crypto');
+const http = require('node:http');
+const { EventEmitter } = require('node:events');
+const fs = require('node:fs');
+const vm = require('node:vm');
+const { createRequire } = require('node:module');
 const provider = require('./fixtures/tenant-credential-provider');
 const { createSecrets } = require('../lib/secrets/component');
 const extract = require('../lib/authorization/credential-extraction');
@@ -176,5 +181,156 @@ describe('Compose client uses the shipping legacy exchange before API3 Bearer', 
       assert(!String(error.stack).includes(issued));
       return true;
     });
+  });
+});
+
+// In-memory HTTP wire model: no listener, DNS or external request is opened.
+// Explicit Host is forwarded as node:http does in the selected-image proof;
+// the old fetch counterfactual selects the URL authority instead.
+function wireLaboratory (lab) {
+  const original = { request: http.request, fetch: global.fetch, timeout: AbortSignal.timeout };
+  const wire = [], clocks = [];
+  let now = 0, mode = 'normal', response, destroyed = 0, headersReady;
+  const firstHeaders = new Promise(resolve => { headersReady = resolve; });
+  const dispatch = async (url, options) => lab.config.tenants.some(tenant => tenant.host === options.headers.host)
+    ? lab.fetchImpl(url, options) : { status: 403, json: async () => ({ status: 403 }), body: { cancel: async () => {} } };
+  global.fetch = async (url, options) => dispatch(url, { ...options, headers: { ...options.headers, host: new URL(url).host } });
+  AbortSignal.timeout = milliseconds => {
+    assert.equal(milliseconds, 10000);
+    const controller = new AbortController();
+    clocks.push({ controller, deadline: now + milliseconds });
+    return controller.signal;
+  };
+  http.request = (url, options, callback) => {
+    assert(options.signal instanceof AbortSignal, 'the original absolute deadline must reach node:http');
+    assert.equal(options.agent, false);
+    const record = { url, options, started: now };
+    wire.push(record);
+    const req = new EventEmitter();
+    req.destroy = () => { destroyed++; };
+    options.signal.addEventListener('abort', () => {
+      response?.destroy(); req.emit('error', new Error('private transport ' + url));
+    }, { once: true });
+    req.end = body => {
+      record.body = body;
+      if (mode === 'transport-error') return req.emit('error', new Error('private transport ' + url));
+      if (mode === 'headers') return;
+      Promise.resolve().then(async () => {
+        const result = mode === 'redirect' ? { status: 302, json: async () => ({}) } : await dispatch(url, { ...options, body });
+        const res = response = new EventEmitter();
+        let closed = false;
+        res.statusCode = result.status;
+        res.destroy = () => { closed = true; destroyed++; };
+        callback(res);
+        if (mode === 'body') { res.emit('data', Buffer.from('{')); headersReady(); return; }
+        const raw = mode === 'limit' ? '"' + 'x'.repeat(1024 * 1024) + '"'
+          : mode === 'json-error' ? 'private malformed ' + lab.env.A_TOKEN : JSON.stringify(await result.json());
+        res.emit('data', Buffer.from(raw));
+        if (!closed) res.emit('end');
+        headersReady();
+      }).catch(error => req.emit('error', error));
+    };
+    return req;
+  };
+  return { wire, clocks, firstHeaders, setMode: value => { mode = value; }, destroyed: () => destroyed,
+    chunk: value => response.emit('data', Buffer.from(value)),
+    tick: milliseconds => {
+      now += milliseconds;
+      for (const clock of clocks) if (clock.deadline <= now && !clock.controller.signal.aborted) clock.controller.abort(new Error('private deadline ' + lab.env.A_TOKEN));
+    },
+    restore: () => { http.request = original.request; global.fetch = original.fetch; AbortSignal.timeout = original.timeout; } };
+}
+
+function omittedTransport (before, after) {
+  const filename = require.resolve('../deploy/multitenant/demo');
+  const original = fs.readFileSync(filename, 'utf8'), source = original.replaceAll(before, after);
+  assert.notEqual(source, original, 'the omission must change the actual demo source');
+  const module = { exports: {} };
+  vm.runInNewContext(source, { module, require: createRequire(filename), process, Buffer, AbortSignal, fetch: global.fetch }, { filename });
+  return module.exports;
+}
+
+describe('Compose demo private node:http transport', function () {
+  let lab, wire;
+  beforeEach(async function () { lab = await laboratory(); wire = wireLaboratory(lab); });
+  afterEach(function () { wire.restore(); });
+  const ordinary = async (client, lab) => assert.equal((await client.request(lab.config, lab.config.tenants[0], '/api/v3/entries', { env: lab.env })).status, 200);
+
+  it('uses the actual default transport for Host-routed exchange and API3 with unchanged method/body and tenant-local JWT', async function () {
+    const tenant = lab.config.tenants[0], body = { sgv: 123 };
+    await demo.request(lab.config, tenant, '/api/v3/entries/synthetic', { env: lab.env, method: 'PUT', body });
+    assert.equal(wire.wire.length, 2);
+    assert.equal(wire.wire[0].options.headers.host, tenant.host);
+    assert.equal(wire.wire[0].options.method, 'GET');
+    assert.equal(wire.wire[1].options.headers.host, tenant.host);
+    assert.equal(wire.wire[1].options.method, 'PUT');
+    assert.equal(wire.wire[1].body, JSON.stringify(body));
+    assert.equal(new URL(wire.wire[0].url).hostname, 'api');
+    assert.equal(new URL(wire.wire[0].url).pathname, '/api/v2/authorization/request/' + encodeURIComponent(lab.env.A_TOKEN));
+    const token = wire.wire[1].options.headers.authorization.slice(7);
+    assert.equal((await lab.access(A, token)).principal, SUBJECT);
+    assert.equal(await lab.access(B, token), null);
+    assert.equal(wire.wire[1].options.headers['api-secret'], undefined);
+  });
+
+  it('makes default-transport and Host-assignment omissions red, then restores ordinary access', async function () {
+    await ordinary(demo, lab);
+    const oldFetch = omittedTransport('fetchImpl = privateFetch', 'fetchImpl = fetch');
+    await assert.rejects(ordinary(oldFetch, lab), { code: 'COMPOSE_DEMO_EXCHANGE_REFUSED' });
+    await ordinary(demo, lab);
+    const noHost = omittedTransport('headers: options.headers', 'headers: { ...options.headers, host: undefined }');
+    await assert.rejects(ordinary(noHost, lab), { code: 'COMPOSE_DEMO_EXCHANGE_REFUSED' });
+    await ordinary(demo, lab);
+  });
+
+  it('refuses a wrong tenant Host without issuing or substituting credentials', async function () {
+    const wrongTenant = omittedTransport('headers: options.headers', "headers: { ...options.headers, host: 'two.example.test' }");
+    await assert.rejects(ordinary(wrongTenant, lab), { code: 'COMPOSE_DEMO_EXCHANGE_REFUSED' });
+    assert.equal(wire.wire.length, 1);
+    await ordinary(demo, lab);
+  });
+
+  it('does not follow redirects and redacts transport/JSON failures', async function () {
+    for (const [mode, code] of [['redirect', 'COMPOSE_DEMO_EXCHANGE_REFUSED'], ['transport-error', 'COMPOSE_DEMO_EXCHANGE_UNAVAILABLE'], ['json-error', 'COMPOSE_DEMO_EXCHANGE_SHAPE']]) {
+      wire.setMode(mode);
+      const before = wire.wire.length;
+      await assert.rejects(ordinary(demo, lab), error => {
+        assert.equal(error.code, code);
+        assert(!String(error.stack).includes(lab.env.A_TOKEN));
+        assert.equal(error.cause, undefined);
+        return true;
+      });
+      assert.equal(wire.wire.length, before + 1, 'a refused exchange cannot follow a redirect or reach API3');
+    }
+    wire.setMode('normal'); await ordinary(demo, lab);
+  });
+
+  it('bounds response bytes before JSON parsing, and detects omission of that bound', async function () {
+    wire.setMode('limit');
+    await assert.rejects(ordinary(demo, lab), { code: 'COMPOSE_DEMO_EXCHANGE_UNAVAILABLE' });
+    assert(wire.destroyed() > 0);
+    const noLimit = omittedTransport('bytes > 1024 * 1024', 'false');
+    await assert.rejects(ordinary(noLimit, lab), { code: 'COMPOSE_DEMO_EXCHANGE_SHAPE' });
+    await assert.rejects(ordinary(demo, lab), { code: 'COMPOSE_DEMO_EXCHANGE_UNAVAILABLE' });
+  });
+
+  for (const mode of ['headers', 'body']) it('keeps one absolute ten-second deadline through ' + mode + ', including streaming progress', async function () {
+    wire.setMode(mode);
+    const pending = ordinary(demo, lab);
+    const refused = assert.rejects(pending, error => {
+      assert.equal(error.code, 'COMPOSE_DEMO_EXCHANGE_UNAVAILABLE');
+      assert(!String(error.stack).includes(lab.env.A_TOKEN));
+      return true;
+    });
+    if (mode === 'body') await wire.firstHeaders;
+    assert.equal(wire.clocks.length, 1);
+    wire.tick(9000);
+    if (mode === 'body') wire.chunk(' ');
+    wire.tick(999);
+    assert.equal(wire.clocks[0].controller.signal.aborted, false);
+    if (mode === 'body') wire.chunk(' ');
+    wire.tick(1);
+    await refused;
+    assert.equal(wire.wire.length, 1);
   });
 });
