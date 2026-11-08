@@ -18,13 +18,14 @@ async function run () {
   if (process.env.HUMAN_SESSION_NATIVE_RESERVED !== '1' || !process.env.HUMAN_SESSION_MONGO_URL) {
     throw new Error('Reserved HUMAN_SESSION_NATIVE_RESERVED=1 and explicit HUMAN_SESSION_MONGO_URL required; no default datastore');
   }
-  const client = new MongoClient(process.env.HUMAN_SESSION_MONGO_URL, {
+  const clientOptions = {
     serverSelectionTimeoutMS: 1000, connectTimeoutMS: 1000, socketTimeoutMS: 2000,
     readPreference: 'primary', retryWrites: false, writeConcern: { w: 'majority', j: true, wtimeoutMS: 2000 }
-  });
+  };
+  const client = new MongoClient(process.env.HUMAN_SESSION_MONGO_URL, clientOptions);
   const name = 'human_session_native_' + randomBytes(8).toString('hex');
   const checks = [], cleanupErrors = [];
-  let collection, created = false, beforeReplace = null, clock = 1000, primary;
+  let collection, workerClient, created = false, beforeReplace = null, clock = 1000, primary;
   const proof = () => ({ issuer, subject: 'provider-a', authenticatedAt: clock, providerSession: 'provider-session-a' });
   async function check (label, fn) { await fn(); checks.push({ name: label, pass: true }); }
   try {
@@ -39,7 +40,8 @@ async function run () {
       subject: 'local_a', consumer: 'oidc', enabled: true, generation: 1, revision: 1,
       purposes: ['data', 'management'], permissionGroups: [['api:status:read']], sessions: [], logoutEvents: [] });
     // The barrier changes scheduling only; every operation goes to the actual
-    // driver collection. A second worker has an independent adapter instance.
+    // driver collection. Both engines remain in this one Node process, while
+    // the second engine uses an independent MongoClient and real driver pool.
     const barrierCollection = {
       findOne: (...args) => collection.findOne(...args),
       find: (...args) => collection.find(...args),
@@ -48,8 +50,12 @@ async function run () {
         return collection.findOneAndReplace(...args);
       }
     };
+    workerClient = new MongoClient(process.env.HUMAN_SESSION_MONGO_URL, clientOptions);
+    await workerClient.connect();
+    const workerDB = process.env.HUMAN_SESSION_MONGO_DB ? workerClient.db(process.env.HUMAN_SESSION_MONGO_DB) : workerClient.db();
+    const workerCollection = workerDB.collection(name);
     const engine = createEngine({ store: createMongoStore({ collection: barrierCollection, tenant, consumer: 'oidc' }), now: () => clock });
-    const worker = createEngine({ store: createMongoStore({ collection, tenant, consumer: 'oidc' }), now: () => clock });
+    const worker = createEngine({ store: createMongoStore({ collection: workerCollection, tenant, consumer: 'oidc' }), now: () => clock });
     const login = (purpose = 'management') => engine.login({ tenant, identity: proof(), purpose });
     const authenticate = (token, extra = {}) => worker.authenticate({ tenant, token, purpose: 'management', ...extra });
     let issued;
@@ -155,12 +161,14 @@ async function run () {
   } catch (error) { primary = error; }
   finally {
     if (created) { try { await collection.drop(); } catch (error) { cleanupErrors.push(error); } }
+    if (workerClient) { try { await workerClient.close(); } catch (error) { cleanupErrors.push(error); } }
     try { await client.close(); } catch (error) { cleanupErrors.push(error); }
   }
   if (primary && cleanupErrors.length) throw new globalThis.AggregateError([primary, ...cleanupErrors], 'Native Mongo check and owned cleanup failed');
   if (primary) throw primary;
   if (cleanupErrors.length) throw new globalThis.AggregateError(cleanupErrors, 'Native Mongo owned cleanup failed');
-  process.stdout.write(JSON.stringify({ instrument: 'human-session-mongo-native', checks, passed: checks.length, cleanup: 'closed' }) + '\n');
+  process.stdout.write(JSON.stringify({ instrument: 'human-session-mongo-native', execution: { nodeProcesses: 1, engineClientPools: 2 },
+    checks, passed: checks.length, cleanup: 'closed' }) + '\n');
 }
 
 if (require.main === module) run().catch(error => {

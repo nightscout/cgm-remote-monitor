@@ -182,6 +182,7 @@
         "tests/human-session-integration.test.js",
         "tests/human-session-stream.test.js",
         "tests/human-session-instrument.test.js",
+        "tests/human-native-stores.test.js",
         "tests/owner-configuration.test.js",
         "tests/owner-configuration-persistence.test.js",
         "tests/tenant-durable-replay.test.js",

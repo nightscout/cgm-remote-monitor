@@ -5,6 +5,63 @@ provisioned current local authority adapter. Provider identities do not provisio
 subjects, owner relationships, root authority or grants. Legacy credentials and
 their existing exchange remain separate.
 
+## Explicit serving configuration
+
+`ENABLE=oidc` opts in; omitting it requires neither a provider nor the additional
+session tables. Single mode uses the existing MongoDB connection and the fixed
+internal binding `single`. The API preview and tenant-admin role use the same
+protocol/lifecycle implementation with their PostgreSQL adapter. The realtime
+role accepts the opt-in human cookie/bearer through its existing private API
+authority bridge. Keep each role's ingress on the adopted trusted boundary.
+
+The following values are private process environment settings. Do not put
+secrets in tenant display settings, client extension configuration or committed
+configuration files.
+
+| Variable | Meaning |
+|---|---|
+| `OIDC_ISSUER` | Exact HTTPS issuer used for trusted discovery. |
+| `OIDC_CLIENT_ID`, `OIDC_CLIENT_SECRET` | Provisioned confidential client; configure `client_secret_post` at the provider. |
+| `OIDC_SIGNING_ALGORITHM` | Optional pinned ID/logout token algorithm: RS256 (default), PS256, ES256 or EdDSA. Unsupported algorithms refuse; no negotiated downgrade. |
+| `OIDC_ORIGIN` | Exact canonical HTTPS origin, with no path or trailing slash. |
+| `OIDC_COOKIE_KEY` | Canonical base64 encoding of 32 random bytes shared by workers serving the same origins. It seals pending browser flows and binds CSRF tokens; rotating it expires pending flows. |
+| `OIDC_TENANT_ORIGINS` | Multitenant only: JSON object mapping every configured tenant ID to its canonical HTTPS origin. Register each origin's callback at the provider. |
+| `OIDC_POSTGRES_CONNECTION` | Multitenant only: explicit scoped session service connection from the environment. |
+| `OIDC_NAMESPACE`, `OIDC_AUTHORITY_NAMESPACE`, `OIDC_ACCESS_NAMESPACE` | Multitenant only: distinct operator-migrated human, current authorization and access namespaces. |
+
+No secret is derived from `API_SECRET`, and enabling OIDC never provisions a
+human mapping or management entitlement. Apply the additive catalogue and
+service grants before starting an opted-in multitenant role. Existing operator
+readiness and lifecycle admission still apply; serving code never creates tables.
+
+The shared routes live under `/api/v2/oidc`: same-origin JSON POST `login` and
+`renew`, GET `callback`, GET `session`, JSON POST `logout`, and signed provider
+POST `backchannel-logout`. Login/renew accept `purpose` (`data` by default or
+`management`) and `transport` (`cookie` by default or `bearer`). A start response
+contains the trusted provider navigation location; it is not an access token.
+The callback sets the purpose's host-only HttpOnly/Secure/SameSite cookie or
+returns a direct bearer in a no-store JSON response. Neither token enters a URL.
+Select the same purpose for `session` and `logout`. Cookie state-changing calls
+require the exact configured Origin and the `x-ns-csrf` value returned by that
+purpose's session response. Headless bearer callers remain independent of CSRF
+cookies. A provider page handles user authentication; no password/recovery UI is
+implemented here.
+
+Management and data cookies coexist. Protected data requests never advance
+management idle. Successful classified management routes advance idle without
+moving the absolute/authentication clocks; secret reveal and privileged
+credential/grant changes additionally require current authentication freshness.
+Existing legacy sign-in/sign-out retain their separate browser-forgetting
+meaning. Explicit OIDC logout invalidates only its selected local human session,
+then clears its cookie and optionally returns a trusted provider logout location.
+If the current store is unavailable, local browser material is cleared but the
+response explicitly reports local revocation unconfirmed.
+
+Provider capability details accompany the session response. A provider without a
+verifiable logout signal is supported with its expiry/renewal limitation
+disclosed. No Authentik or Kratos runtime acceptance is implied by these routes;
+the selected provider configuration needs the adopted actual reference proof.
+
 `createEngine({store,now})` exports `login`, `renew`, `authenticate`, `logout` and
 `logoutProvider`. Time is server-side integer epoch seconds. Management access is
 bounded to 600 seconds, its idle deadline to 1800 seconds and its absolute deadline
