@@ -9,6 +9,7 @@ const scope = require('../../lib/storage/tenant-scope');
 const { validateCatalogue } = require('../../lib/migrations/catalogue');
 const { createMongoStore, authorityId, principalId } = require('../../lib/human-session/mongo');
 const { createPostgresStore } = require('../../lib/human-session/postgres');
+const { collectionIdentity, dropCollection } = require('./human-native-identity');
 const quote = name => '"' + name.replaceAll('"', '""') + '"';
 let postgresFixtureActive = false;
 
@@ -48,6 +49,7 @@ function cleanupFailure (primary, errors, label) {
 
 async function mongoFixture ({ issuer, providerSubject, providerSession, tenant = 'single', consumer, acceptedKeys }) {
   const clientOptions = {
+    maxPoolSize: 4, minPoolSize: 0, maxConnecting: 1, maxIdleTimeMS: 1000,
     serverSelectionTimeoutMS: 1000, connectTimeoutMS: 1000, socketTimeoutMS: 2000,
     readPreference: 'primary', retryWrites: false, writeConcern: { w: 'majority', j: true, wtimeoutMS: 2000 }
   };
@@ -55,7 +57,7 @@ async function mongoFixture ({ issuer, providerSubject, providerSession, tenant 
   const clients = new Set([client]), workerClients = new Set(), startingWorkers = new Set();
   const name = 'human_http_native_' + randomBytes(8).toString('hex');
   const subject = 'synthetic_local';
-  let collection, created = false, closing, closed = false;
+  let collection, db, identity, created = false, closing, closed = false;
   function close () {
     if (!closing) closing = (async () => {
       closed = true;
@@ -65,7 +67,7 @@ async function mongoFixture ({ issuer, providerSubject, providerSession, tenant 
       for (const outcome of await Promise.allSettled([...startingWorkers])) {
         if (outcome.status === 'rejected') errors.push(outcome.reason);
       }
-      if (created) { try { await collection.drop(); } catch (error) { errors.push(error); } }
+      if (created) { try { if (!identity) throw new Error('NATIVE_COLLECTION_CUSTODY_MISSING'); await dropCollection(db, identity); } catch (error) { errors.push(error); } }
       for (const outcome of await Promise.allSettled([...clients].map(owned => owned.close()))) {
         if (outcome.status === 'rejected') errors.push(outcome.reason);
       }
@@ -76,9 +78,11 @@ async function mongoFixture ({ issuer, providerSubject, providerSession, tenant 
   }
   try {
     await client.connect();
-    const db = process.env.HUMAN_SESSION_MONGO_DB ? client.db(process.env.HUMAN_SESSION_MONGO_DB) : client.db();
+    db = process.env.HUMAN_SESSION_MONGO_DB ? client.db(process.env.HUMAN_SESSION_MONGO_DB) : client.db();
     collection = await db.createCollection(name);
     created = true;
+    identity = await collectionIdentity(db, name);
+    console.log(JSON.stringify({ event: 'owned-mongo-collection', ...identity }));
     const id = authorityId(tenant);
     await collection.insertOne({ _id: id, tenant, revision: 1, keys: acceptedKeys,
       principals: [{ id: principalId(tenant, issuer, providerSubject), issuer, providerSubject, subject, consumer,
@@ -101,7 +105,7 @@ async function mongoFixture ({ issuer, providerSubject, providerSession, tenant 
     };
     const store = await createWorkerStore();
     return Object.freeze({ kind: 'mongo', store, tenant, subject, providerSession, close, createWorkerStore,
-      resources: Object.freeze({ collection: name }),
+      resources: Object.freeze({ collection: name, identity }),
       async inspect () {
         if (closed) throw new Error('Native Mongo fixture is closed');
         const document = await collection.findOne({ _id: id }, { readPreference: 'primary', readConcern: { level: 'majority' } });
@@ -131,7 +135,7 @@ async function postgresFixture ({ issuer, providerSubject, providerSession, tena
   const suffix = randomBytes(8).toString('hex');
   const human = 'hh_human_' + suffix, authority = 'hh_authority_' + suffix, access = 'hh_access_' + suffix;
   const subject = 'synthetic_local';
-  const created = [], stores = [];
+  const created = [], schemaObjects = [], stores = [];
   let admin, probe, probeClosed = false, closing, closed = false;
   async function boundAdmin (work) {
     const client = await admin.connect();
@@ -156,7 +160,11 @@ async function postgresFixture ({ issuer, providerSubject, providerSession, tena
       }
       if (probe && !probeClosed) { try { await probe.end(); probeClosed = true; } catch (error) { errors.push(error); } }
       for (const schema of created.slice().reverse()) {
-        try { await admin.query('DROP SCHEMA ' + quote(schema) + ' CASCADE'); } catch (error) { errors.push(error); }
+        try {
+          const captured = schemaObjects.find(record => record.name === schema);
+          const current = (await admin.query('SELECT oid FROM pg_namespace WHERE nspname=$1', [schema])).rows[0];
+          if (!captured || String(captured.oid) !== String(current?.oid)) throw new Error('NATIVE_SCHEMA_IDENTITY_CHANGED');
+          await admin.query('DROP SCHEMA ' + quote(schema) + ' CASCADE'); } catch (error) { errors.push(error); }
       }
       if (admin) { try { await admin.end(); } catch (error) { errors.push(error); } }
       scope.setTenancyMode(previousMode);
@@ -169,6 +177,10 @@ async function postgresFixture ({ issuer, providerSubject, providerSession, tena
   async function migrate (schema, candidate) {
     await admin.query('CREATE SCHEMA ' + quote(schema));
     created.push(schema);
+    const oid = (await admin.query('SELECT oid FROM pg_namespace WHERE nspname=$1', [schema])).rows[0]?.oid;
+    if (!oid) throw new Error('NATIVE_SCHEMA_IDENTITY_MISSING');
+    schemaObjects.push({ name: schema, oid });
+    console.log(JSON.stringify({ event: 'owned-pg-schema', name: schema, oid }));
     await boundAdmin(async client => {
       await client.query('SET LOCAL search_path=' + quote(schema) + ',pg_catalog');
       for (const migration of validateCatalogue(candidate)) for (const sql of migration.up) await client.query(sql);
@@ -220,7 +232,7 @@ async function postgresFixture ({ issuer, providerSubject, providerSession, tena
     };
     const store = await createWorkerStore();
     return Object.freeze({ kind: 'postgres', store, tenant, subject, providerSession, close, createWorkerStore,
-      resources: Object.freeze({ human, authority, access }),
+      resources: Object.freeze({ human, authority, access, schemas: schemaObjects.map(record => Object.freeze({ ...record })) }),
       async inspect () {
         if (closed) throw new Error('Native PostgreSQL fixture is closed');
         return boundAdmin(async client => {

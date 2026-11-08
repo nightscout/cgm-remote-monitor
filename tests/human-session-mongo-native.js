@@ -11,30 +11,36 @@ const { MongoClient } = require('mongodb');
 const { createEngine } = require(process.env.HUMAN_SESSION_NATIVE_ENGINE || '../lib/human-session/engine');
 // eslint-disable-next-line security/detect-non-literal-require
 const { createMongoStore, authorityId, principalId } = require(process.env.HUMAN_SESSION_NATIVE_STORE || '../lib/human-session/mongo');
-const humanAccessFixture = require('./fixtures/human-access-issuer');
+const { collectionIdentity, dropCollection } = require('./fixtures/human-native-identity');
+const nativeAccess = require('./fixtures/human-native-access');
 const tenant = 'single';
 const issuer = 'https://synthetic-provider.invalid';
 
-async function run () {
+async function run ({ nativeStage } = {}) {
   if (process.env.HUMAN_SESSION_NATIVE_RESERVED !== '1' || !process.env.HUMAN_SESSION_MONGO_URL) {
     throw new Error('Reserved HUMAN_SESSION_NATIVE_RESERVED=1 and explicit HUMAN_SESSION_MONGO_URL required; no default datastore');
   }
+  const budget = require('./fixtures/human-native-budget')({ stage: nativeStage, id: 'mongo-sessions', persistence: 'mongo' });
+  let clock = 1000;
+  const crypto = nativeAccess({ tenant, now: () => clock });
   const clientOptions = {
+    maxPoolSize: 4, minPoolSize: 0, maxConnecting: 1, maxIdleTimeMS: 1000,
     serverSelectionTimeoutMS: 1000, connectTimeoutMS: 1000, socketTimeoutMS: 2000,
     readPreference: 'primary', retryWrites: false, writeConcern: { w: 'majority', j: true, wtimeoutMS: 2000 }
   };
   const client = new MongoClient(process.env.HUMAN_SESSION_MONGO_URL, clientOptions);
   const name = 'human_session_native_' + randomBytes(8).toString('hex');
   const checks = [], cleanupErrors = [];
-  let collection, workerClient, created = false, beforeReplace = null, clock = 1000, primary;
-  const crypto = humanAccessFixture({ tenant, now: () => clock });
+  let collection, db, identity, workerClient, created = false, beforeReplace = null, primary;
   const proof = () => ({ issuer, subject: 'provider-a', authenticatedAt: clock, providerSession: 'provider-session-a' });
-  async function check (label, fn) { await fn(); checks.push({ name: label, pass: true }); }
+  async function check (label, fn) { budget.active(); await fn(); budget.active(); checks.push({ name: label, pass: true }); }
   try {
     await client.connect();
-    const db = process.env.HUMAN_SESSION_MONGO_DB ? client.db(process.env.HUMAN_SESSION_MONGO_DB) : client.db();
+    db = process.env.HUMAN_SESSION_MONGO_DB ? client.db(process.env.HUMAN_SESSION_MONGO_DB) : client.db();
     collection = await db.createCollection(name);
     created = true;
+    identity = await collectionIdentity(db, name);
+    console.log(JSON.stringify({ event: 'owned-mongo-collection', ...identity }));
     const id = authorityId(tenant);
     await collection.insertOne({ _id: id, tenant, revision: 1, keys: crypto.acceptedKeys,
       principals: [{ id: principalId(tenant, issuer, 'provider-a'), issuer, providerSubject: 'provider-a',
@@ -176,15 +182,18 @@ async function run () {
     });
   } catch (error) { primary = error; }
   finally {
-    if (created) { try { await collection.drop(); } catch (error) { cleanupErrors.push(error); } }
+    if (created) { try { assert.ok(identity, 'NATIVE_COLLECTION_CUSTODY_MISSING'); await dropCollection(db, identity); } catch (error) { cleanupErrors.push(error); } }
     if (workerClient) { try { await workerClient.close(); } catch (error) { cleanupErrors.push(error); } }
     try { await client.close(); } catch (error) { cleanupErrors.push(error); }
   }
+  try { budget.cleanup(); } catch (error) { cleanupErrors.push(error); }
   if (primary && cleanupErrors.length) throw new globalThis.AggregateError([primary, ...cleanupErrors], 'Native Mongo check and owned cleanup failed');
   if (primary) throw primary;
   if (cleanupErrors.length) throw new globalThis.AggregateError(cleanupErrors, 'Native Mongo owned cleanup failed');
-  process.stdout.write(JSON.stringify({ instrument: 'human-session-mongo-native', execution: { nodeProcesses: 1, engineClientPools: 2 },
-    checks, passed: checks.length, cleanup: 'closed' }) + '\n');
+  const result = { instrument: 'human-session-mongo-native', persistence: 'mongo', signing: crypto.signing,
+    execution: { nodeProcesses: 1, engineClientPools: 2, maxPoolSizePerClient: 4 }, checks, passed: checks.length, cleanup: 'closed' };
+  process.stdout.write(JSON.stringify(result) + '\n');
+  return result;
 }
 
 if (require.main === module) run().catch(error => {

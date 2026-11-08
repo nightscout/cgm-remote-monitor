@@ -16,6 +16,7 @@ function guardedFixture (env) {
   const module = { exports: {} };
   const dependencies = {
     'node:crypto': require('node:crypto'),
+    './human-native-identity': require('./fixtures/human-native-identity'),
     mongodb: { MongoClient: ForbiddenDriver },
     pg: { Pool: ForbiddenDriver },
     '../../lib/storage/tenant-scope': { getTenancyMode () { attempted.push('tenancy mode'); throw new Error('No mode change before guard'); } },

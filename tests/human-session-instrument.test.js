@@ -138,3 +138,105 @@ describe('bounded human HTTPS instrument (no listeners)', function () {
     }), /surviving listener/);
   });
 });
+
+describe('exhaustive native stage admission (no acquisition)', function () {
+  const { admitNativeStage } = require('./human-session-http-native');
+  const at = 1000000;
+  function fixture (id) {
+    const owner = id.startsWith('owner-');
+    return { stage: { id, persistence: owner ? 'postgres' : 'mongo', signing: 'configured-transit',
+      activeMs: 120000, cleanupMs: 15000, transportMs: id === 'owner-authority' ? 8000 : 5000,
+      activeEndsAt: at + 120000, cleanupEndsAt: at + 135000, browser: ['mongo-http', 'owner-browser'].includes(id) },
+    source: { HUMAN_HTTPS_RESERVED: '1', HUMAN_SESSION_NATIVE_RESERVED: '1', HUMAN_VAULT_RESERVED: '1',
+      HUMAN_HTTP_STORE: owner ? 'postgres' : 'mongo', HUMAN_HTTP_SIGNER_CONFIG: 'explicit-private-file',
+      HUMAN_SESSION_MONGO_URL: 'explicit-mongo', HUMAN_SESSION_PG_ADMIN_URL: 'explicit-admin', HUMAN_SESSION_PG_APP_URL: 'explicit-app',
+      HUMAN_BROWSER_RESERVED: '1', HUMAN_BROWSER_EXECUTABLE: 'explicit-browser' } };
+  }
+  it('requires explicit native persistence, Transit, phase and absolute bounds before TLS IO', function () {
+    for (const id of ['mongo-http', 'owner-consumer', 'owner-authority', 'owner-browser', 'owner-compatibility']) {
+      const value = fixture(id); assert.equal(admitNativeStage(value.stage, value.source, at), true);
+      for (const key of Object.keys(value.stage)) {
+        const missing = { ...value.stage }; delete missing[key];
+        assert.throws(() => admitNativeStage(missing, value.source, at), /COMPLETE_STAGE_REQUIRED/, id + '/' + key);
+      }
+      for (const key of ['HUMAN_HTTPS_RESERVED', 'HUMAN_SESSION_NATIVE_RESERVED', 'HUMAN_VAULT_RESERVED', 'HUMAN_HTTP_STORE', 'HUMAN_HTTP_SIGNER_CONFIG']) {
+        const missing = { ...value.source }; delete missing[key];
+        assert.throws(() => admitNativeStage(value.stage, missing, at), /COMPLETE_STAGE_REQUIRED/);
+      }
+      for (const mutate of [stage => { stage.persistence = 'double'; }, stage => { stage.signing = 'local'; },
+        stage => { stage.activeEndsAt = at; }, stage => { stage.cleanupEndsAt++; }, stage => { stage.activeMs++; }]) {
+        const changed = { ...value.stage }; mutate(changed);
+        assert.throws(() => admitNativeStage(changed, value.source, at), /COMPLETE_STAGE_REQUIRED/);
+      }
+    }
+  });
+});
+
+describe('native Transit clock apparatus (offline public verification)', function () {
+  const nativeAccess = require('./fixtures/human-native-access');
+  it('denies before file IO without both native reservations and explicit profile', function () {
+    for (const source of [{}, { HUMAN_SESSION_NATIVE_RESERVED: '1' },
+      { HUMAN_SESSION_NATIVE_RESERVED: '1', HUMAN_VAULT_RESERVED: '1' }]) {
+      assert.throws(() => nativeAccess({ tenant: 'single', now: () => 1000, source }), /reserved native Transit/);
+    }
+  });
+  it('keeps real configured Ed25519 verification, clock expiry and native-only issuance', async function () {
+    const fs = require('node:fs'), os = require('node:os'), path = require('node:path');
+    const directory = fs.mkdtempSync(path.join(os.tmpdir(), 'native-clock-'));
+    const file = path.join(directory, 'public.json');
+    let clock = 1000;
+    const local = require('./fixtures/human-access-issuer')({ tenant: 'single', now: () => clock });
+    const config = { version: 1, issuer: local.issuer, audiences: local.audiences,
+      vault: { addressEnv: 'NATIVE_CLOCK_ADDRESS', tokenEnv: 'NATIVE_CLOCK_TOKEN', mount: 'transit' },
+      keys: local.keys.map(key => ({ tenant: key.tenant, purpose: key.purpose, kid: key.kid, current: true,
+        publicKey: Buffer.from(key.publicKey.export({ format: 'jwk' }).x, 'base64url').toString('base64'),
+        signingKey: 'synthetic-' + key.purpose, signingVersion: 1 })) };
+    const source = { HUMAN_SESSION_NATIVE_RESERVED: '1', HUMAN_VAULT_RESERVED: '1', HUMAN_SESSION_SIGNER_CONFIG: file,
+      NATIVE_CLOCK_ADDRESS: 'https://vault.synthetic.invalid', NATIVE_CLOCK_TOKEN: 'synthetic-test-only' };
+    const saved = globalThis.fetch; let calls = 0;
+    try {
+      fs.writeFileSync(file, JSON.stringify(config));
+      globalThis.fetch = async () => { calls++; throw new Error('offline provider refused'); };
+      const loaded = nativeAccess({ tenant: 'single', now: () => clock, source });
+      const token = await local.access.issue({ tenant: 'single', subject: 'reader', session: 'session', purpose: 'data',
+        credentialVersion: 1, issuedAt: clock, expiresAt: clock + 600 });
+      assert.equal(loaded.signing, 'configured-transit');
+      assert.equal(loaded.access.verify({ tenant: 'single', token }).sub, 'reader');
+      assert.throws(() => loaded.access.verify({ tenant: 'single', token: token.slice(0, -8) + 'AAAAAAAA' }));
+      clock += 601; assert.throws(() => loaded.access.verify({ tenant: 'single', token })); clock = 1000;
+      globalThis.fetch = async () => { calls++; throw new Error('offline provider refused'); };
+      await assert.rejects(loaded.access.issue({ tenant: 'single', subject: 'reader', session: 'session', purpose: 'data',
+        credentialVersion: 1, issuedAt: clock, expiresAt: clock + 600 }), { code: 'HUMAN_SESSION_UNAVAILABLE' });
+      assert.equal(calls, 1, 'issuance reaches native provider and has no local signer fallback');
+    } finally { globalThis.fetch = saved; fs.rmSync(directory, { recursive: true, force: true }); }
+  });
+});
+
+describe('standalone native active and cleanup budgets (inert)', function () {
+  const createBudget = require('./fixtures/human-native-budget');
+  it('refuses implicit stages and prevents cleanup allowance from authorizing active work', function () {
+    let clock = 1000000;
+    const stage = { id: 'mongo-sessions', persistence: 'mongo', signing: 'configured-transit', activeMs: 90000,
+      cleanupMs: 15000, activeEndsAt: clock + 90000, cleanupEndsAt: clock + 105000 };
+    const input = { stage, id: stage.id, persistence: stage.persistence, now: () => clock };
+    assert.throws(() => createBudget({ ...input, stage: undefined }), /EXPLICIT_STAGE_REQUIRED/);
+    const budget = createBudget(input); budget.active();
+    clock = stage.activeEndsAt; assert.throws(() => budget.active(), /ACTIVE_DEADLINE/); budget.cleanup();
+    clock = stage.cleanupEndsAt; assert.throws(() => budget.cleanup(), /CLEANUP_DEADLINE/);
+  });
+});
+
+describe('native Mongo physical identity cleanup guard (inert)', function () {
+  const { collectionIdentity, dropCollection } = require('./fixtures/human-native-identity');
+  it('captures UUID and refuses a replaced same-name collection before drop', async function () {
+    let value = 'a'.repeat(32), drops = 0;
+    const db = { listCollections: () => ({ next: async () => ({ type: 'collection', info: {
+      uuid: { sub_type: 4, length: () => 16, toString: () => value } } }) }), collection: () => ({ drop: async () => { drops++; } }) };
+    const identity = await collectionIdentity(db, 'owned');
+    value = 'b'.repeat(32); await assert.rejects(dropCollection(db, identity), /IDENTITY_CHANGED/); assert.equal(drops, 0);
+    value = identity.uuid; await dropCollection(db, identity); assert.equal(drops, 1);
+  });
+  it('refuses absent physical identity', async function () {
+    await assert.rejects(collectionIdentity({ listCollections: () => ({ next: async () => null }) }, 'owned'), /UUID_REQUIRED/);
+  });
+});

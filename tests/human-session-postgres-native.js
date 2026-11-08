@@ -8,33 +8,38 @@ const { Pool } = require('pg');
 const scope = require('../lib/storage/tenant-scope');
 const { validateCatalogue } = require('../lib/migrations/catalogue');
 const { createEngine, tokenHash } = require('../lib/human-session/engine');
-const humanAccessFixture = require('./fixtures/human-access-issuer');
+const nativeAccess = require('./fixtures/human-native-access');
 const { createPostgresStore } = require('../lib/human-session/postgres');
 const quote = name => '"' + name.replaceAll('"', '""') + '"';
-const tenant = '00000000-0000-0000-0000-000000000001';
-const foreignTenant = '00000000-0000-0000-0000-000000000002';
+const tenant = '11111111-1111-4111-8111-111111111111';
+const foreignTenant = '22222222-2222-4222-8222-222222222222';
 const issuer = 'https://synthetic-provider.invalid';
 
-async function run () {
+async function run ({ nativeStage } = {}) {
   if (process.env.HUMAN_SESSION_NATIVE_RESERVED !== '1' || !process.env.HUMAN_SESSION_PG_ADMIN_URL || !process.env.HUMAN_SESSION_PG_APP_URL) {
     throw new Error('Explicit reserved HUMAN_SESSION_PG_ADMIN_URL and HUMAN_SESSION_PG_APP_URL required; no default datastore');
   }
+  const budget = require('./fixtures/human-native-budget')({ stage: nativeStage, id: 'pg-sessions', persistence: 'postgres' });
+  let clock = 1000;
+  const crypto = nativeAccess({ tenant, now: () => clock });
   const admin = new Pool({ connectionString: process.env.HUMAN_SESSION_PG_ADMIN_URL, max: 2,
     connectionTimeoutMillis: 1000, statement_timeout: 2000, query_timeout: 2000 });
   const appProbe = new Pool({ connectionString: process.env.HUMAN_SESSION_PG_APP_URL, max: 1,
     connectionTimeoutMillis: 1000, statement_timeout: 2000, query_timeout: 2000 });
   const suffix = randomBytes(6).toString('hex');
   const human = 'hs_human_' + suffix, authority = 'hs_authority_' + suffix, access = 'hs_access_' + suffix;
-  const created = [], stores = [], checks = [], cleanupErrors = [];
+  const created = [], schemaObjects = [], stores = [], checks = [], cleanupErrors = [];
   let probeClosed = false, result, primary;
-  let clock = 1000;
-  const crypto = humanAccessFixture({ tenant, now: () => clock });
-  const foreignCrypto = humanAccessFixture({ tenant: foreignTenant, now: () => clock });
   const proof = () => ({ issuer, subject: 'provider-a', providerSession: 'provider-session-a', authenticatedAt: clock });
-  async function check (name, fn) { await fn(); checks.push({ name, pass: true }); }
+  async function check (name, fn) { budget.active(); await fn(); budget.active(); checks.push({ name, pass: true }); }
   async function migrate (schema, candidate) {
+    budget.active();
     await admin.query('CREATE SCHEMA ' + quote(schema));
     created.push(schema);
+    const oid = (await admin.query('SELECT oid FROM pg_namespace WHERE nspname=$1', [schema])).rows[0]?.oid;
+    if (!oid) throw new Error('NATIVE_SCHEMA_IDENTITY_MISSING');
+    schemaObjects.push({ name: schema, oid });
+    console.log(JSON.stringify({ event: 'owned-pg-schema', name: schema, oid }));
     const client = await admin.connect();
     try {
       await client.query('BEGIN');
@@ -67,7 +72,9 @@ async function run () {
     await admin.query('GRANT INSERT ON ' + quote(human) + '.human_access_tokens,' + quote(human) + '.human_logout_events TO ' + quote(appRole.name));
     for (const [id, localSubject, providerSubject] of [[tenant,'local_a','provider-a'],[foreignTenant,'local_b','provider-b']]) {
       await admin.query('INSERT INTO ' + quote(access) + '.access_tenants VALUES ($1,true)', [id]);
-      for (const key of (id === tenant ? crypto : foreignCrypto).acceptedKeys) await admin.query('INSERT INTO ' + quote(access) + '.access_keys VALUES ($1,$2,$3,$4)', [id,key.kid,key.purpose,key.active]);
+      // B has no provisioned signing profile in this A-bound probe. Its empty
+      // acceptance set is not a locally generated foreign signing capability.
+      for (const key of (id === tenant ? crypto.acceptedKeys : [])) await admin.query('INSERT INTO ' + quote(access) + '.access_keys VALUES ($1,$2,$3,$4)', [id,key.kid,key.purpose,key.active]);
       await admin.query('INSERT INTO ' + quote(access) + '.access_credentials VALUES ($1,$2,$3,1,true)', [id,'credential_a',localSubject]);
       await admin.query('INSERT INTO ' + quote(authority) + '.tenant_authorization_config (tenant_id,anonymous_roles) VALUES ($1,$2)', [id,['denied']]);
       await admin.query('INSERT INTO ' + quote(authority) + '.tenant_authorization_subjects (tenant_id,subject_id) VALUES ($1,$2)', [id,localSubject]);
@@ -174,7 +181,8 @@ async function run () {
       const persisted = await admin.query('SELECT count(*)::integer AS count FROM ' + quote(human) + '.human_logout_events WHERE tenant_id=$1', [tenant]);
       assert.equal(persisted.rows[0].count, 1);
     });
-    result = { instrument: 'human-session-postgres-native', checks, passed: checks.length };
+    budget.active();
+    result = { instrument: 'human-session-postgres-native', persistence: 'postgres', signing: crypto.signing, checks, passed: checks.length };
   } catch (error) {
     primary = error;
   } finally {
@@ -183,15 +191,21 @@ async function run () {
     }
     if (!probeClosed) { try { await appProbe.end(); } catch (error) { cleanupErrors.push(error); } }
     for (const schema of created.reverse()) {
-      try { await admin.query('DROP SCHEMA ' + quote(schema) + ' CASCADE'); } catch (error) { cleanupErrors.push(error); }
+      try {
+        const captured = schemaObjects.find(record => record.name === schema);
+        const current = (await admin.query('SELECT oid FROM pg_namespace WHERE nspname=$1', [schema])).rows[0];
+        assert.ok(captured && String(captured.oid) === String(current?.oid), 'NATIVE_SCHEMA_IDENTITY_CHANGED');
+        await admin.query('DROP SCHEMA ' + quote(schema) + ' CASCADE'); } catch (error) { cleanupErrors.push(error); }
     }
     try { await admin.end(); } catch (error) { cleanupErrors.push(error); }
     scope.setTenancyMode('single');
   }
+  try { budget.cleanup(); } catch (error) { cleanupErrors.push(error); }
   if (primary && cleanupErrors.length) throw new globalThis.AggregateError([primary, ...cleanupErrors], 'Native PostgreSQL check and owned cleanup failed');
   if (primary) throw primary;
   if (cleanupErrors.length) throw new globalThis.AggregateError(cleanupErrors, 'Native PostgreSQL owned cleanup failed');
   process.stdout.write(JSON.stringify({ ...result, cleanup: 'closed' }) + '\n');
+  return { ...result, cleanup: 'closed' };
 }
 
 if (require.main === module) run().catch(error => {

@@ -48,17 +48,20 @@ function configuration (source) {
     mode: tenant === 'single' ? 'single' : 'multi', allowInsecureLoopback: url.protocol === 'http:' };
 }
 
-async function run ({ source = process.env, fetch: transport = globalThis.fetch, consume } = {}) {
+async function run ({ source = process.env, fetch: transport = globalThis.fetch, consume, nativeStage } = {}) {
   // Admission/configuration precede scratch writes and every network operation.
   const config = configuration(source);
   if (typeof transport !== 'function') throw new TypeError('Bounded Vault transport required');
   if (consume !== undefined && typeof consume !== 'function') throw new TypeError('Explicit bounded native consumer callback required');
+  const budget = require('./fixtures/human-native-budget')({ stage: nativeStage, id: 'vault-' + config.mode, persistence: 'vault' });
+  let cleaning = false;
   const suffix = randomBytes(8).toString('hex'), mount = 'human-native-' + suffix;
   const policies = [], tokens = [], checks = [], cleanup = [];
   const signPolicy = 'human-sign-' + suffix, legacyPolicy = 'human-hmac-' + suffix;
   let mountAttempted = false, tokenCreationUnknown = false, scratch, primary;
   const started = Date.now();
   async function api (endpoint, { method = 'GET', body, token = config.adminToken } = {}) {
+    if (cleaning) budget.cleanup(); else budget.active();
     if (typeof endpoint !== 'string' || !/^[A-Za-z0-9_/-]+$/.test(endpoint) || endpoint.includes('..')) {
       throw new Error('Native Vault endpoint must be statically bound to owned resources');
     }
@@ -94,7 +97,7 @@ async function run ({ source = process.env, fetch: transport = globalThis.fetch,
   }
   async function check (name, work) {
     assert(Date.now() - started < 600000, 'finite native Vault operation budget exceeded');
-    await work(); checks.push({ name, pass: true });
+    budget.active(); await work(); budget.active(); checks.push({ name, pass: true });
   }
   async function policy (name, text) {
     await expect('sys/policies/acl/' + name, {}, 404);
@@ -238,6 +241,7 @@ async function run ({ source = process.env, fetch: transport = globalThis.fetch,
     });
   } catch (error) { primary = error; }
   finally {
+    cleaning = true;
     // Cleanup has its own finite request bounds and touches only named resources
     // created above. No success record is emitted before this completes.
     for (const record of tokens.slice().reverse()) {
@@ -273,6 +277,7 @@ async function run ({ source = process.env, fetch: transport = globalThis.fetch,
       } catch (error) { cleanup.push(error); }
     }
   }
+  try { budget.cleanup(); } catch (error) { cleanup.push(error); }
   const errors = cleanup.filter(item => item instanceof Error);
   if (primary && errors.length) throw new globalThis.AggregateError([primary, ...errors], 'Native Vault proof and owned cleanup failed');
   if (primary) throw primary;

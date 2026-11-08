@@ -1,7 +1,7 @@
 'use strict';
 
-// Opt-in actual HTTPS transport acceptance. The provider is synthetic and the
-// aggregate collection is a source double; this is NOT native Mongo/PG evidence.
+// Opt-in native HTTPS transport acceptance with a synthetic provider. Every
+// invocation requires explicit native persistence, Transit and bounded stage.
 // TLS key/certificate are generated into owned scratch before the reserved run.
 const assert = require('node:assert/strict');
 const https = require('node:https');
@@ -12,8 +12,6 @@ const { randomBytes } = require('node:crypto');
 const { createProvider } = require('../lib/human-session/provider');
 const { createHumanHTTP, COOKIE, FLOW, PREFIX } = require('../lib/human-session/http');
 const { createEngine } = require('../lib/human-session/engine');
-const { createMongoStore, principalId, authorityId } = require('../lib/human-session/mongo');
-const accessFixture = require('./fixtures/human-access-issuer');
 const fixture = require('./fixtures/human-oidc-provider');
 
 function assertPort (port) {
@@ -94,6 +92,25 @@ function admitOwnerExtension (createOwnerExtension, source = process.env) {
   if (admitted && typeof admitted.then === 'function') throw new Error('Owner extension admission must be synchronous');
 }
 
+function admitNativeStage (stage, source = process.env, at = Date.now()) {
+  const owner = stage?.id?.startsWith('owner-');
+  if (!stage || !['mongo-http', 'owner-consumer', 'owner-authority', 'owner-browser', 'owner-compatibility'].includes(stage.id) ||
+      stage.persistence !== (owner ? 'postgres' : 'mongo') || stage.signing !== 'configured-transit' ||
+      stage.activeMs !== 120000 || stage.cleanupMs !== 15000 ||
+      stage.transportMs !== (stage.id === 'owner-authority' ? 8000 : 5000) ||
+      !Number.isSafeInteger(stage.activeEndsAt) || stage.activeEndsAt <= at || stage.activeEndsAt > at + stage.activeMs ||
+      !Number.isSafeInteger(stage.cleanupEndsAt) || stage.cleanupEndsAt < stage.activeEndsAt ||
+      stage.cleanupEndsAt > stage.activeEndsAt + stage.cleanupMs ||
+      source.HUMAN_HTTPS_RESERVED !== '1' || source.HUMAN_SESSION_NATIVE_RESERVED !== '1' || source.HUMAN_VAULT_RESERVED !== '1' ||
+      source.HUMAN_HTTP_STORE !== stage.persistence || !source.HUMAN_HTTP_SIGNER_CONFIG ||
+      (stage.persistence === 'mongo' ? !source.HUMAN_SESSION_MONGO_URL : !source.HUMAN_SESSION_PG_ADMIN_URL || !source.HUMAN_SESSION_PG_APP_URL) ||
+      stage.browser !== ['mongo-http', 'owner-browser'].includes(stage.id) ||
+      stage.browser && (source.HUMAN_BROWSER_RESERVED !== '1' || !source.HUMAN_BROWSER_EXECUTABLE)) {
+    throw new Error('NATIVE_HTTPS_COMPLETE_STAGE_REQUIRED');
+  }
+  return true;
+}
+
 async function closeOwnerAndNative (ownerExtension, nativeStore) {
   const errors = [];
   // Owner stores depend on the shared native schemas. Drain them before the
@@ -106,9 +123,18 @@ async function closeOwnerAndNative (ownerExtension, nativeStore) {
   if (errors.length) throw new globalThis.AggregateError(errors, 'Owner and native fixture cleanup failed');
 }
 
-async function run ({ createOwnerExtension } = {}) {
+async function run ({ createOwnerExtension, createSingleExtension, nativeStage } = {}) {
   if (process.env.HUMAN_HTTPS_RESERVED !== '1') throw new Error('Explicit one-run HTTPS reservation required');
   admitOwnerExtension(createOwnerExtension);
+  admitNativeStage(nativeStage);
+  if (nativeStage.id.startsWith('owner-') !== (typeof createOwnerExtension === 'function') ||
+      (nativeStage.id === 'mongo-http') !== (typeof createSingleExtension === 'function')) {
+    throw new Error('NATIVE_HTTPS_REQUIRED_EXTENSION_MISSING');
+  }
+  if (createSingleExtension) {
+    if (typeof createSingleExtension.admit !== 'function') throw new Error('NATIVE_SINGLE_ADMISSION_REQUIRED');
+    createSingleExtension.admit();
+  }
   const tls = { key: fs.readFileSync(process.env.HUMAN_HTTPS_KEY), cert: fs.readFileSync(process.env.HUMAN_HTTPS_CERT) };
   const servers = [], sockets = new Set(), socketClosures = new Map();
   let timedOut = false, deadlineExit;
@@ -119,8 +145,9 @@ async function run ({ createOwnerExtension } = {}) {
     if (ownedBrowserServer) ownedBrowserServer.kill().catch(() => {});
     // This also bounds a stuck browser RPC that would otherwise never enter
     // finally. Timers are cooperative; no external wall-clock guarantee exists.
-    deadlineExit = setTimeout(() => { console.error('Fixture active deadline and abort cleanup exceeded'); process.exit(1); }, 15000);
-  }, 60000);
+    deadlineExit = setTimeout(() => { console.error('Fixture active deadline and absolute cleanup exceeded'); process.exit(1); },
+      Math.max(1, nativeStage.cleanupEndsAt - Date.now()));
+  }, Math.max(1, nativeStage.activeEndsAt - Date.now()));
   const counts = { assertions: 0 };
   let result;
   let primary, cleanupError;
@@ -142,13 +169,48 @@ async function run ({ createOwnerExtension } = {}) {
     return 'https://127.0.0.1:' + server.address().port;
   }
   const allowed = new Set();
+  const children = new Set();
+  function registerChild (child, metadata) {
+    if (!child || typeof child.once !== 'function' || !Number.isSafeInteger(child.pid) ||
+        !metadata || metadata.kind !== 'client' || metadata.label !== 'oref0-ns-get' || children.size) {
+      throw new Error('NATIVE_CHILD_BINDING_REFUSED');
+    }
+    const record = { child, closed: false };
+    record.closedPromise = new Promise(resolve => child.once('close', () => { record.closed = true; children.delete(record); resolve(); }));
+    children.add(record);
+    console.log(JSON.stringify({ event: 'owned-child', pid: child.pid, kind: metadata.kind, label: metadata.label }));
+    return record.closedPromise;
+  }
+  async function closeChildren () {
+    const waitClosed = async (record, milliseconds) => {
+      let timer;
+      try { return await Promise.race([record.closedPromise.then(() => true), new Promise(resolve => {
+        timer = setTimeout(() => resolve(false), Math.max(1, Math.min(milliseconds, nativeStage.cleanupEndsAt - Date.now())));
+      })]); } finally { clearTimeout(timer); }
+    };
+    for (const record of [...children]) {
+      if (record.closed) continue;
+      // Pinned client creates its own process group; terminate descendants too.
+      const kill = signal => { try { process.kill(-record.child.pid, signal); } catch (error) { if (error.code !== 'ESRCH') throw error; } };
+      kill('SIGTERM');
+      if (!await waitClosed(record, 1000)) { kill('SIGKILL');
+        if (!await waitClosed(record, 1000)) throw new Error('NATIVE_CHILD_EXIT_UNOBSERVED'); }
+    }
+  }
+  async function listenOwned (handler, { plane, tenant: selected, host = 'localhost' } = {}) {
+    if (!['data', 'operator', 'single'].includes(plane) || !['localhost', '127.0.0.1'].includes(host) ||
+        typeof selected !== 'string' || servers.length >= 12) throw new Error('NATIVE_LISTENER_BINDING_REFUSED');
+    const address = new URL(await listen(handler)); address.hostname = host;
+    allowed.add(address.origin);
+    return address.origin;
+  }
   async function transport (input, options = {}) {
     const request = input instanceof Request ? input : new Request(input, options), url = new URL(request.url);
     if (!allowed.has(url.origin)) throw new Error('Fixture outbound URL refused');
     const body = request.method === 'GET' || request.method === 'HEAD' ? undefined : Buffer.from(await request.arrayBuffer());
     return new Promise((resolve, reject) => {
       const req = https.request(url, { method: request.method, headers: Object.fromEntries(request.headers), ca: tls.cert, family: 4,
-        timeout: 3000, agent: false }, res => {
+        timeout: nativeStage.transportMs, signal: AbortSignal.timeout(Math.max(1, Math.min(nativeStage.transportMs, nativeStage.activeEndsAt - Date.now()))), agent: false }, res => {
         const chunks = []; let length = 0;
         res.once('error', reject); res.once('aborted', () => reject(new Error('Fixture TLS response aborted')));
         res.on('data', chunk => { length += chunk.length; if (length > 262144) req.destroy(new Error('Fixture response bound')); else chunks.push(chunk); });
@@ -179,39 +241,16 @@ async function run ({ createOwnerExtension } = {}) {
     allowed.add(site); allowed.add(issuer);
     providerFixture = await fixture({ issuer, redirectUri: site + PREFIX + '/callback' });
     const provider = await createProvider({ ...providerFixture, fetch: transport });
-    const persistence = process.env.HUMAN_HTTP_STORE || 'double';
-    if (!['double', 'mongo', 'postgres'].includes(persistence)) throw new Error('Explicit fixture persistence kind refused');
+    const persistence = nativeStage.persistence;
     const tenant = persistence === 'postgres' ? '11111111-1111-4111-8111-111111111111' : 'single';
     const subject = 'synthetic-subject';
-    let access;
-    if (process.env.HUMAN_HTTP_SIGNER_CONFIG) {
-      if (process.env.HUMAN_SESSION_NATIVE_RESERVED !== '1') throw new Error('Native signing provider reservation required');
-      access = require('../lib/human-session/access-config').loadHumanAccess({ mode: tenant === 'single' ? 'single' : 'multi',
-        tenants: [tenant], source: { ...process.env, OIDC_ACCESS_CONFIG: process.env.HUMAN_HTTP_SIGNER_CONFIG } });
-    } else access = accessFixture({ tenant }).access;
+    const access = require('../lib/human-session/access-config').loadHumanAccess({ mode: tenant === 'single' ? 'single' : 'multi',
+      tenants: [tenant], source: { ...process.env, OIDC_ACCESS_CONFIG: process.env.HUMAN_HTTP_SIGNER_CONFIG } });
     const acceptedKeys = access.keyBindings.map(({ kid, purpose }) => ({ kid, purpose, active: true }));
-    if (persistence !== 'double') nativeStore = await require('./fixtures/human-native-stores').createNativeStore({
+    nativeStore = await require('./fixtures/human-native-stores').createNativeStore({
       kind: persistence, tenant, issuer, providerSubject: subject, providerSession: 'synthetic-provider-session', acceptedKeys });
-    let document = { _id: authorityId(tenant), tenant, revision: 1, keys: acceptedKeys,
-      principals: [{ id: principalId(tenant, issuer, subject), issuer, providerSubject: subject,
-        subject: 'synthetic_local', consumer: 'oidc', enabled: true, generation: 1, credentialGeneration: 1,
-        purposes: ['data', 'management'], permissionGroups: [['api:entries:read']] }], sessions: [], logoutEvents: [] };
-    const clone = value => JSON.parse(JSON.stringify(value));
-    const collection = {
-      async findOne (query) {
-        if (query._id && query._id !== document._id || query.tenant !== tenant ||
-            query['sessions.tokens.hash'] && !document.sessions.some(session => session.tokens.some(token => token.hash === query['sessions.tokens.hash']))) return null;
-        return clone(document);
-      },
-      async findOneAndReplace (query, replacement) {
-        if (Object.keys(query).some(key => JSON.stringify(query[key]) !== JSON.stringify(document[key]))) return null;
-        document = clone(replacement); return clone(document);
-      },
-      find () { return { limit: () => ({ toArray: async () => [clone(document)] }) }; }
-    };
-    const engine = createEngine({ store: nativeStore?.store || createMongoStore({ collection, tenant, consumer: 'oidc' }), access });
-    const workerB = createEngine({ store: nativeStore ? await nativeStore.createWorkerStore()
-      : createMongoStore({ collection, tenant, consumer: 'oidc' }), access });
+    const engine = createEngine({ store: nativeStore.store, access });
+    const workerB = createEngine({ store: await nativeStore.createWorkerStore(), access });
     const http = createHumanHTTP({ engine, provider, resolver: { resolve: async () => tenant }, originFor: () => site, cookieKey: randomBytes(32) });
     const app = express(); app.use(PREFIX, http.router);
     app.get('/', (req, res) => res.set('Cache-Control', 'no-store').type('html').send('<!doctype html><title>Synthetic session fixture</title><p>Session acceptance fixture</p>'));
@@ -219,12 +258,16 @@ async function run ({ createOwnerExtension } = {}) {
       try { const supplied = http.credential(req); await workerB.authenticate({ tenant, token: supplied?.token, purpose: 'data' }); res.json({ allowed: true }); }
       catch (error) { res.status(error.code === 'HUMAN_SESSION_UNAVAILABLE' ? 503 : 401).json({ allowed: false }); }
     });
-    if (createOwnerExtension) {
-      ownerExtension = await createOwnerExtension({ nativeStore, human: http, access, tenant, origin: site });
+    if (createOwnerExtension || createSingleExtension) {
+      ownerExtension = await (createOwnerExtension || createSingleExtension)({ nativeStore, human: http, access, tenant, origin: site,
+        stage: nativeStage, binding: { persistence, signing: 'configured-transit' }, listenOwned, registerChild,
+        remainingActiveMs: () => Math.max(0, nativeStage.activeEndsAt - Date.now()) });
       if (!ownerExtension || typeof ownerExtension.router !== 'function' ||
           typeof ownerExtension.exercise !== 'function' || typeof ownerExtension.close !== 'function') {
         throw new Error('Owner extension requires a router, exercise and owned close');
       }
+      console.log(JSON.stringify({ event: 'owned-extension-custody', stage: nativeStage.id,
+        resources: ownerExtension.custody ? ownerExtension.custody() : ownerExtension.manifest }));
       app.use(ownerExtension.router);
     }
     mounted = app;
@@ -264,7 +307,7 @@ async function run ({ createOwnerExtension } = {}) {
     check((await transport(renewalLocation)).status, 503);
     check((await json('/logout', {}, { authorization: 'Bearer ' + token })).status, 200);
     check((await transport(site + '/protected', { headers: { authorization: 'Bearer ' + token } })).status, 401);
-    if (process.env.HUMAN_BROWSER_RESERVED === '1') {
+    if (nativeStage.browser) {
       providerFixture.state.offline = false;
       const { chromium } = require('playwright-core');
       ownedBrowserServer = await chromium.launchServer({ executablePath: process.env.HUMAN_BROWSER_EXECUTABLE,
@@ -346,20 +389,37 @@ async function run ({ createOwnerExtension } = {}) {
         })).status, { prefix: PREFIX, token: managementBearer }), 200);
         await context.close();
         counts.browser = 'actual-chromium-cookie-and-bearer-https';
+        if (ownerExtension?.exerciseBrowser) {
+          const ownerContext = await browser.newContext({ ignoreHTTPSErrors: true });
+          try {
+            await ownerContext.route('**/*', route => allowed.has(new URL(route.request().url()).origin) ? route.continue() : route.abort());
+            const ownerPage = await ownerContext.newPage();
+            counts.ownerBrowser = await ownerExtension.exerciseBrowser({ browserContext: ownerContext, page: ownerPage,
+              site, providerFixture, check });
+          } finally { await ownerContext.close(); }
+        }
     }
-    result = { kind: 'actual-https-synthetic-provider', persistence: persistence === 'double' ? 'source-double' : persistence,
-      accessSigning: process.env.HUMAN_HTTP_SIGNER_CONFIG ? 'configured-transit' : 'synthetic-local-ed25519', ...counts, verdict: 'pass' };
+    result = { kind: 'actual-https-synthetic-provider', stage: nativeStage.id, persistence,
+      accessSigning: 'configured-transit', ...counts, verdict: 'pass' };
   } catch (error) { primary = error; }
   finally {
     clearTimeout(deadline);
     try {
-      const resources = nativeStore || ownerExtension
-        ? [{ close: () => closeOwnerAndNative(ownerExtension, nativeStore) }] : [];
-      if (ownedBrowserServer) resources.push({ close: () => closeBrowser(ownedBrowserServer) });
-      await closeOwned({ servers, sockets, socketClosures, resources, onDeadline: error => {
-        if (primary) console.error(primary.name + ': ' + primary.message);
+      const resources = [{ close: async () => {
+        const errors = [];
+        // Sequential dependency teardown: browser/client users first, then
+        // extension pools/private schemas, then the shared native store.
+        for (const close of [
+          () => ownedBrowserServer && closeBrowser(ownedBrowserServer), closeChildren,
+          () => closeOwnerAndNative(ownerExtension, nativeStore)
+        ]) { try { await close(); } catch (error) { errors.push(error); } }
+        if (errors.length) throw new globalThis.AggregateError(errors, 'Native dependency cleanup failed');
+      } }];
+      await closeOwned({ servers, sockets, socketClosures, resources,
+        timeoutMs: Math.max(1, nativeStage.cleanupEndsAt - Date.now()), onDeadline: () => {
+        if (primary) console.error('Native stage failed before cleanup deadline');
         if (ownedBrowserServer) ownedBrowserServer.kill().catch(() => {});
-        console.error(error.message); process.exit(1);
+        console.error('Native stage absolute cleanup deadline exceeded'); process.exit(1);
       } });
       assert.equal(timedOut, false, 'fixture exceeded its reserved active deadline');
       console.log(JSON.stringify({ cleanup: 'closed', listeners: servers.length + (ownedBrowserServer ? 1 : 0) }));
@@ -369,11 +429,12 @@ async function run ({ createOwnerExtension } = {}) {
   if (primary && cleanupError) throw new globalThis.AggregateError([primary, cleanupError], 'Fixture operation and cleanup failed');
   if (primary || cleanupError) throw primary || cleanupError;
   console.log(JSON.stringify(result));
+  return result;
 }
 
 if (require.main === module) run().catch(error => {
   const failures = error.errors || [error];
-  for (const failure of failures) console.error(failure.name + ': ' + failure.message);
+  for (const failure of failures) console.error(JSON.stringify({ error: failure.code || failure.name }));
   process.exit(1);
 });
-module.exports = { run, closeOwned, closeBrowser, assertPort, admitOwnerExtension, closeOwnerAndNative, fixtureOrigins };
+module.exports = { run, closeOwned, closeBrowser, assertPort, admitOwnerExtension, closeOwnerAndNative, fixtureOrigins, admitNativeStage };
