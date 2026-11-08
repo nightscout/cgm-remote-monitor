@@ -1,9 +1,68 @@
 'use strict';
 
 const assert = require('node:assert/strict');
-const { closeOwned, closeBrowser, assertPort } = require('./human-session-http-native');
+const { run, closeOwned, closeBrowser, assertPort, admitOwnerExtension, closeOwnerAndNative } = require('./human-session-http-native');
 
 describe('bounded human HTTPS instrument (no listeners)', function () {
+  it('refuses owner extension setup before TLS or runtime acquisition without complete reserved native inputs', async function () {
+    const source = { HUMAN_HTTPS_RESERVED: '1', HUMAN_SESSION_NATIVE_RESERVED: '1', HUMAN_HTTP_STORE: 'postgres',
+      HUMAN_HTTP_SIGNER_CONFIG: 'synthetic-config', HUMAN_SESSION_PG_ADMIN_URL: 'synthetic-admin', HUMAN_SESSION_PG_APP_URL: 'synthetic-app' };
+    let calls = 0;
+    const factory = Object.assign(() => { throw new Error('No factory acquisition in admission'); }, { admit () { calls++; } });
+    for (const name of Object.keys(source)) {
+      const missing = { ...source }; delete missing[name];
+      assert.throws(() => admitOwnerExtension(factory, missing), /explicit reserved native/);
+      assert.equal(calls, 0);
+    }
+    assert.throws(() => admitOwnerExtension(() => {}, source), /explicit reserved native/);
+    admitOwnerExtension(factory, source); assert.equal(calls, 1);
+    admitOwnerExtension(undefined, {});
+    const saved = process.env.HUMAN_HTTPS_RESERVED;
+    try {
+      delete process.env.HUMAN_HTTPS_RESERVED;
+      await assert.rejects(run({ createOwnerExtension: factory }), /one-run HTTPS reservation/);
+      assert.equal(calls, 1, 'run refuses before invoking even pure extension admission');
+    } finally {
+      if (saved === undefined) delete process.env.HUMAN_HTTPS_RESERVED;
+      else process.env.HUMAN_HTTPS_RESERVED = saved;
+    }
+  });
+
+  it('keeps extension admission synchronous and propagates owned-config refusal', function () {
+    const source = { HUMAN_HTTPS_RESERVED: '1', HUMAN_SESSION_NATIVE_RESERVED: '1', HUMAN_HTTP_STORE: 'postgres',
+      HUMAN_HTTP_SIGNER_CONFIG: 'synthetic-config', HUMAN_SESSION_PG_ADMIN_URL: 'synthetic-admin', HUMAN_SESSION_PG_APP_URL: 'synthetic-app' };
+    assert.throws(() => admitOwnerExtension(Object.assign(() => {}, { admit: () => Promise.resolve() }), source), /must be synchronous/);
+    assert.throws(() => admitOwnerExtension(Object.assign(() => {}, { admit () { throw new Error('owned-config-refused'); } }), source), /owned-config-refused/);
+  });
+
+  it('checks extension-owned admission before reading TLS materials in the actual runner', async function () {
+    const selected = { HUMAN_HTTPS_RESERVED: '1', HUMAN_SESSION_NATIVE_RESERVED: '1', HUMAN_HTTP_STORE: 'postgres',
+      HUMAN_HTTP_SIGNER_CONFIG: 'synthetic-config', HUMAN_SESSION_PG_ADMIN_URL: 'synthetic-admin', HUMAN_SESSION_PG_APP_URL: 'synthetic-app' };
+    const saved = new Map(Object.keys(selected).map(key => [key, process.env[key]]));
+    const factory = Object.assign(() => { throw new Error('No owner factory acquisition'); }, {
+      admit () { throw new Error('OWNED_ADMISSION_REFUSED_BEFORE_TLS'); }
+    });
+    try {
+      Object.assign(process.env, selected);
+      await assert.rejects(run({ createOwnerExtension: factory }), /OWNED_ADMISSION_REFUSED_BEFORE_TLS/);
+    } finally {
+      for (const [key, value] of saved) {
+        if (value === undefined) delete process.env[key]; else process.env[key] = value;
+      }
+    }
+  });
+
+  it('drains owner pools before native schemas and retains both cleanup failures', async function () {
+    const events = [];
+    const owner = { async close () { await Promise.resolve(); events.push('owner'); } };
+    const native = { async close () { assert.deepEqual(events, ['owner']); events.push('native'); } };
+    await closeOwnerAndNative(owner, native); assert.deepEqual(events, ['owner', 'native']);
+    const fail = value => ({ async close () { events.push(value); throw new Error(value); } });
+    await assert.rejects(closeOwnerAndNative(fail('owner-failed'), fail('native-failed')), error =>
+      error instanceof globalThis.AggregateError && error.errors.map(item => item.message).join(',') === 'owner-failed,native-failed');
+    assert.deepEqual(events.slice(-2), ['owner-failed', 'native-failed']);
+  });
+
   it('refuses the reserved ports after ephemeral binding without retrying them', function () {
     for (const port of [18080, 18081, 18082]) assert.throws(() => assertPort(port), /reserved port/);
     assertPort(23456);

@@ -71,8 +71,35 @@ async function closeBrowser (server, { graceMs = 5000, probe = assertEndpointClo
   if (errors.length) throw new globalThis.AggregateError(errors, 'Browser cleanup failures');
 }
 
-async function run () {
+function admitOwnerExtension (createOwnerExtension, source = process.env) {
+  if (createOwnerExtension === undefined) return;
+  if (typeof createOwnerExtension !== 'function' || typeof createOwnerExtension.admit !== 'function' ||
+      source.HUMAN_HTTPS_RESERVED !== '1' || source.HUMAN_SESSION_NATIVE_RESERVED !== '1' ||
+      source.HUMAN_HTTP_STORE !== 'postgres' || !source.HUMAN_HTTP_SIGNER_CONFIG ||
+      !source.HUMAN_SESSION_PG_ADMIN_URL || !source.HUMAN_SESSION_PG_APP_URL) {
+    throw new Error('Owner extension requires explicit reserved native PostgreSQL and Transit configuration');
+  }
+  // Pure, synchronous admission checks all extension-specific owned inputs
+  // before this harness reads TLS material or acquires any runtime resource.
+  const admitted = createOwnerExtension.admit();
+  if (admitted && typeof admitted.then === 'function') throw new Error('Owner extension admission must be synchronous');
+}
+
+async function closeOwnerAndNative (ownerExtension, nativeStore) {
+  const errors = [];
+  // Owner stores depend on the shared native schemas. Drain them before the
+  // native fixture drops those schemas, including when owner cleanup refuses.
+  for (const resource of [ownerExtension, nativeStore]) {
+    if (!resource) continue;
+    try { await resource.close(); } catch (error) { errors.push(error); }
+  }
+  if (errors.length === 1) throw errors[0];
+  if (errors.length) throw new globalThis.AggregateError(errors, 'Owner and native fixture cleanup failed');
+}
+
+async function run ({ createOwnerExtension } = {}) {
   if (process.env.HUMAN_HTTPS_RESERVED !== '1') throw new Error('Explicit one-run HTTPS reservation required');
+  admitOwnerExtension(createOwnerExtension);
   const tls = { key: fs.readFileSync(process.env.HUMAN_HTTPS_KEY), cert: fs.readFileSync(process.env.HUMAN_HTTPS_CERT) };
   const servers = [], sockets = new Set(), socketClosures = new Map();
   let timedOut = false, deadlineExit;
@@ -88,7 +115,7 @@ async function run () {
   const counts = { assertions: 0 };
   let result;
   let primary, cleanupError;
-  let nativeStore;
+  let nativeStore, ownerExtension;
   let ownedBrowserServer;
   let providerFixture, mounted;
   function check (actual, expected) { assert.deepEqual(actual, expected); counts.assertions++; }
@@ -182,16 +209,25 @@ async function run () {
       try { const supplied = http.credential(req); await workerB.authenticate({ tenant, token: supplied?.token, purpose: 'data' }); res.json({ allowed: true }); }
       catch (error) { res.status(error.code === 'HUMAN_SESSION_UNAVAILABLE' ? 503 : 401).json({ allowed: false }); }
     });
+    if (createOwnerExtension) {
+      ownerExtension = await createOwnerExtension({ nativeStore, human: http, access, tenant, origin: site });
+      if (!ownerExtension || typeof ownerExtension.router !== 'function' ||
+          typeof ownerExtension.exercise !== 'function' || typeof ownerExtension.close !== 'function') {
+        throw new Error('Owner extension requires a router, exercise and owned close');
+      }
+      app.use(ownerExtension.router);
+    }
     mounted = app;
     const json = (path, body, headers = {}) => transport(site + PREFIX + path, { method: 'POST',
       headers: { origin: site, 'content-type': 'application/json', ...headers }, body: JSON.stringify(body) });
-    async function login (mode) {
-      const started = await json('/login', { transport: mode }); check(started.status, 200);
+    async function login (mode, purpose = 'data') {
+      const started = await json('/login', { transport: mode, purpose }); check(started.status, 200);
       const flowCookie = started.headers.get('set-cookie').split(';')[0]; assert(flowCookie.startsWith(FLOW + '-'));
       const location = (await started.json()).location;
       const authorize = await transport(location); check(authorize.status, 303);
       return transport(authorize.headers.get('location'), { headers: { cookie: flowCookie } });
     }
+    if (ownerExtension) counts.owner = await ownerExtension.exercise({ transport, site, login, check, providerFixture });
     const cookieReply = await login('cookie'); check(cookieReply.status, 303);
     const cookie = cookieReply.headers.get('set-cookie').split(',').map(value => value.trim()).find(value => value.startsWith(COOKIE + '='));
     assert(cookie && /HttpOnly/i.test(cookie) && /Secure/i.test(cookie) && /SameSite=Strict/i.test(cookie)); counts.assertions++;
@@ -307,7 +343,8 @@ async function run () {
   finally {
     clearTimeout(deadline);
     try {
-      const resources = nativeStore ? [nativeStore] : [];
+      const resources = nativeStore || ownerExtension
+        ? [{ close: () => closeOwnerAndNative(ownerExtension, nativeStore) }] : [];
       if (ownedBrowserServer) resources.push({ close: () => closeBrowser(ownedBrowserServer) });
       await closeOwned({ servers, sockets, socketClosures, resources, onDeadline: error => {
         if (primary) console.error(primary.name + ': ' + primary.message);
@@ -329,4 +366,4 @@ if (require.main === module) run().catch(error => {
   for (const failure of failures) console.error(failure.name + ': ' + failure.message);
   process.exit(1);
 });
-module.exports = { run, closeOwned, closeBrowser, assertPort };
+module.exports = { run, closeOwned, closeBrowser, assertPort, admitOwnerExtension, closeOwnerAndNative };
