@@ -38,7 +38,11 @@ async function lab (mutate) {
   for(let index=0;index<entries.length;index++)await boot(index);
   const coordinator=load({'../realtime/ipc':ipc},mutate);
   const remote=await coordinator.createRemote({namespace:'synthetic_window',tenants:[A,B],participants:entries});
-  const operator={async query(sql){if(sql.includes('restore-cohort-actors'))return {rows:actors};return {rows:[flags.operatorWrongDB?{...DATA,server_port:5433}:DATA]};}};
+  const operator={async query(sql){
+    if(sql==='SELECT pg_catalog.pg_stat_clear_snapshot()')return {rows:[{}]};
+    if(sql==='SELECT '+lower.datastoreSQL)return {rows:[flags.operatorWrongDB?{...DATA,server_port:5433}:DATA]};
+    assert(sql.includes('restore-cohort-actors'),'Unexpected operator census SQL');return {rows:actors};
+  }};
   return {coordinator,remote,entries,locals,flags,actors,operator,invalidated,async restart(index){await locals.get(index).close();await boot(index);},
     async close(){await remote.close();for(const local of locals.values())await local.close();}};
 }

@@ -22,6 +22,7 @@ async function setup ({ mutate, boot } = {}) {
   const lower = {...require('../lib/storage/postgres-connection'),installOperationWindow: () => () => { released = true; }, cohortBackends: () => observed,cohortDatastore:() => f.window.datastore};
   const module = load('../lib/server/serve/operation-cohort.js', {
     '../../storage/postgres-connection':lower,
+    pg:{Client:class { constructor () { assert.fail('Census must use the passed operator client'); } },Pool:class { constructor () { assert.fail('Census must not create a pool'); } }},
     ...Object.fromEntries(['preview-api','evaluator-preview','preview-realtime','owner-preview'].map((name,i) => ['./' + name, {
       boot: boot || (async () => ({close:async () => {},invalidateTenant:async tenant => invalidations.push([roles[i],tenant])}))
     }]))
@@ -48,7 +49,12 @@ describe('Actual operation cohort composition source protocol', function () {
   async function censusCheck (mutate) {
     const s = await setup({mutate}); await s.complete();
     const actors = [{...s.observed[0],application_name:'unrelated-label'}];
-    const client = {async query (sql, values) { if (!sql.includes('restore-cohort-actors')) return {rows:[s.f.window.datastore]}; assert.deepEqual(values,[['clinical','outbox','suppression']]); return {rows:actors}; }};
+    const client = {async query (sql, values) {
+      if (sql === 'SELECT ' + require('../lib/storage/postgres-connection').datastoreSQL) return {rows:[s.f.window.datastore]};
+      if (sql === 'SELECT pg_catalog.pg_stat_clear_snapshot()') return {rows:[{}]};
+      assert(sql.includes('restore-cohort-actors'),'Unexpected census SQL');
+      assert.deepEqual(values,[['clinical','outbox','suppression']]); return {rows:actors};
+    }};
     try {
       assert.equal((await s.module.assertComplete(s.cohort,A,{client})).backends,1);
       for (const change of [{pid:124},{birth:'1700000000.000002'},{role:'other_worker'},{birth:null}]) {
@@ -60,6 +66,49 @@ describe('Actual operation cohort composition source protocol', function () {
       assert.equal(s.invalidations.some(row => row[1] === B),false);
     } finally { await s.cohort.close(); assert.equal(s.released,true); }
   }
+  async function cachedActivityCheck (mutate) {
+    const s=await setup({mutate});await s.complete();
+    const copy=rows=>structuredClone(rows),trace=[],pending=[];
+    let current=copy(s.observed),cached=null;
+    const client={async query(sql,values){
+      assert.equal(this,client,'SAME_PASSED_OPERATOR_CLIENT');
+      if(sql==='SELECT '+require('../lib/storage/postgres-connection').datastoreSQL)return {rows:[s.f.window.datastore]};
+      if(sql==='SELECT pg_catalog.pg_stat_clear_snapshot()'){
+        const record={kind:'refresh',settled:false};trace.push(record);
+        const done=new Promise(resolve=>setImmediate(()=>{cached=null;record.settled=true;resolve({rows:[{}]});}));pending.push(done);return done;
+      }
+      assert(sql.includes('restore-cohort-actors'),'No transaction/connection/clinical SQL is permitted in the census');
+      assert.deepEqual(values,[['clinical','outbox','suppression']]);trace.push({kind:'actors'});
+      if(cached===null)cached=copy(current);return {rows:copy(cached)};
+    }};
+    try{
+      assert.equal((await s.module.assertComplete(s.cohort,A,{client})).backends,1);
+      // A genuine registered actor retired: current database and peer map agree
+      // on absence, but this transaction's earlier activity snapshot retains it.
+      current=[];s.observed.length=0;
+      assert.equal((await s.module.assertComplete(s.cohort,A,{client})).backends,0);
+      // A newly unregistered actor cannot hide in the previously empty cache.
+      current=[{pid:999,role:'unregistered_worker',birth:'1700000001.000001'}];
+      await assert.rejects(s.module.assertComplete(s.cohort,A,{client}),{code:'RESTORE_COHORT_UNKNOWN_BACKEND'});
+      current=[];assert.equal((await s.module.assertComplete(s.cohort,A,{client})).backends,0);
+      assert.equal(trace.length,8);
+      for(let i=0;i<trace.length;i+=2){assert.deepEqual(trace[i],{kind:'refresh',settled:true});assert.deepEqual(trace[i+1],{kind:'actors'});}
+    }finally{await Promise.all(pending);await s.cohort.close();}
+  }
+  it('refreshes cached retired/new actors on the same operator before each strict comparison',()=>cachedActivityCheck());
+  it('detects omitted refresh and passes fresh restored source',async function(){
+    await assert.rejects(cachedActivityCheck(s=>s.replace("await client.query('SELECT pg_catalog.pg_stat_clear_snapshot()');",'')),{code:'RESTORE_COHORT_UNKNOWN_BACKEND'});
+    await cachedActivityCheck();
+  });
+  it('awaits refresh completion; a started but unawaited clear remains red',async function(){
+    await assert.rejects(cachedActivityCheck(s=>s.replace("await client.query('SELECT pg_catalog.pg_stat_clear_snapshot()');","void client.query('SELECT pg_catalog.pg_stat_clear_snapshot()');")),{code:'RESTORE_COHORT_UNKNOWN_BACKEND'});
+    await cachedActivityCheck();
+  });
+  it('propagates same-client refresh refusal before any actor query',async function(){
+    const s=await setup();await s.complete();const refusal=new Error('synthetic statistics refresh refusal');let actorQueries=0;
+    const client={async query(sql){assert.equal(this,client);if(sql==='SELECT '+require('../lib/storage/postgres-connection').datastoreSQL)return {rows:[s.f.window.datastore]};if(sql==='SELECT pg_catalog.pg_stat_clear_snapshot()')throw refusal;actorQueries++;assert.fail('Actor query must not follow failed refresh');}};
+    try{await assert.rejects(s.module.assertComplete(s.cohort,A,{client}),error=>error===refusal);assert.equal(actorQueries,0);}finally{await s.cohort.close();}
+  });
   it('matches PID, birth and database role, never an application label; invalidates A only', () => censusCheck());
   it('detects a broken census comparison and passes the restored source', async function () {
     await assert.rejects(censusCheck(s => s.replace("if (!row || !actor.birth || row.birth !== actor.birth || row.role !== actor.role)", 'if (false)')), /Missing expected rejection/);
