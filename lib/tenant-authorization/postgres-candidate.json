@@ -60,6 +60,14 @@
         "CREATE POLICY tenant_owner_actors_tenant ON tenant_owner_actors USING (tenant_id = nullif(current_setting('app.current_tenant_id', true), '')::uuid) WITH CHECK (tenant_id = nullif(current_setting('app.current_tenant_id', true), '')::uuid)",
         "REVOKE ALL ON tenant_owner_actors FROM PUBLIC"
       ]
+    },
+    {
+      "name": "0005_owner_subject_creation",
+      "checksum": "be42a4df82ca2669caee23bfdf56a214da7443b0b7daec803c9e27ee35e7e3de",
+      "up": [
+        "ALTER TABLE tenant_subject_admin_audit DROP CONSTRAINT tenant_subject_admin_audit_operation_check",
+        "ALTER TABLE tenant_subject_admin_audit ADD CONSTRAINT tenant_subject_admin_audit_operation_check CHECK (operation IN ('update','remove','create','create-role','issue'))"
+      ]
     }
   ]
 }
