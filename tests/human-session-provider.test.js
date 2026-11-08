@@ -97,6 +97,15 @@ describe('shared human OIDC provider protocol (synthetic in-process HTTP transpo
     await assert.rejects(createProvider(source), { code: 'OIDC_PROVIDER_UNAVAILABLE' });
   });
 
+  it('classifies synthetic provider HTTP 5xx code-exchange refusal as unavailable rather than invalid identity', async function () {
+    for (const status of [502, 503, 504]) {
+      const pending = await flow({ renewal: true });
+      source.state.httpOutageStatus = status;
+      await assert.rejects(provider.finish(pending), { code: 'OIDC_PROVIDER_UNAVAILABLE' });
+      source.state.httpOutageStatus = null;
+    }
+  });
+
   it('does not allow HTTP outside an explicit lab loopback configuration', async function () {
     await assert.rejects(createProvider({ ...source, issuer: 'http://identity.synthetic.invalid' }), TypeError);
     await assert.rejects(createProvider({ ...source, redirectUri: 'http://nightscout.synthetic.invalid/auth/oidc/callback' }), TypeError);

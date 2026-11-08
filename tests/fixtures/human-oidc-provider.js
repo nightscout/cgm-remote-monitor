@@ -14,7 +14,7 @@ module.exports = async function fixture ({ issuer = 'https://identity.synthetic.
   const publicKey = await jose.exportJWK(keys.publicKey);
   const clientSecret = randomBytes(32).toString('base64url');
   const codes = new Map();
-  const state = { offline: false, requests: [], tokenOverrides: {}, foreignSignature: false,
+  const state = { offline: false, httpOutageStatus: null, requests: [], tokenOverrides: {}, foreignSignature: false,
     discoveryOverrides: {}, authenticationTime: now() };
   const metadata = {
     issuer, authorization_endpoint: issuer + '/authorize', token_endpoint: issuer + '/token',
@@ -35,6 +35,7 @@ module.exports = async function fixture ({ issuer = 'https://identity.synthetic.
     const url = new URL(request.url);
     state.requests.push({ pathname: url.pathname, method: request.method, redirect: request.redirect });
     if (state.offline) throw new TypeError('Synthetic provider unavailable');
+    if (state.httpOutageStatus) return json({ error: 'temporarily_unavailable' }, state.httpOutageStatus);
     if (url.origin !== new URL(issuer).origin) return json({ error: 'wrong_origin' }, 404);
     if (url.pathname === '/.well-known/openid-configuration') return json({ ...metadata, ...state.discoveryOverrides });
     if (url.pathname === '/jwks') return json({ keys: [{ ...publicKey, alg: 'RS256', use: 'sig', kid: 'synthetic-key' }] });

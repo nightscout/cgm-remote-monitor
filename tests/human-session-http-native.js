@@ -195,12 +195,17 @@ async function run () {
     const bearerReply = await login('bearer'); check(bearerReply.status, 200);
     const token = (await bearerReply.json()).token;
     check((await transport(site + '/protected', { headers: { authorization: 'Bearer ' + token } })).status, 200);
+    const renewal = await json('/renew', {}, { authorization: 'Bearer ' + token }); check(renewal.status, 200);
+    const renewalLocation = (await renewal.json()).location;
+    const renewalCookie = renewal.headers.get('set-cookie').split(';')[0];
+    const pendingProof = await transport(renewalLocation); check(pendingProof.status, 303);
     providerFixture.state.offline = true;
     check((await transport(site + '/protected', { headers: { authorization: 'Bearer ' + token } })).status, 200);
-    const renewal = await json('/renew', {}, { authorization: 'Bearer ' + token }); check(renewal.status, 200);
-    // Begin is local URL construction; actual provider-dependent code proof is
-    // unavailable, and cannot mint/renew a Nightscout credential.
-    check((await transport((await renewal.json()).location)).status, 503);
+    // The provider disappears after code acquisition. Its actual token-endpoint
+    // 503 must remain unavailable at the consuming HTTP callback, with no new
+    // local access issuance or cached provider-identity fallback.
+    check((await transport(pendingProof.headers.get('location'), { headers: { cookie: renewalCookie } })).status, 503);
+    check((await transport(renewalLocation)).status, 503);
     check((await json('/logout', {}, { authorization: 'Bearer ' + token })).status, 200);
     check((await transport(site + '/protected', { headers: { authorization: 'Bearer ' + token } })).status, 401);
     if (process.env.HUMAN_BROWSER_RESERVED === '1') {
