@@ -1,0 +1,32 @@
+{
+  "version": 1,
+  "migrations": [
+    {
+      "name": "0001_human_sessions",
+      "checksum": "e9389933aa86d7fe9ac4a079515d9c352954cb6d36dbcd5518caf5fe82bdb3bd",
+      "up": [
+        "CREATE TABLE human_identities (tenant_id uuid NOT NULL, issuer text NOT NULL CHECK (length(issuer) BETWEEN 1 AND 2048), provider_subject text NOT NULL CHECK (length(provider_subject) BETWEEN 1 AND 512), subject_id text NOT NULL CHECK (subject_id ~ '^[A-Za-z0-9_-]{1,128}$'), credential_id text NOT NULL CHECK (credential_id ~ '^[A-Za-z0-9_-]{1,128}$'), enabled boolean NOT NULL, generation integer NOT NULL CHECK (generation > 0), purposes text[] NOT NULL CHECK (cardinality(purposes) <= 2 AND purposes <@ ARRAY['data','management']::text[] AND array_position(purposes,NULL) IS NULL), PRIMARY KEY (tenant_id,issuer,provider_subject))",
+        "CREATE TABLE human_sessions (tenant_id uuid NOT NULL, session_id text NOT NULL CHECK (session_id ~ '^[A-Za-z0-9_-]{1,128}$'), subject_id text NOT NULL CHECK (subject_id ~ '^[A-Za-z0-9_-]{1,128}$'), purpose text NOT NULL CHECK (purpose IN ('data','management')), issuer text NOT NULL, provider_subject text NOT NULL, provider_session text CHECK (provider_session IS NULL OR length(provider_session) BETWEEN 1 AND 512), authenticated_at bigint NOT NULL CHECK (authenticated_at >= 0), created_at bigint NOT NULL CHECK (created_at >= authenticated_at), absolute_expires_at bigint, idle_expires_at bigint, active boolean NOT NULL, authority_generation integer NOT NULL CHECK (authority_generation > 0), credential_generation integer NOT NULL CHECK (credential_generation > 0), PRIMARY KEY (tenant_id,session_id), FOREIGN KEY (tenant_id,issuer,provider_subject) REFERENCES human_identities (tenant_id,issuer,provider_subject), CHECK ((purpose='data' AND absolute_expires_at IS NULL AND idle_expires_at IS NULL) OR (purpose='management' AND absolute_expires_at > created_at AND absolute_expires_at <= created_at+43200 AND idle_expires_at > created_at AND idle_expires_at <= absolute_expires_at)))",
+        "CREATE TABLE human_access_tokens (tenant_id uuid NOT NULL, token_hash text NOT NULL CHECK (token_hash ~ '^[a-f0-9]{64}$'), session_id text NOT NULL, expires_at bigint NOT NULL CHECK (expires_at > 0), PRIMARY KEY (tenant_id,token_hash), FOREIGN KEY (tenant_id,session_id) REFERENCES human_sessions (tenant_id,session_id))",
+        "ALTER TABLE human_identities ENABLE ROW LEVEL SECURITY",
+        "ALTER TABLE human_identities FORCE ROW LEVEL SECURITY",
+        "CREATE POLICY human_identities_tenant ON human_identities USING (tenant_id = nullif(current_setting('app.current_tenant_id', true), '')::uuid) WITH CHECK (tenant_id = nullif(current_setting('app.current_tenant_id', true), '')::uuid)",
+        "REVOKE ALL ON human_identities FROM PUBLIC",
+        "ALTER TABLE human_sessions ENABLE ROW LEVEL SECURITY",
+        "ALTER TABLE human_sessions FORCE ROW LEVEL SECURITY",
+        "CREATE POLICY human_sessions_tenant ON human_sessions USING (tenant_id = nullif(current_setting('app.current_tenant_id', true), '')::uuid) WITH CHECK (tenant_id = nullif(current_setting('app.current_tenant_id', true), '')::uuid)",
+        "REVOKE ALL ON human_sessions FROM PUBLIC",
+        "ALTER TABLE human_access_tokens ENABLE ROW LEVEL SECURITY",
+        "ALTER TABLE human_access_tokens FORCE ROW LEVEL SECURITY",
+        "CREATE POLICY human_access_tokens_tenant ON human_access_tokens USING (tenant_id = nullif(current_setting('app.current_tenant_id', true), '')::uuid) WITH CHECK (tenant_id = nullif(current_setting('app.current_tenant_id', true), '')::uuid)",
+        "REVOKE ALL ON human_access_tokens FROM PUBLIC",
+        "CREATE INDEX human_sessions_provider_session ON human_sessions (tenant_id,issuer,provider_session)",
+        "CREATE TABLE human_logout_events (tenant_id uuid NOT NULL, issuer text NOT NULL CHECK (length(issuer) BETWEEN 1 AND 2048), event_id text NOT NULL CHECK (length(event_id) BETWEEN 1 AND 512), issued_at bigint NOT NULL CHECK (issued_at >= 0), PRIMARY KEY (tenant_id,issuer,event_id))",
+        "ALTER TABLE human_logout_events ENABLE ROW LEVEL SECURITY",
+        "ALTER TABLE human_logout_events FORCE ROW LEVEL SECURITY",
+        "CREATE POLICY human_logout_events_tenant ON human_logout_events USING (tenant_id = nullif(current_setting('app.current_tenant_id', true), '')::uuid) WITH CHECK (tenant_id = nullif(current_setting('app.current_tenant_id', true), '')::uuid)",
+        "REVOKE ALL ON human_logout_events FROM PUBLIC"
+      ]
+    }
+  ]
+}
