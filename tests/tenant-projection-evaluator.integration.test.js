@@ -138,12 +138,28 @@ optInSuite(process.env.NS_TENANT_PROJECTION_EVALUATOR_TEST === '1' && !!process.
       assert.deepEqual(publications, []);
       const rows = await lab.typedRows();
       assert.equal(rows.length, 1, 'independent storage shows commit before death');
-      const instant = Date.now();
+      assert.equal(rows[0].doc.sgv, 123, 'independent storage retains the committed clinical value');
+      assert.ok(Number.isSafeInteger(rows[0].doc.date), 'committed clinical timestamp is explicit');
+      // The synthetic producer uses a fixed clinical date. Pin the clinical
+      // replay near that independently stored reading, as in the other cases;
+      // wall time would eventually age it out of the existing two-day window.
+      const instant = rows[0].doc.date + 2 * 60000;
       await lab.at(instant, async () => {
         const recovered = await lab.evaluator().evaluate({ at: instant });
         assert.equal(recovered.properties.bgnow.mean, 123, 'committed clinical reading survives producer death');
         assert.deepEqual(recovered.properties, (await lab.fresh(lab.A, instant)).properties);
         assert.equal(recovered.checkpoint, await lab.floor(lab.A));
+      });
+      const aged = rows[0].doc.date + 2 * 24 * 60 * 60000 + 1;
+      await lab.at(aged, async () => {
+        const recovered = await lab.evaluator().evaluate({ at: aged });
+        assert.equal(recovered.properties.bgnow.mean, undefined, 'recovery preserves the clinical age window');
+        assert.deepEqual(recovered.properties, (await lab.fresh(lab.A, aged)).properties);
+      });
+      assert.deepEqual(await lab.typedRows(), rows, 'aging evaluation never changes committed storage');
+      await lab.at(instant, async () => {
+        assert.equal((await lab.evaluator().evaluate({ at: instant })).properties.bgnow.mean, 123,
+          'fresh replay of the same committed reading restores the clinical oracle');
       });
     });
   });

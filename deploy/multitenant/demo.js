@@ -4,8 +4,39 @@
 // operator recovery policy. Uses the real API and private restore controller.
 const assert = require('node:assert/strict');
 const { randomUUID } = require('node:crypto');
+const http = require('node:http');
 const operator = require('./restore');
 const fail = code => Object.assign(new Error(code), { code });
+
+// The private Compose address is api:1337, while Host selects the tenant.
+// Built-in fetch ignores this Host override; node:http preserves it on the wire.
+// Keep the caller's absolute AbortSignal deadline through headers AND body.
+function privateFetch (url, options) {
+  return new Promise((resolve, reject) => {
+    const req = http.request(url, { method: options.method, headers: options.headers, signal: options.signal, agent: false }, res => {
+      const chunks = [];
+      let bytes = 0;
+      res.on('data', chunk => {
+        bytes += chunk.length;
+        if (bytes > 1024 * 1024) {
+          reject(fail('COMPOSE_DEMO_RESPONSE_LIMIT'));
+          res.destroy(); req.destroy();
+        } else chunks.push(chunk);
+      });
+      res.once('aborted', () => reject(fail('COMPOSE_DEMO_RESPONSE_ABORTED')));
+      res.once('error', reject);
+      res.once('end', () => {
+        const body = Buffer.concat(chunks);
+        resolve({ status: res.statusCode, body: { cancel: async () => {} }, json: async () => {
+          options.signal.throwIfAborted();
+          return JSON.parse(body.toString('utf8'));
+        } });
+      });
+    });
+    req.once('error', reject);
+    req.end(options.body);
+  });
+}
 
 async function responseJson (url, options, fetchImpl, prefix, statuses) {
   let response;
@@ -17,7 +48,7 @@ async function responseJson (url, options, fetchImpl, prefix, statuses) {
   try { return { status: response.status, value: await response.json() }; } catch { throw fail(prefix + '_SHAPE'); }
 }
 
-async function exchange (config, tenant, { env = process.env, fetchImpl = fetch } = {}) {
+async function exchange (config, tenant, { env = process.env, fetchImpl = privateFetch } = {}) {
   if (!config.tenants.includes(tenant)) throw fail('COMPOSE_DEMO_REQUEST_REFUSED');
   const credential = env[tenant.tokenEnv];
   if (typeof credential !== 'string' || !credential || credential.length > 8192) throw fail('COMPOSE_DEMO_CREDENTIAL_REFUSED');
@@ -39,7 +70,7 @@ async function exchange (config, tenant, { env = process.env, fetchImpl = fetch 
   return issued.token;
 }
 
-async function request (config, tenant, route, { method = 'GET', body, env = process.env, fetchImpl = fetch } = {}) {
+async function request (config, tenant, route, { method = 'GET', body, env = process.env, fetchImpl = privateFetch } = {}) {
   if (!route.startsWith('/api/v3/entries') || route.includes('://') || route.includes('#') || !config.tenants.includes(tenant)) throw fail('COMPOSE_DEMO_REQUEST_REFUSED');
   // Exchange per operation: no cross-tenant token cache or stale-credential
   // fallback. Current subject authority is checked by the actual issuer/API.
