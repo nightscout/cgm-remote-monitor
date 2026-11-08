@@ -15,6 +15,7 @@
         "tests/alexa-template.test.js",
         "tests/apn-lifecycle.test.js",
         "tests/apn-transport.test.js",
+        "tests/apnspush.test.js",
         "tests/ar2.test.js",
         "tests/basalprofileplugin.test.js",
         "tests/bgnow.test.js",
