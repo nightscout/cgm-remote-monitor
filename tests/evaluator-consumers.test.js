@@ -161,7 +161,7 @@ describe('selected evaluator role consumes notification composition', function (
       last: () => null, isCurrent: async () => true, health: () => ({ tenants: [] }), close: async () => { calls.push('clinical-close'); } };
     const sandbox = { module: { exports: {} }, console: { log () {} }, require (name) {
       if (name === '../../storage/postgres-connection') return async () => clinical;
-      if (name === './evaluator-readiness') return async () => { calls.push('clinical-readiness'); };
+      if (name === './evaluator-readiness') return Object.assign(async () => { calls.push('clinical-readiness'); }, {provisionTenant: async () => {}});
       if (name === './evaluator-runtime') return async () => { calls.push('clinical-start'); return runtime; };
       if (name === './evaluator-consumers') return { async prepare (input) {
         assert.equal(input.clinicalConnection, clinical); calls.push('consumer-prepare'); return consumer;

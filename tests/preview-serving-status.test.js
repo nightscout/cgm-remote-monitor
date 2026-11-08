@@ -53,8 +53,8 @@ function bootProtocol ({ hold, fail } = {}) {
     '../../secrets/legacy-postgres': async () => legacy, '../../tenant-authorization/postgres': async () => authority,
     '../tenant-app/data-access': () => (req, res, next) => next(), '../tenant-app/exchange': () => async () => null,
     '../tenant-app': { createTenantApp: () => express.Router() },
-    './postgres-domains': { readiness: () => stage('readiness'), assertServing: () => stage('assertServing') },
-    './preview-domains': async options => { readState = options.servingState; await stage('domains'); return { data: express.Router(), v3Names: [], legacyNames: [], safeRoutes: {} }; },
+    './postgres-domains': { readiness: () => stage('readiness'), assertServing: async () => { await stage('assertServing'); return { ensure: async () => {}, invalidateTenant () {} }; } },
+    './preview-domains': async options => { readState = options.servingState; await stage('domains'); return { data: express.Router(), v3Names: [], legacyNames: [], safeRoutes: {}, initializeTenant: async () => {} }; },
     '../realtime/private-api': { boot: async () => { await stage('private'); return { close: resource().end }; } }
   };
   Module._load = function (name, ...args) { return Object.hasOwn(stubs, name) ? stubs[name] : oldLoad.call(this, name, ...args); };

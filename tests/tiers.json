@@ -94,6 +94,7 @@
         "tests/tenant-operation-window.test.js",
         "tests/tenant-maintenance-window.test.js",
         "tests/operation-cohort.test.js",
+        "tests/tenant-startup-admission.test.js",
         "tests/operation-cohort-peers.test.js",
         "tests/tenant-operation-window-readiness.test.js",
         "tests/postgres-filter.test.js",
