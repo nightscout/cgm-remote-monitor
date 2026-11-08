@@ -190,6 +190,13 @@ role grants or RLS policies.
 dedicated secrets namespace. It is not a production-approved catalogue or a
 global Nightscout schema baseline. It creates `secret_records` and
 `secret_audit` with forced tenant RLS, without granting an application role.
+Append-only `0003_secrets_legacy_issuance` admits the separate `issue-legacy`
+authorized-attempt audit operation and requires its encrypted root reference.
+Earlier migration bytes/checksums, rewrap target-version constraints, forced RLS
+and application grants remain unchanged. Apply it explicitly before composing
+owner credential issuance. The exact-reference subject policy also treats
+`issue-legacy` independently from `decrypt` and `reveal`.
+
 There is no boot migration. After reviewing this candidate, an operator can
 exercise it only against a disposable lab database:
 
