@@ -42,7 +42,21 @@ Methods:
 | `reveal(context,reference)` | Separate `reveal` permission and audit event, not an alias for the consumer permission. The eventual owner policy must refuse operator reveal and enforce its selected re-authentication policy. |
 | `signJWT(context,accessToken,lifetimeSeconds)` | `sign` permission is **tenant-wide minting authority**, reserved for a trusted token issuer, not an owner-config permission. Return an HS256 JWT with `accessToken`, tenant `aud`, `iat`, `exp` and version `kid`. Reject lifetimes outside the configured bound. |
 | `verifyJWT(context,token)` | `verify` consumer permission; verify signature/key version, tenant audience, algorithm, issued time, expiry and lifetime, then return only the selected claims. Invalid tokens reject; they never become anonymous/default authority. |
+| `issueLegacyCredential(context,subjectId,withCurrentSubject)` | Sensitive trusted management issuance only: `issue-legacy` permission and durable redacted attempt audit. Derives the existing canonical raw subject credential behind the encrypted root boundary; returns only `{token}`. The wrapper fences current management/delegation/subject/credential state until transaction commit; no root or signing key leaves secrets. |
 | `exchangeLegacyCredential(context,credential,currentSubject)` | Trusted issuer only: verify the path credential against current imported tenant metadata, refuse root/anonymous, await the current-subject callback, and sign the canonical subject token inside secrets. Returns only `{token,iat,exp}`. Requires an explicitly configured maximum of 28800 seconds and issues exactly that duration. |
+
+Legacy issuance additionally requires a trusted `withCurrentSubject({tenant,subjectId}, issue)`
+wrapper. It must validate current owner/actor and grant ceilings, hold subject and
+credential locks across `await issue()`, write its redacted success audit in that
+transaction, and return the exact callback result only after commit. A failed
+commit cannot release the token. The component independently loads current
+trusted tenant credential metadata, requires a matching subject, performs separate
+`issue-legacy` authorization/audit before decryption and clears decoded root bytes.
+Possessing data, decrypt or root authority does not imply issuance permission.
+The management transport must enforce the adopted five-minute authentication
+freshness before sensitive issuance; this component receives no unauthenticated
+freshness claims. Reissuance exposes the same existing bearer credential, so it
+uses this sensitive boundary rather than treating a legacy hash as harmless.
 
 Authorization linearizes at the successful current-state `authorize` check.
 An already-authorized in-flight operation may finish; the next operation must
