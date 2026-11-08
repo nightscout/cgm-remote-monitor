@@ -14,20 +14,50 @@ const { createEngine } = require('../lib/human-session/engine');
 const { createMongoStore, principalId } = require('../lib/human-session/mongo');
 const fixture = require('./fixtures/human-oidc-provider');
 
+function assertPort (port) {
+  if ([18080, 18081, 18082].includes(port)) throw new Error('Fixture assigned a reserved port');
+}
+
+async function closeOwned ({ servers, sockets, socketClosures, timeoutMs = 15000, onDeadline = () => {} }) {
+  let timer;
+  const closing = Promise.resolve().then(async () => {
+    const settled = [...socketClosures.values()];
+    for (const socket of sockets) socket.destroy();
+    const closed = servers.map(server => new Promise((resolve, reject) => {
+      server.close(error => error && error.code !== 'ERR_SERVER_NOT_RUNNING' ? reject(error) : resolve());
+    }));
+    await Promise.all([...settled, ...closed]);
+    assert.equal(sockets.size, 0, 'owned socket close events must settle');
+  });
+  try {
+    await Promise.race([closing, new Promise((resolve, reject) => {
+      timer = setTimeout(() => { const error = new Error('Fixture cleanup exceeded its reserved deadline');
+        reject(error); onDeadline(error); }, timeoutMs);
+    })]);
+  } finally { clearTimeout(timer); }
+}
+
 async function run () {
   if (process.env.HUMAN_HTTPS_RESERVED !== '1') throw new Error('Explicit one-run HTTPS reservation required');
   const tls = { key: fs.readFileSync(process.env.HUMAN_HTTPS_KEY), cert: fs.readFileSync(process.env.HUMAN_HTTPS_CERT) };
-  const servers = [], sockets = new Set();
+  const servers = [], sockets = new Set(), socketClosures = new Map();
   let timedOut = false;
   const deadline = setTimeout(() => { timedOut = true; for (const socket of sockets) socket.destroy(); for (const server of servers) server.close(); }, 60000);
   const counts = { assertions: 0 };
   let result;
+  let primary, cleanupError;
   let providerFixture, mounted;
   function check (actual, expected) { assert.deepEqual(actual, expected); counts.assertions++; }
   async function listen (handler) {
     const server = https.createServer(tls, handler); servers.push(server);
-    server.on('connection', socket => { sockets.add(socket); socket.once('close', () => sockets.delete(socket)); });
+    server.on('connection', socket => {
+      sockets.add(socket);
+      socketClosures.set(socket, new Promise(resolve => socket.once('close', () => {
+        sockets.delete(socket); socketClosures.delete(socket); resolve();
+      })));
+    });
     await new Promise((resolve, reject) => { server.once('error', reject); server.listen(0, '127.0.0.1', resolve); });
+    assertPort(server.address().port);
     return 'https://127.0.0.1:' + server.address().port;
   }
   const allowed = new Set();
@@ -150,15 +180,22 @@ async function run () {
       } finally { await browser.close(); }
     }
     result = { kind: 'actual-https-synthetic-provider-source-store', ...counts, verdict: 'pass' };
-  } finally {
+  } catch (error) { primary = error; }
+  finally {
     clearTimeout(deadline);
-    for (const socket of sockets) socket.destroy();
-    await Promise.all(servers.map(server => new Promise(resolve => server.close(resolve))));
-    assert.equal(sockets.size, 0, 'owned sockets must close');
-    assert.equal(timedOut, false, 'fixture exceeded its reserved active deadline');
-    console.log(JSON.stringify({ cleanup: 'closed', listeners: servers.length }));
+    try {
+      await closeOwned({ servers, sockets, socketClosures, onDeadline: error => {
+        if (primary) console.error(primary.name + ': ' + primary.message);
+        console.error(error.message); process.exit(1);
+      } });
+      assert.equal(timedOut, false, 'fixture exceeded its reserved active deadline');
+      console.log(JSON.stringify({ cleanup: 'closed', listeners: servers.length }));
+    } catch (error) { cleanupError = error; }
   }
+  if (primary && cleanupError) throw new AggregateError([primary, cleanupError], 'Fixture operation and cleanup failed');
+  if (primary || cleanupError) throw primary || cleanupError;
   console.log(JSON.stringify(result));
 }
 
-run().catch(error => { console.error(error.name + ': ' + error.message); process.exitCode = 1; });
+if (require.main === module) run().catch(error => { console.error(error.name + ': ' + error.message); process.exitCode = 1; });
+module.exports = { run, closeOwned, assertPort };
