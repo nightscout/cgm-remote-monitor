@@ -153,7 +153,7 @@ services:
       - ${NS_DEMO_BIND:-127.0.0.1}:${NS_DEMO_PORT:-18080}:8080
     volumes:
       - ./nginx.conf:/etc/nginx/nginx.conf:ro
-    networks: [backend]
+    networks: [backend, edge]
 
   demo:
     <<: *app
@@ -171,6 +171,9 @@ services:
 networks:
   backend:
     internal: true
+  edge:
+    driver: bridge
+    internal: false
 
 volumes:
   postgres-data:

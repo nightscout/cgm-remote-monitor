@@ -5,7 +5,20 @@
 // daemon or create a service. Never print its expanded environment or secrets.
 const {execFileSync} = require('node:child_process');
 const assert = require('node:assert/strict');
+function checkNetworks (config) {
+  assert.deepEqual(Object.keys(config.networks).sort(), ['backend', 'edge'], 'Only backend and ingress edge networks are admitted');
+  assert(config.networks.backend.internal === true, 'Backend network must be internal');
+  assert(config.networks.edge.internal !== true && config.networks.edge.driver === 'bridge', 'Ingress edge must be an ordinary bridge');
+  for (const [name, service] of Object.entries(config.services)) {
+    const networks = Array.isArray(service.networks) ? [...service.networks] : Object.keys(service.networks || {});
+    assert.deepEqual(networks.sort(), name === 'nginx' ? ['backend', 'edge'] : ['backend'],
+      name === 'nginx' ? 'nginx requires backend and ingress edge' : name + ' must remain on backend only');
+    if (name !== 'nginx') assert(!(service.ports || []).length, name + ' publishes a private listener');
+  }
+  return true;
+}
 function check (config) {
+  checkNetworks(config);
   const runtime = ['api', 'realtime', 'evaluator', 'tenant-admin', 'ui', 'nginx'];
   for (const name of runtime) {
     const service = config.services[name];
@@ -18,14 +31,12 @@ function check (config) {
       assert(!['/var/run/docker.sock', '/run/docker.sock', '/state'].includes(volume.target), name + ' mounts a privileged endpoint');
     }
     assert(!service.privileged && service.network_mode !== 'host', name + ' changes the isolation boundary');
-    if (name !== 'nginx') assert(!(service.ports || []).length, name + ' publishes a private listener');
   }
   for (const name of ['ui', 'nginx']) {
     const service = config.services[name];
     assert(!(service.volumes || []).some(v => v.target === '/run/ns-ipc'), name + ' must not mount private IPC');
     assert(!Object.keys(service.environment || {}).some(k => /TOKEN|PASSWORD|PG|DATABASE/.test(k)), name + ' receives private credentials');
   }
-  assert(config.networks.backend.internal === true, 'Backend network must be internal');
   assert(config.services.bootstrap.profiles.includes('ops'), 'Bootstrap must remain explicit');
   assert(config.services.demo.profiles.includes('ops'), 'Restore demonstration must remain explicit');
   const ports = config.services.nginx.ports;
@@ -46,11 +57,17 @@ if (require.main === module) {
     const exposed = structuredClone(config);
     exposed.services['tenant-admin'].ports = [{target: 1341, published: '1341', host_ip: '0.0.0.0'}];
     assert.throws(() => check(exposed), /publishes a private listener/, 'Management-exposure control must fail');
+    const disconnected = structuredClone(config);
+    delete disconnected.services.nginx.networks.edge;
+    assert.throws(() => check(disconnected), /nginx requires backend and ingress edge/, 'Internal-only ingress control must fail');
+    const edgeExposure = structuredClone(config);
+    edgeExposure.services.api.networks.edge = null;
+    assert.throws(() => check(edgeExposure), /api must remain on backend only/, 'Private-service edge control must fail');
     check(config);
-    process.stdout.write('Compose boundaries pass; credential and private-listener controls rejected; restored configuration passes. Runtime UNMEASURED.\n');
+    process.stdout.write('Compose boundaries pass; credential, private-listener and ingress-network controls rejected; restored configuration passes. Runtime UNMEASURED.\n');
   } catch (error) {
     // Authored assertion messages name only a service/property, never values.
     process.stderr.write('Compose boundary check failed: ' + (error.code === 'ERR_ASSERTION' ? error.message : error.code || 'configuration expansion') + '\n'); process.exitCode = 1;
   }
 }
-module.exports = {check};
+module.exports = {check, checkNetworks};

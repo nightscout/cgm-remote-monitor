@@ -58,7 +58,9 @@ To use an **already configured** dummy interface instead:
 
 Preparation verifies that the address exists; it never changes interfaces or
 routes. Choose this before initial preparation. The directory and `.env` must
-not already exist. nginx is the only published service. Container loopback is
+not already exist. nginx is the only published service. It joins an ordinary
+edge bridge for host publication and the internal backend for its upstreams.
+Every other service joins only the backend. Container loopback is
 private to that container; other services communicate over the internal Docker
 network or the fixed private Unix socket paths.
 
