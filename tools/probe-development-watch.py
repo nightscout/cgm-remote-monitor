@@ -1,6 +1,17 @@
 #!/usr/bin/env python3
+# ruff: noqa: B023
 """Compare owned watch fixtures; does not start Nightscout or touch its data."""
-import argparse, json, os, pathlib, re, selectors, signal, subprocess, tempfile, time, urllib.request
+import argparse
+import json
+import os
+import pathlib
+import re
+import selectors
+import signal
+import subprocess
+import tempfile
+import time
+import urllib.request
 
 p = argparse.ArgumentParser()
 p.add_argument('--node', required=True)

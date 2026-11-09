@@ -1,10 +1,10 @@
 import argparse
 import json
 import os
-from pathlib import Path
 import shutil
 import statistics
 import subprocess
+from pathlib import Path
 
 parser = argparse.ArgumentParser(description='Compare notification-cache retention and sampled allocations using a disposable MongoDB database.')
 parser.add_argument('baseline')
@@ -28,7 +28,7 @@ for run in range(7):
             env.update(API_SECRET='benchmark-fixture-secret', MONGODB_URI=args.mongo_uri, PORT=args.port,
                        HOSTNAME='127.0.0.1', NODE_ENV='production', INSECURE_USE_HTTP='true', ENABLE='careportal',
                        MONGO_POOL_SIZE='5', MONGO_MIN_POOL_SIZE='1')
-            process = subprocess.run([args.node, '--expose-gc', str(probe), root, mode, str(out / f'{run}-{label}-{mode}.allocations.json')], env=env,
+            process = subprocess.run([args.node, '--expose-gc', str(probe), root, mode, str(out / f'{run}-{label}-{mode}.allocations.json')], env=env, check=False,
                                      text=True, capture_output=True, timeout=60)
             (out / f'{run}-{label}-{mode}.log').write_text(process.stdout + process.stderr)
             if process.returncode:

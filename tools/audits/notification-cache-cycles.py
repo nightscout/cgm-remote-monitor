@@ -1,8 +1,8 @@
 """Seven alternating fresh-process pairs per supplied Node executable."""
 import argparse
 import json
-from pathlib import Path
 import subprocess
+from pathlib import Path
 
 parser = argparse.ArgumentParser(description=__doc__)
 parser.add_argument('baseline')

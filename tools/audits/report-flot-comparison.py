@@ -3,9 +3,9 @@ import argparse
 import hashlib
 import json
 import os
-from pathlib import Path
 import re
 import subprocess
+from pathlib import Path
 
 parser = argparse.ArgumentParser(description=__doc__)
 parser.add_argument('baseline')
@@ -22,7 +22,7 @@ for run in range(7):
         env['NIGHTSCOUT_TEST_BROWSER'] = 'chromium'
         result = subprocess.run([args.node, 'node_modules/mocha/bin/mocha.js', '--require', './tests/browser/hooks.js',
                                  'tests/browser/legacy-reports.test.js', '--grep', 'preserves plotted'],
-                                cwd=candidate, env=env, text=True, capture_output=True, timeout=120)
+                                cwd=candidate, env=env, text=True, capture_output=True, timeout=120, check=False)
         if result.returncode:
             raise RuntimeError(result.stdout + result.stderr)
         elapsed = [int(value) for value in re.findall(r'Report idle after (\d+) ms', result.stdout)]
