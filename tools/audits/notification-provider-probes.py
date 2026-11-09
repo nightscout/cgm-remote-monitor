@@ -1,6 +1,11 @@
-import os,subprocess,json,statistics
+import argparse
+import json
+import os
+import shutil
+import statistics
+import subprocess
 from pathlib import Path
-import argparse,shutil
+
 parser=argparse.ArgumentParser(description='Compare fresh Nightscout processes against an isolated fixture MongoDB database.')
 parser.add_argument('baseline');parser.add_argument('candidate');parser.add_argument('output')
 parser.add_argument('--node',default=shutil.which('node'));parser.add_argument('--mongo-uri',required=True)
@@ -16,7 +21,7 @@ for run in range(7):
   for label,root in roots.items():
    env={k:os.environ[k] for k in ('PATH','HOME','TMPDIR','LANG') if k in os.environ}
    env.update(API_SECRET='benchmark-fixture-secret',MONGODB_URI=args.mongo_uri,PORT=args.port,HOSTNAME='127.0.0.1',NODE_ENV='production',INSECURE_USE_HTTP='true',ENABLE='careportal',MONGO_POOL_SIZE='5',MONGO_MIN_POOL_SIZE='1')
-   proc=subprocess.run([node,'--expose-gc',str(probe),root,mode],env=env,text=True,capture_output=True,timeout=30)
+   proc=subprocess.run([node,'--expose-gc',str(probe),root,mode],env=env,text=True,capture_output=True,timeout=30,check=False)
    (out/f'probe-{run}-{label}-{mode}.log').write_text(proc.stdout+proc.stderr)
    if proc.returncode: raise RuntimeError(f'{label} {mode}: '+(proc.stdout+proc.stderr)[-2000:])
    data=json.loads(next(line.removeprefix('PROBE_RESULT ') for line in proc.stdout.splitlines() if line.startswith('PROBE_RESULT ')))

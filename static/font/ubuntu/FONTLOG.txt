@@ -195,7 +195,7 @@ N: Pilar Cano
 W: http://www.pilarcano.com/
 D: Hebrew realisation with Dalton Maag
 
-N: Fernando Caro  
+N: Fernando Caro
 D: Type design with Dalton Maag, particularly Ubuntu Condensed
 
 N: Ron Carpenter

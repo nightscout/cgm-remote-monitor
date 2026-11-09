@@ -19,29 +19,29 @@ var softDeleted = require('../../../lib/server/soft-deleted');
 
 function truncatePredictions (obj, maxSize) {
   if (!maxSize || maxSize <= 0) return obj;
-  
+
   if (obj && obj.openaps && obj.openaps.suggested && obj.openaps.suggested.predBGs) {
     var predBGs = obj.openaps.suggested.predBGs;
     var predictionTypes = ['IOB', 'COB', 'UAM', 'ZT'];
-    
+
     predictionTypes.forEach(function(type) {
       if (Array.isArray(predBGs[type]) && predBGs[type].length > maxSize) {
         predBGs[type] = predBGs[type].slice(0, maxSize);
       }
     });
   }
-  
+
   if (obj && obj.openaps && obj.openaps.enacted && obj.openaps.enacted.predBGs) {
     var enactedPredBGs = obj.openaps.enacted.predBGs;
     predictionTypes = ['IOB', 'COB', 'UAM', 'ZT'];
-    
+
     predictionTypes.forEach(function(type) {
       if (Array.isArray(enactedPredBGs[type]) && enactedPredBGs[type].length > maxSize) {
         enactedPredBGs[type] = enactedPredBGs[type].slice(0, maxSize);
       }
     });
   }
-  
+
   return obj;
 }
 
@@ -324,7 +324,7 @@ function storage (env, ctx) {
 
 
 
-  
+
     , 'NSCLIENT_ID'
     , { 'created_at': -1, 'identifier': -1, 'date': -1 }
   ];
