@@ -92,7 +92,8 @@ async function run ({ source = process.env, fetch: transport = globalThis.fetch,
   }
   async function expect (endpoint, options, status) {
     const result = await api(endpoint, options);
-    assert.equal(result.status, status, 'unexpected status for owned Vault operation ' + endpoint);
+    const accepted = Array.isArray(status) ? status : [status];
+    assert(accepted.includes(result.status), 'unexpected status for owned Vault operation ' + endpoint + ': ' + result.status);
     return result.data;
   }
   async function check (name, work) {
@@ -143,7 +144,8 @@ async function run ({ source = process.env, fetch: transport = globalThis.fetch,
     const publicProfiles = [];
     await check('administrator creates distinct nonexportable Ed25519 keys and provisions exact raw public bytes', async () => {
       for (const purpose of ['data', 'management', 'foreign']) {
-        await expect(mount + '/keys/' + purpose, { method: 'POST', body: { type: 'ed25519', derived: false, exportable: false, allow_plaintext_backup: false } }, 204);
+        // Vault 1.17+ answers key creation with 200 and the key's metadata; older servers answer 204.
+        await expect(mount + '/keys/' + purpose, { method: 'POST', body: { type: 'ed25519', derived: false, exportable: false, allow_plaintext_backup: false } }, [200, 204]);
         const info = (await expect(mount + '/keys/' + purpose, {}, 200)).data;
         assert.equal(info.type, 'ed25519'); assert.equal(info.exportable, false); assert.equal(info.allow_plaintext_backup, false);
         assert.equal(info.latest_version, 1);
@@ -212,7 +214,7 @@ async function run ({ source = process.env, fetch: transport = globalThis.fetch,
     });
     await check('existing legacy Transit HMAC API remains separate and verifies with its own scoped token', async () => {
       for (const name of ['legacy-data', 'legacy-sign']) await expect(mount + '/keys/' + name,
-        { method: 'POST', body: { type: 'aes256-gcm96', exportable: false } }, 204);
+        { method: 'POST', body: { type: 'aes256-gcm96', exportable: false } }, [200, 204]);
       await policy(legacyPolicy, ['hmac', 'verify'].map(operation => 'path "' + mount + '/' + operation + '/legacy-sign" { capabilities = ["update"] }').join('\n'));
       const legacyToken = await issueToken(legacyPolicy);
       const legacy = createVaultTransit({ address: config.address, mount, encryptionKey: 'legacy-data', signingKey: 'legacy-sign',
