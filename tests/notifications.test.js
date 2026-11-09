@@ -257,6 +257,29 @@ describe('notifications snooze state externalization (#8194)', function () {
     delete process.env.ALARM_REFRESH_STALE_MS;
   });
 
+  it('a snooze whose write failed is written again when the same alarm is acked again', async function () {
+    var failing = true;
+    var realSet = fakeStorage.setSnooze;
+    fakeStorage.setSnooze = async function () {
+      if (failing) { captures.setSnooze.push(['failed']); throw new Error('mongo down'); }
+      return realSet.apply(this, arguments);
+    };
+    notifications.ack(2, 'default', 60000);
+    await new Promise(function (resolve) { setImmediate(resolve); });
+    (fakeStorage._stored['2-default'] === undefined).should.equal(true);
+
+    failing = false;
+    notifications.ack(2, 'default', 60000);
+    await new Promise(function (resolve) { setImmediate(resolve); });
+    fakeStorage._stored['2-default'].silenceTime.should.equal(60000);
+    fakeStorage._stored['1-default'].silenceTime.should.equal(60000);
+
+    var writes = captures.setSnooze.length;
+    notifications.ack(2, 'default', 60000);
+    await new Promise(function (resolve) { setImmediate(resolve); });
+    captures.setSnooze.length.should.equal(writes); // saved now: nothing more to retry
+  });
+
   it('ack writes through to alarmStorage.setSnooze for URGENT and cascaded WARN', function (done) {
     notifications.ack(2, 'default', 60000);
     setImmediate(function () {
