@@ -495,7 +495,7 @@ function storage (env, ctx) {
   /**
    * Build upsert query - REQ-SYNC-072: identifier-first lookup
    * Priority: identifier > _id > time+type
-   * 
+   *
    * IMPORTANT: When returning identifier-based query, also removes _id from obj
    * because MongoDB doesn't allow changing _id on upsert update.
    */
@@ -526,13 +526,13 @@ function storage (env, ctx) {
 
   /**
    * Normalize treatment ID - REQ-SYNC-072: Server-Controlled ID
-   * 
+   *
    * Scope: ONLY handles UUID values in _id field
    * - Loop overrides: UUID in _id → moved to identifier
-   * 
+   *
    * Does NOT touch other client fields (syncIdentifier, uuid, etc.)
    * Those fields are preserved as-is and used for dedup in upsertQueryFor().
-   * 
+   *
    * Note: _id handling is done here to properly handle update vs insert
    */
   function normalizeTreatmentId (obj) {

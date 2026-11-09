@@ -127,7 +127,7 @@ function storage (env, ctx) {
     var bulkOps = docs.map(function(doc) {
       // REQ-SYNC-072: Normalize entry ID - extract UUID to identifier, handle _id
       normalizeEntryId(doc);
-      
+
       // Normalize dates to be in UTC, store offset in utcOffset
       var _sysTime;
 
@@ -449,14 +449,14 @@ function storage (env, ctx) {
     , { 'type': 1, 'date': -1, 'dateString': 1 }
     , { 'date': -1, 'identifier': -1, 'created_at': -1 }
  ];
- 
+
   /**
    * Build upsert query for entry - GAP-SYNC-045 fix
-   * 
+   *
    * For CGM entries, sysTime+type is the dedup key: one SGV reading per
    * timestamp, whatever its source UUID. The one exception is an entry whose
    * identifier is already stored, which create() matches on that identifier.
-   * 
+   *
    * The fix: strip non-ObjectId _id before $set to avoid "immutable field '_id'" error.
    * UUID is preserved in identifier field for reference.
    */
@@ -466,7 +466,7 @@ function storage (env, ctx) {
     if (doc._id && typeof doc._id === 'string' && !idForms.isHexId(doc._id)) {
       delete doc._id;
     }
-    
+
     // Standard CGM dedup: sysTime + type (one reading per timestamp per type)
     if (doc.sysTime && doc.type) {
       return { sysTime: { $eq: doc.sysTime }, type: { $eq: doc.type } };
@@ -498,11 +498,11 @@ function storage (env, ctx) {
 
   /**
    * Normalize entry ID - REQ-SYNC-072: Server-Controlled ID
-   * 
+   *
    * Extracts client sync identity from _id if UUID:
    * - Trio: UUID in _id → moved to identifier
    * - Loop: syncIdentifier in _id → moved to identifier
-   * 
+   *
    * Note: _id is stripped in upsertQueryFor to avoid MongoDB errors
    */
   function normalizeEntryId (doc) {
