@@ -149,6 +149,16 @@ describe('alarmStorage', function () {
       setStage.silenceTime.$cond[1].should.equal(silenceTime);
     });
 
+    it('wraps the group in $literal so a leading dollar sign is not an expression', async function () {
+      var captured = null;
+      var fakeCollection = {
+        updateOne: function (f, update) { captured = update; return Promise.resolve({}); }
+      };
+      var storage = alarmStorage({ store: { collection: function () { return fakeCollection; } } });
+      await storage.setSnooze(2, '$$ROOT', 1000, 60000);
+      captured[0].$set.group.should.deepEqual({ $literal: '$$ROOT' });
+    });
+
     it('normalizes undefined group to "default"', async function () {
       var captured = null;
       var fakeCollection = {

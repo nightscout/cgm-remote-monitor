@@ -526,6 +526,41 @@ describe('notifications snooze state externalization (#8194)', function () {
     });
   });
 
+  it('a queued URGENT is dropped when the next cycle only has a WARN', function (done) {
+    ctx.alarmStorage = {
+      getSnooze: function () {
+        return new Promise(function (resolve) { setTimeout(function () { resolve(null); }, 60); });
+      },
+      setSnooze: function () { return Promise.resolve(); }
+    };
+    delete require.cache[require.resolve('../lib/notifications')];
+    notifications = require('../lib/notifications')({ testMode: true }, ctx);
+    notifications.resetStateForTests();
+
+    var levels = [];
+    ctx.bus.emit = function (evt, data) {
+      if (evt === 'notification' && !data.clear) levels.push(data.level);
+    };
+
+    function cycle (level) {
+      ctx.ddata.lastUpdated = Date.now();
+      notifications.initRequests();
+      notifications.requestNotify({
+        level: level, group: 'default', title: 't', message: 'm', plugin: { name: 'test' }
+      });
+      notifications.process();
+    }
+
+    cycle(2);
+    setTimeout(function () {
+      cycle(1);
+      setTimeout(function () {
+        levels.should.deepEqual([1]);
+        done();
+      }, 150);
+    }, 10);
+  });
+
   it('does not gate INFO alarms on storage refresh', function (done) {
     ctx.ddata.lastUpdated = Date.now();
     var emitCount = 0;

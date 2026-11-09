@@ -43,6 +43,14 @@ var uri = process.env.STORAGE_URI || process.env.MONGO_CONNECTION || process.env
     doc.expiresAt.getTime().should.equal(now + 60 * MIN);
   });
 
+  it('stores a group that starts with a dollar sign as plain text', async function () {
+    var now = Date.now();
+    await storage.setSnooze(2, '$$ROOT', now, 10 * MIN);
+    await storage.setSnooze(1, '$field', now, 10 * MIN);
+    (await storage.getSnooze(2, '$$ROOT')).group.should.equal('$$ROOT');
+    (await storage.getSnooze(1, '$field')).group.should.equal('$field');
+  });
+
   it('a shorter snooze does not replace a longer one', async function () {
     await storage.setSnooze(2, 'default', Date.now(), 5 * MIN);
     var doc = await storage.getSnooze(2, 'default');
