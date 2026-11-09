@@ -219,6 +219,7 @@
         "tests/realtime-named-fixture-transport.test.js",
         "tests/realtime-storage-proof.test.js",
         "tests/realtime-bootstrap.test.js",
+        "tests/preview-vault-token-file.test.js",
         "tests/notification-ack-admission.test.js",
         "tests/notification-private-state.test.js",
         "tests/notification-producer-state.test.js",
