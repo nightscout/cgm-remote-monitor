@@ -2,11 +2,11 @@
 import argparse
 import json
 import os
+from pathlib import Path
 import shutil
 import statistics
 import subprocess
 import time
-from pathlib import Path
 
 parser = argparse.ArgumentParser(description=__doc__)
 parser.add_argument('baseline', help='Built checkout retaining the old jsdom tests')
@@ -50,12 +50,7 @@ for run in range(7):
                 time.sleep(0.025)
         if process.returncode:
             raise RuntimeError(f'{label} run {run} failed: {log_path.read_text()}')
-        row = {
-            "run": run,
-            "label": label,
-            "elapsedSeconds": time.monotonic() - started,
-            "peakProcessTreeRss": peak,
-        }
+        row = dict(run=run, label=label, elapsedSeconds=time.monotonic() - started, peakProcessTreeRss=peak)
         rows.append(row)
         (out / 'results.json').write_text(json.dumps(rows, indent=2) + '\n')
         print(row, flush=True)
