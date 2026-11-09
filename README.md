@@ -316,7 +316,7 @@ autonomy for your data:
   * `MONGO_PROFILE_COLLECTION`(`profile`) - The collection used to store your profiles
   * `MONGO_FOOD_COLLECTION`(`food`) - The collection used to store your food database
   * `MONGO_ACTIVITY_COLLECTION`(`activity`) - The collection used to store activity data
-  * `MONGO_ALARMSNOOZE_COLLECTION`(`alarmsnooze`) - The collection used to share alarm snooze state between instances. If several sites use one database, give each its own name. When another collection is renamed and this one is not, sharing stays off and boot logs a warning.
+  * `MONGO_ALARMSNOOZE_COLLECTION`(`alarmsnooze`) - The collection used to share alarm snooze state between instances. If several sites use one database, give each its own name. When the entries, treatments, profile or devicestatus collection is renamed and this one is not, sharing stays off and boot logs a warning.
   * `MONGO_POOL_SIZE` (`5`) - MongoDB connection pool size. Adjust for your deployment needs.
   * `MONGO_MIN_POOL_SIZE` (`0`) - Minimum pool connections to keep open.
   * `MONGO_MAX_IDLE_TIME_MS` (`30000`) - Max idle time (ms) before closing a connection.
