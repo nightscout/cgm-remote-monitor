@@ -30,6 +30,18 @@ describe('selected API evaluator metadata without worker credentials',function()
     const d=config();d.tenants[0].revision='two';fs.writeFileSync(file,JSON.stringify(d));assert.notEqual((await selected.readCurrent(A)).identity,worker.tenants.get(A).identity);
     d.datastore.database='other_test';fs.writeFileSync(file,JSON.stringify(d));await assert.rejects(selected.readCurrent(A),/restart/);
   });
+  it('resolves a network alarm delivery endpoint only for the worker and preserves API metadata separation',function(){
+    const value=config(),route=value.consumers.realtime.route;delete route.socketPathEnv;
+    route.endpoint={urlEnv:'PRIVATE_ALARM',trust:'network',bindHostEnv:'PRIVATE_BIND'};
+    const source={...env,PRIVATE_ALARM:'http://realtime-internal.nightscout.svc.cluster.local:1402',PRIVATE_BIND:'0.0.0.0'};
+    const worker=parse.parse(value,source),metadata=parse.parseMetadata(value);
+    assert.equal(worker.consumers.realtime.route.url,source.PRIVATE_ALARM);
+    assert.equal(Object.hasOwn(metadata.consumers.realtime.route,'url'),false,'API metadata does not resolve worker endpoints');
+    assert.deepEqual(metadata.consumers.realtime.route.endpoint,route.endpoint);
+    const mixed=structuredClone(value);mixed.consumers.realtime.route.socketPathEnv='RT_PATH';assert.throws(()=>parse.parseMetadata(mixed),/invalid/);
+    const implicit=structuredClone(value);delete implicit.consumers.realtime.route.endpoint.trust;assert.throws(()=>parse.parseMetadata(implicit),/invalid/);
+    assert.throws(()=>parse.parse(value,env),/REFUSED|invalid/,'worker requires independent private endpoint environment');
+  });
   it('refuses descriptor mismatch at both actual worker URI and API own admitted endpoint without aliasing credentials',function(){
     const d=config();d.datastore.database='other_test';assert.throws(()=>parse.parse(d,env),/invalid/,'METADATA_WORKER_DESCRIPTOR_BINDING');
     assert.throws(()=>link({evaluatorConfigEnv:'LINKED_EVALUATOR'},{LINKED_EVALUATOR:file},{namespace:'metadata_alarm',connectionString:env.EVALUATOR_PG.replace('synthetic_test','other_test')}),/CONFIG_REFUSED/,'METADATA_API_DESCRIPTOR_BINDING');

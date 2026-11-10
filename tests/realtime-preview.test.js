@@ -12,7 +12,7 @@ const authorityFactory = require('../lib/server/realtime/authority');
 const protocolFactory = require('../lib/server/realtime/protocol');
 const runtimeFactory = require('../lib/server/realtime/runtime');
 const admissionFactory = require('../lib/server/realtime/admission');
-const ipc = require('../lib/server/realtime/ipc');
+const ipc = require('../lib/server/internal-api/transport');
 const A = '11111111-1111-4111-8111-111111111111', B = '22222222-2222-4222-8222-222222222222';
 const deferred = () => { let resolve; const promise = new Promise(done => { resolve = done; }); return { promise, resolve }; };
 const current = tenant => ({ tenant, identity: 'same-effective-config', env: require('../lib/server/tenant-app/environment')({ settings: { enable: ['bgnow'] } }) });
@@ -30,14 +30,18 @@ async function fixture () {
   const admission = { resolve: async req => { const t = lookup(req.headers.host); if (!t) throw new Error('UNKNOWN'); return t; } };
   let runtime;
   const readCurrent = async tenant => state.config ? current(tenant) : null;
-  const api = async (operation, body) => {
+  const api = {
+    async executeSocketMutation (body) {
+      if (state.unavailable) throw new Error('UNAVAILABLE');
+      state.writes.push(body); return { replyArgs: [{ result: 'success' }] };
+    },
+    async authorizeSocket (body) {
     if (state.unavailable) throw new Error('UNAVAILABLE');
     if (state.deniedCredential && state.deniedCredential === body.credential?.secret) return { denied: true };
-    if (operation === '/mutate') { state.writes.push(body); return { replyArgs: [{ result: 'success' }] }; }
     const read = state.allowed && Object.keys(body.credential).length > 0;
     if (state.holdAuthority) { const held = state.holdAuthority; state.holdAuthority = null; held.entered.resolve(); await held.release.promise; }
     return { permissions: { read, write: read, write_treatment: read, ack: read }, collections: read ? ['entries', 'treatments'] : [] };
-  };
+  } };
   const protocol = protocolFactory.create({ admission, api, readCurrent, runtime: () => runtime, maxSockets: 10, domains: ['entries', 'treatments'] });
   const schedule = {};
   runtime = await runtimeFactory({ tenants: [A, B], readCurrent,
@@ -223,11 +227,11 @@ describe('explicit realtime preview source contracts', function () {
         socketForwarding: { alarm: { namespace: 'alarm_protocol' } }, namespaces: { authorization: 'authority_test' } },
       executeWrite: async op => { calls.push(op); return [{ result: 'success' }]; } });
     const envelope = { tenant: A, namespace: '/', event: 'dbAdd', credential: { secret: 'client' }, args: [{ collection: 'entries', data: {} }] };
-    const result = await ops['/mutate']({ transport: token }, { host: 'a.test', envelope });
+    const result = await ops.executeSocketMutation({ transport: token }, { host: 'a.test', envelope });
     assert.deepEqual(result.replyArgs, [{ result: 'success' }]); assert.equal(calls[0].source, 'socket');
-    await assert.rejects(ops['/mutate']({ transport: Symbol() }, { host: 'a.test', envelope }), /REFUSED/);
-    await assert.rejects(ops['/mutate']({ transport: token }, { host: 'b.test', envelope }), /TENANT_REFUSED/);
-    await ops['/mutate']({ transport: token }, { host: 'a.test', envelope: { ...envelope, event: 'ack', args: [2, 'default', 1000] } });
+    await assert.rejects(ops.executeSocketMutation({ transport: Symbol() }, { host: 'a.test', envelope }), /REFUSED/);
+    await assert.rejects(ops.executeSocketMutation({ transport: token }, { host: 'b.test', envelope }), /TENANT_REFUSED/);
+    await ops.executeSocketMutation({ transport: token }, { host: 'a.test', envelope: { ...envelope, event: 'ack', args: [2, 'default', 1000] } });
     assert.equal(f.rows().length, 2, 'RT_DURABLE_ACK actual composed receiver persists both suppression levels');
     assert.equal(calls.length, 1, 'alarm does not pass through clinical write executor');
   });
@@ -240,14 +244,14 @@ describe('explicit realtime preview source contracts', function () {
       const ops = require('../lib/server/realtime/alarm-transport').operations({ token, deliver: f.protocol.alarm });
       const id = '33333333-3333-4333-8333-333333333333';
       const body = { tenant: A, id, attempt: 1, notification, receipts: [] };
-      const accepted = await ops['/alarm']({ transport: token }, body);
+      const accepted = await ops.deliverAlarm({ transport: token }, body);
       assert.equal(accepted.accepted, true); assert.equal(accepted.receipt, null);
       assert.deepEqual(socket.sent.find(item => item.event === 'urgent_alarm').value, notification);
-      const clear = await ops['/alarm']({ transport: token }, { ...body, notification: { clear: true },
+      const clear = await ops.deliverAlarm({ transport: token }, { ...body, notification: { clear: true },
         receipts: [{ request_id: id, receipt: { kind: 'legacy-realtime', id } }, { request_id: B, receipt: { kind: 'other', id: B } }] });
       assert.deepEqual(clear.clearedRequestIds, [], 'RT_NO_PROVIDER_RECEIPT socket clear never manufactures provider cancellation');
       f.state.allowed = false; socket.sent.length = 0;
-      await ops['/alarm']({ transport: token }, body);
+      await ops.deliverAlarm({ transport: token }, body);
       assert.equal(socket.sent.length, 0, 'RT_ALARM_CURRENT_AUTHORITY revocation stops protected alarm delivery');
     } finally { await f.close(); }
   });
@@ -342,10 +346,11 @@ describe('explicit realtime preview source contracts', function () {
     enabled = false;
   });
   it('private handler uses fixed owned operations and bounded bodies without network listeners', async function () {
+    const syntheticService = require('./fixtures/internal-api-contract').service;
     const token = Symbol(), called = []; const handler = ipc.handler({ token, maxBytes: 100, timeoutMs: 1000, admitted: req => req.owned === true,
-      operations: { '/authorize': async (ctx, value) => { assert.equal(ctx.transport, token); called.push(value); return { allowed: true }; } } });
+      service: syntheticService, operations: { echo: async (ctx, value) => { assert.equal(ctx.transport, token); called.push(value); return { allowed: true }; } } });
     async function run (body, url = '/authorize', owned = true) {
-      const req = Readable.from([Buffer.from(body)]); Object.assign(req, { owned, method: 'POST', url, headers: { 'content-type': 'application/json' } });
+      const req = Readable.from([Buffer.from(body)]); Object.assign(req, { owned, method: 'POST', url, headers: require('./fixtures/internal-api-contract').headers(syntheticService) });
       const res = new EventEmitter();
       res.writeHead = function (code) { this.code=code; this.headersSent=true; };
       res.end = function (bytes) { this.bytes=String(bytes); this.emit('finish'); };

@@ -16,14 +16,15 @@ async function canonicalReply () {
   return { raw, producer, physical: fixture.collections.profile.documents, window: { startedAt, finishedAt: Date.now() } };
 }
 async function actualPrivateCodec (raw) {
-  const token = Symbol(), req = Readable.from([Buffer.from('{}')]); req.method = 'POST'; req.url = '/mutate'; req.headers = { 'content-type': 'application/json' };
+  const service = require('./fixtures/internal-api-contract').service;
+  const token = Symbol(), req = Readable.from([Buffer.from('{}')]); req.method = 'POST'; req.url = '/authorize'; req.headers = require('./fixtures/internal-api-contract').headers(service);
   let status, result;
   const res = new EventEmitter(); res.headersSent = false; res.destroyed = false;
   res.writeHead = function (value) { status = value; this.headersSent = true; };
   res.end = function (bytes) { result = JSON.parse(bytes.toString()); this.emit('finish'); };
   res.destroy = function () { this.destroyed = true; this.emit('close'); };
-  await require('../lib/server/realtime/ipc').handler({ token, admitted: () => true, maxBytes: 100000, timeoutMs: 1000,
-    operations: { '/mutate': async () => ({ replyArgs: raw }) } })(req, res);
+  await require('../lib/server/internal-api/transport').handler({ token, admitted: () => true, maxBytes: 100000, timeoutMs: 1000,
+    service, operations: { echo: async () => ({ replyArgs: raw }) } })(req, res);
   assert.equal(status, 200); return result.replyArgs;
 }
 describe('actual canonical profile reply wire boundary', function () {

@@ -40,7 +40,7 @@ module.exports = async function run (input) {
   const config = configuration(input), { Client } = require('pg'), { MongoClient, ObjectId } = require('mongodb');
   const { encodeDocument, decodeDocument } = require('../../../lib/storage/postgres-identity');
   const direct = input.phaseId === 'profile-port-differential';
-  const invoke = direct ? null : require('../../../lib/server/realtime/ipc').client({ socketPath: config.apiSocketPath, maxBytes: config.maxMessageBytes, timeoutMs: config.timeoutMs });
+  const invoke = direct ? null : require('../../../lib/server/internal-api/clients').socketAuthority({ socketPath: config.apiSocketPath, maxBytes: config.maxMessageBytes, timeoutMs: config.timeoutMs });
   const rows = [], pg = new Client({ connectionString: input.env.NS_TEST_POSTGRES_ADMIN_URI });
   const mongo = new MongoClient(input.env.CUSTOMCONNSTR_mongo); let reference, socket, directPort, pgConnected = false, mongoConnected = false;
   const table = '"' + config.profileNamespace + '".profile';
@@ -57,7 +57,7 @@ module.exports = async function run (input) {
     const producer = structuredClone(payload), before = await physical(), wireCall = require('./wire-call');
     const mongoCall = await wireCall(producer, sent => emit('dbAdd', sent));
     if (mongoCall.error) throw mongoCall.error;
-    const postgresCall = await wireCall(producer, sent => direct ? directPort.send(sent) : invoke('/mutate', { host: config.host,
+    const postgresCall = await wireCall(producer, sent => direct ? directPort.send(sent) : invoke.executeSocketMutation( { host: config.host,
       envelope: { tenant: config.tenant, namespace: '/', event: 'dbAdd', credential: JSON.parse(input.env[config.credentialEnv]), args: [sent] } }).then(result => result.replyArgs));
     const expected = mongoCall.result, actual = postgresCall.result, refusal = postgresCall.error && (postgresCall.error.code || postgresCall.error.message);
     const windows = { mongo: mongoCall.window, postgres: postgresCall.window }, stored = await physical();

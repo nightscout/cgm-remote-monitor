@@ -17,7 +17,8 @@ const plan = Object.freeze({ version: 1, phases: ['uds-ownership', 'profile-port
     vault: 'sha256:8794a735d581b92ae3d138e677fc79b5722749ce53674334507f2141e35da8c8' } });
 const stat = file => { const s = fs.lstatSync(file); return { dev: s.dev, ino: s.ino, uid: s.uid, mode: s.mode & 0o777, socket: s.isSocket() }; };
 async function uds (input) {
-  const http = require('node:http'), ipc = require('../../../lib/server/realtime/ipc');
+  const http = require('node:http'), ipc = require('../../../lib/server/internal-api/transport');
+  const service = require('../internal-api-contract').service;
   assert(path.isAbsolute(input.captureDir) && Buffer.byteLength(input.captureDir) <= 65, 'short absolute owned captureDir required');
   const directory = fs.mkdtempSync(path.join(input.captureDir, 'uds-')); fs.chmodSync(directory, 0o700);
   const owned = [], events = []; let channel;
@@ -34,7 +35,7 @@ async function uds (input) {
       if (kind === 'symlink') fs.symlinkSync(path.join(directory, 'deliberately-absent'), file);
       if (kind === 'socket') await server(file);
       const before = stat(file);
-      await assert.rejects(ipc.open(options(file), () => ({ '/authorize': async () => ({ ok: true }) })), /PATH_EXISTS/);
+      await assert.rejects(ipc.open(options(file), service, () => ({ echo: async () => ({ ok: true }) })), /PATH_EXISTS/);
       assert.deepEqual(stat(file), before, 'UDS_FOREIGN_PATH_REFUSAL leaves preexisting owned test object untouched');
       events.push({ kind, before, after: stat(file), refused: true }); write();
     }
@@ -46,18 +47,18 @@ async function uds (input) {
       originalLink(from, to);
       if (to === raced) { fs.renameSync(to, path.join(directory, 'published-backup.sock')); fs.renameSync(standby, to); }
     };
-    try { await assert.rejects(ipc.open(options(raced), () => ({ '/authorize': async () => ({ ok: true }) })), /OWNERSHIP_REFUSED/); }
+    try { await assert.rejects(ipc.open(options(raced), service, () => ({ echo: async () => ({ ok: true }) })), /OWNERSHIP_REFUSED/); }
     finally { fs.linkSync = originalLink; }
     const replacementAfter = fs.existsSync(raced) ? stat(raced) : null;
     events.push({ kind: 'post-link-replacement', before: replacementBefore, after: replacementAfter }); write();
     assert.deepEqual(replacementAfter, replacementBefore, 'UDS_POST_LINK_OWNERSHIP failed publication must not adopt or unlink replacement');
     const file = path.join(directory, 'api.sock');
-    channel = await ipc.open(options(file), () => ({ '/authorize': async () => ({ ok: true }) }));
-    const before = stat(file); const internal = fs.readdirSync(directory).filter(name => name.startsWith('.ns-')).map(name => ({ path: path.join(directory, name), ...stat(path.join(directory, name)) })); const reply = await ipc.client(options(file))('/authorize', {});
+    channel = await ipc.open(options(file), service, () => ({ echo: async () => ({ ok: true }) }));
+    const before = stat(file); const internal = fs.readdirSync(directory).filter(name => name.startsWith('.ns-')).map(name => ({ path: path.join(directory, name), ...stat(path.join(directory, name)) })); const reply = await ipc.client(options(file), service).echo({});
     await channel.close(); channel = null;
     events.push({ kind: 'normal', before, internal, accepted: reply.ok, absent: !fs.existsSync(file) }); write();
     assert(reply.ok && !fs.existsSync(file), 'UDS_OWNED_CLOSE normal own endpoint removed');
-    channel = await ipc.open(options(file), () => ({ '/authorize': async () => ({ ok: true }) }));
+    channel = await ipc.open(options(file), service, () => ({ echo: async () => ({ ok: true }) }));
     const original = stat(file), backup = path.join(directory, 'moved.sock'); fs.renameSync(file, backup);
     await server(file); const replacement = stat(file);
     await channel.close(); channel = null;
@@ -76,7 +77,10 @@ async function execute (input) {
   if (input.env?.NS_RT_EARLY_NATIVE !== '1' || !plan.phases.includes(input.phaseId) ||
       input.control !== null && (input.env.NS_RT_CONTROL_ID !== input.control || !/^[a-z0-9][a-z0-9_-]{0,95}$/.test(input.control))) throw new Error('EXPLICIT_PARENT_NATIVE_PHASE_REQUIRED');
   assert.equal(path.resolve(input.sourceDir), path.resolve(__dirname, '../../..'), 'stop source directory mismatch');
-  const causal = ['lib/server/realtime/ipc.js', 'lib/server/realtime/protocol.js', 'lib/server/realtime/private-api.js',
+  const causal = ['lib/server/internal-api/transport.js', 'lib/server/internal-api/schema.js', 'lib/server/internal-api/clients.js', 'lib/server/internal-api/endpoint-config.js',
+    'lib/server/internal-api/contracts/index.js', 'lib/server/internal-api/contracts/socket-authority.json',
+    'lib/server/internal-api/contracts/alarm-delivery.json', 'lib/server/internal-api/contracts/lifecycle-participant.json',
+    'tests/fixtures/internal-api-contract.js', 'lib/server/realtime/protocol.js', 'lib/server/realtime/private-api.js',
     'lib/server/tenant-socket-write-executor.js', 'lib/server/socket-write-handlers.js', 'lib/server/tenant-app/profile.js',
     'lib/storage/postgres-collection-intent.js', 'lib/storage/postgres-entries-read.js', 'lib/storage/write-intent.js',
     'lib/server/tenant-socket-order-port.js', 'lib/server/serve/postgres-domains.js', 'lib/server/serve/evaluator-readiness.js',

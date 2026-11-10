@@ -1,0 +1,345 @@
+{
+  "id": "lifecycle-participant",
+  "version": 1,
+  "operations": {
+    "getStatus": {
+      "path": "/cohort/status",
+      "request": {
+        "$schema": "https://json-schema.org/draft/2020-12/schema",
+        "type": "object",
+        "properties": {
+          "request": {
+            "type": "string",
+            "pattern": "^[0-9a-f-]{36}$"
+          }
+        },
+        "required": [
+          "request"
+        ],
+        "additionalProperties": false
+      },
+      "response": {
+        "$schema": "https://json-schema.org/draft/2020-12/schema",
+        "type": "object",
+        "properties": {
+          "version": {
+            "const": 1
+          },
+          "participant": {
+            "type": "string",
+            "pattern": "^[a-z][a-z0-9_-]{0,62}$"
+          },
+          "incarnation": {
+            "type": "string",
+            "pattern": "^[0-9a-f-]{36}$"
+          },
+          "namespace": {
+            "type": "string",
+            "pattern": "^[a-z][a-z0-9_]{0,62}$"
+          },
+          "roles": {
+            "type": "array",
+            "items": {
+              "enum": [
+                "api",
+                "evaluator",
+                "realtime",
+                "tenant-admin"
+              ]
+            },
+            "minItems": 1,
+            "uniqueItems": true
+          },
+          "tenants": {
+            "type": "array",
+            "items": {
+              "type": "string",
+              "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$"
+            },
+            "minItems": 1,
+            "uniqueItems": true
+          },
+          "namespaces": {
+            "type": "array",
+            "items": {
+              "type": "string",
+              "pattern": "^[a-z][a-z0-9_]{0,62}$"
+            },
+            "minItems": 1,
+            "uniqueItems": true
+          },
+          "identity": {
+            "type": "object",
+            "minProperties": 1,
+            "additionalProperties": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 9007199254740991
+            }
+          },
+          "datastore": {
+            "type": "object",
+            "properties": {
+              "database": {
+                "type": "string",
+                "minLength": 1
+              },
+              "database_oid": {
+                "type": "string",
+                "pattern": "^[1-9][0-9]*$"
+              },
+              "server_address": {
+                "type": "string",
+                "minLength": 1
+              },
+              "server_port": {
+                "type": "integer",
+                "minimum": 1,
+                "maximum": 65535
+              },
+              "postmaster_birth": {
+                "type": "string",
+                "minLength": 1
+              }
+            },
+            "required": [
+              "database",
+              "database_oid",
+              "server_address",
+              "server_port",
+              "postmaster_birth"
+            ],
+            "additionalProperties": false
+          },
+          "backends": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "pid": {
+                  "type": "integer",
+                  "minimum": 1,
+                  "maximum": 9007199254740991
+                },
+                "role": {
+                  "type": "string",
+                  "minLength": 1
+                },
+                "birth": {
+                  "type": "string",
+                  "minLength": 1
+                }
+              },
+              "required": [
+                "pid",
+                "role",
+                "birth"
+              ],
+              "additionalProperties": false
+            }
+          },
+          "request": {
+            "type": "string",
+            "pattern": "^[0-9a-f-]{36}$"
+          }
+        },
+        "required": [
+          "version",
+          "participant",
+          "incarnation",
+          "namespace",
+          "roles",
+          "tenants",
+          "namespaces",
+          "identity",
+          "datastore",
+          "backends",
+          "request"
+        ],
+        "additionalProperties": false
+      }
+    },
+    "invalidateTenant": {
+      "path": "/cohort/invalidate",
+      "request": {
+        "$schema": "https://json-schema.org/draft/2020-12/schema",
+        "type": "object",
+        "properties": {
+          "request": {
+            "type": "string",
+            "pattern": "^[0-9a-f-]{36}$"
+          },
+          "tenant": {
+            "type": "string",
+            "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$"
+          },
+          "incarnation": {
+            "type": "string",
+            "pattern": "^[0-9a-f-]{36}$"
+          },
+          "identity": {
+            "type": "object",
+            "minProperties": 1,
+            "additionalProperties": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 9007199254740991
+            }
+          }
+        },
+        "required": [
+          "request",
+          "tenant",
+          "incarnation",
+          "identity"
+        ],
+        "additionalProperties": false
+      },
+      "response": {
+        "$schema": "https://json-schema.org/draft/2020-12/schema",
+        "type": "object",
+        "properties": {
+          "version": {
+            "const": 1
+          },
+          "participant": {
+            "type": "string",
+            "pattern": "^[a-z][a-z0-9_-]{0,62}$"
+          },
+          "incarnation": {
+            "type": "string",
+            "pattern": "^[0-9a-f-]{36}$"
+          },
+          "namespace": {
+            "type": "string",
+            "pattern": "^[a-z][a-z0-9_]{0,62}$"
+          },
+          "roles": {
+            "type": "array",
+            "items": {
+              "enum": [
+                "api",
+                "evaluator",
+                "realtime",
+                "tenant-admin"
+              ]
+            },
+            "minItems": 1,
+            "uniqueItems": true
+          },
+          "tenants": {
+            "type": "array",
+            "items": {
+              "type": "string",
+              "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$"
+            },
+            "minItems": 1,
+            "uniqueItems": true
+          },
+          "namespaces": {
+            "type": "array",
+            "items": {
+              "type": "string",
+              "pattern": "^[a-z][a-z0-9_]{0,62}$"
+            },
+            "minItems": 1,
+            "uniqueItems": true
+          },
+          "identity": {
+            "type": "object",
+            "minProperties": 1,
+            "additionalProperties": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 9007199254740991
+            }
+          },
+          "datastore": {
+            "type": "object",
+            "properties": {
+              "database": {
+                "type": "string",
+                "minLength": 1
+              },
+              "database_oid": {
+                "type": "string",
+                "pattern": "^[1-9][0-9]*$"
+              },
+              "server_address": {
+                "type": "string",
+                "minLength": 1
+              },
+              "server_port": {
+                "type": "integer",
+                "minimum": 1,
+                "maximum": 65535
+              },
+              "postmaster_birth": {
+                "type": "string",
+                "minLength": 1
+              }
+            },
+            "required": [
+              "database",
+              "database_oid",
+              "server_address",
+              "server_port",
+              "postmaster_birth"
+            ],
+            "additionalProperties": false
+          },
+          "backends": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "pid": {
+                  "type": "integer",
+                  "minimum": 1,
+                  "maximum": 9007199254740991
+                },
+                "role": {
+                  "type": "string",
+                  "minLength": 1
+                },
+                "birth": {
+                  "type": "string",
+                  "minLength": 1
+                }
+              },
+              "required": [
+                "pid",
+                "role",
+                "birth"
+              ],
+              "additionalProperties": false
+            }
+          },
+          "request": {
+            "type": "string",
+            "pattern": "^[0-9a-f-]{36}$"
+          },
+          "tenant": {
+            "type": "string",
+            "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$"
+          }
+        },
+        "required": [
+          "version",
+          "participant",
+          "incarnation",
+          "namespace",
+          "roles",
+          "tenants",
+          "namespaces",
+          "identity",
+          "datastore",
+          "backends",
+          "request",
+          "tenant"
+        ],
+        "additionalProperties": false
+      }
+    }
+  }
+}

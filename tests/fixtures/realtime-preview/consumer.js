@@ -40,13 +40,14 @@ module.exports = async function consumer (input) {
     await admin.query('DELETE FROM ' + auth + '.tenant_authorization_subject_roles WHERE tenant_id=$1 AND subject_id=$2', [config.tenant, config.staleSubjectId]);
     runtimeDirectory = require('./runtime-directory')({ captureDir: input.captureDir, phaseId: input.phaseId });
     directory = runtimeDirectory.path;
-    const socketPath = path.join(directory, 'relay.sock'), ipc = require('../../../lib/server/realtime/ipc');
-    const deliver = ipc.client({ socketPath: config.alarmSocketPath, maxBytes: config.maxMessageBytes, timeoutMs: config.timeoutMs });
-    relay = await ipc.open({ socketPath, maxBytes: config.maxMessageBytes, timeoutMs: config.timeoutMs }, token => ({
-      async '/alarm' (request, body) {
+    const socketPath = path.join(directory, 'relay.sock'), ipc = require('../../../lib/server/internal-api/transport');
+    const service = require('../../../lib/server/internal-api/contracts').alarmDelivery;
+    const deliver = require('../../../lib/server/internal-api/clients').alarmDelivery({ socketPath: config.alarmSocketPath, maxBytes: config.maxMessageBytes, timeoutMs: config.timeoutMs });
+    relay = await ipc.open({ socketPath, maxBytes: config.maxMessageBytes, timeoutMs: config.timeoutMs }, service, token => ({
+      async deliverAlarm (request, body) {
         assert.equal(request.transport, token);
         assert([roles.owned.tenant, roles.owned.foreignTenant].includes(body.tenant), 'handoff must belong to an attested fixture tenant');
-        const result = await deliver('/alarm', body);
+        const result = await deliver.deliverAlarm( body);
         if (result?.accepted !== true) throw new Error('CONSUMER_RELAY_HANDOFF_NOT_ACCEPTED');
         const attempt = {tenant:body.tenant,id:body.id,attempt:body.attempt,notification:body.notification,result};
         if (body.tenant === config.tenant && !body.notification.clear) {

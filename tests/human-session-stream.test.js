@@ -188,7 +188,7 @@ describe('human current authority on consumed socket factories (no listeners)', 
     const observed = [];
     const protocol = createProtocol({ humanSessionsEnabled: true, humanAccepts: value => single.engine.accepts(value),
       admission: { resolve: async () => tenant }, readCurrent: async () => ({ identity: 'synthetic' }),
-      api: async (path, body) => { observed.push(body); return { permissions: { read: false, write: false, write_treatment: false, ack: false }, collections: [] }; },
+      api: { executeSocketMutation: async () => { throw new Error('Unexpected mutation'); }, authorizeSocket: async body => { observed.push(body); return { permissions: { read: false, write: false, write_treatment: false, ack: false }, collections: [] }; } },
       runtime: () => ({}), maxSockets: 10, domains: ['entries'] });
     await assert.rejects(protocol.prepare(new Socket({ host: headers.host, cookie: headers.cookie })), { code: 'REALTIME_HANDSHAKE_REFUSED' });
     const socket = new Socket(headers);
@@ -289,11 +289,11 @@ describe('human current authority on consumed socket factories (no listeners)', 
     const f = multiAuthority(multi), seen = [];
     const protocol = createProtocol({ humanSessionsEnabled: true, humanAccepts: value => multi.engine.accepts(value),
       admission: { resolve: async () => tenant }, readCurrent: async () => ({ identity: 'synthetic' }),
-      api: async (path, body) => {
+      api: { executeSocketMutation: async () => { throw new Error('Unexpected mutation'); }, authorizeSocket: async body => {
         seen.push(body.credential);
         try { const current = await f.authority.verify(body); return { permissions: current.permissions, collections: current.collections }; }
         catch (error) { assert.equal(error.code, 'HUMAN_SESSION_REFUSED'); return { denied: true }; }
-      }, runtime: () => ({}), maxSockets: 10, domains: ['entries'] });
+      } }, runtime: () => ({}), maxSockets: 10, domains: ['entries'] });
     const socket = new Socket({ ...headers, cookie: COOKIE + '=' + wrong });
     await protocol.prepare(socket); protocol.bind(socket, '/'); await tick();
     assert.deepEqual(seen, [{ humanToken: wrong }]);

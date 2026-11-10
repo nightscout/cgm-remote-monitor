@@ -10,7 +10,7 @@ const connect = require('../../lib/storage/postgres-connection');
 const { run } = require('../../lib/migrations/postgres');
 const { createReceiver } = require('../../lib/tenant-alarms/composition');
 const { createForwarder } = require('../../lib/server/tenant-socket-forwarding');
-const ipc = require('../../lib/server/realtime/ipc');
+const ipc = require('../../lib/server/internal-api/transport');
 const transport = require('../../lib/server/realtime/alarm-transport');
 const parser = require('../../lib/server/serve/evaluator-config');
 module.exports = function consumersLab () {
@@ -96,15 +96,15 @@ module.exports = function consumersLab () {
   lab.traceConsumer = (phase, value) => { const data = lab.encode({ phase, ...value }); lab.observations.push(data); console.log('M5_CONSUMER_OBSERVATION ' + JSON.stringify(data)); return data; };
   lab.openSink = async () => {
     if (sink) return;
-    sink = await ipc.open({ socketPath: source.NS_COMPOSED_RT_PATH, maxBytes: 131072, timeoutMs: 1000 }, token => {
-      return { async '/alarm' (request, body) {
+    sink = await ipc.open({ socketPath: source.NS_COMPOSED_RT_PATH, maxBytes: 131072, timeoutMs: 1000 }, require('../../lib/server/internal-api/contracts').alarmDelivery, token => {
+      return { async deliverAlarm (request, body) {
         const rows = await lab.requests(body.tenant);
         lab.traceConsumer('sink-before-accept', { id: body.id, tenant: body.tenant, notification: body.notification,
           ownRow: rows.find(row => row.request_id === body.id) || null });
         // Correlate the accepted incoming boundary with actual delivery. The
         // product fanout intentionally carries only tenant + notification.
         const real = transport.operations({ token, deliver: async operation => { lab.sinkEffects.push({ id: body.id, ...operation }); } });
-        const accepted = await real['/alarm'](request, body);
+        const accepted = await real.deliverAlarm(request, body);
         if (lab.sinkMode === 'hold') await new Promise(resolve => held.push(resolve));
         if (lab.sinkMode !== 'accept') throw new Error('Synthetic accepted handoff with lost response');
         return accepted;

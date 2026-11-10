@@ -126,7 +126,7 @@ async function start (input) {
         typeof relay.close === 'function' && typeof relay.apiSocketPath === 'string', 'owned API authority relay capability required');
       // Keep it in reverse ownership order: RT closes before relay, then API.
       children.push(relay);
-      const validated = require('../../../lib/server/realtime/ipc').options({ socketPath: relay.apiSocketPath,
+      const validated = require('../../../lib/server/internal-api/transport').options({ socketPath: relay.apiSocketPath,
         maxBytes: document.maxMessageBytes, timeoutMs: document.operationTimeoutMs });
       realtimeEnvironment[document.apiSocketPathEnv] = validated.socketPath;
     }

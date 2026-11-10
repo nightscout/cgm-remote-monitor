@@ -72,7 +72,7 @@ module.exports=async function start({input,roles,admin,connect,realtimeConfig}){
         // before opening the revocation observation window, not an old wire tail.
         await wait(()=>clients.every(client=>client.events.filter(row=>row.event==='delete'&&row.value.identifier===identifier).length>=2),'STORAGE_PARENT_QUIET_REMOVAL_NOT_OBSERVED');
         const empty=await rows(config.tenant);if(empty.length)throw new Error('STORAGE_PARENT_QUIET_EMPTY_REQUIRED');
-        const current=await require('../../../lib/server/realtime/ipc').client(realtimeConfig.api)('/authorize',{host:config.host+':'+roles.ingress.port,tenant:config.tenant,namespace:'/storage',credential:{accessToken:token}});
+        const current=await require('../../../lib/server/internal-api/clients').socketAuthority(realtimeConfig.api).authorizeSocket({host:config.host+':'+roles.ingress.port,tenant:config.tenant,namespace:'/storage',credential:{accessToken:token}});
         const storedGrants=(await admin.query('SELECT role_name FROM '+grants+' WHERE tenant_id=$1 AND subject_id=$2',[config.tenant,config.subjectId])).rows;
         record({revocationCurrent:current,revocationGrants:storedGrants});
         if(current.denied||current.permissions?.read!==false||!Array.isArray(current.collections)||current.collections.length||storedGrants.length)throw new Error('STORAGE_VALID_REVOKED_COLLECTIONS_REQUIRED');

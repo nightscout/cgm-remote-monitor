@@ -23,7 +23,7 @@ async function main () {
     socket.once('error', reject);
   });
   const request = require('node:crypto').randomUUID();
-  const reply = await require('../../lib/server/realtime/ipc').client({socketPath: '/run/ns-ipc/cohort-' + role + '.sock', maxBytes: 1048576, timeoutMs: 1500})('/cohort/status', {request});
+  const reply = await require('../../lib/server/internal-api/clients').lifecycleParticipant({socketPath: '/run/ns-ipc/cohort-' + role + '.sock', maxBytes: 1048576, timeoutMs: 1500}).getStatus({request});
   if (reply.request !== request || reply.participant !== role || JSON.stringify(reply.roles) !== JSON.stringify([role])) throw new Error();
 }
 main().catch(() => { process.exitCode = 1; });

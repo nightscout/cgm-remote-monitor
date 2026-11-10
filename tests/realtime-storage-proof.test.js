@@ -60,10 +60,10 @@ describe('joined storage physical/wire/current-collection oracles',function(){
   });
   it('actual protocol retains a valid socket but removes revoked collections before fanout; missing filter leaks a physical marker',async function(){
     let allowed=true;const socket=new Socket(),current={identity:'synthetic-current'};
-    const protocol=protocolFactory.create({admission:{resolve:async()=>A},api:async(operation,body)=>{
-      assert.equal(operation,'/authorize');assert.deepEqual(body.credential,{accessToken:'synthetic-signed-port'});
+    const protocol=protocolFactory.create({admission:{resolve:async()=>A},api:{executeSocketMutation:async()=>{throw new Error('Unexpected mutation');},authorizeSocket:async(body)=>{
+      assert.deepEqual(body.credential,{accessToken:'synthetic-signed-port'});
       return {permissions:{read:allowed,write:false,write_treatment:false,ack:false},collections:allowed?['entries']:[]};
-    },readCurrent:async()=>current,runtime:()=>({}),maxSockets:4,domains:['entries']});
+    }},readCurrent:async()=>current,runtime:()=>({}),maxSockets:4,domains:['entries']});
     try{
       await protocol.prepare(socket);protocol.bind(socket,'/storage');let reply;
       await socket.handlers.subscribe({accessToken:'synthetic-signed-port',collections:['entries']},value=>{reply=value;});

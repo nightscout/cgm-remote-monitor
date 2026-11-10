@@ -26,18 +26,19 @@ module.exports = async function authorityEpoch (input) {
   }
   async function setup ({ env, config: selected }) {
     config = selected; rtDocument = JSON.parse(fs.readFileSync(env.MULTITENANT_REALTIME_CONFIG, 'utf8'));
-    const ipc = require('../../../lib/server/realtime/ipc');
-    actualApi = ipc.client({ socketPath: env[rtDocument.apiSocketPathEnv], maxBytes: rtDocument.maxMessageBytes, timeoutMs: rtDocument.operationTimeoutMs });
+    const ipc = require('../../../lib/server/internal-api/transport');
+    const service = require('../../../lib/server/internal-api/contracts').socketAuthority;
+    actualApi = require('../../../lib/server/internal-api/clients').socketAuthority({ socketPath: env[rtDocument.apiSocketPathEnv], maxBytes: rtDocument.maxMessageBytes, timeoutMs: rtDocument.operationTimeoutMs });
     operatorFile = env[rtDocument.admissionFileEnv]; operatorStat = fs.lstatSync(operatorFile);
     assert(operatorStat.isFile() && !operatorStat.isSymbolicLink() && operatorStat.uid === process.getuid(), 'owned operator fixture file required');
     operatorOriginal = fs.readFileSync(operatorFile);
     runtime = require('./runtime-directory')({ captureDir: input.captureDir, phaseId: input.phaseId });
     const apiSocketPath = path.join(runtime.path, 'authority.sock');
     try {
-      channel = await ipc.open({ socketPath: apiSocketPath, maxBytes: rtDocument.maxMessageBytes, timeoutMs: rtDocument.operationTimeoutMs }, token => ({
-        async '/authorize' (request, body) {
+      channel = await ipc.open({ socketPath: apiSocketPath, maxBytes: rtDocument.maxMessageBytes, timeoutMs: rtDocument.operationTimeoutMs }, service, token => ({
+        async authorizeSocket (request, body) {
           assert.equal(request.transport, token);
-          const result = await actualApi('/authorize', body); const barrier = armed;
+          const result = await actualApi.authorizeSocket( body); const barrier = armed;
           const old = require('../../../lib/server/realtime/authority').credentialFor(body.namespace, JSON.parse(input.env[config.epochReadCredentialEnv]));
           if (barrier && body.namespace === barrier.namespace && body.tenant === config.tenant && equivalent(body.credential, old) && result.permissions?.read) {
             armed = undefined; observations.push({ kind: 'actual-authority-held', sequence: ++sequence, namespace: body.namespace, read: true, at: Date.now() }); save();
@@ -48,9 +49,9 @@ module.exports = async function authorityEpoch (input) {
           }
           return result;
         },
-        async '/mutate' (request, body) { assert.equal(request.transport, token); return actualApi('/mutate', body); }
+        async executeSocketMutation (request, body) { assert.equal(request.transport, token); return actualApi.executeSocketMutation( body); }
       }));
-      privateRead = async (namespace, credential) => actualApi('/authorize', { host: config.host, tenant: config.tenant, namespace,
+      privateRead = async (namespace, credential) => actualApi.authorizeSocket( { host: config.host, tenant: config.tenant, namespace,
         credential: require('../../../lib/server/realtime/authority').credentialFor(namespace, credential) });
       return { apiSocketPath, close: closeRelay };
     } catch (error) { await closeRelay(); throw error; }
@@ -95,8 +96,8 @@ module.exports = async function authorityEpoch (input) {
     assert.equal(main.events.length, 0, 'SOCKET_EPOCH_MAIN_OLD_AUTHORITY_DELIVERY'); main.socket.close();
     // Alarm: actual private RT handoff waits on actual API old permission.
     const alarm = await client('/alarm'), alarmBarrier = arm('/alarm');
-    const alarmPromise = require('../../../lib/server/realtime/ipc').client({ socketPath: config.alarmSocketPath,
-      maxBytes: config.maxMessageBytes, timeoutMs: config.timeoutMs })('/alarm', { tenant: config.tenant, id: require('node:crypto').randomUUID(),
+    const alarmPromise = require('../../../lib/server/internal-api/clients').alarmDelivery({ socketPath: config.alarmSocketPath,
+      maxBytes: config.maxMessageBytes, timeoutMs: config.timeoutMs }).deliverAlarm( { tenant: config.tenant, id: require('node:crypto').randomUUID(),
       attempt: 1, notification: { level: 2, group: 'synthetic-epoch', message: 'Synthetic epoch' }, receipts: [] });
     // Attach rejection immediately; a setup deadline is not an epoch success.
     const alarmResult = alarmPromise.then(value => ({ value }), error => ({ error: error.code || error.message }));

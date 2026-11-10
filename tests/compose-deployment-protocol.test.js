@@ -334,3 +334,33 @@ describe('Compose demo private node:http transport', function () {
     assert.equal(wire.wire.length, 1);
   });
 });
+
+describe('Compose role health uses the lifecycle participant contract', function () {
+  async function check (mutateReply = reply => reply) {
+    const file = require.resolve('../deploy/multitenant/health'), calls = [], facade = { argv: ['node', file, 'api'], exitCode: 0 };
+    const source = fs.readFileSync(file, 'utf8');
+    const nativeRequire = createRequire(file);
+    const localRequire = name => {
+      if (name === 'node:fs') return { lstatSync: () => ({ isSocket: () => true }) };
+      if (name === 'node:net') return { connect: () => {
+        const socket = new EventEmitter(); socket.setTimeout = () => {}; socket.end = () => {}; socket.destroy = () => {};
+        queueMicrotask(() => socket.emit('connect')); return socket;
+      } };
+      if (name === '../../lib/server/internal-api/clients') return { lifecycleParticipant: options => {
+        calls.push(options);
+        return { getStatus: async body => { calls.push(body); return mutateReply({ request: body.request, participant: 'api', roles: ['api'] }); } };
+      } };
+      return nativeRequire(name);
+    };
+    vm.compileFunction(source, ['require', 'process'], { filename: file })(localRequire, facade);
+    await new Promise(resolve => setImmediate(resolve));
+    return { calls, code: facade.exitCode };
+  }
+  it('checks the exact lifecycle status acknowledgement and rejects another participant', async function () {
+    const valid = await check(); assert.equal(valid.code, 0);
+    assert.deepEqual(valid.calls[0], { socketPath: '/run/ns-ipc/cohort-api.sock', maxBytes: 1048576, timeoutMs: 1500 });
+    assert.match(valid.calls[1].request, /^[0-9a-f-]{36}$/);
+    assert.equal((await check(reply => ({ ...reply, participant: 'realtime' }))).code, 1);
+    assert.equal((await check(reply => ({ ...reply, request: 'wrong' }))).code, 1);
+  });
+});

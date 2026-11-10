@@ -18,25 +18,25 @@ async function lab (mutate) {
   const entries=manifest.validate(roles.map((role,index)=>({id:'peer_'+index,roles:[role],namespaces:['clinical_'+index],endpoint:{socketPath:'/synthetic/peer_'+index+'.sock',maxBytes:100000,timeoutMs:1000}})));
   const handlers=new Map(), locals=new Map(), invalidated=[], actors=roles.map((role,index)=>({pid:100+index,role:'synthetic_'+index,birth:'1700000000.'+index}));
   const flags={};
-  const ipc={async open(endpoint,make) {const operations=make(Symbol());handlers.set(endpoint.socketPath,operations);return {async close(){if(handlers.get(endpoint.socketPath)===operations)handlers.delete(endpoint.socketPath);}};},
-    client:endpoint=>async(operation,body)=>{
+  const ipc={async open(endpoint,service,make) {const operations=make(Symbol());handlers.set(endpoint.socketPath,operations);return {async close(){if(handlers.get(endpoint.socketPath)===operations)handlers.delete(endpoint.socketPath);}};}};
+  const clients={lifecycleParticipant:endpoint=>Object.fromEntries(['getStatus','invalidateTenant'].map(operation=>[operation,async body=>{
       const handlersForPeer=handlers.get(endpoint.socketPath); if(!handlersForPeer)throw new Error('synthetic missing peer');
       const reply=await handlersForPeer[operation]({},structuredClone(body));
-      if(flags.lostAck && operation==='/cohort/invalidate' && endpoint.socketPath===entries[0].endpoint.socketPath)throw new Error('synthetic lost ACK');
-      if(flags.wrongAck && operation==='/cohort/invalidate')reply.request='00000000-0000-4000-8000-000000000000';
+      if(flags.lostAck && operation==='invalidateTenant' && endpoint.socketPath===entries[0].endpoint.socketPath)throw new Error('synthetic lost ACK');
+      if(flags.wrongAck && operation==='invalidateTenant')reply.request='00000000-0000-4000-8000-000000000000';
       if(flags.wrongDB)reply.datastore={...DATA,database_oid:'99999'};
       return structuredClone(reply);
-    }};
+    }]))};
   async function boot(index) {
     const entry=entries[index], f=fixture();
-    const module=load({'../realtime/ipc':ipc,'../../storage/postgres-connection':{
+    const module=load({'../internal-api/transport':ipc,'../internal-api/clients':clients,'../../storage/postgres-connection':{
       installOperationWindow:()=>()=>{},cohortBackends:()=>[actors[index]],cohortDatastore:()=>DATA
     },...Object.fromEntries(['preview-api','evaluator-preview','preview-realtime','owner-preview'].map(name=>['./'+name,{boot:async()=>({close:async()=>{},invalidateTenant:async tenant=>invalidated.push([entry.id,tenant])})}]))});
     const cohort=await module.create({window:f.window,names:entry.roles,tenants:[A,B],namespaces:entry.namespaces,participant:entry});
     await cohort.boot(roles[index],{tenantIds:[A,B],namespaces:{clinical:entry.namespaces[0]}});cohort.complete();await cohort.openControl();locals.set(index,cohort);
   }
   for(let index=0;index<entries.length;index++)await boot(index);
-  const coordinator=load({'../realtime/ipc':ipc},mutate);
+  const coordinator=load({'../internal-api/transport':ipc,'../internal-api/clients':clients},mutate);
   const remote=await coordinator.createRemote({namespace:'synthetic_window',tenants:[A,B],participants:entries});
   const operator={async query(sql){
     if(sql==='SELECT pg_catalog.pg_stat_clear_snapshot()')return {rows:[{}]};
@@ -100,6 +100,13 @@ describe('Fixed process configuration v2',function(){
     const source={MULTITENANT_OPERATION_CONFIG:file,SYNTHETIC_PG:'postgresql://synthetic:synthetic@127.0.0.1/disposable_test',...Object.fromEntries(roles.map((role,index)=>['SOCKET_'+index,'/synthetic/peer_'+index+'.sock']))};
     try{
       fs.writeFileSync(file,JSON.stringify(value));const parsed=config.load(source);assert.equal(parsed.participantId,'peer_0');assert.equal(parsed.participants.length,4);assert.equal(manifest.isParticipant(parsed.participants[0]),true);
+      const network=structuredClone(value),networkSource={...source,PRIVATE_BIND:'0.0.0.0'};
+      network.participants.forEach((row,index)=>{delete row.socketPathEnv;row.endpoint={urlEnv:'PRIVATE_'+index,trust:'network',bindHostEnv:'PRIVATE_BIND'};networkSource['PRIVATE_'+index]='http://'+row.id+'.nightscout.svc.cluster.local:1401';});
+      fs.writeFileSync(file,JSON.stringify(network));const http=config.load(networkSource);
+      assert.equal(http.participants[0].endpoint.url,networkSource.PRIVATE_0);assert.equal(http.participants[0].endpoint.bindHost,'0.0.0.0');
+      fs.writeFileSync(file,JSON.stringify(network));assert.throws(()=>config.load({...networkSource,PRIVATE_1:networkSource.PRIVATE_0+'/'}),/invalid explicit/,'equivalent HTTP origins cannot alias participant endpoints');
+      const mixed=structuredClone(network);mixed.participants[0].socketPathEnv='SOCKET_0';fs.writeFileSync(file,JSON.stringify(mixed));assert.throws(()=>config.load(networkSource),/invalid explicit/);
+      const implicit=structuredClone(network);delete implicit.participants[0].endpoint.trust;fs.writeFileSync(file,JSON.stringify(implicit));assert.throws(()=>config.load(networkSource),/invalid explicit/);
       for(const change of [v=>{v.participantId='absent';},v=>{v.participants.pop();},v=>{v.participants[0].socketPathEnv='ABSENT';},v=>{v.participants[0].timeoutMs=0;}]){
         const changed=structuredClone(value);change(changed);fs.writeFileSync(file,JSON.stringify(changed));assert.throws(()=>config.load(source),/invalid explicit/);
       }
@@ -132,7 +139,7 @@ describe('Window and lower lease actual datastore binding',function(){
 
 describe('Actual private IPC client cohort path admission',function(){
   function actualClient(mutate=s=>s,onFilesystem=()=>{}){
-    const file=path.resolve(__dirname,'../lib/server/realtime/ipc.js'), output={exports:{}};
+    const file=path.resolve(__dirname,'../lib/server/internal-api/transport.js'), output={exports:{}};
     const original=require('node:module').createRequire(file), uid=process.getuid();
     const filesystem={lstatSync:target=>{onFilesystem();return {uid,mode:target==='/synthetic'?0o700:0o600,isDirectory:()=>target==='/synthetic',isSymbolicLink:()=>false,isSocket:()=>target==='/synthetic/cohort.sock'};},realpathSync:target=>target};
     vm.runInThisContext('(function(require,module,exports){'+mutate(fs.readFileSync(file,'utf8'))+'\n})',{filename:file})(name=>name==='node:fs'?filesystem:original(name),output,output.exports);
@@ -149,22 +156,23 @@ describe('Actual private IPC client cohort path admission',function(){
       };return req;
     };return {calls,request};
   }
-  async function invoke(path,mutate){
-    const recording=transport(), client=actualClient(mutate)({socketPath:'/synthetic/cohort.sock',maxBytes:1000,timeoutMs:1000},recording.request);
-    const result=await client(path,{request:'11111111-1111-4111-8111-111111111111'});
+  const service={id:'synthetic-cohort-paths',version:1,operations:{
+    getStatus:{path:'/cohort/status',request:{type:'object'},response:{type:'object'}},
+    invalidateTenant:{path:'/cohort/invalidate',request:{type:'object'},response:{type:'object'}}}};
+  async function invoke(name,path,mutate){
+    const recording=transport(), client=actualClient(mutate)({socketPath:'/synthetic/cohort.sock',maxBytes:1000,timeoutMs:1000},service,recording.request);
+    const result=await client[name]({request:'11111111-1111-4111-8111-111111111111'});
     assert.deepEqual(result,{accepted:true,path});assert.equal(recording.calls.length,1);assert.equal(recording.calls[0].options.path,path);assert.equal(recording.calls[0].options.method,'POST');
   }
-  it('admits exactly both cohort paths through the actual client allowlist',async function(){
-    await invoke('/cohort/status');await invoke('/cohort/invalidate');
+  it('maps exactly both named cohort operations to their registered paths',async function(){
+    await invoke('getStatus','/cohort/status');await invoke('invalidateTenant','/cohort/invalidate');
   });
-  it('detects either missing cohort path before transport and passes restored source',async function(){
-    for(const path of ['/cohort/status','/cohort/invalidate']){
-      await assert.rejects(invoke(path,s=>s.replace(", '"+path+"'",'')),{code:'SOCKET_IPC_REQUEST_REFUSED'});
-      await invoke(path);
-    }
+  it('detects a wrong wire path and passes restored source',async function(){
+    await assert.rejects(invoke('getStatus','/cohort/status',s=>s.replace('path: operation.path',"path: '/cohort/unowned'")),assert.AssertionError);
+    await invoke('getStatus','/cohort/status');
   });
-  it('keeps unknown paths refused before filesystem or transport access',async function(){
-    let called=false,filesystem=false;const client=actualClient(undefined,()=>{filesystem=true;})({socketPath:'/synthetic/cohort.sock',maxBytes:1000,timeoutMs:1000},()=>{called=true;throw new Error('must not send');});
-    await assert.rejects(client('/cohort/arbitrary',{request:'synthetic'}),{code:'SOCKET_IPC_REQUEST_REFUSED'});assert.equal(called,false);assert.equal(filesystem,false);
+  it('exposes no caller-selected path dispatch before filesystem or transport access',function(){
+    let called=false,filesystem=false;const client=actualClient(undefined,()=>{filesystem=true;})({socketPath:'/synthetic/cohort.sock',maxBytes:1000,timeoutMs:1000},service,()=>{called=true;throw new Error('must not send');});
+    assert.deepEqual(Object.keys(client),['getStatus','invalidateTenant']);assert.equal(client['/cohort/arbitrary'],undefined);assert.equal(client.constructor,undefined);assert.equal(called,false);assert.equal(filesystem,false);
   });
 });

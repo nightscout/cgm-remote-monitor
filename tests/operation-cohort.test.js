@@ -160,14 +160,15 @@ describe('Selected evaluator control-table read admission', function () {
 describe('Private IPC lifetime extends through actual response completion', function () {
   async function responseCheck (mutate) {
     const {Readable} = require('node:stream'), {EventEmitter} = require('node:events');
-    const f = fixture(), ipc = load('../lib/server/realtime/ipc.js',{},mutate);
+    const f = fixture(), ipc = load('../lib/server/internal-api/transport.js',{},mutate);
     const req = Readable.from([Buffer.from(JSON.stringify({tenant:A}))]);
-    req.method='POST'; req.url='/synthetic'; req.headers={'content-type':'application/json'};
+    const service = { ...require('./fixtures/internal-api-contract').service, operations:{echo:{path:'/synthetic',request:{type:'object'},response:{type:'object'}}} };
+    req.method='POST'; req.url='/synthetic'; req.headers=require('./fixtures/internal-api-contract').headers(service);
     const res = new EventEmitter(); let wrote; const written = new Promise(resolve => { wrote=resolve; });
     res.writeHead = status => { res.status=status; res.headersSent=true; };
     res.end = () => { wrote(); }; res.destroy = () => { res.destroyed=true; res.emit('close'); };
     const token = Symbol('owned-synthetic');
-    const job = ipc.handler({operations:{'/synthetic':async () => { f.window.assertCurrent(A); return {ok:true}; }},
+    const job = ipc.handler({service,operations:{echo:async () => { f.window.assertCurrent(A); return {ok:true}; }},
       maxBytes:1000,timeoutMs:5000,admitted:() => true,token,operationWindow:f.window,resolveTenant:body => body.tenant})(req,res);
     try {
       await written; await new Promise(resolve => setImmediate(resolve));
