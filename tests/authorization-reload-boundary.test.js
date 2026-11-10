@@ -56,6 +56,20 @@ describe('Complete authorization reload boundary', function () {
     }
   });
 
+  it('matches a valid token inside a repeated-parameter array and only a string element', async function () {
+    const crypto = require('node:crypto');
+    const enclave = {isApiKeySet:() => true,
+      getSubjectHash:id => crypto.createHash('sha1').update('synthetic-' + id).digest('hex')};
+    const keyed = require('../lib/authorization/storage')({authentication_collections_prefix:prefix, enclave},
+      {store:client.db(), settings:{}, moment:require('moment'), language:{translate:v => v}});
+    await new Promise((resolve, reject) => keyed.reload(error => error ? reject(error) : resolve()));
+    const first = keyed.subjects.find(s => s.name === 'first');
+    assert.equal(keyed.findSubject(first.accessToken).name, 'first');
+    assert.equal(keyed.findSubject(['not-a-valid-token-at-all', first.accessToken]).name, 'first');
+    assert.equal(keyed.findSubject([[first.accessToken]]), null);
+    assert.equal(keyed.findSubject({token:first.accessToken}), null);
+  });
+
   it('reloads complete sorted role/subject snapshots and changed grants twice', async function () {
     for (let cycle = 0; cycle < 2; cycle++) {
       const permission = cycle ? 'api:treatments:read' : 'api:entries:read';
