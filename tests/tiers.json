@@ -362,6 +362,7 @@
         "tests/api3*.test.js",
         "tests/authdelay.test.js",
         "tests/authorization-reload-boundary.test.js",
+        "tests/human-session-provision.test.js",
         "tests/authsubjects.test.js",
         "tests/boot-index-ready.test.js",
         "tests/boot-sequence-integration.test.js",
