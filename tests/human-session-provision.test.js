@@ -9,7 +9,9 @@ const assert = require('node:assert/strict');
 const fs = require('node:fs');
 const os = require('node:os');
 const path = require('node:path');
-const { generateKeyPairSync } = require('node:crypto');
+const { generateKeyPairSync, randomBytes } = require('node:crypto');
+const request = require('supertest');
+const providerFixture = require('./fixtures/human-oidc-provider');
 const language = require('../lib/language')();
 const { createEngine } = require('../lib/human-session/engine');
 const { createMongoStore, authorityId, principalId, emailPrincipalId, MAX_FALLBACK_SESSIONS } = require('../lib/human-session/mongo');
@@ -237,6 +239,44 @@ describe('single-site OIDC identity list, fallback role and current subject role
       const renewed = await s.engine.renew({ tenant: 'single', token: issued.token,
         identity: { issuer: ISSUER, subject: 'carer-sub', authenticatedAt: clock, email: 'carer@example.test', emailVerified: false } });
       await assert.rejects(s.auth(renewed.token), { code: 'HUMAN_AUTHORITY_REFUSED' });
+    });
+  });
+
+  describe('runtime.single end to end with the synthetic provider over the HTTP routes', function () {
+    it('boots from settings alone and signs in listed, email-listed and unlisted people with their roles', async function () {
+      const provider = await providerFixture({ redirectUri: ORIGIN + '/api/v2/oidc/callback' });
+      const source = { ENABLE: 'oidc', OIDC_ISSUER: provider.issuer, OIDC_CLIENT_ID: provider.clientId,
+        OIDC_CLIENT_SECRET: provider.clientSecret, OIDC_ORIGIN: ORIGIN, OIDC_COOKIE_KEY: randomBytes(32).toString('base64'),
+        OIDC_ACCESS_SIGNING_KEY: pem, OIDC_IDENTITIES: 'sub:alice-1=careportal+readable,email:carer@example.test=careportal',
+        OIDC_FALLBACK_ROLES: 'readable' };
+      const env = Object.assign(Object.create(Object.getPrototypeOf(self.env)), self.env, { settings: { ...self.env.settings, enable: ['oidc'] } });
+      const fetch = globalThis.fetch;
+      globalThis.fetch = provider.fetch;
+      try {
+        const human = await require('../lib/human-session/runtime').single({ env, storage: self.ctx.store, authorization: self.ctx.authorization, source });
+        const app = require('express')();
+        app.use(human.prefix, human.router);
+        const cookie = (response, name) => response.headers['set-cookie'].map(value => value.split(';')[0])
+          .find(value => value.startsWith(name) && !value.endsWith('='));
+        async function signIn (subject, claims = {}) {
+          provider.state.tokenOverrides = claims;
+          const start = await request(app).post('/api/v2/oidc/login').set('Origin', ORIGIN).send({}).expect(200);
+          assert.equal(new URL(start.body.location).searchParams.get('scope'), 'openid email');
+          const callback = new URL(provider.authorize(start.body.location, { subject }));
+          const done = await request(app).get(callback.pathname + callback.search).set('Cookie', cookie(start, '__Host-ns-oidc-flow-')).expect(303);
+          const probe = await request(app).get('/api/v2/oidc/session').set('Cookie', cookie(done, '__Host-ns-human-data='));
+          assert.equal(probe.status, 200, JSON.stringify(probe.body));
+          return probe.body.permissionGroups;
+        }
+        assert.deepEqual(await signIn('alice-1'), [permissions('careportal'), permissions('readable')]);
+        assert.deepEqual(await signIn('carer-sub', { email: 'Carer@example.test', email_verified: true }), [permissions('careportal')]);
+        assert.deepEqual(await signIn('carer-sub', { email: 'carer@example.test', email_verified: 'true' }), [permissions('readable')]);
+        assert.deepEqual(await signIn('stranger-1'), [permissions('readable')]);
+        const stored = await authority();
+        assert.deepEqual(stored.principals.map(principal => principal.source), ['list', 'list']);
+        assert.equal(stored.keys.length, 2);
+        assert.equal(stored.keys.every(key => key.active && key.source === 'local'), true);
+      } finally { globalThis.fetch = fetch; }
     });
   });
 
