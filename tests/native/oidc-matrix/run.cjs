@@ -200,7 +200,7 @@ async function main () {
       child.once('close', (code, signal) => { clearTimeout(timer); resolve({ code, signal, killed }); });
     });
     const durationMs = Date.now() - started;
-    let result = null;
+    let result;
     try { result = JSON.parse(fs.readFileSync(resultPath, 'utf8')); } catch { result = null; }
     for (const [raw, kind] of [[rawOut, 'stdout'], [rawErr, 'stderr']]) {
       fs.writeFileSync(path.join(OUT, 'stages', name + '.' + kind + '.log'), redact(fs.readFileSync(raw, 'utf8'))); fs.rmSync(raw);
