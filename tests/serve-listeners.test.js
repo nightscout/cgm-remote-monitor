@@ -142,18 +142,46 @@ describe('multitenant role listeners (PLAT-SERVE)', function () {
       assert.equal(listeners.resolve(['backstage'], { BACKSTAGE_HOSTNAME: '::1' }, FALLBACK, STUB_ROLES).length, 1);
     });
 
-    it('refuses the consumer listener\'s address, on any port, even when not serving the consumer role', function () {
+    it('accepts the consumer listener\'s address on another port, loopback or acknowledged non-loopback', function () {
       for (const source of [
         { FRONT_HOSTNAME: '10.0.0.5', BACKSTAGE_HOSTNAME: '10.0.0.5', BACKSTAGE_INSECURE_BIND_ACKNOWLEDGED: 'true' }
         , { FRONT_HOSTNAME: '127.0.0.1', BACKSTAGE_HOSTNAME: '127.0.0.1' }
         , { FRONT_HOSTNAME: 'localhost', BACKSTAGE_HOSTNAME: '127.0.0.1' }
         , { FRONT_HOSTNAME: '[::1]', BACKSTAGE_HOSTNAME: '::1' }
       ]) {
-        refused(() => listeners.resolve(['front', 'backstage'], source, FALLBACK, STUB_ROLES), /on the consumer listener's address/);
-        refused(() => listeners.resolve(['backstage'], source, FALLBACK, STUB_ROLES), /on the consumer listener's address/);
+        assert.deepEqual(listeners.resolve(['front', 'backstage'], source, FALLBACK, STUB_ROLES).map(s => s.port), [1337, 2338]);
+        assert.equal(listeners.resolve(['backstage'], source, FALLBACK, STUB_ROLES).length, 1);
       }
       // The consumer address can come from the fallback (HOSTNAME) too.
-      refused(() => listeners.resolve(['backstage'], {}, { host: '127.0.0.1', port: 1337 }, STUB_ROLES), /consumer listener's address/);
+      assert.equal(listeners.resolve(['backstage'], {}, { host: '127.0.0.1', port: 1337 }, STUB_ROLES)[0].host, '127.0.0.1');
+    });
+
+    it('refuses the consumer listener\'s port on its address, even when not serving the consumer role', function () {
+      for (const source of [
+        { FRONT_HOSTNAME: '10.0.0.5', BACKSTAGE_HOSTNAME: '10.0.0.5', BACKSTAGE_PORT: '1337', BACKSTAGE_INSECURE_BIND_ACKNOWLEDGED: 'true' }
+        , { FRONT_HOSTNAME: '127.0.0.1', BACKSTAGE_HOSTNAME: '127.0.0.1', BACKSTAGE_PORT: '1337' }
+        , { FRONT_HOSTNAME: 'localhost', BACKSTAGE_HOSTNAME: '127.0.0.1', BACKSTAGE_PORT: '1337' }
+        , { FRONT_HOSTNAME: '[::1]', BACKSTAGE_HOSTNAME: '::1', BACKSTAGE_PORT: '1337' }
+        // The consumer on every interface takes its port on every address.
+        , { BACKSTAGE_PORT: '1337' }
+      ]) {
+        refused(() => listeners.resolve(['backstage'], source, FALLBACK, STUB_ROLES), /would share the consumer listener/);
+        assert.throws(() => listeners.resolve(['front', 'backstage'], source, FALLBACK, STUB_ROLES), listeners.ListenerError);
+      }
+      refused(() => listeners.resolve(['backstage'], { BACKSTAGE_PORT: '1337' }, { host: '127.0.0.1', port: 1337 }, STUB_ROLES), /would share the consumer listener/);
+      // Another address on the consumer's port is a listener of its own.
+      assert.equal(listeners.resolve(['backstage'], { FRONT_HOSTNAME: '127.0.0.1', BACKSTAGE_HOSTNAME: '127.0.0.2', BACKSTAGE_PORT: '1337' }, FALLBACK, STUB_ROLES).length, 1);
+    });
+
+    it('opens both listeners on one address with different ports', async function () {
+      const port = await new Promise(resolve => { const probe = require('net').createServer().listen(0, '127.0.0.1', () => { const p = probe.address().port; probe.close(() => resolve(p)); }); });
+      const specs = listeners.resolve(['api', 'admin'], { API_HOSTNAME: '127.0.0.1', API_PORT: String(port), ADMIN_HOSTNAME: '127.0.0.1', ADMIN_PORT: '0' }, FALLBACK);
+      const servers = [];
+      try {
+        for (const spec of specs) servers.push(await listeners.open(spec, (req, res) => res.end(spec.role)));
+        assert.deepEqual(servers.map(server => server.address().address), ['127.0.0.1', '127.0.0.1']);
+        assert.notEqual(servers[0].address().port, servers[1].address().port);
+      } finally { for (const server of servers) await listeners.close(server); }
     });
 
     it('refuses every interface, acknowledged or not', function () {
@@ -175,7 +203,15 @@ describe('multitenant role listeners (PLAT-SERVE)', function () {
 
     it('applies to the real admin role definition with ADMIN_ names', function () {
       refused(() => listeners.resolve(['admin'], { ADMIN_HOSTNAME: '192.0.2.10' }, FALLBACK), /ADMIN_INSECURE_BIND_ACKNOWLEDGED=true/);
-      refused(() => listeners.resolve(['admin'], { API_HOSTNAME: '127.0.0.1' }, FALLBACK), /consumer listener's address/);
+      // HOSTNAME=127.0.0.1 with admin at its default 127.0.0.1:1338: the same
+      // address on another port resolves (it refused before this decision).
+      assert.deepEqual(listeners.resolve(['admin'], {}, { host: '127.0.0.1', port: 1337 }).map(s => [s.host, s.port]), [['127.0.0.1', 1338]]);
+      assert.equal(listeners.resolve(['admin'], { API_HOSTNAME: '127.0.0.1' }, FALLBACK).length, 1);
+      refused(() => listeners.resolve(['admin'], { API_HOSTNAME: '127.0.0.1', ADMIN_PORT: '1337' }, FALLBACK), /would share the consumer listener/);
+      refused(() => listeners.resolve(['admin'], { ADMIN_HOSTNAME: '0.0.0.0', ADMIN_INSECURE_BIND_ACKNOWLEDGED: 'true' }, FALLBACK), /every interface/);
+      // A shared non-loopback address still needs the acknowledgement.
+      refused(() => listeners.resolve(['api', 'admin'], { API_HOSTNAME: '192.0.2.10', ADMIN_HOSTNAME: '192.0.2.10' }, FALLBACK), /ADMIN_INSECURE_BIND_ACKNOWLEDGED=true/);
+      assert.equal(listeners.resolve(['api', 'admin'], { API_HOSTNAME: '192.0.2.10', ADMIN_HOSTNAME: '192.0.2.10', ADMIN_INSECURE_BIND_ACKNOWLEDGED: 'true' }, FALLBACK).length, 2);
     });
 
     it('leaves a consumer role alone on a non-loopback or wildcard address', function () {

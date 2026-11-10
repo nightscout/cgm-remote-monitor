@@ -117,9 +117,11 @@ describe('admin role: composition', function () {
     await assert.rejects(serve.start(['admin'], env, null, source, {}), /admin requires explicit operator configuration/);
     await assert.rejects(serve.start(['admin'], env, null, source, { adminPreview: {}, operationConfig: {} }),
       /admin is not a lifecycle operation cohort participant/);
-    // The plane rule still applies: by default the admin listener would share the
-    // consumer fallback address, so it needs ADMIN_HOSTNAME of its own.
-    await assert.rejects(serve.start(['admin'], env, null, {}, {}), /consumer listener's address/);
+    // The plane rule: by default admin (127.0.0.1:1338) shares the consumer
+    // fallback address on another port and passes it, reaching the configuration
+    // check; on the consumer listener's own port it refuses before any boot.
+    await assert.rejects(serve.start(['admin'], env, null, {}, {}), /admin requires explicit operator configuration/);
+    await assert.rejects(serve.start(['admin'], env, null, { ADMIN_PORT: '1337' }, {}), /would share the consumer listener/);
   });
 });
 
