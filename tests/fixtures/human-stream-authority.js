@@ -64,9 +64,14 @@ module.exports = function fixture ({ tenant, now = () => Math.floor(Date.now() /
       return operation;
     }
   };
+  // Single-site permissions are the bound local subject's current roles, held
+  // outside the authority document; the multitenant double above reads its
+  // joined role permissions from the principal row.
+  const subjects = { 'synthetic-human': collection.document.principals[0].permissionGroups };
+  const roles = { forSubject: async id => Object.hasOwn(subjects, id) ? subjects[id] : null, fallback: null };
   const worker = () => createEngine({ store: tenant === 'single'
-    ? createMongoStore({ collection, tenant, consumer: 'oidc' }) : multitenantTestStore, access: crypto.access, now });
+    ? createMongoStore({ collection, tenant, consumer: 'oidc', roles }) : multitenantTestStore, access: crypto.access, now });
   const engine = worker();
-  return { crypto, collection, identity, engine, worker,
+  return { crypto, collection, subjects, identity, engine, worker,
     login: purpose => engine.login({ tenant, identity, purpose: purpose || 'data' }) };
 };

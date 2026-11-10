@@ -24,7 +24,8 @@ describe('shared human OIDC provider protocol (synthetic in-process HTTP transpo
     source.state.tokenOverrides.roles = ['root', 'management'];
     const result = await provider.finish(input);
     assert.deepEqual(result, { issuer: source.issuer, subject: 'synthetic-subject',
-      authenticatedAt: source.state.authenticationTime, providerSession: 'synthetic-provider-session' });
+      authenticatedAt: source.state.authenticationTime, providerSession: 'synthetic-provider-session',
+      email: null, emailVerified: false });
     assert.ok(source.state.requests.some(request => request.pathname === '/jwks'));
     assert.ok(source.state.requests.every(request => request.redirect === 'manual'));
   });

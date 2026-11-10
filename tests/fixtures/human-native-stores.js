@@ -86,8 +86,11 @@ async function mongoFixture ({ issuer, providerSubject, providerSession, tenant 
     const id = authorityId(tenant);
     await collection.insertOne({ _id: id, tenant, revision: 1, keys: acceptedKeys,
       principals: [{ id: principalId(tenant, issuer, providerSubject), issuer, providerSubject, subject, consumer,
-        enabled: true, generation: 1, credentialGeneration: 1, purposes: ['data', 'management'],
-        permissionGroups: [['api:entries:read']] }], sessions: [], logoutEvents: [] });
+        enabled: true, generation: 1, credentialGeneration: 1, purposes: ['data', 'management'] }], sessions: [], logoutEvents: [] });
+    // The bound local subject's current roles, held outside the authority
+    // document as the authorization subjects collection holds them when serving.
+    const subjects = { [subject]: [['api:entries:read']] };
+    const roles = { forSubject: async value => Object.hasOwn(subjects, value) ? subjects[value] : null, fallback: null };
     const createWorkerStore = async () => {
       if (closed) throw new Error('Native Mongo fixture is closed');
       const worker = new MongoClient(process.env.HUMAN_SESSION_MONGO_URL, clientOptions);
@@ -97,7 +100,7 @@ async function mongoFixture ({ issuer, providerSubject, providerSession, tenant 
         await worker.connect();
         if (closed) throw new Error('Native Mongo fixture closed while worker started');
         const workerDB = process.env.HUMAN_SESSION_MONGO_DB ? worker.db(process.env.HUMAN_SESSION_MONGO_DB) : worker.db();
-        return createMongoStore({ collection: workerDB.collection(name), tenant, consumer });
+        return createMongoStore({ collection: workerDB.collection(name), tenant, consumer, roles });
       })();
       startingWorkers.add(starting);
       try { return await starting; }
@@ -114,7 +117,7 @@ async function mongoFixture ({ issuer, providerSubject, providerSession, tenant 
           execution: { nodeProcesses: 1, engineClientPools: workerClients.size, fixtureClientPools: 1 },
           keys: document.keys, identity: { enabled: document.principals[0].enabled, generation: document.principals[0].generation,
           credentialGeneration: document.principals[0].credentialGeneration, purposes: document.principals[0].purposes,
-          permissionGroups: document.principals[0].permissionGroups, revision: document.revision },
+          permissionGroups: subjects[subject], revision: document.revision },
         sessions: document.sessions.map(session => {
           const { tokens, ...state } = session;
           return { ...state, access: tokens.map(token => ({ expiresAt: token.expiresAt, issuedAt: token.issuedAt })) };
