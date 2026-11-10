@@ -45,7 +45,11 @@ async function run ({ nativeStage } = {}) {
     await collection.insertOne({ _id: id, tenant, revision: 1, keys: crypto.acceptedKeys,
       principals: [{ id: principalId(tenant, issuer, 'provider-a'), issuer, providerSubject: 'provider-a',
         subject: 'local_a', consumer: 'oidc', enabled: true, generation: 1, credentialGeneration: 1,
-        purposes: ['data', 'management'], permissionGroups: [['api:status:read']] }], sessions: [], logoutEvents: [] });
+        purposes: ['data', 'management'] }], sessions: [], logoutEvents: [] });
+    // The bound local subject's current roles; serving reads them from the
+    // authorization subjects collection at each operation.
+    const subjects = { local_a: [['api:status:read']] };
+    const roles = { forSubject: async subject => Object.hasOwn(subjects, subject) ? subjects[subject] : null, fallback: null };
     // The barrier changes scheduling only; every operation goes to the actual
     // driver collection. Both engines remain in this one Node process, while
     // the second engine uses an independent MongoClient and real driver pool.
@@ -61,8 +65,8 @@ async function run ({ nativeStage } = {}) {
     await workerClient.connect();
     const workerDB = process.env.HUMAN_SESSION_MONGO_DB ? workerClient.db(process.env.HUMAN_SESSION_MONGO_DB) : workerClient.db();
     const workerCollection = workerDB.collection(name);
-    const engine = createEngine({ store: createMongoStore({ collection: barrierCollection, tenant, consumer: 'oidc' }), access: crypto.access, now: () => clock });
-    const worker = createEngine({ store: createMongoStore({ collection: workerCollection, tenant, consumer: 'oidc' }), access: crypto.access, now: () => clock });
+    const engine = createEngine({ store: createMongoStore({ collection: barrierCollection, tenant, consumer: 'oidc', roles }), access: crypto.access, now: () => clock });
+    const worker = createEngine({ store: createMongoStore({ collection: workerCollection, tenant, consumer: 'oidc', roles }), access: crypto.access, now: () => clock });
     const login = (purpose = 'management') => engine.login({ tenant, identity: proof(), purpose });
     const authenticate = (token, extra = {}) => worker.authenticate({ tenant, token, purpose: 'management', ...extra });
     let issued;
@@ -80,11 +84,12 @@ async function run ({ nativeStage } = {}) {
       for (const result of renewed) await authenticate(result.token);
     });
     await check('current grant removal and explicit management entitlement are effective next operation', async () => {
-      await collection.updateOne({ _id: id }, { $set: { 'principals.0.permissionGroups': [] }, $inc: { revision: 1 } });
+      subjects.local_a = [];
       assert.equal((await authenticate(issued.token)).actor.allows('api:status:read'), false);
       await collection.updateOne({ _id: id }, { $set: { 'principals.0.purposes': ['data'] }, $inc: { revision: 1 } });
       await assert.rejects(authenticate(issued.token), { code: 'HUMAN_AUTHORITY_REFUSED' });
-      await collection.updateOne({ _id: id }, { $set: { 'principals.0.purposes': ['data', 'management'], 'principals.0.permissionGroups': [['api:status:read']] }, $inc: { revision: 1 } });
+      await collection.updateOne({ _id: id }, { $set: { 'principals.0.purposes': ['data', 'management'] }, $inc: { revision: 1 } });
+      subjects.local_a = [['api:status:read']];
     });
     await check('durable local logout refuses copied access through another worker and preserves other session', async () => {
       const other = await login();

@@ -2,8 +2,9 @@
 
 The common engine consumes verified provider identity and uses a separately
 provisioned current local authority adapter. Provider identities do not provision
-subjects, owner relationships, root authority or grants. Legacy credentials and
-their existing exchange remain separate.
+subjects, owner relationships, root authority or grants; on a single site the
+operator's identity list does, at start. Legacy credentials and their existing
+exchange remain separate.
 
 ## Explicit serving configuration
 
@@ -25,7 +26,10 @@ configuration files.
 | `OIDC_SIGNING_ALGORITHM` | Optional pinned ID/logout token algorithm: RS256 (default), PS256, ES256 or EdDSA. Unsupported algorithms refuse; no negotiated downgrade. |
 | `OIDC_ORIGIN` | Exact canonical HTTPS origin, with no path or trailing slash. |
 | `OIDC_COOKIE_KEY` | Canonical base64 encoding of 32 random bytes shared by workers serving the same origins. It seals pending browser flows and binds CSRF tokens; rotating it expires pending flows. |
-| `OIDC_ACCESS_CONFIG` | Private operator-selected JSON file specifying the separate Nightscout access issuer, distinct data/management audiences, provisioned public keys and bound Transit signing references. Required only when OIDC is enabled. |
+| `OIDC_ACCESS_CONFIG`, `OIDC_ACCESS_CONFIG_FILE` | The access JSON below, inline in `OIDC_ACCESS_CONFIG` or in a private file named by `OIDC_ACCESS_CONFIG_FILE`; setting both refuses at start. An `OIDC_ACCESS_CONFIG` value that is not a JSON object is read as a file path, as before. Specifies the separate Nightscout access issuer, distinct data/management audiences, provisioned public keys and bound Transit signing references. Required for multitenant; a single site may use the local signing key instead. |
+| `OIDC_ACCESS_SIGNING_KEY`, `OIDC_ACCESS_SIGNING_KEY_FILE` | Single site only, instead of the access JSON: one Ed25519 private key in PEM (PKCS#8) form, inline (literal `\n` line breaks accepted) or in a private file; never both, and never together with the access JSON. Create one with `openssl genpkey -algorithm ed25519`. |
+| `OIDC_IDENTITIES`, `OIDC_IDENTITIES_FILE` | Single site: the signed-in identities and the existing roles each gets; inline, or a `.csv`, `.tsv` or `.json` file; never both. Applied to the database at each start (below). |
+| `OIDC_FALLBACK_ROLES` | Single site: roles for a signed-in person not on the list, separated like `AUTH_DEFAULT_ROLES`, for example `readable`. Unset: such a person is refused, as before. |
 | `OIDC_TENANT_ORIGINS` | Multitenant only: JSON object mapping every configured tenant ID to its canonical HTTPS origin. Register each origin's callback at the provider. |
 | `OIDC_POSTGRES_CONNECTION` | Multitenant only: explicit scoped session service connection from the environment. |
 | `OIDC_NAMESPACE`, `OIDC_AUTHORITY_NAMESPACE`, `OIDC_ACCESS_NAMESPACE` | Multitenant only: distinct operator-migrated human, current authorization and access namespaces. |
@@ -63,7 +67,8 @@ issuer/audience namespaces must be disjoint; a recognized failed human proof
 never falls back to machine or legacy authentication.
 
 The access issuer is Ed25519/EdDSA through the configured private Transit sign
-capability, separate from the existing legacy HMAC methods. The provider's
+capability, or on a single site the local signing key, separate from the
+existing legacy HMAC methods. The provider's
 `OIDC_SIGNING_ALGORITHM` setting does not select the Nightscout access algorithm.
 Provision non-exportable Ed25519 keys and sign-only service ACLs, and separately
 admit their type, public-key binding and custody through operator proof. Serving
@@ -149,19 +154,76 @@ duplicate delivery does not invalidate explicitly new sessions. A signal-less
 provider has no immediate provider-origin revocation guarantee. Existing local
 access remains bounded by its own expiry and current local authority.
 
+## Single-site local signing key
+
+`OIDC_ACCESS_SIGNING_KEY` replaces the access JSON and Vault for one site. Its
+key is held in the serving process; the data and management keys are derived
+from it with HKDF-SHA256 under distinct labels, so the two purposes keep distinct
+key material and key IDs (`local-data-…`, `local-management-…`, from a hash of
+each public key). The issuer is `nightscout-human-access:<OIDC_ORIGIN>` and the
+audiences `nightscout-human-data:<OIDC_ORIGIN>` and
+`nightscout-human-management:<OIDC_ORIGIN>`. At start the derived key IDs are
+recorded as accepted keys in the authority document (`source: 'local'`); a key
+no longer configured is retired there, so replacing the key ends existing access
+at the next request and people sign in again. The key is never logged, exported
+or written. Multitenant signing stays on Vault Transit; a local key in
+multitenant mode refuses at start.
+
+## Single-site identity list and fallback role
+
+Each entry names an issuer (default `OIDC_ISSUER`) and either the provider's
+subject (`sub`) or an email address, plus one or more existing role names.
+
+```sh
+OIDC_IDENTITIES=sub:248289761001=careportal+readable,email:carer@example.test=readable
+OIDC_FALLBACK_ROLES=readable
+```
+
+The file forms: a CSV or TSV with a header naming columns from `subject`,
+`email`, `roles`, `issuer`, `name`, `management` (roles separated by `+` or
+spaces; no quoting; `#` comment lines), or a JSON array of objects with the same
+fields. `management: true` adds the management purpose. At most 64 entries.
+
+- Matching is on issuer + provider subject first. An email entry matches only
+  when that same issuer's ID token carries `email_verified: true` (a boolean);
+  the address compares case-insensitively. The `email` scope is requested only
+  when an email entry exists. Renewal adopts the issuer's current address and
+  verification.
+- At start each entry becomes a local authorization subject holding the listed
+  roles (visible in the admin UI, with a note saying the list manages it) and a
+  binding to it in `<prefix>human_authority` (`source: 'list'`). The list is
+  authoritative for these: a restart re-applies its roles, and an entry removed
+  from the list has its subject deleted and its binding removed. Bindings the
+  list did not create are left alone; a list entry that collides with one
+  refuses at start. Unknown role names refuse at start.
+- Between starts the database governs: a role edit on the subject, a role
+  definition change, or a binding edit applies at the next request.
+- A signed-in identity that matches nothing gets `OIDC_FALLBACK_ROLES`, for the
+  data purpose only, under a stable per-person derived subject
+  (`oidc-<hash>`); nothing is stored for it but its sessions. Those sessions
+  share at most 32 places; the oldest is replaced rather than refusing anyone.
+  Anyone with an account at the issuer can reach the fallback.
+- Each listed subject also has the derived legacy access token every subject
+  has; it carries the same roles.
+
 ## Single MongoDB adapter
 
-The adapter uses `createMongoStore({collection,tenant,consumer})` with
+The adapter uses `createMongoStore({collection,tenant,consumer,roles})` with
 one operator-provisioned **single-site human-authority aggregate**, separate from
 clinical storage's unchanged `SINGLE_TENANT` scope. The private authentication
 binding is not a clinical tenant identifier. One document owns current accepted
-signing-key state, human mappings/grants and sessions; accepted-key state is never
-copied into each principal. No PostgreSQL or multi-document MongoDB transaction
+signing-key state, human bindings and sessions; accepted-key state is never
+copied into each principal. A binding names a local authorization subject by
+its `_id`; `roles.forSubject` (`subject-roles.js`) reads that subject's roles
+and the role definitions (stored roles over shipped defaults) at every
+operation, so the subject's current roles apply, as the PostgreSQL adapter's
+join does. A missing subject grants nothing. The role read is outside the
+document CAS: a role edit racing one operation applies from the next. No PostgreSQL or multi-document MongoDB transaction
 is required. Synthetic provisioning shape:
 
 The single serving collection is `human_authority` under the existing
 `MONGO_AUTHENTICATION_COLLECTIONS_PREFIX` (default `auth_`). Its document ID is
-`authorityId('single')`; it is provisioned privately before login is admitted.
+`authorityId('single')`; start creates it if absent; the identity list and a local signing key are applied to it at start, and an operator may provision further bindings and keys privately.
 
 ```js
 {
@@ -173,20 +235,22 @@ The single serving collection is `human_authority` under the existing
     id: principalId(privateSiteBinding, configuredIssuer, providerSubject),
     issuer: configuredIssuer,
     providerSubject,
-    subject: 'local_subject',
+    subject: '<24-hex _id of a local authorization subject>',
     consumer: 'oidc',
     enabled: true,
     generation: 1,
     credentialGeneration: 1,
-    purposes: ['data'],
-    permissionGroups: [['api:status:read']]
+    purposes: ['data']
   }],
   sessions: [],
   logoutEvents: []
 }
 ```
 
-Login never inserts a principal or key. Adding `management` is an explicit local
+An email binding has `email` (lower case) in place of `providerSubject` and the
+id `emailPrincipalId(binding, issuer, email)`. A stored `permissionGroups`
+field from an earlier preview is ignored; such a principal grants only through
+its subject. Login never inserts a principal or key. Adding `management` is an explicit local
 management entitlement, distinct from legacy root/data wildcards. Every operation
 checks current global key acceptance and that principal's current grants. Operator
 edits increment `revision`; mapping generation or credential generation changes
@@ -202,7 +266,7 @@ when a signer call is in flight. Read-only authentication also commits a revisio
 CAS. An unavailable store refuses rather than serving a cached grant/key snapshot.
 
 The implementation has defensive admission bounds of 64 principals, 128 sessions across
-the site (32 per principal), 128 retained token selectors per session, 1024 retained
+the site (32 per principal, 32 for all fallback sign-ins together), 128 retained token selectors per session, 1024 retained
 logout event IDs and 8 MiB serialized aggregate size. Exhaustion refuses rather
 than evicting live selectors, grants or replay protection. Issuance may reclaim
 revoked or expired management sessions. These are defensive bounds,

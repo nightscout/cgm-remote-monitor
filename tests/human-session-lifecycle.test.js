@@ -18,7 +18,7 @@ function fixture () {
     document: { _id: authorityId(tenant), tenant, revision: 1, keys: crypto.acceptedKeys,
       principals: [{ id: principalId(tenant, issuer, 'human-a'), issuer, providerSubject: 'human-a',
         subject: 'local_a', consumer: 'oidc', enabled: true, generation: 1, credentialGeneration: 1,
-        purposes: ['data', 'management'], permissionGroups: [['api:status:read']] }], sessions: [], logoutEvents: [] },
+        purposes: ['data', 'management'] }], sessions: [], logoutEvents: [] },
     beforeReplace: null,
     async findOne (query) {
       if (this.unavailable) throw new Error('synthetic store disconnected');
@@ -41,19 +41,24 @@ function fixture () {
       return { limit: () => ({ toArray: async () => matched ? [clone(document)] : [] }) };
     }
   };
-  const store = createMongoStore({ collection, tenant, consumer: 'oidc' });
+  // Local authorization subjects and their current roles live outside the
+  // authority document, as the subjects collection does when serving.
+  const subjects = { local_a: [['api:status:read']] };
+  const roles = { forSubject: async id => Object.hasOwn(subjects, id) ? subjects[id] : null, fallback: null };
+  collection.roles = roles;
+  const store = createMongoStore({ collection, tenant, consumer: 'oidc', roles });
   const engine = createEngine({ store, access: crypto.access, now: () => clock });
-  const workerB = createEngine({ store: createMongoStore({ collection, tenant, consumer: 'oidc' }), access: crypto.access, now: () => clock });
+  const workerB = createEngine({ store: createMongoStore({ collection, tenant, consumer: 'oidc', roles }), access: crypto.access, now: () => clock });
   const proof = (subject = 'human-a') => ({ issuer, subject, authenticatedAt: clock, providerSession: 'provider-session-a' });
   const login = (purpose = 'management') => engine.login({ tenant, identity: proof(), purpose });
   const auth = (token, extra = {}) => engine.authenticate({ tenant, token, purpose: 'management', ...extra });
-  return { engine, workerB, collection, crypto, now: () => clock, proof, login, auth, setTime: time => { clock = time; } };
+  return { engine, workerB, collection, subjects, crypto, now: () => clock, proof, login, auth, setTime: time => { clock = time; } };
 }
 
 describe('human-session lifecycle (source doubles, actual engine and aggregate CAS)', function () {
   it('serving Mongo authority refuses UUID bindings rather than simulating multitenant storage', function () {
     const f = fixture();
-    assert.throws(() => createMongoStore({ collection: f.collection, tenant: '00000000-0000-0000-0000-000000000001', consumer: 'oidc' }),
+    assert.throws(() => createMongoStore({ collection: f.collection, tenant: '00000000-0000-0000-0000-000000000001', consumer: 'oidc', roles: f.collection.roles }),
       /fixed private single binding/);
   });
   it('maps explicit local authority and keeps access credentials one-way', async function () {
@@ -83,7 +88,7 @@ describe('human-session lifecycle (source doubles, actual engine and aggregate C
 
   it('reads current grants and refuses disabled or generation-changed authority', async function () {
     const f = fixture(), issued = await f.login();
-    f.collection.document.principals[0].permissionGroups = [['api:entries:read']];
+    f.subjects.local_a = [['api:entries:read']];
     let current = await f.auth(issued.token);
     assert.equal(current.actor.allows('api:status:read'), false);
     assert.equal(current.actor.allows('api:entries:read'), true);
@@ -97,7 +102,7 @@ describe('human-session lifecycle (source doubles, actual engine and aggregate C
   it('single-site access cannot be replayed against another configured issuer and public keys', async function () {
     const f = fixture(), issued = await f.login();
     const foreign = humanAccessFixture({ tenant, issuer: 'other-synthetic-site', now: f.now });
-    const otherSite = createEngine({ store: createMongoStore({ collection: f.collection, tenant, consumer: 'oidc' }), access: foreign.access, now: f.now });
+    const otherSite = createEngine({ store: createMongoStore({ collection: f.collection, tenant, consumer: 'oidc', roles: f.collection.roles }), access: foreign.access, now: f.now });
     await assert.rejects(otherSite.authenticate({ tenant, token: issued.token, purpose: 'management' }), { code: 'HUMAN_SESSION_REFUSED' });
   });
 
@@ -203,11 +208,16 @@ describe('human-session lifecycle (source doubles, actual engine and aggregate C
     assert.equal(Boolean(accepted), false, 'revocation-racing renewal returned a token accepted by the next protected operation');
   });
 
-  it('a grant edit racing authorization retries against the committed current grant', async function () {
+  it('a binding edit racing authorization retries against the committed current binding', async function () {
     const f = fixture(), issued = await f.login();
-    f.collection.beforeReplace = async () => { f.collection.document.principals[0].permissionGroups = []; };
-    const current = await f.auth(issued.token);
-    assert.equal(current.actor.allows('api:status:read'), false);
+    f.collection.beforeReplace = async () => { f.collection.document.principals[0].enabled = false; f.collection.document.revision++; };
+    await assert.rejects(f.auth(issued.token), { code: 'HUMAN_AUTHORITY_REFUSED' });
+  });
+
+  it('a removed local subject grants nothing at the next operation', async function () {
+    const f = fixture(), issued = await f.login();
+    delete f.subjects.local_a;
+    await assert.rejects(f.auth(issued.token), { code: 'HUMAN_AUTHORITY_REFUSED' });
   });
 
   it('current-store outage refuses access, renewal and unconfirmed local logout', async function () {
@@ -277,7 +287,7 @@ describe('human-session lifecycle (source doubles, actual engine and aggregate C
     next.kid = 'human-management-v2';
     const keys = f.crypto.keys.map(key => ({ ...key, current: key.purpose !== 'management' })).concat(next);
     const rotated = createHumanAccess({ issuer: f.crypto.issuer, audiences: f.crypto.audiences, keys, mode: 'single', now: f.now });
-    const engine = createEngine({ store: createMongoStore({ collection: f.collection, tenant, consumer: 'oidc' }), access: rotated, now: f.now });
+    const engine = createEngine({ store: createMongoStore({ collection: f.collection, tenant, consumer: 'oidc', roles: f.collection.roles }), access: rotated, now: f.now });
     f.collection.document.keys.push({ kid: next.kid, purpose: 'management', active: false });
     await assert.rejects(engine.renew({ tenant, token: issued.token, identity: f.proof() }), { code: 'HUMAN_AUTHORITY_REFUSED' });
     f.collection.document.keys.find(key => key.kid === next.kid).active = true;
@@ -321,7 +331,7 @@ describe('human-session lifecycle (source doubles, actual engine and aggregate C
       signed.push(token);
       return token;
     } };
-    const engine = createEngine({ store: createMongoStore({ collection: f.collection, tenant, consumer: 'oidc' }), access, now: f.now });
+    const engine = createEngine({ store: createMongoStore({ collection: f.collection, tenant, consumer: 'oidc', roles: f.collection.roles }), access, now: f.now });
     f.setTime(1001);
     f.collection.beforeReplace = async () => { f.collection.document.revision++; f.setTime(1002); };
     const renewed = await engine.renew({ tenant, token: issued.token, identity: f.proof() });
