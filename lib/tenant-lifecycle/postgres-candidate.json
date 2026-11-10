@@ -77,6 +77,13 @@
         "REVOKE ALL ON tenant_lifecycle_key_retention FROM PUBLIC"
       ],
       "checksum": "a12b423863f18ca7bbe019b419c7ff73877ee63428fb8454c33d0e888ef8fa7d"
+    },
+    {
+      "name": "0006_tenant_lifecycle_artifact_removal",
+      "up": [
+        "ALTER TABLE tenant_lifecycle_key_retention ADD COLUMN artifact_removal text, ADD COLUMN artifact_removal_code text, ADD CONSTRAINT tenant_lifecycle_key_retention_artifact_removal CHECK ((phase = 'destroyed') = (artifact_removal IS NOT NULL) AND (artifact_removal IS NULL OR artifact_removal IN ('removed','absent','failed')) AND (coalesce(artifact_removal = 'failed', false) = (artifact_removal_code IS NOT NULL)) AND (artifact_removal_code IS NULL OR artifact_removal_code ~ '^[A-Z][A-Z0-9_]{0,63}$'))"
+      ],
+      "checksum": "5299e9db42a9a518cebbcfcee849785d63876965edbd58d283b0d96112581e1f"
     }
   ]
 }

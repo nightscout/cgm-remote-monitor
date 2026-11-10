@@ -65,7 +65,7 @@ const COLUMNS = {
   tenant_notification_state: 'tenant_id uuid, consumer text, revision bigint, config_identity text, producer jsonb',
   tenant_notification_heads: 'tenant_id uuid, consumer text, dedup_key text, request_id uuid, blocked_until bigint',
   tenant_notification_requests: 'tenant_id uuid, request_id uuid, consumer text, dedup_key text, origin text, config_identity text, payload jsonb, state text, created_at bigint, next_at bigint, attempt integer, attempt_token uuid, attempt_until bigint, accepted_at bigint, receipt jsonb, cleared_at bigint',
-  tenant_lifecycle_key_retention: 'request_id uuid, tenant_id uuid, artifact_digest text, key_names jsonb, key_references integer, phase text, retained_at bigint, retain_until bigint, restored_at bigint, destroy_started_by text, destroy_started_consumer text, destroy_started_at bigint, destroyed_by text, destroyed_consumer text, destroyed_at bigint',
+  tenant_lifecycle_key_retention: 'request_id uuid, tenant_id uuid, artifact_digest text, key_names jsonb, key_references integer, phase text, retained_at bigint, retain_until bigint, restored_at bigint, destroy_started_by text, destroy_started_consumer text, destroy_started_at bigint, destroyed_by text, destroyed_consumer text, destroyed_at bigint, artifact_removal text, artifact_removal_code text',
   tenant_lifecycle_ceremony: 'request_id uuid, tenant_id uuid, phase text, requested_by text, requested_consumer text, confirmed_by text, confirmed_consumer text, confirmed_at bigint, cancelled_by text, cancelled_consumer text, cancelled_at bigint, claim_id uuid, started_by text, started_consumer text, started_at bigint, executed_by text, executed_consumer text, executed_at bigint'
 };
 const namespaces = Object.fromEntries(lifecycle.CATALOGUE.map(entry => [entry.kind, 'ns_' + entry.kind]));
@@ -819,7 +819,7 @@ describe('tenant lifecycle: 30-day key retention, operator destroy and restore w
   // The older non-identity entries cohort (as nonIdentityLifecycle) so a
   // same-ID import can run on this double; admission checks the selected kinds.
   const legacyAdmission = ({ catalogues }) => assert.deepEqual(catalogues.map(entry => entry.kind), selectedCatalogues.map(entry => entry.kind));
-  const subject = (keyCustodian, extra = {}) => lifecycleModule.createLifecycle({ ...trustedCapabilities, admissionCheck: legacyAdmission, keyCustodian, ...extra,
+  const subject = (keyCustodian, extra = {}) => lifecycleModule.createLifecycle({ ...trustedCapabilities, admissionCheck: legacyAdmission, keyCustodian, removeArtifact: async () => 'removed', ...extra,
     catalogues: selectedCatalogues.map(entry => entry.kind === 'entries' ? { ...entry, candidate: { ...entry.candidate, migrations: entry.candidate.migrations.slice(0, 1) } } : entry) });
 
   async function deleted (life, connection, at = T0) {
@@ -901,16 +901,18 @@ describe('tenant lifecycle: 30-day key retention, operator destroy and restore w
     const connection = recordingLegacyConnection();
     const keys = custodian();
     const life = subject(keys);
-    const { requestId } = await deleted(life, connection);
+    const { artifact, requestId } = await deleted(life, connection);
     await assert.rejects(life.destroyRetainedKeys(connection, destroyArgs(requestId, T0 + 31 * DAY, { intent: undefined })), { code: 'LIFECYCLE_DESTROY_INTENT_REQUIRED' });
     await assert.rejects(life.destroyRetainedKeys(connection, destroyArgs(requestId, T0 + 31 * DAY, { intent: retention.destroyIntent(B, requestId) })), { code: 'LIFECYCLE_DESTROY_INTENT_REQUIRED' });
     const owner = subject(keys, { authorize: async ({ tenant }) => ({ tenant, allowed: true, current: true, plane: 'owner', principal: 'synthetic_owner', consumer: 'synthetic_owner_ui' }) });
     await assert.rejects(owner.destroyRetainedKeys(connection, destroyArgs(requestId, T0 + 31 * DAY)), { code: 'LIFECYCLE_OPERATOR_REQUIRED' });
     await assert.rejects(life.destroyRetainedKeys(connection, destroyArgs(requestId, T0 + 30 * DAY - 1)), { code: 'LIFECYCLE_RETENTION_WINDOW_OPEN' });
     await assert.rejects(subject(null).destroyRetainedKeys(connection, destroyArgs(requestId, T0 + 31 * DAY)), { code: 'LIFECYCLE_KEY_CUSTODIAN_REQUIRED' });
+    await assert.rejects(subject(keys, { removeArtifact: null }).destroyRetainedKeys(connection, destroyArgs(requestId, T0 + 31 * DAY)), { code: 'LIFECYCLE_ARTIFACT_REMOVER_REQUIRED' });
     assert.equal(keys.calls.length, 0, 'no provider call before every precondition holds');
     const done = await life.destroyRetainedKeys(connection, destroyArgs(requestId, T0 + 30 * DAY));
-    assert.deepEqual(done, { requestId, tenant: A, phase: 'destroyed', keys: 2, destroyedAt: T0 + 30 * DAY, resumed: false });
+    assert.deepEqual(done, { requestId, tenant: A, phase: 'destroyed', keys: 2, destroyedAt: T0 + 30 * DAY, resumed: false,
+      artifact: { digest: artifact.digest, removal: 'removed' } });
     assert.deepEqual(keys.calls, [{ tenant: A, keys: ['transit/tenant-11111111-data', 'transit/tenant-11111111-signing'] }]);
     const [row] = connection.rows(ledgerNamespace, 'tenant_lifecycle_key_retention');
     assert.equal(row.phase, 'destroyed');
@@ -920,6 +922,114 @@ describe('tenant lifecycle: 30-day key retention, operator destroy and restore w
     const again = await life.destroyRetainedKeys(connection, destroyArgs(requestId, T0 + 32 * DAY));
     assert.equal(again.resumed, true); assert.equal(keys.calls.length, 1, 'a repeat destroy makes no provider call');
   });
+
+  // Export-artifact expiry: key destruction removes tenant-artifact-<digest> in
+  // the same step and records what happened in the same audit row.
+  /* eslint-disable security/detect-non-literal-fs-filename -- Paths below are temporary directories this suite created. */
+  async function withArtifactDirectory (fn) {
+    const directory = await fs.promises.mkdtemp(path.join(os.tmpdir(), 'tenant-expiry-'));
+    try {
+      await fs.promises.chmod(directory, 0o700);
+      return await fn(directory);
+    } finally { await fs.promises.rm(directory, { recursive: true, force: true }); }
+  }
+  const exists = async file => fs.promises.lstat(file).then(() => true, error => { if (error.code === 'ENOENT') return false; throw error; });
+  const artifactPath = (directory, digest) => path.join(directory, 'tenant-artifact-' + digest);
+  const remover = (directory, io) => ({ removeArtifact: lifecycleModule.createFilesystemArtifactRemover({ directory, io }) });
+
+  it('expiry: destroy after the window removes the export file and audits it, leaving other artifacts', async function () {
+    await withArtifactDirectory(async directory => {
+      const connection = recordingLegacyConnection();
+      const keys = custodian();
+      const life = subject(keys, remover(directory));
+      const { artifact, requestId } = await deleted(life, connection);
+      await lifecycleModule.saveTenantArtifact(artifact, { directory });
+      const decoy = 'f'.repeat(64);
+      await fs.promises.mkdir(artifactPath(directory, decoy), { mode: 0o700 });
+      assert.equal(await exists(artifactPath(directory, artifact.digest)), true);
+      const done = await life.destroyRetainedKeys(connection, destroyArgs(requestId, T0 + 30 * DAY));
+      assert.deepEqual(done.artifact, { digest: artifact.digest, removal: 'removed' });
+      assert.equal(await exists(artifactPath(directory, artifact.digest)), false, 'the export file is gone');
+      assert.equal(await exists(artifactPath(directory, decoy)), true, 'only the recorded digest is removed');
+      const [row] = connection.rows(ledgerNamespace, 'tenant_lifecycle_key_retention');
+      assert.deepEqual([row.phase, row.artifact_removal, row.artifact_removal_code], ['destroyed', 'removed', null]);
+      assert.equal(keys.calls.length, 1);
+      const again = await life.destroyRetainedKeys(connection, destroyArgs(requestId, T0 + 32 * DAY));
+      assert.deepEqual(again.artifact, { digest: artifact.digest, removal: 'removed' });
+    });
+  });
+
+  it('expiry: destroy before the window refuses and leaves the export file', async function () {
+    await withArtifactDirectory(async directory => {
+      const connection = recordingLegacyConnection();
+      const life = subject(custodian(), remover(directory));
+      const { artifact, requestId } = await deleted(life, connection);
+      await lifecycleModule.saveTenantArtifact(artifact, { directory });
+      await assert.rejects(life.destroyRetainedKeys(connection, destroyArgs(requestId, T0 + 30 * DAY - 1)), { code: 'LIFECYCLE_RETENTION_WINDOW_OPEN' });
+      assert.equal(await exists(artifactPath(directory, artifact.digest)), true);
+      assert.ok(connection.rows(ledgerNamespace, 'tenant_lifecycle_key_retention')[0].artifact_removal == null);
+    });
+  });
+
+  it('expiry: a file that is already gone is audited as absent and the keys are still destroyed', async function () {
+    await withArtifactDirectory(async directory => {
+      const connection = recordingLegacyConnection();
+      const keys = custodian();
+      const life = subject(keys, remover(directory));
+      const { artifact, requestId } = await deleted(life, connection);
+      const done = await life.destroyRetainedKeys(connection, destroyArgs(requestId, T0 + 30 * DAY));
+      assert.deepEqual(done.artifact, { digest: artifact.digest, removal: 'absent' });
+      assert.equal(done.phase, 'destroyed'); assert.equal(keys.calls.length, 1);
+      assert.equal(connection.rows(ledgerNamespace, 'tenant_lifecycle_key_retention')[0].artifact_removal, 'absent');
+    });
+  });
+
+  it('expiry: a file that cannot be removed is audited as failed with a fixed code, the keys are still destroyed', async function () {
+    await withArtifactDirectory(async directory => {
+      const connection = recordingLegacyConnection();
+      const keys = custodian();
+      const io = { ...fs.promises, rm: async () => { throw Object.assign(new Error('EACCES ' + directory), { code: 'EACCES' }); } };
+      const life = subject(keys, remover(directory, io));
+      const { artifact, requestId } = await deleted(life, connection);
+      await lifecycleModule.saveTenantArtifact(artifact, { directory });
+      const done = await life.destroyRetainedKeys(connection, destroyArgs(requestId, T0 + 30 * DAY));
+      assert.deepEqual(done.artifact, { digest: artifact.digest, removal: 'failed', code: 'LIFECYCLE_ARTIFACT_REMOVE_FAILED' });
+      assert.equal(done.phase, 'destroyed'); assert.equal(keys.calls.length, 1);
+      assert.equal(await exists(artifactPath(directory, artifact.digest)), true, 'the file remains for the operator to delete');
+      const [row] = connection.rows(ledgerNamespace, 'tenant_lifecycle_key_retention');
+      assert.deepEqual([row.phase, row.artifact_removal, row.artifact_removal_code], ['destroyed', 'failed', 'LIFECYCLE_ARTIFACT_REMOVE_FAILED']);
+      assert.ok(!JSON.stringify([row, done]).includes(directory), 'no path in the audit or the result');
+    });
+  });
+
+  it('expiry: removal touches only the named artifact directory and refuses anything that resolves elsewhere', async function () {
+    await withArtifactDirectory(async directory => {
+      for (const digest of ['../' + 'a'.repeat(61), 'A'.repeat(64), 'a'.repeat(63), '', undefined, 'a'.repeat(64) + '/..']) {
+        await assert.rejects(lifecycleModule.removeTenantArtifact({ directory, digest }), { code: 'LIFECYCLE_ARTIFACT_DIGEST' });
+      }
+      await assert.rejects(lifecycleModule.removeTenantArtifact({ directory: 'relative', digest: 'a'.repeat(64) }), { code: 'BACKUP_DIRECTORY_INVALID' });
+      // A symlink with the artifact's name that points outside is refused, never followed.
+      const outside = await fs.promises.mkdtemp(path.join(os.tmpdir(), 'tenant-expiry-outside-'));
+      try {
+        await fs.promises.writeFile(path.join(outside, 'victim.txt'), 'synthetic');
+        const digest = 'b'.repeat(64);
+        await fs.promises.symlink(outside, artifactPath(directory, digest));
+        await assert.rejects(lifecycleModule.removeTenantArtifact({ directory, digest }), { code: 'LIFECYCLE_ARTIFACT_PATH_REFUSED' });
+        assert.equal(await exists(path.join(outside, 'victim.txt')), true);
+        // ... and through the destroy step it is audited as failed, with the same code.
+        const connection = recordingLegacyConnection();
+        const keys = custodian();
+        const life = subject(keys, remover(directory));
+        const { artifact, requestId } = await deleted(life, connection);
+        await fs.promises.symlink(outside, artifactPath(directory, artifact.digest));
+        const done = await life.destroyRetainedKeys(connection, destroyArgs(requestId, T0 + 30 * DAY));
+        assert.deepEqual(done.artifact, { digest: artifact.digest, removal: 'failed', code: 'LIFECYCLE_ARTIFACT_PATH_REFUSED' });
+        assert.equal(await exists(path.join(outside, 'victim.txt')), true);
+      } finally { await fs.promises.rm(outside, { recursive: true, force: true }); }
+    });
+  });
+
+  /* eslint-enable security/detect-non-literal-fs-filename */
 
   it('gate: destroy then restore refuses, including inside a clock that is later rewound', async function () {
     const connection = recordingLegacyConnection();
