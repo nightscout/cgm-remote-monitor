@@ -61,6 +61,10 @@ function fixture (options = {}) {
     if (text.includes('restore-exclusive-held')) return { rows: [{ held: m.locked }] };
     if (text.includes('pg_advisory_unlock')) { const held = m.locked; m.locked = false; return { rows: [{ released: held }] }; }
     if (text.startsWith('INSERT INTO synthetic_data')) { target().rows.push(values[0]); return { rowCount: 1, rows: [] }; }
+    // Durable activity oracle (pause/suspend flags live outside the window row).
+    if (m.durable.activity && /tenant_activity\b/.test(text) && text.startsWith('UPDATE ')) {
+      target().activity = { ...target().activity, paused: false, suspended: false }; return { rowCount: 1, rows: [] };
+    }
     throw new Error('Unexpected simulated query: ' + text);
   };
   client.release = error => { m.released = true; m.releaseError = error; };
@@ -73,7 +77,7 @@ function fixture (options = {}) {
         async pin (given, tenant, options) { assert.equal(given,cohort);assert.equal(tenant,A);assert.equal(options.client,client);if(m.incomplete)throw Object.assign(new Error('incomplete'),{code:'COHORT_INCOMPLETE'});m.pinned=true;return pin; },
         async releasePin (given) { assert.equal(given,pin);assert(m.pinned);m.pinned=false;m.pinReleased=true; },
         assertComplete (given, tenant, options) { assert.equal(options.client, client); assert(m.pinned); if (given !== cohort || tenant !== A || m.incomplete) throw Object.assign(new Error('incomplete'), { code: 'COHORT_INCOMPLETE' }); },
-        async invalidate (given, tenant) { assert.equal(given, cohort); assert.equal(tenant, A); assert.equal(m.durable.window.phase, 'suspended'); assert.equal(m.durable.audit.state, 'restored'); await new Promise(resolve=>setImmediate(resolve)); m.invalidated = true; if (m.invalidateFails) throw Object.assign(new Error('invalidate failed'), { code: 'INVALIDATE_FAILED' }); }
+        async invalidate (given, tenant) { assert.equal(given, cohort); assert.equal(tenant, A); assert.equal(m.durable.window.phase, 'suspended'); assert.equal(m.durable.audit.state, 'restored'); await new Promise(resolve=>setImmediate(resolve)); m.invalidated = true; if (m.onInvalidate) await m.onInvalidate(tenant); if (m.invalidateFails) throw Object.assign(new Error('invalidate failed'), { code: 'INVALIDATE_FAILED' }); }
       };
       return original.call(this, request, ...rest);
     };
@@ -103,6 +107,25 @@ describe('private tenant restore controller (simulated backend protocol)', funct
     await scope.withTenant(A, () => assert.rejects(controller.assertHeld(saved.maintenanceClaim, { connection: saved.connection, tenant: A, artifactDigest: DIGEST }), code('LIFECYCLE_RESTORE_CLAIM_INVALID')));
     await assert.rejects(saved.connection.transaction(async () => {}), code('LIFECYCLE_RESTORE_CONNECTION_CLOSED'));
     await api.close();
+  });
+  it('clearing the maintenance hold never re-enables a paused tenant (actual evaluator runtime on invalidation)', async function () {
+    const policy = require('../lib/tenant-activity/policy');
+    const { m, api } = fixture();
+    m.durable.activity = { paused: true, suspended: false };
+    const work = [], timers = [];
+    const runtime = await require('../lib/server/serve/evaluator-runtime')({ tenants: [A], recoveryIntervalMs: 10, timeIntervalMs: 10,
+      readCurrent: async tenant => ({ tenant, identity: 'a'.repeat(64), env: {} }),
+      activity: require('../lib/tenant-activity/eligibility').create({ read: async () => ({ ...m.durable.activity, version: 1, state: policy.stateOf(m.durable.activity) }) }),
+      schedule: fn => timers.push(fn), cancel: () => {},
+      create: async () => { work.push('create'); return { evaluate: async () => { work.push('acquisition'); return { checkpoint: 1 }; }, evaluateTime: async () => ({ checkpoint: 1 }), close () {} }; } });
+    m.onInvalidate = tenant => runtime.invalidateTenant(tenant);
+    await api.withRestore(A, { artifactDigest: DIGEST }, async () => 'restored');
+    assert.equal(m.durable.window.phase, 'active', 'maintenance hold cleared');
+    assert.deepEqual(m.durable.activity, { paused: true, suspended: false }, 'ACTIVITY_RESTORE_PRESERVES desired pause survives activation');
+    await timers[0](); await timers[1](); await runtime.acquire(A);
+    assert.deepEqual(work, [], 'ACTIVITY_RESTORE_PRESERVES no evaluator work after activation');
+    assert.equal(runtime.health().tenants[0].code, 'EVALUATOR_TENANT_PAUSED');
+    await runtime.close(); await api.close();
   });
   it('admits registration FK references with a bounded non-key claim and still drains before restore', async function () {
     const { m, api } = fixture({ claimBlocker: 'registration-fk', pending: [{ operation_id: 'old-generation' }], finishOnPoll: true });

@@ -1,0 +1,20 @@
+{
+  "version": 1,
+  "migrations": [
+    {
+      "name": "0001_tenant_activity",
+      "checksum": "ac9ed41b590d0bd4382d80e50da9763e509222925e0505ebe913d2341ca04159",
+      "up": [
+        "CREATE TABLE tenant_activity (tenant_id uuid PRIMARY KEY, version bigint NOT NULL CHECK (version > 0), paused boolean NOT NULL DEFAULT false, suspended boolean NOT NULL DEFAULT false)",
+        "ALTER TABLE tenant_activity ENABLE ROW LEVEL SECURITY",
+        "ALTER TABLE tenant_activity FORCE ROW LEVEL SECURITY",
+        "CREATE POLICY tenant_activity_tenant ON tenant_activity USING (tenant_id = nullif(current_setting('app.current_tenant_id', true), '')::uuid) WITH CHECK (tenant_id = nullif(current_setting('app.current_tenant_id', true), '')::uuid)",
+        "CREATE TABLE tenant_activity_audit (tenant_id uuid NOT NULL, version bigint NOT NULL CHECK (version > 0), verb text NOT NULL CHECK (verb IN ('provision','pause','unpause','suspend','unsuspend')), authority text NOT NULL CHECK (authority IN ('owner','operator')), principal text NOT NULL CHECK (principal ~ '^[a-zA-Z0-9_-]{1,128}$'), consumer text NOT NULL CHECK (consumer ~ '^[a-zA-Z0-9_-]{1,128}$'), paused boolean NOT NULL, suspended boolean NOT NULL, event_time timestamptz NOT NULL DEFAULT clock_timestamp(), CHECK (authority = 'operator' OR verb IN ('pause','unpause')), PRIMARY KEY (tenant_id, version))",
+        "ALTER TABLE tenant_activity_audit ENABLE ROW LEVEL SECURITY",
+        "ALTER TABLE tenant_activity_audit FORCE ROW LEVEL SECURITY",
+        "CREATE POLICY tenant_activity_audit_tenant ON tenant_activity_audit USING (tenant_id = nullif(current_setting('app.current_tenant_id', true), '')::uuid) WITH CHECK (tenant_id = nullif(current_setting('app.current_tenant_id', true), '')::uuid)",
+        "REVOKE ALL ON tenant_activity, tenant_activity_audit FROM PUBLIC"
+      ]
+    }
+  ]
+}
