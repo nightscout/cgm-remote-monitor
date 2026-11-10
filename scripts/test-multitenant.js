@@ -122,6 +122,8 @@ const INVENTORY = [
   { file: 'tests/subject-admin-postgres.integration.test.js', flags: { NS_SUBJECT_ADMIN_POSTGRES_DOCKER_TEST: '1' }, shared: [], own: ['postgres'], gate: PENDING },
   { file: 'tests/tenant-ownership-postgres.integration.test.js', flags: { NS_TENANT_OWNERSHIP_DOCKER_TEST: '1' }, shared: [], own: ['postgres'], gate: PENDING,
     note: 'operator-assisted add/transfer/recover with concurrent-transfer and foreign-authority controls over the private ownership service' },
+  { file: 'tests/admin-role-ownership.integration.test.js', flags: { NS_ADMIN_ROLE_DOCKER_TEST: '1' }, shared: [], own: ['postgres'], gate: PENDING,
+    note: 'spawns `nightscout multitenant admin`; ownership operations on the admin listener with the deployment plan\'s ownership_operator grants' },
   { file: 'tests/owner-subject-policy.integration.test.js', flags: { NS_OWNER_SUBJECT_POLICY_DOCKER_TEST: '1' }, shared: [], own: ['postgres'], gate: PENDING },
   { file: 'tests/tenant-rest-authority-review.test.js', flags: { NS_REST_AUTHORITY_REVIEW_TEST: '1' }, shared: [], own: ['postgres'], gate: PENDING },
   { file: 'tests/storage-port-contract.integration.test.js', flags: { NS_STORAGE_PORT_CONTRACT_DOCKER_TEST: '1' }, shared: [], own: ['postgres', 'mongo'], gate: PENDING,

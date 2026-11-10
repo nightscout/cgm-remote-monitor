@@ -110,5 +110,31 @@ internal service (`lib/server/internal-api/contracts/ownership-operations.json`)
 on its own Unix socket or explicitly configured internal HTTP endpoint, never on a
 public router; clients use `clients.ownershipOperations(endpoint)`. The transport's
 trust model is described in [internal service APIs](../../docs/internal-service-api.md).
-The `admin` serving role in `lib/server/serve/roles.js` has no runtime yet; composing
-this service into it is the next integration step.
+## The admin role
+
+`nightscout multitenant admin` (`lib/server/serve/admin-preview.js`) composes this
+service on the `admin` role's own listener, `ADMIN_HOSTNAME`/`ADMIN_PORT`, which the
+listener plane rule keeps on loopback (unless `ADMIN_INSECURE_BIND_ACKNOWLEDGED=true`)
+and off the consumer listener's address. The listener serves exactly the
+`ownership-operations` routes over the shared internal transport, with no credential
+of its own (D7). `MULTITENANT_ADMIN_CONFIG` names its JSON configuration
+(`lib/server/serve/admin-config.js`):
+
+```json
+{ "version": 1, "maxBytes": 65536, "timeoutMs": 10000,
+  "ownership": { "connectionEnv": "NS_OWNERSHIP_PG", "namespace": "<authorization namespace>",
+                 "operator": { "principal": "<operator>", "consumer": "<operator plane>" },
+                 "tenants": ["<tenant uuid>"] } }
+```
+
+The connection string is read from the named variable and must be the separate
+ownership identity: startup refuses a superuser, `BYPASSRLS`, `CREATEROLE`,
+`CREATEDB` or replication identity, and any table privilege other than the table
+above. The composed operator acts only for the listed tenants
+(`tenantSetAuthority`). The deployment plan's identity is
+`<prefix>_ownership_operator` in `deploy/multitenant/config.js`.
+
+The admin role is not a lifecycle operation-cohort participant: serve refuses it
+together with `MULTITENANT_OPERATION_CONFIG`. Its PostgreSQL backends hold
+privileges on the authorization namespace, which the restore cohort census in
+`lib/server/serve/operation-cohort.js` does not count as a cohort participant's.
