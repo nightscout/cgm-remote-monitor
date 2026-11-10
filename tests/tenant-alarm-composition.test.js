@@ -106,7 +106,7 @@ describe('durable alarm API and successful-cycle composition', function () {
     await assert.rejects(closing, /CYCLE_CLOSED/, 'ALARM_CLOSED_NO_OUTPUT close fences in-flight read');
   });
   it('filters actual successful evaluator plugin output, never calling a provider', async function () {
-    const f = protocol(); const at = Date.UTC(2026, 10, 6, 12);
+    const f = protocol(); const at = Date.now(); // the shipping entries query window follows the wall clock (lib/server/query.js)
     const environment = require('../lib/server/tenant-app/environment');
     const env = environment({ settings: { enable: ['bgnow', 'simplealarms'], thresholds: { bgHigh: 200, bgTargetTop: 180, bgTargetBottom: 80, bgLow: 55 } } });
     const docs = [{ _id: 'synthetic-high', type: 'sgv', sgv: 250, date: at - 60000 }];
