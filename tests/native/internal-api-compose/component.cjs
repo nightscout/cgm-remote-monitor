@@ -1,8 +1,10 @@
 'use strict';
 // One separated component process for the composed-listener Compose instrument.
-// Production pieces: internal-api transport.compose, checked-in contracts, named
-// clients, endpoint-config parsing, operation-window and operation-cohort
-// lifecycle handlers. Instrument stand-ins (labelled, synthetic): the window's
+// Production pieces: serve.internal configuration (listener-config: own
+// NS_SERVE_INTERNAL_* and peer NS_<ROLE>_INTERNAL_* addresses), the role
+// listener composition and binding (serve/internal-listener), the transport with
+// its graceful shutdown, checked-in contracts, named clients, operation-window
+// and operation-cohort lifecycle handlers. Instrument stand-ins (labelled, synthetic): the window's
 // PostgreSQL is the recording protocol fixture whose tenant phase row is read
 // from /state/phases.json on every query; API authority decisions are read from
 // /state/authority.json on every call; role contexts only record invalidation.
@@ -13,10 +15,10 @@ const vm = require('node:vm');
 const Module = require('node:module');
 const { randomUUID } = require('node:crypto');
 const root = path.resolve(__dirname, '../../..');
-const transport = require(root + '/lib/server/internal-api/transport');
 const contracts = require(root + '/lib/server/internal-api/contracts');
 const clients = require(root + '/lib/server/internal-api/clients');
-const endpoint = require(root + '/lib/server/internal-api/endpoint-config');
+const listenerConfig = require(root + '/lib/server/internal-api/listener-config');
+const internalListener = require(root + '/lib/server/serve/internal-listener');
 const manifest = require(root + '/lib/server/serve/operation-cohort-manifest');
 const windowFixture = require(root + '/tests/fixtures/operation-window-runtime-protocol');
 
@@ -29,17 +31,11 @@ const readJSON = (name, fallback) => { try { return JSON.parse(fs.readFileSync(p
 const append = (name, row) => fs.appendFileSync(path.join(STATE, name), JSON.stringify({ at: Date.now(), ...row }) + '\n');
 const log = (...args) => console.log(new Date().toISOString(), role, ...args);
 
-// Every participant endpoint comes from named environment references through
-// the production parser, never from request content.
-const descriptors = {
-  api: { urlEnv: 'API_PRIVATE_URL', trust: 'network', bindHostEnv: 'PRIVATE_BIND' },
-  realtime: { socketPathEnv: 'REALTIME_PRIVATE_SOCKET' },
-  evaluator: { urlEnv: 'EVALUATOR_PRIVATE_URL', trust: 'network', bindHostEnv: 'PRIVATE_BIND' },
-  'tenant-admin': { urlEnv: 'ADMIN_PRIVATE_URL', trust: 'network', bindHostEnv: 'PRIVATE_BIND' }
-};
-const endpoints = Object.fromEntries(Object.entries(descriptors).map(([name, value]) => [name, endpoint(value, process.env, LIMITS)]));
-const clientEndpoint = name => Object.fromEntries(Object.entries(endpoints[name]).filter(([key]) => key !== 'bindHost'));
-const participants = manifest.validate(Object.keys(descriptors).map(name => ({ id: name.replace('-', '_'), roles: [name], namespaces: ['clinical'], endpoint: endpoints[name] })));
+// This process's serve.internal and every peer address come from the
+// environment through the production resolver, never from request content.
+const internal = listenerConfig.resolve([role], process.env);
+const peer = name => internal.peer(name, LIMITS);
+const participants = manifest.validate(listenerConfig.ROLES.map(name => ({ id: name.replace('-', '_'), roles: [name], namespaces: ['clinical'], endpoint: internal.participant([name], LIMITS) })));
 
 function cohortModule () {
   const file = path.join(root, 'lib/server/serve/operation-cohort.js'), output = { exports: {} };
@@ -64,10 +60,13 @@ async function main () {
   const participant = participants.find(row => row.roles[0] === role);
   const cohort = await cohorts.create({ window: f.window, names: [role], tenants: [A, B], namespaces: ['clinical'], participant });
   await cohort.boot(role, { tenantIds: [A, B], namespaces: { clinical: 'clinical' } }); cohort.complete();
-  const lifecycle = { service: contracts.lifecycleParticipant, create: () => cohorts.controlOperations(cohort) };
-  const windowed = resolveTenant => ({ operationWindow: f.window, resolveTenant });
-  const modules = [];
-  if (role === 'api') modules.push({ service: contracts.socketAuthority, lifetime: windowed(async body => body.tenant || body.envelope.tenant), create: () => ({
+  // The rows serve/internal-listener.plan() derives from role settings.
+  const rows = [...(role === 'api' ? [{ id: 'socket-authority', roles: [role], tenantScoped: true, bounds: LIMITS }] : []),
+    ...(role === 'realtime' ? [{ id: 'alarm-delivery', roles: [role], tenantScoped: true, bounds: LIMITS }] : []),
+    { id: 'lifecycle-participant', roles: [role], tenantScoped: false, bounds: LIMITS }];
+  const listener = await internalListener.open(internal, rows, { operationWindow: f.window });
+  const bindings = {};
+  if (role === 'api') bindings['socket-authority'] = { resolveTenant: async body => body.tenant || body.envelope.tenant, create: () => ({
     async authorizeSocket (ctx, body) {
       f.window.assertCurrent(body.tenant);
       const call = randomUUID(); append('api-calls.jsonl', { call, tenant: body.tenant, phase: 'start' });
@@ -76,25 +75,25 @@ async function main () {
       append('api-calls.jsonl', { call, tenant: body.tenant, phase: 'finish', decision });
       return decision === 'allow' ? { permissions: { read: true, write: false, write_treatment: false, ack: true }, collections: ['entries'] } : { denied: true };
     },
-    async executeSocketMutation () { return { replyArgs: [] }; } }) });
+    async executeSocketMutation () { return { replyArgs: [] }; } }) };
   if (role === 'realtime') {
-    const api = clients.socketAuthority(clientEndpoint('api'));
-    modules.push({ service: contracts.alarmDelivery, lifetime: windowed(async body => body.tenant), create: () => ({
+    const api = clients.socketAuthority(peer('api'));
+    bindings['alarm-delivery'] = { resolveTenant: async body => body.tenant, create: () => ({
       async deliverAlarm (ctx, body) {
         f.window.assertCurrent(body.tenant);
         // Current authority per delivery from the API process over HTTP; no cache.
         const actor = await api.authorizeSocket({ host: HOSTS[body.tenant], tenant: body.tenant, namespace: '/', credential: {} });
         if (actor.denied) throw Object.assign(new Error('REALTIME_RECIPIENT_DENIED'), { code: 'REALTIME_RECIPIENT_DENIED' });
         return { accepted: true, receipt: null, clearedRequestIds: [] };
-      } }) });
+      } }) };
   }
-  modules.push(lifecycle);
-  const listener = await transport.compose(endpoints[role], modules);
-  log('READY', JSON.stringify({ routes: listener.routes, endpoint: endpoints[role].url || endpoints[role].socketPath, bind: endpoints[role].bindHost || null }));
+  bindings['lifecycle-participant'] = { create: () => cohorts.controlOperations(cohort) };
+  listener.bind(role, bindings); listener.assertBound();
+  log('READY', JSON.stringify({ routes: listener.routes, endpoint: internal.listen.url || internal.listen.socketPath, bind: internal.listen.bindHost || null, shutdownTimeoutMs: internal.shutdownTimeoutMs }));
 
   let stopping = false, cycles;
   if (role === 'evaluator') {
-    const alarms = clients.alarmDelivery(clientEndpoint('realtime'));
+    const alarms = clients.alarmDelivery(peer('realtime'));
     cycles = (async () => {
       for (let cycle = 1; !stopping; cycle++) {
         for (const tenant of [A, B]) {

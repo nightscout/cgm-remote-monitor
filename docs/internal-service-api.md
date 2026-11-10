@@ -195,46 +195,66 @@ curl --fail --request POST 'http://127.0.0.1:9081/cohort/status' \
 That command is for an explicitly selected local lifecycle participant listener.
 A socket-authority or alarm-delivery listener refuses it even when reachable.
 
-## Deployment endpoint descriptors
+## The internal listener (`serve.internal`)
 
-Environment-reference configuration keeps endpoint addresses outside the checked-in
-configuration document. An endpoint descriptor selects exactly one transport:
+Each multitenant role process has one private listener, `serve.internal`,
+configured as `host`/`port` or `socket` (the pattern of Ory Kratos/Hydra's
+`serve.public`/`serve.admin`). Every key can be overridden from the
+environment:
 
-```json
-{ "socketPathEnv": "NS_INTERNAL_API_SOCKET" }
-```
-
-```json
-{
-  "urlEnv": "NS_INTERNAL_API_URL",
-  "trust": "network",
-  "bindHostEnv": "NS_INTERNAL_API_BIND_HOST"
-}
-```
-
-`bindHostEnv` is optional. For Kubernetes, `NS_INTERNAL_API_URL` can be
-`http://nightscout-api.internal:9081/` and `NS_INTERNAL_API_BIND_HOST` can be
-`0.0.0.0`. A deployment can instead select an explicit link-local address such as
-`http://169.254.1.1:9081/`, provided that address is assigned/routed appropriately.
-These are endpoint examples; the deployment still owns listener placement and
-access policy. An HTTP port for an internal service must differ from the same
-component's public listener port.
-
-The existing limits stay on the containing configuration. Supply exactly one of
-the legacy socket-path field and its endpoint-descriptor alternative:
-
-| Configuration | Existing Unix socket reference | Transport-neutral alternative |
+| Key | Environment | Default |
 |---|---|---|
-| API `socketForwarding` | `socketPathEnv` | `endpoint` |
-| Realtime API client | `apiSocketPathEnv` | `apiEndpoint` |
-| Realtime alarm listener | `alarmSocketPathEnv` | `alarmEndpoint` |
-| Evaluator consumer `route` | `socketPathEnv` | `endpoint` |
-| Lifecycle participant | `socketPathEnv` | `endpoint` |
+| `socket` | `NS_SERVE_INTERNAL_SOCKET` | `<runtime>/<roles>.sock`, where `<runtime>` is `$XDG_RUNTIME_DIR/nightscout`, else `/run/nightscout`, and `<roles>` the process's roles, sorted and joined by `+` (`api.sock`, `api+realtime.sock`) |
+| `host`, `port` | `NS_SERVE_INTERNAL_HOST`, `NS_SERVE_INTERNAL_PORT` | none: a network listener needs both, set explicitly |
+| `shutdownTimeoutMs` | `NS_SERVE_INTERNAL_SHUTDOWN_TIMEOUT_MS` | `5000` (at most 60000; `nightscout multitenant` requires it below its 10000 ms shutdown bound) |
 
-The caller and listener must select the same service endpoint and limits compatible
-with its messages. Each lifecycle participant retains a distinct endpoint. Using
-HTTP changes transport admission to deployment-owned network trust; it does not
-change client authorization, tenant admission or restore coordination rules.
+`host`/`port` and `socket` are exclusive. The listener trusts its network
+(`trust:'network'`) and has no authentication of its own, so the default is a
+unix socket; network exposure requires an explicit host and port. When the
+default socket is used its runtime directory is created with mode 0700 if it
+does not exist; an existing directory must be owned by the service user with
+no group or other permissions (a systemd unit needs `RuntimeDirectoryMode=0700`).
+
+The role's code decides which contracts the listener serves
+([`serve/internal-listener.js`](../lib/server/serve/internal-listener.js)):
+
+| Role | Contracts it may serve |
+|---|---|
+| api | `socket-authority` (with `socketForwarding`), `lifecycle-participant` (cohort participant) |
+| realtime | `alarm-delivery`, `lifecycle-participant` |
+| evaluator | `lifecycle-participant` |
+| tenant-admin | `lifecycle-participant` |
+
+Configuration cannot add, move or merge a contract. A process serving several
+roles serves all their contracts on its one listener. A process that serves no
+contract opens no internal listener. The route table is fixed when the listener
+opens, before the roles boot; a role's routes answer `SOCKET_IPC_UNAVAILABLE`
+until that role has booted. Start-up refuses a role that offers a contract it
+does not own and any contract left unbound.
+
+Callers reach another role at its peer address:
+
+| Peer | Environment | Default |
+|---|---|---|
+| a role this process serves | none (its own `serve.internal`) | |
+| any other role | `NS_<ROLE>_INTERNAL_URL` (`http://host:port`) or `NS_<ROLE>_INTERNAL_SOCKET` | `<runtime>/<role>.sock` |
+
+`<ROLE>` is the role name in upper case with `-` as `_` (`NS_TENANT_ADMIN_INTERNAL_URL`).
+URL and socket are exclusive. A shared peer list may name the process's own
+role by service name (`NS_API_INTERNAL_URL=http://api:7001` on the api
+process); a peer address for an own role that names another socket, another
+kind of address or another port refuses. The per-contract limits
+(`maxMessageBytes`, `operationTimeoutMs`) stay on the role configurations; each
+contract keeps its own bounds on the shared listener.
+
+### Shutdown
+
+On SIGTERM the internal listener closes first: it stops accepting connections,
+closes idle ones, lets calls already dispatched finish and send their responses
+for up to `shutdownTimeoutMs`, then force-closes what remains. A caller whose
+call was force-closed receives `SOCKET_IPC_UNAVAILABLE` and treats the outcome
+as uncertain (no retry). The role contexts stay alive while in-flight calls
+drain; the public listeners and role resources close after it.
 
 ## Validation and authorization
 

@@ -59,7 +59,8 @@ Optional evaluator `consumers.realtime` requires:
 
 - `outbox` and `suppression`: `connectionEnv`, `namespace`, `maxRows`, `maxBytes`,
   `maxConnections`;
-- `route`: `id`, `socketPathEnv`, `maxMessageBytes`, `operationTimeoutMs`;
+- `route`: `id`, `maxMessageBytes`, `operationTimeoutMs` (the realtime peer
+  address is `NS_REALTIME_INTERNAL_URL`/`_SOCKET`);
 - `maxPayloadBytes`, `maxInflight`, `attemptTimeoutMs`, `retryDelayMs`,
   `pollIntervalMs`, `retryIntervalMs`.
 

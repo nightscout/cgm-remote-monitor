@@ -77,7 +77,7 @@ async function execute (input) {
   if (input.env?.NS_RT_EARLY_NATIVE !== '1' || !plan.phases.includes(input.phaseId) ||
       input.control !== null && (input.env.NS_RT_CONTROL_ID !== input.control || !/^[a-z0-9][a-z0-9_-]{0,95}$/.test(input.control))) throw new Error('EXPLICIT_PARENT_NATIVE_PHASE_REQUIRED');
   assert.equal(path.resolve(input.sourceDir), path.resolve(__dirname, '../../..'), 'stop source directory mismatch');
-  const causal = ['lib/server/internal-api/transport.js', 'lib/server/internal-api/schema.js', 'lib/server/internal-api/clients.js', 'lib/server/internal-api/endpoint-config.js',
+  const causal = ['lib/server/internal-api/transport.js', 'lib/server/internal-api/schema.js', 'lib/server/internal-api/clients.js', 'lib/server/internal-api/listener-config.js',
     'lib/server/internal-api/contracts/index.js', 'lib/server/internal-api/contracts/socket-authority.json',
     'lib/server/internal-api/contracts/alarm-delivery.json', 'lib/server/internal-api/contracts/lifecycle-participant.json',
     'tests/fixtures/internal-api-contract.js', 'lib/server/realtime/protocol.js', 'lib/server/realtime/private-api.js',

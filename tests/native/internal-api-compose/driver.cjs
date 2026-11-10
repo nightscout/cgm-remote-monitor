@@ -10,7 +10,7 @@ const http = require('node:http');
 const { randomUUID } = require('node:crypto');
 const root = path.resolve(__dirname, '../../..');
 const clients = require(root + '/lib/server/internal-api/clients');
-const endpoint = require(root + '/lib/server/internal-api/endpoint-config');
+const transport = require(root + '/lib/server/internal-api/transport');
 
 const A = '11111111-1111-4111-8111-111111111111', B = '22222222-2222-4222-8222-222222222222';
 const STATE = process.env.NS_LC_STATE_DIR;
@@ -18,12 +18,12 @@ const LIMITS = { maxBytes: 65536, timeoutMs: 3000 };
 const write = (name, value) => fs.writeFileSync(path.join(STATE, name), JSON.stringify(value, null, 1) + '\n');
 const lines = name => { try { return fs.readFileSync(path.join(STATE, name), 'utf8').trim().split('\n').filter(Boolean).map(JSON.parse); } catch { return []; } };
 const delay = ms => new Promise(resolve => setTimeout(resolve, ms));
-const ep = {
-  api: endpoint({ urlEnv: 'API_PRIVATE_URL', trust: 'network' }, process.env, LIMITS),
-  realtime: endpoint({ socketPathEnv: 'REALTIME_PRIVATE_SOCKET' }, process.env, LIMITS),
-  evaluator: endpoint({ urlEnv: 'EVALUATOR_PRIVATE_URL', trust: 'network' }, process.env, LIMITS),
-  'tenant-admin': endpoint({ urlEnv: 'ADMIN_PRIVATE_URL', trust: 'network' }, process.env, LIMITS)
+// The driver is not a role: it reads the same peer addresses the roles do.
+const address = name => {
+  const prefix = 'NS_' + name.toUpperCase().replace('-', '_') + '_INTERNAL_';
+  return transport.options(process.env[prefix + 'URL'] ? { url: process.env[prefix + 'URL'], trust: 'network', ...LIMITS } : { socketPath: process.env[prefix + 'SOCKET'], ...LIMITS });
 };
+const ep = Object.fromEntries(['api', 'realtime', 'evaluator', 'tenant-admin'].map(name => [name, address(name)]));
 const lifecycle = Object.fromEntries(Object.entries(ep).map(([name, value]) => [name, clients.lifecycleParticipant(value)]));
 const authority = clients.socketAuthority(ep.api);
 const authorizeBody = tenant => ({ host: tenant === A ? 'one.example.test' : 'two.example.test', tenant, namespace: '/', credential: {} });

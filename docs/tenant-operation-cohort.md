@@ -41,8 +41,12 @@ an additional database or authentication fence; process separation itself does
 not require that fence.
 
 Version 2 adds `participantId` and `participants` to the version 1 configuration.
-Each participant has `id`, `roles`, `namespaces`, `socketPathEnv`,
-`maxMessageBytes` and `timeoutMs`. The process's actual selected roles and all
+Each participant has `id`, `roles`, `namespaces`, `maxMessageBytes` and
+`timeoutMs`. A participant is reached on the `serve.internal` of the process
+serving its roles: its own listener for this process's entry, the peer address
+(`NS_<ROLE>_INTERNAL_URL` or `_SOCKET`) for the others; every role of one
+participant must resolve to one address (see
+[the internal listener](internal-service-api.md#the-internal-listener-serveinternal)). The process's actual selected roles and all
 clinical, authorization, checkpoint and consumer namespaces must match its entry.
 Each participant publishes only source-owned status and tenant-invalidation
 operations after its actual role constructors complete. The shared socket volume

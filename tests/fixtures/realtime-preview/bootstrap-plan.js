@@ -132,10 +132,10 @@ function documents ({selected,layout: l,publicKeys,paths}) {
     consumer:'evaluator-joined-fixture',maxRows:o.evaluatorMaxRows,timeIntervalMs:o.timeIntervalMs,consumers:{realtime:{
       outbox:{connectionEnv:'RT_BOOTSTRAP_OUTBOX_PG',namespace:ns.outbox,maxRows:o.maxRows,maxBytes:o.maxBytes,maxConnections:o.maxConnections},
       suppression:{connectionEnv:'RT_BOOTSTRAP_SUPPRESSION_PG',namespace:ns.alarm,maxRows:o.maxRows,maxBytes:o.maxBytes,maxConnections:o.maxConnections},
-      route:{id:'realtime-joined-fixture',socketPathEnv:'RT_BOOTSTRAP_ALARM_SOCKET',maxMessageBytes:o.maxMessageBytes,operationTimeoutMs:o.timeoutMs},
+      route:{id:'realtime-joined-fixture',maxMessageBytes:o.maxMessageBytes,operationTimeoutMs:o.timeoutMs},
       maxPayloadBytes:o.maxPayloadBytes,maxInflight:o.maxInflight,attemptTimeoutMs:o.attemptTimeoutMs,retryDelayMs:o.retryDelayMs,
       pollIntervalMs:o.pollIntervalMs,retryIntervalMs:o.retryIntervalMs}}};
-  const realtime={...common,admissionFileEnv:'RT_BOOTSTRAP_ADMISSION',apiSocketPathEnv:'RT_BOOTSTRAP_API_SOCKET',alarmSocketPathEnv:'RT_BOOTSTRAP_ALARM_SOCKET',
+  const realtime={...common,admissionFileEnv:'RT_BOOTSTRAP_ADMISSION',
     maxMessageBytes:o.maxMessageBytes,operationTimeoutMs:o.timeoutMs,maxSockets:o.maxSockets};
   const aliases=[['one.example.test'],['two.example.test']];
   const api={version:1,domains:[...Object.keys(clinical),'settings'],legacy:true,context:true,writeClock:true,
@@ -145,7 +145,7 @@ function documents ({selected,layout: l,publicKeys,paths}) {
     tenants:[A,B].map((id,i)=>({id,aliases:aliases[i],settings:tenants[i].settings,
       vault:{tokenEnv:'RT_BOOTSTRAP_VAULT_'+i,encryptionKey:'tenant-'+i+'-data',signingKey:'tenant-'+i+'-signing',signingVersion:1}})),
     accessTokens:{issuer:'nightscout-joined-fixture',audience:'nightscout-data',keys:publicKeys},
-    socketForwarding:{socketPathEnv:'RT_BOOTSTRAP_API_SOCKET',admissionFileEnv:'RT_BOOTSTRAP_ADMISSION',maxTenants:2,
+    socketForwarding:{admissionFileEnv:'RT_BOOTSTRAP_ADMISSION',maxTenants:2,
       maxMessageBytes:o.maxMessageBytes,operationTimeoutMs:o.timeoutMs,alarm:{connectionEnv:'RT_BOOTSTRAP_ALARM_PG',namespace:ns.alarm},
       consumerState:{evaluatorConfigEnv:'MULTITENANT_EVALUATOR_CONFIG'}}};
   return {api,evaluator,realtime,admission:{version:1,mode:'preview-socket-allowlist',tenants:[A,B].map((id,i)=>({id,enabled:true,aliases:aliases[i]}))},paths};

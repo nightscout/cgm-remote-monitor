@@ -56,10 +56,10 @@ must never select an arbitrary handler or load an arbitrary contract.
 |---|---|---|---|
 | Edge (nginx) | Container TCP `:8080`, published at host `127.0.0.1:18080` unless overridden | None | UI, API and realtime consumer HTTP |
 | Web UI | `0.0.0.0:1340`, page/assets | None | No backend service calls in this static-page server; the browser makes data/socket calls through the edge |
-| REST API | `0.0.0.0:1337`, API routes | `/run/ns-ipc/api.sock` (`socket-authority`); `/run/ns-ipc/cohort-api.sock` (`lifecycle-participant`) | PostgreSQL and configured secrets provider (Vault Transit in this reference) |
-| Realtime | `0.0.0.0:1339`, Socket.IO plus health | `/run/ns-ipc/alarm.sock` (`alarm-delivery`); `/run/ns-ipc/cohort-realtime.sock` (`lifecycle-participant`) | API internal service and PostgreSQL |
-| Evaluator / notification consumer | No consumer HTTP listener | `/run/ns-ipc/cohort-evaluator.sock` (`lifecycle-participant`) | PostgreSQL; realtime alarm handoff; other providers only when explicitly selected |
-| Tenant-admin | `0.0.0.0:1341`, owner management; not routed by this nginx binding | `/run/ns-ipc/cohort-tenant-admin.sock` (`lifecycle-participant`) | Scoped PostgreSQL readers/writers |
+| REST API | `0.0.0.0:1337`, API routes | `/run/ns-ipc/api.sock` (`socket-authority`, `lifecycle-participant`) | PostgreSQL and configured secrets provider (Vault Transit in this reference) |
+| Realtime | `0.0.0.0:1339`, Socket.IO plus health | `/run/ns-ipc/realtime.sock` (`alarm-delivery`, `lifecycle-participant`) | API internal service and PostgreSQL |
+| Evaluator / notification consumer | No consumer HTTP listener | `/run/ns-ipc/evaluator.sock` (`lifecycle-participant`) | PostgreSQL; realtime alarm handoff; other providers only when explicitly selected |
+| Tenant-admin | `0.0.0.0:1341`, owner management; not routed by this nginx binding | `/run/ns-ipc/tenant-admin.sock` (`lifecycle-participant`) | Scoped PostgreSQL readers/writers |
 | Bootstrap / restore tools | No inbound listener; operator-invoked jobs | Client of participant contracts, not an extra server | PostgreSQL, selected API requests; bootstrap also provisions Vault |
 | PostgreSQL | No consumer listener | PostgreSQL TCP `:5432` on backend network | Responses to role-scoped database clients |
 | Vault | No consumer listener | HTTPS `:8200` on backend network | Responses to configured provider and bootstrap calls |
@@ -112,10 +112,10 @@ timeouts and replay rules.
 ```mermaid
 flowchart TB
   O["Operator's restore controller<br/>no inbound listener"]
-  O -->|"getStatus / invalidateTenant"| A["API<br/>cohort-api.sock"]
-  O -->|"getStatus / invalidateTenant"| R["Realtime<br/>cohort-realtime.sock"]
-  O -->|"getStatus / invalidateTenant"| E["Evaluator<br/>cohort-evaluator.sock"]
-  O -->|"getStatus / invalidateTenant"| T["Tenant-admin<br/>cohort-tenant-admin.sock"]
+  O -->|"getStatus / invalidateTenant"| A["API<br/>api.sock"]
+  O -->|"getStatus / invalidateTenant"| R["Realtime<br/>realtime.sock"]
+  O -->|"getStatus / invalidateTenant"| E["Evaluator<br/>evaluator.sock"]
+  O -->|"getStatus / invalidateTenant"| T["Tenant-admin<br/>tenant-admin.sock"]
 ```
 
 The controller also has its separately authorized PostgreSQL connection.
@@ -138,15 +138,16 @@ capability that selects it and is not implied by these reference diagrams.
 
 ## Replacing a Unix socket with private HTTP
 
-Each internal endpoint can use an explicit HTTP origin and optional bind address;
-for example, a caller addresses `http://api-internal:9081/` while the API's
-separate internal server binds `0.0.0.0:9081`. The lifecycle participant uses
-another distinct endpoint. The public API remains on its own listener.
+Each role process's one internal listener can be an explicit HTTP host and port
+instead of a socket; for example, the API process binds `NS_SERVE_INTERNAL_HOST=0.0.0.0`,
+`NS_SERVE_INTERNAL_PORT=9081` and its callers address `NS_API_INTERNAL_URL=http://api-internal:9081`.
+Its socket-authority and lifecycle-participant contracts share that listener.
+The public API remains on its own listener.
 
 `9081` is an example, not a reserved or default port. Link-local addresses such
 as `169.254.1.1` and Kubernetes Service DNS names are supported when assigned and
-routed by the deployment. The endpoint descriptors and their environment
-references are specified in [the transport configuration](internal-service-api.md#deployment-endpoint-descriptors).
+routed by the deployment. The listener and peer settings are specified in
+[the internal listener](internal-service-api.md#the-internal-listener-serveinternal).
 There is no loopback-only restriction or new bearer protocol. The deployment
 owns network reachability, TLS/proxy/mesh policy if selected and listener placement;
 service/version headers identify the expected contract.

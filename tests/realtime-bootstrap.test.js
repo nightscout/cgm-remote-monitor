@@ -34,11 +34,11 @@ describe('parent-owned realtime bootstrap source contract',function(){
     const publicKeys=[plan.A,plan.B].map(tenant=>({tenant,kid:'key1',publicKey:Buffer.from(crypto.generateKeyPairSync('ed25519').publicKey.export({format:'jwk'}).x,'base64url').toString('base64')}));
     const docs=plan.documents({selected,layout,publicKeys,paths});for(const name of ['api','realtime','evaluator','admission'])fs.writeFileSync(paths[name],JSON.stringify(docs[name]));
     const url=name=>'postgres://synthetic-'+name+':synthetic@127.0.0.1:15432/bootstrap_test';
-    const common={RT_BOOTSTRAP_API_SOCKET:path.join(dir,'api.sock'),RT_BOOTSTRAP_ALARM_SOCKET:path.join(dir,'alarm.sock'),RT_BOOTSTRAP_ADMISSION:paths.admission};
+    const common={NS_API_INTERNAL_SOCKET:path.join(dir,'api.sock'),NS_REALTIME_INTERNAL_SOCKET:path.join(dir,'alarm.sock'),RT_BOOTSTRAP_ADMISSION:paths.admission};
     const api={...common,MULTITENANT_PREVIEW_CONFIG:paths.api,MULTITENANT_EVALUATOR_CONFIG:paths.evaluator,RT_BOOTSTRAP_API_PG:url('api'),
       RT_BOOTSTRAP_READINESS_PG:url('readiness'),RT_BOOTSTRAP_ALARM_PG:url('alarm'),RT_BOOTSTRAP_VAULT_0:'synthetic-a',RT_BOOTSTRAP_VAULT_1:'synthetic-b'};
     const worker={...common,MULTITENANT_EVALUATOR_CONFIG:paths.evaluator,RT_BOOTSTRAP_EVAL_PG:url('evaluator'),RT_BOOTSTRAP_OUTBOX_PG:url('outbox'),RT_BOOTSTRAP_SUPPRESSION_PG:url('suppression')};
-    const realtime={...common,MULTITENANT_REALTIME_CONFIG:paths.realtime,RT_BOOTSTRAP_RT_PG:url('realtime')};
+    const realtime={...common,NS_SERVE_INTERNAL_SOCKET:common.NS_REALTIME_INTERNAL_SOCKET,MULTITENANT_REALTIME_CONFIG:paths.realtime,RT_BOOTSTRAP_RT_PG:url('realtime')};
     const accepted=require('../lib/server/serve/preview-config').load(api);
     const evaluated=require('../lib/server/serve/evaluator-config').load(worker);
     const delivered=require('../lib/server/realtime/config').load(realtime);
@@ -59,9 +59,9 @@ describe('parent-owned realtime bootstrap source contract',function(){
     const docs=plan.documents({selected,layout,publicKeys:[],paths});fs.writeFileSync(paths.evaluator,JSON.stringify(docs.evaluator));
     const url=name=>'postgres://synthetic-'+name+':synthetic@127.0.0.1:15432/bootstrap_test';
     const env={RT_BOOTSTRAP_EVAL_PG:url('evaluator'),RT_BOOTSTRAP_OUTBOX_PG:url('outbox'),RT_BOOTSTRAP_SUPPRESSION_PG:url('suppression'),
-      RT_BOOTSTRAP_RT_PG:url('realtime'),RT_BOOTSTRAP_API_SOCKET:path.join(dir,'api.sock'),RT_BOOTSTRAP_ALARM_SOCKET:path.join(dir,'alarm.sock'),RT_BOOTSTRAP_ADMISSION:paths.admission};
+      RT_BOOTSTRAP_RT_PG:url('realtime'),NS_API_INTERNAL_SOCKET:path.join(dir,'api.sock'),NS_REALTIME_INTERNAL_SOCKET:path.join(dir,'alarm.sock'),RT_BOOTSTRAP_ADMISSION:paths.admission};
     const evaluated=require('../lib/server/serve/evaluator-config').parse(docs.evaluator,env);
-    const delivered=require('../lib/server/realtime/config').parse(docs.realtime,env);
+    const delivered=require('../lib/server/realtime/config').parse(docs.realtime,{...env,NS_SERVE_INTERNAL_SOCKET:env.NS_REALTIME_INTERNAL_SOCKET});
     assert.equal(evaluated.maxRows,3,'BOOTSTRAP_COLD_EVALUATOR_BOUND');assert.equal(delivered.maxRows,100,'BOOTSTRAP_REALTIME_REMAINS_ADMITTED');
     const link=require('../lib/server/realtime/notification-state-config')({evaluatorConfigEnv:'LINK'},{LINK:paths.evaluator},{namespace:layout.namespaces.alarm,connectionString:url('ack')});
     assert.equal((await link.readCurrent(plan.A)).identity,evaluated.tenants.get(plan.A).identity);

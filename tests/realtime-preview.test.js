@@ -61,11 +61,16 @@ describe('explicit realtime preview source contracts', function () {
     const parse = require('../lib/server/realtime/config').parse;
     const value = { version: 1, postgres: { connectionEnv: 'RT_DB', namespaces: Object.fromEntries(['entries','treatments','devicestatus','profile','food','activity','clock','checkpoint'].map(k => [k, 'rt_' + k])) },
       consumer: 'realtime-test', pageSize: 1, maxRows: 10, maxBytes: 10000, maxTenants: 2, recoveryIntervalMs: 100,
-      tenants: [{ id: A, revision: 'v1', settings: { enable: ['bgnow'] } }], admissionFileEnv: 'RT_ADMISSION', apiSocketPathEnv: 'API_SOCKET', alarmSocketPathEnv: 'RT_SOCKET',
+      tenants: [{ id: A, revision: 'v1', settings: { enable: ['bgnow'] } }], admissionFileEnv: 'RT_ADMISSION',
       maxMessageBytes: 10000, operationTimeoutMs: 1000, maxSockets: 10 };
-    const source = { RT_DB: 'postgres://synthetic:synthetic@127.0.0.1/disposable_test', RT_ADMISSION: '/tmp/admission.json', API_SOCKET: '/tmp/a.sock', RT_SOCKET: '/tmp/b.sock' };
+    const source = { RT_DB: 'postgres://synthetic:synthetic@127.0.0.1/disposable_test', RT_ADMISSION: '/tmp/admission.json', NS_API_INTERNAL_SOCKET: '/tmp/a.sock' };
     const selected = parse(value, source);
     assert.equal(selected.consumer, 'realtime-test'); assert.equal(selected.tenants.get(A).tenant, A);
+    assert.deepEqual(selected.api, { socketPath: '/tmp/a.sock', maxBytes: 10000, timeoutMs: 1000 }, 'api peer address from NS_API_INTERNAL_SOCKET');
+    assert.equal(Object.hasOwn(selected, 'alarms'), false, 'alarm delivery is served on serve.internal, not configured per contract');
+    for (const retired of [{ apiSocketPathEnv: 'API_SOCKET' }, { alarmSocketPathEnv: 'RT_SOCKET' }, { apiEndpoint: { urlEnv: 'API', trust: 'network' } }]) {
+      assert.throws(() => parse({ ...value, ...retired }, source), /REFUSED/, 'per-contract endpoint keys are retired');
+    }
     for (const mutate of [v => { v.consumer = 'evaluator-shared'; }, v => { v.maxSockets = 0; }, v => { v.maxBytes = undefined; }, v => { v.postgres.namespaces.entries = 'public'; }]) {
       const bad = structuredClone(value); mutate(bad); assert.throws(() => parse(bad, source));
     }

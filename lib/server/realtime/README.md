@@ -10,8 +10,9 @@ There are no cadence, capacity, tenant, credential, or database defaults.
 namespaces for all six clinical domains, clock, checkpoint), `consumer` (a
 `realtime-` name), pageSize, maxRows, maxBytes, maxTenants, recoveryIntervalMs,
 tenants (same settings/revision shape as evaluator), admissionFileEnv,
-apiSocketPathEnv, alarmSocketPathEnv, maxMessageBytes, operationTimeoutMs,
-and maxSockets. Environment references contain the actual connection and paths;
+maxMessageBytes, operationTimeoutMs, and maxSockets. Alarm delivery is served on
+the process's `serve.internal`; the api is reached at its peer address
+(`NS_API_INTERNAL_URL`/`_SOCKET`, docs/internal-service-api.md). Environment references contain the actual connection and paths;
 configuration files must not contain credentials. Provision a distinct checkpoint
 schema/consumer and its rows before boot. Its restricted role requires clinical
 and write-clock SELECT and own-checkpoint bookkeeping only. Startup checks
@@ -26,7 +27,8 @@ This is preview socket admission, not the D15 public REST suspension lifecycle.
 Tenant expansion and infrastructure changes require restart. Tenant config and
 permissions are checked again after asynchronous acquisition and on each fanout.
 
-The API config's optional `socketForwarding` has socketPathEnv, admissionFileEnv,
+The API config's optional `socketForwarding` (served on the api process's
+`serve.internal`) has admissionFileEnv,
 maxTenants, maxMessageBytes, operationTimeoutMs and alarm {connectionEnv,namespace}.
 It requires explicitly selected legacy authorization and the write clock. Its
 narrow alarm writer uses a distinct decoded user on the same hostname/port/database

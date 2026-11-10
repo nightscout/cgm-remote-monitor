@@ -191,6 +191,8 @@ describe('Actual serving and CLI selection composition (source protocol)', funct
     const cohortModule = require('../lib/server/serve/operation-cohort');
     const serve=load('../lib/server/serve/index.js',{
       './listeners':{resolve:() => [],close:async () => {}},
+      // serve.internal composition is covered by tests/serve-internal-listener.test.js.
+      './internal-listener':{plan:() => [],open:async () => null},
       pg:{Pool:class {async end () { events.push('pool-end'); }}},
       '../../tenant-lifecycle/operation-window':{create:() => ({})},
       './operation-cohort':{protectedNamespaces:cohortModule.protectedNamespaces,create:async input => { captured.push(input); return cohort; }},

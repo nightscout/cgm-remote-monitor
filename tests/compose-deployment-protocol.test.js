@@ -358,7 +358,7 @@ describe('Compose role health uses the lifecycle participant contract', function
   }
   it('checks the exact lifecycle status acknowledgement and rejects another participant', async function () {
     const valid = await check(); assert.equal(valid.code, 0);
-    assert.deepEqual(valid.calls[0], { socketPath: '/run/ns-ipc/cohort-api.sock', maxBytes: 1048576, timeoutMs: 1500 });
+    assert.deepEqual(valid.calls[0], { socketPath: '/run/ns-ipc/api.sock', maxBytes: 1048576, timeoutMs: 1500 });
     assert.match(valid.calls[1].request, /^[0-9a-f-]{36}$/);
     assert.equal((await check(reply => ({ ...reply, participant: 'realtime' }))).code, 1);
     assert.equal((await check(reply => ({ ...reply, request: 'wrong' }))).code, 1);
