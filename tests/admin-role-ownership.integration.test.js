@@ -327,8 +327,11 @@ optInSuite(process.env.NS_ADMIN_ROLE_DOCKER_TEST === '1',
     it('refuses an identity missing a required grant (privilege screen)', async function () {
       await refused(`REVOKE SELECT ON ${t('tenant_authorization_subjects')} FROM "${IDENTITY}"`, `GRANT SELECT ON ${t('tenant_authorization_subjects')} TO "${IDENTITY}"`);
     });
-    it('refuses a BYPASSRLS identity', async function () {
+    it('refuses a BYPASSRLS identity (shared application connection check)', async function () {
       await refused(`ALTER ROLE "${IDENTITY}" BYPASSRLS`, `ALTER ROLE "${IDENTITY}" NOBYPASSRLS`);
+    });
+    it('refuses a CREATEROLE identity (admin identity readiness)', async function () {
+      await refused(`ALTER ROLE "${IDENTITY}" CREATEROLE`, `ALTER ROLE "${IDENTITY}" NOCREATEROLE`);
     });
   });
 });
