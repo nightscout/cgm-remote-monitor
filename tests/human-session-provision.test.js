@@ -34,6 +34,9 @@ describe('single-site OIDC identity list, fallback role and current subject role
   let clock = Math.floor(Date.now() / 1000), pem;
 
   before(function (done) {
+    // lib/server/env.js takes API_SECRET out of process.env when it reads it,
+    // so a file run after another in the same tier has none; set one.
+    process.env.API_SECRET = randomBytes(24).toString('hex');
     process.env.MONGO_AUTHENTICATION_COLLECTIONS_PREFIX = PREFIX;
     self.env = require('../lib/server/env')();
     delete process.env.MONGO_AUTHENTICATION_COLLECTIONS_PREFIX;
