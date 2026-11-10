@@ -61,6 +61,8 @@ these optional fields, so their behaviour is unchanged.
 | `alarm-delivery` | Realtime role | `deliverAlarm(body, signal)` | `/alarm` | `{ "accepted": true, "receipt": null, "clearedRequestIds": [] }` after realtime fanout handoff. |
 | `lifecycle-participant` | Each configured serving participant | `getStatus(body, signal)` | `/cohort/status` | Participant roles, tenant set, process incarnation, schema identity, observed datastore and database backend identities. |
 | `lifecycle-participant` | Each configured serving participant | `invalidateTenant(body, signal)` | `/cohort/invalidate` | Status plus the invalidated tenant, after actual role invalidators finish. |
+| `ownership-operations` | Private operator plane | `listOwners(body, signal)` | `/ownership/list` | Current owners, or `denied` without an owner list. |
+| `ownership-operations` | Private operator plane | `addOwner`, `transferOwner`, `recoverOwner` | `/ownership/add`, `/ownership/transfer`, `/ownership/recover` | `applied` or audited `refused` with the owner set, or `denied` with no effect. See [operator-assisted ownership](../lib/tenant-ownership/README.md). |
 
 Service handlers must implement exactly the operations in their selected
 contract. Unknown, missing or extra handler registrations fail at composition.
@@ -130,8 +132,8 @@ const rights = await api.authorizeSocket({
 });
 ```
 
-The other factories are `alarmDelivery(options)` and
-`lifecycleParticipant(options)`. Each returns a frozen object containing only
+The other factories are `alarmDelivery(options)`,
+`lifecycleParticipant(options)` and `ownershipOperations(options)`. Each returns a frozen object containing only
 that service's methods. Methods accept an optional `AbortSignal` as their second
 argument. A new application operation belongs in its service contract, handler
 implementation, named client surface, documentation and contract controls.

@@ -68,6 +68,17 @@
         "ALTER TABLE tenant_subject_admin_audit DROP CONSTRAINT tenant_subject_admin_audit_operation_check",
         "ALTER TABLE tenant_subject_admin_audit ADD CONSTRAINT tenant_subject_admin_audit_operation_check CHECK (operation IN ('update','remove','create','create-role','issue'))"
       ]
+    },
+    {
+      "name": "0006_owner_ownership_operations",
+      "up": [
+        "ALTER TABLE tenant_subject_admin_audit DROP CONSTRAINT tenant_subject_admin_audit_operation_check",
+        "ALTER TABLE tenant_subject_admin_audit ADD CONSTRAINT tenant_subject_admin_audit_operation_check CHECK (operation IN ('update','remove','create','create-role','issue','owner-add','owner-transfer','owner-recover'))",
+        "ALTER TABLE tenant_subject_admin_audit ADD COLUMN outcome text CHECK (outcome IN ('applied','refused'))",
+        "ALTER TABLE tenant_subject_admin_audit ADD COLUMN detail jsonb CHECK (jsonb_typeof(detail) = 'object' AND octet_length(detail::text) <= 8192)",
+        "ALTER TABLE tenant_subject_admin_audit ADD CONSTRAINT tenant_subject_admin_audit_ownership_record CHECK ((operation IN ('owner-add','owner-transfer','owner-recover')) = (outcome IS NOT NULL AND detail IS NOT NULL))"
+      ],
+      "checksum": "646773972887014690b0b8bbbd19a3cf22f1c339eb726d43e3a2e591c67ea4b5"
     }
   ]
 }

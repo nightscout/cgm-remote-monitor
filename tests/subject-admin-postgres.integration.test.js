@@ -141,12 +141,12 @@ optInSuite(process.env.NS_SUBJECT_ADMIN_POSTGRES_DOCKER_TEST === '1',
     await run('up', { ...options, catalogue: original });
     await admin.query('INSERT INTO subject_upgrade.tenant_authorization_subjects (tenant_id,subject_id) VALUES ($1,$2)', [A, SUBJECT]);
     assert.deepEqual((await run('status', { ...options, catalogue })).pending,
-      ['0003_subject_management_metadata', '0004_owner_policy_fencing', '0005_owner_subject_creation']);
+      ['0003_subject_management_metadata', '0004_owner_policy_fencing', '0005_owner_subject_creation', '0006_owner_ownership_operations']);
     const metadata = { version: 1, migrations: catalogue.migrations.slice(0, 3) };
     await run('up', { ...options, catalogue: metadata });
     const applied = (await admin.query('SELECT name,checksum FROM subject_upgrade.schema_migrations ORDER BY name')).rows;
     assert.deepEqual(applied, metadata.migrations.map(({ name, checksum }) => ({ name, checksum })));
-    assert.deepEqual((await run('status', { ...options, catalogue })).pending, ['0004_owner_policy_fencing', '0005_owner_subject_creation']);
+    assert.deepEqual((await run('status', { ...options, catalogue })).pending, ['0004_owner_policy_fencing', '0005_owner_subject_creation', '0006_owner_ownership_operations']);
     await run('up', { ...options, catalogue });
     assert.equal((await run('check', { ...options, catalogue })).current, true);
     assert.deepEqual((await admin.query('SELECT notes,created_at FROM subject_upgrade.tenant_authorization_subjects')).rows,

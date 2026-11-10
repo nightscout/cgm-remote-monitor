@@ -62,8 +62,8 @@ themselves.
 
 ## Inventory
 
-45 suites. 25 use the admin URI the script provides; 24 start at least one
-container of their own through Docker. Disabled, 44 register their
+48 suites. 27 use the admin URI the script provides; 25 start at least one
+container of their own through Docker. Disabled, 47 register their
 tests as pending with `[pending opt-in: <requirement>]` in the title; one
 (`postgres-entries-write`) uses a bare `describe.skip`.
 
@@ -110,6 +110,7 @@ tests as pending with `[pending opt-in: <requirement>]` in the title; one
 | `tests/owner-preview.integration.test.js` | `NS_OWNER_PREVIEW_TEST=1` | PostgreSQL | PostgreSQL, Vault | explicit headless owner CLI and real combined data/owner listeners; provisioned machine tokens/current state, no human session promises |
 | `tests/subject-management-http.integration.test.js` | `NS_SUBJECT_MANAGEMENT_HTTP_DOCKER_TEST=1` | | PostgreSQL | |
 | `tests/subject-admin-postgres.integration.test.js` | `NS_SUBJECT_ADMIN_POSTGRES_DOCKER_TEST=1` | | PostgreSQL | |
+| `tests/tenant-ownership-postgres.integration.test.js` | `NS_TENANT_OWNERSHIP_DOCKER_TEST=1` | | PostgreSQL | operator-assisted add/transfer/recover with concurrent-transfer and foreign-authority controls over the private ownership service |
 | `tests/owner-subject-policy.integration.test.js` | `NS_OWNER_SUBJECT_POLICY_DOCKER_TEST=1` | | PostgreSQL | verifies its own volume removal |
 | `tests/tenant-rest-authority-review.test.js` | `NS_REST_AUTHORITY_REVIEW_TEST=1` | | PostgreSQL | |
 | `tests/storage-port-contract.integration.test.js` | `NS_STORAGE_PORT_CONTRACT_DOCKER_TEST=1` | | PostgreSQL, MongoDB | `mongo:7.0` |

@@ -120,6 +120,8 @@ const INVENTORY = [
   { file: 'tests/tenant-authorization-postgres.integration.test.js', flags: { NS_TENANT_AUTHORITY_POSTGRES_DOCKER_TEST: '1' }, shared: [], own: ['postgres'], gate: PENDING },
   { file: 'tests/subject-management-http.integration.test.js', flags: { NS_SUBJECT_MANAGEMENT_HTTP_DOCKER_TEST: '1' }, shared: [], own: ['postgres'], gate: PENDING },
   { file: 'tests/subject-admin-postgres.integration.test.js', flags: { NS_SUBJECT_ADMIN_POSTGRES_DOCKER_TEST: '1' }, shared: [], own: ['postgres'], gate: PENDING },
+  { file: 'tests/tenant-ownership-postgres.integration.test.js', flags: { NS_TENANT_OWNERSHIP_DOCKER_TEST: '1' }, shared: [], own: ['postgres'], gate: PENDING,
+    note: 'operator-assisted add/transfer/recover with concurrent-transfer and foreign-authority controls over the private ownership service' },
   { file: 'tests/owner-subject-policy.integration.test.js', flags: { NS_OWNER_SUBJECT_POLICY_DOCKER_TEST: '1' }, shared: [], own: ['postgres'], gate: PENDING },
   { file: 'tests/tenant-rest-authority-review.test.js', flags: { NS_REST_AUTHORITY_REVIEW_TEST: '1' }, shared: [], own: ['postgres'], gate: PENDING },
   { file: 'tests/storage-port-contract.integration.test.js', flags: { NS_STORAGE_PORT_CONTRACT_DOCKER_TEST: '1' }, shared: [], own: ['postgres', 'mongo'], gate: PENDING,
