@@ -251,15 +251,19 @@ describe('projected owner catalogue and next-cycle source consumers', function (
     assert.equal(b.settings.customTitle, 'Nightscout'); assert.deepEqual(f.records.get(B).values, {});
   });
   async function observe (broken = false, change = 'threshold') {
+    // The shipping entries query bounds unbounded reads from the wall clock
+    // (lib/server/query.js deltaAgo), so the evaluator instant and the synthetic
+    // reading follow the real clock instead of a fixed calendar date.
+    const at = Date.now();
     const f = memory(), clinical = [{ domain: 'entries', document: { _id: 'synthetic-sgv', type: 'sgv',
-      date: Date.UTC(2026, 10, 7, 12) - 60000, sgv: 190, direction: 'Flat' } }];
+      date: at - 60000, sgv: 190, direction: 'Flat' } }];
     const immutableClinical = structuredClone(clinical); let acquisitions = 0, statistics = 0, created = 0;
     const base = { tenant: A, identity: 'a'.repeat(64), env: environment() };
     await f.service.replace(actor, 1, { enable: ['bgnow', 'simplealarms'], ...thresholds, ...(change === 'enable' ? { bgTargetTop: 180 } : {}) });
     const previous = scope.getTenancyMode(); scope.setTenancyMode('multi');
     const runtime = await runtimeFactory({ tenants: [A, B], readCurrent: async tenant => evaluatorConfig.applySettings(
       { ...base, tenant, identity: (tenant === A ? 'a' : 'b').repeat(64) }, await f.service.read({ ...actor, tenant })),
-      recoveryIntervalMs: 100, timeIntervalMs: 100, schedule: () => ({}), cancel () {}, now: () => Date.UTC(2026, 10, 7, 12),
+      recoveryIntervalMs: 100, timeIntervalMs: 100, schedule: () => ({}), cancel () {}, now: () => at,
       async create (current) {
         created++;
         const value = evaluatorFactory({ tenant: current.tenant, env: current.env, language: require('../lib/language')(),
