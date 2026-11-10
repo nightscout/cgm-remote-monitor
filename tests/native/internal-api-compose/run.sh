@@ -40,7 +40,8 @@ if [ "$CONTROL" = blanket-window ] || [ "$CONTROL" = early-drop ]; then
   mkdir "$STATE/src"
   (cd "$SOURCE" && git ls-files -z --cached --others --exclude-standard | tar --null -T - -cf - ) | tar -C "$STATE/src" -xf -
   ln -s "$SOURCE/node_modules" "$STATE/src/node_modules"
-  node "$HERE/$CONTROL-control.cjs" "$STATE/src/lib/server/internal-api/transport.js"
+  case "$CONTROL" in blanket-window) MUTANT=blanket-control.cjs ;; early-drop) MUTANT=early-drop-control.cjs ;; esac
+  node "$HERE/$MUTANT" "$STATE/src/lib/server/internal-api/transport.js"
   RUN_SOURCE="$STATE/src"
 elif [ -n "$CONTROL" ]; then echo "unknown control $CONTROL" >&2; exit 2
 else RUN_SOURCE="$SOURCE"; fi
