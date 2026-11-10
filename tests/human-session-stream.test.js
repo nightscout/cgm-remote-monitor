@@ -3,7 +3,7 @@
 const assert = require('node:assert/strict');
 const { EventEmitter } = require('node:events');
 const { randomBytes } = require('node:crypto');
-const { COOKIE, credential, createHumanHTTP } = require('../lib/human-session/http');
+const { COOKIE, createHumanHTTP } = require('../lib/human-session/http');
 const streamAuthority = require('./fixtures/human-stream-authority');
 const accessFixture = require('./fixtures/human-access-issuer');
 const { createVerifier, createAuthentication } = require('../lib/tenant-authorization/access-token');

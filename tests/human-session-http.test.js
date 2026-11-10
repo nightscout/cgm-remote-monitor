@@ -16,7 +16,7 @@ function request (router, { method = 'GET', path, headers = {}, body, rawBody } 
     const data = rawBody === undefined ? (body === undefined ? '' : JSON.stringify(body)) : rawBody;
     const lower = Object.fromEntries(Object.entries(headers).map(([key, value]) => [key.toLowerCase(), value]));
     if (data) {
-      lower['content-type'] ||= 'application/json';
+      if (!lower['content-type']) lower['content-type'] = 'application/json';
       lower['content-length'] = String(Buffer.byteLength(data));
     }
     const req = Readable.from(data ? [Buffer.from(data)] : []);
