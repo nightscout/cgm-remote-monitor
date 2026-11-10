@@ -1,0 +1,702 @@
+{
+  "id": "ownership-operations",
+  "version": 1,
+  "operations": {
+    "listOwners": {
+      "path": "/ownership/list",
+      "request": {
+        "$schema": "https://json-schema.org/draft/2020-12/schema",
+        "type": "object",
+        "properties": {
+          "tenant": {
+            "type": "string",
+            "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$"
+          }
+        },
+        "required": [
+          "tenant"
+        ],
+        "additionalProperties": false
+      },
+      "response": {
+        "$schema": "https://json-schema.org/draft/2020-12/schema",
+        "oneOf": [
+          {
+            "type": "object",
+            "properties": {
+              "outcome": {
+                "const": "listed"
+              },
+              "owners": {
+                "type": "array",
+                "items": {
+                  "type": "object",
+                  "properties": {
+                    "principal": {
+                      "type": "string",
+                      "pattern": "^[a-zA-Z0-9_-]{1,128}$"
+                    },
+                    "consumer": {
+                      "type": "string",
+                      "pattern": "^[a-zA-Z0-9_-]{1,128}$"
+                    }
+                  },
+                  "required": [
+                    "principal",
+                    "consumer"
+                  ],
+                  "additionalProperties": false
+                },
+                "maxItems": 64,
+                "uniqueItems": true
+              }
+            },
+            "required": [
+              "outcome",
+              "owners"
+            ],
+            "additionalProperties": false
+          },
+          {
+            "type": "object",
+            "description": "No effect and no audit: the operator lacks current authority for this tenant, the tenant has no owner policy, or the input is invalid.",
+            "properties": {
+              "outcome": {
+                "const": "denied"
+              },
+              "code": {
+                "enum": [
+                  "OWNERSHIP_FORBIDDEN",
+                  "OWNERSHIP_TENANT_UNKNOWN",
+                  "OWNERSHIP_INVALID"
+                ]
+              },
+              "event": {
+                "type": "null"
+              }
+            },
+            "required": [
+              "outcome",
+              "code",
+              "event"
+            ],
+            "additionalProperties": false
+          }
+        ]
+      }
+    },
+    "addOwner": {
+      "path": "/ownership/add",
+      "request": {
+        "$schema": "https://json-schema.org/draft/2020-12/schema",
+        "type": "object",
+        "properties": {
+          "tenant": {
+            "type": "string",
+            "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$"
+          },
+          "owner": {
+            "type": "object",
+            "properties": {
+              "principal": {
+                "type": "string",
+                "pattern": "^[a-zA-Z0-9_-]{1,128}$"
+              },
+              "consumer": {
+                "type": "string",
+                "pattern": "^[a-zA-Z0-9_-]{1,128}$"
+              }
+            },
+            "required": [
+              "principal",
+              "consumer"
+            ],
+            "additionalProperties": false
+          },
+          "delegable": {
+            "type": "array",
+            "items": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 1024
+            },
+            "maxItems": 256,
+            "uniqueItems": true,
+            "description": "Shiro permission strings the owner may delegate; must fit the current operator ceiling."
+          },
+          "expectedOwners": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "principal": {
+                  "type": "string",
+                  "pattern": "^[a-zA-Z0-9_-]{1,128}$"
+                },
+                "consumer": {
+                  "type": "string",
+                  "pattern": "^[a-zA-Z0-9_-]{1,128}$"
+                }
+              },
+              "required": [
+                "principal",
+                "consumer"
+              ],
+              "additionalProperties": false
+            },
+            "maxItems": 64,
+            "uniqueItems": true
+          }
+        },
+        "required": [
+          "tenant",
+          "owner",
+          "delegable",
+          "expectedOwners"
+        ],
+        "additionalProperties": false
+      },
+      "response": {
+        "$schema": "https://json-schema.org/draft/2020-12/schema",
+        "oneOf": [
+          {
+            "type": "object",
+            "description": "Applied and audited; owners is the owner set after the change.",
+            "properties": {
+              "outcome": {
+                "const": "applied"
+              },
+              "code": {
+                "type": "null"
+              },
+              "event": {
+                "type": "string",
+                "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$"
+              },
+              "owners": {
+                "type": "array",
+                "items": {
+                  "type": "object",
+                  "properties": {
+                    "principal": {
+                      "type": "string",
+                      "pattern": "^[a-zA-Z0-9_-]{1,128}$"
+                    },
+                    "consumer": {
+                      "type": "string",
+                      "pattern": "^[a-zA-Z0-9_-]{1,128}$"
+                    }
+                  },
+                  "required": [
+                    "principal",
+                    "consumer"
+                  ],
+                  "additionalProperties": false
+                },
+                "maxItems": 64,
+                "uniqueItems": true,
+                "minItems": 1
+              }
+            },
+            "required": [
+              "outcome",
+              "code",
+              "event",
+              "owners"
+            ],
+            "additionalProperties": false
+          },
+          {
+            "type": "object",
+            "description": "Refused without ownership effect; the attempt is audited and owners is the current owner set.",
+            "properties": {
+              "outcome": {
+                "const": "refused"
+              },
+              "code": {
+                "enum": [
+                  "OWNERSHIP_CONFLICT",
+                  "OWNERSHIP_NOT_OWNER",
+                  "OWNERSHIP_ALREADY_OWNER",
+                  "OWNERSHIP_SUBJECT_UNKNOWN",
+                  "OWNERSHIP_DELEGATION_EXCEEDS_CEILING",
+                  "OWNERSHIP_UNCHANGED"
+                ]
+              },
+              "event": {
+                "type": "string",
+                "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$"
+              },
+              "owners": {
+                "type": "array",
+                "items": {
+                  "type": "object",
+                  "properties": {
+                    "principal": {
+                      "type": "string",
+                      "pattern": "^[a-zA-Z0-9_-]{1,128}$"
+                    },
+                    "consumer": {
+                      "type": "string",
+                      "pattern": "^[a-zA-Z0-9_-]{1,128}$"
+                    }
+                  },
+                  "required": [
+                    "principal",
+                    "consumer"
+                  ],
+                  "additionalProperties": false
+                },
+                "maxItems": 64,
+                "uniqueItems": true
+              }
+            },
+            "required": [
+              "outcome",
+              "code",
+              "event",
+              "owners"
+            ],
+            "additionalProperties": false
+          },
+          {
+            "type": "object",
+            "description": "No effect and no audit: the operator lacks current authority for this tenant, the tenant has no owner policy, or the input is invalid.",
+            "properties": {
+              "outcome": {
+                "const": "denied"
+              },
+              "code": {
+                "enum": [
+                  "OWNERSHIP_FORBIDDEN",
+                  "OWNERSHIP_TENANT_UNKNOWN",
+                  "OWNERSHIP_INVALID"
+                ]
+              },
+              "event": {
+                "type": "null"
+              }
+            },
+            "required": [
+              "outcome",
+              "code",
+              "event"
+            ],
+            "additionalProperties": false
+          }
+        ]
+      }
+    },
+    "transferOwner": {
+      "path": "/ownership/transfer",
+      "request": {
+        "$schema": "https://json-schema.org/draft/2020-12/schema",
+        "type": "object",
+        "properties": {
+          "tenant": {
+            "type": "string",
+            "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$"
+          },
+          "from": {
+            "type": "object",
+            "properties": {
+              "principal": {
+                "type": "string",
+                "pattern": "^[a-zA-Z0-9_-]{1,128}$"
+              },
+              "consumer": {
+                "type": "string",
+                "pattern": "^[a-zA-Z0-9_-]{1,128}$"
+              }
+            },
+            "required": [
+              "principal",
+              "consumer"
+            ],
+            "additionalProperties": false
+          },
+          "to": {
+            "type": "object",
+            "properties": {
+              "principal": {
+                "type": "string",
+                "pattern": "^[a-zA-Z0-9_-]{1,128}$"
+              },
+              "consumer": {
+                "type": "string",
+                "pattern": "^[a-zA-Z0-9_-]{1,128}$"
+              }
+            },
+            "required": [
+              "principal",
+              "consumer"
+            ],
+            "additionalProperties": false
+          },
+          "expectedOwners": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "principal": {
+                  "type": "string",
+                  "pattern": "^[a-zA-Z0-9_-]{1,128}$"
+                },
+                "consumer": {
+                  "type": "string",
+                  "pattern": "^[a-zA-Z0-9_-]{1,128}$"
+                }
+              },
+              "required": [
+                "principal",
+                "consumer"
+              ],
+              "additionalProperties": false
+            },
+            "maxItems": 64,
+            "uniqueItems": true
+          }
+        },
+        "required": [
+          "tenant",
+          "from",
+          "to",
+          "expectedOwners"
+        ],
+        "additionalProperties": false
+      },
+      "response": {
+        "$schema": "https://json-schema.org/draft/2020-12/schema",
+        "oneOf": [
+          {
+            "type": "object",
+            "description": "Applied and audited; owners is the owner set after the change.",
+            "properties": {
+              "outcome": {
+                "const": "applied"
+              },
+              "code": {
+                "type": "null"
+              },
+              "event": {
+                "type": "string",
+                "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$"
+              },
+              "owners": {
+                "type": "array",
+                "items": {
+                  "type": "object",
+                  "properties": {
+                    "principal": {
+                      "type": "string",
+                      "pattern": "^[a-zA-Z0-9_-]{1,128}$"
+                    },
+                    "consumer": {
+                      "type": "string",
+                      "pattern": "^[a-zA-Z0-9_-]{1,128}$"
+                    }
+                  },
+                  "required": [
+                    "principal",
+                    "consumer"
+                  ],
+                  "additionalProperties": false
+                },
+                "maxItems": 64,
+                "uniqueItems": true,
+                "minItems": 1
+              }
+            },
+            "required": [
+              "outcome",
+              "code",
+              "event",
+              "owners"
+            ],
+            "additionalProperties": false
+          },
+          {
+            "type": "object",
+            "description": "Refused without ownership effect; the attempt is audited and owners is the current owner set.",
+            "properties": {
+              "outcome": {
+                "const": "refused"
+              },
+              "code": {
+                "enum": [
+                  "OWNERSHIP_CONFLICT",
+                  "OWNERSHIP_NOT_OWNER",
+                  "OWNERSHIP_ALREADY_OWNER",
+                  "OWNERSHIP_SUBJECT_UNKNOWN",
+                  "OWNERSHIP_DELEGATION_EXCEEDS_CEILING",
+                  "OWNERSHIP_UNCHANGED"
+                ]
+              },
+              "event": {
+                "type": "string",
+                "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$"
+              },
+              "owners": {
+                "type": "array",
+                "items": {
+                  "type": "object",
+                  "properties": {
+                    "principal": {
+                      "type": "string",
+                      "pattern": "^[a-zA-Z0-9_-]{1,128}$"
+                    },
+                    "consumer": {
+                      "type": "string",
+                      "pattern": "^[a-zA-Z0-9_-]{1,128}$"
+                    }
+                  },
+                  "required": [
+                    "principal",
+                    "consumer"
+                  ],
+                  "additionalProperties": false
+                },
+                "maxItems": 64,
+                "uniqueItems": true
+              }
+            },
+            "required": [
+              "outcome",
+              "code",
+              "event",
+              "owners"
+            ],
+            "additionalProperties": false
+          },
+          {
+            "type": "object",
+            "description": "No effect and no audit: the operator lacks current authority for this tenant, the tenant has no owner policy, or the input is invalid.",
+            "properties": {
+              "outcome": {
+                "const": "denied"
+              },
+              "code": {
+                "enum": [
+                  "OWNERSHIP_FORBIDDEN",
+                  "OWNERSHIP_TENANT_UNKNOWN",
+                  "OWNERSHIP_INVALID"
+                ]
+              },
+              "event": {
+                "type": "null"
+              }
+            },
+            "required": [
+              "outcome",
+              "code",
+              "event"
+            ],
+            "additionalProperties": false
+          }
+        ]
+      }
+    },
+    "recoverOwner": {
+      "path": "/ownership/recover",
+      "request": {
+        "$schema": "https://json-schema.org/draft/2020-12/schema",
+        "type": "object",
+        "properties": {
+          "tenant": {
+            "type": "string",
+            "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$"
+          },
+          "owner": {
+            "type": "object",
+            "properties": {
+              "principal": {
+                "type": "string",
+                "pattern": "^[a-zA-Z0-9_-]{1,128}$"
+              },
+              "consumer": {
+                "type": "string",
+                "pattern": "^[a-zA-Z0-9_-]{1,128}$"
+              }
+            },
+            "required": [
+              "principal",
+              "consumer"
+            ],
+            "additionalProperties": false
+          },
+          "delegable": {
+            "type": "array",
+            "items": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 1024
+            },
+            "maxItems": 256,
+            "uniqueItems": true,
+            "description": "Shiro permission strings the owner may delegate; must fit the current operator ceiling."
+          },
+          "expectedOwners": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "principal": {
+                  "type": "string",
+                  "pattern": "^[a-zA-Z0-9_-]{1,128}$"
+                },
+                "consumer": {
+                  "type": "string",
+                  "pattern": "^[a-zA-Z0-9_-]{1,128}$"
+                }
+              },
+              "required": [
+                "principal",
+                "consumer"
+              ],
+              "additionalProperties": false
+            },
+            "maxItems": 64,
+            "uniqueItems": true
+          }
+        },
+        "required": [
+          "tenant",
+          "owner",
+          "delegable",
+          "expectedOwners"
+        ],
+        "additionalProperties": false
+      },
+      "response": {
+        "$schema": "https://json-schema.org/draft/2020-12/schema",
+        "oneOf": [
+          {
+            "type": "object",
+            "description": "Applied and audited; owners is the owner set after the change.",
+            "properties": {
+              "outcome": {
+                "const": "applied"
+              },
+              "code": {
+                "type": "null"
+              },
+              "event": {
+                "type": "string",
+                "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$"
+              },
+              "owners": {
+                "type": "array",
+                "items": {
+                  "type": "object",
+                  "properties": {
+                    "principal": {
+                      "type": "string",
+                      "pattern": "^[a-zA-Z0-9_-]{1,128}$"
+                    },
+                    "consumer": {
+                      "type": "string",
+                      "pattern": "^[a-zA-Z0-9_-]{1,128}$"
+                    }
+                  },
+                  "required": [
+                    "principal",
+                    "consumer"
+                  ],
+                  "additionalProperties": false
+                },
+                "maxItems": 64,
+                "uniqueItems": true,
+                "minItems": 1
+              }
+            },
+            "required": [
+              "outcome",
+              "code",
+              "event",
+              "owners"
+            ],
+            "additionalProperties": false
+          },
+          {
+            "type": "object",
+            "description": "Refused without ownership effect; the attempt is audited and owners is the current owner set.",
+            "properties": {
+              "outcome": {
+                "const": "refused"
+              },
+              "code": {
+                "enum": [
+                  "OWNERSHIP_CONFLICT",
+                  "OWNERSHIP_NOT_OWNER",
+                  "OWNERSHIP_ALREADY_OWNER",
+                  "OWNERSHIP_SUBJECT_UNKNOWN",
+                  "OWNERSHIP_DELEGATION_EXCEEDS_CEILING",
+                  "OWNERSHIP_UNCHANGED"
+                ]
+              },
+              "event": {
+                "type": "string",
+                "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$"
+              },
+              "owners": {
+                "type": "array",
+                "items": {
+                  "type": "object",
+                  "properties": {
+                    "principal": {
+                      "type": "string",
+                      "pattern": "^[a-zA-Z0-9_-]{1,128}$"
+                    },
+                    "consumer": {
+                      "type": "string",
+                      "pattern": "^[a-zA-Z0-9_-]{1,128}$"
+                    }
+                  },
+                  "required": [
+                    "principal",
+                    "consumer"
+                  ],
+                  "additionalProperties": false
+                },
+                "maxItems": 64,
+                "uniqueItems": true
+              }
+            },
+            "required": [
+              "outcome",
+              "code",
+              "event",
+              "owners"
+            ],
+            "additionalProperties": false
+          },
+          {
+            "type": "object",
+            "description": "No effect and no audit: the operator lacks current authority for this tenant, the tenant has no owner policy, or the input is invalid.",
+            "properties": {
+              "outcome": {
+                "const": "denied"
+              },
+              "code": {
+                "enum": [
+                  "OWNERSHIP_FORBIDDEN",
+                  "OWNERSHIP_TENANT_UNKNOWN",
+                  "OWNERSHIP_INVALID"
+                ]
+              },
+              "event": {
+                "type": "null"
+              }
+            },
+            "required": [
+              "outcome",
+              "code",
+              "event"
+            ],
+            "additionalProperties": false
+          }
+        ]
+      }
+    }
+  }
+}

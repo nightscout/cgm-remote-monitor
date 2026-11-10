@@ -20,6 +20,7 @@ describe('Internal service API contracts', function () {
     assert.deepEqual(Object.keys(contracts.socketAuthority.operations), ['authorizeSocket', 'executeSocketMutation']);
     assert.deepEqual(Object.keys(contracts.alarmDelivery.operations), ['deliverAlarm']);
     assert.deepEqual(Object.keys(contracts.lifecycleParticipant.operations), ['getStatus', 'invalidateTenant']);
+    assert.deepEqual(Object.keys(contracts.ownershipOperations.operations), ['listOwners', 'addOwner', 'transferOwner', 'recoverOwner']);
     const paths = Object.values(contracts).flatMap(service => {
       assert.equal(service.version, 1);
       assert(Object.isFrozen(service.operations));
@@ -28,7 +29,8 @@ describe('Internal service API contracts', function () {
         return operation.path;
       });
     });
-    assert.deepEqual(paths, ['/authorize', '/mutate', '/alarm', '/cohort/status', '/cohort/invalidate']);
+    assert.deepEqual(paths, ['/authorize', '/mutate', '/alarm', '/cohort/status', '/cohort/invalidate',
+      '/ownership/list', '/ownership/add', '/ownership/transfer', '/ownership/recover']);
     assert.throws(() => { contracts.alarmDelivery.operations.getStatus = lifecycle.getStatus; }, TypeError);
   });
   it('accepts socket authority wire values and refuses unknown envelope, credential and permission fields', function () {
@@ -49,6 +51,28 @@ describe('Internal service API contracts', function () {
     validate(mutate.response, { replyArgs: [] });
     for (const patch of [{ event: 'dropDatabase' }, { namespace: '/storage' }, { namespace: '/alarm' }, { transport: 'owned' }, { args: {} }]) refused(() => validate(mutate.request, { host: 'a.example.test', envelope: { ...envelope, ...patch } }));
     refused(() => validate(mutate.response, { replyArgs: [], accepted: true }));
+  });
+  it('fixes ownership operation identifiers and refuses credential-bearing or ambiguous ownership wire values', function () {
+    const ownership = contracts.ownershipOperations.operations;
+    const owner = { principal: 'subject_a', consumer: 'tenant-admin' };
+    const body = { tenant: A, owner, delegable: ['api:*:read'], expectedOwners: [owner] };
+    validate(ownership.addOwner.request, body);
+    validate(ownership.recoverOwner.request, { ...body, expectedOwners: [] });
+    validate(ownership.transferOwner.request, { tenant: A, from: owner, to: { ...owner, principal: 'subject_b' }, expectedOwners: [owner] });
+    validate(ownership.listOwners.request, { tenant: A });
+    for (const bad of [{ ...body, credential: 'x' }, { ...body, owner: { ...owner, token: 'x' } }, { ...body, tenant: 'A' },
+      { ...body, expectedOwners: [owner, owner] }, { ...body, owner: { principal: 'a b', consumer: 'c' } }]) refused(() => validate(ownership.addOwner.request, bad));
+    refused(() => validate(ownership.transferOwner.request, { tenant: A, from: owner, expectedOwners: [] }));
+    validate(ownership.addOwner.response, { outcome: 'applied', code: null, event: request, owners: [owner] });
+    validate(ownership.addOwner.response, { outcome: 'refused', code: 'OWNERSHIP_CONFLICT', event: request, owners: [] });
+    validate(ownership.addOwner.response, { outcome: 'denied', code: 'OWNERSHIP_FORBIDDEN', event: null });
+    validate(ownership.listOwners.response, { outcome: 'listed', owners: [owner] });
+    for (const bad of [{ outcome: 'applied', code: null, event: request, owners: [] },
+      { outcome: 'applied', code: null, event: request, owners: [owner], credential: 'x' },
+      { outcome: 'refused', code: 'OWNERSHIP_FORBIDDEN', event: request, owners: [] },
+      { outcome: 'denied', code: 'OWNERSHIP_FORBIDDEN', event: null, owners: [owner] },
+      { outcome: 'denied', code: 'OWNERSHIP_CONFLICT', event: null }]) refused(() => validate(ownership.addOwner.response, bad));
+    refused(() => validate(ownership.listOwners.response, { outcome: 'listed', owners: [{ ...owner, secret: 'x' }] }));
   });
   it('preserves extensible notification payloads and fixes the handoff response without claiming device delivery', function () {
     const body = { tenant: A, id: request, attempt: 1, notification: { title: 'Synthetic', level: 2, customPluginField: true }, receipts: [{ providerSpecific: [1, null] }] };
