@@ -43,6 +43,7 @@ read from PostgreSQL during capture; generated columns are recomputed on restore
 | checkpoint, evaluator_checkpoint | Separate tenant_consumer_checkpoint table in each actual namespace |
 | authorization | tenant_authorization_config, tenant_authorization_roles, tenant_authorization_subjects, tenant_authorization_subject_roles, tenant_subject_admin_audit, tenant_owner_policy, tenant_owner_actors |
 | access | access_tenants, access_credentials, access_sessions, access_keys |
+| human_session | human_identities, human_sessions, human_access_tokens, human_logout_events (OIDC human sessions; same treatment as access) |
 | subject_policy | subject_policy, subject_policy_audit |
 | operator_policy | tenant_operator_policy |
 | tenant_settings | tenant_settings, tenant_settings_history |

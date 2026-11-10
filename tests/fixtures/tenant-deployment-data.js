@@ -35,6 +35,15 @@ function populatedRows ({ now = 1700000000000, profileSocketOrder = false } = {}
     add('access_sessions', { tenant_id: tenant, session_id: 'session_' + suffix, subject_id: 'subject_' + suffix,
       credential_id: 'credential_' + suffix, generation: 1, expires_at: String(now + 600000), active: true, purpose: 'data' });
     add('access_keys', { tenant_id: tenant, kid: 'key_' + suffix, purpose: 'data', active: true });
+    const issuer = 'https://issuer-' + suffix + '.invalid';
+    add('human_identities', { tenant_id: tenant, issuer, provider_subject: 'provider_' + suffix, subject_id: 'subject_' + suffix,
+      credential_id: 'credential_' + suffix, enabled: true, generation: 1, purposes: ['data'] });
+    add('human_sessions', { tenant_id: tenant, session_id: 'human_session_' + suffix, subject_id: 'subject_' + suffix, purpose: 'data',
+      issuer, provider_subject: 'provider_' + suffix, provider_session: null, authenticated_at: '900', created_at: '1000',
+      absolute_expires_at: null, idle_expires_at: null, active: true, authority_generation: 1, credential_generation: 1 });
+    add('human_access_tokens', { tenant_id: tenant, token_hash: (offset ? 'b' : 'c').repeat(64), session_id: 'human_session_' + suffix,
+      expires_at: String(now + 600000), kid: 'key_' + suffix, issued_at: '1000' });
+    add('human_logout_events', { tenant_id: tenant, issuer, event_id: 'logout_' + suffix, issued_at: '1000' });
     add('subject_policy', { tenant_id: tenant, version: 1, grants: [] });
     add('subject_policy_audit', { event_id: event(2), tenant_id: tenant, principal, consumer, operation: 'policy-replace', phase: 'committed', event_time: '1000', version: 1 });
     add('tenant_operator_policy', { tenant_id: tenant, generation: 1, policy: {}, principal, consumer, event_time: '1000' });
