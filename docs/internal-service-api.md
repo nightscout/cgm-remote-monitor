@@ -2,12 +2,15 @@
 
 The optional multitenant server roles use explicit internal APIs for socket
 credential decisions, socket writes, notification handoff and tenant restore
-coordination. Each listener owns one named service. A shared transport carries
+coordination. A private listener serves an explicitly composed set of named
+services through one fixed route table. A shared transport carries
 JSON requests and responses over a Unix-domain socket or an internal HTTP
 connection with explicit network trust configuration.
 
-Here "one named service" describes the current transport's registration model.
-Application and lifecycle contracts are both private APIs; lifecycle is a purpose,
+The roles currently open one listener per service. `transport.compose` can serve
+several services on one component-private listener (see
+[listener composition](#listener-composition)); role wiring has not been moved to
+it. Application and lifecycle contracts are both private APIs; lifecycle is a purpose,
 not a special transport. See [private API categories and deployment bindings](internal-service-topology.md#private-api-categories-and-deployment-bindings)
 for the distinction between a contract, a listener and a deployable component.
 
@@ -40,6 +43,17 @@ generator. Required fields, field types, enumerations and additional-property
 rules are executable in these documents; they are not duplicated in a second
 hand-maintained schema. A named method's `path` is the exact HTTP request target.
 
+An operation may also declare `method` (default and only supported value
+`POST`), `contentType` (default and only supported value `application/json`),
+`maxBytes` and `timeoutMs`. The operation's byte and deadline bounds can only
+tighten the endpoint's configured bounds; both the listener and the named client
+apply the smaller value to the request and the response. A request whose media
+type is not the operation's type (optionally with `charset=utf-8`) is refused,
+and a client refuses a response with a different media type. An unsupported
+method or media type fails registration; a GET operational/metrics module is a
+separate addition, not available today. The checked-in contracts declare none of
+these optional fields, so their behaviour is unchanged.
+
 | Service | Listener owner | Named client method | POST path | Result |
 |---|---|---|---|---|
 | `socket-authority` | API role | `authorizeSocket(body, signal)` | `/authorize` | Current permissions and readable collections, optionally display settings; `{ "denied": true }` for a credential denial. |
@@ -50,11 +64,10 @@ hand-maintained schema. A named method's `path` is the exact HTTP request target
 
 Service handlers must implement exactly the operations in their selected
 contract. Unknown, missing or extra handler registrations fail at composition.
-A request cannot select a different service on the same listener. An internal
-contract uses its own server and endpoint. A component with a public HTTP contract
+A request cannot select a different service on the same listener. A component with a public HTTP contract
 opens a second listener/port for its internal contract; private handlers are never
 mounted into its public Express router. Dispatch is an exact lookup of a fixed
-path in the selected service's table; query strings,
+`(method, path)` in the listener's route table; query strings,
 encoded aliases, additional path segments and unknown paths are refused. There
 is no URL forwarding, dynamic module lookup or generic proxy operation.
 
@@ -65,6 +78,38 @@ remain recognizable, but service/version enforcement requires a coordinated
 upgrade of communicating processes. There is no fallback to the earlier untyped
 IPC protocol. A breaking request, response or operation change requires an
 explicit protocol version change and a documented deployment transition.
+
+## Listener composition
+
+`transport.compose(endpoint, modules)` opens one private listener for a list of
+`{ service, create: token => handlers, lifetime? }` modules. Registration is
+fixed before the listener binds:
+
+- every operation contributes one `(method, path)` route; the same route twice,
+  within one service or across services, fails with `INTERNAL_API_ROUTE_DUPLICATE`,
+  and the same service twice with `INTERNAL_API_SERVICE_DUPLICATE`, before any
+  socket or port is published;
+- a request is dispatched only when its service/version headers name the owner of
+  that route; a co-resident or unregistered service name is refused with the usual
+  `503` and no handler runs;
+- each module receives its own in-process transport token;
+- `lifetime` is per module. Application modules pass `{ operationWindow,
+  resolveTenant }`; the lifecycle-participant module passes none, so status and
+  invalidation stay callable while a tenant is suspended and its application
+  operations refuse. A listener-wide window is deliberately not offered.
+
+`transport.open(endpoint, service, create, lifetime)` is the one-module form the
+roles use today. The opened listener exposes its `routes` for inspection.
+Application routing (any instance behind a service address) and per-instance
+lifecycle addressing (the controller calls each participant's own endpoint) stay
+distinct when they share a listener: they are different routes and services, and
+the participant manifest still lists exact per-instance endpoints.
+
+Composition changes no path, header or schema. Peers built before this change
+interoperate on the wire with composed listeners. Moving a role pair onto one
+listener in production needs a configuration shape that names the shared
+component endpoint and a boot order that registers every module before binding;
+neither exists yet.
 
 ## Clients and transport configuration
 
@@ -244,7 +289,7 @@ acknowledgement prevents activation and retains suspension. Schema validity does
 not substitute for those semantic gates.
 
 Request size, response size and operation duration are bounded by transport
-configuration. Application or wire validation failures return HTTP `503` with
+configuration, optionally tightened per operation. Application or wire validation failures return HTTP `503` with
 `{ "error": "SOCKET_IPC_UNAVAILABLE" }`, preserving the existing generic error
 contract. The client rejects non-success or malformed responses with
 `SOCKET_IPC_UNAVAILABLE`; local schema refusal uses `INTERNAL_API_SCHEMA_REFUSED`.
