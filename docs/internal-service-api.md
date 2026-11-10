@@ -19,6 +19,22 @@ Their checked-in JSON documents contain each operation's path and JSON Schema
 request and response. Both ends validate the serialized JSON representation, so
 existing BSON ObjectId and Date `toJSON()` behavior is preserved on the wire.
 
+See [component interfaces and traffic](internal-service-topology.md) for listener
+ownership, the reference deployment and separate traffic-plane diagrams.
+
+| Executable schema document | Request / response schema locations | Domain validation retained |
+|---|---|---|
+| [Socket authority](../lib/server/internal-api/contracts/socket-authority.json) | `operations.authorizeSocket.{request,response}` and `operations.executeSocketMutation.{request,response}` | Host-to-tenant matching, current credentials, exact write and acknowledgement authority. |
+| [Alarm delivery](../lib/server/internal-api/contracts/alarm-delivery.json) | `operations.deliverAlarm.{request,response}` | Current tenant, notification domain rules and recipient read authority. |
+| [Lifecycle participant](../lib/server/internal-api/contracts/lifecycle-participant.json) | `operations.getStatus.{request,response}` and `operations.invalidateTenant.{request,response}` | Participant census, pinned incarnation/schema/datastore/backend identities, nonce, drain and suspension rules. |
+
+Each nested `request` and `response` is a JSON Schema 2020-12 document. The
+containing document is the service registry, not itself a payload schema. Select
+the appropriate nested schema when using a schema editor, validator or client
+generator. Required fields, field types, enumerations and additional-property
+rules are executable in these documents; they are not duplicated in a second
+hand-maintained schema. A named method's `path` is the exact HTTP request target.
+
 | Service | Listener owner | Named client method | POST path | Result |
 |---|---|---|---|---|
 | `socket-authority` | API role | `authorizeSocket(body, signal)` | `/authorize` | Current permissions and readable collections, optionally display settings; `{ "denied": true }` for a credential denial. |
