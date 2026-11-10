@@ -6,6 +6,11 @@ coordination. Each listener owns one named service. A shared transport carries
 JSON requests and responses over a Unix-domain socket or an internal HTTP
 connection with explicit network trust configuration.
 
+Here "one named service" describes the current transport's registration model.
+Application and lifecycle contracts are both private APIs; lifecycle is a purpose,
+not a special transport. See [private API categories and deployment bindings](internal-service-topology.md#private-api-categories-and-deployment-bindings)
+for the distinction between a contract, a listener and a deployable component.
+
 The shipping single-site Socket.IO listener does not use these APIs. Unix-domain
 sockets retain their existing filesystem trust model. Deployment controls who can
 reach HTTP endpoints. The transport does not introduce a bearer credential

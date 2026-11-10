@@ -18,6 +18,38 @@ an internal contract: tenant-admin's management contract is distinct from its
 private lifecycle contract even though neither is published by the reference
 edge.
 
+## Private API categories and deployment bindings
+
+Both application operations and lifecycle operations are **private APIs**.
+"Lifecycle" describes their purpose, not a different network, protocol or class
+of transport. The diagrams separate traffic by purpose to make the connections
+readable:
+
+- Private application calls carry socket authority decisions, socket mutations
+  and notification handoff.
+- Private lifecycle control carries participant status and tenant invalidation
+  for claim-bound restore coordination.
+- Operational health/readiness/metrics would be another private API category.
+  The evaluator currently returns an in-process `health()` result and serves its
+  lifecycle participant contract; this does not establish a remote `/metrics`
+  endpoint. A worker can serve an operational API without a consumer data API.
+
+Each `.sock` filename in the reference inventory is an HTTP listener binding.
+It is not a separate wire protocol, and application callers use the same service
+contract and named methods with an explicit TCP/HTTP endpoint. The local
+filesystem ownership checks apply to the UDS deployment; the HTTP deployment
+uses its configured network boundary.
+
+The current transport binds **one service contract per listener**. Consequently
+API and realtime each have separate application and lifecycle listeners. This
+allocation is an implementation choice, not a consequence of separating public
+and private interfaces. Multiple explicit contract modules could share one
+component's private listener without putting any of them on its public listener.
+That composition is not implemented by the current single-service dispatcher;
+it would require a fixed server-owned method/path registry, collision checks,
+per-operation schemas and preserved authorization/lifecycle semantics. A request
+must never select an arbitrary handler or load an arbitrary contract.
+
 ## Listener inventory
 
 | Deployable component / job | Consumer or management interface in the reference | Internal service listener in the reference | Outbound traffic |
@@ -61,6 +93,13 @@ flowchart LR
   E["Evaluator<br/>notification consumer"] -->|"deliverAlarm<br/>alarm.sock"| R["Realtime<br/>alarm-delivery listener"]
   R -->|"authorizeSocket / executeSocketMutation<br/>api.sock"| A["REST API<br/>socket-authority listener"]
 ```
+
+These are different operations, not a generic request-proxy chain. Evaluator
+initiates notification handoff to realtime. Realtime separately asks the API for
+current socket permissions and forwards client writes/acknowledgements to it.
+Delivery also checks each recipient's current permission, so notification fanout
+can itself cause authority calls. The frequency and cost of those calls are not
+measured by the topology diagram.
 
 Realtime remains a reader of clinical projections. Client writes and alarm
 acknowledgements go to the API's existing authorized executor. Alarm acceptance
@@ -119,3 +158,43 @@ Existing credential, tenant and lifecycle gates remain required.
 The role catalogue also names `vcpool` and platform `admin`, but they have no
 selected runnable constructor in this reference. They are not presented here as
 deployed services.
+
+## Edge enforcement and application authority
+
+The reference nginx binding already handles reverse proxying and the WebSocket
+upgrade/tunnel. Realtime implements the Socket.IO protocol, namespace and tenant
+subscriptions, application fanout and current permission checks. It is not a
+general-purpose replacement for nginx.
+
+An edge authorization adapter can be a separate private contract for nginx
+`auth_request` or a gateway decision API. It needs an explicit status-code,
+original-request metadata, tenant-resolution and trusted-header contract.
+Nginx's [authorization subrequest contract](https://nginx.org/en/docs/http/ngx_http_auth_request_module.html)
+uses successful status for allow and 401/403 for deny. The socket authority
+operation's JSON `{denied:true}` success response is therefore not directly
+compatible. Ory Oathkeeper supports both
+[reverse-proxy and decision-API placement](https://www.ory.com/docs/network/oathkeeper).
+
+Gateway decisions can control connection admission and HTTP request routing.
+After a WebSocket upgrade, nginx
+[tunnels the connection](https://nginx.org/en/docs/http/websocket.html); the initial
+HTTP decision does not authorize each later Socket.IO message, subscription,
+fanout recipient or database mutation. Those existing application gates remain
+required. Any identity headers supplied by an edge adapter need a defined trusted
+ingress boundary and stripping/replacement of client-supplied copies. No such
+adapter or new trusted-header behavior is selected by this documentation.
+
+## Maintaining the current views
+
+The [API reference](internal-service-api.md) owns current API semantics and links
+to executable schemas. This page owns the current listener inventory and
+traffic diagrams. The executable schemas, role constructors and selected
+deployment binding remain the facts those views describe; review their diagrams
+when any of those inputs changes. Diagram labels distinguish observed code,
+reference addresses and unimplemented composition choices.
+
+Dated test captures and acceptance reports retain their original source and
+scope. They are evidence, not a second current architecture guide. When older
+design prose is superseded, redirect current navigation to these current views
+and preserve the historical material with its original attribution. This update
+does not archive measurements or declare a new deployment accepted.
