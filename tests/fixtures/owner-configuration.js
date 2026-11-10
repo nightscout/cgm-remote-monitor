@@ -73,8 +73,8 @@ module.exports = function ownerConfigurationFixture () {
     }
     const ownerSchemas = ['preview_auth', 'preview_legacy', 'preview_access'];
     for (const role of [roles.writer, roles.access]) await data.admin.query(`GRANT USAGE ON SCHEMA ${ownerSchemas.join(',')} TO "${role}"`);
-    await data.admin.query(`GRANT SELECT,UPDATE,DELETE ON ${t('tenant_authorization_subjects')},preview_legacy.legacy_credential_subjects TO "${roles.writer}"`);
-    await data.admin.query(`GRANT SELECT ON ${t('tenant_authorization_roles')} TO "${roles.writer}"`);
+    await data.admin.query(`GRANT SELECT,INSERT,UPDATE,DELETE ON ${t('tenant_authorization_subjects')},preview_legacy.legacy_credential_subjects TO "${roles.writer}"`);
+    await data.admin.query(`GRANT SELECT,INSERT ON ${t('tenant_authorization_roles')} TO "${roles.writer}"`);
     await data.admin.query(`GRANT SELECT,INSERT,DELETE ON ${t('tenant_authorization_subject_roles')} TO "${roles.writer}"`);
     await data.admin.query(`GRANT INSERT ON ${t('tenant_subject_admin_audit')} TO "${roles.writer}"`);
     for (const table of ['tenant_authorization_config', 'tenant_authorization_roles', 'tenant_owner_policy', 'tenant_owner_actors']) {

@@ -362,15 +362,18 @@ optInSuite(process.env.NS_SUBJECT_MANAGEMENT_HTTP_DOCKER_TEST === '1',
     assertResponse(await management('delete', path + '/' + SUBJECT, { name: 'ignored?' }), 400, 'REQUEST_INVALID');
     assertResponse(await management('delete', path + '/' + SUBJECT, 'ignored text'), 415, 'REQUEST_MEDIA_TYPE');
     assertResponse(await management('delete', path + '/' + SUBJECT, []), 400, 'REQUEST_INVALID');
-    for (const method of ['get', 'post', 'patch']) {
+    for (const method of ['get', 'patch']) {
       const response = await management(method);
       assertResponse(response, 405, 'METHOD_REFUSED');
-      assert.equal(response.headers.allow, 'PUT');
+      assert.equal(response.headers.allow, 'POST, PUT');
     }
     const wrongVerb = await management('put', path + '/' + SUBJECT, { name: 'Wrong verb' });
     assertResponse(wrongVerb, 405, 'METHOD_REFUSED');
     assert.equal(wrongVerb.headers.allow, 'DELETE');
-    for (const target of ['/api/v1/authorization/subjects', '/api/v2/authorization/roles', '/api/v3/entries',
+    const roles = await management('get', '/api/v2/authorization/roles');
+    assertResponse(roles, 405, 'METHOD_REFUSED');
+    assert.equal(roles.headers.allow, 'POST');
+    for (const target of ['/api/v1/authorization/subjects', '/api/v3/entries',
       '/api/v1/tenant/settings', '/api/v1/operator/tenants/' + A + '/policy']) {
       assertResponse(await management('get', target), 404, 'NOT_FOUND');
     }

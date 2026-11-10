@@ -66,7 +66,8 @@ function grants(l) {
   for(const name of ['authorization','access'])grant('SELECT','ALL TABLES IN SCHEMA '+quote(ns[name]),'alarm');
   for(const name of ['tenant_notification_state','schema_migrations'])grant('SELECT',table('outbox',name),'alarm');
   for(const who of ['owner_writer','owner_reader'])for(const name of ['authorization','legacy','access']){schema(name,who);grant('SELECT','ALL TABLES IN SCHEMA '+quote(ns[name]),who);}
-  for(const name of [table('authorization','tenant_authorization_subjects'),table('legacy','legacy_credential_subjects')])grant('UPDATE,DELETE',name,'owner_writer');
+  for(const name of [table('authorization','tenant_authorization_subjects'),table('legacy','legacy_credential_subjects')])grant('INSERT,UPDATE,DELETE',name,'owner_writer');
+  grant('INSERT',table('authorization','tenant_authorization_roles'),'owner_writer');
   grant('INSERT,DELETE',table('authorization','tenant_authorization_subject_roles'),'owner_writer');
   sql.push('REVOKE SELECT ON '+table('authorization','tenant_subject_admin_audit')+' FROM '+quote(r.owner_writer));
   grant('INSERT',table('authorization','tenant_subject_admin_audit'),'owner_writer');

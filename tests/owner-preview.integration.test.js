@@ -122,8 +122,8 @@ optInSuite(process.env.NS_OWNER_PREVIEW_TEST === '1' && !!process.env.NS_TEST_PO
         const uri = new URL(process.env.NS_TEST_POSTGRES_ADMIN_URI); uri.username = role; uri.password = password;
         if (role === writerRole) writerURI = uri.toString(); else readerURI = uri.toString();
       }
-      await admin.query(`GRANT SELECT,UPDATE,DELETE ON ${t('tenant_authorization_subjects')},${c} TO "${writerRole}"`);
-      await admin.query(`GRANT SELECT ON ${t('tenant_authorization_roles')} TO "${writerRole}"`);
+      await admin.query(`GRANT SELECT,INSERT,UPDATE,DELETE ON ${t('tenant_authorization_subjects')},${c} TO "${writerRole}"`);
+      await admin.query(`GRANT SELECT,INSERT ON ${t('tenant_authorization_roles')} TO "${writerRole}"`);
       await admin.query(`GRANT SELECT,INSERT,DELETE ON ${t('tenant_authorization_subject_roles')} TO "${writerRole}"`);
       await admin.query(`GRANT INSERT ON ${t('tenant_subject_admin_audit')} TO "${writerRole}"`);
       for (const table of ['tenant_authorization_config', 'tenant_authorization_roles', 'tenant_owner_policy', 'tenant_owner_actors']) {
@@ -193,7 +193,7 @@ optInSuite(process.env.NS_OWNER_PREVIEW_TEST === '1' && !!process.env.NS_TEST_PO
       await stop(await start(missing, {}, false));
       await stop(await start(config(), { OWNER_READER: process.env.NS_TEST_POSTGRES_ADMIN_URI }, false));
     });
-    it('keeps management routes off the actual data app and refuses DELETE under selected policy', async function () {
+    it('keeps management routes off the actual data app and commits an owner revocation through the owner listener', async function () {
       const resolver = createResolver({ aliases: [{ host: 'one.example.test', tenant: A }] });
       const dataRouter = express.Router(); dataRouter.get('/entries', (req, res) => res.json([]));
       const app = createTenantApp({ resolver, dataRouter, verifyCredential: async () => null,
@@ -202,8 +202,20 @@ optInSuite(process.env.NS_OWNER_PREVIEW_TEST === '1' && !!process.env.NS_TEST_PO
       const before = await snapshot();
       const response = await request(app).put(endpoint).set('Host', 'one.example.test').set('Authorization', 'Bearer ' + token()).send({ _id: TARGET, name: 'Refused' });
       assert([401, 403, 404, 405].includes(response.status), 'data app must not expose owner handler: ' + response.status); assert.deepEqual(await snapshot(), before);
-      const removed = await http(workers[0], token(), undefined, 'one.example.test', 'DELETE', endpoint + '/' + TARGET);
-      assert.equal(removed.status, 403); assert.deepEqual(await snapshot(), before);
+      // The owner candidate (68f35cd0) fences creation, revocation and issuance in
+      // the store transaction; DELETE is no longer refused. Revoke a dedicated
+      // synthetic subject so TARGET stays available to later cases.
+      const REVOKED = 'revoked';
+      await admin.query(`INSERT INTO ${t('tenant_authorization_subjects')}(tenant_id,subject_id,display_name) VALUES($1,$2,$2)`, [A, REVOKED]);
+      await admin.query(`INSERT INTO ${c}(tenant_id,subject_id,token_prefix) VALUES($1,$2,$2)`, [A, REVOKED]);
+      const removed = await http(workers[0], token(), undefined, 'one.example.test', 'DELETE', endpoint + '/' + REVOKED);
+      assert.equal(removed.status, 200, JSON.stringify(removed.body));
+      for (const table of [t('tenant_authorization_subjects'), c]) {
+        assert.equal((await admin.query('SELECT 1 FROM ' + table + ' WHERE tenant_id=$1 AND subject_id=$2', [A, REVOKED])).rowCount, 0);
+      }
+      const after = await snapshot();
+      for (const table of [t('tenant_authorization_subjects'), t('tenant_authorization_subject_roles'), c]) assert.deepEqual(after[table], before[table]);
+      assert.equal(after[t('tenant_subject_admin_audit')].length, before[t('tenant_subject_admin_audit')].length + 1);
     });
     it('uses separate actual API and owner listeners in one CLI process with real PostgreSQL and Vault', async function () {
       // Reuse the real data-preview provider fixture, including its private

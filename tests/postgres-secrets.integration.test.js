@@ -108,7 +108,7 @@ optInSuite(process.env.NS_SECRETS_POSTGRES_DOCKER_TEST === '1', 'NS_SECRETS_POST
     await run('up', { direct: true, connectionString: adminURI, namespace,
       catalogue: { version: 1, migrations: [catalogue.migrations[0]] } });
     const upgrade = await run('up', { direct: true, connectionString: adminURI, namespace, catalogue });
-    assert.deepEqual(upgrade.done, ['0002_secrets_rewrap']);
+    assert.deepEqual(upgrade.done, ['0002_secrets_rewrap', '0003_secrets_legacy_issuance']);
     await run('check', { direct: true, connectionString: adminURI, namespace, catalogue });
     await run('up', { direct: true, connectionString: adminURI, namespace: operatorNamespace,
       catalogue: operatorPolicyCatalogue });
