@@ -13,7 +13,9 @@ const { legacyInsertionEntry } = require('./fixtures/legacy-insertion-catalogue'
 const trustedCapabilities = {
   authorize: async ({ tenant }) => ({ tenant, allowed: true, current: true, plane: 'operator', principal: 'synthetic_operator', consumer: 'synthetic_control' }),
   verifyDurableArtifact: async ({ tenant, artifact }) => ({ tenant, verified: true, digest: artifact.digest }),
-  executionWindow: async ({ tenant }) => ({ tenant, current: true, quiesced: true })
+  executionWindow: async ({ tenant }) => ({ tenant, current: true, quiesced: true }),
+  // Trusted provisioning's per-tenant key names (synthetic; no key material).
+  keyInventory: async ({ tenant }) => [{ mount: 'transit', name: 'tenant-' + tenant.slice(0, 8) + '-data' }, { mount: 'transit', name: 'tenant-' + tenant.slice(0, 8) + '-signing' }]
 };
 const selectedCatalogues = [...lifecycleModule.admittedCatalogue().map(legacyInsertionEntry),
   { kind: 'alarm_suppression', candidate: require('../migrations/candidates/postgres-alarm-suppression-v1.json'), tables: ['tenant_alarm_suppression'], secrets: [] },
@@ -31,6 +33,7 @@ const lifecycle = lifecycleModule.createLifecycle(trustedCapabilities);
 const artifacts = require('../lib/tenant-lifecycle/artifact');
 const ledgerCandidate = require('../lib/tenant-lifecycle/postgres-candidate.json');
 const { validateCatalogue } = require('../lib/migrations/catalogue');
+const { LEDGER_TABLES } = require('../lib/tenant-lifecycle/key-retention');
 
 const A = '11111111-1111-4111-8111-111111111111';
 const B = '22222222-2222-4222-8222-222222222222';
@@ -62,6 +65,7 @@ const COLUMNS = {
   tenant_notification_state: 'tenant_id uuid, consumer text, revision bigint, config_identity text, producer jsonb',
   tenant_notification_heads: 'tenant_id uuid, consumer text, dedup_key text, request_id uuid, blocked_until bigint',
   tenant_notification_requests: 'tenant_id uuid, request_id uuid, consumer text, dedup_key text, origin text, config_identity text, payload jsonb, state text, created_at bigint, next_at bigint, attempt integer, attempt_token uuid, attempt_until bigint, accepted_at bigint, receipt jsonb, cleared_at bigint',
+  tenant_lifecycle_key_retention: 'request_id uuid, tenant_id uuid, artifact_digest text, key_names jsonb, key_references integer, phase text, retained_at bigint, retain_until bigint, restored_at bigint, destroy_started_by text, destroy_started_consumer text, destroy_started_at bigint, destroyed_by text, destroyed_consumer text, destroyed_at bigint',
   tenant_lifecycle_ceremony: 'request_id uuid, tenant_id uuid, phase text, requested_by text, requested_consumer text, confirmed_by text, confirmed_consumer text, confirmed_at bigint, cancelled_by text, cancelled_consumer text, cancelled_at bigint, claim_id uuid, started_by text, started_consumer text, started_at bigint, executed_by text, executed_consumer text, executed_at bigint'
 };
 const namespaces = Object.fromEntries(lifecycle.CATALOGUE.map(entry => [entry.kind, 'ns_' + entry.kind]));
@@ -123,7 +127,7 @@ function recordingConnection (seed = seedRows(), legacy = false) {
   }
   ledgers.set(ledgerNamespace, ledgerCandidate.migrations.map(m => ({ name: m.name, checksum: m.checksum })));
   tables.set('"' + ledgerNamespace + '"."tenant_lifecycle_requests"', { columns: columnsFor('tenant_lifecycle_requests'), rows: [] });
-  tables.set('"' + ledgerNamespace + '"."tenant_lifecycle_ceremony"', { columns: columnsFor('tenant_lifecycle_ceremony'), rows: [] });
+  for (const table of LEDGER_TABLES) tables.set('"' + ledgerNamespace + '"."' + table + '"', { columns: columnsFor(table), rows: [] });
   let active = false;
   let pending = Promise.resolve();
   const bound = () => {
@@ -149,7 +153,21 @@ function recordingConnection (seed = seedRows(), legacy = false) {
     if ((match = /^SELECT count\(\*\)::int AS n FROM ("[a-z0-9_]+"\."[a-z0-9_]+") WHERE tenant_id = \$1$/.exec(text))) {
       return { rows: [{ n: tables.get(match[1]).rows.filter(row => row.tenant_id === tenant && row.tenant_id === values[0]).length }] };
     }
-    if ((match = /^SELECT (.+) FROM ("[a-z0-9_]+"\."tenant_lifecycle_(?:requests|ceremony)") WHERE request_id = \$1 AND tenant_id = \$2 FOR UPDATE$/.exec(text))) {
+    if ((match = /^SELECT (.+) FROM ("[a-z0-9_]+"\."tenant_lifecycle_key_retention") WHERE tenant_id = \$1 FOR UPDATE$/.exec(text))) {
+      return { rows: clone(tables.get(match[2]).rows.filter(row => row.tenant_id === tenant && row.tenant_id === values[0])) };
+    }
+    if ((match = /^UPDATE ("[a-z0-9_]+"\."tenant_lifecycle_key_retention") SET (.+) WHERE request_id = \$1 AND tenant_id = \$2 AND phase = \$(\d+)$/.exec(text))) {
+      const assignments = match[2].split(',').map(item => { const parts = /([a-z_]+) = \$(\d+)/.exec(item.trim()); return { name: parts[1], index: Number(parts[2]) - 1 }; });
+      let count = 0;
+      for (const row of tables.get(match[1]).rows) {
+        if (row.tenant_id === tenant && row.request_id === values[0] && row.tenant_id === values[1] && row.phase === values[Number(match[3]) - 1]) {
+          for (const part of assignments) row[part.name] = clone(values[part.index]);
+          count++;
+        }
+      }
+      return { rowCount: count, rows: [] };
+    }
+    if ((match = /^SELECT (.+) FROM ("[a-z0-9_]+"\."tenant_lifecycle_(?:requests|ceremony|key_retention)") WHERE request_id = \$1 AND tenant_id = \$2 FOR UPDATE$/.exec(text))) {
       return { rows: clone(tables.get(match[2]).rows.filter(row => row.tenant_id === tenant && row.request_id === values[0] && row.tenant_id === values[1])) };
     }
     if ((match = /^SELECT (.+) FROM ("[a-z0-9_]+"\."[a-z0-9_]+") WHERE tenant_id = \$1$/.exec(text))) {
@@ -297,7 +315,7 @@ describe('tenant lifecycle: typed export, import and two-phase deletion', functi
       transaction: async fn => { try { return await fn(); } finally { release(id); } },
       query: async text => {
         assert.equal(tenantScope.requireTenant('controlled ceremony query'), A);
-        if (text.includes('reviewed-relation-inventory')) return { rows: ['schema_migrations','tenant_lifecycle_requests','tenant_lifecycle_ceremony'].map(name => ({ name, kind: 'r', partition: false, inherited: false })) };
+        if (text.includes('reviewed-relation-inventory')) return { rows: ['schema_migrations', ...LEDGER_TABLES].map(name => ({ name, kind: 'r', partition: false, inherited: false })) };
         if (text.includes('SELECT name, checksum')) return { rows: validateCatalogue(ledgerCandidate).map(({ name, checksum }) => ({ name, checksum })) };
         if (text.includes('pg_advisory_xact_lock')) { await acquire(id, 'policy'); return { rows: [] }; }
         if (text.includes('SELECT generation, policy')) return { rows: [{ generation: 1, policy: { wholeCFixtureActors: [{ ...principal, active: true, actions: ['execute','cancel'] }] } }] };
@@ -347,7 +365,7 @@ describe('tenant lifecycle: typed export, import and two-phase deletion', functi
     assert.equal(eraseFailure?.code, 'LIFECYCLE_RELATION_UNADMITTED');
     assert.equal(source.log.filter(entry => /^DELETE/.test(entry.text)).length, 0);
     const target = recordingConnection({}); target.addRelation(namespaces.entries, 'unreviewed_state');
-    await assert.rejects(lifecycle.importArtifact(target, artifact, { tenant: A, namespaces }), { code: 'LIFECYCLE_RELATION_UNADMITTED', detail: 'entries.unreviewed_state' });
+    await assert.rejects(lifecycle.importArtifact(target, artifact, { tenant: A, ledgerNamespace, namespaces }), { code: 'LIFECYCLE_RELATION_UNADMITTED', detail: 'entries.unreviewed_state' });
     assert.equal(target.log.some(entry => /^INSERT/.test(entry.text)), false);
   });
 
@@ -370,8 +388,8 @@ describe('tenant lifecycle: typed export, import and two-phase deletion', functi
     const target = recordingConnection({});
     const unknown = { name: '0999_unknown', checksum: 'a'.repeat(64) };
     target.ledgers.get(namespaces.entries).push(unknown);
-    await assert.rejects(lifecycle.importArtifact(target, artifact, { tenant: A, namespaces }), { code: 'LIFECYCLE_SCHEMA_UNKNOWN', detail: 'entries' });
-    await assert.rejects(lifecycle.importArtifact(target, knownArtifact, { tenant: A, namespaces }), { code: 'LIFECYCLE_SCHEMA_UNKNOWN', detail: 'entries' });
+    await assert.rejects(lifecycle.importArtifact(target, artifact, { tenant: A, ledgerNamespace, namespaces }), { code: 'LIFECYCLE_SCHEMA_UNKNOWN', detail: 'entries' });
+    await assert.rejects(lifecycle.importArtifact(target, knownArtifact, { tenant: A, ledgerNamespace, namespaces }), { code: 'LIFECYCLE_SCHEMA_UNKNOWN', detail: 'entries' });
     assert.equal(target.log.filter(entry => /^INSERT|^DELETE/.test(entry.text)).length, 0);
   });
 
@@ -396,7 +414,7 @@ describe('tenant lifecycle: typed export, import and two-phase deletion', functi
     const foreign = seedRows(); for (const rows of Object.values(foreign)) for (let i = rows.length - 1; i >= 0; i--) if (rows[i].tenant_id === A) rows.splice(i, 1);
     const target = recordingConnection(foreign);
     const before = target.rows(namespaces.entries, 'entries', B);
-    await assert.rejects(lifecycle.importArtifact(target, artifact, { tenant: A, namespaces }), { code: 'LIFECYCLE_IDENTITY_IMPORT_UNSUPPORTED', detail: 'entries.entries' });
+    await assert.rejects(lifecycle.importArtifact(target, artifact, { tenant: A, ledgerNamespace, namespaces }), { code: 'LIFECYCLE_IDENTITY_IMPORT_UNSUPPORTED', detail: 'entries.entries' });
     assert.equal(target.log.some(entry => /^(INSERT|UPDATE|DELETE|ALTER)|setval|nextval/.test(entry.text)), false);
     assert.deepEqual(target.rows(namespaces.entries, 'entries', B), before);
   });
@@ -470,7 +488,7 @@ describe('tenant lifecycle: typed export, import and two-phase deletion', functi
     const artifact = await nonIdentityLifecycle.exportTenant(source, options());
     const target = recordingLegacyConnection({});
     const seen = [];
-    const result = await nonIdentityLifecycle.importArtifact(target, artifact, { tenant: A, namespaces, onRow: event => { seen.push(event.total); } });
+    const result = await nonIdentityLifecycle.importArtifact(target, artifact, { tenant: A, ledgerNamespace, namespaces, onRow: event => { seen.push(event.total); } });
     assert.equal(result.total, totalRows(source, A));
     assert.deepEqual(seen, seen.map((_, i) => i + 1));
     assert.equal(target.log.filter(e => e.text.startsWith('BEGIN')).length, 1);
@@ -492,7 +510,7 @@ describe('tenant lifecycle: typed export, import and two-phase deletion', functi
     const artifact = await nonIdentityLifecycle.exportTenant(source, options());
     const writes = connection => connection.log.filter(e => /^(INSERT|DELETE|UPDATE)/.test(e.text)).length;
     let target = recordingLegacyConnection({});
-    await assert.rejects(nonIdentityLifecycle.importArtifact(target, artifact, { tenant: B, namespaces }), { code: 'LIFECYCLE_TENANT_MISMATCH' });
+    await assert.rejects(nonIdentityLifecycle.importArtifact(target, artifact, { tenant: B, ledgerNamespace, namespaces }), { code: 'LIFECYCLE_TENANT_MISMATCH' });
     assert.equal(writes(target), 0);
 
     const rebuilt = mutate => {
@@ -514,28 +532,28 @@ describe('tenant lifecycle: typed export, import and two-phase deletion', functi
 
     const tampered = JSON.parse(JSON.stringify(artifact));
     tampered.tables['entries.entries'].pop();
-    await assert.rejects(nonIdentityLifecycle.importArtifact(recordingLegacyConnection({}), tampered, { tenant: A, namespaces }), { code: 'LIFECYCLE_ARTIFACT_COUNT' });
+    await assert.rejects(nonIdentityLifecycle.importArtifact(recordingLegacyConnection({}), tampered, { tenant: A, ledgerNamespace, namespaces }), { code: 'LIFECYCLE_ARTIFACT_COUNT' });
     tampered.manifest.exportedAt += 1;
-    await assert.rejects(nonIdentityLifecycle.importArtifact(recordingLegacyConnection({}), tampered, { tenant: A, namespaces }), { code: 'LIFECYCLE_ARTIFACT_DIGEST' });
+    await assert.rejects(nonIdentityLifecycle.importArtifact(recordingLegacyConnection({}), tampered, { tenant: A, ledgerNamespace, namespaces }), { code: 'LIFECYCLE_ARTIFACT_DIGEST' });
 
     const stale = rebuilt(c => { c.find(x => x.kind === 'entries').ledger[0].checksum = 'f'.repeat(64); });
     target = recordingLegacyConnection({});
-    await assert.rejects(nonIdentityLifecycle.importArtifact(target, stale, { tenant: A, namespaces }), { code: 'LIFECYCLE_SCHEMA_DRIFT', detail: 'entries' });
+    await assert.rejects(nonIdentityLifecycle.importArtifact(target, stale, { tenant: A, ledgerNamespace, namespaces }), { code: 'LIFECYCLE_SCHEMA_DRIFT', detail: 'entries' });
     assert.equal(writes(target), 0);
 
     assert.throws(() => rebuilt(c => { delete c.find(x => x.kind === 'entries').tables[0].rows[0].id_kind; }), { code: 'LIFECYCLE_ARTIFACT_COLUMN', detail: 'entries.entries.id_kind' });
     const narrowed = rebuilt(c => { c.find(x => x.kind === 'entries').tables[0].columns.pop(); });
-    await assert.rejects(nonIdentityLifecycle.importArtifact(recordingLegacyConnection({}), narrowed, { tenant: A, namespaces }), { code: 'LIFECYCLE_COLUMNS_MISMATCH', detail: 'entries.entries' });
+    await assert.rejects(nonIdentityLifecycle.importArtifact(recordingLegacyConnection({}), narrowed, { tenant: A, ledgerNamespace, namespaces }), { code: 'LIFECYCLE_COLUMNS_MISMATCH', detail: 'entries.entries' });
     const retyped = rebuilt(c => { c.find(x => x.kind === 'entries').tables[0].columns[1].type = 'text'; });
-    await assert.rejects(nonIdentityLifecycle.importArtifact(recordingLegacyConnection({}), retyped, { tenant: A, namespaces }), { code: 'LIFECYCLE_COLUMNS_MISMATCH', detail: 'entries.entries' });
+    await assert.rejects(nonIdentityLifecycle.importArtifact(recordingLegacyConnection({}), retyped, { tenant: A, ledgerNamespace, namespaces }), { code: 'LIFECYCLE_COLUMNS_MISMATCH', detail: 'entries.entries' });
 
     const missing = rebuilt(c => { c.splice(c.findIndex(x => x.kind === 'food'), 1); });
     target = recordingLegacyConnection({});
-    await assert.rejects(nonIdentityLifecycle.importArtifact(target, missing, { tenant: A, namespaces }), { code: 'LIFECYCLE_CATALOGUE_INCOMPLETE', detail: 'food' });
+    await assert.rejects(nonIdentityLifecycle.importArtifact(target, missing, { tenant: A, ledgerNamespace, namespaces }), { code: 'LIFECYCLE_CATALOGUE_INCOMPLETE', detail: 'food' });
     assert.equal(writes(target), 0);
 
-    await assert.rejects(nonIdentityLifecycle.importArtifact(source, artifact, { tenant: A, namespaces }), { code: 'LIFECYCLE_TARGET_NOT_EMPTY', detail: 'entries.entries' });
-    await assert.rejects(nonIdentityLifecycle.importArtifact(recordingLegacyConnection({}), artifact, { tenant: A, namespaces: { ...namespaces, food: undefined } }), { code: 'LIFECYCLE_CATALOGUE_UNMAPPED', detail: 'food' });
+    await assert.rejects(nonIdentityLifecycle.importArtifact(source, artifact, { tenant: A, ledgerNamespace, namespaces }), { code: 'LIFECYCLE_TARGET_NOT_EMPTY', detail: 'entries.entries' });
+    await assert.rejects(nonIdentityLifecycle.importArtifact(recordingLegacyConnection({}), artifact, { tenant: A, ledgerNamespace, namespaces: { ...namespaces, food: undefined } }), { code: 'LIFECYCLE_CATALOGUE_UNMAPPED', detail: 'food' });
   });
 
   it('rolls back an interrupted import completely and a rerun completes', async function () {
@@ -543,13 +561,13 @@ describe('tenant lifecycle: typed export, import and two-phase deletion', functi
     const artifact = await nonIdentityLifecycle.exportTenant(source, options());
     const target = recordingLegacyConnection({});
     let partial;
-    await assert.rejects(nonIdentityLifecycle.importArtifact(target, artifact, { tenant: A, namespaces, onRow: event => {
+    await assert.rejects(nonIdentityLifecycle.importArtifact(target, artifact, { tenant: A, ledgerNamespace, namespaces, onRow: event => {
       if (event.total === 3) { partial = totalRows(target, A); throw new Error('synthetic-interruption'); }
     } }), /synthetic-interruption/);
     assert.equal(partial, 3, 'three rows were visible inside the transaction before the throw');
     assert.equal(target.log.at(-1).text, 'ROLLBACK');
     assert.equal(totalRows(target, A), 0);
-    const rerun = await nonIdentityLifecycle.importArtifact(target, artifact, { tenant: A, namespaces });
+    const rerun = await nonIdentityLifecycle.importArtifact(target, artifact, { tenant: A, ledgerNamespace, namespaces });
     assert.equal(rerun.total, totalRows(source, A));
     assert.equal(totalRows(target, A), rerun.total);
   });
@@ -593,7 +611,7 @@ describe('tenant lifecycle: typed export, import and two-phase deletion', functi
     assert.equal(connection.log.filter(e => e.text === 'BEGIN').at(-1) !== undefined, true);
     await assert.rejects(lifecycle.executeDeletion(connection, { tenant: A, namespaces, ledgerNamespace, artifact, requestId: request.requestId }), { code: 'LIFECYCLE_REQUEST_ALREADY_EXECUTED' });
 
-    await assert.rejects(lifecycle.importArtifact(connection, artifact, { tenant: A, namespaces }), { code: 'LIFECYCLE_IDENTITY_IMPORT_UNSUPPORTED', detail: 'entries.entries' });
+    await assert.rejects(lifecycle.importArtifact(connection, artifact, { tenant: A, ledgerNamespace, namespaces }), { code: 'LIFECYCLE_IDENTITY_IMPORT_UNSUPPORTED', detail: 'entries.entries' });
     assert.equal(totalRows(connection, A), 0);
     assert.equal(artifact.tables['secrets.secret_records'][0].ciphertext, CIPHER);
   });
@@ -776,5 +794,168 @@ describe('tenant lifecycle: typed export, import and two-phase deletion', functi
     assert.throws(() => artifacts.validateArtifact(dropped), { code: 'LIFECYCLE_ARTIFACT_DIGEST' });
     dropped.digest = artifacts.manifestDigest(dropped.manifest);
     assert.throws(() => artifacts.validateArtifact(dropped), { code: 'LIFECYCLE_CIPHERTEXT_WITHOUT_KEY_REFERENCE' });
+  });
+});
+
+// Post-deletion key retention (release decision tenant-deletion-key-retention).
+// Same recording double: it is not PostgreSQL; the native suite is
+// tests/tenant-key-retention.integration.test.js (PostgreSQL + Vault).
+describe('tenant lifecycle: 30-day key retention, operator destroy and restore window', function () {
+  const retention = require('../lib/tenant-lifecycle/key-retention');
+  const DAY = 24 * 60 * 60 * 1000;
+  const T0 = 1700000000000;
+  let previousMode;
+  before(function () { previousMode = tenantScope.getTenancyMode(); tenantScope.setTenancyMode('multi'); });
+  after(function () { tenantScope.setTenancyMode(previousMode); });
+
+  function custodian () {
+    const calls = [];
+    return { calls, fail: false, async destroy ({ tenant, keys }) {
+      calls.push({ tenant, keys: keys.map(key => key.mount + '/' + key.name) });
+      if (this.fail) throw Object.assign(new Error('Secrets provider key destruction failed'), { code: 'SECRETS_PROVIDER_UNAVAILABLE' });
+      return { destroyed: true, absent: keys.length };
+    } };
+  }
+  // The older non-identity entries cohort (as nonIdentityLifecycle) so a
+  // same-ID import can run on this double; admission checks the selected kinds.
+  const legacyAdmission = ({ catalogues }) => assert.deepEqual(catalogues.map(entry => entry.kind), selectedCatalogues.map(entry => entry.kind));
+  const subject = (keyCustodian, extra = {}) => lifecycleModule.createLifecycle({ ...trustedCapabilities, admissionCheck: legacyAdmission, keyCustodian, ...extra,
+    catalogues: selectedCatalogues.map(entry => entry.kind === 'entries' ? { ...entry, candidate: { ...entry.candidate, migrations: entry.candidate.migrations.slice(0, 1) } } : entry) });
+
+  async function deleted (life, connection, at = T0) {
+    const artifact = await life.exportTenant(connection, options({ now: () => at - 10 }));
+    const request = await life.requestDeletion(connection, { tenant: A, ledgerNamespace, artifact, now: () => at - 3 });
+    await life.confirmDeletion(connection, { tenant: A, ledgerNamespace, artifact, requestId: request.requestId, now: () => at - 2 });
+    const result = await life.executeDeletion(connection, { tenant: A, namespaces, ledgerNamespace, artifact, requestId: request.requestId, now: () => at });
+    return { artifact, requestId: request.requestId, result };
+  }
+  const destroyArgs = (requestId, now, extra = {}) => ({ tenant: A, namespaces, ledgerNamespace, requestId, now: () => now,
+    intent: retention.destroyIntent(A, requestId), ...extra });
+
+  it('records a 30-day retention window with every key name at execution, in the destructive transaction', async function () {
+    const connection = recordingLegacyConnection();
+    const { artifact, requestId, result } = await deleted(subject(custodian()), connection);
+    assert.deepEqual(result.retention, { retainedAt: T0, retainUntil: T0 + 30 * DAY, keys: 2 });
+    const [row] = connection.rows(ledgerNamespace, 'tenant_lifecycle_key_retention');
+    assert.equal(row.request_id, requestId); assert.equal(row.artifact_digest, artifact.digest);
+    assert.equal(row.phase, 'retained'); assert.equal(row.retain_until, T0 + 30 * DAY); assert.equal(row.key_references, 1);
+    assert.deepEqual(row.key_names, [{ mount: 'transit', name: 'tenant-11111111-data' }, { mount: 'transit', name: 'tenant-11111111-signing' }]);
+    assert.ok(!JSON.stringify(row).includes(CIPHER), 'the retention record holds names and counts, never ciphertext');
+    assert.equal(connection.rows(namespaces.secrets, 'secret_records', A).length, 0);
+    assert.equal(connection.rows(namespaces.secrets, 'secret_records', B).length, 1);
+  });
+
+  it('gate: an artifact missing one key reference refuses deletion before any secret or audit row is removed', async function () {
+    const life = subject(custodian());
+    for (const [keyNames, code] of [
+      [[{ mount: 'transit', name: 'tenant-11111111-data' }], 'LIFECYCLE_KEY_REFERENCE_MISSING'],
+      [null, 'LIFECYCLE_KEY_NAMES_MISSING'],
+      [[{ mount: 'transit', name: 'tenant-11111111-data' }, { mount: 'transit', name: 'tenant-11111111-signing' }, { mount: 'transit', name: 'tenant-22222222-data' }], 'LIFECYCLE_KEY_REFERENCE_UNKNOWN']
+    ]) {
+      const connection = recordingLegacyConnection();
+      const before = totalRows(connection, A);
+      const exported = await lifecycleModule.createLifecycle({ ...trustedCapabilities, keyInventory: null, catalogues: life.admittedCatalogue() })
+        .exportTenant(connection, options({ keyNames, now: () => T0 - 10 }));
+      const request = await life.requestDeletion(connection, { tenant: A, ledgerNamespace, artifact: exported, now: () => T0 - 3 });
+      await life.confirmDeletion(connection, { tenant: A, ledgerNamespace, artifact: exported, requestId: request.requestId, now: () => T0 - 2 });
+      await assert.rejects(life.executeDeletion(connection, { tenant: A, namespaces, ledgerNamespace, artifact: exported, requestId: request.requestId, now: () => T0 }), error => {
+        assert.equal(error.code, code); return true;
+      });
+      assert.equal(totalRows(connection, A), before, code + ': nothing deleted');
+      assert.equal(connection.rows(namespaces.secrets, 'secret_audit', A).length, 1, code + ': audit rows kept');
+      assert.equal(connection.rows(ledgerNamespace, 'tenant_lifecycle_key_retention').length, 0);
+    }
+    // A missing per-ciphertext reference is refused at artifact validation.
+    const connection = recordingLegacyConnection();
+    const artifact = await life.exportTenant(connection, options({ now: () => T0 - 10 }));
+    const catalogues = artifact.manifest.catalogues.map(entry => ({ ...entry, tables: entry.tables.map(table => ({ ...table,
+      rows: artifact.tables[entry.kind + '.' + table.table], secrets: table.keyReferences !== undefined,
+      keyReferences: table.keyReferences && table.keyReferences.slice(1) })) }));
+    assert.throws(() => artifacts.buildArtifact({ tenant: A, sourceCommit: COMMIT, exportedAt: 1, keyNames: artifact.manifest.keyNames, catalogues }),
+      { code: 'LIFECYCLE_CIPHERTEXT_WITHOUT_KEY_REFERENCE' });
+  });
+
+  it('gate: restore inside the window succeeds, credentials return and the record becomes restored', async function () {
+    const connection = recordingLegacyConnection();
+    const life = subject(custodian());
+    const { artifact, requestId } = await deleted(life, connection);
+    const result = await life.importArtifact(connection, artifact, { tenant: A, namespaces, ledgerNamespace, now: () => T0 + 30 * DAY - 1 });
+    assert.ok(result.total > 0);
+    assert.deepEqual(connection.rows(namespaces.secrets, 'secret_records', A).map(row => row.ciphertext), [CIPHER]);
+    const [row] = connection.rows(ledgerNamespace, 'tenant_lifecycle_key_retention');
+    assert.equal(row.phase, 'restored'); assert.equal(row.restored_at, T0 + 30 * DAY - 1);
+    await assert.rejects(life.destroyRetainedKeys(connection, destroyArgs(requestId, T0 + 31 * DAY)), { code: 'LIFECYCLE_RETENTION_RESTORED' });
+  });
+
+  it('gate: restore after the window refuses with nothing written, even before any destroy', async function () {
+    const connection = recordingLegacyConnection();
+    const life = subject(custodian());
+    const { artifact } = await deleted(life, connection);
+    await assert.rejects(life.importArtifact(connection, artifact, { tenant: A, namespaces, ledgerNamespace, now: () => T0 + 30 * DAY }), { code: 'LIFECYCLE_RETENTION_EXPIRED' });
+    assert.equal(totalRows(connection, A), 0);
+    assert.equal(connection.rows(ledgerNamespace, 'tenant_lifecycle_key_retention')[0].phase, 'retained');
+    await assert.rejects(life.importArtifact(connection, artifact, { tenant: A, namespaces, now: () => T0 + 1 }), { code: 'LIFECYCLE_RETENTION_LEDGER_REQUIRED' });
+  });
+
+  it('destroy requires explicit intent, the operator plane and an ended window, and audits both steps', async function () {
+    const connection = recordingLegacyConnection();
+    const keys = custodian();
+    const life = subject(keys);
+    const { requestId } = await deleted(life, connection);
+    await assert.rejects(life.destroyRetainedKeys(connection, destroyArgs(requestId, T0 + 31 * DAY, { intent: undefined })), { code: 'LIFECYCLE_DESTROY_INTENT_REQUIRED' });
+    await assert.rejects(life.destroyRetainedKeys(connection, destroyArgs(requestId, T0 + 31 * DAY, { intent: retention.destroyIntent(B, requestId) })), { code: 'LIFECYCLE_DESTROY_INTENT_REQUIRED' });
+    const owner = subject(keys, { authorize: async ({ tenant }) => ({ tenant, allowed: true, current: true, plane: 'owner', principal: 'synthetic_owner', consumer: 'synthetic_owner_ui' }) });
+    await assert.rejects(owner.destroyRetainedKeys(connection, destroyArgs(requestId, T0 + 31 * DAY)), { code: 'LIFECYCLE_OPERATOR_REQUIRED' });
+    await assert.rejects(life.destroyRetainedKeys(connection, destroyArgs(requestId, T0 + 30 * DAY - 1)), { code: 'LIFECYCLE_RETENTION_WINDOW_OPEN' });
+    await assert.rejects(subject(null).destroyRetainedKeys(connection, destroyArgs(requestId, T0 + 31 * DAY)), { code: 'LIFECYCLE_KEY_CUSTODIAN_REQUIRED' });
+    assert.equal(keys.calls.length, 0, 'no provider call before every precondition holds');
+    const done = await life.destroyRetainedKeys(connection, destroyArgs(requestId, T0 + 30 * DAY));
+    assert.deepEqual(done, { requestId, tenant: A, phase: 'destroyed', keys: 2, destroyedAt: T0 + 30 * DAY, resumed: false });
+    assert.deepEqual(keys.calls, [{ tenant: A, keys: ['transit/tenant-11111111-data', 'transit/tenant-11111111-signing'] }]);
+    const [row] = connection.rows(ledgerNamespace, 'tenant_lifecycle_key_retention');
+    assert.equal(row.phase, 'destroyed');
+    assert.deepEqual([row.destroy_started_by, row.destroy_started_consumer, row.destroy_started_at, row.destroyed_by, row.destroyed_at],
+      ['synthetic_operator', 'synthetic_control', T0 + 30 * DAY, 'synthetic_operator', T0 + 30 * DAY]);
+    assert.ok(!JSON.stringify(done).includes('vault:'), 'the result reveals no ciphertext');
+    const again = await life.destroyRetainedKeys(connection, destroyArgs(requestId, T0 + 32 * DAY));
+    assert.equal(again.resumed, true); assert.equal(keys.calls.length, 1, 'a repeat destroy makes no provider call');
+  });
+
+  it('gate: destroy then restore refuses, including inside a clock that is later rewound', async function () {
+    const connection = recordingLegacyConnection();
+    const life = subject(custodian());
+    const { artifact, requestId } = await deleted(life, connection);
+    await life.destroyRetainedKeys(connection, destroyArgs(requestId, T0 + 30 * DAY));
+    for (const at of [T0 + 31 * DAY, T0 + 1]) {
+      await assert.rejects(life.importArtifact(connection, artifact, { tenant: A, namespaces, ledgerNamespace, now: () => at }), { code: 'LIFECYCLE_KEYS_DESTROYED' });
+    }
+    assert.equal(totalRows(connection, A), 0);
+  });
+
+  it('a provider failure leaves the record destroying: restore refuses and an explicit retry completes', async function () {
+    const connection = recordingLegacyConnection();
+    const keys = custodian(); keys.fail = true;
+    const life = subject(keys);
+    const { artifact, requestId } = await deleted(life, connection);
+    await assert.rejects(life.destroyRetainedKeys(connection, destroyArgs(requestId, T0 + 30 * DAY)), error => {
+      assert.equal(error.code, 'SECRETS_PROVIDER_UNAVAILABLE'); assert.ok(!/vault:|token/i.test(error.message)); return true;
+    });
+    assert.equal(connection.rows(ledgerNamespace, 'tenant_lifecycle_key_retention')[0].phase, 'destroying');
+    await assert.rejects(life.importArtifact(connection, artifact, { tenant: A, namespaces, ledgerNamespace, now: () => T0 + 1 }), { code: 'LIFECYCLE_KEYS_DESTROYED' });
+    keys.fail = false;
+    const done = await life.destroyRetainedKeys(connection, destroyArgs(requestId, T0 + 30 * DAY + 5));
+    assert.equal(done.phase, 'destroyed'); assert.equal(keys.calls.length, 2);
+    assert.equal(connection.rows(ledgerNamespace, 'tenant_lifecycle_key_retention')[0].destroy_started_at, T0 + 30 * DAY);
+  });
+
+  it('refuses to destroy keys of a same-ID tenant that holds rows again', async function () {
+    const connection = recordingLegacyConnection();
+    const keys = custodian();
+    const life = subject(keys);
+    const { requestId } = await deleted(life, connection);
+    await tenantScope.withTenant(A, () => connection.transaction(() => connection.query('INSERT INTO "' + namespaces.food + '"."food" ("tenant_id", "id_kind", "doc") VALUES ($1::uuid, $2::text, $3::jsonb)',
+      [A, 'string', JSON.stringify({ _id: 'reprovisioned', name: 'synthetic' })])));
+    await assert.rejects(life.destroyRetainedKeys(connection, destroyArgs(requestId, T0 + 31 * DAY)), { code: 'LIFECYCLE_TENANT_NOT_DELETED', detail: 'food.food' });
+    assert.equal(keys.calls.length, 0);
   });
 });

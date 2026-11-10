@@ -65,6 +65,18 @@
         "CREATE POLICY tenant_restore_audit_update ON tenant_lifecycle_restore_audit FOR UPDATE USING (tenant_id = nullif(current_setting('app.current_tenant_id', true), '')::uuid AND role_oid = CURRENT_USER::regrole::oid AND owner_pid = pg_backend_pid() AND owner_birth = tenant_lifecycle_backend_birth()) WITH CHECK (tenant_id = nullif(current_setting('app.current_tenant_id', true), '')::uuid AND role_oid = CURRENT_USER::regrole::oid AND owner_pid = pg_backend_pid() AND owner_birth = tenant_lifecycle_backend_birth())"
       ],
       "checksum": "f353bf4cd6a1ac348ae1da77e8416cce20e26164838e678a4127a65fb78c5b4c"
+    },
+    {
+      "name": "0005_tenant_lifecycle_key_retention",
+      "up": [
+        "CREATE TABLE tenant_lifecycle_key_retention (request_id uuid PRIMARY KEY, tenant_id uuid NOT NULL, artifact_digest text NOT NULL CHECK (artifact_digest ~ '^[a-f0-9]{64}$'), key_names jsonb NOT NULL CHECK (jsonb_typeof(key_names) = 'array' AND jsonb_array_length(key_names) > 0), key_references integer NOT NULL CHECK (key_references >= 0), phase text NOT NULL CHECK (phase IN ('retained','restored','destroying','destroyed')), retained_at bigint NOT NULL CHECK (retained_at >= 0), retain_until bigint NOT NULL, restored_at bigint, destroy_started_by text, destroy_started_consumer text, destroy_started_at bigint, destroyed_by text, destroyed_consumer text, destroyed_at bigint, FOREIGN KEY (request_id,tenant_id) REFERENCES tenant_lifecycle_requests (request_id,tenant_id), CHECK (retain_until > retained_at), CHECK ((phase = 'restored') = (restored_at IS NOT NULL)), CHECK (restored_at IS NULL OR (restored_at >= retained_at AND restored_at < retain_until)), CHECK ((phase IN ('destroying','destroyed')) = (destroy_started_at IS NOT NULL) AND (destroy_started_at IS NULL) = (destroy_started_by IS NULL) AND (destroy_started_at IS NULL) = (destroy_started_consumer IS NULL)), CHECK ((phase = 'destroyed') = (destroyed_at IS NOT NULL) AND (destroyed_at IS NULL) = (destroyed_by IS NULL) AND (destroyed_at IS NULL) = (destroyed_consumer IS NULL)), CHECK (destroy_started_at IS NULL OR destroy_started_at >= retain_until), CHECK (destroyed_at IS NULL OR destroyed_at >= destroy_started_at))",
+        "CREATE INDEX tenant_lifecycle_key_retention_tenant ON tenant_lifecycle_key_retention (tenant_id, retained_at)",
+        "ALTER TABLE tenant_lifecycle_key_retention ENABLE ROW LEVEL SECURITY",
+        "ALTER TABLE tenant_lifecycle_key_retention FORCE ROW LEVEL SECURITY",
+        "CREATE POLICY tenant_lifecycle_key_retention_tenant ON tenant_lifecycle_key_retention USING (tenant_id = nullif(current_setting('app.current_tenant_id', true), '')::uuid) WITH CHECK (tenant_id = nullif(current_setting('app.current_tenant_id', true), '')::uuid)",
+        "REVOKE ALL ON tenant_lifecycle_key_retention FROM PUBLIC"
+      ],
+      "checksum": "a12b423863f18ca7bbe019b419c7ff73877ee63428fb8454c33d0e888ef8fa7d"
     }
   ]
 }

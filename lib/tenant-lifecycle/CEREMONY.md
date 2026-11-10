@@ -3,8 +3,9 @@
 Source-only implementation of the adopted explicit request + operator confirmation,
 cancellation until execution starts, and no mandatory pre-deletion wait. Native
 transaction/privilege/claim-race acceptance remains UNMEASURED. Post-deletion
-30-day key/artifact retention is a separate contract; no key destruction or
-automatic artifact/tombstone expiry is implemented.
+30-day key retention, the key-completeness refusal and the operator destroy are
+in [README.md](README.md#post-deletion-key-retention); automatic artifact or
+tombstone expiry is not implemented.
 
 ## Capability composition
 
@@ -106,8 +107,14 @@ Check actual allowed/denied SQL and row effects under both tenants, not metadata
 inspection alone. Request IDs/claim IDs are identifiers, not bearer authority.
 
 Neither confirmation nor failure returns credential material. The export retains
-ciphertext/recovery references; provider/key retention/destruction is not selected
-or invoked by this code.
+ciphertext/recovery references. Execution records the retention window in the
+same transaction as the deletes; provider key destruction happens only through
+the separate operator `destroyRetainedKeys` call after the window.
+
+The ledger namespace admission (`ready`) lists every table the lifecycle
+candidate creates (`LEDGER_TABLES` in key-retention.js), not only the request
+and ceremony tables: a namespace migrated with the full candidate otherwise
+refused every ceremony call (`LIFECYCLE_RELATION_UNADMITTED`).
 
 ## Verification and native plan
 

@@ -61,6 +61,10 @@ function populatedRows ({ now = 1700000000000, profileSocketOrder = false } = {}
     add('tenant_lifecycle_ceremony', { request_id: event(4), tenant_id: tenant, phase: 'executed', requested_by: 'owner_' + suffix, requested_consumer: consumer,
       confirmed_by: principal, confirmed_consumer: consumer, confirmed_at: '600', cancelled_by: null, cancelled_consumer: null, cancelled_at: null,
       claim_id: event(5), started_by: principal, started_consumer: consumer, started_at: '800', executed_by: principal, executed_consumer: consumer, executed_at: '1000' });
+    add('tenant_lifecycle_key_retention', { request_id: event(4), tenant_id: tenant, artifact_digest: digest,
+      key_names: [{ mount: 'transit', name: 'tenant-' + suffix + '-data' }], key_references: 1, phase: 'retained',
+      retained_at: '1000', retain_until: '2592001000', restored_at: null, destroy_started_by: null, destroy_started_consumer: null,
+      destroy_started_at: null, destroyed_by: null, destroyed_consumer: null, destroyed_at: null });
     add('tenant_lifecycle_windows', { tenant_id: tenant, lock_key: String(100 + offset), phase: 'active', generation: '1', claim_id: null, artifact_digest: null });
     add('tenant_lifecycle_operations', { tenant_id: tenant, operation_id: event(6), generation: '1', finished: true,
       owner_pid: 1, owner_birth: '2026-11-07T00:00:00.123456Z' });

@@ -9,7 +9,10 @@ const { fixture, withAdmission, A, B, BASE, clone } = require('./fixtures/logica
 const security = require('../lib/api3/security');
 const history = require('../lib/api3/generic/history/operation');
 const utils = require('../lib/api3/storage/mongoCollection/utils');
-const args = f => ({ tenant: A, namespaces: f.namespaces, maintenanceClaim: f.token, catalogues: f.catalogues });
+// Post-deletion retention gate: the lifecycle index supplies the SQL gate; these
+// direct protocol calls supply a recording stand-in (no deletion recorded).
+const retention = f => ({ admit: async () => { f.trace.push({ sql: 'retention-admit' }); return { requestIds: [] }; }, mark: async () => { f.trace.push({ sql: 'retention-mark' }); } });
+const args = f => ({ tenant: A, namespaces: f.namespaces, maintenanceClaim: f.token, catalogues: f.catalogues, retention: retention(f) });
 describe('tenant logical restore forward history', function () {
   let tenancy, now;
   beforeEach(function () { tenancy = scope.getTenancyMode(); scope.setTenancyMode('multi'); now = Date.now; Date.now = () => BASE + 9000; });
@@ -132,7 +135,7 @@ describe('tenant logical restore forward history', function () {
 
   it('default clock-bearing import selects logical reconciliation instead of stale raw metadata replay', async function () {
     const f = fixture(); f.begin(); const selected = lifecycle.createLifecycle({ catalogues: f.catalogues });
-    const result = await withAdmission(f, () => selected.importArtifact(f.connection, f.artifact, { tenant: A, namespaces: f.namespaces, maintenanceClaim: f.token }));
+    const result = await withAdmission(f, () => selected.importArtifact(f.connection, f.artifact, { tenant: A, namespaces: f.namespaces, ledgerNamespace: 'ns_lifecycle', maintenanceClaim: f.token }));
     assert.equal(result.mode, 'logical-history-reconciliation'); await f.commit(); assert(Number(f.durable.clock[A]) > 1000);
   });
 });

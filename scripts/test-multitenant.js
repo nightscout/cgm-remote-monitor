@@ -111,6 +111,8 @@ const INVENTORY = [
   { file: 'tests/postgres-secrets.integration.test.js', flags: { NS_SECRETS_POSTGRES_DOCKER_TEST: '1', NS_VAULT_DOCKER_TEST: '1' }, shared: [], own: ['postgres', 'vault'], gate: PENDING,
     note: 'NS_VAULT_DOCKER_TEST=1 enables its one backup-restore case, which starts raft Vaults' },
   { file: 'tests/vault-secrets.integration.test.js', flags: { NS_VAULT_DOCKER_TEST: '1' }, shared: [], own: ['vault'], gate: PENDING },
+  { file: 'tests/tenant-key-retention.integration.test.js', flags: { NS_KEY_RETENTION_DOCKER_TEST: '1' }, shared: [], own: ['postgres', 'vault'], gate: PENDING,
+    note: 'post-deletion 30-day key retention: destroys Transit keys in its own Vault dev' },
   { file: 'tests/tenant-runtime-vault.integration.test.js', flags: { NS_TENANT_RUNTIME_VAULT_DOCKER_TEST: '1' }, shared: [], own: ['postgres', 'vault'], gate: PENDING },
   { file: 'tests/tenant-entries-http.integration.test.js', flags: { NS_TENANT_HTTP_DOCKER_TEST: '1' }, shared: [], own: ['postgres'], gate: PENDING },
   { file: 'tests/tenant-credential-http.integration.test.js', flags: { NS_TENANT_CREDENTIAL_HTTP_DOCKER_TEST: '1' }, shared: ['mongo'], own: ['postgres'], gate: PENDING,
