@@ -20,6 +20,14 @@ const digest = catalogue => crypto.createHash('sha256').update(JSON.stringify(ca
 const docker = args => execFileSync('docker', args, { encoding: 'utf8', stdio: ['ignore', 'pipe', 'pipe'], timeout: 30000 }).trim();
 const sleep = ms => new Promise(resolve => setTimeout(resolve, ms));
 const actor = Object.freeze({ tenant: A, principal: 'manager', consumer: 'admin' });
+function rootWriterGrants (role) {
+  return [`GRANT SELECT,INSERT,UPDATE,DELETE ON ${tables.subjects},${tables.credentials} TO ${role}`,
+    `GRANT SELECT,INSERT,UPDATE(owner_fence) ON ${tables.roles} TO ${role}`,
+    `GRANT SELECT,INSERT,DELETE ON ${tables.links} TO ${role}`,
+    `GRANT INSERT ON ${tables.audit} TO ${role}`,
+    `GRANT SELECT,UPDATE(owner_fence) ON ${tables.config},${tables.policy} TO ${role}`,
+    `GRANT SELECT ON ${tables.actors} TO ${role}`];
+}
 async function createFixture () {
   const suffix = crypto.randomBytes(8).toString('hex'), name = 'ns-owner-policy-test-' + suffix, database = 'owner_policy_test_' + suffix;
   const previousMode = scope.getTenancyMode(), stores = [], clients = [], state = {};
@@ -75,7 +83,7 @@ async function createFixture () {
     await run('check', { direct: true, connectionString: adminURI, namespace: NS, catalogue: require('../../lib/tenant-authorization/postgres-candidate.json') });
     await run('up', { direct: true, connectionString: adminURI, namespace: CREDENTIAL_NS, catalogue: require('../../lib/secrets/legacy-credentials-candidate.json') });
     const uris = {};
-    for (const role of ['owner_writer', 'legacy_writer', 'owner_reader']) {
+    for (const role of ['owner_writer', 'legacy_writer', 'owner_reader', 'root_writer']) {
       const pw = crypto.randomBytes(24).toString('hex');
       await admin.query(`CREATE ROLE ${role} LOGIN NOSUPERUSER NOBYPASSRLS PASSWORD '${pw}'`);
       await admin.query(`GRANT USAGE ON SCHEMA ${NS},${CREDENTIAL_NS} TO ${role}`);
@@ -91,17 +99,19 @@ async function createFixture () {
     await admin.query(`GRANT INSERT ON ${tables.subjects},${tables.credentials},${tables.roles} TO owner_writer`);
     for (const table of [tables.config, tables.roles, tables.policy, tables.actors]) await admin.query(`GRANT SELECT,UPDATE(owner_fence) ON ${table} TO owner_writer`);
     await admin.query(`GRANT SELECT ON ${tables.subjects},${tables.roles},${tables.links},${tables.config},${tables.credentials} TO owner_reader`);
-    f.writerURI = uris.owner_writer; f.legacyURI = uris.legacy_writer; f.readerURI = uris.owner_reader;
+    // Root plane (tenant API_SECRET): the owner writer's shape, except that it
+    // only reads owner actor rows (last-owner guard) and never locks them.
+    for (const statement of rootWriterGrants('root_writer')) await admin.query(statement);
+    f.writerURI = uris.owner_writer; f.legacyURI = uris.legacy_writer; f.readerURI = uris.owner_reader; f.rootURI = uris.root_writer;
     f.newStore = async (options = {}) => {
       const store = await createStore({ connectionString: uris.owner_writer, namespace: NS, credentialNamespace: CREDENTIAL_NS,
         ownerPolicy: { catalogue: CATALOGUE.slice() }, ...options });
       stores.push(store); return store;
     };
     f.ownerStore = await f.newStore();
-    f.legacyStore = await createStore({ connectionString: uris.legacy_writer, namespace: NS, credentialNamespace: CREDENTIAL_NS }); stores.push(f.legacyStore);
+    f.rootStore = await f.newStore({ connectionString: uris.root_writer, plane: 'root' });
     const coarse = async current => { if (state.authorityError) throw new Error('synthetic authority unavailable'); return current.principal === 'manager'; };
     f.service = createSubjectAdmin({ store: f.ownerStore, authorizeManagement: coarse });
-    f.legacyService = createSubjectAdmin({ store: f.legacyStore, authorizeManagement: coarse });
     const resolver = createResolver({ aliases: [{ host: 'one.example.test', tenant: A }, { host: 'two.example.test', tenant: B }] });
     const authenticateManagement = async ({ tenant, credential }) => {
       if (state.authError) throw new Error('synthetic identity unavailable');
@@ -110,7 +120,7 @@ async function createFixture () {
       return credential === 'synthetic-management-' + tenant ? { tenant, principal: 'manager', consumer: 'admin' } : null;
     };
     f.app = createSubjectManagementApp({ resolver, authenticateManagement, subjectAdmin: f.service });
-    f.legacyApp = createSubjectManagementApp({ resolver, authenticateManagement, subjectAdmin: f.legacyService });
+    f.resolver = resolver;
     f.http = async (body, options = {}) => {
       const method = options.method || 'put', target = '/api/v2/authorization/subjects' + (method === 'delete' ? '/' + TARGET : '');
       let pending = request(options.app || f.app)[method](target).set('Host', options.host || 'one.example.test').timeout({ response: 20000 });

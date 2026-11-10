@@ -107,8 +107,39 @@ legacy metadata, SELECT/INSERT on roles, SELECT/INSERT/DELETE on role links,
 INSERT on redacted audit, and SELECT plus only UPDATE(owner_fence) on current
 config/policy/actor/role fence rows. It cannot edit role permissions or operator
 policy. Startup screens forced RLS, nonownership and exact privilege shape.
-Unselected legacy writers retain their previous narrower shape. Secrets storage
+A writer without an owner policy is not buildable: the PostgreSQL store is
+multitenant-only and refuses construction without `ownerPolicy`. Secrets storage
 uses its separately screened persistence identity.
+
+A root-plane writer (`plane: 'root'`) has the same shape except that it holds
+only SELECT on owner actor rows (no `UPDATE(owner_fence)`): the last-owner guard
+reads them and root never locks them. Each plane refuses the other's identity.
+
+## Tenant root (API_SECRET) on the DATA listener
+
+Decisions `tenant-root-single-site-parity` and `root-may-edit-owner-subjects`
+(16.0.0 release records). With the optional preview `subjectAdmin`
+`{writerConnectionEnv,ownerPolicy:{catalogue}}` the DATA listener serves the
+single-site admin tools routes to the resolved tenant's root secret only, with
+the same paths, verbs and form or JSON payloads
+([`root-admin.js`](../server/tenant-app/root-admin.js)):
+
+| route | operation |
+|---|---|
+| `GET /api/v2/authorization/subjects` | list `{_id,name,roles,notes,accessToken}` |
+| `POST /api/v2/authorization/subjects` | create subject |
+| `PUT /api/v2/authorization/subjects` | update subject using `_id` (any subject, including an owner's) |
+| `DELETE /api/v2/authorization/subjects/:_id` | remove subject; the last usable owner refuses `SUBJECT_ADMIN_LAST_OWNER` (409) |
+| `GET /api/v2/authorization/roles` | list roles `{_id:name,name,permissions}` |
+| `POST /api/v2/authorization/roles` | define role (`notes` accepted, not stored) |
+| `PUT /api/v2/authorization/roles`, `DELETE /api/v2/authorization/roles/:_id` | `SUBJECT_ADMIN_UNSUPPORTED` (501) |
+
+Root's grants stay inside the project catalogue and the current operator ceiling;
+it has no owner actor row, so it has no settings, export, deletion, ownership or
+issuance authority, and its audit rows read `root/<data consumer>`. The listed
+`accessToken` is derived by the secrets component only when the presented secret
+is that tenant's current root. Another tenant's root, a subject token, a bearer
+token or no credential receive the shipping 401 envelope.
 
 ## Evidence boundary
 
