@@ -1,0 +1,46 @@
+# Disposable separated-process instrument for composed private listeners.
+# Started by run.sh with a unique project name and removed with `down -v`.
+# The worktree is mounted read-only; no image is built. HTTP private
+# endpoints are reached by Compose service DNS names on an internal network
+# (no published ports); realtime's private listener is a Unix socket in a
+# shared bind-mounted 0700 directory owned by the same UID in every container.
+x-component: &component
+  image: node@sha256:5ec23b7c622b00547753bc6ffd78085dd868a68aeb41c8e0a1418f033e13d96d
+  user: "${NS_LC_UID:?run.sh sets uid}:${NS_LC_GID:?run.sh sets gid}"
+  working_dir: /src
+  init: true
+  networks: [private]
+  volumes:
+    - ${NS_LC_SOURCE:?run.sh sets source}:/src:ro
+    - ${NS_LC_STATE:?run.sh sets state}/state:/state
+    - ${NS_LC_STATE}/shared:/shared
+  environment: &env
+    HOME: /tmp
+    TZ: UTC
+    NS_LC_STATE_DIR: /state
+    API_PRIVATE_URL: http://api:7001
+    EVALUATOR_PRIVATE_URL: http://evaluator:7003
+    ADMIN_PRIVATE_URL: http://tenant-admin:7004
+    REALTIME_PRIVATE_SOCKET: /shared/realtime.sock
+    PRIVATE_BIND: 0.0.0.0
+services:
+  api:
+    <<: *component
+    command: [node, tests/native/internal-api-compose/component.cjs, api]
+  realtime:
+    <<: *component
+    command: [node, tests/native/internal-api-compose/component.cjs, realtime]
+  evaluator:
+    <<: *component
+    command: [node, tests/native/internal-api-compose/component.cjs, evaluator]
+    depends_on: [realtime]
+  tenant-admin:
+    <<: *component
+    command: [node, tests/native/internal-api-compose/component.cjs, tenant-admin]
+  driver:
+    <<: *component
+    profiles: [driver]
+    command: [node, tests/native/internal-api-compose/driver.cjs, scenario]
+networks:
+  private:
+    internal: true

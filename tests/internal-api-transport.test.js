@@ -174,7 +174,7 @@ describe('Internal API transport registration and custody', function () {
   it('detects removal of the service ownership fence and passes restored source', async function () {
     const file = require.resolve('../lib/server/internal-api/transport');
     const source = fs.readFileSync(file, 'utf8');
-    const fence = "req.headers['x-nightscout-internal-service'] !== service.id || ";
+    const fence = "req.headers['x-nightscout-internal-service'] !== route.service.id || ";
     assert.equal(source.split(fence).length, 2, 'The intended service fence must exist exactly once');
     const output = { exports: {} };
     require('node:vm').runInThisContext('(function(require,module,exports){' + source.replace(fence, '') + '\n})', { filename: file })(
@@ -332,7 +332,9 @@ describe('Production public API and internal listener isolation', function () {
       const publicPositive = await raw(publicEndpoint, '/api/v3/synthetic', '', { method: 'GET' });
       assert.equal(publicPositive.status, 200); assert.deepEqual(JSON.parse(publicPositive.body), { public: true });
       const credential = { host: 'synthetic.example', tenant, namespace: '/', credential: {} };
-      for (const requestPath of ['/authorize', '/mutate', '/alarm', '/cohort/status', '/cohort/invalidate', '/api/v1/authorize', '/api/v3/authorize']) {
+      const contractPaths = Object.values(require('../lib/server/internal-api/contracts')).flatMap(service => Object.values(service.operations).map(operation => operation.path));
+      assert.deepEqual(contractPaths, ['/authorize', '/mutate', '/alarm', '/cohort/status', '/cohort/invalidate']);
+      for (const requestPath of [...contractPaths, '/api/v1/authorize', '/api/v3/authorize']) {
         const reply = await raw(publicEndpoint, requestPath, credential, { headers: {
           'x-nightscout-internal-service': descriptor.id, 'x-nightscout-internal-version': String(descriptor.version)
         } });

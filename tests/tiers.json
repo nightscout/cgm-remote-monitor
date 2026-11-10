@@ -95,6 +95,7 @@
         "tests/tenant-maintenance-window.test.js",
         "tests/internal-api-endpoint-config.test.js",
         "tests/internal-api-contracts.test.js",
+        "tests/internal-api-composition.test.js",
         "tests/internal-api-transport.test.js",
         "tests/operation-cohort.test.js",
         "tests/tenant-startup-admission.test.js",
