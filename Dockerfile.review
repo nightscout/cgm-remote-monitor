@@ -1,0 +1,5 @@
+FROM carrotsoup/cgm-remote-monitor:15.0.9-modern-c9e8b50a@sha256:640e7c4db7ba567c99a2275ce6b4f2ef005d58ef93d5891afaab469f8d65fce9
+COPY --chown=node:node lib/server/entries.js /opt/app/lib/server/entries.js
+COPY --chown=node:node lib/api3/generic/create/operation.js /opt/app/lib/api3/generic/create/operation.js
+COPY --chown=node:node lib/api3/generic/update/replace.js /opt/app/lib/api3/generic/update/replace.js
+COPY --chown=node:node lib/api3/generic/update/validate.js /opt/app/lib/api3/generic/update/validate.js

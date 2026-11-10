@@ -1,0 +1,1 @@
+FROM carrotsoup/cgm-remote-monitor:15.0.9-modern-c9e8b50a@sha256:640e7c4db7ba567c99a2275ce6b4f2ef005d58ef93d5891afaab469f8d65fce9

@@ -265,7 +265,7 @@ describe('entries: a re-POST carrying an _id updates the stored entry', function
         await post([sampleEntry(35), sampleEntry(36)]).expect(200);
         finds.length.should.equal(1);
         finds[0].$or.length.should.equal(1);
-        finds[0].$or[0].sysTime.$eq.should.equal(new Date(Date.UTC(2021, 4, 5, 6, 35)).toISOString());
+        finds[0].$or[0].$or[0].sysTime.$eq.should.equal(new Date(Date.UTC(2021, 4, 5, 6, 35)).toISOString());
       });
 
       it('a failed read-back still answers 200 with the entries stored', async function () {
