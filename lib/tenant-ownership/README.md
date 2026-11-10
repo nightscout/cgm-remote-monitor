@@ -36,8 +36,11 @@ Every outcome is one of:
 
 - `applied`: the change committed with one audit row; `owners` is the new set.
 - `refused` (`OWNERSHIP_CONFLICT`, `_NOT_OWNER`, `_ALREADY_OWNER`,
-  `_SUBJECT_UNKNOWN`, `_DELEGATION_EXCEEDS_CEILING`, `_UNCHANGED`): no ownership
-  change; the attempt is audited; `owners` is the current set.
+  `_SUBJECT_UNKNOWN`, `_DELEGATION_EXCEEDS_CEILING`, `_UNCHANGED`,
+  `_TENANT_INACTIVE`): no ownership change; the attempt is audited; `owners` is
+  the current set. `OWNERSHIP_TENANT_INACTIVE` means the tenant is not active in
+  the lifecycle control namespace (see below); its audit `detail.lifecycle` is
+  `suspended`, `held`, `deletion` or `unprovisioned`.
 - `OWNERSHIP_FORBIDDEN`, `OWNERSHIP_TENANT_UNKNOWN`, `OWNERSHIP_INVALID` (the
   service reports these as `denied`): no row, lock-holding write or audit in any
   tenant, and no owner list returned.
@@ -60,16 +63,26 @@ acts only for the listed tenants.
 
 ## Transactions and races
 
-PostgreSQL store `createPostgresOwnership({ connectionString, namespace })`, in the
-authorization namespace. One transaction per operation, `synchronous_commit=on`:
+PostgreSQL store `createPostgresOwnership({ connectionString, namespace,
+lifecycleNamespace })`, in the authorization namespace, reading the lifecycle
+control namespace. One transaction per operation, `synchronous_commit=on`:
 
 1. current operator authority;
-2. `tenant_authorization_config` `FOR SHARE`, then `tenant_owner_policy`
+2. for add, transfer and recover, the tenant's lifecycle phase
+   (`lib/tenant-lifecycle/tenant-phase.js`, existing state only): the tenant's
+   operation-window lock is taken SHARED and nonblocking for the transaction,
+   then `tenant_lifecycle_windows.phase` must be `active` and no deletion request
+   may be pending or executed. A tenant that is suspended (a restore holds it),
+   whose window lock a restore holds, that is in a deletion ceremony, or that has
+   no window row is refused `OWNERSHIP_TENANT_INACTIVE` and audited. The shared
+   lock is held until commit, so a restore cannot take the exclusive lock and start
+   its data phase under an ownership change. `list` does not check the phase;
+3. `tenant_authorization_config` `FOR SHARE`, then `tenant_owner_policy`
    `FOR UPDATE`, then every `tenant_owner_actors` row of the tenant `FOR UPDATE`
    (the subject-admin lock order). Owner-plane mutations hold the policy row
    `FOR SHARE`, so they and every ownership change for the tenant serialize;
-3. plan against the locked state (`plan()` in `component.js`);
-4. conditional writes (`... AND active=true`; insert-or-reactivate only an
+4. plan against the locked state (`plan()` in `component.js`);
+5. conditional writes (`... AND active=true`; insert-or-reactivate only an
    inactive row) under a savepoint. A write that matches no row, or a result
    without the named target or without any owner, rolls back to the savepoint
    and is audited as `OWNERSHIP_CONFLICT`.
@@ -99,6 +112,7 @@ identities. Startup refuses any other privilege shape (`OWNERSHIP_STORE_UNSAFE`)
 | `tenant_owner_actors` | SELECT, INSERT, UPDATE(`active`, `can_update`, `delegable`) |
 | `tenant_authorization_subjects` | SELECT |
 | `tenant_subject_admin_audit` | INSERT |
+| lifecycle `tenant_lifecycle_windows`, `tenant_lifecycle_requests`, `tenant_lifecycle_ceremony` | SELECT |
 
 No DELETE, TRUNCATE, table-level UPDATE, ownership of a table, BYPASSRLS or
 access to credential, secret or session tables. Forced tenant RLS applies.
@@ -114,8 +128,9 @@ trust model is described in [internal service APIs](../../docs/internal-service-
 
 `nightscout multitenant admin` (`lib/server/serve/admin-preview.js`) composes this
 service on the `admin` role's own listener, `ADMIN_HOSTNAME`/`ADMIN_PORT`, which the
-listener plane rule keeps on loopback (unless `ADMIN_INSECURE_BIND_ACKNOWLEDGED=true`)
-and off the consumer listener's address. The listener serves exactly the
+listener plane rule keeps on loopback (unless `ADMIN_INSECURE_BIND_ACKNOWLEDGED=true`),
+off every interface, and off the consumer listener's port when it shares that
+listener's address. The listener serves exactly the
 `ownership-operations` routes over the shared internal transport, with no credential
 of its own (D7). `MULTITENANT_ADMIN_CONFIG` names its JSON configuration
 (`lib/server/serve/admin-config.js`):
@@ -123,6 +138,7 @@ of its own (D7). `MULTITENANT_ADMIN_CONFIG` names its JSON configuration
 ```json
 { "version": 1, "maxBytes": 65536, "timeoutMs": 10000,
   "ownership": { "connectionEnv": "NS_OWNERSHIP_PG", "namespace": "<authorization namespace>",
+                 "lifecycleNamespace": "<lifecycle control namespace>",
                  "operator": { "principal": "<operator>", "consumer": "<operator plane>" },
                  "tenants": ["<tenant uuid>"] } }
 ```
@@ -135,6 +151,10 @@ above. The composed operator acts only for the listed tenants
 `<prefix>_ownership_operator` in `deploy/multitenant/config.js`.
 
 The admin role is not a lifecycle operation-cohort participant: serve refuses it
-together with `MULTITENANT_OPERATION_CONFIG`. Its PostgreSQL backends hold
-privileges on the authorization namespace, which the restore cohort census in
-`lib/server/serve/operation-cohort.js` does not count as a cohort participant's.
+together with `MULTITENANT_OPERATION_CONFIG`. A restore proceeds while it is
+connected: the restore census in `lib/server/serve/operation-cohort.js` accepts a
+non-participant backend whose database identity, checked in the catalogue at
+census time, holds no privilege on any clinical table
+(`lib/tenant-lifecycle/clinical-catalogue.js`) in the protected namespaces. The
+ownership identity's grants are of that kind; granting it one clinical table makes
+the census refuse it again (16.0.0 decision `restore-census-and-ownership-phase`).

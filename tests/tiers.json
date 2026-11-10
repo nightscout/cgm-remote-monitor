@@ -420,6 +420,7 @@
         "tests/subject-admin-postgres.integration.test.js",
         "tests/tenant-ownership-postgres.integration.test.js",
         "tests/admin-role-ownership.integration.test.js",
+        "tests/admin-lifecycle-fit.integration.test.js",
         "tests/storage-port-contract.integration.test.js",
         "tests/subject-management-http.integration.test.js",
         "tests/owner-subject-policy.integration.test.js",

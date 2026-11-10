@@ -19,6 +19,7 @@ const { execFileSync, spawn, spawnSync } = require('node:child_process');
 const { Client } = require('pg');
 const { run } = require('../lib/migrations/postgres');
 const catalogue = require('../lib/tenant-authorization/postgres-candidate.json');
+const lifecycleCatalogue = require('../lib/tenant-lifecycle/postgres-candidate.json');
 const clients = require('../lib/server/internal-api/clients');
 const { catalogueDigest } = require('../lib/subject-admin/owner-policy');
 const plan = require('../deploy/multitenant/config');
@@ -35,8 +36,9 @@ const ROOT = path.join(__dirname, '..');
 const ref = principal => ({ principal, consumer: CONSUMER });
 const docker = args => execFileSync('docker', args, { encoding: 'utf8', stdio: ['ignore', 'pipe', 'pipe'] }).trim();
 const sleep = ms => new Promise(resolve => setTimeout(resolve, ms));
-// The plane rule keeps the admin listener off the consumer listener's address
-// (HOSTNAME falls back to 127.0.0.1), so the role binds another loopback address.
+// Any loopback address passes the plane rule (no HOSTNAME is set here, so the
+// consumer listener is every interface on another port); 127.0.0.2 keeps this
+// suite's listeners apart from others on the host.
 const ADMIN_HOST = '127.0.0.2';
 const freePort = () => new Promise(resolve => { const probe = net.createServer().listen(0, ADMIN_HOST, () => { const p = probe.address().port; probe.close(() => resolve(p)); }); });
 
@@ -45,7 +47,7 @@ optInSuite(process.env.NS_ADMIN_ROLE_DOCKER_TEST === '1',
   this.timeout(90000);
   const container = 'ns-adm-' + crypto.randomBytes(6).toString('hex');
   const layout = plan.layout('nsadm');
-  const NS = layout.namespaces.authorization, IDENTITY = layout.roles.ownership_operator;
+  const NS = layout.namespaces.authorization, CONTROL = layout.namespaces.control, IDENTITY = layout.roles.ownership_operator;
   const t = name => '"' + NS + '".' + name;
   let owned = false, admin, adminURI, identityURI, configDir, reaper, role;
 
@@ -53,7 +55,7 @@ optInSuite(process.env.NS_ADMIN_ROLE_DOCKER_TEST === '1',
     const port = await freePort();
     const file = path.join(configDir, crypto.randomBytes(4).toString('hex') + '.json');
     fs.writeFileSync(file, JSON.stringify({ version: 1, maxBytes: 65536, timeoutMs: 10000,
-      ownership: { connectionEnv: 'NS_OWNERSHIP_PG', namespace: NS, operator: OPERATOR, tenants } }), { mode: 0o600 });
+      ownership: { connectionEnv: 'NS_OWNERSHIP_PG', namespace: NS, lifecycleNamespace: CONTROL, operator: OPERATOR, tenants } }), { mode: 0o600 });
     const child = spawn(process.execPath, [path.join(ROOT, 'bin/nightscout.js'), 'multitenant', 'admin'], {
       cwd: ROOT, stdio: ['ignore', 'pipe', 'pipe'],
       env: { PATH: process.env.PATH, ADMIN_HOSTNAME: ADMIN_HOST, ADMIN_PORT: String(port),
@@ -129,6 +131,15 @@ optInSuite(process.env.NS_ADMIN_ROLE_DOCKER_TEST === '1',
       await admin.query(`ALTER TABLE "${NS}"."${row.tablename}" OWNER TO "${layout.owner}"`);
     }
     await admin.query(`ALTER SCHEMA "${NS}" OWNER TO "${layout.owner}"`);
+    // The lifecycle control catalogue: the identity reads the tenant phase there.
+    await admin.query(`CREATE SCHEMA "${CONTROL}"`);
+    await run('up', { direct: true, connectionString: adminURI, namespace: CONTROL, catalogue: lifecycleCatalogue });
+    for (const row of (await admin.query('SELECT tablename FROM pg_catalog.pg_tables WHERE schemaname=$1', [CONTROL])).rows) {
+      await admin.query(`ALTER TABLE "${CONTROL}"."${row.tablename}" OWNER TO "${layout.owner}"`);
+    }
+    await admin.query(`ALTER FUNCTION "${CONTROL}".tenant_lifecycle_backend_birth() OWNER TO "${layout.owner}"`);
+    await admin.query(`ALTER SCHEMA "${CONTROL}" OWNER TO "${layout.owner}"`);
+    await admin.query(`INSERT INTO "${CONTROL}".tenant_lifecycle_windows (tenant_id,lock_key,phase,generation) VALUES ($1,'810001','active',1),($2,'810002','active',1)`, [A, B]);
     const grants = plan.grants(layout).filter(sql => sql.endsWith(' TO "' + IDENTITY + '"'));
     assert.ok(grants.length > 0, 'deployment plan grants the ownership identity');
     for (const sql of grants) await admin.query(sql);
@@ -187,8 +198,17 @@ optInSuite(process.env.NS_ADMIN_ROLE_DOCKER_TEST === '1',
           `DELETE FROM ${t('tenant_authorization_subject_roles')}`,
           `SELECT * FROM ${t('tenant_subject_admin_audit')}`,
           `SELECT * FROM ${t('schema_migrations')}`,
-          `CREATE TABLE "${NS}".planted (x int)`
+          `CREATE TABLE "${NS}".planted (x int)`,
+          `UPDATE "${CONTROL}".tenant_lifecycle_windows SET phase='active'`,
+          `INSERT INTO "${CONTROL}".tenant_lifecycle_operations (tenant_id,operation_id,generation) VALUES ('${A}','${A}',1)`,
+          `SELECT * FROM "${CONTROL}".tenant_lifecycle_restore_authority`,
+          `SELECT * FROM "${CONTROL}".tenant_lifecycle_key_retention`
         ];
+        const control = (await identity.query(`SELECT c.relname AS name, has_table_privilege(c.oid,'SELECT') AS reads,
+            has_table_privilege(c.oid,'INSERT,UPDATE,DELETE,TRUNCATE,REFERENCES,TRIGGER') OR has_any_column_privilege(c.oid,'INSERT,UPDATE,REFERENCES') AS writes
+          FROM pg_class c JOIN pg_namespace n ON n.oid=c.relnamespace WHERE n.nspname=$1 AND c.relkind IN ('r','p') ORDER BY c.relname`, [CONTROL])).rows;
+        assert.deepEqual(control.filter(row => row.reads || row.writes).map(row => [row.name, row.reads, row.writes]),
+          [['tenant_lifecycle_ceremony', true, false], ['tenant_lifecycle_requests', true, false], ['tenant_lifecycle_windows', true, false]]);
         for (const sql of attempts) {
           await assert.rejects(identity.query(sql), error => error.code === '42501', sql);
         }

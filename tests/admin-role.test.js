@@ -26,7 +26,7 @@ const A = '11111111-1111-4111-8111-111111111111';
 const B = '22222222-2222-4222-8222-222222222222';
 const SOURCE = { NS_OWNERSHIP_PG: 'postgres://synthetic_ownership:synthetic-only@127.0.0.1:5432/nightscout_test' };
 const valid = () => ({ version: 1, maxBytes: 65536, timeoutMs: 10000,
-  ownership: { connectionEnv: 'NS_OWNERSHIP_PG', namespace: 'nsadm_authorization',
+  ownership: { connectionEnv: 'NS_OWNERSHIP_PG', namespace: 'nsadm_authorization', lifecycleNamespace: 'nsadm_control',
     operator: { principal: 'synthetic_operator', consumer: 'operator_plane' }, tenants: [A, B] } });
 
 describe('admin role: operator configuration', function () {
@@ -34,6 +34,7 @@ describe('admin role: operator configuration', function () {
     const parsed = adminConfig.parse(valid(), SOURCE);
     assert.equal(parsed.ownership.connectionString, SOURCE.NS_OWNERSHIP_PG);
     assert.deepEqual(parsed.ownership.tenants, [A, B]);
+    assert.equal(parsed.ownership.lifecycleNamespace, 'nsadm_control');
     assert.deepEqual(parsed.ownership.operator, { principal: 'synthetic_operator', consumer: 'operator_plane' });
     assert.equal(parsed.maxBytes, 65536);
   });
@@ -49,6 +50,9 @@ describe('admin role: operator configuration', function () {
       'unset connection reference': config => { config.ownership.connectionEnv = 'NS_UNSET_PG'; },
       'system namespace': config => { config.ownership.namespace = 'pg_catalog'; },
       'public namespace': config => { config.ownership.namespace = 'public'; },
+      'missing lifecycle namespace': config => { delete config.ownership.lifecycleNamespace; },
+      'system lifecycle namespace': config => { config.ownership.lifecycleNamespace = 'pg_catalog'; },
+      'lifecycle namespace equal to the authorization namespace': config => { config.ownership.lifecycleNamespace = 'nsadm_authorization'; },
       'operator with an extra field': config => { config.ownership.operator.tenant = A; },
       'operator principal with punctuation': config => { config.ownership.operator.principal = 'a b'; },
       'empty tenant list': config => { config.ownership.tenants = []; },
@@ -130,16 +134,24 @@ describe('admin role: deployment plan ownership_operator identity', function () 
   const who = '"' + layout.roles.ownership_operator + '"';
   const ns = '"' + layout.namespaces.authorization + '"';
 
-  it('grants exactly the ownership store\'s table shape and nothing in any other namespace', function () {
+  it('grants exactly the ownership store\'s table shape and the lifecycle phase reads, nothing else', function () {
     const granted = plan.grants(layout).filter(sql => sql.includes(who));
+    const control = '"' + layout.namespaces.control + '"';
     assert.deepEqual(granted, [
       'GRANT USAGE ON SCHEMA ' + ns + ' TO ' + who,
       'GRANT SELECT,UPDATE(owner_fence) ON ' + ns + '."tenant_authorization_config" TO ' + who,
       'GRANT SELECT,UPDATE(owner_fence) ON ' + ns + '."tenant_owner_policy" TO ' + who,
       'GRANT SELECT,INSERT,UPDATE(active,can_update,delegable) ON ' + ns + '."tenant_owner_actors" TO ' + who,
       'GRANT SELECT ON ' + ns + '."tenant_authorization_subjects" TO ' + who,
-      'GRANT INSERT ON ' + ns + '."tenant_subject_admin_audit" TO ' + who
+      'GRANT INSERT ON ' + ns + '."tenant_subject_admin_audit" TO ' + who,
+      'GRANT USAGE ON SCHEMA ' + control + ' TO ' + who,
+      ...['tenant_lifecycle_windows', 'tenant_lifecycle_requests', 'tenant_lifecycle_ceremony']
+        .map(table => 'GRANT SELECT ON ' + control + '."' + table + '" TO ' + who)
     ]);
+    // No grant names a clinical table: the restore census accepts these backends.
+    for (const kind of require('../lib/tenant-lifecycle/clinical-catalogue').CLINICAL) {
+      assert.equal(granted.some(sql => sql.includes('"' + kind + '"')), false, kind);
+    }
   });
 
   it('is a separate identity from the owner, data and platform operator identities', function () {
