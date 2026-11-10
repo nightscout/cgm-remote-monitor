@@ -227,4 +227,104 @@ optInSuite(process.env.NS_OWNER_SUBJECT_POLICY_DOCKER_TEST === '1',
       assert.deepEqual(await f.snapshot(), before);
       assert.equal((await f.http(f.proposal())).status, 200);
     });
+
+    // Last-owner protection (owner-authority: "last-owner removal must not orphan
+    // the tenant"). A usable owner is an active, updating actor row whose
+    // principal is an existing subject of the tenant (lib/tenant-ownership).
+    async function usableOwners (tenant = A) {
+      return (await f.admin.query('SELECT DISTINCT a.principal FROM ' + f.tables.actors + ' a JOIN ' + f.tables.subjects +
+        ' s ON s.tenant_id=a.tenant_id AND s.subject_id=a.principal WHERE a.tenant_id=$1 AND a.active AND a.can_update ORDER BY 1', [tenant]))
+        .rows.map(row => row.principal);
+    }
+    async function makeOwner (principal, { subject = true } = {}) {
+      if (subject) {
+        await f.admin.query('INSERT INTO ' + f.tables.subjects + ' (tenant_id,subject_id,display_name) VALUES ($1,$2,$3) ON CONFLICT DO NOTHING', [A, principal, 'Synthetic owner']);
+        await f.admin.query('INSERT INTO ' + f.tables.credentials + ' (tenant_id,subject_id,token_prefix) VALUES ($1,$2,$3) ON CONFLICT DO NOTHING', [A, principal, 'synthetic']);
+      }
+      await f.admin.query('INSERT INTO ' + f.tables.actors + ' (tenant_id,principal,consumer,active,can_update,delegable) VALUES ($1,$2,\'admin\',true,true,$3) ON CONFLICT DO NOTHING', [A, principal, CATALOGUE]);
+    }
+    async function lockWaiters (application, count) {
+      const limit = Date.now() + 15000;
+      for (;;) {
+        const n = (await f.admin.query("SELECT count(*)::int n FROM pg_stat_activity WHERE application_name=$1 AND wait_event_type='Lock'", [application])).rows[0].n;
+        if (n === count) return n;
+        if (Date.now() > limit) throw new Error('expected ' + count + ' lock waiters from ' + application + ', saw ' + n);
+        await new Promise(resolve => setTimeout(resolve, 20));
+      }
+    }
+
+    it('refuses revoking the last usable owner subject (409) without effect, and allows it while another owner remains', async function () {
+      // `manager` has an actor row but no subject, so TARGET is the only usable owner.
+      await makeOwner(TARGET, { subject: false });
+      assert.deepEqual(await usableOwners(), [TARGET]);
+      const response = await refused(undefined, 409, { method: 'delete' });
+      assert.deepEqual(response.body, { error: 'SUBJECT_ADMIN_LAST_OWNER' });
+      assert.deepEqual(await usableOwners(), [TARGET], 'the tenant keeps its owner');
+      // Self-revocation of the last owner is refused the same way.
+      await f.admin.query('DELETE FROM ' + f.tables.actors + ' WHERE tenant_id=$1 AND principal=\'manager\'', [A]);
+      await assert.rejects(f.ownerStore.remove({ tenant: A, principal: TARGET, consumer: 'admin' }, TARGET), { code: 'SUBJECT_ADMIN_LAST_OWNER' });
+      // Positive control: with a second usable owner the same revocation applies.
+      await makeOwner('manager');
+      assert.deepEqual(await usableOwners(), [TARGET, 'manager'].sort());
+      assert.equal((await f.http(undefined, { method: 'delete' })).status, 200);
+      assert.deepEqual(await usableOwners(), ['manager']);
+    });
+
+    it('race: two owners revoking each other concurrently leave exactly one usable owner', async function () {
+      await makeOwner('manager'); await makeOwner(TARGET);
+      // Both actors are owners; the store's current owner policy is the authority under test.
+      const service = require('../lib/subject-admin/component').createSubjectAdmin({ store: f.ownerStore, authorizeManagement: async () => true });
+      const holder = await f.open(); await holder.query('BEGIN');
+      // Barrier: both revocations must be inside their transactions before either commits.
+      await holder.query('LOCK TABLE ' + f.tables.audit + ' IN SHARE MODE');
+      let attempts;
+      try {
+        attempts = [service.remove({ tenant: A, principal: 'manager', consumer: 'admin' }, TARGET),
+          service.remove({ tenant: A, principal: TARGET, consumer: 'admin' }, 'manager')].map(p => p.then(() => 'applied', error => error.code));
+        assert.equal(await lockWaiters('nightscout-subject-admin', 2), 2);
+        await holder.query('COMMIT');
+        const outcomes = (await Promise.all(attempts)).sort();
+        assert.deepEqual(outcomes, ['SUBJECT_ADMIN_LAST_OWNER', 'applied'], 'one revocation applies, the other is refused');
+        assert.equal((await usableOwners()).length, 1, 'the tenant keeps one usable owner');
+      } finally { await holder.query('ROLLBACK'); if (attempts) await Promise.allSettled(attempts); }
+    });
+
+    it('race: an owner revocation of the incoming owner serializes with an operator transfer to it', async function () {
+      const createOwnership = require('../lib/tenant-ownership/postgres');
+      const { createOwnershipOperations } = require('../lib/tenant-ownership/component');
+      const { tenantSetAuthority } = require('../lib/tenant-ownership/service');
+      if (!f.state.operatorURI) {
+        const crypto = require('node:crypto'), pw = crypto.randomBytes(24).toString('hex');
+        await f.admin.query(`CREATE ROLE ownership_operator LOGIN NOSUPERUSER NOBYPASSRLS PASSWORD '${pw}'`);
+        await f.admin.query(`GRANT USAGE ON SCHEMA ${f.NS} TO ownership_operator`);
+        await f.admin.query(`GRANT SELECT, UPDATE (owner_fence) ON ${f.tables.config}, ${f.tables.policy} TO ownership_operator`);
+        await f.admin.query(`GRANT SELECT, INSERT, UPDATE (active, can_update, delegable) ON ${f.tables.actors} TO ownership_operator`);
+        await f.admin.query(`GRANT SELECT ON ${f.tables.subjects} TO ownership_operator`);
+        await f.admin.query(`GRANT INSERT ON ${f.tables.audit} TO ownership_operator`);
+        const url = new URL(f.writerURI); url.username = 'ownership_operator'; url.password = pw; f.state.operatorURI = url.toString();
+      }
+      const store = await createOwnership({ connectionString: f.state.operatorURI, namespace: f.NS });
+      const operator = { principal: 'synthetic_operator', consumer: 'operator_plane' };
+      const ops = createOwnershipOperations({ store, authorizeOperator: tenantSetAuthority({ ...operator, tenants: [A] }) });
+      const ref = principal => ({ principal, consumer: 'admin' });
+      await makeOwner('manager');
+      const holder = await f.open(); await holder.query('BEGIN');
+      await holder.query('LOCK TABLE ' + f.tables.audit + ' IN SHARE MODE');
+      let revoke, transfer;
+      try {
+        revoke = f.service.remove(f.actor, TARGET).then(() => 'applied', error => error.code);
+        await lockWaiters('nightscout-subject-admin', 1);
+        transfer = ops.transfer(operator, { tenant: A, from: ref('manager'), to: ref(TARGET), expectedOwners: [ref('manager')] });
+        await lockWaiters('nightscout-ownership-ops', 1);
+        await holder.query('COMMIT');
+        assert.equal(await revoke, 'applied');
+        const moved = await transfer;
+        assert.deepEqual({ outcome: moved.outcome, code: moved.code }, { outcome: 'refused', code: 'OWNERSHIP_SUBJECT_UNKNOWN' });
+        assert.deepEqual(await usableOwners(), ['manager'], 'the transfer saw the committed revocation; the tenant keeps its owner');
+      } finally {
+        await holder.query('ROLLBACK');
+        await Promise.allSettled([revoke, transfer].filter(Boolean));
+        await store.close();
+      }
+    });
   });

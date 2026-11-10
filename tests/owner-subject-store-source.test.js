@@ -34,6 +34,8 @@ async function fixture () {
       if (sql.startsWith('SELECT anonymous_roles')) return rows([{ anonymous_roles: ['denied'] }]);
       if (sql.startsWith('SELECT catalogue_digest')) return rows([{ catalogue_digest: catalogueDigest(['*']), ceiling: control.ceiling }]);
       if (sql.startsWith('SELECT active,can_update')) return rows([{ active: control.active, can_update: true, delegable: control.delegable }]);
+      // Usable owners: the one modelled actor counts only while its subject exists.
+      if (sql.startsWith('SELECT s.subject_id')) return rows(control.active && data.subjects[args[0] + '/' + actor.principal] ? [{ subject_id: actor.principal }] : []);
       const key = args[0] + '/' + args[1];
       if (sql.startsWith('SELECT name,permissions')) return rows(args[1].flatMap(name => {
         const permissions = data.roles[args[0] + '/' + name]; return permissions ? [{ name, permissions }] : [];
