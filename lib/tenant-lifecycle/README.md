@@ -4,7 +4,9 @@ Explicit private-plane library. Serving roles do not expose a restore endpoint o
 CLI through this module. Its typed artifact remains a research format. The caller
 supplies a lower-port PostgreSQL connection for a `NOSUPERUSER NOBYPASSRLS`
 private role; tenant binding and forced row-level security bound data access.
-Vault provider keys are never exported or deleted here.
+Vault provider keys are never exported. They are deleted only by the explicit
+operator `destroyRetainedKeys` call after the 30-day post-deletion retention
+window ([key retention](#post-deletion-key-retention)).
 
 ## Export and restore
 
@@ -16,7 +18,7 @@ or provider keys. Export requires current exact migration ledgers and physical
 relation inventory; agreement between unknown artifact/database schemas is insufficient.
 
 `createLifecycle({catalogues}).importArtifact(connection,artifact,{tenant,namespaces,
-maintenanceClaim,onRow,onCommitted})` selects logical reconciliation when the
+ledgerNamespace,maintenanceClaim,onRow,onCommitted,now})` selects logical reconciliation when the
 selected catalogue contains the current tenant-local insertion schema and clock.
 `restoreLogical(connection,artifact,options)` exposes that operation explicitly
 with the same options and constructor-owned catalogue selection. Obtain its
@@ -106,6 +108,44 @@ ceremony. The complete capability and recoverable-key contract is in
 `admission.lifecycle.withCapabilities(...)`; do not substitute an old static list.
 Private control relations remain outside ordinary tenant artifact/deletion data.
 No retention expiry or provider key destruction is automatic.
+
+## Post-deletion key retention
+
+Release decision `tenant-deletion-key-retention` (option (a), 30 days), in
+`key-retention.js` and lifecycle migration `0005_tenant_lifecycle_key_retention`:
+
+- **Completeness before removal.** Inside the destructive transaction, before any
+  row is deleted, the artifact must name every provider key the trusted
+  `keyInventory({tenant})` capability returns (`[{mount,name}]`, names only) and
+  hold every live ciphertext with its key reference. Otherwise deletion refuses
+  (`LIFECYCLE_KEY_NAMES_MISSING`, `LIFECYCLE_KEY_REFERENCE_MISSING`,
+  `LIFECYCLE_KEY_REFERENCE_UNKNOWN`, `LIFECYCLE_KEY_MATERIAL_UNVERIFIED`) and
+  nothing is removed. `exportTenant` fills `keyNames` from the inventory when the
+  caller does not supply them.
+- **Retention.** The same transaction records `tenant_lifecycle_key_retention`
+  (`retained`, `retain_until = executed_at + 30 days`, key names and the count of
+  key references; never ciphertext). Provider keys are not touched.
+- **Restore gate.** `importArtifact` and `restoreLogical` require `ledgerNamespace`
+  and, inside their own transaction before the first write, refuse a tenant with a
+  record in `destroying`/`destroyed` (`LIFECYCLE_KEYS_DESTROYED`) or a `retained`
+  record whose window has ended (`LIFECYCLE_RETENTION_EXPIRED`). Inside the window
+  the restore proceeds and marks the record `restored`. A tenant never deleted has
+  no record and is unaffected.
+- **Destroy.** `destroyRetainedKeys(connection,{tenant,requestId,ledgerNamespace,
+  namespaces,intent,now})` requires the operator plane through `authorize`, the
+  exact intent string `destroy-retained-keys:<tenant>:<requestId>`, an ended
+  window, and zero rows for the tenant in every admitted table (a same-ID tenant
+  that is live again keeps its keys). It commits `destroying` with the actor, asks
+  the `keyCustodian` capability to delete and confirm absence of each key
+  (`lib/secrets/vault-transit-custodian.js`), then commits `destroyed` with the
+  actor. A provider failure leaves `destroying` (restore still refuses) for an
+  explicit retry. Destruction cannot be undone: ciphertext under those keys, in
+  the database or any retained artifact, no longer decrypts.
+- **Time** is the injected `now` of each call; the window constant is not
+  configurable. The record's CHECK constraints also refuse a `restored_at` outside
+  the window and a destroy start before `retain_until`.
+
+Expiry of the export artifact file itself is not automated by this module.
 
 The catalogue admits validated typed migration table descriptors, with counters
 before clinical rows and reverse deletion order. Physical admission compares live

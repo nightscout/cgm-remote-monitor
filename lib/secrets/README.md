@@ -303,7 +303,25 @@ path "<mount>/rewrap/<tenant-data-key>" { capabilities = ["update"] }
 ```
 
 It needs no encrypt/decrypt/HMAC/key-management permission. Operator key
-rotation is still explicit and external to this component. The append-only
+rotation is still explicit and external to this component.
+
+### Post-deletion key destruction custodian
+
+`createVaultTransitCustodian({address,getToken,keyAllowed})` is the operator
+credential the tenant lifecycle uses after the 30-day retention window
+([lifecycle README](../tenant-lifecycle/README.md#post-deletion-key-retention)). It
+sets `deletion_allowed`, deletes each key, and confirms absence by a lookup that
+distinguishes 404 from 403. `keyAllowed({tenant,mount,name})` must admit each key
+from trusted provisioning before any provider call. Its policy names only the
+tenant's keys:
+
+```text
+path "<mount>/keys/<tenant-key>/config" { capabilities = ["update"] }
+path "<mount>/keys/<tenant-key>"        { capabilities = ["read", "delete"] }
+```
+
+The serving credential never holds these capabilities. Errors carry only fixed
+codes. Deleting a Transit key is irreversible. The append-only
 audit records **authorized attempts**, including failed/conflicting/no-op
 rewraps, not an outcome or proof of fleet-wide completion.
 

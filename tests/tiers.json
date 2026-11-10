@@ -352,6 +352,7 @@
         "tests/postgres-migrations.integration.test.js",
         "tests/mongodb-migrations.integration.test.js",
         "tests/postgres-secrets.integration.test.js",
+        "tests/tenant-key-retention.integration.test.js",
         "tests/vault-secrets.integration.test.js",
         "tests/XX_clean*.test.js",
         "tests/adminnotifies*.test.js",
