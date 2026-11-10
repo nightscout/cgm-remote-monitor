@@ -317,4 +317,39 @@ describe('existing browser consumes optional human sessions (hermetic DOM/source
     assert.equal(client.humanSession.finishLogout({ local: 'absent', providerLogout: 'https://identity.synthetic.invalid/logout' }), false);
     assert.equal(navigated.length, 0);
   });
+
+  it('probes at startup only on a page that advertises OIDC; other pages start unchanged', async function () {
+    const source = fs.readFileSync(path.join(__dirname, '../lib/client/index.js'), 'utf8');
+    const tree = require('acorn').parse(source, { ecmaVersion: 'latest' });
+    const node = tree.body.find(item => item.type === 'ExpressionStatement' && item.expression.type === 'AssignmentExpression' &&
+      item.expression.left.object?.name === 'client' && item.expression.left.property?.name === 'init').expression.right;
+    function start (advertised) {
+      const status = [];
+      const page = { headers: () => ({}), hashauth: {}, loadLanguage () {} };
+      page.humanSession = createHuman({ client: page, advertised,
+        request: async options => { requests.push(options); return { status: 404 }; }, navigate () {} });
+      const $ = () => ({ html () {}, show () {} });
+      $.ajax = options => { status.push(options.url.split('?')[0]); return { done () { return this; }, fail () { return this; } }; };
+      const init = vm.runInNewContext('(' + source.slice(node.start, node.end) + ')', { $, client: page,
+        require: () => () => ({ queryParms: () => ({}) }), Storages: { localStorage: { get: () => null } },
+        window: { setTimeout () {} }, console: { log () {} } });
+      page.init = init; init(() => {});
+      return status;
+    }
+    assert.deepEqual(start(false), ['/api/v1/status.json'], 'unadvertised page requests status synchronously');
+    assert.deepEqual(requests, []);
+    const advertised = start(true);
+    assert.deepEqual(advertised, [], 'advertised page discovers the session first');
+    await next();
+    assert.deepEqual(requests.map(request => request.url), ['/api/v2/oidc/session']);
+    assert.deepEqual(advertised, ['/api/v1/status.json']);
+  });
+
+  it('renders the OIDC page hint only for a server that mounted human sessions', function () {
+    const file = path.join(__dirname, '../views/partials/page-scripts.ejs');
+    const render = locals => require('ejs').render(fs.readFileSync(file, 'utf8'), { locals, pageEntry: 'app', startupScripts: [] }, { filename: file });
+    assert.match(render({ bundle: '/bundle', humanSessions: true }), /<meta name="nightscout-human-sessions" content="enabled">/);
+    assert.doesNotMatch(render({ bundle: '/bundle', humanSessions: false }), /nightscout-human-sessions/);
+    assert.doesNotMatch(render({ bundle: '/bundle' }), /nightscout-human-sessions/);
+  });
 });
