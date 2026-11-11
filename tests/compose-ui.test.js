@@ -109,6 +109,41 @@ describe('Compose ui startup refusal names its cause', function () {
 
   it('prints the ui configuration code for a refused roster', function () {
     assert.equal(start(JSON.stringify({ version: 2, tenants: [] })).stderr, 'UI_STARTUP_REFUSED: UI_PUBLIC_CONFIG_INVALID\n');
-    assert.equal(start(tenants(1001)).stderr, 'UI_STARTUP_REFUSED: UI_PUBLIC_CONFIG_INVALID\n');
+    // One over the preview's tenant ceiling, inside a raised byte bound: refused for its count.
+    assert.equal(start(tenants(10001), { MULTITENANT_CONFIG_MAX_BYTES: '4194304' }).stderr, 'UI_STARTUP_REFUSED: UI_PUBLIC_CONFIG_INVALID\n');
+  });
+
+  it('accepts up to the preview tenant ceiling, the same constant as the admin roster', function () {
+    const { PREVIEW_MAX_TENANTS } = require('../lib/server/serve/tenant-ceiling');
+    assert.equal(PREVIEW_MAX_TENANTS, 10000);
+    const roster = n => ({ version: 1, tenants: Array.from({ length: n }, (_, i) => ({ aliases: ['t' + i + '.example.test'], theme: i % 2 ? 'modern' : 'default' })) });
+    assert.equal(ui.parseConfig(roster(3000)).size, 3000, 'UI_3000_TENANTS_ACCEPTED');
+    assert.equal(ui.parseConfig(roster(PREVIEW_MAX_TENANTS)).size, PREVIEW_MAX_TENANTS);
+    assert.throws(() => ui.parseConfig(roster(PREVIEW_MAX_TENANTS + 1)), /^TypeError: UI_PUBLIC_CONFIG_INVALID$/);
+  });
+
+  it('starts the actual entrypoint on a 3,000-tenant configuration and serves its hosts', async function () {
+    const net = require('node:net');
+    const http = require('node:http');
+    const { spawn } = require('node:child_process');
+    const port = await new Promise((resolve, reject) => { const probe = net.createServer(); probe.once('error', reject);
+      probe.listen(0, '127.0.0.1', () => { const value = probe.address().port; probe.close(() => resolve(value)); }); });
+    const file = path.join(dir, 'ui-3000.json'); fs.writeFileSync(file, tenants(3000));
+    const child = spawn(process.execPath, [path.resolve(__dirname, '../deploy/multitenant/ui.js')],
+      { env: { PATH: process.env.PATH, UI_PUBLIC_CONFIG: file, UI_PORT: String(port), UI_HOSTNAME: '127.0.0.1' }, stdio: ['ignore', 'ignore', 'pipe'] });
+    let stderr = ''; child.stderr.on('data', chunk => { stderr += chunk; });
+    const get = host => new Promise(resolve => {
+      const req = http.get({ host: '127.0.0.1', port, path: '/robots.txt', headers: { host } }, res => { res.resume(); resolve(res.statusCode); });
+      req.on('error', () => resolve(null));
+    });
+    try {
+      let status = null;
+      for (let i = 0; i < 100 && status === null && child.exitCode === null; i++) {
+        status = await get('t2999.example.test');
+        if (status === null) await new Promise(resolve => setTimeout(resolve, 50));
+      }
+      assert.equal(status, 200, 'UI_3000_TENANTS_SERVED; stderr: ' + stderr);
+      assert.equal(await get('t3000.example.test'), 421, 'an unconfigured host is refused');
+    } finally { child.kill('SIGTERM'); }
   });
 });

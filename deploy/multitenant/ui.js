@@ -25,9 +25,12 @@ function hostname(value) {
   return value;
 }
 
+// The preview's one tenant ceiling (lib/server/serve/tenant-ceiling.js).
+const { PREVIEW_MAX_TENANTS } = require('../../lib/server/serve/tenant-ceiling');
+
 function parseConfig(value) {
   if (!exact(value, ['version', 'tenants']) || value.version !== 1 ||
-      !Array.isArray(value.tenants) || !value.tenants.length || value.tenants.length > 1000) {
+      !Array.isArray(value.tenants) || !value.tenants.length || value.tenants.length > PREVIEW_MAX_TENANTS) {
     throw new TypeError('UI_PUBLIC_CONFIG_INVALID');
   }
   const hosts = new Map();
