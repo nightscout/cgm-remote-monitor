@@ -19,11 +19,11 @@ function lab ({ tenants = [A, B], boot = 'all', bootConcurrency, isWarm, hold } 
       async evaluate () {
         order.push(current.tenant);
         if (hold) { const gate = {}; gate.promise = new Promise(resolve => { gate.resolve = resolve; }); gates.set(current.tenant, gate); await gate.promise; }
-        return { checkpoint: 1, signature: { stamp: 1, rows: 1, digest: 'x' }, due: { dueAt: null, reason: null, slow: [] } };
+        return { checkpoint: 1, signature: { stamp: 1, deleted: 0 }, due: { dueAt: null, reason: null, slow: [] } };
       },
       async evaluateTime () { return { checkpoint: 1, due: { dueAt: null, reason: null, slow: [] } }; },
       // A stuck tenant: its change check never completes (suppressed evaluation).
-      signature: () => stuck.has(current.tenant) ? new Promise(() => {}) : Promise.resolve({ stamp: 1, rows: 1, digest: 'x' }),
+      signature: () => stuck.has(current.tenant) ? new Promise(() => {}) : Promise.resolve({ stamp: 1, deleted: 0 }),
       close () {} }),
     recoveryIntervalMs: 1000, timeIntervalMs: 60000, evaluationAlertMs: 30000, now: () => at,
     schedule: (fn, ms) => { schedules.push({ fn, ms }); return schedules.length; }, cancel () {},
@@ -86,5 +86,65 @@ describe('evaluator serve-then-warm boot', function () {
       assert.ok([A, B, C, D].every(tenant => runtime.last(tenant)), 'every tenant acquired');
       assert.ok(runtime.health().tenants.every(t => !t.booting));
     } finally { for (const gate of l.gates.values()) gate.resolve(); await runtime.close(); }
+  });
+});
+
+// Decision write-clock-complete: the backstop reads every tenant's write clock
+// pair once per pass (readStamps, the change-stamp function) instead of one
+// signature read per tenant; the pair against the processed one decides.
+describe('evaluator backstop: one write clock read per pass', function () {
+  async function stampLab () {
+    const clock = new Map([[A, { stamp: '10', deleted: '0' }], [B, { stamp: '20', deleted: '0' }], [C, { stamp: '30', deleted: '0' }]]);
+    const reads = [], signatureCalls = [], acquired = [];
+    let refuse = false;
+    const runtime = await startRuntime({ tenants: [A, B, C], readCurrent: async tenant => ({ tenant, identity: 'c'.repeat(64) }),
+      create: async current => ({
+        async evaluate () {
+          acquired.push(current.tenant);
+          const pair = clock.get(current.tenant);
+          return { checkpoint: Number(pair.stamp), signature: { stamp: Number(pair.stamp), deleted: Number(pair.deleted) }, due: { dueAt: null, reason: null, slow: [] } };
+        },
+        async evaluateTime () { return { checkpoint: 1, due: { dueAt: null, reason: null, slow: [] } }; },
+        signature: async () => { signatureCalls.push(current.tenant); return null; },
+        close () {} }),
+      readStamps: async tenants => { reads.push([...tenants]); if (refuse) throw new Error('synthetic stamp read refusal'); return new Map([...clock].filter(([tenant]) => tenants.includes(tenant))); },
+      recoveryIntervalMs: 1000, timeIntervalMs: 60000, now: () => 1000000,
+      schedule: () => 1, cancel () {}, setTimer: () => ({}), clearTimer () {} });
+    return { runtime, clock, reads, signatureCalls, acquired, refuse: value => { refuse = value; } };
+  }
+
+  it('reads once per pass for every admitted tenant and acquires only a tenant whose pair moved', async function () {
+    const l = await stampLab();
+    try {
+      l.acquired.length = 0;
+      await l.runtime.backstop();
+      assert.deepEqual(l.reads, [[A, B, C]], 'EV_STAMPS_ONE_READ one read for the member, every tenant');
+      assert.deepEqual(l.acquired, [], 'unchanged pairs acquire nothing');
+      assert.deepEqual(l.signatureCalls, [], 'no per-tenant signature read');
+      l.clock.set(B, { stamp: '21', deleted: '0' }); // a write
+      l.clock.set(C, { stamp: '31', deleted: '31' }); // a hard delete
+      await l.runtime.backstop();
+      assert.equal(l.reads.length, 2);
+      assert.deepEqual(l.acquired.sort(), [B, C], 'EV_STAMPS_CHANGED_ACQUIRES');
+      const wake = l.runtime.health().wake;
+      assert.deepEqual([wake.passes, wake.stampReads, wake.checks, wake.unchanged, wake.acquisitionsByCheck], [2, 2, 6, 4, 2]);
+    } finally { await l.runtime.close(); }
+  });
+
+  it('a refused read checks no tenant that pass; a tenant missing from the read acquires', async function () {
+    const l = await stampLab();
+    try {
+      l.acquired.length = 0;
+      l.refuse(true); l.clock.set(A, { stamp: '11', deleted: '0' });
+      await l.runtime.backstop();
+      assert.deepEqual(l.acquired, [], 'EV_STAMPS_REFUSED_NOT_A_CHANGE');
+      assert.equal(l.runtime.health().wake.stampReadsRefused, 1); assert.equal(l.runtime.health().wake.checks, 0);
+      l.refuse(false);
+      await l.runtime.backstop();
+      assert.deepEqual(l.acquired, [A], 'the next pass finds the change');
+      l.acquired.length = 0; l.clock.delete(B);
+      await l.runtime.backstop();
+      assert.deepEqual(l.acquired, [B], 'EV_STAMPS_MISSING_ACQUIRES a tenant without a clock row is not treated as unchanged');
+    } finally { await l.runtime.close(); }
   });
 });

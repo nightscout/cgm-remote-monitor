@@ -53,6 +53,20 @@ module.exports = function evaluatorLab () {
     }
     return modified;
   }));
+  // Supported writes through the storage port, inside the tenant write clock's
+  // transaction (decision write-clock-complete): a hard delete advances
+  // last_stamp and last_delete_stamp; an in-place update advances last_stamp,
+  // stamped domain or not.
+  const port = logical => collection({ connection: lab.clocks[0], table: lab.tables[logical], logical, env: lab.env, source: 'v1/internal' }).storage;
+  lab.hardDelete = (logical, query, tenant = lab.A) => scope.withTenant(tenant, () => lab.clocks[0].transaction(() =>
+    port(logical).deleteMany(require('../../lib/storage/filter').fromMongo(query), {})));
+  lab.updateInPlace = (logical, query, set, tenant = lab.A) => scope.withTenant(tenant, () => lab.clocks[0].transaction(() =>
+    port(logical).updateMany(require('../../lib/storage/filter').fromMongo(query), { set }, {})));
+  lab.clock = async (tenant = lab.A) => {
+    const row = (await lab.admin.query('SELECT last_stamp::text AS stamp, last_delete_stamp::text AS deleted FROM "' + lab.namespaces.clock +
+      '".tenant_write_clock WHERE tenant_id=$1', [tenant])).rows[0];
+    return { stamp: Number(row.stamp), deleted: Number(row.deleted) };
+  };
   lab.fresh = async (tenant, at) => scope.withTenant(tenant, async () => {
     // Independent physical clinical-table reads, not recovered JSON source.
     const stores = Object.fromEntries(domains.map(logical => [logical, collection({ connection: lab.reader,

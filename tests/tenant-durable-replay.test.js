@@ -30,7 +30,7 @@ describe('dormant durable replay source protocol', function () {
 
   function fixture (overrides = {}) {
     const calls = [];
-    let saved, floor = 0, source = [], failUpdate = false, failCommit = false;
+    let saved, floor = 0, deletedFloor = 0, source = [], failUpdate = false, failCommit = false;
     const compare = (a, b) => a.stamp - b.stamp || a.domain.localeCompare(b.domain) ||
       a.id_kind.localeCompare(b.id_kind) || a.doc._id.localeCompare(b.doc._id);
     const connection = {
@@ -54,10 +54,10 @@ describe('dormant durable replay source protocol', function () {
         if (sql.startsWith('SELECT projection')) return { rows: saved ? [{ projection: structuredClone(saved.projection) }] : [] };
         if (sql.startsWith('SELECT last_stamp')) return { rows: [{ last_stamp: String(floor) }] };
         if (sql.startsWith('SELECT 1')) return { rows: [] };
-        // The evaluator change signature: floor, row count and a row-version digest.
-        if (sql.startsWith('SELECT /* evaluator-change-signature */')) return { rows: [{ stamp: String(floor), row_count: String(source.length),
-          // Any change to a row changes it, as a row version (xmin) does.
-          digest: require('node:crypto').createHash('sha256').update(JSON.stringify(source)).digest('hex') }] };
+        // The evaluator change signature: the write clock pair (decision
+        // write-clock-complete: every supported write advances last_stamp; a
+        // hard delete also advances last_delete_stamp).
+        if (sql.startsWith('SELECT /* evaluator-change-signature */')) return { rows: [{ stamp: String(floor), deleted: String(deletedFloor) }] };
         if (sql.startsWith('SELECT count(*)')) return { rows: [{ row_count: String(source.length),
           document_bytes: String(source.reduce((n, row) => n + Buffer.byteLength(JSON.stringify(row.doc)), 0)) }] };
         if (sql.startsWith('SELECT domain') && sql.includes('snapshot_source')) {
@@ -88,7 +88,10 @@ describe('dormant durable replay source protocol', function () {
       provision (projection = null, checkpoint = 0, digest = consumer.digest) {
         saved = { checkpoint, contract_digest: digest, projection };
       },
-      setSource (rows, high) { source = rows; floor = high; },
+      setSource (rows, high, deleted = deletedFloor) { source = rows; floor = high; deletedFloor = deleted; },
+      // A supported write in place: it advances the tenant write clock in its
+      // own transaction (decision write-clock-complete).
+      write () { floor++; },
       saved: () => structuredClone(saved),
       reorderSaved () {
         const reorder = value => Array.isArray(value) ? value.map(reorder)
@@ -221,11 +224,11 @@ describe('dormant durable replay source protocol', function () {
     assert.equal(f.calls.filter(call => call.sql && call.sql.startsWith('SELECT count(*)')).length, scans + 1,
       'unchanged floor still performs full current-state acquisition');
     assert.deepEqual(f.saved(), before);
-    row.doc.extension.z.reverse();
+    row.doc.extension.z.reverse(); f.write();
     const changed = await f.reconcile();
     assert.equal(changed.changed, true, 'JSON arrays retain order semantics');
     assert.equal(updates(), count + 1);
-    row.doc.extension.z[0].z = 'true';
+    row.doc.extension.z[0].z = 'true'; f.write();
     assert.equal((await f.reconcile()).changed, true, 'scalar types retain their semantics');
     assert.equal(updates(), count + 2);
   });
@@ -274,8 +277,9 @@ describe('dormant durable replay source protocol', function () {
     assert.equal(readBacks(), 1, 'EV_COST_E_SKIP unchanged signature: no read-back of the saved projection');
     assert.equal(second.changed, false); assert.equal(second.bootstrapped, false); assert.equal(updates(), 1);
     assert.deepEqual(second.rows, first.rows); assert.deepEqual(second.signature, first.signature);
-    // Same floor, new row version (an unstamped update): compared again.
-    unstamped.doc.sgv = 333;
+    // An update to an unstamped row advances the write clock (decision
+    // write-clock-complete): a different signature, compared again.
+    unstamped.doc.sgv = 333; f.write();
     const third = await reconcile();
     assert.equal(readBacks(), 2, 'EV_COST_E_CHANGED a different signature reads and compares');
     assert.equal(third.changed, true); assert.equal(updates(), 2);
