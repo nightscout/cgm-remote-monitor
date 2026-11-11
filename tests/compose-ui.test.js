@@ -80,3 +80,35 @@ describe('multitenant deployment UI public boundary', function () {
     assert.equal(Object.hasOwn(ui.PAGES, '/admin'), false);
   });
 });
+
+describe('Compose ui startup refusal names its cause', function () {
+  this.timeout(20000);
+  const os = require('node:os');
+  const { spawnSync } = require('node:child_process');
+  let dir;
+  before(function () { dir = fs.mkdtempSync(path.join(os.tmpdir(), 'ns-ui-refusal-')); });
+  after(function () { fs.rmSync(dir, { recursive: true, force: true }); });
+  // The actual entrypoint, as the container runs it (exit 78 and one stderr line).
+  function start (text, extra = {}) {
+    const file = path.join(dir, 'ui.json'); fs.writeFileSync(file, text);
+    const result = spawnSync(process.execPath, [path.resolve(__dirname, '../deploy/multitenant/ui.js')],
+      { env: { PATH: process.env.PATH, UI_PUBLIC_CONFIG: file, UI_PORT: '1', ...extra }, encoding: 'utf8' });
+    return { status: result.status, stderr: result.stderr };
+  }
+  const tenants = n => JSON.stringify({ version: 1, tenants: Array.from({ length: n }, (_, i) => ({ aliases: ['t' + i + '.example.test'], theme: 'default' })) });
+
+  it('prints the bounded reader code and message, without the configuration contents', function () {
+    const marker = 'SYNTHETIC_UI_MARKER';
+    const big = start(JSON.stringify({ version: 1, pad: marker + 'x'.repeat(1048576) }));
+    assert.equal(big.status, 78);
+    assert.match(big.stderr, /^UI_STARTUP_REFUSED: CONFIG_FILE_TOO_LARGE: UI_PUBLIC_CONFIG is too large: \d+ bytes, over the limit of 1048576 bytes \(MULTITENANT_CONFIG_MAX_BYTES\)\n$/, 'UI_CAUSE_CODE_PRINTED');
+    const bad = start('{"' + marker + '": ');
+    assert.equal(bad.stderr, 'UI_STARTUP_REFUSED: CONFIG_FILE_INVALID_JSON: UI_PUBLIC_CONFIG is not valid JSON\n');
+    for (const result of [big, bad]) assert.ok(!result.stderr.includes(marker));
+  });
+
+  it('prints the ui configuration code for a refused roster', function () {
+    assert.equal(start(JSON.stringify({ version: 2, tenants: [] })).stderr, 'UI_STARTUP_REFUSED: UI_PUBLIC_CONFIG_INVALID\n');
+    assert.equal(start(tenants(1001)).stderr, 'UI_STARTUP_REFUSED: UI_PUBLIC_CONFIG_INVALID\n');
+  });
+});
