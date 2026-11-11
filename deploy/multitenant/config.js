@@ -115,7 +115,7 @@ function grants(l) {
   }
   grant('UPDATE(last_stamp)',table('clock','tenant_write_clock'),'operator');
   // Decision change-stamp-definer-function: search_path pinned, EXECUTE for realtime and evaluator only.
-  sql.push(...require('../../lib/change-stamps/postgres').grants({namespace:ns.change_stamps,clockNamespace:ns.clock,roles:[r.realtime,r.evaluator]}));
+  sql.push(...require('../../lib/change-stamps/postgres').grants({namespace:ns.change_stamps,clockNamespace:ns.clock,roles:[r.realtime,r.evaluator],checkers:[r.realtime]}));
   return sql;
 }
 function documents({layout:l,urls,tokens,publicKeys,managementKeys,vaultAddress}) {
