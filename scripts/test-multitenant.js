@@ -92,6 +92,8 @@ const INVENTORY = [
     note: 'pause/suspend eligibility: evaluator work lists from eligible tenants, recompute on unpause, other tenants unaffected' },
   { file: 'tests/evaluator-consumer-timer-churn.integration.test.js', flags: { NS_EVALUATOR_CONSUMERS_TEST: '1' }, shared: ['postgres'], own: [], gate: PENDING,
     note: 'stale producer selection under evaluator timer churn is reselected, not refused; NS_CONSUMER_* knobs are for measurement' },
+  { file: 'tests/evaluator-consumer-load.integration.test.js', flags: { NS_EVALUATOR_CONSUMERS_TEST: '1' }, shared: ['postgres'], own: [], gate: PENDING,
+    note: 'consumer wakes and producer selections per window with content-change revisions; NS_CONSUMER_LOAD_* knobs are for measurement' },
   { file: 'tests/tenant-operations.integration.test.js', flags: { NS_TENANT_OPERATIONS_PG_TEST: '1' }, shared: [], own: ['postgres'], gate: PENDING,
     note: 'representative entries/clock recovery and upgrade contracts; full populated deployment recovery is separate' },
   { file: 'tests/tenant-commit-clock-port.integration.test.js', flags: { NS_TENANT_COMMIT_CLOCK_TEST: '1' }, shared: ['postgres'], own: [], gate: PENDING },

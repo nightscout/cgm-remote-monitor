@@ -62,8 +62,8 @@ themselves.
 
 ## Inventory
 
-53 suites. 29 use the admin URI the script provides; 28 start at least one
-container of their own through Docker. Disabled, 52 register their
+54 suites. 30 use the admin URI the script provides; 28 start at least one
+container of their own through Docker. Disabled, 53 register their
 tests as pending with `[pending opt-in: <requirement>]` in the title; one
 (`postgres-entries-write`) uses a bare `describe.skip`.
 
@@ -86,6 +86,7 @@ tests as pending with `[pending opt-in: <requirement>]` in the title; one
 | `tests/evaluator-consumers.integration.test.js` | `NS_EVALUATOR_CONSUMERS_TEST=1` | PostgreSQL | | actual selected evaluator, atomic private state and intent, controlled UDS sink, restart/retry and committed ACK clears; real recipient delivery has separate joined fixtures |
 | `tests/tenant-activity.integration.test.js` | `NS_EVALUATOR_CONSUMERS_TEST=1` | PostgreSQL | | pause/suspend eligibility: evaluator work lists from eligible tenants, recompute on unpause, other tenants unaffected |
 | `tests/evaluator-consumer-timer-churn.integration.test.js` | `NS_EVALUATOR_CONSUMERS_TEST=1` | PostgreSQL | | stale producer selection under evaluator timer churn is reselected, not refused; `NS_CONSUMER_*` knobs are for measurement |
+| `tests/evaluator-consumer-load.integration.test.js` | `NS_EVALUATOR_CONSUMERS_TEST=1` | PostgreSQL | | consumer wakes and producer selections per window with content-change revisions; `NS_CONSUMER_LOAD_*` knobs are for measurement |
 | `tests/tenant-operations.integration.test.js` | `NS_TENANT_OPERATIONS_PG_TEST=1` | | PostgreSQL | representative entries/clock recovery and upgrade contracts; full populated deployment recovery is separate |
 | `tests/tenant-commit-clock-port.integration.test.js` | `NS_TENANT_COMMIT_CLOCK_TEST=1` | PostgreSQL | | |
 | `tests/tenant-commit-clock-http.integration.test.js` | `NS_TENANT_COMMIT_CLOCK_HTTP_DOCKER_TEST=1` | | PostgreSQL, Vault | functional cases enabled; benchmark separately opt-in |
