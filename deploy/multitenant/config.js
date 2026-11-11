@@ -19,7 +19,8 @@ function catalogues() {
     legacy:require('../../lib/secrets/legacy-credentials-candidate.json'), access:require('../../lib/tenant-authorization/access-candidate.json'),
     clock:require('../../migrations/candidates/postgres-write-clock-v1.json'), rt_checkpoint:require('../../migrations/candidates/postgres-consumer-checkpoint-v1.json'),
     eval_checkpoint:require('../../migrations/candidates/postgres-consumer-checkpoint-v1.json'), alarm:require('../../migrations/candidates/postgres-alarm-suppression-v1.json'),
-    outbox:require('../../lib/tenant-notifications/postgres-candidate.json'),control:require('../../lib/tenant-lifecycle/postgres-candidate.json')};
+    outbox:require('../../lib/tenant-notifications/postgres-candidate.json'),control:require('../../lib/tenant-lifecycle/postgres-candidate.json'),
+    change_stamps:require('../../lib/change-stamps/postgres-candidate.json')};
 }
 function layout(prefix = 'nsdemo') {
   quote(prefix);
@@ -113,6 +114,8 @@ function grants(l) {
     if([...clinical,'settings'].includes(name))sql.push(...insertionGrants({namespace:ns[name],domain:name,role:r.operator,mode:'restore'}));
   }
   grant('UPDATE(last_stamp)',table('clock','tenant_write_clock'),'operator');
+  // Decision change-stamp-definer-function: search_path pinned, EXECUTE for realtime and evaluator only.
+  sql.push(...require('../../lib/change-stamps/postgres').grants({namespace:ns.change_stamps,clockNamespace:ns.clock,roles:[r.realtime,r.evaluator],checkers:[r.realtime]}));
   return sql;
 }
 function documents({layout:l,urls,tokens,publicKeys,managementKeys,vaultAddress}) {
@@ -128,9 +131,9 @@ function documents({layout:l,urls,tokens,publicKeys,managementKeys,vaultAddress}
       suppression:{connectionEnv:'NS_SUPPRESSION_PG',namespace:ns.alarm,maxRows:10000,maxBytes:8388608,maxConnections:2},
       route:{id:'realtime-compose-demo',maxMessageBytes:1048576,operationTimeoutMs:5000},
       maxPayloadBytes:524288,maxInflight:4,attemptTimeoutMs:10000,retryDelayMs:1000,pollIntervalMs:1000,retryIntervalMs:1000}}};
-  const realtime={version:1,postgres:{connectionEnv:'NS_REALTIME_PG',namespaces:{...domainNamespaces,clock:ns.clock,checkpoint:ns.rt_checkpoint}},consumer:'realtime-compose-demo',
+  const realtime={version:1,postgres:{connectionEnv:'NS_REALTIME_PG',namespaces:{...domainNamespaces,clock:ns.clock,checkpoint:ns.rt_checkpoint,changeStamps:ns.change_stamps}},consumer:'realtime-compose-demo',
     ...limits,tenants,socketOrderDomains:['treatments','devicestatus','profile'],admissionFileEnv:'NS_ADMISSION_FILE',
-    maxMessageBytes:1048576,operationTimeoutMs:5000,maxSockets:100};
+    maxMessageBytes:1048576,operationTimeoutMs:5000,maxSockets:100,authorizationRecheckMs:30000};
   // Decision root-grant-ceiling-default-all: every tenant data permission unless
   // the operator narrows it. Owner and root share this catalogue (one policy row).
   const ownerCatalogue=['*'];
@@ -167,7 +170,7 @@ function lifecycle(l) {
   const aliases={rt_checkpoint:'checkpoint',eval_checkpoint:'evaluator_checkpoint',alarm:'alarm_suppression',outbox:'notification_outbox'};
   const tables={...Object.fromEntries([...clinical,'settings'].map(name=>[name,[...(ordered.includes(name)?['tenant_insertion_ordinal']:[]),name]])),authorization:['tenant_authorization_config','tenant_authorization_roles','tenant_authorization_subjects','tenant_authorization_subject_roles','tenant_subject_admin_audit','tenant_owner_policy','tenant_owner_actors'],secrets:['secret_records','secret_audit'],legacy:['legacy_credential_config','legacy_credential_subjects'],access:['access_tenants','access_credentials','access_sessions','access_keys'],clock:['tenant_write_clock'],rt_checkpoint:['tenant_consumer_checkpoint'],eval_checkpoint:['tenant_consumer_checkpoint'],alarm:['tenant_alarm_suppression'],outbox:['tenant_notification_state','tenant_notification_heads','tenant_notification_requests']};
   const selected=catalogues();
-  return {namespaces:Object.fromEntries(Object.entries(l.namespaces).filter(([name])=>name!=='control').map(([name,namespace])=>[aliases[name]||name,namespace])),
+  return {namespaces:Object.fromEntries(Object.entries(l.namespaces).filter(([name])=>name!=='control'&&name!=='change_stamps').map(([name,namespace])=>[aliases[name]||name,namespace])),
     catalogues:Object.entries(tables).map(([name,tables])=>({kind:aliases[name]||name,candidate:selected[name],tables,secrets:name==='secrets'?['secret_records']:[]}))};
 }
 function validateFiles(directory, docs) {

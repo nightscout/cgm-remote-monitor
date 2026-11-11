@@ -214,12 +214,12 @@ describe('whole deployment source admission and filesystem durability', function
     const admission = admit({ namespaces: namespaces() });
     assert.deepEqual(admission.census.selected.map(entry => entry.kind), KINDS);
     assert.equal(admission.census.tables, 49);
-    assert.equal(admission.census.candidates.length, 25);
+    assert.equal(admission.census.candidates.length, 26);
     assert.equal(admission.census.candidates.filter(entry => entry.disposition === 'reviewed alternative').length, 3);
-    // Pool membership (lib/pool-membership) is deployment-operational: censused,
+    // Pool membership and change stamps are deployment-operational: censused,
     // digest-pinned and never part of a tenant artifact.
     assert.deepEqual(admission.census.candidates.filter(entry => entry.disposition === 'operational, no tenant data').map(entry => entry.file),
-      ['lib/pool-membership/postgres-candidate.json']);
+      ['lib/change-stamps/postgres-candidate.json', 'lib/pool-membership/postgres-candidate.json']);
     assert.ok(!admission.catalogues.some(entry => entry.candidatePath === 'lib/pool-membership/postgres-candidate.json'));
     assert.ok(!admission.lifecycle.CATALOGUE.some(entry => entry.tables.includes('pool_membership')));
     assert.ok(admission.lifecycle.CATALOGUE.some(entry => entry.tables.includes('tenant_owner_configuration_authority')));
@@ -281,7 +281,7 @@ describe('whole deployment source admission and filesystem durability', function
     const admission = admit({ namespaces: input.namespaces, instances: checkpoints.instances });
     assert.equal(admission.census.selected.length, 22);
     assert.equal(admission.census.tables, 50);
-    assert.equal(admission.census.candidates.length, 25);
+    assert.equal(admission.census.candidates.length, 26);
     assert.deepEqual(admission.census.selected.filter(entry => entry.kind.includes('checkpoint')).map(entry => [entry.kind, entry.namespace, entry.instanceOf]),
       [['checkpoint', input.realtime.namespace, null], ['evaluator_checkpoint', input.evaluator.namespace, 'checkpoint']]);
     assert.ok(admission.lifecycle.CATALOGUE.some(entry => entry.kind === 'evaluator_checkpoint'));

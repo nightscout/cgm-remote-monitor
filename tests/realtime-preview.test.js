@@ -164,7 +164,10 @@ describe('explicit realtime preview source contracts', function () {
       require('../lib/client/receiveddata')(update.value, browser, { extendedSettings: {} });
       assert.deepEqual(browser.sgvs, [], 'RT_BROWSER_ABSENCE actual receiveddata discards physically removed SGV');
       assert.equal(b.sent.some(x => x.event === 'dataUpdate'), false, 'RT_TENANT_FANOUT foreign socket receives nothing');
-      f.state.allowed = false; a.sent.length = 0; await f.runtime.refresh(A);
+      // Publish on change: revocation is found by the authorization recheck
+      // (periodic, expiry or event), not by re-authorizing every frame.
+      f.state.allowed = false; a.sent.length = 0; await f.protocol.recheckTenant(A);
+      f.state.rows = [{ domain: 'entries', document: { _id: 'new', sgv: 120 } }]; await f.runtime.refresh(A);
       assert.equal(a.sent.some(x => x.event === 'dataUpdate'), false, 'RT_CURRENT_DELIVERY revoked socket no data');
       assert.equal(a.disconnected, true);
     } finally { await f.close(); }
@@ -313,7 +316,7 @@ describe('explicit realtime preview source contracts', function () {
       const socket = await f.socket('a.test', namespace === 'retro' ? '/' : namespace);
       await socket.receive(namespace !== '/alarm' ? 'authorize' : 'subscribe', { secret: 'old-allowed' }); socket.sent.length = 0;
       const held = { entered: deferred(), release: deferred() }; f.state.holdAuthority = held;
-      const pending = namespace === 'retro' ? socket.receive('loadRetro', {}, () => {}) : namespace === '/' ? f.schedule.callback() : f.protocol.alarm({ tenant: A, notification: { level: 2, message: 'protected' } });
+      const pending = namespace === 'retro' ? socket.receive('loadRetro', {}, () => {}) : namespace === '/' ? f.protocol.recheckTenant(A) : f.protocol.alarm({ tenant: A, notification: { level: 2, message: 'protected' } });
       await held.entered.promise; f.state.allowed = false;
       await socket.receive(namespace !== '/alarm' ? 'authorize' : 'subscribe', { secret: 'new-denied' });
       held.release.resolve(); await Promise.allSettled([pending]);

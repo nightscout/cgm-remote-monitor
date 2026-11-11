@@ -252,7 +252,7 @@ describe('realtime sockets under pause and suspend (actual protocol and runtime,
     disconnect () { this.disconnected = true; super.emit('disconnect'); }
   }
   async function realtime () {
-    const rows = new Map([[A, row()], [B, row()]]);
+    const rows = new Map([[A, row()], [B, row()]]), writes = new Map([[A, 0], [B, 0]]);
     const env = require('../lib/server/tenant-app/environment')({ settings: { enable: ['bgnow'] } });
     const hosts = { 'a.test': A, 'b.test': B };
     let protocol, runtime; const schedule = {};
@@ -264,9 +264,10 @@ describe('realtime sockets under pause and suspend (actual protocol and runtime,
     protocol = require('../lib/server/realtime/protocol').create({ admission: { resolve: async req => { const t = hosts[req.headers.host]; if (!t) throw new Error('UNKNOWN'); return t; } },
       api, readCurrent, runtime: () => runtime, maxSockets: 10, domains: ['entries'] });
     runtime = await require('../lib/server/realtime/runtime')({ tenants: [A, B], readCurrent, recoveryIntervalMs: 100,
-      create: selected => ({ acquire: async () => ({ tenant: selected.tenant, checkpoint: 0, rows: [], frame: { delta: false, lastUpdated: 1000, sgvs: [] } }) }),
+      create: selected => ({ acquire: async () => ({ tenant: selected.tenant, checkpoint: writes.get(selected.tenant), rows: [],
+        frame: { delta: false, lastUpdated: 1000, sgvs: Array.from({ length: writes.get(selected.tenant) }, (_, i) => ({ mgdl: 100 + i, mills: 1000 + i })) } }) }),
       fanout: protocol.fanout, schedule: callback => { schedule.callback = callback; return 1; }, cancel: () => {} });
-    return { rows, protocol, runtime, schedule,
+    return { rows, writes, protocol, runtime, schedule,
       async socket (host) { const socket = new Socket(host); await protocol.prepare(socket); protocol.bind(socket, '/'); await socket.receive('authorize', { secret: 'synthetic' }); return socket; },
       async close () { protocol.close(); await runtime.close(); } };
   }
@@ -277,7 +278,8 @@ describe('realtime sockets under pause and suspend (actual protocol and runtime,
         const a = await f.socket('a.test'), b = await f.socket('b.test');
         assert.notEqual(a.disconnected, true);
         f.rows.set(A, row(paused, suspended, 2));
-        const before = b.sent.length;
+        // Publish on change: B gets a write, so its view changes and it receives a frame.
+        const before = b.sent.length; f.writes.set(B, 1);
         await f.schedule.callback(); // actual recovery refresh, no wake
         assert.equal(a.disconnected, true, 'ACTIVITY_SOCKET_DISCONNECTED');
         assert.notEqual(b.disconnected, true); assert.ok(b.sent.length > before, 'B still receives updates');
