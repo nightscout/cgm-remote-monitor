@@ -49,6 +49,9 @@ describe('dormant durable replay source protocol', function () {
         if (sql.startsWith('SELECT checkpoint')) return { rows: saved ? [structuredClone(saved)] : [] };
         if (sql.startsWith('SELECT last_stamp')) return { rows: [{ last_stamp: String(floor) }] };
         if (sql.startsWith('SELECT 1')) return { rows: [] };
+        // The evaluator change signature: floor, row count and a row-version digest.
+        if (sql.startsWith('SELECT /* evaluator-change-signature */')) return { rows: [{ stamp: String(floor), row_count: String(source.length),
+          digest: String(source.reduce((n, row) => n + JSON.stringify(row).length, 0)) }] };
         if (sql.startsWith('SELECT count(*)')) return { rows: [{ row_count: String(source.length),
           document_bytes: String(source.reduce((n, row) => n + Buffer.byteLength(JSON.stringify(row.doc)), 0)) }] };
         if (sql.startsWith('SELECT domain') && sql.includes('snapshot_source')) {

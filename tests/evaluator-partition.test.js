@@ -94,10 +94,14 @@ describe('evaluator partitioning: runtime and consumers', function () {
     const pool = fakePool(new Set());
     const q = await protocol(undefined, { pool });
     try {
-      const reads = pool.reads();
-      for (const timer of q.clinicalTimers) timer.fn();
-      await new Promise(resolve => setImmediate(resolve));
-      assert.equal(pool.reads() - reads, q.clinicalTimers.length);
+      // The backstop pass reads membership once; the evaluation-gap watchdog reads none.
+      const deltas = [];
+      for (const timer of q.clinicalTimers) {
+        const reads = pool.reads(); timer.fn();
+        await new Promise(resolve => setImmediate(resolve));
+        deltas.push(pool.reads() - reads);
+      }
+      assert.deepEqual(deltas.sort(), [0, 1]);
     } finally { await q.close(); }
   });
 });

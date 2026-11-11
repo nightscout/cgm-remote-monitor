@@ -148,7 +148,7 @@ describe('actual runtime alarm outbox consumer source composition', function () 
     try { assert.equal(signal.aborted, true, 'EVALUATOR_CONSUMER_ABORT_OWNED_WAIT'); }
     finally { complete(new Error('fixture release')); await closing; }
     const stored = l.files.get(l.A).snapshot(); complete(null, { accepted: true }); await Promise.resolve();
-    assert.deepEqual(l.files.get(l.A).snapshot(), stored); assert.equal(l.cancelled.filter(timer => l.consumerTimers.includes(timer)).length, 2);
+    assert.deepEqual(l.files.get(l.A).snapshot(), stored); assert.equal(l.cancelled.filter(timer => l.consumerTimers.includes(timer)).length, 3, "run, retry and backstop schedules cancelled");
   });
 });
 

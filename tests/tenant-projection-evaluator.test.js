@@ -112,7 +112,7 @@ describe('dormant tenant projection evaluator source contract', function () {
   it('retries clinical computation after a downstream failure despite unchanged snapshot progress', async function () {
     let acquisitions = 0, fail = false;
     const v = component({ async reconcile (bounds) {
-      assert.deepEqual(bounds, { maxRows: 10, maxBytes: 10000 });
+      assert.deepEqual(bounds, { maxRows: 10, maxBytes: 10000, signature: true }, 'the evaluator also records the snapshot change signature');
       acquisitions++;
       return { checkpoint: 1, progress: 'current-snapshot', rows: [] };
     } }, { async query () {

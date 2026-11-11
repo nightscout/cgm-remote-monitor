@@ -98,7 +98,11 @@ describe('independent tenant startup admission (source protocol)', function () {
       await role.invalidateTenant(A);await f.window.run(A,()=>calls.socket(A));assert.equal(reads.filter(row=>row[1]===A).length,8);
     }finally{if(role)await role.close();await f.window.close();}
   }
-  it('actual evaluator boot preserves shared failures, initializes B and checks deferred A before resumed component creation', async function () {
+  it('actual evaluator boot preserves shared failures, initializes B and checks deferred A before resumed component creation (NS_TENANT_READINESS=all)', async function () {
+    const previous=process.env.NS_TENANT_READINESS;process.env.NS_TENANT_READINESS='all';
+    try{await evaluatorBootAll();}finally{if(previous===undefined)delete process.env.NS_TENANT_READINESS;else process.env.NS_TENANT_READINESS=previous;}
+  });
+  async function evaluatorBootAll () {
     const options={phases:{[A]:'suspended'}},f=fixture(options),reads=[],provisioned=[];
     const evaluator=()=>({evaluate:async()=>({checkpoint:1}),evaluateTime:async()=>({checkpoint:1}),close:()=>{}});evaluator.domains=[];
     const readiness=Object.assign(async()=>{}, {provisionTenant:async(connection,config,tenant)=>{f.window.assertCurrent(tenant);provisioned.push(tenant);}});
@@ -122,7 +126,7 @@ describe('independent tenant startup admission (source protocol)', function () {
     }finally{if(role)await role.close();await f.window.close();}
     const failed=load('lib/server/serve/evaluator-preview.js',{'./evaluator-readiness':async()=>{throw new Error('bad shared metadata');}});
     await assert.rejects(failed.boot(config),/readiness or initialization refused/);
-  });
+  }
   it('actual consumer prepare uses metadata-only sameDB challenge and screens shared ACL even with every tenant paused', async function () {
     for (const fault of [null,'outbox','suppression','datastore']) {
       const f=fixture({phase:'suspended'}),zero='00000000-0000-0000-0000-000000000000',events=[];
