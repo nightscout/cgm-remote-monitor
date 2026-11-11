@@ -6,6 +6,30 @@ const { isDeepStrictEqual } = require('node:util');
 const { createFixture, A, B, TARGET, CATALOGUE } = require('./fixtures/owner-subject-policy');
 const { optInSuite } = require('./support/opt-in');
 
+// The ownership_operator identity of the admin role's ownership store, with the
+// lifecycle control namespace its phase check reads (decision
+// restore-census-and-ownership-phase): tenant A has an active window.
+const CONTROL_NS = 'owner_policy_control';
+async function ownershipStore (f, createOwnership) {
+  if (!f.state.operatorURI) {
+    const crypto = require('node:crypto'), pw = crypto.randomBytes(24).toString('hex');
+    const { run } = require('../lib/migrations/postgres');
+    const { phaseGrants } = require('../lib/tenant-lifecycle/tenant-phase');
+    await f.admin.query(`CREATE ROLE ownership_operator LOGIN NOSUPERUSER NOBYPASSRLS PASSWORD '${pw}'`);
+    await f.admin.query(`GRANT USAGE ON SCHEMA ${f.NS} TO ownership_operator`);
+    await f.admin.query(`GRANT SELECT, UPDATE (owner_fence) ON ${f.tables.config}, ${f.tables.policy} TO ownership_operator`);
+    await f.admin.query(`GRANT SELECT, INSERT, UPDATE (active, can_update, delegable) ON ${f.tables.actors} TO ownership_operator`);
+    await f.admin.query(`GRANT SELECT ON ${f.tables.subjects} TO ownership_operator`);
+    await f.admin.query(`GRANT INSERT ON ${f.tables.audit} TO ownership_operator`);
+    await f.admin.query(`CREATE SCHEMA IF NOT EXISTS ${CONTROL_NS}`);
+    await run('up', { direct: true, connectionString: f.adminURI, namespace: CONTROL_NS, catalogue: require('../lib/tenant-lifecycle/postgres-candidate.json') });
+    for (const sql of phaseGrants({ namespace: CONTROL_NS, role: 'ownership_operator' })) await f.admin.query(sql);
+    await f.admin.query(`INSERT INTO ${CONTROL_NS}.tenant_lifecycle_windows (tenant_id, lock_key, phase, generation) VALUES ($1, 810001, 'active', 1) ON CONFLICT DO NOTHING`, [f.A]);
+    const url = new URL(f.writerURI); url.username = 'ownership_operator'; url.password = pw; f.state.operatorURI = url.toString();
+  }
+  return createOwnership({ connectionString: f.state.operatorURI, namespace: f.NS, lifecycleNamespace: CONTROL_NS });
+}
+
 optInSuite(process.env.NS_OWNER_SUBJECT_POLICY_DOCKER_TEST === '1',
   'NS_OWNER_SUBJECT_POLICY_DOCKER_TEST=1')('owner subject proposed-grant policy (owned PostgreSQL HTTP)', function () {
     this.timeout(90000);
@@ -298,17 +322,7 @@ optInSuite(process.env.NS_OWNER_SUBJECT_POLICY_DOCKER_TEST === '1',
       const createOwnership = require('../lib/tenant-ownership/postgres');
       const { createOwnershipOperations } = require('../lib/tenant-ownership/component');
       const { tenantSetAuthority } = require('../lib/tenant-ownership/service');
-      if (!f.state.operatorURI) {
-        const crypto = require('node:crypto'), pw = crypto.randomBytes(24).toString('hex');
-        await f.admin.query(`CREATE ROLE ownership_operator LOGIN NOSUPERUSER NOBYPASSRLS PASSWORD '${pw}'`);
-        await f.admin.query(`GRANT USAGE ON SCHEMA ${f.NS} TO ownership_operator`);
-        await f.admin.query(`GRANT SELECT, UPDATE (owner_fence) ON ${f.tables.config}, ${f.tables.policy} TO ownership_operator`);
-        await f.admin.query(`GRANT SELECT, INSERT, UPDATE (active, can_update, delegable) ON ${f.tables.actors} TO ownership_operator`);
-        await f.admin.query(`GRANT SELECT ON ${f.tables.subjects} TO ownership_operator`);
-        await f.admin.query(`GRANT INSERT ON ${f.tables.audit} TO ownership_operator`);
-        const url = new URL(f.writerURI); url.username = 'ownership_operator'; url.password = pw; f.state.operatorURI = url.toString();
-      }
-      const store = await createOwnership({ connectionString: f.state.operatorURI, namespace: f.NS });
+      const store = await ownershipStore(f, createOwnership);
       const operator = { principal: 'synthetic_operator', consumer: 'operator_plane' };
       const ops = createOwnershipOperations({ store, authorizeOperator: tenantSetAuthority({ ...operator, tenants: [A] }) });
       const ref = principal => ({ principal, consumer: 'admin' });
@@ -478,17 +492,7 @@ optInSuite(process.env.NS_OWNER_SUBJECT_POLICY_DOCKER_TEST === '1',
         const createOwnership = require('../lib/tenant-ownership/postgres');
         const { createOwnershipOperations } = require('../lib/tenant-ownership/component');
         const { tenantSetAuthority } = require('../lib/tenant-ownership/service');
-        if (!f.state.operatorURI) {
-          const pw = crypto.randomBytes(24).toString('hex');
-          await f.admin.query(`CREATE ROLE ownership_operator LOGIN NOSUPERUSER NOBYPASSRLS PASSWORD '${pw}'`);
-          await f.admin.query(`GRANT USAGE ON SCHEMA ${f.NS} TO ownership_operator`);
-          await f.admin.query(`GRANT SELECT, UPDATE (owner_fence) ON ${f.tables.config}, ${f.tables.policy} TO ownership_operator`);
-          await f.admin.query(`GRANT SELECT, INSERT, UPDATE (active, can_update, delegable) ON ${f.tables.actors} TO ownership_operator`);
-          await f.admin.query(`GRANT SELECT ON ${f.tables.subjects} TO ownership_operator`);
-          await f.admin.query(`GRANT INSERT ON ${f.tables.audit} TO ownership_operator`);
-          const url = new URL(f.writerURI); url.username = 'ownership_operator'; url.password = pw; f.state.operatorURI = url.toString();
-        }
-        const store = await createOwnership({ connectionString: f.state.operatorURI, namespace: f.NS });
+        const store = await ownershipStore(f, createOwnership);
         const operator = { principal: 'synthetic_operator', consumer: 'operator_plane' };
         const ops = createOwnershipOperations({ store, authorizeOperator: tenantSetAuthority({ ...operator, tenants: [A] }) });
         const ref = principal => ({ principal, consumer: 'admin' });

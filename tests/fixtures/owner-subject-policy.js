@@ -103,6 +103,7 @@ async function createFixture () {
     // Root plane (tenant API_SECRET): the owner writer's shape, except that it
     // only reads owner actor rows (last-owner guard) and never locks them.
     for (const statement of rootWriterGrants('root_writer')) await admin.query(statement);
+    f.adminURI = adminURI;
     f.writerURI = uris.owner_writer; f.legacyURI = uris.legacy_writer; f.readerURI = uris.owner_reader; f.rootURI = uris.root_writer;
     f.newStore = async (options = {}) => {
       const store = await createStore({ connectionString: uris.owner_writer, namespace: NS, credentialNamespace: CREDENTIAL_NS,
