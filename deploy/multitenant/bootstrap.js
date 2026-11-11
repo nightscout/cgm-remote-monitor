@@ -82,7 +82,9 @@ async function bootstrap(options) {
       const tables=await admin.query('SELECT tablename FROM pg_catalog.pg_tables WHERE schemaname=$1',[namespace]);
       for(const row of tables.rows)await admin.query('ALTER TABLE '+q(namespace)+'.'+q(row.tablename)+' OWNER TO '+q(l.owner));
       const functions=await admin.query('SELECT p.proname,pg_get_function_identity_arguments(p.oid) AS args FROM pg_proc p JOIN pg_namespace n ON n.oid=p.pronamespace WHERE n.nspname=$1',[namespace]);
-      for(const row of functions.rows){if(row.args!=='')throw fail('BOOTSTRAP_UNREVIEWED_FUNCTION_SIGNATURE');await admin.query('ALTER FUNCTION '+q(namespace)+'.'+q(row.proname)+'() OWNER TO '+q(l.owner));}
+      // Reviewed signatures only; tenant_change_stamps is the change-stamp-definer-function.
+      const reviewed={tenant_change_stamps:'tenants uuid[]'},types={tenant_change_stamps:'uuid[]'};
+      for(const row of functions.rows){if(row.args!==(reviewed[row.proname]||''))throw fail('BOOTSTRAP_UNREVIEWED_FUNCTION_SIGNATURE');await admin.query('ALTER FUNCTION '+q(namespace)+'.'+q(row.proname)+'('+(types[row.proname]||'')+') OWNER TO '+q(l.owner));}
       await admin.query('ALTER SCHEMA '+q(namespace)+' OWNER TO '+q(l.owner));
     }
     for(const sql of plan.grants(l))await admin.query(sql);

@@ -27,7 +27,7 @@ belongs to the coherent assembled candidate.
 JSON migration catalogues under `lib/` and `migrations/candidates/`. It never selects
 all database schemas. It refuses an unadmitted candidate, missing namespace,
 omitted/extra table, unsupported DDL, shared namespace or unknown selection.
-A deployment-operational catalogue with no tenant data (`lib/pool-membership`)
+A deployment-operational catalogue with no tenant data (`lib/pool-membership`, `lib/change-stamps`)
 is censused with disposition `operational, no tenant data`, pinned by digest in
 `OPERATIONAL`, and never enters a tenant artifact; a changed one refuses.
 Current assembled whole-C selection: **23 candidate files, 21 physical instances, 37 tables**; the three
