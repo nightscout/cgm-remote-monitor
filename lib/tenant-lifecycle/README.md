@@ -28,7 +28,7 @@ connection and opaque claim from the actual controller:
 await controller.withRestore(tenant, { artifactDigest: artifact.digest },
   async ({ connection, maintenanceClaim }) => lifecycle.importArtifact(
     connection, artifact, {
-      tenant, namespaces, maintenanceClaim,
+      tenant, namespaces, ledgerNamespace, maintenanceClaim,
       onCommitted: summary => publishCommittedSummary(summary)
     }));
 ```
