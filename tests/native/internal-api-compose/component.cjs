@@ -35,7 +35,9 @@ const log = (...args) => console.log(new Date().toISOString(), role, ...args);
 // environment through the production resolver, never from request content.
 const internal = listenerConfig.resolve([role], process.env);
 const peer = name => internal.peer(name, LIMITS);
-const participants = manifest.validate(listenerConfig.ROLES.map(name => ({ id: name.replace('-', '_'), roles: [name], namespaces: ['clinical'], endpoint: internal.participant([name], LIMITS) })));
+// The cohort's participants are the roles the operation cohort manifest admits
+// (listener-config's ROLES also names vcpool, which is not a cohort participant).
+const participants = manifest.validate(manifest.ROLES.map(name => ({ id: name.replace('-', '_'), roles: [name], namespaces: ['clinical'], endpoint: internal.participant([name], LIMITS) })));
 
 function cohortModule () {
   const file = path.join(root, 'lib/server/serve/operation-cohort.js'), output = { exports: {} };
