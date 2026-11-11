@@ -226,6 +226,24 @@ describe('Selected lower-port window cannot be omitted (source protocol)', funct
       await f.window.close();
     }
   });
+  // Decision admission-epoch-everywhere: the census identity of a pooled backend
+  // is read once per client and again when the client's backend changes.
+  it('reads the backend identity once per pooled client and again on a different backend', async function () {
+    const options = {}, f = fixture(options), lower = lowerModule(f), scope = require('../lib/storage/tenant-scope');
+    const previous = scope.getTenancyMode(); scope.setTenancyMode('multi');
+    await f.window.ready();
+    const release = lower.installOperationWindow(f.window); let store;
+    const reads = () => f.log.filter(row => typeof row[0] === 'string' && row[0].startsWith('SELECT pg_backend_pid() AS pid,current_user')).length;
+    try {
+      store = await lower({ connectionString: 'postgresql://synthetic/disposable_test' });
+      for (let i = 0; i < 3; i++) await scope.withTenant(A, () => store.query('SELECT synthetic_body'));
+      assert.equal(reads(), 1, 'one identity read for three transactions on one backend');
+      f.client.processID = 789; options.sqlPid = 789; options.sqlBirth = '1700000000.000002';
+      await scope.withTenant(A, () => store.query('SELECT synthetic_body'));
+      assert.equal(reads(), 2, 'a different backend is read again');
+      assert.ok(lower.cohortBackends(f.window).some(row => row.pid === 789 && row.birth === '1700000000.000002'));
+    } finally { if (store) await store.end(); release(); await f.window.close(); scope.setTenancyMode(previous); }
+  });
   it('applies the actual selected window when a helper omits it and refuses suspended body SQL', async function () {
     const options = {}, f = fixture(options), lower = lowerModule(f), scope = require('../lib/storage/tenant-scope');
     const previous = scope.getTenancyMode(); scope.setTenancyMode('multi');

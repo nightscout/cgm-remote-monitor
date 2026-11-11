@@ -20,6 +20,7 @@ const plan = require('../deploy/multitenant/config');
 const windows = require('../lib/tenant-lifecycle/operation-window');
 const connect = require('../lib/storage/postgres-connection');
 const scope = require('../lib/storage/tenant-scope');
+const readiness = require('../lib/server/serve/evaluator-consumer-readiness');
 const { optInSuite } = require('./support/opt-in');
 
 // postgres:16, pinned by digest. Override only with another digest.
@@ -36,7 +37,7 @@ optInSuite(process.env.NS_OPERATION_WINDOW_DOCKER_TEST === '1',
   const control = name => q(ns.control) + '.' + q(name);
   const locks = [{ tenant: A, key: '830001' }, { tenant: B, key: '830002' }];
   const urls = {};
-  let previousMode, owned = false, bootstrapURI, lifetimePool, window, lower;
+  let previousMode, owned = false, bootstrapURI, lifetimePool, window, lower, releaseWindow, suppression;
 
   async function asBootstrap (fn) {
     const client = new Client({ connectionString: bootstrapURI }); await client.connect();
@@ -107,12 +108,18 @@ optInSuite(process.env.NS_OPERATION_WINDOW_DOCKER_TEST === '1',
     lifetimePool = new Pool({ connectionString: urls.lifetime_api, max: 2, options: '-c search_path=pg_catalog' });
     window = windows.create({ namespace: ns.control, locks, pool: lifetimePool });
     await window.ready();
+    releaseWindow = connect.installOperationWindow(window);
     lower = await connect({ connectionString: urls.api, operationWindow: window, max: 2 });
+    const reader = await connect({ connectionString: urls.suppression, operationWindow: window, max: 1 }), calls = [];
+    const recorded = { ...reader, query: (text, values) => { calls.push(typeof text === 'string' ? text : text.text); return reader.query(text, values); } };
+    suppression = { connection: reader, calls, guard: readiness.suppressionGuard(recorded, ns.alarm, { operationWindow: window }) };
   });
 
   after(async function () {
     try {
       if (lower) await lower.end();
+      if (suppression) await suppression.connection.end();
+      if (releaseWindow) releaseWindow();
       if (window) await window.close();
       if (lifetimePool) await lifetimePool.end();
     } finally {
@@ -160,8 +167,8 @@ optInSuite(process.env.NS_OPERATION_WINDOW_DOCKER_TEST === '1',
   // no case adds and drops one.
   const birth = () => control('tenant_lifecycle_backend_birth') + '()';
   const drift = [
-    ['table UPDATE on windows', 'lower', () => 'GRANT UPDATE ON ' + control('tenant_lifecycle_windows') + ' TO ' + q(l.roles.api), () => 'REVOKE UPDATE ON ' + control('tenant_lifecycle_windows') + ' FROM ' + q(l.roles.api)],
-    ['column UPDATE(phase) on windows', 'lower', () => 'GRANT UPDATE (phase) ON ' + control('tenant_lifecycle_windows') + ' TO ' + q(l.roles.api), () => 'REVOKE UPDATE (phase) ON ' + control('tenant_lifecycle_windows') + ' FROM ' + q(l.roles.api)],
+    ['table UPDATE on windows', 'lower', who => 'GRANT UPDATE ON ' + control('tenant_lifecycle_windows') + ' TO ' + who, who => 'REVOKE UPDATE ON ' + control('tenant_lifecycle_windows') + ' FROM ' + who],
+    ['column UPDATE(phase) on windows', 'lower', who => 'GRANT UPDATE (phase) ON ' + control('tenant_lifecycle_windows') + ' TO ' + who, who => 'REVOKE UPDATE (phase) ON ' + control('tenant_lifecycle_windows') + ' FROM ' + who],
     ['row security no longer forced', 'both', () => 'ALTER TABLE ' + control('tenant_lifecycle_windows') + ' NO FORCE ROW LEVEL SECURITY', () => 'ALTER TABLE ' + control('tenant_lifecycle_windows') + ' FORCE ROW LEVEL SECURITY'],
     ['an added policy', 'both', () => 'CREATE POLICY epoch_extra ON ' + control('tenant_lifecycle_operations') + ' FOR SELECT USING (true)', () => 'DROP POLICY epoch_extra ON ' + control('tenant_lifecycle_operations')],
     ['an added trigger', 'both', () => ['CREATE FUNCTION public.epoch_noop() RETURNS trigger LANGUAGE plpgsql AS $$BEGIN RETURN NEW; END$$',
@@ -170,37 +177,83 @@ optInSuite(process.env.NS_OPERATION_WINDOW_DOCKER_TEST === '1',
     ['an added index', 'both', () => 'CREATE INDEX epoch_phase ON ' + control('tenant_lifecycle_windows') + ' (phase)', () => 'DROP INDEX ' + q(ns.control) + '.epoch_phase'],
     ['a changed column default', 'both', () => 'ALTER TABLE ' + control('tenant_lifecycle_operations') + ' ALTER COLUMN finished SET DEFAULT true', () => 'ALTER TABLE ' + control('tenant_lifecycle_operations') + ' ALTER COLUMN finished SET DEFAULT false'],
     ['a loginable owner', 'both', () => 'ALTER ROLE ' + q(l.owner) + ' LOGIN', () => 'ALTER ROLE ' + q(l.owner) + ' NOLOGIN'],
-    ['CREATE on a schema', 'lower', () => 'GRANT CREATE ON SCHEMA public TO ' + q(l.roles.api), () => 'REVOKE CREATE ON SCHEMA public FROM ' + q(l.roles.api)],
-    ['CREATE on the database', 'lower', () => 'GRANT CREATE ON DATABASE "nightscout_epoch_test" TO ' + q(l.roles.api), () => 'REVOKE CREATE ON DATABASE "nightscout_epoch_test" FROM ' + q(l.roles.api)],
-    ['membership of an elevated role', 'lower', () => ['CREATE ROLE epoch_elevated NOLOGIN CREATEDB', 'GRANT epoch_elevated TO ' + q(l.roles.api)], () => ['REVOKE epoch_elevated FROM ' + q(l.roles.api), 'DROP ROLE epoch_elevated']],
-    ['an elevated serving role', 'lower', () => 'ALTER ROLE ' + q(l.roles.api) + ' CREATEDB', () => 'ALTER ROLE ' + q(l.roles.api) + ' NOCREATEDB'],
-    ['a bypassrls serving role', 'lower', () => 'ALTER ROLE ' + q(l.roles.api) + ' BYPASSRLS', () => 'ALTER ROLE ' + q(l.roles.api) + ' NOBYPASSRLS'],
+    ['CREATE on a schema', 'lower', who => 'GRANT CREATE ON SCHEMA public TO ' + who, who => 'REVOKE CREATE ON SCHEMA public FROM ' + who],
+    ['CREATE on the database', 'lower', who => 'GRANT CREATE ON DATABASE "nightscout_epoch_test" TO ' + who, who => 'REVOKE CREATE ON DATABASE "nightscout_epoch_test" FROM ' + who],
+    ['membership of an elevated role', 'lower', who => ['CREATE ROLE epoch_elevated NOLOGIN CREATEDB', 'GRANT epoch_elevated TO ' + who], who => ['REVOKE epoch_elevated FROM ' + who, 'DROP ROLE epoch_elevated']],
+    ['an elevated serving role', 'lower', who => 'ALTER ROLE ' + who + ' CREATEDB', who => 'ALTER ROLE ' + who + ' NOCREATEDB'],
+    ['a bypassrls serving role', 'lower', who => 'ALTER ROLE ' + who + ' BYPASSRLS', who => 'ALTER ROLE ' + who + ' NOBYPASSRLS'],
     ['a changed migration ledger', 'both', () => 'INSERT INTO ' + control('schema_migrations') + " (name,checksum) VALUES ('9999_epoch_synthetic','" + '0'.repeat(64) + "')", () => 'DELETE FROM ' + control('schema_migrations') + " WHERE name='9999_epoch_synthetic'"],
-    ['helper EXECUTE for a lower role', 'lower', () => 'GRANT EXECUTE ON FUNCTION ' + birth() + ' TO ' + q(l.roles.api), () => 'REVOKE EXECUTE ON FUNCTION ' + birth() + ' FROM ' + q(l.roles.api)],
+    ['helper EXECUTE for a lower role', 'lower', who => 'GRANT EXECUTE ON FUNCTION ' + birth() + ' TO ' + who, who => 'REVOKE EXECUTE ON FUNCTION ' + birth() + ' FROM ' + who],
     ['a changed helper configuration', 'lifetime', () => 'ALTER FUNCTION ' + birth() + ' SET search_path = pg_catalog, public', () => 'ALTER FUNCTION ' + birth() + ' SET search_path = pg_catalog'],
-    ['a foreign table write for the lifetime identity', 'lifetime', () => 'GRANT INSERT ON ' + q(ns.entries) + '.entries TO ' + q(l.roles.lifetime_api), () => 'REVOKE INSERT ON ' + q(ns.entries) + '.entries FROM ' + q(l.roles.lifetime_api)],
-    ['a foreign column write for the lifetime identity', 'lifetime', () => 'GRANT UPDATE (anonymous_roles) ON ' + q(ns.authorization) + '.tenant_authorization_config TO ' + q(l.roles.lifetime_api),
-      () => 'REVOKE UPDATE (anonymous_roles) ON ' + q(ns.authorization) + '.tenant_authorization_config FROM ' + q(l.roles.lifetime_api)],
+    ['a foreign table write for the lifetime identity', 'lifetime', who => 'GRANT INSERT ON ' + q(ns.entries) + '.entries TO ' + who, who => 'REVOKE INSERT ON ' + q(ns.entries) + '.entries FROM ' + who],
+    ['a foreign column write for the lifetime identity', 'lifetime', who => 'GRANT UPDATE (anonymous_roles) ON ' + q(ns.authorization) + '.tenant_authorization_config TO ' + who,
+      who => 'REVOKE UPDATE (anonymous_roles) ON ' + q(ns.authorization) + '.tenant_authorization_config FROM ' + who],
+    // Not an input of the suppression reader's guard: suppressionToo false.
     ['a foreign function executable by the lifetime identity', 'lifetime', () => 'CREATE FUNCTION public.epoch_foreign() RETURNS int LANGUAGE sql AS $$SELECT 1$$', () => 'DROP FUNCTION public.epoch_foreign()'],
     ['a replaced windows table', 'both', () => ['ALTER TABLE ' + control('tenant_lifecycle_windows') + ' RENAME TO epoch_windows_saved',
       'CREATE TABLE ' + control('tenant_lifecycle_windows') + ' (LIKE ' + q(ns.control) + '.epoch_windows_saved INCLUDING ALL)',
       // Readable by the serving identities, as a swapped-in table would need to be;
       // only its new identity (oid) differs from the admitted one.
-      'GRANT SELECT ON ' + control('tenant_lifecycle_windows') + ' TO ' + q(l.roles.api) + ',' + q(l.roles.lifetime_api)],
+      'GRANT SELECT ON ' + control('tenant_lifecycle_windows') + ' TO ' + [l.roles.api, l.roles.lifetime_api, l.roles.suppression].map(q).join(',')],
     () => ['DROP TABLE ' + control('tenant_lifecycle_windows'), 'ALTER TABLE ' + q(ns.control) + '.epoch_windows_saved RENAME TO tenant_lifecycle_windows']]
   ];
-  const statements = value => [].concat(value());
+  const statements = (value, who) => [].concat(value(who));
+  const roleFor = path => q(path === 'lifetime' ? l.roles.lifetime_api : l.roles.api);
   for (const [label, path, change, revert] of drift) {
     it('re-admits and refuses after ' + label + ', and admits again after the revert', async function () {
       assert.equal(await operation(A), true, 'cached admission before the change');
-      for (const text of statements(change)) await sql(text);
+      for (const text of statements(change, roleFor(path))) await sql(text);
       try {
         const codes = ['LIFECYCLE_WINDOW_SCHEMA_UNSAFE', 'LIFECYCLE_WINDOW_ROLE_UNSAFE'];
         if (path !== 'lifetime') await refuseData(A, codes);
         if (path !== 'lower') await refuseOperation(A, codes);
         if (path !== 'lifetime') await refuseData(B, codes);
-      } finally { for (const text of statements(revert)) await sql(text); }
+      } finally { for (const text of statements(revert, roleFor(path))) await sql(text); }
       assert.equal(await operation(A), true, 'admitted again after the revert');
     });
   }
+
+  // Decision admission-epoch-everywhere: the alarm-suppression reader's per-snapshot
+  // guard (evaluator-consumer-readiness.js suppressionGuard) on the same epoch, as
+  // the suppression identity. Each change targets that identity where it is
+  // role-specific; each is refused on the next snapshot after a cached admission.
+  const suppressionCases = [...drift.filter(([label]) => label !== 'a foreign function executable by the lifetime identity'),
+    ['a foreign table read for the suppression identity', 'suppression', who => 'GRANT SELECT ON ' + q(ns.entries) + '.entries TO ' + who, who => 'REVOKE SELECT ON ' + q(ns.entries) + '.entries FROM ' + who],
+    ['a changed suppression policy', 'suppression', () => 'CREATE POLICY epoch_extra ON ' + q(ns.alarm) + '.tenant_alarm_suppression FOR SELECT USING (true)', () => 'DROP POLICY epoch_extra ON ' + q(ns.alarm) + '.tenant_alarm_suppression'],
+    ['a changed suppression ledger', 'suppression', () => 'INSERT INTO ' + q(ns.alarm) + ".schema_migrations (name,checksum) VALUES ('9999_epoch_synthetic','" + '0'.repeat(64) + "')", () => 'DELETE FROM ' + q(ns.alarm) + ".schema_migrations WHERE name='9999_epoch_synthetic'"]];
+  const snapshot = () => scope.withTenant(A, () => suppression.connection.snapshotTransaction(() => suppression.guard()));
+  const fullChecks = () => suppression.calls.filter(text => text.includes('evaluator-consumer-suppression-role')).length;
+  it('suppression reader: an unchanged epoch skips the full check', async function () {
+    await snapshot(); const before = fullChecks();
+    await snapshot(); await snapshot();
+    assert.equal(fullChecks(), before);
+  });
+  for (const [label, , change, revert] of suppressionCases) {
+    it('suppression reader refuses the next snapshot after ' + label.replace('the lifetime identity', 'the suppression identity') + ', and admits again after the revert', async function () {
+      await snapshot();
+      const who = q(l.roles.suppression);
+      for (const text of statements(change, who)) await sql(text);
+      try {
+        await assert.rejects(snapshot(), error => ['EVALUATOR_CONSUMER_READINESS_REFUSED', 'LIFECYCLE_WINDOW_SCHEMA_UNSAFE', 'LIFECYCLE_WINDOW_ROLE_UNSAFE'].includes(error.code || error.message) ||
+          assert.fail('unexpected refusal ' + (error.code || error.message)));
+      } finally { for (const text of statements(revert, who)) await sql(text); }
+      await snapshot();
+    });
+  }
+
+  // Decision admission-epoch-everywhere: the census identity is read once per
+  // pooled client and again on a reconnect to a different backend.
+  it('re-reads the backend identity after a reconnect to a different backend', async function () {
+    const before = connect.cohortBackends(window).map(row => row.pid);
+    assert.equal(await data(A), true);
+    const pids = (await asBootstrap(client => client.query("SELECT pid FROM pg_stat_activity WHERE usename=$1", [l.roles.api]))).rows.map(row => row.pid);
+    assert.ok(pids.length >= 1);
+    await asBootstrap(client => client.query('SELECT pg_terminate_backend(pid) FROM pg_stat_activity WHERE usename=$1', [l.roles.api]));
+    await new Promise(resolve => setTimeout(resolve, 200));
+    for (let i = 0; i < 3; i++) { try { if (await data(A)) break; } catch { /* the terminated client is discarded on its first use */ } }
+    assert.equal(await data(A), true);
+    const after = connect.cohortBackends(window).map(row => row.pid);
+    const fresh = (await asBootstrap(client => client.query("SELECT pid FROM pg_stat_activity WHERE usename=$1", [l.roles.api]))).rows.map(row => row.pid);
+    assert.ok(fresh.some(pid => !before.includes(pid) && after.includes(pid)), 'the new backend is in the census');
+  });
 });
