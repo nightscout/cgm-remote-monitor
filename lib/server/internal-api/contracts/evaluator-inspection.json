@@ -508,6 +508,75 @@
               ],
               "additionalProperties": false
             }
+          },
+          "startup": {
+            "description": "Tenant startup readiness (lib/server/serve/tenant-startup.js health(); decision readiness-serve-then-warm).",
+            "type": "object",
+            "properties": {
+              "readiness": {
+                "enum": [
+                  "all",
+                  "serve"
+                ]
+              },
+              "configured": {
+                "type": "integer",
+                "minimum": 0
+              },
+              "ready": {
+                "type": "boolean"
+              },
+              "warming": {
+                "type": "integer",
+                "minimum": 0
+              },
+              "cold": {
+                "type": "integer",
+                "minimum": 0
+              },
+              "deferred": {
+                "type": "integer",
+                "minimum": 0
+              },
+              "failed": {
+                "type": "integer",
+                "minimum": 0
+              },
+              "alerts": {
+                "type": "array",
+                "maxItems": 100000,
+                "items": {
+                  "type": "object",
+                  "properties": {
+                    "tenant": {
+                      "type": "string"
+                    },
+                    "code": {
+                      "type": "string"
+                    },
+                    "cause": {
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "tenant",
+                    "code"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            },
+            "required": [
+              "readiness",
+              "configured",
+              "ready",
+              "warming",
+              "cold",
+              "deferred",
+              "failed",
+              "alerts"
+            ],
+            "additionalProperties": false
           }
         },
         "required": [

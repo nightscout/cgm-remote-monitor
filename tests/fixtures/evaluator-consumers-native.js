@@ -116,6 +116,10 @@ module.exports = function consumersLab () {
   lab.workerConsumers = config => new Promise((resolve, reject) => {
     const child = fork(path.join(__dirname, 'evaluator-consumer-worker.js'), [], { silent: true, env: {
       PATH: process.env.PATH, HOME: process.env.HOME, NODE_PATH: process.env.NODE_PATH, NODE_ENV: 'test', TZ: 'UTC',
+      // These labs read results right after boot: all-tenants readiness, as the
+      // api's boot-protocol test (decision readiness-serve-then-warm); serve is
+      // covered by tests/evaluator-gap-alert.test.js and the eval-gap gate.
+      NS_TENANT_READINESS: process.env.NS_TENANT_READINESS || 'all',
       ...source, ...lab.extraEnv, MULTITENANT_EVALUATOR_CONFIG: config.file } });
     children.add(child); let sequence = 0, stdout = '', stderr = ''; const pending = new Map();
     child.stdout.on('data', b => { stdout += b; }); child.stderr.on('data', b => { stderr += b; });
