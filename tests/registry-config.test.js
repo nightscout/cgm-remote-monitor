@@ -74,4 +74,31 @@ describe('registry-mode role configuration', function () {
     const tenant = randomUUID();
     assert.equal(rules.lockKey(tenant), rules.lockKey(tenant));
   });
+
+  it('RC_TENANT_ADMIN: tenant-admin loads with a registry; a tenant list or per-tenant management keys beside it are refused', function () {
+    const ownerConfig = require('../lib/server/serve/owner-preview-config');
+    const base = { version: 1, postgres: { writerConnectionEnv: 'APP_PG', accessConnectionEnv: 'CHECK_PG', namespaces: { authorization: 'ns_auth', credentials: 'ns_legacy', access: 'ns_access' } },
+      resolution: { mode: 'direct-alias' }, registry: { namespace: 'ns_registry' }, ownerPolicy: { catalogue: ['*'] },
+      management: { issuer: 'i', audience: 'a', purpose: 'management', consumer: 'owner' } };
+    const parsed = ownerConfig.parse(base, SOURCE);
+    assert.deepEqual([...parsed.tenantIds], ['registry:ns_registry']);
+    assert.throws(() => ownerConfig.parse({ ...base, tenants: [{ id: randomUUID(), aliases: ['one.example.test'] }] }, SOURCE), /registry configuration refuses a tenants list/);
+    assert.throws(() => ownerConfig.parse({ ...base, management: { ...base.management, keys: [] } }, SOURCE), /registry configuration refuses a tenants list/);
+    const credentials = ownerConfig.parse({ ...base, ownerCredentials: { connectionEnv: 'SETTINGS_PG', namespace: 'ns_secrets',
+      vault: { address: 'https://vault.example.test/', mount: 'transit', tokenEnv: 'VAULT_TOKEN' } } }, SOURCE);
+    assert.equal(credentials.ownerCredentials.vault.mount, 'transit');
+  });
+
+  it('RC_ADMIN_OWNERSHIP: admin ownership acts for active registry tenants; a tenant list beside the registry is refused', async function () {
+    const adminConfig = require('../lib/server/serve/admin-config');
+    const ownership = { connectionEnv: 'APP_PG', namespace: 'ns_auth', lifecycleNamespace: 'ns_control', operator: { principal: 'op', consumer: 'admin' }, registry: { namespace: 'ns_registry' } };
+    assert.equal(adminConfig.parse({ version: 1, maxBytes: 65536, timeoutMs: 10000, ownership }, SOURCE).ownership.registry.namespace, 'ns_registry');
+    assert.throws(() => adminConfig.parse({ version: 1, maxBytes: 65536, timeoutMs: 10000, ownership: { ...ownership, tenants: [randomUUID()] } }, SOURCE),
+      /registry configuration refuses a tenants list/);
+    const active = randomUUID(), removed = randomUUID();
+    const authority = require('../lib/tenant-ownership/service').registryAuthority({ principal: 'op', consumer: 'admin', isActive: async tenant => tenant === active });
+    assert.equal((await authority({ tenant: active, principal: 'op', consumer: 'admin' })).allowed, true);
+    assert.equal((await authority({ tenant: removed, principal: 'op', consumer: 'admin' })).allowed, false);
+    assert.equal((await authority({ tenant: active, principal: 'other', consumer: 'admin' })).allowed, false);
+  });
 });
