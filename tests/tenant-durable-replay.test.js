@@ -49,6 +49,8 @@ describe('dormant durable replay source protocol', function () {
         if (sql.startsWith('SELECT checkpoint') && sql.includes('projection IS NULL AS empty')) return { rows: saved
           ? [{ checkpoint: saved.checkpoint, contract_digest: saved.contract_digest, empty: saved.projection === null }] : [] };
         if (sql.startsWith('SELECT checkpoint')) return { rows: saved ? [structuredClone(saved)] : [] };
+        // Which snapshot tables carry an insertion ordinal (none in this fake).
+        if (sql.startsWith('SELECT table_schema')) return { rows: [] };
         if (sql.startsWith('SELECT projection')) return { rows: saved ? [{ projection: structuredClone(saved.projection) }] : [] };
         if (sql.startsWith('SELECT last_stamp')) return { rows: [{ last_stamp: String(floor) }] };
         if (sql.startsWith('SELECT 1')) return { rows: [] };

@@ -11,6 +11,7 @@
 // would make this vacuous, so it must itself differ from the clean output.
 const assert = require('node:assert/strict');
 const createLab = require('./fixtures/tenant-projection-evaluator');
+const scope = require('../lib/storage/tenant-scope');
 const { SCENARIOS } = require('./lib/views-equality/fixtures');
 const { optInSuite } = require('./support/opt-in');
 
@@ -94,6 +95,22 @@ optInSuite(process.env.NS_TENANT_PROJECTION_EVALUATOR_TEST === '1' && !!process.
         assert.notDeepEqual(after.signature, first.signature, 'the delete moved the signature');
         assert.equal(after.properties.bgnow.last, 111, 'the evaluation sees the delete');
       });
+    });
+
+    // Decision view-reads-total-order: the evaluator's snapshot carries each
+    // row's insertion ordinal from the tables whose catalogue has one.
+    it('EV_COST_A_ORDINALS the evaluator snapshot carries insertion ordinals in insertion order', async function () {
+      const reading = (id, minutes) => ({ _id: id, type: 'sgv', sgv: 100, date: at - minutes * 60000, dateString: new Date(at - minutes * 60000).toISOString() });
+      await lab.persistDomains({ entries: [reading('z-first', 2)] });
+      await lab.persistDomains({ entries: [reading('a-second', 2)] });
+      await lab.provisionView();
+      const recovered = await scope.withTenant(lab.A, () => lab.consumer().reconcile({ maxRows: 100, maxBytes: 1e6, signature: true }));
+      const entries = recovered.rows.filter(row => row.domain === 'entries');
+      const byId = Object.fromEntries(entries.map(row => [row.document._id, row.ordinal]));
+      assert.ok(Number.isSafeInteger(byId['z-first']) && Number.isSafeInteger(byId['a-second']), JSON.stringify(byId));
+      assert.ok(byId['z-first'] < byId['a-second'], 'insertion order, not identity order');
+      const plain = await scope.withTenant(lab.A, () => lab.consumer().reconcile({ maxRows: 100, maxBytes: 1e6 }));
+      assert.equal(plain.rows.some(row => 'ordinal' in row), false, 'other consumers see the rows as before');
     });
 
     // Candidate A: the views' reads are answered in process. A time-only

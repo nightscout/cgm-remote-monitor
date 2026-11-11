@@ -2,43 +2,30 @@
 
 // lib/storage/projection-memory-read.js (evaluator cost lane, A): the
 // in-process projection reads answer as postgres-filter.js and PostgreSQL do.
-// The tie orders below were read from PostgreSQL 16.15 (ORDER BY one key over
-// jsonb_to_recordset, rows i = 0..n-1 with key 1 when i % 3 == 0, else 2);
-// tools/tenancy/eval-cost/sort-lab.cjs and read-lab.cjs in the alignment
-// repository compare against a live server.
+// Sorted reads are in a total order: the keys, then the insertion ordinal
+// (nulls last), then the typed identity (decision view-reads-total-order).
+// tests/projection-total-order.integration.test.js compares the SQL path.
 const assert = require('node:assert/strict');
 const { ObjectId } = require('mongodb');
 const memoryRead = require('../lib/storage/projection-memory-read');
 const { fromMongo } = require('../lib/storage/filter');
 const { encodeDocument } = require('../lib/storage/postgres-identity');
 
-const POSTGRES_TIES = {
-  6: '000,003,001,002,004,005',
-  7: '003,000,006,005,004,001,002',
-  8: '003,006,000,004,005,007,001,002',
-  12: '000,003,006,009,004,005,010,007,008,001,002,011',
-  41: '027,009,003,030,021,015,033,006,024,036,012,018,039,000,020,022,023,025,026,028,029,031,032,034,035,037,038,040,001,002,004,005,007,008,010,011,013,014,016,017,019'
-};
-
-function reader (documents) {
-  const rows = memoryRead.rowsOf(JSON.parse(JSON.stringify(documents.map(encodeDocument))));
+function reader (documents, ordinals) {
+  const rows = memoryRead.rowsOf(JSON.parse(JSON.stringify(documents.map((doc, i) => ({ ...encodeDocument(doc), ordinal: ordinals ? ordinals[i] : null })))));
   return memoryRead({ rows, legacyPatterns: true });
 }
 const ids = docs => docs.map(d => typeof d._id === 'string' ? d._id : 'oid:' + d._id.toHexString());
 
 describe('projection-memory-read: the SQL path\'s answers without SQL', function () {
-  it('puts rows that tie on every sort key in PostgreSQL\'s order (quicksort and bounded heap)', async function () {
-    for (const [n, expected] of Object.entries(POSTGRES_TIES)) {
-      const docs = Array.from({ length: Number(n) }, (_, i) => ({ _id: 'r' + String(i).padStart(3, '0'), k: i % 3 === 0 ? 1 : 2 }));
-      const got = await reader(docs).findFiltered(null, { sort: { k: 1 }, options: { normalize: false } });
-      assert.equal(got.map(d => d._id.slice(1)).join(','), expected, 'n=' + n);
-      for (const limit of [1, 3]) {
-        const bounded = await reader(docs).findFiltered(null, { sort: { k: 1 }, limit, options: { normalize: false } });
-        // From PostgreSQL: up to twice the bound a quicksort, past it the heap.
-        const expectedBounded = limit === 1 ? '000' : n === '6' ? '000,003,001' : '000,003,006';
-        assert.equal(bounded.map(d => d._id.slice(1)).join(','), expectedBounded, 'n=' + n + ' limit=' + limit);
-      }
-    }
+  it('breaks ties on the insertion ordinal (nulls last), then the typed identity', async function () {
+    const hex = '0123456789abcdef01234567';
+    const docs = [{ _id: 'b', k: 1 }, { _id: 'a', k: 1 }, { _id: hex, k: 1 }, { _id: new ObjectId(hex), k: 1 }, { _id: 'c', k: 0 }, { _id: 'd', k: 1 }];
+    const r = reader(docs, [5, 2, null, null, 9, 3]);
+    assert.deepEqual(ids(await r.findFiltered(null, { sort: { k: 1 }, options: { normalize: false } })), ['c', 'a', 'd', 'b', 'oid:' + hex, hex]);
+    assert.deepEqual(ids(await r.findFiltered(null, { sort: { k: -1 }, options: { normalize: false } })), ['a', 'd', 'b', 'oid:' + hex, hex, 'c'],
+      'the tie-break stays ascending under a descending key');
+    assert.deepEqual(ids(await r.findFiltered(null, { sort: { k: -1 }, limit: 2, options: { normalize: false } })), ['a', 'd']);
   });
 
   it('compares strings in byte (code point) order, numbers and booleans within their own type', async function () {

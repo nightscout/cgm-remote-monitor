@@ -10,7 +10,9 @@ const encode = value => JSON.parse(JSON.stringify(value, (key, item) => item ===
     ? { probeType: 'number', value: Object.is(item, -0) ? '-0' : String(item) } : item));
 pg.Client.prototype.query = function (...args) {
   const result = query.apply(this, args);
-  if (armed && typeof args[0] === 'string' && args[0].includes('jsonb_to_recordset') && result?.then) {
+  // The cycle's clinical read after the input COMMIT: a projection read, or,
+  // since the views read in process (evaluator cost lane A), the statistics read.
+  if (armed && typeof args[0] === 'string' && (args[0].includes('jsonb_to_recordset') || args[0].includes('pg_column_size(doc)')) && result?.then) {
     armed = false;
     return result.then(async value => {
       held = true; process.send({ held: true });
