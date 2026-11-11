@@ -439,6 +439,7 @@
         "tests/tenant-notifications.integration.test.js",
         "tests/evaluator-consumers.integration.test.js",
         "tests/tenant-activity.integration.test.js",
+        "tests/evaluator-consumer-timer-churn.integration.test.js",
         "tests/tenant-insertion-upgrade.integration.test.js"
       ],
       "env": true,
