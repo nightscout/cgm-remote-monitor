@@ -81,6 +81,26 @@ describe('actual durable producer and outbox recreation protocol', function () {
     assert.equal(f.snapshot().requests.find(row=>row.request_id===original.request_id).state,'accepted','PRODUCER_STALE_ATTEMPT_NOT_STRANDED');
     assert.deepEqual(effects.map(row=>row.id),[original.request_id]);
   });
+  // Single-site repeat: the same evaluator output (no new revision) is processed
+  // again on the tenant heartbeat clock (60 s default here: currentConfig has no env).
+  it('repeats an unacknowledged alarm on the heartbeat clock, not on identical evaluator output', async function () {
+    clinical(50); const effects=[]; const value=open((row,callback)=>{effects.push(row);callback(null,{accepted:true});});
+    await value.p.select(f.A); await value.n.retry(f.A); assert.equal(effects.length,1); const t0=at;
+    at=t0+30000; await value.p.select(f.A); await value.n.retry(f.A);
+    assert.equal(effects.length,1,'PRODUCER_NO_REPEAT_BEFORE_HEARTBEAT');
+    at=t0+60000; const selected=await value.p.select(f.A); await value.n.retry(f.A);
+    assert.equal(effects.length,2,'PRODUCER_REPEAT_ON_HEARTBEAT'); assert.notEqual(effects[1].id,effects[0].id);
+    assert.equal(effects[1].notification.title,effects[0].notification.title); assert.equal(selected.repeatAt,t0+120000);
+  });
+  it('does not repeat an acknowledged alarm during its silence', async function () {
+    clinical(50); const effects=[], acks=[]; const value=open((row,callback)=>{effects.push(row);callback(null,{accepted:true});},{read:async()=>acks});
+    await value.p.select(f.A); await value.n.retry(f.A); const t0=at;
+    acks.push({group:'default',level:2,ackedAt:t0+1,expiresAt:t0+1+60*60000}); at=t0+2;
+    await value.p.select(f.A); await value.n.retry(f.A); assert.equal(effects.at(-1).notification.clear,true,'the ack clear is delivered');
+    const delivered=effects.length;
+    for (const step of [61000,121000,181000]) { at=t0+step; await value.p.select(f.A); await value.n.retry(f.A); }
+    assert.equal(effects.length,delivered,'PRODUCER_ACK_SILENCE_HOLDS');
+  });
   it('does not advance durable producer revision for an unchanged output after JSONB-like object-key reordering', async function () {
     clinical(50); const value=open((row,callback)=>callback(null,{accepted:true})); await value.p.select(f.A);
     const before=f.producerStates()[0]; f.jsonbRoundTrip();

@@ -17,9 +17,9 @@ optInSuite(process.env.NS_EVALUATOR_CONSUMERS_TEST === '1' && !!process.env.NS_T
         date:at-1000-i,dateString:new Date(at-1000-i).toISOString(),direction:'Flat'}))}, tenant);
       return at;
     }
-    async function boot () {
+    async function boot (change) {
       await lab.provisionPreview(); await lab.openSink();
-      const worker = await lab.workerConsumers(lab.configureConsumers());
+      const worker = await lab.workerConsumers(lab.configureConsumers(change));
       assert.equal(worker.startup.ready,true, 'M5_CONSUMER_ROLE_BOOT'); assert.equal(worker.startup.servers,0);
       await worker.call('flush',lab.A); await worker.call('flush',lab.B); return worker;
     }
@@ -32,8 +32,9 @@ optInSuite(process.env.NS_EVALUATOR_CONSUMERS_TEST === '1' && !!process.env.NS_T
       }
       throw new Error('Consumer due-state watchdog');
     }
-    it('commits immutable tenant intent before actual adapter handoff and admits same-output once plus a new realtime cycle', async function () {
-      const epoch=await reading(50); await reading(111,lab.B); const worker=await boot();
+    it('commits immutable tenant intent before actual adapter handoff and admits same-output once plus a repeat on the heartbeat clock', async function () {
+      // Tenant heartbeat (single-site setting, seconds) shortened so the repeat arrives in the test.
+      const epoch=await reading(50); await reading(111,lab.B); const worker=await boot(document => { document.tenants.forEach(tenant => { tenant.settings.heartbeat = 3; }); });
       const first=lab.sinkEffects.filter(row=>row.tenant===lab.A); lab.traceConsumer('first-output-before-verdict',{effects:first,requests:await lab.requests(),state:await lab.producerState(),health:await worker.call('health')}); assert.equal(first.length,1,'M5_CONSUMER_COMMIT_BEFORE_SINK');
       const capture=lab.observations.find(row=>row.phase==='sink-before-accept' && row.id===first[0].id);
       assert.equal(capture.ownRow.request_id,first[0].id); assert.equal(capture.ownRow.state,'attempting','M5_CONSUMER_COMMIT_BEFORE_SINK');
@@ -42,8 +43,10 @@ optInSuite(process.env.NS_EVALUATOR_CONSUMERS_TEST === '1' && !!process.env.NS_T
       await worker.call('wake'); await worker.call('flush'); assert.equal(lab.sinkEffects.length,1,'M5_CONSUMER_SAME_OUTPUT_ONCE');
       const producerAfter=await lab.producerState(); lab.traceConsumer('unchanged-wake-before-verdict',{before:producerBefore,after:producerAfter});
       assert.equal(producerAfter[0].revision,producerBefore[0].revision,'M5_CONSUMER_JSONB_UNCHANGED_NO_REVISION');
-      await worker.call('tick'); await worker.call('flush'); assert.equal(lab.sinkEffects.length,2);
-      assert.notEqual(lab.sinkEffects[0].id,lab.sinkEffects[1].id,'M5_CONSUMER_NEW_RT_CYCLE');
+      await worker.call('tick'); await worker.call('flush'); assert.equal(lab.sinkEffects.length,1,'M5_CONSUMER_IDENTICAL_CYCLE_NO_REPEAT before the heartbeat');
+      await lab.wait(async () => lab.sinkEffects.length >= 2); // the coordinator's own repeat-clock wake, no trigger
+      assert.equal(lab.sinkEffects.length,2);
+      assert.notEqual(lab.sinkEffects[0].id,lab.sinkEffects[1].id,'M5_CONSUMER_NEW_RT_CYCLE repeat on the heartbeat clock');
       assert.deepEqual(await lab.requests(lab.B),[]); lab.traceConsumer('committed-per-cycle',{rows:await lab.requests(),state:await lab.producerState(),foreign:await lab.requests(lab.B)});
       await lab.stopConsumer(worker);
     });
@@ -84,7 +87,9 @@ optInSuite(process.env.NS_EVALUATOR_CONSUMERS_TEST === '1' && !!process.env.NS_T
       lab.traceConsumer('control-clear-before-verdict',{suppression,after,state:await lab.producerState(),clinical:await worker.call('last',lab.A)});
       assert.equal(after.length,1,'M5_CONSUMER_CONTROL_CLEAR_FAILED_CLINICAL'); assert.equal(after[0].notification.clear,true,'M5_CONSUMER_CONTROL_CLEAR_FAILED_CLINICAL');
       assert.equal(after[0].notification.message,"default - Urgent was ack'd");
-      await worker.call('tick',lab.B); await worker.call('flush',lab.B); assert.ok(lab.sinkEffects.at(-1).tenant===lab.B);
+      const changedAt=await lab.epoch(); await lab.persistDomains({entries:[{_id:'synthetic-b-changed',type:'sgv',sgv:48,date:changedAt-500,
+        dateString:new Date(changedAt-500).toISOString(),direction:'Flat'}]}, lab.B);
+      await worker.call('acquire',lab.B); await worker.call('flush',lab.B); assert.ok(lab.sinkEffects.at(-1).tenant===lab.B,'B keeps delivering on its own new data');
       lab.traceConsumer('control-ack-with-failed-clinical',{suppression,after,health:await worker.call('health'),state:await lab.producerState()}); await lab.stopConsumer(worker);
     });
     it('keeps ACK producer state SELECT-only and refuses unsafe forced-RLS state before any sink effect', async function () {

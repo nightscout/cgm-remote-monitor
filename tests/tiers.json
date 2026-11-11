@@ -230,6 +230,7 @@
         "tests/notification-private-state.test.js",
         "tests/notification-producer-state.test.js",
         "tests/notification-producer.test.js",
+        "tests/evaluator-runtime-content.test.js",
         "tests/realtime-preview.test.js",
         "tests/realtime-browser-diagnostics.test.js",
         "tests/preview-socket-port-composition.test.js",
@@ -432,6 +433,7 @@
         "tests/tenant-notifications.integration.test.js",
         "tests/evaluator-consumers.integration.test.js",
         "tests/evaluator-consumer-timer-churn.integration.test.js",
+        "tests/evaluator-consumer-load.integration.test.js",
         "tests/tenant-insertion-upgrade.integration.test.js"
       ],
       "env": true,
