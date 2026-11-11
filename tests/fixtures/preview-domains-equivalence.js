@@ -6,6 +6,7 @@
 // actual previewDomains over a recording SQL protocol (no database). The
 // fingerprint is each tenant's constructed environment, its v1/v2/v3 app
 // settings (feature enablement), its collections and its storage ports.
+const path = require('node:path');
 const scope = require('../../lib/storage/tenant-scope');
 const environment = require('../../lib/server/tenant-app/environment');
 
@@ -49,8 +50,13 @@ async function fingerprints (previewDomains) {
     const result = {};
     for (const [tenant] of TENANTS) {
       await graph.initializeTenant(tenant); const row = graph.describeTenant(tenant);
-      // Express's `env` app setting is the process NODE_ENV, not a tenant value.
-      for (const key of ['v3Settings', 'v1Settings', 'v2Settings']) if (row[key]) delete row[key].env;
+      // Express's `env` app setting is the process NODE_ENV, not a tenant value;
+      // its `views` setting is an absolute path under the process directory, so
+      // the fingerprint keeps it relative to that directory (checkout-independent).
+      for (const key of ['v3Settings', 'v1Settings', 'v2Settings']) if (row[key]) {
+        delete row[key].env;
+        if (typeof row[key].views === 'string') row[key].views = path.relative(process.cwd(), row[key].views) || '.';
+      }
       result[tenant] = row;
     }
     return result;
