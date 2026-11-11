@@ -100,6 +100,7 @@
         "tests/internal-api-composition.test.js",
         "tests/tenant-ownership.test.js",
         "tests/internal-api-transport.test.js",
+        "tests/internal-api-stale-socket.test.js",
         "tests/operation-cohort.test.js",
         "tests/tenant-startup-admission.test.js",
         "tests/operation-cohort-peers.test.js",
