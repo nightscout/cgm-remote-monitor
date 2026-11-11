@@ -80,6 +80,10 @@ services:
       interval: 2s
       timeout: 2s
       retries: 30
+      # Tenant startup grows with the tenant count (decision readiness-serve-then-warm;
+      # 1,000 tenants took 341-421 s with every tenant warmed before ready).
+      start_period: 900s
+      start_interval: 2s
     volumes:
       - ${NS_DEMO_STATE}/api:/run/ns-config:ro
       - ${NS_DEMO_STATE}/ipc:/run/ns-ipc
@@ -95,6 +99,10 @@ services:
       interval: 2s
       timeout: 2s
       retries: 30
+      # Tenant startup grows with the tenant count (decision readiness-serve-then-warm;
+      # 1,000 tenants took 341-421 s with every tenant warmed before ready).
+      start_period: 900s
+      start_interval: 2s
     volumes:
       - ${NS_DEMO_STATE}/realtime:/run/ns-config:ro
       - ${NS_DEMO_STATE}/ipc:/run/ns-ipc
@@ -110,6 +118,10 @@ services:
       interval: 2s
       timeout: 3s
       retries: 30
+      # Tenant startup grows with the tenant count (decision readiness-serve-then-warm;
+      # 1,000 tenants took 341-421 s with every tenant warmed before ready).
+      start_period: 900s
+      start_interval: 2s
     volumes:
       - ${NS_DEMO_STATE}/evaluator:/run/ns-config:ro
       - ${NS_DEMO_STATE}/ipc:/run/ns-ipc
