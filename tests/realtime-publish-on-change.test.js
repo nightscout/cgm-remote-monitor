@@ -50,7 +50,8 @@ async function fixture ({ recoveryIntervalMs = 20, authorizationRecheckMs = 6000
     } };
   const operationWindow = pool ? {
     async run (tenant, fn) {
-      if (state.open >= pool.capacity) { state.refusedWindows++; await sleep(2); throw new Error('timeout exceeded when trying to connect'); }
+      // Exhausted: other tenants' and roles' work holds the pool until exhaustedUntil.
+      if (state.open >= pool.capacity || Date.now() < (pool.exhaustedUntil || 0)) { state.refusedWindows++; await sleep(2); throw new Error('timeout exceeded when trying to connect'); }
       state.open++; state.windows++;
       try { await sleep(5); return await fn(); } finally { state.open--; }
     },
@@ -124,12 +125,12 @@ describe('realtime publish on change (actual protocol, runtime and detector)', f
     try {
       const revoked = await f.socket('a.test', { secret: 'revoke-me' }), kept = await f.socket('a.test', { secret: 'keep' });
       const at = Date.now(); f.state.revoked.add('revoke-me');
-      assert.ok(await until(() => revoked.disconnected, 1000), 'disconnected');
+      await sleep(100 + 60); f.write(A);
+      assert.ok(await until(() => kept.frames().length === 2, 1000));
+      assert.equal(revoked.frames().length, 1, 'RT_REVOCATION_NO_DATA no frame after one recheck interval');
+      assert.equal(revoked.disconnected, true, 'disconnected');
       const latency = revoked.disconnectedAt - at;
       assert.ok(latency <= 100 + 60, 'RT_REVOCATION_BOUND within one recheck interval: ' + latency + ' ms');
-      f.write(A);
-      assert.ok(await until(() => kept.frames().length === 2, 1000));
-      assert.equal(revoked.frames().length, 1, 'no frame after revocation');
       assert.notEqual(kept.disconnected, true);
     } finally { await f.close(); }
   });
@@ -168,14 +169,17 @@ describe('realtime publish on change (actual protocol, runtime and detector)', f
   });
 
   it('RT_PRESSURE: 50 simultaneous connects under pool pressure are all primed late, none disconnected', async function () {
-    const f = await fixture({ pool: { capacity: 2 } });
+    const pool = { capacity: 2 };
+    const f = await fixture({ pool });
     try {
+      pool.exhaustedUntil = Date.now() + 150;
       const sockets = await Promise.all(Array.from({ length: 50 }, async () => {
         const socket = new Socket('a.test'); await f.protocol.prepare(socket); f.protocol.bind(socket, '/');
         socket.receive('authorize', { secret: 'synthetic' }); return socket;
       }));
       assert.ok(await until(() => sockets.every(s => s.frames().length >= 1), 5000), 'RT_PRESSURE_ALL_PRIMED ' + sockets.filter(s => s.frames().length).length + '/50');
       assert.equal(sockets.filter(s => s.disconnected).length, 0, 'RT_PRESSURE_NONE_DROPPED');
+      assert.ok(f.state.refusedWindows > 0, 'the pool refused windows during the connects: ' + f.state.refusedWindows);
       assert.ok(f.state.windows < 25, 'priming is batched per tenant: ' + f.state.windows + ' windows for 50 sockets');
       assert.ok(f.state.calls <= 10, 'one api call per distinct credential per batch: ' + f.state.calls);
     } finally { await f.close(); }
