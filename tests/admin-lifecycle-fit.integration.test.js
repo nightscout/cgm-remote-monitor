@@ -190,10 +190,10 @@ optInSuite(process.env.NS_ADMIN_LIFECYCLE_DOCKER_TEST === '1',
     }
   });
 
-  async function restore (body) {
+  async function restore (body, digest = DIGEST) {
     const cohort = await cohorts.createRemote({ namespace: ns.control, tenants: [A, B], participants: this.entries });
     const controller = maintenance.create({ namespace: ns.control, locks: this.locks, pool: operatorPool, cohort, drainTimeoutMs: 5000 });
-    try { return await controller.withRestore(A, { artifactDigest: DIGEST }, body); }
+    try { return await controller.withRestore(A, { artifactDigest: digest }, body); }
     finally { await controller.close(); await cohort.close(); }
   }
   async function phaseOf (tenant) {
@@ -259,6 +259,49 @@ optInSuite(process.env.NS_ADMIN_LIFECYCLE_DOCKER_TEST === '1',
     }
     await this.ownership.listOwners({ tenant: A });
     assert.equal((await restore.call(this, async () => 'again')).state, 'activated', 'grant revoked: the census accepts the role again');
+  });
+
+  // Decision restore-census-counter-writers: a non-participant that can WRITE the
+  // insertion-order or write-clock counters refuses; one that can only read them
+  // (like the plan's readiness identity) does not.
+  it('refuses a non-participant that can write the write clock or the insertion order, and proceeds when it can only read them', async function () {
+    const probe = l.prefix + '_counter_probe', secret = crypto.randomBytes(24).toString('hex');
+    const url = new URL(bootstrapURI); url.username = probe; url.password = secret;
+    await asBootstrap(async client => {
+      await client.query('CREATE ROLE ' + q(probe) + " LOGIN NOSUPERUSER NOBYPASSRLS NOCREATEDB NOCREATEROLE NOREPLICATION PASSWORD '" + secret + "'");
+      await client.query('GRANT USAGE ON SCHEMA ' + q(ns.clock) + ' TO ' + q(probe));
+      await client.query('GRANT INSERT ON ' + t('clock', 'tenant_write_clock') + ' TO ' + q(probe));
+    });
+    const connect = async uri => { const c = new Client({ connectionString: uri }); await c.connect(); return c; };
+    let writer = await connect(url.toString());
+    try {
+      await this.ownership.listOwners({ tenant: A });
+      let entered = false;
+      await assert.rejects(restore.call(this, async () => { entered = true; }), { code: 'RESTORE_COHORT_UNKNOWN_BACKEND' });
+      assert.equal(entered, false); assert.equal(await phaseOf(A), 'active');
+    } finally { await writer.end(); }
+    await asBootstrap(async client => {
+      await client.query('REVOKE INSERT ON ' + t('clock', 'tenant_write_clock') + ' FROM ' + q(probe));
+      await client.query('GRANT SELECT ON ' + t('clock', 'tenant_write_clock') + ' TO ' + q(probe));
+    });
+    writer = await connect(url.toString());
+    const readiness = await connect(urls.readiness);
+    try {
+      await this.ownership.listOwners({ tenant: A });
+      assert.ok(await backendsOf(l.roles.ownership_operator) >= 1, 'admin role connected');
+      assert.equal((await restore.call(this, async () => 'read-only')).state, 'activated');
+    } finally { await writer.end(); await readiness.end(); }
+    // The insertion-order counter: UPDATE on entries' ordinal table refuses the same way.
+    await asBootstrap(async client => {
+      await client.query('GRANT USAGE ON SCHEMA ' + q(ns.entries) + ' TO ' + q(probe));
+      await client.query('GRANT UPDATE ON ' + t('entries', 'tenant_insertion_ordinal') + ' TO ' + q(probe));
+    });
+    writer = await connect(url.toString());
+    try {
+      await assert.rejects(restore.call(this, async () => {}), { code: 'RESTORE_COHORT_UNKNOWN_BACKEND' });
+      assert.equal(await phaseOf(A), 'active');
+    } finally { await writer.end(); }
+    await asBootstrap(client => client.query('REVOKE UPDATE ON ' + t('entries', 'tenant_insertion_ordinal') + ' FROM ' + q(probe)));
   });
 
   it('still refuses an unregistered backend whose identity holds clinical grants', async function () {
