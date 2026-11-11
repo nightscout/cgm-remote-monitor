@@ -50,7 +50,7 @@ function grants(l) {
   for(const name of [...clinical,'settings'])sql.push(...insertionGrants({namespace:ns[name],domain:name,role:r.api}));
   for(const name of ['authorization','legacy','access'])grant('SELECT','ALL TABLES IN SCHEMA '+quote(ns[name]),'api');
   grant('SELECT,INSERT',table('secrets','secret_records'),'api');grant('INSERT',table('secrets','secret_audit'),'api');
-  grant('SELECT,UPDATE(last_stamp)',table('clock','tenant_write_clock'),'api');
+  grant('SELECT,UPDATE(last_stamp,last_delete_stamp)',table('clock','tenant_write_clock'),'api');
   for(const name of [...clinical,'settings','authorization','secrets','legacy','access','clock','alarm']){schema(name,'readiness');grant('SELECT',table(name,'schema_migrations'),'readiness');}
   for(const [who,checkpoint]of [['realtime','rt_checkpoint'],['evaluator','eval_checkpoint']]){
     for(const name of [...clinical,'clock',checkpoint]){schema(name,who);grant('SELECT',table(name,'schema_migrations'),who);}

@@ -46,7 +46,7 @@ module.exports = function clockPortLab () {
         await require('./tenant-insertion-grants').grant(admin, { namespace: namespaces[domain], domain, role,
           catalogue: require('../../lib/server/serve/postgres-domains').get(domain).catalogue });
       }
-      await admin.query(`GRANT SELECT,UPDATE(last_stamp) ON "${namespaces.clock}".tenant_write_clock TO "${role}"`);
+      await admin.query(`GRANT SELECT,UPDATE(last_stamp,last_delete_stamp) ON "${namespaces.clock}".tenant_write_clock TO "${role}"`);
       url.username = role;
       url.password = password;
       for (let i = 0; i < 2; i++) {
