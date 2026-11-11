@@ -17,7 +17,17 @@ That method reads metadata directly through the dedicated pool, without the lowe
 connection module, so it must precede global lower-port installation.
 `window.namespace` is immutable. `window.identity` is initially null, then a frozen
 object with namespaceOid, ownerOid, ledgerOid, windowsOid, operationsOid and
-backendBirthOid. Each acquired backend is readmitted against that identity.
+backendBirthOid. Each acquired backend is readmitted against that identity
+whenever the catalogue epoch changes: inside every transaction, after the shared
+lock and the tenant binding, one statement reads the epoch
+(operation-window-epoch.js: a digest of the row versions of every catalogue row
+the admission reads, role attributes, memberships and the migration ledger), the
+role's superuser/bypass attributes, the datastore identity and the tenant's window
+row. An epoch the window has not admitted runs the full admission on that backend
+and is cached only if the epoch is unchanged after it; any grant, policy, owner,
+membership, ledger or object change therefore re-runs the admission on the next
+transaction (decision cost-proportional-to-activity, item 3; native coverage in
+tests/operation-window-epoch.integration.test.js).
 
 The new control tables are tenant_lifecycle_windows
 (tenant_id,lock_key,phase,generation,claim_id) and tenant_lifecycle_operations

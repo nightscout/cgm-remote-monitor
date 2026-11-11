@@ -12,6 +12,11 @@ function lab(){
   const table={kind:'r',persistence:'p',secured:true,columns:[['tenant_id','uuid',true],['alarm_group','text',true],['alarm_level','integer',true],['acked_at','bigint',true],['expires_at','bigint',true]],primary_key:['tenant_id','alarm_group','alarm_level'],
     policies:[{command:'*',roles:[0],permissive:true,using:"tenant_id = nullif(current_setting('app.current_tenant_id',true),'')::uuid",check:"tenant_id = nullif(current_setting('app.current_tenant_id',true),'')::uuid"}]};
   const db={async query(sql,values){
+    if(sql&&typeof sql==='object')({text:sql,values}=sql);
+    // Catalogue epoch (decision admission-epoch-everywhere): any change to the
+    // modelled catalogue state (flags) is a new epoch, as a new row version is.
+    if(sql.includes('suppression-oids'))return {rows:[{suppression:61,ledger:62}]};
+    if(sql.includes('suppression-epoch'))return {rows:[{epoch:require('node:crypto').createHash('sha256').update(JSON.stringify(flags)).digest('hex')}]};
     if(sql.includes('operation-window-')){
       const result=await f.client.query(sql,values);
       if(sql.includes('operation-window-table') && flags.privateRead && values[0].endsWith(flags.privateRead))result.rows[0].reads=true;
@@ -52,6 +57,7 @@ describe('Selected suppression control read scope source protocol',function(){
     }finally{await l.f.window.close();}
   });
   async function prepareCheck(mutate,{unsafeOutbox=false}={}){
+    const mutateMarks={omitted:!!mutate};
     const l=lab();let reader,effects=0;
     // prepare now screens outbox metadata before tenant provisioning. Keep that
     // actual guard: use the existing notification SQL protocol on a distinct
@@ -73,7 +79,8 @@ describe('Selected suppression control read scope source protocol',function(){
       composed=await prepare({config,clinicalConnection:{transaction:fn=>fn(),query:async()=>({rows:[]})},operationWindow:l.f.window,current:()=>null,isCurrent:async()=>false});
       assert(outbox.calls.some(call=>call.sql?.includes('notification-readiness-role')),'OUTBOX_METADATA_SCREEN_REQUIRED');
       assert.equal(outbox.calls.filter(call=>call.sql?.includes('notification-readiness-table')).length,4,'COMPLETE_OUTBOX_TABLE_SCREEN');
-      assert.equal(effects,2);await reader.read({tenant:A});assert.equal(effects,3);
+      assert.equal(effects,2);const full=l.observed.length;await reader.read({tenant:A});assert.equal(effects,3);
+      if(!unsafeOutbox&&!mutateMarks.omitted)assert.equal(l.observed.length,full,'UNCHANGED_EPOCH_SKIPS_FULL_SUPPRESSION_CHECK');
       l.flags.foreignRead=true;await assert.rejects(reader.read({tenant:A}),/READINESS_REFUSED/);assert.equal(effects,3);
       l.flags.foreignRead=false;await reader.read({tenant:B});assert.equal(effects,4);
     }catch(error){if(unsafeOutbox)assert.equal(effects,0,'UNSAFE_OUTBOX_REFUSES_BEFORE_READER_EFFECTS');throw error;
