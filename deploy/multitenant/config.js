@@ -130,7 +130,7 @@ function documents({layout:l,urls,tokens,publicKeys,managementKeys,vaultAddress}
       maxPayloadBytes:524288,maxInflight:4,attemptTimeoutMs:10000,retryDelayMs:1000,pollIntervalMs:1000,retryIntervalMs:1000}}};
   const realtime={version:1,postgres:{connectionEnv:'NS_REALTIME_PG',namespaces:{...domainNamespaces,clock:ns.clock,checkpoint:ns.rt_checkpoint}},consumer:'realtime-compose-demo',
     ...limits,tenants,socketOrderDomains:['treatments','devicestatus','profile'],admissionFileEnv:'NS_ADMISSION_FILE',
-    maxMessageBytes:1048576,operationTimeoutMs:5000,maxSockets:100};
+    maxMessageBytes:1048576,operationTimeoutMs:5000,maxSockets:100,authorizationRecheckMs:30000};
   // Decision root-grant-ceiling-default-all: every tenant data permission unless
   // the operator narrows it. Owner and root share this catalogue (one policy row).
   const ownerCatalogue=['*'];

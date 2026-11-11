@@ -222,6 +222,19 @@ optInSuite(process.env.NS_EVALUATOR_CONSUMERS_TEST === '1' && !!process.env.NS_T
         .set('Authorization', 'Bearer owner-a').send({ expectedVersion: 2 });
       assert.equal(suspend.status, 404);
     });
+    it('batched reader (realtime change detection): one round trip, each tenant under its own RLS binding, equal to single reads', async function () {
+      await stores.operator.transition(operatorActor(lab.A), 'pause');
+      await stores.operator.transition(operatorActor(lab.B), 'suspend');
+      const unknown = '0f0f0f0f-0f0f-4f0f-8f0f-0f0f0f0f0f0f';
+      const many = await stores.reader.readMany([lab.A, lab.B, unknown]);
+      assert.deepEqual([...many.keys()], [lab.A, lab.B, unknown]);
+      assert.deepEqual(many.get(lab.A), await stores.reader.read(lab.A));
+      assert.deepEqual(many.get(lab.B), await stores.reader.read(lab.B));
+      assert.equal(many.get(lab.A).state, 'paused'); assert.equal(many.get(lab.B).state, 'suspended');
+      assert.equal(many.get(unknown), null, 'a tenant without a row reads as null, as read() does');
+      await stores.operator.transition(operatorActor(lab.B), 'unsuspend');
+      assert.equal((await stores.reader.readMany([lab.B])).get(lab.B).state, 'active');
+    });
     it('migration 0007 backfills every existing tenant as active; provisioning writes the row in the tenant transaction', async function () {
       lab.traceConsumer('activity-backfill', backfill);
       assert.deepEqual(backfill.rows.map(row => [row.tenant_id, row.version, row.paused, row.suspended, row.deletion_request_id]),

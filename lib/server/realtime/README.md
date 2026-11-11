@@ -54,6 +54,28 @@ its process identity contract. This is same-service-UID trust, not process
 identity or a deployment-wide bearer. Place endpoints outside public HTTP and
 operator DATA surfaces. Cleanup is limited to the owned socket; no stale unlink.
 
+Publish on change (decision `cost-proportional-to-activity`, D6). Each
+`recoveryIntervalMs` the change detector (`change-detector.js`) reads every
+tenant's write-clock stamp in one round trip (`postgres-connection`
+`scanTenants`: one READ ONLY transaction, each tenant under its own RLS binding,
+no operation-window lease, nothing served from it), every tenant's activity in
+one more when activity is configured, and the configuration identities from one
+file read. The runtime refreshes only a tenant whose stamp differs from the
+checkpoint of its last published refresh, whose configuration changed, or whose
+last refresh failed, at most two at a time; the protocol sends a main frame only
+when the view (frame without `lastUpdated`, plus configuration identity)
+changed. A socket is authorized when it connects or re-authorizes; afterwards
+only on events: its JWT `exp` (a recheck at expiry), the periodic recheck every
+optional `authorizationRecheckMs` (default 30000; one api call per distinct
+credential per tenant), `recheckTenant(tenant)` (the seam for a revocation
+event), and pause, suspend, admission removal or lifecycle invalidation
+(disconnect within one detection interval). Alarm delivery and `loadRetro`
+still authorize per request. Concurrent connects are primed per tenant in
+batches (one api call per distinct credential, one operation window per batch);
+a batch that meets pool pressure or an api that cannot answer is retried with
+backoff and the socket stays connected. `runtime.wake(tenant)` is the seam for
+a later NOTIFY or slot reader. Graceful shutdown still disconnects every socket.
+
 Main connections receive full `dataUpdate` frames (`delta:false`) so absent SGVs
 replace browser state. Reconciliation runs on boot, reconnect and the explicit
 independent backstop; connected `/storage` subscribers receive normalized typed

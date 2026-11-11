@@ -68,6 +68,8 @@ describe('joined storage physical/wire/current-collection oracles',function(){
       await protocol.prepare(socket);protocol.bind(socket,'/storage');let reply;
       await socket.handlers.subscribe({accessToken:'synthetic-signed-port',collections:['entries']},value=>{reply=value;});
       assert.deepEqual(reply,{success:true,collections:['entries']});allowed=false;
+      // Publish on change: the authorization recheck (periodic, expiry or event) narrows collections.
+      await protocol.recheckTenant(A);
       await protocol.fanout({tenant:A,previous:{rows:[]},next:{identity:current.identity,rows:[{domain:'entries',document:{_id:'synthetic-marker',type:'sgv',sgv:444}}]}});
       const p=physical(),saved=[];p.clients[0].events=socket.events;
       oracle.revoked(p,value=>saved.push(value));
