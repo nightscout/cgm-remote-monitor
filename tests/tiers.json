@@ -247,6 +247,7 @@
         "tests/realtime-publish-on-change.test.js",
         "tests/realtime-socket-server.test.js",
         "tests/realtime-readiness.test.js",
+        "tests/realtime-config-cache.test.js",
         "tests/realtime-browser-diagnostics.test.js",
         "tests/preview-socket-port-composition.test.js",
         "tests/preview-serving-status.test.js",
