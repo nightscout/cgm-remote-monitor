@@ -78,7 +78,8 @@ function grants(l) {
   for(const name of ['authorization','legacy'])schema(name,'root_writer');
   grant('SELECT,INSERT,UPDATE,DELETE',table('authorization','tenant_authorization_subjects'),'root_writer');
   grant('SELECT,INSERT,UPDATE,DELETE',table('legacy','legacy_credential_subjects'),'root_writer');
-  grant('SELECT,INSERT,UPDATE(owner_fence)',table('authorization','tenant_authorization_roles'),'root_writer');
+  // Root alone edits role permissions and deletes unheld roles (decision root-role-edit-delete).
+  grant('SELECT,INSERT,DELETE,UPDATE(permissions,owner_fence)',table('authorization','tenant_authorization_roles'),'root_writer');
   grant('SELECT,INSERT,DELETE',table('authorization','tenant_authorization_subject_roles'),'root_writer');
   grant('INSERT',table('authorization','tenant_subject_admin_audit'),'root_writer');
   for(const name of ['tenant_authorization_config','tenant_owner_policy'])grant('SELECT,UPDATE(owner_fence)',table('authorization',name),'root_writer');
@@ -115,7 +116,9 @@ function documents({layout:l,urls,tokens,publicKeys,managementKeys,vaultAddress}
   const realtime={version:1,postgres:{connectionEnv:'NS_REALTIME_PG',namespaces:{...domainNamespaces,clock:ns.clock,checkpoint:ns.rt_checkpoint}},consumer:'realtime-compose-demo',
     ...limits,tenants,socketOrderDomains:['treatments','devicestatus','profile'],admissionFileEnv:'NS_ADMISSION_FILE',apiSocketPathEnv:'NS_API_SOCKET',alarmSocketPathEnv:'NS_ALARM_SOCKET',
     maxMessageBytes:1048576,operationTimeoutMs:5000,maxSockets:100};
-  const ownerCatalogue=['api:entries:read'];
+  // Decision root-grant-ceiling-default-all: every tenant data permission unless
+  // the operator narrows it. Owner and root share this catalogue (one policy row).
+  const ownerCatalogue=['*'];
   const api={version:1,domains:[...clinical,'settings'],legacy:true,context:true,writeClock:true,
     subjectAdmin:{writerConnectionEnv:'NS_API_ROOT_WRITER_PG',ownerPolicy:{catalogue:ownerCatalogue.slice()}},
     postgres:{connectionEnv:'NS_API_PG',readinessConnectionEnv:'NS_READINESS_PG',namespaces:{...domainNamespaces,settings:ns.settings,authorization:ns.authorization,secrets:ns.secrets,legacy:ns.legacy,access:ns.access,clock:ns.clock}},
