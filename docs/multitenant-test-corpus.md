@@ -62,8 +62,8 @@ themselves.
 
 ## Inventory
 
-51 suites. 27 use the admin URI the script provides; 28 start at least one
-container of their own through Docker. Disabled, 50 register their
+53 suites. 29 use the admin URI the script provides; 28 start at least one
+container of their own through Docker. Disabled, 52 register their
 tests as pending with `[pending opt-in: <requirement>]` in the title; one
 (`postgres-entries-write`) uses a bare `describe.skip`.
 
@@ -84,6 +84,8 @@ tests as pending with `[pending opt-in: <requirement>]` in the title; one
 | `tests/tenant-alarm-state.integration.test.js` | `NS_TENANT_ALARM_TEST=1` | PostgreSQL | | durable tenant-wide suppression, current transaction authority, original expiry/restart and restricted-role isolation; four disabled cases |
 | `tests/tenant-notifications.integration.test.js` | `NS_TENANT_NOTIFICATIONS_TEST=1` | PostgreSQL | | durable request/attempt identity, current consumer eligibility and unsafe-schema refusal; seven disabled cases; no provider/device guarantee |
 | `tests/evaluator-consumers.integration.test.js` | `NS_EVALUATOR_CONSUMERS_TEST=1` | PostgreSQL | | actual selected evaluator, atomic private state and intent, controlled UDS sink, restart/retry and committed ACK clears; real recipient delivery has separate joined fixtures |
+| `tests/tenant-activity.integration.test.js` | `NS_EVALUATOR_CONSUMERS_TEST=1` | PostgreSQL | | pause/suspend eligibility: evaluator work lists from eligible tenants, recompute on unpause, other tenants unaffected |
+| `tests/evaluator-consumer-timer-churn.integration.test.js` | `NS_EVALUATOR_CONSUMERS_TEST=1` | PostgreSQL | | stale producer selection under evaluator timer churn is reselected, not refused; `NS_CONSUMER_*` knobs are for measurement |
 | `tests/tenant-operations.integration.test.js` | `NS_TENANT_OPERATIONS_PG_TEST=1` | | PostgreSQL | representative entries/clock recovery and upgrade contracts; full populated deployment recovery is separate |
 | `tests/tenant-commit-clock-port.integration.test.js` | `NS_TENANT_COMMIT_CLOCK_TEST=1` | PostgreSQL | | |
 | `tests/tenant-commit-clock-http.integration.test.js` | `NS_TENANT_COMMIT_CLOCK_HTTP_DOCKER_TEST=1` | | PostgreSQL, Vault | functional cases enabled; benchmark separately opt-in |
@@ -142,7 +144,7 @@ passing count or zero-pending prediction for this expanded inventory.
 
 The `multitenant-postgres` job in `.github/workflows/main.yml` runs
 `npm run test:multitenant` on the newest Node line, on `ubuntu-22.04`, with no
-service containers: 22 suites start their own containers through Docker
+service containers: 28 suites start their own containers through Docker
 whatever the job provides, so the script starting the shared PostgreSQL, MongoDB
 and Vault the same way is the simpler arrangement. The job is one of the
 `Tests pass` aggregate's dependencies.
