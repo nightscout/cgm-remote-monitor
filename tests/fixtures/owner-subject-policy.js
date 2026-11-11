@@ -22,7 +22,8 @@ const sleep = ms => new Promise(resolve => setTimeout(resolve, ms));
 const actor = Object.freeze({ tenant: A, principal: 'manager', consumer: 'admin' });
 function rootWriterGrants (role) {
   return [`GRANT SELECT,INSERT,UPDATE,DELETE ON ${tables.subjects},${tables.credentials} TO ${role}`,
-    `GRANT SELECT,INSERT,UPDATE(owner_fence) ON ${tables.roles} TO ${role}`,
+    // Root alone edits role permissions and deletes unheld roles (decision root-role-edit-delete).
+    `GRANT SELECT,INSERT,DELETE,UPDATE(permissions,owner_fence) ON ${tables.roles} TO ${role}`,
     `GRANT SELECT,INSERT,DELETE ON ${tables.links} TO ${role}`,
     `GRANT INSERT ON ${tables.audit} TO ${role}`,
     `GRANT SELECT,UPDATE(owner_fence) ON ${tables.config},${tables.policy} TO ${role}`,

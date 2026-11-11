@@ -27,7 +27,7 @@ async function fixture () {
         }));
       }
       if (sql.includes('FROM pg_class')) return rows(args[0].map(name => ({ secured: true, owns: false, reads: true,
-        mutates: false, inserts: name.includes('tenant_authorization_roles'), column_inserts: name.includes('tenant_authorization_roles'),
+        mutates: false, deletes: false, inserts: name.includes('tenant_authorization_roles'), column_inserts: name.includes('tenant_authorization_roles'),
         name: name.replaceAll('"',''), update_columns: ['owner_fence'] })));
       if (sql.startsWith('SET LOCAL')) return rows([]);
       if (sql.includes('FOR SHARE')) control.locks.push(sql);

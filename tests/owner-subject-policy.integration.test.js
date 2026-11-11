@@ -349,15 +349,16 @@ optInSuite(process.env.NS_OWNER_SUBJECT_POLICY_DOCKER_TEST === '1',
       const hosts = new Map([[A, 'one.example.test'], [B, 'two.example.test']]);
       const consumer = 'tenant-api';
       const verifierContext = tenant => ({ tenant, principal: 'preview-api', consumer });
-      let legacy, secrets, app, ownerCalls;
+      let legacy, secrets, authority, app, ownerCalls;
       // jQuery.param as the admin tools send it: arrays as key[]=v, empty arrays omitted.
       const form = value => Object.entries(value).flatMap(([key, item]) => Array.isArray(item)
         ? item.map(entry => encodeURIComponent(key + '[]') + '=' + encodeURIComponent(entry))
         : [encodeURIComponent(key) + '=' + encodeURIComponent(item)]).join('&');
-      function call (method, path, { tenant = A, as = A, body, secret } = {}) {
+      function call (method, path, { tenant = A, as = A, body, secret, bearer } = {}) {
         let pending = request(app)[method]('/api/v2/authorization' + path).set('Host', hosts.get(tenant)).timeout({ response: 20000 });
-        const presented = secret !== undefined ? secret : as === null ? null : sha1(roots.get(as));
+        const presented = bearer !== undefined ? null : secret !== undefined ? secret : as === null ? null : sha1(roots.get(as));
         if (presented !== null) pending = pending.set('api-secret', presented);
+        if (bearer !== undefined) pending = pending.set('Authorization', 'Bearer ' + bearer);
         return body === undefined ? pending : pending.type('form').send(form(body));
       }
       const token = (tenant, subjectId, prefix) => prefix + '-' + sha1(sha1(roots.get(tenant)) + subjectId).slice(0, 16);
@@ -391,21 +392,27 @@ optInSuite(process.env.NS_OWNER_SUBJECT_POLICY_DOCKER_TEST === '1',
         secrets = createSecrets({ providerFor: async () => provider, maxTokenLifetimeSeconds: 28800,
           store: { async get (tenant, id) { return encrypted.get(tenant + ':' + id); },
             async insert (record) { encrypted.set(record.tenant + ':' + record.id, record); } },
-          authorize: async (identity, action) => identity.principal === 'preview-api' && ['encrypt', 'decrypt'].includes(action.operation),
+          authorize: async (identity, action) => identity.principal === 'preview-api' && ['encrypt', 'decrypt', 'sign', 'verify'].includes(action.operation),
           audit: async () => {}, legacyAuthorityFor: tenant => legacy.read(tenant) });
         await secrets.encrypt(verifierContext(A), 'synthetic-root-a', Buffer.from(roots.get(A)));
         await secrets.encrypt(verifierContext(B), 'synthetic-root-b', Buffer.from(roots.get(B)));
-        const service = createSubjectAdmin({ store: f.rootStore,
-          authorizeManagement: async actor => actor.principal === 'root' && actor.consumer === consumer });
+        // Current tenant authority (subject roles) on its own read-only identity.
+        const rpw = crypto.randomBytes(24).toString('hex');
+        await f.admin.query(`CREATE ROLE admin_tools_reader LOGIN NOSUPERUSER NOBYPASSRLS PASSWORD '${rpw}'`);
+        await f.admin.query(`GRANT USAGE ON SCHEMA ${f.NS} TO admin_tools_reader`);
+        await f.admin.query(`GRANT SELECT ON ${f.tables.subjects}, ${f.tables.roles}, ${f.tables.links}, ${f.tables.config} TO admin_tools_reader`);
+        const readerURL = new URL(f.writerURI); readerURL.username = 'admin_tools_reader'; readerURL.password = rpw;
+        authority = await require('../lib/tenant-authorization/postgres')({ connectionString: readerURL.toString(), namespace: f.NS });
+        const service = createSubjectAdmin({ store: f.rootStore, authorizeManagement: async actor => actor.consumer === consumer });
         const record = name => async () => { ownerCalls.push(name); return {}; };
         app = createTenantApp({ resolver: f.resolver, verifyCredential: async () => null, authorizeRequest: async () => false,
           dataRouter: (req, res) => res.status(404).json({ error: 'NOT_FOUND' }),
           tenantSettings: { read: record('settings.read'), replace: record('settings.replace'), rollback: record('settings.rollback') },
           subjectPolicy: { read: record('policy.read'), replace: record('policy.replace') },
-          rootAdmin: { ...service, authenticate: createRootAuthentication({ secrets, verifierContext, tenants: [A, B] }) } });
+          rootAdmin: { ...service, authenticate: createRootAuthentication({ secrets, authority, verifierContext, tenants: [A, B] }) } });
       });
       beforeEach(() => { ownerCalls = []; });
-      after(async () => { if (legacy) await legacy.close(); });
+      after(async () => { if (legacy) await legacy.close(); if (authority) await authority.close(); });
 
       it('lists, creates, edits and deletes subjects and creates roles with the admin tools payloads', async function () {
         const listed = await call('get', '/subjects');
@@ -530,9 +537,6 @@ optInSuite(process.env.NS_OWNER_SUBJECT_POLICY_DOCKER_TEST === '1',
         // The owner listener's subject routes accept only management credentials.
         await unchanged(() => request(f.app).delete('/api/v2/authorization/subjects/' + TARGET).set('Host', hosts.get(A))
           .set('api-secret', sha1(roots.get(A))), 401);
-        // Editing or deleting a role is not part of the owner-aware writer.
-        assert.equal((await unchanged(() => call('put', '/roles', { body: { _id: 'reader', name: 'reader', permissions: ['*'] } }), 501)).body.error, 'SUBJECT_ADMIN_UNSUPPORTED');
-        await unchanged(() => call('delete', '/roles/reader'), 501);
         // Owner-plane issuance is refused on the root plane's store itself.
         await assert.rejects(f.rootStore.withCredential({ tenant: A, principal: 'root', consumer }, TARGET, async () => ({})), { code: 'SUBJECT_ADMIN_FORBIDDEN' });
       });
@@ -551,6 +555,126 @@ optInSuite(process.env.NS_OWNER_SUBJECT_POLICY_DOCKER_TEST === '1',
         assert.equal((await call('delete', '/subjects/' + TARGET, { tenant: B, as: B })).status, 200);
         assert.deepEqual(await f.snapshot(A), foreign, 'B\'s root acting on B leaves A unchanged');
         assert.equal((await f.admin.query('SELECT count(*)::int n FROM ' + f.tables.subjects + ' WHERE tenant_id=$1', [B])).rows[0].n, 0);
+      });
+
+
+      async function roleRows (tenant) {
+        return (await f.admin.query('SELECT name, permissions FROM ' + f.tables.roles + (tenant ? ' WHERE tenant_id=$1' : '') +
+          ' ORDER BY tenant_id, name', tenant ? [tenant] : [])).rows;
+      }
+      async function rolesUnchanged (fn, status, code) {
+        const before = [await f.snapshot(), await roleRows()];
+        const response = await fn();
+        assert.equal(response.status, status, JSON.stringify(response.body));
+        if (code) assert.deepEqual(response.body, { error: code });
+        assert.deepEqual([await f.snapshot(), await roleRows()], before, 'a refusal must leave roles, subjects and audit unchanged');
+        return response;
+      }
+
+      it('edits role permissions, refuses a rename, refuses deleting a held role and deletes an unheld one', async function () {
+        const edited = await call('put', '/roles', { body: { _id: 'reader', name: 'reader', permissions: ['api:entries:read', 'api:entries:create'], notes: '' } });
+        assert.equal(edited.status, 200, JSON.stringify(edited.body));
+        assert.deepEqual(edited.body, { _id: 'reader', name: 'reader', permissions: ['api:entries:read', 'api:entries:create'] });
+        assert.deepEqual((await roleRows(A)).find(row => row.name === 'reader').permissions, ['api:entries:read', 'api:entries:create']);
+        assert.deepEqual((await roleRows(B)).find(row => row.name === 'reader').permissions, ['api:entries:read'], 'B keeps its role');
+        await rolesUnchanged(() => call('put', '/roles', { body: { _id: 'reader', name: 'renamed', permissions: ['api:entries:read'] } }), 400, 'ROLE_RENAME_REFUSED');
+        await rolesUnchanged(() => call('put', '/roles', { body: { _id: 'reader', name: 'reader', permissions: ['*'] } }), 403, 'SUBJECT_ADMIN_FORBIDDEN');
+        await rolesUnchanged(() => call('put', '/roles', { body: { _id: 'absent', name: 'absent', permissions: [] } }), 404, 'SUBJECT_ADMIN_NOT_FOUND');
+        await rolesUnchanged(() => call('delete', '/roles/reader'), 409, 'SUBJECT_ADMIN_ROLE_IN_USE');
+        await rolesUnchanged(() => call('delete', '/roles/absent'), 404, 'SUBJECT_ADMIN_NOT_FOUND');
+        assert.deepEqual((await call('delete', '/roles/uploader')).body, {});
+        assert.equal((await roleRows(A)).some(row => row.name === 'uploader'), false);
+        assert.equal((await roleRows(B)).some(row => row.name === 'uploader'), true, 'B keeps its twin');
+        // B's root cannot edit or delete A's roles.
+        await rolesUnchanged(() => call('put', '/roles', { as: B, body: { _id: 'reader', name: 'reader', permissions: [] } }), 401);
+        await rolesUnchanged(() => call('delete', '/roles/outside', { as: B }), 401);
+        const audit = (await f.admin.query('SELECT principal, subject_id, operation FROM ' + f.tables.audit + ' WHERE tenant_id=$1 ORDER BY operation', [A])).rows;
+        assert.deepEqual(audit, [{ principal: 'root', subject_id: 'uploader', operation: 'remove-role' },
+          { principal: 'root', subject_id: 'reader', operation: 'update-role' }]);
+      });
+
+      describe('a subject whose roles grant admin:api:subjects:* (own token)', function () {
+        const ADMIN = '000000000000000000000003', READER = '000000000000000000000004';
+        async function subject (tenant, id, prefix, roles) {
+          await f.admin.query('INSERT INTO ' + f.tables.subjects + ' (tenant_id,subject_id,display_name) VALUES ($1,$2,$3)', [tenant, id, prefix]);
+          await f.admin.query('INSERT INTO ' + f.tables.credentials + ' (tenant_id,subject_id,token_prefix) VALUES ($1,$2,$3)', [tenant, id, prefix]);
+          for (const role of roles) await f.admin.query('INSERT INTO ' + f.tables.links + ' (tenant_id,subject_id,role_name) VALUES ($1,$2,$3)', [tenant, id, role]);
+        }
+        async function jwt (tenant, id, prefix) {
+          const issued = await secrets.exchangeLegacyCredential(verifierContext(tenant), token(tenant, id, prefix), async () => true);
+          assert.ok(issued && issued.token, 'synthetic subject exchange');
+          return issued.token;
+        }
+        beforeEach(async function () {
+          for (const tenant of [A, B]) {
+            await f.admin.query('INSERT INTO ' + f.tables.roles + ' (tenant_id,name,permissions) VALUES ($1,\'tools\',$2), ($1,\'subjects-read\',$3)',
+              [tenant, ['admin:api:subjects:*', 'admin:api:roles:*'], ['admin:api:subjects:read']]);
+            await subject(tenant, ADMIN, 'toolsadmin', ['tools']);
+          }
+          await subject(A, READER, 'plainread', ['reader']);
+        });
+
+        it('manages subjects and roles through the admin tools with a bearer token, audited as itself', async function () {
+          const bearer = await jwt(A, ADMIN, 'toolsadmin');
+          const listed = await call('get', '/subjects', { bearer });
+          assert.equal(listed.status, 200, JSON.stringify(listed.body));
+          assert.deepEqual(listed.body.find(row => row._id === TARGET).accessToken, token(A, TARGET, 'original'));
+          assert.equal(listed.body.length, 3);
+          const created = await call('post', '/subjects', { bearer, body: { name: 'Caregiver', roles: ['reader'], notes: '' } });
+          assert.equal(created.status, 200, JSON.stringify(created.body));
+          assert.equal((await call('put', '/subjects', { bearer, body: { _id: created.body._id, name: 'Caregiver', roles: ['uploader'] } })).status, 200);
+          assert.deepEqual((await call('delete', '/subjects/' + created.body._id, { bearer })).body, {});
+          assert.equal((await call('post', '/roles', { bearer, body: { name: 'school', permissions: ['api:entries:read'] } })).status, 200);
+          assert.equal((await call('put', '/roles', { bearer, body: { _id: 'school', name: 'school', permissions: ['api:entries:create'] } })).status, 200);
+          assert.ok((await call('get', '/roles', { bearer })).body.some(row => row.name === 'school'));
+          assert.deepEqual((await call('delete', '/roles/school', { bearer })).body, {});
+          // The legacy ?token= form exchanges to the same subject.
+          assert.equal((await request(app).get('/api/v2/authorization/roles?token=' + token(A, ADMIN, 'toolsadmin')).set('Host', hosts.get(A))).status, 200);
+          const audit = (await f.admin.query('SELECT DISTINCT principal, consumer FROM ' + f.tables.audit + ' WHERE tenant_id=$1', [A])).rows;
+          assert.deepEqual(audit, [{ principal: ADMIN, consumer }]);
+          // The same grant bound as root: catalogue and ceiling.
+          await rolesUnchanged(() => call('post', '/roles', { bearer, body: { name: 'everything', permissions: ['*'] } }), 403);
+        });
+
+        it('meets the same last-owner guard and never reaches owner routes', async function () {
+          await makeOwner(TARGET);
+          const bearer = await jwt(A, ADMIN, 'toolsadmin');
+          assert.deepEqual((await unchanged(() => call('delete', '/subjects/' + TARGET, { bearer }), 409)).body, { error: 'SUBJECT_ADMIN_LAST_OWNER' });
+          for (const [method, path] of [['get', '/api/v1/tenant/settings'], ['get', '/api/v1/tenant/subject-policy']]) {
+            await unchanged(() => request(app)[method](path).set('Host', hosts.get(A)).set('Authorization', 'Bearer ' + bearer), 401);
+          }
+          assert.deepEqual(ownerCalls, []);
+        });
+
+        it('refuses a subject without the route permission and an admin-role subject of tenant B', async function () {
+          const reader = await jwt(A, READER, 'plainread');
+          for (const [method, path, body] of [['get', '/subjects'], ['delete', '/subjects/' + TARGET], ['get', '/roles'],
+            ['post', '/roles', { name: 'planted', permissions: ['api:entries:read'] }], ['delete', '/roles/uploader']]) {
+            await rolesUnchanged(() => call(method, path, { bearer: reader, body }), 401);
+            await rolesUnchanged(() => call(method, path, { secret: token(A, READER, 'plainread'), body }), 401);
+          }
+          // A partial grant reads but cannot delete, as on a single site.
+          await f.admin.query('INSERT INTO ' + f.tables.links + ' (tenant_id,subject_id,role_name) VALUES ($1,$2,\'subjects-read\')', [A, READER]);
+          assert.equal((await call('get', '/subjects', { bearer: reader })).status, 200);
+          await rolesUnchanged(() => call('delete', '/subjects/' + TARGET, { bearer: reader }), 401);
+          const foreign = await jwt(B, ADMIN, 'toolsadmin');
+          for (const [method, path, body] of [['get', '/subjects'], ['delete', '/subjects/' + TARGET], ['put', '/subjects', { _id: TARGET, name: 'Hijacked', roles: [] }],
+            ['delete', '/roles/uploader'], ['put', '/roles', { _id: 'reader', name: 'reader', permissions: [] }]]) {
+            await rolesUnchanged(() => call(method, path, { bearer: foreign, body }), 401);
+            await rolesUnchanged(() => call(method, path, { secret: token(B, ADMIN, 'toolsadmin'), body }), 401);
+          }
+        });
+      });
+
+      it('refuses every admin tools call (403) for a tenant without an owner policy row', async function () {
+        // Decision Q4 of the lane: the operator provisions the policy row; none is invented.
+        await f.admin.query('DELETE FROM ' + f.tables.actors + ' WHERE tenant_id=$1', [A]);
+        await f.admin.query('DELETE FROM ' + f.tables.policy + ' WHERE tenant_id=$1', [A]);
+        for (const [method, path, body] of [['get', '/subjects'], ['get', '/roles'], ['delete', '/subjects/' + TARGET],
+          ['post', '/roles', { name: 'planted', permissions: [] }]]) {
+          assert.deepEqual((await rolesUnchanged(() => call(method, path, { body }), 403)).body, { error: 'SUBJECT_ADMIN_FORBIDDEN' });
+        }
+        assert.equal((await call('get', '/subjects', { tenant: B, as: B })).status, 200, 'B keeps its policy and access');
       });
 
       it('holds distinct privilege shapes for the owner and root planes', async function () {

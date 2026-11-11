@@ -26,17 +26,20 @@ describe('tenant root admin tools routes (no database)', function () {
     },
     async rootLegacyTokens (context, { apiSecret }) {
       return apiSecret === ROOT[context.tenant] ? new Map([['s1', 'one-0123456789abcdef']]) : null;
-    }
+    },
+    async exchangeLegacyCredential () { return null; },
+    async adminLegacyTokens () { return null; }
   };
+  const authority = { authorize: async () => false, subjectSnapshot: async () => null };
   function app (calls) {
     const admin = {};
-    for (const method of ['list', 'listRoles', 'create', 'createRole', 'update', 'remove']) {
+    for (const method of ['list', 'listRoles', 'create', 'createRole', 'updateRole', 'removeRole', 'update', 'remove']) {
       admin[method] = async (actor, ...args) => {
         calls.push([method, actor, ...args]);
         if (method === 'list') return [{ subjectId: 's1', name: 'One', roles: ['readable'], notes: null }];
         if (method === 'listRoles') return [{ name: 'readable', permissions: ['*:*:read'] }];
         if (method === 'create') return { subjectId: 'new', ...args[0] };
-        if (method === 'createRole') return args[0];
+        if (method === 'createRole' || method === 'updateRole') return args[0];
         if (method === 'update') return { subjectId: args[0], ...args[1] };
         return true;
       };
@@ -44,15 +47,16 @@ describe('tenant root admin tools routes (no database)', function () {
     const server = express();
     const hosts = { 'one.example.test': A, 'two.example.test': B };
     server.use('/api/v2/authorization', createRootAdminRouter({ resolveTenant: async req => hosts[req.hostname],
-      authenticateRoot: createRootAuthentication({ secrets, verifierContext, tenants: [A, B] }), subjectAdmin: admin }));
+      authenticateRoot: createRootAuthentication({ secrets, authority, verifierContext, tenants: [A, B] }), subjectAdmin: admin }));
     server.use((req, res) => res.status(404).json({ error: 'NOT_FOUND' }));
     return server;
   }
 
   it('requires its trusted composition', function () {
     assert.throws(() => createRootAdminRouter({}), TypeError);
-    assert.throws(() => createRootAuthentication({ secrets, verifierContext }), TypeError);
-    assert.throws(() => createRootAuthentication({ secrets: { verifyLegacyCredential () {} }, verifierContext, tenants: [A] }), TypeError);
+    assert.throws(() => createRootAuthentication({ secrets, authority, verifierContext }), TypeError);
+    assert.throws(() => createRootAuthentication({ secrets, verifierContext, tenants: [A] }), TypeError);
+    assert.throws(() => createRootAuthentication({ secrets: { verifyLegacyCredential () {} }, authority, verifierContext, tenants: [A] }), TypeError);
     assert.throws(() => createOwnerPolicy({ namespace: 'auth', catalogue: ['*'], plane: 'operator' }), TypeError);
     assert.equal(createOwnerPolicy({ namespace: 'auth', catalogue: ['*'], plane: 'root' }).plane, 'root');
     assert.equal(createOwnerPolicy({ namespace: 'auth', catalogue: ['*'] }).plane, 'owner');
@@ -86,14 +90,14 @@ describe('tenant root admin tools routes (no database)', function () {
     assert.equal(calls.length, before, 'no refused request reached the writer');
   });
 
-  it('refuses malformed bodies, an _id on create and role edits before the writer', async function () {
+  it('refuses malformed bodies, an _id on create and a role rename before the writer', async function () {
     const calls = [];
     const server = app(calls);
     const send = (method, target, body) => request(server)[method]('/api/v2/authorization' + target)
       .set('Host', 'one.example.test').set('api-secret', ROOT[A]).type('form').send(body);
     for (const [method, target, body, status] of [['post', '/subjects', '_id=s1&name=One', 400], ['post', '/subjects', 'name=&roles%5B%5D=x', 400],
       ['put', '/subjects', 'name=One', 400], ['post', '/subjects', 'name=One&owner=true', 400], ['post', '/roles', 'name=bad%20name', 400],
-      ['put', '/roles', '_id=readable&name=readable', 501], ['delete', '/roles/readable', '', 501]]) {
+      ['put', '/roles', '_id=readable&name=renamed&permissions%5B%5D=api%3Aentries%3Aread', 400], ['put', '/roles', 'name=readable', 400]]) {
       const response = await send(method, target, body);
       assert.equal(response.status, status, method + ' ' + target + ' ' + body);
     }
@@ -120,12 +124,16 @@ describe('preview root subject administration configuration', function () {
 
   it('is absent by default and selects a separate writer identity on the same database', function () {
     assert.equal(parse().subjectAdmin, undefined);
+    // Decision root-grant-ceiling-default-all: '*' within tenant data unless narrowed.
+    assert.deepEqual(parse({ writerConnectionEnv: 'RA_ROOT_PG' }, { RA_ROOT_PG: url('root') }).subjectAdmin.ownerPolicy, { catalogue: ['*'] });
+    assert.deepEqual(parse({ writerConnectionEnv: 'RA_ROOT_PG', ownerPolicy: { catalogue: ['api:entries:read'] } }, { RA_ROOT_PG: url('root') })
+      .subjectAdmin.ownerPolicy, { catalogue: ['api:entries:read'] });
     const parsed = parse({ writerConnectionEnv: 'RA_ROOT_PG', ownerPolicy: { catalogue: ['*'] } }, { RA_ROOT_PG: url('root') });
     assert.deepEqual(parsed.subjectAdmin, { connectionString: url('root'), ownerPolicy: { catalogue: ['*'] } });
     for (const [subjectAdmin, extra] of [[{ writerConnectionEnv: 'RA_API_PG', ownerPolicy: { catalogue: ['*'] } }, {}],
       [{ writerConnectionEnv: 'RA_READINESS_PG', ownerPolicy: { catalogue: ['*'] } }, {}],
       [{ writerConnectionEnv: 'RA_ROOT_PG', ownerPolicy: { catalogue: ['*'] } }, { RA_ROOT_PG: url('root').replace('root_admin_test', 'other') }],
-      [{ writerConnectionEnv: 'RA_ROOT_PG' }, { RA_ROOT_PG: url('root') }],
+      [{ writerConnectionEnv: 'RA_ROOT_PG', ownerPolicy: {} }, { RA_ROOT_PG: url('root') }],
       [{ writerConnectionEnv: 'RA_ROOT_PG', ownerPolicy: { catalogue: [] } }, { RA_ROOT_PG: url('root') }],
       [{ writerConnectionEnv: 'RA_ROOT_PG', ownerPolicy: { catalogue: ['*'] }, plane: 'owner' }, { RA_ROOT_PG: url('root') }]]) {
       assert.throws(() => parse(subjectAdmin, extra), PreviewConfigError, JSON.stringify(subjectAdmin));
@@ -144,14 +152,16 @@ describe('preview API boot composes root subject administration only when select
     const resource = name => ({ end: async () => { seen.closed.push(name); } });
     const stubs = {
       '../../storage/postgres-connection': async () => resource('data'),
-      '../../secrets/component': { createSecrets: () => ({ verifyLegacyCredential: async () => null, rootLegacyTokens: async () => null }) },
+      '../../secrets/component': { createSecrets: () => ({ verifyLegacyCredential: async () => null, rootLegacyTokens: async () => null,
+        exchangeLegacyCredential: async () => null, adminLegacyTokens: async () => null }) },
       '../../secrets/postgres': { createPostgresSecrets: async () => ({ ...resource('secrets'), store: { get: async () => ({}) } }) },
       '../../secrets/legacy-postgres': async () => ({ ...resource('legacy'), read: async () => ({ reference: { tenant: A, id: 'synthetic' } }) }),
-      '../../tenant-authorization/postgres': async () => ({ ...resource('authority'), authorize: async () => false }),
+      '../../tenant-authorization/postgres': async () => ({ ...resource('authority'), authorize: async () => false, subjectSnapshot: async () => null }),
       '../../subject-admin/postgres': async options => {
         seen.stores.push(options);
         return { plane: options.plane, close: async () => { seen.closed.push('root-writer'); },
-          list: async () => [], listRoles: async () => [], create: async () => ({}), createRole: async () => ({}), update: async () => ({}), remove: async () => true };
+          list: async () => [], listRoles: async () => [], create: async () => ({}), createRole: async () => ({}),
+          updateRole: async () => ({}), removeRole: async () => true, update: async () => ({}), remove: async () => true };
       },
       '../tenant-app/data-access': () => () => null, '../tenant-app/exchange': () => async () => null,
       '../tenant-app': { createTenantApp: options => { seen.rootAdmin = options.rootAdmin; return express.Router(); } },
@@ -175,11 +185,10 @@ describe('preview API boot composes root subject administration only when select
     const selected = await boot({ connectionString: 'postgres://synthetic-root:synthetic@127.0.0.1/ra', ownerPolicy: { catalogue: ['*'] } });
     assert.deepEqual(selected.stores, [{ connectionString: 'postgres://synthetic-root:synthetic@127.0.0.1/ra', namespace: 'ra_authorization',
       credentialNamespace: 'ra_legacy', ownerPolicy: { catalogue: ['*'] }, plane: 'root' }]);
-    for (const method of ['authenticate', 'list', 'listRoles', 'create', 'createRole', 'update', 'remove']) {
+    for (const method of ['authenticate', 'list', 'listRoles', 'create', 'createRole', 'updateRole', 'removeRole', 'update', 'remove']) {
       assert.equal(typeof selected.rootAdmin[method], 'function', method);
     }
-    // The service admits only the bound tenant's root actor on the data consumer.
-    await assert.rejects(selected.rootAdmin.list({ tenant: A, principal: 'manager', consumer: 'tenant-api' }), { code: 'SUBJECT_ADMIN_FORBIDDEN' });
+    // The service admits only actors on the bound data consumer (authentication decided root or permission).
     await assert.rejects(selected.rootAdmin.list({ tenant: A, principal: 'root', consumer: 'admin' }), { code: 'SUBJECT_ADMIN_FORBIDDEN' });
     assert.ok(selected.closed.includes('root-writer'), 'the writer closes with the role');
   });
