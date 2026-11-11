@@ -18,8 +18,8 @@ describe('actual durable producer and outbox recreation protocol', function () {
     source={tenant:f.A,identity:'config',runtimeId:runtime,outputRevision,inputCheckpoint:0,eligible:true,
       result:{tenant:f.A,...view.evaluateCycle({now:at,ddata})}};
   }
-  function open (send) {
-    const p=producer({store:f.store,reader:{read:async()=>[]},current:()=>source,currentConfig:async()=>({tenant:f.A,identity:source.identity}),isCurrent:async()=>true,
+  function open (send, reader={read:async()=>[]}) {
+    const p=producer({store:f.store,reader,current:()=>source,currentConfig:async()=>({tenant:f.A,identity:source.identity}),isCurrent:async()=>true,
       consumer:'realtime-test',now:()=>at,maxRows:10,maxBytes:65536,maxPayloadBytes:10000});
     const n=notifier({store:f.store,adapter:{id:'realtime-test',send},selectCycle:p.select,isCurrent:async()=>true,
       allows:async()=>true,now:()=>at,normalPolicy:'realtime-cycle',requireIntentOrigin:true,
@@ -52,6 +52,34 @@ describe('actual durable producer and outbox recreation protocol', function () {
     const selected=await p.select(f.A);
     assert.equal(runtime.last(f.A),null,'CONTROL_CLEAR_NO_FABRICATED_CLINICAL');
     assert.deepEqual(selected.result.emitted,[{clear:true,title:'All Clear',message:"default - Urgent was ack'd",group:'default'}], 'PRODUCER_COLD_FAILED_CLINICAL_CONTROL_CLEAR');
+  });
+  // Controlled interleaving, no timers: the evaluator publishes one newer output
+  // (a time-only tick: same reading, next outputRevision) while the producer's
+  // suppression read is pending, i.e. between observing the output and committing.
+  function publishDuringRead () {
+    const reader={pending:0,async read () {
+      if (reader.pending && --reader.pending===0) clinical(50,source.runtimeId,source.outputRevision+1);
+      return [];
+    }};
+    return reader;
+  }
+  it('selects again against the newer evaluator output published during a selection instead of refusing', async function () {
+    clinical(50); const reader=publishDuringRead(); const value=open((row,callback)=>callback(null,{accepted:true}),reader);
+    reader.pending=1;
+    const selected=await value.p.select(f.A);
+    assert.equal(reader.pending,0,'the newer output was published inside the selection');
+    assert.deepEqual(f.producerStates()[0].producer.output,['config','runtime-one',2,0],'PRODUCER_STALE_RESELECTS_NEWER_OUTPUT');
+    assert.equal(selected.eligible,true); assert.equal(selected.result.emitted.length,1);
+  });
+  it('hands off a committed request when a newer evaluator output is published during its attempt', async function () {
+    clinical(50); const reader=publishDuringRead(); const effects=[];
+    const value=open((row,callback)=>{effects.push(row);callback(null,{accepted:true});},reader);
+    await value.p.select(f.A); const original=f.snapshot().requests[0];
+    reader.pending=1; // the first suppression read after the attempt has begun (attempting is committed)
+    await value.n.retry(f.A);
+    assert.equal(reader.pending,0,'the newer output was published inside the attempt');
+    assert.equal(f.snapshot().requests.find(row=>row.request_id===original.request_id).state,'accepted','PRODUCER_STALE_ATTEMPT_NOT_STRANDED');
+    assert.deepEqual(effects.map(row=>row.id),[original.request_id]);
   });
   it('does not advance durable producer revision for an unchanged output after JSONB-like object-key reordering', async function () {
     clinical(50); const value=open((row,callback)=>callback(null,{accepted:true})); await value.p.select(f.A);
