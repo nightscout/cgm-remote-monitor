@@ -96,6 +96,8 @@ const INVENTORY = [
     note: 'consumer wakes and producer selections per window with content-change revisions; NS_CONSUMER_LOAD_* knobs are for measurement' },
   { file: 'tests/change-stamps.integration.test.js', flags: {}, shared: ['postgres'], own: [], gate: PENDING,
     note: 'decision change-stamp-definer-function: catalogue, deployment grants, attribute check and refusals' },
+  { file: 'tests/tenant-registry.integration.test.js', flags: {}, shared: ['postgres'], own: [], gate: PENDING,
+    note: 'decision tenant-registry: definer lookup/revision/enumeration narrowness, per-tenant RLS on attributes, attribute check' },
   { file: 'tests/postgres-tenant-scan.integration.test.js', flags: {}, shared: ['postgres'], own: [], gate: PENDING,
     note: 'scanTenants: one READ ONLY round trip under each tenant\'s forced-RLS binding' },
   { file: 'tests/pool-membership.integration.test.js', flags: {}, shared: ['postgres'], own: [], gate: PENDING,
