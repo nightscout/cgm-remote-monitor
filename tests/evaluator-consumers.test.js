@@ -99,8 +99,11 @@ describe('actual runtime alarm outbox consumer source composition', function () 
     assert.equal(l.effects.length, 2, 'EVALUATOR_CONSUMER_ACTUAL_PATH both tenant outputs consumed');
     for (const request of l.effects) assert.equal(l.files.get(request.tenant).snapshot().requests[0].state, 'accepted');
     await l.consumers.wake(l.A); assert.equal(l.effects.length, 2, 'same output once');
-    await l.runtime.tick(l.A); await l.consumers.wake(l.A);
-    assert.equal(l.effects.length, 3, 'EVALUATOR_CONSUMER_RT_POLICY later cycle repeats existing alarm');
+    // Identical content keeps the evaluator revision: no repeat before the
+    // tenant heartbeat (60 s default) elapses, one repeat after it.
+    await l.runtime.tick(l.A); await l.consumers.wake(l.A); assert.equal(l.effects.length, 2, 'EVALUATOR_CONSUMER_NO_REPEAT_BEFORE_HEARTBEAT');
+    l.advance(60000); await l.runtime.tick(l.A); await l.consumers.wake(l.A);
+    assert.equal(l.effects.length, 3, 'EVALUATOR_CONSUMER_RT_POLICY alarm repeats on the heartbeat clock');
     assert.notEqual(l.effects[0].id, l.effects.at(-1).id);
     assert.equal(l.consumers.health().tenants.find(row => row.tenant === l.A).state, 'handoff-accepted');
   });
@@ -113,15 +116,15 @@ describe('actual runtime alarm outbox consumer source composition', function () 
     await Promise.all([l.consumers.flush(l.A), l.consumers.flush(l.B)]);
     assert.equal(l.effects.length, 4, 'EVALUATOR_CONSUMER_RETRY_TIMER persisted attempts retried');
     assert.deepEqual(new Set(l.effects.slice(2).map(row => row.id)), new Set(ids));
-    await l.runtime.tick(l.A); l.consumerTimers[0].fn(); await Promise.all([l.consumers.flush(l.A), l.consumers.flush(l.B)]);
-    assert.equal(l.effects.length, 5, 'EVALUATOR_CONSUMER_OUTPUT_POLL timer output actually consumed');
+    l.advance(60000); await l.runtime.tick(l.A); l.consumerTimers[0].fn(); await Promise.all([l.consumers.flush(l.A), l.consumers.flush(l.B)]);
+    assert.equal(l.effects.length, 6, 'EVALUATOR_CONSUMER_OUTPUT_POLL timer output actually consumed (one heartbeat repeat per tenant)');
   });
   it('defers failed clinical/config cycles and newly snoozed pending work without stopping the other tenant', async function () {
     const l = await open((request, callback) => callback(new Error('uncertain sink'))); await l.start();
     const a = l.files.get(l.A).snapshot(), b = l.files.get(l.B).snapshot();
     l.refusal.add(l.A); await l.runtime.acquire(l.A); await l.consumers.wake(l.A);
     assert.deepEqual(l.files.get(l.A).snapshot(), a, 'failed clinical cycle cannot enqueue');
-    await l.runtime.tick(l.B); await l.consumers.wake(l.B); assert.equal(l.files.get(l.B).snapshot().requests.length, b.requests.length + 1);
+    l.advance(60000); await l.runtime.tick(l.B); await l.consumers.wake(l.B); assert.equal(l.files.get(l.B).snapshot().requests.length, b.requests.length + 1);
     l.refusal.delete(l.A); await l.runtime.acquire(l.A);
     await l.alarm.writer.ack(l.alarm.operation(1, 'default', 1000, l.A));
     const effects = l.effects.length; l.advance(1); await l.consumers.retry(l.A);
@@ -138,8 +141,9 @@ describe('actual runtime alarm outbox consumer source composition', function () 
     const entered = new Promise(resolve => { enter = resolve; });
     const l = await open((request, callback) => { if (request.tenant === l.A) { signal = request.signal; complete = callback; enter(); } else callback(null, { accepted: true }); });
     l.consumers.start(); await entered;
-    const before = l.runtime.last(l.A).outputRevision; await l.runtime.tick(l.A);
-    assert.ok(l.runtime.last(l.A).outputRevision > before, 'clinical cycle does not wait for delivery');
+    const cycles = () => l.runtime.health().tenants.find(row => row.tenant === l.A).cycles;
+    const before = cycles(); await l.runtime.tick(l.A);
+    assert.ok(cycles() > before, 'clinical cycle does not wait for delivery');
     const closing = l.consumers.close();
     try { assert.equal(signal.aborted, true, 'EVALUATOR_CONSUMER_ABORT_OWNED_WAIT'); }
     finally { complete(new Error('fixture release')); await closing; }

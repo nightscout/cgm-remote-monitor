@@ -266,8 +266,10 @@ describe('evaluator preview owned jobs and lifecycle', function () {
       const first = l.ctx.last(A); refuse = true; await l.ctx.acquire(A); await l.ctx.acquire(B);
       assert.equal(l.ctx.last(A).outputRevision, first.outputRevision);
       assert.equal(l.ctx.last(A).eligible, false); assert.equal(l.ctx.last(B).eligible, true);
+      const cycles = () => l.ctx.health().tenants.find(row => row.tenant === A).cycles, attempted = cycles();
       refuse = false; await l.ctx.acquire(A); assert.equal(l.ctx.last(A).eligible, true);
-      assert.ok(l.ctx.last(A).outputRevision > first.outputRevision);
+      assert.ok(cycles() > attempted, 'the unchanged input was acquired again');
+      assert.equal(l.ctx.last(A).outputRevision, first.outputRevision, 'identical content keeps its revision');
     } finally { await l.ctx.close(); }
   });
   it('fences late computation and drains running jobs before close resolves', async function () {
