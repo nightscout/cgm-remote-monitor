@@ -243,6 +243,7 @@
         "tests/evaluator-runtime-content.test.js",
         "tests/realtime-preview.test.js",
         "tests/realtime-publish-on-change.test.js",
+        "tests/realtime-socket-server.test.js",
         "tests/realtime-browser-diagnostics.test.js",
         "tests/preview-socket-port-composition.test.js",
         "tests/preview-serving-status.test.js",

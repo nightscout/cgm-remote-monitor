@@ -185,11 +185,11 @@ describe('realtime publish on change (actual protocol, runtime and detector)', f
     } finally { await f.close(); }
   });
 
-  it('RT_SHUTDOWN: close disconnects every socket server-side, as before', async function () {
+  it('RT_SHUTDOWN (BF-233): close sends no server-side disconnect; the socket server closes the transports', async function () {
     const f = await fixture();
     const sockets = await Promise.all([f.socket(), f.socket('b.test'), f.socket('a.test', { secret: 's' }, '/alarm')]);
     await f.close();
-    assert.ok(sockets.every(s => s.disconnected), 'RT_SHUTDOWN_DISCONNECT');
+    assert.ok(sockets.every(s => !s.disconnected), 'RT_SHUTDOWN_NO_SERVER_DISCONNECT');
   });
 
   it('RT_DETECTOR: one stamp and identity read per poll for all tenants', async function () {
