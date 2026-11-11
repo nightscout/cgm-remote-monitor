@@ -48,6 +48,20 @@ describe('evaluator preview trusted configuration', function () {
       d.tenants.shift(); fs.writeFileSync(file, JSON.stringify(d)); assert.equal(await loaded.readCurrent(A), null);
       d.maxRows++; fs.writeFileSync(file, JSON.stringify(d)); await assert.rejects(loaded.readCurrent(B), /requires restart/);
     } finally { fs.rmSync(dir, { recursive: true, force: true }); }
+  });  it('parses the file once while it is unchanged, and again after any edit of the same size', async function () {
+    const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'evaluator-config-')), file = path.join(dir, 'config.json');
+    const read = fs.readFileSync; let parses = 0;
+    fs.readFileSync = function (name, ...rest) { if (name === file) parses++; return read.call(this, name, ...rest); };
+    try {
+      const d = document(); d.tenants[0].revision = 'a';
+      fs.writeFileSync(file, JSON.stringify(d));
+      const loaded = config.load({ ...source, MULTITENANT_EVALUATOR_CONFIG: file });
+      const before = parses, first = await loaded.readCurrent(A);
+      for (let i = 0; i < 20; i++) await loaded.readCurrent(A);
+      assert.equal(parses - before, 1, 'EV_CONFIG_PARSED_ONCE_WHILE_UNCHANGED');
+      d.tenants[0].revision = 'b'; fs.writeFileSync(file, JSON.stringify(d)); // same size
+      assert.notEqual((await loaded.readCurrent(A)).identity, first.identity, 'EV_CONFIG_EDIT_SEEN');
+    } finally { fs.readFileSync = read; fs.rmSync(dir, { recursive: true, force: true }); }
   });
 });
 
