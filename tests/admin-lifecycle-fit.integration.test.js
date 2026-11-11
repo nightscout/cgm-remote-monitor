@@ -304,6 +304,71 @@ optInSuite(process.env.NS_ADMIN_LIFECYCLE_DOCKER_TEST === '1',
     await asBootstrap(client => client.query('REVOKE UPDATE ON ' + t('entries', 'tenant_insertion_ordinal') + ' FROM ' + q(probe)));
   });
 
+  // Synthetic entries written as the bootstrap superuser under the tenant binding
+  // (the insertion-order trigger requires it), with a live write-clock floor.
+  async function inTenant (tenant, fn) {
+    return asBootstrap(async client => {
+      await client.query('BEGIN'); await client.query("SELECT set_config('app.current_tenant_id',$1,true)", [tenant]);
+      try { const value = await fn(client); await client.query('COMMIT'); return value; } catch (error) { await client.query('ROLLBACK'); throw error; }
+    });
+  }
+  const entry = (id, sgv, stamp) => JSON.stringify({ _id: id, identifier: id, type: 'sgv', sgv, date: 1700000000000 + stamp, srvModified: stamp, srvCreated: stamp });
+  async function seed () {
+    for (const [tenant, id] of [[A, 'seed-a1'], [B, 'seed-b1']]) {
+      await inTenant(tenant, async client => {
+        await client.query('INSERT INTO ' + t('clock', 'tenant_write_clock') + ' (tenant_id,last_stamp) VALUES ($1,1000) ON CONFLICT (tenant_id) DO UPDATE SET last_stamp=1000', [tenant]);
+        await client.query('INSERT INTO ' + t('entries', 'entries') + " (tenant_id,id_kind,doc) VALUES ($1,'string',$2::jsonb)", [tenant, entry(id, 100, 500)]);
+      });
+    }
+    return observe(A);
+  }
+  async function alter () {
+    await inTenant(A, async client => {
+      await client.query('UPDATE ' + t('entries', 'entries') + " SET doc=jsonb_set(doc,'{sgv}','200') WHERE tenant_id=$1 AND doc->>'_id'='seed-a1'", [A]);
+      await client.query('INSERT INTO ' + t('entries', 'entries') + " (tenant_id,id_kind,doc) VALUES ($1,'string',$2::jsonb)", [A, entry('seed-a2', 150, 600)]);
+    });
+    assert.deepEqual((await observe(A)).map(row => row.sgv), [200, 150]);
+  }
+  // Rows that read as current: _id and sgv, ordered by insertion.
+  async function observe (tenant) {
+    return inTenant(tenant, async client => (await client.query('SELECT doc FROM ' + t('entries', 'entries') +
+      " WHERE tenant_id=$1 AND COALESCE(doc->>'isValid','true')<>'false' ORDER BY insertion_ordinal", [tenant])).rows.map(row => ({ _id: row.doc._id, sgv: row.doc.sgv })));
+  }
+
+  // BF-230 regression: the clinical logical restore (logical-restore.js) through
+  // the shipped Compose driver (deploy/multitenant/restore.js capture/restore),
+  // under the deployment plan's grants, with the admin role connected. A carries a
+  // retained key-retention record (a deletion inside its 30-day window), so the
+  // restore's retention gate reads and updates the ledger as the plan's operator.
+  it('captures A, alters A, and restores A logically through the shipped driver with the admin role connected', async function () {
+    const config = { tenants: [{ id: A }, { id: B }], drainTimeoutMs: 5000,
+      control: { namespace: ns.control, locks: this.locks, participants: this.entries }, ...plan.lifecycle(l) };
+    const env = { NS_OPERATOR_PG: urls.operator, NS_SOURCE_COMMIT: 'f'.repeat(40) };
+    const operator = require('../deploy/multitenant/restore');
+    const seeded = await seed();
+    const beforeB = await observe(B);
+    const artifact = await operator.capture(config, A, env);
+    await alter();
+    const request = crypto.randomUUID(), now = Date.now();
+    await inTenant(A, async client => {
+      await client.query('INSERT INTO ' + t('control', 'tenant_lifecycle_requests') + " (request_id,tenant_id,artifact_digest,phase,requested_at,executed_at) VALUES ($1,$2,$3,'executed',$4,$4)", [request, A, artifact.digest, now - 2000]);
+      await client.query('INSERT INTO ' + t('control', 'tenant_lifecycle_key_retention') + " (request_id,tenant_id,artifact_digest,key_names,key_references,phase,retained_at,retain_until) VALUES ($1,$2,$3,'[\"tenant-0-data\"]'::jsonb,1,'retained',$4,$5)",
+        [request, A, artifact.digest, now - 1000, now + 30 * 86400000]);
+    });
+    await this.ownership.listOwners({ tenant: A });
+    assert.ok(await backendsOf(l.roles.ownership_operator) >= 1, 'admin role connected');
+    const summaries = [];
+    const result = await operator.restore(config, artifact, env, { onCommitted: summary => { summaries.push(summary); } });
+    assert.equal(result.state, 'activated');
+    assert.equal(summaries.length, 1);
+    assert.deepEqual({ created: summaries[0].created, replaced: summaries[0].replaced, deleted: summaries[0].deleted },
+      { created: 0, replaced: 1, deleted: 1 }, 'seed-a1 replaced back, seed-a2 marked deleted');
+    assert.deepEqual(await observe(A), seeded, 'A as captured');
+    assert.deepEqual(await observe(B), beforeB, 'B unchanged');
+    assert.equal(await phaseOf(A), 'active');
+    assert.equal(await inTenant(A, async client => (await client.query('SELECT phase FROM ' + t('control', 'tenant_lifecycle_key_retention') + ' WHERE request_id=$1', [request])).rows[0].phase), 'restored');
+  });
+
   it('still refuses an unregistered backend whose identity holds clinical grants', async function () {
     const stranger = new Client({ connectionString: urls.realtime }); await stranger.connect();
     try {
