@@ -442,6 +442,7 @@
         "tests/tenant-durable-replay.integration.test.js",
         "tests/tenant-projection-evaluator.integration.test.js",
         "tests/evaluator-wake.integration.test.js",
+        "tests/evaluator-consumer-wake.integration.test.js",
         "tests/tenant-current-state-recovery-proof.integration.test.js",
         "tests/owner-preview.integration.test.js",
         "tests/owner-configuration.integration.test.js",
