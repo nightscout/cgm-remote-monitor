@@ -131,7 +131,7 @@ describe('evaluator preview owned jobs and lifecycle', function () {
       assert.deepEqual(l.calls, [[A, 'acquire'], [B, 'acquire']]);
       // No per-tenant poll: one backstop schedule; time-only work is a per-tenant
       // timer (a component without due-time support keeps the slow timer).
-      assert.deepEqual(l.callbacks.map(c => c.ms), [100], 'EV_NO_TENANT_POLL only the backstop interval is scheduled');
+      assert.deepEqual(l.callbacks.map(c => c.ms), [100, 10000], 'EV_NO_TENANT_POLL only the backstop and the evaluation-gap watchdog are scheduled');
       assert.deepEqual([...l.timers.values()].map(t => t.ms), [200, 200], 'EV_SLOW_TIMER at + timeIntervalMs from the cycle instant');
       for (const [id, timer] of [...l.timers]) { l.timers.delete(id); timer.fn(); }
       await l.ctx.tick(A); await l.ctx.tick(B);
@@ -146,7 +146,7 @@ describe('evaluator preview owned jobs and lifecycle', function () {
       assert.equal(l.ctx.last(A).eligible, true);
       assert.equal(l.ctx.last(A).runtimeId, l.ctx.last(B).runtimeId);
     } finally { await l.ctx.close(); }
-    assert.deepEqual(l.cancelled, [1]); assert.equal(l.timers.size, 0, 'close clears every due timer');
+    assert.deepEqual(l.cancelled, [1, 2]); assert.equal(l.timers.size, 0, 'close clears every due timer');
     assert.equal(l.ctx.health().closed, true); assert.equal(l.ctx.last(A).eligible, false);
   });
   it('discards restored A retained output and reacquires without changing B', async function () {

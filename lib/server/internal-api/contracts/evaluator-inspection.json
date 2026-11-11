@@ -461,6 +461,38 @@
                       "additionalProperties": false
                     }
                   ]
+                },
+                "evaluation": {
+                  "description": "Time since this tenant's evaluation was last confirmed current (an acquisition, a time-only cycle, or a backstop check that found nothing changed), since the runtime started if never; and the scheduler's alert when that exceeds its bound.",
+                  "type": "object",
+                  "properties": {
+                    "ageMs": {
+                      "anyOf": [
+                        {
+                          "type": "null"
+                        },
+                        {
+                          "type": "integer",
+                          "minimum": 0
+                        }
+                      ]
+                    },
+                    "alert": {
+                      "anyOf": [
+                        {
+                          "type": "null"
+                        },
+                        {
+                          "const": "EVALUATOR_NOT_EVALUATED_WITHIN_BOUND"
+                        }
+                      ]
+                    }
+                  },
+                  "required": [
+                    "ageMs",
+                    "alert"
+                  ],
+                  "additionalProperties": false
                 }
               },
               "required": [
