@@ -35,6 +35,7 @@ ownership, the reference deployment and separate traffic-plane diagrams.
 | [Socket authority](../lib/server/internal-api/contracts/socket-authority.json) | `operations.authorizeSocket.{request,response}` and `operations.executeSocketMutation.{request,response}` | Host-to-tenant matching, current credentials, exact write and acknowledgement authority. |
 | [Alarm delivery](../lib/server/internal-api/contracts/alarm-delivery.json) | `operations.deliverAlarm.{request,response}` | Current tenant, notification domain rules and recipient read authority. |
 | [Lifecycle participant](../lib/server/internal-api/contracts/lifecycle-participant.json) | `operations.getStatus.{request,response}` and `operations.invalidateTenant.{request,response}` | Participant census, pinned incarnation/schema/datastore/backend identities, nonce, drain and suspension rules. |
+| [Connector inspection](../lib/server/internal-api/contracts/connector-inspection.json) | `operations.inspectConnectors.{request,response}` | None: a read of the vcpool member's pool state and per-tenant status, counts and upstream refusals. It carries no endpoint, credential or row. |
 
 Each nested `request` and `response` is a JSON Schema 2020-12 document. The
 containing document is the service registry, not itself a payload schema. Select
@@ -63,6 +64,7 @@ these optional fields, so their behaviour is unchanged.
 | `lifecycle-participant` | Each configured serving participant | `invalidateTenant(body, signal)` | `/cohort/invalidate` | Status plus the invalidated tenant, after actual role invalidators finish. |
 | `ownership-operations` | Private operator plane | `listOwners(body, signal)` | `/ownership/list` | Current owners, or `denied` without an owner list. |
 | `ownership-operations` | Private operator plane | `addOwner`, `transferOwner`, `recoverOwner` | `/ownership/add`, `/ownership/transfer`, `/ownership/recover` | `applied` or audited `refused` with the owner set, or `denied` with no effect. See [operator-assisted ownership](../lib/tenant-ownership/README.md). |
+| `connector-inspection` | vcpool role | `inspectConnectors({}, signal)` | `/vcpool/inspect` | The member's pool mode, eligibility and refusal counts, the egress proxy flag, and per tenant: status (`polling`, `skipped` with the activity code, `refused`, `not-in-slice`, `member-refused`, `idle`), rows pulled, refusal counts keyed `phase:status` and the last refusal. |
 
 Service handlers must implement exactly the operations in their selected
 contract. Unknown, missing or extra handler registrations fail at composition.

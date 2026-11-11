@@ -21,6 +21,7 @@ describe('Internal service API contracts', function () {
     assert.deepEqual(Object.keys(contracts.alarmDelivery.operations), ['deliverAlarm']);
     assert.deepEqual(Object.keys(contracts.lifecycleParticipant.operations), ['getStatus', 'invalidateTenant']);
     assert.deepEqual(Object.keys(contracts.ownershipOperations.operations), ['listOwners', 'addOwner', 'transferOwner', 'recoverOwner']);
+    assert.deepEqual(Object.keys(contracts.connectorInspection.operations), ['inspectConnectors']);
     const paths = Object.values(contracts).flatMap(service => {
       assert.equal(service.version, 1);
       assert(Object.isFrozen(service.operations));
@@ -30,7 +31,7 @@ describe('Internal service API contracts', function () {
       });
     });
     assert.deepEqual(paths, ['/authorize', '/mutate', '/alarm', '/cohort/status', '/cohort/invalidate',
-      '/ownership/list', '/ownership/add', '/ownership/transfer', '/ownership/recover']);
+      '/ownership/list', '/ownership/add', '/ownership/transfer', '/ownership/recover', '/vcpool/inspect']);
     assert.throws(() => { contracts.alarmDelivery.operations.getStatus = lifecycle.getStatus; }, TypeError);
   });
   it('accepts socket authority wire values and refuses unknown envelope, credential and permission fields', function () {
@@ -73,6 +74,22 @@ describe('Internal service API contracts', function () {
       { outcome: 'denied', code: 'OWNERSHIP_FORBIDDEN', event: null, owners: [owner] },
       { outcome: 'denied', code: 'OWNERSHIP_CONFLICT', event: null }]) refused(() => validate(ownership.addOwner.response, bad));
     refused(() => validate(ownership.listOwners.response, { outcome: 'listed', owners: [{ ...owner, secret: 'x' }] }));
+  });
+  it('fixes the connector inspection read: counts and codes only, never an endpoint or credential', function () {
+    const inspect = contracts.connectorInspection.operations.inspectConnectors;
+    validate(inspect.request, {});
+    refused(() => validate(inspect.request, { tenant: A }));
+    const member = { mode: 'standalone', members: 1, ordinal: 0, eligible: true, reason: null, cycles: 3, liveOrdinals: null, conflicts: 0,
+      observedReason: null, refusals: [{ key: 'source:401', count: 2 }] };
+    const tenant = { tenant: A, status: 'refused', code: 'CONNECTOR_SOURCE_AUTH_FAILED', cycles: 3, lastSuccessAt: null,
+      pulled: { entries: 0, treatments: 0, devicestatus: 0, profiles: 0 }, refusals: [{ key: 'source:401', count: 2 }],
+      lastRefusal: { phase: 'source', status: 401, code: 'ERR_BAD_REQUEST', at: '2026-11-10T00:00:00.000Z' } };
+    validate(inspect.response, { kind: 'vcpool', member, egress: { proxy: false }, tenants: [tenant] });
+    for (const bad of [{ ...tenant, endpoint: 'https://ns.example.org/' }, { ...tenant, lastRefusal: { ...tenant.lastRefusal, url: 'x' } },
+      { ...tenant, refusals: [{ key: 'source:https://x', count: 1 }] }, { ...tenant, status: 'running' }]) {
+      refused(() => validate(inspect.response, { kind: 'vcpool', member, egress: { proxy: false }, tenants: [bad] }));
+    }
+    refused(() => validate(inspect.response, { kind: 'vcpool', member, egress: { proxy: 'http://proxy:3128' }, tenants: [] }));
   });
   it('preserves extensible notification payloads and fixes the handoff response without claiming device delivery', function () {
     const body = { tenant: A, id: request, attempt: 1, notification: { title: 'Synthetic', level: 2, customPluginField: true }, receipts: [{ providerSpecific: [1, null] }] };

@@ -334,7 +334,7 @@ describe('Production public API and internal listener isolation', function () {
       const credential = { host: 'synthetic.example', tenant, namespace: '/', credential: {} };
       const contractPaths = Object.values(require('../lib/server/internal-api/contracts')).flatMap(service => Object.values(service.operations).map(operation => operation.path));
       assert.deepEqual(contractPaths, ['/authorize', '/mutate', '/alarm', '/cohort/status', '/cohort/invalidate',
-        '/ownership/list', '/ownership/add', '/ownership/transfer', '/ownership/recover']);
+        '/ownership/list', '/ownership/add', '/ownership/transfer', '/ownership/recover', '/vcpool/inspect']);
       for (const requestPath of [...contractPaths, '/api/v1/authorize', '/api/v3/authorize']) {
         const reply = await raw(publicEndpoint, requestPath, credential, { headers: {
           'x-nightscout-internal-service': descriptor.id, 'x-nightscout-internal-version': String(descriptor.version)

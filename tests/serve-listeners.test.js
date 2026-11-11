@@ -47,7 +47,7 @@ describe('nightscout multitenant: roles (PLAT-SERVE)', function () {
 
   it('accepts the implemented explicitly configured preview roles', function () {
     assert.deepEqual(serve.parseRoles(['api']), ['api']);
-    for (const [name, role] of Object.entries(ROLES)) assert.equal(role.multitenant === true, ['api', 'evaluator', 'realtime', 'tenant-admin', 'admin'].includes(name), name);
+    for (const [name, role] of Object.entries(ROLES)) assert.equal(role.multitenant === true, ['api', 'evaluator', 'realtime', 'vcpool', 'tenant-admin', 'admin'].includes(name), name);
   });
 
   it('refuses an unknown role, an empty one, a repeated one, and a missing list', function () {
@@ -58,22 +58,23 @@ describe('nightscout multitenant: roles (PLAT-SERVE)', function () {
   });
 
   it('names every role that cannot be served yet', function () {
-    for (const name of ['vcpool']) {
-      assert.ok(ROLES[name], name);
-      assert.throws(() => serve.parseRoles([name]), new RegExp('not yet available: ' + name + '\\.'));
-    }
-    assert.throws(() => serve.parseRoles(['api,vcpool,realtime']), /not yet available: vcpool/);
+    // Every role in the table has a preview runtime; a role without one is refused by name.
+    assert.deepEqual(Object.keys(ROLES).filter(name => !(ROLES[name].start && ROLES[name].multitenant)), []);
+    const roles = { ...ROLES, pending: { listener: false, storage: 'none', feed: false, egress: false } };
+    assert.throws(() => serve.parseRoles(['pending'], roles), /not yet available: pending\./);
+    assert.throws(() => serve.parseRoles(['api,pending,realtime'], roles), /not yet available: pending/);
     assert.deepEqual(serve.parseRoles(['admin']), ['admin']);
+    assert.deepEqual(serve.parseRoles(['vcpool']), ['vcpool']);
   });
 
-  it('exits 64 for an unknown role and for each role not yet available', function () {
+  it('exits 64 for an unknown role and 78 for a role without its configuration', function () {
     const unknown = cli(['multitenant', 'bogus']);
     assert.equal(unknown.status, 64);
     assert.match(unknown.stderr, /unknown role: bogus/);
     for (const name of ['vcpool', 'api,vcpool']) {
       const result = cli(['multitenant', name]);
-      assert.equal(result.status, 64, name);
-      assert.match(result.stderr, /not yet available: .*role that is not implemented/, name);
+      assert.equal(result.status, 78, name);
+      assert.match(result.stderr, /requires MULTITENANT_/, name);
     }
     assert.equal(cli(['multitenant']).status, 64);
   });
