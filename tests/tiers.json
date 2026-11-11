@@ -469,6 +469,7 @@
         "tests/postgres-tenant-scan.integration.test.js",
         "tests/change-stamps.integration.test.js",
         "tests/tenant-registry.integration.test.js",
+        "tests/tenant-registry-provision.integration.test.js",
         "tests/incremental-view.integration.test.js",
         "tests/pool-membership.integration.test.js",
         "tests/evaluator-consumer-timer-churn.integration.test.js",

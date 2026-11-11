@@ -98,6 +98,8 @@ const INVENTORY = [
     note: 'decision change-stamp-definer-function: catalogue, deployment grants, attribute check and refusals' },
   { file: 'tests/tenant-registry.integration.test.js', flags: {}, shared: ['postgres'], own: [], gate: PENDING,
     note: 'decision tenant-registry: definer lookup/revision/enumeration narrowness, per-tenant RLS on attributes, attribute check' },
+  { file: 'tests/tenant-registry-provision.integration.test.js', flags: { NS_VAULT_DOCKER_TEST: '1' }, shared: ['postgres'], own: ['vault'], gate: PENDING,
+    note: 'decision provisioning-split: idempotent provisioning, injected failures leave no partial tenant, bounded batches' },
   { file: 'tests/postgres-tenant-scan.integration.test.js', flags: {}, shared: ['postgres'], own: [], gate: PENDING,
     note: 'scanTenants: one READ ONLY round trip under each tenant\'s forced-RLS binding' },
   { file: 'tests/pool-membership.integration.test.js', flags: {}, shared: ['postgres'], own: [], gate: PENDING,
