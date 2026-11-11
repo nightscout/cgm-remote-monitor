@@ -141,7 +141,7 @@ describe('Window and lower lease actual datastore binding',function(){
   }
   it('refuses an identically migrated foreign datastore before lifetime registration',()=>bindingCheck());
   it('detects removal of the datastore comparison and passes restored source',async function(){
-    await assert.rejects(bindingCheck(s=>s.replace("if (!same(await datastore.read(client),database)) throw fail('LIFECYCLE_WINDOW_DATASTORE_CHANGED');",'')),/Missing expected rejection/);await bindingCheck();
+    await assert.rejects(bindingCheck(s=>{const line="if (row.pid !== client.processID || !same(datastore.identity(row), database)) throw fail('LIFECYCLE_WINDOW_DATASTORE_CHANGED');";assert.ok(s.includes(line));return s.replace(line,'');}),/Missing expected rejection/);await bindingCheck();
   });
 });
 

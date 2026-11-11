@@ -66,6 +66,29 @@ describe('Tenant operation window source protocol (not PostgreSQL evidence)', fu
     await assert.rejects(f.window.run(A, () => {}), { code: 'LIFECYCLE_WINDOW_CLOSED' });
     assert.deepEqual(f.log, []);
   });
+  // Decision cost-proportional-to-activity (item 3). Native coverage of the epoch
+  // itself is tests/operation-window-epoch.integration.test.js.
+  const fullAdmissions = f => f.log.filter(row => typeof row[0] === 'string' && row[0].includes('operation-window-role')).length;
+  it('runs the full catalogue admission only for an epoch it has not admitted', async function () {
+    const options = {}; const f = fixture(options);
+    await f.window.ready(); const base = fullAdmissions(f);
+    await f.window.run(A, () => {}); await f.window.run(A, () => {}); await f.window.run(B, () => {});
+    assert.equal(fullAdmissions(f) - base, 1, 'one admission for the first epoch, none while it is unchanged');
+    options.epoch = 'f'.repeat(64);
+    await f.window.run(A, () => {});
+    assert.equal(fullAdmissions(f) - base, 2, 'a changed epoch is admitted again');
+  });
+  it('refuses when the epoch keeps changing during admission, before registration or callback', async function () {
+    let n = 0; const options = {}; Object.defineProperty(options, 'epoch', { get: () => (n++ % 16).toString(16).repeat(64) });
+    const f = fixture(options); let called = false;
+    await assert.rejects(f.window.run(A, () => { called = true; }), { code: 'LIFECYCLE_WINDOW_SCHEMA_UNSAFE' });
+    assert.equal(called, false); assert.equal(f.pending.size, 0);
+  });
+  it('reads the epoch and the window row inside the transaction, after the lock', async function () {
+    const f = fixture(); await f.window.run(A, () => {});
+    const at = text => f.log.findIndex(row => typeof row[0] === 'string' && row[0].includes(text));
+    assert.ok(at('pg_try_advisory_lock_shared') < at('BEGIN') && at('BEGIN') < at('operation-window-epoch') && at('operation-window-epoch') < at('INSERT INTO'));
+  });
 });
 
 
