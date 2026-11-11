@@ -24,7 +24,7 @@ function catalogues() {
 function layout(prefix = 'nsdemo') {
   quote(prefix);
   if (prefix.length > 24) throw new TypeError('Deployment prefix too long');
-  const names = ['api','readiness','realtime','evaluator','alarm','suppression','outbox','owner_writer','owner_reader','operator',
+  const names = ['api','readiness','realtime','evaluator','alarm','suppression','outbox','owner_writer','owner_reader','root_writer','operator',
     ...serviceRoles.map(name=>'lifetime_'+name.replace('-','_'))];
   return {prefix,owner:prefix+'_owner',namespaces:Object.fromEntries(Object.keys(catalogues()).map(name=>[name,prefix+'_'+name])),
     roles:Object.fromEntries(names.map(name=>[name,prefix+'_'+name])),mount:prefix+'_transit'};
@@ -72,7 +72,19 @@ function grants(l) {
   sql.push('REVOKE SELECT ON '+table('authorization','tenant_subject_admin_audit')+' FROM '+quote(r.owner_writer));
   grant('INSERT',table('authorization','tenant_subject_admin_audit'),'owner_writer');
   for(const name of ['tenant_authorization_config','tenant_authorization_roles','tenant_owner_policy','tenant_owner_actors'])grant('UPDATE(owner_fence)',table('authorization',name),'owner_writer');
-  for(const who of Object.keys(r).filter(name=>name!=='operator')){
+  // Tenant root (API_SECRET) subject administration on the api role: the owner-aware
+  // writer's root plane. Reads owner actor rows for the last-owner guard, never locks
+  // or writes them; no access schema, no legacy_credential_config, no audit reads.
+  for(const name of ['authorization','legacy'])schema(name,'root_writer');
+  grant('SELECT,INSERT,UPDATE,DELETE',table('authorization','tenant_authorization_subjects'),'root_writer');
+  grant('SELECT,INSERT,UPDATE,DELETE',table('legacy','legacy_credential_subjects'),'root_writer');
+  // Root alone edits role permissions and deletes unheld roles (decision root-role-edit-delete).
+  grant('SELECT,INSERT,DELETE,UPDATE(permissions,owner_fence)',table('authorization','tenant_authorization_roles'),'root_writer');
+  grant('SELECT,INSERT,DELETE',table('authorization','tenant_authorization_subject_roles'),'root_writer');
+  grant('INSERT',table('authorization','tenant_subject_admin_audit'),'root_writer');
+  for(const name of ['tenant_authorization_config','tenant_owner_policy'])grant('SELECT,UPDATE(owner_fence)',table('authorization',name),'root_writer');
+  grant('SELECT',table('authorization','tenant_owner_actors'),'root_writer');
+  for(const who of Object.keys(r).filter(name=>!['operator','root_writer'].includes(name))){
     schema('control',who);for(const name of ['schema_migrations','tenant_lifecycle_windows','tenant_lifecycle_operations'])grant('SELECT',table('control',name),who);
     if(who.startsWith('lifetime_')){
       grant('INSERT(tenant_id,operation_id,generation),UPDATE(finished)',table('control','tenant_lifecycle_operations'),who);
@@ -104,7 +116,11 @@ function documents({layout:l,urls,tokens,publicKeys,managementKeys,vaultAddress}
   const realtime={version:1,postgres:{connectionEnv:'NS_REALTIME_PG',namespaces:{...domainNamespaces,clock:ns.clock,checkpoint:ns.rt_checkpoint}},consumer:'realtime-compose-demo',
     ...limits,tenants,socketOrderDomains:['treatments','devicestatus','profile'],admissionFileEnv:'NS_ADMISSION_FILE',apiSocketPathEnv:'NS_API_SOCKET',alarmSocketPathEnv:'NS_ALARM_SOCKET',
     maxMessageBytes:1048576,operationTimeoutMs:5000,maxSockets:100};
+  // Decision root-grant-ceiling-default-all: every tenant data permission unless
+  // the operator narrows it. Owner and root share this catalogue (one policy row).
+  const ownerCatalogue=['*'];
   const api={version:1,domains:[...clinical,'settings'],legacy:true,context:true,writeClock:true,
+    subjectAdmin:{writerConnectionEnv:'NS_API_ROOT_WRITER_PG',ownerPolicy:{catalogue:ownerCatalogue.slice()}},
     postgres:{connectionEnv:'NS_API_PG',readinessConnectionEnv:'NS_READINESS_PG',namespaces:{...domainNamespaces,settings:ns.settings,authorization:ns.authorization,secrets:ns.secrets,legacy:ns.legacy,access:ns.access,clock:ns.clock}},
     vault:{address:vaultAddress,mount:l.mount,timeoutMs:5000},resolution:{mode:'direct-alias'},tenants:tenants.map((tenant,i)=>({id:tenant.id,aliases:aliases[i],settings:tenant.settings,
       vault:{tokenEnv:'NS_VAULT_'+i,encryptionKey:'tenant-'+i+'-data',signingKey:'tenant-'+i+'-signing',signingVersion:1}})),
@@ -112,11 +128,11 @@ function documents({layout:l,urls,tokens,publicKeys,managementKeys,vaultAddress}
     socketForwarding:{socketPathEnv:'NS_API_SOCKET',admissionFileEnv:'NS_ADMISSION_FILE',maxTenants:2,maxMessageBytes:1048576,operationTimeoutMs:5000,
       alarm:{connectionEnv:'NS_ALARM_PG',namespace:ns.alarm},consumerState:{evaluatorConfigEnv:'MULTITENANT_EVALUATOR_CONFIG'}}};
   const owner={version:1,postgres:{writerConnectionEnv:'NS_OWNER_WRITER_PG',accessConnectionEnv:'NS_OWNER_READER_PG',namespaces:{authorization:ns.authorization,credentials:ns.legacy,access:ns.access}},
-    ownerPolicy:{catalogue:['api:entries:read']},resolution:{mode:'direct-alias'},tenants:api.tenants.map(({id,aliases})=>({id,aliases})),
+    ownerPolicy:{catalogue:ownerCatalogue.slice()},resolution:{mode:'direct-alias'},tenants:api.tenants.map(({id,aliases})=>({id,aliases})),
     management:{issuer:'nightscout-compose-management',audience:'nightscout-management',purpose:'management',consumer:'compose-owner',maxLifetimeSeconds:600,keys:managementKeys}};
   const configs={api,realtime,evaluator,'tenant-admin':owner};
   const common={NS_API_SOCKET:ipc+'/api.sock',NS_ALARM_SOCKET:ipc+'/alarm.sock',NODE_EXTRA_CA_CERTS:'/run/ns-ca/ca.crt'};
-  const environments={api:{...common,API_HOSTNAME:'0.0.0.0',API_PORT:'1337',MULTITENANT_PREVIEW_CONFIG:base+'/config.json',MULTITENANT_EVALUATOR_CONFIG:base+'/evaluator-metadata.json',NS_ADMISSION_FILE:base+'/admission.json',NS_API_PG:urls.api,NS_READINESS_PG:urls.readiness,NS_ALARM_PG:urls.alarm,NS_VAULT_0:tokens[0],NS_VAULT_1:tokens[1]},
+  const environments={api:{...common,API_HOSTNAME:'0.0.0.0',API_PORT:'1337',MULTITENANT_PREVIEW_CONFIG:base+'/config.json',MULTITENANT_EVALUATOR_CONFIG:base+'/evaluator-metadata.json',NS_ADMISSION_FILE:base+'/admission.json',NS_API_PG:urls.api,NS_READINESS_PG:urls.readiness,NS_API_ROOT_WRITER_PG:urls.root_writer,NS_ALARM_PG:urls.alarm,NS_VAULT_0:tokens[0],NS_VAULT_1:tokens[1]},
     realtime:{...common,REALTIME_HOSTNAME:'0.0.0.0',REALTIME_PORT:'1339',MULTITENANT_REALTIME_CONFIG:base+'/config.json',NS_ADMISSION_FILE:base+'/admission.json',NS_REALTIME_PG:urls.realtime},
     evaluator:{...common,MULTITENANT_EVALUATOR_CONFIG:base+'/config.json',NS_EVALUATOR_PG:urls.evaluator,NS_OUTBOX_PG:urls.outbox,NS_SUPPRESSION_PG:urls.suppression},
     'tenant-admin':{...common,TENANT_ADMIN_HOSTNAME:'0.0.0.0',TENANT_ADMIN_PORT:'1341',MULTITENANT_OWNER_PREVIEW_CONFIG:base+'/config.json',NS_OWNER_WRITER_PG:urls.owner_writer,NS_OWNER_READER_PG:urls.owner_reader}};

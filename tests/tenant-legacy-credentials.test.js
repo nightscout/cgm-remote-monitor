@@ -51,6 +51,32 @@ describe('tenant legacy credentials against shipping authentication', function (
     await component.encrypt(context, 'imported-root', Buffer.from(root));
   });
 
+  it('lists the shipping admin tools accessToken for every subject only to the tenant root secret', async function () {
+    const expected = new Map(subjects.map(subject => [subject._id.toHexString(), subject.accessToken]));
+    assert.ok([...expected.values()].every(token => typeof token === 'string' && token.length > 16));
+    for (const apiSecret of [hash(root), hash(root).toUpperCase(), crypto.createHash('sha512').update(root).digest('hex')]) {
+      assert.deepEqual(await component.rootLegacyTokens(context, { apiSecret }), expected);
+    }
+    for (const apiSecret of [undefined, '', hash('another-root-secret'), subjects[0].accessToken, 'x'.repeat(8193)]) {
+      assert.equal(await component.rootLegacyTokens(context, { apiSecret }), null);
+    }
+    unavailable = true;
+    await assert.rejects(component.rootLegacyTokens(context, { apiSecret: hash(root) }), /authority unavailable/);
+  });
+
+  it('lists the same tokens to a current admin-role subject only while its authority check returns true', async function () {
+    const expected = new Map(subjects.map(subject => [subject._id.toHexString(), subject.accessToken]));
+    const before = events.length;
+    assert.deepEqual(await component.adminLegacyTokens(context, async () => true), expected);
+    for (const answer of [false, undefined, 'true', 1]) {
+      const seen = events.length;
+      assert.equal(await component.adminLegacyTokens(context, async () => answer), null);
+      assert.equal(events.length, seen, 'no decrypt is authorized or audited when authority is refused');
+    }
+    assert.ok(events.length > before);
+    await assert.rejects(component.adminLegacyTokens(context), TypeError);
+  });
+
   it('matches shipping root SHA1/SHA512 and subject token/digest/prefix forms by immutable ID', async function () {
     const rootForms = [hash(root), hash(root).toUpperCase(),
       crypto.createHash('sha512').update(root).digest('hex')];

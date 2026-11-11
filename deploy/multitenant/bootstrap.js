@@ -116,7 +116,7 @@ async function bootstrap(options) {
     const docs=plan.documents({layout:l,urls:roleURLs,tokens,publicKeys,managementKeys,vaultAddress:vault.origin});
     const ns=l.namespaces,t=(name,table)=>q(ns[name])+'.'+q(table),demoTokens=[],managementTokens=[];
     const now=Date.now(),exp=Math.floor(now/1000)+600,permissions=['api:*:read','api:*:create,update,delete','notifications:*:ack'];
-    const catalogue=['api:entries:read'],digest=require('../../lib/subject-admin/owner-policy').catalogueDigest(catalogue);
+    const catalogue=['*'],digest=require('../../lib/subject-admin/owner-policy').catalogueDigest(catalogue);
     for(const [i,tenant]of [plan.A,plan.B].entries()){
       await admin.query('BEGIN');
       try{

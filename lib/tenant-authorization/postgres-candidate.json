@@ -79,6 +79,14 @@
         "ALTER TABLE tenant_subject_admin_audit ADD CONSTRAINT tenant_subject_admin_audit_ownership_record CHECK ((operation IN ('owner-add','owner-transfer','owner-recover')) = (outcome IS NOT NULL AND detail IS NOT NULL))"
       ],
       "checksum": "646773972887014690b0b8bbbd19a3cf22f1c339eb726d43e3a2e591c67ea4b5"
+    },
+    {
+      "name": "0007_root_role_administration",
+      "checksum": "accf6ad899bec84c5be0c1bda8237caed28f1c3bb5744196135f18ae6c7bc9bd",
+      "up": [
+        "ALTER TABLE tenant_subject_admin_audit DROP CONSTRAINT tenant_subject_admin_audit_operation_check",
+        "ALTER TABLE tenant_subject_admin_audit ADD CONSTRAINT tenant_subject_admin_audit_operation_check CHECK (operation IN ('update','remove','create','create-role','issue','owner-add','owner-transfer','owner-recover','update-role','remove-role'))"
+      ]
     }
   ]
 }

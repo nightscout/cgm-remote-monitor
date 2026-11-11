@@ -8,6 +8,8 @@ const { run } = require('../lib/migrations/postgres');
 const catalogue = require('../lib/tenant-authorization/postgres-candidate.json');
 const credentialCatalogue = require('../lib/secrets/legacy-credentials-candidate.json');
 const createStore = require('../lib/subject-admin/postgres');
+const { catalogueDigest } = require('../lib/subject-admin/owner-policy');
+const ownerPolicy = Object.freeze({ catalogue: Object.freeze(['*']) });
 const { createSubjectAdmin } = require('../lib/subject-admin/component');
 const createAuthority = require('../lib/tenant-authorization/postgres');
 const createLegacy = require('../lib/secrets/legacy-postgres');
@@ -98,13 +100,25 @@ optInSuite(process.env.NS_SUBJECT_MANAGEMENT_HTTP_DOCKER_TEST === '1',
     await admin.query(`GRANT SELECT ON ${R} TO subject_writer`);
     await admin.query(`GRANT SELECT, INSERT, DELETE ON ${L} TO subject_writer`);
     await admin.query(`GRANT INSERT ON ${AUDIT} TO subject_writer`);
+    // Multitenant subject writes go through the owner-aware writer only
+    // (decision root-may-edit-owner-subjects): owner-shape grants and a current
+    // owner policy whose project catalogue, ceiling and delegation are complete.
+    await admin.query(`GRANT INSERT ON ${S}, ${C}, ${R} TO subject_writer`);
+    await admin.query(`GRANT SELECT, UPDATE (owner_fence) ON ${namespace}.tenant_authorization_config, ${R},
+      ${namespace}.tenant_owner_policy, ${namespace}.tenant_owner_actors TO subject_writer`);
     await admin.query(`GRANT SELECT ON ${S}, ${R}, ${L}, ${namespace}.tenant_authorization_config,
       ${C}, ${credentialNamespace}.legacy_credential_config TO subject_reader`);
     await admin.query(`INSERT INTO ${namespace}.tenant_authorization_config VALUES ($1, ARRAY['denied']), ($2, ARRAY['denied'])`, [A, B]);
+    for (const tenant of [A, B]) {
+      await admin.query(`INSERT INTO ${namespace}.tenant_owner_policy (tenant_id,catalogue_digest,ceiling) VALUES ($1,$2,ARRAY['*'])`,
+        [tenant, catalogueDigest(ownerPolicy.catalogue)]);
+      await admin.query(`INSERT INTO ${namespace}.tenant_owner_actors (tenant_id,principal,consumer,active,can_update,delegable)
+        VALUES ($1,'manager','admin',true,true,ARRAY['*'])`, [tenant]);
+    }
     await admin.query(`INSERT INTO ${credentialNamespace}.legacy_credential_config VALUES ($1,'root'),($2,'root')`, [A, B]);
     await admin.query(`INSERT INTO ${R} VALUES ($1,'uploader',ARRAY['api:entries:create']),
       ($2,'uploader',ARRAY['api:treatments:create']), ($2,'foreign-only',ARRAY['*'])`, [A, B]);
-    store = await createStore({ connectionString: writerURI, namespace, credentialNamespace });
+    store = await createStore({ connectionString: writerURI, namespace, credentialNamespace, ownerPolicy });
     // Synthetic management authorization only, deliberately separate from data root/subject authority.
     service = createSubjectAdmin({ store, authorizeManagement: async actor => {
       if (state.authorityError) throw new Error('synthetic private authority detail');

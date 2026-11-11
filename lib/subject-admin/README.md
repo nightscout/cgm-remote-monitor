@@ -107,8 +107,53 @@ legacy metadata, SELECT/INSERT on roles, SELECT/INSERT/DELETE on role links,
 INSERT on redacted audit, and SELECT plus only UPDATE(owner_fence) on current
 config/policy/actor/role fence rows. It cannot edit role permissions or operator
 policy. Startup screens forced RLS, nonownership and exact privilege shape.
-Unselected legacy writers retain their previous narrower shape. Secrets storage
+A writer without an owner policy is not buildable: the PostgreSQL store is
+multitenant-only and refuses construction without `ownerPolicy`. Secrets storage
 uses its separately screened persistence identity.
+
+A root-plane writer (`plane: 'root'`) has the same shape except that it holds
+only SELECT on owner actor rows (no `UPDATE(owner_fence)`): the last-owner guard
+reads them and root never locks them. It alone also holds `UPDATE(permissions)`
+and `DELETE` on roles. Each plane refuses the other's identity. Authorization
+migration `0007_root_role_administration` admits the `update-role` and
+`remove-role` audit operations (the number is provisional until the join).
+
+## Admin tools on the DATA listener (tenant root and admin-role subjects)
+
+Decisions `tenant-root-single-site-parity`, `root-may-edit-owner-subjects`,
+`root-role-edit-delete`, `root-grant-ceiling-default-all` and
+`admin-role-subjects-use-admin-tools` (16.0.0 release records). With the optional
+preview `subjectAdmin` `{writerConnectionEnv,ownerPolicy?:{catalogue}}` (catalogue
+defaults to `['*']`) the DATA listener serves the single-site admin tools routes,
+with the same paths, verbs, form or JSON payloads and per-route permissions
+([`root-admin.js`](../server/tenant-app/root-admin.js)). The resolved tenant's root
+secret holds every route. A subject holds a route when its current roles grant the
+single-site permission (`admin:api:subjects:read|create|update|delete`,
+`admin:api:roles:list|create|update|delete`), presented as its own token (bearer
+JWT, `?token=`, or the token in `api-secret`):
+
+| route | operation |
+|---|---|
+| `GET /api/v2/authorization/subjects` | list `{_id,name,roles,notes,accessToken}` |
+| `POST /api/v2/authorization/subjects` | create subject |
+| `PUT /api/v2/authorization/subjects` | update subject using `_id` (any subject, including an owner's) |
+| `DELETE /api/v2/authorization/subjects/:_id` | remove subject; the last usable owner refuses `SUBJECT_ADMIN_LAST_OWNER` (409) |
+| `GET /api/v2/authorization/roles` | list roles `{_id:name,name,permissions}` |
+| `POST /api/v2/authorization/roles` | define role (`notes` accepted, not stored) |
+| `PUT /api/v2/authorization/roles` | edit a role's permissions by `_id`; a rename refuses `ROLE_RENAME_REFUSED` (400) |
+| `DELETE /api/v2/authorization/roles/:_id` | delete an unheld role; a held role refuses `SUBJECT_ADMIN_ROLE_IN_USE` (409) |
+
+Grants stay inside the project catalogue and the current operator ceiling. The
+tenant permission language has no owner or operator permission: owner authority is
+an owner actor row with a management credential, operator authority is the private
+operator plane. So neither root nor an admin-role subject has settings, export,
+deletion, ownership or issuance authority. Audit rows read `root/<data consumer>`
+or `<subject id>/<data consumer>`. The listed `accessToken` is derived only for the
+tenant's current root secret, or after the subject's current
+`admin:api:subjects:read` check. Another tenant's credentials, a subject without
+the route permission, mixed secret and token credentials, or none receive the
+shipping 401 envelope. A tenant without an owner policy row refuses every admin
+tools call (403): the operator provisions that row.
 
 ## Evidence boundary
 

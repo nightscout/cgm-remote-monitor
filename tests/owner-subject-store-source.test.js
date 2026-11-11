@@ -27,13 +27,15 @@ async function fixture () {
         }));
       }
       if (sql.includes('FROM pg_class')) return rows(args[0].map(name => ({ secured: true, owns: false, reads: true,
-        mutates: false, inserts: name.includes('tenant_authorization_roles'), column_inserts: name.includes('tenant_authorization_roles'),
+        mutates: false, deletes: false, inserts: name.includes('tenant_authorization_roles'), column_inserts: name.includes('tenant_authorization_roles'),
         name: name.replaceAll('"',''), update_columns: ['owner_fence'] })));
       if (sql.startsWith('SET LOCAL')) return rows([]);
       if (sql.includes('FOR SHARE')) control.locks.push(sql);
       if (sql.startsWith('SELECT anonymous_roles')) return rows([{ anonymous_roles: ['denied'] }]);
       if (sql.startsWith('SELECT catalogue_digest')) return rows([{ catalogue_digest: catalogueDigest(['*']), ceiling: control.ceiling }]);
       if (sql.startsWith('SELECT active,can_update')) return rows([{ active: control.active, can_update: true, delegable: control.delegable }]);
+      // Usable owners: the one modelled actor counts only while its subject exists.
+      if (sql.startsWith('SELECT s.subject_id')) return rows(control.active && data.subjects[args[0] + '/' + actor.principal] ? [{ subject_id: actor.principal }] : []);
       const key = args[0] + '/' + args[1];
       if (sql.startsWith('SELECT name,permissions')) return rows(args[1].flatMap(name => {
         const permissions = data.roles[args[0] + '/' + name]; return permissions ? [{ name, permissions }] : [];

@@ -1,6 +1,6 @@
 'use strict';
 
-// covers: lib/subject-admin/owner-policy.js, lib/subject-admin/postgres.js, lib/server/subject-management-app.js
+// covers: lib/subject-admin/owner-policy.js, lib/subject-admin/postgres.js, lib/server/subject-management-app.js, lib/server/tenant-app/root-admin.js
 const assert = require('node:assert/strict');
 const { isDeepStrictEqual } = require('node:util');
 const { createFixture, A, B, TARGET, CATALOGUE } = require('./fixtures/owner-subject-policy');
@@ -107,17 +107,22 @@ optInSuite(process.env.NS_OWNER_SUBJECT_POLICY_DOCKER_TEST === '1',
       assert.equal(response.created_at, '2026-01-01T00:00:00.000Z');
     });
 
-    it('allows explicit owner revocation and preserves legacy/default update/remove behavior', async function () {
+    it('allows explicit owner revocation; the writer without an owner policy is not buildable in multi mode', async function () {
       // Adopted subject revoke supersedes the earlier R53 selected DELETE refusal.
       assert.equal((await f.http(undefined, { method: 'delete' })).status, 200);
-      await f.reset();
-      await f.admin.query('UPDATE ' + f.tables.policy + ' SET ceiling=ARRAY[]::text[] WHERE tenant_id=$1', [A]);
-      const old = await f.http({ ...f.proposal(['uploader']), notes: '' }, { app: f.legacyApp });
-      assert.equal(old.status, 200); assert.deepEqual(old.body.roles, ['uploader']); assert.equal(old.body.notes, '');
-      const omitted = await f.http({ _id: TARGET, name: 'Legacy Omitted' }, { app: f.legacyApp });
-      assert.equal(omitted.status, 200); assert.deepEqual(omitted.body.roles, []);
-      assert.equal(omitted.body.created_at, '2026-01-01T00:00:00.000Z');
-      assert.equal((await f.http(undefined, { app: f.legacyApp, method: 'delete' })).status, 200);
+      // Decision root-may-edit-owner-subjects: one writer in multitenant mode.
+      const createStore = require('../lib/subject-admin/postgres');
+      for (const options of [{}, { ownerPolicy: undefined }, { ownerPolicy: null }]) {
+        await assert.rejects(createStore({ connectionString: f.legacyURI, namespace: f.NS, credentialNamespace: f.CREDENTIAL_NS, ...options }),
+          { name: 'TypeError', message: 'Owner policy requires an explicit catalogue' });
+      }
+      await assert.rejects(createStore({ connectionString: f.legacyURI, namespace: f.NS, credentialNamespace: f.CREDENTIAL_NS, ownerPolicy: {} }),
+        { name: 'TypeError', message: 'Owner catalogue requires distinct Shiro permissions' });
+      // The earlier writer's privilege shape (no owner rows) cannot pass as either plane.
+      for (const plane of ['owner', 'root']) {
+        await assert.rejects(createStore({ connectionString: f.legacyURI, namespace: f.NS, credentialNamespace: f.CREDENTIAL_NS,
+          ownerPolicy: { catalogue: CATALOGUE.slice() }, plane }), { code: 'SUBJECT_ADMIN_STORE_UNSAFE' });
+      }
     });
 
     it('does not let a caller mutate a copied proposal while the transaction waits at the real target lock', async function () {
@@ -226,5 +231,458 @@ optInSuite(process.env.NS_OWNER_SUBJECT_POLICY_DOCKER_TEST === '1',
       finally { f.unpause(); }
       assert.deepEqual(await f.snapshot(), before);
       assert.equal((await f.http(f.proposal())).status, 200);
+    });
+
+    // Last-owner protection (owner-authority: "last-owner removal must not orphan
+    // the tenant"). A usable owner is an active, updating actor row whose
+    // principal is an existing subject of the tenant (lib/tenant-ownership).
+    async function usableOwners (tenant = A) {
+      return (await f.admin.query('SELECT DISTINCT a.principal FROM ' + f.tables.actors + ' a JOIN ' + f.tables.subjects +
+        ' s ON s.tenant_id=a.tenant_id AND s.subject_id=a.principal WHERE a.tenant_id=$1 AND a.active AND a.can_update ORDER BY 1', [tenant]))
+        .rows.map(row => row.principal);
+    }
+    async function makeOwner (principal, { subject = true } = {}) {
+      if (subject) {
+        await f.admin.query('INSERT INTO ' + f.tables.subjects + ' (tenant_id,subject_id,display_name) VALUES ($1,$2,$3) ON CONFLICT DO NOTHING', [A, principal, 'Synthetic owner']);
+        await f.admin.query('INSERT INTO ' + f.tables.credentials + ' (tenant_id,subject_id,token_prefix) VALUES ($1,$2,$3) ON CONFLICT DO NOTHING', [A, principal, 'synthetic']);
+      }
+      await f.admin.query('INSERT INTO ' + f.tables.actors + ' (tenant_id,principal,consumer,active,can_update,delegable) VALUES ($1,$2,\'admin\',true,true,$3) ON CONFLICT DO NOTHING', [A, principal, CATALOGUE]);
+    }
+    async function lockWaiters (application, count) {
+      const limit = Date.now() + 15000;
+      for (;;) {
+        const n = (await f.admin.query("SELECT count(*)::int n FROM pg_stat_activity WHERE application_name=$1 AND wait_event_type='Lock'", [application])).rows[0].n;
+        if (n === count) return n;
+        if (Date.now() > limit) throw new Error('expected ' + count + ' lock waiters from ' + application + ', saw ' + n);
+        await new Promise(resolve => setTimeout(resolve, 20));
+      }
+    }
+
+    it('refuses revoking the last usable owner subject (409) without effect, and allows it while another owner remains', async function () {
+      // `manager` has an actor row but no subject, so TARGET is the only usable owner.
+      await makeOwner(TARGET, { subject: false });
+      assert.deepEqual(await usableOwners(), [TARGET]);
+      const response = await refused(undefined, 409, { method: 'delete' });
+      assert.deepEqual(response.body, { error: 'SUBJECT_ADMIN_LAST_OWNER' });
+      assert.deepEqual(await usableOwners(), [TARGET], 'the tenant keeps its owner');
+      // Self-revocation of the last owner is refused the same way.
+      await f.admin.query('DELETE FROM ' + f.tables.actors + ' WHERE tenant_id=$1 AND principal=\'manager\'', [A]);
+      await assert.rejects(f.ownerStore.remove({ tenant: A, principal: TARGET, consumer: 'admin' }, TARGET), { code: 'SUBJECT_ADMIN_LAST_OWNER' });
+      // Positive control: with a second usable owner the same revocation applies.
+      await makeOwner('manager');
+      assert.deepEqual(await usableOwners(), [TARGET, 'manager'].sort());
+      assert.equal((await f.http(undefined, { method: 'delete' })).status, 200);
+      assert.deepEqual(await usableOwners(), ['manager']);
+    });
+
+    it('race: two owners revoking each other concurrently leave exactly one usable owner', async function () {
+      await makeOwner('manager'); await makeOwner(TARGET);
+      // Both actors are owners; the store's current owner policy is the authority under test.
+      const service = require('../lib/subject-admin/component').createSubjectAdmin({ store: f.ownerStore, authorizeManagement: async () => true });
+      const holder = await f.open(); await holder.query('BEGIN');
+      // Barrier: both revocations must be inside their transactions before either commits.
+      await holder.query('LOCK TABLE ' + f.tables.audit + ' IN SHARE MODE');
+      let attempts;
+      try {
+        attempts = [service.remove({ tenant: A, principal: 'manager', consumer: 'admin' }, TARGET),
+          service.remove({ tenant: A, principal: TARGET, consumer: 'admin' }, 'manager')].map(p => p.then(() => 'applied', error => error.code));
+        assert.equal(await lockWaiters('nightscout-subject-admin', 2), 2);
+        await holder.query('COMMIT');
+        const outcomes = (await Promise.all(attempts)).sort();
+        assert.deepEqual(outcomes, ['SUBJECT_ADMIN_LAST_OWNER', 'applied'], 'one revocation applies, the other is refused');
+        assert.equal((await usableOwners()).length, 1, 'the tenant keeps one usable owner');
+      } finally { await holder.query('ROLLBACK'); if (attempts) await Promise.allSettled(attempts); }
+    });
+
+    it('race: an owner revocation of the incoming owner serializes with an operator transfer to it', async function () {
+      const createOwnership = require('../lib/tenant-ownership/postgres');
+      const { createOwnershipOperations } = require('../lib/tenant-ownership/component');
+      const { tenantSetAuthority } = require('../lib/tenant-ownership/service');
+      if (!f.state.operatorURI) {
+        const crypto = require('node:crypto'), pw = crypto.randomBytes(24).toString('hex');
+        await f.admin.query(`CREATE ROLE ownership_operator LOGIN NOSUPERUSER NOBYPASSRLS PASSWORD '${pw}'`);
+        await f.admin.query(`GRANT USAGE ON SCHEMA ${f.NS} TO ownership_operator`);
+        await f.admin.query(`GRANT SELECT, UPDATE (owner_fence) ON ${f.tables.config}, ${f.tables.policy} TO ownership_operator`);
+        await f.admin.query(`GRANT SELECT, INSERT, UPDATE (active, can_update, delegable) ON ${f.tables.actors} TO ownership_operator`);
+        await f.admin.query(`GRANT SELECT ON ${f.tables.subjects} TO ownership_operator`);
+        await f.admin.query(`GRANT INSERT ON ${f.tables.audit} TO ownership_operator`);
+        const url = new URL(f.writerURI); url.username = 'ownership_operator'; url.password = pw; f.state.operatorURI = url.toString();
+      }
+      const store = await createOwnership({ connectionString: f.state.operatorURI, namespace: f.NS });
+      const operator = { principal: 'synthetic_operator', consumer: 'operator_plane' };
+      const ops = createOwnershipOperations({ store, authorizeOperator: tenantSetAuthority({ ...operator, tenants: [A] }) });
+      const ref = principal => ({ principal, consumer: 'admin' });
+      await makeOwner('manager');
+      const holder = await f.open(); await holder.query('BEGIN');
+      await holder.query('LOCK TABLE ' + f.tables.audit + ' IN SHARE MODE');
+      let revoke, transfer;
+      try {
+        revoke = f.service.remove(f.actor, TARGET).then(() => 'applied', error => error.code);
+        await lockWaiters('nightscout-subject-admin', 1);
+        transfer = ops.transfer(operator, { tenant: A, from: ref('manager'), to: ref(TARGET), expectedOwners: [ref('manager')] });
+        await lockWaiters('nightscout-ownership-ops', 1);
+        await holder.query('COMMIT');
+        assert.equal(await revoke, 'applied');
+        const moved = await transfer;
+        assert.deepEqual({ outcome: moved.outcome, code: moved.code }, { outcome: 'refused', code: 'OWNERSHIP_SUBJECT_UNKNOWN' });
+        assert.deepEqual(await usableOwners(), ['manager'], 'the transfer saw the committed revocation; the tenant keeps its owner');
+      } finally {
+        await holder.query('ROLLBACK');
+        await Promise.allSettled([revoke, transfer].filter(Boolean));
+        await store.close();
+      }
+    });
+
+    // Decisions tenant-root-single-site-parity and root-may-edit-owner-subjects:
+    // the tenant's API_SECRET administers subjects and roles through the single-site
+    // admin tools routes and payloads, on the owner-aware writer's root plane.
+    describe('tenant root (API_SECRET) single-site admin tools parity', function () {
+      const crypto = require('node:crypto');
+      const request = require('supertest');
+      const { createSecrets } = require('../lib/secrets/component');
+      const createLegacy = require('../lib/secrets/legacy-postgres');
+      const { createSubjectAdmin } = require('../lib/subject-admin/component');
+      const { createTenantApp } = require('../lib/server/tenant-app');
+      const { createRootAuthentication } = require('../lib/server/tenant-app/root-admin');
+      const sha1 = value => crypto.createHash('sha1').update(value).digest('hex');
+      const roots = new Map([[A, crypto.randomBytes(24).toString('hex')], [B, crypto.randomBytes(24).toString('hex')]]);
+      const hosts = new Map([[A, 'one.example.test'], [B, 'two.example.test']]);
+      const consumer = 'tenant-api';
+      const verifierContext = tenant => ({ tenant, principal: 'preview-api', consumer });
+      let legacy, secrets, authority, app, ownerCalls;
+      // jQuery.param as the admin tools send it: arrays as key[]=v, empty arrays omitted.
+      const form = value => Object.entries(value).flatMap(([key, item]) => Array.isArray(item)
+        ? item.map(entry => encodeURIComponent(key + '[]') + '=' + encodeURIComponent(entry))
+        : [encodeURIComponent(key) + '=' + encodeURIComponent(item)]).join('&');
+      function call (method, path, { tenant = A, as = A, body, secret, bearer } = {}) {
+        let pending = request(app)[method]('/api/v2/authorization' + path).set('Host', hosts.get(tenant)).timeout({ response: 20000 });
+        const presented = bearer !== undefined ? null : secret !== undefined ? secret : as === null ? null : sha1(roots.get(as));
+        if (presented !== null) pending = pending.set('api-secret', presented);
+        if (bearer !== undefined) pending = pending.set('Authorization', 'Bearer ' + bearer);
+        return body === undefined ? pending : pending.type('form').send(form(body));
+      }
+      const token = (tenant, subjectId, prefix) => prefix + '-' + sha1(sha1(roots.get(tenant)) + subjectId).slice(0, 16);
+      async function unchanged (fn, status) {
+        const before = await f.snapshot();
+        const response = await fn();
+        assert.equal(response.status, status, JSON.stringify(response.body));
+        assert.deepEqual(await f.snapshot(), before, 'a refusal must leave both tenants unchanged');
+        return response;
+      }
+      async function makeOwner (principal, { subject = true } = {}) {
+        if (subject) {
+          await f.admin.query('INSERT INTO ' + f.tables.subjects + ' (tenant_id,subject_id,display_name) VALUES ($1,$2,$3) ON CONFLICT DO NOTHING', [A, principal, 'Synthetic owner']);
+          await f.admin.query('INSERT INTO ' + f.tables.credentials + ' (tenant_id,subject_id,token_prefix) VALUES ($1,$2,$3) ON CONFLICT DO NOTHING', [A, principal, 'synthetic']);
+        }
+        await f.admin.query('INSERT INTO ' + f.tables.actors + ' (tenant_id,principal,consumer,active,can_update,delegable) VALUES ($1,$2,\'admin\',true,true,$3) ON CONFLICT DO NOTHING', [A, principal, CATALOGUE]);
+      }
+      async function usableOwners () {
+        return (await f.admin.query('SELECT a.principal FROM ' + f.tables.actors + ' a JOIN ' + f.tables.subjects +
+          ' s ON s.tenant_id=a.tenant_id AND s.subject_id=a.principal WHERE a.tenant_id=$1 AND a.active AND a.can_update ORDER BY 1', [A])).rows.map(row => row.principal);
+      }
+
+      before(async function () {
+        const pw = crypto.randomBytes(24).toString('hex');
+        await f.admin.query(`CREATE ROLE root_legacy_reader LOGIN NOSUPERUSER NOBYPASSRLS PASSWORD '${pw}'`);
+        await f.admin.query(`GRANT USAGE ON SCHEMA ${f.CREDENTIAL_NS} TO root_legacy_reader`);
+        await f.admin.query(`GRANT SELECT ON ${f.CREDENTIAL_NS}.legacy_credential_config, ${f.tables.credentials} TO root_legacy_reader`);
+        const url = new URL(f.writerURI); url.username = 'root_legacy_reader'; url.password = pw;
+        legacy = await createLegacy({ connectionString: url.toString(), namespace: f.CREDENTIAL_NS });
+        const provider = require('./fixtures/tenant-credential-provider')(), encrypted = new Map();
+        secrets = createSecrets({ providerFor: async () => provider, maxTokenLifetimeSeconds: 28800,
+          store: { async get (tenant, id) { return encrypted.get(tenant + ':' + id); },
+            async insert (record) { encrypted.set(record.tenant + ':' + record.id, record); } },
+          authorize: async (identity, action) => identity.principal === 'preview-api' && ['encrypt', 'decrypt', 'sign', 'verify'].includes(action.operation),
+          audit: async () => {}, legacyAuthorityFor: tenant => legacy.read(tenant) });
+        await secrets.encrypt(verifierContext(A), 'synthetic-root-a', Buffer.from(roots.get(A)));
+        await secrets.encrypt(verifierContext(B), 'synthetic-root-b', Buffer.from(roots.get(B)));
+        // Current tenant authority (subject roles) on its own read-only identity.
+        const rpw = crypto.randomBytes(24).toString('hex');
+        await f.admin.query(`CREATE ROLE admin_tools_reader LOGIN NOSUPERUSER NOBYPASSRLS PASSWORD '${rpw}'`);
+        await f.admin.query(`GRANT USAGE ON SCHEMA ${f.NS} TO admin_tools_reader`);
+        await f.admin.query(`GRANT SELECT ON ${f.tables.subjects}, ${f.tables.roles}, ${f.tables.links}, ${f.tables.config} TO admin_tools_reader`);
+        const readerURL = new URL(f.writerURI); readerURL.username = 'admin_tools_reader'; readerURL.password = rpw;
+        authority = await require('../lib/tenant-authorization/postgres')({ connectionString: readerURL.toString(), namespace: f.NS });
+        const service = createSubjectAdmin({ store: f.rootStore, authorizeManagement: async actor => actor.consumer === consumer });
+        const record = name => async () => { ownerCalls.push(name); return {}; };
+        app = createTenantApp({ resolver: f.resolver, verifyCredential: async () => null, authorizeRequest: async () => false,
+          dataRouter: (req, res) => res.status(404).json({ error: 'NOT_FOUND' }),
+          tenantSettings: { read: record('settings.read'), replace: record('settings.replace'), rollback: record('settings.rollback') },
+          subjectPolicy: { read: record('policy.read'), replace: record('policy.replace') },
+          rootAdmin: { ...service, authenticate: createRootAuthentication({ secrets, authority, verifierContext, tenants: [A, B] }) } });
+      });
+      beforeEach(() => { ownerCalls = []; });
+      after(async () => { if (legacy) await legacy.close(); if (authority) await authority.close(); });
+
+      it('lists, creates, edits and deletes subjects and creates roles with the admin tools payloads', async function () {
+        const listed = await call('get', '/subjects');
+        assert.equal(listed.status, 200, JSON.stringify(listed.body));
+        assert.deepEqual(listed.body, [{ _id: TARGET, name: 'Original', roles: ['reader'], notes: 'preserved', accessToken: token(A, TARGET, 'original') }]);
+        // The listed token is the subject's own legacy credential on this tenant.
+        assert.deepEqual(await secrets.verifyLegacyCredential(verifierContext(A), { apiSecret: listed.body[0].accessToken }), { kind: 'subject', subjectId: TARGET });
+        const role = await call('post', '/roles', { body: { name: 'school', permissions: ['api:entries:read'], notes: '' } });
+        assert.equal(role.status, 200, JSON.stringify(role.body));
+        assert.deepEqual(role.body, { _id: 'school', name: 'school', permissions: ['api:entries:read'] });
+        const roles = await call('get', '/roles');
+        assert.deepEqual(roles.body.find(row => row.name === 'school'), { _id: 'school', name: 'school', permissions: ['api:entries:read'] });
+        const created = await call('post', '/subjects', { body: { name: 'Caregiver', roles: ['school'], notes: 'synthetic' } });
+        assert.equal(created.status, 200, JSON.stringify(created.body));
+        const id = created.body._id;
+        assert.match(id, /^[0-9a-f]{32}$/);
+        assert.deepEqual({ ...created.body, _id: undefined }, { _id: undefined, name: 'Caregiver', roles: ['school'], notes: 'synthetic' });
+        // Edit as the dialog does: the listed record (with its derived token) sent back with changes.
+        const relisted = (await call('get', '/subjects')).body.find(row => row._id === id);
+        assert.equal(relisted.accessToken, token(A, id, 'caregiver'));
+        const edited = await call('put', '/subjects', { body: { ...relisted, name: 'Caregiver Two', roles: ['reader', 'school'], notes: '' } });
+        assert.equal(edited.status, 200, JSON.stringify(edited.body));
+        assert.deepEqual(edited.body, { _id: id, name: 'Caregiver Two', roles: ['reader', 'school'], notes: '' });
+        // An empty role list is omitted by jQuery and revokes every role, as on a single site.
+        const cleared = await call('put', '/subjects', { body: { _id: id, name: 'Caregiver Two', roles: [], notes: '' } });
+        assert.deepEqual(cleared.body.roles, []);
+        assert.deepEqual((await call('delete', '/subjects/' + id)).body, {});
+        assert.equal((await f.admin.query('SELECT count(*)::int n FROM ' + f.tables.subjects + ' WHERE tenant_id=$1 AND subject_id=$2', [A, id])).rows[0].n, 0);
+        const audit = (await f.admin.query('SELECT principal,consumer,operation FROM ' + f.tables.audit + ' WHERE tenant_id=$1 ORDER BY event_time,operation', [A])).rows;
+        assert.deepEqual(new Set(audit.map(row => row.principal + '/' + row.consumer)), new Set(['root/' + consumer]));
+        assert.deepEqual(audit.map(row => row.operation).sort(), ['create', 'create-role', 'remove', 'update', 'update'].sort());
+        assert.equal((await f.admin.query('SELECT count(*)::int n FROM ' + f.tables.audit + ' WHERE tenant_id=$1', [B])).rows[0].n, 0);
+      });
+
+      it('stays inside the project catalogue and operator ceiling', async function () {
+        await unchanged(() => call('put', '/subjects', { body: { _id: TARGET, name: 'Original', roles: ['outside'] } }), 403);
+        await unchanged(() => call('post', '/roles', { body: { name: 'everything', permissions: ['*'] } }), 403);
+        await f.admin.query('UPDATE ' + f.tables.policy + ' SET ceiling=ARRAY[\'api:entries:read\'] WHERE tenant_id=$1', [A]);
+        await unchanged(() => call('put', '/subjects', { body: { _id: TARGET, name: 'Original', roles: ['uploader'] } }), 403);
+        assert.equal((await call('put', '/subjects', { body: { _id: TARGET, name: 'Original', roles: ['reader'] } })).status, 200);
+      });
+
+      it('edits and deletes a co-owner\'s subject without touching ownership', async function () {
+        await makeOwner(TARGET); await makeOwner('000000000000000000000002');
+        const actors = (await f.admin.query('SELECT * FROM ' + f.tables.actors + ' ORDER BY tenant_id,principal')).rows;
+        const edited = await call('put', '/subjects', { body: { _id: TARGET, name: 'Renamed Owner', roles: ['reader', 'uploader'] } });
+        assert.equal(edited.status, 200, JSON.stringify(edited.body));
+        assert.equal((await call('delete', '/subjects/' + TARGET)).status, 200);
+        assert.deepEqual(await usableOwners(), ['000000000000000000000002']);
+        assert.deepEqual((await f.admin.query('SELECT * FROM ' + f.tables.actors + ' ORDER BY tenant_id,principal')).rows, actors,
+          'root never writes owner actor rows');
+      });
+
+      it('refuses removing the last usable owner (409) with no effect', async function () {
+        await makeOwner(TARGET);
+        assert.deepEqual(await usableOwners(), [TARGET]);
+        const response = await unchanged(() => call('delete', '/subjects/' + TARGET), 409);
+        assert.deepEqual(response.body, { error: 'SUBJECT_ADMIN_LAST_OWNER' });
+        assert.deepEqual(await usableOwners(), [TARGET]);
+      });
+
+      it('race: a root revocation of the incoming owner serializes with an operator transfer to it', async function () {
+        const createOwnership = require('../lib/tenant-ownership/postgres');
+        const { createOwnershipOperations } = require('../lib/tenant-ownership/component');
+        const { tenantSetAuthority } = require('../lib/tenant-ownership/service');
+        if (!f.state.operatorURI) {
+          const pw = crypto.randomBytes(24).toString('hex');
+          await f.admin.query(`CREATE ROLE ownership_operator LOGIN NOSUPERUSER NOBYPASSRLS PASSWORD '${pw}'`);
+          await f.admin.query(`GRANT USAGE ON SCHEMA ${f.NS} TO ownership_operator`);
+          await f.admin.query(`GRANT SELECT, UPDATE (owner_fence) ON ${f.tables.config}, ${f.tables.policy} TO ownership_operator`);
+          await f.admin.query(`GRANT SELECT, INSERT, UPDATE (active, can_update, delegable) ON ${f.tables.actors} TO ownership_operator`);
+          await f.admin.query(`GRANT SELECT ON ${f.tables.subjects} TO ownership_operator`);
+          await f.admin.query(`GRANT INSERT ON ${f.tables.audit} TO ownership_operator`);
+          const url = new URL(f.writerURI); url.username = 'ownership_operator'; url.password = pw; f.state.operatorURI = url.toString();
+        }
+        const store = await createOwnership({ connectionString: f.state.operatorURI, namespace: f.NS });
+        const operator = { principal: 'synthetic_operator', consumer: 'operator_plane' };
+        const ops = createOwnershipOperations({ store, authorizeOperator: tenantSetAuthority({ ...operator, tenants: [A] }) });
+        const ref = principal => ({ principal, consumer: 'admin' });
+        await makeOwner('manager');
+        const holder = await f.open(); await holder.query('BEGIN');
+        await holder.query('LOCK TABLE ' + f.tables.audit + ' IN SHARE MODE');
+        let revoke, transfer;
+        try {
+          revoke = f.rootStore.remove({ tenant: A, principal: 'root', consumer }, TARGET).then(() => 'applied', error => error.code);
+          const limit = Date.now() + 15000;
+          while ((await f.admin.query("SELECT count(*)::int n FROM pg_stat_activity WHERE application_name='nightscout-subject-admin' AND wait_event_type='Lock'")).rows[0].n !== 1) {
+            if (Date.now() > limit) throw new Error('root revocation never reached the barrier');
+            await new Promise(resolve => setTimeout(resolve, 20));
+          }
+          transfer = ops.transfer(operator, { tenant: A, from: ref('manager'), to: ref(TARGET), expectedOwners: [ref('manager')] });
+          const until = Date.now() + 15000;
+          while ((await f.admin.query("SELECT count(*)::int n FROM pg_stat_activity WHERE application_name='nightscout-ownership-ops' AND wait_event_type='Lock'")).rows[0].n !== 1) {
+            if (Date.now() > until) throw new Error('transfer never waited');
+            await new Promise(resolve => setTimeout(resolve, 20));
+          }
+          await holder.query('COMMIT');
+          assert.equal(await revoke, 'applied');
+          const moved = await transfer;
+          assert.deepEqual({ outcome: moved.outcome, code: moved.code }, { outcome: 'refused', code: 'OWNERSHIP_SUBJECT_UNKNOWN' });
+          assert.deepEqual(await usableOwners(), ['manager']);
+        } finally {
+          await holder.query('ROLLBACK');
+          await Promise.allSettled([revoke, transfer].filter(Boolean));
+          await store.close();
+        }
+      });
+
+      it('refuses root on owner and operator routes, and on owner-plane issuance', async function () {
+        for (const [method, path] of [['get', '/api/v1/tenant/settings'], ['put', '/api/v1/tenant/settings'],
+          ['post', '/api/v1/tenant/settings/rollback'], ['get', '/api/v1/tenant/subject-policy'], ['put', '/api/v1/tenant/subject-policy']]) {
+          const response = await unchanged(() => {
+            const pending = request(app)[method](path).set('Host', hosts.get(A)).set('api-secret', sha1(roots.get(A)));
+            return method === 'get' ? pending : pending.send({ expectedVersion: 0, values: {} });
+          }, 401);
+          assert.deepEqual(response.body, { error: 'CREDENTIAL_REFUSED' }, method + ' ' + path);
+        }
+        assert.deepEqual(ownerCalls, [], 'no owner service was reached');
+        for (const [method, path] of [['get', '/api/v1/operator/tenants/' + A + '/policy'], ['post', '/api/v2/authorization/subjects/' + TARGET + '/credential']]) {
+          await unchanged(() => request(app)[method](path).set('Host', hosts.get(A)).set('api-secret', sha1(roots.get(A))), 404);
+        }
+        // The owner listener's subject routes accept only management credentials.
+        await unchanged(() => request(f.app).delete('/api/v2/authorization/subjects/' + TARGET).set('Host', hosts.get(A))
+          .set('api-secret', sha1(roots.get(A))), 401);
+        // Owner-plane issuance is refused on the root plane's store itself.
+        await assert.rejects(f.rootStore.withCredential({ tenant: A, principal: 'root', consumer }, TARGET, async () => ({})), { code: 'SUBJECT_ADMIN_FORBIDDEN' });
+      });
+
+      it('refuses another tenant\'s root, subject tokens and missing credentials; B\'s root changes only B', async function () {
+        await unchanged(() => call('get', '/subjects', { as: B }), 401);
+        await unchanged(() => call('delete', '/subjects/' + TARGET, { as: B }), 401);
+        await unchanged(() => call('put', '/subjects', { as: B, body: { _id: TARGET, name: 'Hijacked', roles: [] } }), 401);
+        await unchanged(() => call('post', '/subjects', { as: B, body: { name: 'Planted', roles: ['reader'] } }), 401);
+        await unchanged(() => call('post', '/roles', { as: B, body: { name: 'planted', permissions: ['api:entries:read'] } }), 401);
+        const subjectToken = token(A, TARGET, 'original');
+        await unchanged(() => call('get', '/subjects', { secret: subjectToken }), 401);
+        await unchanged(() => call('delete', '/subjects/' + TARGET, { as: null }), 401);
+        assert.deepEqual((await call('get', '/subjects', { as: null })).body, { status: 401, message: 'Unauthorized', description: 'Invalid/Missing' });
+        const foreign = await f.snapshot(A);
+        assert.equal((await call('delete', '/subjects/' + TARGET, { tenant: B, as: B })).status, 200);
+        assert.deepEqual(await f.snapshot(A), foreign, 'B\'s root acting on B leaves A unchanged');
+        assert.equal((await f.admin.query('SELECT count(*)::int n FROM ' + f.tables.subjects + ' WHERE tenant_id=$1', [B])).rows[0].n, 0);
+      });
+
+
+      async function roleRows (tenant) {
+        return (await f.admin.query('SELECT name, permissions FROM ' + f.tables.roles + (tenant ? ' WHERE tenant_id=$1' : '') +
+          ' ORDER BY tenant_id, name', tenant ? [tenant] : [])).rows;
+      }
+      async function rolesUnchanged (fn, status, code) {
+        const before = [await f.snapshot(), await roleRows()];
+        const response = await fn();
+        assert.equal(response.status, status, JSON.stringify(response.body));
+        if (code) assert.deepEqual(response.body, { error: code });
+        assert.deepEqual([await f.snapshot(), await roleRows()], before, 'a refusal must leave roles, subjects and audit unchanged');
+        return response;
+      }
+
+      it('edits role permissions, refuses a rename, refuses deleting a held role and deletes an unheld one', async function () {
+        const edited = await call('put', '/roles', { body: { _id: 'reader', name: 'reader', permissions: ['api:entries:read', 'api:entries:create'], notes: '' } });
+        assert.equal(edited.status, 200, JSON.stringify(edited.body));
+        assert.deepEqual(edited.body, { _id: 'reader', name: 'reader', permissions: ['api:entries:read', 'api:entries:create'] });
+        assert.deepEqual((await roleRows(A)).find(row => row.name === 'reader').permissions, ['api:entries:read', 'api:entries:create']);
+        assert.deepEqual((await roleRows(B)).find(row => row.name === 'reader').permissions, ['api:entries:read'], 'B keeps its role');
+        await rolesUnchanged(() => call('put', '/roles', { body: { _id: 'reader', name: 'renamed', permissions: ['api:entries:read'] } }), 400, 'ROLE_RENAME_REFUSED');
+        await rolesUnchanged(() => call('put', '/roles', { body: { _id: 'reader', name: 'reader', permissions: ['*'] } }), 403, 'SUBJECT_ADMIN_FORBIDDEN');
+        await rolesUnchanged(() => call('put', '/roles', { body: { _id: 'absent', name: 'absent', permissions: [] } }), 404, 'SUBJECT_ADMIN_NOT_FOUND');
+        await rolesUnchanged(() => call('delete', '/roles/reader'), 409, 'SUBJECT_ADMIN_ROLE_IN_USE');
+        await rolesUnchanged(() => call('delete', '/roles/absent'), 404, 'SUBJECT_ADMIN_NOT_FOUND');
+        assert.deepEqual((await call('delete', '/roles/uploader')).body, {});
+        assert.equal((await roleRows(A)).some(row => row.name === 'uploader'), false);
+        assert.equal((await roleRows(B)).some(row => row.name === 'uploader'), true, 'B keeps its twin');
+        // B's root cannot edit or delete A's roles.
+        await rolesUnchanged(() => call('put', '/roles', { as: B, body: { _id: 'reader', name: 'reader', permissions: [] } }), 401);
+        await rolesUnchanged(() => call('delete', '/roles/outside', { as: B }), 401);
+        const audit = (await f.admin.query('SELECT principal, subject_id, operation FROM ' + f.tables.audit + ' WHERE tenant_id=$1 ORDER BY operation', [A])).rows;
+        assert.deepEqual(audit, [{ principal: 'root', subject_id: 'uploader', operation: 'remove-role' },
+          { principal: 'root', subject_id: 'reader', operation: 'update-role' }]);
+      });
+
+      describe('a subject whose roles grant admin:api:subjects:* (own token)', function () {
+        const ADMIN = '000000000000000000000003', READER = '000000000000000000000004';
+        async function subject (tenant, id, prefix, roles) {
+          await f.admin.query('INSERT INTO ' + f.tables.subjects + ' (tenant_id,subject_id,display_name) VALUES ($1,$2,$3)', [tenant, id, prefix]);
+          await f.admin.query('INSERT INTO ' + f.tables.credentials + ' (tenant_id,subject_id,token_prefix) VALUES ($1,$2,$3)', [tenant, id, prefix]);
+          for (const role of roles) await f.admin.query('INSERT INTO ' + f.tables.links + ' (tenant_id,subject_id,role_name) VALUES ($1,$2,$3)', [tenant, id, role]);
+        }
+        async function jwt (tenant, id, prefix) {
+          const issued = await secrets.exchangeLegacyCredential(verifierContext(tenant), token(tenant, id, prefix), async () => true);
+          assert.ok(issued && issued.token, 'synthetic subject exchange');
+          return issued.token;
+        }
+        beforeEach(async function () {
+          for (const tenant of [A, B]) {
+            await f.admin.query('INSERT INTO ' + f.tables.roles + ' (tenant_id,name,permissions) VALUES ($1,\'tools\',$2), ($1,\'subjects-read\',$3)',
+              [tenant, ['admin:api:subjects:*', 'admin:api:roles:*'], ['admin:api:subjects:read']]);
+            await subject(tenant, ADMIN, 'toolsadmin', ['tools']);
+          }
+          await subject(A, READER, 'plainread', ['reader']);
+        });
+
+        it('manages subjects and roles through the admin tools with a bearer token, audited as itself', async function () {
+          const bearer = await jwt(A, ADMIN, 'toolsadmin');
+          const listed = await call('get', '/subjects', { bearer });
+          assert.equal(listed.status, 200, JSON.stringify(listed.body));
+          assert.deepEqual(listed.body.find(row => row._id === TARGET).accessToken, token(A, TARGET, 'original'));
+          assert.equal(listed.body.length, 3);
+          const created = await call('post', '/subjects', { bearer, body: { name: 'Caregiver', roles: ['reader'], notes: '' } });
+          assert.equal(created.status, 200, JSON.stringify(created.body));
+          assert.equal((await call('put', '/subjects', { bearer, body: { _id: created.body._id, name: 'Caregiver', roles: ['uploader'] } })).status, 200);
+          assert.deepEqual((await call('delete', '/subjects/' + created.body._id, { bearer })).body, {});
+          assert.equal((await call('post', '/roles', { bearer, body: { name: 'school', permissions: ['api:entries:read'] } })).status, 200);
+          assert.equal((await call('put', '/roles', { bearer, body: { _id: 'school', name: 'school', permissions: ['api:entries:create'] } })).status, 200);
+          assert.ok((await call('get', '/roles', { bearer })).body.some(row => row.name === 'school'));
+          assert.deepEqual((await call('delete', '/roles/school', { bearer })).body, {});
+          // The legacy ?token= form exchanges to the same subject.
+          assert.equal((await request(app).get('/api/v2/authorization/roles?token=' + token(A, ADMIN, 'toolsadmin')).set('Host', hosts.get(A))).status, 200);
+          const audit = (await f.admin.query('SELECT DISTINCT principal, consumer FROM ' + f.tables.audit + ' WHERE tenant_id=$1', [A])).rows;
+          assert.deepEqual(audit, [{ principal: ADMIN, consumer }]);
+          // The same grant bound as root: catalogue and ceiling.
+          await rolesUnchanged(() => call('post', '/roles', { bearer, body: { name: 'everything', permissions: ['*'] } }), 403);
+        });
+
+        it('meets the same last-owner guard and never reaches owner routes', async function () {
+          await makeOwner(TARGET);
+          const bearer = await jwt(A, ADMIN, 'toolsadmin');
+          assert.deepEqual((await unchanged(() => call('delete', '/subjects/' + TARGET, { bearer }), 409)).body, { error: 'SUBJECT_ADMIN_LAST_OWNER' });
+          for (const [method, path] of [['get', '/api/v1/tenant/settings'], ['get', '/api/v1/tenant/subject-policy']]) {
+            await unchanged(() => request(app)[method](path).set('Host', hosts.get(A)).set('Authorization', 'Bearer ' + bearer), 401);
+          }
+          assert.deepEqual(ownerCalls, []);
+        });
+
+        it('refuses a subject without the route permission and an admin-role subject of tenant B', async function () {
+          const reader = await jwt(A, READER, 'plainread');
+          for (const [method, path, body] of [['get', '/subjects'], ['delete', '/subjects/' + TARGET], ['get', '/roles'],
+            ['post', '/roles', { name: 'planted', permissions: ['api:entries:read'] }], ['delete', '/roles/uploader']]) {
+            await rolesUnchanged(() => call(method, path, { bearer: reader, body }), 401);
+            await rolesUnchanged(() => call(method, path, { secret: token(A, READER, 'plainread'), body }), 401);
+          }
+          // A partial grant reads but cannot delete, as on a single site.
+          await f.admin.query('INSERT INTO ' + f.tables.links + ' (tenant_id,subject_id,role_name) VALUES ($1,$2,\'subjects-read\')', [A, READER]);
+          assert.equal((await call('get', '/subjects', { bearer: reader })).status, 200);
+          await rolesUnchanged(() => call('delete', '/subjects/' + TARGET, { bearer: reader }), 401);
+          const foreign = await jwt(B, ADMIN, 'toolsadmin');
+          for (const [method, path, body] of [['get', '/subjects'], ['delete', '/subjects/' + TARGET], ['put', '/subjects', { _id: TARGET, name: 'Hijacked', roles: [] }],
+            ['delete', '/roles/uploader'], ['put', '/roles', { _id: 'reader', name: 'reader', permissions: [] }]]) {
+            await rolesUnchanged(() => call(method, path, { bearer: foreign, body }), 401);
+            await rolesUnchanged(() => call(method, path, { secret: token(B, ADMIN, 'toolsadmin'), body }), 401);
+          }
+        });
+      });
+
+      it('refuses every admin tools call (403) for a tenant without an owner policy row', async function () {
+        // Decision Q4 of the lane: the operator provisions the policy row; none is invented.
+        await f.admin.query('DELETE FROM ' + f.tables.actors + ' WHERE tenant_id=$1', [A]);
+        await f.admin.query('DELETE FROM ' + f.tables.policy + ' WHERE tenant_id=$1', [A]);
+        for (const [method, path, body] of [['get', '/subjects'], ['get', '/roles'], ['delete', '/subjects/' + TARGET],
+          ['post', '/roles', { name: 'planted', permissions: [] }]]) {
+          assert.deepEqual((await rolesUnchanged(() => call(method, path, { body }), 403)).body, { error: 'SUBJECT_ADMIN_FORBIDDEN' });
+        }
+        assert.equal((await call('get', '/subjects', { tenant: B, as: B })).status, 200, 'B keeps its policy and access');
+      });
+
+      it('holds distinct privilege shapes for the owner and root planes', async function () {
+        const createStore = require('../lib/subject-admin/postgres');
+        const options = { namespace: f.NS, credentialNamespace: f.CREDENTIAL_NS, ownerPolicy: { catalogue: CATALOGUE.slice() } };
+        await assert.rejects(createStore({ ...options, connectionString: f.writerURI, plane: 'root' }), { code: 'SUBJECT_ADMIN_STORE_UNSAFE' });
+        await assert.rejects(createStore({ ...options, connectionString: f.rootURI, plane: 'owner' }), { code: 'SUBJECT_ADMIN_STORE_UNSAFE' });
+        await assert.rejects(createStore({ ...options, connectionString: f.rootURI, plane: 'operator' }), TypeError);
+      });
     });
   });

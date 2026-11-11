@@ -178,6 +178,7 @@
         "tests/serve-listeners.test.js",
         "tests/serve-roles.test.js",
         "tests/subject-admin.test.js",
+        "tests/root-admin.test.js",
         "tests/owner-policy-catalogue.test.js",
         "tests/legacy-credential-issuance-persistence.test.js",
         "tests/legacy-credential-issuance.test.js",
