@@ -1,14 +1,14 @@
 # Component interfaces and traffic
 
 **Read-derived** from the separate-role synthetic reference in
-[`compose.yaml`](../deploy/multitenant/compose.yaml),
-[`config.js`](../deploy/multitenant/config.js),
-[`nginx.conf`](../deploy/multitenant/nginx.conf), the
+[nightscout/nightscout-deploy](https://github.com/nightscout/nightscout-deploy)
+(`bindings/compose/multitenant`: `compose.yaml`, `config.js`, `nginx.conf`), the
 [`role launcher`](../lib/server/serve/index.js) and the
 [internal service contracts](internal-service-api.md). These diagrams describe
 the binding; they are not a measurement of a running deployment or an assertion
-that its ports are universal defaults. The deployment companion owns packaging
-as that reference moves out of core.
+that its ports are universal defaults. The deployment companion owns packaging;
+core keeps the plan's [`config.js`](../deploy/multitenant/config.js) as a test
+fixture.
 
 An interface is a contract and audience. A listener is a bound socket/address.
 A deployment process may compose roles, but private operations must still have
