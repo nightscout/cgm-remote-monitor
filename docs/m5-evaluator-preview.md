@@ -21,10 +21,11 @@ No interval/capacity default or performance acceptance target is implied.
 | pageSize, maxRows, maxBytes | positive safe integers, pageSize no larger than maxRows; projection acquisition/retention limits |
 | maxTenants | explicit positive configured-tenant ceiling |
 | recoveryIntervalMs, timeIntervalMs | explicit positive integer milliseconds within Node's supported timer range; descriptive schedule configuration, not measured freshness/capacity |
-| tenants | unique canonical tenant IDs, bounded by maxTenants; each has string revision, safe settings and optional safe extendedSettings |
+| tenants | unique canonical tenant IDs, bounded by maxTenants; each has string revision, safe settings and optional extendedSettings limited to the typed plugin settings in `lib/server/tenant-app/environment.js` (`EXTENDED`), for example `{"timeago": {"enableAlerts": true}}` for the stale-data alarm |
 
 The regular config file is bounded to one MiB. Unknown/mistyped fields, unsafe
-namespaces, missing credential reference and unsupported settings refuse.
+namespaces, missing credential reference and unsupported settings refuse,
+including an unknown or mistyped plugin extended setting.
 Credentials remain in the environment. The reader needs SELECT on six clinical
 tables, clock, owned checkpoints and their reviewed migration ledgers, plus only
 UPDATE(checkpoint,projection,contract_digest) on checkpoints. No clinical/clock
