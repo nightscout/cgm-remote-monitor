@@ -9,6 +9,17 @@
         "REVOKE ALL ON pool_membership FROM PUBLIC"
       ],
       "checksum": "a846013a285239732d9b944228c4f95f327e671f157975ab8a73690b9b27e26a"
+    },
+    {
+      "name": "0002_pool_desired_count",
+      "up": [
+        "ALTER TABLE pool_membership DROP COLUMN expected_members",
+        "ALTER TABLE pool_membership ADD COLUMN applied_members integer CHECK (applied_members BETWEEN 1 AND 1024)",
+        "ALTER TABLE pool_membership ADD CONSTRAINT pool_membership_ordinal_bound CHECK (ordinal < 1024)",
+        "CREATE TABLE pool_desired (pool_kind text PRIMARY KEY CHECK (pool_kind ~ '^[a-z][a-z0-9]{0,31}$'), members integer NOT NULL CHECK (members BETWEEN 1 AND 1024), previous_members integer CHECK (previous_members BETWEEN 1 AND 1024), slice_rule text NOT NULL CHECK (slice_rule IN ('sha256-modulo-v1')), revision bigint NOT NULL CHECK (revision >= 1), updated_at timestamptz NOT NULL)",
+        "REVOKE ALL ON pool_desired FROM PUBLIC"
+      ],
+      "checksum": "270e38ac8a6bc15b876ba63d0f150e44dc287a87b15e5d3e328e5bbdad4b59dc"
     }
   ]
 }

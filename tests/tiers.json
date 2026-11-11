@@ -212,6 +212,7 @@
         "tests/evaluator-preview-runtime.test.js",
         "tests/tenant-activity.test.js",
         "tests/pool-membership.test.js",
+        "tests/evaluator-partition.test.js",
         "tests/tenant-connector.test.js",
         "tests/tenant-socket-forwarding.test.js",
         "tests/socket-write-handlers.test.js",

@@ -1,0 +1,443 @@
+{
+  "id": "pool-operations",
+  "version": 1,
+  "operations": {
+    "getPool": {
+      "path": "/pool/get",
+      "request": {
+        "$schema": "https://json-schema.org/draft/2020-12/schema",
+        "type": "object",
+        "properties": {
+          "kind": {
+            "type": "string",
+            "pattern": "^[a-z][a-z0-9]{0,31}$"
+          }
+        },
+        "required": [
+          "kind"
+        ],
+        "additionalProperties": false
+      },
+      "response": {
+        "$schema": "https://json-schema.org/draft/2020-12/schema",
+        "oneOf": [
+          {
+            "type": "object",
+            "properties": {
+              "outcome": {
+                "const": "observed"
+              },
+              "kind": {
+                "type": "string",
+                "pattern": "^[a-z][a-z0-9]{0,31}$"
+              },
+              "desired": {
+                "anyOf": [
+                  {
+                    "type": "null"
+                  },
+                  {
+                    "type": "object",
+                    "properties": {
+                      "members": {
+                        "type": "integer",
+                        "minimum": 1,
+                        "maximum": 1024
+                      },
+                      "previousMembers": {
+                        "anyOf": [
+                          {
+                            "type": "null"
+                          },
+                          {
+                            "type": "integer",
+                            "minimum": 1,
+                            "maximum": 1024
+                          }
+                        ]
+                      },
+                      "rule": {
+                        "const": "sha256-modulo-v1"
+                      },
+                      "revision": {
+                        "type": "integer",
+                        "minimum": 1
+                      }
+                    },
+                    "required": [
+                      "members",
+                      "previousMembers",
+                      "rule",
+                      "revision"
+                    ],
+                    "additionalProperties": false
+                  }
+                ]
+              },
+              "effectiveMembers": {
+                "anyOf": [
+                  {
+                    "type": "null"
+                  },
+                  {
+                    "type": "integer",
+                    "minimum": 1,
+                    "maximum": 1024
+                  }
+                ]
+              },
+              "switching": {
+                "type": "boolean"
+              },
+              "liveOrdinals": {
+                "type": "array",
+                "maxItems": 4096,
+                "items": {
+                  "type": "integer",
+                  "minimum": 0,
+                  "maximum": 1023
+                }
+              },
+              "missingOrdinals": {
+                "type": "array",
+                "maxItems": 1024,
+                "items": {
+                  "type": "integer",
+                  "minimum": 0,
+                  "maximum": 1023
+                }
+              },
+              "conflicts": {
+                "type": "array",
+                "maxItems": 8,
+                "items": {
+                  "type": "object",
+                  "properties": {
+                    "reason": {
+                      "type": "string",
+                      "pattern": "^[A-Z][A-Z0-9_]{0,63}$"
+                    },
+                    "rules": {
+                      "type": "array",
+                      "items": {
+                        "type": "string",
+                        "maxLength": 64
+                      }
+                    },
+                    "ordinals": {
+                      "type": "array",
+                      "items": {
+                        "type": "integer",
+                        "minimum": 0,
+                        "maximum": 1023
+                      }
+                    }
+                  },
+                  "required": [
+                    "reason"
+                  ],
+                  "additionalProperties": false
+                }
+              },
+              "members": {
+                "type": "array",
+                "maxItems": 4096,
+                "items": {
+                  "type": "object",
+                  "properties": {
+                    "ordinal": {
+                      "type": "integer",
+                      "minimum": 0,
+                      "maximum": 1023
+                    },
+                    "live": {
+                      "type": "boolean"
+                    },
+                    "heartbeatAgeMs": {
+                      "type": "integer"
+                    },
+                    "leaseRemainingMs": {
+                      "type": "integer"
+                    },
+                    "appliedMembers": {
+                      "anyOf": [
+                        {
+                          "type": "null"
+                        },
+                        {
+                          "type": "integer",
+                          "minimum": 1,
+                          "maximum": 1024
+                        }
+                      ]
+                    }
+                  },
+                  "required": [
+                    "ordinal",
+                    "live",
+                    "heartbeatAgeMs",
+                    "leaseRemainingMs",
+                    "appliedMembers"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            },
+            "required": [
+              "outcome",
+              "kind",
+              "desired",
+              "effectiveMembers",
+              "switching",
+              "liveOrdinals",
+              "missingOrdinals",
+              "conflicts",
+              "members"
+            ],
+            "additionalProperties": false
+          },
+          {
+            "type": "object",
+            "properties": {
+              "outcome": {
+                "const": "denied"
+              },
+              "code": {
+                "type": "string",
+                "pattern": "^[A-Z][A-Z0-9_]{0,63}$"
+              }
+            },
+            "required": [
+              "outcome",
+              "code"
+            ],
+            "additionalProperties": false
+          }
+        ]
+      }
+    },
+    "setPoolMembers": {
+      "path": "/pool/members",
+      "request": {
+        "$schema": "https://json-schema.org/draft/2020-12/schema",
+        "type": "object",
+        "properties": {
+          "kind": {
+            "type": "string",
+            "pattern": "^[a-z][a-z0-9]{0,31}$"
+          },
+          "members": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 1024
+          }
+        },
+        "required": [
+          "kind",
+          "members"
+        ],
+        "additionalProperties": false
+      },
+      "response": {
+        "$schema": "https://json-schema.org/draft/2020-12/schema",
+        "oneOf": [
+          {
+            "type": "object",
+            "properties": {
+              "outcome": {
+                "enum": [
+                  "applied",
+                  "unchanged"
+                ]
+              },
+              "kind": {
+                "type": "string",
+                "pattern": "^[a-z][a-z0-9]{0,31}$"
+              },
+              "desired": {
+                "anyOf": [
+                  {
+                    "type": "null"
+                  },
+                  {
+                    "type": "object",
+                    "properties": {
+                      "members": {
+                        "type": "integer",
+                        "minimum": 1,
+                        "maximum": 1024
+                      },
+                      "previousMembers": {
+                        "anyOf": [
+                          {
+                            "type": "null"
+                          },
+                          {
+                            "type": "integer",
+                            "minimum": 1,
+                            "maximum": 1024
+                          }
+                        ]
+                      },
+                      "rule": {
+                        "const": "sha256-modulo-v1"
+                      },
+                      "revision": {
+                        "type": "integer",
+                        "minimum": 1
+                      }
+                    },
+                    "required": [
+                      "members",
+                      "previousMembers",
+                      "rule",
+                      "revision"
+                    ],
+                    "additionalProperties": false
+                  }
+                ]
+              },
+              "effectiveMembers": {
+                "anyOf": [
+                  {
+                    "type": "null"
+                  },
+                  {
+                    "type": "integer",
+                    "minimum": 1,
+                    "maximum": 1024
+                  }
+                ]
+              },
+              "switching": {
+                "type": "boolean"
+              },
+              "liveOrdinals": {
+                "type": "array",
+                "maxItems": 4096,
+                "items": {
+                  "type": "integer",
+                  "minimum": 0,
+                  "maximum": 1023
+                }
+              },
+              "missingOrdinals": {
+                "type": "array",
+                "maxItems": 1024,
+                "items": {
+                  "type": "integer",
+                  "minimum": 0,
+                  "maximum": 1023
+                }
+              },
+              "conflicts": {
+                "type": "array",
+                "maxItems": 8,
+                "items": {
+                  "type": "object",
+                  "properties": {
+                    "reason": {
+                      "type": "string",
+                      "pattern": "^[A-Z][A-Z0-9_]{0,63}$"
+                    },
+                    "rules": {
+                      "type": "array",
+                      "items": {
+                        "type": "string",
+                        "maxLength": 64
+                      }
+                    },
+                    "ordinals": {
+                      "type": "array",
+                      "items": {
+                        "type": "integer",
+                        "minimum": 0,
+                        "maximum": 1023
+                      }
+                    }
+                  },
+                  "required": [
+                    "reason"
+                  ],
+                  "additionalProperties": false
+                }
+              },
+              "members": {
+                "type": "array",
+                "maxItems": 4096,
+                "items": {
+                  "type": "object",
+                  "properties": {
+                    "ordinal": {
+                      "type": "integer",
+                      "minimum": 0,
+                      "maximum": 1023
+                    },
+                    "live": {
+                      "type": "boolean"
+                    },
+                    "heartbeatAgeMs": {
+                      "type": "integer"
+                    },
+                    "leaseRemainingMs": {
+                      "type": "integer"
+                    },
+                    "appliedMembers": {
+                      "anyOf": [
+                        {
+                          "type": "null"
+                        },
+                        {
+                          "type": "integer",
+                          "minimum": 1,
+                          "maximum": 1024
+                        }
+                      ]
+                    }
+                  },
+                  "required": [
+                    "ordinal",
+                    "live",
+                    "heartbeatAgeMs",
+                    "leaseRemainingMs",
+                    "appliedMembers"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            },
+            "required": [
+              "outcome",
+              "kind",
+              "desired",
+              "effectiveMembers",
+              "switching",
+              "liveOrdinals",
+              "missingOrdinals",
+              "conflicts",
+              "members"
+            ],
+            "additionalProperties": false
+          },
+          {
+            "type": "object",
+            "properties": {
+              "outcome": {
+                "const": "denied"
+              },
+              "code": {
+                "type": "string",
+                "pattern": "^[A-Z][A-Z0-9_]{0,63}$"
+              }
+            },
+            "required": [
+              "outcome",
+              "code"
+            ],
+            "additionalProperties": false
+          }
+        ]
+      }
+    }
+  }
+}

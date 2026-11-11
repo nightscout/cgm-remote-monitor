@@ -27,9 +27,16 @@
                 ]
               },
               "members": {
-                "type": "integer",
-                "minimum": 1,
-                "maximum": 1024
+                "anyOf": [
+                  {
+                    "type": "null"
+                  },
+                  {
+                    "type": "integer",
+                    "minimum": 1,
+                    "maximum": 1024
+                  }
+                ]
               },
               "ordinal": {
                 "type": "integer",

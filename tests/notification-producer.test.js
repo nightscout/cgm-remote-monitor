@@ -4,6 +4,7 @@ const fixture = require('./fixtures/tenant-notifications');
 const producer = require('../lib/tenant-notifications/producer');
 const notifier = require('../lib/tenant-notifications/component');
 const scope = require('../lib/storage/tenant-scope');
+const {contentDigest} = require('../lib/server/serve/evaluator-runtime');
 const makeEnv = require('../lib/server/tenant-app/environment');
 const env = makeEnv({settings:{enable:['simplealarms']}}), levels = require('../lib/levels');
 const view = require('../lib/data/views')(env,{language:require('../lib/language')(),levels,moment:require('moment-timezone')});
@@ -15,8 +16,9 @@ describe('actual durable producer and outbox recreation protocol', function () {
   function clinical (mgdl, runtime='runtime-one', outputRevision=1) {
     const ddata=require('../lib/data/ddata')(); ddata.lastUpdated=at;
     ddata.sgvs=[{_id:'synthetic',mgdl,mills:at-1000,type:'sgv',direction:'Flat'}];
+    const result={tenant:f.A,...view.evaluateCycle({now:at,ddata})};
     source={tenant:f.A,identity:'config',runtimeId:runtime,outputRevision,inputCheckpoint:0,eligible:true,
-      result:{tenant:f.A,...view.evaluateCycle({now:at,ddata})}};
+      contentDigest:contentDigest(result),result};
   }
   function open (send, reader={read:async()=>[]}) {
     const p=producer({store:f.store,reader,current:()=>source,currentConfig:async()=>({tenant:f.A,identity:source.identity}),isCurrent:async()=>true,
@@ -26,7 +28,7 @@ describe('actual durable producer and outbox recreation protocol', function () {
       maxRows:10,maxPayloadBytes:10000,maxInflight:1,attemptTimeoutMs:1000,retryDelayMs:1});
     owned.push(n,p); return {p,n};
   }
-  it('retries an unchanged meaningful uncertain request with its original UUID after actual producer/component recreation while admitting one fresh RT output', async function () {
+  it('retries an unchanged meaningful uncertain request with its original UUID after actual producer/component recreation; identical output from the new runtime admits no new event', async function () {
     clinical(50); const effects=[];
     const first=open((row,callback)=>{effects.push(row);callback(new Error('accepted but response uncertain'));});
     await first.p.select(f.A); await first.n.retry(f.A); const original=effects[0].id;
@@ -34,7 +36,9 @@ describe('actual durable producer and outbox recreation protocol', function () {
     const next=open((row,callback)=>{effects.push(row);callback(null,{accepted:true});});
     await next.p.select(f.A); await next.n.retry(f.A);
     assert.equal(effects.filter(row=>row.id===original).length,2,'PRODUCER_RESTART_SAME_UUID');
-    assert.equal(new Set(effects.map(row=>row.id)).size,2,'fresh successful RT cycle admits one new logical event');
+    // The output is identified by content: a restarted evaluator with the same
+    // output is the same output, so the alarm waits for its repeat clock.
+    assert.equal(new Set(effects.map(row=>row.id)).size,1,'PRODUCER_RESTART_NO_IMMEDIATE_RESEND');
     const rows=f.snapshot().requests; assert.ok(rows.every(row=>row.state==='accepted'));
     await next.p.select(f.A); await next.n.retry(f.A); assert.equal(f.snapshot().requests.length,rows.length,'PRODUCER_SAME_OUTPUT_ONCE');
   });
@@ -68,7 +72,7 @@ describe('actual durable producer and outbox recreation protocol', function () {
     reader.pending=1;
     const selected=await value.p.select(f.A);
     assert.equal(reader.pending,0,'the newer output was published inside the selection');
-    assert.deepEqual(f.producerStates()[0].producer.output,['config','runtime-one',2,0],'PRODUCER_STALE_RESELECTS_NEWER_OUTPUT');
+    assert.deepEqual(f.producerStates()[0].producer.output,['config',source.contentDigest,0],'PRODUCER_STALE_RESELECTS_NEWER_OUTPUT');
     assert.equal(selected.eligible,true); assert.equal(selected.result.emitted.length,1);
   });
   it('hands off a committed request when a newer evaluator output is published during its attempt', async function () {

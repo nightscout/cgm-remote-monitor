@@ -31,7 +31,8 @@ describe('Internal service API contracts', function () {
       });
     });
     assert.deepEqual(paths, ['/authorize', '/mutate', '/alarm', '/cohort/status', '/cohort/invalidate',
-      '/ownership/list', '/ownership/add', '/ownership/transfer', '/ownership/recover', '/vcpool/inspect']);
+      '/ownership/list', '/ownership/add', '/ownership/transfer', '/ownership/recover', '/vcpool/inspect',
+        '/evaluator/inspect', '/pool/get', '/pool/members']);
     assert.throws(() => { contracts.alarmDelivery.operations.getStatus = lifecycle.getStatus; }, TypeError);
   });
   it('accepts socket authority wire values and refuses unknown envelope, credential and permission fields', function () {
