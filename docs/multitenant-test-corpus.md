@@ -62,8 +62,8 @@ themselves.
 
 ## Inventory
 
-54 suites. 30 use the admin URI the script provides; 28 start at least one
-container of their own through Docker. Disabled, 53 register their
+65 suites. 40 use the admin URI the script provides; 29 start at least one
+container of their own through Docker. Disabled, 64 register their
 tests as pending with `[pending opt-in: <requirement>]` in the title; one
 (`postgres-entries-write`) uses a bare `describe.skip`.
 
@@ -87,6 +87,17 @@ tests as pending with `[pending opt-in: <requirement>]` in the title; one
 | `tests/tenant-activity.integration.test.js` | `NS_EVALUATOR_CONSUMERS_TEST=1` | PostgreSQL | | pause/suspend eligibility: evaluator work lists from eligible tenants, recompute on unpause, other tenants unaffected |
 | `tests/evaluator-consumer-timer-churn.integration.test.js` | `NS_EVALUATOR_CONSUMERS_TEST=1` | PostgreSQL | | stale producer selection under evaluator timer churn is reselected, not refused; `NS_CONSUMER_*` knobs are for measurement |
 | `tests/evaluator-consumer-load.integration.test.js` | `NS_EVALUATOR_CONSUMERS_TEST=1` | PostgreSQL | | consumer wakes and producer selections per window with content-change revisions; `NS_CONSUMER_LOAD_*` knobs are for measurement |
+| `tests/change-stamps.integration.test.js` | admin URI only | PostgreSQL |  | decision change-stamp-definer-function: catalogue, deployment grants, attribute check and refusals |
+| `tests/postgres-tenant-scan.integration.test.js` | admin URI only | PostgreSQL |  | scanTenants: one READ ONLY round trip under each tenant's forced-RLS binding |
+| `tests/pool-membership.integration.test.js` | admin URI only | PostgreSQL |  | pool membership: two kinds, member/inspector/operator identities, operator-set count, agreement, lease expiry |
+| `tests/incremental-view.integration.test.js` | `NS_TENANT_DURABLE_REPLAY_TEST=1` | PostgreSQL |  | decision incremental-refresh: edit, soft and hard delete, gap, mismatch |
+| `tests/tenant-write-clock-complete.integration.test.js` | `NS_TENANT_COMMIT_CLOCK_TEST=1` | PostgreSQL |  | decision write-clock-complete: every supported write advances the clock, hard deletes also last_delete_stamp |
+| `tests/evaluator-wake.integration.test.js` | `NS_TENANT_PROJECTION_EVALUATOR_TEST=1` | PostgreSQL |  | work on change: lost wake, duplicate delivery, restart, hard delete and unstamped update re-evaluated, idle, eviction |
+| `tests/evaluator-cost.integration.test.js` | `NS_TENANT_PROJECTION_EVALUATOR_TEST=1` | PostgreSQL |  | evaluator cost lane C/D/E: copies stay independent of plugin mutation |
+| `tests/views-keep.integration.test.js` | `NS_TENANT_PROJECTION_EVALUATOR_TEST=1` | PostgreSQL |  | evaluator cost lane B: a kept working set re-cut equals a fresh load |
+| `tests/projection-total-order.integration.test.js` | `NS_TENANT_PROJECTION_EVALUATOR_TEST=1` | PostgreSQL |  | decision view-reads-total-order: SQL and in-process paths agree, ties broken on the insertion ordinal |
+| `tests/evaluator-consumer-wake.integration.test.js` | `NS_EVALUATOR_CONSUMERS_TEST=1` | PostgreSQL |  | consumers on change: an idle tenant is not polled; a new alarm is delivered by the revision wake |
+| `tests/operation-window-epoch.integration.test.js` | `NS_OPERATION_WINDOW_DOCKER_TEST=1` |  | PostgreSQL | restore fence and catalogue admission epoch with the deployment plan's catalogue and grants |
 | `tests/tenant-operations.integration.test.js` | `NS_TENANT_OPERATIONS_PG_TEST=1` | | PostgreSQL | representative entries/clock recovery and upgrade contracts; full populated deployment recovery is separate |
 | `tests/tenant-commit-clock-port.integration.test.js` | `NS_TENANT_COMMIT_CLOCK_TEST=1` | PostgreSQL | | |
 | `tests/tenant-commit-clock-http.integration.test.js` | `NS_TENANT_COMMIT_CLOCK_HTTP_DOCKER_TEST=1` | | PostgreSQL, Vault | functional cases enabled; benchmark separately opt-in |
@@ -145,7 +156,7 @@ passing count or zero-pending prediction for this expanded inventory.
 
 The `multitenant-postgres` job in `.github/workflows/main.yml` runs
 `npm run test:multitenant` on the newest Node line, on `ubuntu-22.04`, with no
-service containers: 28 suites start their own containers through Docker
+service containers: 29 suites start their own containers through Docker
 whatever the job provides, so the script starting the shared PostgreSQL, MongoDB
 and Vault the same way is the simpler arrangement. The job is one of the
 `Tests pass` aggregate's dependencies.
