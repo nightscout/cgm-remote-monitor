@@ -118,25 +118,35 @@ describe('evaluator preview owned jobs and lifecycle', function () {
       close () { instance.closed = true; } };
       instances.push(instance); return instance;
     };
+    const timers = new Map(); let timerId = 100;
     const ctx = await runtime({ tenants: [A, B], readCurrent: async tenant => configurations.get(tenant), create,
       recoveryIntervalMs: 100, timeIntervalMs: 200, schedule (fn, ms) { callbacks.push({ fn, ms }); return callbacks.length; },
-      cancel: id => cancelled.push(id), now: () => 123, ...extra });
-    return { ctx, calls, instances, configurations, callbacks, cancelled };
+      cancel: id => cancelled.push(id), now: () => 123,
+      setTimer (fn, ms) { timers.set(++timerId, { fn, ms }); return timerId; }, clearTimer: id => timers.delete(id), ...extra });
+    return { ctx, calls, instances, configurations, callbacks, cancelled, timers };
   }
-  it('starts both tenants with full acquisition and separates explicit recovery and retained-time scheduling', async function () {
+  it('starts both tenants with full acquisition and separates the change backstop from per-tenant time timers', async function () {
     const l = await lab();
     try {
       assert.deepEqual(l.calls, [[A, 'acquire'], [B, 'acquire']]);
-      l.callbacks.find(c => c.ms === 200).fn(); await l.ctx.tick(A); await l.ctx.tick(B);
+      // No per-tenant poll: one backstop schedule; time-only work is a per-tenant
+      // timer (a component without due-time support keeps the slow timer).
+      assert.deepEqual(l.callbacks.map(c => c.ms), [100], 'EV_NO_TENANT_POLL only the backstop interval is scheduled');
+      assert.deepEqual([...l.timers.values()].map(t => t.ms), [200, 200], 'EV_SLOW_TIMER at + timeIntervalMs from the cycle instant');
+      for (const [id, timer] of [...l.timers]) { l.timers.delete(id); timer.fn(); }
+      await l.ctx.tick(A); await l.ctx.tick(B);
       assert.equal(l.calls.filter(c => c[1] === 'acquire').length, 2, 'M5_EVAL_TIME retained timer cannot acquire');
+      assert.ok(l.calls.filter(c => c[1] === 'time').length >= 2);
       const recovery = l.callbacks.find(c => c.ms === 100);
       assert.ok(recovery, 'M5_EVAL_BACKSTOP independent recovery schedule installed');
-      recovery.fn(); await l.ctx.acquire(A); await l.ctx.acquire(B);
+      // A component without a change signature is acquired by every backstop pass.
+      await l.ctx.backstop();
       assert.ok(l.calls.filter(c => c[1] === 'acquire').length > 2, 'M5_EVAL_BACKSTOP independent recovery schedule consumes acquisition');
+      await l.ctx.acquire(A); await l.ctx.acquire(B);
       assert.equal(l.ctx.last(A).eligible, true);
       assert.equal(l.ctx.last(A).runtimeId, l.ctx.last(B).runtimeId);
     } finally { await l.ctx.close(); }
-    assert.deepEqual(l.cancelled, [1, 2]);
+    assert.deepEqual(l.cancelled, [1]); assert.equal(l.timers.size, 0, 'close clears every due timer');
     assert.equal(l.ctx.health().closed, true); assert.equal(l.ctx.last(A).eligible, false);
   });
   it('discards restored A retained output and reacquires without changing B', async function () {

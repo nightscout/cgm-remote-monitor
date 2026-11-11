@@ -303,9 +303,15 @@ optInSuite(process.env.NS_M5_CURRENT_STATE_PROOF_TEST === '1' && !!process.env.N
       ] } });
       const afterWrites = await worker.call('last');
       // The output revision changes only with content (decision
-      // evaluator-revision-on-content-change); count evaluator cycles instead.
-      const cyclesAfterWrites = cyclesOf(await worker.call('health'));
-      await lab.wait(async () => cyclesOf(await worker.call('health')) >= cyclesAfterWrites + 3);
+      // evaluator-revision-on-content-change), and with work on change
+      // (cost-proportional-to-activity) an unchanged tenant runs no cycles:
+      // wait for the backstop's acquisition to converge the projection.
+      await lab.wait(async () => {
+        const checkpoint = await lab.previewCheckpoint(lab.A);
+        // The projection COMMIT precedes the cycle's publication: wait for both.
+        return checkpoint.projection?.length === 1 && checkpoint.projection[0].domain === 'activity' && checkpoint.projection[0].doc.steps === 2 &&
+          (await worker.call('last'))?.outputRevision > first.outputRevision;
+      });
       const observed = lab.tracePreview('preview-backstop', { first, afterWrites, last: await worker.call('last'),
         physical: await lab.previewPhysical(), removed, activity });
       committed(removed); committed(activity);

@@ -89,6 +89,8 @@ function lab ({ initial = {}, hold } = {}) {
     readCurrent: async tenant => ({ tenant, identity: 'a'.repeat(64), env: {} }),
     activity: eligibility.create({ read: async tenant => { const value = rows.get(tenant); if (value instanceof Error) throw value; return value; } }),
     schedule: fn => { timers.push(fn); return timers.length; }, cancel: () => {},
+    // Due-time timers are per tenant; `time` below fires each tenant's time-only trigger, as a due timer does.
+    setTimer: () => ({}), clearTimer: () => {},
     create: async current => {
       calls.push(['create', current.tenant]);
       return { async evaluate () { calls.push(['acquisition', current.tenant]); if (hold && hold.tenant === current.tenant && hold.armed) await hold.gate.promise; return { checkpoint: 1 }; },
@@ -96,7 +98,8 @@ function lab ({ initial = {}, hold } = {}) {
         close () { calls.push(['close', current.tenant]); } };
     } });
   const settle = () => new Promise(resolve => setImmediate(resolve));
-  return { rows, calls, runtime, recovery: async () => { await timers[0](); await settle(); }, time: async () => { await timers[1](); await settle(); },
+  return { rows, calls, runtime, recovery: async () => { await timers[0](); await (await runtime).backstop(); await settle(); },
+    time: async () => { const r = await runtime; await Promise.all([A, B].map(tenant => r.tick(tenant))); await settle(); },
     of: tenant => calls.filter(call => call[1] === tenant).map(call => call[0]) };
 }
 
