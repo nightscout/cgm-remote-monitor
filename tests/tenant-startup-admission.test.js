@@ -70,7 +70,11 @@ describe('independent tenant startup admission (source protocol)', function () {
         readCurrent:async()=>{throw new Error('broken shared dependency');},create:()=>{},fanout:async()=>{},recoveryIntervalMs:100,schedule:()=>1,cancel:()=>{}}),/broken shared dependency/);
     } finally { await f.window.close(); }
   });
-  it('actual API boot defers roots/dates and exposes lazy initializer to both HTTP and private socket composition', async function () {
+  it('actual API boot defers roots/dates and exposes lazy initializer to both HTTP and private socket composition (NS_TENANT_READINESS=all)', async function () {
+    const previous=process.env.NS_TENANT_READINESS;process.env.NS_TENANT_READINESS='all';
+    try{await apiBootAll();}finally{if(previous===undefined)delete process.env.NS_TENANT_READINESS;else process.env.NS_TENANT_READINESS=previous;}
+  });
+  async function apiBootAll () {
     const options={phases:{[A]:'suspended'}},f=fixture(options),reads=[],calls={},resources=[];
     const resource=extra=>{const r={end:async()=>{},...extra};resources.push(r);return r;};
     const authority=resource({authorize:async({tenant})=>{reads.push(['authority',tenant]);}});
@@ -93,7 +97,7 @@ describe('independent tenant startup admission (source protocol)', function () {
       assert.equal(reads.filter(row=>row[1]===A).length,4);
       await role.invalidateTenant(A);await f.window.run(A,()=>calls.socket(A));assert.equal(reads.filter(row=>row[1]===A).length,8);
     }finally{if(role)await role.close();await f.window.close();}
-  });
+  }
   it('actual evaluator boot preserves shared failures, initializes B and checks deferred A before resumed component creation', async function () {
     const options={phases:{[A]:'suspended'}},f=fixture(options),reads=[],provisioned=[];
     const evaluator=()=>({evaluate:async()=>({checkpoint:1}),evaluateTime:async()=>({checkpoint:1}),close:()=>{}});evaluator.domains=[];

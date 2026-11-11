@@ -93,6 +93,7 @@
         "tests/tenant-insertion-readiness.test.js",
         "tests/tenant-operation-window.test.js",
         "tests/pool-config.test.js",
+        "tests/tenant-readiness.test.js",
         "tests/tenant-maintenance-window.test.js",
         "tests/internal-api-listener-config.test.js",
         "tests/internal-api-shutdown.test.js",
