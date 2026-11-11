@@ -5,9 +5,10 @@ run migrations, or admit routes. The integrator must supply current-authority
 authentication, tenant scope and explicit completed collection registrations.
 
 * `environment({settings, extendedSettings})` builds a new display environment
-  from typed client allowlists. It does not copy an application context,
-  process environment, provider configuration, credentials or arbitrary nested
-  settings. `rest-context` and `snapshot` require an environment from this
+  from typed client allowlists and the typed plugin extended settings
+  (`EXTENDED`). It does not copy an application context, process environment,
+  provider configuration, credentials or arbitrary nested settings. The status
+  route shows a tenant's carried extended settings, as a single site does. `rest-context` and `snapshot` require an environment from this
   factory.
 * `rest-context({env, authorization, collections, versionInfo, admitted,
   statusAuthorization})` returns `legacy`, `v2`, `v3` and `root` routers.

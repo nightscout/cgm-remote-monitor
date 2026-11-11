@@ -212,7 +212,8 @@ optInSuite(enabled, 'NS_REST_CONTEXT_HTTP_TEST=1 with disposable PG/Mongo/Docker
         const app = express(), v3 = express.Router(), bus = new EventEmitter();
         bus.on('storage-intent-committed', value => events.push({ tenant, value }));
         const env = environment({ settings: { customTitle: 'Tenant ' + i, apiSecret: 'PROCESS-SENTINEL', enable: ['careportal'] },
-          extendedSettings: { devicestatus: { days: 2, token: 'PROCESS-SENTINEL' } } });
+          extendedSettings: { devicestatus: { days: 2, token: 'PROCESS-SENTINEL' },
+            ...(i === 0 ? { timeago: { enableAlerts: true, apiToken: 'PROCESS-SENTINEL' } } : {}) } });
         const ctx = { bus, purifier: require('../lib/server/purifier')({}, {}) };
         const routeApp = express();
         routeApp.setENVTruthy = () => undefined;
@@ -327,7 +328,10 @@ optInSuite(enabled, 'NS_REST_CONTEXT_HTTP_TEST=1 with disposable PG/Mongo/Docker
       const status = await http(backend, A, '/api/v1/status.json', credential).expect(200);
       assert.equal(status.headers['cache-control'], 'no-store');
       assert.equal(status.body.settings.customTitle, 'Tenant 0');
-      assert.deepEqual(status.body.extendedSettings, { devicestatus: { days: 2 } });
+      assert.deepEqual(status.body.extendedSettings, { devicestatus: { days: 2 }, timeago: { enableAlerts: true } },
+        'operator plugin extended settings are shown as a single site shows them (BF-232)');
+      const other = await http(backend, B, '/api/v1/status.json', hash(roots[1])).expect(200);
+      assert.deepEqual(other.body.extendedSettings, { devicestatus: { days: 2 } }, 'tenant B never shows tenant A\'s setting');
       assert.equal(JSON.stringify(status.body).includes('PROCESS-SENTINEL'), false);
       const probe = await http(backend, A, '/api/v2/verifyauth', credential).expect(200);
       assert.equal(probe.body.message.canRead, true);

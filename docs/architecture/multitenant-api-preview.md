@@ -70,8 +70,21 @@ database usernames on the same host, port and database. Namespaces must be
 distinct non-system schema names. API3 flags use the shipping `lib/api3/const.json` defaults, separately per tenant;
 process-wide single-tenant API3 overrides do not configure tenants. Each tenant
 may supply `settings` and `extendedSettings`: only the typed display allowlist
-in `lib/server/tenant-app/environment.js` is copied. Database, provider and other
-process values cannot enter this client-facing environment.
+and the typed plugin settings in `lib/server/tenant-app/environment.js`
+(`EXTENDED`) are copied. Database, provider and other process values cannot
+enter this client-facing environment.
+
+`extendedSettings` takes the same plugin settings a single site reads from
+`<PLUGIN>_<SETTING>` environment variables, keyed by plugin name with the
+setting name camel-cased as the single site produces it, as JSON values of the
+declared type. For example, the stale-data alarm ("Stale data, check rig?") is
+off for a tenant, as it is on a single site, until the operator sets
+`{"timeago": {"enableAlerts": true}}` for that tenant. The pump, loop,
+OpenAPS, xDrip-js, upbat and site/sensor/insulin/battery age alerts are enabled
+the same way. Each tenant's values apply to that tenant only. Plugin
+credentials (Pushover, Maker, Loop push, connector and bridge accounts) and the
+database-size settings are not carried; in the first preview these settings are
+operator-supplied and are not on the owner settings surface.
 
 The default remains API3 entries only. To opt into the implemented collection
 ports, add these top-level fields:
