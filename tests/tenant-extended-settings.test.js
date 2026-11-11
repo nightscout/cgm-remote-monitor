@@ -84,7 +84,8 @@ describe('tenant plugin extended settings (BF-232)', function () {
   });
 
   it('round-trips every carried setting into the environment, the evaluator config and the status projection', function () {
-    const input = { devicestatus: { days: 2 }, ...everyCarried() };
+    const input = everyCarried();
+    input.devicestatus.days = 2;
     const env = environment({ extendedSettings: input });
     assert.deepEqual(env.extendedSettings, input, 'EXT_ROUNDTRIP every catalogued setting is carried');
     assert.notEqual(env.extendedSettings.timeago, input.timeago, 'carried by value, not by reference');
@@ -96,12 +97,32 @@ describe('tenant plugin extended settings (BF-232)', function () {
     assert.deepEqual(environment({ extendedSettings: { errorcodes: { urgent: 9 } } }).extendedSettings, { errorcodes: { urgent: 9 } });
   });
 
+  // Maintainer decision 2026-11-10: a tenant reports devicestatus as a single
+  // site does (lib/server/env.js findExtendedSettings). Display parity only:
+  // tenant realtime frames are full (RT_ACTUAL_FULL_RESET in realtime-preview).
+  it('reports the single-site devicestatus defaults and honours an operator override', function () {
+    const unset = environment({});
+    assert.deepEqual(unset.settings.filteredSettings(unset.extendedSettings), { devicestatus: { advanced: true, days: 1 } },
+      'EXT_DEVICESTATUS_DEFAULT the status view shows advanced:true, days:1 when unset');
+    assert.deepEqual(unset.extendedSettings, {}, 'the environment itself carries only operator values; days unset still loads one day');
+    const other = environment({ extendedSettings: { timeago: { enableAlerts: true } } });
+    assert.deepEqual(other.settings.filteredSettings(other.extendedSettings),
+      { devicestatus: { advanced: true, days: 1 }, timeago: { enableAlerts: true } });
+    for (const [given, shown] of [[{ advanced: false }, { advanced: false, days: 1 }], [{ days: 2 }, { advanced: true, days: 2 }],
+      [{ advanced: false, days: 2 }, { advanced: false, days: 2 }], [{ advanced: 'false', days: 7 }, { advanced: true, days: 1 }]]) {
+      const env = environment({ extendedSettings: { devicestatus: given } });
+      assert.deepEqual(env.settings.filteredSettings(env.extendedSettings), { devicestatus: shown },
+        'EXT_DEVICESTATUS_OVERRIDE ' + JSON.stringify(given));
+    }
+    const parsed = config.parse(document([{ id: A, revision: 'a1', settings: {}, extendedSettings: { devicestatus: { advanced: false } } }]), source);
+    assert.deepEqual(parsed.tenants.get(A).env.extendedSettings, { devicestatus: { advanced: false } }, 'the evaluator configuration accepts it');
+  });
+
   it('does not carry credentials, the dbsize settings, or settings outside the catalogue', function () {
     const excluded = { pushover: { apiToken: 'synthetic', userKey: 'synthetic' }, maker: { key: 'synthetic' },
       loop: { apnsKey: 'synthetic', apnsKeyId: 'synthetic', developerTeamId: 'synthetic' },
       connect: { source: 'nightscout', sourceApiSecret: 'synthetic' }, bridge: { userName: 'synthetic' },
-      dbsize: { enableAlerts: true, max: 100 }, cors: { allowOrigin: 'https://synthetic.invalid' },
-      devicestatus: { advanced: false } };
+      dbsize: { enableAlerts: true, max: 100 }, cors: { allowOrigin: 'https://synthetic.invalid' } };
     assert.deepEqual(environment({ extendedSettings: excluded }).extendedSettings, {}, 'EXT_EXCLUDED');
     for (const [plugin, values] of Object.entries(excluded)) {
       assert.throws(() => config.parse(document([{ id: A, revision: 'a1', settings: {},
@@ -112,7 +133,8 @@ describe('tenant plugin extended settings (BF-232)', function () {
   it('refuses an unknown or mistyped extended setting in the operator configuration', function () {
     for (const extendedSettings of [{ timeago: { enableAlerts: true, madeUp: 1 } }, { timeago: { enableAlerts: 'true' } },
       { timeago: { enableAlerts: true }, notAPlugin: { enableAlerts: true } }, { pump: { warnRes: Infinity } },
-      { pump: { fields: 'x'.repeat(257) } }, { timeago: [] }, { sage: { warn: '160' } }]) {
+      { pump: { fields: 'x'.repeat(257) } }, { timeago: [] }, { sage: { warn: '160' } },
+      { devicestatus: { advanced: 'true' } }, { devicestatus: { days: 3 } }]) {
       assert.throws(() => config.parse(document([{ id: A, revision: 'a1', settings: {}, extendedSettings }]), source),
         /explicit evaluator/, 'EXT_UNKNOWN_REFUSED ' + JSON.stringify(extendedSettings).slice(0, 60));
     }
@@ -128,7 +150,9 @@ describe('tenant plugin extended settings (BF-232)', function () {
     assert.deepEqual(changed.env.extendedSettings, { timeago: { enableAlerts: true } });
     const local = await presentation.forRequest({ reader: { read: async () => ({ effective: {} }) }, tenant: A,
       env: parsed.tenants.get(A).env, request: { method: 'GET', path: '/status.json' }, domains: [] });
-    assert.deepEqual(local.settings.filteredSettings(local.extendedSettings), { timeago: { enableAlerts: true } },
+    assert.deepEqual(local.settings.filteredSettings(local.extendedSettings),
+      { devicestatus: { advanced: true, days: 1 }, timeago: { enableAlerts: true } },
       'the per-request display environment shows the operator setting');
+    assert.deepEqual(local.extendedSettings, { timeago: { enableAlerts: true } }, 'the reported default is not copied into the environment');
   });
 });

@@ -15,7 +15,7 @@ const admissionFactory = require('../lib/server/realtime/admission');
 const ipc = require('../lib/server/internal-api/transport');
 const A = '11111111-1111-4111-8111-111111111111', B = '22222222-2222-4222-8222-222222222222';
 const deferred = () => { let resolve; const promise = new Promise(done => { resolve = done; }); return { promise, resolve }; };
-const current = tenant => ({ tenant, identity: 'same-effective-config', env: require('../lib/server/tenant-app/environment')({ settings: { enable: ['bgnow'] } }) });
+const current = (tenant, extendedSettings) => ({ tenant, identity: 'same-effective-config', env: require('../lib/server/tenant-app/environment')({ settings: { enable: ['bgnow'] }, extendedSettings }) });
 class Socket extends EventEmitter {
   constructor (host) { super(); this.request = { headers: { host }, rawHeaders: ['Host', host], socket: {} }; this.sent = []; this.rooms = new Set(['self']); this.id = 'self'; }
   emit (event, value) { this.sent.push({ event, value }); return true; }
@@ -29,7 +29,7 @@ async function fixture () {
   const lookup = host => host === 'a.test' ? A : host === 'b.test' ? B : null;
   const admission = { resolve: async req => { const t = lookup(req.headers.host); if (!t) throw new Error('UNKNOWN'); return t; } };
   let runtime;
-  const readCurrent = async tenant => state.config ? current(tenant) : null;
+  const readCurrent = async tenant => state.config ? current(tenant, state.extendedSettings?.[tenant]) : null;
   const api = {
     async executeSocketMutation (body) {
       if (state.unavailable) throw new Error('UNAVAILABLE');
@@ -200,6 +200,22 @@ describe('explicit realtime preview source contracts', function () {
     require('../lib/client/receiveddata')(acquired.frame, browser, { extendedSettings: {} });
     assert.deepEqual(browser.sgvs, [], 'RT_ACTUAL_BROWSER_ABSENCE no SGV is retained by actual browser merge');
     assert.equal(acquired.frame.delta, false, 'RT_ACTUAL_FULL_RESET source acquisition sets a full snapshot');
+  });
+  // Maintainer decision 2026-11-10: the realtime status frame reports devicestatus
+  // as a single site and the tenant status route do. Display parity only: the
+  // frames stay full (RT_ACTUAL_FULL_RESET above), so the browser state does not depend on it.
+  it('reports the single-site devicestatus defaults and the operator override in the realtime status frame', async function () {
+    const f = await fixture();
+    try {
+      f.state.extendedSettings = { [B]: { devicestatus: { advanced: false, days: 2 } } };
+      const a = await f.socket(); await a.receive('authorize', { secret: 'synthetic', status: true });
+      const frame = a.sent.find(row => row.event === 'dataUpdate' && row.value.status).value;
+      assert.deepEqual(frame.status.extendedSettings, { devicestatus: { advanced: true, days: 1 } }, 'RT_DEVICESTATUS_DEFAULT');
+      assert.equal(frame.delta, false, 'RT_FULL_RESET the frame the default describes is a full frame');
+      const b = await f.socket('b.test'); await b.receive('authorize', { secret: 'synthetic', status: true });
+      assert.deepEqual(b.sent.find(row => row.event === 'dataUpdate' && row.value.status).value.status.extendedSettings,
+        { devicestatus: { advanced: false, days: 2 } }, 'RT_DEVICESTATUS_OVERRIDE the operator value for tenant B only');
+    } finally { await f.close(); }
   });
   it('uses the explicit recovery backstop with no wake and contains a failed tenant', async function () {
     const f = await fixture();
