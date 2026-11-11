@@ -148,7 +148,8 @@ ownership identity: startup refuses a superuser, `BYPASSRLS`, `CREATEROLE`,
 `CREATEDB` or replication identity, and any table privilege other than the table
 above. The composed operator acts only for the listed tenants
 (`tenantSetAuthority`). The deployment plan's identity is
-`<prefix>_ownership_operator` in `deploy/multitenant/config.js`.
+`<prefix>_ownership_operator` in `deploy/multitenant/config.js` (the test
+fixture; nightscout-deploy adds it through its ownership-operations overlay).
 
 The admin role is not a lifecycle operation-cohort participant: serve refuses it
 together with `MULTITENANT_OPERATION_CONFIG`. A restore proceeds while it is
