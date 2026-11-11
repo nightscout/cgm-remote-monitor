@@ -251,6 +251,7 @@ optInSuite(process.env.NS_M5_CURRENT_STATE_PROOF_TEST === '1' && !!process.env.N
     async function seed (tenant = lab.A, id = 'preview-reading', sgv = 111) {
       return lab.writeCanonical({ tenant, planned: { op: 'create', docs: [runtimeReading(id, sgv, 2)] } });
     }
+    const cyclesOf = health => health.tenants.find(row => row.tenant === lab.A).cycles;
     async function start (config = lab.configure()) {
       const worker = await lab.worker(config);
       lab.tracePreview('preview-startup', { startup: worker.startup, physical: await lab.previewPhysical(), logs: worker.logs() });
@@ -301,7 +302,10 @@ optInSuite(process.env.NS_M5_CURRENT_STATE_PROOF_TEST === '1' && !!process.env.N
         { _id: 'quiet-activity', created_at: new Date().toISOString(), steps: 2 }
       ] } });
       const afterWrites = await worker.call('last');
-      await lab.wait(async () => (await worker.call('last')).outputRevision >= afterWrites.outputRevision + 3);
+      // The output revision changes only with content (decision
+      // evaluator-revision-on-content-change); count evaluator cycles instead.
+      const cyclesAfterWrites = cyclesOf(await worker.call('health'));
+      await lab.wait(async () => cyclesOf(await worker.call('health')) >= cyclesAfterWrites + 3);
       const observed = lab.tracePreview('preview-backstop', { first, afterWrites, last: await worker.call('last'),
         physical: await lab.previewPhysical(), removed, activity });
       committed(removed); committed(activity);
@@ -315,13 +319,17 @@ optInSuite(process.env.NS_M5_CURRENT_STATE_PROOF_TEST === '1' && !!process.env.N
     it('uses retained input for time-only ticks until explicit acquisition', async function () {
       await seed(); const worker = await start(), first = await worker.call('last');
       const written = await lab.writeCanonical({ planned: { op: 'create', docs: [runtimeReading('new-physical', 222, 1)] } });
+      const cyclesBefore = cyclesOf(await worker.call('health'));
       const before = await lab.previewPhysical(), tick = await worker.call('tick'), after = await lab.previewPhysical();
       lab.tracePreview('preview-retained-time', { first, written, before, tick, after });
       committed(written); assert.equal(before.A.tables.entries.length, 2);
       assert.equal(value(tick), 111, 'M5_EVAL_TIME_RETAINED new physical row cannot leak through retained timer');
       assert.deepEqual(after.A.checkpoint, before.A.checkpoint, 'M5_EVAL_TIME_RETAINED no input checkpoint/projection advance');
-      assert.equal(tick.inputCheckpoint, first.inputCheckpoint); assert.equal(tick.trigger, 'time-only');
-      assert.ok(tick.outputRevision > first.outputRevision);
+      assert.equal(tick.inputCheckpoint, first.inputCheckpoint);
+      // A time-only cycle ran on the retained input; its content is identical,
+      // so it keeps the acquisition's output and revision.
+      assert.ok(cyclesOf(await worker.call('health')) > cyclesBefore, 'M5_EVAL_TIME_RETAINED time-only cycle ran');
+      assert.equal(tick.outputRevision, first.outputRevision, 'identical time-only content keeps its revision');
       const acquired = await worker.call('acquire'); lab.tracePreview('preview-time-acquired', { acquired, physical: await lab.previewPhysical() });
       // Both one-minute-apart readings enter the same shipping five-minute
       // bucket. Acquisition changes the mean; `last` remains the newest value.
