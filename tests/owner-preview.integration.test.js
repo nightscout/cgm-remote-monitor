@@ -165,6 +165,17 @@ optInSuite(process.env.NS_OWNER_PREVIEW_TEST === '1' && !!process.env.NS_TEST_PO
       const audit = (await admin.query(`SELECT principal,consumer FROM ${t('tenant_subject_admin_audit')}`)).rows;
       assert.deepEqual(audit, [{ principal: MANAGER, consumer: 'owner-preview' }]);
     });
+    it('PROVISIONING_PRIVATE: /v1/tenants (one, batch, read, description) on the tenant-admin listener answers exactly as an unknown route', async function () {
+      // decision operator-rest-api: provisioning is reachable only on the admin listener.
+      const unknownPost = await http(workers[0], token(), { id: A, hosts: ['leak.example.test'] }, 'one.example.test', 'POST', '/v1/no-such-route');
+      const unknownGet = await http(workers[0], token(), undefined, 'one.example.test', 'GET', '/v1/no-such-route');
+      for (const [method, resource, body] of [['POST', '/v1/tenants', { id: A, hosts: ['leak.example.test'] }], ['POST', '/v1/tenants/batch', { tenants: [{ id: A, hosts: ['leak.example.test'] }] }],
+        ['GET', '/v1/tenants/' + A, undefined], ['GET', '/v1/openapi.json', undefined]]) {
+        const answer = await http(workers[0], token(), body, 'one.example.test', method, resource);
+        const expected = method === 'POST' ? unknownPost : unknownGet;
+        assert.deepEqual([answer.status, answer.body], [expected.status, expected.body], method + ' ' + resource);
+      }
+    });
     it('refuses root/data/wrong-purpose/foreign/unknown-key credentials without persistent effects', async function () {
       for (const credential of ['synthetic-root', 'synthetic-legacy-subject', token(A, { purpose: 'data' }), token(B), token(A, {}, { kid: 'unknown' })]) {
         await refused(workers[0], credential);

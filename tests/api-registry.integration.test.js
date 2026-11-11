@@ -27,6 +27,13 @@ optInSuite(enabled(), 'disposable NS_TEST_POSTGRES_ADMIN_URI and NS_VAULT_DOCKER
   let lab, dir, worker, provisioning, prior, entries, check, settings;
   const env = {};
   // fetch cannot set Host; node:http sends it as given.
+  const exchange = (host, method, route, body) => new Promise((resolve, reject) => {
+    const bytes = body === undefined ? null : Buffer.from(JSON.stringify(body));
+    const req = require('node:http').request({ hostname: '127.0.0.1', port: worker.port, path: route, method, agent: false, timeout: 5000,
+      headers: { host, ...(bytes ? { 'content-type': 'application/json', 'content-length': bytes.length } : {}) } },
+    res => { const chunks = []; res.on('data', chunk => chunks.push(chunk)); res.on('end', () => resolve({ status: res.statusCode, type: res.headers['content-type'], body: Buffer.concat(chunks).toString('utf8') })); });
+    req.on('timeout', () => req.destroy(new Error('timeout'))); req.on('error', reject); req.end(bytes || undefined);
+  });
   const status = host => new Promise((resolve, reject) => {
     const req = require('node:http').request({ hostname: '127.0.0.1', port: worker.port, path: '/api/v3/entries', method: 'GET', headers: { host }, agent: false, timeout: 5000 },
       res => { res.resume(); res.on('end', () => resolve(res.statusCode)); });
@@ -93,6 +100,24 @@ optInSuite(enabled(), 'disposable NS_TEST_POSTGRES_ADMIN_URI and NS_VAULT_DOCKER
     }
     if (dir) fs.rmSync(dir, { recursive: true, force: true });
     scope.setTenancyMode(prior);
+  });
+
+  it('AR_PROVISIONING_PRIVATE: /v1/tenants (one, batch, read, description) on the public api listener answers exactly as an unknown route', async function () {
+    const id = crypto.randomUUID();
+    await provisioning.provision({ id, hosts: ['private-check.example.test'] });
+    for (const host of ['private-check.example.test', 'nobody.example.test']) {
+      const unknownPost = await exchange(host, 'POST', '/v1/no-such-route', { id: crypto.randomUUID(), hosts: ['x.example.test'] });
+      const unknownGet = await exchange(host, 'GET', '/v1/no-such-route');
+      for (const [method, route, body] of [['POST', '/v1/tenants', { id: crypto.randomUUID(), hosts: ['leak.example.test'] }],
+        ['POST', '/v1/tenants/batch', { tenants: [{ id: crypto.randomUUID(), hosts: ['leak2.example.test'] }] }], ['GET', '/v1/tenants/' + id], ['GET', '/v1/openapi.json']]) {
+        const answer = await exchange(host, method, route, body);
+        const expected = method === 'POST' ? unknownPost : unknownGet;
+        assert.deepEqual({ status: answer.status, body: answer.body }, { status: expected.status, body: expected.body }, host + ' ' + method + ' ' + route);
+      }
+    }
+    assert.equal(await provisioning.get(crypto.randomUUID()), null);
+    const leaked = (await lab.admin.query(`SELECT count(*)::int AS n FROM "${lab.namespaces.registry}".tenant_registry_hosts WHERE host LIKE 'leak%'`)).rows[0].n;
+    assert.equal(leaked, 0, 'nothing provisioned through the public listener');
   });
 
   it('AR_UNKNOWN_HOST: a host the registry does not hold is refused as before (404)', async function () {
