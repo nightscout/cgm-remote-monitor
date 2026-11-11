@@ -73,6 +73,29 @@ optInSuite(process.env.NS_TENANT_PROJECTION_EVALUATOR_TEST === '1' && !!process.
     beforeEach(() => lab.reset());
     after(() => lab.close());
 
+    // Candidate E: an acquisition keeps its retained rows only for the same
+    // change signature. A hard delete leaves the clock floor (the checkpoint)
+    // where it was; only the signature's row count and digest move.
+    it('EV_COST_E_SAME_CHECKPOINT an acquisition after a hard delete at the same checkpoint sees the delete', async function () {
+      const reading = (id, value, minutes) => ({ _id: id, type: 'sgv', sgv: value, date: at - minutes * 60000,
+        dateString: new Date(at - minutes * 60000).toISOString(), direction: 'Flat' });
+      await lab.persistDomains({ entries: [reading('older', 111, 7), reading('newer', 222, 2)] });
+      await lab.provisionView();
+      await lab.at(at, async () => {
+        const v = lab.evaluator();
+        const first = await v.evaluate({ at });
+        assert.equal(first.properties.bgnow.last, 222);
+        const unchanged = await v.evaluate({ at: at + 1000 });
+        assert.deepEqual(unchanged.signature, first.signature);
+        assert.equal(unchanged.properties.bgnow.last, 222);
+        await lab.admin.query(`DELETE FROM "${lab.namespaces.entries}".entries WHERE tenant_id=$1 AND doc->>'_id'='newer'`, [lab.A]);
+        const after = await v.evaluate({ at: at + 2000 });
+        assert.equal(after.checkpoint, first.checkpoint, 'the delete did not move the checkpoint');
+        assert.notDeepEqual(after.signature, first.signature, 'the delete moved the signature');
+        assert.equal(after.properties.bgnow.last, 111, 'the evaluation sees the delete');
+      });
+    });
+
     for (const name of ['steady', 'urgentLow', 'recentTreatment', 'loopFailing', 'crowdedStatus', 'aapsLoopStopped', 'openapsEnactedOnly', 'pumpRepost'].filter(n => SCENARIOS[n])) {
       it('EV_COST_MUTATION_GUARD ' + name + ': a plugin that changes everything changes no later cycle', async function () {
         const records = SCENARIOS[name](at);
