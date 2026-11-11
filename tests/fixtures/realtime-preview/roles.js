@@ -119,8 +119,6 @@ async function start (input) {
     if (input.beforeRealtime !== undefined) {
       assert.equal(typeof input.beforeRealtime, 'function', 'trusted realtime setup hook required');
       const document = JSON.parse(fs.readFileSync(realtimeEnvironment.MULTITENANT_REALTIME_CONFIG, 'utf8'));
-      assert(typeof document.apiSocketPathEnv === 'string' && /^[A-Z][A-Z0-9_]{0,127}$/.test(document.apiSocketPathEnv),
-        'explicit configured API socket reference required');
       const relay = await input.beforeRealtime({ api, env: Object.freeze({ ...realtimeEnvironment }), config });
       assert(relay && typeof relay === 'object' && Object.keys(relay).length === 2 &&
         typeof relay.close === 'function' && typeof relay.apiSocketPath === 'string', 'owned API authority relay capability required');
@@ -128,7 +126,8 @@ async function start (input) {
       children.push(relay);
       const validated = require('../../../lib/server/internal-api/transport').options({ socketPath: relay.apiSocketPath,
         maxBytes: document.maxMessageBytes, timeoutMs: document.operationTimeoutMs });
-      realtimeEnvironment[document.apiSocketPathEnv] = validated.socketPath;
+      // The api peer address (serve.internal of the api process) is the relay.
+      realtimeEnvironment.NS_API_INTERNAL_SOCKET = validated.socketPath;
     }
     const realtime = await startRole({ ...input, role: 'realtime', env: realtimeEnvironment, timeoutMs: config.timeoutMs }); children.push(realtime);
     const ui = config.uiFixture ? await require('./ui')({ sourceDir: input.sourceDir, ...config.uiFixture }) : undefined;
@@ -140,8 +139,8 @@ async function start (input) {
         const env = roleEnv('evaluator');
         if (alarmRoutePath) {
           const document = JSON.parse(fs.readFileSync(env.MULTITENANT_EVALUATOR_CONFIG, 'utf8'));
-          assert(document.consumers?.realtime?.route?.socketPathEnv, 'actual joined realtime consumer route required');
-          env[document.consumers.realtime.route.socketPathEnv] = alarmRoutePath;
+          assert(document.consumers?.realtime?.route, 'actual joined realtime consumer route required');
+          env.NS_REALTIME_INTERNAL_SOCKET = alarmRoutePath;
         }
         const evaluator = await startRole({ ...input, role: 'evaluator', env, timeoutMs: config.timeoutMs }); children.push(evaluator); return evaluator;
       }

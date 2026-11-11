@@ -1,42 +1,51 @@
 #!/usr/bin/env bash
 # Separated-process composed private listener instrument over a Compose network.
 #
-#   tests/native/internal-api-compose/run.sh --out <report-dir> [--control blanket-window]
+#   tests/native/internal-api-compose/run.sh --out <report-dir> [--api-shutdown-ms N] [--control blanket-window|early-drop]
 #
 # Starts api/realtime/evaluator/tenant-admin component processes on an internal
 # Compose network (HTTP by service DNS name; realtime over a Unix socket in a
 # shared 0700 bind mount), runs the in-network driver scenario, then the drain
-# step (hold one API response, SIGTERM the API container, observe the wait,
-# release). Always removes the project's containers and network on exit.
-# `--control blanket-window` runs the same scenario against a scratch copy of
-# the source whose transport applies a listener-wide window (expected red).
+# step (hold one API response for 1.5 s, SIGTERM the API container, observe
+# the wait, release). Each role process serves its contracts on one
+# serve.internal (NS_SERVE_INTERNAL_*), peers by NS_<ROLE>_INTERNAL_*.
+# --api-shutdown-ms sets the API's NS_SERVE_INTERNAL_SHUTDOWN_TIMEOUT_MS
+# (default 5000): above the hold the held caller must receive its response;
+# below it the caller must see SOCKET_IPC_UNAVAILABLE no earlier than the
+# deadline while the handler still finishes. Always removes the project's
+# containers and network on exit. Controls run against a scratch copy of the
+# source: `blanket-window` (listener-wide window, expected red in the
+# scenario) and `early-drop` (close() destroys connections at shutdown start,
+# expected red in the drain).
 set -euo pipefail
 HERE=$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)
 SOURCE=$(cd "$HERE/../../.." && pwd)
-OUT="" CONTROL=""
+OUT="" CONTROL="" API_SHUTDOWN_MS=5000 HOLD_MS=1500
 while [ $# -gt 0 ]; do
   case "$1" in
     --out) OUT=$2; shift 2 ;;
     --control) CONTROL=$2; shift 2 ;;
+    --api-shutdown-ms) API_SHUTDOWN_MS=$2; shift 2 ;;
     *) echo "unknown argument $1" >&2; exit 2 ;;
   esac
 done
-[ -n "$OUT" ] || { echo "usage: run.sh --out <dir> [--control blanket-window]" >&2; exit 2; }
+[ -n "$OUT" ] || { echo "usage: run.sh --out <dir> [--api-shutdown-ms N] [--control blanket-window|early-drop]" >&2; exit 2; }
 mkdir -p "$OUT"; OUT=$(cd "$OUT" && pwd)
 STAMP=$(date -u +%Y%m%dT%H%M%SZ)
 PROJECT="ns-lc-${STAMP,,}-$$"
 STATE=$(mktemp -d "${TMPDIR:-/tmp}/ns-lc-XXXXXXXX")
 mkdir -m 700 "$STATE/state" "$STATE/shared"
 log() { printf '%s %s\n' "$(date -u +%FT%TZ)" "$*" | tee -a "$OUT/commands.log" >&2; }
-if [ "$CONTROL" = blanket-window ]; then
+if [ "$CONTROL" = blanket-window ] || [ "$CONTROL" = early-drop ]; then
   mkdir "$STATE/src"
   (cd "$SOURCE" && git ls-files -z --cached --others --exclude-standard | tar --null -T - -cf - ) | tar -C "$STATE/src" -xf -
   ln -s "$SOURCE/node_modules" "$STATE/src/node_modules"
-  node "$HERE/blanket-control.cjs" "$STATE/src/lib/server/internal-api/transport.js"
+  case "$CONTROL" in blanket-window) MUTANT=blanket-control.cjs ;; early-drop) MUTANT=early-drop-control.cjs ;; esac
+  node "$HERE/$MUTANT" "$STATE/src/lib/server/internal-api/transport.js"
   RUN_SOURCE="$STATE/src"
 elif [ -n "$CONTROL" ]; then echo "unknown control $CONTROL" >&2; exit 2
 else RUN_SOURCE="$SOURCE"; fi
-export NS_LC_SOURCE="$RUN_SOURCE" NS_LC_STATE="$STATE" NS_LC_UID=$(id -u) NS_LC_GID=$(id -g)
+export NS_LC_SOURCE="$RUN_SOURCE" NS_LC_STATE="$STATE" NS_LC_UID=$(id -u) NS_LC_GID=$(id -g) NS_LC_API_SHUTDOWN_MS="$API_SHUTDOWN_MS"
 COMPOSE=(docker compose -p "$PROJECT" -f "$HERE/compose.yaml")
 cleanup() {
   code=$?
@@ -50,7 +59,7 @@ cleanup() {
   log "exit $code"; exit "$code"
 }
 trap cleanup EXIT INT TERM
-log "project=$PROJECT source=$RUN_SOURCE control=${CONTROL:-none} head=$(git -C "$SOURCE" rev-parse HEAD) dirty=$(git -C "$SOURCE" status --porcelain | wc -l)"
+log "project=$PROJECT source=$RUN_SOURCE control=${CONTROL:-none} api-shutdown-ms=$API_SHUTDOWN_MS head=$(git -C "$SOURCE" rev-parse HEAD) dirty=$(git -C "$SOURCE" status --porcelain | wc -l)"
 log "+ ${COMPOSE[*]} up -d api realtime evaluator tenant-admin"
 "${COMPOSE[@]}" up -d api realtime evaluator tenant-admin >>"$OUT/compose-up.log" 2>&1
 "${COMPOSE[@]}" ps --format json > "$OUT/compose-ps.json"
@@ -71,7 +80,7 @@ grep -q '"phase":"start"' "$STATE/state/api-calls.jsonl" || { log "held call nev
 API=$("${COMPOSE[@]}" ps -q api)
 log "+ docker kill --signal SIGTERM api ($API)"
 docker kill --signal SIGTERM "$API" >/dev/null
-sleep 1.5
+sleep "$(awk "BEGIN{print $HOLD_MS/1000}")"
 RUNNING_DURING_HOLD=$(docker inspect -f '{{.State.Running}}' "$API")
 DRAINED_DURING_HOLD=$(docker logs "$API" 2>&1 | grep -c WINDOW_DRAINED || true)
 log "api running during hold after SIGTERM: $RUNNING_DURING_HOLD; WINDOW_DRAINED lines: $DRAINED_DURING_HOLD"
@@ -86,14 +95,18 @@ const fs=require("fs"),s=process.argv[1];
 const calls=fs.readFileSync(s+"/api-calls.jsonl","utf8").trim().split("\n").map(JSON.parse);
 const w=JSON.parse(fs.readFileSync(s+"/api-window.json","utf8"));
 const client=JSON.parse(fs.readFileSync(s+"/results-drain-client.json","utf8"));
-const r={runningDuringHold:process.argv[2]==="true",drainedLinesDuringHold:Number(process.argv[3]),apiExit:Number(process.argv[4]),
+const deadline=Number(process.argv[5]),hold=Number(process.argv[6]);
+const r={apiShutdownMs:deadline,holdMs:hold,runningDuringHold:process.argv[2]==="true",drainedLinesDuringHold:Number(process.argv[3]),apiExit:Number(process.argv[4]),
   heldCall:calls.map(c=>c.phase),windowOperations:w.operations.length,allFinished:w.operations.every(o=>o.finished),drainedMs:w.drainedMs,client};
+const answered=deadline>hold;r.expected=answered?"response":"SOCKET_IPC_UNAVAILABLE";
 fs.writeFileSync(s+"/results-drain.json",JSON.stringify(r,null,1)+"\n");console.log("DRAIN",JSON.stringify(r));
-// Current transport close() destroys in-flight connections at shutdown start:
-// the held caller sees SOCKET_IPC_UNAVAILABLE (uncertain outcome, no retry)
-// before the server-side handler/window drain completes. Asserted as observed.
-if(!(r.runningDuringHold&&r.drainedLinesDuringHold===0&&r.apiExit===0&&r.heldCall.join()==="start,finish"&&r.allFinished&&
-  r.client.error==="SOCKET_IPC_UNAVAILABLE"&&r.client.elapsedMs<r.drainedMs))process.exit(1);
-' "$STATE/state" "$RUNNING_DURING_HOLD" "$DRAINED_DURING_HOLD" "$API_EXIT" | tee "$OUT/drain.log"
+// Graceful close(): the held call answers when its handler finishes within
+// the deadline; past the deadline it is force-closed (uncertain, no retry),
+// not before. The handler and window drain complete either way.
+const common=r.runningDuringHold&&r.drainedLinesDuringHold===0&&r.apiExit===0&&r.heldCall.join()==="start,finish"&&r.allFinished;
+const outcome=answered?(r.client.result==="admitted"&&!r.client.error&&r.client.elapsedMs>=hold):
+  (r.client.error==="SOCKET_IPC_UNAVAILABLE"&&r.client.elapsedMs>=deadline&&r.client.elapsedMs<r.drainedMs+hold);
+if(!(common&&outcome))process.exit(1);
+' "$STATE/state" "$RUNNING_DURING_HOLD" "$DRAINED_DURING_HOLD" "$API_EXIT" "$API_SHUTDOWN_MS" "$HOLD_MS" | tee "$OUT/drain.log"
 [ "${PIPESTATUS[0]}" -eq 0 ] || { log "drain failed"; exit 1; }
 log "PASS"

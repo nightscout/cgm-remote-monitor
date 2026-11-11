@@ -33,7 +33,10 @@ async function lab (mutate) {
       installOperationWindow:()=>()=>{},cohortBackends:()=>[actors[index]],cohortDatastore:()=>DATA
     },...Object.fromEntries(['preview-api','evaluator-preview','preview-realtime','owner-preview'].map(name=>['./'+name,{boot:async()=>({close:async()=>{},invalidateTenant:async tenant=>invalidated.push([entry.id,tenant])})}]))});
     const cohort=await module.create({window:f.window,names:entry.roles,tenants:[A,B],namespaces:entry.namespaces,participant:entry});
-    await cohort.boot(roles[index],{tenantIds:[A,B],namespaces:{clinical:entry.namespaces[0]}});cohort.complete();await cohort.openControl();locals.set(index,cohort);
+    await cohort.boot(roles[index],{tenantIds:[A,B],namespaces:{clinical:entry.namespaces[0]}});cohort.complete();
+    // serve.internal binds the lifecycle handlers; the recording transport stands in for it.
+    const operations=module.controlOperations(cohort),address=entry.endpoint.socketPath;handlers.set(address,operations);
+    locals.set(index,{async close(){if(handlers.get(address)===operations)handlers.delete(address);await cohort.close();}});
   }
   for(let index=0;index<entries.length;index++)await boot(index);
   const coordinator=load({'../internal-api/transport':ipc,'../internal-api/clients':clients},mutate);
@@ -92,22 +95,27 @@ describe('Separate-process fixed cohort source protocol',function(){
 });
 
 describe('Fixed process configuration v2',function(){
-  it('resolves explicit private endpoint references and refuses missing role coverage/local selection',function(){
+  it('derives participant addresses from serve.internal and peer addresses and refuses missing role coverage/local selection',function(){
     const os=require('node:os'),config=require('../lib/server/serve/operation-cohort-config');
     const dir=fs.mkdtempSync(path.join(os.tmpdir(),'cohort-peer-config-')), file=path.join(dir,'config.json');
     const value={version:2,namespace:'synthetic_window',connectionEnv:'SYNTHETIC_PG',locks:[{tenant:A,key:'17'},{tenant:B,key:'19'}],participantId:'peer_0',
-      participants:roles.map((role,index)=>({id:'peer_'+index,roles:[role],namespaces:['clinical_'+index],socketPathEnv:'SOCKET_'+index,maxMessageBytes:100000,timeoutMs:1000}))};
-    const source={MULTITENANT_OPERATION_CONFIG:file,SYNTHETIC_PG:'postgresql://synthetic:synthetic@127.0.0.1/disposable_test',...Object.fromEntries(roles.map((role,index)=>['SOCKET_'+index,'/synthetic/peer_'+index+'.sock']))};
+      participants:roles.map((role,index)=>({id:'peer_'+index,roles:[role],namespaces:['clinical_'+index],maxMessageBytes:100000,timeoutMs:1000}))};
+    const env=role=>'NS_'+role.toUpperCase().replace('-','_')+'_INTERNAL_';
+    const source={MULTITENANT_OPERATION_CONFIG:file,SYNTHETIC_PG:'postgresql://synthetic:synthetic@127.0.0.1/disposable_test',NS_SERVE_INTERNAL_SOCKET:'/synthetic/api.sock',
+      ...Object.fromEntries(roles.slice(1).map(role=>[env(role)+'SOCKET','/synthetic/'+role+'.sock']))};
     try{
       fs.writeFileSync(file,JSON.stringify(value));const parsed=config.load(source);assert.equal(parsed.participantId,'peer_0');assert.equal(parsed.participants.length,4);assert.equal(manifest.isParticipant(parsed.participants[0]),true);
-      const network=structuredClone(value),networkSource={...source,PRIVATE_BIND:'0.0.0.0'};
-      network.participants.forEach((row,index)=>{delete row.socketPathEnv;row.endpoint={urlEnv:'PRIVATE_'+index,trust:'network',bindHostEnv:'PRIVATE_BIND'};networkSource['PRIVATE_'+index]='http://'+row.id+'.nightscout.svc.cluster.local:1401';});
-      fs.writeFileSync(file,JSON.stringify(network));const http=config.load(networkSource);
-      assert.equal(http.participants[0].endpoint.url,networkSource.PRIVATE_0);assert.equal(http.participants[0].endpoint.bindHost,'0.0.0.0');
-      fs.writeFileSync(file,JSON.stringify(network));assert.throws(()=>config.load({...networkSource,PRIVATE_1:networkSource.PRIVATE_0+'/'}),/invalid explicit/,'equivalent HTTP origins cannot alias participant endpoints');
-      const mixed=structuredClone(network);mixed.participants[0].socketPathEnv='SOCKET_0';fs.writeFileSync(file,JSON.stringify(mixed));assert.throws(()=>config.load(networkSource),/invalid explicit/);
-      const implicit=structuredClone(network);delete implicit.participants[0].endpoint.trust;fs.writeFileSync(file,JSON.stringify(implicit));assert.throws(()=>config.load(networkSource),/invalid explicit/);
-      for(const change of [v=>{v.participantId='absent';},v=>{v.participants.pop();},v=>{v.participants[0].socketPathEnv='ABSENT';},v=>{v.participants[0].timeoutMs=0;}]){
+      assert.deepEqual(parsed.participants.map(row=>row.endpoint.socketPath),roles.map(role=>'/synthetic/'+role+'.sock'),'own serve.internal for peer_0, peer addresses for the rest');
+      const networkSource={MULTITENANT_OPERATION_CONFIG:file,SYNTHETIC_PG:source.SYNTHETIC_PG,NS_SERVE_INTERNAL_HOST:'0.0.0.0',NS_SERVE_INTERNAL_PORT:'1401',
+        ...Object.fromEntries(roles.slice(1).map(role=>[env(role)+'URL','http://'+role+'.nightscout.svc.cluster.local:1401']))};
+      const http=config.load(networkSource);
+      assert.equal(http.participants[0].endpoint.url,'http://127.0.0.1:1401/','own wildcard listener is dialled on loopback');assert.equal(http.participants[1].endpoint.url,'http://evaluator.nightscout.svc.cluster.local:1401/');
+      assert.throws(()=>config.load({...networkSource,NS_REALTIME_INTERNAL_URL:networkSource.NS_EVALUATOR_INTERNAL_URL+'/'}),/invalid explicit/,'equivalent HTTP origins cannot alias participant endpoints');
+      assert.throws(()=>config.load({...source,NS_API_INTERNAL_SOCKET:'/synthetic/elsewhere.sock'}),/invalid explicit/,'a peer address cannot move a co-resident role');
+      for(const retired of [{socketPathEnv:'SOCKET_0'},{endpoint:{urlEnv:'PRIVATE_0',trust:'network'}}]){
+        const old=structuredClone(value);Object.assign(old.participants[0],retired);fs.writeFileSync(file,JSON.stringify(old));assert.throws(()=>config.load(source),/invalid explicit/,'per-contract endpoint keys are retired');
+      }
+      for(const change of [v=>{v.participantId='absent';},v=>{v.participants.pop();},v=>{v.participants[0].roles=['api','unknown'];},v=>{v.participants[0].timeoutMs=0;}]){
         const changed=structuredClone(value);change(changed);fs.writeFileSync(file,JSON.stringify(changed));assert.throws(()=>config.load(source),/invalid explicit/);
       }
     }finally{fs.rmSync(dir,{recursive:true,force:true});}

@@ -28,7 +28,7 @@ module.exports = async function authorityEpoch (input) {
     config = selected; rtDocument = JSON.parse(fs.readFileSync(env.MULTITENANT_REALTIME_CONFIG, 'utf8'));
     const ipc = require('../../../lib/server/internal-api/transport');
     const service = require('../../../lib/server/internal-api/contracts').socketAuthority;
-    actualApi = require('../../../lib/server/internal-api/clients').socketAuthority({ socketPath: env[rtDocument.apiSocketPathEnv], maxBytes: rtDocument.maxMessageBytes, timeoutMs: rtDocument.operationTimeoutMs });
+    actualApi = require('../../../lib/server/internal-api/clients').socketAuthority({ socketPath: env.NS_API_INTERNAL_SOCKET, maxBytes: rtDocument.maxMessageBytes, timeoutMs: rtDocument.operationTimeoutMs });
     operatorFile = env[rtDocument.admissionFileEnv]; operatorStat = fs.lstatSync(operatorFile);
     assert(operatorStat.isFile() && !operatorStat.isSymbolicLink() && operatorStat.uid === process.getuid(), 'owned operator fixture file required');
     operatorOriginal = fs.readFileSync(operatorFile);

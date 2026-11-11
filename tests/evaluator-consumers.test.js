@@ -16,12 +16,12 @@ function document () {
 function selected () {
   return { realtime: { outbox: { connectionEnv: 'OUTBOX_PG', namespace: 'composed_outbox', maxRows: 10, maxBytes: 100000, maxConnections: 2 },
     suppression: { connectionEnv: 'ALARM_PG', namespace: 'composed_alarm', maxRows: 10, maxBytes: 100000, maxConnections: 2 },
-    route: { id: 'realtime-composed', socketPathEnv: 'RT_SOCKET', maxMessageBytes: 20000, operationTimeoutMs: 500 },
+    route: { id: 'realtime-composed', maxMessageBytes: 20000, operationTimeoutMs: 500 },
     maxPayloadBytes: 10000, maxInflight: 2, attemptTimeoutMs: 1000, retryDelayMs: 100, pollIntervalMs: 100, retryIntervalMs: 200 } };
 }
 const source = { EVAL_PG: 'postgres://synthetic-evaluator:synthetic@127.0.0.1/composition_test',
   OUTBOX_PG: 'postgres://synthetic-outbox:synthetic@127.0.0.1:5432/composition_test',
-  ALARM_PG: 'postgresql://synthetic-reader:synthetic@127.0.0.1/composition_test', RT_SOCKET: '/tmp/synthetic-composition/rt.sock' };
+  ALARM_PG: 'postgresql://synthetic-reader:synthetic@127.0.0.1/composition_test', NS_REALTIME_INTERNAL_SOCKET: '/tmp/synthetic-composition/rt.sock' };
 
 describe('explicit evaluator consumer configuration', function () {
   it('is default-off and admits same datastore with different restricted principals rather than equal credential URLs', async function () {
@@ -29,7 +29,7 @@ describe('explicit evaluator consumer configuration', function () {
     assert.equal(await require('../lib/server/serve/evaluator-consumers').prepare({ config: off }), null);
     const d = document(); d.consumers = selected(); const configured = parse.parse(d, source);
     assert.equal(configured.consumers.realtime.outbox.connectionString, source.OUTBOX_PG);
-    assert.equal(configured.consumers.realtime.route.socketPath, source.RT_SOCKET);
+    assert.equal(configured.consumers.realtime.route.socketPath, source.NS_REALTIME_INTERNAL_SOCKET);
   });
   it('refuses unknown routes unsafe namespace/datastore and missing or non-Node-compatible explicit bounds', function () {
     for (const change of [d => { d.consumers.unknown = {}; }, d => { d.consumers.realtime.extra = true; },

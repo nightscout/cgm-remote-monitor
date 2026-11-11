@@ -18,25 +18,41 @@ x-component: &component
     HOME: /tmp
     TZ: UTC
     NS_LC_STATE_DIR: /state
-    API_PRIVATE_URL: http://api:7001
-    EVALUATOR_PRIVATE_URL: http://evaluator:7003
-    ADMIN_PRIVATE_URL: http://tenant-admin:7004
-    REALTIME_PRIVATE_SOCKET: /shared/realtime.sock
-    PRIVATE_BIND: 0.0.0.0
+    # Peer addresses (serve.internal of each role process), shared by all.
+    NS_API_INTERNAL_URL: http://api:7001
+    NS_EVALUATOR_INTERNAL_URL: http://evaluator:7003
+    NS_TENANT_ADMIN_INTERNAL_URL: http://tenant-admin:7004
+    NS_REALTIME_INTERNAL_SOCKET: /shared/realtime.sock
 services:
   api:
     <<: *component
     command: [node, tests/native/internal-api-compose/component.cjs, api]
+    environment:
+      <<: *env
+      NS_SERVE_INTERNAL_HOST: 0.0.0.0
+      NS_SERVE_INTERNAL_PORT: "7001"
+      NS_SERVE_INTERNAL_SHUTDOWN_TIMEOUT_MS: "${NS_LC_API_SHUTDOWN_MS:-5000}"
   realtime:
     <<: *component
     command: [node, tests/native/internal-api-compose/component.cjs, realtime]
+    environment:
+      <<: *env
+      NS_SERVE_INTERNAL_SOCKET: /shared/realtime.sock
   evaluator:
     <<: *component
     command: [node, tests/native/internal-api-compose/component.cjs, evaluator]
     depends_on: [realtime]
+    environment:
+      <<: *env
+      NS_SERVE_INTERNAL_HOST: 0.0.0.0
+      NS_SERVE_INTERNAL_PORT: "7003"
   tenant-admin:
     <<: *component
     command: [node, tests/native/internal-api-compose/component.cjs, tenant-admin]
+    environment:
+      <<: *env
+      NS_SERVE_INTERNAL_HOST: 0.0.0.0
+      NS_SERVE_INTERNAL_PORT: "7004"
   driver:
     <<: *component
     profiles: [driver]

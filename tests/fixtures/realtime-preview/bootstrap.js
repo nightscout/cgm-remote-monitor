@@ -95,20 +95,22 @@ module.exports=async function bootstrap(input) {
     }finally{if(persistence)await persistence.close();scope.setTenancyMode(oldMode);}
     step='configuration';
     const docs=plan.documents({selected,layout:l,publicKeys,paths});
-    const commonEnv={RT_BOOTSTRAP_API_SOCKET:socketPaths.api,RT_BOOTSTRAP_ALARM_SOCKET:socketPaths.alarm,RT_BOOTSTRAP_ADMISSION:paths.admission};
+    // serve.internal: api and realtime each serve one socket; peers name them.
+    const commonEnv={NS_API_INTERNAL_SOCKET:socketPaths.api,NS_REALTIME_INTERNAL_SOCKET:socketPaths.alarm,RT_BOOTSTRAP_ADMISSION:paths.admission};
     const evaluatorEnv={...commonEnv,MULTITENANT_EVALUATOR_CONFIG:paths.evaluator,EVALUATOR_HOSTNAME:'127.0.0.1',EVALUATOR_PORT:'0',
       RT_BOOTSTRAP_EVAL_PG:roleURLs.evaluator,RT_BOOTSTRAP_OUTBOX_PG:roleURLs.outbox,RT_BOOTSTRAP_SUPPRESSION_PG:roleURLs.suppression};
     const roleEnvironments={
-      api:{...commonEnv,MULTITENANT_PREVIEW_CONFIG:paths.api,MULTITENANT_EVALUATOR_CONFIG:paths.evaluator,API_HOSTNAME:'127.0.0.1',API_PORT:'0',
+      api:{...commonEnv,NS_SERVE_INTERNAL_SOCKET:socketPaths.api,MULTITENANT_PREVIEW_CONFIG:paths.api,MULTITENANT_EVALUATOR_CONFIG:paths.evaluator,API_HOSTNAME:'127.0.0.1',API_PORT:'0',
         RT_BOOTSTRAP_API_PG:roleURLs.api,RT_BOOTSTRAP_READINESS_PG:roleURLs.readiness,RT_BOOTSTRAP_ALARM_PG:roleURLs.alarm,
         RT_BOOTSTRAP_VAULT_0:tokens[0],RT_BOOTSTRAP_VAULT_1:tokens[1]},
-      realtime:{...commonEnv,MULTITENANT_REALTIME_CONFIG:paths.realtime,REALTIME_HOSTNAME:'127.0.0.1',REALTIME_PORT:'0',RT_BOOTSTRAP_RT_PG:roleURLs.realtime},
+      realtime:{...commonEnv,NS_SERVE_INTERNAL_SOCKET:socketPaths.alarm,MULTITENANT_REALTIME_CONFIG:paths.realtime,REALTIME_HOSTNAME:'127.0.0.1',REALTIME_PORT:'0',RT_BOOTSTRAP_RT_PG:roleURLs.realtime},
       evaluator:evaluatorEnv};
     for(const [name,document]of Object.entries(docs))if(name!=='paths')fs.writeFileSync(paths[name],JSON.stringify(document),{mode:0o600,flag:'wx'});
     // These are actual product parsers, not a fixture's approximation. API input
     // intentionally lacks ALL evaluator/outbox/suppression worker credentials.
     require('../../../lib/server/serve/evaluator-config').load(evaluatorEnv);
     require('../../../lib/server/realtime/config').load(roleEnvironments.realtime);
+    for(const [role,environment]of Object.entries(roleEnvironments))require('../../../lib/server/internal-api/listener-config').resolve([role],environment);
     require('../../../lib/server/serve/preview-config').load(roleEnvironments.api);
     const configurationBase={version:1,timeoutMs:o.timeoutMs,observationMs:o.observationMs,settleMs:o.settleMs,snoozeMs:o.snoozeMs,
       tenant:plan.A,foreignTenant:plan.B,host:'one.example.test',foreignHost:'two.example.test',browserHost:'one.example.test',

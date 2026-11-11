@@ -72,13 +72,13 @@ module.exports = function consumersLab () {
       transport: envelope => receive({ syntheticTransport: true, tenant }, envelope)
     }).forward({ socket: {}, namespace: '/alarm', event: 'ack', args: [level, group, duration] });
     source = { NS_COMPOSED_EVAL: evaluatorUrl.toString(), NS_COMPOSED_OUTBOX: urls.outbox, NS_COMPOSED_READER: urls.reader,
-      NS_COMPOSED_RT_PATH: path.join(directory, 'rt.sock') };
+      NS_REALTIME_INTERNAL_SOCKET: path.join(directory, 'rt.sock') };
     lab.document.tenants.forEach(tenant => { tenant.settings.enable = ['bgnow', 'delta', 'direction', 'simplealarms']; });
     lab.document.postgres.connectionEnv = 'NS_COMPOSED_EVAL'; lab.document.maxRows = 3; lab.document.pageSize = 1;
     lab.document.consumers = { realtime: {
       outbox: { connectionEnv: 'NS_COMPOSED_OUTBOX', namespace: namespaces.outbox, maxRows: 100, maxBytes: 1048576, maxConnections: 2 },
       suppression: { connectionEnv: 'NS_COMPOSED_READER', namespace: namespaces.alarm, maxRows: 100, maxBytes: 1048576, maxConnections: 2 },
-      route: { id: 'realtime-joined-native', socketPathEnv: 'NS_COMPOSED_RT_PATH', maxMessageBytes: 131072, operationTimeoutMs: 1000 },
+      route: { id: 'realtime-joined-native', maxMessageBytes: 131072, operationTimeoutMs: 1000 },
       maxPayloadBytes: 65536, maxInflight: 2, attemptTimeoutMs: 5000, retryDelayMs: 10, pollIntervalMs: 1000000, retryIntervalMs: 1000000 } };
     schemaReady = true;
   };
@@ -96,7 +96,7 @@ module.exports = function consumersLab () {
   lab.traceConsumer = (phase, value) => { const data = lab.encode({ phase, ...value }); lab.observations.push(data); console.log('M5_CONSUMER_OBSERVATION ' + JSON.stringify(data)); return data; };
   lab.openSink = async () => {
     if (sink) return;
-    sink = await ipc.open({ socketPath: source.NS_COMPOSED_RT_PATH, maxBytes: 131072, timeoutMs: 1000 }, require('../../lib/server/internal-api/contracts').alarmDelivery, token => {
+    sink = await ipc.open({ socketPath: source.NS_REALTIME_INTERNAL_SOCKET, maxBytes: 131072, timeoutMs: 1000 }, require('../../lib/server/internal-api/contracts').alarmDelivery, token => {
       return { async deliverAlarm (request, body) {
         const rows = await lab.requests(body.tenant);
         lab.traceConsumer('sink-before-accept', { id: body.id, tenant: body.tenant, notification: body.notification,

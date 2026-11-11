@@ -7,9 +7,9 @@ const ready = 'postgres://ready:synthetic@127.0.0.1/data_a';
 const serving = 'postgres://data:synthetic@127.0.0.1/data_a';
 describe('realtime alarm datastore binding', function () {
   it('refuses a different writer database and same-role identity without comparing passwords', function () {
-    const value = { socketPathEnv: 'SOCKET', admissionFileEnv: 'ADMISSION', maxTenants: 2, maxMessageBytes: 1000,
+    const value = { admissionFileEnv: 'ADMISSION', maxTenants: 2, maxMessageBytes: 1000,
       operationTimeoutMs: 1000, alarm: { connectionEnv: 'ALARM', namespace: 'alarm_test' } };
-    const source = { SOCKET: '/tmp/owned/api.sock', ADMISSION: '/tmp/admission.json' };
+    const source = { ADMISSION: '/tmp/admission.json' };
     const existing = { namespaces: { entries: 'entries_test' }, connections: [serving, ready] };
     for (const url of ['postgres://alarm:synthetic@127.0.0.1/data_b', 'postgres://alarm:synthetic@other.test/data_a',
       'postgres://alarm:synthetic@127.0.0.1:6543/data_a', 'postgres://%64ata:other@127.0.0.1/data_a', 'postgres://ready:other@127.0.0.1/data_a']) {
@@ -36,7 +36,7 @@ describe('realtime alarm datastore binding', function () {
     try {
       await assert.rejects(require('../lib/server/realtime/private-api').boot({ config: {
         bindings: new Map([[tenant, true]]), readinessConnectionString: ready,
-        socketForwarding: { admissionFile, maxTenants: 2, ipc: { timeoutMs: 1000 },
+        socketForwarding: { admissionFile, maxTenants: 2, maxMessageBytes: 1000, operationTimeoutMs: 1000,
           alarm: { connectionString: 'postgres://alarm:synthetic@127.0.0.1/data_a', namespace: 'alarm_test' } }
       } }), error => error.code === 'MIG_STALE', 'RT_ACTUAL_ALARM_LEDGER stale selected writer must refuse before operational pool');
       assert.ok(queries.some(row => row.user === 'alarm' && row.sql.startsWith('SELECT name, checksum')), 'RT_ACTUAL_ALARM_LEDGER actual selected writer runs catalogue SQL');
