@@ -122,7 +122,8 @@ describe('private tenant restore controller (simulated backend protocol)', funct
     await api.withRestore(A, { artifactDigest: DIGEST }, async () => 'restored');
     assert.equal(m.durable.window.phase, 'active', 'maintenance hold cleared');
     assert.deepEqual(m.durable.activity, { paused: true, suspended: false }, 'ACTIVITY_RESTORE_PRESERVES desired pause survives activation');
-    await timers[0](); await timers[1](); await runtime.acquire(A);
+    // The backstop pass and a time-only trigger (what a due-time timer calls).
+    await timers[0](); await runtime.backstop(); await runtime.tick(A); await runtime.acquire(A);
     assert.deepEqual(work, [], 'ACTIVITY_RESTORE_PRESERVES no evaluator work after activation');
     assert.equal(runtime.health().tenants[0].code, 'EVALUATOR_TENANT_PAUSED');
     await runtime.close(); await api.close();
