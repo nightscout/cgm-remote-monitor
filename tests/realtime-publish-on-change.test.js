@@ -30,7 +30,7 @@ function jwt (exp) {
 async function fixture ({ recoveryIntervalMs = 20, authorizationRecheckMs = 60000, pool, tenants = [A, B], activity, absenceCheckMs, acquireMs = 0 } = {}) {
   const state = { writes: new Map(tenants.map(t => [t, 0])), visible: new Map(tenants.map(t => [t, 0])), revoked: new Set(),
     calls: 0, acquisitions: 0, windows: 0, open: 0, refusedWindows: 0, activity: new Map(tenants.map(t => [t, 'active'])) };
-  const hosts = { 'a.test': A, 'b.test': B };
+  const hosts = { 'a.test': A, 'b.test': B, ...Object.fromEntries(tenants.map((t, i) => ['t' + i + '.test', t])) };
   const admission = { resolve: async req => { const t = hosts[req.headers.host]; if (!t) throw new Error('UNKNOWN'); return t; } };
   let protocol, runtime;
   const configRead = async tenant => ({ tenant, identity: 'same', env });
@@ -41,6 +41,8 @@ async function fixture ({ recoveryIntervalMs = 20, authorizationRecheckMs = 6000
     executeSocketMutation: async () => ({ replyArgs: [{ result: 'success' }] }),
     async authorizeSocket (body) {
       state.calls++;
+      if (state.authFail) throw new Error('SOCKET_IPC_UNAVAILABLE');
+      if (state.authDelayMs) await sleep(state.authDelayMs);
       const credential = Object.values(body.credential)[0];
       if (state.revoked.has(credential)) return { denied: true };
       const exp = protocolFactory.expiryOf(body.credential);
@@ -171,6 +173,36 @@ describe('realtime publish on change (actual protocol, runtime and detector)', f
     } finally { await f.close(); }
   });
 
+  it('RT_RESEND_ONLY_MISSED: a socket held by a failed recheck gets a frame afterwards only if it missed one', async function () {
+    const f = await fixture({ authorizationRecheckMs: 60 });
+    try {
+      const socket = await f.socket();
+      f.state.authFail = true; await sleep(100);
+      f.state.authFail = false; await sleep(150);
+      assert.equal(socket.frames().length, 1, 'RT_RESEND_NONE no frame for an unchanged view after the hold');
+      f.state.authFail = true; await sleep(90); f.write(A); await sleep(60);
+      assert.equal(socket.frames().length, 1, 'held: the write is not sent while authority is unknown');
+      f.state.authFail = false;
+      assert.ok(await until(() => socket.frames().length >= 2, 1000), 'RT_RESEND_MISSED the missed write arrives once authority answers');
+      await sleep(150);
+      assert.equal(socket.frames().length, 2, 'RT_RESEND_ONCE the missed write arrives exactly once');
+      assert.equal(socket.frames()[1].value.sgvs.length, 1);
+      assert.notEqual(socket.disconnected, true);
+    } finally { await f.close(); }
+  });
+  it('RT_RECHECK_BOUNDED: a sweep authorizes a bounded number of tenants at a time', async function () {
+    const many = Array.from({ length: 40 }, (_, i) => '55555555-5555-4555-8555-' + String(i).padStart(12, '0'));
+    const f = await fixture({ tenants: many, authorizationRecheckMs: 100 });
+    try {
+      for (let i = 0; i < many.length; i++) await f.socket('t' + i + '.test');
+      const before = f.protocol.stats().authorizeInFlightMax;
+      f.state.authDelayMs = 40;
+      await sleep(400);
+      const max = f.protocol.stats().authorizeInFlightMax;
+      assert.ok(f.state.calls >= 80, 'two sweeps ran: ' + f.state.calls);
+      assert.ok(max <= Math.max(before, 8), 'RT_RECHECK_BOUNDED ' + max + ' authorizations in flight for 40 tenants');
+    } finally { await f.close(); }
+  });
   it('RT_RECHECK_DEDUP: one api call per distinct credential per recheck, not per socket', async function () {
     const f = await fixture({ authorizationRecheckMs: 100 });
     try {
