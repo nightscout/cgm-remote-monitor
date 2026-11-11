@@ -74,7 +74,8 @@ describe('multitenant role table fields (D23 entry condition 4)', function () {
     assert.equal(ROLES.vcpool.listener, false);
     assert.equal(ROLES.vcpool.feed, false);
     assert.equal(ROLES.vcpool.egress, true);
-    assert.equal(ROLES.vcpool.storage, 'write');
+    // vcpool writes through the api role's HTTP API, never its own write step (D23).
+    assert.equal(ROLES.vcpool.storage, 'read');
   });
 
   it('admin is on the internal plane and tenant-admin on the consumer plane, both writers', function () {
@@ -101,8 +102,8 @@ describe('describeComposition', function () {
 
   it('reads the whole table from the fields', function () {
     assert.deepEqual(describeComposition(NAMES), {
-      writers: ['api', 'vcpool', 'tenant-admin', 'admin']
-      , readers: ['evaluator', 'realtime']
+      writers: ['api', 'tenant-admin', 'admin']
+      , readers: ['evaluator', 'realtime', 'vcpool']
       , listeners: ['api', 'realtime', 'tenant-admin', 'admin']
       , feedConsumers: ['evaluator', 'realtime']
       , egress: ['evaluator', 'vcpool']
@@ -145,9 +146,9 @@ describe('describeComposition', function () {
 
 describe('parseRoles is unchanged by the typed fields', function () {
 
-  it('accepts explicitly configured api, headless tenant-admin and admin operator previews', function () {
+  it('accepts explicitly configured api, headless tenant-admin, admin operator and vcpool connector previews', function () {
     assert.deepEqual(serve.parseRoles(['api']), ['api']);
-    assert.deepEqual(NAMES.filter(name => ROLES[name].multitenant === true), ['api', 'evaluator', 'realtime', 'tenant-admin', 'admin']);
+    assert.deepEqual(NAMES.filter(name => ROLES[name].multitenant === true), ['api', 'evaluator', 'realtime', 'vcpool', 'tenant-admin', 'admin']);
   });
 
   it('recognizes explicit realtime without changing its reader-only role contract', function () {

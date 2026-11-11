@@ -110,6 +110,10 @@ describe('serve.internal: one private listener per role process', function () {
     const participant = { roles: ['evaluator'], endpoint: { socketPath: '/srv/e.sock', maxBytes: 1000, timeoutMs: 1000 } };
     assert.deepEqual(internalListener.plan(['evaluator'], { participant }).map(row => row.id), ['lifecycle-participant']);
     assert.deepEqual(internalListener.plan(['evaluator'], {}), []);
+    // The evaluator's inspection read follows its own parsed settings (evaluator-config inspectionFor).
+    assert.deepEqual(internalListener.plan(['evaluator'], { evaluatorPreview: { inspection: true } }).map(row => row.id), ['evaluator-inspection']);
+    assert.deepEqual(internalListener.plan(['evaluator'], { evaluatorPreview: { inspection: false } }), []);
+    assert.deepEqual(internalListener.plan(['api'], { evaluatorPreview: { inspection: true } }), [], 'only an evaluator process serves it');
     assert.deepEqual(internalListener.plan(['api'], { preview: {} }), [], 'socket-authority only with socket forwarding');
     assert.deepEqual(internalListener.plan(['evaluator'], { preview: { socketForwarding: BOUNDS }, realtimePreview: BOUNDS }), [],
       'another role\'s settings cannot place its contract on this process');

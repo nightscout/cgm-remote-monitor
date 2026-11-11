@@ -67,6 +67,12 @@ const EFFECTS = {
     for (const row of table.rows) row.insertion_ordinal = String(table.next++);
   },
   '0001_tenant_write_clock': schema => create(schema, 'tenant_write_clock', 'tenant_id uuid, last_stamp bigint'),
+  // Decision write-clock-complete: hard deletes also advance last_delete_stamp.
+  '0002_tenant_write_clock_delete_stamp': schema => {
+    const table = schema.tables.get('tenant_write_clock');
+    table.columns.push(column('last_delete_stamp bigint'));
+    for (const row of table.rows) row.last_delete_stamp = '0';
+  },
   '0001_access_state': schema => {
     create(schema, 'access_tenants', 'tenant_id uuid, active boolean');
     create(schema, 'access_credentials', 'tenant_id uuid, credential_id text, subject_id text, generation integer, enabled boolean');
@@ -599,13 +605,13 @@ describe('tenant operations: deployment backup, restore, upgrade and rollback', 
       const source = await scenario();
       const artifact = await operations.backup(source.connection, options());
       const target = await scenario({ namespaces: FRESH, populate: false });
-      await target.connection.seed(FRESH.clock, 'tenant_write_clock', [{ tenant_id: A, last_stamp: '7' }]);
+      await target.connection.seed(FRESH.clock, 'tenant_write_clock', [{ tenant_id: A, last_stamp: '7', last_delete_stamp: '0' }]);
       target.connection.log.length = 0;
       const refusal = await refused(operations.restore(target.connection, artifact, { catalogues: catalogues(FRESH) }), 'RESTORE_TARGET_NOT_EMPTY');
       assert.equal(refusal.detail, 'clock.tenant_write_clock');
       assert.equal(target.connection.statements(/^(INSERT|GRANT|SELECT setval)/).length, 0);
       assert.equal(target.connection.log[target.connection.log.length - 1].text, 'ROLLBACK');
-      assert.deepEqual(target.connection.rows(FRESH.clock, 'tenant_write_clock'), [{ tenant_id: A, last_stamp: '7' }]);
+      assert.deepEqual(target.connection.rows(FRESH.clock, 'tenant_write_clock'), [{ tenant_id: A, last_stamp: '7', last_delete_stamp: '0' }]);
       assert.equal(target.connection.rows(FRESH.entries, 'entries').length, 0);
     });
 

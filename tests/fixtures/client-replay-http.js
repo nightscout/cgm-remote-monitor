@@ -82,6 +82,9 @@ module.exports = function clientReplayHTTP () {
     function environment (extra = {}) {
       const env = {
         PATH: process.env.PATH, HOME: process.env.HOME, TZ: 'UTC', NODE_ENV: 'test',
+        // Acceptance runs with every tenant initialized before the listener
+        // opens (decision readiness-serve-then-warm); extra may override.
+        NS_TENANT_READINESS: 'all',
         MULTITENANT_PREVIEW_CONFIG: configFile,
         API_HOSTNAME: '127.0.0.1', API_PORT: '0',
         PREVIEW_APP_PG: appURI, PREVIEW_CHECK_PG: checkURI,

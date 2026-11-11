@@ -66,10 +66,10 @@ describe('nightscout executable (D21)', function () {
     assert.match(result.stderr, /Usage: nightscout <command>/);
   });
 
-  it('exits 64 for `multitenant` roles that are not available yet', function () {
+  it('exits 78 for `multitenant vcpool` without its explicit connector configuration', function () {
     const result = cli(['multitenant', 'vcpool']);
-    assert.equal(result.status, 64);
-    assert.match(result.stderr, /not yet available: vcpool/);
+    assert.equal(result.status, 78);
+    assert.match(result.stderr, /vcpool: requires MULTITENANT_VCPOOL_CONFIG/);
   });
 
   it('exits 78 for `multitenant admin` without its explicit operator configuration', function () {

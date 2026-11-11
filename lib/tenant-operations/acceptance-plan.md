@@ -90,7 +90,7 @@ schema wildcard. Backup/migration operator identity remains separate.
 | Capability | Positive grants | Required refusal |
 |---|---|---|
 | Clinical DATA reader | SELECT on the seven clinical/document tables; any clock read declared separately | INSERT/UPDATE/DELETE on clinical data, authority, secrets, checkpoint, ack/outbox |
-| Clinical DATA writer | Explicit SELECT/INSERT/UPDATE/DELETE per clinical table; clock SELECT/INSERT plus UPDATE(last_stamp); identity sequence rights only where needed | Authority/settings/secrets/lifecycle/ack/outbox writes |
+| Clinical DATA writer | Explicit SELECT/INSERT/UPDATE/DELETE per clinical table; clock SELECT/INSERT plus UPDATE(last_stamp, last_delete_stamp); identity sequence rights only where needed | Authority/settings/secrets/lifecycle/ack/outbox writes |
 | Evaluator source reader | SELECT on its actual admitted clinical inputs and clock | Every clinical-source write; authority/settings/secret writes |
 | Checkpoint bookkeeping | SELECT plus UPDATE(checkpoint,projection,contract_digest) on tenant_consumer_checkpoint | Clinical writes, other columns/tables, foreign tenant checkpoint changes |
 | OWNER access reader | Explicit SELECT per consumed authorization/access/legacy/policy table | DML, secret reveal or clinical write from that role |

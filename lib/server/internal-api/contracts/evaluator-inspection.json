@@ -1,0 +1,492 @@
+{
+  "id": "evaluator-inspection",
+  "version": 1,
+  "operations": {
+    "inspectEvaluator": {
+      "path": "/evaluator/inspect",
+      "request": {
+        "$schema": "https://json-schema.org/draft/2020-12/schema",
+        "type": "object",
+        "properties": {},
+        "additionalProperties": false
+      },
+      "response": {
+        "$schema": "https://json-schema.org/draft/2020-12/schema",
+        "type": "object",
+        "properties": {
+          "kind": {
+            "const": "evaluator"
+          },
+          "configured": {
+            "type": "object",
+            "properties": {
+              "mode": {
+                "enum": [
+                  "standalone",
+                  "partitioned"
+                ]
+              },
+              "ordinal": {
+                "type": "integer",
+                "minimum": 0,
+                "maximum": 1023
+              },
+              "rule": {
+                "anyOf": [
+                  {
+                    "type": "null"
+                  },
+                  {
+                    "const": "sha256-modulo-v1"
+                  }
+                ]
+              },
+              "leaseMs": {
+                "anyOf": [
+                  {
+                    "type": "null"
+                  },
+                  {
+                    "type": "integer",
+                    "minimum": 100,
+                    "maximum": 600000
+                  }
+                ]
+              },
+              "configuredTenants": {
+                "type": "integer",
+                "minimum": 1
+              }
+            },
+            "required": [
+              "mode",
+              "ordinal",
+              "rule",
+              "leaseMs",
+              "configuredTenants"
+            ],
+            "additionalProperties": false
+          },
+          "observed": {
+            "anyOf": [
+              {
+                "type": "null"
+              },
+              {
+                "type": "object",
+                "properties": {
+                  "desiredMembers": {
+                    "anyOf": [
+                      {
+                        "type": "null"
+                      },
+                      {
+                        "type": "integer",
+                        "minimum": 1,
+                        "maximum": 1024
+                      }
+                    ]
+                  },
+                  "previousMembers": {
+                    "anyOf": [
+                      {
+                        "type": "null"
+                      },
+                      {
+                        "type": "integer",
+                        "minimum": 1,
+                        "maximum": 1024
+                      }
+                    ]
+                  },
+                  "revision": {
+                    "anyOf": [
+                      {
+                        "type": "null"
+                      },
+                      {
+                        "type": "integer",
+                        "minimum": 1
+                      }
+                    ]
+                  },
+                  "effectiveMembers": {
+                    "anyOf": [
+                      {
+                        "type": "null"
+                      },
+                      {
+                        "type": "integer",
+                        "minimum": 1,
+                        "maximum": 1024
+                      }
+                    ]
+                  },
+                  "switching": {
+                    "type": "boolean"
+                  },
+                  "liveOrdinals": {
+                    "anyOf": [
+                      {
+                        "type": "null"
+                      },
+                      {
+                        "type": "array",
+                        "maxItems": 1024,
+                        "items": {
+                          "type": "integer",
+                          "minimum": 0,
+                          "maximum": 1023
+                        }
+                      }
+                    ]
+                  },
+                  "missingOrdinals": {
+                    "anyOf": [
+                      {
+                        "type": "null"
+                      },
+                      {
+                        "type": "array",
+                        "maxItems": 1024,
+                        "items": {
+                          "type": "integer",
+                          "minimum": 0,
+                          "maximum": 1023
+                        }
+                      }
+                    ]
+                  },
+                  "conflicts": {
+                    "type": "array",
+                    "maxItems": 8,
+                    "items": {
+                      "type": "string",
+                      "pattern": "^[A-Z][A-Z0-9_]{0,63}$"
+                    }
+                  },
+                  "reason": {
+                    "anyOf": [
+                      {
+                        "type": "null"
+                      },
+                      {
+                        "type": "string",
+                        "pattern": "^[A-Z][A-Z0-9_]{0,63}$"
+                      }
+                    ]
+                  },
+                  "rows": {
+                    "type": "array",
+                    "maxItems": 4096,
+                    "items": {
+                      "type": "object",
+                      "properties": {
+                        "ordinal": {
+                          "type": "integer",
+                          "minimum": 0,
+                          "maximum": 1023
+                        },
+                        "self": {
+                          "type": "boolean"
+                        },
+                        "live": {
+                          "type": "boolean"
+                        },
+                        "appliedMembers": {
+                          "anyOf": [
+                            {
+                              "type": "null"
+                            },
+                            {
+                              "type": "integer",
+                              "minimum": 1,
+                              "maximum": 1024
+                            }
+                          ]
+                        },
+                        "heartbeatAgeMs": {
+                          "type": "integer"
+                        },
+                        "leaseRemainingMs": {
+                          "type": "integer"
+                        }
+                      },
+                      "required": [
+                        "ordinal",
+                        "self",
+                        "live",
+                        "appliedMembers",
+                        "heartbeatAgeMs",
+                        "leaseRemainingMs"
+                      ],
+                      "additionalProperties": false
+                    }
+                  }
+                },
+                "required": [
+                  "desiredMembers",
+                  "previousMembers",
+                  "revision",
+                  "effectiveMembers",
+                  "switching",
+                  "liveOrdinals",
+                  "missingOrdinals",
+                  "conflicts",
+                  "reason",
+                  "rows"
+                ],
+                "additionalProperties": false
+              }
+            ]
+          },
+          "gate": {
+            "type": "object",
+            "properties": {
+              "eligible": {
+                "type": "boolean"
+              },
+              "reason": {
+                "anyOf": [
+                  {
+                    "type": "null"
+                  },
+                  {
+                    "type": "string",
+                    "pattern": "^[A-Z][A-Z0-9_]{0,63}$"
+                  }
+                ]
+              },
+              "members": {
+                "anyOf": [
+                  {
+                    "type": "null"
+                  },
+                  {
+                    "type": "integer",
+                    "minimum": 1,
+                    "maximum": 1024
+                  }
+                ]
+              },
+              "reads": {
+                "type": "integer",
+                "minimum": 0
+              },
+              "refusals": {
+                "type": "integer",
+                "minimum": 0
+              },
+              "changes": {
+                "type": "integer",
+                "minimum": 0
+              },
+              "checkedAgeMs": {
+                "anyOf": [
+                  {
+                    "type": "null"
+                  },
+                  {
+                    "type": "integer",
+                    "minimum": 0
+                  }
+                ]
+              },
+              "heartbeats": {
+                "anyOf": [
+                  {
+                    "type": "null"
+                  },
+                  {
+                    "type": "object",
+                    "properties": {
+                      "renewed": {
+                        "type": "integer",
+                        "minimum": 0
+                      },
+                      "failed": {
+                        "type": "integer",
+                        "minimum": 0
+                      },
+                      "lastReason": {
+                        "anyOf": [
+                          {
+                            "type": "null"
+                          },
+                          {
+                            "type": "string",
+                            "pattern": "^[A-Z][A-Z0-9_]{0,63}$"
+                          }
+                        ]
+                      }
+                    },
+                    "required": [
+                      "renewed",
+                      "failed",
+                      "lastReason"
+                    ],
+                    "additionalProperties": false
+                  }
+                ]
+              }
+            },
+            "required": [
+              "eligible",
+              "reason",
+              "members",
+              "reads",
+              "refusals",
+              "changes",
+              "checkedAgeMs",
+              "heartbeats"
+            ],
+            "additionalProperties": false
+          },
+          "tenants": {
+            "type": "array",
+            "maxItems": 100000,
+            "items": {
+              "type": "object",
+              "properties": {
+                "tenant": {
+                  "type": "string",
+                  "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$"
+                },
+                "assignedOrdinal": {
+                  "anyOf": [
+                    {
+                      "type": "null"
+                    },
+                    {
+                      "type": "integer",
+                      "minimum": 0,
+                      "maximum": 1023
+                    }
+                  ]
+                },
+                "admitted": {
+                  "type": "boolean"
+                },
+                "code": {
+                  "anyOf": [
+                    {
+                      "type": "null"
+                    },
+                    {
+                      "type": "string",
+                      "pattern": "^[A-Z][A-Z0-9_]{0,63}$"
+                    }
+                  ]
+                },
+                "ready": {
+                  "type": "boolean"
+                },
+                "cycles": {
+                  "type": "integer",
+                  "minimum": 0
+                },
+                "outputRevision": {
+                  "anyOf": [
+                    {
+                      "type": "null"
+                    },
+                    {
+                      "type": "integer",
+                      "minimum": 1
+                    }
+                  ]
+                },
+                "inputCheckpoint": {
+                  "anyOf": [
+                    {
+                      "type": "null"
+                    },
+                    {
+                      "type": "integer",
+                      "minimum": 0
+                    }
+                  ]
+                },
+                "delivery": {
+                  "anyOf": [
+                    {
+                      "type": "null"
+                    },
+                    {
+                      "type": "object",
+                      "properties": {
+                        "state": {
+                          "enum": [
+                            "starting",
+                            "pending",
+                            "handoff-accepted",
+                            "idle",
+                            "inactive",
+                            "refused"
+                          ]
+                        },
+                        "code": {
+                          "anyOf": [
+                            {
+                              "type": "null"
+                            },
+                            {
+                              "type": "string",
+                              "pattern": "^[A-Z][A-Z0-9_]{0,63}$"
+                            }
+                          ]
+                        },
+                        "passes": {
+                          "type": "integer",
+                          "minimum": 0
+                        },
+                        "repeatAt": {
+                          "anyOf": [
+                            {
+                              "type": "null"
+                            },
+                            {
+                              "type": "integer",
+                              "minimum": 0
+                            }
+                          ]
+                        }
+                      },
+                      "required": [
+                        "state",
+                        "code",
+                        "passes",
+                        "repeatAt"
+                      ],
+                      "additionalProperties": false
+                    }
+                  ]
+                }
+              },
+              "required": [
+                "tenant",
+                "assignedOrdinal",
+                "admitted",
+                "code",
+                "ready",
+                "cycles",
+                "outputRevision",
+                "inputCheckpoint",
+                "delivery"
+              ],
+              "additionalProperties": false
+            }
+          }
+        },
+        "required": [
+          "kind",
+          "configured",
+          "observed",
+          "gate",
+          "tenants"
+        ],
+        "additionalProperties": false
+      }
+    }
+  }
+}

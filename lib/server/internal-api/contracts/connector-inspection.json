@@ -1,0 +1,325 @@
+{
+  "id": "connector-inspection",
+  "version": 1,
+  "operations": {
+    "inspectConnectors": {
+      "path": "/vcpool/inspect",
+      "request": {
+        "$schema": "https://json-schema.org/draft/2020-12/schema",
+        "type": "object",
+        "properties": {},
+        "additionalProperties": false
+      },
+      "response": {
+        "$schema": "https://json-schema.org/draft/2020-12/schema",
+        "type": "object",
+        "properties": {
+          "kind": {
+            "const": "vcpool"
+          },
+          "member": {
+            "type": "object",
+            "properties": {
+              "mode": {
+                "enum": [
+                  "standalone",
+                  "partitioned"
+                ]
+              },
+              "members": {
+                "anyOf": [
+                  {
+                    "type": "null"
+                  },
+                  {
+                    "type": "integer",
+                    "minimum": 1,
+                    "maximum": 1024
+                  }
+                ]
+              },
+              "ordinal": {
+                "type": "integer",
+                "minimum": 0,
+                "maximum": 1023
+              },
+              "eligible": {
+                "anyOf": [
+                  {
+                    "type": "null"
+                  },
+                  {
+                    "type": "boolean"
+                  }
+                ]
+              },
+              "reason": {
+                "anyOf": [
+                  {
+                    "type": "null"
+                  },
+                  {
+                    "type": "string",
+                    "pattern": "^[A-Z][A-Z0-9_]{0,63}$"
+                  }
+                ]
+              },
+              "cycles": {
+                "type": "integer",
+                "minimum": 0
+              },
+              "liveOrdinals": {
+                "anyOf": [
+                  {
+                    "type": "null"
+                  },
+                  {
+                    "type": "array",
+                    "maxItems": 1024,
+                    "items": {
+                      "type": "integer",
+                      "minimum": 0,
+                      "maximum": 1023
+                    }
+                  }
+                ]
+              },
+              "conflicts": {
+                "type": "integer",
+                "minimum": 0
+              },
+              "observedReason": {
+                "anyOf": [
+                  {
+                    "type": "null"
+                  },
+                  {
+                    "type": "string",
+                    "pattern": "^[A-Z][A-Z0-9_]{0,63}$"
+                  }
+                ]
+              },
+              "refusals": {
+                "type": "array",
+                "maxItems": 64,
+                "items": {
+                  "type": "object",
+                  "properties": {
+                    "key": {
+                      "type": "string",
+                      "pattern": "^(source|write|setup):([0-9]{3}|[A-Z][A-Z0-9_]{0,63})$"
+                    },
+                    "count": {
+                      "type": "integer",
+                      "minimum": 0
+                    }
+                  },
+                  "required": [
+                    "key",
+                    "count"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            },
+            "required": [
+              "mode",
+              "members",
+              "ordinal",
+              "eligible",
+              "reason",
+              "cycles",
+              "liveOrdinals",
+              "conflicts",
+              "observedReason",
+              "refusals"
+            ],
+            "additionalProperties": false
+          },
+          "egress": {
+            "type": "object",
+            "properties": {
+              "proxy": {
+                "type": "boolean"
+              }
+            },
+            "required": [
+              "proxy"
+            ],
+            "additionalProperties": false
+          },
+          "tenants": {
+            "type": "array",
+            "maxItems": 100000,
+            "items": {
+              "type": "object",
+              "properties": {
+                "tenant": {
+                  "type": "string",
+                  "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$"
+                },
+                "status": {
+                  "enum": [
+                    "idle",
+                    "polling",
+                    "refused",
+                    "skipped",
+                    "not-in-slice",
+                    "member-refused"
+                  ]
+                },
+                "code": {
+                  "anyOf": [
+                    {
+                      "type": "null"
+                    },
+                    {
+                      "type": "string",
+                      "pattern": "^[A-Z][A-Z0-9_]{0,63}$"
+                    }
+                  ]
+                },
+                "cycles": {
+                  "type": "integer",
+                  "minimum": 0
+                },
+                "lastSuccessAt": {
+                  "anyOf": [
+                    {
+                      "type": "null"
+                    },
+                    {
+                      "type": "string",
+                      "maxLength": 40
+                    }
+                  ]
+                },
+                "pulled": {
+                  "type": "object",
+                  "properties": {
+                    "entries": {
+                      "type": "integer",
+                      "minimum": 0
+                    },
+                    "treatments": {
+                      "type": "integer",
+                      "minimum": 0
+                    },
+                    "devicestatus": {
+                      "type": "integer",
+                      "minimum": 0
+                    },
+                    "profiles": {
+                      "type": "integer",
+                      "minimum": 0
+                    }
+                  },
+                  "required": [
+                    "entries",
+                    "treatments",
+                    "devicestatus",
+                    "profiles"
+                  ],
+                  "additionalProperties": false
+                },
+                "refusals": {
+                  "type": "array",
+                  "maxItems": 64,
+                  "items": {
+                    "type": "object",
+                    "properties": {
+                      "key": {
+                        "type": "string",
+                        "pattern": "^(source|write|setup):([0-9]{3}|[A-Z][A-Z0-9_]{0,63})$"
+                      },
+                      "count": {
+                        "type": "integer",
+                        "minimum": 0
+                      }
+                    },
+                    "required": [
+                      "key",
+                      "count"
+                    ],
+                    "additionalProperties": false
+                  }
+                },
+                "lastRefusal": {
+                  "anyOf": [
+                    {
+                      "type": "null"
+                    },
+                    {
+                      "type": "object",
+                      "properties": {
+                        "phase": {
+                          "enum": [
+                            "source",
+                            "write",
+                            "setup"
+                          ]
+                        },
+                        "status": {
+                          "anyOf": [
+                            {
+                              "type": "null"
+                            },
+                            {
+                              "type": "integer",
+                              "minimum": 100,
+                              "maximum": 599
+                            }
+                          ]
+                        },
+                        "code": {
+                          "anyOf": [
+                            {
+                              "type": "null"
+                            },
+                            {
+                              "type": "string",
+                              "pattern": "^[A-Z][A-Z0-9_]{0,63}$"
+                            }
+                          ]
+                        },
+                        "at": {
+                          "type": "string",
+                          "maxLength": 40
+                        }
+                      },
+                      "required": [
+                        "phase",
+                        "status",
+                        "code",
+                        "at"
+                      ],
+                      "additionalProperties": false
+                    }
+                  ]
+                }
+              },
+              "required": [
+                "tenant",
+                "status",
+                "code",
+                "cycles",
+                "lastSuccessAt",
+                "pulled",
+                "refusals",
+                "lastRefusal"
+              ],
+              "additionalProperties": false
+            }
+          }
+        },
+        "required": [
+          "kind",
+          "member",
+          "egress",
+          "tenants"
+        ],
+        "additionalProperties": false
+      }
+    }
+  }
+}

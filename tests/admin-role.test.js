@@ -70,6 +70,18 @@ describe('admin role: operator configuration', function () {
     }
   });
 
+  it('composes pool-operations on its own or beside ownership, for the listed kinds, and needs at least one service', function () {
+    const POOLS = { ...SOURCE, NS_POOL_OPERATOR_PG: 'postgres://synthetic_pool_operator:synthetic-only@127.0.0.1:5432/nightscout_test' };
+    const pools = { connectionEnv: 'NS_POOL_OPERATOR_PG', namespace: 'nsadm_pool', kinds: ['evaluator', 'vcpool'] };
+    const only = adminConfig.parse({ version: 1, maxBytes: 65536, timeoutMs: 10000, pools }, POOLS);
+    assert.equal(only.ownership, undefined); assert.deepEqual(only.pools.kinds, ['evaluator', 'vcpool']);
+    assert.ok(adminConfig.parse({ ...valid(), pools }, POOLS).ownership);
+    for (const bad of [{ version: 1, maxBytes: 65536, timeoutMs: 10000 }, { ...valid(), pools: { ...pools, kinds: [] } },
+      { ...valid(), pools: { ...pools, kinds: ['Evaluator'] } }, { ...valid(), pools: { ...pools, kinds: ['evaluator', 'evaluator'] } },
+      { ...valid(), pools: { ...pools, namespace: 'public' } }, { ...valid(), pools: { ...pools, members: 3 } }]) {
+      assert.throws(() => adminConfig.parse(bad, POOLS), PreviewConfigError, JSON.stringify(bad.pools || 'no service'));
+    }
+  });
   it('requires MULTITENANT_ADMIN_CONFIG and refuses an unreadable or invalid file', function () {
     assert.throws(() => adminConfig.load({}), /admin requires MULTITENANT_ADMIN_CONFIG/);
     const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'ns-admin-config-'));
