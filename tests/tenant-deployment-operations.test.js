@@ -214,8 +214,14 @@ describe('whole deployment source admission and filesystem durability', function
     const admission = admit({ namespaces: namespaces() });
     assert.deepEqual(admission.census.selected.map(entry => entry.kind), KINDS);
     assert.equal(admission.census.tables, 49);
-    assert.equal(admission.census.candidates.length, 24);
+    assert.equal(admission.census.candidates.length, 25);
     assert.equal(admission.census.candidates.filter(entry => entry.disposition === 'reviewed alternative').length, 3);
+    // Pool membership (lib/pool-membership) is deployment-operational: censused,
+    // digest-pinned and never part of a tenant artifact.
+    assert.deepEqual(admission.census.candidates.filter(entry => entry.disposition === 'operational, no tenant data').map(entry => entry.file),
+      ['lib/pool-membership/postgres-candidate.json']);
+    assert.ok(!admission.catalogues.some(entry => entry.candidatePath === 'lib/pool-membership/postgres-candidate.json'));
+    assert.ok(!admission.lifecycle.CATALOGUE.some(entry => entry.tables.includes('pool_membership')));
     assert.ok(admission.lifecycle.CATALOGUE.some(entry => entry.tables.includes('tenant_owner_configuration_authority')));
     assert.ok(!admission.lifecycle.CATALOGUE.some(entry => entry.tables.includes('tenant_lifecycle_requests')));
     assert.deepEqual(admission.catalogues.find(entry => entry.kind === 'lifecycle').tables, ['tenant_lifecycle_requests', 'tenant_lifecycle_ceremony', 'tenant_lifecycle_windows', 'tenant_lifecycle_operations', 'tenant_lifecycle_restore_authority', 'tenant_lifecycle_restore_audit', 'tenant_lifecycle_key_retention', 'tenant_activity', 'tenant_activity_audit']);
@@ -255,6 +261,13 @@ describe('whole deployment source admission and filesystem durability', function
     assert.throws(() => admit({ ...admitted, extensions: [{ ...extension, tables: [] }] }), { code: 'OPERATIONS_CENSUS_TABLES_MISMATCH' });
     const plan = admit(admitted);
     assert.equal(plan.census.tables, 49);
+    // An operational catalogue changed without moving its reviewed pin refuses.
+    const pool = 'lib/pool-membership/postgres-candidate.json';
+    const changed = JSON.parse(await fs.promises.readFile(path.join(scratch, pool), 'utf8'));
+    changed.migrations[0].up = changed.migrations[0].up.slice(0, 2);
+    changed.migrations[0].checksum = require('crypto').createHash('sha256').update(JSON.stringify(changed.migrations[0].up)).digest('hex');
+    await fs.promises.writeFile(path.join(scratch, pool), JSON.stringify(changed));
+    assert.throws(() => admit(admitted), { code: 'OPERATIONS_CENSUS_OPERATIONAL_CHANGED', detail: pool });
     assert.ok(plan.lifecycle.CATALOGUE.some(entry => entry.kind === 'synthetic'));
   });
 
@@ -268,7 +281,7 @@ describe('whole deployment source admission and filesystem durability', function
     const admission = admit({ namespaces: input.namespaces, instances: checkpoints.instances });
     assert.equal(admission.census.selected.length, 22);
     assert.equal(admission.census.tables, 50);
-    assert.equal(admission.census.candidates.length, 24);
+    assert.equal(admission.census.candidates.length, 25);
     assert.deepEqual(admission.census.selected.filter(entry => entry.kind.includes('checkpoint')).map(entry => [entry.kind, entry.namespace, entry.instanceOf]),
       [['checkpoint', input.realtime.namespace, null], ['evaluator_checkpoint', input.evaluator.namespace, 'checkpoint']]);
     assert.ok(admission.lifecycle.CATALOGUE.some(entry => entry.kind === 'evaluator_checkpoint'));

@@ -211,6 +211,7 @@
         "tests/tenant-extended-settings.test.js",
         "tests/evaluator-preview-runtime.test.js",
         "tests/tenant-activity.test.js",
+        "tests/pool-membership.test.js",
         "tests/tenant-socket-forwarding.test.js",
         "tests/socket-write-handlers.test.js",
         "tests/tenant-alarm-state.test.js",
@@ -441,6 +442,7 @@
         "tests/tenant-notifications.integration.test.js",
         "tests/evaluator-consumers.integration.test.js",
         "tests/tenant-activity.integration.test.js",
+        "tests/pool-membership.integration.test.js",
         "tests/evaluator-consumer-timer-churn.integration.test.js",
         "tests/evaluator-consumer-load.integration.test.js",
         "tests/tenant-insertion-upgrade.integration.test.js"

@@ -1,0 +1,14 @@
+{
+  "version": 1,
+  "migrations": [
+    {
+      "name": "0001_pool_membership",
+      "up": [
+        "CREATE TABLE pool_membership (pool_kind text NOT NULL CHECK (pool_kind ~ '^[a-z][a-z0-9]{0,31}$'), ordinal integer NOT NULL CHECK (ordinal >= 0), member_id uuid NOT NULL, expected_members integer NOT NULL CHECK (expected_members BETWEEN 1 AND 1024), slice_rule text NOT NULL CHECK (slice_rule IN ('sha256-modulo-v1')), registered_at timestamptz NOT NULL, heartbeat_at timestamptz NOT NULL, lease_expires_at timestamptz NOT NULL, CHECK (ordinal < expected_members), CHECK (heartbeat_at >= registered_at), CHECK (lease_expires_at > heartbeat_at), PRIMARY KEY (pool_kind, ordinal, member_id))",
+        "CREATE INDEX pool_membership_live ON pool_membership (pool_kind, lease_expires_at)",
+        "REVOKE ALL ON pool_membership FROM PUBLIC"
+      ],
+      "checksum": "a846013a285239732d9b944228c4f95f327e671f157975ab8a73690b9b27e26a"
+    }
+  ]
+}
