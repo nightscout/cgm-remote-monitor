@@ -113,7 +113,7 @@ optInSuite(process.env.NS_EVALUATOR_CONSUMERS_TEST === '1' && !!process.env.NS_T
       let worker = await boot(document => { document.recoveryIntervalMs = 150; document.timeIntervalMs = 150; });
       await reading(48, lab.A); // new A data while paused: any acquisition would advance A's checkpoint
       await worker.call('acquire', lab.A); await worker.call('tick', lab.A); await worker.call('wake', lab.A); await worker.call('flush', lab.A);
-      const bBefore = tenantHealth(await worker.call('health'), lab.B).outputRevision;
+      const bBefore = tenantHealth(await worker.call('health'), lab.B).cycles;
       await sleep(700); // several actual recovery/time timer rounds
       await worker.call('flush', lab.A);
       let health = await worker.call('health');
@@ -125,7 +125,7 @@ optInSuite(process.env.NS_EVALUATOR_CONSUMERS_TEST === '1' && !!process.env.NS_T
         ['EVALUATOR_TENANT_PAUSED', 'paused', null]);
       assert.equal(consumerHealth(health, lab.A).code, 'EVALUATOR_CONSUMER_TENANT_PAUSED');
       assert.equal(await worker.call('last', lab.A), null);
-      assert.ok(tenantHealth(health, lab.B).outputRevision > bBefore + 2, 'ACTIVITY_B_UNAFFECTED B kept cycling on the actual timers');
+      assert.ok(tenantHealth(health, lab.B).cycles > bBefore + 2, 'ACTIVITY_B_UNAFFECTED B kept cycling on the actual timers');
       assert.notDeepEqual(await lab.previewCheckpoint(lab.B), startCheckpoint);
       await lab.stopConsumer(worker);
       // Phase 2: default (manual) timers; B delivery, upload, unpause.
