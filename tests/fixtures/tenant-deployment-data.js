@@ -66,6 +66,11 @@ function populatedRows ({ now = 1700000000000, profileSocketOrder = false } = {}
       retained_at: '1000', retain_until: '2592001000', restored_at: null, destroy_started_by: null, destroy_started_consumer: null,
       destroy_started_at: null, destroyed_by: null, destroyed_consumer: null, destroyed_at: null });
     add('tenant_lifecycle_windows', { tenant_id: tenant, lock_key: String(100 + offset), phase: 'active', generation: '1', claim_id: null, artifact_digest: null });
+    // 0007_tenant_activity: B paused while a deletion request is pending, A active.
+    add('tenant_activity', { tenant_id: tenant, version: '2', paused: !!offset, suspended: false,
+      deletion_request_id: offset ? event(8) : null, paused_before_deletion: offset ? false : null });
+    add('tenant_activity_audit', { tenant_id: tenant, version: '1', verb: 'provision', authority: 'operator', principal, consumer,
+      paused: false, suspended: false, event_time: '2026-11-07T00:00:04.123456Z' });
     add('tenant_lifecycle_operations', { tenant_id: tenant, operation_id: event(6), generation: '1', finished: true,
       owner_pid: 1, owner_birth: '2026-11-07T00:00:00.123456Z' });
     // Historical inactive authority/audit rows test SQL fidelity only. They

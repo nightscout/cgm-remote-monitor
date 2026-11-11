@@ -66,6 +66,8 @@ const COLUMNS = {
   tenant_notification_heads: 'tenant_id uuid, consumer text, dedup_key text, request_id uuid, blocked_until bigint',
   tenant_notification_requests: 'tenant_id uuid, request_id uuid, consumer text, dedup_key text, origin text, config_identity text, payload jsonb, state text, created_at bigint, next_at bigint, attempt integer, attempt_token uuid, attempt_until bigint, accepted_at bigint, receipt jsonb, cleared_at bigint',
   tenant_lifecycle_key_retention: 'request_id uuid, tenant_id uuid, artifact_digest text, key_names jsonb, key_references integer, phase text, retained_at bigint, retain_until bigint, restored_at bigint, destroy_started_by text, destroy_started_consumer text, destroy_started_at bigint, destroyed_by text, destroyed_consumer text, destroyed_at bigint',
+  tenant_activity: 'tenant_id uuid, version bigint, paused boolean, suspended boolean, deletion_request_id uuid, paused_before_deletion boolean',
+  tenant_activity_audit: 'tenant_id uuid, version bigint, verb text, authority text, principal text, consumer text, paused boolean, suspended boolean, event_time timestamptz',
   tenant_lifecycle_ceremony: 'request_id uuid, tenant_id uuid, phase text, requested_by text, requested_consumer text, confirmed_by text, confirmed_consumer text, confirmed_at bigint, cancelled_by text, cancelled_consumer text, cancelled_at bigint, claim_id uuid, started_by text, started_consumer text, started_at bigint, executed_by text, executed_consumer text, executed_at bigint'
 };
 const namespaces = Object.fromEntries(lifecycle.CATALOGUE.map(entry => [entry.kind, 'ns_' + entry.kind]));
@@ -128,6 +130,9 @@ function recordingConnection (seed = seedRows(), legacy = false) {
   ledgers.set(ledgerNamespace, ledgerCandidate.migrations.map(m => ({ name: m.name, checksum: m.checksum })));
   tables.set('"' + ledgerNamespace + '"."tenant_lifecycle_requests"', { columns: columnsFor('tenant_lifecycle_requests'), rows: [] });
   for (const table of LEDGER_TABLES) tables.set('"' + ledgerNamespace + '"."' + table + '"', { columns: columnsFor(table), rows: [] });
+  // Every provisioned tenant has an activity row (0007_tenant_activity backfill/provisioning).
+  tables.get('"' + ledgerNamespace + '"."tenant_activity"').rows.push(...[A, B].map(tenant_id => ({ tenant_id, version: '1', paused: false, suspended: false,
+    deletion_request_id: null, paused_before_deletion: null })));
   let active = false;
   let pending = Promise.resolve();
   const bound = () => {
@@ -212,6 +217,19 @@ function recordingConnection (seed = seedRows(), legacy = false) {
         if (row.tenant_id === tenant && row.request_id === values[0] && row.tenant_id === values[1]) { row.phase = values[2]; row.executed_at = values[3]; count += 1; }
       }
       return { rowCount: count, rows: [] };
+    }
+    if ((match = /^SELECT version::text,paused,suspended,deletion_request_id,paused_before_deletion FROM ("[a-z0-9_]+"\."tenant_activity") WHERE tenant_id=\$1 FOR UPDATE$/.exec(text))) {
+      return { rows: clone(tables.get(match[1]).rows.filter(row => row.tenant_id === tenant && row.tenant_id === values[0])) };
+    }
+    if ((match = /^UPDATE ("[a-z0-9_]+"\."tenant_activity") SET version=version\+1,paused=\$3,suspended=\$4,deletion_request_id=\$5,paused_before_deletion=\$6 WHERE tenant_id=\$1 AND version=\$2::bigint RETURNING version::text,paused,suspended$/.exec(text))) {
+      const row = tables.get(match[1]).rows.find(item => item.tenant_id === tenant && item.tenant_id === values[0] && item.version === values[1]);
+      if (!row) return { rowCount: 0, rows: [] };
+      Object.assign(row, { version: String(Number(row.version) + 1), paused: values[2], suspended: values[3], deletion_request_id: values[4], paused_before_deletion: values[5] });
+      return { rowCount: 1, rows: [{ version: row.version, paused: row.paused, suspended: row.suspended }] };
+    }
+    if ((match = /^SELECT request_id FROM ("[a-z0-9_]+"\."tenant_lifecycle_ceremony") WHERE tenant_id=\$1 AND request_id<>\$2 AND phase = ANY\(\$3::text\[\]\) ORDER BY request_id$/.exec(text))) {
+      return { rows: tables.get(match[1]).rows.filter(row => row.tenant_id === tenant && row.tenant_id === values[0] && row.request_id !== values[1] && values[2].includes(row.phase))
+        .map(row => ({ request_id: row.request_id })).sort((a, b) => a.request_id < b.request_id ? -1 : 1) };
     }
     throw new Error('recording connection cannot interpret: ' + text);
   }
@@ -319,6 +337,11 @@ describe('tenant lifecycle: typed export, import and two-phase deletion', functi
         if (text.includes('SELECT name, checksum')) return { rows: validateCatalogue(ledgerCandidate).map(({ name, checksum }) => ({ name, checksum })) };
         if (text.includes('pg_advisory_xact_lock')) { await acquire(id, 'policy'); return { rows: [] }; }
         if (text.includes('SELECT generation, policy')) return { rows: [{ generation: 1, policy: { wholeCFixtureActors: [{ ...principal, active: true, actions: ['execute','cancel'] }] } }] };
+        if (text.includes('tenant_activity')) {
+          // Activity is locked after request and ceremony in every ceremony verb.
+          if (text.includes('FOR UPDATE')) { await acquire(id, 'activity'); return { rows: [{ version: '1', paused: true, suspended: false, deletion_request_id: requestId, paused_before_deletion: false }] }; }
+          return { rowCount: 1, rows: [{ version: '2', paused: true, suspended: true }] };
+        }
         if (text.includes('tenant_lifecycle_requests')) { await acquire(id, 'request'); return { rows: [{ request_id: requestId, tenant_id: A, phase: 'requested', artifact_digest: artifact.digest }] }; }
         if (text.includes('tenant_lifecycle_ceremony')) { await acquire(id, 'ceremony'); return { rows: [{ phase: 'executing', claim_id: claimId, started_at: '1', confirmed_at: '1' }] }; }
         throw new Error('unexpected controlled query');

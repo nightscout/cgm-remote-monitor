@@ -24,7 +24,7 @@ describe('tenant activity policy', function () {
     assert.throws(() => policy.stateOf({ paused: 'yes', suspended: false }), { code: 'ACTIVITY_UNAVAILABLE' });
     const matrix = {};
     for (const op of Object.keys(policy.OPERATIONS)) matrix[op] = policy.STATES.filter(state => policy.eligible(op, state));
-    assert.deepEqual(matrix, { evaluator: ['active'], notification: ['active'], ingest: ['active', 'paused'], connector: ['active', 'paused'] });
+    assert.deepEqual(matrix, { evaluator: ['active'], notification: ['active'], read: ['active'], ingest: ['active', 'paused'], connector: ['active', 'paused'] });
     assert.equal(policy.eligible('evaluator', 'unknown'), false);
   });
   it('lets an owner pause and unpause only; never suspend or act on a suspended site', function () {
@@ -40,6 +40,24 @@ describe('tenant activity policy', function () {
     assert.match(policy.OWNER_NOTICE.pause, /alarms are not computed or delivered/);
     assert.match(policy.OWNER_NOTICE.pause, /another way to be alerted/);
     assert.match(policy.OWNER_NOTICE.unpause, /recalculates from your current data before/);
+    assert.match(policy.OWNER_NOTICE.pause, /cannot be viewed/);
+    assert.match(policy.OWNER_NOTICE.suspended, /uploads are refused/);
+    assert.match(policy.OWNER_NOTICE.deletion, /Alarms stop now/);
+  });
+  it('classifies HTTP requests: writes, preflight and the credential exchange are uploads; everything else is a read', async function () {
+    const { operationOf, createServingGate } = require('../lib/tenant-activity/serving');
+    const req = (method, path) => ({ method, path });
+    assert.deepEqual(['POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'].map(m => operationOf(req(m, '/api/v1/entries'))), Array(5).fill('ingest'));
+    assert.equal(operationOf(req('GET', '/api/v2/authorization/request/token-1')), 'ingest');
+    for (const path of ['/api/v1/entries', '/', '/api/v3/entries', '/api/v1/status.json', '/api/v2/authorization/request/a/b']) assert.equal(operationOf(req('GET', path)), 'read');
+    assert.equal(operationOf(req('HEAD', '/')), 'read'); assert.equal(operationOf(undefined), 'ingest');
+    const rows = new Map([[A, row(true)], [B, row(false, true)]]);
+    const gate = createServingGate(eligibility.create({ read: async tenant => rows.get(tenant) }));
+    await gate(A, req('POST', '/api/v1/entries'));
+    await assert.rejects(gate(A, req('GET', '/api/v1/entries')), { code: 'TENANT_PAUSED' });
+    await assert.rejects(gate(B, req('POST', '/api/v1/entries')), { code: 'TENANT_SUSPENDED' });
+    await assert.rejects(gate(B, req('GET', '/')), { code: 'TENANT_SUSPENDED' });
+    rows.delete(A); await assert.rejects(gate(A, req('POST', '/api/v1/entries')), { code: 'TENANT_ACTIVITY_UNAVAILABLE' });
   });
   it('builds connector work lists from eligibility, not configuration', async function () {
     const rows = new Map([[A, row(true)], [B, row(false, true)]]);
@@ -69,7 +87,7 @@ function lab ({ initial = {}, hold } = {}) {
   const calls = [], timers = [];
   const runtime = startRuntime({ tenants: [A, B], recoveryIntervalMs: 10, timeIntervalMs: 10,
     readCurrent: async tenant => ({ tenant, identity: 'a'.repeat(64), env: {} }),
-    activity: eligibility.create({ read: async tenant => rows.get(tenant) }),
+    activity: eligibility.create({ read: async tenant => { const value = rows.get(tenant); if (value instanceof Error) throw value; return value; } }),
     schedule: fn => { timers.push(fn); return timers.length; }, cancel: () => {},
     create: async current => {
       calls.push(['create', current.tenant]);
@@ -124,6 +142,20 @@ describe('evaluator work list from durable activity (actual runtime, synthetic c
     t.rows.delete(A); await t.time();
     assert.equal(runtime.health().tenants.find(s => s.tenant === A).code, 'EVALUATOR_ACTIVITY_NOT_PROVISIONED');
     assert.deepEqual(t.of(A), []);
+    await runtime.close();
+  });
+  it('stops only A when A\'s activity read fails, with a health code and one warning; B keeps cycling', async function () {
+    const t = lab(); const runtime = await t.runtime;
+    const warnings = []; const warn = console.warn; console.warn = (...args) => warnings.push(args.join(' '));
+    try {
+      t.rows.set(A, new Error('synthetic unreadable row'));
+      t.calls.length = 0; await t.time(); await t.recovery(); await t.time();
+      assert.deepEqual(t.of(A), ['close'], 'ACTIVITY_UNREADABLE_STOPS_A only the retirement of the old component');
+      assert.deepEqual(t.of(B), ['time-only', 'acquisition', 'time-only'], 'ACTIVITY_UNREADABLE_B_CONTINUES');
+      const health = Object.fromEntries(runtime.health().tenants.map(s => [s.tenant, s]));
+      assert.equal(health[A].code, 'EVALUATOR_ACTIVITY_UNAVAILABLE'); assert.equal(health[B].ready, true);
+      assert.equal(warnings.filter(w => w.includes(A) && w.includes('EVALUATOR_ACTIVITY_UNAVAILABLE')).length, 1, 'one warning per change');
+    } finally { console.warn = warn; }
     await runtime.close();
   });
   it('keeps a paused tenant paused across invalidation (restore activation) and restart', async function () {
@@ -203,4 +235,57 @@ describe('owner pause/unpause API (actual router, synthetic authenticator and st
     const unauthorized = createOwnerActivity({ store, authorize: async () => false });
     await assert.rejects(unauthorized.read({ tenant: A, principal: 'viewer', consumer: 'tenant-admin' }), { code: 'ACTIVITY_FORBIDDEN' });
   });
+});
+
+describe('realtime sockets under pause and suspend (actual protocol and runtime, synthetic sockets)', function () {
+  const { EventEmitter } = require('node:events');
+  const scope = require('../lib/storage/tenant-scope');
+  let mode;
+  beforeEach(() => { mode = scope.getTenancyMode(); scope.setTenancyMode('multi'); });
+  afterEach(() => scope.setTenancyMode(mode));
+  class Socket extends EventEmitter {
+    constructor (host) { super(); this.request = { headers: { host }, rawHeaders: ['Host', host], socket: {} }; this.sent = []; this.rooms = new Set(['self']); this.id = 'self'; }
+    emit (event, value) { this.sent.push({ event, value }); return true; }
+    async receive (event, ...args) { return Promise.all(this.listeners(event).map(fn => fn(...args))); }
+    join (name) { this.rooms.add(name); }
+    leave (name) { this.rooms.delete(name); }
+    disconnect () { this.disconnected = true; super.emit('disconnect'); }
+  }
+  async function realtime () {
+    const rows = new Map([[A, row()], [B, row()]]);
+    const env = require('../lib/server/tenant-app/environment')({ settings: { enable: ['bgnow'] } });
+    const hosts = { 'a.test': A, 'b.test': B };
+    let protocol, runtime; const schedule = {};
+    const readCurrent = require('../lib/tenant-activity/serving').gateReadCurrent({
+      check: eligibility.create({ read: async tenant => rows.get(tenant) }).check,
+      readCurrent: async tenant => ({ tenant, identity: 'same', env }), invalidate: tenant => protocol.invalidateTenant(tenant) });
+    const api = { executeSocketMutation: async () => ({ replyArgs: [{ result: 'success' }] }),
+      authorizeSocket: async () => ({ permissions: { read: true, write: true, write_treatment: true, ack: true }, collections: ['entries'] }) };
+    protocol = require('../lib/server/realtime/protocol').create({ admission: { resolve: async req => { const t = hosts[req.headers.host]; if (!t) throw new Error('UNKNOWN'); return t; } },
+      api, readCurrent, runtime: () => runtime, maxSockets: 10, domains: ['entries'] });
+    runtime = await require('../lib/server/realtime/runtime')({ tenants: [A, B], readCurrent, recoveryIntervalMs: 100,
+      create: selected => ({ acquire: async () => ({ tenant: selected.tenant, checkpoint: 0, rows: [], frame: { delta: false, lastUpdated: 1000, sgvs: [] } }) }),
+      fanout: protocol.fanout, schedule: callback => { schedule.callback = callback; return 1; }, cancel: () => {} });
+    return { rows, protocol, runtime, schedule,
+      async socket (host) { const socket = new Socket(host); await protocol.prepare(socket); protocol.bind(socket, '/'); await socket.receive('authorize', { secret: 'synthetic' }); return socket; },
+      async close () { protocol.close(); await runtime.close(); } };
+  }
+  for (const [label, paused, suspended] of [['paused', true, false], ['suspended', false, true]]) {
+    it('disconnects A sockets and refuses new ones while ' + label + '; B keeps its socket and updates', async function () {
+      const f = await realtime();
+      try {
+        const a = await f.socket('a.test'), b = await f.socket('b.test');
+        assert.notEqual(a.disconnected, true);
+        f.rows.set(A, row(paused, suspended, 2));
+        const before = b.sent.length;
+        await f.schedule.callback(); // actual recovery refresh, no wake
+        assert.equal(a.disconnected, true, 'ACTIVITY_SOCKET_DISCONNECTED');
+        assert.notEqual(b.disconnected, true); assert.ok(b.sent.length > before, 'B still receives updates');
+        assert.equal(f.runtime.last(A), null);
+        const late = await f.socket('a.test');
+        assert.ok(late.disconnected === true || !late.sent.some(m => m.event === 'dataUpdate'), 'ACTIVITY_SOCKET_REFUSED no data for a new A socket');
+        assert.equal(late.sent.some(m => m.event === 'dataUpdate'), false);
+      } finally { await f.close(); }
+    });
+  }
 });
