@@ -102,6 +102,8 @@ const INVENTORY = [
     note: 'decision provisioning-split: idempotent provisioning, injected failures leave no partial tenant, bounded batches' },
   { file: 'tests/admin-provisioning.integration.test.js', flags: { NS_VAULT_DOCKER_TEST: '1' }, shared: ['postgres'], own: ['vault'], gate: PENDING,
     note: 'decision operator-rest-api: provisioning REST on the admin role and the `nightscout admin provision` client (secret never on stdout/stderr); spawns the shipping CLI as a child' },
+  { file: 'tests/registry-tenant-set.integration.test.js', flags: {}, shared: ['postgres'], own: [], gate: PENDING,
+    note: 'decision tenant-registry stage 1: evaluator/realtime start set, removal within the bound, waiting count and alert, restart cost (NS_REGISTRY_RESTART_COUNTS)' },
   { file: 'tests/api-registry.integration.test.js', flags: { NS_VAULT_DOCKER_TEST: '1' }, shared: ['postgres'], own: ['vault'], gate: PENDING,
     note: 'decision tenant-registry: api in registry mode serves a tenant provisioned while running within the refresh bound; spawns the shipping CLI as a child' },
   { file: 'tests/postgres-tenant-scan.integration.test.js', flags: {}, shared: ['postgres'], own: [], gate: PENDING,

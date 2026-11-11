@@ -577,6 +577,34 @@
               "alerts"
             ],
             "additionalProperties": false
+          },
+          "registry": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "revision",
+              "configured",
+              "active",
+              "waiting"
+            ],
+            "properties": {
+              "revision": {
+                "type": "string",
+                "pattern": "^[0-9]{1,19}$"
+              },
+              "configured": {
+                "type": "integer",
+                "minimum": 0
+              },
+              "active": {
+                "type": "integer",
+                "minimum": 0
+              },
+              "waiting": {
+                "type": "integer",
+                "minimum": 0
+              }
+            }
           }
         },
         "required": [

@@ -101,4 +101,20 @@ describe('registry-mode role configuration', function () {
     assert.equal((await authority({ tenant: removed, principal: 'op', consumer: 'admin' })).allowed, false);
     assert.equal((await authority({ tenant: active, principal: 'other', consumer: 'admin' })).allowed, false);
   });
+
+  it('RC_EVALUATOR: the evaluator loads with a registry and the tenant settings reader; a tenant list beside the registry is refused', function () {
+    const evaluatorConfig = require('../lib/server/serve/evaluator-config');
+    const domains = require('../lib/data/tenant-projection-evaluator').domains;
+    const base = { version: 1, postgres: { connectionEnv: 'APP_PG', namespaces: { ...Object.fromEntries(domains.map(d => [d, 'ns_' + d])), clock: 'ns_clock', checkpoint: 'ns_checkpoint' } },
+      consumer: 'evaluator-registry-lab', pageSize: 100, maxRows: 1000, maxBytes: 1048576, maxTenants: 10000, recoveryIntervalMs: 1000, timeIntervalMs: 1000,
+      registry: { namespace: 'ns_registry' }, tenantSettings: { connectionEnv: 'SETTINGS_PG', namespaces: { settings: 'ns_tsettings', operatorPolicy: 'ns_tpolicy' } } };
+    const parsed = evaluatorConfig.parse(base, SOURCE);
+    assert.equal(parsed.registry.namespace, 'ns_registry'); assert.equal(parsed.tenants.size, 0);
+    assert.deepEqual([...parsed.tenantIds], ['registry:ns_registry']);
+    assert.throws(() => evaluatorConfig.parse({ ...base, tenants: [{ id: randomUUID(), revision: 'r', settings: {} }] }, SOURCE), /registry configuration refuses a tenants list/);
+    const { tenantSettings, ...noSettings } = base; assert.ok(tenantSettings);
+    assert.throws(() => evaluatorConfig.parse(noSettings, SOURCE));
+    const entry = evaluatorConfig.registryEntry(randomUUID());
+    assert.equal(entry.revision, 'registry'); assert.match(entry.identity, /^[0-9a-f]{64}$/);
+  });
 });
