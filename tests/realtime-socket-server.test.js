@@ -51,8 +51,8 @@ describe('BF-233 realtime restart with actual Socket.IO clients', function () {
       rt = await realtime(port);
       const recovered = await until(() => clients.every((c, i) => c.frames > before[i]), 20000);
       const count = clients.filter((c, i) => c.frames > before[i]).length;
-      assert.equal(reasons['io server disconnect'], undefined, 'no client was told the server disconnected it: ' + JSON.stringify(reasons));
       assert.ok(recovered, 'BF233_RECOVER ' + count + '/' + N + ' stock clients received a frame after the restart; reasons ' + JSON.stringify(reasons));
+      assert.equal(reasons['io server disconnect'], undefined, 'no client was told the server disconnected it: ' + JSON.stringify(reasons));
     } finally {
       for (const c of clients) c.close();
       await rt.stop(); agent.destroy();
