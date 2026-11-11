@@ -141,11 +141,26 @@ Release decision `tenant-deletion-key-retention` (option (a), 30 days), in
   actor. A provider failure leaves `destroying` (restore still refuses) for an
   explicit retry. Destruction cannot be undone: ciphertext under those keys, in
   the database or any retained artifact, no longer decrypts.
+- **Export file removal.** In the same step, after the provider confirms the keys
+  gone, the `removeArtifact` capability removes the export artifact the retention
+  record knows by digest (`tenant-artifact-<digest>`;
+  `createFilesystemArtifactRemover({ directory })`). The path is built only from
+  the configured private directory and the recorded 64-hex digest; a symlink or
+  non-directory with that name is refused, never followed. The outcome is written
+  in the same row that records `destroyed` (`artifact_removal`: `removed`,
+  `absent` or `failed`, plus a fixed `artifact_removal_code` when failed; never a
+  path) and returned as `artifact`. A missing file (`absent`) or a file that
+  cannot be removed (`failed`) never blocks key destruction. `destroyRetainedKeys`
+  refuses with `LIFECYCLE_ARTIFACT_REMOVER_REQUIRED` before any state change when
+  the capability is absent. A repeat call on a `destroyed` record reports the
+  recorded outcome and does not retry the removal. Only the file this module
+  knows is removed: copies made elsewhere (backups, downloads, other hosts) are
+  the operator's responsibility.
 - **Time** is the injected `now` of each call; the window constant is not
   configurable. The record's CHECK constraints also refuse a `restored_at` outside
   the window and a destroy start before `retain_until`.
 
-Expiry of the export artifact file itself is not automated by this module.
+The export file is removed by the destroy step above, not by a timer: nothing deletes it before an operator runs destroy after the window.
 
 The catalogue admits validated typed migration table descriptors, with counters
 before clinical rows and reverse deletion order. Physical admission compares live

@@ -67,7 +67,7 @@ optInSuite(process.env.NS_KEY_RETENTION_DOCKER_TEST === '1', 'NS_KEY_RETENTION_D
     scope.setTenancyMode('multi');
     const password = crypto.randomBytes(24).toString('hex');
     execFileSync('docker', ['run', '--rm', '--name', pgName, '-d', '--tmpfs', '/var/lib/postgresql/data', '-p', '127.0.0.1::5432',
-      '-e', 'POSTGRES_USER=operator', '-e', 'POSTGRES_PASSWORD', '-e', 'POSTGRES_DB=kr_test', 'postgres:16'],
+      '-e', 'POSTGRES_USER=operator', '-e', 'POSTGRES_PASSWORD', '-e', 'POSTGRES_DB=kr_test', process.env.NS_KEY_RETENTION_PG_IMAGE || 'postgres:16'],
     { env: { ...process.env, POSTGRES_PASSWORD: password }, stdio: ['ignore', 'pipe', 'pipe'] });
     owned.add(pgName);
     execFileSync('docker', ['run', '--rm', '--name', vaultName, '-d', '-p', '127.0.0.1::8200', '-e', 'VAULT_DEV_ROOT_TOKEN_ID', VAULT_IMAGE,
@@ -98,7 +98,7 @@ optInSuite(process.env.NS_KEY_RETENTION_DOCKER_TEST === '1', 'NS_KEY_RETENTION_D
       'GRANT SELECT, INSERT, DELETE ON kr_secrets.secret_records, kr_secrets.secret_audit TO kr_operator',
       'GRANT SELECT, INSERT, UPDATE ON kr_lifecycle.tenant_lifecycle_requests, kr_lifecycle.tenant_lifecycle_ceremony TO kr_operator',
       'GRANT SELECT, INSERT (request_id, tenant_id, artifact_digest, key_names, key_references, phase, retained_at, retain_until), ' +
-        'UPDATE (phase, restored_at, destroy_started_by, destroy_started_consumer, destroy_started_at, destroyed_by, destroyed_consumer, destroyed_at) ' +
+        'UPDATE (phase, restored_at, destroy_started_by, destroy_started_consumer, destroy_started_at, destroyed_by, destroyed_consumer, destroyed_at, artifact_removal, artifact_removal_code) ' +
         'ON kr_lifecycle.tenant_lifecycle_key_retention TO kr_operator'
     ]) await admin.query(statement);
     // Every tenant has a lifecycle window and an activity row; the ceremony's
@@ -129,6 +129,7 @@ optInSuite(process.env.NS_KEY_RETENTION_DOCKER_TEST === '1', 'NS_KEY_RETENTION_D
       admissionCheck: ({ catalogues }) => assert.deepEqual(catalogues.map(entry => entry.kind), ['secrets']),
       authorize: async ({ tenant }) => ({ tenant, allowed: true, current: true, plane: 'operator', principal: 'synthetic_operator', consumer: 'synthetic_control' }),
       verifyDurableArtifact: lifecycleModule.createFilesystemArtifactVerifier({ directory: artifactDirectory }),
+      removeArtifact: lifecycleModule.createFilesystemArtifactRemover({ directory: artifactDirectory }),
       executionWindow: async ({ tenant }) => ({ tenant, current: true, quiesced: true }),
       keyInventory: inventory,
       keyCustodian: createVaultTransitCustodian({ address: vault, getToken: async () => custodianToken, allowInsecureLoopback: true,
@@ -206,13 +207,23 @@ optInSuite(process.env.NS_KEY_RETENTION_DOCKER_TEST === '1', 'NS_KEY_RETENTION_D
     await assert.rejects(life.destroyRetainedKeys(life.port, destroyArgs(second.requestId, at - 1)), { code: 'LIFECYCLE_RETENTION_WINDOW_OPEN' });
     await assert.rejects(life.destroyRetainedKeys(life.port, destroyArgs(second.requestId, at, { intent: 'yes' })), { code: 'LIFECYCLE_DESTROY_INTENT_REQUIRED' });
     assert.deepEqual(await Promise.all(keysOf(A).map(keyStatus)), [200, 200], 'refusals reach no provider');
+    // eslint-disable-next-line security/detect-non-literal-fs-filename -- Digest-named file in the suite's own temporary directory.
+    const present = digest => fs.existsSync(path.join(artifactDirectory, 'tenant-artifact-' + digest));
+    assert.ok(present(second.artifact.digest), 'refusals leave the export file');
     const done = await life.destroyRetainedKeys(life.port, destroyArgs(second.requestId, at));
     assert.equal(done.phase, 'destroyed');
+    assert.deepEqual(done.artifact, { digest: second.artifact.digest, removal: 'removed' });
+    assert.equal(present(second.artifact.digest), false, 'destroy removed the export file');
+    assert.ok(present(first.artifact.digest), 'the restored request\'s artifact is untouched');
     assert.ok(!JSON.stringify(done).includes('vault:'));
     assert.deepEqual(await Promise.all(keysOf(A).map(keyStatus)), [404, 404]);
     assert.deepEqual(await Promise.all(keysOf(B).map(keyStatus)), [200, 200], 'foreign keys untouched');
     const row = (await records()).find(item => item.request_id === second.requestId);
     assert.deepEqual([row.phase, row.destroy_started_by, row.destroyed_by, Number(row.destroyed_at)], ['destroyed', 'synthetic_operator', 'synthetic_operator', at]);
+    assert.deepEqual([row.artifact_removal, row.artifact_removal_code], ['removed', null], 'the same audit row records the file');
+    // The table refuses an outcome that contradicts the phase or the code.
+    await assert.rejects(admin.query("UPDATE kr_lifecycle.tenant_lifecycle_key_retention SET artifact_removal = 'failed' WHERE request_id = $1", [second.requestId]), { code: '23514' });
+    await assert.rejects(admin.query("UPDATE kr_lifecycle.tenant_lifecycle_key_retention SET artifact_removal = 'removed' WHERE request_id = $1", [first.requestId]), { code: '23514' });
     for (const when of [at + 1, T0 + 41 * DAY]) {
       await assert.rejects(restore(second.artifact, when), { code: 'LIFECYCLE_KEYS_DESTROYED' });
       await assert.rejects(restore(first.artifact, when), { code: 'LIFECYCLE_KEYS_DESTROYED' });
