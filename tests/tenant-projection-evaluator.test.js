@@ -72,23 +72,11 @@ describe('dormant tenant projection evaluator source contract', function () {
     const document = { _id: 'synthetic-crash', type: 'sgv', sgv: 123,
       date: 1793923200000, utcOffset: 0, srvModified: 1793923200001 };
     const original = JSON.stringify(document);
-    const calls = [];
-    let at;
-    // Recording SQL double, not PostgreSQL execution: admit only the actual
-    // loader's numeric date/isValid predicate for this one recovered entry.
-    // Unknown query shapes fail instead of returning the entry unfiltered.
-    const connection = { async query (text, values) {
-      const rows = JSON.parse(values.at(-1));
-      if (!rows.length) return { rows: [] };
-      assert.match(text, /FROM jsonb_to_recordset\(\$8::jsonb\)/);
-      assert.match(text, /::numeric >= \$2::numeric/);
-      assert.match(text, /AND NOT COALESCE/);
-      assert.deepEqual(values.slice(0, -1), ['date', at - 2 * 24 * 60 * 60000,
-        at - 2 * 24 * 60 * 60000, 'isValid', false, false, 'date']);
-      calls.push(values[1]);
-      return { rows: rows.filter(row => row.doc.date >= values[1] && row.doc.isValid !== false)
-        .map(row => ({ ...row, unsortable: false })) };
-    } };
+    let at, sqlCalls = 0;
+    // The evaluator answers the views' reads in process (projection-memory-read,
+    // evaluator cost lane A): no SQL is sent for them. The loader's numeric
+    // date/isValid predicate still decides what the view sees at each instant.
+    const connection = { async query () { sqlCalls++; throw new Error('No SQL expected for in-process projection reads'); } };
     const replay = { async reconcile () { return { checkpoint: document.srvModified,
       rows: [{ domain: 'entries', document }] }; } };
     clock.install();
@@ -101,7 +89,7 @@ describe('dormant tenant projection evaluator source contract', function () {
         assert.equal(result.checkpoint, document.srvModified, 'clinical time does not change the committed watermark');
       }
     } finally { clock.uninstall(); }
-    assert.equal(calls.length, 3, 'fresh, aged, and restored instants use the actual loader query');
+    assert.equal(sqlCalls, 0, 'fresh, aged, and restored instants are read in process');
     assert.equal(JSON.stringify(document), original, 'evaluation never changes the committed document');
   });
   it('does not retain or publish when replay commit refuses', async function () {
@@ -111,14 +99,16 @@ describe('dormant tenant projection evaluator source contract', function () {
   });
   it('retries clinical computation after a downstream failure despite unchanged snapshot progress', async function () {
     let acquisitions = 0, fail = false;
+    // Downstream of the input COMMIT: the acquisition statistics read (the
+    // views' own reads are in process since cost lane A and cannot fail here).
     const v = component({ async reconcile (bounds) {
       assert.deepEqual(bounds, { maxRows: 10, maxBytes: 10000, signature: true }, 'the evaluator also records the snapshot change signature');
       acquisitions++;
       return { checkpoint: 1, progress: 'current-snapshot', rows: [] };
-    } }, { async query () {
+    } }, undefined, async () => {
       if (fail) throw new Error('Synthetic downstream clinical read failure');
-      return { rows: [] };
-    } });
+      return { dataSize: 0, indexSize: 0 };
+    });
     const instant = Date.UTC(2026, 10, 6, 12);
     const first = await v.evaluate({ at: instant });
     fail = true;

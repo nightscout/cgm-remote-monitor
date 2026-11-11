@@ -96,6 +96,31 @@ optInSuite(process.env.NS_TENANT_PROJECTION_EVALUATOR_TEST === '1' && !!process.
       });
     });
 
+    // Candidate A: the views' reads are answered in process. A time-only
+    // cycle sends no statement; an acquisition sends only the replay's.
+    it('EV_COST_A_NO_STATEMENTS a time-only cycle sends no statement to PostgreSQL', async function () {
+      const records = SCENARIOS.steady(at);
+      for (const [logical, docs] of Object.entries(records)) records[logical] = docs.map((doc, i) => ({ ...doc, _id: logical + '-' + i }));
+      await lab.persistDomains(records);
+      await lab.provisionView();
+      const counted = { evaluator: 0, replay: 0 };
+      const counting = (name, connection) => new Proxy(connection, { get (target, key) {
+        const value = Reflect.get(target, key);
+        if (key === 'query') return (...args) => { counted[name]++; return value.apply(target, args); };
+        return typeof value === 'function' ? value.bind(target) : value;
+      } });
+      const v = lab.evaluator(lab.A, { connection: counting('evaluator', lab.reader), replay: lab.consumer('clinical-view', counting('replay', lab.reader)) });
+      await lab.at(at, async () => {
+        const first = await v.evaluate({ at });
+        assert.ok(counted.replay > 0, 'the acquisition read the replay');
+        assert.equal(counted.evaluator, 0, 'the views read nothing through PostgreSQL');
+        const before = { ...counted };
+        for (let i = 1; i <= 5; i++) await v.evaluateTime({ at: at + i * 1000 });
+        assert.deepEqual(counted, before, 'five time-only cycles sent no statement');
+        assert.ok(first.properties.bgnow, 'the cycle computed');
+      });
+    });
+
     for (const name of ['steady', 'urgentLow', 'recentTreatment', 'loopFailing', 'crowdedStatus', 'aapsLoopStopped', 'openapsEnactedOnly', 'pumpRepost'].filter(n => SCENARIOS[n])) {
       it('EV_COST_MUTATION_GUARD ' + name + ': a plugin that changes everything changes no later cycle', async function () {
         const records = SCENARIOS[name](at);

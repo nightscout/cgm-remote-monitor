@@ -210,6 +210,7 @@
         "tests/tenant-projection-evaluator.test.js",
         "tests/json-copy.test.js",
         "tests/moment-memo.test.js",
+        "tests/projection-memory-read.test.js",
         "tests/tenant-extended-settings.test.js",
         "tests/evaluator-preview-runtime.test.js",
         "tests/tenant-activity.test.js",
