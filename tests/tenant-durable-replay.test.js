@@ -8,7 +8,7 @@ const { validateCatalogue } = require('../lib/migrations/catalogue');
 const A = '11111111-1111-4111-8111-111111111111';
 
 describe('dormant durable replay source protocol', function () {
-  let previous;
+  let previous, signatureMode = false;
   beforeEach(function () { previous = scope.getTenancyMode(); scope.setTenancyMode('multi'); });
   afterEach(function () { scope.setTenancyMode(previous); });
 
@@ -46,12 +46,18 @@ describe('dormant durable replay source protocol', function () {
       },
       async query (sql, values) {
         calls.push({ sql, values });
+        if (sql.startsWith('SELECT checkpoint') && sql.includes('projection IS NULL AS empty')) return { rows: saved
+          ? [{ checkpoint: saved.checkpoint, contract_digest: saved.contract_digest, empty: saved.projection === null }] : [] };
         if (sql.startsWith('SELECT checkpoint')) return { rows: saved ? [structuredClone(saved)] : [] };
+        // Which snapshot tables carry an insertion ordinal (none in this fake).
+        if (sql.startsWith('SELECT table_schema')) return { rows: [] };
+        if (sql.startsWith('SELECT projection')) return { rows: saved ? [{ projection: structuredClone(saved.projection) }] : [] };
         if (sql.startsWith('SELECT last_stamp')) return { rows: [{ last_stamp: String(floor) }] };
         if (sql.startsWith('SELECT 1')) return { rows: [] };
         // The evaluator change signature: floor, row count and a row-version digest.
         if (sql.startsWith('SELECT /* evaluator-change-signature */')) return { rows: [{ stamp: String(floor), row_count: String(source.length),
-          digest: String(source.reduce((n, row) => n + JSON.stringify(row).length, 0)) }] };
+          // Any change to a row changes it, as a row version (xmin) does.
+          digest: require('node:crypto').createHash('sha256').update(JSON.stringify(source)).digest('hex') }] };
         if (sql.startsWith('SELECT count(*)')) return { rows: [{ row_count: String(source.length),
           document_bytes: String(source.reduce((n, row) => n + Buffer.byteLength(JSON.stringify(row.doc)), 0)) }] };
         if (sql.startsWith('SELECT domain') && sql.includes('snapshot_source')) {
@@ -90,7 +96,8 @@ describe('dormant durable replay source protocol', function () {
         saved = reorder(saved);
       },
       failUpdate () { failUpdate = true; }, failCommit () { failCommit = true; },
-      reconcile: (bounds = { maxRows: 10, maxBytes: 10000 }) => scope.withTenant(A, () => consumer.reconcile(bounds)),
+      reconcile: (bounds = { maxRows: 10, maxBytes: 10000 }) => scope.withTenant(A, () => consumer.reconcile(
+        signatureMode ? { ...bounds, signature: true } : bounds)),
       run: () => scope.withTenant(A, () => consumer.catchUp()) };
   }
 
@@ -171,6 +178,13 @@ describe('dormant durable replay source protocol', function () {
     assert.deepEqual(f.saved(), before);
   });
 
+  // Every current-snapshot test runs twice: as realtime calls reconcile, and
+  // as the evaluator does, with the change signature (evaluator cost lane E:
+  // a signature-verified unchanged snapshot skips the projection read-back,
+  // deep compare and copies; nothing a caller sees may differ).
+  for (const withSignature of [false, true]) describe(withSignature ? 'current snapshot, with the change signature' : 'current snapshot', function () {
+  beforeEach(() => { signatureMode = withSignature; });
+  afterEach(() => { signatureMode = false; });
   it('replaces full current identities without floor movement and includes unstamped typed current state', async function () {
     const f = fixture(); f.provision();
     const id = '0123456789abcdef01234567';
@@ -244,6 +258,45 @@ describe('dormant durable replay source protocol', function () {
     const g = fixture(); g.provision(); g.setSource([g.row('one', 'string', 1, 111)], 1);
     await g.reconcile(); assert.notEqual(g.consumer.digest, g.consumer.snapshotDigest);
     await g.run(); assert.equal(g.saved().contract_digest, g.consumer.digest);
+  });
+  });
+
+  it('skips the projection read-back, deep compare and copies only for a committed, unchanged signature (E)', async function () {
+    const f = fixture(); f.provision();
+    const reconcile = () => scope.withTenant(A, () => f.consumer.reconcile({ maxRows: 10, maxBytes: 10000, signature: true }));
+    const readBacks = () => f.calls.filter(call => call.sql && call.sql.startsWith('SELECT projection')).length;
+    const updates = () => f.calls.filter(call => call.sql && call.sql.startsWith('UPDATE')).length;
+    const unstamped = { domain: 'entries', id_kind: 'string', stamp: null, doc: { _id: 'unstamped', sgv: 222 } };
+    f.setSource([f.row('one', 'string', 1, 111), unstamped], 1);
+    const first = await reconcile();
+    assert.equal(first.changed, true); assert.equal(readBacks(), 1); assert.equal(updates(), 1);
+    const second = await reconcile();
+    assert.equal(readBacks(), 1, 'EV_COST_E_SKIP unchanged signature: no read-back of the saved projection');
+    assert.equal(second.changed, false); assert.equal(second.bootstrapped, false); assert.equal(updates(), 1);
+    assert.deepEqual(second.rows, first.rows); assert.deepEqual(second.signature, first.signature);
+    // Same floor, new row version (an unstamped update): compared again.
+    unstamped.doc.sgv = 333;
+    const third = await reconcile();
+    assert.equal(readBacks(), 2, 'EV_COST_E_CHANGED a different signature reads and compares');
+    assert.equal(third.changed, true); assert.equal(updates(), 2);
+    assert.equal(third.rows.find(row => row.document._id === 'unstamped').document.sgv, 333);
+    // Someone else rewrote the checkpoint row (another contract): compared again.
+    await reconcile(); assert.equal(readBacks(), 2);
+    f.provision(f.saved().projection, 1, 'another-contract');
+    assert.equal((await reconcile()).changed, true); assert.equal(readBacks(), 3);
+    // A failed commit forgets the tenant's verified signature.
+    await reconcile(); assert.equal(readBacks(), 3);
+    f.failCommit();
+    await assert.rejects(reconcile(), /synthetic commit failure/);
+    assert.equal(readBacks(), 3);
+    const g = fixture(); g.provision(); g.setSource([g.row('one', 'string', 1, 111)], 1);
+    const r = () => scope.withTenant(A, () => g.consumer.reconcile({ maxRows: 10, maxBytes: 10000, signature: true }));
+    await r(); g.failCommit();
+    await assert.rejects(r(), /synthetic/);
+    const h = g.calls.filter(call => call.sql && call.sql.startsWith('SELECT projection')).length;
+    await assert.rejects(r(), /synthetic/);
+    assert.equal(g.calls.filter(call => call.sql && call.sql.startsWith('SELECT projection')).length, h + 1,
+      'EV_COST_E_ROLLBACK after a failed commit the next reconcile reads and compares');
   });
 
   it('validates the append-only forced-RLS candidate and never grants clinical writes', function () {

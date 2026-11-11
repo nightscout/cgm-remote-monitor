@@ -89,11 +89,12 @@ optInSuite(process.env.NS_TENANT_PROJECTION_EVALUATOR_TEST === '1' && !!process.
     it('retains the prior successful result after read failure and retries from committed projection', async function () {
       await lab.persistDomains({ entries: [reading('one', 111)] }); await lab.provisionView();
       let fail = false;
-      const observed = { query (text, values) {
+      // Downstream of the projection COMMIT: the statistics read (the views'
+      // reads are answered in process since evaluator cost lane A).
+      const v = lab.evaluator(lab.A, { dbstats: async () => {
         if (fail) throw new Error('Synthetic projection read unavailable');
-        return lab.reader.query(text, values);
-      } };
-      const v = lab.evaluator(lab.A, { connection: observed });
+        return lab.stats();
+      } });
       await lab.at(at, async () => {
         const first = await v.evaluate({ at });
         await lab.persistDomains({ entries: [reading('one', 222)] });
