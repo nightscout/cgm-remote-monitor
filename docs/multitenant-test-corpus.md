@@ -62,8 +62,8 @@ themselves.
 
 ## Inventory
 
-48 suites. 27 use the admin URI the script provides; 25 start at least one
-container of their own through Docker. Disabled, 47 register their
+51 suites. 27 use the admin URI the script provides; 28 start at least one
+container of their own through Docker. Disabled, 50 register their
 tests as pending with `[pending opt-in: <requirement>]` in the title; one
 (`postgres-entries-write`) uses a bare `describe.skip`.
 
@@ -98,6 +98,7 @@ tests as pending with `[pending opt-in: <requirement>]` in the title; one
 | `tests/mongodb-migrations.integration.test.js` | `NS_MIGRATION_MONGO_DOCKER_TEST=1` | | MongoDB | `mongo:8.0.34` replica set |
 | `tests/postgres-secrets.integration.test.js` | `NS_SECRETS_POSTGRES_DOCKER_TEST=1`, `NS_VAULT_DOCKER_TEST=1` | | PostgreSQL, Vault | the second flag enables its one backup-restore case, which starts raft Vaults |
 | `tests/vault-secrets.integration.test.js` | `NS_VAULT_DOCKER_TEST=1` | | Vault | |
+| `tests/tenant-key-retention.integration.test.js` | `NS_KEY_RETENTION_DOCKER_TEST=1` | | PostgreSQL, Vault | post-deletion 30-day key retention: destroys Transit keys in its own Vault dev |
 | `tests/tenant-runtime-vault.integration.test.js` | `NS_TENANT_RUNTIME_VAULT_DOCKER_TEST=1` | | PostgreSQL, Vault | |
 | `tests/tenant-entries-http.integration.test.js` | `NS_TENANT_HTTP_DOCKER_TEST=1` | | PostgreSQL | |
 | `tests/tenant-socket-data-forwarding.integration.test.js` | `NS_SOCKET_DATA_FORWARDING_TEST=1` | PostgreSQL, MongoDB | | real sockets and canonical forwarded PG DATA writes; pinned AAPS pattern replay, not binary |
@@ -111,6 +112,8 @@ tests as pending with `[pending opt-in: <requirement>]` in the title; one
 | `tests/subject-management-http.integration.test.js` | `NS_SUBJECT_MANAGEMENT_HTTP_DOCKER_TEST=1` | | PostgreSQL | |
 | `tests/subject-admin-postgres.integration.test.js` | `NS_SUBJECT_ADMIN_POSTGRES_DOCKER_TEST=1` | | PostgreSQL | |
 | `tests/tenant-ownership-postgres.integration.test.js` | `NS_TENANT_OWNERSHIP_DOCKER_TEST=1` | | PostgreSQL | operator-assisted add/transfer/recover with concurrent-transfer and foreign-authority controls over the private ownership service |
+| `tests/admin-role-ownership.integration.test.js` | `NS_ADMIN_ROLE_DOCKER_TEST=1` | | PostgreSQL | spawns `nightscout multitenant admin`; ownership operations on the admin listener with the deployment plan's `ownership_operator` grants |
+| `tests/admin-lifecycle-fit.integration.test.js` | `NS_ADMIN_LIFECYCLE_DOCKER_TEST=1` | | PostgreSQL | tenant A restore through the maintenance controller and remote cohort census with the admin role connected; ownership refusal while held; admin on the consumer address at another port |
 | `tests/owner-subject-policy.integration.test.js` | `NS_OWNER_SUBJECT_POLICY_DOCKER_TEST=1` | | PostgreSQL | verifies its own volume removal |
 | `tests/tenant-rest-authority-review.test.js` | `NS_REST_AUTHORITY_REVIEW_TEST=1` | | PostgreSQL | |
 | `tests/storage-port-contract.integration.test.js` | `NS_STORAGE_PORT_CONTRACT_DOCKER_TEST=1` | | PostgreSQL, MongoDB | `mongo:7.0` |

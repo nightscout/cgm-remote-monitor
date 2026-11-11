@@ -108,7 +108,8 @@ async function restore (config, artifact, env = process.env, hooks = {}) {
       locks: config.control.locks, pool, cohort, drainTimeoutMs: config.drainTimeoutMs });
     let committed = false;
     const result = await controller.withRestore(tenant, { artifactDigest: artifact.digest }, async ({ connection, maintenanceClaim }) => {
-      return lifecycle.restoreLogical(connection, artifact, { tenant, namespaces: config.namespaces, maintenanceClaim,
+      // The lifecycle control namespace holds the key-retention ledger (BF-230).
+      return lifecycle.restoreLogical(connection, artifact, { tenant, namespaces: config.namespaces, ledgerNamespace: config.control.namespace, maintenanceClaim,
         ...(hooks.onRow ? { onRow: hooks.onRow } : {}), onCommitted: async summary => { committed = true; if (hooks.onCommitted) await hooks.onCommitted(summary); } });
     });
     if (!committed) throw fail('COMPOSE_RESTORE_COMMIT_NOT_OBSERVED');

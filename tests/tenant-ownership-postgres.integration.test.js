@@ -9,10 +9,12 @@ const fs = require('node:fs');
 const net = require('node:net');
 const os = require('node:os');
 const path = require('node:path');
-const { execFileSync } = require('node:child_process');
+const { execFileSync, spawn } = require('node:child_process');
 const { Client } = require('pg');
 const { run } = require('../lib/migrations/postgres');
 const catalogue = require('../lib/tenant-authorization/postgres-candidate.json');
+const lifecycleCatalogue = require('../lib/tenant-lifecycle/postgres-candidate.json');
+const { phaseGrants } = require('../lib/tenant-lifecycle/tenant-phase');
 const createStore = require('../lib/tenant-ownership/postgres');
 const { createOwnershipOperations } = require('../lib/tenant-ownership/component');
 const service = require('../lib/tenant-ownership/service');
@@ -23,8 +25,12 @@ const { optInSuite } = require('./support/opt-in');
 
 const A = '11111111-1111-4111-8111-111111111111';
 const B = '22222222-2222-4222-8222-222222222222';
-const NS = 'own_auth';
+const NS = 'own_auth', CONTROL = 'own_control';
 const t = name => NS + '.' + name;
+const c = name => CONTROL + '.' + name;
+const KEYS = { [A]: '810001', [B]: '810002' };
+// postgres:16, pinned by digest. Override only with another digest.
+const IMAGE = process.env.NS_TENANT_OWNERSHIP_PG_IMAGE || 'postgres@sha256:9e2cf6287f25c3151f4c9421ccce2b17f3e60061c111a29165e0d2cdd9ff0a97';
 const CONSUMER = 'tenant-admin';
 const ref = principal => ({ principal, consumer: CONSUMER });
 const OPERATOR = { principal: 'synthetic_operator', consumer: 'operator_plane' };
@@ -68,10 +74,13 @@ optInSuite(process.env.NS_TENANT_OWNERSHIP_DOCKER_TEST === '1',
     socketDir = fs.mkdtempSync(path.join(os.tmpdir(), 'ns-own-'));
     fs.chmodSync(socketDir, 0o700);
     const password = crypto.randomBytes(24).toString('hex');
-    execFileSync('docker', ['run', '--name', container, '-d', '-p', '127.0.0.1::5432', '-e', 'POSTGRES_USER=operator',
-      '-e', 'POSTGRES_PASSWORD', '-e', 'POSTGRES_DB=ownership', 'postgres:16'],
+    execFileSync('docker', ['run', '--name', container, '--label', 'nightscout.test=tenant-ownership', '-d', '-p', '127.0.0.1::5432', '-e', 'POSTGRES_USER=operator',
+      '-e', 'POSTGRES_PASSWORD', '-e', 'POSTGRES_DB=ownership', IMAGE],
     { env: { ...process.env, POSTGRES_PASSWORD: password }, stdio: ['ignore', 'pipe', 'pipe'] });
     owned = true;
+    // Reaper: removes the container if this process dies before `after` runs.
+    spawn('sh', ['-c', 'while kill -0 "$1" 2>/dev/null; do sleep 2; done; docker rm -f -v "$2" >/dev/null 2>&1', 'reaper', String(process.pid), container],
+      { detached: true, stdio: 'ignore' }).unref();
     const port = docker(['port', container, '5432/tcp']).split(':').pop();
     adminURI = 'postgres://operator:' + password + '@127.0.0.1:' + port + '/ownership';
     const deadline = Date.now() + 20000;
@@ -90,14 +99,19 @@ optInSuite(process.env.NS_TENANT_OWNERSHIP_DOCKER_TEST === '1',
     await admin.query(`GRANT SELECT, INSERT, UPDATE (active, can_update, delegable) ON ${t('tenant_owner_actors')} TO ownership_operator`);
     await admin.query(`GRANT SELECT ON ${t('tenant_authorization_subjects')} TO ownership_operator`);
     await admin.query(`GRANT INSERT ON ${t('tenant_subject_admin_audit')} TO ownership_operator`);
+    await admin.query(`CREATE SCHEMA ${CONTROL}`);
+    await run('up', { direct: true, connectionString: adminURI, namespace: CONTROL, catalogue: lifecycleCatalogue });
+    for (const sql of phaseGrants({ namespace: CONTROL, role: 'ownership_operator' })) await admin.query(sql);
     const url = new URL(adminURI); url.username = 'ownership_operator'; url.password = rolePassword; operatorURI = url.toString();
-    store = await createStore({ connectionString: operatorURI, namespace: NS });
+    store = await createStore({ connectionString: operatorURI, namespace: NS, lifecycleNamespace: CONTROL });
   });
 
   beforeEach(async function () {
     for (const table of ['tenant_subject_admin_audit', 'tenant_owner_actors', 'tenant_owner_policy', 'tenant_authorization_subjects', 'tenant_authorization_config']) {
       await admin.query('DELETE FROM ' + t(table));
     }
+    for (const table of ['tenant_lifecycle_ceremony', 'tenant_lifecycle_requests', 'tenant_lifecycle_windows']) await admin.query('DELETE FROM ' + c(table));
+    await admin.query(`INSERT INTO ${c('tenant_lifecycle_windows')} (tenant_id,lock_key,phase,generation) VALUES ($1,$3,'active',1),($2,$4,'active',1)`, [A, B, KEYS[A], KEYS[B]]);
     await admin.query(`INSERT INTO ${t('tenant_authorization_config')} (tenant_id, anonymous_roles) VALUES ($1, ARRAY['denied']), ($2, ARRAY['denied'])`, [A, B]);
     await admin.query(`INSERT INTO ${t('tenant_owner_policy')} (tenant_id, catalogue_digest, ceiling) VALUES ($1,$3,$4), ($2,$3,$4)`, [A, B, catalogueDigest(['*']), CEILING]);
     await admin.query(`INSERT INTO ${t('tenant_authorization_subjects')} (tenant_id, subject_id) VALUES
@@ -121,12 +135,97 @@ optInSuite(process.env.NS_TENANT_OWNERSHIP_DOCKER_TEST === '1',
   it('refuses an operator store whose identity can delete or rewrite authority rows', async function () {
     await admin.query(`GRANT DELETE ON ${t('tenant_owner_actors')} TO ownership_operator`);
     try {
-      await assert.rejects(createStore({ connectionString: operatorURI, namespace: NS }), { code: 'OWNERSHIP_STORE_UNSAFE' });
+      await assert.rejects(createStore({ connectionString: operatorURI, namespace: NS, lifecycleNamespace: CONTROL }), { code: 'OWNERSHIP_STORE_UNSAFE' });
     } finally { await admin.query(`REVOKE DELETE ON ${t('tenant_owner_actors')} FROM ownership_operator`); }
     await admin.query(`GRANT UPDATE (ceiling) ON ${t('tenant_owner_policy')} TO ownership_operator`);
     try {
-      await assert.rejects(createStore({ connectionString: operatorURI, namespace: NS }), { code: 'OWNERSHIP_STORE_UNSAFE' });
+      await assert.rejects(createStore({ connectionString: operatorURI, namespace: NS, lifecycleNamespace: CONTROL }), { code: 'OWNERSHIP_STORE_UNSAFE' });
     } finally { await admin.query(`REVOKE UPDATE (ceiling) ON ${t('tenant_owner_policy')} FROM ownership_operator`); }
+    // Lifecycle control is read-only for this identity: a window write, or a
+    // missing phase read, refuses the store.
+    await admin.query(`GRANT UPDATE (phase) ON ${c('tenant_lifecycle_windows')} TO ownership_operator`);
+    try {
+      await assert.rejects(createStore({ connectionString: operatorURI, namespace: NS, lifecycleNamespace: CONTROL }), { code: 'OWNERSHIP_STORE_UNSAFE' });
+    } finally { await admin.query(`REVOKE UPDATE (phase) ON ${c('tenant_lifecycle_windows')} FROM ownership_operator`); }
+    await admin.query(`REVOKE SELECT ON ${c('tenant_lifecycle_ceremony')} FROM ownership_operator`);
+    try {
+      await assert.rejects(createStore({ connectionString: operatorURI, namespace: NS, lifecycleNamespace: CONTROL }), { code: 'OWNERSHIP_STORE_UNSAFE' });
+    } finally { await admin.query(`GRANT SELECT ON ${c('tenant_lifecycle_ceremony')} TO ownership_operator`); }
+  });
+
+  // 16.0.0 decision restore-census-and-ownership-phase: add, transfer and recover
+  // refuse unless the tenant is active. Every refusal: no ownership row changes,
+  // one refused audit row naming the lifecycle state.
+  it('refuses add, transfer and recover on a tenant that is suspended, held by a restore, in a deletion ceremony or unprovisioned', async function () {
+    const ops = operatorFor([A, B]);
+    const attempts = [
+      ['add', { tenant: A, owner: ref('s_owner2'), delegable: [], expectedOwners: [ref('s_owner1')] }],
+      ['transfer', { tenant: A, from: ref('s_owner1'), to: ref('s_new'), expectedOwners: [ref('s_owner1')] }],
+      ['recover', { tenant: A, owner: ref('s_new2'), delegable: [], expectedOwners: [ref('s_owner1')] }]
+    ];
+    const before = await rows(A), beforeB = await rows(B);
+    async function refusedAll (state) {
+      for (const [operation, input] of attempts) {
+        const result = await ops[operation](OPERATOR, input);
+        assert.deepEqual({ outcome: result.outcome, code: result.code, owners: result.owners },
+          { outcome: 'refused', code: 'OWNERSHIP_TENANT_INACTIVE', owners: [ref('s_owner1')] }, operation + ' while ' + state);
+      }
+      const after = await rows(A);
+      assert.deepEqual(after.actors, before.actors, 'no ownership effect while ' + state);
+      assert.deepEqual(after.audit.slice(-3).map(row => [row.operation, row.outcome, row.detail.code, row.detail.lifecycle]),
+        attempts.map(([operation]) => ['owner-' + operation, 'refused', 'OWNERSHIP_TENANT_INACTIVE', state]));
+    }
+    // A restore's suspension (maintenance-window.js writes exactly these columns).
+    await admin.query(`UPDATE ${c('tenant_lifecycle_windows')} SET phase='suspended',generation=2,claim_id=$2,artifact_digest=$3 WHERE tenant_id=$1`,
+      [A, crypto.randomUUID(), 'a'.repeat(64)]);
+    await refusedAll('suspended');
+    await admin.query(`UPDATE ${c('tenant_lifecycle_windows')} SET phase='active',claim_id=NULL,artifact_digest=NULL WHERE tenant_id=$1`, [A]);
+    // A restore holding the tenant's window lock exclusively (before it commits the suspension).
+    const holder = new Client({ connectionString: adminURI }); await holder.connect();
+    try {
+      assert.equal((await holder.query('SELECT pg_try_advisory_lock($1::bigint) AS held', [KEYS[A]])).rows[0].held, true);
+      await refusedAll('held');
+    } finally { await holder.end(); }
+    // A pending deletion request, then the same request cancelled (active again).
+    const request = crypto.randomUUID();
+    await admin.query(`INSERT INTO ${c('tenant_lifecycle_requests')} (request_id,tenant_id,artifact_digest,phase,requested_at) VALUES ($1,$2,$3,'requested',1)`, [request, A, 'b'.repeat(64)]);
+    await admin.query(`INSERT INTO ${c('tenant_lifecycle_ceremony')} (request_id,tenant_id,phase) VALUES ($1,$2,'requested')`, [request, A]);
+    await refusedAll('deletion');
+    await admin.query(`UPDATE ${c('tenant_lifecycle_ceremony')} SET phase='cancelled',cancelled_by='x',cancelled_consumer='y',cancelled_at=2 WHERE request_id=$1`, [request]);
+    // Unprovisioned: no window row.
+    await admin.query(`DELETE FROM ${c('tenant_lifecycle_windows')} WHERE tenant_id=$1`, [A]);
+    await refusedAll('unprovisioned');
+    await admin.query(`INSERT INTO ${c('tenant_lifecycle_windows')} (tenant_id,lock_key,phase,generation) VALUES ($1,$2,'active',3)`, [A, KEYS[A]]);
+    // Active again (the cancelled ceremony no longer counts): the same add applies; B untouched throughout.
+    assert.equal((await ops.add(OPERATOR, attempts[0][1])).outcome, 'applied');
+    assert.deepEqual(await rows(B), beforeB);
+    // list never checks the phase.
+    await admin.query(`UPDATE ${c('tenant_lifecycle_windows')} SET phase='suspended',generation=4,claim_id=$2,artifact_digest=$3 WHERE tenant_id=$1`,
+      [A, crypto.randomUUID(), 'a'.repeat(64)]);
+    assert.deepEqual(await ops.list(OPERATOR, { tenant: A }), { owners: [ref('s_owner1'), ref('s_owner2')] });
+  });
+
+  it('holds the shared window lock to commit: a restore cannot take it exclusively under an ownership change', async function () {
+    const ops = operatorFor([A]);
+    // Block the change inside its transaction on the actor row lock, after the phase check.
+    const blocker = new Client({ connectionString: adminURI }); await blocker.connect();
+    const probe = new Client({ connectionString: adminURI }); await probe.connect();
+    try {
+      await blocker.query('BEGIN');
+      await blocker.query(`SELECT 1 FROM ${t('tenant_owner_policy')} WHERE tenant_id=$1 FOR UPDATE`, [A]);
+      const pending = ops.add(OPERATOR, { tenant: A, owner: ref('s_owner2'), delegable: [], expectedOwners: [ref('s_owner1')] });
+      let waiting = false;
+      for (let i = 0; i < 100 && !waiting; i++) {
+        waiting = (await probe.query(`SELECT count(*)::int AS n FROM pg_locks WHERE locktype='advisory' AND mode='ShareLock' AND granted
+          AND objid=($1::bigint & 4294967295)::oid`, [KEYS[A]])).rows[0].n === 1;
+        if (!waiting) await sleep(50);
+      }
+      assert.equal(waiting, true, 'ownership change holds the window lock shared');
+      assert.equal((await probe.query('SELECT pg_try_advisory_lock($1::bigint) AS held', [KEYS[A]])).rows[0].held, false, 'exclusive lock refused while the change is open');
+      await blocker.query('COMMIT');
+      assert.equal((await pending).outcome, 'applied');
+      assert.equal((await probe.query('SELECT pg_try_advisory_lock($1::bigint) AS held', [KEYS[A]])).rows[0].held, true, 'exclusive lock free after commit');
+    } finally { await blocker.end(); await probe.end(); }
   });
 
   it('adds a co-owner atomically with an applied audit record, and audits refused adds without ownership effect', async function () {

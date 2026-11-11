@@ -24,7 +24,7 @@ function catalogues() {
 function layout(prefix = 'nsdemo') {
   quote(prefix);
   if (prefix.length > 24) throw new TypeError('Deployment prefix too long');
-  const names = ['api','readiness','realtime','evaluator','alarm','suppression','outbox','owner_writer','owner_reader','root_writer','operator',
+  const names = ['api','readiness','realtime','evaluator','alarm','suppression','outbox','owner_writer','owner_reader','root_writer','operator','ownership_operator',
     ...serviceRoles.map(name=>'lifetime_'+name.replace('-','_'))];
   return {prefix,owner:prefix+'_owner',namespaces:Object.fromEntries(Object.keys(catalogues()).map(name=>[name,prefix+'_'+name])),
     roles:Object.fromEntries(names.map(name=>[name,prefix+'_'+name])),mount:prefix+'_transit'};
@@ -84,7 +84,18 @@ function grants(l) {
   grant('INSERT',table('authorization','tenant_subject_admin_audit'),'root_writer');
   for(const name of ['tenant_authorization_config','tenant_owner_policy'])grant('SELECT,UPDATE(owner_fence)',table('authorization',name),'root_writer');
   grant('SELECT',table('authorization','tenant_owner_actors'),'root_writer');
-  for(const who of Object.keys(r).filter(name=>!['operator','root_writer'].includes(name))){
+  // The admin role's ownership-operations identity (lib/tenant-ownership/postgres.js SHAPE): reads
+  // authority rows, row-locks config/policy through UPDATE(owner_fence), changes only owner actor
+  // rows and appends audit. No DELETE, no table UPDATE. In the lifecycle control namespace it reads
+  // the tenant phase only (lib/tenant-lifecycle/tenant-phase.js): no operation registration, no
+  // window or ceremony write. No clinical table, so the restore census accepts its backends.
+  schema('authorization','ownership_operator');
+  for(const name of ['tenant_authorization_config','tenant_owner_policy'])grant('SELECT,UPDATE(owner_fence)',table('authorization',name),'ownership_operator');
+  grant('SELECT,INSERT,UPDATE(active,can_update,delegable)',table('authorization','tenant_owner_actors'),'ownership_operator');
+  grant('SELECT',table('authorization','tenant_authorization_subjects'),'ownership_operator');
+  grant('INSERT',table('authorization','tenant_subject_admin_audit'),'ownership_operator');
+  sql.push(...require('../../lib/tenant-lifecycle/tenant-phase').phaseGrants({namespace:ns.control,role:r.ownership_operator}));
+  for(const who of Object.keys(r).filter(name=>!['operator','root_writer','ownership_operator'].includes(name))){
     schema('control',who);for(const name of ['schema_migrations','tenant_lifecycle_windows','tenant_lifecycle_operations'])grant('SELECT',table('control',name),who);
     if(who.startsWith('lifetime_')){
       grant('INSERT(tenant_id,operation_id,generation),UPDATE(finished)',table('control','tenant_lifecycle_operations'),who);
@@ -93,6 +104,10 @@ function grants(l) {
   }
   sql.push(...require('../../lib/tenant-lifecycle/maintenance-window').operatorGrants({namespace:ns.control,role:r.operator}));
   sql.push('GRANT pg_read_all_stats TO '+quote(r.operator));
+  // Restore's key-retention gate (lib/tenant-lifecycle/key-retention.js admitRestore/markRestored):
+  // SELECT request_id,phase,retained_at,retain_until ... WHERE tenant_id=$1 FOR UPDATE, then
+  // UPDATE ... SET phase,restored_at WHERE request_id,tenant_id,phase. Nothing else in that table.
+  grant('SELECT(request_id,tenant_id,phase,retained_at,retain_until),UPDATE(phase,restored_at)',table('control','tenant_lifecycle_key_retention'),'operator');
   for(const name of Object.keys(ns).filter(name=>name!=='control')){
     schema(name,'operator');grant('SELECT','ALL TABLES IN SCHEMA '+quote(ns[name]),'operator');
     if([...clinical,'settings'].includes(name))sql.push(...insertionGrants({namespace:ns[name],domain:name,role:r.operator,mode:'restore'}));

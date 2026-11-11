@@ -67,9 +67,15 @@ describe('nightscout executable (D21)', function () {
   });
 
   it('exits 64 for `multitenant` roles that are not available yet', function () {
-    const result = cli(['multitenant', 'admin']);
+    const result = cli(['multitenant', 'vcpool']);
     assert.equal(result.status, 64);
-    assert.match(result.stderr, /not yet available: admin/);
+    assert.match(result.stderr, /not yet available: vcpool/);
+  });
+
+  it('exits 78 for `multitenant admin` without its explicit operator configuration', function () {
+    const result = cli(['multitenant', 'admin']);
+    assert.equal(result.status, 78);
+    assert.match(result.stderr, /admin requires MULTITENANT_ADMIN_CONFIG/);
   });
 
   it('does not retain `serve` as an alias for the tenancy command', function () {

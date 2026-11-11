@@ -145,9 +145,9 @@ describe('describeComposition', function () {
 
 describe('parseRoles is unchanged by the typed fields', function () {
 
-  it('accepts explicitly configured api and headless tenant-admin previews', function () {
+  it('accepts explicitly configured api, headless tenant-admin and admin operator previews', function () {
     assert.deepEqual(serve.parseRoles(['api']), ['api']);
-    assert.deepEqual(NAMES.filter(name => ROLES[name].multitenant === true), ['api', 'evaluator', 'realtime', 'tenant-admin']);
+    assert.deepEqual(NAMES.filter(name => ROLES[name].multitenant === true), ['api', 'evaluator', 'realtime', 'tenant-admin', 'admin']);
   });
 
   it('recognizes explicit realtime without changing its reader-only role contract', function () {

@@ -220,7 +220,8 @@
                   "OWNERSHIP_ALREADY_OWNER",
                   "OWNERSHIP_SUBJECT_UNKNOWN",
                   "OWNERSHIP_DELEGATION_EXCEEDS_CEILING",
-                  "OWNERSHIP_UNCHANGED"
+                  "OWNERSHIP_UNCHANGED",
+                  "OWNERSHIP_TENANT_INACTIVE"
                 ]
               },
               "event": {
@@ -429,7 +430,8 @@
                   "OWNERSHIP_ALREADY_OWNER",
                   "OWNERSHIP_SUBJECT_UNKNOWN",
                   "OWNERSHIP_DELEGATION_EXCEEDS_CEILING",
-                  "OWNERSHIP_UNCHANGED"
+                  "OWNERSHIP_UNCHANGED",
+                  "OWNERSHIP_TENANT_INACTIVE"
                 ]
               },
               "event": {
@@ -631,7 +633,8 @@
                   "OWNERSHIP_ALREADY_OWNER",
                   "OWNERSHIP_SUBJECT_UNKNOWN",
                   "OWNERSHIP_DELEGATION_EXCEEDS_CEILING",
-                  "OWNERSHIP_UNCHANGED"
+                  "OWNERSHIP_UNCHANGED",
+                  "OWNERSHIP_TENANT_INACTIVE"
                 ]
               },
               "event": {

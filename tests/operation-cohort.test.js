@@ -9,6 +9,7 @@ const fixture = require('./fixtures/operation-window-runtime-protocol');
 const A = '11111111-1111-4111-8111-111111111111';
 const B = '22222222-2222-4222-8222-222222222222';
 const roles = ['api', 'evaluator', 'realtime', 'tenant-admin'];
+const { CLINICAL, COUNTERS } = require('../lib/tenant-lifecycle/clinical-catalogue');
 function load (relative, overrides, mutate = s => s) {
   const file = path.resolve(__dirname, relative), output = {exports:{}};
   const original = require('node:module').createRequire(file);
@@ -53,7 +54,7 @@ describe('Actual operation cohort composition source protocol', function () {
       if (sql === 'SELECT ' + require('../lib/storage/postgres-connection').datastoreSQL) return {rows:[s.f.window.datastore]};
       if (sql === 'SELECT pg_catalog.pg_stat_clear_snapshot()') return {rows:[{}]};
       assert(sql.includes('restore-cohort-actors'),'Unexpected census SQL');
-      assert.deepEqual(values,[['clinical','outbox','suppression']]); return {rows:actors};
+      assert.deepEqual(values,[['clinical','outbox','suppression'],CLINICAL,COUNTERS]); return {rows:actors};
     }};
     try {
       assert.equal((await s.module.assertComplete(s.cohort,A,{client})).backends,1);
@@ -78,7 +79,7 @@ describe('Actual operation cohort composition source protocol', function () {
         const done=new Promise(resolve=>setImmediate(()=>{cached=null;record.settled=true;resolve({rows:[{}]});}));pending.push(done);return done;
       }
       assert(sql.includes('restore-cohort-actors'),'No transaction/connection/clinical SQL is permitted in the census');
-      assert.deepEqual(values,[['clinical','outbox','suppression']]);trace.push({kind:'actors'});
+      assert.deepEqual(values,[['clinical','outbox','suppression'],CLINICAL,COUNTERS]);trace.push({kind:'actors'});
       if(cached===null)cached=copy(current);return {rows:copy(cached)};
     }};
     try{
@@ -110,8 +111,35 @@ describe('Actual operation cohort composition source protocol', function () {
     try{await assert.rejects(s.module.assertComplete(s.cohort,A,{client}),error=>error===refusal);assert.equal(actorQueries,0);}finally{await s.cohort.close();}
   });
   it('matches PID, birth and database role, never an application label; invalidates A only', () => censusCheck());
+  it('accepts a non-participant only when the catalogue reports no clinical-table privilege for its identity', async function () {
+    const s = await setup(); await s.complete();
+    const actors = [{...s.observed[0], clinical:true}];
+    const client = {async query (sql, values) {
+      if (sql === 'SELECT ' + require('../lib/storage/postgres-connection').datastoreSQL) return {rows:[s.f.window.datastore]};
+      if (sql === 'SELECT pg_catalog.pg_stat_clear_snapshot()') return {rows:[{}]};
+      assert(sql.includes('restore-cohort-actors') && /c\.relname=ANY\(\$2::text\[\]\)[^]*AS clinical/.test(sql) &&
+        /c\.relname=ANY\(\$3::text\[\]\)[^]*'INSERT,UPDATE,DELETE'[^]*AS counters/.test(sql), 'Census computes both flags from the catalogue');
+      assert.deepEqual(values.slice(1), [CLINICAL, COUNTERS]); return {rows:structuredClone(actors)};
+    }};
+    try {
+      assert.deepEqual(await s.module.assertComplete(s.cohort,A,{client}), {tenant:A, backends:1, exempt:0});
+      // The admin role's ownership identity: no clinical grant, not a participant.
+      actors.push({pid:777, role:'synthetic_ownership_operator', birth:'1700000002.000001', clinical:false, counters:false});
+      assert.deepEqual(await s.module.assertComplete(s.cohort,A,{client}), {tenant:A, backends:1, exempt:1});
+      // The same identity holding a clinical table, or a missing/odd flag, refuses.
+      for (const clinical of [true, null, undefined, 'false', 0]) {
+        actors[1] = {...actors[1], clinical, counters:false};
+        await assert.rejects(s.module.assertComplete(s.cohort,A,{client}), {code:'RESTORE_COHORT_UNKNOWN_BACKEND'}, 'clinical ' + String(clinical));
+      }
+      // No clinical table, but able to write a counter (or an odd flag): refuses.
+      for (const counters of [true, null, undefined, 'false', 0]) {
+        actors[1] = {...actors[1], clinical:false, counters};
+        await assert.rejects(s.module.assertComplete(s.cohort,A,{client}), {code:'RESTORE_COHORT_UNKNOWN_BACKEND'}, 'counters ' + String(counters));
+      }
+    } finally { await s.cohort.close(); }
+  });
   it('detects a broken census comparison and passes the restored source', async function () {
-    await assert.rejects(censusCheck(s => s.replace("if (!row || !actor.birth || row.birth !== actor.birth || row.role !== actor.role)", 'if (false)')), /Missing expected rejection/);
+    await assert.rejects(censusCheck(s => { const broken = s.replace("if (row && actor.birth && row.birth === actor.birth && row.role === actor.role) continue;", 'continue;'); assert.notEqual(broken, s, 'mutation applies'); return broken; }), /Missing expected rejection/);
     await censusCheck();
   });
 });
