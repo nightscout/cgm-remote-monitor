@@ -234,8 +234,8 @@ The role's code decides which contracts the listener serves
 Configuration cannot add, move or merge a contract. A process serving several
 roles serves all their contracts on its one listener. A process that serves no
 contract opens no internal listener. The route table is fixed when the listener
-opens, before the roles boot; a role's routes answer `SOCKET_IPC_UNAVAILABLE`
-until that role has booted. Start-up refuses a role that offers a contract it
+opens, before the roles boot; a role's routes answer `SOCKET_IPC_NOT_READY`
+(below) until that role has booted. Start-up refuses a role that offers a contract it
 does not own and any contract left unbound.
 
 Callers reach another role at its peer address:
@@ -323,7 +323,22 @@ contract. The client rejects non-success or malformed responses with
 `SOCKET_IPC_UNAVAILABLE`; local schema refusal uses `INTERNAL_API_SCHEMA_REFUSED`.
 Payloads, credentials and internal exception details are not included in errors.
 
-The transport performs no retries. A timeout or disconnected response is
+One case is answered distinctly: the callee is not ready. A listener that is
+closing, a route whose role has not bound its handlers yet, and a handler that
+refuses with `TENANT_WARMING` (the tenant is still warming in the callee) return
+HTTP `503` with `{ "error": "SOCKET_IPC_NOT_READY" }`. The client still rejects
+with `SOCKET_IPC_UNAVAILABLE`, and marks the error `notReady: true`; it marks a
+connection that finds no listener (no socket file, refused, reset before any
+answer, a name that does not resolve yet) the same way. Every other failure,
+including a refused tenant, a suspended tenant, a denial and any non-200 status,
+is unmarked.
+
+The transport performs no retries. A caller may retry a `notReady` error of an
+idempotent read: realtime's startup warm retries its `authorizeSocket` check
+against a restarting api with bounded jittered backoff, within
+`NS_TENANT_WARM_RETRY_MS` (default 60000, `0` disables) and inside the warm's
+bounded concurrency (`NS_TENANT_STARTUP_CONCURRENCY`), then marks the tenant
+failed as before. A timeout or disconnected response is
 ambiguous: the operation may already have committed. Socket writes must not be
 replayed automatically. Alarm acceptance means realtime handoff, not device
 receipt; durable notification retries can repeat delivery. Restore coordination
