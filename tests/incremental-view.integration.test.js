@@ -43,7 +43,29 @@ optInSuite(process.env.NS_TENANT_DURABLE_REPLAY_TEST === '1' && !!process.env.NS
       result = await refresh();
       assert.equal(result.mode, 'unchanged'); assert.equal(view.stats().full, 1);
     });
-    it('IV_HARD_DELETE: a hard delete (no stamp) is found by the physical count and runs a full reconcile', async function () {
+    // A hard delete as the clinical writer records it (postgres-entries-write.js
+    // remove: recordWrite({ deleted: true }) in the same transaction).
+    const hardDelete = identifier => scope.withTenant(lab.A, () => lab.clocks[0].transaction(async () => {
+      await lab.raw[0].query(`DELETE FROM "${lab.namespaces.entries}".entries WHERE tenant_id=$1 AND "_id"=$2`, [lab.A, identifier]);
+      require('../lib/server/srv-dates').recordWrite({ deleted: true });
+    }));
+    it('IV_DELETE_STAMP: a hard delete through the clock moves last_delete_stamp, and that alone runs the full reconcile', async function () {
+      const { view, refresh } = await viewFor();
+      await lab.persist([{ _id: 'a', sgv: 100 }, { _id: 'b', sgv: 110 }]);
+      await refresh();
+      await hardDelete('a');
+      const clock = (await lab.admin.query(`SELECT last_stamp::text, last_delete_stamp::text FROM "${lab.namespaces.clock}".tenant_write_clock WHERE tenant_id=$1`, [lab.A])).rows[0];
+      assert.equal(clock.last_delete_stamp, clock.last_stamp, 'the delete moved both stamps');
+      const result = await refresh();
+      assert.deepEqual(sgvs(result), [['b', 110, undefined]], 'IV_DELETE_STAMP the deleted reading leaves the view');
+      assert.equal(result.mode, 'full');
+      assert.deepEqual([view.stats().deletes, view.stats().absences], [1, 0], 'IV_DELETE_STAMP_REASON reconciled on the delete stamp, before any count');
+      await lab.persist([{ _id: 'c', sgv: 120 }]);
+      const next = await refresh();
+      assert.equal(next.mode, 'incremental', 'a delete stamp at or below the checkpoint does not reconcile again');
+      assert.deepEqual(sgvs(next), [['b', 110, undefined], ['c', 120, undefined]]);
+    });
+    it('IV_HARD_DELETE: a delete outside the clock (no stamp) is found by the physical count and runs a full reconcile', async function () {
       const { view, refresh } = await viewFor();
       await lab.persist([{ _id: 'a', sgv: 100 }, { _id: 'b', sgv: 110 }]);
       await refresh();

@@ -1,6 +1,6 @@
 {
   "version": 1,
-  "status": "operational catalogue: change hints only, no tenant data; provisioning pins search_path to the clock schema and grants EXECUTE to the realtime and evaluator identities",
+  "status": "operational catalogue: change hints only (the write-clock pair: last_stamp, last_delete_stamp; after the clock catalogue), no tenant data; provisioning pins search_path to the clock schema and grants EXECUTE to the realtime and evaluator identities",
   "migrations": [
     {
       "name": "0001_tenant_change_stamps",
@@ -9,6 +9,15 @@
         "REVOKE ALL ON FUNCTION tenant_change_stamps(uuid[]) FROM PUBLIC"
       ],
       "checksum": "e035e01406ad9f201d49486a3b9778ab5f6b784ebdc04ef3e5dce1690c946443"
+    },
+    {
+      "name": "0002_tenant_change_stamps_delete_stamp",
+      "up": [
+        "DROP FUNCTION tenant_change_stamps(uuid[])",
+        "CREATE FUNCTION tenant_change_stamps(tenants uuid[]) RETURNS TABLE (tenant_id uuid, last_stamp bigint, last_delete_stamp bigint) LANGUAGE plpgsql VOLATILE SECURITY DEFINER SET search_path = pg_catalog SET app.current_tenant_id = '' AS $fn$ DECLARE t uuid; BEGIN IF tenants IS NULL OR cardinality(tenants) > 20000 THEN RAISE EXCEPTION 'CHANGE_STAMPS_TENANTS_REFUSED'; END IF; FOREACH t IN ARRAY tenants LOOP PERFORM set_config('app.current_tenant_id', t::text, true); RETURN QUERY SELECT c.tenant_id, c.last_stamp, c.last_delete_stamp FROM tenant_write_clock c WHERE c.tenant_id = t; END LOOP; RETURN; END $fn$",
+        "REVOKE ALL ON FUNCTION tenant_change_stamps(uuid[]) FROM PUBLIC"
+      ],
+      "checksum": "a0a8a91f4af1c81e595e320899cdaee7ddd7ec122f7c5236a1124897eb142570"
     }
   ]
 }

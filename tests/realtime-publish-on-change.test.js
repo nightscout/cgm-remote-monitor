@@ -27,7 +27,7 @@ function jwt (exp) {
 }
 // pool: optional { capacity } makes the operation window refuse (as a pool
 // connect timeout does) while more than `capacity` windows are open.
-async function fixture ({ recoveryIntervalMs = 20, authorizationRecheckMs = 60000, pool, tenants = [A, B], activity, absenceCheckMs, acquireMs = 0 } = {}) {
+async function fixture ({ recoveryIntervalMs = 20, authorizationRecheckMs = 60000, pool, tenants = [A, B], activity, acquireMs = 0 } = {}) {
   const state = { writes: new Map(tenants.map(t => [t, 0])), visible: new Map(tenants.map(t => [t, 0])), revoked: new Set(),
     calls: 0, acquisitions: 0, windows: 0, open: 0, refusedWindows: 0, activity: new Map(tenants.map(t => [t, 'active'])) };
   const hosts = { 'a.test': A, 'b.test': B, ...Object.fromEntries(tenants.map((t, i) => ['t' + i + '.test', t])) };
@@ -65,7 +65,7 @@ async function fixture ({ recoveryIntervalMs = 20, authorizationRecheckMs = 6000
     readIdentities: async list => new Map(list.map(t => [t, { identity: 'same' }])),
     ...(activity ? { readActivity: async list => new Map(list.map(t => [t, { state: state.activity.get(t) }])) } : {}),
     onPoll: seen => detectorFactory.invalidateIneligible(seen, { activity: !!activity, invalidate: t => protocol.invalidateTenant(t) }) });
-  runtime = await runtimeFactory({ tenants, readCurrent, recoveryIntervalMs, detect: detector.poll, concurrency: 2, ...(absenceCheckMs ? { absenceCheckMs } : {}),
+  runtime = await runtimeFactory({ tenants, readCurrent, recoveryIntervalMs, detect: detector.poll, concurrency: 2,
     create: selected => ({ async acquire () {
       state.acquisitions++;
       if (acquireMs) await sleep(acquireMs);
@@ -74,8 +74,9 @@ async function fixture ({ recoveryIntervalMs = 20, authorizationRecheckMs = 6000
         frame: { delta: false, lastUpdated: Date.now(), sgvs: Array.from({ length: n }, (_, i) => ({ mgdl: 100 + i, mills: 1000 + i })) } };
     } }), fanout: protocol.fanout });
   return { state, protocol, runtime, detector,
-    // A hard delete: the reading disappears and the write clock does not move.
-    hardDelete (tenant) { state.visible.set(tenant, state.visible.get(tenant) - 1); },
+    // A hard delete (decision write-clock-complete): the reading disappears and
+    // the write clock moves, as postgres-entries-write.js remove records it.
+    hardDelete (tenant) { state.visible.set(tenant, state.visible.get(tenant) - 1); state.writes.set(tenant, state.writes.get(tenant) + 1); },
     write (tenant, visible = true) { state.writes.set(tenant, state.writes.get(tenant) + 1); if (visible) state.visible.set(tenant, state.visible.get(tenant) + 1); },
     async socket (host = 'a.test', credential = { secret: 'synthetic' }, namespace = '/') {
       const socket = new Socket(host); await protocol.prepare(socket); protocol.bind(socket, namespace);
@@ -125,8 +126,8 @@ describe('realtime publish on change (actual protocol, runtime and detector)', f
     } finally { await f.close(); }
   });
 
-  it('RT_HARD_DELETE: a reading deleted without a stamp reaches every socket within the absence interval', async function () {
-    const f = await fixture({ recoveryIntervalMs: 20, absenceCheckMs: 200 });
+  it('RT_HARD_DELETE: a hard delete moves the write clock and reaches every socket within a few ticks', async function () {
+    const f = await fixture({ recoveryIntervalMs: 20 });
     try {
       f.write(A); f.write(A);
       const sockets = await Promise.all(Array.from({ length: 3 }, () => f.socket()));
@@ -134,28 +135,29 @@ describe('realtime publish on change (actual protocol, runtime and detector)', f
       const at = Date.now(); f.hardDelete(A);
       assert.ok(await until(() => sockets.every(s => s.frames().at(-1).value.sgvs.length === 1), 2000), 'RT_HARD_DELETE the deleted reading leaves every display');
       const latency = Math.max(...sockets.map(s => s.frames().at(-1).at)) - at;
-      assert.ok(latency <= 200 + 100, 'RT_HARD_DELETE_BOUND within the absence interval: ' + latency + ' ms');
+      assert.ok(latency <= 200, 'RT_HARD_DELETE_BOUND within a few ticks: ' + latency + ' ms');
     } finally { await f.close(); }
   });
-  it('RT_HARD_DELETE_STAMP_ONLY (the gap, recorded): with the write-clock stamp alone the deleted reading stays on display', async function () {
+  it('RT_HARD_DELETE_STAMP_ONLY: with the write-clock stamp alone (no periodic refresh) the deleted reading leaves the display', async function () {
     const f = await fixture({ recoveryIntervalMs: 20 });
     try {
       f.write(A); f.write(A);
       const socket = await f.socket();
       f.hardDelete(A); await sleep(400);
-      assert.equal(socket.frames().at(-1).value.sgvs.length, 2, 'stamp-only detection publishes nothing for a hard delete');
+      assert.equal(socket.frames().at(-1).value.sgvs.length, 1, 'RT_HARD_DELETE_STAMP_ONLY stamp-only detection publishes the hard delete');
     } finally { await f.close(); }
   });
-  it('RT_ABSENCE_SHARE: absence checks of 200 tenants never hold up a write', async function () {
+  it('RT_NO_PERIODIC_REFRESH: 200 unchanged tenants are never refreshed; one write refreshes one tenant', async function () {
     const many = Array.from({ length: 200 }, (_, i) => '33333333-3333-4333-8333-' + String(i).padStart(12, '0'));
-    const f = await fixture({ tenants: [A, ...many], recoveryIntervalMs: 20, absenceCheckMs: 100, acquireMs: 10 });
+    const f = await fixture({ tenants: [A, ...many], recoveryIntervalMs: 20 });
     try {
       const socket = await f.socket();
-      await sleep(300); // absence checks of every tenant are now due every tick
-      const at = Date.now(); f.write(A);
+      const settled = f.state.acquisitions;
+      await sleep(300);
+      assert.equal(f.state.acquisitions, settled, 'RT_NO_PERIODIC_REFRESH refreshes of unchanged tenants over 300 ms (15 ticks)');
+      f.write(A);
       assert.ok(await until(() => socket.frames().length === 2, 2000), 'the write is published');
-      const latency = socket.frames()[1].at - at;
-      assert.ok(latency <= 250, 'RT_ABSENCE_SHARE write latency ' + latency + ' ms with 200 tenants due for absence checks');
+      assert.equal(f.state.acquisitions, settled + 1, 'one refresh for one changed tenant');
     } finally { await f.close(); }
   });
   it('RT_REVOCATION: a revoked credential is disconnected within the recheck bound and receives nothing after', async function () {
