@@ -7,7 +7,26 @@ const { EventEmitter } = require('node:events');
 const scope = require('../lib/storage/tenant-scope');
 const protocolFactory = require('../lib/server/realtime/protocol');
 const runtimeFactory = require('../lib/server/realtime/runtime');
+const { AsyncLocalStorage } = require('node:async_hooks');
 const sleep = ms => new Promise(resolve => setTimeout(resolve, ms));
+// The operation window's scope rule (lib/tenant-lifecycle/operation-window.js
+// execute): work started inside a finished operation refuses.
+function scopedWindow () {
+  const scopes = new AsyncLocalStorage();
+  return {
+    async run (tenant, fn) {
+      const outer = scopes.getStore();
+      if (outer) {
+        if (outer.tenant !== tenant || !outer.active) throw Object.assign(new Error('LIFECYCLE_WINDOW_SCOPE_INVALID'), { code: 'LIFECYCLE_WINDOW_SCOPE_INVALID' });
+        return fn();
+      }
+      const state = { tenant, active: true };
+      await sleep(0);
+      try { return await scopes.run(state, fn); } finally { state.active = false; }
+    },
+    current (tenant) { const value = scopes.getStore(); return !!value && value.tenant === tenant && value.active; }
+  };
+}
 const env = require('../lib/server/tenant-app/environment')({ settings: { enable: ['bgnow'] } });
 const id = i => '44444444-4444-4444-8444-' + String(i).padStart(12, '0');
 class Socket extends EventEmitter {
@@ -20,16 +39,16 @@ class Socket extends EventEmitter {
   frames () { return this.sent.filter(row => row.event === 'dataUpdate'); }
 }
 async function until (predicate, timeoutMs) { const t0 = Date.now(); while (!predicate()) { if (Date.now() - t0 > timeoutMs) return false; await sleep(5); } return true; }
-async function lab ({ tenants, readiness, broken = new Set(), gate = new Map(), failureRetryMs = 60000, acquireMs = 0 }) {
+async function lab ({ tenants, readiness, broken = new Set(), gate = new Map(), failureRetryMs = 60000, acquireMs = 0, operationWindow }) {
   const attempts = new Map(), load = { inFlight: 0, max: 0 };
   const readCurrent = async tenant => ({ tenant, identity: 'same', env });
   const admission = { resolve: async req => req.headers.host.split('.')[0] };
   let runtime;
-  const protocol = protocolFactory.create({ admission, readCurrent, runtime: () => runtime, maxSockets: 1000, domains: ['entries'],
+  const protocol = protocolFactory.create({ operationWindow, admission, readCurrent, runtime: () => runtime, maxSockets: 1000, domains: ['entries'],
     retry: { minMs: 5, maxMs: 40 },
     api: { executeSocketMutation: async () => ({ replyArgs: [] }),
       authorizeSocket: async () => ({ permissions: { read: true, write: false, write_treatment: false, ack: false }, collections: ['entries'] }) } });
-  runtime = await runtimeFactory({ tenants, readCurrent, recoveryIntervalMs: 20, concurrency: 2, readiness, failureRetryMs,
+  runtime = await runtimeFactory({ operationWindow, tenants, readCurrent, recoveryIntervalMs: 20, concurrency: 2, readiness, failureRetryMs,
     detect: async list => new Map(list.map(t => [t, { stamp: '1', identity: 'same' }])),
     create: selected => ({ async acquire () {
       attempts.set(selected.tenant, (attempts.get(selected.tenant) || 0) + 1);
@@ -78,7 +97,9 @@ describe('realtime readiness: serve, then warm', function () {
   });
   it('RD_RESTART_BOUNDED: 200 sockets reconnecting to 100 cold tenants all prime, and warming stays at the runtime bound', async function () {
     const tenants = Array.from({ length: 100 }, (_, i) => id(i));
-    const f = await lab({ tenants, readiness: 'serve', acquireMs: 15 });
+    // The runtime reports a warm tenant from inside its own operation; the
+    // released sockets must not inherit that operation's (finished) scope.
+    const f = await lab({ tenants, readiness: 'serve', acquireMs: 15, operationWindow: scopedWindow() });
     try {
       const sockets = [];
       for (const tenant of tenants) for (let k = 0; k < 2; k++) sockets.push(await f.socket(tenant));
