@@ -77,6 +77,25 @@
         "REVOKE ALL ON tenant_lifecycle_key_retention FROM PUBLIC"
       ],
       "checksum": "a12b423863f18ca7bbe019b419c7ff73877ee63428fb8454c33d0e888ef8fa7d"
+    },
+    {
+      "name": "0007_tenant_activity",
+      "up": [
+        "CREATE TABLE tenant_activity (tenant_id uuid PRIMARY KEY REFERENCES tenant_lifecycle_windows (tenant_id), version bigint NOT NULL CHECK (version > 0), paused boolean NOT NULL DEFAULT false, suspended boolean NOT NULL DEFAULT false, deletion_request_id uuid, paused_before_deletion boolean, CHECK ((deletion_request_id IS NULL) = (paused_before_deletion IS NULL)))",
+        "CREATE TABLE tenant_activity_audit (tenant_id uuid NOT NULL REFERENCES tenant_activity (tenant_id), version bigint NOT NULL CHECK (version > 0), verb text NOT NULL CHECK (verb IN ('provision','pause','unpause','suspend','unsuspend','deletion-request','deletion-cancel','deletion-execute')), authority text NOT NULL CHECK (authority IN ('owner','operator')), principal text NOT NULL CHECK (principal ~ '^[a-zA-Z0-9_-]{1,128}$'), consumer text NOT NULL CHECK (consumer ~ '^[a-zA-Z0-9_-]{1,128}$'), paused boolean NOT NULL, suspended boolean NOT NULL, event_time timestamptz NOT NULL DEFAULT clock_timestamp(), CHECK (authority = 'operator' OR verb IN ('pause','unpause','deletion-request','deletion-cancel')), PRIMARY KEY (tenant_id, version))",
+        "ALTER TABLE tenant_lifecycle_windows NO FORCE ROW LEVEL SECURITY",
+        "INSERT INTO tenant_activity (tenant_id, version, paused, suspended) SELECT tenant_id, 1, false, false FROM tenant_lifecycle_windows",
+        "INSERT INTO tenant_activity_audit (tenant_id, version, verb, authority, principal, consumer, paused, suspended) SELECT tenant_id, 1, 'provision', 'operator', 'migration', 'backfill-0007', false, false FROM tenant_lifecycle_windows",
+        "ALTER TABLE tenant_lifecycle_windows FORCE ROW LEVEL SECURITY",
+        "ALTER TABLE tenant_activity ENABLE ROW LEVEL SECURITY",
+        "ALTER TABLE tenant_activity FORCE ROW LEVEL SECURITY",
+        "CREATE POLICY tenant_activity_tenant ON tenant_activity USING (tenant_id = nullif(current_setting('app.current_tenant_id', true), '')::uuid) WITH CHECK (tenant_id = nullif(current_setting('app.current_tenant_id', true), '')::uuid)",
+        "ALTER TABLE tenant_activity_audit ENABLE ROW LEVEL SECURITY",
+        "ALTER TABLE tenant_activity_audit FORCE ROW LEVEL SECURITY",
+        "CREATE POLICY tenant_activity_audit_tenant ON tenant_activity_audit USING (tenant_id = nullif(current_setting('app.current_tenant_id', true), '')::uuid) WITH CHECK (tenant_id = nullif(current_setting('app.current_tenant_id', true), '')::uuid)",
+        "REVOKE ALL ON tenant_activity, tenant_activity_audit FROM PUBLIC"
+      ],
+      "checksum": "04e34feac301aa516bfe1bbac7355e413db26a2a5ccf4c03be652176d718b84e"
     }
   ]
 }

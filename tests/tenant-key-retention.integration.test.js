@@ -101,6 +101,14 @@ optInSuite(process.env.NS_KEY_RETENTION_DOCKER_TEST === '1', 'NS_KEY_RETENTION_D
         'UPDATE (phase, restored_at, destroy_started_by, destroy_started_consumer, destroy_started_at, destroyed_by, destroyed_consumer, destroyed_at) ' +
         'ON kr_lifecycle.tenant_lifecycle_key_retention TO kr_operator'
     ]) await admin.query(statement);
+    // Every tenant has a lifecycle window and an activity row; the ceremony's
+    // role pauses/suspends through it (decision deletion-request-auto-pauses).
+    for (const statement of require('../lib/tenant-activity/postgres').grants({ namespace: ledgerNamespace, ceremony: 'kr_operator' })) await admin.query(statement);
+    for (const [tenant, key] of [[A, '7101'], [B, '7102']]) {
+      await admin.query("INSERT INTO kr_lifecycle.tenant_lifecycle_windows (tenant_id,lock_key,phase,generation) VALUES ($1,$2,'active',1)", [tenant, key]);
+      await require('../lib/tenant-activity/provisioning').provisionInTransaction((text, values) => admin.query(text, values),
+        { namespace: ledgerNamespace, tenant, principal: 'synthetic_operator', consumer: 'synthetic_control' });
+    }
     const url = new URL(adminURI); url.username = 'kr_operator'; url.password = rolePassword;
     const operatorPort = await lowerPort({ connectionString: url.toString(), max: 2 });
     owned.add(operatorPort);

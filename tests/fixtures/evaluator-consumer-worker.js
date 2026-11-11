@@ -12,6 +12,7 @@ process.on('message', async request => {
     else if (request.action === 'retry') { await context.consumerRetry(request.tenant); value = context.health(); }
     else if (request.action === 'flush') { await context.consumerFlush(request.tenant); value = context.health(); }
     else if (request.action === 'health') value = context.health();
+    else if (request.action === 'invalidate') { await context.invalidateTenant(request.tenant); value = context.health(); }
     else if (request.action === 'last') value = context.last(request.tenant);
     else if (request.action === 'close') { await running.stop(); value = true; }
     else if (request.action === 'exit') { process.disconnect(); process.exitCode = 0; return; }

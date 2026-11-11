@@ -22,6 +22,7 @@ module.exports = function consumersLab () {
   const createdRoles = new Set(), ownedSchemas = new Set(); const held = [];
   lab.consumerNamespaces = namespaces; lab.consumerRoles = roles; lab.observations = []; lab.sinkEffects = [];
   lab.sinkMode = 'accept';
+  lab.extraEnv = {}; // additional selected-role credentials owned by an extending test
   lab.open = async () => {
     await open(); directory = fs.mkdtempSync(path.join(os.tmpdir(), 'm5-consumers-')); fs.chmodSync(directory, 0o700);
     const adminUrl = new URL(process.env.NS_TEST_POSTGRES_ADMIN_URI);
@@ -56,7 +57,7 @@ module.exports = function consumersLab () {
     const receive = createReceiver({ connection: writer, namespace: namespaces.alarm,
       async admitAckInTransaction (operation) {
         if (!configuredFile) throw new Error('Selected consumer config not yet bound');
-        const linked = parser.load({...source, MULTITENANT_EVALUATOR_CONFIG:configuredFile});
+        const linked = parser.load({...source, ...lab.extraEnv, MULTITENANT_EVALUATOR_CONFIG:configuredFile});
         const current = await linked.readCurrent(operation.operation.tenant);
         if (!current) throw new Error('Selected consumer tenant unavailable');
         return require('../../lib/tenant-notifications/ack-admission')({namespace:namespaces.outbox,consumer:linked.consumers.realtime.route.id,
@@ -85,7 +86,7 @@ module.exports = function consumersLab () {
   lab.configureConsumers = (change = () => {}) => {
     const document = structuredClone(lab.document); change(document);
     const file = path.join(directory, 'config.json'); fs.writeFileSync(file, JSON.stringify(document), { mode: 0o600 });
-    parser.parse(document, source);
+    parser.parse(document, { ...source, ...lab.extraEnv });
     configuredFile = file; return { document, file };
   };
   lab.writerConnection = () => writer;
@@ -115,7 +116,7 @@ module.exports = function consumersLab () {
   lab.workerConsumers = config => new Promise((resolve, reject) => {
     const child = fork(path.join(__dirname, 'evaluator-consumer-worker.js'), [], { silent: true, env: {
       PATH: process.env.PATH, HOME: process.env.HOME, NODE_PATH: process.env.NODE_PATH, NODE_ENV: 'test', TZ: 'UTC',
-      ...source, MULTITENANT_EVALUATOR_CONFIG: config.file } });
+      ...source, ...lab.extraEnv, MULTITENANT_EVALUATOR_CONFIG: config.file } });
     children.add(child); let sequence = 0, stdout = '', stderr = ''; const pending = new Map();
     child.stdout.on('data', b => { stdout += b; }); child.stderr.on('data', b => { stderr += b; });
     const startup = setTimeout(() => { child.kill('SIGTERM'); reject(new Error('Consumer role startup watchdog')); }, 15000);

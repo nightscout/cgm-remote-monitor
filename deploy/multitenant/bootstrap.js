@@ -143,6 +143,9 @@ async function bootstrap(options) {
           await admin.query('INSERT INTO '+t(kind,'tenant_consumer_checkpoint')+'(tenant_id,consumer,contract_digest,checkpoint,projection) VALUES($1,$2,$3,0,NULL)',[tenant,document.consumer,replay.digest]);
         }
         await admin.query('INSERT INTO '+t('control','tenant_lifecycle_windows')+'(tenant_id,lock_key,phase,generation) VALUES($1,$2,\'active\',1)',[tenant,docs.locks[i].key]);
+        // Every tenant has an activity row, written in this same transaction.
+        await require('../../lib/tenant-activity/provisioning').provisionInTransaction((text,values)=>admin.query(text,values),
+          {namespace:ns.control,tenant,principal:'compose-operator',consumer:'bootstrap'});
         if(i===0)await admin.query('INSERT INTO '+t('control','tenant_lifecycle_restore_authority')+'(tenant_id,role_oid,active) VALUES($1,$2::regrole::oid,true)',[tenant,l.roles.operator]);
         await admin.query('COMMIT');
       }catch(error){await admin.query('ROLLBACK');throw error;}
