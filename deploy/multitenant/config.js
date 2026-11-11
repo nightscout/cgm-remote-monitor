@@ -92,6 +92,10 @@ function grants(l) {
   }
   sql.push(...require('../../lib/tenant-lifecycle/maintenance-window').operatorGrants({namespace:ns.control,role:r.operator}));
   sql.push('GRANT pg_read_all_stats TO '+quote(r.operator));
+  // Restore's key-retention gate (lib/tenant-lifecycle/key-retention.js admitRestore/markRestored):
+  // SELECT request_id,phase,retained_at,retain_until ... WHERE tenant_id=$1 FOR UPDATE, then
+  // UPDATE ... SET phase,restored_at WHERE request_id,tenant_id,phase. Nothing else in that table.
+  grant('SELECT(request_id,tenant_id,phase,retained_at,retain_until),UPDATE(phase,restored_at)',table('control','tenant_lifecycle_key_retention'),'operator');
   for(const name of Object.keys(ns).filter(name=>name!=='control')){
     schema(name,'operator');grant('SELECT','ALL TABLES IN SCHEMA '+quote(ns[name]),'operator');
     if([...clinical,'settings'].includes(name))sql.push(...insertionGrants({namespace:ns[name],domain:name,role:r.operator,mode:'restore'}));
