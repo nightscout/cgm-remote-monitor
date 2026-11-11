@@ -96,7 +96,9 @@ function grants(l) {
   grant('SELECT',table('authorization','tenant_authorization_subjects'),'ownership_operator');
   grant('INSERT',table('authorization','tenant_subject_admin_audit'),'ownership_operator');
   sql.push(...require('../../lib/tenant-lifecycle/tenant-phase').phaseGrants({namespace:ns.control,role:r.ownership_operator}));
-  for(const who of Object.keys(r).filter(name=>!['operator','root_writer','ownership_operator'].includes(name))){
+  // Decision root-writer-fenced: root_writer joins the lower-role window reads; the api opens its
+  // subject-admin store connection under the tenant operation window, whose admission reads these.
+  for(const who of Object.keys(r).filter(name=>!['operator','ownership_operator'].includes(name))){
     schema('control',who);for(const name of ['schema_migrations','tenant_lifecycle_windows','tenant_lifecycle_operations'])grant('SELECT',table('control',name),who);
     if(who.startsWith('lifetime_')){
       grant('INSERT(tenant_id,operation_id,generation),UPDATE(finished)',table('control','tenant_lifecycle_operations'),who);
@@ -114,8 +116,9 @@ function grants(l) {
     if([...clinical,'settings'].includes(name))sql.push(...insertionGrants({namespace:ns[name],domain:name,role:r.operator,mode:'restore'}));
   }
   grant('UPDATE(last_stamp)',table('clock','tenant_write_clock'),'operator');
-  // Decision change-stamp-definer-function: search_path pinned, EXECUTE for realtime and evaluator only.
-  sql.push(...require('../../lib/change-stamps/postgres').grants({namespace:ns.change_stamps,clockNamespace:ns.clock,roles:[r.realtime,r.evaluator],checkers:[r.realtime]}));
+  // Decision change-stamp-definer-function: search_path pinned, EXECUTE for realtime and evaluator only;
+  // both read the function's catalogue ledger at readiness (write-clock-complete: the evaluator adopts it).
+  sql.push(...require('../../lib/change-stamps/postgres').grants({namespace:ns.change_stamps,clockNamespace:ns.clock,roles:[r.realtime,r.evaluator]}));
   return sql;
 }
 function documents({layout:l,urls,tokens,publicKeys,managementKeys,vaultAddress}) {
@@ -125,7 +128,7 @@ function documents({layout:l,urls,tokens,publicKeys,managementKeys,vaultAddress}
   const aliases=[['one.example.test'],['two.example.test']];
   const limits={pageSize:100,maxRows:10000,maxBytes:8388608,maxTenants:2,recoveryIntervalMs:1000};
   const pgAddress=new URL(urls.evaluator);
-  const evaluator={version:1,datastore:{hostname:pgAddress.hostname,port:Number(pgAddress.port||5432),database:decodeURIComponent(pgAddress.pathname.slice(1))},postgres:{connectionEnv:'NS_EVALUATOR_PG',namespaces:{...domainNamespaces,clock:ns.clock,checkpoint:ns.eval_checkpoint}},
+  const evaluator={version:1,datastore:{hostname:pgAddress.hostname,port:Number(pgAddress.port||5432),database:decodeURIComponent(pgAddress.pathname.slice(1))},postgres:{connectionEnv:'NS_EVALUATOR_PG',namespaces:{...domainNamespaces,clock:ns.clock,checkpoint:ns.eval_checkpoint,changeStamps:ns.change_stamps}},
     consumer:'evaluator-compose-demo',...limits,timeIntervalMs:1000,socketOrderDomains:['treatments','devicestatus','profile'],tenants,
     consumers:{realtime:{outbox:{connectionEnv:'NS_OUTBOX_PG',namespace:ns.outbox,maxRows:10000,maxBytes:8388608,maxConnections:2},
       suppression:{connectionEnv:'NS_SUPPRESSION_PG',namespace:ns.alarm,maxRows:10000,maxBytes:8388608,maxConnections:2},
