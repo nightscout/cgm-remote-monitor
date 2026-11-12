@@ -19,7 +19,7 @@ async function lab (mutate, timeoutMs = 1000) {
   const handlers=new Map(), locals=new Map(), invalidated=[], actors=roles.map((role,index)=>({pid:100+index,role:'synthetic_'+index,birth:'1700000000.'+index}));
   const flags={};
   const late={pid:801,role:'synthetic_late_reader',birth:'1700000003.000001'};
-  const backends=index=>[actors[index],...(index===0&&flags.admitLate?[{...late,...(flags.lateWrongBirth?{birth:'1700000003.000002'}:{})}]:[])];
+  const backends=index=>[...(index===0&&flags.initialClosed?[]:[actors[index]]),...(index===0&&flags.admitLate?[{...late,...(flags.lateWrongBirth?{birth:'1700000003.000002'}:{})}]:[])];
   const ipc={async open(endpoint,service,make) {const operations=make(Symbol());handlers.set(endpoint.socketPath,operations);return {async close(){if(handlers.get(endpoint.socketPath)===operations)handlers.delete(endpoint.socketPath);}};}};
   const clients={lifecycleParticipant:endpoint=>Object.fromEntries(['getStatus','invalidateTenant'].map(operation=>[operation,async body=>{
       if(operation==='getStatus'){flags.statusRequests=(flags.statusRequests||0)+1;if(flags.holdStatus){flags.statusEntered();await flags.holdStatus;}}
@@ -50,7 +50,7 @@ async function lab (mutate, timeoutMs = 1000) {
     assert(sql.includes('restore-cohort-actors'),'Unexpected operator census SQL');
     if(flags.actorDelayMs)await new Promise(resolve=>setTimeout(resolve,flags.actorDelayMs));
     flags.actorQueries=(flags.actorQueries||0)+1;
-    if(flags.birthAfterStatus){flags.admitLate=true;return {rows:[...actors,late]};}return {rows:actors};
+    if(flags.birthAfterStatus){flags.admitLate=true;if(flags.closeDuringRefresh)flags.initialClosed=true;return {rows:[...actors,late]};}return {rows:actors};
   }};
   return {coordinator,remote,entries,locals,flags,actors,operator,invalidated,async restart(index){await locals.get(index).close();await boot(index);},
     async close(){await remote.close();for(const local of locals.values())await local.close();}};
@@ -89,6 +89,14 @@ describe('Separate-process fixed cohort source protocol',function(){
       await assert.rejects(f.coordinator.assertComplete(f.remote,A,{client:f.operator}),{code:'RESTORE_COHORT_UNKNOWN_BACKEND'});
       f.flags.lateWrongBirth=false;f.flags.admitLate=false;f.flags.wrongDB=true;
       await assert.rejects(f.coordinator.assertComplete(f.remote,A,{client:f.operator}),{code:'RESTORE_COHORT_PARTICIPANT_CHANGED'});
+    }finally{await f.coordinator.releasePin(pin);await f.close();}
+  });
+  it('retains an initially admitted SQL actor that closes while a later actor triggers re-observation',async function(){
+    const f=await lab();const pin=await f.coordinator.pin(f.remote,A,{client:f.operator});
+    try{
+      f.flags.birthAfterStatus=true;f.flags.closeDuringRefresh=true;
+      assert.equal((await f.coordinator.assertComplete(f.remote,A,{client:f.operator})).backends,5);
+      assert.equal(f.flags.initialClosed,true,'initial source actor has drained by the second peer snapshot');
     }finally{await f.coordinator.releasePin(pin);await f.close();}
   });
   it('does not restart the configured snapshot budget after elapsed census work',async function(){
