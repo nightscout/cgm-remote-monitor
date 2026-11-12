@@ -12,31 +12,35 @@ function isolated (file, mocks, mutate = source => source) {
   loaded.require = name => Object.hasOwn(mocks, name) ? mocks[name] : original(name);
   loaded._compile(mutate(fs.readFileSync(filename, 'utf8')), filename); return loaded.exports;
 }
-function fixture ({ skipRefresh = false, skipDrain = false } = {}) {
+function fixture ({ skipRefresh = false, skipDrain = false, unbounded = false, overlap = false, unsafeReplacement = false, data = false } = {}) {
   const calls = { factory: 0, readiness: 0, catalogue: 0, pool: 0, screen: 0, read: 0, close: 0 };
   const state = { unsafe: false, readinessFails: false, catalogueFails: false, queryFails: false, hold: null };
   const rows = new Map([[A, { version: 1, values: { SHOW_SECONDS: true }, generation: 1, policy: { deployment: {}, overrides: {} } }],
     [B, { version: 1, values: { SHOW_SECONDS: false }, generation: 1, policy: { deployment: {}, overrides: {} } }]]);
   const factory = isolated('tenant-settings/effective-postgres.js', {
-    './readiness': async () => { calls.readiness++; if (state.hold) await state.hold; if (state.readinessFails) throw Error('synthetic readiness'); },
+    './readiness': async () => { if (state.beforeReady) await state.beforeReady(); calls.readiness++; if (state.hold) await state.hold; if (state.readinessFails) throw Error('synthetic readiness'); },
     '../migrations/postgres': { run: async () => { calls.catalogue++; if (state.catalogueFails) throw Error('synthetic catalogue'); } },
     '../storage/postgres-connection': async () => { calls.pool++; return {
       withTenant: (tenant, fn) => scope.withTenant(tenant, fn),
       async query (sql, args) {
         if (sql.includes('pg_class')) { calls.screen++; return { rows: [0, 1].map(() => ({ secured: !state.unsafe, owns: false, reads: true, writes: false })) }; }
+        if (state.beforeRead) await state.beforeRead(args[0]);
         calls.read++; assert.equal(scope.currentTenant(), args[0]);
         if (state.queryFails) throw Error('synthetic query');
         return { rows: rows.has(args[0]) ? [structuredClone(rows.get(args[0]))] : [] };
-      }, async end () { calls.close++; }
+      }, async end () { calls.close++; if (state.beforeClose) await state.beforeClose(); }
     }; }
   });
   const open = async options => { calls.factory++; return factory(options); };
   const presentation = isolated('tenant-settings/presentation-reader.js', { './effective-postgres': open }, source => {
+    if (unsafeReplacement) source = source.replaceAll('if (revalidate && cleanupErrors.length) throw unavailable();', '');
+    if (overlap) source = source.replace('if (revalidate && retiring.size)', 'if (false && retiring.size)');
+    if (unbounded) source = source.replace('revalidate ? admittedRead(tenant) : read(tenant)', 'read(tenant)');
     if (skipRefresh) source = source.replace('await resource.refresh();', 'void 0;');
     if (skipDrain) source = source.replace('await Promise.allSettled([...reads]);', '');
     return source;
   });
-  const reader = { ...presentation(configuration, { revalidate: true, preserveErrors: true }), matches: current => require('node:util').isDeepStrictEqual(current, configuration) };
+  const reader = { ...presentation(configuration, data ? {} : { revalidate: true, preserveErrors: true, concurrency: 4, maxPending: 2 }), matches: current => require('node:util').isDeepStrictEqual(current, configuration) };
   const finite = isolated('server/serve/evaluator-config.js', { '../../tenant-settings/effective-postgres': open });
   return { calls, state, rows, reader, async readFinite (tenant) { return finite.withSettings({ tenantSettings: configuration }, finite.registryEntry(tenant), tenant); }, async read (tenant) { return evaluator.withSettings({ tenantSettings: configuration }, evaluator.registryEntry(tenant), tenant, reader); } };
 }
@@ -118,14 +122,14 @@ describe('evaluator settings pool ownership at actual role boot', function () {
         const settings = { read: async tenant => { calls.settingsRead++; assert.equal(tenant, A); return { version: 1, effective: {} }; }, close: async () => { calls.settingsClose++; if (outcome.includes('close-fail')) throw Error('synthetic close failure'); } };
         const runtime = { acquire: async () => {}, tick: async () => {}, health: () => ({}), last: () => null, isCurrent: async () => true, close: async () => { calls.runtimeClose++; if (outcome === 'both-close-fail') throw Error('synthetic runtime close failure'); } };
         const boot = isolated('server/serve/evaluator-preview.js', {
-          '../../tenant-settings/presentation-reader': (input, options) => { assert.deepEqual(input, configuration); assert.deepEqual(options, { revalidate: true, preserveErrors: true }); return settings; },
+          '../../tenant-settings/presentation-reader': (input, options) => { assert.deepEqual(input, configuration); assert.deepEqual(options, { revalidate: true, preserveErrors: true, concurrency: 4, maxPending: 2 }); return settings; },
           '../../storage/postgres-connection': async () => ({ end: async () => { calls.clinicalClose++; } }),
           './evaluator-readiness': Object.assign(async () => {}, { provisionTenant: async () => {} }),
           './evaluator-consumers': { prepare: async () => null },
           './registry-tenant-set': { open: async () => ({ tenants: new Map([[A, evaluator.registryEntry(A)]]), isActive: () => active, revision: () => 1, stats: () => ({}), close: async () => {}, follow: async handlers => { prepared = handlers; } }) },
           './evaluator-runtime': async config => { assert.equal((await config.readCurrent(A)).env.settings.units, 'mg/dl'); if (registry) { active = false; assert.equal(await config.readCurrent(A), null); active = true; assert.equal((await config.readCurrent(A)).env.settings.units, 'mg/dl'); } if (outcome === 'startup-failure') throw Error('synthetic startup'); return runtime; }
         });
-        const config = { tenantSettings: configuration, tenants: new Map([[A, evaluator.registryEntry(A)]]),
+        const config = { maxTenants: 2, tenantSettings: configuration, tenants: new Map([[A, evaluator.registryEntry(A)]]),
           namespaces: Object.fromEntries(['entries', 'treatments', 'devicestatus', 'profile', 'food', 'activity', 'clock', 'checkpoint'].map(name => [name, 'synthetic_' + name])),
           ...(registry ? { registry: {} } : {}), readCurrent: (tenant, reader) => evaluator.withSettings({ tenantSettings: configuration }, evaluator.registryEntry(tenant), tenant, reader) };
         if (outcome === 'startup-failure') { await assert.rejects(boot.boot(config), /initialization refused/); }
@@ -139,4 +143,90 @@ describe('evaluator settings pool ownership at actual role boot', function () {
       }
     } finally { scope.setTenancyMode(previous); }
   });
+});
+
+function deferred () { let resolve; const promise = new Promise(done => { resolve = done; }); return { promise, resolve }; }
+const turn = () => new Promise(resolve => setImmediate(resolve));
+describe('bounded evaluator settings admission', function () {
+  let previous;
+  beforeEach(() => { previous = scope.getTenancyMode(); scope.setTenancyMode('multi'); });
+  afterEach(() => scope.setTenancyMode(previous));
+  it('bounds the whole refresh/read, refuses overflow and admits FIFO with fresh A/B settings and original job/tenant scope', async function () {
+    const { AsyncLocalStorage } = require('node:async_hooks'), jobs = new AsyncLocalStorage();
+    const f = fixture(), ready = [], reading = [], gates = Array.from({ length: 8 }, () => ({ ready: deferred(), read: deferred() }));
+    const promises = [];
+    try {
+      await f.read(A);
+      f.state.beforeReady = async () => { const job = jobs.getStore(); assert.equal(scope.currentTenant(), job.tenant); ready.push(job.id); await gates[job.id].ready.promise; };
+      f.state.beforeRead = async tenant => { const job = jobs.getStore(); assert.equal(tenant, job.tenant); assert.equal(scope.currentTenant(), tenant); reading.push(job.id); await gates[job.id].read.promise; };
+      function submit (id) { const tenant = id % 2 ? B : A; return scope.withTenant(tenant, () => jobs.run({ id, tenant }, () => f.read(tenant))); }
+      for (let id = 0; id < 6; id++) promises.push(submit(id));
+      await turn(); assert.deepEqual(ready, [0, 1, 2, 3]);
+      await assert.rejects(submit(6), { code: 'SETTINGS_POLICY_UNAVAILABLE' }); assert.equal(f.calls.close, 0, 'overflow does not retire current pool');
+      gates[0].ready.resolve(); await turn(); assert.deepEqual(reading, [0]); assert.deepEqual(ready, [0, 1, 2, 3], 'SQL read still holds admission');
+      gates[0].read.resolve(); await promises[0]; await turn(); assert.deepEqual(ready, [0, 1, 2, 3, 4]);
+      promises.push(submit(7));
+      f.rows.get(B).version++; f.rows.get(B).values.SHOW_SECONDS = true;
+      for (const gate of gates) { gate.ready.resolve(); gate.read.resolve(); }
+      const values = await Promise.all(promises); assert.equal(values.at(-1).env.settings.showSeconds, true);
+      assert.deepEqual(ready, [0, 1, 2, 3, 4, 5, 7]); assert.equal(f.calls.pool, 1);
+    } finally { for (const gate of gates) { gate.ready.resolve(); gate.read.resolve(); } await Promise.allSettled(promises); await f.reader.close(); }
+  });
+  it('the old unbounded path is red on concurrent direct check overlap and restoration is bounded', async function () {
+    async function peak (unbounded) {
+      const f = fixture({ unbounded }), gate = deferred(); let active = 0, peak = 0;
+      await f.read(A); f.state.beforeReady = async () => { active++; peak = Math.max(peak, active); await gate.promise; active--; };
+      const calls = Array.from({ length: 6 }, (_, index) => f.read(index % 2 ? B : A));
+      await turn(); gate.resolve(); await Promise.all(calls); await f.reader.close(); return peak;
+    }
+    const old = await peak(true); assert.equal(old, 6); assert.throws(() => assert.ok(old <= 4), { code: 'ERR_ASSERTION' });
+    assert.equal(await peak(false), 4);
+  });
+  it('close cancels queued work, drains active checks and prevents reopening', async function () {
+    const f = fixture(), gate = deferred(); await f.read(A);
+    f.state.beforeReady = () => gate.promise;
+    let refused = 0;
+    const calls = Array.from({ length: 6 }, (_, index) => assert.rejects(f.read(index % 2 ? B : A), { code: 'SETTINGS_POLICY_UNAVAILABLE' }).then(() => { refused++; }));
+    await turn(); let stopped = false; const closing = f.reader.close().then(() => { stopped = true; });
+    await turn(); assert.equal(refused, 2, 'only queued operations cancelled immediately'); assert.equal(stopped, false);
+    gate.resolve(); await Promise.all(calls); await closing;
+    assert.equal(f.calls.close, 1); assert.equal(f.calls.pool, 1); assert.equal(f.calls.read, 1, 'no post-close reads');
+    await assert.rejects(f.read(A), { code: 'SETTINGS_POLICY_UNAVAILABLE' }); assert.equal(f.calls.pool, 1);
+  });
+  it('does not construct a replacement until failed pool retirement drains concurrent read; missing barrier is red', async function () {
+    const { AsyncLocalStorage } = require('node:async_hooks'), jobs = new AsyncLocalStorage();
+    async function observe (overlap) {
+      const f = fixture({ overlap }), readGate = deferred(), closeGate = deferred(); await f.read(A);
+      f.state.beforeReady = async () => { if (jobs.getStore() === 'failure') throw Error('synthetic concurrent failure'); };
+      f.state.beforeRead = async () => { if (jobs.getStore() === 'held') await readGate.promise; };
+      f.state.beforeClose = () => closeGate.promise;
+      const held = jobs.run('held', () => f.read(A)); await turn();
+      const failed = assert.rejects(jobs.run('failure', () => f.read(B)), /synthetic concurrent failure/); await turn();
+      const replacement = jobs.run('replacement', () => f.read(B)); await turn(); const poolsBeforeDrain = f.calls.pool;
+      readGate.resolve(); await held; closeGate.resolve(); await failed; await replacement; await f.reader.close();
+      return poolsBeforeDrain;
+    }
+    assert.equal(await observe(true), 2, 'mutant overlaps replacement with draining old pool');
+    assert.equal(await observe(false), 1, 'restoration waits for retirement before new constructor');
+  });
+  it('a failed retirement permanently refuses evaluator replacement; removing the guard is red', async function () {
+    async function observe (unsafeReplacement) {
+      const f = fixture({ unsafeReplacement }); await f.read(A);
+      f.state.beforeReady = async () => { throw Error('synthetic dependency'); };
+      f.state.beforeClose = async () => { throw Error('synthetic unconfirmed close'); };
+      await assert.rejects(f.read(B), /synthetic dependency/);
+      f.state.beforeReady = undefined; f.state.beforeClose = undefined;
+      if (unsafeReplacement) await f.read(B);
+      else await assert.rejects(f.read(B), { code: 'SETTINGS_POLICY_UNAVAILABLE' });
+      const constructors = f.calls.pool; await assert.rejects(f.reader.close(), /shutdown failed/); return constructors;
+    }
+    assert.equal(await observe(true), 2); assert.equal(await observe(false), 1);
+  });
+  it('leaves DATA default concurrency unchanged', async function () {
+    const f = fixture({ data: true }), gate = deferred(); let active = 0, peak = 0; await f.read(A);
+    f.state.beforeRead = async () => { active++; peak = Math.max(peak, active); await gate.promise; active--; };
+    const reads = Array.from({ length: 7 }, (_, index) => f.read(index % 2 ? B : A));
+    await turn(); assert.equal(peak, 7); gate.resolve(); await Promise.all(reads); await f.reader.close();
+  });
+
 });
