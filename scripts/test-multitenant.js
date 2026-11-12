@@ -131,6 +131,8 @@ const INVENTORY = [
   { file: 'tests/tenant-commit-clock-port.integration.test.js', flags: { NS_TENANT_COMMIT_CLOCK_TEST: '1' }, shared: ['postgres'], own: [], gate: PENDING },
   { file: 'tests/tenant-commit-clock-http.integration.test.js', flags: { NS_TENANT_COMMIT_CLOCK_HTTP_DOCKER_TEST: '1' }, shared: [], own: ['postgres', 'vault'], gate: PENDING,
     note: 'functional cases enabled; benchmark remains pending unless NS_TENANT_COMMIT_CLOCK_BENCHMARK=1' },
+  { file: 'tests/api-fixed-roster-serving.integration.test.js', flags: { NS_API_ROSTER_SERVING_DOCKER_TEST: '1' }, shared: [], own: ['postgres', 'vault'], gate: PENDING,
+    note: 'two actual API CLI processes; response drain/current authority/census/uncertainty; non-API peers are synthetic lifecycle-only' },
   { file: 'tests/multitenant-preview-replicas.integration.test.js', flags: { NS_MULTITENANT_PREVIEW_REPLICAS_DOCKER_TEST: '1' }, shared: [], own: ['postgres', 'vault'], gate: PENDING,
     note: 'spawns the shipping CLI as independent processes on one host' },
   { file: 'tests/tenant-rest-derived.integration.test.js', flags: { NS_REST_DERIVED_HTTP_TEST: '1' }, shared: ['postgres', 'mongo'], own: [], gate: PENDING },

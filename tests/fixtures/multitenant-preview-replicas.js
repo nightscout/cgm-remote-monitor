@@ -66,7 +66,7 @@ if (process.env.NS_PREVIEW_REPLICA_HOLD_RESPONSE === '1') {
   };
 }
 
-module.exports = function createReplicaFixture () {
+module.exports = function createReplicaFixture ({ writeClock = false } = {}) {
     const suffix = crypto.randomBytes(8).toString('hex');
     const pgName = 'ns-preview-replicas-pg-' + suffix, vaultName = 'ns-preview-replicas-vault-' + suffix;
     // Outside the package: no cwd-relative implicit config or secrets file.
@@ -210,6 +210,7 @@ module.exports = function createReplicaFixture () {
     function localConfiguration () {
       const config = configuration(address, true);
       config.postgres.namespaces = { ...config.postgres.namespaces, access: 'preview_access' };
+      if (writeClock) { config.writeClock = true; config.postgres.namespaces.clock = 'preview_clock'; }
       config.accessTokens = { issuer: 'nightscout-test', audience: 'nightscout-data', keys: publicKeys.map(key => ({ ...key })) };
       return config;
     }
@@ -232,7 +233,7 @@ module.exports = function createReplicaFixture () {
       fs.mkdirSync(fixtureDirectory, { mode: 0o700 });
       const pgPassword = random();
       execFileSync('docker', ['run', '--rm', '--name', pgName, '-d', '-p', '127.0.0.1::5432',
-        '-e', 'POSTGRES_USER=operator', '-e', 'POSTGRES_PASSWORD', '-e', 'POSTGRES_DB=preview_replicas_test', 'postgres:16'],
+        '-e', 'POSTGRES_USER=operator', '-e', 'POSTGRES_PASSWORD', '-e', 'POSTGRES_DB=preview_replicas_test', 'postgres@sha256:9e2cf6287f25c3151f4c9421ccce2b17f3e60061c111a29165e0d2cdd9ff0a97'],
       { env: { ...process.env, POSTGRES_PASSWORD: pgPassword }, stdio: ['ignore', 'pipe', 'pipe'], timeout: 30000 });
       pgOwned = true;
       const pgPort = docker(['port', pgName, '5432/tcp']).split(':').pop();
@@ -248,6 +249,8 @@ module.exports = function createReplicaFixture () {
       }
       await run('up', { direct: true, connectionString: adminURI, namespace: 'preview_access',
         catalogue: require('../../lib/tenant-authorization/access-candidate.json') });
+      if (writeClock) await run('up', { direct: true, connectionString: adminURI, namespace: 'preview_clock',
+        catalogue: require('../../migrations/candidates/postgres-write-clock-v1.json') });
       admin = new Client({ connectionString: adminURI });
       await admin.connect();
       for (const name of ['preview_app', 'preview_check']) {
@@ -271,6 +274,12 @@ module.exports = function createReplicaFixture () {
       await admin.query('GRANT SELECT ON preview_access.schema_migrations TO preview_check');
       await admin.query('GRANT SELECT, INSERT ON preview_secrets.secret_records TO preview_app');
       await admin.query('GRANT INSERT ON preview_secrets.secret_audit TO preview_app');
+      if (writeClock) {
+        await admin.query('GRANT USAGE ON SCHEMA preview_clock TO preview_app,preview_check');
+        await admin.query('GRANT SELECT ON preview_clock.schema_migrations TO preview_check');
+        await admin.query('GRANT SELECT,UPDATE(last_stamp,last_delete_stamp) ON preview_clock.tenant_write_clock TO preview_app');
+        for (const tenant of [A, B]) await admin.query('INSERT INTO preview_clock.tenant_write_clock(tenant_id,last_stamp,last_delete_stamp) VALUES($1,0,0)', [tenant]);
+      }
       for (const [i, tenant] of [A, B].entries()) {
         await admin.query('INSERT INTO preview_legacy.legacy_credential_config VALUES ($1, $2)', [tenant, 'root-' + i]);
         await admin.query('INSERT INTO preview_legacy.legacy_credential_subjects VALUES ($1, $2, $3)', [tenant, SUBJECT, 'sameviewer']);
@@ -359,6 +368,9 @@ module.exports = function createReplicaFixture () {
       children.delete(worker);
     }
     return { setup, cleanup, start, ready, stop, kill, refused, http, exchange, localToken,
+      get directory () { return fixtureDirectory; },
+      get adminConnectionString () { return adminURI; },
+      async disconnectAdmin () { if (admin) { await admin.end(); admin = null; } },
       configuration: localConfiguration, until, tenants: [A, B],
       get admin () { return admin; }, get workers () { return children; } };
 };

@@ -435,3 +435,9 @@ replayed automatically. Alarm acceptance means realtime handoff, not device
 receipt; durable notification retries can repeat delivery. Restore coordination
 retains its pinned identity, nonce and suspension rules rather than synthesizing
 an acknowledgement after a failed request.
+
+Fixed-roster configurations with more than one API participant require
+`writeClock: true`. Startup refuses with `API_REPLICAS_REQUIRE_WRITE_CLOCK`
+before opening listeners when this shared allocator is absent: process-local
+history stamps cannot provide a common cursor across replicas. A single API
+keeps its existing configuration contract.

@@ -493,7 +493,8 @@
         "tests/evaluator-consumer-timer-churn.integration.test.js",
         "tests/evaluator-consumer-load.integration.test.js",
         "tests/tenant-insertion-upgrade.integration.test.js",
-        "tests/registry-human-session.integration.test.js"
+        "tests/registry-human-session.integration.test.js",
+        "tests/api-fixed-roster-serving.integration.test.js"
       ],
       "env": true,
       "require": [
