@@ -54,6 +54,12 @@ const IMAGES = {
 const PENDING = 'pending opt-in';
 const CRUD = { NS_ENTRIES_CRUD_HTTP_TEST: '1' };
 const INVENTORY = [
+  { file: 'tests/realtime-placement-owner.integration.test.js', flags: {}, shared: ['postgres'], own: [], gate: PENDING,
+    note: 'actual held realtime worker owner exclusion, backend loss and independent worker' },
+  { file: 'tests/realtime-placement-publication.integration.test.js', flags: { NS_VAULT_DOCKER_TEST: '1' }, shared: ['postgres'], own: ['vault'], gate: PENDING,
+    note: 'controlled placement publication and actual maintenance-pin exclusion; fixture-owned Vault' },
+  { file: 'tests/realtime-sharding-native.integration.test.js', flags: { NS_VAULT_DOCKER_TEST: '1' }, shared: ['postgres'], own: ['vault'], gate: PENDING,
+    note: 'actual API/realtime roles, assigned live-add, polling/WebSocket/API3 move, alarm routing, deferred warm and observed cohort census; fixture-owned Vault' },
   { file: 'tests/connector-sources.integration.test.js', flags: { NS_VAULT_DOCKER_TEST: '1' }, shared: ['postgres'], own: ['vault'], gate: PENDING,
     note: 'durable registry connector definitions, encrypted credentials and independent revision refresh; fixture-owned Vault' },
   { file: 'tests/registry-realtime-settings.integration.test.js', flags: { NS_VAULT_DOCKER_TEST: '1' }, shared: ['postgres'], own: ['vault'], gate: PENDING,

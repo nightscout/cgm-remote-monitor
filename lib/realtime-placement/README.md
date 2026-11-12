@@ -1,9 +1,8 @@
 # Fixed-roster realtime placement interface
 
 This module is the operator-facing core interface for the optional controlled
-realtime sharding capability. The complete runtime/cohort/alarm implementation
-must be joined before enabling it. Installing this helper alone is not runtime
-sharding or deployment acceptance. Automatic partition takeover and durable viewer
+realtime sharding capability. Enable it only with matching runtime, cohort, alarm and deployment bindings.
+Deployment acceptance is measured separately from the focused core checks. Automatic partition takeover and durable viewer
 alarm replay are outside this capability.
 
 ## One intended assignment, explicit readiness
@@ -189,3 +188,17 @@ request field in sharded mode. The logical notification route ID, request and
 attempt identity remain stable across endpoint movement. A transport failure is
 uncertain; do not transparently retry or synthesize device receipts. Upgrade
 private peers together; there is no v1 fallback that strips ownership information.
+
+During staged publication an unchanged logical shard accepts an older, positive,
+nonfuture alarm route generation only when worker, incarnation and shard still
+match the current authoritative assignment. This keeps unrelated tenants available
+while a moved target warms. A moved old incarnation or future generation refuses.
+The target must hold its actual owner resource, remain active, and be fully warm
+before handoff effects. There is no fallback to a different worker.
+
+Target projection acquisition stays private until current activity, settings,
+registry membership and ownership are rechecked. Slow or failed preparation does
+not join the healthy tenant scheduler. Paused and suspended targets remain deferred
+without checkpoint advancement; an empty or all-deferred worker can be healthy.
+The deployment readiness callback must use authoritative activity to distinguish
+an intentionally deferred tenant from a missing eligible target.

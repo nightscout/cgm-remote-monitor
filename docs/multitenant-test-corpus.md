@@ -202,3 +202,11 @@ D6 and joined capability inventory additions:
 | `tests/change-feed.integration.test.js` | `NS_D6_FEED_TEST=1` | owned PostgreSQL | fixed metadata reader, EXECUTE-only wrappers, LISTEN/paged recovery, refusal controls and CLI lifecycle |
 | `tests/api-fixed-roster.integration.test.js` | `NS_API_ROSTER_DOCKER_TEST=1` | owned PostgreSQL | exact-instance API restore census and omitted/service-aliased/stopped-replica controls |
 | `tests/registry-human-session.integration.test.js` | disposable `NS_TEST_POSTGRES_ADMIN_URI`, `NS_VAULT_DOCKER_TEST=1` | shared disposable PostgreSQL, fixture-owned Vault | registry human-only signing purposes, revocation and wrong-tenant refusal |
+
+Realtime sharding focused native suites are registered in the enabled corpus:
+`realtime-placement-owner.integration.test.js`,
+`realtime-placement-publication.integration.test.js`, and
+`realtime-sharding-native.integration.test.js`. They use disposable PostgreSQL;
+the latter two own synthetic Vault fixtures. The actual cohort check runs real
+API and realtime participants with explicitly idle evaluator/admin fixture peers.
+It does not claim a full restore campaign or horizontal capacity measurement.

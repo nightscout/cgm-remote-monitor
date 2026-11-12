@@ -81,7 +81,7 @@ is no URL forwarding, dynamic module lookup or generic proxy operation.
 
 Every request names the selected service and protocol version in
 `x-nightscout-internal-service` and `x-nightscout-internal-version`. The current
-version is `1` except connector inspection (`2`); a missing or different service/version is refused. The wire paths
+version is `1` except connector inspection, alarm delivery and lifecycle participant (`2`); a missing or different service/version is refused. The wire paths
 remain recognizable, but service/version enforcement requires a coordinated
 upgrade of communicating processes. There is no fallback to the earlier untyped
 IPC protocol. A breaking request, response or operation change requires an
@@ -252,7 +252,7 @@ For local diagnostics, use the same operation contract as the named client:
 curl --fail --request POST 'http://127.0.0.1:9081/cohort/status' \
   --header 'Content-Type: application/json' \
   --header 'x-nightscout-internal-service: lifecycle-participant' \
-  --header 'x-nightscout-internal-version: 1' \
+  --header 'x-nightscout-internal-version: 2' \
   --data '{"request":"00000000-0000-4000-8000-000000000001"}'
 ```
 

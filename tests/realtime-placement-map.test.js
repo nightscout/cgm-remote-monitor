@@ -54,13 +54,14 @@ describe('fixed logical realtime placement', function () {
     let publicationMap=parse(base);const publisher=placement.create({read:()=>publicationMap,continuous:true});publisher.current();publicationMap=current;
     assert.throws(publisher.current,{code:'REALTIME_PLACEMENT_REVISION_REFUSED'});
   });
-  it('SHARD_IDLE: unassigned shards refuse routing, idle owners need no fabricated tenant, expected alarm epoch rejects stale routing', function () {
+  it('SHARD_IDLE: unassigned shards refuse routing, idle owners need no fabricated tenant, unchanged owners accept older nonfuture routing generations', function () {
     const source = config(), self = { worker: 'a', incarnation: I }; let current = parse(source);
     const reader = placement.create({ read: () => current, self }); const old = reader.route(A);
     const next = structuredClone(source); next.generation = 2;
     next.transition = { previousGeneration: 1, previousOwners: source.owners.map(worker => ({ worker, incarnation: I })), stopped: [] };
     current = parse(next); assert.equal(reader.owns(A), true);
-    assert.throws(() => reader.assert(A, old), { code: 'REALTIME_PLACEMENT_WRONG_OWNER' });
+    assert.doesNotThrow(() => reader.assert(A, old), 'unchanged exact owner remains available while another shard stages');
+    assert.throws(() => reader.assert(A, { ...old, generation: 3 }), { code: 'REALTIME_PLACEMENT_WRONG_OWNER' });
     const idle = config(); idle.owners.fill(null); const empty = placement.create({ read: () => parse(idle), self });
     assert.doesNotThrow(empty.current); assert.throws(() => empty.route(A), { code: 'REALTIME_PLACEMENT_UNAVAILABLE' });
   });

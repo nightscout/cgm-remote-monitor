@@ -1,6 +1,6 @@
 {
   "id": "alarm-delivery",
-  "version": 1,
+  "version": 2,
   "operations": {
     "deliverAlarm": {
       "path": "/alarm",
@@ -29,6 +29,36 @@
             "type": "array",
             "items": true,
             "description": "Provider receipt JSON, retained unchanged for compatibility."
+          },
+          "placement": {
+            "type": "object",
+            "properties": {
+              "generation": {
+                "type": "integer",
+                "minimum": 1,
+                "maximum": 9007199254740991
+              },
+              "shard": {
+                "type": "integer",
+                "minimum": 0,
+                "maximum": 65535
+              },
+              "worker": {
+                "type": "string",
+                "pattern": "^[a-z][a-z0-9_-]{0,62}$"
+              },
+              "incarnation": {
+                "type": "string",
+                "pattern": "^[0-9a-f-]{36}$"
+              }
+            },
+            "required": [
+              "generation",
+              "shard",
+              "worker",
+              "incarnation"
+            ],
+            "additionalProperties": false
           }
         },
         "required": [

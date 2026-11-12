@@ -269,6 +269,8 @@
         "tests/realtime-readiness.test.js",
         "tests/realtime-config-cache.test.js",
         "tests/realtime-placement-map.test.js",
+        "tests/realtime-placement-cohort.test.js",
+        "tests/realtime-placement.test.js",
         "tests/realtime-disconnect-causes.test.js",
         "tests/realtime-reconnect-surge.test.js",
         "tests/socket-admission-cache.test.js",
@@ -507,7 +509,10 @@
         "tests/operation-lifetime-discriminator.integration.test.js",
         "tests/connector-sources.integration.test.js",
         "tests/registry-realtime-settings.integration.test.js",
-        "tests/management-sessions.integration.test.js"
+        "tests/management-sessions.integration.test.js",
+        "tests/realtime-placement-owner.integration.test.js",
+        "tests/realtime-placement-publication.integration.test.js",
+        "tests/realtime-sharding-native.integration.test.js"
       ],
       "env": true,
       "require": [
