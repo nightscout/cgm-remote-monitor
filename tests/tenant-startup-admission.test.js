@@ -150,12 +150,13 @@ describe('independent tenant startup admission (source protocol)', function () {
         '../realtime/alarm-transport':{createAdapter:()=>({send:()=>{}})}
       });
       const selected={outbox:{namespace:'synthetic_outbox'},suppression:{namespace:'synthetic_suppression'},route:{id:'synthetic'},pollIntervalMs:100,retryIntervalMs:100};
+      const jobs=require('../lib/server/serve/evaluator-job-context').create('delivery');
       let consumer;try{
         const promise=prepare.prepare({config:{consumers:{realtime:selected},tenants:new Map([[A,true],[B,true]]),readCurrent:async()=>null},clinicalConnection:clinical,
-          current:()=>null,isCurrent:async()=>false,operationWindow:f.window});
+          current:()=>null,isCurrent:async()=>false,operationWindow:f.window,jobContext:jobs});
         if(fault)await assert.rejects(promise,/bad outbox schema|bad suppression ACL|READINESS_REFUSED/);
         else {consumer=await promise;assert.deepEqual(events,['outbox','suppression','challenge']);}
-      }finally{if(consumer)await consumer.close();await f.window.close();}
+      }finally{if(consumer)await consumer.close();jobs.close();await f.window.close();}
     }
   });
 

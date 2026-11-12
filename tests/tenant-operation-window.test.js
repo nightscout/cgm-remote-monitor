@@ -119,15 +119,16 @@ describe('Actual consumers use operation-window lifetimes (source protocol)', fu
   });
   it('covers actual evaluator cycles and excludes retained output outside an admitted lifetime', async function () {
     const f = fixture(); let evaluations = 0;
+    const jobs = require('../lib/server/serve/evaluator-job-context').create('clinical');
     const runtime = await require('../lib/server/serve/evaluator-runtime')({ tenants: [A],
-      operationWindow: f.window, readCurrent: async tenant => ({ tenant, identity: '1'.repeat(64) }),
+      operationWindow: f.window, jobContext: jobs, readCurrent: async tenant => ({ tenant, identity: '1'.repeat(64) }),
       create: async () => ({ evaluate: async () => { f.window.assertCurrent(A); evaluations++; return { checkpoint: 0 }; },
         evaluateTime: async () => ({ checkpoint: 0 }), close () {} }),
       recoveryIntervalMs: 10, timeIntervalMs: 20, schedule: () => 1, cancel: () => {} });
     try {
       assert.equal(evaluations, 1); assert.equal(runtime.last(A), null);
       await f.window.run(A, async () => assert.equal(runtime.last(A).eligible, true));
-    } finally { await runtime.close(); await f.window.close(); }
+    } finally { await runtime.close(); jobs.close(); await f.window.close(); }
   });
   it('covers realtime acquisition/fanout and recovers after a refused window', async function () {
     const options = {}; const f = fixture(options); let delivered = 0;
