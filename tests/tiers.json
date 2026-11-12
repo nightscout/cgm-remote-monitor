@@ -270,7 +270,9 @@
         "tests/profile-timestamp-oracle.test.js",
         "tests/profile-wire-response.test.js",
         "tests/realtime-runtime-directory.test.js",
-        "tests/realtime-database-binding.test.js"
+        "tests/realtime-database-binding.test.js",
+        "tests/authorization-snapshot-cost.test.js",
+        "tests/secrets-audit-batch.test.js"
       ],
       "env": true,
       "require": [

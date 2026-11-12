@@ -27,6 +27,13 @@ composition is described in [legacy credentials](legacy-credentials.md).
 | `maxTokenLifetimeSeconds` | Required positive integer selected by trusted policy configuration, not an owner-supplied request. No implicit lifetime default. |
 | `now()` | Optional clock returning epoch milliseconds; defaults to `Date.now`. |
 
+The PostgreSQL adapter coalesces concurrently waiting audit receipts from the
+same tenant into bounded inserts. Each attempt still receives its own row, and
+no receipt resolves until the transaction commits durably. An insert failure
+rejects every receipt in that batch before any caller proceeds to cryptographic
+work. Different tenants are never combined, and adapter close drains pending
+receipts before closing its database pool.
+
 The transport must authenticate `{tenant,principal,consumer}` before calling
 the component. These are not trusted because they appeared in a JSON body.
 Identifiers are nonempty ASCII alphanumeric/underscore/hyphen strings, at most
