@@ -257,8 +257,10 @@ function cohortModule () {
   const original = Module.createRequire(file);
   const DATA = { database: 'disposable_test', database_oid: '16384', server_address: '127.0.0.1', server_port: 5432, postmaster_birth: '1700000000.000000' };
   const invalidated = [];
+  const backends = [{ pid: 101, role: 'synthetic_api', birth: '1700000000.1' }];
   const overrides = {
-    '../../storage/postgres-connection': { installOperationWindow: () => () => {}, cohortBackends: () => [{ pid: 101, role: 'synthetic_api', birth: '1700000000.1' }], cohortDatastore: () => DATA },
+    '../../storage/postgres-connection': { installOperationWindow: () => () => {}, cohortBackends: () => backends, cohortDatastore: () => DATA,
+      cohortSnapshot: async () => ({ datastore: DATA, backends }) },
     './preview-api': { boot: async () => ({ close: async () => {}, invalidateTenant: async tenant => invalidated.push(tenant) }) }
   };
   vm.runInThisContext('(function(require,module,exports){' + fs.readFileSync(file, 'utf8') + '\n})', { filename: file })(
