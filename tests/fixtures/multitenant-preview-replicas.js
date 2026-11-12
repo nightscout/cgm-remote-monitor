@@ -136,13 +136,14 @@ module.exports = function createReplicaFixture ({ writeClock = false } = {}) {
       return worker;
     }
 
-    async function ready (worker) {
+    async function ready (worker, tenant = A) {
+      assert([A, B].includes(tenant), 'explicit fixture readiness tenant required');
       await until(async () => {
         assert.equal(worker.exit, null, 'preview exited before readiness: ' + worker.stderr);
         const found = /Listening for role api on 127\.0\.0\.1:(\d+)/.exec(worker.stdout);
         if (!found) return false;
         worker.port = Number(found[1]);
-        const result = await http(worker, A, 'GET', '/api/v3/entries', undefined);
+        const result = await http(worker, tenant, 'GET', '/api/v3/entries', undefined);
         assert.equal(result.status, 403, 'listener must answer through current anonymous authority');
         return true;
       }, 'preview child listener');

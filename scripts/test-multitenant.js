@@ -145,6 +145,8 @@ const INVENTORY = [
     note: 'functional cases enabled; benchmark remains pending unless NS_TENANT_COMMIT_CLOCK_BENCHMARK=1' },
   { file: 'tests/management-sessions.integration.test.js', flags: { NS_MANAGEMENT_SESSIONS_DOCKER_TEST: '1' }, shared: [], own: ['postgres', 'vault'], gate: PENDING,
     note: 'private operator issuance; current owner/key fencing, real Vault rotation, lifecycle shared lease and live issuer census' },
+  { file: 'tests/operation-lifetime-discriminator.integration.test.js', flags: { NS_OPERATION_LIFETIME_DOCKER_TEST: '1' }, shared: [], own: ['postgres', 'vault'], gate: PENDING,
+    note: 'explicit bounded lifetime sessions; full admission, held actual API responses, current authority, commit uncertainty and orphan refusal; timing is mechanism-only' },
   { file: 'tests/api-fixed-roster-serving.integration.test.js', flags: { NS_API_ROSTER_SERVING_DOCKER_TEST: '1' }, shared: [], own: ['postgres', 'vault'], gate: PENDING,
     note: 'two actual API CLI processes; response drain/current authority/census/uncertainty; non-API peers are synthetic lifecycle-only' },
   { file: 'tests/multitenant-preview-replicas.integration.test.js', flags: { NS_MULTITENANT_PREVIEW_REPLICAS_DOCKER_TEST: '1' }, shared: [], own: ['postgres', 'vault'], gate: PENDING,
