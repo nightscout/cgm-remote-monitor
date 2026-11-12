@@ -30,6 +30,23 @@ This is preview socket admission, not the D15 public REST suspension lifecycle.
 Tenant expansion and infrastructure changes require restart. Tenant config and
 permissions are checked again after asynchronous acquisition and on each fanout.
 
+Static/lab configuration and admission files support in-place edits, including
+same-size edits whose filesystem timestamps have not advanced. Each check reads
+at most `MULTITENANT_CONFIG_MAX_BYTES` plus one refusal byte. Unchanged text reuses
+its parsed configuration and validated roster; it does not enumerate the roster
+again. Lowering the current byte bound takes effect on the next check. Valid
+symlinks to regular files remain supported; missing and nonregular targets refuse.
+This legacy path therefore has a bounded file-read cost per check, proportional
+to its configured file size. Earlier static-roster zero-read measurements do not
+establish immediate in-place edit freshness on filesystems with coarse timestamps.
+
+Registry mode reads this file only at boot. Its per-tenant current configuration
+comes from the admitted registry tenant set and authoritative presentation/settings
+reader, with no repeated boot-file read or full roster traversal. Registry revision
+polling and tenant preparation retain their independent bounded work contracts.
+Placement metadata uses the distinct atomic publication contract documented in
+`lib/realtime-placement/README.md`; operator hot files do not inherit that contract.
+
 The API config's optional `socketForwarding` (served on the api process's
 `serve.internal`) has admissionFileEnv,
 maxTenants, maxMessageBytes, operationTimeoutMs and alarm {connectionEnv,namespace}.

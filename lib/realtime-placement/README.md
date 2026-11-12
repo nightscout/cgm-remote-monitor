@@ -202,3 +202,25 @@ not join the healthy tenant scheduler. Paused and suspended targets remain defer
 without checkpoint advancement; an empty or all-deferred worker can be healthy.
 The deployment readiness callback must use authoritative activity to distinguish
 an intentionally deferred tenant from a missing eligible target.
+
+
+Placement readers opt into the internal atomic-publication cache. Publish complete
+files through the fenced publisher's temporary-file write, fsync, atomic rename and
+directory fsync; in-place changes are unsupported for this machine-owned metadata.
+The cache compares target device/inode, size, nanosecond mtime/ctime, mode and the
+current byte bound. Unchanged publications perform no full-file reads or parses.
+One descriptor pins each accepted inode, preventing an ABA cache hit if a reader
+misses multiple publications and the filesystem would otherwise reuse its inode.
+The bounded reader obtains bytes and identity from that same open regular file.
+A changed identity releases the previous handle before reading its replacement;
+a refusal, explicit `close()` or owning runtime shutdown releases the handle.
+The finalizer protects abandoned objects only; normal lifetime uses explicit close.
+Valid reader symlinks follow their regular-file target and its identity. The
+publisher itself requires its existing private regular-file path.
+
+This is a constant resource per placement reader, independent of tenant count.
+A selected realtime role, evaluator consumer and operation-cohort configuration
+may each own a reader (up to three for their co-resident process). Direct callers
+of `load`/`loadRoutes` must close their reader; these methods do not install process
+signal handlers or one listener per tenant. Atomic publication does not replace
+current registry, activity, settings or ownership checks.
