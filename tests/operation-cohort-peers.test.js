@@ -14,12 +14,15 @@ function load (overrides,mutate=s=>s) {
   vm.runInThisContext('(function(require,module,exports){'+mutate(fs.readFileSync(file,'utf8'))+'\n})',{filename:file})(name=>Object.hasOwn(overrides,name)?overrides[name]:original(name),output,output.exports);
   return output.exports;
 }
-async function lab (mutate) {
-  const entries=manifest.validate(roles.map((role,index)=>({id:'peer_'+index,roles:[role],namespaces:['clinical_'+index],endpoint:{socketPath:'/synthetic/peer_'+index+'.sock',maxBytes:100000,timeoutMs:1000}})));
+async function lab (mutate, timeoutMs = 1000) {
+  const entries=manifest.validate(roles.map((role,index)=>({id:'peer_'+index,roles:[role],namespaces:['clinical_'+index],endpoint:{socketPath:'/synthetic/peer_'+index+'.sock',maxBytes:100000,timeoutMs}})));
   const handlers=new Map(), locals=new Map(), invalidated=[], actors=roles.map((role,index)=>({pid:100+index,role:'synthetic_'+index,birth:'1700000000.'+index}));
   const flags={};
+  const late={pid:801,role:'synthetic_late_reader',birth:'1700000003.000001'};
+  const backends=index=>[actors[index],...(index===0&&flags.admitLate?[{...late,...(flags.lateWrongBirth?{birth:'1700000003.000002'}:{})}]:[])];
   const ipc={async open(endpoint,service,make) {const operations=make(Symbol());handlers.set(endpoint.socketPath,operations);return {async close(){if(handlers.get(endpoint.socketPath)===operations)handlers.delete(endpoint.socketPath);}};}};
   const clients={lifecycleParticipant:endpoint=>Object.fromEntries(['getStatus','invalidateTenant'].map(operation=>[operation,async body=>{
+      if(operation==='getStatus'){flags.statusRequests=(flags.statusRequests||0)+1;if(flags.holdStatus){flags.statusEntered();await flags.holdStatus;}}
       const handlersForPeer=handlers.get(endpoint.socketPath); if(!handlersForPeer)throw new Error('synthetic missing peer');
       const reply=await handlersForPeer[operation]({},structuredClone(body));
       if(flags.lostAck && operation==='invalidateTenant' && endpoint.socketPath===entries[0].endpoint.socketPath)throw new Error('synthetic lost ACK');
@@ -30,7 +33,7 @@ async function lab (mutate) {
   async function boot(index) {
     const entry=entries[index], f=fixture();
     const module=load({'../internal-api/transport':ipc,'../internal-api/clients':clients,'../../storage/postgres-connection':{
-      installOperationWindow:()=>()=>{},cohortBackends:()=>[actors[index]],cohortDatastore:()=>DATA
+      installOperationWindow:()=>()=>{},cohortBackends:()=>[actors[index]],cohortDatastore:()=>DATA,cohortSnapshot:async()=>({datastore:DATA,backends:backends(index)})
     },...Object.fromEntries(['preview-api','evaluator-preview','preview-realtime','owner-preview'].map(name=>['./'+name,{boot:async()=>({close:async()=>{},invalidateTenant:async tenant=>invalidated.push([entry.id,tenant])})}]))});
     const cohort=await module.create({window:f.window,names:entry.roles,tenants:[A,B],namespaces:entry.namespaces,participant:entry});
     await cohort.boot(roles[index],{tenantIds:[A,B],namespaces:{clinical:entry.namespaces[0]}});cohort.complete();
@@ -44,7 +47,10 @@ async function lab (mutate) {
   const operator={async query(sql){
     if(sql==='SELECT pg_catalog.pg_stat_clear_snapshot()')return {rows:[{}]};
     if(sql==='SELECT '+lower.datastoreSQL)return {rows:[flags.operatorWrongDB?{...DATA,server_port:5433}:DATA]};
-    assert(sql.includes('restore-cohort-actors'),'Unexpected operator census SQL');return {rows:actors};
+    assert(sql.includes('restore-cohort-actors'),'Unexpected operator census SQL');
+    if(flags.actorDelayMs)await new Promise(resolve=>setTimeout(resolve,flags.actorDelayMs));
+    flags.actorQueries=(flags.actorQueries||0)+1;
+    if(flags.birthAfterStatus){flags.admitLate=true;return {rows:[...actors,late]};}return {rows:actors};
   }};
   return {coordinator,remote,entries,locals,flags,actors,operator,invalidated,async restart(index){await locals.get(index).close();await boot(index);},
     async close(){await remote.close();for(const local of locals.values())await local.close();}};
@@ -72,6 +78,44 @@ describe('Separate-process fixed cohort source protocol',function(){
       await assert.rejects(f.coordinator.assertComplete(f.remote,A,{client:f.operator}),{code:'RESTORE_COHORT_UNKNOWN_BACKEND'});f.actors.pop();await f.coordinator.assertComplete(f.remote,A,{client:f.operator});
       await f.locals.get(1).close();await assert.rejects(f.coordinator.invalidate(f.remote,A),/missing peer/);
     }finally{await f.coordinator.releasePin(pin);await f.close();}
+  });
+  it('classifies one actor born after a status cut only by a full pinned peer re-observation',async function(){
+    const f=await lab();const pin=await f.coordinator.pin(f.remote,A,{client:f.operator});
+    try{
+      f.flags.birthAfterStatus=true;const before=f.flags.statusRequests,queries=f.flags.actorQueries;
+      assert.equal((await f.coordinator.assertComplete(f.remote,A,{client:f.operator})).backends,5);
+      assert.equal(f.flags.statusRequests-before,8,'exactly one complete peer re-observation');assert.equal(f.flags.actorQueries-queries,1,'the original SQL actor cut is retained');
+      f.flags.admitLate=false;f.flags.lateWrongBirth=true;
+      await assert.rejects(f.coordinator.assertComplete(f.remote,A,{client:f.operator}),{code:'RESTORE_COHORT_UNKNOWN_BACKEND'});
+      f.flags.lateWrongBirth=false;f.flags.admitLate=false;f.flags.wrongDB=true;
+      await assert.rejects(f.coordinator.assertComplete(f.remote,A,{client:f.operator}),{code:'RESTORE_COHORT_PARTICIPANT_CHANGED'});
+    }finally{await f.coordinator.releasePin(pin);await f.close();}
+  });
+  it('does not restart the configured snapshot budget after elapsed census work',async function(){
+    const f=await lab(undefined,20);const pin=await f.coordinator.pin(f.remote,A,{client:f.operator});
+    try{
+      f.flags.birthAfterStatus=true;f.flags.actorDelayMs=30;const before=f.flags.statusRequests;
+      await assert.rejects(f.coordinator.assertComplete(f.remote,A,{client:f.operator}),{code:'RESTORE_COHORT_SNAPSHOT_TIMEOUT'});
+      assert.equal(f.flags.statusRequests-before,4,'no fresh RPC round starts after the one admitted budget expires');
+    }finally{await f.coordinator.releasePin(pin);await f.close();}
+  });
+  async function closedWhileWaiting(kind,mutate){
+    const f=await lab(mutate);let pin=await f.coordinator.pin(f.remote,A,{client:f.operator}),release,entered;
+    const gate=new Promise(resolve=>{release=resolve;}),waiting=new Promise(resolve=>{entered=resolve;});
+    try{
+      f.flags.holdStatus=gate;f.flags.statusEntered=entered;
+      const pending=f.coordinator.assertComplete(f.remote,A,{client:f.operator});await waiting;
+      if(kind==='close')await f.remote.close();else{await f.coordinator.releasePin(pin);pin=null;}
+      release();await assert.rejects(pending,{code:kind==='close'?'RESTORE_COHORT_INCOMPLETE':'RESTORE_COHORT_PIN_REQUIRED'});
+    }finally{release();if(pin)await f.coordinator.releasePin(pin);await f.close();}
+  }
+  it('refuses a closed cohort or released exact pin after a held snapshot reply',async function(){
+    await closedWhileWaiting('close');await closedWhileWaiting('release');
+  });
+  it('detects a removed post-await live-ownership fence and passes restored source',async function(){
+    const mutation=s=>{const old="stateOf(cohort,tenant);\n    if (state.kind === 'remote' && state.pinned.get(tenant) !== pin) throw fail('RESTORE_COHORT_PIN_REQUIRED');";assert(s.includes(old));return s.replace(old,'/* deliberate missing live ownership fence */');};
+    await assert.rejects(closedWhileWaiting('close',mutation),/Missing expected rejection/);
+    await closedWhileWaiting('close');
   });
   async function restartCheck(mutate){
     const f=await lab(mutate);const pin=await f.coordinator.pin(f.remote,A,{client:f.operator});
