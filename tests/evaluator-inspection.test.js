@@ -7,7 +7,7 @@ function fixture(count=10000, due={dueAt:null,dueReason:null}){
  const ids=Array.from({length:count},(_,i)=>String(i).padStart(8,'0')+'-1111-4111-8111-111111111111');
  let visited=0;const map=new Map(ids.map(id=>[id,true]));
  const tenants=new Proxy(map,{get(target,key){if(['keys','values','entries',Symbol.iterator].includes(key))return()=>{throw new Error('FULL_REGISTRY_ITERATION');};return typeof target[key]==='function'?target[key].bind(target):target[key];}});
- const row=tenant=>({tenant,...due,ready:true,code:null,cycles:5,outputRevision:1,inputCheckpoint:0,evaluatedAgeMs:1,alert:null,progress:{generation:1,completedAcquisitions:1,completedTimeCycles:4,lastCompletedAgeMs:1,failedCompletions:0}});
+ const row=tenant=>({tenant,jobs:{running:false,booting:false,acquire:false,time:false,parentAcquire:false,parentTime:false},...due,ready:true,code:null,cycles:5,outputRevision:1,inputCheckpoint:0,evaluatedAgeMs:1,alert:null,progress:{generation:1,completedAcquisitions:1,completedTimeCycles:4,lastCompletedAgeMs:1,failedCompletions:0}});
  const inspect=inspection({tenants,gate:{inspect:async()=>({configured:{mode:'standalone',ordinal:0,rule:null,leaseMs:null,configuredTenants:ids.length},observed:null,
   gate:{eligible:true,reason:null,members:null,reads:0,refusals:0,changes:0,checkedAgeMs:null,heartbeats:null},owner:()=>null,admits:()=>true})},
  runtime:{health(selected){assert(Array.isArray(selected),'BOUNDED_RUNTIME_SELECTOR_REQUIRED');visited+=selected.length;return{runtimeId:A,tenants:selected.map(row)};}},
@@ -46,16 +46,22 @@ describe('bounded evaluator inspection v2',function(){
    const f=fixture(1,{dueAt:null,dueReason:null,...due});await assert.rejects(f.inspect({tenants:f.ids}),/due inspection refused/);
   }
  });
+ it('refuses missing or malformed clinical job observations without coercing unknown to quiet',async function(){
+  for(const jobs of [undefined,null,{}, {running:false,booting:false,acquire:false,time:false,parentAcquire:false,parentTime:0}]){
+   const f=fixture(1,{dueAt:null,dueReason:null,jobs});await assert.rejects(f.inspect({tenants:f.ids}),/job inspection refused/);
+  }
+ });
  it('carries selected v2 bodies over the actual private UDS client and refuses the prior module version',async function(){
   const due={dueAt:Date.now()+60000,dueReason:'slow:alarm-message'},f=fixture(10000,due),dir=fs.mkdtempSync(path.join(os.tmpdir(),'evaluator-inspection-'));let listener;
-  const endpoint={socketPath:path.join(dir,'inspect.sock'),maxBytes:1024*1024,timeoutMs:1000};let corrupt=false;
+  const endpoint={socketPath:path.join(dir,'inspect.sock'),maxBytes:1024*1024,timeoutMs:1000};let corrupt=false,jobCorruption=false;
   try{
-   listener=await transport.compose(endpoint,[{service,create:()=>({inspectEvaluator:async(context,body)=>{const dto=await f.inspect(body);if(corrupt&&dto.tenants.length)dto.tenants[0].dueReason=corrupt;return dto;}})}]);
+   listener=await transport.compose(endpoint,[{service,create:()=>({inspectEvaluator:async(context,body)=>{const dto=await f.inspect(body);if(corrupt&&dto.tenants.length)dto.tenants[0].dueReason=corrupt;if(jobCorruption&&dto.tenants.length)dto.tenants[0].jobs.running=0;return dto;}})}]);
    const client=transport.client(endpoint,service);
    assert.deepEqual((await client.inspectEvaluator({tenants:[]})).tenants,[]);
    const dto=await client.inspectEvaluator({tenants:[f.ids[9999]]});assert.equal(dto.tenants[0].tenant,f.ids[9999]);assert.equal(dto.tenants[0].dueAt,due.dueAt);assert.equal(dto.tenants[0].dueReason,due.dueReason);
    for(const next of [fractionalDue(),{dueAt:1,dueReason:'sgv-recent-10'},{dueAt:null,dueReason:null}]){Object.assign(due,next);const observed=await client.inspectEvaluator({tenants:[f.ids[0]]});assert.equal(observed.tenants[0].dueAt,next.dueAt);assert.equal(observed.tenants[0].dueReason,next.dueReason);}
    for(const invalid of ['a'.repeat(129),'stale-reason']){due.dueAt=invalid==='stale-reason'?null:1;corrupt=invalid;await assert.rejects(client.inspectEvaluator({tenants:[f.ids[0]]}),/SOCKET_IPC_UNAVAILABLE/,'SCHEMA_REFUSES_INVALID_REASON');}corrupt=false;await client.inspectEvaluator({tenants:[f.ids[0]]});
+   jobCorruption=true;await assert.rejects(client.inspectEvaluator({tenants:[f.ids[0]]}),/SOCKET_IPC_UNAVAILABLE/,'SCHEMA_REFUSES_NONBOOLEAN_JOB_STATE');jobCorruption=false;
    const oldV2=JSON.parse(JSON.stringify(service));const oldRows=oldV2.operations.inspectEvaluator.response.properties.tenants.items;delete oldRows.properties.dueAt;delete oldRows.properties.dueReason;delete oldRows.anyOf;oldRows.required=oldRows.required.filter(key=>!['dueAt','dueReason'].includes(key));
    await assert.rejects(transport.client(endpoint,oldV2).inspectEvaluator({tenants:[f.ids[0]]}),/SOCKET_IPC_UNAVAILABLE/,'OLD_STRICT_V2_CLIENT_MUST_NOT_SILENTLY_ACCEPT_NEW_FIELDS');
    const empty=fixture(0),emptyDir=path.join(dir,'empty.sock');

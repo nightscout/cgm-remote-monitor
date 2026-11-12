@@ -128,6 +128,38 @@ describe('trusted evaluator scheduling contexts (recording lifetime protocol)',f
       assert.throws(()=>r.health(),/FULL_ROSTER_ITERATION/,'CONTROL_LEGACY_WHOLE_VIEW_VISITS_ROSTER');
     }finally{Map.prototype.values=values;Map.prototype.keys=keys;Map.prototype[Symbol.iterator]=iterator;await r.close();}
   });
+  it('observes queued background clinical boot without taking an ownership window',async function(){
+    const f=fixture(),jobs=contexts.create('clinical'),hold=deferred();let entered=false;
+    const r=await runtime(settings(f.window,jobs,{tenants:[A,B],boot:'serve',bootConcurrency:1,timeIntervalMs:60000,setTimer:()=>({}),clearTimer(){},create:async()=>{entered=true;await hold.promise;return {evaluate:async()=>({checkpoint:0}),evaluateTime:async()=>({checkpoint:0}),close(){}};}}));
+    try{await wait(()=>entered);const before=f.log.length;
+      assert.equal(r.health([B]).tenants[0].jobs.booting,true);assert.equal(r.health([B]).tenants[0].jobs.running,false);
+      for(let i=0;i<10;i++)assert.equal(r.health([B]).tenants[0].jobs.booting,true);
+      assert.equal(f.log.length,before,'READING_QUEUED_BOOT_TAKES_NO_WINDOW');
+      hold.resolve();await wait(()=>!r.health([B]).tenants[0].jobs.booting);
+    }finally{hold.resolve();await r.close();await f.window.close();}
+  });
+  it('observes all four queued clinical slots and the full owned window without driving work',async function(){
+    const f=singleClient(),jobs=contexts.create('clinical'),hold=deferred();let block=false,entered=false,owned=[];
+    const result=()=>({checkpoint:0,properties:{synthetic:true}});
+    const r=await runtime(settings(f.window,jobs,{timeIntervalMs:60000,setTimer:()=>({}),clearTimer(){},create:async()=>({
+      evaluate:async()=>{if(block){entered=true;await hold.promise;}return result();},evaluateTime:async()=>result(),close(){}
+    })}));
+    try{
+      block=true;
+      await f.window.run(A,async()=>{
+        const first=r.acquire(A);await wait(()=>entered);
+        const second=r.acquire(A),time=r.tick(A);
+        jobs.run(()=>{owned=[r.acquire(A),r.tick(A)];});
+        const before=r.health([A]);
+        assert.deepEqual(before.tenants[0].jobs,{running:true,booting:false,acquire:true,time:true,parentAcquire:true,parentTime:true});
+        for(let i=0;i<10;i++)assert.deepEqual(r.health([A]).tenants[0].jobs,before.tenants[0].jobs);
+        assert.equal(r.health([A]).tenants[0].cycles,before.tenants[0].cycles,'INSPECTION_DOES_NOT_DRAIN_QUEUED_JOBS');
+        block=false;hold.resolve();await Promise.all([first,second,time]);
+      });
+      await Promise.all(owned);await wait(()=>!r.health([A]).tenants[0].jobs.running);
+      assert.deepEqual(r.health([A]).tenants[0].jobs,{running:false,booting:false,acquire:false,time:false,parentAcquire:false,parentTime:false});
+    }finally{hold.resolve();await r.close();await f.window.close();}
+  });
   it('does not credit unfinished windows, failed completion or generation-invalidated results',async function(){
     const f=fixture(),jobs=contexts.create('clinical'),hold=deferred();let entered=false,block=false;
     const original=f.client.query;
@@ -137,6 +169,7 @@ describe('trusted evaluator scheduling contexts (recording lifetime protocol)',f
     try{
       block=true;const pending=r.tick(A);await wait(()=>entered);
       assert.equal(r.health([A]).tenants[0].progress.completedTimeCycles,0);
+      assert.equal(r.health([A]).tenants[0].jobs.running,true,'FULL_WINDOW_COMPLETION_IS_STILL_INFLIGHT');
       identity='b'.repeat(64);
       assert.equal(await r.isCurrent(A,'a'.repeat(64)),false);
       hold.resolve();await pending;

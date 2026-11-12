@@ -570,6 +570,38 @@
                       "maxLength": 128
                     }
                   ]
+                },
+                "jobs": {
+                  "type": "object",
+                  "properties": {
+                    "running": {
+                      "type": "boolean"
+                    },
+                    "booting": {
+                      "type": "boolean"
+                    },
+                    "acquire": {
+                      "type": "boolean"
+                    },
+                    "time": {
+                      "type": "boolean"
+                    },
+                    "parentAcquire": {
+                      "type": "boolean"
+                    },
+                    "parentTime": {
+                      "type": "boolean"
+                    }
+                  },
+                  "required": [
+                    "running",
+                    "booting",
+                    "acquire",
+                    "time",
+                    "parentAcquire",
+                    "parentTime"
+                  ],
+                  "additionalProperties": false
                 }
               },
               "required": [
@@ -584,7 +616,8 @@
                 "delivery",
                 "progress",
                 "dueAt",
-                "dueReason"
+                "dueReason",
+                "jobs"
               ],
               "additionalProperties": false,
               "anyOf": [

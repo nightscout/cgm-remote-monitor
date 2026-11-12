@@ -121,7 +121,7 @@ describe('evaluator partitioning: private contracts', function () {
       observed: { desiredMembers: 3, previousMembers: 2, revision: 2, effectiveMembers: 2, switching: true, liveOrdinals: [0, 1], missingOrdinals: [],
         conflicts: [], reason: null, rows: [{ ordinal: 1, self: true, live: true, appliedMembers: 2, heartbeatAgeMs: 10, leaseRemainingMs: 2990 }] },
       gate: { eligible: true, reason: null, members: 2, reads: 4, refusals: 0, changes: 1, checkedAgeMs: 5, heartbeats: { renewed: 3, failed: 0, lastReason: null } },
-      tenants: [{ tenant: A, assignedOrdinal: 1, admitted: true, code: null, ready: true, cycles: 3, dueAt:null, dueReason:null, progress: {generation:1,completedAcquisitions:1,completedTimeCycles:0,lastCompletedAgeMs:2,failedCompletions:0}, outputRevision: 1, inputCheckpoint: 0,
+      tenants: [{ tenant: A, assignedOrdinal: 1, admitted: true, code: null, ready: true, cycles: 3, jobs:{running:false,booting:false,acquire:false,time:false,parentAcquire:false,parentTime:false}, dueAt:null, dueReason:null, progress: {generation:1,completedAcquisitions:1,completedTimeCycles:0,lastCompletedAgeMs:2,failedCompletions:0}, outputRevision: 1, inputCheckpoint: 0,
         delivery: { state: 'idle', code: null, passes: 2, repeatAt: null } }] };
     validate(inspect.response, response);
     const bounded={...response,tenants:Array.from({length:128},(_,i)=>({...response.tenants[0],tenant:String(i).padStart(8,'0')+'-1111-4111-8111-111111111111'}))};
