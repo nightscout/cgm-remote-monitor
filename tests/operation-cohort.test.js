@@ -20,7 +20,7 @@ function load (relative, overrides, mutate = s => s) {
 async function setup ({ mutate, boot } = {}) {
   const f = fixture(), invalidations = [], observed = [{pid:123,role:'synthetic_worker',birth:'1700000000.000001'}];
   let released = false;
-  const lower = {...require('../lib/storage/postgres-connection'),installOperationWindow: () => () => { released = true; }, cohortBackends: () => observed,cohortDatastore:() => f.window.datastore};
+  const lower = {...require('../lib/storage/postgres-connection'),installOperationWindow: () => () => { released = true; }, cohortBackends: () => observed,cohortDatastore:() => f.window.datastore,cohortSnapshot:async()=>({datastore:f.window.datastore,backends:observed})};
   const module = load('../lib/server/serve/operation-cohort.js', {
     '../../storage/postgres-connection':lower,
     pg:{Client:class { constructor () { assert.fail('Census must use the passed operator client'); } },Pool:class { constructor () { assert.fail('Census must not create a pool'); } }},
@@ -146,7 +146,7 @@ describe('Actual operation cohort composition source protocol', function () {
     } finally { await s.cohort.close(); }
   });
   it('detects a broken census comparison and passes the restored source', async function () {
-    await assert.rejects(censusCheck(s => { const broken = s.replace("if (row && actor.birth && row.birth === actor.birth && row.role === actor.role) continue;", 'continue;'); assert.notEqual(broken, s, 'mutation applies'); return broken; }), /Missing expected rejection/);
+    await assert.rejects(censusCheck(s => { const broken = s.replace("if (matches(actor)) continue;", 'continue;'); assert.notEqual(broken, s, 'mutation applies'); return broken; }), /Missing expected rejection/);
     await censusCheck();
   });
 });
