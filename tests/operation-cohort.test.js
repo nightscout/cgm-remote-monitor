@@ -47,6 +47,13 @@ describe('Actual operation cohort composition source protocol', function () {
       finish(); await pending;
     } finally { finish(); await s.cohort.close(); }
   });
+  it('matches launcher coverage when activity uses the actual operation-control namespace', async function () {
+    const s = await setup();
+    try {
+      await assert.rejects(s.cohort.boot('api', { tenantIds: [A,B], activity: { namespace: 'unobserved_control' } }), { code: 'RESTORE_COHORT_NAMESPACE_MISMATCH' });
+      await s.cohort.boot('api', { tenantIds: [A,B], activity: { namespace: s.f.window.namespace } });
+    } finally { await s.cohort.close(); }
+  });
   async function censusCheck (mutate) {
     const s = await setup({mutate}); await s.complete();
     const actors = [{...s.observed[0],application_name:'unrelated-label'}];
