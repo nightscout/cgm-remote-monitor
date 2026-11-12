@@ -43,7 +43,7 @@ describe('admin provisioning client and configuration', function () {
   });
 
   it('admits a provisioning-only admin configuration and refuses a partial one', function () {
-    const namespaces = Object.fromEntries(['registry', 'legacy', 'secrets', 'authorization', 'access', 'clock', 'control'].map(kind => [kind, 'nsadm_' + kind]));
+    const namespaces = Object.fromEntries(['registry', 'legacy', 'secrets', 'authorization', 'access', 'clock', 'control', 'settings', 'operatorPolicy'].map(kind => [kind, 'nsadm_' + kind.toLowerCase()]));
     const provisioning = { connectionEnv: 'NS_PROVISIONER_PG', namespaces, checkpoints: [{ namespace: 'nsadm_checkpoint', consumer: 'realtime-lab', digest: 'a'.repeat(64) }],
       vault: { address: 'https://vault.example.test/', mount: 'transit', tokenFile: '/run/vault/token' }, operator: { principal: 'operator', consumer: 'admin' } };
     const source = { NS_PROVISIONER_PG: 'postgres://prov:synthetic@db.example.test/ns' };

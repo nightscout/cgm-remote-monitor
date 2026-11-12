@@ -51,6 +51,19 @@
           "422": { "$ref": "#/components/responses/Problem" },
           "503": { "$ref": "#/components/responses/Problem" }
         }
+      },
+      "delete": {
+        "operationId": "removeTenant",
+        "description": "Remove a tenant from the registry after its deletion ceremony has executed (owner request, operator confirmation, execution). Deletes its host rows and marks it removed; serving roles stop within one registry refresh interval. A removed id is never provisioned again. A retry returns outcome 'existing'. Pause and suspend are activity operations, not removal.",
+        "parameters": [{ "name": "id", "in": "path", "required": true, "schema": { "$ref": "#/components/schemas/TenantId" } },
+          { "name": "Idempotency-Key", "in": "header", "required": false, "schema": { "$ref": "#/components/schemas/TenantId" } }],
+        "responses": {
+          "200": { "description": "Removed, or already removed", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/Removal" } } } },
+          "404": { "$ref": "#/components/responses/Problem" },
+          "409": { "$ref": "#/components/responses/Problem" },
+          "422": { "$ref": "#/components/responses/Problem" },
+          "503": { "$ref": "#/components/responses/Problem" }
+        }
       }
     }
   },
@@ -88,10 +101,14 @@
           "internalHost": { "$ref": "#/components/schemas/Host" }
         }
       },
+      "Removal": {
+        "type": "object", "required": ["id", "outcome", "state"], "additionalProperties": false,
+        "properties": { "id": { "$ref": "#/components/schemas/TenantId" }, "outcome": { "enum": ["removed", "existing"] }, "state": { "const": "removed" } }
+      },
       "Code": {
         "enum": ["TENANT_PROVISION_INVALID", "TENANT_PROVISION_HOST_INVALID", "TENANT_PROVISION_IDEMPOTENCY_KEY_MISMATCH", "TENANT_PROVISION_BATCH_INVALID",
           "TENANT_PROVISION_BATCH_DUPLICATE", "TENANT_PROVISION_CONFLICT", "TENANT_PROVISION_REMOVED", "TENANT_PROVISION_LOCK_COLLISION",
-          "TENANT_PROVISION_VAULT_KEY_MISMATCH", "TENANT_PROVISION_VAULT_REFUSED", "TENANT_PROVISION_VAULT_UNAVAILABLE", "TENANT_PROVISION_FAILED",
+          "TENANT_PROVISION_VAULT_KEY_MISMATCH", "TENANT_REMOVAL_REQUIRES_DELETION", "TENANT_PROVISION_VAULT_REFUSED", "TENANT_PROVISION_VAULT_UNAVAILABLE", "TENANT_PROVISION_FAILED",
           "TENANT_NOT_FOUND", "ROUTE_NOT_FOUND", "METHOD_NOT_ALLOWED", "UNSUPPORTED_MEDIA_TYPE", "PAYLOAD_TOO_LARGE", "BODY_INVALID", "SERVICE_CLOSED"]
       },
       "Problem": {

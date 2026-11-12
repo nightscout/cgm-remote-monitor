@@ -58,7 +58,12 @@ optInSuite(enabled(), 'disposable NS_TEST_POSTGRES_ADMIN_URI and NS_VAULT_DOCKER
       const url = new URL(process.env.NS_TEST_POSTGRES_ADMIN_URI); url.username = name; url.password = password;
       if (role === 'check') { check = { name, url: url.toString() }; for (const ns of [entries, lab.namespaces.authorization, lab.namespaces.secrets, lab.namespaces.legacy]) {
         await q(`GRANT USAGE ON SCHEMA "${ns}" TO "${name}"`); await q(`GRANT SELECT ON "${ns}".schema_migrations TO "${name}"`);
-      } } else settings = { name, url: url.toString() };
+      } } else {
+        settings = { name, url: url.toString() };
+        for (const ns of [lab.namespaces.settings, lab.namespaces.operatorPolicy]) {
+          await q(`GRANT USAGE ON SCHEMA "${ns}" TO "${name}"`); await q(`GRANT SELECT ON ALL TABLES IN SCHEMA "${ns}" TO "${name}"`);
+        }
+      }
     }
     // One role-level Vault credential: prefix globs over every tenant's keys.
     await lab.vaultRequest('sys/policies/acl/' + lab.mount + '_api', { policy: [
@@ -73,7 +78,7 @@ optInSuite(enabled(), 'disposable NS_TEST_POSTGRES_ADMIN_URI and NS_VAULT_DOCKER
       vault: { address: lab.vault.address, mount: lab.mount, tokenEnv: 'PREVIEW_VAULT_TOKEN', allowInsecureLoopback: true, timeoutMs: 2000 },
       resolution: { mode: 'direct-alias' },
       registry: { namespace: lab.namespaces.registry, maxTenants: 100, refreshMs: REFRESH_MS },
-      tenantSettings: { connectionEnv: 'PREVIEW_SETTINGS_PG', namespaces: { settings: 'trl_tsettings_' + lab.id, operatorPolicy: 'trl_tpolicy_' + lab.id } } };
+      tenantSettings: { connectionEnv: 'PREVIEW_SETTINGS_PG', namespaces: { settings: lab.namespaces.settings, operatorPolicy: lab.namespaces.operatorPolicy } } };
     fs.writeFileSync(path.join(dir, 'api.json'), JSON.stringify(config), { mode: 0o600 });
     Object.assign(env, { PATH: process.env.PATH, MULTITENANT_PREVIEW_CONFIG: path.join(dir, 'api.json'), API_HOSTNAME: '127.0.0.1', API_PORT: '0',
       PREVIEW_APP_PG: lab.urls.api, PREVIEW_CHECK_PG: check.url, PREVIEW_SETTINGS_PG: settings.url, PREVIEW_VAULT_TOKEN: apiToken });

@@ -43,7 +43,7 @@ optInSuite(enabled(), 'disposable NS_TEST_POSTGRES_ADMIN_URI and NS_VAULT_DOCKER
     fs.writeFileSync(tokenFile, await lab.vault.getToken(), { mode: 0o600 });
     const config = path.join(dir, 'admin.json');
     fs.writeFileSync(config, JSON.stringify({ version: 1, maxBytes: 262144, timeoutMs: 60000,
-      provisioning: { connectionEnv: 'NS_PROVISIONER_PG', namespaces: lab.namespaces && Object.fromEntries(['registry', 'legacy', 'secrets', 'authorization', 'access', 'clock', 'control'].map(kind => [kind, lab.namespaces[kind]])),
+      provisioning: { connectionEnv: 'NS_PROVISIONER_PG', namespaces: lab.namespaces && Object.fromEntries(['registry', 'legacy', 'secrets', 'authorization', 'access', 'clock', 'control', 'settings', 'operatorPolicy'].map(kind => [kind, lab.namespaces[kind]])),
         checkpoints: lab.consumers, vault: { address: lab.vault.address, mount: lab.mount, tokenFile, allowInsecureLoopback: true },
         operator: { principal: 'registry-lab-operator', consumer: 'registry-lab' } } }), { mode: 0o600 });
     const port = await freePort();

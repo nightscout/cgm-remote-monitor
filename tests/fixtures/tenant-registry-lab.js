@@ -21,6 +21,8 @@ const CATALOGUES = {
   access: () => require('../../lib/tenant-authorization/access-candidate.json'),
   clock: () => require('../../migrations/candidates/postgres-write-clock-v1.json'),
   control: () => require('../../lib/tenant-lifecycle/postgres-candidate.json'),
+  settings: () => require('../../lib/tenant-settings/postgres-candidate.json'),
+  operatorPolicy: () => require('../../lib/operator-policy/postgres-candidate.json'),
   checkpoint: () => require('../../migrations/candidates/postgres-consumer-checkpoint-v1.json')
 };
 const enabled = () => !!process.env.NS_TEST_POSTGRES_ADMIN_URI && /test/i.test(new URL(process.env.NS_TEST_POSTGRES_ADMIN_URI || 'postgres://x/none').pathname) &&
@@ -46,7 +48,7 @@ async function startVault () {
 async function createLab () {
   const ADMIN = process.env.NS_TEST_POSTGRES_ADMIN_URI;
   const id = randomUUID().replace(/-/g, '').slice(0, 10);
-  const namespaces = Object.fromEntries(Object.keys(CATALOGUES).map(kind => [kind, 'trl_' + kind + '_' + id]));
+  const namespaces = Object.fromEntries(Object.keys(CATALOGUES).map(kind => [kind, 'trl_' + kind.toLowerCase() + '_' + id]));
   const owner = 'trl_owner_' + id;
   const roles = { provisioner: 'trl_prov_' + id, api: 'trl_api_' + id, realtime: 'trl_rt_' + id };
   const urls = {};
