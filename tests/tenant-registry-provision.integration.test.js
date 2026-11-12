@@ -18,10 +18,10 @@ const { optInSuite } = require('./support/opt-in');
 const STEPS = ['vault', 'database', 'registry', 'hosts', 'secret', 'authorization', 'access', 'clock', 'lifecycle', 'settings'];
 // Every provisioning table, with the row count one tenant gets.
 const COMPLETE = {
-  'registry.tenant_registry': 1, 'registry.tenant_registry_hosts': 2, 'registry.tenant_registry_keys': 2,
+  'registry.tenant_registry': 1, 'registry.tenant_registry_hosts': 2, 'registry.tenant_registry_keys': 4,
   'legacy.legacy_credential_config': 1, 'secrets.secret_records': 1, 'secrets.secret_audit': 1,
   'authorization.tenant_authorization_config': 1, 'authorization.tenant_owner_policy': 1,
-  'access.access_tenants': 1, 'access.access_keys': 2, 'clock.tenant_write_clock': 1, 'checkpoint.tenant_consumer_checkpoint': 1,
+  'access.access_tenants': 1, 'access.access_keys': 4, 'clock.tenant_write_clock': 1, 'checkpoint.tenant_consumer_checkpoint': 1,
   'control.tenant_lifecycle_windows': 1, 'control.tenant_activity': 1, 'control.tenant_activity_audit': 1,
   'settings.tenant_settings': 1, 'settings.tenant_settings_history': 1, 'operatorPolicy.tenant_operator_policy': 1
 };
@@ -41,7 +41,7 @@ optInSuite(enabled(), 'disposable NS_TEST_POSTGRES_ADMIN_URI and NS_VAULT_DOCKER
     scope.setTenancyMode(prior);
   });
 
-  it('PV_CREATE: provisions every row, the four Vault keys, and the registry entry a serving identity can resolve', async function () {
+  it('PV_CREATE: provisions every row, the six Vault keys, and the registry entry a serving identity can resolve', async function () {
     const request = spec(1, { ref: 'lab-1', issueRootSecret: true });
     const result = await provisioning.provision(request);
     assert.equal(result.outcome, 'created'); assert.equal(result.ref, 'lab-1');
@@ -55,7 +55,7 @@ optInSuite(enabled(), 'disposable NS_TEST_POSTGRES_ADMIN_URI and NS_VAULT_DOCKER
       const reader = registry.create({ connection, namespace: lab.namespaces.registry });
       assert.deepEqual({ ...await reader.lookup('t1.example.test', 'alias') }, { tenant: request.id, state: 'active' });
       const entry = await reader.entry(request.id);
-      assert.deepEqual(entry.keys.map(key => key.kid), ['key1', 'management1']);
+      assert.deepEqual(entry.keys.map(key => key.purpose + ':' + key.kid), ['access:key1', 'human-data:human-data-1', 'human-management:human-management-1', 'management:management1']);
     } finally { await connection.end(); }
     assert.deepEqual({ ...await provisioning.get(request.id) }, { id: request.id, state: 'active', signingVersion: 1, hosts: ['t1-alt.example.test', 't1.example.test'] });
   });
@@ -135,6 +135,18 @@ optInSuite(enabled(), 'disposable NS_TEST_POSTGRES_ADMIN_URI and NS_VAULT_DOCKER
       await lab.admin.query(`DROP ROLE IF EXISTS "${name}"`).catch(() => {});
     }
   });
+
+  for (const [kind, table] of [['registry', 'tenant_registry_keys'], ['control', 'tenant_activity'], ['settings', 'tenant_settings'], ['checkpoint', 'tenant_consumer_checkpoint']]) {
+    it('PV_EXISTING_COMPLETE_' + kind.toUpperCase() + ': an incomplete existing tenant is refused without recreating or changing it', async function () {
+      const request = spec('partial-' + kind); assert.equal((await provisioning.provision(request)).outcome, 'created');
+      if (kind === 'control') await lab.admin.query(`DELETE FROM "${lab.namespaces.control}".tenant_activity_audit WHERE tenant_id=$1`, [request.id]);
+      await lab.admin.query(`DELETE FROM "${lab.namespaces[kind]}"."${table}" WHERE tenant_id=$1`, [request.id]);
+      const before = await lab.rowsFor(request.id);
+      const result = await provisioning.provision(request);
+      assert.equal(result.outcome, 'refused'); assert.equal(result.code, 'TENANT_PROVISION_INCOMPLETE');
+      assert.deepEqual(await lab.rowsFor(request.id), before, 'no automatic partial repair or secret replacement');
+    });
+  }
 
   // A deletion ceremony that has executed, written as the superuser with the
   // shapes lib/tenant-lifecycle/ceremony.js writes (synthetic).

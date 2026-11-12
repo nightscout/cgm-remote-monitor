@@ -15,7 +15,7 @@ const namespaces = Object.fromEntries(['entries', 'treatments', 'devicestatus', 
 const SOURCE = { RT_DB: 'postgres://synthetic:synthetic@127.0.0.1/disposable_test', RT_ADMISSION: '/tmp/admission.json', NS_API_INTERNAL_SOCKET: '/tmp/a.sock' };
 const realtimeConfig = extra => ({ version: 1, postgres: { connectionEnv: 'RT_DB', namespaces },
   consumer: 'realtime-registry', pageSize: 1, maxRows: 10, maxBytes: 10000, maxTenants: 2, recoveryIntervalMs: 100,
-  registry: { namespace: 'rr_registry', refreshMs: 500 }, maxMessageBytes: 10000, operationTimeoutMs: 1000, maxSockets: 10, ...extra });
+  registry: { namespace: 'rr_registry', refreshMs: 500 }, maxMessageBytes: 10000, operationTimeoutMs: 1000, ...extra });
 const request = host => ({ rawHeaders: ['Host', host], socket: {} });
 // A registry resolver double: hosts map to tenants; the registry decides activity.
 const resolverOf = hosts => ({ resolve: async req => { const host = req.rawHeaders[1]; if (!hosts.has(host)) throw new Error('TENANT_HOST_UNKNOWN'); return hosts.get(host); } });

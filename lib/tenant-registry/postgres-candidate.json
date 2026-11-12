@@ -35,6 +35,14 @@
         "REVOKE ALL ON tenant_registry_clock FROM PUBLIC"
       ],
       "checksum": "9b037c4e30ebbb27e30404427bd0d7819da8d4bc4ea8ec6f810596de592f0860"
+    },
+    {
+      "name": "0002_tenant_registry_human_keys",
+      "up": [
+        "ALTER TABLE tenant_registry_keys DROP CONSTRAINT tenant_registry_keys_purpose_check",
+        "ALTER TABLE tenant_registry_keys ADD CONSTRAINT tenant_registry_keys_purpose_check CHECK (purpose IN ('access','management','human-data','human-management'))"
+      ],
+      "checksum": "7dec26a410e1b80b9fb24cfe4dfebdca975c15933a37be95fda10054bdb54db7"
     }
   ]
 }

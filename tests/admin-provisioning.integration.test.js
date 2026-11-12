@@ -83,6 +83,15 @@ optInSuite(enabled(), 'disposable NS_TEST_POSTGRES_ADMIN_URI and NS_VAULT_DOCKER
     assert.equal((await request('GET', '/v1/openapi.json')).body.openapi, '3.1.0');
   });
 
+  it('AP_REST_INCOMPLETE: retrying an incomplete tenant returns a stable 409 without issuing another secret', async function () {
+    const spec = { id: randomUUID(), hosts: ['incomplete.example.test'], issueRootSecret: true };
+    assert.equal((await request('POST', '/v1/tenants', spec)).status, 201);
+    await lab.admin.query(`DELETE FROM "${lab.namespaces.settings}".tenant_settings WHERE tenant_id=$1`, [spec.id]);
+    const retry = await request('POST', '/v1/tenants', spec);
+    assert.equal(retry.status, 409); assert.equal(retry.type, 'application/problem+json');
+    assert.equal(retry.body.code, 'TENANT_PROVISION_INCOMPLETE'); assert.equal(retry.body.rootSecret, undefined);
+  });
+
   it('AP_REST_SECRET_ONCE: the root secret is returned only on created and only when requested, never logged by the role', async function () {
     const id = randomUUID();
     const first = await request('POST', '/v1/tenants', { id, hosts: ['secret-once.example.test'], issueRootSecret: true });

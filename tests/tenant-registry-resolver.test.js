@@ -41,6 +41,22 @@ describe('tenant registry resolver', function () {
     assert.equal(store.calls.lookup, 1);
   });
 
+  it('RR_ORIGIN: derives HTTPS only from a registered alias of the resolved tenant', async function () {
+    assert.deepEqual(await resolver.resolveOrigin(request('ONE.example.test:443')), { tenant: A, origin: 'https://one.example.test' });
+    const canonical = createRegistryResolver({ store, mode: 'canonical-internal', trustedProxy: () => true,
+      refreshMs: 1000, schedule: () => null, cancel: () => {} });
+    store.add(A, 'internal.example.test', 'internal');
+    store.add(B, 'other.example.test');
+    await canonical.start();
+    try {
+      assert.deepEqual(await canonical.resolveOrigin(request('internal.example.test', ['X-Forwarded-Host', 'one.example.test'])),
+        { tenant: A, origin: 'https://one.example.test' });
+      await assert.rejects(canonical.resolveOrigin(request('internal.example.test')), { code: 'TENANT_ORIGIN_REFUSED' });
+      await assert.rejects(canonical.resolveOrigin(request('internal.example.test', ['X-Forwarded-Host', 'unregistered.example.test'])), { code: 'TENANT_ORIGIN_REFUSED' });
+      await assert.rejects(canonical.resolveOrigin(request('internal.example.test', ['X-Forwarded-Host', 'other.example.test'])), { code: 'TENANT_SELECTOR_CONFLICT' });
+    } finally { canonical.close(); }
+  });
+
   it('RR_UNKNOWN_HOST: the same refusal as today, one lookup per host per revision', async function () {
     for (let i = 0; i < 5; i++) await assert.rejects(resolver.resolve(request('nope.example.test')), { code: 'TENANT_HOST_UNKNOWN' });
     assert.equal(store.calls.lookup, 1);
