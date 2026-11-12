@@ -280,7 +280,7 @@
         "tests/authorization-snapshot-cost.test.js",
         "tests/secrets-audit-batch.test.js",
         "tests/registry-human-session.test.js",
-        "tests/connector-sources.test.js",
+        "tests/connector-sources.test.js"
       ],
       "env": true,
       "require": [
