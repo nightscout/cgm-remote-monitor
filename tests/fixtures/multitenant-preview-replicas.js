@@ -368,6 +368,8 @@ module.exports = function createReplicaFixture ({ writeClock = false } = {}) {
       children.delete(worker);
     }
     return { setup, cleanup, start, ready, stop, kill, refused, http, exchange, localToken,
+      operatorVault: vault,
+      get vaultAddress () { return address; },
       get directory () { return fixtureDirectory; },
       get adminConnectionString () { return adminURI; },
       async disconnectAdmin () { if (admin) { await admin.end(); admin = null; } },

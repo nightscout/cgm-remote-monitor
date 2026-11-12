@@ -1,0 +1,22 @@
+{
+  "openapi": "3.1.0",
+  "info": { "title": "Nightscout private management session issuance", "version": "1.0.0" },
+  "paths": {
+    "/v1/tenants/{id}/management-sessions": {
+      "post": {
+        "summary": "Issue a bounded management session for a current owner",
+        "description": "Private operator plane, secured by deployment unreachability. Does not grant ownership. Request UUID is the idempotency key; expired or revoked requests require a new explicit request. The credential is returned only in this response and must not be logged.",
+        "parameters": [{ "name": "id", "in": "path", "required": true, "schema": { "type": "string", "format": "uuid" } }, { "name": "Idempotency-Key", "in": "header", "required": false, "schema": { "type": "string", "format": "uuid" } }],
+        "requestBody": { "required": true, "content": { "application/json": { "schema": { "type": "object", "additionalProperties": false, "required": ["subjectId", "requestId"], "properties": { "subjectId": { "type": "string", "pattern": "^[A-Za-z0-9_-]{1,128}$" }, "requestId": { "type": "string", "format": "uuid" }, "lifetimeSeconds": { "type": "integer", "minimum": 1, "maximum": 600, "default": 600 } } } } } },
+        "responses": {
+          "201": { "description": "Created; token, expiresAt (epoch seconds), sessionId, requestId, outcome" },
+          "200": { "description": "Existing current idempotent session; same claims and credential" },
+          "403": { "description": "Current owner, tenant, phase or credential refused" },
+          "409": { "description": "Idempotency conflict, expired request or current signing-key mismatch" },
+          "422": { "description": "Invalid request" },
+          "503": { "description": "Unavailable; no credential released" }
+        }
+      }
+    }
+  }
+}
