@@ -229,6 +229,8 @@
         "tests/projection-memory-read.test.js",
         "tests/tenant-extended-settings.test.js",
         "tests/evaluator-preview-runtime.test.js",
+        "tests/evaluator-settings-cleanup.test.js",
+        "tests/evaluator-settings-lifecycle.test.js",
         "tests/tenant-activity.test.js",
         "tests/pool-membership.test.js",
         "tests/tenant-registry-resolver.test.js",
