@@ -48,21 +48,28 @@ describe('evaluator preview trusted configuration', function () {
       d.tenants.shift(); fs.writeFileSync(file, JSON.stringify(d)); assert.equal(await loaded.readCurrent(A), null);
       d.maxRows++; fs.writeFileSync(file, JSON.stringify(d)); await assert.rejects(loaded.readCurrent(B), /requires restart/);
     } finally { fs.rmSync(dir, { recursive: true, force: true }); }
-  });  it('parses the file once while it is unchanged, and again after any edit of the same size', async function () {
+  });
+  it('reads bounded hot-file bytes per call while reusing parsing until a same-size edit', async function () {
     const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'evaluator-config-')), file = path.join(dir, 'config.json');
-    // The bounded reader (lib/server/serve/config-file.js) opens the file once per read.
-    const read = fs.openSync; let parses = 0;
-    fs.openSync = function (name, ...rest) { if (name === file) parses++; return read.call(this, name, ...rest); };
+    const open = fs.openSync, parse = JSON.parse;
+    let reads = 0, parses = 0, contents;
+    fs.openSync = function (name, ...rest) { if (name === file) reads++; return open.call(this, name, ...rest); };
+    // Count actual parsing of these configuration bytes, independently of I/O.
+    JSON.parse = function (text, ...rest) { if (text === contents) parses++; return parse.call(this, text, ...rest); };
     try {
-      const d = document(); d.tenants[0].revision = 'a';
-      fs.writeFileSync(file, JSON.stringify(d));
+      const d = document(); d.tenants[0].revision = 'a'; contents = JSON.stringify(d);
+      fs.writeFileSync(file, contents);
       const loaded = config.load({ ...source, MULTITENANT_EVALUATOR_CONFIG: file });
-      const before = parses, first = await loaded.readCurrent(A);
+      const before = reads, first = await loaded.readCurrent(A);
       for (let i = 0; i < 20; i++) await loaded.readCurrent(A);
-      assert.equal(parses - before, 1, 'EV_CONFIG_PARSED_ONCE_WHILE_UNCHANGED');
-      d.tenants[0].revision = 'b'; fs.writeFileSync(file, JSON.stringify(d)); // same size
+      assert.equal(reads - before, 21, 'EV_CONFIG_BOUNDED_READ_EACH_CALL');
+      assert.equal(parses, 1, 'EV_CONFIG_PARSED_ONCE_WHILE_UNCHANGED');
+      const size = fs.statSync(file).size;
+      d.tenants[0].revision = 'b'; contents = JSON.stringify(d); fs.writeFileSync(file, contents);
+      assert.equal(fs.statSync(file).size, size, 'the edit keeps the file size');
       assert.notEqual((await loaded.readCurrent(A)).identity, first.identity, 'EV_CONFIG_EDIT_SEEN');
-    } finally { fs.openSync = read; fs.rmSync(dir, { recursive: true, force: true }); }
+      assert.equal(parses, 2, 'EV_CONFIG_CHANGED_BYTES_PARSED');
+    } finally { fs.openSync = open; JSON.parse = parse; fs.rmSync(dir, { recursive: true, force: true }); }
   });
 });
 
