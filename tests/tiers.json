@@ -496,7 +496,8 @@
         "tests/tenant-insertion-upgrade.integration.test.js",
         "tests/change-feed.integration.test.js",
         "tests/registry-human-session.integration.test.js",
-        "tests/api-fixed-roster-serving.integration.test.js"
+        "tests/api-fixed-roster-serving.integration.test.js",
+        "tests/registry-realtime-settings.integration.test.js"
       ],
       "env": true,
       "require": [
