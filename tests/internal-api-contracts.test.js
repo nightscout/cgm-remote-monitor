@@ -23,8 +23,8 @@ describe('Internal service API contracts', function () {
     assert.deepEqual(Object.keys(contracts.ownershipOperations.operations), ['listOwners', 'addOwner', 'transferOwner', 'recoverOwner']);
     assert.deepEqual(Object.keys(contracts.connectorInspection.operations), ['inspectConnectors']);
     const paths = Object.values(contracts).flatMap(service => {
-      // Source IDs/generations and configuration-refused extend the strict connector response.
-      assert.equal(service.version, ['connector-inspection', 'alarm-delivery', 'lifecycle-participant'].includes(service.id) ? 2 : 1);
+      // Connector metadata, alarm/cohort fencing and evaluator scheduling observations use v2.
+      assert.equal(service.version, ['connector-inspection', 'alarm-delivery', 'lifecycle-participant', 'evaluator-inspection'].includes(service.id) ? 2 : 1);
       assert(Object.isFrozen(service.operations));
       return Object.values(service.operations).map(operation => {
         assert(Object.isFrozen(operation.request)); assert(Object.isFrozen(operation.response));
