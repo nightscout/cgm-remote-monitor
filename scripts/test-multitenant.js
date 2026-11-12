@@ -54,6 +54,10 @@ const IMAGES = {
 const PENDING = 'pending opt-in';
 const CRUD = { NS_ENTRIES_CRUD_HTTP_TEST: '1' };
 const INVENTORY = [
+  { file: 'tests/api-fixed-roster.integration.test.js', flags: { NS_API_ROSTER_DOCKER_TEST: '1' }, shared: [], own: ['postgres'], gate: PENDING,
+    note: 'two API replica restore census with real private endpoints and roster controls; own PostgreSQL' },
+  { file: 'tests/registry-human-session.integration.test.js', flags: { NS_VAULT_DOCKER_TEST: '1' }, shared: ['postgres'], own: ['vault'], gate: PENDING,
+    note: 'registry-provisioned human keys and durable PostgreSQL sessions; fixture owns Vault' },
   { file: 'tests/change-feed.integration.test.js', flags: { NS_D6_FEED_TEST: '1' }, shared: [], own: ['postgres'], gate: PENDING,
     note: 'D6 fixed-slot pgoutput reader, EXECUTE-only wrappers, LISTEN/paged recovery and semantic controls; own PostgreSQL' },
   { file: 'tests/tenant-insertion-upgrade.integration.test.js', flags: { NS_TENANT_INSERTION_UPGRADE_TEST: '1' }, shared: ['postgres'], own: [], gate: PENDING,

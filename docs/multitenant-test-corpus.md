@@ -191,3 +191,11 @@ Dump ownership/ACLs are deliberately excluded and separate restricted applicatio
 privileges are recreated in the target; no production privilege fidelity claim.
 No Vault/provider key recovery, live-write snapshot, Mongo snapshot, operational
 activation/deletion, numeric budget or full M6 acceptance follows from this lab.
+
+D6 and joined capability inventory additions:
+
+| suite | enablement | resources | scope |
+|---|---|---|---|
+| `tests/change-feed.integration.test.js` | `NS_D6_FEED_TEST=1` | owned PostgreSQL | fixed metadata reader, EXECUTE-only wrappers, LISTEN/paged recovery, refusal controls and CLI lifecycle |
+| `tests/api-fixed-roster.integration.test.js` | `NS_API_ROSTER_DOCKER_TEST=1` | owned PostgreSQL | exact-instance API restore census and omitted/service-aliased/stopped-replica controls |
+| `tests/registry-human-session.integration.test.js` | disposable `NS_TEST_POSTGRES_ADMIN_URI`, `NS_VAULT_DOCKER_TEST=1` | shared disposable PostgreSQL, fixture-owned Vault | registry human-only signing purposes, revocation and wrong-tenant refusal |

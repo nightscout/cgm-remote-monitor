@@ -49,7 +49,8 @@ An oversized transaction is refused without slot acknowledgement, raises a reade
 alert and leaves consumers on paged recovery. It may keep the reader degraded until
 an explicit operator recovery; there is no silent skip, slot reset or WAL-loss waiver.
 
-Evaluator and realtime accept optional configuration:
+Evaluator and realtime accept optional configuration below, with their existing
+`activity` reader configuration required whenever `changeFeed` is selected:
 
 ```json
 {"changeFeed":{"connectionEnv":"ROLE_PG","channel":"cohort_changes","pageSize":64,"degradedPages":4,"intervalMs":1000,"heartbeatTimeoutMs":5000}}
@@ -64,7 +65,12 @@ configured additional fixed number of pages. Full-sweep latency grows with roste
 size, is visible in recovery health, and has no unmeasured constant bound.
 
 Data detection and cold/retry work have separate bounded queues. Evaluator time
-alarms retain their existing timers. Activity changes independently wake control
+alarms retain their existing timers, and evaluation-gap alerts keep a separate
+per-tenant due-time watchdog. Choose a normal page sweep budget consistent with
+that watchdog: at 1-second intervals, 64 tenants/page sweeps 3,000 tenants in
+47 intervals but 10,000 in 157; 256/page sweeps 10,000 in 40. These are derived
+scheduling bounds, not measured end-to-end latencies; callbacks, refusals and load
+can increase them. Do not weaken the clinical alert deadline to hide slow recovery. Activity changes independently wake control
 checks: pause/suspend disconnect sockets and stop evaluation; resumption reacquires
 current data. Pause continues to admit uploads; suspend refuses uploads under the
 existing serving policy. Listener restart, reader restart or lost heartbeat enters

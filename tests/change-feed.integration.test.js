@@ -15,7 +15,13 @@ const sleep = ms => new Promise(resolve=>setTimeout(resolve,ms));
 const suite = process.env.NS_D6_FEED_TEST === '1' ? describe : describe.skip;
 suite('D6 native metadata feed, privilege and failure controls', function () {
   this.timeout(30000);
-  let container, admin, serving, store, reader, consumer, source, config, seen, reads, listeners, alerts;
+  let container, admin, serving, store, reader, consumer, source, config, seen, reads, listeners, alerts, killCommit=false;
+  class ProofClient extends Client {
+    async query(text,...args) {
+      if (killCommit && text === 'COMMIT') { killCommit=false; await admin.query('SELECT pg_terminate_backend($1)',[this.processID]); }
+      return super.query(text,...args);
+    }
+  }
   const docker = args => execFileSync('docker',args,{encoding:'utf8',stdio:['ignore','pipe','pipe']}).trim();
   before(async function () {
     container = 'ns-d6-reader-test-'+process.pid+'-'+Date.now();
@@ -46,7 +52,7 @@ suite('D6 native metadata feed, privilege and failure controls', function () {
     for (const sql of pgfeed.provision({namespace:'feed',clockNamespace:'clock',activityNamespace:'control',slot:'d6_slot',publication:'d6_publication',owner:'feed_owner',reader:'feed_login'})) await admin.query(sql);
     config = configFactory.parse({connectionEnv:'PG',namespace:'feed',clockNamespace:'clock',activityNamespace:'control',slot:'d6_slot',publication:'d6_publication',channel:'d6_channel',owner:'feed_owner',statementTimeoutMs:100},{PG:source('feed_login')},{reader:true});
     serving = new Client({connectionString:source('serving')}); await serving.connect();
-    store = await pgfeed.create(config);
+    store = await pgfeed.create(config,{Client:ProofClient});
     reads=[];seen=new Map();listeners=[];alerts=[];
     const consumerConfig = configFactory.parse({connectionEnv:'PG',channel:'d6_channel',pageSize:1,degradedPages:1,intervalMs:10,heartbeatTimeoutMs:100},{PG:source('serving')});
     consumer = consumerFactory.create({config:consumerConfig,tenants:[A,B],schedule:()=>null,cancel:()=>{},alert:code=>alerts.push(code),
@@ -58,7 +64,7 @@ suite('D6 native metadata feed, privilege and failure controls', function () {
           seen.set(tenant,{clock:clock[0]||null,activity:activity[0]||null});await serving.query('COMMIT');}
         catch(error){await serving.query('ROLLBACK');throw error;}}}});
     await consumer.start();
-    reader=readerFactory.create({config,store,schedule:()=>null,cancel:()=>{},alert:code=>alerts.push(code)});
+    reader=readerFactory.create({config,store,reconnect:async()=>{store=await pgfeed.create(config,{Client:ProofClient});return store;},schedule:()=>null,cancel:()=>{},alert:code=>alerts.push(code)});
   });
   after(async function () {
     await consumer?.close().catch(()=>{}); await reader?.close().catch(()=>{}); if(!reader)await store?.close().catch(()=>{});
@@ -70,6 +76,7 @@ suite('D6 native metadata feed, privilege and failure controls', function () {
     const raw=new Client({connectionString:source('feed_login'),options:'-c statement_timeout=100'});await raw.connect();
     try{await assert.rejects(raw.query("SELECT * FROM pg_logical_slot_peek_binary_changes('d6_slot',NULL,1,'proto_version','1','publication_names','d6_publication')"),error=>error.code==='42501');
       await assert.rejects(raw.query('SET ROLE feed_owner'),error=>error.code==='42501');
+      await assert.rejects(raw.query('SELECT * FROM feed.feed_peek(NULL,NULL,NULL)'),error=>error.message==='FEED_BATCH_BOUNDS');
       await assert.rejects(raw.query('SELECT pg_sleep(0.5)'),error=>error.code==='57014');}
     finally{await raw.end();}
     await admin.query('INSERT INTO clock.tenant_write_clock VALUES ($1,1,0),($2,1,0)',[A,B]);
@@ -106,11 +113,24 @@ suite('D6 native metadata feed, privilege and failure controls', function () {
     await listeners.at(-1).end();await reader.pass();await consumer.tick();await consumer.tick();
     assert.ok(consumer.health().reconnects>=2,'D6_LISTENER_RECONNECTED');assert.equal(seen.get(B).clock.last_stamp,'4');
   });
+  it('recovers a backend interruption inside notification COMMIT without early acknowledgement', async function () {
+    await admin.query('UPDATE clock.tenant_write_clock SET last_stamp=7 WHERE tenant_id=$1',[A]);
+    const before=(await admin.query("SELECT confirmed_flush_lsn::text AS value FROM pg_replication_slots WHERE slot_name='d6_slot'")).rows[0].value;
+    const hintsBefore=consumer.health().hints;
+    killCommit=true;await reader.pass();await sleep(20);
+    assert.equal(reader.health().degraded,true);
+    assert.equal((await admin.query("SELECT confirmed_flush_lsn::text AS value FROM pg_replication_slots WHERE slot_name='d6_slot'")).rows[0].value,before,'D6_BACKEND_CRASH_NO_ACK');
+    assert.equal(consumer.health().hints,hintsBefore,'D6_UNCOMMITTED_NOTIFY_NOT_VISIBLE');
+    await reader.pass();await sleep(20);await consumer.tick();await consumer.tick();
+    assert.equal(reader.health().degraded,false);assert.equal(seen.get(A).clock.last_stamp,'7');
+  });
   it('signals pause/suspend/resume with no data write while another tenant progresses', async function () {
     const before=(await admin.query('SELECT last_stamp::text FROM clock.tenant_write_clock WHERE tenant_id=$1',[A])).rows[0].last_stamp;
     for(const [paused,suspended] of [[true,false],[false,false],[false,true],[false,false]]){
       await admin.query('UPDATE control.tenant_activity SET version=version+1,paused=$2,suspended=$3 WHERE tenant_id=$1',[A,paused,suspended]);
-      await reader.pass();await sleep(15);await consumer.tick();await consumer.tick();
+      const hintsBefore=consumer.health().hints;await reader.pass();await sleep(15);
+      assert.ok(consumer.health().hints>hintsBefore,'D6_ACTIVITY_HINT_NOT_A_DATA_WRITE');
+      await consumer.tick();await consumer.tick();
       assert.deepEqual(seen.get(A).activity,{paused,suspended});assert.equal(seen.get(A).clock.last_stamp,before);
     }
     await admin.query('UPDATE control.tenant_activity SET paused=true,version=version+1 WHERE tenant_id=$1',[A]);
@@ -148,4 +168,25 @@ suite('D6 native metadata feed, privilege and failure controls', function () {
     const decoded=decode(await store.peek(),config);assert.ok(decoded.messages>1);assert.ok(decoded.hints.has(B));
     await reader.pass();assert.equal((await store.peek()).length,0);
   });
+  it('boots and gracefully stops the dedicated feed-reader CLI role', async function () {
+    const fs=require('node:fs'),os=require('node:os'),path=require('node:path'),{spawn}=require('node:child_process');
+    await reader.close();
+    const dir=fs.mkdtempSync(path.join(os.tmpdir(),'ns-d6-cli-')),file=path.join(dir,'feed.json');
+    const document={connectionEnv:'D6_NATIVE_PG',namespace:'feed',clockNamespace:'clock',activityNamespace:'control',slot:'d6_slot',publication:'d6_publication',channel:'d6_channel',owner:'feed_owner',statementTimeoutMs:100};
+    fs.writeFileSync(file,JSON.stringify(document));
+    const child=spawn(process.execPath,['bin/nightscout.js','multitenant','feed-reader'],{cwd:path.resolve(__dirname,'..'),env:{...process.env,MULTITENANT_FEED_CONFIG:file,D6_NATIVE_PG:source('feed_login')},stdio:['ignore','pipe','pipe']});
+    let output='';child.stdout.on('data',chunk=>{output+=chunk;});child.stderr.on('data',chunk=>{output+=chunk;});
+    const exited=new Promise(resolve=>child.once('exit',(code,signal)=>resolve({code,signal})));
+    try {
+      let ready=false;
+      for(let i=0;i<100;i++){
+        const count=Number((await admin.query("SELECT count(*) FROM pg_stat_activity WHERE application_name='nightscout-feed-reader' AND usename='feed_login'")).rows[0].count);
+        if(count && output.includes('feed-reader started')){ready=true;break;}
+        if(child.exitCode!==null)break;await sleep(20);
+      }
+      assert.equal(ready,true,'D6_CLI_READER_STARTED '+output);
+      child.kill('SIGTERM');const result=await exited;assert.equal(result.code,0,'D6_CLI_SHUTDOWN '+output);
+    } finally {if(child.exitCode===null)child.kill('SIGKILL');await exited;fs.rmSync(dir,{recursive:true,force:true});}
+  });
+
 });

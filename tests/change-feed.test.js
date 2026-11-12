@@ -73,7 +73,7 @@ describe('D6 bounded signalling', function () {
     const runtime = await require('../lib/server/realtime/runtime')({tenants,eventDriven:true,recoveryIntervalMs:1000,schedule:()=>null,cancel:()=>{},concurrency:1,
       readCurrent:async tenant=>({tenant,identity:'stable'}),create:current=>({acquire:async()=>({checkpoint:projections.get(current.tenant),frame:{}})}),fanout:async()=>{},
       detect:async selected=>{calls.push(selected);return new Map(selected.map(t=>[t,{identity:'stable',stamp:projections.get(t)}]));}});
-    try { projections.set(A,1); await runtime.check([A]); assert.deepEqual(calls,[[A]]); assert.equal(runtime.last(A).checkpoint,1);
+    try { projections.set(A,1); await runtime.check([A]); assert.deepEqual(calls,[[A]],'D6_TARGETED_HINT_ONLY'); assert.equal(runtime.last(A).checkpoint,1);
       await runtime.tick(); assert.equal(calls.length,1,'D6_IDLE_NO_FULL_SCAN'); }
     finally {await runtime.close();}
   });
@@ -95,7 +95,7 @@ describe('D6 bounded signalling', function () {
       activity:{check:async(op,tenant)=>({eligible:!paused.has(tenant),state:paused.has(tenant)?'paused':'active',code:paused.has(tenant)?'TENANT_PAUSED':null})},
       create:async current=>({evaluate:async()=>{cycles.push(current.tenant);return {checkpoint:stamps.get(current.tenant),signature:{stamp:stamps.get(current.tenant),deleted:0}};},evaluateTime:async()=>({checkpoint:1}),close:()=>{}})});
     try {
-      assert.equal(schedules.length,1,'D6_EVALUATOR_NO_FULL_RECOVERY_TIMER');
+      assert.equal(schedules.length,0,'D6_EVALUATOR_NO_FULL_RECOVERY_TIMER');
       cycles.length=0;stamps.set(A,2);await runtime.backstop([A]);assert.deepEqual(reads,[[A]]);assert.deepEqual(cycles,[A]);
       cycles.length=0;paused.add(A);await runtime.backstop([A]);assert.equal(runtime.last(A),null);assert.deepEqual(cycles,[]);
       paused.delete(A);await runtime.backstop([A]);assert.deepEqual(cycles,[A]);assert.ok(runtime.last(A));
@@ -107,6 +107,16 @@ describe('D6 bounded signalling', function () {
     const r=readerFactory.create({config:{...base,pollMs:10,heartbeatMs:10,rssRefuseBytes:100},rss:()=>101,
       store:{peek:async()=>{reads++;return [];},notify:async()=>{},advance:async()=>acks++,close:async()=>{}},alert:()=>{},schedule:()=>null,cancel:()=>{}});
     await r.pass();assert.equal(reads,0);assert.equal(acks,0);assert.equal(r.health().refusal,'FEED_RSS_REFUSED');await r.close();
+  });
+
+  it('keeps the evaluation-gap watchdog deadline independent of the page cursor', async function () {
+    let at=0;const due=[],alerts=[];
+    const runtime=await require('../lib/server/serve/evaluator-runtime')({tenants:[A,B],externalRecovery:true,evaluationAlertMs:60,
+      recoveryIntervalMs:1000,timeIntervalMs:1000000,now:()=>at,schedule:()=>{throw new Error('no all-tenant schedule');},cancel:()=>{},
+      setTimer:(fn,ms)=>{const timer={fn,ms};due.push(timer);return timer;},clearTimer:()=>{},alert:(code,tenant)=>alerts.push(tenant),
+      readCurrent:async tenant=>({tenant,identity:'a'.repeat(64)}),create:async()=>({evaluate:async()=>({checkpoint:1,signature:{stamp:1,deleted:0}}),evaluateTime:async()=>({checkpoint:1}),close:()=>{}})});
+    try{at=61;for(const timer of due.filter(t=>t.ms===61))timer.fn();assert.deepEqual([...new Set(alerts)].sort(),[A,B]);}
+    finally{await runtime.close();}
   });
 
 });
