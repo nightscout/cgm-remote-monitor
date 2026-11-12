@@ -225,6 +225,11 @@
         "tests/evaluator-preview-runtime.test.js",
         "tests/tenant-activity.test.js",
         "tests/pool-membership.test.js",
+        "tests/tenant-registry-resolver.test.js",
+        "tests/admin-provisioning-cli.test.js",
+        "tests/registry-config.test.js",
+        "tests/registry-realtime.test.js",
+        "tests/provisioning-private.test.js",
         "tests/evaluator-partition.test.js",
         "tests/tenant-connector.test.js",
         "tests/tenant-socket-forwarding.test.js",
@@ -272,7 +277,8 @@
         "tests/realtime-runtime-directory.test.js",
         "tests/realtime-database-binding.test.js",
         "tests/authorization-snapshot-cost.test.js",
-        "tests/secrets-audit-batch.test.js"
+        "tests/secrets-audit-batch.test.js",
+        "tests/registry-human-session.test.js"
       ],
       "env": true,
       "require": [
@@ -477,11 +483,17 @@
         "tests/tenant-activity.integration.test.js",
         "tests/postgres-tenant-scan.integration.test.js",
         "tests/change-stamps.integration.test.js",
+        "tests/tenant-registry.integration.test.js",
+        "tests/tenant-registry-provision.integration.test.js",
+        "tests/admin-provisioning.integration.test.js",
+        "tests/api-registry.integration.test.js",
+        "tests/registry-tenant-set.integration.test.js",
         "tests/incremental-view.integration.test.js",
         "tests/pool-membership.integration.test.js",
         "tests/evaluator-consumer-timer-churn.integration.test.js",
         "tests/evaluator-consumer-load.integration.test.js",
-        "tests/tenant-insertion-upgrade.integration.test.js"
+        "tests/tenant-insertion-upgrade.integration.test.js",
+        "tests/registry-human-session.integration.test.js"
       ],
       "env": true,
       "require": [

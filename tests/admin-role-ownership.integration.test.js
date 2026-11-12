@@ -58,7 +58,7 @@ optInSuite(process.env.NS_ADMIN_ROLE_DOCKER_TEST === '1',
       ownership: { connectionEnv: 'NS_OWNERSHIP_PG', namespace: NS, lifecycleNamespace: CONTROL, operator: OPERATOR, tenants } }), { mode: 0o600 });
     const child = spawn(process.execPath, [path.join(ROOT, 'bin/nightscout.js'), 'multitenant', 'admin'], {
       cwd: ROOT, stdio: ['ignore', 'pipe', 'pipe'],
-      env: { PATH: process.env.PATH, ADMIN_HOSTNAME: ADMIN_HOST, ADMIN_PORT: String(port),
+      env: { PATH: process.env.PATH, MULTITENANT_STATIC_TENANTS: 'lab', ADMIN_HOSTNAME: ADMIN_HOST, ADMIN_PORT: String(port),
         MULTITENANT_ADMIN_CONFIG: file, NS_OWNERSHIP_PG: identityURI }
     });
     const out = { stdout: '', stderr: '' };

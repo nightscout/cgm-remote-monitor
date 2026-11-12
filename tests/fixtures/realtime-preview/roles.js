@@ -31,8 +31,9 @@ function roleEnvironment (document, inputEnvironment) {
 }
 async function startRole ({ sourceDir, role, env, timeoutMs, captureDir, onBirth = () => {} }) {
   assert(['api', 'realtime', 'evaluator'].includes(role));
+  // The realtime-preview fixture lists its tenants (static mode, lab only).
   const child = spawn(process.execPath, [path.join(sourceDir, 'bin/nightscout.js'), 'multitenant', role], {
-    cwd: sourceDir, env, stdio: ['ignore', 'pipe', 'pipe'] });
+    cwd: sourceDir, env: { MULTITENANT_STATIC_TENANTS: 'lab', ...env }, stdio: ['ignore', 'pipe', 'pipe'] });
   const secrets = Object.values(env).filter(v => typeof v === 'string' && v.length > 5);
   const scrub = value => secrets.reduce((text, secret) => text.split(secret).join('[private-env]'), value);
   let stdout = '', stderr = '', exited, port, closing;

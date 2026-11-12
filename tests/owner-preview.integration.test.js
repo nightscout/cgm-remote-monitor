@@ -52,7 +52,7 @@ optInSuite(process.env.NS_OWNER_PREVIEW_TEST === '1' && !!process.env.NS_TEST_PO
       fs.writeFileSync(filename, JSON.stringify(configuration), { mode: 0o600 });
       const worker = { stdout: '', stderr: '' };
       const child = spawn(process.execPath, [path.resolve(__dirname, '../bin/nightscout.js'), 'multitenant', 'tenant-admin'],
-        { cwd: path.dirname(filename), env: { PATH: process.env.PATH, HOME: process.env.HOME, NODE_ENV: 'test', TZ: 'UTC',
+        { cwd: path.dirname(filename), env: { PATH: process.env.PATH, HOME: process.env.HOME, NODE_ENV: 'test', TZ: 'UTC', MULTITENANT_STATIC_TENANTS: 'lab',
           MULTITENANT_OWNER_PREVIEW_CONFIG: filename, OWNER_WRITER: writerURI, OWNER_READER: readerURI,
           TENANT_ADMIN_HOSTNAME: '127.0.0.1', TENANT_ADMIN_PORT: '0', ...overrides }, stdio: ['ignore', 'pipe', 'pipe'] });
       worker.child = child; children.add(worker);
@@ -164,6 +164,17 @@ optInSuite(process.env.NS_OWNER_PREVIEW_TEST === '1' && !!process.env.NS_TEST_PO
       assert.equal((await admin.query(`SELECT display_name FROM ${t('tenant_authorization_subjects')} WHERE tenant_id=$1 AND subject_id=$2`, [A, TARGET])).rows[0].display_name, 'Updated');
       const audit = (await admin.query(`SELECT principal,consumer FROM ${t('tenant_subject_admin_audit')}`)).rows;
       assert.deepEqual(audit, [{ principal: MANAGER, consumer: 'owner-preview' }]);
+    });
+    it('PROVISIONING_PRIVATE: /v1/tenants (one, batch, read, description) on the tenant-admin listener answers exactly as an unknown route', async function () {
+      // decision operator-rest-api: provisioning is reachable only on the admin listener.
+      const unknownPost = await http(workers[0], token(), { id: A, hosts: ['leak.example.test'] }, 'one.example.test', 'POST', '/v1/no-such-route');
+      const unknownGet = await http(workers[0], token(), undefined, 'one.example.test', 'GET', '/v1/no-such-route');
+      for (const [method, resource, body] of [['POST', '/v1/tenants', { id: A, hosts: ['leak.example.test'] }], ['POST', '/v1/tenants/batch', { tenants: [{ id: A, hosts: ['leak.example.test'] }] }],
+        ['GET', '/v1/tenants/' + A, undefined], ['GET', '/v1/openapi.json', undefined]]) {
+        const answer = await http(workers[0], token(), body, 'one.example.test', method, resource);
+        const expected = method === 'POST' ? unknownPost : unknownGet;
+        assert.deepEqual([answer.status, answer.body], [expected.status, expected.body], method + ' ' + resource);
+      }
     });
     it('refuses root/data/wrong-purpose/foreign/unknown-key credentials without persistent effects', async function () {
       for (const credential of ['synthetic-root', 'synthetic-legacy-subject', token(A, { purpose: 'data' }), token(B), token(A, {}, { kid: 'unknown' })]) {

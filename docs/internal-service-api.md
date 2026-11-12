@@ -87,6 +87,64 @@ upgrade of communicating processes. There is no fallback to the earlier untyped
 IPC protocol. A breaking request, response or operation change requires an
 explicit protocol version change and a documented deployment transition.
 
+## Operator REST API (admin listener)
+
+The RPC contracts above are POST-only and named by service headers. The admin
+role (D7's operator plane, `ADMIN_HOSTNAME`/`ADMIN_PORT`) also serves versioned
+REST resources, for operators, provider control panels, Kubernetes controllers and
+Jobs, the Compose bootstrap and lab tooling to integrate against (decisions
+`provisioning-split` and `operator-rest-api` in the 16.0.0 release records). The
+description is [`lib/tenant-registry/openapi.json`](../lib/tenant-registry/openapi.json)
+(OpenAPI 3.1), also served at `GET /v1/openapi.json`.
+
+| Method and path | Purpose | Success |
+|---|---|---|
+| `POST /v1/tenants` | Provision one tenant (`id`, `hosts`, optional `internalHost`, `ref`, `issueRootSecret`) | `201` created with `Location: /v1/tenants/{id}`; `200` when the tenant already exists with the same hosts |
+| `POST /v1/tenants/batch` | Provision `{ "tenants": [...] }`, at most 100 | `200` with `results`, one per tenant in request order: `created`, `existing` or `refused` with a `code` |
+| `GET /v1/tenants/{id}` | The registry's view of one tenant | `200` with `id`, `state`, `signingVersion`, `hosts`, `internalHost` |
+| `GET /v1/openapi.json` | This description | `200` |
+
+**Idempotency.** The tenant id is the idempotency key. An `Idempotency-Key`
+header, when sent, must equal the body's `id`
+(`TENANT_PROVISION_IDEMPOTENCY_KEY_MISMATCH` otherwise). A retried request or batch
+answers `existing` for every tenant already committed and writes nothing; the same
+id with different hosts, or a host already bound to another tenant, is refused
+(`TENANT_PROVISION_CONFLICT`). A batch with a duplicate id or host is refused whole
+before any work (`TENANT_PROVISION_BATCH_DUPLICATE`). Each tenant commits in one
+database transaction whose last commit point is its registry row, so a failure
+leaves no partial tenant and a retry converges (see [the tenant registry](tenant-registry.md#provisioning)).
+
+**Root secret.** A result carries `rootSecret` only on `created` and only when the
+request set `issueRootSecret: true`; it is never logged by the role and is not
+returned again.
+
+**Errors** are RFC 9457 problem documents (`application/problem+json`) with
+`type`, `title`, `status` and a stable `code`:
+
+| Status | Codes |
+|---|---|
+| 400 | `BODY_INVALID` |
+| 404 | `TENANT_NOT_FOUND`, `ROUTE_NOT_FOUND` |
+| 405 | `METHOD_NOT_ALLOWED` |
+| 409 | `TENANT_PROVISION_CONFLICT`, `TENANT_PROVISION_INCOMPLETE`, `TENANT_PROVISION_REMOVED`, `TENANT_PROVISION_LOCK_COLLISION`, `TENANT_PROVISION_VAULT_KEY_MISMATCH` |
+| 413 | `PAYLOAD_TOO_LARGE` (the admin configuration's `maxBytes`) |
+| 415 | `UNSUPPORTED_MEDIA_TYPE` |
+| 422 | `TENANT_PROVISION_INVALID`, `TENANT_PROVISION_HOST_INVALID`, `TENANT_PROVISION_IDEMPOTENCY_KEY_MISMATCH`, `TENANT_PROVISION_BATCH_INVALID`, `TENANT_PROVISION_BATCH_DUPLICATE` |
+| 502 | `TENANT_PROVISION_VAULT_REFUSED` |
+| 503 | `TENANT_PROVISION_VAULT_UNAVAILABLE`, `TENANT_PROVISION_FAILED`, `SERVICE_CLOSED` (with `Retry-After`) |
+
+**Who can call it.** Nightscout does not authenticate callers of the operator
+REST API, as with Ory's admin APIs: the admin listener is the platform operator's
+private plane, and the deployment controls who can reach it (network placement,
+proxy or mesh policy). The resources are served only on the admin listener; the
+api, tenant-admin and realtime public listeners and every `serve.internal`
+listener answer `/v1/tenants` exactly as an unknown route
+(`tests/api-registry.integration.test.js`, `tests/owner-preview.integration.test.js`,
+`tests/provisioning-private.test.js`).
+
+**Client.** `nightscout admin provision` is a thin client of this API (see the
+README's multitenant section); a control panel calls the API directly.
+
 ## Listener composition
 
 `transport.compose(endpoint, modules)` opens one private listener for a list of
