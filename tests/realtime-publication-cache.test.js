@@ -159,6 +159,59 @@ describe('bounded read-through and pinned atomic publication cache', function ()
     } finally { observed.restore(); }
   });
 
+  for (const mode of ['same-stat', 'current-bound']) it('EVALUATOR_HOT_' + mode + ': actual legacy loader preserves next-call freshness and current bound', async function () {
+    const value = { version: 1, postgres: { connectionEnv: 'EVAL_PG', namespaces: Object.fromEntries(['entries', 'treatments', 'devicestatus', 'profile', 'food', 'activity', 'clock', 'checkpoint'].map(name => [name, 'hot_' + name])) },
+      consumer: 'evaluator-hot', pageSize: 1, maxRows: 10, maxBytes: 10000, maxTenants: 2, recoveryIntervalMs: 100, timeIntervalMs: 200,
+      tenants: [{ id: fixture.A, revision: 'v1', settings: { enable: ['bgnow'], ...(mode === 'current-bound' ? { customTitle: 'x'.repeat(70000) } : {}) } }] };
+    fs.writeFileSync(file, JSON.stringify(value)); const observed = observe(file, true);
+    const source = { MULTITENANT_EVALUATOR_CONFIG: file, EVAL_PG: 'postgres://eval:synthetic@127.0.0.1/synthetic_test' };
+    const parse = configFile.parse; let parses = 0;
+    configFile.parse = function (text, options) { if (options?.label === 'MULTITENANT_EVALUATOR_CONFIG') parses++; return parse.call(this, text, options); };
+    try {
+      const loaded = require('../lib/server/serve/evaluator-config').load(source); assert.equal((await loaded.readCurrent(fixture.A)).revision, 'v1');
+      const reads = observed.reads, keys = loaded.tenants.keys; let enumerations = 0;
+      loaded.tenants.keys = function () { enumerations++; return keys.call(this); };
+      for (let i = 0; i < 50; i++) assert.equal((await loaded.readCurrent(fixture.A)).revision, 'v1');
+      const unchangedReads = observed.reads - reads, unchangedParses = parses;
+      if (mode === 'same-stat') {
+        const before = fs.statSync(file, { bigint: true }); value.tenants[0].revision = 'v2'; fs.writeFileSync(file, JSON.stringify(value));
+        const after = fs.statSync(file, { bigint: true }); for (const key of ['dev', 'ino', 'size', 'mtimeNs', 'ctimeNs', 'mode']) assert.equal(after[key], before[key]);
+        assert.equal((await loaded.readCurrent(fixture.A)).revision, 'v2', 'EVALUATOR_HOT same-stat edit must be current');
+      } else {
+        source.MULTITENANT_CONFIG_MAX_BYTES = '65536'; await assert.rejects(loaded.readCurrent(fixture.A), { code: 'CONFIG_FILE_TOO_LARGE' });
+      }
+      assert.equal(unchangedReads, 50, 'one bounded legacy evaluator read per call');
+      assert.equal(unchangedParses, 1, 'unchanged evaluator bytes reuse JSON and roster parse');
+      assert.equal(enumerations, 0); assert.equal(observed.fds.size, 0);
+    } finally { configFile.parse = parse; observed.restore(); }
+  });
+
+  it('EVALUATOR_REGISTRY_CURRENT: actual registry boot seam uses per-tenant settings with zero legacy file/roster reads', async function () {
+    fs.writeFileSync(file, '{}'); const observed = observe(file); let settingsReads = 0, reached = false;
+    const settingsOf = isolatedModule('../lib/server/serve/evaluator-config', { '../../tenant-settings/effective-postgres': async () => ({
+      read: async () => { settingsReads++; return { version: 1, effective: {} }; }, close: async () => {} }) });
+    const tenants = new Map([[fixture.A, settingsOf.registryEntry(fixture.A)]]); let enumerations = 0;
+    tenants.keys = () => { enumerations++; throw new Error('registry roster read on current path'); };
+    const boot = isolatedModule('../lib/server/serve/evaluator-preview', {
+      './evaluator-config': settingsOf,
+      './registry-tenant-set': { open: async () => ({ tenants, isActive: tenant => tenant === fixture.A, close: async () => {} }) },
+      './evaluator-readiness': async current => {
+        reached = true; fs.unlinkSync(file);
+        for (let i = 0; i < 200; i++) assert.equal((await current.readCurrent(fixture.A)).revision, 'registry');
+        assert.equal(observed.reads, 0); assert.equal(enumerations, 0); assert.equal(settingsReads, 200);
+        throw new Error('end focused composition discriminator before clinical startup');
+      }
+    });
+    // SQL/readiness are explicit doubles. Actual boot must replace this poison
+    // legacy callback before any current configuration read can succeed.
+    const config = { registry: { namespace: 'synthetic_registry' }, maxTenants: 10, tenants: new Map(), tenantSettings: {},
+      readCurrent: async () => { throw new Error('legacy callback must not execute in registry mode'); } };
+    try {
+      await assert.rejects(boot.boot(config), /readiness or initialization refused/);
+      assert.equal(reached, true); assert.equal(settingsReads, 200); assert.equal(observed.reads, 0); assert.equal(enumerations, 0);
+    } finally { observed.restore(); }
+  });
+
   it('PLACEMENT_EVALUATOR_VALIDATE: pure refusals acquire no handles and repeated hot parses retain only boot transport', async function () {
     fs.writeFileSync(file, JSON.stringify(fixture.config())); const observed = observe(file);
     const source = { MULTITENANT_REALTIME_PLACEMENT: file, EVAL_PG: 'postgres://eval:synthetic@127.0.0.1/synthetic_test',
