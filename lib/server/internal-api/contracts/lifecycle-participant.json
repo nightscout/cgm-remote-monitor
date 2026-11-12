@@ -1,6 +1,6 @@
 {
   "id": "lifecycle-participant",
-  "version": 1,
+  "version": 2,
   "operations": {
     "getStatus": {
       "path": "/cohort/status",
@@ -23,7 +23,10 @@
         "type": "object",
         "properties": {
           "version": {
-            "const": 1
+            "enum": [
+              1,
+              2
+            ]
           },
           "participant": {
             "type": "string",
@@ -51,13 +54,26 @@
             "uniqueItems": true
           },
           "tenants": {
-            "type": "array",
-            "items": {
-              "type": "string",
-              "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$"
-            },
-            "minItems": 1,
-            "uniqueItems": true
+            "oneOf": [
+              {
+                "type": "array",
+                "items": {
+                  "type": "string",
+                  "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$"
+                },
+                "minItems": 1,
+                "uniqueItems": true
+              },
+              {
+                "type": "array",
+                "items": {
+                  "type": "string",
+                  "pattern": "^registry:(?!public$|information_schema$|pg_)[a-z][a-z0-9_]{0,62}$"
+                },
+                "minItems": 1,
+                "maxItems": 1
+              }
+            ]
           },
           "namespaces": {
             "type": "array",
@@ -141,6 +157,70 @@
           "request": {
             "type": "string",
             "pattern": "^[0-9a-f-]{36}$"
+          },
+          "placement": {
+            "type": "object",
+            "properties": {
+              "generation": {
+                "type": "integer",
+                "minimum": 1,
+                "maximum": 9007199254740991
+              },
+              "digest": {
+                "type": "string",
+                "pattern": "^[0-9a-f]{64}$"
+              },
+              "rule": {
+                "const": "sha256-u32be-v1"
+              },
+              "shardCount": {
+                "type": "integer",
+                "minimum": 1,
+                "maximum": 65536
+              },
+              "worker": {
+                "anyOf": [
+                  {
+                    "type": "null"
+                  },
+                  {
+                    "type": "string",
+                    "pattern": "^[a-z][a-z0-9_-]{0,62}$"
+                  }
+                ]
+              },
+              "incarnation": {
+                "anyOf": [
+                  {
+                    "type": "null"
+                  },
+                  {
+                    "type": "string",
+                    "pattern": "^[0-9a-f-]{36}$"
+                  }
+                ]
+              },
+              "shards": {
+                "type": "array",
+                "items": {
+                  "type": "integer",
+                  "minimum": 0,
+                  "maximum": 65535
+                },
+                "uniqueItems": true,
+                "maxItems": 65536
+              }
+            },
+            "required": [
+              "generation",
+              "digest",
+              "rule",
+              "shardCount",
+              "worker",
+              "incarnation",
+              "shards"
+            ],
+            "additionalProperties": false
           }
         },
         "required": [
@@ -200,7 +280,10 @@
         "type": "object",
         "properties": {
           "version": {
-            "const": 1
+            "enum": [
+              1,
+              2
+            ]
           },
           "participant": {
             "type": "string",
@@ -228,13 +311,26 @@
             "uniqueItems": true
           },
           "tenants": {
-            "type": "array",
-            "items": {
-              "type": "string",
-              "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$"
-            },
-            "minItems": 1,
-            "uniqueItems": true
+            "oneOf": [
+              {
+                "type": "array",
+                "items": {
+                  "type": "string",
+                  "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$"
+                },
+                "minItems": 1,
+                "uniqueItems": true
+              },
+              {
+                "type": "array",
+                "items": {
+                  "type": "string",
+                  "pattern": "^registry:(?!public$|information_schema$|pg_)[a-z][a-z0-9_]{0,62}$"
+                },
+                "minItems": 1,
+                "maxItems": 1
+              }
+            ]
           },
           "namespaces": {
             "type": "array",
@@ -322,6 +418,70 @@
           "tenant": {
             "type": "string",
             "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$"
+          },
+          "placement": {
+            "type": "object",
+            "properties": {
+              "generation": {
+                "type": "integer",
+                "minimum": 1,
+                "maximum": 9007199254740991
+              },
+              "digest": {
+                "type": "string",
+                "pattern": "^[0-9a-f]{64}$"
+              },
+              "rule": {
+                "const": "sha256-u32be-v1"
+              },
+              "shardCount": {
+                "type": "integer",
+                "minimum": 1,
+                "maximum": 65536
+              },
+              "worker": {
+                "anyOf": [
+                  {
+                    "type": "null"
+                  },
+                  {
+                    "type": "string",
+                    "pattern": "^[a-z][a-z0-9_-]{0,62}$"
+                  }
+                ]
+              },
+              "incarnation": {
+                "anyOf": [
+                  {
+                    "type": "null"
+                  },
+                  {
+                    "type": "string",
+                    "pattern": "^[0-9a-f-]{36}$"
+                  }
+                ]
+              },
+              "shards": {
+                "type": "array",
+                "items": {
+                  "type": "integer",
+                  "minimum": 0,
+                  "maximum": 65535
+                },
+                "uniqueItems": true,
+                "maxItems": 65536
+              }
+            },
+            "required": [
+              "generation",
+              "digest",
+              "rule",
+              "shardCount",
+              "worker",
+              "incarnation",
+              "shards"
+            ],
+            "additionalProperties": false
           }
         },
         "required": [

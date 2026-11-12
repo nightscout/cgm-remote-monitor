@@ -268,6 +268,7 @@
         "tests/realtime-socket-server.test.js",
         "tests/realtime-readiness.test.js",
         "tests/realtime-config-cache.test.js",
+        "tests/realtime-placement-map.test.js",
         "tests/realtime-disconnect-causes.test.js",
         "tests/realtime-reconnect-surge.test.js",
         "tests/socket-admission-cache.test.js",

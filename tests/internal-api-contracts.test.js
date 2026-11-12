@@ -24,7 +24,7 @@ describe('Internal service API contracts', function () {
     assert.deepEqual(Object.keys(contracts.connectorInspection.operations), ['inspectConnectors']);
     const paths = Object.values(contracts).flatMap(service => {
       // Source IDs/generations and configuration-refused extend the strict connector response.
-      assert.equal(service.version, service.id === 'connector-inspection' ? 2 : 1);
+      assert.equal(service.version, ['connector-inspection', 'lifecycle-participant'].includes(service.id) ? 2 : 1);
       assert(Object.isFrozen(service.operations));
       return Object.values(service.operations).map(operation => {
         assert(Object.isFrozen(operation.request)); assert(Object.isFrozen(operation.response));
@@ -105,6 +105,9 @@ describe('Internal service API contracts', function () {
   });
   it('requires complete lifecycle identities and exact invalidation acknowledgements', function () {
     validate(lifecycle.getStatus.request, { request }); validate(lifecycle.getStatus.response, status);
+    validate(lifecycle.getStatus.response, { ...status, tenants: ['registry:synthetic_registry'] });
+    validate(lifecycle.invalidateTenant.response, { ...status, tenant: A, tenants: ['registry:synthetic_registry'] });
+    for (const tenants of [['registry:synthetic_registry', A], ['registry:one','registry:two'], ['registry:public'], ['registry:pg_private'], ['arbitrary']]) refused(() => validate(lifecycle.getStatus.response, { ...status, tenants }));
     validate(lifecycle.invalidateTenant.request, { request, tenant: A, incarnation: request, identity });
     validate(lifecycle.invalidateTenant.response, { ...status, tenant: A });
     for (const bad of [{ ...status, tenant: A }, { ...status, identity: {} }, { ...status, roles: ['api', 'api'] }, { ...status, roles: ['recovery'] }, { ...status, datastore: { ...status.datastore, password: 'synthetic' } }, { ...status, backends: [{ ...status.backends[0], pid: 0 }] }]) refused(() => validate(lifecycle.getStatus.response, bad));
