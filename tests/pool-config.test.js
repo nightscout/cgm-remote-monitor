@@ -11,6 +11,16 @@ const startup = require('../lib/server/serve/tenant-startup');
 const { PreviewConfigError } = require('../lib/server/serve/preview-config');
 
 describe('multitenant pool configuration', function () {
+  it('reads and rejects pool limits before application dependencies are installed', function () {
+    const fs = require('node:fs'), os = require('node:os'), path = require('node:path');
+    const directory = fs.mkdtempSync(path.join(os.tmpdir(), 'ns-pool-prebuild-'));
+    try {
+      for (const name of ['pool-config.js', 'preview-config-error.js']) fs.copyFileSync(path.join(__dirname, '../lib/server/serve', name), path.join(directory, name));
+      const code = `const assert=require('node:assert/strict');const pool=require('./pool-config');const {PreviewConfigError}=require('./preview-config-error');assert.equal(pool.pool('operation',{}).max,8);assert.throws(()=>pool.pool('operation',{NS_POOL_OPERATION_MAX:'0'}),PreviewConfigError);`;
+      require('node:child_process').execFileSync(process.execPath, ['-e', code], { cwd: directory, stdio: 'pipe' });
+      assert.equal(PreviewConfigError, require('../lib/server/serve/preview-config-error').PreviewConfigError);
+    } finally { fs.rmSync(directory, { recursive: true, force: true }); }
+  });
   it('keeps the previous built-in values when nothing is set', function () {
     assert.deepEqual({ ...config.pool('api', {}) }, { max: 4, connectionTimeoutMillis: 5000 });
     assert.deepEqual({ ...config.pool('evaluator', {}) }, { max: 4, connectionTimeoutMillis: 5000 });
