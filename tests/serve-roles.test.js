@@ -13,7 +13,7 @@ const assert = require('node:assert/strict');
 const serve = require('../lib/server/serve');
 const { ROLES, FIELDS, STORAGE, describeComposition, RoleTableError } = require('../lib/server/serve/roles');
 
-const NAMES = ['api', 'evaluator', 'realtime', 'vcpool', 'tenant-admin', 'admin'];
+const NAMES = ['api', 'feed-reader', 'evaluator', 'realtime', 'vcpool', 'tenant-admin', 'admin'];
 const TYPED = ['listener', 'storage', 'feed', 'egress'];
 
 // A copy whose entries can be edited without touching the table.
@@ -31,7 +31,7 @@ function refused (fn, expected) {
 
 describe('multitenant role table fields (D23 entry condition 4)', function () {
 
-  it('lists the six roles in the order the command lists them', function () {
+  it('lists the seven roles in the order the command lists them', function () {
     assert.deepEqual(Object.keys(ROLES), NAMES);
     assert.deepEqual(Object.keys(FIELDS), TYPED);
     assert.deepEqual(STORAGE, ['write', 'read', 'none']);
@@ -103,7 +103,7 @@ describe('describeComposition', function () {
   it('reads the whole table from the fields', function () {
     assert.deepEqual(describeComposition(NAMES), {
       writers: ['api', 'tenant-admin', 'admin']
-      , readers: ['evaluator', 'realtime', 'vcpool']
+      , readers: ['feed-reader', 'evaluator', 'realtime', 'vcpool']
       , listeners: ['api', 'realtime', 'tenant-admin', 'admin']
       , feedConsumers: ['evaluator', 'realtime']
       , egress: ['evaluator', 'vcpool']
@@ -148,7 +148,7 @@ describe('parseRoles is unchanged by the typed fields', function () {
 
   it('accepts explicitly configured api, headless tenant-admin, admin operator and vcpool connector previews', function () {
     assert.deepEqual(serve.parseRoles(['api']), ['api']);
-    assert.deepEqual(NAMES.filter(name => ROLES[name].multitenant === true), ['api', 'evaluator', 'realtime', 'vcpool', 'tenant-admin', 'admin']);
+    assert.deepEqual(NAMES.filter(name => ROLES[name].multitenant === true), ['api', 'feed-reader', 'evaluator', 'realtime', 'vcpool', 'tenant-admin', 'admin']);
   });
 
   it('recognizes explicit realtime without changing its reader-only role contract', function () {
@@ -159,6 +159,6 @@ describe('parseRoles is unchanged by the typed fields', function () {
 
   it('still refuses an unknown role, listing the roles', function () {
     assert.throws(() => serve.parseRoles(['bogus']), err => err instanceof serve.RoleError
-      && err.message === 'unknown role: bogus; the roles are api, evaluator, realtime, vcpool, tenant-admin, admin');
+      && err.message === 'unknown role: bogus; the roles are api, feed-reader, evaluator, realtime, vcpool, tenant-admin, admin');
   });
 });

@@ -270,7 +270,8 @@
         "tests/profile-timestamp-oracle.test.js",
         "tests/profile-wire-response.test.js",
         "tests/realtime-runtime-directory.test.js",
-        "tests/realtime-database-binding.test.js"
+        "tests/realtime-database-binding.test.js",
+        "tests/change-feed.test.js"
       ],
       "env": true,
       "require": [
@@ -479,7 +480,8 @@
         "tests/pool-membership.integration.test.js",
         "tests/evaluator-consumer-timer-churn.integration.test.js",
         "tests/evaluator-consumer-load.integration.test.js",
-        "tests/tenant-insertion-upgrade.integration.test.js"
+        "tests/tenant-insertion-upgrade.integration.test.js",
+        "tests/change-feed.integration.test.js"
       ],
       "env": true,
       "require": [

@@ -54,6 +54,8 @@ const IMAGES = {
 const PENDING = 'pending opt-in';
 const CRUD = { NS_ENTRIES_CRUD_HTTP_TEST: '1' };
 const INVENTORY = [
+  { file: 'tests/change-feed.integration.test.js', flags: { NS_D6_FEED_TEST: '1' }, shared: [], own: ['postgres'], gate: PENDING,
+    note: 'D6 fixed-slot pgoutput reader, EXECUTE-only wrappers, LISTEN/paged recovery and semantic controls; own PostgreSQL' },
   { file: 'tests/tenant-insertion-upgrade.integration.test.js', flags: { NS_TENANT_INSERTION_UPGRADE_TEST: '1' }, shared: ['postgres'], own: [], gate: PENDING,
     note: 'populated immutable-prefix upgrades through actual runner, per-tenant floors, old catalogue refusal and transaction rollback' },
   { file: 'tests/tenant-insertion-readiness.integration.test.js', flags: { NS_TENANT_INSERTION_READINESS_TEST: '1' }, shared: ['postgres'], own: [], gate: PENDING,

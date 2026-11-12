@@ -47,7 +47,7 @@ describe('nightscout multitenant: roles (PLAT-SERVE)', function () {
 
   it('accepts the implemented explicitly configured preview roles', function () {
     assert.deepEqual(serve.parseRoles(['api']), ['api']);
-    for (const [name, role] of Object.entries(ROLES)) assert.equal(role.multitenant === true, ['api', 'evaluator', 'realtime', 'vcpool', 'tenant-admin', 'admin'].includes(name), name);
+    for (const [name, role] of Object.entries(ROLES)) assert.equal(role.multitenant === true, ['api', 'feed-reader', 'evaluator', 'realtime', 'vcpool', 'tenant-admin', 'admin'].includes(name), name);
   });
 
   it('refuses an unknown role, an empty one, a repeated one, and a missing list', function () {
