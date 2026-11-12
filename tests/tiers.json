@@ -102,6 +102,7 @@
         "tests/internal-api-listener-config.test.js",
         "tests/internal-api-shutdown.test.js",
         "tests/fixed-roster-config.test.js",
+        "tests/realtime-api-client.test.js",
         "tests/serve-internal-listener.test.js",
         "tests/internal-api-contracts.test.js",
         "tests/internal-api-composition.test.js",
