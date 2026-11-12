@@ -41,6 +41,35 @@ describe('realtime configuration is re-read only when the file changes', functio
       assert.equal(counter.reads - atLoad, 0, 'RT_CONFIG_STAT_UNCHANGED reads after load: ' + (counter.reads - atLoad));
     } finally { counter.restore(); fs.rmSync(dir, { recursive: true, force: true }); }
   });
+  it('RT_CONFIG_ROSTER_UNCHANGED: unchanged reads do not enumerate the tenant roster again', async function () {
+    const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'rt-stat-')), { source } = realtimeConfig(dir);
+    try {
+      const loaded = require('../lib/server/realtime/config').load(source);
+      const keys = loaded.tenants.keys;
+      let enumerations = 0;
+      loaded.tenants.keys = function () { enumerations++; return keys.call(this); };
+      for (let i = 0; i < 100; i++) {
+        assert.equal((await loaded.readCurrent(A)).revision, 'v1');
+        assert.equal((await loaded.readAll([A])).get(A).revision, 'v1');
+      }
+      assert.equal(enumerations, 0, 'RT_CONFIG_ROSTER_UNCHANGED enumerations after load: ' + enumerations);
+    } finally { fs.rmSync(dir, { recursive: true, force: true }); }
+  });
+  for (const change of ['roster', 'infrastructure']) {
+    it('RT_CONFIG_CHANGED_' + change + ': changed infrastructure or an expanded roster refuses both reads until restart', async function () {
+      const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'rt-stat-')), { file, value, source } = realtimeConfig(dir);
+      try {
+        const loaded = require('../lib/server/realtime/config').load(source);
+        if (change === 'roster') value.tenants.push({ id: '22222222-2222-4222-8222-222222222222', revision: 'v1', settings: { enable: ['bgnow'] } });
+        else value.consumer = 'realtime-replacement';
+        fs.writeFileSync(file, JSON.stringify(value));
+        for (let i = 0; i < 2; i++) {
+          await assert.rejects(loaded.readCurrent(A), error => error.code === 'REALTIME_RESTART_REQUIRED');
+          await assert.rejects(loaded.readAll([A]), error => error.code === 'REALTIME_RESTART_REQUIRED');
+        }
+      } finally { fs.rmSync(dir, { recursive: true, force: true }); }
+    });
+  }
   it('RT_CONFIG_STAT_CHANGED: an edit in place (same size) and an atomic replacement are each seen on the next call', async function () {
     const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'rt-stat-')), { file, value, source } = realtimeConfig(dir);
     const counter = countingReads(file);
