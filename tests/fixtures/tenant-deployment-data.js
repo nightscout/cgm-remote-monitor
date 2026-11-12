@@ -35,6 +35,14 @@ function populatedRows ({ now = 1700000000000, profileSocketOrder = false } = {}
     add('access_sessions', { tenant_id: tenant, session_id: 'session_' + suffix, subject_id: 'subject_' + suffix,
       credential_id: 'credential_' + suffix, generation: 1, expires_at: String(now + 600000), active: true, purpose: 'data' });
     add('access_keys', { tenant_id: tenant, kid: 'key_' + suffix, purpose: 'data', active: true });
+    const managementRequest = event(90), managementCredential = 'management_' + managementRequest.replaceAll('-', '');
+    add('access_credentials', { tenant_id: tenant, credential_id: managementCredential, subject_id: 'subject_' + suffix, generation: 1, enabled: true });
+    add('access_sessions', { tenant_id: tenant, session_id: managementRequest, subject_id: 'subject_' + suffix,
+      credential_id: managementCredential, generation: 1, expires_at: String(Math.floor(now / 1000) + 600), active: true, purpose: 'management' });
+    add('management_session_requests', { tenant_id: tenant, request_id: managementRequest, subject_id: 'subject_' + suffix, consumer,
+      credential_id: managementCredential, session_id: managementRequest, credential_generation: 1, issued_at: String(Math.floor(now / 1000)),
+      expires_at: String(Math.floor(now / 1000) + 600), kid: 'management_' + suffix, key_version: 1, lifetime_seconds: 600,
+      operator_principal: principal, operator_consumer: consumer });
     const issuer = 'https://issuer-' + suffix + '.invalid';
     add('human_identities', { tenant_id: tenant, issuer, provider_subject: 'provider_' + suffix, subject_id: 'subject_' + suffix,
       credential_id: 'credential_' + suffix, enabled: true, generation: 1, purposes: ['data'] });

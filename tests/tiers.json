@@ -86,6 +86,7 @@
         "tests/object-id-forms.test.js",
         "tests/postgres-identity.test.js",
         "tests/tenant-lifecycle.test.js",
+        "tests/management-sessions.test.js",
         "tests/tenant-insertion-lifecycle.test.js",
         "tests/tenant-logical-restore.test.js",
         "tests/tenant-insertion-sql.test.js",
@@ -501,7 +502,8 @@
         "tests/registry-human-session.integration.test.js",
         "tests/api-fixed-roster-serving.integration.test.js",
         "tests/connector-sources.integration.test.js",
-        "tests/registry-realtime-settings.integration.test.js"
+        "tests/registry-realtime-settings.integration.test.js",
+        "tests/management-sessions.integration.test.js"
       ],
       "env": true,
       "require": [
