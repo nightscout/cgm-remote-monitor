@@ -31,7 +31,7 @@ function resetTables () {
   return {entries:['tenant_insertion_ordinal','entries'],treatments:['tenant_insertion_ordinal','treatments'],devicestatus:['tenant_insertion_ordinal','devicestatus'],profile:['tenant_insertion_ordinal','profile'],food:['tenant_insertion_ordinal','food'],activity:['activity'],settings:['settings'],
     authorization:['tenant_authorization_config','tenant_authorization_roles','tenant_authorization_subjects','tenant_authorization_subject_roles',
       'tenant_subject_admin_audit','tenant_owner_policy','tenant_owner_actors'],secrets:['secret_audit'],
-    legacy:['legacy_credential_config','legacy_credential_subjects'],access:['access_tenants','access_credentials','access_sessions','access_keys'],
+    legacy:['legacy_credential_config','legacy_credential_subjects'],access:['access_tenants','access_credentials','access_sessions','access_keys','management_session_requests'],
     clock:['tenant_write_clock'],rt_checkpoint:['tenant_consumer_checkpoint'],eval_checkpoint:['tenant_consumer_checkpoint'],
     alarm:['tenant_alarm_suppression'],outbox:['tenant_notification_state','tenant_notification_heads','tenant_notification_requests']};
 }
@@ -55,7 +55,7 @@ function resetPlan (layout, catalogues, reset=resetTables()) {
       if (/CREATE TABLE/i.test(sql)&&!create) refuse('JOINED_BOOTSTRAP_RESET_DDL_UNREVIEWED');
       if (create) { if(names.has(create[1]))refuse('JOINED_BOOTSTRAP_RESET_DDL_UNREVIEWED');names.add(create[1]); }
       if (/REFERENCES/i.test(sql)) {
-        const owner=/^(?:CREATE|ALTER) TABLE ([a-z][a-z0-9_]*) /.exec(sql), references=[...sql.matchAll(/REFERENCES ([a-z][a-z0-9_]*) \(/g)];
+        const owner=/^(?:CREATE|ALTER) TABLE ([a-z][a-z0-9_]*) /.exec(sql), references=[...sql.matchAll(/REFERENCES ([a-z][a-z0-9_]*)\s*\(/g)];
         if (!owner||references.length!==(sql.match(/REFERENCES/gi)||[]).length) refuse('JOINED_BOOTSTRAP_RESET_DDL_UNREVIEWED');
         for (const target of references) foreignKeys.push({domain,from:owner[1],to:target[1]});
       }

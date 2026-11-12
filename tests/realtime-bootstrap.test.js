@@ -142,11 +142,22 @@ describe('parent-owned realtime bootstrap source contract',function(){
     for(const table of ['tenant_owner_policy','tenant_owner_actors','tenant_subject_admin_audit'])assert(reset.reset.some(row=>row.domain==='authorization'&&row.table===table),'RESET_INCLUDES_'+table);
     assert(reset.reset.some(row=>row.domain==='secrets'&&row.table==='secret_audit'));
     assert.deepEqual(reset.preserved,[{domain:'secrets',namespace:layout.namespaces.secrets,table:'secret_records'}]);
-    assert.equal(reset.reset.length,33);assert.equal(reset.foreignKeys.length,8);
+    assert.equal(reset.reset.length,34);assert.equal(reset.foreignKeys.length,10);
+    assert(reset.reset.some(row=>row.domain==='access'&&row.table==='management_session_requests'));
     assert.deepEqual(reset.reset.filter(row=>row.table==='tenant_insertion_ordinal').map(row=>row.domain).sort(), ['devicestatus','entries','food','profile','treatments']);
     assert(reset.foreignKeys.some(row=>row.from==='tenant_owner_actors'&&row.to==='tenant_owner_policy'));
     assert(reset.foreignKeys.some(row=>row.from==='tenant_owner_policy'&&row.to==='tenant_authorization_config'));
     assert(reset.reset.every(row=>row.namespace===layout.namespaces[row.domain]&&row.table!=='schema_migrations'));
+  });
+  it('accepts compact PostgreSQL foreign-key syntax while preserving exact reset closure', function () {
+    const catalogues=require('./fixtures/realtime-preview/bootstrap-grants').catalogues(),layout=plan.layout('0123456789abcdef');
+    const compact=structuredClone(catalogues);
+    for(const catalogue of Object.values(compact))for(const migration of catalogue.migrations) {
+      if(migration.up)migration.up=migration.up.map(sql=>sql.replace(/REFERENCES ([a-z][a-z0-9_]*)\s*\(/g,'REFERENCES $1('));
+    }
+    assert.deepEqual(plan.resetPlan(layout,compact).foreignKeys,plan.resetPlan(layout,catalogues).foreignKeys);
+    const omitted=plan.resetTables();omitted.access=omitted.access.filter(name=>name!=='management_session_requests');
+    assert.throws(()=>plan.resetPlan(layout,compact,omitted),/RESET_FK_CLOSURE/);
   });
   it('rejects omitted FK referencers and incomplete audit coverage before any SQL or foreign-schema adoption',function(){
     const catalogues=require('./fixtures/realtime-preview/bootstrap-grants').catalogues(),layout=plan.layout('0123456789abcdef');
