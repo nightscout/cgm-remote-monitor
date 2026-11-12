@@ -57,12 +57,12 @@
           }
         },
         "required": [
-          "host",
           "tenant",
           "namespace",
           "credential"
         ],
-        "additionalProperties": false
+        "additionalProperties": false,
+        "description": "host is required except for registry-mode warm calls, which name the tenant only, with namespace '/' and an empty credential (lib/server/realtime/private-api.js)."
       },
       "response": {
         "$schema": "https://json-schema.org/draft/2020-12/schema",

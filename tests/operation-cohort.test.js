@@ -249,7 +249,7 @@ describe('Actual serving and CLI selection composition (source protocol)', funct
       '../../server/realtime/config':noopConfig,'../../server/serve/evaluator-config':noopConfig,'../../server/serve/owner-preview-config':noopConfig,
       '../../server/runtime-policy':() => {},'../../server/env':() => ({settings:{language:'en'}}),'../../language':() => ({set(){},loadLocalization(){}})
     });
-    const io={env:{MULTITENANT_OPERATION_CONFIG:'/synthetic/selected'},stderr:{write(){}}};
+    const io={env:{MULTITENANT_OPERATION_CONFIG:'/synthetic/selected',MULTITENANT_STATIC_TENANTS:'lab'},stderr:{write(){}}};
     assert.equal(await cli.runRoles(['api'],io,'synthetic',true),1); assert.equal(loads,1); assert.deepEqual(captures[0].operationConfig,{synthetic:true});
     assert.equal(await cli.runRoles(['api'],io,'synthetic',false),1); assert.equal(loads,1); assert.equal(captures[1].operationConfig,undefined);
   });

@@ -60,6 +60,7 @@ must never select an arbitrary handler or load an arbitrary contract.
 | Realtime | `0.0.0.0:1339`, Socket.IO plus health | `/run/ns-ipc/realtime.sock` (`alarm-delivery`, `lifecycle-participant`) | API internal service and PostgreSQL |
 | Evaluator / notification consumer | No consumer HTTP listener | `/run/ns-ipc/evaluator.sock` (`lifecycle-participant`) | PostgreSQL; realtime alarm handoff; other providers only when explicitly selected |
 | Tenant-admin | `0.0.0.0:1341`, owner management; not routed by this nginx binding | `/run/ns-ipc/tenant-admin.sock` (`lifecycle-participant`) | Scoped PostgreSQL readers/writers |
+| Admin (platform operator plane) | `ADMIN_HOSTNAME`/`ADMIN_PORT`, loopback unless acknowledged: RPC `ownership-operations`, `pool-operations`; REST [`/v1/tenants`](internal-service-api.md#operator-rest-api-admin-listener) tenant provisioning | None (not a `serve.internal` role) | PostgreSQL (ownership, pool and provisioning identities); Vault (create tenant keys, encrypt root secrets) |
 | Bootstrap / restore tools | No inbound listener; operator-invoked jobs | Client of participant contracts, not an extra server | PostgreSQL, selected API requests; bootstrap also provisions Vault |
 | PostgreSQL | No consumer listener | PostgreSQL TCP `:5432` on backend network | Responses to role-scoped database clients |
 | Vault | No consumer listener | HTTPS `:8200` on backend network | Responses to configured provider and bootstrap calls |
@@ -156,9 +157,12 @@ Transport flexibility does not by itself establish multi-host restore admission,
 high availability, a scalable evaluator partition or external provider delivery.
 Existing credential, tenant and lifecycle gates remain required.
 
-The role catalogue also names `vcpool` and platform `admin`, but they have no
-selected runnable constructor in this reference. They are not presented here as
-deployed services.
+The role catalogue also names `vcpool`; it has no selected runnable constructor in
+this reference and is not presented here as a deployed service. The platform
+`admin` role serves the operator plane on its own listener: its RPC contracts and
+the tenant provisioning REST resource, reached only by what the deployment lets
+reach that listener; clients include `nightscout admin provision`, controllers and
+bootstrap jobs.
 
 ## Edge enforcement and application authority
 

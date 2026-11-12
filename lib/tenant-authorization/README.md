@@ -18,8 +18,12 @@ data or JWT claims.
 Each authorization call obtains a fresh PostgreSQL snapshot in its own tenant-
 bound transaction. Tenant configuration and role assignments are read in one
 statement; that statement's snapshot is the authorization linearization point.
-A committed change is observed by the next operation across independent adapter
-pools. Configured `denied`, `readable`, and `status-only`
+`permissionSnapshot({tenant,principal})` returns an operation-local `allows(permission)`
+function using that one statement. Consumers making several permission checks
+within a single HTTP/socket operation can use it without opening another
+transaction for each check. It must not be retained across operations or shared
+as a persistent credential cache. A committed change is observed by the next
+operation across independent adapter pools. Configured `denied`, `readable`, and `status-only`
 defaults expand to the existing Nightscout Shiro permissions. Authenticated
 subject permissions are the union of those defaults and the subject's
 tenant-scoped role permissions. Anonymous permissions use only those fixed

@@ -39,7 +39,7 @@ optInSuite(process.env.NS_TENANT_AUTHORITY_POSTGRES_DOCKER_TEST === '1',
     const password = crypto.randomBytes(24).toString('hex');
     execFileSync('docker', ['run', '--name', container, '-d', '-p', '127.0.0.1::5432',
       '-e', 'POSTGRES_USER=operator', '-e', 'POSTGRES_PASSWORD', '-e', 'POSTGRES_DB=tenant_authority',
-      'postgres:16', '-c', 'shared_preload_libraries=pg_stat_statements', '-c', 'pg_stat_statements.track=all'], {
+      process.env.NS_TENANT_AUTHORITY_PG_IMAGE || 'postgres@sha256:9e2cf6287f25c3151f4c9421ccce2b17f3e60061c111a29165e0d2cdd9ff0a97', '-c', 'shared_preload_libraries=pg_stat_statements', '-c', 'pg_stat_statements.track=all'], {
       env: { ...process.env, POSTGRES_PASSWORD: password },
       stdio: ['ignore', 'pipe', 'pipe']
     });
@@ -212,6 +212,38 @@ optInSuite(process.env.NS_TENANT_AUTHORITY_POSTGRES_DOCKER_TEST === '1',
         await client.end();
       }
     }
+  });
+
+  it('reads one snapshot per operation, preserves current revocation and proves the repeated-query control', async function () {
+    const tenant = '44444444-4444-4444-8444-444444444444', principal = { kind: 'anonymous' };
+    await admin.query(`INSERT INTO ${CONFIG} (tenant_id,anonymous_roles) VALUES ($1,ARRAY['readable'])`, [tenant]);
+    await admin.query('CREATE EXTENSION IF NOT EXISTS pg_stat_statements');
+    const permissions = ['api:*:read', 'api:*:create,update,delete', 'api:treatments:create,update,delete',
+      ...['entries', 'treatments', 'devicestatus', 'profile', 'food', 'activity'].map(name => 'api:' + name + ':read')];
+    const calls = async () => Number((await admin.query(`SELECT coalesce(sum(calls),0)::text AS calls FROM pg_stat_statements
+      WHERE userid=$1::regrole::oid AND query LIKE '%LEFT JOIN%' AND query LIKE '%tenant_authorization_config%'`, [appRole])).rows[0].calls);
+    await admin.query('SELECT pg_stat_statements_reset()');
+    const repeated = [];
+    for (const permission of permissions) repeated.push(await first.authorize({ tenant, principal, permission }));
+    const repeatedCalls = await calls();
+    assert.equal(repeatedCalls, 9, 'the per-permission control executed nine SQL statements');
+    await admin.query('SELECT pg_stat_statements_reset()');
+    const snapshot = await first.permissionSnapshot({ tenant, principal });
+    assert.deepEqual(permissions.map(permission => snapshot.allows(permission)), repeated);
+    const snapshotCalls = await calls();
+    assert.equal(snapshotCalls, 1, 'AUTHZ_NATIVE_ONE_PERMISSION_STATEMENT');
+    assert.throws(() => assert.equal(repeatedCalls, snapshotCalls, 'AUTHZ_NATIVE_ONE_PERMISSION_STATEMENT'), /AUTHZ_NATIVE_ONE_PERMISSION_STATEMENT/);
+    // This worker must observe a committed change made outside its own pool.
+    await admin.query(`UPDATE ${CONFIG} SET anonymous_roles=ARRAY['denied'] WHERE tenant_id=$1`, [tenant]);
+    assert.equal((await second.permissionSnapshot({ tenant, principal })).allows('api:*:read'), false);
+    // Deliberately reuse the old operation's snapshot: the refusal oracle goes red.
+    assert.equal(snapshot.allows('api:*:read'), true, 'stale snapshot mutation actually still grants');
+    assert.throws(() => assert.equal(snapshot.allows('api:*:read'), false, 'AUTHZ_NATIVE_NEXT_REQUEST_REVOKED'), /AUTHZ_NATIVE_NEXT_REQUEST_REVOKED/);
+    const simultaneous = await Promise.all(Array.from({ length: 8 }, (_, index) =>
+      first.permissionSnapshot({ tenant: index % 2 ? tenant : B, principal })));
+    assert(simultaneous.every(current => !current.allows('api:entries:read')), 'revoked and wrong-tenant grants stay separate under concurrency');
+    process.stdout.write('AUTHZ_NATIVE_QUERY_COST ' + JSON.stringify({ repeatedPermissionStatements: repeatedCalls, snapshotPermissionStatements: snapshotCalls }) + '\n');
+    await admin.query(`DELETE FROM ${CONFIG} WHERE tenant_id=$1`, [tenant]);
   });
 
   it('survives idle-connection termination and rejects the next authority query', async function () {

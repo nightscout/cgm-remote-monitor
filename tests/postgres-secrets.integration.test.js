@@ -87,7 +87,8 @@ optInSuite(process.env.NS_SECRETS_POSTGRES_DOCKER_TEST === '1', 'NS_SECRETS_POST
     scope.setTenancyMode('multi');
     const password = crypto.randomBytes(24).toString('hex');
     execFileSync('docker', ['run', '--rm', '--name', container, '-d', '-p', '127.0.0.1::5432',
-      '-e', 'POSTGRES_USER=operator', '-e', 'POSTGRES_PASSWORD', '-e', 'POSTGRES_DB=secrets_test', 'postgres:16'],
+      '-e', 'POSTGRES_USER=operator', '-e', 'POSTGRES_PASSWORD', '-e', 'POSTGRES_DB=secrets_test', process.env.NS_SECRETS_PG_IMAGE || 'postgres@sha256:9e2cf6287f25c3151f4c9421ccce2b17f3e60061c111a29165e0d2cdd9ff0a97',
+      '-c', 'shared_preload_libraries=pg_stat_statements', '-c', 'pg_stat_statements.track=all'],
     { env: { ...process.env, POSTGRES_PASSWORD: password }, stdio: ['ignore', 'pipe', 'pipe'] });
     owned = true;
     port = docker(['port', container, '5432/tcp']).split(':').pop();
@@ -592,6 +593,20 @@ optInSuite(process.env.NS_SECRETS_POSTGRES_DOCKER_TEST === '1', 'NS_SECRETS_POST
     assert.equal((await admin.query(`SELECT count(*)::int AS n FROM ${audits}
       WHERE tenant_id = $1 AND secret_id = 'audited-failure'`, [A])).rows[0].n, 1);
     assert.equal(await persistence.store.get(A, 'audited-failure'), undefined);
+  });
+
+  it('commits every concurrent audit row in one tenant-local SQL batch without dropping receipts', async function () {
+    await admin.query('CREATE EXTENSION IF NOT EXISTS pg_stat_statements');
+    await admin.query('SELECT pg_stat_statements_reset()');
+    const base = Date.now();
+    const pending = Array.from({ length: 16 }, (_, i) => persistence.audit({ tenant: A, principal: 'subject', consumer: 'batch_probe',
+      operation: 'verify', phase: 'authorized', time: base + i }));
+    await Promise.all(pending);
+    const rows = (await admin.query(`SELECT event_time FROM ${audits} WHERE tenant_id=$1 AND consumer='batch_probe' ORDER BY event_time`, [A])).rows;
+    assert.deepEqual(rows.map(row => Number(row.event_time)), Array.from({ length: 16 }, (_, i) => base + i), 'all receipts are visible to another connection after append resolves');
+    const stats = (await admin.query(`SELECT calls::integer,rows::integer FROM pg_stat_statements WHERE userid=$1::regrole::oid AND query LIKE 'INSERT INTO %secret_audit%'`, [appRole])).rows;
+    assert.equal(stats.length, 1); assert.equal(stats[0].calls, 1); assert.equal(stats[0].rows, 16);
+    process.stdout.write('AUTHZ_NATIVE_AUDIT_BATCH ' + JSON.stringify({ statements: stats[0].calls, rows: stats[0].rows }) + '\n');
   });
 
   it('refuses extra audit fields instead of persisting secret payloads', async function () {

@@ -43,7 +43,7 @@ optInSuite(process.env.NS_EVALUATOR_CONSUMERS_TEST === '1' && !!process.env.NS_T
       const database = (await lab.admin.query('SELECT current_database() AS name')).rows[0].name;
       await lab.admin.query(`GRANT CREATE ON DATABASE "${database}" TO "${schemaOwner}"`);
       await run('up', { direct: true, connectionString: ownerUrl.toString(), namespace,
-        catalogue: { ...catalogue, migrations: catalogue.migrations.filter(m => m.name !== '0007_tenant_activity') } });
+        catalogue: { ...catalogue, migrations: catalogue.migrations.filter(m => m.name < '0007_tenant_activity') } });
       for (const [tenant, key] of Object.entries(lockKeys())) {
         await lab.admin.query(`INSERT INTO "${namespace}".tenant_lifecycle_windows (tenant_id,lock_key,phase,generation) VALUES ($1,$2,'active',1)`, [tenant, key]);
       }

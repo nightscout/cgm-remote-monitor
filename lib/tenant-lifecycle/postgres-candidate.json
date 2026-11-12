@@ -103,6 +103,13 @@
         "REVOKE ALL ON tenant_activity, tenant_activity_audit FROM PUBLIC"
       ],
       "checksum": "04e34feac301aa516bfe1bbac7355e413db26a2a5ccf4c03be652176d718b84e"
+    },
+    {
+      "name": "0008_tenant_lifecycle_window_provisioning",
+      "up": [
+        "CREATE POLICY tenant_lifecycle_windows_provision ON tenant_lifecycle_windows FOR INSERT WITH CHECK (tenant_id = nullif(current_setting('app.current_tenant_id', true), '')::uuid AND phase = 'active' AND generation = 1 AND claim_id IS NULL AND artifact_digest IS NULL)"
+      ],
+      "checksum": "d70e9911d32234780658a8407a9c7a61495344e6f5cc30bc88685ee0b2626057"
     }
   ]
 }
