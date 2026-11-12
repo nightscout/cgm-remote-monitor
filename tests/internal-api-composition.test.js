@@ -21,6 +21,7 @@ const A = '11111111-1111-4111-8111-111111111111';
 const B = '22222222-2222-4222-8222-222222222222';
 const REQUEST = '00000000-0000-4000-8000-000000000001';
 const TRANSPORT_FILE = require.resolve('../lib/server/internal-api/transport');
+const LIFECYCLE_WIRE_VERSION = String(contracts.lifecycleParticipant.version);
 
 function mutated (mutate) {
   const source = fs.readFileSync(TRANSPORT_FILE, 'utf8'), changed = mutate(source);
@@ -98,15 +99,17 @@ for (const kind of ['uds', 'http']) describe('Composed component-private listene
     try {
       listener = await transport.compose(e.options, recordingModules(calls));
       // Registered elsewhere on this listener, but not the owner of the route.
-      refused(await raw(e.options, '/cohort/status', { request: REQUEST }, { service: 'socket-authority' }), 'foreign co-resident service');
+      // Match the owning route's wire version so only the service fence refuses.
+      refused(await raw(e.options, '/cohort/status', { request: REQUEST }, { service: 'socket-authority', version: LIFECYCLE_WIRE_VERSION }), 'foreign co-resident service');
       refused(await raw(e.options, '/authorize', authorizeBody(A), { service: 'lifecycle-participant' }), 'foreign co-resident service');
       // A real contract not composed here.
       refused(await raw(e.options, '/alarm', { request: REQUEST }, { service: 'alarm-delivery' }), 'unregistered service');
-      refused(await raw(e.options, '/cohort/status', { request: REQUEST }, { service: 'alarm-delivery' }), 'unregistered service');
+      refused(await raw(e.options, '/cohort/status', { request: REQUEST }, { service: 'alarm-delivery', version: LIFECYCLE_WIRE_VERSION }), 'unregistered service');
       await assert.rejects(transport.client(e.options, contracts.alarmDelivery).deliverAlarm({ tenant: A, id: REQUEST, attempt: 1, notification: {}, receipts: [] }));
-      refused(await raw(e.options, '/cohort/status', { request: REQUEST }, { service: 'lifecycle-participant', method: 'GET' }), 'unregistered method');
+      refused(await raw(e.options, '/cohort/status', { request: REQUEST }, { service: 'lifecycle-participant', version: LIFECYCLE_WIRE_VERSION, method: 'GET' }), 'unregistered method');
+      refused(await raw(e.options, '/cohort/status', { request: REQUEST }, { service: 'lifecycle-participant', version: '1' }), 'old lifecycle wire version');
       assert.deepEqual(calls, [], 'No foreign or unregistered service may invoke a composed handler');
-      assert.equal((await raw(e.options, '/cohort/status', { request: REQUEST }, { service: 'lifecycle-participant' })).status, 200);
+      assert.equal((await raw(e.options, '/cohort/status', { request: REQUEST }, { service: 'lifecycle-participant', version: LIFECYCLE_WIRE_VERSION })).status, 200);
       assert.deepEqual(calls, [['status']], 'Positive control reaches the route owner');
     } finally { if (listener) await listener.close(); e.cleanup(); }
   });
@@ -126,7 +129,7 @@ for (const kind of ['uds', 'http']) describe('Composed component-private listene
           });
         } finally { if (leaked) await leaked.close(); }
         if (kind === 'uds') assert.equal(fs.existsSync(e.options.socketPath), false, 'A refused composition must not publish an endpoint');
-        else await assert.rejects(raw(e.options, '/cohort/status', { request: REQUEST }, { service: 'lifecycle-participant' }), { code: 'ECONNREFUSED' });
+        else await assert.rejects(raw(e.options, '/cohort/status', { request: REQUEST }, { service: 'lifecycle-participant', version: LIFECYCLE_WIRE_VERSION }), { code: 'ECONNREFUSED' });
       }
     } finally { e.cleanup(); }
   });
@@ -173,7 +176,7 @@ describe('Composition registration rules', function () {
       const e = await endpoint('uds'); const calls = []; let listener;
       try {
         listener = await implementation.compose(e.options, recordingModules(calls));
-        refused(await raw(e.options, '/cohort/status', { request: REQUEST }, { service: 'socket-authority' }), 'foreign co-resident service');
+        refused(await raw(e.options, '/cohort/status', { request: REQUEST }, { service: 'socket-authority', version: LIFECYCLE_WIRE_VERSION }), 'foreign co-resident service');
         assert.deepEqual(calls, []);
       } finally { if (listener) await listener.close(); e.cleanup(); }
     }
