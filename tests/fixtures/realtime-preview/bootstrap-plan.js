@@ -75,7 +75,7 @@ function resetPlan (layout, catalogues, reset=resetTables()) {
   return {reset:expand(reset),preserved:expand(preserve),foreignKeys};
 }
 const optionsKeys = Object.freeze(['timeoutMs','recoveryIntervalMs','timeIntervalMs','pollIntervalMs','retryIntervalMs','retryDelayMs',
-  'attemptTimeoutMs','maxRows','maxBytes','pageSize','maxMessageBytes','maxPayloadBytes','maxConnections','maxInflight','maxSockets',
+  'attemptTimeoutMs','maxRows','maxBytes','pageSize','maxMessageBytes','maxPayloadBytes','maxConnections','maxInflight',
   'snoozeMs','settleMs','observationMs','credentialLifetimeSeconds']);
 const optionalOptionsKeys = Object.freeze(['evaluatorMaxRows','realtimeMaxRows']);
 const fail = () => {throw new Error('JOINED_BOOTSTRAP_INPUT_REFUSED');};
@@ -136,7 +136,7 @@ function documents ({selected,layout: l,publicKeys,paths}) {
       maxPayloadBytes:o.maxPayloadBytes,maxInflight:o.maxInflight,attemptTimeoutMs:o.attemptTimeoutMs,retryDelayMs:o.retryDelayMs,
       pollIntervalMs:o.pollIntervalMs,retryIntervalMs:o.retryIntervalMs}}};
   const realtime={...common,admissionFileEnv:'RT_BOOTSTRAP_ADMISSION',
-    maxMessageBytes:o.maxMessageBytes,operationTimeoutMs:o.timeoutMs,maxSockets:o.maxSockets};
+    maxMessageBytes:o.maxMessageBytes,operationTimeoutMs:o.timeoutMs};
   const aliases=[['one.example.test'],['two.example.test']];
   const api={version:1,domains:[...Object.keys(clinical),'settings'],legacy:true,context:true,writeClock:true,
     postgres:{connectionEnv:'RT_BOOTSTRAP_API_PG',readinessConnectionEnv:'RT_BOOTSTRAP_READINESS_PG',

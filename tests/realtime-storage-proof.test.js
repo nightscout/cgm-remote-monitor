@@ -63,7 +63,7 @@ describe('joined storage physical/wire/current-collection oracles',function(){
     const protocol=protocolFactory.create({admission:{resolve:async()=>A},api:{executeSocketMutation:async()=>{throw new Error('Unexpected mutation');},authorizeSocket:async(body)=>{
       assert.deepEqual(body.credential,{accessToken:'synthetic-signed-port'});
       return {permissions:{read:allowed,write:false,write_treatment:false,ack:false},collections:allowed?['entries']:[]};
-    }},readCurrent:async()=>current,runtime:()=>({}),maxSockets:4,domains:['entries']});
+    }},readCurrent:async()=>current,runtime:()=>({}),domains:['entries']});
     try{
       await protocol.prepare(socket);protocol.bind(socket,'/storage');let reply;
       await socket.handlers.subscribe({accessToken:'synthetic-signed-port',collections:['entries']},value=>{reply=value;});

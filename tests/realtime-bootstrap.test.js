@@ -4,7 +4,7 @@ const fixture=require('./fixtures/realtime-preview/bootstrap');
 const plan=fixture.plan;
 const sourceDir=path.resolve(__dirname,'..');
 function bounds(){return {timeoutMs:1000,recoveryIntervalMs:100,timeIntervalMs:100,pollIntervalMs:100,retryIntervalMs:100,retryDelayMs:10,
-  attemptTimeoutMs:2000,maxRows:100,maxBytes:100000,pageSize:10,maxMessageBytes:30000,maxPayloadBytes:10000,maxConnections:2,maxInflight:2,maxSockets:10,
+  attemptTimeoutMs:2000,maxRows:100,maxBytes:100000,pageSize:10,maxMessageBytes:30000,maxPayloadBytes:10000,maxConnections:2,maxInflight:2,
   snoozeMs:1000,settleMs:100,observationMs:100,credentialLifetimeSeconds:3600};}
 describe('parent-owned realtime bootstrap source contract',function(){
   let dir,input;

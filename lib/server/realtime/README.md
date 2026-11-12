@@ -10,7 +10,10 @@ There are no cadence, capacity, tenant, credential, or database defaults.
 namespaces for all six clinical domains, clock, checkpoint), `consumer` (a
 `realtime-` name), pageSize, maxRows, maxBytes, maxTenants, recoveryIntervalMs,
 tenants (same settings/revision shape as evaluator), admissionFileEnv,
-maxMessageBytes, operationTimeoutMs, and maxSockets. Alarm delivery is served on
+maxMessageBytes and operationTimeoutMs, with optional authorizationRecheckMs and
+unauthorizedDeadlineMs. There is no per-process socket cap: a file that sets
+maxSockets is refused with REALTIME_CONFIG_MAX_SOCKETS_REMOVED, and connection
+limits belong to the edge. Alarm delivery is served on
 the process's `serve.internal`; the api is reached at its peer address
 (`NS_API_INTERNAL_URL`/`_SOCKET`, docs/internal-service-api.md). Environment references contain the actual connection and paths;
 configuration files must not contain credentials. Provision a distinct checkpoint

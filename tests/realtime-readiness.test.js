@@ -44,7 +44,7 @@ async function lab ({ tenants, readiness, broken = new Set(), gate = new Map(), 
   const readCurrent = async tenant => ({ tenant, identity: 'same', env });
   const admission = { resolve: async req => req.headers.host.split('.')[0] };
   let runtime;
-  const protocol = protocolFactory.create({ operationWindow, admission, readCurrent, runtime: () => runtime, maxSockets: 1000, domains: ['entries'],
+  const protocol = protocolFactory.create({ operationWindow, admission, readCurrent, runtime: () => runtime, domains: ['entries'],
     retry: { minMs: 5, maxMs: 40 },
     api: { executeSocketMutation: async () => ({ replyArgs: [] }),
       authorizeSocket: async () => ({ permissions: { read: true, write: false, write_treatment: false, ack: false }, collections: ['entries'] }) } });

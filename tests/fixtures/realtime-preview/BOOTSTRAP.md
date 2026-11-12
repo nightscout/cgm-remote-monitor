@@ -30,7 +30,7 @@ Required private environment values:
 - NS_RT_BOOTSTRAP_OPTIONS_JSON with exact positive integer fields: timeoutMs,
   recoveryIntervalMs, timeIntervalMs, pollIntervalMs, retryIntervalMs,
   retryDelayMs, attemptTimeoutMs, maxRows, maxBytes, pageSize, maxMessageBytes,
-  maxPayloadBytes, maxConnections, maxInflight, maxSockets, snoozeMs, settleMs,
+  maxPayloadBytes, maxConnections, maxInflight, snoozeMs, settleMs,
   observationMs, credentialLifetimeSeconds;
 - NS_RT_BOOTSTRAP_UI_JSON: bundleDirectory, expectedBundleSha256 and public settings;
 - NS_RT_BOOTSTRAP_NATIVE=1 only during a coordinator-authorized actual bootstrap.
