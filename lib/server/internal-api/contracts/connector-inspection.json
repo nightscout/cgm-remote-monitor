@@ -1,6 +1,6 @@
 {
   "id": "connector-inspection",
-  "version": 1,
+  "version": 2,
   "operations": {
     "inspectConnectors": {
       "path": "/vcpool/inspect",
@@ -165,7 +165,8 @@
                     "refused",
                     "skipped",
                     "not-in-slice",
-                    "member-refused"
+                    "member-refused",
+                    "configuration-refused"
                   ]
                 },
                 "code": {
@@ -296,6 +297,15 @@
                       "additionalProperties": false
                     }
                   ]
+                },
+                "sourceId": {
+                  "type": "string",
+                  "pattern": "^[a-zA-Z0-9_-]{1,128}$"
+                },
+                "definitionGeneration": {
+                  "type": "integer",
+                  "minimum": 1,
+                  "maximum": 9007199254740991
                 }
               },
               "required": [

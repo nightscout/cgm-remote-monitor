@@ -26,6 +26,21 @@
         "ALTER TABLE tenant_settings_history DROP CONSTRAINT tenant_settings_values_check",
         "ALTER TABLE tenant_settings_history ADD CONSTRAINT tenant_settings_values_check CHECK (tenant_settings_values_valid(values))"
       ]
+    },
+    {
+      "name": "0003_connector_source_definitions",
+      "up": [
+        "CREATE TABLE tenant_connector_sources (tenant_id uuid NOT NULL, source_id text NOT NULL CHECK (source_id ~ '^[a-zA-Z0-9_-]{1,128}$'), generation bigint NOT NULL CHECK (generation > 0 AND generation <= 9007199254740991), enabled boolean NOT NULL, deleted boolean NOT NULL DEFAULT false, definition jsonb NOT NULL CHECK (jsonb_typeof(definition) = 'object'), CHECK (NOT deleted OR NOT enabled), PRIMARY KEY (tenant_id, source_id))",
+        "ALTER TABLE tenant_connector_sources ENABLE ROW LEVEL SECURITY",
+        "ALTER TABLE tenant_connector_sources FORCE ROW LEVEL SECURITY",
+        "CREATE POLICY tenant_connector_sources_tenant ON tenant_connector_sources USING (tenant_id = nullif(current_setting('app.current_tenant_id', true), '')::uuid) WITH CHECK (tenant_id = nullif(current_setting('app.current_tenant_id', true), '')::uuid)",
+        "CREATE TABLE tenant_connector_source_history (LIKE tenant_connector_sources INCLUDING CONSTRAINTS, principal text NOT NULL CHECK (principal ~ '^[a-zA-Z0-9_-]{1,128}$'), consumer text NOT NULL CHECK (consumer ~ '^[a-zA-Z0-9_-]{1,128}$'), event_time bigint NOT NULL CHECK (event_time >= 0), PRIMARY KEY (tenant_id, source_id, generation), FOREIGN KEY (tenant_id, source_id) REFERENCES tenant_connector_sources (tenant_id, source_id))",
+        "ALTER TABLE tenant_connector_source_history ENABLE ROW LEVEL SECURITY",
+        "ALTER TABLE tenant_connector_source_history FORCE ROW LEVEL SECURITY",
+        "CREATE POLICY tenant_connector_source_history_tenant ON tenant_connector_source_history USING (tenant_id = nullif(current_setting('app.current_tenant_id', true), '')::uuid) WITH CHECK (tenant_id = nullif(current_setting('app.current_tenant_id', true), '')::uuid)",
+        "REVOKE ALL ON tenant_connector_sources, tenant_connector_source_history FROM PUBLIC"
+      ],
+      "checksum": "fb11beab83a096ea8c0d84fa433e6097b0a19107086901cbbbc87d090af2cbd5"
     }
   ]
 }

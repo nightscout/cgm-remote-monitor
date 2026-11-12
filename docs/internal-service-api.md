@@ -66,7 +66,7 @@ these optional fields, so their behaviour is unchanged.
 | `lifecycle-participant` | Each configured serving participant | `invalidateTenant(body, signal)` | `/cohort/invalidate` | Status plus the invalidated tenant, after actual role invalidators finish. |
 | `ownership-operations` | Private operator plane | `listOwners(body, signal)` | `/ownership/list` | Current owners, or `denied` without an owner list. |
 | `ownership-operations` | Private operator plane | `addOwner`, `transferOwner`, `recoverOwner` | `/ownership/add`, `/ownership/transfer`, `/ownership/recover` | `applied` or audited `refused` with the owner set, or `denied` with no effect. See [operator-assisted ownership](../lib/tenant-ownership/README.md). |
-| `connector-inspection` | vcpool role | `inspectConnectors({}, signal)` | `/vcpool/inspect` | The member's pool mode, eligibility and refusal counts, the egress proxy flag, and per tenant: status (`polling`, `skipped` with the activity code, `refused`, `not-in-slice`, `member-refused`, `idle`), rows pulled, refusal counts keyed `phase:status` and the last refusal. |
+| `connector-inspection` (v2) | vcpool role | `inspectConnectors({}, signal)` | `/vcpool/inspect` | The member's pool mode, eligibility and refusal counts, the egress proxy flag, and per tenant: status (`polling`, `skipped` with the activity code, `refused`, `not-in-slice`, `member-refused`, `idle`), rows pulled, refusal counts keyed `phase:status` and the last refusal. |
 | `evaluator-inspection` | evaluator role: every partitioned member; a standalone evaluator only when serve.internal is configured explicitly | `inspectEvaluator({}, signal)` | `/evaluator/inspect` | Configured pool values beside observed membership, the gate (eligible, reason, reads, refusals, heartbeats) and per configured tenant: assigned ordinal, admitted, code, cycles, output revision and delivery state. |
 | `pool-operations` | Private operator plane (admin role, `pools`) | `getPool`, `setPoolMembers` | `/pool/get`, `/pool/members` | `observed` or `applied`/`unchanged` with the desired count, the count in effect, live and missing ordinals and conflicts; or `denied` with `POOL_KIND_UNKNOWN`/`POOL_MEMBERS_INVALID`. Members switch slices together once every ordinal of the new count is live. |
 
@@ -81,7 +81,7 @@ is no URL forwarding, dynamic module lookup or generic proxy operation.
 
 Every request names the selected service and protocol version in
 `x-nightscout-internal-service` and `x-nightscout-internal-version`. The current
-version is `1`; a missing or different service/version is refused. The wire paths
+version is `1` except connector inspection (`2`); a missing or different service/version is refused. The wire paths
 remain recognizable, but service/version enforcement requires a coordinated
 upgrade of communicating processes. There is no fallback to the earlier untyped
 IPC protocol. A breaking request, response or operation change requires an

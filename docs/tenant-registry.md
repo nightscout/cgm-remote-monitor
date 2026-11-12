@@ -146,5 +146,15 @@ resource limits, not an operating-envelope claim.
 
 Static tenant lists require `MULTITENANT_STATIC_TENANTS=lab`, with a startup
 notice. Fixtures convert to provisioning before static mode is removed. The
-connector pool's durable definition/registry conversion is a separate capability;
-it must not acquire a second runtime tenant-list home.
+connector pool reads [durable connector definitions](tenant-connector.md) from
+tenant settings and uses the registry as its tenant roster.
+
+
+## Realtime effective settings
+
+Registry realtime requires `tenantSettings` with a separate read-only connection
+and the D15 settings/operator-policy namespaces, as API and evaluator do. The
+shared presentation reader supplies committed units, plugins and thresholds to
+`readCurrent`/`readAll`; a missing or unsafe settings store refuses instead of
+substituting server defaults. The current identity incorporates settings version
+and effective values. Registry membership stays separate from presentation state.
