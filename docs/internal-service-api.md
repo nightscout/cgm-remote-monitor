@@ -253,6 +253,39 @@ kind of address or another port refuses. The per-contract limits
 (`maxMessageBytes`, `operationTimeoutMs`) stay on the role configurations; each
 contract keeps its own bounds on the shared listener.
 
+### Equal api replicas: service address and fixed participant roster
+
+Several equal api processes can serve the same tenants. Callers reach them on
+one service address (`NS_API_INTERNAL_URL`, for example a Compose network alias
+or a Kubernetes Service); the client opens a new connection per call, so the
+platform's resolver or load balancer chooses the replica for each call.
+Realtime retries `authorizeSocket` once, on a new connection, when the answer
+is not ready (a replica draining behind the service address); it never retries
+`executeSocketMutation`
+([`realtime/api-client.js`](../lib/server/realtime/api-client.js)).
+
+Maintenance never uses the service address. In the operation configuration
+(`MULTITENANT_OPERATION_CONFIG`, version 2) a role named by more than one
+participant is a fixed roster: every row naming it carries its own instance
+`address`, `{"url": "http://api-2:7001"}` or `{"socket": "/run/ns-ipc/api-2.sock"}`.
+Rows without an `address` keep the role's peer address, so a one-api
+configuration is unchanged.
+
+```json
+{"id": "api-2", "roles": ["api"], "namespaces": ["..."], "maxMessageBytes": 1048576, "timeoutMs": 5000,
+ "address": {"url": "http://api-2:7001"}}
+```
+
+Each replica has its own `participantId`. Loading refuses a replicated row without an
+address, an address equal to a configured service address (`NS_<ROLE>_INTERNAL_*`),
+two rows on one address, and a process's own row whose address cannot name its
+`serve.internal` (a different socket, or a different port). The restore
+controller's roster lists the same per-instance endpoints; its census refuses a
+database backend that no listed participant reports
+(`RESTORE_COHORT_UNKNOWN_BACKEND`), so a running replica left off the roster
+blocks restore, and a roster entry that reaches another instance fails the
+participant and incarnation checks.
+
 ### Shutdown
 
 On SIGTERM the internal listener closes first: it stops accepting connections,
