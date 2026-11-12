@@ -15,6 +15,12 @@ function fixture(count=10000, due={dueAt:null,dueReason:null}){
  registry:{stats(){throw new Error('FULL_REGISTRY_STATS');}},startup:{health(){throw new Error('FULL_STARTUP_STATS');}}});
  return{inspect,ids,visited:()=>visited};
 }
+function fractionalDue(){
+ const at=1700000000000,env=require('../lib/server/tenant-app/environment')({settings:{enable:['pump']},extendedSettings:{pump:{warnClock:1/7}}});
+ assert.equal(env.extendedSettings.pump.warnClock,1/7);
+ const due=require('../lib/data/evaluator-due').nextDue({env,ddata:{devicestatus:[{mills:at,pump:{clock:new Date(at).toISOString()}}]},result:{requested:[]},at});
+ assert(Number.isFinite(due.dueAt)&&!Number.isInteger(due.dueAt));return{dueAt:due.dueAt,dueReason:due.reason};
+}
 describe('bounded evaluator inspection v2',function(){
  it('selects at most 128 without whole-roster summaries, including empty summary, and refuses unknown/duplicate selectors',async function(){
   const f=fixture();assert.deepEqual((await f.inspect({tenants:[]})).tenants,[]);assert.equal(f.visited(),0);
@@ -27,13 +33,16 @@ describe('bounded evaluator inspection v2',function(){
   await assert.rejects(f.inspect({}),/BOUNDED_RUNTIME_SELECTOR_REQUIRED|FULL_REGISTRY/,'CONTROL_UNSELECTED_VIEW_IS_DISTINCT');
  });
  it('preserves future, overdue and absent due observations without scheduling or inventing a cadence',async function(){
-  for(const due of [{dueAt:Date.now()+60000,dueReason:'slow:alarm-message'},{dueAt:1,dueReason:'sgv-recent-10'},{dueAt:null,dueReason:null},{dueAt:0,dueReason:null}]){
+  for(const due of [{dueAt:Date.now()+60000,dueReason:'slow:alarm-message'},{dueAt:1,dueReason:'sgv-recent-10'},{dueAt:null,dueReason:null},{dueAt:0,dueReason:null},{dueAt:1.5,dueReason:null},{dueAt:Number.MAX_VALUE,dueReason:null}]){
    const f=fixture(1,due),dto=await f.inspect({tenants:f.ids});assert.equal(dto.tenants[0].dueAt,due.dueAt);assert.equal(dto.tenants[0].dueReason,due.dueReason);
   }
  });
+ it('preserves fractional due returned by accepted source pump settings without rounding',async function(){
+  const due=fractionalDue(),f=fixture(1,due),dto=await f.inspect({tenants:f.ids});assert.equal(dto.tenants[0].dueAt,due.dueAt);assert.equal(dto.tenants[0].dueReason,due.dueReason);
+ });
  it('refuses missing or malformed due values, free text and oversized source reasons',async function(){
   const absent=fixture(1,{});await assert.rejects(absent.inspect({tenants:absent.ids}),/due inspection refused/);
-  for(const due of [{dueAt:undefined},{dueReason:undefined},{dueAt:-1},{dueAt:1.5},{dueAt:Infinity},{dueAt:Number.MAX_SAFE_INTEGER+1},{dueAt:1,dueReason:'private free text'},{dueAt:1,dueReason:'a'.repeat(129)},{dueAt:null,dueReason:'stale-reason'}]){
+  for(const due of [{dueAt:undefined},{dueReason:undefined},{dueAt:-1},{dueAt:NaN},{dueAt:Infinity},{dueAt:false},{dueAt:'1'},{dueAt:1,dueReason:'private free text'},{dueAt:1,dueReason:'a'.repeat(129)},{dueAt:null,dueReason:'stale-reason'}]){
    const f=fixture(1,{dueAt:null,dueReason:null,...due});await assert.rejects(f.inspect({tenants:f.ids}),/due inspection refused/);
   }
  });
@@ -45,7 +54,7 @@ describe('bounded evaluator inspection v2',function(){
    const client=transport.client(endpoint,service);
    assert.deepEqual((await client.inspectEvaluator({tenants:[]})).tenants,[]);
    const dto=await client.inspectEvaluator({tenants:[f.ids[9999]]});assert.equal(dto.tenants[0].tenant,f.ids[9999]);assert.equal(dto.tenants[0].dueAt,due.dueAt);assert.equal(dto.tenants[0].dueReason,due.dueReason);
-   for(const next of [{dueAt:1,dueReason:'sgv-recent-10'},{dueAt:null,dueReason:null}]){Object.assign(due,next);const observed=await client.inspectEvaluator({tenants:[f.ids[0]]});assert.equal(observed.tenants[0].dueAt,next.dueAt);assert.equal(observed.tenants[0].dueReason,next.dueReason);}
+   for(const next of [fractionalDue(),{dueAt:1,dueReason:'sgv-recent-10'},{dueAt:null,dueReason:null}]){Object.assign(due,next);const observed=await client.inspectEvaluator({tenants:[f.ids[0]]});assert.equal(observed.tenants[0].dueAt,next.dueAt);assert.equal(observed.tenants[0].dueReason,next.dueReason);}
    for(const invalid of ['a'.repeat(129),'stale-reason']){due.dueAt=invalid==='stale-reason'?null:1;corrupt=invalid;await assert.rejects(client.inspectEvaluator({tenants:[f.ids[0]]}),/SOCKET_IPC_UNAVAILABLE/,'SCHEMA_REFUSES_INVALID_REASON');}corrupt=false;await client.inspectEvaluator({tenants:[f.ids[0]]});
    const oldV2=JSON.parse(JSON.stringify(service));const oldRows=oldV2.operations.inspectEvaluator.response.properties.tenants.items;delete oldRows.properties.dueAt;delete oldRows.properties.dueReason;delete oldRows.anyOf;oldRows.required=oldRows.required.filter(key=>!['dueAt','dueReason'].includes(key));
    await assert.rejects(transport.client(endpoint,oldV2).inspectEvaluator({tenants:[f.ids[0]]}),/SOCKET_IPC_UNAVAILABLE/,'OLD_STRICT_V2_CLIENT_MUST_NOT_SILENTLY_ACCEPT_NEW_FIELDS');
