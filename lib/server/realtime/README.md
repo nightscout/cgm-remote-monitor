@@ -44,7 +44,11 @@ Registry mode reads this file only at boot. Its per-tenant current configuration
 comes from the admitted registry tenant set and authoritative presentation/settings
 reader, with no repeated boot-file read or full roster traversal. Registry revision
 polling and tenant preparation retain their independent bounded work contracts.
-Placement metadata uses the distinct atomic publication contract documented in
+The evaluator's static/lab hot-file loader uses the same bounded read-through
+and unchanged-text parse reuse, including metadata-only notification reads. Its
+registry runtime likewise replaces that callback with admitted per-tenant settings
+reads. Hot-file parsing borrows the initial consumer transport; only its runtime
+owner closes that transport. Placement metadata uses the distinct atomic publication contract documented in
 `lib/realtime-placement/README.md`; operator hot files do not inherit that contract.
 
 The API config's optional `socketForwarding` (served on the api process's

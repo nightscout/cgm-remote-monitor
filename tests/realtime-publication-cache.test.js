@@ -24,6 +24,13 @@ function observe (file, frozen = false) {
 }
 function replace (file, value) { fs.writeFileSync(file + '.next', JSON.stringify(value)); fs.renameSync(file + '.next', file); }
 
+function isolatedModule (relative, overrides = {}) {
+  const filename = require.resolve(relative), original = require('node:module').createRequire(filename), output = { exports: {} };
+  require('node:vm').runInThisContext('(function(require,module,exports){' + fs.readFileSync(filename, 'utf8') + '\n})', { filename })(
+    id => Object.hasOwn(overrides, id) ? overrides[id] : original(id), output, output.exports);
+  return output.exports;
+}
+
 describe('bounded read-through and pinned atomic publication cache', function () {
   let dir, file;
   beforeEach(() => { dir = fs.mkdtempSync(path.join(os.tmpdir(), 'rt-publication-cache-')); file = path.join(dir, 'config.json'); });
@@ -129,6 +136,147 @@ describe('bounded read-through and pinned atomic publication cache', function ()
       fs.statSync = function (name, ...args) { const value = stat.call(this, name, ...args); return name === file ? Object.assign(Object.create(Object.getPrototypeOf(value)), value, { size: typeof value.size === 'bigint' ? 1n : 1 }) : value; };
       try { assert.throws(read, error => error.code === 'CONFIG_FILE_TOO_LARGE' && error.size === null); assert.equal(observed.fds.size, 0); } finally { fs.statSync = stat; }
     } finally { read.close(); observed.restore(); }
+  });
+
+  it('PLACEMENT_FAILED_CONFIG: malformed pool credential encodings refuse before acquiring a placement descriptor', function () {
+    fs.writeFileSync(file, JSON.stringify(fixture.config())); const observed = observe(file);
+    const config = path.join(dir, 'operation.json'), roles = ['api', 'evaluator', 'realtime', 'tenant-admin'];
+    const value = { version: 2, namespace: 'synthetic_window', connectionEnv: 'SYNTHETIC_PG', locks: [{ tenant: fixture.A, key: '17' }], participantId: 'peer_0',
+      participants: roles.map((role, index) => ({ id: 'peer_' + index, roles: [role], namespaces: ['clinical_' + index], maxMessageBytes: 100000, timeoutMs: 1000 })) };
+    fs.writeFileSync(config, JSON.stringify(value));
+    const source = { MULTITENANT_OPERATION_CONFIG: config, MULTITENANT_REALTIME_PLACEMENT: file, NS_SERVE_INTERNAL_SOCKET: '/synthetic/api.sock',
+      ...Object.fromEntries(roles.slice(1).map(role => ['NS_' + role.toUpperCase().replace('-', '_') + '_INTERNAL_SOCKET', '/synthetic/' + role + '.sock'])) };
+    try {
+      // Confirm all other parser inputs actually admit the selected placement.
+      source.SYNTHETIC_PG = 'postgresql://synthetic:synthetic@127.0.0.1/disposable_test';
+      const loaded = require('../lib/server/serve/operation-cohort-config').load(source);
+      assert.equal(observed.fds.size, 1); loaded.placement.close(); assert.equal(observed.fds.size, 0);
+      for (const url of ['postgresql://%ZZ:synthetic@127.0.0.1/disposable_test', 'postgresql://synthetic:%ZZ@127.0.0.1/disposable_test', 'postgresql://synthetic:synthetic@127.0.0.1/%ZZ']) {
+        source.SYNTHETIC_PG = url;
+        assert.throws(() => require('../lib/server/serve/operation-cohort-config').load(source), /invalid explicit tenant operation configuration/);
+        assert.equal(observed.fds.size, 0, 'PLACEMENT_FAILED_CONFIG failed parser must retain no descriptor');
+      }
+    } finally { observed.restore(); }
+  });
+
+  for (const mode of ['same-stat', 'current-bound']) it('EVALUATOR_HOT_' + mode + ': actual legacy loader preserves next-call freshness and current bound', async function () {
+    const value = { version: 1, postgres: { connectionEnv: 'EVAL_PG', namespaces: Object.fromEntries(['entries', 'treatments', 'devicestatus', 'profile', 'food', 'activity', 'clock', 'checkpoint'].map(name => [name, 'hot_' + name])) },
+      consumer: 'evaluator-hot', pageSize: 1, maxRows: 10, maxBytes: 10000, maxTenants: 2, recoveryIntervalMs: 100, timeIntervalMs: 200,
+      tenants: [{ id: fixture.A, revision: 'v1', settings: { enable: ['bgnow'], ...(mode === 'current-bound' ? { customTitle: 'x'.repeat(70000) } : {}) } }] };
+    fs.writeFileSync(file, JSON.stringify(value)); const observed = observe(file, true);
+    const source = { MULTITENANT_EVALUATOR_CONFIG: file, EVAL_PG: 'postgres://eval:synthetic@127.0.0.1/synthetic_test' };
+    const parse = configFile.parse; let parses = 0;
+    configFile.parse = function (text, options) { if (options?.label === 'MULTITENANT_EVALUATOR_CONFIG') parses++; return parse.call(this, text, options); };
+    try {
+      const loaded = require('../lib/server/serve/evaluator-config').load(source); assert.equal((await loaded.readCurrent(fixture.A)).revision, 'v1');
+      const reads = observed.reads, keys = loaded.tenants.keys; let enumerations = 0;
+      loaded.tenants.keys = function () { enumerations++; return keys.call(this); };
+      for (let i = 0; i < 50; i++) assert.equal((await loaded.readCurrent(fixture.A)).revision, 'v1');
+      const unchangedReads = observed.reads - reads, unchangedParses = parses;
+      if (mode === 'same-stat') {
+        const before = fs.statSync(file, { bigint: true }); value.tenants[0].revision = 'v2'; fs.writeFileSync(file, JSON.stringify(value));
+        const after = fs.statSync(file, { bigint: true }); for (const key of ['dev', 'ino', 'size', 'mtimeNs', 'ctimeNs', 'mode']) assert.equal(after[key], before[key]);
+        assert.equal((await loaded.readCurrent(fixture.A)).revision, 'v2', 'EVALUATOR_HOT same-stat edit must be current');
+      } else {
+        source.MULTITENANT_CONFIG_MAX_BYTES = '65536'; await assert.rejects(loaded.readCurrent(fixture.A), { code: 'CONFIG_FILE_TOO_LARGE' });
+      }
+      assert.equal(unchangedReads, 50, 'one bounded legacy evaluator read per call');
+      assert.equal(unchangedParses, 1, 'unchanged evaluator bytes reuse JSON and roster parse');
+      assert.equal(enumerations, 0); assert.equal(observed.fds.size, 0);
+    } finally { configFile.parse = parse; observed.restore(); }
+  });
+
+  it('EVALUATOR_REGISTRY_CURRENT: actual registry boot seam uses per-tenant settings with zero legacy file/roster reads', async function () {
+    fs.writeFileSync(file, '{}'); const observed = observe(file); let settingsReads = 0, reached = false;
+    const settingsOf = isolatedModule('../lib/server/serve/evaluator-config', { '../../tenant-settings/effective-postgres': async () => ({
+      read: async () => { settingsReads++; return { version: 1, effective: {} }; }, close: async () => {} }) });
+    const tenants = new Map([[fixture.A, settingsOf.registryEntry(fixture.A)]]); let enumerations = 0;
+    tenants.keys = () => { enumerations++; throw new Error('registry roster read on current path'); };
+    const boot = isolatedModule('../lib/server/serve/evaluator-preview', {
+      './evaluator-config': settingsOf,
+      './registry-tenant-set': { open: async () => ({ tenants, isActive: tenant => tenant === fixture.A, close: async () => {} }) },
+      './evaluator-readiness': async current => {
+        reached = true; fs.unlinkSync(file);
+        for (let i = 0; i < 200; i++) assert.equal((await current.readCurrent(fixture.A)).revision, 'registry');
+        assert.equal(observed.reads, 0); assert.equal(enumerations, 0); assert.equal(settingsReads, 200);
+        throw new Error('end focused composition discriminator before clinical startup');
+      }
+    });
+    // SQL/readiness are explicit doubles. Actual boot must replace this poison
+    // legacy callback before any current configuration read can succeed.
+    const config = { registry: { namespace: 'synthetic_registry' }, maxTenants: 10, tenants: new Map(), tenantSettings: {},
+      readCurrent: async () => { throw new Error('legacy callback must not execute in registry mode'); } };
+    try {
+      await assert.rejects(boot.boot(config), /readiness or initialization refused/);
+      assert.equal(reached, true); assert.equal(settingsReads, 200); assert.equal(observed.reads, 0); assert.equal(enumerations, 0);
+    } finally { observed.restore(); }
+  });
+
+  it('PLACEMENT_EVALUATOR_VALIDATE: pure refusals acquire no handles and repeated hot parses retain only boot transport', async function () {
+    fs.writeFileSync(file, JSON.stringify(fixture.config())); const observed = observe(file);
+    const source = { MULTITENANT_REALTIME_PLACEMENT: file, EVAL_PG: 'postgres://eval:synthetic@127.0.0.1/synthetic_test',
+      OUTBOX_PG: 'postgres://outbox:synthetic@127.0.0.1/synthetic_test', ALARM_PG: 'postgres://alarm:synthetic@127.0.0.1/synthetic_test', NS_REALTIME_INTERNAL_SOCKET: '/tmp/realtime-service.sock' };
+    const value = { version: 1, postgres: { connectionEnv: 'EVAL_PG', namespaces: Object.fromEntries(['entries', 'treatments', 'devicestatus', 'profile', 'food', 'activity', 'clock', 'checkpoint'].map(name => [name, 'eval_' + name])) },
+      consumer: 'evaluator-cache', pageSize: 1, maxRows: 10, maxBytes: 10000, maxTenants: 2, recoveryIntervalMs: 100, timeIntervalMs: 200,
+      tenants: [{ id: fixture.A, revision: 'one', settings: { enable: ['bgnow'] } }], consumers: { realtime: {
+        outbox: { connectionEnv: 'OUTBOX_PG', namespace: 'cache_outbox', maxRows: 10, maxBytes: 100000, maxConnections: 2 },
+        suppression: { connectionEnv: 'ALARM_PG', namespace: 'cache_alarm', maxRows: 10, maxBytes: 100000, maxConnections: 2 },
+        route: { id: 'realtime-cache', maxMessageBytes: 20000, operationTimeoutMs: 500 }, maxPayloadBytes: 10000, maxInflight: 2, attemptTimeoutMs: 1000, retryDelayMs: 100, pollIntervalMs: 100, retryIntervalMs: 200 } } };
+    try {
+      const parse = require('../lib/server/serve/evaluator-config').parse;
+      const accepted = parse(value, source); assert.equal(observed.fds.size, 1); accepted.consumers.realtime.placement.close();
+      const acquired = observed.handles;
+      for (const change of [v => { v.socketOrderDomains = ['unknown']; }, v => { v.tenantSettings = {}; }, v => { v.activity = {}; }, v => { v.changeFeed = {}; },
+        v => { delete v.tenants; v.registry = { namespace: 'bad!' }; }]) {
+        const invalid = structuredClone(value); change(invalid); assert.throws(() => parse(invalid, source), /invalid/);
+        assert.equal(observed.fds.size, 0, 'PLACEMENT_EVALUATOR_VALIDATE refused parser leaked descriptor');
+        assert.equal(observed.handles, acquired, 'pure validation must precede resource acquisition');
+      }
+      const config = path.join(dir, 'evaluator.json'); fs.writeFileSync(config, JSON.stringify(value)); source.MULTITENANT_EVALUATOR_CONFIG = config;
+      const loaded = require('../lib/server/serve/evaluator-config').load(source);
+      try {
+        for (let i = 0; i < 20; i++) {
+          const changed = structuredClone(value); changed.tenants[0].revision = String(i); replace(config, changed);
+          assert.equal((await loaded.readCurrent(fixture.A)).revision, String(i));
+          assert.equal(observed.fds.size, 1, 'PLACEMENT_EVALUATOR_REPARSE only the initial transport owns a descriptor');
+          assert.equal(loaded.consumers.realtime.placement.current().generation, 1, 'boot transport remains usable');
+        }
+        const invalid = structuredClone(value); invalid.consumer = 'evaluator-restart'; replace(config, invalid);
+        await assert.rejects(loaded.readCurrent(fixture.A), /requires restart/);
+        assert.equal(observed.fds.size, 1, 'refused secondary infrastructure parse retains no descriptor');
+      } finally { loaded.consumers.realtime.placement.close(); }
+      assert.equal(observed.fds.size, 0);
+    } finally { observed.restore(); }
+  });
+
+  for (const failure of ['later-role', 'static-mode', 'start']) it('PLACEMENT_CLI_' + failure + ': CLI closes previously parsed placement on later refusal', async function () {
+    fs.writeFileSync(file, JSON.stringify(fixture.config())); const observed = observe(file);
+    const reader = () => fixture.placement.load({ MULTITENANT_REALTIME_PLACEMENT: file }, { internal: fixture.internal });
+    const overrides = {
+      '../../server/serve/operation-cohort-config': { load: () => ({ placement: reader() }) },
+      '../../server/realtime/config': { load: () => { if (failure === 'later-role') throw new Error('synthetic later-role refusal'); return { placement: reader() }; } },
+      '../../server/serve/static-tenants': { check: () => { if (failure === 'static-mode') throw new Error('synthetic static-mode refusal'); } },
+      '../../server/serve': { start: async () => { throw new Error('synthetic start refusal'); } }
+    };
+    const cli = isolatedModule('../lib/cli/commands/multitenant', overrides), errors = [];
+    try {
+      const result = await cli.runRoles(['realtime'], { env: { NS_SERVE_INTERNAL_SOCKET: '/synthetic/cli.sock', NS_API_INTERNAL_SOCKET: '/synthetic/api.sock' }, stderr: { write: value => errors.push(value) } }, 'synthetic-cli', true);
+      assert.equal(result, failure === 'start' ? 1 : 78); assert.equal(errors.length, 1);
+      assert.equal(observed.fds.size, 0, 'PLACEMENT_CLI previously parsed resources must close');
+    } finally { observed.restore(); }
+  });
+
+  for (const failure of ['listener', 'replica', 'checkpoint', 'admin', 'feed']) it('PLACEMENT_PRECHECK_' + failure + ': serve closes supplied readers on pre-boot refusal', async function () {
+    fs.writeFileSync(file, JSON.stringify(fixture.config())); const observed = observe(file);
+    const placement = fixture.placement.load({ MULTITENANT_REALTIME_PLACEMENT: file }, { internal: fixture.internal });
+    const serve = isolatedModule('../lib/server/serve', { './listeners': { resolve: () => { if (failure === 'listener') throw new Error('synthetic listener refusal'); return []; }, close: async () => {} } });
+    const names = failure === 'replica' ? ['api'] : failure === 'checkpoint' ? ['realtime', 'evaluator'] : failure === 'admin' ? ['admin'] : failure === 'feed' ? ['feed-reader', 'realtime'] : ['realtime'];
+    const options = { realtimePreview: { placement, namespaces: { checkpoint: 'same' } } };
+    if (failure === 'replica') options.operationConfig = { participants: [{ roles: ['api'] }, { roles: ['api'] }] };
+    if (failure === 'checkpoint') options.evaluatorPreview = { namespaces: { checkpoint: 'same' } };
+    if (failure === 'admin') options.operationConfig = {};
+    try { await assert.rejects(serve.start(names, {}, null, {}, options)); assert.equal(observed.fds.size, 0, 'PLACEMENT_PRECHECK supplied reader must close'); }
+    finally { placement.close(); observed.restore(); }
   });
 
   for (const failure of ['boot', 'shutdown', 'none']) it('PLACEMENT_CLOSE_' + failure + ': actual role composition closes the pinned reader on every exit', async function () {
