@@ -52,7 +52,7 @@ optInSuite(process.env.NS_OWNER_PREVIEW_TEST === '1' && !!process.env.NS_TEST_PO
       fs.writeFileSync(filename, JSON.stringify(configuration), { mode: 0o600 });
       const worker = { stdout: '', stderr: '' };
       const child = spawn(process.execPath, [path.resolve(__dirname, '../bin/nightscout.js'), 'multitenant', 'tenant-admin'],
-        { cwd: path.dirname(filename), env: { PATH: process.env.PATH, HOME: process.env.HOME, NODE_ENV: 'test', TZ: 'UTC',
+        { cwd: path.dirname(filename), env: { PATH: process.env.PATH, HOME: process.env.HOME, NODE_ENV: 'test', TZ: 'UTC', MULTITENANT_STATIC_TENANTS: 'lab',
           MULTITENANT_OWNER_PREVIEW_CONFIG: filename, OWNER_WRITER: writerURI, OWNER_READER: readerURI,
           TENANT_ADMIN_HOSTNAME: '127.0.0.1', TENANT_ADMIN_PORT: '0', ...overrides }, stdio: ['ignore', 'pipe', 'pipe'] });
       worker.child = child; children.add(worker);

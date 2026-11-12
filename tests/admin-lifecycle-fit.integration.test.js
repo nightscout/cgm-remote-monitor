@@ -73,7 +73,7 @@ optInSuite(process.env.NS_ADMIN_LIFECYCLE_DOCKER_TEST === '1',
       ownership: { connectionEnv: 'NS_OWNERSHIP_PG', namespace: ns.authorization, lifecycleNamespace: ns.control, operator: OPERATOR, tenants: [A, B] } }), { mode: 0o600 });
     const child = spawn(process.execPath, [path.join(ROOT, 'bin/nightscout.js'), 'multitenant', 'admin'], {
       cwd: ROOT, stdio: ['ignore', 'pipe', 'pipe'],
-      env: { PATH: process.env.PATH, MULTITENANT_ADMIN_CONFIG: file, NS_OWNERSHIP_PG: urls.ownership_operator, ...env }
+      env: { PATH: process.env.PATH, MULTITENANT_STATIC_TENANTS: 'lab', MULTITENANT_ADMIN_CONFIG: file, NS_OWNERSHIP_PG: urls.ownership_operator, ...env }
     });
     const out = { stdout: '', stderr: '' };
     child.stdout.on('data', chunk => { out.stdout += chunk; });

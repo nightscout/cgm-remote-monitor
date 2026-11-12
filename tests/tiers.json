@@ -225,6 +225,7 @@
         "tests/tenant-registry-resolver.test.js",
         "tests/admin-provisioning-cli.test.js",
         "tests/registry-config.test.js",
+        "tests/registry-realtime.test.js",
         "tests/provisioning-private.test.js",
         "tests/evaluator-partition.test.js",
         "tests/tenant-connector.test.js",

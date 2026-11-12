@@ -86,7 +86,7 @@ optInSuite(process.env.NS_MULTITENANT_PREVIEW_PROCESS_DOCKER_TEST === '1',
 
     function environment (extra = {}) {
       const env = {
-        PATH: process.env.PATH, HOME: process.env.HOME, TZ: 'UTC', NODE_ENV: 'test',
+        PATH: process.env.PATH, HOME: process.env.HOME, TZ: 'UTC', NODE_ENV: 'test', MULTITENANT_STATIC_TENANTS: 'lab',
         // Acceptance runs with every tenant initialized before the listener
         // opens (decision readiness-serve-then-warm); extra may override.
         NS_TENANT_READINESS: 'all',
