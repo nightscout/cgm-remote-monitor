@@ -521,7 +521,8 @@
         "tests/realtime-placement-owner.integration.test.js",
         "tests/realtime-placement-publication.integration.test.js",
         "tests/realtime-sharding-native.integration.test.js",
-        "tests/evaluator-job-context.integration.test.js"
+        "tests/evaluator-job-context.integration.test.js",
+        "tests/evaluator-effect-idempotency.integration.test.js"
       ],
       "env": true,
       "require": [
