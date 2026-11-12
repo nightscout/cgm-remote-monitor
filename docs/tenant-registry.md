@@ -62,12 +62,17 @@ within one refresh interval plus one lookup, and a removed tenant (hosts deleted
 state `removed`) is refused within the same bound. If the poll has not succeeded
 within three intervals nothing cached is used.
 
-Roles that work without requests (the evaluator, stage 1) enumerate active tenants
-at start, stop working a removed tenant within the refresh bound, and count tenants
-provisioned after start as waiting for the next start (alert
-`TENANT_REGISTRY_EXPANSION_RESTART` with the count; `registry.waiting` in health and
-evaluator inspection). Adding tenants to a running evaluator or realtime is a
-separate change (MT-TENANT-LIVE-ADD).
+Evaluator and realtime follow registry revisions while running. A newly provisioned
+tenant remains waiting until its settings, owned checkpoints and role resources
+are prepared; bounded admission then makes it visible and schedules its first
+acquisition. Failed preparation retries without requiring another registry change.
+Removal hides the tenant before cancellation/drain, and a membership recheck after
+preparation prevents a removed tenant from reappearing. Paused or suspended new
+tenants wait without data work; independent activity reads observe their resume.
+Empty registry startup is supported; static lab lists keep their existing contract.
+`registry.waiting` reports pending admission in health and evaluator inspection.
+The source contract and focused native controls are described in
+[the D6 contract](d6-change-feed.md).
 
 ## Fixed names
 
