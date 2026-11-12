@@ -9,6 +9,64 @@ const path = require('node:path');
 const c = require('../lib/server/realtime/contract');
 const admissionFactory = require('../lib/server/realtime/admission');
 const A = '11111111-1111-4111-8111-111111111111';
+// Decision-adjacent measured finding (capacity campaign 2026-11-11): realtime
+// re-read its whole configuration file on every readCurrent (about 52 calls/s
+// at 1,000 tenants; 1.9 MB at 3,000). The file is now read again only when its
+// identity (inode, size, mtime, ctime) changes, as evaluator-config does.
+function realtimeConfig (dir) {
+  const file = path.join(dir, 'rt.json'), admission = path.join(dir, 'admission.json');
+  fs.writeFileSync(admission, JSON.stringify({ version: 1, mode: 'preview-socket-allowlist', tenants: [{ id: A, enabled: true, aliases: ['a.test'] }] }));
+  const value = { version: 1, postgres: { connectionEnv: 'RT_DB', namespaces: Object.fromEntries(['entries', 'treatments', 'devicestatus', 'profile', 'food', 'activity', 'clock', 'checkpoint'].map(k => [k, 'rt_' + k])) },
+    consumer: 'realtime-test', pageSize: 1, maxRows: 10, maxBytes: 10000, maxTenants: 2, recoveryIntervalMs: 100,
+    tenants: [{ id: A, revision: 'v1', settings: { enable: ['bgnow'] } }], admissionFileEnv: 'RT_ADMISSION', maxMessageBytes: 10000, operationTimeoutMs: 1000 };
+  fs.writeFileSync(file, JSON.stringify(value));
+  const source = { RT_DB: 'postgres://synthetic:synthetic@127.0.0.1/disposable_test', RT_ADMISSION: admission, NS_API_INTERNAL_SOCKET: '/tmp/a.sock', MULTITENANT_REALTIME_CONFIG: file };
+  return { file, value, source };
+}
+function countingReads (file) {
+  const configFile = require('../lib/server/serve/config-file'), original = configFile.read, counter = { reads: 0 };
+  configFile.read = function (name, ...rest) { if (name === file) counter.reads++; return original.call(this, name, ...rest); };
+  counter.restore = () => { configFile.read = original; };
+  return counter;
+}
+describe('realtime configuration is re-read only when the file changes', function () {
+  it('RT_CONFIG_STAT_UNCHANGED: readCurrent and readAll do not read an unchanged file again', async function () {
+    const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'rt-stat-')), { file, source } = realtimeConfig(dir);
+    const counter = countingReads(file);
+    try {
+      const loaded = require('../lib/server/realtime/config').load(source);
+      const atLoad = counter.reads;
+      for (let i = 0; i < 100; i++) assert.equal((await loaded.readCurrent(A)).revision, 'v1');
+      await loaded.readAll([A]);
+      assert.equal(counter.reads - atLoad, 0, 'RT_CONFIG_STAT_UNCHANGED reads after load: ' + (counter.reads - atLoad));
+    } finally { counter.restore(); fs.rmSync(dir, { recursive: true, force: true }); }
+  });
+  it('RT_CONFIG_STAT_CHANGED: an edit in place (same size) and an atomic replacement are each seen on the next call', async function () {
+    const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'rt-stat-')), { file, value, source } = realtimeConfig(dir);
+    const counter = countingReads(file);
+    try {
+      const loaded = require('../lib/server/realtime/config').load(source);
+      assert.equal((await loaded.readCurrent(A)).revision, 'v1');
+      const before = fs.statSync(file).size;
+      value.tenants[0].revision = 'v2'; fs.writeFileSync(file, JSON.stringify(value));
+      assert.equal(fs.statSync(file).size, before, 'the in-place edit keeps the size');
+      // mtime and ctime resolution is sub-millisecond on the filesystems in use; force a distinct mtime regardless.
+      const later = new Date(Date.now() + 5000); fs.utimesSync(file, later, later);
+      assert.equal((await loaded.readCurrent(A)).revision, 'v2', 'RT_CONFIG_STAT_CHANGED in-place edit');
+      value.tenants[0].revision = 'v3'; fs.writeFileSync(file + '.next', JSON.stringify(value)); fs.renameSync(file + '.next', file);
+      assert.equal((await loaded.readCurrent(A)).revision, 'v3', 'RT_CONFIG_STAT_CHANGED atomic replacement');
+      assert.equal((await loaded.readAll([A])).get(A).revision, 'v3');
+    } finally { counter.restore(); fs.rmSync(dir, { recursive: true, force: true }); }
+  });
+  it('RT_CONFIG_STAT_REFUSAL: a file removed after load is refused with the bounded reader\'s code', async function () {
+    const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'rt-stat-')), { file, source } = realtimeConfig(dir);
+    try {
+      const loaded = require('../lib/server/realtime/config').load(source);
+      fs.rmSync(file);
+      await assert.rejects(loaded.readCurrent(A), error => error.code === 'CONFIG_FILE_UNREADABLE');
+    } finally { fs.rmSync(dir, { recursive: true, force: true }); }
+  });
+});
 describe('realtime configuration files parse only on change', function () {
   it('RT_PARSE_ONCE: unchanged text is not parsed again; a change is seen on the next call', function () {
     const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'rt-cache-')), file = path.join(dir, 'f.json');
