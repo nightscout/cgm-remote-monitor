@@ -206,6 +206,7 @@
         "tests/owner-preview.test.js",
         "tests/human-session-provider.test.js",
         "tests/human-access.test.js",
+        "tests/access-signature-proof.test.js",
         "tests/human-access-vault.test.js",
         "tests/human-access-vault-native-guard.test.js",
         "tests/human-access-config.test.js",
