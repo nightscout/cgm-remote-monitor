@@ -102,6 +102,7 @@ tests as pending with `[pending opt-in: <requirement>]` in the title; one
 | `tests/tenant-commit-clock-port.integration.test.js` | `NS_TENANT_COMMIT_CLOCK_TEST=1` | PostgreSQL | | |
 | `tests/tenant-commit-clock-http.integration.test.js` | `NS_TENANT_COMMIT_CLOCK_HTTP_DOCKER_TEST=1` | | PostgreSQL, Vault | functional cases enabled; benchmark separately opt-in |
 | `tests/management-sessions.integration.test.js` | `NS_MANAGEMENT_SESSIONS_DOCKER_TEST=1` | | PostgreSQL, Vault | private operator issuance, current authority, Vault rotation, lifecycle fences and live issuer census |
+| `tests/m7-diagnostics.integration.test.js` | `NS_M7_DIAGNOSTICS_DOCKER_TEST=1` | | PostgreSQL, Vault | bounded opt-in diagnostics ON/OFF; held pool, SQL, actual response and restore oracles |
 | `tests/operation-lifetime-discriminator.integration.test.js` | `NS_OPERATION_LIFETIME_DOCKER_TEST=1` | | PostgreSQL, Vault | bounded explicit lifetime sessions; actual held responses, authority, uncertainty, owner death and orphan refusal; no capacity claim |
 | `tests/api-fixed-roster-serving.integration.test.js` | `NS_API_ROSTER_SERVING_DOCKER_TEST=1` | | PostgreSQL, Vault | two actual API CLI processes; non-API peers synthetic lifecycle-only; authority, lifetime drain, census, uncertainty and replacement |
 | `tests/multitenant-preview-replicas.integration.test.js` | `NS_MULTITENANT_PREVIEW_REPLICAS_DOCKER_TEST=1` | | PostgreSQL, Vault | independent CLI processes on one host |

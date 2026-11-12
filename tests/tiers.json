@@ -94,6 +94,8 @@
         "tests/tenant-insertion-readiness.test.js",
         "tests/tenant-operation-window.test.js",
         "tests/lifetime-sessions.test.js",
+        "tests/m7-diagnostics.test.js",
+        "tests/m7-diagnostics-output.test.js",
         "tests/pool-config.test.js",
         "tests/multitenant-config-bound.test.js",
         "tests/realtime-warm-retry.test.js",
@@ -504,6 +506,7 @@
         "tests/registry-human-session.integration.test.js",
         "tests/api-fixed-roster-serving.integration.test.js",
         "tests/operation-lifetime-discriminator.integration.test.js",
+        "tests/m7-diagnostics.integration.test.js",
         "tests/connector-sources.integration.test.js",
         "tests/registry-realtime-settings.integration.test.js",
         "tests/management-sessions.integration.test.js"
