@@ -58,7 +58,8 @@ describe('registry-mode role configuration', function () {
     assert.throws(() => load(noSettings), /tenant settings reader/);
     assert.throws(() => load(apiConfig({ vault: { address: 'https://vault.example.test/', mount: 'transit' } })), /role-level Vault credential/);
     assert.throws(() => load(apiConfig({ registry: { namespace: 'ns_registry', refreshMs: 10 } })), /registry bounds/);
-    assert.throws(() => load(apiConfig({ socketForwarding: {} })), /socket forwarding/);
+    // Socket forwarding is registry-backed (no admission file); a malformed block is still refused.
+    assert.throws(() => load(apiConfig({ socketForwarding: {} })), /invalid preview/);
   });
 
   it('RC_LOCK_RULE: the operation configuration names the registry instead of a lock list; the window derives keys by the tenant-id rule', function () {
