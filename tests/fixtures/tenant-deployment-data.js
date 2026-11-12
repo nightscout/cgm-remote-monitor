@@ -50,6 +50,16 @@ function populatedRows ({ now = 1700000000000, profileSocketOrder = false } = {}
     const values = { DISPLAY_UNITS: offset ? 'mg/dl' : 'mmol', SHOW_SECONDS: false };
     add('tenant_settings', { tenant_id: tenant, version: 2, values });
     add('tenant_settings_history', { tenant_id: tenant, version: 1, values, principal, consumer, operation: 'replace', event_time: '1000', restored_from: null });
+    // Durable connector source configuration is ordinary tenant metadata.
+    const definition = { collections: ['entries'], sourceEndpoint: 'source_endpoint_' + suffix, sourceCredential: 'source_credential_' + suffix,
+      sourceCredentialKind: 'token', writeCredential: 'source_write_' + suffix };
+    const source = { tenant_id: tenant, source_id: 'nightscout', generation: '1', enabled: true, deleted: false, definition };
+    add('tenant_connector_sources', source);
+    add('tenant_connector_source_history', { ...source, principal, consumer, event_time: '1000' });
+    for (const id of [definition.sourceEndpoint, definition.sourceCredential, definition.writeCredential]) {
+      add('secret_records', { tenant_id: tenant, id, format: 1, ciphertext: offset ? 'vault:v2:Zm9yZWlnbg==' : 'vault:v1:c3ludGhldGljLWNpcGhlcnRleHQ=' });
+    }
+
     add('tenant_owner_configuration_authority', { tenant_id: tenant, principal, consumer, active: true, can_configure: true, owner_fence: false });
     add('legacy_credential_config', { tenant_id: tenant, root_reference_id: 'reference_' + suffix });
     add('legacy_credential_subjects', { tenant_id: tenant, subject_id: 'subject_' + suffix, token_prefix: suffix });

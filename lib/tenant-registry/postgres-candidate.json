@@ -43,6 +43,14 @@
         "ALTER TABLE tenant_registry_keys ADD CONSTRAINT tenant_registry_keys_purpose_check CHECK (purpose IN ('access','management','human-data','human-management'))"
       ],
       "checksum": "7dec26a410e1b80b9fb24cfe4dfebdca975c15933a37be95fda10054bdb54db7"
+    },
+    {
+      "name": "0003_tenant_registry_bound_alias",
+      "up": [
+        "CREATE FUNCTION tenant_registry_alias(selected uuid) RETURNS text LANGUAGE plpgsql STABLE SECURITY DEFINER SET search_path FROM CURRENT AS $fn$BEGIN IF selected IS DISTINCT FROM nullif(current_setting('app.current_tenant_id', true), '')::uuid THEN RAISE EXCEPTION 'TENANT_REGISTRY_ALIAS_BINDING_REFUSED' USING ERRCODE = '42501'; END IF; RETURN (SELECT h.host FROM tenant_registry_hosts h JOIN tenant_registry t ON t.tenant_id=h.tenant_id WHERE h.tenant_id=selected AND h.kind='alias' AND t.state='active' ORDER BY h.host LIMIT 1); END$fn$",
+        "REVOKE ALL ON FUNCTION tenant_registry_alias(uuid) FROM PUBLIC"
+      ],
+      "checksum": "bd33527f7e69216869b67662daba301b28c5aabb1add1e3daf1258f88cc7eb05"
     }
   ]
 }
