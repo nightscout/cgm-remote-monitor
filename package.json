@@ -73,6 +73,7 @@
     "test:tiers": "node scripts/test-tiers.js check",
     "diagnose:data": "node scripts/diagnose-data.js",
     "test:write-boundary": "node scripts/check-write-boundary.js",
+    "test:no-trigger-notify": "node scripts/check-no-trigger-notify.js",
     "test:harness": "node scripts/test-tiers.js run harness",
     "test:dom": "node scripts/test-tiers.js run dom",
     "test:dom:ci": "node scripts/test-tiers.js run dom --ci",

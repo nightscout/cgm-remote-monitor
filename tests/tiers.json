@@ -98,6 +98,7 @@
         "tests/tenant-readiness.test.js",
         "tests/preview-domains-equivalence.test.js",
         "tests/write-boundary-clock.test.js",
+        "tests/no-trigger-notify.test.js",
         "tests/tenant-maintenance-window.test.js",
         "tests/internal-api-listener-config.test.js",
         "tests/internal-api-shutdown.test.js",
