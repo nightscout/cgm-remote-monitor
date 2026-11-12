@@ -97,6 +97,7 @@ tests as pending with `[pending opt-in: <requirement>]` in the title; one
 | `tests/views-keep.integration.test.js` | `NS_TENANT_PROJECTION_EVALUATOR_TEST=1` | PostgreSQL |  | evaluator cost lane B: a kept working set re-cut equals a fresh load |
 | `tests/projection-total-order.integration.test.js` | `NS_TENANT_PROJECTION_EVALUATOR_TEST=1` | PostgreSQL |  | decision view-reads-total-order: SQL and in-process paths agree, ties broken on the insertion ordinal |
 | `tests/evaluator-consumer-wake.integration.test.js` | `NS_EVALUATOR_CONSUMERS_TEST=1` | PostgreSQL |  | consumers on change: an idle tenant is not polled; a new alarm is delivered by the revision wake |
+| `tests/postgres-cohort-snapshot.integration.test.js` | `NS_COHORT_SNAPSHOT_DOCKER_TEST=1` | | PostgreSQL | bounded constructor admission cuts and continuing constructor stream; native timeout, unsafe role and wrong-database refusal; owns a random-loopback, digest-pinned PostgreSQL container and removes only its container/anonymous volume in teardown |
 | `tests/operation-window-epoch.integration.test.js` | `NS_OPERATION_WINDOW_DOCKER_TEST=1` |  | PostgreSQL | restore fence and catalogue admission epoch with the deployment plan's catalogue and grants |
 | `tests/tenant-operations.integration.test.js` | `NS_TENANT_OPERATIONS_PG_TEST=1` | | PostgreSQL | representative entries/clock recovery and upgrade contracts; full populated deployment recovery is separate |
 | `tests/tenant-commit-clock-port.integration.test.js` | `NS_TENANT_COMMIT_CLOCK_TEST=1` | PostgreSQL | | |

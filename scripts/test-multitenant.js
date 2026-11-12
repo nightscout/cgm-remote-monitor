@@ -142,6 +142,8 @@ const INVENTORY = [
     note: 'decision view-reads-total-order: SQL and in-process paths agree, ties broken on the insertion ordinal' },
   { file: 'tests/evaluator-consumer-wake.integration.test.js', flags: { NS_EVALUATOR_CONSUMERS_TEST: '1' }, shared: ['postgres'], own: [], gate: PENDING,
     note: 'consumers on change: an idle tenant is not polled; a new alarm is delivered by the revision wake' },
+  { file: 'tests/postgres-cohort-snapshot.integration.test.js', flags: { NS_COHORT_SNAPSHOT_DOCKER_TEST: '1' }, shared: [], own: ['postgres'], gate: PENDING,
+    note: 'bounded constructor admission cuts, continuous independent constructor stream, timeout and native role/datastore refusal; own pinned PostgreSQL and cleanup' },
   { file: 'tests/operation-window-epoch.integration.test.js', flags: { NS_OPERATION_WINDOW_DOCKER_TEST: '1' }, shared: [], own: ['postgres'], gate: PENDING,
     note: 'restore fence and catalogue admission epoch with the deployment plan\'s catalogue and grants' },
   { file: 'tests/tenant-operations.integration.test.js', flags: { NS_TENANT_OPERATIONS_PG_TEST: '1' }, shared: [], own: ['postgres'], gate: PENDING,
