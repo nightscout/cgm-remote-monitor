@@ -441,3 +441,5 @@ Fixed-roster configurations with more than one API participant require
 before opening listeners when this shared allocator is absent: process-local
 history stamps cannot provide a common cursor across replicas. A single API
 keeps its existing configuration contract.
+
+Evaluator background scheduling uses boot-owned authority-free contexts. Explicit private evaluator calls retain active same-tenant window reuse, including same-parent coalescing; borrowed work earns no fresh-window completion credit. An expired or foreign selected-window caller refuses before queue mutation. A parent trying to join independently queued work receives `EVALUATOR_JOB_PARENT_BUSY`, avoiding a one-client join that otherwise waits on the parent itself. Owned and borrowed pending work each have two fixed slots per tenant; deferred due/repeat/revision jobs always obtain fresh admission.

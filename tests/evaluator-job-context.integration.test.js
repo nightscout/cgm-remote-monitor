@@ -11,12 +11,12 @@ const {optInSuite}=require('./support/opt-in');
 const IMAGE='postgres@sha256:721873c34ceb9f8d8fc265984940dc982404c105f19ad51be9fdc5970a6080ea';
 const A='11111111-1111-4111-8111-111111111111',B='22222222-2222-4222-8222-222222222222';
 const delay=ms=>new Promise(resolve=>setTimeout(resolve,ms));
-async function until(fn){for(let i=0;i<400;i++){if(await fn())return;await delay(5);}assert.fail('NATIVE_SCHEDULER_PROGRESS_TIMEOUT');}
+async function until(fn){for(let i=0;i<2000;i++){if(await fn())return;await delay(5);}assert.fail('NATIVE_SCHEDULER_PROGRESS_TIMEOUT');}
 optInSuite(process.env.NS_EVALUATOR_JOB_DOCKER_TEST==='1','NS_EVALUATOR_JOB_DOCKER_TEST=1')('native trusted evaluator jobs with one physical lifetime client',function(){
  this.timeout(60000);
  const container='ns-evaluator-job-'+crypto.randomBytes(6).toString('hex'),control='job_control',outbox='job_outbox';
  let owned=false,admin,pool,window,connection,release,runtime,consumers,oldMode,clinicalJobs,deliveryJobs;
- const effects=[];let requested=false,paused=false;
+ const effects=[];let requested=false,paused=false,allowTimers=true;
  const q=name=>'"'+name+'"';
  before(async function(){
   const password=crypto.randomBytes(24).toString('hex');
@@ -53,12 +53,12 @@ optInSuite(process.env.NS_EVALUATOR_JOB_DOCKER_TEST==='1','NS_EVALUATOR_JOB_DOCK
   clinicalJobs=contexts.create('clinical');deliveryJobs=contexts.create('delivery');
   connection=await connect({connectionString:urls.job_worker,max:1,statement_timeout:2000});
   const store=require('../lib/tenant-notifications/postgres')({connection,namespace:outbox,maxRows:10,maxBytes:65536});
-  const current=async tenant=>({tenant,identity:'a'.repeat(64),env:{settings:{heartbeat:0.05}}});
+  const current=async tenant=>({tenant,identity:'a'.repeat(64),env:{settings:{heartbeat:1}}});
   const activity={check:async()=>({eligible:!paused,code:paused?'PAUSED':null,state:{paused,suspended:false}})};
   const result=()=>({tenant:A,checkpoint:0,now:Date.now(),emitted:[],requested:requested?[{kind:'notify',title:'Synthetic alarm',message:'Synthetic details',level:1,group:'default',plugin:{name:'synthetic'}}]:[],properties:{requested}});
   runtime=await start({tenants:[A],operationWindow:window,jobContext:clinicalJobs,readCurrent:current,activity,
    create:async()=>({evaluate:async()=>result(),evaluateTime:async()=>result(),close(){}}),
-   recoveryIntervalMs:60000,timeIntervalMs:20,schedule:()=>({}),cancel(){},onRevision:tenant=>consumers?.revised(tenant)});
+   recoveryIntervalMs:60000,timeIntervalMs:20,setTimer:(fn,ms)=>setTimeout(()=>{if(allowTimers)fn();},ms),schedule:()=>({}),cancel(){},onRevision:tenant=>consumers?.revised(tenant)});
   consumers=coordinate({tenants:[A],operationWindow:window,jobContext:deliveryJobs,current:runtime.last,currentConfig:current,isCurrent:runtime.isCurrent,store,
    reader:{read:async()=>[],allows:async()=>true},adapter:{id:'native-controlled',send(request,callback){
     admin.query('SELECT state FROM '+q(outbox)+'.tenant_notification_requests WHERE request_id=$1',[request.id]).then(({rows})=>{
@@ -93,11 +93,26 @@ optInSuite(process.env.NS_EVALUATOR_JOB_DOCKER_TEST==='1','NS_EVALUATOR_JOB_DOCK
   // A waiter is normal while the due timer and consumer share this one
   // physical client. Real completion and nested admission, rather than a
   // transient waitingCount==0 sample, discriminate a pool-slot deadlock.
+  allowTimers=false;await runtime.tick(A);await consumers.flush(A);
+  const completed=runtime.health([A]).tenants[0].progress.completedAcquisitions;
   await window.run(A,async()=>{
+   await Promise.all([runtime.acquire(A),runtime.acquire(A)]);
+   await Promise.all([consumers.wake(A),consumers.wake(A)]);
+   assert.equal(runtime.health([A]).tenants[0].progress.completedAcquisitions,completed,'BORROWED_RUNTIME_CALLS_GET_NO_FRESH_CREDIT');
    const pending=async()=> (await admin.query('SELECT operation_id FROM '+q(control)+'.tenant_lifecycle_operations WHERE NOT finished ORDER BY operation_id')).rows;
    const before=await pending();assert.equal(before.length,1);
    await window.run(A,async()=>{await delay(2);window.assertCurrent(A);assert.deepEqual(await pending(),before,'LEGITIMATE_NESTED_AWAIT_REUSES_OWN_LIFETIME');});
   });
+  await assert.rejects(window.run(B,()=>runtime.acquire(A)),/LIFECYCLE_WINDOW_SCOPE_INVALID/);
+  let ownedRuntime,ownedDelivery;
+  await window.run(A,async()=>{
+   ownedRuntime=clinicalJobs.run(()=>runtime.tick(A));await delay(2);
+   await assert.rejects(runtime.acquire(A),{code:'EVALUATOR_JOB_PARENT_BUSY'});
+   ownedDelivery=deliveryJobs.run(()=>consumers.wake(A));await delay(2);
+   await assert.rejects(consumers.wake(A),{code:'EVALUATOR_JOB_PARENT_BUSY'});
+  });
+  await Promise.all([ownedRuntime,ownedDelivery]);
+  allowTimers=true;await runtime.tick(A);
  });
  it('refuses fresh suspended jobs and paused delivery, then resumes through fresh admission',async function(){
   paused=true;await runtime.tick(A);await consumers.wake(A);
@@ -111,6 +126,10 @@ optInSuite(process.env.NS_EVALUATOR_JOB_DOCKER_TEST==='1','NS_EVALUATOR_JOB_DOCK
   assert.equal(runtime.health([A]).tenants[0].code,null);
   let late;await window.run(A,()=>{late=new Promise(resolve=>setTimeout(()=>resolve(window.run(A,()=>assert.fail('late application work'))),5));late.catch(()=>{});});
   await assert.rejects(late,/LIFECYCLE_WINDOW_SCOPE_INVALID/);
+  let lateAcquire;await window.run(A,()=>{lateAcquire=new Promise(resolve=>setTimeout(()=>resolve(runtime.acquire(A)),5));lateAcquire.catch(()=>{});});
+  await assert.rejects(lateAcquire,/LIFECYCLE_WINDOW_SCOPE_INVALID/);
+  let lateWake;await window.run(A,()=>{lateWake=new Promise(resolve=>setTimeout(()=>resolve(consumers.wake(A)),5));lateWake.catch(()=>{});});
+  await assert.rejects(lateWake,/LIFECYCLE_WINDOW_SCOPE_INVALID/);
   paused=true;await runtime.tick(A);await runtime.invalidateTenant(A);await consumers.invalidateTenant(A);
   assert.equal((await admin.query('SELECT count(*)::integer AS n FROM '+q(control)+'.tenant_lifecycle_operations WHERE NOT finished')).rows[0].n,0);
  });

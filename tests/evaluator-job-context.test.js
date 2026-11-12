@@ -15,6 +15,16 @@ function settings (window, jobContext, extra = {}) {
     create:async()=>({evaluate:async()=>({checkpoint:0,properties:{synthetic:true}}),evaluateTime:async()=>({checkpoint:0,properties:{synthetic:true}}),close(){}}),
     recoveryIntervalMs:60000,timeIntervalMs:10,schedule:()=>({}),cancel(){},...extra};
 }
+function singleClient () {
+  const createWindow=require('../lib/tenant-lifecycle/operation-window').create;
+  let available=true;const waiting=[];
+  return fixture({},config=>createWindow({...config,pool:{connect:async()=>{
+    if(!available)await new Promise(resolve=>waiting.push(resolve));else available=false;
+    const client=await config.pool.connect(),release=client.release;
+    client.release=error=>{client.release=release;release(error);const next=waiting.shift();if(next)next();else available=true;};
+    return client;
+  }}}));
+}
 describe('trusted evaluator scheduling contexts (recording lifetime protocol)',function(){
   it('refuses tenant, active, expired and closed inherited window authority without mutating it',async function(){
     const f=fixture(), other=fixture();
@@ -67,10 +77,30 @@ describe('trusted evaluator scheduling contexts (recording lifetime protocol)',f
       await assert.rejects(late,/SCOPE_INVALID/);
       const before=r.health([A]).tenants[0].progress.completedAcquisitions;
       await f.window.run(A,()=>r.acquire(A));
-      assert.equal(r.health([A]).tenants[0].progress.completedAcquisitions,before+1);
+      assert.equal(r.health([A]).tenants[0].progress.completedAcquisitions,before);
       assert.equal(r.health([A]).tenants[0].progress.generation,generation);
       assert.deepEqual(r.health([]).tenants,[]);
       assert.throws(()=>r.health([B]),/not configured/);
+    }finally{await r.close();await f.window.close();}
+  });
+  it('preserves active-parent two-acquire coalescing on one client, refuses late/foreign callers and independent parent joins',async function(){
+    const f=singleClient(),jobs=contexts.create('clinical');
+    const r=await runtime(settings(f.window,jobs,{timeIntervalMs:60000}));
+    try{
+      const initial=r.health([A]).tenants[0].progress.completedAcquisitions;
+      await f.window.run(A,()=>Promise.all([r.acquire(A),r.acquire(A)]));
+      assert.equal(r.health([A]).tenants[0].progress.completedAcquisitions,initial,'BORROWED_CALLS_DO_NOT_EARN_OWNED_CREDIT');
+      const cycles=r.health([A]).tenants[0].cycles;
+      await assert.rejects(f.window.run(B,()=>r.acquire(A)),/SCOPE_INVALID/);
+      let late;await f.window.run(A,()=>{late=new Promise(resolve=>setTimeout(()=>resolve(r.acquire(A)),5));late.catch(()=>{});});
+      await assert.rejects(late,/SCOPE_INVALID/);assert.equal(r.health([A]).tenants[0].cycles,cycles);
+      let independent;
+      await f.window.run(A,async()=>{
+        independent=jobs.run(()=>r.tick(A));await sleep(2);
+        await assert.rejects(r.acquire(A),{code:'EVALUATOR_JOB_PARENT_BUSY'});
+      });
+      await independent;await r.acquire(A);
+      assert.equal(r.health([A]).tenants[0].progress.completedAcquisitions,initial+1);
     }finally{await r.close();await f.window.close();}
   });
   it('selects runtime health without walking the full tenant map or alert census',async function(){
@@ -87,10 +117,10 @@ describe('trusted evaluator scheduling contexts (recording lifetime protocol)',f
   });
   it('does not credit unfinished windows, failed completion or generation-invalidated results',async function(){
     const f=fixture(),jobs=contexts.create('clinical'),hold=deferred();let entered=false,block=false;
-    const original=f.window.run;
-    const window={current:f.window.current,run:async(tenant,fn)=>{const result=await original(tenant,fn);if(block){entered=true;await hold.promise;}return result;}};
+    const original=f.client.query;
+    f.client.query=async(text,...args)=>{const result=await original(text,...args);if(block && typeof text==='string' && text.startsWith('UPDATE')){entered=true;await hold.promise;}return result;};
     let identity='a'.repeat(64);
-    const r=await runtime(settings(window,jobs,{timeIntervalMs:60000,readCurrent:async tenant=>({tenant,identity})}));
+    const r=await runtime(settings(f.window,jobs,{timeIntervalMs:60000,readCurrent:async tenant=>({tenant,identity})}));
     try{
       block=true;const pending=r.tick(A);await wait(()=>entered);
       assert.equal(r.health([A]).tenants[0].progress.completedTimeCycles,0);
