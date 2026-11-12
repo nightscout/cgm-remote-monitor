@@ -25,7 +25,7 @@ const OLD_ENTRIES = { version: 1, migrations: [CANDIDATES.entries.migrations[0]]
 const TABLES = {
   entries: ['entries'],
   clock: ['tenant_write_clock'],
-  access: ['access_tenants', 'access_credentials', 'access_sessions', 'access_keys'],
+  access: ['access_tenants', 'access_credentials', 'access_sessions', 'access_keys', 'management_session_requests'],
   secrets: ['secret_records', 'secret_audit']
 };
 const NS = { entries: 'ns_entries', clock: 'ns_clock', access: 'ns_access', secrets: 'ns_secrets' };
@@ -78,6 +78,13 @@ const EFFECTS = {
     create(schema, 'access_credentials', 'tenant_id uuid, credential_id text, subject_id text, generation integer, enabled boolean');
     create(schema, 'access_sessions', 'tenant_id uuid, session_id text, subject_id text, credential_id text, generation integer, expires_at bigint, active boolean, purpose text');
     create(schema, 'access_keys', 'tenant_id uuid, kid text, purpose text, active boolean');
+  },
+  '0002_management_session_issuance': (schema, migration) => {
+    // This source model preserves rows/columns and the exact migration ledger.
+    // Issuer functions, RLS and FK enforcement belong to the native PG suites.
+    assert.equal(migration.up.filter(sql => /^CREATE TABLE /.test(sql)).length, 1);
+    assert.match(migration.up[0], /^CREATE TABLE management_session_requests \(/);
+    create(schema, 'management_session_requests', 'tenant_id uuid, request_id uuid, subject_id text, consumer text, credential_id text, session_id text, credential_generation integer, issued_at bigint, expires_at bigint, kid text, key_version integer, lifetime_seconds integer, operator_principal text, operator_consumer text');
   },
   '0001_secrets': schema => {
     create(schema, 'secret_records', 'tenant_id uuid, id text, format integer, ciphertext text');
@@ -312,6 +319,24 @@ async function refused (promise, code) {
 
 describe('tenant operations: deployment backup, restore, upgrade and rollback', function () {
   describe('plan', function () {
+    it('preserves management issuance request rows and their appended ledger through deployment restore', async function () {
+      const state = await scenario();
+      await state.connection.seed(NS.access, 'access_sessions', [{ tenant_id: A, session_id: 'management-a', subject_id: 'subject-a',
+        credential_id: 'cred-a', generation: 1, expires_at: '200', active: true, purpose: 'management' }]);
+      const issued = { tenant_id: A, request_id: '55555555-5555-4555-8555-555555555555', subject_id: 'subject-a', consumer: 'synthetic-owner',
+        credential_id: 'cred-a', session_id: 'management-a', credential_generation: 1, issued_at: '100', expires_at: '200', kid: 'management-key',
+        key_version: 1, lifetime_seconds: 100, operator_principal: 'synthetic-operator', operator_consumer: 'synthetic-issuer' };
+      await state.connection.seed(NS.access, 'management_session_requests', [issued]);
+      const artifact = await operations.backup(state.connection, options());
+      assert.deepEqual(common.decodeTable(artifact.tables['access.management_session_requests']), [issued]);
+      assert.deepEqual(artifact.manifest.catalogues.find(row => row.kind === 'access').ledger,
+        validateCatalogue(CANDIDATES.access).map(({ name, checksum }) => ({ name, checksum })));
+      const target = await scenario({ namespaces: FRESH, populate: false });
+      await operations.restore(target.connection, artifact, { catalogues: catalogues(FRESH), acl: { role: 'ns_app' } });
+      assert.deepEqual(target.connection.rows(FRESH.access, 'management_session_requests'), [issued]);
+      assert.deepEqual(target.connection.rows(FRESH.access, 'access_sessions'), state.connection.rows(NS.access, 'access_sessions'));
+    });
+
     it('preserves issuance audit rows and the exact appended ledger without manufacturing inventory changes', async function () {
       const prior = { version: 1, migrations: CANDIDATES.secrets.migrations.slice(0, -1) };
       const state = await scenario({ overrides: { secrets: prior } });
@@ -467,10 +492,10 @@ describe('tenant operations: deployment backup, restore, upgrade and rollback', 
       assert.equal(target.connection.log[target.connection.log.length - 1].text, 'COMMIT');
       assert.equal(report.total, 14); // 4 entries + 2 clocks + 2 tenants + 1 credential + 2 keys + 2 secrets + 1 audit
       assert.deepEqual(report.written, { 'entries.entries': 4, 'clock.tenant_write_clock': 2, 'access.access_tenants': 2, 'access.access_credentials': 1,
-        'access.access_sessions': 0, 'access.access_keys': 2, 'secrets.secret_records': 2, 'secrets.secret_audit': 1 });
+        'access.access_sessions': 0, 'access.access_keys': 2, 'access.management_session_requests': 0, 'secrets.secret_records': 2, 'secrets.secret_audit': 1 });
       assert.equal(report.acl, 'ns_app');
       assert.deepEqual(report.namespaces, FRESH);
-      assert.deepEqual(report.oracle, { tables: 8, tenants: 2, differences: 0 });
+      assert.deepEqual(report.oracle, { tables: 9, tenants: 2, differences: 0 });
       // Every refusal check precedes the first write.
       const firstInsert = target.connection.log.findIndex(e => /^INSERT/.test(e.text));
       const lastCount = target.connection.log.map(e => /^SELECT count/.test(e.text)).lastIndexOf(true);
@@ -482,7 +507,8 @@ describe('tenant operations: deployment backup, restore, upgrade and rollback', 
       assert.ok(grants.includes('GRANT USAGE ON SCHEMA "fresh_entries" TO "ns_app"'));
       assert.ok(grants.includes('GRANT SELECT, INSERT, UPDATE, DELETE ON "fresh_secrets"."secret_records" TO "ns_app"'));
       assert.ok(grants.includes('GRANT SELECT ON "fresh_clock"."schema_migrations" TO "ns_app"'));
-      assert.equal(grants.length, 4 * 3 + 8);
+      assert.ok(grants.includes('GRANT SELECT, INSERT, UPDATE, DELETE ON "fresh_access"."management_session_requests" TO "ns_app"'));
+      assert.equal(grants.length, 4 * 3 + 9);
       // The independent oracle: both trees read back through the same lens.
       const expected = await operations.summarize(source.connection, catalogues());
       const actual = await operations.summarize(target.connection, catalogues(FRESH));
