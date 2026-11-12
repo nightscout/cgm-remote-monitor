@@ -58,7 +58,7 @@ async function fixture ({ recoveryIntervalMs = 20, authorizationRecheckMs = 6000
       try { await sleep(5); return await fn(); } finally { state.open--; }
     },
     current: () => true } : undefined;
-  protocol = protocolFactory.create({ admission, api, readCurrent, runtime: () => runtime, maxSockets: 2000, domains: ['entries'],
+  protocol = protocolFactory.create({ admission, api, readCurrent, runtime: () => runtime, domains: ['entries'],
     operationWindow, authorizationRecheckMs, retry: { minMs: 5, maxMs: 40 } });
   const detector = detectorFactory.create({
     readStamps: async list => new Map(list.map(t => [t, String(state.writes.get(t))])),

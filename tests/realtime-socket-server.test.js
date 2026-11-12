@@ -21,7 +21,7 @@ function realtime (port) {
   const protocol = protocolFactory.create({ admission, readCurrent: async tenant => ({ tenant, identity: 'same', env }),
     api: { executeSocketMutation: async () => ({ replyArgs: [] }),
       authorizeSocket: async () => ({ permissions: { read: true, write: false, write_treatment: false, ack: false }, collections: [] }) },
-    runtime: () => ({ refresh: async () => frame }), maxSockets: 1000, domains: ['entries'] });
+    runtime: () => ({ refresh: async () => frame }), domains: ['entries'] });
   const sockets = socketServer.attach(server, { protocol, admission, maxMessageBytes: 100000 });
   return new Promise(resolve => server.listen(port, '127.0.0.1', () => resolve({ server, protocol, sockets,
     async stop () { const t0 = Date.now(); protocol.close(); await sockets.close(); await new Promise(done => server.close(() => done())); return Date.now() - t0; } })));
