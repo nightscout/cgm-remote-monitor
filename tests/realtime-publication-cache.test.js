@@ -131,6 +131,27 @@ describe('bounded read-through and pinned atomic publication cache', function ()
     } finally { read.close(); observed.restore(); }
   });
 
+  it('PLACEMENT_FAILED_CONFIG: malformed pool credential encodings refuse before acquiring a placement descriptor', function () {
+    fs.writeFileSync(file, JSON.stringify(fixture.config())); const observed = observe(file);
+    const config = path.join(dir, 'operation.json'), roles = ['api', 'evaluator', 'realtime', 'tenant-admin'];
+    const value = { version: 2, namespace: 'synthetic_window', connectionEnv: 'SYNTHETIC_PG', locks: [{ tenant: fixture.A, key: '17' }], participantId: 'peer_0',
+      participants: roles.map((role, index) => ({ id: 'peer_' + index, roles: [role], namespaces: ['clinical_' + index], maxMessageBytes: 100000, timeoutMs: 1000 })) };
+    fs.writeFileSync(config, JSON.stringify(value));
+    const source = { MULTITENANT_OPERATION_CONFIG: config, MULTITENANT_REALTIME_PLACEMENT: file, NS_SERVE_INTERNAL_SOCKET: '/synthetic/api.sock',
+      ...Object.fromEntries(roles.slice(1).map(role => ['NS_' + role.toUpperCase().replace('-', '_') + '_INTERNAL_SOCKET', '/synthetic/' + role + '.sock'])) };
+    try {
+      // Confirm all other parser inputs actually admit the selected placement.
+      source.SYNTHETIC_PG = 'postgresql://synthetic:synthetic@127.0.0.1/disposable_test';
+      const loaded = require('../lib/server/serve/operation-cohort-config').load(source);
+      assert.equal(observed.fds.size, 1); loaded.placement.close(); assert.equal(observed.fds.size, 0);
+      for (const url of ['postgresql://%ZZ:synthetic@127.0.0.1/disposable_test', 'postgresql://synthetic:%ZZ@127.0.0.1/disposable_test', 'postgresql://synthetic:synthetic@127.0.0.1/%ZZ']) {
+        source.SYNTHETIC_PG = url;
+        assert.throws(() => require('../lib/server/serve/operation-cohort-config').load(source), /invalid explicit tenant operation configuration/);
+        assert.equal(observed.fds.size, 0, 'PLACEMENT_FAILED_CONFIG failed parser must retain no descriptor');
+      }
+    } finally { observed.restore(); }
+  });
+
   for (const failure of ['boot', 'shutdown', 'none']) it('PLACEMENT_CLOSE_' + failure + ': actual role composition closes the pinned reader on every exit', async function () {
     fs.writeFileSync(file, JSON.stringify(fixture.config())); const observed = observe(file);
     const placement = fixture.placement.load({ MULTITENANT_REALTIME_PLACEMENT: file }, { internal: fixture.internal });

@@ -11,6 +11,7 @@ const mutations = {
       const key = [stat.ino,stat.size,stat.mtimeMs,stat.ctimeMs].join(':');
       if (cached?.key === key) return cached.value;
       const value = reread(); cached = { key,value }; return value; };`],
+  'late-pool-decode': ['../../lib/server/serve/operation-cohort-config', 'const poolOptions = Object.freeze(', 'const poolOptions = () => Object.freeze('],
   'omit-reader-close': ['../../lib/server/realtime/contract', 'read.close = () => { state.closed = true; abandonedReaders.unregister(state); release(state); };', 'read.close = () => {};']
 };
 if (!Object.hasOwn(mutations, mode)) throw new Error('M7_CACHE_CONTROL_REQUIRED');
@@ -20,6 +21,11 @@ const original = Module.createRequire(filename), output = { exports: {} };
 // Load first so the actual module cache entry exists; then replace exports only
 // inside this disposable test process with the source-derived ablation.
 require(filename);
-vm.runInThisContext('(function(require,module,exports){' + source.replace(before, after) + '\n})', { filename })(original, output, output.exports);
+let changed = source.replace(before, after);
+if (mode === 'late-pool-decode') {
+  if (changed.split('poolOptions});').length !== 2) throw new Error('M7_CACHE_CONTROL_SOURCE_MISMATCH');
+  changed = changed.replace('poolOptions});', 'poolOptions:poolOptions()});');
+}
+vm.runInThisContext('(function(require,module,exports){' + changed + '\n})', { filename })(original, output, output.exports);
 require.cache[filename].exports = output.exports;
 console.log(JSON.stringify({ control: mode, sourceSha256: crypto.createHash('sha256').update(source).digest('hex'), mutationApplied: true }));
