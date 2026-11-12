@@ -3,8 +3,8 @@ const assert=require('node:assert/strict'),fs=require('node:fs'),os=require('nod
 const inspection=require('../lib/server/serve/evaluator-inspection');
 const transport=require('../lib/server/internal-api/transport'),service=require('../lib/server/internal-api/contracts').evaluatorInspection;
 const A='11111111-1111-4111-8111-111111111111';
-function fixture(){
- const ids=Array.from({length:10000},(_,i)=>String(i).padStart(8,'0')+'-1111-4111-8111-111111111111');
+function fixture(count=10000){
+ const ids=Array.from({length:count},(_,i)=>String(i).padStart(8,'0')+'-1111-4111-8111-111111111111');
  let visited=0;const map=new Map(ids.map(id=>[id,true]));
  const tenants=new Proxy(map,{get(target,key){if(['keys','values','entries',Symbol.iterator].includes(key))return()=>{throw new Error('FULL_REGISTRY_ITERATION');};return typeof target[key]==='function'?target[key].bind(target):target[key];}});
  const row=tenant=>({tenant,ready:true,code:null,cycles:5,outputRevision:1,inputCheckpoint:0,evaluatedAgeMs:1,alert:null,progress:{generation:1,completedAcquisitions:1,completedTimeCycles:4,lastCompletedAgeMs:1,failedCompletions:0}});
@@ -34,6 +34,10 @@ describe('bounded evaluator inspection v2',function(){
    const client=transport.client(endpoint,service);
    assert.deepEqual((await client.inspectEvaluator({tenants:[]})).tenants,[]);
    const dto=await client.inspectEvaluator({tenants:[f.ids[9999]]});assert.equal(dto.tenants[0].tenant,f.ids[9999]);
+   const empty=fixture(0),emptyDir=path.join(dir,'empty.sock');
+   const emptyEndpoint={...endpoint,socketPath:emptyDir};
+   const emptyListener=await transport.compose(emptyEndpoint,[{service,create:()=>({inspectEvaluator:(context,body)=>empty.inspect(body)})}]);
+   try { const dto=await transport.client(emptyEndpoint,service).inspectEvaluator({tenants:[]});assert.equal(dto.configured.configuredTenants,0);assert.deepEqual(dto.tenants,[]); } finally { await emptyListener.close(); }
    const old=transport.client(endpoint,{...service,version:1});await assert.rejects(old.inspectEvaluator({tenants:[]}),/SOCKET_IPC_UNAVAILABLE/);
   }finally{await listener?.close();fs.rmSync(dir,{recursive:true,force:true});}
  });

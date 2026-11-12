@@ -15,13 +15,15 @@ async function until(fn){for(let i=0;i<2000;i++){if(await fn())return;await dela
 optInSuite(process.env.NS_EVALUATOR_JOB_DOCKER_TEST==='1','NS_EVALUATOR_JOB_DOCKER_TEST=1')('native trusted evaluator jobs with one physical lifetime client',function(){
  this.timeout(60000);
  const container='ns-evaluator-job-'+crypto.randomBytes(6).toString('hex'),control='job_control',outbox='job_outbox';
- let owned=false,admin,pool,window,connection,release,runtime,consumers,oldMode,clinicalJobs,deliveryJobs;
+ let owned=false,admin,pool,window,connection,release,runtime,consumers,oldMode,clinicalJobs,deliveryJobs;let volumes=[];
  const effects=[];let requested=false,paused=false,allowTimers=true;
  const q=name=>'"'+name+'"';
  before(async function(){
   const password=crypto.randomBytes(24).toString('hex');
   execFileSync('docker',['run','--name',container,'--label','nightscout.test=evaluator-trusted-jobs','-d','-p','127.0.0.1::5432','-e','POSTGRES_USER=bootstrap','-e','POSTGRES_PASSWORD='+password,'-e','POSTGRES_DB=evaluator_job_test',IMAGE],{stdio:'pipe'});owned=true;
-  const port=JSON.parse(execFileSync('docker',['inspect',container],{encoding:'utf8'}))[0].NetworkSettings.Ports['5432/tcp'][0].HostPort;
+  const inspected=JSON.parse(execFileSync('docker',['inspect',container],{encoding:'utf8'}))[0];
+  const port=inspected.NetworkSettings.Ports['5432/tcp'][0].HostPort;
+  volumes=inspected.Mounts.filter(row=>row.Type==='volume').map(row=>row.Name);
   const uri='postgres://bootstrap:'+password+'@127.0.0.1:'+port+'/evaluator_job_test';
   for(let i=0;i<100;i++){try{admin=new Client({connectionString:uri});await admin.connect();break;}catch{await admin?.end().catch(()=>{});admin=null;await delay(100);}}
   assert(admin,'owned PostgreSQL ready');
@@ -75,7 +77,7 @@ optInSuite(process.env.NS_EVALUATOR_JOB_DOCKER_TEST==='1','NS_EVALUATOR_JOB_DOCK
    try{await close();}catch(error){errors.push(error);}
   }
   clinicalJobs?.close();deliveryJobs?.close();if(oldMode)scope.setTenancyMode(oldMode);
-  if(owned)try{execFileSync('docker',['rm','-f','-v',container],{stdio:'pipe'});assert.equal(spawnSync('docker',['inspect',container],{stdio:'pipe'}).status,1,'OWNED_NATIVE_CONTAINER_REMOVED');console.log('NATIVE_JOB_CLEANUP '+JSON.stringify({containerRemoved:true,anonymousVolumesRemoved:true,image:IMAGE}));}catch(error){errors.push(error);}
+  if(owned)try{execFileSync('docker',['rm','-f','-v',container],{stdio:'pipe'});assert.equal(spawnSync('docker',['inspect',container],{stdio:'pipe'}).status,1,'OWNED_NATIVE_CONTAINER_REMOVED');for(const volume of volumes)assert.equal(spawnSync('docker',['volume','inspect',volume],{stdio:'pipe'}).status,1,'OWNED_NATIVE_VOLUME_REMOVED');console.log('NATIVE_JOB_CLEANUP '+JSON.stringify({containerRemoved:true,anonymousVolumesRemoved:true,image:IMAGE}));}catch(error){errors.push(error);}
   if(errors.length)throw new AggregateError(errors,'Native scheduler fixture cleanup failed');
  });
  it('commits revision intents and accepted handoffs, repeats, and makes time-only progress without writes',async function(){
@@ -97,6 +99,8 @@ optInSuite(process.env.NS_EVALUATOR_JOB_DOCKER_TEST==='1','NS_EVALUATOR_JOB_DOCK
   const completed=runtime.health([A]).tenants[0].progress.completedAcquisitions;
   await window.run(A,async()=>{
    await Promise.all([runtime.acquire(A),runtime.acquire(A)]);
+   await Promise.all([runtime.acquire(A),runtime.wake(A)]);
+   await Promise.all([runtime.acquire(A),runtime.backstop([A])]);
    await Promise.all([consumers.wake(A),consumers.wake(A)]);
    assert.equal(runtime.health([A]).tenants[0].progress.completedAcquisitions,completed,'BORROWED_RUNTIME_CALLS_GET_NO_FRESH_CREDIT');
    const pending=async()=> (await admin.query('SELECT operation_id FROM '+q(control)+'.tenant_lifecycle_operations WHERE NOT finished ORDER BY operation_id')).rows;

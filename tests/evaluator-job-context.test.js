@@ -89,6 +89,8 @@ describe('trusted evaluator scheduling contexts (recording lifetime protocol)',f
     try{
       const initial=r.health([A]).tenants[0].progress.completedAcquisitions;
       await f.window.run(A,()=>Promise.all([r.acquire(A),r.acquire(A)]));
+      await f.window.run(A,()=>Promise.all([r.acquire(A),r.wake(A)]));
+      await f.window.run(A,()=>Promise.all([r.acquire(A),r.backstop([A])]));
       assert.equal(r.health([A]).tenants[0].progress.completedAcquisitions,initial,'BORROWED_CALLS_DO_NOT_EARN_OWNED_CREDIT');
       const cycles=r.health([A]).tenants[0].cycles;
       await assert.rejects(f.window.run(B,()=>r.acquire(A)),/SCOPE_INVALID/);
@@ -102,6 +104,17 @@ describe('trusted evaluator scheduling contexts (recording lifetime protocol)',f
       await independent;await r.acquire(A);
       assert.equal(r.health([A]).tenants[0].progress.completedAcquisitions,initial+1);
     }finally{await r.close();await f.window.close();}
+  });
+  it('preserves explicit consumer wake rejection when its activity port fails, then progresses after recovery',async function(){
+    let broken=true;const activity={check:async()=>{if(broken)throw new Error('SYNTHETIC_ACTIVITY_UNAVAILABLE');return{eligible:true};}};
+    const previous=scope.getTenancyMode();scope.setTenancyMode('multi');
+    const q=await require('./fixtures/evaluator-consumers-protocol')(undefined,{activity});
+    try{
+      q.consumers.start();await sleep(1);
+      await assert.rejects(q.consumers.wake(q.A),/SYNTHETIC_ACTIVITY_UNAVAILABLE/);
+      broken=false;await q.consumers.wake(q.A);await q.consumers.flush(q.A);
+      assert(q.effects.length>0,'RECOVERED_CONSUMER_HANDOFF');
+    }finally{await q.close();scope.setTenancyMode(previous);}
   });
   it('selects runtime health without walking the full tenant map or alert census',async function(){
     const tenants=Array.from({length:1024},(_,i)=>String(i).padStart(8,'0')+'-1111-4111-8111-111111111111');

@@ -7,7 +7,7 @@ const coordinate = require('../../lib/server/serve/evaluator-consumers').coordin
 const notifications = require('./tenant-notifications');
 const alarms = require('./tenant-alarm-protocol');
 const A = alarms.A, B = alarms.B;
-module.exports = async function protocol (send, {operationWindow, pool} = {}) {
+module.exports = async function protocol (send, {operationWindow, pool, activity} = {}) {
   const alarm = alarms(), files = new Map([[A, notifications()], [B, notifications()]]);
   const clinicalTimers = [], consumerTimers = [], cancelled = [], effects = [], refusal = new Set();
   const configs = new Map([A, B].map(tenant => [tenant, { tenant, identity: '1'.repeat(64) }]));
@@ -30,7 +30,7 @@ module.exports = async function protocol (send, {operationWindow, pool} = {}) {
     if (send) send(request, callback);
     else callback(null, { accepted: true, receipt: null, clearedRequestIds: [] });
   } };
-  const consumers = coordinate({ jobContext: operationWindow ? jobs.create('delivery') : undefined, operationWindow, pool, tenants: [A, B], route: adapter.id, current: runtime.last, currentConfig:async tenant=>configs.get(tenant), isCurrent: runtime.isCurrent,
+  const consumers = coordinate({ jobContext: operationWindow ? jobs.create('delivery') : undefined, operationWindow, pool, activity, tenants: [A, B], route: adapter.id, current: runtime.last, currentConfig:async tenant=>configs.get(tenant), isCurrent: runtime.isCurrent,
     store, reader: alarm.reader, adapter, now: () => files.get(A).now(), maxRows: 10, maxBytes: 100000, maxPayloadBytes: 10000,
     maxInflight: 2, attemptTimeoutMs: 60000, retryDelayMs: 1, pollIntervalMs: 100, retryIntervalMs: 200,
     schedule (fn, interval) { const timer = { fn, interval }; consumerTimers.push(timer); return timer; }, cancel: timer => cancelled.push(timer) });
