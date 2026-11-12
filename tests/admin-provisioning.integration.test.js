@@ -135,6 +135,9 @@ optInSuite(enabled(), 'disposable NS_TEST_POSTGRES_ADMIN_URI and NS_VAULT_DOCKER
     const closed = await freePort();
     assert.equal((await cli(['admin', 'provision', '--id', randomUUID(), '--host', 'z.example.test', '--url', 'http://127.0.0.1:' + closed])).code, 69);
     const loose = path.join(dir, 'loose.jsonl'); fs.writeFileSync(loose, '', { mode: 0o644 });
+    // Creation mode is filtered by the runner umask; make the refusal input explicit.
+    fs.chmodSync(loose, 0o644);
+    assert.equal(fs.statSync(loose).mode & 0o777, 0o644, 'the unsafe fixture is effectively mode 0644');
     assert.equal((await cli(['admin', 'provision', '--id', randomUUID(), '--host', 'loose.example.test', '--url', base, '--secrets-out', loose])).code, 64, 'a group- or world-readable secrets file is refused');
   });
 });
