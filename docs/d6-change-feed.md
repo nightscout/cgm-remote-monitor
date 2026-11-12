@@ -26,8 +26,14 @@ PostgreSQL must use `wal_level=logical`, sufficient slot capacity and a finite
 `max_slot_wal_keep_size` between 1 and 1024 MB. The reader checks those resource
 settings, its login authority, wrapper exact body/security/owner/config/grants,
 publication exact table set/filter/DML shape and slot database/plugin/WAL status.
-Only clock and activity rows are decoded, never clinical records, secrets or audit
-bodies. Relation columns/types are checked before a hint is emitted. Changes to
+The default publication contains clock and activity metadata. Optionally select
+`settingsNamespace` and `policyNamespace` together in reader config and
+`provision()`: these add exact column lists `tenant_settings(tenant_id,version)`
+and `tenant_operator_policy(tenant_id,generation)`. Their wrapper owner receives
+column SELECT only; readiness rejects plaintext-column grants, changed projections
+or row filters. Settings/policy values and clinical/secret/audit bodies never enter
+the publication. Configuration hints prompt current authoritative settings reads
+without advancing or reusing the clinical write clock. Relation columns/types are checked before a hint is emitted. Changes to
 those catalogues require explicit source/provisioning updates.
 
 Reader defaults: `pollMs=50`, `heartbeatMs=1000`, `targetChanges=128`,
@@ -85,3 +91,15 @@ EXECUTE-only authority, complete-transaction handling, notification/ACK loss,
 listener reconnect, reader outage, activity changes without data writes, other-tenant
 progress, metadata tamper refusals and post-decode oversize refusal. The native
 schema is synthetic: this is not full clinical/restore/deployment acceptance.
+
+Registry consumers can start empty and admit later provisioned tenants. Admission
+prepares settings, checkpoints and owned startup resources before registry-visible
+activation; failed preparation retries independently of registry revision. Removal
+hides the tenant before timer/queue cancellation and asynchronous component drain.
+The consumer's explicit add/remove roster methods update its paging cursor and
+coalesced dirty queue; hints and retries do not reconstruct the full roster.
+Focused live-admission controls are in `tests/tenant-live-add.test.js` and
+`NS_TENANT_LIVE_ADD_TEST=1` `tests/tenant-live-add.integration.test.js` (owned
+PostgreSQL and Vault). Native clinical alarm computation and frame computation are
+covered; external alarm delivery, deployment acceptance and capacity remain the
+joined candidate's acceptance boundary.

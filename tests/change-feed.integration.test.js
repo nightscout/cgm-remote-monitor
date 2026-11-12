@@ -169,7 +169,7 @@ suite('D6 native metadata feed, privilege and failure controls', function () {
     await reader.pass();assert.equal((await store.peek()).length,0);
   });
   it('signals settings and policy metadata promptly without plaintext feed grants or a data-clock write', async function () {
-    const crypto=require('node:crypto');let settingsStore,settingsReader,settingsConsumer,rt;
+    const crypto=require('node:crypto');let settingsStore,settingsReader,settingsConsumer,rt,evalRuntime;
     await admin.query(`CREATE SCHEMA settings_meta;CREATE SCHEMA policy_meta;CREATE SCHEMA feed_config;
       CREATE TABLE settings_meta.tenant_settings(tenant_id uuid PRIMARY KEY,version integer NOT NULL,values jsonb NOT NULL);
       CREATE TABLE policy_meta.tenant_operator_policy(tenant_id uuid PRIMARY KEY,generation integer NOT NULL,policy jsonb NOT NULL);
@@ -199,17 +199,20 @@ suite('D6 native metadata feed, privilege and failure controls', function () {
       rt=await require('../lib/server/realtime/runtime')({tenants:[B],eventDriven:true,recoveryIntervalMs:1000,schedule:()=>null,cancel:()=>{},concurrency:1,
         readCurrent:current,create:ctx=>({acquire:async()=>({checkpoint:6,frame:ctx.row})}),fanout:async row=>frame.push(row.next.frame),
         detect:async tenants=>new Map(await Promise.all(tenants.map(async tenant=>[tenant,{identity:(await current(tenant))?.identity,stamp:6}])))});
+      evalRuntime=await require('../lib/server/serve/evaluator-runtime')({tenants:[B],externalRecovery:true,recoveryIntervalMs:1000,timeIntervalMs:1000,
+        schedule:()=>null,cancel:()=>{},setTimer:()=>null,clearTimer:()=>{},readCurrent:current,
+        create:async ctx=>({evaluate:async()=>({checkpoint:6,signature:{stamp:6,deleted:0},properties:ctx.row}),close:()=>{}})});
       settingsConsumer=consumerFactory.create({config:{...baseConfig(),channel:doc.channel,pageSize:1,degradedPages:1},tenants:[A,B],schedule:()=>null,cancel:()=>{},alert:()=>{},
-        connect:async()=>{const client=new Client({connectionString:source('serving')});await client.connect();return client;},check:tenants=>rt.check(tenants.filter(t=>t===B))});
+        connect:async()=>{const client=new Client({connectionString:source('serving')});await client.connect();return client;},check:async tenants=>{const selected=tenants.filter(t=>t===B);await rt.check(selected);await evalRuntime.backstop(selected);}});
       await settingsConsumer.start();settingsReader=readerFactory.create({config:selected,store:settingsStore,schedule:()=>null,cancel:()=>{},alert:()=>{}});
       await settingsReader.pass();await sleep(20);await settingsConsumer.tick();
       const clockBefore=(await admin.query('SELECT last_stamp::text FROM clock.tenant_write_clock WHERE tenant_id=$1',[B])).rows[0].last_stamp;
       const hintsBefore=settingsConsumer.health().hints,start=Date.now();
       await admin.query('UPDATE settings_meta.tenant_settings SET version=2,values=$2 WHERE tenant_id=$1',[B,{DISPLAY_UNITS:'mmol'}]);
       await settingsReader.pass();await sleep(20);assert.ok(settingsConsumer.health().hints>hintsBefore,'D6_SETTINGS_HINT');await settingsConsumer.tick();
-      assert.equal(frame.at(-1).version,2,'D6_SETTINGS_ONLY_FRAME');
+      assert.equal(frame.at(-1).version,2,'D6_SETTINGS_ONLY_FRAME');assert.equal(evalRuntime.last(B).result.properties.version,2,'D6_SETTINGS_ONLY_EVALUATOR');
       await admin.query('UPDATE policy_meta.tenant_operator_policy SET generation=2 WHERE tenant_id=$1',[B]);
-      const policyHints=settingsConsumer.health().hints;await settingsReader.pass();await sleep(20);assert.ok(settingsConsumer.health().hints>policyHints,'D6_POLICY_HINT');await settingsConsumer.tick();assert.equal(frame.at(-1).generation,2,'D6_POLICY_ONLY_FRAME');
+      const policyHints=settingsConsumer.health().hints;await settingsReader.pass();await sleep(20);assert.ok(settingsConsumer.health().hints>policyHints,'D6_POLICY_HINT');await settingsConsumer.tick();assert.equal(frame.at(-1).generation,2,'D6_POLICY_ONLY_FRAME');assert.equal(evalRuntime.last(B).result.properties.generation,2,'D6_POLICY_ONLY_EVALUATOR');
       assert.equal((await admin.query('SELECT last_stamp::text FROM clock.tenant_write_clock WHERE tenant_id=$1',[B])).rows[0].last_stamp,clockBefore);
       console.log('D6_CONFIG_SIGNAL_MS',Date.now()-start);
       // Lost config hint is recovered by the same bounded authoritative pages.
@@ -221,7 +224,7 @@ suite('D6 native metadata feed, privilege and failure controls', function () {
       await admin.query('ALTER PUBLICATION d6_config_pub SET TABLE '+original.replace('tenant_id,version)','tenant_id)'));
       await assert.rejects(settingsStore.peek(),error=>error.code==='FEED_PUBLICATION_UNSAFE');await admin.query('ALTER PUBLICATION d6_config_pub SET TABLE '+original);
       await settingsReader.pass();assert.equal(settingsReader.health().degraded,false);
-    }finally{await settingsConsumer?.close();await settingsReader?.close();if(!settingsReader)await settingsStore?.close();await rt?.close();}
+    }finally{await settingsConsumer?.close();await settingsReader?.close();if(!settingsReader)await settingsStore?.close();await rt?.close();await evalRuntime?.close();}
     function baseConfig(){return {channel:doc.channel,pageSize:1,degradedPages:1,intervalMs:10,heartbeatTimeoutMs:100};}
   });
   it('boots and gracefully stops the dedicated feed-reader CLI role', async function () {

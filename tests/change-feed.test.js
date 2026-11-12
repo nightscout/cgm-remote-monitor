@@ -56,6 +56,17 @@ describe('D6 bounded signalling', function () {
       f.client.emit('end'); await f.instance.tick(); assert.equal(f.order.filter(v=>v.startsWith('LISTEN')).length,2);
     } finally { await f.instance.close(); }
   });
+  it('adds/removes a dynamic roster without stale hints and recovers a newly added tenant after listener loss', async function () {
+    const f=consumer([],{dynamic:true,maxTenants:2});
+    try{
+      await f.instance.start();f.instance.addTenant(A);f.instance.addTenant(B);
+      assert.throws(()=>f.instance.addTenant('aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa'),/refused/);
+      f.client.emit('end');await f.instance.tick();
+      assert.ok(f.checks.flat().includes(A),'LIVE_NEW_TENANT_RECONNECT_PAGE');await f.instance.tick();assert.ok(f.checks.flat().includes(B),'LIVE_NEW_TENANT_LOST_HINT_PAGE');
+      f.instance.removeTenant(A);f.checks.length=0;f.client.emit('notification',message('data',A));
+      await f.instance.tick();await f.instance.tick();assert.ok(f.checks.flat().every(t=>t===B),'LIVE_REMOVED_TENANT_NOT_RECONCILED');
+    }finally{await f.instance.close();}
+  });
   it('never advances after decode/notification refusal; notification commit precedes acknowledgement', async function () {
     // An empty batch exercises heartbeat without any advancing; malformed input
     // is a real decoder refusal, not a connection/setup failure.
