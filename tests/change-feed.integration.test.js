@@ -12,7 +12,8 @@ const consumerFactory = require('../lib/change-feed/consumer');
 const A = '11111111-1111-4111-8111-111111111111', B = '22222222-2222-4222-8222-222222222222';
 const IMAGE = 'postgres@sha256:5db6dac2ef5dcff512f4f00a009c3c332b9f2f28f24277175bf3e4a3d02ef83a';
 const sleep = ms => new Promise(resolve=>setTimeout(resolve,ms));
-const suite = process.env.NS_D6_FEED_TEST === '1' ? describe : describe.skip;
+const { optInSuite } = require('./support/opt-in');
+const suite = optInSuite(process.env.NS_D6_FEED_TEST === '1', 'NS_D6_FEED_TEST=1');
 suite('D6 native metadata feed, privilege and failure controls', function () {
   this.timeout(30000);
   let container, admin, serving, store, reader, consumer, source, config, seen, reads, listeners, alerts, killCommit=false;
