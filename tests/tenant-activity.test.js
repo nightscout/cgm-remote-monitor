@@ -265,7 +265,7 @@ describe('realtime sockets under pause and suspend (actual protocol and runtime,
     const api = { executeSocketMutation: async () => ({ replyArgs: [{ result: 'success' }] }),
       authorizeSocket: async () => ({ permissions: { read: true, write: true, write_treatment: true, ack: true }, collections: ['entries'] }) };
     protocol = require('../lib/server/realtime/protocol').create({ admission: { resolve: async req => { const t = hosts[req.headers.host]; if (!t) throw new Error('UNKNOWN'); return t; } },
-      api, readCurrent, runtime: () => runtime, maxSockets: 10, domains: ['entries'] });
+      api, readCurrent, runtime: () => runtime, domains: ['entries'] });
     runtime = await require('../lib/server/realtime/runtime')({ tenants: [A, B], readCurrent, recoveryIntervalMs: 100,
       create: selected => ({ acquire: async () => ({ tenant: selected.tenant, checkpoint: writes.get(selected.tenant), rows: [],
         frame: { delta: false, lastUpdated: 1000, sgvs: Array.from({ length: writes.get(selected.tenant) }, (_, i) => ({ mgdl: 100 + i, mills: 1000 + i })) } }) }),

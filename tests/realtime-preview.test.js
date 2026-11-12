@@ -42,7 +42,7 @@ async function fixture () {
     if (state.holdAuthority) { const held = state.holdAuthority; state.holdAuthority = null; held.entered.resolve(); await held.release.promise; }
     return { permissions: { read, write: read, write_treatment: read, ack: read }, collections: read ? ['entries', 'treatments'] : [] };
   } };
-  const protocol = protocolFactory.create({ admission, api, readCurrent, runtime: () => runtime, maxSockets: 10, domains: ['entries', 'treatments'] });
+  const protocol = protocolFactory.create({ admission, api, readCurrent, runtime: () => runtime, domains: ['entries', 'treatments'] });
   const schedule = {};
   runtime = await runtimeFactory({ tenants: [A, B], readCurrent,
     create: selected => ({ acquire: async () => ({ tenant: selected.tenant, checkpoint: 0, rows: structuredClone(state.rows),
@@ -62,7 +62,7 @@ describe('explicit realtime preview source contracts', function () {
     const value = { version: 1, postgres: { connectionEnv: 'RT_DB', namespaces: Object.fromEntries(['entries','treatments','devicestatus','profile','food','activity','clock','checkpoint'].map(k => [k, 'rt_' + k])) },
       consumer: 'realtime-test', pageSize: 1, maxRows: 10, maxBytes: 10000, maxTenants: 2, recoveryIntervalMs: 100,
       tenants: [{ id: A, revision: 'v1', settings: { enable: ['bgnow'] } }], admissionFileEnv: 'RT_ADMISSION',
-      maxMessageBytes: 10000, operationTimeoutMs: 1000, maxSockets: 10 };
+      maxMessageBytes: 10000, operationTimeoutMs: 1000 };
     const source = { RT_DB: 'postgres://synthetic:synthetic@127.0.0.1/disposable_test', RT_ADMISSION: '/tmp/admission.json', NS_API_INTERNAL_SOCKET: '/tmp/a.sock' };
     const selected = parse(value, source);
     assert.equal(selected.consumer, 'realtime-test'); assert.equal(selected.tenants.get(A).tenant, A);
@@ -71,7 +71,10 @@ describe('explicit realtime preview source contracts', function () {
     for (const retired of [{ apiSocketPathEnv: 'API_SOCKET' }, { alarmSocketPathEnv: 'RT_SOCKET' }, { apiEndpoint: { urlEnv: 'API', trust: 'network' } }]) {
       assert.throws(() => parse({ ...value, ...retired }, source), /REFUSED/, 'per-contract endpoint keys are retired');
     }
-    for (const mutate of [v => { v.consumer = 'evaluator-shared'; }, v => { v.maxSockets = 0; }, v => { v.maxBytes = undefined; }, v => { v.postgres.namespaces.entries = 'public'; }]) {
+    // Decision realtime-no-socket-cap: a file that still sets maxSockets is refused with its own code.
+    assert.throws(() => parse({ ...value, maxSockets: 2000 }, source), error => error.code === 'REALTIME_CONFIG_MAX_SOCKETS_REMOVED' && /remove maxSockets/.test(error.message),
+      'RT_MAX_SOCKETS_REMOVED');
+    for (const mutate of [v => { v.consumer = 'evaluator-shared'; }, v => { v.unauthorizedDeadlineMs = 0; }, v => { v.maxBytes = undefined; }, v => { v.postgres.namespaces.entries = 'public'; }]) {
       const bad = structuredClone(value); mutate(bad); assert.throws(() => parse(bad, source));
     }
     assert.throws(() => require('../lib/server/realtime/config').load({}), /REFUSED|configuration/);
