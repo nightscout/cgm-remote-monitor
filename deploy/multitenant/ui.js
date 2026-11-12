@@ -25,9 +25,12 @@ function hostname(value) {
   return value;
 }
 
+// The preview's one tenant ceiling (lib/server/serve/tenant-ceiling.js).
+const { PREVIEW_MAX_TENANTS } = require('../../lib/server/serve/tenant-ceiling');
+
 function parseConfig(value) {
   if (!exact(value, ['version', 'tenants']) || value.version !== 1 ||
-      !Array.isArray(value.tenants) || !value.tenants.length || value.tenants.length > 1000) {
+      !Array.isArray(value.tenants) || !value.tenants.length || value.tenants.length > PREVIEW_MAX_TENANTS) {
     throw new TypeError('UI_PUBLIC_CONFIG_INVALID');
   }
   const hosts = new Map();
@@ -114,16 +117,25 @@ function createApp({ config, root = ROOT } = {}) {
 
 function main(env = process.env) {
   if (!env.UI_PUBLIC_CONFIG) throw new Error('UI_PUBLIC_CONFIG_REQUIRED');
-  const bytes = fs.readFileSync(env.UI_PUBLIC_CONFIG);
-  if (bytes.length > 1048576) throw new Error('UI_PUBLIC_CONFIG_TOO_LARGE');
-  const app = createApp({ config: JSON.parse(bytes.toString('utf8')) });
+  // The core's bounded reader: MULTITENANT_CONFIG_MAX_BYTES (default 1 MiB),
+  // checked on size and on the bytes read; refusals carry a stable code.
+  const config = require('../../lib/server/serve/config-file').readJson(env.UI_PUBLIC_CONFIG, { source: env, label: 'UI_PUBLIC_CONFIG' });
+  const app = createApp({ config });
   const port = env.UI_PORT === undefined ? 1340 : Number(env.UI_PORT);
   if (!Number.isInteger(port) || port < 1 || port > 65535) throw new Error('UI_PORT_INVALID');
   const server = app.listen(port, env.UI_HOSTNAME || '0.0.0.0');
   for (const signal of ['SIGINT', 'SIGTERM']) process.once(signal, () => server.close(() => process.exit(0)));
   return server;
 }
-if (require.main === module) {
-  try { main(); } catch { process.stderr.write('UI_STARTUP_REFUSED\n'); process.exitCode = 78; }
+// The refusal line names the stable cause code and, for the bounded reader, its
+// message (sizes, limit, errno); never the configuration's contents or path.
+function refusal(error) {
+  const code = typeof error?.code === 'string' && /^[A-Z][A-Z0-9_]{0,63}$/.test(error.code) ? error.code
+    : typeof error?.message === 'string' && /^[A-Z][A-Z0-9_]{0,63}$/.test(error.message) ? error.message : 'UI_STARTUP_FAILED';
+  const detail = require('../../lib/server/serve/config-file').isRefusal(error) ? ': ' + error.message : '';
+  return 'UI_STARTUP_REFUSED: ' + code + detail + '\n';
 }
-module.exports = { parseConfig, requestHost, createApp, main, PAGES };
+if (require.main === module) {
+  try { main(); } catch (error) { process.stderr.write(refusal(error)); process.exitCode = 78; }
+}
+module.exports = { parseConfig, requestHost, createApp, main, refusal, PAGES };

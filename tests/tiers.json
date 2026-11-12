@@ -93,6 +93,8 @@
         "tests/tenant-insertion-readiness.test.js",
         "tests/tenant-operation-window.test.js",
         "tests/pool-config.test.js",
+        "tests/multitenant-config-bound.test.js",
+        "tests/realtime-warm-retry.test.js",
         "tests/tenant-readiness.test.js",
         "tests/preview-domains-equivalence.test.js",
         "tests/write-boundary-clock.test.js",

@@ -88,6 +88,10 @@ describe('admin role: operator configuration', function () {
     try {
       const file = path.join(dir, 'config.json');
       fs.writeFileSync(file, '{"version":1');
+      // The bounded reader names the cause (lib/server/serve/config-file.js).
+      assert.throws(() => adminConfig.load({ MULTITENANT_ADMIN_CONFIG: file, ...SOURCE }),
+        error => error instanceof PreviewConfigError && error.code === 'CONFIG_FILE_INVALID_JSON' && /MULTITENANT_ADMIN_CONFIG is not valid JSON/.test(error.message));
+      fs.writeFileSync(file, JSON.stringify({ version: 1 }));
       assert.throws(() => adminConfig.load({ MULTITENANT_ADMIN_CONFIG: file, ...SOURCE }), /invalid explicit admin operator configuration/);
       fs.writeFileSync(file, JSON.stringify(valid()));
       assert.equal(adminConfig.load({ MULTITENANT_ADMIN_CONFIG: file, ...SOURCE }).ownership.namespace, 'nsadm_authorization');

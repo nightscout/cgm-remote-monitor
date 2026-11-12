@@ -117,4 +117,34 @@ describe('registry-mode role configuration', function () {
     const entry = evaluatorConfig.registryEntry(randomUUID());
     assert.equal(entry.revision, 'registry'); assert.match(entry.identity, /^[0-9a-f]{64}$/);
   });
+
+  it('RC_LOAD_PATH: through the bounded reader, each loader keeps the registry refusal and the reader keeps its cause code', function () {
+    // Joins MT-CAPACITY-FIXES (lib/server/serve/config-file.js) with registry mode: the
+    // registry refusal must not collapse into the generic refusal, and an oversized file
+    // must still name CONFIG_FILE_TOO_LARGE.
+    const adminConfig = require('../lib/server/serve/admin-config');
+    const ownerConfig = require('../lib/server/serve/owner-preview-config');
+    const evaluatorConfig = require('../lib/server/serve/evaluator-config');
+    const domains = require('../lib/data/tenant-projection-evaluator').domains;
+    const ownership = { connectionEnv: 'APP_PG', namespace: 'ns_auth', lifecycleNamespace: 'ns_control', operator: { principal: 'op', consumer: 'admin' }, registry: { namespace: 'ns_registry' } };
+    const owner = { version: 1, postgres: { writerConnectionEnv: 'APP_PG', accessConnectionEnv: 'CHECK_PG', namespaces: { authorization: 'ns_auth', credentials: 'ns_legacy', access: 'ns_access' } },
+      resolution: { mode: 'direct-alias' }, registry: { namespace: 'ns_registry' }, ownerPolicy: { catalogue: ['*'] },
+      management: { issuer: 'i', audience: 'a', purpose: 'management', consumer: 'owner' } };
+    const evaluator = { version: 1, postgres: { connectionEnv: 'APP_PG', namespaces: { ...Object.fromEntries(domains.map(d => [d, 'ns_' + d])), clock: 'ns_clock', checkpoint: 'ns_checkpoint' } },
+      consumer: 'evaluator-registry-lab', pageSize: 100, maxRows: 1000, maxBytes: 1048576, maxTenants: 10000, recoveryIntervalMs: 1000, timeIntervalMs: 1000,
+      registry: { namespace: 'ns_registry' }, tenantSettings: { connectionEnv: 'SETTINGS_PG', namespaces: { settings: 'ns_tsettings', operatorPolicy: 'ns_tpolicy' } } };
+    const cases = [
+      ['api', previewConfig.load, 'MULTITENANT_PREVIEW_CONFIG', apiConfig(), { tenants: [{ id: randomUUID(), aliases: ['one.example.test'] }] }],
+      ['admin', adminConfig.load, 'MULTITENANT_ADMIN_CONFIG', { version: 1, maxBytes: 65536, timeoutMs: 10000, ownership }, null],
+      ['tenant-admin', ownerConfig.load, 'MULTITENANT_OWNER_PREVIEW_CONFIG', owner, { tenants: [{ id: randomUUID(), aliases: ['one.example.test'] }] }],
+      ['evaluator', evaluatorConfig.load, 'MULTITENANT_EVALUATOR_CONFIG', evaluator, { tenants: [{ id: randomUUID(), revision: 'r', settings: {} }] }]
+    ];
+    for (const [role, loader, name, base, extra] of cases) {
+      const listed = extra ? { ...base, ...extra } : { ...base, ownership: { ...ownership, tenants: [randomUUID()] } };
+      assert.throws(() => load(listed, loader, name), /registry configuration refuses a tenants list/, role + ' keeps the registry refusal through load');
+      const big = { ...base, padding: 'x'.repeat(70000) };
+      assert.throws(() => load(big, source => loader({ ...source, MULTITENANT_CONFIG_MAX_BYTES: '65536' }), name),
+        error => error.code === 'CONFIG_FILE_TOO_LARGE', role + ' keeps the bounded reader cause code');
+    }
+  });
 });
