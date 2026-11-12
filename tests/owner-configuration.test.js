@@ -254,7 +254,9 @@ describe('owner configuration serving source composition', function () {
       const loaded = new Module(file, module); loaded.filename = file; loaded.paths = Module._nodeModulePaths(path.dirname(file));
       const original = loaded.require.bind(loaded);
       loaded.require = name => name === './effective-postgres' ? () => new Promise(resolve => { release = resolve; }) : original(name);
-      loaded._compile(broken ? source.replace(needle, '') : source, file);
+      // Both initialization and active-read drains now protect late pool cleanup.
+      const mutant = source.replace(needle, '').replace('await Promise.allSettled([...reads]);', '');
+      loaded._compile(broken ? mutant : source, file);
       const lazy = loaded.exports({}); const refused = assert.rejects(lazy.read(A), { code: 'SETTINGS_POLICY_UNAVAILABLE' });
       await new Promise(resolve => setImmediate(resolve));
       const closing = lazy.close(); release({ read: async () => effective('mmol', true), close: async () => { closes++; } });
