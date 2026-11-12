@@ -13,7 +13,8 @@ module.exports = async function protocol (send, {operationWindow, pool} = {}) {
   const configs = new Map([A, B].map(tenant => [tenant, { tenant, identity: '1'.repeat(64) }]));
   const notice = tenant => notifications.notification({ message: 'Synthetic ' + tenant.slice(0, 1) });
   const evaluated = [];
-  const runtime = await createRuntime({ operationWindow, pool, tenants: [A, B], readCurrent: async tenant => configs.get(tenant),
+  const jobs = require('../../lib/server/serve/evaluator-job-context');
+  const runtime = await createRuntime({ jobContext: operationWindow ? jobs.create('clinical') : undefined, operationWindow, pool, tenants: [A, B], readCurrent: async tenant => configs.get(tenant),
     create: async current => ({ async evaluate ({ at }) {
       evaluated.push(current.tenant);
       if (refusal.has(current.tenant)) throw new Error('Synthetic clinical acquisition refused');
@@ -29,7 +30,7 @@ module.exports = async function protocol (send, {operationWindow, pool} = {}) {
     if (send) send(request, callback);
     else callback(null, { accepted: true, receipt: null, clearedRequestIds: [] });
   } };
-  const consumers = coordinate({ operationWindow, pool, tenants: [A, B], route: adapter.id, current: runtime.last, currentConfig:async tenant=>configs.get(tenant), isCurrent: runtime.isCurrent,
+  const consumers = coordinate({ jobContext: operationWindow ? jobs.create('delivery') : undefined, operationWindow, pool, tenants: [A, B], route: adapter.id, current: runtime.last, currentConfig:async tenant=>configs.get(tenant), isCurrent: runtime.isCurrent,
     store, reader: alarm.reader, adapter, now: () => files.get(A).now(), maxRows: 10, maxBytes: 100000, maxPayloadBytes: 10000,
     maxInflight: 2, attemptTimeoutMs: 60000, retryDelayMs: 1, pollIntervalMs: 100, retryIntervalMs: 200,
     schedule (fn, interval) { const timer = { fn, interval }; consumerTimers.push(timer); return timer; }, cancel: timer => cancelled.push(timer) });

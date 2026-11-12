@@ -75,8 +75,9 @@ describe('Selected suppression control read scope source protocol',function(){
       '../../tenant-alarms/postgres':{createReader:({connection})=>(reader={read:({tenant})=>scope.withTenant(tenant,()=>connection.snapshotTransaction(async()=>{effects++;return {};}))})},
       '../../tenant-notifications/producer':()=>({close(){}}),'../../tenant-notifications/component':()=>({close:async()=>{}}),'../realtime/alarm-transport':{createAdapter:()=>({send(){}})}},mutate);
     const config={tenants:new Map([[A,true],[B,true]]),readCurrent:async()=>({}),consumers:{realtime:{outbox:{connectionString:'synthetic-outbox',namespace:'outbox',maxRows:10,maxBytes:10000},suppression:{connectionString:'synthetic-suppression',namespace:'alarm_test',maxRows:10,maxBytes:10000},route:{id:'synthetic',socketPath:'/synthetic/unused',maxBytes:10000,timeoutMs:1000},maxPayloadBytes:1000,maxInflight:1,attemptTimeoutMs:1000,retryDelayMs:100,pollIntervalMs:100,retryIntervalMs:100}}};
+    const jobContext = require('../lib/server/serve/evaluator-job-context').create('delivery');
     let composed;try{
-      composed=await prepare({config,clinicalConnection:{transaction:fn=>fn(),query:async()=>({rows:[]})},operationWindow:l.f.window,current:()=>null,isCurrent:async()=>false});
+      composed=await prepare({jobContext,config,clinicalConnection:{transaction:fn=>fn(),query:async()=>({rows:[]})},operationWindow:l.f.window,current:()=>null,isCurrent:async()=>false});
       assert(outbox.calls.some(call=>call.sql?.includes('notification-readiness-role')),'OUTBOX_METADATA_SCREEN_REQUIRED');
       assert.equal(outbox.calls.filter(call=>call.sql?.includes('notification-readiness-table')).length,4,'COMPLETE_OUTBOX_TABLE_SCREEN');
       assert.equal(effects,2);const full=l.observed.length;await reader.read({tenant:A});assert.equal(effects,3);
@@ -84,7 +85,7 @@ describe('Selected suppression control read scope source protocol',function(){
       l.flags.foreignRead=true;await assert.rejects(reader.read({tenant:A}),/READINESS_REFUSED/);assert.equal(effects,3);
       l.flags.foreignRead=false;await reader.read({tenant:B});assert.equal(effects,4);
     }catch(error){if(unsafeOutbox)assert.equal(effects,0,'UNSAFE_OUTBOX_REFUSES_BEFORE_READER_EFFECTS');throw error;
-    }finally{await composed?.close();await l.f.window.close();}
+    }finally{await composed?.close();jobContext.close();await l.f.window.close();}
   }
   it('threads actual selection into prepare and every later screened reader snapshot',()=>prepareCheck());
   it('detects omission at the actual prepare call site and passes fresh restored source',async function(){

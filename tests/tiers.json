@@ -291,7 +291,9 @@
         "tests/authorization-snapshot-cost.test.js",
         "tests/secrets-audit-batch.test.js",
         "tests/registry-human-session.test.js",
-        "tests/connector-sources.test.js"
+        "tests/connector-sources.test.js",
+        "tests/evaluator-job-context.test.js",
+        "tests/evaluator-inspection.test.js"
       ],
       "env": true,
       "require": [
@@ -518,7 +520,8 @@
         "tests/management-sessions.integration.test.js",
         "tests/realtime-placement-owner.integration.test.js",
         "tests/realtime-placement-publication.integration.test.js",
-        "tests/realtime-sharding-native.integration.test.js"
+        "tests/realtime-sharding-native.integration.test.js",
+        "tests/evaluator-job-context.integration.test.js"
       ],
       "env": true,
       "require": [

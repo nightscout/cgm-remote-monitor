@@ -1,13 +1,23 @@
 {
   "id": "evaluator-inspection",
-  "version": 1,
+  "version": 2,
   "operations": {
     "inspectEvaluator": {
       "path": "/evaluator/inspect",
       "request": {
         "$schema": "https://json-schema.org/draft/2020-12/schema",
         "type": "object",
-        "properties": {},
+        "properties": {
+          "tenants": {
+            "type": "array",
+            "maxItems": 128,
+            "uniqueItems": true,
+            "items": {
+              "type": "string",
+              "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$"
+            }
+          }
+        },
         "additionalProperties": false
       },
       "response": {
@@ -493,6 +503,50 @@
                     "alert"
                   ],
                   "additionalProperties": false
+                },
+                "progress": {
+                  "type": "object",
+                  "properties": {
+                    "generation": {
+                      "type": "integer",
+                      "minimum": 0,
+                      "maximum": 9007199254740991
+                    },
+                    "completedAcquisitions": {
+                      "type": "integer",
+                      "minimum": 0,
+                      "maximum": 9007199254740991
+                    },
+                    "completedTimeCycles": {
+                      "type": "integer",
+                      "minimum": 0,
+                      "maximum": 9007199254740991
+                    },
+                    "failedCompletions": {
+                      "type": "integer",
+                      "minimum": 0,
+                      "maximum": 9007199254740991
+                    },
+                    "lastCompletedAgeMs": {
+                      "anyOf": [
+                        {
+                          "type": "null"
+                        },
+                        {
+                          "type": "integer",
+                          "minimum": 0
+                        }
+                      ]
+                    }
+                  },
+                  "required": [
+                    "generation",
+                    "completedAcquisitions",
+                    "completedTimeCycles",
+                    "failedCompletions",
+                    "lastCompletedAgeMs"
+                  ],
+                  "additionalProperties": false
                 }
               },
               "required": [
@@ -504,7 +558,8 @@
                 "cycles",
                 "outputRevision",
                 "inputCheckpoint",
-                "delivery"
+                "delivery",
+                "progress"
               ],
               "additionalProperties": false
             }
@@ -605,6 +660,10 @@
                 "minimum": 0
               }
             }
+          },
+          "runtimeId": {
+            "type": "string",
+            "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$"
           }
         },
         "required": [
@@ -612,7 +671,8 @@
           "configured",
           "observed",
           "gate",
-          "tenants"
+          "tenants",
+          "runtimeId"
         ],
         "additionalProperties": false
       }
