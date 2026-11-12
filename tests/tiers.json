@@ -270,6 +270,7 @@
         "tests/realtime-socket-server.test.js",
         "tests/realtime-readiness.test.js",
         "tests/realtime-config-cache.test.js",
+        "tests/realtime-publication-cache.test.js",
         "tests/realtime-placement-map.test.js",
         "tests/realtime-placement-cohort.test.js",
         "tests/realtime-placement.test.js",

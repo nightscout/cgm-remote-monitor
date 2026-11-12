@@ -1,0 +1,25 @@
+'use strict';
+// Test-process-only source ablations. Never edits a worktree or shipping file.
+const fs = require('node:fs'), vm = require('node:vm'), Module = require('node:module'), crypto = require('node:crypto');
+const mode = process.env.M7_CACHE_CONTROL;
+const mutations = {
+  'metadata-default': ['../../lib/server/realtime/contract', "const atomic = options?.publication === 'atomic';", "const atomic = options?.publication !== 'read-through';"],
+  'ignore-inode': ['../../lib/server/realtime/contract', 'stat.dev, stat.ino, stat.size', 'stat.dev, stat.size'],
+  freeze: ['../../lib/server/realtime/contract', "if (state.closed) fail('REALTIME_CONFIG_REFUSED');", "if (state.closed) fail('REALTIME_CONFIG_REFUSED'); if (last !== null) return value;"],
+  'outer-cache': ['../../lib/server/realtime/config', 'const read = reread;', `let cached;
+    const read = () => { const stat = require('node:fs').statSync(source.MULTITENANT_REALTIME_CONFIG);
+      const key = [stat.ino,stat.size,stat.mtimeMs,stat.ctimeMs].join(':');
+      if (cached?.key === key) return cached.value;
+      const value = reread(); cached = { key,value }; return value; };`],
+  'omit-reader-close': ['../../lib/server/realtime/contract', 'read.close = () => { state.closed = true; abandonedReaders.unregister(state); release(state); };', 'read.close = () => {};']
+};
+if (!Object.hasOwn(mutations, mode)) throw new Error('M7_CACHE_CONTROL_REQUIRED');
+const [relative, before, after] = mutations[mode], filename = require.resolve(relative), source = fs.readFileSync(filename, 'utf8');
+if (!source.includes(before) || source.split(before).length !== 2) throw new Error('M7_CACHE_CONTROL_SOURCE_MISMATCH');
+const original = Module.createRequire(filename), output = { exports: {} };
+// Load first so the actual module cache entry exists; then replace exports only
+// inside this disposable test process with the source-derived ablation.
+require(filename);
+vm.runInThisContext('(function(require,module,exports){' + source.replace(before, after) + '\n})', { filename })(original, output, output.exports);
+require.cache[filename].exports = output.exports;
+console.log(JSON.stringify({ control: mode, sourceSha256: crypto.createHash('sha256').update(source).digest('hex'), mutationApplied: true }));

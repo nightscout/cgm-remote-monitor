@@ -24,7 +24,7 @@ describe('socket admission configuration cache', function () {
     fs.writeFileSync(file + '.next', JSON.stringify(value));
     fs.renameSync(file + '.next', file);
   }
-  it('ADMISSION_UNCHANGED: repeated authority checks neither read the file nor enumerate the roster', async function () {
+  it('ADMISSION_UNCHANGED: legacy authority checks read bounded bytes without enumerating the roster', async function () {
     const loaded = load(), originalRead = configFile.read, originalKeys = Map.prototype.keys;
     let reads = 0, enumerations = 0;
     configFile.read = function (...args) { if (args[0] === file) reads++; return originalRead.apply(this, args); };
@@ -36,7 +36,7 @@ describe('socket admission configuration cache', function () {
         assert.equal(await loaded.allows(A), true);
         assert.equal(await loaded.resolveHost('a.test'), A);
       }
-      assert.equal(reads, 0, 'ADMISSION_UNCHANGED full-file reads');
+      assert.equal(reads, 200, 'ADMISSION_UNCHANGED bounded full-file reads');
       assert.equal(enumerations, 0, 'ADMISSION_UNCHANGED roster enumerations');
     } finally { configFile.read = originalRead; Map.prototype.keys = originalKeys; }
   });
@@ -59,7 +59,6 @@ describe('socket admission configuration cache', function () {
     const loaded = load(); assert.equal(await loaded.resolveHost('a.test'), A);
     const size = fs.statSync(file).size;
     value.tenants[0].aliases = ['b.test']; fs.writeFileSync(file, JSON.stringify(value));
-    const later = new Date(Date.now() + 5000); fs.utimesSync(file, later, later);
     assert.equal(fs.statSync(file).size, size);
     await assert.rejects(loaded.resolveHost('a.test'), { code: 'TENANT_HOST_UNKNOWN' });
     assert.equal(await loaded.resolveHost('b.test'), A);
