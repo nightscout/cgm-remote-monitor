@@ -130,4 +130,35 @@ describe('actual durable producer and outbox recreation protocol', function () {
     assert.equal(f.snapshot().requests.find(row=>row.request_id===clear.id).state,'cancelled','PRODUCER_STALE_CLEAR_RETIRED');
     const before=effects.length; await value.n.retry(f.A); assert.ok(effects.slice(before).every(row=>!row.notification.clear));
   });
+  it('retains the original repeat deadline across unavailable model and identical recovery before due', async function () {
+    clinical(50);const original=source,effects=[];
+    const value=open((row,callback)=>{effects.push(row);callback(null,{accepted:true});});
+    await value.p.select(f.A);await value.n.retry(f.A);
+    const before=f.producerStates()[0].producer,deadline=before.repeatAt,request=f.snapshot().requests[0];
+    at+=1000;source={...original,eligible:false};await value.p.select(f.A);await value.n.retry(f.A);
+    const unavailable=f.producerStates()[0].producer;
+    assert.deepEqual(unavailable.output,before.output);assert.equal(effects.length,1,'UNAVAILABLE_MODEL_ADMITS_NO_NORMAL_EFFECT');
+    at+=3438;source={...original,runtimeId:'fresh-owner',outputRevision:1};await value.p.select(f.A);await value.n.retry(f.A);
+    assert.equal(f.snapshot().requests.length,1,'IDENTICAL_RECOVERY_BEFORE_DUE_RETAINS_REQUEST');
+    assert.equal(f.snapshot().requests[0].request_id,request.request_id);assert.equal(effects.length,1);
+    assert.equal(unavailable.repeatAt,deadline);assert.equal(f.producerStates()[0].producer.repeatAt,deadline);
+  });
+  it('retains the genuine due-repeat cause after unavailable model instead of inventing a missing-clock repeat', async function () {
+    clinical(50);const original=source,value=open((row,callback)=>callback(null,{accepted:true}));
+    await value.p.select(f.A);await value.n.retry(f.A);const before=f.producerStates()[0].producer;
+    at+=1000;source={...original,eligible:false};await value.p.select(f.A);
+    at=before.repeatAt;source={...original,runtimeId:'fresh-owner'};await value.p.select(f.A);await value.n.retry(f.A);
+    const rows=f.snapshot().requests;assert.equal(rows.length,2);assert(rows.every(row=>row.state==='accepted'));
+    const expected=require('../lib/tenant-notifications/contract').digest(JSON.stringify(['producer-transition-v2',['repeat',before.output,before.repeatAt],0]));
+    assert.equal(rows[1].origin,expected,'REAL_DUE_REPEAT_KEEPS_ORIGINAL_DEADLINE_PROVENANCE');
+  });
+  it('still retires the repeat deadline for a valid normal output and emits a new realarm after it', async function () {
+    clinical(50);const effects=[],value=open((row,callback)=>{effects.push(row);callback(null,{accepted:true});});
+    await value.p.select(f.A);await value.n.retry(f.A);at+=1000;clinical(120);await value.p.select(f.A);await value.n.retry(f.A);
+    assert.equal(f.producerStates()[0].producer.repeatAt,undefined);assert(effects.some(row=>row.notification.clear));
+    at+=1000;clinical(50,'fresh-after-normal');await value.p.select(f.A);await value.n.retry(f.A);
+    assert.equal(effects.filter(row=>!row.notification.clear).length,2,'VALID_NORMAL_TO_ALARM_IS_NEW_EFFECT');
+    assert.equal(f.producerStates()[0].producer.repeatAt,at+60000);
+  });
+
 });
