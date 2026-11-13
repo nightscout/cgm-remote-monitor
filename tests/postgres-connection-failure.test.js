@@ -239,3 +239,52 @@ describe('checked-out PostgreSQL client failure propagation', function () {
     } finally { await f.store.end(); }
   });
 });
+
+describe('actual driver read-only outage cleanup', function () {
+  async function fixture (phase) {
+    const clients = [], submitted = [], wire = []; let held;
+    class Stream extends EventEmitter {
+      constructor () { super(); this.writable = true; this.destroyed = false; }
+      write () { return true; }
+      ref () {}
+      unref () {}
+      end () { this.writable = false; }
+      destroy () { this.destroyed = true; this.writable = false; queueMicrotask(() => this.emit('close', false)); return this; }
+    }
+    class RecordingClient extends require('pg').Client {
+      constructor (options) {
+        super(options); clients.push(this);
+        const connection = this.connection, stream = new Stream(); connection.stream = stream;
+        const reply = text => {
+          if (text.startsWith('SELECT')) {
+            const role = text.includes('FROM pg_roles'), names = role ? ['rolsuper', 'rolbypassrls'] : ['value'];
+            connection.emit('rowDescription', { fields: names.map(name => ({ name, dataTypeID: role ? 16 : 23, format: 'text' })) });
+            connection.emit('dataRow', { fields: names.map(() => Buffer.from(role ? 'f' : '1')) });
+          }
+          connection.emit('commandComplete', { text: text.startsWith('SELECT') ? 'SELECT 1' : text.split(' ')[0] });
+          connection.emit('readyForQuery', { status: text === 'COMMIT' || text === 'ROLLBACK' ? 'I' : 'T' });
+        };
+        connection.connect = () => { connection._connecting = true; stream.once('close', () => connection.emit('end')); queueMicrotask(() => connection.emit('readyForQuery', { status: 'I' })); };
+        connection.query = text => {
+          wire.push(text);
+          if (text === phase) { held = () => reply(text); return; }
+          queueMicrotask(() => reply(text));
+        };
+      }
+      query (...args) { submitted.push(typeof args[0] === 'string' ? args[0] : args[0].text); return super.query(...args); }
+    }
+    const store = await connect({ connectionString: 'postgres://synthetic:synthetic@synthetic-pg/outage_test', Client: RecordingClient,
+      max: 1, ssl: false, query_timeout: 30, connectionTimeoutMillis: 30, idleTimeoutMillis: 0 });
+    return { store, clients, submitted, wire, resume: () => held?.() };
+  }
+  for (const phase of ['BEGIN READ ONLY', 'SELECT outage_work', 'COMMIT']) it('rejects an unanswered ' + phase + ' without queueing rollback or accepting a late result', async function () {
+    const f = await fixture(phase); let accepted = false;
+    try {
+      await assert.rejects(f.store.readOnly('SELECT outage_work').then(() => { accepted = true; }), /Query read timeout/);
+      assert(!f.submitted.includes('ROLLBACK'), 'failed READ ONLY backend is evicted; no cleanup statement goes behind unknown work');
+      assert.equal(accepted, false); assert.equal(f.clients[0].connection.stream.destroyed, true);
+      f.resume(); await new Promise(resolve => setImmediate(resolve));
+      assert.equal(accepted, false, 'late driver packets cannot turn a refused read into success');
+    } finally { await f.store.end(); }
+  });
+});
