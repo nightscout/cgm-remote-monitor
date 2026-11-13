@@ -1,6 +1,6 @@
 {
   "id": "lifecycle-participant",
-  "version": 3,
+  "version": 4,
   "operations": {
     "getStatus": {
       "path": "/cohort/status",
@@ -25,7 +25,8 @@
           "version": {
             "enum": [
               1,
-              2
+              2,
+              3
             ]
           },
           "participant": {
@@ -268,6 +269,9 @@
                 },
                 "uniqueItems": true,
                 "maxItems": 65536
+              },
+              "ownershipVersion": {
+                "const": 2
               }
             },
             "required": [
@@ -295,7 +299,52 @@
           "backends",
           "request"
         ],
-        "additionalProperties": false
+        "additionalProperties": false,
+        "anyOf": [
+          {
+            "properties": {
+              "version": {
+                "const": 1
+              },
+              "placement": false
+            }
+          },
+          {
+            "properties": {
+              "version": {
+                "const": 2
+              },
+              "placement": {
+                "properties": {
+                  "ownershipVersion": false
+                }
+              }
+            },
+            "required": [
+              "placement"
+            ]
+          },
+          {
+            "properties": {
+              "version": {
+                "const": 3
+              },
+              "placement": {
+                "properties": {
+                  "ownershipVersion": {
+                    "const": 2
+                  }
+                },
+                "required": [
+                  "ownershipVersion"
+                ]
+              }
+            },
+            "required": [
+              "placement"
+            ]
+          }
+        ]
       }
     },
     "invalidateTenant": {
@@ -400,7 +449,8 @@
           "version": {
             "enum": [
               1,
-              2
+              2,
+              3
             ]
           },
           "participant": {
@@ -647,6 +697,9 @@
                 },
                 "uniqueItems": true,
                 "maxItems": 65536
+              },
+              "ownershipVersion": {
+                "const": 2
               }
             },
             "required": [
@@ -675,7 +728,52 @@
           "request",
           "tenant"
         ],
-        "additionalProperties": false
+        "additionalProperties": false,
+        "anyOf": [
+          {
+            "properties": {
+              "version": {
+                "const": 1
+              },
+              "placement": false
+            }
+          },
+          {
+            "properties": {
+              "version": {
+                "const": 2
+              },
+              "placement": {
+                "properties": {
+                  "ownershipVersion": false
+                }
+              }
+            },
+            "required": [
+              "placement"
+            ]
+          },
+          {
+            "properties": {
+              "version": {
+                "const": 3
+              },
+              "placement": {
+                "properties": {
+                  "ownershipVersion": {
+                    "const": 2
+                  }
+                },
+                "required": [
+                  "ownershipVersion"
+                ]
+              }
+            },
+            "required": [
+              "placement"
+            ]
+          }
+        ]
       }
     },
     "getOperations": {
