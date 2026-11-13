@@ -312,7 +312,12 @@ unchanged.
 The assertion-only `connectionAdmission.assertRecoveryTransaction(client)` reads
 private actual-driver records: exact plan2 realtime-recovery singleton capability,
 completed same-backend DB verification, healthy/unfrozen transport, no pending
-query/auth/end and actual ReadyForQuery T. It changes no snapshot/ACK wire or
+query/auth/end and CURRENT actual ReadyForQuery T. A private protocol-ready bit
+is cleared on statement submission/ErrorResponse, and must agree with the actual
+driver ready phase. Empty queues after ErrorResponse do not prove the later
+Ready packet arrived. Started plan2 Terminate requires this same current-ready
+proof for I/T/E; a premature end remains uncertain even after supplied peer EOF.
+Never-connected closure and legacy plan1 behavior stay unchanged. It changes no snapshot/ACK wire or
 constructor authority. The fixed reader separately verifies actual role/OID,
 database/OID, PID/birth, postmaster epoch, READ ONLY and NOSUPERUSER/NOBYPASSRLS.
 The host binds system identifier; SQL does not claim to observe it or gain a new

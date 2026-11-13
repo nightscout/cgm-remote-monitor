@@ -501,7 +501,7 @@ describe('assertion-only actual admitted recovery transaction',function(){
         const custom=options.handler?.(text,args);if(custom)return reply(custom.rows);
         if(text.includes('current_user AS role'))return reply([{role:'synthetic_reader',roleOid:'123',database:'synthetic',databaseOid:'16384',epoch:'synthetic-epoch',pid:f.client.processID,birth:'synthetic-backend-birth',readOnly:'on',rolsuper:false,rolbypassrls:false,...options.identity}]);
         if(text.includes('FROM pg_class'))return reply(options.screen||[{current_state:true,secured:true,owns:false,reads:true,inserts:false,destroys:false,updates:[]},{current_state:false,secured:true,owns:false,reads:false,inserts:false,destroys:false,updates:[]}]);
-        if(text.startsWith('SELECT version::text')){if(options.failQuery){f.client.connection.emit('errorMessage',Object.assign(Error('synthetic source SQL failure'),{code:'SYNTHETIC_QUERY'}));f.client.connection.emit('readyForQuery',{status:'E'});return;}return reply(options.rows||[{version:'1',paused:false,suspended:false}]);}
+        if(text.startsWith('SELECT version::text')){if(options.failQuery){f.client.connection.emit('errorMessage',Object.assign(Error('synthetic source SQL failure'),{code:'SYNTHETIC_QUERY'}));if(!options.delayReady)f.client.connection.emit('readyForQuery',{status:'E'});return;}return reply(options.rows||[{version:'1',paused:false,suspended:false}]);}
         return reply([]);
       };
       if(options.hold&&text.startsWith('SELECT version::text'))release=send;else queueMicrotask(send);
@@ -583,6 +583,38 @@ describe('assertion-only actual admitted recovery transaction',function(){
     try{const f=await selected();await f.begin();const a=activity(f,{hold:true,failQuery:true}),r=await a.open(),work=r.readActivity(a.A),failed=assert.rejects(work,{code:'SYNTHETIC_QUERY'});await turn();
       const ended=r.finish(),proof=assert.rejects(ended,error=>error.code==='REALTIME_RECOVERY_ACTIVITY_UNAWAITED'&&error.activityWorkError?.code==='SYNTHETIC_QUERY'&&error.activityWorkError.cleanupError?.code==='CONNECTION_ADMISSION_RECOVERY_TRANSACTION_REQUIRED');a.release();await failed;await proof;assert.equal(r.rollbackSafe(),false);assert(!a.calls.some(c=>c.text==='ROLLBACK'||c.text==='COMMIT'));await f.close();
     }finally{tenantScope.setTenancyMode('single');}
+  });
+
+  it('packet-split ErrorResponse cannot reuse last T while actual ReadyForQuery is still outstanding',async function(){
+    const f=await selected();await f.begin();const q=f.client.query('SELECT controlled_failure'),failed=assert.rejects(q,{code:'40001'});f.client.connection.emit('errorMessage',Object.assign(Error('controlled'),{code:'40001'}));await failed;
+    assert.equal(f.client.readyForQuery,false);assert.equal(f.client._getActiveQuery(),null);assert.equal(f.client._queryQueue.length,0);assert.throws(()=>f.api.assertRecoveryTransaction(f.client));
+    f.client.readyForQuery=true;assert.throws(()=>f.api.assertRecoveryTransaction(f.client),'caller mutation of driver flag cannot manufacture a private Ready packet');f.client.readyForQuery=false;
+    await turn();assert.throws(()=>f.api.assertRecoveryTransaction(f.client));f.client.connection.emit('readyForQuery',{status:'E'});assert.throws(()=>f.api.assertRecoveryTransaction(f.client));
+    const rollback=f.client.query('ROLLBACK');f.finish('I');await rollback;assert.throws(()=>f.api.assertRecoveryTransaction(f.client));await f.begin();assert.doesNotThrow(()=>f.api.assertRecoveryTransaction(f.client));await f.close();
+  });
+  it('queued and pipelined protocol work cannot pass the fixed scalar transaction assertion',async function(){
+    const f=await selected();await f.begin();const first=f.client.query('SELECT first'),second=f.client.query('SELECT second');f.finish();await first;assert.throws(()=>f.api.assertRecoveryTransaction(f.client));f.finish();await second;assert.doesNotThrow(()=>f.api.assertRecoveryTransaction(f.client));
+    f.client.pipeline=true;assert.throws(()=>f.api.assertRecoveryTransaction(f.client));f.client.pipeline=false;await f.close();
+  });
+  it('delayed Ready after an activity ErrorResponse admits neither cleanup GUC nor rollback into the protocol gap',async function(){
+    const tenantScope=require('../lib/storage/tenant-scope');tenantScope.setTenancyMode('multi');
+    try{const f=await selected();await f.begin();const a=activity(f,{hold:true,failQuery:true,delayReady:true}),r=await a.open(),q=r.readActivity(a.A),failed=assert.rejects(q,{code:'SYNTHETIC_QUERY'});await turn();a.release();await failed;await assert.rejects(r.finish());
+      assert.equal(f.client.readyForQuery,false);assert.equal(r.rollbackSafe(),false);assert.equal(f.client._queryQueue.length,0);assert.equal(a.calls.filter(c=>c.values?.[0]===a.META).length,1,'only the initial metadata binding was sent');assert(!a.calls.some(c=>c.text==='ROLLBACK'||c.text==='COMMIT'));
+      f.client.connection.emit('readyForQuery',{status:'E'});assert.equal(r.rollbackSafe(),false);await f.close();
+    }finally{tenantScope.setTenancyMode('single');}
+  });
+
+  it('plan2 started termination before actual Ready stays uncertain despite later peer EOF, with no clean ACK',async function(){
+    const f=await selected();await f.begin();const q=f.client.query('SELECT controlled_failure'),failed=assert.rejects(q);f.client.connection.emit('errorMessage',Object.assign(Error('controlled'),{code:'40001'}));await failed;assert.equal(f.client.readyForQuery,false);assert.equal(f.client._getActiveQuery(),null);
+    await assert.rejects(f.close(),{code:'CONNECTION_ADMISSION_CLEANUP_UNCONFIRMED'});assert.equal(f.client.connection.stream.terminateWrites,1,'actual driver still sent Terminate but it is not qualified as clean');f.api.beginQuiesce();await assert.rejects(f.api.finalizeQuiescence(true));assert.equal(f.acknowledgements.length,0);assert(f.api.health().unconfirmedCleanup);
+  });
+  it('plan2 actual Ready I/T/E and never-connected clients retain normal physical closure',async function(){
+    for(const status of ['I','T','E']){const f=await selected();if(status!=='I')await f.begin();if(status==='E'){const q=f.client.query('SELECT controlled_failure'),failed=assert.rejects(q);f.client.connection.emit('errorMessage',Object.assign(Error('controlled'),{code:'40001'}));await failed;f.client.connection.emit('readyForQuery',{status:'E'});}await f.close();f.api.beginQuiesce();await f.api.finalizeQuiescence(true);assert.equal(f.acknowledgements.length,1);}
+    const f=fixture({driver:true,planVersion:2}),Client=f.api.wrapClient(f.Client,'settings-readiness'),client=new Client({host:'synthetic-pg',ssl:false});await client.end();f.api.beginQuiesce();await f.api.finalizeQuiescence(true);assert.equal(client.connection.stream.terminateWrites,0);assert.equal(f.acknowledgements.length,1);
+  });
+
+  it('legacy plan1 retains its measured packet-gap retirement behavior without adopting plan2 proof',async function(){
+    const f=await selected({planVersion:1});await f.begin();const q=f.client.query('SELECT controlled_failure'),failed=assert.rejects(q);f.client.connection.emit('errorMessage',Object.assign(Error('controlled'),{code:'40001'}));await failed;assert.equal(f.client.readyForQuery,false);await f.close();f.api.beginQuiesce();await f.api.finalizeQuiescence(true);assert.equal(f.acknowledgements.length,1,'legacy behavior retained, not relabeled plan2 evidence');
   });
 
 });
