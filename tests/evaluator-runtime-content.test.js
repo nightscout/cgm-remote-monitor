@@ -59,4 +59,67 @@ describe('evaluator output revision follows content, not cycles', function () {
       assert.notEqual(startRuntime.contentDigest({ ...base, [key]: { changed: key } }), startRuntime.contentDigest(base), key + ' is content');
     }
   });
+  it('observes retained clinical properties without conflating completion, confirmation, or authority', async function () {
+    let at = t0, calls = 0, timers = 0;
+    const runtime = await startRuntime({ tenants: [A], readCurrent: async () => ({ tenant: A, identity }),
+      create: async () => ({ evaluate: async ({ at }) => { calls++; return { ...cycle(at), signature: { stamp: 7, deleted: 0 } }; },
+        evaluateTime: async ({ at }) => { calls++; return cycle(at); }, signature: async () => ({ stamp: 7, deleted: 0 }), close () {} }),
+      recoveryIntervalMs: 1000, timeIntervalMs: 1000, schedule: () => { timers++; return {}; }, cancel () {}, now: () => at });
+    try {
+      const read = () => runtime.clinicalResults([A])[0];
+      const first = read();
+      assert.equal(first.status, 'eligible-model'); assert.equal(first.bgNow.meanPresent, true); assert.equal(first.bgNow.meanFinite, true);
+      assert.equal(first.bgNow.mills, t0 - 60000); assert.equal(first.retainedModelAt, t0);
+      assert.equal(first.inputCheckpoint, 7); assert.equal(first.lastCompletedAgeMs, null, 'legacy path has no owned completion witness');
+      const before = { calls, timers, cycles: runtime.health([A]).tenants[0].cycles };
+      for (let i=0;i<10;i++) assert.deepEqual(read(), first);
+      assert.deepEqual({ calls, timers, cycles: runtime.health([A]).tenants[0].cycles }, before, 'READ_ONLY_NO_WORK');
+      at = t0 + 60000; await runtime.tick(A);
+      assert.equal(read().retainedModelAt, t0, 'identical content retains its original model instant');
+      assert.equal(read().outputRevision, first.outputRevision);
+      at = t0 + 61000; await runtime.backstop([A]);
+      assert.equal(runtime.health([A]).tenants[0].evaluatedAgeMs, 0, 'unchanged signature confirms health');
+      assert.equal(read().retainedModelAt, t0, 'confirmation is not a clinical evaluation');
+      assert.equal(calls, 2);
+      await runtime.close(); assert.equal(read().status, 'retained-ineligible');
+      assert.equal(read().bgNow.meanFinite, true, 'retained property is distinct from cached eligibility');
+      for (const selected of [undefined, [], [A,A], ['unknown'], Array(129).fill(A)]) assert.throws(() => runtime.clinicalResults(selected), /selector refused/);
+    } finally { await runtime.close(); }
+  });
+
+  it('observes actual projection fresh, aged-unavailable and restored results at the same checkpoint without SQL', async function () {
+    const scope = require('../lib/storage/tenant-scope'), previous = scope.getTenancyMode(); scope.setTenancyMode('multi');
+    const clock = require('./lib/views-replay/clock'), projection = require('../lib/data/tenant-projection-evaluator');
+    const doc = { _id: 'synthetic-observation', type: 'sgv', sgv: 123, date: t0, utcOffset: 0, srvModified: t0 + 1 };
+    let at = t0 + 120000, sql = 0, runtime;
+    clock.install(); clock.pin(at);
+    try {
+      runtime = await startRuntime({ tenants:[A], readCurrent:async()=>({tenant:A,identity}), now:()=>at,
+        create:async()=>projection({tenant:A,replay:{reconcile:async()=>({checkpoint:doc.srvModified,rows:[{domain:'entries',document:doc}]})},
+          connection:{query:async()=>{sql++;throw Error('NO_SQL');}},env:require('../lib/server/tenant-app/environment')({settings:{enable:['bgnow']}}),
+          language:require('../lib/language')(),dbstats:async()=>({dataSize:0,indexSize:0}),maxRows:10,maxBytes:10000}),
+        recoveryIntervalMs:1000,timeIntervalMs:1000,schedule:()=>({}),cancel(){} });
+      const fresh=runtime.clinicalResults([A])[0]; assert.equal(fresh.bgNow.meanFinite,true);
+      at=t0+2*24*60*60000+1;clock.pin(at);await runtime.tick(A);
+      const aged=runtime.clinicalResults([A])[0];assert.equal(aged.status,'eligible-model');assert.equal(aged.bgNow.meanPresent,false);assert.equal(aged.bgNow.meanFinite,false);
+      assert.equal(aged.inputCheckpoint,fresh.inputCheckpoint);assert(aged.outputRevision>fresh.outputRevision);assert.equal(aged.retainedModelAt,at);
+      at=t0+120000;clock.pin(at);await runtime.tick(A);assert.equal(runtime.clinicalResults([A])[0].bgNow.meanFinite,true);assert.equal(sql,0);
+      assert(!JSON.stringify(runtime.clinicalResults([A])).includes('123'),'NO_RAW_GLUCOSE_VALUE');
+    } finally { await runtime?.close();clock.uninstall();scope.setTenancyMode(previous); }
+  });
+
+  it('distinguishes absent model and nonfinite or missing retained mean without inventing timestamps', async function () {
+    for (const properties of [{}, {bgnow:{mean:Infinity,mills:NaN}}, {bgnow:{mean:'123'}}, {bgnow:{mean:0,mills:0}}]) {
+      const runtime=await startRuntime({tenants:[A],readCurrent:async()=>({tenant:A,identity}),
+        create:async()=>({evaluate:async()=>({checkpoint:0,properties,emitted:[],requested:[]}),close(){}}),
+        recoveryIntervalMs:1000,timeIntervalMs:1000,schedule:()=>({}),cancel(){}});
+      try { const v=runtime.clinicalResults([A])[0];assert.equal(v.retainedModelAt,null);assert.equal(v.bgNow.meanPresent,Object.hasOwn(properties.bgnow||{},'mean'));
+        assert.equal(v.bgNow.meanFinite,typeof properties.bgnow?.mean==='number'&&Number.isFinite(properties.bgnow.mean));
+        assert.equal(v.bgNow.mills,properties.bgnow?.mills===0?0:null);
+      } finally { await runtime.close(); }
+    }
+    const runtime=await startRuntime({tenants:[A],readCurrent:async()=>{throw Error('REFUSED');},create:async()=>{throw Error('NO_COMPONENT');},recoveryIntervalMs:1000,timeIntervalMs:1000,schedule:()=>({}),cancel(){}});
+    try {const v=runtime.clinicalResults([A])[0];assert.equal(v.status,'no-model');assert.equal(v.bgNow,null);assert.equal(v.retainedModelAt,null);assert.equal(v.outputRevision,null);assert.equal(v.inputCheckpoint,null);} finally {await runtime.close();}
+  });
+
 });
