@@ -63,7 +63,7 @@ function refused (reply, label) {
 }
 function status (extra = {}) {
   return { version: 1, participant: 'api_1', incarnation: REQUEST, namespace: 'synthetic_window', roles: ['api'], tenants: [A, B], namespaces: ['clinical'],
-    identity: { window: 1 }, datastore: { database: 'synthetic', database_oid: '16384', server_address: '127.0.0.1', server_port: 5432, postmaster_birth: '1700000000.0' },
+    identity: require('./fixtures/operation-window-admission-protocol').identity, datastore: { database: 'synthetic', database_oid: '16384', server_address: '127.0.0.1', server_port: 5432, postmaster_birth: '1700000000.0' },
     backends: [{ pid: 123, role: 'synthetic_api', birth: '1700000001.0' }], ...extra };
 }
 // Recording application/lifecycle handlers against the actual checked-in contracts.
@@ -91,7 +91,7 @@ for (const kind of ['uds', 'http']) describe('Composed component-private listene
       const lifecycle = transport.client(e.options, contracts.lifecycleParticipant);
       assert.deepEqual(await authority.authorizeSocket(authorizeBody(A)), { denied: true });
       assert.equal((await lifecycle.getStatus({ request: REQUEST })).request, REQUEST);
-      assert.equal((await lifecycle.invalidateTenant({ request: REQUEST, tenant: A, incarnation: REQUEST, identity: { window: 1 } })).tenant, A);
+      assert.equal((await lifecycle.invalidateTenant({ request: REQUEST, tenant: A, incarnation: REQUEST, identity: require('./fixtures/operation-window-admission-protocol').identity })).tenant, A);
       assert.deepEqual(calls, [['authorize', A], ['status'], ['invalidate', A]]);
     } finally { if (listener) await listener.close(); e.cleanup(); }
   });

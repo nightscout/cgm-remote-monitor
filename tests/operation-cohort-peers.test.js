@@ -29,6 +29,7 @@ async function lab (mutate, timeoutMs = 1000) {
       if(flags.lostAck && operation==='invalidateTenant' && endpoint.socketPath===entries[0].endpoint.socketPath)throw new Error('synthetic lost ACK');
       if(flags.wrongAck && operation==='invalidateTenant')reply.request='00000000-0000-4000-8000-000000000000';
       if(flags.wrongDB)reply.datastore={...DATA,database_oid:'99999'};
+      if(flags.identityChange)reply.identity=flags.identityChange(reply.identity);
       return structuredClone(reply);
     }]))};
   async function boot(index) {
@@ -79,6 +80,19 @@ describe('Separate-process fixed cohort source protocol',function(){
       await assert.rejects(f.coordinator.assertComplete(f.remote,A,{client:f.operator}),{code:'RESTORE_COHORT_UNKNOWN_BACKEND'});f.actors.pop();await f.coordinator.assertComplete(f.remote,A,{client:f.operator});
       await f.locals.get(1).close();await assert.rejects(f.coordinator.invalidate(f.remote,A),/missing peer/);
     }finally{await f.coordinator.releasePin(pin);await f.close();}
+  });
+  it('rejects missing or invented audit identities even when transport schema validation is bypassed',async function(){
+    const f=await lab();const pin=await f.coordinator.pin(f.remote,A,{client:f.operator});
+    try {
+      for (const key of ['resumeOid','clearanceOid']) {
+        f.flags.identityChange=value=>{const changed={...value};delete changed[key];return changed;};
+        await assert.rejects(f.coordinator.operations(f.remote,A),{code:'RESTORE_COHORT_PROTOCOL'});
+      }
+      f.flags.identityChange=value=>({...value,inventedOid:999});
+      await assert.rejects(f.coordinator.operations(f.remote,A),{code:'RESTORE_COHORT_PROTOCOL'});
+      delete f.flags.identityChange;
+      assert.deepEqual((await f.coordinator.operations(f.remote,A)).operations,[]);
+    } finally {await f.coordinator.releasePin(pin);await f.close();}
   });
   it('classifies one actor born after a status cut only by a full pinned peer re-observation',async function(){
     const f=await lab();const pin=await f.coordinator.pin(f.remote,A,{client:f.operator});

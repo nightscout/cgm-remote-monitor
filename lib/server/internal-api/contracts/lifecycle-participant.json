@@ -86,12 +86,71 @@
           },
           "identity": {
             "type": "object",
-            "minProperties": 1,
-            "additionalProperties": {
-              "type": "integer",
-              "minimum": 1,
-              "maximum": 9007199254740991
-            }
+            "properties": {
+              "namespaceOid": {
+                "type": "integer",
+                "minimum": 1,
+                "maximum": 9007199254740991
+              },
+              "ownerOid": {
+                "type": "integer",
+                "minimum": 1,
+                "maximum": 9007199254740991
+              },
+              "ledgerOid": {
+                "type": "integer",
+                "minimum": 1,
+                "maximum": 9007199254740991
+              },
+              "windowsOid": {
+                "type": "integer",
+                "minimum": 1,
+                "maximum": 9007199254740991
+              },
+              "operationsOid": {
+                "type": "integer",
+                "minimum": 1,
+                "maximum": 9007199254740991
+              },
+              "authorityOid": {
+                "type": "integer",
+                "minimum": 1,
+                "maximum": 9007199254740991
+              },
+              "auditOid": {
+                "type": "integer",
+                "minimum": 1,
+                "maximum": 9007199254740991
+              },
+              "resumeOid": {
+                "type": "integer",
+                "minimum": 1,
+                "maximum": 9007199254740991
+              },
+              "clearanceOid": {
+                "type": "integer",
+                "minimum": 1,
+                "maximum": 9007199254740991
+              },
+              "backendBirthOid": {
+                "type": "integer",
+                "minimum": 1,
+                "maximum": 9007199254740991
+              }
+            },
+            "required": [
+              "namespaceOid",
+              "ownerOid",
+              "ledgerOid",
+              "windowsOid",
+              "operationsOid",
+              "authorityOid",
+              "auditOid",
+              "resumeOid",
+              "clearanceOid",
+              "backendBirthOid"
+            ],
+            "additionalProperties": false
           },
           "datastore": {
             "type": "object",
@@ -259,12 +318,71 @@
           },
           "identity": {
             "type": "object",
-            "minProperties": 1,
-            "additionalProperties": {
-              "type": "integer",
-              "minimum": 1,
-              "maximum": 9007199254740991
-            }
+            "properties": {
+              "namespaceOid": {
+                "type": "integer",
+                "minimum": 1,
+                "maximum": 9007199254740991
+              },
+              "ownerOid": {
+                "type": "integer",
+                "minimum": 1,
+                "maximum": 9007199254740991
+              },
+              "ledgerOid": {
+                "type": "integer",
+                "minimum": 1,
+                "maximum": 9007199254740991
+              },
+              "windowsOid": {
+                "type": "integer",
+                "minimum": 1,
+                "maximum": 9007199254740991
+              },
+              "operationsOid": {
+                "type": "integer",
+                "minimum": 1,
+                "maximum": 9007199254740991
+              },
+              "authorityOid": {
+                "type": "integer",
+                "minimum": 1,
+                "maximum": 9007199254740991
+              },
+              "auditOid": {
+                "type": "integer",
+                "minimum": 1,
+                "maximum": 9007199254740991
+              },
+              "resumeOid": {
+                "type": "integer",
+                "minimum": 1,
+                "maximum": 9007199254740991
+              },
+              "clearanceOid": {
+                "type": "integer",
+                "minimum": 1,
+                "maximum": 9007199254740991
+              },
+              "backendBirthOid": {
+                "type": "integer",
+                "minimum": 1,
+                "maximum": 9007199254740991
+              }
+            },
+            "required": [
+              "namespaceOid",
+              "ownerOid",
+              "ledgerOid",
+              "windowsOid",
+              "operationsOid",
+              "authorityOid",
+              "auditOid",
+              "resumeOid",
+              "clearanceOid",
+              "backendBirthOid"
+            ],
+            "additionalProperties": false
           }
         },
         "required": [
@@ -343,12 +461,71 @@
           },
           "identity": {
             "type": "object",
-            "minProperties": 1,
-            "additionalProperties": {
-              "type": "integer",
-              "minimum": 1,
-              "maximum": 9007199254740991
-            }
+            "properties": {
+              "namespaceOid": {
+                "type": "integer",
+                "minimum": 1,
+                "maximum": 9007199254740991
+              },
+              "ownerOid": {
+                "type": "integer",
+                "minimum": 1,
+                "maximum": 9007199254740991
+              },
+              "ledgerOid": {
+                "type": "integer",
+                "minimum": 1,
+                "maximum": 9007199254740991
+              },
+              "windowsOid": {
+                "type": "integer",
+                "minimum": 1,
+                "maximum": 9007199254740991
+              },
+              "operationsOid": {
+                "type": "integer",
+                "minimum": 1,
+                "maximum": 9007199254740991
+              },
+              "authorityOid": {
+                "type": "integer",
+                "minimum": 1,
+                "maximum": 9007199254740991
+              },
+              "auditOid": {
+                "type": "integer",
+                "minimum": 1,
+                "maximum": 9007199254740991
+              },
+              "resumeOid": {
+                "type": "integer",
+                "minimum": 1,
+                "maximum": 9007199254740991
+              },
+              "clearanceOid": {
+                "type": "integer",
+                "minimum": 1,
+                "maximum": 9007199254740991
+              },
+              "backendBirthOid": {
+                "type": "integer",
+                "minimum": 1,
+                "maximum": 9007199254740991
+              }
+            },
+            "required": [
+              "namespaceOid",
+              "ownerOid",
+              "ledgerOid",
+              "windowsOid",
+              "operationsOid",
+              "authorityOid",
+              "auditOid",
+              "resumeOid",
+              "clearanceOid",
+              "backendBirthOid"
+            ],
+            "additionalProperties": false
           },
           "datastore": {
             "type": "object",
@@ -521,12 +698,71 @@
           },
           "identity": {
             "type": "object",
-            "minProperties": 1,
-            "additionalProperties": {
-              "type": "integer",
-              "minimum": 1,
-              "maximum": 9007199254740991
-            }
+            "properties": {
+              "namespaceOid": {
+                "type": "integer",
+                "minimum": 1,
+                "maximum": 9007199254740991
+              },
+              "ownerOid": {
+                "type": "integer",
+                "minimum": 1,
+                "maximum": 9007199254740991
+              },
+              "ledgerOid": {
+                "type": "integer",
+                "minimum": 1,
+                "maximum": 9007199254740991
+              },
+              "windowsOid": {
+                "type": "integer",
+                "minimum": 1,
+                "maximum": 9007199254740991
+              },
+              "operationsOid": {
+                "type": "integer",
+                "minimum": 1,
+                "maximum": 9007199254740991
+              },
+              "authorityOid": {
+                "type": "integer",
+                "minimum": 1,
+                "maximum": 9007199254740991
+              },
+              "auditOid": {
+                "type": "integer",
+                "minimum": 1,
+                "maximum": 9007199254740991
+              },
+              "resumeOid": {
+                "type": "integer",
+                "minimum": 1,
+                "maximum": 9007199254740991
+              },
+              "clearanceOid": {
+                "type": "integer",
+                "minimum": 1,
+                "maximum": 9007199254740991
+              },
+              "backendBirthOid": {
+                "type": "integer",
+                "minimum": 1,
+                "maximum": 9007199254740991
+              }
+            },
+            "required": [
+              "namespaceOid",
+              "ownerOid",
+              "ledgerOid",
+              "windowsOid",
+              "operationsOid",
+              "authorityOid",
+              "auditOid",
+              "resumeOid",
+              "clearanceOid",
+              "backendBirthOid"
+            ],
+            "additionalProperties": false
           }
         },
         "required": [

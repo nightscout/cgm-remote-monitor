@@ -16,8 +16,8 @@ lower-port installation it must await `window.ready()` (resolves without a value
 That method reads metadata directly through the dedicated pool, without the lower
 connection module, so it must precede global lower-port installation.
 `window.namespace` is immutable. `window.identity` is initially null, then a frozen
-object with namespaceOid, ownerOid, ledgerOid, windowsOid, operationsOid and
-backendBirthOid. Each acquired backend is readmitted against that identity
+object with namespaceOid, ownerOid, ledgerOid, windowsOid, operationsOid,
+authorityOid, auditOid, resumeOid, clearanceOid and backendBirthOid. Each acquired backend is readmitted against that identity
 whenever the catalogue epoch changes: inside every transaction, after the shared
 lock and the tenant binding, one statement reads the epoch
 (operation-window-epoch.js: a digest of the row versions of every catalogue row
