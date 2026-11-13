@@ -81,6 +81,6 @@ describe('assignment ownership maintenance census', function () {
     const f=fixture(2),remote=await f.open();let token;
     try {token=await f.coordinator.pin(remote,A,{client:f.client});await f.coordinator.assertComplete(remote,A,{client:f.client});
       f.flags.wrongKey='peer_3';await assert.rejects(f.coordinator.assertComplete(remote,A,{client:f.client}),{code:'RESTORE_COHORT_PLACEMENT_MISMATCH'});
-    }finally{if(token)f.coordinator.releasePin(remote,A,token);await remote.close();}
+    }finally{if(token)await f.coordinator.releasePin(token);await remote.close();assert.equal(f.held(),0,'ASSIGNMENT_PUBLICATION_PIN_RELEASED');}
   });
 });
