@@ -18,7 +18,10 @@ module.exports = [
         ...globals.es2015,
         ...globals.node,
         ...globals.mocha,
-        ...globals.jquery
+        ...globals.jquery,
+        // ES2021 built-in, present in every Node the engines field admits;
+        // ecmaVersion 2020 does not declare it.
+        WeakRef: 'readonly'
       }
     },
     rules: {
