@@ -22,6 +22,20 @@ describe('pgstream explicit input/output/schema receiver',function(){
    const receive=receiver(),message=schema=>({Data:{action:'M',prefix:'pgstream.ddl',content:JSON.stringify({schema_name:schema,objects:[{schema,type:'table'}],ddl:'synthetic schema change'})}});
    assert.equal((await receive(message('synthetic'))).kind,'schema');assert.equal((await receive(message('unrelated'))).kind,'irrelevant-schema');assert.deepEqual(schemas,[['synthetic']]);assert.equal(observe.length,0);
  });
+ it('revalidates clinical schemas without widening row routes or creating input work',async()=>{
+   const receive=receiver({relevantSchemas:['clinical_rows']}),ddl=(schema,objects)=>({Data:{action:'M',prefix:'pgstream.ddl',content:JSON.stringify({schema_name:schema,objects})}});
+   assert.equal((await receive(ddl('',[{schema:'clinical_rows',type:'table'}]))).kind,'schema');
+   assert.deepEqual(schemas,[['clinical_rows']]);assert.equal(observe.length,0);assert.equal(inputs.length,0);assert.equal(outputs.length,0);
+   assert.equal((await receive(ddl('unrelated',[]))).kind,'irrelevant-schema');
+   await assert.rejects(receive({Data:{action:'U',schema:'clinical_rows',table:'entries',columns:[],identity:null}}),/UNROUTED/);
+ });
+ it('does not acknowledge relevant DDL before admission revalidation succeeds',async()=>{
+   let release;const held=new Promise(resolve=>{release=resolve;});let acknowledged=false;
+   const receive=receiver({relevantSchemas:['clinical_rows'],onSchema:()=>held});
+   const event={Data:{action:'M',prefix:'pgstream.ddl',content:JSON.stringify({schema_name:'clinical_rows',objects:[]})}};
+   const pending=receive(event).then(()=>{acknowledged=true;});await Promise.resolve();assert.equal(acknowledged,false);release();await pending;assert.equal(acknowledged,true);
+   await assert.rejects(receiver({relevantSchemas:['clinical_rows'],onSchema:async()=>{throw Error('ADMISSION_REFUSED');}})(event),/ADMISSION_REFUSED/);
+ });
  it('refuses unknown and malformed control events without clinical completion',async()=>{const receive=receiver();await assert.rejects(receive({Data:{action:'M',prefix:'unknown',content:'{}'}}),/CONTROL_UNKNOWN/);await assert.rejects(receive({Data:{action:'M',prefix:'pgstream.ddl',content:'{}'}}),/DDL_SHAPE/);await assert.rejects(receive(event('unknown',{})),/UNROUTED/);});
  it('orders lifecycle suspension and activation with the existing generation; keeps activity eligibility separate',async()=>{
    const receive=receiver();await receive(event('lifecycle',{tenant_id:A,generation:'7',phase:'active'}));await receive(event('lifecycle',{tenant_id:A,generation:'7',phase:'suspended'}));await receive(event('lifecycle',{tenant_id:A,generation:'8',phase:'active'}));await receive(event('activity',{tenant_id:A,version:'9',paused:true,suspended:false}));
