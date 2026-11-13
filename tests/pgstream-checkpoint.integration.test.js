@@ -25,6 +25,7 @@ optInSuite(process.env.NS_PGSTREAM_ROLE_TEST==='1' && !!process.env.NS_TEST_POST
    assert.equal((await output(lab.A)).pendingAt,null);
    await assert.rejects(scope.withTenant(lab.A,()=>store.complete(lab.A,{observed,identity:'a'.repeat(64),result:result()})),/COMPLETION_VERSION_REFUSED/);
  });
+ it('moves pending age to newer remaining work only after a real completion',async()=>{await store.observe(lab.A,'clock','1');const observed=await store.begin(lab.A),first=(await output(lab.A)).pendingAt;await new Promise(resolve=>setTimeout(resolve,20));const arrival=Date.now();await store.observe(lab.A,'clock','2');assert.equal((await output(lab.A)).pendingAt,first,'new writes cannot hide stalled completion');await scope.withTenant(lab.A,()=>store.complete(lab.A,{observed,identity:'a'.repeat(64),result:result()}));assert((await output(lab.A)).pendingAt>=arrival,'completed old work must not age newer pending work');});
  it('persists output, completed versions and next due together; unchanged content retains revision',async()=>{
    await store.observe(lab.A,'clock','1');const observed=await scope.withTenant(lab.A,()=>store.begin(lab.A)),cycle=result();
    await scope.withTenant(lab.A,()=>store.complete(lab.A,{observed,identity:'a'.repeat(64),result:cycle}));
@@ -34,6 +35,7 @@ optInSuite(process.env.NS_PGSTREAM_ROLE_TEST==='1' && !!process.env.NS_TEST_POST
    await store.close();const restored=create({connection:lab.reader,namespace:lab.replayNamespace,consumer:'evaluator-roles',maxBytes:4*1024*1024,timeIntervalMs:60000,now:()=>cycle.due.dueAt+1});
    assert.equal((await restored.work()).length,1);assert.equal((await restored.work())[0].tenant,lab.A);
  });
+ it('refuses persisted output across pause and unpause until current control versions complete',async()=>{await store.observe(lab.A,'clock','1');await store.observe(lab.A,'activity','1',true);let observed=await store.begin(lab.A);await scope.withTenant(lab.A,()=>store.complete(lab.A,{observed,identity:'a'.repeat(64),result:result()}));assert(await store.output(lab.A,'a'.repeat(64)));await store.observe(lab.A,'activity','2',false);await assert.rejects(store.output(lab.A,'a'.repeat(64)),/CONTROL_PENDING/);await store.observe(lab.A,'activity','3',true);await assert.rejects(store.output(lab.A,'a'.repeat(64)),/CONTROL_PENDING/);observed=await store.begin(lab.A);await scope.withTenant(lab.A,()=>store.complete(lab.A,{observed,identity:'a'.repeat(64),result:result()}));assert(await store.output(lab.A,'a'.repeat(64)));});
  it('aborts completion after actual ownership-backend death while the row update is held',async()=>{
    await store.observe(lab.A,'clock','1');const observed=await scope.withTenant(lab.A,()=>store.begin(lab.A));
    const control=new Client({connectionString:process.env.NS_TEST_POSTGRES_ADMIN_URI});await control.connect();

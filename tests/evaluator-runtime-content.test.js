@@ -123,3 +123,14 @@ describe('evaluator output revision follows content, not cycles', function () {
   });
 
 });
+
+describe('durable evaluator pending-work health replaces roster watchdogs',function(){
+ it('has no interval/watch timer for unchanged tenants, including a new dynamic tenant',async()=>{
+   const intervals=[],timers=[];const current=tenant=>({tenant,identity});
+   const runtime=await startRuntime({tenants:[A],dynamic:true,maxTenants:2,readCurrent:async tenant=>current(tenant),
+     recoveryIntervalMs:1000,timeIntervalMs:60000,externalRecovery:true,schedule:fn=>{intervals.push(fn);return 1;},cancel(){},setTimer:fn=>{timers.push(fn);return 1;},clearTimer(){},
+     durable:{begin:async()=>({clock:'1'}),complete:async(tenant,{result})=>({changed:true,output:{tenant,identity,contentDigest:'same',outputRevision:1,inputCheckpoint:1,result}})},
+     create:async()=>({evaluate:async()=>({checkpoint:1,signature:{stamp:1,deleted:0},due:{dueAt:null,slow:[]}}),close(){}})});
+   try{runtime.addTenant('22222222-2222-4222-8222-222222222222');assert.equal(intervals.length,0,'durable idle must not sweep roster health');assert.equal(timers.length,0,'unchanged dynamic tenant must not own a watchdog');}finally{await runtime.close();}
+ });
+});
