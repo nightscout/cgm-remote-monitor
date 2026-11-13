@@ -500,6 +500,82 @@
         ],
         "additionalProperties": false
       }
+    },
+    "getOperations": {
+      "path": "/cohort/operations",
+      "request": {
+        "$schema": "https://json-schema.org/draft/2020-12/schema",
+        "type": "object",
+        "properties": {
+          "request": {
+            "type": "string",
+            "pattern": "^[0-9a-f-]{36}$"
+          },
+          "tenant": {
+            "type": "string",
+            "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$"
+          },
+          "incarnation": {
+            "type": "string",
+            "pattern": "^[0-9a-f-]{36}$"
+          },
+          "identity": {
+            "type": "object",
+            "minProperties": 1,
+            "additionalProperties": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 9007199254740991
+            }
+          }
+        },
+        "required": [
+          "request",
+          "tenant",
+          "incarnation",
+          "identity"
+        ],
+        "additionalProperties": false
+      },
+      "response": {
+        "$schema": "https://json-schema.org/draft/2020-12/schema",
+        "type": "object",
+        "properties": {
+          "request": {
+            "type": "string",
+            "pattern": "^[0-9a-f-]{36}$"
+          },
+          "tenant": {
+            "type": "string",
+            "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$"
+          },
+          "participant": {
+            "type": "string",
+            "pattern": "^[a-z][a-z0-9_-]{0,62}$"
+          },
+          "incarnation": {
+            "type": "string",
+            "pattern": "^[0-9a-f-]{36}$"
+          },
+          "operations": {
+            "type": "array",
+            "items": {
+              "type": "string",
+              "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$"
+            },
+            "uniqueItems": true,
+            "maxItems": 16384
+          }
+        },
+        "required": [
+          "request",
+          "tenant",
+          "participant",
+          "incarnation",
+          "operations"
+        ],
+        "additionalProperties": false
+      }
     }
   }
 }

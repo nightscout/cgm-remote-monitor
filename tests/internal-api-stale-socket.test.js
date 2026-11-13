@@ -17,7 +17,8 @@ const CHILD = `
 const transport = require(process.env.TRANSPORT);
 const contract = require(process.env.CONTRACTS).lifecycleParticipant;
 transport.open({ socketPath: process.env.SOCKET, maxBytes: 65536, timeoutMs: 1000 }, contract, () => ({
-  getStatus: async () => { throw new Error('unused'); }, invalidateTenant: async () => { throw new Error('unused'); } }))
+  getStatus: async () => { throw new Error('unused'); }, invalidateTenant: async () => { throw new Error('unused'); },
+  getOperations: async () => { throw new Error('unused'); } }))
   .then(() => process.send({ ready: true }), error => process.send({ refused: error.code || error.message }));
 `;
 
@@ -38,7 +39,8 @@ describe('serve.internal stale socket reclaim', function () {
       child.once('error', reject);
     });
   }
-  const operations = () => ({ getStatus: async () => { throw new Error('unused'); }, invalidateTenant: async () => { throw new Error('unused'); } });
+  const operations = () => ({ getStatus: async () => { throw new Error('unused'); }, invalidateTenant: async () => { throw new Error('unused'); },
+  getOperations: async () => { throw new Error('unused'); } });
   const open = socket => transport.open({ socketPath: socket, maxBytes: 65536, timeoutMs: 1000 }, lifecycle, operations);
 
   it('a member killed with SIGKILL restarts in place and serves', async function () {

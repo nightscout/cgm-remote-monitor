@@ -333,7 +333,7 @@ describe('Production public API and internal listener isolation', function () {
       assert.equal(publicPositive.status, 200); assert.deepEqual(JSON.parse(publicPositive.body), { public: true });
       const credential = { host: 'synthetic.example', tenant, namespace: '/', credential: {} };
       const contractPaths = Object.values(require('../lib/server/internal-api/contracts')).flatMap(service => Object.values(service.operations).map(operation => operation.path));
-      assert.deepEqual(contractPaths, ['/authorize', '/mutate', '/alarm', '/cohort/status', '/cohort/invalidate',
+      assert.deepEqual(contractPaths, ['/authorize', '/mutate', '/alarm', '/cohort/status', '/cohort/invalidate', '/cohort/operations',
         '/ownership/list', '/ownership/add', '/ownership/transfer', '/ownership/recover', '/vcpool/inspect',
         '/evaluator/inspect', '/pool/get', '/pool/members']);
       for (const requestPath of [...contractPaths, '/api/v1/authorize', '/api/v3/authorize']) {

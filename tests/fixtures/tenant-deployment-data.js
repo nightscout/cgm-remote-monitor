@@ -97,6 +97,11 @@ function populatedRows ({ now = 1700000000000, profileSocketOrder = false } = {}
     add('tenant_lifecycle_restore_audit', { tenant_id: tenant, claim_id: event(7), generation: '1', artifact_digest: digest,
       role_oid: 1, owner_pid: 1, owner_birth: '2026-11-07T00:00:00.123456Z', state: 'activated',
       started_at: '2026-11-07T00:00:01.123456Z', restored_at: '2026-11-07T00:00:02.123456Z', activated_at: '2026-11-07T00:00:03.123456Z' });
+    // 0009_tenant_restore_resume: historical records, restored as written.
+    add('tenant_lifecycle_restore_resume', { tenant_id: tenant, resume_id: event(9), claim_id: event(7), generation: '1', artifact_digest: digest,
+      interrupted: 'data-replaced', role_oid: 1, owner_pid: 2, owner_birth: '2026-11-07T00:00:04.123456Z', resumed_at: '2026-11-07T00:00:05.123456Z' });
+    add('tenant_lifecycle_operation_clearance', { tenant_id: tenant, operation_id: event(6), generation: '1', marker_pid: 1, marker_birth: '2026-11-07T00:00:00.123456Z',
+      role_oid: 1, owner_pid: 2, owner_birth: '2026-11-07T00:00:04.123456Z', cleared_at: '2026-11-07T00:00:05.123456Z' });
   }
   // Explicit successor only: preserve non-ID insertion order, including gaps and
   // both tenants, so recovery must retain ordinals rather than regenerate them.

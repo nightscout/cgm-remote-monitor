@@ -74,7 +74,8 @@ function recordingModules (calls) {
       async executeSocketMutation (ctx, body) { calls.push(['mutate', body.envelope.tenant]); return { replyArgs: [] }; } }) },
     { service: contracts.lifecycleParticipant, create: () => ({
       async getStatus (ctx, body) { calls.push(['status']); return { ...status(), request: body.request }; },
-      async invalidateTenant (ctx, body) { calls.push(['invalidate', body.tenant]); return { ...status(), request: body.request, tenant: body.tenant }; } }) }
+      async invalidateTenant (ctx, body) { calls.push(['invalidate', body.tenant]); return { ...status(), request: body.request, tenant: body.tenant }; },
+      async getOperations (ctx, body) { calls.push(['operations', body.tenant]); const current = status(); return { request: body.request, tenant: body.tenant, participant: current.participant, incarnation: current.incarnation, operations: [] }; } }) }
   ];
 }
 const authorizeBody = tenant => ({ host: 'synthetic.example.test', tenant, namespace: '/', credential: {} });
@@ -85,7 +86,7 @@ for (const kind of ['uds', 'http']) describe('Composed component-private listene
     const e = await endpoint(kind); const calls = []; let listener;
     try {
       listener = await transport.compose(e.options, recordingModules(calls));
-      assert.deepEqual(listener.routes, ['POST /authorize', 'POST /mutate', 'POST /cohort/status', 'POST /cohort/invalidate']);
+      assert.deepEqual(listener.routes, ['POST /authorize', 'POST /mutate', 'POST /cohort/status', 'POST /cohort/invalidate', 'POST /cohort/operations']);
       const authority = transport.client(e.options, contracts.socketAuthority);
       const lifecycle = transport.client(e.options, contracts.lifecycleParticipant);
       assert.deepEqual(await authority.authorizeSocket(authorizeBody(A)), { denied: true });

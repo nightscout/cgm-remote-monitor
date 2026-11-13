@@ -21,7 +21,8 @@ async function lab (mutate, timeoutMs = 1000) {
   const late={pid:801,role:'synthetic_late_reader',birth:'1700000003.000001'};
   const backends=index=>[...(index===0&&flags.initialClosed?[]:[actors[index]]),...(index===0&&flags.admitLate?[{...late,...(flags.lateWrongBirth?{birth:'1700000003.000002'}:{})}]:[])];
   const ipc={async open(endpoint,service,make) {const operations=make(Symbol());handlers.set(endpoint.socketPath,operations);return {async close(){if(handlers.get(endpoint.socketPath)===operations)handlers.delete(endpoint.socketPath);}};}};
-  const clients={lifecycleParticipant:endpoint=>Object.fromEntries(['getStatus','invalidateTenant'].map(operation=>[operation,async body=>{
+  const clients={lifecycleParticipant:endpoint=>Object.fromEntries(['getStatus','invalidateTenant','getOperations'].map(operation=>[operation,async body=>{
+      if(operation==='getOperations' && flags.holdOperations){flags.operationsEntered();await flags.holdOperations;}
       if(operation==='getStatus'){flags.statusRequests=(flags.statusRequests||0)+1;if(flags.holdStatus){flags.statusEntered();await flags.holdStatus;}}
       const handlersForPeer=handlers.get(endpoint.socketPath); if(!handlersForPeer)throw new Error('synthetic missing peer');
       const reply=await handlersForPeer[operation]({},structuredClone(body));
@@ -31,15 +32,15 @@ async function lab (mutate, timeoutMs = 1000) {
       return structuredClone(reply);
     }]))};
   async function boot(index) {
-    const entry=entries[index], f=fixture();
+    const entry=entries[index], options={}, f=fixture(options);
     const module=load({'../internal-api/transport':ipc,'../internal-api/clients':clients,'../../storage/postgres-connection':{
-      installOperationWindow:()=>()=>{},cohortBackends:()=>[actors[index]],cohortDatastore:()=>DATA,cohortSnapshot:async()=>({datastore:DATA,backends:backends(index)})
+      installOperationWindow:()=>()=>{},cohortBackends:()=>[actors[index]],cohortDatastore:()=>DATA,cohortSnapshot:async()=>({datastore:f.window.datastore,backends:backends(index)})
     },...Object.fromEntries(['preview-api','evaluator-preview','preview-realtime','owner-preview'].map(name=>['./'+name,{boot:async()=>({close:async()=>{},invalidateTenant:async tenant=>invalidated.push([entry.id,tenant])})}]))});
     const cohort=await module.create({window:f.window,names:entry.roles,tenants:[A,B],namespaces:entry.namespaces,participant:entry});
     await cohort.boot(roles[index],{tenantIds:[A,B],namespaces:{clinical:entry.namespaces[0]}});cohort.complete();
     // serve.internal binds the lifecycle handlers; the recording transport stands in for it.
     const operations=module.controlOperations(cohort),address=entry.endpoint.socketPath;handlers.set(address,operations);
-    locals.set(index,{async close(){if(handlers.get(address)===operations)handlers.delete(address);await cohort.close();}});
+    locals.set(index,{f,cohort,options,operations,async close(){if(handlers.get(address)===operations)handlers.delete(address);await cohort.close();}});
   }
   for(let index=0;index<entries.length;index++)await boot(index);
   const coordinator=load({'../internal-api/transport':ipc,'../internal-api/clients':clients},mutate);
@@ -136,6 +137,62 @@ describe('Separate-process fixed cohort source protocol',function(){
   });
   it('detects a broken incarnation fence and passes restored source',async function(){
     await assert.rejects(restartCheck(s=>s.replace('row.incarnation!==before.incarnation || ','')),/Missing expected rejection/);await restartCheck();
+  });
+  async function releasedOperationsPin (mutate) {
+    const f=await lab(mutate);let pin=await f.coordinator.pin(f.remote,A,{client:f.operator}),release,entered;
+    const gate=new Promise(resolve=>{release=resolve;}),waiting=new Promise(resolve=>{entered=resolve;});
+    try {
+      f.flags.holdOperations=gate;f.flags.operationsEntered=entered;
+      const answer=f.coordinator.operations(f.remote,A);await waiting;
+      await f.coordinator.releasePin(pin);pin=null;release();
+      await assert.rejects(answer,{code:'RESTORE_COHORT_PIN_REQUIRED'});
+    } finally {release();if(pin)await f.coordinator.releasePin(pin);await f.close();}
+  }
+  it('refuses an operations answer after its exact pin is released while the participant reply waits',()=>releasedOperationsPin());
+  it('control: removing the operations pin fence fails its held-reply oracle; restored source passes',async function(){
+    await assert.rejects(releasedOperationsPin(source=>source.replace("if (state.pinned.get(tenant) !== pin) throw fail('RESTORE_COHORT_PIN_REQUIRED');",'')),/Missing expected rejection/);
+    await releasedOperationsPin();
+  });
+  async function recoveredOperations (mutate) {
+    const f=await lab(mutate); let pin, finish, entered;
+    const waiting=new Promise(resolve=>{entered=resolve;});
+    const barrier=new Promise(resolve=>{finish=resolve;});
+    const local=f.locals.get(0);
+    const loss=new Error('synthetic lost operation backend');
+    const body=local.f.window.run(A,async()=>{local.f.client.emit('error',loss);entered();await barrier;});
+    // Observe refusal immediately; the body is deliberately still unresolved.
+    const settled=body.then(()=>null,error=>error);
+    try {
+      await waiting;
+      const ids=local.f.window.inflight(A); assert.equal(ids.length,1);
+      pin=await f.coordinator.pin(f.remote,A,{client:f.operator});
+      assert.deepEqual((await f.coordinator.operations(f.remote,A)).operations,ids);
+      assert.deepEqual((await f.coordinator.operations(f.remote,B).catch(error=>error)).code,'RESTORE_COHORT_PIN_REQUIRED');
+      local.cohort.datastoreUnavailable();
+      await assert.rejects(f.coordinator.operations(f.remote,A),{code:'RESTORE_COHORT_DATASTORE_UNAVAILABLE'});
+      // Same-store reconnect is not permission to forget a still-running body.
+      assert.deepEqual(await local.f.window.recover(),{restarted:false,sessionsReplaced:0});
+      local.cohort.datastoreRecovered();
+      assert.deepEqual((await f.coordinator.operations(f.remote,A)).operations,ids,'RECOVERY_RETAINS_RUNNING_OPERATION');
+      assert.deepEqual([...local.f.pending.values()],[false],'RECOVERY_NEVER_CLEARS_LOST_MARKER');
+      finish(); assert.equal(await settled,loss);
+      assert.deepEqual((await f.coordinator.operations(f.remote,A)).operations,[]);
+      assert.deepEqual([...local.f.pending.values()],[false],'BODY_END_DOES_NOT_CLEAR_LOST_MARKER');
+      // A published restart invalidates the ORIGINAL pin before any operations
+      // answer can certify that a predecessor process stopped running.
+      local.cohort.datastoreUnavailable();local.cohort.datastoreRecovered({restarted:true});
+      await assert.rejects(f.coordinator.operations(f.remote,A),{code:'RESTORE_COHORT_PARTICIPANT_CHANGED'});
+      await f.coordinator.releasePin(pin);pin=await f.coordinator.pin(f.remote,A,{client:f.operator});
+      assert.deepEqual((await f.coordinator.operations(f.remote,A)).operations,[]);
+      const b=await f.coordinator.pin(f.remote,B,{client:f.operator});
+      assert.deepEqual((await f.coordinator.operations(f.remote,B)).operations,[]);
+      await f.coordinator.releasePin(b);
+    } finally {finish();await settled;if(pin)await f.coordinator.releasePin(pin);await f.close();}
+  }
+  it('preserves live lost-backend operations and uncertain markers through recovery; stale original pins refuse',()=>recoveredOperations());
+  it('control: an erased in-flight reply fails the joined recovery oracle; restored source passes',async function(){
+    await assert.rejects(recoveredOperations(source=>source.replace('operations:Object.freeze([...ids].sort())','operations:Object.freeze([])')),assert.AssertionError);
+    await recoveredOperations();
   });
   it('refuses manifest omissions and duplicate endpoints, while admitting explicit API replicas',function(){
     const rows=roles.map((role,index)=>({id:'peer_'+index,roles:[role],namespaces:['clinical_'+index],endpoint:{socketPath:'/synthetic/'+index+'.sock',maxBytes:1000,timeoutMs:1000}}));

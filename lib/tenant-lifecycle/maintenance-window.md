@@ -36,11 +36,17 @@ never substitute for the provisioned current authority relation.
 
 1. Pin the source-created participant incarnations/schema identities using the held
    private client, then verify the branded complete cohort, exact schema
-   and current role authority. Commit A's suspended phase, new generation, claim
-   and artifact digest with an append-only audit record.
-2. New A ordinary operations refuse. Poll existing durable unfinished markers and
-   try only A's exclusive advisory key nonblocking. Deadline, orphan or unknown
-   completion refuses; the controller never clears markers or reactivates A.
+   and current role authority. Pre-check, while A is still open and before any
+   write: every operation record unfinished at the first read must finish within
+   the drain timeout. A record whose owner backend is gone refuses at once
+   (`LIFECYCLE_RESTORE_PREFLIGHT_ORPHANED_OPERATIONS`); one that outlives the
+   timeout refuses (`LIFECYCLE_RESTORE_PREFLIGHT_PENDING_OPERATIONS`). Both leave
+   A serving. Then commit A's suspended phase, new generation, claim and artifact
+   digest with an append-only audit record.
+2. New A ordinary operations refuse. Poll durable unfinished markers (those
+   registered between the pre-check and the suspension) and try only A's exclusive
+   advisory key nonblocking. Deadline or unknown completion refuses; the
+   controller never clears markers or reactivates A.
 3. Restore on the exact held backend. Lifecycle must assert the claim before
    metadata/effects and before commit. Mark audit state restored in the SAME data
    transaction as restored rows. Independent B's operations/key remain unchanged.
@@ -57,9 +63,10 @@ leave some notifications published with committed data and retained suspension;
 there is no exactly-once or automatic publication replay promise. Persisted history
 and durable consumers retain their own delivery contract.
 
-No automatic retry/reclaim/recovery API is introduced. A normal pre-activation
+Nothing here retries, reclaims or recovers automatically. A normal pre-activation
 failure leaves the committed window suspended; errors after the data commit can
-leave restored data with that suspension. COMMIT response loss is not proof of
+leave restored data with that suspension. The way out is the operator's
+[resume](#resume-and-operation-clearance). COMMIT response loss is not proof of
 rollback: dedicated SUSPENSION/DATA/ACTIVATION_OUTCOME_UNCERTAIN errors retain
 cause information and require explicit persisted-state inspection. Activation
 response loss may mean A is already active, but activation was issued only after
@@ -70,6 +77,46 @@ The same database/pool remain shared resources. Caller-selected drain timeout
 bounds drain refusal, not restore completion. A hung external dependency or
 transport loss is not made safe by reopening on a watchdog deadline.
 
+## Resume and operation clearance
+
+`restore-resume.js` `create({namespace,locks,pool,cohort})` gives the private
+operator three operations (decision `restore-resume-and-precheck`). Each runs on
+one operator backend that is destroyed afterwards, under current restore
+authority and the maintenance schema admission. The two that write also hold the
+cohort pin, so every participant in the fixed manifest has answered now with one
+schema identity and datastore.
+
+`inspect(tenant)` reads and reports the window phase, the claim, the restore
+audit state, whether the restore's owner backend is still present, the count of
+unfinished operation records, and the refusal reasons a resume would give.
+
+`resume(tenant,{claimId})` reopens a tenant whose restore owner is gone. The
+operator names the claim they inspected. The audit state decides the case; the
+data transaction sets `restored` in the same commit as the replaced rows.
+
+| audit state | case | what resume requires before reopening |
+|---|---|---|
+| `suspended` | closed before the data was replaced | fresh participant census before and after. No replaced row is durable, so unfinished records and their running operations stay valid and nothing is invalidated |
+| `restored` | data already replaced | no unfinished operation record, the tenant's exclusive advisory key, awaited invalidation by every participant, then the census again: the order the restore itself uses before activation |
+
+It refuses when the restore's owner backend is present or its birth cannot be
+read (`LIFECYCLE_RESUME_RESTORE_OWNER_PRESENT`), when the claim is another
+database role's (`LIFECYCLE_RESUME_AUDIT_UNAVAILABLE`), when a participant does
+not answer, and when another restore or resume holds the window row. The window
+update and one row in `tenant_lifecycle_restore_resume` commit together; a claim
+has at most one resume row, and the row policy accepts only the label that
+matches the audit state. The restore audit row is not rewritten. Publication
+hooks a restore queued with `afterCommit` are not replayed.
+
+`clearOperations(tenant)` records, in `tenant_lifecycle_operation_clearance`,
+that an unfinished operation record has no owner left. It clears a record only
+when no backend can be its owner (the server's session list) and no participant
+process reports it among its unfinished operations (`getOperations`, answered by
+each pinned incarnation). A record with a present backend is retained as
+`OWNER_BACKEND_PRESENT`; one whose process still runs it as
+`OWNER_PROCESS_RUNNING`. The operation record itself is never changed; restore
+and resume stop counting a record once its clearance row exists.
+
 ## Schema and recovery inventory
 
 Lifecycle migration0004 appends windows.artifact_digest, an explicit role-OID
@@ -79,6 +126,10 @@ constraint rather than receive fabricated ownership. Earlier migrations and
 checksums remain unchanged. Runtime/lifetime profiles get no new write authority;
 a separate strict maintenance profile permits only current window control and
 append/update of the private audit's bounded state fields.
+
+Lifecycle migration0009 appends the resume and clearance tables. Both are
+insert-only for the operator role through column grants and row policies that
+require current restore authority and the inserting backend's own identity.
 
 These live authority/window/operation/audit relations are excluded from ordinary
 tenant clinical restore. Restoring old subjects cannot replace current private

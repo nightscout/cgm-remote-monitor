@@ -110,6 +110,24 @@
         "CREATE POLICY tenant_lifecycle_windows_provision ON tenant_lifecycle_windows FOR INSERT WITH CHECK (tenant_id = nullif(current_setting('app.current_tenant_id', true), '')::uuid AND phase = 'active' AND generation = 1 AND claim_id IS NULL AND artifact_digest IS NULL)"
       ],
       "checksum": "d70e9911d32234780658a8407a9c7a61495344e6f5cc30bc88685ee0b2626057"
+    },
+    {
+      "name": "0009_tenant_restore_resume",
+      "up": [
+        "CREATE TABLE tenant_lifecycle_restore_resume (tenant_id uuid NOT NULL REFERENCES tenant_lifecycle_windows (tenant_id), resume_id uuid PRIMARY KEY, claim_id uuid NOT NULL UNIQUE REFERENCES tenant_lifecycle_restore_audit (claim_id), generation bigint NOT NULL CHECK (generation > 0), artifact_digest text NOT NULL CHECK (artifact_digest ~ '^[a-f0-9]{64}$'), interrupted text NOT NULL CHECK (interrupted IN ('before-data','data-replaced')), role_oid oid NOT NULL DEFAULT CURRENT_USER::regrole::oid, owner_pid integer NOT NULL DEFAULT pg_backend_pid(), owner_birth timestamp with time zone NOT NULL DEFAULT tenant_lifecycle_backend_birth(), resumed_at timestamp with time zone NOT NULL DEFAULT clock_timestamp())",
+        "ALTER TABLE tenant_lifecycle_restore_resume ENABLE ROW LEVEL SECURITY",
+        "ALTER TABLE tenant_lifecycle_restore_resume FORCE ROW LEVEL SECURITY",
+        "REVOKE ALL ON tenant_lifecycle_restore_resume FROM PUBLIC",
+        "CREATE POLICY tenant_restore_resume_read ON tenant_lifecycle_restore_resume FOR SELECT USING (tenant_id = nullif(current_setting('app.current_tenant_id', true), '')::uuid AND role_oid = CURRENT_USER::regrole::oid)",
+        "CREATE POLICY tenant_restore_resume_insert ON tenant_lifecycle_restore_resume FOR INSERT WITH CHECK (tenant_id = nullif(current_setting('app.current_tenant_id', true), '')::uuid AND role_oid = CURRENT_USER::regrole::oid AND owner_pid = pg_backend_pid() AND owner_birth = tenant_lifecycle_backend_birth() AND EXISTS (SELECT 1 FROM tenant_lifecycle_restore_authority a WHERE a.tenant_id = tenant_lifecycle_restore_resume.tenant_id AND a.role_oid = CURRENT_USER::regrole::oid AND a.active) AND EXISTS (SELECT 1 FROM tenant_lifecycle_restore_audit r WHERE r.claim_id = tenant_lifecycle_restore_resume.claim_id AND r.tenant_id = tenant_lifecycle_restore_resume.tenant_id AND r.generation = tenant_lifecycle_restore_resume.generation AND r.artifact_digest = tenant_lifecycle_restore_resume.artifact_digest AND ((r.state = 'suspended' AND tenant_lifecycle_restore_resume.interrupted = 'before-data') OR (r.state = 'restored' AND tenant_lifecycle_restore_resume.interrupted = 'data-replaced'))))",
+        "CREATE TABLE tenant_lifecycle_operation_clearance (tenant_id uuid NOT NULL REFERENCES tenant_lifecycle_windows (tenant_id), operation_id uuid PRIMARY KEY REFERENCES tenant_lifecycle_operations (operation_id), generation bigint NOT NULL CHECK (generation > 0), marker_pid integer NOT NULL, marker_birth timestamp with time zone NOT NULL, role_oid oid NOT NULL DEFAULT CURRENT_USER::regrole::oid, owner_pid integer NOT NULL DEFAULT pg_backend_pid(), owner_birth timestamp with time zone NOT NULL DEFAULT tenant_lifecycle_backend_birth(), cleared_at timestamp with time zone NOT NULL DEFAULT clock_timestamp())",
+        "ALTER TABLE tenant_lifecycle_operation_clearance ENABLE ROW LEVEL SECURITY",
+        "ALTER TABLE tenant_lifecycle_operation_clearance FORCE ROW LEVEL SECURITY",
+        "REVOKE ALL ON tenant_lifecycle_operation_clearance FROM PUBLIC",
+        "CREATE POLICY tenant_operation_clearance_read ON tenant_lifecycle_operation_clearance FOR SELECT USING (tenant_id = nullif(current_setting('app.current_tenant_id', true), '')::uuid)",
+        "CREATE POLICY tenant_operation_clearance_insert ON tenant_lifecycle_operation_clearance FOR INSERT WITH CHECK (tenant_id = nullif(current_setting('app.current_tenant_id', true), '')::uuid AND role_oid = CURRENT_USER::regrole::oid AND owner_pid = pg_backend_pid() AND owner_birth = tenant_lifecycle_backend_birth() AND EXISTS (SELECT 1 FROM tenant_lifecycle_restore_authority a WHERE a.tenant_id = tenant_lifecycle_operation_clearance.tenant_id AND a.role_oid = CURRENT_USER::regrole::oid AND a.active) AND EXISTS (SELECT 1 FROM tenant_lifecycle_operations o WHERE o.operation_id = tenant_lifecycle_operation_clearance.operation_id AND o.tenant_id = tenant_lifecycle_operation_clearance.tenant_id AND o.generation = tenant_lifecycle_operation_clearance.generation AND o.owner_pid = tenant_lifecycle_operation_clearance.marker_pid AND o.owner_birth = tenant_lifecycle_operation_clearance.marker_birth AND o.finished = false))"
+      ],
+      "checksum": "bc89c04250027ee8f5e287fb757f0dbe76594317373ccb5ee6961deadf59b40f"
     }
   ]
 }

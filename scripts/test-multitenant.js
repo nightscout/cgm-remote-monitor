@@ -163,6 +163,8 @@ const INVENTORY = [
     note: 'same-source diagnostics ON/OFF; real heldpool/pg_sleep, actual CLI heldresponse, current authorization, B continuity and restore drain' },
   { file: 'tests/operation-lifetime-discriminator.integration.test.js', flags: { NS_OPERATION_LIFETIME_DOCKER_TEST: '1' }, shared: [], own: ['postgres', 'vault'], gate: PENDING,
     note: 'explicit bounded lifetime sessions; full admission, held actual API responses, current authority, commit uncertainty and orphan refusal; timing is mechanism-only' },
+  { file: 'tests/tenant-restore-resume.integration.test.js', flags: { NS_RESTORE_RESUME_DOCKER_TEST: '1' }, shared: [], own: ['postgres', 'vault'], gate: PENDING,
+    note: 'restore pre-check, resume after four interruption kinds and operation clearance; actual API CLI processes and row policies; replaced rows are a probe table' },
   { file: 'tests/api-fixed-roster-serving.integration.test.js', flags: { NS_API_ROSTER_SERVING_DOCKER_TEST: '1' }, shared: [], own: ['postgres', 'vault'], gate: PENDING,
     note: 'two actual API CLI processes; response drain/current authority/census/uncertainty; non-API peers are synthetic lifecycle-only' },
   { file: 'tests/multitenant-preview-replicas.integration.test.js', flags: { NS_MULTITENANT_PREVIEW_REPLICAS_DOCKER_TEST: '1' }, shared: [], own: ['postgres', 'vault'], gate: PENDING,
