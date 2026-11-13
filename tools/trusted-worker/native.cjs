@@ -26,7 +26,7 @@ async function main () {
     await admin.query('CREATE TABLE ' + name + '(' + fields + ')');
     await admin.query('ALTER TABLE ' + name + ' ENABLE ROW LEVEL SECURITY');
     await admin.query('ALTER TABLE ' + name + ' FORCE ROW LEVEL SECURITY');
-    await admin.query("CREATE POLICY tenant_scope ON " + name + " USING(tenant_id=nullif(current_setting('app.current_tenant_id',true),'')::uuid)");
+    await admin.query("CREATE POLICY tenant_scope ON " + name + " USING(tenant_id=nullif(current_setting('app.current_tenant_id',true),'')::uuid) WITH CHECK(tenant_id=nullif(current_setting('app.current_tenant_id',true),'')::uuid)");
     await admin.query('GRANT USAGE ON SCHEMA ' + name.split('.')[0] + ' TO tw_public');
     await admin.query('GRANT SELECT ON ' + name + ' TO tw_public');
   }
@@ -60,6 +60,27 @@ async function main () {
   await publicClient.query("SELECT set_config('app.current_tenant_id',$1,false)", [A]);
   assert.deepEqual((await publicClient.query('SELECT tenant_id::text FROM tw_settings.tenant_settings')).rows, [{ tenant_id: A }]);
   assert.equal((await publicClient.query('SELECT tenant_id FROM tw_settings.tenant_settings WHERE tenant_id=$1', [B])).rows.length, 0, 'native public A cannot see B');
+  phase = 'restricted-caller-policy-contract';
+  const contract = require('../../lib/storage/tenant-policy-contract');
+  const binding = "(tenant_id = (NULLIF(current_setting('app.current_tenant_id'::text, true), ''::text))::uuid)";
+  const inspect = 'SELECT ' + contract.binds('c.oid', '$2') + ' AS binds FROM pg_class c WHERE c.oid=to_regclass($1)';
+  const admitted = async () => (await publicClient.query(inspect, ['tw_settings.tenant_settings', binding])).rows[0].binds;
+  assert.equal(await admitted(), true, 'native canonical public binding plus unrelated worker read policy');
+  const metadata = (await publicClient.query("SELECT polcmd AS command,polpermissive AS permissive,polroles::text[] AS roles,pg_get_expr(polqual,polrelid) AS using,pg_get_expr(polwithcheck,polrelid) AS check," + contract.applies('pg_policy') + ' AS applies FROM pg_policy WHERE polrelid=to_regclass($1)', ['tw_settings.tenant_settings'])).rows;
+  assert.equal(contract.valid(metadata, binding, value => value), true, 'native policy metadata admits restricted restore/provision caller');
+  for (const [name, definition] of [
+    ['public', 'FOR SELECT TO PUBLIC USING(true)'],
+    ['caller', 'FOR SELECT TO tw_public USING(true)'],
+    ['all', 'FOR ALL TO tw_worker USING(true) WITH CHECK(true)']
+  ]) {
+    await admin.query('CREATE POLICY native_bad ON tw_settings.tenant_settings ' + definition);
+    assert.equal(await admitted(), false, 'native ' + name + ' policy rejected');
+    await admin.query('DROP POLICY native_bad ON tw_settings.tenant_settings');
+    assert.equal(await admitted(), true);
+  }
+  await admin.query('GRANT tw_worker TO tw_public');
+  assert.equal(await admitted(), false, 'native inherited worker policy rejected for restricted caller');
+  await admin.query('REVOKE tw_worker FROM tw_public'); assert.equal(await admitted(), true);
   phase = 'native-policy-controls';
   const controls = [];
   async function expectedRed (name, fn) {

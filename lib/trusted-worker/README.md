@@ -28,7 +28,7 @@ arriving during that check stays dirty for the following tick. The processed
 checkpoint is never advanced to a hinted generation that was not acquired. The
 existing periodic rotation finds a lost hint; a degraded/reconnected evaluator
 feed clears the selected settings caches and reconciles in full. Current settings
-snapshots also expire after ten minutes, independently of version changes; the
+snapshots also expire after ten minutes by default (`settingsRefreshMs`, configurable from 1 to 2147483647 ms), independently of version changes; the
 next due operation or reconciliation reloads them. The maximum quiet reload
 interval includes the configured reconciliation sweep and scheduler delay.
 
@@ -72,3 +72,13 @@ joined-runtime idle/load measurement. A metadata SELECT still visits/returns
 rows proportional to its selected roster; batching alone does not make this
 constant database work. Normal dirty-feed work and recovery scans must be
 measured separately.
+
+The restore/ensure policy checks retain the exact canonical PUBLIC tenant ALL
+policy. They also admit explicit nonPUBLIC-role permissive SELECT USING(true)
+policies with no WITH CHECK only when they cannot apply directly or through
+membership to the restricted restore/provisioning caller. This validates that
+caller's isolation, not a universal whitelist for every database login. Generated
+grants select evaluator/realtime roles only. Worker availability and generation
+also fence in-flight computation, cached model eligibility and staged realtime
+activation; operational recovery cannot make an older result current. A refused
+metadata reconciliation propagates to the feed and retries its dirty hints.

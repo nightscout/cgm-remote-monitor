@@ -58,6 +58,40 @@ describe('trusted worker metadata and operational scope', function () {
     assert.ok(f.calls.every(row => row.tenant === undefined), 'TRUSTED_OPERATIONAL_OUTSIDE_TENANT');
     await lifecycle.close(); await f.reader.close();
   });
+  it('fences an operational verification that began before invalidation', async function () {
+    const f = fixture(), held = deferred(), original = f.connection.readOnly;
+    await f.reader.verify();
+    f.connection.readOnly = async (...args) => { const result = await original(...args); if (/WHERE false/.test(args[0])) await held.promise; return result; };
+    const pending = f.reader.verify(); await new Promise(resolve => setImmediate(resolve));
+    f.reader.invalidate(); held.resolve(); await assert.rejects(pending, /TRUSTED_WORKER_UNAVAILABLE/);
+    assert.equal(f.reader.health().available, false, 'TRUSTED_VERIFY_INVALIDATION_NOT_RESURRECTED');
+    await f.reader.close();
+  });
+  it('does not share an older settings read across a newer version/recovery scan', async function () {
+    const f = fixture(), held = deferred(), original = f.connection.readOnly;
+    await f.reader.verify(); await f.reader.scan([A]);
+    let first = true;
+    f.connection.readOnly = async (...args) => { const result = await original(...args); if (/SELECT s.version/.test(args[0]) && first) { first = false; await held.promise; } return result; };
+    const old = f.reader.read(A); old.catch(() => {}); await new Promise(resolve => setImmediate(resolve));
+    f.bump(); await f.reader.scan([A], { recovery: true });
+    const current = await f.reader.read(A, { force: true }); assert.equal(current.version, 2, 'TRUSTED_NEW_VERSION_NOT_SHARED_WITH_OLD_READ');
+    held.resolve(); await assert.rejects(old, /TRUSTED_WORKER_UNAVAILABLE/);
+    assert.equal((await f.reader.read(A)).version, 2); await f.reader.close();
+  });
+  it('binds trusted namespaces and configurable settings cadence to the authoritative configuration', function () {
+    const fixture = require('./fixtures/multitenant-plan');
+    const layout = fixture.layout(), urls = fixture.syntheticUrls(layout);
+    const docs = fixture.documents({ layout, urls, variant: 'full' });
+    const parse = require('../lib/server/serve/evaluator-config').parseMetadata;
+    const original = docs.configs.evaluator;
+    assert.equal(parse(original).settingsRefreshMs, 600000);
+    for (const name of ['activity', 'settings', 'operatorPolicy', 'clock']) {
+      const changed = structuredClone(original); changed.trustedWorker[name] = 'other_' + name.toLowerCase();
+      assert.throws(() => parse(changed), /explicit evaluator/);
+    }
+    for (const settingsRefreshMs of [0, -1, 1.5, 2147483648]) assert.throws(() => parse({ ...original, settingsRefreshMs }), /explicit evaluator/);
+    assert.equal(parse({ ...original, settingsRefreshMs: 1000 }).settingsRefreshMs, 1000);
+  });
   it('grants cross-tenant SELECT only to explicitly named workers', function () {
     const sql = worker.grants({ namespaces: ns, roles: ['trusted_evaluator', 'trusted_realtime'] }).join('\n');
     assert.match(sql, /FOR SELECT TO "trusted_evaluator" USING \(true\)/);
@@ -132,6 +166,38 @@ describe('trusted evaluator dirty checkpoints', function () {
     f.metadata.get(A).activity = { state: 'active' }; await f.service.backstop([A]);
     assert.ok(f.cycles.get(A).length > before, 'TRUSTED_UNPAUSE_REACQUIRES');
     await f.service.close();
+  });
+  it('fences in-flight and cached clinical output across worker failure and quick recovery', async function () {
+    const f = fixture(), source = 'a'.repeat(64); await f.reader.verify(); await f.reader.scan([A]);
+    const held = deferred(), started = deferred();
+    const service = await runtime({ tenants: [A], readCurrent: async tenant => { const state = await f.reader.read(tenant); return { tenant, identity: 'b'.repeat(64), sourceIdentity: source, settingsVersion: state.version, policyGeneration: state.policyGeneration, settingsReadAt: state.readAt }; },
+      readMetadata: f.reader.scan, metadataCurrent: f.reader.current, readSource: () => source,
+      create: async () => ({ evaluate: async () => ({ checkpoint: 1, signature: { stamp: 1, deleted: 0 } }), evaluateTime: async () => { started.resolve(); await held.promise; return { checkpoint: 1, properties: { alarm: true } }; }, close () {} }),
+      recoveryIntervalMs: 1000, timeIntervalMs: 1000, schedule: () => 1, cancel () {}, setTimer: () => 1, clearTimer () {} });
+    const pending = service.tick(A); await started.promise;
+    f.reader.invalidate(); assert.equal(service.last(A), null, 'TRUSTED_UNAVAILABLE_CACHE_INELIGIBLE');
+    await f.reader.verify(); held.resolve(); await pending;
+    assert.equal(service.last(A), null, 'TRUSTED_INFLIGHT_OUTPUT_FENCED_AFTER_RECOVERY');
+    assert.equal(service.health().tenants[0].outputRevision, null, 'TRUSTED_INFLIGHT_REVISION_NOT_PUBLISHED');
+    f.reader.invalidate(); await assert.rejects(service.backstop([A], { recovery: true }), /TRUSTED_WORKER_UNAVAILABLE/, 'TRUSTED_FEED_RECONCILIATION_FAILURE_PROPAGATES');
+    await f.reader.verify(); await service.backstop([A], { recovery: true });
+    assert.equal(service.last(A)?.eligible, true, 'TRUSTED_RECOVERY_REACQUIRES_BEFORE_ELIGIBILITY');
+    await service.close(); await f.reader.close();
+  });
+  it('fences realtime frames and propagates detector failures for feed retry', async function () {
+    let available = true, generation = 0, fail = false, fanouts = 0;
+    const held = deferred(), started = deferred(); let block = false;
+    const service = await require('../lib/server/realtime/runtime')({ tenants: [A], eventDriven: true,
+      workerState: () => ({ available, generation }), readCurrent: async tenant => ({ tenant, identity: 'same' }),
+      create: () => ({ acquire: async () => { if (block) { started.resolve(); await held.promise; } return { tenant: A, checkpoint: 1, frame: {} }; } }),
+      fanout: async () => { fanouts++; }, detect: async () => { if (fail) throw new Error('metadata unavailable'); return new Map([[A, { stamp: '1', identity: 'same' }]]); },
+      recoveryIntervalMs: 1000, schedule: () => 1, cancel () {} });
+    block = true; const pending = service.refresh(A); pending.catch(() => {}); await started.promise;
+    available = false; generation++; assert.equal(service.last(A), null); assert.equal(service.warm(A), false);
+    available = true; held.resolve(); await assert.rejects(pending, /TRUSTED_WORKER_UNAVAILABLE/);
+    assert.equal(fanouts, 1, 'TRUSTED_REALTIME_LATE_FRAME_NOT_PUBLISHED');
+    fail = true; await assert.rejects(service.check([A]), /metadata unavailable/, 'TRUSTED_REALTIME_DETECT_FAILURE_PROPAGATES');
+    await service.close();
   });
 
 });

@@ -11,6 +11,9 @@ cases = [
  ('recovery-generation', 'lib/trusted-worker/postgres.js', 'function invalidate () { generation++;', 'function invalidate () {', 'Missing expected rejection'),
  ('runtime-settings', 'lib/server/serve/evaluator-runtime.js', 'const unchangedSettings = readMetadata &&', 'const unchangedSettings = false && readMetadata &&', 'TRUSTED_RUNTIME_UNCHANGED_SETTINGS'),
  ('checkpoint-compare', 'lib/server/serve/evaluator-runtime.js', 'if (same(state.processed, validSignature(seen)))', 'if (state.processed)', 'TRUSTED_WRITE_DURING_EVALUATION_RETAINED'),
+ ('verify-generation', 'lib/trusted-worker/postgres.js', 'if (closed || generation !== verifyingGeneration) throw failure();', 'if (closed) throw failure();', 'Missing expected rejection'),
+ ('settings-version-race', 'lib/trusted-worker/postgres.js', ' || readingRevision !== revisions.get(tenant)', '', 'Missing expected rejection'),
+ ('publication-epoch', 'lib/server/serve/evaluator-runtime.js', "if (!current.available || current.generation !== epoch.generation) throw new Error('TRUSTED_WORKER_UNAVAILABLE');", "if (false) throw new Error('TRUSTED_WORKER_UNAVAILABLE');", 'TRUSTED_INFLIGHT_REVISION_NOT_PUBLISHED'),
  ('feed-dirty-arrival', 'lib/change-feed/consumer.js', 'counters.checks += selected.size;', 'dirty.clear(); counters.checks += selected.size;', 'TRUSTED_FEED_DIRTY_GENERATION_NOT_LOST')
 ]
 results = []

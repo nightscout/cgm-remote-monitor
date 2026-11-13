@@ -139,3 +139,28 @@ describe('tenant logical restore forward history', function () {
     assert.equal(result.mode, 'logical-history-reconciliation'); await f.commit(); assert(Number(f.durable.clock[A]) > 1000);
   });
 });
+
+describe('logical restore with trusted worker read policies', function () {
+  it('retains caller tenant/write isolation with nonapplicable worker SELECT policies', async function () {
+    const previous = scope.getTenancyMode(); scope.setTenancyMode('multi');
+    const f = fixture(), query = f.connection.query;
+    f.connection.query = async (sql, values) => {
+      const result = await query(sql, values);
+      if (sql.includes('logical-restore-clock-security')) result.rows[0].policies.push({ command: 'r', permissive: true, roles: ['12345'], using: 'true', check: null, applies: false });
+      return result;
+    };
+    f.begin();
+    try { await withAdmission(f, () => logical.restore(f.connection, f.artifact, args(f))); await f.commit(); }
+    finally { scope.setTenancyMode(previous); }
+  });
+  it('refuses worker policies with PUBLIC, write/ALL authority, or membership applying to this caller', function () {
+    const contract = require('../lib/storage/tenant-policy-contract');
+    const binding = 'binding', expression = value => value;
+    const canonical = { command: '*', permissive: true, roles: ['0'], using: binding, check: binding };
+    const extra = { command: 'r', permissive: true, roles: ['12345'], using: 'true', check: null, applies: false };
+    assert.equal(contract.valid([canonical, extra], binding, expression), true);
+    for (const change of [{ roles: ['0'] }, { command: '*' }, { command: 'w' }, { check: 'true' }, { applies: true }, { applies: undefined }, { permissive: false }]) {
+      assert.equal(contract.valid([canonical, { ...extra, ...change }], binding, expression), false, JSON.stringify(change));
+    }
+  });
+});
