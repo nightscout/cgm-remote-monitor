@@ -57,6 +57,61 @@ describe('opt-in process-local constructor and physical retirement admission', f
     assert.equal(api.wrapPool(Pool, undefined, 'unknown'), Pool); assert.equal(api.wrapClient(Client, 'unknown'), Client);
     assert.equal(api.poolOptions('unknown', original), original); assert.equal(api.health(), null);
   });
+  it('preserves actual pg credential descriptors and lazy password functions through selected pool and direct constructors', async function () {
+    const pg=require('pg'),sasl=require('pg/lib/crypto/sasl'),secret='synthetic-local-only';
+    for(const pooled of [false,true]) for(const mode of ['literal','hidden-literal','function','hidden-function','getter-function','url']) {
+      const observations=[];
+      for(const selected of [false,true]) {
+        const f=fixture({driver:true}),name=pooled?'synthetic-pool':'settings-readiness';let calls=0,getterReads=0,argument;
+        const password=mode.includes('function')?async parameters=>{calls++;argument=parameters;return secret;}:secret;
+        const options=mode==='url'?{connectionString:'postgres://synthetic:synthetic-local-only@synthetic-pg/synthetic?sslmode=disable'}:{host:'synthetic-pg',user:'synthetic',database:'synthetic',ssl:false};
+        if(mode==='getter-function')Object.defineProperty(options,'password',{get(){getterReads++;return password;},enumerable:false});
+        else if(mode!=='url')Object.defineProperty(options,'password',{value:password,enumerable:!mode.startsWith('hidden'),writable:false,configurable:false});
+        Object.defineProperty(options,'query_timeout',{value:3791,enumerable:false,writable:false,configurable:false});
+        if(pooled)Object.assign(options,{max:2,application_name:name,idleTimeoutMillis:0});
+        const before=Object.getOwnPropertyDescriptors(options);let client,pool;
+        if(pooled){const Pool=selected?f.api.wrapPool(pg.Pool,f.Client,name):pg.Pool;pool=selected?new Pool(f.api.poolOptions(name,options)):new Pool(options,f.Client);client=new pool.Client(pool.options);}
+        else {const Client=selected?f.api.wrapClient(f.Client,name):f.Client;client=new Client(options);}
+        assert.deepStrictEqual(Object.getOwnPropertyDescriptors(options),before,'ordinary caller options remain unchanged');
+        assert.equal(calls,0,'constructors do not eagerly call credential functions');
+        if(mode!=='url')assert.strictEqual(client.password,password,'literal or credential function survives non-enumerable pool custody');
+        if(typeof password==='function') {await new Promise(resolve=>client._getPassword(resolve));assert.equal(calls,1);assert.strictEqual(argument,client.connectionParameters);}
+        assert.equal(client.password,secret);assert.equal(Object.getOwnPropertyDescriptor(client,'password').enumerable,false);
+        if(pooled&&mode!=='url')assert.equal(Object.getOwnPropertyDescriptor(pool.options,'password').enumerable,false);
+        if(selected)assert.match(client.connectionParameters.application_name,/^nscb:/);
+        client.saslSession=sasl.startSession(['SCRAM-SHA-256']);let final=0,failure;client.connection.sendSCRAMClientFinalMessage=()=>{final++;};client.connection.on('error',error=>{failure=error;});
+        await client._handleAuthSASLContinue({data:'r='+client.saslSession.clientNonce+'server,s=c3ludGhldGlj,i=4096'});
+        assert.equal(failure,undefined,'actual pg SCRAM continuation accepts the synthetic credential');assert.equal(final,1);
+        observations.push({queryTimeout:client.connectionParameters.query_timeout,credentialCalls:calls,getterReads});
+        await client.end();client.connection.stream.destroy();if(pool)await pool.end();
+      }
+      assert.deepStrictEqual(observations[1],observations[0],'selected constructor preserves actual driver semantics');
+    }
+  });
+  it('keeps actual pg lazy credential resolution, rejection and invalid-result behavior identical to unselected pools', async function () {
+    const pg=require('pg');
+    for(const mode of ['sync','async','rejected','invalid','undefined']) {
+      const observations=[];
+      for(const selected of [false,true]) {
+        const f=fixture({driver:true});let calls=0,argument;const denied=Object.assign(Error('synthetic credential refusal'),{code:'SYNTHETIC_CREDENTIAL_REFUSED'});
+        const credential=parameters=>{calls++;argument=parameters;if(mode==='rejected')return Promise.reject(denied);if(mode==='invalid')return 17;if(mode==='undefined')return undefined;return mode==='async'?Promise.resolve('synthetic-local-only'):'synthetic-local-only';};
+        const options={host:'synthetic-pg',ssl:false,max:2,application_name:'synthetic-pool',idleTimeoutMillis:0};Object.defineProperty(options,'password',{value:credential,enumerable:false});const before=Object.getOwnPropertyDescriptors(options);
+        const Pool=selected?f.api.wrapPool(pg.Pool,f.Client,'synthetic-pool'):pg.Pool,pool=selected?new Pool(f.api.poolOptions('synthetic-pool',options)):new Pool(options,f.Client),client=new pool.Client(pool.options);
+        assert.strictEqual(client.password,credential);assert.equal(calls,0);let callbacks=0,failure;client.connection.on('error',error=>{failure=error;});client._getPassword(()=>{callbacks++;});await turn();
+        assert.equal(calls,1);assert.strictEqual(argument,client.connectionParameters);assert.deepStrictEqual(Object.getOwnPropertyDescriptors(options),before);
+        if(mode==='rejected'){assert.strictEqual(failure,denied);assert.equal(callbacks,0);}else if(mode==='invalid'){assert(failure instanceof TypeError);assert.equal(callbacks,0);}else{assert.equal(failure,undefined);assert.equal(callbacks,1);assert.equal(client.password,mode==='undefined'?null:'synthetic-local-only');}
+        observations.push({callbacks,errorType:failure?.constructor.name||null,passwordType:typeof client.password,credentialRetained:client.password===credential});await client.end();await pool.end();
+      }
+      assert.deepStrictEqual(observations[1],observations[0]);
+    }
+  });
+  it('preserves lazy getters, hidden fields and the input prototype while overriding only admitted options', async function () {
+    const f=fixture(),prototype={syntheticInherited:true};let reads=0;
+    const options=Object.create(prototype,{host:{value:'synthetic-pg',enumerable:true},max:{value:2,enumerable:true},password:{get(){reads++;return 'synthetic-local-only';},enumerable:false},syntheticHidden:{value:'synthetic-metadata',enumerable:false}});
+    const before=Object.getOwnPropertyDescriptors(options),selected=f.api.poolOptions('synthetic-pool',options);
+    assert.strictEqual(Object.getPrototypeOf(selected),prototype);assert.equal(reads,0);assert.equal(Object.getOwnPropertyDescriptor(selected,'password').get,before.password.get);assert.equal(selected.syntheticHidden,'synthetic-metadata');assert.equal(Object.keys(selected).includes('syntheticHidden'),false);
+    const Client=f.api.wrapClient(f.Client,'settings-readiness'),client=new Client(selected);assert.equal(reads,0);assert.equal(client.options.syntheticHidden,'synthetic-metadata');assert.strictEqual(Object.getPrototypeOf(client.options),prototype);assert.equal(Object.getOwnPropertyDescriptor(client.options,'password').get,before.password.get);assert.match(client.options.application_name,/^nscb:/);assert.deepStrictEqual(Object.getOwnPropertyDescriptors(options),before);await client.end();
+  });
   it('requires exact source options then applies only the explicit selected configuration and caps constructors', function () {
     const f = fixture({ poolMax: 1, requestedMaximum: 2 }), Selected = f.api.wrapPool(PgPool, f.Client, 'synthetic-pool');
     assert.throws(() => new Selected({ max: 2 }), { code: 'CONNECTION_ADMISSION_POOL_MAX_MISMATCH' });
