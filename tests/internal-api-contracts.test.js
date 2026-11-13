@@ -24,7 +24,7 @@ describe('Internal service API contracts', function () {
     assert.deepEqual(Object.keys(contracts.connectorInspection.operations), ['inspectConnectors']);
     const paths = Object.values(contracts).flatMap(service => {
       // Connector metadata, alarm/cohort fencing and evaluator scheduling observations use v2.
-      assert.equal(service.version, service.id === 'lifecycle-participant' ? 3 : ['connector-inspection', 'alarm-delivery', 'evaluator-inspection'].includes(service.id) ? 2 : 1);
+      assert.equal(service.version, service.id === 'lifecycle-participant' ? 4 : service.id === 'alarm-delivery' ? 3 : ['connector-inspection', 'evaluator-inspection', 'realtime-inspection'].includes(service.id) ? 2 : 1);
       assert(Object.isFrozen(service.operations));
       return Object.values(service.operations).map(operation => {
         assert(Object.isFrozen(operation.request)); assert(Object.isFrozen(operation.response));
@@ -161,5 +161,16 @@ describe('Internal service API contracts', function () {
     const guard = check => assert.throws(() => check(authorize.request, body), error => error.code === 'INTERNAL_API_SCHEMA_REFUSED');
     guard(validate);
     assert.throws(() => guard(output.exports.validate), error => error.code === 'ERR_ASSERTION' && error.message === 'Missing expected exception.');
+  });
+});
+
+describe('assignment-key wire provenance', function () {
+  it('ties lifecycle placement payloads to exact ownership versions and rejects ambiguous provenance', function () {
+    const placement={generation:1,digest:'a'.repeat(64),rule:'sha256-u32be-v1',shardCount:1,worker:'a',incarnation:A,shards:[0]};
+    for(const response of [lifecycle.getStatus.response,lifecycle.invalidateTenant.response]){
+      const base=response===lifecycle.invalidateTenant.response?{...status,tenant:A}:status;
+      validate(response,{...base,version:2,placement});validate(response,{...base,version:3,placement:{...placement,ownershipVersion:2}});
+      for(const value of [{...base,version:3,placement},{...base,version:2,placement:{...placement,ownershipVersion:2}},{...base,version:1,placement},{...base,version:3,placement:{...placement,ownershipVersion:1}}])refused(()=>validate(response,value));
+    }
   });
 });

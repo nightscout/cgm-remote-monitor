@@ -110,6 +110,7 @@ for (const kind of ['uds', 'http']) describe('Composed component-private listene
       refused(await raw(e.options, '/cohort/status', { request: REQUEST }, { service: 'lifecycle-participant', version: LIFECYCLE_WIRE_VERSION, method: 'GET' }), 'unregistered method');
       refused(await raw(e.options, '/cohort/status', { request: REQUEST }, { service: 'lifecycle-participant', version: '1' }), 'old lifecycle wire version');
       refused(await raw(e.options, '/cohort/status', { request: REQUEST }, { service: 'lifecycle-participant', version: '2' }), 'earlier lifecycle identity contract');
+      refused(await raw(e.options, '/cohort/status', { request: REQUEST }, { service: 'lifecycle-participant', version: '3' }), 'earlier ownership contract');
       assert.deepEqual(calls, [], 'No foreign or unregistered service may invoke a composed handler');
       assert.equal((await raw(e.options, '/cohort/status', { request: REQUEST }, { service: 'lifecycle-participant', version: LIFECYCLE_WIRE_VERSION })).status, 200);
       assert.deepEqual(calls, [['status']], 'Positive control reaches the route owner');
@@ -359,17 +360,18 @@ describe('Per-module lifetime on a composed listener', function () {
 
 for (const kind of ['uds','http']) describe('Bounded realtime inspection over '+kind, function () {
   it('uses existing role ownership and transport trust, and refuses wrong service/version/body before observation', async function () {
-    const e=await endpoint(kind),internal=require('../lib/server/serve/internal-listener');let opened,reads=0;
-    const placement={cached(){reads++;return {generation:1,digest:'a'.repeat(64),rule:'sha256-u32be-v1',shardCount:1,worker:'a',assignmentIncarnation:A,shards:[0]};}};
+    const e=await endpoint(kind),internal=require('../lib/server/serve/internal-listener');let opened,reads=0,alarmCalls=0;
+    const placement={cached(){reads++;return {ownershipVersion:1,generation:1,digest:'a'.repeat(64),rule:'sha256-u32be-v1',shardCount:1,worker:'a',assignmentIncarnation:A,shards:[0]};}};
     const binding={create:require('../lib/server/serve/realtime-inspection')({processIncarnation:B,placement,owner:()=>false,quiescing:()=>false})};
     try {
       const rows=internal.plan(['realtime'],{realtimePreview:{maxMessageBytes:4096,operationTimeoutMs:1000,placement:{}}});
       assert.deepEqual(rows.map(row=>row.id),['alarm-delivery','realtime-inspection']);
       opened=await internal.open({listen:e.options,shutdownTimeoutMs:1000},rows);
       assert.throws(()=>opened.bind('evaluator',{'realtime-inspection':binding}),{code:'INTERNAL_API_CONTRACT_UNOWNED'});
-      opened.bind('realtime',{'alarm-delivery':{create:()=>({deliverAlarm:async()=>{throw Error('not used');}})},'realtime-inspection':binding});opened.assertBound();
-      for(const value of [await raw(e.options,'/realtime/inspect',{}, {service:'alarm-delivery'}),await raw(e.options,'/realtime/inspect',{}, {service:'realtime-inspection',version:'2'}),await raw(e.options,'/realtime/inspect',{tenant:A}, {service:'realtime-inspection'})])refused(value,'fixed private RT observation');
+      opened.bind('realtime',{'alarm-delivery':{create:()=>({deliverAlarm:async()=>{alarmCalls++;return {accepted:true,receipt:null,clearedRequestIds:[]};}})},'realtime-inspection':binding});opened.assertBound();
+      for(const value of [await raw(e.options,'/realtime/inspect',{}, {service:'alarm-delivery'}),await raw(e.options,'/realtime/inspect',{}, {service:'realtime-inspection',version:'1'}),await raw(e.options,'/realtime/inspect',{tenant:A}, {service:'realtime-inspection',version:'2'})])refused(value,'fixed private RT observation');
       assert.equal(reads,0,'rejected requests never observe cached state');
+      const alarm={tenant:A,id:REQUEST,attempt:1,notification:{},receipts:[]};refused(await raw(e.options,'/alarm',alarm,{service:'alarm-delivery',version:'2'}),'legacy alarm wire');assert.equal(alarmCalls,0);await require('../lib/server/internal-api/clients').alarmDelivery(e.options).deliverAlarm(alarm);assert.equal(alarmCalls,1);
       const client=require('../lib/server/internal-api/clients').realtimeInspection(e.options),reply=await client.inspectRealtime({});
       assert.equal(reply.processIncarnation,B);assert.equal(reply.placement.assignmentIncarnation,A);assert.equal(reply.ownerAvailable,false);assert.equal(reply.observation,'cached-not-lock-proof');assert.equal(reads,1);
     }finally{await opened?.close();e.cleanup();}

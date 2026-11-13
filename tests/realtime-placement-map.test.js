@@ -81,3 +81,18 @@ describe('fixed logical realtime placement', function () {
   });
 });
 
+
+describe('fresh assignment profile selection', function () {
+  it('requires the explicit contract2 profile, rejects legacy/new mixing and refuses downgrade without conversion', function () {
+    const fs=require('node:fs'),path=require('node:path'),os=require('node:os');
+    const directory=fs.mkdtempSync(path.join(os.tmpdir(),'assignment-profile-')),file=path.join(directory,'map.json');let loaded;
+    try {
+      const value={...config(),version:2},source={MULTITENANT_REALTIME_PLACEMENT:file,NS_REALTIME_OWNERSHIP_CONTRACT:'assignment-v2',REALTIME_WORKER_ID:'a',REALTIME_WORKER_INCARNATION:I};
+      fs.writeFileSync(file,JSON.stringify(value));assert.throws(()=>placement.load({...source,NS_REALTIME_OWNERSHIP_CONTRACT:undefined},{internal,self:true}),{code:'REALTIME_PLACEMENT_REFUSED'});
+      loaded=placement.load(source,{internal,self:true});assert.equal(loaded.current().ownershipVersion,2);
+      fs.writeFileSync(file,JSON.stringify(config()));assert.throws(()=>loaded.current(),{code:'REALTIME_PLACEMENT_REFUSED'});loaded.close();loaded=null;
+      assert.throws(()=>placement.load(source,{internal,self:true}),{code:'REALTIME_PLACEMENT_REFUSED'});
+      assert.throws(()=>placement.load({NS_REALTIME_OWNERSHIP_CONTRACT:'assignment-v2'},{internal}),{code:'REALTIME_PLACEMENT_SELF_REFUSED'});
+    }finally{loaded?.close();fs.rmSync(directory,{recursive:true});}
+  });
+});

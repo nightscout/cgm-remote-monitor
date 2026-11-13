@@ -80,6 +80,12 @@ describe('sharded alarm envelope bound', function () {
     assert.throws(() => metadata(value, {}, { placement: true }), /invalid/);
     value.realtime.route.maxMessageBytes = 1500;
     assert.doesNotThrow(() => metadata(value, {}, { placement: true }));
+    const envelope={tenant:'0'.repeat(36),id:'0'.repeat(36),attempt:2147483647,notification:{},receipts:[],placement:{generation:Number.MAX_SAFE_INTEGER,shard:65535,worker:'w'.repeat(63),incarnation:'0'.repeat(36)}};
+    value.realtime.route.maxMessageBytes=1000+Buffer.byteLength(JSON.stringify(envelope))-2;
+    assert.doesNotThrow(()=>metadata(value,{}, {placement:true}));
+    assert.throws(()=>metadata(value,{}, {placement:true,ownershipVersion:2}), /invalid/);
+    envelope.placement.ownershipVersion=2;value.realtime.route.maxMessageBytes=1000+Buffer.byteLength(JSON.stringify(envelope))-2;
+    assert.doesNotThrow(()=>metadata(value,{}, {placement:true,ownershipVersion:2}));
   });
 });
 
@@ -136,12 +142,12 @@ describe('bounded recovery source primitives', function () {
 describe('actual realtime boot observation wiring', function () {
   it('binds private cached health without touching full runtime health and uses a fresh process identity per restart', async function () {
     const fs=require('node:fs'),vm=require('node:vm'),Module=require('node:module');
-    const filename=require.resolve('../lib/server/serve/preview-realtime'),local=Module.createRequire(filename),source=fs.readFileSync(filename,'utf8');
-    async function boot(transform=s=>s){
-      const selected=placement.create({read:()=>parse(config()),self:{worker:'a',incarnation:I}});selected.current();
+    const filename=require.resolve('../lib/server/serve/preview-realtime'),local=Module.createRequire(filename),source=fs.readFileSync(filename,'utf8'),keys=[];
+    async function boot(transform=s=>s,version=1){
+      const selected=placement.create({read:()=>placement.parse({...config(),version},{internal:require('./fixtures/realtime-placement-map').internal,ownershipVersion:version}),self:{worker:'a',incarnation:I}});selected.current();
       const noop=async()=>{},overrides={
         '../../storage/connection-admission':{coldAdmission:()=>null},'./evaluator-readiness':noop,
-        '../../storage/postgres-connection':async()=>({end:noop,holdAdvisoryLock:async()=>({available:true,check:noop,close:noop})}),
+        '../../storage/postgres-connection':async()=>({end:noop,holdAdvisoryLock:async key=>{keys.push(key);return {available:true,check:noop,close:noop};}}),
         '../internal-api/clients':{socketAuthority:()=>({})},'../realtime/api-client':{create:()=>({})},
         './tenant-startup':{notReadyRetry:()=>({}),create:()=>({warm:noop,close:noop})},
         '../realtime/protocol':{create:()=>({close(){},stats:()=>({}),fanout(){}})},
@@ -155,10 +161,71 @@ describe('actual realtime boot observation wiring', function () {
     try {
       const token={},a=await one.internal['realtime-inspection'].create(token).inspectRealtime({transport:token}),b=await two.internal['realtime-inspection'].create(token).inspectRealtime({transport:token});
       assert.notEqual(a.processIncarnation,b.processIncarnation);assert.equal(a.placement.assignmentIncarnation,I);assert.equal(b.placement.assignmentIncarnation,I);assert.equal(a.ownerAvailable,true);
+      const version2=await boot(undefined,2);try{const observed=await version2.internal['realtime-inspection'].create(token).inspectRealtime({transport:token});assert.equal(observed.placement.ownershipVersion,2);assert.equal(keys.at(-1),require('../lib/realtime-placement/owner').key({worker:'a',consumer:'realtime-stable',ownershipVersion:2,assignmentIncarnation:I}));}finally{await version2.close();}
       await one.quiesce();assert.equal((await one.internal['realtime-inspection'].create(token).inspectRealtime({transport:token})).ownerAvailable,false);
       const needle="'realtime-inspection': Object.freeze({create: require('./realtime-inspection')";assert(source.includes(needle));
       const mutant=await boot(s=>s.replace(needle,"'omitted-realtime-inspection': Object.freeze({create: require('./realtime-inspection')"));
       try{assert.throws(()=>assert(mutant.internal['realtime-inspection'],'REALTIME_BOOT_INSPECTION_MISSING'),/REALTIME_BOOT_INSPECTION_MISSING/);}finally{await mutant.close();}
     }finally{await one.close();await two.close();}
+  });
+});
+
+describe('assignment-scoped ownership contract2', function () {
+  const owner=require('../lib/realtime-placement/owner'),{internal}=require('./fixtures/realtime-placement-map');
+  const assignment='dddddddd-dddd-4ddd-8ddd-dddddddddddd';
+  it('keeps legacy vectors, separates new assignment keys, rejects mixed profiles and never changes key mode in a reader', function () {
+    const legacy=owner.key({worker:'a',consumer:'realtime-stable'}),key=inc=>owner.key({worker:'a',consumer:'realtime-stable',ownershipVersion:2,assignmentIncarnation:inc});
+    assert.equal(legacy,'-5073554805065011920');assert.equal(key(I),'4173473733355573165');assert.equal(key(assignment),'-7243865036506391614');
+    assert.notEqual(legacy,key(I));assert.equal(key(I),key(I));assert.notEqual(key(I),key(assignment));
+    assert.throws(()=>owner.key({worker:'a',consumer:'realtime-stable',ownershipVersion:2}));
+    assert.throws(()=>owner.key({worker:'a',consumer:'realtime-stable',assignmentIncarnation:I}));
+    const original=config(),next={...original,version:2};
+    assert.throws(()=>placement.parse(next,{internal}),{code:'REALTIME_PLACEMENT_REFUSED'});
+    assert.throws(()=>placement.parse(original,{internal,ownershipVersion:2}),{code:'REALTIME_PLACEMENT_REFUSED'});
+    for(const selected of ['', '2','legacy-v1',true])assert.throws(()=>placement.ownershipVersion({NS_REALTIME_OWNERSHIP_CONTRACT:selected}),{code:'REALTIME_OWNERSHIP_CONTRACT_REFUSED'});
+    let map=parse(original);const reader=placement.create({read:()=>map,self:{worker:'a',incarnation:I}});reader.current();
+    map=placement.parse({...next,generation:2,transition:{previousGeneration:1,previousOwners:original.owners.map(worker=>({worker,incarnation:original.workers.find(row=>row.id===worker).incarnation})),stopped:[]}},{internal,ownershipVersion:2});assert.throws(()=>reader.current(),{code:'REALTIME_PLACEMENT_REVISION_REFUSED'});
+    const current=placement.create({read:()=>map,self:{worker:'a',incarnation:I}}),route=current.route(A);
+    assert.equal(route.ownershipVersion,2);assert.throws(()=>current.assert(A,{...route,ownershipVersion:undefined}),{code:'REALTIME_PLACEMENT_WRONG_OWNER'});
+  });
+  it('warms same worker/new assignment while holding actual OLD assignment key; separately bounds retained work', async function () {
+    const fs=require('node:fs/promises'),os=require('node:os'),path=require('node:path'),protocol=require('./fixtures/operation-window-admission-protocol');
+    const {publish,publishRecovery}=require('../lib/realtime-placement/publish'),rules=require('../lib/tenant-registry/rules');
+    const directory=await fs.mkdtemp(path.join(os.tmpdir(),'rt-assignment-publication-')),file=path.join(directory,'map.json');
+    const tenants=[];for(let n=1;tenants.length<2&&n<1000;n++){const id='00000000-0000-4000-8000-'+String(n).padStart(12,'0'),zero=placement.shard(id,8)===0;if(!tenants.some(t=>(placement.shard(t,8)===0)===zero))tenants.push(id);}tenants.sort();assert.equal(tenants.length,2);
+    try{
+      for(const mode of ['ready','old-live','old-lock','logical-bound','assignment-bound','tenant-bound','legacy-entry','no-readiness']){
+        const original={...config(),version:2},candidate={...move(original,'a'),version:2};candidate.owners[0]='b';if(mode==='logical-bound')candidate.owners[1]='b';
+        const held=new Set(),trace=[],metadata=protocol();let locks=0,warmed=false,stops=0;
+        await fs.writeFile(file,JSON.stringify(original));
+        const client={async query(sql,values){trace.push(sql);if(['BEGIN READ ONLY','COMMIT','ROLLBACK'].includes(sql)){if(sql!=='BEGIN READ ONLY')held.clear();return {rows:[]};}
+          if(sql==='SELECT pg_try_advisory_xact_lock($1::bigint) AS held'){locks++;if(locks===2){assert.equal(values[0],owner.key({worker:'a',consumer:'realtime-stable',ownershipVersion:2,assignmentIncarnation:I}));if(mode==='old-lock')return {rows:[{held:false}]};held.add(values[0]);}return {rows:[{held:true}]};}
+          if(sql.startsWith("SELECT set_config('app.current_tenant_id'"))return {rows:[]};
+          if(sql.startsWith('SELECT phase,lock_key'))return {rows:[{phase:'active',lock_key:rules.lockKey(values[0])}]};
+          const response=metadata(sql,values);if(response)return response;throw Error('unexpected SQL '+sql);}};
+        const options={file,candidate,internal,client,consumer:'realtime-stable',source:{NS_REALTIME_OWNERSHIP_CONTRACT:'assignment-v2'},controlNamespace:'synthetic_window',registry:{revision:async()=> '1',page:async()=>({revision:'1',tenants})},confirmStopped:async()=>{stops++;return mode!=='old-live';},
+          recoveryLimits:{maxLogicalMoves:1,maxAssignmentChanges:mode==='assignment-bound'?1:8,maxAffectedTenants:mode==='tenant-bound'?1:2},
+          afterAssignment:async result=>{assert.equal(held.size,1);assert.equal(result.logicalMoves,1);assert.equal(result.assignmentChanges,8);assert.equal(result.retainedWarmTenantUpperBound,1);assert.equal(result.logicalMovedTenants,1);
+            const resource=await owner.acquire({worker:'a',consumer:'realtime-stable',ownershipVersion:2,assignmentIncarnation:assignment,connection:{async holdAdvisoryLock(key){assert(!held.has(key),'NEW_ASSIGNMENT_MUST_NOT_WAIT_ON_OLD_KEY');return {available:true};}}});assert(resource.available);assert(!trace.includes('COMMIT'));warmed=true;}};
+        if(mode==='no-readiness')delete options.afterAssignment;
+        if(mode==='ready'){const result=await publishRecovery(options);assert(warmed);assert.equal(result.affectedTenants,2);assert(trace.includes('COMMIT'));}
+        else {const code=mode==='old-live'?'REALTIME_PLACEMENT_OLD_OWNER_UNCONFIRMED':mode==='old-lock'?'REALTIME_RECOVERY_OWNER_LOCK_HELD':mode==='legacy-entry'?'REALTIME_ASSIGNMENT_PUBLISH_REQUIRES_RECOVERY':mode==='no-readiness'?'REALTIME_RECOVERY_READINESS_REQUIRED':'REALTIME_RECOVERY_WORK_OVER_BOUND';await assert.rejects(mode==='legacy-entry'?publish(options):publishRecovery(options),{code});assert(!warmed);assert.deepEqual(JSON.parse(await fs.readFile(file,'utf8')),original);if(mode.endsWith('bound')||mode==='legacy-entry'||mode==='no-readiness')assert.equal(stops,0);}
+      }
+    }finally{await fs.rm(directory,{recursive:true});}
+  });
+});
+
+describe('assignment-key alarm handoff', function () {
+  it('carries the exact key contract without changing request/attempt and rejects legacy/mixed targets before effect', async function () {
+    const alarms=require('../lib/server/realtime/alarm-transport'),token=Symbol('private'),internal=require('./fixtures/realtime-placement-map').internal;
+    const map=placement.parse({...config(),version:2},{internal,ownershipVersion:2}),reader=placement.create({read:()=>map,self:{worker:'a',incarnation:I}});let effects=0,observed;
+    const sink=alarms.operations({token,placement:reader,deliver:async()=>{effects++;}}),adapter=alarms.createPlacementAdapter({placement:reader,clientFor:()=>({deliverAlarm:async body=>{observed=body;return sink.deliverAlarm({transport:token},body);}})});
+    await new Promise((resolve,reject)=>adapter.send({tenant:A,id:B,attempt:7,notification:{level:1}},error=>error?reject(error):resolve()));
+    assert.equal(effects,1);assert.equal(observed.id,B);assert.equal(observed.attempt,7);assert.equal(observed.placement.ownershipVersion,2);
+    const legacy={...observed,placement:{...observed.placement}};delete legacy.placement.ownershipVersion;
+    await assert.rejects(sink.deliverAlarm({transport:token},legacy),{code:'REALTIME_ALARM_PLACEMENT_REFUSED'});
+    await assert.rejects(sink.deliverAlarm({transport:token},{...observed,placement:{...observed.placement,ownershipVersion:1}}),{code:'REALTIME_PLACEMENT_WRONG_OWNER'});
+    const oldReader=placement.create({read:()=>parse(config()),self:{worker:'a',incarnation:I}}),oldSink=alarms.operations({token,placement:oldReader,deliver:async()=>{effects++;}});
+    await assert.rejects(oldSink.deliverAlarm({transport:token},observed),{code:'REALTIME_ALARM_PLACEMENT_REFUSED'});assert.equal(effects,1);
   });
 });

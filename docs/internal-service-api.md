@@ -83,18 +83,31 @@ is no URL forwarding, dynamic module lookup or generic proxy operation.
 
 Every request names the selected service and protocol version in
 `x-nightscout-internal-service` and `x-nightscout-internal-version`. The current
-version is `1` except connector inspection, alarm delivery and evaluator inspection (`2`), and lifecycle participant (`3`); a missing or different service/version is refused. The wire paths
+version is `1` except connector inspection, evaluator inspection and realtime inspection (`2`), alarm delivery (`3`), and lifecycle participant (`4`); a missing or different service/version is refused. The wire paths
 remain recognizable, but service/version enforcement requires a coordinated
 upgrade of communicating processes. There is no fallback to the earlier untyped
 IPC protocol. A breaking request, response or operation change requires an
 explicit protocol version change and a documented deployment transition.
 
-Lifecycle participant version 3 requires the complete admitted identity, including
+Lifecycle participant version 4 requires the complete admitted identity, including
 the restore-resume and operation-clearance table OIDs, and provides the scoped
 in-flight operation census. Upgrade the operator and every cohort participant
-together before maintenance; version 1 or 2 requests are refused before dispatch.
+together before maintenance; version 1, 2 or 3 requests are refused before dispatch.
 Existing pins must be reacquired against the upgraded cohort. The operation
-configuration and placement payload versions are separate and remain unchanged.
+configuration remains separate. Unsharded lifecycle payload version 1 and legacy
+map1 placement payload version 2 retain their meaning. Selected map2/key2 uses
+placement payload version 3 with exact `ownershipVersion: 2`. Alarm-delivery
+version 3 carries that same discriminator for assignment-scoped handoffs; no
+legacy-key fallback is permitted. Realtime inspection version 2 reports cached
+ownership mode and separate assignment/process identity under existing private
+UDS/explicit HTTP network trust. These headers do not authenticate peers.
+
+The opt-in `NS_REALTIME_OWNERSHIP_CONTRACT=assignment-v2` profile requires fresh
+map format 2. Absent selection preserves legacy map1/key1. Mixed maps/profiles,
+reader mode changes and in-place conversion through ordinary publication refuse.
+An old source/controller is not compatible with the new prepared profile. No
+conversion may reset UNKNOWN credits; conversion is not implemented or qualified.
+See [the ownership contract](../lib/realtime-placement/README.md#assignment-scoped-ownership-contract-2).
 
 ## Operator REST API (admin listener)
 
@@ -261,7 +274,7 @@ For local diagnostics, use the same operation contract as the named client:
 curl --fail --request POST 'http://127.0.0.1:9081/cohort/status' \
   --header 'Content-Type: application/json' \
   --header 'x-nightscout-internal-service: lifecycle-participant' \
-  --header 'x-nightscout-internal-version: 3' \
+  --header 'x-nightscout-internal-version: 4' \
   --data '{"request":"00000000-0000-4000-8000-000000000001"}'
 ```
 

@@ -1,6 +1,6 @@
 {
   "id": "realtime-inspection",
-  "version": 1,
+  "version": 2,
   "operations": {
     "inspectRealtime": {
       "path": "/realtime/inspect",
@@ -71,6 +71,12 @@
                       "minimum": 0,
                       "maximum": 65535
                     }
+                  },
+                  "ownershipVersion": {
+                    "enum": [
+                      1,
+                      2
+                    ]
                   }
                 },
                 "required": [
@@ -80,7 +86,8 @@
                   "shardCount",
                   "worker",
                   "assignmentIncarnation",
-                  "shards"
+                  "shards",
+                  "ownershipVersion"
                 ],
                 "additionalProperties": false
               }

@@ -181,13 +181,14 @@ never broaden PUBLIC execution for the lifetime identity.
 Every fixed realtime participant row adds `worker:<id>` and its actual instance
 address. Include every real worker, including idle and draining actors. The
 operation configuration and remote `createRemote({...,placement})` use the same
-map. Private lifecycle service version2 preserves unsharded payloadversion1 and
-adds sharded payloadversion2 with exact placement generation/digest/worker/boot/
-shards. Static UUID cohorts and exactly one validated `registry:<namespace>` label
+map. Private lifecycle service version4 preserves unsharded payloadversion1 and
+legacy sharded payloadversion2, while map2 uses payloadversion3 with ownershipVersion2
+and exact placement generation/digest/worker/assignment/shards. Legacy payload2
+retains its prior exact placement fields. Static UUID cohorts and exactly one validated `registry:<namespace>` label
 are distinct; mixed/guessed tenant lists refuse. Actual datastore/PID/role/birth
 census remains required. Placement self-report alone cannot prove completeness.
 
-Alarm service version2 adds the exact placement generation/shard/worker/incarnation
+Alarm service version3 carries the exact placement generation/shard/worker/incarnation
 request field in sharded mode. The logical notification route ID, request and
 attempt identity remain stable across endpoint movement. A transport failure is
 uncertain; do not transparently retry or synthesize device receipts. Upgrade
@@ -254,3 +255,43 @@ readiness certificate, current owner lock proof or credit retirement. UDS filesy
 trust and explicit HTTP network trust remain unchanged. Service/version headers
 route and validate the contract; they do not authenticate HTTP peers. Unselected
 realtime adds no observation route.
+
+## Assignment-scoped ownership contract 2
+
+A fresh profile explicitly sets `NS_REALTIME_OWNERSHIP_CONTRACT=assignment-v2`
+on every placement reader/publisher role. It requires map `version: 2`; an absent
+selector retains legacy map1/key1, while empty/unknown selectors refuse. A reader
+never changes ownership contract on a later generation. Backend and route maps
+use the same format. No in-place map1->map2 conversion is implemented: a mixed
+publication/profile refuses, never creating a new credit ledger or resetting an
+UNKNOWN generation. Fresh preparation and shared allocator binding belong to the
+deployment integration; this core change creates no plan or credit authority.
+
+Contract2 derives the actual owner key from consumer + worker + assignment UUID
+in a distinct v2 key domain. Same-assignment crash restart retains that key and
+map generation, but needs fresh process/admission identities and declared finite
+capacity; a live old backend still blocks it. A genuinely new assignment can
+warm while the publisher holds the OLD assignment's actual key. Exact old process
+exclusion is still mandatory. All map2 publications must use `publishRecovery`,
+which requires explicit `recoveryLimits` (`maxLogicalMoves`, `maxAssignmentChanges`,
+`maxAffectedTenants`). Omitted limits, omitted actual warm/route callback, or the legacy publisher refuse before effects.
+The old-assignment lock is held on the same publication client through warm/routes
+and COMMIT. Old live locks and unknown platform proof refuse.
+
+Results distinguish logical worker-to-worker shard moves from all changed
+assignment shards and affected tenants, including `retainedWarmTenantUpperBound`. These tenant counts conservatively include
+all affected registry tenants (also deferred ones), not completed initialization;
+`warmWorkBasis` states that upper-bound basis. Actual eligibility/readiness remains
+the fixed deployment callback obligation. Moving a
+few logical shards still stops/restarts the old worker and warms its retained
+shards under a new assignment. A small logical batch does not imply a small warm
+cost or uninterrupted retained-shard sessions. Both bounds are enforced before
+platform stop/publication. An unavailable intermediate assignment is not a
+successful move. Existing stable consumers/checkpoints and alarm request/attempt
+identity remain unchanged; no durable viewer replay is added.
+
+Coordinated private versions: lifecycle participant4 (sharded payload3 adds
+`ownershipVersion: 2`), alarm delivery3 (exact mode in sharded tuple), realtime
+inspection2 (cached mode). Legacy payloads remain only under legacy profile/key1,
+not as fallback for assignment-v2. Per-role source/config/ticket binding and full
+native process/PG/clinical qualification remain prospective integration gates.
