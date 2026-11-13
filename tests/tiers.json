@@ -311,7 +311,8 @@
         "tests/registry-human-session.test.js",
         "tests/connector-sources.test.js",
         "tests/evaluator-job-context.test.js",
-        "tests/evaluator-inspection.test.js"
+        "tests/evaluator-inspection.test.js",
+        "tests/trusted-worker.test.js"
       ],
       "env": true,
       "require": [

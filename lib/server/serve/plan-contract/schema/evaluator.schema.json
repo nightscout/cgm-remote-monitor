@@ -457,6 +457,35 @@
           }
         }
       }
+    },
+    "trustedWorker": {
+      "type": "object",
+      "description": "Trusted worker cross-tenant metadata namespaces; ordinary worker SELECT policies, operational checks outside tenant jobs.",
+      "required": [
+        "activity",
+        "clock",
+        "settings",
+        "operatorPolicy"
+      ],
+      "additionalProperties": false,
+      "properties": {
+        "activity": {
+          "type": "string",
+          "pattern": "^[a-z][a-z0-9_]{0,62}$"
+        },
+        "clock": {
+          "type": "string",
+          "pattern": "^[a-z][a-z0-9_]{0,62}$"
+        },
+        "settings": {
+          "type": "string",
+          "pattern": "^[a-z][a-z0-9_]{0,62}$"
+        },
+        "operatorPolicy": {
+          "type": "string",
+          "pattern": "^[a-z][a-z0-9_]{0,62}$"
+        }
+      }
     }
   },
   "dependentRequired": {
