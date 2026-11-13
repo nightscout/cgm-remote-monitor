@@ -1,6 +1,6 @@
 {
   "id": "alarm-delivery",
-  "version": 2,
+  "version": 3,
   "operations": {
     "deliverAlarm": {
       "path": "/alarm",
@@ -50,6 +50,9 @@
               "incarnation": {
                 "type": "string",
                 "pattern": "^[0-9a-f-]{36}$"
+              },
+              "ownershipVersion": {
+                "const": 2
               }
             },
             "required": [

@@ -8,12 +8,12 @@ const listeners = require('../lib/server/internal-api/listener-config');
 const lower = require('../lib/storage/postgres-connection');
 const A = '11111111-1111-4111-8111-111111111111', I = 'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa', J = 'bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb';
 const DATA = { database: 'synthetic_test', database_oid: '16384', server_address: '127.0.0.1', server_port: 5432, postmaster_birth: '1700000000.0' };
-function fixture () {
-  let value = { version: 1, rule: placementModule.RULE, shardCount: 2, generation: 1, owners: ['a', 'b'], workers: [
+function fixture (ownershipVersion = 1) {
+  let value = { version: ownershipVersion, rule: placementModule.RULE, shardCount: 2, generation: 1, owners: ['a', 'b'], workers: [
     { id: 'a', incarnation: I, address: { socket: '/synthetic/a.sock' }, consumerOrigin: 'http://127.0.0.1:18001' },
     { id: 'b', incarnation: J, address: { socket: '/synthetic/b.sock' }, consumerOrigin: 'http://127.0.0.1:18002' }] };
   const internal = listeners.resolve(['api'], { NS_SERVE_INTERNAL_SOCKET: '/synthetic/control.sock' });
-  let map = placementModule.parse(value, { internal });
+  let map = placementModule.parse(value, { internal, ownershipVersion });
   const placement = placementModule.create({ read: () => map });
   const participants = manifests.validate([['api'], ['evaluator'], ['tenant-admin'], ['realtime', 'a'], ['realtime', 'b']].map(([role, worker], index) => ({
     id: 'peer_' + index, roles: [role], ...(worker ? { worker } : {}), namespaces: ['synthetic_clinical'], endpoint: { socketPath: '/synthetic/peer_' + index + '.sock', maxBytes: 100000, timeoutMs: 1000 } })));
@@ -22,10 +22,11 @@ function fixture () {
   function status (peer, body) {
     if (flags.missing === peer.id) throw new Error('draining peer unreachable');
     const worker = peer.worker && map.workers.get(peer.worker), index = participants.indexOf(peer);
-    const p = { generation: map.generation, digest: map.digest, rule: map.rule, shardCount: map.shardCount, worker: worker?.id || null, incarnation: worker?.incarnation || null,
+    const p = { ...(ownershipVersion === 2 ? {ownershipVersion:2} : {}), generation: map.generation, digest: map.digest, rule: map.rule, shardCount: map.shardCount, worker: worker?.id || null, incarnation: worker?.incarnation || null,
       shards: worker ? map.owners.flatMap((owner, index) => owner?.worker === worker.id ? [index] : []) : [] };
     if (flags.wrongSubset === peer.id) p.shards = [0, 1];
-    return { version: 2, participant: peer.id, incarnation: '00000000-0000-4000-8000-' + String(index + 1).padStart(12, '0'), namespace: 'synthetic_control', roles: peer.roles,
+    if(flags.wrongKey === peer.id)delete p.ownershipVersion;
+    return { version: ownershipVersion === 2 ? 3 : 2, participant: peer.id, incarnation: '00000000-0000-4000-8000-' + String(index + 1).padStart(12, '0'), namespace: 'synthetic_control', roles: peer.roles,
       tenants: [A], namespaces: peer.namespaces, identity: require('./fixtures/operation-window-admission-protocol').identity, datastore: DATA, backends: [actors[index]], placement: p, ...body };
   }
   const file = path.resolve(__dirname, '../lib/server/serve/operation-cohort.js'), output = { exports: {} }, original = require('node:module').createRequire(file);
@@ -43,7 +44,7 @@ function fixture () {
     assert.ok(sql.includes('restore-cohort-actors')); return { rows: actors };
   } };
   return { coordinator, participants, placement, flags, invalidated, client, held: () => held,
-    advance () { value = { ...value, generation: 2, transition: { previousGeneration: 1, previousOwners: [{ worker: 'a', incarnation: I }, { worker: 'b', incarnation: J }], stopped: [] } }; map = placementModule.parse(value, { internal }); },
+    advance () { value = { ...value, generation: 2, transition: { previousGeneration: 1, previousOwners: [{ worker: 'a', incarnation: I }, { worker: 'b', incarnation: J }], stopped: [] } }; map = placementModule.parse(value, { internal, ownershipVersion }); },
     open: rows => coordinator.createRemote({ namespace: 'synthetic_control', tenants: [A], participants: rows || participants, placement }) };
 }
 describe('placement-derived fixed maintenance coverage', function () {
@@ -71,5 +72,15 @@ describe('placement-derived fixed maintenance coverage', function () {
       await assert.rejects(f.coordinator.assertComplete(remote, A, { client: f.client }), { code: 'RESTORE_COHORT_PARTICIPANT_CHANGED' });
     } finally { if (token) await f.coordinator.releasePin(token); await remote.close(); }
     assert.equal(f.held(), 0);
+  });
+});
+
+
+describe('assignment ownership maintenance census', function () {
+  it('pins all contract2 peers and refuses missing/wrong key provenance without a worker exemption', async function () {
+    const f=fixture(2),remote=await f.open();let token;
+    try {token=await f.coordinator.pin(remote,A,{client:f.client});await f.coordinator.assertComplete(remote,A,{client:f.client});
+      f.flags.wrongKey='peer_3';await assert.rejects(f.coordinator.assertComplete(remote,A,{client:f.client}),{code:'RESTORE_COHORT_PLACEMENT_MISMATCH'});
+    }finally{if(token)await f.coordinator.releasePin(token);await remote.close();assert.equal(f.held(),0,'ASSIGNMENT_PUBLICATION_PIN_RELEASED');}
   });
 });
