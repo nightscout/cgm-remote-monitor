@@ -302,6 +302,11 @@ The fixed selected recovery entry uses `publishRecoveryActivity(options)`.
 `publishRecovery` remains the earlier publication primitive; it does not supply
 activity and is not a substitute for the selected single-client entry.
 The new entry is assignment-v2 only and refuses ambient tenant/window authority.
+The selected entry explicitly begins `ISOLATION LEVEL READ COMMITTED READ ONLY`
+and verifies the actual same-client `transaction_isolation` setting. Fresh
+statement snapshots are required on every registry/activity readiness pass;
+READ ONLY alone is insufficient when a server/role default is repeatable read
+or serializable. The legacy publication BEGIN remains unchanged.
 Its `afterAssignment(result, {readActivity, registry})` receives only the bounded
 affected tenant activity reader and fixed registry revision/page facade. Supply
 `registryNamespace`; a supplied external `registry` is refused in this selected

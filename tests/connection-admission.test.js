@@ -489,19 +489,20 @@ describe('assertion-only actual admitted recovery transaction',function(){
   function activity(f,options={}){
     const tenantScope=require('../lib/storage/tenant-scope'),filename=path.resolve(__dirname,'../lib/realtime-placement/activity.js'),loaded=new Module(filename,module);
     loaded.filename=filename;loaded.paths=Module._nodeModulePaths(path.dirname(filename));loaded.require=function(name){return name==='../storage/connection-admission'?f.api:Module.prototype.require.call(this,name);};loaded._compile(fs.readFileSync(filename,'utf8'),filename);
-    const A='11111111-1111-4111-8111-111111111111',META='00000000-0000-0000-0000-000000000000',calls=[];let parsed,values,release;
+    const A='11111111-1111-4111-8111-111111111111',META='00000000-0000-0000-0000-000000000000',calls=[];let parsed,values,release,sessionIsolation=options.sessionIsolation||'read committed';
     function reply(rows){
       const names=Object.keys(rows[0]||{});if(names.length){f.client.connection.emit('rowDescription',{fields:names.map(name=>({name,dataTypeID:typeof rows[0][name]==='boolean'?16:typeof rows[0][name]==='number'?23:typeof rows[0][name]==='object'&&rows[0][name]!==null?114:25,format:'text'}))});for(const row of rows)f.client.connection.emit('dataRow',{fields:names.map(name=>row[name]===null?null:typeof row[name]==='object'?JSON.stringify(row[name]):typeof row[name]==='boolean'?(row[name]?'t':'f'):String(row[name]))});}
       f.client.connection.emit('commandComplete',{text:'SELECT '+rows.length});f.client.connection.emit('readyForQuery',{status:'T'});
     }
     function respond(text,args){
       calls.push({text,values:args,tenant:tenantScope.currentTenant()});
+      if(text==='BEGIN ISOLATION LEVEL READ COMMITTED READ ONLY')sessionIsolation='read committed';
       if(options.cleanupFail&&text.startsWith("SELECT set_config('app.current_tenant_id'")&&args?.[0]===META&&calls.filter(c=>c.values?.[0]===META).length>1){queueMicrotask(()=>f.client.connection.emit('error',Object.assign(Error('synthetic cleanup transport'),{code:'SYNTHETIC_CLEANUP'})));return;}
       const send=()=>{
         const custom=options.handler?.(text,args);if(custom)return reply(custom.rows);
         if(text.startsWith('SELECT p.proname AS name')){const functions=require('../lib/tenant-registry/postgres').FUNCTIONS;return reply(Object.entries(functions).map(([name,fn])=>({name,prosecdef:true,proconfig:[...(fn.binds?['app.current_tenant_id=']:[]),'search_path=synthetic_registry, pg_catalog'],lanname:'plpgsql',result:fn.result,prosrc:fn.body,rolcanlogin:false,rolsuper:false,rolbypassrls:false,nspname:'synthetic_registry',owns_tables:true,public_execute:false,...options.registryDrift})));}
         if(text.startsWith('SELECT f.version')){const version=options.registryVersion||'1',admitted=args?.[3]===version,page=text.includes('LEFT JOIN LATERAL');return reply(page?(admitted?[{version,revision:version,tenant:A}]:[{version,revision:null,tenant:null}]):[{version,revision:admitted?version:null}]);}
-        if(text.includes('current_user AS role'))return reply([{role:'synthetic_reader',roleOid:'123',database:'synthetic',databaseOid:'16384',epoch:'synthetic-epoch',pid:f.client.processID,birth:'synthetic-backend-birth',readOnly:'on',rolsuper:false,rolbypassrls:false,...options.identity}]);
+        if(text.includes('current_user AS role')){const row={role:'synthetic_reader',roleOid:'123',database:'synthetic',databaseOid:'16384',epoch:'synthetic-epoch',pid:f.client.processID,birth:'synthetic-backend-birth',readOnly:'on',rolsuper:false,rolbypassrls:false,...options.identity};if(text.includes("current_setting('transaction_isolation')"))row.isolation=options.identity&&Object.hasOwn(options.identity,'isolation')?options.identity.isolation:sessionIsolation;else delete row.isolation;return reply([row]);}
         if(text.includes('FROM pg_class'))return reply(options.screen||[{current_state:true,secured:true,owns:false,reads:true,inserts:false,destroys:false,updates:[]},{current_state:false,secured:true,owns:false,reads:false,inserts:false,destroys:false,updates:[]}]);
         if(text.startsWith('SELECT version::text')){if(options.failQuery){f.client.connection.emit('errorMessage',Object.assign(Error('synthetic source SQL failure'),{code:'SYNTHETIC_QUERY'}));if(!options.delayReady)f.client.connection.emit('readyForQuery',{status:'E'});return;}return reply(options.rows||[{version:'1',paused:false,suspended:false}]);}
         return reply([]);
@@ -549,7 +550,7 @@ describe('assertion-only actual admitted recovery transaction',function(){
     const directory=await fsp.mkdtemp(path.join(os.tmpdir(),'rt-activity-publication-'));tenantScope.setTenancyMode('multi');
     try{for(const mode of ['ready','unawaited','concurrent','primary','late','registry','external']){
       const f=await selected(),metadata=protocol(),file=path.join(directory,'map.json'),original={...maps.config(),version:2},candidate={...maps.move(original,'a'),version:2};await fsp.writeFile(file,JSON.stringify(original));
-      let lateReader,late,external;const activityOptions={hold:!['ready','late','registry','external'].includes(mode),holdExternal:mode==='external',handler:(text,args)=>{
+      let lateReader,late,external;const activityOptions={sessionIsolation:'repeatable read',hold:!['ready','late','registry','external'].includes(mode),holdExternal:mode==='external',handler:(text,args)=>{
         if(text==='COMMIT'&&mode==='late'){late=lateReader.readActivity(a.A);late.catch(()=>{});}
         if(text.includes('operation-window-'))return metadata(text,args);
         if(text.startsWith('SELECT pg_try_advisory'))return{rows:[{held:true}]};
@@ -567,7 +568,7 @@ describe('assertion-only actual admitted recovery transaction',function(){
       const published=loaded.exports.publishRecoveryActivity(options);published.catch(()=>{});
       if(mode==='external'){await externalBegun;await turn();assert(!f.client._queryQueue.some(q=>q.text==='COMMIT'),'NO_COMMIT_QUEUED_BEHIND_UNTRACKED_QUERY');}
       if(mode==='ready')await published;else await assert.rejects(published,error=>mode==='primary'?error===primary:error.code===(mode==='external'?'CONNECTION_ADMISSION_RECOVERY_TRANSACTION_REQUIRED':mode==='late'?'REALTIME_RECOVERY_ACTIVITY_CLOSED':mode==='concurrent'?'REALTIME_RECOVERY_ACTIVITY_CONCURRENT':'REALTIME_RECOVERY_ACTIVITY_UNAWAITED'));
-      const sql=a.calls.map(c=>c.text);assert.equal(sql.includes('COMMIT'),['ready','late'].includes(mode));assert.equal(sql.includes('ROLLBACK'),!['ready','late','external'].includes(mode));assert.equal(f.instances.length,1);
+      const sql=a.calls.map(c=>c.text);assert.equal(sql[0],'BEGIN ISOLATION LEVEL READ COMMITTED READ ONLY','SELECTED_PUBLICATION_MUST_OVERRIDE_SESSION_SNAPSHOT');assert.equal(sql.includes('COMMIT'),['ready','late'].includes(mode));assert.equal(sql.includes('ROLLBACK'),!['ready','late','external'].includes(mode));assert.equal(f.instances.length,1);
       if(mode==='late'){await assert.rejects(late);assert.equal(sql.at(-1),'COMMIT','late callback emits no GUC after COMMIT');}
       if(mode==='external'){a.release();await external;assert(!sql.includes('COMMIT')&&!sql.includes('ROLLBACK'));}
       if(!['ready','late','external'].includes(mode)){await assert.rejects(child);const rollback=sql.indexOf('ROLLBACK');assert.deepEqual(a.calls[rollback-1].values,[a.META]);}
@@ -648,6 +649,12 @@ describe('assertion-only actual admitted recovery transaction',function(){
   it('actual registry function-body/owner/search-path/public-grant drift refuses through the same-client adapter',async function(){
     const tenantScope=require('../lib/storage/tenant-scope');tenantScope.setTenancyMode('multi');
     try{for(const drift of [{prosrc:'unsafe-body'},{prosecdef:false},{rolcanlogin:true},{rolbypassrls:true},{owns_tables:false},{nspname:'other_namespace'},{proconfig:['search_path=public']},{public_execute:true}]){const f=await selected();await f.begin();const a=activity(f,{registryDrift:drift}),r=await a.open();await assert.rejects(r.registry.revision(),{code:'TENANT_REGISTRY_FUNCTION_UNSAFE'});await assert.rejects(r.finish());await f.close();}}
+    finally{tenantScope.setTenancyMode('single');}
+  });
+
+  it('same-backend scope refuses non-READ-COMMITTED or missing actual isolation observation',async function(){
+    const tenantScope=require('../lib/storage/tenant-scope');tenantScope.setTenancyMode('multi');
+    try{for(const options of [{sessionIsolation:'repeatable read'},{sessionIsolation:'serializable'},{identity:{isolation:null}}]){const f=await selected();await f.begin();const a=activity(f,options);await assert.rejects(a.open(),{code:'REALTIME_RECOVERY_ACTIVITY_IDENTITY'});await f.close();}}
     finally{tenantScope.setTenancyMode('single');}
   });
 
