@@ -54,6 +54,13 @@ describe('bounded Vault metadata and nested lifetime awaits',function(){
  const base={address:'http://127.0.0.1/',mount:'transit',allowInsecureLoopback:true,getToken:async()=> 'synthetic'};
  const key='tenant-access-11111111-1111-4111-8111-111111111111';
  const good=Buffer.from(JSON.stringify({data:{type:'ed25519',exportable:false,keys:{'1':{public_key:Buffer.alloc(32,3).toString('base64')}}}}));
+ it('does not retain empty chunk objects outside the byte budget',async function(){
+  const original=Buffer.from;let emptyCopies=0;
+  const service=createVaultKeys({...base,fetchImpl:async()=>({status:200,ok:true,body:(async function*(){for(let i=0;i<10000;i++)yield new Uint8Array(0);yield good;})()})});
+  Buffer.from=function(value,...args){if(value instanceof Uint8Array && value.byteLength===0)emptyCopies++;return original.call(this,value,...args);};
+  try {assert.equal((await service.observe(key,'ed25519')).version,1);assert.equal(emptyCopies,0);}
+  finally {Buffer.from=original;}
+ });
  it('stops chunk overflow before parsing or key creation and closes the iterator',async function(){
   let calls=0,closed=false,after=false;
   const service=createVaultKeys({...base,fetchImpl:async()=>{calls++;return{status:200,ok:true,body:(async function*(){try{yield Buffer.alloc(MAX_KEY_METADATA_BYTES,32);yield Buffer.from('x');after=true;}finally{closed=true;}})()};}});
