@@ -6,8 +6,11 @@
 // `nightscout multitenant admin` process on disposable PostgreSQL, reached only
 // on its ADMIN listener with the named ownership-operations client. The
 // database identity and its grants are the deployment plan's own
-// (deploy/multitenant/config.js `ownership_operator`). Synthetic tenants and
-// identifiers only.
+// (deploy/multitenant/config.js `ownership_operator`) plus the registry reader
+// grant registry mode needs. The role runs in registry mode: tenant A is
+// provisioned through the shipping provisioning (tests/fixtures/provisioned-tenants.js),
+// tenant B has rows in the database but is not in the registry. Synthetic
+// tenants and identifiers only.
 const assert = require('node:assert/strict');
 const crypto = require('node:crypto');
 const fs = require('node:fs');
@@ -23,6 +26,7 @@ const lifecycleCatalogue = require('../lib/tenant-lifecycle/postgres-candidate.j
 const clients = require('../lib/server/internal-api/clients');
 const { catalogueDigest } = require('../lib/subject-admin/owner-policy');
 const plan = require('../deploy/multitenant/config');
+const provisionedTenants = require('./fixtures/provisioned-tenants');
 const { optInSuite } = require('./support/opt-in');
 
 // postgres:16, pinned by digest. Override only with another digest.
@@ -49,16 +53,16 @@ optInSuite(process.env.NS_ADMIN_ROLE_DOCKER_TEST === '1',
   const layout = plan.layout('nsadm');
   const NS = layout.namespaces.authorization, CONTROL = layout.namespaces.control, IDENTITY = layout.roles.ownership_operator;
   const t = name => '"' + NS + '".' + name;
-  let owned = false, admin, adminURI, identityURI, configDir, reaper, role;
+  let owned = false, admin, adminURI, identityURI, configDir, reaper, role, lab;
 
-  async function startRole ({ tenants = [A] } = {}) {
+  async function startRole () {
     const port = await freePort();
     const file = path.join(configDir, crypto.randomBytes(4).toString('hex') + '.json');
     fs.writeFileSync(file, JSON.stringify({ version: 1, maxBytes: 65536, timeoutMs: 10000,
-      ownership: { connectionEnv: 'NS_OWNERSHIP_PG', namespace: NS, lifecycleNamespace: CONTROL, operator: OPERATOR, tenants } }), { mode: 0o600 });
+      ownership: { connectionEnv: 'NS_OWNERSHIP_PG', namespace: NS, lifecycleNamespace: CONTROL, operator: OPERATOR, registry: { namespace: lab.namespaces.registry } } }), { mode: 0o600 });
     const child = spawn(process.execPath, [path.join(ROOT, 'bin/nightscout.js'), 'multitenant', 'admin'], {
       cwd: ROOT, stdio: ['ignore', 'pipe', 'pipe'],
-      env: { PATH: process.env.PATH, MULTITENANT_STATIC_TENANTS: 'lab', ADMIN_HOSTNAME: ADMIN_HOST, ADMIN_PORT: String(port),
+      env: { PATH: process.env.PATH, ADMIN_HOSTNAME: ADMIN_HOST, ADMIN_PORT: String(port),
         MULTITENANT_ADMIN_CONFIG: file, NS_OWNERSHIP_PG: identityURI }
     });
     const out = { stdout: '', stderr: '' };
@@ -139,10 +143,16 @@ optInSuite(process.env.NS_ADMIN_ROLE_DOCKER_TEST === '1',
     }
     await admin.query(`ALTER FUNCTION "${CONTROL}".tenant_lifecycle_backend_birth() OWNER TO "${layout.owner}"`);
     await admin.query(`ALTER SCHEMA "${CONTROL}" OWNER TO "${layout.owner}"`);
-    await admin.query(`INSERT INTO "${CONTROL}".tenant_lifecycle_windows (tenant_id,lock_key,phase,generation) VALUES ($1,'810001','active',1),($2,'810002','active',1)`, [A, B]);
+    // Tenant A through provisioning (registry row, hosts, keys, its window and
+    // authorization rows); tenant B only as rows, absent from the registry.
+    lab = await provisionedTenants.create({ admin, adminURI, owner: layout.owner, namespaces: { authorization: NS, control: CONTROL } });
+    await lab.provision({ id: A, hosts: ['one.example.test'] });
+    await admin.query(`INSERT INTO "${CONTROL}".tenant_lifecycle_windows (tenant_id,lock_key,phase,generation) VALUES ($1,'810002','active',1)`, [B]);
     const grants = plan.grants(layout).filter(sql => sql.endsWith(' TO "' + IDENTITY + '"'));
     assert.ok(grants.length > 0, 'deployment plan grants the ownership identity');
     for (const sql of grants) await admin.query(sql);
+    // Registry mode reads the tenant's registry entry on the ownership connection.
+    for (const sql of lab.registryGrants({ readers: [IDENTITY] })) await admin.query(sql);
     const url = new URL(adminURI); url.username = IDENTITY; url.password = rolePassword; identityURI = url.toString();
   });
 
@@ -161,6 +171,7 @@ optInSuite(process.env.NS_ADMIN_ROLE_DOCKER_TEST === '1',
   after(async function () {
     try {
       if (role) await role.stop();
+      if (lab) await lab.close();
       if (admin) await admin.end();
     } finally {
       if (owned) docker(['rm', '-f', '-v', container]);

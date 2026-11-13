@@ -133,7 +133,7 @@ tests as pending with `[pending opt-in: <requirement>]` in the title; one
 | `tests/subject-management-http.integration.test.js` | `NS_SUBJECT_MANAGEMENT_HTTP_DOCKER_TEST=1` | | PostgreSQL | |
 | `tests/subject-admin-postgres.integration.test.js` | `NS_SUBJECT_ADMIN_POSTGRES_DOCKER_TEST=1` | | PostgreSQL | |
 | `tests/tenant-ownership-postgres.integration.test.js` | `NS_TENANT_OWNERSHIP_DOCKER_TEST=1` | | PostgreSQL | operator-assisted add/transfer/recover with concurrent-transfer and foreign-authority controls over the private ownership service |
-| `tests/admin-role-ownership.integration.test.js` | `NS_ADMIN_ROLE_DOCKER_TEST=1` | | PostgreSQL | spawns `nightscout multitenant admin`; ownership operations on the admin listener with the deployment plan's `ownership_operator` grants |
+| `tests/admin-role-ownership.integration.test.js` | `NS_ADMIN_ROLE_DOCKER_TEST=1` | | PostgreSQL, Vault | spawns `nightscout multitenant admin` in registry mode over a provisioned tenant; ownership operations on the admin listener with the deployment plan's `ownership_operator` grants |
 | `tests/admin-lifecycle-fit.integration.test.js` | `NS_ADMIN_LIFECYCLE_DOCKER_TEST=1` | | PostgreSQL | tenant A restore through the maintenance controller and remote cohort census with the admin role connected; ownership refusal while held; admin on the consumer address at another port |
 | `tests/owner-subject-policy.integration.test.js` | `NS_OWNER_SUBJECT_POLICY_DOCKER_TEST=1` | | PostgreSQL | verifies its own volume removal |
 | `tests/tenant-rest-authority-review.test.js` | `NS_REST_AUTHORITY_REVIEW_TEST=1` | | PostgreSQL | |

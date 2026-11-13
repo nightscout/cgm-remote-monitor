@@ -248,7 +248,8 @@ describe('Actual serving and CLI selection composition (source protocol)', funct
   it('loads the private cohort only for multitenant commands and passes selection to serving', async function () {
     let loads=0; const captures=[];
     const stop = new Error('synthetic stop before listeners');
-    const noopConfig={load:() => ({})};
+    // The role configuration stub is registry-shaped: no tenant list, so no MULTITENANT_STATIC_TENANTS.
+    const noopConfig={load:() => ({registry:{namespace:'synthetic_registry'}})};
     const cli=load('../lib/cli/commands/multitenant.js',{
       '../../server/serve':{start:async (...args) => { captures.push(args.at(-1)); throw stop; }},
       '../../server/serve/operation-cohort-config':{load:() => { loads++; return {synthetic:true}; }},
@@ -256,7 +257,7 @@ describe('Actual serving and CLI selection composition (source protocol)', funct
       '../../server/realtime/config':noopConfig,'../../server/serve/evaluator-config':noopConfig,'../../server/serve/owner-preview-config':noopConfig,
       '../../server/runtime-policy':() => {},'../../server/env':() => ({settings:{language:'en'}}),'../../language':() => ({set(){},loadLocalization(){}})
     });
-    const io={env:{MULTITENANT_OPERATION_CONFIG:'/synthetic/selected',MULTITENANT_STATIC_TENANTS:'lab'},stderr:{write(){}}};
+    const io={env:{MULTITENANT_OPERATION_CONFIG:'/synthetic/selected'},stderr:{write(){}}};
     assert.equal(await cli.runRoles(['api'],io,'synthetic',true),1); assert.equal(loads,1); assert.deepEqual(captures[0].operationConfig,{synthetic:true});
     assert.equal(await cli.runRoles(['api'],io,'synthetic',false),1); assert.equal(loads,1); assert.equal(captures[1].operationConfig,undefined);
   });
