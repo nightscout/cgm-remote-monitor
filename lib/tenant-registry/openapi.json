@@ -1,0 +1,368 @@
+{
+  "openapi": "3.1.0",
+  "info": {
+    "title": "Nightscout multitenant admin: tenant provisioning",
+    "version": "1",
+    "description": "The platform operator's provisioning resource on the admin role's private listener (decisions provisioning-split and operator-rest-api). Nightscout does not authenticate callers of this API; the deployment controls who can reach the admin listener. The idempotency key is the tenant id: a retried request returns 'existing'. A root secret is returned only once, on 'created', when the request sets issueRootSecret."
+  },
+  "paths": {
+    "/v1/tenants": {
+      "post": {
+        "operationId": "provisionTenant",
+        "parameters": [{ "name": "Idempotency-Key", "in": "header", "required": false, "description": "When sent, must equal the tenant id.", "schema": { "$ref": "#/components/schemas/TenantId" } }],
+        "requestBody": { "required": true, "content": { "application/json": { "schema": { "$ref": "#/components/schemas/TenantRequest" } } } },
+        "responses": {
+          "201": { "description": "Created", "headers": { "Location": { "schema": { "type": "string" } } }, "content": { "application/json": { "schema": { "$ref": "#/components/schemas/TenantResult" } } } },
+          "200": { "description": "Already provisioned with the same hosts", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/TenantResult" } } } },
+          "409": { "$ref": "#/components/responses/Problem" },
+          "413": { "$ref": "#/components/responses/Problem" },
+          "415": { "$ref": "#/components/responses/Problem" },
+          "422": { "$ref": "#/components/responses/Problem" },
+          "502": { "$ref": "#/components/responses/Problem" },
+          "503": { "$ref": "#/components/responses/Problem" }
+        }
+      }
+    },
+    "/v1/tenants/batch": {
+      "post": {
+        "operationId": "provisionTenants",
+        "description": "At most 100 tenants. Each tenant is provisioned independently; the response has one result per tenant in request order. Duplicate ids or hosts inside one batch refuse the whole batch before any work.",
+        "requestBody": { "required": true, "content": { "application/json": { "schema": {
+          "type": "object", "additionalProperties": false, "required": ["tenants"],
+          "properties": { "tenants": { "type": "array", "minItems": 1, "maxItems": 100, "items": { "$ref": "#/components/schemas/TenantRequest" } } } } } } },
+        "responses": {
+          "200": { "description": "One result per tenant", "content": { "application/json": { "schema": {
+            "type": "object", "additionalProperties": false, "required": ["results"],
+            "properties": { "results": { "type": "array", "items": { "$ref": "#/components/schemas/TenantResult" } } } } } } },
+          "413": { "$ref": "#/components/responses/Problem" },
+          "415": { "$ref": "#/components/responses/Problem" },
+          "422": { "$ref": "#/components/responses/Problem" },
+          "503": { "$ref": "#/components/responses/Problem" }
+        }
+      }
+    },
+    "/v1/tenants/{id}": {
+      "get": {
+        "operationId": "getTenant",
+        "parameters": [{ "name": "id", "in": "path", "required": true, "schema": { "$ref": "#/components/schemas/TenantId" } }],
+        "responses": {
+          "200": { "description": "The registry's view of the tenant", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/Tenant" } } } },
+          "404": { "$ref": "#/components/responses/Problem" },
+          "422": { "$ref": "#/components/responses/Problem" },
+          "503": { "$ref": "#/components/responses/Problem" }
+        }
+      },
+      "delete": {
+        "operationId": "removeTenant",
+        "description": "Remove a tenant from the registry after its deletion ceremony has executed (owner request, operator confirmation, execution). Deletes its host rows and marks it removed; serving roles stop within one registry refresh interval. A removed id is never provisioned again. A retry returns outcome 'existing'. Pause and suspend are activity operations, not removal.",
+        "parameters": [{ "name": "id", "in": "path", "required": true, "schema": { "$ref": "#/components/schemas/TenantId" } },
+          { "name": "Idempotency-Key", "in": "header", "required": false, "schema": { "$ref": "#/components/schemas/TenantId" } }],
+        "responses": {
+          "200": { "description": "Removed, or already removed", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/Removal" } } } },
+          "404": { "$ref": "#/components/responses/Problem" },
+          "409": { "$ref": "#/components/responses/Problem" },
+          "422": { "$ref": "#/components/responses/Problem" },
+          "503": { "$ref": "#/components/responses/Problem" }
+        }
+      }
+    },
+    "/v1/tenants/{id}/connector-sources": {
+      "get": {
+        "operationId": "listConnectorSources",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "$ref": "#/components/schemas/TenantId"
+            }
+          },
+          {
+            "name": "after",
+            "in": "query",
+            "schema": {
+              "$ref": "#/components/schemas/ConnectorSourceId"
+            }
+          },
+          {
+            "name": "limit",
+            "in": "query",
+            "schema": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 1000,
+              "default": 100
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "A bounded page of source definitions, including deletion tombstones."
+          },
+          "404": {
+            "$ref": "#/components/responses/Problem"
+          },
+          "409": {
+            "$ref": "#/components/responses/Problem"
+          },
+          "422": {
+            "$ref": "#/components/responses/Problem"
+          },
+          "423": {
+            "$ref": "#/components/responses/Problem"
+          },
+          "503": {
+            "$ref": "#/components/responses/Problem"
+          }
+        }
+      }
+    },
+    "/v1/tenants/{id}/connector-sources/{source}": {
+      "parameters": [
+        {
+          "name": "id",
+          "in": "path",
+          "required": true,
+          "schema": {
+            "$ref": "#/components/schemas/TenantId"
+          }
+        },
+        {
+          "name": "source",
+          "in": "path",
+          "required": true,
+          "schema": {
+            "$ref": "#/components/schemas/ConnectorSourceId"
+          }
+        }
+      ],
+      "get": {
+        "operationId": "getConnectorSource",
+        "responses": {
+          "200": {
+            "description": "Tenant-bound source definition."
+          },
+          "404": {
+            "$ref": "#/components/responses/Problem"
+          },
+          "409": {
+            "$ref": "#/components/responses/Problem"
+          },
+          "422": {
+            "$ref": "#/components/responses/Problem"
+          },
+          "423": {
+            "$ref": "#/components/responses/Problem"
+          },
+          "503": {
+            "$ref": "#/components/responses/Problem"
+          }
+        }
+      },
+      "put": {
+        "operationId": "putConnectorSource",
+        "description": "Create at ifGeneration=0 or update the current generation. Identical retries return existing without another generation or history row. Secret references must exist under this tenant binding.",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ConnectorSourceRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Updated or already applied."
+          },
+          "201": {
+            "description": "Created."
+          },
+          "404": {
+            "$ref": "#/components/responses/Problem"
+          },
+          "409": {
+            "$ref": "#/components/responses/Problem"
+          },
+          "422": {
+            "$ref": "#/components/responses/Problem"
+          },
+          "423": {
+            "$ref": "#/components/responses/Problem"
+          },
+          "503": {
+            "$ref": "#/components/responses/Problem"
+          }
+        }
+      },
+      "delete": {
+        "operationId": "deleteConnectorSource",
+        "description": "Create a disabled tombstone and keep the definition/history in tenant artifacts. Matching retries are idempotent.",
+        "parameters": [
+          {
+            "name": "If-Match",
+            "in": "header",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "pattern": "^\"[1-9][0-9]{0,15}\"$"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Deleted or already applied."
+          },
+          "404": {
+            "$ref": "#/components/responses/Problem"
+          },
+          "409": {
+            "$ref": "#/components/responses/Problem"
+          },
+          "422": {
+            "$ref": "#/components/responses/Problem"
+          },
+          "423": {
+            "$ref": "#/components/responses/Problem"
+          },
+          "503": {
+            "$ref": "#/components/responses/Problem"
+          }
+        }
+      }
+    }
+  },
+  "components": {
+    "schemas": {
+      "TenantId": { "type": "string", "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$" },
+      "Host": { "type": "string", "maxLength": 253, "description": "A DNS name without a port; stored lower-case." },
+      "TenantRequest": {
+        "type": "object", "additionalProperties": false, "required": ["id"],
+        "properties": {
+          "id": { "$ref": "#/components/schemas/TenantId" },
+          "hosts": { "type": "array", "maxItems": 16, "items": { "$ref": "#/components/schemas/Host" }, "description": "Public aliases; at least one in direct-alias mode." },
+          "internalHost": { "$ref": "#/components/schemas/Host", "description": "The canonical internal name; required in canonical-internal mode, refused otherwise." },
+          "ref": { "type": "string", "pattern": "^[A-Za-z0-9_.-]{1,64}$", "description": "An opaque caller label echoed in the result." },
+          "issueRootSecret": { "type": "boolean", "description": "Return the tenant's root secret once, on 'created'." }
+        }
+      },
+      "TenantResult": {
+        "type": "object", "additionalProperties": false, "required": ["id", "outcome"],
+        "properties": {
+          "id": { "type": ["string", "null"] },
+          "ref": { "type": "string" },
+          "outcome": { "enum": ["created", "existing", "refused"] },
+          "code": { "$ref": "#/components/schemas/Code" },
+          "rootSecret": { "type": "string", "description": "Present only on 'created' with issueRootSecret." }
+        }
+      },
+      "Tenant": {
+        "type": "object", "additionalProperties": false, "required": ["id", "state", "signingVersion", "hosts"],
+        "properties": {
+          "id": { "$ref": "#/components/schemas/TenantId" },
+          "state": { "enum": ["active", "removed"] },
+          "signingVersion": { "type": "integer", "minimum": 1 },
+          "hosts": { "type": "array", "items": { "$ref": "#/components/schemas/Host" } },
+          "internalHost": { "$ref": "#/components/schemas/Host" }
+        }
+      },
+      "Removal": {
+        "type": "object", "required": ["id", "outcome", "state"], "additionalProperties": false,
+        "properties": { "id": { "$ref": "#/components/schemas/TenantId" }, "outcome": { "enum": ["removed", "existing"] }, "state": { "const": "removed" } }
+      },
+      "Code": {
+        "enum": ["TENANT_PROVISION_INVALID", "TENANT_PROVISION_HOST_INVALID", "TENANT_PROVISION_IDEMPOTENCY_KEY_MISMATCH", "TENANT_PROVISION_BATCH_INVALID",
+          "TENANT_PROVISION_BATCH_DUPLICATE", "TENANT_PROVISION_CONFLICT", "TENANT_PROVISION_INCOMPLETE", "TENANT_PROVISION_REMOVED", "TENANT_PROVISION_LOCK_COLLISION",
+          "TENANT_PROVISION_VAULT_KEY_MISMATCH", "TENANT_REMOVAL_REQUIRES_DELETION", "TENANT_PROVISION_VAULT_REFUSED", "TENANT_PROVISION_VAULT_UNAVAILABLE", "TENANT_PROVISION_FAILED",
+          "TENANT_NOT_FOUND", "ROUTE_NOT_FOUND", "METHOD_NOT_ALLOWED", "UNSUPPORTED_MEDIA_TYPE", "PAYLOAD_TOO_LARGE", "BODY_INVALID", "SERVICE_CLOSED",
+          "CONNECTOR_DEFINITION_INVALID", "CONNECTOR_GENERATION_CONFLICT", "CONNECTOR_SECRET_REFERENCE_REFUSED", "CONNECTOR_TENANT_REFUSED", "CONNECTOR_SOURCE_NOT_FOUND", "LIFECYCLE_WINDOW_SUSPENDED", "CONNECTOR_DEFINITION_UNAVAILABLE", "CONNECTOR_DEFINITION_UNSAFE"]
+      },
+      "Problem": {
+        "type": "object", "required": ["type", "title", "status", "code"],
+        "properties": {
+          "type": { "type": "string" }, "title": { "type": "string" }, "status": { "type": "integer" },
+          "code": { "$ref": "#/components/schemas/Code" }, "detail": { "type": "string" }, "id": { "type": ["string", "null"] }, "ref": { "type": "string" }
+        }
+      },
+      "ConnectorSourceId": {
+        "type": "string",
+        "pattern": "^[A-Za-z0-9_-]{1,128}$"
+      },
+      "ConnectorDefinition": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "collections",
+          "sourceEndpoint",
+          "sourceCredential",
+          "sourceCredentialKind",
+          "writeCredential"
+        ],
+        "properties": {
+          "collections": {
+            "type": "array",
+            "minItems": 1,
+            "maxItems": 4,
+            "uniqueItems": true,
+            "items": {
+              "enum": [
+                "entries",
+                "treatments",
+                "devicestatus",
+                "profiles"
+              ]
+            }
+          },
+          "sourceCredentialKind": {
+            "enum": [
+              "token",
+              "api-secret"
+            ]
+          },
+          "sourceEndpoint": {
+            "type": "string",
+            "pattern": "^[A-Za-z0-9_-]{1,128}$",
+            "description": "A tenant-secret reference, never its value."
+          },
+          "sourceCredential": {
+            "type": "string",
+            "pattern": "^[A-Za-z0-9_-]{1,128}$",
+            "description": "A tenant-secret reference, never its value."
+          },
+          "writeCredential": {
+            "type": "string",
+            "pattern": "^[A-Za-z0-9_-]{1,128}$",
+            "description": "A tenant-secret reference, never its value."
+          }
+        }
+      },
+      "ConnectorSourceRequest": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "ifGeneration",
+          "enabled",
+          "connector"
+        ],
+        "properties": {
+          "ifGeneration": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 9007199254740990
+          },
+          "enabled": {
+            "type": "boolean"
+          },
+          "connector": {
+            "$ref": "#/components/schemas/ConnectorDefinition"
+          }
+        }
+      }
+    },
+    "responses": {
+      "Problem": { "description": "RFC 9457 problem document", "content": { "application/problem+json": { "schema": { "$ref": "#/components/schemas/Problem" } } } }
+    }
+  }
+}

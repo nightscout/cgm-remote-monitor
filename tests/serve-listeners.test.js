@@ -4,8 +4,8 @@
 
 // PLAT-SERVE (D21): the role list `nightscout multitenant` takes, and the listener
 // rules. Nothing here boots a server or needs a database. The plane rule is
-// exercised through a stub internal-plane role, because `admin`, the one
-// real internal-plane role, cannot be served yet.
+// exercised through a stub internal-plane role and on the real `admin` role
+// definition; admin's operator runtime is tests/admin-role.test.js.
 
 const assert = require('node:assert/strict');
 const path = require('node:path');
@@ -45,10 +45,9 @@ function refused (fn, pattern) {
 
 describe('nightscout multitenant: roles (PLAT-SERVE)', function () {
 
-  it('accepts a multitenant role, and no role is multitenant yet', function () {
-    const roles = { api: Object.assign({}, ROLES.api, { multitenant: true }) };
-    assert.deepEqual(serve.parseRoles(['api'], roles), ['api']);
-    for (const [name, role] of Object.entries(ROLES)) assert.notEqual(role.multitenant, true, name);
+  it('accepts the implemented explicitly configured preview roles', function () {
+    assert.deepEqual(serve.parseRoles(['api']), ['api']);
+    for (const [name, role] of Object.entries(ROLES)) assert.equal(role.multitenant === true, ['api', 'feed-reader', 'evaluator', 'realtime', 'vcpool', 'tenant-admin', 'admin'].includes(name), name);
   });
 
   it('refuses an unknown role, an empty one, a repeated one, and a missing list', function () {
@@ -59,23 +58,51 @@ describe('nightscout multitenant: roles (PLAT-SERVE)', function () {
   });
 
   it('names every role that cannot be served yet', function () {
-    for (const name of ['api', 'evaluator', 'realtime', 'vcpool', 'tenant-admin', 'admin']) {
-      assert.ok(ROLES[name], name);
-      assert.throws(() => serve.parseRoles([name]), new RegExp('not yet available: ' + name + '\\.'));
-    }
-    assert.throws(() => serve.parseRoles(['api,admin,realtime']), /not yet available: api, admin, realtime/);
+    // Every role in the table has a preview runtime; a role without one is refused by name.
+    assert.deepEqual(Object.keys(ROLES).filter(name => !(ROLES[name].start && ROLES[name].multitenant)), []);
+    const roles = { ...ROLES, pending: { listener: false, storage: 'none', feed: false, egress: false } };
+    assert.throws(() => serve.parseRoles(['pending'], roles), /not yet available: pending\./);
+    assert.throws(() => serve.parseRoles(['api,pending,realtime'], roles), /not yet available: pending/);
+    assert.deepEqual(serve.parseRoles(['admin']), ['admin']);
+    assert.deepEqual(serve.parseRoles(['vcpool']), ['vcpool']);
   });
 
-  it('exits 64 for an unknown role and for each role not yet available', function () {
+  it('exits 64 for an unknown role and 78 for a role without its configuration', function () {
     const unknown = cli(['multitenant', 'bogus']);
     assert.equal(unknown.status, 64);
     assert.match(unknown.stderr, /unknown role: bogus/);
-    for (const name of ['api', 'evaluator', 'realtime', 'vcpool', 'tenant-admin', 'admin', 'api,admin']) {
+    for (const name of ['vcpool', 'api,vcpool']) {
       const result = cli(['multitenant', name]);
-      assert.equal(result.status, 64, name);
-      assert.match(result.stderr, /not yet available: .*multitenant Nightscout, which is not built yet/, name);
+      assert.equal(result.status, 78, name);
+      assert.match(result.stderr, /requires MULTITENANT_/, name);
     }
     assert.equal(cli(['multitenant']).status, 64);
+  });
+
+  it('refuses realtime without explicit preview configuration before any socket or storage boot', function () {
+    const result = cli(['multitenant', 'realtime']);
+    assert.equal(result.status, 78);
+    assert.match(result.stderr, /REALTIME_CONFIG_REFUSED/);
+  });
+
+  it('refuses evaluator without explicit preview configuration before any storage boot', function () {
+    const result = cli(['multitenant', 'evaluator']);
+    assert.equal(result.status, 78);
+    assert.match(result.stderr, /explicit evaluator preview configuration/);
+  });
+
+  it('refuses headless tenant-admin without explicit preview configuration before any storage boot', function () {
+    const result = cli(['multitenant', 'tenant-admin']);
+    assert.equal(result.status, 78);
+    assert.match(result.stderr, /MULTITENANT_OWNER_PREVIEW_CONFIG/);
+    assert.doesNotMatch(result.stdout + result.stderr, /Listening|postgres:|API_SECRET|Mongo/);
+  });
+
+  it('refuses api without explicit preview configuration before single-tenant bootstrap', function () {
+    const result = cli(['multitenant', 'api']);
+    assert.equal(result.status, 78);
+    assert.match(result.stderr, /MULTITENANT_PREVIEW_CONFIG/);
+    assert.doesNotMatch(result.stdout + result.stderr, /API_SECRET|Mongo|Listening/);
   });
 
 });
@@ -116,18 +143,46 @@ describe('multitenant role listeners (PLAT-SERVE)', function () {
       assert.equal(listeners.resolve(['backstage'], { BACKSTAGE_HOSTNAME: '::1' }, FALLBACK, STUB_ROLES).length, 1);
     });
 
-    it('refuses the consumer listener\'s address, on any port, even when not serving the consumer role', function () {
+    it('accepts the consumer listener\'s address on another port, loopback or acknowledged non-loopback', function () {
       for (const source of [
         { FRONT_HOSTNAME: '10.0.0.5', BACKSTAGE_HOSTNAME: '10.0.0.5', BACKSTAGE_INSECURE_BIND_ACKNOWLEDGED: 'true' }
         , { FRONT_HOSTNAME: '127.0.0.1', BACKSTAGE_HOSTNAME: '127.0.0.1' }
         , { FRONT_HOSTNAME: 'localhost', BACKSTAGE_HOSTNAME: '127.0.0.1' }
         , { FRONT_HOSTNAME: '[::1]', BACKSTAGE_HOSTNAME: '::1' }
       ]) {
-        refused(() => listeners.resolve(['front', 'backstage'], source, FALLBACK, STUB_ROLES), /on the consumer listener's address/);
-        refused(() => listeners.resolve(['backstage'], source, FALLBACK, STUB_ROLES), /on the consumer listener's address/);
+        assert.deepEqual(listeners.resolve(['front', 'backstage'], source, FALLBACK, STUB_ROLES).map(s => s.port), [1337, 2338]);
+        assert.equal(listeners.resolve(['backstage'], source, FALLBACK, STUB_ROLES).length, 1);
       }
       // The consumer address can come from the fallback (HOSTNAME) too.
-      refused(() => listeners.resolve(['backstage'], {}, { host: '127.0.0.1', port: 1337 }, STUB_ROLES), /consumer listener's address/);
+      assert.equal(listeners.resolve(['backstage'], {}, { host: '127.0.0.1', port: 1337 }, STUB_ROLES)[0].host, '127.0.0.1');
+    });
+
+    it('refuses the consumer listener\'s port on its address, even when not serving the consumer role', function () {
+      for (const source of [
+        { FRONT_HOSTNAME: '10.0.0.5', BACKSTAGE_HOSTNAME: '10.0.0.5', BACKSTAGE_PORT: '1337', BACKSTAGE_INSECURE_BIND_ACKNOWLEDGED: 'true' }
+        , { FRONT_HOSTNAME: '127.0.0.1', BACKSTAGE_HOSTNAME: '127.0.0.1', BACKSTAGE_PORT: '1337' }
+        , { FRONT_HOSTNAME: 'localhost', BACKSTAGE_HOSTNAME: '127.0.0.1', BACKSTAGE_PORT: '1337' }
+        , { FRONT_HOSTNAME: '[::1]', BACKSTAGE_HOSTNAME: '::1', BACKSTAGE_PORT: '1337' }
+        // The consumer on every interface takes its port on every address.
+        , { BACKSTAGE_PORT: '1337' }
+      ]) {
+        refused(() => listeners.resolve(['backstage'], source, FALLBACK, STUB_ROLES), /would share the consumer listener/);
+        assert.throws(() => listeners.resolve(['front', 'backstage'], source, FALLBACK, STUB_ROLES), listeners.ListenerError);
+      }
+      refused(() => listeners.resolve(['backstage'], { BACKSTAGE_PORT: '1337' }, { host: '127.0.0.1', port: 1337 }, STUB_ROLES), /would share the consumer listener/);
+      // Another address on the consumer's port is a listener of its own.
+      assert.equal(listeners.resolve(['backstage'], { FRONT_HOSTNAME: '127.0.0.1', BACKSTAGE_HOSTNAME: '127.0.0.2', BACKSTAGE_PORT: '1337' }, FALLBACK, STUB_ROLES).length, 1);
+    });
+
+    it('opens both listeners on one address with different ports', async function () {
+      const port = await new Promise(resolve => { const probe = require('net').createServer().listen(0, '127.0.0.1', () => { const p = probe.address().port; probe.close(() => resolve(p)); }); });
+      const specs = listeners.resolve(['api', 'admin'], { API_HOSTNAME: '127.0.0.1', API_PORT: String(port), ADMIN_HOSTNAME: '127.0.0.1', ADMIN_PORT: '0' }, FALLBACK);
+      const servers = [];
+      try {
+        for (const spec of specs) servers.push(await listeners.open(spec, (req, res) => res.end(spec.role)));
+        assert.deepEqual(servers.map(server => server.address().address), ['127.0.0.1', '127.0.0.1']);
+        assert.notEqual(servers[0].address().port, servers[1].address().port);
+      } finally { for (const server of servers) await listeners.close(server); }
     });
 
     it('refuses every interface, acknowledged or not', function () {
@@ -149,7 +204,15 @@ describe('multitenant role listeners (PLAT-SERVE)', function () {
 
     it('applies to the real admin role definition with ADMIN_ names', function () {
       refused(() => listeners.resolve(['admin'], { ADMIN_HOSTNAME: '192.0.2.10' }, FALLBACK), /ADMIN_INSECURE_BIND_ACKNOWLEDGED=true/);
-      refused(() => listeners.resolve(['admin'], { API_HOSTNAME: '127.0.0.1' }, FALLBACK), /consumer listener's address/);
+      // HOSTNAME=127.0.0.1 with admin at its default 127.0.0.1:1338: the same
+      // address on another port resolves (it refused before this decision).
+      assert.deepEqual(listeners.resolve(['admin'], {}, { host: '127.0.0.1', port: 1337 }).map(s => [s.host, s.port]), [['127.0.0.1', 1338]]);
+      assert.equal(listeners.resolve(['admin'], { API_HOSTNAME: '127.0.0.1' }, FALLBACK).length, 1);
+      refused(() => listeners.resolve(['admin'], { API_HOSTNAME: '127.0.0.1', ADMIN_PORT: '1337' }, FALLBACK), /would share the consumer listener/);
+      refused(() => listeners.resolve(['admin'], { ADMIN_HOSTNAME: '0.0.0.0', ADMIN_INSECURE_BIND_ACKNOWLEDGED: 'true' }, FALLBACK), /every interface/);
+      // A shared non-loopback address still needs the acknowledgement.
+      refused(() => listeners.resolve(['api', 'admin'], { API_HOSTNAME: '192.0.2.10', ADMIN_HOSTNAME: '192.0.2.10' }, FALLBACK), /ADMIN_INSECURE_BIND_ACKNOWLEDGED=true/);
+      assert.equal(listeners.resolve(['api', 'admin'], { API_HOSTNAME: '192.0.2.10', ADMIN_HOSTNAME: '192.0.2.10', ADMIN_INSECURE_BIND_ACKNOWLEDGED: 'true' }, FALLBACK).length, 2);
     });
 
     it('leaves a consumer role alone on a non-loopback or wildcard address', function () {

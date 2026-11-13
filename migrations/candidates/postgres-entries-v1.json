@@ -1,0 +1,79 @@
+{
+  "version": 1,
+  "status": "review candidate; apply only with the explicit operator migration runner",
+  "sourceFixture": "tests/fixtures/postgres/entries-identity-kinds.sql",
+  "evidence": [
+    "lib/server/entries.js: indexedFields",
+    "lib/api3/storage/mongoCollection/index.js: indexedFields",
+    "lib/api3/generic/history/operation.js: srvModified filter and sort",
+    "lib/api3/storage/mongoCollection/utils.js: isValid visibility behavior",
+    "lib/storage/identifier-index.js: partial unique identifier contract"
+  ],
+  "migrations": [
+    {
+      "name": "0001_entries",
+      "up": [
+        "CREATE TABLE entries (\n  tenant_id uuid NOT NULL,\n  doc jsonb NOT NULL CHECK (jsonb_typeof(doc) = 'object'),\n  id_kind text NOT NULL CHECK (id_kind IN ('objectid', 'string')),\n  \"_id\" text NOT NULL GENERATED ALWAYS AS (CASE WHEN jsonb_typeof(doc #> '{_id}') = 'string' THEN (doc #>> '{_id}') END) STORED,\n  \"date\" numeric GENERATED ALWAYS AS (CASE WHEN jsonb_typeof(doc #> '{date}') = 'number' THEN (doc #>> '{date}')::numeric END) STORED,\n  \"type\" text GENERATED ALWAYS AS (CASE WHEN jsonb_typeof(doc #> '{type}') = 'string' THEN (doc #>> '{type}') END) STORED,\n  \"sgv\" numeric GENERATED ALWAYS AS (CASE WHEN jsonb_typeof(doc #> '{sgv}') = 'number' THEN (doc #>> '{sgv}')::numeric END) STORED,\n  \"mbg\" numeric GENERATED ALWAYS AS (CASE WHEN jsonb_typeof(doc #> '{mbg}') = 'number' THEN (doc #>> '{mbg}')::numeric END) STORED,\n  \"sysTime\" text GENERATED ALWAYS AS (CASE WHEN jsonb_typeof(doc #> '{sysTime}') = 'string' THEN (doc #>> '{sysTime}') END) STORED,\n  \"dateString\" text GENERATED ALWAYS AS (CASE WHEN jsonb_typeof(doc #> '{dateString}') = 'string' THEN (doc #>> '{dateString}') END) STORED,\n  \"identifier\" text GENERATED ALWAYS AS (CASE WHEN jsonb_typeof(doc #> '{identifier}') = 'string' THEN (doc #>> '{identifier}') END) STORED,\n  \"created_at\" text GENERATED ALWAYS AS (CASE WHEN jsonb_typeof(doc #> '{created_at}') = 'string' THEN (doc #>> '{created_at}') END) STORED,\n  \"srvModified\" numeric GENERATED ALWAYS AS (CASE WHEN jsonb_typeof(doc #> '{srvModified}') = 'number' THEN (doc #>> '{srvModified}')::numeric END) STORED,\n  \"isValid\" boolean GENERATED ALWAYS AS (CASE WHEN jsonb_typeof(doc #> '{isValid}') = 'boolean' THEN (doc #>> '{isValid}')::boolean END) STORED,\n  CHECK (\"_id\" <> ''),\n  CHECK (id_kind <> 'objectid' OR \"_id\" ~ '^[0-9a-f]{24}$'),\n  PRIMARY KEY (tenant_id, id_kind, \"_id\")\n)",
+        "CREATE INDEX entries_tenant_date ON entries (tenant_id, \"date\" ASC)",
+        "CREATE INDEX entries_tenant_type ON entries (tenant_id, \"type\" ASC)",
+        "CREATE INDEX entries_tenant_sgv ON entries (tenant_id, \"sgv\" ASC)",
+        "CREATE INDEX entries_tenant_mbg ON entries (tenant_id, \"mbg\" ASC)",
+        "CREATE INDEX entries_tenant_systime ON entries (tenant_id, \"sysTime\" ASC)",
+        "CREATE INDEX entries_tenant_datestring ON entries (tenant_id, \"dateString\" ASC)",
+        "CREATE INDEX entries_tenant_identifier ON entries (tenant_id, \"identifier\" ASC)",
+        "CREATE INDEX entries_tenant_srvmodified ON entries (tenant_id, \"srvModified\" ASC)",
+        "CREATE INDEX entries_tenant_isvalid ON entries (tenant_id, \"isValid\" ASC)",
+        "CREATE INDEX entries_tenant_type_date_datestring ON entries (tenant_id, \"type\" ASC, \"date\" DESC, \"dateString\" ASC)",
+        "CREATE INDEX entries_tenant_date_identifier_created_at ON entries (tenant_id, \"date\" DESC, \"identifier\" DESC, \"created_at\" DESC)",
+        "CREATE UNIQUE INDEX identifier_unique ON entries (tenant_id, \"identifier\") WHERE \"identifier\" IS NOT NULL AND \"identifier\" <> ''",
+        "ALTER TABLE entries ENABLE ROW LEVEL SECURITY",
+        "ALTER TABLE entries FORCE ROW LEVEL SECURITY",
+        "CREATE POLICY entries_tenant_isolation ON entries USING (tenant_id = NULLIF(current_setting('app.current_tenant_id', true), '')::uuid) WITH CHECK (tenant_id = NULLIF(current_setting('app.current_tenant_id', true), '')::uuid)"
+      ],
+      "checksum": "44c79e68411bf7fcfe088fc0446327bd13181fafc17ff9c05b0acd86d95623f7"
+    },
+    {
+      "name": "0002_entries_insertion_order",
+      "up": [
+        "ALTER TABLE entries ADD COLUMN insertion_ordinal bigint GENERATED ALWAYS AS IDENTITY"
+      ],
+      "checksum": "edda7b234df342d121cda2e655b2a6fdae1c59a0c92a0bdf604007204c278cce"
+    },
+    {
+      "name": "0003_entries_tenant_local_insertion",
+      "operation": {
+        "kind": "tenant-insertion-v1",
+        "domain": "entries"
+      },
+      "up": [
+        "LOCK TABLE \"nightscout_migration_namespace\".\"entries\" IN ACCESS EXCLUSIVE MODE",
+        "SET LOCAL row_security = off",
+        "DO $tenant_insertion_upgrade$\nBEGIN\n  IF NOT EXISTS (SELECT 1 FROM pg_class t JOIN pg_attribute a ON a.attrelid=t.oid\n      WHERE t.oid='\"nightscout_migration_namespace\".\"entries\"'::regclass AND a.attname='insertion_ordinal'\n        AND a.attidentity='a' AND a.atttypid='pg_catalog.int8'::regtype\n        AND t.relkind='r' AND NOT t.relispartition AND t.relrowsecurity AND t.relforcerowsecurity)\n     OR EXISTS (SELECT 1 FROM pg_inherits WHERE inhrelid='\"nightscout_migration_namespace\".\"entries\"'::regclass OR inhparent='\"nightscout_migration_namespace\".\"entries\"'::regclass) THEN\n    RAISE EXCEPTION 'TENANT_ORDINAL_SOURCE_UNSUPPORTED';\n  END IF;\n  IF EXISTS (SELECT 1 FROM \"nightscout_migration_namespace\".\"entries\" WHERE insertion_ordinal IS NULL OR insertion_ordinal<=0)\n     OR EXISTS (SELECT 1 FROM \"nightscout_migration_namespace\".\"entries\" GROUP BY tenant_id,insertion_ordinal HAVING count(*)>1) THEN\n    RAISE EXCEPTION 'TENANT_ORDINAL_SOURCE_INVALID';\n  END IF;\nEND\n$tenant_insertion_upgrade$",
+        "CREATE TABLE \"nightscout_migration_namespace\".\"tenant_insertion_ordinal\" (tenant_id uuid PRIMARY KEY, last_ordinal bigint NOT NULL CHECK (last_ordinal>=0))",
+        "INSERT INTO \"nightscout_migration_namespace\".\"tenant_insertion_ordinal\" (tenant_id,last_ordinal) SELECT tenant_id,max(insertion_ordinal) FROM \"nightscout_migration_namespace\".\"entries\" GROUP BY tenant_id",
+        "ALTER TABLE \"nightscout_migration_namespace\".\"tenant_insertion_ordinal\" ENABLE ROW LEVEL SECURITY",
+        "ALTER TABLE \"nightscout_migration_namespace\".\"tenant_insertion_ordinal\" FORCE ROW LEVEL SECURITY",
+        "CREATE POLICY tenant_insertion_isolation ON \"nightscout_migration_namespace\".\"tenant_insertion_ordinal\" USING (tenant_id=NULLIF(current_setting('app.current_tenant_id',true),'')::uuid) WITH CHECK (tenant_id=NULLIF(current_setting('app.current_tenant_id',true),'')::uuid)",
+        "ALTER TABLE \"nightscout_migration_namespace\".\"entries\" ALTER COLUMN insertion_ordinal DROP IDENTITY",
+        "ALTER TABLE \"nightscout_migration_namespace\".\"entries\" ADD CONSTRAINT tenant_insertion_positive CHECK (insertion_ordinal>0)",
+        "CREATE UNIQUE INDEX \"entries_tenant_ordinal_unique\" ON \"nightscout_migration_namespace\".\"entries\" (tenant_id,insertion_ordinal)",
+        "CREATE FUNCTION \"nightscout_migration_namespace\".\"allocate_tenant_insertion_ordinal\"() RETURNS trigger LANGUAGE plpgsql SECURITY INVOKER SET search_path=pg_catalog AS $tenant_insertion$\nBEGIN\n  IF NEW.tenant_id IS DISTINCT FROM NULLIF(current_setting('app.current_tenant_id',true),'')::uuid THEN\n    RAISE EXCEPTION 'TENANT_ORDINAL_BINDING_REQUIRED';\n  END IF;\n  IF TG_OP='UPDATE' THEN\n    IF NEW.tenant_id IS DISTINCT FROM OLD.tenant_id OR NEW.insertion_ordinal IS DISTINCT FROM OLD.insertion_ordinal THEN\n      RAISE EXCEPTION 'TENANT_ORDINAL_IMMUTABLE';\n    END IF;\n    RETURN NEW;\n  END IF;\n  IF NOT EXISTS (SELECT 1 FROM \"nightscout_migration_namespace\".\"tenant_insertion_ordinal\" WHERE tenant_id=NEW.tenant_id)\n     AND EXISTS (SELECT 1 FROM \"nightscout_migration_namespace\".\"entries\" WHERE tenant_id=NEW.tenant_id) THEN\n    RAISE EXCEPTION 'TENANT_ORDINAL_COUNTER_MISSING';\n  END IF;\n  IF NEW.insertion_ordinal IS NULL THEN\n    INSERT INTO \"nightscout_migration_namespace\".\"tenant_insertion_ordinal\" AS counter (tenant_id,last_ordinal) VALUES (NEW.tenant_id,1)\n      ON CONFLICT (tenant_id) DO UPDATE SET last_ordinal=counter.last_ordinal+1\n      WHERE counter.last_ordinal<9223372036854775807\n      RETURNING counter.last_ordinal INTO NEW.insertion_ordinal;\n    IF NOT FOUND THEN RAISE EXCEPTION 'TENANT_ORDINAL_EXHAUSTED' USING ERRCODE='22003'; END IF;\n  ELSE\n    IF NEW.insertion_ordinal<=0 THEN RAISE EXCEPTION 'TENANT_ORDINAL_INVALID'; END IF;\n    INSERT INTO \"nightscout_migration_namespace\".\"tenant_insertion_ordinal\" AS counter (tenant_id,last_ordinal) VALUES (NEW.tenant_id,NEW.insertion_ordinal)\n      ON CONFLICT (tenant_id) DO UPDATE SET last_ordinal=GREATEST(counter.last_ordinal,EXCLUDED.last_ordinal);\n  END IF;\n  RETURN NEW;\nEND\n$tenant_insertion$",
+        "REVOKE ALL ON FUNCTION \"nightscout_migration_namespace\".\"allocate_tenant_insertion_ordinal\"() FROM PUBLIC",
+        "CREATE TRIGGER tenant_insertion_allocate BEFORE INSERT OR UPDATE ON \"nightscout_migration_namespace\".\"entries\" FOR EACH ROW EXECUTE FUNCTION \"nightscout_migration_namespace\".\"allocate_tenant_insertion_ordinal\"()",
+        "SET LOCAL row_security = on"
+      ],
+      "checksum": "1f988dea72ecf223961e66ea14be8932318fab6a467a6976d001c0af2c8f742b"
+    },
+    {
+      "name": "0004_entries_binding_sqlstate",
+      "operation": {
+        "kind": "tenant-insertion-binding-v1",
+        "domain": "entries"
+      },
+      "up": [
+        "CREATE OR REPLACE FUNCTION \"nightscout_migration_namespace\".\"allocate_tenant_insertion_ordinal\"() RETURNS trigger LANGUAGE plpgsql SECURITY INVOKER SET search_path=pg_catalog AS $tenant_insertion$\nBEGIN\n  IF NEW.tenant_id IS DISTINCT FROM NULLIF(current_setting('app.current_tenant_id',true),'')::uuid THEN\n    RAISE EXCEPTION 'TENANT_ORDINAL_BINDING_REQUIRED' USING ERRCODE='42501';\n  END IF;\n  IF TG_OP='UPDATE' THEN\n    IF NEW.tenant_id IS DISTINCT FROM OLD.tenant_id OR NEW.insertion_ordinal IS DISTINCT FROM OLD.insertion_ordinal THEN\n      RAISE EXCEPTION 'TENANT_ORDINAL_IMMUTABLE';\n    END IF;\n    RETURN NEW;\n  END IF;\n  IF NOT EXISTS (SELECT 1 FROM \"nightscout_migration_namespace\".\"tenant_insertion_ordinal\" WHERE tenant_id=NEW.tenant_id)\n     AND EXISTS (SELECT 1 FROM \"nightscout_migration_namespace\".\"entries\" WHERE tenant_id=NEW.tenant_id) THEN\n    RAISE EXCEPTION 'TENANT_ORDINAL_COUNTER_MISSING';\n  END IF;\n  IF NEW.insertion_ordinal IS NULL THEN\n    INSERT INTO \"nightscout_migration_namespace\".\"tenant_insertion_ordinal\" AS counter (tenant_id,last_ordinal) VALUES (NEW.tenant_id,1)\n      ON CONFLICT (tenant_id) DO UPDATE SET last_ordinal=counter.last_ordinal+1\n      WHERE counter.last_ordinal<9223372036854775807\n      RETURNING counter.last_ordinal INTO NEW.insertion_ordinal;\n    IF NOT FOUND THEN RAISE EXCEPTION 'TENANT_ORDINAL_EXHAUSTED' USING ERRCODE='22003'; END IF;\n  ELSE\n    IF NEW.insertion_ordinal<=0 THEN RAISE EXCEPTION 'TENANT_ORDINAL_INVALID'; END IF;\n    INSERT INTO \"nightscout_migration_namespace\".\"tenant_insertion_ordinal\" AS counter (tenant_id,last_ordinal) VALUES (NEW.tenant_id,NEW.insertion_ordinal)\n      ON CONFLICT (tenant_id) DO UPDATE SET last_ordinal=GREATEST(counter.last_ordinal,EXCLUDED.last_ordinal);\n  END IF;\n  RETURN NEW;\nEND\n$tenant_insertion$"
+      ],
+      "checksum": "24f606cac2b67bd93b6c0bb1275f770d71394039232e590fa5a0169dfdf7d82e"
+    }
+  ]
+}

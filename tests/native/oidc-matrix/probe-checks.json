@@ -1,0 +1,37 @@
+{
+  "vault": [
+    "administrator creates distinct nonexportable Ed25519 keys and provisions exact raw public bytes",
+    "production config and bound Vault signer issue locally verified asymmetric access for both purposes",
+    "explicit bounded consumer callback completed before owned Vault teardown",
+    "sign-only token refuses key reads, exports, writes, deletion, listing and every other selected endpoint",
+    "existing legacy Transit HMAC API remains separate and verifies with its own scoped token",
+    "revoked signing token refuses new issuance while existing trusted-public-key verification continues"
+  ],
+  "mongo": [
+    "actual Mongo explicit local mapping and current grants",
+    "actual Mongo same-second signed concurrent renewal is idempotent",
+    "current grant removal and explicit management entitlement are effective next operation",
+    "durable local logout refuses copied access through another worker and preserves other session",
+    "access expiry refuses at exact boundary while provider-backed renewal retains idle clock",
+    "renewal and polling never move idle and exact idle boundary refuses",
+    "qualified management activity never refreshes absolute or sensitive authentication clocks",
+    "absolute deadline refuses despite repeated valid activity",
+    "actual Mongo session fence prevents committed logout being overwritten by renewal",
+    "actual Mongo grant CAS rereads an authority change racing protected access",
+    "actual Mongo global key retirement refuses access and renewal while known logout remains available",
+    "data sessions remain free of management idle and absolute policy",
+    "provider session logout persists replay identity and refuses copied data access"
+  ],
+  "postgres": [
+    "actual PG current mapping and role grants",
+    "actual PG same-second signed renewal is idempotent under the session-row fence",
+    "foreign tenant replay refuses signed binding and actual RLS token lookup",
+    "committed role removal is visible to second worker next operation",
+    "explicit owner membership removal refuses management",
+    "actual PG current key retirement refuses access and renewal while known logout remains available",
+    "logout through worker A refuses copied access through worker B",
+    "pending renewal waits on durable session fence then refuses committed revocation",
+    "access and idle deadlines remain independent and renewal never extends idle",
+    "provider logout and replay commit durable event and matching revocation"
+  ]
+}

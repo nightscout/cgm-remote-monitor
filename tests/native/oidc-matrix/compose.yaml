@@ -1,0 +1,49 @@
+# Disposable services for the owner/OIDC native matrix. Started per run by
+# run.sh with a unique project name, removed with `down -v` on every exit.
+# Images are pinned by digest. Ports bind to 127.0.0.1 on ephemeral host ports;
+# run.sh reads the mapping. No volume outlives the run: data lives on tmpfs.
+services:
+  postgres:
+    image: postgres@sha256:721873c34ceb9f8d8fc265984940dc982404c105f19ad51be9fdc5970a6080ea
+    environment:
+      POSTGRES_PASSWORD_FILE: /run/secrets/pg-password
+    volumes:
+      - ${OIDC_MATRIX_STATE:?run.sh sets the state directory}/pg-password:/run/secrets/pg-password:ro
+    tmpfs:
+      - /var/lib/postgresql/data
+    ports:
+      - "127.0.0.1::5432"
+    healthcheck:
+      test: [CMD-SHELL, pg_isready -h 127.0.0.1 -U postgres -d postgres]
+      interval: 1s
+      timeout: 2s
+      retries: 60
+
+  mongo:
+    image: mongo@sha256:1f995ad6fdb93244a1addab1b58f934a0bc2f5643c38e02f5e9d7f0c7d227a7b
+    tmpfs:
+      - /data/db
+    ports:
+      - "127.0.0.1::27017"
+    healthcheck:
+      test: [CMD-SHELL, 'mongosh --quiet --eval "db.runCommand({ ping: 1 }).ok" 127.0.0.1:27017/admin']
+      interval: 1s
+      timeout: 3s
+      retries: 60
+
+  vault:
+    image: hashicorp/vault@sha256:962a92876e168d68eaaa24b0b8b49bbce1cb63024060a67bba95cd158a366fc2
+    command: [vault, server, -config=/vault/config/harness.hcl]
+    volumes:
+      - ${OIDC_MATRIX_STATE}/tls/vault-server.crt:/run/ns-tls/server.crt:ro
+      - ${OIDC_MATRIX_STATE}/tls/vault-server.key:/run/ns-tls/server.key:ro
+      - ${OIDC_MATRIX_STATE}/tls/ca.crt:/run/ns-ca/ca.crt:ro
+      - ${OIDC_MATRIX_STATE}/vault/harness.hcl:/vault/config/harness.hcl:ro
+    ports:
+      - "127.0.0.1::8200"
+    healthcheck:
+      # exit 0 = unsealed, 2 = sealed (initialisation happens in run.cjs); both mean the listener is up
+      test: [CMD-SHELL, 'vault status -address=https://127.0.0.1:8200 -ca-cert=/run/ns-ca/ca.crt >/dev/null 2>&1; r=$$?; [ "$$r" -eq 0 ] || [ "$$r" -eq 2 ]']
+      interval: 1s
+      timeout: 2s
+      retries: 60

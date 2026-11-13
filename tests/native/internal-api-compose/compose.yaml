@@ -1,0 +1,62 @@
+# Disposable separated-process instrument for composed private listeners.
+# Started by run.sh with a unique project name and removed with `down -v`.
+# The worktree is mounted read-only; no image is built. HTTP private
+# endpoints are reached by Compose service DNS names on an internal network
+# (no published ports); realtime's private listener is a Unix socket in a
+# shared bind-mounted 0700 directory owned by the same UID in every container.
+x-component: &component
+  image: node@sha256:5ec23b7c622b00547753bc6ffd78085dd868a68aeb41c8e0a1418f033e13d96d
+  user: "${NS_LC_UID:?run.sh sets uid}:${NS_LC_GID:?run.sh sets gid}"
+  working_dir: /src
+  init: true
+  networks: [private]
+  volumes:
+    - ${NS_LC_SOURCE:?run.sh sets source}:/src:ro
+    - ${NS_LC_STATE:?run.sh sets state}/state:/state
+    - ${NS_LC_STATE}/shared:/shared
+  environment: &env
+    HOME: /tmp
+    TZ: UTC
+    NS_LC_STATE_DIR: /state
+    # Peer addresses (serve.internal of each role process), shared by all.
+    NS_API_INTERNAL_URL: http://api:7001
+    NS_EVALUATOR_INTERNAL_URL: http://evaluator:7003
+    NS_TENANT_ADMIN_INTERNAL_URL: http://tenant-admin:7004
+    NS_REALTIME_INTERNAL_SOCKET: /shared/realtime.sock
+services:
+  api:
+    <<: *component
+    command: [node, tests/native/internal-api-compose/component.cjs, api]
+    environment:
+      <<: *env
+      NS_SERVE_INTERNAL_HOST: 0.0.0.0
+      NS_SERVE_INTERNAL_PORT: "7001"
+      NS_SERVE_INTERNAL_SHUTDOWN_TIMEOUT_MS: "${NS_LC_API_SHUTDOWN_MS:-5000}"
+  realtime:
+    <<: *component
+    command: [node, tests/native/internal-api-compose/component.cjs, realtime]
+    environment:
+      <<: *env
+      NS_SERVE_INTERNAL_SOCKET: /shared/realtime.sock
+  evaluator:
+    <<: *component
+    command: [node, tests/native/internal-api-compose/component.cjs, evaluator]
+    depends_on: [realtime]
+    environment:
+      <<: *env
+      NS_SERVE_INTERNAL_HOST: 0.0.0.0
+      NS_SERVE_INTERNAL_PORT: "7003"
+  tenant-admin:
+    <<: *component
+    command: [node, tests/native/internal-api-compose/component.cjs, tenant-admin]
+    environment:
+      <<: *env
+      NS_SERVE_INTERNAL_HOST: 0.0.0.0
+      NS_SERVE_INTERNAL_PORT: "7004"
+  driver:
+    <<: *component
+    profiles: [driver]
+    command: [node, tests/native/internal-api-compose/driver.cjs, scenario]
+networks:
+  private:
+    internal: true

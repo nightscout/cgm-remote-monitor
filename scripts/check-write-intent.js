@@ -25,8 +25,10 @@ const ENROLLED = ['lib/server/food.js', 'lib/server/activity.js', 'lib/server/tr
   // (every collection), slice 3; the dbAdd of treatments, devicestatus and
   // profile (the handler and processSingleDbAdd), dbUpdate and dbUpdateUnset,
   // slice 6. Every socket writer is enrolled; the module's other functions
-  // (reconcilePartialWrite's read-back) only read.
-  , { file: 'lib/server/websocket.js', functions: ['processGenericDbAdd', 'dbRemove', 'processSingleDbAdd', 'dbAdd'
+  // (reconcilePartialWrite's read-back) only read. The canonical extraction
+  // retains named enrollment/rename refusal and whole-module bypass coverage.
+  , 'lib/server/websocket.js'
+  , { file: 'lib/server/socket-write-handlers.js', whole: true, functions: ['processGenericDbAdd', 'dbRemove', 'processSingleDbAdd', 'dbAdd'
     , 'dbUpdate', 'dbUpdateUnset'] }
   // API v3's generic create, update (PUT), patch and delete, every v3
   // collection (slice 4). autoPrune (lib/api3/generic/collection.js) still
@@ -185,7 +187,81 @@ function checkMatchReads (source) {
 }
 
 function checkEntry (entry, source) {
-  return typeof entry === 'string' ? check(source) : checkFunctions(source, entry.functions);
+  if (typeof entry === 'string') return check(source);
+  const failures = checkFunctions(source, entry.functions);
+  return entry.whole ? failures.concat(check(source).map(issue => 'module: ' + issue)) : failures;
+}
+
+// The remaining socket wrapper must import the canonical factory and bind all
+// returned DATA handlers. Empty/dead delegation cannot vacate named enrollment.
+function checkSocketBinding (source) {
+  const ast = parse(source), imports = [], calls = [], declarations = [];
+  walk(ast, node => {
+    if (node.type === 'VariableDeclarator') {
+      declarations.push(node);
+      if (node.id.type === 'ObjectPattern' && node.init && isRequireOf(node.init, /^\.\/socket-write-handlers(\.js)?$/)) {
+        for (const property of node.id.properties) {
+          if (property.type === 'ObjectProperty' && !property.computed && property.key.name === 'createHandlers' &&
+              property.value.type === 'Identifier') imports.push(property.value.name);
+        }
+      }
+    }
+  });
+  if (imports.length !== 1) return ['canonical socket factory import expected once, found ' + imports.length];
+  const factory = imports[0];
+  walk(ast, node => {
+    if (node.type === 'CallExpression' && node.callee.type === 'Identifier' && node.callee.name === factory) calls.push(node);
+  });
+  if (calls.length !== 1) return ['canonical socket factory call expected once, found ' + calls.length];
+  const failures = [];
+  function bindsFactory (pattern) {
+    if (!pattern) return false;
+    if (pattern.type === 'Identifier') return pattern.name === factory;
+    if (pattern.type === 'RestElement') return bindsFactory(pattern.argument);
+    if (pattern.type === 'AssignmentPattern') return bindsFactory(pattern.left);
+    if (pattern.type === 'ArrayPattern') return pattern.elements.some(bindsFactory);
+    if (pattern.type === 'ObjectPattern') return pattern.properties.some(property =>
+      bindsFactory(property.type === 'RestElement' ? property.argument : property.value));
+    return false;
+  }
+  walk(ast, node => {
+    if (((isFunction(node) || node.type === 'ArrowFunctionExpression') &&
+          (node.params.some(bindsFactory) || node.id?.name === factory)) ||
+        (node.type === 'VariableDeclarator' && bindsFactory(node.id) &&
+          !(node.init && isRequireOf(node.init, /^\.\/socket-write-handlers(\.js)?$/)))) {
+      failures.push('canonical socket factory binding is shadowed at line ' + node.loc.start.line);
+    }
+  });
+  const call = calls[0], assignment = declarations.filter(node => node.init === call && node.id.type === 'Identifier');
+  if (assignment.length !== 1) return ['canonical socket factory result must have one named binding'];
+  const options = call.arguments[0];
+  const keys = options?.type === 'ObjectExpression' ? options.properties.filter(p => !p.computed).map(p => p.key?.name) : [];
+  for (const key of ['env', 'ctx', 'authorizationFor', 'credentialsFor']) {
+    if (!keys.includes(key)) failures.push('canonical socket factory lacks ' + key);
+  }
+  let delegated = 0;
+  walk(ast, node => {
+    if (node.type === 'ForOfStatement' && node.right.type === 'CallExpression' &&
+        node.right.callee.type === 'MemberExpression' && node.right.callee.object.name === 'Object' &&
+        node.right.callee.property.name === 'entries' && node.right.arguments.length === 1 &&
+        node.right.arguments[0].type === 'Identifier' && node.right.arguments[0].name === assignment[0].id.name &&
+        node.left.type === 'VariableDeclaration' && node.left.declarations.length === 1) {
+      const pattern = node.left.declarations[0].id;
+      const statement = node.body.type === 'BlockStatement' && node.body.body.length === 1 ? node.body.body[0] : node.body;
+      const register = statement.type === 'ExpressionStatement' ? statement.expression : null;
+      if (pattern.type === 'ArrayPattern' && pattern.elements.length === 2 &&
+          pattern.elements.every(element => element?.type === 'Identifier') && register?.type === 'CallExpression' &&
+          register.callee.type === 'MemberExpression' && !register.callee.computed && register.callee.object.name === 'socket' &&
+          register.callee.property.name === 'on' && register.arguments.length === 2 &&
+          register.arguments.every((argument, i) => argument.type === 'Identifier' && argument.name === pattern.elements[i].name)) delegated++;
+    }
+    if (node.type === 'CallExpression' && node.callee.type === 'MemberExpression' && node.callee.property.name === 'on' &&
+        ['dbAdd', 'dbUpdate', 'dbUpdateUnset', 'dbRemove'].includes(node.arguments[0]?.value)) {
+      failures.push('direct DATA registration bypasses canonical socket delegation at line ' + node.loc.start.line);
+    }
+  });
+  if (delegated !== 1) failures.push('canonical socket result delegation expected once, found ' + delegated);
+  return failures;
 }
 
 function fileOf (entry) {
@@ -201,6 +277,9 @@ function main () {
       failed = true;
     }
   }
+  for (const issue of checkSocketBinding(fs.readFileSync(path.resolve(__dirname, '..', 'lib/server/websocket.js'), 'utf8'))) {
+    console.error('lib/server/websocket.js: ' + issue); failed = true;
+  }
   for (const file of MATCHED) {
     for (const issue of checkMatchReads(fs.readFileSync(path.resolve(__dirname, '..', file), 'utf8'))) {
       console.error(file + ': ' + issue);
@@ -212,4 +291,4 @@ function main () {
     + MATCHED.length + ' read(s) by identifier-match');
 }
 if (require.main === module) main();
-module.exports = { check, checkFunctions, checkEntry, checkMatchReads, fileOf, ENROLLED, MATCHED };
+module.exports = { check, checkFunctions, checkEntry, checkMatchReads, fileOf, checkSocketBinding, ENROLLED, MATCHED };

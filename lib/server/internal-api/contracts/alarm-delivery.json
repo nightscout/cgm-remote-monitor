@@ -1,0 +1,101 @@
+{
+  "id": "alarm-delivery",
+  "version": 2,
+  "operations": {
+    "deliverAlarm": {
+      "path": "/alarm",
+      "request": {
+        "$schema": "https://json-schema.org/draft/2020-12/schema",
+        "type": "object",
+        "properties": {
+          "tenant": {
+            "type": "string",
+            "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$"
+          },
+          "id": {
+            "type": "string",
+            "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$"
+          },
+          "attempt": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 9007199254740991
+          },
+          "notification": {
+            "type": "object",
+            "description": "Extensible serialized notification produced by tenant-notifications/contract; transported without changing provider/plugin fields."
+          },
+          "receipts": {
+            "type": "array",
+            "items": true,
+            "description": "Provider receipt JSON, retained unchanged for compatibility."
+          },
+          "placement": {
+            "type": "object",
+            "properties": {
+              "generation": {
+                "type": "integer",
+                "minimum": 1,
+                "maximum": 9007199254740991
+              },
+              "shard": {
+                "type": "integer",
+                "minimum": 0,
+                "maximum": 65535
+              },
+              "worker": {
+                "type": "string",
+                "pattern": "^[a-z][a-z0-9_-]{0,62}$"
+              },
+              "incarnation": {
+                "type": "string",
+                "pattern": "^[0-9a-f-]{36}$"
+              }
+            },
+            "required": [
+              "generation",
+              "shard",
+              "worker",
+              "incarnation"
+            ],
+            "additionalProperties": false
+          }
+        },
+        "required": [
+          "tenant",
+          "id",
+          "attempt",
+          "notification",
+          "receipts"
+        ],
+        "additionalProperties": false
+      },
+      "response": {
+        "$schema": "https://json-schema.org/draft/2020-12/schema",
+        "type": "object",
+        "properties": {
+          "accepted": {
+            "const": true
+          },
+          "receipt": {
+            "type": "null"
+          },
+          "clearedRequestIds": {
+            "type": "array",
+            "items": {
+              "type": "string",
+              "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$"
+            },
+            "maxItems": 0
+          }
+        },
+        "required": [
+          "accepted",
+          "receipt",
+          "clearedRequestIds"
+        ],
+        "additionalProperties": false
+      }
+    }
+  }
+}

@@ -48,6 +48,28 @@ describe('Complete authorization reload boundary', function () {
     }
   });
 
+  it('treats a non-string access token as no subject instead of throwing', async function () {
+    await new Promise((resolve, reject) => storage.reload(error => error ? reject(error) : resolve()));
+    for (const value of [{a:'x'}, ['x', {a:'x'}], [['x']], 42]) {
+      assert.equal(storage.findSubject(value), null);
+      assert.equal(storage.doesAccessTokenExist(value), false);
+    }
+  });
+
+  it('matches a valid token inside a repeated-parameter array and only a string element', async function () {
+    const crypto = require('node:crypto');
+    const enclave = {isApiKeySet:() => true,
+      getSubjectHash:id => crypto.createHash('sha1').update('synthetic-' + id).digest('hex')};
+    const keyed = require('../lib/authorization/storage')({authentication_collections_prefix:prefix, enclave},
+      {store:client.db(), settings:{}, moment:require('moment'), language:{translate:v => v}});
+    await new Promise((resolve, reject) => keyed.reload(error => error ? reject(error) : resolve()));
+    const first = keyed.subjects.find(s => s.name === 'first');
+    assert.equal(keyed.findSubject(first.accessToken).name, 'first');
+    assert.equal(keyed.findSubject(['not-a-valid-token-at-all', first.accessToken]).name, 'first');
+    assert.equal(keyed.findSubject([[first.accessToken]]), null);
+    assert.equal(keyed.findSubject({token:first.accessToken}), null);
+  });
+
   it('reloads complete sorted role/subject snapshots and changed grants twice', async function () {
     for (let cycle = 0; cycle < 2; cycle++) {
       const permission = cycle ? 'api:treatments:read' : 'api:entries:read';

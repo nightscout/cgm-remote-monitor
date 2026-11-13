@@ -1,0 +1,16 @@
+{
+  "version": 1,
+  "status": "explicit D6 reader deployment candidate",
+  "migrations": [
+    {
+      "name": "0001_fixed_slot_reader",
+      "up": [
+        "CREATE FUNCTION feed_peek(target integer, max_messages integer, max_bytes integer) RETURNS TABLE (lsn pg_lsn, data bytea) LANGUAGE plpgsql VOLATILE SECURITY DEFINER SET search_path = pg_catalog AS $fn$ DECLARE item record; emitted integer := 0; total bigint := 0; BEGIN IF target IS NULL OR max_messages IS NULL OR max_bytes IS NULL OR target < 1 OR target > 10000 OR max_messages < 4 OR max_messages > 10000 OR max_bytes < 1024 OR max_bytes > 1048576 THEN RAISE EXCEPTION 'FEED_BATCH_BOUNDS'; END IF; FOR item IN SELECT * FROM pg_logical_slot_peek_binary_changes(current_setting('nightscout.feed_slot'), NULL, target, 'proto_version', '1', 'publication_names', current_setting('nightscout.feed_publication')) LOOP emitted := emitted + 1; total := total + octet_length(item.data); IF emitted > max_messages OR total > max_bytes THEN RAISE EXCEPTION 'FEED_BATCH_BOUNDS'; END IF; lsn := item.lsn; data := item.data; RETURN NEXT; END LOOP; END $fn$",
+        "REVOKE ALL ON FUNCTION feed_peek(integer, integer, integer) FROM PUBLIC",
+        "CREATE FUNCTION feed_advance(upto pg_lsn) RETURNS pg_lsn LANGUAGE plpgsql VOLATILE SECURITY DEFINER SET search_path = pg_catalog AS $fn$ DECLARE result pg_lsn; BEGIN SELECT end_lsn INTO result FROM pg_replication_slot_advance(current_setting('nightscout.feed_slot'), upto); RETURN result; END $fn$",
+        "REVOKE ALL ON FUNCTION feed_advance(pg_lsn) FROM PUBLIC"
+      ],
+      "checksum": "1fc7e5dd305aab2d3309032ef1d929807cffa99d91573902276d80ee167cd10c"
+    }
+  ]
+}

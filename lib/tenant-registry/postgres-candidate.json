@@ -1,0 +1,56 @@
+{
+  "version": 1,
+  "status": "operational catalogue: the tenant registry (decision tenant-registry). Tenants, host aliases and public verification keys; host lookup, the aggregate revision and the paged active-tenant enumeration only through three SECURITY DEFINER functions; provisioning pins their search_path and grants EXECUTE to the resolving identities. No clinical data; never part of a tenant artifact, export, erase or restore.",
+  "migrations": [
+    {
+      "name": "0001_tenant_registry",
+      "up": [
+        "CREATE TABLE tenant_registry (tenant_id uuid PRIMARY KEY CHECK (tenant_id <> '00000000-0000-0000-0000-000000000000'::uuid), state text NOT NULL CHECK (state IN ('active','removed')), signing_version integer NOT NULL CHECK (signing_version >= 1), created_at timestamptz NOT NULL DEFAULT clock_timestamp(), updated_at timestamptz NOT NULL DEFAULT clock_timestamp())",
+        "ALTER TABLE tenant_registry ENABLE ROW LEVEL SECURITY",
+        "ALTER TABLE tenant_registry FORCE ROW LEVEL SECURITY",
+        "CREATE POLICY tenant_registry_tenant ON tenant_registry USING (tenant_id = nullif(current_setting('app.current_tenant_id', true), '')::uuid) WITH CHECK (tenant_id = nullif(current_setting('app.current_tenant_id', true), '')::uuid)",
+        "CREATE TABLE tenant_registry_hosts (host text PRIMARY KEY CHECK (host ~ '^[a-z0-9]([a-z0-9-]{0,61}[a-z0-9])?(\\.[a-z0-9]([a-z0-9-]{0,61}[a-z0-9])?)*(:[0-9]{1,5})?$' AND length(host) <= 259), tenant_id uuid NOT NULL REFERENCES tenant_registry (tenant_id), kind text NOT NULL CHECK (kind IN ('alias','internal')))",
+        "CREATE INDEX tenant_registry_hosts_tenant ON tenant_registry_hosts (tenant_id)",
+        "CREATE UNIQUE INDEX tenant_registry_hosts_internal ON tenant_registry_hosts (tenant_id) WHERE kind = 'internal'",
+        "CREATE TABLE tenant_registry_keys (tenant_id uuid NOT NULL REFERENCES tenant_registry (tenant_id), purpose text NOT NULL CHECK (purpose IN ('access','management')), kid text NOT NULL CHECK (kid ~ '^[A-Za-z0-9_-]{1,128}$'), public_key text NOT NULL UNIQUE CHECK (public_key ~ '^[A-Za-z0-9+/]{43}=$'), PRIMARY KEY (tenant_id, purpose, kid))",
+        "ALTER TABLE tenant_registry_keys ENABLE ROW LEVEL SECURITY",
+        "ALTER TABLE tenant_registry_keys FORCE ROW LEVEL SECURITY",
+        "CREATE POLICY tenant_registry_keys_tenant ON tenant_registry_keys USING (tenant_id = nullif(current_setting('app.current_tenant_id', true), '')::uuid) WITH CHECK (tenant_id = nullif(current_setting('app.current_tenant_id', true), '')::uuid)",
+        "CREATE TABLE tenant_registry_clock (singleton boolean PRIMARY KEY DEFAULT true CHECK (singleton), revision bigint NOT NULL CHECK (revision >= 0))",
+        "INSERT INTO tenant_registry_clock (singleton, revision) VALUES (true, 0)",
+        "CREATE FUNCTION tenant_registry_touch() RETURNS trigger LANGUAGE plpgsql SECURITY DEFINER SET search_path = pg_catalog AS $fn$ BEGIN UPDATE tenant_registry_clock SET revision = revision + 1; RETURN NULL; END $fn$",
+        "REVOKE ALL ON FUNCTION tenant_registry_touch() FROM PUBLIC",
+        "CREATE TRIGGER tenant_registry_revision AFTER INSERT OR UPDATE OR DELETE OR TRUNCATE ON tenant_registry FOR EACH STATEMENT EXECUTE FUNCTION tenant_registry_touch()",
+        "CREATE TRIGGER tenant_registry_hosts_revision AFTER INSERT OR UPDATE OR DELETE OR TRUNCATE ON tenant_registry_hosts FOR EACH STATEMENT EXECUTE FUNCTION tenant_registry_touch()",
+        "CREATE TRIGGER tenant_registry_keys_revision AFTER INSERT OR UPDATE OR DELETE OR TRUNCATE ON tenant_registry_keys FOR EACH STATEMENT EXECUTE FUNCTION tenant_registry_touch()",
+        "CREATE FUNCTION tenant_registry_lookup(lookup_host text, lookup_kind text) RETURNS TABLE (tenant_id uuid, state text) LANGUAGE plpgsql VOLATILE SECURITY DEFINER SET search_path = pg_catalog SET app.current_tenant_id = '' AS $fn$ DECLARE t uuid; BEGIN IF lookup_host IS NULL OR lookup_kind IS NULL OR length(lookup_host) > 259 THEN RAISE EXCEPTION 'TENANT_REGISTRY_LOOKUP_REFUSED'; END IF; SELECT h.tenant_id INTO t FROM tenant_registry_hosts h WHERE h.host = lookup_host AND h.kind = lookup_kind; IF t IS NULL THEN RETURN; END IF; PERFORM set_config('app.current_tenant_id', t::text, true); RETURN QUERY SELECT r.tenant_id, r.state FROM tenant_registry r WHERE r.tenant_id = t; END $fn$",
+        "REVOKE ALL ON FUNCTION tenant_registry_lookup(text, text) FROM PUBLIC",
+        "CREATE FUNCTION tenant_registry_revision() RETURNS bigint LANGUAGE plpgsql STABLE SECURITY DEFINER SET search_path = pg_catalog AS $fn$ BEGIN RETURN (SELECT c.revision FROM tenant_registry_clock c WHERE c.singleton); END $fn$",
+        "REVOKE ALL ON FUNCTION tenant_registry_revision() FROM PUBLIC",
+        "CREATE FUNCTION tenant_registry_tenants(after_tenant uuid, page_size integer) RETURNS TABLE (tenant_id uuid) LANGUAGE plpgsql VOLATILE SECURITY DEFINER SET search_path = pg_catalog SET app.current_tenant_id = '' AS $fn$ DECLARE t uuid; n integer := 0; BEGIN IF page_size IS NULL OR page_size < 1 OR page_size > 10000 THEN RAISE EXCEPTION 'TENANT_REGISTRY_PAGE_REFUSED'; END IF; FOR t IN SELECT DISTINCT h.tenant_id FROM tenant_registry_hosts h WHERE after_tenant IS NULL OR h.tenant_id > after_tenant ORDER BY 1 LOOP PERFORM set_config('app.current_tenant_id', t::text, true); IF EXISTS (SELECT 1 FROM tenant_registry r WHERE r.tenant_id = t AND r.state = 'active') THEN tenant_id := t; RETURN NEXT; n := n + 1; EXIT WHEN n >= page_size; END IF; END LOOP; RETURN; END $fn$",
+        "REVOKE ALL ON FUNCTION tenant_registry_tenants(uuid, integer) FROM PUBLIC",
+        "REVOKE ALL ON tenant_registry FROM PUBLIC",
+        "REVOKE ALL ON tenant_registry_hosts FROM PUBLIC",
+        "REVOKE ALL ON tenant_registry_keys FROM PUBLIC",
+        "REVOKE ALL ON tenant_registry_clock FROM PUBLIC"
+      ],
+      "checksum": "9b037c4e30ebbb27e30404427bd0d7819da8d4bc4ea8ec6f810596de592f0860"
+    },
+    {
+      "name": "0002_tenant_registry_human_keys",
+      "up": [
+        "ALTER TABLE tenant_registry_keys DROP CONSTRAINT tenant_registry_keys_purpose_check",
+        "ALTER TABLE tenant_registry_keys ADD CONSTRAINT tenant_registry_keys_purpose_check CHECK (purpose IN ('access','management','human-data','human-management'))"
+      ],
+      "checksum": "7dec26a410e1b80b9fb24cfe4dfebdca975c15933a37be95fda10054bdb54db7"
+    },
+    {
+      "name": "0003_tenant_registry_bound_alias",
+      "up": [
+        "CREATE FUNCTION tenant_registry_alias(selected uuid) RETURNS text LANGUAGE plpgsql STABLE SECURITY DEFINER SET search_path FROM CURRENT AS $fn$BEGIN IF selected IS DISTINCT FROM nullif(current_setting('app.current_tenant_id', true), '')::uuid THEN RAISE EXCEPTION 'TENANT_REGISTRY_ALIAS_BINDING_REFUSED' USING ERRCODE = '42501'; END IF; RETURN (SELECT h.host FROM tenant_registry_hosts h JOIN tenant_registry t ON t.tenant_id=h.tenant_id WHERE h.tenant_id=selected AND h.kind='alias' AND t.state='active' ORDER BY h.host LIMIT 1); END$fn$",
+        "REVOKE ALL ON FUNCTION tenant_registry_alias(uuid) FROM PUBLIC"
+      ],
+      "checksum": "bd33527f7e69216869b67662daba301b28c5aabb1add1e3daf1258f88cc7eb05"
+    }
+  ]
+}

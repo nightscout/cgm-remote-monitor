@@ -1,0 +1,17 @@
+{
+  "version": 1,
+  "status": "dormant review candidate; explicit operator provisioning and separate checkpoint-only bookkeeping grants",
+  "migrations": [
+    {
+      "name": "0001_consumer_checkpoint_projection",
+      "up": [
+        "CREATE TABLE tenant_consumer_checkpoint (tenant_id uuid NOT NULL, consumer text NOT NULL CHECK (consumer ~ '^[A-Za-z0-9_-]{1,128}$'), contract_digest text NOT NULL CHECK (contract_digest ~ '^[a-f0-9]{64}$'), checkpoint bigint NOT NULL CHECK (checkpoint >= 0 AND checkpoint < 8640000000000000), projection jsonb CHECK (projection IS NULL OR jsonb_typeof(projection) = 'array'), PRIMARY KEY (tenant_id, consumer))",
+        "ALTER TABLE tenant_consumer_checkpoint ENABLE ROW LEVEL SECURITY",
+        "ALTER TABLE tenant_consumer_checkpoint FORCE ROW LEVEL SECURITY",
+        "CREATE POLICY tenant_consumer_checkpoint_isolation ON tenant_consumer_checkpoint USING (tenant_id = NULLIF(current_setting('app.current_tenant_id', true), '')::uuid) WITH CHECK (tenant_id = NULLIF(current_setting('app.current_tenant_id', true), '')::uuid)",
+        "REVOKE ALL ON tenant_consumer_checkpoint FROM PUBLIC"
+      ],
+      "checksum": "daa0055e54ada5f0a7465d605c69c7bee0a4b0fdfb8e0eb3276ec8c7ee71748f"
+    }
+  ]
+}

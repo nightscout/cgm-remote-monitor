@@ -41,6 +41,7 @@
     "test:stress": "node scripts/test-tiers.js run stress",
     "test:stress:ci": "node scripts/test-tiers.js run stress --ci",
     "test:all": "node scripts/test-tiers.js run unit,dom,dependency,core,harness,integration,stress",
+    "test:multitenant": "node scripts/test-multitenant.js",
     "test:all:ci": "node scripts/test-tiers.js run unit,dom,dependency,core,harness,integration,stress --ci",
     "test:parallel": "node bin/with-env.js ./my.test.env node_modules/mocha/bin/mocha.js --fail-zero --reporter ./scripts/execution-reporter.js --timeout 10000 --require ./tests/hooks.js --exit --parallel --jobs 2 ./tests/*.test.js",
     "test:parallel:ci": "CLEAR_REQUIRE_CACHE=true node bin/with-env.js ./tests/ci.test.env node_modules/nyc/bin/nyc.js --reporter=lcov --reporter=text-summary mocha --fail-zero --reporter ./scripts/execution-reporter.js --timeout 10000 --require ./tests/hooks.js --exit --parallel --jobs 2 ./tests/*.test.js",
@@ -72,6 +73,7 @@
     "test:tiers": "node scripts/test-tiers.js check",
     "diagnose:data": "node scripts/diagnose-data.js",
     "test:write-boundary": "node scripts/check-write-boundary.js",
+    "test:no-trigger-notify": "node scripts/check-no-trigger-notify.js",
     "test:harness": "node scripts/test-tiers.js run harness",
     "test:dom": "node scripts/test-tiers.js run dom",
     "test:dom:ci": "node scripts/test-tiers.js run dom --ci",
@@ -127,6 +129,7 @@
     "flot": "4.2.6",
     "forwarded-for": "^1.1.0",
     "helmet": "^8.3.0",
+    "jose": "6.2.15",
     "jquery": "^3.5.1",
     "jquery-ui": "^1.14.2",
     "jsonwebtoken": "^9.0.0",
@@ -137,6 +140,8 @@
     "mongodb": "^7.6.0",
     "mongodb-connection-string-url": "7.0.2",
     "nightscout-connect": "0.1.0",
+    "openid-client": "6.8.9",
+    "pg": "^8.23.1",
     "process": "^0.11.10",
     "proxy-addr": "^2.0.8",
     "qs": "6.16.0",
@@ -146,7 +151,8 @@
     "socket.io": "~4.8.3",
     "socks": "2.8.10",
     "swagger-ui-dist": "5.32.15",
-    "swagger-ui-express": "5.0.1"
+    "swagger-ui-express": "5.0.1",
+    "umzug": "3.8.3"
   },
   "devDependencies": {
     "@babel/core": "^8.0.1",

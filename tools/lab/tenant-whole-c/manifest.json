@@ -1,0 +1,76 @@
+{
+  "version": 1,
+  "status": "prepared SOURCE ONLY; all native cases and controls UNMEASURED",
+  "entry": "tools/lab/tenant-whole-c/run.py",
+  "probe": "tools/lab/tenant-whole-c/probe.js",
+  "core": "tools/lab/tenant-whole-c/core.js",
+  "controls": "tools/lab/tenant-whole-c/controls.json",
+  "cases": [
+    "C1",
+    "C2",
+    "C3",
+    "C4",
+    "C5"
+  ],
+  "inventory": {
+    "candidateFiles": 23,
+    "CURRENTinstances": 21,
+    "CURRENTtables": 37,
+    "OLDinstances": 18,
+    "OLDtables": 31
+  },
+  "oldSource": "a7f5cbf71ab9016855976fae74730727d0a78024",
+  "sourceBase": "94c09afdc4466bc2257300570587237d7fb6fed3",
+  "sqlCoreResources": [
+    "explicit parent-owned loopback PostgreSQL test database",
+    "fresh exact-prefix schemas/roles",
+    "private durable artifacts",
+    "probe Node process",
+    "separate read-only raw observer Node process",
+    "three owned restricted SQL writer births in C5, drained and actually SIGSTOPped"
+  ],
+  "authority": "fixture-only typed actor document in actual tenant_operator_policy, shared shipping advisory fence held on same lifecycle transaction; current SQL reread per admission; no production management adapter selected",
+  "quiescence": "actual writer pid/startTicks/uid/cmdline digest + stopped/absent state. Trusted operator SQL-fixture quiescence only; not DB fence, D15 blackout or serving-ingress proof",
+  "causalEvidence": "Eleven native controls, designated assertion plus physical witness, all native UNMEASURED",
+  "cleanup": "child validates exact pid birth and drops only registered absent-at-start namespace/roles; parent inventories exact resources and leaves its fixture intact for independent teardown. No runtime RELEASED claim from this child",
+  "excluded": [
+    "MongoDB/Vault/serving listeners",
+    "journey/client endpoint replay",
+    "provider sends or key destruction",
+    "current-token/private IPC/browser acceptance",
+    "single-tenant production behavior change",
+    "broad Batch C/M5/M6 promotion"
+  ],
+  "requiredInputs": [
+    "committed coherent head and exact OLD archive/dependency locks",
+    "physically reviewed actual-role manifest mapped to C instance kinds",
+    "parent resource identity/volume/owner/endpoint and exclusive runtime grant",
+    "root-approved outage reference and narrow fixture authority/window review"
+  ],
+  "priorEvidence": "f77 representative native, prior source capsules and bounded root profile captures remain separate; this instrument does not relabel them",
+  "bounds": {
+    "allCasesPerInvocation": 5,
+    "maximumReservedSchemasPerAllInvocation": 214,
+    "createdRolesPerAllInvocation": 108,
+    "NodeBirthsPerAllInvocation": 5,
+    "allStagesInvocations": 24,
+    "roleClasses": 7,
+    "operationalFixtureRoleClasses": 2,
+    "maximumChildDeadlineSeconds": 1800
+  },
+  "tenantRestoreStatus": "OPEN/UNSUPPORTED for identity-bearing imports; refusal + next writer is not completed tenant restore; whole deployment rollback is not equivalent",
+  "C5AdditionalChecks": [
+    "full-current unknown ledger with same unknown artifact before erase",
+    "identity import refuses before effects",
+    "foreign rows and current counters unchanged",
+    "actual selected entries v3 intent next writer after refusal"
+  ],
+  "optionalResearch": {
+    "input": "allocatorResearch:private-cache-counterexample-v1",
+    "resources": "one exact private sequence and two operator SQL sessions within existing C5 owned namespace",
+    "scope": "cached allocator counterexample only, native UNMEASURED; no application sequence maintenance or rights changes"
+  },
+  "physicalInventory": "Exact ordinary reviewed relations + ordinary schema_migrations in each selected owned namespace; unlisted r/p/f/m/v and partitions refuse. Point-in-time snapshot, requires coordinated no-DDL operator window; no namespace DDL fence implied. Ordinary inheritance participation in either pg_inherits direction refuses even across namespace boundaries; foreign descendants not adopted.",
+  "lockOrder": "current same-transaction authority fence then parent request then ceremony for confirm/cancel/claim/execute; C5 execute/cancel barriers in both orderings with destructive rollback and no cancellation reopening",
+  "aclProjection": "Explicit source-derived OLD/CURRENT contexts bind whole selected candidate digests/tables. Source ALL SEQUENCES expansion is empty for OLD profile. Complete table/column/sequence compilation upfront; product guards strict; CURRENT fixture grants explicitly applied after successful upgrade; interrupted source/rollback remain OLD."
+}
