@@ -114,4 +114,60 @@ describe('change-feed healthy sweep period', function () {
       assert.equal(timeCycles.includes(quiet) && runtime.last(quiet) !== null, false); }
     finally { await f.instance.close(); await runtime.close(); }
   });
+  it('covers a thousand quiet tenants while reducing work over the same thirty ticks', async function () {
+    const tenants = tenantsOf(1000), normal = feed(tenants, {}), swept = feed(tenants, { sweepMs: 30000 });
+    try {
+      await normal.healthy(); await swept.healthy();
+      const beforeNormal = normal.instance.health().rotated, beforeSwept = swept.instance.health().rotated;
+      for (let i = 0; i < 30; i++) { await normal.step(); await swept.step(); }
+      assert.equal(normal.instance.health().rotated - beforeNormal, 7680, 'DEFAULT_PAGE_WORK');
+      const selected = swept.checks.flat();
+      assert.equal(new Set(selected).size, tenants.length, 'LOST_HINT_FULL_COVERAGE');
+      assert(selected.length >= 999 && selected.length <= 1001, 'QUIET_WORK_SCALES_WITH_SWEEP');
+      assert.equal(normal.checks.length, 30); assert.equal(swept.checks.length, 30, 'MEMBERSHIP_CALLBACK_EVERY_TICK');
+      assert(swept.checks.every(batch => batch.length <= 34), 'QUIET_TICK_BOUND');
+      assert(swept.instance.health().rotated - beforeSwept >= 999);
+    } finally { await normal.instance.close(); await swept.instance.close(); }
+  });
+  it('continues lost-hint coverage beside a sustained full page of write hints', async function () {
+    const tenants = tenantsOf(1000), f = feed(tenants, { sweepMs: 30000 });
+    try {
+      await f.healthy(); const cold = tenants[999];
+      for (let tick = 0; tick < 31; tick++) {
+        for (const tenant of tenants.slice(0, 256)) f.hint('data', tenant);
+        await f.step();
+        assert.equal(f.hinted.at(-1).size, 256, 'WRITE_HINTS_REMAIN_PROMPT');
+        assert(f.checks.at(-1).length <= 290, 'HINT_PLUS_ROTATION_BOUND');
+      }
+      assert(f.checks.some(batch => batch.includes(cold)), 'QUIET_TENANT_NOT_STARVED_BY_WRITES');
+      assert.equal(new Set(f.checks.flat()).size, tenants.length);
+    } finally { await f.instance.close(); }
+  });
+  it('reconciles a refusal at full degraded speed instead of waiting for quiet credit', async function () {
+    const tenants = tenantsOf(1000), calls = []; let refuse = false;
+    const f = feed(tenants, { sweepMs: 30000 }, { check: async batch => {
+      calls.push(batch); if (refuse) { refuse = false; throw new Error('synthetic reconciliation refusal'); }
+    } });
+    try {
+      await f.healthy(); calls.length = 0; refuse = true; await f.step();
+      assert.equal(f.instance.health().degraded, true);
+      await f.step();
+      assert.equal(new Set(calls.at(-1)).size, tenants.length, 'REFUSAL_RECOVERS_FULL_ROSTER');
+      assert.equal(f.instance.health().degraded, false);
+    } finally { await f.instance.close(); }
+  });
+  it('does not lose newly admitted tenants or select a removed tenant during a quiet sweep', async function () {
+    const tenants = tenantsOf(120), added = tenantsOf(121)[120];
+    const f = feed(tenants, { sweepMs: 30000 }, { dynamic: true });
+    try {
+      await f.healthy(); f.instance.removeTenant(tenants[0]); f.instance.addTenant(added);
+      f.instance.resync(); await f.step();
+      assert(f.checks.at(-1).includes(added), 'NEW_TENANT_PROMPT');
+      assert(!f.checks.at(-1).includes(tenants[0]), 'REMOVED_TENANT_EXCLUDED');
+      for (let i = 0; i < 31; i++) await f.step();
+      assert(f.checks.every(batch => !batch.includes(tenants[0])));
+      assert.equal(new Set(f.checks.flat()).size, 120);
+    } finally { await f.instance.close(); }
+  });
+
 });
