@@ -162,7 +162,8 @@ optInSuite(process.env.NS_ADMIN_LIFECYCLE_DOCKER_TEST === '1',
         tenants: [A, B].sort(), namespaces: [...entry.namespaces], identity: { namespaceOid: 1 }, datastore: { ...datastoreRow }, backends: [backend], request });
       peers.push(await ipc.open(entry.endpoint, contracts.lifecycleParticipant, () => ({
         getStatus: async (ctx, body) => status(body.request),
-        invalidateTenant: async (ctx, body) => ({ ...status(body.request), tenant: body.tenant })
+        invalidateTenant: async (ctx, body) => ({ ...status(body.request), tenant: body.tenant }),
+        getOperations: async (ctx, body) => ({ request: body.request, tenant: body.tenant, participant: entry.id, incarnation, operations: [] })
       })));
     }
     this.entries = entries;

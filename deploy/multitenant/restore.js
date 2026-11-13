@@ -117,16 +117,45 @@ async function restore (config, artifact, env = process.env, hooks = {}) {
   } finally { try { await cohort.close(); } finally { await pool.end(); } }
 }
 
+// Recovery for a restore that did not finish (lib/tenant-lifecycle/restore-resume.js,
+// decision restore-resume-and-precheck). `inspect` reads; `resume` reopens a
+// tenant whose restore owner is gone; `clear-operations` records that an
+// unfinished operation has no owner left. Each uses the same private operator
+// identity and the same fresh participant census as `restore`.
+const RECOVERY = Object.freeze(['inspect', 'resume', 'clear-operations']);
+async function recover (config, command, { tenant, claim }, env = process.env) {
+  tenantFor(config, tenant);
+  const cohort = command === 'inspect' ? null : await require('../../lib/server/serve/operation-cohort').createRemote({ namespace: config.control.namespace,
+    tenants: config.tenants.map(t => t.id), participants: config.control.participants });
+  const { Pool } = require('pg');
+  const pool = new Pool({ connectionString: env.NS_OPERATOR_PG, max: 1, connectionTimeoutMillis: 5000,
+    statement_timeout: 10000, options: '-c search_path=pg_catalog' });
+  // A pool error with no listener ends the process; the operation's own client
+  // listener already carries a transport failure to its caller.
+  pool.on('error', () => {});
+  try {
+    const recovery = require('../../lib/tenant-lifecycle/restore-resume').create({ namespace: config.control.namespace, locks: config.control.locks, pool, cohort });
+    if (command === 'inspect') return await recovery.inspect(tenant);
+    if (command === 'resume') return await recovery.resume(tenant, { claimId: claim });
+    return await recovery.clearOperations(tenant);
+  } finally { try { if (cohort) await cohort.close(); } finally { await pool.end(); } }
+}
+
 function argumentsFor (args) {
   const command = args.shift();
-  if (!['export', 'restore'].includes(command)) throw fail('COMPOSE_OPERATOR_USAGE');
+  if (!['export', 'restore', ...RECOVERY].includes(command)) throw fail('COMPOSE_OPERATOR_USAGE');
   const options = {};
   while (args.length) {
     const name = args.shift(), value = args.shift();
-    if (!['--tenant', '--directory', '--digest'].includes(name) || !value || Object.hasOwn(options, name)) throw fail('COMPOSE_OPERATOR_USAGE');
+    if (!['--tenant', '--directory', '--digest', '--claim'].includes(name) || !value || Object.hasOwn(options, name)) throw fail('COMPOSE_OPERATOR_USAGE');
     options[name] = value;
   }
-  if (!UUID.test(options['--tenant'] || '') || !path.isAbsolute(options['--directory'] || '') ||
+  if (RECOVERY.includes(command)) {
+    if (!UUID.test(options['--tenant'] || '') || options['--directory'] || options['--digest'] ||
+        (command === 'resume') !== UUID.test(options['--claim'] || '') || (command !== 'resume' && options['--claim'])) throw fail('COMPOSE_OPERATOR_USAGE');
+    return { command, tenant: options['--tenant'], claim: options['--claim'] };
+  }
+  if (!UUID.test(options['--tenant'] || '') || !path.isAbsolute(options['--directory'] || '') || options['--claim'] ||
       (command === 'restore' && !/^[a-f0-9]{64}$/.test(options['--digest'] || '')) ||
       (command === 'export' && options['--digest'])) throw fail('COMPOSE_OPERATOR_USAGE');
   return { command, tenant: options['--tenant'], directory: options['--directory'], digest: options['--digest'] };
@@ -135,6 +164,7 @@ function argumentsFor (args) {
 async function main (args = process.argv.slice(2)) {
   const options = argumentsFor(args), config = loadConfig(), artifacts = require('../../lib/tenant-lifecycle/filesystem-artifact');
   tenantFor(config, options.tenant);
+  if (RECOVERY.includes(options.command)) return { operation: options.command, ...await recover(config, options.command, options) };
   if (options.command === 'export') {
     const artifact = await capture(config, options.tenant);
     await artifacts.saveTenantArtifact(artifact, { directory: options.directory });
@@ -152,4 +182,4 @@ if (require.main === module) main().then(result => process.stdout.write(JSON.str
     recovery: 'Inspect persisted operation state. Do not automatically replay or reopen the tenant.' }) + '\n');
   process.exitCode = 1;
 });
-module.exports = { validateConfig, loadConfig, lifecycleFor, tenantFor, ready, capture, restore, argumentsFor, main };
+module.exports = { validateConfig, loadConfig, lifecycleFor, tenantFor, ready, capture, restore, recover, argumentsFor, main };

@@ -19,7 +19,7 @@ describe('Internal service API contracts', function () {
   it('fixes service ownership, names, wire paths and immutable versioned descriptors', function () {
     assert.deepEqual(Object.keys(contracts.socketAuthority.operations), ['authorizeSocket', 'executeSocketMutation']);
     assert.deepEqual(Object.keys(contracts.alarmDelivery.operations), ['deliverAlarm']);
-    assert.deepEqual(Object.keys(contracts.lifecycleParticipant.operations), ['getStatus', 'invalidateTenant']);
+    assert.deepEqual(Object.keys(contracts.lifecycleParticipant.operations), ['getStatus', 'invalidateTenant', 'getOperations']);
     assert.deepEqual(Object.keys(contracts.ownershipOperations.operations), ['listOwners', 'addOwner', 'transferOwner', 'recoverOwner']);
     assert.deepEqual(Object.keys(contracts.connectorInspection.operations), ['inspectConnectors']);
     const paths = Object.values(contracts).flatMap(service => {
@@ -31,7 +31,7 @@ describe('Internal service API contracts', function () {
         return operation.path;
       });
     });
-    assert.deepEqual(paths, ['/authorize', '/mutate', '/alarm', '/cohort/status', '/cohort/invalidate',
+    assert.deepEqual(paths, ['/authorize', '/mutate', '/alarm', '/cohort/status', '/cohort/invalidate', '/cohort/operations',
       '/ownership/list', '/ownership/add', '/ownership/transfer', '/ownership/recover', '/vcpool/inspect',
         '/evaluator/inspect', '/pool/get', '/pool/members']);
     assert.throws(() => { contracts.alarmDelivery.operations.getStatus = lifecycle.getStatus; }, TypeError);
