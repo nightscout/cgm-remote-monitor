@@ -70,7 +70,7 @@ optInSuite(process.env.NS_API_ROSTER_SERVING_DOCKER_TEST === '1', 'NS_API_ROSTER
         let remote, window, entered = false;
         try {
           await assert.rejects((async () => {
-            remote = await cohorts.createRemote({ namespace: f.namespace, tenants: [A, B], participants: manifests.validate(rows) });
+            remote = await cohorts.createRemote({ namespace: f.namespace, tenants: f.cohortTenants, participants: manifests.validate(rows) });
             window = maintenance.create({ namespace: f.namespace, locks: f.locks, pool: f.operatorPool, cohort: remote, drainTimeoutMs: 5000 });
             return window.withRestore(A, { artifactDigest: 'd'.repeat(64) }, async () => { entered = true; });
           })(),

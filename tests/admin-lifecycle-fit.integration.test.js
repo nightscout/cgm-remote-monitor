@@ -1,11 +1,11 @@
 'use strict';
 
-// covers: lib/server/serve/operation-cohort.js, lib/tenant-lifecycle/clinical-catalogue.js, lib/tenant-lifecycle/tenant-phase.js, lib/tenant-lifecycle/maintenance-window.js, lib/tenant-ownership/postgres.js, lib/server/serve/listeners.js, lib/server/serve/admin-preview.js, deploy/multitenant/config.js
+// covers: lib/server/serve/operation-cohort.js, lib/tenant-lifecycle/clinical-catalogue.js, lib/tenant-lifecycle/tenant-phase.js, lib/tenant-lifecycle/maintenance-window.js, lib/tenant-ownership/postgres.js, lib/server/serve/listeners.js, lib/server/serve/admin-preview.js, tests/fixtures/multitenant-plan.js
 
 // The admin role beside a tenant restore (16.0.0 decisions
 // restore-census-and-ownership-phase and admin-plane-same-address-different-port),
 // on disposable PostgreSQL with the deployment plan's whole catalogue and grants
-// (deploy/multitenant/config.js, applied as bootstrap.js applies them, without
+// (tests/fixtures/multitenant-plan.js, applied as bootstrap.js applies them, without
 // Vault). A real `nightscout multitenant admin` process is connected as the
 // ownership_operator identity while the real maintenance controller
 // (maintenance-window.js) suspends, holds and reactivates tenant A under the real
@@ -24,7 +24,7 @@ const path = require('node:path');
 const { execFileSync, spawn } = require('node:child_process');
 const { Client, Pool } = require('pg');
 const { run } = require('../lib/migrations/postgres');
-const plan = require('../deploy/multitenant/config');
+const plan = require('./fixtures/multitenant-plan');
 const clients = require('../lib/server/internal-api/clients');
 const ipc = require('../lib/server/internal-api/transport');
 const contracts = require('../lib/server/internal-api/contracts');

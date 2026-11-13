@@ -3,7 +3,7 @@
 // covers: lib/tenant-lifecycle/operation-window.js, lib/tenant-lifecycle/operation-window-epoch.js, lib/tenant-lifecycle/operation-window-readiness.js, lib/storage/postgres-connection.js
 
 // The restore fence and the catalogue admission epoch on disposable PostgreSQL
-// with the deployment plan's catalogue and grants (deploy/multitenant/config.js,
+// with the deployment plan's catalogue and grants (tests/fixtures/multitenant-plan.js,
 // applied as bootstrap.js applies them, without Vault). A real operation window
 // (lifetime identity) and a real lower connection (api identity) run tenant
 // transactions while a superuser session closes the window, holds the restore
@@ -16,7 +16,7 @@ const crypto = require('node:crypto');
 const { execFileSync, spawn } = require('node:child_process');
 const { Client, Pool } = require('pg');
 const { run } = require('../lib/migrations/postgres');
-const plan = require('../deploy/multitenant/config');
+const plan = require('./fixtures/multitenant-plan');
 const windows = require('../lib/tenant-lifecycle/operation-window');
 const connect = require('../lib/storage/postgres-connection');
 const scope = require('../lib/storage/tenant-scope');

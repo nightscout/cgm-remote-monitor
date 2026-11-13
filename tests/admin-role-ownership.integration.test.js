@@ -1,12 +1,12 @@
 'use strict';
 
-// covers: lib/server/serve/admin-preview.js, lib/server/serve/admin-config.js, lib/server/serve/index.js, lib/cli/commands/multitenant.js, lib/tenant-ownership/postgres.js, lib/tenant-ownership/service.js, deploy/multitenant/config.js
+// covers: lib/server/serve/admin-preview.js, lib/server/serve/admin-config.js, lib/server/serve/index.js, lib/cli/commands/multitenant.js, lib/tenant-ownership/postgres.js, lib/tenant-ownership/service.js, tests/fixtures/multitenant-plan.js
 
 // Ownership operations through the composed multitenant `admin` role: a real
 // `nightscout multitenant admin` process on disposable PostgreSQL, reached only
 // on its ADMIN listener with the named ownership-operations client. The
 // database identity and its grants are the deployment plan's own
-// (deploy/multitenant/config.js `ownership_operator`) plus the registry reader
+// (tests/fixtures/multitenant-plan.js `ownership_operator`) plus the registry reader
 // grant registry mode needs. The role runs in registry mode: tenant A is
 // provisioned through the shipping provisioning (tests/fixtures/provisioned-tenants.js),
 // tenant B has rows in the database but is not in the registry. Synthetic
@@ -25,7 +25,7 @@ const catalogue = require('../lib/tenant-authorization/postgres-candidate.json')
 const lifecycleCatalogue = require('../lib/tenant-lifecycle/postgres-candidate.json');
 const clients = require('../lib/server/internal-api/clients');
 const { catalogueDigest } = require('../lib/subject-admin/owner-policy');
-const plan = require('../deploy/multitenant/config');
+const plan = require('./fixtures/multitenant-plan');
 const provisionedTenants = require('./fixtures/provisioned-tenants');
 const { optInSuite } = require('./support/opt-in');
 

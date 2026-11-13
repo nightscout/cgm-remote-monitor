@@ -68,7 +68,9 @@ if (process.env.NS_PREVIEW_REPLICA_HOLD_RESPONSE === '1') {
   };
 }
 
-module.exports = function createReplicaFixture ({ writeClock = false } = {}) {
+module.exports = function createReplicaFixture ({ writeClock = false, namespaceNames = {} } = {}) {
+    provisionedTenants.validateNamespaceNames(namespaceNames);
+    namespaceNames = { ...namespaceNames };
     const suffix = crypto.randomBytes(8).toString('hex');
     const pgName = 'ns-preview-replicas-pg-' + suffix, vaultName = 'ns-preview-replicas-vault-' + suffix;
     // Outside the package: no cwd-relative implicit config or secrets file.
@@ -219,17 +221,20 @@ module.exports = function createReplicaFixture ({ writeClock = false } = {}) {
       return config;
     }
 
-    async function localToken (tenant, overrides = {}, headerOverrides = {}) {
-      const now = Math.floor(Date.now() / 1000);
-      const header = Buffer.from(JSON.stringify({ alg: 'EdDSA', typ: 'ns-access+jwt', kid: 'key1', ...headerOverrides })).toString('base64url');
-      const body = Buffer.from(JSON.stringify({ iss: 'nightscout-test', aud: 'nightscout-data', tid: tenant,
-        purpose: 'data', sub: SUBJECT, sid: 'local-session', cv: 1, iat: now, nbf: now, exp: now + 28800,
-        ...overrides })).toString('base64url');
-      const input = header + '.' + body;
-      const signed = await vault('transit/sign/' + require('../../lib/tenant-registry/rules').vaultKey(tenant, 'access'), {
+    async function signToken (tenant, { purpose, header, claims }) {
+      assert([A, B].includes(tenant) && ['access', 'management'].includes(purpose), 'fixed synthetic tenant and signing purpose required');
+      const encode = value => Buffer.from(JSON.stringify(value)).toString('base64url');
+      const input = encode(header) + '.' + encode(claims);
+      const signed = await vault('transit/sign/' + require('../../lib/tenant-registry/rules').vaultKey(tenant, purpose), {
         input: Buffer.from(input).toString('base64'), key_version: 1
       });
       return input + '.' + Buffer.from(signed.data.signature.split(':')[2], 'base64').toString('base64url');
+    }
+    async function localToken (tenant, overrides = {}, headerOverrides = {}) {
+      const now = Math.floor(Date.now() / 1000);
+      return signToken(tenant, { purpose: 'access', header: { alg: 'EdDSA', typ: 'ns-access+jwt', kid: 'key1', ...headerOverrides },
+        claims: { iss: 'nightscout-test', aud: 'nightscout-data', tid: tenant, purpose: 'data', sub: SUBJECT, sid: 'local-session', cv: 1,
+          iat: now, nbf: now, exp: now + 28800, ...overrides } });
     }
 
 
@@ -299,7 +304,7 @@ module.exports = function createReplicaFixture ({ writeClock = false } = {}) {
       // Provisioning: the registry, each tenant's keys, root secret, anonymous
       // denial, access tenant and key rows, write clock, window and settings.
       await admin.query('CREATE ROLE preview_owner NOLOGIN NOSUPERUSER NOBYPASSRLS');
-      provisioned = await provisionedTenants.create({ admin, adminURI, owner: 'preview_owner', vault: { address: address + '/', token: vaultRoot },
+      provisioned = await provisionedTenants.create({ admin, adminURI, owner: 'preview_owner', namespaceNames, vault: { address: address + '/', token: vaultRoot },
         namespaces: { authorization: 'preview_auth', secrets: 'preview_secrets', legacy: 'preview_legacy', access: 'preview_access', ...(writeClock ? { clock: 'preview_clock' } : {}) } });
       for (const [i, tenant] of [A, B].entries()) roots[i] = (await provisioned.provision({ id: tenant, hosts: [HOSTS[i]], issueRootSecret: true })).rootSecret;
       for (const sql of provisioned.registryGrants({ resolvers: ['preview_app'], readers: ['preview_app'] })) await admin.query(sql);
@@ -366,7 +371,7 @@ module.exports = function createReplicaFixture ({ writeClock = false } = {}) {
       assert.deepEqual(result, { code: null, signal: 'SIGKILL' });
       children.delete(worker);
     }
-    return { setup, cleanup, start, ready, stop, kill, refused, http, exchange, localToken,
+    return { setup, cleanup, start, ready, stop, kill, refused, http, exchange, localToken, signToken,
       operatorVault: vault, hosts: HOSTS,
       get roleToken () { return roleToken; }, get provisioned () { return provisioned; },
       get vaultAddress () { return address; },
