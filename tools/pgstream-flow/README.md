@@ -58,3 +58,28 @@ without claiming autonomous liveness. WAL retention configuration is recorded,
 but exceeding the cap, slot invalidation and rebootstrap require separate proof.
 Raw logs, config and payloads stay outside Git. No full-suite readiness, capacity,
 application-dev merge or production acceptance follows from these checks.
+
+## Runtime grant diagnostic
+
+`qualify-runtime.js` isolates DBA init from the maintained binary's runtime in an
+owned loopback test database. It is a diagnostic for actual-role integration,
+not that integration's acceptance. Supply `NS_TEST_POSTGRES_ADMIN_URI`,
+`PGSTREAM_BINARY`, and an ignored `PGSTREAM_ROLE_EVIDENCE` directory. Use a fresh
+database and unique `PGSTREAM_PROBE_ROLE` beginning `ns_pgstream_` (lowercase
+letters/underscores). It creates a role, schema, preseeded subscriptions and a
+role-specific slot; the caller owns database/container cleanup.
+
+With `PGSTREAM_PROBE_CREATE=1`, DBA setup also grants CREATE on the pgstream
+metadata schema. Without it, a precreated table still fails the binary's startup
+CREATE TABLE statement. Runtime retains only REPLICATION, metadata USAGE/CREATE
+and SELECT on subscriptions; it owns neither the database nor those tables.
+SQL source-table reads and subscription INSERT are checked for denial.
+REPLICATION itself permits decoding WAL across tables and tenants.
+
+The final control removes subscription SELECT, then requires a response within
+the declared 10000 ms diagnostic bound. A missing response is a failing result;
+the script records slot progress and process state and exits nonzero. It does
+not qualify a recovery wrapper. `PGSTREAM_PROBE_EXISTING=1` skips DBA creation to
+repeat on this fixture after restoring its explicit grants; each run requires
+the newly committed heartbeat revision, rather than an older replay. Retain each
+failed capture unchanged and copy/hash the executed helper before a measured run.
