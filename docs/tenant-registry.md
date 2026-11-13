@@ -108,6 +108,41 @@ checkpoint or other required structural record returns `TENANT_PROVISION_INCOMPL
 allows settings, permissions and activity state to change after provisioning and
 does not require retained audit history.
 
+### Operator inspection, refusal and retry
+
+`GET /v1/tenants/{id}/provisioning` (`nightscout admin inspect --id <uuid> [--json]`)
+reads what the registry, the structural provisioning records and Vault hold for one
+id. It reports presence only (never a key, secret, setting or credential value),
+writes nothing, and answers for an id the registry does not hold, because an
+interrupted provisioning leaves Vault keys and no registry entry.
+
+| `provisioning` | Meaning | `action` |
+|---|---|---|
+| `absent` | no registry entry, no record, no Vault key | `provision` |
+| `residue` | Vault keys of an interrupted run; no registry entry and no record | `provision`: the same request adopts the keys and completes |
+| `complete` | registry entry, every record, six keys of the expected type | `none` |
+| `incomplete` | a record or key is missing or has the wrong shape, or tenant rows exist with no registry entry; `findings` names each (`record:<name>:missing`, `record:<name>:unregistered`, `vault:<purpose>:mismatch`, ...) | `operator`: provisioning refuses the id and repairs nothing |
+| `removed` | removed from the registry | `none` |
+| `unverified` | Vault could not be read (`vault.status` `unavailable` or `refused`) | `inspect-again` |
+
+Provisioning admits a tenant in one commit or not at all. A refused request carries
+one of these codes; the tenant's id is the idempotency key, so the retry is the same
+request.
+
+| Code (HTTP) | Cause | Next step |
+|---|---|---|
+| `TENANT_PROVISION_VAULT_UNAVAILABLE` (503), `TENANT_PROVISION_FAILED` (503) | Vault or PostgreSQL did not answer, or the transaction did not commit (including the admin role stopping mid-request) | retry the same request; `inspect` shows `absent` or `residue` meanwhile |
+| `TENANT_PROVISION_VAULT_REFUSED` (502) | Vault refused the provisioning credential (policy, expiry) | correct the credential, then retry |
+| `TENANT_PROVISION_STORE_UNPREPARED` (500) | PostgreSQL reported a missing table, column, function or schema, or an insufficient privilege: the catalogues or the deployment grants are not prepared (apply both `registry.grants(...)`, which pins the registry functions' `search_path`, and `provisionerGrants(...)`) | correct the deployment, then retry |
+| `TENANT_PROVISION_VAULT_KEY_MISMATCH` (409) | a Vault key with the tenant's fixed name exists with another type or as exportable; it is never adopted | operator |
+| `TENANT_PROVISION_CONFLICT` (409) | the id is registered with other hosts, or a host belongs to another tenant (also the loser of two concurrent requests for one alias) | choose another alias or id |
+| `TENANT_PROVISION_INCOMPLETE` (409) | the id is registered without every structural record, or tenant rows exist with no registry entry | operator; `inspect` names the records |
+| `TENANT_PROVISION_LOCK_COLLISION` (409) | another tenant's lifecycle window holds this id's derived lock key | choose another id |
+| `TENANT_PROVISION_REMOVED` (409) | the id was removed | choose another id |
+
+A root secret is returned once, on `created`. If that answer is lost, the retry
+answers `existing` without it.
+
 `DELETE /v1/tenants/{id}` removes host aliases and marks the registry tenant
 removed only after its deletion ceremony has executed. Repeating removal is
 idempotent; a removed id cannot be re-provisioned. Data deletion, key retention

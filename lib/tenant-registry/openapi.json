@@ -18,6 +18,7 @@
           "413": { "$ref": "#/components/responses/Problem" },
           "415": { "$ref": "#/components/responses/Problem" },
           "422": { "$ref": "#/components/responses/Problem" },
+          "500": { "$ref": "#/components/responses/Problem" },
           "502": { "$ref": "#/components/responses/Problem" },
           "503": { "$ref": "#/components/responses/Problem" }
         }
@@ -62,6 +63,19 @@
           "404": { "$ref": "#/components/responses/Problem" },
           "409": { "$ref": "#/components/responses/Problem" },
           "422": { "$ref": "#/components/responses/Problem" },
+          "503": { "$ref": "#/components/responses/Problem" }
+        }
+      }
+    },
+    "/v1/tenants/{id}/provisioning": {
+      "get": {
+        "operationId": "inspectTenantProvisioning",
+        "description": "Operator inspection of one tenant id. Reads the registry, the structural provisioning records and the six Vault Transit keys, and reports presence only: no key material, secret, setting or credential value. Answers 200 for any canonical id, including one the registry does not hold, because an interrupted provisioning leaves Vault keys and no registry entry. `action` is the safe next step: `provision` (POST /v1/tenants creates the tenant, adopting any keys of an interrupted run), `none`, `inspect-again` (Vault could not be read), or `operator` (a record or key is missing or has the wrong shape, or tenant rows exist with no registry entry; provisioning refuses it and never repairs it).",
+        "parameters": [{ "name": "id", "in": "path", "required": true, "schema": { "$ref": "#/components/schemas/TenantId" } }],
+        "responses": {
+          "200": { "description": "The inspection", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/ProvisioningInspection" } } } },
+          "422": { "$ref": "#/components/responses/Problem" },
+          "500": { "$ref": "#/components/responses/Problem" },
           "503": { "$ref": "#/components/responses/Problem" }
         }
       }
@@ -268,6 +282,36 @@
           "internalHost": { "$ref": "#/components/schemas/Host" }
         }
       },
+      "Presence": { "enum": ["present", "partial", "absent"] },
+      "ProvisioningInspection": {
+        "type": "object", "additionalProperties": false, "required": ["id", "provisioning", "action", "registry", "vault", "findings"],
+        "properties": {
+          "id": { "$ref": "#/components/schemas/TenantId" },
+          "provisioning": { "enum": ["absent", "residue", "complete", "incomplete", "removed", "unverified"] },
+          "action": { "enum": ["provision", "none", "operator", "inspect-again"] },
+          "registry": {
+            "type": "object", "additionalProperties": false, "required": ["state", "hosts"],
+            "properties": {
+              "state": { "enum": ["active", "removed", null] },
+              "hosts": { "type": "array", "items": { "$ref": "#/components/schemas/Host" } },
+              "internalHost": { "$ref": "#/components/schemas/Host" }
+            }
+          },
+          "records": {
+            "type": "object", "description": "Absent for a removed tenant. `partial`: rows exist without the shape provisioning writes.",
+            "additionalProperties": { "$ref": "#/components/schemas/Presence" },
+            "properties": { "checkpoints": { "type": "object", "additionalProperties": { "$ref": "#/components/schemas/Presence" } } }
+          },
+          "vault": {
+            "type": "object", "additionalProperties": false, "required": ["status"],
+            "properties": {
+              "status": { "enum": ["read", "refused", "unavailable"] },
+              "keys": { "type": "object", "description": "By key purpose; present only when status is read.", "additionalProperties": { "enum": ["present", "absent", "mismatch"] } }
+            }
+          },
+          "findings": { "type": "array", "items": { "type": "string", "pattern": "^(record|vault):[A-Za-z0-9:_-]+$" } }
+        }
+      },
       "Removal": {
         "type": "object", "required": ["id", "outcome", "state"], "additionalProperties": false,
         "properties": { "id": { "$ref": "#/components/schemas/TenantId" }, "outcome": { "enum": ["removed", "existing"] }, "state": { "const": "removed" } }
@@ -275,7 +319,7 @@
       "Code": {
         "enum": ["TENANT_PROVISION_INVALID", "TENANT_PROVISION_HOST_INVALID", "TENANT_PROVISION_IDEMPOTENCY_KEY_MISMATCH", "TENANT_PROVISION_BATCH_INVALID",
           "TENANT_PROVISION_BATCH_DUPLICATE", "TENANT_PROVISION_CONFLICT", "TENANT_PROVISION_INCOMPLETE", "TENANT_PROVISION_REMOVED", "TENANT_PROVISION_LOCK_COLLISION",
-          "TENANT_PROVISION_VAULT_KEY_MISMATCH", "TENANT_REMOVAL_REQUIRES_DELETION", "TENANT_PROVISION_VAULT_REFUSED", "TENANT_PROVISION_VAULT_UNAVAILABLE", "TENANT_PROVISION_FAILED",
+          "TENANT_PROVISION_VAULT_KEY_MISMATCH", "TENANT_REMOVAL_REQUIRES_DELETION", "TENANT_PROVISION_STORE_UNPREPARED", "TENANT_PROVISION_VAULT_REFUSED", "TENANT_PROVISION_VAULT_UNAVAILABLE", "TENANT_PROVISION_FAILED",
           "TENANT_NOT_FOUND", "ROUTE_NOT_FOUND", "METHOD_NOT_ALLOWED", "UNSUPPORTED_MEDIA_TYPE", "PAYLOAD_TOO_LARGE", "BODY_INVALID", "SERVICE_CLOSED",
           "CONNECTOR_DEFINITION_INVALID", "CONNECTOR_GENERATION_CONFLICT", "CONNECTOR_SECRET_REFERENCE_REFUSED", "CONNECTOR_TENANT_REFUSED", "CONNECTOR_SOURCE_NOT_FOUND", "LIFECYCLE_WINDOW_SUSPENDED", "CONNECTOR_DEFINITION_UNAVAILABLE", "CONNECTOR_DEFINITION_UNSAFE"]
       },
