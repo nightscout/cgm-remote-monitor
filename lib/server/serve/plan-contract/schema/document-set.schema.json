@@ -1,0 +1,27 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "Deployment plan document set",
+  "description": "What a deployment plan hands to `nightscout plan check`: one entry per role process.",
+  "type": "object",
+  "required": ["contract", "processes"],
+  "additionalProperties": false,
+  "properties": {
+    "contract": { "const": 1 },
+    "processes": {
+      "type": "array",
+      "minItems": 1,
+      "maxItems": 4096,
+      "items": {
+        "type": "object",
+        "required": ["name", "roles", "environment", "files"],
+        "additionalProperties": false,
+        "properties": {
+          "name": { "type": "string", "pattern": "^[A-Za-z0-9][A-Za-z0-9._-]{0,127}$", "description": "The plan's own name for the process (a service or workload name)." },
+          "roles": { "type": "array", "minItems": 1, "uniqueItems": true, "items": { "type": "string" }, "description": "The role list given to `nightscout multitenant`." },
+          "environment": { "type": "object", "additionalProperties": { "type": "string" }, "description": "The process environment. Connection addresses may be placeholders; none is dialled." },
+          "files": { "type": "object", "additionalProperties": { "type": "object" }, "description": "JSON files by the absolute path the environment names them with." }
+        }
+      }
+    }
+  }
+}
