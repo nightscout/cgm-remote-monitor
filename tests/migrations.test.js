@@ -62,10 +62,12 @@ describe('operator migration foundation', function () {
       env: { ...process.env, OPERATOR_DATABASE: 'postgres://operator:do-not-print-me@localhost/db' },
       encoding: 'utf8'
     });
+    assert.ifError(result.error);
     assert.equal(result.status, 1);
     assert.match(result.stderr, /MIG_FAILED/);
     assert.doesNotMatch(result.stdout + result.stderr, /do-not-print-me|postgres:\/\/|reviewed\.json|ENOENT/);
     const unsupported = spawnSync(process.execPath, ['bin/nightscout.js', 'migrate', 'up', '--backend', 'mongodb'], { encoding: 'utf8' });
+    assert.ifError(unsupported.error);
     assert.equal(unsupported.status, 64);
     assert.match(unsupported.stderr, /Usage/);
   });
