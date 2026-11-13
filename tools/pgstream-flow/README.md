@@ -32,6 +32,8 @@ Focused controls use the same executable:
   clinical assertion must fail.
 - `PGSTREAM_FLOW_ABLATE=drop-output`: suppress output delivery after initial
   frames; the connected-client update assertion must fail.
+- `PGSTREAM_FLOW_ABLATE=drop-due-recovery`: discard the persisted-due recovery
+  action; the cache-loss due assertion must fail.
 - `PGSTREAM_FLOW_CRASH=before-durable`: kill the CDC process before evaluation
   and HTTP acknowledgement. The committed write must replay after restart.
 - Default crash path: persist output, kill CDC before HTTP acknowledgement, then

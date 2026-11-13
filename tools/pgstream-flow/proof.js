@@ -45,7 +45,7 @@ async function evaluate(tenant,timeOnly=false){
   return value;
 }
 function armDue(tenant,value){clearTimeout(timers.get(tenant));if(Number.isFinite(value.nextDueAt)&&!closing)timers.set(tenant,setTimeout(()=>enqueue(tenant,true).catch(e=>log({error:e.message})),Math.max(1,value.nextDueAt-Date.now())));}
-async function loseCachesAndRecoverDue(){for(const c of components.values())c.close();components.clear();current.clear();identities.clear();for(const timer of timers.values())clearTimeout(timer);timers.clear();for(const tenant of [lab.A,lab.B]){const value=await loadOutput(tenant);if(value)armDue(tenant,value);}}
+async function loseCachesAndRecoverDue(){for(const c of components.values())c.close();components.clear();current.clear();identities.clear();for(const timer of timers.values())clearTimeout(timer);timers.clear();if(ablation==='drop-due-recovery')return;for(const tenant of [lab.A,lab.B]){const value=await loadOutput(tenant);if(value)armDue(tenant,value);}}
 function enqueue(tenant,timeOnly=false){const previous=queues.get(tenant)||Promise.resolve();const next=previous.catch(()=>{}).then(()=>scope.withTenant(tenant,()=>evaluate(tenant,timeOnly)));queues.set(tenant,next);return next;}
 async function deliver(tenant){const next=await loadOutput(tenant);if(!next)return;const previous=published.get(tenant);published.set(tenant,next);await protocol.fanout({tenant,previous,next});}
 async function body(req){let data='';for await(const b of req){data+=b;if(data.length>1048576)throw Error('BODY_BOUND');}return JSON.parse(data);}
@@ -63,7 +63,7 @@ async function stopFeed(){if(!child||child.exitCode!==null||child.signalCode!==n
   server=http.createServer(async(req,res)=>{try{
     if(req.method!=='POST'){res.writeHead(404).end();return;}
     const event=await body(req);eventsSeen++;fs.appendFileSync(evidence+'/payloads.jsonl',JSON.stringify({path:req.url,event})+'\n');
-    if(mode==='permanent'){failedInputLsn=(event.Data||event.data).lsn;log({kind:'forced-http-failure',status:422,path:req.url,eventLsn:failedInputLsn,slot:(await lab.admin.query('SELECT confirmed_flush_lsn::text,restart_lsn::text FROM pg_replication_slots WHERE slot_name=$1',[lab.name+'_slot'])).rows});res.writeHead(422).end();return;}
+    if(mode==='permanent'&&req.url==='/input'){failedInputLsn=(event.Data||event.data).lsn;log({kind:'forced-http-failure',status:422,path:req.url,eventLsn:failedInputLsn,slot:(await lab.admin.query('SELECT confirmed_flush_lsn::text,restart_lsn::text FROM pg_replication_slots WHERE slot_name=$1',[lab.name+'_slot'])).rows});res.writeHead(422).end();return;}
     if(mode==='transient'){res.writeHead(503).end();return;}
     const data=event.Data||event.data||event;
     const cols=data.columns||[];const keys=data.identity||[];
@@ -121,7 +121,7 @@ async function stopFeed(){if(!child||child.exitCode!==null||child.signalCode!==n
   await lab.persistDomains({entries:[{_id:'a',type:'sgv',sgv:150,date:Date.now(),dateString:new Date().toISOString()}]});
   const newer=await lab.clock();release();
   await waitFor(async()=>{const row=await loadOutput(lab.A);return row?.result.properties.bgnow?.mean===150&&row.signature.stamp===newer.stamp;},'concurrent newer generation');
-  log({kind:'PASS',capability:'concurrent-newer-generation'});
+  log({kind:'PASS',capability:'serialized-owner-retains-newer-commit'});
   // Stop before durable completion on a permanent HTTP failure; strict mode must retain retryable WAL.
   mode='permanent';const seenBefore=eventsSeen;
   await lab.persistDomains({entries:[{_id:'b',type:'sgv',sgv:234,date:Date.now(),dateString:new Date().toISOString()}]},lab.B);
@@ -152,12 +152,12 @@ async function stopFeed(){if(!child||child.exitCode!==null||child.signalCode!==n
   crashBeforeAck=true;
   await lab.persistDomains({entries:[{_id:'a',type:'sgv',sgv:160,date:Date.now(),dateString:new Date().toISOString()}]});
   await waitFor(()=>crashed,'crash before ack');await waitFor(()=>child.exitCode!==null||child.signalCode!==null,'killed feed');
-  const beforeReplay=await loadOutput(lab.A),evaluationBeforeReplay=evaluations;
+  const beforeReplay=await loadOutput(lab.A),outputsBeforeReplay=outputs;
   await loseCachesAndRecoverDue();startFeed();
   await sleep(150);
   log({kind:'after-restart-checkpoint',inputLsn:failedInputLsn,slot:(await lab.admin.query('SELECT confirmed_flush_lsn::text,restart_lsn::text,confirmed_flush_lsn >= $2::pg_lsn AS confirmed_past_input FROM pg_replication_slots WHERE slot_name=$1',[lab.name+'_slot',failedInputLsn])).rows});
-  await waitFor(()=>evaluations>evaluationBeforeReplay,'same input replay');
+  await waitFor(()=>outputs>outputsBeforeReplay,'same input committed replay');await queues.get(lab.A);
   const afterReplay=await loadOutput(lab.A);if(process.env.PGSTREAM_FLOW_CRASH==='before-durable'){assert.equal(afterReplay.result.properties.bgnow.mean,160);}else{assert.equal(afterReplay.revision,beforeReplay.revision,'retry keeps content revision');assert.equal(afterReplay.checkpoint,beforeReplay.checkpoint);}
-  log({kind:'PASS',capability:'durable-before-ack-redelivery-stable-revision',revision:afterReplay.revision});
+  log({kind:'PASS',capability:process.env.PGSTREAM_FLOW_CRASH==='before-durable'?'before-durable-input-redelivery':'durable-before-ack-redelivery-stable-revision',revision:afterReplay.revision});
   log({kind:'PASS',capability:'thin-flow',eventsSeen,evaluations,outputs});
 })().catch(e=>{log({kind:'FAIL',error:e.stack});process.exitCode=1;}).finally(async()=>{closing=true;for(const t of timers.values())clearTimeout(t);await stopFeed();client?.close();protocol?.close();sockets?.close();server?.close();for(const c of components.values())c.close();await Promise.allSettled([...queues.values()]);await lab.admin?.query('SELECT pg_drop_replication_slot(slot_name) FROM pg_replication_slots WHERE slot_name=$1',[lab.name+'_slot']);await lab.close();});
