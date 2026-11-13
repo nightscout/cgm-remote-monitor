@@ -112,6 +112,33 @@ describe('explicit ensure: actual modules with recording SQL/driver (not native 
     const f=fixture({fresh:true,[flag]:true}),p=f.fresh(),s=await f.ensure.createEnsure({...f.config,freshProvisioning:p});
     assert.notEqual((await s.ensure(f.input)).code,'TENANT_ENSURE_OK');assert.equal(f.vaultCalls.length,0);await s.close();await p.close();
   });
+  it('pre-key shared-writer contention records a replayable refusal; a new operation works after drain',async function(){
+    const opts={fresh:true,sharedWriter:true},f=fixture(opts),p=f.fresh(),s=await f.ensure.createEnsure({...f.config,freshProvisioning:p});
+    const first=await s.ensure(f.input);assert.equal(first.outcome,'refused');assert.equal(first.code,'TENANT_ENSURE_BUSY');assert.equal(f.vaultCalls.length,0);
+    opts.sharedWriter=false;assert.deepEqual(await s.ensure(f.input),first);assert.equal(f.vaultCalls.length,0);
+    const second=await s.ensure({...f.input,operationId:'55555555-5555-4555-8555-555555555555'});assert.equal(second.outcome,'created');
+    await s.close();await p.close();
+  });
+  it('post-key datastore mismatch stays unresolved and retries do no more key work',async function(){
+    const opts={fresh:true,changeFreshAfterKey:true},f=fixture(opts),p=f.fresh(),s=await f.ensure.createEnsure({...f.config,freshProvisioning:p});
+    const r=await s.ensure(f.input);assert.equal(r.outcome,'unknown');assert(f.vaultCalls.some(c=>c.method==='POST'));
+    const calls=f.vaultCalls.length;opts.changeFreshAfterKey=false;
+    assert.equal((await s.ensure({...f.input,operationId:'55555555-5555-4555-8555-555555555555'})).outcome,'unknown');
+    assert.equal(f.vaultCalls.length,calls);assert(!f.data.events.some(e=>e.phase==='result'));await s.close();await p.close();
+  });
+  it('brands only exact immutable pre-key refusal results of the actual service',async function(){
+    const f=fixture({fresh:true,sharedWriter:true}),p=f.fresh(),r=await p.provision({id:f.A,hosts:f.input.hosts});
+    assert(f.provision.preKeyEnsureRefusal(p,r));assert(!f.provision.preKeyEnsureRefusal({},r));assert(!f.provision.preKeyEnsureRefusal(p,{...r}));
+    assert(Object.isFrozen(r));assert.throws(()=>{r.code='TENANT_PROVISION_DATASTORE_CHANGED';},TypeError);await p.close();
+  });
+  it('post-key cleanup uncertainty cannot become a conclusive pre-key BUSY refusal',async function(){
+    const opts={fresh:true},f=fixture(opts),p=f.fresh(),s=await f.ensure.createEnsure({...f.config,freshProvisioning:p});
+    // Only provisioner's lifecycle unlock fails; the ensure session's first
+    // pre-delegation unlock remains successful.
+    opts.fail=text=>text.includes('pg_advisory_unlock($1::bigint)');
+    const r=await s.ensure(f.input);assert.equal(r.outcome,'unknown');assert(f.vaultCalls.some(c=>c.method==='POST'));
+    assert(!f.data.events.some(e=>e.phase==='result'));await s.close();await p.close();
+  });
   it('missing deployment declaration cannot be replaced by a legacy provisioner or API proof',async function(){
     const f=fixture({fresh:true,dependencies:false}),p=f.fresh(),s=await f.ensure.createEnsure({...f.config,freshProvisioning:p});
     assert.equal((await s.ensure(f.input)).code,'TENANT_ENSURE_FRESH_UNAVAILABLE');assert.equal(f.vaultCalls.length,0);await s.close();await p.close();

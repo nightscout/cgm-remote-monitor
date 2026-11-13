@@ -26,7 +26,7 @@ module.exports = function fixture (options = {}) {
     async query (text, values = []) {
       log.push({id:this.id,text,values});
       if (options.fail && options.fail(text,values)) throw Object.assign(Error('SYNTHETIC_QUERY_FAILURE'),{code:'57014'});
-      if (text.startsWith('SELECT pg_backend_pid() AS pid,')) return {rows:[{pid:options.wrongPid?0:this.processID,database:options.wrongFreshDatabase&&this.purpose==='nightscout-admin-provisioning'?'other':'synthetic',database_oid:'16384',server_address:'127.0.0.1',server_port:5432,postmaster_birth:options.changedPostmaster?'changed':'1700000000.000000'}]};
+      if (text.startsWith('SELECT pg_backend_pid() AS pid,')) return {rows:[{pid:options.wrongPid?0:this.processID,database:(options.wrongFreshDatabase || options.changeFreshAfterKey && vaultCalls.some(c=>c.method==='POST'))&&this.purpose==='nightscout-admin-provisioning'?'other':'synthetic',database_oid:'16384',server_address:'127.0.0.1',server_port:5432,postmaster_birth:options.changedPostmaster?'changed':'1700000000.000000'}]};
       if (text.includes('pg_catalog.pg_control_system()')) return {rows:[{cluster:options.wrongFreshCluster&&this.purpose==='nightscout-admin-provisioning'?'7000000000000000002':'7000000000000000001'}]};
       if (text.includes('pg_try_advisory_lock(')) {
         const key = (text.includes('hashtextextended') ? 'provision:' : 'life:')+values[0];
