@@ -142,6 +142,7 @@ optInSuite(process.env.NS_OPERATION_LIFETIME_DOCKER_TEST === '1', 'NS_OPERATION_
         assert.deepEqual(await f.restoreState(tenant), before, 'ORPHAN_REFUSAL_BEFORE_SUSPENSION_HAS_NO_EFFECT');
       }
       finally { await controller.close(); }
+      assert.equal(await f.withAdmin(async client => (await client.query('SELECT phase FROM preview_control.tenant_lifecycle_windows WHERE tenant_id=$1', [tenant])).rows[0].phase), 'active', 'ORPHAN_REFUSED_BEFORE_CLOSING');
     });
     it('reports a lost finish reply without reusing its owner session or rewriting its committed result', async () => {
       const tenant = f.base.tenants[1], selected = lossyPool('finish');

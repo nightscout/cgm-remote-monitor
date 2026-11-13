@@ -62,7 +62,7 @@ function fixture (options = {}) {
     if (text.includes('restore-preflight-refresh')) return { rows: [] };
     if (text.includes('restore-preflight')) {
       if (!m.closedBefore) { assert.equal(m.durable.window.phase, 'active', 'pre-check runs only while the tenant is open'); assert.equal(m.durable.audit, null); }
-      const rows = clone(m.preflight || []); if (m.preflightFinishes) m.preflight = []; return { rows };
+      return { rows: clone(m.preflight || []) };
     }
     if (text.includes('restore-pending')) { if (m.finishOnPoll) m.pending = []; return { rows: clone(m.pending) }; }
     if (text.includes('restore-exclusive-acquire')) { if (!m.busy) m.locked = true; return { rows: [{ held: m.locked }] }; }
@@ -90,7 +90,7 @@ function fixture (options = {}) {
       return original.call(this, request, ...rest);
     };
     api = controller.create({ namespace: 'synthetic_window', locks: [{ tenant: A, key: '41' }, { tenant: B, key: '42' }],
-      pool: { connect: async () => { m.connected = true; return client; } }, cohort, drainTimeoutMs: options.drainTimeoutMs || 1 });
+      pool: { connect: async () => { m.connected = true; return client; } }, cohort, drainTimeoutMs: 1 });
   } finally { Module._load = original; }
   return { m, api };
 }
@@ -197,22 +197,20 @@ describe('private tenant restore controller (simulated backend protocol)', funct
     await assert.rejects(api.withRestore(A, { artifactDigest: DIGEST }, async () => assert.fail('body must not run')), code('LIFECYCLE_RESTORE_DRAIN_TIMEOUT'));
     assert.deepEqual(m.pending, pending); assert.equal(m.durable.window.phase, 'suspended'); assert.equal(m.durable.audit.state, 'suspended'); assert(!m.invalidated); await api.close();
   });
-  for (const [label, row, expected] of [
-    ['a record whose owner backend is gone', { operation_id: 'orphan', owner_pid: 999, owner_birth: 'old', gone: true }, 'LIFECYCLE_RESTORE_PREFLIGHT_ORPHANED_OPERATIONS'],
-    ['a record that outlives the drain timeout', { operation_id: 'slow', owner_pid: 7, owner_birth: 'live', gone: false }, 'LIFECYCLE_RESTORE_PREFLIGHT_PENDING_OPERATIONS']
-  ]) it('refuses before closing the tenant on ' + label, async function () {
-    const { m, api } = fixture({ preflight: [row] });
+  it('refuses before closing the tenant on a record whose owner backend is gone', async function () {
+    const { m, api } = fixture({ preflight: [{ operation_id: 'orphan', owner_pid: 999, owner_birth: 'old', gone: true }, { operation_id: 'live', owner_pid: 7, owner_birth: 'live', gone: false }] });
     await assert.rejects(api.withRestore(A, { artifactDigest: DIGEST }, async () => assert.fail('body must not run')),
-      error => error.code === expected && error.unfinished === 1 && error.orphaned === (row.gone ? 1 : 0));
+      error => error.code === 'LIFECYCLE_RESTORE_PREFLIGHT_ORPHANED_OPERATIONS' && error.unfinished === 2 && error.orphaned === 1);
     assert.equal(m.durable.window.phase, 'active', 'RESTORE_PREFLIGHT_LEAVES_OPEN'); assert.equal(m.durable.window.generation, '1'); assert.equal(m.durable.audit, null);
     assert(!m.trace.some(sql => sql.startsWith('UPDATE ') || sql.startsWith('INSERT INTO ') || sql === 'COMMIT'), 'the pre-check writes nothing');
     assert(!m.trace.some(sql => sql.includes('restore-window-claim')), 'the window row is not claimed');
     assert(m.released && m.pinReleased && !m.invalidated && !m.locked); await api.close();
   });
-  it('waits for the records it first saw, ignores later ones, then restores', async function () {
-    const { m, api } = fixture({ drainTimeoutMs: 5000, preflight: [{ operation_id: 'finishing', owner_pid: 7, owner_birth: 'live', gone: false }], preflightFinishes: true });
+  it('leaves a record with a present owner to the drain after suspension, as before', async function () {
+    const live = [{ operation_id: 'live', owner_pid: 7, owner_birth: 'live', gone: false }];
+    const { m, api } = fixture({ preflight: live, pending: live, finishOnPoll: true });
     const result = await api.withRestore(A, { artifactDigest: DIGEST }, async () => 'restored');
-    assert.equal(result.state, 'activated'); assert.equal(m.trace.filter(sql => sql.includes('/* restore-preflight */')).length, 2);
+    assert.equal(result.state, 'activated'); assert.equal(m.trace.filter(sql => sql.includes('/* restore-preflight */')).length, 1);
     const first = m.trace.findIndex(sql => sql.includes('/* restore-preflight */')), claim = m.trace.findIndex(sql => sql.includes('restore-window-claim'));
     assert(first >= 0 && first < claim, 'pre-check precedes the claim'); await api.close();
   });

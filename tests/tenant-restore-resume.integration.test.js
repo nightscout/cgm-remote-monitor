@@ -182,16 +182,13 @@ optInSuite(process.env.NS_RESTORE_RESUME_DOCKER_TEST === '1', 'NS_RESTORE_RESUME
       assert.equal(marker.length, 1);
       assert.deepEqual(await reported('api-1'), [marker[0].operation_id], 'PARTICIPANT_REPORTS_RUNNING the actual process names its unfinished operation');
       assert.deepEqual(await reported('api-2'), []);
-      await operator(({ restore }) => assert.rejects(restore.withRestore(A, { artifactDigest: DIGEST }, async () => assert.fail('must not run')),
-        error => error.code === 'LIFECYCLE_RESTORE_PREFLIGHT_PENDING_OPERATIONS' && error.unfinished === 1 && error.orphaned === 0));
-      assert.equal((await state()).window.phase, 'active', 'RESTORE_PREFLIGHT_LEAVES_OPEN'); assert.equal(await aServes('api-2'), 200);
       assert.deepEqual(await operator(({ resume }) => resume.clearOperations(A)), { tenant: A, cleared: [], retained: [{ operation: marker[0].operation_id, reason: 'OWNER_BACKEND_PRESENT' }] });
       assert.deepEqual((await state()).cleared, []);
       // 2. Its database session is ended. The record can never be finished by its owner.
       await admin(client => client.query('SELECT pg_terminate_backend($1)', [marker[0].owner_pid]));
       await operator(({ restore }) => assert.rejects(restore.withRestore(A, { artifactDigest: DIGEST }, async () => assert.fail('must not run')),
         error => error.code === 'LIFECYCLE_RESTORE_PREFLIGHT_ORPHANED_OPERATIONS' && error.orphaned === 1));
-      assert.equal((await state()).window.phase, 'active'); assert.equal(await aServes('api-2'), 200);
+      assert.equal((await state()).window.phase, 'active', 'RESTORE_PREFLIGHT_LEAVES_OPEN'); assert.equal(await aServes('api-2'), 200);
       // 3. Once the process no longer runs it, an operator clears it; the record itself is untouched.
       f.current.get('api-1').child.kill('SIGUSR2'); await first.done;
       await f.base.until(async () => (await reported('api-1')).length === 0, 'the process ended its operation');
