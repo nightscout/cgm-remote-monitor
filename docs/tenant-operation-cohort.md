@@ -114,8 +114,8 @@ to make startup succeed. Nothing clears an orphan or reopens a suspended tenant
 automatically. The private operator has three explicit operations for it
 (`inspect`, `resume`, `clear-operations`; see
 [resume and operation clearance](../lib/tenant-lifecycle/maintenance-window.md#resume-and-operation-clearance)),
-and a restore refuses before closing the tenant when unfinished operation
-records remain. Each participant answers `getOperations` with the ids of the
+and a restore refuses before closing the tenant when an unfinished operation
+record's owner backend is gone. Each participant answers `getOperations` with the ids of the
 tenant's operations it has not finished running. A restarted participant has a new incarnation, so an old restore
 pin cannot activate A using the replacement process. No HA or deterministic
 recovery bound is claimed. Ordinary successful tenant-local restoration requires

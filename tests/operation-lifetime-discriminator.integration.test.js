@@ -136,8 +136,9 @@ optInSuite(process.env.NS_OPERATION_LIFETIME_DOCKER_TEST === '1', 'NS_OPERATION_
         await client.query('COMMIT');
       } finally { client.release(); }
       const controller = require('../lib/tenant-lifecycle/maintenance-window').create({ namespace: f.namespace, locks: f.locks, pool: f.operatorPool, cohort: f.cohort, drainTimeoutMs: 200 });
-      try { await assert.rejects(controller.withRestore(tenant, { artifactDigest: 'd'.repeat(64) }, async () => assert.fail('orphan must exclude restore')), { code: 'LIFECYCLE_RESTORE_DRAIN_TIMEOUT' }); }
+      try { await assert.rejects(controller.withRestore(tenant, { artifactDigest: 'd'.repeat(64) }, async () => assert.fail('orphan must exclude restore')), { code: 'LIFECYCLE_RESTORE_PREFLIGHT_ORPHANED_OPERATIONS' }); }
       finally { await controller.close(); }
+      assert.equal(await f.withAdmin(async client => (await client.query('SELECT phase FROM preview_control.tenant_lifecycle_windows WHERE tenant_id=$1', [tenant])).rows[0].phase), 'active', 'ORPHAN_REFUSED_BEFORE_CLOSING');
     });
     it('reports a lost finish reply without reusing its owner session or rewriting its committed result', async () => {
       const tenant = f.base.tenants[1], selected = lossyPool('finish');

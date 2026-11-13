@@ -37,16 +37,14 @@ never substitute for the provisioned current authority relation.
 1. Pin the source-created participant incarnations/schema identities using the held
    private client, then verify the branded complete cohort, exact schema
    and current role authority. Pre-check, while A is still open and before any
-   write: every operation record unfinished at the first read must finish within
-   the drain timeout. A record whose owner backend is gone refuses at once
-   (`LIFECYCLE_RESTORE_PREFLIGHT_ORPHANED_OPERATIONS`); one that outlives the
-   timeout refuses (`LIFECYCLE_RESTORE_PREFLIGHT_PENDING_OPERATIONS`). Both leave
-   A serving. Then commit A's suspended phase, new generation, claim and artifact
-   digest with an append-only audit record.
-2. New A ordinary operations refuse. Poll durable unfinished markers (those
-   registered between the pre-check and the suspension) and try only A's exclusive
-   advisory key nonblocking. Deadline or unknown completion refuses; the
-   controller never clears markers or reactivates A.
+   write: an unfinished operation record whose owner backend is gone refuses the
+   restore (`LIFECYCLE_RESTORE_PREFLIGHT_ORPHANED_OPERATIONS`) and leaves A
+   serving; its owner can never finish it. Then commit A's suspended phase, new
+   generation, claim and artifact digest with an append-only audit record.
+2. New A ordinary operations refuse. Poll existing durable unfinished markers
+   (their owners are present, or their birth is unreadable) and try only A's
+   exclusive advisory key nonblocking. Deadline or unknown completion refuses
+   with A closed; the controller never clears markers or reactivates A.
 3. Restore on the exact held backend. Lifecycle must assert the claim before
    metadata/effects and before commit. Mark audit state restored in the SAME data
    transaction as restored rows. Independent B's operations/key remain unchanged.
