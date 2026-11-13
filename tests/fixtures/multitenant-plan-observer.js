@@ -24,6 +24,7 @@ function install () {
   const records = new Map();
   const proxies = new WeakMap();
   function wrap (value, label, path) {
+    if (label === 'vcpool: MULTITENANT_VCPOOL_CONFIG') label = 'MULTITENANT_VCPOOL_CONFIG';
     if (value === null || typeof value !== 'object') return value;
     if (proxies.has(value)) return proxies.get(value);
     const isArray = Array.isArray(value);

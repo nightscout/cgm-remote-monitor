@@ -127,7 +127,15 @@ function documents ({ layout: l, urls = {}, vaultAddress = 'https://vault.exampl
       vault: { ...vault('vault-token'), timeoutMs: 10000 }, ownerPolicy: { catalogue: ['*'] }, operator: operator('test-plan-provisioning') } },
     environment: { ADMIN_HOSTNAME: '127.0.0.1', ADMIN_PORT: '1342', MULTITENANT_ADMIN_CONFIG: file('config.json'), NS_PROVISIONER_PG: urls.provisioner,
       NS_OWNERSHIP_PG: urls.ownership_operator, NS_CONNECTOR_SOURCES_PG: urls.connector_writer, NS_MANAGEMENT_SESSIONS_PG: urls.management_issuer } };
-  const docs = { configs, environments, operations, remote, locks, feed, admin };
+  const vcpool = { config: { version: 1, api: { url: 'https://api.example.test/' },
+    postgres: { connectionEnv: 'NS_VCPOOL_SECRETS_PG', namespaces: { secrets: ns.secrets } },
+    vault: { ...vault('vcpool-token'), allowInsecureLoopback: false }, activity: { connectionEnv: 'NS_VCPOOL_ACTIVITY_PG', namespace: ns.control },
+    registry: { ...registry }, definitions: { connectionEnv: 'NS_VCPOOL_DEFINITIONS_PG', namespaces: { settings: named('connector_settings'), registry: registry.namespace, secrets: ns.secrets, control: ns.control } },
+    sources: { allowHosts: ['source.example.test'], allowInsecureHttp: false }, cycleMs: 15000, pollIntervalMs: 300000, retryMs: 150000, maxTenants: 1000, maxSources: 10000 },
+    environment: { MULTITENANT_VCPOOL_CONFIG: file('config.json'), NS_SERVE_INTERNAL_SOCKET: socketOf('vcpool'),
+      NS_VCPOOL_SECRETS_PG: urls.api, NS_VCPOOL_ACTIVITY_PG: urls.activity_reader, NS_VCPOOL_DEFINITIONS_PG: urls.provisioner } };
+  if (variant === 'full') { delete vcpool.config.vault.tokenFile; vcpool.config.vault.tokenEnv = 'NS_VAULT_TOKEN'; vcpool.environment.NS_VAULT_TOKEN = 'synthetic-placeholder'; }
+  const docs = { configs, environments, operations, remote, locks, feed, admin, vcpool };
   return full ? everyOptionalField(docs, { l, named, urls, vaultAddress, socketOf, envName, protects, tokenFiles: variant === 'full-token-files' }) : docs;
 }
 
@@ -186,6 +194,7 @@ function documentSet (docs) {
       ...(roleOf(name) === 'api' ? { [file('evaluator-metadata.json')]: docs.configs.evaluator } : {}) } }));
   processes.push({ name: 'feed-reader', roles: ['feed-reader'], environment: docs.feed.environment, files: { [file('config.json')]: docs.feed.config } });
   processes.push({ name: 'admin', roles: ['admin'], environment: docs.admin.environment, files: { [file('config.json')]: docs.admin.config } });
+  processes.push({ name: 'vcpool', roles: ['vcpool'], environment: docs.vcpool.environment, files: { [file('config.json')]: docs.vcpool.config } });
   return { contract: 1, processes };
 }
 

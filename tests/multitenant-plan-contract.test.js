@@ -44,6 +44,7 @@ const REFUSED_IN_REGISTRY_MODE = {
   'tenant-admin': { '': { tenants: [] }, '/management': { keys: [] } },
   admin: { '/ownership': { tenants: [] } },
   'feed-reader': {},
+  vcpool: { '': { tenants: [] } },
   operation: { '': { locks: [] } }
 };
 
@@ -85,8 +86,8 @@ describe('deployment plan contract', function () {
   const rows = VARIANTS.flatMap(documentsOf);
 
   it('accepts the test plan: every document matches its schema and every process passes its loaders', function () {
-    const roster = ['realtime', 'evaluator', 'tenant-admin', 'api-1', 'api-2', 'feed-reader', 'admin'];
-    const expected = { default: ['api', 'realtime', 'evaluator', 'tenant-admin', 'feed-reader', 'admin'], full: roster, 'full-token-files': roster };
+    const roster = ['realtime', 'evaluator', 'tenant-admin', 'api-1', 'api-2', 'feed-reader', 'admin', 'vcpool'];
+    const expected = { default: ['api', 'realtime', 'evaluator', 'tenant-admin', 'feed-reader', 'admin', 'vcpool'], full: roster, 'full-token-files': roster };
     for (const variant of VARIANTS) {
       const report = contract.check(documentSet(variant));
       assert.equal(report.ok, true, variant + ': ' + JSON.stringify(report.processes.flatMap(row => row.findings)));
@@ -219,7 +220,7 @@ describe('deployment plan contract', function () {
         const accepted = cli(['check', file]);
         assert.equal(accepted.status, 0, accepted.stderr);
         assert.equal(JSON.parse(accepted.stdout).ok, true);
-        assert.match(accepted.stderr, /contract 1, 6 processes, 0 findings: accepted/);
+        assert.match(accepted.stderr, /contract 1, 7 processes, 0 findings: accepted/);
         const set = documentSet(); set.processes[0].files['/run/ns-config/config.json'].tenants = [];
         const refused = cli(['check', '-'], JSON.stringify(set));
         assert.equal(refused.status, 1);

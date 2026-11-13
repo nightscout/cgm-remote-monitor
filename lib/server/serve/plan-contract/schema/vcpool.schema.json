@@ -1,0 +1,226 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "Registry vcpool configuration",
+  "description": "Shape publication only. lib/tenant-connector/config.js parse and actual configure/preflight remain authoritative.",
+  "type": "object",
+  "required": [
+    "version",
+    "api",
+    "postgres",
+    "vault",
+    "activity",
+    "sources",
+    "registry",
+    "definitions"
+  ],
+  "additionalProperties": false,
+  "properties": {
+    "version": {
+      "const": 1
+    },
+    "api": {
+      "type": "object",
+      "required": [
+        "url"
+      ],
+      "additionalProperties": false,
+      "properties": {
+        "url": {
+          "type": "string"
+        }
+      }
+    },
+    "postgres": {
+      "type": "object",
+      "required": [
+        "connectionEnv",
+        "namespaces"
+      ],
+      "additionalProperties": false,
+      "properties": {
+        "connectionEnv": {
+          "type": "string",
+          "pattern": "^[A-Z][A-Z0-9_]{0,127}$"
+        },
+        "namespaces": {
+          "type": "object",
+          "required": [
+            "secrets"
+          ],
+          "additionalProperties": false,
+          "properties": {
+            "secrets": {
+              "type": "string",
+              "pattern": "^[a-z][a-z0-9_]{0,62}$"
+            }
+          }
+        }
+      }
+    },
+    "vault": {
+      "type": "object",
+      "required": [
+        "address",
+        "mount"
+      ],
+      "additionalProperties": false,
+      "properties": {
+        "address": {
+          "type": "string"
+        },
+        "mount": {
+          "type": "string",
+          "pattern": "^[a-zA-Z0-9_-]{1,128}$"
+        },
+        "tokenFile": {
+          "type": "string",
+          "description": "An absolute, normalized path; read at every use."
+        },
+        "tokenEnv": {
+          "type": "string",
+          "pattern": "^[A-Z][A-Z0-9_]{0,127}$",
+          "description": "The name of an environment variable in the process environment; the value is never written in a document."
+        },
+        "timeoutMs": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 60000
+        },
+        "allowInsecureLoopback": {
+          "type": "boolean"
+        }
+      },
+      "description": "One role-level Vault credential: exactly one of tokenFile and tokenEnv."
+    },
+    "activity": {
+      "type": "object",
+      "required": [
+        "connectionEnv",
+        "namespace"
+      ],
+      "additionalProperties": false,
+      "properties": {
+        "connectionEnv": {
+          "type": "string",
+          "pattern": "^[A-Z][A-Z0-9_]{0,127}$",
+          "description": "The name of an environment variable in the process environment; the value is never written in a document."
+        },
+        "namespace": {
+          "type": "string",
+          "pattern": "^[a-z][a-z0-9_]{0,62}$",
+          "description": "A PostgreSQL schema name."
+        }
+      }
+    },
+    "sources": {
+      "type": "object",
+      "required": [
+        "allowHosts"
+      ],
+      "additionalProperties": false,
+      "properties": {
+        "allowHosts": {
+          "type": "array",
+          "minItems": 1,
+          "items": {
+            "type": "string"
+          }
+        },
+        "allowInsecureHttp": {
+          "type": "boolean"
+        }
+      }
+    },
+    "registry": {
+      "type": "object",
+      "required": [
+        "namespace"
+      ],
+      "additionalProperties": false,
+      "properties": {
+        "namespace": {
+          "type": "string",
+          "pattern": "^[a-z][a-z0-9_]{0,62}$",
+          "description": "A PostgreSQL schema name."
+        },
+        "maxTenants": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "refreshMs": {
+          "type": "integer",
+          "minimum": 250,
+          "maximum": 60000
+        }
+      },
+      "description": "Registry mode: the tenant set, hosts and keys come from the tenant registry in this namespace. A document that carries it carries no tenant list."
+    },
+    "definitions": {
+      "type": "object",
+      "required": [
+        "connectionEnv",
+        "namespaces"
+      ],
+      "additionalProperties": false,
+      "properties": {
+        "connectionEnv": {
+          "type": "string",
+          "pattern": "^[A-Z][A-Z0-9_]{0,127}$"
+        },
+        "namespaces": {
+          "type": "object",
+          "required": [
+            "settings",
+            "registry",
+            "secrets",
+            "control"
+          ],
+          "additionalProperties": false,
+          "properties": {
+            "settings": {
+              "type": "string",
+              "pattern": "^[a-z][a-z0-9_]{0,62}$"
+            },
+            "registry": {
+              "type": "string",
+              "pattern": "^[a-z][a-z0-9_]{0,62}$"
+            },
+            "secrets": {
+              "type": "string",
+              "pattern": "^[a-z][a-z0-9_]{0,62}$"
+            },
+            "control": {
+              "type": "string",
+              "pattern": "^[a-z][a-z0-9_]{0,62}$"
+            }
+          }
+        }
+      }
+    },
+    "cycleMs": {
+      "type": "integer",
+      "minimum": 100,
+      "maximum": 86400000
+    },
+    "pollIntervalMs": {
+      "type": "integer",
+      "minimum": 100,
+      "maximum": 86400000
+    },
+    "retryMs": {
+      "type": "integer",
+      "minimum": 100,
+      "maximum": 86400000
+    },
+    "maxTenants": {
+      "type": "integer",
+      "minimum": 1,
+      "maximum": 100000
+    },
+    "maxSources": {
+      "type": "integer",
+      "minimum": 1,
+      "maximum": 100000
+    }
+  }
+}

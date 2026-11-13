@@ -3,25 +3,72 @@
   "title": "Deployment plan document set",
   "description": "What a deployment plan hands to `nightscout plan check`: one entry per role process.",
   "type": "object",
-  "required": ["contract", "processes"],
+  "required": [
+    "contract",
+    "processes"
+  ],
   "additionalProperties": false,
   "properties": {
-    "contract": { "const": 1 },
+    "contract": {
+      "const": 1
+    },
     "processes": {
       "type": "array",
       "minItems": 1,
       "maxItems": 4096,
       "items": {
         "type": "object",
-        "required": ["name", "roles", "environment", "files"],
+        "required": [
+          "name",
+          "roles",
+          "environment",
+          "files"
+        ],
         "additionalProperties": false,
         "properties": {
-          "name": { "type": "string", "pattern": "^[A-Za-z0-9][A-Za-z0-9._-]{0,127}$", "description": "The plan's own name for the process (a service or workload name)." },
-          "roles": { "type": "array", "minItems": 1, "uniqueItems": true, "items": { "type": "string" }, "description": "The role list given to `nightscout multitenant`." },
-          "environment": { "type": "object", "additionalProperties": { "type": "string" }, "description": "The process environment. Connection addresses may be placeholders; none is dialled." },
-          "files": { "type": "object", "additionalProperties": { "type": "object" }, "description": "JSON files by the absolute path the environment names them with." }
+          "name": {
+            "type": "string",
+            "pattern": "^[A-Za-z0-9][A-Za-z0-9._-]{0,127}$",
+            "description": "The plan's own name for the process (a service or workload name)."
+          },
+          "roles": {
+            "type": "array",
+            "minItems": 1,
+            "uniqueItems": true,
+            "items": {
+              "type": "string"
+            },
+            "description": "The role list given to `nightscout multitenant`.",
+            "maxItems": 7
+          },
+          "environment": {
+            "type": "object",
+            "additionalProperties": {
+              "type": "string",
+              "maxLength": 65536
+            },
+            "description": "The process environment. Connection addresses may be placeholders; none is dialled.",
+            "maxProperties": 512
+          },
+          "files": {
+            "type": "object",
+            "additionalProperties": {
+              "type": "object"
+            },
+            "description": "JSON files by the absolute path the environment names them with.",
+            "maxProperties": 32
+          }
         }
       }
+    },
+    "provisioning": {
+      "type": "array",
+      "minItems": 1,
+      "maxItems": 4096,
+      "items": {
+        "type": "object"
+      },
+      "description": "Optional configuration-only REST or CLI provisioning examples checked by the actual runtime input parsers."
     }
   }
 }

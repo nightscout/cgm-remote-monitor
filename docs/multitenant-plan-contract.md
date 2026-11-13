@@ -60,6 +60,7 @@ keys or lock keys, and `MULTITENANT_STATIC_TENANTS` is not set.
 | evaluator | `MULTITENANT_EVALUATOR_CONFIG` | evaluator; api as metadata, when `socketForwarding.consumerState` names it | [`evaluator.schema.json`](../lib/server/serve/plan-contract/schema/evaluator.schema.json) | `lib/server/serve/evaluator-config.js` |
 | tenant-admin | `MULTITENANT_OWNER_PREVIEW_CONFIG` | tenant-admin | [`tenant-admin.schema.json`](../lib/server/serve/plan-contract/schema/tenant-admin.schema.json) | `lib/server/serve/owner-preview-config.js` |
 | admin | `MULTITENANT_ADMIN_CONFIG` | admin | [`admin.schema.json`](../lib/server/serve/plan-contract/schema/admin.schema.json) | `lib/server/serve/admin-config.js` |
+| vcpool | `MULTITENANT_VCPOOL_CONFIG` | vcpool | [`vcpool.schema.json`](../lib/server/serve/plan-contract/schema/vcpool.schema.json) | `lib/tenant-connector/config.js` |
 | feed-reader | `MULTITENANT_FEED_CONFIG` | feed-reader | [`feed-reader.schema.json`](../lib/server/serve/plan-contract/schema/feed-reader.schema.json) | `lib/change-feed/config.js` |
 | operation | `MULTITENANT_OPERATION_CONFIG` | api, realtime, evaluator, tenant-admin | [`operation.schema.json`](../lib/server/serve/plan-contract/schema/operation.schema.json) | `lib/server/serve/operation-cohort-config.js` |
 
@@ -69,9 +70,9 @@ The schemas are JSON Schema (draft 2020-12) and use only `type`, `enum`, `const`
 `minItems`, `maxItems`, `uniqueItems`, `pattern`, `minLength`, `maxLength`,
 `minimum` and `maximum`, so any validator in any language evaluates them.
 
-Contract 1 does not describe the `vcpool` role's document
-(`lib/tenant-connector/config.js`); `plan check` reports a process that serves it
-as `PLAN_ROLE_NOT_COVERED`.
+Contract 1 describes all seven core role documents. Placement versions 1 and 2
+are validated by the published actual parser with the process's resolved listener
+context; they are not a second independently maintained shape schema.
 
 ## What the check does
 
@@ -98,9 +99,10 @@ Other findings: `PLAN_DOCUMENT_SET_SHAPE` (the set itself), `PLAN_ROLES_REFUSED`
 file the entry does not carry), `PLAN_STATIC_TENANTS` (the lab flag is set).
 
 The report is JSON on stdout: `ok`, and for each process its `findings`, the
-`documents` that were checked against a schema, and `unchecked`, the files no
-schema covers (a realtime placement map, for example; its own reader checks it
-during the load step).
+`documents` that were checked against a schema or actual placement validator,
+and `unchecked`. Carried unknown documents refuse rather than silently passing;
+the report redacts their paths. Optional provisioning examples have their own
+fixed result rows.
 
 What the check does not do: it opens no database, Vault or peer connection, so
 it says nothing about grants, migrations, row-level security, key material or
@@ -152,3 +154,54 @@ never reads while loading.
 A loader change that turns the suite red is finished when the schema and this
 page say the same thing. The contract number moves when the document-set format
 changes; role document fields follow the core commit a plan pins.
+
+
+## Repaired publication boundary (source candidate)
+
+The same `nightscout plan contract` and `nightscout plan check` interface now
+covers all seven core role loaders, including registry vcpool. Shape schemas
+are descriptive and checked against what loaders read/require/refuse. The
+actual `multitenant.configure` and `serve.preflight` remain semantic authority;
+placement inputs additionally call the actual placement parser with resolved
+internal listeners and the selected ownership contract. Versions 1 and 2 are
+separate supported placement selections. An unknown carried document or selected
+configuration refuses. A selected physical-admission ticket/plan is explicitly
+uncovered and refuses until its own authoritative validator is integrated;
+operation document v2 is not that physical protocol.
+
+This check uses private temporary JSON files and bounded retained placement
+readers. It is not zero-file-I/O or resource-free. Positive map1/map2 graphs and
+configuration/preflight failures have descriptor-custody controls. Omitting the
+checker close breaks the descriptor oracle; close errors refuse and every owned
+reader close is attempted. Source tests deny network/listeners, PG connections,
+HTTP/provider calls, process creation and credential-file reads. Caller-supplied
+environment placeholders are still validated by the runtime loaders. No grants,
+RLS, Vault readiness, restoration, clinical, native or capacity result is supplied.
+
+Optional document-set `provisioning` examples use the existing provisioning
+parseSpec/checkBatch and admin parseArgs/endpoint/provisionRows/seedRows logic.
+A REST example is `{version:1,interface:'rest',mode:'direct-alias',specs:[...]}`.
+A CLI provision example is `{version:1,interface:'cli',mode:'direct-alias',args:[...]}`;
+its fixed listener environment may contain ADMIN_HOSTNAME and ADMIN_PORT.
+`canonical-internal` is the other runtime mode. If `--seed` is selected, `seed`
+is carried JSON/CSV text; only a private scratch copy is read by actual seedRows.
+No referenced host file, HTTP request, provider, provisioning object or secret
+sink is opened. Removal/inspect/ensure/reset are separate operator operations;
+these examples certify provisioning input conformance only. CLI seeds retain
+actual batching semantics; invalid individual specs and duplicate REST batches
+refuse checking. Results contain counts and fixed refusal metadata, not values.
+
+Checker limits are instrument bounds, not a new role or deployment sizing policy:
+256 MiB input bytes, one million traversed JSON nodes, depth 64, 4096 process rows,
+32 carried files and 512 environment keys per process, 64 findings per validation,
+and 4 MiB result output. Input file size is checked before reads, stream input is
+read only through the byte ceiling, and non-JSON/cyclic/accessor library graphs
+refuse before serialization or file amplification. A caller must supervise stdin
+EOF/deadline; the existing CLI fixture does so. Unknown schema paths and parser
+errors are redacted. No environment value or raw error/stack is reported.
+
+This publication does not remove core deployment helpers, convert remaining
+static fixtures, enable optional authcache, implement ensure/reset, or replace
+any of the five deployment helper comparisons. Prospective deployment consumption
+must run beside its existing source/tree/image custody checks. Source selection,
+paired images and comprehensive acceptance remain coordinator-owned.

@@ -197,6 +197,7 @@
         "tests/read-contract.test.js",
         "tests/nightscout-cli.test.js",
         "tests/multitenant-plan-contract.test.js",
+        "tests/plan-contract-custody.test.js",
         "tests/serve-listeners.test.js",
         "tests/serve-roles.test.js",
         "tests/admin-role.test.js",
