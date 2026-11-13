@@ -2,30 +2,49 @@
 const assert = require('node:assert/strict'), { EventEmitter } = require('node:events');
 const fs = require('node:fs'), path = require('node:path'), Module = require('node:module');
 const PgPool = require('pg').Pool;
+class RecordingStream extends EventEmitter {
+  constructor(){super();this.writable=true;this.destroyed=false;this.terminateWrites=0;}
+  write(bytes,callback){if(bytes[0]===88)this.terminateWrites++;if(callback)queueMicrotask(callback);return true;}
+  end(){this.localEnded=true;this.writable=false;}
+  destroy(error){this.destroyed=true;this.writable=false;queueMicrotask(()=>{if(error)this.emit('error',error);this.emit('close',!!error);});return this;}
+  peerClose(){this.emit('end');this.emit('close',false);}
+}
+function actualDriver(instances){
+  return class RecordingClient extends require('pg').Client {
+    constructor(options){
+      super(options);const connection=this.connection,stream=new RecordingStream();connection.stream=stream;
+      connection.connect=function(){this._connecting=true;stream.on('error',error=>this.emit('error',error));stream.once('close',()=>this.emit('end'));};
+      instances.push(this);
+    }
+    finishConnect(error){if(error)this.connection.emit('error',error);else this.connection.emit('readyForQuery',{status:'I'});}
+    finishEnd(){this.connection.stream.peerClose();}
+  };
+}
 const turn = () => new Promise(resolve => setImmediate(resolve));
 function admission (transform = source => source) {
   const filename = path.resolve(__dirname, '../lib/storage/connection-admission.js'), loaded = new Module(filename, module);
   loaded.filename = filename; loaded.paths = Module._nodeModulePaths(path.dirname(filename));
   loaded._compile(transform(fs.readFileSync(filename, 'utf8')), filename); return loaded.exports;
 }
-function fixture ({ onState, onQuiescent, poolMax = 2, requestedMaximum = 2, clientKind = 'client', transform } = {}) {
+function fixture ({ onState, onQuiescent, poolMax = 2, requestedMaximum = 2, clientKind = 'client', transform, driver = false, directConcurrency = 2 } = {}) {
   const api = admission(transform), instances = [], states = [], acknowledgements = [];
   class Client extends EventEmitter {
-    constructor (options) { super(); this.connection = new EventEmitter(); this.connectionParameters = { application_name: options.application_name }; this.options = options; instances.push(this); }
+    constructor (options) { super(); this.connection = new EventEmitter();this.connection.stream=new RecordingStream();this.connection.end=()=>this.connection.stream.end();this.connectionParameters = { application_name: options.application_name,ssl:false };this._queryable=true;this._connectionError=false;this._queryQueue=[];this._sentQueryQueue=[];this._getActiveQuery=()=>null;this.options = options; instances.push(this); }
     connect (callback) {
       this.connectWasStarted = true;
       if (typeof callback === 'function') { this.connected = callback; return; }
       return new Promise((resolve, reject) => { this.connected = error => error ? reject(error) : resolve(); });
     }
     finishConnect (error) { const fn = this.connected; this.connected = null; fn(error); }
-    end (callback) { if (!this.connectWasStarted) { callback(); return; } this.ended = callback; }
-    finishEnd (error) { this.connection.emit('end'); this.emit('end'); const fn = this.ended; this.ended = null; if (fn) fn(error); }
+    end (callback) { if (!this.connectWasStarted) { callback(); return; } this.ended = callback;this.connection.end(); }
+    finishEnd (error) { this.connection.stream.peerClose();this.connection.emit('end'); this.emit('end'); const fn = this.ended; this.ended = null; if (fn) fn(error); }
   }
+  if(driver)Client=actualDriver(instances);
   const plan = { version: 1, processInstanceId: 'synthetic-api', incarnation: 'a'.repeat(32), nonce: 'b'.repeat(32), planSha256: 'c'.repeat(64), pgResourceId: 'synthetic-pg', resourceAliases: ['synthetic-pg:5432'],
     source: { coreCommit: 'd'.repeat(40), deployCommit: 'e'.repeat(40) },
     capabilities: { 'synthetic-pool': { kind: 'pool', poolMax, maxInstances: 1, metadata: { requestedMaximum, source: 'synthetic:1', configurationSource: 'explicit-profile' } },
       'settings-readiness': { kind: clientKind, directGroup: 'settings', metadata: { source: 'synthetic:2' } },
-      'migration-direct': { kind: clientKind, directGroup: 'settings', metadata: { source: 'synthetic:3' } } }, directGroups: { settings: 2 }, cold:{activeLimit:1,pendingLimit:2,minDelayMs:0,maxDelayMs:0} };
+      'migration-direct': { kind: clientKind, directGroup: 'settings', metadata: { source: 'synthetic:3' } } }, directGroups: { settings: directConcurrency }, cold:{activeLimit:1,pendingLimit:2,minDelayMs:0,maxDelayMs:0} };
   api.install(plan, { onState: value => { states.push(value); if (onState) onState(value); }, onQuiescent: async value => { if (onQuiescent) await onQuiescent(value); acknowledgements.push(value); } });
   const options = () => api.poolOptions('synthetic-pool', { host: 'synthetic-pg', max: requestedMaximum, application_name: 'synthetic-pool', idleTimeoutMillis: 0 });
   return { api, Client, plan, instances, states, acknowledgements, options };
@@ -71,10 +90,66 @@ describe('opt-in process-local constructor and physical retirement admission', f
   });
   it('pending authentication cannot disappear from quiescence even if a close event precedes its callback', async function () {
     const f = fixture(), Client = f.api.wrapClient(f.Client, 'settings-readiness'), client = new Client({ host: 'synthetic-pg' });
-    const connected = assert.rejects(client.connect(), /synthetic authentication/); const ending = client.end();
-    f.api.beginQuiesce(); let acked = false; const proof = f.api.finalizeQuiescence(true).then(() => { acked = true; });
-    client.finishEnd(); await turn(); assert.equal(acked, false); assert.equal(f.api.health().pendingConnects, 1);
-    client.finishConnect(Error('synthetic authentication')); await connected; await ending; await proof; assert.equal(acked, true);
+    const connected = assert.rejects(client.connect(), /synthetic authentication/); const ending = assert.rejects(client.end(),{code:'CONNECTION_ADMISSION_CLEANUP_UNCONFIRMED'});
+    f.api.beginQuiesce(); const proof = assert.rejects(f.api.finalizeQuiescence(true),{code:'CONNECTION_ADMISSION_CLEANUP_UNCONFIRMED'});
+    client.finishEnd(); await turn(); assert.equal(f.acknowledgements.length,0); assert.equal(f.api.health().pendingConnects, 1);
+    client.finishConnect(Error('synthetic authentication')); await connected; await ending; await proof;
+    assert.equal(f.api.health().pendingConnects,0);assert.equal(f.api.health().liveConnections,0);assert.equal(f.api.health().unconfirmedCleanup,true);assert.equal(f.api.health().directReservations.settings,1);
+  });
+  it('actual pg idle Terminate requires peer EOF and close; a local Connection end alone cannot refund', async function () {
+    const f=fixture({driver:true,directConcurrency:1}),Client=f.api.wrapClient(f.Client,'settings-readiness'),client=new Client({host:'synthetic-pg',ssl:false});
+    const connecting=client.connect();client.finishConnect();await connecting;
+    const ending=client.end();await turn();assert.equal(client.connection.stream.terminateWrites,1);assert.equal(client.connection.stream.localEnded,true);
+    f.api.beginQuiesce();let acknowledged=false;const proof=f.api.finalizeQuiescence(true).then(()=>{acknowledged=true;});
+    client.connection.emit('end');await turn();assert.equal(acknowledged,false);assert.equal(f.api.health().directReservations.settings,1);
+    client.finishEnd();await ending;await proof;assert.equal(f.api.health().directReservations.settings,0);assert.equal(f.acknowledgements.length,1);
+  });
+  it('actual pg failed/aborted preauthentication retains credit despite local end, settled callback and a zero census', async function () {
+    const f=fixture({driver:true,directConcurrency:1}),Client=f.api.wrapClient(f.Client,'settings-readiness'),client=new Client({host:'synthetic-pg',ssl:false});
+    const connecting=assert.rejects(client.connect(),/synthetic authentication abort/),ending=assert.rejects(client.end(),{code:'CONNECTION_ADMISSION_CLEANUP_UNCONFIRMED'});
+    client.connection.stream.destroy(Error('synthetic authentication abort'));await connecting;await ending;await turn();
+    const zeroCensus=[];assert.deepEqual(zeroCensus,[]);assert.equal(f.api.health().pendingConnects,0);assert.equal(f.api.health().liveConnections,0);
+    assert.equal(f.api.health().clients[0].authenticated,false);assert.equal(f.api.health().unconfirmedCleanup,true);assert.equal(f.api.health().directReservations.settings,1);
+    assert.throws(()=>new Client({host:'synthetic-pg'}),{code:'CONNECTION_ADMISSION_CAPABILITY_EXHAUSTED'});
+    f.api.beginQuiesce();await assert.rejects(f.api.finalizeQuiescence(true),{code:'CONNECTION_ADMISSION_CLEANUP_UNCONFIRMED'});assert.equal(f.acknowledgements.length,0);
+  });
+  it('actual pg active/unqueryable/destroy/error/raw-end paths retain credit and never substitute local close for peer proof', async function () {
+    for(const mode of ['active','unqueryable','destroy','error','raw-end']) {
+      const f=fixture({driver:true,directConcurrency:1}),Client=f.api.wrapClient(f.Client,'settings-readiness'),client=new Client({host:'synthetic-pg',ssl:false});
+      client.on('error',()=>{});const connecting=client.connect();client.finishConnect();await connecting;
+      if(mode==='active')client._activeQuery={handleError(){}};
+      if(mode==='unqueryable')client._queryable=false;
+      if(mode==='destroy')client.connection.stream.destroy();
+      if(mode==='error')client.connection.stream.emit('error',Error('synthetic transport error'));
+      if(mode==='raw-end')client.connection.stream.end();
+      const ending=assert.rejects(client.end(),{code:'CONNECTION_ADMISSION_CLEANUP_UNCONFIRMED'});await turn();
+      if(mode==='active'||mode==='unqueryable')assert.equal(client.connection.stream.destroyed,true,'actual pg.Client.end force-destroys this path');
+      client.finishEnd();await ending;assert.equal(f.api.health().unconfirmedCleanup,true);assert.equal(f.api.health().directReservations.settings,1);
+      assert.throws(()=>new Client({host:'synthetic-pg'}),{code:'CONNECTION_ADMISSION_CAPABILITY_EXHAUSTED'});
+      f.api.beginQuiesce();await assert.rejects(f.api.finalizeQuiescence(true));assert.equal(f.acknowledgements.length,0);
+    }
+  });
+  it('actual pg-pool failed authentication poisons its physical reservation and refuses replacement through the pending callback', async function () {
+    const f=fixture({driver:true,poolMax:1,requestedMaximum:1}),Pool=f.api.wrapPool(PgPool,f.Client,'synthetic-pool'),pool=new Pool(f.options());
+    const failed=assert.rejects(pool.connect(),/synthetic pool authentication/),client=f.instances[0];
+    client.connection.stream.destroy(Error('synthetic pool authentication'));await failed;await turn();
+    await assert.rejects(pool.connect(),{code:'CONNECTION_ADMISSION_CLEANUP_UNCONFIRMED'});assert.equal(f.instances.length,1);
+    await assert.rejects(pool.end(),{code:'CONNECTION_ADMISSION_CLEANUP_UNCONFIRMED'});assert.equal(f.api.health().capabilityReservations['synthetic-pool'],1);
+    f.api.beginQuiesce();await assert.rejects(f.api.finalizeQuiescence(true));assert.equal(f.acknowledgements.length,0);
+  });
+  it('actual pg-pool queued replacement gets typed refusal while the logically removed old socket awaits peer EOF', async function () {
+    const f=fixture({driver:true,poolMax:1,requestedMaximum:1}),Pool=f.api.wrapPool(PgPool,f.Client,'synthetic-pool'),pool=new Pool(f.options());
+    const connecting=pool.connect(),client=f.instances[0];client.finishConnect();(await connecting).release();
+    const refused=assert.rejects(pool.connect(),{code:'CONNECTION_ADMISSION_POOL_CLIENT_EXHAUSTED'});
+    pool._remove(client);await refused;assert.equal(pool.totalCount,0);assert.equal(f.instances.length,1);
+    assert.equal(f.api.health().capabilityReservations['synthetic-pool'],1);client.finishEnd();await turn();
+    const next=pool.connect(),replacement=f.instances[1];replacement.finishConnect();(await next).release();
+    const ending=pool.end();replacement.finishEnd();await ending;f.api.beginQuiesce();await f.api.finalizeQuiescence(true);
+  });
+  it('selected TLS is explicitly unsupported before a PG constructor; plaintext is never substituted', function () {
+    for(const options of [{host:'synthetic-pg',ssl:true},{connectionString:'postgres://synthetic-pg/db?sslmode=require'}]) {
+      const f=fixture({driver:true}),Client=f.api.wrapClient(f.Client,'settings-readiness');assert.throws(()=>new Client(options),{code:'CONNECTION_ADMISSION_TLS_UNSUPPORTED'});assert.equal(f.instances.length,0);
+    }
   });
   it('freeze denies later constructors and handshakes, including client creation through an existing pool', async function () {
     const f = fixture(), Pool = f.api.wrapPool(PgPool, f.Client, 'synthetic-pool'), pool = new Pool(f.options());
