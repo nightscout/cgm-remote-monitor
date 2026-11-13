@@ -26,7 +26,7 @@ function admission (transform = source => source) {
   loaded.filename = filename; loaded.paths = Module._nodeModulePaths(path.dirname(filename));
   loaded._compile(transform(fs.readFileSync(filename, 'utf8')), filename); return loaded.exports;
 }
-function fixture ({ onState, onQuiescent, poolMax = 2, requestedMaximum = 2, clientKind = 'client', transform, driver = false, directConcurrency = 2 } = {}) {
+function fixture ({ onState, onQuiescent, poolMax = 2, requestedMaximum = 2, clientKind = 'client', transform, driver = false, directConcurrency = 2, planVersion = 1, workerDatabase = { database: 'synthetic', databaseOid: '16384' } } = {}) {
   const api = admission(transform), instances = [], states = [], acknowledgements = [];
   class Client extends EventEmitter {
     constructor (options) { super(); this.connection = new EventEmitter();this.connection.stream=new RecordingStream();this.connection.end=()=>this.connection.stream.end();this.connectionParameters = { application_name: options.application_name,ssl:false };this._queryable=true;this._connectionError=false;this._queryQueue=[];this._sentQueryQueue=[];this._getActiveQuery=()=>null;this.options = options; instances.push(this); }
@@ -45,6 +45,7 @@ function fixture ({ onState, onQuiescent, poolMax = 2, requestedMaximum = 2, cli
     capabilities: { 'synthetic-pool': { kind: 'pool', poolMax, maxInstances: 1, metadata: { requestedMaximum, source: 'synthetic:1', configurationSource: 'explicit-profile' } },
       'settings-readiness': { kind: clientKind, directGroup: 'settings', metadata: { source: 'synthetic:2' } },
       'migration-direct': { kind: clientKind, directGroup: 'settings', metadata: { source: 'synthetic:3' } } }, directGroups: { settings: directConcurrency }, cold:{activeLimit:1,pendingLimit:2,minDelayMs:0,maxDelayMs:0} };
+  plan.version = planVersion; if (planVersion === 2) plan.workerDatabase = workerDatabase;
   api.install(plan, { onState: value => { states.push(value); if (onState) onState(value); }, onQuiescent: async value => { if (onQuiescent) await onQuiescent(value); acknowledgements.push(value); } });
   const options = () => api.poolOptions('synthetic-pool', { host: 'synthetic-pg', max: requestedMaximum, application_name: 'synthetic-pool', idleTimeoutMillis: 0 });
   return { api, Client, plan, instances, states, acknowledgements, options };
@@ -317,4 +318,109 @@ describe('opt-in process-local constructor and physical retirement admission', f
     assert.equal(f.instances.length, 0); await assert.rejects(f.api.finalizeQuiescence(false)); assert.equal(f.acknowledgements.length, 0);
     const g = fixture(); g.api.beginQuiesce(); await assert.rejects(g.api.finalizeQuiescence(false), { code: 'CONNECTION_ADMISSION_SHUTDOWN_UNCONFIRMED' }); assert.equal(g.acknowledgements.length, 0);
   });
+});
+
+
+describe('physical plan 2 fixed backend database verification', function () {
+  function selected(extra={}) {
+    const f=fixture({driver:true,planVersion:2,...extra});
+    const Client=f.api.wrapClient(f.Client,'settings-readiness');
+    const client=new Client({host:'synthetic-pg',ssl:false});
+    const sql=[], original=client.connection.query;
+    client.connection.query=function(text){sql.push(text);return original.apply(this,arguments);};
+    client.on('error',()=>{});
+    return {...f,client,sql};
+  }
+  function result(client, rows=[['synthetic','16384']]) {
+    client.connection.emit('rowDescription',{fields:['database','databaseOid'].map(name=>({name,dataTypeID:25,format:'text'}))});
+    for(const row of rows) client.connection.emit('dataRow',{fields:row.map(v=>Buffer.from(v))});
+    client.connection.emit('commandComplete',{text:'SELECT '+rows.length});
+    client.connection.emit('readyForQuery',{status:'I'});
+  }
+  it('requires a sealed exact canonical expected identity, never infers it from caller options',function(){
+    for(const workerDatabase of [null,{}, {database:'synthetic',databaseOid:16384},{database:'synthetic',databaseOid:'016384'},{database:'synthetic',databaseOid:'4294967296'},{database:'bad-name',databaseOid:'1'},{database:'synthetic',databaseOid:'1',sql:'anything'}]) {
+      assert.throws(()=>fixture({planVersion:2,workerDatabase}),{code:'CONNECTION_ADMISSION_PLAN_INVALID'});
+    }
+  });
+  it('holds Promise/connect-event and rejects all public query forms until one same-backend read succeeds',async function(){
+    const f=selected(),{client}=f;let connected=false,events=0;client.on('connect',()=>{events++;assert.equal(f.sql.length,1);});
+    const refused=client.query('SELECT forbidden').catch(error=>error);assert.equal(client._queryQueue.length,0,'public work must not enter the pg queue');assert.equal((await refused).code,'CONNECTION_ADMISSION_DATABASE_NOT_VERIFIED');
+    const pending=client.connect().then(()=>{connected=true;});client.finishConnect();
+    assert.equal(events,0);assert.equal(connected,false);assert.equal(f.api.health().pendingConnects,1);
+    assert.equal(f.sql.length,1);assert.match(f.sql[0],/^SELECT pg_catalog\.current_database\(\)/);
+    await assert.rejects(client.query('SELECT forbidden'),{code:'CONNECTION_ADMISSION_DATABASE_NOT_VERIFIED'});
+    await new Promise(resolve=>client.query('SELECT forbidden',error=>{assert.equal(error.code,'CONNECTION_ADMISSION_DATABASE_NOT_VERIFIED');resolve();}));
+    const query=new (require('pg').Query)('SELECT forbidden');query.on('error',()=>{});
+    await new Promise(resolve=>{query.callback=error=>{assert.equal(error.code,'CONNECTION_ADMISSION_DATABASE_NOT_VERIFIED');resolve();};assert.equal(client.query(query),query);});
+    assert.equal(f.sql.length,1);result(client);await pending;assert.equal(events,1);assert.equal(connected,true);assert.equal(f.api.health().pendingConnects,0);
+    const publicQuery=client.query('SELECT permitted');assert.equal(f.sql[1],'SELECT permitted');result(client);await publicQuery;
+  });
+  it('preserves callback completion before the delayed public event and pool onConnect/acquire exposure',async function(){
+    const f=selected(),order=[];f.client.on('connect',()=>order.push('event'));
+    const pending=new Promise((resolve,reject)=>f.client.connect(error=>{if(error)reject(error);else{order.push('callback');resolve();}}));
+    f.client.finishConnect();assert.deepEqual(order,[]);result(f.client);await pending;assert.deepEqual(order,['callback','event']);
+    const g=fixture({driver:true,planVersion:2}),Pool=g.api.wrapPool(PgPool,g.Client,'synthetic-pool');
+    let exposed=0;const pool=new Pool({...g.options(),onConnect:()=>{exposed++;}});pool.on('connect',()=>exposed++);pool.on('acquire',()=>exposed++);
+    const acquiring=pool.connect();const client=g.instances[0];client.finishConnect();await turn();assert.equal(exposed,0);result(client);const acquired=await acquiring;assert.equal(exposed,3);acquired.release();
+    const ending=pool.end();client.finishEnd();await ending;
+  });
+  it('refuses name/OID/shape mismatches and actual driver query errors without refund or clean ACK',async function(){
+    for(const mode of ['database','oid','empty','extra','error']) {
+      const f=selected(),pending=assert.rejects(f.client.connect(),{code:mode==='error'?'CONNECTION_ADMISSION_DATABASE_UNCONFIRMED':'CONNECTION_ADMISSION_DATABASE_MISMATCH'});
+      f.client.finishConnect();
+      if(mode==='error') {f.client.connection.emit('errorMessage',Object.assign(Error('DO_NOT_DISCLOSE'),{code:'42501'}));f.client.connection.emit('readyForQuery',{status:'I'});}
+      else result(f.client,mode==='empty'?[]:mode==='extra'?[['synthetic','16384'],['synthetic','16384']]:[[mode==='database'?'foreign':'synthetic',mode==='oid'?'999':'16384']]);
+      await pending;assert.equal(f.api.health().clients[0].uncertain,true);assert.equal(f.api.health().directReservations.settings,1);f.api.beginQuiesce();await assert.rejects(f.api.finalizeQuiescence(true),{code:'CONNECTION_ADMISSION_CLEANUP_UNCONFIRMED'});assert.equal(f.acknowledgements.length,0);
+    }
+  });
+  it('keeps timed-out outcomes charged and ignores a late successful identity result',async function(){
+    const f=selected();let events=0;f.client.on('connect',()=>events++);const pending=assert.rejects(f.client.connect(),{code:'CONNECTION_ADMISSION_DATABASE_UNCONFIRMED'});f.client.finishConnect();await pending;result(f.client);await turn();assert.equal(events,0);assert.equal(f.api.health().clients[0].uncertain,true);assert.equal(f.api.health().directReservations.settings,1);
+  });
+  it('never publishes success after end/freeze, including verification-to-delivery microtask races',async function(){
+    for(const phase of ['end','freeze','delivery-freeze']) {
+      const f=selected();let events=0;f.client.on('connect',()=>events++);const pending=assert.rejects(f.client.connect(),{code:phase==='end'?'CONNECTION_ADMISSION_DATABASE_UNCONFIRMED':'CONNECTION_ADMISSION_HANDSHAKE_REFUSED'});f.client.finishConnect();
+      if(phase==='end') {const ending=assert.rejects(f.client.end(),{code:'CONNECTION_ADMISSION_CLEANUP_UNCONFIRMED'});f.client.finishEnd();await ending;}
+      if(phase==='freeze') f.api.beginQuiesce();
+      if(phase!=='end')result(f.client);if(phase==='delivery-freeze')f.api.beginQuiesce();await pending;assert.equal(events,0);assert.equal(f.api.health().clients[0].uncertain,true);
+    }
+  });
+  it('handles synchronous verifier completion and raw connect reentrancy without duplicate success',async function(){
+    const f=selected();let checks=0,events=0,callbacks=0;
+    f.Client.prototype.query=function(config,callback){checks++;callback(null,{rows:[{database:'synthetic',databaseOid:'16384'}]});};
+    f.client.on('connect',()=>events++);
+    const pending=new Promise((resolve,reject)=>f.client.connect(error=>{callbacks++;if(error)reject(error);else resolve();}));
+    f.client.finishConnect();await pending;assert.equal(checks,1);assert.equal(events,1);assert.equal(callbacks,1);
+    assert.equal(f.api.health().clients[0].authenticated,true);
+  });
+
+  it('keeps legacy plan1 free of identity queries and demonstrates its unverified database boundary',async function(){
+    const f=selected({planVersion:1});let events=0;f.client.on('connect',()=>events++);
+    const connected=f.client.connect();f.client.finishConnect();await connected;
+    assert.equal(events,1);assert.equal(f.sql.length,0,'legacy plan1 cannot establish actual backend database identity');
+  });
+  it('retains physical EOF retirement after successful verification and refuses pooled mismatch before onConnect',async function(){
+    const f=selected(),connected=f.client.connect();f.client.finishConnect();result(f.client);await connected;
+    f.api.beginQuiesce();let ended=false;const ending=f.client.end().then(()=>{ended=true;});const final=f.api.finalizeQuiescence(true);
+    await turn();assert.equal(ended,false);assert.equal(f.acknowledgements.length,0);f.client.finishEnd();await ending;await final;assert.equal(f.acknowledgements.length,1);
+    const g=fixture({driver:true,planVersion:2}),Pool=g.api.wrapPool(PgPool,g.Client,'synthetic-pool');let exposed=0;
+    const pool=new Pool({...g.options(),onConnect:()=>{exposed++;}}),refused=assert.rejects(pool.connect(),{code:'CONNECTION_ADMISSION_DATABASE_MISMATCH'});
+    const client=g.instances[0];client.finishConnect();result(client,[['foreign','16384']]);await refused;assert.equal(exposed,0);assert.equal(g.api.health().pools[0].uncertain,true);
+    await assert.rejects(pool.connect(),{code:'CONNECTION_ADMISSION_CLEANUP_UNCONFIRMED'});
+  });
+
+  it('uses fixed text decoding instead of caller-provided parsers for the identity proof',async function(){
+    const f=fixture({driver:true,planVersion:2}),Client=f.api.wrapClient(f.Client,'settings-readiness');
+    let parserReads=0;const types={getTypeParser:()=>{const index=++parserReads;return ()=> index===1?'synthetic':'16384';}};
+    const options={host:'synthetic-pg',ssl:false,types},client=new Client(options);
+    const connected=assert.rejects(client.connect(),{code:'CONNECTION_ADMISSION_DATABASE_MISMATCH'});client.finishConnect();result(client,[['foreign','999']]);await connected;
+    assert.equal(parserReads,0,'identity decoding cannot consult caller type hooks');assert.equal(options.types,types);
+  });
+
+  it('copies the sealed expectation and refuses conflicting synchronous connect outcomes',async function(){
+    const f=selected();f.plan.workerDatabase.database='foreign';const pending=f.client.connect();f.client.finishConnect();result(f.client);await pending;
+    const g=selected();g.Client.prototype.query=function(config,callback){callback(null,{rows:[{database:'synthetic',databaseOid:'16384'}]});};
+    const raw=g.Client.prototype.connect;g.Client.prototype.connect=function(callback){raw.call(this,callback);this.finishConnect();throw Error('PRIVATE');};
+    let events=0;g.client.on('connect',()=>events++);await assert.rejects(g.client.connect(),{code:'CONNECTION_ADMISSION_HANDSHAKE_REFUSED'});assert.equal(events,0);assert.equal(g.api.health().clients[0].uncertain,true);
+  });
+
 });
