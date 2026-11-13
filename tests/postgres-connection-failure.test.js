@@ -5,6 +5,16 @@
 const assert = require('node:assert/strict');
 const { EventEmitter } = require('node:events');
 const connect = require('../lib/storage/postgres-connection');
+const fs = require('node:fs'), path = require('node:path'), Module = require('node:module');
+// Synthetic driver tests isolate only the actual-driver protocol port. The
+// packet-event suite separately exercises the fixed shipping Client itself.
+function recordingConnection (Client) {
+  const filename = path.resolve(__dirname, '../lib/storage/postgres-connection.js'), loaded = new Module(filename, module);
+  loaded.filename = filename; loaded.paths = Module._nodeModulePaths(path.dirname(filename));
+  const original = loaded.require.bind(loaded);
+  loaded.require = name => name === './postgres-settings-protocol' ? { Client, assertTransaction () {}, assertRollback () {}, assertUnlock () {} } : name === '../tenant-lifecycle/operation-window' ? { ...original(name), schedulingParent: (window, tenant) => window.parentToken ? window.parentToken(tenant) : null } : original(name);
+  loaded._compile(fs.readFileSync(filename, 'utf8'), filename); return loaded.exports;
+}
 const scope = require('../lib/storage/tenant-scope');
 const decorate = require('../lib/storage/postgres-write-clock');
 const { withCommitEvents } = require('../lib/storage/postgres-intent-common');
@@ -16,15 +26,17 @@ describe('checked-out PostgreSQL client failure propagation', function () {
   beforeEach(function () { previous = scope.getTenancyMode(); scope.setTenancyMode('multi'); });
   afterEach(function () { scope.setTenancyMode(previous); });
 
-  async function fixture () {
+  async function fixture (extra = {}) {
     const clients = [], calls = [];
     let action = async () => undefined;
     class SyntheticClient extends EventEmitter {
-      constructor () {
+      constructor (options) {
         super();
+        this.options = options;
         this._queryable = true;
         this._ending = false;
         this.dead = false;
+        this.processID = 100 + clients.length;
         clients.push(this);
       }
       connect (done) { queueMicrotask(() => done(null)); }
@@ -33,8 +45,11 @@ describe('checked-out PostgreSQL client failure propagation', function () {
         const execute = async () => {
           calls.push({ client: this, text });
           if (this.dead) throw new Error('Synthetic connection is closed');
-          await action(this, text);
+          const override = await action(this, text);
+          if (override) return override;
+          if (text.includes('pg_backend_pid() AS pid')) return { rows: [{ rolsuper: false, rolbypassrls: false, pid: this.processID, role: this.options.user || 'synthetic', birth: '100', database: 'synthetic_test', database_oid: '123', server_address: '127.0.0.1', server_port: 5432, postmaster_birth: '1' }] };
           if (text.includes('FROM pg_roles')) return { rows: [{ rolsuper: false, rolbypassrls: false }] };
+          if (text.includes("current_setting('transaction_read_only')")) return { rows: [{ read_only: 'on', isolation: 'repeatable read' }] };
           if (text.includes('SELECT last_stamp')) return { rows: [{ last_stamp: '100' }] };
           return { rows: [], command: text.split(' ')[0], rowCount: 1 };
         };
@@ -47,10 +62,228 @@ describe('checked-out PostgreSQL client failure propagation', function () {
         if (done) queueMicrotask(done);
       }
     }
-    const store = await connect({ connectionString: 'synthetic-test-connection', Client: SyntheticClient,
-      max: 1, idleTimeoutMillis: 0 });
+    const store = await recordingConnection(SyntheticClient)({ connectionString: 'postgres://synthetic:synthetic@127.0.0.1/synthetic_test', direct: true, displaySettings: true, application_name: 'nightscout-display-settings',
+      max: 1, idleTimeoutMillis: 0, ...extra });
     return { store, clients, calls, setAction: fn => { action = fn; } };
   }
+
+  it('owns a READ ONLY repeatable snapshot with a closed bounded facade and max1 reuse', async function () {
+    const f = await fixture(); let retained;
+    try {
+      await f.store.readOnlySnapshot(TENANT, async facade => {
+        retained = facade; assert.deepEqual(Object.keys(facade), ['query']); assert(Object.isFrozen(facade));
+        await facade.query('SELECT snapshot_read'); await facade.query('SELECT snapshot_read_two');
+      });
+      await assert.rejects(async () => retained.query('SELECT late'), /scope is closed/);
+      await f.store.readOnlySnapshot(TENANT, async ({ query }) => { await query('SELECT followup'); });
+      assert.equal(f.clients.length, 1);
+      assert.equal(f.calls.filter(call => call.text === 'BEGIN ISOLATION LEVEL REPEATABLE READ READ ONLY').length, 2);
+      assert(!f.calls.some(call => call.text === 'SELECT late' || call.text.startsWith('UPDATE')));
+      await scope.withTenant(TENANT, () => f.store.transaction(async () => {
+        assert.throws(() => f.store.readOnlySnapshot(TENANT, () => {}), /requires a new transaction/);
+      }));
+    } finally { await f.store.end(); }
+  });
+
+  it('latches caught facade validation refusals and prevents later SQL or COMMIT in the same snapshot', async function () {
+    for (const invalid of ['UPDATE synthetic SET value=1', 'SELECT 1; SELECT 2']) {
+      const f = await fixture(); let refusal;
+      try {
+        await assert.rejects(f.store.readOnlySnapshot(TENANT, async ({ query }) => {
+          await assert.rejects(async () => query(invalid), error => { refusal = error; return /one SELECT/.test(error.message); });
+          await assert.rejects(async () => query('SELECT attempted_recovery'), error => error === refusal);
+          return 'caught refusal';
+        }), error => error === refusal);
+        assert(!f.calls.some(call => call.text === invalid || call.text === 'SELECT attempted_recovery' || call.text === 'COMMIT'));
+        assert.equal(f.clients[0]._ending, true);
+      } finally { await f.store.end(); }
+    }
+  });
+
+  it('refuses both completed and pending unawaited facade queries before COMMIT and drains pending work', async function () {
+    for (const pending of [false, true]) {
+      const f = await fixture(); let finish, started;
+      const reached = new Promise(resolve => { started = resolve; });
+      const gate = new Promise(resolve => { finish = resolve; });
+      f.setAction(async (client, text) => { if (text === 'SELECT detached') { started(); if (pending) await gate; } });
+      const reading = f.store.readOnlySnapshot(TENANT, async ({ query }) => {
+        query('SELECT detached');
+        if (!pending) await new Promise(resolve => setImmediate(resolve));
+      });
+      reading.catch(() => {});
+      try {
+        await reached; await new Promise(resolve => setImmediate(resolve));
+        assert(!f.calls.some(call => call.text === 'COMMIT'));
+        finish(); await assert.rejects(reading, /unawaited queries/);
+        assert(!f.calls.some(call => call.text === 'COMMIT'));
+        assert.equal(f.clients[0]._ending, true);
+      } finally { finish(); await Promise.allSettled([reading]); await f.store.end(); }
+    }
+  });
+
+  it('rejects a swallowed snapshot query failure, evicts it and preserves the primary with failed rollback', async function () {
+    for (const rollbackFails of [false, true]) {
+      const f = await fixture(), primary = Error('snapshot primary'), cleanup = Error('snapshot rollback');
+      f.setAction(async (client, text) => {
+        if (text === 'SELECT failure') throw primary;
+        if (rollbackFails && text === 'ROLLBACK') throw cleanup;
+      });
+      try {
+        await assert.rejects(f.store.readOnlySnapshot(TENANT, async ({ query }) => {
+          await assert.rejects(async () => query('SELECT failure'), error => error === primary);
+          return 'caught';
+        }), error => rollbackFails ? error.code === 'POSTGRES_CLEANUP_UNCONFIRMED' && error.cause === primary && error.cleanupError === cleanup : error === primary);
+        assert(!f.calls.some(call => call.text === 'COMMIT')); assert.equal(f.clients[0]._ending, true);
+      } finally { await f.store.end(); }
+    }
+  });
+
+  it('evicts every failed strict snapshot phase and a fresh checkout recovers', async function () {
+    for (const phase of ['BEGIN ISOLATION LEVEL REPEATABLE READ READ ONLY', 'SELECT snapshot_work', 'COMMIT']) {
+      const f = await fixture(), primary = Error('snapshot phase ' + phase);
+      f.setAction(async (client, text) => { if (text === phase) throw primary; });
+      try {
+        await assert.rejects(f.store.readOnlySnapshot(TENANT, async ({ query }) => { await query('SELECT snapshot_work'); }), error => error === primary);
+        assert.equal(f.clients[0]._ending, true);
+        f.setAction(async () => {});
+        await f.store.readOnlySnapshot(TENANT, async ({ query }) => { await query('SELECT recovered'); });
+        assert.equal(f.clients.length, 2);
+      } finally { await f.store.end(); }
+    }
+  });
+
+  it('normalizes the direct URL without dropping explicit timeouts, SSL or hidden credentials', async function () {
+    const f = await fixture({ direct: true, connectionString: 'postgres://synthetic:synthetic@127.0.0.1/synthetic_test',
+      query_timeout: 1234, connectionTimeoutMillis: 2345, application_name: 'nightscout-display-settings', ssl: { rejectUnauthorized: true } });
+    try {
+      const actual = f.clients[0].options;
+      assert.equal(actual.connectionString, undefined); assert.equal(actual.query_timeout, 1234);
+      assert.equal(actual.connectionTimeoutMillis, 2345); assert.equal(actual.application_name, 'nightscout-display-settings');
+      assert.deepEqual(actual.ssl, { rejectUnauthorized: true }); assert.equal(actual.password, 'synthetic');
+      assert.equal(Object.getOwnPropertyDescriptor(actual, 'password').enumerable, false);
+      assert.equal(actual.options, '-c search_path=pg_catalog'); assert.equal(actual.database, 'synthetic_test');
+      const ConnectionParameters = require('pg/lib/connection-parameters');
+      const effective = new ConnectionParameters(actual);
+      assert.equal(effective.query_timeout, 1234); assert.equal(effective.connect_timeout, 2);
+      assert.equal(effective.application_name, 'nightscout-display-settings'); assert.deepEqual(effective.ssl, { rejectUnauthorized: true });
+      const unsafeURL = 'postgres://synthetic:synthetic@127.0.0.1/synthetic_test?query_timeout=6000&connectionTimeoutMillis=6000';
+      const uncontrolled = new ConnectionParameters({ connectionString: unsafeURL, query_timeout: 1000, connectionTimeoutMillis: 1000 });
+      assert.equal(String(uncontrolled.query_timeout), '6000'); assert.equal(uncontrolled.connect_timeout, 6);
+      assert.throws(() => assert.equal(uncontrolled.query_timeout, 1000), { code: 'ERR_ASSERTION' });
+      for (const connectionString of [unsafeURL, 'postgres://synthetic:synthetic@127.0.0.1/synthetic_test?connect_timeout=6000']) {
+        await assert.rejects(connect({ connectionString, direct: true, query_timeout: 1000, connectionTimeoutMillis: 1000 }), { code: 'MIG_CONNECTION' });
+      }
+
+    } finally { await f.store.end(); }
+  });
+
+  it('keeps selected physical lease/admission identity fresh and preserves cleanup failure with the primary', async function () {
+    const calls = []; let lease, actual, failUnlock = false;
+    const unlock = Error('synthetic snapshot unlock'), primary = Error('synthetic snapshot value');
+    const window = {
+      run: (tenant, fn) => fn(), assertCurrent () {},
+      async acquireClient (client, tenant) { actual = client; assert.equal(tenant, TENANT); calls.push('acquire'); lease = { async close () { calls.push('release'); if (failUnlock) throw unlock; } }; return lease; },
+      async assertClient (client, tenant, held) { assert.equal(client, actual); assert.equal(tenant, TENANT); assert.equal(held, lease); calls.push('admit'); }
+    };
+    const f = await fixture({ operationWindow: window });
+    try {
+      for (let i = 0; i < 2; i++) await f.store.readOnlySnapshot(TENANT, async ({ query }) => { calls.push('value'); await query('SELECT selected'); });
+      assert.deepEqual(calls, ['acquire', 'admit', 'value', 'release', 'acquire', 'admit', 'value', 'release']);
+      assert.equal(f.calls.filter(call => call.text.includes('FROM pg_stat_activity WHERE') && !call.text.includes('FROM pg_roles')).length, 2, 'backend is freshly observed on each strict checkout');
+      failUnlock = true;
+      await assert.rejects(f.store.readOnlySnapshot(TENANT, () => { throw primary; }), error => error.code === 'POSTGRES_CLEANUP_UNCONFIRMED' && error.cause === primary && error.cleanupError === unlock);
+      assert.equal(f.clients[0]._ending, true);
+    } finally { await f.store.end(); }
+  });
+
+  it('refuses wrong server read-only/isolation proof before caller work', async function () {
+    for (const state of [{ read_only: 'off', isolation: 'repeatable read' }, { read_only: 'on', isolation: 'read committed' }]) {
+      const f = await fixture(); let ran = false;
+      f.setAction(async (client, text) => text.includes("current_setting('transaction_read_only')") ? { rows: [state] } : undefined);
+      try {
+        await assert.rejects(f.store.readOnlySnapshot(TENANT, () => { ran = true; }), /read-only repeatable snapshot required/);
+        assert.equal(ran, false); assert.equal(f.clients[0]._ending, true); assert(!f.calls.some(call => call.text === 'COMMIT'));
+      } finally { await f.store.end(); }
+    }
+  });
+
+  it('preserves a primary refusal and client release failure as distinct outcomes', async function () {
+    const f = await fixture(), primary = Error('snapshot primary release'), cleanup = Error('snapshot release failed');
+    f.setAction(async (client, text) => {
+      if (text === 'SELECT failed_release') {
+        const release = client.release; client.release = error => { release(error); throw cleanup; };
+        throw primary;
+      }
+    });
+    try {
+      await assert.rejects(f.store.readOnlySnapshot(TENANT, async ({ query }) => { await query('SELECT failed_release'); }),
+        error => error.code === 'POSTGRES_CLEANUP_UNCONFIRMED' && error.cause === primary && error.cleanupError === cleanup);
+      assert.equal(f.clients[0]._ending, true);
+    } finally { await f.store.end(); }
+  });
+
+  it('refuses success when a detached facade call races with COMMIT without issuing late SQL', async function () {
+    const f = await fixture(); let facade, late;
+    f.setAction(async (client, text) => { if (text === 'COMMIT') { late = facade.query('SELECT late_commit'); late.catch(() => {}); } });
+    try {
+      await assert.rejects(f.store.readOnlySnapshot(TENANT, async capability => { facade = capability; await facade.query('SELECT current'); }), /scope is closed/);
+      await assert.rejects(late, /scope is closed/); assert(!f.calls.some(call => call.text === 'SELECT late_commit'));
+      assert.equal(f.clients[0]._ending, true);
+    } finally { await f.store.end(); }
+  });
+
+  it('keeps the selected parent scope live through awaited work and refuses a closed parent before serving', async function () {
+    const { AsyncLocalStorage } = require('node:async_hooks'), scopes = new AsyncLocalStorage();
+    const window = {
+      run (tenant, fn) {
+        const parent = scopes.getStore();
+        if (parent) { if (!parent.active || parent.tenant !== tenant) throw Error('synthetic closed parent'); return fn(); }
+        const current = { tenant, active: true };
+        return scopes.run(current, async () => { try { return await fn(); } finally { current.active = false; } });
+      },
+      parentToken (tenant) { const current = scopes.getStore(); if (current && (!current.active || current.tenant !== tenant)) throw Error('synthetic closed parent'); return current || null; },
+      async acquireClient () { return { async close () {} }; }, async assertClient () {}
+    };
+    const f = await fixture({ operationWindow: window }); let release, entered, reading;
+    const started = new Promise(resolve => { entered = resolve; }), gate = new Promise(resolve => { release = resolve; });
+    f.setAction(async (client, text) => { if (text === 'SELECT held_parent') { entered(); await gate; } });
+    try {
+      await window.run(TENANT, async () => {
+        reading = f.store.readOnlySnapshot(TENANT, async ({ query }) => { await query('SELECT held_parent'); }); reading.catch(() => {});
+        await started;
+      });
+      release(); await assert.rejects(reading, /synthetic closed parent/);
+      assert(!f.calls.some(call => call.text === 'COMMIT')); assert.equal(f.clients[0]._ending, true);
+      await f.store.readOnlySnapshot(TENANT, async ({ query }) => { await query('SELECT own_parent'); });
+    } finally { release(); await reading?.catch(() => {}); await f.store.end(); }
+  });
+
+  it('captures true parent absence without markers and refuses an appearing or replaced same-tenant parent', async function () {
+    for (const initial of [null, {}]) {
+      let parent = initial, markers = 0;
+      const window = { parentToken: () => parent, run () { markers++; throw Error('must remain marker-free'); },
+        async acquireClient () { return { async close () {} }; }, async assertClient () {} };
+      const f = await fixture({ operationWindow: window });
+      try {
+        await f.store.readOnlySnapshot(TENANT, async ({ query }) => { await query('SELECT stable_parent'); });
+        assert.equal(markers, 0);
+        await assert.rejects(f.store.readOnlySnapshot(TENANT, async ({ query }) => {
+          parent = {}; await query('SELECT changed_parent');
+        }), { code: 'POSTGRES_SETTINGS_PARENT_CHANGED' });
+        assert(!f.calls.some(call => call.text === 'SELECT changed_parent')); assert.equal(markers, 0);
+      } finally { await f.store.end(); }
+    }
+  });
+
+  it('refuses inherited actual window authority when no window is configured', async function () {
+    const f = await fixture(), window = require('./fixtures/operation-window-runtime-protocol')();
+    try {
+      await window.window.run(TENANT, async () => {
+        assert.throws(() => f.store.readOnlySnapshot(TENANT, () => {}), { code: 'LIFECYCLE_WINDOW_AMBIENT_SCOPE' });
+      });
+      assert(!f.calls.some(call => call.text === 'BEGIN ISOLATION LEVEL REPEATABLE READ READ ONLY'));
+    } finally { await f.store.end(); await window.window.close(); }
+  });
 
   it('declares repeatable-read snapshots explicitly and refuses to upgrade an outer transaction', async function () {
     const f = await fixture();

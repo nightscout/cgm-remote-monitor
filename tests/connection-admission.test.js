@@ -9,8 +9,8 @@ class RecordingStream extends EventEmitter {
   destroy(error){this.destroyed=true;this.writable=false;queueMicrotask(()=>{if(error)this.emit('error',error);this.emit('close',!!error);});return this;}
   peerClose(){this.emit('end');this.emit('close',false);}
 }
-function actualDriver(instances){
-  return class RecordingClient extends require('pg').Client {
+function actualDriver(instances,Base=require('pg').Client){
+  return class RecordingClient extends Base {
     constructor(options){
       super(options);const connection=this.connection,stream=new RecordingStream();connection.stream=stream;
       connection.connect=function(){this._connecting=true;stream.on('error',error=>this.emit('error',error));stream.once('close',()=>this.emit('end'));};
@@ -26,7 +26,7 @@ function admission (transform = source => source) {
   loaded.filename = filename; loaded.paths = Module._nodeModulePaths(path.dirname(filename));
   loaded._compile(transform(fs.readFileSync(filename, 'utf8')), filename); return loaded.exports;
 }
-function fixture ({ onState, onQuiescent, poolMax = 2, requestedMaximum = 2, clientKind = 'client', transform, driver = false, directConcurrency = 2, planVersion = 1, workerDatabase = { database: 'synthetic', databaseOid: '16384' }, alterPlan, serialized = false } = {}) {
+function fixture ({ onState, onQuiescent, poolMax = 2, requestedMaximum = 2, clientKind = 'client', transform, driver = false, directConcurrency = 2, planVersion = 1, workerDatabase = { database: 'synthetic', databaseOid: '16384' }, alterPlan, serialized = false, settingsDriver = false } = {}) {
   const api = admission(transform), instances = [], states = [], acknowledgements = [];
   class Client extends EventEmitter {
     constructor (options) { super(); this.connection = new EventEmitter();this.connection.stream=new RecordingStream();this.connection.end=()=>this.connection.stream.end();this.connectionParameters = { application_name: options.application_name,ssl:false };this._queryable=true;this._connectionError=false;this._queryQueue=[];this._sentQueryQueue=[];this._getActiveQuery=()=>null;this.options = options; instances.push(this); }
@@ -39,7 +39,7 @@ function fixture ({ onState, onQuiescent, poolMax = 2, requestedMaximum = 2, cli
     end (callback) { if (!this.connectWasStarted) { callback(); return; } this.ended = callback;this.connection.end(); }
     finishEnd (error) { this.connection.stream.peerClose();this.connection.emit('end'); this.emit('end'); const fn = this.ended; this.ended = null; if (fn) fn(error); }
   }
-  if(driver)Client=actualDriver(instances);
+  if(driver)Client=actualDriver(instances,settingsDriver?require('../lib/storage/postgres-settings-protocol').Client:undefined);
   const plan = { version: 1, processInstanceId: 'synthetic-api', incarnation: 'a'.repeat(32), nonce: 'b'.repeat(32), planSha256: 'c'.repeat(64), pgResourceId: 'synthetic-pg', resourceAliases: ['synthetic-pg:5432'],
     source: { coreCommit: 'd'.repeat(40), deployCommit: 'e'.repeat(40) },
     capabilities: { 'synthetic-pool': { kind: 'pool', poolMax, maxInstances: 1, metadata: { requestedMaximum, source: 'synthetic:1', configurationSource: 'explicit-profile' } },
@@ -456,11 +456,28 @@ describe('plan2 primitive authority boundary',function(){
   });
 });
 
+describe('source-owned settings pool construction',function(){
+  it('lets selected admission supply the tracked fixed driver without a caller Client option',async function(){
+    const protocol=require('../lib/storage/postgres-settings-protocol'),sentinel=Error('synthetic constructor stop');let reached=false;
+    const f=fixture({driver:true,planVersion:2,alterPlan:plan=>{
+      plan.capabilities={'nightscout-display-settings':{kind:'pool',poolMax:1,maxInstances:1,metadata:{requestedMaximum:1}}};plan.directGroups={};
+    }});
+    class Pool{constructor(options){reached=true;assert(options.Client.prototype instanceof protocol.Client);throw sentinel;}}
+    const filename=path.resolve(__dirname,'../lib/storage/postgres-connection.js'),loaded=new Module(filename,module);
+    loaded.filename=filename;loaded.paths=Module._nodeModulePaths(path.dirname(filename));const original=loaded.require.bind(loaded);
+    loaded.require=name=>name==='./connection-admission'?f.api:name==='pg'?{Pool,Client:require('pg').Client}:original(name);
+    loaded._compile(fs.readFileSync(filename,'utf8'),filename);
+    await assert.rejects(loaded.exports({connectionString:'postgres://synthetic:synthetic@synthetic-pg/synthetic',direct:true,displaySettings:true,
+      application_name:'nightscout-display-settings',max:1}),error=>error===sentinel);
+    assert.equal(reached,true);assert.equal(f.instances.length,0);
+  });
+});
+
 describe('assertion-only actual admitted recovery transaction',function(){
-  async function selected({planVersion=2,className='realtime-recovery',name='realtime-recovery'}={}){
-    const f=fixture({driver:true,planVersion,poolMax:1,requestedMaximum:1,alterPlan:plan=>{
+  async function selected({planVersion=2,className='realtime-recovery',name='realtime-recovery',settingsDriver=false,extraCapabilities=false}={}){
+    const f=fixture({driver:true,settingsDriver,planVersion,poolMax:1,requestedMaximum:1,alterPlan:plan=>{
       plan.processInstanceId='realtime-recovery';
-      plan.capabilities={[name]:{kind:'pool',poolMax:1,maxInstances:1,metadata:{requestedMaximum:1}}};plan.directGroups={};
+      plan.capabilities={[name]:{kind:'pool',poolMax:1,maxInstances:1,metadata:{requestedMaximum:1}}};if(extraCapabilities)plan.capabilities['another-bounded-pool']={kind:'pool',poolMax:1,maxInstances:1,metadata:{requestedMaximum:1}};plan.directGroups={};
       plan.control={version:2,class:className,resourceEpoch:['123','synthetic-epoch'],principal:{role:'synthetic_reader',roleOid:'123',database:'synthetic',databaseOid:'16384'}};
     }});
     const Pool=f.api.wrapPool(PgPool,f.Client,name),pool=new Pool(f.api.poolOptions(name,{host:'synthetic-pg',ssl:false,max:1,idleTimeoutMillis:0}));
@@ -485,6 +502,26 @@ describe('assertion-only actual admitted recovery transaction',function(){
       if(!Object.keys(options).length){assert.doesNotThrow(()=>f.api.assertRecoveryTransaction(f.client));f.api.beginQuiesce();}
       assert.throws(()=>f.api.assertRecoveryTransaction(f.client));await f.close();
     }
+  });
+  it('checks exact selected display pool and actual-driver T without the recovery single-capability restriction',async function(){
+    const protocol=require('../lib/storage/postgres-settings-protocol');
+    for(const planVersion of [1,2]){
+      const f=await selected({name:'nightscout-display-settings',settingsDriver:true,extraCapabilities:true,planVersion});
+      try{
+        assert.throws(()=>f.api.assertDisplaySettingsTransaction(f.client));await f.begin();protocol.assertTransaction(f.client);
+        const before=f.api.health(),proof=f.api.assertDisplaySettingsTransaction(f.client);assert.deepEqual(f.api.health(),before);
+        assert.equal(proof.version,planVersion);assert.deepEqual(proof.database,planVersion===2?{database:'synthetic',databaseOid:'16384'}:null);
+        assert.throws(()=>f.api.assertDisplaySettingsTransaction(new f.Client({host:'synthetic-pg',ssl:false})));
+        assert.throws(()=>f.api.assertRecoveryTransaction(f.client));
+        const q=f.client.query('SELECT display_error'),failed=assert.rejects(q);f.client.connection.emit('errorMessage',Object.assign(Error('synthetic'),{code:'40001'}));await failed;
+        f.client.readyForQuery=true;assert.throws(()=>f.api.assertDisplaySettingsTransaction(f.client));assert.throws(()=>protocol.assertTransaction(f.client));f.client.readyForQuery=false;
+        f.client.connection.emit('readyForQuery',{status:'E'});assert.throws(()=>f.api.assertDisplaySettingsTransaction(f.client));
+        const rollback=f.client.query('ROLLBACK');f.finish('I');await rollback;await f.begin();f.api.assertDisplaySettingsTransaction(f.client);
+        f.api.beginQuiesce();assert.throws(()=>f.api.assertDisplaySettingsTransaction(f.client));
+      }finally{await f.close();}
+      assert.throws(()=>f.api.assertDisplaySettingsTransaction(f.client));
+    }
+    const wrong=await selected();try{await wrong.begin();assert.throws(()=>wrong.api.assertDisplaySettingsTransaction(wrong.client));wrong.api.assertRecoveryTransaction(wrong.client);}finally{await wrong.close();}
   });
   function activity(f,options={}){
     const tenantScope=require('../lib/storage/tenant-scope'),filename=path.resolve(__dirname,'../lib/realtime-placement/activity.js'),loaded=new Module(filename,module);

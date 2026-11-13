@@ -68,6 +68,40 @@ over retained committed input on the next cycle, including a time-only cycle;
 no hidden acquisition/statistics reload occurs. Tenant/source revision changes
 still discard the component. Old output identity refuses notification use.
 
+Each effective read checks the current role and complete write scope, both
+reviewed migration ledgers, and the settings/policy objects before selecting
+values. A retained pool has at most four direct physical clients. One checkout
+owns a new repeatable-read, read-only transaction for the complete operation;
+successful guards and values are never cached. The explicit migration URL,
+SSL and PostgreSQL default rules also configure this pool. Public operator
+migration commands retain their direct session and advisory-lock contracts.
+
+The snapshot starts at its first transaction statement, after the selected
+operation lease is acquired. Ledger and value reads share that snapshot.
+Privilege and DDL checks precede the value query, but repeatable read is not a
+global fence against concurrent GRANT, REVOKE or DDL. Changes committed before
+the next read are screened again; concurrent transitions require native proof.
+
+The source owns the actual pg client and exposes only a scoped SELECT facade.
+Its packet tracker proves current ReadyForQuery state independently of optional
+controller admission. Selected admission also checks the exact display pool's
+private record and, for plan 2, the verified database. Plan 1 makes no plan 2
+database claim. Outstanding or unobserved queries at callback return, late facade calls and
+failed or refused queries prevent a successful return or COMMIT. The facade
+tracks query observation and completion; it cannot prove lexical use of await. Cleanup uses only a proven idle protocol state; an
+uncertain cleanup retires the capability and prevents evaluator replacement.
+A selected operation window keeps the physical lease until transaction cleanup
+completes. The read captures its inherited parent token or genuine absence and
+rechecks that same identity across awaits. It creates no scheduling marker.
+Without a configured window, any inherited window scope is refused.
+
+Focused source and recording-transport checks cover these boundaries in
+`settings-read-snapshot.test.js`, `postgres-settings-protocol.test.js`,
+`postgres-connection-failure.test.js`, `connection-admission.test.js` and the
+evaluator settings lifecycle/cleanup suites. Native read-only/RLS enforcement,
+revocation/DDL timing, B continuity through A restore, physical exit census and
+performance remain UNMEASURED for this capability.
+
 Listener-free focused checks:
 
 ```sh

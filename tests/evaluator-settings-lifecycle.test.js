@@ -4,7 +4,7 @@ const fs = require('node:fs'), path = require('node:path'), Module = require('no
 const scope = require('../lib/storage/tenant-scope');
 const evaluator = require('../lib/server/serve/evaluator-config');
 const A = '00000000-0000-0000-0000-000000000001', B = '00000000-0000-0000-0000-000000000002';
-const configuration = { connectionString: 'synthetic', namespaces: { settings: 'synthetic_settings', operatorPolicy: 'synthetic_policy' } };
+const configuration = { connectionString: 'postgres://synthetic:synthetic@127.0.0.1/synthetic_test', namespaces: { settings: 'synthetic_settings', operatorPolicy: 'synthetic_policy' } };
 function isolated (file, mocks, mutate = source => source) {
   const filename = path.resolve(__dirname, '../lib/' + file), loaded = new Module(filename, module);
   loaded.filename = filename; loaded.paths = Module._nodeModulePaths(path.dirname(filename));
@@ -18,10 +18,10 @@ function fixture ({ skipRefresh = false, skipDrain = false, unbounded = false, o
   const rows = new Map([[A, { version: 1, values: { SHOW_SECONDS: true }, generation: 1, policy: { deployment: {}, overrides: {} } }],
     [B, { version: 1, values: { SHOW_SECONDS: false }, generation: 1, policy: { deployment: {}, overrides: {} } }]]);
   const factory = isolated('tenant-settings/effective-postgres.js', {
-    './readiness': async () => { if (state.beforeReady) await state.beforeReady(); calls.readiness++; if (state.hold) await state.hold; if (state.readinessFails) throw Error('synthetic readiness'); },
-    '../migrations/postgres': { run: async () => { calls.catalogue++; if (state.catalogueFails) throw Error('synthetic catalogue'); } },
+    './readiness-check': async () => { if (state.beforeReady) await state.beforeReady(); calls.readiness++; if (state.hold) await state.hold; if (state.readinessFails) throw Error('synthetic readiness'); },
+    '../migrations/postgres-check': { ...require('../lib/migrations/postgres-check'), inspect: async () => { calls.catalogue++; if (state.catalogueFails) throw Error('synthetic catalogue'); return { current: true }; } },
     '../storage/postgres-connection': async () => { calls.pool++; return {
-      withTenant: (tenant, fn) => scope.withTenant(tenant, fn),
+      readOnlySnapshot (tenant, fn) { return scope.withTenant(tenant, () => fn({ query: this.query.bind(this) })); },
       async query (sql, args) {
         if (sql.includes('pg_class')) { calls.screen++; return { rows: [0, 1].map(() => ({ secured: !state.unsafe, owns: false, reads: true, writes: false })) }; }
         if (state.beforeRead) await state.beforeRead(args[0]);
@@ -30,13 +30,12 @@ function fixture ({ skipRefresh = false, skipDrain = false, unbounded = false, o
         return { rows: rows.has(args[0]) ? [structuredClone(rows.get(args[0]))] : [] };
       }, async end () { calls.close++; if (state.beforeClose) await state.beforeClose(); }
     }; }
-  });
+  }, source => skipRefresh ? source.replace('await screen(query);', 'void 0;') : source);
   const open = async options => { calls.factory++; return factory(options); };
   const presentation = isolated('tenant-settings/presentation-reader.js', { './effective-postgres': open }, source => {
     if (unsafeReplacement) source = source.replaceAll('if (revalidate && cleanupErrors.length) throw unavailable();', '');
     if (overlap) source = source.replace('if (revalidate && retiring.size)', 'if (false && retiring.size)');
     if (unbounded) source = source.replace('revalidate ? admittedRead(tenant) : read(tenant)', 'read(tenant)');
-    if (skipRefresh) source = source.replace('await resource.refresh();', 'void 0;');
     if (skipDrain) source = source.replace('await Promise.allSettled([...reads]);', '');
     return source;
   });
@@ -74,7 +73,7 @@ describe('evaluator retained settings capability', function () {
     }
   });
   it('retains per-read unsafe-object, readiness, catalogue, missing policy and transport refusal; recovers with a new capability', async function () {
-    for (const [key, pattern] of [['unsafe', /SETTINGS_STORE_UNSAFE/], ['readinessFails', /synthetic readiness/], ['catalogueFails', /synthetic catalogue/], ['queryFails', /SETTINGS_POLICY_UNAVAILABLE/]]) {
+    for (const [key, pattern] of [['unsafe', /SETTINGS_STORE_UNSAFE/], ['readinessFails', /synthetic readiness/], ['catalogueFails', /synthetic catalogue/], ['queryFails', /synthetic query/]]) {
       const f = fixture(); try {
         await f.read(A); f.state[key] = true; await assert.rejects(f.read(A), pattern); assert.equal(f.calls.close, 1);
         f.state[key] = false; await f.read(B); assert.equal(f.calls.pool, 2);
@@ -214,7 +213,7 @@ describe('bounded evaluator settings admission', function () {
       const f = fixture({ unsafeReplacement }); await f.read(A);
       f.state.beforeReady = async () => { throw Error('synthetic dependency'); };
       f.state.beforeClose = async () => { throw Error('synthetic unconfirmed close'); };
-      await assert.rejects(f.read(B), /synthetic dependency/);
+      await assert.rejects(f.read(B), error => error.code === 'POSTGRES_CLEANUP_UNCONFIRMED' && /synthetic dependency/.test(error.cause.message) && /synthetic unconfirmed close/.test(error.cleanupError.message));
       f.state.beforeReady = undefined; f.state.beforeClose = undefined;
       if (unsafeReplacement) await f.read(B);
       else await assert.rejects(f.read(B), { code: 'SETTINGS_POLICY_UNAVAILABLE' });

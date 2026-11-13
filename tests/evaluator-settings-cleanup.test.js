@@ -11,19 +11,6 @@ function isolated (file, mocks, mutate = source => source) {
 function fixture (kind, { broken = false, data = false } = {}) {
   const state = { fail: false, queryFailure: true, pools: 0, clients: 0, ends: 0 };
   const primary = Error('SYNTHETIC_PRIMARY_' + kind), cleanup = Error('SYNTHETIC_END_' + kind);
-  class Client {
-    constructor () { state.clients++; }
-    async connect () { if (state.fail && kind === 'migration') throw primary; }
-    async query (sql) {
-      if (state.fail && state.queryFailure) throw primary;
-      if (sql.includes('pg_roles')) return { rows: [{ rolsuper: false, rolbypassrls: false }] };
-      return { rows: [{ creates: false, mutates: false }] };
-    }
-    async end () { state.ends++; if (state.fail) throw cleanup; }
-  }
-  const readiness = kind === 'readiness' ? isolated('tenant-settings/readiness.js', { pg: { Client } }) : async () => {};
-  const migrations = kind === 'migration' ? isolated('migrations/postgres.js', { pg: { Client } }) : null;
-  const migration = { run: (...args) => state.fail && migrations ? migrations.run(...args) : Promise.resolve() };
   class Pool {
     constructor () { state.pools++; }
     on () {}
@@ -33,11 +20,20 @@ function fixture (kind, { broken = false, data = false } = {}) {
   const startup = kind === 'startup' ? isolated('storage/postgres-connection.js', { pg: { Pool }, '../diagnostics/m7': { observePool () {} } }) : null;
   const factory = isolated('tenant-settings/effective-postgres.js', {
     '../storage/tenant-scope': { getTenancyMode: () => 'multi', currentTenant: () => undefined },
-    './readiness': readiness, '../migrations/postgres': migration, './component': { resolveEffectiveSettings: () => ({}) },
+    './readiness-check': async () => { if (state.fail && kind === 'readiness' && state.queryFailure) throw primary; },
+    '../migrations/postgres-check': { ...require('../lib/migrations/postgres-check'), inspect: async () => {
+      if (state.fail && kind === 'migration') throw primary; return { current: true };
+    } }, './component': { resolveEffectiveSettings: () => ({}) },
     '../storage/postgres-connection': startup || (async () => { state.pools++; return {
-      withTenant: async (tenant, fn) => fn(),
-      async query (sql) { return { rows: sql.includes('pg_class') ? [0, 1].map(() => ({ secured: !(state.fail && kind === 'screen'), owns: false, reads: true, writes: false })) : [{}] }; },
-      async end () { state.ends++; if (state.fail && kind === 'screen') throw cleanup; }
+      async readOnlySnapshot (tenant, fn) {
+        let outcome, error;
+        try { outcome = await fn({ query: async sql => ({ rows: sql.includes('pg_class') ? [0, 1].map(() => ({ secured: !(state.fail && kind === 'screen'), owns: false, reads: true, writes: false })) : [{}] }) }); }
+        catch (failure) { error = failure; }
+        if (state.fail) throw new CleanupError(error || cleanup, cleanup);
+        if (error) throw error;
+        return outcome;
+      },
+      async end () { state.ends++; }
     }; })
   });
   const presentation = isolated('tenant-settings/presentation-reader.js', { './effective-postgres': factory }, source => broken
@@ -73,10 +69,10 @@ describe('unconfirmed settings PostgreSQL cleanup', function () {
       const fixed = await observe(false); assert.equal(fixed.after, fixed.before, 'strict owner refuses replacement');
     });
   }
-  it('poisons a successful readiness check whose direct client end alone fails', async function () {
+  it('poisons a successful read whose owned checkout cleanup alone fails', async function () {
     const f = fixture('readiness'); f.state.queryFailure = false; f.state.fail = true;
     await assert.rejects(f.reader.read(tenant), error => error instanceof CleanupError && error.cause === f.cleanup && error.cleanupError === f.cleanup);
-    await assert.rejects(f.reader.read(tenant), { code: 'SETTINGS_POLICY_UNAVAILABLE' }); assert.equal(f.state.clients, 1);
+    await assert.rejects(f.reader.read(tenant), { code: 'SETTINGS_POLICY_UNAVAILABLE' }); assert.equal(f.state.pools, 1);
     await assert.rejects(f.reader.close(), /shutdown failed/);
   });
   it('preserves DATA default refusal mapping and initial failure retry behavior', async function () {
