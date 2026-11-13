@@ -10,10 +10,10 @@ const fixture = require('./fixtures/operation-window-runtime-protocol');
 const realtime = require('../lib/server/realtime/runtime');
 const scope = require('../lib/storage/tenant-scope');
 const A = '11111111-1111-4111-8111-111111111111', B = '22222222-2222-4222-8222-222222222222';
-function load (relative, overrides) {
+function load (relative, overrides, transform = source => source) {
   const filename = path.resolve(__dirname, '..', relative), local = createRequire(filename);
-  const sandbox = { module: { exports: {} }, setInterval: () => { throw new Error('SOURCE_TEST_TIMER_FORBIDDEN'); }, clearInterval: () => {}, console: {log () {}}, require: name => Object.hasOwn(overrides, name) ? overrides[name] : local(name) };
-  vm.runInNewContext(fs.readFileSync(filename, 'utf8'), sandbox, {filename}); return sandbox.module.exports;
+  const sandbox = { process: {env:process.env}, module: { exports: {} }, setInterval: () => { throw new Error('SOURCE_TEST_TIMER_FORBIDDEN'); }, clearInterval: () => {}, console: {log () {}}, require: name => Object.hasOwn(overrides, name) ? overrides[name] : local(name) };
+  vm.runInNewContext(transform(fs.readFileSync(filename, 'utf8')), sandbox, {filename}); return sandbox.module.exports;
 }
 
 describe('independent tenant startup admission (source protocol)', function () {
@@ -74,11 +74,18 @@ describe('independent tenant startup admission (source protocol)', function () {
     const previous=process.env.NS_TENANT_READINESS;process.env.NS_TENANT_READINESS='all';
     try{await apiBootAll();}finally{if(previous===undefined)delete process.env.NS_TENANT_READINESS;else process.env.NS_TENANT_READINESS=previous;}
   });
-  async function apiBootAll () {
+  async function apiBootAll (selected = false, mutant = false) {
+    const cold = selected ? require('../lib/server/serve/cold-start-admission').create({activeLimit:1,pendingLimit:4,minDelayMs:0,maxDelayMs:0,schedule:fn=>queueMicrotask(fn),cancel:()=>{}}) : undefined;
+    let startupClosed = !selected;
+    const selectedStartup = {...startup, create:(...args)=>{
+      assert.equal(args[3].coldAdmission,cold); const actual = startup.create(...args), baseClose = actual.close;
+      return {...actual,close:async()=>{await baseClose();await Promise.resolve();startupClosed=true;}};
+    }};
     const options={phases:{[A]:'suspended'}},f=fixture(options),reads=[],calls={},resources=[];
-    const resource=extra=>{const r={end:async()=>{},...extra};resources.push(r);return r;};
+    const resource=extra=>{const r={end:async()=>{assert.equal(startupClosed,true,'API_STARTUP_DRAIN_PRECEDES_POOL_END');},...extra};resources.push(r);return r;};
     const authority=resource({authorize:async({tenant})=>{reads.push(['authority',tenant]);}});
     const boot=load('lib/server/serve/preview-api.js',{
+      ...(selected ? {'../../storage/connection-admission':{coldAdmission:()=>cold},'./tenant-startup':selectedStartup} : {}),
       '../../storage/postgres-connection':async()=>resource(),
       '../../secrets/legacy-postgres':async()=>resource({read:async tenant=>{reads.push(['root',tenant]);return {reference:{id:'synthetic'}};}}),
       '../../tenant-authorization/postgres':async()=>authority,
@@ -89,27 +96,34 @@ describe('independent tenant startup admission (source protocol)', function () {
       '../tenant-app/exchange':()=>()=>{},'../tenant-app/data-access':()=>()=>{},
       '../tenant-app':{createTenantApp:input=>{calls.http=input.prepareTenant;return (req,res,next)=>next();}},
       '../realtime/private-api':{boot:async input=>{calls.socket=input.prepareTenant;return {close:async()=>{}};}}
-    });
+    }, mutant ? source => source.replace('const coldClosed = coldAdmission ? await Promise.allSettled([startup?.close()]) : [];','const coldClosed = [];') : undefined);
     let role;try{
       role=await boot.boot({bindings:new Map([[A,{}],[B,{}]]),providers:new Map(),namespaces:{},socketForwarding:true},{operationWindow:f.window});
       assert.deepEqual(reads.map(row=>row[1]),[B,B,B,B],'API_A_NO_ROOT_FLOOR_DATE_READS');
       options.phases[A]='active';await f.window.run(A,()=>calls.http(A));await f.window.run(A,()=>calls.socket(A));
       assert.equal(reads.filter(row=>row[1]===A).length,4);
       await role.invalidateTenant(A);await f.window.run(A,()=>calls.socket(A));assert.equal(reads.filter(row=>row[1]===A).length,8);
-    }finally{if(role)await role.close();await f.window.close();}
+    }finally{try{if(role)await role.close();}finally{await f.window.close();if(cold)await cold.close();}}
   }
   it('actual evaluator boot preserves shared failures, initializes B and checks deferred A before resumed component creation (NS_TENANT_READINESS=all)', async function () {
     const previous=process.env.NS_TENANT_READINESS;process.env.NS_TENANT_READINESS='all';
     try{await evaluatorBootAll();}finally{if(previous===undefined)delete process.env.NS_TENANT_READINESS;else process.env.NS_TENANT_READINESS=previous;}
   });
-  async function evaluatorBootAll () {
+  async function evaluatorBootAll (selected = false) {
+    const cold = selected ? require('../lib/server/serve/cold-start-admission').create({activeLimit:1,pendingLimit:4,minDelayMs:0,maxDelayMs:0,schedule:fn=>queueMicrotask(fn),cancel:()=>{}}) : undefined;
+    let startupClosed = !selected;
+    const selectedStartup = {...startup, create:(...args)=>{
+      assert.equal(args[3].coldAdmission,cold); startupClosed=false; const actual=startup.create(...args),baseClose=actual.close;
+      return {...actual,close:async()=>{await baseClose();await Promise.resolve();startupClosed=true;}};
+    }};
     const options={phases:{[A]:'suspended'}},f=fixture(options),reads=[],provisioned=[];
     const evaluator=()=>({evaluate:async()=>({checkpoint:1}),evaluateTime:async()=>({checkpoint:1}),close:()=>{}});evaluator.domains=[];
     const readiness=Object.assign(async()=>{}, {provisionTenant:async(connection,config,tenant)=>{f.window.assertCurrent(tenant);provisioned.push(tenant);}});
     const boot=load('lib/server/serve/evaluator-preview.js',{
-      '../../storage/postgres-connection':async()=>({end:async()=>{}}), './evaluator-readiness':readiness,
+      ...(selected ? {'../../storage/connection-admission':{coldAdmission:()=>cold},'./tenant-startup':selectedStartup} : {}),
+      '../../storage/postgres-connection':async()=>({end:async()=>{assert.equal(startupClosed,true,'EVAL_STARTUP_DRAIN_PRECEDES_POOL_END');}}), './evaluator-readiness':readiness,
       '../../storage/postgres-durable-replay':()=>({}), '../../data/tenant-projection-evaluator':evaluator,
-      './evaluator-consumers':{prepare:async()=>null}
+      './evaluator-consumers':{prepare:async input=>{if(selected)assert.equal(input.coldAdmission,cold);return null;}}
     });
     const config={tenants:new Map([[A,true],[B,true]]),namespaces:{},recoveryIntervalMs:100,timeIntervalMs:100,
       schedule:()=>1,cancel:()=>{},readCurrent:async tenant=>{reads.push(tenant);return {tenant,identity:'a'.repeat(64),env:{settings:{language:'en'}}};}};
@@ -125,8 +139,26 @@ describe('independent tenant startup admission (source protocol)', function () {
       await role.close();role=null;
     }finally{if(role)await role.close();await f.window.close();}
     const failed=load('lib/server/serve/evaluator-preview.js',{'./evaluator-readiness':async()=>{throw new Error('bad shared metadata');}});
-    await assert.rejects(failed.boot(config),/readiness or initialization refused/);
+    await assert.rejects(failed.boot(config),/readiness or initialization refused/);if(cold)await cold.close();
   }
+  it('selected actual API/evaluator boots share the gate and drain startup before pool teardown; parallel-close mutant fails', async function () {
+    const previous=process.env.NS_TENANT_READINESS;process.env.NS_TENANT_READINESS='all';
+    try { await assert.rejects(apiBootAll(true,true),/preview storage shutdown failed/);await apiBootAll(true);await evaluatorBootAll(true); }
+    finally {if(previous===undefined)delete process.env.NS_TENANT_READINESS;else process.env.NS_TENANT_READINESS=previous;}
+  });
+  it('selected actual realtime boot passes the shared gate and awaits startup close before pool end', async function () {
+    for(const mutant of [true,false]) {
+      const cold={synthetic:true};let seen=false,drained=false,endedBeforeDrain=false;
+      const boot=load('lib/server/serve/preview-realtime.js',{
+        '../../storage/connection-admission':{coldAdmission:()=>cold},'./evaluator-readiness':async()=>{},
+        '../../storage/postgres-connection':async()=>({end:async()=>{endedBeforeDrain=!drained;}}),
+        '../internal-api/clients':{socketAuthority:()=>({})},'../realtime/api-client':{create:()=>({})},
+        './tenant-startup':{notReadyRetry:()=>({}),create:(tenants,window,initialize,options)=>{assert.equal(options.coldAdmission,cold);seen=true;return {warm:async()=>{throw Error('stop after actual composition');},close:async()=>{await new Promise(resolve=>setImmediate(resolve));drained=true;}};}}
+      },mutant?source=>source.replace('await startup?.close();','startup?.close();'):undefined);
+      await assert.rejects(boot.boot({tenants:new Map(),operationTimeoutMs:100}),/readiness or initialization refused/);
+      assert.equal(seen,true);assert.equal(endedBeforeDrain,mutant,'RT_STARTUP_DRAIN_PRECEDES_POOL_END');
+    }
+  });
   it('actual consumer prepare uses metadata-only sameDB challenge and screens shared ACL even with every tenant paused', async function () {
     for (const fault of [null,'outbox','suppression','datastore']) {
       const f=fixture({phase:'suspended'}),zero='00000000-0000-0000-0000-000000000000',events=[];
@@ -151,11 +183,11 @@ describe('independent tenant startup admission (source protocol)', function () {
       });
       const selected={outbox:{namespace:'synthetic_outbox'},suppression:{namespace:'synthetic_suppression'},route:{id:'synthetic'},pollIntervalMs:100,retryIntervalMs:100};
       const jobs=require('../lib/server/serve/evaluator-job-context').create('delivery');
-      let consumer;try{
+      let consumer,coldCalls=0;const coldAdmission={run:(key,fn)=>{assert.equal(f.window.current(A)||f.window.current(B),false,'CONSUMER_GATE_BEFORE_WINDOW');coldCalls++;return Promise.resolve().then(fn);},cancel:()=>false};try{
         const promise=prepare.prepare({config:{consumers:{realtime:selected},tenants:new Map([[A,true],[B,true]]),readCurrent:async()=>null},clinicalConnection:clinical,
-          current:()=>null,isCurrent:async()=>false,operationWindow:f.window,jobContext:jobs});
+          current:()=>null,isCurrent:async()=>false,operationWindow:f.window,jobContext:jobs,coldAdmission});
         if(fault)await assert.rejects(promise,/bad outbox schema|bad suppression ACL|READINESS_REFUSED/);
-        else {consumer=await promise;assert.deepEqual(events,['outbox','suppression','challenge']);}
+        else {consumer=await promise;assert.deepEqual(events,['outbox','suppression','challenge']);assert.equal(coldCalls,2);}
       }finally{if(consumer)await consumer.close();jobs.close();await f.window.close();}
     }
   });

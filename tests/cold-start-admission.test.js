@@ -122,6 +122,11 @@ describe('opt-in cold initialization queue', function () {
     let stopped = false; const closing = s.close().then(() => { stopped = true; }); await turn(); assert.equal(stopped, false);
     held.resolve(); await closing; assert.deepEqual(seen, ['a']); await assert.rejects(s.ensure('a'), { code: 'COLD_START_CLOSED' }); await g.close(); assert.equal(c.size, 0);
   });
+  it('all-readiness warm cannot acquire a new window after opt-in startup close', async function () {
+    const c = clock(), g = gate(c, 1, 3); let windows = 0;
+    const s = startup.create(['a'], undefined, async () => { windows++; }, options(g));
+    await s.close(); await assert.rejects(s.warm(), {code:'COLD_START_CLOSED'}); assert.equal(windows,0); await g.close();
+  });
   it('invalidates queued generations without running stale initialization, then resumes fairly', async function () {
     const c = clock(), g = gate(c, 1, 3), held = deferred(), seen = [];
     const s = startup.create(['a', 'b'], undefined, async tenant => { seen.push(tenant); if (tenant === 'a') await held.promise; }, options(g, { readiness: 'serve', concurrency: 2 }));
