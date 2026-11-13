@@ -94,7 +94,7 @@ function scan (sources) {
     grew = false;
     for (const [name, defs] of functions) {
       if (notifiers.has(name)) continue;
-      if (defs.some(d => d.body && [...notifiers].some(n => new RegExp('\\b' + n.replace(/[$]/g, '\\$') + '\\s*\\(', 'i').test(d.body)))) { notifiers.add(name); grew = true; }
+      if (defs.some(d => d.body && [...notifiers].some(n => new RegExp('\\b' + n.replace(/[\\^$.*+?()[\]{}|]/g, '\\$&') + '\\s*\\(', 'i').test(d.body)))) { notifiers.add(name); grew = true; }
     }
   }
   // A trigger body (name-independent pass) calling a notifying function.
