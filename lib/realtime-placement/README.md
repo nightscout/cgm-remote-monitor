@@ -236,7 +236,10 @@ old owner advisory transaction lock on the SAME publication client, after exact
 platform exclusion and before map rename. It holds that lock through target warm,
 route publication and COMMIT. The stable consumer and shared owner-key derivation
 are mandatory; health, a census, timeout or lease age cannot substitute. A held
-lock refuses before publication. Ordinary `publish` retains its controlled-move
+lock refuses before publication. With the current v1 worker-key contract a
+recovery candidate retaining a stopped worker ID refuses before any transaction
+or publication effect: warming that replacement while holding its same key is
+unsupported. This refusal does not implement gradual rebalance. Ordinary `publish` retains its controlled-move
 contract. This primitive does not schedule recovery, debit a ticket, refund crash
 credits, or authorize an arbitrary live-owner takeover. Deployment's finite shared
 control allocator, restart/grace/roster controller and native proof remain separate

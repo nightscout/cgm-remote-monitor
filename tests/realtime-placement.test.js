@@ -117,8 +117,9 @@ describe('bounded recovery source primitives', function () {
     const {internal}=require('./fixtures/realtime-placement-map'),protocol=require('./fixtures/operation-window-admission-protocol');
     const directory=await fs.mkdtemp(path.join(os.tmpdir(),'rt-recovery-publication-')),file=path.join(directory,'map.json');
     try {
-      for (const mode of ['alive','locked','ready']) {
+      for (const mode of ['reuse','alive','locked','ready']) {
         const original=config(),candidate=move(original,'b'),trace=[],metadata=protocol();let locks=0;
+        if(mode!=='reuse')candidate.workers=candidate.workers.filter(worker=>worker.id!=='a');
         await fs.writeFile(file,JSON.stringify(original));
         const client={async query(sql,values){trace.push(sql);if(sql==='BEGIN READ ONLY'||sql==='COMMIT'||sql==='ROLLBACK')return {rows:[]};
           if(sql==='SELECT pg_try_advisory_xact_lock($1::bigint) AS held'){locks++;if(locks===2){assert.equal(values[0],owner.key({worker:'a',consumer:'realtime-stable'}));return {rows:[{held:mode!=='locked'}]};}return {rows:[{held:true}]};}
@@ -126,7 +127,7 @@ describe('bounded recovery source primitives', function () {
         const options={file,candidate,internal,client,consumer:'realtime-stable',controlNamespace:'synthetic_window',registry:{revision:async()=> '1',page:async()=>({revision:'1',tenants:[]})},confirmStopped:async()=>mode!=='alive',
           afterAssignment:async()=>{assert.equal(locks,2,'actual old owner lock acquired before warming/routes');assert(!trace.includes('COMMIT'));assert.deepEqual(JSON.parse(await fs.readFile(file,'utf8')),candidate);trace.push('routes-ready');}};
         if(mode==='ready'){await publishRecovery(options);assert(trace.indexOf('routes-ready')<trace.indexOf('COMMIT'));}
-        else {await assert.rejects(publishRecovery(options),{code:mode==='alive'?'REALTIME_PLACEMENT_OLD_OWNER_UNCONFIRMED':'REALTIME_RECOVERY_OWNER_LOCK_HELD'});assert.deepEqual(JSON.parse(await fs.readFile(file,'utf8')),original);assert(!trace.includes('routes-ready'));}
+        else {await assert.rejects(publishRecovery(options),{code:mode==='reuse'?'REALTIME_RECOVERY_WORKER_REUSE_UNSUPPORTED':mode==='alive'?'REALTIME_PLACEMENT_OLD_OWNER_UNCONFIRMED':'REALTIME_RECOVERY_OWNER_LOCK_HELD'});assert.deepEqual(JSON.parse(await fs.readFile(file,'utf8')),original);assert(!trace.includes('routes-ready'));if(mode==='reuse')assert.deepEqual(trace,[],'same-ID reuse refuses before any SQL or publication effect');}
       }
     }finally{await fs.rm(directory,{recursive:true});}
   });
