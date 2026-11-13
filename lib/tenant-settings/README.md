@@ -86,8 +86,9 @@ The source owns the actual pg client and exposes only a scoped SELECT facade.
 Its packet tracker proves current ReadyForQuery state independently of optional
 controller admission. Selected admission also checks the exact display pool's
 private record and, for plan 2, the verified database. Plan 1 makes no plan 2
-database claim. Pending, late, failed or unawaited work cannot return values or
-commit a successful read. Cleanup uses only a proven idle protocol state; an
+database claim. Outstanding or unobserved queries at callback return, late facade calls and
+failed or refused queries prevent a successful return or COMMIT. The facade
+tracks query observation and completion; it cannot prove lexical use of await. Cleanup uses only a proven idle protocol state; an
 uncertain cleanup retires the capability and prevents evaluator replacement.
 A selected operation window keeps the physical lease until transaction cleanup
 completes. The read captures its inherited parent token or genuine absence and

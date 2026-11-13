@@ -73,8 +73,6 @@ describe('checked-out PostgreSQL client failure propagation', function () {
       await f.store.readOnlySnapshot(TENANT, async facade => {
         retained = facade; assert.deepEqual(Object.keys(facade), ['query']); assert(Object.isFrozen(facade));
         await facade.query('SELECT snapshot_read'); await facade.query('SELECT snapshot_read_two');
-        await assert.rejects(async () => facade.query('UPDATE synthetic SET value=1'), /one SELECT/);
-        await assert.rejects(async () => facade.query('SELECT 1; SELECT 2'), /one SELECT/);
       });
       await assert.rejects(async () => retained.query('SELECT late'), /scope is closed/);
       await f.store.readOnlySnapshot(TENANT, async ({ query }) => { await query('SELECT followup'); });
@@ -85,6 +83,21 @@ describe('checked-out PostgreSQL client failure propagation', function () {
         assert.throws(() => f.store.readOnlySnapshot(TENANT, () => {}), /requires a new transaction/);
       }));
     } finally { await f.store.end(); }
+  });
+
+  it('latches caught facade validation refusals and prevents later SQL or COMMIT in the same snapshot', async function () {
+    for (const invalid of ['UPDATE synthetic SET value=1', 'SELECT 1; SELECT 2']) {
+      const f = await fixture(); let refusal;
+      try {
+        await assert.rejects(f.store.readOnlySnapshot(TENANT, async ({ query }) => {
+          await assert.rejects(async () => query(invalid), error => { refusal = error; return /one SELECT/.test(error.message); });
+          await assert.rejects(async () => query('SELECT attempted_recovery'), error => error === refusal);
+          return 'caught refusal';
+        }), error => error === refusal);
+        assert(!f.calls.some(call => call.text === invalid || call.text === 'SELECT attempted_recovery' || call.text === 'COMMIT'));
+        assert.equal(f.clients[0]._ending, true);
+      } finally { await f.store.end(); }
+    }
   });
 
   it('refuses both completed and pending unawaited facade queries before COMMIT and drains pending work', async function () {
