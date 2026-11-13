@@ -131,3 +131,33 @@ describe('bounded recovery source primitives', function () {
     }finally{await fs.rm(directory,{recursive:true});}
   });
 });
+
+describe('actual realtime boot observation wiring', function () {
+  it('binds private cached health without touching full runtime health and uses a fresh process identity per restart', async function () {
+    const fs=require('node:fs'),vm=require('node:vm'),Module=require('node:module');
+    const filename=require.resolve('../lib/server/serve/preview-realtime'),local=Module.createRequire(filename),source=fs.readFileSync(filename,'utf8');
+    async function boot(transform=s=>s){
+      const selected=placement.create({read:()=>parse(config()),self:{worker:'a',incarnation:I}});selected.current();
+      const noop=async()=>{},overrides={
+        '../../storage/connection-admission':{coldAdmission:()=>null},'./evaluator-readiness':noop,
+        '../../storage/postgres-connection':async()=>({end:noop,holdAdvisoryLock:async()=>({available:true,check:noop,close:noop})}),
+        '../internal-api/clients':{socketAuthority:()=>({})},'../realtime/api-client':{create:()=>({})},
+        './tenant-startup':{notReadyRetry:()=>({}),create:()=>({warm:noop,close:noop})},
+        '../realtime/protocol':{create:()=>({close(){},stats:()=>({}),fanout(){}})},
+        '../realtime/change-detector':{stampReader:()=>noop,create:()=>({poll:noop})},
+        '../realtime/runtime':async()=>({health(){throw Error('WHOLE_TENANT_HEALTH_SCAN');},close:noop})};
+      const sandbox={module:{exports:{}},process,console,setInterval:()=>({unref(){}}),clearInterval(){},require:name=>Object.hasOwn(overrides,name)?overrides[name]:local(name)};
+      vm.runInNewContext(transform(source),sandbox,{filename});
+      return sandbox.module.exports.boot({tenants:new Map(),operationTimeoutMs:100,recoveryIntervalMs:1000,placement:selected,consumer:'realtime-stable',api:{},admission:{},namespaces:{}});
+    }
+    const one=await boot(),two=await boot();
+    try {
+      const token={},a=await one.internal['realtime-inspection'].create(token).inspectRealtime({transport:token}),b=await two.internal['realtime-inspection'].create(token).inspectRealtime({transport:token});
+      assert.notEqual(a.processIncarnation,b.processIncarnation);assert.equal(a.placement.assignmentIncarnation,I);assert.equal(b.placement.assignmentIncarnation,I);assert.equal(a.ownerAvailable,true);
+      await one.quiesce();assert.equal((await one.internal['realtime-inspection'].create(token).inspectRealtime({transport:token})).ownerAvailable,false);
+      const needle="'realtime-inspection': Object.freeze({create: require('./realtime-inspection')";assert(source.includes(needle));
+      const mutant=await boot(s=>s.replace(needle,"'omitted-realtime-inspection': Object.freeze({create: require('./realtime-inspection')"));
+      try{assert.throws(()=>assert(mutant.internal['realtime-inspection'],'REALTIME_BOOT_INSPECTION_MISSING'),/REALTIME_BOOT_INSPECTION_MISSING/);}finally{await mutant.close();}
+    }finally{await one.close();await two.close();}
+  });
+});
