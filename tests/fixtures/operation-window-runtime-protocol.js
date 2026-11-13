@@ -25,6 +25,7 @@ module.exports = function fixture (options = {}, createWindow = create) {
     if (text.includes('FROM pg_roles')) return { rows: [{ rolsuper: !!options.superuser, rolbypassrls: false,
       ...(text.includes('pg_backend_pid') ? { ...datastore, ...options.datastore, pid: options.sqlPid || 123, role: options.sqlRole || 'synthetic_worker', birth: options.sqlBirth || '1700000000.000001' } : {}) }] };
     if (text.startsWith('SELECT pg_backend_pid()')) return { rows: [{ ...datastore, ...options.datastore, pid: options.sqlPid || 123, role: options.sqlRole || 'synthetic_worker', birth: options.sqlBirth || '1700000000.000001' }] };
+    if (text.includes('pg_control_system()')) return { rows: [{ cluster: options.cluster || '7300000000000000001' }] };
     if (text.includes('pg_try_advisory_lock_shared')) return { rows: [{ held: options.held !== false }] };
     if (text.includes('pg_advisory_unlock_shared')) return { rows: [{ released: options.unlock !== false }] };
     if (text === 'SHOW transaction_read_only') return { rows: [{ transaction_read_only: options.metadataReadOnly || 'on' }] };

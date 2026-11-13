@@ -92,7 +92,7 @@ describe('Datastore recovery in place: source protocol and controls (not Postgre
         await f.window.run(A, () => 2);
       });
     }
-    for (const [label, datastore, cluster] of [['another database', { database_oid: '16999' }],
+    for (const [label, datastore, cluster] of [['another database', { database_oid: '16999' }], ['another database name', { database: 'other' }],
       ['another cluster', { server_address: '127.0.0.2' }, '7000000000000000002']]) {
       it('refuses to adopt ' + label + ' in place', async function () {
         const options = {}, f = fixture(options); await f.window.run(A, () => 1);
