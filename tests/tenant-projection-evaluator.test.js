@@ -60,12 +60,12 @@ describe('dormant tenant projection evaluator source contract', function () {
     await assert.rejects(scope.withTenant(A, () => s.reader.findFiltered(fromMongo({}), { v1: true, sort: { date: -1 }, madeUp: true })), /find option/);
     assert.equal(s.calls.length, 0);
   });
-  function component (replay, suppliedConnection, suppliedStats) {
+  function component (replay, suppliedConnection, suppliedStats, extra = {}) {
     const env = require('../lib/server/tenant-app/environment')({ settings: { enable: ['bgnow'] } });
     const connection = suppliedConnection || { async query () { throw new Error('No SQL allowed in this contract case'); } };
     const language = require('../lib/language')();
     return evaluator({ tenant: A, replay, connection, env, language, dbstats: suppliedStats || (async () => ({ dataSize: 0, indexSize: 0 })),
-      maxRows: 10, maxBytes: 10000 });
+      maxRows: 10, maxBytes: 10000, ...extra });
   }
   it('replays the committed clinical reading at an explicit instant without widening its age window', async function () {
     const clock = require('./lib/views-replay/clock');
@@ -91,6 +91,24 @@ describe('dormant tenant projection evaluator source contract', function () {
     } finally { clock.uninstall(); }
     assert.equal(sqlCalls, 0, 'fresh, aged, and restored instants are read in process');
     assert.equal(JSON.stringify(document), original, 'evaluation never changes the committed document');
+  });
+  it('optionally emits a bounded browser frame from the evaluated working set', async function () {
+    const clock = require('./lib/views-replay/clock');
+    const at = Date.UTC(2026, 10, 6, 12);
+    const document = { _id: 'frame-reading', type: 'sgv', sgv: 123, date: at - 60000,
+      dateString: new Date(at - 60000).toISOString(), srvModified: at };
+    const replay = { async reconcile () { return { checkpoint: at, rows: [{ domain: 'entries', document }] }; } };
+    clock.install(); clock.pin(at);
+    try {
+      const ordinary = await component(replay).evaluate({ at });
+      assert.equal(Object.hasOwn(ordinary, 'frame'), false, 'default output contract is unchanged');
+      const result = await component(replay, undefined, undefined, { includeFrame: true }).evaluate({ at });
+      assert.equal(result.properties.bgnow.mean, 123);
+      assert.equal(result.frame.sgvs[0].mgdl, result.properties.bgnow.mean);
+      assert.equal(result.frame.delta, false);
+      assert.equal(result.frame.lastUpdated, at);
+      assert.throws(() => component(replay, undefined, undefined, { includeFrame: 'yes' }), /frame selection/);
+    } finally { clock.uninstall(); }
   });
   it('does not retain or publish when replay commit refuses', async function () {
     const v = component({ async reconcile () { throw new Error('COMMIT refused'); } });

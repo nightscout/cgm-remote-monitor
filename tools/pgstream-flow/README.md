@@ -32,6 +32,8 @@ Focused controls use the same executable:
   clinical assertion must fail.
 - `PGSTREAM_FLOW_ABLATE=drop-output`: suppress output delivery after initial
   frames; the connected-client update assertion must fail.
+- `PGSTREAM_FLOW_ABLATE=disable-rls`: deliberately disable RLS on the owned
+  synthetic entries table; the cross-tenant read assertion must fail.
 - `PGSTREAM_FLOW_ABLATE=drop-due-recovery`: discard the persisted-due recovery
   action; the cache-loss due assertion must fail.
 - `PGSTREAM_FLOW_CRASH=before-durable`: kill the CDC process before evaluation

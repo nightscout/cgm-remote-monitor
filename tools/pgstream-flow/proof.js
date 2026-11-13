@@ -135,6 +135,17 @@ async function stopFeed(){if(!child||child.exitCode!==null||child.signalCode!==n
   await sleep(150);log({kind:'after-manual-restart',failedEventLsn:failedInputLsn,slot:(await lab.admin.query('SELECT confirmed_flush_lsn::text,restart_lsn::text FROM pg_replication_slots WHERE slot_name=$1',[lab.name+'_slot'])).rows});
   await waitFor(async()=> (await loadOutput(lab.B))?.result.properties.bgnow?.mean===234,'redelivery after restart');
   log({kind:'PASS',capability:'strict-permanent-failure-manual-restart-redelivery'});
+  assert.equal((await loadOutput(lab.A)).result.properties.bgnow.mean,150,'B work never replaces A output');
+  assert(!received.some(frame=>frame.sgvs?.some(row=>row.mgdl===234)),'B reading never reaches A socket');
+  const storedB=(await lab.admin.query(`SELECT doc FROM "${lab.namespaces.entries}".entries WHERE tenant_id=$1`,[lab.B])).rows;
+  assert.equal(storedB.length,1);
+  if(ablation==='disable-rls')await lab.admin.query(`ALTER TABLE "${lab.namespaces.entries}".entries DISABLE ROW LEVEL SECURITY`);
+  const foreign=(await scope.withTenant(lab.A,()=>lab.reader.query(`SELECT doc FROM "${lab.namespaces.entries}".entries WHERE tenant_id=$1`,[lab.B]))).rows;
+  assert.equal(foreign.length,0,'A-bound actual reader cannot see B rows');
+  const wrongTenant=lab.evaluator(lab.B);
+  try{await assert.rejects(scope.withTenant(lab.A,()=>wrongTenant.evaluate({at:Date.now()})),/tenant scope mismatch/);}finally{wrongTenant.close();}
+  log({kind:'PASS',capability:'tenant-misroute-refusal-rls-and-client-isolation'});
+
   log({kind:'retention',rows:(await lab.admin.query("SELECT slot_name,plugin,confirmed_flush_lsn::text,restart_lsn::text,wal_status,safe_wal_size,current_setting('max_slot_wal_keep_size') AS wal_bound FROM pg_replication_slots WHERE slot_name=$1",[lab.name+'_slot'])).rows});
   // With no due work in the short interval, CDC output delivery must not trigger raw-input evaluation.
   await sleep(150);const quiet={evaluations,eventsSeen,outputs,sqlQueries};await sleep(300);
