@@ -57,6 +57,12 @@ describe('opt-in process-local constructor and physical retirement admission', f
     assert.equal(api.wrapPool(Pool, undefined, 'unknown'), Pool); assert.equal(api.wrapClient(Client, 'unknown'), Client);
     assert.equal(api.poolOptions('unknown', original), original); assert.equal(api.health(), null);
   });
+  it('carries real lifetime cold observations through the existing clean quiescent ACK callback', async function () {
+    const f=fixture(),gate=f.api.coldAdmission();let release,started;const held=new Promise(resolve=>{release=resolve;}),begun=new Promise(resolve=>{started=resolve;});
+    const running=gate.run({},async()=>{started();await held;});await begun;const key={};const queued=gate.run(key,async()=>assert.fail('cancelled cold work must not run')),cancelled=assert.rejects(queued,{code:'COLD_START_CANCELLED'});const closing=gate.run({},async()=>assert.fail('closed cold work must not run')),closed=assert.rejects(closing,{code:'COLD_START_CLOSED'});
+    assert.equal(gate.health().observed.peakQueued,2);assert.equal(gate.cancel(key),true);await cancelled;f.api.beginQuiesce();const proof=f.api.finalizeQuiescence(true);await closed;assert.equal(f.acknowledgements.length,0);release();await running;await proof;
+    assert.equal(f.acknowledgements.length,1);const ack=f.acknowledgements[0];assert.equal(ack.cleanShutdown,true);assert.equal(ack.pendingConnects+ack.liveConnections,0);assert.equal(ack.cold.closed,true);assert.equal(ack.cold.queued+ack.cold.delaying+ack.cold.running,0);assert.equal(ack.cold.observed.peakActive,1);assert.equal(ack.cold.observed.peakQueued,2);assert.equal(ack.cold.observed.accepted,3);assert.equal(ack.cold.observed.started,1);assert.equal(ack.cold.observed.completed,1);assert.equal(ack.cold.observed.cancelled,1);assert.equal(ack.cold.observed.closeCancelled,1);assert.deepEqual(ack.cold.observed,gate.health().observed);
+  });
   it('preserves actual pg credential descriptors and lazy password functions through selected pool and direct constructors', async function () {
     const pg=require('pg'),sasl=require('pg/lib/crypto/sasl'),secret='synthetic-local-only';
     for(const pooled of [false,true]) for(const mode of ['literal','hidden-literal','function','hidden-function','getter-function','url']) {

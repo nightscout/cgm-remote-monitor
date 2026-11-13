@@ -41,6 +41,39 @@ describe('opt-in cold initialization queue', function () {
     const node = find(schema); assert(node); assert.deepEqual(node.properties.queued.type, 'integer');
     assert.equal(node.required.includes('queued'), false); assert.equal(node.additionalProperties, false);
   });
+  it('retains actual scheduler peaks after drain without counting uncontended enqueue as a queue', async function () {
+    const c=clock(),g=gate(c,1,2);
+    for(let i=0;i<3;i++){const job=g.run({},async()=>i);await c.next();assert.equal(await job,i);await g.drained();}
+    const h=g.health();assert.equal(h.queued,0);assert.equal(h.observed.peakQueued,0);assert.equal(h.observed.peakActive,1);assert.equal(h.observed.accepted,3);assert.equal(h.observed.started,3);assert.equal(h.observed.completed,3);assert.equal(h.observed.failed,0);assert(Object.isFrozen(h.observed));assert.throws(()=>{h.observed.peakActive=0;},TypeError);await g.close();assert.equal(g.health().observed.peakActive,1);
+  });
+  it('observes real timed concurrency and queued contention through successful and failed work', async function () {
+    const held=deferred(),started=deferred();let active=0,peak=0,count=0;
+    const g=cold.create({activeLimit:2,pendingLimit:3,minDelayMs:0,maxDelayMs:1,random:()=>0});
+    const jobs=Array.from({length:5},(_,i)=>g.run({},async()=>{active++;peak=Math.max(peak,active);if(++count===2)started.resolve();await held.promise;active--;if(i===4)throw Error('synthetic work failure');return i;}));
+    const settled=Promise.allSettled(jobs);await started.promise;
+    assert.equal(g.health().delaying+g.health().running,2);assert.equal(g.health().queued,3);assert.equal(g.health().observed.peakActive,peak);assert.equal(g.health().observed.peakQueued,3);
+    held.resolve();const results=await settled;await g.drained();await g.close();const h=g.health();assert.equal(peak,2);assert.equal(results.filter(r=>r.status==='fulfilled').length,4);assert.equal(h.delaying+h.running+h.queued,0);assert.equal(h.observed.peakActive,2);assert.equal(h.observed.peakQueued,3);assert.equal(h.observed.accepted,5);assert.equal(h.observed.started,5);assert.equal(h.observed.completed,4);assert.equal(h.observed.failed,1);
+  });
+  it('distinguishes duplicate/deferred/invalid/overloaded work, cancellation and repeated close truthfully', async function () {
+    const c=clock(),g=gate(c,1,1),held=deferred(),key={},queued={},closedKey={};
+    await assert.rejects(g.run(null,async()=>{}),{code:'COLD_START_INVALID'});
+    const first=g.run(key,()=>held.promise);assert.strictEqual(g.run(key,async()=>assert.fail('duplicate must not run')),first);assert.equal(g.tryRun(key,async()=>{}),null);assert.equal(g.tryRun({},async()=>{}),null);
+    const second=g.run(queued,async()=>assert.fail('cancelled must not run')),cancelled=assert.rejects(second,{code:'COLD_START_CANCELLED'});
+    await assert.rejects(g.run({},async()=>{}),{code:'COLD_START_OVERLOADED'});assert.equal(g.cancel(queued),true);assert.equal(g.cancel(queued),false);await cancelled;await c.next();assert.equal(g.cancel(key),false);
+    const last=g.run(closedKey,async()=>assert.fail('closed queue must not run')),closed=assert.rejects(last,{code:'COLD_START_CLOSED'});const closing=g.close();assert.strictEqual(g.close(),closing);await closed;
+    await assert.rejects(g.run({},async()=>{}),{code:'COLD_START_CLOSED'});await assert.rejects(g.tryRun({},async()=>{}),{code:'COLD_START_CLOSED'});held.resolve();await first;await closing;
+    assert.deepEqual(g.health().observed,{version:1,peakActive:1,peakQueued:1,accepted:3,started:1,completed:1,failed:0,duplicates:1,deferred:2,overloaded:1,schedulerRefused:0,cancelled:1,closeCancelled:1,closedRefused:2,invalidRefused:1});
+  });
+  it('counts failed scheduling and close-cancelled delayed work without inventing active work', async function () {
+    for(const mode of ['random','schedule']){const g=cold.create({activeLimit:1,pendingLimit:1,minDelayMs:0,maxDelayMs:0,random:()=>{if(mode==='random')throw Error();return 0;},schedule:()=>{throw Error();}});await assert.rejects(g.run({},async()=>assert.fail()),{code:'COLD_START_SCHEDULER_REFUSED'});const h=g.health();assert.equal(h.observed.schedulerRefused,1);assert.equal(h.observed.accepted,1);assert.equal(h.observed.started,0);assert.equal(h.observed.peakActive,0);assert.equal(h.observed.peakQueued,0);await g.close();}
+    const c=clock(),g=gate(c,1,1),jobs=[g.run({},async()=>assert.fail()),g.run({},async()=>assert.fail())];const rejected=Promise.all(jobs.map(job=>assert.rejects(job,{code:'COLD_START_CLOSED'})));await g.close();await rejected;assert.equal(c.size,0);assert.equal(g.health().observed.closeCancelled,2);assert.equal(g.health().observed.started,0);assert.equal(g.health().observed.peakActive,1);assert.equal(g.health().observed.peakQueued,1);
+  });
+  it('observes broken admission bounds above the declaration instead of clamping a false bound witness', async function () {
+    async function observe(mutate){const file=path.resolve(__dirname,'../lib/server/serve/cold-start-admission.js'),m=new Module(file,module);m.filename=file;m.paths=Module._nodeModulePaths(path.dirname(file));m._compile(mutate(fs.readFileSync(file,'utf8')),file);const c=clock(),g=m.exports.create({activeLimit:1,pendingLimit:1,minDelayMs:0,maxDelayMs:0,random:()=>0,schedule:c.schedule,cancel:c.cancel});const jobs=Array.from({length:4},()=>g.run({},async()=>{}));const outcomes=Promise.allSettled(jobs),h=g.health();await g.close();await outcomes;return h;}
+    const normal=await observe(s=>s);assert.equal(normal.observed.peakActive,1);assert.equal(normal.observed.peakQueued,1);
+    const active=await observe(s=>s.replace('admitted < activeLimit','true'));assert.equal(active.observed.peakActive,4);assert.equal(active.delaying,4);assert.throws(()=>assert(active.observed.peakActive<=active.activeLimit));
+    const queued=await observe(s=>s.replaceAll('waiting.length >= pendingLimit','false'));assert.equal(queued.observed.peakQueued,3);assert.equal(queued.queued,3);assert.throws(()=>assert(queued.observed.peakQueued<=queued.pendingLimit));
+  });
   it('requires explicit finite limits/jitter and preserves typed overload/close', async function () {
     assert.throws(() => cold.create({}), /Explicit bounded/);
     const c = clock(), g = gate(c, 1, 1), held = deferred();
