@@ -56,6 +56,7 @@ optInSuite(process.env.NS_ADMIN_LIFECYCLE_DOCKER_TEST === '1',
   const l = plan.layout('nsfit'), ns = l.namespaces, q = plan.quote;
   const t = (name, table) => q(ns[name]) + '.' + q(table);
   const urls = {};
+  let registryNamespace;
   let previousMode, owned = false, bootstrapURI, configDir, socketDir, role, consumerPort, participants = [], peers = [], operatorPool;
 
   // A short-lived superuser session: closed before any census, where it would be
@@ -70,10 +71,10 @@ optInSuite(process.env.NS_ADMIN_LIFECYCLE_DOCKER_TEST === '1',
   async function startRole (env) {
     const file = path.join(configDir, crypto.randomBytes(4).toString('hex') + '.json');
     fs.writeFileSync(file, JSON.stringify({ version: 1, maxBytes: 65536, timeoutMs: 10000,
-      ownership: { connectionEnv: 'NS_OWNERSHIP_PG', namespace: ns.authorization, lifecycleNamespace: ns.control, operator: OPERATOR, tenants: [A, B] } }), { mode: 0o600 });
+      ownership: { connectionEnv: 'NS_OWNERSHIP_PG', namespace: ns.authorization, lifecycleNamespace: ns.control, operator: OPERATOR, registry: { namespace: registryNamespace } } }), { mode: 0o600 });
     const child = spawn(process.execPath, [path.join(ROOT, 'bin/nightscout.js'), 'multitenant', 'admin'], {
       cwd: ROOT, stdio: ['ignore', 'pipe', 'pipe'],
-      env: { PATH: process.env.PATH, MULTITENANT_STATIC_TENANTS: 'lab', MULTITENANT_ADMIN_CONFIG: file, NS_OWNERSHIP_PG: urls.ownership_operator, ...env }
+      env: { PATH: process.env.PATH, MULTITENANT_ADMIN_CONFIG: file, NS_OWNERSHIP_PG: urls.ownership_operator, ...env }
     });
     const out = { stdout: '', stderr: '' };
     child.stdout.on('data', chunk => { out.stdout += chunk; });
@@ -132,17 +133,23 @@ optInSuite(process.env.NS_ADMIN_LIFECYCLE_DOCKER_TEST === '1',
       }
       for (const sql of plan.grants(l)) await admin.query(sql);
       const docs = plan.documents({ layout: l, urls: { evaluator: bootstrapURI }, tokens: ['x', 'y'], publicKeys: [], managementKeys: [], vaultAddress: 'https://vault:8200' });
-      for (const [i, tenant] of [A, B].entries()) {
-        await admin.query('INSERT INTO ' + t('control', 'tenant_lifecycle_windows') + "(tenant_id,lock_key,phase,generation) VALUES($1,$2,'active',1)", [tenant, docs.locks[i].key]);
-      }
+      // Registry mode for the admin role: both tenants through the shipping
+      // provisioning (registry row, hosts, keys, window by the lock-key rule,
+      // anonymous denial, owner policy). The provisioning identity and its Vault
+      // are gone before any census.
+      const lab = await require('./fixtures/provisioned-tenants').create({ admin, adminURI: bootstrapURI, owner: l.owner,
+        namespaces: Object.fromEntries(['authorization', 'secrets', 'legacy', 'access', 'clock', 'control'].map(kind => [kind, ns[kind]])) });
+      for (const [i, tenant] of [A, B].entries()) await lab.provision({ id: tenant, hosts: [(i ? 'two' : 'one') + '.example.test'] });
+      for (const sql of lab.registryGrants({ readers: [l.roles.ownership_operator] })) await admin.query(sql);
+      registryNamespace = lab.namespaces.registry;
+      await lab.release();
       await admin.query('INSERT INTO ' + t('control', 'tenant_lifecycle_restore_authority') + '(tenant_id,role_oid,active) VALUES($1,$2::regrole::oid,true)', [A, l.roles.operator]);
       for (const tenant of [A, B]) {
-        await admin.query('INSERT INTO ' + t('authorization', 'tenant_authorization_config') + " (tenant_id, anonymous_roles) VALUES ($1, ARRAY['denied'])", [tenant]);
-        await admin.query('INSERT INTO ' + t('authorization', 'tenant_owner_policy') + ' (tenant_id, catalogue_digest, ceiling) VALUES ($1,$2,$3)', [tenant, catalogueDigest(['*']), ['api:*:read']]);
+        await admin.query('UPDATE ' + t('authorization', 'tenant_owner_policy') + ' SET catalogue_digest=$2, ceiling=$3 WHERE tenant_id=$1', [tenant, catalogueDigest(['*']), ['api:*:read']]);
         await admin.query('INSERT INTO ' + t('authorization', 'tenant_authorization_subjects') + " (tenant_id, subject_id) VALUES ($1,'s_owner1'),($1,'s_owner2')", [tenant]);
         await admin.query('INSERT INTO ' + t('authorization', 'tenant_owner_actors') + " (tenant_id,principal,consumer,active,can_update,delegable) VALUES ($1,'s_owner1',$2,true,true,ARRAY['api:*:read'])", [tenant, CONSUMER]);
       }
-      this.locks = docs.locks; this.remote = docs.remote;
+      this.locks = [A, B].map(tenant => ({ tenant, key: require('../lib/tenant-registry/rules').lockKey(tenant) })); this.remote = docs.remote;
     });
     // One real backend per participant role, as that role's database identity.
     const datastoreRow = {};

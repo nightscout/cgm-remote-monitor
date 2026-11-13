@@ -75,6 +75,14 @@ async function create ({ admin, adminURI, owner, namespaces = {}, checkpoints = 
   const q = (sql, values) => admin.query(sql, values);
   const created = [], all = { ...namespaces };
   let vault, provisioning, role;
+  // End provisioning but keep the catalogues and what was provisioned: closes the
+  // provisioning pool, removes the provisioning identity and this fixture's Vault.
+  // For suites that take a census of database identities afterwards.
+  async function release () {
+    if (provisioning) { await provisioning.close().catch(() => {}); provisioning = null; }
+    if (vault) { vault.close(); vault = null; }
+    if (role) { await q(`DROP OWNED BY "${role}"`); await q(`DROP ROLE "${role}"`); role = null; }
+  }
   async function close () {
     if (provisioning) await provisioning.close().catch(() => {});
     if (vault) vault.close();
@@ -130,7 +138,7 @@ async function create ({ admin, adminURI, owner, namespaces = {}, checkpoints = 
       },
       // The registry's own grant statements for the roles under test.
       registryGrants: roles => registry.grants({ namespace: all.registry, ...roles }),
-      close
+      release, close
     };
   } catch (error) { await close(); throw error; }
 }
