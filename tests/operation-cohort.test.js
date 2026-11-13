@@ -222,13 +222,15 @@ describe('Actual serving and CLI selection composition (source protocol)', funct
   it('collects every selected store, boots API before realtime and drains contexts before releasing control', async function () {
     const events=[], captured=[];
     const cohort = {async boot (role) { events.push('boot:'+role); return {quiesce:async () => events.push('quiesce:'+role),close:async () => events.push('close:'+role)}; },
-      complete:() => events.push('complete'),close:async () => events.push('control-close')};
+      complete:() => events.push('complete'),close:async () => events.push('control-close'),
+      // Decision datastore-loss-recover-in-place: serve starts one recovery supervisor per cohort process.
+      window:{probe:async () => {},recover:async () => ({restarted:false,sessionsReplaced:0})},contexts:() => [],datastoreUnavailable () {},datastoreRecovered () {}};
     const cohortModule = require('../lib/server/serve/operation-cohort');
     const serve=load('../lib/server/serve/index.js',{
       './listeners':{resolve:() => [],close:async () => {}},
       // serve.internal composition is covered by tests/serve-internal-listener.test.js.
       './internal-listener':{plan:() => [],open:async () => null},
-      pg:{Pool:class {async end () { events.push('pool-end'); }}},
+      pg:{Pool:class {on (event) { events.push('pool-listens:'+event); } async end () { events.push('pool-end'); }}},
       '../../tenant-lifecycle/operation-window':{create:() => ({})},
       './operation-cohort':{protectedNamespaces:cohortModule.protectedNamespaces,create:async input => { captured.push(input); return cohort; }},
       ...Object.fromEntries(['preview-api','evaluator-preview','preview-realtime','owner-preview'].map(name => ['./'+name,{}]))
@@ -240,6 +242,8 @@ describe('Actual serving and CLI selection composition (source protocol)', funct
       preview:cfg('api'),ownerPreview:cfg('owner'),evaluatorPreview:evaluator,realtimePreview:cfg('rt_checkpoint')
     });
     assert.ok(events.indexOf('boot:api')<events.indexOf('boot:realtime'));
+    assert.ok(events.includes('pool-listens:error'),'an idle operation-pool backend loss has a listener');
+    assert.equal(running.datastoreRecovery.state().state,'serving');
     assert.deepEqual(captured[0].namespaces.sort(),['api','owner','eval_checkpoint','rt_checkpoint','outbox','suppression'].sort());
     await running.stop();
     assert.ok(events.filter(x => x.startsWith('close:')).every(x => events.indexOf(x)<events.indexOf('control-close')));
