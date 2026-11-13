@@ -214,12 +214,12 @@ describe('whole deployment source admission and filesystem durability', function
     const admission = admit({ namespaces: namespaces() });
     assert.deepEqual(admission.census.selected.map(entry => entry.kind), KINDS);
     assert.equal(admission.census.tables, 54);
-    assert.equal(admission.census.candidates.length, 28);
+    assert.equal(admission.census.candidates.length, 29);
     assert.equal(admission.census.candidates.filter(entry => entry.disposition === 'reviewed alternative').length, 3);
-    // The change reader, pool membership, change stamps and tenant registry are deployment-operational:
+    // The change reader, pools, stamps, registry and retained ensure audit are deployment-operational:
     // censused, digest-pinned and never part of a tenant artifact.
     assert.deepEqual(admission.census.candidates.filter(entry => entry.disposition === 'operational, no tenant data').map(entry => entry.file),
-      ['lib/change-feed/postgres-candidate.json', 'lib/change-stamps/postgres-candidate.json', 'lib/pool-membership/postgres-candidate.json', 'lib/tenant-registry/postgres-candidate.json']);
+      ['lib/change-feed/postgres-candidate.json', 'lib/change-stamps/postgres-candidate.json', 'lib/pool-membership/postgres-candidate.json', 'lib/tenant-registry/ensure-candidate.json', 'lib/tenant-registry/postgres-candidate.json']);
     assert.ok(!admission.catalogues.some(entry => entry.candidatePath === 'lib/pool-membership/postgres-candidate.json'));
     assert.ok(!admission.lifecycle.CATALOGUE.some(entry => entry.tables.includes('pool_membership')));
     assert.ok(admission.lifecycle.CATALOGUE.some(entry => entry.tables.includes('tenant_owner_configuration_authority')));
@@ -271,6 +271,31 @@ describe('whole deployment source admission and filesystem durability', function
     assert.ok(plan.lifecycle.CATALOGUE.some(entry => entry.kind === 'synthetic'));
   });
 
+  it('pins ensure audit as operational evidence; unknown or changed ledger refuses instead of entering clinical artifacts', async function () {
+    const scratch = fs.mkdtempSync(path.join(os.tmpdir(),'ensure-census-'));
+    try {
+      for (const entry of operations.discoverCatalogues()) {
+        fs.mkdirSync(path.dirname(path.join(scratch,entry.file)),{recursive:true});
+        fs.copyFileSync(path.join(ROOT,entry.file),path.join(scratch,entry.file));
+      }
+      const file='lib/tenant-registry/ensure-candidate.json',before=fs.readFileSync(path.join(scratch,file),'utf8');
+      const plan=admit({root:scratch,namespaces:namespaces()});
+      assert(!plan.catalogues.some(c=>c.candidatePath===file));
+      assert(!plan.lifecycle.CATALOGUE.some(c=>c.tables.includes('tenant_ensure_events')));
+      const changed=JSON.parse(before);changed.migrations[0].up.push('COMMENT ON TABLE tenant_ensure_events IS \'synthetic changed proof\'');
+      changed.migrations[0].checksum=checksum(changed.migrations[0].up);
+      fs.writeFileSync(path.join(scratch,file),JSON.stringify(changed));
+      assert.throws(()=>admit({root:scratch,namespaces:namespaces()}),{code:'OPERATIONS_CENSUS_OPERATIONAL_CHANGED',detail:file});
+      fs.writeFileSync(path.join(scratch,file),before);
+      const Module=require('node:module'),filename=path.join(ROOT,'lib/tenant-operations/catalogues.js'),loaded=new Module(filename,module);
+      loaded.filename=filename;loaded.paths=Module._nodeModulePaths(path.dirname(filename));
+      const source=fs.readFileSync(filename,'utf8'),mutant=source.replace(/^ {2}'lib\/tenant-registry\/ensure-candidate.json': '[a-f0-9]{64}',\n/m,'');
+      assert.notEqual(source,mutant);loaded._compile(mutant,filename);
+      assert.throws(()=>loaded.exports.deploymentAdmission({root:scratch,namespaces:namespaces(),extensions:defaultExtensions()}),{code:'OPERATIONS_CATALOGUE_UNADMITTED',detail:file});
+      assert(admit({root:scratch,namespaces:namespaces()}).census.candidates.some(c=>c.file===file));
+    } finally {fs.rmSync(scratch,{recursive:true,force:true});}
+  });
+
   it('enumerates both actual checkpoint instances with independent tenants, consumers and precise grants', function () {
     const { checkpointInputs, populatedInstanceRows } = require('./fixtures/tenant-deployment-checkpoints');
     const input = { namespaces: { ...namespaces(), evaluator_checkpoint: 'deploy_eval_checkpoint' },
@@ -281,7 +306,7 @@ describe('whole deployment source admission and filesystem durability', function
     const admission = admit({ namespaces: input.namespaces, instances: checkpoints.instances });
     assert.equal(admission.census.selected.length, 22);
     assert.equal(admission.census.tables, 55);
-    assert.equal(admission.census.candidates.length, 28);
+    assert.equal(admission.census.candidates.length, 29);
     assert.deepEqual(admission.census.selected.filter(entry => entry.kind.includes('checkpoint')).map(entry => [entry.kind, entry.namespace, entry.instanceOf]),
       [['checkpoint', input.realtime.namespace, null], ['evaluator_checkpoint', input.evaluator.namespace, 'checkpoint']]);
     assert.ok(admission.lifecycle.CATALOGUE.some(entry => entry.kind === 'evaluator_checkpoint'));

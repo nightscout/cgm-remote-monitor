@@ -32,8 +32,30 @@ const observer = require('./fixtures/multitenant-plan-observer');
 const layout = plan.layout('nstp');
 // `default` is the smallest registry-mode plan; `full` sets every optional field and a fixed roster,
 // with Vault credentials from the environment; `full-token-files` is `full` with token files.
-const VARIANTS = ['default', 'full', 'full-token-files'];
-const documentSet = (variant = 'default') => plan.documentSet(plan.documents({ layout, urls: plan.syntheticUrls(layout), variant }));
+const VARIANTS = ['default', 'full', 'full-token-files', 'ensure', 'ensure-token-files'];
+const documentSet = (variant = 'default') => {
+  const selected = variant === 'ensure' ? 'full' : variant === 'ensure-token-files' ? 'full-token-files' : variant;
+  const set = plan.documentSet(plan.documents({ layout, urls: plan.syntheticUrls(layout), variant: selected }));
+  if (variant.startsWith('ensure')) {
+    // Carry the optional unselected ensure grammar through its ACTUAL loader.
+    // These synthetic identities have no native grant/host acceptance claim.
+    const entry = set.processes.find(p => p.roles.includes('admin'));
+    const file = entry.environment.MULTITENANT_ADMIN_CONFIG;
+    const config = entry.files[file];
+    for (const key of ['ownership','pools','connectorSources','managementSessions']) delete config[key];
+    config.ensure = { ...JSON.parse(JSON.stringify(config.provisioning)), ledgerNamespace: 'nstp_ensure_ledger', connectionEnv: 'NS_ENSURE_PG' };
+    const dependency = require('../lib/tenant-registry/ensure-dependencies');
+    const aliases = {control:'lifecycle',settings:'tenant_settings',operatorPolicy:'operator_policy'};
+    config.ensure.dependencyNamespaces = Object.fromEntries(dependency.kinds.map(kind=>[kind,[{namespace:'nstp_dep_'+kind,catalogue:'canonical'}]]));
+    for (const [key,namespace] of Object.entries(config.ensure.namespaces)) config.ensure.dependencyNamespaces[aliases[key] || key] = [{namespace,catalogue:'canonical'}];
+    config.ensure.dependencyNamespaces.ensure_ledger = [{namespace:'nstp_ensure_ledger',catalogue:'canonical'}];
+    config.ensure.dependencyNamespaces.checkpoint = config.ensure.checkpoints.map(row=>({namespace:row.namespace,catalogue:'canonical'}));
+    entry.environment.NS_ENSURE_PG = 'postgres://nstp_ensure:synthetic@127.0.0.1/nightscout_synthetic';
+    if (config.ensure.vault.tokenFile) config.ensure.vault.tokenFile = '/run/vault/ensure-token';
+    else { config.ensure.vault.tokenEnv = 'NS_ENSURE_VAULT'; entry.environment.NS_ENSURE_VAULT = 'synthetic'; }
+  }
+  return set;
+};
 const clone = value => JSON.parse(JSON.stringify(value));
 // Static-mode fields: a loader asks about each to refuse it beside `registry`.
 // A sample value proves the refusal.
@@ -87,7 +109,7 @@ describe('deployment plan contract', function () {
 
   it('accepts the test plan: every document matches its schema and every process passes its loaders', function () {
     const roster = ['realtime', 'evaluator', 'tenant-admin', 'api-1', 'api-2', 'feed-reader', 'admin', 'vcpool'];
-    const expected = { default: ['api', 'realtime', 'evaluator', 'tenant-admin', 'feed-reader', 'admin', 'vcpool'], full: roster, 'full-token-files': roster };
+    const expected = { default: ['api', 'realtime', 'evaluator', 'tenant-admin', 'feed-reader', 'admin', 'vcpool'], full: roster, 'full-token-files': roster, ensure:roster, 'ensure-token-files':roster };
     for (const variant of VARIANTS) {
       const report = contract.check(documentSet(variant));
       assert.equal(report.ok, true, variant + ': ' + JSON.stringify(report.processes.flatMap(row => row.findings)));
@@ -167,9 +189,17 @@ describe('deployment plan contract', function () {
       it('refuses each static-mode field in registry mode', function () {
         for (const [pointer, fields] of Object.entries(REFUSED_IN_REGISTRY_MODE[row.name])) {
           const object = described.find(candidate => candidate.pointer === pointer);
-          assert(object, pointer);
+          const dedicated = row.name === 'admin' && row.variant.startsWith('ensure') && pointer === '/ownership';
+          assert(object || dedicated, pointer);
           for (const [field, sample] of Object.entries(fields)) {
-            const result = verdict(row, changed => { reach(changed, object.steps)[field] = clone(sample); });
+            const result = verdict(row, changed => {
+              if (object) reach(changed, object.steps)[field] = clone(sample);
+              else {
+                const full = documentSet('full').processes.find(p=>p.roles.includes('admin'));
+                changed.ownership = clone(full.files[full.environment.MULTITENANT_ADMIN_CONFIG].ownership);
+                changed.ownership[field] = clone(sample);
+              }
+            });
             assert.equal(result.shape, true, pointer + '/' + field);
             assert.equal(result.loader, true, pointer + '/' + field + ': the loader accepted a static-mode field beside registry');
           }

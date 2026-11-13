@@ -87,6 +87,13 @@
         "ALTER TABLE tenant_subject_admin_audit DROP CONSTRAINT tenant_subject_admin_audit_operation_check",
         "ALTER TABLE tenant_subject_admin_audit ADD CONSTRAINT tenant_subject_admin_audit_operation_check CHECK (operation IN ('update','remove','create','create-role','issue','owner-add','owner-transfer','owner-recover','update-role','remove-role'))"
       ]
+    },
+    {
+      "name": "0008_subject_admin_audit_tenant",
+      "up": [
+        "CREATE INDEX tenant_subject_admin_audit_tenant ON tenant_subject_admin_audit (tenant_id)"
+      ],
+      "checksum": "67b75a59b6e68668c2a8abf2b640b53ea519f700220b66674830635968d81f9b"
     }
   ]
 }

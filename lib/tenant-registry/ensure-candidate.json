@@ -1,0 +1,17 @@
+{
+  "version": 1,
+  "status": "Operator ensure append-only audit. A separately prepared non-login catalogue owner and narrow role are required. No credential values.",
+  "migrations": [
+    {
+      "name": "0001_tenant_ensure_events",
+      "up": [
+        "CREATE TABLE tenant_ensure_events (event_number bigint GENERATED ALWAYS AS IDENTITY,tenant_id uuid NOT NULL, operation_id uuid NOT NULL, phase text NOT NULL CHECK (phase IN ('requested','result')), request_digest text NOT NULL CHECK (request_digest ~ '^[a-f0-9]{64}$'), principal text NOT NULL CHECK (principal ~ '^[A-Za-z0-9_-]{1,128}$'), consumer text NOT NULL CHECK (consumer ~ '^[A-Za-z0-9_-]{1,128}$'), registered boolean, result jsonb CHECK (result IS NULL OR octet_length(result::text)<=4096), observations jsonb CHECK (observations IS NULL OR octet_length(observations::text)<=4096), event_time timestamptz NOT NULL DEFAULT clock_timestamp(), PRIMARY KEY (tenant_id,operation_id,phase), CHECK ((phase='result')=(result IS NOT NULL)), CHECK ((phase='result')=(registered IS NOT NULL)), CHECK (observations IS NULL OR jsonb_typeof(observations)='array'))",
+        "ALTER TABLE tenant_ensure_events ENABLE ROW LEVEL SECURITY",
+        "ALTER TABLE tenant_ensure_events FORCE ROW LEVEL SECURITY",
+        "CREATE POLICY tenant_ensure_events_tenant ON tenant_ensure_events USING (tenant_id = nullif(current_setting('app.current_tenant_id', true), '')::uuid) WITH CHECK (tenant_id = nullif(current_setting('app.current_tenant_id', true), '')::uuid)",
+        "REVOKE ALL ON tenant_ensure_events FROM PUBLIC"
+      ],
+      "checksum": "f89ba942073cc04c99e567037f752a5289ec0f3f20414f32676536a5ffe1f1b4"
+    }
+  ]
+}
