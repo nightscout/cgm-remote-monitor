@@ -356,3 +356,22 @@ describe('Per-module lifetime on a composed listener', function () {
     await suspendedScenario(transport, 'uds');
   });
 });
+
+for (const kind of ['uds','http']) describe('Bounded realtime inspection over '+kind, function () {
+  it('uses existing role ownership and transport trust, and refuses wrong service/version/body before observation', async function () {
+    const e=await endpoint(kind),internal=require('../lib/server/serve/internal-listener');let opened,reads=0;
+    const placement={cached(){reads++;return {generation:1,digest:'a'.repeat(64),rule:'sha256-u32be-v1',shardCount:1,worker:'a',assignmentIncarnation:A,shards:[0]};}};
+    const binding={create:require('../lib/server/serve/realtime-inspection')({processIncarnation:B,placement,owner:()=>false,quiescing:()=>false})};
+    try {
+      const rows=internal.plan(['realtime'],{realtimePreview:{maxMessageBytes:4096,operationTimeoutMs:1000,placement:{}}});
+      assert.deepEqual(rows.map(row=>row.id),['alarm-delivery','realtime-inspection']);
+      opened=await internal.open({listen:e.options,shutdownTimeoutMs:1000},rows);
+      assert.throws(()=>opened.bind('evaluator',{'realtime-inspection':binding}),{code:'INTERNAL_API_CONTRACT_UNOWNED'});
+      opened.bind('realtime',{'alarm-delivery':{create:()=>({deliverAlarm:async()=>{throw Error('not used');}})},'realtime-inspection':binding});opened.assertBound();
+      for(const value of [await raw(e.options,'/realtime/inspect',{}, {service:'alarm-delivery'}),await raw(e.options,'/realtime/inspect',{}, {service:'realtime-inspection',version:'2'}),await raw(e.options,'/realtime/inspect',{tenant:A}, {service:'realtime-inspection'})])refused(value,'fixed private RT observation');
+      assert.equal(reads,0,'rejected requests never observe cached state');
+      const client=require('../lib/server/internal-api/clients').realtimeInspection(e.options),reply=await client.inspectRealtime({});
+      assert.equal(reply.processIncarnation,B);assert.equal(reply.placement.assignmentIncarnation,A);assert.equal(reply.ownerAvailable,false);assert.equal(reply.observation,'cached-not-lock-proof');assert.equal(reads,1);
+    }finally{await opened?.close();e.cleanup();}
+  });
+});

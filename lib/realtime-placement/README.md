@@ -40,8 +40,12 @@ are a bounded fixed roster (1..1,024). Adding a worker does not change logical
 assignment; only explicit `owners` changes move shards. This first capability
 refuses changing the hash rule or logical shard count in place.
 
-Each boot gets a new platform-generated UUID in `REALTIME_WORKER_INCARNATION`,
-with its declared `REALTIME_WORKER_ID`. IDs/UUIDs do not prove exclusivity. Runtime
+The prepared assignment has a UUID in `REALTIME_WORKER_INCARNATION`, with its
+declared `REALTIME_WORKER_ID`. A same-worker recovery restart retains this
+assignment token and map generation; its actual process/cohort incarnation,
+admission ticket/nonce and platform CID/start binding must be fresh. A map token
+is not process liveness or a retirement proof. Controlled changes still exclude
+every current process bound to the old assignment. IDs/UUIDs do not prove exclusivity. Runtime
 also holds one actual database owner resource per stable realtime consumer and
 worker; a separate bounded owner connection adds one connection per process.
 Keep the durable realtime `consumer` unchanged across boot/owner moves.
@@ -224,3 +228,26 @@ may each own a reader (up to three for their co-resident process). Direct caller
 of `load`/`loadRoutes` must close their reader; these methods do not install process
 signal handlers or one listener per tenant. Atomic publication does not replace
 current registry, activity, settings or ownership checks.
+
+## Bounded recovery source interface (prospective)
+
+`publishRecovery({...publishOptions, consumer})` additionally requires the actual
+old owner advisory transaction lock on the SAME publication client, after exact
+platform exclusion and before map rename. It holds that lock through target warm,
+route publication and COMMIT. The stable consumer and shared owner-key derivation
+are mandatory; health, a census, timeout or lease age cannot substitute. A held
+lock refuses before publication. Ordinary `publish` retains its controlled-move
+contract. This primitive does not schedule recovery, debit a ticket, refund crash
+credits, or authorize an arbitrary live-owner takeover. Deployment's finite shared
+control allocator, restart/grace/roster controller and native proof remain separate
+integration requirements.
+
+Selected sharded realtime also owns the named `realtime-inspection` v1 operation
+`POST /realtime/inspect` on its existing private listener. It returns bounded cached
+assignment/shard metadata, a fresh process observation identity and local
+owner/quiescing state; no tenant roster is scanned and no PG/file read is made by
+the observer. The result explicitly says `cached-not-lock-proof`; it is not a
+readiness certificate, current owner lock proof or credit retirement. UDS filesystem
+trust and explicit HTTP network trust remain unchanged. Service/version headers
+route and validate the contract; they do not authenticate HTTP peers. Unselected
+realtime adds no observation route.

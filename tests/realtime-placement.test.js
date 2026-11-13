@@ -82,3 +82,52 @@ describe('sharded alarm envelope bound', function () {
     assert.doesNotThrow(() => metadata(value, {}, { placement: true }));
   });
 });
+
+describe('bounded recovery source primitives', function () {
+  it('uses exactly the existing owner key and keeps cached health independent of filesystem and tenant work', async function () {
+    const owner = require('../lib/realtime-placement/owner'); let key;
+    await owner.acquire({worker: 'a', consumer: 'realtime-stable', connection: {holdAdvisoryLock: async value => {key=value;}}});
+    assert.equal(key, owner.key({worker:'a',consumer:'realtime-stable'}));
+    assert.notEqual(key, owner.key({worker:'b',consumer:'realtime-stable'}));
+    assert.notEqual(key, owner.key({worker:'a',consumer:'realtime-other'}));
+    let reads=0, current=parse(config());
+    const reader=placement.create({read:()=>{reads++;return current;},self:{worker:'a',incarnation:I}});
+    assert.equal(reader.cached(),null);reader.current();const before=reads;
+    assert.deepEqual(reader.cached().shards,[0,1,2,3,4,5,6,7]);
+    current=parse(move(config(),'b'));
+    assert.equal(reader.cached().assignmentIncarnation,I,'cached metadata does not invent a current map read');
+    assert.equal(reads,before);reader.current();assert.deepEqual(reader.cached().shards,[]);
+    reader.close();
+  });
+  it('private cached health preserves process versus assignment identity, unknown fields and transport trust', async function () {
+    const contracts=require('../lib/server/internal-api/contracts'),{validate}=require('../lib/server/internal-api/schema');
+    const module=require('../lib/server/serve/realtime-inspection');let reads=0,quiescing=false;
+    const reader=placement.create({read:()=>{reads++;return parse(config());},self:{worker:'a',incarnation:I}});reader.current();
+    const token={},create=module({processIncarnation:B,placement:reader,owner:()=>!quiescing,quiescing:()=>quiescing}),api=create(token);
+    await assert.rejects(api.inspectRealtime({transport:{}}),{code:'REALTIME_INSPECTION_REFUSED'});
+    const before=reads,value=await api.inspectRealtime({transport:token});validate(contracts.realtimeInspection.operations.inspectRealtime.response,value);
+    assert.equal(value.processIncarnation,B);assert.equal(value.placement.assignmentIncarnation,I);assert.equal(value.observation,'cached-not-lock-proof');assert.equal(reads,before);
+    quiescing=true;assert.equal((await api.inspectRealtime({transport:token})).ownerAvailable,false);
+    assert.throws(()=>validate(contracts.realtimeInspection.operations.inspectRealtime.request,{tenant:A}),{code:'INTERNAL_API_SCHEMA_REFUSED'});
+    assert.throws(()=>validate(contracts.realtimeInspection.operations.inspectRealtime.response,{...value,secret:'forbidden'}),{code:'INTERNAL_API_SCHEMA_REFUSED'});
+  });
+  it('recovery publication requires exact old process exclusion AND the old owner lock on the publication client', async function () {
+    const fs=require('node:fs/promises'),os=require('node:os'),path=require('node:path');
+    const {publishRecovery}=require('../lib/realtime-placement/publish'),owner=require('../lib/realtime-placement/owner');
+    const {internal}=require('./fixtures/realtime-placement-map'),protocol=require('./fixtures/operation-window-admission-protocol');
+    const directory=await fs.mkdtemp(path.join(os.tmpdir(),'rt-recovery-publication-')),file=path.join(directory,'map.json');
+    try {
+      for (const mode of ['alive','locked','ready']) {
+        const original=config(),candidate=move(original,'b'),trace=[],metadata=protocol();let locks=0;
+        await fs.writeFile(file,JSON.stringify(original));
+        const client={async query(sql,values){trace.push(sql);if(sql==='BEGIN READ ONLY'||sql==='COMMIT'||sql==='ROLLBACK')return {rows:[]};
+          if(sql==='SELECT pg_try_advisory_xact_lock($1::bigint) AS held'){locks++;if(locks===2){assert.equal(values[0],owner.key({worker:'a',consumer:'realtime-stable'}));return {rows:[{held:mode!=='locked'}]};}return {rows:[{held:true}]};}
+          const response=metadata(sql,values);if(response)return response;throw Error('unexpected SQL '+sql);}};
+        const options={file,candidate,internal,client,consumer:'realtime-stable',controlNamespace:'synthetic_window',registry:{revision:async()=> '1',page:async()=>({revision:'1',tenants:[]})},confirmStopped:async()=>mode!=='alive',
+          afterAssignment:async()=>{assert.equal(locks,2,'actual old owner lock acquired before warming/routes');assert(!trace.includes('COMMIT'));assert.deepEqual(JSON.parse(await fs.readFile(file,'utf8')),candidate);trace.push('routes-ready');}};
+        if(mode==='ready'){await publishRecovery(options);assert(trace.indexOf('routes-ready')<trace.indexOf('COMMIT'));}
+        else {await assert.rejects(publishRecovery(options),{code:mode==='alive'?'REALTIME_PLACEMENT_OLD_OWNER_UNCONFIRMED':'REALTIME_RECOVERY_OWNER_LOCK_HELD'});assert.deepEqual(JSON.parse(await fs.readFile(file,'utf8')),original);assert(!trace.includes('routes-ready'));}
+      }
+    }finally{await fs.rm(directory,{recursive:true});}
+  });
+});

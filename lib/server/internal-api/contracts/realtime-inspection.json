@@ -1,0 +1,105 @@
+{
+  "id": "realtime-inspection",
+  "version": 1,
+  "operations": {
+    "inspectRealtime": {
+      "path": "/realtime/inspect",
+      "request": {
+        "type": "object",
+        "properties": {},
+        "required": [],
+        "additionalProperties": false
+      },
+      "response": {
+        "type": "object",
+        "properties": {
+          "kind": {
+            "const": "realtime"
+          },
+          "observation": {
+            "const": "cached-not-lock-proof"
+          },
+          "processIncarnation": {
+            "type": "string",
+            "pattern": "^[a-f0-9]{8}(?:-[a-f0-9]{4}){3}-[a-f0-9]{12}$"
+          },
+          "phase": {
+            "enum": [
+              "booted",
+              "quiescing"
+            ]
+          },
+          "placement": {
+            "anyOf": [
+              {
+                "type": "null"
+              },
+              {
+                "type": "object",
+                "properties": {
+                  "generation": {
+                    "type": "integer",
+                    "minimum": 1,
+                    "maximum": 9007199254740991
+                  },
+                  "digest": {
+                    "type": "string",
+                    "pattern": "^[a-f0-9]{64}$"
+                  },
+                  "rule": {
+                    "const": "sha256-u32be-v1"
+                  },
+                  "shardCount": {
+                    "type": "integer",
+                    "minimum": 1,
+                    "maximum": 65536
+                  },
+                  "worker": {
+                    "type": "string",
+                    "pattern": "^[a-z][a-z0-9_-]{0,62}$"
+                  },
+                  "assignmentIncarnation": {
+                    "type": "string",
+                    "pattern": "^[a-f0-9]{8}(?:-[a-f0-9]{4}){3}-[a-f0-9]{12}$"
+                  },
+                  "shards": {
+                    "type": "array",
+                    "maxItems": 65536,
+                    "uniqueItems": true,
+                    "items": {
+                      "type": "integer",
+                      "minimum": 0,
+                      "maximum": 65535
+                    }
+                  }
+                },
+                "required": [
+                  "generation",
+                  "digest",
+                  "rule",
+                  "shardCount",
+                  "worker",
+                  "assignmentIncarnation",
+                  "shards"
+                ],
+                "additionalProperties": false
+              }
+            ]
+          },
+          "ownerAvailable": {
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "kind",
+          "observation",
+          "processIncarnation",
+          "phase",
+          "placement",
+          "ownerAvailable"
+        ],
+        "additionalProperties": false
+      }
+    }
+  }
+}
