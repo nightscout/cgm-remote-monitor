@@ -26,7 +26,7 @@ function admission (transform = source => source) {
   loaded.filename = filename; loaded.paths = Module._nodeModulePaths(path.dirname(filename));
   loaded._compile(transform(fs.readFileSync(filename, 'utf8')), filename); return loaded.exports;
 }
-function fixture ({ onState, onQuiescent, poolMax = 2, requestedMaximum = 2, clientKind = 'client', transform, driver = false, directConcurrency = 2, planVersion = 1, workerDatabase = { database: 'synthetic', databaseOid: '16384' } } = {}) {
+function fixture ({ onState, onQuiescent, poolMax = 2, requestedMaximum = 2, clientKind = 'client', transform, driver = false, directConcurrency = 2, planVersion = 1, workerDatabase = { database: 'synthetic', databaseOid: '16384' }, alterPlan, serialized = false } = {}) {
   const api = admission(transform), instances = [], states = [], acknowledgements = [];
   class Client extends EventEmitter {
     constructor (options) { super(); this.connection = new EventEmitter();this.connection.stream=new RecordingStream();this.connection.end=()=>this.connection.stream.end();this.connectionParameters = { application_name: options.application_name,ssl:false };this._queryable=true;this._connectionError=false;this._queryQueue=[];this._sentQueryQueue=[];this._getActiveQuery=()=>null;this.options = options; instances.push(this); }
@@ -46,7 +46,8 @@ function fixture ({ onState, onQuiescent, poolMax = 2, requestedMaximum = 2, cli
       'settings-readiness': { kind: clientKind, directGroup: 'settings', metadata: { source: 'synthetic:2' } },
       'migration-direct': { kind: clientKind, directGroup: 'settings', metadata: { source: 'synthetic:3' } } }, directGroups: { settings: directConcurrency }, cold:{activeLimit:1,pendingLimit:2,minDelayMs:0,maxDelayMs:0} };
   plan.version = planVersion; if (planVersion === 2) plan.workerDatabase = workerDatabase;
-  api.install(plan, { onState: value => { states.push(value); if (onState) onState(value); }, onQuiescent: async value => { if (onQuiescent) await onQuiescent(value); acknowledgements.push(value); } });
+  alterPlan?.(plan);
+  api.install(serialized ? JSON.parse(JSON.stringify(plan)) : plan, { onState: value => { states.push(value); if (onState) onState(value); }, onQuiescent: async value => { if (onQuiescent) await onQuiescent(value); acknowledgements.push(value); } });
   const options = () => api.poolOptions('synthetic-pool', { host: 'synthetic-pg', max: requestedMaximum, application_name: 'synthetic-pool', idleTimeoutMillis: 0 });
   return { api, Client, plan, instances, states, acknowledgements, options };
 }
@@ -423,4 +424,34 @@ describe('physical plan 2 fixed backend database verification', function () {
     let events=0;g.client.on('connect',()=>events++);await assert.rejects(g.client.connect(),{code:'CONNECTION_ADMISSION_HANDSHAKE_REFUSED'});assert.equal(events,0);assert.equal(g.api.health().clients[0].uncertain,true);
   });
 
+});
+
+
+describe('plan2 primitive authority boundary',function(){
+  const arrays=[['processInstanceId'],['incarnation'],['nonce'],['planSha256'],['pgResourceId'],['source','coreCommit'],['source','deployCommit']];
+  it('refuses serialized equal-content arrays and nonstring identities before state publication or actual pg construction',function(){
+    const cases=arrays.map(keys=>({keys,change:value=>[value]}));
+    cases.push({keys:['processInstanceId'],change:()=>true},{keys:['pgResourceId'],change:()=>true},{keys:['pgResourceId'],change:()=>123.5});
+    for(const {keys,change} of cases)for(const kind of ['client','pool']){
+      let states=0,constructors=0,refusal=null;
+      try {
+        const f=fixture({driver:true,planVersion:2,serialized:true,onState:()=>{states++;},alterPlan:plan=>{const parent=keys.slice(0,-1).reduce((value,key)=>value[key],plan),key=keys.at(-1);parent[key]=change(parent[key]);}});
+        if(kind==='client'){const Client=f.api.wrapClient(f.Client,'settings-readiness');new Client({host:'synthetic-pg',ssl:false});constructors=f.instances.length;}
+        else {class Pool extends PgPool {constructor(options){super(options);constructors++;}}const Selected=f.api.wrapPool(Pool,f.Client,'synthetic-pool');new Selected(f.options());}
+      }catch(error){refusal=error.code;}
+      assert.deepEqual({refusal,states,constructors},{refusal:'CONNECTION_ADMISSION_PLAN_INVALID',states:0,constructors:0},'primitive boundary '+keys.join('.')+' '+kind);
+    }
+  });
+  it('rejects malformed consumed containers and extra source keys but permits opaque fixed control metadata',function(){
+    for(const alterPlan of [p=>{p.source=[p.source];},p=>{p.source.extra='not-admitted';},p=>{p.workerDatabase=[p.workerDatabase];},p=>{p.workerDatabase.extra='not-admitted';},p=>{p.resourceAliases=[['synthetic-pg:5432']];},p=>{p.capabilities=[];},p=>{p.directGroups=[];}]) {
+      let states=0;assert.throws(()=>fixture({planVersion:2,serialized:true,onState:()=>{states++;},alterPlan}),{code:'CONNECTION_ADMISSION_PLAN_INVALID'});assert.equal(states,0);
+    }
+    const f=fixture({planVersion:2,serialized:true,alterPlan:p=>{p.control={fixed:'opaque-controller-metadata'};}});
+    assert.equal(f.api.health().processInstanceId,'synthetic-api');
+  });
+  it('refuses nonprimitive plan2 tag incarnations before any coercion while valid legacy tags stay identical',function(){
+    const api=admission(),incarnation='a'.repeat(32),legacy=api.applicationTag({version:1,incarnation},'settings-readiness');
+    assert.equal(api.applicationTag({version:2,incarnation},'settings-readiness'),legacy);
+    for(const bad of [[incarnation],true,1.5,null,{}])assert.throws(()=>api.applicationTag(JSON.parse(JSON.stringify({version:2,incarnation:bad})),'settings-readiness'),{code:'CONNECTION_ADMISSION_PLAN_INVALID'});
+  });
 });
