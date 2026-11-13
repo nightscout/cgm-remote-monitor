@@ -14,6 +14,26 @@ function denyEffects(fn){const net=require('node:net'),http=require('node:http')
  for(const [obj,key]of [[net.Socket.prototype,'connect'],[net.Server.prototype,'listen'],[http,'request'],[https,'request'],[pg.Client.prototype,'connect'],[pg.Pool.prototype,'connect'],[child,'spawn'],[child,'spawnSync'],[child,'exec'],[child,'execSync'],[fs.promises,'readFile']])replace(obj,key);
  try{fn();assert.equal(denied,0,'NO_NETWORK_SQL_PROCESS_OR_CREDENTIAL_READ');}finally{restore.reverse().forEach(f=>f());}}
 describe('authoritative plan contract custody',function(){
+ it('registry test plan checks without loading any shipping deployment helper',function(){
+  const filename=require.resolve('./fixtures/multitenant-plan');
+  const shipping=path.resolve(__dirname,'../deploy/multitenant')+path.sep;
+  const load=Module._load;
+  Module._load=function(request,parent,...args){
+   const resolved=Module._resolveFilename(request,parent);
+   if(typeof resolved==='string'&&resolved.startsWith(shipping))throw Error('SHIPPING_DEPLOYMENT_HELPER_DENIED');
+   return Reflect.apply(load,this,[request,parent,...args]);
+  };
+  try{
+   const isolated=new Module(filename,module);isolated.filename=filename;isolated.paths=Module._nodeModulePaths(path.dirname(filename));
+   isolated._compile(fs.readFileSync(filename,'utf8'),filename);
+   const plan=isolated.exports,l=plan.layout('registryproof');
+   assert(plan.grants(l).length>0);assert(plan.lifecycle(l).catalogues.length>0);
+   for(const variant of ['default','full','full-token-files']){
+    const value=plan.documentSet(plan.documents({layout:l,urls:plan.syntheticUrls(l),variant}));
+    assert.equal(contract.check(value).ok,true,variant);
+   }
+  }finally{Module._load=load;}
+ });
  it('actual map1/map2 full graphs accept with every temporary retained reader closed',function(){for(const version of [1,2]){const before=fdCount();denyEffects(()=>{for(let i=0;i<20;i++)assert.equal(contract.check(graph(version)).ok,true);});assert.equal(fdCount(),before);}});
  it('failure after earlier reader acquisition closes readers and refuses mismatched map2',function(){for(const phase of ['configure','preflight','placement']){const s=graph(),ev=s.processes.find(p=>p.roles.includes('evaluator'));if(phase==='configure')ev.files[ev.environment.MULTITENANT_EVALUATOR_CONFIG].consumer='bad';if(phase==='preflight')ev.files[ev.environment.MULTITENANT_OPERATION_CONFIG].participants.find(p=>p.id==='evaluator').namespaces=[];if(phase==='placement')ev.files['/run/ns-placement/backend.json'].version=1;const before=fdCount();for(let i=0;i<10;i++)assert.equal(contract.check(s).ok,false,phase);assert.equal(fdCount(),before);}});
  it('omitting authoritative checker close breaks actual descriptor custody, restored closes',function(){const reader=require('../lib/server/serve/config-file'),old=reader.readHandle,handles=[];reader.readHandle=(...args)=>{const h=old(...args);handles.push(h);return h;};try{const mutant=compile(s=>s.replace('command.closePlacements(loaded);','void loaded;'));const before=fdCount();assert.equal(mutant.check(graph()).ok,true);assert.throws(()=>assert.equal(fdCount(),before),/Expected values/);for(const h of handles)h.close();assert.equal(fdCount(),before);assert.equal(contract.check(graph()).ok,true);assert.equal(fdCount(),before);}finally{for(const h of handles)h.close();reader.readHandle=old;}});

@@ -21,8 +21,7 @@
 //                        and `full-token-files` is the same with token files
 //   documentSet(docs)    those documents as `nightscout plan check` takes them
 const { createHash } = require('node:crypto');
-const base = require('../../deploy/multitenant/config');
-const { A, B, subject, clinical, ordered, serviceRoles, quote, catalogues, layout, insertionGrants, grants, lifecycle } = base;
+const { A, B, subject, clinical, ordered, serviceRoles, quote, catalogues, layout, insertionGrants, grants, lifecycle } = require('./multitenant-registry-layout');
 
 const CONFIG_DIRECTORY = '/run/ns-config', SOCKET_DIRECTORY = '/run/ns-ipc';
 const CONFIG_ENV = { api: 'MULTITENANT_PREVIEW_CONFIG', realtime: 'MULTITENANT_REALTIME_CONFIG', evaluator: 'MULTITENANT_EVALUATOR_CONFIG',
