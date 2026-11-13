@@ -165,6 +165,8 @@ const INVENTORY = [
     note: 'two actual API CLI processes; response drain/current authority/census/uncertainty; non-API peers are synthetic lifecycle-only' },
   { file: 'tests/multitenant-preview-replicas.integration.test.js', flags: { NS_MULTITENANT_PREVIEW_REPLICAS_DOCKER_TEST: '1' }, shared: [], own: ['postgres', 'vault'], gate: PENDING,
     note: 'spawns the shipping CLI as independent processes on one host' },
+  { file: 'tests/role-vault-token-scope.integration.test.js', flags: { NS_ROLE_VAULT_TOKEN_SCOPE_DOCKER_TEST: '1' }, shared: [], own: ['postgres', 'vault'], gate: PENDING,
+    note: 'registry-mode api role Vault token: reaches its key purposes on its mount, refused for other purposes, operations, key management and another mount' },
   { file: 'tests/tenant-rest-derived.integration.test.js', flags: { NS_REST_DERIVED_HTTP_TEST: '1' }, shared: ['postgres', 'mongo'], own: [], gate: PENDING },
   { file: 'tests/tenant-rest-treatments.integration.test.js', flags: { NS_REST_TREATMENTS_HTTP_TEST: '1' }, shared: ['postgres', 'mongo'], own: [], gate: PENDING },
   { file: 'tests/tenant-rest-context.integration.test.js', flags: { NS_REST_CONTEXT_HTTP_TEST: '1' }, shared: ['postgres', 'mongo'], own: ['vault'], gate: PENDING },

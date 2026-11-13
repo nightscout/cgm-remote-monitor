@@ -109,6 +109,7 @@ tests as pending with `[pending opt-in: <requirement>]` in the title; one
 | `tests/operation-lifetime-discriminator.integration.test.js` | `NS_OPERATION_LIFETIME_DOCKER_TEST=1` | | PostgreSQL, Vault | bounded explicit lifetime sessions; actual held responses, authority, uncertainty, owner death and orphan refusal; no capacity claim |
 | `tests/api-fixed-roster-serving.integration.test.js` | `NS_API_ROSTER_SERVING_DOCKER_TEST=1` | | PostgreSQL, Vault | two actual API CLI processes; non-API peers synthetic lifecycle-only; authority, lifetime drain, census, uncertainty and replacement |
 | `tests/multitenant-preview-replicas.integration.test.js` | `NS_MULTITENANT_PREVIEW_REPLICAS_DOCKER_TEST=1` | | PostgreSQL, Vault | independent CLI processes on one host |
+| `tests/role-vault-token-scope.integration.test.js` | `NS_ROLE_VAULT_TOKEN_SCOPE_DOCKER_TEST=1` | | PostgreSQL, Vault | registry-mode api role Vault token: reaches its key purposes on its mount, refused for other purposes, operations, key management and another mount |
 | `tests/tenant-rest-derived.integration.test.js` | `NS_REST_DERIVED_HTTP_TEST=1` | PostgreSQL, MongoDB | | |
 | `tests/tenant-rest-treatments.integration.test.js` | `NS_REST_TREATMENTS_HTTP_TEST=1` | PostgreSQL, MongoDB | | |
 | `tests/tenant-rest-context.integration.test.js` | `NS_REST_CONTEXT_HTTP_TEST=1` | PostgreSQL, MongoDB | Vault | |
