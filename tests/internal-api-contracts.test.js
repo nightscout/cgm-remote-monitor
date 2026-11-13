@@ -24,7 +24,7 @@ describe('Internal service API contracts', function () {
     assert.deepEqual(Object.keys(contracts.connectorInspection.operations), ['inspectConnectors']);
     const paths = Object.values(contracts).flatMap(service => {
       // Connector metadata, alarm/cohort fencing and evaluator scheduling observations use v2.
-      assert.equal(service.version, service.id === 'lifecycle-participant' ? 4 : service.id === 'alarm-delivery' ? 3 : ['connector-inspection', 'evaluator-inspection', 'realtime-inspection'].includes(service.id) ? 2 : 1);
+      assert.equal(service.version, service.id === 'lifecycle-participant' ? 4 : ['alarm-delivery','realtime-inspection'].includes(service.id) ? 3 : ['connector-inspection', 'evaluator-inspection'].includes(service.id) ? 2 : 1);
       assert(Object.isFrozen(service.operations));
       return Object.values(service.operations).map(operation => {
         assert(Object.isFrozen(operation.request)); assert(Object.isFrozen(operation.response));
@@ -33,7 +33,7 @@ describe('Internal service API contracts', function () {
     });
     assert.deepEqual(paths, ['/authorize', '/mutate', '/alarm', '/cohort/status', '/cohort/invalidate', '/cohort/operations',
       '/ownership/list', '/ownership/add', '/ownership/transfer', '/ownership/recover', '/vcpool/inspect',
-        '/evaluator/inspect', '/pool/get', '/pool/members', '/realtime/inspect']);
+        '/evaluator/inspect', '/pool/get', '/pool/members', '/realtime/inspect', '/realtime/inspect-tenants']);
     assert.throws(() => { contracts.alarmDelivery.operations.getStatus = lifecycle.getStatus; }, TypeError);
   });
   it('accepts socket authority wire values and refuses unknown envelope, credential and permission fields', function () {
@@ -172,5 +172,17 @@ describe('assignment-key wire provenance', function () {
       validate(response,{...base,version:2,placement});validate(response,{...base,version:3,placement:{...placement,ownershipVersion:2}});
       for(const value of [{...base,version:3,placement},{...base,version:2,placement:{...placement,ownershipVersion:2}},{...base,version:1,placement},{...base,version:3,placement:{...placement,ownershipVersion:1}}])refused(()=>validate(response,value));
     }
+  });
+});
+
+
+describe('private realtime selected readiness schema',function(){
+  it('accepts actual bounded observation and refuses fabricated ready, extra fields and unknown selectors',async function(){
+    const token={},p={ownershipVersion:2,generation:1,digest:'a'.repeat(64),rule:'sha256-u32be-v1',shardCount:1,worker:'a',assignmentIncarnation:A,shards:[0]};
+    const ops=require('../lib/server/serve/realtime-inspection')({processIncarnation:request,placement:{cached:()=>p},owner:()=>true,quiescing:()=>false,startup:{isReady:()=>true},modelWarm:()=>true})(token),contract=contracts.realtimeInspection.operations.inspectRealtimeTenants;
+    const reply=await ops.inspectRealtimeTenants({transport:token},{tenants:[A]});validate(contract.response,reply);
+    for(const body of [{tenants:[A,A]},{tenants:[A],unknown:true},{tenants:['00000000-0000-0000-0000-000000000000']},{tenants:[[A]]}])refused(()=>validate(contract.request,body));
+    for(const change of [v=>{v.tenants[0].startupComplete=false;},v=>{v.tenants[0].modelAvailable=null;},v=>{v.tenants[0].owned=false;},v=>{v.ownerAvailable=false;},v=>{v.phase='quiescing';v.ownerAvailable=false;},v=>{v.tenants[0].extra=true;}]){const bad=structuredClone(reply);change(bad);refused(()=>validate(contract.response,bad));}
+    const unavailable=structuredClone(reply);unavailable.tenants[0].modelAvailable=null;unavailable.tenants[0].ready=false;validate(contract.response,unavailable);
   });
 });

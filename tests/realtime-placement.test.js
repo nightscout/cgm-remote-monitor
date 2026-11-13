@@ -149,10 +149,10 @@ describe('actual realtime boot observation wiring', function () {
         '../../storage/connection-admission':{coldAdmission:()=>null},'./evaluator-readiness':noop,
         '../../storage/postgres-connection':async()=>({end:noop,holdAdvisoryLock:async key=>{keys.push(key);return {available:true,check:noop,close:noop};}}),
         '../internal-api/clients':{socketAuthority:()=>({})},'../realtime/api-client':{create:()=>({})},
-        './tenant-startup':{notReadyRetry:()=>({}),create:()=>({warm:noop,close:noop})},
+        './tenant-startup':{notReadyRetry:()=>({}),create:()=>({warm:noop,close:noop,isReady:tenant=>tenant===A})},
         '../realtime/protocol':{create:()=>({close(){},stats:()=>({}),fanout(){}})},
         '../realtime/change-detector':{stampReader:()=>noop,create:()=>({poll:noop})},
-        '../realtime/runtime':async()=>({health(){throw Error('WHOLE_TENANT_HEALTH_SCAN');},close:noop})};
+        '../realtime/runtime':async()=>({health(){throw Error('WHOLE_TENANT_HEALTH_SCAN');},warm:tenant=>tenant===A,close:noop})};
       const sandbox={module:{exports:{}},process,console,setInterval:()=>({unref(){}}),clearInterval(){},require:name=>Object.hasOwn(overrides,name)?overrides[name]:local(name)};
       vm.runInNewContext(transform(source),sandbox,{filename});
       return sandbox.module.exports.boot({tenants:new Map(),operationTimeoutMs:100,recoveryIntervalMs:1000,placement:selected,consumer:'realtime-stable',api:{},admission:{},namespaces:{}});
@@ -161,6 +161,7 @@ describe('actual realtime boot observation wiring', function () {
     try {
       const token={},a=await one.internal['realtime-inspection'].create(token).inspectRealtime({transport:token}),b=await two.internal['realtime-inspection'].create(token).inspectRealtime({transport:token});
       assert.notEqual(a.processIncarnation,b.processIncarnation);assert.equal(a.placement.assignmentIncarnation,I);assert.equal(b.placement.assignmentIncarnation,I);assert.equal(a.ownerAvailable,true);
+      const selected=await one.internal['realtime-inspection'].create(token).inspectRealtimeTenants({transport:token},{tenants:[A,B]});assert.equal(selected.tenants[0].startupComplete,true);assert.equal(selected.tenants[0].modelAvailable,true);assert.equal(selected.tenants[0].ready,true);assert.equal(selected.tenants[1].ready,false);
       const version2=await boot(undefined,2);try{const observed=await version2.internal['realtime-inspection'].create(token).inspectRealtime({transport:token});assert.equal(observed.placement.ownershipVersion,2);assert.equal(keys.at(-1),require('../lib/realtime-placement/owner').key({worker:'a',consumer:'realtime-stable',ownershipVersion:2,assignmentIncarnation:I}));}finally{await version2.close();}
       await one.quiesce();assert.equal((await one.internal['realtime-inspection'].create(token).inspectRealtime({transport:token})).ownerAvailable,false);
       const needle="'realtime-inspection': Object.freeze({create: require('./realtime-inspection')";assert(source.includes(needle));
@@ -229,3 +230,48 @@ describe('assignment-key alarm handoff', function () {
     await assert.rejects(oldSink.deliverAlarm({transport:token},observed),{code:'REALTIME_ALARM_PLACEMENT_REFUSED'});assert.equal(effects,1);
   });
 });
+
+describe('bounded private realtime tenant readiness observations',function(){
+  it('uses actual O(1) startup cells and cached model/assignment; new, invalidated, removed, unowned and deferred never imply warm',async function(){
+    const {internal}=require('./fixtures/realtime-placement-map'),startupFactory=require('../lib/server/serve/tenant-startup'),inspection=require('../lib/server/serve/realtime-inspection');
+    const C='33333333-3333-4333-8333-333333333333',D='44444444-4444-4444-8444-444444444444';let reads=0,checks=0,initializations=0,closing=false,available=true;
+    const map={...config(),version:2};map.owners[placement.shard(B,map.shardCount)]='b';
+    const p=placement.create({read:()=>{reads++;return placement.parse(map,{internal,ownershipVersion:2});},self:{worker:'a',incarnation:I}});p.current();
+    const models=new Map(),startup=startupFactory.create([A,B,C],undefined,async t=>{initializations++;models.set(t,true);},{readiness:'all',dynamic:true,eligible:async t=>t!==C});
+    const fresh=startupFactory.create([A],undefined,async()=>{throw Error('OBSERVATION_MUST_NOT_WARM');},{readiness:'all'});
+    try{
+      await startup.warm();const token={},make=(s,id)=>inspection({processIncarnation:id,placement:p,owner:()=>available,quiescing:()=>closing,startup:{isReady(t){checks++;return s.isReady(t);},health(){throw Error('NO_FULL_STARTUP_SCAN');},tenants(){throw Error('NO_TENANT_ENUMERATION');}},modelWarm:t=>models.get(t)===true})(token),ops=make(startup,A),before={reads,initializations};
+      let out=await ops.inspectRealtimeTenants({transport:token},{tenants:[A,B,C,D]});assert.deepEqual(out.tenants.map(r=>r.tenant),[A,B,C,D]);assert.equal(out.tenants[0].ready,true);assert.equal(out.tenants[1].startupComplete,true);assert.equal(out.tenants[1].owned,false);assert.equal(out.tenants[1].ready,false);assert.equal(out.tenants[2].startupComplete,false);assert.equal(out.tenants[2].ready,false);assert.equal(out.tenants[3].startupComplete,false);assert.equal(checks,4);assert.deepEqual({reads,initializations},before);
+      models.set(A,false);out=await ops.inspectRealtimeTenants({transport:token},{tenants:[A]});assert.equal(out.tenants[0].startupComplete,true);assert.equal(out.tenants[0].modelAvailable,false);assert.equal(out.tenants[0].ready,false,'historical initialization alone is not current cached model availability');models.set(A,true);
+      startup.invalidateTenant(A,{warm:false});out=await ops.inspectRealtimeTenants({transport:token},{tenants:[A]});assert.equal(out.tenants[0].startupComplete,false);assert.equal(out.tenants[0].ready,false);await startup.removeTenant(B);out=await ops.inspectRealtimeTenants({transport:token},{tenants:[B]});assert.equal(out.tenants[0].startupComplete,false);
+      const replacement=await make(fresh,B).inspectRealtimeTenants({transport:token},{tenants:[A]});assert.equal(replacement.processIncarnation,B);assert.equal(replacement.placement.assignmentIncarnation,I);assert.equal(replacement.tenants[0].ready,false);assert.equal(replacement.tenants[0].startupComplete,false);
+      closing=true;out=await ops.inspectRealtimeTenants({transport:token},{tenants:[A]});assert.equal(out.ownerAvailable,false);assert.equal(out.tenants[0].ready,false);assert.equal(out.phase,'quiescing');closing=false;available=false;assert.equal((await ops.inspectRealtimeTenants({transport:token},{tenants:[A]})).tenants[0].ready,false);
+      assert.equal(reads,before.reads);assert.equal(initializations,before.initializations);
+    }finally{startup.close();fresh.close();}
+  });
+  it('refuses wrong authority and malformed selectors before observation; missing components remain explicitly unavailable',async function(){
+    let reads=0,cells=0;const token={},factory=require('../lib/server/serve/realtime-inspection'),ops=factory({processIncarnation:A,placement:{cached(){reads++;return null;}},owner:()=>true,quiescing:()=>false,startup:{isReady(){cells++;return true;}}})(token);
+    await assert.rejects(ops.inspectRealtimeTenants({transport:{}},{tenants:[A]}));
+    for(const body of [{},{tenants:[A],extra:true},{tenants:[A,A]},{tenants:['00000000-0000-0000-0000-000000000000']},{tenants:[[A]]},{tenants:Array.from({length:129},(_,i)=>'00000000-0000-4000-8000-'+i.toString(16).padStart(12,'0'))},{tenants:['INVALID']}])await assert.rejects(ops.inspectRealtimeTenants({transport:token},body));assert.equal(reads+cells,0);
+    const out=await ops.inspectRealtimeTenants({transport:token},{tenants:[A]});assert.equal(out.tenants[0].modelAvailable,null);assert.equal(out.tenants[0].owned,false);assert.equal(out.tenants[0].ready,false);
+  });
+});
+
+  describe('selected private RT readiness cost bound',function(){
+    it('performs one actual startup Map.get per selector and no whole-map iteration at a large roster',async function(){
+      const RealMap=global.Map,ids=Array.from({length:10000},(_,i)=>'00000000-0000-4000-8000-'+i.toString(16).padStart(12,'0'));let guarded=false,gets=0,iterations=0;
+      class CountedMap extends RealMap{
+        get(k){if(guarded&&this.size>=10000)gets++;return super.get(k);}
+        keys(){if(guarded&&this.size>=10000){iterations++;throw Error('WHOLE_STARTUP_MAP');}return super.keys();}
+        values(){if(guarded&&this.size>=10000){iterations++;throw Error('WHOLE_STARTUP_MAP');}return super.values();}
+        entries(){if(guarded&&this.size>=10000){iterations++;throw Error('WHOLE_STARTUP_MAP');}return super.entries();}
+        [Symbol.iterator](){if(guarded&&this.size>=10000){iterations++;throw Error('WHOLE_STARTUP_MAP');}return super[Symbol.iterator]();}
+      }
+      let startup;try{global.Map=CountedMap;startup=require('../lib/server/serve/tenant-startup').create(ids,undefined,async()=>assert.fail('no initializer from inspection'),{readiness:'all',dynamic:true});}finally{global.Map=RealMap;}
+      try{
+        guarded=true;let reads=0;const {internal}=require('./fixtures/realtime-placement-map'),p=placement.create({read:()=>{reads++;return placement.parse({...config(),version:2},{internal,ownershipVersion:2});},self:{worker:'a',incarnation:I}});p.current();const token={},ops=require('../lib/server/serve/realtime-inspection')({processIncarnation:A,placement:p,owner:()=>true,quiescing:()=>false,startup,modelWarm:()=>false})(token);
+        await ops.inspectRealtime({transport:token});await ops.inspectRealtimeTenants({transport:token},{tenants:[]});assert.equal(gets+iterations,0);const out=await ops.inspectRealtimeTenants({transport:token},{tenants:ids.slice(0,128)});assert.equal(out.tenants.length,128);assert.equal(gets,128);assert.equal(iterations,0);assert.equal(reads,1);
+        assert.throws(()=>startup.health(),/WHOLE_STARTUP_MAP/);assert.throws(()=>startup.tenants(),/WHOLE_STARTUP_MAP/);assert.equal(iterations,2,'negative full-view controls trip the actual guarded map');
+      }finally{guarded=false;startup.close();global.Map=RealMap;}
+    });
+  });

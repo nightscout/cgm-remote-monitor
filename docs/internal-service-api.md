@@ -37,7 +37,7 @@ ownership, the reference deployment and separate traffic-plane diagrams.
 | [Lifecycle participant](../lib/server/internal-api/contracts/lifecycle-participant.json) | `operations.getStatus.{request,response}` and `operations.invalidateTenant.{request,response}` | Participant census, pinned incarnation/schema/datastore/backend identities, nonce, drain and suspension rules. |
 | [Connector inspection](../lib/server/internal-api/contracts/connector-inspection.json) | `operations.inspectConnectors.{request,response}` | None: a read of the vcpool member's pool state and per-tenant status, counts and upstream refusals. It carries no endpoint, credential or row. |
 | [Evaluator inspection](../lib/server/internal-api/contracts/evaluator-inspection.json) | `operations.inspectEvaluator.{request,response}` | None: a read of the evaluator's configured pool values (mode, ordinal, rule, lease), observed membership (desired and effective count, live rows, heartbeat ages, conflicts), its gate, and per configured tenant the assigned ordinal, admission and progress. It never schedules work, renews a lease or changes eligibility. |
-| [Realtime inspection](../lib/server/internal-api/contracts/realtime-inspection.json) | `operations.inspectRealtime.{request,response}` | Sharded realtime only: bounded cached assignment/shards, process identity and local owner/quiescing observations; no tenant scan, SQL, lock proof, readiness certificate or credit retirement. Existing UDS/explicit HTTP network trust applies. |
+| [Realtime inspection](../lib/server/internal-api/contracts/realtime-inspection.json) | `operations.{inspectRealtime,inspectRealtimeTenants}.{request,response}` | Sharded realtime only: bounded cached assignment/shards, process identity and local owner/quiescing observations; the selected-tenant operation reads at most128 exact startup/model cells. No tenant-roster scan, SQL, warm trigger, lock/data-freshness certificate or credit retirement. Existing UDS/explicit HTTP network trust applies. |
 | [Pool operations](../lib/server/internal-api/contracts/pool-operations.json) | `operations.getPool.{request,response}` and `operations.setPoolMembers.{request,response}` | The admin role's configured pool kinds only; the operator's pool identity can write only the desired-count row. |
 
 Each nested `request` and `response` is a JSON Schema 2020-12 document. The
@@ -83,7 +83,7 @@ is no URL forwarding, dynamic module lookup or generic proxy operation.
 
 Every request names the selected service and protocol version in
 `x-nightscout-internal-service` and `x-nightscout-internal-version`. The current
-version is `1` except connector inspection, evaluator inspection and realtime inspection (`2`), alarm delivery (`3`), and lifecycle participant (`4`); a missing or different service/version is refused. The wire paths
+version is `1` except connector inspection and evaluator inspection (`2`), alarm delivery and realtime inspection (`3`), and lifecycle participant (`4`); a missing or different service/version is refused. The wire paths
 remain recognizable, but service/version enforcement requires a coordinated
 upgrade of communicating processes. There is no fallback to the earlier untyped
 IPC protocol. A breaking request, response or operation change requires an
@@ -98,7 +98,7 @@ configuration remains separate. Unsharded lifecycle payload version 1 and legacy
 map1 placement payload version 2 retain their meaning. Selected map2/key2 uses
 placement payload version 3 with exact `ownershipVersion: 2`. Alarm-delivery
 version 3 carries that same discriminator for assignment-scoped handoffs; no
-legacy-key fallback is permitted. Realtime inspection version 2 reports cached
+legacy-key fallback is permitted. Realtime inspection version 3 reports cached
 ownership mode and separate assignment/process identity under existing private
 UDS/explicit HTTP network trust. These headers do not authenticate peers.
 
@@ -465,3 +465,26 @@ history stamps cannot provide a common cursor across replicas. A single API
 keeps its existing configuration contract.
 
 Evaluator background scheduling uses boot-owned authority-free contexts. Explicit private evaluator calls retain active same-tenant window reuse, including same-parent coalescing; borrowed work earns no fresh-window completion credit. An expired or foreign selected-window caller refuses before queue mutation. A parent trying to join independently queued work receives `EVALUATOR_JOB_PARENT_BUSY`, avoiding a one-client join that otherwise waits on the parent itself. Owned and borrowed pending work each have two fixed slots per tenant; deferred due/repeat/revision jobs always obtain fresh admission.
+
+### Realtime selected-tenant readiness (module 3)
+
+`inspectRealtime({})` keeps its response shape. The existing private module also
+provides `inspectRealtimeTenants({tenants:[...]})` at `/realtime/inspect-tenants`.
+The selector is at most128 unique canonical nonzero UUIDs; the reply has exactly
+those rows in request order. The named client checks that correlation. Unknown
+fields and old module versions refuse before any observation. The transport's
+configured byte/deadline limits can require smaller batches; callers must honor
+those limits and one overall readiness deadline, not start a new timeout per
+batch. Existing UDS permissions / explicit HTTP network trust apply.
+
+`startupComplete` and `modelAvailable` are O(1) cached source observations, nullable
+when the component is unavailable. `owned` uses only the cached assignment. A row
+is `ready` only with all three true and an available nonquiescing local owner.
+An invalidated, removed, missing or deferred cell cannot become warm through this
+read. Historical initialization does not certify current data freshness. The
+fixed recovery caller must match current process/assignment/generation/digest,
+recheck registry revision on every readiness pass, require warm active tenants
+and skip only paused/suspended tenants' warm requirement. This does not replace
+actual old-owner lock proof, source custody or later native clinical evidence.
+The module2→3 transition is coordinated with the current profile/client/schema;
+no mixed-version fallback is provided.
