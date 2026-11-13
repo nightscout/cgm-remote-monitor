@@ -64,7 +64,7 @@ const INVENTORY = [
     note: 'durable registry connector definitions, encrypted credentials and independent revision refresh; fixture-owned Vault' },
   { file: 'tests/registry-realtime-settings.integration.test.js', flags: { NS_VAULT_DOCKER_TEST: '1' }, shared: ['postgres'], own: ['vault'], gate: PENDING,
     note: 'registry realtime persisted D15 settings, HTTP/socket serialization and missing-state refusal; fixture-owned Vault' },
-  { file: 'tests/tenant-live-add.integration.test.js', flags: { NS_TENANT_LIVE_ADD_TEST: '1', MULTITENANT_STATIC_TENANTS: 'lab' }, shared: [], own: ['postgres', 'vault'], gate: PENDING,
+  { file: 'tests/tenant-live-add.integration.test.js', flags: { NS_TENANT_LIVE_ADD_TEST: '1' }, shared: [], own: ['postgres', 'vault'], gate: PENDING,
     note: 'live provision to clinical alarm/frame, existing-tenant continuity, deferred warm/activity resume and burst/removal; owned PostgreSQL and Vault' },
   { file: 'tests/api-fixed-roster.integration.test.js', flags: { NS_API_ROSTER_DOCKER_TEST: '1' }, shared: [], own: ['postgres'], gate: PENDING,
     note: 'two API replica restore census with real private endpoints and roster controls; own PostgreSQL' },
