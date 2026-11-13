@@ -60,6 +60,16 @@ describe('Datastore recovery in place: source protocol and controls (not Postgre
       await assert.rejects(f.window.run(A, () => assert.fail('cancelled recovery served')), { code: 'LIFECYCLE_WINDOW_DATASTORE_CHANGED' });
       await f.window.close();
     });
+    it('does not adopt after cancellation while the supplemental cluster read is pending', async function () {
+      const { f, options, before } = await restartedWindow(); let release, entered;
+      const pendingRead = new Promise(resolve => { release = resolve; });
+      const reading = new Promise(resolve => { entered = resolve; });
+      options.clusterRead = () => { entered(); return pendingRead; };
+      const controller = new AbortController(), pending = f.window.recover({ signal: controller.signal });
+      await reading; controller.abort(); release({ rows: [{ cluster: '7000000000000000001' }] });
+      await assert.rejects(pending, { code: 'LIFECYCLE_WINDOW_RECOVERY_CANCELLED' });
+      assert.deepEqual(f.window.datastore, before); await f.window.close();
+    });
     it('runs the full catalogue admission again before adopting', async function () {
       const { f } = await restartedWindow();
       const before = f.log.filter(row => typeof row[0] === 'string' && row[0].includes('operation-window-role')).length;
@@ -71,23 +81,45 @@ describe('Datastore recovery in place: source protocol and controls (not Postgre
       const result = await f.window.recover({ beforeAdopt: () => assert.fail('same postmaster') });
       assert.equal(result.restarted, false);
     });
-    for (const [label, change] of [['another server address', { server_address: '127.0.0.2' }], ['another database', { database_oid: '16999' }], ['another port', { server_port: 5433 }]]) {
-      it('refuses to adopt ' + label + ' in place', async function () {
+    for (const change of [{ server_address: '127.0.0.2' }, { server_port: 5433 }]) {
+      it('re-admits the same cluster after an unselected endpoint change', async function () {
         const options = {}, f = fixture(options); await f.window.run(A, () => 1);
         const before = f.window.datastore; options.datastore = { ...RESTARTED, ...change };
+        let dropped = 0;
+        await f.window.recover({ beforeAdopt: () => { dropped++; assert.deepEqual(f.window.datastore, before); } });
+        assert.equal(dropped, 1); assert.equal(f.window.datastore.server_address, change.server_address || before.server_address);
+        assert.equal(f.window.datastore.server_port, change.server_port || before.server_port);
+        await f.window.run(A, () => 2);
+      });
+    }
+    for (const [label, datastore, cluster] of [['another database', { database_oid: '16999' }],
+      ['another cluster', { server_address: '127.0.0.2' }, '7000000000000000002']]) {
+      it('refuses to adopt ' + label + ' in place', async function () {
+        const options = {}, f = fixture(options); await f.window.run(A, () => 1);
+        const before = f.window.datastore; options.datastore = { ...RESTARTED, ...datastore }; options.cluster = cluster;
         await assert.rejects(f.window.recover({ beforeAdopt: () => assert.fail('nothing is dropped for a refused datastore') }), { code: 'LIFECYCLE_WINDOW_DATASTORE_REPLACED' });
         assert.deepEqual(f.window.datastore, before);
         await assert.rejects(f.window.run(A, () => assert.fail('served another datastore')), { code: 'LIFECYCLE_WINDOW_DATASTORE_CHANGED' });
       });
     }
-    it('control: without the lineage comparison another server address is adopted (the check above goes red)', async function () {
-      const mutate = source => source.replace('!same(lineage(nextDatabase), lineage(database)) || ', '');
+    it('control: without the lineage comparison another cluster is adopted', async function () {
+      const mutate = source => source.replace('!same(lineage(nextDatabase, nextCluster), lineage(database, cluster)) || ', '');
       const broken = load(WINDOW, {}, mutate);
       const options = {}, f = fixture(options, broken.create); await f.window.run(A, () => 1);
-      options.datastore = { ...RESTARTED, server_address: '127.0.0.2' };
+      options.cluster = '7000000000000000002'; options.datastore = { ...RESTARTED, server_address: '127.0.0.2' };
       await f.window.recover();
-      assert.equal(f.window.datastore.server_address, '127.0.0.2', 'broken source adopted the replaced datastore');
+      assert.equal(f.window.datastore.server_address, '127.0.0.2', 'broken source adopted another cluster');
     });
+    for (const change of [RESTARTED, { server_address: '127.0.0.2' }, { server_port: 5433 }]) {
+      it('direct selected recovery cannot adopt a changed resource even without a supervisor callback', async function () {
+        const selected = load(WINDOW, { '../storage/connection-admission': { health: () => ({ pgResourceId: 'selected-old-epoch' }) } });
+        const options = {}, f = fixture(options, selected.create); await f.window.ready();
+        const before = f.window.datastore; options.datastore = change;
+        await assert.rejects(f.window.recover(), { code: 'DATASTORE_RECOVERY_REBIND_REQUIRED' });
+        assert.deepEqual(f.window.datastore, before);
+        await f.window.close();
+      });
+    }
     it('control: without recover the window stays refused however often it is asked (the J behaviour)', async function () {
       const { f } = await restartedWindow();
       for (let attempt = 0; attempt < 20; attempt++) await assert.rejects(f.window.run(B, () => 1), { code: 'LIFECYCLE_WINDOW_DATASTORE_CHANGED' });
@@ -297,9 +329,9 @@ describe('Datastore recovery in place: source protocol and controls (not Postgre
         assert.deepEqual(events, ['exhausted'], 'LATE_STEP_CANNOT_SERVE');
       } finally { release(); await supervisor.close().catch(() => {}); }
     });
-    it('refuses a restarted postmaster under a selected admission generation without dropping state or adopting it', async function () {
+    for (const change of [RESTARTED, { server_address: '127.0.0.2' }, { server_port: 5433 }]) it('refuses a changed selected admission resource without dropping state or adopting it', async function () {
       const options = {}, f = fixture(options); await f.window.ready(); const before = f.window.datastore;
-      options.datastore = RESTARTED;
+      options.datastore = change;
       const events = [];
       const selected = load(SUPERVISOR, { '../../storage/connection-admission': { health: () => ({ pgResourceId: 'selected-old-epoch' }) } });
       const supervisor = selected.create({ cohort: { window: f.window,
@@ -471,5 +503,21 @@ describe('Datastore recovery in place: source protocol and controls (not Postgre
       await s.module.invalidate(s.cohort, A); assert.equal(s.invalidations.length, 8);
       await s.cohort.close();
     });
+  });
+});
+
+
+describe('supplemental PostgreSQL cluster lineage metadata', function () {
+  const datastore = require('../lib/storage/postgres-datastore');
+  it('requires one canonical signed bigint string without coercing malformed metadata', async function () {
+    for (const cluster of ['7000000000000000001', '-7000000000000000001']) assert.equal(await datastore.cluster({ query: async () => ({ rows: [{ cluster }] }) }), cluster);
+    for (const cluster of [null, 1, ['7000000000000000001'], '0', '01', '-0', '1.5', '9223372036854775808', '-9223372036854775809']) {
+      await assert.rejects(datastore.cluster({ query: async () => ({ rows: [{ cluster }] }) }), /cluster identity unavailable/);
+    }
+    for (const rows of [[], [{ cluster: '1' }, { cluster: '1' }]]) await assert.rejects(datastore.cluster({ query: async () => ({ rows }) }), /cluster identity unavailable/);
+  });
+  it('propagates a denied metadata query instead of falling back to endpoint identity', async function () {
+    const refusal = Object.assign(Error('SYNTHETIC_PRIVILEGE_REFUSAL'), { code: '42501' });
+    await assert.rejects(datastore.cluster({ query: async () => { throw refusal; } }), error => error === refusal);
   });
 });
