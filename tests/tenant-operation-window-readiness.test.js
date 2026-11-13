@@ -90,6 +90,7 @@ describe('Operation-window admission (catalog protocol double, not native Postgr
     assert.notEqual(canonical("'One Two'"),canonical("'one two'"));
     assert.notEqual(canonical("'one two'"),canonical("'onetwo'"));
     assert.equal(canonical("'it''s'"),JSON.stringify(['string',"it's"]));
+    for (const value of ['not','exists','array','true','and','or']) assert.equal(canonical("'"+value+"'"),JSON.stringify(['string',value]));
     await admit(client(),'synthetic_window',{maintenance:true});
   });
   it('distinguishes absent metadata from empty/malformed/unsupported SQL and refuses bounded grammar escapes',async function () {
