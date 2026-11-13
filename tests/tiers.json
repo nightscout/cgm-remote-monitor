@@ -115,6 +115,8 @@
         "tests/internal-api-transport.test.js",
         "tests/internal-api-stale-socket.test.js",
         "tests/operation-cohort.test.js",
+        "tests/cold-start-admission.test.js",
+        "tests/connection-admission.test.js",
         "tests/tenant-startup-admission.test.js",
         "tests/operation-cohort-peers.test.js",
         "tests/tenant-operation-window-readiness.test.js",

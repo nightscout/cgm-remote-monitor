@@ -693,6 +693,11 @@
                 "type": "integer",
                 "minimum": 0
               },
+              "queued": {
+                "description": "Present only with opt-in bounded cold admission; initialization has not started.",
+                "type": "integer",
+                "minimum": 0
+              },
               "cold": {
                 "type": "integer",
                 "minimum": 0
