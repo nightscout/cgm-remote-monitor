@@ -104,7 +104,7 @@ describe('opt-in cold initialization queue', function () {
   it('direct ensure never waits for queued background work needing its already-held window; removing that guard is red', async function () {
     async function observe (broken) {
       const lane = deferred(), c = clock(), g = gate(c), window = {}, entered = deferred(); let initialized = 0;
-      const api = isolated({ '../../tenant-lifecycle/operation-window': { isWindow: x => x === window, isSuspension: () => false } }, source => broken ? source.replace("if (cell.pending && cell.state !== 'warming') throw refusal('TENANT_WARMING', retryAfterSeconds);", '') : source);
+      const api = isolated({ '../../tenant-lifecycle/operation-window': { isWindow: x => x === window, isSuspension: () => false, assertNoAmbientScope: () => {} } }, source => broken ? source.replace("if (cell.pending && cell.state !== 'warming') throw refusal('TENANT_WARMING', retryAfterSeconds);", '') : source);
       window.ready = async () => {}; window.assertCurrent = () => {}; window.run = async (_tenant, fn) => { entered.resolve(); await lane.promise; return fn(); };
       const s = api.create(['a'], window, async () => { initialized++; }, options(g, { readiness: 'serve' }));
       await s.warm(); await c.next(); await entered.promise; let directSettled = false;
@@ -114,6 +114,55 @@ describe('opt-in cold initialization queue', function () {
     }
     assert.equal(await observe(true), false, 'mutant holds the caller lane waiting for itself');
     assert.equal(await observe(false), true, 'restored direct caller refuses before awaiting that lane');
+  });
+  it('request-triggered background cold work uses boot-owned context and a fresh actual window; old capture is red/restored', async function () {
+    const A='11111111-1111-4111-8111-111111111111';
+    async function observe (mutant, request) {
+      const f=require('./fixtures/operation-window-runtime-protocol')(),c=clock(),g=gate(c),jobs=new AsyncLocalStorage();let initialized=0;
+      const selected=isolated({},source=>mutant?source.replace('coldBackground.runInAsyncScope(() => coldAdmission.run(ticket, execute))','coldAdmission.run(ticket, execute)'):source);
+      const s=jobs.run('boot-job',()=>selected.create([A],f.window,async tenant=>{
+        f.window.assertCurrent(tenant);assert.equal(scope.currentTenant(),undefined,'background does not inherit request tenant authority');
+        assert.equal(jobs.getStore(),'boot-job');initialized++;
+      },options(g,{readiness:'serve'})));
+      try {
+        if(request)await assert.rejects(scope.withTenant(A,()=>jobs.run('request-job',()=>f.window.run(A,()=>s.admit(A)))),{code:'TENANT_WARMING'});
+        else await s.warm();
+        assert.equal(c.size,1);await c.next();await s.drained();
+        return {initialized,failed:s.health().failed,cause:s.health().alerts[0]?.cause};
+      } finally {await s.close();await g.close();await f.window.close();}
+    }
+    const old=await observe(true,true);assert.deepEqual(old,{initialized:0,failed:1,cause:'LIFECYCLE_WINDOW_SCOPE_INVALID'});
+    for(const request of [true,false])assert.deepEqual(await observe(false,request),{initialized:1,failed:0,cause:undefined});
+    assert.deepEqual(await observe(false,true),{initialized:1,failed:0,cause:undefined},'restored request path');
+  });
+  it('direct ensure preserves caller job/tenant and live window, while expired parents and ambient boot capture still refuse', async function () {
+    const A='11111111-1111-4111-8111-111111111111';
+    for(const detached of [false,true]) {
+      const f=require('./fixtures/operation-window-runtime-protocol')(),c=clock(),g=gate(c),jobs=new AsyncLocalStorage();let initialized=0;
+      const s=jobs.run('boot-job',()=>startup.create([A],f.window,async tenant=>{f.window.assertCurrent(tenant);assert.equal(scope.currentTenant(),A);assert.equal(jobs.getStore(),'request-job');initialized++;},options(g)));
+      try {
+        assert.throws(()=>scope.withTenant(A,()=>startup.create([A],f.window,async()=>{},options(g))),{code:'COLD_START_AMBIENT_SCOPE'});
+        await assert.rejects(f.window.run(A,()=>startup.create([A],f.window,async()=>{},options(g))),{code:'LIFECYCLE_WINDOW_AMBIENT_SCOPE'});
+        let child;
+        const parent=scope.withTenant(A,()=>jobs.run('request-job',()=>f.window.run(A,()=>{child=s.ensure(A);child.catch(()=>{});return detached?undefined:child;})));
+        if(detached)await parent;else await turn();
+        assert.equal(c.size,1);await c.next();
+        if(detached){await assert.rejects(child,{code:'LIFECYCLE_WINDOW_SCOPE_INVALID'});assert.equal(initialized,0);}
+        else {await parent;assert.equal(initialized,1);}
+      }finally{await s.close();await g.close();await f.window.close();}
+    }
+  });
+  it('close retains removed admitted tasks until settlement; the current-cell-only drain mutation is red', async function () {
+    async function observe(mutant) {
+      const c=clock(),g=gate(c),held=deferred();let entered=false,closed=false;
+      const selected=isolated({},source=>mutant?source.replace('closing = Promise.allSettled([...coldJobs.values()])','closing = Promise.allSettled([...cells.values()].map(cell => cell.pending))'):source);
+      const s=selected.create(['a'],undefined,async()=>{entered=true;await held.promise;},options(g,{dynamic:true}));
+      const pending=assert.rejects(s.ensure('a'),{code:'COLD_START_CANCELLED'});await c.next();assert.equal(entered,true);
+      const removed=s.removeTenant('a'),closing=s.close().then(()=>{closed=true;});await turn();const early=closed;
+      held.resolve();await pending;await removed;await closing;await g.close();return early;
+    }
+    assert.equal(await observe(true),true,'old cell-only shutdown misses removed admitted work');
+    assert.equal(await observe(false),false);assert.equal(await observe(false),false,'restored owned-work drain');
   });
   it('withdraws queued work, preserves active lifetime, cancels close queue and never reopens', async function () {
     const c = clock(), g = gate(c, 1, 3), held = deferred(), seen = [];
