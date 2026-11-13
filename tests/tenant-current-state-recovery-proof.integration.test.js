@@ -243,11 +243,14 @@ optInSuite(process.env.NS_M5_CURRENT_STATE_PROOF_TEST === '1' && !!process.env.N
     });
   });
 
+function evaluatorLifecycleSuite (label, factory, legacyHotFile = false) {
 optInSuite(process.env.NS_M5_CURRENT_STATE_PROOF_TEST === '1' && !!process.env.NS_TEST_POSTGRES_ADMIN_URI,
   'NS_M5_CURRENT_STATE_PROOF_TEST=1 with disposable PostgreSQL')(
-  'M5 evaluator preview lifecycle actual PostgreSQL', function () {
+  label, function () {
     this.timeout(60000);
-    const lab = require('./fixtures/evaluator-preview-lab')();
+    const lab = factory();
+    const lifecycle = (title, fn) => { if (!legacyHotFile) it(title, fn); };
+    const hotFile = (title, fn) => { if (legacyHotFile) it(title, fn); };
     before(() => lab.open()); beforeEach(async () => { await lab.reset(); await lab.provisionPreview(); });
     afterEach(() => lab.stopChildren()); after(() => lab.close());
     const runtimeReading = (id, sgv, minutes) => { const instant = Date.now() - minutes * 60000;
@@ -265,7 +268,7 @@ optInSuite(process.env.NS_M5_CURRENT_STATE_PROOF_TEST === '1' && !!process.env.N
       assert.equal(worker.startup.servers, 0);
       return worker;
     }
-    it('boots listenerless role and actual CLI and recovers current state on restart', async function () {
+    lifecycle('boots listenerless role and actual CLI and recovers current state on restart', async function () {
       const a = await seed(), b = await seed(lab.B, 'preview-reading', 333); committed(a); committed(b);
       const config = lab.configure(), worker = await start(config);
       const first = await worker.call('last'), physical = await lab.previewPhysical();
@@ -299,7 +302,7 @@ optInSuite(process.env.NS_M5_CURRENT_STATE_PROOF_TEST === '1' && !!process.env.N
       const exit = new Promise(resolve => cli.child.once('exit', (code, signal) => resolve({ code, signal })));
       cli.child.kill('SIGTERM'); const result = await exit; assert.equal(result.code, 0); assert.equal(result.signal, null);
     });
-    it('finds quiet canonical absence and unstamped activity through the explicit recovery backstop', async function () {
+    lifecycle('finds quiet canonical absence and unstamped activity through the explicit recovery backstop', async function () {
       await seed(); const config = lab.configure(d => { d.recoveryIntervalMs = 5; d.timeIntervalMs = 15; });
       const worker = await start(config), first = await worker.call('last');
       const removed = await lab.writeCanonical({ planned: { op: 'delete', target: { _id: 'preview-reading' } } });
@@ -327,7 +330,7 @@ optInSuite(process.env.NS_M5_CURRENT_STATE_PROOF_TEST === '1' && !!process.env.N
       assert.ok(observed.physical.A.floor > removed.before.floor, 'M5_EVAL_BACKSTOP the delete and activity advanced the floor');
       assert.ok(observed.last.outputRevision > first.outputRevision);
     });
-    it('uses retained input for time-only ticks until explicit acquisition', async function () {
+    lifecycle('uses retained input for time-only ticks until explicit acquisition', async function () {
       await seed(); const worker = await start(), first = await worker.call('last');
       const written = await lab.writeCanonical({ planned: { op: 'create', docs: [runtimeReading('new-physical', 222, 1)] } });
       const cyclesBefore = cyclesOf(await worker.call('health'));
@@ -351,7 +354,7 @@ optInSuite(process.env.NS_M5_CURRENT_STATE_PROOF_TEST === '1' && !!process.env.N
       assert.equal(acquired.inputCheckpoint, before.A.floor);
       assert.ok(acquired.inputCheckpoint > first.inputCheckpoint, 'M5_EVAL_ACQUIRED_INPUT_ADVANCED');
     });
-    it('discards a reused-revision changed config and refuses stale cached eligibility', async function () {
+    hotFile('discards a reused-revision changed config and refuses stale cached eligibility', async function () {
       await seed(); const initial = lab.configure(), worker = await start(initial), first = await worker.call('last');
       const changed = lab.configure(d => { d.tenants[0].settings.enable = ['timeago']; });
       const tick = await worker.call('tick'), physical = await lab.previewPhysical();
@@ -368,7 +371,7 @@ optInSuite(process.env.NS_M5_CURRENT_STATE_PROOF_TEST === '1' && !!process.env.N
         last: await worker.call('last'), physical: await lab.previewPhysical() });
       assert.equal(current, false); assert.equal(await worker.call('last'), null);
     });
-    it('keeps tenant B progressing while A row or byte refusal retains last good output', async function () {
+    lifecycle('keeps tenant B progressing while A row or byte refusal retains last good output', async function () {
       for (const scenario of ['row', 'byte']) {
         if (scenario === 'byte') { await lab.reset(); await lab.provisionPreview(); }
         await seed(); await seed(lab.B, 'preview-reading', 333);
@@ -386,7 +389,7 @@ optInSuite(process.env.NS_M5_CURRENT_STATE_PROOF_TEST === '1' && !!process.env.N
         await lab.stopWorker(worker);
       }
     });
-    it('drains and fences a real in-flight clinical read before role shutdown', async function () {
+    lifecycle('drains and fences a real in-flight clinical read before role shutdown', async function () {
       await seed(); const worker = await start(), first = await worker.call('last');
       await lab.writeCanonical({ planned: { op: 'create', docs: [runtimeReading('pending-new', 222, 1)] } });
       await worker.call('arm'); const held = worker.held(), running = worker.call('acquire'); await held;
@@ -402,7 +405,7 @@ optInSuite(process.env.NS_M5_CURRENT_STATE_PROOF_TEST === '1' && !!process.env.N
       assert.equal(last.eligible, false); assert.equal(value(last), 111);
       await lab.stopWorker(worker);
     });
-    it('refuses actual unsafe clinical clock checkpoint and unrelated grants before starting jobs', async function () {
+    lifecycle('refuses actual unsafe clinical clock checkpoint and unrelated grants before starting jobs', async function () {
       const grants = [[lab.namespaces.entries + '.entries', 'doc', 'UPDATE'],
         [lab.namespaces.clock + '.tenant_write_clock', 'last_stamp', 'UPDATE'],
         [lab.replayNamespace + '.tenant_consumer_checkpoint', 'tenant_id', 'UPDATE'],
@@ -431,3 +434,11 @@ optInSuite(process.env.NS_M5_CURRENT_STATE_PROOF_TEST === '1' && !!process.env.N
       }
     });
   });
+
+}
+
+evaluatorLifecycleSuite('M5 evaluator registry lifecycle actual PostgreSQL', require('./fixtures/evaluator-preview-registry-lab'));
+// This case specifically proves operator hot-file semantics. Registry settings
+// and membership use different adopted interfaces; their replacement remains
+// open, while this original compatibility assertion stays executable unchanged.
+evaluatorLifecycleSuite('M5 evaluator legacy hot-file compatibility (registry replacement open)', require('./fixtures/evaluator-preview-lab'), true);
