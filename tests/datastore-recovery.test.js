@@ -314,6 +314,58 @@ describe('Datastore recovery in place: source protocol and controls (not Postgre
         await assert.rejects(f.window.run(A, () => assert.fail('served new epoch')), { code: 'LIFECYCLE_WINDOW_DATASTORE_CHANGED' });
       } finally { await supervisor.close(); await f.window.close(); }
     });
+    for (const refusal of [null, 'readopt', 'probe']) it('invalidates old participant pins after ' + (refusal || 'no') + ' follow failure', async function () {
+      const options = {}, f = fixture(options), crypto = require('node:crypto');
+      let allocations = 0, readopts = 0, invalidations = 0, drops = 0, resumes = 0, failProbe = false;
+      const query = f.client.query;
+      f.client.query = async (...args) => {
+        if (failProbe && typeof args[0] === 'string' && args[0].startsWith('SELECT pg_backend_pid()')) {
+          failProbe = false; throw Object.assign(new Error('synthetic probe refusal'), { code: 'SYNTHETIC_PROBE_FAIL' });
+        }
+        return query(...args);
+      };
+      const module = load('../lib/server/serve/operation-cohort.js', {
+        'node:crypto': { ...crypto, randomUUID: () => { allocations++; return crypto.randomUUID(); } },
+        '../../storage/postgres-connection': { ...require('../lib/storage/postgres-connection'), installOperationWindow: () => () => {},
+          cohortSnapshot: async () => ({ datastore: f.window.datastore, backends: [] }) },
+        ...Object.fromEntries(['preview-api', 'evaluator-preview', 'preview-realtime', 'owner-preview'].map(name => ['./' + name, {
+          boot: async () => ({ close: async () => {}, invalidateTenant: async () => { invalidations++; },
+            invalidateAll: async () => { drops++; }, resume: () => { resumes++; } })
+        }]))
+      });
+      const participant = require('../lib/server/serve/operation-cohort-manifest').validate([{ id: 'synthetic-all', roles, namespaces: ['clinical'],
+        endpoint: { socketPath: '/synthetic/all.sock', maxBytes: 100000, timeoutMs: 1000 } }])[0];
+      const cohort = await module.create({ window: f.window, names: roles, tenants: [A, B], namespaces: ['clinical'], participant });
+      for (const role of roles) await cohort.boot(role, { tenantIds: [A, B] });
+      cohort.complete();
+      const control = module.controlOperations(cohort), before = await control.getStatus(null, { request: crypto.randomUUID() });
+      options.datastore = RESTARTED;
+      const supervisor = require(SUPERVISOR).create({ cohort,
+        readopt: async () => {
+          readopts++;
+          if (readopts === 1 && refusal === 'readopt') throw Object.assign(new Error('synthetic follow refusal'), { code: 'SYNTHETIC_READOPT_FAIL' });
+          if (readopts === 1 && refusal === 'probe') failProbe = true;
+          return 0;
+        }, setTimer: () => ({ unref () {} }), clearTimer () {}, log () {}, exhausted: () => assert.fail('not exhausted') });
+      try {
+        await supervisor.tick();
+        if (refusal) {
+          assert.equal(supervisor.state().state, 'recovering'); assert.equal(cohort.datastoreAvailable, false);
+          assert.equal(f.window.datastore.postmaster_birth, RESTARTED.postmaster_birth, 'WINDOW_ADOPTED_BEFORE_FOLLOW_FAILURE');
+          await assert.rejects(control.getStatus(null, { request: crypto.randomUUID() }), { code: 'RESTORE_COHORT_DATASTORE_UNAVAILABLE' });
+          await supervisor.tick();
+        }
+        const after = await control.getStatus(null, { request: crypto.randomUUID() });
+        await assert.rejects(control.invalidateTenant(null, { request: crypto.randomUUID(), tenant: A,
+          incarnation: before.incarnation, identity: before.identity }), { code: 'RESTORE_COHORT_PARTICIPANT_CHANGED' }, 'OLD_PARTICIPANT_PIN_REFUSED_AFTER_RETRY');
+        assert.equal(invalidations, 0, 'OLD_PIN_HAS_NO_CURRENT_ROLE_EFFECT');
+        assert.notEqual(after.incarnation, before.incarnation); assert.equal(allocations, 2, 'ONE_INCARNATION_CHANGE_FOR_COMPLETED_RESTART');
+        assert.equal(drops, 4); assert.equal(resumes, 4); assert.equal(supervisor.state().restarts, 1);
+        await control.invalidateTenant(null, { request: crypto.randomUUID(), tenant: A, incarnation: after.incarnation, identity: after.identity });
+        assert.equal(invalidations, 4, 'CURRENT_PIN_REMAINS_USABLE');
+        await supervisor.tick(); assert.equal(allocations, 2, 'HEALTHY_PROBE_DOES_NOT_ROTATE_AGAIN');
+      } finally { await supervisor.close(); await cohort.close(); }
+    });
     it('reads its two settings from the environment and refuses values outside their bounds', function () {
       const { settings } = require(SUPERVISOR);
       assert.deepEqual({ ...settings({}) }, { intervalMs: 5000, boundMs: 120000 });

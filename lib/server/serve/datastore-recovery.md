@@ -22,6 +22,13 @@ another store or bypass fresh authority checks. Unfinished operation markers
 remain unchanged and uncertain. Audited restore/resume clearance is a separate
 capability.
 
+Window adoption can succeed before storage-pool readoption or the final probe
+fails. The cohort remains unavailable during that partial recovery. Its obligation
+to publish a new participant incarnation survives retries until recovery is
+published successfully. Old pre-outage participant pins then refuse without
+invalidating the current role state. A healthy later probe does not rotate the
+incarnation again. This does not clear transport or connection-credit uncertainty.
+
 Each probe/recovery step has a deadline. Timeout cancels its authority to drop
 more tenant state or adopt a new identity. The physical step remains tracked
 until it settles; retries cannot start overlapping steps. The operation window
