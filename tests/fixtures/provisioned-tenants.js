@@ -62,9 +62,14 @@ async function startVault (id) {
 //   owner        an existing NOLOGIN role that owns the catalogues this fixture adds
 //   namespaces   provisioning namespaces the suite already created and migrated, by kind
 //   checkpoints  [{ namespace, consumer, digest }] as createProvisioning takes them
-async function create ({ admin, adminURI, owner, namespaces = {}, checkpoints = [] } = {}) {
+//   vault        { address, token } of a dev Vault the suite already owns (no `transit` mount yet);
+//                omitted, this fixture starts and removes its own
+async function create ({ admin, adminURI, owner, namespaces = {}, checkpoints = [], vault: suiteVault } = {}) {
   if (!admin || typeof adminURI !== 'string' || !NAME.test(owner || '') || Object.keys(namespaces).some(kind => !Object.hasOwn(CATALOGUES, kind) || !NAME.test(namespaces[kind]))) {
     throw new TypeError('provisioned-tenants needs the suite admin client, its URI, a catalogue owner and known namespaces');
+  }
+  if (suiteVault !== undefined && (typeof suiteVault?.address !== 'string' || !suiteVault.address.endsWith('/') || typeof suiteVault.token !== 'string')) {
+    throw new TypeError('provisioned-tenants takes a suite Vault as { address (with trailing slash), token }');
   }
   const id = randomBytes(5).toString('hex');
   const q = (sql, values) => admin.query(sql, values);
@@ -97,7 +102,7 @@ async function create ({ admin, adminURI, owner, namespaces = {}, checkpoints = 
     for (const sql of registry.grants({ namespace: all.registry, provisioner: role })) await q(sql);
     for (const sql of provisionerGrants({ namespaces: all, role, checkpoints })) await q(sql);
     const url = new URL(adminURI); url.username = role; url.password = password;
-    vault = await startVault(id);
+    vault = suiteVault ? { ...suiteVault, name: null, close () {} } : await startVault(id);
     const mount = 'transit';
     const vaultRequest = async (path, body) => {
       const response = await fetch(vault.address + 'v1/' + path, { method: body === undefined ? 'GET' : 'POST',

@@ -7,7 +7,7 @@ const path = require('node:path');
 const { Client } = require('pg');
 const { run } = require('../../lib/migrations/postgres');
 const { setTimeout: delay } = require('node:timers/promises');
-const createReplicaFixture = require('./multitenant-preview-replicas');
+const createReplicaFixture = require('./multitenant-preview-replicas-static');
 
 const CLOCK = 'preview_clock';
 const MAX_STAMP = 8640000000000000;

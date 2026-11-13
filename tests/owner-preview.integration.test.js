@@ -233,7 +233,7 @@ optInSuite(process.env.NS_OWNER_PREVIEW_TEST === '1' && !!process.env.NS_TEST_PO
       // restricted connections, Vault transit and persisted data-token state.
       // The owner writer/reader remain the distinct operator-provisioned roles
       // above. No fake boot, app injection or credential translation is used.
-      const data = require('./fixtures/multitenant-preview-replicas')();
+      const data = require('./fixtures/multitenant-preview-replicas-static')();
       let combined, ownerPort;
       try {
         await data.setup();
