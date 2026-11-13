@@ -116,6 +116,10 @@ id. It reports presence only (never a key, secret, setting or credential value),
 writes nothing, and answers for an id the registry does not hold, because an
 interrupted provisioning leaves Vault keys and no registry entry.
 
+The CLI validates the complete response against the published OpenAPI inspection
+schema before printing its line or JSON form. Unknown closed-object fields and
+invalid nested values refuse with exit 69; their values are never printed.
+
 | `provisioning` | Meaning | `action` |
 |---|---|---|
 | `absent` | no registry entry, no record, no Vault key | `provision` |

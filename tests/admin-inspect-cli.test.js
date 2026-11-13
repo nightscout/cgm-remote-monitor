@@ -7,6 +7,10 @@
 const assert = require('node:assert/strict');
 const http = require('node:http');
 const { randomUUID } = require('node:crypto');
+const { spawn } = require('node:child_process');
+const path = require('node:path');
+const fs = require('node:fs');
+const Module = require('node:module');
 const admin = require('../lib/cli/commands/admin');
 
 describe('admin inspect client', function () {
@@ -73,5 +77,73 @@ describe('admin inspect client', function () {
       assert.equal((await run(args)).code, 64, JSON.stringify(args));
     }
     assert.deepEqual(seen, []);
+  });
+
+  it('refuses unknown fields and invalid nested inspection values before either output form', async function () {
+    const id = randomUUID(), marker = 'synthetic-private-response-marker';
+    const changes = [
+      body => { body.unpublished = marker; },
+      body => { body.registry.unpublished = marker; },
+      body => { body.vault.unpublished = marker; },
+      body => { delete body.registry; },
+      body => { body.registry.state = marker; },
+      body => { body.registry.hosts = marker; },
+      body => { body.registry.hosts = [false]; },
+      body => { body.registry.internalHost = false; },
+      body => { body.vault.status = marker; },
+      body => { body.vault.keys = { data: marker }; },
+      body => { body.records = { settings: marker }; },
+      body => { body.records = { checkpoints: { 'evaluator-test': marker } }; }
+    ];
+    for (const change of changes) {
+      const body = report(id, 'complete', 'none'); change(body);
+      answer = () => ({ body });
+      for (const format of [[], ['--json']]) {
+        const result = await run(['inspect', '--id', id, ...format, '--url', base]);
+        assert.equal(result.code, 69, 'invalid inspection must refuse');
+        assert.equal(result.stdout, ''); assert(!result.stderr.includes(marker));
+      }
+    }
+  });
+
+  it('preserves valid optional presence maps and registry hosts from the published description', async function () {
+    const id = randomUUID(), body = report(id, 'complete', 'none');
+    body.registry = { state: 'active', hosts: ['a.example.test'], internalHost: 'a.internal.test' };
+    body.records = { settings: 'present', rootSecret: 'absent', checkpoints: { 'evaluator-test': 'partial' } };
+    body.vault.keys = { data: 'present', access: 'mismatch' };
+    answer = () => ({ body });
+    const result = await run(['inspect', '--id', id, '--json', '--url', base]);
+    assert.equal(result.code, 0); assert.deepEqual(JSON.parse(result.stdout), body);
+  });
+
+  it('actual executable refuses an unpublished response field without printing its value', async function () {
+    const id = randomUUID(), marker = 'synthetic-private-executable-marker';
+    answer = () => ({ body: { ...report(id, 'complete', 'none'), unpublished: marker } });
+    const result = await new Promise((resolve, reject) => {
+      const child = spawn(process.execPath, [path.join(__dirname, '../bin/nightscout.js'), 'admin', 'inspect', '--id', id, '--json', '--url', base],
+        { env: { PATH: process.env.PATH }, stdio: ['ignore', 'pipe', 'pipe'] });
+      const out = { stdout: '', stderr: '' };
+      child.stdout.on('data', chunk => { out.stdout += chunk; }); child.stderr.on('data', chunk => { out.stderr += chunk; });
+      child.on('error', reject); child.once('exit', code => resolve({ ...out, code }));
+    });
+    assert.equal(result.code, 69); assert.equal(result.stdout, ''); assert(!result.stderr.includes(marker));
+  });
+
+  it('uses the published referenced schemas and refuses unsupported schema changes', function () {
+    const filename = require.resolve('../lib/tenant-registry/inspection-shape');
+    const schema = require('../lib/tenant-registry/openapi.json');
+    const compile = change => {
+      const document = structuredClone(schema); change(document.components.schemas);
+      const loaded = new Module(filename, module); loaded.filename = filename;
+      loaded.paths = Module._nodeModulePaths(path.dirname(filename));
+      loaded.require = name => name === './openapi.json' ? document : Module.prototype.require.call(loaded, name);
+      loaded._compile(fs.readFileSync(filename, 'utf8'), filename); return loaded.exports;
+    };
+    const body = report(randomUUID(), 'complete', 'none'); body.registry.hosts = ['a.example.test'];
+    assert.equal(compile(() => {})(body), true);
+    assert.equal(compile(schemas => { schemas.Host.maxLength = 1; })(body), false, 'referenced published constraint is live');
+    assert.throws(() => compile(schemas => { schemas.ProvisioningInspection.unevaluatedProperties = false; }), /unsupported keyword/);
+    assert.throws(() => compile(schemas => { schemas.Host = { $ref: 'https://schema.invalid/host' }; }), /unsupported inspection response schema reference/);
+    assert.throws(() => compile(schemas => { schemas.Host = { $ref: '#/components/schemas/Host' }; }), /unsupported inspection response schema reference/);
   });
 });
