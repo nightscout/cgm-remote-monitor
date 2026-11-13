@@ -1,0 +1,21 @@
+{
+  "id": "completed-output",
+  "version": 1,
+  "operations": {
+    "hintCompletedOutput": {
+      "path": "/completed-output/hint",
+      "request": {
+        "type": "object",
+        "properties": { "tenant": { "type": "string", "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$" } },
+        "required": ["tenant"],
+        "additionalProperties": false
+      },
+      "response": {
+        "type": "object",
+        "properties": { "accepted": { "const": true } },
+        "required": ["accepted"],
+        "additionalProperties": false
+      }
+    }
+  }
+}
