@@ -1,5 +1,5 @@
 'use strict';
-// covers: lib/server/serve/datastore-recovery.js, lib/tenant-lifecycle/operation-window.js, lib/tenant-lifecycle/lifetime-sessions.js, lib/server/serve/operation-cohort.js
+// covers: lib/server/serve/datastore-recovery.js, lib/tenant-lifecycle/operation-window.js, lib/tenant-lifecycle/lifetime-sessions.js, lib/server/serve/operation-cohort.js, lib/server/serve/tenant-startup.js
 // Source protocol and break-it controls for decision datastore-loss-recover-in-place.
 // Recording clients only: tests/datastore-recovery.integration.test.js holds the PostgreSQL evidence.
 const assert = require('node:assert/strict');
@@ -133,7 +133,7 @@ describe('Datastore recovery in place: source protocol and controls (not Postgre
   describe('supervisor', function () {
     function harness ({ mutate, bound = 60000, source = SUPERVISOR } = {}) {
       const timers = [], events = [], state = { clock: 0, probe: null, recover: null, readopt: null, restarted: true, available: true, exhausted: [] };
-      const contexts = [{ invalidateAll: async () => { events.push('invalidate-a'); } }, { invalidateAll: async () => { events.push('invalidate-b'); } }];
+      const contexts = [{ invalidateAll: async () => { events.push('invalidate-a'); }, resume: () => { events.push('resume-a'); } }, { invalidateAll: async () => { events.push('invalidate-b'); } }];
       const cohort = {
         window: {
           probe: async () => { events.push('probe'); if (state.probe) throw state.probe; },
@@ -185,7 +185,8 @@ describe('Datastore recovery in place: source protocol and controls (not Postgre
       assert.equal(h.state.available, false);
       h.state.probe = null; h.state.restarted = true; h.events.length = 0;
       await settle(h);
-      assert.deepEqual(h.events, ['recover', 'invalidate-a', 'invalidate-b', 'adopt', 'readopt', 'probe', 'recovered:true']);
+      assert.deepEqual(h.events, ['recover', 'invalidate-a', 'invalidate-b', 'adopt', 'readopt', 'probe', 'recovered:true', 'resume-a'],
+        'state dropped before adoption; tenants warmed only once the process serves again');
       assert.equal(h.state.available, true); assert.equal(h.supervisor.state().state, 'serving');
       assert.equal(h.timers[0].delay, 5000);
       assert.deepEqual(h.state.exhausted, []);
@@ -240,6 +241,37 @@ describe('Datastore recovery in place: source protocol and controls (not Postgre
       for (const bad of [{ NS_DATASTORE_PROBE_INTERVAL_MS: '100' }, { NS_DATASTORE_PROBE_INTERVAL_MS: '5s' }, { NS_DATASTORE_RECOVERY_BOUND_MS: '0' }, { NS_DATASTORE_RECOVERY_BOUND_MS: '999' }]) {
         assert.throws(() => settings(bad), /a whole number from/);
       }
+    });
+  });
+
+  describe('tenant startup', function () {
+    const startup = require('../lib/server/serve/tenant-startup');
+    it('drops a tenant without queueing a warm that could only fail, and warms it when asked', async function () {
+      let initialized = 0, available = false;
+      const cells = startup.create([A, B], undefined, async () => { if (!available) throw new Error('datastore down'); initialized++; },
+        { readiness: 'serve', concurrency: 2, alert: () => {}, drainedLog: () => {} });
+      available = true; await cells.warm(); await cells.drained();
+      assert.equal(initialized, 2); assert.deepEqual(cells.tenants(), [A, B]);
+      available = false;
+      for (const tenant of cells.tenants()) cells.invalidateTenant(tenant, { warm: false });
+      await cells.drained();
+      assert.equal(cells.health().failed, 0, 'no warm ran against the lost datastore'); assert.equal(cells.isReady(A), false);
+      available = true; await cells.warm(); await cells.drained();
+      assert.equal(initialized, 4); assert.equal(cells.health().ready, true); assert.equal(cells.isReady(A), true);
+      cells.close();
+    });
+    it('control: the default invalidation queues the warm at once, which fails while the datastore is down and holds the tenant failed', async function () {
+      let available = true;
+      const cells = startup.create([A], undefined, async () => { if (!available) throw new Error('datastore down'); },
+        { readiness: 'serve', alert: () => {}, drainedLog: () => {} });
+      await cells.warm(); await cells.drained();
+      available = false; cells.invalidateTenant(A); await cells.drained();
+      assert.equal(cells.health().failed, 1);
+      available = true;
+      await assert.rejects(cells.admit(A), { code: 'TENANT_UNAVAILABLE' }, 'refused for the failure back-off although the datastore is back');
+      await cells.warm(); await cells.drained();
+      await cells.admit(A);
+      cells.close();
     });
   });
 
