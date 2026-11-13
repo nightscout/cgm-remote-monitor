@@ -69,6 +69,48 @@ describe('Operation-window admission (catalog protocol double, not native Postgr
       assert(!grants.some(sql=>sql.includes('"'+table+'"') && /UPDATE|DELETE|TRUNCATE/.test(sql)));
     }
   });
+  it('structural policy comparison retains correlated AND/OR grouping and literal semantics',async function () {
+    const {canonical,policiesFor}=require('../lib/tenant-lifecycle/operation-window-readiness');
+    const expected=policiesFor('tenant_lifecycle_restore_resume').find(p=>p.command==='a').check;
+    const grouped=expected.replace("AND ((r.state = 'suspended'", "AND (r.state = 'suspended'").replace("'data-replaced')))","'data-replaced'))");
+    assert.notEqual(canonical(expected,'synthetic_window'),canonical(grouped,'synthetic_window'));
+    for (const changed of [grouped,expected.replace("'before-data'","'BEFORE-DATA'"),expected.replace("'before-data'","'before- data'"),expected.replace('r.claim_id','r."Claim_id"'),expected.replace(' AND a.active',' OR a.active')]) {
+      await assert.rejects(admit(client((kind,rows)=>{if(kind==='tenant_lifecycle_restore_resume')rows[0].policies.find(p=>p.command==='a').check=changed;}),'synthetic_window',{maintenance:true}),{code:'LIFECYCLE_WINDOW_SCHEMA_UNSAFE'});
+    }
+    assert.equal(canonical("'Case  preserved'::text"),canonical("'Case  preserved'"));
+    assert.notEqual(canonical('"TRUE"'),canonical('true'));
+    assert.notEqual(canonical('"current_user"'),canonical('CURRENT_USER'));
+    for (const name of ['pg_backend_pid','current_setting','text','pg_stat_activity']) {
+      const builtin=name==='text' ? "'value'::pg_catalog.text" : name==='pg_stat_activity' ? 'SELECT backend_start FROM pg_catalog.pg_stat_activity WHERE pid=pg_backend_pid()' : name==='current_setting' ? "pg_catalog.current_setting('key',true)" : 'pg_catalog.pg_backend_pid()';
+      const shadow=builtin.replace('pg_catalog.','synthetic_window.');
+      let changed;try {changed=canonical(shadow,'synthetic_window');} catch(error) {assert.equal(error.code,'LIFECYCLE_WINDOW_SCHEMA_UNSAFE');continue;}
+      assert.notEqual(changed,canonical(builtin,'synthetic_window'),'SHADOW_QUALIFICATION_'+name);
+    }
+    assert.equal(canonical('( ( tenant_id ) )'),canonical('tenant_id'));
+    assert.notEqual(canonical("'One Two'"),canonical("'one two'"));
+    assert.notEqual(canonical("'one two'"),canonical("'onetwo'"));
+    assert.equal(canonical("'it''s'"),JSON.stringify(['string',"it's"]));
+    await admit(client(),'synthetic_window',{maintenance:true});
+  });
+  it('distinguishes absent metadata from empty/malformed/unsupported SQL and refuses bounded grammar escapes',async function () {
+    const {canonical}=require('../lib/tenant-lifecycle/operation-window-readiness');
+    assert.equal(canonical(null),JSON.stringify(['absent']));
+    assert.throws(()=>canonical(undefined),{code:'LIFECYCLE_WINDOW_SCHEMA_UNSAFE'});
+    for (const value of ['', ' ', 1, {}, "'unterminated", 'tenant_id)', '(tenant_id', "E'escape'", '$x$quoted$x$', 'tenant_id -- comment', 'tenant_id /* comment */', 'tenant_id COLLATE "C"', 'now() + 1', 'other_function()', 'tenant_id::integer', 'a=b=c', 'EXISTS(SELECT 1 FROM anything WHERE true UNION SELECT 1)', '('.repeat(100)+'true'+')'.repeat(100)]) {
+      assert.throws(()=>canonical(value,'synthetic_window'),{code:'LIFECYCLE_WINDOW_SCHEMA_UNSAFE'});
+      await assert.rejects(admit(client((kind,rows)=>{if(kind==='tenant_lifecycle_restore_resume')rows[0].policies[0].check=value;}),'synthetic_window',{maintenance:true}),{code:'LIFECYCLE_WINDOW_SCHEMA_UNSAFE'});
+    }
+    for (const kind of ['tenant_lifecycle_restore_resume','tenant_lifecycle_operation_clearance']) {
+      for (const field of ['using','check']) for (const value of [undefined,'',' ',"'broken"]) {
+        await assert.rejects(admit(client((type,rows)=>{if(type===kind)rows[0].policies[0][field]=value;}),'synthetic_window',{maintenance:true}),{code:'LIFECYCLE_WINDOW_SCHEMA_UNSAFE'});
+        await assert.rejects(admit(client((type,rows)=>{if(type===kind)delete rows[0].policies[0][field];}),'synthetic_window',{maintenance:true}),{code:'LIFECYCLE_WINDOW_SCHEMA_UNSAFE'});
+      }
+      await assert.rejects(admit(client((type,rows)=>{if(type===kind)delete rows[0].columns[0].default;}),'synthetic_window',{maintenance:true}),{code:'LIFECYCLE_WINDOW_SCHEMA_UNSAFE'});
+    }
+    // An absent USING/CHECK is legal only where the expected node is absent.
+    await assert.rejects(admit(client((kind,rows)=>{if(kind==='tenant_lifecycle_restore_resume')rows[0].policies[0].using=null;}),'synthetic_window',{maintenance:true}),{code:'LIFECYCLE_WINDOW_SCHEMA_UNSAFE'});
+    await admit(client(),'synthetic_window',{maintenance:true});
+  });
   const controls = [
     ['elevated membership', 'role', r=>{r.elevated_membership=true;}],
     ['non-system executable function bypass','role',r=>{r.foreign_functions=true;}],

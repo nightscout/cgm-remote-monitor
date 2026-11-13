@@ -106,3 +106,10 @@ forbidden as a serving-tenant lock binding or operation lifetime. Other unknown
 tenants refuse. This admits metadata screening, not a missing control schema or
 a serving cohort. This central coupling does not prove
 that direct pg clients, older workers or an entire deployment are admitted.
+
+Catalogue admission compares a bounded structural SQL representation. It preserves
+boolean grouping, literal contents and quoted identifier case. Only the selected
+lifecycle tables/helper and named pg_catalog builtins admit their corresponding
+qualifiers. Unknown syntax and missing catalogue fields refuse admission; explicit
+SQL NULL remains distinct from malformed or absent metadata. This comparison does
+not infer general SQL equivalence.
