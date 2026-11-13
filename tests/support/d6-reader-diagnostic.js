@@ -17,7 +17,7 @@ function create (sampleRss = () => process.memoryUsage().rss) {
           catch (error) { storeStage = { stage, outcome: 'REFUSED', code: code(error?.code) }; throw error; }
         };
       }
-      return { ...options, store: Object.freeze(store), rss: () => { storeStage = null; rssAtGuard = sampleRss(); return rssAtGuard; } };
+      return { ...options, store: Object.freeze(store), rss: () => { storeStage = null; rssAtGuard = null; rssAtGuard = sampleRss(); return rssAtGuard; } };
     },
     detail (health) {
       const selected = {};

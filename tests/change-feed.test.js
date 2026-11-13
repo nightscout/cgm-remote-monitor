@@ -159,6 +159,7 @@ describe('D6 test-only refusal diagnostics',function(){
     const d=D.create(()=>42),opts=d.options({config,store:original});assert.equal(opts.config,config);assert.equal(opts.rss(),42);assert.equal(await opts.store.peek('same'),original.token);await assert.rejects(opts.store.notify(),e=>e===error);
     const detail=d.detail({live:true,ready:false,degraded:true,refusal:'FEED_PUBLICATION_UNSAFE',generation:'00000000-0000-4000-8000-000000000000',lastSuccess:null,batches:0,messages:0,hints:0,refusals:1});assert.equal(parse(detail).storeStage.code,'FEED_PUBLICATION_UNSAFE');assert(!detail.includes('DO_NOT_PRINT'));
     assert.throws(()=>d.options({config,store:original,rss:()=>0}),/ALREADY_SELECTED/);
+    let broken=false;const sampled=D.create(()=>{if(broken)throw error;return 42;}),selected=sampled.options({config,store:original});selected.rss();broken=true;assert.throws(()=>selected.rss(),e=>e===error);assert.equal(parse(sampled.detail({})).rssAtGuard,null,'a failed sampling call cannot reuse an earlier RSS');
   });
   it('does not disclose raw errors, extra health fields or unsupported codes',async function(){
     const d=D.create(()=>3);const opts=d.options({config:{rssRefuseBytes:4,statementTimeoutMs:100},store:{async peek(){throw Object.assign(Error('RAW_SECRET'),{code:'UNSUPPORTED_SECRET_VALUE'});}}});opts.rss();await assert.rejects(opts.store.peek());
