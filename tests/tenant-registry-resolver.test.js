@@ -7,6 +7,7 @@
 const assert = require('node:assert/strict');
 const { randomUUID } = require('node:crypto');
 const { createRegistryResolver } = require('../lib/tenant-registry/resolver');
+const fs = require('node:fs'), path = require('node:path'), Module = require('node:module');
 
 function fakeStore () {
   const hosts = new Map(), states = new Map();
@@ -23,6 +24,20 @@ function fakeStore () {
   };
 }
 const request = (host, extra = []) => ({ rawHeaders: ['Host', host, ...extra] });
+
+describe('serving registry outage budgets', function () {
+  it('bounds actual connection checkout and client reads without changing pool or server bounds', async function () {
+    const filename = require.resolve('../lib/server/serve/registry-tenants'), loaded = new Module(filename, module);
+    loaded.filename = filename; loaded.paths = Module._nodeModulePaths(path.dirname(filename));
+    const stopped = new Error('recorded constructor boundary'); let selected;
+    loaded.require = name => name === '../../storage/postgres-connection' ? async options => { selected = options; throw stopped; }
+      : Module.prototype.require.call(loaded, name);
+    loaded._compile(fs.readFileSync(filename, 'utf8'), filename);
+    await assert.rejects(loaded.exports.create({ settings: { namespace: 'synthetic_registry' }, connectionString: 'synthetic' }), error => error === stopped);
+    assert.equal(selected.connectionTimeoutMillis, 1000); assert.equal(selected.query_timeout, 1000);
+    assert.equal(selected.max, 2); assert.equal(selected.statement_timeout, 5000);
+  });
+});
 
 describe('tenant registry resolver', function () {
   let store, clock, resolver;
