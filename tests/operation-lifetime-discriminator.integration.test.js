@@ -136,7 +136,11 @@ optInSuite(process.env.NS_OPERATION_LIFETIME_DOCKER_TEST === '1', 'NS_OPERATION_
         await client.query('COMMIT');
       } finally { client.release(); }
       const controller = require('../lib/tenant-lifecycle/maintenance-window').create({ namespace: f.namespace, locks: f.locks, pool: f.operatorPool, cohort: f.cohort, drainTimeoutMs: 200 });
-      try { await assert.rejects(controller.withRestore(tenant, { artifactDigest: 'd'.repeat(64) }, async () => assert.fail('orphan must exclude restore')), { code: 'LIFECYCLE_RESTORE_DRAIN_TIMEOUT' }); }
+      try {
+        const before = await f.restoreState(tenant);
+        await assert.rejects(controller.withRestore(tenant, { artifactDigest: 'd'.repeat(64) }, async () => assert.fail('orphan must exclude restore')), { code: 'LIFECYCLE_RESTORE_PREFLIGHT_ORPHANED_OPERATIONS' });
+        assert.deepEqual(await f.restoreState(tenant), before, 'ORPHAN_REFUSAL_BEFORE_SUSPENSION_HAS_NO_EFFECT');
+      }
       finally { await controller.close(); }
     });
     it('reports a lost finish reply without reusing its owner session or rewriting its committed result', async () => {
@@ -158,7 +162,7 @@ for (const size of [1, 2, 4]) optInSuite(process.env.NS_OPERATION_LIFETIME_DOCKE
   'actual API lifetime shared sessions with ' + size + ' bounded lease lanes', function () {
     this.timeout(120000);
     const fs = require('node:fs');
-    const f = createFixture({ leaseSessions: size, environment: { NS_POOL_OPERATION_MAX: '4' } });
+    const f = createFixture({ leaseSessions: size, drainTimeoutMs: 500, environment: { NS_POOL_OPERATION_MAX: '4' } });
     const [A, B] = f.base.tenants; let a, b;
     const call = (id, tenant, method, route, token, body, headers) => f.base.http(f.current.get(id), tenant, method, route, token, body, headers);
     before(async () => { await f.setup(); a = await f.base.localToken(A); b = await f.base.localToken(B); });
@@ -175,8 +179,9 @@ for (const size of [1, 2, 4]) optInSuite(process.env.NS_OPERATION_LIFETIME_DOCKE
     });
     it('serves beyond the lane bound while actual A responses fence restore and B continues', async () => {
       const count = size + 2, identifiers = Array.from({ length: count }, (_, i) => 'prototype-held-' + size + '-' + i);
+      let settled = 0;
       const replies = identifiers.map(identifier => call('api-1', A, 'POST', '/api/v3/entries', a,
-        { identifier, app: 'synthetic-lifetime', type: 'sgv', date: Date.now(), utcOffset: 0, sgv: 125 }, { 'x-roster-hold': 'postcommit' }).then(value => ({ value }), error => ({ error })));
+        { identifier, app: 'synthetic-lifetime', type: 'sgv', date: Date.now(), utcOffset: 0, sgv: 125 }, { 'x-roster-hold': 'postcommit' }).then(value => { settled++; return { value }; }, error => { settled++; return { error }; }));
       try {
       await f.base.until(async () => f.withAdmin(async client => (await client.query("SELECT count(*)::int AS n FROM preview_data.entries WHERE tenant_id=$1 AND doc->>'identifier'=ANY($2::text[])", [A, identifiers])).rows[0].n === count), 'all actual writes commit beyond the lifetime lane bound');
       } catch (error) {
@@ -187,15 +192,21 @@ for (const size of [1, 2, 4]) optInSuite(process.env.NS_OPERATION_LIFETIME_DOCKE
       }
       assert(fs.existsSync(f.mark('held', 'api-1')));
       let entered = false;
+      const before = await f.restoreState(); assert.equal(before.unfinished, count);
       const restoring = f.restore(async () => { entered = true; return 'shared-lifetime-drain'; }).then(value => ({ value }), error => ({ error }));
       try {
-        await f.base.until(async () => (await call('api-2', A, 'GET', '/api/v3/entries', a)).status !== 200, 'actual A suspension');
-        assert.equal(entered, false, 'ALL_HELD_RESPONSES_STILL_FENCE_RESTORE');
+        const refused = await restoring;
+        assert.equal(refused.error?.code, 'LIFECYCLE_RESTORE_PREFLIGHT_PENDING_OPERATIONS');
+        assert.equal(entered, false, 'ALL_HELD_RESPONSES_STILL_FENCE_RESTORE'); assert.equal(settled, 0);
+        assert.deepEqual(await f.restoreState(), before, 'PREFLIGHT_REFUSAL_HAS_NO_WINDOW_OR_AUDIT_EFFECT');
+        assert.equal((await call('api-2', A, 'GET', '/api/v3/entries', a)).status, 200, 'A stays serving before suspension');
         assert.equal((await call('api-1', B, 'GET', '/api/v3/entries', b)).status, 200, 'B uses the same worker while A responses remain held');
         assert.equal((await call('api-2', B, 'GET', '/api/v3/entries', b)).status, 200);
       } finally { f.current.get('api-1').child.kill('SIGUSR2'); }
       for (const reply of await Promise.all(replies)) { assert.equal(reply.error, undefined); assert.equal(reply.value.status, 201); }
-      const result = await restoring; assert.equal(result.error, undefined, result.error?.code); assert.equal(result.value.state, 'activated'); assert(entered);
+      await f.base.until(async () => (await f.restoreState()).unfinished === 0, 'real response lifetimes finish');
+      const result = await f.restore(async () => { entered = true; return 'shared-lifetime-drain'; });
+      assert.equal(result.state, 'activated'); assert(entered);
     });
 
     if (size === 4) it('control: early lifetime completion makes the held-response exclusion oracle fail', async () => {
@@ -224,14 +235,21 @@ for (const size of [1, 2, 4]) optInSuite(process.env.NS_OPERATION_LIFETIME_DOCKE
       await f.base.until(async () => f.withAdmin(async client => (await client.query("SELECT count(*)::int AS n FROM preview_data.entries WHERE tenant_id=$1 AND doc->>'identifier'=$2", [A, identifier])).rows[0].n === 1), 'postcommit wire held before backend death');
       const pending = await f.withAdmin(async client => (await client.query('SELECT DISTINCT owner_pid FROM preview_control.tenant_lifecycle_operations WHERE tenant_id=$1 AND finished=false', [A])).rows);
       assert.equal(pending.length, 1);
-      let entered = false; const restoring = f.restore(async () => { entered = true; }).then(value => ({ value }), error => ({ error }));
-      await f.base.until(async () => (await call('api-2', A, 'GET', '/api/v3/entries', a)).status !== 200, 'A restore suspended');
+      let entered = false; const reads = f.preflightReads;
+      const before = await f.restoreState();
+      const restoring = f.restore(async () => { entered = true; }).then(value => ({ value }), error => ({ error }));
+      await f.base.until(() => f.preflightReads > reads, 'actual preflight observes the live held operation');
       await f.withAdmin(client => client.query('SELECT pg_terminate_backend($1)', [pending[0].owner_pid]));
-      assert((await reply).error, 'lease death closes actual outstanding wire response');
+      const broken = await reply;
+      assert(broken.error, 'lease death closes actual outstanding wire response');
+      assert.equal(broken.error.code, 'ECONNRESET', 'a real socket failure, never the HTTP abort deadline');
+      const refused = await restoring;
+      assert.equal(refused.error?.code, 'LIFECYCLE_RESTORE_PREFLIGHT_ORPHANED_OPERATIONS'); assert.equal(entered, false);
+      assert.deepEqual(await f.restoreState(), before, 'LEASE_DEATH_ORPHAN_REFUSAL_HAS_NO_WINDOW_OR_AUDIT_EFFECT');
       assert.equal((await call('api-2', B, 'GET', '/api/v3/entries', b)).status, 200);
       const old = f.current.get('api-1'); old.child.kill('SIGTERM'); await f.base.until(async () => old.exit !== null, 'old worker exited'); await f.start('api-1', { readinessTenant: B });
       assert.equal((await call('api-1', B, 'GET', '/api/v3/entries', b)).status, 200);
-      const result = await restoring; assert.equal(result.error?.code, 'LIFECYCLE_RESTORE_DRAIN_TIMEOUT'); assert.equal(entered, false);
+      await assert.rejects(f.restore(async () => assert.fail('replacement cannot forgive the orphan')), { code: 'LIFECYCLE_RESTORE_PREFLIGHT_ORPHANED_OPERATIONS' });
       assert((await f.withAdmin(async client => (await client.query('SELECT count(*)::int AS n FROM preview_control.tenant_lifecycle_operations WHERE tenant_id=$1 AND owner_pid=$2 AND finished=false', [A, pending[0].owner_pid])).rows[0])).n > 0);
     });
   });

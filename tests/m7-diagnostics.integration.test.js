@@ -10,7 +10,7 @@ const outcomes = [];
 for (const enabled of [false, true]) optInSuite(process.env.NS_M7_DIAGNOSTICS_DOCKER_TEST === '1', 'NS_M7_DIAGNOSTICS_DOCKER_TEST=1')(
   'M7 diagnostics actual CLI ' + (enabled ? 'enabled' : 'default off'), function () {
     this.timeout(120000);
-    const f = createFixture({ leaseSessions: 1, environment: enabled ? { NS_M7_DIAGNOSTICS: '1', NS_M7_DIAGNOSTICS_INTERVAL_MS: '1000',
+    const f = createFixture({ leaseSessions: 1, drainTimeoutMs: 500, environment: enabled ? { NS_M7_DIAGNOSTICS: '1', NS_M7_DIAGNOSTICS_INTERVAL_MS: '1000',
       ...(process.env.NS_M7_DIAGNOSTICS_TEST_PRELOAD ? { NODE_OPTIONS: '--require ' + process.env.NS_M7_DIAGNOSTICS_TEST_PRELOAD + ' --require ' + path.join(__dirname, 'fixtures/api-fixed-roster-controls.js') } : {}) } : {} });
     const [A, B] = f.base.tenants; let a, b;
     const call = (id, tenant, method, path, token, body, headers) => f.base.http(f.current.get(id), tenant, method, path, token, body, headers);
@@ -56,17 +56,25 @@ for (const enabled of [false, true]) optInSuite(process.env.NS_M7_DIAGNOSTICS_DO
         assert(!JSON.stringify(held).includes(a)); assert(!JSON.stringify(held).includes(A)); assert(!JSON.stringify(held).includes(identifier));
       } else { assert.equal(captured(f.current.get('api-1')).length, 0); }
       let entered = false;
+      const before = await f.restoreState(); assert.equal(before.unfinished, 1);
       const restoring = f.restore(async () => { entered = true; return 'diagnostic-drain'; }).then(value => ({ value }), error => ({ error }));
       let Bstatus;
       try {
-        await f.base.until(async () => (await call('api-2', A, 'GET', '/api/v3/entries', a)).status !== 200, 'A suspended during held response');
-        assert.equal(entered, false); assert.equal(responseFinished, false); Bstatus = (await call('api-1', B, 'GET', '/api/v3/entries', b)).status; assert.equal(Bstatus, 200);
+        const refused = await restoring;
+        assert.equal(refused.error?.code, 'LIFECYCLE_RESTORE_PREFLIGHT_PENDING_OPERATIONS');
+        assert.equal(entered, false); assert.equal(responseFinished, false);
+        assert.deepEqual(await f.restoreState(), before, 'PREFLIGHT_REFUSAL_HAS_NO_WINDOW_OR_AUDIT_EFFECT');
+        assert.equal((await call('api-2', A, 'GET', '/api/v3/entries', a)).status, 200, 'A stays serving before suspension');
+        Bstatus = (await call('api-1', B, 'GET', '/api/v3/entries', b)).status; assert.equal(Bstatus, 200);
       } finally { f.current.get('api-1').child.kill('SIGUSR2'); }
-      const response = await pending, restored = await restoring;
-      assert.equal(response.error, undefined); assert.equal(response.value.status, 201); assert.equal(restored.error, undefined, restored.error?.code); assert.equal(restored.value.state, 'activated');
+      const response = await pending;
+      assert.equal(response.error, undefined); assert.equal(response.value.status, 201);
+      await f.base.until(async () => (await f.restoreState()).unfinished === 0, 'real response lifetimes finish');
+      const restored = await f.restore(async () => { entered = true; return 'diagnostic-drain'; });
+      assert.equal(restored.state, 'activated'); assert.equal(entered, true);
       const denied = await call('api-1', B, 'GET', '/api/v3/entries', a); assert.equal(denied.status, 401);
       if (enabled) await f.base.until(async () => captured(f.current.get('api-1')).some(row => row.gauges['window.outer_bodies'].value === 0 && row.durations['window.body_response_inclusive'].maxMs >= 900 && row.durations['window.complete_inclusive'].count > held.durations['window.complete_inclusive'].count), 'completion duration observed after actual response drain');
-      outcomes.push({ storedSGV: stored.sgv, write: response.value.status, B: Bstatus, wrongTenant: denied.status, restore: restored.value.state });
+      outcomes.push({ storedSGV: stored.sgv, write: response.value.status, B: Bstatus, wrongTenant: denied.status, restore: restored.state });
       if (outcomes.length === 2) assert.deepEqual(outcomes[1], outcomes[0], 'SAME_SOURCE_ON_OFF_RESULTS_AND_DRAIN');
     });
   });

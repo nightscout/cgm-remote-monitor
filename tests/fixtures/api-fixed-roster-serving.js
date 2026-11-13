@@ -14,11 +14,11 @@ const cohorts = require('../../lib/server/serve/operation-cohort');
 const maintenance = require('../../lib/tenant-lifecycle/maintenance-window');
 const namespace = 'preview_control', q = name => '"' + name + '"';
 const freePort = () => new Promise(resolve => { const s = http.createServer().listen(0, '127.0.0.1', () => { const port = s.address().port; s.close(() => resolve(port)); }); });
-module.exports = function create ({ environment = {}, leaseSessions } = {}) {
+module.exports = function create ({ environment = {}, leaseSessions, drainTimeoutMs = 10000 } = {}) {
   const base = require('./multitenant-preview-replicas')({ writeClock: true }), current = new Map(), environments = new Map(), peers = [], calls = new Map();
   const controlledClock = String(Date.now());
   const locks = base.tenants.map((tenant, i) => ({ tenant, key: String(910001 + i) }));
-  let port, publicProxy, privateProxy, participants, operatorPool, cohort, controller, lifetimeURI, config, previousMode;
+  let port, publicProxy, privateProxy, participants, operatorPool, cohort, controller, lifetimeURI, config, previousMode, preflightReads = 0;
   const url = host => 'http://' + host + ':' + port + '/';
   const endpoint = host => ({ url: url(host), trust: 'network', maxBytes: 1048576, timeoutMs: 5000 });
   async function withAdmin (fn) {
@@ -97,8 +97,18 @@ module.exports = function create ({ environment = {}, leaseSessions } = {}) {
     privateProxy = serviceProxy(true); await new Promise(resolve => privateProxy.listen(port, '127.0.0.4', resolve));
     publicProxy = serviceProxy(false); await new Promise(resolve => publicProxy.listen(0, '127.0.0.1', resolve));
     operatorPool = new Pool({ connectionString: operatorURI, max: 1 });
+    // Observe an actual completed preflight read. Lease-death tests kill the
+    // backend only after this; no substitute query or product timer is added.
+    operatorPool.on('connect', client => {
+      const query = client.query.bind(client);
+      client.query = (...args) => {
+        const result = query(...args), text = typeof args[0] === 'string' ? args[0] : args[0]?.text;
+        if (!text?.includes('/* restore-preflight */')) return result;
+        return result.then(value => { preflightReads++; return value; });
+      };
+    });
     cohort = await cohorts.createRemote({ namespace, tenants: base.tenants, participants });
-    controller = maintenance.create({ namespace, locks, pool: operatorPool, cohort, drainTimeoutMs: 10000 });
+    controller = maintenance.create({ namespace, locks, pool: operatorPool, cohort, drainTimeoutMs });
   }
   async function cleanup () {
     for (const worker of current.values()) if (!worker.exit) worker.child.kill('SIGUSR2');
@@ -115,6 +125,12 @@ module.exports = function create ({ environment = {}, leaseSessions } = {}) {
     },
     get lifetimeConnectionString () { return lifetimeURI; }, get participants () { return participants; }, get operatorPool () { return operatorPool; }, get cohort () { return cohort; },
     get serviceWorker () { return { port: publicProxy.address().port }; },
+    get preflightReads () { return preflightReads; },
+    restoreState: (tenant = base.tenants[0]) => withAdmin(async client => (await client.query(
+      'SELECT phase,generation::text,claim_id,artifact_digest,' +
+      '(SELECT count(*)::int FROM preview_control.tenant_lifecycle_restore_audit WHERE tenant_id=$1) AS audits,' +
+      '(SELECT count(*)::int FROM preview_control.tenant_lifecycle_operations WHERE tenant_id=$1 AND finished=false) AS unfinished ' +
+      'FROM preview_control.tenant_lifecycle_windows WHERE tenant_id=$1', [tenant])).rows[0]),
     restore: body => controller.withRestore(base.tenants[0], { artifactDigest: 'd'.repeat(64) }, body),
     mark: (name, id) => path.join(base.directory, name + '-' + id) };
 };

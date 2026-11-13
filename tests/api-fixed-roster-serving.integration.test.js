@@ -12,7 +12,7 @@ const entry = identifier => ({ identifier, type: 'sgv', date: Date.now(), utcOff
 optInSuite(process.env.NS_API_ROSTER_SERVING_DOCKER_TEST === '1', 'NS_API_ROSTER_SERVING_DOCKER_TEST=1')(
   'fixed roster with two actual API CLI processes and real lifetime leases', function () {
     this.timeout(120000);
-    const f = createFixture(), [A, B] = f.base.tenants;
+    const f = createFixture({ drainTimeoutMs: 500 }), [A, B] = f.base.tenants;
     const call = (id, tenant, method, path, token, body, headers) => f.base.http(id === 'service' ? f.serviceWorker : f.current.get(id), tenant, method, path, token, body, headers);
     const stored = identifier => f.withAdmin(async admin => (await admin.query("SELECT tenant_id::text,doc FROM preview_data.entries WHERE doc->>'identifier'=$1", [identifier])).rows);
     let a, b;
@@ -82,24 +82,28 @@ optInSuite(process.env.NS_API_ROSTER_SERVING_DOCKER_TEST === '1', 'NS_API_ROSTER
       }
     });
 
-    it('holds A maintenance until its post-commit response finishes while B continues on the other replica', async function () {
+    it('refuses restore before suspension while A response is held, then restores after its real finish with B continuing', async function () {
       let responseDone = false, entered = false;
       const pending = call('api-1', A, 'POST', '/api/v3/entries', a, entry('native-held-A'), { 'x-roster-hold': 'postcommit' })
         .then(value => { responseDone = true; return { value }; }, error => ({ error }));
       await f.base.until(async () => fs.existsSync(f.mark('held', 'api-1')), 'actual post-commit response held');
       assert.equal((await stored('native-held-A')).length, 1, 'independent storage sees committed write before response');
-      const restoring = f.restore(async () => { entered = true; return 'bounded-restore-body'; });
-      const outcome = restoring.then(value => ({ value }), error => ({ error }));
+      const before = await f.restoreState(); assert.equal(before.unfinished, 1);
+      const outcome = f.restore(async () => { entered = true; return 'bounded-restore-body'; }).then(value => ({ value }), error => ({ error }));
       try {
-        await f.base.until(async () => (await call('api-2', A, 'GET', '/api/v3/entries', a)).status !== 200, 'A serving refusal during maintenance');
+        const refused = await outcome;
+        assert.equal(refused.error?.code, 'LIFECYCLE_RESTORE_PREFLIGHT_PENDING_OPERATIONS');
         assert.equal(entered, false, 'HELD_RESPONSE_BLOCKS_RESTORE'); assert.equal(responseDone, false);
+        assert.deepEqual(await f.restoreState(), before, 'PREFLIGHT_REFUSAL_HAS_NO_WINDOW_OR_AUDIT_EFFECT');
+        assert.equal((await call('api-2', A, 'GET', '/api/v3/entries', a)).status, 200, 'A stays open');
         assert.equal((await call('api-2', B, 'POST', '/api/v3/entries', b, entry('native-B-progress'))).status, 201);
         assert.equal((await call('service', B, 'GET', '/api/v3/entries/native-B-progress', b)).status, 200);
       } finally { f.current.get('api-1').child.kill('SIGUSR2'); }
-      const response = await pending, restored = await outcome;
+      const response = await pending;
       assert.equal(response.error, undefined); assert.equal(response.value.status, 201);
-      assert.equal(restored.error, undefined, restored.error && restored.error.code);
-      assert.equal(restored.value.state, 'activated'); assert.equal(entered, true);
+      await f.base.until(async () => (await f.restoreState()).unfinished === 0, 'real response lifetimes finish');
+      const restored = await f.restore(async () => { entered = true; return 'bounded-restore-body'; });
+      assert.equal(restored.state, 'activated'); assert.equal(entered, true);
       for (const id of ['api-1', 'api-2']) assert.equal((await call(id, A, 'GET', '/api/v3/entries', a)).status, 200);
       assert.equal((await stored('native-B-progress'))[0].tenant_id, B);
     });
