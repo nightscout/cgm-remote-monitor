@@ -12,10 +12,12 @@
 //   closed     a field the schema does not name is one the loader refuses;
 //   known      every field a loader reads or asks about is named by the schema,
 //              or is a static-mode field the loader refuses in registry mode;
-//   live       every field the schema names is one a loader reads.
+//   live       every field the schema names is one a loader reads;
+//   carried    every field the schema names appears in a test plan variant, so
+//              its type has met its loader.
 //
 // A loader that starts accepting, requiring, renaming or dropping a field turns
-// one of the four red until the schema (and the contract reference) follows.
+// one of them red until the schema (and the contract reference) follows.
 // Synthetic documents only; nothing is connected to.
 const assert = require('node:assert/strict');
 const fs = require('node:fs');
@@ -28,7 +30,10 @@ const plan = require('./fixtures/multitenant-plan');
 const observer = require('./fixtures/multitenant-plan-observer');
 
 const layout = plan.layout('nstp');
-const documentSet = () => plan.documentSet(plan.documents({ layout, urls: plan.syntheticUrls(layout) }));
+// `default` is the smallest registry-mode plan; `full` sets every optional field and a fixed roster,
+// with Vault credentials from the environment; `full-token-files` is `full` with token files.
+const VARIANTS = ['default', 'full', 'full-token-files'];
+const documentSet = (variant = 'default') => plan.documentSet(plan.documents({ layout, urls: plan.syntheticUrls(layout), variant }));
 const clone = value => JSON.parse(JSON.stringify(value));
 // Static-mode fields: a loader asks about each to refuse it beside `registry`.
 // A sample value proves the refusal.
@@ -42,20 +47,20 @@ const REFUSED_IN_REGISTRY_MODE = {
   operation: { '': { locks: [] } }
 };
 
-// Every (process, document) the test plan produces: [{ index, name, file }].
-function documentsOf (set) {
+// Every (process, document) a test plan variant produces: [{ variant, index, process, name, file }].
+function documentsOf (variant) {
   const rows = [];
-  set.processes.forEach((entry, index) => {
+  documentSet(variant).processes.forEach((entry, index) => {
     for (const [name, row] of Object.entries(contract.DOCUMENTS)) {
       const file = entry.environment[row.environment];
-      if (file && entry.files[file] && row.roles.some(role => entry.roles.includes(role))) rows.push({ index, name, file, environment: row.environment });
+      if (file && entry.files[file] && row.roles.some(role => entry.roles.includes(role))) rows.push({ variant, index, process: entry.name, name, file, environment: row.environment });
     }
   });
   return rows;
 }
 // One process of a fresh set, with one of its documents changed.
 function verdict (row, mutate) {
-  const set = documentSet(), entry = set.processes[row.index];
+  const set = documentSet(row.variant), entry = set.processes[row.index];
   mutate(entry.files[row.file]);
   const report = contract.check({ contract: 1, processes: [entry] }), codes = report.processes[0].findings.map(finding => finding.code);
   return { shape: codes.includes('PLAN_DOCUMENT_SHAPE'), loader: codes.includes('PLAN_CONFIGURATION_REFUSED'), codes };
@@ -77,15 +82,31 @@ const reach = (document, steps) => steps.reduce((value, step) => value[step], do
 
 describe('deployment plan contract', function () {
   this.timeout(60000);
-  const rows = documentsOf(documentSet());
+  const rows = VARIANTS.flatMap(documentsOf);
 
   it('accepts the test plan: every document matches its schema and every process passes its loaders', function () {
-    const report = contract.check(documentSet());
-    assert.equal(report.ok, true, JSON.stringify(report.processes.flatMap(row => row.findings)));
-    assert.deepEqual(report.processes.map(row => row.name), ['api', 'realtime', 'evaluator', 'tenant-admin', 'feed-reader', 'admin']);
-    assert.deepEqual(report.processes.flatMap(row => row.unchecked), []);
-    // Every described document appears in the test plan, so the agreement below covers each schema.
-    assert.deepEqual([...new Set(rows.map(row => row.name))].sort(), Object.keys(contract.DOCUMENTS).sort());
+    const roster = ['realtime', 'evaluator', 'tenant-admin', 'api-1', 'api-2', 'feed-reader', 'admin'];
+    const expected = { default: ['api', 'realtime', 'evaluator', 'tenant-admin', 'feed-reader', 'admin'], full: roster, 'full-token-files': roster };
+    for (const variant of VARIANTS) {
+      const report = contract.check(documentSet(variant));
+      assert.equal(report.ok, true, variant + ': ' + JSON.stringify(report.processes.flatMap(row => row.findings)));
+      assert.deepEqual(report.processes.map(row => row.name), expected[variant]);
+      assert.deepEqual(report.processes.flatMap(row => row.unchecked), []);
+      // Every described document appears in each variant, so the agreement below covers each schema.
+      assert.deepEqual([...new Set(documentsOf(variant).map(row => row.name))].sort(), Object.keys(contract.DOCUMENTS).sort());
+    }
+  });
+
+  it('carried: every field a schema names appears in a test plan variant', function () {
+    // Pointers of every field a schema names, and of every field the variants' documents carry.
+    const namedBy = (schema, pointer = '') => schema.type === 'array' && schema.items ? namedBy(schema.items, pointer + '/*')
+      : Object.entries(schema.properties || {}).flatMap(([key, child]) => [pointer + '/' + key, ...namedBy(child, pointer + '/' + key)]);
+    const carriedBy = (value, pointer = '') => Array.isArray(value) ? value.flatMap(item => carriedBy(item, pointer + '/*'))
+      : value && typeof value === 'object' ? Object.entries(value).flatMap(([key, child]) => [pointer + '/' + key, ...carriedBy(child, pointer + '/' + key)]) : [];
+    for (const name of Object.keys(contract.DOCUMENTS)) {
+      const carried = new Set(rows.filter(row => row.name === name).flatMap(row => carriedBy(documentSet(row.variant).processes[row.index].files[row.file])));
+      assert.deepEqual(namedBy(contract.schema(contract.DOCUMENTS[name].schema)).filter(pointer => !carried.has(pointer)), [], name);
+    }
   });
 
   it('publishes schemas that use only keywords the check evaluates', function () {
@@ -94,9 +115,9 @@ describe('deployment plan contract', function () {
   });
 
   for (const row of rows) {
-    describe(row.name + ' document of the ' + documentSet().processes[row.index].name + ' process', function () {
+    describe(row.variant + ' plan: ' + row.name + ' document of the ' + row.process + ' process', function () {
       const schema = contract.schema(contract.DOCUMENTS[row.name].schema);
-      const document = documentSet().processes[row.index].files[row.file];
+      const document = documentSet(row.variant).processes[row.index].files[row.file];
       const described = objects(schema, document);
 
       it('required: the loader refuses the document without each field the schema requires', function () {
@@ -125,7 +146,7 @@ describe('deployment plan contract', function () {
         const watching = observer.install();
         let reads;
         try {
-          const set = documentSet();
+          const set = documentSet(row.variant);
           assert.equal(contract.check({ contract: 1, processes: [set.processes[row.index]] }).ok, true);
           reads = watching.reads(row.environment);
         } finally { watching.restore(); }

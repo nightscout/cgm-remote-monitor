@@ -64,7 +64,8 @@ keys or lock keys, and `MULTITENANT_STATIC_TENANTS` is not set.
 | operation | `MULTITENANT_OPERATION_CONFIG` | api, realtime, evaluator, tenant-admin | [`operation.schema.json`](../lib/server/serve/plan-contract/schema/operation.schema.json) | `lib/server/serve/operation-cohort-config.js` |
 
 The schemas are JSON Schema (draft 2020-12) and use only `type`, `enum`, `const`,
-`properties`, `required`, `additionalProperties`, `dependentRequired`, `items`,
+`properties`, `required`, `additionalProperties`, `dependentRequired`,
+`minProperties`, `maxProperties`, `items`,
 `minItems`, `maxItems`, `uniqueItems`, `pattern`, `minLength`, `maxLength`,
 `minimum` and `maximum`, so any validator in any language evaluates them.
 
@@ -128,8 +129,11 @@ role documents.
 ## How the contract stays in step with the loaders
 
 `tests/multitenant-plan-contract.test.js` (unit tier) generates every document
-from core's test plan (`tests/fixtures/multitenant-plan.js`) and requires, for
-each object of each document:
+from core's test plan (`tests/fixtures/multitenant-plan.js`) in three variants:
+the smallest registry-mode plan, one that sets every optional field with a fixed
+roster (two api instances, a named realtime worker), and that one again with
+Vault token files in place of environment references. For each object of each
+document it requires:
 
 | name | rule | a loader change that turns it red |
 |---|---|---|
@@ -137,9 +141,10 @@ each object of each document:
 | closed | a field the schema does not name is one the loader refuses | a loader stops refusing unknown fields |
 | known | every field a loader reads or asks about is named by the schema, or is a static-mode field it refuses beside `registry` | a loader accepts and reads a new field |
 | live | every field the schema names is one a loader reads | a loader drops or renames a field |
+| carried | every field the schema names appears in a variant, so its type has met its loader | a field added to a schema without a document that carries it |
 
-and that the test plan as a whole is accepted, which a renamed or newly required
-field breaks. The fields a loader reads are recorded by a Proxy around each
+and that each variant as a whole is accepted, which a renamed, retyped or newly
+required field breaks. The fields a loader reads are recorded by a Proxy around each
 parsed document (`tests/fixtures/multitenant-plan-observer.js`). One change is
 not seen: a field added to a loader's list of accepted names that the loader
 never reads while loading.

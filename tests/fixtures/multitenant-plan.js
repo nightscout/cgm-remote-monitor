@@ -13,7 +13,12 @@
 //   lifecycle(layout)    the restore driver's catalogue list
 //   documents(options)   every role's configuration document, environment and
 //                        operation manifest, in registry mode: no tenant list,
-//                        no per-tenant key, no lock list
+//                        no per-tenant key, no lock list. `variant: 'full'`
+//                        sets every optional field the contract names and a
+//                        fixed roster (two api instances, a named realtime
+//                        worker), so each field's type meets its loader;
+//                        its Vault credentials are environment references,
+//                        and `full-token-files` is the same with token files
 //   documentSet(docs)    those documents as `nightscout plan check` takes them
 const { createHash } = require('node:crypto');
 const base = require('../../deploy/multitenant/config');
@@ -24,9 +29,12 @@ const CONFIG_ENV = { api: 'MULTITENANT_PREVIEW_CONFIG', realtime: 'MULTITENANT_R
   'tenant-admin': 'MULTITENANT_OWNER_PREVIEW_CONFIG' };
 // Identities a registry-mode deployment adds to the layout's; a suite that only
 // needs the participant manifest passes no connection address for them.
-const REGISTRY_IDENTITIES = ['display_reader', 'activity_reader', 'feed_reader', 'feed_listener', 'provisioner', 'management_issuer', 'connector_writer'];
+const REGISTRY_IDENTITIES = ['display_reader', 'activity_reader', 'feed_reader', 'feed_listener', 'provisioner', 'management_issuer', 'connector_writer',
+  'owner_settings', 'owner_activity', 'owner_credentials', 'pool_operator'];
 
-function documents ({ layout: l, urls = {}, vaultAddress = 'https://vault.example.test:8200' }) {
+function documents ({ layout: l, urls = {}, vaultAddress = 'https://vault.example.test:8200', variant = 'default' }) {
+  if (!['default', 'full', 'full-token-files'].includes(variant)) throw new TypeError('Unknown test plan variant');
+  const full = variant !== 'default';
   const ns = l.namespaces, named = name => l.prefix + '_' + name;
   // Registry-mode namespaces. The suites that load this plan do not migrate
   // them; the documents only name them.
@@ -85,9 +93,8 @@ function documents ({ layout: l, urls = {}, vaultAddress = 'https://vault.exampl
   // process computes them (the api also protects the notification outbox it
   // reads through the evaluator's metadata), the control namespace excluded.
   const protectedNamespaces = require('../../lib/server/serve/operation-cohort').protectedNamespaces;
-  const participants = serviceRoles.map(role => ({ id: role, roles: [role],
-    namespaces: [...new Set([...protectedNamespaces(configs[role]), ...(role === 'api' ? [ns.outbox] : [])])].filter(name => name !== ns.control).sort(),
-    maxMessageBytes: 1048576, timeoutMs: 5000 }));
+  const protects = role => [...new Set([...protectedNamespaces(configs[role]), ...(role === 'api' ? [ns.outbox] : [])])].filter(name => name !== ns.control).sort();
+  const participants = serviceRoles.map(role => ({ id: role, roles: [role], namespaces: protects(role), maxMessageBytes: 1048576, timeoutMs: 5000 }));
   const operations = {};
   for (const role of serviceRoles) {
     operations[role] = { version: 2, namespace: ns.control, connectionEnv: 'NS_LIFETIME_PG', registry: { namespace: registry.namespace }, participantId: role, participants };
@@ -120,15 +127,63 @@ function documents ({ layout: l, urls = {}, vaultAddress = 'https://vault.exampl
       vault: { ...vault('vault-token'), timeoutMs: 10000 }, ownerPolicy: { catalogue: ['*'] }, operator: operator('test-plan-provisioning') } },
     environment: { ADMIN_HOSTNAME: '127.0.0.1', ADMIN_PORT: '1342', MULTITENANT_ADMIN_CONFIG: file('config.json'), NS_PROVISIONER_PG: urls.provisioner,
       NS_OWNERSHIP_PG: urls.ownership_operator, NS_CONNECTOR_SOURCES_PG: urls.connector_writer, NS_MANAGEMENT_SESSIONS_PG: urls.management_issuer } };
-  return { configs, environments, operations, remote, locks, feed, admin };
+  const docs = { configs, environments, operations, remote, locks, feed, admin };
+  return full ? everyOptionalField(docs, { l, named, urls, vaultAddress, socketOf, envName, protects, tokenFiles: variant === 'full-token-files' }) : docs;
 }
 
-// One process per role, each with the files its environment names.
+// The `full` variant: each optional field the contract names, with a value its loader accepts.
+function everyOptionalField (docs, { l, named, urls, vaultAddress, socketOf, envName, protects, tokenFiles }) {
+  const ns = l.namespaces, { api, realtime, evaluator } = docs.configs, owner = docs.configs['tenant-admin'], env = docs.environments;
+  // Exactly one credential source per Vault block: a token file, or an environment reference.
+  const tokenVault = { address: vaultAddress, mount: l.mount, timeoutMs: 5000, allowInsecureLoopback: false,
+    ...(tokenFiles ? { tokenFile: CONFIG_DIRECTORY + '/vault-token' } : { tokenEnv: 'NS_VAULT_TOKEN' }) };
+  const canonical = { mode: 'canonical-internal', trustedPeers: ['192.0.2.10'] };
+  api.vault = { ...tokenVault }; api.resolution = { ...canonical }; env.api.NS_VAULT_TOKEN = 'synthetic-placeholder';
+  realtime.unauthorizedDeadlineMs = 5000;
+  Object.assign(evaluator, { evictAfterMs: 600000, evaluationAlertMs: 60000 });
+  Object.assign(evaluator.consumers.realtime, { backstopIntervalMs: 300000, maxConcurrentTenants: 8 });
+  owner.resolution = { ...canonical };
+  owner.ownerSettings = { connectionEnv: 'NS_OWNER_SETTINGS_PG', namespaces: { settings: named('display_settings'), operatorPolicy: named('operator_policy'), authority: named('settings_authority') } };
+  owner.ownerActivity = { connectionEnv: 'NS_OWNER_ACTIVITY_PG', namespace: ns.control };
+  owner.ownerCredentials = { connectionEnv: 'NS_OWNER_CREDENTIALS_PG', namespace: ns.secrets, vault: { ...tokenVault } };
+  Object.assign(env['tenant-admin'], { NS_OWNER_SETTINGS_PG: urls.owner_settings, NS_OWNER_ACTIVITY_PG: urls.owner_activity, NS_OWNER_CREDENTIALS_PG: urls.owner_credentials, NS_VAULT_TOKEN: 'synthetic-placeholder' });
+  const admin = docs.admin.config;
+  admin.pools = { connectionEnv: 'NS_POOL_OPERATOR_PG', namespace: named('pool'), kinds: ['evaluator'] };
+  admin.provisioning.mode = 'canonical-internal';
+  admin.provisioning.vault = { ...tokenVault, timeoutMs: 10000 }; admin.managementSessions.vault = { ...tokenVault, timeoutMs: 10000 };
+  Object.assign(docs.admin.environment, { NS_POOL_OPERATOR_PG: urls.pool_operator, NS_VAULT_TOKEN: 'synthetic-placeholder' });
+  // A fixed roster: the api role is two instances behind one service address, and
+  // every row names its own instance address; the realtime row names its worker.
+  const service = 'http://api-internal.example.test:7001', instance = n => 'http://api-' + n + '.example.test:7001';
+  const original = docs.operations.api.participants.find(row => row.id === 'api');
+  const participants = [1, 2].map(n => ({ ...original, id: 'api-' + n, address: { url: instance(n) } }))
+    .concat(docs.operations.api.participants.filter(row => row.id !== 'api').map(row => ({ ...row, namespaces: protects(row.id),
+      ...(row.id === 'realtime' ? { worker: 'realtime-1' } : {}), address: { socket: socketOf(row.id + '-1') } })));
+  for (const [role, environment] of Object.entries(env)) {
+    delete environment.NS_API_INTERNAL_SOCKET; environment.NS_API_INTERNAL_URL = service;
+    // A process that listens on its instance address does not also name its own role's service address.
+    if (role !== 'api') { environment.NS_SERVE_INTERNAL_SOCKET = socketOf(role + '-1'); delete environment[envName(role) + 'SOCKET']; }
+    docs.operations[role] = { ...docs.operations[role], leaseSessions: 2, participants };
+  }
+  for (const n of [1, 2]) {
+    const name = 'api-' + n;
+    docs.configs[name] = api;
+    env[name] = { ...env.api, NS_SERVE_INTERNAL_HOST: '0.0.0.0', NS_SERVE_INTERNAL_PORT: '7001' }; delete env[name].NS_SERVE_INTERNAL_SOCKET;
+    docs.operations[name] = { ...docs.operations.api, participantId: name };
+  }
+  delete docs.configs.api; delete env.api; delete docs.operations.api;
+  docs.remote = participants.map(peer => ({ id: peer.id, roles: peer.roles, namespaces: peer.namespaces, ...(peer.worker ? { worker: peer.worker } : {}),
+    endpoint: { ...(peer.address.url ? { url: peer.address.url + '/', trust: 'network' } : { socketPath: peer.address.socket }), maxBytes: peer.maxMessageBytes, timeoutMs: peer.timeoutMs } }));
+  return docs;
+}
+
+// One process per configured service, each with the files its environment names.
 function documentSet (docs) {
   const file = name => CONFIG_DIRECTORY + '/' + name;
-  const processes = serviceRoles.map(role => ({ name: role, roles: [role], environment: docs.environments[role],
-    files: { [docs.environments[role][CONFIG_ENV[role]]]: docs.configs[role], [file('operation.json')]: docs.operations[role],
-      ...(role === 'api' ? { [file('evaluator-metadata.json')]: docs.configs.evaluator } : {}) } }));
+  const roleOf = name => name.startsWith('api-') ? 'api' : name;
+  const processes = Object.keys(docs.configs).map(name => ({ name, roles: [roleOf(name)], environment: docs.environments[name],
+    files: { [docs.environments[name][CONFIG_ENV[roleOf(name)]]]: docs.configs[name], [file('operation.json')]: docs.operations[name],
+      ...(roleOf(name) === 'api' ? { [file('evaluator-metadata.json')]: docs.configs.evaluator } : {}) } }));
   processes.push({ name: 'feed-reader', roles: ['feed-reader'], environment: docs.feed.environment, files: { [file('config.json')]: docs.feed.config } });
   processes.push({ name: 'admin', roles: ['admin'], environment: docs.admin.environment, files: { [file('config.json')]: docs.admin.config } });
   return { contract: 1, processes };

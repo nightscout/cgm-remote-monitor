@@ -89,8 +89,22 @@
             "minimum": 1
           },
           "address": {
-            "type": "string",
-            "description": "This instance's own serve.internal address; required on every row of a role that more than one row names."
+            "type": "object",
+            "required": [],
+            "additionalProperties": false,
+            "properties": {
+              "url": {
+                "type": "string",
+                "description": "http://host:port"
+              },
+              "socket": {
+                "type": "string",
+                "description": "An absolute socket path."
+              }
+            },
+            "minProperties": 1,
+            "maxProperties": 1,
+            "description": "This instance's own serve.internal address, {url} or {socket}; required on every row of a role that more than one row names."
           },
           "worker": {
             "type": "string",
