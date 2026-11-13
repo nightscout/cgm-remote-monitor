@@ -16,6 +16,9 @@
               "type": "string",
               "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$"
             }
+          },
+          "diagnostics": {
+            "const": "change-feed-v1"
           }
         },
         "additionalProperties": false
@@ -742,6 +745,139 @@
           "runtimeId": {
             "type": "string",
             "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$"
+          },
+          "diagnostics": {
+            "type": "object",
+            "properties": {
+              "changeFeed": {
+                "oneOf": [
+                  {
+                    "type": "object",
+                    "properties": {
+                      "status": {
+                        "enum": [
+                          "not-configured",
+                          "unavailable"
+                        ]
+                      },
+                      "health": {
+                        "type": "null"
+                      }
+                    },
+                    "required": [
+                      "status",
+                      "health"
+                    ],
+                    "additionalProperties": false
+                  },
+                  {
+                    "type": "object",
+                    "properties": {
+                      "status": {
+                        "const": "observed"
+                      },
+                      "health": {
+                        "type": "object",
+                        "properties": {
+                          "live": {
+                            "type": "boolean"
+                          },
+                          "connected": {
+                            "type": "boolean"
+                          },
+                          "degraded": {
+                            "type": "boolean"
+                          },
+                          "recoveryRemaining": {
+                            "type": "integer",
+                            "minimum": 0,
+                            "maximum": 9007199254740991
+                          },
+                          "pages": {
+                            "type": "integer",
+                            "minimum": 0,
+                            "maximum": 9007199254740991
+                          },
+                          "checks": {
+                            "type": "integer",
+                            "minimum": 0,
+                            "maximum": 9007199254740991
+                          },
+                          "hints": {
+                            "type": "integer",
+                            "minimum": 0,
+                            "maximum": 9007199254740991
+                          },
+                          "refused": {
+                            "type": "integer",
+                            "minimum": 0,
+                            "maximum": 9007199254740991
+                          },
+                          "reconnects": {
+                            "type": "integer",
+                            "minimum": 0,
+                            "maximum": 9007199254740991
+                          },
+                          "sweeps": {
+                            "type": "integer",
+                            "minimum": 0,
+                            "maximum": 9007199254740991
+                          },
+                          "rotated": {
+                            "type": "integer",
+                            "minimum": 0,
+                            "maximum": 9007199254740991
+                          },
+                          "heartbeatAgeMs": {
+                            "anyOf": [
+                              {
+                                "type": "null"
+                              },
+                              {
+                                "type": "number",
+                                "minimum": 0
+                              }
+                            ]
+                          },
+                          "refusal": {
+                            "enum": [
+                              null,
+                              "FEED_RECONCILIATION_REFUSED",
+                              "FEED_LISTENER_UNAVAILABLE"
+                            ]
+                          }
+                        },
+                        "required": [
+                          "live",
+                          "connected",
+                          "degraded",
+                          "recoveryRemaining",
+                          "pages",
+                          "checks",
+                          "hints",
+                          "refused",
+                          "reconnects",
+                          "sweeps",
+                          "rotated",
+                          "heartbeatAgeMs",
+                          "refusal"
+                        ],
+                        "additionalProperties": false
+                      }
+                    },
+                    "required": [
+                      "status",
+                      "health"
+                    ],
+                    "additionalProperties": false
+                  }
+                ]
+              }
+            },
+            "required": [
+              "changeFeed"
+            ],
+            "additionalProperties": false
           }
         },
         "required": [
