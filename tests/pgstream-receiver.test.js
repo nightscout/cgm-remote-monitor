@@ -39,3 +39,5 @@ describe('pgstream explicit input/output/schema receiver',function(){
    await receive(event('clock',{tenant_id:A,last_stamp:'1'}));assert.throws(()=>assert.equal(committed,true),{code:'ERR_ASSERTION'});commit();await held;
  });
 });
+
+describe('pgstream deployment routes',function(){it('puts the heartbeat outside the upstream internal schema',function(){const routes=require('../lib/pgstream/evaluator').routes({namespaces:{clock:'test_clock',checkpoint:'test_checkpoint'},trustedWorker:{settings:'test_settings',operatorPolicy:'test_policy',activity:'test_activity'}});assert.equal(routes.find(row=>row.kind==='heartbeat').schema,'test_clock');});});
