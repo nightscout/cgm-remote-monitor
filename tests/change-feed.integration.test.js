@@ -170,7 +170,7 @@ suite('D6 native metadata feed, privilege and failure controls', function () {
     await reader.pass();assert.equal((await store.peek()).length,0);
   });
   it('signals settings and policy metadata promptly without plaintext feed grants or a data-clock write', async function () {
-    const crypto=require('node:crypto');let settingsStore,settingsReader,settingsConsumer,rt,evalRuntime;
+    const crypto=require('node:crypto'),diagnostic=require('./support/d6-reader-diagnostic').create();let settingsStore,settingsReader,settingsConsumer,rt,evalRuntime;
     await admin.query(`CREATE SCHEMA settings_meta;CREATE SCHEMA policy_meta;CREATE SCHEMA feed_config;
       CREATE TABLE settings_meta.tenant_settings(tenant_id uuid PRIMARY KEY,version integer NOT NULL,values jsonb NOT NULL);
       CREATE TABLE policy_meta.tenant_operator_policy(tenant_id uuid PRIMARY KEY,generation integer NOT NULL,policy jsonb NOT NULL);
@@ -205,7 +205,7 @@ suite('D6 native metadata feed, privilege and failure controls', function () {
         create:async ctx=>({evaluate:async()=>({checkpoint:6,signature:{stamp:6,deleted:0},properties:ctx.row}),close:()=>{}})});
       settingsConsumer=consumerFactory.create({config:{...baseConfig(),channel:doc.channel,pageSize:1,degradedPages:1},tenants:[A,B],schedule:()=>null,cancel:()=>{},alert:()=>{},
         connect:async()=>{const client=new Client({connectionString:source('serving')});await client.connect();return client;},check:async tenants=>{const selected=tenants.filter(t=>t===B);await rt.check(selected);await evalRuntime.backstop(selected);}});
-      await settingsConsumer.start();settingsReader=readerFactory.create({config:selected,store:settingsStore,schedule:()=>null,cancel:()=>{},alert:()=>{}});
+      await settingsConsumer.start();settingsReader=readerFactory.create(diagnostic.options({config:selected,store:settingsStore,schedule:()=>null,cancel:()=>{},alert:()=>{}}));
       await settingsReader.pass();await sleep(20);await settingsConsumer.tick();
       const clockBefore=(await admin.query('SELECT last_stamp::text FROM clock.tenant_write_clock WHERE tenant_id=$1',[B])).rows[0].last_stamp;
       const hintsBefore=settingsConsumer.health().hints,start=Date.now();
@@ -224,7 +224,7 @@ suite('D6 native metadata feed, privilege and failure controls', function () {
       await assert.rejects(settingsStore.peek(),error=>error.code==='FEED_PUBLICATION_UNSAFE');await admin.query('ALTER PUBLICATION d6_config_pub SET TABLE '+original);
       await admin.query('ALTER PUBLICATION d6_config_pub SET TABLE '+original.replace('tenant_id,version)','tenant_id)'));
       await assert.rejects(settingsStore.peek(),error=>error.code==='FEED_PUBLICATION_UNSAFE');await admin.query('ALTER PUBLICATION d6_config_pub SET TABLE '+original);
-      await settingsReader.pass();assert.equal(settingsReader.health().degraded,false);
+      await settingsReader.pass();const restoredHealth=settingsReader.health();assert.equal(restoredHealth.degraded,false,diagnostic.detail(restoredHealth));
     }finally{await settingsConsumer?.close();await settingsReader?.close();if(!settingsReader)await settingsStore?.close();await rt?.close();await evalRuntime?.close();}
     function baseConfig(){return {channel:doc.channel,pageSize:1,degradedPages:1,intervalMs:10,heartbeatTimeoutMs:100};}
   });

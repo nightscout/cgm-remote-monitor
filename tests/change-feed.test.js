@@ -131,3 +131,38 @@ describe('D6 bounded signalling', function () {
   });
 
 });
+
+// The native restoration assertion uses this test-only diagnostic observer.
+(()=>{
+  const D=require('./support/d6-reader-diagnostic');
+  const parse=text=>JSON.parse(text.slice('D6_RESTORED_READER_HEALTH '.length));
+describe('D6 test-only refusal diagnostics',function(){
+  it('distinguishes RSS refusal from SQLSTATE 57014 while preserving the same assertion and recovery',async function(){
+    const limit=268435456;let rss=limit,cancel=false,samples=0,reads=0,acks=0;
+    const observer=D.create(()=>{samples++;return rss;});
+    const config={clockNamespace:'clock',activityNamespace:'control',rssRefuseBytes:limit,statementTimeoutMs:100,heartbeatMs:1000};
+    const reader=readerFactory.create(observer.options({config,now:()=>1,schedule:()=>null,cancel:()=>{},alert:()=>{},store:{async peek(){reads++;if(cancel)throw Object.assign(Error('PRIVATE_RAW_ERROR_NEVER_OUTPUT'),{code:'57014'});return [];},async notify(){},async advance(){acks++;},async close(){}}}));
+    try{
+      await reader.pass();assert.equal(reader.health().degraded,false);rss++;await reader.pass();
+      const rssHealth=reader.health(),rssDetail=observer.detail(rssHealth);assert.throws(()=>assert.equal(rssHealth.degraded,false,rssDetail),/FEED_RSS_REFUSED/);
+      assert.equal(reads,1);assert.equal(samples,2);assert.deepEqual(parse(rssDetail),{health:rssHealth,rssAtGuard:limit+1,rssRefuseBytes:limit,statementTimeoutMs:100,storeStage:null});
+      // The old bare boolean equality cannot tell these two causes apart.
+      let oldRss,oldSql;try{assert.equal(rssHealth.degraded,false);}catch(e){oldRss=e.message;}
+      rss=limit;cancel=true;await reader.pass();const sqlHealth=reader.health(),sqlDetail=observer.detail(sqlHealth);try{assert.equal(sqlHealth.degraded,false);}catch(e){oldSql=e.message;}
+      assert.equal(oldRss,oldSql);assert.throws(()=>assert.equal(sqlHealth.degraded,false,sqlDetail),/57014/);assert.equal(sqlHealth.refusal,'FEED_READER_REFUSED');
+      const parsed=parse(sqlDetail);assert.equal(parsed.rssAtGuard,limit);assert.deepEqual(parsed.storeStage,{stage:'peek',outcome:'REFUSED',code:'57014'});assert(!sqlDetail.includes('PRIVATE_RAW_ERROR'));assert.equal(acks,0);
+      cancel=false;await reader.pass();const restored=parse(observer.detail(reader.health()));assert.equal(restored.health.degraded,false);assert.equal(restored.health.refusal,null);assert.equal(restored.storeStage.code,null);assert.equal(samples,4);assert.equal(reads,3);
+    }finally{await reader.close();}
+  });
+  it('preserves store receiver, arguments, return values, configuration and thrown-error identity',async function(){
+    const error=Object.assign(Error('DO_NOT_PRINT'),{code:'FEED_PUBLICATION_UNSAFE'});const config={rssRefuseBytes:268435456,statementTimeoutMs:100};const original={token:{},async peek(...args){assert.equal(this,original);assert.deepEqual(args,['same']);return this.token;},async notify(){throw error;}};
+    const d=D.create(()=>42),opts=d.options({config,store:original});assert.equal(opts.config,config);assert.equal(opts.rss(),42);assert.equal(await opts.store.peek('same'),original.token);await assert.rejects(opts.store.notify(),e=>e===error);
+    const detail=d.detail({live:true,ready:false,degraded:true,refusal:'FEED_PUBLICATION_UNSAFE',generation:'00000000-0000-4000-8000-000000000000',lastSuccess:null,batches:0,messages:0,hints:0,refusals:1});assert.equal(parse(detail).storeStage.code,'FEED_PUBLICATION_UNSAFE');assert(!detail.includes('DO_NOT_PRINT'));
+    assert.throws(()=>d.options({config,store:original,rss:()=>0}),/ALREADY_SELECTED/);
+  });
+  it('does not disclose raw errors, extra health fields or unsupported codes',async function(){
+    const d=D.create(()=>3);const opts=d.options({config:{rssRefuseBytes:4,statementTimeoutMs:100},store:{async peek(){throw Object.assign(Error('RAW_SECRET'),{code:'UNSUPPORTED_SECRET_VALUE'});}}});opts.rss();await assert.rejects(opts.store.peek());
+    const detail=d.detail({live:true,ready:false,degraded:true,refusal:'UNSUPPORTED_SECRET_VALUE',generation:'RAW_SECRET',lastSuccess:null,batches:0,messages:0,hints:0,refusals:1,raw:'RAW_SECRET'});assert(!detail.includes('RAW_SECRET'));assert(!detail.includes('UNSUPPORTED_SECRET_VALUE'));assert.equal(parse(detail).storeStage.code,'UNCLASSIFIED');
+  });
+});
+})();
