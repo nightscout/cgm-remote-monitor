@@ -26,7 +26,7 @@ function fixture () {
       shards: worker ? map.owners.flatMap((owner, index) => owner?.worker === worker.id ? [index] : []) : [] };
     if (flags.wrongSubset === peer.id) p.shards = [0, 1];
     return { version: 2, participant: peer.id, incarnation: '00000000-0000-4000-8000-' + String(index + 1).padStart(12, '0'), namespace: 'synthetic_control', roles: peer.roles,
-      tenants: [A], namespaces: peer.namespaces, identity: { window: 1 }, datastore: DATA, backends: [actors[index]], placement: p, ...body };
+      tenants: [A], namespaces: peer.namespaces, identity: require('./fixtures/operation-window-admission-protocol').identity, datastore: DATA, backends: [actors[index]], placement: p, ...body };
   }
   const file = path.resolve(__dirname, '../lib/server/serve/operation-cohort.js'), output = { exports: {} }, original = require('node:module').createRequire(file);
   const clients = { lifecycleParticipant: endpoint => {

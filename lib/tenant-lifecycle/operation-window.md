@@ -16,8 +16,8 @@ lower-port installation it must await `window.ready()` (resolves without a value
 That method reads metadata directly through the dedicated pool, without the lower
 connection module, so it must precede global lower-port installation.
 `window.namespace` is immutable. `window.identity` is initially null, then a frozen
-object with namespaceOid, ownerOid, ledgerOid, windowsOid, operationsOid and
-backendBirthOid. Each acquired backend is readmitted against that identity
+object with namespaceOid, ownerOid, ledgerOid, windowsOid, operationsOid,
+authorityOid, auditOid, resumeOid, clearanceOid and backendBirthOid. Each acquired backend is readmitted against that identity
 whenever the catalogue epoch changes: inside every transaction, after the shared
 lock and the tenant binding, one statement reads the epoch
 (operation-window-epoch.js: a digest of the row versions of every catalogue row
@@ -106,3 +106,10 @@ forbidden as a serving-tenant lock binding or operation lifetime. Other unknown
 tenants refuse. This admits metadata screening, not a missing control schema or
 a serving cohort. This central coupling does not prove
 that direct pg clients, older workers or an entire deployment are admitted.
+
+Catalogue admission compares a bounded structural SQL representation. It preserves
+boolean grouping, literal contents and quoted identifier case. Only the selected
+lifecycle tables/helper and named pg_catalog builtins admit their corresponding
+qualifiers. Unknown syntax and missing catalogue fields refuse admission; explicit
+SQL NULL remains distinct from malformed or absent metadata. This comparison does
+not infer general SQL equivalence.

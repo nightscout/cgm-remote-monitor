@@ -127,7 +127,7 @@ optInSuite(enabled(), 'disposable NS_TEST_POSTGRES_ADMIN_URI and NS_VAULT_DOCKER
     const roles = ['api', 'evaluator', 'realtime', 'tenant-admin'].sort(), incarnation = randomUUID();
     const database = await datastore.read(lab.admin);
     const status = async request => ({ version: 1, participant: 'serving-reference', incarnation, namespace: ns.control, roles, tenants: [A, B].sort(), namespaces,
-      identity: { namespaceOid: 1 }, datastore: database, request,
+      identity: require('./fixtures/operation-window-admission-protocol').identity, datastore: database, request,
       // Synthetic peers report the other actual fixture backends. The source
       // writer is deliberately NOT a participant: its real grants determine exemption.
       backends: (await lab.admin.query("SELECT pid,usename AS role,extract(epoch from backend_start)::text AS birth FROM pg_stat_activity WHERE pid<>pg_backend_pid() AND datname=current_database() AND backend_type='client backend' AND usename<>$1", [writerURL.name])).rows });
@@ -135,7 +135,8 @@ optInSuite(enabled(), 'disposable NS_TEST_POSTGRES_ADMIN_URI and NS_VAULT_DOCKER
     try {
       await writer.get(A, 'isolated'); // hold its real pool/backend open throughout preflight
       server = await ipc.open(endpoint, contracts.lifecycleParticipant, () => ({ getStatus: async (context, body) => status(body.request),
-        invalidateTenant: async (context, body) => ({ ...await status(body.request), tenant: body.tenant }) }));
+        invalidateTenant: async (context, body) => ({ ...await status(body.request), tenant: body.tenant }),
+        getOperations: async (context, body) => { const current = await status(body.request); return { request: body.request, tenant: body.tenant, participant: current.participant, incarnation: current.incarnation, operations: [] }; } }));
       cohort = await cohorts.createRemote({ namespace: ns.control, tenants: [A, B], participants: [{ id: 'serving-reference', roles, namespaces, endpoint }] });
       pin = await cohorts.pin(cohort, A, { client: lab.admin });
       const before = await cohorts.assertComplete(cohort, A, { client: lab.admin }); assert.ok(before.exempt >= 1);

@@ -5,7 +5,7 @@ const { validate, compile } = require('../lib/server/internal-api/schema');
 const contracts = require('../lib/server/internal-api/contracts');
 const A = '11111111-1111-4111-8111-111111111111';
 const request = '00000000-0000-4000-8000-000000000001';
-const identity = { window: 1, operations: 2 };
+const identity = require('./fixtures/operation-window-admission-protocol').identity;
 const status = { version: 1, participant: 'api_1', incarnation: request, namespace: 'lifecycle', roles: ['api'], tenants: [A], namespaces: ['clinical'], identity,
   datastore: { database: 'synthetic', database_oid: '16384', server_address: '127.0.0.1', server_port: 5432, postmaster_birth: '1700000000.0' },
   backends: [{ pid: 123, role: 'synthetic_api', birth: '1700000001.0' }], request };
@@ -19,7 +19,7 @@ describe('Internal service API contracts', function () {
   it('fixes service ownership, names, wire paths and immutable versioned descriptors', function () {
     assert.deepEqual(Object.keys(contracts.socketAuthority.operations), ['authorizeSocket', 'executeSocketMutation']);
     assert.deepEqual(Object.keys(contracts.alarmDelivery.operations), ['deliverAlarm']);
-    assert.deepEqual(Object.keys(contracts.lifecycleParticipant.operations), ['getStatus', 'invalidateTenant']);
+    assert.deepEqual(Object.keys(contracts.lifecycleParticipant.operations), ['getStatus', 'invalidateTenant', 'getOperations']);
     assert.deepEqual(Object.keys(contracts.ownershipOperations.operations), ['listOwners', 'addOwner', 'transferOwner', 'recoverOwner']);
     assert.deepEqual(Object.keys(contracts.connectorInspection.operations), ['inspectConnectors']);
     const paths = Object.values(contracts).flatMap(service => {
@@ -31,7 +31,7 @@ describe('Internal service API contracts', function () {
         return operation.path;
       });
     });
-    assert.deepEqual(paths, ['/authorize', '/mutate', '/alarm', '/cohort/status', '/cohort/invalidate',
+    assert.deepEqual(paths, ['/authorize', '/mutate', '/alarm', '/cohort/status', '/cohort/invalidate', '/cohort/operations',
       '/ownership/list', '/ownership/add', '/ownership/transfer', '/ownership/recover', '/vcpool/inspect',
         '/evaluator/inspect', '/pool/get', '/pool/members']);
     assert.throws(() => { contracts.alarmDelivery.operations.getStatus = lifecycle.getStatus; }, TypeError);
@@ -113,6 +113,25 @@ describe('Internal service API contracts', function () {
     for (const bad of [{ ...status, tenant: A }, { ...status, identity: {} }, { ...status, roles: ['api', 'api'] }, { ...status, roles: ['recovery'] }, { ...status, datastore: { ...status.datastore, password: 'synthetic' } }, { ...status, backends: [{ ...status.backends[0], pid: 0 }] }]) refused(() => validate(lifecycle.getStatus.response, bad));
     refused(() => validate(lifecycle.invalidateTenant.response, status));
     refused(() => validate(lifecycle.invalidateTenant.request, { request, tenant: A, incarnation: request, identity, force: true }));
+  });
+  it('requires exact tenant, incarnation and identity for operation census and UUID operation ids in its reply', function () {
+    const body = { request, tenant: A, incarnation: request, identity };
+    const reply = { request, tenant: A, participant: status.participant, incarnation: request, operations: [request] };
+    validate(lifecycle.getOperations.request, body); validate(lifecycle.getOperations.response, reply);
+    for (const bad of [{ ...body, force: true }, { ...body, identity: {} }, { ...body, tenant: 'arbitrary' }]) refused(() => validate(lifecycle.getOperations.request, bad));
+    for (const bad of [{ ...reply, operations: ['arbitrary'] }, { ...reply, tenant: 'arbitrary' }, { ...reply, password: 'synthetic' }]) refused(() => validate(lifecycle.getOperations.response, bad));
+  });
+  it('requires all ten exact admitted lifecycle identities in every status and control request', function () {
+    const keys=['namespaceOid','ownerOid','ledgerOid','windowsOid','operationsOid','authorityOid','auditOid','resumeOid','clearanceOid','backendBirthOid'];
+    assert.deepEqual(Object.keys(identity),keys);
+    for (const key of keys) {
+      const missing={...identity};delete missing[key];
+      for (const [schema,body] of [[lifecycle.getStatus.response,status],[lifecycle.invalidateTenant.request,{request,tenant:A,incarnation:request,identity}],[lifecycle.getOperations.request,{request,tenant:A,incarnation:request,identity}]]) {
+        refused(()=>validate(schema,{...body,identity:missing}));
+        refused(()=>validate(schema,{...body,identity:{...identity,[key]:0}}));
+        refused(()=>validate(schema,{...body,identity:{...identity,extraOid:999}}));
+      }
+    }
   });
   it('fails unsupported schema vocabulary and exercises the implemented JSON Schema subset', function () {
     assert.throws(() => compile({ type: 'object', patternProperties: {} }), /Unsupported internal API schema/);

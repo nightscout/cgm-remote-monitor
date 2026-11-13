@@ -206,6 +206,31 @@ describe('Selected lower-port window cannot be omitted (source protocol)', funct
     body(name => name === 'pg' ? { Pool } : originalRequire(name), output, output.exports);
     return output.exports;
   }
+  for (const table of ['tenant_lifecycle_restore_resume','tenant_lifecycle_operation_clearance']) for (const path of ['lower','lifetime']) {
+    it('cached '+path+' admission refuses '+table+' drift before body SQL and restores',async function () {
+      let unsafe=false;
+      // Recording catalogue row versions; generated SQL must contain both the
+      // named relation and its oid input or this epoch stays unchanged. This is
+      // source coverage of the cache boundary, not PostgreSQL digest execution.
+      const options={catalogueMutate(kind,rows){if(unsafe&&kind===table)rows[0].secured=false;},epochForSQL(sql){
+        const covered=sql.includes('to_regclass(\'"synthetic_window".'+table+'\')')&&sql.includes("'{41,42,43,44,45,46,47}'::oid[]");
+        return (unsafe&&covered?'f':'e').repeat(64);
+      }};
+      const f=fixture(options),lower=lowerModule(f),scope=require('../lib/storage/tenant-scope');
+      const previous=scope.getTenancyMode();scope.setTenancyMode('multi');
+      await f.window.ready();const release=lower.installOperationWindow(f.window);let store;
+      try {
+        store=await lower({connectionString:'postgresql://synthetic/disposable_test'});
+        const call=body=>scope.withTenant(A,()=>path==='lifetime'?f.window.run(A,body):body());
+        await call(()=>store.query('SELECT healthy_new_audit_catalogue'));
+        unsafe=true;
+        await assert.rejects(call(()=>store.query('SELECT forbidden_new_audit_catalogue')),{code:'LIFECYCLE_WINDOW_SCHEMA_UNSAFE'});
+        assert(!f.log.some(row=>row[0]==='SELECT forbidden_new_audit_catalogue'),'NEW_TABLE_DRIFT_STOPS_BODY');
+        unsafe=false;
+        await call(()=>store.query('SELECT restored_new_audit_catalogue'));
+      } finally {if(store)await store.end();release();await f.window.close();scope.setTenancyMode(previous);}
+    });
+  }
   it('rejects a transaction-pooler identity instead of adopting SQL labels', async function () {
     const options={}, f = fixture(options), lower = lowerModule(f);
     await f.window.ready(); options.sqlPid=456; const release = lower.installOperationWindow(f.window);

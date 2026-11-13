@@ -7,7 +7,7 @@ const B = '22222222-2222-4222-8222-222222222222';
 module.exports = function fixture (options = {}, createWindow = create) {
   const log = [], pending = new Map();
   const datastore = {database:'disposable_test',database_oid:'16384',server_address:'127.0.0.1',server_port:5432,postmaster_birth:'1700000000.000000'};
-  const admission = require('./operation-window-admission-protocol')();
+  const admission = require('./operation-window-admission-protocol')(options.catalogueMutate);
   const client = new EventEmitter();
   client.processID = 123;
   client.release = error => log.push(['release', !!error]);
@@ -18,7 +18,7 @@ module.exports = function fixture (options = {}, createWindow = create) {
     if (text.includes('/* operation-window-epoch')) {
       const window = text.includes('-metadata') ? { read_only: options.metadataReadOnly || 'on' }
         : { lock_key: options.key || (values[0] === B ? '19' : '17'), phase: options.phases?.[values[0]] || options.phase || 'active', generation: '1' };
-      return { rows: [{ epoch: options.epoch || 'e'.repeat(64), rolsuper: !!options.superuser, rolbypassrls: false, ...datastore, ...options.datastore, pid: options.sqlPid || 123, ...window }] };
+      return { rows: [{ epoch: options.epochForSQL ? options.epochForSQL(text) : options.epoch || 'e'.repeat(64), rolsuper: !!options.superuser, rolbypassrls: false, ...datastore, ...options.datastore, pid: options.sqlPid || 123, ...window }] };
     }
     const metadata = admission(text, values); if (metadata) return metadata;
     if (text.includes('FROM pg_roles')) return { rows: [{ rolsuper: !!options.superuser, rolbypassrls: false,

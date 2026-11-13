@@ -86,12 +86,71 @@
           },
           "identity": {
             "type": "object",
-            "minProperties": 1,
-            "additionalProperties": {
-              "type": "integer",
-              "minimum": 1,
-              "maximum": 9007199254740991
-            }
+            "properties": {
+              "namespaceOid": {
+                "type": "integer",
+                "minimum": 1,
+                "maximum": 9007199254740991
+              },
+              "ownerOid": {
+                "type": "integer",
+                "minimum": 1,
+                "maximum": 9007199254740991
+              },
+              "ledgerOid": {
+                "type": "integer",
+                "minimum": 1,
+                "maximum": 9007199254740991
+              },
+              "windowsOid": {
+                "type": "integer",
+                "minimum": 1,
+                "maximum": 9007199254740991
+              },
+              "operationsOid": {
+                "type": "integer",
+                "minimum": 1,
+                "maximum": 9007199254740991
+              },
+              "authorityOid": {
+                "type": "integer",
+                "minimum": 1,
+                "maximum": 9007199254740991
+              },
+              "auditOid": {
+                "type": "integer",
+                "minimum": 1,
+                "maximum": 9007199254740991
+              },
+              "resumeOid": {
+                "type": "integer",
+                "minimum": 1,
+                "maximum": 9007199254740991
+              },
+              "clearanceOid": {
+                "type": "integer",
+                "minimum": 1,
+                "maximum": 9007199254740991
+              },
+              "backendBirthOid": {
+                "type": "integer",
+                "minimum": 1,
+                "maximum": 9007199254740991
+              }
+            },
+            "required": [
+              "namespaceOid",
+              "ownerOid",
+              "ledgerOid",
+              "windowsOid",
+              "operationsOid",
+              "authorityOid",
+              "auditOid",
+              "resumeOid",
+              "clearanceOid",
+              "backendBirthOid"
+            ],
+            "additionalProperties": false
           },
           "datastore": {
             "type": "object",
@@ -259,12 +318,71 @@
           },
           "identity": {
             "type": "object",
-            "minProperties": 1,
-            "additionalProperties": {
-              "type": "integer",
-              "minimum": 1,
-              "maximum": 9007199254740991
-            }
+            "properties": {
+              "namespaceOid": {
+                "type": "integer",
+                "minimum": 1,
+                "maximum": 9007199254740991
+              },
+              "ownerOid": {
+                "type": "integer",
+                "minimum": 1,
+                "maximum": 9007199254740991
+              },
+              "ledgerOid": {
+                "type": "integer",
+                "minimum": 1,
+                "maximum": 9007199254740991
+              },
+              "windowsOid": {
+                "type": "integer",
+                "minimum": 1,
+                "maximum": 9007199254740991
+              },
+              "operationsOid": {
+                "type": "integer",
+                "minimum": 1,
+                "maximum": 9007199254740991
+              },
+              "authorityOid": {
+                "type": "integer",
+                "minimum": 1,
+                "maximum": 9007199254740991
+              },
+              "auditOid": {
+                "type": "integer",
+                "minimum": 1,
+                "maximum": 9007199254740991
+              },
+              "resumeOid": {
+                "type": "integer",
+                "minimum": 1,
+                "maximum": 9007199254740991
+              },
+              "clearanceOid": {
+                "type": "integer",
+                "minimum": 1,
+                "maximum": 9007199254740991
+              },
+              "backendBirthOid": {
+                "type": "integer",
+                "minimum": 1,
+                "maximum": 9007199254740991
+              }
+            },
+            "required": [
+              "namespaceOid",
+              "ownerOid",
+              "ledgerOid",
+              "windowsOid",
+              "operationsOid",
+              "authorityOid",
+              "auditOid",
+              "resumeOid",
+              "clearanceOid",
+              "backendBirthOid"
+            ],
+            "additionalProperties": false
           }
         },
         "required": [
@@ -343,12 +461,71 @@
           },
           "identity": {
             "type": "object",
-            "minProperties": 1,
-            "additionalProperties": {
-              "type": "integer",
-              "minimum": 1,
-              "maximum": 9007199254740991
-            }
+            "properties": {
+              "namespaceOid": {
+                "type": "integer",
+                "minimum": 1,
+                "maximum": 9007199254740991
+              },
+              "ownerOid": {
+                "type": "integer",
+                "minimum": 1,
+                "maximum": 9007199254740991
+              },
+              "ledgerOid": {
+                "type": "integer",
+                "minimum": 1,
+                "maximum": 9007199254740991
+              },
+              "windowsOid": {
+                "type": "integer",
+                "minimum": 1,
+                "maximum": 9007199254740991
+              },
+              "operationsOid": {
+                "type": "integer",
+                "minimum": 1,
+                "maximum": 9007199254740991
+              },
+              "authorityOid": {
+                "type": "integer",
+                "minimum": 1,
+                "maximum": 9007199254740991
+              },
+              "auditOid": {
+                "type": "integer",
+                "minimum": 1,
+                "maximum": 9007199254740991
+              },
+              "resumeOid": {
+                "type": "integer",
+                "minimum": 1,
+                "maximum": 9007199254740991
+              },
+              "clearanceOid": {
+                "type": "integer",
+                "minimum": 1,
+                "maximum": 9007199254740991
+              },
+              "backendBirthOid": {
+                "type": "integer",
+                "minimum": 1,
+                "maximum": 9007199254740991
+              }
+            },
+            "required": [
+              "namespaceOid",
+              "ownerOid",
+              "ledgerOid",
+              "windowsOid",
+              "operationsOid",
+              "authorityOid",
+              "auditOid",
+              "resumeOid",
+              "clearanceOid",
+              "backendBirthOid"
+            ],
+            "additionalProperties": false
           },
           "datastore": {
             "type": "object",
@@ -497,6 +674,141 @@
           "backends",
           "request",
           "tenant"
+        ],
+        "additionalProperties": false
+      }
+    },
+    "getOperations": {
+      "path": "/cohort/operations",
+      "request": {
+        "$schema": "https://json-schema.org/draft/2020-12/schema",
+        "type": "object",
+        "properties": {
+          "request": {
+            "type": "string",
+            "pattern": "^[0-9a-f-]{36}$"
+          },
+          "tenant": {
+            "type": "string",
+            "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$"
+          },
+          "incarnation": {
+            "type": "string",
+            "pattern": "^[0-9a-f-]{36}$"
+          },
+          "identity": {
+            "type": "object",
+            "properties": {
+              "namespaceOid": {
+                "type": "integer",
+                "minimum": 1,
+                "maximum": 9007199254740991
+              },
+              "ownerOid": {
+                "type": "integer",
+                "minimum": 1,
+                "maximum": 9007199254740991
+              },
+              "ledgerOid": {
+                "type": "integer",
+                "minimum": 1,
+                "maximum": 9007199254740991
+              },
+              "windowsOid": {
+                "type": "integer",
+                "minimum": 1,
+                "maximum": 9007199254740991
+              },
+              "operationsOid": {
+                "type": "integer",
+                "minimum": 1,
+                "maximum": 9007199254740991
+              },
+              "authorityOid": {
+                "type": "integer",
+                "minimum": 1,
+                "maximum": 9007199254740991
+              },
+              "auditOid": {
+                "type": "integer",
+                "minimum": 1,
+                "maximum": 9007199254740991
+              },
+              "resumeOid": {
+                "type": "integer",
+                "minimum": 1,
+                "maximum": 9007199254740991
+              },
+              "clearanceOid": {
+                "type": "integer",
+                "minimum": 1,
+                "maximum": 9007199254740991
+              },
+              "backendBirthOid": {
+                "type": "integer",
+                "minimum": 1,
+                "maximum": 9007199254740991
+              }
+            },
+            "required": [
+              "namespaceOid",
+              "ownerOid",
+              "ledgerOid",
+              "windowsOid",
+              "operationsOid",
+              "authorityOid",
+              "auditOid",
+              "resumeOid",
+              "clearanceOid",
+              "backendBirthOid"
+            ],
+            "additionalProperties": false
+          }
+        },
+        "required": [
+          "request",
+          "tenant",
+          "incarnation",
+          "identity"
+        ],
+        "additionalProperties": false
+      },
+      "response": {
+        "$schema": "https://json-schema.org/draft/2020-12/schema",
+        "type": "object",
+        "properties": {
+          "request": {
+            "type": "string",
+            "pattern": "^[0-9a-f-]{36}$"
+          },
+          "tenant": {
+            "type": "string",
+            "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$"
+          },
+          "participant": {
+            "type": "string",
+            "pattern": "^[a-z][a-z0-9_-]{0,62}$"
+          },
+          "incarnation": {
+            "type": "string",
+            "pattern": "^[0-9a-f-]{36}$"
+          },
+          "operations": {
+            "type": "array",
+            "items": {
+              "type": "string",
+              "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$"
+            },
+            "uniqueItems": true,
+            "maxItems": 16384
+          }
+        },
+        "required": [
+          "request",
+          "tenant",
+          "participant",
+          "incarnation",
+          "operations"
         ],
         "additionalProperties": false
       }

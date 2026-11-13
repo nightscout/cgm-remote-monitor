@@ -187,7 +187,7 @@ module.exports = function fixture () {
         // Explicit idle fixture peers: no clinical role/workload/backend is
         // attributed to them. Actual API+RT actors below remain authoritative.
         const status=()=>{const current=placementReader.current();return {...template,participant:id,roles:[id],incarnation,namespaces:[...peer.namespaces].sort(),backends:[],placement:{generation:current.generation,digest:current.digest,rule:current.rule,shardCount:current.shardCount,worker:null,incarnation:null,shards:[]}};};
-        idlePeers.push(await require('../../lib/server/internal-api/transport').open({socketPath:peer.address.socket,maxBytes:1048576,timeoutMs:5000},require('../../lib/server/internal-api/contracts').lifecycleParticipant,()=>({getStatus:async(ctx,body)=>({...status(),request:body.request}),invalidateTenant:async(ctx,body)=>({...status(),request:body.request,tenant:body.tenant})})));
+        idlePeers.push(await require('../../lib/server/internal-api/transport').open({socketPath:peer.address.socket,maxBytes:1048576,timeoutMs:5000},require('../../lib/server/internal-api/contracts').lifecycleParticipant,()=>({getStatus:async(ctx,body)=>({...status(),request:body.request}),invalidateTenant:async(ctx,body)=>({...status(),request:body.request,tenant:body.tenant}),getOperations:async(ctx,body)=>({request:body.request,tenant:body.tenant,participant:id,incarnation,operations:[]})})));
       }
     }
     if (paused) for (const tenant of tenants) await activityWriter.transition({tenant,principal:'synthetic-operator',consumer:'native-proof'},'pause');

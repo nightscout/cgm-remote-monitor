@@ -159,10 +159,11 @@ optInSuite(process.env.NS_ADMIN_LIFECYCLE_DOCKER_TEST === '1',
     for (const entry of entries) {
       const incarnation = crypto.randomUUID(), backend = participants.find(row => row.participant === entry.roles[0]).backend;
       const status = request => ({ version: 1, participant: entry.id, incarnation, namespace: ns.control, roles: [...entry.roles],
-        tenants: [A, B].sort(), namespaces: [...entry.namespaces], identity: { namespaceOid: 1 }, datastore: { ...datastoreRow }, backends: [backend], request });
+        tenants: [A, B].sort(), namespaces: [...entry.namespaces], identity: require('./fixtures/operation-window-admission-protocol').identity, datastore: { ...datastoreRow }, backends: [backend], request });
       peers.push(await ipc.open(entry.endpoint, contracts.lifecycleParticipant, () => ({
         getStatus: async (ctx, body) => status(body.request),
-        invalidateTenant: async (ctx, body) => ({ ...status(body.request), tenant: body.tenant })
+        invalidateTenant: async (ctx, body) => ({ ...status(body.request), tenant: body.tenant }),
+        getOperations: async (ctx, body) => ({ request: body.request, tenant: body.tenant, participant: entry.id, incarnation, operations: [] })
       })));
     }
     this.entries = entries;
