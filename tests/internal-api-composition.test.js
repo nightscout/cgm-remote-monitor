@@ -109,6 +109,7 @@ for (const kind of ['uds', 'http']) describe('Composed component-private listene
       await assert.rejects(transport.client(e.options, contracts.alarmDelivery).deliverAlarm({ tenant: A, id: REQUEST, attempt: 1, notification: {}, receipts: [] }));
       refused(await raw(e.options, '/cohort/status', { request: REQUEST }, { service: 'lifecycle-participant', version: LIFECYCLE_WIRE_VERSION, method: 'GET' }), 'unregistered method');
       refused(await raw(e.options, '/cohort/status', { request: REQUEST }, { service: 'lifecycle-participant', version: '1' }), 'old lifecycle wire version');
+      refused(await raw(e.options, '/cohort/status', { request: REQUEST }, { service: 'lifecycle-participant', version: '2' }), 'earlier lifecycle identity contract');
       assert.deepEqual(calls, [], 'No foreign or unregistered service may invoke a composed handler');
       assert.equal((await raw(e.options, '/cohort/status', { request: REQUEST }, { service: 'lifecycle-participant', version: LIFECYCLE_WIRE_VERSION })).status, 200);
       assert.deepEqual(calls, [['status']], 'Positive control reaches the route owner');

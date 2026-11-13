@@ -24,7 +24,7 @@ describe('Internal service API contracts', function () {
     assert.deepEqual(Object.keys(contracts.connectorInspection.operations), ['inspectConnectors']);
     const paths = Object.values(contracts).flatMap(service => {
       // Connector metadata, alarm/cohort fencing and evaluator scheduling observations use v2.
-      assert.equal(service.version, ['connector-inspection', 'alarm-delivery', 'lifecycle-participant', 'evaluator-inspection'].includes(service.id) ? 2 : 1);
+      assert.equal(service.version, service.id === 'lifecycle-participant' ? 3 : ['connector-inspection', 'alarm-delivery', 'evaluator-inspection'].includes(service.id) ? 2 : 1);
       assert(Object.isFrozen(service.operations));
       return Object.values(service.operations).map(operation => {
         assert(Object.isFrozen(operation.request)); assert(Object.isFrozen(operation.response));

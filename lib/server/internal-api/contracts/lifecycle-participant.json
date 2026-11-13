@@ -1,6 +1,6 @@
 {
   "id": "lifecycle-participant",
-  "version": 2,
+  "version": 3,
   "operations": {
     "getStatus": {
       "path": "/cohort/status",
