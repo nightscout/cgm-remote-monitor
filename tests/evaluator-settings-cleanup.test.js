@@ -85,3 +85,33 @@ describe('unconfirmed settings PostgreSQL cleanup', function () {
     assert.equal(f.state.pools, 2); await f.reader.close();
   });
 });
+
+
+describe('direct PostgreSQL cleanup outcome preservation', function () {
+  for (const kind of ['migration', 'readiness']) for (const phase of ['success', 'connect', 'query']) for (const endFails of [false, true]) {
+    it(kind + ' preserves ' + phase + ' with cleanup ' + (endFails ? 'unconfirmed' : 'confirmed'), async function () {
+      const primary = Error('SYNTHETIC_WORK_REFUSAL'), cleanup = Error('SYNTHETIC_CLEANUP_REFUSAL');
+      const state = { clients: 0, ends: 0 };
+      class Client {
+        constructor () { state.clients++; }
+        async connect () { if (phase === 'connect') throw primary; }
+        async query (sql) {
+          if (phase === 'query') throw primary;
+          if (sql.includes('pg_roles')) return { rows: [{ rolsuper: false, rolbypassrls: false, rolcreaterole: false, rolcreatedb: false, rolreplication: false }] };
+          return { rows: [{ present: false, creates: false, mutates: false }] };
+        }
+        async end () { state.ends++; if (endFails) throw cleanup; }
+      }
+      const selected = isolated(kind === 'migration' ? 'migrations/postgres.js' : 'tenant-settings/readiness.js', { pg: { Client } });
+      const call = () => kind === 'readiness' ? selected({ connectionString: 'postgres://synthetic:synthetic@127.0.0.1/synthetic' })
+        : selected.run('status', { direct: true, connectionString: 'postgres://synthetic:synthetic@127.0.0.1/synthetic', namespace: 'synthetic',
+          catalogue: { version: 1, migrations: [{ name: '0001_synthetic', up: ['CREATE TABLE synthetic (id text)'],
+            checksum: require('../lib/migrations/catalogue').checksum(['CREATE TABLE synthetic (id text)']) }] } });
+      if (endFails) await assert.rejects(call(), error => error instanceof CleanupError && error.cleanupError === cleanup && error.cause === (phase === 'success' ? cleanup : primary));
+      else if (phase !== 'success') await assert.rejects(call(), error => error === primary);
+      else if (kind === 'migration') assert.deepEqual(await call(), { current: false, applied: [], pending: ['0001_synthetic'] });
+      else assert.equal(await call(), undefined);
+      assert.deepEqual(state, { clients: 1, ends: 1 });
+    });
+  }
+});
