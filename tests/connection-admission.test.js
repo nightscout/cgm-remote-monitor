@@ -102,6 +102,33 @@ describe('opt-in process-local constructor and physical retirement admission', f
     assert.equal(new Set(f.api.health().tags).size, f.api.health().tags.length);
     f.api.beginQuiesce(); await f.api.finalizeQuiescence(true);
   });
+  it('records the lossless pre-tag pg application-name precedence including environment and fallback', async function () {
+    const parameters=require('pg/lib/connection-parameters'),defaults=require('pg').defaults;
+    const env=process.env.PGAPPNAME,oldDefault=defaults.application_name,oldFallback=defaults.fallback_application_name;
+    try {
+      for (const row of [
+        {options:{application_name:'explicit-original'},env:'environment-original',fallback:'fallback-original'},
+        {options:{application_name:''},env:'environment-original',fallback:'fallback-original'},
+        {options:{},fallback:'fallback-original'},
+        {options:{},defaultName:'default-original',fallback:'fallback-original'},
+        {options:{},defaultFallback:'default-fallback-original'}
+      ]) {
+        if(row.env===undefined)delete process.env.PGAPPNAME;else process.env.PGAPPNAME=row.env;
+        defaults.application_name=row.defaultName;defaults.fallback_application_name=row.defaultFallback;
+        const options={host:'synthetic-pg',ssl:false,...row.options,...(row.fallback?{fallback_application_name:row.fallback}:{})};
+        const expected=new parameters(options),original=expected.application_name||expected.fallback_application_name||null;
+        const f=fixture(),Client=f.api.wrapClient(f.Client,'settings-readiness'),client=new Client(options);
+        assert.equal(Object.values(f.api.health().applicationNames)[0].originalApplicationName,original);
+        await client.end();
+        if (row.env && row.options.application_name === '') {
+          const g=fixture({transform:source=>source.replace(/const original = options.application_name \|\|[\s\S]*?\|\| null;/,"const original = options.application_name === undefined ? null : options.application_name;")});
+          const Old=g.api.wrapClient(g.Client,'settings-readiness'),old=new Old(options);
+          assert.notEqual(Object.values(g.api.health().applicationNames)[0].originalApplicationName,original,'old direct-options mapping loses the effective PGAPPNAME');
+          await old.end();
+        }
+      }
+    } finally {if(env===undefined)delete process.env.PGAPPNAME;else process.env.PGAPPNAME=env;defaults.application_name=oldDefault;defaults.fallback_application_name=oldFallback;}
+  });
   it('observes Promise-only cleanup and refuses conflicting callback/Promise cleanup outcomes', async function () {
     const f = fixture(), Client = f.api.wrapClient(f.Client, 'settings-readiness'), a = new Client({host:'synthetic-pg'});
     f.Client.prototype.end = () => Promise.resolve(); await a.end();
