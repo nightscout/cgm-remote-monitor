@@ -33,7 +33,6 @@ optInSuite(process.env.NS_MANAGEMENT_SESSIONS_DOCKER_TEST === '1', 'NS_MANAGEMEN
       let issuerURI, verifierURI;
       await admin(async client => {
         await client.query('CREATE ROLE native_management_authority NOLOGIN NOSUPERUSER NOBYPASSRLS');
-        await client.query('CREATE ROLE native_registry_owner NOLOGIN NOSUPERUSER NOBYPASSRLS');
         const password = crypto.randomBytes(24).toString('hex');
         await client.query("CREATE ROLE native_management_issuer LOGIN NOSUPERUSER NOBYPASSRLS PASSWORD '" + password + "'");
         const url = new URL(f.base.adminConnectionString); url.username = 'native_management_issuer'; url.password = password; issuerURI = url.toString();
@@ -42,24 +41,20 @@ optInSuite(process.env.NS_MANAGEMENT_SESSIONS_DOCKER_TEST === '1', 'NS_MANAGEMEN
         const verifyURL = new URL(f.base.adminConnectionString); verifyURL.username = 'native_management_verifier'; verifyURL.password = verifierPassword; verifierURI = verifyURL.toString();
         await client.query('GRANT USAGE ON SCHEMA preview_access,preview_auth TO native_management_verifier');
         await client.query('GRANT SELECT ON preview_access.access_tenants,preview_access.access_credentials,preview_access.access_sessions,preview_access.access_keys,preview_auth.tenant_authorization_config,preview_auth.tenant_authorization_subjects,preview_auth.tenant_authorization_roles,preview_auth.tenant_authorization_subject_roles TO native_management_verifier');
-        for (const row of (await client.query('SELECT tablename FROM pg_tables WHERE schemaname=$1', [namespaces.registry])).rows) await client.query('ALTER TABLE preview_registry."' + row.tablename + '" OWNER TO native_registry_owner');
-        for (const row of (await client.query('SELECT p.oid::regprocedure::text AS name FROM pg_proc p JOIN pg_namespace n ON n.oid=p.pronamespace WHERE n.nspname=$1', [namespaces.registry])).rows) {
-          await client.query('ALTER FUNCTION ' + row.name + ' OWNER TO native_registry_owner');
-          await client.query('ALTER FUNCTION ' + row.name + ' SET search_path=preview_registry,pg_catalog');
-        }
-        await client.query('ALTER SCHEMA preview_registry OWNER TO native_registry_owner');
+        const owner = (await client.query('SELECT r.rolcanlogin,r.rolsuper,r.rolbypassrls FROM pg_namespace n JOIN pg_roles r ON r.oid=n.nspowner WHERE n.nspname=$1', [namespaces.registry])).rows[0];
+        assert.deepEqual(owner, { rolcanlogin: false, rolsuper: false, rolbypassrls: false }, 'actual provisioned catalogue owner stays non-login and non-bypass');
         for (const tenant of [A, B]) {
-          await client.query("INSERT INTO preview_registry.tenant_registry(tenant_id,state,signing_version) VALUES($1,'active',1)", [tenant]);
-          await f.base.operatorVault('transit/keys/' + getKeyName(tenant), { type: 'ed25519', exportable: false });
           const data = (await f.base.operatorVault('transit/keys/' + getKeyName(tenant))).data;
           publicKeys.set(tenant, data.keys['1'].public_key);
-          await client.query("INSERT INTO preview_registry.tenant_registry_keys VALUES($1,'management','management1',$2)", [tenant, publicKeys.get(tenant)]);
-          await client.query("INSERT INTO preview_access.access_keys VALUES($1,'management1','management',true)", [tenant]);
+          const storedKey = (await client.query("SELECT public_key FROM preview_registry.tenant_registry_keys WHERE tenant_id=$1 AND purpose='management' AND kid='management1'", [tenant])).rows;
+          assert.equal(storedKey.length, 1, 'actual provisioning registered management key');
+          assert.equal(storedKey[0].public_key, publicKeys.get(tenant));
+          assert.equal((await client.query("SELECT active FROM preview_access.access_keys WHERE tenant_id=$1 AND kid='management1' AND purpose='management'", [tenant])).rows[0].active, true);
           const digest = require('../lib/subject-admin/owner-policy').catalogueDigest(['*']);
-          await client.query("INSERT INTO preview_auth.tenant_owner_policy(tenant_id,catalogue_digest,ceiling) VALUES($1,$2,ARRAY['*'])", [tenant, digest]);
+          const policy = (await client.query('SELECT catalogue_digest,ceiling FROM preview_auth.tenant_owner_policy WHERE tenant_id=$1', [tenant])).rows[0];
+          assert.equal(policy.catalogue_digest, digest); assert.deepEqual(policy.ceiling, ['*']);
           await client.query("INSERT INTO preview_auth.tenant_owner_actors(tenant_id,principal,consumer,active,can_update,delegable) VALUES($1,$2,$3,true,true,ARRAY['*'])", [tenant, SUBJECT, consumer]);
-          await require('../lib/tenant-activity/provisioning').provisionInTransaction((sql, values) => client.query(sql, values),
-            { namespace: namespaces.control, tenant, principal: 'native', consumer: 'fixture' });
+          assert.equal((await client.query('SELECT tenant_id FROM preview_control.tenant_activity WHERE tenant_id=$1', [tenant])).rows.length, 1, 'actual provisioning created activity');
         }
         const sql = issuerModule.grants({ namespaces, issuer: 'native_management_issuer', authorityOwner: 'native_management_authority' });
         for (const statement of [...sql.authorityOwner, ...sql.issuer]) await client.query(statement);

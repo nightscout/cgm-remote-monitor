@@ -16,13 +16,12 @@ const consumer = 'owner-configuration';
 const random = () => crypto.randomBytes(12).toString('hex');
 
 module.exports = function ownerConfigurationFixture () {
-  const data = require('./multitenant-preview-replicas-static')();
+  const data = require('./multitenant-preview-replicas')();
   const [A, B] = data.tenants, workers = [];
   const suffix = crypto.randomBytes(6).toString('hex');
   const namespaces = { settings: 'owner_settings_' + suffix, operatorPolicy: 'operator_policy_' + suffix,
     authority: 'owner_configuration_' + suffix };
   const roles = Object.fromEntries(['writer', 'access', 'settings', 'display'].map(kind => [kind, 'owner_config_' + kind + '_' + suffix]));
-  const keys = [A, B].map(tenant => ({ tenant, ...crypto.generateKeyPairSync('ed25519') }));
   const connections = {};
   let directory;
   const settingsTable = '"' + namespaces.settings + '".tenant_settings';
@@ -37,11 +36,9 @@ module.exports = function ownerConfigurationFixture () {
   function ownerConfiguration () {
     return { version: 1, postgres: { writerConnectionEnv: 'OWNER_SUBJECT_CONNECTION', accessConnectionEnv: 'OWNER_ACCESS_CONNECTION',
       namespaces: { authorization: 'preview_auth', credentials: 'preview_legacy', access: 'preview_access' } },
-    resolution: { mode: 'direct-alias' }, tenants: [{ id: A, aliases: ['one.example.test'] }, { id: B, aliases: ['two.example.test'] }],
+    resolution: { mode: 'direct-alias' }, registry: { namespace: data.provisioned.namespaces.registry, maxTenants: 100, refreshMs: 500 },
     ownerPolicy: { catalogue }, ownerSettings: { connectionEnv: 'OWNER_SETTINGS_CONNECTION', namespaces },
-    management: { issuer: 'synthetic-owner-configuration', audience: 'synthetic-management', purpose: 'management', consumer,
-      keys: keys.map(key => ({ tenant: key.tenant, kid: 'owner-configuration-key',
-        publicKey: Buffer.from(key.publicKey.export({ format: 'jwk' }).x, 'base64url').toString('base64') })) } };
+    management: { issuer: 'synthetic-owner-configuration', audience: 'synthetic-management', purpose: 'management', consumer } };
   }
   function dataConfiguration () {
     const config = data.configuration();
@@ -49,14 +46,14 @@ module.exports = function ownerConfigurationFixture () {
       namespaces: { settings: namespaces.settings, operatorPolicy: namespaces.operatorPolicy } };
     return config;
   }
-  function token (tenant = A, overrides = {}, headerOverrides = {}) {
-    const now = Math.floor(Date.now() / 1000), key = keys.find(value => value.tenant === tenant);
-    const encode = value => Buffer.from(JSON.stringify(value)).toString('base64url');
-    const input = encode({ alg: 'EdDSA', typ: 'ns-access+jwt', kid: 'owner-configuration-key', ...headerOverrides }) + '.' +
-      encode({ iss: 'synthetic-owner-configuration', aud: 'synthetic-management', purpose: 'management', tid: tenant,
-        sub: SUBJECT, sid: 'owner-configuration-session', cv: 1, iat: now, nbf: now, exp: now + 600, ...overrides });
-    return input + '.' + crypto.sign(null, Buffer.from(input), key.privateKey).toString('base64url');
+  async function token (tenant = A, overrides = {}, headerOverrides = {}) {
+    const now = Math.floor(Date.now() / 1000);
+    return data.signToken(tenant, { purpose: 'management',
+      header: { alg: 'EdDSA', typ: 'ns-access+jwt', kid: 'management1', ...headerOverrides },
+      claims: { iss: 'synthetic-owner-configuration', aud: 'synthetic-management', purpose: 'management', tid: tenant,
+        sub: SUBJECT, sid: 'owner-configuration-session', cv: 1, iat: now, nbf: now, exp: now + 600, ...overrides } });
   }
+
   async function setup () {
     await data.setup();
     directory = fs.mkdtempSync(path.join(os.tmpdir(), 'owner-configuration-'));
@@ -94,16 +91,18 @@ module.exports = function ownerConfigurationFixture () {
     await data.admin.query(`GRANT SELECT ON ${policyTable} TO "${roles.settings}","${roles.display}"`);
     await data.admin.query(`GRANT SELECT,UPDATE(owner_fence) ON ${authorityTable} TO "${roles.settings}"`);
     await data.admin.query(`GRANT SELECT ON ${settingsTable} TO "${roles.display}"`);
+    for (const sql of data.provisioned.registryGrants({ resolvers: [roles.access], readers: [roles.access] })) await data.admin.query(sql);
     for (const tenant of [A, B]) {
-      await data.admin.query(`INSERT INTO ${t('tenant_owner_policy')}(tenant_id,catalogue_digest,ceiling) VALUES($1,$2,$3)`,
+      const policy = await data.admin.query(`UPDATE ${t('tenant_owner_policy')} SET catalogue_digest=$2,ceiling=$3 WHERE tenant_id=$1`,
         [tenant, catalogueDigest(catalogue), catalogue]);
+      assert.equal(policy.rowCount, 1, 'actual provisioning created owner policy');
       await data.admin.query(`INSERT INTO ${t('tenant_owner_actors')}(tenant_id,principal,consumer,active,can_update,delegable)
         VALUES($1,$2,$3,true,true,$4)`, [tenant, SUBJECT, consumer, catalogue]);
       await data.admin.query(`UPDATE ${t('tenant_authorization_roles')} SET permissions=ARRAY['*'] WHERE tenant_id=$1 AND name='viewer'`, [tenant]);
       await data.admin.query(`INSERT INTO preview_access.access_credentials VALUES($1,'owner-configuration-credential',$2,1,true)`, [tenant, SUBJECT]);
       await data.admin.query(`INSERT INTO preview_access.access_sessions VALUES($1,'owner-configuration-session',$2,
         'owner-configuration-credential',1,$3,true,'management')`, [tenant, SUBJECT, Math.floor(Date.now() / 1000) + 3600]);
-      await data.admin.query(`INSERT INTO preview_access.access_keys VALUES($1,'owner-configuration-key','management',true)`, [tenant]);
+      assert.equal((await data.admin.query("SELECT active FROM preview_access.access_keys WHERE tenant_id=$1 AND kid='management1' AND purpose='management'", [tenant])).rows[0].active, true);
     }
     await reset();
   }

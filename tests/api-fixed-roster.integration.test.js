@@ -1,6 +1,6 @@
 'use strict';
 
-// covers: lib/server/serve/operation-cohort.js, lib/server/serve/operation-cohort-manifest.js, lib/tenant-lifecycle/maintenance-window.js, lib/server/internal-api/transport.js, deploy/multitenant/config.js
+// covers: lib/server/serve/operation-cohort.js, lib/server/serve/operation-cohort-manifest.js, lib/tenant-lifecycle/maintenance-window.js, lib/server/internal-api/transport.js, tests/fixtures/multitenant-plan.js
 
 // Two api replicas in the restore census (MT-API-FIXED-ROSTER), on disposable
 // PostgreSQL with the deployment plan's whole catalogue and grants (as
@@ -23,7 +23,7 @@ const path = require('node:path');
 const { execFileSync, spawn } = require('node:child_process');
 const { Client, Pool } = require('pg');
 const { run } = require('../lib/migrations/postgres');
-const plan = require('../deploy/multitenant/config');
+const plan = require('./fixtures/multitenant-plan');
 const ipc = require('../lib/server/internal-api/transport');
 const contracts = require('../lib/server/internal-api/contracts');
 const manifest = require('../lib/server/serve/operation-cohort-manifest');

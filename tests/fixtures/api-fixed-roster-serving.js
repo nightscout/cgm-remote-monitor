@@ -2,6 +2,7 @@
 
 // Actual API CLI replicas and production lifetime/census. Non-API rows below
 // are explicitly synthetic lifecycle peers, without clinical workload or SQL.
+const assert = require('node:assert/strict');
 const crypto = require('node:crypto'), fs = require('node:fs'), path = require('node:path'), http = require('node:http');
 const { Client, Pool } = require('pg');
 const scope = require('../../lib/storage/tenant-scope');
@@ -15,9 +16,9 @@ const maintenance = require('../../lib/tenant-lifecycle/maintenance-window');
 const namespace = 'preview_control', q = name => '"' + name + '"';
 const freePort = () => new Promise(resolve => { const s = http.createServer().listen(0, '127.0.0.1', () => { const port = s.address().port; s.close(() => resolve(port)); }); });
 module.exports = function create ({ environment = {}, leaseSessions, drainTimeoutMs = 10000 } = {}) {
-  const base = require('./multitenant-preview-replicas-static')({ writeClock: true }), current = new Map(), environments = new Map(), peers = [], calls = new Map();
+  const base = require('./multitenant-preview-replicas')({ writeClock: true, namespaceNames: { control: 'preview_control', registry: 'preview_registry' } }), current = new Map(), environments = new Map(), peers = [], calls = new Map();
   const controlledClock = String(Date.now());
-  const locks = base.tenants.map((tenant, i) => ({ tenant, key: String(910001 + i) }));
+  const locks = base.tenants.map(tenant => ({ tenant, key: require('../../lib/tenant-registry/rules').lockKey(tenant) }));
   let port, publicProxy, privateProxy, participants, operatorPool, cohort, controller, lifetimeURI, config, previousMode, preflightReads = 0;
   const url = host => 'http://' + host + ':' + port + '/';
   const endpoint = host => ({ url: url(host), trust: 'network', maxBytes: 1048576, timeoutMs: 5000 });
@@ -41,7 +42,7 @@ module.exports = function create ({ environment = {}, leaseSessions, drainTimeou
     const file = path.join(base.directory, id + '-operation.json');
     const rows = participants.map(peer => ({ id: peer.id, roles: [...peer.roles], namespaces: [...peer.namespaces],
       maxMessageBytes: peer.endpoint.maxBytes, timeoutMs: peer.endpoint.timeoutMs, ...(peer.roles.includes('api') ? { address: { url: peer.endpoint.url } } : {}) }));
-    fs.writeFileSync(file, JSON.stringify({ version: 2, namespace, connectionEnv: 'NS_ROSTER_LIFETIME_PG', locks, participantId: id, participants: rows, ...(leaseSessions === undefined ? {} : { leaseSessions }) }), { mode: 0o600 });
+    fs.writeFileSync(file, JSON.stringify({ version: 2, namespace, connectionEnv: 'NS_ROSTER_LIFETIME_PG', registry: { namespace: base.provisioned.namespaces.registry }, participantId: id, participants: rows, ...(leaseSessions === undefined ? {} : { leaseSessions }) }), { mode: 0o600 });
     const extra = { NS_ROSTER_LIFETIME_PG: lifetimeURI, MULTITENANT_OPERATION_CONFIG: file,
       NS_SERVE_INTERNAL_HOST: id === 'api-1' ? '127.0.0.2' : '127.0.0.3', NS_SERVE_INTERNAL_PORT: String(port), NS_API_INTERNAL_URL: url('127.0.0.4'),
       NS_EVALUATOR_INTERNAL_URL: url('127.0.0.5'), NS_REALTIME_INTERNAL_URL: url('127.0.0.6'), NS_TENANT_ADMIN_INTERNAL_URL: url('127.0.0.7'),
@@ -73,17 +74,27 @@ module.exports = function create ({ environment = {}, leaseSessions, drainTimeou
     }
     await admin.query('GRANT INSERT(tenant_id,operation_id,generation),UPDATE(finished) ON preview_control.tenant_lifecycle_operations TO preview_lifetime_api');
     await admin.query('GRANT EXECUTE ON FUNCTION preview_control.tenant_lifecycle_backend_birth() TO preview_lifetime_api');
+    // Registry provisioning adds a settings CHECK validator. It is not an
+    // operation-lifetime capability: PostgreSQL's default PUBLIC EXECUTE must
+    // not leak that unrelated function to the deliberately narrow lease role.
+    const settingsValidator = '"' + base.provisioned.namespaces.settings + '".tenant_settings_values_valid(jsonb)';
+    await admin.query('REVOKE EXECUTE ON FUNCTION ' + settingsValidator + ' FROM PUBLIC');
+    assert.equal((await admin.query("SELECT has_function_privilege($1,$2,'EXECUTE') AS executes",
+      ['preview_lifetime_api', settingsValidator])).rows[0].executes, false);
     for (const sql of maintenance.operatorGrants({ namespace, role: 'preview_restore_operator' })) await admin.query(sql);
     await admin.query('GRANT pg_read_all_stats TO preview_restore_operator');
     for (const lock of locks) {
-      await admin.query("INSERT INTO preview_control.tenant_lifecycle_windows(tenant_id,lock_key,phase,generation) VALUES($1,$2,'active',1)", [lock.tenant, lock.key]);
+      const existing = (await admin.query('SELECT lock_key::text AS key FROM preview_control.tenant_lifecycle_windows WHERE tenant_id=$1', [lock.tenant])).rows;
+      assert.equal(existing.length, 1, 'actual provisioning created the window');
+      assert.equal(existing[0].key, lock.key, 'registry lock rule matches actual provisioned window');
       await admin.query("INSERT INTO preview_control.tenant_lifecycle_restore_authority VALUES($1,'preview_restore_operator'::regrole::oid,true)", [lock.tenant]);
     }
     port = await freePort();
-    const protectedNames = Object.values(config.postgres.namespaces).sort();
+    const protectedNames = cohorts.protectedNamespaces(config).filter(name => name !== namespace).sort();
     participants = manifests.validate([
       ...['api-1', 'api-2'].map((id, i) => ({ id, roles: ['api'], namespaces: protectedNames, endpoint: endpoint('127.0.0.' + (i + 2)) })),
       ...['evaluator', 'realtime', 'tenant-admin'].map((role, i) => ({ id: role, roles: [role], namespaces: protectedNames, endpoint: endpoint('127.0.0.' + (i + 5)) }))]);
+    await base.provisioned.release();
     await base.disconnectAdmin();
     await start('api-1'); await start('api-2');
     const status = await clients.lifecycleParticipant(participants[0].endpoint).getStatus({ request: crypto.randomUUID() });
@@ -107,7 +118,7 @@ module.exports = function create ({ environment = {}, leaseSessions, drainTimeou
         return result.then(value => { preflightReads++; return value; });
       };
     });
-    cohort = await cohorts.createRemote({ namespace, tenants: base.tenants, participants });
+    cohort = await cohorts.createRemote({ namespace, tenants: ['registry:' + base.provisioned.namespaces.registry], participants });
     controller = maintenance.create({ namespace, locks, pool: operatorPool, cohort, drainTimeoutMs });
   }
   async function cleanup () {
@@ -123,6 +134,7 @@ module.exports = function create ({ environment = {}, leaseSessions, drainTimeou
       delete disabled.writeClock; delete disabled.postgres.namespaces.clock;
       return base.refused(disabled, environments.get(id));
     },
+    get cohortTenants () { return ['registry:' + base.provisioned.namespaces.registry]; },
     get lifetimeConnectionString () { return lifetimeURI; }, get participants () { return participants; }, get operatorPool () { return operatorPool; }, get cohort () { return cohort; },
     get serviceWorker () { return { port: publicProxy.address().port }; },
     get preflightReads () { return preflightReads; },

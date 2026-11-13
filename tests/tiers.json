@@ -237,6 +237,7 @@
         "tests/evaluator-preview-runtime.test.js",
         "tests/evaluator-settings-cleanup.test.js",
         "tests/evaluator-settings-lifecycle.test.js",
+        "tests/evaluator-preview-registry-fixture.test.js",
         "tests/tenant-activity.test.js",
         "tests/pool-membership.test.js",
         "tests/tenant-registry-resolver.test.js",

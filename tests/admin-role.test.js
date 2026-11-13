@@ -1,6 +1,6 @@
 'use strict';
 
-// covers: lib/server/serve/admin-config.js, lib/server/serve/admin-preview.js, lib/server/serve/roles.js, lib/server/serve/index.js, lib/cli/commands/multitenant.js, deploy/multitenant/config.js
+// covers: lib/server/serve/admin-config.js, lib/server/serve/admin-preview.js, lib/server/serve/roles.js, lib/server/serve/index.js, lib/cli/commands/multitenant.js, tests/fixtures/multitenant-plan.js
 
 // The multitenant `admin` role's operator composition without a database: its
 // configuration, its listener's exact route table, its refusals in serve, and
@@ -20,7 +20,7 @@ const { operatorHandler } = require('../lib/server/serve/admin-preview');
 const ownershipService = require('../lib/tenant-ownership/service');
 const clients = require('../lib/server/internal-api/clients');
 const contracts = require('../lib/server/internal-api/contracts');
-const plan = require('../deploy/multitenant/config');
+const plan = require('./fixtures/multitenant-plan');
 
 const A = '11111111-1111-4111-8111-111111111111';
 const B = '22222222-2222-4222-8222-222222222222';
@@ -174,5 +174,23 @@ describe('admin role: deployment plan ownership_operator identity', function () 
     const roles = Object.values(layout.roles);
     assert.equal(new Set(roles).size, roles.length);
     for (const other of ['owner_writer', 'owner_reader', 'api', 'operator']) assert.notEqual(layout.roles[other], layout.roles.ownership_operator);
+  });
+});
+
+describe('registry fixture namespace selection', function () {
+  const fixture = require('./fixtures/provisioned-tenants');
+  it('accepts explicit known distinct namespace names and refuses malformed selections before setup', function () {
+    assert.doesNotThrow(() => fixture.validateNamespaceNames({ registry: 'fixture_registry', control: 'fixture_control' }));
+    for (const value of [null, [], { missing: 'fixture_unknown' }, { registry: 'bad-name' },
+      { registry: 'same', control: 'same' }, { registry: 1 }, { registry: 'a'.repeat(64) }]) {
+      assert.throws(() => fixture.validateNamespaceNames(value), /explicit known unique provisioning namespace/);
+    }
+  });
+  it('refuses a namespace declared both existing and newly named before any SQL or resource effect', async function () {
+    let calls = 0;
+    await assert.rejects(fixture.create({ admin: { query () { calls++; throw Error('UNEXPECTED_SQL'); } },
+      adminURI: 'not-a-connection', owner: 'fixture_owner', namespaces: { registry: 'old_registry' },
+      namespaceNames: { registry: 'new_registry' } }), /either existing or newly named/);
+    assert.equal(calls, 0);
   });
 });

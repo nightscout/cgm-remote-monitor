@@ -15,8 +15,8 @@ optInSuite(process.env.NS_OWNER_CONFIGURATION_DOCKER_TEST === '1', 'NS_OWNER_CON
     const { A, B } = lab;
     let left, right, beforeCase;
     const observations = [];
-    const owner = (worker, tenant, method, body, credential = lab.token(tenant), resource = endpoint) =>
-      lab.http(worker, tenant, method, resource, credential, body);
+    const owner = async (worker, tenant, method, body, credential, resource = endpoint) =>
+      lab.http(worker, tenant, method, resource, credential === undefined ? await lab.token(tenant) : credential, body);
     async function status (worker, tenant, headers) {
       return lab.data.http(worker, tenant, 'GET', '/api/v1/status.json', await lab.data.localToken(tenant), undefined, headers);
     }
@@ -84,18 +84,18 @@ optInSuite(process.env.NS_OWNER_CONFIGURATION_DOCKER_TEST === '1', 'NS_OWNER_CON
     });
     it('rolls back as a new version and refuses whole rollback under current operator pin', async function () {
       assert.equal((await owner(left, A, 'PUT', { expectedVersion: 1, values: { SHOW_SECONDS: true } })).status, 200);
-      assert.equal((await owner(right, A, 'POST', { expectedVersion: 2, restoredFrom: 1 }, lab.token(A), endpoint + '/rollback')).status, 200);
+      assert.equal((await owner(right, A, 'POST', { expectedVersion: 2, restoredFrom: 1 }, await lab.token(A), endpoint + '/rollback')).status, 200);
       assert.deepEqual(await current(A), { tenant_id: A, version: 3, values: {} });
       const restored = (await lab.state()).history.find(row => row.tenant_id === A && row.version === 3);
       assert.equal(restored.operation, 'rollback'); assert.equal(restored.restored_from, 1);
       await lab.policy(A, { deployment: {}, overrides: { SHOW_SECONDS: { mode: 'pinned', pin: false } } });
-      await refuseUnchanged(() => owner(left, A, 'POST', { expectedVersion: 3, restoredFrom: 2 }, lab.token(A), endpoint + '/rollback'), 403);
+      await refuseUnchanged(async () => owner(left, A, 'POST', { expectedVersion: 3, restoredFrom: 2 }, await lab.token(A), endpoint + '/rollback'), 403);
       const shown = await owner(right, A, 'GET'); assert.equal(shown.status, 200);
       assert.equal(shown.body.effective.SHOW_SECONDS.value, false);
       assert.equal(shown.body.effective.SHOW_SECONDS.source, 'operator-pin');
     });
     it('enforces current configure revoke with the same JWT on the next operation in another worker', async function () {
-      const credential = lab.token(A);
+      const credential = await lab.token(A);
       assert.equal((await owner(left, A, 'GET', undefined, credential)).status, 200);
       await lab.configure(A, false);
       await refuseUnchanged(() => owner(right, A, 'GET', undefined, credential), 403);
@@ -212,11 +212,11 @@ optInSuite(process.env.NS_OWNER_CONFIGURATION_DOCKER_TEST === '1', 'NS_OWNER_CON
     });
     it('keeps DATA owner404 and OWNER DATA/operator404 with independent state unchanged', async function () {
       const before = await lab.state();
-      assert.equal((await lab.data.http(left, A, 'GET', endpoint, lab.token(A))).status, 404);
-      assert.equal((await lab.http(right, A, 'GET', '/api/v3/entries', lab.token(A))).status, 404);
-      assert.equal((await lab.http(right, A, 'GET', '/api/v1/operator/tenants/' + A + '/policy', lab.token(A))).status, 404);
+      assert.equal((await lab.data.http(left, A, 'GET', endpoint, await lab.token(A))).status, 404);
+      assert.equal((await lab.http(right, A, 'GET', '/api/v3/entries', await lab.token(A))).status, 404);
+      assert.equal((await lab.http(right, A, 'GET', '/api/v1/operator/tenants/' + A + '/policy', await lab.token(A))).status, 404);
       assert.deepEqual(await lab.state(), before);
-      for (const credential of [await lab.data.localToken(A), lab.token(B), lab.token(A, { purpose: 'data' }), lab.token(A, { exp: Math.floor(Date.now() / 1000) + 1000 })]) {
+      for (const credential of [await lab.data.localToken(A), await lab.token(B), await lab.token(A, { purpose: 'data' }), await lab.token(A, { exp: Math.floor(Date.now() / 1000) + 1000 })]) {
         await refuseUnchanged(() => owner(left, A, 'GET', undefined, credential), 401);
       }
     });

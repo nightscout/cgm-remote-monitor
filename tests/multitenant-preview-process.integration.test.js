@@ -38,7 +38,7 @@ const docker = args => execFileSync('docker', args, {
   encoding: 'utf8', stdio: ['ignore', 'pipe', 'pipe'], timeout: 30000
 }).trim();
 
-function configuration (address, full = false) {
+function staticNegativeConfiguration (address, full = false) {
   return {
     version: 1,
     ...(full ? { domains: domainNames, legacy: true, context: true } : {}),
@@ -48,8 +48,8 @@ function configuration (address, full = false) {
     resolution: { mode: 'direct-alias' },
     tenants: [A, B].map((id, i) => ({
       id, aliases: [(i ? 'two' : 'one') + '.example.test'],
-      vault: { tokenEnv: 'PREVIEW_VAULT_' + i, encryptionKey: 'tenant-' + i + '-data',
-        signingKey: 'tenant-' + i + '-signing', signingVersion: 1 }
+      vault: { tokenEnv: 'PREVIEW_VAULT_' + i, encryptionKey: require('../lib/tenant-registry/rules').vaultKey(id, 'data'),
+        signingKey: require('../lib/tenant-registry/rules').vaultKey(id, 'signing'), signingVersion: 1 }
     }))
   };
 }
@@ -63,8 +63,16 @@ optInSuite(process.env.NS_MULTITENANT_PREVIEW_PROCESS_DOCKER_TEST === '1',
     // Outside the package: no cwd-relative implicit config or secrets file.
     const fixtureDirectory = path.resolve(root, '..', '.runnable-preview-fixtures-' + suffix);
     const configFile = path.join(fixtureDirectory, 'preview.json');
-    const roots = [random(), random()], children = new Set(), tokens = [], publicKeys = [];
-    let pgOwned = false, vaultOwned = false, admin, adminURI, appURI, checkURI, address, vaultRoot;
+    const roots = [], children = new Set(), tokens = [], publicKeys = [];
+    let provisioned, roleToken;
+    function configuration (address, full = false) {
+      return { version: 1, ...(full ? { domains: domainNames, legacy: true, context: true } : {}),
+        postgres: { connectionEnv: 'PREVIEW_APP_PG', readinessConnectionEnv: 'PREVIEW_CHECK_PG', namespaces: full ? allNamespaces : namespaces },
+        vault: { address, mount: 'transit', tokenEnv: 'PREVIEW_VAULT_TOKEN', allowInsecureLoopback: true, timeoutMs: 1000 },
+        resolution: { mode: 'direct-alias' }, registry: { namespace: provisioned.namespaces.registry, maxTenants: 100, refreshMs: 500 },
+        tenantSettings: { connectionEnv: 'PREVIEW_SETTINGS_PG', namespaces: { settings: provisioned.namespaces.settings, operatorPolicy: provisioned.namespaces.operatorPolicy } } };
+    }
+    let pgOwned = false, vaultOwned = false, admin, adminURI, appURI, checkURI, settingsURI, address, vaultRoot;
 
     async function until (probe, label) {
       const deadline = Date.now() + 20000;
@@ -86,14 +94,14 @@ optInSuite(process.env.NS_MULTITENANT_PREVIEW_PROCESS_DOCKER_TEST === '1',
 
     function environment (extra = {}) {
       const env = {
-        PATH: process.env.PATH, HOME: process.env.HOME, TZ: 'UTC', NODE_ENV: 'test', MULTITENANT_STATIC_TENANTS: 'lab',
+        PATH: process.env.PATH, HOME: process.env.HOME, TZ: 'UTC', NODE_ENV: 'test',
         // Acceptance runs with every tenant initialized before the listener
         // opens (decision readiness-serve-then-warm); extra may override.
         NS_TENANT_READINESS: 'all',
         MULTITENANT_PREVIEW_CONFIG: configFile,
         API_HOSTNAME: '127.0.0.1', API_PORT: '0',
-        PREVIEW_APP_PG: appURI, PREVIEW_CHECK_PG: checkURI,
-        PREVIEW_VAULT_0: tokens[0], PREVIEW_VAULT_1: tokens[1]
+        PREVIEW_APP_PG: appURI, PREVIEW_CHECK_PG: checkURI, PREVIEW_SETTINGS_PG: settingsURI,
+        PREVIEW_VAULT_TOKEN: roleToken, PREVIEW_VAULT_0: roleToken, PREVIEW_VAULT_1: roleToken
       };
       for (const key of ['NODE_OPTIONS', 'NS_PREVIEW_PROCESS_CONTROL']) {
         if (process.env[key] !== undefined) env[key] = process.env[key];
@@ -147,7 +155,7 @@ optInSuite(process.env.NS_MULTITENANT_PREVIEW_PROCESS_DOCKER_TEST === '1',
       const exit = await worker.exited;
       assert.deepEqual(exit, { code: 78, signal: null });
       assert.doesNotMatch(worker.stdout, /Listening/);
-      for (const credential of [appURI, checkURI, vaultRoot, ...tokens, ...roots]) {
+      for (const credential of [appURI, checkURI, settingsURI, vaultRoot, ...tokens, ...roots]) {
         assert.ok(!worker.stderr.includes(credential), 'startup diagnostic must not disclose credentials');
       }
       children.delete(worker);
@@ -192,20 +200,20 @@ optInSuite(process.env.NS_MULTITENANT_PREVIEW_PROCESS_DOCKER_TEST === '1',
     function localConfiguration () {
       const config = configuration(address, true);
       config.postgres.namespaces = { ...config.postgres.namespaces, access: 'preview_access' };
-      config.accessTokens = { issuer: 'nightscout-test', audience: 'nightscout-data', keys: publicKeys.map(key => ({ ...key })) };
+      config.accessTokens = { issuer: 'nightscout-test', audience: 'nightscout-data' };
       return config;
     }
 
     async function localToken (tenant, overrides = {}, headerOverrides = {}) {
-      const now = Math.floor(Date.now() / 1000), i = tenant === A ? 0 : 1;
+      const now = Math.floor(Date.now() / 1000);
       const header = Buffer.from(JSON.stringify({ alg: 'EdDSA', typ: 'ns-access+jwt', kid: 'key1', ...headerOverrides })).toString('base64url');
       const body = Buffer.from(JSON.stringify({ iss: 'nightscout-test', aud: 'nightscout-data', tid: tenant,
         purpose: 'data', sub: SUBJECT, sid: 'local-session', cv: 1, iat: now, nbf: now, exp: now + 28800,
         ...overrides })).toString('base64url');
       const input = header + '.' + body;
-      const signed = await vault('transit/sign/tenant-' + i + '-access', {
+      const signed = await vault('transit/sign/' + require('../lib/tenant-registry/rules').vaultKey(tenant, 'access'), {
         input: Buffer.from(input).toString('base64'), key_version: 1
-      }, tokens[i]);
+      });
       return input + '.' + Buffer.from(signed.data.signature.split(':')[2], 'base64').toString('base64url');
     }
 
@@ -213,7 +221,7 @@ optInSuite(process.env.NS_MULTITENANT_PREVIEW_PROCESS_DOCKER_TEST === '1',
       fs.mkdirSync(fixtureDirectory, { mode: 0o700 });
       const pgPassword = random();
       execFileSync('docker', ['run', '--rm', '--name', pgName, '-d', '-p', '127.0.0.1::5432',
-        '-e', 'POSTGRES_USER=operator', '-e', 'POSTGRES_PASSWORD', '-e', 'POSTGRES_DB=preview', 'postgres:16'],
+        '-e', 'POSTGRES_USER=operator', '-e', 'POSTGRES_PASSWORD', '-e', 'POSTGRES_DB=preview', 'postgres@sha256:9e2cf6287f25c3151f4c9421ccce2b17f3e60061c111a29165e0d2cdd9ff0a97'],
       { env: { ...process.env, POSTGRES_PASSWORD: pgPassword }, stdio: ['ignore', 'pipe', 'pipe'], timeout: 30000 });
       pgOwned = true;
       const pgPort = docker(['port', pgName, '5432/tcp']).split(':').pop();
@@ -231,14 +239,14 @@ optInSuite(process.env.NS_MULTITENANT_PREVIEW_PROCESS_DOCKER_TEST === '1',
         catalogue: require('../lib/tenant-authorization/access-candidate.json') });
       admin = new Client({ connectionString: adminURI });
       await admin.connect();
-      for (const name of ['preview_app', 'preview_check']) {
+      for (const name of ['preview_app', 'preview_check', 'preview_settings']) {
         const password = random();
         await admin.query(`CREATE ROLE ${name} LOGIN NOSUPERUSER NOBYPASSRLS PASSWORD '${password}'`);
-        await admin.query(`GRANT USAGE ON SCHEMA ${Object.values(allNamespaces).concat(['preview_access']).join(', ')} TO ${name}`);
+        if (name !== 'preview_settings') await admin.query(`GRANT USAGE ON SCHEMA ${Object.values(allNamespaces).concat(['preview_access']).join(', ')} TO ${name}`);
         const url = new URL(adminURI);
         url.username = name;
         url.password = password;
-        if (name === 'preview_app') appURI = url.toString(); else checkURI = url.toString();
+        if (name === 'preview_app') appURI = url.toString(); else if (name === 'preview_check') checkURI = url.toString(); else settingsURI = url.toString();
       }
       for (const namespace of Object.values(allNamespaces)) {
         await admin.query(`GRANT SELECT ON ${namespace}.schema_migrations TO preview_check`);
@@ -252,16 +260,6 @@ optInSuite(process.env.NS_MULTITENANT_PREVIEW_PROCESS_DOCKER_TEST === '1',
       await admin.query('GRANT SELECT ON preview_access.schema_migrations TO preview_check');
       await admin.query('GRANT SELECT, INSERT ON preview_secrets.secret_records TO preview_app');
       await admin.query('GRANT INSERT ON preview_secrets.secret_audit TO preview_app');
-      for (const [i, tenant] of [A, B].entries()) {
-        await admin.query('INSERT INTO preview_legacy.legacy_credential_config VALUES ($1, $2)', [tenant, 'root-' + i]);
-        await admin.query('INSERT INTO preview_legacy.legacy_credential_subjects VALUES ($1, $2, $3)', [tenant, SUBJECT, 'sameviewer']);
-        await admin.query("INSERT INTO preview_auth.tenant_authorization_config VALUES ($1, ARRAY['denied'])", [tenant]);
-        await admin.query(`INSERT INTO preview_auth.tenant_authorization_subjects
-          (tenant_id, subject_id, display_name) VALUES ($1, $2, $3)`, [tenant, SUBJECT, 'Synthetic Viewer ' + i]);
-        await admin.query(`INSERT INTO preview_auth.tenant_authorization_roles VALUES
-          ($1, 'viewer', ARRAY['api:entries:read','api:entries:create','api:entries:update'])`, [tenant]);
-        await admin.query("INSERT INTO preview_auth.tenant_authorization_subject_roles VALUES ($1, $2, 'viewer')", [tenant, SUBJECT]);
-      }
       vaultRoot = random();
       execFileSync('docker', ['run', '--name', vaultName, '-d', '-p', '127.0.0.1::8200',
         '-e', 'VAULT_DEV_ROOT_TOKEN_ID', image, 'server', '-dev', '-dev-listen-address=0.0.0.0:8200'],
@@ -275,32 +273,37 @@ optInSuite(process.env.NS_MULTITENANT_PREVIEW_PROCESS_DOCKER_TEST === '1',
           return response.ok;
         } catch { return false; }
       }, 'owned Vault');
-      await vault('sys/mounts/transit', { type: 'transit' });
+      await admin.query('CREATE ROLE preview_registry_owner NOLOGIN NOSUPERUSER NOBYPASSRLS');
+      provisioned = await require('./fixtures/provisioned-tenants').create({ admin, adminURI, owner: 'preview_registry_owner',
+        namespaces: { authorization: 'preview_auth', secrets: 'preview_secrets', legacy: 'preview_legacy', access: 'preview_access' },
+        vault: { address: address + '/', token: vaultRoot } });
       for (const [i, tenant] of [A, B].entries()) {
-        for (const purpose of ['data', 'signing']) {
-          await vault('transit/keys/tenant-' + i + '-' + purpose, { type: 'aes256-gcm96', exportable: false });
-        }
-        await vault('transit/keys/tenant-' + i + '-access', { type: 'ed25519', exportable: false });
-        publicKeys[i] = { tenant, kid: 'key1', publicKey: (await vault('transit/keys/tenant-' + i + '-access')).data.keys['1'].public_key };
-        await admin.query('INSERT INTO preview_access.access_tenants VALUES ($1,true)', [tenant]);
+        roots[i] = (await provisioned.provision({ id: tenant, hosts: [(i ? 'two' : 'one') + '.example.test'], issueRootSecret: true })).rootSecret;
+        publicKeys[i] = { tenant, kid: 'key1', publicKey: (await vault('transit/keys/' + require('../lib/tenant-registry/rules').vaultKey(tenant, 'access'))).data.keys['1'].public_key };
         await admin.query('INSERT INTO preview_access.access_credentials VALUES ($1,$2,$2,1,true)', [tenant, SUBJECT]);
         await admin.query(`INSERT INTO preview_access.access_sessions VALUES ($1,'local-session',$2,$2,1,$3,true,'data')`,
           [tenant, SUBJECT, Math.floor(Date.now() / 1000) + 86400]);
-        await admin.query(`INSERT INTO preview_access.access_keys VALUES ($1,'key1','data',true)`, [tenant]);
-        const policy = ['decrypt'].map(operation =>
-          `path "transit/${operation}/tenant-${i}-data" { capabilities = ["update"] }`).concat(
-          ['hmac', 'verify'].map(operation =>
-            `path "transit/${operation}/tenant-${i}-signing" { capabilities = ["update"] }`)).concat(
-          [`path "transit/sign/tenant-${i}-access" { capabilities = ["update"] }`]).join('\n');
-        await vault('sys/policies/acl/tenant-' + i, { policy });
-        tokens[i] = (await vault('auth/token/create', {
-          policies: ['tenant-' + i], no_default_policy: true, ttl: '15m', renewable: false
-        })).auth.client_token;
-        const envelope = Buffer.from(JSON.stringify({ tenant, id: 'root-' + i, data: Buffer.from(roots[i]).toString('base64') }));
-        const encrypted = await vault('transit/encrypt/tenant-' + i + '-data', { plaintext: envelope.toString('base64') });
-        await admin.query('INSERT INTO preview_secrets.secret_records (tenant_id,id,format,ciphertext) VALUES ($1,$2,1,$3)',
-          [tenant, 'root-' + i, encrypted.data.ciphertext]);
       }
+      for (const sql of provisioned.registryGrants({ resolvers: ['preview_app'], readers: ['preview_app'] })) await admin.query(sql);
+      for (const namespace of [provisioned.namespaces.settings, provisioned.namespaces.operatorPolicy]) {
+        await admin.query(`GRANT USAGE ON SCHEMA "${namespace}" TO preview_settings`);
+        await admin.query(`GRANT SELECT ON ALL TABLES IN SCHEMA "${namespace}" TO preview_settings`);
+      }
+      await vault('sys/policies/acl/preview-process-api', { policy: [
+        'path "transit/decrypt/tenant-data-*" { capabilities = ["update"] }',
+        'path "transit/hmac/tenant-signing-*" { capabilities = ["update"] }',
+        'path "transit/verify/tenant-signing-*" { capabilities = ["update"] }'].join('\n') });
+      roleToken = (await vault('auth/token/create', { policies: ['preview-process-api'], no_default_policy: true, ttl: '15m', renewable: false })).auth.client_token;
+      tokens.push(roleToken);
+      for (const [i, tenant] of [A, B].entries()) {
+        await admin.query('INSERT INTO preview_legacy.legacy_credential_subjects VALUES ($1, $2, $3)', [tenant, SUBJECT, 'sameviewer']);
+        await admin.query(`INSERT INTO preview_auth.tenant_authorization_subjects
+          (tenant_id, subject_id, display_name) VALUES ($1, $2, $3)`, [tenant, SUBJECT, 'Synthetic Viewer ' + i]);
+        await admin.query(`INSERT INTO preview_auth.tenant_authorization_roles VALUES
+          ($1, 'viewer', ARRAY['api:entries:read','api:entries:create','api:entries:update'])`, [tenant]);
+        await admin.query("INSERT INTO preview_auth.tenant_authorization_subject_roles VALUES ($1, $2, 'viewer')", [tenant, SUBJECT]);
+      }
+
     });
 
     after(async function () {
@@ -308,6 +311,7 @@ optInSuite(process.env.NS_MULTITENANT_PREVIEW_PROCESS_DOCKER_TEST === '1',
         if (!worker.exit) worker.child.kill('SIGKILL');
         await worker.exited;
       }
+      if (provisioned) await provisioned.close();
       if (admin) await admin.end();
       if (vaultOwned) docker(['rm', '-f', '-v', vaultName]);
       if (pgOwned) docker(['rm', '-f', '-v', pgName]);
@@ -432,9 +436,13 @@ optInSuite(process.env.NS_MULTITENANT_PREVIEW_PROCESS_DOCKER_TEST === '1',
     });
 
     it('new-format startup refuses shared tenant keys and unsafe access-state privileges before binding', async function () {
-      const config = localConfiguration();
+      // Legacy negative-only parser compatibility: no static role supplies
+      // the registry clinical/read/write evidence in this suite.
+      const config = staticNegativeConfiguration(address, true);
+      config.postgres.namespaces = { ...config.postgres.namespaces, access: 'preview_access' };
+      config.accessTokens = { issuer: 'nightscout-test', audience: 'nightscout-data', keys: publicKeys.map(key => ({ ...key })) };
       config.accessTokens.keys[1].publicKey = config.accessTokens.keys[0].publicKey;
-      await refused(config);
+      await refused(config, { MULTITENANT_STATIC_TENANTS: 'lab' });
       await admin.query('GRANT UPDATE ON preview_access.access_sessions TO preview_app');
       try { await refused(localConfiguration()); }
       finally { await admin.query('REVOKE UPDATE ON preview_access.access_sessions FROM preview_app'); }
@@ -457,13 +465,17 @@ optInSuite(process.env.NS_MULTITENANT_PREVIEW_PROCESS_DOCKER_TEST === '1',
         try { assert.equal((await http(worker, A, 'GET', '/api/v3/entries', token)).status, 403); }
         finally { await admin.query('UPDATE preview_access.access_sessions SET active=true WHERE tenant_id=$1', [A]); }
       } finally { docker(['unpause', vaultName]); }
+      assert.equal((await http(worker, A, 'GET', '/api/v3/entries', token)).status, 200, 'established registry tenant is admitted immediately before PostgreSQL outage');
+      process.stdout.write('PREVIEW_OUTAGE_STAGE PG_PREWARM_CONFIRMED\n');
       docker(['pause', pgName]);
       try {
+        process.stdout.write('PREVIEW_OUTAGE_STAGE PG_GET_STARTED\n');
         assert.equal((await http(worker, A, 'GET', '/api/v3/entries', token)).status, 503);
+        process.stdout.write('PREVIEW_OUTAGE_STAGE PG_GET_REFUSED_POST_STARTED\n');
         assert.equal((await http(worker, A, 'POST', '/api/v3/entries', token, {
           identifier: 'local-pg-down', date: 1793664000000, utcOffset: 0, type: 'sgv', sgv: 999, app: 'synthetic-local'
         })).status, 503);
-      } finally { docker(['unpause', pgName]); }
+      } finally { docker(['unpause', pgName]); process.stdout.write('PREVIEW_OUTAGE_STAGE PG_RESTORED\n'); }
       assert.equal((await http(worker, A, 'GET', '/api/v3/entries/local-pg-down', token)).status, 404);
       await stop(worker);
     });
@@ -750,9 +762,9 @@ optInSuite(process.env.NS_MULTITENANT_PREVIEW_PROCESS_DOCKER_TEST === '1',
       await refused(incomplete);
       const remoteHTTP = configuration('http://192.0.2.1:8200');
       await refused(remoteHTTP);
-      const ambiguous = configuration(address);
+      const ambiguous = staticNegativeConfiguration(address);
       ambiguous.tenants[1].aliases = ambiguous.tenants[0].aliases;
-      await refused(ambiguous);
+      await refused(ambiguous, { MULTITENANT_STATIC_TENANTS: 'lab' });
       const missingTrust = configuration(address);
       missingTrust.resolution = { mode: 'canonical-internal' };
       await refused(missingTrust);
@@ -769,8 +781,9 @@ optInSuite(process.env.NS_MULTITENANT_PREVIEW_PROCESS_DOCKER_TEST === '1',
       }
     });
 
-    it('refuses an incomplete injected intent before the preview listener binds', async function () {
-      await refused(configuration(address), {
+    it('legacy negative compatibility: refuses an incomplete injected intent before the preview listener binds', async function () {
+      await refused(staticNegativeConfiguration(address), {
+        MULTITENANT_STATIC_TENANTS: 'lab',
         NODE_OPTIONS: '--require=' + path.join(__dirname, 'fixtures/preview-composition-control.cjs'),
         NS_PREVIEW_COMPOSITION_FAULT: 'intent'
       });
@@ -804,7 +817,9 @@ optInSuite(process.env.NS_MULTITENANT_PREVIEW_PROCESS_DOCKER_TEST === '1',
     it('requires an explicitly allowlisted immediate peer even for Host-only canonical requests', async function () {
       const config = configuration(address);
       config.resolution = { mode: 'canonical-internal', trustedPeers: ['127.0.0.1'] };
-      config.tenants.forEach((tenant, i) => { tenant.canonicalHost = 'tenant-' + i + '.internal.test'; });
+      for (const [i, tenant] of [A, B].entries()) await admin.query(
+        'INSERT INTO "' + provisioned.namespaces.registry + '".tenant_registry_hosts(host,tenant_id,kind) VALUES($1,$2, $3)',
+        ['tenant-' + i + '.internal.test', tenant, 'internal']);
       const worker = start(config);
       await until(async () => {
         assert.equal(worker.exit, null, worker.stderr);

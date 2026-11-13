@@ -64,7 +64,9 @@ async function startVault (id) {
 //   checkpoints  [{ namespace, consumer, digest }] as createProvisioning takes them
 //   vault        { address, token } of a dev Vault the suite already owns (no `transit` mount yet);
 //                omitted, this fixture starts and removes its own
-async function create ({ admin, adminURI, owner, namespaces = {}, checkpoints = [], vault: suiteVault } = {}) {
+async function create ({ admin, adminURI, owner, namespaces = {}, namespaceNames = {}, checkpoints = [], vault: suiteVault } = {}) {
+  validateNamespaceNames(namespaceNames);
+  if (Object.keys(namespaceNames).some(kind => Object.hasOwn(namespaces, kind))) throw new TypeError('a provisioning namespace is either existing or newly named');
   if (!admin || typeof adminURI !== 'string' || !NAME.test(owner || '') || Object.keys(namespaces).some(kind => !Object.hasOwn(CATALOGUES, kind) || !NAME.test(namespaces[kind]))) {
     throw new TypeError('provisioned-tenants needs the suite admin client, its URI, a catalogue owner and known namespaces');
   }
@@ -93,7 +95,7 @@ async function create ({ admin, adminURI, owner, namespaces = {}, checkpoints = 
   try {
     for (const [kind, catalogue] of Object.entries(CATALOGUES)) {
       if (all[kind]) continue;
-      const namespace = all[kind] = 'pvt_' + kind.toLowerCase() + '_' + id;
+      const namespace = all[kind] = namespaceNames[kind] || 'pvt_' + kind.toLowerCase() + '_' + id;
       await q(`CREATE SCHEMA "${namespace}"`); created.push(namespace);
       await run('up', { direct: true, connectionString: adminURI, namespace, catalogue: catalogue() });
       for (const row of (await q('SELECT tablename FROM pg_tables WHERE schemaname = $1', [namespace])).rows) await q(`ALTER TABLE "${namespace}"."${row.tablename}" OWNER TO "${owner}"`);
@@ -143,4 +145,8 @@ async function create ({ admin, adminURI, owner, namespaces = {}, checkpoints = 
   } catch (error) { await close(); throw error; }
 }
 
-module.exports = { create, CATALOGUES };
+function validateNamespaceNames (value) {
+  if (!value || typeof value !== 'object' || Array.isArray(value) || Object.keys(value).some(kind => !Object.hasOwn(CATALOGUES, kind) || typeof value[kind] !== 'string' || !NAME.test(value[kind])) || new Set(Object.values(value)).size !== Object.keys(value).length) throw new TypeError('explicit known unique provisioning namespace names required');
+}
+
+module.exports = { create, CATALOGUES, validateNamespaceNames };
