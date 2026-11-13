@@ -38,6 +38,11 @@ optInSuite(process.env.NS_DATASTORE_RECOVERY_DOCKER_TEST === '1', 'NS_DATASTORE_
     try { return await fn(client); } finally { await client.end().catch(() => {}); }
   }
   const actualDatastore = () => admin(async client => connect.datastoreIdentity((await client.query('SELECT ' + connect.datastoreSQL)).rows[0]));
+  const actualCluster = async () => {
+    const client = await pool.connect(); let failure;
+    try { return await require('../lib/storage/postgres-datastore').cluster(client); }
+    catch (error) { failure = error; throw error; } finally { client.release(failure); }
+  };
   const unfinished = () => admin(async client => Number((await client.query('SELECT count(*) AS n FROM ' + q(namespace) + '.tenant_lifecycle_operations WHERE NOT finished')).rows[0].n));
   async function restart () { docker('restart', '--time', '10', container); await admin(client => client.query('SELECT 1')); }
   // The recording cohort the supervisor drives; `available` is what a status call would answer.
@@ -114,11 +119,12 @@ optInSuite(process.env.NS_DATASTORE_RECOVERY_DOCKER_TEST === '1', 'NS_DATASTORE_
   });
 
   it('reproduces the failure: after a PostgreSQL restart every operation is refused and the cohort still reports the old datastore', async function () {
-    const before = window.datastore;
+    const before = window.datastore, cluster = await actualCluster();
     await restart();
     const actual = await actualDatastore();
     assert.notEqual(actual.postmaster_birth, before.postmaster_birth, 'the postmaster is a new one');
-    assert.deepEqual({ ...actual, postmaster_birth: null }, { ...before, postmaster_birth: null }, 'same database, address and port');
+    assert.equal(await actualCluster(), cluster, 'same cluster under the actual narrow lifetime identity');
+    assert.deepEqual([actual.database, actual.database_oid], [before.database, before.database_oid], 'same database; a recreated container may change its endpoint');
     const seen = new Set();
     for (let attempt = 0; attempt < 5; attempt++) {
       const code = await refusal(operate); assert.notEqual(code, null, 'an operation was served without re-admission'); seen.add(code);

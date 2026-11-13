@@ -20,6 +20,7 @@ module.exports = function fixture (options = {}, createWindow = create) {
         : { lock_key: options.key || (values[0] === B ? '19' : '17'), phase: options.phases?.[values[0]] || options.phase || 'active', generation: '1' };
       return { rows: [{ epoch: options.epochForSQL ? options.epochForSQL(text) : options.epoch || 'e'.repeat(64), rolsuper: !!options.superuser, rolbypassrls: false, ...datastore, ...options.datastore, pid: options.sqlPid || 123, ...window }] };
     }
+    if (text.includes('pg_catalog.pg_control_system()')) return options.clusterRead ? options.clusterRead() : { rows: [{ cluster: options.cluster || '7000000000000000001' }] };
     const metadata = admission(text, values); if (metadata) return metadata;
     if (text.includes('FROM pg_roles')) return { rows: [{ rolsuper: !!options.superuser, rolbypassrls: false,
       ...(text.includes('pg_backend_pid') ? { ...datastore, ...options.datastore, pid: options.sqlPid || 123, role: options.sqlRole || 'synthetic_worker', birth: options.sqlBirth || '1700000000.000001' } : {}) }] };
