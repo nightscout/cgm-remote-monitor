@@ -205,3 +205,16 @@ static fixtures, enable optional authcache, implement ensure/reset, or replace
 any of the five deployment helper comparisons. Prospective deployment consumption
 must run beside its existing source/tree/image custody checks. Source selection,
 paired images and comprehensive acceptance remain coordinator-owned.
+
+
+The reviewed bound repair charges exact escaped UTF-8 JSON bytes incrementally,
+including every repeated reference occurrence, before any bulk serializer or
+scratch-file amplification. Quote/control escapes, paired Unicode and lone
+surrogate escapes are counted without constructing an escaped oversized token.
+The same counter enforces the smaller report bound before output serialization.
+Private scratch names are fixed ordinals; caller configuration paths remain
+logical document references and are never used as generated basenames. This is
+not proof of actual target mount/filesystem readiness. Temporary file creation,
+write and cleanup failures produce fixed safe refusals; cleanup uncertainty
+cannot return green. Neither public library checking nor the CLI prints raw
+filesystem errors, caller paths or stacks.
