@@ -1,6 +1,6 @@
 {
   "id": "realtime-inspection",
-  "version": 2,
+  "version": 3,
   "operations": {
     "inspectRealtime": {
       "path": "/realtime/inspect",
@@ -106,6 +106,222 @@
           "ownerAvailable"
         ],
         "additionalProperties": false
+      }
+    },
+    "inspectRealtimeTenants": {
+      "path": "/realtime/inspect-tenants",
+      "request": {
+        "type": "object",
+        "properties": {
+          "tenants": {
+            "type": "array",
+            "maxItems": 128,
+            "uniqueItems": true,
+            "items": {
+              "type": "string",
+              "pattern": "^(?!00000000-0000-0000-0000-000000000000$)[a-f0-9]{8}(?:-[a-f0-9]{4}){3}-[a-f0-9]{12}$"
+            }
+          }
+        },
+        "required": [
+          "tenants"
+        ],
+        "additionalProperties": false
+      },
+      "response": {
+        "type": "object",
+        "properties": {
+          "kind": {
+            "const": "realtime"
+          },
+          "observation": {
+            "const": "cached-readiness-not-lock-or-data-freshness-proof"
+          },
+          "processIncarnation": {
+            "type": "string",
+            "pattern": "^[a-f0-9]{8}(?:-[a-f0-9]{4}){3}-[a-f0-9]{12}$"
+          },
+          "phase": {
+            "enum": [
+              "booted",
+              "quiescing"
+            ]
+          },
+          "placement": {
+            "anyOf": [
+              {
+                "type": "null"
+              },
+              {
+                "type": "object",
+                "properties": {
+                  "generation": {
+                    "type": "integer",
+                    "minimum": 1,
+                    "maximum": 9007199254740991
+                  },
+                  "digest": {
+                    "type": "string",
+                    "pattern": "^[a-f0-9]{64}$"
+                  },
+                  "rule": {
+                    "const": "sha256-u32be-v1"
+                  },
+                  "shardCount": {
+                    "type": "integer",
+                    "minimum": 1,
+                    "maximum": 65536
+                  },
+                  "worker": {
+                    "type": "string",
+                    "pattern": "^[a-z][a-z0-9_-]{0,62}$"
+                  },
+                  "assignmentIncarnation": {
+                    "type": "string",
+                    "pattern": "^[a-f0-9]{8}(?:-[a-f0-9]{4}){3}-[a-f0-9]{12}$"
+                  },
+                  "shards": {
+                    "type": "array",
+                    "maxItems": 65536,
+                    "uniqueItems": true,
+                    "items": {
+                      "type": "integer",
+                      "minimum": 0,
+                      "maximum": 65535
+                    }
+                  },
+                  "ownershipVersion": {
+                    "enum": [
+                      1,
+                      2
+                    ]
+                  }
+                },
+                "required": [
+                  "generation",
+                  "digest",
+                  "rule",
+                  "shardCount",
+                  "worker",
+                  "assignmentIncarnation",
+                  "shards",
+                  "ownershipVersion"
+                ],
+                "additionalProperties": false
+              }
+            ]
+          },
+          "ownerAvailable": {
+            "type": "boolean"
+          },
+          "tenants": {
+            "type": "array",
+            "maxItems": 128,
+            "items": {
+              "type": "object",
+              "properties": {
+                "tenant": {
+                  "type": "string",
+                  "pattern": "^(?!00000000-0000-0000-0000-000000000000$)[a-f0-9]{8}(?:-[a-f0-9]{4}){3}-[a-f0-9]{12}$"
+                },
+                "owned": {
+                  "type": "boolean"
+                },
+                "startupComplete": {
+                  "anyOf": [
+                    {
+                      "type": "boolean"
+                    },
+                    {
+                      "type": "null"
+                    }
+                  ]
+                },
+                "modelAvailable": {
+                  "anyOf": [
+                    {
+                      "type": "boolean"
+                    },
+                    {
+                      "type": "null"
+                    }
+                  ]
+                },
+                "ready": {
+                  "type": "boolean"
+                }
+              },
+              "required": [
+                "tenant",
+                "owned",
+                "startupComplete",
+                "modelAvailable",
+                "ready"
+              ],
+              "additionalProperties": false,
+              "oneOf": [
+                {
+                  "properties": {
+                    "ready": {
+                      "const": true
+                    },
+                    "owned": {
+                      "const": true
+                    },
+                    "startupComplete": {
+                      "const": true
+                    },
+                    "modelAvailable": {
+                      "const": true
+                    }
+                  }
+                },
+                {
+                  "properties": {
+                    "ready": {
+                      "const": false
+                    }
+                  }
+                }
+              ]
+            }
+          }
+        },
+        "required": [
+          "kind",
+          "observation",
+          "processIncarnation",
+          "phase",
+          "placement",
+          "ownerAvailable",
+          "tenants"
+        ],
+        "additionalProperties": false,
+        "anyOf": [
+          {
+            "properties": {
+              "phase": {
+                "const": "booted"
+              },
+              "ownerAvailable": {
+                "const": true
+              }
+            }
+          },
+          {
+            "properties": {
+              "tenants": {
+                "items": {
+                  "properties": {
+                    "ready": {
+                      "const": false
+                    }
+                  }
+                }
+              }
+            }
+          }
+        ]
       }
     }
   }

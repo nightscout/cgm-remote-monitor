@@ -246,7 +246,7 @@ credits, or authorize an arbitrary live-owner takeover. Deployment's finite shar
 control allocator, restart/grace/roster controller and native proof remain separate
 integration requirements.
 
-Selected sharded realtime also owns the named `realtime-inspection` v1 operation
+Selected sharded realtime also owns the named `realtime-inspection` v3 module
 `POST /realtime/inspect` on its existing private listener. It returns bounded cached
 assignment/shard metadata, a fresh process observation identity and local
 owner/quiescing state; no tenant roster is scanned and no PG/file read is made by
@@ -292,7 +292,7 @@ identity remain unchanged; no durable viewer replay is added.
 
 Coordinated private versions: lifecycle participant4 (sharded payload3 adds
 `ownershipVersion: 2`), alarm delivery3 (exact mode in sharded tuple), realtime
-inspection2 (cached mode). Legacy payloads remain only under legacy profile/key1,
+inspection3 (cached mode and bounded tenant readiness). Legacy payloads remain only under legacy profile/key1,
 not as fallback for assignment-v2. Per-role source/config/ticket binding and full
 native process/PG/clinical qualification remain prospective integration gates.
 
@@ -302,8 +302,17 @@ The fixed selected recovery entry uses `publishRecoveryActivity(options)`.
 `publishRecovery` remains the earlier publication primitive; it does not supply
 activity and is not a substitute for the selected single-client entry.
 The new entry is assignment-v2 only and refuses ambient tenant/window authority.
-Its `afterAssignment(result, {readActivity})` receives only the bounded affected
-registry tenant reader. It uses the SAME admitted publication backend and READ
+The selected entry explicitly begins `ISOLATION LEVEL READ COMMITTED READ ONLY`
+and verifies the actual same-client `transaction_isolation` setting. Fresh
+statement snapshots are required on every registry/activity readiness pass;
+READ ONLY alone is insufficient when a server/role default is repeatable read
+or serializable. The legacy publication BEGIN remains unchanged.
+Its `afterAssignment(result, {readActivity, registry})` receives only the bounded
+affected tenant activity reader and fixed registry revision/page facade. Supply
+`registryNamespace`; a supplied external `registry` is refused in this selected
+entry. The actual registry adapter keeps its complete function-version/catalogue
+screens, while unsupported lookup/alias/attribute/scan methods refuse before SQL.
+Registry and activity share pending-work, ALS/GUC, deadline and closure accounting. It uses the SAME admitted publication backend and READ
 ONLY transaction; no pool, nested transaction or caller-selected SQL is exposed.
 The ordinary activity factory and this reader share the existing exact reader
 RLS/grant/owner screen. Ordinary factory queries and transaction ownership stay
@@ -337,3 +346,29 @@ retained. A late read during an already-dispatched COMMIT cannot undo that COMMI
 it emits no new query and the publication result refuses rather than reporting
 success. The fixed class entry must retain uncertainty unless actual physical
 outcome is proved; no retry/refund follows from an error property or cached health.
+
+Immediately before COMMIT, the selected publication also asserts actual admitted
+T/current-ready/no-pending state. Its shared reader scope is invalidated before
+commit/rollback; a detached registry continuation cannot start a later catalogue
+check after closure. Lifecycle-window reads use the same affected-tenant scoped
+GUC/ALS path. The ordinary publication and activity factory remain separate
+compatibility paths; no new generic `readOnly`/query facade is exposed to callers.
+
+### Prospective recovery principal and host integration
+
+The fixed RT class requires a dedicated exact lower/window reader, registry
+revision/page enumerator and activity reader principal. It must satisfy the
+existing lifecycle LOWER and activity READER screens. A lifecycle maintenance
+principal's audit/append privileges are not a compatible substitute; no guard or
+grant is widened here. Names and OIDs must match the admitted physical2 database
+and role. The future profile must derive and qualify that exact grant set.
+
+The named realtime private module is version3. `inspectRealtimeTenants` accepts
+at most128 unique nonzero tenant IDs and reports exact requested cached cells,
+including startup completion and model availability. Its client checks the row
+selector correspondence. Observation does not warm or invalidate, read SQL or
+certify lock/data freshness. Source/generation/assignment/process and actual
+configured payload/deadline limits still belong to the fixed host verifier.
+Publication readiness batches must retain fresh registry revision checks and
+actual active versus paused/suspended eligibility semantics. Source-only tests
+cannot qualify process restart, physical retirement, endpoint custody or alarms.

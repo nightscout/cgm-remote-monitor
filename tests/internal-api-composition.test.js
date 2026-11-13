@@ -360,20 +360,23 @@ describe('Per-module lifetime on a composed listener', function () {
 
 for (const kind of ['uds','http']) describe('Bounded realtime inspection over '+kind, function () {
   it('uses existing role ownership and transport trust, and refuses wrong service/version/body before observation', async function () {
-    const e=await endpoint(kind),internal=require('../lib/server/serve/internal-listener');let opened,reads=0,alarmCalls=0;
+    const e=await endpoint(kind),internal=require('../lib/server/serve/internal-listener');let opened,reads=0,alarmCalls=0,available=false,mismatch=false;
     const placement={cached(){reads++;return {ownershipVersion:1,generation:1,digest:'a'.repeat(64),rule:'sha256-u32be-v1',shardCount:1,worker:'a',assignmentIncarnation:A,shards:[0]};}};
-    const binding={create:require('../lib/server/serve/realtime-inspection')({processIncarnation:B,placement,owner:()=>false,quiescing:()=>false})};
+    const make=require('../lib/server/serve/realtime-inspection')({processIncarnation:B,placement,owner:()=>available,quiescing:()=>false,startup:{isReady:t=>t===A},modelWarm:t=>t===A});
+    const binding={create(token){const ops=make(token);return{...ops,async inspectRealtimeTenants(request,body){const result=await ops.inspectRealtimeTenants(request,body);if(mismatch)result.tenants.reverse();return result;}};}};
     try {
       const rows=internal.plan(['realtime'],{realtimePreview:{maxMessageBytes:4096,operationTimeoutMs:1000,placement:{}}});
       assert.deepEqual(rows.map(row=>row.id),['alarm-delivery','realtime-inspection']);
       opened=await internal.open({listen:e.options,shutdownTimeoutMs:1000},rows);
       assert.throws(()=>opened.bind('evaluator',{'realtime-inspection':binding}),{code:'INTERNAL_API_CONTRACT_UNOWNED'});
       opened.bind('realtime',{'alarm-delivery':{create:()=>({deliverAlarm:async()=>{alarmCalls++;return {accepted:true,receipt:null,clearedRequestIds:[]};}})},'realtime-inspection':binding});opened.assertBound();
-      for(const value of [await raw(e.options,'/realtime/inspect',{}, {service:'alarm-delivery'}),await raw(e.options,'/realtime/inspect',{}, {service:'realtime-inspection',version:'1'}),await raw(e.options,'/realtime/inspect',{tenant:A}, {service:'realtime-inspection',version:'2'})])refused(value,'fixed private RT observation');
+      for(const value of [await raw(e.options,'/realtime/inspect',{}, {service:'alarm-delivery'}),await raw(e.options,'/realtime/inspect',{}, {service:'realtime-inspection',version:'1'}),await raw(e.options,'/realtime/inspect',{}, {service:'realtime-inspection',version:'2'}),await raw(e.options,'/realtime/inspect',{tenant:A}, {service:'realtime-inspection',version:'3'})])refused(value,'fixed private RT observation');
       assert.equal(reads,0,'rejected requests never observe cached state');
       const alarm={tenant:A,id:REQUEST,attempt:1,notification:{},receipts:[]};refused(await raw(e.options,'/alarm',alarm,{service:'alarm-delivery',version:'2'}),'legacy alarm wire');assert.equal(alarmCalls,0);await require('../lib/server/internal-api/clients').alarmDelivery(e.options).deliverAlarm(alarm);assert.equal(alarmCalls,1);
       const client=require('../lib/server/internal-api/clients').realtimeInspection(e.options),reply=await client.inspectRealtime({});
       assert.equal(reply.processIncarnation,B);assert.equal(reply.placement.assignmentIncarnation,A);assert.equal(reply.ownerAvailable,false);assert.equal(reply.observation,'cached-not-lock-proof');assert.equal(reads,1);
+      const before=reads;for(const body of [{tenants:[A,A]},{tenants:[A],unknown:true},{tenants:['00000000-0000-0000-0000-000000000000']}])refused(await raw(e.options,'/realtime/inspect-tenants',body,{service:'realtime-inspection',version:'3'}),'bounded readiness selector');refused(await raw(e.options,'/realtime/inspect-tenants',{tenants:[A]},{service:'realtime-inspection',version:'2'}),'old readiness wire');assert.equal(reads,before);
+      available=true;const selected=await client.inspectRealtimeTenants({tenants:[A,B]});assert.deepEqual(selected.tenants.map(row=>[row.tenant,row.ready]),[[A,true],[B,false]]);assert.equal(selected.observation,'cached-readiness-not-lock-or-data-freshness-proof');mismatch=true;await assert.rejects(client.inspectRealtimeTenants({tenants:[A,B]}),{code:'REALTIME_INSPECTION_SELECTION_MISMATCH'});
     }finally{await opened?.close();e.cleanup();}
   });
 });
