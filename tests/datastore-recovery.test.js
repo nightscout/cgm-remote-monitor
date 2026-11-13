@@ -59,22 +59,28 @@ describe('Datastore recovery in place: source protocol and controls (not Postgre
       const result = await f.window.recover({ beforeAdopt: () => assert.fail('same postmaster') });
       assert.equal(result.restarted, false);
     });
-    for (const [label, change] of [['another server address', { server_address: '127.0.0.2' }], ['another database', { database_oid: '16999' }], ['another port', { server_port: 5433 }]]) {
+    it('adopts the same cluster at another address (a recreated database container)', async function () {
+      const options = {}, f = fixture(options); await f.window.run(A, () => 1);
+      options.datastore = { ...RESTARTED, server_address: '127.0.0.2', server_port: 5433 };
+      assert.equal((await f.window.recover()).restarted, true);
+      assert.equal(f.window.datastore.server_address, '127.0.0.2'); assert.equal(await f.window.run(A, () => 3), 3);
+    });
+    for (const [label, change, system] of [['a newly initialized cluster', {}, '7399999999999999999'], ['another database', { database_oid: '16999' }], ['a database of another name', { database: 'other' }]]) {
       it('refuses to adopt ' + label + ' in place', async function () {
         const options = {}, f = fixture(options); await f.window.run(A, () => 1);
-        const before = f.window.datastore; options.datastore = { ...RESTARTED, ...change };
+        const before = f.window.datastore; options.datastore = { ...RESTARTED, ...change }; if (system) options.cluster = system;
         await assert.rejects(f.window.recover({ beforeAdopt: () => assert.fail('nothing is dropped for a refused datastore') }), { code: 'LIFECYCLE_WINDOW_DATASTORE_REPLACED' });
         assert.deepEqual(f.window.datastore, before);
         await assert.rejects(f.window.run(A, () => assert.fail('served another datastore')), { code: 'LIFECYCLE_WINDOW_DATASTORE_CHANGED' });
       });
     }
-    it('control: without the lineage comparison another server address is adopted (the check above goes red)', async function () {
-      const mutate = source => source.replace('!same(lineage(nextDatabase), lineage(database)) || ', '');
+    it('control: without the lineage comparison a newly initialized cluster is adopted (the check above goes red)', async function () {
+      const mutate = source => source.replace('!same(lineage(nextDatabase, nextCluster), lineage(database, cluster)) || ', '');
       const broken = load(WINDOW, {}, mutate);
       const options = {}, f = fixture(options, broken.create); await f.window.run(A, () => 1);
-      options.datastore = { ...RESTARTED, server_address: '127.0.0.2' };
+      options.datastore = RESTARTED; options.cluster = '7399999999999999999';
       await f.window.recover();
-      assert.equal(f.window.datastore.server_address, '127.0.0.2', 'broken source adopted the replaced datastore');
+      assert.equal(f.window.datastore.postmaster_birth, RESTARTED.postmaster_birth, 'broken source adopted another cluster');
     });
     it('control: without recover the window stays refused however often it is asked (the J behaviour)', async function () {
       const { f } = await restartedWindow();
