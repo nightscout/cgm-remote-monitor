@@ -37,6 +37,11 @@ function sqlText (file, text) {
   return out.join('\n;\n');
 }
 
+// Calls use the same quoted/unquoted identifier grammar as definitions. Parse
+// names before comparison so a closing quote is not mistaken for literal text
+// between the normalized name and its opening parenthesis.
+const calledNames = body => [...body.matchAll(/((?:"[^"]+"|[A-Za-z_][\w$]*)(?:\s*\.\s*(?:"[^"]+"|[A-Za-z_][\w$]*))?)\s*\(/g)].map(call => bare(call[1]));
+
 const dedupe = list => [...new Map(list.map(f => [f.file + ' ' + f.reason + ' ' + f.name, f])).values()];
 function scan (sources) {
   const functions = new Map(); // bare name -> [{ file, trigger, body }]
@@ -81,7 +86,7 @@ function scan (sources) {
       if (end < 0) { findings.push({ file, name: 'trigger@' + m.index, reason: 'TRIGGER_FUNCTION_BODY_UNREADABLE' }); continue; }
       const body = rest.slice(as[0].length, end);
       if (NOTIFIES.test(body)) findings.push({ file, name: 'trigger@' + m.index, reason: 'TRIGGER_EMITS_NOTIFY' });
-      else for (const call of body.matchAll(/([A-Za-z_][\w$]*)\s*\(/g)) calls.push({ file, at: m.index, name: call[1].toLowerCase() });
+      else for (const name of calledNames(body)) calls.push({ file, at: m.index, name });
     }
     const rule = /CREATE\s+(?:OR\s+REPLACE\s+)?RULE\b[\s\S]*?(?:;|$)/gi;
     while ((m = rule.exec(sql))) if (NOTIFIES.test(m[0])) findings.push({ file, name: 'rule', reason: 'RULE_NOTIFIES' });
@@ -94,7 +99,7 @@ function scan (sources) {
     grew = false;
     for (const [name, defs] of functions) {
       if (notifiers.has(name)) continue;
-      if (defs.some(d => d.body && [...notifiers].some(n => new RegExp('\\b' + n.replace(/[\\^$.*+?()[\]{}|]/g, '\\$&') + '\\s*\\(', 'i').test(d.body)))) { notifiers.add(name); grew = true; }
+      if (defs.some(d => d.body && calledNames(d.body).some(n => notifiers.has(n)))) { notifiers.add(name); grew = true; }
     }
   }
   // A trigger body (name-independent pass) calling a notifying function.

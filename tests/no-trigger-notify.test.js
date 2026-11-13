@@ -45,6 +45,15 @@ describe('no trigger emits NOTIFY (D6)', function () {
     const relay = 'CREATE FUNCTION s.relay(t uuid) RETURNS void LANGUAGE plpgsql AS $z$ BEGIN PERFORM s.sig$nal(t); END $z$;';
     assert.ok(reasons([{ file: 'a.sql', text: helper + '\n' + relay + '\n' + trig('PERFORM s.relay(NEW.tenant_id);') }]).includes('TRIGGER_EMITS_NOTIFY'));
   });
+  for (const relay of [false, true]) {
+    it('refuses a quoted notifier call ' + (relay ? 'through a relay' : 'directly from a trigger'), function () {
+      for (const name of ['"sig(nal"', '"a\\d"', '"sig$nal"']) {
+        const helper = 'CREATE FUNCTION s.' + name + "() RETURNS void LANGUAGE plpgsql AS $h$ BEGIN PERFORM pg_notify('c', 'x'); END $h$;";
+        const forward = relay ? 'CREATE FUNCTION s.relay() RETURNS void LANGUAGE plpgsql AS $r$ BEGIN PERFORM s.' + name + '(); END $r$;' : '';
+        assert.ok(reasons([{ file: 'a.sql', text: helper + forward + trig('PERFORM s.' + (relay ? 'relay' : name) + '();') }]).includes('TRIGGER_EMITS_NOTIFY'), name);
+      }
+    });
+  }
   it('passes on the shipped tree and scans its trigger bodies', function () {
     const out = execFileSync(process.execPath, [path.join(__dirname, '../scripts/check-no-trigger-notify.js')], { encoding: 'utf8' });
     assert.match(out, /OK no trigger emits NOTIFY/);
