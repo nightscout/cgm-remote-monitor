@@ -89,6 +89,7 @@ describe('Operation-window admission (catalog protocol double, not native Postgr
     assert.equal(canonical('( ( tenant_id ) )'),canonical('tenant_id'));
     assert.notEqual(canonical("'One Two'"),canonical("'one two'"));
     assert.notEqual(canonical("'one two'"),canonical("'onetwo'"));
+    assert.notEqual(canonical("'one\u00a0two'"),canonical("'one two'"));
     assert.equal(canonical("'it''s'"),JSON.stringify(['string',"it's"]));
     for (const value of ['not','exists','array','true','and','or']) assert.equal(canonical("'"+value+"'"),JSON.stringify(['string',value]));
     await admit(client(),'synthetic_window',{maintenance:true});
@@ -97,7 +98,7 @@ describe('Operation-window admission (catalog protocol double, not native Postgr
     const {canonical}=require('../lib/tenant-lifecycle/operation-window-readiness');
     assert.equal(canonical(null),JSON.stringify(['absent']));
     assert.throws(()=>canonical(undefined),{code:'LIFECYCLE_WINDOW_SCHEMA_UNSAFE'});
-    for (const value of ['', ' ', 1, {}, "'unterminated", 'tenant_id)', '(tenant_id', "E'escape'", '$x$quoted$x$', 'tenant_id -- comment', 'tenant_id /* comment */', 'tenant_id COLLATE "C"', 'now() + 1', 'other_function()', 'tenant_id::integer', 'a=b=c', 'EXISTS(SELECT 1 FROM anything WHERE true UNION SELECT 1)', '('.repeat(100)+'true'+')'.repeat(100)]) {
+    for (const value of ['', ' ', 1, {}, "'unterminated", 'tenant_id)', '(tenant_id', "E'escape'", '$x$quoted$x$', 'tenant_id -- comment', 'tenant_id /* comment */', 'tenant_id COLLATE "C"', 'now() + 1', 'other_function()', 'tenant_id::integer', 'a=b=c', 'EXISTS(SELECT 1 FROM anything WHERE true UNION SELECT 1)', '('.repeat(100)+'true'+')'.repeat(100), '\u00a0true', 'true\u00a0AND false']) {
       assert.throws(()=>canonical(value,'synthetic_window'),{code:'LIFECYCLE_WINDOW_SCHEMA_UNSAFE'});
       await assert.rejects(admit(client((kind,rows)=>{if(kind==='tenant_lifecycle_restore_resume')rows[0].policies[0].check=value;}),'synthetic_window',{maintenance:true}),{code:'LIFECYCLE_WINDOW_SCHEMA_UNSAFE'});
     }
@@ -110,6 +111,21 @@ describe('Operation-window admission (catalog protocol double, not native Postgr
     }
     // An absent USING/CHECK is legal only where the expected node is absent.
     await assert.rejects(admit(client((kind,rows)=>{if(kind==='tenant_lifecycle_restore_resume')rows[0].policies[0].using=null;}),'synthetic_window',{maintenance:true}),{code:'LIFECYCLE_WINDOW_SCHEMA_UNSAFE'});
+    await admit(client(),'synthetic_window',{maintenance:true});
+  });
+  it('never interprets quoted operator literals or quoted ANY/NULLIF identifiers as SQL syntax',async function () {
+    const {canonical}=require('../lib/tenant-lifecycle/operation-window-readiness');
+    const original='SELECT backend_start FROM pg_catalog.pg_stat_activity WHERE pid = pg_catalog.pg_backend_pid()';
+    const bad=original.replace('pid =',"pid '='");
+    assert.throws(()=>canonical(bad,'synthetic_window'),{code:'LIFECYCLE_WINDOW_SCHEMA_UNSAFE'});
+    await assert.rejects(admit(client((kind,rows)=>{if(kind==='function')rows[0].prosrc=bad;}),'synthetic_window',{maintenance:true}),{code:'LIFECYCLE_WINDOW_SCHEMA_UNSAFE'});
+    for (const value of ['x = "any"(ARRAY[1])','"nullif"(tenant_id, null)','pg_catalog.nullif(tenant_id,null)',"x 'or' true", "'exists' (SELECT 1 FROM t WHERE true)","tenant_id '::' uuid"]) assert.throws(()=>canonical(value,'synthetic_window'),{code:'LIFECYCLE_WINDOW_SCHEMA_UNSAFE'});
+    assert.notEqual(canonical('"current_user"'),canonical('CURRENT_USER'));
+    assert.notEqual(canonical('"true"'),canonical('TRUE'));
+    for (const [kind,mutate] of [
+      ['tenant_lifecycle_restore_resume',row=>{row.policies[0].using=row.policies[0].using.replace('nullif(', '"nullif"(');}],
+      ['tenant_lifecycle_windows',row=>{row.constraints.find(c=>c.definition.includes('ANY')).definition=row.constraints.find(c=>c.definition.includes('ANY')).definition.replace('ANY(', '"any"(').replace('ANY (','"any" (');}]
+    ]) await assert.rejects(admit(client((type,rows)=>{if(type===kind)mutate(rows[0]);}),'synthetic_window',{maintenance:true}),{code:'LIFECYCLE_WINDOW_SCHEMA_UNSAFE'});
     await admit(client(),'synthetic_window',{maintenance:true});
   });
   const controls = [
