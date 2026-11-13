@@ -36,6 +36,14 @@ describe('targeted pgstream child supervisor (simulated health ports, real OS ch
     assert.equal(owner.health().code,'PGSTREAM_CLINICAL_PROGRESS_STALLED');assert.equal(owner.health().terminal,true);
     assert.equal(owner.health().starts,1);assert.equal(owner.health().healthy,false);
   });
+  it('gives recovered pending work one bounded owner recovery window', async function () {
+    work={pending:true,oldestPendingAt:clock-bounds.pendingMs*2};
+    await open();assert.equal(owner.health().terminal,false);
+    owner.receipt(1);await owner.check();assert.equal(owner.health().healthy,true);
+    clock+=bounds.pendingMs;owner.receipt(owner.health().sequence);await owner.check();
+    assert.equal(owner.health().code,'PGSTREAM_CLINICAL_PROGRESS_STALLED');
+    assert.equal(owner.health().terminal,true);
+  });
   it('requires explicit rebootstrap after slot loss; it never recreates the slot', async function () {
     source={identity:true,grants:true,slot:'lost'};await open();
     assert.equal(owner.health().code,'PGSTREAM_REBOOTSTRAP_REQUIRED');assert.equal(owner.health().terminal,true);
