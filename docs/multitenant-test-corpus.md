@@ -111,6 +111,7 @@ tests as pending with `[pending opt-in: <requirement>]` in the title; one
 | `tests/tenant-restore-resume.integration.test.js` | `NS_RESTORE_RESUME_DOCKER_TEST=1` | | PostgreSQL, Vault | restore pre-check, resume after four interruption kinds, operation clearance and their row policies; two actual API CLI processes; non-API peers synthetic lifecycle-only; replaced rows are a probe table |
 | `tests/api-fixed-roster-serving.integration.test.js` | `NS_API_ROSTER_SERVING_DOCKER_TEST=1` | | PostgreSQL, Vault | two actual API CLI processes; non-API peers synthetic lifecycle-only; authority, lifetime drain, census, uncertainty and replacement |
 | `tests/multitenant-preview-replicas.integration.test.js` | `NS_MULTITENANT_PREVIEW_REPLICAS_DOCKER_TEST=1` | | PostgreSQL, Vault | independent CLI processes on one host |
+| `tests/role-vault-token-scope.integration.test.js` | `NS_ROLE_VAULT_TOKEN_SCOPE_DOCKER_TEST=1` | | PostgreSQL, Vault | registry-mode api role Vault token: reaches its key purposes on its mount, refused for other purposes, operations, key management and another mount |
 | `tests/tenant-rest-derived.integration.test.js` | `NS_REST_DERIVED_HTTP_TEST=1` | PostgreSQL, MongoDB | | |
 | `tests/tenant-rest-treatments.integration.test.js` | `NS_REST_TREATMENTS_HTTP_TEST=1` | PostgreSQL, MongoDB | | |
 | `tests/tenant-rest-context.integration.test.js` | `NS_REST_CONTEXT_HTTP_TEST=1` | PostgreSQL, MongoDB | Vault | |
@@ -135,7 +136,7 @@ tests as pending with `[pending opt-in: <requirement>]` in the title; one
 | `tests/subject-management-http.integration.test.js` | `NS_SUBJECT_MANAGEMENT_HTTP_DOCKER_TEST=1` | | PostgreSQL | |
 | `tests/subject-admin-postgres.integration.test.js` | `NS_SUBJECT_ADMIN_POSTGRES_DOCKER_TEST=1` | | PostgreSQL | |
 | `tests/tenant-ownership-postgres.integration.test.js` | `NS_TENANT_OWNERSHIP_DOCKER_TEST=1` | | PostgreSQL | operator-assisted add/transfer/recover with concurrent-transfer and foreign-authority controls over the private ownership service |
-| `tests/admin-role-ownership.integration.test.js` | `NS_ADMIN_ROLE_DOCKER_TEST=1` | | PostgreSQL | spawns `nightscout multitenant admin`; ownership operations on the admin listener with the deployment plan's `ownership_operator` grants |
+| `tests/admin-role-ownership.integration.test.js` | `NS_ADMIN_ROLE_DOCKER_TEST=1` | | PostgreSQL, Vault | spawns `nightscout multitenant admin` in registry mode over a provisioned tenant; ownership operations on the admin listener with the deployment plan's `ownership_operator` grants |
 | `tests/admin-lifecycle-fit.integration.test.js` | `NS_ADMIN_LIFECYCLE_DOCKER_TEST=1` | | PostgreSQL | tenant A restore through the maintenance controller and remote cohort census with the admin role connected; ownership refusal while held; admin on the consumer address at another port |
 | `tests/owner-subject-policy.integration.test.js` | `NS_OWNER_SUBJECT_POLICY_DOCKER_TEST=1` | | PostgreSQL | verifies its own volume removal |
 | `tests/tenant-rest-authority-review.test.js` | `NS_REST_AUTHORITY_REVIEW_TEST=1` | | PostgreSQL | |

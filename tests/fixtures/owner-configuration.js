@@ -16,7 +16,7 @@ const consumer = 'owner-configuration';
 const random = () => crypto.randomBytes(12).toString('hex');
 
 module.exports = function ownerConfigurationFixture () {
-  const data = require('./multitenant-preview-replicas')();
+  const data = require('./multitenant-preview-replicas-static')();
   const [A, B] = data.tenants, workers = [];
   const suffix = crypto.randomBytes(6).toString('hex');
   const namespaces = { settings: 'owner_settings_' + suffix, operatorPolicy: 'operator_policy_' + suffix,

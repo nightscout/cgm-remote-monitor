@@ -1,0 +1,112 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "feed-reader role configuration (MULTITENANT_FEED_CONFIG)",
+  "description": "The dedicated change-feed reader process. Loader: lib/change-feed/config.js.",
+  "type": "object",
+  "required": [
+    "connectionEnv",
+    "namespace",
+    "clockNamespace",
+    "activityNamespace",
+    "slot",
+    "publication",
+    "channel",
+    "owner"
+  ],
+  "additionalProperties": false,
+  "properties": {
+    "connectionEnv": {
+      "type": "string",
+      "pattern": "^[A-Z][A-Z0-9_]{0,127}$",
+      "description": "The name of an environment variable in the process environment; the value is never written in a document."
+    },
+    "namespace": {
+      "type": "string",
+      "pattern": "^[a-z][a-z0-9_]{0,62}$",
+      "description": "A PostgreSQL schema name."
+    },
+    "clockNamespace": {
+      "type": "string",
+      "pattern": "^[a-z][a-z0-9_]{0,62}$",
+      "description": "A PostgreSQL schema name."
+    },
+    "activityNamespace": {
+      "type": "string",
+      "pattern": "^[a-z][a-z0-9_]{0,62}$",
+      "description": "A PostgreSQL schema name."
+    },
+    "slot": {
+      "type": "string",
+      "pattern": "^[a-z][a-z0-9_]{0,62}$",
+      "description": "A PostgreSQL schema name."
+    },
+    "publication": {
+      "type": "string",
+      "pattern": "^[a-z][a-z0-9_]{0,62}$",
+      "description": "A PostgreSQL schema name."
+    },
+    "channel": {
+      "type": "string",
+      "pattern": "^[a-z][a-z0-9_]{0,62}$",
+      "description": "A PostgreSQL schema name."
+    },
+    "owner": {
+      "type": "string",
+      "pattern": "^[a-z][a-z0-9_]{0,62}$",
+      "description": "A PostgreSQL schema name."
+    },
+    "settingsNamespace": {
+      "type": "string",
+      "pattern": "^[a-z][a-z0-9_]{0,62}$",
+      "description": "A PostgreSQL schema name."
+    },
+    "policyNamespace": {
+      "type": "string",
+      "pattern": "^[a-z][a-z0-9_]{0,62}$",
+      "description": "A PostgreSQL schema name."
+    },
+    "pollMs": {
+      "type": "integer",
+      "minimum": 10,
+      "maximum": 60000
+    },
+    "heartbeatMs": {
+      "type": "integer",
+      "minimum": 100,
+      "maximum": 60000
+    },
+    "targetChanges": {
+      "type": "integer",
+      "minimum": 1,
+      "maximum": 10000
+    },
+    "maxMessages": {
+      "type": "integer",
+      "minimum": 4,
+      "maximum": 10000
+    },
+    "maxBytes": {
+      "type": "integer",
+      "minimum": 1024,
+      "maximum": 1048576
+    },
+    "statementTimeoutMs": {
+      "type": "integer",
+      "minimum": 100,
+      "maximum": 10000
+    },
+    "rssRefuseBytes": {
+      "type": "integer",
+      "minimum": 33554432,
+      "maximum": 1073741824
+    }
+  },
+  "dependentRequired": {
+    "settingsNamespace": [
+      "policyNamespace"
+    ],
+    "policyNamespace": [
+      "settingsNamespace"
+    ]
+  }
+}

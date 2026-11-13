@@ -1,0 +1,498 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "admin role configuration (MULTITENANT_ADMIN_CONFIG)",
+  "description": "The platform operator plane. At least one of ownership, pools, provisioning, connectorSources and managementSessions. Loader: lib/server/serve/admin-config.js.",
+  "type": "object",
+  "required": [
+    "version",
+    "maxBytes",
+    "timeoutMs"
+  ],
+  "additionalProperties": false,
+  "properties": {
+    "version": {
+      "const": 1
+    },
+    "maxBytes": {
+      "type": "integer",
+      "minimum": 1,
+      "maximum": 1048576
+    },
+    "timeoutMs": {
+      "type": "integer",
+      "minimum": 1,
+      "maximum": 60000
+    },
+    "ownership": {
+      "type": "object",
+      "required": [
+        "connectionEnv",
+        "namespace",
+        "lifecycleNamespace",
+        "operator",
+        "registry"
+      ],
+      "additionalProperties": false,
+      "properties": {
+        "connectionEnv": {
+          "type": "string",
+          "pattern": "^[A-Z][A-Z0-9_]{0,127}$",
+          "description": "The name of an environment variable in the process environment; the value is never written in a document."
+        },
+        "namespace": {
+          "type": "string",
+          "pattern": "^[a-z][a-z0-9_]{0,62}$",
+          "description": "A PostgreSQL schema name."
+        },
+        "lifecycleNamespace": {
+          "type": "string",
+          "pattern": "^[a-z][a-z0-9_]{0,62}$",
+          "description": "A PostgreSQL schema name."
+        },
+        "operator": {
+          "type": "object",
+          "required": [
+            "principal",
+            "consumer"
+          ],
+          "additionalProperties": false,
+          "properties": {
+            "principal": {
+              "type": "string",
+              "pattern": "^[a-zA-Z0-9_-]{1,128}$"
+            },
+            "consumer": {
+              "type": "string",
+              "pattern": "^[a-zA-Z0-9_-]{1,128}$"
+            }
+          }
+        },
+        "registry": {
+          "type": "object",
+          "required": [
+            "namespace"
+          ],
+          "additionalProperties": false,
+          "properties": {
+            "namespace": {
+              "type": "string",
+              "pattern": "^[a-z][a-z0-9_]{0,62}$",
+              "description": "A PostgreSQL schema name."
+            },
+            "maxTenants": {
+              "type": "integer",
+              "minimum": 1
+            },
+            "refreshMs": {
+              "type": "integer",
+              "minimum": 250,
+              "maximum": 60000
+            }
+          },
+          "description": "Registry mode: the tenant set, hosts and keys come from the tenant registry in this namespace. A document that carries it carries no tenant list."
+        }
+      }
+    },
+    "pools": {
+      "type": "object",
+      "required": [
+        "connectionEnv",
+        "namespace",
+        "kinds"
+      ],
+      "additionalProperties": false,
+      "properties": {
+        "connectionEnv": {
+          "type": "string",
+          "pattern": "^[A-Z][A-Z0-9_]{0,127}$",
+          "description": "The name of an environment variable in the process environment; the value is never written in a document."
+        },
+        "namespace": {
+          "type": "string",
+          "pattern": "^[a-z][a-z0-9_]{0,62}$",
+          "description": "A PostgreSQL schema name."
+        },
+        "kinds": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "pattern": "^[a-z][a-z0-9]{0,31}$"
+          },
+          "minItems": 1,
+          "maxItems": 32,
+          "uniqueItems": true
+        }
+      }
+    },
+    "provisioning": {
+      "type": "object",
+      "required": [
+        "connectionEnv",
+        "namespaces",
+        "checkpoints",
+        "vault",
+        "operator"
+      ],
+      "additionalProperties": false,
+      "properties": {
+        "connectionEnv": {
+          "type": "string",
+          "pattern": "^[A-Z][A-Z0-9_]{0,127}$",
+          "description": "The name of an environment variable in the process environment; the value is never written in a document."
+        },
+        "namespaces": {
+          "type": "object",
+          "required": [
+            "registry",
+            "legacy",
+            "secrets",
+            "authorization",
+            "access",
+            "clock",
+            "control",
+            "settings",
+            "operatorPolicy"
+          ],
+          "additionalProperties": false,
+          "properties": {
+            "registry": {
+              "type": "string",
+              "pattern": "^[a-z][a-z0-9_]{0,62}$",
+              "description": "A PostgreSQL schema name."
+            },
+            "legacy": {
+              "type": "string",
+              "pattern": "^[a-z][a-z0-9_]{0,62}$",
+              "description": "A PostgreSQL schema name."
+            },
+            "secrets": {
+              "type": "string",
+              "pattern": "^[a-z][a-z0-9_]{0,62}$",
+              "description": "A PostgreSQL schema name."
+            },
+            "authorization": {
+              "type": "string",
+              "pattern": "^[a-z][a-z0-9_]{0,62}$",
+              "description": "A PostgreSQL schema name."
+            },
+            "access": {
+              "type": "string",
+              "pattern": "^[a-z][a-z0-9_]{0,62}$",
+              "description": "A PostgreSQL schema name."
+            },
+            "clock": {
+              "type": "string",
+              "pattern": "^[a-z][a-z0-9_]{0,62}$",
+              "description": "A PostgreSQL schema name."
+            },
+            "control": {
+              "type": "string",
+              "pattern": "^[a-z][a-z0-9_]{0,62}$",
+              "description": "A PostgreSQL schema name."
+            },
+            "settings": {
+              "type": "string",
+              "pattern": "^[a-z][a-z0-9_]{0,62}$",
+              "description": "A PostgreSQL schema name."
+            },
+            "operatorPolicy": {
+              "type": "string",
+              "pattern": "^[a-z][a-z0-9_]{0,62}$",
+              "description": "A PostgreSQL schema name."
+            }
+          }
+        },
+        "checkpoints": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "required": [
+              "namespace",
+              "consumer",
+              "digest"
+            ],
+            "additionalProperties": false,
+            "properties": {
+              "namespace": {
+                "type": "string",
+                "pattern": "^[a-z][a-z0-9_]{0,62}$",
+                "description": "A PostgreSQL schema name."
+              },
+              "consumer": {
+                "type": "string",
+                "pattern": "^[a-zA-Z0-9_-]{1,128}$"
+              },
+              "digest": {
+                "type": "string",
+                "pattern": "^[a-f0-9]{64}$"
+              }
+            }
+          },
+          "maxItems": 8
+        },
+        "vault": {
+          "type": "object",
+          "required": [
+            "address",
+            "mount"
+          ],
+          "additionalProperties": false,
+          "properties": {
+            "address": {
+              "type": "string"
+            },
+            "mount": {
+              "type": "string",
+              "pattern": "^[a-zA-Z0-9_-]{1,128}$"
+            },
+            "tokenFile": {
+              "type": "string",
+              "description": "An absolute, normalized path; read at every use."
+            },
+            "tokenEnv": {
+              "type": "string",
+              "pattern": "^[A-Z][A-Z0-9_]{0,127}$",
+              "description": "The name of an environment variable in the process environment; the value is never written in a document."
+            },
+            "timeoutMs": {
+              "type": "integer"
+            },
+            "allowInsecureLoopback": {
+              "type": "boolean"
+            }
+          },
+          "description": "One role-level Vault credential: exactly one of tokenFile and tokenEnv."
+        },
+        "operator": {
+          "type": "object",
+          "required": [
+            "principal",
+            "consumer"
+          ],
+          "additionalProperties": false,
+          "properties": {
+            "principal": {
+              "type": "string",
+              "pattern": "^[a-zA-Z0-9_-]{1,128}$"
+            },
+            "consumer": {
+              "type": "string",
+              "pattern": "^[a-zA-Z0-9_-]{1,128}$"
+            }
+          }
+        },
+        "mode": {
+          "enum": [
+            "direct-alias",
+            "canonical-internal"
+          ]
+        },
+        "ownerPolicy": {
+          "type": "object",
+          "required": [
+            "catalogue"
+          ],
+          "additionalProperties": false,
+          "properties": {
+            "catalogue": {
+              "type": "array",
+              "items": {
+                "type": "string"
+              }
+            }
+          }
+        }
+      }
+    },
+    "connectorSources": {
+      "type": "object",
+      "required": [
+        "connectionEnv",
+        "namespaces",
+        "operator"
+      ],
+      "additionalProperties": false,
+      "properties": {
+        "connectionEnv": {
+          "type": "string",
+          "pattern": "^[A-Z][A-Z0-9_]{0,127}$",
+          "description": "The name of an environment variable in the process environment; the value is never written in a document."
+        },
+        "namespaces": {
+          "type": "object",
+          "required": [
+            "settings",
+            "registry",
+            "secrets",
+            "control"
+          ],
+          "additionalProperties": false,
+          "properties": {
+            "settings": {
+              "type": "string",
+              "pattern": "^[a-z][a-z0-9_]{0,62}$",
+              "description": "A PostgreSQL schema name."
+            },
+            "registry": {
+              "type": "string",
+              "pattern": "^[a-z][a-z0-9_]{0,62}$",
+              "description": "A PostgreSQL schema name."
+            },
+            "secrets": {
+              "type": "string",
+              "pattern": "^[a-z][a-z0-9_]{0,62}$",
+              "description": "A PostgreSQL schema name."
+            },
+            "control": {
+              "type": "string",
+              "pattern": "^[a-z][a-z0-9_]{0,62}$",
+              "description": "A PostgreSQL schema name."
+            }
+          }
+        },
+        "operator": {
+          "type": "object",
+          "required": [
+            "principal",
+            "consumer"
+          ],
+          "additionalProperties": false,
+          "properties": {
+            "principal": {
+              "type": "string",
+              "pattern": "^[a-zA-Z0-9_-]{1,128}$"
+            },
+            "consumer": {
+              "type": "string",
+              "pattern": "^[a-zA-Z0-9_-]{1,128}$"
+            }
+          }
+        }
+      }
+    },
+    "managementSessions": {
+      "type": "object",
+      "required": [
+        "connectionEnv",
+        "namespaces",
+        "issuer",
+        "audience",
+        "consumer",
+        "vault",
+        "operator"
+      ],
+      "additionalProperties": false,
+      "properties": {
+        "connectionEnv": {
+          "type": "string",
+          "pattern": "^[A-Z][A-Z0-9_]{0,127}$",
+          "description": "The name of an environment variable in the process environment; the value is never written in a document."
+        },
+        "namespaces": {
+          "type": "object",
+          "required": [
+            "authorization",
+            "registry",
+            "access",
+            "control"
+          ],
+          "additionalProperties": false,
+          "properties": {
+            "authorization": {
+              "type": "string",
+              "pattern": "^[a-z][a-z0-9_]{0,62}$",
+              "description": "A PostgreSQL schema name."
+            },
+            "registry": {
+              "type": "string",
+              "pattern": "^[a-z][a-z0-9_]{0,62}$",
+              "description": "A PostgreSQL schema name."
+            },
+            "access": {
+              "type": "string",
+              "pattern": "^[a-z][a-z0-9_]{0,62}$",
+              "description": "A PostgreSQL schema name."
+            },
+            "control": {
+              "type": "string",
+              "pattern": "^[a-z][a-z0-9_]{0,62}$",
+              "description": "A PostgreSQL schema name."
+            }
+          }
+        },
+        "issuer": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 256
+        },
+        "audience": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 256
+        },
+        "consumer": {
+          "type": "string",
+          "pattern": "^[a-zA-Z0-9_-]{1,128}$"
+        },
+        "vault": {
+          "type": "object",
+          "required": [
+            "address",
+            "mount"
+          ],
+          "additionalProperties": false,
+          "properties": {
+            "address": {
+              "type": "string"
+            },
+            "mount": {
+              "type": "string",
+              "pattern": "^[a-zA-Z0-9_-]{1,128}$"
+            },
+            "tokenFile": {
+              "type": "string",
+              "description": "An absolute, normalized path; read at every use."
+            },
+            "tokenEnv": {
+              "type": "string",
+              "pattern": "^[A-Z][A-Z0-9_]{0,127}$",
+              "description": "The name of an environment variable in the process environment; the value is never written in a document."
+            },
+            "timeoutMs": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 60000
+            },
+            "allowInsecureLoopback": {
+              "type": "boolean"
+            }
+          },
+          "description": "One role-level Vault credential: exactly one of tokenFile and tokenEnv."
+        },
+        "operator": {
+          "type": "object",
+          "required": [
+            "principal",
+            "consumer"
+          ],
+          "additionalProperties": false,
+          "properties": {
+            "principal": {
+              "type": "string",
+              "pattern": "^[a-zA-Z0-9_-]{1,128}$"
+            },
+            "consumer": {
+              "type": "string",
+              "pattern": "^[a-zA-Z0-9_-]{1,128}$"
+            }
+          }
+        },
+        "maxLifetimeSeconds": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 600
+        }
+      }
+    }
+  }
+}

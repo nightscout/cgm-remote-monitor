@@ -1,0 +1,467 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "evaluator role configuration (MULTITENANT_EVALUATOR_CONFIG)",
+  "description": "Registry mode. Loader: lib/server/serve/evaluator-config.js. The api role reads the same document as metadata when socketForwarding.consumerState names it.",
+  "type": "object",
+  "required": [
+    "version",
+    "postgres",
+    "consumer",
+    "pageSize",
+    "maxRows",
+    "maxBytes",
+    "maxTenants",
+    "recoveryIntervalMs",
+    "timeIntervalMs",
+    "registry",
+    "tenantSettings"
+  ],
+  "additionalProperties": false,
+  "properties": {
+    "version": {
+      "const": 1
+    },
+    "postgres": {
+      "type": "object",
+      "required": [
+        "connectionEnv",
+        "namespaces"
+      ],
+      "additionalProperties": false,
+      "properties": {
+        "connectionEnv": {
+          "type": "string",
+          "pattern": "^[A-Z][A-Z0-9_]{0,127}$",
+          "description": "The name of an environment variable in the process environment; the value is never written in a document."
+        },
+        "namespaces": {
+          "type": "object",
+          "required": [
+            "entries",
+            "treatments",
+            "devicestatus",
+            "profile",
+            "food",
+            "activity",
+            "clock",
+            "checkpoint"
+          ],
+          "additionalProperties": false,
+          "properties": {
+            "entries": {
+              "type": "string",
+              "pattern": "^[a-z][a-z0-9_]{0,62}$",
+              "description": "A PostgreSQL schema name."
+            },
+            "treatments": {
+              "type": "string",
+              "pattern": "^[a-z][a-z0-9_]{0,62}$",
+              "description": "A PostgreSQL schema name."
+            },
+            "devicestatus": {
+              "type": "string",
+              "pattern": "^[a-z][a-z0-9_]{0,62}$",
+              "description": "A PostgreSQL schema name."
+            },
+            "profile": {
+              "type": "string",
+              "pattern": "^[a-z][a-z0-9_]{0,62}$",
+              "description": "A PostgreSQL schema name."
+            },
+            "food": {
+              "type": "string",
+              "pattern": "^[a-z][a-z0-9_]{0,62}$",
+              "description": "A PostgreSQL schema name."
+            },
+            "activity": {
+              "type": "string",
+              "pattern": "^[a-z][a-z0-9_]{0,62}$",
+              "description": "A PostgreSQL schema name."
+            },
+            "clock": {
+              "type": "string",
+              "pattern": "^[a-z][a-z0-9_]{0,62}$",
+              "description": "A PostgreSQL schema name."
+            },
+            "checkpoint": {
+              "type": "string",
+              "pattern": "^[a-z][a-z0-9_]{0,62}$",
+              "description": "A PostgreSQL schema name."
+            },
+            "changeStamps": {
+              "type": "string",
+              "pattern": "^[a-z][a-z0-9_]{0,62}$",
+              "description": "A PostgreSQL schema name."
+            }
+          }
+        }
+      }
+    },
+    "consumer": {
+      "type": "string",
+      "pattern": "^evaluator-[A-Za-z0-9_-]{1,112}$"
+    },
+    "pageSize": {
+      "type": "integer",
+      "minimum": 1
+    },
+    "maxRows": {
+      "type": "integer",
+      "minimum": 1
+    },
+    "maxBytes": {
+      "type": "integer",
+      "minimum": 1
+    },
+    "maxTenants": {
+      "type": "integer",
+      "minimum": 1
+    },
+    "recoveryIntervalMs": {
+      "type": "integer",
+      "minimum": 1,
+      "maximum": 2147483647
+    },
+    "timeIntervalMs": {
+      "type": "integer",
+      "minimum": 1,
+      "maximum": 2147483647
+    },
+    "registry": {
+      "type": "object",
+      "required": [
+        "namespace"
+      ],
+      "additionalProperties": false,
+      "properties": {
+        "namespace": {
+          "type": "string",
+          "pattern": "^[a-z][a-z0-9_]{0,62}$",
+          "description": "A PostgreSQL schema name."
+        },
+        "maxTenants": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "refreshMs": {
+          "type": "integer",
+          "minimum": 250,
+          "maximum": 60000
+        }
+      },
+      "description": "Registry mode: the tenant set, hosts and keys come from the tenant registry in this namespace. A document that carries it carries no tenant list."
+    },
+    "tenantSettings": {
+      "type": "object",
+      "required": [
+        "connectionEnv",
+        "namespaces"
+      ],
+      "additionalProperties": false,
+      "properties": {
+        "connectionEnv": {
+          "type": "string",
+          "pattern": "^[A-Z][A-Z0-9_]{0,127}$",
+          "description": "The name of an environment variable in the process environment; the value is never written in a document."
+        },
+        "namespaces": {
+          "type": "object",
+          "required": [
+            "settings",
+            "operatorPolicy"
+          ],
+          "additionalProperties": false,
+          "properties": {
+            "settings": {
+              "type": "string",
+              "pattern": "^[a-z][a-z0-9_]{0,62}$",
+              "description": "A PostgreSQL schema name."
+            },
+            "operatorPolicy": {
+              "type": "string",
+              "pattern": "^[a-z][a-z0-9_]{0,62}$",
+              "description": "A PostgreSQL schema name."
+            }
+          }
+        }
+      }
+    },
+    "socketOrderDomains": {
+      "type": "array",
+      "items": {
+        "enum": [
+          "treatments",
+          "devicestatus",
+          "profile"
+        ]
+      },
+      "uniqueItems": true
+    },
+    "activity": {
+      "type": "object",
+      "required": [
+        "connectionEnv",
+        "namespace"
+      ],
+      "additionalProperties": false,
+      "properties": {
+        "connectionEnv": {
+          "type": "string",
+          "pattern": "^[A-Z][A-Z0-9_]{0,127}$",
+          "description": "The name of an environment variable in the process environment; the value is never written in a document."
+        },
+        "namespace": {
+          "type": "string",
+          "pattern": "^[a-z][a-z0-9_]{0,62}$",
+          "description": "A PostgreSQL schema name."
+        }
+      }
+    },
+    "changeFeed": {
+      "type": "object",
+      "required": [
+        "connectionEnv",
+        "channel"
+      ],
+      "additionalProperties": false,
+      "properties": {
+        "connectionEnv": {
+          "type": "string",
+          "pattern": "^[A-Z][A-Z0-9_]{0,127}$",
+          "description": "The name of an environment variable in the process environment; the value is never written in a document."
+        },
+        "channel": {
+          "type": "string",
+          "pattern": "^[a-z][a-z0-9_]{0,62}$",
+          "description": "A PostgreSQL schema name."
+        },
+        "pageSize": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 1024
+        },
+        "degradedPages": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 16
+        },
+        "intervalMs": {
+          "type": "integer",
+          "minimum": 10,
+          "maximum": 60000
+        },
+        "heartbeatTimeoutMs": {
+          "type": "integer",
+          "minimum": 100,
+          "maximum": 300000
+        }
+      }
+    },
+    "evictAfterMs": {
+      "type": "integer",
+      "minimum": 1,
+      "maximum": 2147483647
+    },
+    "evaluationAlertMs": {
+      "type": "integer",
+      "minimum": 1,
+      "maximum": 2147483647
+    },
+    "datastore": {
+      "type": "object",
+      "required": [
+        "hostname",
+        "port",
+        "database"
+      ],
+      "additionalProperties": false,
+      "properties": {
+        "hostname": {
+          "type": "string",
+          "minLength": 1
+        },
+        "port": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 65535
+        },
+        "database": {
+          "type": "string",
+          "minLength": 1
+        }
+      }
+    },
+    "consumers": {
+      "type": "object",
+      "required": [
+        "realtime"
+      ],
+      "additionalProperties": false,
+      "properties": {
+        "realtime": {
+          "type": "object",
+          "required": [
+            "outbox",
+            "suppression",
+            "route",
+            "maxPayloadBytes",
+            "maxInflight",
+            "attemptTimeoutMs",
+            "retryDelayMs",
+            "pollIntervalMs",
+            "retryIntervalMs"
+          ],
+          "additionalProperties": false,
+          "properties": {
+            "outbox": {
+              "type": "object",
+              "required": [
+                "connectionEnv",
+                "namespace",
+                "maxRows",
+                "maxBytes",
+                "maxConnections"
+              ],
+              "additionalProperties": false,
+              "properties": {
+                "connectionEnv": {
+                  "type": "string",
+                  "pattern": "^[A-Z][A-Z0-9_]{0,127}$",
+                  "description": "The name of an environment variable in the process environment; the value is never written in a document."
+                },
+                "namespace": {
+                  "type": "string",
+                  "pattern": "^[a-z][a-z0-9_]{0,62}$",
+                  "description": "A PostgreSQL schema name."
+                },
+                "maxRows": {
+                  "type": "integer",
+                  "minimum": 1,
+                  "maximum": 2147483647
+                },
+                "maxBytes": {
+                  "type": "integer",
+                  "minimum": 1,
+                  "maximum": 2147483647
+                },
+                "maxConnections": {
+                  "type": "integer",
+                  "minimum": 1,
+                  "maximum": 2147483647
+                }
+              }
+            },
+            "suppression": {
+              "type": "object",
+              "required": [
+                "connectionEnv",
+                "namespace",
+                "maxRows",
+                "maxBytes",
+                "maxConnections"
+              ],
+              "additionalProperties": false,
+              "properties": {
+                "connectionEnv": {
+                  "type": "string",
+                  "pattern": "^[A-Z][A-Z0-9_]{0,127}$",
+                  "description": "The name of an environment variable in the process environment; the value is never written in a document."
+                },
+                "namespace": {
+                  "type": "string",
+                  "pattern": "^[a-z][a-z0-9_]{0,62}$",
+                  "description": "A PostgreSQL schema name."
+                },
+                "maxRows": {
+                  "type": "integer",
+                  "minimum": 1,
+                  "maximum": 2147483647
+                },
+                "maxBytes": {
+                  "type": "integer",
+                  "minimum": 1,
+                  "maximum": 2147483647
+                },
+                "maxConnections": {
+                  "type": "integer",
+                  "minimum": 1,
+                  "maximum": 2147483647
+                }
+              }
+            },
+            "route": {
+              "type": "object",
+              "required": [
+                "id",
+                "maxMessageBytes",
+                "operationTimeoutMs"
+              ],
+              "additionalProperties": false,
+              "properties": {
+                "id": {
+                  "type": "string",
+                  "pattern": "^[A-Za-z0-9_-]{1,128}$"
+                },
+                "maxMessageBytes": {
+                  "type": "integer",
+                  "minimum": 1,
+                  "maximum": 2147483647
+                },
+                "operationTimeoutMs": {
+                  "type": "integer",
+                  "minimum": 1,
+                  "maximum": 2147483647
+                }
+              }
+            },
+            "maxPayloadBytes": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 2147483647
+            },
+            "maxInflight": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 2147483647
+            },
+            "attemptTimeoutMs": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 2147483647
+            },
+            "retryDelayMs": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 2147483647
+            },
+            "pollIntervalMs": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 2147483647
+            },
+            "retryIntervalMs": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 2147483647
+            },
+            "backstopIntervalMs": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 2147483647
+            },
+            "maxConcurrentTenants": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 2147483647
+            }
+          }
+        }
+      }
+    }
+  },
+  "dependentRequired": {
+    "changeFeed": [
+      "activity"
+    ]
+  }
+}

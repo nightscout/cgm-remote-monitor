@@ -10,6 +10,7 @@ const { spawn, execFileSync } = require('node:child_process');
 const { setTimeout: delay } = require('node:timers/promises');
 const { Client } = require('pg');
 const { run } = require('../../lib/migrations/postgres');
+const provisionedTenants = require('./provisioned-tenants');
 
 const root = path.resolve(__dirname, '../..');
 const BIN = path.join(root, 'bin/nightscout.js');
@@ -35,19 +36,19 @@ const docker = args => execFileSync('docker', args, {
   encoding: 'utf8', stdio: ['ignore', 'pipe', 'pipe'], timeout: 30000
 }).trim();
 
-function configuration (address, full = false) {
+// Registry mode (decision static-mode-lab-flag, MT-STATIC-MODE-RETIRE): both
+// tenants are provisioned through the shipping provisioning; the api reads
+// them from the registry with one role-level Vault credential.
+const HOSTS = ['one.example.test', 'two.example.test'];
+function configuration (address, provisioned) {
   return {
     version: 1,
-    ...(full ? { domains: domainNames, legacy: true, context: true } : {}),
-    postgres: { connectionEnv: 'PREVIEW_APP_PG', readinessConnectionEnv: 'PREVIEW_CHECK_PG',
-      namespaces: full ? allNamespaces : namespaces },
-    vault: { address, mount: 'transit', allowInsecureLoopback: true, timeoutMs: 1000 },
+    domains: domainNames, legacy: true, context: true,
+    postgres: { connectionEnv: 'PREVIEW_APP_PG', readinessConnectionEnv: 'PREVIEW_CHECK_PG', namespaces: allNamespaces },
+    vault: { address, mount: 'transit', tokenEnv: 'PREVIEW_VAULT_TOKEN', allowInsecureLoopback: true, timeoutMs: 1000 },
     resolution: { mode: 'direct-alias' },
-    tenants: [A, B].map((id, i) => ({
-      id, aliases: [(i ? 'two' : 'one') + '.example.test'],
-      vault: { tokenEnv: 'PREVIEW_VAULT_' + i, encryptionKey: 'tenant-' + i + '-data',
-        signingKey: 'tenant-' + i + '-signing', signingVersion: 1 }
-    }))
+    registry: { namespace: provisioned.registry, maxTenants: 100, refreshMs: 500 },
+    tenantSettings: { connectionEnv: 'PREVIEW_SETTINGS_PG', namespaces: { settings: provisioned.settings, operatorPolicy: provisioned.operatorPolicy } }
   };
 }
 
@@ -58,8 +59,8 @@ module.exports = function clientReplayHTTP () {
     // Outside the package: no cwd-relative implicit config or secrets file.
     const fixtureDirectory = path.resolve(root, '..', '.client-replay-test-' + suffix);
     const configFile = path.join(fixtureDirectory, 'preview.json');
-    const roots = [random(), random()], children = new Set(), tokens = [];
-    let pgOwned = false, vaultOwned = false, admin, adminURI, appURI, checkURI, address, vaultRoot;
+    const roots = [], children = new Set();
+    let pgOwned = false, vaultOwned = false, admin, adminURI, appURI, checkURI, settingsURI, address, vaultRoot, roleToken, provisioned;
 
     async function until (probe, label) {
       const deadline = Date.now() + 20000;
@@ -81,14 +82,14 @@ module.exports = function clientReplayHTTP () {
 
     function environment (extra = {}) {
       const env = {
-        PATH: process.env.PATH, HOME: process.env.HOME, TZ: 'UTC', NODE_ENV: 'test', MULTITENANT_STATIC_TENANTS: 'lab',
+        PATH: process.env.PATH, HOME: process.env.HOME, TZ: 'UTC', NODE_ENV: 'test',
         // Acceptance runs with every tenant initialized before the listener
         // opens (decision readiness-serve-then-warm); extra may override.
         NS_TENANT_READINESS: 'all',
         MULTITENANT_PREVIEW_CONFIG: configFile,
         API_HOSTNAME: '127.0.0.1', API_PORT: '0',
-        PREVIEW_APP_PG: appURI, PREVIEW_CHECK_PG: checkURI,
-        PREVIEW_VAULT_0: tokens[0], PREVIEW_VAULT_1: tokens[1]
+        PREVIEW_APP_PG: appURI, PREVIEW_CHECK_PG: checkURI, PREVIEW_SETTINGS_PG: settingsURI,
+        PREVIEW_VAULT_TOKEN: roleToken
       };
       for (const key of ['NODE_OPTIONS', 'NS_PREVIEW_PROCESS_CONTROL']) {
         if (process.env[key] !== undefined) env[key] = process.env[key];
@@ -96,7 +97,7 @@ module.exports = function clientReplayHTTP () {
       return { ...env, ...extra };
     }
 
-    function start (config = configuration(address, true), extra) {
+    function start (config = configuration(address, provisioned.namespaces), extra) {
       fs.writeFileSync(configFile, typeof config === 'string' ? config : JSON.stringify(config), { mode: 0o600 });
       const child = spawn(process.execPath, [BIN, 'multitenant', 'api'], {
         cwd: fixtureDirectory, env: environment(extra), stdio: ['ignore', 'pipe', 'pipe']
@@ -121,9 +122,10 @@ module.exports = function clientReplayHTTP () {
         const found = /Listening for role api on 127\.0\.0\.1:(\d+)/.exec(worker.stdout);
         if (!found) return false;
         worker.port = Number(found[1]);
+        // The registry tenant is resolved and warmed on its first request; ready
+        // means the listener answers through the current anonymous authority.
         const result = await http(worker, A, 'GET', '/api/v3/entries', undefined);
-        assert.equal(result.status, 403, 'listener must answer through current anonymous authority');
-        return true;
+        return result.status === 403;
       }, 'preview child listener');
     }
 
@@ -142,7 +144,7 @@ module.exports = function clientReplayHTTP () {
         const request = httpRequest({
           hostname: '127.0.0.1', port: worker.port, path: resource, method,
           headers: {
-            Host: tenant === A ? 'one.example.test' : 'two.example.test',
+            Host: HOSTS[tenant === A ? 0 : 1],
             Accept: 'application/json',
             ...(credential ? { Authorization: 'Bearer ' + credential } : {}),
             ...(body ? { 'Content-Type': 'application/json' } : {}),
@@ -190,14 +192,14 @@ module.exports = function clientReplayHTTP () {
       }
       admin = new Client({ connectionString: adminURI });
       await admin.connect();
-      for (const name of ['preview_app', 'preview_check']) {
+      for (const name of ['preview_app', 'preview_check', 'preview_settings']) {
         const password = random();
         await admin.query(`CREATE ROLE ${name} LOGIN NOSUPERUSER NOBYPASSRLS PASSWORD '${password}'`);
-        await admin.query(`GRANT USAGE ON SCHEMA ${Object.values(allNamespaces).join(', ')} TO ${name}`);
+        if (name !== 'preview_settings') await admin.query(`GRANT USAGE ON SCHEMA ${Object.values(allNamespaces).join(', ')} TO ${name}`);
         const url = new URL(adminURI);
         url.username = name;
         url.password = password;
-        if (name === 'preview_app') appURI = url.toString(); else checkURI = url.toString();
+        if (name === 'preview_app') appURI = url.toString(); else if (name === 'preview_check') checkURI = url.toString(); else settingsURI = url.toString();
       }
       for (const namespace of Object.values(allNamespaces)) {
         await admin.query(`GRANT SELECT ON ${namespace}.schema_migrations TO preview_check`);
@@ -209,16 +211,6 @@ module.exports = function clientReplayHTTP () {
       await admin.query('GRANT SELECT ON ALL TABLES IN SCHEMA preview_auth, preview_legacy TO preview_app');
       await admin.query('GRANT SELECT, INSERT ON preview_secrets.secret_records TO preview_app');
       await admin.query('GRANT INSERT ON preview_secrets.secret_audit TO preview_app');
-      for (const [i, tenant] of [A, B].entries()) {
-        await admin.query('INSERT INTO preview_legacy.legacy_credential_config VALUES ($1, $2)', [tenant, 'root-' + i]);
-        await admin.query('INSERT INTO preview_legacy.legacy_credential_subjects VALUES ($1, $2, $3)', [tenant, SUBJECT, 'sameviewer']);
-        await admin.query("INSERT INTO preview_auth.tenant_authorization_config VALUES ($1, ARRAY['denied'])", [tenant]);
-        await admin.query(`INSERT INTO preview_auth.tenant_authorization_subjects
-          (tenant_id, subject_id, display_name) VALUES ($1, $2, $3)`, [tenant, SUBJECT, 'Synthetic Viewer ' + i]);
-        await admin.query(`INSERT INTO preview_auth.tenant_authorization_roles VALUES
-          ($1, 'viewer', $2)`, [tenant, permissions]);
-        await admin.query("INSERT INTO preview_auth.tenant_authorization_subject_roles VALUES ($1, $2, 'viewer')", [tenant, SUBJECT]);
-      }
       vaultRoot = random();
       execFileSync('docker', ['run', '--name', vaultName, '-d', '-p', '127.0.0.1::8200',
         '-e', 'VAULT_DEV_ROOT_TOKEN_ID', image, 'server', '-dev', '-dev-listen-address=0.0.0.0:8200'],
@@ -232,24 +224,31 @@ module.exports = function clientReplayHTTP () {
           return response.ok;
         } catch { return false; }
       }, 'owned Vault');
-      await vault('sys/mounts/transit', { type: 'transit' });
-      for (const [i, tenant] of [A, B].entries()) {
-        for (const purpose of ['data', 'signing']) {
-          await vault('transit/keys/tenant-' + i + '-' + purpose, { type: 'aes256-gcm96', exportable: false });
-        }
-        const policy = ['decrypt'].map(operation =>
-          `path "transit/${operation}/tenant-${i}-data" { capabilities = ["update"] }`).concat(
-          ['hmac', 'verify'].map(operation =>
-            `path "transit/${operation}/tenant-${i}-signing" { capabilities = ["update"] }`)).join('\n');
-        await vault('sys/policies/acl/tenant-' + i, { policy });
-        tokens[i] = (await vault('auth/token/create', {
-          policies: ['tenant-' + i], no_default_policy: true, ttl: '15m', renewable: false
-        })).auth.client_token;
-        const envelope = Buffer.from(JSON.stringify({ tenant, id: 'root-' + i, data: Buffer.from(roots[i]).toString('base64') }));
-        const encrypted = await vault('transit/encrypt/tenant-' + i + '-data', { plaintext: envelope.toString('base64') });
-        await admin.query('INSERT INTO preview_secrets.secret_records (tenant_id,id,format,ciphertext) VALUES ($1,$2,1,$3)',
-          [tenant, 'root-' + i, encrypted.data.ciphertext]);
+      // Provisioning: the registry, each tenant's keys, root secret, anonymous denial and settings.
+      await admin.query('CREATE ROLE preview_owner NOLOGIN NOSUPERUSER NOBYPASSRLS');
+      provisioned = await provisionedTenants.create({ admin, adminURI, owner: 'preview_owner', vault: { address: address + '/', token: vaultRoot },
+        namespaces: { authorization: 'preview_auth', secrets: 'preview_secrets', legacy: 'preview_legacy' } });
+      for (const [i, tenant] of [A, B].entries()) roots[i] = (await provisioned.provision({ id: tenant, hosts: [HOSTS[i]], issueRootSecret: true })).rootSecret;
+      for (const sql of provisioned.registryGrants({ resolvers: ['preview_app'], readers: ['preview_app'] })) await admin.query(sql);
+      for (const namespace of [provisioned.namespaces.settings, provisioned.namespaces.operatorPolicy]) {
+        await admin.query(`GRANT USAGE ON SCHEMA "${namespace}" TO preview_settings`);
+        await admin.query(`GRANT SELECT ON ALL TABLES IN SCHEMA "${namespace}" TO preview_settings`);
       }
+      // Lab priming beyond provisioning: a subject, its role and legacy name.
+      for (const [i, tenant] of [A, B].entries()) {
+        await admin.query('INSERT INTO preview_legacy.legacy_credential_subjects VALUES ($1, $2, $3)', [tenant, SUBJECT, 'sameviewer']);
+        await admin.query(`INSERT INTO preview_auth.tenant_authorization_subjects
+          (tenant_id, subject_id, display_name) VALUES ($1, $2, $3)`, [tenant, SUBJECT, 'Synthetic Viewer ' + i]);
+        await admin.query(`INSERT INTO preview_auth.tenant_authorization_roles VALUES
+          ($1, 'viewer', $2)`, [tenant, permissions]);
+        await admin.query("INSERT INTO preview_auth.tenant_authorization_subject_roles VALUES ($1, $2, 'viewer')", [tenant, SUBJECT]);
+      }
+      // The api role's one Vault credential, scoped by key purpose.
+      await vault('sys/policies/acl/preview-api', { policy: [
+        'path "transit/decrypt/tenant-data-*" { capabilities = ["update"] }',
+        'path "transit/hmac/tenant-signing-*" { capabilities = ["update"] }',
+        'path "transit/verify/tenant-signing-*" { capabilities = ["update"] }'].join('\n') });
+      roleToken = (await vault('auth/token/create', { policies: ['preview-api'], no_default_policy: true, ttl: '15m', renewable: false })).auth.client_token;
     }
 
     async function close () {
@@ -257,6 +256,7 @@ module.exports = function clientReplayHTTP () {
         if (!worker.exit) worker.child.kill('SIGKILL');
         await worker.exited;
       }
+      if (provisioned) await provisioned.close();
       if (admin) await admin.end();
       if (vaultOwned) docker(['rm', '-f', '-v', vaultName]);
       if (pgOwned) docker(['rm', '-f', '-v', pgName]);

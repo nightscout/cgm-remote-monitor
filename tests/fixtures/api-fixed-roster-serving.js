@@ -15,7 +15,7 @@ const maintenance = require('../../lib/tenant-lifecycle/maintenance-window');
 const namespace = 'preview_control', q = name => '"' + name + '"';
 const freePort = () => new Promise(resolve => { const s = http.createServer().listen(0, '127.0.0.1', () => { const port = s.address().port; s.close(() => resolve(port)); }); });
 module.exports = function create ({ environment = {}, leaseSessions, drainTimeoutMs = 10000 } = {}) {
-  const base = require('./multitenant-preview-replicas')({ writeClock: true }), current = new Map(), environments = new Map(), peers = [], calls = new Map();
+  const base = require('./multitenant-preview-replicas-static')({ writeClock: true }), current = new Map(), environments = new Map(), peers = [], calls = new Map();
   const controlledClock = String(Date.now());
   const locks = base.tenants.map((tenant, i) => ({ tenant, key: String(910001 + i) }));
   let port, publicProxy, privateProxy, participants, operatorPool, cohort, controller, lifetimeURI, config, previousMode, preflightReads = 0;

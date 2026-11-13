@@ -12,8 +12,11 @@
 //   Release clock before data COMMIT: W2 actual early success must fail the test.
 // - Killed/constraint-failed data TX rolls its clock back. Advance floor in a
 //   separate TX: floor/next-stamp assertions must fail after actual data refusal.
-// - Missing/stale/unsafe clock refuses before bind. Remove startup check: an
-//   actual listener bind must fail the test, rather than a setup exception.
+// - A tenant's missing/stale clock refuses that tenant only (503, no write) while
+//   the other tenant is served; unsafe deployment clock state (a writer grant,
+//   row-level security not forced) refuses before bind. Remove the per-tenant
+//   admission: the defective tenant's write must fail the test. Remove the
+//   startup check: an actual listener bind must fail the test.
 // These ablations are NOT executed by importing or syntax-checking this file.
 const assert = require('node:assert/strict');
 const { performance } = require('node:perf_hooks');
@@ -266,16 +269,33 @@ optInSuite(enabled, 'NS_TENANT_COMMIT_CLOCK_HTTP_DOCKER_TEST=1')(
       assert.deepEqual(seen, expected.map(doc => doc.identifier));
     });
 
-    it('refuses missing, stale or unsafe operator-provisioned clock state before binding', async function () {
-      const [first] = await f.pair(clockOptions()), token = await f.localToken(A);
+    // Decision tenant-defect-tenant-scoped: a defect in one tenant's own clock
+    // state refuses that tenant only; a deployment-level defect (grants,
+    // row-level security) still refuses startup.
+    it('refuses only the tenant whose own clock state is missing or stale, and refuses unsafe deployment clock state before binding', async function () {
+      const [first] = await f.pair(clockOptions()), token = await f.localToken(A), other = await f.localToken(B);
       await seed(first, token, 'commit-clock-startup-baseline');
       for (const worker of [...f.workers]) await f.stop(worker);
       const before = await f.floor(A);
+      // The role binds; tenant A is refused on every request with no write; tenant B is served.
+      async function tenantScoped (label) {
+        const worker = f.start(clockOptions()); await f.ready(worker, B);
+        assert.equal((await call(worker, A, 'GET', '/api/v3/entries')).status, 503, label + ': anonymous request for the defective tenant');
+        const read = await call(worker, A, 'GET', '/api/v3/entries', token);
+        assert.deepEqual([read.status, read.body], [503, { error: 'AUTHORITY_UNAVAILABLE' }], label + ': read for the defective tenant');
+        const write = await call(worker, A, 'POST', '/api/v3/entries', token, entry('commit-clock-defect-' + label));
+        assert.deepEqual([write.status, write.body], [503, { error: 'AUTHORITY_UNAVAILABLE' }], label + ': write for the defective tenant');
+        assert.equal((await f.rows(A, 'commit-clock-defect-' + label)).length, 0, label + ': nothing written for the defective tenant');
+        assert.equal((await call(worker, B, 'GET', '/api/v3/entries', other)).status, 200, label + ': the healthy tenant reads');
+        assert.equal((await call(worker, B, 'POST', '/api/v3/entries', other, entry('commit-clock-healthy-' + label))).status, 201, label + ': the healthy tenant writes');
+        assert.equal(worker.exit, null, label + ': the role keeps running');
+        await f.stop(worker);
+      }
       await f.admin.query('DELETE FROM preview_clock.tenant_write_clock WHERE tenant_id=$1', [A]);
-      try { await f.refused(f.configuration()); }
+      try { await tenantScoped('missing'); }
       finally { await f.admin.query('INSERT INTO preview_clock.tenant_write_clock VALUES ($1,$2)', [A, before]); }
       await f.admin.query('UPDATE preview_clock.tenant_write_clock SET last_stamp=0 WHERE tenant_id=$1', [A]);
-      try { await f.refused(f.configuration()); }
+      try { await tenantScoped('stale'); }
       finally { await f.admin.query('UPDATE preview_clock.tenant_write_clock SET last_stamp=$1 WHERE tenant_id=$2', [before, A]); }
       await f.admin.query('GRANT INSERT ON preview_clock.tenant_write_clock TO preview_app');
       try { await f.refused(f.configuration()); }
@@ -283,7 +303,7 @@ optInSuite(enabled, 'NS_TENANT_COMMIT_CLOCK_HTTP_DOCKER_TEST=1')(
       await f.admin.query('ALTER TABLE preview_clock.tenant_write_clock NO FORCE ROW LEVEL SECURITY');
       try { await f.refused(f.configuration()); }
       finally { await f.admin.query('ALTER TABLE preview_clock.tenant_write_clock FORCE ROW LEVEL SECURITY'); }
-      assert.equal(await f.floor(A), before, 'startup admission checks must not change the stored clock');
+      assert.equal(await f.floor(A), before, 'admission checks must not change the stored clock');
       const [restored] = await f.pair(clockOptions());
       assert.equal((await call(restored, A, 'GET', '/api/v3/entries', token)).status, 200);
     });
