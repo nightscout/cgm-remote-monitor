@@ -24,9 +24,9 @@ function observe (file, frozen = false) {
 }
 function replace (file, value) { fs.writeFileSync(file + '.next', JSON.stringify(value)); fs.renameSync(file + '.next', file); }
 
-function isolatedModule (relative, overrides = {}) {
+function isolatedModule (relative, overrides = {}, mutate = source => source) {
   const filename = require.resolve(relative), original = require('node:module').createRequire(filename), output = { exports: {} };
-  require('node:vm').runInThisContext('(function(require,module,exports){' + fs.readFileSync(filename, 'utf8') + '\n})', { filename })(
+  require('node:vm').runInThisContext('(function(require,module,exports){' + mutate(fs.readFileSync(filename, 'utf8')) + '\n})', { filename })(
     id => Object.hasOwn(overrides, id) ? overrides[id] : original(id), output, output.exports);
   return output.exports;
 }
@@ -186,30 +186,62 @@ describe('bounded read-through and pinned atomic publication cache', function ()
     } finally { configFile.parse = parse; observed.restore(); }
   });
 
-  it('EVALUATOR_REGISTRY_CURRENT: actual registry boot seam uses per-tenant settings with zero legacy file/roster reads', async function () {
-    fs.writeFileSync(file, '{}'); const observed = observe(file); let settingsReads = 0, reached = false;
-    const settingsOf = isolatedModule('../lib/server/serve/evaluator-config', { '../../tenant-settings/effective-postgres': async () => ({
-      read: async () => { settingsReads++; return { version: 1, effective: {} }; }, close: async () => {} }) });
+  async function registryCurrent (mutate = source => source, inspect = () => {}) {
+    fs.writeFileSync(file, '{}'); const observed = observe(file);
+    const counts = { reads: 0, factories: 0, refreshes: 0, closes: 0, legacy: 0, finite: 0 }; let reached = false, assertionsReached = false;
+    const settingsOf = isolatedModule('../lib/server/serve/evaluator-config', { '../../tenant-settings/effective-postgres': async () => {
+      counts.finite++; throw new Error('finite settings fallback must not execute');
+    } });
+    // Actual retained lifecycle/admission; only the SQL capability is doubled.
+    const presentation = isolatedModule('../lib/tenant-settings/presentation-reader', { './effective-postgres': async () => {
+      counts.factories++; return {
+        read: async tenant => { assert.equal(tenant, fixture.A); return { version: ++counts.reads, effective: {} }; },
+        refresh: async () => { counts.refreshes++; }, close: async () => { counts.closes++; }
+      };
+    } });
     const tenants = new Map([[fixture.A, settingsOf.registryEntry(fixture.A)]]); let enumerations = 0;
     tenants.keys = () => { enumerations++; throw new Error('registry roster read on current path'); };
     const boot = isolatedModule('../lib/server/serve/evaluator-preview', {
-      './evaluator-config': settingsOf,
+      './evaluator-config': settingsOf, '../../tenant-settings/presentation-reader': presentation,
       './registry-tenant-set': { open: async () => ({ tenants, isActive: tenant => tenant === fixture.A, close: async () => {} }) },
       './evaluator-readiness': async current => {
-        reached = true; fs.unlinkSync(file);
-        for (let i = 0; i < 200; i++) assert.equal((await current.readCurrent(fixture.A)).revision, 'registry');
-        assert.equal(observed.reads, 0); assert.equal(enumerations, 0); assert.equal(settingsReads, 200);
+        reached = true; fs.unlinkSync(file); let prior;
+        for (let i = 0; i < 200; i++) {
+          const value = await current.readCurrent(fixture.A); assert.equal(value.revision, 'registry');
+          if (prior) assert.notEqual(value.identity, prior, 'each call applies freshly read version'); prior = value.identity;
+        }
+        assert.equal(observed.reads, 0); assert.equal(enumerations, 0); assert.equal(counts.reads, 200); assertionsReached = true;
         throw new Error('end focused composition discriminator before clinical startup');
       }
-    });
-    // SQL/readiness are explicit doubles. Actual boot must replace this poison
-    // legacy callback before any current configuration read can succeed.
+    }, mutate);
+    // Actual boot must replace this poison callback; neither it nor finite
+    // settings fallback can satisfy this owned-reader composition discriminator.
     const config = { registry: { namespace: 'synthetic_registry' }, maxTenants: 10, tenants: new Map(), tenantSettings: {},
-      readCurrent: async () => { throw new Error('legacy callback must not execute in registry mode'); } };
+      readCurrent: async () => { counts.legacy++; throw new Error('legacy callback must not execute in registry mode'); } };
     try {
       await assert.rejects(boot.boot(config), /readiness or initialization refused/);
-      assert.equal(reached, true); assert.equal(settingsReads, 200); assert.equal(observed.reads, 0); assert.equal(enumerations, 0);
-    } finally { observed.restore(); }
+      assert.equal(reached, true); assert.equal(counts.reads, 200); assert.equal(assertionsReached, true);
+      assert.equal(observed.reads, 0); assert.equal(enumerations, 0);
+      assert.deepEqual(counts, { reads: 200, factories: 1, refreshes: 199, closes: 1, legacy: 0, finite: 0 });
+    } finally { inspect({ ...counts, reached, assertionsReached }); observed.restore(); }
+  }
+
+  it('EVALUATOR_REGISTRY_CURRENT: actual registry boot seam uses per-tenant settings with zero legacy file/roster reads', async function () {
+    await registryCurrent();
+  });
+
+  it('EVALUATOR_REGISTRY_CURRENT_CONTROLS: removing the owned reader or registry override is red, and restoration reaches every assertion', async function () {
+    const owned = 'settingsOf.withSettings(base, registrySet.tenants.get(tenant), tenant, settingsReader)';
+    const override = 'async readCurrent (tenant) { return registrySet.isActive(tenant) ? ' + owned + ' : null; }';
+    const source = fs.readFileSync(require.resolve('../lib/server/serve/evaluator-preview'), 'utf8');
+    for (const [needle, replacement, expected] of [[owned, 'settingsOf.withSettings(base, registrySet.tenants.get(tenant), tenant)', { finite: 1, legacy: 0 }], [override, 'readCurrent: base.readCurrent', { finite: 0, legacy: 1 }]]) {
+      assert.equal(source.split(needle).length, 2, 'control must land on actual source'); let observed;
+      await assert.rejects(registryCurrent(value => value.replace(needle, replacement), value => { observed = value; }),
+        error => error.code === 'ERR_ASSERTION' && error.actual === 0 && error.expected === 200);
+      assert.equal(observed.reached, true); assert.equal(observed.assertionsReached, false);
+      assert.equal(observed.finite, expected.finite); assert.equal(observed.legacy, expected.legacy);
+      await registryCurrent();
+    }
   });
 
   it('PLACEMENT_EVALUATOR_VALIDATE: pure refusals acquire no handles and repeated hot parses retain only boot transport', async function () {
