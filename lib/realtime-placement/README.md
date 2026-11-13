@@ -295,3 +295,45 @@ Coordinated private versions: lifecycle participant4 (sharded payload3 adds
 inspection2 (cached mode). Legacy payloads remain only under legacy profile/key1,
 not as fallback for assignment-v2. Per-role source/config/ticket binding and full
 native process/PG/clinical qualification remain prospective integration gates.
+
+### Fixed admitted recovery activity reader
+
+The fixed selected recovery entry uses `publishRecoveryActivity(options)`.
+`publishRecovery` remains the earlier publication primitive; it does not supply
+activity and is not a substitute for the selected single-client entry.
+The new entry is assignment-v2 only and refuses ambient tenant/window authority.
+Its `afterAssignment(result, {readActivity})` receives only the bounded affected
+registry tenant reader. It uses the SAME admitted publication backend and READ
+ONLY transaction; no pool, nested transaction or caller-selected SQL is exposed.
+The ordinary activity factory and this reader share the existing exact reader
+RLS/grant/owner screen. Ordinary factory queries and transaction ownership stay
+unchanged.
+
+The assertion-only `connectionAdmission.assertRecoveryTransaction(client)` reads
+private actual-driver records: exact plan2 realtime-recovery singleton capability,
+completed same-backend DB verification, healthy/unfrozen transport, no pending
+query/auth/end and CURRENT actual ReadyForQuery T. A private protocol-ready bit
+is cleared on statement submission/ErrorResponse, and must agree with the actual
+driver ready phase. Empty queues after ErrorResponse do not prove the later
+Ready packet arrived. Started plan2 Terminate requires this same current-ready
+proof for I/T/E; a premature end remains uncertain even after supplied peer EOF.
+Never-connected closure and legacy plan1 behavior stay unchanged. It changes no snapshot/ACK wire or
+constructor authority. The fixed reader separately verifies actual role/OID,
+database/OID, PID/birth, postmaster epoch, READ ONLY and NOSUPERUSER/NOBYPASSRLS.
+The host binds system identifier; SQL does not claim to observe it or gain a new
+pg_control_system privilege. Server/client statement budgets are fixed at one
+second for these reader queries. Native endpoint/epoch/RLS proof remains required.
+
+Each sequential read enters canonical tenant ALS, sets the transaction-local GUC,
+uses the fixed tenant predicate and restores the metadata GUC. Active, paused and
+suspended remain distinct: target readiness must require warm active tenants and
+skip only the paused/suspended tenant's warm requirement. Missing/unknown activity
+refuses. Registry revision must still be checked each readiness pass.
+
+Concurrent, foreign, late or unawaited reads poison the scope. Before COMMIT the
+publisher closes it and drains its tracked query/GUC work; it never queues
+ROLLBACK behind an unknown active query. Callback primary and cleanup errors are
+retained. A late read during an already-dispatched COMMIT cannot undo that COMMIT:
+it emits no new query and the publication result refuses rather than reporting
+success. The fixed class entry must retain uncertainty unless actual physical
+outcome is proved; no retry/refund follows from an error property or cached health.
