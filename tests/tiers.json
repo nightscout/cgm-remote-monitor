@@ -317,7 +317,10 @@
         "tests/evaluator-inspection.test.js",
         "tests/trusted-worker.test.js",
         "tests/operation-window-lock-reuse.test.js",
-        "tests/operation-window-trusted-worker.test.js"
+        "tests/operation-window-trusted-worker.test.js",
+        "tests/preview-entries-acquisition.test.js",
+        "tests/rest-metadata-environment.test.js",
+        "tests/tenant-request-resolution.test.js"
       ],
       "env": true,
       "require": [
@@ -552,7 +555,8 @@
         "tests/realtime-placement-publication.integration.test.js",
         "tests/realtime-sharding-native.integration.test.js",
         "tests/evaluator-job-context.integration.test.js",
-        "tests/evaluator-effect-idempotency.integration.test.js"
+        "tests/evaluator-effect-idempotency.integration.test.js",
+        "tests/preview-entries-acquisition.integration.test.js"
       ],
       "env": true,
       "require": [
