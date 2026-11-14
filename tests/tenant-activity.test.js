@@ -258,7 +258,7 @@ describe('realtime sockets under pause and suspend (actual protocol and runtime,
     const rows = new Map([[A, row()], [B, row()]]), writes = new Map([[A, 0], [B, 0]]);
     const env = require('../lib/server/tenant-app/environment')({ settings: { enable: ['bgnow'] } });
     const hosts = { 'a.test': A, 'b.test': B };
-    let protocol, runtime; const schedule = {};
+    let protocol, runtime;
     const readCurrent = require('../lib/tenant-activity/serving').gateReadCurrent({
       check: eligibility.create({ read: async tenant => rows.get(tenant) }).check,
       readCurrent: async tenant => ({ tenant, identity: 'same', env }), invalidate: tenant => protocol.invalidateTenant(tenant) });
@@ -266,11 +266,16 @@ describe('realtime sockets under pause and suspend (actual protocol and runtime,
       authorizeSocket: async () => ({ permissions: { read: true, write: true, write_treatment: true, ack: true }, collections: ['entries'] }) };
     protocol = require('../lib/server/realtime/protocol').create({ admission: { resolve: async req => { const t = hosts[req.headers.host]; if (!t) throw new Error('UNKNOWN'); return t; } },
       api, readCurrent, runtime: () => runtime, domains: ['entries'] });
-    runtime = await require('../lib/server/realtime/runtime')({ tenants: [A, B], readCurrent, recoveryIntervalMs: 100,
+    const detector=require('../lib/pgstream/realtime-output').detector({
+      config:{completedOutput:{namespace:'synthetic_completed',consumer:'evaluator-test'}},
+      connection:{readOnly:async text=>{assert.match(text,/output_revision::text AS revision,work_enabled/);return {rows:[A,B].map(tenant=>({tenant,revision:String(writes.get(tenant)),work_enabled:policy.eligible('read',rows.get(tenant).state)}))};}},
+      trusted:{scan:async tenants=>new Map(tenants.map(tenant=>[tenant,{activity:rows.get(tenant)}]))},
+      readAll:async tenants=>new Map(tenants.map(tenant=>[tenant,{tenant,identity:'same',env}])),owner:()=>{},onIneligible:tenant=>protocol.invalidateTenant(tenant,'completed-control')});
+    runtime = await require('../lib/server/realtime/runtime')({ tenants:[A,B],readCurrent,detect:detector,watchedTenants:protocol.watchedTenants,
       create: selected => ({ acquire: async () => ({ tenant: selected.tenant, checkpoint: writes.get(selected.tenant), rows: [],
         frame: { delta: false, lastUpdated: 1000, sgvs: Array.from({ length: writes.get(selected.tenant) }, (_, i) => ({ mgdl: 100 + i, mills: 1000 + i })) } }) }),
-      fanout: protocol.fanout, schedule: callback => { schedule.callback = callback; return 1; }, cancel: () => {} });
-    return { rows, writes, protocol, runtime, schedule,
+      fanout:protocol.fanout,schedule:()=>{throw Error('WARM_TENANTS_MUST_NOT_SCHEDULE_DISCOVERY');},cancel:()=>{} });
+    return {rows,writes,protocol,runtime,
       async socket (host) { const socket = new Socket(host); await protocol.prepare(socket); protocol.bind(socket, '/'); await socket.receive('authorize', { secret: 'synthetic' }); return socket; },
       async close () { protocol.close(); await runtime.close(); } };
   }
@@ -283,7 +288,7 @@ describe('realtime sockets under pause and suspend (actual protocol and runtime,
         f.rows.set(A, row(paused, suspended, 2));
         // Publish on change: B gets a write, so its view changes and it receives a frame.
         const before = b.sent.length; f.writes.set(B, 1);
-        await f.schedule.callback(); // actual recovery refresh, no wake
+        await f.runtime.check([A,B]); // Addressed durable control receipt and completed B revision.
         assert.equal(a.disconnected, true, 'ACTIVITY_SOCKET_DISCONNECTED');
         assert.notEqual(b.disconnected, true); assert.ok(b.sent.length > before, 'B still receives updates');
         assert.equal(f.runtime.last(A), null);
