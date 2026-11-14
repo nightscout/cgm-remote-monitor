@@ -21,7 +21,7 @@ async function until (fn, label, timeout = 20000) { const end = Date.now() + tim
 module.exports = function fixture () {
   let lab, provisioner, directory, edge, previousMode, config, map, placementReader, routeReader;
   const roles = [], schemas = [], children = new Set(), workers = new Map(), roots = new Map(), credentials = new Map(), hosts = new Map(), edgeSockets = new Set();
-  let api, activity, display, check, alarm, publisher, lastScreen, activityWriter, operationState, apiService;
+  let api, activity, display, check, alarm, publisher, lastScreen, activityWriter, operationState, apiService, evaluator, producer, evaluatorConfig, realtimeConfig;
   const idlePeers=[];
   const tenants = [];
   while (tenants.length < 2) { const id = randomUUID(); if (placements.shard(id, 2) === tenants.length) tenants.push(id); }
@@ -60,7 +60,7 @@ module.exports = function fixture () {
     const row = map.workers.find(worker => worker.id === id);
     const env = { MULTITENANT_REALTIME_CONFIG: path.join(directory, 'realtime.json'), MULTITENANT_REALTIME_PLACEMENT: path.join(directory, 'placement.json'),
       REALTIME_WORKER_ID: id, REALTIME_WORKER_INCARNATION: row.incarnation, RT_PG: lab.urls.realtime, DISPLAY_PG: display.url, ACTIVITY_PG: activity.url,
-      NS_SHARD_WARM_CONTROL_DIR: directory, NODE_OPTIONS:'--require '+path.join(__dirname,'realtime-sharding-controls.cjs'),
+      NS_SHARD_WARM_CONTROL_DIR: directory, NODE_OPTIONS:'--require '+path.join(__dirname,'realtime-sharding-diagnostics.cjs')+' --require '+path.join(__dirname,'realtime-sharding-controls.cjs'),
       NS_API_INTERNAL_SOCKET: path.join(directory, 'api.sock'), NS_SERVE_INTERNAL_SOCKET: row.address.socket, REALTIME_HOSTNAME: '127.0.0.1', REALTIME_PORT: String(new URL(row.consumerOrigin).port), NS_TENANT_READINESS: 'all' };
     if(operationState){
       const file=path.join(directory,'operation-rt-'+id+'.json');
@@ -68,34 +68,39 @@ module.exports = function fixture () {
       Object.assign(env,{MULTITENANT_OPERATION_CONFIG:file,LIFETIME_PG:operationState.lifetime.url,NS_POOL_OPERATION_MAX:'2',NS_API_INTERNAL_SOCKET:path.join(directory,'api-service.sock')});
     }
     const parsed = require('../../lib/server/realtime/config').load(env);
-    lastScreen = async () => { const candidate = await require('../../lib/server/serve/preview-realtime').registryMode(parsed); try { await require('../../lib/server/serve/evaluator-readiness')(candidate.config); } finally { await candidate.close(); } };
-    if(!operationState){const staged = await require('../../lib/server/serve/preview-realtime').registryMode(parsed);
-      try { await require('../../lib/server/serve/evaluator-readiness')(staged.config); } finally { await staged.close(); }}
+    lastScreen = async () => {
+      const pool=new (require('pg').Pool)({connectionString:operationState.lifetime.url,max:2});
+      const window=require('../../lib/tenant-lifecycle/operation-window').create({namespace:lab.namespaces.control,lockRule:'tenant-id-sha256-v1',pool,trustedWorker:true});
+      try { await require('../../lib/server/serve/evaluator-readiness')(parsed,{operationWindow:window}); }
+      finally { await window.close();await pool.end(); }
+    };
     const worker = await ready(start(id, 'realtime', env), 'realtime'); workers.set(id, worker); return worker;
   }
   async function setup ({ operation = false, apiOnly = false, paused = false } = {}) {
+    if (!apiOnly) operation = 'sharded';
     previousMode = scope.getTenancyMode(); scope.setTenancyMode('multi'); lab = await require('./tenant-registry-lab').createLab();
     directory = fs.mkdtempSync(path.join(os.tmpdir(), 'ns-realtime-sharding-'));
     const ns = Object.fromEntries(domains.map(domain => [domain, 'sr_' + domain + '_' + lab.id]));
     ns.clock = lab.namespaces.clock; ns.checkpoint = lab.namespaces.checkpoint;
+    ns.evaluatorCheckpoint = 'sr_eval_checkpoint_' + lab.id;
+    await run('up', { direct: true, connectionString: process.env.NS_TEST_POSTGRES_ADMIN_URI, namespace: ns.evaluatorCheckpoint, catalogue: require('../../migrations/candidates/postgres-evaluator-work-v2.json') }); schemas.push(ns.evaluatorCheckpoint);
+    await run('up', { direct: true, connectionString: process.env.NS_TEST_POSTGRES_ADMIN_URI, namespace: ns.checkpoint, catalogue: require('../../migrations/candidates/postgres-realtime-output-v2.json') });
     for (const domain of domains) {
       const catalogue = order[domain] || require('../../lib/server/serve/postgres-domains').get(domain).catalogue;
       await run('up', { direct: true, connectionString: process.env.NS_TEST_POSTGRES_ADMIN_URI, namespace: ns[domain], catalogue }); schemas.push(ns[domain]);
-      await q('GRANT USAGE ON SCHEMA ' + quote(ns[domain]) + ' TO ' + quote(lab.roles.api) + (projectionDomains.includes(domain) ? ',' + quote(lab.roles.realtime) : ''));
+      await q('GRANT USAGE ON SCHEMA ' + quote(ns[domain]) + ' TO ' + quote(lab.roles.api));
       await require('./tenant-insertion-grants').grant(lab.admin, { namespace: ns[domain], domain, role: lab.roles.api, catalogue });
-      if (projectionDomains.includes(domain)) {
-        await require('./tenant-insertion-grants').grant(lab.admin, { namespace: ns[domain], domain, role: lab.roles.realtime, catalogue, mode: 'reader' });
-        await q('GRANT SELECT ON ' + quote(ns[domain]) + '.schema_migrations TO ' + quote(lab.roles.realtime));
-      }
+
     }
     for (const name of [ns.clock, ns.checkpoint]) { await q('GRANT USAGE ON SCHEMA ' + quote(name) + ' TO ' + quote(lab.roles.realtime)); await q('GRANT SELECT ON ' + quote(name) + '.schema_migrations TO ' + quote(lab.roles.realtime)); }
     await q('GRANT SELECT ON ' + quote(ns.clock) + '.tenant_write_clock TO ' + quote(lab.roles.realtime));
-    await q('GRANT SELECT,UPDATE(checkpoint,projection,contract_digest) ON ' + quote(ns.checkpoint) + '.tenant_consumer_checkpoint TO ' + quote(lab.roles.realtime));
+    await q('GRANT SELECT ON ' + quote(ns.checkpoint) + '.tenant_consumer_checkpoint TO ' + quote(lab.roles.realtime));
     for (const name of [ns.clock, lab.namespaces.authorization, lab.namespaces.secrets, lab.namespaces.legacy]) await q('GRANT USAGE ON SCHEMA ' + quote(name) + ' TO ' + quote(lab.roles.api));
     await q('GRANT SELECT,UPDATE(last_stamp,last_delete_stamp) ON ' + quote(ns.clock) + '.tenant_write_clock TO ' + quote(lab.roles.api));
     await q('GRANT SELECT ON ALL TABLES IN SCHEMA ' + quote(lab.namespaces.authorization) + ',' + quote(lab.namespaces.legacy) + ' TO ' + quote(lab.roles.api));
     await q('GRANT SELECT,INSERT ON ' + quote(lab.namespaces.secrets) + '.secret_records TO ' + quote(lab.roles.api));
     await q('GRANT INSERT ON ' + quote(lab.namespaces.secrets) + '.secret_audit TO ' + quote(lab.roles.api));
+    evaluator = await role('evaluator');
     check = await role('check'); display = await role('display'); activity = await role('activity'); alarm = await role('alarm'); publisher = await role('publisher');
     const apiNamespaces = { ...Object.fromEntries(domains.map(domain => [domain, ns[domain]])), clock: ns.clock, authorization: lab.namespaces.authorization, legacy: lab.namespaces.legacy, secrets: lab.namespaces.secrets };
     for (const name of Object.values(apiNamespaces)) { await q('GRANT USAGE ON SCHEMA ' + quote(name) + ' TO ' + quote(check.name)); await q('GRANT SELECT ON ' + quote(name) + '.schema_migrations TO ' + quote(check.name)); }
@@ -111,16 +116,36 @@ module.exports = function fixture () {
     for (const selected of [check, alarm]) { await q('GRANT USAGE ON SCHEMA ' + quote(alarmNamespace) + ' TO ' + quote(selected.name)); await q('GRANT SELECT ON ALL TABLES IN SCHEMA ' + quote(alarmNamespace) + ' TO ' + quote(selected.name)); }
     await q('GRANT INSERT,UPDATE(acked_at,expires_at) ON ' + quote(alarmNamespace) + '.tenant_alarm_suppression TO ' + quote(alarm.name));
     await readerGrants(alarm, [lab.namespaces.authorization]);
+    const stream = require('./pgstream-native');
+    const trustedWorker = {clock:ns.clock,activity:lab.namespaces.control,settings:lab.namespaces.settings,operatorPolicy:lab.namespaces.operatorPolicy};
+    const presentation = { connectionEnv: 'DISPLAY_PG', namespaces: { settings: lab.namespaces.settings, operatorPolicy: lab.namespaces.operatorPolicy } };
+    evaluatorConfig = {version:1,postgres:{connectionEnv:'EVAL_PG',namespaces:{...Object.fromEntries(projectionDomains.map(domain=>[domain,ns[domain]])),clock:ns.clock,checkpoint:ns.evaluatorCheckpoint}},
+      consumer:'evaluator-sharding-native',pageSize:10,maxRows:10000,maxBytes:4194304,maxTenants:100,timeIntervalMs:60000,
+      socketOrderDomains:Object.keys(order),registry:{namespace:lab.namespaces.registry,maxTenants:100,refreshMs:250},tenantSettings:presentation,trustedWorker,
+      activity:{connectionEnv:'ACTIVITY_PG',namespace:lab.namespaces.control},pgstream:stream.configuration({prefix:'sr_'+lab.id,capability:stream.capability(process.env)})};
+    realtimeConfig = {version:1,postgres:{connectionEnv:'RT_PG',namespaces:{clock:ns.clock,checkpoint:ns.checkpoint}},consumer:'realtime-sharding-native',maxRows:10000,maxBytes:1048576,maxTenants:100,
+      registry:evaluatorConfig.registry,tenantSettings:presentation,trustedWorker,activity:{namespace:lab.namespaces.control},completedOutput:{namespace:ns.evaluatorCheckpoint,consumer:evaluatorConfig.consumer},
+      maxMessageBytes:1048576,operationTimeoutMs:5000,authorizationRecheckMs:100,unauthorizedDeadlineMs:1000};
+    for(const namespace of [...projectionDomains.map(domain=>ns[domain]),ns.clock,ns.evaluatorCheckpoint]){
+      await q('GRANT USAGE ON SCHEMA '+quote(namespace)+' TO '+quote(evaluator.name));
+      await q('GRANT SELECT ON '+quote(namespace)+'.schema_migrations TO '+quote(evaluator.name));
+    }
+    for(const domain of projectionDomains)await require('./tenant-insertion-grants').grant(lab.admin,{namespace:ns[domain],domain,role:evaluator.name,catalogue:order[domain]||require('../../lib/server/serve/postgres-domains').get(domain).catalogue,mode:'reader'});
+    await q('GRANT SELECT ON '+quote(ns.clock)+'.tenant_write_clock TO '+quote(evaluator.name));
+    await q('GRANT SELECT,UPDATE(checkpoint,projection,contract_digest) ON '+quote(ns.evaluatorCheckpoint)+'.tenant_consumer_checkpoint TO '+quote(evaluator.name));
+    for(const sql of require('../../lib/trusted-worker/postgres').grants({namespaces:trustedWorker,roles:[evaluator.name,lab.roles.realtime]}))await q(sql);
+    for(const sql of require('../../lib/tenant-registry/postgres').grants({namespace:lab.namespaces.registry,enumerators:[evaluator.name]}))await q(sql);
     const replay = require('../../lib/storage/postgres-durable-replay')({ connection: { query () {}, withTenant () {}, transaction () {}, snapshotTransaction () {} },
-      domains: Object.fromEntries(projectionDomains.map(domain => [domain, ns[domain] + '.' + domain])), clockTable: ns.clock + '.tenant_write_clock', checkpointTable: ns.checkpoint + '.tenant_consumer_checkpoint',
-      consumer: 'realtime-sharding-native', projectionVersion: 'realtime-current-rows-v1', pageSize: 10, maxRows: 10000 });
-    const checkpoints = [{ namespace: ns.checkpoint, consumer: 'realtime-sharding-native', digest: replay.digest }];
+      domains: Object.fromEntries(projectionDomains.map(domain => [domain, ns[domain] + '.' + domain])), clockTable: ns.clock + '.tenant_write_clock', checkpointTable: ns.evaluatorCheckpoint + '.tenant_consumer_checkpoint',
+      consumer: evaluatorConfig.consumer, projectionVersion: 'clinical-current-rows-v1', pageSize: 10, maxRows: 10000 });
+    const outputDigest=createHash('sha256').update(JSON.stringify(['evaluator-work-v2',ns.evaluatorCheckpoint,evaluatorConfig.consumer])).digest('hex');
+    const checkpoints = [{namespace:ns.checkpoint,consumer:realtimeConfig.consumer,digest:require('../../lib/pgstream/realtime-receipt').contractDigest(ns.checkpoint,realtimeConfig.consumer)},
+      {namespace:ns.evaluatorCheckpoint,consumer:evaluatorConfig.consumer,digest:replay.digest},{namespace:ns.evaluatorCheckpoint,consumer:evaluatorConfig.consumer+'-completed',digest:outputDigest}];
     for (const sql of require('../../lib/tenant-registry/provision').provisionerGrants({ namespaces: lab.namespaces, role: lab.roles.provisioner, checkpoints })) await q(sql);
     provisioner = require('../../lib/tenant-registry/provision').createProvisioning(lab.provisioningOptions({ checkpoints }));
     for (const [index, tenant] of tenants.entries()) await provisionTenant(tenant, 'shard-' + index + '.example.test');
     await lab.vaultRequest('sys/policies/acl/' + lab.mount + '_shard_api', { policy: ['decrypt','hmac','verify'].map(action => `path "${lab.mount}/${action}/tenant-*" { capabilities = ["update"] }`).join('\n') });
     const token = (await lab.vaultRequest('auth/token/create', { policies: [lab.mount + '_shard_api'], no_default_policy: true, ttl: '1h' })).auth.client_token;
-    const presentation = { connectionEnv: 'DISPLAY_PG', namespaces: { settings: lab.namespaces.settings, operatorPolicy: lab.namespaces.operatorPolicy } };
     config = { version: 1, domains, legacy: true, context: true, writeClock: true, postgres: { connectionEnv: 'API_PG', readinessConnectionEnv: 'CHECK_PG', namespaces: apiNamespaces },
       vault: { address: lab.vault.address, mount: lab.mount, tokenEnv: 'VAULT_TOKEN', allowInsecureLoopback: true }, resolution: { mode: 'direct-alias' },
       registry: { namespace: lab.namespaces.registry, maxTenants: 100, refreshMs: 250 }, tenantSettings: presentation,
@@ -140,7 +165,7 @@ module.exports = function fixture () {
       await q('REVOKE ALL ON FUNCTION ' + quote(lab.namespaces.settings) + '.tenant_settings_values_valid(jsonb) FROM PUBLIC');
       await q('GRANT EXECUTE ON FUNCTION ' + quote(lab.namespaces.settings) + '.tenant_settings_values_valid(jsonb) TO ' + quote(lab.roles.provisioner));
       const lifetime = await role('lifetime');
-      for (const selected of [{ name: lab.roles.api },...(operation==='sharded'?[{name:lab.roles.realtime}]:[]), check, display, activity, alarm, lifetime]) {
+      for (const selected of [{ name: lab.roles.api },...(operation==='sharded'?[{name:lab.roles.realtime},evaluator]:[]), check, display, activity, alarm, lifetime]) {
         await q('GRANT USAGE ON SCHEMA ' + quote(lab.namespaces.control) + ' TO ' + quote(selected.name));
         await q('GRANT SELECT ON ' + ['schema_migrations','tenant_lifecycle_windows','tenant_lifecycle_operations'].map(table => quote(lab.namespaces.control) + '.' + table).join(',') + ' TO ' + quote(selected.name));
       }
@@ -148,11 +173,13 @@ module.exports = function fixture () {
       await q('GRANT EXECUTE ON FUNCTION ' + quote(lab.namespaces.control) + '.tenant_lifecycle_backend_birth() TO ' + quote(lifetime.name));
       const foreignFunctions = (await q("SELECT p.oid::regprocedure::text AS function FROM pg_proc p JOIN pg_namespace n ON n.oid=p.pronamespace WHERE n.nspname !~ '^pg_' AND n.nspname<>'information_schema' AND NOT(n.nspname=$1 AND p.proname='tenant_lifecycle_backend_birth') AND has_function_privilege($2,p.oid,'EXECUTE')", [lab.namespaces.control,lifetime.name])).rows;
       assert.deepEqual(foreignFunctions, [], 'SHARD_NATIVE_LIFETIME_FOREIGN_FUNCTIONS '+JSON.stringify(foreignFunctions));
-      const namespaces = [...new Set([...Object.values(apiNamespaces),lab.namespaces.settings,lab.namespaces.operatorPolicy,alarmNamespace])];
-      const participants = ['api','evaluator','realtime','tenant-admin'].map(role => ({ id: role, roles: [role], namespaces,
+      const namespaces = [...new Set([...Object.values(apiNamespaces),lab.namespaces.settings,lab.namespaces.operatorPolicy,alarmNamespace,ns.evaluatorCheckpoint,ns.checkpoint])];
+      const protectedNamespaces=require('../../lib/server/serve/operation-cohort').protectedNamespaces;
+      const roleNamespaces={api:protectedNamespaces(config),evaluator:protectedNamespaces(evaluatorConfig),realtime:protectedNamespaces(realtimeConfig)};
+      const participants = ['api','evaluator','realtime','tenant-admin'].map(role => ({ id: role, roles: [role], namespaces:[...new Set(roleNamespaces[role]||namespaces)].filter(name=>name!==lab.namespaces.control),
         maxMessageBytes: 1048576, timeoutMs: 5000, address: { socket: path.join(directory,role + '.sock') } }));
       if(operation==='sharded'){
-        const rtNamespaces=[...new Set([...projectionDomains.map(domain=>ns[domain]),ns.clock,ns.checkpoint,lab.namespaces.settings,lab.namespaces.operatorPolicy])];
+        const rtNamespaces=[...new Set([ns.clock,ns.checkpoint,ns.evaluatorCheckpoint,lab.namespaces.settings,lab.namespaces.operatorPolicy])];
         participants.splice(participants.findIndex(row=>row.id==='realtime'),1,...map.workers.map(worker=>({id:'rt-'+worker.id,roles:['realtime'],worker:worker.id,namespaces:rtNamespaces,maxMessageBytes:1048576,timeoutMs:5000,address:worker.address})));
         operationState={lifetime,base:{version:2,namespace:lab.namespaces.control,connectionEnv:'LIFETIME_PG',registry:{namespace:lab.namespaces.registry},participants}};
         operationEnvironment.MULTITENANT_REALTIME_PLACEMENT=path.join(directory,'placement.json');
@@ -169,10 +196,7 @@ module.exports = function fixture () {
     if(!map){map = { version: 1, rule: placements.RULE, shardCount: 2, generation: 1, owners: ['a','b'], workers: [] };
       for (const id of ['a','b']) map.workers.push({ id, incarnation: randomUUID(), address: { socket: path.join(directory, id + '.sock') }, consumerOrigin: 'http://127.0.0.1:' + await freePort() });}
     fs.writeFileSync(path.join(directory, 'placement.json'), JSON.stringify(map));
-    fs.writeFileSync(path.join(directory, 'realtime.json'), JSON.stringify({ version: 1, postgres: { connectionEnv: 'RT_PG', namespaces: { ...Object.fromEntries(projectionDomains.map(domain => [domain, ns[domain]])), clock: ns.clock, checkpoint: ns.checkpoint } },
-      consumer: 'realtime-sharding-native', socketOrderDomains: Object.keys(order), pageSize: 10, maxRows: 10000, maxBytes: 1048576, maxTenants: 100, recoveryIntervalMs: 100,
-      registry: { namespace: lab.namespaces.registry, maxTenants: 100, refreshMs: 250 }, tenantSettings: presentation,
-      activity: { connectionEnv: 'ACTIVITY_PG', namespace: lab.namespaces.control }, maxMessageBytes: 1048576, operationTimeoutMs: 5000, authorizationRecheckMs: 100, unauthorizedDeadlineMs: 1000 }), { mode: 0o600 });
+    fs.writeFileSync(path.join(directory, 'realtime.json'), JSON.stringify(realtimeConfig), {mode:0o600});
     const internal = require('../../lib/server/internal-api/listener-config').resolve(['api'], { NS_SERVE_INTERNAL_SOCKET: path.join(directory, 'operator.sock') });
     placementReader = placements.load({ MULTITENANT_REALTIME_PLACEMENT: path.join(directory, 'placement.json') }, { internal });
     fs.writeFileSync(path.join(directory,'routes.json'),JSON.stringify(map));
@@ -182,7 +206,7 @@ module.exports = function fixture () {
       await new Promise(resolve=>apiService.listen(path.join(directory,'api-service.sock'),resolve));
       fs.chmodSync(path.join(directory,'api-service.sock'),0o600);
       const template=await require('../../lib/server/internal-api/clients').lifecycleParticipant({socketPath:path.join(directory,'api.sock'),maxBytes:1048576,timeoutMs:5000}).getStatus({request:randomUUID()});
-      for(const id of ['evaluator','tenant-admin']){
+      for(const id of ['tenant-admin']){
         const peer=operationState.base.participants.find(row=>row.id===id),incarnation=randomUUID();
         // Explicit idle fixture peers: no clinical role/workload/backend is
         // attributed to them. Actual API+RT actors below remain authoritative.
@@ -191,6 +215,23 @@ module.exports = function fixture () {
       }
     }
     if (paused) for (const tenant of tenants) await activityWriter.transition({tenant,principal:'synthetic-operator',consumer:'native-proof'},'pause');
+    // The addressed output hint follows the same placement authority as the
+    // consumer, without touching payloads or manufacturing a durable receipt.
+    idlePeers.push(await require('../../lib/server/internal-api/transport').open({socketPath:path.join(directory,'output.sock'),maxBytes:4096,timeoutMs:1000},
+      require('../../lib/server/internal-api/contracts').completedOutput,()=>({hintCompletedOutput:async(ctx,body)=>{
+        return require('../../lib/server/internal-api/clients').completedOutput(placementReader.route(body.tenant).endpoint).hintCompletedOutput(body);
+      }})));
+    producer=await require('./pgstream-native').setup({admin:lab.admin,adminURI:process.env.NS_TEST_POSTGRES_ADMIN_URI,directory,
+      config:{...evaluatorConfig,namespaces:evaluatorConfig.postgres.namespaces},evaluatorRole:evaluator.name,realtimeRole:lab.roles.realtime,
+      realtimeConfig:{...realtimeConfig,namespaces:realtimeConfig.postgres.namespaces},source:process.env});
+    fs.writeFileSync(path.join(directory,'evaluator.json'),JSON.stringify(evaluatorConfig),{mode:0o600});
+    const evaluatorOperation=path.join(directory,'operation-evaluator.json');
+    fs.writeFileSync(evaluatorOperation,JSON.stringify({...operationState.base,participantId:'evaluator'}));
+    const evaluatorWorker=start('evaluator','evaluator',{...producer.environment,MULTITENANT_EVALUATOR_CONFIG:path.join(directory,'evaluator.json'),MULTITENANT_OPERATION_CONFIG:evaluatorOperation,
+      EVAL_PG:evaluator.url,DISPLAY_PG:display.url,ACTIVITY_PG:activity.url,LIFETIME_PG:operationState.lifetime.url,
+      MULTITENANT_REALTIME_PLACEMENT:path.join(directory,'placement.json'),NS_SERVE_INTERNAL_SOCKET:path.join(directory,'evaluator.sock'),NS_REALTIME_INTERNAL_SOCKET:path.join(directory,'output.sock'),NS_POOL_OPERATION_MAX:'2',NS_TENANT_READINESS:'all'});
+    await until(async()=>{assert.equal(evaluatorWorker.exit,null,'actual evaluator child refused: '+evaluatorWorker.stderr);try{return await require('../../lib/server/internal-api/clients').lifecycleParticipant({socketPath:path.join(directory,'evaluator.sock'),maxBytes:1048576,timeoutMs:5000}).getStatus({request:randomUUID()});}catch{return false;}},'actual evaluator operation endpoint');
+
     for (const sql of require('../../lib/tenant-registry/postgres').grants({ namespace: lab.namespaces.registry, resolvers: [lab.roles.realtime] })) await q(sql);
     await startRealtime('a'); await startRealtime('b');
     edge = http.createServer((req, res) => {
@@ -235,6 +276,7 @@ module.exports = function fixture () {
     if (directory) for (const file of fs.readdirSync(directory).filter(name=>name.startsWith('hold-') || name.startsWith('fail-'))) fs.unlinkSync(path.join(directory,file));
     for (const socket of edgeSockets) socket.destroy(); if (edge) await new Promise(resolve => edge.close(resolve));
     for (const child of [...children]) await stop(child).catch(() => {});
+    await producer?.close();
     for(const peer of idlePeers)await peer.close();if(apiService)await new Promise(resolve=>apiService.close(resolve));
     await activityWriter?.close().catch(() => {});
     await provisioner?.close().catch(() => {});
@@ -248,5 +290,5 @@ module.exports = function fixture () {
       finally { await q('REVOKE SELECT ON ' + quote(lab.namespaces.registry) + '.tenant_registry FROM ' + quote(lab.roles.realtime)); }
       await lastScreen();
     }, tenants, roots, credentials, hosts, workers,
-    get cohortParticipants () { return operationState?.base.participants.map(row=>({id:row.id,roles:row.roles,...(row.worker?{worker:row.worker}:{}),namespaces:row.namespaces,endpoint:{socketPath:row.address.socket,maxBytes:row.maxMessageBytes,timeoutMs:row.timeoutMs}})); }, async closeProvisioner () {await provisioner?.close();provisioner=null;}, get lab () { return lab; }, get publisher () { return publisher; }, get map () { return map; }, set map (value) { map = value; }, get directory () { return directory; }, get placement () { return placementReader; }, get routes () { return routeReader; }, publishRoutes () { const temporary=path.join(directory,'routes.next.json');fs.copyFileSync(path.join(directory,'placement.json'),temporary);fs.renameSync(temporary,path.join(directory,'routes.json')); }, get edgePort () { return edge.address().port; }, get api () { return api; }, get apiInternal () { return { socketPath: path.join(directory,'api.sock'),maxBytes:1048576,timeoutMs:5000 }; } };
+    get cohortParticipants () { return operationState?.base.participants.map(row=>({id:row.id,roles:row.roles,...(row.worker?{worker:row.worker}:{}),namespaces:row.namespaces,endpoint:{socketPath:row.address.socket,maxBytes:row.maxMessageBytes,timeoutMs:row.timeoutMs}})); }, async closeProvisioner () {await provisioner?.close();provisioner=null;}, get lab () { return lab; }, get evaluator () { return evaluator; }, get publisher () { return publisher; }, get map () { return map; }, set map (value) { map = value; }, get directory () { return directory; }, get placement () { return placementReader; }, get routes () { return routeReader; }, publishRoutes () { const temporary=path.join(directory,'routes.next.json');fs.copyFileSync(path.join(directory,'placement.json'),temporary);fs.renameSync(temporary,path.join(directory,'routes.json')); }, get edgePort () { return edge.address().port; }, get api () { return api; }, get apiInternal () { return { socketPath: path.join(directory,'api.sock'),maxBytes:1048576,timeoutMs:5000 }; } };
 };

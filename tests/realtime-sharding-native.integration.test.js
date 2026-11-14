@@ -24,7 +24,7 @@ optInSuite(enabled(), 'owned PostgreSQL and Vault native sharding')('actual fixe
     const f=require('./fixtures/realtime-sharding-native')();let remote,pin,unknown;
     const cohorts=require('../lib/server/serve/operation-cohort');
     try {
-      await f.setup({operation:'sharded'});await f.closeProvisioner();
+      const {ns}=await f.setup({operation:'sharded'});await f.closeProvisioner();
       const participants=require('../lib/server/serve/operation-cohort-manifest').validate(f.cohortParticipants),A=f.tenants[0];
       remote=await cohorts.createRemote({namespace:f.lab.namespaces.control,tenants:['registry:'+f.lab.namespaces.registry],participants,placement:f.placement});
       pin=await cohorts.pin(remote,A,{client:f.lab.admin});
@@ -34,7 +34,9 @@ optInSuite(enabled(), 'owned PostgreSQL and Vault native sharding')('actual fixe
       const states=await Promise.all(participants.filter(peer=>peer.roles.includes('realtime')).map(peer=>require('../lib/server/internal-api/clients').lifecycleParticipant(peer.endpoint).getStatus({request:randomUUID()})));
       const known=new Set(states.flatMap(state=>state.backends.map(row=>row.pid)));assert.ok(owners.every(pid=>known.has(pid)),'SHARD_ACTUAL_CENSUS actual held resource backends observed, not inferred from labels');
       await assert.rejects(cohorts.createRemote({namespace:f.lab.namespaces.control,tenants:['registry:'+f.lab.namespaces.registry],participants:participants.filter(peer=>peer.worker!=='a'),placement:f.placement}),{code:'RESTORE_COHORT_PLACEMENT_INCOMPLETE'});
-      unknown=new Client({connectionString:f.lab.urls.realtime});await unknown.connect();await unknown.query('SELECT 1');
+      unknown=new Client({connectionString:f.evaluator.url});await unknown.connect();
+      const capability=(await unknown.query("SELECT has_schema_privilege(current_user,$1,'USAGE') AS usage,has_table_privilege(current_user,$2,'SELECT') AS clinical",[ns.entries,ns.entries+'.entries'])).rows[0];
+      assert.deepEqual(capability,{usage:true,clinical:true},'SHARD_UNKNOWN_BACKEND_IS_ACTUAL_CLINICAL_READER');
       await assert.rejects(cohorts.assertComplete(remote,A,{client:f.lab.admin}),{code:'RESTORE_COHORT_UNKNOWN_BACKEND'});
       await unknown.end();unknown=null;await cohorts.assertComplete(remote,A,{client:f.lab.admin});
     }finally{await unknown?.end().catch(()=>{});if(pin)await cohorts.releasePin(pin);await remote?.close();await f.cleanup();}
@@ -44,8 +46,12 @@ optInSuite(enabled(), 'owned PostgreSQL and Vault native sharding')('actual fixe
     try {
       const {ns}=await f.setup({paused:true}),[A,B]=f.tenants;
       for(const id of ['a','b']){const health=await f.request(A,'GET','/health',undefined,f.workers.get(id).port);assert.equal(health.status,200);assert.equal(health.body.healthy,0);assert.equal(health.body.deferred,1);assert.equal(health.body.tenants[0].ready,false);}
-      const rows=(await f.lab.admin.query('SELECT tenant_id::text,checkpoint::text FROM "'+ns.checkpoint+'".tenant_consumer_checkpoint ORDER BY tenant_id')).rows;
-      assert.ok(rows.every(row=>row.checkpoint==='0'),'SHARD_ALL_PAUSED no synthetic checkpoint progress');
+      const completedConsumer='evaluator-sharding-native-completed';
+      // Pause/control receipts may be acknowledged without clinical computation.
+      const rows=(await f.lab.admin.query('SELECT consumer,output_revision::text AS checkpoint FROM "'+ns.evaluatorCheckpoint+'".tenant_consumer_checkpoint WHERE consumer=$1 ORDER BY tenant_id',[completedConsumer])).rows;
+      console.log('SHARD_PAUSED_CLINICAL_PROGRESS '+JSON.stringify({rows:rows.length,consumer:completedConsumer,revisions:rows.map(row=>row.checkpoint)}));
+      assert.equal(rows.length,f.tenants.length,'SHARD_ALL_PAUSED actual provisioned clinical output rows');
+      assert.ok(rows.every(row=>row.consumer===completedConsumer&&row.checkpoint==='0'),'SHARD_ALL_PAUSED no synthetic clinical output progress');
       assert.equal((await f.request(A,'GET','/socket.io/?EIO=4&transport=polling',undefined,f.workers.get('a').port)).status,403);
       const adapter=require('../lib/server/realtime/alarm-transport').createPlacementAdapter({placement:f.routes});
       await assert.rejects(new Promise((resolve,reject)=>adapter.send({tenant:A,id:randomUUID(),attempt:1,notification:{level:1,title:'synthetic paused'},receipts:[]},(error,value)=>error?reject(error):resolve(value))),/REALTIME_HANDOFF_UNAVAILABLE/);
@@ -54,7 +60,11 @@ optInSuite(enabled(), 'owned PostgreSQL and Vault native sharding')('actual fixe
       socket=io('http://'+f.hosts.get(A),{forceNew:true,transports:['polling'],agent,reconnectionDelay:50,reconnectionDelayMax:200});let frame;
       socket.on('connect',()=>socket.emit('authorize',{secret:hash(f.roots.get(A))}));socket.on('dataUpdate',value=>{frame=value;});
       await f.until(()=>frame?.sgvs.some(row=>row.mgdl===120),'resumed actual tenant current frame');
-      assert.equal((await f.lab.admin.query('SELECT checkpoint::text FROM "'+ns.checkpoint+'".tenant_consumer_checkpoint WHERE tenant_id=$1',[B])).rows[0].checkpoint,'0','SHARD_ALL_PAUSED B remains quiet');
+      const resumed=(await f.lab.admin.query('SELECT output_revision::text AS revision FROM "'+ns.evaluatorCheckpoint+'".tenant_consumer_checkpoint WHERE tenant_id=$1 AND consumer=$2',[A,completedConsumer])).rows;
+      assert.equal(resumed.length,1);assert.ok(BigInt(resumed[0].revision)>0n,'SHARD_ALL_PAUSED resumed actual clinical progress is measurable');
+      const quiet=(await f.lab.admin.query('SELECT consumer,output_revision::text AS checkpoint FROM "'+ns.evaluatorCheckpoint+'".tenant_consumer_checkpoint WHERE tenant_id=$1 AND consumer=$2',[B,completedConsumer])).rows;
+      assert.equal(quiet.length,1);assert.equal(quiet[0].consumer,completedConsumer);
+      assert.equal(quiet[0].checkpoint,'0','SHARD_ALL_PAUSED B remains clinically quiet');
     }finally{socket?.close();agent?.destroy();await f.cleanup();}
   });
   it('SHARD_LIVE_ADD: actual running owners admit a new registry tenant only on its assigned shard without process restart', async function () {
@@ -118,7 +128,9 @@ optInSuite(enabled(), 'owned PostgreSQL and Vault native sharding')('actual fixe
       const adapter = require('../lib/server/realtime/alarm-transport').createPlacementAdapter({ placement: f.routes });
       assert.equal((await alarm(adapter, A, 'synthetic before move')).accepted, true);
       await f.until(() => alarmA.alarms.length === 1, 'initial admitted handoff'); assert.equal(alarmB.alarms.length, 0);
-      const checkpoints = async () => (await f.lab.admin.query('SELECT consumer,checkpoint::text,contract_digest,projection FROM "' + ns.checkpoint + '".tenant_consumer_checkpoint WHERE tenant_id=$1', [A])).rows;
+      // Typed receipts measure completed output revisions, not the former raw input checkpoint.
+      const checkpoints = async () => (await f.lab.admin.query('SELECT consumer,output_completed::text AS checkpoint,contract_digest,projection FROM "' + ns.checkpoint + '".tenant_consumer_checkpoint WHERE tenant_id=$1', [A])).rows;
+      await f.until(async()=>{const row=(await checkpoints())[0];return row&&BigInt(row.checkpoint)>0n;},'actual durable output acknowledgement after client frame');
       const before = await checkpoints(); assert.equal(before.length, 1); assert.equal(before[0].consumer, 'realtime-sharding-native'); assert.ok(BigInt(before[0].checkpoint) > 0n);
       const baseline = await f.request(A, 'GET', '/api/v3/entries'); assert.equal(baseline.status, 200); assert.equal(baseline.body.result.length, 1);
       const removed = baseline.body.result[0].identifier;
@@ -156,7 +168,9 @@ optInSuite(enabled(), 'owned PostgreSQL and Vault native sharding')('actual fixe
       await f.until(()=>alarmB.alarms.length===1,'B alarm through unchanged exact owner with old route generation');
       await f.setActivity(A,'pause');
       require('node:fs').unlinkSync(hold);
-      await f.until(async()=>{const health=await f.request(B,'GET','/health',undefined,f.workers.get('b').port);return health.body.registry.admissionRefused>0 && health.body.configured===1;},'SHARD_NATIVE_PAUSE_DURING_WARM_REFUSES_ACTIVATION');
+      let pausedHealth;
+      try { await f.until(async()=>{pausedHealth=(await f.request(B,'GET','/health',undefined,f.workers.get('b').port)).body;return pausedHealth.registry.admissionRefused>0 && pausedHealth.configured===1;},'SHARD_NATIVE_PAUSE_DURING_WARM_REFUSES_ACTIVATION'); }
+      catch(error){console.error('SHARD_PAUSE_DURING_WARM_OBSERVATION '+JSON.stringify({configured:pausedHealth?.configured,registry:pausedHealth?.registry,target:pausedHealth?.tenants.find(row=>row.tenant===A)}));throw error;}
       assert.equal(a.frames.length,oldFrameCount);await assert.rejects(alarm(adapter,A,'synthetic paused target'),/REALTIME_HANDOFF_UNAVAILABLE/);
       await f.startRealtime('a');
       await f.setActivity(A,'unpause');

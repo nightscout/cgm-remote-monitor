@@ -26,6 +26,9 @@ describe('multitenant inventory executable environment consumption', function ()
     const selected = [{ flags: { NS_EVALUATOR_CONSUMERS_TEST: '1' } }];
     const source = { NS_MULTITENANT_PGSTREAM_POSTGRES_IMAGE: 'sha256:' + 'a'.repeat(64), NS_RT_BOOTSTRAP_PGSTREAM_BINARY: '/synthetic/pgstream', NS_RT_BOOTSTRAP_PGSTREAM_SHA256: 'b'.repeat(64), NS_RT_BOOTSTRAP_PGSTREAM_RECEIVER_PORT: '19042', NS_RT_BOOTSTRAP_PGSTREAM_SUBSCRIPTIONS_PORT: '19043', NS_RT_BOOTSTRAP_PGSTREAM_BINDING_JSON: '{}' };
     const good = () => inventory.producerSelection(selected, source);
+    const sharding = [{ file: 'tests/realtime-sharding-native.integration.test.js', flags: { NS_VAULT_DOCKER_TEST: '1' } }];
+    assert.deepEqual(inventory.producerSelection(sharding, source), inventory.producerSelection(selected, source));
+    assert.throws(() => inventory.producerSelection(sharding, {}), /MAINTAINED_PRODUCER_CAPABILITY_REQUIRED/, 'SHARDING_NEEDS_ACTUAL_PRODUCER');
     assert.match(good().image, /^sha256:/); assert(good().command.includes('output_plugin_libraries=wal2json'));
     for (const field of Object.keys(source)) {
       const broken = { ...source }; delete broken[field];
