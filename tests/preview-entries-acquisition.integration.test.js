@@ -18,6 +18,7 @@ const { createTenantApp } = require('../lib/server/tenant-app');
 const { optInSuite } = require('./support/opt-in');
 const A = '11111111-1111-4111-8111-111111111111', B = '22222222-2222-4222-8222-222222222222';
 const domains = ['entries', 'treatments', 'devicestatus', 'profile', 'food', 'activity'];
+const GRANTS = domains.flatMap(d => ['read', 'create', 'update', 'delete'].map(a => 'api:' + d + ':' + a));
 const docker = args => execFileSync('docker', args, { encoding: 'utf8', timeout: 30000, stdio: ['ignore', 'pipe', 'pipe'] }).trim();
 optInSuite(process.env.NS_REST_ACQUISITION_NATIVE === '1', 'NS_REST_ACQUISITION_NATIVE=1')('entries acquisition native preview path', function () {
   this.timeout(60000);
@@ -58,16 +59,15 @@ optInSuite(process.env.NS_REST_ACQUISITION_NATIVE === '1', 'NS_REST_ACQUISITION_
     await admin.query(`CREATE ROLE ${role} LOGIN NOSUPERUSER NOBYPASSRLS PASSWORD '${secret}'`);
     for (const d of domains) {
       await admin.query(`GRANT USAGE ON SCHEMA ${ns}_${d} TO ${role}`);
-      if (d === 'entries') await require('./fixtures/tenant-insertion-grants').grant(admin, { namespace: ns + '_entries', role,
-        domain: 'entries', catalogue: require('../migrations/candidates/postgres-entries-v1.json') });
-      else await admin.query(`GRANT SELECT ON ALL TABLES IN SCHEMA ${ns}_${d} TO ${role}`);
+      await require('./fixtures/tenant-insertion-grants').grant(admin, { namespace: ns + '_' + d, role,
+        domain: d, catalogue: require('../lib/server/serve/postgres-domains').get(d).catalogue });
     }
     await admin.query(`GRANT USAGE ON SCHEMA ${auth} TO ${role}`);
     await admin.query(`GRANT SELECT ON ALL TABLES IN SCHEMA ${auth} TO ${role}`);
     for (const tenant of [A, B]) {
       await admin.query(`INSERT INTO ${auth}.tenant_authorization_config VALUES ($1, ARRAY['denied'])`, [tenant]);
       await admin.query(`INSERT INTO ${auth}.tenant_authorization_subjects (tenant_id,subject_id,display_name) VALUES ($1,'subject','synthetic')`, [tenant]);
-      await admin.query(`INSERT INTO ${auth}.tenant_authorization_roles VALUES ($1,'writer',$2)`, [tenant, ['api:entries:read', 'api:entries:create', 'api:entries:delete']]);
+      await admin.query(`INSERT INTO ${auth}.tenant_authorization_roles VALUES ($1,'writer',$2)`, [tenant, GRANTS]);
       await admin.query(`INSERT INTO ${auth}.tenant_authorization_subject_roles VALUES ($1,'subject','writer')`, [tenant]);
     }
     uri.username = role; uri.password = secret;
@@ -82,7 +82,7 @@ optInSuite(process.env.NS_REST_ACQUISITION_NATIVE === '1', 'NS_REST_ACQUISITION_
     const file = require.resolve('../lib/server/serve/preview-domains');
     const fs = require('node:fs'), vm = require('node:vm'), { createRequire } = require('node:module');
     const source = fs.readFileSync(file, 'utf8');
-    const restored = source.replace("const rawEntries = /^\\/entries(?:\\/[^/]+)?$/.test(entriesPath);", 'const rawEntries = false;');
+    const restored = source.replace("const rawDomains = logical && legacyNames.includes(logical) ? [logical]", "const rawDomains = false ? [logical]").replace(": alias ? [...new Set(['entries', ...(legacyNames.includes(alias[2]) ? [alias[2]] : [])])] : null;", ": null;");
     assert.notEqual(restored, source, 'full acquisition control mutation landed');
     const output = { exports: {} };
     vm.runInThisContext('(function(require,module,exports){' + restored + '\n})', { filename: file })(createRequire(file), output, output.exports);
@@ -147,13 +147,53 @@ optInSuite(process.env.NS_REST_ACQUISITION_NATIVE === '1', 'NS_REST_ACQUISITION_
     const first = await http('get', '/api/v1/entries').expect(200);
     await http('get', '/api/v1/entries').set('If-Modified-Since', first.headers['last-modified']).expect(304);
   });
+  it('preserves other raw domain reads/writes and header-credential cache behavior against full acquisition', async () => {
+    const createdAt = new Date(at).toISOString();
+    const payloads = {
+      treatments: { created_at: createdAt, eventType: 'Note', notes: 'synthetic' },
+      devicestatus: { created_at: createdAt, device: 'synthetic', uploaderBattery: 80 },
+      activity: { created_at: createdAt, steps: 1, notes: 'synthetic' },
+      food: { name: 'synthetic', carbs: 10, portion: 1, unit: 'g', type: 'food' },
+      profile: { startDate: createdAt, defaultProfile: 'Default', units: 'mg/dl', store: { Default: {
+        dia: 3, timezone: 'UTC', units: 'mg/dl', basal: [{ time: '00:00', value: 1 }],
+        carbratio: [{ time: '00:00', value: 10 }], sens: [{ time: '00:00', value: 40 }],
+        target_low: [{ time: '00:00', value: 90 }], target_high: [{ time: '00:00', value: 110 }]
+      } } }
+    };
+    for (const [domain, doc] of Object.entries(payloads)) {
+      for (const tenant of [A, B]) {
+        queries = [];
+        await http('post', '/api/v1/' + domain, tenant).send(doc).expect(200);
+        assert(!queries.some(s => /pg_column_size/.test(s) || domains.filter(d => d !== domain).some(d => s.includes('acquisition_' + d))), 'RAW_WRITE_ONLY_SELECTED_DOMAIN ' + domain);
+      }
+      const stored = (await admin.query(`SELECT tenant_id,doc FROM ${ns}_${domain}.${domain} ORDER BY tenant_id`)).rows;
+      assert.deepEqual(stored.map(r => r.tenant_id), [A, B], 'independent tenant storage ' + domain);
+      for (const version of [1, 2]) for (const carrier of ['query', 'header']) {
+        const path = '/api/v' + version + '/' + domain + '?count=1';
+        const get = target => {
+          const call = request(target).get(path + (carrier === 'query' ? '&token=synthetic-a' : ''))
+            .set('Host', 'a.example.test').set('Accept', 'application/json');
+          return carrier === 'header' ? call.set('Authorization', 'Bearer synthetic-a') : call;
+        };
+        queries = [];
+        const actual = await get(app).expect(200);
+        assert(!queries.some(s => /pg_column_size/.test(s) || domains.filter(d => d !== domain).some(d => s.includes('acquisition_' + d))), 'RAW_READ_ONLY_SELECTED_DOMAIN ' + domain);
+        const expected = await get(oldApp).expect(200);
+        assert.deepEqual(actual.body, expected.body, domain + ' ' + carrier);
+        assert.equal(actual.headers['last-modified'], expected.headers['last-modified']);
+        assert.equal(actual.headers['content-type'], expected.headers['content-type']);
+      }
+    }
+    const responses = await Promise.all([A, B, A, B].map(t => http('get', '/api/v1/entries/sgv?count=1', t).expect(200)));
+    assert.deepEqual(responses.map(r => r.body[0].sgv), [123, 234, 123, 234], 'concurrent tenant frame isolation');
+  });
   it('retains current role/membership/foreign-token and restore admission refusals with no writes', async () => {
     const before = (await admin.query(`SELECT tenant_id,doc FROM ${ns}_entries.entries ORDER BY tenant_id`)).rows;
     await http('post', '/api/v1/entries', A, 'synthetic-b').send([{ type: 'sgv', sgv: 999, date: at }]).expect(401);
     await admin.query(`UPDATE ${auth}.tenant_authorization_roles SET permissions=ARRAY[]::text[] WHERE tenant_id=$1`, [A]);
     await http('get', '/api/v1/entries/sgv').expect(401);
     await http('get', '/api/v1/entries/sgv', B).expect(200);
-    await admin.query(`UPDATE ${auth}.tenant_authorization_roles SET permissions=$2 WHERE tenant_id=$1`, [A, ['api:entries:read', 'api:entries:create', 'api:entries:delete']]);
+    await admin.query(`UPDATE ${auth}.tenant_authorization_roles SET permissions=$2 WHERE tenant_id=$1`, [A, GRANTS]);
     await http('get', '/api/v1/entries/sgv').expect(200);
     await admin.query(`DELETE FROM ${auth}.tenant_authorization_subject_roles WHERE tenant_id=$1`, [A]);
     await admin.query(`DELETE FROM ${auth}.tenant_authorization_subjects WHERE tenant_id=$1`, [A]);
