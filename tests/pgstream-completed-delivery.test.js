@@ -62,24 +62,48 @@ describe('completed-output delivery reuse', function () {
       assert.equal(reads.get(A),2);assert.equal(reads.get(B),1,'NO_ROSTER_REACQUISITION');
     } finally {await service.close();}
   });
-  it('reads a tenant/current/control-checked frame without a write-only realtime cursor or clinical result copy', async function () {
+  it('reads typed result-free delivery in one revision snapshot and reuses only validated retained output', async function () {
     const previous=scope.getTenancyMode();scope.setTenancyMode('multi');
-    let digest, enabled=true, completedVersion='1', restore=7, identity='current';
-    const connection={async transaction(){throw new Error('WRITE_ONLY_CURSOR_MUST_NOT_RUN');},async query(text,values){
-      assert.equal(scope.currentTenant(),A);assert.equal(values[0],A);
-      assert.match(text,/\(projection->0->'output'\)-'result'/,'CLINICAL_RESULT_MUST_NOT_TRANSFER');
-      return {rows:[{contract_digest:digest,projection:[{kind:'evaluator-work-v1',enabled,observed:{lifecycle:'1'},completed:{lifecycle:completedVersion},output:{tenant:A,identity,restoreGeneration:restore,outputRevision:3,inputCheckpoint:2,rows:[],frame:{sgvs:[]}}}]}]};
-    }};
+    let digest,enabled=true,completedVersion='1',restore='7',identity='current',revision='3',physicalReads=0,metadataReads=0,snapshot,publishDuringRead=false;
+    let body={tenant:A,inputCheckpoint:2,checkpoint:2,trigger:'input',result:{properties:{clinicalOnly:'must not transfer'}},rows:[],frame:{lastUpdated:100,sgvs:[{mgdl:100.5,mills:1234,extra:null}]}};
+    const copy=value=>JSON.parse(JSON.stringify(value));
+    const connection={async transaction(){throw new Error('WRITE_ONLY_CURSOR_MUST_NOT_RUN');},
+      async snapshotTransaction(fn){assert.equal(snapshot,undefined,'NO_NESTED_OR_UPGRADED_SNAPSHOT');snapshot={enabled,completedVersion,restore,identity,revision,body:copy(body)};try{return await fn();}finally{snapshot=undefined;}},
+      async query(text,values){
+        assert.equal(scope.currentTenant(),A);assert.equal(values[0],A);assert(snapshot,'METADATA_AND_PHYSICAL_MUST_SHARE_SNAPSHOT');
+        if(text.includes(' AS output_summary')){
+          metadataReads++;assert.match(text,/\(projection->0->'output'\)-'rows'-'frame'-'result'/,'COMPACT_SUMMARY_MUST_EXCLUDE_CLINICAL_RESULT');
+          const summary=copy(snapshot.body);delete summary.rows;delete summary.frame;delete summary.result;
+          if(publishDuringRead){publishDuringRead=false;revision='4';body.frame.lastUpdated=200;body.frame.sgvs[0].mgdl=101.5;}
+          return {rows:[{tenant:A,contract_digest:digest,work_version:2,work_observed:[null,null,null,null,'1',null],work_completed:[null,null,null,null,snapshot.completedVersion,null],work_enabled:snapshot.enabled,
+            output_identity:snapshot.identity,output_digest:'a'.repeat(64),output_revision:snapshot.revision,output_restore_generation:snapshot.restore,output_summary:summary,frame_at:snapshot.body.frame.lastUpdated}]};
+        }
+        physicalReads++;assert.match(text,/SELECT \(projection->0->'output'\)-'result' AS output/,'PHYSICAL_TRANSFER_MUST_EXCLUDE_CLINICAL_RESULT');
+        const output=copy(snapshot.body);delete output.result;return {rows:[{output}]};
+      }};
     const config={consumer:'realtime-test',namespaces:{checkpoint:'rt_checkpoint'},completedOutput:{namespace:'test_completed',consumer:'evaluator-test'},maxBytes:100000,recoveryIntervalMs:1000};
-    digest=checkpoints.create({connection,namespace:'test_completed',consumer:'evaluator-test',maxBytes:200000,timeIntervalMs:1000}).digest;
+    digest=checkpoints.create({connection,namespace:'test_completed',consumer:'evaluator-test',maxBytes:200000,timeIntervalMs:1000,typed:true}).digest;
     const projection=completed.projection({config,connection,current:{tenant:A,identity:'current'},operationWindow:{currentGeneration:()=>7}});
     try {
-      const output=await projection.acquire();assert.equal(output.checkpoint,3);assert.deepEqual(output.frame,{sgvs:[]});
+      const output=await projection.acquire();assert.equal(output.checkpoint,3);assert.deepEqual(output.frame,body.frame);assert.equal(physicalReads,1);
+      assert.equal(await projection.acquire(),output,'UNCHANGED_REVISION_REUSES_ONE_DECODED_RESULT');assert.equal(physicalReads,1);
+      output.frame.sgvs[0].mgdl=999;publishDuringRead=true;const repaired=await projection.acquire();assert.equal(repaired.checkpoint,3,'CONCURRENT_PUBLICATION_MUST_NOT_MIX_SNAPSHOT_REVISIONS');assert.equal(repaired.frame.sgvs[0].mgdl,100.5,'MUTATED_HINT_MUST_PHYSICALLY_RECOVER');assert.equal(physicalReads,2);
+      const changed=await projection.acquire();assert.equal(changed.checkpoint,4);assert.equal(changed.frame.sgvs[0].mgdl,101.5);assert.equal(physicalReads,3);
       enabled=false;await assert.rejects(projection.acquire(),/OUTPUT_CONTROL_PENDING/);enabled=true;
       completedVersion='0';await assert.rejects(projection.acquire(),/OUTPUT_CONTROL_PENDING/);completedVersion='1';
       identity='other';await assert.rejects(projection.acquire(),/OUTPUT_CONFIG_CHANGED/);identity='current';
-      restore=6;await assert.rejects(projection.acquire(),/RESTORE_GENERATION/);
+      restore='6';await assert.rejects(projection.acquire(),/RESTORE_GENERATION/);
+      assert.equal(metadataReads,8,'EVERY_REUSE_RECHECKS_TYPED_CONTROL_AUTHORITY');
     } finally {scope.setTenancyMode(previous);}
+  });
+  it('invalidates lifecycle-only suspended idle sockets from authoritative typed work eligibility', async function () {
+    const invalidated=[];
+    const detector=completed.detector({config:{completedOutput:{namespace:'test_completed',consumer:'evaluator-test'}},
+      connection:{readOnly:async text=>{assert.match(text,/output_revision::text AS revision,work_enabled/);return {rows:[{tenant:A,revision:'3',work_enabled:false},{tenant:B,revision:'3',work_enabled:true}]};}},
+      trusted:{scan:async tenants=>new Map(tenants.map(tenant=>[tenant,{activity:{state:'active',paused:false,suspended:false}}]))},
+      readAll:async tenants=>new Map(tenants.map(tenant=>[tenant,{identity:tenant}])),owner:()=>{},onIneligible:tenant=>invalidated.push(tenant)});
+    const seen=await detector([A,B]);assert.deepEqual(invalidated,[A],'LIFECYCLE_REFUSAL_MUST_INVALIDATE_WITH_ACTIVITY_FLAG_STILL_FALSE');
+    assert.deepEqual(seen.get(A),{identity:null,stamp:null});assert.deepEqual(seen.get(B),{identity:B,stamp:'3'});
   });
 });
 
