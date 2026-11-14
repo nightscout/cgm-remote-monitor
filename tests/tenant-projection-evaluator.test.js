@@ -102,11 +102,17 @@ describe('dormant tenant projection evaluator source contract', function () {
     try {
       const ordinary = await component(replay).evaluate({ at });
       assert.equal(Object.hasOwn(ordinary, 'frame'), false, 'default output contract is unchanged');
-      const result = await component(replay, undefined, undefined, { includeFrame: true }).evaluate({ at });
+      const v = component(replay, undefined, undefined, { includeFrame: true });
+      const result = await v.evaluate({ at });
       assert.equal(result.properties.bgnow.mean, 123);
       assert.equal(result.frame.sgvs[0].mgdl, result.properties.bgnow.mean);
       assert.equal(result.frame.delta, false);
       assert.equal(result.frame.lastUpdated, at);
+      const originalFrame = JSON.stringify(result.frame);
+      const later = await v.evaluateTime({ at: at + 1000 });
+      later.frame.sgvs[0].mgdl = -1;
+      assert.equal(JSON.stringify(result.frame), originalFrame, 'published frames do not alias later clinical working data');
+      assert.equal(document.sgv, 123, 'frame mutation cannot change committed clinical input');
       assert.throws(() => component(replay, undefined, undefined, { includeFrame: 'yes' }), /frame selection/);
     } finally { clock.uninstall(); }
   });

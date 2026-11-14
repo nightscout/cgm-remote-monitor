@@ -104,6 +104,23 @@ describe('dormant durable replay source protocol', function () {
       run: () => scope.withTenant(A, () => consumer.catchUp()) };
   }
 
+  it('publishes independent decoded rows only after commit for snapshot and stamped replay', async function () {
+    for (const method of ['reconcile', 'run']) {
+      const f = fixture(); f.provision();
+      const row = f.row('one', 'string', 1, 111);
+      row.doc.extension = { values: [1, 2] };
+      f.setSource([row], 1);
+      const first = await f[method]();
+      assert.equal(f.calls.at(-1), 'COMMIT');
+      first.rows[0].document.extension.values.push(3);
+      assert.deepEqual(f.saved().projection[0].doc.extension.values, [1, 2]);
+      assert.deepEqual((await f[method]()).rows[0].document.extension.values, [1, 2]);
+      f.failCommit();
+      await assert.rejects(f[method](), /synthetic commit failure/);
+      assert.deepEqual(f.saved().projection[0].doc.extension.values, [1, 2]);
+    }
+  });
+
   it('requires declared snapshot capability and explicit caller-selected bounds', function () {
     assert.throws(() => replay({ connection: { query () {}, transaction () {} } }), /snapshotTransaction/);
     assert.throws(() => fixture({ maxRows: undefined }), /pageSize and maxRows/);
