@@ -40,13 +40,16 @@ transaction, without computing the catalogue digest or running full admission
 for that tenant operation. Tenant locks, generation/phase checks, durable markers,
 rollback and orphan behavior still apply.
 
-The worker coordinator must call `window.verifyOperational()` and the selected
-lower cohort's `readopt(window)` at startup, recovery and the existing bounded
+The worker coordinator must call
+`window.verifyOperational(async () => { await readopt(window); await trusted.verify(); })`
+with the selected lower cohort's `readopt(window)` at startup, recovery and the existing bounded
 worker operational cadence, outside tenant execution budgets. The first method
 rechecks the lifetime role's complete catalogue admission and datastore identity;
 the latter reobserves each live lower pool and calls `window.verifyClient(client)`
-to recheck its lower admission. A verification failure withdraws trusted operation
-admission. Successful lower verification alone does not reopen it. The coordinator
+to recheck its lower admission. Admission remains withdrawn until the lifetime admission and the complete
+related-verification callback both succeed. Concurrent verification cannot reopen
+admission while another check is pending or after one fails. A verification
+failure withdraws trusted operation admission. Successful lower verification alone does not reopen it. The coordinator
 must withhold worker output during this joined verification and resume only when
 all checks pass. Catalogue drift between operational checks is detected at that
 boundary; immediate catalogue-change refusal tests continue to describe the

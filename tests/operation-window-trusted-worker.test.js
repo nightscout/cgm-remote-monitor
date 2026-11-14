@@ -29,7 +29,7 @@ describe('Explicit trusted worker operation boundary (source protocol)', functio
     const f = fixture({ trustedWorker: true, catalogueMutate: (kind, rows) => { if (drift && kind === 'role') rows[0].elevated = true; } });
     await f.window.ready(); await f.window.run(A, () => {});
     drift = true;
-    await assert.rejects(f.window[method](f.client), { code: 'LIFECYCLE_WINDOW_SCHEMA_UNSAFE' });
+    await assert.rejects(f.window[method](...(method === 'verifyClient' ? [f.client] : [])), { code: 'LIFECYCLE_WINDOW_SCHEMA_UNSAFE' });
     await assert.rejects(f.window.run(A, () => assert.fail('withdrawn worker body')), { code: 'LIFECYCLE_WINDOW_SCHEMA_UNSAFE' });
     drift = false;
     await f.window.verifyClient(f.client);
@@ -91,6 +91,46 @@ describe('Explicit trusted worker operation boundary (source protocol)', functio
     await assert.rejects(f.window.run(A, () => {}), { code: 'LIFECYCLE_WINDOW_SCHEMA_UNSAFE' });
     await f.window.verifyOperational(); await f.window.run(A, () => {});
     await f.window.close();
+  });
+  it('keeps admission withdrawn through the held related callback, then reopens', async function () {
+    const f = fixture({ trustedWorker: true }); await f.window.ready();
+    let release, entered;
+    const held = new Promise(resolve => { release = resolve; });
+    const started = new Promise(resolve => { entered = resolve; });
+    const verifying = f.window.verifyOperational(async () => { entered(); await held; });
+    await started;
+    await assert.rejects(f.window.run(A, () => {}), { code: 'LIFECYCLE_WINDOW_SCHEMA_UNSAFE' });
+    await f.window.verifyClient(f.client);
+    await assert.rejects(f.window.run(A, () => {}), { code: 'LIFECYCLE_WINDOW_SCHEMA_UNSAFE' });
+    release(); await verifying;
+    await f.window.run(A, () => {}); await f.window.close();
+  });
+  it('leaves admission withdrawn after a related callback fails and supports a full retry', async function () {
+    const f = fixture({ trustedWorker: true }); await f.window.ready();
+    const failure = new Error('synthetic related worker verification failure');
+    await assert.rejects(f.window.verifyOperational(async () => { await f.window.verifyClient(f.client); throw failure; }), error => error === failure);
+    await assert.rejects(f.window.run(A, () => {}), { code: 'LIFECYCLE_WINDOW_SCHEMA_UNSAFE' });
+    await f.window.verifyOperational(async () => { await f.window.verifyClient(f.client); });
+    await f.window.run(A, () => {}); await f.window.close();
+  });
+  it('does not reopen around a concurrent pending or failed verification', async function () {
+    const f = fixture({ trustedWorker: true }); await f.window.ready();
+    let release, entered;
+    const held = new Promise(resolve => { release = resolve; });
+    const started = new Promise(resolve => { entered = resolve; });
+    const first = f.window.verifyOperational(async () => { entered(); await held; });
+    await started;
+    await f.window.verifyOperational();
+    await assert.rejects(f.window.run(A, () => {}), { code: 'LIFECYCLE_WINDOW_SCHEMA_UNSAFE' });
+    await assert.rejects(f.window.verifyOperational(async () => { throw new Error('synthetic concurrent refusal'); }));
+    release(); await first;
+    await assert.rejects(f.window.run(A, () => {}), { code: 'LIFECYCLE_WINDOW_SCHEMA_UNSAFE' });
+    await f.window.verifyOperational(); await f.window.run(A, () => {}); await f.window.close();
+  });
+  it('rejects invalid related-verification callbacks', async function () {
+    const f = fixture({ trustedWorker: true });
+    for (const value of [null, false, 1, {}, 'callback']) await assert.rejects(f.window.verifyOperational(value), TypeError);
+    await f.window.run(A, () => {}); await f.window.close();
   });
   it('still rejects cross-tenant nesting and operational checks inherited from a tenant body', async function () {
     const f = fixture({ trustedWorker: true });
