@@ -13,7 +13,7 @@ const assert = require('node:assert/strict');
 const serve = require('../lib/server/serve');
 const { ROLES, FIELDS, STORAGE, describeComposition, RoleTableError } = require('../lib/server/serve/roles');
 
-const NAMES = ['api', 'feed-reader', 'evaluator', 'realtime', 'vcpool', 'tenant-admin', 'admin'];
+const NAMES = ['api', 'evaluator', 'realtime', 'vcpool', 'tenant-admin', 'admin'];
 const TYPED = ['listener', 'storage', 'feed', 'egress'];
 
 // A copy whose entries can be edited without touching the table.
@@ -31,7 +31,7 @@ function refused (fn, expected) {
 
 describe('multitenant role table fields (D23 entry condition 4)', function () {
 
-  it('lists the seven roles in the order the command lists them', function () {
+  it('lists the six roles in the order the command lists them', function () {
     assert.deepEqual(Object.keys(ROLES), NAMES);
     assert.deepEqual(Object.keys(FIELDS), TYPED);
     assert.deepEqual(STORAGE, ['write', 'read', 'none']);
@@ -103,7 +103,7 @@ describe('describeComposition', function () {
   it('reads the whole table from the fields', function () {
     assert.deepEqual(describeComposition(NAMES), {
       writers: ['api', 'tenant-admin', 'admin']
-      , readers: ['feed-reader', 'evaluator', 'realtime', 'vcpool']
+      , readers: ['evaluator', 'realtime', 'vcpool']
       , listeners: ['api', 'realtime', 'tenant-admin', 'admin']
       , feedConsumers: ['evaluator', 'realtime']
       , egress: ['evaluator', 'vcpool']
@@ -144,11 +144,11 @@ describe('describeComposition', function () {
   });
 });
 
-describe('parseRoles is unchanged by the typed fields', function () {
+describe('current product role selection', function () {
 
   it('accepts explicitly configured api, headless tenant-admin, admin operator and vcpool connector previews', function () {
     assert.deepEqual(serve.parseRoles(['api']), ['api']);
-    assert.deepEqual(NAMES.filter(name => ROLES[name].multitenant === true), ['api', 'feed-reader', 'evaluator', 'realtime', 'vcpool', 'tenant-admin', 'admin']);
+    assert.deepEqual(NAMES.filter(name => ROLES[name].multitenant === true), ['api', 'evaluator', 'realtime', 'vcpool', 'tenant-admin', 'admin']);
   });
 
   it('recognizes explicit realtime without changing its reader-only role contract', function () {
@@ -159,7 +159,7 @@ describe('parseRoles is unchanged by the typed fields', function () {
 
   it('still refuses an unknown role, listing the roles', function () {
     assert.throws(() => serve.parseRoles(['bogus']), err => err instanceof serve.RoleError
-      && err.message === 'unknown role: bogus; the roles are api, feed-reader, evaluator, realtime, vcpool, tenant-admin, admin');
+      && err.message === 'unknown role: bogus; the roles are api, evaluator, realtime, vcpool, tenant-admin, admin');
   });
 });
 
@@ -177,5 +177,27 @@ describe('trusted operation worker selection', function () {
     assert.equal(serve.trustedOperationWorker(['realtime'],realtime),true);
     for(const names of [['api'],['evaluator'],['realtime','api'],['realtime','evaluator']])assert.equal(serve.trustedOperationWorker(names,realtime),false);
     for(const selected of [{trustedWorker:{}},{completedOutput:{}},{}])assert.equal(serve.trustedOperationWorker(['realtime'],{realtimePreview:selected}),false);
+  });
+});
+
+
+describe('retired standalone capture role', function () {
+  it('refuses the obsolete role before configuration, runtime policy, listeners or connection effects', async function () {
+    const command = require('../lib/cli/commands/multitenant');
+    let reads = 0, output = '', error = '';
+    const source = new Proxy({}, { get () { reads++; throw new Error('retired role must not read configuration'); } });
+    const obsolete = failure => failure instanceof serve.RoleError && failure.code === 'ROLE_RETIRED';
+    for (const names of [['feed-reader'], ['feed-reader', 'api']]) {
+      assert.throws(() => serve.parseRoles([names.join(',')]), obsolete);
+      assert.throws(() => serve.preflight(names, source, { feedReader: {} }), obsolete);
+      assert.throws(() => command.configure(names, source), obsolete);
+      await assert.rejects(serve.start(names, source, undefined, source, { feedReader: {} }), obsolete);
+    }
+    const io = { env: source, stdout: { write: text => { output += text; } }, stderr: { write: text => { error += text; } } };
+    assert.equal(command.run(['feed-reader'], io), 64);
+    assert.equal(command.runRoles(['feed-reader'], io, 'nightscout multitenant', true), 64);
+    assert.equal(output, '');assert.match(error, /feed-reader is retired/);assert.equal(reads, 0);
+    for (const name of NAMES) assert.deepEqual(serve.parseRoles([name]), [name]);
+    assert.equal(Object.hasOwn(ROLES, 'feed-reader'), false);
   });
 });

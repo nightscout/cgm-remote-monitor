@@ -47,7 +47,7 @@ describe('nightscout multitenant: roles (PLAT-SERVE)', function () {
 
   it('accepts the implemented explicitly configured preview roles', function () {
     assert.deepEqual(serve.parseRoles(['api']), ['api']);
-    for (const [name, role] of Object.entries(ROLES)) assert.equal(role.multitenant === true, ['api', 'feed-reader', 'evaluator', 'realtime', 'vcpool', 'tenant-admin', 'admin'].includes(name), name);
+    for (const [name, role] of Object.entries(ROLES)) assert.equal(role.multitenant === true, ['api', 'evaluator', 'realtime', 'vcpool', 'tenant-admin', 'admin'].includes(name), name);
   });
 
   it('refuses an unknown role, an empty one, a repeated one, and a missing list', function () {
@@ -55,6 +55,11 @@ describe('nightscout multitenant: roles (PLAT-SERVE)', function () {
     for (const args of [['bogus'], ['api,bogus'], ['api,'], ['api,api'], [], ['api', 'extra']]) {
       assert.throws(() => serve.parseRoles(args, roles), serve.RoleError, JSON.stringify(args));
     }
+  });
+
+  it('refuses the retired capture CLI role before reading even an invalid configuration path', function () {
+    const stopped = cli(['multitenant', 'feed-reader'], cleanEnv({ MULTITENANT_FEED_CONFIG: '/absent/retired-feed.json', MULTITENANT_OPERATION_CONFIG: '/absent/operation.json' }));
+    assert.equal(stopped.status, 64);assert.equal(stopped.stdout, '');assert.match(stopped.stderr, /feed-reader is retired/);assert.doesNotMatch(stopped.stderr, /ENOENT|could not start/);
   });
 
   it('names every role that cannot be served yet', function () {
