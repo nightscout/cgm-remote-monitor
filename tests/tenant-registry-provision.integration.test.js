@@ -11,7 +11,7 @@ const scope = require('../lib/storage/tenant-scope');
 const connect = require('../lib/storage/postgres-connection');
 const registry = require('../lib/tenant-registry/postgres');
 const rules = require('../lib/tenant-registry/rules');
-const { createProvisioning, MAX_BATCH } = require('../lib/tenant-registry/provision');
+const { createProvisioning, MAX_BATCH, preKeyEnsureRefusal } = require('../lib/tenant-registry/provision');
 const { createLab, enabled } = require('./fixtures/tenant-registry-lab');
 const { optInSuite } = require('./support/opt-in');
 
@@ -105,11 +105,39 @@ optInSuite(enabled(), 'disposable NS_TEST_POSTGRES_ADMIN_URI and NS_VAULT_DOCKER
     await assert.rejects(provisioning.provisionBatch(Array.from({ length: MAX_BATCH + 1 }, (_, i) => spec('o' + i))), { code: 'TENANT_PROVISION_BATCH_INVALID' });
   });
 
-  it('PV_CONCURRENT: the same tenant provisioned concurrently is created once', async function () {
-    const request = spec(4);
-    const results = await Promise.all([provisioning.provision(request), provisioning.provision(request), provisioning.provision(request)]);
-    assert.deepEqual(results.map(row => row.outcome).sort(), ['created', 'existing', 'existing']);
-    assert.deepEqual(await lab.rowsFor(request.id), COMPLETE);
+  it('PV_CONCURRENT: the pre-key fence refuses overlapping work; retries converge without duplicate writes', async function () {
+    const request = spec(4, { issueRootSecret: true });
+    let entered, release, vaultSteps = 0;
+    const atVault = new Promise(resolve => { entered = resolve; });
+    const held = new Promise(resolve => { release = resolve; });
+    const concurrent = createProvisioning(lab.provisioningOptions({ inject: async step => {
+      if (step === 'vault' && ++vaultSteps === 1) { entered(); await held; }
+    } }));
+    const first = concurrent.provision(request);
+    try {
+      await atVault;
+      const refused = await Promise.all([concurrent.provision(request), concurrent.provision(request)]);
+      for (const result of refused) {
+        assert.deepEqual(result, { id: request.id, outcome: 'refused', code: 'TENANT_PROVISION_BUSY' });
+        assert.equal(preKeyEnsureRefusal(concurrent, result), true, 'exact result proves no external key work started');
+      }
+      assert.equal(vaultSteps, 1, 'only the fence owner reaches Vault');
+      assert.deepEqual(await lab.rowsFor(request.id), {}, 'no database rows before the owner continues');
+      release();
+      assert.equal((await first).outcome, 'created');
+      assert.deepEqual(await lab.rowsFor(request.id), COMPLETE);
+      const revision = (await lab.admin.query(`SELECT revision::text FROM "${lab.namespaces.registry}".tenant_registry_clock`)).rows[0].revision;
+      for (let retry = 0; retry < refused.length; retry++) {
+        assert.deepEqual(await concurrent.provision(request), { id: request.id, outcome: 'existing' });
+      }
+      assert.equal(vaultSteps, 1, 'idempotent retries do not dispatch key work or return another secret');
+      assert.deepEqual(await lab.rowsFor(request.id), COMPLETE);
+      assert.equal((await lab.admin.query(`SELECT revision::text FROM "${lab.namespaces.registry}".tenant_registry_clock`)).rows[0].revision, revision);
+    } finally {
+      release();
+      await first.catch(() => {});
+      await concurrent.close();
+    }
   });
 
   it('PV_SETTINGS: a provisioned tenant has a settings row and an operator policy row; the effective settings reader answers defaults', async function () {
