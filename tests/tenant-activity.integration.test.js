@@ -22,7 +22,7 @@ optInSuite(process.env.NS_EVALUATOR_CONSUMERS_TEST === '1' && !!process.env.NS_T
     const lab = createLab();
     const namespace = 'activity_' + randomUUID().replace(/-/g, '').slice(0, 12);
     const roles = { reader: namespace + '_reader', owner: namespace + '_owner', operator: namespace + '_operator' };
-    const urls = {}, stores = {}; let prior, provisioned = false;
+    const urls = {}, stores = {}; let prior, initialVersions, provisioned = false;
     const operatorActor = tenant => ({ tenant, principal: 'synthetic-operator', consumer: 'operator-cli' });
     const ownerActor = tenant => ({ tenant, principal: 'owner', consumer: 'tenant-admin' });
     const catalogue = require('../lib/tenant-lifecycle/postgres-candidate.json');
@@ -68,7 +68,12 @@ optInSuite(process.env.NS_EVALUATOR_CONSUMERS_TEST === '1' && !!process.env.NS_T
       await lab.reset(); provisioned = false;
       await lab.admin.query(`DROP POLICY IF EXISTS synthetic_unreadable_a ON "${namespace}".tenant_activity`);
       for (const table of ['tenant_activity_audit', 'tenant_lifecycle_ceremony', 'tenant_lifecycle_requests']) await lab.admin.query(`DELETE FROM "${namespace}".${table}`);
-      await lab.admin.query(`UPDATE "${namespace}".tenant_activity SET version=1,paused=false,suspended=false,deletion_request_id=NULL,paused_before_deletion=NULL`);
+      // The maintained slot replays committed history across cases. Reset
+      // activity values without rolling their authoritative version backward.
+      const reset = await lab.admin.query(`UPDATE "${namespace}".tenant_activity SET version=version+1,paused=false,suspended=false,deletion_request_id=NULL,paused_before_deletion=NULL RETURNING tenant_id,version::text`);
+      initialVersions = new Map(reset.rows.map(row => {
+        const version = Number(row.version); assert(Number.isSafeInteger(version)); return [row.tenant_id, version];
+      }));
     });
     after(async function () {
       const errors = [];
@@ -104,7 +109,7 @@ optInSuite(process.env.NS_EVALUATOR_CONSUMERS_TEST === '1' && !!process.env.NS_T
 
     it('paused A: no acquisition, timer work or output for A, uploads still stored; B unaffected; unpause recomputes before publishing', async function () {
       await reading(50, lab.A); await reading(50, lab.B);
-      const paused = await stores.owner.transition(ownerActor(lab.A), 'pause', { expectedVersion: 1 });
+      const paused = await stores.owner.transition(ownerActor(lab.A), 'pause', { expectedVersion: initialVersions.get(lab.A) });
       assert.equal(paused.state, 'paused');
       // Phase 1: actual committed B work progresses while A remains paused.
       // The maintained worker does not schedule unchanged idle evaluations.
@@ -142,8 +147,9 @@ optInSuite(process.env.NS_EVALUATOR_CONSUMERS_TEST === '1' && !!process.env.NS_T
       assert.equal((await lab.physical(lab.A)).tables.entries.length, 3, 'ACTIVITY_PAUSED_UPLOAD_STORED');
       // Unpause, then a TIME-ONLY trigger: the first work must be a fresh acquisition
       // over current data, and output is published only after it.
-      await stores.owner.transition(ownerActor(lab.A), 'unpause', { expectedVersion: 2 });
-      const first = await worker.call('tick', lab.A);
+      await stores.owner.transition(ownerActor(lab.A), 'unpause', { expectedVersion: initialVersions.get(lab.A) + 1 });
+      await worker.call('tick', lab.A);
+      const first = await lab.wait(() => worker.call('last', lab.A));
       lab.traceConsumer('activity-unpause-before-verdict', { first, checkpointA: await lab.previewCheckpoint(lab.A), effectsA: effects(lab.A).length });
       assert.equal(first.trigger, 'acquisition', 'ACTIVITY_UNPAUSE_RECOMPUTES first published output after unpause is an acquisition');
       assert.notDeepEqual(await lab.previewCheckpoint(lab.A), startCheckpoint, 'acquisition read the data uploaded while paused');
@@ -212,17 +218,17 @@ optInSuite(process.env.NS_EVALUATOR_CONSUMERS_TEST === '1' && !!process.env.NS_T
         tenantActivity: createOwnerActivity({ store: stores.owner, authorize: async actor => actor.principal === 'owner' })
       }));
       const cross = await request(app).post('/api/v1/tenant/activity/pause').set('Host', 'b.example.test')
-        .set('Authorization', 'Bearer owner-a').send({ expectedVersion: 1 });
+        .set('Authorization', 'Bearer owner-a').send({ expectedVersion: initialVersions.get(lab.A) });
       assert.equal(cross.status, 401, 'ACTIVITY_CROSS_TENANT');
       assert.equal((await stores.reader.read(lab.B)).state, 'active');
       const own = await request(app).post('/api/v1/tenant/activity/pause').set('Host', 'a.example.test')
-        .set('Authorization', 'Bearer owner-a').send({ expectedVersion: 1 });
+        .set('Authorization', 'Bearer owner-a').send({ expectedVersion: initialVersions.get(lab.A) });
       assert.equal(own.status, 200); assert.equal(own.body.state, 'paused'); assert.match(own.body.notice, /alarms are not computed or delivered/);
       assert.equal((await stores.reader.read(lab.A)).state, 'paused'); assert.equal((await stores.reader.read(lab.B)).state, 'active');
       const audit = (await lab.admin.query(`SELECT tenant_id,verb,authority,principal,consumer FROM "${namespace}".tenant_activity_audit WHERE verb<>'provision' ORDER BY event_time`)).rows;
       assert.deepEqual(audit, [{ tenant_id: lab.A, verb: 'pause', authority: 'owner', principal: 'owner', consumer: 'tenant-admin' }]);
       const suspend = await request(app).post('/api/v1/tenant/activity/suspend').set('Host', 'a.example.test')
-        .set('Authorization', 'Bearer owner-a').send({ expectedVersion: 2 });
+        .set('Authorization', 'Bearer owner-a').send({ expectedVersion: initialVersions.get(lab.A) + 1 });
       assert.equal(suspend.status, 404);
     });
     it('batched reader (realtime change detection): one round trip, each tenant under its own RLS binding, equal to single reads', async function () {
@@ -314,6 +320,12 @@ optInSuite(process.env.NS_EVALUATOR_CONSUMERS_TEST === '1' && !!process.env.NS_T
         assert.equal((await state(lab.A)).state, 'paused', 'ACTIVITY_DELETION_REQUEST_PAUSES');
         assert.equal((await state(lab.B)).state, 'active');
         await worker.call('acquire', lab.A);
+        try { await lab.wait(async () => tenantHealth(await worker.call('health'), lab.A).code === 'EVALUATOR_TENANT_PAUSED'); }
+        catch (error) {
+          const work = (await lab.admin.query('SELECT work_observed::text[] AS observed,work_completed::text[] AS completed FROM "' + lab.replayNamespace + '".tenant_consumer_checkpoint WHERE tenant_id=$1 AND consumer=$2', [lab.A, lab.consumerName + '-completed'])).rows;
+          lab.traceConsumer('deletion-cdc-watchdog', { health: await worker.call('health'), activity: await state(lab.A), work });
+          throw error;
+        }
         assert.equal(tenantHealth(await worker.call('health'), lab.A).code, 'EVALUATOR_TENANT_PAUSED');
         // Owner pause/unpause during the pending ceremony is allowed.
         const v = (await state(lab.A)).version;
@@ -334,6 +346,7 @@ optInSuite(process.env.NS_EVALUATOR_CONSUMERS_TEST === '1' && !!process.env.NS_T
         assert.equal((await state(lab.A)).state, 'suspended', 'ACTIVITY_DELETION_EXECUTION_SUSPENDS');
         await assert.rejects(stores.owner.transition(ownerActor(lab.A), 'unpause'), { code: 'ACTIVITY_SUSPENDED' });
         await worker.call('acquire', lab.A);
+        await lab.wait(async () => tenantHealth(await worker.call('health'), lab.A).code === 'EVALUATOR_TENANT_SUSPENDED');
         assert.equal(tenantHealth(await worker.call('health'), lab.A).code, 'EVALUATOR_TENANT_SUSPENDED');
         const audit = (await lab.admin.query(`SELECT verb,authority FROM "${namespace}".tenant_activity_audit WHERE tenant_id=$1 ORDER BY version`, [lab.A])).rows;
         assert.deepEqual(audit.map(row => row.verb + ':' + row.authority), ['deletion-request:owner', 'unpause:owner', 'pause:owner', 'deletion-cancel:owner',

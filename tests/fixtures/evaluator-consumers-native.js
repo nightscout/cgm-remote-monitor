@@ -128,7 +128,11 @@ module.exports = function consumersLab () {
     const birth = birthRaw.slice(birthRaw.lastIndexOf(')') + 2).split(' ')[19];
     children.add(child); child.fixtureBootRefused = false; let sequence = 0, stdout = '', stderr = ''; const pending = new Map();
     child.stdout.on('data', b => { stdout += b; }); child.stderr.on('data', b => { stderr += b; });
-    const startup = setTimeout(() => { child.kill('SIGTERM'); reject(new Error('Consumer role startup watchdog')); }, 15000);
+    const startup = setTimeout(() => {
+      lab.traceConsumer('role-startup-watchdog', { phases: stdout.split('\n').filter(line => line.startsWith('Internal listener') || line.startsWith('Evaluator preview started')),
+        pgstreamDiagnostics: stderr.split('\n').filter(line => line.startsWith('Pgstream ')).slice(-8) });
+      child.kill('SIGTERM'); reject(new Error('Consumer role startup watchdog'));
+    }, 15000);
     const worker = { child, birth, processGroup: child.pid, logs: () => ({ stdout, stderr }), call (action, tenant = lab.A) {
       return new Promise((done, fail) => { const id = ++sequence, timer = setTimeout(() => { pending.delete(id); fail(new Error('Consumer role IPC watchdog')); }, 15000);
         pending.set(id, { done, fail, timer }); child.send({ id, action, tenant }); });

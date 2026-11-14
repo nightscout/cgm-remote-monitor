@@ -395,7 +395,7 @@ optInSuite(process.env.NS_M5_CURRENT_STATE_PROOF_TEST === '1' && !!process.env.N
       await worker.call('release'); const [acquisition] = await Promise.all([running, stopping]);
       if (acquisition.error) assert.equal(acquisition.error.message, 'LIFECYCLE_WINDOW_CLOSED');
       else assert.equal(acquisition.value, null, 'M5_EVAL_CLOSE_FENCE no late servable output');
-      await assert.rejects(worker.call('last'), /LIFECYCLE_WINDOW_CLOSED/);
+      assert.equal(await worker.call('last'), null, 'M5_EVAL_CLOSE_FENCE no observation opens a new window after closure');
       const retained = await lab.previewCompleted(lab.A), health = await worker.call('health');
       lab.tracePreview('preview-close-fence', { first, physicalWhileHeld, retained, health, finished, physicalAfter: await lab.previewPhysical() });
       assert.equal(physicalWhileHeld.A.tables.entries.length, 2);
