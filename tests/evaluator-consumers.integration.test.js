@@ -73,9 +73,10 @@ optInSuite(process.env.NS_EVALUATOR_CONSUMERS_TEST === '1' && !!process.env.NS_T
     });
     it('clears a committed authorized ACK despite failed clinical acquisition and keeps the other tenant independent', async function () {
       await reading(50); await reading(50,lab.B); const first=await boot();
-      let worker=first;
+      let worker=first; const completed=await lab.previewCompleted(lab.A);
       await reading(50,lab.A,4); await worker.call('acquire',lab.A); await worker.call('flush',lab.A);
-      assert.equal((await worker.call('last',lab.A)).eligible,false);
+      assert.equal(await worker.call('last',lab.A),null,'M5_CONSUMER_REFUSED_WINDOW_NO_SERVABLE_MODEL');
+      assert.deepEqual(await lab.previewCompleted(lab.A),completed,'M5_CONSUMER_REFUSAL_RETAINS_DURABLE_CLINICAL_RESULT');
       await lab.stopConsumer(worker);
       await lab.setSettings({ enable: ['bgnow', 'delta', 'direction', 'simplealarms'], units: 'mmol' }, lab.A);
       const changed = lab.configureConsumers();

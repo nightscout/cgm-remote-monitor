@@ -207,3 +207,68 @@ describe('selected evaluator role consumes notification composition', function (
     } finally { release(); if (role) await role.close(); await window.close();scope.setTenancyMode(previous); }
   });
 });
+
+
+describe('owned delivery pass catalogue verification', function () {
+  let previous;
+  beforeEach(() => { previous = scope.getTenancyMode(); scope.setTenancyMode('multi'); });
+  afterEach(() => scope.setTenancyMode(previous));
+
+  async function refusal (mutate = value => value) {
+    const vm = require('node:vm'), { createRequire } = require('node:module');
+    function load (filename, replace, change = value => value) {
+      const local = createRequire(filename), module = { exports: {} };
+      vm.runInThisContext('(function(require,module,exports){' + change(fs.readFileSync(filename, 'utf8')) + '\n})', { filename })(
+        id => Object.hasOwn(replace, id) ? replace[id] : local(id), module, module.exports);
+      return module.exports;
+    }
+    const component = load(require.resolve('../lib/server/serve/evaluator-consumers'), {}, mutate);
+    const fixture = load(require.resolve('./fixtures/evaluator-consumers-protocol'), { '../../lib/server/serve/evaluator-consumers': component });
+    let unsafe = false, checks = 0;
+    const l = await fixture(undefined, { verifyPass: async () => { checks++; if (unsafe) throw new Error('SYNTHETIC_CONSUMER_METADATA_UNSAFE'); } });
+    try {
+      await l.start();
+      const calls = l.files.get(l.A).calls.length, effects = l.effects.length, checked = checks;
+      unsafe = true; await l.consumers.retry(l.A);
+      assert.equal(l.files.get(l.A).calls.length, calls, 'unsafe delivery pass must perform no producer/store SQL');
+      assert.equal(l.effects.length, effects, 'unsafe delivery pass must publish no effect');
+      assert.equal(checks, checked + 1, 'one metadata verification per delivery pass');
+      assert.equal(l.consumers.health([l.A]).tenants[0].state, 'refused');
+      unsafe = false; await l.consumers.retry(l.A);
+      assert.equal(checks, checked + 2);
+      assert.ok(l.files.get(l.A).calls.length > calls, 'restored metadata admits actual producer/store work');
+    } finally { await l.close(); }
+  }
+
+  it('checks once before selection/retry/store work, refuses unsafe metadata and restores without per-read scans', async function () {
+    await refusal();
+  });
+
+  it('removing the actual pass verification permits store work and is red; restored source refuses it', async function () {
+    const needle = '          if (verifyPass) await verifyPass(state.tenant);';
+    await assert.rejects(refusal(source => {
+      assert.equal(source.split(needle).length, 2, 'control must land on actual delivery pass');
+      return source.replace(needle, '');
+    }), error => error.code === 'ERR_ASSERTION' && error.actual > error.expected);
+    await refusal();
+  });
+
+  it('awaits pending verification before all producer work and preserves sequential borrowed-parent delivery', async function () {
+    const window = require('./fixtures/operation-window-runtime-protocol')({ trustedWorker: true }).window;
+    await window.ready(); let release, entered, checks = 0, hold = false;
+    const waiting = new Promise(resolve => { entered = resolve; });
+    const l = await protocol(undefined, { operationWindow: window,
+      verifyPass: async tenant => { checks++; window.assertCurrent(tenant); if (hold) await new Promise(resolve => { release = resolve; entered(); }); } });
+    try {
+      await l.start();
+      const calls = l.files.get(l.A).calls.length, effects = l.effects.length;
+      hold = true; const pending = l.consumers.retry(l.A);
+      await Promise.race([waiting, pending.then(() => { throw new Error('delivery pass did not await verification'); })]);
+      assert.equal(l.files.get(l.A).calls.length, calls); assert.equal(l.effects.length, effects);
+      hold = false; release(); await pending;
+      const before = checks;
+      await window.run(l.A, async () => { await l.consumers.wake(l.A); await l.consumers.retry(l.A); window.assertCurrent(l.A); });
+      assert.equal(checks, before + 2, 'borrowed requests retain pass verification in their original parent');
+    } finally { release?.(); await l.close(); await window.close(); }
+  });
+});
