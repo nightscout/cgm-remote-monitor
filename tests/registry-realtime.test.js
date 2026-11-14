@@ -11,7 +11,6 @@ const { randomUUID } = require('node:crypto');
 const scope = require('../lib/storage/tenant-scope');
 
 const A = randomUUID(), B = randomUUID();
-const namespaces = Object.fromEntries(['entries', 'treatments', 'devicestatus', 'profile', 'food', 'activity', 'clock', 'checkpoint'].map(k => [k, 'rr_' + k]));
 const SOURCE = { RT_DB: 'postgres://synthetic:synthetic@127.0.0.1/disposable_test', RT_ADMISSION: '/tmp/admission.json', NS_API_INTERNAL_SOCKET: '/tmp/a.sock', RT_SETTINGS_DB: 'postgres://settings:synthetic@127.0.0.1/disposable_test' };
 const realtimeConfig=extra=>require('./fixtures/realtime-completed-config')({registry:{namespace:'rr_registry',refreshMs:500},...extra}).value;
 const request = host => ({ rawHeaders: ['Host', host], socket: {} });
@@ -22,6 +21,62 @@ describe('registry mode: realtime, socket forwarding, removal and the static lab
   let mode;
   beforeEach(() => { mode = scope.getTenancyMode(); scope.setTenancyMode('multi'); });
   afterEach(() => scope.setTenancyMode(mode));
+
+  function readerRuntime (mutate = value => value, failLookup = false) {
+    const fs = require('node:fs'), vm = require('node:vm');
+    const filename = require.resolve('../lib/server/serve/preview-realtime');
+    const original = require('node:module').createRequire(filename), output = { exports: {} };
+    const counts = { opened: 0, registryClosed: 0, lookupClosed: 0, resolverClosed: 0, displayClosed: 0, reads: 0 };
+    const registrySet = { tenants: new Map([[A, { tenant: A }]]), isActive: tenant => tenant === A,
+      close: async () => { counts.registryClosed++; } };
+    const dependencies = {
+      './registry-tenant-set': { open: async () => { counts.opened++; return registrySet; } },
+      './evaluator-config': { registryEntry: tenant => ({ tenant }), applySettings: (base, settings) => ({ ...base, settings }) },
+      '../../storage/postgres-connection': async () => { if (failLookup) throw new Error('synthetic lookup refusal'); return { end: async () => { counts.lookupClosed++; } }; },
+      '../../tenant-registry/postgres': { create: () => ({}) },
+      '../../tenant-registry/resolver': { createRegistryResolver: () => ({ start: async () => {}, close: () => { counts.resolverClosed++; } }) },
+      '../realtime/registry-admission': { create: () => ({}) }
+    };
+    vm.runInThisContext('(function(require,module,exports){' + mutate(fs.readFileSync(filename, 'utf8')) + '\n})', { filename })(
+      id => Object.hasOwn(dependencies, id) ? dependencies[id] : original(id), output, output.exports);
+    const display = { read: async () => ({ version: ++counts.reads }), close: async () => { counts.displayClosed++; } };
+    return { counts, display, open: provider => output.exports.registryMode({ registry: {}, maxTenants: 10 }, provider) };
+  }
+
+  async function refusedReader (provider, mutate) {
+    const fixture = readerRuntime(mutate);
+    await assert.rejects(fixture.open(provider), { name: 'TypeError', message: 'Explicit committed realtime presentation reader required' });
+    assert.equal(fixture.counts.opened, 0, 'invalid presentation reader must acquire no registry resource');
+    assert.equal(fixture.counts.registryClosed, 0);
+  }
+
+  it('RR_READER_REFUSAL: missing or invalid committed readers refuse before any registry acquisition', async function () {
+    for (const provider of [undefined, null, {}, { read: async () => {} }, { close: async () => {} }, { read: true, close: async () => {} }]) {
+      await refusedReader(provider);
+    }
+  });
+
+  it('RR_READER_REFUSAL_CONTROL: restoring acquisition before validation leaks the counted resource; restored order refuses without acquisition', async function () {
+    const guard = "  if(typeof trustedSettings?.read!=='function'||typeof trustedSettings?.close!=='function')throw new TypeError('Explicit committed realtime presentation reader required');";
+    await refusedReader(undefined);
+    await assert.rejects(refusedReader(undefined, source => {
+      assert.equal(source.split(guard).length, 2, 'control must land on actual reader validation');
+      return source.replace(guard + '\n', '').replace('  let lookup;', guard + '\n  let lookup;');
+    }), error => error.code === 'ERR_ASSERTION' && error.actual === 1 && error.expected === 0);
+    await refusedReader(undefined);
+  });
+
+  it('RR_READER_LIFECYCLE: valid supplied reader serves current settings and keeps normal and refused-start cleanup', async function () {
+    const fixture = readerRuntime();
+    const runtime = await fixture.open(fixture.display);
+    assert.deepEqual(await runtime.config.readCurrent(A), { tenant: A, settings: { version: 1 } });
+    assert.deepEqual(await runtime.config.readCurrent(A), { tenant: A, settings: { version: 2 } });
+    await runtime.close();
+    assert.deepEqual(fixture.counts, { opened: 1, registryClosed: 1, lookupClosed: 1, resolverClosed: 1, displayClosed: 1, reads: 2 });
+    const failed = readerRuntime(value => value, true);
+    await assert.rejects(failed.open(failed.display), /synthetic lookup refusal/);
+    assert.deepEqual(failed.counts, { opened: 1, registryClosed: 1, lookupClosed: 0, resolverClosed: 0, displayClosed: 1, reads: 0 });
+  });
 
   it('RR_CONFIG: realtime takes `registry` in place of `tenants` and the admission file, and refuses both together', function () {
     const { parse } = require('../lib/server/realtime/config');
