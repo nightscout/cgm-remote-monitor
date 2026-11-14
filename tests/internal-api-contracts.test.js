@@ -25,7 +25,7 @@ describe('Internal service API contracts', function () {
     assert.deepEqual(Object.keys(contracts.connectorInspection.operations), ['inspectConnectors']);
     const paths = Object.values(contracts).flatMap(service => {
       // Connector metadata, alarm/cohort fencing and evaluator scheduling observations use v2.
-      assert.equal(service.version, service.id === 'lifecycle-participant' ? 4 : ['alarm-delivery','realtime-inspection'].includes(service.id) ? 3 : ['connector-inspection', 'evaluator-inspection'].includes(service.id) ? 2 : 1);
+      assert.equal(service.version, ['lifecycle-participant','realtime-inspection'].includes(service.id) ? 4 : service.id==='alarm-delivery' ? 3 : ['connector-inspection', 'evaluator-inspection', 'completed-output'].includes(service.id) ? 2 : 1);
       assert(Object.isFrozen(service.operations));
       return Object.values(service.operations).map(operation => {
         assert(Object.isFrozen(operation.request)); assert(Object.isFrozen(operation.response));
@@ -37,9 +37,9 @@ describe('Internal service API contracts', function () {
         '/evaluator/inspect', '/pool/get', '/pool/members', '/realtime/inspect', '/realtime/inspect-tenants']);
     assert.throws(() => { contracts.alarmDelivery.operations.getStatus = lifecycle.getStatus; }, TypeError);
   });
-  it('keeps completed-output hints tenant-only and refuses invented completion authority', function () {
+  it('requires exact durable delivery revisions and refuses invented completion authority', function () {
     const operation=contracts.completedOutput.operations.hintCompletedOutput;
-    validate(operation.request,{tenant:A});validate(operation.response,{accepted:true});
+    validate(operation.request,{tenant:A,revision:'1'});validate(operation.response,{accepted:true});
     for(const body of [{},{tenant:'invalid'},{tenant:A,frame:{}},{tenant:A,completed:true},{tenant:A,transport:'invented'}])refused(()=>validate(operation.request,body));
     for(const body of [{accepted:false},{accepted:true,completed:true}])refused(()=>validate(operation.response,body));
   });

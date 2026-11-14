@@ -374,7 +374,7 @@ describe('completed-output private wire contract',function(){
     try{
       const client=await f.open({async hintCompletedOutput(context,body){calls++;assert.equal(body.tenant,tenant);return {accepted:true};}},descriptor);
       await assert.rejects(client.hintCompletedOutput({tenant,completed:true}));assert.equal(calls,0);
-      assert.deepEqual(await client.hintCompletedOutput({tenant}),{accepted:true});assert.equal(calls,1);
+      assert.deepEqual(await client.hintCompletedOutput({tenant,revision:'1'}),{accepted:true});assert.equal(calls,1);
     }finally{await f.close();}
   });
 });

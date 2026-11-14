@@ -27,6 +27,23 @@ describe('completed-output delivery reuse', function () {
       service.wake(A);await service.tick();assert.equal(service.last(A).checkpoint,3);
     } finally {await service.close();}
   });
+  it('durable receipts remove steady discovery and keep failed tenant delivery independent', async function () {
+    let timer,stamp=1,detects=0,reads=0,fail=false;
+    const service=await runtime({tenants:[A,B],eventDriven:true,durableOutput:true,recoveryIntervalMs:1000,
+      watchedTenants:()=>[A],readCurrent:async tenant=>({tenant,identity:tenant}),
+      detect:async tenants=>{detects++;return new Map(tenants.map(tenant=>[tenant,{identity:tenant,stamp}]));},
+      create:current=>({acquire:async()=>{if(fail&&current.tenant===A)throw Error('TENANT_A_OUTPUT_FAILURE');reads++;return {tenant:current.tenant,checkpoint:stamp,frame:{},rows:[]};}}),
+      fanout:async()=>{},schedule:fn=>{timer=fn;return 1;},cancel(){}});
+    try{
+      for(let i=0;i<10;i++)await timer();
+      assert.equal(detects,0,'DURABLE_IDLE_MUST_NOT_DISCOVER');assert.equal(reads,2);
+      stamp++;service.wake(A);await service.tick();assert.equal(reads,3,'ONE_ACTIVE_REVISION_ACQUISITION');
+      fail=true;stamp++;const outcomes=await service.check([A,B]);
+      assert.equal(outcomes.get(A),false,'FAILED_OUTPUT_MUST_NOT_ACK');assert.equal(outcomes.get(B),true,'OTHER_TENANT_PROGRESS');
+      fail=false;const repaired=await service.check([A]);assert.equal(repaired.get(A),true);
+    }finally{await service.close();}
+  });
+
   it('queues only an unwatched tenant requested after operational epoch change before any peer exists', async function () {
     let timer,worker={available:true,generation:1},reads=new Map([[A,0],[B,0]]);
     const service=await runtime({tenants:[A,B],eventDriven:true,recoveryIntervalMs:1000,workerState:()=>worker,

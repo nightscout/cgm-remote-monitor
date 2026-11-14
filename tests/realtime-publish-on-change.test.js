@@ -95,6 +95,30 @@ describe('realtime publish on change (actual protocol, runtime and detector)', f
   beforeEach(() => { mode = scope.getTenancyMode(); scope.setTenancyMode('multi'); });
   afterEach(() => scope.setTenancyMode(mode));
 
+  it('RT_SHARED_ENCODING: compatible authorized viewers share one native Socket.IO encoding and slow viewers are bounded', async function () {
+    const f = await fixture();
+    try {
+      const a=await f.socket(), b=await f.socket(), slow=await f.socket();
+      assert(await until(()=>a.frames().length && b.frames().length && slow.frames().length,1000));
+      let encodes=0, deliveries=0;
+      const encoder=new (require('socket.io-parser').Encoder)();
+      const encode=encoder.encode.bind(encoder);encoder.encode=packet=>{if(packet.data?.[0]==='dataUpdate')encodes++;return encode(packet);};
+      const namespace={name:'/',server:{encoder},sockets:new Map()};
+      const adapter=new (require('socket.io-adapter').Adapter)(namespace);
+      namespace.to=ids=>({emit:(event,value)=>adapter.broadcast({type:2,data:[event,value]}, {rooms:new Set(ids),except:new Set(),flags:{}})});
+      for(const [i,socket] of [a,b,slow].entries()){
+        socket.id='socket-'+i;socket.nsp=namespace;
+        socket.client={writeToEngine:packets=>{if(packets[0].includes('dataUpdate'))deliveries++;}};
+        namespace.sockets.set(socket.id,socket);adapter.addAll(socket.id,new Set([socket.id]));
+      }
+      slow.conn={writeBuffer:Array.from({length:128},()=>({data:'queued'}))};
+      f.write(A);await f.runtime.tick();
+      assert.equal(encodes,1,'COMPATIBLE_VIEWERS_MUST_ENCODE_ONCE');
+      assert.equal(deliveries,2,'ONLY_BOUNDED_AUTHORIZED_VIEWERS_RECEIVE');
+      assert.equal(slow.disconnected,true,'SLOW_VIEWER_MUST_CLOSE');
+    } finally {await f.close();}
+  });
+
   it('RT_IDLE_NO_FRAME: no change sends no frame, acquires nothing and calls the api for nothing', async function () {
     const f = await fixture();
     try {
