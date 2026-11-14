@@ -8,14 +8,14 @@ const deferred=()=>{let resolve,reject;const promise=new Promise((ok,no)=>{resol
 const settle=()=>new Promise(resolve=>setImmediate(resolve));
 function fixture({holdAdmission=false,pgstreamEnabled=true}={}){
  const prepare=deferred(),admission=deferred(),trace=[],current={tenant:A,identity,env:{settings:{language:'en'}},settingsVersion:1,policyGeneration:1,sourceIdentity:'source'};
- let runtime,output,cycle=0,revision=0,closed=false,started=false,delivered=0,componentClosed=false,checks=0;
+ let commitWake;let runtime,output,cycle=0,revision=0,closed=false,started=false,delivered=0,componentClosed=false,checks=0;
  const connection={async end(){closed=true;}};
  const metadata=new Map([[A,{settings:1,policy:1,activity:{state:'active'},signature:{stamp:1,deleted:0}}]]);
  const scan=async()=>metadata;scan.state=()=>({available:true,generation:1});
  const reader={scan,current:t=>metadata.get(t),state:scan.state,async close(){},health:()=>({available:true})};
  const startup={async warm(){},isReady:()=>true,async ensure(){trace.push('tenant-admitted');},async close(){},health:()=>({})};
  const readiness=async()=>{checks++;if(holdAdmission)await admission.promise;};readiness.provisionTenant=async()=>{};
- const store={begin:async()=>({clock:'1'}),complete:async(tenant,value)=>{assert(checks>0);output={tenant,identity,contentDigest:'digest'+(++revision),outputRevision:revision,result:value.result};trace.push('completed');return {output,changed:true};},work:async()=>[]};
+ const store={begin:async()=>({clock:'1'}),complete:async(tenant,value)=>{assert(checks>0);output={tenant,identity,contentDigest:'digest'+(++revision),outputRevision:revision,result:value.result};trace.push('completed');commitWake?.({tenant,kind:'complete'});return {output,changed:true};},work:async()=>[],nextDue:async()=>null,deliveries:async()=>[]};
  const filename=require.resolve('../lib/server/serve/evaluator-preview'),loaded=new Module(filename,module);loaded.filename=filename;loaded.paths=module.paths;
  const fakeEvaluator=()=>({async evaluate(){assert(trace.includes('tenant-admitted'));return {checkpoint:1,signature:{stamp:1,deleted:0},properties:{syntheticCycle:++cycle},emitted:[],requested:[],due:{dueAt:null,slow:[]}};},close(){componentClosed=true;}});fakeEvaluator.domains=['entries'];
  const mocks={
@@ -28,7 +28,8 @@ function fixture({holdAdmission=false,pgstreamEnabled=true}={}){
   '../../trusted-worker/postgres':{create:()=>reader},
   '../../trusted-worker/lifecycle':async()=>({version:()=>1,activateRefresh(){},async close(){}}),
   '../internal-api/clients':{completedOutput:()=>({hintCompletedOutput:async()=>{}})},
-  '../../pgstream/evaluator':{open:async()=>({store,ready:async()=>{},assertAvailable(){},health:()=>({}),close:async()=>{}})},
+  '../../pgstream/evaluator':{open:async({onCommit})=>{commitWake=onCommit;return {store,ready:async()=>{},assertAvailable(){},health:()=>({}),close:async()=>{}};}},
+  './registry-tenant-set':{open:async()=>({tenants:new Map([[A,current]]),isActive:()=>true,follow:async()=>{},close:async()=>{},revision:()=>1,stats:()=>({})})},
   './tenant-startup':{create:()=>startup,limited:require('../lib/server/serve/tenant-startup').limited},
   './evaluator-consumers':{async prepare({current:read,operationWindow,jobContext}){trace.push('delivery-prepare');await prepare.promise;return {async wake(){},revised(){if(read(A))delivered++;},start(){started=true;this.dispatch=jobContext.run(()=>operationWindow.run(A,()=>{if(read(A))delivered++;}));},async close(){await this.dispatch;},health:()=>({})};}},
   './evaluator-inspection':()=>()=>({}), '../../language':()=>({set(){}})
@@ -36,12 +37,12 @@ function fixture({holdAdmission=false,pgstreamEnabled=true}={}){
  loaded.require=name=>Object.hasOwn(mocks,name)?mocks[name]:Module.prototype.require.call(loaded,name);
  loaded._compile(fs.readFileSync(filename,'utf8'),filename);
  const window=require('./fixtures/operation-window-runtime-protocol')({trustedWorker:true}).window;
- const config={pgstream:pgstreamEnabled?{outputPeer:{},bounds:{heartbeatMs:1000}}:undefined,trustedWorker:{},consumers:{realtime:true},tenants:new Map([[A,current]]),connectionString:'synthetic',
+ const config={registry:{namespace:'synthetic_registry'},pgstream:pgstreamEnabled?{outputPeer:{},bounds:{heartbeatMs:1000,recoveryMs:1000,pendingMs:1000}}:undefined,trustedWorker:{},consumers:{realtime:true},tenants:new Map([[A,current]]),connectionString:'synthetic',
   namespaces:{entries:'synthetic_entries',checkpoint:'synthetic_checkpoint'},consumer:'evaluator-test',maxTenants:1,maxRows:10,maxBytes:10000,pageSize:10,
-  recoveryIntervalMs:1000,timeIntervalMs:60000,readCurrent:async()=>current};
+  timeIntervalMs:60000,readCurrent:async()=>current};
  return {prepare,admission,trace,window,async boot(){await window.ready();return loaded.exports.boot(config,{operationWindow:window});},state:()=>({output,clinical:runtime?.health([A]).tenants[0],closed,started,delivered,componentClosed})};
 }
-for(const pgstreamEnabled of [true,false])describe('clinical startup independent of delivery roster preparation ('+(pgstreamEnabled?'pgstream':'legacy')+')',function(){
+const pgstreamEnabled=true;describe('maintained clinical startup independent of delivery roster preparation',function(){
  let prior;beforeEach(()=>{prior=scope.getTenancyMode();});afterEach(()=>scope.setTenancyMode(prior));
  it('completes clinical work while delivery prepares and start sweep recovers the early revision',async()=>{
   const f=fixture({pgstreamEnabled});let service;const boot=f.boot();boot.catch(()=>{});
@@ -62,4 +63,6 @@ for(const pgstreamEnabled of [true,false])describe('clinical startup independent
   try{await settle();await settle();assert.equal(f.state().output,undefined);assert(!f.trace.includes('tenant-admitted'));f.admission.reject(Error('CATALOGUE_REFUSED'));await assert.rejects(boot,/readiness or initialization refused/);assert.equal(f.state().started,false);}
   finally{f.prepare.resolve();const service=await boot.catch(()=>null);await service?.close();await f.window.close();}
  });
+ it('refuses a missing maintained transport instead of starting a legacy discovery stack',async()=>{const f=fixture({pgstreamEnabled:false});try{await assert.rejects(f.boot(),/maintained pgstream evaluator configuration required/);assert.equal(f.state().output,undefined);}finally{await f.window.close();}});
+
 });

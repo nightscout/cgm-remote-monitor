@@ -3,11 +3,11 @@ const assert=require('node:assert/strict');
 const {create,parse}=require('../lib/pgstream/receiver');
 const A='11111111-1111-4111-8111-111111111111';
 const event=(table,values,action='U')=>({Data:{action,schema:'synthetic',table,columns:Object.entries(values).map(([name,value])=>({name,value})),identity:null}});
-describe('pgstream explicit input/output/schema receiver',function(){
- const routes=[{schema:'synthetic',table:'clock',kind:'clock'},{schema:'synthetic',table:'activity',kind:'activity'},{schema:'synthetic',table:'lifecycle',kind:'lifecycle'},{schema:'synthetic',table:'checkpoint',kind:'output'},{schema:'synthetic',table:'heartbeat',kind:'heartbeat'}];
- let observe,inputs,outputs,schemas,heartbeats;
- beforeEach(()=>{observe=[];inputs=[];outputs=[];schemas=[];heartbeats=[];});
- const receiver=extra=>create({routes,store:{consumer:'evaluator-test-completed',observe:async(...args)=>{observe.push(args);}},onInput:async(...args)=>{inputs.push(args);},onOutput:async t=>{outputs.push(t);},onSchema:async value=>{schemas.push(value);},onHeartbeat:async value=>{heartbeats.push(value);},...extra});
+describe('pgstream explicit input/schema receiver',function(){
+ const routes=[{schema:'synthetic',table:'clock',kind:'clock'},{schema:'synthetic',table:'activity',kind:'activity'},{schema:'synthetic',table:'lifecycle',kind:'lifecycle'},{schema:'synthetic',table:'heartbeat',kind:'heartbeat'}];
+ let observe,inputs,schemas,heartbeats;
+ beforeEach(()=>{observe=[];inputs=[];schemas=[];heartbeats=[];});
+ const receiver=extra=>create({routes,store:{consumer:'evaluator-test-completed',observe:async(...args)=>{observe.push(args);}},onInput:async(...args)=>{inputs.push(args);},onSchema:async value=>{schemas.push(value);},onHeartbeat:async value=>{heartbeats.push(value);},...extra});
  it('does not acknowledge before observed work commits, and does not await clinical computation',async()=>{
    let commit;const durable=new Promise(resolve=>{commit=resolve;});let settled=false;
    const receive=receiver({store:{observe:()=>durable},onInput:()=>new Promise(()=>{})});
@@ -24,9 +24,7 @@ describe('pgstream explicit input/output/schema receiver',function(){
    receipt={observed:{clock:'17',policy:'2'},completed:{clock:'17',policy:'1'}};
    const control=receive(event('clock',{tenant_id:A,last_stamp:'17'}));await Promise.resolve();commit();await control;assert.equal(inputs.length,2,'OTHER_PENDING_SOURCE_MUST_RECOVER');
  });
- it('routes output/receiver writes without input feedback; ignores another checkpoint consumer',async()=>{
-   const receive=receiver();await receive(event('checkpoint',{tenant_id:A,consumer:'evaluator-test-completed'}));await receive(event('checkpoint',{tenant_id:A,consumer:'acquired-only'}));assert.deepEqual(outputs,[A]);assert.equal(inputs.length,0);assert.equal(observe.length,0);
- });
+ it('refuses checkpoint rows because output scheduling never captures its own persistence',async()=>{await assert.rejects(receiver()(event('checkpoint',{tenant_id:A,consumer:'evaluator-test-completed'})),/UNROUTED/);assert.equal(inputs.length,0);assert.equal(observe.length,0);});
  it('routes actual pgstream.ddl action M to admission revalidation, with irrelevant DDL defined',async()=>{
    const receive=receiver(),message=schema=>({Data:{action:'M',prefix:'pgstream.ddl',content:JSON.stringify({schema_name:schema,objects:[{schema,type:'table'}],ddl:'synthetic schema change'})}});
    assert.equal((await receive(message('synthetic'))).kind,'schema');assert.equal((await receive(message('unrelated'))).kind,'irrelevant-schema');assert.deepEqual(schemas,[['synthetic']]);assert.equal(observe.length,0);
@@ -34,7 +32,7 @@ describe('pgstream explicit input/output/schema receiver',function(){
  it('revalidates clinical schemas without widening row routes or creating input work',async()=>{
    const receive=receiver({relevantSchemas:['clinical_rows']}),ddl=(schema,objects)=>({Data:{action:'M',prefix:'pgstream.ddl',content:JSON.stringify({schema_name:schema,objects})}});
    assert.equal((await receive(ddl('',[{schema:'clinical_rows',type:'table'}]))).kind,'schema');
-   assert.deepEqual(schemas,[['clinical_rows']]);assert.equal(observe.length,0);assert.equal(inputs.length,0);assert.equal(outputs.length,0);
+   assert.deepEqual(schemas,[['clinical_rows']]);assert.equal(observe.length,0);assert.equal(inputs.length,0);
    assert.equal((await receive(ddl('unrelated',[]))).kind,'irrelevant-schema');
    await assert.rejects(receive({Data:{action:'U',schema:'clinical_rows',table:'entries',columns:[],identity:null}}),/UNROUTED/);
  });
@@ -60,7 +58,7 @@ describe('pgstream explicit input/output/schema receiver',function(){
    const nested=parse('{"Data":{"columns":[{"name":"projection","type":"jsonb","value":{"generation":9007199254740993}}]}}');assert.equal(typeof nested.Data.columns[0].value.generation,'number');
    await receive(parse(raw('lifecycle','generation','4611686018427387903',[{name:'phase',value:'suspended'}])));assert.equal(observe[observe.length-1][2],'9223372036854775807');await assert.rejects(receive(parse(raw('lifecycle','generation','4611686018427387904',[{name:'phase',value:'active'}]))),/EVENT_VERSION/);
  });
- it('suppresses typed outbox ACK feedback before output discovery and passes durable pending age to clinical ownership',async()=>{const receive=receiver({store:{consumer:'evaluator-test-completed',observe:async()=>({pendingAt:123})}});await receive(event('clock',{tenant_id:A,last_stamp:'1'}));assert.deepEqual(inputs,[[A,'clock',123]]);await receive(event('checkpoint',{tenant_id:A,consumer:'evaluator-test-completed',work_version:2,delivery_revision:'2',delivery_ack_revision:'2'}));assert.deepEqual(outputs,[]);await receive(event('checkpoint',{tenant_id:A,consumer:'evaluator-test-completed',work_version:2,delivery_revision:'3',delivery_ack_revision:'2'}));assert.deepEqual(outputs,[A]);});
+ it('passes committed pending age to clinical ownership without observing output rows',async()=>{const receive=receiver({store:{consumer:'evaluator-test-completed',observe:async()=>({pendingAt:123})}});await receive(event('clock',{tenant_id:A,last_stamp:'1'}));assert.deepEqual(inputs,[[A,'clock',123]]);await assert.rejects(receive(event('checkpoint',{tenant_id:A,consumer:'evaluator-test-completed',work_version:2,delivery_revision:'3',delivery_ack_revision:'2'})),/UNROUTED/);});
  it('control: removing the durable await acknowledges before commit; the receipt criterion goes red',async()=>{
    const file=require.resolve('../lib/pgstream/receiver'),fs=require('node:fs'),vm=require('node:vm'),original=fs.readFileSync(file,'utf8');
    const broken=original.replace('await store.observe(', 'store.observe(');assert.notEqual(broken,original);
@@ -71,4 +69,4 @@ describe('pgstream explicit input/output/schema receiver',function(){
  });
 });
 
-describe('pgstream deployment routes',function(){it('puts the heartbeat outside the upstream internal schema',function(){const routes=require('../lib/pgstream/evaluator').routes({namespaces:{clock:'test_clock',checkpoint:'test_checkpoint'},trustedWorker:{settings:'test_settings',operatorPolicy:'test_policy',activity:'test_activity'}});assert.equal(routes.find(row=>row.kind==='heartbeat').schema,'test_clock');});});
+describe('pgstream deployment routes',function(){it('puts the heartbeat outside the upstream internal schema',function(){const routes=require('../lib/pgstream/evaluator').routes({namespaces:{clock:'test_clock',checkpoint:'test_checkpoint'},trustedWorker:{settings:'test_settings',operatorPolicy:'test_policy',activity:'test_activity'}});assert.equal(routes.find(row=>row.kind==='heartbeat').schema,'test_clock');assert(!routes.some(row=>row.table==='tenant_consumer_checkpoint'),'NO_CHECKPOINT_SELFCAPTURE');});});
