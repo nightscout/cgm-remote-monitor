@@ -7,19 +7,18 @@ const parse = require('../lib/server/serve/evaluator-config');
 const readiness = require('../lib/server/serve/evaluator-consumer-readiness');
 const protocol = require('./fixtures/evaluator-consumers-protocol');
 const A = '11111111-1111-4111-8111-111111111111';
-function document () {
-  return { version: 1, postgres: { connectionEnv: 'EVAL_PG', namespaces: Object.fromEntries(
-    ['entries', 'treatments', 'devicestatus', 'profile', 'food', 'activity', 'clock', 'checkpoint'].map(name => [name, 'eval_' + name])) },
-  consumer: 'evaluator-composed', pageSize: 1, maxRows: 10, maxBytes: 10000, maxTenants: 2, recoveryIntervalMs: 100, timeIntervalMs: 200,
-  tenants: [{ id: A, revision: 'one', settings: { enable: ['bgnow'] } }] };
-}
+const plan=require('./fixtures/multitenant-plan'),layout=plan.layout('consumer_cfg');
+const urls=Object.fromEntries(Object.entries(plan.syntheticUrls(layout)).map(([role,url])=>[role,url.replace('postgres.example.test','127.0.0.1').replace('nightscout_test_plan','composition_test')]));
+const canonical=plan.documents({layout,urls});
+function document () {const value=structuredClone(canonical.configs.evaluator);delete value.consumers;return value;}
+
 function selected () {
   return { realtime: { outbox: { connectionEnv: 'OUTBOX_PG', namespace: 'composed_outbox', maxRows: 10, maxBytes: 100000, maxConnections: 2 },
     suppression: { connectionEnv: 'ALARM_PG', namespace: 'composed_alarm', maxRows: 10, maxBytes: 100000, maxConnections: 2 },
     route: { id: 'realtime-composed', maxMessageBytes: 20000, operationTimeoutMs: 500 },
     maxPayloadBytes: 10000, maxInflight: 2, attemptTimeoutMs: 1000, retryDelayMs: 100, pollIntervalMs: 100, retryIntervalMs: 200 } };
 }
-const source = { EVAL_PG: 'postgres://synthetic-evaluator:synthetic@127.0.0.1/composition_test',
+const source = { ...canonical.environments.evaluator, EVAL_PG: 'postgres://synthetic-evaluator:synthetic@127.0.0.1/composition_test',
   OUTBOX_PG: 'postgres://synthetic-outbox:synthetic@127.0.0.1:5432/composition_test',
   ALARM_PG: 'postgresql://synthetic-reader:synthetic@127.0.0.1/composition_test', NS_REALTIME_INTERNAL_SOCKET: '/tmp/synthetic-composition/rt.sock' };
 
@@ -36,17 +35,18 @@ describe('explicit evaluator consumer configuration', function () {
       d => { delete d.consumers.realtime.retryIntervalMs; }, d => { d.consumers.realtime.pollIntervalMs = 2147483648; },
       d => { d.consumers.realtime.attemptTimeoutMs = 2147483648; }, d => { d.consumers.realtime.route.operationTimeoutMs = 1001; },
       d => { d.consumers.realtime.route.maxMessageBytes = 10000; },
-      d => { d.consumers.realtime.outbox.namespace = 'public'; }, d => { d.consumers.realtime.suppression.namespace = 'eval_entries'; }]) {
+      d => { d.consumers.realtime.outbox.namespace = 'public'; }, d => { d.consumers.realtime.suppression.namespace = d.postgres.namespaces.entries; }]) {
       const d = document(); d.consumers = selected(); change(d); assert.throws(() => parse.parse(d, source), /evaluator consumer/);
     }
     const d = document(); d.consumers = selected();
     assert.throws(() => parse.parse(d, { ...source, OUTBOX_PG: source.OUTBOX_PG.replace('composition_test', 'another_test') }), /evaluator consumer/);
   });
-  it('requires restart for consumer infrastructure or credential changes while rereading current tenant admission', async function () {
+  it('requires restart for consumer infrastructure or credential changes without granting tenant admission from the worker file', async function () {
     const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'consumer-config-')), file = path.join(dir, 'config.json');
     try {
       const d = document(); d.consumers = selected(); fs.writeFileSync(file, JSON.stringify(d));
       const env = { ...source, MULTITENANT_EVALUATOR_CONFIG: file }, loaded = parse.load(env);
+      assert.equal(await loaded.readCurrent(A),null,'worker file never substitutes for current admitted registry state');
       d.consumers.realtime.retryIntervalMs++; fs.writeFileSync(file, JSON.stringify(d)); await assert.rejects(loaded.readCurrent(A), /requires restart/);
       d.consumers.realtime.retryIntervalMs--; fs.writeFileSync(file, JSON.stringify(d));
       env.OUTBOX_PG = env.OUTBOX_PG.replace(':synthetic@', ':changed-synthetic@'); await assert.rejects(loaded.readCurrent(A), /requires restart/);
@@ -173,8 +173,16 @@ describe('selected evaluator role consumes notification composition', function (
       retry () {}, flush () {}, health: () => ({ enabled: true }), async close () { calls.push('consumer-close'); release(); } };
     const runtime = { acquire: async () => { calls.push('clinical-acquire'); }, tick: async () => {},
       last: () => null, isCurrent: async () => true, health: () => ({ tenants: [] }), close: async () => { calls.push('clinical-close'); } };
-    const sandbox = { module: { exports: {} }, console: { log () {} }, require (name) {
-      if (name === '../../storage/postgres-connection') return async () => clinical;
+    const sandbox = { module: { exports: {} }, structuredClone, setImmediate, console: { log () {} }, require (name) {
+      if (name === '../../storage/postgres-connection') return Object.assign(async () => clinical,{readopt:async()=>{}});
+      if (name === './registry-tenant-set') return {open:async()=>({tenants:new Map([[A,parse.registryEntry(A)]]),isActive:()=>true,revision:()=>1,stats:()=>({}),follow:async()=>{},close:async()=>{}})};
+      if (name === '../../pool-membership') return {member:async()=>({configured:{mode:'standalone'},register:async()=>{},close:async()=>{}})};
+      if (name === './evaluator-pool') return {create:()=>({partitioned:false,start(){},refresh:async()=>{},admits:()=>true,close(){}})};
+      if (name === '../../trusted-worker/postgres') return {create:()=>({scan:async()=>new Map(),read:async()=>({version:1,effective:{},policyGeneration:1}),current:()=>null,state:()=>({available:true,generation:1}),health:()=>({available:true}),close:async()=>{}})};
+      if (name === '../../trusted-worker/lifecycle') return async()=>({version:()=>1,activateRefresh(){},close:async()=>{}});
+      if (name === '../../pgstream/evaluator') return {open:async()=>({store:{work:async()=>[],nextDue:async()=>null,deliveries:async()=>[]},ready:async()=>{},assertAvailable(){},health:()=>({}),close:async()=>{}})};
+      if (name === '../../migrations/postgres') return {run:async()=>{}};
+      if (name === './tenant-startup') return {create:()=>({warm:async()=>{},close:async()=>{},health:()=>({})})};
       if (name === './evaluator-readiness') return Object.assign(async () => { calls.push('clinical-readiness'); }, {provisionTenant: async () => {}});
       if (name === './evaluator-runtime') return async () => { calls.push('clinical-start'); return runtime; };
       if (name === './evaluator-consumers') return { async prepare (input) {
@@ -184,10 +192,11 @@ describe('selected evaluator role consumes notification composition', function (
     } };
     vm.runInNewContext(fs.readFileSync(filename, 'utf8'), sandbox, { filename });
     const previous = scope.getTenancyMode();
-    const cfg = { ...document(), namespaces: document().postgres.namespaces, tenants: new Map([[A, true]]), consumers: selected() };
+    const d=document();d.consumers=selected();const cfg=parse.parse(d,source);
+    const window=require('./fixtures/operation-window-runtime-protocol')({trustedWorker:true}).window;await window.ready();
     let role;
     try {
-      role = await sandbox.module.exports.boot(cfg);
+      role = await sandbox.module.exports.boot(cfg,{operationWindow:window});
       assert.deepEqual(calls.slice(0, 4), ['clinical-readiness', 'clinical-start', 'consumer-prepare', 'consumer-start'], 'EVALUATOR_CONSUMER_SELECTED_BOOT');
       await role.acquire(A); assert.equal(calls.at(-1), 'consumer-wake', 'clinical promise completed without awaiting held handoff');
       assert.equal(role.health().consumers.enabled, true);
@@ -195,6 +204,6 @@ describe('selected evaluator role consumes notification composition', function (
       assert.equal(calls.filter(name => name === 'consumer-close').length, 1);
       assert.equal(calls.filter(name => name === 'clinical-end').length, 1);
       assert.ok(calls.indexOf('consumer-close') < calls.indexOf('clinical-close'));
-    } finally { release(); if (role) await role.close(); scope.setTenancyMode(previous); }
+    } finally { release(); if (role) await role.close(); await window.close();scope.setTenancyMode(previous); }
   });
 });

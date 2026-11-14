@@ -10,66 +10,35 @@ const config = require('../lib/server/serve/evaluator-config');
 const A = '11111111-1111-4111-8111-111111111111', B = '22222222-2222-4222-8222-222222222222';
 const identity = n => String(n).repeat(64);
 const deferred = () => { let resolve; const promise = new Promise(done => { resolve = done; }); return { promise, resolve }; };
-function document () { return { version: 1, postgres: { connectionEnv: 'EVAL_PG',
-  namespaces: Object.fromEntries(['entries', 'treatments', 'devicestatus', 'profile', 'food', 'activity', 'clock', 'checkpoint'].map(k => [k, 'eval_' + k])) },
-consumer: 'evaluator-proof', pageSize: 1, maxRows: 10, maxBytes: 10000, maxTenants: 2,
-recoveryIntervalMs: 100, timeIntervalMs: 200, tenants: [{ id: A, revision: 'same', settings: { enable: ['bgnow'] } }] }; }
-const source = { EVAL_PG: 'postgres://synthetic:synthetic@127.0.0.1/disposable_test' };
+const plan=require('./fixtures/multitenant-plan'),layout=plan.layout('eval_cfg'),canonical=plan.documents({layout,urls:plan.syntheticUrls(layout)});
+function document () {const value=structuredClone(canonical.configs.evaluator);delete value.consumers;return value;}
+const source = canonical.environments.evaluator;
+function effective(values,version=1){return {...require('../lib/tenant-settings/component').resolveEffectiveSettings({version,values},{generation:1,deployment:{},overrides:{}}),policyGeneration:1};}
+function metadataAccess(doc,states=new Map([[A,effective({enable:['bgnow']})],[B,effective({})]])){const active=new Set([A,B]),expected=config.parse(doc,source).tenantSettings;return {active,states,reader:{matches:value=>require('node:util').isDeepStrictEqual(value,expected),read:async tenant=>states.get(tenant)},admission:{namespace:doc.registry.namespace,allows:async tenant=>active.has(tenant)}};}
 
 describe('evaluator preview trusted configuration', function () {
-  it('hashes effective content and plugins even when declared revision is reused', function () {
-    const one = document(), first = config.parse(one, source).tenants.get(A);
-    one.tenants[0].settings.thresholds = { bgHigh: 300 };
-    const second = config.parse(one, source).tenants.get(A);
-    assert.notEqual(first.identity, second.identity, 'M5_EVAL_CONFIG_CONTENT actual effective content changes identity');
-    one.tenants[0].settings.enable = ['delta'];
-    assert.notEqual(config.parse(one, source).tenants.get(A).identity, second.identity);
-    const swapped = { ...one, tenants: [{ settings: one.tenants[0].settings, revision: 'same', id: A }] };
-    assert.equal(config.parse(swapped, source).tenants.get(A).identity, config.parse(one, source).tenants.get(A).identity);
+  it('hashes committed effective content and plugins even when the settings version is reused', async function () {
+    const parsed=config.parse(document(),source),selected=config.registryEntry(A),defaults=require('../lib/tenant-settings/catalogue').DEFAULTS;
+    const first=await config.withSettings(parsed,selected,A,{matches:()=>true,read:async()=>effective({enable:['bgnow']})});
+    const thresholds=Object.fromEntries(require('../lib/tenant-settings/catalogue').THRESHOLDS.map(name=>[name,defaults[name]]));thresholds.bgHigh=300;
+    const second=await config.withSettings(parsed,selected,A,{matches:()=>true,read:async()=>effective({enable:['bgnow'],thresholds})});
+    assert.notEqual(first.identity,second.identity,'M5_EVAL_CONFIG_CONTENT actual committed effective content changes identity');
+    const third=await config.withSettings(parsed,selected,A,{matches:()=>true,read:async()=>effective({enable:['delta'],thresholds})});assert.notEqual(third.identity,second.identity);
+    const reordered={thresholds,enable:['delta']};assert.equal(config.applySettings(selected,effective(reordered)).identity,third.identity,'canonical key order preserves the same committed settings identity');
   });
   it('refuses unbounded, unknown, unsafe or misspelled configuration without authority fallback', function () {
-    for (const change of [d => { delete d.maxBytes; }, d => { d.maxRows = 0; }, d => { d.timeIntervalMs = 2147483648; },
-      d => { d.consumer = 'realtime-shared'; }, d => { d.tenants[0].settings.API_SECRET = 'x'; },
-      d => { d.tenants[0].settings.enable = ['INVALID!']; }, d => { d.postgres.namespaces.entries = 'public'; },
-      d => { d.tenants.push(d.tenants[0]); }]) {
-      const d = document(); change(d); assert.throws(() => config.parse(d, source), /explicit evaluator/);
-    }
-    assert.throws(() => config.load({}), /explicit evaluator/);
+    for (const change of [d=>{delete d.maxBytes;},d=>{d.maxRows=0;},d=>{d.timeIntervalMs=2147483648;},d=>{d.consumer='realtime-shared';},d=>{d.postgres.namespaces.entries='public';}]){const d=document();change(d);assert.throws(()=>config.parse(d,source),/explicit evaluator/);}
+    const overlap=document();overlap.tenants=[{id:A,revision:'same',settings:{}}];assert.throws(()=>config.parse(overlap,source),error=>error.message===require('../lib/server/serve/registry-config').REFUSAL);
+    assert.throws(()=>effective({API_SECRET:'x'}),/SETTINGS_UNSUPPORTED/);assert.throws(()=>effective({enable:['INVALID!']}),/SETTINGS_VALUE/);assert.throws(()=>config.load({}),/explicit evaluator/);
   });
-  it('rereads operator config per cycle, refuses infrastructure drift and disables removed tenants', async function () {
-    const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'evaluator-config-')), file = path.join(dir, 'config.json');
-    try {
-      const d = document(); d.tenants.push({ id: B, revision: 'b', settings: {} });
-      fs.writeFileSync(file, JSON.stringify(d));
-      const loaded = config.load({ ...source, MULTITENANT_EVALUATOR_CONFIG: file });
-      const first = await loaded.readCurrent(A);
-      d.tenants[0].settings.enable = ['delta']; fs.writeFileSync(file, JSON.stringify(d));
-      assert.notEqual((await loaded.readCurrent(A)).identity, first.identity);
-      d.tenants.shift(); fs.writeFileSync(file, JSON.stringify(d)); assert.equal(await loaded.readCurrent(A), null);
-      d.maxRows++; fs.writeFileSync(file, JSON.stringify(d)); await assert.rejects(loaded.readCurrent(B), /requires restart/);
-    } finally { fs.rmSync(dir, { recursive: true, force: true }); }
+  it('reads current committed settings through admitted registry metadata, refuses infrastructure drift and removed tenants', async function () {
+    const dir=fs.mkdtempSync(path.join(os.tmpdir(),'evaluator-config-')),file=path.join(dir,'config.json');
+    try{const d=document(),access=metadataAccess(d);fs.writeFileSync(file,JSON.stringify(d));const loaded=config.loadMetadata({...source,MULTITENANT_EVALUATOR_CONFIG:file});const read=tenant=>loaded.readCurrent(tenant,access.reader,access.admission);const first=await read(A);access.states.set(A,effective({enable:['delta']},2));assert.notEqual((await read(A)).identity,first.identity);access.active.delete(A);assert.equal(await read(A),null);d.maxRows++;fs.writeFileSync(file,JSON.stringify(d));await assert.rejects(read(B),/requires restart/);}finally{fs.rmSync(dir,{recursive:true,force:true});}
   });
-  it('reads bounded hot-file bytes per call while reusing parsing until a same-size edit', async function () {
-    const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'evaluator-config-')), file = path.join(dir, 'config.json');
-    const open = fs.openSync, parse = JSON.parse;
-    let reads = 0, parses = 0, contents;
-    fs.openSync = function (name, ...rest) { if (name === file) reads++; return open.call(this, name, ...rest); };
-    // Count actual parsing of these configuration bytes, independently of I/O.
-    JSON.parse = function (text, ...rest) { if (text === contents) parses++; return parse.call(this, text, ...rest); };
-    try {
-      const d = document(); d.tenants[0].revision = 'a'; contents = JSON.stringify(d);
-      fs.writeFileSync(file, contents);
-      const loaded = config.load({ ...source, MULTITENANT_EVALUATOR_CONFIG: file });
-      const before = reads, first = await loaded.readCurrent(A);
-      for (let i = 0; i < 20; i++) await loaded.readCurrent(A);
-      assert.equal(reads - before, 21, 'EV_CONFIG_BOUNDED_READ_EACH_CALL');
-      assert.equal(parses, 1, 'EV_CONFIG_PARSED_ONCE_WHILE_UNCHANGED');
-      const size = fs.statSync(file).size;
-      d.tenants[0].revision = 'b'; contents = JSON.stringify(d); fs.writeFileSync(file, contents);
-      assert.equal(fs.statSync(file).size, size, 'the edit keeps the file size');
-      assert.notEqual((await loaded.readCurrent(A)).identity, first.identity, 'EV_CONFIG_EDIT_SEEN');
-      assert.equal(parses, 2, 'EV_CONFIG_CHANGED_BYTES_PARSED');
-    } finally { fs.openSync = open; JSON.parse = parse; fs.rmSync(dir, { recursive: true, force: true }); }
+  it('bounds explicit metadata reads and reuses parsed infrastructure until a same-size edit is refused', async function () {
+    const dir=fs.mkdtempSync(path.join(os.tmpdir(),'evaluator-config-')),file=path.join(dir,'config.json'),open=fs.openSync,parse=JSON.parse;let reads=0,parses=0,contents;
+    fs.openSync=function(name,...rest){if(name===file)reads++;return open.call(this,name,...rest);};JSON.parse=function(text,...rest){if(text===contents)parses++;return parse.call(this,text,...rest);};
+    try{const d=document(),access=metadataAccess(d);contents=JSON.stringify(d);fs.writeFileSync(file,contents);const loaded=config.loadMetadata({...source,MULTITENANT_EVALUATOR_CONFIG:file}),read=()=>loaded.readCurrent(A,access.reader,access.admission),before=reads;const first=await read();for(let i=0;i<20;i++)await read();assert.equal(reads-before,21,'EV_CONFIG_BOUNDED_READ_EACH_EXPLICIT_CALL');assert.equal(parses,1,'EV_CONFIG_PARSED_ONCE_WHILE_UNCHANGED');access.states.set(A,effective({enable:['delta']},2));assert.notEqual((await read()).identity,first.identity,'committed settings are independent of unchanged worker infrastructure bytes');const size=fs.statSync(file).size;d.pgstream.slot=d.pgstream.slot.slice(0,-1)+(d.pgstream.slot.endsWith('x')?'y':'x');contents=JSON.stringify(d);fs.writeFileSync(file,contents);assert.equal(fs.statSync(file).size,size);await assert.rejects(read(),/requires restart/);assert.equal(parses,2,'EV_CONFIG_CHANGED_BYTES_PARSED');}finally{fs.openSync=open;JSON.parse=parse;fs.rmSync(dir,{recursive:true,force:true});}
   });
 });
 
@@ -110,12 +79,13 @@ describe('evaluator preview readiness protocol', function () {
       // This recorder proves evaluator scope checks; insertion physical metadata
       // is independently exercised by its own protocol/native suites.
       insertion.metadata = async () => {};
-      try { await screen({ async query () {
+      try { await screen({ async query (sql,args) {
         count++;
         if (count === 1) return { rows: [{ rolsuper: false, rolbypassrls: false, rolcreaterole: false,
           rolcreatedb: false, rolreplication: false, operator: kind === 'operator' }] };
         if (count === 2) return { rows: [{ creates: kind === 'schema', unrelated: kind === 'unrelated' }] };
-        const checkpoint = count === 10;
+        const checkpoint = args?.[0] === cfg.namespaces.checkpoint+'.tenant_consumer_checkpoint';
+        if(checkpoint)assert.deepEqual(args[1],['checkpoint','projection','contract_digest',...require('../lib/pgstream/checkpoint').WORK_COLUMNS],'exact typed bookkeeping grant set');
         return { rows: [{ secured: kind !== 'rls', reads: kind !== 'select', forbidden: kind === 'insert',
           updates: !checkpoint && kind === 'update', bookkeeping: checkpoint && kind !== 'missing-owned-update', extra: kind === 'extra-update' }] };
       } }, cfg); } finally { insertion.metadata = metadata; }

@@ -112,36 +112,46 @@ describe('evaluator retained settings capability', function () {
   });
 });
 
-describe('evaluator settings pool ownership at actual role boot', function () {
-  it('covers legacy and registry reads, startup failure, idempotent close and cleanup after reader close failure', async function () {
-    const previous = scope.getTenancyMode();
-    try {
-      for (const registry of [false, true]) for (const outcome of ['normal', 'startup-failure', 'close-failure', 'both-close-fail']) {
-        const calls = { settingsClose: 0, clinicalClose: 0, settingsRead: 0, runtimeClose: 0 }; let prepared, active = true;
-        const settings = { read: async tenant => { calls.settingsRead++; assert.equal(tenant, A); return { version: 1, effective: {} }; }, close: async () => { calls.settingsClose++; if (outcome.includes('close-fail')) throw Error('synthetic close failure'); } };
-        const runtime = { acquire: async () => {}, tick: async () => {}, health: () => ({}), last: () => null, isCurrent: async () => true, close: async () => { calls.runtimeClose++; if (outcome === 'both-close-fail') throw Error('synthetic runtime close failure'); } };
-        const boot = isolated('server/serve/evaluator-preview.js', {
-          '../../tenant-settings/presentation-reader': (input, options) => { assert.deepEqual(input, configuration); assert.deepEqual(options, { revalidate: true, preserveErrors: true, concurrency: 4, maxPending: 2 }); return settings; },
-          '../../storage/postgres-connection': async () => ({ end: async () => { calls.clinicalClose++; } }),
-          './evaluator-readiness': Object.assign(async () => {}, { provisionTenant: async () => {} }),
-          './evaluator-consumers': { prepare: async () => null },
-          './registry-tenant-set': { open: async () => ({ tenants: new Map([[A, evaluator.registryEntry(A)]]), isActive: () => active, revision: () => 1, stats: () => ({}), close: async () => {}, follow: async handlers => { prepared = handlers; } }) },
-          './evaluator-runtime': async config => { assert.equal((await config.readCurrent(A)).env.settings.units, 'mg/dl'); if (registry) { active = false; assert.equal(await config.readCurrent(A), null); active = true; assert.equal((await config.readCurrent(A)).env.settings.units, 'mg/dl'); } if (outcome === 'startup-failure') throw Error('synthetic startup'); return runtime; }
-        });
-        const config = { maxTenants: 2, tenantSettings: configuration, tenants: new Map([[A, evaluator.registryEntry(A)]]),
-          namespaces: Object.fromEntries(['entries', 'treatments', 'devicestatus', 'profile', 'food', 'activity', 'clock', 'checkpoint'].map(name => [name, 'synthetic_' + name])),
-          ...(registry ? { registry: {} } : {}), readCurrent: (tenant, reader) => evaluator.withSettings({ tenantSettings: configuration }, evaluator.registryEntry(tenant), tenant, reader) };
-        if (outcome === 'startup-failure') { await assert.rejects(boot.boot(config), /initialization refused/); }
-        else {
-          const role = await boot.boot(config); assert.equal(calls.settingsRead, registry ? 2 : 1);
-          if (registry) assert.equal(typeof prepared.prepare, 'function');
-          if (outcome.includes('close-fail')) { await assert.rejects(role.close(), error => error.errors.length === (outcome === 'both-close-fail' ? 2 : 1) && error.errors.some(cause => /synthetic close failure/.test(cause.message))); await assert.rejects(role.close(), /shutdown refused/); }
-          else { await role.close(); await role.close(); }
-        }
-        assert.equal(calls.settingsClose, 1); assert.equal(calls.clinicalClose, 1); assert.equal(calls.runtimeClose, outcome === 'startup-failure' ? 0 : 1);
+describe('evaluator settings ownership at maintained role boot', function () {
+  async function exercise(outcome,{staleCache=false}={}){
+    const plan=require('./fixtures/multitenant-plan'),layout=plan.layout('settings_boot'),docs=plan.documents({layout,urls:plan.syntheticUrls(layout)}),document=structuredClone(docs.configs.evaluator);delete document.consumers;
+    const config=evaluator.parse(document,docs.environments.evaluator),calls={settingsClose:0,clinicalClose:0,settingsRead:0,runtimeClose:0},closed=[];let prepared,active=true;
+    const rows=new Map([[A,{version:1,values:{SHOW_SECONDS:true},generation:1,policy:{deployment:{},overrides:{}}}],[B,{version:1,values:{SHOW_SECONDS:false},generation:1,policy:{deployment:{},overrides:{}}}]]);
+    const connection={async readOnly(sql,args){
+      if(sql.includes('FROM pg_class'))return {rows:[0,1,2,3].map(()=>({secured:true,owns:false,writes:false}))};
+      if(sql.includes('WHERE false'))return {rows:[]};
+      if(sql.includes('activity_version'))return {rows:args[0].map(tenant=>({tenant,activity_version:'1',paused:false,suspended:false,settings:rows.get(tenant).version,policy:rows.get(tenant).generation,stamp:'1',deleted:'0'}))};
+      assert(sql.includes('SELECT s.version'),'only the selected trusted settings projection may read settings');calls.settingsRead++;return {rows:[structuredClone(rows.get(args[0]))]};
+    },async end(){calls.clinicalClose++;closed.push('clinical');}};
+    const trusted=isolated('trusted-worker/postgres.js',{},source=>{if(!staleCache)return source;const check='hit.settings === row.settings && hit.policy === row.policy &&',retire='settingsCache.delete(row.tenant);';assert(source.includes(check)&&source.includes(retire));return source.replace(check,'').replace(retire,'void 0;');});
+    const runtime={acquire:async()=>{},tick:async()=>{},health:()=>({tenants:[]}),last:()=>null,isCurrent:async()=>true,close:async()=>{calls.runtimeClose++;if(outcome==='both-close-fail')throw Error('synthetic runtime close failure');}};
+    const boot=isolated('server/serve/evaluator-preview.js',{
+      '../../tenant-settings/presentation-reader':()=>{throw Error('retired product settings reader must not be constructed');},
+      '../../storage/postgres-connection':Object.assign(async()=>connection,{readopt:async()=>{}}),
+      './evaluator-readiness':Object.assign(async()=>{}, {provisionTenant:async()=>{}}),
+      './evaluator-consumers':{prepare:async()=>null},
+      './registry-tenant-set':{open:async()=>({tenants:new Map([[A,evaluator.registryEntry(A)],[B,evaluator.registryEntry(B)]]),isActive:tenant=>tenant===B||active,revision:()=>1,stats:()=>({}),close:async()=>{},follow:async handlers=>{prepared=handlers;}})},
+      '../../trusted-worker/postgres':{create:options=>{assert.equal(options.eventDriven,true);const reader=trusted.create(options);return {...reader,async close(){calls.settingsClose++;await reader.close();closed.push('settings');if(outcome.includes('close-fail'))throw Error('synthetic close failure');}};}},
+      '../../pgstream/evaluator':{open:async()=>({store:{work:async()=>[],nextDue:async()=>null,deliveries:async()=>[]},ready:async()=>{},assertAvailable(){},health:()=>({}),close:async()=>{}})},
+      '../../migrations/postgres':{run:async()=>{}},
+      './tenant-startup':{create:()=>({warm:async()=>{},isReady:()=>true,close:async()=>{},health:()=>({})})},
+      './evaluator-runtime':async options=>{
+        const first=await options.readCurrent(A),other=await options.readCurrent(B);assert.equal(first.env.settings.units,'mg/dl');assert.equal(first.env.settings.showSeconds,true);assert.equal(other.env.settings.showSeconds,false);assert.equal(calls.settingsRead,2);
+        active=false;assert.equal(await options.readCurrent(A),null);assert.equal(calls.settingsRead,2,'registry withdrawal precedes settings access');active=true;assert.equal((await options.readCurrent(A)).identity,first.identity);assert.equal(calls.settingsRead,2,'unchanged streamed settings reuse the trusted cache');
+        rows.get(A).version++;rows.get(A).values.SHOW_SECONDS=false;await options.readMetadata([A]);const changed=await options.readCurrent(A);assert.notEqual(changed.identity,first.identity,'CURRENT_SETTINGS_VERSION_MUST_REFRESH');assert.equal(changed.env.settings.showSeconds,false);
+        rows.get(A).generation++;rows.get(A).policy.overrides.DISPLAY_UNITS={mode:'pinned',pin:'mmol'};await options.readMetadata([A]);assert.equal((await options.readCurrent(A)).env.settings.units,'mmol');assert.equal((await options.readCurrent(B)).identity,other.identity,'A owner/policy changes must not invalidate or alter B');assert.equal(calls.settingsRead,4);
+        if(outcome==='startup-failure')throw Error('synthetic startup');return runtime;
       }
-    } finally { scope.setTenancyMode(previous); }
-  });
+    });
+    const window=require('./fixtures/operation-window-runtime-protocol')({trustedWorker:true}).window;await window.ready();let role;
+    try{
+      if(outcome==='startup-failure')await assert.rejects(boot.boot(config,{operationWindow:window}),/initialization refused/);
+      else{role=await boot.boot(config,{operationWindow:window});assert.equal(typeof prepared.prepare,'function');if(outcome.includes('close-fail')){await assert.rejects(role.close(),error=>error.errors.length===(outcome==='both-close-fail'?2:1)&&error.errors.some(cause=>/synthetic close failure/.test(cause.message)));await assert.rejects(role.close(),/shutdown refused/);}else{await role.close();await role.close();}}
+      assert.equal(calls.settingsClose,1);assert.equal(calls.clinicalClose,1);assert.equal(calls.runtimeClose,outcome==='startup-failure'?0:1);assert(closed.indexOf('settings')<closed.indexOf('clinical'),'owned settings capability must close before clinical connection teardown');
+    }finally{await role?.close().catch(()=>{});await window.close();}
+  }
+  it('uses trusted registry scans and retains startup failure, idempotent close and independent cleanup failures',async()=>{const previous=scope.getTenancyMode();try{for(const outcome of ['normal','startup-failure','close-failure','both-close-fail'])await exercise(outcome);}finally{scope.setTenancyMode(previous);}});
+  it('control: retaining an obsolete trusted settings cache across changed version is red, then current scanning restores it',async()=>{const previous=scope.getTenancyMode();try{await assert.rejects(exercise('normal',{staleCache:true}),/initialization refused/);await exercise('normal');}finally{scope.setTenancyMode(previous);}});
 });
 
 function deferred () { let resolve; const promise = new Promise(done => { resolve = done; }); return { promise, resolve }; }
