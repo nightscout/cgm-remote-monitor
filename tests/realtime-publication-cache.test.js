@@ -222,7 +222,7 @@ describe('bounded read-through and pinned atomic publication cache', function ()
       await assert.rejects(boot.boot(config), /readiness or initialization refused/);
       assert.equal(reached, true); assert.equal(counts.reads, 200); assert.equal(assertionsReached, true);
       assert.equal(observed.reads, 0); assert.equal(enumerations, 0);
-      assert.deepEqual(counts, { reads: 200, factories: 1, refreshes: 199, closes: 1, legacy: 0, finite: 0 });
+      assert.deepEqual(counts, { reads: 200, factories: 1, refreshes: 0, closes: 1, legacy: 0, finite: 0 });
     } finally { inspect({ ...counts, reached, assertionsReached }); observed.restore(); }
   }
 

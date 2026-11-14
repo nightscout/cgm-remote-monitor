@@ -166,12 +166,16 @@ describe('parseRoles is unchanged by the typed fields', function () {
 
 describe('trusted operation worker selection', function () {
   const options = { evaluatorPreview: { pgstream: {}, trustedWorker: {} } };
-  it('selects only a dedicated verified CDC evaluator', function () {
+  it('selects only a dedicated verified CDC evaluator or completed-output realtime role', function () {
     assert.equal(serve.trustedOperationWorker(['evaluator'], options), true);
     for (const names of [['api'], ['realtime'], ['feed-reader'], ['evaluator', 'api'], ['api', 'evaluator']]) {
       assert.equal(serve.trustedOperationWorker(names, options), false, names.join(','));
     }
     assert.equal(serve.trustedOperationWorker(['evaluator'], { evaluatorPreview: { trustedWorker: {} } }), false);
     assert.equal(serve.trustedOperationWorker(['evaluator'], { evaluatorPreview: { pgstream: {} } }), false);
+    const realtime={realtimePreview:{completedOutput:{},trustedWorker:{}}};
+    assert.equal(serve.trustedOperationWorker(['realtime'],realtime),true);
+    for(const names of [['api'],['evaluator'],['realtime','api'],['realtime','evaluator']])assert.equal(serve.trustedOperationWorker(names,realtime),false);
+    for(const selected of [{trustedWorker:{}},{completedOutput:{}},{}])assert.equal(serve.trustedOperationWorker(['realtime'],{realtimePreview:selected}),false);
   });
 });

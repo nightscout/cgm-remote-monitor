@@ -107,6 +107,16 @@ describe('actual runtime alarm outbox consumer source composition', function () 
     assert.notEqual(l.effects[0].id, l.effects.at(-1).id);
     assert.equal(l.consumers.health().tenants.find(row => row.tenant === l.A).state, 'handoff-accepted');
   });
+  it('shares equal active poll/retry cadence while retaining durable retry identities', async function () {
+    let failing=true;
+    const l=await protocol((request,callback)=>callback(failing?new Error('uncertain'):null,{accepted:true}),{retryIntervalMs:100});
+    try {
+      await l.start();const ids=l.effects.map(row=>row.id);
+      assert.equal(l.consumerTimers.length,2,'EQUAL_CADENCE_ONE_ACTIVE_SWEEP');
+      failing=false;l.advance(1);l.consumerTimers[0].fn();await Promise.all([l.consumers.flush(l.A),l.consumers.flush(l.B)]);
+      assert.equal(l.effects.length,4);assert.deepEqual(new Set(l.effects.slice(2).map(row=>row.id)),new Set(ids));
+    } finally {await l.close();}
+  });
   it('polls actual runtime timer outputs and retries uncertain same IDs without coupling delivery to clinical progress', async function () {
     let failing = true;
     const l = await open((request, callback) => callback(failing ? new Error('controlled sink absent') : null, { accepted: true }));
