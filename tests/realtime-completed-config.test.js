@@ -7,6 +7,7 @@ describe('maintained realtime completed-source product configuration',function()
  it('requires registry and exact typed output source, without retired discovery or clinical namespace configuration',function(){
   const {value,source}=fixture();const parsed=config.parse(value,source);
   assert.deepEqual(Object.keys(parsed.namespaces).sort(),['checkpoint','clock']);assert.equal(parsed.completedOutput.consumer,'evaluator-test');
+  assert.deepEqual(parsed.tenantIds,['registry:'+parsed.registry.namespace],'registry cohort boot must name its configured tenant family');assert.equal(Object.isFrozen(parsed.tenantIds),true);
   for(const key of ['completedOutput','trustedWorker','registry']){const bad=structuredClone(value);delete bad[key];assert.throws(()=>config.parse(bad,source),/REQUIRED/);}
   for(const extra of [{changeFeed:{}},{pageSize:1},{recoveryIntervalMs:1000},{settingsRefreshMs:1000},{socketOrderDomains:[]},{tenants:[]},{admissionFileEnv:'ADMISSION'}])assert.throws(()=>config.parse({...value,...extra},source),/REQUIRED/);
   for(const extra of [{entries:'raw_entries'},{changeStamps:'old_stamps'}])assert.throws(()=>config.parse({...value,postgres:{...value.postgres,namespaces:{...value.postgres.namespaces,...extra}}},source));
