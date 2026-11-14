@@ -214,8 +214,8 @@ describe('whole deployment source admission and filesystem durability', function
     const admission = admit({ namespaces: namespaces() });
     assert.deepEqual(admission.census.selected.map(entry => entry.kind), KINDS);
     assert.equal(admission.census.tables, 54);
-    assert.equal(admission.census.candidates.length, 29);
-    assert.equal(admission.census.candidates.filter(entry => entry.disposition === 'reviewed alternative').length, 3);
+    assert.equal(admission.census.candidates.length, 31);
+    assert.equal(admission.census.candidates.filter(entry => entry.disposition === 'reviewed alternative').length, 5);
     // The change reader, pools, stamps, registry and retained ensure audit are deployment-operational:
     // censused, digest-pinned and never part of a tenant artifact.
     assert.deepEqual(admission.census.candidates.filter(entry => entry.disposition === 'operational, no tenant data').map(entry => entry.file),
@@ -306,7 +306,7 @@ describe('whole deployment source admission and filesystem durability', function
     const admission = admit({ namespaces: input.namespaces, instances: checkpoints.instances });
     assert.equal(admission.census.selected.length, 22);
     assert.equal(admission.census.tables, 55);
-    assert.equal(admission.census.candidates.length, 29);
+    assert.equal(admission.census.candidates.length, 31);
     assert.deepEqual(admission.census.selected.filter(entry => entry.kind.includes('checkpoint')).map(entry => [entry.kind, entry.namespace, entry.instanceOf]),
       [['checkpoint', input.realtime.namespace, null], ['evaluator_checkpoint', input.evaluator.namespace, 'checkpoint']]);
     assert.ok(admission.lifecycle.CATALOGUE.some(entry => entry.kind === 'evaluator_checkpoint'));
@@ -325,6 +325,67 @@ describe('whole deployment source admission and filesystem durability', function
     assert.throws(() => checkpointInputs({ ...input, evaluatorRole: input.realtimeRole }), { code: 'CHECKPOINT_INPUT_INVALID' });
     assert.throws(() => admit({ namespaces: input.namespaces, instances: [{ kind: 'extra', of: 'secrets' }] }), { code: 'OPERATIONS_CENSUS_INSTANCE_INVALID' });
     assert.throws(() => admit({ namespaces: input.namespaces, instances: [{ kind: 'checkpoint', of: 'checkpoint' }] }), { code: 'OPERATIONS_CENSUS_INSTANCE_INVALID' });
+  });
+
+  it('selects pinned typed checkpoint families independently and preserves exact artifact values and grants', async function () {
+    const { checkpointInputs } = require('./fixtures/tenant-deployment-checkpoints');
+    const rt = 'migrations/candidates/postgres-realtime-output-v2.json', ev = 'migrations/candidates/postgres-evaluator-work-v2.json';
+    const input = { namespaces: { ...namespaces(), evaluator_checkpoint: 'deploy_eval_checkpoint' },
+      tenants: [A, '22222222-2222-4222-8222-222222222222'], realtimeRole: 'realtime_reader', evaluatorRole: 'evaluator_reader',
+      realtime: { namespace: namespaces().checkpoint, consumer: 'realtime-typed', contractDigest: 'a'.repeat(64), candidatePath: rt },
+      evaluator: { namespace: 'deploy_eval_checkpoint', consumer: 'evaluator-typed-completed', contractDigest: 'b'.repeat(64), candidatePath: ev } };
+    const checkpoints = checkpointInputs(input);
+    const admission = admit({ namespaces: input.namespaces, instances: checkpoints.instances, selection: checkpoints.selection });
+    const chosen = admission.census.selected.filter(entry => ['checkpoint', 'evaluator_checkpoint'].includes(entry.kind));
+    assert.deepEqual(chosen.map(entry => entry.candidatePath), [rt, ev]);
+    assert(chosen.every(entry => entry.tables.includes('tenant_consumer_checkpoint')));
+    assert.equal(admission.census.candidates.find(entry => entry.file === rt).disposition, 'selected');
+    assert.equal(admission.census.candidates.find(entry => entry.file === ev).disposition, 'selected');
+    assert(admission.lifecycle.CATALOGUE.some(entry => entry.kind === 'evaluator_checkpoint' && entry.candidate.migrations.length === 2));
+    const legacy = admit({ namespaces: input.namespaces, instances: checkpoints.instances });
+    assert(legacy.catalogues.filter(entry => entry.kind.includes('checkpoint')).every(entry => entry.candidatePath === 'migrations/candidates/postgres-consumer-checkpoint-v1.json'));
+    const partial = admit({ namespaces: input.namespaces, instances: checkpoints.instances, selection: { checkpoint: rt } });
+    assert.equal(partial.catalogues.find(entry => entry.kind === 'evaluator_checkpoint').candidatePath, 'migrations/candidates/postgres-consumer-checkpoint-v1.json', 'an instance does not inherit a typed selection implicitly');
+    assert.throws(() => admit({ namespaces: input.namespaces, instances: checkpoints.instances, selection: { evaluator_checkpoint: 'migrations/candidates/postgres-profile-v1.json' } }), { code: 'OPERATIONS_CENSUS_SELECTION_INVALID' });
+    assert.throws(() => admit({ namespaces: namespaces(), selection: { evaluator_checkpoint: ev } }), { code: 'OPERATIONS_CENSUS_SELECTION_INVALID' });
+    for (const [key, rows] of Object.entries(checkpoints.rows)) {
+      const encoded = common.encodeTable(rows), restored = common.decodeTable(encoded.text);
+      assert.equal(common.encodeTable(restored).digest, encoded.digest);
+      assert.deepEqual(restored, rows);
+      if (key.startsWith('evaluator_')) {
+        assert.equal(restored[0].work_observed[0], '9007199254740993');assert.equal(restored[0].work_observed[1], null);
+        assert.equal(restored[0].output_restore_generation, '9223372036854775807');assert.deepEqual(restored[0].projection[0].output.frame.values, [false, 0, null, '9007199254740993']);
+        assert.throws(() => require('../lib/pgstream/checkpoint').shape(restored[0].projection), /EVALUATOR_OUTPUT_NOT_READY/, 'old reader fails closed on typed projection');
+      } else assert.equal(restored[0].output_received, '9007199254740993');
+    }
+    const selected = admission.catalogues.filter(entry => entry.kind.includes('checkpoint'));
+    const work = selected.map(entry => ({ kind: entry.kind, table: 'tenant_consumer_checkpoint', columns: Object.keys(checkpoints.rows[entry.kind + '.tenant_consumer_checkpoint'][0]).map(name => ({ name, identity: false })) }));
+    const compiled = await require('../lib/tenant-operations/restore').prepareAcl({ query: async () => { throw Error('no identity sequence permitted'); } }, common.plan(selected), work, checkpoints.acl);
+    assert(compiled.statements.some(sql => sql.includes('"output_received"')));assert(compiled.statements.some(sql => sql.includes('"work_observed"')));
+    assert(!compiled.statements.some(sql => /GRANT (?:ALL|UPDATE) ON/.test(sql)));
+    const mutated = structuredClone(checkpoints.acl);mutated.grants.find(grant => grant.kind === 'checkpoint' && grant.columnPrivileges).columnPrivileges.UPDATE.push('work_observed');
+    await assert.rejects(require('../lib/tenant-operations/restore').prepareAcl({}, common.plan(selected), work, mutated), { code: 'RESTORE_ACL_COLUMN_INVALID' });
+  });
+
+  it('refuses checksum-valid changed typed pins, restores admission, and reads an old archive without optional typed files', async function () {
+    for (const entry of operations.discoverCatalogues()) {
+      await fs.promises.mkdir(path.dirname(path.join(scratch, entry.file)), { recursive: true });
+      await fs.promises.copyFile(path.join(ROOT, entry.file), path.join(scratch, entry.file));
+    }
+    const files = ['migrations/candidates/postgres-realtime-output-v2.json', 'migrations/candidates/postgres-evaluator-work-v2.json'];
+    for (const file of files) {
+      const original = await fs.promises.readFile(path.join(scratch, file), 'utf8');
+      assert.equal(admit({ root: scratch, namespaces: namespaces(), selection: { checkpoint: file } }).catalogues.find(entry => entry.kind === 'checkpoint').candidatePath, file);
+      const changed = JSON.parse(original);changed.migrations[1].up[0] += ' ';changed.migrations[1].checksum = checksum(changed.migrations[1].up);
+      await fs.promises.writeFile(path.join(scratch, file), JSON.stringify(changed));
+      assert.throws(() => admit({ root: scratch, namespaces: namespaces() }), { code: 'OPERATIONS_CENSUS_ALTERNATIVE_CHANGED' });
+      await fs.promises.writeFile(path.join(scratch, file), original);
+      assert.equal(admit({ root: scratch, namespaces: namespaces(), selection: { checkpoint: file } }).catalogues.find(entry => entry.kind === 'checkpoint').candidatePath, file);
+    }
+    for (const file of files) await fs.promises.unlink(path.join(scratch, file));
+    const old = admit({ root: scratch, namespaces: namespaces() });
+    assert.equal(old.catalogues.find(entry => entry.kind === 'checkpoint').catalogue.migrations.length, 1);
+    for (const file of files) assert.throws(() => admit({ root: scratch, namespaces: namespaces(), selection: { checkpoint: file } }), { code: 'OPERATIONS_CENSUS_SELECTION_INVALID' });
   });
 
   it('prepares the frozen alarm extension, both-tenant expiry seeds and narrowly separated roles', function () {
