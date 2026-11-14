@@ -67,9 +67,9 @@ optInSuite(process.env.NS_STORAGE_PORT_CONTRACT_DOCKER_TEST === '1',
     scope.setTenancyMode('multi');
     const password = randomBytes(24).toString('hex');
     docker('run', '--detach', '--rm', '--name', containers[0], '--publish', '127.0.0.1::5432',
-      '--env', 'POSTGRES_PASSWORD=' + password, '--env', 'POSTGRES_DB=' + name, 'postgres:16');
+      '--env', 'POSTGRES_PASSWORD=' + password, '--env', 'POSTGRES_DB=' + name, process.env.NS_MULTITENANT_POSTGRES_IMAGE || 'postgres:16');
     ownedContainers.push(containers[0]);
-    docker('run', '--detach', '--rm', '--name', containers[1], '--publish', '127.0.0.1::27017', '--ulimit', 'nofile=64000:64000', 'mongo:7.0');
+    docker('run', '--detach', '--rm', '--name', containers[1], '--publish', '127.0.0.1::27017', '--ulimit', 'nofile=64000:64000', process.env.NS_MULTITENANT_MONGO_IMAGE || 'mongo:7.0');
     ownedContainers.push(containers[1]);
     const pgPort = docker('port', containers[0], '5432/tcp').split(':').pop();
     const mongoPort = docker('port', containers[1], '27017/tcp').split(':').pop();
