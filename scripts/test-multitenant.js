@@ -431,9 +431,20 @@ function start (run, kind, { image, options = [], command = [], env = {} }) {
   return record;
 }
 
-async function provisionPostgres (run) {
+// Product evaluator suites exercise the maintained producer, not a legacy feed.
+// The caller supplies its exact owned binary/helper/image capability; selection
+// never pulls or substitutes an ordinary PostgreSQL image after a refusal.
+function producerSelection (suites, source) {
+  const needed = suites.some(suite => suite.flags?.NS_EVALUATOR_CONSUMERS_TEST === '1' || suite.flags?.NS_M5_CURRENT_STATE_PROOF_TEST === '1');
+  if (!needed) return null;
+  const fields = ['NS_RT_BOOTSTRAP_PGSTREAM_BINARY', 'NS_RT_BOOTSTRAP_PGSTREAM_SHA256', 'NS_RT_BOOTSTRAP_PGSTREAM_RECEIVER_PORT', 'NS_RT_BOOTSTRAP_PGSTREAM_SUBSCRIPTIONS_PORT', 'NS_RT_BOOTSTRAP_PGSTREAM_BINDING_JSON'];
+  if (!fields.every(key => typeof source[key] === 'string' && source[key].length) || !/^sha256:[a-f0-9]{64}$/.test(source.NS_MULTITENANT_PGSTREAM_POSTGRES_IMAGE || '')) throw new Error('MAINTAINED_PRODUCER_CAPABILITY_REQUIRED: provide the exact owned binary, helper, ports and PostgreSQL plugin image');
+  return { image: source.NS_MULTITENANT_PGSTREAM_POSTGRES_IMAGE, command: ['-c', 'wal_level=logical', '-c', 'max_replication_slots=4', '-c', 'max_wal_senders=4', '-c', 'max_slot_wal_keep_size=256MB', '-c', 'output_plugin_libraries=wal2json'] };
+}
+
+async function provisionPostgres (run, producer) {
   const password = crypto.randomBytes(24).toString('hex');
-  const record = start(run, 'postgres', { image: IMAGES.postgres,
+  const record = start(run, 'postgres', { image: producer?.image || IMAGES.postgres, command: producer?.command || [],
     options: ['--publish', '127.0.0.1::5432', '--env', 'POSTGRES_PASSWORD', '--env', 'POSTGRES_DB'],
     env: { POSTGRES_PASSWORD: password, POSTGRES_DB: POSTGRES_DATABASE } });
   // The container's init pass starts a socket-only server and restarts; wait
@@ -546,6 +557,11 @@ async function main (argv) {
     log('no suite matches --only ' + options.only.map(o => JSON.stringify(o)).join(' ') + '; nothing ran');
     return 2;
   }
+  const producer = producerSelection(suites, process.env);
+  if (producer) {
+    const native = require('../tests/fixtures/pgstream-native');
+    native.capability(process.env); native.binding(process.env);
+  }
   if (dockerFails(['version', '--format', '{{.Server.Version}}'])) {
     log('docker is not available; every suite in the corpus needs it');
     return 2;
@@ -581,7 +597,7 @@ async function main (argv) {
         run.env.NS_TEST_POSTGRES_ADMIN_URI = 'caller-provided';
         log('using the caller\'s NS_TEST_POSTGRES_ADMIN_URI (no PostgreSQL container started)');
       } else {
-        env.NS_TEST_POSTGRES_ADMIN_URI = await provisionPostgres(run);
+        env.NS_TEST_POSTGRES_ADMIN_URI = await provisionPostgres(run, producer);
         run.env.NS_TEST_POSTGRES_ADMIN_URI = 'disposable';
       }
     }
@@ -647,7 +663,7 @@ async function main (argv) {
   return status;
 }
 
-module.exports = { INVENTORY, checkInventory, classifyOptInSource, select, mochaArgs };
+module.exports = { INVENTORY, checkInventory, classifyOptInSource, select, mochaArgs, producerSelection };
 
 if (require.main === module) {
   main(process.argv.slice(2)).then(status => { process.exitCode = status; }, error => {

@@ -22,6 +22,19 @@ describe('multitenant inventory executable environment consumption', function ()
     const omitted=inventory.INVENTORY.filter(row=>!pgstream.includes(row.file));
     const red=inventory.checkInventory({inventory:omitted});assert.equal(red.length,3);assert(red.every(value=>value.includes('opt-in test file missing')),'MISSING_NATIVE_GROUPS_MUST_REFUSE');
   });
+  it('requires maintained producer capabilities before a product fixture can allocate resources', function () {
+    const selected = [{ flags: { NS_EVALUATOR_CONSUMERS_TEST: '1' } }];
+    const source = { NS_MULTITENANT_PGSTREAM_POSTGRES_IMAGE: 'sha256:' + 'a'.repeat(64), NS_RT_BOOTSTRAP_PGSTREAM_BINARY: '/synthetic/pgstream', NS_RT_BOOTSTRAP_PGSTREAM_SHA256: 'b'.repeat(64), NS_RT_BOOTSTRAP_PGSTREAM_RECEIVER_PORT: '19042', NS_RT_BOOTSTRAP_PGSTREAM_SUBSCRIPTIONS_PORT: '19043', NS_RT_BOOTSTRAP_PGSTREAM_BINDING_JSON: '{}' };
+    const good = () => inventory.producerSelection(selected, source);
+    assert.match(good().image, /^sha256:/); assert(good().command.includes('output_plugin_libraries=wal2json'));
+    for (const field of Object.keys(source)) {
+      const broken = { ...source }; delete broken[field];
+      assert.throws(() => inventory.producerSelection(selected, broken), /MAINTAINED_PRODUCER_CAPABILITY_REQUIRED/);
+      assert.deepEqual(good().command.slice(0, 2), ['-c', 'wal_level=logical']);
+    }
+    assert.equal(inventory.producerSelection([{ flags: { NS_PGSTREAM_ROLE_TEST: '1' } }], {}), null, 'low-level SQL receipt controls do not claim a running producer');
+  });
+
   it('accepts the actual source-only bootstrap test without hiding its synthetic admin URI document', function () {
     const file = 'tests/realtime-bootstrap.test.js', source = readSource(file);
     assert(source.includes('NS_TEST_POSTGRES_ADMIN_URI'), 'synthetic input remains explicit');
