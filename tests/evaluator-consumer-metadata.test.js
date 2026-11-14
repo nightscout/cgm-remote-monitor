@@ -13,13 +13,18 @@ const link=require('../lib/server/realtime/notification-state-config');
 const A='11111111-1111-4111-8111-111111111111';
 function config() {return {version:1,datastore:{hostname:'127.0.0.1',port:5432,database:'synthetic_test'},
   postgres:{connectionEnv:'EVALUATOR_PG',namespaces:Object.fromEntries(['entries','treatments','devicestatus','profile','food','activity','clock','checkpoint'].map(n=>[n,'metadata_'+n]))},
-  consumer:'evaluator-metadata',pageSize:1,maxRows:10,maxBytes:100000,maxTenants:2,recoveryIntervalMs:100,timeIntervalMs:100,
-  tenants:[{id:A,revision:'one',settings:{enable:['simplealarms']}}],consumers:{realtime:{
+  consumer:'evaluator-metadata',pageSize:1,maxRows:10,maxBytes:100000,maxTenants:2,timeIntervalMs:100,
+  registry:{namespace:'metadata_registry',refreshMs:500},
+  tenantSettings:{connectionEnv:'SETTINGS_PG',namespaces:{settings:'metadata_display_settings',operatorPolicy:'metadata_policy'}},
+  activity:{connectionEnv:'ACTIVITY_PG',namespace:'metadata_control'},
+  trustedWorker:{activity:'metadata_control',clock:'metadata_clock',settings:'metadata_display_settings',operatorPolicy:'metadata_policy'},
+  pgstream:{binaryEnv:'PGSTREAM_BINARY',configFileEnv:'PGSTREAM_CONFIG',receiverPort:19913,slot:'metadata_pgstream',streamRole:'metadata_stream',
+    bounds:{heartbeatMs:1000,stallMs:5000,stepMs:5000,stopMs:2000,recoveryMs:30000,pendingMs:30000,maxRestarts:3}},consumers:{realtime:{
     outbox:{connectionEnv:'OUTBOX_PG',namespace:'metadata_outbox',maxRows:10,maxBytes:100000,maxConnections:2},
     suppression:{connectionEnv:'SUPPRESSION_PG',namespace:'metadata_alarm',maxRows:10,maxBytes:100000,maxConnections:2},
     route:{id:'realtime-metadata',maxMessageBytes:20000,operationTimeoutMs:100},
     maxPayloadBytes:10000,maxInflight:2,attemptTimeoutMs:100,retryDelayMs:100,pollIntervalMs:100,retryIntervalMs:100}}};}
-const env={EVALUATOR_PG:'postgres://synthetic-evaluator:synthetic@127.0.0.1:5432/synthetic_test',
+const env={SETTINGS_PG:'postgres://metadata-settings:synthetic@127.0.0.1:5432/synthetic_test',ACTIVITY_PG:'postgres://metadata-activity:synthetic@127.0.0.1:5432/synthetic_test',PGSTREAM_BINARY:'/usr/local/bin/pgstream',PGSTREAM_CONFIG:'/tmp/synthetic-pgstream.json',EVALUATOR_PG:'postgres://synthetic-evaluator:synthetic@127.0.0.1:5432/synthetic_test',
   OUTBOX_PG:'postgres://synthetic-outbox:synthetic@127.0.0.1:5432/synthetic_test',
   SUPPRESSION_PG:'postgres://synthetic-suppression:synthetic@127.0.0.1:5432/synthetic_test',NS_REALTIME_INTERNAL_SOCKET:'/tmp/synthetic-metadata/alarm.sock'};
 describe('selected API evaluator metadata without worker credentials',function(){
@@ -28,15 +33,21 @@ describe('selected API evaluator metadata without worker credentials',function()
   afterEach(function(){fs.rmSync(dir,{recursive:true,force:true});});
   it('links samefile with no worker credential or route environment and shares exact worker tenant identity',async function(){
     const value=config(),worker=parse.parse(value,env),metadata=parse.parseMetadata(value);
-    assert.equal(metadata.tenants.get(A).identity,worker.tenants.get(A).identity);
+    const effective=version=>require('../lib/tenant-settings/component').resolveEffectiveSettings({version,values:{enable:['simplealarms'],SHOW_SECONDS:version>1}},{generation:1,deployment:{},overrides:{}});
+    let current=effective(1);const identity=()=>parse.applySettings(parse.registryEntry(A),current).identity;
+    assert.equal(metadata.registry.namespace,worker.registry.namespace);assert.equal(worker.tenants.size,0,'worker roster is admitted registry state');
     assert.equal(Object.hasOwn(metadata,'connectionString'),false);assert.equal(Object.hasOwn(metadata.consumers.realtime.outbox,'connectionString'),false);
     assert.equal(Object.hasOwn(metadata.consumers.realtime.route,'socketPath'),false);
-    const apiOnly={LINKED_EVALUATOR:file};
-    const selected=link({evaluatorConfigEnv:'LINKED_EVALUATOR'},apiOnly,{namespace:'metadata_alarm',connectionString:'postgres://synthetic-ack:synthetic@127.0.0.1:5432/synthetic_test'});
-    assert.equal((await selected.readCurrent(A)).identity,worker.tenants.get(A).identity,'METADATA_API_NO_WORKER_CREDENTIALS');
+    const apiOnly={LINKED_EVALUATOR:file,SETTINGS_PG:env.SETTINGS_PG};
+    const metadataPort=isolated('server/serve/evaluator-config.js',{'../../tenant-settings/effective-postgres':async()=>({read:async()=>current,close:async()=>{}})});
+    const metadataLink=isolated('server/realtime/notification-state-config.js',{'../serve/evaluator-config':metadataPort});
+    const selected=metadataLink({evaluatorConfigEnv:'LINKED_EVALUATOR'},apiOnly,{namespace:'metadata_alarm',connectionString:'postgres://synthetic-ack:synthetic@127.0.0.1:5432/synthetic_test'});
+    const admission={namespace:'metadata_registry',allows:async tenant=>tenant===A};
+    const before=identity();assert.equal((await selected.readCurrent(A,admission)).identity,before,'METADATA_API_NO_WORKER_CREDENTIALS');
     assert.throws(()=>parse.parse(value,apiOnly),/invalid/,'full worker still requires actual credential resolution');
-    const d=config();d.tenants[0].revision='two';fs.writeFileSync(file,JSON.stringify(d));assert.notEqual((await selected.readCurrent(A)).identity,worker.tenants.get(A).identity);
-    d.datastore.database='other_test';fs.writeFileSync(file,JSON.stringify(d));await assert.rejects(selected.readCurrent(A),/restart/);
+    const d=config();current=effective(2);assert.notEqual((await selected.readCurrent(A,admission)).identity,before,'current committed settings change presentation identity without editing a static roster');
+    // Keep the separately checked datastore descriptor valid: this is the infrastructure-restart boundary.
+    d.pgstream.slot='metadata_other_stream';fs.writeFileSync(file,JSON.stringify(d));await assert.rejects(selected.readCurrent(A,admission),/restart/);
   });
   it('resolves the realtime peer address only for the worker and preserves API metadata separation',function(){
     const value=config(),{NS_REALTIME_INTERNAL_SOCKET:shouldNotUseSocket,...network}=env;
@@ -48,7 +59,7 @@ describe('selected API evaluator metadata without worker credentials',function()
     for(const retired of [{socketPathEnv:'RT_PATH'},{endpoint:{urlEnv:'PRIVATE_ALARM',trust:'network'}}]){
       const old=structuredClone(value);Object.assign(old.consumers.realtime.route,retired);assert.throws(()=>parse.parseMetadata(old),/invalid/,'per-contract endpoint keys are retired');
     }
-    assert.throws(()=>parse.parse(value,{...source,NS_REALTIME_INTERNAL_SOCKET:'/tmp/synthetic-metadata/alarm.sock'}),/invalid/,'URL and socket peer addresses are exclusive');
+    assert.throws(()=>parse.parse(value,{...source,NS_REALTIME_INTERNAL_SOCKET:'/tmp/synthetic-metadata/alarm.sock'}),error=>error instanceof require('../lib/server/internal-api/listener-config').InternalListenerConfigError && /exclusive/.test(error.message),'required pgstream and consumer peers use the same exclusive listener resolver');
     const {NS_REALTIME_INTERNAL_SOCKET:shouldOmitSocket,...defaults}=env;
     assert.equal(parse.parse(value,{...defaults,XDG_RUNTIME_DIR:'/run/user/1000'}).consumers.realtime.route.socketPath,'/run/user/1000/nightscout/realtime.sock','default peer socket');
   });
@@ -67,9 +78,9 @@ describe('selected API evaluator metadata without worker credentials',function()
   });
   it('refuses descriptor mismatch at both actual worker URI and API own admitted endpoint without aliasing credentials',function(){
     const d=config();d.datastore.database='other_test';assert.throws(()=>parse.parse(d,env),/invalid/,'METADATA_WORKER_DESCRIPTOR_BINDING');
-    assert.throws(()=>link({evaluatorConfigEnv:'LINKED_EVALUATOR'},{LINKED_EVALUATOR:file},{namespace:'metadata_alarm',connectionString:env.EVALUATOR_PG.replace('synthetic_test','other_test')}),/CONFIG_REFUSED/,'METADATA_API_DESCRIPTOR_BINDING');
+    assert.throws(()=>link({evaluatorConfigEnv:'LINKED_EVALUATOR'},{LINKED_EVALUATOR:file,SETTINGS_PG:env.SETTINGS_PG},{namespace:'metadata_alarm',connectionString:env.EVALUATOR_PG.replace('synthetic_test','other_test')}),/CONFIG_REFUSED/,'METADATA_API_DESCRIPTOR_BINDING');
     const no=config();delete no.datastore;fs.writeFileSync(file,JSON.stringify(no));
-    assert.throws(()=>link({evaluatorConfigEnv:'LINKED_EVALUATOR'},{LINKED_EVALUATOR:file},{namespace:'metadata_alarm',connectionString:env.EVALUATOR_PG}),/CONFIG_REFUSED/);
+    assert.throws(()=>link({evaluatorConfigEnv:'LINKED_EVALUATOR'},{LINKED_EVALUATOR:file,SETTINGS_PG:env.SETTINGS_PG},{namespace:'metadata_alarm',connectionString:env.EVALUATOR_PG}),/CONFIG_REFUSED/);
     assert.doesNotThrow(()=>parse.parse(no,env),'unselected worker descriptor remains optional');
   });
   it('reads current registry evaluator metadata only through the same admitted registry capability',async function(){
