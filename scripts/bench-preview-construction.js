@@ -43,8 +43,8 @@ async function main () {
     const warmDispatch = await phase(async () => {
       for (let i = 0; i < selected * 10; i++) await f.select(f.tenants[i % selected]);
     });
-    result = { scope: 'recording-protocol-construction-and-TRACE-dispatch; no HTTP/auth/database throughput claim',
-      node: process.version, configured, touched, selectedV3: selected, concurrency: 1, before,
+    result = { scope: 'recording-protocol-construction-and-TRACE-dispatch; direct preview constructor counts only; TRACE may not select Collections; no HTTP/auth/database throughput claim',
+      node: process.version, configured, touched, selectedV3TraceDispatches: selected, concurrency: 1, before,
       configuration, construction, countsAfterWarm, selection, warmDispatch, finalCounts: { ...f.counts },
       recordedSqlSubmissions: f.queries.length, recordedSqlStatements: f.queries.length,
       nativeSqlStatements: 'UNMEASURED', requestsWithClinicalOrAuthorityWork: 0 };

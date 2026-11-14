@@ -37,7 +37,7 @@ async function fixture ({ configured = 2, legacy = true, file, mutate, source, o
     }
   }, exchange: async () => null, deferInitialization: true });
   // Exercise the actual dispatcher without HTTP/server/socket objects. TRACE
-  // maps the addressed Collection but reaches no clinical/auth handler.
+  // reaches no clinical/auth handler; a shared router need not create a Collection.
   function select (tenant, logical = 'entries') {
     return new Promise((resolve, reject) => graph.data({ tenantContext: { tenant }, method: 'TRACE',
       url: '/' + logical, path: '/' + logical, headers: {} }, {}, error => error ? reject(error) : resolve()));

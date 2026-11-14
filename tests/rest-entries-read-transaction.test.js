@@ -151,15 +151,16 @@ describe('private current-authority and raw entries read transaction', function 
         verifyCredential: unused, authorizeRequest: unused,
         tenantSettings: { read: unused, replace: unused, rollback: unused },
         subjectPolicy: { read: unused, replace: unused }, dataRouter: require('express').Router() });
-      const request = require('supertest');
+      const request = require('./fixtures/in-memory-http');
       f.calls.length = 0;
-      const result = await request(app).get('/api/v1/entries/sgv.json?token=synthetic&count=1').expect(200);
+      const result = await request(app, '/api/v1/entries/sgv.json?token=synthetic&count=1');
+      assert.equal(result.status, 200);
       assert.equal(result.body[0].sgv, 123); oneTransaction(f);
       assert.equal(f.calls.filter(x => x.text.startsWith('SELECT id_kind, doc')).length, 1, 'committed frame reused without another acquisition');
       f.calls.length = 0;
       const commitFailure = Error('synthetic commit refused');
       f.action(async (client, text) => { if (text === 'COMMIT') throw commitFailure; });
-      const refused = await request(app).get('/api/v1/entries/sgv.json?token=synthetic&count=1');
+      const refused = await request(app, '/api/v1/entries/sgv.json?token=synthetic&count=1');
       assert.notEqual(refused.status, 200, 'no HTTP success before committed acquisition');
       assert(!Array.isArray(refused.body));
     } finally { await f.close(); }
