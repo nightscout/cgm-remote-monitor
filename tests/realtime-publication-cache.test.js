@@ -7,6 +7,7 @@ const fs = require('node:fs'), os = require('node:os'), path = require('node:pat
 const contract = require('../lib/server/realtime/contract');
 const configFile = require('../lib/server/serve/config-file');
 const fixture = require('./fixtures/realtime-placement-map');
+const registryRefusal = require('../lib/server/serve/registry-config').REFUSAL;
 
 function observe (file, frozen = false) {
   const originals = { open: fs.openSync, close: fs.closeSync, stat: fs.statSync, fstat: fs.fstatSync, read: configFile.read, handle: configFile.readHandle };
@@ -203,7 +204,8 @@ describe('bounded read-through and pinned atomic publication cache', function ()
       assert.equal(unchangedParses, 1, 'unchanged bytes reuse parsed infrastructure');
       assert.equal(loaded.tenants.size, 0); assert.equal(observed.fds.size, 0);
       for (const retired of [{ tenants: [] }, { recoveryIntervalMs: 100 }, { settingsRefreshMs: 100 }]) {
-        assert.throws(() => require('../lib/server/serve/evaluator-config').parseMetadata({ ...evaluatorConfig(), ...retired }), /invalid/);
+        assert.throws(() => require('../lib/server/serve/evaluator-config').parseMetadata({ ...evaluatorConfig(), ...retired }),
+          Object.hasOwn(retired, 'tenants') ? { message: registryRefusal } : /invalid/);
       }
     } finally { configFile.parse = parse; observed.restore(); }
   });
@@ -281,7 +283,8 @@ describe('bounded read-through and pinned atomic publication cache', function ()
       const acquired = observed.handles;
       for (const change of [v => { v.socketOrderDomains = ['unknown']; }, v => { v.tenantSettings = {}; }, v => { v.activity = {}; }, v => { v.changeFeed = {}; },
         v => { v.registry = { namespace: 'bad!' }; }, v => { v.tenants = []; }]) {
-        const invalid = structuredClone(value); change(invalid); assert.throws(() => parse(invalid, source), /invalid/);
+        const invalid = structuredClone(value); change(invalid);
+        assert.throws(() => parse(invalid, source), Object.hasOwn(invalid, 'tenants') ? { message: registryRefusal } : /invalid/);
         assert.equal(observed.fds.size, 0, 'PLACEMENT_EVALUATOR_VALIDATE refused parser leaked descriptor');
         assert.equal(observed.handles, acquired, 'pure validation must precede resource acquisition');
       }
