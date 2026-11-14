@@ -40,7 +40,7 @@ optInSuite(process.env.NS_EVALUATOR_CONSUMERS_TEST === '1' && !!process.env.NS_T
       await reading(50); await reading(111, lab.B);
       await lab.provisionPreview(); await lab.openSink();
       const worker = await lab.workerConsumers(lab.configureConsumers(document => {
-        document.recoveryIntervalMs = CHURN_MS; document.timeIntervalMs = CHURN_MS;
+        document.timeIntervalMs = CHURN_MS;
         const realtime = document.consumers.realtime;
         if (POLL_MS) { realtime.pollIntervalMs = POLL_MS; realtime.retryIntervalMs = POLL_MS; realtime.retryDelayMs = Math.min(POLL_MS, 1000); }
         if (ATTEMPT_MS) realtime.attemptTimeoutMs = ATTEMPT_MS;
@@ -68,13 +68,13 @@ optInSuite(process.env.NS_EVALUATOR_CONSUMERS_TEST === '1' && !!process.env.NS_T
       await lab.stopConsumer(worker);
     });
 
-    it('delivers a changed reading picked up only by the evaluator timers through the targeted wake', async function () {
+    it('delivers a clock-backed changed reading through maintained CDC and the targeted output wake', async function () {
       // The consumer's own poll/retry timers are the fixture's 1,000,000 ms and
-      // nothing calls acquire or wake: only the content-change wake can deliver.
+      // nothing calls acquire or wake: the maintained input/output path must deliver.
       await reading(50); await reading(111, lab.B);
       await lab.provisionPreview(); await lab.openSink();
       const worker = await lab.workerConsumers(lab.configureConsumers(document => {
-        document.recoveryIntervalMs = CHURN_MS; document.timeIntervalMs = CHURN_MS;
+        document.timeIntervalMs = CHURN_MS;
       }));
       assert.equal(worker.startup.ready, true, JSON.stringify(worker.startup));
       await worker.call('flush', lab.A); await worker.call('flush', lab.B);

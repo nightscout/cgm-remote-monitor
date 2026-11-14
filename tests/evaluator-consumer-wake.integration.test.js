@@ -26,7 +26,7 @@ optInSuite(process.env.NS_EVALUATOR_CONSUMERS_TEST === '1' && !!process.env.NS_T
       await reading(120, lab.A, 'normal-a'); await reading(120, lab.B, 'normal-b');
       await lab.provisionPreview(); await lab.openSink();
       const worker = await lab.workerConsumers(lab.configureConsumers(document => {
-        document.recoveryIntervalMs = 500; document.timeIntervalMs = 60000;
+        document.timeIntervalMs = 60000;
         Object.assign(document.consumers.realtime, { pollIntervalMs: 200, retryIntervalMs: 200, backstopIntervalMs: 600000 });
       }));
       assert.equal(worker.startup.ready, true, JSON.stringify(worker.startup));
@@ -44,7 +44,7 @@ optInSuite(process.env.NS_EVALUATOR_CONSUMERS_TEST === '1' && !!process.env.NS_T
       await reading(45, lab.A, 'urgent-low-a');
       await lab.provisionPreview(); await lab.openSink(); lab.sinkMode = 'lost-response';
       const worker = await lab.workerConsumers(lab.configureConsumers(document => {
-        document.recoveryIntervalMs = 500; document.timeIntervalMs = 60000;
+        document.timeIntervalMs = 60000;
         Object.assign(document.consumers.realtime, { pollIntervalMs: 200, retryIntervalMs: 200, retryDelayMs: 200, backstopIntervalMs: 600000 });
       }));
       assert.equal(worker.startup.ready, true, JSON.stringify(worker.startup));

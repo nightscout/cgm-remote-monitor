@@ -62,7 +62,7 @@ optInSuite(process.env.NS_EVALUATOR_CONSUMERS_TEST === '1' && !!process.env.NS_T
       await lab.admin.query(`GRANT SELECT, INSERT, UPDATE ON "${namespace}".tenant_lifecycle_ceremony TO "${ceremonyRole}"`);
       for (const kind of Object.keys(roles)) stores[kind] = await activityStore.create({ connectionString: urls[kind], namespace, capability: kind });
       lab.extraEnv.NS_ACTIVITY_READER = urls.reader;
-      lab.document.activity = { connectionEnv: 'NS_ACTIVITY_READER', namespace };
+      await lab.useActivity(namespace, 'NS_ACTIVITY_READER', urls.reader);
     });
     beforeEach(async function () {
       await lab.reset(); provisioned = false;
@@ -110,7 +110,7 @@ optInSuite(process.env.NS_EVALUATOR_CONSUMERS_TEST === '1' && !!process.env.NS_T
       // unmodified b70ad83f too (see the evidence README), so delivery is phase 2.
       await lab.provisionPreview(); provisioned = true;
       const startCheckpoint = await lab.previewCheckpoint(lab.A); // before any evaluator process exists
-      let worker = await boot(document => { document.recoveryIntervalMs = 150; document.timeIntervalMs = 150; });
+      let worker = await boot(document => { document.timeIntervalMs = 150; });
       await reading(48, lab.A); // new A data while paused: any acquisition would advance A's checkpoint
       await worker.call('acquire', lab.A); await worker.call('tick', lab.A); await worker.call('wake', lab.A); await worker.call('flush', lab.A);
       const bBefore = tenantHealth(await worker.call('health'), lab.B).cycles;

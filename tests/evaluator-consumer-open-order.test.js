@@ -54,6 +54,17 @@ describe('actual inherited evaluator consumer fixture setup protocol',function()
     assert.equal(p.calls.some(row=>row.kind==='drop-role'&&row.name===foreign),false);assert.equal(p.schemas.size,0);
   });
 
+  it('kills only the registered consumer process group and refuses a changed incarnation or group',function(){
+    const fields=Array(24).fill('0');fields[0]='S';fields[2]='424242';fields[19]='123';
+    const p=protocol({procStat:'424242 (synthetic evaluator) '+fields.join(' ')}),lab=p.factory();
+    const worker={child:{pid:424242,exitCode:null,signalCode:null},birth:'123',processGroup:424242};
+    lab.killConsumer(worker);assert.deepEqual(p.calls.at(-1),{kind:'kill-owned-group',pid:-424242,signal:'SIGKILL'});
+    for(const change of [{birth:'124'},{processGroup:424243},{child:{...worker.child,exitCode:0}}]){
+      const before=p.calls.length;assert.throws(()=>lab.killConsumer({...worker,...change}),/already exited|incarnation\/group changed/);assert.equal(p.calls.length,before);
+      lab.killConsumer(worker);assert.equal(p.calls.at(-1).pid,-424242);
+    }
+  });
+
   it('consumes each explicitly supplied synthetic environment in actual fixture open without sharing a process environment',async function(){
     for(const identity of ['synthetic-isolated-a','synthetic-isolated-b']) {
       const address=new URL(syntheticAdminURI);address.username=identity;

@@ -32,9 +32,15 @@ function fixture () {
       const child = new EventEmitter(); child.stdout = new EventEmitter(); child.stderr = new EventEmitter(); child.exitCode = 0;
       queueMicrotask(() => child.emit('message', { ready: true })); return child;
     }, spawn () { throw Error('UNEXPECTED_CLI_CHILD'); } };
+    if (name === './pgstream-native') return {
+      capability: () => ({ binary: '/synthetic/pinned-pgstream', sha256: 'f'.repeat(64), receiverPort: 19421, subscriptionsPort: 19422 }),
+      configuration: ({prefix, capability}) => ({ binaryEnv: 'NS_RT_BOOTSTRAP_PGSTREAM_BINARY', configFileEnv: 'NS_RT_BOOTSTRAP_PGSTREAM_CONFIG', receiverPort: capability.receiverPort, slot: prefix + '_stream', streamRole: prefix + '_stream', bounds: { heartbeatMs: 1000, stallMs: 5000, stepMs: 5000, stopMs: 2000, recoveryMs: 30000, pendingMs: 30000, maxRestarts: 3 } }),
+      async setup(options) { calls.push({ producer: options }); return { environment: { NS_RT_BOOTSTRAP_PGSTREAM_BINARY: '/synthetic/pinned-pgstream', NS_RT_BOOTSTRAP_PGSTREAM_CONFIG: path.join(options.directory, 'synthetic-stream.json') }, async close() { calls.push({ text: 'PRODUCER_CLOSE' }); } }; }
+    };
+    if (name === '../../lib/migrations/postgres') return { async run(action, options) { calls.push({ migration: {action, ...options} }); } };
     if (name === './m5-current-state-proof') return base;
     if (name === '../../lib/storage/postgres-durable-replay') return options => { calls.push({ replay: options }); return { digest: 'a'.repeat(64) }; };
-    if (name === '../../lib/server/serve/evaluator-config') return parser;
+    if (name === '../../lib/server/serve/evaluator-config') return { ...parser, parse(value, source) { return parser.parse(value, {...source,NS_RT_BOOTSTRAP_PGSTREAM_BINARY:'/synthetic/pinned-pgstream'}); } };
     if (name === './provisioned-tenants') return { async create (options) {
       calls.push({ setup: options });
       return { namespaces: registry, registryGrants: settings => require('../lib/tenant-registry/postgres').grants({ namespace: registry.registry, ...settings }),
@@ -64,6 +70,8 @@ describe('independent registry evaluator fixture setup', function () {
       assert.equal(f.inheritedResets(), 1, 'registry reset never deletes provisioned rows through inherited reset');
       assert.equal(f.calls.filter(c => c.provision).length, 2, 'reset never reprovisions existing ids');
       assert(!f.calls.some(c => c.text?.includes('ON CONFLICT')));
+      const descriptors=f.calls.find(c=>c.setup).setup.checkpoints;assert.equal(descriptors.length,2);assert(descriptors.some(row=>row.consumer.endsWith('-completed')),'TYPED_OUTPUT_ACTUALLY_PROVISIONED');
+      assert(f.calls.some(c=>c.migration?.catalogue?.migrations.some(row=>row.name==='0002_evaluator_typed_work')));
       assert(f.calls.some(c => c.text?.startsWith('UPDATE "protocol_clock"')));
       assert(f.calls.some(c => c.text?.startsWith('UPDATE "protocol_replay".tenant_consumer_checkpoint')));
     } finally { await lab.close(); }
@@ -84,6 +92,9 @@ describe('independent registry evaluator fixture setup', function () {
       assert(!Object.hasOwn(worker.options.env, 'MULTITENANT_STATIC_TENANTS'));
       assert.equal(worker.options.env.MULTITENANT_EVALUATOR_CONFIG, configured.file);
       assert(worker.options.env.NS_EVALUATOR_FIXTURE_SETTINGS);
+      assert(worker.options.env.MULTITENANT_OPERATION_CONFIG);
+      assert.equal(worker.options.env.NS_RT_BOOTSTRAP_PGSTREAM_CONFIG.endsWith('synthetic-stream.json'),true);
+      assert(f.calls.some(c=>c.producer),'REAL_PRODUCT_SETUP_REQUIRED_BEFORE_CHILD');
       assert(f.calls.some(c => c.text?.includes('tenant_registry_tenants(uuid, integer)')));
       assert(!f.calls.some(c => c.text?.startsWith('GRANT SELECT ON "provisioned_registry".tenant_registry,')));
     } finally { await lab.close(); }

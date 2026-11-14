@@ -57,8 +57,8 @@ module.exports = function consumersLab () {
     const receive = createReceiver({ connection: writer, namespace: namespaces.alarm,
       async admitAckInTransaction (operation) {
         if (!configuredFile) throw new Error('Selected consumer config not yet bound');
-        const linked = parser.load({...source, ...lab.extraEnv, MULTITENANT_EVALUATOR_CONFIG:configuredFile});
-        const current = await linked.readCurrent(operation.operation.tenant);
+        const linked = parser.loadMetadata({...lab.environment({ file: configuredFile }), ...source, ...lab.extraEnv, MULTITENANT_EVALUATOR_CONFIG:configuredFile});
+        const current = await linked.readCurrent(operation.operation.tenant, undefined, lab.registryAdmission);
         if (!current) throw new Error('Selected consumer tenant unavailable');
         return require('../../lib/tenant-notifications/ack-admission')({namespace:namespaces.outbox,consumer:linked.consumers.realtime.route.id,
           alarmNamespace:namespaces.alarm,maxRows:100,maxBytes:1048576,maxPayloadBytes:65536})({...operation,configIdentity:current.identity});
@@ -74,7 +74,8 @@ module.exports = function consumersLab () {
     }).forward({ socket: {}, namespace: '/alarm', event: 'ack', args: [level, group, duration] });
     source = { NS_COMPOSED_EVAL: evaluatorUrl.toString(), NS_COMPOSED_OUTBOX: urls.outbox, NS_COMPOSED_READER: urls.reader,
       NS_REALTIME_INTERNAL_SOCKET: path.join(directory, 'rt.sock') };
-    lab.document.tenants.forEach(tenant => { tenant.settings.enable = ['bgnow', 'delta', 'direction', 'simplealarms']; });
+    await lab.setSettings({ enable: ['bgnow', 'delta', 'direction', 'simplealarms'] });
+    for (const role of Object.values(roles)) await lab.grantOperationReader(role);
     lab.document.postgres.connectionEnv = 'NS_COMPOSED_EVAL'; lab.document.maxRows = 3; lab.document.pageSize = 1;
     lab.document.consumers = { realtime: {
       outbox: { connectionEnv: 'NS_COMPOSED_OUTBOX', namespace: namespaces.outbox, maxRows: 100, maxBytes: 1048576, maxConnections: 2 },
@@ -86,7 +87,7 @@ module.exports = function consumersLab () {
   lab.configureConsumers = (change = () => {}) => {
     const document = structuredClone(lab.document); change(document);
     const file = path.join(directory, 'config.json'); fs.writeFileSync(file, JSON.stringify(document), { mode: 0o600 });
-    parser.parse(document, { ...source, ...lab.extraEnv });
+    parser.parse(document, { ...lab.environment({ file }), ...source, ...lab.extraEnv });
     configuredFile = file; return { document, file };
   };
   lab.writerConnection = () => writer;
@@ -113,18 +114,22 @@ module.exports = function consumersLab () {
     });
   };
   lab.releaseSink = () => { for (const release of held.splice(0)) release(); };
-  lab.workerConsumers = config => new Promise((resolve, reject) => {
-    const child = fork(path.join(__dirname, 'evaluator-consumer-worker.js'), [], { silent: true, env: {
+  lab.workerConsumers = async config => {
+    await lab.prepareProduct(config);
+    return new Promise((resolve, reject) => {
+    const child = fork(path.join(__dirname, 'evaluator-consumer-worker.js'), [], { silent: true, detached: true, env: {
       PATH: process.env.PATH, HOME: process.env.HOME, NODE_PATH: process.env.NODE_PATH, NODE_ENV: 'test', TZ: 'UTC',
       // These labs read results right after boot: all-tenants readiness, as the
       // api's boot-protocol test (decision readiness-serve-then-warm); serve is
       // covered by tests/evaluator-gap-alert.test.js and the eval-gap gate.
       NS_TENANT_READINESS: process.env.NS_TENANT_READINESS || 'all',
-      ...source, ...lab.extraEnv, MULTITENANT_EVALUATOR_CONFIG: config.file } });
+      ...lab.environment(config), ...source, ...lab.extraEnv, MULTITENANT_EVALUATOR_CONFIG: config.file } });
+    const birthRaw = fs.readFileSync('/proc/' + child.pid + '/stat', 'utf8');
+    const birth = birthRaw.slice(birthRaw.lastIndexOf(')') + 2).split(' ')[19];
     children.add(child); let sequence = 0, stdout = '', stderr = ''; const pending = new Map();
     child.stdout.on('data', b => { stdout += b; }); child.stderr.on('data', b => { stderr += b; });
     const startup = setTimeout(() => { child.kill('SIGTERM'); reject(new Error('Consumer role startup watchdog')); }, 15000);
-    const worker = { child, logs: () => ({ stdout, stderr }), call (action, tenant = lab.A) {
+    const worker = { child, birth, processGroup: child.pid, logs: () => ({ stdout, stderr }), call (action, tenant = lab.A) {
       return new Promise((done, fail) => { const id = ++sequence, timer = setTimeout(() => { pending.delete(id); fail(new Error('Consumer role IPC watchdog')); }, 15000);
         pending.set(id, { done, fail, timer }); child.send({ id, action, tenant }); });
     } };
@@ -138,6 +143,15 @@ module.exports = function consumersLab () {
       for (const p of pending.values()) { clearTimeout(p.timer); p.fail(new Error('Consumer role exited with pending action')); } pending.clear();
       console.log('M5_CONSUMER_CHILD_EXIT ' + JSON.stringify({ pid: child.pid, code, signal })); });
   });
+  };
+  lab.killConsumer = worker => {
+    if (worker.child.exitCode !== null || worker.child.signalCode !== null) throw new Error('Owned consumer already exited');
+    const raw = fs.readFileSync('/proc/' + worker.child.pid + '/stat', 'utf8');
+    const fields = raw.slice(raw.lastIndexOf(')') + 2).split(' ');
+    if (fields[19] !== worker.birth || Number(fields[2]) !== worker.processGroup || worker.processGroup !== worker.child.pid)
+      throw new Error('Owned consumer process incarnation/group changed');
+    process.kill(-worker.processGroup, 'SIGKILL');
+  };
   lab.stopConsumer = async worker => {
     if (worker.child.exitCode !== null || worker.child.signalCode !== null) return;
     await worker.call('close'); const stopped = new Promise(resolve => worker.child.once('exit', (code, signal) => resolve({ code, signal })));
@@ -155,6 +169,7 @@ module.exports = function consumersLab () {
     await lab.stopConsumers(); lab.releaseSink(); if (sink) await sink.close(); sink = null;
     await reset();
     if (!schemaReady) return; // base.open calls the overridden reset before extension preparation
+    await lab.setSettings({ enable: ['bgnow', 'delta', 'direction', 'simplealarms'] });
     await lab.admin.query(`TRUNCATE "${namespaces.outbox}".tenant_notification_requests,"${namespaces.outbox}".tenant_notification_heads,"${namespaces.outbox}".tenant_notification_state,"${namespaces.alarm}".tenant_alarm_suppression`);
     lab.sinkEffects.length = 0; lab.observations.length = 0; lab.sinkMode = 'accept';
   };

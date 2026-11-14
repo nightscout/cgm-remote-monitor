@@ -36,9 +36,9 @@ optInSuite(process.env.NS_EVALUATOR_CONSUMERS_TEST === '1' && !!process.env.NS_T
     async function boot () {
       await reading(50, lab.A, 'synthetic-a'); await reading(50, lab.B, 'synthetic-b');
       await lab.provisionPreview(); await lab.openSink();
+      await lab.setSettings({ enable: ['bgnow', 'delta', 'direction', 'simplealarms'], heartbeat: HEARTBEAT_S });
       const worker = await lab.workerConsumers(lab.configureConsumers(document => {
-        document.recoveryIntervalMs = EVALUATOR_MS; document.timeIntervalMs = EVALUATOR_MS;
-        document.tenants.forEach(tenant => { tenant.settings.heartbeat = HEARTBEAT_S; });
+        document.timeIntervalMs = EVALUATOR_MS;
         Object.assign(document.consumers.realtime, { pollIntervalMs: POLL_MS, retryIntervalMs: POLL_MS,
           retryDelayMs: Math.min(POLL_MS, 1000), attemptTimeoutMs: 10000 });
       }));

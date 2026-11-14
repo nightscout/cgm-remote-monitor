@@ -243,14 +243,13 @@ optInSuite(process.env.NS_M5_CURRENT_STATE_PROOF_TEST === '1' && !!process.env.N
     });
   });
 
-function evaluatorLifecycleSuite (label, factory, legacyHotFile = false) {
+function evaluatorLifecycleSuite (label, factory) {
 optInSuite(process.env.NS_M5_CURRENT_STATE_PROOF_TEST === '1' && !!process.env.NS_TEST_POSTGRES_ADMIN_URI,
   'NS_M5_CURRENT_STATE_PROOF_TEST=1 with disposable PostgreSQL')(
   label, function () {
     this.timeout(60000);
     const lab = factory();
-    const lifecycle = (title, fn) => { if (!legacyHotFile) it(title, fn); };
-    const hotFile = (title, fn) => { if (legacyHotFile) it(title, fn); };
+    const lifecycle = it;
     before(() => lab.open()); beforeEach(async () => { await lab.reset(); await lab.provisionPreview(); });
     afterEach(() => lab.stopChildren()); after(() => lab.close());
     const runtimeReading = (id, sgv, minutes) => { const instant = Date.now() - minutes * 60000;
@@ -282,7 +281,7 @@ optInSuite(process.env.NS_M5_CURRENT_STATE_PROOF_TEST === '1' && !!process.env.N
       ] } });
       committed(removed); committed(activity);
       const beforeRestart = await lab.previewPhysical();
-      const cli = lab.cli(config);
+      const cli = await lab.cli(config);
       await lab.wait(async () => {
         if (cli.child.exitCode !== null || cli.child.signalCode !== null) throw new Error('Evaluator CLI exited before acquisition');
         const checkpoint = await lab.previewCheckpoint(lab.A);
@@ -302,8 +301,8 @@ optInSuite(process.env.NS_M5_CURRENT_STATE_PROOF_TEST === '1' && !!process.env.N
       const exit = new Promise(resolve => cli.child.once('exit', (code, signal) => resolve({ code, signal })));
       cli.child.kill('SIGTERM'); const result = await exit; assert.equal(result.code, 0); assert.equal(result.signal, null);
     });
-    lifecycle('finds quiet canonical absence and unstamped activity through the explicit recovery backstop', async function () {
-      await seed(); const config = lab.configure(d => { d.recoveryIntervalMs = 5; d.timeIntervalMs = 15; });
+    lifecycle('finds committed canonical absence and activity through maintained stream receipts', async function () {
+      await seed(); const config = lab.configure(d => { d.timeIntervalMs = 60000; });
       const worker = await start(config), first = await worker.call('last');
       const removed = await lab.writeCanonical({ planned: { op: 'delete', target: { _id: 'preview-reading' } } });
       const activity = await lab.writeCanonical({ logical: 'activity', planned: { op: 'create', docs: [
@@ -313,7 +312,7 @@ optInSuite(process.env.NS_M5_CURRENT_STATE_PROOF_TEST === '1' && !!process.env.N
       // The output revision changes only with content (decision
       // evaluator-revision-on-content-change), and with work on change
       // (cost-proportional-to-activity) an unchanged tenant runs no cycles:
-      // wait for the backstop's acquisition to converge the projection.
+      // wait for the maintained producer's acquisition to converge the projection.
       await lab.wait(async () => {
         const checkpoint = await lab.previewCheckpoint(lab.A);
         // The projection COMMIT precedes the cycle's publication: wait for both.
@@ -324,55 +323,42 @@ optInSuite(process.env.NS_M5_CURRENT_STATE_PROOF_TEST === '1' && !!process.env.N
         physical: await lab.previewPhysical(), removed, activity });
       committed(removed); committed(activity);
       assert.equal(observed.physical.A.tables.entries.length, 0);
-      assert.equal(observed.physical.A.checkpoint.projection.length, 1, 'M5_EVAL_BACKSTOP_RECOVERY full current absence/activity converges without wake');
+      assert.equal(observed.physical.A.checkpoint.projection.length, 1, 'M5_EVAL_STREAM_RECOVERY full current absence/activity converges without test wake');
       assert.equal(observed.physical.A.checkpoint.projection[0].domain, 'activity', 'M5_EVAL_BACKSTOP_RECOVERY no stale deleted entry');
       assert.equal(observed.physical.A.checkpoint.projection[0].doc.steps, 2);
       assert.ok(observed.physical.A.floor > removed.before.floor, 'M5_EVAL_BACKSTOP the delete and activity advanced the floor');
       assert.ok(observed.last.outputRevision > first.outputRevision);
     });
-    lifecycle('uses retained input for time-only ticks until explicit acquisition', async function () {
+    lifecycle('keeps unchanged timer input and acquires new clock-backed writes from maintained CDC', async function () {
       await seed(); const worker = await start(), first = await worker.call('last');
-      const written = await lab.writeCanonical({ planned: { op: 'create', docs: [runtimeReading('new-physical', 222, 1)] } });
-      const cyclesBefore = cyclesOf(await worker.call('health'));
-      const before = await lab.previewPhysical(), tick = await worker.call('tick'), after = await lab.previewPhysical();
-      lab.tracePreview('preview-retained-time', { first, written, before, tick, after });
-      committed(written); assert.equal(before.A.tables.entries.length, 2);
-      assert.equal(value(tick), 111, 'M5_EVAL_TIME_RETAINED new physical row cannot leak through retained timer');
-      assert.deepEqual(after.A.checkpoint, before.A.checkpoint, 'M5_EVAL_TIME_RETAINED no input checkpoint/projection advance');
+      const before = await lab.previewPhysical(), cyclesBefore = cyclesOf(await worker.call('health'));
+      const tick = await worker.call('tick'), afterTick = await lab.previewPhysical();
+      assert.equal(value(tick), 111, 'M5_EVAL_TIME_RETAINED current retained clinical value');
+      assert.deepEqual(afterTick.A.checkpoint, before.A.checkpoint, 'M5_EVAL_TIME_RETAINED timer does not advance acquisition');
       assert.equal(tick.inputCheckpoint, first.inputCheckpoint);
-      // A time-only cycle ran on the retained input; its content is identical,
-      // so it keeps the acquisition's output and revision.
-      assert.ok(cyclesOf(await worker.call('health')) > cyclesBefore, 'M5_EVAL_TIME_RETAINED time-only cycle ran');
+      assert.ok(cyclesOf(await worker.call('health')) > cyclesBefore, 'M5_EVAL_TIME_RETAINED actual time-only cycle ran');
       assert.equal(tick.outputRevision, first.outputRevision, 'identical time-only content keeps its revision');
-      const acquired = await worker.call('acquire'); lab.tracePreview('preview-time-acquired', { acquired, physical: await lab.previewPhysical() });
-      // Both one-minute-apart readings enter the same shipping five-minute
-      // bucket. Acquisition changes the mean; `last` remains the newest value.
-      assert.equal(value(acquired), (111 + 222) / 2, 'M5_EVAL_ACQUIRED_BUCKET_MEAN');
+      const written = await lab.writeCanonical({ planned: { op: 'create', docs: [runtimeReading('new-physical', 222, 1)] } });
+      committed(written);
+      const acquired = await lab.wait(async () => {
+        const result = await worker.call('last');
+        return result?.inputCheckpoint > first.inputCheckpoint && value(result) === (111 + 222) / 2 ? result : null;
+      });
+      lab.tracePreview('preview-stream-acquired', { first, tick, written, acquired, physical: await lab.previewPhysical() });
       assert.equal(acquired.result.properties.bgnow.last, 222, 'M5_EVAL_ACQUIRED_NEWEST_LAST');
-      assert.deepEqual(acquired.result.properties.bgnow.sgvs.map(row => [row._id, row.mgdl]).sort((a, b) => a[0].localeCompare(b[0])),
+      assert.deepEqual(acquired.result.properties.bgnow.sgvs.map(row => [row._id, row.mgdl]).sort((x, y) => x[0].localeCompare(y[0])),
         [['new-physical', 222], ['preview-reading', 111]], 'M5_EVAL_ACQUIRED_EXACT_BUCKET_INPUT');
-      assert.equal(acquired.inputCheckpoint, before.A.floor);
-      assert.ok(acquired.inputCheckpoint > first.inputCheckpoint, 'M5_EVAL_ACQUIRED_INPUT_ADVANCED');
+      assert.ok(acquired.inputCheckpoint > first.inputCheckpoint, 'M5_EVAL_STREAM_INPUT_ADVANCED without explicit acquire/wake');
     });
-    hotFile('discards a reused-revision changed config and refuses stale cached eligibility', async function () {
-      await seed(); const initial = lab.configure(), worker = await start(initial), first = await worker.call('last'), b = await worker.call('last',lab.B);
-      const changed = lab.configure(d => { d.tenants[0].settings.enable = ['timeago']; });
-      const tick = await worker.call('tick'), physical = await lab.previewPhysical();
-      lab.tracePreview('preview-config-identity', { first, expectedIdentity: changed.identity(lab.A), tick, physical });
-      assert.notEqual(changed.identity(lab.A), first.identity);
-      assert.equal(tick.identity,changed.identity(lab.A),'M5_EVAL_CONFIG_REBUILD cold replacement publishes only current identity');
-      assert.equal(tick.trigger,'acquisition');assert.equal(tick.eligible,true);
-      assert.equal(tick.inputCheckpoint,physical.A.floor,'M5_EVAL_CONFIG_REBUILD reacquires current committed input');
-      assert.deepEqual(await worker.call('last',lab.B),b,'M5_EVAL_CONFIG_REBUILD leaves B output unchanged');
-      const acquired = await worker.call('acquire');
-      assert.equal(acquired.identity, changed.identity(lab.A)); assert.equal(acquired.eligible, true);
-      assert.equal(await worker.call('current', lab.A, { identity: first.identity }), false);
-      assert.equal((await worker.call('last')).identity, acquired.identity);
-      const disabled = lab.configure(d => { d.tenants.shift(); });
-      const current = await worker.call('current', lab.A, { identity: acquired.identity });
-      lab.tracePreview('preview-config-disabled', { disabledTenants: disabled.document.tenants.length, current,
-        last: await worker.call('last'), physical: await lab.previewPhysical() });
-      assert.equal(current, false); assert.equal(await worker.call('last'), null);
+    lifecycle('refuses the removed static tenant product configuration before a role starts', async function () {
+      assert.throws(() => lab.configure(document => {
+        delete document.registry;
+        document.tenants = [lab.A, lab.B].map(id => ({ id, revision: 'retired-hot-file', settings: {} }));
+      }), /invalid explicit evaluator preview configuration/, 'M5_EVAL_STATIC_PRODUCT_REFUSED');
+      const restored = lab.configure();
+      assert(restored.document.registry && restored.document.pgstream && restored.document.trustedWorker);
+      const worker = await start(restored);
+      assert.equal(worker.startup.bootError, undefined, 'M5_EVAL_REGISTRY_PRODUCT_RESTORED');
     });
     lifecycle('keeps tenant B progressing while A row or byte refusal retains last good output', async function () {
       for (const scenario of ['row', 'byte']) {
@@ -441,7 +427,6 @@ optInSuite(process.env.NS_M5_CURRENT_STATE_PROOF_TEST === '1' && !!process.env.N
 }
 
 evaluatorLifecycleSuite('M5 evaluator registry lifecycle actual PostgreSQL', require('./fixtures/evaluator-preview-registry-lab'));
-// This case specifically proves operator hot-file semantics. Registry settings
-// and membership use different adopted interfaces; their replacement remains
-// open, while this original compatibility assertion stays executable unchanged.
-evaluatorLifecycleSuite('M5 evaluator legacy hot-file compatibility (registry replacement open)', require('./fixtures/evaluator-preview-lab'), true);
+// Historical static hot-file captures remain unchanged. The adopted product
+// rejects that configuration; its explicit refusal and restored registry boot
+// are exercised above while all clinical lifecycle checks remain native.

@@ -15,20 +15,25 @@ const base = require('./m5-current-state-proof');
 const configParser = require('../../lib/server/serve/evaluator-config');
 const provisionedTenants = require('./provisioned-tenants');
 const assert = require('node:assert/strict');
+const { run } = require('../../lib/migrations/postgres');
+const stream = require('./pgstream-native');
 
 module.exports = function evaluatorPreviewRegistryLab () {
   const lab = base(), open = lab.open.bind(lab), reset = lab.reset.bind(lab), close = lab.close.bind(lab);
   const children = new Set(), addedRoles = new Set();
-  let directory, connectionString, settingsConnection, provisioned, registryReady = false;
+  let directory, connectionString, settingsConnection, activityConnection, lifetimeConnection, provisioned, producer, producerIdentity, operationFile, registryReady = false;
   lab.consumerName = 'evaluator-native-proof';
   lab.previewRole = lab.name + '_evaluator';
   lab.open = async () => {
+    const capability = stream.capability(process.env);
     await open(); directory = fs.mkdtempSync(path.join(os.tmpdir(), 'evaluator-preview-'));
     const password = crypto.randomBytes(24).toString('hex');
     await lab.admin.query('CREATE ROLE "' + lab.previewRole + '" LOGIN NOSUPERUSER NOBYPASSRLS PASSWORD \'' + password + '\'');
     addedRoles.add(lab.previewRole);
     const namespaces = { ...Object.fromEntries(Object.entries(lab.tables).map(([logical, table]) => [logical, table.split('.')[0]])),
       clock: lab.namespaces.clock, checkpoint: lab.replayNamespace };
+    await run('up', { direct: true, connectionString: process.env.NS_TEST_POSTGRES_ADMIN_URI, namespace: lab.replayNamespace,
+      catalogue: require('../../migrations/candidates/postgres-evaluator-work-v2.json') });
     for (const namespace of Object.values(namespaces)) {
       await lab.admin.query('GRANT USAGE ON SCHEMA "' + namespace + '" TO "' + lab.previewRole + '"');
       await lab.admin.query('GRANT SELECT ON "' + namespace + '".schema_migrations TO "' + lab.previewRole + '"');
@@ -39,7 +44,7 @@ module.exports = function evaluatorPreviewRegistryLab () {
     for (const domain of Object.keys(lab.tables)) await require('./tenant-insertion-grants').grant(lab.admin, {
       namespace: namespaces[domain], domain, role: lab.previewRole,
       catalogue: require('../../lib/server/serve/postgres-domains').get(domain).catalogue, mode: 'reader' });
-    await lab.admin.query('GRANT UPDATE(checkpoint,projection,contract_digest) ON "' + lab.replayNamespace +
+    await lab.admin.query('GRANT UPDATE(checkpoint,projection,contract_digest,' + require('../../lib/pgstream/checkpoint').WORK_COLUMNS.join(',') + ') ON "' + lab.replayNamespace +
       '".tenant_consumer_checkpoint TO "' + lab.previewRole + '"');
     const url = new URL(process.env.NS_TEST_POSTGRES_ADMIN_URI); url.username = lab.previewRole; url.password = password;
     connectionString = url.toString();
@@ -54,7 +59,8 @@ module.exports = function evaluatorPreviewRegistryLab () {
     // own rows in the registry transaction, never adopt these synthetic rows.
     await lab.admin.query('DELETE FROM "' + lab.namespaces.clock + '".tenant_write_clock');
     provisioned = await provisionedTenants.create({ admin: lab.admin, adminURI: process.env.NS_TEST_POSTGRES_ADMIN_URI, owner,
-      namespaces: { clock: lab.namespaces.clock }, checkpoints: [{ namespace: lab.replayNamespace, consumer: lab.consumerName, digest: replay.digest }] });
+      namespaces: { clock: lab.namespaces.clock }, checkpoints: [{ namespace: lab.replayNamespace, consumer: lab.consumerName, digest: replay.digest },
+        { namespace: lab.replayNamespace, consumer: lab.consumerName + '-completed', digest: crypto.createHash('sha256').update(JSON.stringify(['evaluator-work-v2', lab.replayNamespace, lab.consumerName])).digest('hex') }] });
     const registry = provisioned.namespaces;
     for (const statement of provisioned.registryGrants({ enumerators: [lab.previewRole] })) await lab.admin.query(statement);
     for (const kind of ['settings', 'operatorPolicy']) {
@@ -64,13 +70,65 @@ module.exports = function evaluatorPreviewRegistryLab () {
     }
     const settingsURL = new URL(process.env.NS_TEST_POSTGRES_ADMIN_URI); settingsURL.username = settingsRole; settingsURL.password = settingsPassword;
     settingsConnection = settingsURL.toString();
+    const activityRole = lab.name + '_activity_reader', lifetimeRole = lab.name + '_lifetime';
+    for (const role of [activityRole, lifetimeRole]) {
+      const secret = crypto.randomBytes(24).toString('hex');
+      await lab.admin.query(`CREATE ROLE "${role}" LOGIN NOSUPERUSER NOBYPASSRLS PASSWORD '${secret}'`); addedRoles.add(role);
+      const address = new URL(process.env.NS_TEST_POSTGRES_ADMIN_URI); address.username = role; address.password = secret;
+      if (role === activityRole) activityConnection = address.toString(); else lifetimeConnection = address.toString();
+    }
+    for (const statement of require('../../lib/tenant-activity/postgres').grants({ namespace: registry.control, reader: activityRole })) await lab.admin.query(statement);
+    lab.grantOperationReader = async role => {
+      await lab.admin.query('GRANT USAGE ON SCHEMA "' + registry.control + '" TO "' + role + '"');
+      for (const table of ['schema_migrations', 'tenant_lifecycle_windows', 'tenant_lifecycle_operations'])
+        await lab.admin.query('GRANT SELECT ON "' + registry.control + '"."' + table + '" TO "' + role + '"');
+    };
+    for (const role of [lab.previewRole, settingsRole, activityRole, lifetimeRole]) await lab.grantOperationReader(role);
+    await lab.admin.query('GRANT INSERT(tenant_id,operation_id,generation),UPDATE(finished) ON "' + registry.control + '".tenant_lifecycle_operations TO "' + lifetimeRole + '"');
+    await lab.admin.query('GRANT EXECUTE ON FUNCTION "' + registry.control + '".tenant_lifecycle_backend_birth() TO "' + lifetimeRole + '"');
+    const trustedWorker = { clock: namespaces.clock, activity: registry.control, settings: registry.settings, operatorPolicy: registry.operatorPolicy };
+    for (const statement of require('../../lib/trusted-worker/postgres').grants({ namespaces: trustedWorker, roles: [lab.previewRole] })) await lab.admin.query(statement);
     for (const [index, id] of [lab.A, lab.B].entries()) await provisioned.provision({ id, hosts: ['evaluator-' + index + '.example.test'] });
     lab.document = { version: 1, postgres: { connectionEnv: 'NS_EVALUATOR_FIXTURE_CONNECTION', namespaces },
       consumer: lab.consumerName, pageSize: 3, maxRows: 10000, maxBytes: 4 * 1024 * 1024, maxTenants: 2,
-      recoveryIntervalMs: 1000000, timeIntervalMs: 1000000,
+      timeIntervalMs: 1000000,
+      pgstream: stream.configuration({ prefix: lab.name, evaluatorRole: lab.previewRole, capability }), trustedWorker,
+      activity: { connectionEnv: 'NS_EVALUATOR_FIXTURE_ACTIVITY', namespace: registry.control },
       registry: { namespace: registry.registry, maxTenants: 2, refreshMs: 250 },
       tenantSettings: { connectionEnv: 'NS_EVALUATOR_FIXTURE_SETTINGS', namespaces: { settings: registry.settings, operatorPolicy: registry.operatorPolicy } } };
     lab.registryNamespaces = registry;
+    lab.registryAdmission = { namespace: registry.registry, allows: async tenant => (await provisioned.provisioning.get(tenant))?.state === 'active' };
+    operationFile = path.join(directory, 'operation.json');
+    lab.prepareProduct = async config => {
+      const selected = { ...config.document, namespaces: config.document.postgres.namespaces };
+      const identity = JSON.stringify([selected.consumer, selected.namespaces, selected.trustedWorker, selected.pgstream]);
+      if (producer && producerIdentity === identity) return;
+      assert(![...children].some(child => child.exitCode === null && child.signalCode === null), 'fixture cannot rebind a live producer');
+      if (producer) { await producer.close(); producer = null; }
+    const protects = require('../../lib/server/serve/operation-cohort').protectedNamespaces(config.document).filter(namespace => namespace !== registry.control);
+    fs.writeFileSync(operationFile, JSON.stringify({ version: 2, namespace: registry.control, connectionEnv: 'NS_EVALUATOR_FIXTURE_LIFETIME',
+      registry: { namespace: registry.registry }, participantId: 'evaluator', participants: [
+        { id: 'evaluator', roles: ['evaluator'], namespaces: protects, maxMessageBytes: 1048576, timeoutMs: 5000 }
+      ] }), { mode: 0o600 });
+      producer = await stream.setup({ admin: lab.admin, adminURI: process.env.NS_TEST_POSTGRES_ADMIN_URI, directory,
+        config: selected, evaluatorRole: lab.previewRole });
+      producerIdentity = identity;
+    };
+    lab.useActivity = async (namespace, reference, connection) => {
+      const old = lab.document.trustedWorker.activity;
+      assert(/^[a-z][a-z0-9_]{0,62}$/.test(namespace), 'fixture activity namespace required');
+      if (old !== namespace) await lab.admin.query('REVOKE SELECT ON "' + old + '".tenant_activity FROM "' + lab.previewRole + '"');
+      lab.document.activity = { namespace, connectionEnv: reference };
+      lab.document.trustedWorker.activity = namespace;
+      for (const sql of require('../../lib/trusted-worker/postgres').grants({ namespaces: lab.document.trustedWorker, roles: [lab.previewRole] })) await lab.admin.query(sql);
+      lab.extraEnvironment = { ...(lab.extraEnvironment || {}), [reference]: connection };
+    };
+    lab.setSettings = async (settings, tenant) => {
+      const ids = tenant === undefined ? [lab.A, lab.B] : [tenant];
+      const result = await lab.admin.query('UPDATE "' + registry.settings + '".tenant_settings SET version=version+1,values=$2::jsonb WHERE tenant_id=ANY($1::uuid[])', [ids, JSON.stringify(settings)]);
+      assert.equal(result.rowCount, ids.length, 'fixture settings updates existing provisioned tenants');
+    };
+    lab.environment = env;
     registryReady = true;
     await lab.reset();
   };
@@ -83,6 +141,7 @@ module.exports = function evaluatorPreviewRegistryLab () {
     assert.equal(clock.rowCount, 2, 'registry fixture must retain both actually provisioned clocks');
     const checkpoints = await lab.admin.query('UPDATE "' + lab.replayNamespace + '".tenant_consumer_checkpoint SET checkpoint=0,projection=NULL WHERE tenant_id IN ($1,$2) AND consumer=$3', [lab.A, lab.B, lab.consumerName]);
     assert.equal(checkpoints.rowCount, 2, 'registry fixture must retain both actually provisioned checkpoints');
+    await lab.admin.query('UPDATE "' + lab.replayNamespace + '".tenant_consumer_checkpoint SET checkpoint=0,projection=NULL,work_version=0,work_observed=NULL,work_completed=NULL,work_observed_at=NULL,work_pending_at=NULL,work_due_at=NULL,work_completed_at=NULL,output_identity=NULL,output_digest=NULL,output_revision=0,output_restore_generation=NULL,delivery_revision=0,delivery_ack_revision=0 WHERE tenant_id IN ($1,$2) AND consumer=$3', [lab.A, lab.B, lab.consumerName + '-completed']);
     const settings = await lab.admin.query('UPDATE "' + lab.registryNamespaces.settings + '".tenant_settings SET version=version+1,values=$3::jsonb WHERE tenant_id IN ($1,$2)',
       [lab.A, lab.B, JSON.stringify({ enable: ['bgnow', 'delta', 'direction', 'timeago'] })]);
     assert.equal(settings.rowCount, 2, 'registry fixture settings are committed provisioned rows');
@@ -114,11 +173,18 @@ module.exports = function evaluatorPreviewRegistryLab () {
   function env (config) {
     return { PATH: process.env.PATH, HOME: process.env.HOME, NODE_PATH: process.env.NODE_PATH,
       NODE_ENV: 'test', TZ: 'UTC', MULTITENANT_EVALUATOR_CONFIG: config.file, NS_EVALUATOR_FIXTURE_CONNECTION: connectionString,
-      NS_EVALUATOR_FIXTURE_SETTINGS: settingsConnection,
+      NS_RT_BOOTSTRAP_PGSTREAM_BINARY: process.env.NS_RT_BOOTSTRAP_PGSTREAM_BINARY,
+      NS_RT_BOOTSTRAP_PGSTREAM_CONFIG: path.join(directory, 'PENDING-PRODUCER-SETUP.json'),
+      NS_EVALUATOR_FIXTURE_SETTINGS: settingsConnection, NS_EVALUATOR_FIXTURE_ACTIVITY: activityConnection,
+      NS_EVALUATOR_FIXTURE_LIFETIME: lifetimeConnection, MULTITENANT_OPERATION_CONFIG: operationFile,
+      NS_SERVE_INTERNAL_SOCKET: path.join(directory, 'evaluator.sock'), NS_REALTIME_INTERNAL_SOCKET: path.join(directory, 'realtime.sock'),
+      ...lab.extraEnvironment, ...producer?.environment,
       // Results are read right after boot: all-tenants readiness (decision readiness-serve-then-warm).
       NS_TENANT_READINESS: process.env.NS_TENANT_READINESS || 'all' };
   }
-  lab.worker = config => new Promise((resolve, reject) => {
+  lab.worker = async config => {
+    await lab.prepareProduct(config);
+    return new Promise((resolve, reject) => {
     const child = fork(path.join(__dirname, 'evaluator-preview-worker.js'), [], { env: env(config), silent: true });
     const pending = new Map(); child.fixtureBootRefused = false; let sequence = 0, stdout = '', stderr = '', heldResolve;
     children.add(child); child.stdout.on('data', b => { stdout += b; }); child.stderr.on('data', b => { stderr += b; });
@@ -144,13 +210,15 @@ module.exports = function evaluatorPreviewRegistryLab () {
       pending.clear();
     });
   });
+  };
   lab.stopWorker = async worker => {
     if (worker.child.exitCode !== null || worker.child.signalCode !== null) return;
     await worker.call('release'); await worker.call('close');
     const stopped = new Promise(resolve => worker.child.once('exit', (code, signal) => resolve({ code, signal })));
     worker.child.send({ id: 0, action: 'exit' }); return stopped;
   };
-  lab.cli = config => {
+  lab.cli = async config => {
+    await lab.prepareProduct(config);
     const child = spawn(process.execPath, [path.join(__dirname, '../../bin/nightscout.js'), 'multitenant', 'evaluator'],
       { env: env(config), stdio: ['ignore', 'pipe', 'pipe'] });
     children.add(child); let stdout = '', stderr = '';
@@ -180,6 +248,7 @@ module.exports = function evaluatorPreviewRegistryLab () {
   lab.close = async () => {
     const errors = [], attempt = async fn => {try {await fn();} catch(error) {errors.push(error);}};
     await attempt(() => lab.stopChildren());
+    if (producer) await attempt(() => producer.close());
     if (provisioned) await attempt(() => provisioned.close());
     if (lab.admin) for (const role of [...addedRoles].reverse()) await attempt(async () => {
       await lab.admin.query('DROP OWNED BY "' + role + '"');

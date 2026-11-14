@@ -34,7 +34,7 @@ optInSuite(process.env.NS_EVALUATOR_CONSUMERS_TEST === '1' && !!process.env.NS_T
     }
     it('commits immutable tenant intent before actual adapter handoff and admits same-output once plus a repeat on the heartbeat clock', async function () {
       // Tenant heartbeat (single-site setting, seconds) shortened so the repeat arrives in the test.
-      const epoch=await reading(50); await reading(111,lab.B); const worker=await boot(document => { document.tenants.forEach(tenant => { tenant.settings.heartbeat = 3; }); });
+      const epoch=await reading(50); await reading(111,lab.B); await lab.setSettings({ enable: ['bgnow', 'delta', 'direction', 'simplealarms'], heartbeat: 3 }); const worker=await boot();
       const first=lab.sinkEffects.filter(row=>row.tenant===lab.A); lab.traceConsumer('first-output-before-verdict',{effects:first,requests:await lab.requests(),state:await lab.producerState(),health:await worker.call('health')}); assert.equal(first.length,1,'M5_CONSUMER_COMMIT_BEFORE_SINK');
       const capture=lab.observations.find(row=>row.phase==='sink-before-accept' && row.id===first[0].id);
       assert.equal(capture.ownRow.request_id,first[0].id); assert.equal(capture.ownRow.state,'attempting','M5_CONSUMER_COMMIT_BEFORE_SINK');
@@ -62,7 +62,7 @@ optInSuite(process.env.NS_EVALUATOR_CONSUMERS_TEST === '1' && !!process.env.NS_T
     it('retries a still-current uncertain request with the same UUID after actual process death while permitting one fresh cycle event', async function () {
       await reading(50); lab.sinkMode='lost-response'; const first=await boot();
       const original=(await lab.requests())[0]; lab.traceConsumer('uncertain-before-death',{original,state:await lab.producerState()}); assert.equal(original.state,'uncertain');
-      const exited=new Promise(resolve=>first.child.once('exit',(code,signal)=>resolve({code,signal}))); first.child.kill('SIGKILL');
+      const exited=new Promise(resolve=>first.child.once('exit',(code,signal)=>resolve({code,signal}))); lab.killConsumer(first);
       const death={...await exited,pid:first.child.pid}; assert.equal(death.signal,'SIGKILL'); lab.sinkMode='accept'; await waitDue(original.request_id);
       const next=await lab.workerConsumers(lab.configureConsumers()); assert.equal(next.startup.ready,true); await next.call('flush');
       const after=(await lab.requests()).find(row=>row.request_id===original.request_id);
@@ -77,7 +77,8 @@ optInSuite(process.env.NS_EVALUATOR_CONSUMERS_TEST === '1' && !!process.env.NS_T
       await reading(50,lab.A,4); await worker.call('acquire',lab.A); await worker.call('flush',lab.A);
       assert.equal((await worker.call('last',lab.A)).eligible,false);
       await lab.stopConsumer(worker);
-      const changed = lab.configureConsumers(document => {document.tenants.find(row=>row.id===lab.A).revision='control-config-after-restart';});
+      await lab.setSettings({ enable: ['bgnow', 'delta', 'direction', 'simplealarms'], units: 'mmol' }, lab.A);
+      const changed = lab.configureConsumers();
       worker = await lab.workerConsumers(changed); assert.equal(worker.startup.ready,true);
       await worker.call('flush',lab.A); await worker.call('flush',lab.B);
       assert.equal(await worker.call('last',lab.A),null,'M5_CONSUMER_COLD_NO_CLINICAL_RESULT');
