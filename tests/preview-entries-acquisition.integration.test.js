@@ -277,6 +277,52 @@ optInSuite(process.env.NS_REST_ACQUISITION_NATIVE === '1', 'NS_REST_ACQUISITION_
     console.log('REST_NATIVE_SHARED_READ_TRANSACTION ' + JSON.stringify(witnesses));
   });
 
+  it('classifies denied native clinical reads as snapshot unavailability after current authority', async () => {
+    const before = (await admin.query(`SELECT tenant_id,doc FROM ${ns}_entries.entries ORDER BY tenant_id`)).rows;
+    await admin.query(`REVOKE SELECT ON ${ns}_entries.entries FROM ${role}`);
+    try {
+      for (const version of [1, 2]) {
+        queries = [];
+        const response = await http('get', '/api/v' + version + '/entries').expect(503);
+        assert.deepEqual(response.body, { error: 'TENANT_SNAPSHOT_UNAVAILABLE' });
+        const authorization = queries.findIndex(sql => sql.includes('s.subject_id, s.display_name'));
+        const clinical = queries.findIndex(sql => sql.startsWith('SELECT id_kind, doc'));
+        assert(authorization >= 0 && clinical > authorization, 'CURRENT_AUTHORITY_PRECEDES_FAILED_CLINICAL_READ');
+      }
+    } finally { await admin.query(`GRANT SELECT ON ${ns}_entries.entries TO ${role}`); }
+    assert.deepEqual((await admin.query(`SELECT tenant_id,doc FROM ${ns}_entries.entries ORDER BY tenant_id`)).rows, before);
+    await http('get', '/api/v1/entries').expect(200);
+  });
+
+  it('classifies a missing native clinical table as an internal snapshot failure', async () => {
+    const before = (await admin.query(`SELECT tenant_id,doc FROM ${ns}_entries.entries ORDER BY tenant_id`)).rows;
+    await admin.query(`ALTER TABLE ${ns}_entries.entries RENAME TO entries_fault_fixture`);
+    try {
+      for (const version of [1, 2]) {
+        const response = await http('get', '/api/v' + version + '/entries').expect(500);
+        assert.deepEqual(response.body, { error: 'TENANT_SNAPSHOT_INTERNAL' });
+      }
+    } finally { await admin.query(`ALTER TABLE ${ns}_entries.entries_fault_fixture RENAME TO entries`); }
+    assert.deepEqual((await admin.query(`SELECT tenant_id,doc FROM ${ns}_entries.entries ORDER BY tenant_id`)).rows, before);
+    await http('get', '/api/v2/entries').expect(200);
+  });
+
+  it('keeps native authority failures distinct and refuses before any clinical read', async () => {
+    const before = (await admin.query(`SELECT tenant_id,doc FROM ${ns}_entries.entries ORDER BY tenant_id`)).rows;
+    await admin.query(`REVOKE SELECT ON ${auth}.tenant_authorization_roles FROM ${role}`);
+    try {
+      for (const version of [1, 2]) {
+        queries = [];
+        const response = await http('get', '/api/v' + version + '/entries').expect(503);
+        assert.deepEqual(response.body, { error: 'AUTHORITY_UNAVAILABLE' });
+        assert(queries.some(sql => sql.includes('s.subject_id, s.display_name')), 'CURRENT_AUTHORITY_READ_ATTEMPTED');
+        assert(!queries.some(sql => sql.includes(ns + '_entries')), 'FAILED_AUTHORITY_PREVENTS_CLINICAL_SQL');
+      }
+    } finally { await admin.query(`GRANT SELECT ON ${auth}.tenant_authorization_roles TO ${role}`); }
+    assert.deepEqual((await admin.query(`SELECT tenant_id,doc FROM ${ns}_entries.entries ORDER BY tenant_id`)).rows, before);
+    await http('get', '/api/v1/entries').expect(200);
+  });
+
   it('retains current role/membership/foreign-token and restore admission refusals with no writes', async () => {
     // Explicit role named like an anonymous default: claims override, decisions union.
     await admin.query(`UPDATE ${auth}.tenant_authorization_config SET anonymous_roles=ARRAY['readable'] WHERE tenant_id=$1`, [A]);
@@ -309,6 +355,9 @@ optInSuite(process.env.NS_REST_ACQUISITION_NATIVE === '1', 'NS_REST_ACQUISITION_
     assert.equal(checks, prior + 1, 'actual route crosses operation-window adapter'); suspended = false;
     assert.deepEqual((await admin.query(`SELECT tenant_id,doc FROM ${ns}_entries.entries ORDER BY tenant_id`)).rows, before);
     await connection.end(); closed = true;
-    await http('get', '/api/v1/entries/sgv', B).expect(503); // Shared authority pool now refuses before clinical SQL.
+    queries = [];
+    const unavailable = await http('get', '/api/v1/entries/sgv', B).expect(503);
+    assert.deepEqual(unavailable.body, { error: 'AUTHORITY_UNAVAILABLE' });
+    assert(!queries.some(sql => sql.includes(ns + '_entries')), 'CLOSED_AUTHORITY_POOL_PREVENTS_CLINICAL_SQL');
   });
 });
