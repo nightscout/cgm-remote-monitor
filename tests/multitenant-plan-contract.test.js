@@ -1,6 +1,6 @@
 'use strict';
 
-// covers: lib/server/serve/plan-contract/index.js, lib/server/serve/plan-contract/json-schema.js, lib/cli/commands/plan.js, lib/cli/commands/multitenant.js, lib/cli/index.js, lib/server/serve/index.js, lib/server/serve/preview-config.js, lib/server/realtime/config.js, lib/server/serve/evaluator-config.js, lib/server/serve/owner-preview-config.js, lib/server/serve/admin-config.js, lib/change-feed/config.js, lib/server/serve/operation-cohort-config.js, lib/server/serve/registry-config.js
+// covers: lib/server/serve/plan-contract/index.js, lib/server/serve/plan-contract/json-schema.js, lib/cli/commands/plan.js, lib/cli/commands/multitenant.js, lib/cli/index.js, lib/server/serve/index.js, lib/server/serve/preview-config.js, lib/server/realtime/config.js, lib/server/serve/evaluator-config.js, lib/server/serve/owner-preview-config.js, lib/server/serve/admin-config.js, lib/server/serve/operation-cohort-config.js, lib/server/serve/registry-config.js
 //
 // The deployment plan contract (decision deployment-plan-contract) against the
 // role configuration loaders, so the two cannot drift. The published schemas
