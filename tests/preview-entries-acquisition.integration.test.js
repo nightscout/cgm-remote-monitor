@@ -102,7 +102,7 @@ optInSuite(process.env.NS_REST_ACQUISITION_NATIVE === '1', 'NS_REST_ACQUISITION_
     const output = { exports: {} };
     vm.runInThisContext('(function(require,module,exports){' + restored + '\n})', { filename: file })(createRequire(file), output, output.exports);
     const oldGraph = await output.exports(previewOptions);
-    const access = dataAccess({ authority, entriesReadConnection: connection, secrets: { verifyLegacyCredential: async ({ tenant }, { token }) =>
+    const access = dataAccess({ authority, readConnection: connection, secrets: { verifyLegacyCredential: async ({ tenant }, { token }) =>
       credentials.get(token) === tenant ? { kind: 'subject', subjectId: 'subject' } : null },
     verifierContext: async tenant => ({ tenant, consumer: 'api' }), collections: domains, legacyCollections: domains });
     const options = { resolver: { resolve: async req => req.hostname === 'a.example.test' ? A : B },

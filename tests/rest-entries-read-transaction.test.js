@@ -55,12 +55,12 @@ async function fixture (mutate) {
     direct: true, displaySettings: true, application_name: 'nightscout-display-settings', max: 4, idleTimeoutMillis: 0 });
   const authority = await require('../lib/tenant-authorization/postgres')({ namespace: 'synthetic_auth', connection });
   const createAccess = accessImplementation(mutate);
-  const access = createAccess({ authority, entriesReadConnection: connection,
+  const access = createAccess({ authority, readConnection: connection,
     verifierContext: async tenant => ({ tenant, consumer: 'api' }), legacyCollections: ['entries'],
     secrets: { async verifyLegacyCredential () { events.push('credential-and-audits-finished'); return { kind: 'subject', subjectId: 'subject' }; } } });
   const request = (tenant = A) => {
     const req = { method: 'GET', path: '/entries/sgv.json', rawHeaders: [], query: { token: 'synthetic' } };
-    createAccess.registerEntriesRead(req, { tenant, connection,
+    createAccess.registerRawRead(req, { tenant, logical: 'entries', connection,
       async load () { events.push('load'); await connection.query('SELECT clinical_entries'); return { tenant }; },
       publish (frame) { events.push('publish'); req.frame = frame; } });
     return req;
@@ -166,6 +166,43 @@ describe('private current-authority and raw entries read transaction', function 
     } finally { await f.close(); }
   });
 
+  it('joins actual treatments and devicestatus materializers with fresh authority before HTTP success', async function () {
+    const f = await fixture();
+    try {
+      const domains = ['entries', 'treatments', 'devicestatus', 'profile', 'food', 'activity'];
+      const environment = require('../lib/server/tenant-app/environment');
+      const graph = await require('../lib/server/serve/preview-domains')({ config: {
+        domains, legacyEnabled: true, contextEnabled: true,
+        bindings: new Map([[A, {}]]), environments: new Map([[A, environment()]]),
+        namespaces: Object.fromEntries(domains.map(name => [name, 'source_' + name]))
+      }, connection: f.connection, exchange: async () => null });
+      const unused = async () => { throw Error('not installed'); };
+      const access = require('../lib/server/tenant-app/data-access')({ authority: f.authority, readConnection: f.connection,
+        verifierContext: async tenant => ({ tenant, consumer: 'api' }), legacyCollections: domains,
+        secrets: { verifyLegacyCredential: async () => ({ kind: 'root' }) } });
+      const app = require('../lib/server/tenant-app').createTenantApp({ resolver: { resolve: async () => A },
+        dataAccess: access, legacyRouter: graph.legacyRouter, dataRouter: require('express').Router(),
+        verifyCredential: unused, authorizeRequest: unused, tenantSettings: { read: unused, replace: unused, rollback: unused },
+        subjectPolicy: { read: unused, replace: unused } });
+      const request = require('./fixtures/in-memory-http');
+      for (const logical of ['treatments', 'devicestatus']) for (const version of [1, 2]) {
+        f.action(async (client, text) => {
+          if (text.includes('s.subject_id AS found_subject')) return { rows: [{ anonymous_roles: ['denied'],
+            found_subject: null, role_name: null, found_role: null, permissions: null }] };
+          if (text.startsWith('SELECT id_kind, doc')) return { rows: [{ id_kind: 'string', doc: {
+            _id: logical + '-synthetic', eventType: 'Note', created_at: new Date().toISOString(), device: 'synthetic'
+          } }] };
+        });
+        f.calls.length = 0;
+        const result = await request(app, '/api/v' + version + '/' + logical + '?count=1', { headers: { 'api-secret': 'synthetic' } });
+        assert.equal(result.status, 200); assert.equal(result.body[0]._id, logical + '-synthetic');
+        oneTransaction(f);
+        assert.equal(f.calls.filter(call => call.text.startsWith('SELECT id_kind, doc')).length, 1, 'ONE_DOMAIN_ACQUISITION');
+        assert.equal(f.calls.filter(call => call.text.includes('s.subject_id AS found_subject')).length, 1, 'FRESH_AUTHORITY_ON_EVERY_READ');
+      }
+    } finally { await f.close(); }
+  });
+
   it('does not close a borrowed pool if authority startup admission refuses', async function () {
     const f = await fixture();
     try {
@@ -182,7 +219,7 @@ describe('private current-authority and raw entries read transaction', function 
     const f = await fixture();
     try {
       assert.throws(() => accessImplementation()({ authority: f.authority,
-        entriesReadConnection: { ...f.connection }, secrets: { verifyLegacyCredential: async () => null },
+        readConnection: { ...f.connection }, secrets: { verifyLegacyCredential: async () => null },
         verifierContext: async () => null }), /must own the same connection/);
     } finally { await f.close(); }
   });

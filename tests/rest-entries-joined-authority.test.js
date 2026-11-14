@@ -57,7 +57,7 @@ async function fixture (kind = 'legacy-subject', mutate) {
     direct: true, displaySettings: true, application_name: 'nightscout-display-settings', max: 4, idleTimeoutMillis: 0 });
   const authority = await require('../lib/tenant-authorization/postgres')({ namespace: 'synthetic_auth', connection });
   const createAccess = accessImplementation(mutate);
-  const access = createAccess({ authority, entriesReadConnection: connection,
+  const access = createAccess({ authority, readConnection: connection,
     verifierContext: async tenant => ({ tenant, consumer: 'api' }), legacyCollections: ['entries'],
     accessTokens: { authenticate: async () => { events.push('access-current-authority'); return { claims: { sub: 'subject' }, state: { allows: () => true } }; } },
     humanSessions: { credential: () => kind === 'human' ? { cookie: true, token: 'synthetic-human' } : null,
@@ -73,7 +73,7 @@ async function fixture (kind = 'legacy-subject', mutate) {
     else if (['root', 'api-secret-subject'].includes(kind)) req.rawHeaders = ['api-secret', 'synthetic'];
     else if (kind === 'access') req.rawHeaders = ['authorization', 'Bearer ' + Buffer.from(JSON.stringify({ typ: 'ns-access+jwt' })).toString('base64url') + '.synthetic.signature'];
     Object.assign(req, overrides);
-    createAccess.registerEntriesRead(req, { tenant, connection: overrides.foreignConnection ? { ...connection, query: () => {} } : connection,
+    createAccess.registerRawRead(req, { tenant, logical: 'entries', connection: overrides.foreignConnection ? { ...connection, query: () => {} } : connection,
       async load () { events.push('load'); await connection.query('SELECT clinical_entries'); return { tenant }; },
       publish (frame) { events.push('publish'); req.frame = frame; } });
     return req;
@@ -164,7 +164,7 @@ describe('private joined entries authority coverage', function () {
         f.events.length = 0; assert(await f.access({ tenant: A, request: req, version: 1 }));
         assert(!f.events.includes('load')); assert.equal(req.frame, undefined);
       }
-      assert.throws(() => accessImplementation()({ authority: f.authority, entriesReadConnection: { ...f.connection },
+      assert.throws(() => accessImplementation()({ authority: f.authority, readConnection: { ...f.connection },
         secrets: { verifyLegacyCredential: async () => null }, verifierContext: async () => null }), /must own the same connection/);
     } finally { await f.close(); }
   });
