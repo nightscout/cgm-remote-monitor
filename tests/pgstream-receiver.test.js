@@ -15,6 +15,15 @@ describe('pgstream explicit input/output/schema receiver',function(){
    await Promise.resolve();assert.equal(settled,false);commit();await work;assert.equal(settled,true);
  });
  it('refuses failed durable receipt',async()=>{const receive=receiver({store:{observe:async()=>{throw Error('COMMIT_LOST');}}});await assert.rejects(receive(event('clock',{tenant_id:A,last_stamp:'18'})),/COMMIT_LOST/);assert.equal(inputs.length,0);});
+ it('skips only completed replay hints after durable COMMIT and still recovers pending duplicates',async()=>{
+   let receipt={observed:{clock:'17'},completed:{clock:'17'}},commit;
+   const receive=receiver({store:{observe:()=>new Promise(resolve=>{commit=()=>resolve(receipt);})}});
+   const done=receive(event('clock',{tenant_id:A,last_stamp:'17'}));await Promise.resolve();assert.equal(inputs.length,0);commit();await done;assert.equal(inputs.length,0,'COMPLETED_REPLAY_MUST_NOT_ACQUIRE');
+   receipt={observed:{clock:'18'},completed:{clock:'17'}};
+   const pending=receive(event('clock',{tenant_id:A,last_stamp:'17'}));await Promise.resolve();commit();await pending;assert.deepEqual(inputs,[[A,'clock']],'PENDING_DUPLICATE_MUST_RECOVER_MISSED_HINT');
+   receipt={observed:{clock:'17',policy:'2'},completed:{clock:'17',policy:'1'}};
+   const control=receive(event('clock',{tenant_id:A,last_stamp:'17'}));await Promise.resolve();commit();await control;assert.equal(inputs.length,2,'OTHER_PENDING_SOURCE_MUST_RECOVER');
+ });
  it('routes output/receiver writes without input feedback; ignores another checkpoint consumer',async()=>{
    const receive=receiver();await receive(event('checkpoint',{tenant_id:A,consumer:'evaluator-test-completed'}));await receive(event('checkpoint',{tenant_id:A,consumer:'acquired-only'}));assert.deepEqual(outputs,[A]);assert.equal(inputs.length,0);assert.equal(observe.length,0);
  });

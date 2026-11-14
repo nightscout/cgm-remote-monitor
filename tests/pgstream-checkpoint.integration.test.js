@@ -52,6 +52,20 @@ optInSuite(process.env.NS_PGSTREAM_ROLE_TEST==='1' && !!process.env.NS_TEST_POST
    const persisted=await output(lab.A);assert.equal(persisted.observed.clock,'2');assert.equal(persisted.completed.clock,'1');
    assert.equal(persisted.output.frame.sgvs[0].synthetic.length,32768);
  });
+ it('reuses matched completed output without transferring frame/rows and atomically patches TIME due metadata',async()=>{
+   await store.observe(lab.A,'clock','1');const observed=await store.begin(lab.A),cycle=result();cycle.frame.sgvs=[{synthetic:'x'.repeat(32768)}];
+   const first=await store.complete(lab.A,{observed,identity:'a'.repeat(64),result:cycle});
+   const received=[],sent=[];
+   const bounded=create({connection:{...lab.reader,async query(...args){const value=await lab.reader.query(...args);received.push(Buffer.byteLength(JSON.stringify(value.rows)));if(args[0].startsWith('UPDATE'))sent.push(args[1][3]);return value;}},namespace:lab.replayNamespace,consumer:'evaluator-roles',maxBytes:4*1024*1024,timeIntervalMs:60000});
+   await store.close();await bounded.own(()=>{});
+   try{
+     const next=await bounded.complete(lab.A,{observed,identity:'a'.repeat(64),result:{...cycle,frame:{...cycle.frame,lastUpdated:cycle.frame.lastUpdated+1000},due:{dueAt:cycle.due.dueAt+1000,slow:[]}},retainedOutput:{...first.output,runtimeId:'existing-runtime'}});
+     assert.equal(next.changed,false);assert.equal(next.output.outputRevision,1);
+     assert(received.every(bytes=>bytes<4096),'MATCHED_COMPLETION_MUST_NOT_TRANSFER_CLINICAL_FRAME');
+     assert.equal(sent.length,1);assert(!Object.hasOwn(JSON.parse(sent[0]),'output'),'UNCHANGED_OUTPUT_MUST_NOT_BE_SENT');
+     const persisted=await output(lab.A);assert.deepEqual(persisted.output,JSON.parse(JSON.stringify(first.output)));assert.deepEqual(persisted.completed,observed);assert.equal(persisted.nextDueAt,cycle.due.dueAt+1000);
+   }finally{await bounded.close();}
+ });
  it('aborts completion after actual ownership-backend death while the row update is held',async()=>{
    await store.observe(lab.A,'clock','1');const observed=await scope.withTenant(lab.A,()=>store.begin(lab.A));
    const control=new Client({connectionString:process.env.NS_TEST_POSTGRES_ADMIN_URI});await control.connect();
