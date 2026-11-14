@@ -211,6 +211,7 @@ describe('bounded read-through and pinned atomic publication cache', function ()
   });
 
   async function registryCurrent (mutate = source => source, inspect = () => {}) {
+    const scope = require('../lib/storage/tenant-scope'), previous = scope.getTenancyMode();
     fs.writeFileSync(file, '{}'); const observed = observe(file);
     const counts = { reads: 0, factories: 0, refreshes: 0, closes: 0, legacy: 0, finite: 0 }; let reached = false, assertionsReached = false;
     const settingsOf = isolatedModule('../lib/server/serve/evaluator-config', { '../../tenant-settings/effective-postgres': async () => {
@@ -248,11 +249,16 @@ describe('bounded read-through and pinned atomic publication cache', function ()
       assert.equal(reached, true); assert.equal(counts.reads, 200); assert.equal(assertionsReached, true);
       assert.equal(observed.reads, 0); assert.equal(enumerations, 0);
       assert.deepEqual(counts, { reads: 200, factories: 1, refreshes: 0, closes: 1, legacy: 0, finite: 0 });
-    } finally { inspect({ ...counts, reached, assertionsReached }); observed.restore(); }
+    } finally {
+      try { inspect({ ...counts, reached, assertionsReached }); }
+      finally { observed.restore(); scope.setTenancyMode(previous); }
+    }
   }
 
   it('EVALUATOR_REGISTRY_CURRENT: actual registry boot seam uses per-tenant settings with zero legacy file/roster reads', async function () {
+    const scope = require('../lib/storage/tenant-scope'), previous = scope.getTenancyMode();
     await registryCurrent();
+    assert.equal(scope.getTenancyMode(), previous, 'REGISTRY_BOOT_FIXTURE_RESTORES_TENANCY_MODE');
   });
 
   it('EVALUATOR_REGISTRY_CURRENT_CONTROLS: removing the owned reader or registry override is red, and restoration reaches every assertion', async function () {
