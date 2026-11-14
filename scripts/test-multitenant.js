@@ -54,6 +54,14 @@ const IMAGES = {
 const PENDING = 'pending opt-in';
 const CRUD = { NS_ENTRIES_CRUD_HTTP_TEST: '1' };
 const INVENTORY = [
+  { file: 'tests/pgstream-bootstrap-batch.integration.test.js', flags: { NS_PGSTREAM_ROLE_TEST: '1' }, shared: ['postgres'], own: [], gate: PENDING,
+    note: 'native bounded bootstrap receipts preserve completed output, due work, pending age and unknown checkpoint fields' },
+  { file: 'tests/pgstream-checkpoint.integration.test.js', flags: { NS_PGSTREAM_ROLE_TEST: '1' }, shared: ['postgres'], own: [], gate: PENDING,
+    note: 'native observed/completed/output/due atomicity, owner loss and retained-overdue cold serve boot without another clinical write' },
+  { file: 'tests/pgstream-single-receipt.integration.test.js', flags: { NS_PGSTREAM_ROLE_TEST: '1' }, shared: ['postgres'], own: [], gate: PENDING,
+    note: 'native single receipt metadata patches preserve clinical output and monotone control state; rollback and old-transfer RED control' },
+  { file: 'tests/preview-entries-acquisition.integration.test.js', flags: { NS_REST_ACQUISITION_NATIVE: '1' }, shared: [], own: ['postgres'], gate: PENDING,
+    note: 'actual preview entries read/write, current-authority and restore refusal on owned pinned PostgreSQL; operation-window adapter is a refusal protocol' },
   { file: 'tests/realtime-placement-owner.integration.test.js', flags: {}, shared: ['postgres'], own: [], gate: PENDING,
     note: 'actual held realtime worker owner exclusion, backend loss and independent worker' },
   { file: 'tests/realtime-placement-publication.integration.test.js', flags: { NS_VAULT_DOCKER_TEST: '1' }, shared: ['postgres'], own: ['vault'], gate: PENDING,
@@ -355,7 +363,13 @@ function checkInventory ({ inventory = INVENTORY, testFiles = tiers.listTestFile
     // Avoid parsing unrelated files; these names alone never establish a read.
     if (!/NS_TEST_POSTGRES_ADMIN_URI|optInSuite|process/.test(text)) continue;
     try {
-      if (classifyOptInSource(text).needed) problems.push(file + ': opt-in test file missing from scripts/test-multitenant.js INVENTORY');
+      const classified = classifyOptInSource(text);
+      // This always-running unit protocol temporarily saves/restores a synthetic
+      // admin URI around recording dependencies. It opens no native resource.
+      // A real opt-in or another environment dependency revokes the exception.
+      const sourceProtocol = file === 'tests/evaluator-preview-registry-fixture.test.js' && !classified.optIn &&
+        !classified.unknownEnvironmentRead && classified.environmentReads.every(name => name === 'NS_TEST_POSTGRES_ADMIN_URI');
+      if (classified.needed && !sourceProtocol) problems.push(file + ': opt-in test file missing from scripts/test-multitenant.js INVENTORY');
     } catch {
       problems.push(file + ': cannot classify opt-in source; inventory validation refuses a parse failure');
     }
@@ -370,7 +384,7 @@ function select (only) {
 
 function list (suites) {
   for (const suite of suites) {
-    const flags = Object.entries(suite.flags).map(([k, v]) => k + '=' + v).join(' ') || '(admin URI only)';
+    const flags = Object.entries(suite.flags).map(([k, v]) => k + '=' + v).join(' ') || (suite.shared.includes('postgres') ? '(admin URI only)' : '(none)');
     const provided = suite.shared.length ? suite.shared.join('+') : 'none';
     const own = suite.own.length ? suite.own.join('+') : 'none';
     console.log(suite.file + '\n  flags: ' + flags + '\n  provided by the script: ' + provided +

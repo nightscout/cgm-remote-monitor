@@ -16,7 +16,11 @@ npm run test:multitenant -- --record run.json  # also write the run record (ids,
 `scripts/test-multitenant.js` holds the inventory as data and refuses to run
 when a test file calls `optInSuite` with an `NS_` flag or reads
 `NS_TEST_POSTGRES_ADMIN_URI` without being listed, so a new opt-in suite is
-added there and in the table below.
+added there and in the table below. The one source-protocol exception is
+`tests/evaluator-preview-registry-fixture.test.js`, which always runs in the unit
+tier. It temporarily saves/restores a synthetic admin URI around recording
+setup dependencies and opens no PostgreSQL, Vault, network or child process.
+Adding a real opt-in or another environment dependency revokes the exception.
 
 ## What the command does
 
@@ -62,13 +66,17 @@ themselves.
 
 ## Inventory
 
-65 suites. 40 use the admin URI the script provides; 29 start at least one
-container of their own through Docker. Disabled, 64 register their
+94 suites. 54 use the admin URI the script provides; 53 start at least one
+container of their own through Docker. Disabled, 93 register their
 tests as pending with `[pending opt-in: <requirement>]` in the title; one
 (`postgres-entries-write`) uses a bare `describe.skip`.
 
 | Suite | Flag(s) the script sets | Script provides | Starts its own | Note |
 |---|---|---|---|---|
+| `tests/pgstream-bootstrap-batch.integration.test.js` | `NS_PGSTREAM_ROLE_TEST=1` | PostgreSQL | | native bounded bootstrap receipts preserve completed/output/due/pending state |
+| `tests/pgstream-checkpoint.integration.test.js` | `NS_PGSTREAM_ROLE_TEST=1` | PostgreSQL | | observed/completed/output/due atomicity, owner loss, retained-overdue cold serve boot without another clinical write |
+| `tests/pgstream-single-receipt.integration.test.js` | `NS_PGSTREAM_ROLE_TEST=1` | PostgreSQL | | single receipt metadata patches, monotone control state, rollback and old-transfer RED |
+| `tests/preview-entries-acquisition.integration.test.js` | `NS_REST_ACQUISITION_NATIVE=1` | | PostgreSQL | actual preview entries read/write and current-authority/restore refusal; owned pinned image and verified container/volume cleanup, operation-window adapter is a refusal protocol |
 | `tests/postgres-connection.test.js` | admin URI only | PostgreSQL | | |
 | `tests/entries-importer-postgres.integration.test.js` | admin URI plus `NS_POPULATED_RECOVERY_DOCKER_TEST=1` | PostgreSQL | PostgreSQL source and fresh restore target | populated stopped-write snapshot/ledger/typed identity reference; no key recovery |
 | `tests/postgres-entries-read.test.js` | admin URI only | PostgreSQL, MongoDB | | |

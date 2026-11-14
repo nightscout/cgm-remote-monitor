@@ -37,14 +37,15 @@ optInSuite(process.env.NS_REST_ACQUISITION_NATIVE === '1', 'NS_REST_ACQUISITION_
       .set('Host', tenant === A ? 'a.example.test' : 'b.example.test').set('Accept', 'application/json');
   before(async () => {
     previous = scope.getTenancyMode(); scope.setTenancyMode('multi');
-    pinnedImage = docker(['image', 'inspect', 'postgres:16', '--format', '{{.Id}}']);
+    const imageReference=process.env.NS_MULTITENANT_POSTGRES_IMAGE || 'postgres:16';
+    pinnedImage = docker(['image', 'inspect', imageReference, '--format', '{{.Id}}']);
     const id = execFileSync('docker', ['run', '--rm', '-d', '--name', name,
       '--label', 'com.docker.compose.project=ns-rest-read-transaction-native-20261113', '--label', 'ns.rest.owner=rest-read-transaction-batch-20261113',
       '--cpus=1', '--memory=512m', '-p', '127.0.0.1::5432', '-e', 'POSTGRES_PASSWORD', pinnedImage],
     { env: { ...process.env, POSTGRES_PASSWORD: password }, encoding: 'utf8', timeout: 30000 }).trim();
     owned = true; containerId = id;
     const port = docker(['port', name, '5432/tcp']).split(':').pop();
-    console.log('REST_NATIVE_OWNED ' + JSON.stringify({ id, name, port, pinnedImage, owner: 'rest-read-transaction-batch-20261113' }));
+    console.log('REST_NATIVE_OWNED ' + JSON.stringify({ id, name, port, imageReference, pinnedImage, owner: 'rest-read-transaction-batch-20261113' }));
     const uri = new URL('postgres://postgres@127.0.0.1:' + port + '/postgres'); uri.password = password;
     for (let i = 0; ; i++) {
       try { docker(['exec', name, 'pg_isready', '-h', '127.0.0.1', '-U', 'postgres']); break; }
@@ -118,12 +119,18 @@ optInSuite(process.env.NS_REST_ACQUISITION_NATIVE === '1', 'NS_REST_ACQUISITION_
     try { if (connection && !closed) await connection.end(); }
     finally { try { if (authority) await authority.close(); }
       finally { try { if (admin) await admin.end(); }
-      finally { if (owned) {
+      finally { try { if (owned) {
         const metadata = JSON.parse(docker(['inspect', containerId]))[0];
         assert.equal(metadata.Config.Labels['ns.rest.owner'], 'rest-read-transaction-batch-20261113');
         assert.equal(metadata.Image, pinnedImage);
-        docker(['rm', '-f', '-v', containerId]); console.log('REST_NATIVE_REMOVED ' + containerId);
-      } scope.setTenancyMode(previous); } } }
+        assert.equal(metadata.Name,'/'+name);
+        const volumes=metadata.Mounts.filter(row=>row.Type==='volume').map(row=>row.Name);
+        docker(['rm', '-f', '-v', containerId]);
+        assert.equal(docker(['ps','-a','--no-trunc','--filter','id='+containerId,'--format','{{.ID}}']),'');
+        const remaining=new Set(docker(['volume','ls','--format','{{.Name}}']).split('\n'));
+        assert(volumes.every(volume=>!remaining.has(volume)),'REST_NATIVE_OWNED_VOLUMES_REMOVED');
+        console.log('REST_NATIVE_REMOVED '+JSON.stringify({id:containerId,pinnedImage,containerAbsent:true,volumesAbsent:true,volumeCount:volumes.length}));
+      } } finally { scope.setTenancyMode(previous); } } } }
   });
   it('persists each tenant through actual POST then reads matching content with no unrelated SQL', async () => {
     for (const [tenant, sgv] of [[A, 123], [B, 234]]) {

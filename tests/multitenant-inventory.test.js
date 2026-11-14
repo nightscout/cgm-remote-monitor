@@ -9,6 +9,19 @@ const readSource = file => fs.readFileSync(path.join(root, file), 'utf8');
 const unlisted = (file, source) => inventory.checkInventory({inventory: [], testFiles: [file], tierOf: () => 'integration', readSource: () => source});
 
 describe('multitenant inventory executable environment consumption', function () {
+  it('covers actual opt-in files and selects the new native groups with their required resources', function () {
+    assert.deepEqual(inventory.checkInventory(),[],'ACTUAL_CORPUS_INVENTORY_COMPLETE');
+    const rows=new Map(inventory.INVENTORY.map(row=>[row.file,row]));
+    const pgstream=['tests/pgstream-bootstrap-batch.integration.test.js','tests/pgstream-checkpoint.integration.test.js','tests/pgstream-single-receipt.integration.test.js'];
+    for(const file of pgstream){const row=rows.get(file);assert(row);assert.deepEqual(row.flags,{NS_PGSTREAM_ROLE_TEST:'1'});assert.deepEqual(row.shared,['postgres']);assert.deepEqual(row.own,[]);}
+    const rest=rows.get('tests/preview-entries-acquisition.integration.test.js');assert.deepEqual(rest.flags,{NS_REST_ACQUISITION_NATIVE:'1'});assert.deepEqual(rest.shared,[]);assert.deepEqual(rest.own,['postgres']);
+    const protocol='tests/evaluator-preview-registry-fixture.test.js';assert.equal(rows.has(protocol),false);
+    assert.deepEqual(unlisted(protocol,readSource(protocol)),[]);
+    const changed=readSource(protocol)+"\nconst {optInSuite: native} = require('./support/opt-in'); native(process.env.NS_PLANTED_PROTOCOL_TEST === '1','native requirement');";
+    assert.match(unlisted(protocol,changed)[0],/opt-in test file missing/,'NATIVE_OPTIN_REVOKES_PROTOCOL_EXCEPTION');
+    const omitted=inventory.INVENTORY.filter(row=>!pgstream.includes(row.file));
+    const red=inventory.checkInventory({inventory:omitted});assert.equal(red.length,3);assert(red.every(value=>value.includes('opt-in test file missing')),'MISSING_NATIVE_GROUPS_MUST_REFUSE');
+  });
   it('accepts the actual source-only bootstrap test without hiding its synthetic admin URI document', function () {
     const file = 'tests/realtime-bootstrap.test.js', source = readSource(file);
     assert(source.includes('NS_TEST_POSTGRES_ADMIN_URI'), 'synthetic input remains explicit');
