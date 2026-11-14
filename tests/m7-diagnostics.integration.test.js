@@ -27,6 +27,7 @@ for (const enabled of [false, true]) optInSuite(process.env.NS_M7_DIAGNOSTICS_DO
         let snapshot = diag.snapshot(); assert.equal(snapshot.pools.storage.checkedout, 1); assert.equal(snapshot.pools.storage.waiting, 1); assert.equal(snapshot.pools.storage.activeSQL, 0);
         await new Promise(resolve => setTimeout(resolve, 100)); first.release(); first = null; second = await queued; queued = null; second.release(); second = null;
         snapshot = diag.snapshot(); assert(snapshot.durations['pool.wait_storage'].maxMs >= 80);
+        assert(snapshot.durations['pool.held_storage'].maxMs >= 80); assert.equal(snapshot.pools.storage.heldObservations, 2); assert.equal(snapshot.pools.storage.heldStatus, 'MEASURED');
         const sleeping = pool.query('SELECT pg_sleep(0.2)');
         await f.base.until(async () => diag.snapshot().pools.storage.activeSQL === 1, 'actual outstanding SQL query');
         assert.equal(diag.snapshot().pools.storage.checkedout, 1); await sleeping;
