@@ -79,7 +79,7 @@ async function setup({ admin, adminURI, directory, config, evaluatorRole, realti
     if (roleOwned) { await admin.query('DROP OWNED BY ' + q(pgstream.streamRole)); await admin.query('DROP ROLE ' + q(pgstream.streamRole)); }
     // Wire/init files contain passwords. Retain private logs in the owned
     // capture, but remove these two plaintext connection documents on close.
-    for (const file of ['init.json', 'wire.json']) fs.rmSync(path.join(own, file), { force: true });
+    for (const file of ['init.json', 'wire.yaml']) fs.rmSync(path.join(own, file), { force: true });
     closed = true;
   }
   try {
@@ -96,7 +96,7 @@ async function setup({ admin, adminURI, directory, config, evaluatorRole, realti
       const owned=(await admin.query("SELECT to_regnamespace('pgstream') IS NOT NULL AS schema_owned,to_regclass($1) IS NOT NULL AS heartbeat_owned",[heartbeat])).rows[0];
       schemaOwned=owned?.schema_owned===true;heartbeatOwned=owned?.heartbeat_owned===true;
     }
-    const configFile = path.join(own, 'wire.json'); fs.writeFileSync(configFile, JSON.stringify(wire(config, streamURL.href, selected.subscriptionsPort, canonical)), { flag: 'wx', mode: 0o600 });
+    const configFile = path.join(own, 'wire.yaml'); fs.writeFileSync(configFile, JSON.stringify(wire(config, streamURL.href, selected.subscriptionsPort, canonical)), { flag: 'wx', mode: 0o600 });
     binary(selected.binary, selected.sha256, selected.sha256);
     return Object.freeze({ configuration: pgstream, environment: { [ENV.binary]: selected.binary, [ENV.config]: configFile }, configFile, close });
   } catch (error) { await close(); throw error; }
