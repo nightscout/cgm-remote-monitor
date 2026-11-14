@@ -21,6 +21,23 @@ function fixture (options = {}) {
   return { reader, calls, connection, bump: () => { version++; }, policy: () => { generation++; }, time: value => { at = value; }, hold: value => { held = value; } };
 }
 describe('trusted worker metadata and operational scope', function () {
+  it('keeps full bigint activity versions exact through recovery bootstrap', async function () {
+    for (const version of ['9007199254740993', '9223372036854775807']) {
+      const f = fixture(), original = f.connection.readOnly;
+      f.connection.readOnly = async (...args) => { const result = await original(...args); if (/activity_version/.test(args[0])) for (const row of result.rows) row.activity_version = version; return result; };
+      await f.reader.verify(); const rows = await f.reader.scan([A]);
+      let observed;
+      await require('../lib/pgstream/bootstrap')({ observeMany: async page => { observed = page[0].observed.activity; } }, rows);
+      assert.equal(observed, version, 'BOOTSTRAP_MUST_KEEP_EXACT_ACTIVITY_VERSION');
+      assert.notEqual(String(Number(version)), version, 'NUMBER_CONVERSION_CONTROL_MUST_LOSE_PRECISION');
+      await f.reader.close();
+    }
+    for (const version of [9007199254740992, '9223372036854775808', '01', null]) {
+      const f = fixture(), original = f.connection.readOnly;
+      f.connection.readOnly = async (...args) => { const result = await original(...args); if (/activity_version/.test(args[0])) for (const row of result.rows) row.activity_version = version; return result; };
+      await f.reader.verify(); await assert.rejects(f.reader.scan([A]), /TRUSTED_WORKER_UNAVAILABLE/); await f.reader.close();
+    }
+  });
   it('uses one set-based metadata query and no settings/catalogue queries for unchanged reads', async function () {
     const f = fixture(); await f.reader.verify(); await f.reader.scan([A, B]);
     const initial = await f.reader.read(A), before = f.calls.length;
