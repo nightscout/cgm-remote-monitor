@@ -609,6 +609,26 @@ optInSuite(process.env.NS_SECRETS_POSTGRES_DOCKER_TEST === '1', 'NS_SECRETS_POST
     process.stdout.write('AUTHZ_NATIVE_AUDIT_BATCH ' + JSON.stringify({ statements: stats[0].calls, rows: stats[0].rows }) + '\n');
   });
 
+  it('commits fused audited reads including absent records without receipt SELECT privilege', async function () {
+    const id = 'fused-native', consumer = 'fused_native_probe';
+    await persistence.store.insert({ format: 1, tenant: A, id, ciphertext: 'synthetic-opaque' });
+    const event = secret => ({ tenant: A, principal: 'subject', consumer, operation: 'decrypt', id: secret,
+      phase: 'authorized', time: Date.now() });
+    const selected = await persistence.auditRead(event(id));
+    assert.equal(selected.tenant, A); assert.equal(selected.id, id); assert.equal(selected.ciphertext, 'synthetic-opaque');
+    assert.equal(await persistence.auditRead(event('fused-native-missing')), undefined);
+    const observed = await admin.query(`SELECT secret_id FROM ${audits} WHERE tenant_id=$1 AND consumer=$2 ORDER BY secret_id`, [A, consumer]);
+    assert.deepEqual(observed.rows.map(row => row.secret_id), [id, 'fused-native-missing'], 'another connection sees both durable receipts before audited read resolves');
+    const privilege = await admin.query('SELECT has_table_privilege($1,$2,\'SELECT\') AS allowed', [appRole, namespace + '.secret_audit']);
+    assert.equal(privilege.rows[0].allowed, false, 'fused CTE must work with INSERT-only receipts');
+    await admin.query(`REVOKE INSERT ON ${audits} FROM ${appRole}`);
+    try {
+      await assert.rejects(persistence.auditRead(event(id)), { code: 'SECRETS_STORE_UNAVAILABLE' });
+      assert.equal((await admin.query(`SELECT count(*)::integer AS n FROM ${audits} WHERE tenant_id=$1 AND consumer=$2`, [A, consumer])).rows[0].n, 2);
+    } finally { await admin.query(`GRANT INSERT ON ${audits} TO ${appRole}`); }
+    assert.equal((await persistence.auditRead(event(id))).ciphertext, 'synthetic-opaque', 'restored real INSERT grant restores the fused primitive');
+  });
+
   it('refuses extra audit fields instead of persisting secret payloads', async function () {
     await assert.rejects(persistence.audit({
       tenant: A, principal: 'root', consumer: 'issuer', operation: 'sign', phase: 'authorized',

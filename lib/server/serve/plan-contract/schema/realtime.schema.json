@@ -7,15 +7,16 @@
     "version",
     "postgres",
     "consumer",
-    "pageSize",
     "maxRows",
     "maxBytes",
     "maxTenants",
-    "recoveryIntervalMs",
     "registry",
     "tenantSettings",
     "maxMessageBytes",
-    "operationTimeoutMs"
+    "operationTimeoutMs",
+    "completedOutput",
+    "trustedWorker",
+    "activity"
   ],
   "additionalProperties": false,
   "properties": {
@@ -38,58 +39,17 @@
         "namespaces": {
           "type": "object",
           "required": [
-            "entries",
-            "treatments",
-            "devicestatus",
-            "profile",
-            "food",
-            "activity",
             "clock",
             "checkpoint"
           ],
           "additionalProperties": false,
           "properties": {
-            "entries": {
-              "type": "string",
-              "pattern": "^[a-z][a-z0-9_]{0,62}$",
-              "description": "A PostgreSQL schema name."
-            },
-            "treatments": {
-              "type": "string",
-              "pattern": "^[a-z][a-z0-9_]{0,62}$",
-              "description": "A PostgreSQL schema name."
-            },
-            "devicestatus": {
-              "type": "string",
-              "pattern": "^[a-z][a-z0-9_]{0,62}$",
-              "description": "A PostgreSQL schema name."
-            },
-            "profile": {
-              "type": "string",
-              "pattern": "^[a-z][a-z0-9_]{0,62}$",
-              "description": "A PostgreSQL schema name."
-            },
-            "food": {
-              "type": "string",
-              "pattern": "^[a-z][a-z0-9_]{0,62}$",
-              "description": "A PostgreSQL schema name."
-            },
-            "activity": {
-              "type": "string",
-              "pattern": "^[a-z][a-z0-9_]{0,62}$",
-              "description": "A PostgreSQL schema name."
-            },
             "clock": {
               "type": "string",
               "pattern": "^[a-z][a-z0-9_]{0,62}$",
               "description": "A PostgreSQL schema name."
             },
             "checkpoint": {
-              "type": "string",
-              "pattern": "^[a-z][a-z0-9_]{0,62}$",
-              "description": "A PostgreSQL schema name."
-            },
-            "changeStamps": {
               "type": "string",
               "pattern": "^[a-z][a-z0-9_]{0,62}$",
               "description": "A PostgreSQL schema name."
@@ -102,10 +62,6 @@
       "type": "string",
       "pattern": "^realtime-[A-Za-z0-9_-]{1,112}$"
     },
-    "pageSize": {
-      "type": "integer",
-      "minimum": 1
-    },
     "maxRows": {
       "type": "integer",
       "minimum": 1
@@ -117,11 +73,6 @@
     "maxTenants": {
       "type": "integer",
       "minimum": 1
-    },
-    "recoveryIntervalMs": {
-      "type": "integer",
-      "minimum": 1,
-      "maximum": 2147483647
     },
     "registry": {
       "type": "object",
@@ -191,74 +142,17 @@
       "minimum": 1,
       "maximum": 2147483647
     },
-    "socketOrderDomains": {
-      "type": "array",
-      "items": {
-        "enum": [
-          "treatments",
-          "devicestatus",
-          "profile"
-        ]
-      },
-      "uniqueItems": true
-    },
     "activity": {
       "type": "object",
       "required": [
-        "connectionEnv",
         "namespace"
       ],
       "additionalProperties": false,
       "properties": {
-        "connectionEnv": {
-          "type": "string",
-          "pattern": "^[A-Z][A-Z0-9_]{0,127}$",
-          "description": "The name of an environment variable in the process environment; the value is never written in a document."
-        },
         "namespace": {
           "type": "string",
           "pattern": "^[a-z][a-z0-9_]{0,62}$",
           "description": "A PostgreSQL schema name."
-        }
-      }
-    },
-    "changeFeed": {
-      "type": "object",
-      "required": [
-        "connectionEnv",
-        "channel"
-      ],
-      "additionalProperties": false,
-      "properties": {
-        "connectionEnv": {
-          "type": "string",
-          "pattern": "^[A-Z][A-Z0-9_]{0,127}$",
-          "description": "The name of an environment variable in the process environment; the value is never written in a document."
-        },
-        "channel": {
-          "type": "string",
-          "pattern": "^[a-z][a-z0-9_]{0,62}$",
-          "description": "A PostgreSQL schema name."
-        },
-        "pageSize": {
-          "type": "integer",
-          "minimum": 1,
-          "maximum": 1024
-        },
-        "degradedPages": {
-          "type": "integer",
-          "minimum": 1,
-          "maximum": 16
-        },
-        "intervalMs": {
-          "type": "integer",
-          "minimum": 10,
-          "maximum": 60000
-        },
-        "heartbeatTimeoutMs": {
-          "type": "integer",
-          "minimum": 100,
-          "maximum": 300000
         }
       }
     },
@@ -301,15 +195,9 @@
         }
       }
     },
-    "settingsRefreshMs": {
-      "type": "integer",
-      "minimum": 1,
-      "maximum": 2147483647,
-      "description": "Trusted worker settings safety-net reload interval in milliseconds; default 600000. Operational grant/schema checks use their independent worker lifecycle."
-    },
     "completedOutput": {
       "type": "object",
-      "description": "Completed evaluator frame/revision source. Requires trusted worker mode; changeFeed cannot be selected with it.",
+      "description": "Required typed evaluator output source and independent current-authority metadata.",
       "required": [
         "namespace",
         "consumer"
@@ -326,13 +214,5 @@
         }
       }
     }
-  },
-  "dependentRequired": {
-    "changeFeed": [
-      "activity"
-    ],
-    "completedOutput": [
-      "trustedWorker"
-    ]
   }
 }

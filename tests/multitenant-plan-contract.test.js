@@ -32,20 +32,10 @@ const observer = require('./fixtures/multitenant-plan-observer');
 const layout = plan.layout('nstp');
 // `default` is the smallest registry-mode plan; `full` sets every optional field and a fixed roster,
 // with Vault credentials from the environment; `full-token-files` is `full` with token files.
-const VARIANTS = ['default', 'full', 'full-token-files', 'ensure', 'ensure-token-files', 'pgstream'];
+const VARIANTS = ['default', 'full', 'full-token-files', 'ensure', 'ensure-token-files'];
 const documentSet = (variant = 'default') => {
-  const selected = variant === 'ensure' ? 'full' : variant === 'ensure-token-files' ? 'full-token-files' : variant === 'pgstream' ? 'full' : variant;
+  const selected = variant === 'ensure' ? 'full' : variant === 'ensure-token-files' ? 'full-token-files' : variant;
   const documents = plan.documents({ layout, urls: plan.syntheticUrls(layout), variant: selected });
-  if (variant === 'pgstream') {
-    const evaluator=documents.configs.evaluator,realtime=documents.configs.realtime;
-    delete evaluator.changeFeed;delete realtime.changeFeed;
-    evaluator.pgstream={binaryEnv:'NS_PLAN_PGSTREAM_BINARY',configFileEnv:'NS_PLAN_PGSTREAM_CONFIG',receiverPort:19042,
-      slot:'plan_stream',streamRole:'plan_stream_reader',bounds:{heartbeatMs:1000,stallMs:5000,stepMs:5000,stopMs:2000,recoveryMs:30000,pendingMs:30000,maxRestarts:3}};
-    realtime.completedOutput={namespace:evaluator.postgres.namespaces.checkpoint,consumer:evaluator.consumer};
-    for(const operation of Object.values(documents.operations))for(const peer of operation.participants)if(peer.roles.includes('realtime')&&!peer.namespaces.includes(evaluator.postgres.namespaces.checkpoint))peer.namespaces.push(evaluator.postgres.namespaces.checkpoint);
-    for(const peer of documents.remote)if(peer.roles.includes('realtime')&&!peer.namespaces.includes(evaluator.postgres.namespaces.checkpoint))peer.namespaces.push(evaluator.postgres.namespaces.checkpoint);
-    Object.assign(documents.environments.evaluator,{NS_PLAN_PGSTREAM_BINARY:'/usr/local/bin/pgstream',NS_PLAN_PGSTREAM_CONFIG:'/run/synthetic/pgstream.yaml'});
-  }
   const set = plan.documentSet(documents);
   if (variant.startsWith('ensure')) {
     // Carry the optional unselected ensure grammar through its ACTUAL loader.
@@ -76,7 +66,6 @@ const REFUSED_IN_REGISTRY_MODE = {
   evaluator: { '': { tenants: [] } },
   'tenant-admin': { '': { tenants: [] }, '/management': { keys: [] } },
   admin: { '/ownership': { tenants: [] } },
-  'feed-reader': {},
   vcpool: { '': { tenants: [] } },
   operation: { '': { locks: [] } }
 };
@@ -119,8 +108,8 @@ describe('deployment plan contract', function () {
   const rows = VARIANTS.flatMap(documentsOf);
 
   it('accepts the test plan: every document matches its schema and every process passes its loaders', function () {
-    const roster = ['realtime', 'evaluator', 'tenant-admin', 'api-1', 'api-2', 'feed-reader', 'admin', 'vcpool'];
-    const expected = { default: ['api', 'realtime', 'evaluator', 'tenant-admin', 'feed-reader', 'admin', 'vcpool'], full: roster, 'full-token-files': roster, ensure:roster, 'ensure-token-files':roster, pgstream:roster };
+    const roster = ['realtime', 'evaluator', 'tenant-admin', 'api-1', 'api-2', 'admin', 'vcpool'];
+    const expected = { default: ['api', 'realtime', 'evaluator', 'tenant-admin', 'admin', 'vcpool'], full: roster, 'full-token-files': roster, ensure:roster, 'ensure-token-files':roster };
     for (const variant of VARIANTS) {
       const report = contract.check(documentSet(variant));
       assert.equal(report.ok, true, variant + ': ' + JSON.stringify(report.processes.flatMap(row => row.findings)));
@@ -129,6 +118,29 @@ describe('deployment plan contract', function () {
       // Every described document appears in each variant, so the agreement below covers each schema.
       assert.deepEqual([...new Set(documentsOf(variant).map(row => row.name))].sort(), Object.keys(contract.DOCUMENTS).sort());
     }
+  });
+
+  it('requires the maintained product paths and refuses retired discovery fields', function () {
+    const documents = plan.documents({ layout, urls: plan.syntheticUrls(layout) });
+    const good = role => jsonSchema.validate(contract.schema(role), documents.configs[role]);
+    for (const role of ['evaluator', 'realtime']) {
+      assert.deepEqual(good(role), []);
+      const required = role === 'evaluator' ? ['pgstream', 'trustedWorker', 'registry', 'tenantSettings', 'activity']
+        : ['completedOutput', 'trustedWorker', 'registry', 'tenantSettings', 'activity'];
+      for (const field of required) {
+        const broken = clone(documents.configs[role]); delete broken[field];
+        assert(jsonSchema.validate(contract.schema(role), broken).length, role + ' missing ' + field);
+        assert.deepEqual(good(role), []);
+      }
+      for (const field of ['changeFeed', 'recoveryIntervalMs', 'settingsRefreshMs', 'tenants', ...(role === 'realtime' ? ['pageSize', 'socketOrderDomains', 'admissionFileEnv'] : [])]) {
+        const broken = clone(documents.configs[role]); broken[field] = {};
+        assert(jsonSchema.validate(contract.schema(role), broken).length, role + ' retired ' + field);
+        assert.deepEqual(good(role), []);
+      }
+    }
+    assert.deepEqual(Object.keys(documents.configs.realtime.postgres.namespaces).sort(), ['checkpoint', 'clock']);
+    assert(!plan.documentSet(documents).processes.some(row => row.roles.includes('feed-reader')));
+    assert(!Object.hasOwn(contract.DOCUMENTS, 'feed-reader'));
   });
 
   it('carried: every field a schema names appears in a test plan variant', function () {

@@ -28,7 +28,7 @@ const CONFIG_ENV = { api: 'MULTITENANT_PREVIEW_CONFIG', realtime: 'MULTITENANT_R
   'tenant-admin': 'MULTITENANT_OWNER_PREVIEW_CONFIG' };
 // Identities a registry-mode deployment adds to the layout's; a suite that only
 // needs the participant manifest passes no connection address for them.
-const REGISTRY_IDENTITIES = ['display_reader', 'activity_reader', 'feed_reader', 'feed_listener', 'provisioner', 'management_issuer', 'connector_writer',
+const REGISTRY_IDENTITIES = ['display_reader', 'activity_reader', 'provisioner', 'management_issuer', 'connector_writer',
   'owner_settings', 'owner_activity', 'owner_credentials', 'pool_operator'];
 
 function documents ({ layout: l, urls = {}, vaultAddress = 'https://vault.example.test:8200', variant = 'default' }) {
@@ -40,23 +40,26 @@ function documents ({ layout: l, urls = {}, vaultAddress = 'https://vault.exampl
   const registry = { namespace: named('registry'), maxTenants: 10000, refreshMs: 2000 };
   const tenantSettings = { connectionEnv: 'NS_DISPLAY_PG', namespaces: { settings: named('display_settings'), operatorPolicy: named('operator_policy') } };
   const activity = { connectionEnv: 'NS_ACTIVITY_PG', namespace: ns.control };
-  const changeFeed = { connectionEnv: 'NS_FEED_LISTENER_PG', channel: named('changes'), pageSize: 256, degradedPages: 4, intervalMs: 1000, heartbeatTimeoutMs: 5000 };
+
   const vault = file => ({ address: vaultAddress, mount: l.mount, timeoutMs: 5000, tokenFile: CONFIG_DIRECTORY + '/' + file });
   const domainNamespaces = Object.fromEntries(clinical.map(name => [name, ns[name]]));
-  const limits = { pageSize: 100, maxRows: 10000, maxBytes: 8388608, maxTenants: 10000, recoveryIntervalMs: 1000 };
+  const limits = { maxRows: 10000, maxBytes: 8388608, maxTenants: 10000 };
+  const trustedWorker = { activity: ns.control, clock: ns.clock, settings: named('display_settings'), operatorPolicy: named('operator_policy') };
+  const pgstream = { binaryEnv: 'NS_PLAN_PGSTREAM_BINARY', configFileEnv: 'NS_PLAN_PGSTREAM_CONFIG', receiverPort: 19042, slot: named('stream'), streamRole: named('stream_reader'),
+    bounds: { heartbeatMs: 1000, stallMs: 5000, stepMs: 5000, stopMs: 2000, recoveryMs: 30000, pendingMs: 30000, maxRestarts: 3 } };
   const datastore = urls.evaluator ? (address => ({ hostname: address.hostname, port: Number(address.port || 5432), database: decodeURIComponent(address.pathname.slice(1)) }))(new URL(urls.evaluator)) : undefined;
   const evaluator = { version: 1, ...(datastore ? { datastore } : {}),
-    postgres: { connectionEnv: 'NS_EVALUATOR_PG', namespaces: { ...domainNamespaces, clock: ns.clock, checkpoint: ns.eval_checkpoint, changeStamps: ns.change_stamps } },
-    consumer: 'evaluator-test-plan', ...limits, timeIntervalMs: 1000, socketOrderDomains: ['treatments', 'devicestatus', 'profile'],
+    postgres: { connectionEnv: 'NS_EVALUATOR_PG', namespaces: { ...domainNamespaces, clock: ns.clock, checkpoint: ns.eval_checkpoint } },
+    consumer: 'evaluator-test-plan', ...limits, pageSize: 100, timeIntervalMs: 1000, socketOrderDomains: ['treatments', 'devicestatus', 'profile'],
     consumers: { realtime: { outbox: { connectionEnv: 'NS_OUTBOX_PG', namespace: ns.outbox, maxRows: 10000, maxBytes: 8388608, maxConnections: 2 },
       suppression: { connectionEnv: 'NS_SUPPRESSION_PG', namespace: ns.alarm, maxRows: 10000, maxBytes: 8388608, maxConnections: 2 },
       route: { id: 'realtime-test-plan', maxMessageBytes: 1048576, operationTimeoutMs: 5000 },
       maxPayloadBytes: 524288, maxInflight: 4, attemptTimeoutMs: 10000, retryDelayMs: 1000, pollIntervalMs: 1000, retryIntervalMs: 1000 } },
-    registry: { ...registry }, tenantSettings, activity, changeFeed };
-  const realtime = { version: 1, postgres: { connectionEnv: 'NS_REALTIME_PG', namespaces: { ...domainNamespaces, clock: ns.clock, checkpoint: ns.rt_checkpoint, changeStamps: ns.change_stamps } },
-    consumer: 'realtime-test-plan', ...limits, socketOrderDomains: ['treatments', 'devicestatus', 'profile'],
+    registry: { ...registry }, tenantSettings, activity, pgstream, trustedWorker };
+  const realtime = { version: 1, postgres: { connectionEnv: 'NS_REALTIME_PG', namespaces: { clock: ns.clock, checkpoint: ns.rt_checkpoint } },
+    consumer: 'realtime-test-plan', ...limits,
     maxMessageBytes: 1048576, operationTimeoutMs: 5000, authorizationRecheckMs: 30000,
-    registry: { ...registry }, tenantSettings, activity, changeFeed };
+    registry: { ...registry }, tenantSettings, activity: { namespace: ns.control }, trustedWorker, completedOutput: { namespace: ns.eval_checkpoint, consumer: evaluator.consumer } };
   // Decision root-grant-ceiling-default-all: every tenant data permission unless
   // the operator narrows it. Owner and root share this catalogue (one policy row).
   const api = { version: 1, domains: [...clinical, 'settings'], legacy: true, context: true, writeClock: true,
@@ -83,9 +86,9 @@ function documents ({ layout: l, urls = {}, vaultAddress = 'https://vault.exampl
     api: { ...common, NS_SERVE_INTERNAL_SOCKET: socketOf('api'), API_HOSTNAME: '0.0.0.0', API_PORT: '1337', MULTITENANT_PREVIEW_CONFIG: file('config.json'),
       MULTITENANT_EVALUATOR_CONFIG: file('evaluator-metadata.json'), NS_API_PG: urls.api, NS_READINESS_PG: urls.readiness, NS_API_ROOT_WRITER_PG: urls.root_writer, NS_ALARM_PG: urls.alarm, ...readers },
     realtime: { ...common, NS_SERVE_INTERNAL_SOCKET: socketOf('realtime'), REALTIME_HOSTNAME: '0.0.0.0', REALTIME_PORT: '1339', MULTITENANT_REALTIME_CONFIG: file('config.json'),
-      NS_REALTIME_PG: urls.realtime, NS_FEED_LISTENER_PG: urls.feed_listener, ...readers },
+      NS_REALTIME_PG: urls.realtime, ...readers },
     evaluator: { ...common, NS_SERVE_INTERNAL_SOCKET: socketOf('evaluator'), MULTITENANT_EVALUATOR_CONFIG: file('config.json'), NS_EVALUATOR_PG: urls.evaluator,
-      NS_OUTBOX_PG: urls.outbox, NS_SUPPRESSION_PG: urls.suppression, NS_FEED_LISTENER_PG: urls.feed_listener, ...readers },
+      NS_OUTBOX_PG: urls.outbox, NS_SUPPRESSION_PG: urls.suppression, NS_PLAN_PGSTREAM_BINARY: '/usr/local/bin/pgstream', NS_PLAN_PGSTREAM_CONFIG: '/run/synthetic/pgstream.yaml', ...readers },
     'tenant-admin': { ...common, NS_SERVE_INTERNAL_SOCKET: socketOf('tenant-admin'), TENANT_ADMIN_HOSTNAME: '0.0.0.0', TENANT_ADMIN_PORT: '1341',
       MULTITENANT_OWNER_PREVIEW_CONFIG: file('config.json'), NS_OWNER_WRITER_PG: urls.owner_writer, NS_OWNER_READER_PG: urls.owner_reader } };
   // The participant manifest: each role's protected namespaces as the role
@@ -103,11 +106,6 @@ function documents ({ layout: l, urls = {}, vaultAddress = 'https://vault.exampl
     endpoint: { socketPath: socketOf(peer.id), maxBytes: peer.maxMessageBytes, timeoutMs: peer.timeoutMs } }));
   // Lock keys follow the tenant-id rule, as the registry's do.
   const locks = [A, B].map(tenant => ({ tenant, key: require('../../lib/tenant-registry/rules').lockKey(tenant) }));
-  const feed = { config: { connectionEnv: 'NS_FEED_PG', namespace: named('feed'), clockNamespace: ns.clock, activityNamespace: ns.control,
-    settingsNamespace: tenantSettings.namespaces.settings, policyNamespace: tenantSettings.namespaces.operatorPolicy,
-    slot: named('feed_slot'), publication: named('feed_publication'), owner: named('feed_owner'), channel: changeFeed.channel,
-    pollMs: 50, heartbeatMs: 1000, targetChanges: 128, maxMessages: 10000, maxBytes: 1048576, statementTimeoutMs: 2000, rssRefuseBytes: 268435456 },
-    environment: { MULTITENANT_FEED_CONFIG: file('config.json'), NS_FEED_PG: urls.feed_reader } };
   const operator = consumer => ({ principal: 'test-plan-operator', consumer });
   const digest = consumer => createHash('sha256').update(consumer).digest('hex');
   const admin = { config: { version: 1, maxBytes: 1048576, timeoutMs: 60000,
@@ -134,14 +132,13 @@ function documents ({ layout: l, urls = {}, vaultAddress = 'https://vault.exampl
     environment: { MULTITENANT_VCPOOL_CONFIG: file('config.json'), NS_SERVE_INTERNAL_SOCKET: socketOf('vcpool'),
       NS_VCPOOL_SECRETS_PG: urls.api, NS_VCPOOL_ACTIVITY_PG: urls.activity_reader, NS_VCPOOL_DEFINITIONS_PG: urls.provisioner } };
   if (variant === 'full') { delete vcpool.config.vault.tokenFile; vcpool.config.vault.tokenEnv = 'NS_VAULT_TOKEN'; vcpool.environment.NS_VAULT_TOKEN = 'synthetic-placeholder'; }
-  const docs = { configs, environments, operations, remote, locks, feed, admin, vcpool };
+  const docs = { configs, environments, operations, remote, locks, admin, vcpool };
   return full ? everyOptionalField(docs, { l, named, urls, vaultAddress, socketOf, envName, protects, tokenFiles: variant === 'full-token-files' }) : docs;
 }
 
 // The `full` variant: each optional field the contract names, with a value its loader accepts.
 function everyOptionalField (docs, { l, named, urls, vaultAddress, socketOf, envName, protects, tokenFiles }) {
   const ns = l.namespaces, { api, realtime, evaluator } = docs.configs, owner = docs.configs['tenant-admin'], env = docs.environments;
-  for (const role of [evaluator, realtime]) role.settingsRefreshMs = 600000;
   for (const role of [evaluator, realtime]) role.trustedWorker = { activity: ns.control, clock: ns.clock, settings: named('display_settings'), operatorPolicy: named('operator_policy') };
   // Exactly one credential source per Vault block: a token file, or an environment reference.
   const tokenVault = { address: vaultAddress, mount: l.mount, timeoutMs: 5000, allowInsecureLoopback: false,
@@ -193,7 +190,6 @@ function documentSet (docs) {
   const processes = Object.keys(docs.configs).map(name => ({ name, roles: [roleOf(name)], environment: docs.environments[name],
     files: { [docs.environments[name][CONFIG_ENV[roleOf(name)]]]: docs.configs[name], [file('operation.json')]: docs.operations[name],
       ...(roleOf(name) === 'api' ? { [file('evaluator-metadata.json')]: docs.configs.evaluator } : {}) } }));
-  processes.push({ name: 'feed-reader', roles: ['feed-reader'], environment: docs.feed.environment, files: { [file('config.json')]: docs.feed.config } });
   processes.push({ name: 'admin', roles: ['admin'], environment: docs.admin.environment, files: { [file('config.json')]: docs.admin.config } });
   processes.push({ name: 'vcpool', roles: ['vcpool'], environment: docs.vcpool.environment, files: { [file('config.json')]: docs.vcpool.config } });
   return { contract: 1, processes };

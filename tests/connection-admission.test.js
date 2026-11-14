@@ -295,7 +295,7 @@ describe('opt-in process-local constructor and physical retirement admission', f
       client.finishEnd(); await closing; await proof;
     }
   });
-  it('actual dedicated feed-reader serve.stop freezes, physically drains, and only acknowledges successful role close', async function () {
+  it('selected evaluator serve.stop freezes, physically drains, and only acknowledges successful role close', async function () {
     for (const failed of [false,true]) {
       const f=fixture(), Client=f.api.wrapClient(f.Client,'settings-readiness'), client=new Client({host:'synthetic-pg'});
       const connected=client.connect();client.finishConnect();await connected;
@@ -304,10 +304,10 @@ describe('opt-in process-local constructor and physical retirement admission', f
       loaded.require=name=>({
         './listeners':{resolve:()=>[],close:async()=>{}}, './internal-listener':{plan:()=>[]},
         '../../diagnostics/m7':{configureRoles:()=>{},close:()=>{}}, '../../storage/connection-admission':f.api,
-        '../../change-feed/reader':{boot:async()=>({close:async()=>{await client.end();if(failed)throw Error('synthetic role close failure');}})}
+        './evaluator-preview':{boot:async()=>({close:async()=>{await client.end();if(failed)throw Error('synthetic role close failure');}})}
       }[name]||actual(name));
       loaded._compile(fs.readFileSync(filename,'utf8'),filename);
-      const running=await loaded.exports.start(['feed-reader'],{}, {}, {}, {feedReader:{}});
+      const running=await loaded.exports.start(['evaluator'],{}, {}, {}, {evaluatorPreview:{}});
       const stopped=running.stop();const observation=failed?assert.rejects(stopped,/Role shutdown failed/):stopped;
       await turn();assert.equal(f.api.health().constructorsFrozen,true);assert.equal(f.acknowledgements.length,0);
       client.finishEnd();await observation;assert.equal(f.acknowledgements.length,failed?0:1);

@@ -19,7 +19,7 @@ function catalogues() {
     authorization:require('../../lib/tenant-authorization/postgres-candidate.json'), secrets:require('../../lib/secrets/postgres-candidate.json'),
     legacy:require('../../lib/secrets/legacy-credentials-candidate.json'), access:require('../../lib/tenant-authorization/access-candidate.json'),
     clock:require('../../migrations/candidates/postgres-write-clock-v1.json'), rt_checkpoint:require('../../migrations/candidates/postgres-consumer-checkpoint-v1.json'),
-    eval_checkpoint:require('../../migrations/candidates/postgres-consumer-checkpoint-v1.json'), alarm:require('../../migrations/candidates/postgres-alarm-suppression-v1.json'),
+    eval_checkpoint:require('../../migrations/candidates/postgres-evaluator-work-v2.json'), alarm:require('../../migrations/candidates/postgres-alarm-suppression-v1.json'),
     outbox:require('../../lib/tenant-notifications/postgres-candidate.json'),control:require('../../lib/tenant-lifecycle/postgres-candidate.json'),
     change_stamps:require('../../lib/change-stamps/postgres-candidate.json')};
 }
@@ -117,6 +117,7 @@ function grants(l) {
     if([...clinical,'settings'].includes(name))sql.push(...insertionGrants({namespace:ns[name],domain:name,role:r.operator,mode:'restore'}));
   }
   grant('UPDATE(last_stamp)',table('clock','tenant_write_clock'),'operator');
+  grant('UPDATE('+require('../../lib/pgstream/work-state').COLUMNS.join(',')+')',table('eval_checkpoint','tenant_consumer_checkpoint'),'evaluator');
   // Decision change-stamp-definer-function: search_path pinned, EXECUTE for realtime and evaluator only;
   // both read the function's catalogue ledger at readiness (write-clock-complete: the evaluator adopts it).
   sql.push(...require('../../lib/change-stamps/postgres').grants({namespace:ns.change_stamps,clockNamespace:ns.clock,roles:[r.realtime,r.evaluator]}));

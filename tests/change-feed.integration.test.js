@@ -228,25 +228,19 @@ suite('D6 native metadata feed, privilege and failure controls', function () {
     }finally{await settingsConsumer?.close();await settingsReader?.close();if(!settingsReader)await settingsStore?.close();await rt?.close();await evalRuntime?.close();}
     function baseConfig(){return {channel:doc.channel,pageSize:1,degradedPages:1,intervalMs:10,heartbeatTimeoutMs:100};}
   });
-  it('boots and gracefully stops the dedicated feed-reader CLI role', async function () {
-    const fs=require('node:fs'),os=require('node:os'),path=require('node:path'),{spawn}=require('node:child_process');
+  it('refuses the retired feed-reader product role before opening a database backend', async function () {
+    const path=require('node:path'),{spawn}=require('node:child_process');
     await reader.close();
-    const dir=fs.mkdtempSync(path.join(os.tmpdir(),'ns-d6-cli-')),file=path.join(dir,'feed.json');
-    const document={connectionEnv:'D6_NATIVE_PG',namespace:'feed',clockNamespace:'clock',activityNamespace:'control',slot:'d6_slot',publication:'d6_publication',channel:'d6_channel',owner:'feed_owner',statementTimeoutMs:100};
-    fs.writeFileSync(file,JSON.stringify(document));
-    const child=spawn(process.execPath,['bin/nightscout.js','multitenant','feed-reader'],{cwd:path.resolve(__dirname,'..'),env:{...process.env,MULTITENANT_FEED_CONFIG:file,D6_NATIVE_PG:source('feed_login')},stdio:['ignore','pipe','pipe']});
+    const child=spawn(process.execPath,['bin/nightscout.js','multitenant','feed-reader'],{cwd:path.resolve(__dirname,'..'),env:{...process.env,MULTITENANT_FEED_CONFIG:'/nonexistent/retired-feed.json',D6_NATIVE_PG:source('feed_login')},stdio:['ignore','pipe','pipe']});
     let output='';child.stdout.on('data',chunk=>{output+=chunk;});child.stderr.on('data',chunk=>{output+=chunk;});
     const exited=new Promise(resolve=>child.once('exit',(code,signal)=>resolve({code,signal})));
+    const watchdog=setTimeout(()=>child.kill('SIGKILL'),5000);
     try {
-      let ready=false;
-      for(let i=0;i<100;i++){
-        const count=Number((await admin.query("SELECT count(*) FROM pg_stat_activity WHERE application_name='nightscout-feed-reader' AND usename='feed_login'")).rows[0].count);
-        if(count && output.includes('feed-reader started')){ready=true;break;}
-        if(child.exitCode!==null)break;await sleep(20);
-      }
-      assert.equal(ready,true,'D6_CLI_READER_STARTED '+output);
-      child.kill('SIGTERM');const result=await exited;assert.equal(result.code,0,'D6_CLI_SHUTDOWN '+output);
-    } finally {if(child.exitCode===null)child.kill('SIGKILL');await exited;fs.rmSync(dir,{recursive:true,force:true});}
+      const result=await exited;assert.equal(result.code,64,'retired role is an explicit usage refusal, not startup/configuration failure');
+      assert.match(output,/unknown role/);assert.doesNotMatch(output,/feed-reader started/);
+      const active=await admin.query("SELECT count(*)::int AS n FROM pg_stat_activity WHERE application_name='nightscout-feed-reader' AND usename='feed_login'");
+      assert.equal(active.rows[0].n,0,'refusal precedes connection or feed side effects');
+    } finally {clearTimeout(watchdog);if(child.exitCode===null&&child.signalCode===null)child.kill('SIGKILL');await exited;}
   });
 
 });
