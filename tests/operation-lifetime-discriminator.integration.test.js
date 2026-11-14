@@ -197,15 +197,22 @@ for (const size of [1, 2, 4]) optInSuite(process.env.NS_OPERATION_LIFETIME_DOCKE
       const restoring = f.restore(async () => { entered = true; return 'shared-lifetime-drain'; }).then(value => ({ value }), error => ({ error }));
       try {
         const refused = await restoring;
-        assert.equal(refused.error?.code, 'LIFECYCLE_RESTORE_PREFLIGHT_PENDING_OPERATIONS');
+        assert.equal(refused.error?.code, 'LIFECYCLE_RESTORE_DRAIN_TIMEOUT');
         assert.equal(entered, false, 'ALL_HELD_RESPONSES_STILL_FENCE_RESTORE'); assert.equal(settled, 0);
-        assert.deepEqual(await f.restoreState(), before, 'PREFLIGHT_REFUSAL_HAS_NO_WINDOW_OR_AUDIT_EFFECT');
-        assert.equal((await call('api-2', A, 'GET', '/api/v3/entries', a)).status, 200, 'A stays serving before suspension');
+        const suspended = await f.restoreState();
+        assert.equal(suspended.phase, 'suspended');
+        assert.equal(BigInt(suspended.generation), BigInt(before.generation) + 1n);
+        assert.equal(suspended.audits, before.audits + 1);
+        assert.equal(suspended.unfinished, before.unfinished, 'HELD_RESPONSES_KEEP_DURABLE_MARKERS');
+        assert.equal((await call('api-2', A, 'GET', '/api/v3/entries', a)).status, 503, 'A refuses new work while suspended');
         assert.equal((await call('api-1', B, 'GET', '/api/v3/entries', b)).status, 200, 'B uses the same worker while A responses remain held');
         assert.equal((await call('api-2', B, 'GET', '/api/v3/entries', b)).status, 200);
       } finally { f.current.get('api-1').child.kill('SIGUSR2'); }
       for (const reply of await Promise.all(replies)) { assert.equal(reply.error, undefined); assert.equal(reply.value.status, 201); }
       await f.base.until(async () => (await f.restoreState()).unfinished === 0, 'real response lifetimes finish');
+      const closed = await f.restoreState();
+      const resumed = await f.resume(closed.claim_id);
+      assert.equal(resumed.interrupted, 'before-data'); assert.equal(resumed.state, 'active');
       const result = await f.restore(async () => { entered = true; return 'shared-lifetime-drain'; });
       assert.equal(result.state, 'activated'); assert(entered);
     });
@@ -236,21 +243,26 @@ for (const size of [1, 2, 4]) optInSuite(process.env.NS_OPERATION_LIFETIME_DOCKE
       await f.base.until(async () => f.withAdmin(async client => (await client.query("SELECT count(*)::int AS n FROM preview_data.entries WHERE tenant_id=$1 AND doc->>'identifier'=$2", [A, identifier])).rows[0].n === 1), 'postcommit wire held before backend death');
       const pending = await f.withAdmin(async client => (await client.query('SELECT DISTINCT owner_pid FROM preview_control.tenant_lifecycle_operations WHERE tenant_id=$1 AND finished=false', [A])).rows);
       assert.equal(pending.length, 1);
-      let entered = false; const reads = f.preflightReads;
+      let entered = false;
       const before = await f.restoreState();
       const restoring = f.restore(async () => { entered = true; }).then(value => ({ value }), error => ({ error }));
-      await f.base.until(() => f.preflightReads > reads, 'actual preflight observes the live held operation');
+      await f.base.until(async () => (await f.restoreState()).phase === 'suspended', 'live owner drains after suspension');
       await f.withAdmin(client => client.query('SELECT pg_terminate_backend($1)', [pending[0].owner_pid]));
       const broken = await reply;
       assert(broken.error, 'lease death closes actual outstanding wire response');
       assert.equal(broken.error.code, 'ECONNRESET', 'a real socket failure, never the HTTP abort deadline');
       const refused = await restoring;
-      assert.equal(refused.error?.code, 'LIFECYCLE_RESTORE_PREFLIGHT_ORPHANED_OPERATIONS'); assert.equal(entered, false);
-      assert.deepEqual(await f.restoreState(), before, 'LEASE_DEATH_ORPHAN_REFUSAL_HAS_NO_WINDOW_OR_AUDIT_EFFECT');
+      assert.equal(refused.error?.code, 'LIFECYCLE_RESTORE_DRAIN_TIMEOUT'); assert.equal(entered, false);
+      const suspended = await f.restoreState();
+      assert.equal(suspended.phase, 'suspended'); assert.equal(suspended.unfinished, before.unfinished);
+      assert.equal(suspended.audits, before.audits + 1);
       assert.equal((await call('api-2', B, 'GET', '/api/v3/entries', b)).status, 200);
       const old = f.current.get('api-1'); old.child.kill('SIGTERM'); await f.base.until(async () => old.exit !== null, 'old worker exited'); await f.start('api-1', { readinessTenant: B });
       assert.equal((await call('api-1', B, 'GET', '/api/v3/entries', b)).status, 200);
+      assert.equal((await f.resume(suspended.claim_id)).interrupted, 'before-data');
+      const reopened = await f.restoreState();
       await assert.rejects(f.restore(async () => assert.fail('replacement cannot forgive the orphan')), { code: 'LIFECYCLE_RESTORE_PREFLIGHT_ORPHANED_OPERATIONS' });
+      assert.deepEqual(await f.restoreState(), reopened, 'ORPHAN_PREFLIGHT_REFUSAL_LEAVES_REOPENED_STATE_UNCHANGED');
       assert((await f.withAdmin(async client => (await client.query('SELECT count(*)::int AS n FROM preview_control.tenant_lifecycle_operations WHERE tenant_id=$1 AND owner_pid=$2 AND finished=false', [A, pending[0].owner_pid])).rows[0])).n > 0);
     });
   });

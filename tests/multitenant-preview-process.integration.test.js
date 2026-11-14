@@ -703,19 +703,23 @@ optInSuite(process.env.NS_MULTITENANT_PREVIEW_PROCESS_DOCKER_TEST === '1',
           assert.equal((await http(worker, tenant, 'GET', '/api/v1/summary', credentials[i])).status, 405);
           assert.equal((await http(worker, tenant, 'POST', '/api/v2/summary', credentials[i], {})).status, 405);
         }
-        await admin.query('REVOKE SELECT ON preview_activity.activity FROM preview_app');
+        // Raw entry frames read the entries backend, independently of activity.
+        const entryCount = async () => (await admin.query('SELECT count(*)::int AS n FROM preview_data.entries WHERE tenant_id=$1', [A])).rows[0].n;
+        const entriesBeforeFault = await entryCount();
+        await admin.query('REVOKE SELECT ON preview_data.entries FROM preview_app');
         try {
           const unavailable = await http(worker, A, 'GET', '/api/v1/entries', credentials[0]);
           assert.equal(unavailable.status, 503);
           assert.deepEqual(unavailable.body, { error: 'TENANT_SNAPSHOT_UNAVAILABLE' });
-          assert.equal((await http(worker, A, 'GET', '/api/v3/entries/' + id, credentials[0])).status, 200);
-        } finally { await admin.query('GRANT SELECT ON preview_activity.activity TO preview_app'); }
-        await admin.query('ALTER TABLE preview_activity.activity RENAME TO activity_fault_fixture');
+        } finally { await admin.query('GRANT SELECT ON preview_data.entries TO preview_app'); }
+        await admin.query('ALTER TABLE preview_data.entries RENAME TO entries_fault_fixture');
         try {
           const failed = await http(worker, A, 'GET', '/api/v2/entries', credentials[0]);
           assert.equal(failed.status, 500);
           assert.deepEqual(failed.body, { error: 'TENANT_SNAPSHOT_INTERNAL' });
-        } finally { await admin.query('ALTER TABLE preview_activity.activity_fault_fixture RENAME TO activity'); }
+        } finally { await admin.query('ALTER TABLE preview_data.entries_fault_fixture RENAME TO entries'); }
+        assert.equal(await entryCount(), entriesBeforeFault, 'read backend faults have no clinical write effect');
+        assert.equal((await http(worker, A, 'GET', '/api/v3/entries/' + id, credentials[0])).status, 200, 'restored entry backend serves addressed reads');
         assert.equal((await http(worker, B, 'GET', '/api/v2/entries', credentials[0])).status, 401);
         await admin.query("UPDATE preview_auth.tenant_authorization_roles SET permissions = ARRAY['denied'] WHERE tenant_id=$1", [A]);
         assert.equal((await http(worker, A, 'POST', '/api/v1/entries', credentials[0], bodies.entries)).status, 401);

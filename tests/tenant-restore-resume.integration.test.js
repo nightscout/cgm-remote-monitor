@@ -42,7 +42,7 @@ optInSuite(process.env.NS_RESTORE_RESUME_DOCKER_TEST === '1', 'NS_RESTORE_RESUME
     }));
     // One fresh cohort (every participant answers now) and one operator pool per operation.
     async function operator (fn, { controller = maintenance, drainTimeoutMs = 300 } = {}) {
-      const cohort = await cohorts.createRemote({ namespace: f.namespace, tenants: [A, B], participants: f.participants });
+      const cohort = await cohorts.createRemote({ namespace: f.namespace, tenants: f.cohortTenants, participants: f.participants });
       const pool = operatorPool();
       const restore = controller.create({ namespace: f.namespace, locks: f.locks, pool, cohort, drainTimeoutMs });
       const resume = recovery.create({ namespace: f.namespace, locks: f.locks, pool, cohort });
@@ -144,13 +144,13 @@ optInSuite(process.env.NS_RESTORE_RESUME_DOCKER_TEST === '1', 'NS_RESTORE_RESUME
     it('refuses a resume while the restore that holds A is still running, and a mislabelled resume record', async function () {
       let release; const gate = new Promise(resolve => { release = resolve; });
       let entered; const inside = new Promise(resolve => { entered = resolve; });
-      const cohort = await cohorts.createRemote({ namespace: f.namespace, tenants: [A, B], participants: f.participants });
+      const cohort = await cohorts.createRemote({ namespace: f.namespace, tenants: f.cohortTenants, participants: f.participants });
       const pool = operatorPool(), restore = maintenance.create({ namespace: f.namespace, locks: f.locks, pool, cohort, drainTimeoutMs: 300 });
       const running = restore.withRestore(A, { artifactDigest: DIGEST }, async context => { await probe('running')(context); entered(); await gate; });
       try {
         await inside;
         const claim = (await state()).window.claim_id;
-        const other = operatorPool(), resume = recovery.create({ namespace: f.namespace, locks: f.locks, pool: other, cohort: await cohorts.createRemote({ namespace: f.namespace, tenants: [A, B], participants: f.participants }) });
+        const other = operatorPool(), resume = recovery.create({ namespace: f.namespace, locks: f.locks, pool: other, cohort: await cohorts.createRemote({ namespace: f.namespace, tenants: f.cohortTenants, participants: f.participants }) });
         assert.deepEqual((await resume.inspect(A)).reasons, ['LIFECYCLE_RESUME_RESTORE_OWNER_PRESENT']);
         // The pin belongs to the running restore: a second operator cannot take it over.
         await assert.rejects(resume.resume(A, { claimId: claim }), error => ['LIFECYCLE_RESUME_RESTORE_OWNER_PRESENT', 'RESTORE_COHORT_UNKNOWN_BACKEND'].includes(error.code));

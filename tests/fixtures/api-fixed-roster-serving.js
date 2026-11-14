@@ -19,7 +19,7 @@ module.exports = function create ({ environment = {}, leaseSessions, drainTimeou
   const base = require('./multitenant-preview-replicas')({ writeClock: true, namespaceNames: { control: 'preview_control', registry: 'preview_registry' } }), current = new Map(), environments = new Map(), peers = [], calls = new Map();
   const controlledClock = String(Date.now());
   const locks = base.tenants.map(tenant => ({ tenant, key: require('../../lib/tenant-registry/rules').lockKey(tenant) }));
-  let port, publicProxy, privateProxy, participants, operatorPool, cohort, controller, lifetimeURI, config, previousMode, preflightReads = 0;
+  let port, publicProxy, privateProxy, participants, operatorPool, cohort, controller, resume, lifetimeURI, config, previousMode, preflightReads = 0;
   const url = host => 'http://' + host + ':' + port + '/';
   const endpoint = host => ({ url: url(host), trust: 'network', maxBytes: 1048576, timeoutMs: 5000 });
   async function withAdmin (fn) {
@@ -120,10 +120,11 @@ module.exports = function create ({ environment = {}, leaseSessions, drainTimeou
     });
     cohort = await cohorts.createRemote({ namespace, tenants: ['registry:' + base.provisioned.namespaces.registry], participants });
     controller = maintenance.create({ namespace, locks, pool: operatorPool, cohort, drainTimeoutMs });
+    resume = require('../../lib/tenant-lifecycle/restore-resume').create({ namespace, locks, pool: operatorPool, cohort });
   }
   async function cleanup () {
     for (const worker of current.values()) if (!worker.exit) worker.child.kill('SIGUSR2');
-    if (controller) await controller.close(); if (cohort) await cohort.close();
+    if (controller) await controller.close(); if (resume) await resume.close(); if (cohort) await cohort.close();
     for (const proxy of [privateProxy, publicProxy].filter(Boolean)) await new Promise(resolve => proxy.close(resolve));
     for (const peer of peers) await peer.close();
     if (operatorPool) await operatorPool.end(); await base.cleanup(); if (previousMode) scope.setTenancyMode(previousMode);
@@ -144,5 +145,6 @@ module.exports = function create ({ environment = {}, leaseSessions, drainTimeou
       '(SELECT count(*)::int FROM preview_control.tenant_lifecycle_operations WHERE tenant_id=$1 AND finished=false) AS unfinished ' +
       'FROM preview_control.tenant_lifecycle_windows WHERE tenant_id=$1', [tenant])).rows[0]),
     restore: body => controller.withRestore(base.tenants[0], { artifactDigest: 'd'.repeat(64) }, body),
+    resume: claimId => resume.resume(base.tenants[0], { claimId }),
     mark: (name, id) => path.join(base.directory, name + '-' + id) };
 };

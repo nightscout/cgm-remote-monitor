@@ -61,15 +61,22 @@ for (const enabled of [false, true]) optInSuite(process.env.NS_M7_DIAGNOSTICS_DO
       let Bstatus;
       try {
         const refused = await restoring;
-        assert.equal(refused.error?.code, 'LIFECYCLE_RESTORE_PREFLIGHT_PENDING_OPERATIONS');
+        assert.equal(refused.error?.code, 'LIFECYCLE_RESTORE_DRAIN_TIMEOUT');
         assert.equal(entered, false); assert.equal(responseFinished, false);
-        assert.deepEqual(await f.restoreState(), before, 'PREFLIGHT_REFUSAL_HAS_NO_WINDOW_OR_AUDIT_EFFECT');
-        assert.equal((await call('api-2', A, 'GET', '/api/v3/entries', a)).status, 200, 'A stays serving before suspension');
+        const suspended = await f.restoreState();
+        assert.equal(suspended.phase, 'suspended');
+        assert.equal(BigInt(suspended.generation), BigInt(before.generation) + 1n);
+        assert.equal(suspended.audits, before.audits + 1);
+        assert.equal(suspended.unfinished, before.unfinished, 'HELD_RESPONSES_KEEP_DURABLE_MARKERS');
+        assert.equal((await call('api-2', A, 'GET', '/api/v3/entries', a)).status, 503, 'A refuses new work while suspended');
         Bstatus = (await call('api-1', B, 'GET', '/api/v3/entries', b)).status; assert.equal(Bstatus, 200);
       } finally { f.current.get('api-1').child.kill('SIGUSR2'); }
       const response = await pending;
       assert.equal(response.error, undefined); assert.equal(response.value.status, 201);
       await f.base.until(async () => (await f.restoreState()).unfinished === 0, 'real response lifetimes finish');
+      const closed = await f.restoreState();
+      const resumed = await f.resume(closed.claim_id);
+      assert.equal(resumed.interrupted, 'before-data'); assert.equal(resumed.state, 'active');
       const restored = await f.restore(async () => { entered = true; return 'diagnostic-drain'; });
       assert.equal(restored.state, 'activated'); assert.equal(entered, true);
       const denied = await call('api-1', B, 'GET', '/api/v3/entries', a); assert.equal(denied.status, 401);

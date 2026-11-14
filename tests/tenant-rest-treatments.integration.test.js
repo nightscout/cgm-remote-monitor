@@ -666,12 +666,14 @@ optInSuite(process.env.NS_REST_TREATMENTS_HTTP_TEST === '1' &&
         } finally { connection.transaction = original; }
       }
       const authority = workers[0].authority;
-      const snapshot = authority.subjectSnapshot;
-      authority.subjectSnapshot = async () => { throw new Error('synthetic authority unavailable'); };
+      const snapshot = authority.subjectAuthorizationSnapshot;
+      let authorityFailures = 0;
+      authority.subjectAuthorizationSnapshot = async () => { authorityFailures++; throw new Error('synthetic authority unavailable'); };
       try {
         await http('put', '/api/v2/treatments').send(submitted()).expect(503);
         await http('patch', '/api/v3/treatments/same-treatment').send({ carbs: 44 }).expect(503);
-      } finally { authority.subjectSnapshot = snapshot; }
+        assert.equal(authorityFailures, 2, 'CURRENT_AUTHORITY_FAULT_EXERCISED_FOR_BOTH_WRITE_PATHS');
+      } finally { authority.subjectAuthorizationSnapshot = snapshot; }
       assert.deepEqual(await rows(), before);
       assert.deepEqual(workers[0].events, []);
     });

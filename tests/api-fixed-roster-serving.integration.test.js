@@ -82,7 +82,7 @@ optInSuite(process.env.NS_API_ROSTER_SERVING_DOCKER_TEST === '1', 'NS_API_ROSTER
       }
     });
 
-    it('refuses restore before suspension while A response is held, then restores after its real finish with B continuing', async function () {
+    it('suspends A and refuses data entry until held responses finish, then resumes and restores with B continuing', async function () {
       let responseDone = false, entered = false;
       const pending = call('api-1', A, 'POST', '/api/v3/entries', a, entry('native-held-A'), { 'x-roster-hold': 'postcommit' })
         .then(value => { responseDone = true; return { value }; }, error => ({ error }));
@@ -92,16 +92,23 @@ optInSuite(process.env.NS_API_ROSTER_SERVING_DOCKER_TEST === '1', 'NS_API_ROSTER
       const outcome = f.restore(async () => { entered = true; return 'bounded-restore-body'; }).then(value => ({ value }), error => ({ error }));
       try {
         const refused = await outcome;
-        assert.equal(refused.error?.code, 'LIFECYCLE_RESTORE_PREFLIGHT_PENDING_OPERATIONS');
+        assert.equal(refused.error?.code, 'LIFECYCLE_RESTORE_DRAIN_TIMEOUT');
         assert.equal(entered, false, 'HELD_RESPONSE_BLOCKS_RESTORE'); assert.equal(responseDone, false);
-        assert.deepEqual(await f.restoreState(), before, 'PREFLIGHT_REFUSAL_HAS_NO_WINDOW_OR_AUDIT_EFFECT');
-        assert.equal((await call('api-2', A, 'GET', '/api/v3/entries', a)).status, 200, 'A stays open');
+        const suspended = await f.restoreState();
+        assert.equal(suspended.phase, 'suspended');
+        assert.equal(BigInt(suspended.generation), BigInt(before.generation) + 1n);
+        assert.equal(suspended.audits, before.audits + 1);
+        assert.equal(suspended.unfinished, before.unfinished, 'HELD_RESPONSES_KEEP_DURABLE_MARKERS');
+        assert.equal((await call('api-2', A, 'GET', '/api/v3/entries', a)).status, 503, 'A refuses new work while suspended');
         assert.equal((await call('api-2', B, 'POST', '/api/v3/entries', b, entry('native-B-progress'))).status, 201);
         assert.equal((await call('service', B, 'GET', '/api/v3/entries/native-B-progress', b)).status, 200);
       } finally { f.current.get('api-1').child.kill('SIGUSR2'); }
       const response = await pending;
       assert.equal(response.error, undefined); assert.equal(response.value.status, 201);
       await f.base.until(async () => (await f.restoreState()).unfinished === 0, 'real response lifetimes finish');
+      const closed = await f.restoreState();
+      const resumed = await f.resume(closed.claim_id);
+      assert.equal(resumed.interrupted, 'before-data'); assert.equal(resumed.state, 'active');
       const restored = await f.restore(async () => { entered = true; return 'bounded-restore-body'; });
       assert.equal(restored.state, 'activated'); assert.equal(entered, true);
       for (const id of ['api-1', 'api-2']) assert.equal((await call(id, A, 'GET', '/api/v3/entries', a)).status, 200);
