@@ -369,6 +369,14 @@ including startup completion and model availability. Its client checks the row
 selector correspondence. Observation does not warm or invalidate, read SQL or
 certify lock/data freshness. Source/generation/assignment/process and actual
 configured payload/deadline limits still belong to the fixed host verifier.
+Operational verification can invalidate an unwatched cached model. A real
+connection or alarm demand queues only that tenant on the existing bounded
+runtime; it remains refused until current-epoch acquisition completes. Inspection
+stays read-only and may report that model unavailable. A publication's actual
+warm callback or a fresh assignment's boot must establish model availability;
+inspection alone cannot warm a dormant target. No implicit roster sweep or
+old-epoch readiness assertion substitutes for that work.
+
 Publication readiness batches must retain fresh registry revision checks and
 actual active versus paused/suspended eligibility semantics. Source-only tests
 cannot qualify process restart, physical retirement, endpoint custody or alarms.
