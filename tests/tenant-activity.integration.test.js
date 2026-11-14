@@ -72,6 +72,7 @@ optInSuite(process.env.NS_EVALUATOR_CONSUMERS_TEST === '1' && !!process.env.NS_T
     });
     after(async function () {
       const errors = [];
+      await lab.stopConsumers().catch(error => errors.push(error));
       for (const store of Object.values(stores)) await store.close().catch(error => errors.push(error));
       if (lab.admin) {
         await lab.admin.query('DROP SCHEMA IF EXISTS "' + namespace + '" CASCADE').catch(error => errors.push(error));
@@ -105,16 +106,17 @@ optInSuite(process.env.NS_EVALUATOR_CONSUMERS_TEST === '1' && !!process.env.NS_T
       await reading(50, lab.A); await reading(50, lab.B);
       const paused = await stores.owner.transition(ownerActor(lab.A), 'pause', { expectedVersion: 1 });
       assert.equal(paused.state, 'paused');
-      // Phase 1: actual evaluator timers at 150 ms. Only work/output oracles here:
-      // the realtime consumer refuses changed output under this timer churn on the
-      // unmodified b70ad83f too (see the evidence README), so delivery is phase 2.
+      // Phase 1: actual committed B work progresses while A remains paused.
+      // The maintained worker does not schedule unchanged idle evaluations.
       await lab.provisionPreview(); provisioned = true;
       const startCheckpoint = await lab.previewCheckpoint(lab.A); // before any evaluator process exists
       let worker = await boot(document => { document.timeIntervalMs = 150; });
       await reading(48, lab.A); // new A data while paused: any acquisition would advance A's checkpoint
       await worker.call('acquire', lab.A); await worker.call('tick', lab.A); await worker.call('wake', lab.A); await worker.call('flush', lab.A);
       const bBefore = tenantHealth(await worker.call('health'), lab.B).cycles;
-      await sleep(700); // several actual recovery/time timer rounds
+      const bCheckpoint = await lab.previewCheckpoint(lab.B);
+      await reading(49, lab.B);
+      await sleep(700); // preserve the existing bounded observation window
       await worker.call('flush', lab.A);
       let health = await worker.call('health');
       lab.traceConsumer('activity-paused-before-verdict', { checkpointA: await lab.previewCheckpoint(lab.A), checkpointB: await lab.previewCheckpoint(lab.B),
@@ -125,7 +127,8 @@ optInSuite(process.env.NS_EVALUATOR_CONSUMERS_TEST === '1' && !!process.env.NS_T
         ['EVALUATOR_TENANT_PAUSED', 'paused', null]);
       assert.equal(consumerHealth(health, lab.A).code, 'EVALUATOR_CONSUMER_TENANT_PAUSED');
       assert.equal(await worker.call('last', lab.A), null);
-      assert.ok(tenantHealth(health, lab.B).cycles > bBefore + 2, 'ACTIVITY_B_UNAFFECTED B kept cycling on the actual timers');
+      assert.ok(tenantHealth(health, lab.B).cycles > bBefore, 'ACTIVITY_B_UNAFFECTED committed B work completed');
+      assert.notDeepEqual(await lab.previewCheckpoint(lab.B), bCheckpoint, 'ACTIVITY_B_UNAFFECTED committed B input acquired');
       assert.notDeepEqual(await lab.previewCheckpoint(lab.B), startCheckpoint);
       await lab.stopConsumer(worker);
       // Phase 2: default (manual) timers; B delivery, upload, unpause.
@@ -269,35 +272,24 @@ optInSuite(process.env.NS_EVALUATOR_CONSUMERS_TEST === '1' && !!process.env.NS_T
       }
     });
 
-    it('unreadable activity for A stops only A (health code, one warning); B keeps cycling and delivering alarms', async function () {
-      // A real PostgreSQL error on reading A's row only (division by zero in a restrictive policy).
+    it('a shared activity policy SQL failure refuses role startup before either tenant output', async function () {
+      // This is shared schema mutation, not a poison tenant input. The lower
+      // tenant-bound reader still demonstrates the A error and independent B.
       await lab.admin.query(`CREATE POLICY synthetic_unreadable_a ON "${namespace}".tenant_activity AS RESTRICTIVE FOR SELECT
         USING (1 / (CASE WHEN tenant_id = '${lab.A}'::uuid THEN 0 ELSE 1 END) = 1)`);
       await assert.rejects(stores.reader.read(lab.A), { code: 'ACTIVITY_UNAVAILABLE' });
       assert.equal((await stores.reader.read(lab.B)).state, 'active');
       await reading(50, lab.A);
-      await lab.provisionPreview(); provisioned = true;
-      const startA = await lab.previewCheckpoint(lab.A);
-      const worker = await boot();
-      const revisions = [];
-      for (let i = 0; i < 3; i++) {
-        await reading(60 - i, lab.B); await worker.call('acquire', lab.B); await worker.call('acquire', lab.A); await worker.call('tick', lab.A);
-        revisions.push(tenantHealth(await worker.call('health'), lab.B).outputRevision);
-      }
-      await worker.call('wake', lab.B); await worker.call('flush', lab.B);
-      await lab.wait(async () => effects(lab.B).length >= 1);
-      const health = await worker.call('health');
-      const warnings = worker.logs().stderr.split('\n').filter(line => line.includes('Evaluator stopped for tenant ' + lab.A));
-      lab.traceConsumer('activity-unreadable-before-verdict', { a: tenantHealth(health, lab.A), b: tenantHealth(health, lab.B), revisions, warnings: warnings.length,
-        effectsA: effects(lab.A).length, effectsB: effects(lab.B).length });
-      assert.equal(tenantHealth(health, lab.A).code, 'EVALUATOR_ACTIVITY_UNAVAILABLE', 'ACTIVITY_UNREADABLE_CODE');
-      assert.deepEqual(await lab.previewCheckpoint(lab.A), startA, 'ACTIVITY_UNREADABLE_STOPS_A');
-      assert.equal(effects(lab.A).length, 0);
-      assert.ok(revisions[2] > revisions[0] && tenantHealth(health, lab.B).ready === true, 'ACTIVITY_UNREADABLE_B_CYCLES');
-      assert.ok(effects(lab.B).length >= 1, 'ACTIVITY_UNREADABLE_B_DELIVERS');
-      assert.equal(warnings.length, 1, 'one log warning for A');
-      assert.match(warnings[0], /EVALUATOR_ACTIVITY_UNAVAILABLE/);
-      await lab.stopConsumer(worker);
+      await lab.provisionPreview(); provisioned = true; await lab.openSink();
+      const before = [await lab.previewCompleted(lab.A), await lab.previewCompleted(lab.B)];
+      const worker = await lab.workerConsumers(lab.configureConsumers());
+      assert.equal(worker.startup.ready, undefined, 'SHARED_ACTIVITY_SCHEMA_NO_READY_ROLE');
+      assert.equal(worker.startup.bootError?.message, 'evaluator preview readiness or initialization refused');
+      await lab.stopConsumers();
+      assert.deepEqual([await lab.previewCompleted(lab.A), await lab.previewCompleted(lab.B)], before,
+        'SHARED_ACTIVITY_SCHEMA_NO_COMPLETED_OUTPUT');
+      assert.deepEqual(lab.sinkEffects, []); assert.deepEqual(await lab.requests(lab.A), []); assert.deepEqual(await lab.requests(lab.B), []);
+      lab.traceConsumer('activity-shared-schema-refusal', { startup: worker.startup, outputsUnchanged: true, effects: lab.sinkEffects.length });
     });
 
     it('a deletion request pauses A now; owner may pause/unpause while pending; cancel restores; operator execution suspends', async function () {

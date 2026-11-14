@@ -126,7 +126,7 @@ module.exports = function consumersLab () {
       ...lab.environment(config), ...source, ...lab.extraEnv, MULTITENANT_EVALUATOR_CONFIG: config.file } });
     const birthRaw = fs.readFileSync('/proc/' + child.pid + '/stat', 'utf8');
     const birth = birthRaw.slice(birthRaw.lastIndexOf(')') + 2).split(' ')[19];
-    children.add(child); let sequence = 0, stdout = '', stderr = ''; const pending = new Map();
+    children.add(child); child.fixtureBootRefused = false; let sequence = 0, stdout = '', stderr = ''; const pending = new Map();
     child.stdout.on('data', b => { stdout += b; }); child.stderr.on('data', b => { stderr += b; });
     const startup = setTimeout(() => { child.kill('SIGTERM'); reject(new Error('Consumer role startup watchdog')); }, 15000);
     const worker = { child, birth, processGroup: child.pid, logs: () => ({ stdout, stderr }), call (action, tenant = lab.A) {
@@ -134,7 +134,7 @@ module.exports = function consumersLab () {
         pending.set(id, { done, fail, timer }); child.send({ id, action, tenant }); });
     } };
     child.on('message', message => {
-      if (message.ready || message.bootError) { clearTimeout(startup); resolve({ ...worker, startup: message }); }
+      if (message.ready || message.bootError) { child.fixtureBootRefused = !!message.bootError; if (message.bootError) lab.traceConsumer('role-boot-refusal', { ...message, pgstreamDiagnostics: stderr.split('\n').filter(line => line.startsWith('Pgstream ')).slice(-8) }); clearTimeout(startup); resolve({ ...worker, startup: message }); }
       else if (pending.has(message.id)) { const p = pending.get(message.id); pending.delete(message.id); clearTimeout(p.timer);
         if (message.error) p.fail(Object.assign(new Error(message.error.message), { name: message.error.name })); else p.done(message.value); }
     });
@@ -161,8 +161,9 @@ module.exports = function consumersLab () {
     lab.releaseSink();
     for (const child of [...children]) {
       const stopped = new Promise(resolve => child.once('exit', (code, signal) => resolve({ code, signal })));
-      const timer = setTimeout(() => child.kill('SIGKILL'), 10000); child.kill('SIGTERM'); const result = await stopped; clearTimeout(timer);
-      if (result.code !== 0) throw new Error('Owned consumer shutdown refused/forced');
+      let forced = false;
+      const timer = setTimeout(() => { forced = true; child.kill('SIGKILL'); }, 10000); child.kill('SIGTERM'); const result = await stopped; clearTimeout(timer);
+      if (forced || result.code !== 0 && !child.fixtureBootRefused) throw new Error('Owned consumer shutdown refused/forced');
     }
   };
   lab.reset = async () => {

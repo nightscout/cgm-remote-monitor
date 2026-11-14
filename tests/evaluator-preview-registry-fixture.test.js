@@ -15,7 +15,7 @@ function fixture () {
     calls.push({ text, values });
     const create = /^CREATE ROLE "([^"]+)"/.exec(text); if (create) roles.add(create[1]);
     const drop = /^DROP ROLE "([^"]+)"/.exec(text); if (drop) roles.delete(drop[1]);
-    return { rows: [], rowCount: 2 };
+    return { rows: [], rowCount: Array.isArray(values?.[0]) ? values[0].length : 2 };
   } };
   const base = () => (lab = { name: 'evaluator_protocol', A, B, namespaces, domains: Object.keys(namespaces).filter(k => k !== 'clock'),
     tables: Object.fromEntries(require('../lib/data/tenant-projection-evaluator').domains.map(k => [k, namespaces[k] + '.' + k])),
@@ -43,7 +43,7 @@ function fixture () {
     if (name === '../../lib/server/serve/evaluator-config') return { ...parser, parse(value, source) { return parser.parse(value, {...source,NS_RT_BOOTSTRAP_PGSTREAM_BINARY:'/synthetic/pinned-pgstream'}); } };
     if (name === './provisioned-tenants') return { async create (options) {
       calls.push({ setup: options });
-      return { namespaces: registry, registryGrants: settings => require('../lib/tenant-registry/postgres').grants({ namespace: registry.registry, ...settings }),
+      return { namespaces: registry, provisioner: 'protocol_provisioner', registryGrants: settings => require('../lib/tenant-registry/postgres').grants({ namespace: registry.registry, ...settings }),
         async provision (spec) { assert(!provisionedIds.has(spec.id)); provisionedIds.add(spec.id); calls.push({ provision: spec }); },
         provisioning: { async get (id) { return provisionedIds.has(id) ? { state: 'active' } : null; } },
         async close () { calls.push({ text: 'PROVISIONING_CLOSE' }); } };
@@ -81,6 +81,10 @@ describe('independent registry evaluator fixture setup', function () {
     const f = fixture(), lab = f.create();
     try {
       await lab.open(); const configured = lab.configure();
+      await lab.setSettings({ units: 'mmol' }, lab.A);
+      const update = f.calls.find(c => c.text?.startsWith('UPDATE "provisioned_settings"') && c.values?.[0]?.length === 1);
+      assert.deepEqual(JSON.parse(update.values[1]), { DISPLAY_UNITS: 'mmol' });
+      await assert.rejects(lab.setSettings({ EXTENDED_PLUGIN_INPUT: true }), { code: 'SETTINGS_UNSUPPORTED' });
       assert(!Object.hasOwn(configured.document, 'tenants')); assert(configured.document.registry); assert(configured.document.tenantSettings);
       const value = configured.identity(lab.A); assert(value instanceof Promise); assert.equal(await value, 'actual-export-sentinel');
       const delegated = f.calls.find(c => c.identity).identity;
@@ -93,6 +97,12 @@ describe('independent registry evaluator fixture setup', function () {
       assert.equal(worker.options.env.MULTITENANT_EVALUATOR_CONFIG, configured.file);
       assert(worker.options.env.NS_EVALUATOR_FIXTURE_SETTINGS);
       assert(worker.options.env.MULTITENANT_OPERATION_CONFIG);
+      const composition = require('../lib/cli/commands/multitenant').configure(['evaluator'], worker.options.env);
+      assert.equal(composition.operationConfig.participantId, 'evaluator');
+      assert.deepEqual(composition.operationConfig.participants.flatMap(row => row.roles).sort(), ['api','evaluator','realtime','tenant-admin']);
+      assert.equal(composition.operationConfig.participants.find(row => row.id === 'evaluator').endpoint.socketPath, worker.options.env.NS_SERVE_INTERNAL_SOCKET);
+      assert(f.calls.some(c => c.text === 'REVOKE ALL ON FUNCTION "provisioned_settings".tenant_settings_values_valid(jsonb) FROM PUBLIC'));
+      assert(f.calls.some(c => c.text === 'GRANT EXECUTE ON FUNCTION "provisioned_settings".tenant_settings_values_valid(jsonb) TO "protocol_provisioner"'));
       assert.equal(worker.options.env.NS_RT_BOOTSTRAP_PGSTREAM_CONFIG.endsWith('synthetic-stream.json'),true);
       assert(f.calls.some(c=>c.producer),'REAL_PRODUCT_SETUP_REQUIRED_BEFORE_CHILD');
       assert(f.calls.some(c => c.text?.includes('tenant_registry_tenants(uuid, integer)')));

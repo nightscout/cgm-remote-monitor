@@ -10,9 +10,9 @@ const encode = value => JSON.parse(JSON.stringify(value, (key, item) => item ===
     ? { probeType: 'number', value: Object.is(item, -0) ? '-0' : String(item) } : item));
 pg.Client.prototype.query = function (...args) {
   const result = query.apply(this, args);
-  // The cycle's clinical read after the input COMMIT: a projection read, or,
-  // since the views read in process (evaluator cost lane A), the statistics read.
-  if (armed && typeof args[0] === 'string' && (args[0].includes('jsonb_to_recordset') || args[0].includes('pg_column_size(doc)')) && result?.then) {
+  // The cycle's actual clinical statistics read, after input COMMIT. Receipt
+  // batch SQL also uses jsonb_to_recordset and must not satisfy this hold.
+  if (armed && typeof args[0] === 'string' && args[0].includes('pg_column_size(doc)') && result?.then) {
     armed = false;
     return result.then(async value => {
       held = true; process.send({ held: true });
@@ -21,14 +21,15 @@ pg.Client.prototype.query = function (...args) {
   }
   return result;
 };
+const currentOutput = tenant => running.operationCohort.window.run(tenant, () => context.last(tenant));
 process.on('message', async request => {
   try {
     let value;
     if (request.action === 'arm') { armed = true; value = true; }
     else if (request.action === 'release') { if (release) release(); value = !!held; }
-    else if (request.action === 'acquire') { await context.acquire(request.tenant); value = context.last(request.tenant); }
-    else if (request.action === 'tick') { await context.tick(request.tenant); value = context.last(request.tenant); }
-    else if (request.action === 'last') value = context.last(request.tenant);
+    else if (request.action === 'acquire') { await context.acquire(request.tenant); value = await currentOutput(request.tenant); }
+    else if (request.action === 'tick') { await context.tick(request.tenant); value = await currentOutput(request.tenant); }
+    else if (request.action === 'last') value = await currentOutput(request.tenant);
     else if (request.action === 'health') value = context.health();
     else if (request.action === 'current') value = await context.isCurrent(request.tenant, request.identity);
     else if (request.action === 'close') { await running.stop(); value = true; }
@@ -38,9 +39,9 @@ process.on('message', async request => {
   } catch (error) { process.send({ id: request.id, error: { name: error.name, message: error.message } }); }
 });
 starting = (async () => {
-  const config = require('../../lib/server/serve/evaluator-config').load(process.env);
+  const configured = require('../../lib/cli/commands/multitenant').configure(['evaluator'], process.env);
   running = await require('../../lib/server/serve').start(['evaluator'], { HOSTNAME: '127.0.0.1', PORT: 1337 }, null,
-    process.env, { evaluatorPreview: config });
+    process.env, configured);
   context = running.contexts.evaluator;
   process.send({ ready: true, contexts: Object.keys(running.contexts), servers: running.servers.length,
     health: context ? context.health() : null });
