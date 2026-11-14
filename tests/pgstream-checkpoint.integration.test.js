@@ -62,4 +62,31 @@ optInSuite(process.env.NS_PGSTREAM_ROLE_TEST==='1' && !!process.env.NS_TEST_POST
    }finally{await lab.admin.query('ROLLBACK');await control.end();}
    assert.equal((await output(lab.A)).output,null);assert.deepEqual((await output(lab.A)).completed,{});assert.equal(store.available,false);
  });
+ it('reconstructs retained overdue work before serve boot without a clinical write or duplicate revision',async()=>{
+   const at=Date.now(),env=require('../lib/server/tenant-app/environment')({settings:{enable:['bgnow']}});
+   await lab.persistDomains({entries:[{_id:'retained-overdue',type:'sgv',sgv:123,date:at-60000,dateString:new Date(at-60000).toISOString()}]},lab.B);
+   await store.observe(lab.A,'clock','1');await store.observe(lab.B,'clock',String((await lab.clock(lab.B)).stamp));
+   const seed=lab.evaluator(lab.B,{env,includeFrame:true});
+   const seeded=await scope.withTenant(lab.B,()=>seed.evaluate({at}));seed.close();
+   await store.complete(lab.B,{observed:await store.begin(lab.B),identity:'a'.repeat(64),result:seeded});
+   await lab.admin.query(`UPDATE "${lab.replayNamespace}".tenant_consumer_checkpoint SET projection=jsonb_set(projection,'{0,nextDueAt}',$3::jsonb) WHERE tenant_id=$1 AND consumer=$2`,[lab.B,store.consumer,String(at-1)]);
+   const before=await output(lab.B),clock=await lab.clock(lab.B),work=await store.work();
+   const due=work.find(row=>row.tenant===lab.B);assert(due);assert.equal(due.pendingAt,null);
+   let release,entered;const gate=new Promise(resolve=>{release=resolve;}),started=new Promise(resolve=>{entered=resolve;});
+   const window=require('./fixtures/operation-window-runtime-protocol')({trustedWorker:true});await window.window.ready();
+   const jobs=require('../lib/server/serve/evaluator-job-context').create('clinical');
+   const service=await require('../lib/server/serve/evaluator-runtime')({tenants:[lab.A,lab.B],operationWindow:window.window,jobContext:jobs,
+     boot:'serve',bootConcurrency:1,workerState:()=>({available:true,generation:1}),externalRecovery:true,now:()=>at,
+     readCurrent:async tenant=>({tenant,identity:'a'.repeat(64)}),
+     create:async current=>{const component=lab.evaluator(current.tenant,{env,includeFrame:true});return current.tenant===lab.A?{...component,evaluate:async args=>{entered();await gate;return component.evaluate(args);}}:component;},
+     durable:{begin:store.begin,complete:store.complete},recoveryIntervalMs:1000,timeIntervalMs:60000,schedule:()=>1,cancel(){},setTimer:()=>1,clearTimer(){}});
+   try{
+     await started;await service[due.pendingAt!==null?'acquire':'tick'](due.tenant);
+     const current=await output(lab.B),progress=service.health([lab.B]).tenants[0].progress;
+     assert.equal(progress.failedCompletions,0,'NATIVE_COLD_DUE_MUST_ACQUIRE');assert.equal(progress.completedAcquisitions,1);
+     assert.equal(current.output.frame.sgvs[0].mgdl,123);assert.equal(current.output.outputRevision,before.output.outputRevision,'RETAINED_CONTENT_REVISION_MUST_NOT_DUPLICATE');
+     assert.deepEqual(current.completed,current.observed);assert(current.nextDueAt>at);assert.deepEqual(await lab.clock(lab.B),clock,'NO_CLINICAL_WRITE_FOR_RECOVERY');
+   }finally{release();await service.close();await window.window.close();}
+ });
+
 });

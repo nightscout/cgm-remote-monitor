@@ -179,9 +179,7 @@ describe('evaluator preview owned jobs and lifecycle', function () {
       assert.equal(l.ctx.last(A),null); assert.equal(aComponent.closed,true);
       assert.deepEqual(l.ctx.last(B),b); assert.equal(l.instances[1].closed,false);
       const before=l.calls.filter(row => row[0]===A && row[1]==='acquire').length;
-      await l.ctx.tick(A); assert.equal(l.ctx.last(A),null);
-      assert.equal(l.calls.filter(row => row[0]===A && row[1]==='acquire').length,before);
-      await l.ctx.acquire(A);
+      await l.ctx.tick(A); assert.equal(l.ctx.last(A).trigger,'acquisition');
       assert.equal(l.calls.filter(row => row[0]===A && row[1]==='acquire').length,before+1);
       assert.equal(l.ctx.last(A).eligible,true); assert.deepEqual(l.ctx.last(B),b);
     } finally { await l.ctx.close(); }
@@ -229,8 +227,8 @@ describe('evaluator preview owned jobs and lifecycle', function () {
       const previous = l.ctx.last(A); l.configurations.set(A, { tenant: A, identity: identity(2) });
       await l.ctx.tick(A);
       assert.equal(l.instances[0].closed, true, 'M5_EVAL_CONFIG_REBUILD old effective context retired');
-      assert.equal(l.ctx.last(A), null, 'M5_EVAL_CONFIG_REBUILD old frame discarded despite same declared revision');
-      await l.ctx.acquire(A); assert.equal(l.ctx.last(A).identity, identity(2));
+      assert.equal(l.ctx.last(A).trigger, 'acquisition', 'M5_EVAL_CONFIG_REBUILD cold replacement acquires before computing');
+      assert.equal(l.ctx.last(A).identity, identity(2));
       assert.equal(await l.ctx.isCurrent(A, previous.identity), false);
       assert.equal(l.ctx.last(A).identity, identity(2), 'old consumer gate cannot retire current newer output');
       await l.ctx.acquire(A); assert.equal(await l.ctx.isCurrent(A, identity(2)), true);
@@ -327,5 +325,52 @@ describe('evaluator preview owned jobs and lifecycle', function () {
       assert.equal(run.servers.length, 0); assert.ok(run.contexts.evaluator);
       await run.stop(); await run.stop(); assert.equal(closes, 1);
     } finally { role.boot = original; }
+  });
+});
+
+describe('serve boot with retained durable overdue work', function () {
+  it('acquires cold projection input before overdue TIME, coalesces direct input, and reuses warm retained input', async function () {
+    const scope=require('../lib/storage/tenant-scope'),window=require('./fixtures/operation-window-runtime-protocol')({trustedWorker:true});
+    const jobs=require('../lib/server/serve/evaluator-job-context').create('clinical');
+    const projection=require('../lib/data/tenant-projection-evaluator');
+    const env=require('../lib/server/tenant-app/environment')({settings:{enable:['bgnow']}}),language=require('../lib/language')();
+    const at=Date.UTC(2026,10,14,12),gate=deferred(),started=deferred();
+    const acquisitions=new Map([[A,0],[B,0]]),completions=[];let revision=1,epoch=1;
+    await window.window.ready();
+    const service=await runtime({tenants:[A,B],operationWindow:window.window,jobContext:jobs,boot:'serve',bootConcurrency:1,
+      workerState:()=>({available:true,generation:epoch}),externalRecovery:true,
+      readCurrent:async tenant=>({tenant,identity:identity(revision)}),now:()=>at,
+      create:async current=>projection({tenant:current.tenant,env,language,maxRows:10,maxBytes:100000,includeFrame:true,
+        connection:{query:async()=>{throw new Error('UNEXPECTED_CLINICAL_SQL');}},dbstats:async()=>({dataSize:0,indexSize:0}),
+        replay:{async reconcile(){acquisitions.set(current.tenant,acquisitions.get(current.tenant)+1);if(current.tenant===A){started.resolve();await gate.promise;}return {checkpoint:7,progress:'retained-db',signature:{stamp:7,deleted:0},rows:[]};}}}),
+      durable:{begin:async()=>({clock:'7'}),complete:async(tenant,value)=>{completions.push({tenant,...value});return {changed:false,output:{tenant,identity:value.identity,outputRevision:9,contentDigest:'same',inputCheckpoint:7,result:value.result}};}},
+      recoveryIntervalMs:1000,timeIntervalMs:60000,schedule:()=>1,cancel(){},setTimer:()=>1,clearTimer(){}});
+    const previous=scope.getTenancyMode();scope.setTenancyMode('multi');
+    try {
+      await started.promise;
+      // The shipped workDrain dispatches overdue rows with pendingAt=null as
+      // tick(), while the retained-state serve boot is still acquiring A.
+      await service.tick(B);
+      let row=service.health([B]).tenants[0];
+      assert.equal(row.progress.failedCompletions,0,'COLD_DUE_MUST_ACQUIRE_RETAINED_INPUT');
+      assert.equal(row.progress.completedAcquisitions,1);assert.equal(row.progress.completedTimeCycles,0);
+      assert.equal(acquisitions.get(B),1);assert.equal(completions.at(-1).result.trigger,'acquisition');
+      await service.tick(B);row=service.health([B]).tenants[0];
+      assert.equal(row.progress.completedTimeCycles,1);assert.equal(acquisitions.get(B),1,'WARM_TIME_MUST_REUSE_INPUT');
+      gate.resolve();for(let i=0;i<20&&service.health().tenants.some(x=>x.jobs.booting);i++)await new Promise(resolve=>setImmediate(resolve));
+      assert.equal(acquisitions.get(B),1,'BOOT_MUST_REUSE_ALREADY_ACQUIRED_COLD_WORK');
+      await service.invalidateTenant(B);
+      await Promise.all([service.tick(B),service.acquire(B)]);
+      assert.equal(acquisitions.get(B),2,'COLD_DUE_AND_DIRECT_INPUT_SHARE_ACQUISITION');
+      assert.equal(service.health([B]).tenants[0].progress.failedCompletions,0);
+      revision=2;await service.tick(B);
+      assert.equal(acquisitions.get(B),3,'CONFIG_REPLACEMENT_MUST_ACQUIRE_NEW_COMPONENT');
+      assert.equal(completions.at(-1).result.trigger,'acquisition');
+      const generation=service.health([B]).tenants[0].progress.generation;
+      epoch=2;await service.tick(B);
+      assert.equal(acquisitions.get(B),4,'NEW_EPOCH_MUST_ACQUIRE_CURRENT_INPUT');
+      assert.equal(service.health([B]).tenants[0].progress.generation,generation);
+      assert.equal(service.health([B]).tenants[0].progress.failedCompletions,0);
+    }finally{gate.resolve();await service.close();await window.window.close();scope.setTenancyMode(previous);}
   });
 });
