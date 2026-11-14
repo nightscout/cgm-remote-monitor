@@ -188,7 +188,7 @@ describe('selected evaluator role consumes notification composition', function (
     let role;
     try {
       role = await sandbox.module.exports.boot(cfg);
-      assert.deepEqual(calls.slice(0, 4), ['clinical-readiness', 'consumer-prepare', 'clinical-start', 'consumer-start'], 'EVALUATOR_CONSUMER_SELECTED_BOOT');
+      assert.deepEqual(calls.slice(0, 4), ['clinical-readiness', 'clinical-start', 'consumer-prepare', 'consumer-start'], 'EVALUATOR_CONSUMER_SELECTED_BOOT');
       await role.acquire(A); assert.equal(calls.at(-1), 'consumer-wake', 'clinical promise completed without awaiting held handoff');
       assert.equal(role.health().consumers.enabled, true);
       await role.close(); await role.close();
