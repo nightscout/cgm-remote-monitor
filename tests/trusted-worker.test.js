@@ -238,3 +238,19 @@ describe('trusted evaluator dirty checkpoints', function () {
   });
 
 });
+
+
+describe('joined worker operational verification', function () {
+  it('awaits the configured whole batch outside the invoking tenant scope', async function () {
+    const f=fixture();let timer,at=0,held=null,calls=0;
+    const lifecycle=await require('../lib/trusted-worker/lifecycle')(f.reader,{intervalMs:10,retryMs:1,now:()=>at,schedule:fn=>{timer=fn;return 1;},cancel(){},verifyWorker:async()=>{
+      assert.equal(scope.currentTenant(),undefined);f.reader.invalidate();calls++;if(held)await held.promise;await f.reader.verify();
+    }});
+    await f.reader.scan([A]);held=deferred();at=20;
+    const previous=scope.getTenancyMode();scope.setTenancyMode('multi');
+    try { await scope.withTenant(A,async()=>{timer();assert.equal(f.reader.health().available,false);}); }
+    finally { scope.setTenancyMode(previous); }
+    const pending=lifecycle.verify();await assert.rejects(f.reader.read(A),/TRUSTED_WORKER_UNAVAILABLE/);
+    held.resolve();await pending;assert.equal(calls,2);assert.equal(f.reader.health().available,true);await lifecycle.close();await f.reader.close();
+  });
+});

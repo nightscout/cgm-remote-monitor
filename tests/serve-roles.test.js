@@ -162,3 +162,16 @@ describe('parseRoles is unchanged by the typed fields', function () {
       && err.message === 'unknown role: bogus; the roles are api, feed-reader, evaluator, realtime, vcpool, tenant-admin, admin');
   });
 });
+
+
+describe('trusted operation worker selection', function () {
+  const options = { evaluatorPreview: { pgstream: {}, trustedWorker: {} } };
+  it('selects only a dedicated verified CDC evaluator', function () {
+    assert.equal(serve.trustedOperationWorker(['evaluator'], options), true);
+    for (const names of [['api'], ['realtime'], ['feed-reader'], ['evaluator', 'api'], ['api', 'evaluator']]) {
+      assert.equal(serve.trustedOperationWorker(names, options), false, names.join(','));
+    }
+    assert.equal(serve.trustedOperationWorker(['evaluator'], { evaluatorPreview: { trustedWorker: {} } }), false);
+    assert.equal(serve.trustedOperationWorker(['evaluator'], { evaluatorPreview: { pgstream: {} } }), false);
+  });
+});

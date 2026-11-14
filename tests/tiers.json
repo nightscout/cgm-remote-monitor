@@ -315,7 +315,9 @@
         "tests/connector-sources.test.js",
         "tests/evaluator-job-context.test.js",
         "tests/evaluator-inspection.test.js",
-        "tests/trusted-worker.test.js"
+        "tests/trusted-worker.test.js",
+        "tests/operation-window-lock-reuse.test.js",
+        "tests/operation-window-trusted-worker.test.js"
       ],
       "env": true,
       "require": [
