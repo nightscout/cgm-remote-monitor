@@ -365,33 +365,43 @@ optInSuite(process.env.NS_M5_CURRENT_STATE_PROOF_TEST === '1' && !!process.env.N
         if (scenario === 'byte') { await lab.reset(); await lab.provisionPreview(); }
         await seed(); await seed(lab.B, 'preview-reading', 333);
         const config = lab.configure(d => { if (scenario === 'row') { d.maxRows = 1; d.pageSize = 1; } else d.maxBytes = 10000; });
-        const worker = await start(config), first = await worker.call('last'), checkpoint = await lab.previewCheckpoint(lab.A);
+        const worker = await start(config), first = await worker.call('last'), checkpoint = await lab.previewCheckpoint(lab.A), completed = await lab.previewCompleted(lab.A);
         const written = await lab.writeCanonical({ planned: { op: 'create', docs: [
           { ...runtimeReading('oversized-a', 222, 1), ...(scenario === 'byte' ? { extension: 'x'.repeat(11000) } : {}) }
         ] } });
         const refused = await worker.call('acquire'), b = await worker.call('acquire', lab.B), health = await worker.call('health');
         lab.tracePreview('preview-refusal-' + scenario, { written, first, refused, b, health, physical: await lab.previewPhysical(), checkpoint });
-        assert.equal(refused.outputRevision, first.outputRevision, 'M5_EVAL_REFUSAL retains successful output revision');
-        assert.equal(refused.eligible, false); assert.equal(value(refused), 111);
+        // A failed actual window withdraws RAM serving; the last good clinical
+        // result/frame remains authoritative only in the durable completed row.
+        assert.equal(refused, null, 'M5_EVAL_REFUSAL no currently servable model');
+        assert.deepEqual(await lab.previewCompleted(lab.A), completed, 'M5_EVAL_REFUSAL retains durable revision/result/frame/input checkpoint');
+        assert.equal(Number(completed.output_revision), first.outputRevision);
+        assert.equal(value(completed.projection[0].output), 111);
         assert.deepEqual(await lab.previewCheckpoint(lab.A), checkpoint, 'M5_EVAL_REFUSAL keeps good input');
         assert.equal(b.eligible, true); assert.equal(value(b), 333);
         await lab.stopWorker(worker);
       }
     });
     lifecycle('drains and fences a real in-flight clinical read before role shutdown', async function () {
-      await seed(); const worker = await start(), first = await worker.call('last');
+      await seed(); const worker = await start(), first = await worker.call('last'), completed = await lab.previewCompleted(lab.A);
+      // Arm before the write: maintained CDC may start its actual cycle as soon
+      // as COMMIT arrives, before a later explicit acquire call.
+      await worker.call('arm'); const held = worker.held();
       await lab.writeCanonical({ planned: { op: 'create', docs: [runtimeReading('pending-new', 222, 1)] } });
-      await worker.call('arm'); const held = worker.held(), running = worker.call('acquire'); await held;
+      const running = worker.call('acquire').then(value => ({ value }), error => ({ error })); await held;
       let finished = false; const stopping = worker.call('close').then(() => { finished = true; });
       await new Promise(resolve => setImmediate(resolve));
       const physicalWhileHeld = await lab.previewPhysical();
-      await worker.call('release'); await Promise.all([running, stopping]);
-      const last = await worker.call('last'), health = await worker.call('health');
-      lab.tracePreview('preview-close-fence', { first, physicalWhileHeld, last, health, finished, physicalAfter: await lab.previewPhysical() });
+      await worker.call('release'); const [acquisition] = await Promise.all([running, stopping]);
+      if (acquisition.error) assert.equal(acquisition.error.message, 'LIFECYCLE_WINDOW_CLOSED');
+      else assert.equal(acquisition.value, null, 'M5_EVAL_CLOSE_FENCE no late servable output');
+      await assert.rejects(worker.call('last'), /LIFECYCLE_WINDOW_CLOSED/);
+      const retained = await lab.previewCompleted(lab.A), health = await worker.call('health');
+      lab.tracePreview('preview-close-fence', { first, physicalWhileHeld, retained, health, finished, physicalAfter: await lab.previewPhysical() });
       assert.equal(physicalWhileHeld.A.tables.entries.length, 2);
       assert.equal(health.closed, true); assert.equal(finished, true);
-      assert.equal(last.outputRevision, first.outputRevision, 'M5_EVAL_CLOSE_FENCE no late output after shutdown starts');
-      assert.equal(last.eligible, false); assert.equal(value(last), 111);
+      assert.deepEqual(retained, completed, 'M5_EVAL_CLOSE_FENCE no late durable revision/result/frame/input checkpoint');
+      assert.equal(Number(retained.output_revision), first.outputRevision); assert.equal(value(retained.projection[0].output), 111);
       await lab.stopWorker(worker);
     });
     lifecycle('refuses actual unsafe clinical clock checkpoint and unrelated grants before starting jobs', async function () {

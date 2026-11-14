@@ -62,6 +62,10 @@ module.exports = function evaluatorPreviewRegistryLab () {
       namespaces: { clock: lab.namespaces.clock }, checkpoints: [{ namespace: lab.replayNamespace, consumer: lab.consumerName, digest: replay.digest },
         { namespace: lab.replayNamespace, consumer: lab.consumerName + '-completed', digest: crypto.createHash('sha256').update(JSON.stringify(['evaluator-work-v2', lab.replayNamespace, lab.consumerName])).digest('hex') }] });
     const registry = provisioned.namespaces;
+    // Match canonical DBA grants: the lifetime role may execute only its
+    // lifecycle birth function; settings validation belongs to provisioning.
+    await lab.admin.query('REVOKE ALL ON FUNCTION "' + registry.settings + '".tenant_settings_values_valid(jsonb) FROM PUBLIC');
+    await lab.admin.query('GRANT EXECUTE ON FUNCTION "' + registry.settings + '".tenant_settings_values_valid(jsonb) TO "' + provisioned.provisioner + '"');
     for (const statement of provisioned.registryGrants({ enumerators: [lab.previewRole] })) await lab.admin.query(statement);
     for (const kind of ['settings', 'operatorPolicy']) {
       const ns = registry[kind], table = kind === 'settings' ? 'tenant_settings' : 'tenant_operator_policy';
@@ -105,11 +109,25 @@ module.exports = function evaluatorPreviewRegistryLab () {
       if (producer && producerIdentity === identity) return;
       assert(![...children].some(child => child.exitCode === null && child.signalCode === null), 'fixture cannot rebind a live producer');
       if (producer) { await producer.close(); producer = null; }
-    const protects = require('../../lib/server/serve/operation-cohort').protectedNamespaces(config.document).filter(namespace => namespace !== registry.control);
-    fs.writeFileSync(operationFile, JSON.stringify({ version: 2, namespace: registry.control, connectionEnv: 'NS_EVALUATOR_FIXTURE_LIFETIME',
-      registry: { namespace: registry.registry }, participantId: 'evaluator', participants: [
-        { id: 'evaluator', roles: ['evaluator'], namespaces: protects, maxMessageBytes: 1048576, timeoutMs: 5000 }
-      ] }), { mode: 0o600 });
+      // A dedicated evaluator is one participant in the maintained four-role
+      // composition. The other private endpoints are declared but absent in
+      // this local evaluator fixture: no remote cohort/census claim is made.
+      const plan = require('./multitenant-plan'), layout = plan.layout('ev_' + crypto.createHash('sha256').update(lab.name).digest('hex').slice(0, 16));
+      Object.assign(layout.namespaces, namespaces, { eval_checkpoint: lab.replayNamespace,
+        authorization: registry.authorization, secrets: registry.secrets, legacy: registry.legacy,
+        access: registry.access, control: registry.control });
+      const documents = plan.documents({ layout });
+      for (const document of Object.values(documents.configs)) {
+        document.registry = { ...config.document.registry };
+        if (document.tenantSettings) document.tenantSettings = structuredClone(config.document.tenantSettings);
+      }
+      documents.configs.evaluator = config.document;
+      const protects = require('../../lib/server/serve/operation-cohort').protectedNamespaces;
+      const participants = documents.operations.evaluator.participants.map(row => ({ ...row,
+        namespaces: protects(documents.configs[row.id]).filter(namespace => namespace !== registry.control) }));
+      fs.writeFileSync(operationFile, JSON.stringify({ ...documents.operations.evaluator,
+        namespace: registry.control, connectionEnv: 'NS_EVALUATOR_FIXTURE_LIFETIME',
+        registry: { namespace: registry.registry }, participants }), { mode: 0o600 });
       producer = await stream.setup({ admin: lab.admin, adminURI: process.env.NS_TEST_POSTGRES_ADMIN_URI, directory,
         config: selected, evaluatorRole: lab.previewRole });
       producerIdentity = identity;
@@ -124,6 +142,7 @@ module.exports = function evaluatorPreviewRegistryLab () {
       lab.extraEnvironment = { ...(lab.extraEnvironment || {}), [reference]: connection };
     };
     lab.setSettings = async (settings, tenant) => {
+      settings = require('../../lib/tenant-settings/catalogue').normalize(settings);
       const ids = tenant === undefined ? [lab.A, lab.B] : [tenant];
       const result = await lab.admin.query('UPDATE "' + registry.settings + '".tenant_settings SET version=version+1,values=$2::jsonb WHERE tenant_id=ANY($1::uuid[])', [ids, JSON.stringify(settings)]);
       assert.equal(result.rowCount, ids.length, 'fixture settings updates existing provisioned tenants');
@@ -165,6 +184,14 @@ module.exports = function evaluatorPreviewRegistryLab () {
     }
   };
   lab.previewCheckpoint = tenant => lab.checkpoint(lab.consumerName, tenant);
+  // Independent storage observation, including after the actual role/window
+  // refuses serving. Read the durable typed output rather than reconstruct RAM.
+  lab.previewCompleted = async (tenant = lab.A) => {
+    const rows = (await lab.admin.query('SELECT checkpoint,projection,output_identity,output_digest,output_revision,output_restore_generation,work_completed FROM "' +
+      lab.replayNamespace + '".tenant_consumer_checkpoint WHERE tenant_id=$1 AND consumer=$2', [tenant, lab.consumerName + '-completed'])).rows;
+    assert.equal(rows.length, 1, 'actual provisioned durable completed row');
+    return rows[0];
+  };
   lab.previewPhysical = async () => ({ A: { ...(await lab.physical(lab.A)), checkpoint: await lab.previewCheckpoint(lab.A) },
     B: { ...(await lab.physical(lab.B)), checkpoint: await lab.previewCheckpoint(lab.B) } });
   lab.encode = value => JSON.parse(JSON.stringify(value, (key, item) => item === undefined ? { probeType: 'undefined' }
@@ -177,7 +204,9 @@ module.exports = function evaluatorPreviewRegistryLab () {
       NS_RT_BOOTSTRAP_PGSTREAM_CONFIG: path.join(directory, 'PENDING-PRODUCER-SETUP.json'),
       NS_EVALUATOR_FIXTURE_SETTINGS: settingsConnection, NS_EVALUATOR_FIXTURE_ACTIVITY: activityConnection,
       NS_EVALUATOR_FIXTURE_LIFETIME: lifetimeConnection, MULTITENANT_OPERATION_CONFIG: operationFile,
-      NS_SERVE_INTERNAL_SOCKET: path.join(directory, 'evaluator.sock'), NS_REALTIME_INTERNAL_SOCKET: path.join(directory, 'realtime.sock'),
+      NS_SERVE_INTERNAL_SOCKET: path.join(directory, 'evaluator.sock'), NS_EVALUATOR_INTERNAL_SOCKET: path.join(directory, 'evaluator.sock'),
+      NS_API_INTERNAL_SOCKET: path.join(directory, 'api.sock'), NS_TENANT_ADMIN_INTERNAL_SOCKET: path.join(directory, 'tenant-admin.sock'),
+      NS_REALTIME_INTERNAL_SOCKET: path.join(directory, 'realtime.sock'),
       ...lab.extraEnvironment, ...producer?.environment,
       // Results are read right after boot: all-tenants readiness (decision readiness-serve-then-warm).
       NS_TENANT_READINESS: process.env.NS_TENANT_READINESS || 'all' };
