@@ -140,6 +140,12 @@ describe('bounded recovery source primitives', function () {
 });
 
 describe('actual realtime boot observation wiring', function () {
+  const scope = require('../lib/storage/tenant-scope');
+  let previousMode;
+  // Actual role boot sets process mode. Restore this suite's caller even when
+  // boot or a later assertion rejects before the test's resource cleanup.
+  beforeEach(function () { previousMode = scope.getTenancyMode(); });
+  afterEach(function () { scope.setTenancyMode(previousMode); });
   it('binds private cached health without touching full runtime health and uses a fresh process identity per restart', async function () {
     const fs=require('node:fs'),vm=require('node:vm'),Module=require('node:module');
     const filename=require.resolve('../lib/server/serve/preview-realtime'),local=Module.createRequire(filename),source=fs.readFileSync(filename,'utf8'),keys=[];
