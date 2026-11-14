@@ -109,6 +109,33 @@ describe('realtime publish on change (actual protocol, runtime and detector)', f
     } finally { await f.close(); }
   });
 
+  it('RT_SHARED_VIEW: compares one shared publication once and keeps lagged views and later mutations independent', async function () {
+    const f = await fixture({ recoveryIntervalMs: 60000 });
+    try {
+      const sockets = await Promise.all(Array.from({ length: 20 }, () => f.socket()));
+      f.write(A); await f.runtime.tick();
+      const previous=f.runtime.last(A), rows=previous.frame.sgvs;
+      const next={...previous,frame:{...previous.frame,lastUpdated:previous.frame.lastUpdated+1}};
+      let comparisons=0;
+      Object.defineProperty(previous.frame,'sgvs',{enumerable:true,configurable:true,get(){comparisons++;return rows;}});
+      const counts=sockets.map(socket=>socket.frames().length);
+      await f.protocol.fanout({tenant:A,previous,next});
+      assert.equal(comparisons,1,'RT_SHARED_COMPARISON_BOUND one common view comparison per fanout');
+      assert.deepEqual(sockets.map(socket=>socket.frames().length),counts);
+      // Every socket still holds previous. An unrelated published predecessor
+      // cannot stand in for those lagged per-socket views.
+      const unrelated={...next,frame:{...next.frame,sgvs:[{mgdl:999,mills:1}]}};
+      await f.protocol.fanout({tenant:A,previous:unrelated,next:unrelated});
+      assert(sockets.every((socket,i)=>socket.frames().length===counts[i]+1),'RT_LAGGED_VIEW receives content absent from its own view');
+      unrelated.frame.sgvs[0].mgdl=998;
+      const changed={...unrelated,frame:{...unrelated.frame,sgvs:[{mgdl:997,mills:1}]}};
+      await f.protocol.fanout({tenant:A,previous:unrelated,next:changed});
+      assert(sockets.every((socket,i)=>socket.frames().length===counts[i]+2),'RT_NO_PERSISTENT_COMPARISON across fanout calls');
+      await assert.rejects(f.protocol.fanout({tenant:A,previous:changed,next:unrelated,assertCurrent:()=>{throw new Error('WITHDRAWN_WORKER');}}),/WITHDRAWN_WORKER/);
+      assert(sockets.every((socket,i)=>socket.frames().length===counts[i]+2),'RT_WORKER_FENCE before any effect');
+    } finally {await f.close();}
+  });
+
   it('RT_WRITE_FRAME: a write reaches every socket of the tenant within one interval; others get nothing', async function () {
     const f = await fixture({ recoveryIntervalMs: 50 });
     try {
