@@ -16,14 +16,24 @@ function implementation (mutate = s => s, constructed = [], contexts = [], compl
   const file = require.resolve('../lib/server/serve/preview-domains');
   const original = fs.readFileSync(file, 'utf8'), source = mutate(original), output = { exports: {} };
   const local = createRequire(file);
-  const imports = name => name === '../tenant-app/legacy-domains' ? options => {
-    constructed.push(options.domains); const graph = local(name)(options); contexts.push(graph.context);
-    return Object.assign((req, res, next) => {
-      res.once('finish', () => completed.push({ tag: req.header('x-control-case'),
-        ddata: graph.context.ddata, cache: graph.context.cache, bus: graph.context.bus }));
-      return graph(req, res, next);
-    }, graph);
-  } : local(name);
+  const imports = name => {
+    if (name === '../tenant-app/legacy-domains') return options => {
+      constructed.push(options.domains);
+      const graph = local(name)(options); contexts.push(graph.context);
+      return graph;
+    };
+    if (name === '../tenant-app/shared-legacy-routes') return options => {
+      const routes = local(name)(options);
+      return { ...routes, dispatch (operation, req, res, next) {
+        // Capture the actual request context at the shared HTTP composition
+        // boundary. Warm storage wrappers no longer dispatch HTTP routes.
+        res.once('finish', () => completed.push({ tag: req.header('x-control-case'), context: operation.ctx,
+          ddata: operation.ctx.ddata, cache: operation.ctx.cache, bus: operation.ctx.bus }));
+        return routes.dispatch(operation, req, res, next);
+      } };
+    };
+    return local(name);
+  };
   vm.runInThisContext('(function(require,module,exports){' + source + '\n})', { filename: file })(imports, output, output.exports);
   return output.exports;
 }
@@ -176,13 +186,24 @@ describe('ordinary entries acquire only the state their shipping handler consume
       const tenants = [A, B, B, A];
       const responses = await Promise.all(tenants.map(t => request(f.app).get('/api/v1/entries/sgv.json?count=1').set('x-test-tenant', t).set('Accept', 'application/json').expect(200)));
       assert.deepEqual(responses.map(r => r.body[0].sgv), [123, 234, 234, 123]);
-      const privateCriterion = target => assert(target.contexts.every(c => c.cache.entries.length === 0), 'RAW_REQUEST_FRAME_MUST_NOT_ESCAPE');
+      const privateCriterion = target => {
+        assert(target.contexts.every(c => c.cache.entries.length === 0), 'RAW_REQUEST_FRAME_MUST_NOT_ESCAPE');
+        for (let i = 0; i < target.completed.length; i++) for (let j = 0; j < i; j++) {
+          for (const field of ['ddata', 'cache', 'bus']) assert.notEqual(
+            target.completed[i].context[field], target.completed[j].context[field], 'RAW_REQUEST_FRAME_MUST_NOT_ESCAPE ' + field);
+        }
+      };
+      assert.equal(f.completed.length, tenants.length, 'all shared dispatch completions observed');
       privateCriterion(f);
       const broken = await fixture(s => {
-        const changed = s.replace('service.legacyScope.run(ctx,', 'service.legacyScope.run(undefined,');
+        const original = 'const ctx = { storagePorts: service.storagePorts, purifier: purifier({}, {}) };';
+        const changed = s.replace(original,
+          'const ctx = service.presentationState.rawRequestContext || (service.presentationState.rawRequestContext = { storagePorts: service.storagePorts, purifier: purifier({}, {}) });');
         assert.notEqual(changed, s, 'request-state isolation mutation landed'); return changed;
       }, true);
-      await request(broken.app).get('/api/v1/entries/sgv.json?count=1').set('Accept', 'application/json').expect(200);
+      for (let i = 0; i < 2; i++) await request(broken.app).get('/api/v1/entries/sgv.json?count=1').set('Accept', 'application/json').expect(200);
+      assert.equal(broken.completed.length, 2, 'broken requests exercised shared dispatch');
+      assert.equal(broken.completed[0].context.cache, broken.completed[1].context.cache, 'SHARED_REQUEST_CACHE_FAULT_EXERCISED');
       assert.throws(() => privateCriterion(broken), /RAW_REQUEST_FRAME_MUST_NOT_ESCAPE/);
     });
   });
