@@ -39,7 +39,7 @@ describe('selected API evaluator metadata without worker credentials',function()
     d.datastore.database='other_test';fs.writeFileSync(file,JSON.stringify(d));await assert.rejects(selected.readCurrent(A),/restart/);
   });
   it('resolves the realtime peer address only for the worker and preserves API metadata separation',function(){
-    const value=config(),{NS_REALTIME_INTERNAL_SOCKET:unused,...network}=env;
+    const value=config(),{NS_REALTIME_INTERNAL_SOCKET:shouldNotUseSocket,...network}=env;
     const source={...network,NS_REALTIME_INTERNAL_URL:'http://realtime-internal.nightscout.svc.cluster.local:1402'};
     const worker=parse.parse(value,source),metadata=parse.parseMetadata(value);
     assert.equal(worker.consumers.realtime.route.url,'http://realtime-internal.nightscout.svc.cluster.local:1402/');
@@ -49,8 +49,21 @@ describe('selected API evaluator metadata without worker credentials',function()
       const old=structuredClone(value);Object.assign(old.consumers.realtime.route,retired);assert.throws(()=>parse.parseMetadata(old),/invalid/,'per-contract endpoint keys are retired');
     }
     assert.throws(()=>parse.parse(value,{...source,NS_REALTIME_INTERNAL_SOCKET:'/tmp/synthetic-metadata/alarm.sock'}),/invalid/,'URL and socket peer addresses are exclusive');
-    const {NS_REALTIME_INTERNAL_SOCKET:omitted,...defaults}=env;
+    const {NS_REALTIME_INTERNAL_SOCKET:shouldOmitSocket,...defaults}=env;
     assert.equal(parse.parse(value,{...defaults,XDG_RUNTIME_DIR:'/run/user/1000'}).consumers.realtime.route.socketPath,'/run/user/1000/nightscout/realtime.sock','default peer socket');
+  });
+  it('resolves the pgstream worker output peer through the default listener resolver',function(){
+    const value=config();delete value.tenants;value.registry={namespace:'metadata_registry',refreshMs:500};
+    value.tenantSettings={connectionEnv:'SETTINGS_PG',namespaces:{settings:'metadata_display_settings',operatorPolicy:'metadata_policy'}};
+    value.activity={connectionEnv:'ACTIVITY_PG',namespace:'metadata_control'};
+    value.trustedWorker={activity:'metadata_control',clock:'metadata_clock',settings:'metadata_display_settings',operatorPolicy:'metadata_policy'};
+    value.pgstream={binaryEnv:'PGSTREAM_BINARY',configFileEnv:'PGSTREAM_CONFIG',receiverPort:19913,slot:'metadata_pgstream',streamRole:'metadata_stream',
+      bounds:{heartbeatMs:1000,stallMs:5000,stepMs:5000,stopMs:2000,recoveryMs:30000,pendingMs:30000,maxRestarts:3}};
+    const source={...env,SETTINGS_PG:'postgres://metadata-settings:synthetic@127.0.0.1:5432/synthetic_test',ACTIVITY_PG:'postgres://metadata-activity:synthetic@127.0.0.1:5432/synthetic_test',
+      PGSTREAM_BINARY:'/usr/local/bin/pgstream',PGSTREAM_CONFIG:'/tmp/synthetic-pgstream.json'};
+    const worker=parse.parse(value,source);
+    assert.equal(worker.pgstream.outputPeer.socketPath,env.NS_REALTIME_INTERNAL_SOCKET,'PGSTREAM_WORKER_DEFAULT_PEER_RESOLVED');
+    assert.equal(Object.hasOwn(parse.parseMetadata(value).pgstream,'outputPeer'),false,'metadata never resolves worker peer');
   });
   it('refuses descriptor mismatch at both actual worker URI and API own admitted endpoint without aliasing credentials',function(){
     const d=config();d.datastore.database='other_test';assert.throws(()=>parse.parse(d,env),/invalid/,'METADATA_WORKER_DESCRIPTOR_BINDING');
