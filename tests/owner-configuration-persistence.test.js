@@ -328,15 +328,17 @@ describe('projected owner catalogue and next-cycle source consumers', function (
 });
 
 describe('explicit owner settings evaluator configuration read composition', function () {
-  it('actual load/readCurrent shares committed identities with metadata, closes finite readers and refuses static overlap/outage', async function () {
-    const os = require('node:os'), crypto = require('node:crypto');
+  it('actual registry settings composition shares metadata identities, closes finite readers and refuses static overlap/outage', async function () {
+    const os = require('node:os');
     const directory = fs.mkdtempSync(path.join(os.tmpdir(), 'owner-settings-config-'));
     const filename = path.join(directory, 'evaluator.json');
-    const config = { version: 1, datastore: { hostname: '127.0.0.1', port: 5432, database: 'synthetic_settings' },
-      postgres: { connectionEnv: 'CLINICAL', namespaces: Object.fromEntries(['entries', 'treatments', 'devicestatus', 'profile', 'food', 'activity', 'clock', 'checkpoint'].map(name => [name, 'clinical_' + name])) },
-      consumer: 'evaluator-settings', pageSize: 1, maxRows: 10, maxBytes: 100000, maxTenants: 1,
-      recoveryIntervalMs: 100, timeIntervalMs: 100, tenants: [{ id: A, revision: 'one', settings: {} }],
-      tenantSettings: { connectionEnv: 'SETTINGS_READER', namespaces: { settings: 'owner_settings', operatorPolicy: 'owner_policy' } } };
+    const plans = require('./fixtures/multitenant-plan'), layout = plans.layout('owner_settings');
+    const urls = Object.fromEntries(Object.entries(plans.syntheticUrls(layout)).map(([kind, address]) => {
+      const url = new URL(address);url.hostname = '127.0.0.1';url.port = '5432';url.pathname = '/synthetic_settings';return [kind, url.toString()];
+    }));
+    const docs = plans.documents({ layout, urls });
+    const config = structuredClone(docs.configs.evaluator);
+    delete config.consumers;
     let state = { version: 1, values: { DISPLAY_UNITS: 'mg/dl' } }, opened = 0, closed = 0, refused = false;
     const file = path.resolve(__dirname, '../lib/server/serve/evaluator-config.js');
     const loaded = new Module(file, module); loaded.filename = file; loaded.paths = Module._nodeModulePaths(path.dirname(file));
@@ -349,22 +351,32 @@ describe('explicit owner settings evaluator configuration read composition', fun
       }, close: async () => { closed++; } };
     } : original(name);
     loaded._compile(fs.readFileSync(file, 'utf8'), file);
-    const password = crypto.randomBytes(12).toString('hex');
-    const settingsReader = ['postgres://synthetic-settings:', password, '@127.0.0.1:5432/synthetic_settings'].join('');
-    const source = { MULTITENANT_EVALUATOR_CONFIG: filename, SETTINGS_READER: settingsReader,
-      CLINICAL: ['postgres://synthetic-clinical:', password, '@127.0.0.1:5432/synthetic_settings'].join('') };
+    const source = { ...docs.environments.evaluator, MULTITENANT_EVALUATOR_CONFIG: filename };
+    const settingsReader = source.NS_DISPLAY_PG;
+    let allowed = true;
+    const admission = { namespace: config.registry.namespace, allows: async tenant => allowed && tenant === A };
+    const committed = { matches: current => require('node:util').isDeepStrictEqual(current, worker.tenantSettings), read: async tenant => {
+      assert.equal(tenant, A);if (refused) throw new Error('synthetic unavailable current settings');return resolveEffectiveSettings(structuredClone(state), policy);
+    } };
+    let worker;
     try {
       fs.writeFileSync(filename, JSON.stringify(config));
-      const worker = loaded.exports.load(source), metadata = loaded.exports.loadMetadata({ MULTITENANT_EVALUATOR_CONFIG: filename, SETTINGS_READER: settingsReader });
-      const first = await worker.readCurrent(A); assert.equal((await metadata.readCurrent(A)).identity, first.identity);
+      worker = loaded.exports.load(source);const metadata = loaded.exports.loadMetadata({ MULTITENANT_EVALUATOR_CONFIG: filename, NS_DISPLAY_PG: settingsReader });
+      assert.equal(await worker.readCurrent(A), null, 'configuration alone cannot admit a registry tenant');
+      assert.equal(await metadata.readCurrent(A), null, 'metadata requires explicit registry admission');assert.equal(opened, 0);
+      const first = await loaded.exports.withSettings(worker, loaded.exports.registryEntry(A), A, committed);
+      assert.equal((await metadata.readCurrent(A, undefined, admission)).identity, first.identity);
       state = { version: 2, values: { DISPLAY_UNITS: 'mmol', bgHigh: 260, bgTargetTop: 180, bgTargetBottom: 80, bgLow: 55 } };
-      const current = await worker.readCurrent(A); assert.notEqual(current.identity, first.identity);
+      const current = await loaded.exports.withSettings(worker, loaded.exports.registryEntry(A), A, committed); assert.notEqual(current.identity, first.identity);
       assert.equal(current.sourceIdentity, first.sourceIdentity); assert.equal(current.env.settings.units, 'mmol');
-      assert.equal((await metadata.readCurrent(A)).identity, current.identity);
-      refused = true; await assert.rejects(worker.readCurrent(A), /unavailable/); assert.equal(opened, closed);
-      config.tenants[0].settings.showSeconds = true; fs.writeFileSync(filename, JSON.stringify(config));
-      assert.throws(() => loaded.exports.load(source), /invalid/);
-      delete config.tenants[0].settings.showSeconds;
+      assert.equal((await metadata.readCurrent(A, undefined, admission)).identity, current.identity);
+      allowed = false;const beforeRefusal = opened;assert.equal(await metadata.readCurrent(A, undefined, admission), null);assert.equal(opened, beforeRefusal);allowed = true;
+      refused = true;await assert.rejects(loaded.exports.withSettings(worker, loaded.exports.registryEntry(A), A, committed), /unavailable/);
+      await assert.rejects(metadata.readCurrent(A, undefined, admission), /unavailable/);assert.equal(opened, closed);
+      assert.throws(() => loaded.exports.parse(config, { ...source, NS_DISPLAY_PG: source.NS_EVALUATOR_PG }), /invalid/, 'settings credential cannot reuse clinical identity');
+      config.tenants = [{ id: A, revision: 'one', settings: { showSeconds: true } }];fs.writeFileSync(filename, JSON.stringify(config));
+      assert.throws(() => loaded.exports.load(source), error => error instanceof require('../lib/server/serve/preview-config').PreviewConfigError && error.message === require('../lib/server/serve/registry-config').REFUSAL);
+      delete config.tenants;
       config.tenantSettings.extra = true; assert.throws(() => loaded.exports.parseMetadata(config), /invalid/);
     } finally { fs.rmSync(directory, { recursive: true, force: true }); }
   });

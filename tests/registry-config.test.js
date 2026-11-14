@@ -14,6 +14,11 @@ const operationConfig = require('../lib/server/serve/operation-cohort-config');
 const operationWindow = require('../lib/tenant-lifecycle/operation-window');
 const rules = require('../lib/tenant-registry/rules');
 
+const planFixture = require('./fixtures/multitenant-plan');
+const evaluatorLayout = planFixture.layout('registry_eval');
+const evaluatorPlan = planFixture.documents({ layout: evaluatorLayout, urls: planFixture.syntheticUrls(evaluatorLayout) });
+const evaluatorDocument = () => ({ ...structuredClone(evaluatorPlan.configs.evaluator), registry: { namespace: 'ns_registry' } });
+
 const SOURCE = { APP_PG: 'postgres://app:synthetic@db.example.test/ns', CHECK_PG: 'postgres://check:synthetic@db.example.test/ns',
   SETTINGS_PG: 'postgres://settings:synthetic@db.example.test/ns', VAULT_TOKEN: 'synthetic-token', LIFE_PG: 'postgres://life:synthetic@db.example.test/ns' };
 function apiConfig (extra = {}) {
@@ -31,7 +36,7 @@ describe('registry-mode role configuration', function () {
   const load = (config, loader = previewConfig.load, name = 'MULTITENANT_PREVIEW_CONFIG') => {
     const file = path.join(dir, randomUUID() + '.json');
     fs.writeFileSync(file, JSON.stringify(config), { mode: 0o600 });
-    return loader({ ...SOURCE, [name]: file });
+    return loader({ ...(name === 'MULTITENANT_EVALUATOR_CONFIG' ? evaluatorPlan.environments.evaluator : {}), ...SOURCE, [name]: file });
   };
 
   it('RC_REGISTRY: the api loads with a registry and no tenant list', function () {
@@ -105,16 +110,13 @@ describe('registry-mode role configuration', function () {
 
   it('RC_EVALUATOR: the evaluator loads with a registry and the tenant settings reader; a tenant list beside the registry is refused', function () {
     const evaluatorConfig = require('../lib/server/serve/evaluator-config');
-    const domains = require('../lib/data/tenant-projection-evaluator').domains;
-    const base = { version: 1, postgres: { connectionEnv: 'APP_PG', namespaces: { ...Object.fromEntries(domains.map(d => [d, 'ns_' + d])), clock: 'ns_clock', checkpoint: 'ns_checkpoint' } },
-      consumer: 'evaluator-registry-lab', pageSize: 100, maxRows: 1000, maxBytes: 1048576, maxTenants: 10000, recoveryIntervalMs: 1000, timeIntervalMs: 1000,
-      registry: { namespace: 'ns_registry' }, tenantSettings: { connectionEnv: 'SETTINGS_PG', namespaces: { settings: 'ns_tsettings', operatorPolicy: 'ns_tpolicy' } } };
-    const parsed = evaluatorConfig.parse(base, SOURCE);
+    const base = evaluatorDocument(), source = { ...evaluatorPlan.environments.evaluator, ...SOURCE };
+    const parsed = evaluatorConfig.parse(base, source);
     assert.equal(parsed.registry.namespace, 'ns_registry'); assert.equal(parsed.tenants.size, 0);
     assert.deepEqual([...parsed.tenantIds], ['registry:ns_registry']);
-    assert.throws(() => evaluatorConfig.parse({ ...base, tenants: [{ id: randomUUID(), revision: 'r', settings: {} }] }, SOURCE), /registry configuration refuses a tenants list/);
+    assert.throws(() => evaluatorConfig.parse({ ...base, tenants: [{ id: randomUUID(), revision: 'r', settings: {} }] }, source), /registry configuration refuses a tenants list/);
     const { tenantSettings, ...noSettings } = base; assert.ok(tenantSettings);
-    assert.throws(() => evaluatorConfig.parse(noSettings, SOURCE));
+    assert.throws(() => evaluatorConfig.parse(noSettings, source));
     const entry = evaluatorConfig.registryEntry(randomUUID());
     assert.equal(entry.revision, 'registry'); assert.match(entry.identity, /^[0-9a-f]{64}$/);
   });
@@ -126,14 +128,11 @@ describe('registry-mode role configuration', function () {
     const adminConfig = require('../lib/server/serve/admin-config');
     const ownerConfig = require('../lib/server/serve/owner-preview-config');
     const evaluatorConfig = require('../lib/server/serve/evaluator-config');
-    const domains = require('../lib/data/tenant-projection-evaluator').domains;
     const ownership = { connectionEnv: 'APP_PG', namespace: 'ns_auth', lifecycleNamespace: 'ns_control', operator: { principal: 'op', consumer: 'admin' }, registry: { namespace: 'ns_registry' } };
     const owner = { version: 1, postgres: { writerConnectionEnv: 'APP_PG', accessConnectionEnv: 'CHECK_PG', namespaces: { authorization: 'ns_auth', credentials: 'ns_legacy', access: 'ns_access' } },
       resolution: { mode: 'direct-alias' }, registry: { namespace: 'ns_registry' }, ownerPolicy: { catalogue: ['*'] },
       management: { issuer: 'i', audience: 'a', purpose: 'management', consumer: 'owner' } };
-    const evaluator = { version: 1, postgres: { connectionEnv: 'APP_PG', namespaces: { ...Object.fromEntries(domains.map(d => [d, 'ns_' + d])), clock: 'ns_clock', checkpoint: 'ns_checkpoint' } },
-      consumer: 'evaluator-registry-lab', pageSize: 100, maxRows: 1000, maxBytes: 1048576, maxTenants: 10000, recoveryIntervalMs: 1000, timeIntervalMs: 1000,
-      registry: { namespace: 'ns_registry' }, tenantSettings: { connectionEnv: 'SETTINGS_PG', namespaces: { settings: 'ns_tsettings', operatorPolicy: 'ns_tpolicy' } } };
+    const evaluator = evaluatorDocument();
     const cases = [
       ['api', previewConfig.load, 'MULTITENANT_PREVIEW_CONFIG', apiConfig(), { tenants: [{ id: randomUUID(), aliases: ['one.example.test'] }] }],
       ['admin', adminConfig.load, 'MULTITENANT_ADMIN_CONFIG', { version: 1, maxBytes: 65536, timeoutMs: 10000, ownership }, null],

@@ -1,7 +1,7 @@
 'use strict';
 
-// BF-232: operator-supplied plugin extended settings reach a tenant's
-// environment as they would a single site's, typed and per tenant. Synthetic
+// BF-232 pure-domain behavior: supplied plugin settings reach a tenant's
+// environment typed and per tenant. Maintained registry input is separate. Synthetic
 // tenants and readings only; the SQL connection is a recording double.
 const assert = require('node:assert/strict');
 const scope = require('../lib/storage/tenant-scope');
@@ -10,14 +10,11 @@ const environment = require('../lib/server/tenant-app/environment');
 const presentation = require('../lib/server/tenant-app/presentation-environment');
 const config = require('../lib/server/serve/evaluator-config');
 const A = '11111111-1111-4111-8111-111111111111', B = '22222222-2222-4222-8222-222222222222';
-const source = { EVAL_PG: 'postgres://synthetic:synthetic@127.0.0.1/disposable_test' };
-
-function document (tenants) {
-  return { version: 1, postgres: { connectionEnv: 'EVAL_PG',
-    namespaces: Object.fromEntries(['entries', 'treatments', 'devicestatus', 'profile', 'food', 'activity', 'clock', 'checkpoint']
-      .map(k => [k, 'eval_' + k])) },
-  consumer: 'evaluator-proof', pageSize: 1, maxRows: 10, maxBytes: 100000, maxTenants: 2,
-  recoveryIntervalMs: 100, timeIntervalMs: 200, tenants };
+// Pure domain environment and committed-settings projection. This does not
+// claim that maintained registry configuration has an operator plugin input.
+function domainEntry (tenant) {
+  return config.applySettings({ ...config.registryEntry(tenant.id), env: environment(tenant) },
+    { version: 1, policyGeneration: 1, readAt: 0, effective: {} });
 }
 // One synthetic value of the declared type for every carried setting.
 function sample (types) {
@@ -40,17 +37,14 @@ async function evaluateStale (tenant, env, at) {
 }
 const stale = result => result.emitted.filter(n => n.group === 'Time Ago');
 
-describe('tenant plugin extended settings (BF-232)', function () {
+describe('tenant plugin domain environments and committed projection (BF-232)', function () {
   let mode;
   beforeEach(() => { mode = scope.getTenancyMode(); scope.setTenancyMode('multi'); });
   afterEach(() => scope.setTenancyMode(mode));
 
-  // The serving process builds each tenant environment directly from the
-  // operator's preview configuration (preview-config.js); the evaluator
-  // process parses and validates its own operator configuration.
   const builders = {
-    serving: tenants => new Map(tenants.map(t => [t.id, environment({ settings: t.settings, extendedSettings: t.extendedSettings })])),
-    evaluator: tenants => new Map([...config.parse(document(tenants), source).tenants].map(([id, t]) => [id, t.env]))
+    domainEnvironment: tenants => new Map(tenants.map(t => [t.id, environment({ settings: t.settings, extendedSettings: t.extendedSettings })])),
+    committedProjection: tenants => new Map(tenants.map(tenant => [tenant.id, domainEntry(tenant).env]))
   };
   for (const [path, build] of Object.entries(builders)) {
     it('fires the stale-data alarm for the tenant whose operator enabled it, and not for the other (' + path + ')', async function () {
@@ -77,21 +71,22 @@ describe('tenant plugin extended settings (BF-232)', function () {
     });
   }
 
-  it('changes the evaluator configuration identity with the extended settings', function () {
-    const one = config.parse(document([{ id: A, revision: 'a1', settings: {}, extendedSettings: { timeago: { enableAlerts: true } } }]), source);
-    const two = config.parse(document([{ id: A, revision: 'a1', settings: {} }]), source);
-    assert.notEqual(one.tenants.get(A).identity, two.tenants.get(A).identity);
+  it('changes effective evaluator identity with committed owner settings while preserving plugin input', function () {
+    const one = domainEntry({ id: A, settings: {}, extendedSettings: { timeago: { enableAlerts: true } } });
+    const two = config.applySettings(one, { version: 2, policyGeneration: 1, readAt: 1, effective: { DISPLAY_UNITS: { value: 'mmol' } } });
+    assert.notEqual(one.identity, two.identity);assert.equal(two.env.settings.units, 'mmol');
+    assert.deepEqual(two.env.extendedSettings, one.env.extendedSettings);assert.notEqual(two.env.extendedSettings, one.env.extendedSettings);
   });
 
-  it('round-trips every carried setting into the environment, the evaluator config and the status projection', function () {
+  it('round-trips every carried setting through domain environment, committed projection and status', function () {
     const input = everyCarried();
     input.devicestatus.days = 2;
     const env = environment({ extendedSettings: input });
     assert.deepEqual(env.extendedSettings, input, 'EXT_ROUNDTRIP every catalogued setting is carried');
     assert.notEqual(env.extendedSettings.timeago, input.timeago, 'carried by value, not by reference');
     assert.deepEqual(env.settings.filteredSettings(env.extendedSettings), input, 'the status route shows the same values');
-    const parsed = config.parse(document([{ id: A, revision: 'a1', settings: {}, extendedSettings: input }]), source);
-    assert.deepEqual(parsed.tenants.get(A).env.extendedSettings, input);
+    const projected = domainEntry({ id: A, settings: {}, extendedSettings: input });
+    assert.deepEqual(projected.env.extendedSettings, input);
     // errorcodes takes the space-separated string a single site documents, or
     // the number a single site's environment parser makes of one code.
     assert.deepEqual(environment({ extendedSettings: { errorcodes: { urgent: 9 } } }).extendedSettings, { errorcodes: { urgent: 9 } });
@@ -114,8 +109,8 @@ describe('tenant plugin extended settings (BF-232)', function () {
       assert.deepEqual(env.settings.filteredSettings(env.extendedSettings), { devicestatus: shown },
         'EXT_DEVICESTATUS_OVERRIDE ' + JSON.stringify(given));
     }
-    const parsed = config.parse(document([{ id: A, revision: 'a1', settings: {}, extendedSettings: { devicestatus: { advanced: false } } }]), source);
-    assert.deepEqual(parsed.tenants.get(A).env.extendedSettings, { devicestatus: { advanced: false } }, 'the evaluator configuration accepts it');
+    const projected = domainEntry({ id: A, settings: {}, extendedSettings: { devicestatus: { advanced: false } } });
+    assert.deepEqual(projected.env.extendedSettings, { devicestatus: { advanced: false } });
   });
 
   it('does not carry credentials, the dbsize settings, or settings outside the catalogue', function () {
@@ -125,34 +120,51 @@ describe('tenant plugin extended settings (BF-232)', function () {
       dbsize: { enableAlerts: true, max: 100 }, cors: { allowOrigin: 'https://synthetic.invalid' } };
     assert.deepEqual(environment({ extendedSettings: excluded }).extendedSettings, {}, 'EXT_EXCLUDED');
     for (const [plugin, values] of Object.entries(excluded)) {
-      assert.throws(() => config.parse(document([{ id: A, revision: 'a1', settings: {},
-        extendedSettings: { [plugin]: values } }]), source), /explicit evaluator/, plugin + ' refuses in operator config');
+      assert.deepEqual(domainEntry({ id: A, settings: {}, extendedSettings: { [plugin]: values } }).env.extendedSettings, {}, plugin + ' is excluded from the domain environment');
     }
   });
 
-  it('refuses an unknown or mistyped extended setting in the operator configuration', function () {
-    for (const extendedSettings of [{ timeago: { enableAlerts: true, madeUp: 1 } }, { timeago: { enableAlerts: 'true' } },
-      { timeago: { enableAlerts: true }, notAPlugin: { enableAlerts: true } }, { pump: { warnRes: Infinity } },
-      { pump: { fields: 'x'.repeat(257) } }, { timeago: [] }, { sage: { warn: '160' } },
-      { devicestatus: { advanced: 'true' } }, { devicestatus: { days: 3 } }]) {
-      assert.throws(() => config.parse(document([{ id: A, revision: 'a1', settings: {}, extendedSettings }]), source),
-        /explicit evaluator/, 'EXT_UNKNOWN_REFUSED ' + JSON.stringify(extendedSettings).slice(0, 60));
-    }
-    assert.throws(() => config.parse(document([{ id: A, revision: 'a1', settings: { timeago: { enableAlerts: true } } }]), source),
-      /explicit evaluator/, 'plugin settings in the display settings object still refuse');
+  it('filters unknown and mistyped plugin values in domain projection without carrying credentials', function () {
+    const cases = [
+      [{ timeago: { enableAlerts: true, madeUp: 1 } }, { timeago: { enableAlerts: true } }],
+      [{ timeago: { enableAlerts: 'true' } }, {}],
+      [{ timeago: { enableAlerts: true }, notAPlugin: { enableAlerts: true } }, { timeago: { enableAlerts: true } }],
+      [{ pump: { warnRes: Infinity } }, {}], [{ pump: { fields: 'x'.repeat(257) } }, {}], [{ timeago: [] }, {}],
+      [{ sage: { warn: '160' } }, {}], [{ devicestatus: { advanced: 'true' } }, {}], [{ devicestatus: { days: 3 } }, {}]
+    ];
+    for (const [extendedSettings, expected] of cases) assert.deepEqual(domainEntry({ id: A, settings: {}, extendedSettings }).env.extendedSettings, expected);
+    assert.equal(environment({ settings: { timeago: { enableAlerts: true } } }).settings.timeago, undefined);
   });
 
-  it('keeps operator extended settings when an owner display setting changes', async function () {
-    const parsed = config.parse(document([{ id: A, revision: 'a1', settings: {},
-      extendedSettings: { timeago: { enableAlerts: true } } }]), source);
-    const changed = config.applySettings(parsed.tenants.get(A), { version: 2, effective: { DISPLAY_UNITS: { value: 'mmol' } } });
+  it('keeps supplied domain plugin settings when committed display settings change', async function () {
+    const selected = domainEntry({ id: A, settings: {}, extendedSettings: { timeago: { enableAlerts: true } } });
+    const changed = config.applySettings(selected, { version: 2, effective: { DISPLAY_UNITS: { value: 'mmol' } } });
     assert.equal(changed.env.settings.units, 'mmol');
     assert.deepEqual(changed.env.extendedSettings, { timeago: { enableAlerts: true } });
     const local = await presentation.forRequest({ reader: { read: async () => ({ effective: {} }) }, tenant: A,
-      env: parsed.tenants.get(A).env, request: { method: 'GET', path: '/status.json' }, domains: [] });
+      env: selected.env, request: { method: 'GET', path: '/status.json' }, domains: [] });
     assert.deepEqual(local.settings.filteredSettings(local.extendedSettings),
       { devicestatus: { advanced: true, days: 1 }, timeago: { enableAlerts: true } },
       'the per-request display environment shows the operator setting');
     assert.deepEqual(local.extendedSettings, { timeago: { enableAlerts: true } }, 'the reported default is not copied into the environment');
   });
+  it('the stale-data clinical oracle fails when the domain plugin input is omitted and passes when restored', async function () {
+    const tenant = { id: A, settings: {}, extendedSettings: { timeago: { enableAlerts: true } } }, at = Date.now();
+    assert.equal(stale(await evaluateStale(A, domainEntry(tenant).env, at)).length, 1);
+    const broken = domainEntry({ ...tenant, extendedSettings: {} });
+    const brokenResult = await evaluateStale(A, broken.env, at);assert.equal(stale(brokenResult).length, 0);
+    assert.throws(() => assert.equal(stale(brokenResult).length, 1), { code: 'ERR_ASSERTION' });
+    assert.equal(stale(await evaluateStale(A, domainEntry(tenant).env, at)).length, 1);
+  });
+  it('maintained registry configuration keeps default plugin state and refuses the retired static tenant transport', async function () {
+    const plans = require('./fixtures/multitenant-plan'), layout = plans.layout('extended_registry');
+    const docs = plans.documents({ layout, urls: plans.syntheticUrls(layout) });
+    const parsed = config.parse(docs.configs.evaluator, docs.environments.evaluator);
+    assert.equal(parsed.tenants.size, 0);
+    const selected = config.registryEntry(A);assert.deepEqual(selected.env.extendedSettings, {});
+    const projected = await config.withSettings(parsed, selected, A, { matches: () => true, read: async () => ({ version: 2, policyGeneration: 1, readAt: 0, effective: { DISPLAY_UNITS: { value: 'mmol' } } }) });
+    assert.equal(projected.env.settings.units, 'mmol');assert.deepEqual(projected.env.extendedSettings, {});
+    assert.throws(() => config.parse({ ...docs.configs.evaluator, tenants: [{ id: A, revision: 'legacy', settings: {}, extendedSettings: { timeago: { enableAlerts: true } } }] }, docs.environments.evaluator), error => error instanceof require('../lib/server/serve/preview-config').PreviewConfigError && error.message === require('../lib/server/serve/registry-config').REFUSAL);
+  });
+
 });
