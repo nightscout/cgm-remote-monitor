@@ -171,6 +171,7 @@
         "tests/private-acquisition-contract.test.js",
         "tests/pgstream-bootstrap.test.js",
         "tests/pgstream-receiver.test.js",
+        "tests/pgstream-heartbeat-inventory.test.js",
         "tests/pgstream-supervisor.test.js",
         "tests/pgstream-completed-delivery.test.js",
         "tests/postgres-connection-failure.test.js",

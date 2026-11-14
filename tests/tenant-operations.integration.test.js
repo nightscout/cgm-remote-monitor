@@ -55,7 +55,7 @@ optInSuite(process.env.NS_TENANT_OPERATIONS_PG_TEST === '1', 'NS_TENANT_OPERATIO
 
   before(async function () {
     const password = crypto.randomBytes(24).toString('hex');
-    execFileSync('docker', ['run', '--pull', 'never', '--rm', '--name', name, '-d', '-p', '127.0.0.1::5432', '-e', 'POSTGRES_USER=operator', '-e', 'POSTGRES_PASSWORD', '-e', 'POSTGRES_DB=operations_test', 'postgres:16'],
+    execFileSync('docker', ['run', '--pull', 'never', '--rm', '--name', name, '--label', 'org.nightscout.test.owner=' + name, '-d', '-p', '127.0.0.1::5432', '-e', 'POSTGRES_USER=operator', '-e', 'POSTGRES_PASSWORD', '-e', 'POSTGRES_DB=operations_test', 'postgres:16'],
       { env: { ...process.env, POSTGRES_PASSWORD: password }, stdio: ['ignore', 'pipe', 'pipe'], timeout: 30000 });
     owned = true;
     const metadata = JSON.parse(docker(['inspect', '--format', '{{json .}}', name]));
@@ -131,6 +131,26 @@ optInSuite(process.env.NS_TENANT_OPERATIONS_PG_TEST === '1', 'NS_TENANT_OPERATIO
       await assert.rejects(client.query('INSERT INTO "' + fresh.entries + '".entries (tenant_id,id_kind,doc) VALUES ($1,$2,$3::jsonb)', [A, 'string', JSON.stringify({ _id: 'foreign' })]), { code: '42501' });
       await assert.rejects(client.query('INSERT INTO "' + fresh.entries + '".entries (tenant_id,id_kind,doc,insertion_ordinal) VALUES ($1,$2,$3::jsonb,99)', [B, 'string', JSON.stringify({ _id: 'explicit-ordinal-refused' })]), { code: '42501' });
     } finally { await client.query('RESET ROLE'); await client.query("RESET app.current_tenant_id"); }
+  });
+
+  it('backs up and restores tenant tables beside optional shared pgstream infrastructure', async function () {
+    const ns = await source(), heartbeat = schema => '"' + schema + '".nightscout_heartbeat';
+    const createHeartbeat = async (schema, revision) => {
+      await client.query('CREATE TABLE ' + heartbeat(schema) + '(id integer PRIMARY KEY CHECK(id=1),revision bigint NOT NULL CHECK(revision>=0))');
+      await client.query('INSERT INTO ' + heartbeat(schema) + ' VALUES(1,$1)', [revision]);
+    };
+    await createHeartbeat(ns.clock, 7);
+    const artifact = await capture(ns), expected = await observe(ns);
+    assert(!Object.keys(artifact.tables).some(key => key.includes('nightscout_heartbeat')));
+    const fresh = namespaces(); await prepare(fresh); await createHeartbeat(fresh.clock, 91);
+    const unknown = '"' + fresh.clock + '".unexpected_tenant_rows';
+    await client.query('CREATE TABLE ' + unknown + '(tenant_id uuid,value text)');
+    try { await assert.rejects(operations.restore(client, artifact, { catalogues: catalogues(fresh) }), { code: 'OPERATIONS_RELATION_UNADMITTED' }); }
+    finally { await client.query('DROP TABLE ' + unknown); }
+    await operations.restore(client, artifact, { catalogues: catalogues(fresh), acl: applicationAcl(role) });
+    assert.deepEqual(await observe(fresh), expected);
+    assert.deepEqual((await client.query('SELECT id,revision::text FROM ' + heartbeat(ns.clock))).rows, [{ id: 1, revision: '7' }]);
+    assert.deepEqual((await client.query('SELECT id,revision::text FROM ' + heartbeat(fresh.clock))).rows, [{ id: 1, revision: '91' }]);
   });
 
   it('distinguishes self-consistent row loss from digest damage using independent source readback', async function () {
