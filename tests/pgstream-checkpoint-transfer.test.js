@@ -10,7 +10,7 @@ function fixture(maxBytes=1024*1024){
  const connection={async holdAdvisoryLock(){return {available:true,close:async()=>{},async withTenant(tenant,fn){assert.equal(tenant,A);const before=copy(state);try{const value=await fn();if(fail)throw Error('COMMIT_LOST');return value;}catch(error){state=before;throw error;}}};},
   async query(text,values){
    assert.equal(values[0],A);
-   if(text.startsWith('SELECT jsonb_build_array')){const projection=copy(state);delete projection.output;const summary=copy(state.output);if(summary){delete summary.rows;delete summary.frame;}return {rows:[{projection:[projection],output_summary:summary,frame_at:state.output?.frame?.lastUpdated??null,contract_digest:store.digest}]};}
+   if(text.startsWith('SELECT jsonb_build_array')){assert.match(text,/CASE WHEN jsonb_typeof\(projection->0->'output'\)='object' THEN .* ELSE NULL END AS output_summary/,'COLD_NULL_OUTPUT_MUST_NOT_DELETE_JSONB_SCALAR');const projection=copy(state);delete projection.output;const summary=copy(state.output);if(summary){delete summary.rows;delete summary.frame;}return {rows:[{projection:[projection],output_summary:summary,frame_at:state.output?.frame?.lastUpdated??null,contract_digest:store.digest}]};}
    if(text.startsWith("SELECT projection->0->'output'")){fallbacks++;return {rows:[{output:copy(state.output)}]};}
    if(text.startsWith('UPDATE')){assert.match(text,/jsonb_build_array\(\(projection->0\)\|\|\$4::jsonb\)/);const patch=JSON.parse(values[3]);patches.push(patch);state={...state,...patch};return {rowCount:1};}
    throw Error('UNEXPECTED_SQL');
