@@ -278,7 +278,7 @@ describe('Actual serving and CLI selection composition (source protocol)', funct
     // The role configuration stub is registry-shaped: no tenant list, so no MULTITENANT_STATIC_TENANTS.
     const noopConfig={load:() => ({registry:{namespace:'synthetic_registry'}})};
     const cli=load('../lib/cli/commands/multitenant.js',{
-      '../../server/serve':{start:async (...args) => { captures.push(args.at(-1)); throw stop; }},
+      '../../server/serve':{...require('../lib/server/serve'),start:async (...args) => { captures.push(args.at(-1)); throw stop; }},
       '../../server/serve/operation-cohort-config':{load:() => { loads++; return {synthetic:true}; }},
       '../../server/serve/preview-config':{...noopConfig,PreviewConfigError:class extends Error {}},
       '../../server/realtime/config':noopConfig,'../../server/serve/evaluator-config':noopConfig,'../../server/serve/owner-preview-config':noopConfig,

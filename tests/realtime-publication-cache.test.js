@@ -22,6 +22,23 @@ function observe (file, frozen = false) {
   result.restore = () => { fs.openSync = originals.open; fs.closeSync = originals.close; fs.statSync = originals.stat; fs.fstatSync = originals.fstat; configFile.read = originals.read; configFile.readHandle = originals.handle; };
   return result;
 }
+// The maintained worker has no file-backed tenant settings or static roster.
+function evaluatorConfig () {
+  return { version: 1, postgres: { connectionEnv: 'EVAL_PG', namespaces: Object.fromEntries(
+    ['entries', 'treatments', 'devicestatus', 'profile', 'food', 'activity', 'clock', 'checkpoint'].map(name => [name, 'hot_' + name])) },
+    consumer: 'evaluator-hot', pageSize: 1, maxRows: 10, maxBytes: 10000, maxTenants: 2, timeIntervalMs: 200,
+    registry: { namespace: 'hot_registry', refreshMs: 500 },
+    tenantSettings: { connectionEnv: 'SETTINGS_PG', namespaces: { settings: 'hot_settings', operatorPolicy: 'hot_policy' } },
+    activity: { connectionEnv: 'ACTIVITY_PG', namespace: 'hot_control' },
+    trustedWorker: { activity: 'hot_control', clock: 'hot_clock', settings: 'hot_settings', operatorPolicy: 'hot_policy' },
+    pgstream: { binaryEnv: 'PGSTREAM_BINARY', configFileEnv: 'PGSTREAM_CONFIG', receiverPort: 19913, slot: 'hot_stream', streamRole: 'hot_stream',
+      bounds: { heartbeatMs: 1000, stallMs: 5000, stepMs: 5000, stopMs: 2000, recoveryMs: 30000, pendingMs: 30000, maxRestarts: 3 } } };
+}
+function evaluatorSource () {
+  return { EVAL_PG: 'postgres://eval:synthetic@127.0.0.1/synthetic_test',
+    SETTINGS_PG: 'postgres://settings:synthetic@127.0.0.1/synthetic_test', ACTIVITY_PG: 'postgres://activity:synthetic@127.0.0.1/synthetic_test',
+    PGSTREAM_BINARY: '/usr/local/bin/pgstream', PGSTREAM_CONFIG: '/tmp/synthetic-pgstream.json', NS_REALTIME_INTERNAL_SOCKET: '/tmp/synthetic-realtime.sock' };
+}
 function replace (file, value) { fs.writeFileSync(file + '.next', JSON.stringify(value)); fs.renameSync(file + '.next', file); }
 
 function isolatedModule (relative, overrides = {}, mutate = source => source) {
@@ -159,30 +176,35 @@ describe('bounded read-through and pinned atomic publication cache', function ()
     } finally { observed.restore(); }
   });
 
-  for (const mode of ['same-stat', 'current-bound']) it('EVALUATOR_HOT_' + mode + ': actual legacy loader preserves next-call freshness and current bound', async function () {
-    const value = { version: 1, postgres: { connectionEnv: 'EVAL_PG', namespaces: Object.fromEntries(['entries', 'treatments', 'devicestatus', 'profile', 'food', 'activity', 'clock', 'checkpoint'].map(name => [name, 'hot_' + name])) },
-      consumer: 'evaluator-hot', pageSize: 1, maxRows: 10, maxBytes: 10000, maxTenants: 2, recoveryIntervalMs: 100, timeIntervalMs: 200,
-      tenants: [{ id: fixture.A, revision: 'v1', settings: { enable: ['bgnow'], ...(mode === 'current-bound' ? { customTitle: 'x'.repeat(70000) } : {}) } }] };
-    fs.writeFileSync(file, JSON.stringify(value)); const observed = observe(file, true);
-    const source = { MULTITENANT_EVALUATOR_CONFIG: file, EVAL_PG: 'postgres://eval:synthetic@127.0.0.1/synthetic_test' };
-    const parse = configFile.parse; let parses = 0;
+  for (const mode of ['same-stat', 'current-bound']) it('EVALUATOR_HOT_' + mode + ': admitted metadata preserves next-call freshness and current bound', async function () {
+    const value = evaluatorConfig();
+    const encode = () => JSON.stringify(value) + (mode === 'current-bound' ? ' '.repeat(70000) : '');
+    fs.writeFileSync(file, encode()); const observed = observe(file, true);
+    const source = { ...evaluatorSource(), MULTITENANT_EVALUATOR_CONFIG: file };
+    const parse = configFile.parse; let parses = 0, version = 0;
     configFile.parse = function (text, options) { if (options?.label === 'MULTITENANT_EVALUATOR_CONFIG') parses++; return parse.call(this, text, options); };
+    const settings = { matches: () => true, read: async () => ({ version: ++version, effective: {} }) };
+    const admission = { namespace: value.registry.namespace, allows: async tenant => tenant === fixture.A };
     try {
-      const loaded = require('../lib/server/serve/evaluator-config').load(source); assert.equal((await loaded.readCurrent(fixture.A)).revision, 'v1');
-      const reads = observed.reads, keys = loaded.tenants.keys; let enumerations = 0;
-      loaded.tenants.keys = function () { enumerations++; return keys.call(this); };
-      for (let i = 0; i < 50; i++) assert.equal((await loaded.readCurrent(fixture.A)).revision, 'v1');
+      const loaded = require('../lib/server/serve/evaluator-config').loadMetadata(source);
+      const current = () => loaded.readCurrent(fixture.A, settings, admission);
+      let prior = (await current()).identity;
+      const reads = observed.reads;
+      for (let i = 0; i < 50; i++) { const next = await current(); assert.notEqual(next.identity, prior); prior = next.identity; }
       const unchangedReads = observed.reads - reads, unchangedParses = parses;
       if (mode === 'same-stat') {
-        const before = fs.statSync(file, { bigint: true }); value.tenants[0].revision = 'v2'; fs.writeFileSync(file, JSON.stringify(value));
+        const before = fs.statSync(file, { bigint: true }); value.timeIntervalMs = 201; fs.writeFileSync(file, encode());
         const after = fs.statSync(file, { bigint: true }); for (const key of ['dev', 'ino', 'size', 'mtimeNs', 'ctimeNs', 'mode']) assert.equal(after[key], before[key]);
-        assert.equal((await loaded.readCurrent(fixture.A)).revision, 'v2', 'EVALUATOR_HOT same-stat edit must be current');
+        await assert.rejects(current(), /requires restart/, 'same-stat infrastructure edit must be current');
       } else {
-        source.MULTITENANT_CONFIG_MAX_BYTES = '65536'; await assert.rejects(loaded.readCurrent(fixture.A), { code: 'CONFIG_FILE_TOO_LARGE' });
+        source.MULTITENANT_CONFIG_MAX_BYTES = '65536'; await assert.rejects(current(), { code: 'CONFIG_FILE_TOO_LARGE' });
       }
-      assert.equal(unchangedReads, 50, 'one bounded legacy evaluator read per call');
-      assert.equal(unchangedParses, 1, 'unchanged evaluator bytes reuse JSON and roster parse');
-      assert.equal(enumerations, 0); assert.equal(observed.fds.size, 0);
+      assert.equal(unchangedReads, 50, 'each admitted metadata call revalidates bounded configuration');
+      assert.equal(unchangedParses, 1, 'unchanged bytes reuse parsed infrastructure');
+      assert.equal(loaded.tenants.size, 0); assert.equal(observed.fds.size, 0);
+      for (const retired of [{ tenants: [] }, { recoveryIntervalMs: 100 }, { settingsRefreshMs: 100 }]) {
+        assert.throws(() => require('../lib/server/serve/evaluator-config').parseMetadata({ ...evaluatorConfig(), ...retired }), /invalid/);
+      }
     } finally { configFile.parse = parse; observed.restore(); }
   });
 
@@ -192,34 +214,35 @@ describe('bounded read-through and pinned atomic publication cache', function ()
     const settingsOf = isolatedModule('../lib/server/serve/evaluator-config', { '../../tenant-settings/effective-postgres': async () => {
       counts.finite++; throw new Error('finite settings fallback must not execute');
     } });
-    // Actual retained lifecycle/admission; only the SQL capability is doubled.
-    const presentation = isolatedModule('../lib/tenant-settings/presentation-reader', { './effective-postgres': async () => {
-      counts.factories++; return {
-        read: async tenant => { assert.equal(tenant, fixture.A); return { version: ++counts.reads, effective: {} }; },
-        refresh: async () => { counts.refreshes++; }, close: async () => { counts.closes++; }
-      };
-    } });
     const tenants = new Map([[fixture.A, settingsOf.registryEntry(fixture.A)]]); let enumerations = 0;
-    tenants.keys = () => { enumerations++; throw new Error('registry roster read on current path'); };
+    const keys = tenants.keys.bind(tenants); let testingCurrent = false;
+    tenants.keys = () => { if (testingCurrent) { enumerations++; throw new Error('registry roster read on current path'); } return keys(); };
     const boot = isolatedModule('../lib/server/serve/evaluator-preview', {
-      './evaluator-config': settingsOf, '../../tenant-settings/presentation-reader': presentation,
+      './evaluator-config': settingsOf,
+      '../../storage/postgres-connection': async () => ({ end: async () => {} }),
+      '../../pool-membership': { member: async () => ({ register: async () => {}, close: async () => {}, configured: { leaseMs: 1000 } }) },
+      './evaluator-pool': { create: () => ({ start () {}, refresh: async () => {}, close () {}, admits: () => true }) },
+      '../../trusted-worker/postgres': { create: () => { counts.factories++; return { scan: async () => [],
+        read: async tenant => { assert.equal(tenant, fixture.A); return { version: ++counts.reads, effective: {} }; }, close: async () => { counts.closes++; } }; } },
+      '../../trusted-worker/lifecycle': async () => ({ close: async () => {} }),
+      './evaluator-readiness': async () => {},
       './registry-tenant-set': { open: async () => ({ tenants, isActive: tenant => tenant === fixture.A, close: async () => {} }) },
-      './evaluator-readiness': async current => {
-        reached = true; fs.unlinkSync(file); let prior;
+      '../../pgstream/evaluator': { open: async ({ config: current }) => {
+        testingCurrent = true; reached = true; fs.unlinkSync(file); let prior;
         for (let i = 0; i < 200; i++) {
           const value = await current.readCurrent(fixture.A); assert.equal(value.revision, 'registry');
           if (prior) assert.notEqual(value.identity, prior, 'each call applies freshly read version'); prior = value.identity;
         }
         assert.equal(observed.reads, 0); assert.equal(enumerations, 0); assert.equal(counts.reads, 200); assertionsReached = true;
         throw new Error('end focused composition discriminator before clinical startup');
-      }
+      } }
     }, mutate);
     // Actual boot must replace this poison callback; neither it nor finite
     // settings fallback can satisfy this owned-reader composition discriminator.
-    const config = { registry: { namespace: 'synthetic_registry' }, maxTenants: 10, tenants: new Map(), tenantSettings: {},
+    const config = { ...evaluatorConfig(), namespaces: evaluatorConfig().postgres.namespaces, registry: { namespace: 'synthetic_registry' }, maxTenants: 10, tenants: new Map(), tenantSettings: {},
       readCurrent: async () => { counts.legacy++; throw new Error('legacy callback must not execute in registry mode'); } };
     try {
-      await assert.rejects(boot.boot(config), /readiness or initialization refused/);
+      await assert.rejects(boot.boot(config, { operationWindow: {} }), /readiness or initialization refused/);
       assert.equal(reached, true); assert.equal(counts.reads, 200); assert.equal(assertionsReached, true);
       assert.equal(observed.reads, 0); assert.equal(enumerations, 0);
       assert.deepEqual(counts, { reads: 200, factories: 1, refreshes: 0, closes: 1, legacy: 0, finite: 0 });
@@ -246,11 +269,9 @@ describe('bounded read-through and pinned atomic publication cache', function ()
 
   it('PLACEMENT_EVALUATOR_VALIDATE: pure refusals acquire no handles and repeated hot parses retain only boot transport', async function () {
     fs.writeFileSync(file, JSON.stringify(fixture.config())); const observed = observe(file);
-    const source = { MULTITENANT_REALTIME_PLACEMENT: file, EVAL_PG: 'postgres://eval:synthetic@127.0.0.1/synthetic_test',
+    const source = { ...evaluatorSource(), MULTITENANT_REALTIME_PLACEMENT: file, EVAL_PG: 'postgres://eval:synthetic@127.0.0.1/synthetic_test',
       OUTBOX_PG: 'postgres://outbox:synthetic@127.0.0.1/synthetic_test', ALARM_PG: 'postgres://alarm:synthetic@127.0.0.1/synthetic_test', NS_REALTIME_INTERNAL_SOCKET: '/tmp/realtime-service.sock' };
-    const value = { version: 1, postgres: { connectionEnv: 'EVAL_PG', namespaces: Object.fromEntries(['entries', 'treatments', 'devicestatus', 'profile', 'food', 'activity', 'clock', 'checkpoint'].map(name => [name, 'eval_' + name])) },
-      consumer: 'evaluator-cache', pageSize: 1, maxRows: 10, maxBytes: 10000, maxTenants: 2, recoveryIntervalMs: 100, timeIntervalMs: 200,
-      tenants: [{ id: fixture.A, revision: 'one', settings: { enable: ['bgnow'] } }], consumers: { realtime: {
+    const value = { ...evaluatorConfig(), consumers: { realtime: {
         outbox: { connectionEnv: 'OUTBOX_PG', namespace: 'cache_outbox', maxRows: 10, maxBytes: 100000, maxConnections: 2 },
         suppression: { connectionEnv: 'ALARM_PG', namespace: 'cache_alarm', maxRows: 10, maxBytes: 100000, maxConnections: 2 },
         route: { id: 'realtime-cache', maxMessageBytes: 20000, operationTimeoutMs: 500 }, maxPayloadBytes: 10000, maxInflight: 2, attemptTimeoutMs: 1000, retryDelayMs: 100, pollIntervalMs: 100, retryIntervalMs: 200 } } };
@@ -259,7 +280,7 @@ describe('bounded read-through and pinned atomic publication cache', function ()
       const accepted = parse(value, source); assert.equal(observed.fds.size, 1); accepted.consumers.realtime.placement.close();
       const acquired = observed.handles;
       for (const change of [v => { v.socketOrderDomains = ['unknown']; }, v => { v.tenantSettings = {}; }, v => { v.activity = {}; }, v => { v.changeFeed = {}; },
-        v => { delete v.tenants; v.registry = { namespace: 'bad!' }; }]) {
+        v => { v.registry = { namespace: 'bad!' }; }, v => { v.tenants = []; }]) {
         const invalid = structuredClone(value); change(invalid); assert.throws(() => parse(invalid, source), /invalid/);
         assert.equal(observed.fds.size, 0, 'PLACEMENT_EVALUATOR_VALIDATE refused parser leaked descriptor');
         assert.equal(observed.handles, acquired, 'pure validation must precede resource acquisition');
@@ -268,8 +289,8 @@ describe('bounded read-through and pinned atomic publication cache', function ()
       const loaded = require('../lib/server/serve/evaluator-config').load(source);
       try {
         for (let i = 0; i < 20; i++) {
-          const changed = structuredClone(value); changed.tenants[0].revision = String(i); replace(config, changed);
-          assert.equal((await loaded.readCurrent(fixture.A)).revision, String(i));
+          const changed = structuredClone(value); fs.writeFileSync(config, JSON.stringify(changed) + ' '.repeat(i));
+          assert.equal(await loaded.readCurrent(fixture.A), null, 'worker loader cannot bypass admitted runtime settings');
           assert.equal(observed.fds.size, 1, 'PLACEMENT_EVALUATOR_REPARSE only the initial transport owns a descriptor');
           assert.equal(loaded.consumers.realtime.placement.current().generation, 1, 'boot transport remains usable');
         }
@@ -288,7 +309,7 @@ describe('bounded read-through and pinned atomic publication cache', function ()
       '../../server/serve/operation-cohort-config': { load: () => ({ placement: reader() }) },
       '../../server/realtime/config': { load: () => { if (failure === 'later-role') throw new Error('synthetic later-role refusal'); return { placement: reader() }; } },
       '../../server/serve/static-tenants': { check: () => { if (failure === 'static-mode') throw new Error('synthetic static-mode refusal'); } },
-      '../../server/serve': { start: async () => { throw new Error('synthetic start refusal'); } }
+      '../../server/serve': { ...require('../lib/server/serve'), start: async () => { throw new Error('synthetic start refusal'); } }
     };
     const cli = isolatedModule('../lib/cli/commands/multitenant', overrides), errors = [];
     try {
@@ -309,6 +330,24 @@ describe('bounded read-through and pinned atomic publication cache', function ()
     if (failure === 'admin') options.operationConfig = {};
     try { await assert.rejects(serve.start(names, {}, null, {}, options)); assert.equal(observed.fds.size, 0, 'PLACEMENT_PRECHECK supplied reader must close'); }
     finally { placement.close(); observed.restore(); }
+  });
+
+  it('PLACEMENT_RETIRED_CONTROL: restoring the early retired-role throw leaks the supplied reader; restored cleanup closes it', async function () {
+    fs.writeFileSync(file, JSON.stringify(fixture.config())); const observed = observe(file);
+    const needle = 'async function start (names, env, language, source, options = {}) {';
+    const source = fs.readFileSync(require.resolve('../lib/server/serve'), 'utf8');
+    assert.equal(source.split(needle).length, 2, 'cleanup ablation must land on actual start');
+    try {
+      for (const broken of [true, false]) {
+        const placement = fixture.placement.load({ MULTITENANT_REALTIME_PLACEMENT: file }, { internal: fixture.internal });
+        const serve = isolatedModule('../lib/server/serve', {}, text => broken ? text.replace(needle, needle + '\n  refuseRetiredRoles(names);') : text);
+        try {
+          await assert.rejects(serve.start(['feed-reader'], {}, null, {}, { realtimePreview: { placement } }), { code: 'ROLE_RETIRED' });
+          if (broken) assert.throws(() => assert.equal(observed.fds.size, 0), { code: 'ERR_ASSERTION', actual: 1, expected: 0 });
+          else assert.equal(observed.fds.size, 0, 'restored retired-role refusal releases supplied resources');
+        } finally { placement.close(); }
+      }
+    } finally { observed.restore(); }
   });
 
   for (const failure of ['boot', 'shutdown', 'none']) it('PLACEMENT_CLOSE_' + failure + ': actual role composition closes the pinned reader on every exit', async function () {
