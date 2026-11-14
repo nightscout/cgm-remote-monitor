@@ -1,11 +1,11 @@
 'use strict';
 
-// covers: lib/server/serve/operation-cohort.js, lib/tenant-lifecycle/clinical-catalogue.js, lib/tenant-lifecycle/tenant-phase.js, lib/tenant-lifecycle/maintenance-window.js, lib/tenant-ownership/postgres.js, lib/server/serve/listeners.js, lib/server/serve/admin-preview.js, tests/fixtures/multitenant-plan.js
+// covers: lib/server/serve/operation-cohort.js, lib/tenant-lifecycle/clinical-catalogue.js, lib/tenant-lifecycle/tenant-phase.js, lib/tenant-lifecycle/maintenance-window.js, lib/tenant-ownership/postgres.js, lib/server/serve/listeners.js, lib/server/serve/admin-preview.js, tests/fixtures/canonical-admin-restore.js
 
 // The admin role beside a tenant restore (16.0.0 decisions
 // restore-census-and-ownership-phase and admin-plane-same-address-different-port),
 // on disposable PostgreSQL with the deployment plan's whole catalogue and grants
-// (tests/fixtures/multitenant-plan.js, applied as bootstrap.js applies them, without
+// (the pinned canonical plan, applied as bootstrap.js applies it, without
 // Vault). A real `nightscout multitenant admin` process is connected as the
 // ownership_operator identity while the real maintenance controller
 // (maintenance-window.js) suspends, holds and reactivates tenant A under the real
@@ -13,8 +13,8 @@
 // plan's maintenance operator identity. The four participants are synthetic
 // lifecycle-participant peers on real Unix sockets, each reporting one real
 // backend opened as that role's database identity; the census itself reads the
-// real pg_stat_activity and catalogue. The restore body is a read under the
-// claim, not a logical clinical reconciliation. Synthetic data only.
+// real pg_stat_activity and catalogue. Tests include a read under the claim
+// and actual logical clinical reconciliation. Synthetic data only.
 const assert = require('node:assert/strict');
 const crypto = require('node:crypto');
 const fs = require('node:fs');
@@ -24,7 +24,9 @@ const path = require('node:path');
 const { execFileSync, spawn } = require('node:child_process');
 const { Client, Pool } = require('pg');
 const { run } = require('../lib/migrations/postgres');
-const plan = require('./fixtures/multitenant-plan');
+const canonical = process.env.NS_ADMIN_LIFECYCLE_DOCKER_TEST === '1' ? require('./fixtures/canonical-admin-restore')() : null;
+// The disabled suite only declares tests. Enabled runs require the pinned plan.
+const plan = canonical ? canonical.plan : require('./fixtures/multitenant-plan');
 const clients = require('../lib/server/internal-api/clients');
 const ipc = require('../lib/server/internal-api/transport');
 const contracts = require('../lib/server/internal-api/contracts');
@@ -57,7 +59,7 @@ optInSuite(process.env.NS_ADMIN_LIFECYCLE_DOCKER_TEST === '1',
   const t = (name, table) => q(ns[name]) + '.' + q(table);
   const urls = {};
   let registryNamespace;
-  let previousMode, owned = false, bootstrapURI, configDir, socketDir, role, consumerPort, participants = [], peers = [], operatorPool;
+  let previousMode, owned = false, containerId, bootstrapURI, configDir, socketDir, role, consumerPort, participants = [], peers = [], operatorPool;
 
   // A short-lived superuser session: closed before any census, where it would be
   // an unregistered backend with every privilege.
@@ -88,15 +90,29 @@ optInSuite(process.env.NS_ADMIN_LIFECYCLE_DOCKER_TEST === '1',
     return { child, out, exited, outcome, async stop () { if (child.exitCode === null && child.signalCode === null) child.kill('SIGTERM'); return exited; } };
   }
 
+  it('requires the retained canonical source pin before selecting the operator and plan', function () {
+    const selected = JSON.parse(process.env.NS_RT_BOOTSTRAP_PGSTREAM_BINDING_JSON);
+    const load = require('./fixtures/canonical-admin-restore');
+    assert.equal(canonical.identity.commit, selected.commit);
+    assert.equal(canonical.identity.hashes['config.js'], selected.configSha256);
+    const broken = { ...process.env, NS_RT_BOOTSTRAP_PGSTREAM_BINDING_JSON: JSON.stringify({ ...selected, configSha256: '0'.repeat(64) }) };
+    assert.throws(() => load(broken), /PGSTREAM_NATIVE_BINDING_PIN/);
+    const restored = load();
+    assert.equal(restored.identity.commit, selected.commit);
+    assert.deepEqual(restored.plan.lifecycle(l), plan.lifecycle(l));
+  });
+
   before(async function () {
     previousMode = scope.getTenancyMode(); scope.setTenancyMode('multi');
     configDir = fs.mkdtempSync(path.join(os.tmpdir(), 'ns-fit-')); fs.chmodSync(configDir, 0o700);
     socketDir = fs.realpathSync(fs.mkdtempSync(path.join(os.tmpdir(), 'ns-fit-ipc-'))); fs.chmodSync(socketDir, 0o700);
     const password = crypto.randomBytes(24).toString('hex');
-    execFileSync('docker', ['run', '--name', container, '--label', 'nightscout.test=admin-lifecycle-fit', '--label', 'org.nightscout.test.owner=' + container, '-d', '-p', '127.0.0.1::5432',
+    containerId = execFileSync('docker', ['run', '--name', container, '--label', 'nightscout.test=admin-lifecycle-fit', '--label', 'org.nightscout.test.owner=' + container, '-d', '-p', '127.0.0.1::5432',
       '-e', 'POSTGRES_USER=bootstrap', '-e', 'POSTGRES_PASSWORD', '-e', 'POSTGRES_DB=nightscout_fit_test', IMAGE],
-    { env: { ...process.env, POSTGRES_PASSWORD: password }, stdio: ['ignore', 'pipe', 'pipe'] });
+    { env: { ...process.env, POSTGRES_PASSWORD: password }, stdio: ['ignore', 'pipe', 'pipe'], encoding: 'utf8' }).trim();
     owned = true;
+    assert.match(containerId, /^[a-f0-9]{64}$/);
+    console.log('ADMIN_LIFECYCLE_CONTAINER ' + JSON.stringify({ id: containerId, name: container, owner: container }));
     spawn('sh', ['-c', 'while kill -0 "$1" 2>/dev/null; do sleep 2; done; docker rm -f -v "$2" >/dev/null 2>&1', 'reaper', String(process.pid), container],
       { detached: true, stdio: 'ignore' }).unref();
     const port = docker(['port', container, '5432/tcp']).split(':').pop();
@@ -194,7 +210,14 @@ optInSuite(process.env.NS_ADMIN_LIFECYCLE_DOCKER_TEST === '1',
       if (operatorPool) await operatorPool.end();
     } finally {
       scope.setTenancyMode(previousMode);
-      if (owned) docker(['rm', '-f', '-v', container]);
+      if (owned) {
+        const actual = JSON.parse(docker(['inspect', containerId]))[0];
+        assert.equal(actual.Config.Labels['org.nightscout.test.owner'], container);
+        assert.equal(actual.Id, containerId);
+        docker(['rm', '-f', '-v', containerId]);
+        assert.throws(() => docker(['inspect', containerId]), error => /no such (?:object|container)/i.test(String(error.stderr)));
+        console.log('ADMIN_LIFECYCLE_CONTAINER_REMOVED ' + containerId);
+      }
       for (const dir of [configDir, socketDir]) if (dir) fs.rmSync(dir, { recursive: true, force: true });
     }
   });
@@ -353,7 +376,7 @@ optInSuite(process.env.NS_ADMIN_LIFECYCLE_DOCKER_TEST === '1',
     const config = { tenants: [{ id: A }, { id: B }], drainTimeoutMs: 5000,
       control: { namespace: ns.control, locks: this.locks, participants: this.entries }, ...plan.lifecycle(l) };
     const env = { NS_OPERATOR_PG: urls.operator, NS_SOURCE_COMMIT: 'f'.repeat(40) };
-    const operator = require('../deploy/multitenant/restore');
+    const operator = canonical.operator;
     // The selected pgstream binding creates one database-owner global heartbeat
     // in the clock schema, outside the tenant migration/artifact catalogue.
     await asBootstrap(async client => {
@@ -421,11 +444,29 @@ optInSuite(process.env.NS_ADMIN_LIFECYCLE_DOCKER_TEST === '1',
   });
 
   it('still refuses an unregistered backend whose identity holds clinical grants', async function () {
-    const stranger = new Client({ connectionString: urls.realtime }); await stranger.connect();
+    const relation = await asBootstrap(async client => (await client.query('SELECT $1::regclass::oid AS oid', [ns.entries + '.entries'])).rows[0].oid);
+    const held = async client => (await client.query('SELECT has_schema_privilege(current_user,$1,\'USAGE\') AS usage,' +
+      'has_table_privilege(current_user,$2::oid,\'SELECT\') AS read,has_table_privilege(current_user,$2::oid,\'INSERT\') AS write',
+    [ns.entries, relation])).rows[0];
+    const clinical = row => assert.deepEqual(row, { usage: true, read: true, write: false }, 'negative census actor must actually hold clinical read grants without direct INSERT');
+    const stranger = new Client({ connectionString: urls.api }); await stranger.connect();
     try {
+      clinical(await held(stranger));
+      // Restoring the former realtime actor is RED at the grant precondition:
+      // completed-output realtime deliberately has no clinical table access.
+      const retiredActor = new Client({ connectionString: urls.realtime }); await retiredActor.connect();
+      try {
+        const absent = await held(retiredActor);
+        assert.throws(() => clinical(absent), error => error.code === 'ERR_ASSERTION');
+      } finally { await retiredActor.end(); }
+      clinical(await held(stranger)); // Restored real clinical actor is GREEN.
       await assert.rejects(restore.call(this, async () => {}), { code: 'RESTORE_COHORT_UNKNOWN_BACKEND' });
       assert.equal(await phaseOf(A), 'active');
     } finally { await stranger.end(); }
+    let resumed = false;
+    await restore.call(this, async () => { resumed = true; });
+    assert.equal(resumed, true, 'closing the unregistered clinical reader restores the census');
+    assert.equal(await phaseOf(A), 'active');
   });
   it('keeps shared heartbeat bytes outside actual tenant clock deletion', async function () {
     // Narrow native deletion boundary: real RLS, ceremony and deletion SQL.
