@@ -355,12 +355,15 @@ optInSuite(process.env.NS_M5_CURRENT_STATE_PROOF_TEST === '1' && !!process.env.N
       assert.ok(acquired.inputCheckpoint > first.inputCheckpoint, 'M5_EVAL_ACQUIRED_INPUT_ADVANCED');
     });
     hotFile('discards a reused-revision changed config and refuses stale cached eligibility', async function () {
-      await seed(); const initial = lab.configure(), worker = await start(initial), first = await worker.call('last');
+      await seed(); const initial = lab.configure(), worker = await start(initial), first = await worker.call('last'), b = await worker.call('last',lab.B);
       const changed = lab.configure(d => { d.tenants[0].settings.enable = ['timeago']; });
       const tick = await worker.call('tick'), physical = await lab.previewPhysical();
       lab.tracePreview('preview-config-identity', { first, expectedIdentity: changed.identity(lab.A), tick, physical });
       assert.notEqual(changed.identity(lab.A), first.identity);
-      assert.equal(tick, null, 'M5_EVAL_CONFIG_REBUILD changed content drops retained clinical frame even if revision reused');
+      assert.equal(tick.identity,changed.identity(lab.A),'M5_EVAL_CONFIG_REBUILD cold replacement publishes only current identity');
+      assert.equal(tick.trigger,'acquisition');assert.equal(tick.eligible,true);
+      assert.equal(tick.inputCheckpoint,physical.A.floor,'M5_EVAL_CONFIG_REBUILD reacquires current committed input');
+      assert.deepEqual(await worker.call('last',lab.B),b,'M5_EVAL_CONFIG_REBUILD leaves B output unchanged');
       const acquired = await worker.call('acquire');
       assert.equal(acquired.identity, changed.identity(lab.A)); assert.equal(acquired.eligible, true);
       assert.equal(await worker.call('current', lab.A, { identity: first.identity }), false);

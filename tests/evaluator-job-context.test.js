@@ -83,6 +83,28 @@ describe('trusted evaluator scheduling contexts (recording lifetime protocol)',f
       assert.throws(()=>r.health([B]),/not configured/);
     }finally{await r.close();await f.window.close();}
   });
+  it('continues sequential borrowed requests in the same live parent through the trailing drain boundary',async function(){
+    const f=singleClient(),jobs=contexts.create('clinical');
+    const r=await runtime(settings(f.window,jobs,{timeIntervalMs:60000,setTimer:()=>1,clearTimer(){}}));
+    try{
+      const before=r.health([A]).tenants[0].progress.completedAcquisitions;
+      await f.window.run(A,async()=>{
+        await r.acquire(A);await r.acquire(A);await r.tick(A);
+        assert.equal(r.health([A]).tenants[0].progress.completedAcquisitions,before,'BORROWED_CHAIN_GETS_NO_OWNED_CREDIT');
+        f.window.assertCurrent(A);
+      });
+      assert.equal(r.health([A]).tenants[0].progress.failedCompletions,0);
+    }finally{await r.close();await f.window.close();}
+  });
+  it('continues sequential borrowed delivery requests only in their same live parent',async function(){
+    const f=singleClient(),previous=scope.getTenancyMode();scope.setTenancyMode('multi');
+    const q=await require('./fixtures/evaluator-consumers-protocol')(undefined,{operationWindow:f.window});
+    try{
+      await q.start();const effects=q.effects.length;
+      await f.window.run(q.A,async()=>{await q.consumers.wake(q.A);await q.consumers.retry(q.A);await q.consumers.wake(q.A);f.window.assertCurrent(q.A);});
+      assert.equal(q.effects.length,effects,'SEQUENTIAL_BORROWED_DELIVERY_MUST_KEEP_STABLE_INTENT');
+    }finally{await q.close();await f.window.close();scope.setTenancyMode(previous);}
+  });
   it('preserves active-parent two-acquire coalescing on one client, refuses late/foreign callers and independent parent joins',async function(){
     const f=singleClient(),jobs=contexts.create('clinical');
     const r=await runtime(settings(f.window,jobs,{timeIntervalMs:60000}));
