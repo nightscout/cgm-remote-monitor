@@ -67,6 +67,39 @@ describe('checked-out PostgreSQL client failure propagation', function () {
     return { store, clients, calls, setAction: fn => { action = fn; } };
   }
 
+  it('reuses only removed transaction-owned savepoint slots and rejects overlapping scopes', async function () {
+    const f = await fixture();
+    try {
+      await scope.withTenant(TENANT, () => f.store.transaction(async () => {
+        for (let i = 0; i < 6; i++) await f.store.withSavepoint(async () => {
+          await assert.rejects(f.store.withSavepoint(async () => {}), /concurrent or nested/);
+        });
+        const primary = Error('synthetic operation');
+        await assert.rejects(f.store.withSavepoint(async () => { throw primary; }), e => e === primary);
+        await f.store.withSavepoint(async () => {});
+      }));
+      const names = f.calls.filter(c => c.text.startsWith('SAVEPOINT ')).map(c => c.text);
+      assert.equal(names.length, 8);
+      assert.deepEqual([...new Set(names)], ['SAVEPOINT ns_owned_sp_0']);
+      assert(f.calls.some(c => c.text === 'ROLLBACK TO SAVEPOINT ns_owned_sp_0'));
+    } finally { await f.store.end(); }
+  });
+
+  it('quarantines a savepoint slot when cleanup is unconfirmed', async function () {
+    const f = await fixture(); let fail = true;
+    f.setAction(async (client, text) => {
+      if (fail && text.startsWith('ROLLBACK TO SAVEPOINT')) { fail = false; throw Error('synthetic uncertain removal'); }
+    });
+    try {
+      await scope.withTenant(TENANT, () => f.store.transaction(async () => {
+        await assert.rejects(f.store.withSavepoint(async () => { throw Error('primary'); }), /savepoint rollback failed/);
+        await f.store.withSavepoint(async () => {});
+      }));
+      assert.deepEqual(f.calls.filter(c => c.text.startsWith('SAVEPOINT ')).map(c => c.text),
+        ['SAVEPOINT ns_owned_sp_0', 'SAVEPOINT ns_owned_sp_1']);
+    } finally { await f.store.end(); }
+  });
+
   it('owns a READ ONLY repeatable snapshot with a closed bounded facade and max1 reuse', async function () {
     const f = await fixture(); let retained;
     try {

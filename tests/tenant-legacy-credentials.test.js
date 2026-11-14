@@ -7,7 +7,7 @@ const { createSecrets } = require('../lib/secrets/component');
 const provider = require('./fixtures/tenant-credential-provider');
 
 describe('tenant legacy credentials against shipping authentication', function () {
-  let component, enclave, storage, root, subjects, metadata, events, records, unavailable, docs, clockOffset;
+  let component, enclave, storage, root, subjects, metadata, events, records, unavailable, docs, clockOffset, authorityReads, authorizations;
   const context = { tenant: 'tenant-a', principal: 'verifier', consumer: 'api' };
   const hash = value => crypto.createHash('sha1').update(value).digest('hex');
 
@@ -35,22 +35,40 @@ describe('tenant legacy credentials against shipping authentication', function (
     records = new Map();
     events = [];
     unavailable = false;
-    clockOffset = 0;
+    clockOffset = 0; authorityReads = 0; authorizations = [];
     const cryptoProvider = provider();
     component = createSecrets({
       providerFor: async () => cryptoProvider,
       store: { async get (tenant, id) { return records.get(tenant + ':' + id); },
         async insert (record) { records.set(record.tenant + ':' + record.id, record); } },
-      authorize: async () => true,
+      authorize: async (identity, action, hint) => { authorizations.push({ identity, action, hint }); return true; },
       audit: async event => { events.push(event); },
       maxTokenLifetimeSeconds: 28800,
       now: () => Date.now() + clockOffset,
       async legacyAuthorityFor (tenant) {
+        authorityReads++;
         if (unavailable) throw new Error('authority unavailable');
         return { reference: { tenant, id: 'imported-root' }, subjects: metadata };
       }
     });
     await component.encrypt(context, 'imported-root', Buffer.from(root));
+  });
+
+  it('passes only fresh operation-local legacy metadata and keeps generic decrypt authorization independent', async function () {
+    const before = authorityReads;
+    await component.verifyLegacyCredential(context, { apiSecret: hash(root) });
+    const first = authorizations.at(-1).hint;
+    assert(first && first.reference.id === 'imported-root');
+    metadata = [];
+    await component.verifyLegacyCredential(context, { apiSecret: hash(root) });
+    const next = authorizations.at(-1).hint;
+    assert.notEqual(first, next);
+    assert.equal(next.subjects.length, 0);
+    assert.equal(authorityReads, before + 2);
+    await component.decrypt(context, { tenant: context.tenant, id: 'imported-root' });
+    assert.equal(authorizations.at(-1).hint, undefined, 'generic decrypt has no trusted legacy metadata');
+    unavailable = true;
+    await assert.rejects(component.verifyLegacyCredential(context, { apiSecret: hash(root) }), /authority unavailable/);
   });
 
   it('lists the shipping admin tools accessToken for every subject only to the tenant root secret', async function () {
@@ -226,7 +244,7 @@ describe('tenant legacy credentials against shipping authentication', function (
       try {
         clockOffset = 61000;
         assert.equal(await authenticate(token), null, 'expired query JWT never reuses its principal');
-      } finally { clockOffset = 0; }
+      } finally { clockOffset = 0; authorityReads = 0; authorizations = []; }
       const credential = subjects[0].accessToken;
       assert.ok(await authenticate(credential));
       await component.encrypt(context, 'imported-root', Buffer.from('replacement-synthetic-root-secret'));

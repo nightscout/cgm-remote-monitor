@@ -187,7 +187,80 @@ optInSuite(process.env.NS_REST_ACQUISITION_NATIVE === '1', 'NS_REST_ACQUISITION_
     const responses = await Promise.all([A, B, A, B].map(t => http('get', '/api/v1/entries/sgv?count=1', t).expect(200)));
     assert.deepEqual(responses.map(r => r.body[0].sgv), [123, 234, 123, 234], 'concurrent tenant frame isolation');
   });
+  it('keeps native rollback savepoints bounded and removes WindowAgg only for complete entry reads', async () => {
+    await scope.withTenant(A, () => connection.transaction(async () => {
+      for (let i = 0; i < 5; i++) {
+        await assert.rejects(connection.withSavepoint(async () => {
+          await connection.query("SELECT set_config('ns.rest_savepoint_probe','changed',true)");
+          throw Error('rollback probe');
+        }), /rollback probe/);
+        const result = await connection.query("SELECT current_setting('ns.rest_savepoint_probe',true) AS value");
+        assert.notEqual(result.rows[0].value, 'changed');
+      }
+    }));
+    const read = require('../lib/storage/postgres-entries-read')({ connection, table: ns + '_entries.entries' });
+    const fromMongo = require('../lib/storage/filter').fromMongo;
+    const filter = fromMongo({ device: 'explain-fixture' });
+    await require('./fixtures/tenant-insertion-grants').withTenant(admin, A, () => admin.query(`INSERT INTO ${ns}_entries.entries (tenant_id,id_kind,doc)
+      SELECT $1, 'string', jsonb_build_object('_id','plan-' || i, 'date',$2::bigint-i*300000::bigint,'sgv',100,'type','sgv','device','explain-fixture')
+      FROM generate_series(1,1500) i`, [A, at]));
+    await admin.query(`ANALYZE ${ns}_entries.entries`);
+    let captured;
+    const query = connection.query;
+    connection.query = async (sql, params) => { captured = { sql, params }; return query(sql, params); };
+    try {
+      const full = await scope.withTenant(A, () => read.findFiltered(filter, { sort: { date: 1 } }));
+      assert.equal(full.length, 1500);
+      await http('get', '/api/v1/entries/sgv?count=1').expect(200);
+      const actual = captured;
+      assert(actual.sql.startsWith('SELECT id_kind, doc,'), 'plan uses actual HTTP cache acquisition SQL');
+      assert(!actual.sql.includes('OVER ()'), 'full read has row-local refusal guard');
+      const marker = 'SELECT id_kind, doc'.length, end = actual.sql.indexOf(' AS unsortable');
+      const guard = actual.sql.slice(marker + 2, end);
+      const oldSql = actual.sql.slice(0, marker + 2) + 'bool_or(' + guard + ') OVER ()' + actual.sql.slice(end);
+      const explain = async sql => scope.withTenant(A, async () => {
+        const result = await query('EXPLAIN (ANALYZE, BUFFERS, FORMAT JSON) ' + sql, actual.params);
+        return result.rows[0]['QUERY PLAN'];
+      });
+      const oldPlan = await explain(oldSql), newPlan = await explain(actual.sql);
+      assert(JSON.stringify(oldPlan).includes('WindowAgg'));
+      assert(!JSON.stringify(newPlan).includes('WindowAgg'));
+      const oldRows = await scope.withTenant(A, () => query(oldSql, actual.params));
+      const newRows = await scope.withTenant(A, () => query(actual.sql, actual.params));
+      assert.deepEqual(newRows.rows, oldRows.rows);
+      const indexes = (await admin.query('SELECT indexname,indexdef FROM pg_indexes WHERE schemaname=$1 AND tablename=$2', [ns + '_entries', 'entries'])).rows;
+      console.log('REST_ENTRY_ACTUAL_EXPLAIN ' + JSON.stringify({ source: 'HTTP /api/v1/entries/sgv?count=1', sql: actual.sql, params: actual.params, indexes, oldPlan, newPlan }));
+      for (const bad of [[2000], { value: 2000 }]) {
+        await require('./fixtures/tenant-insertion-grants').withTenant(admin, A, () => admin.query(`INSERT INTO ${ns}_entries.entries (tenant_id,id_kind,doc) VALUES ($1,'string',$2)`,
+          [A, { _id: 'plan-bad', date: bad, sgv: 100, device: 'explain-fixture' }]));
+        for (const opts of [{ sort: { date: 1 } }, { sort: { date: 1 }, limit: 1 }, { sort: { date: 1 }, skip: 1, limit: 1 }]) {
+          await assert.rejects(scope.withTenant(A, () => read.findFiltered(filter, opts)), /sort over an array or subdocument/);
+          if (opts.limit) assert(captured.sql.includes('OVER ()'), 'page guards rows beyond the page');
+        }
+        await admin.query(`DELETE FROM ${ns}_entries.entries WHERE tenant_id=$1 AND doc->>'_id'='plan-bad'`, [A]);
+      }
+    } finally {
+      connection.query = query;
+      await admin.query(`DELETE FROM ${ns}_entries.entries WHERE doc->>'device'='explain-fixture'`);
+    }
+  });
+
   it('retains current role/membership/foreign-token and restore admission refusals with no writes', async () => {
+    // Explicit role named like an anonymous default: claims override, decisions union.
+    await admin.query(`UPDATE ${auth}.tenant_authorization_config SET anonymous_roles=ARRAY['readable'] WHERE tenant_id=$1`, [A]);
+    await admin.query(`INSERT INTO ${auth}.tenant_authorization_roles VALUES ($1,'readable',ARRAY[]::text[])`, [A]);
+    await admin.query(`INSERT INTO ${auth}.tenant_authorization_subject_roles VALUES ($1,'subject','readable')`, [A]);
+    await admin.query(`DELETE FROM ${auth}.tenant_authorization_subject_roles WHERE tenant_id=$1 AND role_name='writer'`, [A]);
+    const current = await authority.subjectAuthorizationSnapshot({ tenant: A, principal: { kind: 'subject', subjectId: 'subject' } });
+    assert.deepEqual(current.subject.permissionGroups, [[]]);
+    assert.equal(current.allows('api:entries:read'), true);
+    await http('get', '/api/v1/entries/sgv').expect(200);
+    await admin.query(`UPDATE ${auth}.tenant_authorization_config SET anonymous_roles=ARRAY['denied'] WHERE tenant_id=$1`, [A]);
+    await admin.query(`UPDATE ${auth}.tenant_authorization_subjects SET display_name='renamed' WHERE tenant_id=$1`, [A]);
+    assert.equal((await authority.subjectSnapshot({ tenant: A, principal: { kind: 'subject', subjectId: 'subject' } })).sub, 'renamed');
+    await http('get', '/api/v1/entries/sgv').expect(401);
+    await admin.query(`DELETE FROM ${auth}.tenant_authorization_subject_roles WHERE tenant_id=$1 AND role_name='readable'`, [A]);
+    await admin.query(`INSERT INTO ${auth}.tenant_authorization_subject_roles VALUES ($1,'subject','writer')`, [A]);
     const before = (await admin.query(`SELECT tenant_id,doc FROM ${ns}_entries.entries ORDER BY tenant_id`)).rows;
     await http('post', '/api/v1/entries', A, 'synthetic-b').send([{ type: 'sgv', sgv: 999, date: at }]).expect(401);
     await admin.query(`UPDATE ${auth}.tenant_authorization_roles SET permissions=ARRAY[]::text[] WHERE tenant_id=$1`, [A]);

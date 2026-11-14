@@ -158,6 +158,18 @@ describe('ordinary entries acquire only the state their shipping handler consume
       assert.deepEqual(f.graphs, [], 'metadata constructs no clinical graph');
     });
   });
+  it('serves filtered treatment/device reads without prefetch or a mutable empty cache', async function () {
+    await quiet(async () => {
+      const f = await fixture();
+      for (const domain of ['treatments', 'devicestatus']) {
+        f.sql.length = 0;
+        await request(f.app).get('/api/v1/' + domain + '?token=synthetic&find[created_at][$gte]=2020-01-01T00:00:00Z')
+          .set('Accept', 'application/json').expect(200);
+        assert.equal(reads(f.sql).length, 1, 'RAW_FILTERED_ONE_STORAGE_READ ' + domain);
+        assert(reads(f.sql).every(r => r.text.includes('source_' + domain) && !/pg_column_size/.test(r.text)));
+      }
+    });
+  });
   it('keeps mutable frame/cache state private while reusing routes across concurrent tenant requests', async function () {
     await quiet(async () => {
       const f = await fixture(undefined, true);

@@ -12,7 +12,7 @@ const A = '11111111-1111-4111-8111-111111111111';
 const B = '22222222-2222-4222-8222-222222222222';
 
 async function fixture () {
-  const states = new Map([[A, ['readable']], [B, ['denied']]]), queries = [];
+  const states = new Map([[A, ['readable']], [B, ['denied']]]), queries = [], subjects = new Map();
   const file = require.resolve('../lib/tenant-authorization/postgres');
   const realRequire = Module.createRequire(file), output = { exports: {} };
   const connection = {
@@ -21,6 +21,7 @@ async function fixture () {
       if (text.includes('FROM pg_class')) return { rows: Array.from({ length: 4 }, () =>
         ({ secured: true, owns: false, reads: true, writes: false, column_reads: true })) };
       queries.push({ tenant: values[0], subject: values[1] });
+      if (text.includes('s.subject_id, s.display_name')) return { rows: subjects.get(values[0]) || [] };
       return { rows: states.has(values[0]) ? [{ anonymous_roles: states.get(values[0]), found_subject: null,
         role_name: null, found_role: null, permissions: null }] : [] };
     }
@@ -32,7 +33,7 @@ async function fixture () {
   const socket = principal => createSocketAuthority({ authority,
     secrets: { async verifyLegacyCredential () { return principal; } },
     verifierContext: async tenant => ({ tenant }), admission: { allows: async () => true } });
-  return { states, queries, authority, socket };
+  return { states, queries, authority, socket, subjects };
 }
 
 describe('operation-local authorization snapshots', function () {
@@ -81,6 +82,25 @@ describe('operation-local authorization snapshots', function () {
     f.states.set(A, ['denied']);
     assert(await access({ tenant: A, request: request(), version: 3 }));
     assert.equal(f.queries.length, 2, 'not shared between requests');
+  });
+
+  it('keeps claims override and anonymous permission union distinct, with fresh named authority', async function () {
+    const f = await fixture(), principal = { kind: 'subject', subjectId: 'subject' };
+    const row = { anonymous_roles: ['readable'], subject_id: 'subject', display_name: 'first',
+      role_name: 'readable', found_role: 'readable', permissions: [] };
+    f.subjects.set(A, [row]);
+    const first = await f.authority.subjectAuthorizationSnapshot({ tenant: A, principal });
+    assert.equal(f.queries.length, 1);
+    assert.equal(JSON.stringify(first.subject.permissionGroups), '[[]]', 'explicit same-name role overrides claims');
+    assert.equal(first.allows('api:entries:read'), true, 'permission decisions union anonymous defaults');
+    f.subjects.set(A, [{ ...row, anonymous_roles: ['denied'], display_name: 'renamed' }]);
+    const next = await f.authority.subjectAuthorizationSnapshot({ tenant: A, principal });
+    assert.equal(next.subject.sub, 'renamed');
+    assert.equal(next.allows('api:entries:read'), false, 'next operation observes revocation');
+    f.subjects.set(A, [{ ...row, subject_id: null, display_name: null }]);
+    assert.equal(await f.authority.subjectAuthorizationSnapshot({ tenant: A, principal }), null);
+    assert.equal(f.queries.length, 3);
+    assert.throws(() => next.allows('invalid permission'), { code: 'TENANT_AUTHORITY_PERMISSION_INVALID' });
   });
 
   it('control: removing operation-local reuse restores repeated queries and makes the cost assertion red', async function () {
