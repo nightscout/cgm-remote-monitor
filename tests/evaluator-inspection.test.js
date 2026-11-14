@@ -3,12 +3,12 @@ const assert=require('node:assert/strict'),fs=require('node:fs'),os=require('nod
 const inspection=require('../lib/server/serve/evaluator-inspection');
 const transport=require('../lib/server/internal-api/transport'),service=require('../lib/server/internal-api/contracts').evaluatorInspection;
 const A='11111111-1111-4111-8111-111111111111';
-function fixture(count=10000, due={dueAt:null,dueReason:null}, changeFeed, clinical){
+function fixture(count=10000, due={dueAt:null,dueReason:null}, clinical, factory=inspection){
  const ids=Array.from({length:count},(_,i)=>String(i).padStart(8,'0')+'-1111-4111-8111-111111111111');
  let visited=0;const map=new Map(ids.map(id=>[id,true]));
  const tenants=new Proxy(map,{get(target,key){if(['keys','values','entries',Symbol.iterator].includes(key))return()=>{throw new Error('FULL_REGISTRY_ITERATION');};return typeof target[key]==='function'?target[key].bind(target):target[key];}});
  const row=tenant=>({tenant,jobs:{running:false,booting:false,acquire:false,time:false,parentAcquire:false,parentTime:false},...due,ready:true,code:null,cycles:5,outputRevision:1,inputCheckpoint:0,evaluatedAgeMs:1,alert:null,progress:{generation:1,completedAcquisitions:1,completedTimeCycles:4,lastCompletedAgeMs:1,failedCompletions:0}});
- const inspect=inspection({tenants,changeFeed,gate:{inspect:async()=>({configured:{mode:'standalone',ordinal:0,rule:null,leaseMs:null,configuredTenants:ids.length},observed:null,
+ const inspect=factory({tenants,gate:{inspect:async()=>({configured:{mode:'standalone',ordinal:0,rule:null,leaseMs:null,configuredTenants:ids.length},observed:null,
   gate:{eligible:true,reason:null,members:null,reads:0,refusals:0,changes:0,checkedAgeMs:null,heartbeats:null},owner:()=>null,admits:()=>true})},
  runtime:{clinicalResults(selected){assert(clinical,'CLINICAL_OBSERVATION_NOT_REQUESTED');return clinical(selected);},health(selected){assert(Array.isArray(selected),'BOUNDED_RUNTIME_SELECTOR_REQUIRED');visited+=selected.length;return{runtimeId:A,tenants:selected.map(row)};}},
  consumers:{health(selected){assert(Array.isArray(selected),'BOUNDED_DELIVERY_SELECTOR_REQUIRED');visited+=selected.length;return{tenants:selected.map(tenant=>({tenant,state:'idle',code:null,passes:1,repeatAt:null}))};}},
@@ -32,43 +32,36 @@ describe('bounded evaluator inspection v2',function(){
   await assert.rejects(f.inspect({tenants:f.ids.slice(0,129)}),/selector refused/);
   await assert.rejects(f.inspect({}),/BOUNDED_RUNTIME_SELECTOR_REQUIRED|FULL_REGISTRY/,'CONTROL_UNSELECTED_VIEW_IS_DISTINCT');
  });
- it('reads real O(1) consumer health only on explicit diagnostics and retains unavailable as unknown',async function(){
-  const {EventEmitter}=require('node:events');let queries=0,checks=0,reads=0;
-  const client=new EventEmitter();client.query=async()=>{queries++;};client.end=async()=>{};
-  const f=fixture(10000),consumer=require('../lib/change-feed/consumer').create({config:{channel:'synthetic',pageSize:2,degradedPages:2,intervalMs:1000,heartbeatTimeoutMs:5000},tenants:f.ids,connect:async()=>client,check:async()=>{checks++;},alert(){}});
-  const observer=fixture(10000,undefined,()=>{reads++;return{...consumer.health(),privateValue:'MUST_NOT_ESCAPE'};});
-  await consumer.tick();const before={queries,checks};
-  try{
-   const ordinary=await observer.inspect({tenants:[]});assert(!Object.hasOwn(ordinary,'diagnostics'));assert.equal(reads,0);
-   const dto=await observer.inspect({tenants:[],diagnostics:'change-feed-v1'});assert.equal(reads,1);assert(dto.diagnostics,'EXPECTED_SELECTED_FEED_HEALTH');assert.equal(dto.diagnostics.changeFeed.status,'observed');assert.deepEqual(dto.diagnostics.changeFeed.health,consumer.health());assert(!JSON.stringify(dto).includes('MUST_NOT_ESCAPE'));assert.deepEqual({queries,checks},before);assert.equal(observer.visited(),0);
-   for(const [read,status] of [[undefined,'not-configured'],[()=>null,'not-configured'],[()=>{throw Error('PRIVATE_FAILURE');},'unavailable']]){
-    const x=fixture(1,undefined,read),v=await x.inspect({tenants:[],diagnostics:'change-feed-v1'});assert.deepEqual(v.diagnostics.changeFeed,{status,health:null});
-   }
-   for(const next of [{},{...consumer.health(),checks:null},{...consumer.health(),pages:-1},{...consumer.health(),rotated:Infinity},{...consumer.health(),heartbeatAgeMs:undefined},{...consumer.health(),refusal:'PRIVATE_FAILURE'}]){
-    const x=fixture(1,undefined,()=>next);await assert.rejects(x.inspect({tenants:[],diagnostics:'change-feed-v1'}),/feed inspection refused/);
-   }
-   for(const diagnostics of [false,true,'unknown'])await assert.rejects(observer.inspect({tenants:[],diagnostics}),/diagnostics selector refused/);
-  }finally{await consumer.close();}
+ it('refuses the retired feed selector before effects and detects an ablated selector guard',async function(){
+  const Module=require('node:module'),filename=require.resolve('../lib/server/serve/evaluator-inspection');
+  const original=fs.readFileSync(filename,'utf8'),guard="if (diagnostics !== undefined && diagnostics !== 'clinical-result-v1') throw new Error('Evaluator diagnostics selector refused');";
+  assert.equal(original.split(guard).length,2,'CONTROL_GUARD_SOURCE_EXACT');
+  const loaded=new Module(filename,module);loaded.filename=filename;loaded.paths=Module._nodeModulePaths(path.dirname(filename));loaded._compile(original.replace(guard,''),filename);
+  const criterion=async factory=>{
+   let effects=0;
+   const inspect=factory({tenants:new Map(),gate:{inspect:async()=>{effects++;return {configured:{},gate:{}};}},runtime:{health:()=>{effects++;return {tenants:[]};}},startup:{health:()=>{effects++;return {};}}});
+   await assert.rejects(inspect({tenants:[],diagnostics:'change-feed-v1'}),/diagnostics selector refused/,'RETIRED_FEED_DIAGNOSTICS_BEFORE_EFFECTS');
+   assert.equal(effects,0,'RETIRED_SELECTOR_MUST_NOT_VISIT_GATE_OR_RUNTIME');
+  };
+  await criterion(inspection);await assert.rejects(criterion(loaded.exports),{code:'ERR_ASSERTION'});await criterion(inspection);
+  const ordinary=fixture(1);assert.deepEqual((await ordinary.inspect({tenants:[]})).tenants,[]);
+  for(const diagnostics of [false,true,'unknown'])await assert.rejects(ordinary.inspect({tenants:[],diagnostics}),/diagnostics selector refused/);
  });
- it('keeps default v2 wire compatibility, strict diagnostic schema and existing transport authority',async function(){
-  let reads=0;const health={live:true,connected:false,degraded:true,recoveryRemaining:0,heartbeatAgeMs:null,refusal:'FEED_LISTENER_UNAVAILABLE',pages:0,checks:0,hints:0,refused:0,reconnects:0,sweeps:0,rotated:0};
-  const f=fixture(1,undefined,()=>{reads++;return health;});const dir=fs.mkdtempSync(path.join(os.tmpdir(),'evaluator-feed-inspection-')),endpoint={socketPath:path.join(dir,'inspect.sock'),maxBytes:1024*1024,timeoutMs:1000};let listener,corrupt=false;
+ it('preserves ordinary v2 clients and refuses retired requests and response shapes on the private wire',async function(){
+  const f=fixture(1),dir=fs.mkdtempSync(path.join(os.tmpdir(),'evaluator-inspection-retired-')),endpoint={socketPath:path.join(dir,'inspect.sock'),maxBytes:1024*1024,timeoutMs:1000};let listener,corrupt=false,invoked=0;
   try{
-   listener=await transport.compose(endpoint,[{service,create:()=>({inspectEvaluator:async(ctx,body)=>{const v=await f.inspect(body);if(corrupt)v.diagnostics.changeFeed.health.checks=null;return v;}})}]);
+   listener=await transport.compose(endpoint,[{service,create:()=>({inspectEvaluator:async(ctx,body)=>{invoked++;const dto=await f.inspect(body);if(corrupt)dto.diagnostics={changeFeed:{status:'not-configured',health:null}};return dto;}})}]);
    const client=transport.client(endpoint,service),old=JSON.parse(JSON.stringify(service));delete old.operations.inspectEvaluator.request.properties.diagnostics;delete old.operations.inspectEvaluator.response.properties.diagnostics;
-   await transport.client(endpoint,old).inspectEvaluator({tenants:[]});assert.equal(reads,0);
-   const dto=await client.inspectEvaluator({tenants:[],diagnostics:'change-feed-v1'});assert.deepEqual(dto.diagnostics.changeFeed,{status:'observed',health});assert.equal(reads,1);
-   for(const body of [{tenants:[],diagnostics:false},{tenants:[],diagnostics:'unknown'},{tenants:[],diagnostics:'change-feed-v1',unknown:true}])await assert.rejects(client.inspectEvaluator(body));assert.equal(reads,1);
-   corrupt=true;await assert.rejects(client.inspectEvaluator({tenants:[],diagnostics:'change-feed-v1'}),/SOCKET_IPC_UNAVAILABLE/);corrupt=false;
-   await client.inspectEvaluator({tenants:[],diagnostics:'change-feed-v1'});
-   let invoked=0,status;const handler=transport.handler({service,token:Symbol('private'),operations:{inspectEvaluator:async(ctx,body)=>{invoked++;return f.inspect(body);}},admitted:()=>false});
-   const request={method:'POST',url:'/evaluator/inspect',headers:{'x-nightscout-internal-service':service.id,'x-nightscout-internal-version':String(service.version),'content-type':'application/json'},async *[Symbol.asyncIterator](){yield Buffer.from(JSON.stringify({tenants:[],diagnostics:'change-feed-v1'}));},destroy(){}};
-   const before=reads;await handler(request,{writeHead(code){status=code;},end(){}});assert.equal(invoked,0,'AUTHORITY_REFUSAL_BEFORE_DIAGNOSTIC_DISPATCH');assert.equal(reads,before);assert.equal(status,503);
+   await transport.client(endpoint,old).inspectEvaluator({tenants:[]});assert.equal(invoked,1);
+   for(const body of [{tenants:[],diagnostics:'change-feed-v1'},{tenants:[],diagnostics:false},{tenants:[],diagnostics:'unknown'},{tenants:[],unknown:true}])await assert.rejects(client.inspectEvaluator(body));
+   assert.equal(invoked,1,'RETIRED_FEED_REQUEST_REFUSED_BEFORE_DISPATCH');
+   corrupt=true;await assert.rejects(client.inspectEvaluator({tenants:[]}),/SOCKET_IPC_UNAVAILABLE/,'RETIRED_FEED_RESPONSE_REFUSED');corrupt=false;
+   const restored=await client.inspectEvaluator({tenants:[]});assert(!Object.hasOwn(restored,'diagnostics'));
   }finally{await listener?.close();fs.rmSync(dir,{recursive:true,force:true});}
  });
  it('exposes clinical results only for explicit bounded selection through strict paired private transport',async function(){
   let reads=0;const observation=tenant=>({tenant,status:'eligible-model',generation:2,outputRevision:3,inputCheckpoint:4,lastCompletedAgeMs:5,retainedModelAt:1700000000000,bgNow:{meanPresent:true,meanFinite:true,mills:1699999990000}});
-  const f=fixture(10000,undefined,undefined,selected=>{reads++;return selected.map(observation);});
+  const f=fixture(10000,undefined,selected=>{reads++;return selected.map(observation);});
   const ordinary=await f.inspect({tenants:[f.ids[0]]});assert.equal(reads,0);assert(!Object.hasOwn(ordinary,'diagnostics'));
   for(const tenants of [undefined,[],[f.ids[0],f.ids[0]],f.ids.slice(0,129)])await assert.rejects(f.inspect({tenants,diagnostics:'clinical-result-v1'}),/selector refused/);
   const dir=fs.mkdtempSync(path.join(os.tmpdir(),'evaluator-clinical-inspection-')),endpoint={socketPath:path.join(dir,'inspect.sock'),maxBytes:1024*1024,timeoutMs:1000};let listener,corrupt;
@@ -84,24 +77,6 @@ describe('bounded evaluator inspection v2',function(){
    const request={method:'POST',url:'/evaluator/inspect',headers:{'x-nightscout-internal-service':service.id,'x-nightscout-internal-version':String(service.version),'content-type':'application/json'},async *[Symbol.asyncIterator](){yield Buffer.from(JSON.stringify(body));},destroy(){}};
    await handler(request,{writeHead(code){status=code;},end(){}});assert.equal(status,503);assert.equal(invoked,0,'AUTHORITY_REFUSED_BEFORE_CLINICAL_READ');
   }finally{await listener?.close();fs.rmSync(dir,{recursive:true,force:true});}
- });
- it('actual evaluator role boot supplies its owned feed observer to the existing inspection module',async function(){
-  const Module=require('node:module'),scope=require('../lib/storage/tenant-scope'),previous=scope.getTenancyMode();let observed,reads=0,closed=0;
-  const feed={health(){reads++;return{synthetic:'owned-health'};},close:async()=>{closed++;},resync(){}};
-  const filename=require.resolve('../lib/server/serve/evaluator-preview'),loaded=new Module(filename,module);loaded.filename=filename;loaded.paths=Module._nodeModulePaths(path.dirname(filename));const original=loaded.require.bind(loaded);
-  const ports={
-   '../../storage/postgres-connection':async()=>({end:async()=>{}}),
-   './evaluator-readiness':Object.assign(async()=>{},{provisionTenant:async()=>{}}),
-   './evaluator-consumers':{prepare:async()=>null},
-   './evaluator-runtime':async()=>({close:async()=>{},health:()=>({}),last(){},isCurrent(){}}),
-   '../../change-feed/consumer':{start:async()=>feed},
-   './evaluator-inspection':options=>{observed=options;return()=>options.changeFeed();}
-  };
-  loaded.require=name=>Object.hasOwn(ports,name)?ports[name]:original(name);loaded._compile(fs.readFileSync(filename,'utf8'),filename);
-  let role;try{
-   role=await loaded.exports.boot({tenants:new Map([[A,{}]]),maxTenants:1,changeFeed:{},namespaces:{},consumer:'synthetic'});
-   assert.equal(typeof observed.changeFeed,'function','BOOT_MUST_WIRE_OWNED_FEED_HEALTH');assert.equal(reads,0);assert.deepEqual(role.inspect(),{synthetic:'owned-health'});assert.equal(reads,1);
-  }finally{await role?.close();scope.setTenancyMode(previous);}assert.equal(closed,1);
  });
  it('preserves future, overdue and absent due observations without scheduling or inventing a cadence',async function(){
   for(const due of [{dueAt:Date.now()+60000,dueReason:'slow:alarm-message'},{dueAt:1,dueReason:'sgv-recent-10'},{dueAt:null,dueReason:null},{dueAt:0,dueReason:null},{dueAt:1.5,dueReason:null},{dueAt:Number.MAX_VALUE,dueReason:null}]){

@@ -96,19 +96,24 @@ describe('trusted worker metadata and operational scope', function () {
     held.resolve(); await assert.rejects(old, /TRUSTED_WORKER_UNAVAILABLE/);
     assert.equal((await f.reader.read(A)).version, 2); await f.reader.close();
   });
-  it('binds trusted namespaces and configurable settings cadence to the authoritative configuration', function () {
+  it('binds trusted namespaces and refuses retired polling settings in the product configuration', function () {
     const fixture = require('./fixtures/multitenant-plan');
     const layout = fixture.layout(), urls = fixture.syntheticUrls(layout);
     const docs = fixture.documents({ layout, urls, variant: 'full' });
     const parse = require('../lib/server/serve/evaluator-config').parseMetadata;
     const original = docs.configs.evaluator;
-    assert.equal(parse(original).settingsRefreshMs, 600000);
+    for (const key of ['changeFeed', 'recoveryIntervalMs', 'settingsRefreshMs']) delete original[key];
+    delete original.postgres.namespaces.changeStamps;
+    if (!original.pgstream) original.pgstream = { binaryEnv: 'NS_PGSTREAM_BINARY', configFileEnv: 'NS_PGSTREAM_CONFIG', receiverPort: 18080, slot: 'trusted_stream', streamRole: 'trusted_stream',
+      bounds: { heartbeatMs: 1000, stallMs: 5000, stepMs: 5000, stopMs: 2000, recoveryMs: 30000, pendingMs: 30000, maxRestarts: 3 } };
+    assert.equal(Object.hasOwn(parse(original), 'settingsRefreshMs'), false);
+    assert.equal(parse(original).timeIntervalMs, original.timeIntervalMs);
     for (const name of ['activity', 'settings', 'operatorPolicy', 'clock']) {
       const changed = structuredClone(original); changed.trustedWorker[name] = 'other_' + name.toLowerCase();
       assert.throws(() => parse(changed), /explicit evaluator/);
     }
-    for (const settingsRefreshMs of [0, -1, 1.5, 2147483648]) assert.throws(() => parse({ ...original, settingsRefreshMs }), /explicit evaluator/);
-    assert.equal(parse({ ...original, settingsRefreshMs: 1000 }).settingsRefreshMs, 1000);
+    for (const settingsRefreshMs of [0, -1, 1.5, 1000, 2147483648]) assert.throws(() => parse({ ...original, settingsRefreshMs }), /explicit evaluator/);
+    assert.equal(parse(original).trustedWorker.clock, original.postgres.namespaces.clock);
   });
   it('grants cross-tenant SELECT only to explicitly named workers', function () {
     const sql = worker.grants({ namespaces: ns, roles: ['trusted_evaluator', 'trusted_realtime'] }).join('\n');
@@ -152,26 +157,6 @@ describe('trusted evaluator dirty checkpoints', function () {
     assert.deepEqual(f.cycles.get(B), [1], 'TRUSTED_UNCHANGED_PEER_NOT_EVALUATED');
     await f.service.close();
   });
-  it('retains a feed dirty hint arriving while its previous checkpoint is evaluated', async function () {
-    const { EventEmitter } = require('node:events');
-    const f = await evaluatorFixture(), client = new EventEmitter();
-    client.query = async () => {}; client.end = async () => {};
-    const channel = 'trusted_signal';
-    const feed = require('../lib/change-feed/consumer').create({ tenants: [A, B], config: { channel, pageSize: 2, degradedPages: 1, intervalMs: 1000, heartbeatTimeoutMs: 5000, sweepMs: 30000 },
-      now: () => 0, schedule: () => null, cancel () {}, alert () {}, connect: async () => client,
-      check: (selected, options) => f.service.backstop(selected, options) });
-    const send = value => client.emit('notification', { channel, payload: JSON.stringify({ v: 1, ...value }) });
-    try {
-      await feed.start(); send({ k: 'heartbeat', reader: A }); await feed.tick();
-      const hold = deferred(); f.hold(hold); f.write(); send({ k: 'data', t: A });
-      const first = feed.tick(); await new Promise(resolve => setImmediate(resolve));
-      f.write(); send({ k: 'data', t: A }); hold.resolve(); await first;
-      await feed.tick();
-      assert.equal(f.cycles.get(A).at(-1), 3, 'TRUSTED_FEED_DIRTY_GENERATION_NOT_LOST');
-      assert.deepEqual(f.cycles.get(B), [1]);
-    } finally { await feed.close(); await f.service.close(); }
-  });
-
   it('discovers an unhinted settings change and pauses/unpauses from batched activity', async function () {
     const f = await evaluatorFixture({ activity: true });
     const initial = f.calls(); f.metadata.get(A).settings = 2;

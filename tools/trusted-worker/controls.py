@@ -15,8 +15,7 @@ cases = [
  ('settings-version-race', 'lib/trusted-worker/postgres.js', ' || readingRevision !== revisions.get(tenant)', '', 'Missing expected rejection'),
  ('publication-epoch', 'lib/server/serve/evaluator-runtime.js', "if (!current.available || current.generation !== epoch.generation) throw new Error('TRUSTED_WORKER_UNAVAILABLE');", "if (false) throw new Error('TRUSTED_WORKER_UNAVAILABLE');", 'TRUSTED_INFLIGHT_REVISION_NOT_PUBLISHED'),
  ('realtime-recovery-generation', 'lib/server/realtime/runtime.js', 'if (workerState && !workerReady(cell)) return epoch().available && !!seen?.get(tenant) && seen.get(tenant).identity !== null;', '', 'TRUSTED_RT_RECOVERY_REACQUIRES'),
- ('protocol-fanout-epoch', 'lib/server/realtime/protocol.js', 'const assertFanout = () => assertCurrent?.();', 'const assertFanout = () => {};', 'TRUSTED_PROTOCOL_NO_STALE_EMISSION'),
- ('feed-dirty-arrival', 'lib/change-feed/consumer.js', 'counters.checks += selected.size;', 'dirty.clear(); counters.checks += selected.size;', 'TRUSTED_FEED_DIRTY_GENERATION_NOT_LOST')
+ ('protocol-fanout-epoch', 'lib/server/realtime/protocol.js', 'const assertFanout = () => assertCurrent?.();', 'const assertFanout = () => {};', 'TRUSTED_PROTOCOL_NO_STALE_EMISSION')
 ]
 results = []
 for label, relative, old, new, symptom in cases:
