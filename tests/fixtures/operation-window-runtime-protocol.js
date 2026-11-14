@@ -34,6 +34,6 @@ module.exports = function fixture (options = {}, createWindow = create) {
     if (text.startsWith('UPDATE')) { pending.set(values[1], true); return { rows: [], rowCount: 1 }; }
     return { rows: [], ...(['COMMIT','ROLLBACK'].includes(text) ? { command: text } : {}) };
   };
-  const pool = { connect: async () => client };
-  return { client, log, pending, window: createWindow({ namespace: 'synthetic_window', locks: [{ tenant: A, key: '17' }, { tenant: B, key: '19' }], pool }) };
+  const pool = { options: { max: 1 }, connect: async () => client };
+  return { client, log, pending, window: createWindow({ namespace: 'synthetic_window', leaseSessionCount: options.leaseSessionCount, locks: [{ tenant: A, key: '17' }, { tenant: B, key: '19' }], pool }) };
 };
