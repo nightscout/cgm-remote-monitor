@@ -70,3 +70,28 @@ describe('pgstream explicit input/schema receiver',function(){
 });
 
 describe('pgstream deployment routes',function(){it('puts the heartbeat outside the upstream internal schema',function(){const routes=require('../lib/pgstream/evaluator').routes({namespaces:{clock:'test_clock',checkpoint:'test_checkpoint'},trustedWorker:{settings:'test_settings',operatorPolicy:'test_policy',activity:'test_activity'}});assert.equal(routes.find(row=>row.kind==='heartbeat').schema,'test_clock');assert(!routes.some(row=>row.table==='tenant_consumer_checkpoint'),'NO_CHECKPOINT_SELFCAPTURE');});});
+
+
+describe('consumer catalogue DDL relevance', function () {
+ it('revalidates only configured consumer schemas without adding DML routes; omission is red and restoration green', async function () {
+  const fs=require('node:fs'),vm=require('node:vm'),{createRequire}=require('node:module');
+  const file=require.resolve('../lib/pgstream/evaluator'),local=createRequire(file),actual=require(file);
+  const config={namespaces:{clock:'clinical_clock',checkpoint:'clinical_checkpoint'},registry:{namespace:'tenant_registry'},
+   trustedWorker:{settings:'display_settings',operatorPolicy:'operator_policy',activity:'tenant_control'},
+   consumers:{realtime:{outbox:{namespace:'consumer_outbox'},suppression:{namespace:'consumer_alarm'}}}};
+  async function qualify(module){
+   const seen=[],routes=module.routes(config);
+   assert.equal(routes.length,6);assert(!routes.some(row=>['consumer_outbox','consumer_alarm'].includes(row.schema)));
+   const receive=create({routes,relevantSchemas:module.relevantSchemas(config),store:{},onInput:()=>{},onHeartbeat:()=>{},onSchema:async schemas=>seen.push(...schemas)});
+   for(const schema of ['consumer_outbox','consumer_alarm','unrelated_schema'])await receive({Data:{action:'M',prefix:'pgstream.ddl',content:JSON.stringify({schema_name:schema,objects:[]})}});
+   assert.deepEqual(seen,['consumer_outbox','consumer_alarm']);
+  }
+  await qualify(actual);
+  const source=fs.readFileSync(file,'utf8'),needle='...(selected?[selected.outbox.namespace,selected.suppression.namespace]:[])';
+  assert.equal(source.split(needle).length,2,'control must remove actual consumer DDL selection');
+  const broken={exports:{}};
+  vm.runInThisContext('(function(require,module,exports){'+source.replace(needle,'...[]')+'\n})',{filename:file})(local,broken,broken.exports);
+  await assert.rejects(qualify(broken.exports),error=>error.code==='ERR_ASSERTION');
+  await qualify(actual);
+ });
+});
