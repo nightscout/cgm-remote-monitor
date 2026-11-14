@@ -47,8 +47,9 @@ async function fixture () {
   runtime = await runtimeFactory({ tenants: [A, B], readCurrent,
     create: selected => ({ acquire: async () => ({ tenant: selected.tenant, checkpoint: 0, rows: structuredClone(state.rows),
       frame: { delta: false, lastUpdated: 1000, sgvs: state.rows.filter(row => row.domain === 'entries').map(row => ({ _id: row.document._id, mgdl: row.document.sgv, mills: 1000 })) } }) }),
-    fanout: protocol.fanout, recoveryIntervalMs: 100,
+    fanout: protocol.fanout, retryMs: 100,
     schedule: callback => { schedule.callback = callback; return 1; }, cancel: () => { schedule.closed = true; } });
+  schedule.callback=()=>runtime.check([A,B]);
   return { A, B, state, runtime, protocol, schedule,
     async socket (host = 'a.test', namespace = '/') { const socket = new Socket(host); await protocol.prepare(socket); protocol.bind(socket, namespace); return socket; },
     async close () { protocol.close(); await runtime.close(); } };
@@ -59,13 +60,9 @@ describe('explicit realtime preview source contracts', function () {
   afterEach(() => scope.setTenancyMode(mode));
   it('requires bounded explicit config and uses shared PG/environment validation without enabling a default', function () {
     const parse = require('../lib/server/realtime/config').parse;
-    const value = { version: 1, postgres: { connectionEnv: 'RT_DB', namespaces: Object.fromEntries(['entries','treatments','devicestatus','profile','food','activity','clock','checkpoint'].map(k => [k, 'rt_' + k])) },
-      consumer: 'realtime-test', pageSize: 1, maxRows: 10, maxBytes: 10000, maxTenants: 2, recoveryIntervalMs: 100,
-      tenants: [{ id: A, revision: 'v1', settings: { enable: ['bgnow'] } }], admissionFileEnv: 'RT_ADMISSION',
-      maxMessageBytes: 10000, operationTimeoutMs: 1000 };
-    const source = { RT_DB: 'postgres://synthetic:synthetic@127.0.0.1/disposable_test', RT_ADMISSION: '/tmp/admission.json', NS_API_INTERNAL_SOCKET: '/tmp/a.sock' };
+    const {value,source}=require('./fixtures/realtime-completed-config')();
     const selected = parse(value, source);
-    assert.equal(selected.consumer, 'realtime-test'); assert.equal(selected.tenants.get(A).tenant, A);
+    assert.equal(selected.consumer,'realtime-test');assert.equal(selected.registry.namespace,'rt_registry');assert.equal(selected.tenants.size,0);
     assert.deepEqual(selected.api, { socketPath: '/tmp/a.sock', maxBytes: 10000, timeoutMs: 1000 }, 'api peer address from NS_API_INTERNAL_SOCKET');
     assert.equal(Object.hasOwn(selected, 'alarms'), false, 'alarm delivery is served on serve.internal, not configured per contract');
     for (const retired of [{ apiSocketPathEnv: 'API_SOCKET' }, { alarmSocketPathEnv: 'RT_SOCKET' }, { apiEndpoint: { urlEnv: 'API', trust: 'network' } }]) {
@@ -74,7 +71,7 @@ describe('explicit realtime preview source contracts', function () {
     // Decision realtime-no-socket-cap: a file that still sets maxSockets is refused with its own code.
     assert.throws(() => parse({ ...value, maxSockets: 2000 }, source), error => error.code === 'REALTIME_CONFIG_MAX_SOCKETS_REMOVED' && /remove maxSockets/.test(error.message),
       'RT_MAX_SOCKETS_REMOVED');
-    for (const mutate of [v => { v.consumer = 'evaluator-shared'; }, v => { v.unauthorizedDeadlineMs = 0; }, v => { v.maxBytes = undefined; }, v => { v.postgres.namespaces.entries = 'public'; }]) {
+    for (const mutate of [v => { v.consumer = 'evaluator-shared'; }, v => { v.unauthorizedDeadlineMs = 0; }, v => { v.maxBytes = undefined; }, v => { v.postgres.namespaces.checkpoint = 'public'; }]) {
       const bad = structuredClone(value); mutate(bad); assert.throws(() => parse(bad, source));
     }
     assert.throws(() => require('../lib/server/realtime/config').load({}), /REFUSED|configuration/);
@@ -189,23 +186,11 @@ describe('explicit realtime preview source contracts', function () {
       assert.equal(replies, 1, 'RT_API_OUTAGE_NOACK failed private forward never synthesizes reply');
     } finally { await f.close(); }
   });
-  it('builds an actual recovered empty frame that clears the existing browser SGV consumer', async function () {
-    const connection = { snapshotTransaction: async fn => fn(), async query (text) {
-      if (text.startsWith('SELECT checkpoint')) return { rows: [{ checkpoint: '0', contract_digest: '', projection: null }] };
-      if (text.startsWith('SELECT last_stamp')) return { rows: [{ last_stamp: '0' }] };
-      if (text.startsWith('SELECT count(*)')) return { rows: [{ row_count: '0', document_bytes: '0' }] };
-      if (text.startsWith('UPDATE')) return { rowCount: 1, rows: [] };
-      if (text.startsWith('SELECT COALESCE(sum(pg_column_size')) return { rows: [{ bytes: 0 }] };
-      return { rows: [] };
-    } };
-    const config = { namespaces: Object.fromEntries(['entries','treatments','devicestatus','profile','food','activity','clock','checkpoint'].map(k => [k, 'rt_' + k])),
-      consumer: 'realtime-source', pageSize: 3, maxRows: 100, maxBytes: 100000 };
-    const acquired = await require('../lib/server/realtime/projection')({ config, connection, current: current(A) }).acquire({ at: 10000000 });
-    const browser = { ...Object.fromEntries(Object.entries(acquired.frame).filter(([, value]) => Array.isArray(value)).map(([key]) => [key, []])),
-      sgvs: [{ mills: Date.now(), mgdl: 250 }], processTreatments () {} };
-    require('../lib/client/receiveddata')(acquired.frame, browser, { extendedSettings: {} });
-    assert.deepEqual(browser.sgvs, [], 'RT_ACTUAL_BROWSER_ABSENCE no SGV is retained by actual browser merge');
-    assert.equal(acquired.frame.delta, false, 'RT_ACTUAL_FULL_RESET source acquisition sets a full snapshot');
+  it('a completed empty full frame clears the existing browser SGV consumer',async function(){
+    const frame={delta:false,lastUpdated:10000000,sgvs:[],treatments:[],devicestatus:[],profiles:[],food:[],activity:[]};
+    const browser={sgvs:[{mills:Date.now(),mgdl:250}],processTreatments(){}};
+    require('../lib/client/receiveddata')(frame,browser,{extendedSettings:{}});
+    assert.deepEqual(browser.sgvs,[],'COMPLETED_FULL_FRAME_CLEARS_BROWSER');
   });
   // Maintainer decision 2026-11-10: the realtime status frame reports devicestatus
   // as a single site and the tenant status route do. Display parity only: the
@@ -223,7 +208,7 @@ describe('explicit realtime preview source contracts', function () {
         { devicestatus: { advanced: false, days: 2 } }, 'RT_DEVICESTATUS_OVERRIDE the operator value for tenant B only');
     } finally { await f.close(); }
   });
-  it('uses the explicit recovery backstop with no wake and contains a failed tenant', async function () {
+  it('uses an explicit addressed check and contains a failed tenant', async function () {
     const f = await fixture();
     try {
       const a = await f.socket(); await a.receive('authorize', { secret: 'synthetic' }); a.sent.length = 0;
@@ -231,7 +216,7 @@ describe('explicit realtime preview source contracts', function () {
       assert.ok(a.sent.some(row => row.event === 'dataUpdate' && row.value.sgvs.length === 0), 'RT_QUIET_BACKSTOP no wake still repairs current absence');
     } finally { await f.close(); }
     let failA = false, b = 0;
-    const rt = await runtimeFactory({ tenants: [A, B], recoveryIntervalMs: 10, readCurrent: async t => current(t),
+    const rt = await runtimeFactory({ tenants: [A, B], retryMs: 10, readCurrent: async t => current(t),
       create: selected => ({ acquire: async () => { if (selected.tenant === A && failA) throw new Error('ROW_BOUND'); return { tenant: selected.tenant, rows: [], frame: {} }; } }),
       fanout: async ({ tenant }) => { if (tenant === B) b++; }, schedule: () => 1, cancel: () => {} });
     const before = b; failA = true;
@@ -363,13 +348,13 @@ describe('explicit realtime preview source contracts', function () {
   });
   it('separates recovery scheduling from writes and fences late acquisition after close/config change', async function () {
     let timer, count = 0; const held = deferred(); let block = false, enabled = true;
-    const runtime = await runtimeFactory({ tenants: [A], recoveryIntervalMs: 10, readCurrent: async tenant => enabled ? current(tenant) : null,
+    const runtime = await runtimeFactory({ tenants: [A], retryMs: 10, readCurrent: async tenant => enabled ? current(tenant) : null,
       create: () => ({ acquire: async () => { count++; if (block) await held.promise; return { tenant: A, rows: [], frame: { sgvs: [] } }; } }),
       fanout: async () => {}, schedule: callback => { timer = callback; return 1; }, cancel: () => {} });
     block = true; const pending = runtime.refresh(A); await Promise.resolve(); await Promise.resolve();
     const closing = runtime.close(); held.resolve(); await assert.rejects(pending, /CHANGED/); await closing;
     assert.equal(runtime.last(A), null, 'RT_CLOSE_FENCE no late result');
-    assert.equal(typeof timer, 'function'); assert.ok(count >= 1);
+    assert.equal(timer,undefined,'WARM_RUNTIME_HAS_NO_DISCOVERY_TIMER');assert.ok(count>=1);
     enabled = false;
   });
   it('private handler uses fixed owned operations and bounded bodies without network listeners', async function () {

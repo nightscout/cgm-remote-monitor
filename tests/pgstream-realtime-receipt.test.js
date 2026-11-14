@@ -5,6 +5,13 @@ const contexts=require('../lib/server/serve/evaluator-job-context');
 const A='11111111-1111-4111-8111-111111111111',B='22222222-2222-4222-8222-222222222222';
 const settle=()=>new Promise(resolve=>setImmediate(resolve));
 describe('durable realtime output scheduling source protocol',function(){
+  it('provisions a stable narrow receipt identity without constructing a clinical replay consumer',function(){
+    const digest=receipts.contractDigest('rt_checkpoint','realtime-test');assert.match(digest,/^[a-f0-9]{64}$/);
+    assert.equal(digest,receipts.contractDigest('rt_checkpoint','realtime-test'));
+    assert.notEqual(digest,receipts.contractDigest('other_checkpoint','realtime-test'));
+    assert.notEqual(digest,receipts.contractDigest('rt_checkpoint','realtime-other'));
+    assert.throws(()=>receipts.contractDigest('public','realtime-test'));
+  });
   it('preserves exact producer revisions and refuses bigint overflow and unsafe numeric values before SQL',function(){
     for(const value of ['1','9007199254740993','9223372036854775807'])assert.equal(receipts.revision(value),value);
     for(const value of [1,9007199254740992,'0','01','9223372036854775808'])assert.throws(()=>receipts.revision(value),/Exact positive/);

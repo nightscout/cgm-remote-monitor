@@ -8,7 +8,6 @@ const { EventEmitter } = require('node:events');
 const scope = require('../lib/storage/tenant-scope');
 const protocolFactory = require('../lib/server/realtime/protocol');
 const runtimeFactory = require('../lib/server/realtime/runtime');
-const detectorFactory = require('../lib/server/realtime/change-detector');
 const A = '11111111-1111-4111-8111-111111111111', B = '22222222-2222-4222-8222-222222222222';
 const sleep = ms => new Promise(resolve => setTimeout(resolve, ms));
 const env = require('../lib/server/tenant-app/environment')({ settings: { enable: ['bgnow'] } });
@@ -60,12 +59,12 @@ async function fixture ({ recoveryIntervalMs = 20, authorizationRecheckMs = 6000
     current: () => true } : undefined;
   protocol = protocolFactory.create({ admission, api, readCurrent, runtime: () => runtime, domains: ['entries'],
     operationWindow, authorizationRecheckMs, retry: { minMs: 5, maxMs: 40 } });
-  const detector = detectorFactory.create({
-    readStamps: async list => new Map(list.map(t => [t, String(state.writes.get(t))])),
-    readIdentities: async list => new Map(list.map(t => [t, { identity: 'same' }])),
-    ...(activity ? { readActivity: async list => new Map(list.map(t => [t, { state: state.activity.get(t) }])) } : {}),
-    onPoll: seen => detectorFactory.invalidateIneligible(seen, { activity: !!activity, invalidate: t => protocol.invalidateTenant(t) }) });
-  runtime = await runtimeFactory({ tenants, readCurrent, recoveryIntervalMs, detect: detector.poll, concurrency: 2,
+  const detector={poll:async list=>{
+    const seen=new Map(list.map(t=>[t,{stamp:String(state.writes.get(t)),identity:activity&&state.activity.get(t)!=='active'?null:'same'}]));
+    for(const [tenant,row]of seen)if(row.identity===null)protocol.invalidateTenant(tenant);
+    return seen;
+  }};
+  runtime = await runtimeFactory({ tenants, readCurrent, retryMs:recoveryIntervalMs, detect: detector.poll, concurrency: 2,
     create: selected => ({ async acquire () {
       state.acquisitions++;
       if (acquireMs) await sleep(acquireMs);
@@ -76,8 +75,8 @@ async function fixture ({ recoveryIntervalMs = 20, authorizationRecheckMs = 6000
   return { state, protocol, runtime, detector,
     // A hard delete (decision write-clock-complete): the reading disappears and
     // the write clock moves, as postgres-entries-write.js remove records it.
-    hardDelete (tenant) { state.visible.set(tenant, state.visible.get(tenant) - 1); state.writes.set(tenant, state.writes.get(tenant) + 1); },
-    write (tenant, visible = true) { state.writes.set(tenant, state.writes.get(tenant) + 1); if (visible) state.visible.set(tenant, state.visible.get(tenant) + 1); },
+    hardDelete (tenant) { state.visible.set(tenant, state.visible.get(tenant) - 1); state.writes.set(tenant, state.writes.get(tenant) + 1);runtime.wake(tenant); },
+    write (tenant, visible = true) { state.writes.set(tenant, state.writes.get(tenant) + 1); if (visible) state.visible.set(tenant, state.visible.get(tenant) + 1);runtime.wake(tenant); },
     async socket (host = 'a.test', credential = { secret: 'synthetic' }, namespace = '/') {
       const socket = new Socket(host); await protocol.prepare(socket); protocol.bind(socket, namespace);
       await socket.receive(namespace === '/' ? 'authorize' : 'subscribe', credential); return socket;
@@ -126,7 +125,7 @@ describe('realtime publish on change (actual protocol, runtime and detector)', f
       assert.ok(sockets.every(s => s.frames().length === 1), 'each socket primed with one frame');
       const calls = f.state.calls, acquisitions = f.state.acquisitions, ticks = f.runtime.stats().ticks;
       await sleep(400);
-      assert.ok(f.runtime.stats().ticks - ticks >= 10, 'the detector ran');
+      assert.equal(f.runtime.stats().ticks,ticks,'NO_IDLE_DISCOVERY_TICKS');
       assert.equal(sockets.reduce((sum, s) => sum + s.frames().length, 0), 20, 'RT_IDLE_NO_FRAME no frame after priming');
       assert.equal(f.state.acquisitions, acquisitions, 'RT_IDLE_NO_ACQUISITION no projection read while the stamp is unchanged');
       assert.equal(f.state.calls, calls, 'RT_IDLE_NO_AUTHORIZATION no api call while idle');
@@ -167,7 +166,7 @@ describe('realtime publish on change (actual protocol, runtime and detector)', f
       const at = Date.now(); f.write(A);
       assert.ok(await until(() => a.every(s => s.frames().length === 2), 1000), 'every A socket receives the new frame');
       const latency = Math.max(...a.map(s => s.frames()[1].at)) - at;
-      assert.ok(latency <= 50 + 40, 'RT_WRITE_BOUND within one detection interval (+ scheduling): ' + latency + ' ms');
+      assert.ok(latency <= 50 + 40, 'RT_WRITE_BOUND on an addressed control event (+ scheduling): ' + latency + ' ms');
       assert.equal(a[0].frames()[1].value.sgvs.length, 1); assert.equal(a[0].frames()[1].value.delta, false, 'frames stay full');
       assert.equal(b.frames().length, 1, 'RT_TENANT_FANOUT B receives nothing');
       f.write(A, false); const acquisitions = f.state.acquisitions;
@@ -189,7 +188,7 @@ describe('realtime publish on change (actual protocol, runtime and detector)', f
       assert.ok(latency <= 200, 'RT_HARD_DELETE_BOUND within a few ticks: ' + latency + ' ms');
     } finally { await f.close(); }
   });
-  it('RT_HARD_DELETE_STAMP_ONLY: with the write-clock stamp alone (no periodic refresh) the deleted reading leaves the display', async function () {
+  it('RT_HARD_DELETE_EVENT: a completed-output revision event the deleted reading leaves the display', async function () {
     const f = await fixture({ recoveryIntervalMs: 20 });
     try {
       f.write(A); f.write(A);
@@ -276,11 +275,11 @@ describe('realtime publish on change (actual protocol, runtime and detector)', f
     } finally { await f.close(); }
   });
 
-  for (const label of ['paused', 'suspended']) it('RT_ACTIVITY: ' + label + ' disconnects the tenant within one detection interval; B keeps its socket', async function () {
+  for (const label of ['paused', 'suspended']) it('RT_ACTIVITY: ' + label + ' disconnects the tenant on an addressed control event; B keeps its socket', async function () {
     const f = await fixture({ activity: true, recoveryIntervalMs: 50 });
     try {
       const a = await f.socket(), b = await f.socket('b.test');
-      const at = Date.now(); f.state.activity.set(A, label);
+      const at = Date.now(); f.state.activity.set(A, label);f.runtime.wake(A);
       assert.ok(await until(() => a.disconnected, 1000));
       assert.ok(a.disconnectedAt - at <= 50 + 40, 'RT_ACTIVITY_BOUND ' + (a.disconnectedAt - at) + ' ms');
       assert.notEqual(b.disconnected, true);
@@ -313,17 +312,5 @@ describe('realtime publish on change (actual protocol, runtime and detector)', f
     assert.ok(sockets.every(s => !s.disconnected), 'RT_SHUTDOWN_NO_SERVER_DISCONNECT');
   });
 
-  it('RT_DETECTOR: one stamp and identity read per poll for all tenants', async function () {
-    const reads = [];
-    const detector = detectorFactory.create({ readStamps: async list => { reads.push(['stamps', list.length]); return new Map([[A, '7']]); },
-      readIdentities: async list => { reads.push(['identities', list.length]); return new Map([[A, { identity: 'x' }]]); } });
-    const seen = await detector.poll([A, B]);
-    assert.deepEqual(reads, [['stamps', 2], ['identities', 2]]);
-    assert.deepEqual(seen.get(A), { stamp: '7', identity: 'x' }); assert.deepEqual(seen.get(B), { stamp: null, identity: null });
-    const stamps = detectorFactory.stampReader({ connection: { scanTenants: async (tenants, text) => {
-      assert.match(text, /^SELECT last_stamp::text AS stamp FROM "rt_clock"\.tenant_write_clock WHERE tenant_id = nullif\(current_setting/);
-      return new Map(tenants.map(t => [t, t === A ? [{ stamp: '3' }] : []]));
-    } }, clockNamespace: 'rt_clock' });
-    assert.deepEqual([...await stamps([A, B])], [[A, '3'], [B, null]]);
-  });
+
 });

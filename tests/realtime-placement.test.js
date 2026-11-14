@@ -156,12 +156,17 @@ describe('actual realtime boot observation wiring', function () {
         '../../storage/postgres-connection':async()=>({end:noop,holdAdvisoryLock:async key=>{keys.push(key);return {available:true,check:noop,close:noop};}}),
         '../internal-api/clients':{socketAuthority:()=>({})},'../realtime/api-client':{create:()=>({})},
         './tenant-startup':{notReadyRetry:()=>({}),create:()=>({warm:noop,close:noop,isReady:tenant=>tenant===A})},
-        '../realtime/protocol':{create:()=>({close(){},stats:()=>({}),fanout(){}})},
-        '../realtime/change-detector':{stampReader:()=>noop,create:()=>({poll:noop})},
+        '../realtime/protocol':{create:()=>({close(){},stats:()=>({}),fanout(){},watchedTenants:()=>[],watchedCount:()=>0})},
+        './registry-tenant-set':{open:async()=>({tenants:new Map(),isActive:()=>false,follow:noop,close:noop,stats:()=>({})})},
+        '../../tenant-registry/resolver':{createRegistryResolver:()=>({start:noop,resolve:noop,close(){}})},'../../tenant-registry/postgres':{create:()=>({})},
+        '../../trusted-worker/postgres':{create:()=>({scan:async()=>new Map(),read:noop,current:()=>null,state:()=>({available:true,generation:1}),close:noop})},
+        '../../trusted-worker/lifecycle':async()=>({close:noop,verify:noop}),
+        '../../pgstream/realtime-output':{detector:()=>Object.assign(noop,{stats:()=>({polls:0,failures:0})}),projection:()=>({})},
+        '../../pgstream/realtime-receipt':{create:()=>({verify:noop,recover:noop,stats:()=>({})}),start:()=>({close:noop})},
         '../realtime/runtime':async()=>({health(){throw Error('WHOLE_TENANT_HEALTH_SCAN');},warm:tenant=>tenant===A,close:noop})};
       const sandbox={module:{exports:{}},process,console,setInterval:()=>({unref(){}}),clearInterval(){},require:name=>Object.hasOwn(overrides,name)?overrides[name]:local(name)};
       vm.runInNewContext(transform(source),sandbox,{filename});
-      return sandbox.module.exports.boot({tenants:new Map(),operationTimeoutMs:100,recoveryIntervalMs:1000,placement:selected,consumer:'realtime-stable',api:{},admission:{},namespaces:{}});
+      return sandbox.module.exports.boot({registry:{namespace:'rt_registry',maxTenants:10,refreshMs:500},completedOutput:{namespace:'ev_checkpoint',consumer:'evaluator-test'},trustedWorker:{},tenants:new Map(),operationTimeoutMs:100,placement:selected,consumer:'realtime-stable',api:{},admission:{},namespaces:{}});
     }
     const one=await boot(),two=await boot();
     try {

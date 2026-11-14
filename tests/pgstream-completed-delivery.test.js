@@ -7,35 +7,24 @@ const scope = require('../lib/storage/tenant-scope');
 const A='11111111-1111-4111-8111-111111111111', B='22222222-2222-4222-8222-222222222222';
 const settle=()=>new Promise(resolve=>setImmediate(resolve));
 describe('completed-output delivery reuse', function () {
-  it('coalesces unchanged hints, preserves fresh reads and recovers a missed hint with the existing timer', async function () {
-    let timer, stamp=1, reads=0, watched=[A];
-    const published=[];
-    const service=await runtime({tenants:[A,B],eventDriven:true,recoveryIntervalMs:1000,
-      watchedTenants:()=>watched,readCurrent:async tenant=>({tenant,identity:tenant}),
+  it('coalesces unchanged output events and performs no watched-roster discovery',async function(){
+    let stamp=1,reads=0,timers=0;
+    const service=await runtime({tenants:[A,B],readCurrent:async tenant=>({tenant,identity:tenant}),watchedTenants:()=>[A],
       detect:async tenants=>new Map(tenants.map(tenant=>[tenant,{identity:tenant,stamp:tenant===A?stamp:1}])),
-      create:current=>({acquire:async()=>{reads++;return {tenant:current.tenant,checkpoint:current.tenant===A?stamp:1,frame:{},rows:[]};}}),
-      fanout:async value=>published.push(value),schedule:fn=>{timer=fn;return 1;},cancel(){}});
-    try {
-      const baseline=reads;
-      service.wake(A);await service.tick();
-      assert.equal(reads,baseline,'UNCHANGED_OUTPUT_HINT_MUST_NOT_REACQUIRE');
-      await service.fresh(A);assert.equal(reads,baseline+1,'EXPLICIT_FRESH_MUST_READ_AFTER_ARRIVAL');
-      stamp++;timer();await service.tick();
-      assert.equal(service.last(A).checkpoint,2,'WATCHED_RECOVERY_MUST_FIND_MISSED_HINT');
-      assert.equal(service.last(B).checkpoint,1,'OTHER_TENANT_UNCHANGED');
-      const after=reads;watched=[];stamp++;timer();await service.tick();assert.equal(reads,after);
-      service.wake(A);await service.tick();assert.equal(service.last(A).checkpoint,3);
-    } finally {await service.close();}
+      create:current=>({acquire:async()=>{reads++;return {tenant:current.tenant,checkpoint:current.tenant===A?stamp:1,frame:{},rows:[]};}}),fanout:async()=>{},schedule:()=>{timers++;return 1;},cancel(){}});
+    try{const baseline=reads;service.wake(A);await service.tick();assert.equal(reads,baseline);await service.fresh(A);assert.equal(reads,baseline+1);
+      stamp++;await service.tick();assert.equal(reads,baseline+1,'NO_IMPLICIT_DISCOVERY');service.wake(A);await service.tick();assert.equal(service.last(A).checkpoint,2);assert.equal(service.last(B).checkpoint,1);assert.equal(timers,0,'WARM_WORKER_HAS_NO_TIMER');
+    }finally{await service.close();}
   });
   it('durable receipts remove steady discovery and keep failed tenant delivery independent', async function () {
-    let timer,stamp=1,detects=0,reads=0,fail=false;
-    const service=await runtime({tenants:[A,B],eventDriven:true,durableOutput:true,recoveryIntervalMs:1000,
+    let stamp=1,detects=0,reads=0,fail=false;
+    const service=await runtime({tenants:[A,B],retryMs:1000,
       watchedTenants:()=>[A],readCurrent:async tenant=>({tenant,identity:tenant}),
       detect:async tenants=>{detects++;return new Map(tenants.map(tenant=>[tenant,{identity:tenant,stamp}]));},
       create:current=>({acquire:async()=>{if(fail&&current.tenant===A)throw Error('TENANT_A_OUTPUT_FAILURE');reads++;return {tenant:current.tenant,checkpoint:stamp,frame:{},rows:[]};}}),
-      fanout:async()=>{},schedule:fn=>{timer=fn;return 1;},cancel(){}});
+      fanout:async()=>{},schedule:()=>1,cancel(){}});
     try{
-      for(let i=0;i<10;i++)await timer();
+      for(let i=0;i<10;i++)await service.tick();
       assert.equal(detects,0,'DURABLE_IDLE_MUST_NOT_DISCOVER');assert.equal(reads,2);
       stamp++;service.wake(A);await service.tick();assert.equal(reads,3,'ONE_ACTIVE_REVISION_ACQUISITION');
       fail=true;stamp++;const outcomes=await service.check([A,B]);
@@ -44,17 +33,27 @@ describe('completed-output delivery reuse', function () {
     }finally{await service.close();}
   });
 
+  it('retries only known cold work at its due time, including an epoch-zero test clock',async function(){
+    let at=0,attempts=0,id=0;const timers=new Map();
+    const service=await runtime({tenants:[A],readiness:'serve',now:()=>at,retryMs:25,failureRetryMs:100,
+      readCurrent:async tenant=>({tenant,identity:tenant}),create:()=>({acquire:async()=>{attempts++;if(attempts===1)throw Error('COLD_OUTPUT_UNAVAILABLE');return {tenant:A,checkpoint:1,rows:[],frame:{}};}}),fanout:async()=>{},
+      schedule:(fn,delay)=>{const key=++id;timers.set(key,{fn,delay});return key;},cancel:key=>timers.delete(key)});
+    try{await settle();assert.equal(attempts,1);assert.equal(timers.get(1).delay,100);at=99;await service.tick();assert.equal(attempts,1,'KNOWN_RETRY_MUST_NOT_RUN_EARLY');
+      at=100;const due=timers.get(1);timers.delete(1);await due.fn();assert.equal(attempts,2);assert.equal(service.warm(A),true);assert.equal(timers.size,0,'WARM_WORKER_MUST_DISARM_COLD_TIMER');
+      at=100000;await service.tick();assert.equal(attempts,2);assert.equal(timers.size,0);
+    }finally{await service.close();}
+  });
   it('queues only an unwatched tenant requested after operational epoch change before any peer exists', async function () {
-    let timer,worker={available:true,generation:1},reads=new Map([[A,0],[B,0]]);
-    const service=await runtime({tenants:[A,B],eventDriven:true,recoveryIntervalMs:1000,workerState:()=>worker,
+    let worker={available:true,generation:1},reads=new Map([[A,0],[B,0]]);
+    const service=await runtime({tenants:[A,B],retryMs:1000,workerState:()=>worker,
       watchedTenants:()=>[],readCurrent:async tenant=>({tenant,identity:tenant}),
       detect:async tenants=>new Map(tenants.map(tenant=>[tenant,{identity:tenant,stamp:1}])),
       create:current=>({acquire:async()=>{reads.set(current.tenant,reads.get(current.tenant)+1);return {tenant:current.tenant,checkpoint:1,frame:{},rows:[]};}}),
-      fanout:async()=>{},schedule:fn=>{timer=fn;return 1;},cancel(){}});
+      fanout:async()=>{},schedule:()=>1,cancel(){}});
     try {
       worker={available:false,generation:2};assert.equal(service.requestWarm(A),false);
       assert.equal(service.warm(A),false);assert.equal(service.last(A),null);
-      worker={available:true,generation:2};await timer();
+      worker={available:true,generation:2};await service.tick();
       assert.equal(service.warm(A),false,'UNWATCHED_OLD_EPOCH_REMAINS_UNAVAILABLE');
       assert.equal(service.requestWarm(A),false,'DEMAND_MUST_NOT_ACCEPT_STALE_MODEL');await service.tick();
       assert.equal(service.warm(A),true,'DEMAND_BEFORE_PEER_MUST_REACQUIRE_CURRENT_EPOCH');
@@ -81,7 +80,7 @@ describe('completed-output delivery reuse', function () {
         physicalReads++;assert.match(text,/SELECT \(projection->0->'output'\)-'result' AS output/,'PHYSICAL_TRANSFER_MUST_EXCLUDE_CLINICAL_RESULT');
         const output=copy(snapshot.body);delete output.result;return {rows:[{output}]};
       }};
-    const config={consumer:'realtime-test',namespaces:{checkpoint:'rt_checkpoint'},completedOutput:{namespace:'test_completed',consumer:'evaluator-test'},maxBytes:100000,recoveryIntervalMs:1000};
+    const config={consumer:'realtime-test',namespaces:{checkpoint:'rt_checkpoint'},completedOutput:{namespace:'test_completed',consumer:'evaluator-test'},maxBytes:100000,maxRows:1000};
     digest=checkpoints.create({connection,namespace:'test_completed',consumer:'evaluator-test',maxBytes:200000,timeIntervalMs:1000,typed:true}).digest;
     const projection=completed.projection({config,connection,current:{tenant:A,identity:'current'},operationWindow:{currentGeneration:()=>7}});
     try {

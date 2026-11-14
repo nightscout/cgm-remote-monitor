@@ -48,7 +48,7 @@ async function lab ({ tenants, readiness, broken = new Set(), gate = new Map(), 
     retry: { minMs: 5, maxMs: 40 },
     api: { executeSocketMutation: async () => ({ replyArgs: [] }),
       authorizeSocket: async () => ({ permissions: { read: true, write: false, write_treatment: false, ack: false }, collections: ['entries'] }) } });
-  runtime = await runtimeFactory({ operationWindow, tenants, readCurrent, recoveryIntervalMs: 20, concurrency: 2, readiness, failureRetryMs,
+  runtime = await runtimeFactory({ operationWindow, tenants, readCurrent, retryMs: 20, concurrency: 2, readiness, failureRetryMs,
     detect: async list => new Map(list.map(t => [t, { stamp: '1', identity: 'same' }])),
     create: selected => ({ async acquire () {
       attempts.set(selected.tenant, (attempts.get(selected.tenant) || 0) + 1);
