@@ -200,7 +200,7 @@ describe('private current-authority and raw entries read transaction', function 
   });
 
   it('control: disabling the joined boundary restores two transactions and fails the transaction oracle', async function () {
-    const f = await fixture(s => s.replace('if (joinedRead && legacySubject) {', 'if (false && joinedRead && legacySubject) {'));
+    const f = await fixture(s => s.replace('if (joinedRead && currentAuthority === authority) {', 'if (false && joinedRead && currentAuthority === authority) {'));
     try {
       const req = f.request(); await f.access({ tenant: A, request: req, version: 1 });
       await scope.withTenant(A, () => f.connection.query('SELECT clinical_entries'));
