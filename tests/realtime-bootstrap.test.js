@@ -11,7 +11,7 @@ describe('parent-owned realtime bootstrap source contract',function(){
   beforeEach(function(){dir=fs.mkdtempSync(path.join(os.tmpdir(),'rt-b-'));fs.chmodSync(dir,0o700);
     const pins=require('./fixtures/realtime-preview/early').plan.pins;
     const resource=(kind,port,database)=>({kind,host:'127.0.0.1',port,database,containerId:'synthetic-owned-'+kind,image:pins[kind],labelKey:'synthetic-owner',labelValue:'synthetic-phase',mounts:[]});
-    input={sourceDir,captureDir:dir,onObservation(){},env:{NS_TEST_POSTGRES_ADMIN_URI:'postgres://synthetic-admin:synthetic@127.0.0.1:15432/bootstrap_test',
+    input={sourceDir,captureDir:dir,onObservation(){},env:{NS_RT_BOOTSTRAP_PGSTREAM_RECEIVER_PORT:'21461',NS_RT_BOOTSTRAP_PGSTREAM_SUBSCRIPTIONS_PORT:'21462',NS_TEST_POSTGRES_ADMIN_URI:'postgres://synthetic-admin:synthetic@127.0.0.1:15432/bootstrap_test',
       CUSTOMCONNSTR_mongo:'mongodb://127.0.0.1:27017/synthetic',NS_RT_BOOTSTRAP_VAULT_ADDRESS:'http://127.0.0.1:18200',NS_RT_BOOTSTRAP_VAULT_ROOT_TOKEN:'synthetic-vault-root',
       NS_RT_BOOTSTRAP_OPTIONS_JSON:JSON.stringify(bounds()),NS_RT_BOOTSTRAP_UI_JSON:JSON.stringify({bundleDirectory:'/tmp/synthetic-bundle',expectedBundleSha256:'0'.repeat(64),settings:{units:'mg/dl'}})},
       resources:[resource('postgres',15432,'bootstrap_test'),resource('mongo',27017),resource('vault',18200),{kind:'private-directory',path:dir,mode:0o700,ownerUid:process.getuid()}]};});
@@ -30,41 +30,56 @@ describe('parent-owned realtime bootstrap source contract',function(){
     fs.chmodSync(dir,0o755);assert.throws(()=>plan.parse(input),/INPUT_REFUSED/);
   });
   it('feeds actual API RT and evaluator parsers with one metadata-linked config and no worker credentials in API',function(){
-    const selected=plan.parse(input),layout=plan.layout('0123456789abcdef'),paths=Object.fromEntries(['api','realtime','evaluator','admission'].map(n=>[n,path.join(dir,n+'.json')]));
+    const selected=plan.parse(input),layout=plan.layout('0123456789abcdef'),paths=Object.fromEntries(['api','realtime','evaluator','tenant-admin'].map(n=>[n,path.join(dir,n+'.json')]));
     const publicKeys=[plan.A,plan.B].map(tenant=>({tenant,kid:'key1',publicKey:Buffer.from(crypto.generateKeyPairSync('ed25519').publicKey.export({format:'jwk'}).x,'base64url').toString('base64')}));
-    const docs=plan.documents({selected,layout,publicKeys,paths});for(const name of ['api','realtime','evaluator','admission'])fs.writeFileSync(paths[name],JSON.stringify(docs[name]));
+    const docs=plan.documents({selected,layout,publicKeys,paths});for(const name of ['api','realtime','evaluator','tenant-admin'])fs.writeFileSync(paths[name],JSON.stringify(docs[name]));
     const url=name=>'postgres://synthetic-'+name+':synthetic@127.0.0.1:15432/bootstrap_test';
-    const common={NS_API_INTERNAL_SOCKET:path.join(dir,'api.sock'),NS_REALTIME_INTERNAL_SOCKET:path.join(dir,'alarm.sock'),RT_BOOTSTRAP_ADMISSION:paths.admission};
-    const api={...common,MULTITENANT_PREVIEW_CONFIG:paths.api,MULTITENANT_EVALUATOR_CONFIG:paths.evaluator,RT_BOOTSTRAP_API_PG:url('api'),
-      RT_BOOTSTRAP_READINESS_PG:url('readiness'),RT_BOOTSTRAP_ALARM_PG:url('alarm'),RT_BOOTSTRAP_VAULT_0:'synthetic-a',RT_BOOTSTRAP_VAULT_1:'synthetic-b'};
-    const worker={...common,MULTITENANT_EVALUATOR_CONFIG:paths.evaluator,RT_BOOTSTRAP_EVAL_PG:url('evaluator'),RT_BOOTSTRAP_OUTBOX_PG:url('outbox'),RT_BOOTSTRAP_SUPPRESSION_PG:url('suppression')};
+    const common={NS_API_INTERNAL_SOCKET:path.join(dir,'api.sock'),NS_REALTIME_INTERNAL_SOCKET:path.join(dir,'alarm.sock'),NS_EVALUATOR_INTERNAL_SOCKET:path.join(dir,'evaluator.sock'),NS_TENANT_ADMIN_INTERNAL_SOCKET:path.join(dir,'owner.sock'),RT_BOOTSTRAP_DISPLAY_PG:'postgres://synthetic-display:synthetic@127.0.0.1:15432/bootstrap_test',RT_BOOTSTRAP_ACTIVITY_PG:'postgres://synthetic-activity:synthetic@127.0.0.1:15432/bootstrap_test',NS_RT_BOOTSTRAP_PGSTREAM_BINARY:'/synthetic/pinned-pgstream',NS_RT_BOOTSTRAP_PGSTREAM_CONFIG:'/synthetic/pgstream.json'};
+    const api={...common,NS_SERVE_INTERNAL_SOCKET:common.NS_API_INTERNAL_SOCKET,MULTITENANT_PREVIEW_CONFIG:paths.api,MULTITENANT_EVALUATOR_CONFIG:paths.evaluator,RT_BOOTSTRAP_API_PG:url('api'),
+      RT_BOOTSTRAP_READINESS_PG:url('readiness'),RT_BOOTSTRAP_ALARM_PG:url('alarm'),RT_BOOTSTRAP_VAULT_ROLE:'synthetic-role'};
+    const worker={...common,NS_SERVE_INTERNAL_SOCKET:common.NS_EVALUATOR_INTERNAL_SOCKET,MULTITENANT_EVALUATOR_CONFIG:paths.evaluator,RT_BOOTSTRAP_EVAL_PG:url('evaluator'),RT_BOOTSTRAP_OUTBOX_PG:url('outbox'),RT_BOOTSTRAP_SUPPRESSION_PG:url('suppression')};
     const realtime={...common,NS_SERVE_INTERNAL_SOCKET:common.NS_REALTIME_INTERNAL_SOCKET,MULTITENANT_REALTIME_CONFIG:paths.realtime,RT_BOOTSTRAP_RT_PG:url('realtime')};
     const accepted=require('../lib/server/serve/preview-config').load(api);
     const evaluated=require('../lib/server/serve/evaluator-config').load(worker);
     const delivered=require('../lib/server/realtime/config').load(realtime);
     assert.equal(accepted.socketForwarding.consumerState.consumer,evaluated.consumers.realtime.route.id,'BOOTSTRAP_SAME_CONSUMER_LOCK_BINDING');
-    assert.equal(delivered.tenants.get(plan.A).identity,evaluated.tenants.get(plan.A).identity,'BOOTSTRAP_SHARED_EFFECTIVE_IDENTITY');
-    assert.equal(delivered.tenants.get(plan.A).identity,delivered.tenants.get(plan.B).identity,'equal config prevents isolation test being masked by identity mismatch');
+    assert.equal(delivered.registry.namespace,evaluated.registry.namespace,'BOOTSTRAP_SHARED_REGISTRY');
+    assert.equal(delivered.completedOutput.namespace,evaluated.namespaces.checkpoint,'BOOTSTRAP_ACTUAL_COMPLETED_SOURCE');
+    assert.equal(delivered.completedOutput.consumer,evaluated.consumer);
+    assert.deepEqual(Object.keys(delivered.namespaces).sort(),['checkpoint','clock']);
+    assert.equal(evaluated.tenants.size,0,'registry parser does not fabricate tenant work');
+    for(const key of ['changeFeed','recoveryIntervalMs','settingsRefreshMs','tenants'])assert.equal(Object.hasOwn(docs.evaluator,key),false);
     assert.notEqual(evaluated.namespaces.checkpoint,delivered.namespaces.checkpoint);
     assert.equal(Object.keys(api).some(key=>/EVAL_PG|OUTBOX_PG|SUPPRESSION_PG/.test(key)),false,'BOOTSTRAP_API_NO_WORKER_CREDENTIALS');
     assert.equal(Object.keys(realtime).some(key=>/VAULT|SIGN|DECRYPT|SECRET/.test(key)),false);
     assert.deepEqual(Object.keys(require('./fixtures/realtime-preview/bootstrap-grants').catalogues()).sort(),Object.keys(layout.namespaces).sort());
+    const ownerSource={...common,NS_SERVE_INTERNAL_SOCKET:common.NS_TENANT_ADMIN_INTERNAL_SOCKET,MULTITENANT_OWNER_PREVIEW_CONFIG:paths['tenant-admin'],NS_OWNER_WRITER_PG:url('owner-writer'),NS_OWNER_READER_PG:url('owner-reader')};
+    const owned=require('../lib/server/serve/owner-preview-config').load(ownerSource);
+    for(const [role,source,option]of [['api',api,{preview:accepted}],['evaluator',worker,{evaluatorPreview:evaluated}],['realtime',realtime,{realtimePreview:delivered}],['tenant-admin',ownerSource,{ownerPreview:owned}]]){
+      const file=path.join(dir,role+'-operation.json');fs.writeFileSync(file,JSON.stringify(docs.operations[role]));
+      const prefix=role.replace('-','_').toUpperCase();
+      const environment={API_HOSTNAME:'127.0.0.1',API_PORT:'1337',...source,[prefix+'_HOSTNAME']:'127.0.0.1',[prefix+'_PORT']:'0',MULTITENANT_OPERATION_CONFIG:file,RT_BOOTSTRAP_LIFETIME_PG:url('lifetime-'+role)};
+      const operationConfig=require('../lib/server/serve/operation-cohort-config').load(environment);
+      const preflight=require('../lib/server/serve').preflight([role],environment,{...option,operationConfig});
+      assert.equal(preflight.participant.id,role,'actual role lifetime manifest must match parsed resources');
+    }
+
   });
   it('keeps the initial explicit cold evaluator bound below realtime while both actual role configuration parsers accept it and infrastructure stays pinned',async function(){
     const options={...bounds(),pageSize:1,evaluatorMaxRows:3,realtimeMaxRows:100};
     const selected=plan.parse({...input,env:{...input.env,NS_RT_BOOTSTRAP_OPTIONS_JSON:JSON.stringify(options)}});
     assert.equal(plan.parse(input).options.evaluatorMaxRows,options.maxRows);
     assert.equal(plan.parse(input).options.realtimeMaxRows,options.maxRows);
-    const layout=plan.layout('0123456789abcdef'),paths=Object.fromEntries(['api','realtime','evaluator','admission'].map(n=>[n,path.join(dir,n+'.json')]));
+    const layout=plan.layout('0123456789abcdef'),paths=Object.fromEntries(['api','realtime','evaluator','tenant-admin'].map(n=>[n,path.join(dir,n+'.json')]));
     const docs=plan.documents({selected,layout,publicKeys:[],paths});fs.writeFileSync(paths.evaluator,JSON.stringify(docs.evaluator));
     const url=name=>'postgres://synthetic-'+name+':synthetic@127.0.0.1:15432/bootstrap_test';
     const env={RT_BOOTSTRAP_EVAL_PG:url('evaluator'),RT_BOOTSTRAP_OUTBOX_PG:url('outbox'),RT_BOOTSTRAP_SUPPRESSION_PG:url('suppression'),
-      RT_BOOTSTRAP_RT_PG:url('realtime'),NS_API_INTERNAL_SOCKET:path.join(dir,'api.sock'),NS_REALTIME_INTERNAL_SOCKET:path.join(dir,'alarm.sock'),RT_BOOTSTRAP_ADMISSION:paths.admission};
-    const evaluated=require('../lib/server/serve/evaluator-config').parse(docs.evaluator,env);
+      RT_BOOTSTRAP_RT_PG:url('realtime'),NS_API_INTERNAL_SOCKET:path.join(dir,'api.sock'),NS_REALTIME_INTERNAL_SOCKET:path.join(dir,'alarm.sock'),NS_EVALUATOR_INTERNAL_SOCKET:path.join(dir,'evaluator.sock'),NS_TENANT_ADMIN_INTERNAL_SOCKET:path.join(dir,'owner.sock'),RT_BOOTSTRAP_DISPLAY_PG:'postgres://synthetic-display:synthetic@127.0.0.1:15432/bootstrap_test',RT_BOOTSTRAP_ACTIVITY_PG:'postgres://synthetic-activity:synthetic@127.0.0.1:15432/bootstrap_test',NS_RT_BOOTSTRAP_PGSTREAM_BINARY:'/synthetic/pinned-pgstream',NS_RT_BOOTSTRAP_PGSTREAM_CONFIG:'/synthetic/pgstream.json'};
+    const evaluated=require('../lib/server/serve/evaluator-config').parse(docs.evaluator,{...env,NS_SERVE_INTERNAL_SOCKET:env.NS_EVALUATOR_INTERNAL_SOCKET});
     const delivered=require('../lib/server/realtime/config').parse(docs.realtime,{...env,NS_SERVE_INTERNAL_SOCKET:env.NS_REALTIME_INTERNAL_SOCKET});
     assert.equal(evaluated.maxRows,3,'BOOTSTRAP_COLD_EVALUATOR_BOUND');assert.equal(delivered.maxRows,100,'BOOTSTRAP_REALTIME_REMAINS_ADMITTED');
-    const link=require('../lib/server/realtime/notification-state-config')({evaluatorConfigEnv:'LINK'},{LINK:paths.evaluator},{namespace:layout.namespaces.alarm,connectionString:url('ack')});
-    assert.equal((await link.readCurrent(plan.A)).identity,evaluated.tenants.get(plan.A).identity);
+    const link=require('../lib/server/realtime/notification-state-config')({evaluatorConfigEnv:'LINK'},{...env,LINK:paths.evaluator},{namespace:layout.namespaces.alarm,connectionString:url('ack')});
+    assert.equal(link.consumer,evaluated.consumers.realtime.route.id,'registry metadata keeps exact producer linkage without opening a SQL connection in source-only tests');
     docs.evaluator.maxRows++;fs.writeFileSync(paths.evaluator,JSON.stringify(docs.evaluator));await assert.rejects(link.readCurrent(plan.A),/restart/,'cold test must not change infrastructure after API boot');
     for(const changes of [{evaluatorMaxRows:0},{evaluatorMaxRows:3,pageSize:4},{realtimeMaxRows:3,pageSize:4}]) {
       assert.throws(()=>plan.parse({...input,env:{...input.env,NS_RT_BOOTSTRAP_OPTIONS_JSON:JSON.stringify({...options,...changes})}}),/INPUT_REFUSED/);
@@ -142,7 +157,9 @@ describe('parent-owned realtime bootstrap source contract',function(){
     for(const table of ['tenant_owner_policy','tenant_owner_actors','tenant_subject_admin_audit'])assert(reset.reset.some(row=>row.domain==='authorization'&&row.table===table),'RESET_INCLUDES_'+table);
     assert(reset.reset.some(row=>row.domain==='secrets'&&row.table==='secret_audit'));
     assert.deepEqual(reset.preserved,[{domain:'secrets',namespace:layout.namespaces.secrets,table:'secret_records'}]);
-    assert.equal(reset.reset.length,34);assert.equal(reset.foreignKeys.length,10);
+    assert.equal(reset.reset.length,54);assert.equal(reset.foreignKeys.length,24);
+    assert(reset.reset.some(row=>row.domain==='registry'&&row.table==='tenant_registry_keys'));
+    assert(reset.reset.some(row=>row.domain==='control'&&row.table==='tenant_lifecycle_key_retention'));
     assert(reset.reset.some(row=>row.domain==='access'&&row.table==='management_session_requests'));
     assert.deepEqual(reset.reset.filter(row=>row.table==='tenant_insertion_ordinal').map(row=>row.domain).sort(), ['devicestatus','entries','food','profile','treatments']);
     assert(reset.foreignKeys.some(row=>row.from==='tenant_owner_actors'&&row.to==='tenant_owner_policy'));

@@ -12,7 +12,9 @@ describe('disclosed evaluator getter observer fixture', function () {
     const selected = { tenants: new Map([['synthetic-tenant', {}]]) }; let closed = 0, received;
     const actual = Object.freeze({ health: () => ({ closed: !!closed, tenants: [{ tenant: 'synthetic-tenant', ready: false, code: 'EVALUATOR_ACQUISITION_REFUSED' }] }),
       last: () => null, acquire: () => 'original-acquire', close: async () => { closed++; } });
-    const wrapped = await observer.wrapBoot(async value => { received = value; return actual; }, config)(selected);
+    const ports={operationWindow:{native:'actual injected lifetime capability'}};let receivedPorts;
+    const wrapped=await observer.wrapBoot(async(value,extra)=>{received=value;receivedPorts=extra;return actual;},config)(selected,ports);
+    assert.equal(receivedPorts,ports,'observational preload must forward the real operation window without substitution');
     assert.equal(received, selected); assert.equal(wrapped.acquire, actual.acquire); assert(Object.isFrozen(actual));
     const snapshot = JSON.parse(fs.readFileSync(config.file));
     assert.equal(snapshot.health.tenants[0].code, 'EVALUATOR_ACQUISITION_REFUSED'); assert.equal(snapshot.last[0].value, null);
@@ -22,7 +24,7 @@ describe('disclosed evaluator getter observer fixture', function () {
   });
   it('records last tags without capturing clinical result or invoking evaluation', async function () {
     const selected = { tenants: new Map([['synthetic-tenant', {}]]) }; let acquires = 0;
-    const actual = Object.freeze({ health: () => ({ closed: false, tenants: [] }),
+    const actual = Object.freeze({ health:()=>({closed:false,tenants:[{tenant:'synthetic-tenant'}]}),
       last: () => ({ identity: 'actual-identity', runtimeId: 'actual-runtime', outputRevision: 3, inputCheckpoint: 7, eligible: true, result: { forbiddenCapture: 'synthetic-clinical-content' } }),
       acquire: () => { acquires++; }, close: async () => {} });
     const wrapped = await observer.wrapBoot(async () => actual, config)(selected);

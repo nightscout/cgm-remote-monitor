@@ -1,14 +1,17 @@
 'use strict';
 // Connected actual /storage proof inside the existing owned recovery cohort.
-// Admin writes deliberately bypass hints/clock; this is not client-write parity.
+// Synthetic typed-ID mutations commit through the actual product clock.
+// The separate client-write parity phase still owns public API mutation equivalence.
 const fs=require('node:fs'),path=require('node:path'),assert=require('node:assert/strict'),crypto=require('node:crypto');
 const oracle=require('./storage-oracle');
 module.exports=async function start({input,roles,admin,connect,realtimeConfig}){
+  const clockWrite=require('./clock-write');
   const config=roles.config,clients=[],foreign=[],ownedSockets=[],subscriptions=[],observations={classification:'actual connected storage; inherited typed-ID delete-wire ambiguity; no universal client-cache or native binary claim'};
   const limits={maxRows:realtimeConfig.maxRows,maxBytes:realtimeConfig.maxBytes};
   const identifier=crypto.randomBytes(12).toString('hex'),marker='synthetic-revoked-'+crypto.randomUUID();let exercised=false,closed=false;
   const q=name=>{assert.match(name,/^[a-z][a-z0-9_]{0,62}$/);return '"'+name+'"';};
-  const entries=q(config.entriesNamespace)+'.entries',clock=q(config.clockNamespace)+'.tenant_write_clock',checkpoint=q(realtimeConfig.namespaces.checkpoint)+'.tenant_consumer_checkpoint';
+  const entries=q(config.entriesNamespace)+'.entries',clock=q(config.clockNamespace)+'.tenant_write_clock',checkpoint=q(realtimeConfig.completedOutput.namespace)+'.tenant_consumer_checkpoint';
+  const mutate=(deleted,write)=>clockWrite({admin,namespace:config.clockNamespace,tenant:config.tenant,deleted},write);
   const grants=q(config.authorizationNamespace)+'.tenant_authorization_subject_roles';
   function record(extra={}){Object.assign(observations,extra);fs.writeFileSync(path.join(input.captureDir,'actual-storage-proof.json'),JSON.stringify(observations,null,2)+'\n');}
   const pause=ms=>new Promise(resolve=>setTimeout(resolve,ms));
@@ -17,7 +20,7 @@ module.exports=async function start({input,roles,admin,connect,realtimeConfig}){
   const floor=async()=> (await admin.query('SELECT last_stamp FROM '+clock+' WHERE tenant_id=$1',[config.tenant])).rows;
   const events=group=>oracle.eventSnapshots(group,limits);
   async function projection(check){return wait(async()=>{
-    const row=(await admin.query('SELECT checkpoint,projection FROM '+checkpoint+' WHERE tenant_id=$1 AND consumer=$2',[config.tenant,realtimeConfig.consumer])).rows[0];
+    const row=(await admin.query('SELECT checkpoint,projection FROM '+checkpoint+' WHERE tenant_id=$1 AND consumer=$2',[config.tenant,realtimeConfig.completedOutput.consumer+'-completed'])).rows[0];
     record({lastCheckpoint:row});return check(row)?row:null;
   },'STORAGE_ACTUAL_PROJECTION_BOUNDARY_NOT_OBSERVED');}
   async function socket(transport,host,credentialEnv,target){
@@ -42,10 +45,10 @@ module.exports=async function start({input,roles,admin,connect,realtimeConfig}){
     }
     const beforeForeign=await rows(config.foreignTenant),beforeClock=await floor();assert.equal(beforeClock.length,1);
     const beforeA=await rows(config.tenant);assert(!beforeA.some(row=>row.doc._id===identifier));
-    record({baseline:{clock:beforeClock,foreignRows:beforeForeign,rows:beforeA,consumer:realtimeConfig.consumer,checkpointNamespace:realtimeConfig.namespaces.checkpoint}});
+    record({baseline:{clock:beforeClock,foreignRows:beforeForeign,rows:beforeA,consumer:realtimeConfig.completedOutput.consumer+'-completed',checkpointNamespace:realtimeConfig.completedOutput.namespace}});
     const now=Date.now(),base={_id:identifier,type:'sgv',date:now,dateString:new Date(now).toISOString(),device:'synthetic-storage-proof'};
     const object={id_kind:'objectid',doc:{...base,sgv:111}},string={id_kind:'string',doc:{...base,sgv:222}},updated={id_kind:'string',doc:{...base,sgv:333}};
-    const expected=[oracle.single('create',object),oracle.single('create',string)];
+    const expected=[];
     const stage=async(name,twins)=>{
       const physical={stage:name,id:identifier,twins:(await rows(config.tenant)).filter(row=>row.doc._id===identifier),
         clockBefore:beforeClock,clockAfter:await floor(),foreignBefore:beforeForeign,foreignAfter:await rows(config.foreignTenant),clients:events(clients),foreignClients:events(foreign)};
@@ -54,14 +57,15 @@ module.exports=async function start({input,roles,admin,connect,realtimeConfig}){
     return Object.freeze({
       async exercise(){
         assert(!exercised);exercised=true;
-        await admin.query('INSERT INTO '+entries+' (tenant_id,id_kind,doc) VALUES($1,$2,$3::jsonb),($1,$4,$5::jsonb)',[config.tenant,'objectid',JSON.stringify(object.doc),'string',JSON.stringify(string.doc)]);
+        await mutate(false,stamp=>{object.doc.srvModified=stamp;string.doc.srvModified=stamp;return admin.query('INSERT INTO '+entries+' (tenant_id,id_kind,doc) VALUES($1,$2,$3::jsonb),($1,$4,$5::jsonb)',[config.tenant,'objectid',JSON.stringify(object.doc),'string',JSON.stringify(string.doc)]);});
+        expected.push(oracle.single('create',object),oracle.single('create',string));
         await wait(()=>clients.every(client=>client.events.filter(row=>row.event==='create'&&row.value.doc?.identifier===identifier).length>=2),'STORAGE_TYPED_CREATES_NOT_OBSERVED');
         await stage('create',[object,string]);
-        await admin.query('UPDATE '+entries+' SET doc=$3::jsonb WHERE tenant_id=$1 AND id_kind=\'string\' AND doc->>\'_id\'=$2',[config.tenant,identifier,JSON.stringify(updated.doc)]);
+        await mutate(false,stamp=>{updated.doc.srvModified=stamp;return admin.query('UPDATE '+entries+' SET doc=$3::jsonb WHERE tenant_id=$1 AND id_kind=\'string\' AND doc->>\'_id\'=$2',[config.tenant,identifier,JSON.stringify(updated.doc)]);});
         expected.push(oracle.single('update',updated));
         await wait(()=>clients.every(client=>client.events.some(row=>row.event==='update'&&row.value.doc?.identifier===identifier&&row.value.doc.sgv===333)),'STORAGE_TYPED_UPDATE_NOT_OBSERVED');
         await stage('update',[object,updated]);
-        await admin.query('DELETE FROM '+entries+' WHERE tenant_id=$1 AND id_kind=\'objectid\' AND doc->>\'_id\'=$2',[config.tenant,identifier]);expected.push(oracle.single('delete',object));
+        await mutate(true,()=>admin.query('DELETE FROM '+entries+' WHERE tenant_id=$1 AND id_kind=\'objectid\' AND doc->>\'_id\'=$2',[config.tenant,identifier]));expected.push(oracle.single('delete',object));
         await wait(()=>clients.every(client=>client.events.some(row=>row.event==='delete'&&row.value.identifier===identifier)),'STORAGE_TYPED_DELETE_NOT_OBSERVED');
         await stage('delete',[updated]);record({typedWireAmbiguity:{identifier,physicalKinds:['objectid','string'],normalizedIdentifierShared:true,deleteDoesNotIdentifyKind:true}});
       },
@@ -78,10 +82,11 @@ module.exports=async function start({input,roles,admin,connect,realtimeConfig}){
         if(current.denied||current.permissions?.read!==false||!Array.isArray(current.collections)||current.collections.length||storedGrants.length)throw new Error('STORAGE_VALID_REVOKED_COLLECTIONS_REQUIRED');
         const starts=clients.map(client=>client.events.length),foreignStarts=foreign.map(client=>client.events.length),before=await floor();
         const doc={_id:marker,type:'sgv',sgv:444,date:Date.now(),device:'synthetic-revoked-storage'};doc.dateString=new Date(doc.date).toISOString();
-        await admin.query('INSERT INTO '+entries+' (tenant_id,id_kind,doc) VALUES($1,\'string\',$2::jsonb)',[config.tenant,JSON.stringify(doc)]);
-        const barrier=await projection(row=>String(row?.checkpoint)===String(before[0].last_stamp)&&row?.projection?.some(item=>item.domain==='entries'&&item.id_kind==='string'&&item.doc._id===marker));
+        await mutate(false,stamp=>{doc.srvModified=stamp;return admin.query('INSERT INTO '+entries+' (tenant_id,id_kind,doc) VALUES($1,\'string\',$2::jsonb)',[config.tenant,JSON.stringify(doc)]);});
+        const after=await floor();
+        const barrier=await projection(row=>String(row?.checkpoint)===String(after[0].last_stamp)&&row?.projection?.[0]?.kind==='evaluator-work-v2'&&row.projection[0].output?.rows?.some(item=>item.domain==='entries'&&item.id_kind==='string'&&item.doc._id===marker));
         record({revocationPipelineBarrier:barrier});await pause(config.observationMs);
-        const physical={marker,grants:storedGrants,current,checkpoint:barrier,floor:before[0].last_stamp,clockBefore:before,clockAfter:await floor(),rows:await rows(config.tenant),
+        const physical={marker,grants:storedGrants,current,checkpoint:barrier,floor:after[0].last_stamp,clockBefore:before,clockAfter:await floor(),rows:await rows(config.tenant),
           foreignBefore:beforeForeign,foreignAfter:await rows(config.foreignTenant),clients:clients.map((client,i)=>({transport:client.transport,events:client.events.slice(starts[i])})),
           foreignClients:foreign.map((client,i)=>({transport:client.transport,events:client.events.slice(foreignStarts[i])}))};
         oracle.revoked(physical,record);

@@ -42,7 +42,11 @@ module.exports = async function joined (input) {
     assert(config.foreignTenant !== config.tenant && config.foreignHost !== config.host);
     const realtimeEnv = require('./roles').roleEnvironment(JSON.parse(fs.readFileSync(config.realtimeEnvFile, 'utf8')), input.env);
     const realtimeConfig = require('../../../lib/server/realtime/config').parse(JSON.parse(fs.readFileSync(realtimeEnv.MULTITENANT_REALTIME_CONFIG, 'utf8')), realtimeEnv);
-    assert.equal(realtimeConfig.tenants.get(config.tenant).identity, realtimeConfig.tenants.get(config.foreignTenant).identity,
+    const evaluatorConfig=require('../../../lib/server/serve/evaluator-config');
+    const stored=(await admin.query('SELECT s.tenant_id,s.version,s.values,p.generation,p.policy FROM "'+config.settingsNamespace+'".tenant_settings s JOIN "'+config.operatorPolicyNamespace+'".tenant_operator_policy p USING(tenant_id) WHERE tenant_id=ANY($1::uuid[]) ORDER BY tenant_id',[[config.tenant,config.foreignTenant]])).rows;
+    assert.equal(stored.length,2);assert.deepEqual(stored[0].values,stored[1].values,'equal committed settings keep tenant isolation control discriminating');
+    const identities=stored.map(row=>evaluatorConfig.applySettings(evaluatorConfig.registryEntry(row.tenant_id),require('../../../lib/tenant-settings/component').resolveEffectiveSettings({version:row.version,values:row.values},{...row.policy,generation:row.generation})));
+    assert.equal(identities[0].identity,identities[1].identity,
       'native isolation fixture needs equal effective config identities so an identity mismatch cannot mask a broken tenant filter');
     storage=await require('./storage-proof')({input,roles,admin,connect:storageConnect,realtimeConfig});
     const clients = [], foreignClients = [];
@@ -57,15 +61,15 @@ module.exports = async function joined (input) {
       assert.equal(foreignFrame.sgvs.some(row => row.mgdl === config.syntheticMgdl), false, 'JOINED_FOREIGN_ROOM_NO_A_SGV');
     }
     await storage.exercise();
-    // Physical quiet removal bypasses producer hints/clock updates deliberately.
-    // This is an attested dedicated fixture tenant, never operator data.
+    // Supported hard deletion commits through the source clock. The resulting
+    // completed evaluator output must replace the actual public frame with absence.
     const before = (await admin.query('SELECT last_stamp FROM ' + table(config.clockNamespace) + '.tenant_write_clock WHERE tenant_id=$1', [config.tenant])).rows;
-    await admin.query('DELETE FROM ' + table(config.entriesNamespace) + '.entries WHERE tenant_id=$1', [config.tenant]);
+    await require('./clock-write')({admin,namespace:config.clockNamespace,tenant:config.tenant,deleted:true},()=>admin.query('DELETE FROM '+table(config.entriesNamespace)+'.entries WHERE tenant_id=$1',[config.tenant]));
     const after = (await admin.query('SELECT last_stamp FROM ' + table(config.clockNamespace) + '.tenant_write_clock WHERE tenant_id=$1', [config.tenant])).rows;
-    assert.deepEqual(after, before, 'JOINED_QUIET_DELETE clock unchanged by physical fixture removal');
+    assert(BigInt(after[0].last_stamp)>BigInt(before[0].last_stamp),'JOINED_SUPPORTED_DELETE_CLOCK_ADVANCED');
     for (const item of clients) await wait(() => item.frames.some(row => row.delta === false && row.sgvs.length === 0), 'JOINED_QUIET_ABSENCE_BACKSTOP_FAILED');
     for (const foreign of foreignClients) assert(foreign.frames.at(-1).sgvs.some(row => row.mgdl === config.foreignSyntheticMgdl), 'JOINED_FOREIGN_TENANT_UNCHANGED');
-    observations.push({ quietRemoval: true, clockUnchanged: true, fullAbsence: true }); write();
+    observations.push({ supportedRemoval:true,clockAdvanced:true, fullAbsence: true }); write();
     const reconnected = await client('polling');
     await wait(() => reconnected.frames.some(row => row.delta === false && row.sgvs.length === 0), 'JOINED_RECONNECT_ABSENCE_FAILED');
     const auth = table(config.authorizationNamespace);

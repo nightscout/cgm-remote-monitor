@@ -119,7 +119,7 @@ module.exports = async function consumer (input) {
     const errors = []; for (const socket of sockets) socket.close();
     // Stop producer before relay/RT; role fixture owns its children only.
     try { await roles.close(); } catch { errors.push('ROLE_CLOSE'); }
-    if (cold) try { cold.restore(); } catch { errors.push('COLD_CONFIG_RESTORE'); }
+    if (cold) try { await cold.restore(); } catch { errors.push('COLD_CONFIG_RESTORE'); }
     if (relay) try { await relay.close(); } catch { errors.push('RELAY_CLOSE'); }
     if (runtimeDirectory) try { runtimeDirectory.close(); } catch { errors.push('RELAY_RUNTIME_DIRECTORY_CLEANUP'); }
     if (connected && staleGrants) try {

@@ -25,7 +25,7 @@ function verdict(label,physical,record,verify){
 }
 function typed(physical,expected,record){
   return verdict('STORAGE_CONNECTED_TYPED_'+physical.stage.toUpperCase(),physical,record,()=>{
-    assert.deepEqual(physical.clockAfter,physical.clockBefore,'STORAGE_QUIET_CLOCK_UNCHANGED');
+    assert(BigInt(physical.clockAfter[0].last_stamp)>BigInt(physical.clockBefore[0].last_stamp),'STORAGE_SUPPORTED_CLOCK_ADVANCED');
     assert.deepEqual(physical.foreignAfter,physical.foreignBefore,'STORAGE_FOREIGN_PHYSICAL_UNCHANGED');
     assert.deepEqual(physical.twins.map(row=>[row.id_kind,row.doc.sgv]).sort(),expected.twins.map(row=>[row.id_kind,row.doc.sgv]).sort(),'STORAGE_TYPED_PHYSICAL_IDENTITY');
     for(const client of physical.clients){
@@ -37,12 +37,12 @@ function typed(physical,expected,record){
   });
 }
 function revoked(physical,record){
-  const marker=physical.checkpoint?.projection?.some(row=>row.domain==='entries'&&row.id_kind==='string'&&row.doc._id===physical.marker);
+  const marker=physical.checkpoint?.projection?.[0]?.kind==='evaluator-work-v2'&&physical.checkpoint.projection[0].output?.rows?.some(row=>row.domain==='entries'&&row.id_kind==='string'&&row.doc._id===physical.marker);
   return verdict('STORAGE_CURRENT_COLLECTION_REVOKED',physical,record,()=>{
   if(!marker||String(physical.checkpoint.checkpoint)!==String(physical.floor)||physical.grants.length!==0||
     physical.current.denied||!Array.isArray(physical.current.collections)||physical.current.collections.length!==0||physical.current.permissions?.read!==false||
     !physical.rows.some(row=>row.id_kind==='string'&&row.doc._id===physical.marker))throw new Error('STORAGE_REVOCATION_CAUSAL_BOUNDARY_REQUIRED');
-    assert.deepEqual(physical.clockAfter,physical.clockBefore,'STORAGE_REVOCATION_CLOCK_UNCHANGED');
+    assert(BigInt(physical.clockAfter[0].last_stamp)>BigInt(physical.clockBefore[0].last_stamp),'STORAGE_REVOCATION_CLOCK_ADVANCED');
     assert.deepEqual(physical.foreignAfter,physical.foreignBefore,'STORAGE_REVOCATION_FOREIGN_UNCHANGED');
     for(const client of physical.clients)assert.deepEqual(client.events,[],'STORAGE_CURRENT_COLLECTION_REVOKED '+client.transport);
     for(const client of physical.foreignClients)assert.deepEqual(client.events,[],'STORAGE_REVOCATION_FOREIGN_WIRE_UNCHANGED');

@@ -38,18 +38,18 @@ describe('joined storage physical/wire/current-collection oracles',function(){
   });
   it('rejects wrong physical twin deletion or duplicate wire delivery while preserving raw evidence before verdict',function(){
     const expected={twins:[string],events:[oracle.single('delete',object)]};
-    const base={stage:'delete',id,twins:[string],clockBefore:[{last_stamp:'42'}],clockAfter:[{last_stamp:'42'}],foreignBefore:[],foreignAfter:[],
+    const base={stage:'delete',id,twins:[string],clockBefore:[{last_stamp:'42'}],clockAfter:[{last_stamp:'43'}],foreignBefore:[],foreignAfter:[],
       clients:[{transport:'polling',events:expected.events}],foreignClients:[{transport:'websocket',events:[]}]};
     oracle.typed(base,expected,()=>{});
-    for(const mutate of [p=>p.twins=[object],p=>p.clients[0].events.push(p.clients[0].events[0]),p=>p.foreignAfter=[string]]){
+    for(const mutate of [p=>p.clockAfter=[{last_stamp:'42'}],p=>p.twins=[object],p=>p.clients[0].events.push(p.clients[0].events[0]),p=>p.foreignAfter=[string]]){
       const physical=structuredClone(base),saved=[];mutate(physical);
       assert.throws(()=>oracle.typed(physical,expected,row=>saved.push(row)),assert.AssertionError);
       assert(saved[0].STORAGE_CONNECTED_TYPED_DELETE);assert.equal(saved[1].semanticFailure.code,'ERR_ASSERTION');
     }
   });
   const physical=()=>({marker:'synthetic-marker',grants:[],current:{permissions:{read:false},collections:[]},
-    checkpoint:{checkpoint:'42',projection:[{domain:'entries',id_kind:'string',doc:{_id:'synthetic-marker'}}]},floor:'42',
-    rows:[{id_kind:'string',doc:{_id:'synthetic-marker'}}],clockBefore:[{last_stamp:'42'}],clockAfter:[{last_stamp:'42'}],
+    checkpoint:{checkpoint:'43',projection:[{kind:'evaluator-work-v2',output:{rows:[{domain:'entries',id_kind:'string',doc:{_id:'synthetic-marker'}}]}}]},floor:'43',
+    rows:[{id_kind:'string',doc:{_id:'synthetic-marker'}}],clockBefore:[{last_stamp:'42'}],clockAfter:[{last_stamp:'43'}],
     foreignBefore:[],foreignAfter:[],clients:[{transport:'polling',events:[]}],foreignClients:[{transport:'websocket',events:[]}]});
   it('requires actual consumed marker/grant/current-auth preconditions instead of treating a missing pipeline as semantic red',function(){
     oracle.revoked(physical(),()=>{});
@@ -57,6 +57,21 @@ describe('joined storage physical/wire/current-collection oracles',function(){
       const p=physical();mutate(p);assert.throws(()=>oracle.revoked(p,()=>{}),error=>!(error instanceof assert.AssertionError)&&/CAUSAL_BOUNDARY/.test(error.message));
     }
     assert.throws(()=>oracle.bounded([string],{maxRows:0,maxBytes:10000}),/PROOF_BOUND/);
+  });
+  it('commits native synthetic writes through the source clock and detects a removed delete marker',async function(){
+    const fs=require('node:fs'),vm=require('node:vm'),{createRequire}=require('node:module');
+    const file=require.resolve('./fixtures/realtime-preview/clock-write'),original=fs.readFileSync(file,'utf8'),needle='dates.recordWrite({deleted});';
+    assert(original.includes(needle));const brokenModule={exports:{}};
+    vm.runInThisContext('(function(require,module,exports){'+original.replace(needle,'')+'\n})',{filename:file})(createRequire(file),brokenModule,brokenModule.exports);
+    async function criterion(write){
+      const queries=[];let allocated;
+      const admin={async query(sql,values){queries.push({sql,values});if(/SELECT last_stamp/.test(sql))return {rows:[{last_stamp:'42'}]};if(sql==='COMMIT')return {command:'COMMIT'};return {rows:[],rowCount:1};}};
+      const result=await write({admin,namespace:'synthetic_clock',tenant:A,deleted:true},async stamp=>{allocated=stamp;await admin.query('SYNTHETIC_MUTATION',[stamp]);return 'stored';});
+      assert.equal(result.value,'stored');assert.equal(result.stamp,allocated);assert(allocated>42);
+      assert(queries.some(row=>/SET last_stamp = \$1, last_delete_stamp = \$1/.test(row.sql)),'NATIVE_DELETE_MUST_ADVANCE_SOURCE_DELETE_CLOCK');
+      assert.equal(queries.at(-1).sql,'COMMIT');
+    }
+    const source=require(file);await criterion(source);await assert.rejects(criterion(brokenModule.exports),/NATIVE_DELETE_MUST_ADVANCE/);await criterion(source);
   });
   it('actual protocol retains a valid socket but removes revoked collections before fanout; missing filter leaks a physical marker',async function(){
     let allowed=true;const socket=new Socket(),current={identity:'synthetic-current'};

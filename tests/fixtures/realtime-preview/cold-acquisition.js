@@ -14,16 +14,21 @@ module.exports = async function coldAcquisition ({ input, roles, admin, warm, al
   assert.equal(env.NODE_OPTIONS, '--require=' + preload, 'only reviewed actual CLI getter preload allowed');
   const stat = fs.lstatSync(selected.evaluatorConfigFile), original = fs.readFileSync(selected.evaluatorConfigFile);
   assert(stat.isFile() && !stat.isSymbolicLink() && stat.uid === process.getuid());
-  const document = JSON.parse(original), tenant = document.tenants.find(row => row.id === config.tenant);
-  assert(tenant && typeof selected.revision === 'string' && selected.revision.length && selected.revision !== tenant.revision);
+  const document=JSON.parse(original);assert(document.registry&&!Object.hasOwn(document,'tenants'));
+  assert(typeof selected.revision==='string'&&selected.revision.length);
+  assert.match(config.settingsNamespace,/^[a-z][a-z0-9_]{0,62}$/);
+  const settingsTable='"'+config.settingsNamespace+'".tenant_settings';
+  const originalSettings=(await admin.query('SELECT version,values FROM '+settingsTable+' WHERE tenant_id=$1',[config.tenant])).rows[0];
+  assert(originalSettings,'committed settings row required');
   assert(selected.entryCount > document.maxRows, 'real API rows must exceed evaluator acquisition bound');
   const realtime = require('./roles').roleEnvironment(JSON.parse(fs.readFileSync(config.realtimeEnvFile)), input.env);
   const rtConfig = JSON.parse(fs.readFileSync(realtime.MULTITENANT_REALTIME_CONFIG));
   assert(selected.entryCount + 1 <= rtConfig.maxRows, 'RT bound must support real cold-case packets');
-  const restore = () => {
+  const restore=async()=>{
     const current = fs.lstatSync(selected.evaluatorConfigFile);
     assert(current.dev === stat.dev && current.ino === stat.ino && current.uid === stat.uid, 'cold fixture config ownership changed');
-    fs.writeFileSync(selected.evaluatorConfigFile, original);
+    assert(fs.readFileSync(selected.evaluatorConfigFile).equals(original),'cold fixture must not alter product configuration');
+    const result=await admin.query('UPDATE '+settingsTable+' SET version=version+1,values=$2::jsonb WHERE tenant_id=$1',[config.tenant,JSON.stringify(originalSettings.values)]);assert.equal(result.rowCount,1);
   };
   async function observe (pid, after = 0) {
     if (!fs.existsSync(selected.observerFile)) return;
@@ -49,10 +54,11 @@ module.exports = async function coldAcquisition ({ input, roles, admin, warm, al
     assert.match(config.entriesNamespace, /^[a-z][a-z0-9_]{0,62}$/); assert.equal(roles.owned.entriesNamespace, config.entriesNamespace);
     const rows = (await admin.query('SELECT id_kind,doc FROM "' + config.entriesNamespace + '".entries WHERE tenant_id=$1', [config.tenant])).rows;
     record({ coldPhysicalRows: rows }); assert(rows.length > document.maxRows, 'COLD_ACTUAL_API_ACQUISITION_BOUND');
-    await warm.close(); tenant.revision = selected.revision; fs.writeFileSync(selected.evaluatorConfigFile, JSON.stringify(document));
+    await warm.close();
+    const changed=await admin.query('UPDATE '+settingsTable+' SET version=version+1 WHERE tenant_id=$1 RETURNING version',[config.tenant]);assert.equal(changed.rowCount,1);record({coldSettingsVersion:changed.rows[0].version});
     const cold = await roles.startEvaluator({ alarmRoutePath });
     const beforeAck = await wait(() => observe(cold.pid), 'COLD_ACTUAL_CLI_REFUSAL_LAST_NULL_REQUIRED');
     record({ coldBeforeAck: beforeAck });
     return { pid: cold.pid, beforeAck, observe: after => observe(cold.pid, after), restore };
-  } catch (error) { restore(); throw error; }
+  }catch(error){await restore();throw error;}
 };

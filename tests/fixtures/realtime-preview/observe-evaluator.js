@@ -37,13 +37,13 @@ function wrapBoot (original, config, write = writer(config)) {
   const preload = { path: __filename, sha256: digest(__filename) };
   const bootFile = path.resolve(__dirname, '../../../lib/server/serve/evaluator-preview.js');
   const product = { path: bootFile, sha256: digest(bootFile) };
-  return async function observedBoot (selected) {
-    const actual = await original(selected); let timer, closing, sequence = 0;
+  return async function observedBoot(selected,...ports){
+    const actual=await original(selected,...ports); let timer, closing, sequence = 0;
     function sample () {
       const observed = actual.health();
       const health = { closed: observed.closed, tenants: observed.tenants.map(row => ({ tenant: row.tenant, ready: row.ready,
         code: row.code, identity: row.identity, outputRevision: row.outputRevision, inputCheckpoint: row.inputCheckpoint })) };
-      const last = [...selected.tenants.keys()].map(tenant => {
+      const last=observed.tenants.map(({tenant})=> {
         const value = actual.last(tenant);
         return { tenant, value: value === null ? null : { identity: value.identity, runtimeId: value.runtimeId, outputRevision: value.outputRevision,
           inputCheckpoint: value.inputCheckpoint, eligible: value.eligible, trigger: value.trigger } };

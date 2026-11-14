@@ -30,10 +30,9 @@ function roleEnvironment (document, inputEnvironment) {
   return selected;
 }
 async function startRole ({ sourceDir, role, env, timeoutMs, captureDir, onBirth = () => {} }) {
-  assert(['api', 'realtime', 'evaluator'].includes(role));
-  // The realtime-preview fixture lists its tenants (static mode, lab only).
+  assert(['api','realtime','evaluator','tenant-admin'].includes(role));
   const child = spawn(process.execPath, [path.join(sourceDir, 'bin/nightscout.js'), 'multitenant', role], {
-    cwd: sourceDir, env: { MULTITENANT_STATIC_TENANTS: 'lab', ...env }, stdio: ['ignore', 'pipe', 'pipe'] });
+    cwd: sourceDir, env, stdio: ['ignore', 'pipe', 'pipe'] });
   const secrets = Object.values(env).filter(v => typeof v === 'string' && v.length > 5);
   const scrub = value => secrets.reduce((text, secret) => text.split(secret).join('[private-env]'), value);
   let stdout = '', stderr = '', exited, port, closing;
@@ -93,7 +92,7 @@ async function start (input) {
   }
   try {
     const roleEnv = role => {
-      const selected = roleEnvironment(JSON.parse(fs.readFileSync(config[role + 'EnvFile'], 'utf8')), input.env);
+      const selected = roleEnvironment(JSON.parse(fs.readFileSync(config[(role==='tenant-admin'?'owner':role)+'EnvFile'], 'utf8')), input.env);
       const pg = owned.resources.find(row => row.kind === 'postgres');
       assert(pg && pg.host === '127.0.0.1' && pg.port && pg.database, 'root-owned PG endpoint attestation required');
       for (const value of Object.values(selected)) if (typeof value === 'string' && /^postgres(?:ql)?:/.test(value)) {
@@ -109,13 +108,24 @@ async function start (input) {
       }
       if (role === 'evaluator') assert(selected.MULTITENANT_EVALUATOR_CONFIG, 'explicit headless evaluator configuration required');
       else {
-        assert.equal(selected[role.toUpperCase() + '_HOSTNAME'], '127.0.0.1');
-        assert.equal(selected[role.toUpperCase() + '_PORT'], '0');
+        assert.equal(selected[role.replace('-','_').toUpperCase()+'_HOSTNAME'], '127.0.0.1');
+        assert.equal(selected[role.replace('-','_').toUpperCase()+'_PORT'], '0');
       }
       if (role === 'realtime') assert(Object.keys(selected).every(key => !/VAULT|SIGN|DECRYPT|ROOT_SECRET/.test(key)), 'RT_HAS_NO_SECRET_AUTHORITY');
       return { PATH: input.env.PATH, HOME: input.env.HOME, NODE_PATH: input.env.NODE_PATH, NODE_ENV: 'test', TZ: 'UTC', ...selected };
     };
+    async function startEvaluator ({ alarmRoutePath } = {}) {
+        assert(config.evaluatorEnvFile, 'explicit evaluator role environment required');
+        const env = roleEnv('evaluator');
+        if (alarmRoutePath) {
+          const document = JSON.parse(fs.readFileSync(env.MULTITENANT_EVALUATOR_CONFIG, 'utf8'));
+          assert(document.consumers?.realtime?.route, 'actual joined realtime consumer route required');
+          env.NS_REALTIME_INTERNAL_SOCKET = alarmRoutePath;
+        }
+        const evaluator = await startRole({ ...input, role: 'evaluator', env, timeoutMs: config.timeoutMs }); children.push(evaluator); return evaluator;
+      }
     const api = await startRole({ ...input, role: 'api', env: roleEnv('api'), timeoutMs: config.timeoutMs }); children.push(api);
+    const owner=await startRole({...input,role:'tenant-admin',env:roleEnv('tenant-admin'),timeoutMs:config.timeoutMs});children.push(owner);
     const realtimeEnvironment = roleEnv('realtime');
     if (input.beforeRealtime !== undefined) {
       assert.equal(typeof input.beforeRealtime, 'function', 'trusted realtime setup hook required');
@@ -134,17 +144,9 @@ async function start (input) {
     const ui = config.uiFixture ? await require('./ui')({ sourceDir: input.sourceDir, ...config.uiFixture }) : undefined;
     ingress = await require('./ingress')({ ui, redirectFixtureHosts: config.browserResolverHosts, apiPort: api.port, realtimePort: realtime.port, timeoutMs: config.timeoutMs, onBirth: input.onBirth,diagnostics,fixtureHosts:[config.host,config.foreignHost] });
     transport=require('./named-client')({hosts:[config.host,config.foreignHost],port:ingress.port,timeoutMs:config.timeoutMs,record:diagnostics.record});
-    return Object.freeze({ api, realtime, ingress, config, owned, close,client:transport.socket,
-      async startEvaluator ({ alarmRoutePath } = {}) {
-        assert(config.evaluatorEnvFile, 'explicit evaluator role environment required');
-        const env = roleEnv('evaluator');
-        if (alarmRoutePath) {
-          const document = JSON.parse(fs.readFileSync(env.MULTITENANT_EVALUATOR_CONFIG, 'utf8'));
-          assert(document.consumers?.realtime?.route, 'actual joined realtime consumer route required');
-          env.NS_REALTIME_INTERNAL_SOCKET = alarmRoutePath;
-        }
-        const evaluator = await startRole({ ...input, role: 'evaluator', env, timeoutMs: config.timeoutMs }); children.push(evaluator); return evaluator;
-      }
+    if(!['joined-consumer-handoff','joined-consumer-plugin-ack'].includes(input.phaseId))await startEvaluator();
+    return Object.freeze({ api, realtime, owner, ingress, config, owned, close,client:transport.socket,
+      startEvaluator
     });
   } catch (error) { await close(); throw error; }
 }

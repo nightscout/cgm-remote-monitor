@@ -1,6 +1,6 @@
 'use strict';
 // Actual provisioning/Vault, PostgreSQL registry, shipping clinical evaluator,
-// realtime projection, startup and dynamic runtime seams. Own container/ports;
+// typed completed-output consumer, startup and dynamic runtime seams. Own container/ports;
 // no existing database, Vault or real data is selected.
 const assert=require('node:assert/strict');
 const {execFileSync}=require('node:child_process');
@@ -9,13 +9,12 @@ const {Client}=require('pg');
 const scope=require('../lib/storage/tenant-scope');
 const registryFactory=require('../lib/server/serve/registry-tenant-set');
 const provisioning=require('../lib/tenant-registry/provision');
-const replayFactory=require('../lib/storage/postgres-durable-replay');
 const IMAGE='postgres@sha256:5db6dac2ef5dcff512f4f00a009c3c332b9f2f28f24277175bf3e4a3d02ef83a';
 const sleep=ms=>new Promise(resolve=>setTimeout(resolve,ms));
 const suite=require('./support/opt-in').optInSuite(process.env.NS_TENANT_LIVE_ADD_TEST==='1','NS_TENANT_LIVE_ADD_TEST=1; owned PostgreSQL and Vault');
 suite('live tenant admission with actual clinical and frame computation',function(){
   this.timeout(60000);
-  let container,clinical,registry,provisioner,watcher,evaluator,realtime,startup,prior,saved,checkpoints,activityStore,eligibility;
+  let container,clinical,registry,provisioner,watcher,evaluator,realtime,startup,prior,saved,checkpoints,activityStore,eligibility,completed;
   const existing=randomUUID(),added=randomUUID(),frames=new Map(),evaluations=new Map(),timeline=[];
   let failWarm=false,rollbackCount=0;const held=new Map();
   const docker=args=>execFileSync('docker',args,{encoding:'utf8',stdio:['ignore','pipe','pipe']}).trim();
@@ -34,8 +33,12 @@ suite('live tenant admission with actual clinical and frame computation',functio
     clinical=require('./fixtures/tenant-projection-evaluator')();await clinical.open();
     clinical.env=require('../lib/server/tenant-app/environment')({settings:{enable:['bgnow','simplealarms','timeago'],alarmUrgentHigh:true,thresholds:{bgHigh:200,bgTargetTop:180,bgTargetBottom:80,bgLow:55}}});
     registry=await require('./fixtures/tenant-registry-lab').createLab();
-    const rtReplay=replayFactory({connection:clinical.reader,domains:clinical.tables,clockTable:clinical.namespaces.clock+'.tenant_write_clock',checkpointTable:clinical.replayNamespace+'.tenant_consumer_checkpoint',consumer:'live-realtime',projectionVersion:'realtime-current-rows-v1',pageSize:3,maxRows:10000});
-    checkpoints=[{namespace:clinical.replayNamespace,consumer:'clinical-view',digest:clinical.consumer().digest},{namespace:clinical.replayNamespace,consumer:'live-realtime',digest:rtReplay.digest}];
+    await require('../lib/migrations/postgres').run('up',{direct:true,connectionString:process.env.NS_TEST_POSTGRES_ADMIN_URI,namespace:clinical.replayNamespace,catalogue:require('../migrations/candidates/postgres-evaluator-work-v2.json')});
+    const typed=require('../lib/pgstream/checkpoint');
+    await clinical.admin.query('GRANT UPDATE('+typed.WORK_COLUMNS.join(',')+') ON "'+clinical.replayNamespace+'".tenant_consumer_checkpoint TO "'+clinical.readerRole+'"');
+    completed=typed.create({typed:true,connection:clinical.reader,namespace:clinical.replayNamespace,consumer:'evaluator-live',maxBytes:8388608,timeIntervalMs:1000});
+    await completed.own(()=>{});
+    checkpoints=[{namespace:clinical.replayNamespace,consumer:'clinical-view',digest:clinical.consumer().digest},{namespace:clinical.replayNamespace,consumer:completed.consumer,digest:completed.digest}];
     const namespaces={...registry.namespaces,clock:clinical.namespaces.clock};
     for(const sql of provisioning.provisionerGrants({namespaces,role:registry.roles.provisioner,checkpoints}))await q(sql);
     provisioner=provisioning.createProvisioning(registry.provisioningOptions({namespaces,checkpoints}));
@@ -46,14 +49,17 @@ suite('live tenant admission with actual clinical and frame computation',functio
     activityStore=await require('../lib/tenant-activity/postgres').create({connectionString:registry.urls.realtime,namespace:registry.namespaces.control,capability:'reader'});
     eligibility=require('../lib/tenant-activity/eligibility').create({read:activityStore.read});
     const current=async tenant=>watcher.isActive(tenant) && (await eligibility.check('read',tenant)).eligible?watcher.tenants.get(tenant):null;
+    const generations=new Map();
     startup=require('../lib/server/serve/tenant-startup').create(watcher.tenants.keys(),undefined,async tenant=>{
       const row=await clinical.reader.withTenant(tenant,()=>clinical.reader.query('SELECT count(*)::int AS count FROM "'+clinical.replayNamespace+'".tenant_consumer_checkpoint WHERE tenant_id=$1',[tenant]));
       assert.equal(row.rows[0].count,2,'LIVE_NATIVE_CHECKPOINTS_PROVISIONED');
+      const window=(await q('SELECT generation::text,phase FROM "'+registry.namespaces.control+'".tenant_lifecycle_windows WHERE tenant_id=$1',[tenant])).rows[0];assert.equal(window.phase,'active');generations.set(tenant,window.generation);
+      await clinical.reader.withTenant(tenant,()=>completed.admit([tenant]));
     },{dynamic:true,maxTenants:20,readiness:'all'});await startup.warm();
     evaluator=await require('../lib/server/serve/evaluator-runtime')({tenants:[...watcher.tenants.keys()],dynamic:true,maxTenants:20,activity:eligibility,externalRecovery:true,recoveryIntervalMs:1000,timeIntervalMs:1000,
-      readCurrent:current,create:async ctx=>{await startup.ensure(ctx.tenant);const instance=clinical.evaluator(ctx.tenant);return {...instance,evaluate:async args=>{const result=await instance.evaluate(args);evaluations.set(ctx.tenant,result);timeline.push({tenant:ctx.tenant,at:Date.now()});return result;}};}});
-    const rtConfig={consumer:'live-realtime',pageSize:3,maxRows:10000,maxBytes:4194304,namespaces:{...Object.fromEntries(Object.entries(clinical.tables).map(([kind,table])=>[kind,table.split('.')[0]])),clock:clinical.namespaces.clock,checkpoint:clinical.replayNamespace}};
-    realtime=await require('../lib/server/realtime/runtime')({tenants:[...watcher.tenants.keys()],dynamic:true,maxTenants:20,eventDriven:true,recoveryIntervalMs:1000,readCurrent:current,create:ctx=>require('../lib/server/realtime/projection')({config:rtConfig,connection:clinical.reader,current:ctx}),fanout:async row=>frames.set(row.tenant,row.next.frame)});
+      readCurrent:current,create:async ctx=>{await startup.ensure(ctx.tenant);const instance=clinical.evaluator(ctx.tenant,{includeFrame:true});return {...instance,evaluate:async args=>{const result=await instance.evaluate(args);await scope.withTenant(ctx.tenant,async()=>{await completed.observe(ctx.tenant,'clock',String(result.checkpoint));await completed.complete(ctx.tenant,{observed:await completed.begin(ctx.tenant),identity:ctx.identity,restoreGeneration:generations.get(ctx.tenant),result});});evaluations.set(ctx.tenant,result);realtime?.wake(ctx.tenant);timeline.push({tenant:ctx.tenant,at:Date.now()});return result;}};}});
+    const rtConfig={consumer:'live-realtime',maxRows:10000,maxBytes:4194304,namespaces:{clock:clinical.namespaces.clock,checkpoint:clinical.replayNamespace},completedOutput:{namespace:clinical.replayNamespace,consumer:'evaluator-live'}};
+    realtime=await require('../lib/server/realtime/runtime')({tenants:[...watcher.tenants.keys()],dynamic:true,maxTenants:20,eventDriven:true,readCurrent:current,create:ctx=>require('../lib/pgstream/realtime-output').projection({config:rtConfig,connection:clinical.reader,current:ctx,operationWindow:{currentGeneration:tenant=>generations.get(tenant)}}),fanout:async row=>frames.set(row.tenant,row.next.frame)});
     await watcher.follow({prepare:async tenant=>{await held.get(tenant);if(!(await eligibility.check('evaluator',tenant)).eligible)throw Object.assign(new Error('deferred'),{code:'TENANT_ACTIVITY_DEFERRED'});startup.addTenant(tenant);try{if(failWarm){failWarm=false;throw new Error('synthetic failed warm');}await startup.ensure(tenant);evaluator.addTenant(tenant);realtime.addTenant(tenant);
       return async()=>{rollbackCount++;await evaluator.removeTenant(tenant);await realtime.removeTenant(tenant);await startup.removeTenant(tenant);};}
       catch(error){await startup.removeTenant(tenant);throw error;}},activate:tenant=>{evaluator.acquire(tenant).catch(()=>{});realtime.wake(tenant);},
@@ -61,7 +67,7 @@ suite('live tenant admission with actual clinical and frame computation',functio
   });
   after(async function(){
     await watcher?.close().catch(()=>{});await activityStore?.close().catch(()=>{});await evaluator?.close().catch(()=>{});await realtime?.close().catch(()=>{});startup?.close();await provisioner?.close().catch(()=>{});
-    await registry?.close().catch(()=>{});await clinical?.close().catch(()=>{});scope.setTenancyMode(prior);
+    await completed?.close().catch(()=>{});await registry?.close().catch(()=>{});await clinical?.close().catch(()=>{});scope.setTenancyMode(prior);
     for(const [name,value]of Object.entries(saved||{})){if(value===undefined)delete process.env[name];else process.env[name]=value;}
     if(container)try{docker(['rm','--force','--volumes',container]);}catch{/* owned container may already have exited */}
   });
@@ -85,10 +91,10 @@ suite('live tenant admission with actual clinical and frame computation',functio
     for(const flag of ['paused','suspended']){
       const tenant=randomUUID();let release;held.set(tenant,new Promise(resolve=>{release=resolve;}));
       await provisioner.provision({id:tenant,hosts:['activity-'+tenant+'.example.test']});
-      await q('UPDATE \"'+registry.namespaces.control+'\".tenant_activity SET '+flag+'=true,version=version+1 WHERE tenant_id=$1',[tenant]);
+      await q('UPDATE "'+registry.namespaces.control+'".tenant_activity SET '+flag+'=true,version=version+1 WHERE tenant_id=$1',[tenant]);
       release();held.delete(tenant);await watcher.poll();await watcher.drained();
       assert.equal(watcher.isActive(tenant),false,'LIVE_ACTIVITY_NO_ADMISSION');assert.equal(evaluator.last(tenant),null);assert.equal(realtime.last(tenant),null);
-      const revision=watcher.revision();await q('UPDATE \"'+registry.namespaces.control+'\".tenant_activity SET '+flag+'=false,version=version+1 WHERE tenant_id=$1',[tenant]);
+      const revision=watcher.revision();await q('UPDATE "'+registry.namespaces.control+'".tenant_activity SET '+flag+'=false,version=version+1 WHERE tenant_id=$1',[tenant]);
       await sleep(270);await watcher.poll();await watcher.drained();await wait(()=>evaluator.last(tenant)&&frames.get(tenant));
       assert.equal(watcher.revision(),revision,'LIVE_RESUME_NO_REGISTRY_REVISION');assert.equal(watcher.isActive(tenant),true,'LIVE_RESUME_ADMITS');
     }

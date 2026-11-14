@@ -12,7 +12,7 @@ const plan = Object.freeze({ version: 1, phases: ['uds-ownership', 'profile-port
   profileContract: 'root-owned existing API private UDS, original socketcredential env, admitted tenant/profile namespace, owned Mongo database; no substitute auth/executor',
   noProvisioning: true, evidence: 'read independent physical rows and real replies before assertions; stop first mismatch',
   udsCapture: 'short absolute captureDir (<=65 UTF8 bytes), unique owned child0700, no real foreign paths',
-  pins: { postgres: 'sha256:066167ff39c2a612402ce99b734ea1cff92a9d1f2ac52f697a5f0384f0d88d6b',
+  pins: { postgres: 'sha256:21e7e1665c3dd2fdd80ebd9ce6d36fb160d6a4129683b315b6492a71d87bfda7',
     mongo: 'sha256:09f940d01e0c09abbfd246a2b10965cbf86a87c9c1dad86b374f925a084976c8',
     vault: 'sha256:8794a735d581b92ae3d138e677fc79b5722749ce53674334507f2141e35da8c8' } });
 const stat = file => { const s = fs.lstatSync(file); return { dev: s.dev, ino: s.ino, uid: s.uid, mode: s.mode & 0o777, socket: s.isSocket() }; };

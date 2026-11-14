@@ -19,12 +19,18 @@ function grants (layout) {
   for(const name of [...clinical,'settings','authorization','secrets','legacy','access','clock','alarm']) {
     schema(name,'readiness');grant('SELECT',table(name,'schema_migrations'),'readiness');
   }
-  for(const [who,checkpoint] of [['realtime','rt_checkpoint'],['evaluator','eval_checkpoint']]) {
-    for(const name of [...clinical,'clock',checkpoint]) {schema(name,who);grant('SELECT',table(name,'schema_migrations'),who);}
-    for(const name of clinical)sql.push(...require('../tenant-insertion-grants').statements({namespace:ns[name],domain:name,role:roles[who],catalogue:catalogues()[name],mode:'reader'}));
-    grant('SELECT',table('clock','tenant_write_clock'),who);
-    grant('SELECT,UPDATE(checkpoint,projection,contract_digest)',table(checkpoint,'tenant_consumer_checkpoint'),who);
-  }
+  for(const name of [...clinical,'clock','eval_checkpoint']) {schema(name,'evaluator');grant('SELECT',table(name,'schema_migrations'),'evaluator');}
+  for(const name of clinical)sql.push(...require('../tenant-insertion-grants').statements({namespace:ns[name],domain:name,role:roles.evaluator,catalogue:catalogues()[name],mode:'reader'}));
+  grant('SELECT',table('clock','tenant_write_clock'),'evaluator');
+  grant('SELECT,UPDATE(checkpoint,projection,contract_digest)',table('eval_checkpoint','tenant_consumer_checkpoint'),'evaluator');
+  for(const name of ['clock','rt_checkpoint']){schema(name,'realtime');grant('SELECT',table(name,'schema_migrations'),'realtime');}
+  grant('SELECT,UPDATE(checkpoint,projection,contract_digest)',table('rt_checkpoint','tenant_consumer_checkpoint'),'realtime');
+  const metadata={clock:ns.clock,activity:ns.control,settings:ns.display_settings,operatorPolicy:ns.operator_policy};
+  sql.push(...require('../../../lib/trusted-worker/postgres').grants({namespaces:metadata,roles:[roles.evaluator,roles.realtime]}));
+  for(const who of ['api','evaluator','realtime','owner_writer','owner_reader'])sql.push(...require('../../../lib/tenant-registry/postgres').grants({namespace:ns.registry,
+    ...(['api','owner_writer','owner_reader'].includes(who)?{resolvers:[roles[who]],readers:[roles[who]]}:{enumerators:[roles[who]],readers:[roles[who]]})}));
+  for(const name of ['display_settings','operator_policy']){schema(name,'display_reader');grant('SELECT',table(name,'schema_migrations'),'display_reader');grant('SELECT',table(name,name==='display_settings'?'tenant_settings':'tenant_operator_policy'),'display_reader');}
+  sql.push(...require('../../../lib/tenant-activity/postgres').grants({namespace:ns.control,reader:roles.activity_reader}));
   schema('alarm','suppression');grant('SELECT',table('alarm','tenant_alarm_suppression'),'suppression');grant('SELECT',table('alarm','schema_migrations'),'suppression');
   schema('outbox','outbox');grant('SELECT',table('outbox','schema_migrations'),'outbox');
   grant('SELECT,INSERT,UPDATE(request_id,blocked_until)',table('outbox','tenant_notification_heads'),'outbox');
@@ -35,6 +41,8 @@ function grants (layout) {
   grant('SELECT',table('alarm','schema_migrations'),'alarm');
   for(const name of ['authorization','access'])sql.push('GRANT SELECT ON ALL TABLES IN SCHEMA '+quote(ns[name])+' TO '+quote(roles.alarm));
   grant('SELECT',table('outbox','tenant_notification_state'),'alarm');grant('SELECT',table('outbox','schema_migrations'),'alarm');
+  const shared=require('../multitenant-registry-layout');
+  sql.push(...shared.ownerGrants(layout),...shared.lifetimeGrants(layout,Object.keys(roles)));
   return sql;
 }
 function catalogues () {
@@ -44,8 +52,10 @@ function catalogues () {
     authorization:require('../../../lib/tenant-authorization/postgres-candidate.json'),secrets:require('../../../lib/secrets/postgres-candidate.json'),
     legacy:require('../../../lib/secrets/legacy-credentials-candidate.json'),access:require('../../../lib/tenant-authorization/access-candidate.json'),
     clock:require('../../../migrations/candidates/postgres-write-clock-v1.json'),
-    rt_checkpoint:require('../../../migrations/candidates/postgres-consumer-checkpoint-v1.json'),
-    eval_checkpoint:require('../../../migrations/candidates/postgres-consumer-checkpoint-v1.json'),
-    alarm:require('../../../migrations/candidates/postgres-alarm-suppression-v1.json'),outbox:require('../../../lib/tenant-notifications/postgres-candidate.json')};
+    rt_checkpoint:require('../../../migrations/candidates/postgres-realtime-output-v2.json'),
+    eval_checkpoint:require('../../../migrations/candidates/postgres-evaluator-work-v2.json'),
+    alarm:require('../../../migrations/candidates/postgres-alarm-suppression-v1.json'),outbox:require('../../../lib/tenant-notifications/postgres-candidate.json'),
+    registry:require('../../../lib/tenant-registry/postgres-candidate.json'),display_settings:require('../../../lib/tenant-settings/postgres-candidate.json'),
+    operator_policy:require('../../../lib/operator-policy/postgres-candidate.json'),control:require('../../../lib/tenant-lifecycle/postgres-candidate.json')};
 }
 module.exports={grants,catalogues,quote};

@@ -9,6 +9,7 @@ const phases = Object.freeze(['joined-role-recovery','joined-data-parity','joine
 const A='11111111-1111-4111-8111-111111111111', B='22222222-2222-4222-8222-222222222222';
 const SUBJECT='000000000000000000000001', STALE='000000000000000000000002';
 const STATUS='000000000000000000000003';
+const clinicalSettings=Object.freeze({enable:Object.freeze(['bgnow','delta','direction','simplealarms','treatmentnotify'])});
 const rolePermissions=Object.freeze({fixture:Object.freeze(['api:*:read','api:*:create,update,delete','notifications:*:ack']),status:Object.freeze(['api:status:read'])});
 const subjects=Object.freeze([{id:SUBJECT,role:'fixture',legacy:'fixture'},{id:STALE,role:'fixture',legacy:'stale'},{id:STATUS,role:'status',legacy:'status'}].map(Object.freeze));
 function phaseConfiguration (phase) {
@@ -33,7 +34,10 @@ function resetTables () {
       'tenant_subject_admin_audit','tenant_owner_policy','tenant_owner_actors'],secrets:['secret_audit'],
     legacy:['legacy_credential_config','legacy_credential_subjects'],access:['access_tenants','access_credentials','access_sessions','access_keys','management_session_requests'],
     clock:['tenant_write_clock'],rt_checkpoint:['tenant_consumer_checkpoint'],eval_checkpoint:['tenant_consumer_checkpoint'],
-    alarm:['tenant_alarm_suppression'],outbox:['tenant_notification_state','tenant_notification_heads','tenant_notification_requests']};
+    alarm:['tenant_alarm_suppression'],outbox:['tenant_notification_state','tenant_notification_heads','tenant_notification_requests'],
+    registry:['tenant_registry','tenant_registry_hosts','tenant_registry_keys','tenant_registry_clock'],
+    display_settings:['tenant_settings','tenant_settings_history','tenant_connector_sources','tenant_connector_source_history'],operator_policy:['tenant_operator_policy'],
+    control:['tenant_lifecycle_requests','tenant_lifecycle_ceremony','tenant_lifecycle_windows','tenant_lifecycle_operations','tenant_lifecycle_restore_authority','tenant_lifecycle_restore_audit','tenant_lifecycle_key_retention','tenant_activity','tenant_activity_audit','tenant_lifecycle_restore_resume','tenant_lifecycle_operation_clearance']};
 }
 function resetPlan (layout, catalogues, reset=resetTables()) {
   const preserve={secrets:['secret_records']}, known=resetTables(), tables=new Map(), foreignKeys=[];
@@ -54,9 +58,9 @@ function resetPlan (layout, catalogues, reset=resetTables()) {
       const create=/^CREATE TABLE ([a-z][a-z0-9_]*) \(/.exec(sql);
       if (/CREATE TABLE/i.test(sql)&&!create) refuse('JOINED_BOOTSTRAP_RESET_DDL_UNREVIEWED');
       if (create) { if(names.has(create[1]))refuse('JOINED_BOOTSTRAP_RESET_DDL_UNREVIEWED');names.add(create[1]); }
-      if (/REFERENCES/i.test(sql)) {
+      if (/\bREFERENCES\b/i.test(sql)) {
         const owner=/^(?:CREATE|ALTER) TABLE ([a-z][a-z0-9_]*) /.exec(sql), references=[...sql.matchAll(/REFERENCES ([a-z][a-z0-9_]*)\s*\(/g)];
-        if (!owner||references.length!==(sql.match(/REFERENCES/gi)||[]).length) refuse('JOINED_BOOTSTRAP_RESET_DDL_UNREVIEWED');
+        if (!owner||references.length!==(sql.match(/\bREFERENCES\b/gi)||[]).length) refuse('JOINED_BOOTSTRAP_RESET_DDL_UNREVIEWED');
         for (const target of references) foreignKeys.push({domain,from:owner[1],to:target[1]});
       }
       }
@@ -111,43 +115,51 @@ function parse (input) {
   try {stat=fs.lstatSync(directory.path);}catch{fail();}
   if (!path.isAbsolute(directory.path || '') || !stat.isDirectory() || stat.isSymbolicLink() || (stat.mode&0o777)!==0o700 ||
       stat.uid!==process.getuid() || directory.ownerUid!==stat.uid || directory.mode!==0o700 || Buffer.byteLength(directory.path)>56) fail();
-  return {options:{...options,evaluatorMaxRows:options.evaluatorMaxRows??options.maxRows,realtimeMaxRows:options.realtimeMaxRows??options.maxRows},ui,pg,mongo,vault,directory};
+  const ports=require('../pgstream-native').ports(input.env);
+  return {pgstream:ports,options:{...options,evaluatorMaxRows:options.evaluatorMaxRows??options.maxRows,realtimeMaxRows:options.realtimeMaxRows??options.maxRows},ui,pg,mongo,vault,directory};
 }
 function layout (suffix=crypto.randomBytes(8).toString('hex')) {
   if (!/^[a-f0-9]{16}$/.test(suffix)) fail();
   const prefix='rtj_'+suffix;
-  const names=['entries','treatments','devicestatus','profile','food','activity','settings','authorization','secrets','legacy','access','clock','rt_checkpoint','eval_checkpoint','alarm','outbox'];
+  const names=['entries','treatments','devicestatus','profile','food','activity','settings','authorization','secrets','legacy','access','clock','rt_checkpoint','eval_checkpoint','alarm','outbox','registry','display_settings','operator_policy','control'];
   return {prefix,namespaces:Object.fromEntries(names.map(name=>[name,prefix+'_'+name])),
-    roles:Object.fromEntries(['api','readiness','alarm','realtime','evaluator','suppression','outbox'].map(name=>[name,prefix+'_'+name])),
+    roles:Object.fromEntries(['api','readiness','alarm','realtime','evaluator','suppression','outbox','display_reader','activity_reader','owner_writer','owner_reader','lifetime_api','lifetime_realtime','lifetime_evaluator','lifetime_tenant_admin'].map(name=>[name,prefix+'_'+name])),
     mongoDatabase:'rt_data_'+suffix,mount:prefix+'_transit'};
 }
-function documents ({selected,layout: l,publicKeys,paths}) {
+function documents ({selected,layout: l,paths}) {
   const o=selected.options, ns=l.namespaces;
   const clinical=Object.fromEntries(['entries','treatments','devicestatus','profile','food','activity'].map(d=>[d,ns[d]]));
-  const tenants=[A,B].map(id=>({id,revision:'joined-fixture-v1',settings:{enable:['bgnow','delta','direction','simplealarms','treatmentnotify']}}));
-  const common={version:1,postgres:{connectionEnv:'RT_BOOTSTRAP_RT_PG',namespaces:{...clinical,clock:ns.clock,checkpoint:ns.rt_checkpoint}},
-    consumer:'realtime-joined-fixture',pageSize:o.pageSize,maxRows:o.realtimeMaxRows,maxBytes:o.maxBytes,maxTenants:2,recoveryIntervalMs:o.recoveryIntervalMs,
-    socketOrderDomains:['treatments','devicestatus','profile'],tenants};
-  const evaluator={...common,datastore:{hostname:selected.pg.url.hostname,port:Number(selected.pg.url.port),database:selected.pg.own.database},postgres:{connectionEnv:'RT_BOOTSTRAP_EVAL_PG',namespaces:{...clinical,clock:ns.clock,checkpoint:ns.eval_checkpoint}},
-    consumer:'evaluator-joined-fixture',maxRows:o.evaluatorMaxRows,timeIntervalMs:o.timeIntervalMs,consumers:{realtime:{
-      outbox:{connectionEnv:'RT_BOOTSTRAP_OUTBOX_PG',namespace:ns.outbox,maxRows:o.maxRows,maxBytes:o.maxBytes,maxConnections:o.maxConnections},
+  const registry={namespace:ns.registry,maxTenants:2,refreshMs:250};
+  const tenantSettings={connectionEnv:'RT_BOOTSTRAP_DISPLAY_PG',namespaces:{settings:ns.display_settings,operatorPolicy:ns.operator_policy}};
+  const trustedWorker={clock:ns.clock,activity:ns.control,settings:ns.display_settings,operatorPolicy:ns.operator_policy};
+  const evaluator={version:1,datastore:{hostname:selected.pg.url.hostname,port:Number(selected.pg.url.port),database:selected.pg.own.database},
+    postgres:{connectionEnv:'RT_BOOTSTRAP_EVAL_PG',namespaces:{...clinical,clock:ns.clock,checkpoint:ns.eval_checkpoint}},
+    consumer:'evaluator-joined-fixture',pageSize:o.pageSize,maxRows:o.evaluatorMaxRows,maxBytes:o.maxBytes,maxTenants:2,timeIntervalMs:o.timeIntervalMs,
+    socketOrderDomains:['treatments','devicestatus','profile'],registry,tenantSettings,trustedWorker,
+    activity:{connectionEnv:'RT_BOOTSTRAP_ACTIVITY_PG',namespace:ns.control},
+    pgstream:require('../pgstream-native').configuration({prefix:l.prefix,capability:selected.pgstream}),
+    consumers:{realtime:{outbox:{connectionEnv:'RT_BOOTSTRAP_OUTBOX_PG',namespace:ns.outbox,maxRows:o.maxRows,maxBytes:o.maxBytes,maxConnections:o.maxConnections},
       suppression:{connectionEnv:'RT_BOOTSTRAP_SUPPRESSION_PG',namespace:ns.alarm,maxRows:o.maxRows,maxBytes:o.maxBytes,maxConnections:o.maxConnections},
       route:{id:'realtime-joined-fixture',maxMessageBytes:o.maxMessageBytes,operationTimeoutMs:o.timeoutMs},
       maxPayloadBytes:o.maxPayloadBytes,maxInflight:o.maxInflight,attemptTimeoutMs:o.attemptTimeoutMs,retryDelayMs:o.retryDelayMs,
       pollIntervalMs:o.pollIntervalMs,retryIntervalMs:o.retryIntervalMs}}};
-  const realtime={...common,admissionFileEnv:'RT_BOOTSTRAP_ADMISSION',
-    maxMessageBytes:o.maxMessageBytes,operationTimeoutMs:o.timeoutMs};
-  const aliases=[['one.example.test'],['two.example.test']];
+  const realtime={version:1,postgres:{connectionEnv:'RT_BOOTSTRAP_RT_PG',namespaces:{clock:ns.clock,checkpoint:ns.rt_checkpoint}},
+    consumer:'realtime-joined-fixture',maxRows:o.realtimeMaxRows,maxBytes:o.maxBytes,maxTenants:2,
+    maxMessageBytes:o.maxMessageBytes,operationTimeoutMs:o.timeoutMs,authorizationRecheckMs:o.recoveryIntervalMs,
+    registry,tenantSettings,trustedWorker,activity:{namespace:ns.control},completedOutput:{namespace:ns.eval_checkpoint,consumer:evaluator.consumer}};
   const api={version:1,domains:[...Object.keys(clinical),'settings'],legacy:true,context:true,writeClock:true,
     postgres:{connectionEnv:'RT_BOOTSTRAP_API_PG',readinessConnectionEnv:'RT_BOOTSTRAP_READINESS_PG',
       namespaces:{...clinical,settings:ns.settings,authorization:ns.authorization,secrets:ns.secrets,legacy:ns.legacy,access:ns.access,clock:ns.clock}},
-    vault:{address:selected.vault.url.origin,mount:l.mount,allowInsecureLoopback:true,timeoutMs:o.timeoutMs},resolution:{mode:'direct-alias'},
-    tenants:[A,B].map((id,i)=>({id,aliases:aliases[i],settings:tenants[i].settings,
-      vault:{tokenEnv:'RT_BOOTSTRAP_VAULT_'+i,encryptionKey:'tenant-'+i+'-data',signingKey:'tenant-'+i+'-signing',signingVersion:1}})),
-    accessTokens:{issuer:'nightscout-joined-fixture',audience:'nightscout-data',keys:publicKeys},
-    socketForwarding:{admissionFileEnv:'RT_BOOTSTRAP_ADMISSION',maxTenants:2,
-      maxMessageBytes:o.maxMessageBytes,operationTimeoutMs:o.timeoutMs,alarm:{connectionEnv:'RT_BOOTSTRAP_ALARM_PG',namespace:ns.alarm},
+    vault:{address:selected.vault.url.origin,mount:l.mount,allowInsecureLoopback:true,timeoutMs:o.timeoutMs,tokenEnv:'RT_BOOTSTRAP_VAULT_ROLE'},resolution:{mode:'direct-alias'},
+    registry,tenantSettings,activity:{connectionEnv:'RT_BOOTSTRAP_ACTIVITY_PG',namespace:ns.control},
+    accessTokens:{issuer:'nightscout-joined-fixture',audience:'nightscout-data'},
+    socketForwarding:{maxTenants:2,maxMessageBytes:o.maxMessageBytes,operationTimeoutMs:o.timeoutMs,alarm:{connectionEnv:'RT_BOOTSTRAP_ALARM_PG',namespace:ns.alarm},
       consumerState:{evaluatorConfigEnv:'MULTITENANT_EVALUATOR_CONFIG'}}};
-  return {api,evaluator,realtime,admission:{version:1,mode:'preview-socket-allowlist',tenants:[A,B].map((id,i)=>({id,enabled:true,aliases:aliases[i]}))},paths};
+  const owner=require('../multitenant-plan').documents({layout:l,urls:{},vaultAddress:selected.vault.url.origin}).configs['tenant-admin'];
+  const configs={api,evaluator,realtime,'tenant-admin':owner};
+  const protectedNamespaces=require('../../../lib/server/serve/operation-cohort').protectedNamespaces;
+  const participants=Object.entries(configs).map(([role,config])=>({id:role,roles:[role],namespaces:[...new Set([...protectedNamespaces(config),...(role==='api'?[ns.outbox]:[])])].filter(name=>name!==ns.control).sort(),maxMessageBytes:o.maxMessageBytes,timeoutMs:o.timeoutMs}));
+  const operations=Object.fromEntries(Object.keys(configs).map(role=>[role,{version:2,namespace:ns.control,connectionEnv:'RT_BOOTSTRAP_LIFETIME_PG',registry:{namespace:ns.registry},participantId:role,participants}]));
+  return {...configs,operations,paths};
 }
-module.exports={parse,layout,documents,phases,optionsKeys,optionalOptionsKeys,A,B,SUBJECT,STALE,STATUS,rolePermissions,subjects,phaseConfiguration,credentials,resetTables,resetPlan};
+module.exports={parse,layout,documents,phases,optionsKeys,optionalOptionsKeys,A,B,SUBJECT,STALE,STATUS,rolePermissions,clinicalSettings,subjects,phaseConfiguration,credentials,resetTables,resetPlan};
