@@ -7,7 +7,7 @@ const { createSecrets } = require('../lib/secrets/component');
 const provider = require('./fixtures/tenant-credential-provider');
 
 describe('tenant legacy credentials against shipping authentication', function () {
-  let component, enclave, storage, root, subjects, metadata, events, records, unavailable, docs;
+  let component, enclave, storage, root, subjects, metadata, events, records, unavailable, docs, clockOffset;
   const context = { tenant: 'tenant-a', principal: 'verifier', consumer: 'api' };
   const hash = value => crypto.createHash('sha1').update(value).digest('hex');
 
@@ -35,6 +35,7 @@ describe('tenant legacy credentials against shipping authentication', function (
     records = new Map();
     events = [];
     unavailable = false;
+    clockOffset = 0;
     const cryptoProvider = provider();
     component = createSecrets({
       providerFor: async () => cryptoProvider,
@@ -43,6 +44,7 @@ describe('tenant legacy credentials against shipping authentication', function (
       authorize: async () => true,
       audit: async event => { events.push(event); },
       maxTokenLifetimeSeconds: 28800,
+      now: () => Date.now() + clockOffset,
       async legacyAuthorityFor (tenant) {
         if (unavailable) throw new Error('authority unavailable');
         return { reference: { tenant, id: 'imported-root' }, subjects: metadata };
@@ -160,6 +162,76 @@ describe('tenant legacy credentials against shipping authentication', function (
     const createDataAccess = require('../lib/server/tenant-app/data-access');
     const authentication = require('../lib/api3/tenant-authentication');
     const security = require('../lib/api3/security');
+
+    function legacyAccess (authority) {
+      return createDataAccess({ secrets: component, authority,
+        verifierContext: async tenant => ({ ...context, tenant }), legacyCollections: ['entries'] });
+    }
+    const legacyRequest = token => ({ method: 'GET', path: '/entries/sgv.json', rawHeaders: [], query: { token } });
+
+    it('authenticates a legacy query within its request without issuing an internal token', async function () {
+      const access = legacyAccess({ async authorize () { return true; },
+        async subjectSnapshot () { return { sub: 'synthetic', permissionGroups: [] }; } });
+      const before = events.length;
+      const req = legacyRequest(subjects[0].accessToken);
+      assert.equal((await access({ tenant: context.tenant, request: req, version: 1 })).principal,
+        subjects[0]._id.toHexString());
+      assert.deepEqual(events.slice(before).map(event => event.operation), ['decrypt', 'verify']);
+      const selected = await security.authenticate({ req });
+      assert.equal(security.checkPermission(selected, 'api:entries:read'), true);
+      assert.equal(security.checkPermission(selected, 'api:entries:create'), false);
+    });
+
+    it('refuses query roots, foreign credentials and removed subjects, then checks permission afresh', async function () {
+      let present = true, allowed = true, snapshots = 0;
+      const access = legacyAccess({ async authorize () { throw new Error('fresh permission snapshot required'); },
+        async permissionSnapshot () {
+          snapshots++;
+          const decision = allowed;
+          return { allows: () => decision };
+        },
+        async subjectSnapshot () { return present ? { sub: 'synthetic', permissionGroups: [] } : null; } });
+      const authenticate = (token, tenant = context.tenant) =>
+        access({ tenant, request: legacyRequest(token), version: 1 });
+      assert.equal(await authenticate(hash(root)), null, 'query roots do not acquire subject authority');
+      assert.equal(await authenticate('invalid'), null);
+      await component.encrypt({ ...context, tenant: 'tenant-b' }, 'imported-root', Buffer.from('other-synthetic-root-secret'));
+      assert.equal(await authenticate(subjects[0].accessToken, 'tenant-b'), null);
+      const token = subjects[0].accessToken;
+      assert.ok(await authenticate(token));
+      present = false;
+      assert.equal(await authenticate(token), null, 'subject removal applies on the next request');
+      present = true; allowed = false;
+      const req = legacyRequest(token);
+      await assert.rejects(access({ tenant: context.tenant, request: req, version: 1 }),
+        { code: 'TENANT_LEGACY_FORBIDDEN' });
+      assert.equal(authentication.get(req), undefined, 'refusal never binds authentication');
+      assert.equal(snapshots, 2, 'each authenticated request reads a new permission snapshot');
+    });
+
+    it('retains explicit root-secret precedence when a legacy query credential is also supplied', async function () {
+      const access = legacyAccess({ async authorize () { return true; },
+        async subjectSnapshot () { return { sub: 'synthetic', permissionGroups: [] }; } });
+      const req = legacyRequest(subjects[0].accessToken);
+      req.rawHeaders = ['api-secret', hash(root)];
+      assert.equal((await access({ tenant: context.tenant, request: req, version: 1 })).principal, 'root');
+    });
+
+    it('rechecks query JWT expiry and current root material on the next request', async function () {
+      const access = legacyAccess({ async authorize () { return true; },
+        async subjectSnapshot () { return { sub: 'synthetic', permissionGroups: [] }; } });
+      const authenticate = token => access({ tenant: context.tenant, request: legacyRequest(token), version: 1 });
+      const token = await component.signJWT(context, subjects[0].accessToken, 60);
+      assert.ok(await authenticate(token));
+      try {
+        clockOffset = 61000;
+        assert.equal(await authenticate(token), null, 'expired query JWT never reuses its principal');
+      } finally { clockOffset = 0; }
+      const credential = subjects[0].accessToken;
+      assert.ok(await authenticate(credential));
+      await component.encrypt(context, 'imported-root', Buffer.from('replacement-synthetic-root-secret'));
+      assert.equal(await authenticate(credential), null, 'root replacement invalidates the old derived credential');
+    });
 
     it('awaits current authority before binding only the exact synchronous read permission', async function () {
       let release, verified = false;
