@@ -228,7 +228,7 @@ module.exports = function evaluatorPreviewRegistryLab () {
       else if (message.held) { if (heldResolve) heldResolve(); }
       else if (pending.has(message.id)) {
         const p = pending.get(message.id); pending.delete(message.id); clearTimeout(p.timer);
-        if (message.error) p.fail(Object.assign(new Error(message.error.message), { name: message.error.name })); else p.done(message.value);
+        if (message.error) { lab.tracePreview('preview-command-error', message.error); p.fail(Object.assign(new Error(message.error.message), { name: message.error.name })); } else p.done(message.value);
       }
     });
     child.once('error', error => { clearTimeout(timeout); reject(error); });

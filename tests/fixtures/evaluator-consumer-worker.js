@@ -3,7 +3,9 @@
 // Native-only inherited IPC driver over the actual selected role; no public API.
 let running, context, startup;
 const encode = value => JSON.parse(JSON.stringify(value));
-const currentOutput = tenant => running.operationCohort.window.run(tenant, () => context.last(tenant));
+const failure = (error, depth = 0) => ({ name: error.name, message: error.message, ...(depth < 3 && Array.isArray(error.errors) ? { errors: error.errors.map(item => failure(item, depth + 1)) } : {}) });
+const currentOutput = tenant => context.health().closed || running.operationCohort.window.closed ? null
+  : running.operationCohort.window.run(tenant, () => context.last(tenant));
 process.on('message', async request => {
   try {
     let value;
@@ -19,7 +21,7 @@ process.on('message', async request => {
     else if (request.action === 'exit') { process.disconnect(); process.exitCode = 0; return; }
     else throw new Error('Unknown native consumer action');
     process.send({ id: request.id, value: encode(value) });
-  } catch (error) { process.send({ id: request.id, error: { name: error.name, message: error.message } }); }
+  } catch (error) { process.send({ id: request.id, error: failure(error) }); }
 });
 startup = (async () => {
   const configured = require('../../lib/cli/commands/multitenant').configure(['evaluator'], process.env);
