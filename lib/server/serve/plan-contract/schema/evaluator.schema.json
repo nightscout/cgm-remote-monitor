@@ -492,11 +492,100 @@
       "minimum": 1,
       "maximum": 2147483647,
       "description": "Trusted worker settings safety-net reload interval in milliseconds; default 600000. Operational grant/schema checks use their independent worker lifecycle."
+    },
+    "pgstream": {
+      "type": "object",
+      "description": "Pinned maintained CDC child and its existing bounded health/recovery contract. Requires trusted worker mode; changeFeed cannot be selected with it.",
+      "required": [
+        "binaryEnv",
+        "configFileEnv",
+        "receiverPort",
+        "slot",
+        "streamRole",
+        "bounds"
+      ],
+      "additionalProperties": false,
+      "properties": {
+        "binaryEnv": {
+          "type": "string",
+          "pattern": "^[A-Z][A-Z0-9_]{0,127}$"
+        },
+        "configFileEnv": {
+          "type": "string",
+          "pattern": "^[A-Z][A-Z0-9_]{0,127}$"
+        },
+        "receiverPort": {
+          "type": "integer",
+          "minimum": 1024,
+          "maximum": 65535
+        },
+        "slot": {
+          "type": "string",
+          "pattern": "^[a-z][a-z0-9_]{0,62}$"
+        },
+        "streamRole": {
+          "type": "string",
+          "pattern": "^[a-z][a-z0-9_]{0,62}$"
+        },
+        "bounds": {
+          "type": "object",
+          "required": [
+            "heartbeatMs",
+            "stallMs",
+            "stepMs",
+            "stopMs",
+            "recoveryMs",
+            "pendingMs",
+            "maxRestarts"
+          ],
+          "additionalProperties": false,
+          "properties": {
+            "heartbeatMs": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 2147483647
+            },
+            "stallMs": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 2147483647
+            },
+            "stepMs": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 2147483647
+            },
+            "stopMs": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 2147483647
+            },
+            "recoveryMs": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 2147483647
+            },
+            "pendingMs": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 2147483647
+            },
+            "maxRestarts": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 100
+            }
+          }
+        }
+      }
     }
   },
   "dependentRequired": {
     "changeFeed": [
       "activity"
+    ],
+    "pgstream": [
+      "trustedWorker"
     ]
   }
 }

@@ -306,11 +306,33 @@
       "minimum": 1,
       "maximum": 2147483647,
       "description": "Trusted worker settings safety-net reload interval in milliseconds; default 600000. Operational grant/schema checks use their independent worker lifecycle."
+    },
+    "completedOutput": {
+      "type": "object",
+      "description": "Completed evaluator frame/revision source. Requires trusted worker mode; changeFeed cannot be selected with it.",
+      "required": [
+        "namespace",
+        "consumer"
+      ],
+      "additionalProperties": false,
+      "properties": {
+        "namespace": {
+          "type": "string",
+          "pattern": "^(?!pg_|public$|information_schema$)[a-z][a-z0-9_]{0,62}$"
+        },
+        "consumer": {
+          "type": "string",
+          "pattern": "^evaluator-[A-Za-z0-9_-]{1,100}$"
+        }
+      }
     }
   },
   "dependentRequired": {
     "changeFeed": [
       "activity"
+    ],
+    "completedOutput": [
+      "trustedWorker"
     ]
   }
 }

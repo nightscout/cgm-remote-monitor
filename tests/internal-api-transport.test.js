@@ -333,9 +333,9 @@ describe('Production public API and internal listener isolation', function () {
       assert.equal(publicPositive.status, 200); assert.deepEqual(JSON.parse(publicPositive.body), { public: true });
       const credential = { host: 'synthetic.example', tenant, namespace: '/', credential: {} };
       const contractPaths = Object.values(require('../lib/server/internal-api/contracts')).flatMap(service => Object.values(service.operations).map(operation => operation.path));
-      assert.deepEqual(contractPaths, ['/authorize', '/mutate', '/alarm', '/cohort/status', '/cohort/invalidate', '/cohort/operations',
+      assert.deepEqual(contractPaths, ['/authorize', '/mutate', '/completed-output/hint', '/alarm', '/cohort/status', '/cohort/invalidate', '/cohort/operations',
         '/ownership/list', '/ownership/add', '/ownership/transfer', '/ownership/recover', '/vcpool/inspect',
-        '/evaluator/inspect', '/pool/get', '/pool/members']);
+        '/evaluator/inspect', '/pool/get', '/pool/members', '/realtime/inspect', '/realtime/inspect-tenants']);
       for (const requestPath of [...contractPaths, '/api/v1/authorize', '/api/v3/authorize']) {
         const reply = await raw(publicEndpoint, requestPath, credential, { headers: {
           'x-nightscout-internal-service': descriptor.id, 'x-nightscout-internal-version': String(descriptor.version)
@@ -363,5 +363,18 @@ describe('Production public API and internal listener isolation', function () {
       assert.equal(error.code, 'ERR_ASSERTION'); assert.equal(error.actual, 200); assert.equal(error.expected, 404); return true;
     });
     await checkPublicIsolation();
+  });
+});
+
+
+describe('completed-output private wire contract',function(){
+  for(const kind of ['uds','http'])it(kind+' delivers a typed tenant hint and rejects invented completion fields before its handler',async function(){
+    const f=await fixture(kind),descriptor=require('../lib/server/internal-api/contracts').completedOutput;
+    const tenant='11111111-1111-4111-8111-111111111111';let calls=0;
+    try{
+      const client=await f.open({async hintCompletedOutput(context,body){calls++;assert.equal(body.tenant,tenant);return {accepted:true};}},descriptor);
+      await assert.rejects(client.hintCompletedOutput({tenant,completed:true}));assert.equal(calls,0);
+      assert.deepEqual(await client.hintCompletedOutput({tenant}),{accepted:true});assert.equal(calls,1);
+    }finally{await f.close();}
   });
 });

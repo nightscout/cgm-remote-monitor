@@ -19,6 +19,7 @@ describe('Internal service API contracts', function () {
   it('fixes service ownership, names, wire paths and immutable versioned descriptors', function () {
     assert.deepEqual(Object.keys(contracts.socketAuthority.operations), ['authorizeSocket', 'executeSocketMutation']);
     assert.deepEqual(Object.keys(contracts.alarmDelivery.operations), ['deliverAlarm']);
+    assert.deepEqual(Object.keys(contracts.completedOutput.operations), ['hintCompletedOutput']);
     assert.deepEqual(Object.keys(contracts.lifecycleParticipant.operations), ['getStatus', 'invalidateTenant', 'getOperations']);
     assert.deepEqual(Object.keys(contracts.ownershipOperations.operations), ['listOwners', 'addOwner', 'transferOwner', 'recoverOwner']);
     assert.deepEqual(Object.keys(contracts.connectorInspection.operations), ['inspectConnectors']);
@@ -31,10 +32,16 @@ describe('Internal service API contracts', function () {
         return operation.path;
       });
     });
-    assert.deepEqual(paths, ['/authorize', '/mutate', '/alarm', '/cohort/status', '/cohort/invalidate', '/cohort/operations',
+    assert.deepEqual(paths, ['/authorize', '/mutate', '/completed-output/hint', '/alarm', '/cohort/status', '/cohort/invalidate', '/cohort/operations',
       '/ownership/list', '/ownership/add', '/ownership/transfer', '/ownership/recover', '/vcpool/inspect',
         '/evaluator/inspect', '/pool/get', '/pool/members', '/realtime/inspect', '/realtime/inspect-tenants']);
     assert.throws(() => { contracts.alarmDelivery.operations.getStatus = lifecycle.getStatus; }, TypeError);
+  });
+  it('keeps completed-output hints tenant-only and refuses invented completion authority', function () {
+    const operation=contracts.completedOutput.operations.hintCompletedOutput;
+    validate(operation.request,{tenant:A});validate(operation.response,{accepted:true});
+    for(const body of [{},{tenant:'invalid'},{tenant:A,frame:{}},{tenant:A,completed:true},{tenant:A,transport:'invented'}])refused(()=>validate(operation.request,body));
+    for(const body of [{accepted:false},{accepted:true,completed:true}])refused(()=>validate(operation.response,body));
   });
   it('accepts socket authority wire values and refuses unknown envelope, credential and permission fields', function () {
     const body = { host: 'a.example.test', tenant: A, namespace: '/', credential: { humanToken: 'synthetic-token' } };
