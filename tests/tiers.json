@@ -298,7 +298,6 @@
         "tests/realtime-publish-on-change.test.js",
         "tests/realtime-socket-server.test.js",
         "tests/realtime-readiness.test.js",
-        "tests/realtime-config-cache.test.js",
         "tests/realtime-publication-cache.test.js",
         "tests/realtime-placement-map.test.js",
         "tests/realtime-placement-cohort.test.js",
@@ -332,7 +331,17 @@
         "tests/rest-entries-joined-authority.test.js",
         "tests/tenant-api-lazy-construction.test.js",
         "tests/postgres-held-owner-readoption.test.js",
-        "tests/tenant-request-resolution.test.js"
+        "tests/tenant-request-resolution.test.js",
+        "tests/evaluator-maintained-config.test.js",
+        "tests/pgstream-commit-dispatch.test.js",
+        "tests/realtime-completed-config.test.js",
+        "tests/realtime-completed-readiness.test.js",
+        "tests/shared-legacy-routes.test.js",
+        "tests/shared-rest-context.test.js",
+        "tests/tenant-api-shared-v3.test.js",
+        "tests/rest-request-cost.test.js",
+        "tests/secrets-audited-read.test.js",
+        "tests/pgstream-native-fixture.test.js"
       ],
       "env": true,
       "require": [
@@ -571,7 +580,8 @@
         "tests/realtime-sharding-native.integration.test.js",
         "tests/evaluator-job-context.integration.test.js",
         "tests/evaluator-effect-idempotency.integration.test.js",
-        "tests/preview-entries-acquisition.integration.test.js"
+        "tests/preview-entries-acquisition.integration.test.js",
+        "tests/realtime-completed-readiness.integration.test.js"
       ],
       "env": true,
       "require": [

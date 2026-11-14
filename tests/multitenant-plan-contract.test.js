@@ -62,7 +62,7 @@ const clone = value => JSON.parse(JSON.stringify(value));
 // A sample value proves the refusal.
 const REFUSED_IN_REGISTRY_MODE = {
   api: { '': { tenants: [] }, '/accessTokens': { keys: [] }, '/socketForwarding': { admissionFileEnv: 'NS_ADMISSION_FILE' } },
-  realtime: { '': { tenants: [], admissionFileEnv: 'NS_ADMISSION_FILE', maxSockets: 100 } },
+  realtime: { '': { tenants: [], admissionFileEnv: 'NS_ADMISSION_FILE', maxSockets: 100, pageSize: 100, recoveryIntervalMs: 1000, settingsRefreshMs: 5000, socketOrderDomains: [], changeFeed: {} } },
   evaluator: { '': { tenants: [] } },
   'tenant-admin': { '': { tenants: [] }, '/management': { keys: [] } },
   admin: { '/ownership': { tenants: [] } },
@@ -273,7 +273,7 @@ describe('deployment plan contract', function () {
         const accepted = cli(['check', file]);
         assert.equal(accepted.status, 0, accepted.stderr);
         assert.equal(JSON.parse(accepted.stdout).ok, true);
-        assert.match(accepted.stderr, /contract 1, 7 processes, 0 findings: accepted/);
+        assert.match(accepted.stderr, /contract 1, 6 processes, 0 findings: accepted/);
         const set = documentSet(); set.processes[0].files['/run/ns-config/config.json'].tenants = [];
         const refused = cli(['check', '-'], JSON.stringify(set));
         assert.equal(refused.status, 1);

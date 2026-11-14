@@ -54,6 +54,8 @@ const IMAGES = {
 const PENDING = 'pending opt-in';
 const CRUD = { NS_ENTRIES_CRUD_HTTP_TEST: '1' };
 const INVENTORY = [
+  { file: 'tests/realtime-completed-readiness.integration.test.js', flags: { NS_PGSTREAM_ROLE_TEST: '1' }, shared: ['postgres'], own: [], gate: PENDING,
+    note: 'native completed-output role schema, exact metadata update grants, input clinical read refusal and family admission controls' },
   { file: 'tests/pgstream-typed-migration.integration.test.js', flags: { NS_PGSTREAM_ROLE_TEST: '1' }, shared: ['postgres'], own: [], gate: PENDING,
     note: 'typed catalogue replay, exact bigint/null/epoch codecs, bounded legacy admission, durable receipt COMMIT and revision recovery' },
   { file: 'tests/pgstream-typed-checkpoint.integration.test.js', flags: { NS_PGSTREAM_ROLE_TEST: '1' }, shared: ['postgres'], own: [], gate: PENDING,
@@ -111,7 +113,7 @@ const INVENTORY = [
   { file: 'tests/tenant-durable-replay.integration.test.js', flags: { NS_TENANT_DURABLE_REPLAY_TEST: '1' }, shared: ['postgres'], own: [], gate: PENDING },
   { file: 'tests/tenant-projection-evaluator.integration.test.js', flags: { NS_TENANT_PROJECTION_EVALUATOR_TEST: '1' }, shared: ['postgres'], own: [], gate: PENDING },
   { file: 'tests/tenant-current-state-recovery-proof.integration.test.js', flags: { NS_M5_CURRENT_STATE_PROOF_TEST: '1' }, shared: ['postgres'], own: ['vault'], gate: PENDING,
-    note: 'bounded current-state acquisition and provisioned registry evaluator lifecycle; retained static hot-file compatibility is separate; fixture-owned Vault, no notification/provider acceptance' },
+    note: 'bounded current-state acquisition and provisioned registry evaluator lifecycle; maintained pgstream registry lifecycle and explicit retired static-product refusal; fixture-owned Vault and pinned producer capabilities; no notification/provider acceptance' },
   { file: 'tests/tenant-alarm-state.integration.test.js', flags: { NS_TENANT_ALARM_TEST: '1' }, shared: ['postgres'], own: [], gate: PENDING,
     note: 'durable tenant-wide alarm suppression and consumed output; actual private transport acceptance is separate' },
   { file: 'tests/tenant-notifications.integration.test.js', flags: { NS_TENANT_NOTIFICATIONS_TEST: '1' }, shared: ['postgres'], own: [], gate: PENDING,
