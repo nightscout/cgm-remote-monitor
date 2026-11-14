@@ -12,6 +12,51 @@ function contextFixture(mutate=s=>s){const counts={apps:0,routers:0,middleware:0
 function dispatch(app,url){return new Promise((resolve,reject)=>{const socket=new PassThrough(),req=new http.IncomingMessage(socket);req.method='GET';req.url=url;req.headers={accept:'application/json'};const res=new http.ServerResponse(req);res.end=function(body){this.finished=true;this.emit('finish');resolve({status:this.statusCode,body:body?JSON.parse(String(body)):null});};app(req,res,error=>error?reject(error):resolve({status:404}));});}
 const quiet=async fn=>{const a=console.info,b=console.log;console.info=console.log=()=>{};try{return await fn();}finally{console.info=a;console.log=b;}};
 describe('tenant API constructs only selected HTTP route trees',function(){
+ it('restores all tenant clocks without v3 apps/Collections; selected handlers remain private and reusable',async function(){
+  const previous=scope.getTenancyMode();scope.setTenancyMode('multi');
+  try { await quiet(async()=>{
+   const f=await require('./fixtures/preview-domain-allocation').fixture();
+   assert.deepEqual(f.counts,{apps:0,collections:0,mapped:0});
+   await Promise.all(f.tenants.map(t=>f.graph.initializeTenant(t)));
+   assert.deepEqual(f.counts,{apps:0,collections:0,mapped:0},'WARMUP_MUST_NOT_CONSTRUCT_V3');
+   for(const tenant of f.tenants) assert.equal(f.queries.filter(q=>q.tenant===tenant).length,5,'RESTORE_ALL_FIVE_V3_CLOCKS');
+   await f.select(f.tenants[0]);await f.select(f.tenants[0]);
+   assert.deepEqual(f.counts,{apps:1,collections:1,mapped:1});
+   await f.select(f.tenants[1]);await f.select(f.tenants[0],'food');
+   assert.deepEqual(f.counts,{apps:2,collections:3,mapped:3});
+  }); } finally {scope.setTenancyMode(previous);}
+ });
+ it('preserves storage restore failures and per-tenant clock floors before any v3 selection',async function(){
+  const previous=scope.getTenancyMode();scope.setTenancyMode('multi');
+  try {await quiet(async()=>{
+   const floors=new Map(),fault=new Error('synthetic restore refused');let deny=true;
+   const f=await require('./fixtures/preview-domain-allocation').fixture({onQuery:(sql,tenant)=>{
+    if(sql.includes('current_setting')) return;
+    if(deny) throw fault;
+    if(!floors.has(tenant)) floors.set(tenant,Date.now()+100000+floors.size*10000);
+    return {rows:[{id_kind:'string',doc:{_id:'synthetic-clock',srvModified:floors.get(tenant)}}]};
+   }});
+   await assert.rejects(f.graph.initializeTenant(f.tenants[0]),error=>error===fault);
+   assert.deepEqual(f.counts,{apps:0,collections:0,mapped:0});deny=false;
+   for(const tenant of f.tenants){await f.graph.initializeTenant(tenant);
+    const stamp=scope.withTenant(tenant,()=>require('../lib/server/srv-dates').next());
+    assert.equal(stamp,floors.get(tenant)+1,'RESTORED_TENANT_CLOCK_FLOOR');
+   }
+   await assert.rejects(f.graph.initializeTenant('unknown'),/Unknown preview tenant/);
+   assert.deepEqual(f.counts,{apps:0,collections:0,mapped:0});
+  });}finally{scope.setTenancyMode(previous);}
+ });
+ it('control: materializing Collections during warmup violates the construction criterion',async function(){
+  const previous=scope.getTenancyMode();scope.setTenancyMode('multi');
+  try {await quiet(async()=>{
+   const f=await require('./fixtures/preview-domain-allocation').fixture({mutate:s=>{
+    const anchor='    const initialize =';assert(s.includes(anchor));
+    return s.replace(anchor,'    Object.values(collections);\n'+anchor);
+   }});await f.graph.initializeTenant(f.tenants[0]);
+   assert(f.counts.collections>0);assert(f.counts.apps>0);
+   assert.throws(()=>assert.deepEqual(f.counts,{apps:0,collections:0,mapped:0},'WARMUP_MUST_NOT_CONSTRUCT_V3'));
+  });}finally{scope.setTenancyMode(previous);}
+ });
  it('control: eager metadata construction fails the unused-view criterion',function(){const f=contextFixture(source=>{const at=source.lastIndexOf('  return {');assert(at>0);return source.slice(0,at)+'  createLegacy(); createV2(); createV3(); createRoot();\n'+source.slice(at);});assert.throws(()=>assert.deepEqual(f.counts,{apps:0,routers:0,middleware:0}));assert(f.counts.apps>0&&f.counts.middleware>0);});
 
  it('keeps unused metadata versions absent, reuses only the selected tenant-local view',function(){const f=contextFixture();assert.deepEqual(f.counts,{apps:0,routers:0,middleware:0});const a=f.ctx.v2;assert.equal(f.ctx.v2,a);assert.equal(f.counts.apps,0);assert.equal(f.counts.middleware,0);assert.equal(f.counts.routers,1);const other=contextFixture();assert.notEqual(other.ctx.v2,a);assert.equal(other.counts.routers,1);const legacy=f.ctx.legacy;assert.equal(f.ctx.legacy,legacy);assert.equal(f.counts.apps,1);assert.equal(f.counts.middleware,1);});
