@@ -6,7 +6,7 @@ const scope=require('../lib/storage/tenant-scope');
 const A='11111111-1111-4111-8111-111111111111',identity='a'.repeat(64);
 const deferred=()=>{let resolve,reject;const promise=new Promise((ok,no)=>{resolve=ok;reject=no;});return {promise,resolve,reject};};
 const settle=()=>new Promise(resolve=>setImmediate(resolve));
-function fixture({holdAdmission=false,pgstreamEnabled=true}={}){
+function fixture({holdAdmission=false,pgstreamEnabled=true,partitioned=false,sourceTransform=text=>text}={}){
  const prepare=deferred(),admission=deferred(),trace=[],current={tenant:A,identity,env:{settings:{language:'en'}},settingsVersion:1,policyGeneration:1,sourceIdentity:'source'};
  let commitWake;let runtime,output,cycle=0,revision=0,closed=false,started=false,delivered=0,componentClosed=false,checks=0;
  const connection={async end(){closed=true;}};
@@ -23,24 +23,24 @@ function fixture({holdAdmission=false,pgstreamEnabled=true}={}){
   '../../storage/postgres-connection':Object.assign(async()=>connection,{readopt:async()=>{}}),
   '../../storage/postgres-durable-replay':()=>({}), '../../data/tenant-projection-evaluator':fakeEvaluator,
   './evaluator-readiness':readiness,
-  '../../pool-membership':{member:async()=>({configured:{mode:'standalone'},async register(){},async close(){}})},
+  '../../pool-membership':{member:async()=>({configured:{mode:'standalone'},async register(){trace.push('member-registered');},async close(){}})},
   './evaluator-pool':{create:()=>({partitioned:false,start(){},async refresh(){},admits:()=>true,close(){}})},
   '../../trusted-worker/postgres':{create:()=>reader},
   '../../trusted-worker/lifecycle':async()=>({version:()=>1,activateRefresh(){},async close(){}}),
   '../internal-api/clients':{completedOutput:()=>({hintCompletedOutput:async()=>{}})},
   '../../pgstream/evaluator':{open:async({onCommit})=>{commitWake=onCommit;return {store,ready:async()=>{},assertAvailable(){},health:()=>({}),close:async()=>{}};}},
-  './registry-tenant-set':{open:async()=>({tenants:new Map([[A,current]]),isActive:()=>true,follow:async()=>{},close:async()=>{},revision:()=>1,stats:()=>({})})},
+  './registry-tenant-set':{open:async()=>{trace.push('registry-open');return {tenants:new Map([[A,current]]),isActive:()=>true,follow:async()=>{},close:async()=>{},revision:()=>1,stats:()=>({})};}},
   './tenant-startup':{create:()=>startup,limited:require('../lib/server/serve/tenant-startup').limited},
   './evaluator-consumers':{async prepare({current:read,operationWindow,jobContext}){trace.push('delivery-prepare');await prepare.promise;return {async wake(){},revised(){if(read(A))delivered++;},start(){started=true;this.dispatch=jobContext.run(()=>operationWindow.run(A,()=>{if(read(A))delivered++;}));},async close(){await this.dispatch;},health:()=>({})};}},
   './evaluator-inspection':()=>()=>({}), '../../language':()=>({set(){}})
  };
  loaded.require=name=>Object.hasOwn(mocks,name)?mocks[name]:Module.prototype.require.call(loaded,name);
- loaded._compile(fs.readFileSync(filename,'utf8'),filename);
+ loaded._compile(sourceTransform(fs.readFileSync(filename,'utf8')),filename);
  const window=require('./fixtures/operation-window-runtime-protocol')({trustedWorker:true}).window;
- const config={registry:{namespace:'synthetic_registry'},pgstream:pgstreamEnabled?{outputPeer:{},bounds:{heartbeatMs:1000,recoveryMs:1000,pendingMs:1000}}:undefined,trustedWorker:{},consumers:{realtime:true},tenants:new Map([[A,current]]),connectionString:'synthetic',
+ const config={partition:{kind:'evaluator',partitioned},registry:{namespace:'synthetic_registry'},pgstream:pgstreamEnabled?{outputPeer:{},bounds:{heartbeatMs:1000,recoveryMs:1000,pendingMs:1000}}:undefined,trustedWorker:{},consumers:{realtime:true},tenants:new Map([[A,current]]),connectionString:'synthetic',
   namespaces:{entries:'synthetic_entries',checkpoint:'synthetic_checkpoint'},consumer:'evaluator-test',maxTenants:1,maxRows:10,maxBytes:10000,pageSize:10,
   timeIntervalMs:60000,readCurrent:async()=>current};
- return {prepare,admission,trace,window,async boot(){await window.ready();return loaded.exports.boot(config,{operationWindow:window});},state:()=>({output,clinical:runtime?.health([A]).tenants[0],closed,started,delivered,componentClosed})};
+ return {prepare,admission,trace,window,async boot(){await window.ready();return loaded.exports.boot(config,{operationWindow:window});},state:()=>({output,clinical:runtime?.health([A]).tenants[0],closed,started,delivered,componentClosed,checks})};
 }
 const pgstreamEnabled=true;describe('maintained clinical startup independent of delivery roster preparation',function(){
  let prior;beforeEach(()=>{prior=scope.getTenancyMode();});afterEach(()=>scope.setTenancyMode(prior));
@@ -64,5 +64,7 @@ const pgstreamEnabled=true;describe('maintained clinical startup independent of 
   finally{f.prepare.resolve();const service=await boot.catch(()=>null);await service?.close();await f.window.close();}
  });
  it('refuses a missing maintained transport instead of starting a legacy discovery stack',async()=>{const f=fixture({pgstreamEnabled:false});try{await assert.rejects(f.boot(),/maintained pgstream evaluator configuration required/);assert.equal(f.state().output,undefined);}finally{await f.window.close();}});
+
+ it('refuses direct unsupported boot before registry, readiness, or member registration effects; removing the guard goes red',async()=>{const needle="  if(config.partition?.partitioned)require('./evaluator-config').assertSupportedPartition(config.partition);";async function criterion(sourceTransform){const f=fixture({partitioned:true,sourceTransform});let service;try{f.prepare.resolve();try{service=await f.boot();assert.fail('unsupported boot must refuse');}catch(error){assert.equal(error.code,'PGSTREAM_EVALUATOR_PARTITION_UNQUALIFIED');}assert.deepEqual(f.trace,[],'UNSUPPORTED_PARTITION_MUST_NOT_OPEN_RESOURCES');assert.equal(f.state().checks,0);}finally{await service?.close();await f.window.close();}}await assert.rejects(criterion(text=>{assert(text.includes(needle));return text.replace(needle,'');}));await criterion(text=>text);});
 
 });

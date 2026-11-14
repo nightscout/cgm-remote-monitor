@@ -147,7 +147,7 @@ describe('pool membership primitive', function () {
       await member.close();
       assert.equal((await member.slice()).eligible, false);
     });
-    it('the evaluator config admits the partitioned mode and refuses a member count in the environment', function () {
+    it('pure evaluator partition metadata remains available and refuses a member count in the environment', function () {
       const evaluatorConfig = require('../lib/server/serve/evaluator-config');
       assert.deepEqual(evaluatorConfig.partitionFor({}), { kind: 'evaluator', partitioned: false });
       const env = { MULTITENANT_POOL_EVALUATOR_PARTITION: 'on', MULTITENANT_POOL_EVALUATOR_ORDINAL: '0',
