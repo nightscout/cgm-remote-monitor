@@ -21,6 +21,7 @@ optInSuite(process.env.NS_EVALUATOR_CONSUMERS_TEST === '1' && !!process.env.NS_T
     this.timeout(90000);
     const lab = createLab();
     const namespace = 'activity_' + randomUUID().replace(/-/g, '').slice(0, 12);
+    const provisioningNamespace = namespace + '_provision';
     const roles = { reader: namespace + '_reader', owner: namespace + '_owner', operator: namespace + '_operator' };
     const urls = {}, stores = {}; let prior, initialVersions, provisioned = false;
     const operatorActor = tenant => ({ tenant, principal: 'synthetic-operator', consumer: 'operator-cli' });
@@ -48,6 +49,9 @@ optInSuite(process.env.NS_EVALUATOR_CONSUMERS_TEST === '1' && !!process.env.NS_T
         await lab.admin.query(`INSERT INTO "${namespace}".tenant_lifecycle_windows (tenant_id,lock_key,phase,generation) VALUES ($1,$2,'active',1)`, [tenant, key]);
       }
       await run('up', { direct: true, connectionString: ownerUrl.toString(), namespace, catalogue });
+      // The C/D transaction primitive is independent of the A/B evaluator
+      // roster. Its rows must not enter that roster's maintained WAL stream.
+      await run('up', { direct: true, connectionString: ownerUrl.toString(), namespace: provisioningNamespace, catalogue });
       await lab.admin.query(`REVOKE CREATE ON DATABASE "${database}" FROM "${schemaOwner}"`);
       backfill = { rows: (await lab.admin.query(`SELECT tenant_id,version::text,paused,suspended,deletion_request_id FROM "${namespace}".tenant_activity ORDER BY tenant_id`)).rows,
         audit: (await lab.admin.query(`SELECT tenant_id,verb,authority,principal,consumer FROM "${namespace}".tenant_activity_audit ORDER BY tenant_id`)).rows,
@@ -80,7 +84,7 @@ optInSuite(process.env.NS_EVALUATOR_CONSUMERS_TEST === '1' && !!process.env.NS_T
       await lab.stopConsumers().catch(error => errors.push(error));
       for (const store of Object.values(stores)) await store.close().catch(error => errors.push(error));
       if (lab.admin) {
-        await lab.admin.query('DROP SCHEMA IF EXISTS "' + namespace + '" CASCADE').catch(error => errors.push(error));
+        for (const owned of [namespace, provisioningNamespace]) await lab.admin.query('DROP SCHEMA IF EXISTS "' + owned + '" CASCADE').catch(error => errors.push(error));
         for (const role of [...Object.values(roles), ceremonyRole, schemaOwner]) {
           await lab.admin.query(`DROP OWNED BY "${role}"`).catch(error => errors.push(error));
           await lab.admin.query(`DROP ROLE IF EXISTS "${role}"`).catch(error => errors.push(error));
@@ -257,23 +261,23 @@ optInSuite(process.env.NS_EVALUATOR_CONSUMERS_TEST === '1' && !!process.env.NS_T
         await client.query('BEGIN');
         try {
           await client.query("SELECT set_config('app.current_tenant_id',$1,true)", [tenant]);
-          await client.query(`INSERT INTO "${namespace}".tenant_lifecycle_windows (tenant_id,lock_key,phase,generation) VALUES ($1,$2,'active',1)`, [tenant, key]);
-          await provisionInTransaction((text, values) => client.query(text, values), { namespace, tenant, principal: 'synthetic-operator', consumer: 'provisioning' });
+          await client.query(`INSERT INTO "${provisioningNamespace}".tenant_lifecycle_windows (tenant_id,lock_key,phase,generation) VALUES ($1,$2,'active',1)`, [tenant, key]);
+          await provisionInTransaction((text, values) => client.query(text, values), { namespace: provisioningNamespace, tenant, principal: 'synthetic-operator', consumer: 'provisioning' });
           if (fail) throw new Error('synthetic provisioning failure after the activity row');
           await client.query('COMMIT');
         } catch (error) { await client.query('ROLLBACK'); if (!fail) throw error; }
       };
       try {
         await provision(C, '9103', false); await provision(D, '9104', true);
-        const rows = (await client.query(`SELECT tenant_id,paused,suspended FROM "${namespace}".tenant_activity WHERE tenant_id = ANY($1::uuid[]) ORDER BY tenant_id`, [[C, D]])).rows;
-        const windows = (await client.query(`SELECT tenant_id FROM "${namespace}".tenant_lifecycle_windows WHERE tenant_id = ANY($1::uuid[])`, [[C, D]])).rows;
+        const rows = (await client.query(`SELECT tenant_id,paused,suspended FROM "${provisioningNamespace}".tenant_activity WHERE tenant_id = ANY($1::uuid[]) ORDER BY tenant_id`, [[C, D]])).rows;
+        const windows = (await client.query(`SELECT tenant_id FROM "${provisioningNamespace}".tenant_lifecycle_windows WHERE tenant_id = ANY($1::uuid[])`, [[C, D]])).rows;
         assert.deepEqual(rows, [{ tenant_id: C, paused: false, suspended: false }], 'ACTIVITY_PROVISIONED_WITH_TENANT C has a row; D rolled back with its window');
         assert.deepEqual(windows.map(row => row.tenant_id), [C]);
-        await assert.rejects(client.query(`INSERT INTO "${namespace}".tenant_activity (tenant_id,version) VALUES ($1,1)`, [D]), { code: '23503' }, 'no activity row without a tenant window');
+        await assert.rejects(client.query(`INSERT INTO "${provisioningNamespace}".tenant_activity (tenant_id,version) VALUES ($1,1)`, [D]), { code: '23503' }, 'no activity row without a tenant window');
       } finally {
-        await client.query(`DELETE FROM "${namespace}".tenant_activity_audit WHERE tenant_id=$1`, [C]);
-        await client.query(`DELETE FROM "${namespace}".tenant_activity WHERE tenant_id=$1`, [C]);
-        await client.query(`DELETE FROM "${namespace}".tenant_lifecycle_windows WHERE tenant_id=$1`, [C]);
+        await client.query(`DELETE FROM "${provisioningNamespace}".tenant_activity_audit WHERE tenant_id=$1`, [C]);
+        await client.query(`DELETE FROM "${provisioningNamespace}".tenant_activity WHERE tenant_id=$1`, [C]);
+        await client.query(`DELETE FROM "${provisioningNamespace}".tenant_lifecycle_windows WHERE tenant_id=$1`, [C]);
         await client.end();
       }
     });
