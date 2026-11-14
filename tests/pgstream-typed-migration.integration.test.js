@@ -1,6 +1,7 @@
 'use strict';
 const assert=require('node:assert/strict');
 const crypto=require('node:crypto');
+const tenantScope=require('../lib/storage/tenant-scope');
 const {Client,Pool}=require('pg');
 const {optInSuite}=require('./support/opt-in');
 const {run}=require('../lib/migrations/postgres');
@@ -10,10 +11,10 @@ optInSuite(process.env.NS_PGSTREAM_ROLE_TEST==='1'&&!!process.env.NS_TEST_POSTGR
  this.timeout(30000);
  const namespace='typed_work_'+crypto.randomBytes(6).toString('hex'),tenant='00000000-0000-0000-0000-000000000001';
  const table='"'+namespace+'".tenant_consumer_checkpoint';
- let admin,connected=false,admissionPool;
+ let admin,connected=false,admissionPool,tenancyMode;
  const migrate=()=>run('up',{direct:true,connectionString:process.env.NS_TEST_POSTGRES_ADMIN_URI,namespace,catalogue:candidate});
- before(async()=>{admin=new Client({connectionString:process.env.NS_TEST_POSTGRES_ADMIN_URI,connectionTimeoutMillis:5000});await admin.connect();connected=true;});
- after(async()=>{await admissionPool?.end();if(admin){try{if(connected)await admin.query('DROP SCHEMA IF EXISTS "'+namespace+'" CASCADE');}finally{await admin.end();}}});
+ before(async()=>{tenancyMode=tenantScope.getTenancyMode();tenantScope.setTenancyMode('multi');admin=new Client({connectionString:process.env.NS_TEST_POSTGRES_ADMIN_URI,connectionTimeoutMillis:5000});await admin.connect();connected=true;});
+ after(async()=>{if(tenancyMode)tenantScope.setTenancyMode(tenancyMode);await admissionPool?.end();if(admin){try{if(connected)await admin.query('DROP SCHEMA IF EXISTS "'+namespace+'" CASCADE');}finally{await admin.end();}}});
  it('applies the appended DDL and replays the exact ledger without changing it',async()=>{
   const first=await migrate();assert.deepEqual(first.done,candidate.migrations.map(m=>m.name));
   const ledger=await admin.query('SELECT name,checksum FROM "'+namespace+'".schema_migrations ORDER BY name');
