@@ -44,6 +44,40 @@ describe('targeted pgstream child supervisor (simulated health ports, real OS ch
     assert.equal(owner.health().code,'PGSTREAM_CLINICAL_PROGRESS_STALLED');
     assert.equal(owner.health().terminal,true);
   });
+  // Production deadlines from the bounded actual-role recovery fixture. A
+  // recovered transport and outstanding clinical work have separate clocks.
+  const recoveryBounds = { heartbeatMs: 1000, stallMs: 5000, stepMs: 5000, stopMs: 2000,
+    recoveryMs: 30000, pendingMs: 30000, maxRestarts: 3 };
+  async function recoverWithPending () {
+    await open({ bounds: recoveryBounds }); owner.receipt(owner.health().sequence); await owner.check();
+    clock=105001; await owner.check();
+    assert.equal(owner.health().code,'PGSTREAM_HEARTBEAT_STALLED');
+    assert.equal(owner.health().restarts,1);
+    clock=110000; work={pending:true,oldestPendingAt:clock};
+    owner.receipt(owner.health().sequence); await owner.check();
+    assert.equal(owner.health().healthy,true,'fresh receipt and completed recovery restore transport');
+  }
+  it('keeps recovered transport healthy past its old failure deadline while pending work is within its own bound', async function () {
+    await recoverWithPending();
+    clock=135002; owner.receipt(owner.health().sequence); await owner.check();
+    assert.equal(clock-work.oldestPendingAt,25002);
+    assert.equal(owner.health().terminal,false,'a recovered transport must not retain its old recovery deadline');
+    assert.equal(owner.health().healthy,true);
+    assert.equal(owner.health().code,null);
+    assert.equal(owner.health().restarts,0);
+    assert.equal(owner.health().starts,2,'fresh recovered receipts must not restart the child');
+  });
+  it('still terminally refuses recovered transport when pending work exceeds its independent deadline', async function () {
+    await recoverWithPending();
+    clock=135002; owner.receipt(owner.health().sequence); await owner.check();
+    assert.equal(owner.health().healthy,true,'pending work remains within its own deadline');
+    clock=140001; owner.receipt(owner.health().sequence); await owner.check();
+    assert.equal(clock-work.oldestPendingAt,30001);
+    assert.equal(owner.health().healthy,false);
+    assert.equal(owner.health().terminal,true);
+    assert.equal(owner.health().code,'PGSTREAM_CLINICAL_PROGRESS_STALLED');
+    assert.equal(owner.health().starts,2,'expired clinical work must not restart transport');
+  });
   it('requires explicit rebootstrap after slot loss; it never recreates the slot', async function () {
     source={identity:true,grants:true,slot:'lost'};await open();
     assert.equal(owner.health().code,'PGSTREAM_REBOOTSTRAP_REQUIRED');assert.equal(owner.health().terminal,true);
@@ -55,14 +89,27 @@ describe('targeted pgstream child supervisor (simulated health ports, real OS ch
   it('ends bounded recovery rather than endlessly replacing live stopped children', async function () {
     await open();clock+=bounds.stallMs;await owner.check();clock+=bounds.stallMs;await owner.check();clock+=bounds.stallMs;await owner.check();
     assert.equal(owner.health().code,'PGSTREAM_RECOVERY_EXHAUSTED');assert.equal(owner.health().starts,3);
+    assert.equal(owner.diagnostics().lastFailure.code,'PGSTREAM_HEARTBEAT_STALLED','terminal refusal must retain its underlying cause');
+    assert(owner.diagnostics().lastChildExit?.pid,'actual child exit retained');
   });
   it('terminally refuses a timed-out physical step and never overlaps it', async function () {
     let calls=0;await open({inspect:()=>{calls++;return new Promise(()=>{});}});
-    assert.equal(owner.health().code,'PGSTREAM_STEP_TIMEOUT');await owner.check();assert.equal(calls,1);
+    assert.equal(owner.health().code,'PGSTREAM_STEP_TIMEOUT');assert.equal(owner.diagnostics().lastStepFailure.phase,'inspect');assert.equal(owner.diagnostics().lastFailure.code,'PGSTREAM_STEP_TIMEOUT');await owner.check();assert.equal(calls,1);
   });
   it('retains terminal refusal if withdrawal itself hangs', async function () {
     await open({onUnavailable:()=>new Promise(()=>{})});source.grants=false;await owner.check();
     assert.equal(owner.health().terminal,true);assert.equal(owner.health().healthy,false);
+  });
+  it('retains bounded classified child stderr without payloads or arbitrary text in private diagnostics', async function () {
+    const row = JSON.stringify({level:'error',message:'sending webhook event',error:'HTTP status code 503: timeout SYNTHETIC_PRIVATE_TEXT',payload:'SYNTHETIC_CLINICAL_PAYLOAD',secret:'SYNTHETIC_SECRET'});
+    fs.writeFileSync(path.join(directory,'child'),'#!/bin/sh\n'+Array.from({length:12},()=>"printf '%s\\n' '"+row+"' >&2\n").join('')+'exec sleep 60\n',{mode:0o700});
+    await open();
+    const end = Date.now()+1000;
+    while(owner.diagnostics().childLogs.length<8 && Date.now()<end) await new Promise(resolve=>setTimeout(resolve,5));
+    const details=owner.diagnostics();assert.equal(details.childLogs.length,8,'CHILD_LOG_BOUND');
+    assert(details.childLogs.every(line=>line.stream==='stderr'&&line.httpStatus==='503'&&line.errors.includes('timeout')),'ACTUAL_CHILD_STDERR_CLASSIFICATION');
+    assert(!JSON.stringify(details).includes('SYNTHETIC_'),'NO_PAYLOAD_OR_ARBITRARY_ERROR_TEXT');
+    assert.equal(Object.hasOwn(owner.health(),'childLogs'),false,'PRIVATE_DIAGNOSTICS_NOT_HEALTH_WIRE');
   });
   it('rejects malformed or future heartbeat acknowledgements', async function () {
     await open();assert.throws(()=>owner.receipt(2),{code:'PGSTREAM_HEARTBEAT_INVALID'});assert.throws(()=>owner.receipt('1'),{code:'PGSTREAM_HEARTBEAT_INVALID'});
