@@ -37,6 +37,21 @@ optInSuite(process.env.NS_PGSTREAM_ROLE_TEST==='1' && !!process.env.NS_TEST_POST
    assert.equal((await restored.work()).length,1);assert.equal((await restored.work())[0].tenant,lab.A);
  });
  it('refuses persisted output across pause and unpause until current control versions complete',async()=>{await store.observe(lab.A,'clock','1');await store.observe(lab.A,'activity','1',true);let observed=await store.begin(lab.A);await scope.withTenant(lab.A,()=>store.complete(lab.A,{observed,identity:'a'.repeat(64),result:result()}));assert(await store.output(lab.A,'a'.repeat(64)));await store.observe(lab.A,'activity','2',false);await assert.rejects(store.output(lab.A,'a'.repeat(64)),/CONTROL_PENDING/);await store.observe(lab.A,'activity','3',true);await assert.rejects(store.output(lab.A,'a'.repeat(64)),/CONTROL_PENDING/);observed=await store.begin(lab.A);await scope.withTenant(lab.A,()=>store.complete(lab.A,{observed,identity:'a'.repeat(64),result:result()}));assert(await store.output(lab.A,'a'.repeat(64)));});
+ it('reads pending and begin metadata without transferring the persisted clinical output',async()=>{
+   await store.observe(lab.A,'clock','1');const observed=await store.begin(lab.A),cycle=result();
+   cycle.frame.sgvs=[{synthetic:'x'.repeat(32768)}];
+   await scope.withTenant(lab.A,()=>store.complete(lab.A,{observed,identity:'a'.repeat(64),result:cycle}));
+   await store.observe(lab.A,'clock','2');
+   const received=[];const bounded=create({connection:{...lab.reader,
+     query:async(...args)=>{const value=await lab.reader.query(...args);received.push(Buffer.byteLength(JSON.stringify(value.rows)));return value;},
+     readOnly:async(...args)=>{const value=await lab.reader.readOnly(...args);received.push(Buffer.byteLength(JSON.stringify(value.rows)));return value;}
+   },namespace:lab.replayNamespace,consumer:'evaluator-roles',maxBytes:4*1024*1024,timeIntervalMs:60000});
+   assert.deepEqual((await bounded.work()).map(row=>({tenant:row.tenant,pending:row.pendingAt!==null})),[{tenant:lab.A,pending:true}]);
+   const snapshot=await bounded.begin(lab.A);assert.deepEqual(snapshot,{clock:'2'});snapshot.clock='999';
+   assert(received.every(bytes=>bytes<2048),'CHECKPOINT_METADATA_MUST_NOT_TRANSFER_CLINICAL_OUTPUT');
+   const persisted=await output(lab.A);assert.equal(persisted.observed.clock,'2');assert.equal(persisted.completed.clock,'1');
+   assert.equal(persisted.output.frame.sgvs[0].synthetic.length,32768);
+ });
  it('aborts completion after actual ownership-backend death while the row update is held',async()=>{
    await store.observe(lab.A,'clock','1');const observed=await scope.withTenant(lab.A,()=>store.begin(lab.A));
    const control=new Client({connectionString:process.env.NS_TEST_POSTGRES_ADMIN_URI});await control.connect();

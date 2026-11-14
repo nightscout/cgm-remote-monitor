@@ -254,3 +254,50 @@ describe('joined worker operational verification', function () {
     held.resolve();await pending;assert.equal(calls,2);assert.equal(f.reader.health().available,true);await lifecycle.close();await f.reader.close();
   });
 });
+
+describe('coordinated evaluator operational refresh', function () {
+  const settle = () => new Promise(resolve => setImmediate(resolve));
+  it('holds the real model epoch fence until verification and clinical completion finish, with one refresh', async function () {
+    const f = fixture(), source = 'a'.repeat(64);
+    let timer, at = 0, held, service, refreshes = 0;
+    const lifecycle = await require('../lib/trusted-worker/lifecycle')(f.reader, {
+      intervalMs: 10, now: () => at, schedule: fn => { timer = fn; return 1; }, cancel () {},
+      verifyWorker: async () => { assert.equal(scope.currentTenant(), undefined); f.reader.invalidate(); if (held) await held.promise; await f.reader.verify(); },
+      refreshWorker: async () => { refreshes++; await service.backstop([A, B], { recovery: true }); }
+    });
+    await f.reader.scan([A, B]);
+    service = await runtime({ tenants: [A, B], externalRecovery: true,
+      readCurrent: async tenant => { const row = await f.reader.read(tenant); return { tenant, identity: 'b'.repeat(64), sourceIdentity: source, settingsVersion: row.version, policyGeneration: row.policyGeneration, settingsReadAt: row.readAt }; },
+      readMetadata: f.reader.scan, metadataCurrent: f.reader.current, readSource: () => source,
+      create: async () => ({ evaluate: async () => ({ checkpoint: 1, signature: { stamp: 1, deleted: 0 } }), close () {} }),
+      recoveryIntervalMs: 1000, timeIntervalMs: 1000, schedule: () => 1, cancel () {}, setTimer: () => 1, clearTimer () {} });
+    try {
+      assert(service.health().tenants.every(row => row.ready));
+      held = deferred(); at = 20; timer(); timer(); await settle();
+      assert.equal(refreshes, 0, 'CLINICAL_REFRESH_MUST_WAIT_FOR_VERIFICATION');
+      assert(service.health().tenants.every(row => !row.ready));
+      assert.equal(service.last(A), null, 'OLD_EPOCH_OUTPUT_REFUSED');
+      held.resolve(); await lifecycle.verify(); await settle();
+      assert.equal(refreshes, 1, 'ONE_REFRESH_FOR_CONCURRENT_TIMER_TICKS');
+      assert(service.health().tenants.every(row => row.ready), 'VERIFIED_EPOCH_MUST_BE_ADOPTED_WITHOUT_ANOTHER_TIMER');
+      assert(service.health().tenants.every(row => row.progress.failedCompletions === 0));
+      assert.equal(service.last(A)?.eligible, true);
+    } finally { await lifecycle.close(); await service.close(); await f.reader.close(); }
+  });
+  it('retains the custom settings cadence and retries failed refresh without repeating successful verification', async function () {
+    let timer, at = 0, verifies = 0, refreshes = 0, refuse = true;
+    const reader = { health: () => ({ available: true }), verify: async () => { verifies++; } };
+    const lifecycle = await require('../lib/trusted-worker/lifecycle')(reader, {
+      intervalMs: 100, refreshMs: 10, now: () => at, schedule: fn => { timer = fn; return 1; }, cancel () {},
+      refreshWorker: async () => { refreshes++; if (refuse) throw new Error('clinical guard refused'); }
+    });
+    try {
+      at = 11; timer(); await settle(); assert.equal(refreshes, 1); assert.equal(verifies, 1);
+      refuse = false; timer(); await settle(); assert.equal(refreshes, 2); assert.equal(verifies, 1);
+      timer(); await settle(); assert.equal(refreshes, 2);
+      // Manual schema/transport verification cannot run clinical work until its
+      // caller has reopened the feed. The next scheduled pass adopts the epoch.
+      await lifecycle.verify(); assert.equal(refreshes, 2); timer(); await settle(); assert.equal(refreshes, 3);
+    } finally { await lifecycle.close(); }
+  });
+});
