@@ -7,7 +7,7 @@ const { createSecrets } = require('../lib/secrets/component');
 const provider = require('./fixtures/tenant-credential-provider');
 
 describe('tenant legacy credentials against shipping authentication', function () {
-  let component, enclave, storage, root, subjects, metadata, events, records, unavailable, docs, clockOffset, authorityReads, authorizations;
+  let component, enclave, storage, root, subjects, metadata, events, records, unavailable, docs, clockOffset, authorityReads, authorizations, decryptions, auditUnavailable, verifyAllowed, componentOptions;
   const context = { tenant: 'tenant-a', principal: 'verifier', consumer: 'api' };
   const hash = value => crypto.createHash('sha1').update(value).digest('hex');
 
@@ -35,14 +35,16 @@ describe('tenant legacy credentials against shipping authentication', function (
     records = new Map();
     events = [];
     unavailable = false;
-    clockOffset = 0; authorityReads = 0; authorizations = [];
+    clockOffset = 0; authorityReads = 0; authorizations = []; decryptions = 0; auditUnavailable = false; verifyAllowed = true;
     const cryptoProvider = provider();
-    component = createSecrets({
+    const decrypt = cryptoProvider.decrypt.bind(cryptoProvider);
+    cryptoProvider.decrypt = async value => { decryptions++; return decrypt(value); };
+    componentOptions = {
       providerFor: async () => cryptoProvider,
       store: { async get (tenant, id) { return records.get(tenant + ':' + id); },
         async insert (record) { records.set(record.tenant + ':' + record.id, record); } },
-      authorize: async (identity, action, hint) => { authorizations.push({ identity, action, hint }); return true; },
-      audit: async event => { events.push(event); },
+      authorize: async (identity, action, hint) => { authorizations.push({ identity, action, hint }); return action.operation !== 'verify' || verifyAllowed; },
+      audit: async event => { if (auditUnavailable) throw Error('audit unavailable'); events.push(event); },
       maxTokenLifetimeSeconds: 28800,
       now: () => Date.now() + clockOffset,
       async legacyAuthorityFor (tenant) {
@@ -50,7 +52,8 @@ describe('tenant legacy credentials against shipping authentication', function (
         if (unavailable) throw new Error('authority unavailable');
         return { reference: { tenant, id: 'imported-root' }, subjects: metadata };
       }
-    });
+    };
+    component = createSecrets(componentOptions);
     await component.encrypt(context, 'imported-root', Buffer.from(root));
   });
 
@@ -69,6 +72,48 @@ describe('tenant legacy credentials against shipping authentication', function (
     assert.equal(authorizations.at(-1).hint, undefined, 'generic decrypt has no trusted legacy metadata');
     unavailable = true;
     await assert.rejects(component.verifyLegacyCredential(context, { apiSecret: hash(root) }), /authority unavailable/);
+  });
+
+  it('does not dispatch JWT verification for plain legacy credentials, while generic invalid attempts remain audited', async function () {
+    let start = events.length;
+    const token = subjects[0].accessToken;
+    assert(!token.includes('.'));
+    assert.equal((await component.verifyLegacyCredential(context, { token, apiSecret: token })).subjectId,
+      subjects[0]._id.toHexString());
+    assert.deepEqual(events.slice(start).map(x => x.operation), ['decrypt'], 'LEGACY_NO_FAKE_JWT_ATTEMPT');
+    start = events.length;
+    await assert.rejects(component.verifyJWT(context, token), { code: 'SECRETS_TOKEN_INVALID' });
+    assert.deepEqual(events.slice(start).map(x => x.operation), ['verify'], 'generic endpoint retains invalid-attempt audit');
+    start = events.length;
+    assert.equal(await component.verifyLegacyCredential(context, { token: 'invalid.jwt.shape', apiSecret: 'invalid.jwt.shape' }), null);
+    assert.deepEqual(events.slice(start).map(x => x.operation), ['decrypt', 'verify'], 'dotted candidate retains JWT attempt/fallback order');
+  });
+
+  it('keeps mandatory decrypt audit before crypto and avoids unrelated JWT permission for plain legacy routing', async function () {
+    const token = subjects[0].accessToken;
+    auditUnavailable = true;
+    await assert.rejects(component.verifyLegacyCredential(context, { token, apiSecret: token }), /audit unavailable/);
+    assert.equal(decryptions, 0, 'no root plaintext before durable decrypt audit');
+    auditUnavailable = false; verifyAllowed = false;
+    assert.equal((await component.verifyLegacyCredential(context, { token, apiSecret: token })).subjectId,
+      subjects[0]._id.toHexString(), 'plain routing performs no JWT operation');
+    await assert.rejects(component.verifyJWT(context, token), { code: 'SECRETS_FORBIDDEN' });
+    await assert.rejects(component.verifyLegacyCredential(context, { token: 'invalid.jwt.shape', apiSecret: 'invalid.jwt.shape' }),
+      { code: 'SECRETS_FORBIDDEN' });
+  });
+
+  it('control: restoring the private JWT wrapper adds a fake verify attempt and fails the routing audit oracle', async function () {
+    const fs = require('node:fs'), path = require('node:path'), Module = require('node:module');
+    const file = require.resolve('../lib/secrets/component'), loaded = new Module(file, module);
+    loaded.filename = file; loaded.paths = Module._nodeModulePaths(path.dirname(file));
+    const original = fs.readFileSync(file, 'utf8');
+    const changed = original.replace("if (token && token.includes('.')) {", 'if (token) {');
+    assert.notEqual(changed, original); loaded._compile(changed, file);
+    const control = loaded.exports.createSecrets(componentOptions), start = events.length, token = subjects[0].accessToken;
+    assert(await control.verifyLegacyCredential(context, { token, apiSecret: token }));
+    const operations = events.slice(start).map(x => x.operation);
+    assert.deepEqual(operations, ['decrypt', 'verify']);
+    assert.throws(() => assert.deepEqual(operations, ['decrypt'], 'LEGACY_NO_FAKE_JWT_ATTEMPT'), /LEGACY_NO_FAKE_JWT_ATTEMPT/);
   });
 
   it('lists the shipping admin tools accessToken for every subject only to the tenant root secret', async function () {
@@ -194,7 +239,7 @@ describe('tenant legacy credentials against shipping authentication', function (
       const req = legacyRequest(subjects[0].accessToken);
       assert.equal((await access({ tenant: context.tenant, request: req, version: 1 })).principal,
         subjects[0]._id.toHexString());
-      assert.deepEqual(events.slice(before).map(event => event.operation), ['decrypt', 'verify']);
+      assert.deepEqual(events.slice(before).map(event => event.operation), ['decrypt']);
       const selected = await security.authenticate({ req });
       assert.equal(security.checkPermission(selected, 'api:entries:read'), true);
       assert.equal(security.checkPermission(selected, 'api:entries:create'), false);
@@ -244,7 +289,7 @@ describe('tenant legacy credentials against shipping authentication', function (
       try {
         clockOffset = 61000;
         assert.equal(await authenticate(token), null, 'expired query JWT never reuses its principal');
-      } finally { clockOffset = 0; authorityReads = 0; authorizations = []; }
+      } finally { clockOffset = 0; authorityReads = 0; authorizations = []; decryptions = 0; auditUnavailable = false; verifyAllowed = true; }
       const credential = subjects[0].accessToken;
       assert.ok(await authenticate(credential));
       await component.encrypt(context, 'imported-root', Buffer.from('replacement-synthetic-root-secret'));

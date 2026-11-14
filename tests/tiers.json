@@ -321,6 +321,7 @@
         "tests/operation-window-trusted-worker.test.js",
         "tests/preview-entries-acquisition.test.js",
         "tests/rest-metadata-environment.test.js",
+        "tests/rest-entries-read-transaction.test.js",
         "tests/tenant-request-resolution.test.js"
       ],
       "env": true,
@@ -432,6 +433,7 @@
         "tests/tenant-rest-derived.integration.test.js",
         "tests/authorization-exchange-contract.test.js",
         "tests/pgstream-bootstrap-batch.integration.test.js",
+        "tests/pgstream-single-receipt.integration.test.js",
         "tests/pgstream-checkpoint.integration.test.js",
         "tests/postgres-connection.test.js",
         "tests/postgres-entries-read.test.js",

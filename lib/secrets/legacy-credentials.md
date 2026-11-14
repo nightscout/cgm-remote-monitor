@@ -55,8 +55,13 @@ return null; authority/provider/audit errors reject.
 
 The verifier decrypts the current trusted root reference **inside the secrets
 boundary**, using the existing current-authority/audit-protected `decrypt`
-operation. The calling service needs narrowly scoped decrypt and JWT verify
-capabilities, not owner reveal or data Shiro grants. Its durable decrypt audit
+operation. Plain nondotted legacy tokens use subject lookup directly after
+this decrypt; the private bridge does not dispatch an unrelated JWT verification
+operation or write its audit row. Dotted candidates still attempt JWT verification
+before legacy fallback. The generic `verifyJWT` method continues to authorize and
+audit malformed attempts. A service accepting JWT credentials needs narrowly
+scoped JWT verify capability as well as decrypt; plain legacy routing needs
+decrypt capability, not owner reveal or data Shiro grants. Its durable decrypt audit
 records an authorized attempt, not authentication success. Root bytes are
 cleared after deriving the hashes and never returned to the HTTP bridge.
 
@@ -160,3 +165,19 @@ Full REST, addressed mutation acceptance, client-cohort coverage,
 concurrent cross-process revocation races, owner/operator/lifecycle APIs,
 production credential import, provider recovery and complete milestone
 promotion remain outside this slice.
+
+### Private raw entries read transaction
+
+The selected preview composition can share its exact API-role data connection
+with the current subject-authority reader. After credential verification and its
+durable crypto audits finish, a private cache-backed entries GET/HEAD operation
+reads current subject permissions and materializes its entries frame in one
+physical transaction. A denied actor causes no entries acquisition. The request
+actor and frame are published only after COMMIT succeeds. Cache misses or other
+handler storage reads retain their own fresh lower transaction admission.
+
+This operation is selected by private request registration, not by a transport
+field. It does not wrap an HTTP response or a write in an ambient transaction.
+Writes retain their own durable commit/event boundary. Lifetime, registry,
+display, management, human-session and access-token credentials retain their
+separate paths. The authority reader does not close a borrowed data connection.

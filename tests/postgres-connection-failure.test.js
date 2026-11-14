@@ -8,12 +8,12 @@ const connect = require('../lib/storage/postgres-connection');
 const fs = require('node:fs'), path = require('node:path'), Module = require('node:module');
 // Synthetic driver tests isolate only the actual-driver protocol port. The
 // packet-event suite separately exercises the fixed shipping Client itself.
-function recordingConnection (Client) {
+function recordingConnection (Client, mutate = source => source) {
   const filename = path.resolve(__dirname, '../lib/storage/postgres-connection.js'), loaded = new Module(filename, module);
   loaded.filename = filename; loaded.paths = Module._nodeModulePaths(path.dirname(filename));
   const original = loaded.require.bind(loaded);
   loaded.require = name => name === './postgres-settings-protocol' ? { Client, assertTransaction () {}, assertRollback () {}, assertUnlock () {} } : name === '../tenant-lifecycle/operation-window' ? { ...original(name), schedulingParent: (window, tenant) => window.parentToken ? window.parentToken(tenant) : null } : original(name);
-  loaded._compile(fs.readFileSync(filename, 'utf8'), filename); return loaded.exports;
+  loaded._compile(mutate(fs.readFileSync(filename, 'utf8')), filename); return loaded.exports;
 }
 const scope = require('../lib/storage/tenant-scope');
 const decorate = require('../lib/storage/postgres-write-clock');
@@ -26,7 +26,7 @@ describe('checked-out PostgreSQL client failure propagation', function () {
   beforeEach(function () { previous = scope.getTenancyMode(); scope.setTenancyMode('multi'); });
   afterEach(function () { scope.setTenancyMode(previous); });
 
-  async function fixture (extra = {}) {
+  async function fixture (extra = {}, mutate) {
     const clients = [], calls = [];
     let action = async () => undefined;
     class SyntheticClient extends EventEmitter {
@@ -43,9 +43,9 @@ describe('checked-out PostgreSQL client failure propagation', function () {
       query (text, values, done) {
         if (typeof values === 'function') done = values;
         const execute = async () => {
-          calls.push({ client: this, text });
+          calls.push({ client: this, text, values });
           if (this.dead) throw new Error('Synthetic connection is closed');
-          const override = await action(this, text);
+          const override = await action(this, text, values);
           if (override) return override;
           if (text.includes('pg_backend_pid() AS pid')) return { rows: [{ rolsuper: false, rolbypassrls: false, pid: this.processID, role: this.options.user || 'synthetic', birth: '100', database: 'synthetic_test', database_oid: '123', server_address: '127.0.0.1', server_port: 5432, postmaster_birth: '1' }] };
           if (text.includes('FROM pg_roles')) return { rows: [{ rolsuper: false, rolbypassrls: false }] };
@@ -62,7 +62,7 @@ describe('checked-out PostgreSQL client failure propagation', function () {
         if (done) queueMicrotask(done);
       }
     }
-    const store = await recordingConnection(SyntheticClient)({ connectionString: 'postgres://synthetic:synthetic@127.0.0.1/synthetic_test', direct: true, displaySettings: true, application_name: 'nightscout-display-settings',
+    const store = await recordingConnection(SyntheticClient, mutate)({ connectionString: 'postgres://synthetic:synthetic@127.0.0.1/synthetic_test', direct: true, displaySettings: true, application_name: 'nightscout-display-settings',
       max: 1, idleTimeoutMillis: 0, ...extra });
     return { store, clients, calls, setAction: fn => { action = fn; } };
   }
@@ -97,6 +97,89 @@ describe('checked-out PostgreSQL client failure propagation', function () {
       }));
       assert.deepEqual(f.calls.filter(c => c.text.startsWith('SAVEPOINT ')).map(c => c.text),
         ['SAVEPOINT ns_owned_sp_0', 'SAVEPOINT ns_owned_sp_1']);
+    } finally { await f.store.end(); }
+  });
+
+  function receiptInput (extra = {}) {
+    return { table:'receipt.tenant_consumer_checkpoint',consumer:'evaluator-synthetic-completed',tenant:TENANT,
+      source:'clock',version:'6',contractDigest:'a'.repeat(64),...extra };
+  }
+  const receiptState = () => ({kind:'evaluator-work-v1',observed:{clock:'5'},completed:{clock:'4'},pendingAt:17,
+    enabled:true,eligibility:{activity:true},output:{clinical:'x'.repeat(65536)},nextDueAt:900,nextDueReason:'timer',other:{preserved:true}});
+  function receiptTransferCriterion (calls) {
+    assert(!calls.some(c => /^SELECT projection,contract_digest/.test(c.text)), 'SINGLE_RECEIPT_NO_CLINICAL_TRANSFER');
+    for (const call of calls.filter(c => c.text.startsWith('UPDATE'))) {
+      const patch = JSON.parse(call.values[2]);
+      assert(!Object.hasOwn(patch,'output') && !Object.hasOwn(patch,'completed') && !Object.hasOwn(patch,'nextDueAt'));
+      assert(call.text.includes('THEN projection->0 ELSE $4::jsonb END) || $3::jsonb'), 'preserve unpatched database fields');
+    }
+  }
+  it('single receipt transfers/patches only metadata and returns only after confirmed COMMIT', async function () {
+    const f = await fixture(), original = receiptState(); let persisted = structuredClone(original), patch, entered, finish;
+    const reached = new Promise(resolve => { entered = resolve; }), gate = new Promise(resolve => { finish = resolve; });
+    f.setAction(async (client, text, values) => {
+      if (text.includes('contract_digest') && text.includes('FOR UPDATE')) {
+        const state = Object.fromEntries(Object.entries(persisted).filter(([key]) => !['output','nextDueAt','nextDueReason','other'].includes(key)));
+        return {rows:[{state:structuredClone(state),contract_digest:'a'.repeat(64)}]};
+      }
+      if (text.startsWith('UPDATE')) patch = JSON.parse(values[2]);
+      if (text === 'COMMIT') { entered(); await gate; persisted = {...persisted,...patch}; }
+    });
+    let resolved = false;
+    const pending = f.store.observeEvaluator(receiptInput()).then(value => { resolved = true; return value; });
+    try {
+      await reached; assert.equal(resolved,false); assert.deepEqual(persisted,original);
+      finish(); const returned = await pending;
+      assert.equal(returned.observed.clock,'6'); assert(!Object.hasOwn(returned,'output'));
+      assert.deepEqual(persisted.output,original.output); assert.deepEqual(persisted.completed,original.completed);
+      assert.equal(persisted.nextDueAt,original.nextDueAt); assert.deepEqual(persisted.other,original.other);
+      assert.equal(persisted.pendingAt,17); receiptTransferCriterion(f.calls);
+    } finally { finish(); await pending.catch(()=>{}); await f.store.end(); }
+  });
+  it('single receipt ignores stale versions and preserves eligibility until a genuinely newer observation', async function () {
+    const f = await fixture(); let patch;
+    const state = {...receiptState(),enabled:false,eligibility:{activity:false},observed:{clock:'5',activity:'5'}};
+    f.setAction(async (client,text,values) => {
+      if (text.includes('contract_digest') && text.includes('FOR UPDATE')) return {rows:[{state:structuredClone(state),contract_digest:'a'.repeat(64)}]};
+      if (text.startsWith('UPDATE')) patch=JSON.parse(values[2]);
+    });
+    try {
+      await f.store.observeEvaluator(receiptInput({source:'activity',version:'5',enabled:true}));
+      assert.equal(patch,undefined);
+      await f.store.observeEvaluator(receiptInput({source:'activity',version:'6',enabled:true}));
+      assert.equal(patch.observed.activity,'6'); assert.equal(patch.observed.clock,'5');
+      assert.equal(patch.enabled,true); assert(patch.pendingAt>=17); assert.deepEqual(patch.eligibility,{activity:true});
+      receiptTransferCriterion(f.calls);
+    } finally { await f.store.end(); }
+  });
+  it('single receipt rejects missing/foreign contract and rolls back a failed patch or aborted COMMIT', async function () {
+    for (const phase of ['missing','digest','kind','UPDATE','COMMIT']) {
+      const f = await fixture();
+      f.setAction(async (client,text) => {
+        if (text.includes('contract_digest') && text.includes('FOR UPDATE')) return {rows:phase==='missing'?[]:[{
+          state:{...receiptState(),...(phase==='kind'?{kind:'wrong'}:{})},contract_digest:phase==='digest'?'b'.repeat(64):'a'.repeat(64)}]};
+        if (phase==='UPDATE' && text.startsWith('UPDATE')) throw Error('synthetic patch refused');
+        if (phase==='COMMIT' && text==='COMMIT') return {command:'ROLLBACK',rows:[]};
+      });
+      try {
+        await assert.rejects(f.store.observeEvaluator(receiptInput()), /NOT_PROVISIONED|RECEIPT_CONTRACT|patch refused|COMMIT_UNCONFIRMED/);
+        assert(f.calls.some(c => c.text==='ROLLBACK'));
+        if (['missing','digest','kind'].includes(phase)) assert(!f.calls.some(c => c.text.startsWith('UPDATE')));
+      } finally { await f.store.end(); }
+    }
+  });
+  it('control: restoring the full clinical SELECT fails the receipt transfer oracle', async function () {
+    const f = await fixture({}, source => {
+      const changed = source.replace(/SELECT CASE WHEN jsonb_typeof\(projection->0\)='object'[\s\S]*?END AS state,contract_digest FROM/,
+        'SELECT projection,contract_digest FROM');
+      assert.notEqual(changed,source); return changed;
+    });
+    f.setAction(async (client,text) => {
+      if (text.includes('contract_digest') && text.includes('FOR UPDATE')) return {rows:[{state:receiptState(),projection:[receiptState()],contract_digest:'a'.repeat(64)}]};
+    });
+    try {
+      await f.store.observeEvaluator(receiptInput());
+      assert.throws(()=>receiptTransferCriterion(f.calls),/SINGLE_RECEIPT_NO_CLINICAL_TRANSFER/);
     } finally { await f.store.end(); }
   });
 

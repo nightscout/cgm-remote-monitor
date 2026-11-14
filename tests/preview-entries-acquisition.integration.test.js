@@ -22,14 +22,14 @@ const GRANTS = domains.flatMap(d => ['read', 'create', 'update', 'delete'].map(a
 const docker = args => execFileSync('docker', args, { encoding: 'utf8', timeout: 30000, stdio: ['ignore', 'pipe', 'pipe'] }).trim();
 optInSuite(process.env.NS_REST_ACQUISITION_NATIVE === '1', 'NS_REST_ACQUISITION_NATIVE=1')('entries acquisition native preview path', function () {
   this.timeout(60000);
-  const name = 'ns-rest-acquisition-native-' + randomBytes(5).toString('hex');
+  const name = 'ns-rest-read-transaction-native-' + randomBytes(5).toString('hex');
   const ns = 'acquisition';
   const role = 'acquisition_api';
   const auth = 'acquisition_authority';
   const password = randomBytes(24).toString('hex');
   const credentials = new Map([['synthetic-a', A], ['synthetic-b', B]]);
   let owned = false, containerId, pinnedImage, admin, connection, authority, app, oldApp, previous, closed = false;
-  let suspended = false, checks = 0, queries = [];
+  let suspended = false, checks = 0, queries = [], witnessing = false, witnesses = [];
   const at = Date.now() - 1000;
   const unavailable = async () => { throw new Error('owner service outside fixture'); };
   const http = (method, path, tenant = A, token = tenant === A ? 'synthetic-a' : 'synthetic-b') =>
@@ -39,12 +39,12 @@ optInSuite(process.env.NS_REST_ACQUISITION_NATIVE === '1', 'NS_REST_ACQUISITION_
     previous = scope.getTenancyMode(); scope.setTenancyMode('multi');
     pinnedImage = docker(['image', 'inspect', 'postgres:16', '--format', '{{.Id}}']);
     const id = execFileSync('docker', ['run', '--rm', '-d', '--name', name,
-      '--label', 'com.docker.compose.project=ns-rest-acquisition-native-20261113', '--label', 'ns.rest.owner=rest-raw-acquisition-20261113',
+      '--label', 'com.docker.compose.project=ns-rest-read-transaction-native-20261113', '--label', 'ns.rest.owner=rest-read-transaction-batch-20261113',
       '--cpus=1', '--memory=512m', '-p', '127.0.0.1::5432', '-e', 'POSTGRES_PASSWORD', pinnedImage],
     { env: { ...process.env, POSTGRES_PASSWORD: password }, encoding: 'utf8', timeout: 30000 }).trim();
     owned = true; containerId = id;
     const port = docker(['port', name, '5432/tcp']).split(':').pop();
-    console.log('REST_NATIVE_OWNED ' + JSON.stringify({ id, name, port, pinnedImage, owner: 'rest-raw-acquisition-20261113' }));
+    console.log('REST_NATIVE_OWNED ' + JSON.stringify({ id, name, port, pinnedImage, owner: 'rest-read-transaction-batch-20261113' }));
     const uri = new URL('postgres://postgres@127.0.0.1:' + port + '/postgres'); uri.password = password;
     for (let i = 0; ; i++) {
       try { docker(['exec', name, 'pg_isready', '-h', '127.0.0.1', '-U', 'postgres']); break; }
@@ -73,8 +73,22 @@ optInSuite(process.env.NS_REST_ACQUISITION_NATIVE === '1', 'NS_REST_ACQUISITION_
     uri.username = role; uri.password = secret;
     connection = await connect({ connectionString: uri.toString(), max: 1 });
     const query = connection.query.bind(connection);
-    connection.query = async (...args) => { queries.push(args[0]); return query(...args); };
-    authority = await require('../lib/tenant-authorization/postgres')({ connectionString: uri.toString(), namespace: auth });
+    connection.query = async (...args) => {
+      const input = args[0], text = typeof input === 'string' ? input : input.text;
+      queries.push(text);
+      const phase = text.includes('s.subject_id, s.display_name') ? 'authority'
+        : text.startsWith('SELECT id_kind, doc') ? 'entries' : null;
+      if (witnessing && phase) {
+        // Native-only diagnostic fields identify the actual two SELECTs. The
+        // production adapters ignore these extra columns; no extra TX/query.
+        const tagged = text.replace(/SELECT /, "SELECT pg_backend_pid() AS witness_pid,txid_current()::text AS witness_txid,");
+        args[0] = typeof input === 'string' ? tagged : { ...input, text: tagged };
+      }
+      const result = await query(...args);
+      if (witnessing && phase) witnesses.push({ phase, pid: result.rows[0]?.witness_pid, txid: result.rows[0]?.witness_txid });
+      return result;
+    };
+    authority = await require('../lib/tenant-authorization/postgres')({ connectionString: uri.toString(), namespace: auth, connection });
     const previewOptions = { config: { domains, legacyEnabled: true, contextEnabled: true, bindings: new Map([[A, {}], [B, {}]]),
       environments: new Map([A, B].map(t => [t, environment()])), namespaces: Object.fromEntries(domains.map(d => [d, ns + '_' + d])) },
     connection, exchange: async () => null };
@@ -87,7 +101,7 @@ optInSuite(process.env.NS_REST_ACQUISITION_NATIVE === '1', 'NS_REST_ACQUISITION_
     const output = { exports: {} };
     vm.runInThisContext('(function(require,module,exports){' + restored + '\n})', { filename: file })(createRequire(file), output, output.exports);
     const oldGraph = await output.exports(previewOptions);
-    const access = dataAccess({ authority, secrets: { verifyLegacyCredential: async ({ tenant }, { token }) =>
+    const access = dataAccess({ authority, entriesReadConnection: connection, secrets: { verifyLegacyCredential: async ({ tenant }, { token }) =>
       credentials.get(token) === tenant ? { kind: 'subject', subjectId: 'subject' } : null },
     verifierContext: async tenant => ({ tenant, consumer: 'api' }), collections: domains, legacyCollections: domains });
     const options = { resolver: { resolve: async req => req.hostname === 'a.example.test' ? A : B },
@@ -106,7 +120,7 @@ optInSuite(process.env.NS_REST_ACQUISITION_NATIVE === '1', 'NS_REST_ACQUISITION_
       finally { try { if (admin) await admin.end(); }
       finally { if (owned) {
         const metadata = JSON.parse(docker(['inspect', containerId]))[0];
-        assert.equal(metadata.Config.Labels['ns.rest.owner'], 'rest-raw-acquisition-20261113');
+        assert.equal(metadata.Config.Labels['ns.rest.owner'], 'rest-read-transaction-batch-20261113');
         assert.equal(metadata.Image, pinnedImage);
         docker(['rm', '-f', '-v', containerId]); console.log('REST_NATIVE_REMOVED ' + containerId);
       } scope.setTenancyMode(previous); } } }
@@ -245,6 +259,17 @@ optInSuite(process.env.NS_REST_ACQUISITION_NATIVE === '1', 'NS_REST_ACQUISITION_
     }
   });
 
+  it('materializes the real HTTP entry read and current authority in the same physical transaction', async () => {
+    witnesses = []; witnessing = true;
+    try { await http('get', '/api/v1/entries/sgv?count=1').expect(200); }
+    finally { witnessing = false; }
+    assert.deepEqual(witnesses.map(x => x.phase), ['authority', 'entries']);
+    assert(witnesses.every(x => Number.isSafeInteger(x.pid) && /^[1-9][0-9]*$/.test(x.txid)));
+    assert.equal(witnesses[0].pid, witnesses[1].pid, 'NATIVE_AUTHORITY_ENTRIES_SAME_BACKEND');
+    assert.equal(witnesses[0].txid, witnesses[1].txid, 'NATIVE_AUTHORITY_ENTRIES_SAME_TRANSACTION');
+    console.log('REST_NATIVE_SHARED_READ_TRANSACTION ' + JSON.stringify(witnesses));
+  });
+
   it('retains current role/membership/foreign-token and restore admission refusals with no writes', async () => {
     // Explicit role named like an anonymous default: claims override, decisions union.
     await admin.query(`UPDATE ${auth}.tenant_authorization_config SET anonymous_roles=ARRAY['readable'] WHERE tenant_id=$1`, [A]);
@@ -277,6 +302,6 @@ optInSuite(process.env.NS_REST_ACQUISITION_NATIVE === '1', 'NS_REST_ACQUISITION_
     assert.equal(checks, prior + 1, 'actual route crosses operation-window adapter'); suspended = false;
     assert.deepEqual((await admin.query(`SELECT tenant_id,doc FROM ${ns}_entries.entries ORDER BY tenant_id`)).rows, before);
     await connection.end(); closed = true;
-    await http('get', '/api/v1/entries/sgv', B).expect(500);
+    await http('get', '/api/v1/entries/sgv', B).expect(503); // Shared authority pool now refuses before clinical SQL.
   });
 });
