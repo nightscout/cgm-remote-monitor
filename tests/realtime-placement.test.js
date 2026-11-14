@@ -286,3 +286,57 @@ describe('bounded private realtime tenant readiness observations',function(){
       }finally{guarded=false;startup.close();global.Map=RealMap;}
     });
   });
+
+
+describe('realtime staged warm metadata boundary', function () {
+ const scope=require('../lib/storage/tenant-scope');let previous;
+ beforeEach(()=>{previous=scope.getTenancyMode();});afterEach(()=>scope.setTenancyMode(previous));
+ async function staged(change,transform=value=>value,expected='TENANT_ACTIVITY_DEFERRED'){
+  const fs=require('node:fs'),vm=require('node:vm'),{createRequire}=require('node:module');
+  const filename=require.resolve('../lib/server/serve/preview-realtime'),local=createRequire(filename),noop=async()=>{};
+  let enter,release,follow,cached,scans=0,activated=0,removed=0,generation=1;
+  const entered=new Promise(resolve=>{enter=resolve;}),held=new Promise(resolve=>{release=resolve;});
+  const live={paused:false,settings:1,policy:1};const entry={tenant:B};
+  const worker={scan:async()=>{scans++;cached={...live};return new Map();},read:async()=>({...cached}),
+   current:()=>cached?{activity:{state:cached.paused?'paused':'active'}}:null,state:()=>({available:true,generation}),close:noop};
+  const registrySet={tenants:new Map(),isActive:()=>true,follow:async value=>{follow=value;},close:noop,stats:()=>({})};
+  const overrides={
+   './evaluator-config':{registryEntry:tenant=>({tenant}),applySettings:(base,settings)=>({...base,identity:settings.settings+':'+settings.policy})},
+   '../../storage/connection-admission':{coldAdmission:()=>null},'./evaluator-readiness':noop,
+   '../../storage/postgres-connection':async()=>({end:noop}),
+   '../internal-api/clients':{socketAuthority:()=>({})},'../realtime/api-client':{create:()=>({})},
+   './tenant-startup':{attempt:async(window,tenant,fn)=>{await fn();return true;},notReadyRetry:()=>({}),create:()=>({warm:noop,close:noop,addTenant(){},ensure:noop,removeTenant:noop,isReady:()=>true})},
+   '../realtime/protocol':{create:()=>({close(){},invalidateTenant(){},stats:()=>({}),fanout(){},watchedTenants:()=>[],watchedCount:()=>0})},
+   './registry-tenant-set':{open:async()=>registrySet},
+   '../../tenant-registry/resolver':{createRegistryResolver:()=>({start:noop,resolve:noop,close(){}})},'../../tenant-registry/postgres':{create:()=>({})},
+   '../../trusted-worker/postgres':{create:()=>worker},'../../trusted-worker/lifecycle':async()=>({close:noop,verify:noop}),
+   '../../realtime-placement/owner':{acquire:async()=>({available:true,check:noop,close:noop})},
+   '../../pgstream/realtime-output':{detector:()=>Object.assign(noop,{stats:()=>({})}),projection:()=>({acquire:async()=>{enter();await held;return {rows:[],frame:{sgvs:[]}};}})},
+   '../../pgstream/realtime-receipt':{create:()=>({verify:noop,recover:noop,stats:()=>({})}),start:()=>({close:noop})},
+   '../realtime/runtime':async()=>({health:()=>({}),stats:()=>({}),warm:()=>true,check:noop,close:noop,wake(){},removeTenant:async()=>{removed++;},addTenant:()=>{activated++;}})
+  };
+  const sandbox={module:{exports:{}},process,console,setInterval:()=>({unref(){}}),clearInterval(){},require:name=>Object.hasOwn(overrides,name)?overrides[name]:local(name)};
+  vm.runInNewContext(transform(fs.readFileSync(filename,'utf8')),sandbox,{filename});
+  const selected={self:{worker:'synthetic',incarnation:'11111111-1111-4111-8111-111111111111'},current:()=>({ownershipVersion:2}),assert(){},close(){},inspect:()=>({})};
+  const role=await sandbox.module.exports.boot({registry:{namespace:'rt_registry',maxTenants:10,refreshMs:500},completedOutput:{namespace:'ev_checkpoint',consumer:'evaluator-test'},trustedWorker:{},
+   tenants:new Map(),operationTimeoutMs:100,placement:selected,consumer:'realtime-test',api:{},admission:{},namespaces:{}});
+  try{
+   const preparing=follow.prepare(B,entry);preparing.catch(()=>{});
+   await entered;const before=scans;change?.(live,()=>{generation++;});release();
+   if(change){await assert.rejects(preparing,{code:expected});assert.equal(activated,0);assert.equal(removed,1);}
+   else{await preparing;assert.equal(scans,before+1,'one fresh metadata scan after awaited staged acquisition');await follow.activate(B);assert.equal(activated,1);}
+  }finally{release();await role.close();}
+ }
+ it('refuses a pause committed during held acquisition and retains the active staging path',async function(){
+  await staged(live=>{live.paused=true;});await staged();
+ });
+ it('refuses changed settings, policy and worker generation before publishing staged state',async function(){
+  for(const change of [live=>{live.settings++;},live=>{live.policy++;}])await staged(change,undefined,'REALTIME_STAGED_CONFIG_CHANGED');
+  await staged((live,invalidate)=>invalidate(),undefined,'TRUSTED_WORKER_UNAVAILABLE');
+ });
+ it('omitting post-warm refresh is red for pause during held acquisition, then restored source is green',async function(){
+  const needle='            await trusted.scan([tenant],{recovery:true});';
+  await assert.rejects(staged(live=>{live.paused=true;},source=>{assert.equal(source.split(needle).length,2,'control must remove actual post-warm scan');return source.replace(needle,'');}),error=>error.code==='ERR_ASSERTION');
+  await staged(live=>{live.paused=true;});await staged();
+ });
+});
