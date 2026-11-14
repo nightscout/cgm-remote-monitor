@@ -34,8 +34,8 @@ optInSuite(enabled(), 'disposable PostgreSQL/Vault registry lab')('registry real
       const url = new URL(process.env.NS_TEST_POSTGRES_ADMIN_URI); url.username = role; url.password = password;
       const tenantSettings = { connectionString: url.toString(), namespaces: { settings: lab.namespaces.settings, operatorPolicy: lab.namespaces.operatorPolicy } };
       await lab.admin.query(`UPDATE "${lab.namespaces.settings}".tenant_settings SET version=2,values=$2 WHERE tenant_id=$1`, [A, { DISPLAY_UNITS: 'mmol', enable: ['bgnow', 'iob'], bgHigh: 170, bgTargetTop: 160, bgTargetBottom: 90, bgLow: 80 }]);
-      runtime = await require('../lib/server/serve/preview-realtime').registryMode({ connectionString: lab.urls.realtime, registry: { namespace: lab.namespaces.registry, maxTenants: 100, refreshMs: 500 }, maxTenants: 100, tenantSettings });
       presentation = require('../lib/tenant-settings/presentation-reader')(tenantSettings);
+      runtime = await require('../lib/server/serve/preview-realtime').registryMode({ connectionString: lab.urls.realtime, registry: { namespace: lab.namespaces.registry, maxTenants: 100, refreshMs: 500 }, maxTenants: 100, tenantSettings }, { read: tenant => presentation.read(tenant), close: async () => {} });
       const environment = require('../lib/server/tenant-app/environment');
       const env = await require('../lib/server/tenant-app/presentation-environment').forRequest({ reader: presentation, tenant: A, env: environment({}), request: { method: 'GET', path: '/status' }, domains: ['entries'] });
       const app = express(); app.enable('api'); app.extendedClientSettings = env.extendedSettings;
