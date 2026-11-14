@@ -301,3 +301,71 @@ describe('coordinated evaluator operational refresh', function () {
     } finally { await lifecycle.close(); }
   });
 });
+
+describe('normal operational verification and owned clinical dispatch', function () {
+  const settle=()=>new Promise(resolve=>setImmediate(resolve));
+  it('drains an entered cycle and retains queued work across the real 600s operational boundary', async function () {
+    const f=fixture(),window=require('./fixtures/operation-window-runtime-protocol')({trustedWorker:true});
+    const contexts=require('../lib/server/serve/evaluator-job-context');
+    const jobs=contexts.create('clinical'),source='a'.repeat(64);
+    let service,timer,at=0,calls=0,evaluationHold;
+    const evaluationStarted=deferred(),verifyEntered=deferred(),verifyHold=deferred();
+    await window.window.ready();
+    const lifecycle=await require('../lib/trusted-worker/lifecycle')(f.reader,{
+      now:()=>at,schedule:fn=>{timer=fn;return 1;},cancel(){},
+      verifyWorker:periodic=>{
+        const verify=()=>{f.reader.invalidate();return window.window.verifyOperational(async()=>{
+          if(++calls>1){verifyEntered.resolve();await verifyHold.promise;}
+          await f.reader.verify();
+        });};
+        return periodic&&service?service.verifyOperational(verify):verify();
+      },refreshWorker:jobs.bind(()=>service.backstop([A],{recovery:true}))
+    });
+    await f.reader.scan([A]);
+    service=await runtime({tenants:[A],externalRecovery:true,operationWindow:window.window,jobContext:jobs,
+      readCurrent:async tenant=>{const row=await f.reader.read(tenant);return {tenant,identity:'b'.repeat(64),sourceIdentity:source,settingsVersion:row.version,policyGeneration:row.policyGeneration,settingsReadAt:row.readAt};},
+      readMetadata:f.reader.scan,metadataCurrent:f.reader.current,readSource:()=>source,
+      create:async()=>({evaluate:async()=>{if(evaluationHold){evaluationStarted.resolve();await evaluationHold.promise;}return {checkpoint:1,signature:{stamp:1,deleted:0}};},close(){}}),
+      recoveryIntervalMs:1000,timeIntervalMs:1000,schedule:()=>1,cancel(){},setTimer:()=>1,clearTimer(){}});
+    const initial=service.health().tenants[0].progress.generation;
+    let entered,queued,authority;const authorityHold=deferred();
+    try{
+      evaluationHold=deferred();entered=service.acquire(A);await evaluationStarted.promise;
+      f.time(600001);f.hold(authorityHold);
+      authority=window.window.run(A,()=>service.isCurrent(A,'b'.repeat(64)));authority.catch(()=>{});await settle();
+      at=600001;timer();await settle();evaluationHold.resolve();await entered;
+      await verifyEntered.promise;
+      authorityHold.resolve();await assert.rejects(authority,{code:'LIFECYCLE_WINDOW_SCHEMA_UNSAFE'});
+      await assert.rejects(window.window.run(A,()=>assert.fail('WITHDRAWN_EPOCH_EFFECT')), {code:'LIFECYCLE_WINDOW_SCHEMA_UNSAFE'});
+      queued=service.acquire(A);verifyHold.resolve();await lifecycle.verify();await queued;
+      await settle();await service.backstop([A],{recovery:true});
+      const row=service.health().tenants[0];
+      assert.equal(row.progress.generation,initial,'BENIGN_VERIFY_MUST_NOT_DISCARD_CURRENT_MODEL');
+      assert.equal(row.progress.failedCompletions,0,'NORMAL_VERIFY_MUST_DRAIN_BEFORE_WITHDRAWAL');
+      assert.equal(row.ready,true);assert.equal(row.code,null);await window.window.run(A,()=>assert(service.last(A)));
+    }finally{evaluationHold?.resolve();authorityHold.resolve();verifyHold.resolve();await Promise.allSettled([entered,queued,authority]);await lifecycle.close();await service.close();await f.reader.close();await window.window.close();}
+  });
+  it('waits for an entered metadata read and closes queued dispatch without restarting it', async function () {
+    const f=fixture(),source='a'.repeat(64);await f.reader.verify();await f.reader.scan([A]);
+    let evaluations=0;
+    const service=await runtime({tenants:[A],externalRecovery:true,
+      readCurrent:async tenant=>({tenant,identity:'b'.repeat(64),sourceIdentity:source}),
+      readMetadata:f.reader.scan,metadataCurrent:f.reader.current,readSource:()=>source,
+      create:async()=>({evaluate:async()=>{evaluations++;return {checkpoint:1,signature:{stamp:1,deleted:0}};},close(){}}),
+      recoveryIntervalMs:1000,timeIntervalMs:1000,schedule:()=>1,cancel(){},setTimer:()=>1,clearTimer(){}});
+    const entered=deferred(),scanHold=deferred(),verifyHold=deferred();
+    const original=f.connection.readOnly;let hold=true,verified=false;
+    f.connection.readOnly=async(...args)=>{const result=await original(...args);if(hold&&args[0].includes('activity_version')){hold=false;entered.resolve();await scanHold.promise;}return result;};
+    let pass,verifying,queued;
+    try {
+      pass=service.backstop([A]);await entered.promise;
+      verifying=service.verifyOperational(async()=>{verified=true;await verifyHold.promise;});
+      await settle();assert.equal(verified,false,'VERIFY_MUST_DRAIN_ENTERED_METADATA');
+      scanHold.resolve();await pass;await settle();assert.equal(verified,true);
+      const count=evaluations;queued=service.acquire(A);await service.close();await queued;
+      verifyHold.resolve();await verifying;await settle();
+      assert.equal(evaluations,count,'CLOSE_MUST_NOT_RESTART_PAUSED_WORK');
+    }finally{scanHold.resolve();verifyHold.resolve();await Promise.allSettled([pass,verifying,queued]);await service.close();await f.reader.close();}
+  });
+
+});

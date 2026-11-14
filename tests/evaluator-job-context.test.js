@@ -138,6 +138,21 @@ describe('trusted evaluator scheduling contexts (recording lifetime protocol)',f
       hold.resolve();await wait(()=>!r.health([B]).tenants[0].jobs.booting);
     }finally{hold.resolve();await r.close();await f.window.close();}
   });
+  it('runs a borrowed parent inline when an owned dispatch slot waits for its sole client', async function () {
+    const f=singleClient(),jobs=contexts.create('clinical');
+    const r=await runtime(settings(f.window,jobs,{tenants:[A,B],checkConcurrency:1,timeIntervalMs:60000,setTimer:()=>1,clearTimer(){}}));
+    let independent;
+    try {
+      await f.window.run(A,async()=>{
+        independent=jobs.run(()=>r.acquire(B));
+        await wait(()=>r.health([B]).tenants[0].jobs.running);
+        await r.acquire(A);
+      });
+      await independent;
+      assert.equal(r.health([A]).tenants[0].progress.failedCompletions,0);
+      assert.equal(r.health([B]).tenants[0].progress.completedAcquisitions,2);
+    }finally{await independent;await r.close();await f.window.close();}
+  });
   it('observes all four queued clinical slots and the full owned window without driving work',async function(){
     const f=singleClient(),jobs=contexts.create('clinical'),hold=deferred();let block=false,entered=false,owned=[];
     const result=()=>({checkpoint:0,properties:{synthetic:true}});
