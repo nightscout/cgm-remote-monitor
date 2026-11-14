@@ -15,7 +15,7 @@ describe('targeted pgstream child supervisor (simulated health ports, real OS ch
     clock=100000; source={identity:true,grants:true,slot:'valid'}; work={pending:false}; unavailable=[];
   });
   afterEach(async function () { await owner?.close();fs.rmSync(directory,{recursive:true,force:true});owner=null; });
-  async function open(extra={}) { owner=await start({binary:path.join(directory,'child'),configFile:path.join(directory,'config'),bounds,
+  async function open(extra={}, implementation=start) { owner=await implementation({binary:path.join(directory,'child'),configFile:path.join(directory,'config'),bounds,
     pulse:async()=>{},inspect:async()=>source,pending:async()=>work,onUnavailable:async code=>{unavailable.push(code);},now:()=>clock,...extra});return owner; }
   it('requires end-to-end receipt; source health alone is never healthy', async function () {
     await open();assert.equal(owner.health().healthy,false);
@@ -29,20 +29,20 @@ describe('targeted pgstream child supervisor (simulated health ports, real OS ch
     assert.deepEqual(unavailable,['PGSTREAM_HEARTBEAT_STALLED']);
     owner.receipt(owner.health().sequence);await owner.check();assert.equal(owner.health().healthy,true);
   });
-  it('refuses stalled durable work even while fresh heartbeats arrive', async function () {
+  it('reports stalled clinical work while healthy heartbeats keep the shared stream running', async function () {
     await open();owner.receipt(1);await owner.check();
     work={pending:true,oldestPendingAt:clock};
     clock+=bounds.pendingMs;owner.receipt(owner.health().sequence);await owner.check();
-    assert.equal(owner.health().code,'PGSTREAM_CLINICAL_PROGRESS_STALLED');assert.equal(owner.health().terminal,true);
-    assert.equal(owner.health().starts,1);assert.equal(owner.health().healthy,false);
+    assert.equal(owner.health().clinicalCode,'PGSTREAM_CLINICAL_PROGRESS_STALLED');assert.equal(owner.health().terminal,false);
+    assert.equal(owner.health().starts,1);assert.equal(owner.health().healthy,true);assert.deepEqual(unavailable,[]);
   });
   it('gives recovered pending work one bounded owner recovery window', async function () {
     work={pending:true,oldestPendingAt:clock-bounds.pendingMs*2};
     await open();assert.equal(owner.health().terminal,false);
     owner.receipt(1);await owner.check();assert.equal(owner.health().healthy,true);
     clock+=bounds.pendingMs;owner.receipt(owner.health().sequence);await owner.check();
-    assert.equal(owner.health().code,'PGSTREAM_CLINICAL_PROGRESS_STALLED');
-    assert.equal(owner.health().terminal,true);
+    assert.equal(owner.health().clinicalCode,'PGSTREAM_CLINICAL_PROGRESS_STALLED');
+    assert.equal(owner.health().terminal,false);assert.equal(owner.health().healthy,true);
   });
   // Production deadlines from the bounded actual-role recovery fixture. A
   // recovered transport and outstanding clinical work have separate clocks.
@@ -67,16 +67,24 @@ describe('targeted pgstream child supervisor (simulated health ports, real OS ch
     assert.equal(owner.health().restarts,0);
     assert.equal(owner.health().starts,2,'fresh recovered receipts must not restart the child');
   });
-  it('still terminally refuses recovered transport when pending work exceeds its independent deadline', async function () {
+  it('keeps recovered transport healthy and exposes the independent clinical deadline', async function () {
     await recoverWithPending();
     clock=135002; owner.receipt(owner.health().sequence); await owner.check();
     assert.equal(owner.health().healthy,true,'pending work remains within its own deadline');
     clock=140001; owner.receipt(owner.health().sequence); await owner.check();
     assert.equal(clock-work.oldestPendingAt,30001);
-    assert.equal(owner.health().healthy,false);
-    assert.equal(owner.health().terminal,true);
-    assert.equal(owner.health().code,'PGSTREAM_CLINICAL_PROGRESS_STALLED');
+    assert.equal(owner.health().healthy,true);
+    assert.equal(owner.health().terminal,false);
+    assert.equal(owner.health().clinicalCode,'PGSTREAM_CLINICAL_PROGRESS_STALLED');
     assert.equal(owner.health().starts,2,'expired clinical work must not restart transport');
+  });
+  // Clinical expiry no longer terminally stops shared transport: affected
+  // tenant effects remain fenced by the evaluator runtime's pending deadline.
+  it('control: restored global clinical-terminal coupling stops a healthy stream, while the split preserves it',async function(){
+    const vm=require('node:vm'),file=require.resolve('../lib/pgstream/supervisor'),sourceText=fs.readFileSync(file,'utf8'),needle='clinicalStalled = pendingSince !== null && now() - Math.max(pendingSince, recoveryStartedAt) >= bounds.pendingMs;';assert(sourceText.includes(needle));const broken=sourceText.replace(needle,needle+"if(clinicalStalled){terminal='PGSTREAM_CLINICAL_PROGRESS_STALLED';throw fail(terminal);}"),module={exports:{}};
+    vm.runInThisContext('(function(require,module,exports){'+broken+'\n})',{filename:file})(require,module,module.exports);
+    async function criterion(implementation){work={pending:false};clock=100000;await open({},implementation);owner.receipt(1);await owner.check();work={pending:true,oldestPendingAt:clock};clock+=bounds.pendingMs;owner.receipt(owner.health().sequence);await owner.check();const observed=owner.health();await owner.close();owner=null;assert.equal(observed.healthy,true,'POISON_MUST_NOT_STOP_SHARED_HEARTBEAT');assert.equal(observed.clinicalStalled,true);}
+    await assert.rejects(criterion(module.exports.start),/POISON_MUST_NOT_STOP_SHARED_HEARTBEAT/);await criterion(start);
   });
   it('requires explicit rebootstrap after slot loss; it never recreates the slot', async function () {
     source={identity:true,grants:true,slot:'lost'};await open();

@@ -6,7 +6,7 @@ const scope = require('../lib/storage/tenant-scope');
 const A = '11111111-1111-4111-8111-111111111111', B = '22222222-2222-4222-8222-222222222222';
 const ns = { activity: 'tw_activity', clock: 'tw_clock', settings: 'tw_settings', operatorPolicy: 'tw_policy' };
 const deferred = () => { let resolve; const promise = new Promise(done => { resolve = done; }); return { promise, resolve }; };
-function fixture () {
+function fixture (options = {}) {
   let version = 1, generation = 1, at = 0, held;
   const calls = [];
   const connection = { async readOnly (text, values) {
@@ -17,7 +17,7 @@ function fixture () {
     if (held) await held.promise;
     return { rows: [{ version, values: { SHOW_SECONDS: version % 2 === 0 }, generation, policy: { deployment: {}, overrides: {} } }] };
   } };
-  const reader = worker.create({ connection, namespaces: ns, now: () => at });
+  const reader = worker.create({ connection, namespaces: ns, now: () => at, ...options });
   return { reader, calls, connection, bump: () => { version++; }, policy: () => { generation++; }, time: value => { at = value; }, hold: value => { held = value; } };
 }
 describe('trusted worker metadata and operational scope', function () {
@@ -37,6 +37,7 @@ describe('trusted worker metadata and operational scope', function () {
     assert.equal(f.reader.health().settingsReads, count + 1, 'TRUSTED_SLOW_SETTINGS_RECONCILIATION');
     await f.reader.close();
   });
+  it('event-covered settings retain one version past the former TTL, while legacy TTL control rereads',async()=>{for(const eventDriven of [true,false]){const f=fixture({eventDriven});await f.reader.verify();await f.reader.scan([A]);const first=await f.reader.read(A),before=f.reader.health().settingsReads;f.time(600001);const held=await f.reader.read(A);assert.equal(f.reader.health().settingsReads,before+(eventDriven?0:1),'STREAMED_SETTINGS_MUST_NOT_DISCOVER_UNCHANGED_VERSION');if(eventDriven)assert.equal(held,first);f.bump();await f.reader.scan([A]);assert.equal((await f.reader.read(A)).version,2);await f.reader.close();}});
   it('rejects obsolete in-flight settings completion after invalidation and recovery', async function () {
     const f = fixture(); await f.reader.verify(); await f.reader.scan([A]);
     const hold = deferred(); f.hold(hold); const pending = f.reader.read(A);

@@ -1,6 +1,6 @@
 'use strict';
 const assert=require('node:assert/strict');
-const {create}=require('../lib/pgstream/receiver');
+const {create,parse}=require('../lib/pgstream/receiver');
 const A='11111111-1111-4111-8111-111111111111';
 const event=(table,values,action='U')=>({Data:{action,schema:'synthetic',table,columns:Object.entries(values).map(([name,value])=>({name,value})),identity:null}});
 describe('pgstream explicit input/output/schema receiver',function(){
@@ -53,6 +53,14 @@ describe('pgstream explicit input/output/schema receiver',function(){
  it('heartbeat is fixed worker health work and creates no tenant completion',async()=>{await receiver()(event('heartbeat',{id:1,revision:'19'}));assert.deepEqual(heartbeats,[19]);assert.equal(observe.length,0);});
  it('accepts the DBA bootstrap heartbeat at zero without treating it as live delivery',async()=>{await receiver({onHeartbeat:async revision=>assert(revision>0,'bootstrap zero must not acknowledge current liveness')})(event('heartbeat',{id:1,revision:'0'}));});
  it('refuses numeric versions outside JavaScript exact integer range',async()=>{await assert.rejects(receiver()(event('clock',{tenant_id:A,last_stamp:9007199254740992})),/EVENT_VERSION/);});
+ it('preserves raw bigint version lexemes without changing clinical JSON and refuses lifecycle overflow',async()=>{
+   const raw=(table,name,value,extra=[])=>JSON.stringify(event(table,{tenant_id:A})).replace('"columns":[','"columns":[{"name":"'+name+'","type":"bigint","value":'+value+'},'+extra.map(value=>JSON.stringify(value)).join(',')+(extra.length?',':''));
+   const receive=receiver();for(const exact of ['9007199254740993','9223372036854775807']){const text=raw('clock','last_stamp',exact);await assert.rejects(receive(JSON.parse(text)),/EVENT_VERSION/);await receive(parse(text));assert.equal(observe[observe.length-1][2],exact);}
+   const clinical=parse('{"Data":{"columns":[{"name":"projection","type":"jsonb","value":{"name":"generation","type":"bigint","value":9007199254740993}}]}}');assert.equal(typeof clinical.Data.columns[0].value.value,'number');
+   const nested=parse('{"Data":{"columns":[{"name":"projection","type":"jsonb","value":{"generation":9007199254740993}}]}}');assert.equal(typeof nested.Data.columns[0].value.generation,'number');
+   await receive(parse(raw('lifecycle','generation','4611686018427387903',[{name:'phase',value:'suspended'}])));assert.equal(observe[observe.length-1][2],'9223372036854775807');await assert.rejects(receive(parse(raw('lifecycle','generation','4611686018427387904',[{name:'phase',value:'active'}]))),/EVENT_VERSION/);
+ });
+ it('suppresses typed outbox ACK feedback before output discovery and passes durable pending age to clinical ownership',async()=>{const receive=receiver({store:{consumer:'evaluator-test-completed',observe:async()=>({pendingAt:123})}});await receive(event('clock',{tenant_id:A,last_stamp:'1'}));assert.deepEqual(inputs,[[A,'clock',123]]);await receive(event('checkpoint',{tenant_id:A,consumer:'evaluator-test-completed',work_version:2,delivery_revision:'2',delivery_ack_revision:'2'}));assert.deepEqual(outputs,[]);await receive(event('checkpoint',{tenant_id:A,consumer:'evaluator-test-completed',work_version:2,delivery_revision:'3',delivery_ack_revision:'2'}));assert.deepEqual(outputs,[A]);});
  it('control: removing the durable await acknowledges before commit; the receipt criterion goes red',async()=>{
    const file=require.resolve('../lib/pgstream/receiver'),fs=require('node:fs'),vm=require('node:vm'),original=fs.readFileSync(file,'utf8');
    const broken=original.replace('await store.observe(', 'store.observe(');assert.notEqual(broken,original);
