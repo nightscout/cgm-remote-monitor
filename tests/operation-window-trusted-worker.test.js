@@ -141,3 +141,70 @@ describe('Explicit trusted worker operation boundary (source protocol)', functio
     await f.window.close();
   });
 });
+
+describe('Trusted owned-operation lower exclusion reuse (source protocol)', function () {
+  const turns = () => new Promise(resolve => setImmediate(resolve));
+  const lockCalls = f => f.log.filter(([sql]) => sql.includes('pg_try_advisory_lock_shared')).length;
+  async function exercise(createWindow) {
+    const f = fixture({trustedWorker:true}, createWindow);
+    await f.window.run(A, async () => {
+      for(let i=0;i<3;i++) {
+        const lease=await f.window.acquireClient(f.client,A);
+        try { assert.equal(await f.window.assertClient(f.client,A,lease),'1'); }
+        finally { await lease.close(); }
+      }
+    });
+    assert.equal(lockCalls(f),1,'LOWER_SQL_MUST_REUSE_REAL_OUTER_EXCLUSION');
+    assert.equal(f.log.filter(([sql])=>sql.includes('/* operation-window-current')).length,4,'every lower transaction still checks live authority');
+    assert.deepEqual([...f.pending.values()],[true]);
+    await f.window.close();
+  }
+  it('keeps one owned lifetime lock while every lower transaction checks its own admission', async()=>exercise());
+  it('does not borrow a trusted lifetime for default public work or for work without an outer operation', async()=>{
+    const publicFixture=fixture();await publicFixture.window.run(A,async()=>{const lease=await publicFixture.window.acquireClient(publicFixture.client,A);await lease.close();});
+    assert.equal(lockCalls(publicFixture),2);await publicFixture.window.close();
+    const trusted=fixture({trustedWorker:true});await trusted.window.ready();const lease=await trusted.window.acquireClient(trusted.client,A);await lease.close();assert.equal(lockCalls(trusted),1);await trusted.window.close();
+  });
+  it('keeps the durable marker and exclusion until admitted child SQL drains, but refuses new escaped children',async()=>{
+    const f=fixture({trustedWorker:true});let lower,entered,releaseLate,late;
+    const started=new Promise(resolve=>{entered=resolve;}),later=new Promise(resolve=>{releaseLate=resolve;});
+    let settled=false;
+    const work=f.window.run(A,async()=>{lower=await f.window.acquireClient(f.client,A);late=later.then(()=>f.window.acquireClient(f.client,A));entered();}).then(()=>{settled=true;});
+    await started;await turns();assert.equal(settled,false);assert.deepEqual([...f.pending.values()],[false]);
+    assert.equal(f.log.filter(([sql])=>sql.includes('pg_advisory_unlock_shared')).length,0);
+    releaseLate();await assert.rejects(late,{code:'LIFECYCLE_WINDOW_SCOPE_INVALID'});
+    await lower.close();await work;assert.deepEqual([...f.pending.values()],[true]);await f.window.close();
+  });
+  it('refuses inherited nested bodies and authority after the parent returns while admitted SQL drains',async()=>{
+    const f=fixture({trustedWorker:true});let lower,enter,release,late;
+    const started=new Promise(resolve=>{enter=resolve;}),gate=new Promise(resolve=>{release=resolve;});
+    const running=f.window.run(A,async()=>{lower=await f.window.acquireClient(f.client,A);late=gate.then(async()=>{assert.equal(f.window.current(A),false);assert.throws(()=>f.window.assertCurrent(A),{code:'LIFECYCLE_WINDOW_SCOPE_INVALID'});assert.throws(()=>f.window.currentGeneration(A),{code:'LIFECYCLE_WINDOW_SCOPE_INVALID'});await assert.rejects(f.window.run(A,()=>assert.fail('expired nested effect')),{code:'LIFECYCLE_WINDOW_SCOPE_INVALID'});});enter();});
+    await started;await turns();release();await late;await lower.close();await running;await f.window.close();
+  });
+  it('propagates a drained child failure and rejects child SQL after lifetime loss',async()=>{
+    const f=fixture({trustedWorker:true});const failure=Error('synthetic child SQL failed');
+    await assert.rejects(f.window.run(A,async()=>{const lease=await f.window.acquireClient(f.client,A);await lease.close(failure);}),error=>error===failure);
+    let release,entered,lower;const gate=new Promise(resolve=>{release=resolve;}),start=new Promise(resolve=>{entered=resolve;});
+    const work=f.window.run(A,async()=>{lower=await f.window.acquireClient(f.client,A);entered();await gate;});const ended=work.catch(error=>error);
+    await start;const lost=Error('synthetic lifetime transport loss');f.client.emit('error',lost);
+    await assert.rejects(f.window.assertClient(f.client,A,lower),{code:'LIFECYCLE_WINDOW_LEASE_INVALID'});
+    await lower.close();release();assert.equal(await ended,lost);await f.window.close();
+  });
+  for(const [name,change,code] of [
+    ['suspension',o=>{o.phase='suspended';},'LIFECYCLE_WINDOW_SUSPENDED'],
+    ['backend',o=>{o.sqlPid=124;},'LIFECYCLE_WINDOW_DATASTORE_CHANGED'],
+    ['restore generation',o=>{o.generation='2';},'LIFECYCLE_WINDOW_BINDING_CHANGED'],
+    ['role',o=>{o.superuser=true;},'LIFECYCLE_WINDOW_ROLE_UNSAFE']
+  ])it('retains current '+name+' checks on each borrowed lower transaction',async()=>{
+    const options={trustedWorker:true},f=fixture(options);
+    await f.window.run(A,async()=>{const lease=await f.window.acquireClient(f.client,A);try{change(options);await assert.rejects(f.window.assertClient(f.client,A,lease),{code});}finally{await lease.close();}});await f.window.close();
+  });
+  it('detects an ablated reuse branch and restores the original control',async()=>{
+    const fs=require('node:fs'),vm=require('node:vm'),file=require.resolve('../lib/tenant-lifecycle/operation-window');
+    const text=fs.readFileSync(file,'utf8'),needle='if (!lifetime && trustedWorker && !metadata && outer) {';
+    assert(text.includes(needle));const broken=text.replace(needle,'if (false && !lifetime && trustedWorker && !metadata && outer) {');
+    const output={exports:{}};vm.runInThisContext('(function(require,module,exports){'+broken+'\n})',{filename:file})(require('node:module').createRequire(file),output,output.exports);
+    await assert.rejects(exercise(output.exports.create),/LOWER_SQL_MUST_REUSE_REAL_OUTER_EXCLUSION/);
+    await exercise();
+  });
+});

@@ -17,7 +17,7 @@ module.exports = function fixture (options = {}, createWindow = create) {
     // Catalogue epoch, role, datastore and window row in one statement (operation-window.js).
     if ((text.includes('/* operation-window-epoch') || text.includes('/* operation-window-current'))) {
       const window = text.includes('-metadata') ? { read_only: options.metadataReadOnly || 'on' }
-        : { lock_key: options.key || (values[0] === B ? '19' : '17'), phase: options.phases?.[values[0]] || options.phase || 'active', generation: '1' };
+        : { lock_key: options.key || (values[0] === B ? '19' : '17'), phase: options.phases?.[values[0]] || options.phase || 'active', generation: options.generation || '1' };
       return { rows: [{ epoch: options.epochForSQL ? options.epochForSQL(text) : options.epoch || 'e'.repeat(64), rolsuper: !!options.superuser, rolbypassrls: false, ...datastore, ...options.datastore, pid: options.sqlPid || 123, ...window }] };
     }
     if (text.includes('pg_catalog.pg_control_system()')) return options.clusterRead ? options.clusterRead() : { rows: [{ cluster: options.cluster || '7000000000000000001' }] };
@@ -29,7 +29,7 @@ module.exports = function fixture (options = {}, createWindow = create) {
     if (text.includes('pg_try_advisory_lock_shared')) return { rows: [{ held: options.held !== false }] };
     if (text.includes('pg_advisory_unlock_shared')) return { rows: [{ released: options.unlock !== false }] };
     if (text === 'SHOW transaction_read_only') return { rows: [{ transaction_read_only: options.metadataReadOnly || 'on' }] };
-    if (text.startsWith('SELECT lock_key')) return { rows: [{ lock_key: options.key || (values[0] === B ? '19' : '17'), phase: options.phases?.[values[0]] || options.phase || 'active', generation: '1' }] };
+    if (text.startsWith('SELECT lock_key')) return { rows: [{ lock_key: options.key || (values[0] === B ? '19' : '17'), phase: options.phases?.[values[0]] || options.phase || 'active', generation: options.generation || '1' }] };
     if (text.startsWith('INSERT INTO')) { pending.set(values[1], false); return { rows: [], rowCount: 1 }; }
     if (text.startsWith('UPDATE')) { pending.set(values[1], true); return { rows: [], rowCount: 1 }; }
     return { rows: [], ...(['COMMIT','ROLLBACK'].includes(text) ? { command: text } : {}) };
