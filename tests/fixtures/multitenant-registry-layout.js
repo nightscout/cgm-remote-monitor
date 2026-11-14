@@ -42,6 +42,35 @@ function insertionGrants({namespace,domain,role,mode='serving'}) {
   return [...base,...(mode==='restore'?built.restoreGrants(role):built.servingGrants(role)),
     ...(mode==='restore'?['GRANT DELETE ON '+quote(namespace)+'.tenant_insertion_ordinal TO '+who]:[])];
 }
+function ownerGrants(l){
+  const ns=l.namespaces,r=l.roles,sql=[];
+  const schema=(name,who)=>sql.push('GRANT USAGE ON SCHEMA '+quote(ns[name])+' TO '+quote(r[who]));
+  const table=(name,logical=name)=>quote(ns[name])+'.'+quote(logical);
+  const grant=(privilege,name,who)=>sql.push('GRANT '+privilege+' ON '+name+' TO '+quote(r[who]));
+  for(const who of ['owner_writer','owner_reader'])for(const name of ['authorization','legacy','access']){schema(name,who);grant('SELECT','ALL TABLES IN SCHEMA '+quote(ns[name]),who);}
+  for(const name of [table('authorization','tenant_authorization_subjects'),table('legacy','legacy_credential_subjects')])grant('INSERT,UPDATE,DELETE',name,'owner_writer');
+  grant('INSERT',table('authorization','tenant_authorization_roles'),'owner_writer');
+  grant('INSERT,DELETE',table('authorization','tenant_authorization_subject_roles'),'owner_writer');
+  sql.push('REVOKE SELECT ON '+table('authorization','tenant_subject_admin_audit')+' FROM '+quote(r.owner_writer));
+  grant('INSERT',table('authorization','tenant_subject_admin_audit'),'owner_writer');
+  for(const name of ['tenant_authorization_config','tenant_authorization_roles','tenant_owner_policy','tenant_owner_actors'])grant('UPDATE(owner_fence)',table('authorization',name),'owner_writer');
+  return sql;
+}
+function lifetimeGrants(l,roles){
+  const ns=l.namespaces,r=l.roles,sql=[];
+  if(!Array.isArray(roles)||new Set(roles).size!==roles.length||roles.some(name=>!Object.hasOwn(r,name)))throw new TypeError('Explicit fixture lifetime identity names required');
+  const schema=(name,who)=>sql.push('GRANT USAGE ON SCHEMA '+quote(ns[name])+' TO '+quote(r[who]));
+  const table=(name,logical=name)=>quote(ns[name])+'.'+quote(logical);
+  const grant=(privilege,name,who)=>sql.push('GRANT '+privilege+' ON '+name+' TO '+quote(r[who]));
+  for(const who of roles){
+    schema('control',who);for(const name of ['schema_migrations','tenant_lifecycle_windows','tenant_lifecycle_operations'])grant('SELECT',table('control',name),who);
+    if(who.startsWith('lifetime_')){
+      grant('INSERT(tenant_id,operation_id,generation),UPDATE(finished)',table('control','tenant_lifecycle_operations'),who);
+      grant('EXECUTE','FUNCTION '+quote(ns.control)+'.tenant_lifecycle_backend_birth()',who);
+    }
+  }
+  return sql;
+}
 function grants(l) {
   const ns=l.namespaces,r=l.roles,sql=[];
   const schema=(name,who)=>sql.push('GRANT USAGE ON SCHEMA '+quote(ns[name])+' TO '+quote(r[who]));
@@ -67,13 +96,7 @@ function grants(l) {
   grant('SELECT,INSERT,UPDATE(acked_at,expires_at)',table('alarm','tenant_alarm_suppression'),'alarm');grant('SELECT',table('alarm','schema_migrations'),'alarm');
   for(const name of ['authorization','access'])grant('SELECT','ALL TABLES IN SCHEMA '+quote(ns[name]),'alarm');
   for(const name of ['tenant_notification_state','schema_migrations'])grant('SELECT',table('outbox',name),'alarm');
-  for(const who of ['owner_writer','owner_reader'])for(const name of ['authorization','legacy','access']){schema(name,who);grant('SELECT','ALL TABLES IN SCHEMA '+quote(ns[name]),who);}
-  for(const name of [table('authorization','tenant_authorization_subjects'),table('legacy','legacy_credential_subjects')])grant('INSERT,UPDATE,DELETE',name,'owner_writer');
-  grant('INSERT',table('authorization','tenant_authorization_roles'),'owner_writer');
-  grant('INSERT,DELETE',table('authorization','tenant_authorization_subject_roles'),'owner_writer');
-  sql.push('REVOKE SELECT ON '+table('authorization','tenant_subject_admin_audit')+' FROM '+quote(r.owner_writer));
-  grant('INSERT',table('authorization','tenant_subject_admin_audit'),'owner_writer');
-  for(const name of ['tenant_authorization_config','tenant_authorization_roles','tenant_owner_policy','tenant_owner_actors'])grant('UPDATE(owner_fence)',table('authorization',name),'owner_writer');
+  sql.push(...ownerGrants(l));
   // Tenant root (API_SECRET) subject administration on the api role: the owner-aware
   // writer's root plane. Reads owner actor rows for the last-owner guard, never locks
   // or writes them; no access schema, no legacy_credential_config, no audit reads.
@@ -99,13 +122,7 @@ function grants(l) {
   sql.push(...require('../../lib/tenant-lifecycle/tenant-phase').phaseGrants({namespace:ns.control,role:r.ownership_operator}));
   // Decision root-writer-fenced: root_writer joins the lower-role window reads; the api opens its
   // subject-admin store connection under the tenant operation window, whose admission reads these.
-  for(const who of Object.keys(r).filter(name=>!['operator','ownership_operator'].includes(name))){
-    schema('control',who);for(const name of ['schema_migrations','tenant_lifecycle_windows','tenant_lifecycle_operations'])grant('SELECT',table('control',name),who);
-    if(who.startsWith('lifetime_')){
-      grant('INSERT(tenant_id,operation_id,generation),UPDATE(finished)',table('control','tenant_lifecycle_operations'),who);
-      grant('EXECUTE','FUNCTION '+quote(ns.control)+'.tenant_lifecycle_backend_birth()',who);
-    }
-  }
+  sql.push(...lifetimeGrants(l,Object.keys(r).filter(name=>!['operator','ownership_operator'].includes(name))));
   sql.push(...require('../../lib/tenant-lifecycle/maintenance-window').operatorGrants({namespace:ns.control,role:r.operator}));
   sql.push('GRANT pg_read_all_stats TO '+quote(r.operator));
   // Restore's key-retention gate (lib/tenant-lifecycle/key-retention.js admitRestore/markRestored):
@@ -131,4 +148,4 @@ function lifecycle(l) {
     catalogues:Object.entries(tables).map(([name,tables])=>({kind:aliases[name]||name,candidate:selected[name],tables,secrets:name==='secrets'?['secret_records']:[]}))};
 }
 
-module.exports = { A, B, subject, clinical, ordered, serviceRoles, quote, catalogues, layout, insertionGrants, grants, lifecycle };
+module.exports = { A, B, subject, clinical, ordered, serviceRoles, quote, catalogues, layout, insertionGrants, ownerGrants, lifetimeGrants, grants, lifecycle };
