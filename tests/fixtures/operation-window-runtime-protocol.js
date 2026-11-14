@@ -15,7 +15,7 @@ module.exports = function fixture (options = {}, createWindow = create) {
     if (text && typeof text === 'object') ({ text, values } = text);
     log.push([text, values]);
     // Catalogue epoch, role, datastore and window row in one statement (operation-window.js).
-    if (text.includes('/* operation-window-epoch')) {
+    if ((text.includes('/* operation-window-epoch') || text.includes('/* operation-window-current'))) {
       const window = text.includes('-metadata') ? { read_only: options.metadataReadOnly || 'on' }
         : { lock_key: options.key || (values[0] === B ? '19' : '17'), phase: options.phases?.[values[0]] || options.phase || 'active', generation: '1' };
       return { rows: [{ epoch: options.epochForSQL ? options.epochForSQL(text) : options.epoch || 'e'.repeat(64), rolsuper: !!options.superuser, rolbypassrls: false, ...datastore, ...options.datastore, pid: options.sqlPid || 123, ...window }] };
@@ -35,5 +35,5 @@ module.exports = function fixture (options = {}, createWindow = create) {
     return { rows: [], ...(['COMMIT','ROLLBACK'].includes(text) ? { command: text } : {}) };
   };
   const pool = { options: { max: 1 }, connect: async () => client };
-  return { client, log, pending, window: createWindow({ namespace: 'synthetic_window', leaseSessionCount: options.leaseSessionCount, locks: [{ tenant: A, key: '17' }, { tenant: B, key: '19' }], pool }) };
+  return { client, pool, log, pending, window: createWindow({ namespace: 'synthetic_window', leaseSessionCount: options.leaseSessionCount, trustedWorker: options.trustedWorker, locks: [{ tenant: A, key: '17' }, { tenant: B, key: '19' }], pool }) };
 };
