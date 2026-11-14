@@ -152,7 +152,7 @@ describe('opt-in cold initialization queue', function () {
     const A='11111111-1111-4111-8111-111111111111';
     async function observe (mutant, request) {
       const f=require('./fixtures/operation-window-runtime-protocol')(),c=clock(),g=gate(c),jobs=new AsyncLocalStorage();let initialized=0;
-      const selected=isolated({},source=>mutant?source.replace('coldBackground.runInAsyncScope(() => coldAdmission.run(ticket, execute))','coldAdmission.run(ticket, execute)'):source);
+      const selected=isolated({},source=>mutant?source.replace('coldBackground.runInAsyncScope(() => coldAdmission.run(ticket, execute))','coldAdmission.run(ticket, execute)').replace('coldBackground.runInAsyncScope(() => attemptWarm(tenant))','attemptWarm(tenant)'):source);
       const s=jobs.run('boot-job',()=>selected.create([A],f.window,async tenant=>{
         f.window.assertCurrent(tenant);assert.equal(scope.currentTenant(),undefined,'background does not inherit request tenant authority');
         assert.equal(jobs.getStore(),'boot-job');initialized++;

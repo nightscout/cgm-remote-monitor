@@ -20,6 +20,54 @@ describe('independent tenant startup admission (source protocol)', function () {
   let mode;
   beforeEach(() => { mode = scope.getTenancyMode(); scope.setTenancyMode('multi'); });
   afterEach(() => scope.setTenancyMode(mode));
+  for (const keepParent of [false, true]) it(`gives queued default background warm its own window with ${keepParent ? 'active' : 'expired'} request parent`, async function () {
+    const f = fixture(), calls = [];
+    let enter, release, releaseRequest;
+    const entered = new Promise(resolve => { enter = resolve; });
+    const held = new Promise(resolve => { release = resolve; });
+    const requestHeld = new Promise(resolve => { releaseRequest = resolve; });
+    const ready = startup.create([], f.window, async tenant => {
+      f.window.assertCurrent(tenant); calls.push(tenant);
+      if (tenant === A) { enter(); await held; f.window.assertCurrent(A); }
+    }, {readiness:'serve', concurrency:1, accept:tenant => tenant === A || tenant === B, alert:()=>{}, drainedLog:()=>{}});
+    let request;
+    try {
+      request = f.window.run(A, async () => {
+        await assert.rejects(ready.admit(A), {code:'TENANT_WARMING'});
+        await entered;
+        if (keepParent) await requestHeld;
+      });
+      await entered;
+      if (!keepParent) await request;
+      await f.window.run(B, () => assert.rejects(ready.admit(B), {code:'TENANT_WARMING'}));
+      release(); await ready.drained();
+      assert.deepEqual(calls, [A,B], 'QUEUED_BACKGROUND_GETS_FRESH_TENANT_WINDOW');
+      assert.equal(ready.health().failed, 0); assert.equal(ready.isReady(A), true); assert.equal(ready.isReady(B), true);
+      await assert.rejects(ready.ensure(B), {code:'LIFECYCLE_WINDOW_SCOPE_INVALID'});
+      await assert.rejects(f.window.run(A, () => ready.ensure(B)), {code:'LIFECYCLE_WINDOW_SCOPE_INVALID'});
+    } finally { release(); releaseRequest(); await request; await ready.close(); await f.window.close(); }
+  });
+  it('closing default background startup drops queued work without ending the active tenant window', async function () {
+    const f = fixture(), calls = [];
+    let enter, release;
+    const entered = new Promise(resolve => { enter = resolve; }), held = new Promise(resolve => { release = resolve; });
+    const ready = startup.create([A,B], f.window, async tenant => {
+      calls.push(tenant); enter(); await held; f.window.assertCurrent(tenant);
+    }, {readiness:'serve', concurrency:1, alert:()=>{}, drainedLog:()=>{}});
+    try {
+      await ready.warm(); await entered;
+      await ready.close(); await ready.close(); release(); await ready.drained();
+      assert.deepEqual(calls, [A]); assert.equal(ready.isReady(A), true); assert.equal(ready.isReady(B), false);
+      assert.equal(ready.health().failed, 0);
+    } finally { release(); await ready.close(); await f.window.close(); }
+  });
+  it('refuses creating a background scheduler inside a request context', async function () {
+    const f = fixture();
+    try {
+      await assert.rejects(f.window.run(A, async () => startup.create([], f.window, async()=>{})),
+        error => ['COLD_START_AMBIENT_SCOPE','LIFECYCLE_WINDOW_AMBIENT_SCOPE'].includes(error.code));
+    } finally { await f.window.close(); }
+  });
   it('defers only genuine suspended A and initializes it on later actual admission, including invalidation', async function () {
     const options = { phases: {[A]: 'suspended'} }, f = fixture(options), calls = [];
     const ready = startup.create([A,B], f.window, async tenant => { f.window.assertCurrent(tenant); calls.push(tenant); });
