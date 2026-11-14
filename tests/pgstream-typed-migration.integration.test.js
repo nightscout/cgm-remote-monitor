@@ -1,7 +1,7 @@
 'use strict';
 const assert=require('node:assert/strict');
 const crypto=require('node:crypto');
-const {Client}=require('pg');
+const {Client,Pool}=require('pg');
 const {optInSuite}=require('./support/opt-in');
 const {run}=require('../lib/migrations/postgres');
 const catalogue=require('../lib/migrations/catalogue');
@@ -10,10 +10,10 @@ optInSuite(process.env.NS_PGSTREAM_ROLE_TEST==='1'&&!!process.env.NS_TEST_POSTGR
  this.timeout(30000);
  const namespace='typed_work_'+crypto.randomBytes(6).toString('hex'),tenant='00000000-0000-0000-0000-000000000001';
  const table='"'+namespace+'".tenant_consumer_checkpoint';
- let admin,connected=false;
+ let admin,connected=false,admissionPool;
  const migrate=()=>run('up',{direct:true,connectionString:process.env.NS_TEST_POSTGRES_ADMIN_URI,namespace,catalogue:candidate});
  before(async()=>{admin=new Client({connectionString:process.env.NS_TEST_POSTGRES_ADMIN_URI,connectionTimeoutMillis:5000});await admin.connect();connected=true;});
- after(async()=>{if(admin){try{if(connected)await admin.query('DROP SCHEMA IF EXISTS "'+namespace+'" CASCADE');}finally{await admin.end();}}});
+ after(async()=>{await admissionPool?.end();if(admin){try{if(connected)await admin.query('DROP SCHEMA IF EXISTS "'+namespace+'" CASCADE');}finally{await admin.end();}}});
  it('applies the appended DDL and replays the exact ledger without changing it',async()=>{
   const first=await migrate();assert.deepEqual(first.done,candidate.migrations.map(m=>m.name));
   const ledger=await admin.query('SELECT name,checksum FROM "'+namespace+'".schema_migrations ORDER BY name');
@@ -38,7 +38,10 @@ optInSuite(process.env.NS_PGSTREAM_ROLE_TEST==='1'&&!!process.env.NS_TEST_POSTGR
  });
  it('admits legacy exact versions and fractional due once, then makes the old reader refuse',async()=>{
   const checkpoint=require('../lib/pgstream/checkpoint');
+  admissionPool=new Pool({connectionString:process.env.NS_TEST_POSTGRES_ADMIN_URI,max:1});
   const port={query:(...args)=>admin.query(...args),withTenant:async(_tenant,fn)=>{await admin.query('BEGIN');try{const value=await fn();await admin.query('COMMIT');return value;}catch(e){await admin.query('ROLLBACK');throw e;}}};
+  // This suite isolates physical migration/admission SQL; native backend authority has separate gates.
+  port.admitEvaluatorTyped=options=>require('../lib/pgstream/work-state').admit({pool:admissionPool,observeBackend:async()=>{},...options});
   const options={connection:port,namespace,consumer:'evaluator-admit',maxBytes:1048576,timeIntervalMs:60000};
   const legacy=checkpoint.create(options),typed=checkpoint.create({...options,typed:true});
   const state={kind:'evaluator-work-v1',observed:{clock:'9007199254740993'},completed:{clock:'9007199254740993'},observedAt:{clock:0},pendingAt:null,nextDueAt:8572.42857142857,completedAt:0,enabled:true,output:null};
@@ -51,4 +54,56 @@ optInSuite(process.env.NS_PGSTREAM_ROLE_TEST==='1'&&!!process.env.NS_TEST_POSTGR
   assert.deepEqual(await typed.begin(tenant),{clock:'9007199254740993'});
  });
  it('rejects a changed migration checksum',()=>{const broken=structuredClone(candidate);broken.migrations[1].checksum='0'.repeat(64);assert.throws(()=>catalogue.validateCatalogue(broken),/checksum mismatch/);});
+});
+
+// Physical receipt SQL and COMMIT visibility; lifecycle fencing uses the
+// recording protocol fixture and does not certify native authority admission.
+optInSuite(process.env.NS_PGSTREAM_ROLE_TEST==='1'&&!!process.env.NS_TEST_POSTGRES_ADMIN_URI,'NS_PGSTREAM_ROLE_TEST=1 with disposable NS_TEST_POSTGRES_ADMIN_URI')('typed realtime receipt SQL on actual PostgreSQL',function(){
+ this.timeout(30000);
+ const namespace='typed_rt_'+crypto.randomBytes(6).toString('hex');
+ const tenant='11111111-1111-4111-8111-111111111111',worker='22222222-2222-4222-8222-222222222222',nextWorker='33333333-3333-4333-8333-333333333333';
+ const table='"'+namespace+'".tenant_consumer_checkpoint',consumer='realtime-native';
+ let admin,observer,connected=false,observerConnected=false,protocol,create,at=100,failCommit=false,commitGate=null,commitEntered=null,store;
+ const port={query:(...args)=>admin.query(...args),readOnly:(...args)=>admin.query(...args),withTenant:async(_tenant,fn)=>{await admin.query('BEGIN');try{const value=await fn();if(commitEntered)commitEntered();if(commitGate)await commitGate;if(failCommit)throw new Error('SYNTHETIC_RECEIPT_COMMIT_FAILURE');const committed=await admin.query('COMMIT');assert.equal(committed.command,'COMMIT');return value;}catch(e){await admin.query('ROLLBACK');throw e;}}};
+ const make=owner=>create({config:{namespaces:{checkpoint:namespace},consumer,maxTenants:2},connection:port,operationWindow:protocol.window,worker:owner,now:()=>at});
+ const row=async()=>((await observer.query(`SELECT output_received::text AS received,output_completed::text AS completed,output_retry_at::text AS retry,output_owner::text AS owner FROM ${table} WHERE tenant_id=$1 AND consumer=$2`,[tenant,consumer])).rows[0]);
+ before(async()=>{
+  admin=new Client({connectionString:process.env.NS_TEST_POSTGRES_ADMIN_URI,connectionTimeoutMillis:5000});await admin.connect();connected=true;
+  observer=new Client({connectionString:process.env.NS_TEST_POSTGRES_ADMIN_URI,connectionTimeoutMillis:5000});await observer.connect();observerConnected=true;
+  await run('up',{direct:true,connectionString:process.env.NS_TEST_POSTGRES_ADMIN_URI,namespace,catalogue:require('../migrations/candidates/postgres-realtime-output-v2.json')});
+  create=require('../lib/pgstream/realtime-receipt').create;
+  protocol=require('./fixtures/operation-window-runtime-protocol')({trustedWorker:true});await protocol.window.ready();store=make(worker);await store.verify();
+ });
+ beforeEach(async()=>{at=100;failCommit=false;commitGate=null;commitEntered=null;await admin.query(`DELETE FROM ${table}`);await admin.query(`INSERT INTO ${table} (tenant_id,consumer,contract_digest,checkpoint) VALUES ($1,$2,$3,0)`,[tenant,consumer,'a'.repeat(64)]);});
+ after(async()=>{await protocol?.window.close();if(observerConnected)await observer.end();if(admin){try{if(connected)await admin.query('DROP SCHEMA IF EXISTS "'+namespace+'" CASCADE');}finally{await admin.end();}}});
+ it('does not acknowledge receipt until physical COMMIT and rolls back a failed COMMIT',async()=>{
+  let release,entered;commitGate=new Promise(resolve=>{release=resolve;});const waiting=new Promise(resolve=>{entered=resolve;});commitEntered=entered;
+  let producerAck=false;const receiving=store.receive(tenant,'1').then(()=>{producerAck=true;});
+  try{await waiting;assert.equal((await row()).received,'0');assert.equal(producerAck,false);}
+  finally{commitEntered=null;commitGate=null;release();await receiving;}
+  assert.equal(producerAck,true);assert.equal((await row()).received,'1');
+  failCommit=true;await assert.rejects(store.receive(tenant,'2'),/SYNTHETIC_RECEIPT_COMMIT_FAILURE/);failCommit=false;assert.equal((await row()).received,'1');
+  await store.receive(tenant,'2');assert.equal((await row()).received,'2');
+ });
+ it('coalesces the same producer revision and preserves newer work across old completion or retry',async()=>{
+  await store.receive(tenant,'1');await store.receive(tenant,'1');assert.equal((await row()).received,'1');
+  const selected=await store.work();assert.deepEqual(selected,[{tenant,received:'1'}]);
+  await store.receive(tenant,'2');await store.retry(tenant,selected[0].received);assert.equal((await row()).retry,null);
+  await store.complete(tenant,selected[0].received);assert.equal((await row()).completed,'1');assert.deepEqual(await store.work(),[{tenant,received:'2'}]);
+  await store.retry(tenant,'2');assert.equal(await store.nextDue(),1100);assert.deepEqual(await store.work(),[]);
+  await store.receive(tenant,'2');assert.equal((await row()).retry,'1100','duplicate must not erase known backoff');
+  await store.receive(tenant,'3');assert.equal((await row()).retry,null);assert.deepEqual(await store.work(),[{tenant,received:'3'}]);
+  await store.complete(tenant,'3');assert.deepEqual(await store.work(),[]);assert.equal(await store.nextDue(),null);
+ });
+ it('recovers persisted pending receipts to a replacement worker and rejects the old worker ACK',async()=>{
+  await store.receive(tenant,'9007199254740993');await store.retry(tenant,'9007199254740993');
+  const replacement=make(nextWorker);await replacement.recover([tenant]);
+  assert.equal((await row()).received,'9007199254740993');assert.equal((await row()).owner,nextWorker);assert.equal((await row()).retry,null);
+  await assert.rejects(store.complete(tenant,'9007199254740993'),/REALTIME_RECEIPT_NOT_PROVISIONED_OR_REPLACED/);
+  assert.equal((await row()).completed,'0');await replacement.complete(tenant,'9007199254740993');assert.equal((await row()).completed,'9007199254740993');
+ });
+ it('rejects noncanonical or overflowing revisions before mutating the physical receipt',async()=>{
+  for(const value of ['0','01','9223372036854775808',9007199254740992])await assert.rejects(store.receive(tenant,value),/Exact positive delivery revision/);
+  assert.equal((await row()).received,'0');await store.receive(tenant,'9223372036854775807');await store.receive(tenant,'9223372036854775807');assert.equal((await row()).received,'9223372036854775807');
+ });
 });
