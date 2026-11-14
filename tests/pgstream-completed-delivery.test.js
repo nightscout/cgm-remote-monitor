@@ -73,6 +73,23 @@ describe('post-bootstrap operational refresh activation', function () {
 // Source protocol only: actual window, notification store and readiness; SQL
 // ports below simulate catalogues and do not establish native PostgreSQL proof.
 describe('trusted consumer operational catalogue admission', function () {
+  for (const operation of ['ready','consume']) it('awaits async admission before '+operation+' body and COMMIT', async function () {
+    const previous=scope.getTenancyMode();scope.setTenancyMode('multi');
+    const refusal=new Error('ASYNC_OPERATIONAL_ADMISSION_REFUSED');
+    let commits=0,rollbacks=0,queries=0,bodies=0;
+    const connection={async transaction(fn){try{const value=await fn();commits++;return value;}catch(error){rollbacks++;throw error;}},
+      async query(){queries++;throw new Error('PRODUCER_SQL_BEFORE_ADMISSION');}};
+    const reject=async()=>{await Promise.resolve();throw refusal;};
+    // Observe the returned promise too, so the old unawaited implementation's
+    // RED is the transaction assertion rather than an unhandled rejection.
+    const assertOperational=()=>{const pending=reject();pending.catch(()=>{});return pending;};
+    const store=require('../lib/tenant-notifications/postgres')({connection,namespace:'notification_test',maxRows:10,maxBytes:100000,assertOperational});
+    try {
+      await scope.withTenant(A,()=>assert.rejects(operation==='ready'?store.ready(A):store.consume({tenant:A,consumer:'test',transform:()=>{bodies++;throw new Error('PRODUCER_BODY_BEFORE_ADMISSION');}}),error=>error===refusal,'ASYNC_GUARD_MUST_REFUSE_BEFORE_TRANSACTION_BODY'));
+      assert.equal(queries,0);assert.equal(bodies,0);assert.equal(commits,0);assert.equal(rollbacks,1);
+    } finally {scope.setTenancyMode(previous);}
+  });
+
   it('verifies catalogues while tenant operations refuse, and a changed catalogue keeps the whole batch closed', async function () {
     const previous=scope.getTenancyMode();scope.setTenancyMode('multi');
     const f=require('./fixtures/operation-window-runtime-protocol')({trustedWorker:true});
