@@ -29,6 +29,39 @@ membership, ledger or object change therefore re-runs the admission on the next
 transaction (decision cost-proportional-to-activity, item 3; native coverage in
 tests/operation-window-epoch.integration.test.js).
 
+The private composer may explicitly select `trustedWorker: true` for a verified
+trusted evaluator process. This follows the adopted
+trusted worker performance boundary recorded at
+`releases/cgm-remote-monitor-16.0.0/decisions.md#trusted-worker-performance-boundary`
+in the alignment workspace. The default and public/routed windows retain the
+per-transaction catalogue epoch contract above. Trusted windows instead read the
+live role flags, physical backend/datastore identity and tenant window in every
+transaction, without computing the catalogue digest or running full admission
+for that tenant operation. Tenant locks, generation/phase checks, durable markers,
+rollback and orphan behavior still apply.
+
+The worker coordinator must call
+`window.verifyOperational(async () => { await readopt(window); await trusted.verify(); })`
+with the selected lower cohort's `readopt(window)` at startup, recovery and the existing bounded
+worker operational cadence, outside tenant execution budgets. The first method
+rechecks the lifetime role's complete catalogue admission and datastore identity;
+the latter reobserves each live lower pool and calls `window.verifyClient(client)`
+to recheck its lower admission. Admission remains withdrawn until the lifetime admission and the complete
+related-verification callback both succeed. Concurrent verification cannot reopen
+admission while another check is pending or after one fails. A verification
+failure withdraws trusted operation admission. Successful lower verification alone does not reopen it. The coordinator
+must withhold worker output during this joined verification and resume only when
+all checks pass. Catalogue drift between operational checks is detected at that
+boundary; immediate catalogue-change refusal tests continue to describe the
+default/public mode. This is an explicit process capability, never inferred from
+an ambient tenant lifetime.
+
+Overlapping same-tenant operation bodies on a bounded lifetime session share one
+physical session advisory lock. Every operation still registers in its own
+transaction. The last live lease unlocks; different tenants and nonoverlapping
+lifetimes acquire separately. Backend loss leaves unfinished markers and refuses
+lane reuse. No admission or lock ownership crosses physical backends.
+
 The new control tables are tenant_lifecycle_windows
 (tenant_id,lock_key,phase,generation,claim_id) and tenant_lifecycle_operations
 (tenant_id,operation_id,generation,finished,owner_pid,owner_birth). The windows

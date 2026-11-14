@@ -206,6 +206,39 @@ describe('Selected lower-port window cannot be omitted (source protocol)', funct
     body(name => name === 'pg' ? { Pool } : originalRequire(name), output, output.exports);
     return output.exports;
   }
+  it('screens trusted lower pools at startup and reobservation instead of each tenant transaction', async function () {
+    let unsafe = false;
+    const options = { trustedWorker: true, catalogueMutate(kind, rows) { if (unsafe && kind === 'role') rows[0].elevated = true; } };
+    const f = fixture(options), lower = lowerModule(f), scope = require('../lib/storage/tenant-scope');
+    const previous = scope.getTenancyMode(); scope.setTenancyMode('multi');
+    await f.window.ready(); const release = lower.installOperationWindow(f.window); let store;
+    const admissions = () => f.log.filter(row => row[0].includes('operation-window-role')).length;
+    try {
+      const startup = admissions();
+      store = await lower({ connectionString: 'postgresql://synthetic/disposable_test' });
+      assert.equal(admissions(), startup + 1, 'full lower admission at pool startup');
+      const baseline = admissions();
+      for (let i = 0; i < 3; i++) await scope.withTenant(A, () => store.query('SELECT trusted_body'));
+      assert.equal(admissions(), baseline);
+      assert(!f.log.some(row => row[0].includes('/* operation-window-epoch')));
+      unsafe = true;
+      await assert.rejects(lower.readopt(f.window), { code: 'LIFECYCLE_WINDOW_SCHEMA_UNSAFE' });
+      await assert.rejects(scope.withTenant(A, () => store.query('SELECT withdrawn_body')), { code: 'LIFECYCLE_WINDOW_SCHEMA_UNSAFE' });
+      assert(!f.log.some(row => row[0] === 'SELECT withdrawn_body'));
+      unsafe = false; await f.window.verifyOperational(); await lower.readopt(f.window);
+      await scope.withTenant(A, () => store.query('SELECT restored_trusted_body'));
+    } finally { if (store) await store.end(); release(); await f.window.close(); scope.setTenancyMode(previous); }
+  });
+  it('rejects a trusted lower pool whose startup catalogue admission fails', async function () {
+    let unsafe = false;
+    const f = fixture({ trustedWorker: true, catalogueMutate(kind, rows) { if (unsafe && kind === 'role') rows[0].elevated = true; } });
+    const lower = lowerModule(f); await f.window.ready(); const release = lower.installOperationWindow(f.window); let created;
+    try {
+      unsafe = true;
+      await assert.rejects(async () => { created = await lower({ connectionString: 'postgresql://synthetic/disposable_test' }); }, { code: 'LIFECYCLE_WINDOW_SCHEMA_UNSAFE' });
+      assert.equal(lower.cohortBackends(f.window).length, 0);
+    } finally { if (created) await created.end(); release(); await f.window.close(); }
+  });
   for (const table of ['tenant_lifecycle_restore_resume','tenant_lifecycle_operation_clearance']) for (const path of ['lower','lifetime']) {
     it('cached '+path+' admission refuses '+table+' drift before body SQL and restores',async function () {
       let unsafe=false;
