@@ -27,6 +27,24 @@ describe('completed-output delivery reuse', function () {
       service.wake(A);await service.tick();assert.equal(service.last(A).checkpoint,3);
     } finally {await service.close();}
   });
+  it('queues only an unwatched tenant requested after operational epoch change before any peer exists', async function () {
+    let timer,worker={available:true,generation:1},reads=new Map([[A,0],[B,0]]);
+    const service=await runtime({tenants:[A,B],eventDriven:true,recoveryIntervalMs:1000,workerState:()=>worker,
+      watchedTenants:()=>[],readCurrent:async tenant=>({tenant,identity:tenant}),
+      detect:async tenants=>new Map(tenants.map(tenant=>[tenant,{identity:tenant,stamp:1}])),
+      create:current=>({acquire:async()=>{reads.set(current.tenant,reads.get(current.tenant)+1);return {tenant:current.tenant,checkpoint:1,frame:{},rows:[]};}}),
+      fanout:async()=>{},schedule:fn=>{timer=fn;return 1;},cancel(){}});
+    try {
+      worker={available:false,generation:2};assert.equal(service.requestWarm(A),false);
+      assert.equal(service.warm(A),false);assert.equal(service.last(A),null);
+      worker={available:true,generation:2};await timer();
+      assert.equal(service.warm(A),false,'UNWATCHED_OLD_EPOCH_REMAINS_UNAVAILABLE');
+      assert.equal(service.requestWarm(A),false,'DEMAND_MUST_NOT_ACCEPT_STALE_MODEL');await service.tick();
+      assert.equal(service.warm(A),true,'DEMAND_BEFORE_PEER_MUST_REACQUIRE_CURRENT_EPOCH');
+      assert.equal(service.requestWarm(A),true);assert.equal(service.warm(B),false);
+      assert.equal(reads.get(A),2);assert.equal(reads.get(B),1,'NO_ROSTER_REACQUISITION');
+    } finally {await service.close();}
+  });
   it('reads a tenant/current/control-checked frame without a write-only realtime cursor or clinical result copy', async function () {
     const previous=scope.getTenancyMode();scope.setTenancyMode('multi');
     let digest, enabled=true, completedVersion='1', restore=7, identity='current';
