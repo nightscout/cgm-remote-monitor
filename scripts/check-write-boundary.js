@@ -116,6 +116,15 @@ const CLOCK_EXEMPT = {
   'lib/storage/postgres-write-clock.js': 'the clock row itself',
   'lib/storage/postgres-durable-replay.js': "a consumer's own checkpoint, not clinical input"
 };
+// The shared connection also owns these fixed metadata updates. Classify the
+// statement and method, rather than exempting every future write in that module.
+const CLOCK_METADATA_WRITES = {
+  'lib/storage/postgres-connection.js': {
+    observeEvaluator: { reason: 'consumer observed receipt, not clinical input', sql: /^\s*UPDATE\s+SET\s+projection\s*=\s*jsonb_build_array\b/i },
+    observeEvaluatorMany: { reason: 'batched consumer observed receipts, not clinical input', sql: /^\s*WITH\b[\s\S]*\)\s*UPDATE\s+AS\s+checkpoint\s+SET\s+projection\s*=/i },
+    pulsePgstream: { reason: 'deployment heartbeat, not a tenant clinical write', sql: /^\s*UPDATE\s+\.nightscout_heartbeat\s+SET\s+revision\s*=/i }
+  }
+};
 function staticText(node) {
   if (!node) return '';
   if (node.type === 'StringLiteral') return node.value;
@@ -128,7 +137,8 @@ function staticText(node) {
 // as privilege names) and row-lock clauses are not statements.
 function mutation(text) {
   const sql = text.replace(/\/\*[\s\S]*?\*\//g, ' ').replace(/'[^']*'/g, "''").replace(/FOR\s+(NO\s+KEY\s+)?UPDATE/gi, ' ');
-  const found = /^\s*(INSERT|UPDATE|DELETE)\b/i.exec(sql) || /\bAS\s*\(\s*(INSERT|UPDATE|DELETE)\b/i.exec(sql);
+  const found = /^\s*(INSERT|UPDATE|DELETE)\b/i.exec(sql) || /\bAS\s*\(\s*(INSERT|UPDATE|DELETE)\b/i.exec(sql)
+    || /^\s*WITH\b[\s\S]*?\)\s*(INSERT|UPDATE|DELETE)\b/i.exec(sql);
   return found ? found[1].toUpperCase() : null;
 }
 function checkClock(source) {
@@ -164,15 +174,24 @@ function checkClock(source) {
   if (!statements) failures.push('clinical writer has no mutating statement: the gate would be vacuous');
   return failures;
 }
-function checkClockInventory(root) {
+function checkClockInventory(root, sources = {}) {
   const failures = [];
   const dir = path.join(root, 'lib/storage');
   for (const file of fs.readdirSync(dir).filter(name => /^postgres-.*\.js$/.test(name)).sort()) {
     const relative = 'lib/storage/' + file;
     if (CLOCK_WRITERS.includes(relative) || Object.hasOwn(CLOCK_EXEMPT, relative)) continue;
-    const ast = babel.parseSync(fs.readFileSync(path.join(dir, file), 'utf8'), {babelrc: false, configFile: false, sourceType: 'script'});
-    walk(ast, null, node => {
-      if (node.type === 'CallExpression' && member(node.callee).endsWith('.query') && mutation(staticText(node.arguments[0]))) {
+    const source = Object.hasOwn(sources, relative) ? sources[relative] : fs.readFileSync(path.join(dir, file), 'utf8');
+    const ast = babel.parseSync(source, {babelrc: false, configFile: false, sourceType: 'script'});
+    const owners = new WeakMap();
+    walk(ast, null, (node, parent) => {
+      const owner = ['FunctionDeclaration', 'FunctionExpression', 'ArrowFunctionExpression', 'ObjectMethod'].includes(node.type)
+        ? node.id?.name || node.key?.name : owners.get(parent);
+      owners.set(node, owner);
+      const text = node.type === 'CallExpression' ? staticText(node.arguments[0]) : '';
+      const kind = mutation(text);
+      if (node.type === 'CallExpression' && member(node.callee).endsWith('.query') && kind) {
+        const metadata = CLOCK_METADATA_WRITES[relative]?.[owner];
+        if (kind === 'UPDATE' && metadata?.reason && metadata.sql.test(text) && !/;|\b(?:INSERT|DELETE)\b/i.test(text)) return;
         failures.push(relative + ': mutating SQL at line ' + node.loc.start.line + ' in an unclassified PostgreSQL storage module: list it as a clock writer or exempt it with a reason');
       }
     });
@@ -199,4 +218,4 @@ function main() {
     + ' tenant write clock advanced by every mutating statement in ' + CLOCK_WRITERS.join(', '));
 }
 if (require.main === module) main();
-module.exports = {check, checkSocketWrapper, checkClock, checkClockInventory, ADAPTERS, SOCKET_WRAPPER, CLOCK_WRITERS, CLOCK_EXEMPT};
+module.exports = {check, checkSocketWrapper, checkClock, checkClockInventory, ADAPTERS, SOCKET_WRAPPER, CLOCK_WRITERS, CLOCK_EXEMPT, CLOCK_METADATA_WRITES};

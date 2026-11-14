@@ -267,37 +267,40 @@ describe('owner configuration serving source composition', function () {
     assert.equal(await observe(false), 1);
   });
 
-  it('lazy display metadata readiness preserves real A/B scopes, uses ZERO only unbound and refuses invalid rebinding', async function () {
+  it('lazy display reads screen and resolve values in each real tenant snapshot', async function () {
     const scope = require('../lib/storage/tenant-scope'), previous = scope.getTenancyMode();
     const file = path.resolve(__dirname, '../lib/tenant-settings/effective-postgres.js');
     const lazyFile = path.resolve(__dirname, '../lib/tenant-settings/presentation-reader.js');
     const source = fs.readFileSync(file, 'utf8');
     const options = { connectionString: 'synthetic-display', namespaces: { settings: 'settings', operatorPolicy: 'policy' } };
-    function factory (broken = false) {
-      const observed = { bindings: [], metadata: 0, ended: 0 };
+    function factory ({ wrongBinding = false, omitScreen = false, unsafe = false } = {}) {
+      const observed = { snapshots: [], metadata: 0, values: 0, ended: 0, catalogues: [] };
       const connection = {
-        withTenant (tenant, fn) { observed.bindings.push(tenant); return scope.withTenant(tenant, fn); },
-        async query (sql, params) {
-          if (sql.includes('FROM pg_class')) {
-            observed.metadata++;
-            assert.deepEqual(params, [['"settings".tenant_settings', '"policy".tenant_operator_policy']]);
-            assert.match(sql, /relrowsecurity AND c.relforcerowsecurity/);
-            assert.match(sql, /has_any_column_privilege/);
-            return { rows: [0, 1].map(() => ({ secured: true, owns: false, reads: true, writes: false })) };
-          }
-          assert.equal(params[0], scope.currentTenant());
-          return { rows: [{ version: 1, values: { DISPLAY_UNITS: 'mmol' }, generation: 1, policy: { deployment: {}, overrides: {} } }] };
+        readOnlySnapshot (tenant, fn) {
+          observed.snapshots.push(tenant);
+          return scope.withTenant(tenant, () => fn({ query: async (sql, params) => {
+            assert.equal(scope.currentTenant(), tenant);
+            if (sql.includes('FROM pg_roles')) return { rows: [{ rolsuper: unsafe, rolbypassrls: false, rolcreaterole: false, rolcreatedb: false, rolreplication: false }] };
+            if (sql.includes(' AS creates,')) return { rows: [{ creates: false, mutates: false }] };
+            if (sql.includes('FROM pg_class')) {
+              observed.metadata++;
+              assert.deepEqual(params, [['"settings".tenant_settings', '"policy".tenant_operator_policy']]);
+              return { rows: [0, 1].map(() => ({ secured: true, owns: false, reads: true, writes: false })) };
+            }
+            observed.values++; assert.equal(params[0], tenant);
+            return { rows: [{ version: 1, values: { DISPLAY_UNITS: 'mmol' }, generation: 1, policy: { deployment: {}, overrides: {} } }] };
+          } }));
         }, async end () { observed.ended++; }
       };
       const loaded = new Module(file, module); loaded.filename = file; loaded.paths = Module._nodeModulePaths(path.dirname(file));
-      const original = loaded.require.bind(loaded);
+      const original = loaded.require.bind(loaded), checks = original('../migrations/postgres-check');
       loaded.require = name => name === '../storage/postgres-connection' ? async () => connection
-        : name === './readiness' ? async () => {}
-          : name === '../migrations/postgres' ? { run: async action => assert.equal(action, 'check') } : original(name);
-      const needle = "const metadataTenant = bound === undefined ? '00000000-0000-0000-0000-000000000000' : bound;";
-      assert.equal(source.split(needle).length, 2);
-      loaded._compile(broken ? source.replace(needle, "const metadataTenant = '00000000-0000-0000-0000-000000000000';") : source, file);
-      return { open: loaded.exports, observed };
+        : name === '../migrations/postgres-check' ? { ...checks, options: opts => opts, inspect: async (_query, opts) => { observed.catalogues.push(opts.namespace); return { current: true }; } } : original(name);
+      const binding = 'connection.readOnlySnapshot(tenant, async ({ query }) => {';
+      assert(source.includes(binding)); assert(source.includes('await screen(query);'));
+      let selected = wrongBinding ? source.replace(binding, "connection.readOnlySnapshot('00000000-0000-0000-0000-000000000000', async ({ query }) => {") : source;
+      if (omitScreen) selected = selected.replace('await screen(query);', '');
+      loaded._compile(selected, file); return { open: loaded.exports, observed };
     }
     function lazy (open) {
       const loaded = new Module(lazyFile, module); loaded.filename = lazyFile; loaded.paths = Module._nodeModulePaths(path.dirname(lazyFile));
@@ -310,19 +313,27 @@ describe('owner configuration serving source composition', function () {
         const f = factory(), reader = lazy(f.open);
         await scope.withTenant(tenant, async () => {
           assert.equal((await reader.read(tenant)).effective.DISPLAY_UNITS.value, 'mmol');
+          assert.equal((await reader.read(tenant)).effective.DISPLAY_UNITS.value, 'mmol');
           await reader.close();
         });
-        assert.deepEqual(f.observed.bindings, [tenant, tenant]); assert.equal(f.observed.metadata, 1); assert.equal(f.observed.ended, 1);
+        assert.deepEqual(f.observed.snapshots, [tenant, tenant]);
+        assert.equal(f.observed.metadata, 2); assert.equal(f.observed.values, 2); assert.equal(f.observed.ended, 1);
+        assert.deepEqual(f.observed.catalogues, ['settings', 'policy', 'settings', 'policy']);
       }
-      const unbound = factory(), resource = await unbound.open(options); await resource.close();
-      assert.deepEqual(unbound.observed.bindings, ['00000000-0000-0000-0000-000000000000']);
-      const invalid = factory();
-      await assert.rejects(scope.withTenant('not-canonical', () => invalid.open(options)), /Canonical settings metadata tenant/);
-      assert.equal(invalid.observed.metadata, 0); assert.equal(invalid.observed.ended, 1);
+      const unbound = factory(), resource = await unbound.open(options);
+      assert.deepEqual(unbound.observed.snapshots, [], 'opening the lazy resource invents no metadata tenant');
+      await assert.rejects(resource.read('not-canonical'), /Canonical settings tenant/);
+      assert.equal(unbound.observed.metadata, 0); await resource.close();
       assert.throws(() => scope.withTenant(A, () => scope.withTenant(B, () => {})), /cannot rebind/);
-      const broken = factory(true);
-      await assert.rejects(scope.withTenant(A, () => broken.open(options)), /cannot rebind the tenant inside an existing tenant scope/);
-      assert.equal(broken.observed.metadata, 0); assert.equal(broken.observed.ended, 1);
+      const broken = factory({ wrongBinding: true }), rebound = await broken.open(options);
+      await assert.rejects(scope.withTenant(A, () => rebound.read(A)), /cannot rebind/);
+      assert.equal(broken.observed.metadata, 0); assert.equal(broken.observed.values, 0); await rebound.close();
+      const unsafe = factory({ unsafe: true }), denied = await unsafe.open(options);
+      await assert.rejects(scope.withTenant(A, () => denied.read(A)), /unsafe settings identity/);
+      assert.equal(unsafe.observed.values, 0); await denied.close();
+      const omitted = factory({ unsafe: true, omitScreen: true }), bypassed = await omitted.open(options);
+      assert.equal((await scope.withTenant(A, () => bypassed.read(A))).effective.DISPLAY_UNITS.value, 'mmol', 'omitting the actual screen falsifies denied-read protection');
+      await bypassed.close();
     } finally { scope.setTenancyMode(previous); }
   });
 
