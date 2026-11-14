@@ -85,7 +85,11 @@ optInSuite(process.env.NS_PGSTREAM_ROLE_TEST==='1' && !!process.env.NS_TEST_POST
      const current=await output(lab.B),progress=service.health([lab.B]).tenants[0].progress;
      assert.equal(progress.failedCompletions,0,'NATIVE_COLD_DUE_MUST_ACQUIRE');assert.equal(progress.completedAcquisitions,1);
      assert.equal(current.output.frame.sgvs[0].mgdl,123);assert.equal(current.output.outputRevision,before.output.outputRevision,'RETAINED_CONTENT_REVISION_MUST_NOT_DUPLICATE');
-     assert.deepEqual(current.completed,current.observed);assert(current.nextDueAt>at);assert.deepEqual(await lab.clock(lab.B),clock,'NO_CLINICAL_WRITE_FOR_RECOVERY');
+     assert.deepEqual(current.completed,current.observed);
+     assert.equal(seeded.due.dueAt,null);assert.deepEqual(seeded.due.slow,[]);
+     assert.equal(current.nextDueAt,seeded.due.dueAt);assert.deepEqual(current.output.result.due,seeded.due);
+     assert.deepEqual(await lab.clock(lab.B),clock,'NO_CLINICAL_WRITE_FOR_RECOVERY');
+     console.log('PGSTREAM_RETAINED_DUE '+JSON.stringify({computed:seeded.due,persisted:current.nextDueAt}));
    }finally{release();await service.close();await window.window.close();}
  });
 
