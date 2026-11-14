@@ -54,6 +54,10 @@ const IMAGES = {
 const PENDING = 'pending opt-in';
 const CRUD = { NS_ENTRIES_CRUD_HTTP_TEST: '1' };
 const INVENTORY = [
+  { file: 'tests/pgstream-typed-migration.integration.test.js', flags: { NS_PGSTREAM_ROLE_TEST: '1' }, shared: ['postgres'], own: [], gate: PENDING,
+    note: 'typed catalogue replay, exact bigint/null/epoch codecs, bounded legacy admission, durable receipt COMMIT and revision recovery' },
+  { file: 'tests/pgstream-typed-checkpoint.integration.test.js', flags: { NS_PGSTREAM_ROLE_TEST: '1' }, shared: ['postgres'], own: [], gate: PENDING,
+    note: 'native typed observed/completed/due/output state and independent output handoff with current source authority' },
   { file: 'tests/pgstream-bootstrap-batch.integration.test.js', flags: { NS_PGSTREAM_ROLE_TEST: '1' }, shared: ['postgres'], own: [], gate: PENDING,
     note: 'native bounded bootstrap receipts preserve completed output, due work, pending age and unknown checkpoint fields' },
   { file: 'tests/pgstream-checkpoint.integration.test.js', flags: { NS_PGSTREAM_ROLE_TEST: '1' }, shared: ['postgres'], own: [], gate: PENDING,

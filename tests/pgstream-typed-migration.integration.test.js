@@ -150,3 +150,43 @@ optInSuite(process.env.NS_PGSTREAM_ROLE_TEST==='1'&&!!process.env.NS_TEST_POSTGR
  });
 
 });
+
+// Actual lower-port snapshots; this checks concurrent bytes/revisions, while
+// serving assignment and lifecycle exclusion keep their separate native gates.
+optInSuite(process.env.NS_PGSTREAM_ROLE_TEST==='1'&&!!process.env.NS_TEST_POSTGRES_ADMIN_URI,'NS_PGSTREAM_ROLE_TEST=1 with disposable NS_TEST_POSTGRES_ADMIN_URI')('typed delivery snapshot on actual PostgreSQL',function(){
+ this.timeout(30000);
+ const lab=require('./fixtures/tenant-projection-evaluator')();
+ let store,table,publish=false,snapshot=true,physicalReads=0;
+ const identity='a'.repeat(64),consumer='evaluator-snapshot';
+ const body=revision=>({tenant:lab.A,inputCheckpoint:revision,checkpoint:revision,trigger:'acquisition',result:{privateResult:'must stay in evaluator'},rows:[],frame:{revision,lastUpdated:revision}});
+ const seed=revision=>lab.admin.query('UPDATE '+table+' SET output_revision=$3,output_digest=$4,projection=$5::jsonb WHERE tenant_id=$1 AND consumer=$2',[lab.A,store.consumer,revision,String(revision).repeat(64),JSON.stringify([{kind:'evaluator-work-v2',output:body(revision)}])]);
+ before(async()=>{
+  await lab.open();table='"'+lab.replayNamespace+'".tenant_consumer_checkpoint';
+  await run('up',{direct:true,connectionString:process.env.NS_TEST_POSTGRES_ADMIN_URI,namespace:lab.replayNamespace,catalogue:candidate});
+  const checkpoint=require('../lib/pgstream/checkpoint');
+  await lab.admin.query('GRANT UPDATE('+checkpoint.WORK_COLUMNS.join(',')+') ON '+table+' TO "'+lab.readerRole+'"');
+  await lab.admin.query('CREATE POLICY typed_snapshot_metadata ON '+table+' TO "'+lab.readerRole+'" USING (consumer=\''+consumer+'-completed\') WITH CHECK (consumer=\''+consumer+'-completed\')');
+  const port={...lab.reader,snapshotTransaction:fn=>snapshot?lab.reader.snapshotTransaction(fn):fn(),query:async(text,values)=>{
+   const result=await lab.reader.query(text,values);
+   if(/AS output\b/.test(text))physicalReads++;
+   if(publish&&/AS output_summary/.test(text)){publish=false;await seed(2);}
+   return result;
+  }};
+  store=checkpoint.create({typed:true,connection:port,namespace:lab.replayNamespace,consumer,maxBytes:1048576,timeIntervalMs:60000});
+  await lab.provision(store.consumer,lab.A,null,0,store.digest);await store.admit([lab.A]);
+  await lab.admin.query('UPDATE '+table+' SET output_identity=$3,output_restore_generation=1 WHERE tenant_id=$1 AND consumer=$2',[lab.A,store.consumer,identity]);
+ });
+ after(async()=>{await store?.close();await lab.close();});
+ const coherent=output=>{assert.equal(output.outputRevision,output.frame.revision,'REVISION_FRAME_MUST_SHARE_SNAPSHOT');assert.equal(Object.hasOwn(output,'result'),false,'DELIVERY_MUST_NOT_COPY_CLINICAL_RESULT');};
+ it('keeps publication between metadata and frame in one snapshot, with a broken/restored native control',async()=>{
+  await seed(1);publish=true;coherent(await store.output(lab.A,identity,{delivery:true}));
+  await seed(1);snapshot=false;publish=true;const broken=await store.output(lab.A,identity,{delivery:true});
+  assert.throws(()=>coherent(broken),/REVISION_FRAME_MUST_SHARE_SNAPSHOT/);
+  snapshot=true;await seed(1);publish=true;coherent(await store.output(lab.A,identity,{delivery:true}));
+ });
+ it('acquires one result-free physical output per revision and reuses the intact retained delivery',async()=>{
+  await seed(1);const first=await store.output(lab.A,identity,{delivery:true});coherent(first);
+  const before=physicalReads;assert.equal(await store.output(lab.A,identity,{delivery:true,retained:first}),first);assert.equal(physicalReads,before);
+  await seed(2);const next=await store.output(lab.A,identity,{delivery:true,retained:first});coherent(next);assert.equal(physicalReads,before+1);
+ });
+});
