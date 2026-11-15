@@ -41,6 +41,13 @@
         "REVOKE ALL ON tenant_connector_sources, tenant_connector_source_history FROM PUBLIC"
       ],
       "checksum": "fb11beab83a096ea8c0d84fa433e6097b0a19107086901cbbbc87d090af2cbd5"
+    },
+    {
+      "name": "0004_tenant_settings_validator_execution",
+      "up": [
+        "REVOKE EXECUTE ON FUNCTION tenant_settings_values_valid(jsonb) FROM PUBLIC"
+      ],
+      "checksum": "06152edd106ba85024a4a47c75072839bfa5cff1e8d13a26f481ffc7fea5bb9a"
     }
   ]
 }

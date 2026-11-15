@@ -288,6 +288,7 @@ optInSuite(process.env.NS_SECRETS_POSTGRES_DOCKER_TEST === '1', 'NS_SECRETS_POST
         await run('up', { direct: true, connectionString: adminURI, namespace: settingsNamespace, catalogue: settingsCatalogue });
         await run('check', { direct: true, connectionString: adminURI, namespace: settingsNamespace, catalogue: settingsCatalogue });
         await admin.query(`GRANT USAGE ON SCHEMA "${settingsNamespace}" TO ${appRole}`);
+        for (const sql of require('../lib/tenant-settings/function-privileges').writerGrants({namespace:settingsNamespace,role:appRole})) await admin.query(sql);
         await admin.query(`GRANT SELECT, INSERT, UPDATE ON ${settingsTable} TO ${appRole}`);
         await admin.query(`GRANT SELECT, INSERT ON ${historyTable} TO ${appRole}`);
         const stores = [];

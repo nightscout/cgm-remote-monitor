@@ -31,6 +31,13 @@
         "ALTER TABLE pool_desired ENABLE ALWAYS TRIGGER pool_mutation_protocol"
       ],
       "checksum": "7c0b73cd5e3740a0dea65f23e79385cefc34f470edcfd0c2a796d2beeed10f36"
+    },
+    {
+      "name": "0004_pool_mutation_function_execution",
+      "up": [
+        "REVOKE EXECUTE ON FUNCTION pool_mutation_lock_required() FROM PUBLIC"
+      ],
+      "checksum": "fb9d714a8c9f9cf7d0e9847cff15a0159bfb24da0d3756d824713d7abf1ee7a4"
     }
   ]
 }

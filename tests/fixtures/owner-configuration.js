@@ -86,6 +86,7 @@ module.exports = function ownerConfigurationFixture () {
       await data.admin.query(`GRANT USAGE ON SCHEMA "${schema}" TO "${roles.display}"`);
       await data.admin.query(`GRANT SELECT ON "${schema}".schema_migrations TO "${roles.display}"`);
     }
+    for (const sql of require('../../lib/tenant-settings/function-privileges').writerGrants({namespace:namespaces.settings,role:roles.settings})) await data.admin.query(sql);
     await data.admin.query(`GRANT SELECT,INSERT,UPDATE ON ${settingsTable} TO "${roles.settings}"`);
     await data.admin.query(`GRANT SELECT,INSERT ON ${historyTable} TO "${roles.settings}"`);
     await data.admin.query(`GRANT SELECT ON ${policyTable} TO "${roles.settings}","${roles.display}"`);
