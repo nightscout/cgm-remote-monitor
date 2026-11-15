@@ -11,7 +11,7 @@ const { EventEmitter } = require('node:events');
 const scope = require('../lib/storage/tenant-scope');
 const protocolFactory = require('../lib/server/realtime/protocol');
 const { CAUSES } = protocolFactory;
-const A = '55555555-5555-4555-8555-555555555555';
+const A = '55555555-5555-4555-8555-555555555555', B = '66666666-6666-4666-8666-666666666666';
 const env = require('../lib/server/tenant-app/environment')({ settings: { enable: ['bgnow'] } });
 const sleep = ms => new Promise(resolve => setTimeout(resolve, ms));
 async function until (predicate, timeoutMs) { const t0 = Date.now(); while (!predicate()) { if (Date.now() - t0 > timeoutMs) return false; await sleep(5); } return true; }
@@ -24,7 +24,7 @@ class Socket extends EventEmitter {
   disconnect () { this.connected = false; this.disconnected = true; super.emit('disconnect'); }
 }
 const frameOf = sgv => ({ identity: 'same', checkpoint: sgv, rows: [], frame: { delta: false, lastUpdated: sgv, sgvs: [{ mgdl: 100 + sgv, mills: sgv }] } });
-function lab ({ deadlineMs = 600000 } = {}) {
+function lab ({ deadlineMs = 600000, factory = protocolFactory } = {}) {
   // api: 'read' (all rights), 'noread' (answered, no read), 'denied', 'unavailable' (not ready: codeless, retried)
   const ctl = { api: 'read', window: 'pass', frame: frameOf(1) };
   const runtime = { warm: () => true, wake () {}, last: () => ctl.frame, fresh: async () => ctl.frame, refresh: async () => ctl.frame };
@@ -35,16 +35,17 @@ function lab ({ deadlineMs = 600000 } = {}) {
   } };
   const api = { executeSocketMutation: async () => ({ replyArgs: [] }),
     async authorizeSocket () {
+      if (ctl.authorityWait) await ctl.authorityWait;
       if (ctl.api === 'unavailable') throw new Error('SOCKET_IPC_UNAVAILABLE');
       if (ctl.api === 'denied') return { denied: true };
       const read = ctl.api === 'read';
       return { permissions: { read, write: false, write_treatment: false, ack: read }, collections: read ? ['entries'] : [] };
     } };
-  const protocol = protocolFactory.create({ operationWindow, admission: { resolve: async () => A }, api, readCurrent: async () => ({ identity: 'same', env }),
+  const protocol = factory.create({ operationWindow, admission: { resolve: async req => req.headers.host === 'b.test' ? B : A }, api, readCurrent: async () => ({ identity: 'same', env }),
     runtime: () => runtime, domains: ['entries'], retry: { minMs: 5, maxMs: 20 }, unauthorizedDeadlineMs: deadlineMs });
   return { ctl, protocol,
-    async socket (namespace, { prepare = true, bind = namespace } = {}) {
-      const s = new Socket(); if (prepare) await protocol.prepare(s); protocol.bind(s, bind); return s;
+    async socket (namespace, { prepare = true, bind = namespace, host = 'a.test' } = {}) {
+      const s = new Socket(); s.request.headers.host = host; s.request.rawHeaders = ['Host', host]; if (prepare) await protocol.prepare(s); protocol.bind(s, bind); return s;
     },
     async primed (namespace = '/') {
       const s = await this.socket(namespace);
@@ -177,4 +178,138 @@ describe('realtime: nothing tenant-scoped reaches an unauthorized socket', funct
       assert.ok(alarm.sent.some(row => row.event === 'urgent_alarm'), 'the authorized alarm socket receives the alarm');
     } finally { f.close(); }
   });
+});
+
+// Evaluate the actual module with a local Set subclass: no production debug
+// seam or global monkey-patch. Count state visits, including rejected peers,
+// and inspect retained membership so closed-but-filtered ghosts cannot hide.
+function indexedProtocol () {
+  const filename = require.resolve('../lib/server/realtime/protocol');
+  const rosters = new Set(), visits = [];
+  class Roster extends Set {
+    add (value) { if (value?.socket) rosters.add(this); return super.add(value); }
+    * [Symbol.iterator] () {
+      for (const value of super[Symbol.iterator]()) {
+        if (value?.socket) visits.push(value.tenant);
+        yield value;
+      }
+    }
+  }
+  const local = { exports: {} };
+  const compile = require('node:vm').runInThisContext('(function(require,module,exports,Set){' + require('node:fs').readFileSync(filename, 'utf8') + '\n})', { filename });
+  compile(require('node:module').createRequire(filename), local, local.exports, Roster);
+  return { factory: local.exports, visits, rosters,
+    retained: socket => [...rosters].reduce((n, set) => n + [...set].filter(state => state.socket === socket).length, 0) };
+}
+describe('realtime tenant roster (actual protocol with state-visit instrument)', function () {
+  let mode;
+  beforeEach(() => { mode = scope.getTenancyMode(); scope.setTenancyMode('multi'); });
+  afterEach(() => scope.setTenancyMode(mode));
+  it('RT_TENANT_INDEX: every namespace stays local through hold, recovery, reconnect and cleanup', async function () {
+    const instrument = indexedProtocol(), f = lab({ factory: instrument.factory });
+    try {
+      const sockets = {};
+      for (const host of ['a.test', 'b.test']) {
+        sockets[host] = [];
+        for (const namespace of ['/', '/storage', '/alarm']) {
+          const socket = await f.socket(namespace, { host });
+          await socket.receive(namespace === '/' ? 'authorize' : 'subscribe', {});
+          sockets[host].push(socket);
+        }
+      }
+      assert.equal(f.protocol.stats().primed, 6);
+      const [main, storage, alarm] = sockets['a.test'], others = sockets['b.test'];
+      const before = others.map(s => s.sent.length);
+      for (const [expectedVisits, action] of [
+        [6, () => f.protocol.fanout({ tenant: A, previous: f.ctl.frame, next: frameOf(2) })],
+        [3, () => f.protocol.recheckTenant(A)],
+        [3, () => f.protocol.alarm({ tenant: A, notification: { level: 2 } })]
+      ]) {
+        instrument.visits.length = 0;
+        await action();
+        assert(instrument.visits.length > 0, 'instrument observed socket iteration');
+        assert(instrument.visits.every(t => t === A), 'RT_LOCAL_VISITS unrelated state visited');
+        assert.equal(instrument.visits.length, expectedVisits, 'RT_LOCAL_VISIT_COUNT');
+      }
+      assert.equal(main.sent.filter(r => r.event === 'dataUpdate').length, 2);
+      assert.equal(main.sent.filter(r => r.event === 'clients').at(-1).value, 1);
+      assert(storage.rooms.has(protocolFactory.room(A, '/storage', 'entries')));
+      assert(alarm.sent.some(r => r.event === 'urgent_alarm'));
+      assert.deepEqual(others.map(s => s.sent.length), before);
+      f.ctl.api = 'unavailable'; await f.protocol.recheckTenant(A);
+      const held = main.sent.length;
+      f.ctl.frame = frameOf(3);
+      await f.protocol.fanout({ tenant: A, previous: frameOf(2), next: f.ctl.frame });
+      assert.equal(main.sent.length, held);
+      f.ctl.api = 'read'; await f.protocol.recheckTenant(A);
+      assert(await until(() => main.sent.filter(r => r.event === 'dataUpdate').length === 3, 1000));
+      main.disconnect(); main.disconnect();
+      assert.equal(instrument.retained(main), 0, 'RT_INDEX_CLEANUP disconnected state retained');
+      const replacement = await f.socket('/'); await replacement.receive('authorize', {});
+      assert.equal(replacement.sent.filter(r => r.event === 'clients').at(-1).value, 1);
+      f.protocol.invalidateTenant(A); f.protocol.invalidateTenant(A);
+      for (const socket of [...sockets['a.test'], replacement]) assert.equal(instrument.retained(socket), 0, 'RT_INDEX_INVALIDATE retained state');
+      assert.deepEqual(f.protocol.stats().disconnects, { [CAUSES.TENANT_INVALIDATED]: 3 });
+      assert.equal(f.protocol.stats().sockets, 3);
+      f.close();
+      assert.equal(f.protocol.stats().sockets, 0);
+      instrument.visits.length = 0;
+      await f.protocol.recheckTenant(B);
+      assert.equal(instrument.visits.length, 0, 'closed protocol retains no reachable tenant roster');
+    } finally { f.close(); }
+  });
+  it('RT_INDEX_AWAIT: invalidation during authority await cannot revive a removed state', async function () {
+    const instrument = indexedProtocol(), f = lab({ factory: instrument.factory });
+    try {
+      const socket = await f.primed();
+      let release; f.ctl.authorityWait = new Promise(resolve => { release = resolve; });
+      const priming = await f.socket('/storage');
+      const pending = Promise.all([f.protocol.recheckTenant(A), priming.receive('subscribe', {})]);
+      await sleep(0);
+      f.protocol.invalidateTenant(A);
+      const sent = socket.sent.length;
+      release(); await pending;
+      assert.equal(socket.sent.length, sent);
+      assert.equal(f.protocol.stats().sockets, 0);
+      assert.equal(instrument.retained(socket), 0);
+      assert.equal(instrument.retained(priming), 0);
+      assert.deepEqual(priming.sent, [], 'invalidated prime sends nothing');
+      socket.disconnect();
+      assert.deepEqual(f.protocol.stats().disconnects, { [CAUSES.TENANT_INVALIDATED]: 2 });
+    } finally { f.close(); }
+  });
+  it('RT_INDEX_LIVE: alarm iteration follows a replacement after its last old member disconnects', async function () {
+    const f = lab();
+    try {
+      const old = await f.primed('/alarm');
+      let release; f.ctl.authorityWait = new Promise(resolve => { release = resolve; });
+      const delivery = f.protocol.alarm({ tenant: A, notification: { level: 1 } });
+      await sleep(0);
+      old.disconnect();
+      const replacement = await f.socket('/alarm');
+      // Let the replacement prime before the original alarm loop continues.
+      f.ctl.authorityWait = null;
+      await replacement.receive('subscribe', {});
+      release(); await delivery;
+      assert(replacement.sent.some(row => row.event === 'alarm'), 'RT_LIVE_REPLACEMENT skipped new roster');
+      assert(!old.sent.some(row => row.event === 'alarm'));
+    } finally { f.close(); }
+  });
+
+  it('RT_INDEX_PARTIAL_PRIME: a failed subscription join removes only that state', async function () {
+    const instrument = indexedProtocol(), f = lab({ factory: instrument.factory });
+    try {
+      const kept = await f.primed('/alarm');
+      const failed = await f.socket('/storage');
+      failed.join = () => { throw new Error('synthetic join failure'); };
+      await failed.receive('subscribe', {});
+      assert(failed.disconnected);
+      assert.equal(instrument.retained(failed), 0);
+      assert.equal(f.protocol.stats().sockets, 1);
+      await f.protocol.alarm({ tenant: A, notification: { level: 1 } });
+      assert(kept.sent.some(row => row.event === 'alarm'));
+      assert.deepEqual(f.protocol.stats().disconnects, { [CAUSES.PRIME_REFUSED]: 1 });
+    } finally { f.close(); }
+  });
+
 });
