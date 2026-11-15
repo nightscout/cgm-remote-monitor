@@ -73,6 +73,13 @@ function fixture (options = {}) {
     if (m.durable.activity && /tenant_activity\b/.test(text) && text.startsWith('UPDATE ')) {
       target().activity = { ...target().activity, paused: false, suspended: false }; return { rowCount: 1, rows: [] };
     }
+    if (text === "SELECT set_config('synchronous_commit','on',true)") return { rows: [] };
+    if (m.localAuth && text.includes('"local_auth".')) {
+      assert.equal(m.locked, true); assert.equal(target().window.phase, 'suspended');
+      if (text.startsWith('SELECT root_reference_id')) return { rows: [{ root_reference_id: 'root' }] };
+      if (text.startsWith('SELECT subject_id') || text.startsWith('SELECT kid')) return { rows: [] };
+      if (text.startsWith('UPDATE') || text.startsWith('INSERT')) { target().rows.push(text); return { rowCount: 1, rows: [] }; }
+    }
     throw new Error('Unexpected simulated query: ' + text);
   };
   client.release = error => { m.released = true; m.releaseError = error; };
@@ -101,6 +108,36 @@ describe('private tenant restore controller (simulated backend protocol)', funct
   let prior;
   before(function () { prior = scope.getTenancyMode(); scope.setTenancyMode('multi'); });
   after(function () { scope.setTenancyMode(prior); });
+  it('prepares local authentication inside the real branded controller and returns after activation', async function () {
+    const { m, api } = fixture({ localAuth: true }); let root;
+    const prepare = require('../lib/secrets/prepare-local-auth').withMaintenance({ controller: api, namespace: 'local_auth',
+      readRoot: async reference => { assert.deepEqual(reference, { tenant: A, id: 'root' }); root = Buffer.from('synthetic-root'); return root; } });
+    assert.deepEqual(await prepare(A, { artifactDigest: DIGEST }), { prepared: true });
+    assert(root.every(byte => byte === 0)); assert.equal(m.durable.window.phase, 'active');
+    assert.equal(m.invalidated, true); assert.equal(m.durable.rows.length, 3);
+    assert(m.trace.indexOf('committed:DATA') < m.trace.indexOf('committed:ACTIVATION'));
+    await api.close();
+  });
+
+  it('does not publish auth preparation success on lost DATA commit or failed invalidation', async function () {
+    for (const failure of [{ loseCommit: 'DATA' }, { invalidateFails: true }]) {
+      const { m, api } = fixture({ localAuth: true, ...failure });
+      const prepare = require('../lib/secrets/prepare-local-auth').withMaintenance({ controller: api, namespace: 'local_auth',
+        readRoot: async () => Buffer.from('synthetic-root') });
+      await assert.rejects(prepare(A, { artifactDigest: DIGEST }), { code: failure.loseCommit ? 'LIFECYCLE_RESTORE_DATA_OUTCOME_UNCERTAIN' : 'INVALIDATE_FAILED' });
+      assert.equal(m.durable.window.phase, 'suspended'); await api.close();
+    }
+  });
+
+  it('refuses a fabricated maintenance claim before auth SQL or root access', async function () {
+    let touched = false;
+    const prepare = require('../lib/secrets/prepare-local-auth').withMaintenance({ namespace: 'local_auth',
+      controller: { withRestore: async (tenant, options, fn) => ({ result: await fn({ connection: { query: async () => { touched = true; } }, maintenanceClaim: {} }) }) },
+      readRoot: async () => { touched = true; } });
+    await assert.rejects(prepare(A, { artifactDigest: DIGEST }), { code: 'LIFECYCLE_RESTORE_CLAIM_INVALID' });
+    assert.equal(touched, false);
+  });
+
   it('commits suspension before callback, joins its transaction, invalidates before activation and closes stale claims', async function () {
     const { m, api } = fixture(); let saved;
     const result = await api.withRestore(A, { artifactDigest: DIGEST }, async ({ connection, maintenanceClaim }) => {

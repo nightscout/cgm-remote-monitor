@@ -82,7 +82,7 @@ describe('registry-mode role configuration', function () {
     assert.deepEqual([...parsed.tenantIds], ['registry:ns_registry']);
     assert.equal(load({ version: 1, namespace: 'ns_control', connectionEnv: 'LIFE_PG', registry: { namespace: 'ns_registry' }, locks: [] },
       config => { try { return operationConfig.load(config); } catch { return 'refused'; } }, 'MULTITENANT_OPERATION_CONFIG'), 'refused');
-    const window = operationWindow.create({ namespace: 'ns_control', lockRule: parsed.lockRule, pool: { connect () { throw new Error('unused'); } } });
+    const window = operationWindow.create({ namespace: 'ns_control', lockRule: parsed.lockRule, pool: { options: { max: 1 }, connect () { throw new Error('unused'); } } });
     assert.ok(window);
     assert.throws(() => operationWindow.create({ namespace: 'ns_control', lockRule: 'other', pool: { connect () {} } }));
     assert.throws(() => operationWindow.create({ namespace: 'ns_control', lockRule: parsed.lockRule, locks: [{ tenant: randomUUID(), key: '1' }], pool: { connect () {} } }));

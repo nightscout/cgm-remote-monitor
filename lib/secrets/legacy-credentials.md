@@ -268,6 +268,16 @@ previous local JWTs fail on the next operation. The port adds no serving route;
 the integration controller must supply the actual maintenance window and
 credentials.
 
+The exported `prepare-local-auth.withMaintenance({controller,namespace,readRoot})`
+factory binds the real `maintenance-window.create` controller. Call the returned
+`prepare(tenant,{artifactDigest,rotateSigningKey:false})` with the explicit
+maintenance operation digest. It uses `controller.withRestore`, checks its branded
+claim, and writes through the controller's already-open transaction. It opens no
+second tenant transaction. Success returns after commit, peer invalidation and
+reactivation. Commit uncertainty or invalidation failure leaves the existing
+suspended-window recovery protocol in charge. The operator needs the narrow
+legacy metadata/key writer privileges in addition to maintenance authority.
+
 Subject creation and updates prepare verifier material inside the existing
 owner-authorized subject transaction when the trusted credential preparation
 capability is configured. The root admin composition supplies it in local mode;
