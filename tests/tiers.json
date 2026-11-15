@@ -309,6 +309,7 @@
         "tests/notification-producer-state.test.js",
         "tests/notification-producer.test.js",
         "tests/evaluator-runtime-content.test.js",
+        "tests/evaluator-runtime-timing.test.js",
         "tests/evaluator-due.test.js",
         "tests/evaluator-gap-alert.test.js",
         "tests/realtime-preview.test.js",
