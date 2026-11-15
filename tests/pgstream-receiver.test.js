@@ -123,7 +123,7 @@ describe('selected feed source construction without starting a listener or child
   const store={consumer:p.binding.consumer+'-completed',...(selected?{profile:p.digest}:{}),own:async()=>{throw Error('SOURCE_STOP_BEFORE_LISTENER');},close:async()=>calls.push({kind:'close'})};
   const m=new Module(file,module);m.filename=file;m.paths=Module._nodeModulePaths(path.dirname(file));const local=m.require.bind(m);
   m.require=name=>name==='node:fs'?{readFileSync:name=>name==='/synthetic/binary'?Buffer.from('synthetic pinned binary'):JSON.stringify(wire)}:name==='node:crypto'?{createHash:()=>({update(){return this;},digest:()=>actual.BINARY_SHA256})}:name==='node:http'?{createServer:()=>assert.fail('NO_LISTENER')}:
-   name==='./checkpoint'?{create:options=>{calls.push({kind:'checkpoint',options});return store;}}:name==='./intake-store'?{create:options=>{calls.push({kind:'intake',options});return store;}}:name==='./supervisor'?{start:()=>assert.fail('NO_CHILD')}:
+   name==='./checkpoint'?{create:options=>{calls.push({kind:'checkpoint',options});return store;}}:name==='./intake-store'?{create:options=>{calls.push({kind:'intake',options});return store;}}:name==='./supervisor'?{RECEIVER_COUNTERS:require('../lib/pgstream/supervisor').RECEIVER_COUNTERS,start:()=>assert.fail('NO_CHILD')}:
    name==='./feed-control'?{assertReady:async()=>{}}:name==='./intake-state'?{selection:value=>value,publisher:options=>{calls.push({kind:'publisher',options});return {terminal:()=>{}};}}:local(name);
   m._compile(change(fs.readFileSync(file,'utf8')),file);return {api:m.exports,config,p,calls,store};
  }
