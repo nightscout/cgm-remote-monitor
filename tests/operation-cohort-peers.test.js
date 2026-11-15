@@ -14,7 +14,7 @@ function load (overrides,mutate=s=>s) {
   vm.runInThisContext('(function(require,module,exports){'+mutate(fs.readFileSync(file,'utf8'))+'\n})',{filename:file})(name=>Object.hasOwn(overrides,name)?overrides[name]:original(name),output,output.exports);
   return output.exports;
 }
-async function lab (mutate, timeoutMs = 1000) {
+async function lab (mutate, timeoutMs = 1000, intakeProfile) {
   const entries=manifest.validate(roles.map((role,index)=>({id:'peer_'+index,roles:[role],namespaces:['clinical_'+index],endpoint:{socketPath:'/synthetic/peer_'+index+'.sock',maxBytes:100000,timeoutMs}})));
   const handlers=new Map(), locals=new Map(), invalidated=[], actors=roles.map((role,index)=>({pid:100+index,role:'synthetic_'+index,birth:'1700000000.'+index}));
   const flags={};
@@ -29,11 +29,13 @@ async function lab (mutate, timeoutMs = 1000) {
       if(flags.lostAck && operation==='invalidateTenant' && endpoint.socketPath===entries[0].endpoint.socketPath)throw new Error('synthetic lost ACK');
       if(flags.wrongAck && operation==='invalidateTenant')reply.request='00000000-0000-4000-8000-000000000000';
       if(flags.wrongDB)reply.datastore={...DATA,database_oid:'99999'};
+      if(operation==='getStatus'&&flags.profileMissing)delete reply.intakeProfileDigest;
+      if(operation==='getStatus'&&flags.profileMismatch)reply.intakeProfileDigest='0'.repeat(64);
       if(flags.identityChange)reply.identity=flags.identityChange(reply.identity);
       return structuredClone(reply);
     }]))};
   async function boot(index) {
-    const entry=entries[index], options={}, f=fixture(options);
+    const entry=entries[index], options={intakeProfile}, f=fixture(options);
     const module=load({'../internal-api/transport':ipc,'../internal-api/clients':clients,'../../storage/postgres-connection':{
       installOperationWindow:()=>()=>{},cohortBackends:()=>[actors[index]],cohortDatastore:()=>DATA,cohortSnapshot:async()=>({datastore:f.window.datastore,backends:backends(index)})
     },...Object.fromEntries(['preview-api','evaluator-preview','preview-realtime','owner-preview'].map(name=>['./'+name,{boot:async()=>({close:async()=>{},invalidateTenant:async tenant=>invalidated.push([entry.id,tenant])})}]))});
@@ -45,7 +47,7 @@ async function lab (mutate, timeoutMs = 1000) {
   }
   for(let index=0;index<entries.length;index++)await boot(index);
   const coordinator=load({'../internal-api/transport':ipc,'../internal-api/clients':clients},mutate);
-  const remote=await coordinator.createRemote({namespace:'synthetic_window',tenants:[A,B],participants:entries});
+  const remote=await coordinator.createRemote({namespace:'synthetic_window',tenants:[A,B],participants:entries,...(intakeProfile?{intakeProfile}:{})});
   const operator={async query(sql){
     if(sql==='SELECT pg_catalog.pg_stat_clear_snapshot()')return {rows:[{}]};
     if(sql==='SELECT '+lower.datastoreSQL)return {rows:[flags.operatorWrongDB?{...DATA,server_port:5433}:DATA]};
@@ -306,4 +308,16 @@ describe('Actual private IPC client cohort path admission',function(){
     let called=false,filesystem=false;const client=actualClient(undefined,()=>{filesystem=true;})({socketPath:'/synthetic/cohort.sock',maxBytes:1000,timeoutMs:1000},service,()=>{called=true;throw new Error('must not send');});
     assert.deepEqual(Object.keys(client),['getStatus','invalidateTenant']);assert.equal(client['/cohort/arbitrary'],undefined);assert.equal(client.constructor,undefined);assert.equal(called,false);assert.equal(filesystem,false);
   });
+});
+
+
+describe('selected lifecycle cohort window profile agreement (source protocol, not installed-profile attestation)',()=>{
+ it('derives all selected status digests from actual windows, rejects absent/wrong peer digest and preserves unselected shape',async()=>{
+  const profile=require('./fixtures/lifecycle-domain-profile').profile();const selected=await lab(undefined,1000,profile);let pin;try{for(const local of selected.locals.values()){const status=await local.operations.getStatus({}, {request:'00000000-0000-4000-8000-000000000001'});assert.equal(status.intakeProfileDigest,local.f.window.intakeProfileDigest);assert.equal(status.intakeProfileDigest,profile.digest);}pin=await selected.coordinator.pin(selected.remote,A,{client:selected.operator});selected.flags.profileMissing=true;await assert.rejects(selected.coordinator.assertComplete(selected.remote,A,{client:selected.operator}),{code:'RESTORE_COHORT_PROTOCOL'});delete selected.flags.profileMissing;selected.flags.profileMismatch=true;await assert.rejects(selected.coordinator.invalidate(selected.remote,A),{code:'RESTORE_COHORT_INTAKE_PROFILE_MISMATCH'});assert.deepEqual(selected.invalidated,[]);delete selected.flags.profileMismatch;await selected.coordinator.invalidate(selected.remote,A);}finally{if(pin)await selected.coordinator.releasePin(pin);await selected.close();}
+  const legacy=await lab();try{for(const local of legacy.locals.values())assert(!Object.hasOwn(await local.operations.getStatus({}, {request:'00000000-0000-4000-8000-000000000001'}),'intakeProfileDigest'));}finally{await legacy.close();}
+ });
+ it('control: omitting profile comparison permits same-OID wrong-profile peers and makes agreement RED; restored GREEN',async()=>{
+  async function criterion(mutate){const f=await lab(mutate,1000,require('./fixtures/lifecycle-domain-profile').profile());let pin;try{pin=await f.coordinator.pin(f.remote,A,{client:f.operator});f.flags.profileMismatch=true;await assert.rejects(f.coordinator.invalidate(f.remote,A),{code:'RESTORE_COHORT_INTAKE_PROFILE_MISMATCH'});}finally{if(pin)await f.coordinator.releasePin(pin);await f.close();}}
+  await assert.rejects(criterion(source=>{const needle="  if(reply.intakeProfileDigest!==state.intakeProfileDigest)throw fail('RESTORE_COHORT_INTAKE_PROFILE_MISMATCH');";assert.equal(source.split(needle).length,2);return source.replace(needle,'');}),{code:'ERR_ASSERTION'});await criterion(source=>source);
+ });
 });

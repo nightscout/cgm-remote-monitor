@@ -284,6 +284,10 @@
               "shards"
             ],
             "additionalProperties": false
+          },
+          "intakeProfileDigest": {
+            "type": "string",
+            "pattern": "^[a-f0-9]{64}$"
           }
         },
         "required": [
@@ -712,6 +716,10 @@
               "shards"
             ],
             "additionalProperties": false
+          },
+          "intakeProfileDigest": {
+            "type": "string",
+            "pattern": "^[a-f0-9]{64}$"
           }
         },
         "required": [

@@ -24,3 +24,10 @@ describe('selected lifecycle generation domain source capability',function(){
  it('canonical operator strict parser returns a safe profile and preserves unselected config',()=>{const bridge=require('../deploy/multitenant/restore'),p=helper.profile(),value={version:1,tenants:[{id:A,host:'a.example.test',tokenEnv:'A_TOKEN'},{id:B,host:'b.example.test',tokenEnv:'B_TOKEN'}],apiOrigin:'http://api:1337',control:{namespace:'synthetic_window',locks:[{tenant:A,key:'17'},{tenant:B,key:'19'}],participants:[{}]},namespaces:{entries:'synthetic_entries'},catalogues:[{kind:'entries',candidate:{}}],drainTimeoutMs:100},env={A_TOKEN:'synthetic',B_TOKEN:'synthetic',NS_OPERATOR_PG:'postgresql://synthetic:synthetic@127.0.0.1/disposable_test',NS_SOURCE_COMMIT:'a'.repeat(40)};assert.deepEqual(bridge.validateConfig(value,env),value);const result=bridge.validateConfig({...value,intakeProfile:{...p,assignment:{owner:()=>0}}},env);assert.equal(result.intakeProfile.digest,p.digest);assert.throws(()=>result.intakeProfile.assignment.owner(C));assert.throws(()=>bridge.validateConfig({...value,intakeProfile:helper.profile({lifecycleNamespace:'other_window'})},env),{code:'COMPOSE_OPERATOR_CONFIG_REFUSED'});assert.throws(()=>bridge.validateConfig({...value,maximum:'9223372036854775807'},env),{code:'COMPOSE_OPERATOR_CONFIG_REFUSED'});});
 
 });
+
+
+describe('selected direct readiness control read propagation',()=>{
+ it('admits the actual direct client through the window selected catalogue, records its birth and removes it on end',async()=>{
+  const f=require('./fixtures/operation-window-runtime-protocol')({intakeProfile:helper.profile()});try{const rows=await require('../lib/storage/postgres-operation-control')(f.client,f.window);assert(rows.includes('synthetic_window.tenant_lifecycle_windows'));assert.equal(f.window.isAdmittedClient(f.client),true);f.client.emit('end');assert.equal(f.window.isAdmittedClient(f.client),false);}finally{await f.window.close();}
+ });
+});

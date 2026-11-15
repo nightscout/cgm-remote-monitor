@@ -18,7 +18,7 @@ function publish(intakeProfileDigest){const c=clock();let current=incarnation,pa
 async function laboratory(module=actual,localBounds=bounds,intakeProfileDigest){
  const f=require('./fixtures/operation-window-runtime-protocol')();await f.window.ready();
  const c=clock(),events=[];let current=incarnation,revision=3,state='ready',age=0,received=8,sequence=9,modify=x=>x,work=0,validateWork=async()=>{},reconcileWork=async()=>{};
- const status=request=>({request:request.request,version:1,participant:peer.id,incarnation:current,namespace:f.window.namespace,roles:peer.roles,namespaces:peer.namespaces,tenants:[incarnation,other],identity:f.window.identity,datastore:f.window.datastore,backends:[{pid:123,role:'synthetic_worker',birth:'1700000000.000001'}]});
+ const status=request=>({...(intakeProfileDigest===undefined?{}:{intakeProfileDigest}),request:request.request,version:1,participant:peer.id,incarnation:current,namespace:f.window.namespace,roles:peer.roles,namespaces:peer.namespaces,tenants:[incarnation,other],identity:f.window.identity,datastore:f.window.datastore,backends:[{pid:123,role:'synthetic_worker',birth:'1700000000.000001'}]});
  const reply=request=>modify({...(intakeProfileDigest===undefined?{}:{intakeProfileDigest}),request:request.request,participant:peer.id,incarnation:current,assignmentRevision,sourceStallMs:bounds.stallMs,controlRevision:revision,state,code:state==='ready'?null:'INTAKE_BLOCKED',sequence,received,heartbeatAgeMs:age+c.now()});
  let rpc=async request=>reply(request),statusRpc=async request=>status(request);
  const descriptor={assignmentRevision},limits={...localBounds};
@@ -173,5 +173,12 @@ describe('intake health immutable profile agreement',function(){
  });
  it('retains terminal against late ready replies and lost peer binding with profile refusal',async()=>{
   const f=await laboratory(actual,bounds,profile);try{await f.g.synchronize();const wait=deferred();let reply;f.rpc(async request=>{reply=f.reply(request);return wait.promise;});const late=f.g.synchronize();await new Promise(setImmediate);f.rpc(async request=>f.reply(request));f.setRevision(4);f.setState('terminal');f.modify(r=>({...r,intakeProfileDigest:foreign}));await assert.rejects(f.g.synchronize(),/INTAKE_PROFILE_MISMATCH/);wait.resolve(reply);await assert.rejects(late,/REPLY_REORDERED/);f.statusRpc(async()=>{throw Error('SYNTHETIC_BINDING_LOST');});await assert.rejects(f.g.synchronize(),/SYNTHETIC_BINDING_LOST/);f.statusRpc(async request=>f.status(request));f.setRevision(5);f.setState('ready');f.modify(r=>r);await assert.rejects(f.g.synchronize(),/TERMINAL_INCARNATION/);assert(!f.g.available);assert.equal(f.c.timers.size,0);}finally{await f.close();}
+ });
+});
+
+
+describe('intake worker selected source-window and SQL-publication agreement',()=>{
+ it('refuses a correct SQL publication when the actual source-window status has absent or wrong profile with unchanged OIDs',async()=>{
+  for(const replacement of [undefined,'b'.repeat(64)]){const f=await laboratory(actual,bounds,'a'.repeat(64));try{await f.g.synchronize();f.enter();f.statusRpc(async request=>{const result=f.status(request);if(replacement===undefined)delete result.intakeProfileDigest;else result.intakeProfileDigest=replacement;return result;});await assert.rejects(f.g.synchronize(),/INTAKE_COHORT_PROFILE_MISMATCH/);assert(!f.g.available);assert.equal(f.work,0);}finally{await f.close();}}
  });
 });
