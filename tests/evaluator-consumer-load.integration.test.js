@@ -9,7 +9,7 @@ const assert = require('node:assert/strict');
 const {optInSuite} = require('./support/opt-in');
 const createLab = require('./fixtures/evaluator-consumers-native');
 
-// Deployed timers (deploy/multitenant/config.js:96-103) by default. The
+// Deployed timers (nightscout-deploy bindings/compose/multitenant/config.js) by default. The
 // tenant heartbeat (seconds, the single-site setting) and window are short so
 // the case runs in CI; NS_CONSUMER_LOAD_HEARTBEAT_S=60 NS_CONSUMER_LOAD_WINDOW_MS=60000
 // measures the deployed default. NS_CONSUMER_LOAD_ASSERT=0 records without verdicts.

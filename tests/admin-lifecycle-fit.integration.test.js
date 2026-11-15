@@ -368,7 +368,7 @@ optInSuite(process.env.NS_ADMIN_LIFECYCLE_DOCKER_TEST === '1',
   }
 
   // BF-230 regression: the clinical logical restore (logical-restore.js) through
-  // the shipped Compose driver (deploy/multitenant/restore.js capture/restore),
+  // the pinned nightscout-deploy Compose driver's capture/restore operations,
   // under the deployment plan's grants, with the admin role connected. A carries a
   // retained key-retention record (a deletion inside its 30-day window), so the
   // restore's retention gate reads and updates the ledger as the plan's operator.
