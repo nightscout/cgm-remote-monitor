@@ -358,3 +358,27 @@ suite('PostgreSQL entries read matches mongod (requires NS_TEST_POSTGRES_ADMIN_U
     await assert.rejects(reader.count(and()), /tenant/i);
   });
 });
+
+
+describe('PostgreSQL read projection materialization (no database)', function () {
+  it('preserves nested arrays, typed ids, normalization and projection refusals', async function () {
+    const docs = [{ _id: new ObjectId(H1), selected: [{ a: 1, b: 2 }, null, 3], ignored: [1, 2] },
+      { _id: H1, selected: [{ a: 4 }] }];
+    const rows = docs.map(encodeDocument);
+    const reader = entriesRead({ connection: { query: async () => ({ rows }) } });
+    const result = await reader.findFiltered(and(), { projection: { 'selected.a': 1 }, options: { normalize: false } });
+    assert.deepEqual(result, [{ selected: [{ a: 1 }, null, 3], _id: new ObjectId(H1) },
+      { selected: [{ a: 4 }], _id: H1 }]);
+    await assert.rejects(reader.findFiltered(and(), { projection: { selected: 0 } }), /projection/);
+    assert.equal((await reader.findFiltered(and(), { projection: { identifier: 1 } }))[0].identifier, H1);
+  });
+
+  it('keeps the prior empty-result behavior of findMany and validates returned projections', async function () {
+    let rows = [];
+    const reader = entriesRead({ connection: { query: async () => ({ rows }) } });
+    const query = { filter: [], sort: { date: 1 }, limit: 1, skip: 0, projection: { sgv: 0 } };
+    assert.deepEqual(await reader.findMany(query), []);
+    rows = [encodeDocument({ _id: 'x', sgv: 100 })];
+    await assert.rejects(reader.findMany(query), /projection/);
+  });
+});

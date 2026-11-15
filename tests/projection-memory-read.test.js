@@ -61,6 +61,37 @@ describe('projection-memory-read: the SQL path\'s answers without SQL', function
     assert.equal(second.a.b, 3); assert.equal(second.ccc.length, 1);
   });
 
+  it('projects nested arrays with typed ids and independent results', async function () {
+    const hex = '0123456789abcdef01234567';
+    const r = reader([{ _id: new ObjectId(hex), selected: [{ a: { n: 1 }, omit: 9 }, null, 3],
+      hidden: { history: [1, 2, 3] } }, { _id: hex, selected: [{ a: { n: 2 } }] }]);
+    const options = { projection: { 'selected.a': 1 }, options: { normalize: false } };
+    const first = await r.findFiltered(null, options);
+    assert.deepEqual(first, [
+      { selected: [{ a: { n: 1 } }, null, 3], _id: new ObjectId(hex) },
+      { selected: [{ a: { n: 2 } }], _id: hex }
+    ]);
+    first[0].selected[0].a.n = 99;
+    first[0].selected.push({ a: { n: 100 } });
+    assert.deepEqual(await r.findFiltered(null, options), [
+      { selected: [{ a: { n: 1 } }, null, 3], _id: new ObjectId(hex) },
+      { selected: [{ a: { n: 2 } }], _id: hex }
+    ]);
+    assert.equal(await r.count(fromMongo({ _id: new ObjectId(hex) })), 1);
+  });
+
+  it('does not traverse excluded subtrees when copying projected results', async function () {
+    // A getter witnesses deep traversal without allocating a large history.
+    // Actual retained JSON has data members; this synthetic observer must
+    // remain unread when the entire subtree is excluded from the result.
+    const hidden = Object.freeze({ get history () { throw new Error('excluded history traversed'); } });
+    const rows = Object.freeze([Object.freeze({ id_kind: 'string', ordinal: 1,
+      doc: Object.freeze({ _id: 'x', keep: Object.freeze({ n: 1 }), hidden }) })]);
+    const r = memoryRead({ rows });
+    assert.deepEqual(await r.findFiltered(null, { projection: { keep: 1 }, options: { normalize: false } }),
+      [{ keep: { n: 1 }, _id: 'x' }]);
+  });
+
   it('matches arrays elementwise and legacy patterns with PostgreSQL\'s newline rule', async function () {
     const r = reader([{ _id: 'a', t: ['x', 'y'] }, { _id: 'b', t: 'y' }, { _id: 'c', s: 'ab\ncd' }, { _id: 'd', s: 'ab-cd' }, { _id: 'e', s: 'a😀b' }]);
     assert.deepEqual(ids(await r.findFiltered(fromMongo({ t: 'y' }), { options: { normalize: false } })), ['a', 'b']);
