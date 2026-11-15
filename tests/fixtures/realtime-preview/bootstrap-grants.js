@@ -23,14 +23,10 @@ function grants (layout) {
   for(const name of clinical)sql.push(...require('../tenant-insertion-grants').statements({namespace:ns[name],domain:name,role:roles.evaluator,catalogue:catalogues()[name],mode:'reader'}));
   grant('SELECT',table('clock','tenant_write_clock'),'evaluator');
   grant('SELECT,UPDATE(checkpoint,projection,contract_digest)',table('eval_checkpoint','tenant_consumer_checkpoint'),'evaluator');
-  for(const name of ['clock','rt_checkpoint']){schema(name,'realtime');grant('SELECT',table(name,'schema_migrations'),'realtime');}
-  grant('SELECT,UPDATE(checkpoint,projection,contract_digest)',table('rt_checkpoint','tenant_consumer_checkpoint'),'realtime');
+  sql.push(...require('../../../lib/server/ordinary-deployment-grants').realtimeGrants(layout));
   const metadata={clock:ns.clock,activity:ns.control,settings:ns.display_settings,operatorPolicy:ns.operator_policy};
   sql.push(...require('../../../lib/trusted-worker/postgres').grants({namespaces:metadata,roles:[roles.evaluator,roles.realtime]}));
-  // Canonical role surfaces: background roles enumerate through the narrow
-  // definer functions; only API/owner readers read tenant rows and key metadata.
-  sql.push(...require('../../../lib/tenant-registry/postgres').grants({namespace:ns.registry,
-    resolvers:[roles.api,roles.owner_reader,roles.realtime],enumerators:[roles.evaluator,roles.realtime],readers:[roles.api,roles.owner_reader]}));
+  sql.push(...require('../../../lib/server/ordinary-deployment-grants').registryGrants(layout));
   for(const name of ['display_settings','operator_policy']){schema(name,'display_reader');grant('SELECT',table(name,'schema_migrations'),'display_reader');grant('SELECT',table(name,name==='display_settings'?'tenant_settings':'tenant_operator_policy'),'display_reader');}
   sql.push(...require('../../../lib/tenant-activity/postgres').grants({namespace:ns.control,reader:roles.activity_reader}));
   schema('alarm','suppression');grant('SELECT',table('alarm','tenant_alarm_suppression'),'suppression');grant('SELECT',table('alarm','schema_migrations'),'suppression');

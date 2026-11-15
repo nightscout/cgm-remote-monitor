@@ -359,6 +359,7 @@
         "tests/pgstream-commit-dispatch.test.js",
         "tests/realtime-completed-config.test.js",
         "tests/realtime-completed-readiness.test.js",
+        "tests/ordinary-deployment-grants.test.js",
         "tests/shared-legacy-routes.test.js",
         "tests/shared-rest-context.test.js",
         "tests/tenant-api-shared-v3.test.js",
