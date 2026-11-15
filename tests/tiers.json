@@ -178,6 +178,7 @@
         "tests/pgstream-membership-writers.test.js",
         "tests/pgstream-partition-intake.test.js",
         "tests/pgstream-partition-work.test.js",
+        "tests/pgstream-intake-profile.test.js",
         "tests/notification-partition-adoption.test.js",
         "tests/notification-partition-dispatch.test.js",
         "tests/notification-partition-owner.test.js",
