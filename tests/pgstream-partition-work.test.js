@@ -9,17 +9,18 @@ const {RULE,bucket}=require('../lib/pool-membership/slice');
 const copy=value=>JSON.parse(JSON.stringify(value));
 const ids=Array.from({length:128},(_,i)=>'00000000-0000-4000-8000-'+(i+1).toString(16).padStart(12,'0'));
 const REV='9007199254740993',NS='test_checkpoint',MEMBERSHIP='test_membership',LIFECYCLE='test_control';
-function instrumentation(){
- const built=candidate.build({membershipNamespace:MEMBERSHIP,lifecycleNamespace:LIFECYCLE});
+function instrumentation(intakeProfile){
+ const built=candidate.build({membershipNamespace:MEMBERSHIP,lifecycleNamespace:LIFECYCLE,intakeProfile});
  const effect=(name,type,source,fn,columns,deferred)=>({name,type,source,function_name:fn,columns,deferrable:deferred,deferred,enabled:'A',arguments:0,unconditional:true,function_arguments:0,trigger_result:true,definer:false,language:'plpgsql',config:['search_path=pg_catalog']});
- return {assignment:[effect('pgstream_assignment_protocol',31,built.assignmentBody,'pgstream_assignment_required',candidate.ASSIGNMENT_COLUMNS,false),effect('pgstream_effect_protocol',19,built.effectBody,'pgstream_assigned_effect_required',candidate.EFFECT_COLUMNS,false),effect('pgstream_effect_commit',17,built.effectBody,'pgstream_assigned_effect_required',[],true)],
+ return {intakeAssertBody:built.intakeAssertBody,assignment:[effect('pgstream_assignment_protocol',31,built.assignmentBody,'pgstream_assignment_required',candidate.ASSIGNMENT_COLUMNS,false),effect('pgstream_effect_protocol',19,built.effectBody,'pgstream_assigned_effect_required',candidate.EFFECT_COLUMNS,false),effect('pgstream_effect_commit',17,built.effectBody,'pgstream_assigned_effect_required',[],true)],
   indexes:candidate.INDEXES.map(index=>({...index,valid:true,ready:true,unique:false,method:'btree'})),
   membership:['pool_membership','pool_desired'].map(table_name=>({table_name,enabled:'A',type:31,arguments:0,unconditional:true,source:membershipProtocol.BODY,definer:false,config:['search_path=pg_catalog'],language:'plpgsql',function_name:'pool_mutation_lock_required',function_arguments:0,trigger_result:true}))};
 }
-function fixture({ordinal=0,partitioned=true,enforceOldWriter=true,boundary=true,creator=checkpoint.create}={}){
+function fixture({ordinal=0,partitioned=true,enforceOldWriter=true,boundary=true,creator=checkpoint.create,profileSelected=false,forgedSelection=false}={}){
  const assignment=fixed.create({tenants:ids,members:2,revision:REV}),self={ordinal,memberId:ids[ordinal],rule:RULE};
+ const profiles=require('../lib/pgstream/intake-profile'),intakeProfile=profileSelected?profiles.create({namespace:NS,consumer:'evaluator-partition',role:'intake_writer',membershipNamespace:MEMBERSHIP,lifecycleNamespace:LIFECYCLE,revision:REV,members:2,tenants:ids,codec:profiles.CODEC,generationDomain:profiles.GENERATION_DOMAIN}):undefined;
  let generation='7',live=true,resourceHeld=true,active=null,xid=0,failCommit=false,beforeCommit=()=>{},afterUpdate=()=>{},digest;
- const rows=new Map(),calls=[],events=[],keys=[],hints=[],instruments=instrumentation();
+ const rows=new Map(),calls=[],events=[],keys=[],hints=[],instruments=instrumentation(intakeProfile);
  const selectedRows=()=>active?.rows||rows;
  function base(tenant){return {tenant,contract_digest:digest,work_version:2,work_observed:work.array({clock:'1'}),work_completed:work.array({}),work_observed_at:work.array({clock:'10'}),work_pending_at:'10',work_due_at:null,work_completed_at:null,work_enabled:true,work_activity_enabled:true,work_lifecycle_enabled:true,delivery_revision:'0',delivery_ack_revision:'0',output_identity:null,output_digest:null,output_revision:'0',output_restore_generation:null,work_owner_ordinal:assignment.owner(tenant),work_assignment_revision:REV,projection:[{kind:'evaluator-work-v2',output:null}]};}
  function metadata(row){const output=row.projection?.[0]?.output,summary=copy(output);if(summary){delete summary.rows;delete summary.frame;}return {...copy(row),output_summary:summary,frame_at:output?.frame?.lastUpdated};}
@@ -49,6 +50,7 @@ function fixture({ordinal=0,partitioned=true,enforceOldWriter=true,boundary=true
    if(sql.includes('/* evaluator-worker-policies */')){const plan=require('../lib/pgstream/worker-grants').build({role:'worker_'+ordinal,namespace:NS,consumer:'evaluator-partition',assignment,ordinal,membershipNamespace:MEMBERSHIP}),expression=plan.find(sql=>sql.startsWith('CREATE POLICY')).split(' USING (')[1].split(') WITH CHECK')[0];return {rows:['allow','restrict'].map(kind=>({name:'pgstream_worker_'+kind+'_'+ordinal,command:'*',permissive:kind==='allow',using:expression,check:expression}))};}
    if(sql.includes('FROM pg_trigger'))return {rows:sql.includes('t.tgname AS name')?copy(instruments.assignment):copy(instruments.membership)};
    if(sql.includes('FROM pg_index'))return {rows:copy(instruments.indexes)};
+   if(sql.includes('/* intake-assert-function */'))return {rows:[{source:instruments.intakeAssertBody,definer:false,config:['search_path=pg_catalog'],arguments:0,void_result:true,executes:false,language:'plpgsql'}]};
    let found=[...rows.values()];
    if(sql.includes('work_owner_ordinal=$')){const ordinalIndex=Number(sql.match(/work_owner_ordinal=\$(\d+)/)[1])-1,revisionIndex=Number(sql.match(/work_assignment_revision=\$(\d+)/)[1])-1;found=found.filter(row=>row.work_owner_ordinal===values[ordinalIndex]&&row.work_assignment_revision===values[revisionIndex]);}
    if(sql.startsWith('SELECT min(work_due_at)')){const due=found.map(row=>row.work_due_at).filter(value=>value!==null).map(Number);return {rows:[{due:due.length?String(Math.min(...due)):null}]};}
@@ -60,11 +62,11 @@ function fixture({ordinal=0,partitioned=true,enforceOldWriter=true,boundary=true
   }
  };
  if(!boundary){const hold=connection.holdAdvisoryLock.bind(connection);connection.holdAdvisoryLock=async(...args)=>{const capability=await hold(...args);delete capability.withTenantTransaction;return capability;};}
- const selection={assignment,self,membershipNamespace:MEMBERSHIP,lifecycleNamespace:LIFECYCLE,currentGeneration:()=>generation};
- const store=creator({connection,namespace:NS,consumer:'evaluator-partition',maxBytes:100000,timeIntervalMs:60000,typed:true,now:()=>100,onCommit:()=>{hints.push(events.at(-1));},...(partitioned?{partition:selection}:{})});digest=store.digest;
+ const selection={assignment:forgedSelection?{...assignment,owner:()=>{throw new Error('FORGED_ASSIGNMENT_USED');},select:()=>{throw new Error('FORGED_ASSIGNMENT_USED');}}:assignment,self,membershipNamespace:MEMBERSHIP,lifecycleNamespace:LIFECYCLE,currentGeneration:()=>generation};
+ const store=creator({connection,namespace:NS,consumer:'evaluator-partition',maxBytes:100000,timeIntervalMs:60000,typed:true,now:()=>100,onCommit:()=>{hints.push(events.at(-1));},...(partitioned?{partition:selection}:{}),...(intakeProfile?{intakeProfile}:{})});digest=store.digest;
  for(const tenant of ids)rows.set(tenant,base(tenant));
  const owned=ids.find(id=>assignment.owner(id)===ordinal),foreign=ids.find(id=>assignment.owner(id)!==ordinal);
- return {store,rows,calls,events,keys,hints,assignment,selection,connection,instruments,owned,foreign,
+ return {store,rows,calls,events,keys,hints,assignment,intakeProfile,selection,connection,instruments,owned,foreign,
   setResource:value=>{resourceHeld=value;},setGeneration:value=>{generation=value;},setLive:value=>{live=value;},setFail:value=>{failCommit=value;},beforeCommit:fn=>{beforeCommit=fn;},afterUpdate:fn=>{afterUpdate=fn;},
   result:()=>({checkpoint:1,trigger:'acquisition',properties:{synthetic:true},emitted:[],requested:[],encodedRows:[],frame:{sgvs:[],lastUpdated:10},due:{dueAt:200,slow:[]}}),
   complete:(value={})=>store.complete(owned,{observed:{clock:'1'},identity:'a'.repeat(64),result:{checkpoint:1,trigger:'acquisition',properties:{synthetic:true},emitted:[],requested:[],encodedRows:[],frame:{sgvs:[],lastUpdated:10},due:{dueAt:200,slow:[]}},restoreGeneration:'7',...value})};
@@ -139,7 +141,7 @@ it('completion and ACK select distinct guarded operation transitions on their he
  const f=fixture();await f.store.own(()=>{});await f.complete();await f.store.acknowledge(f.owned,'1');assert.deepEqual(f.calls.filter(call=>call.sql?.includes("set_config('app.pgstream_partition_effect'")).map(call=>JSON.parse(call.values[0]).operation),['complete','ack']);await f.store.close();
 });
 it('control: removing selected observation refusal exposes input writes; restored actual module refuses',async()=>{
- const fs=require('node:fs'),vm=require('node:vm'),{createRequire}=require('node:module'),file=require.resolve('../lib/pgstream/typed-checkpoint'),source=fs.readFileSync(file,'utf8'),needle="if(selected)throw new Error('EVALUATOR_WORKER_OBSERVATION_REFUSED');",broken={exports:{}};assert.equal(source.split(needle).length,3);vm.runInThisContext('(function(require,module,exports){'+source.replaceAll(needle,'')+'\n})',{filename:file})(createRequire(file),broken,broken.exports);
+ const fs=require('node:fs'),vm=require('node:vm'),{createRequire}=require('node:module'),file=require.resolve('../lib/pgstream/typed-checkpoint'),source=fs.readFileSync(file,'utf8'),needle="if(selected||profile)throw new Error('EVALUATOR_WORKER_OBSERVATION_REFUSED');",broken={exports:{}};assert.equal(source.split(needle).length,3);vm.runInThisContext('(function(require,module,exports){'+source.replaceAll(needle,'')+'\n})',{filename:file})(createRequire(file),broken,broken.exports);
  async function criterion(creator){const f=fixture({creator});await assert.rejects(f.store.observe(f.owned,'clock','2'),/WORKER_OBSERVATION_REFUSED/);assert(!f.calls.some(call=>call.observation));}await assert.rejects(criterion(options=>broken.exports.create(options)),{code:'ERR_ASSERTION'});await criterion(checkpoint.create);
 });
 it('selected readiness refuses observation grants and missing/foreign policies; restoration admits',async()=>{
@@ -153,4 +155,7 @@ it('selected TIME-only completion advances due without inventing input or a new 
 
 it('cold worker admission refuses the older NULL-skipping aggregate body; exact restored protocol admits',async()=>{
  const f=fixture(),old='bool_and(ordinal>=0 AND ordinal<desired.members AND applied_members=desired.members AND slice_rule=desired.slice_rule)',current='bool_and(coalesce(ordinal>=0 AND ordinal<desired.members AND applied_members=desired.members AND slice_rule=desired.slice_rule,false))';const body=f.instruments.assignment[1].source;assert(body.includes(current));f.instruments.assignment[1].source=body.replace(current,old);await assert.rejects(f.store.own(()=>{}),/PROTOCOL_UNQUALIFIED/);assert.equal(f.store.available,false);f.instruments.assignment[1].source=body;await f.store.own(()=>{});await f.store.close();
+});
+it('profile-selected workers normalize the validated fixed assignment and retain guarded complete/ACK, input refusal and BASE replay grant',async()=>{
+ for(const ordinal of [0,1]){const f=fixture({ordinal,profileSelected:true,forgedSelection:true});try{await f.store.own(()=>{});await f.store.admit([f.owned]);assert.equal(f.store.digest,f.intakeProfile.contractDigest);await f.complete();await f.store.acknowledge(f.owned,'1');assert.deepEqual(f.calls.filter(call=>call.sql?.includes("set_config('app.pgstream_partition_effect'")).map(call=>JSON.parse(call.values[0]).operation),['complete','ack']);await assert.rejects(f.store.observe(f.owned,'clock','2'),/WORKER_OBSERVATION_REFUSED/);assert(require('../lib/pgstream/worker-grants').UPDATES.includes('contract_digest'));}finally{await f.store.close();}}
 });

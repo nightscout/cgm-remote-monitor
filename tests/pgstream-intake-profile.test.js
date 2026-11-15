@@ -22,7 +22,7 @@ describe('proposed source-recognized immutable intake profile (no activation)',(
   assert(Object.isFrozen(p.binding)&&Object.isFrozen(p.binding.tenants)&&Object.isFrozen(p.binding.controlReads)&&Object.isFrozen(p.binding.controlReads.tenant_lifecycle_windows)&&Object.isFrozen(p.binding.workCatalogueRead));
  });
  it('revalidates retained JSON exactly, refusing forged metadata/roster/profile/digest while accepting a canonical round trip',()=>{
-  const p=profile.create(options),saved=JSON.parse(JSON.stringify(p));assert.equal(profile.validate(saved).digest,p.digest);
+  const p=profile.create(options),saved=JSON.parse(JSON.stringify(p));assert.equal(profile.validate(saved).digest,p.digest);const forged={...p,assignment:{...p.assignment,owner:()=>{throw new Error('FORGED_ASSIGNMENT_MUST_NOT_RUN');},select:()=>{throw new Error('FORGED_ASSIGNMENT_MUST_NOT_RUN');}}},normalized=profile.validate(forged);assert.notEqual(normalized.assignment,forged.assignment);assert.equal(normalized.assignment.owner(A),p.assignment.owner(A));assert.deepEqual(normalized.assignment.tenants,p.assignment.tenants);
   for(const change of [{digest:'0'.repeat(64)},{contractDigest:'0'.repeat(64)},{ownerKey:'17'},{binding:{...p.binding,controlReads:{}}},{binding:{...p.binding,workCatalogueRead:[]}},{binding:{...p.binding,tenants:[A]}},{binding:{...p.binding,codec:'research-codec'}},{binding:{...p.binding,extra:true}}])assert.throws(()=>profile.validate({...saved,...change}),/PROFILE/);
  });
  it('keeps the legacy global owner key stable across revision/profile changes and distinct across deployment/consumer',()=>{

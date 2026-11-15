@@ -230,7 +230,7 @@ describe('independent tenant startup admission (source protocol)', function () {
   });
   it('actual consumer prepare uses metadata-only sameDB challenge and screens shared ACL even with every tenant paused', async function () {
     for (const fault of [null,'outbox','suppression','datastore']) {
-      const f=fixture({phase:'suspended'}),zero='00000000-0000-0000-0000-000000000000',events=[];
+      const f=fixture({phase:'suspended'}),zero='00000000-0000-0000-0000-000000000000',events=[];let storesCreated=0,storesClosed=0,storesOwned=0;
       let held=null;
       const connection=owner=>({end:async()=>{},transaction:async fn=>fn(),snapshotTransaction:async fn=>fn(),query:async text=>{
         assert.equal(scope.requireTenant('challenge'),zero,'DATASTORE_CHALLENGE_NOT_FIRST_TENANT');
@@ -250,7 +250,7 @@ describe('independent tenant startup admission (source protocol)', function () {
         },
         '../../tenant-notifications/readiness':async()=>{events.push('outbox');if(fault==='outbox')throw new Error('bad outbox schema');},
         './evaluator-consumer-readiness':guards,
-        '../../tenant-notifications/postgres':()=>({ready:async()=>{throw new Error('PAUSED_TENANT_STORE_ENTERED');}}),
+        '../../tenant-notifications/postgres':()=>{storesCreated++;return {ready:async()=>{throw new Error('PAUSED_TENANT_STORE_ENTERED');},own:async onLoss=>{assert.equal(typeof onLoss,'function');assert.deepEqual(events,['suppression','outbox','challenge'],'COLD_CHECKS_PRECEDE_DEFAULT_STORE_OWN');storesOwned++;},close:async()=>{storesClosed++;}};},
         '../../tenant-alarms/postgres':{createReader:()=>({read:async()=>{throw new Error('PAUSED_TENANT_READER_ENTERED');}})},
         '../../tenant-notifications/producer':()=>({select:async()=>{},close:()=>{}}),
         '../../tenant-notifications/component':()=>({retry:async()=>({results:[]}),close:async()=>{}}),
@@ -263,7 +263,7 @@ describe('independent tenant startup admission (source protocol)', function () {
           current:()=>null,isCurrent:async()=>false,operationWindow:f.window,jobContext:jobs,coldAdmission});
         if(fault)await assert.rejects(promise,/bad outbox schema|bad suppression ACL|READINESS_REFUSED/);
         else {consumer=await promise;assert.deepEqual(events,['suppression','outbox','challenge']);assert.equal(coldCalls,2);}
-      }finally{if(consumer)await consumer.close();jobs.close();await f.window.close();}
+      }finally{if(consumer)await consumer.close();jobs.close();await f.window.close();assert.equal(storesClosed,storesCreated,'ACTUAL_CREATED_STORE_CLOSE_REQUIRED');assert.equal(storesOwned,fault?0:1,'DEFAULT_STORE_OWN_ONLY_AFTER_ALL_COLD_CHECKS');}
     }
   });
 
