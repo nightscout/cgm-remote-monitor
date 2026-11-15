@@ -214,12 +214,12 @@ describe('whole deployment source admission and filesystem durability', function
     const admission = admit({ namespaces: namespaces() });
     assert.deepEqual(admission.census.selected.map(entry => entry.kind), KINDS);
     assert.equal(admission.census.tables, 54);
-    assert.equal(admission.census.candidates.length, 31);
+    assert.equal(admission.census.candidates.length, 32);
     assert.equal(admission.census.candidates.filter(entry => entry.disposition === 'reviewed alternative').length, 5);
     // The change reader, pools, stamps, registry and retained ensure audit are deployment-operational:
     // censused, digest-pinned and never part of a tenant artifact.
     assert.deepEqual(admission.census.candidates.filter(entry => entry.disposition === 'operational, no tenant data').map(entry => entry.file),
-      ['lib/change-feed/postgres-candidate.json', 'lib/change-stamps/postgres-candidate.json', 'lib/pool-membership/postgres-candidate.json', 'lib/tenant-registry/ensure-candidate.json', 'lib/tenant-registry/postgres-candidate.json']);
+      ['lib/change-feed/postgres-candidate.json', 'lib/change-stamps/postgres-candidate.json', 'lib/pool-membership/postgres-candidate.json', 'lib/tenant-registry/ensure-candidate.json', 'lib/tenant-registry/postgres-candidate.json', 'migrations/candidates/postgres-pool-mutation-v1.json']);
     assert.ok(!admission.catalogues.some(entry => entry.candidatePath === 'lib/pool-membership/postgres-candidate.json'));
     assert.ok(!admission.lifecycle.CATALOGUE.some(entry => entry.tables.includes('pool_membership')));
     assert.ok(admission.lifecycle.CATALOGUE.some(entry => entry.tables.includes('tenant_owner_configuration_authority')));
@@ -296,6 +296,39 @@ describe('whole deployment source admission and filesystem durability', function
     } finally {fs.rmSync(scratch,{recursive:true,force:true});}
   });
 
+  it('pins the global pool-mutation successor and refuses a changed or omitted pin', function () {
+    const scratch = fs.mkdtempSync(path.join(os.tmpdir(), 'pool-successor-census-'));
+    try {
+      for (const entry of operations.discoverCatalogues()) {
+        fs.mkdirSync(path.dirname(path.join(scratch, entry.file)), { recursive: true });
+        fs.copyFileSync(path.join(ROOT, entry.file), path.join(scratch, entry.file));
+      }
+      const file = 'migrations/candidates/postgres-pool-mutation-v1.json';
+      const original = fs.readFileSync(path.join(scratch, file), 'utf8');
+      const options = { root: scratch, namespaces: namespaces() };
+      const plan = admit(options);
+      assert(plan.census.candidates.some(entry => entry.file === file && entry.disposition === 'operational, no tenant data'));
+      assert(!plan.catalogues.some(entry => entry.candidatePath === file));
+      assert(!plan.lifecycle.CATALOGUE.some(entry => entry.tables.includes('pool_desired')));
+      const changed = JSON.parse(original);
+      changed.migrations.at(-1).up.push("COMMENT ON TABLE pool_desired IS 'synthetic pin control'");
+      changed.migrations.at(-1).checksum = checksum(changed.migrations.at(-1).up);
+      fs.writeFileSync(path.join(scratch, file), JSON.stringify(changed));
+      assert.throws(() => admit(options), { code: 'OPERATIONS_CENSUS_OPERATIONAL_CHANGED', detail: file });
+      fs.writeFileSync(path.join(scratch, file), original);
+      const Module = require('node:module'), filename = path.join(ROOT, 'lib/tenant-operations/catalogues.js');
+      const loaded = new Module(filename, module);
+      loaded.filename = filename; loaded.paths = Module._nodeModulePaths(path.dirname(filename));
+      const source = fs.readFileSync(filename, 'utf8');
+      const pin = "  'migrations/candidates/postgres-pool-mutation-v1.json': '" + require('../lib/tenant-operations/catalogues').OPERATIONAL[file] + "',\n";
+      assert.equal(source.split(pin).length, 2, 'control removes exactly one reviewed pin');
+      loaded._compile(source.replace(pin, ''), filename);
+      assert.throws(() => loaded.exports.deploymentAdmission({ ...options, extensions: defaultExtensions() }),
+        { code: 'OPERATIONS_CATALOGUE_UNADMITTED', detail: file });
+      assert(admit(options).census.candidates.some(entry => entry.file === file));
+    } finally { fs.rmSync(scratch, { recursive: true, force: true }); }
+  });
+
   it('enumerates both actual checkpoint instances with independent tenants, consumers and precise grants', function () {
     const { checkpointInputs, populatedInstanceRows } = require('./fixtures/tenant-deployment-checkpoints');
     const input = { namespaces: { ...namespaces(), evaluator_checkpoint: 'deploy_eval_checkpoint' },
@@ -306,7 +339,7 @@ describe('whole deployment source admission and filesystem durability', function
     const admission = admit({ namespaces: input.namespaces, instances: checkpoints.instances });
     assert.equal(admission.census.selected.length, 22);
     assert.equal(admission.census.tables, 55);
-    assert.equal(admission.census.candidates.length, 31);
+    assert.equal(admission.census.candidates.length, 32);
     assert.deepEqual(admission.census.selected.filter(entry => entry.kind.includes('checkpoint')).map(entry => [entry.kind, entry.namespace, entry.instanceOf]),
       [['checkpoint', input.realtime.namespace, null], ['evaluator_checkpoint', input.evaluator.namespace, 'checkpoint']]);
     assert.ok(admission.lifecycle.CATALOGUE.some(entry => entry.kind === 'evaluator_checkpoint'));
