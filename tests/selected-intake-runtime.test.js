@@ -125,3 +125,21 @@ describe('fixed raw member principal scope and every checkout',()=>{
   const bad=memberProtocol(),refused=await bad.api.create({kind:'evaluator',ordinal:0,namespace:profile.binding.membershipNamespace,leaseMs:1000,fixedProtocol:true,intakeProfile:profile,operationWindow:bad.window,onAlert:()=>{}});try{bad.state.backend={unrelated_writes:true};await assert.rejects(refused.register(),e=>e.cause?.code==='POOL_FIXED_BACKEND_REFUSED');assert.equal(bad.writes(),0);}finally{await refused.close();}
  });
 });
+
+
+describe('feed control source grants through actual lower-window readiness',()=>{
+ function grantSource(mutate=source=>source){const file=require.resolve('../lib/pgstream/feed-control'),m=new Module(file,module);m.filename=file;m.paths=Module._nodeModulePaths(path.dirname(file));m._compile(mutate(fs.readFileSync(file,'utf8')),file);return m.exports;}
+ async function admission(api,{selected=true,change=()=>{}}={}){
+  const grants=api.grants({profile,clockNamespace:'synthetic_clock',role:'feed_control'}),execute=grants.some(sql=>sql.startsWith('GRANT EXECUTE ON FUNCTION "'+profile.binding.lifecycleNamespace+'".tenant_lifecycle_backend_birth() TO ')),metadata=require('./fixtures/lifecycle-domain-profile').metadata(selected?profile:undefined,(kind,rows)=>{if(kind==='function')rows[0].executes=execute;change(kind,rows);}),protocol=require('./fixtures/operation-window-admission-protocol')(metadata);
+  return require('../lib/tenant-lifecycle/operation-window-readiness').admit({query:async(sql,values)=>protocol(sql,values)},profile.binding.lifecycleNamespace,selected?{intakeProfile:profile}:{});
+ }
+ it('reproduces old source-granted EXECUTE refusal, then admits the corrected readonly lower role without changing readiness',async()=>{
+  const old=grantSource(source=>{const needle=" ...Object.keys(profiles.CONTROL_READS).map(table=>'GRANT SELECT ON '+control+'.'+table+' TO '+role),\n";assert.equal(source.split(needle).length,2);return source.replace(needle,needle+" 'GRANT EXECUTE ON FUNCTION '+control+'.tenant_lifecycle_backend_birth() TO '+role\n");});
+  await assert.rejects(admission(old),{code:'LIFECYCLE_WINDOW_SCHEMA_UNSAFE'});
+  const fixed=grantSource();assert(!fixed.grants({profile,clockNamespace:'synthetic_clock',role:'feed_control'}).some(sql=>sql.startsWith('GRANT EXECUTE')));await admission(fixed);await admission(fixed,{selected:false});
+ });
+ it('keeps required canonical metadata SELECT and exact backend-birth function shape mandatory for lower admission',async()=>{
+  const fixed=grantSource();for(const table of ['schema_migrations','tenant_lifecycle_windows','tenant_lifecycle_operations'])await assert.rejects(admission(fixed,{change:(kind,rows)=>{if(kind===table)rows[0].reads=false;}}),{code:'LIFECYCLE_WINDOW_SCHEMA_UNSAFE'});
+  await assert.rejects(admission(fixed,{change:(kind,rows)=>{if(kind==='function')rows[0].prosrc='SELECT now()';}}),{code:'LIFECYCLE_WINDOW_SCHEMA_UNSAFE'});await admission(fixed);
+ });
+});
