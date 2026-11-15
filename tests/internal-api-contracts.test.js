@@ -33,7 +33,7 @@ describe('Internal service API contracts', function () {
         return operation.path;
       });
     });
-    assert.deepEqual(paths, ['/authorize', '/mutate', '/completed-output/hint', '/evaluator/intake-state', '/alarm', '/cohort/status', '/cohort/invalidate', '/cohort/operations',
+    assert.deepEqual(paths, ['/authorize', '/mutate', '/completed-output/hint', '/evaluator/intake-state', '/evaluator/input-hint', '/alarm', '/cohort/status', '/cohort/invalidate', '/cohort/operations',
       '/ownership/list', '/ownership/add', '/ownership/transfer', '/ownership/recover', '/vcpool/inspect',
         '/evaluator/inspect', '/pool/get', '/pool/members', '/realtime/inspect', '/realtime/inspect-tenants']);
     assert.throws(() => { contracts.alarmDelivery.operations.getStatus = lifecycle.getStatus; }, TypeError);

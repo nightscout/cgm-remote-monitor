@@ -32,6 +32,7 @@ function create(profile=profiles.create(options)){
   if(text.startsWith('SELECT to_regclass('))return {rows:[{present:true}]};
   if(text.startsWith('SELECT name, checksum FROM'))return {rows:built.catalogue.migrations.map(({name,checksum})=>({name,checksum}))};
   if(text.includes('/* intake-installed-profile */'))return {rows:[{consumer:b.consumer+'-completed',profile:b,digest:state.badProfile?'0'.repeat(64):profile.digest,contract_digest:profile.contractDigest}]};
+  if(text.includes('/* intake-health-profile */'))return {rows:[{consumer:b.consumer+'-completed',digest:state.badProfile?'0'.repeat(64):profile.digest,contract_digest:profile.contractDigest,profile_matches:!state.badProfile}]};
   if(text.includes('/* intake-pending-health */')){const pending=[...rows.values()].filter(row=>row.work_enabled&&row.work_pending_at!==null).map(row=>BigInt(row.work_pending_at));return {rows:[{oldest:pending.length?String(pending.reduce((a,b)=>a<b?a:b)):null}]};}
   if(text.includes('/* intake-admission */'))return {rows:state.missing?[]:values[1].map(id=>copy(rows.get(id)))};
   if(text.includes('pg_try_advisory_lock(')||text.includes("locktype='advisory'"))return {rows:[{held:state.held}]};
