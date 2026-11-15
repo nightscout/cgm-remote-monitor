@@ -348,6 +348,7 @@
         "tests/operation-window-lock-reuse.test.js",
         "tests/operation-window-trusted-worker.test.js",
         "tests/preview-entries-acquisition.test.js",
+        "tests/entries-create-context.test.js",
         "tests/rest-metadata-environment.test.js",
         "tests/rest-entries-read-transaction.test.js",
         "tests/rest-entries-joined-authority.test.js",
