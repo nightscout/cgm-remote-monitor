@@ -67,6 +67,15 @@ describe('registry-mode role configuration', function () {
     assert.throws(() => load(apiConfig({ socketForwarding: {} })), /invalid preview/);
   });
 
+  it('selects local Node data authentication only with an explicit registry data realm', function () {
+    const config = apiConfig({ localDataAuthentication: 'node', accessTokens: { issuer: 'data', audience: 'api' } });
+    config.postgres.namespaces.access = 'ns_access';
+    assert.equal(load(config).localDataAuthentication, true);
+    assert.equal(load(apiConfig()).localDataAuthentication, false);
+    assert.throws(() => load(apiConfig({ localDataAuthentication: 'node' })), /localDataAuthentication requires/);
+    assert.throws(() => load(apiConfig({ localDataAuthentication: 'cache' })), /localDataAuthentication requires/);
+  });
+
   it('RC_LOCK_RULE: the operation configuration names the registry instead of a lock list; the window derives keys by the tenant-id rule', function () {
     const parsed = load({ version: 1, namespace: 'ns_control', connectionEnv: 'LIFE_PG', registry: { namespace: 'ns_registry' } }, operationConfig.load, 'MULTITENANT_OPERATION_CONFIG');
     assert.equal(parsed.locks, null); assert.equal(parsed.lockRule, 'tenant-id-sha256-v1');

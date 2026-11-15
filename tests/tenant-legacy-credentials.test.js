@@ -380,6 +380,115 @@ describe('tenant legacy credentials against shipping authentication', function (
     assert.equal(await component.verifyLegacyCredential(context, { token: single }), null);
   });
 
+  function exchangeFixture (transform) {
+    let factory = createSecrets;
+    if (transform) {
+      const fs = require('node:fs'), path = require('node:path'), Module = require('node:module');
+      const file = require.resolve('../lib/secrets/component'), loaded = new Module(file, module);
+      loaded.filename = file; loaded.paths = Module._nodeModulePaths(path.dirname(file));
+      const original = fs.readFileSync(file, 'utf8'), changed = transform(original);
+      assert.notEqual(changed, original, 'control must change the actual component');
+      loaded._compile(changed, file); factory = loaded.exports.createSecrets;
+    }
+    const effects = { provider: 0, decrypt: 0, sign: 0, verify: 0 };
+    let clock = 1700000000000, afterSign = () => {};
+    const options = { ...componentOptions, now: () => clock,
+      providerFor: async tenant => {
+        effects.provider++;
+        const original = await componentOptions.providerFor(tenant);
+        return { ...original,
+          decrypt: async value => { effects.decrypt++; return original.decrypt(value); },
+          sign: async value => { effects.sign++; const result = await original.sign(value); afterSign(); return result; },
+          verify: async (...args) => { effects.verify++; return original.verify(...args); }
+        };
+      } };
+    return { component: factory(options), create: factory, effects, options,
+      afterSign: callback => { afterSign = callback; }, advance: delta => { clock += delta; } };
+  }
+
+  it('returns identical signed exchange metadata without re-verifying trusted issuance', async function () {
+    const f = exchangeFixture(), start = events.length;
+    const issued = await f.component.exchangeLegacyCredential(context, subjects[0].accessToken, async () => true);
+    assert.deepEqual(f.effects, { provider: 2, decrypt: 1, sign: 1, verify: 0 }, 'EXCHANGE_NO_SELF_VERIFY');
+    assert.deepEqual(events.slice(start).map(event => event.operation), ['decrypt', 'sign', 'verify']);
+    assert.equal(Object.isFrozen(issued), true);
+    const verified = await f.component.verifyJWT(context, issued.token);
+    assert.equal(verified.iat, issued.iat); assert.equal(verified.exp, issued.exp);
+    assert.equal(verified.aud, context.tenant); assert.equal(verified.accessToken, subjects[0].accessToken);
+    assert.equal(issued.exp - issued.iat, 28800);
+    assert.deepEqual(f.effects, { provider: 3, decrypt: 1, sign: 1, verify: 1 }, 'EXTERNAL_JWT_STILL_VERIFIED');
+    const startRenewal = events.length;
+    await f.component.exchangeLegacyCredential(context, issued.token, async () => true);
+    assert.deepEqual(f.effects, { provider: 6, decrypt: 2, sign: 2, verify: 2 }, 'RENEWAL_VERIFIES_INPUT_ONCE');
+    assert.deepEqual(events.slice(startRenewal).map(event => event.operation), ['decrypt', 'verify', 'sign', 'verify']);
+  });
+
+  it('retains post-sign verify grant refusal and fresh authority on the next exchange', async function () {
+    const f = exchangeFixture();
+    f.afterSign(() => { verifyAllowed = false; });
+    await assert.rejects(f.component.exchangeLegacyCredential(context, subjects[0].accessToken, async () => true),
+      { code: 'SECRETS_FORBIDDEN' });
+    assert.equal(f.effects.sign, 1); assert.equal(f.effects.verify, 0);
+    verifyAllowed = true; f.afterSign(() => {}); metadata = [];
+    assert.equal(await f.component.exchangeLegacyCredential(context, subjects[0].accessToken, async () => true), null);
+    assert.equal(f.effects.sign, 1, 'removed subject never reaches signing');
+  });
+
+  it('withholds exchange output until the post-sign audit receipt commits and rejects its failure', async function () {
+    const f = exchangeFixture();
+    let entered, release;
+    const waiting = new Promise(resolve => { entered = resolve; });
+    const blocked = new Promise(resolve => { release = resolve; });
+    const guarded = f.create({ ...f.options, audit: async event => {
+      if (event.operation === 'verify') { entered(); await blocked; throw Error('synthetic audit commit failure'); }
+      return componentOptions.audit(event);
+    } });
+    let settled = false;
+    const pending = guarded.exchangeLegacyCredential(context, subjects[0].accessToken, async () => true)
+      .finally(() => { settled = true; });
+    const rejection = assert.rejects(pending, /synthetic audit commit failure/);
+    try {
+      await waiting; assert.equal(settled, false, 'EXCHANGE_REQUIRES_DURABLE_VERIFY_AUDIT');
+      assert.equal(f.effects.sign, 1); assert.equal(f.effects.verify, 0);
+    } finally { release(); }
+    await rejection;
+  });
+
+  it('rejects expired issuance, backwards clocks and malformed signer responses', async function () {
+    for (const delta of [28800000, -1000]) {
+      const f = exchangeFixture(); f.afterSign(() => f.advance(delta));
+      await assert.rejects(f.component.exchangeLegacyCredential(context, subjects[0].accessToken, async () => true),
+        { code: 'SECRETS_TOKEN_INVALID' });
+    }
+    const f = exchangeFixture();
+    const invalid = createSecrets({ ...f.options, providerFor: async tenant => ({
+      ...await f.options.providerFor(tenant), sign: async () => Buffer.alloc(31)
+    }) });
+    await assert.rejects(invalid.exchangeLegacyCredential(context, subjects[0].accessToken, async () => true),
+      { code: 'SECRETS_SIGNATURE_INVALID' });
+  });
+
+  it('control: restoring sign-then-verify fails the measured exchange provider budget', async function () {
+    const f = exchangeFixture(source => source.replace('      return issued;\n    },\n    async encrypt',
+      '      await component.verifyJWT(context, issued.token);\n      return issued;\n    },\n    async encrypt'));
+    assert(await f.component.exchangeLegacyCredential(context, subjects[0].accessToken, async () => true));
+    assert.deepEqual(f.effects, { provider: 3, decrypt: 1, sign: 1, verify: 1 }, 'CONTROL_SELF_VERIFY_EXERCISED');
+    assert.throws(() => assert.deepEqual(f.effects, { provider: 2, decrypt: 1, sign: 1, verify: 0 }, 'EXCHANGE_NO_SELF_VERIFY'),
+      /EXCHANGE_NO_SELF_VERIFY/);
+  });
+
+  it('control: removing the post-sign audit releases output despite audit failure', async function () {
+    const f = exchangeFixture(source => source.replace("      const { event } = await authorizeAccess(context, 'verify');\n      await audit(event);",
+      "      await authorizeAccess(context, 'verify');"));
+    const guarded = f.create({ ...f.options, audit: async event => {
+      if (event.operation === 'verify') throw Error('synthetic audit commit failure');
+      return componentOptions.audit(event);
+    } });
+    const issued = await guarded.exchangeLegacyCredential(context, subjects[0].accessToken, async () => true);
+    assert(issued, 'CONTROL_UNAUDITED_RELEASE_EXERCISED');
+    await assert.rejects(assert.rejects(Promise.resolve(issued), /synthetic audit commit failure/), /Missing expected rejection/);
+  });
+
   it('canonicalizes exchange credentials like shipping without exposing root material or adding JWT authority', async function () {
     const shipping = require('../lib/authorization')({
       enclave, settings: { authDefaultRoles: 'readable', authFailDelay: 0 }, trustProxy: false

@@ -75,6 +75,7 @@
         "tests/migrations.test.js",
         "tests/secrets.test.js",
         "tests/tenant-legacy-credentials.test.js",
+        "tests/tenant-local-credentials.test.js",
         "tests/mmconnect-connect-compat.test.js",
         "tests/mongo-aws-compat.test.js",
         "tests/mongo-pool-config.test.js",

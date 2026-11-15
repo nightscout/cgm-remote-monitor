@@ -19,7 +19,7 @@ const STEPS = ['vault', 'database', 'registry', 'hosts', 'secret', 'authorizatio
 // Every provisioning table, with the row count one tenant gets.
 const COMPLETE = {
   'registry.tenant_registry': 1, 'registry.tenant_registry_hosts': 2, 'registry.tenant_registry_keys': 4,
-  'legacy.legacy_credential_config': 1, 'secrets.secret_records': 1, 'secrets.secret_audit': 1,
+  'legacy.legacy_credential_config': 1, 'legacy.legacy_data_keys': 1, 'secrets.secret_records': 1, 'secrets.secret_audit': 1,
   'authorization.tenant_authorization_config': 1, 'authorization.tenant_owner_policy': 1,
   'access.access_tenants': 1, 'access.access_keys': 4, 'clock.tenant_write_clock': 1, 'checkpoint.tenant_consumer_checkpoint': 1,
   'control.tenant_lifecycle_windows': 1, 'control.tenant_activity': 1, 'control.tenant_activity_audit': 1,

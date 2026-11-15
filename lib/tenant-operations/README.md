@@ -51,7 +51,7 @@ read from PostgreSQL during capture; generated columns are recomputed on restore
 | operator_policy | tenant_operator_policy |
 | tenant_settings | tenant_settings, tenant_settings_history |
 | owner_configuration | tenant_owner_configuration_authority |
-| legacy | legacy_credential_config, legacy_credential_subjects |
+| legacy | legacy_credential_config, legacy_credential_subjects, legacy_data_keys |
 | secrets | secret_records, secret_audit |
 | lifecycle | tenant_lifecycle_requests, tenant_lifecycle_ceremony |
 | alarm_suppression | tenant_alarm_suppression |

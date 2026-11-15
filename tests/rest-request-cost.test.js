@@ -224,15 +224,17 @@ function credentialFixture ({ oldExchange = false, root = false, tokenCurrent = 
 }
 describe('real component mixed-credential cost', function () {
   it('removes DATA exchange effects while matching root, token, missing/unnamed refusal and revocation outcomes', async function () {
+    // The restored DATA exchange path uses the current exchange implementation:
+    // issuance retains its verify audit but no longer calls provider.verify.
     const cases = [
-      [{ root: true }, 'root', { decrypt: 2, sign: 1, verify: 1, audit: 4, metadata: 2, authority: 2 }, 2],
-      [{}, 'token-subject', { decrypt: 2, sign: 1, verify: 2, audit: 5, metadata: 2, authority: 2 }, 1],
+      [{ root: true }, 'root', { decrypt: 2, sign: 1, verify: 0, audit: 4, metadata: 2, authority: 2 }, 2],
+      [{}, 'token-subject', { decrypt: 2, sign: 1, verify: 1, audit: 5, metadata: 2, authority: 2 }, 1],
       [{ root: true, tokenCurrent: false }, null, { decrypt: 1, sign: 0, verify: 0, audit: 1, metadata: 1, authority: 1 }, 1],
       [{ root: true, tokenKnown: false }, null, { decrypt: 1, sign: 0, verify: 0, audit: 1, metadata: 1, authority: 0 }, 0],
       [{ tokenCurrent: false }, null, { decrypt: 1, sign: 0, verify: 0, audit: 1, metadata: 1, authority: 1 }, 1],
       [{ tokenNamed: false, apiNamed: false }, null, { decrypt: 1, sign: 0, verify: 0, audit: 1, metadata: 1, authority: 1 }, 1],
       [{ tokenKnown: false }, null, { decrypt: 1, sign: 0, verify: 0, audit: 1, metadata: 1, authority: 0 }, 0],
-      [{ allowed: false }, 'TENANT_LEGACY_FORBIDDEN', { decrypt: 2, sign: 1, verify: 2, audit: 5, metadata: 2, authority: 2 }, 1]
+      [{ allowed: false }, 'TENANT_LEGACY_FORBIDDEN', { decrypt: 2, sign: 1, verify: 1, audit: 5, metadata: 2, authority: 2 }, 1]
     ];
     for (const [options, outcome, oldCounts, authority] of cases) {
       const baseline = credentialFixture({ ...options, oldExchange: true }), candidate = credentialFixture(options);

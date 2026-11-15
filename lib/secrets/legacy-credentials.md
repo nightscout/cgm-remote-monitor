@@ -181,3 +181,133 @@ field. It does not wrap an HTTP response or a write in an ambient transaction.
 Writes retain their own durable commit/event boundary. Lifetime, registry,
 display, management, human-session and access-token credentials retain their
 separate paths. The authority reader does not close a borrowed data connection.
+
+## Local Node/PostgreSQL data authentication
+
+The explicit registry API selection `"localDataAuthentication": "node"` removes
+Vault from ordinary DATA and socket authentication. It also signs newly exchanged
+data tokens in Node. It uses the existing `accessTokens.issuer` and
+`accessTokens.audience` configuration as its realm; the access namespace remains
+required for the existing headless-token compatibility engine. Omitting the
+selection retains the previous composition. Single-site Mongo authentication is
+unchanged.
+
+```mermaid
+flowchart LR
+  Request[DATA or socket credential] --> Local[Local credential verifier]
+  Local --> Current[(Current PostgreSQL verifier and public-key rows)]
+  Local --> Roles[Existing current permission snapshot]
+  Roles --> Data[Admitted data operation]
+  Exchange[Explicit exchange] --> Local
+  Exchange --> Sign[Node Ed25519 signing]
+  Sign --> Private[(PostgreSQL data private key)]
+  Old[Previous Vault HS256 token] --> Exchange
+  Exchange --> Renewal[Previous-profile verification for renewal only]
+```
+
+### Credential and key ownership
+
+`legacy-verifiers.js` prepares SHA-256 fingerprints of every supported legacy
+subject-digest and canonical-token-digest prefix, with the prefix kind included
+in the hash input. It also prepares fingerprints of the existing SHA-1 and
+SHA-512 root presentations. The existing minimum subject prefix length remains
+16 characters. The stored fingerprints are not bearer credentials. Ordinary
+checks hash the supplied presentation and compare those fingerprints; they do
+not decrypt the root or derive every subject's credential again.
+
+The verifier reads current material on every operation through
+`legacy-postgres.readVerification`. The same query reads active public data
+keys. It selects no private key. A root verifier is bound to its prepared root
+reference. A subject verifier is bound to its prepared token prefix. A changed
+reference refuses authentication until preparation succeeds; a subject without
+matching prepared material cannot authenticate. Prepared root administration
+continues to work when a different subject needs preparation. Permissions still
+come from the existing current authority on each operation. No authority,
+credential-success or key-status cache is introduced.
+
+`legacy-data-token.js` uses Node Ed25519 for the separate
+`ns-legacy-data+jwt` profile. Its issuer, audience, tenant, subject, root version,
+credential version, issued time and expiry are signed. The lifetime remains
+28800 seconds. The verifier checks the closed header/claim set, signature,
+current active key, realm, tenant, lifetime and current credential versions.
+The existing bounded signature-proof cache may reuse a mathematical signature
+proof for the exact signed bytes and public key. Current credential/key status
+and permissions are still read on every operation. These tokens carry identity,
+not permissions. Human/OIDC and headless access
+keys and token profiles remain separate.
+
+The local private key lives in the tenant-bound `legacy_data_keys` table in
+PostgreSQL. It is read only by the explicit exchange code, after its durable
+sign-attempt audit. Ordinary DATA/socket code receives a local verifier without
+a Vault or private-key port. The API database identity has minting authority;
+its key-table grant must be SELECT only, with forced row-level security and no
+ownership, write, superuser or bypass privilege. Sensitive vendor and OIDC
+secrets retain their existing Vault-backed boundary. A logical tenant export
+includes the local key table as sensitive authentication state; it must stay
+within the existing private artifact boundary.
+
+### Preparation and compatibility
+
+Apply `0002_local_data_authentication` from the existing legacy credential
+catalogue before selecting this mode. New tenant provisioning writes root
+fingerprints and creates a separate local data signing key in its existing
+atomic provisioning transaction. Provisioning completeness includes the new
+key and prepared root binding. The provisioner and ensure grant builders include
+their required new-table privileges. The API needs SELECT on
+`<legacy namespace>.legacy_data_keys`; no serving writer grant is added.
+
+For existing tenants, `prepare-local-auth.js` is a trusted maintenance port. Its
+caller supplies the existing exclusive tenant lifecycle window, a tenant-bound
+writer connection, and an audited root reader. It locks current root/subject
+metadata, reads the root once, prepares the one-way verifier rows, creates a
+local signing key if needed, and returns only `{prepared:true}` after COMMIT.
+It clears the root buffer. A root-read or COMMIT failure publishes no new
+material. Repeating preparation with the same root preserves its version and
+signing key. Changing the root fingerprints increments the root version, so
+previous local JWTs fail on the next operation. The port adds no serving route;
+the integration controller must supply the actual maintenance window and
+credentials.
+
+Subject creation and updates prepare verifier material inside the existing
+owner-authorized subject transaction when the trusted credential preparation
+capability is configured. The root admin composition supplies it in local mode;
+the owner credential runtime supplies it with its existing issuance capability.
+Without that capability, a new or renamed subject needs maintenance preparation
+before local authentication. A role-only edit with an unchanged token prefix
+preserves its verifier material. Removing the subject removes its credential
+row through the existing writer.
+
+The exchange HTTP path and `{token,iat,exp,sub,permissionGroups}` response remain.
+The token envelope changes to the explicit Ed25519 profile. Clients that inspect
+HS256 headers or the old `accessToken` claim need a compatibility update; clients
+that treat the bearer as opaque retain their carriers. Existing Vault HS256
+signatures cannot be verified locally without their non-exportable symmetric
+key. They are accepted only at the explicit exchange endpoint for renewal:
+that endpoint verifies the old token using the existing audited Vault adapter,
+checks current local credential metadata and subject authority, then returns a
+local token. Ordinary DATA/socket requests never use a Vault fallback. The status-response
+issuer explicitly disables previous-profile renewal. Admin query-token
+authentication verifies the credential directly, without minting a JWT. Operators
+must coordinate token renewal when enabling the selection; the previous mode
+remains available during preparation.
+
+### Rotation, restart and validation boundary
+
+Preparation with `{rotateSigningKey:true}` generates a new local Ed25519 key,
+stops signing with the previous key and removes its stored private bytes. Its
+active public key remains available for the remaining token lifetime. Marking a
+key inactive refuses its tokens on the next operation. Key state and verifier
+material persist in PostgreSQL; recreating the process/verifier needs no Vault
+call or authorization-cache reconstruction. The lifecycle catalogue includes
+the new table for tenant export, deletion and restore. Clinical logical restore
+continues to preserve current nonclinical authority.
+
+Focused source tests exercise the real DATA, socket and exchange entry points
+with synthetic verifier/key persistence. A refusing old provider leaves local
+traffic working; restoring the old composition exercises that refusal. Controls
+also demonstrate signature-check removal accepting a forgery and stale key-state
+reuse accepting a revoked key. Persistence protocol tests check public-only
+ordinary reads, prepared root/prefix binding, key overlap, idempotent preparation
+and COMMIT failure. These are source/protocol results. Native PostgreSQL RLS,
+real preparation/controller wiring, joined restore acceptance and scaling remain
+UNMEASURED for this batch until the coherent integration candidate runs them.
