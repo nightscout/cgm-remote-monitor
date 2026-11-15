@@ -272,6 +272,7 @@
         "tests/evaluator-preview-registry-fixture.test.js",
         "tests/tenant-activity.test.js",
         "tests/pool-membership.test.js",
+        "tests/selected-intake-runtime.test.js",
         "tests/tenant-registry-resolver.test.js",
         "tests/admin-provisioning-cli.test.js",
         "tests/tenant-ensure.test.js",

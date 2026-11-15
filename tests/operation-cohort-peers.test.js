@@ -14,7 +14,7 @@ function load (overrides,mutate=s=>s) {
   vm.runInThisContext('(function(require,module,exports){'+mutate(fs.readFileSync(file,'utf8'))+'\n})',{filename:file})(name=>Object.hasOwn(overrides,name)?overrides[name]:original(name),output,output.exports);
   return output.exports;
 }
-async function lab (mutate, timeoutMs = 1000, intakeProfile) {
+async function lab (mutate, timeoutMs = 1000, intakeProfile,registryLabel,localMutate) {
   const entries=manifest.validate(roles.map((role,index)=>({id:'peer_'+index,roles:[role],namespaces:['clinical_'+index],endpoint:{socketPath:'/synthetic/peer_'+index+'.sock',maxBytes:100000,timeoutMs}})));
   const handlers=new Map(), locals=new Map(), invalidated=[], actors=roles.map((role,index)=>({pid:100+index,role:'synthetic_'+index,birth:'1700000000.'+index}));
   const flags={};
@@ -38,16 +38,16 @@ async function lab (mutate, timeoutMs = 1000, intakeProfile) {
     const entry=entries[index], options={intakeProfile}, f=fixture(options);
     const module=load({'../internal-api/transport':ipc,'../internal-api/clients':clients,'../../storage/postgres-connection':{
       installOperationWindow:()=>()=>{},cohortBackends:()=>[actors[index]],cohortDatastore:()=>DATA,cohortSnapshot:async()=>({datastore:f.window.datastore,backends:backends(index)})
-    },...Object.fromEntries(['preview-api','evaluator-preview','preview-realtime','owner-preview'].map(name=>['./'+name,{boot:async()=>({close:async()=>{},invalidateTenant:async tenant=>invalidated.push([entry.id,tenant])})}]))});
-    const cohort=await module.create({window:f.window,names:entry.roles,tenants:[A,B],namespaces:entry.namespaces,participant:entry});
-    await cohort.boot(roles[index],{tenantIds:[A,B],namespaces:{clinical:entry.namespaces[0]}});cohort.complete();
+    },...Object.fromEntries(['preview-api','evaluator-preview','preview-realtime','owner-preview'].map(name=>['./'+name,{boot:async()=>({close:async()=>{},invalidateTenant:async tenant=>invalidated.push([entry.id,tenant])})}]))},localMutate);
+    const cohort=await module.create({window:f.window,names:entry.roles,tenants:registryLabel?[registryLabel]:[A,B],namespaces:entry.namespaces,participant:entry});
+    await cohort.boot(roles[index],{...(registryLabel?{registry:{namespace:registryLabel.slice(9)}}:{}),tenantIds:registryLabel?[registryLabel]:[A,B],namespaces:{clinical:entry.namespaces[0]}});cohort.complete();
     // serve.internal binds the lifecycle handlers; the recording transport stands in for it.
     const operations=module.controlOperations(cohort),address=entry.endpoint.socketPath;handlers.set(address,operations);
     locals.set(index,{f,cohort,options,operations,async close(){if(handlers.get(address)===operations)handlers.delete(address);await cohort.close();}});
   }
   for(let index=0;index<entries.length;index++)await boot(index);
   const coordinator=load({'../internal-api/transport':ipc,'../internal-api/clients':clients},mutate);
-  const remote=await coordinator.createRemote({namespace:'synthetic_window',tenants:[A,B],participants:entries,...(intakeProfile?{intakeProfile}:{})});
+  let remote;try{remote=await coordinator.createRemote({namespace:'synthetic_window',tenants:registryLabel&&!intakeProfile?[registryLabel]:[A,B],participants:entries,...(intakeProfile?{intakeProfile}:{})});}catch(error){for(const local of locals.values())await local.close();throw error;}
   const operator={async query(sql){
     if(sql==='SELECT pg_catalog.pg_stat_clear_snapshot()')return {rows:[{}]};
     if(sql==='SELECT '+lower.datastoreSQL)return {rows:[flags.operatorWrongDB?{...DATA,server_port:5433}:DATA]};
@@ -319,5 +319,21 @@ describe('selected lifecycle cohort window profile agreement (source protocol, n
  it('control: omitting profile comparison permits same-OID wrong-profile peers and makes agreement RED; restored GREEN',async()=>{
   async function criterion(mutate){const f=await lab(mutate,1000,require('./fixtures/lifecycle-domain-profile').profile());let pin;try{pin=await f.coordinator.pin(f.remote,A,{client:f.operator});f.flags.profileMismatch=true;await assert.rejects(f.coordinator.invalidate(f.remote,A),{code:'RESTORE_COHORT_INTAKE_PROFILE_MISMATCH'});}finally{if(pin)await f.coordinator.releasePin(pin);await f.close();}}
   await assert.rejects(criterion(source=>{const needle="  if(reply.intakeProfileDigest!==state.intakeProfileDigest)throw fail('RESTORE_COHORT_INTAKE_PROFILE_MISMATCH');";assert.equal(source.split(needle).length,2);return source.replace(needle,'');}),{code:'ERR_ASSERTION'});await criterion(source=>source);
+ });
+});
+
+
+describe('selected fixed roster across registry-backed genuine source cohorts',()=>{
+ it('keeps configuration registry marker for boot matching but publishes source-owned exact UUID roster for restore peers',async()=>{
+  const profile=require('./fixtures/lifecycle-domain-profile').profile(),f=await lab(undefined,1000,profile,'registry:synthetic_registry');let pin;try{for(const local of f.locals.values()){const status=await local.operations.getStatus({}, {request:'00000000-0000-4000-8000-000000000001'});assert.deepEqual(status.tenants,profile.binding.tenants);assert.equal(status.intakeProfileDigest,profile.digest);}pin=await f.coordinator.pin(f.remote,A,{client:f.operator});await f.coordinator.invalidate(f.remote,A);assert.equal(f.invalidated.length,4);}finally{if(pin)await f.coordinator.releasePin(pin);await f.close();}
+  const legacy=await lab(undefined,1000,undefined,'registry:synthetic_registry');try{for(const local of legacy.locals.values())assert.deepEqual((await local.operations.getStatus({}, {request:'00000000-0000-4000-8000-000000000001'})).tenants,['registry:synthetic_registry']);}finally{await legacy.close();}
+ });
+});
+
+
+describe('selected fixed registry roster control',()=>{
+ it('control: restoring label-only local state breaks actual UUID restore-peer admission with unchanged OIDs; exact source restoration admits',async()=>{
+  const p=require('./fixtures/lifecycle-domain-profile').profile();const change=source=>{const needle='tenants:new Set(selectedRoster||tenants)';assert.equal(source.split(needle).length,2);return source.replace(needle,'tenants:new Set(tenants)');};
+  await assert.rejects(lab(undefined,1000,p,'registry:synthetic_registry',change),{code:'RESTORE_COHORT_PROTOCOL'});const restored=await lab(undefined,1000,p,'registry:synthetic_registry');try{const pin=await restored.coordinator.pin(restored.remote,A,{client:restored.operator});await restored.coordinator.releasePin(pin);}finally{await restored.close();}
  });
 });
