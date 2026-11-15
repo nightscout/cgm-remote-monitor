@@ -181,6 +181,7 @@
         "tests/notification-partition-adoption.test.js",
         "tests/notification-partition-dispatch.test.js",
         "tests/notification-partition-owner.test.js",
+        "tests/intake-state-sync.test.js",
         "tests/pgstream-bootstrap.test.js",
         "tests/pgstream-receiver.test.js",
         "tests/pgstream-realtime-receipt.test.js",
