@@ -27,8 +27,10 @@ function grants (layout) {
   grant('SELECT,UPDATE(checkpoint,projection,contract_digest)',table('rt_checkpoint','tenant_consumer_checkpoint'),'realtime');
   const metadata={clock:ns.clock,activity:ns.control,settings:ns.display_settings,operatorPolicy:ns.operator_policy};
   sql.push(...require('../../../lib/trusted-worker/postgres').grants({namespaces:metadata,roles:[roles.evaluator,roles.realtime]}));
-  for(const who of ['api','evaluator','realtime','owner_writer','owner_reader'])sql.push(...require('../../../lib/tenant-registry/postgres').grants({namespace:ns.registry,
-    ...(['api','owner_writer','owner_reader'].includes(who)?{resolvers:[roles[who]],readers:[roles[who]]}:{enumerators:[roles[who]],readers:[roles[who]]})}));
+  // Canonical role surfaces: background roles enumerate through the narrow
+  // definer functions; only API/owner readers read tenant rows and key metadata.
+  sql.push(...require('../../../lib/tenant-registry/postgres').grants({namespace:ns.registry,
+    resolvers:[roles.api,roles.owner_reader,roles.realtime],enumerators:[roles.evaluator,roles.realtime],readers:[roles.api,roles.owner_reader]}));
   for(const name of ['display_settings','operator_policy']){schema(name,'display_reader');grant('SELECT',table(name,'schema_migrations'),'display_reader');grant('SELECT',table(name,name==='display_settings'?'tenant_settings':'tenant_operator_policy'),'display_reader');}
   sql.push(...require('../../../lib/tenant-activity/postgres').grants({namespace:ns.control,reader:roles.activity_reader}));
   schema('alarm','suppression');grant('SELECT',table('alarm','tenant_alarm_suppression'),'suppression');grant('SELECT',table('alarm','schema_migrations'),'suppression');

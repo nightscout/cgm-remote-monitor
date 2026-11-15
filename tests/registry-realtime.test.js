@@ -311,3 +311,20 @@ describe('RR_REGISTRY_RETRY: connected socket admission uncertainty', function (
     } finally { f.close(); }
   });
 });
+
+
+describe('canonical source fixture background registry grants', function () {
+  it('gives realtime lookup/enumeration and evaluator enumeration without tenant-row or key reads', function () {
+    const layout=require('./fixtures/realtime-preview/bootstrap-plan').layout('eeeeeeeeeeeeeeee');
+    const statements=require('./fixtures/realtime-preview/bootstrap-grants').grants(layout),ns='"'+layout.namespaces.registry+'"';
+    const grants=role=>statements.filter(sql=>sql.endsWith(' TO "'+role+'"'));
+    for(const role of [layout.roles.realtime,layout.roles.evaluator]){
+      const selected=grants(role);assert(selected.some(sql=>sql.includes('tenant_registry_tenants(uuid, integer)')));
+      assert(!selected.some(sql=>sql.includes('GRANT SELECT ON '+ns+'.tenant_registry,')));
+      assert(!selected.some(sql=>sql.includes('tenant_registry_alias(uuid)')));
+    }
+    assert(grants(layout.roles.realtime).some(sql=>sql.includes('tenant_registry_lookup(text, text)')));
+    assert(!grants(layout.roles.evaluator).some(sql=>sql.includes('tenant_registry_lookup(text, text)')));
+    for(const role of [layout.roles.api,layout.roles.owner_reader])assert(grants(role).some(sql=>sql.includes('GRANT SELECT ON '+ns+'.tenant_registry,')));
+  });
+});
