@@ -15,7 +15,7 @@ const SOURCE = { RT_DB: 'postgres://synthetic:synthetic@127.0.0.1/disposable_tes
 const realtimeConfig=extra=>require('./fixtures/realtime-completed-config')({registry:{namespace:'rr_registry',refreshMs:500},...extra}).value;
 const request = host => ({ rawHeaders: ['Host', host], socket: {} });
 // A registry resolver double: hosts map to tenants; the registry decides activity.
-const resolverOf = hosts => ({ resolve: async req => { const host = req.rawHeaders[1]; if (!hosts.has(host)) throw new Error('TENANT_HOST_UNKNOWN'); return hosts.get(host); } });
+const resolverOf = hosts => ({ resolve: async req => { const host = req.rawHeaders[1]; if (!hosts.has(host)) throw Object.assign(new Error('TENANT_HOST_UNKNOWN'), { code: 'TENANT_HOST_UNKNOWN' }); return hosts.get(host); } });
 
 describe('registry mode: realtime, socket forwarding, removal and the static lab gate', function () {
   let mode;
@@ -89,7 +89,7 @@ describe('registry mode: realtime, socket forwarding, removal and the static lab
     assert.throws(() => parse(realtimeConfig({ registry: { namespace: 'rr_registry', refreshMs: 10 } }), SOURCE));
   });
 
-  it('RR_ADMISSION: sockets are admitted by registry host lookup and the registry tenant set; anything else is SOCKET_ADMISSION_REFUSED', async function () {
+  it('RR_ADMISSION: sockets are admitted by registry host lookup and the registry tenant set; definitive denials are SOCKET_ADMISSION_REFUSED', async function () {
     const active = new Set([A]);
     const admission = require('../lib/server/realtime/registry-admission').create({ resolver: resolverOf(new Map([['a.example.test', A], ['b.example.test', B]])),
       active: tenant => active.has(tenant), enabled: () => active });
@@ -102,7 +102,7 @@ describe('registry mode: realtime, socket forwarding, removal and the static lab
     active.delete(A);
     await assert.rejects(admission.resolve(request('a.example.test')), { code: 'SOCKET_ADMISSION_REFUSED' }, 'removal applies to the next socket');
     const failing = require('../lib/server/realtime/registry-admission').create({ resolver: resolverOf(new Map()), active: () => { throw new Error('down'); } });
-    assert.equal(await failing.allows(A), false, 'fails closed');
+    await assert.rejects(failing.allows(A), { code: 'SOCKET_ADMISSION_UNAVAILABLE' }, 'uncertainty rejects without admitting or manufacturing denial');
   });
 
   it('RR_PRIVATE_CONFIG: socket forwarding in registry mode names no admission file', function () {
@@ -193,5 +193,121 @@ describe('registry mode: realtime, socket forwarding, removal and the static lab
     assert.equal(gate.check({}, registry), null);
     assert.equal(gate.check({}, { adminPreview: { provisioning: {} } }), null, 'provisioning alone lists no tenants');
     assert.deepEqual(gate.staticRoles({ vcpoolPreview: {} }), ['vcpool'], 'vcpool has no registry mode yet');
+  });
+});
+
+// Actual registry resolver, admission and protocol. No network or database.
+describe('RR_REGISTRY_RETRY: connected socket admission uncertainty', function () {
+  const { EventEmitter } = require('node:events');
+  const admissionFactory = require('../lib/server/realtime/registry-admission');
+  const resolverFactory = require('../lib/tenant-registry/resolver');
+  const protocolFactory = require('../lib/server/realtime/protocol');
+  const env = require('../lib/server/tenant-app/environment')({ settings: { enable: ['bgnow'] } });
+  const frame = stamp => ({ identity: 'same', checkpoint: stamp, rows: [], frame: { delta: false, lastUpdated: stamp, sgvs: [{ mgdl: 100, mills: stamp }] } });
+  class Socket extends EventEmitter {
+    constructor () { super(); this.request = { ...request('a.example.test'), headers: { host: 'a.example.test' } }; this.sent = []; this.connected = true; }
+    emit (event, value) { this.sent.push({ event, value }); return true; }
+    join () {}
+    leave () {}
+    disconnect () { this.connected = false; super.emit('disconnect'); }
+  }
+  async function fixture () {
+    let clock = 0;
+    const ctl = { lookupError: null, activeError: null, removed: false, denied: false, mutations: 0, frame: frame(1) };
+    const resolver = resolverFactory.createRegistryResolver({
+      store: { revision: async () => '1', entry: async () => null, lookup: async host => {
+        if (ctl.lookupError) throw ctl.lookupError;
+        return host === 'a.example.test' && !ctl.removed ? { tenant: A, state: 'active' } : null;
+      } }, refreshMs: 1000, now: () => clock, schedule: () => null, cancel () {}
+    });
+    await resolver.start();
+    const admission = admissionFactory.create({ resolver, active: () => {
+      if (ctl.activeError) throw ctl.activeError;
+      return !ctl.removed;
+    } });
+    const api = { authorizeSocket: async () => ctl.denied ? { denied: true } : ({ permissions: { read: true, write: true, write_treatment: true, ack: true }, collections: ['entries'] }),
+      executeSocketMutation: async () => { ctl.mutations++; return { replyArgs: [] }; } };
+    const runtime = { warm: () => true, fresh: async () => ctl.frame, last: () => ctl.frame };
+    const protocol = protocolFactory.create({ admission, api, readCurrent: async () => ({ identity: 'same', env }), runtime: () => runtime,
+      domains: ['entries'], retry: { minMs: 1, maxMs: 2 }, authorizationRecheckMs: 600000 });
+    const socket = new Socket();
+    await protocol.prepare(socket); protocol.bind(socket, '/');
+    for (let i = 0; i < 100 && protocol.stats().primed !== 1; i++) await new Promise(resolve => setImmediate(resolve));
+    assert.equal(protocol.stats().primed, 1, 'actual protocol primed before fault');
+    return { ctl, resolver, admission, protocol, socket, stale () { clock += 3001; }, close () { protocol.close(); resolver.close(); } };
+  }
+  let mode;
+  beforeEach(() => { mode = scope.getTenancyMode(); scope.setTenancyMode('multi'); });
+  afterEach(() => scope.setTenancyMode(mode));
+  for (const source of ['lookupError', 'activeError']) {
+    it('keeps a primed socket, withholds changed frames, and resumes after ' + source, async function () {
+      const f = await fixture();
+      try {
+        const failure = Object.assign(new Error('synthetic store timeout'), { code: 'ETIMEDOUT' });
+        f.ctl[source] = failure; f.stale();
+        await f.protocol.recheckTenant(A);
+        assert.equal(f.socket.connected, true, 'uncertainty must not permanently disconnect');
+        assert.equal(f.protocol.stats().recheckFailures, 1);
+        const before = f.socket.sent.length, previous = f.ctl.frame; f.ctl.frame = frame(2);
+        await f.protocol.fanout({ tenant: A, previous, next: f.ctl.frame });
+        assert.equal(f.socket.sent.length, before, 'held socket receives no changed frame');
+        let acknowledged = false;
+        const blocked = await f.socket.listeners('dbAdd')[0]({ collection: 'entries', data: {} }, () => { acknowledged = true; });
+        assert.equal(blocked.delivered, false);
+        assert.equal(f.ctl.mutations, 0, 'uncertain admission never forwards writes');
+        assert.equal(acknowledged, false, 'uncertain writes are never acknowledged');
+        if (source === 'activeError') await assert.rejects(f.admission.allows(A), { code: 'SOCKET_ADMISSION_UNAVAILABLE' });
+        f.ctl[source] = null;
+        await f.protocol.recheckTenant(A);
+        for (let i = 0; i < 100 && !f.socket.sent.some(row => row.event === 'dataUpdate' && row.value.sgvs?.[0]?.mills === 2); i++) await new Promise(resolve => setImmediate(resolve));
+        assert.ok(f.socket.sent.some(row => row.event === 'dataUpdate' && row.value.sgvs?.[0]?.mills === 2), 'restored authority releases missed frame');
+        assert.equal(f.socket.connected, true);
+        const delivered = await f.socket.listeners('dbAdd')[0]({ collection: 'entries', data: {} });
+        assert.equal(delivered.delivered, true);
+        assert.equal(f.ctl.mutations, 1, 'same forwarding path resumes after admission recovers');
+      } finally { f.close(); }
+    });
+  }
+  for (const cause of ['removed', 'denied', 'bad-selector', 'removed-entry']) {
+    it('still disconnects on definitive ' + cause, async function () {
+      const f = await fixture();
+      try {
+        if (cause === 'removed-entry') {
+          // Actual API active path delegates to resolver.entry. A missing/removed
+          // entry is a definitive denial, unlike a failed entry lookup.
+          f.ctl.activeError = await f.resolver.entry(A).catch(error => error);
+          assert.equal(f.ctl.activeError.code, 'TENANT_REMOVED');
+          assert.equal(await f.admission.allows(A), false);
+        } else if (cause === 'bad-selector') f.socket.request.rawHeaders.push('Host', 'b.example.test');
+        else f.ctl[cause] = true;
+        f.stale(); await f.protocol.recheckTenant(A);
+        assert.equal(f.socket.connected, false);
+        assert.equal(f.protocol.stats().disconnects.REALTIME_RECHECK_REFUSED, 1);
+      } finally { f.close(); }
+    });
+  }
+  it('keeps definitive removal from the API resolver materialization wrapper terminal', async function () {
+    const f = await fixture();
+    try {
+      // registry-tenants.resolve materializes the resolved tenant's entry before
+      // returning. Its entry read can definitively establish removal too.
+      const wrapped = admissionFactory.create({ resolver: { resolve: async req => {
+        const tenant = await f.resolver.resolve(req);
+        await f.resolver.entry(tenant);
+        return tenant;
+      } }, active: () => true });
+      await assert.rejects(wrapped.resolve(request('a.example.test')), { code: 'SOCKET_ADMISSION_REFUSED' });
+    } finally { f.close(); }
+  });
+  it('preserves unknown host and untrusted selector refusals, but does not relabel a closed resolver', async function () {
+    const f = await fixture();
+    try {
+      await assert.rejects(f.admission.resolve(request('missing.example.test')), { code: 'SOCKET_ADMISSION_REFUSED' });
+      const forwarded = request('a.example.test'); forwarded.rawHeaders.push('X-Forwarded-Host', 'foreign.example.test');
+      await assert.rejects(f.admission.resolve(forwarded), { code: 'SOCKET_ADMISSION_REFUSED' });
+      f.resolver.close();
+      await assert.rejects(f.admission.resolve(request('a.example.test')), { code: 'SOCKET_ADMISSION_UNAVAILABLE' });
+      assert.equal(await f.admission.allows('invalid'), false);
+    } finally { f.close(); }
   });
 });
