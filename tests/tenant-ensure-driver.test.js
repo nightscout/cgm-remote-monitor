@@ -43,7 +43,9 @@ describe('operator checked-out lifetime: actual pg driver and Vault-await record
   });
   it('prevents a second ensure metadata read and SQL repair after transport failure',async function(){
     let finish;const barrier=new Promise(r=>{finish=r;});const f=fixture({missingSettings:true,vaultBarrier:barrier}),s=await f.create();
-    const pending=s.ensure(f.input);while(!f.vaultCalls.length)await turn();const client=f.clients.at(-1),error=Error('SYNTHETIC_ENSURE_TRANSPORT');
+    const pending=s.ensure(f.input);let settled=false;pending.then(()=>{settled=true;},()=>{settled=true;});
+    while(!f.vaultCalls.length){await turn();assert(!settled,'ensure must reach the provider barrier before the transport failure');}
+    const client=f.clients.at(-1),error=Error('SYNTHETIC_ENSURE_TRANSPORT');
     client.emit('error',error);finish();assert.equal((await pending).outcome,'unknown');
     assert.equal(f.vaultCalls.length,1);assert.equal(f.data.settings,false);assert.equal(client.released,error);await s.close();
   });
