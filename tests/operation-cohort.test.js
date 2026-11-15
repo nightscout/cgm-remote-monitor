@@ -195,7 +195,7 @@ describe('Selected evaluator control-table read admission', function () {
 describe('Private IPC lifetime extends through actual response completion', function () {
   async function responseCheck (mutate) {
     const {Readable} = require('node:stream'), {EventEmitter} = require('node:events');
-    const f = fixture(), ipc = load('../lib/server/internal-api/transport.js',{},mutate);
+    const options = {}, f = fixture(options), ipc = load('../lib/server/internal-api/transport.js',{},mutate);
     const req = Readable.from([Buffer.from(JSON.stringify({tenant:A}))]);
     const service = { ...require('./fixtures/internal-api-contract').service, operations:{echo:{path:'/synthetic',request:{type:'object'},response:{type:'object'}}} };
     req.method='POST'; req.url='/synthetic'; req.headers=require('./fixtures/internal-api-contract').headers(service);
@@ -208,7 +208,11 @@ describe('Private IPC lifetime extends through actual response completion', func
     try {
       await written; await new Promise(resolve => setImmediate(resolve));
       assert.equal(res.status,200); assert.deepEqual([...f.pending.values()],[false]);
-      res.emit('finish'); await job; assert.deepEqual([...f.pending.values()],[true]);
+      options.phase = 'suspended'; await f.window.drainTenant(A);
+      await new Promise(resolve => setImmediate(resolve));
+      assert.deepEqual([...f.pending.values()],[false], 'ACTUAL_RESPONSE_STILL_RUNNING');
+      res.emit('finish'); await job; await f.window.invalidateTenant(A);
+      assert.deepEqual([...f.pending.values()],[true]);
     } finally { res.emit('finish'); await job; await f.window.close(); }
   }
   it('keeps durable unfinished operation until response finish', () => responseCheck());

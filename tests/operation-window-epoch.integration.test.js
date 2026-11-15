@@ -118,7 +118,9 @@ optInSuite(process.env.NS_OPERATION_WINDOW_DOCKER_TEST === '1',
     assert.equal(ran, false, 'body must not run');
   }
   const refuseData = (tenant, codes) => refused(mark => lower.withTenant(tenant, async () => { mark(); }), codes);
-  const refuseOperation = (tenant, codes) => refused(mark => window.run(tenant, async () => { mark(); }), codes);
+  // Warm process participation does not query SQL. Real effects still cross the
+  // current lower transaction fence, including while an exclusive key is held.
+  const refuseOperation = (tenant, codes) => refused(mark => window.run(tenant, () => lower.withTenant(tenant, async () => { mark(); })), codes);
 
   before(async function () {
     previousMode = scope.getTenancyMode(); scope.setTenancyMode('multi');
@@ -193,10 +195,12 @@ optInSuite(process.env.NS_OPERATION_WINDOW_DOCKER_TEST === '1',
     await sql('UPDATE ' + control('tenant_lifecycle_windows') + " SET phase='suspended',generation=generation+1,claim_id='" + crypto.randomUUID() +
       "',artifact_digest='" + 'a'.repeat(64) + "' WHERE tenant_id='" + A + "'");
     try {
+      await window.drainTenant(A);
       await refuseData(A, ['LIFECYCLE_WINDOW_SUSPENDED']);
       await refuseOperation(A, ['LIFECYCLE_WINDOW_SUSPENDED']);
       assert.equal(await operation(B), true);
     } finally {
+      await window.invalidateTenant(A);
       await sql('UPDATE ' + control('tenant_lifecycle_windows') + " SET phase='active',claim_id=NULL,artifact_digest=NULL WHERE tenant_id='" + A + "'");
     }
     assert.equal(await operation(A), true, 'reopened window admits again');

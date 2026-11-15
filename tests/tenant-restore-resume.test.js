@@ -107,18 +107,26 @@ describe('restore resume and operation clearance (simulated backend protocol)', 
     assert.deepEqual((await open.api.inspect(A)).reasons, ['LIFECYCLE_RESUME_NOT_SUSPENDED']);
   });
 
-  it('closed before the data was replaced: reopens with fresh acknowledgements and no invalidation, unfinished records allowed', async function () {
-    const { m, api } = fixture({ pending: [record('still-running', false)] });
+  it('closed before data replacement: retires old-generation process state before reopening', async function () {
+    const { m, api } = fixture();
     const result = await api.resume(A, { claimId: CLAIM });
     assert.equal(result.interrupted, 'before-data'); assert.equal(result.state, 'active'); assert.equal(result.generation, '2');
     assert.deepEqual(m.durable.window, { lock_key: '41', phase: 'active', generation: '2', claim_id: null, artifact_digest: null });
     assert.deepEqual(m.durable.resumes, [{ claim_id: CLAIM, generation: '2', interrupted: 'before-data' }]);
     assert.equal(m.durable.audit.state, 'suspended', 'the restore audit row is never rewritten');
-    assert(m.acknowledged >= 3, 'RESUME_FRESH_ACKNOWLEDGEMENT pin, census before and census after'); assert(!m.invalidated && !m.lockAttempts);
+    assert(m.acknowledged >= 3, 'RESUME_FRESH_ACKNOWLEDGEMENT pin, census before and census after'); assert(m.invalidated && m.lockAttempts === 1);
     assert.match(m.trace.find(sql => sql.includes('resume-window')), /FOR NO KEY UPDATE NOWAIT$/);
     assert(m.released && m.pinReleased); assert.equal(m.releaseError, true, 'operator backend is destroyed after use'); await api.close();
   });
 
+  // A before-data restore already advanced the generation. Reopening around
+  // old bodies would strand their generation or allow effects across restore.
+  it('keeps a before-data tenant suspended while a process callback is still running', async function () {
+    const { m, api } = fixture({ running: ['held-provider'], pending: [record('held-provider', false)] });
+    await assert.rejects(api.resume(A, { claimId: CLAIM }), { code: 'LIFECYCLE_RESUME_PENDING_OPERATIONS' });
+    assert.equal(m.durable.window.phase, 'suspended'); assert.equal(m.invalidated, undefined);
+    await api.close();
+  });
   it('data already replaced: exclusive key, awaited invalidation, then activation in one transaction with its record', async function () {
     const { m, api } = fixture({ durable: suspended('restored') });
     const result = await api.resume(A, { claimId: CLAIM });

@@ -33,20 +33,43 @@ describe('Datastore recovery in place: source protocol and controls (not Postgre
       await f.window.probe();
       const before = f.window.datastore;
       options.datastore = RESTARTED;
+      // Physical restart normally emits error/end. This recording double instead
+      // exposes the changed postmaster through the operational health probe.
+      await assert.rejects(f.window.probe(), {code:'LIFECYCLE_WINDOW_DATASTORE_CHANGED'});
       return { f, options, before };
     }
-    it('refuses every operation and the probe after the postmaster changed, until recover re-admits it', async function () {
+    it('withdraws process admission after a health probe observes the changed postmaster, until recovery', async function () {
       const { f, before } = await restartedWindow();
       for (let attempt = 0; attempt < 3; attempt++) {
-        await assert.rejects(f.window.run(A, () => assert.fail('body ran on an unadmitted datastore')), { code: 'LIFECYCLE_WINDOW_DATASTORE_CHANGED' });
-        await assert.rejects(f.window.probe(), { code: 'LIFECYCLE_WINDOW_DATASTORE_CHANGED' });
+        await assert.rejects(f.window.run(A, () => assert.fail('body ran on an unadmitted datastore')), { code: 'LIFECYCLE_WINDOW_SESSION_LOST' });
+        await assert.rejects(f.window.probe(), { code: 'LIFECYCLE_WINDOW_SESSION_LOST' });
       }
       assert.deepEqual(f.window.datastore, before, 'no operation adopts a datastore');
       let dropped = 0;
       const result = await f.window.recover({ beforeAdopt: async () => { dropped++; assert.deepEqual(f.window.datastore, before, 'cached state is dropped before adoption'); } });
-      assert.deepEqual({ ...result }, { restarted: true, sessionsReplaced: 0 }); assert.equal(dropped, 1);
+      assert.deepEqual({ ...result }, { restarted: true, sessionsReplaced: 1 }); assert.equal(dropped, 1);
       assert.equal(f.window.datastore.postmaster_birth, RESTARTED.postmaster_birth);
       await f.window.probe(); assert.equal(await f.window.run(A, () => 2), 2);
+    });
+    async function recoveryWithHeldBody (create) {
+      const options = {}, f = fixture(options, create); let entered, release;
+      const started = new Promise(resolve => { entered = resolve; }), held = new Promise(resolve => { release = resolve; });
+      const body = f.window.run(A, () => { entered(); return held; }); const ended = body.catch(error => error);
+      try {
+        await started; const original = f.window.datastore;
+        f.client.emit('error', Error('synthetic old-owner loss')); options.datastore = RESTARTED;
+        await assert.rejects(f.window.recover(), {code:'LIFECYCLE_WINDOW_DRAIN_REQUIRED'});
+        assert.deepEqual(f.window.datastore, original, 'FAILED_DRAIN_MUST_NOT_PUBLISH_ADOPTION');
+        release(); await ended;
+        assert.equal((await f.window.recover()).restarted, true, 'retry retains the actual restart obligation');
+        await f.window.run(A, () => 3);
+      } finally { release(); await ended; await f.window.close().catch(() => {}); }
+    }
+    it('keeps datastore adoption unpublished while a failed owner still has a real callback', () => recoveryWithHeldBody());
+    it('control: premature adoption fails the held-body recovery oracle; restored source passes', async () => {
+      const broken = load(WINDOW, {}, source => source.replace('if (failedParticipants.some', 'database = nextDatabase; if (failedParticipants.some'));
+      await assert.rejects(recoveryWithHeldBody(broken.create), /FAILED_DRAIN_MUST_NOT_PUBLISH_ADOPTION/);
+      await recoveryWithHeldBody();
     });
     it('does not adopt when recovery is cancelled while old tenant state is being dropped', async function () {
       const { f, before } = await restartedWindow(); let release, entered;
@@ -57,8 +80,8 @@ describe('Datastore recovery in place: source protocol and controls (not Postgre
       await started; controller.abort(); release();
       await assert.rejects(pending, { code: 'LIFECYCLE_WINDOW_RECOVERY_CANCELLED' });
       assert.deepEqual(f.window.datastore, before, 'CANCELLED_RECOVERY_CANNOT_ADOPT');
-      await assert.rejects(f.window.run(A, () => assert.fail('cancelled recovery served')), { code: 'LIFECYCLE_WINDOW_DATASTORE_CHANGED' });
-      await f.window.close();
+      await assert.rejects(f.window.run(A, () => assert.fail('cancelled recovery served')), { code: 'LIFECYCLE_WINDOW_SESSION_LOST' });
+      await assert.rejects(f.window.close(), {code:'LIFECYCLE_WINDOW_DRAIN_FAILED'});
     });
     it('does not adopt after cancellation while the supplemental cluster read is pending', async function () {
       const { f, options, before } = await restartedWindow(); let release, entered;
@@ -68,7 +91,7 @@ describe('Datastore recovery in place: source protocol and controls (not Postgre
       const controller = new AbortController(), pending = f.window.recover({ signal: controller.signal });
       await reading; controller.abort(); release({ rows: [{ cluster: '7000000000000000001' }] });
       await assert.rejects(pending, { code: 'LIFECYCLE_WINDOW_RECOVERY_CANCELLED' });
-      assert.deepEqual(f.window.datastore, before); await f.window.close();
+      assert.deepEqual(f.window.datastore, before); await assert.rejects(f.window.close(), {code:'LIFECYCLE_WINDOW_DRAIN_FAILED'});
     });
     it('runs the full catalogue admission again before adopting', async function () {
       const { f } = await restartedWindow();
@@ -80,6 +103,9 @@ describe('Datastore recovery in place: source protocol and controls (not Postgre
       const f = fixture(); await f.window.run(A, () => 1);
       const result = await f.window.recover({ beforeAdopt: () => assert.fail('same postmaster') });
       assert.equal(result.restarted, false);
+      const before = f.log.length; await f.window.run(A, () => 2);
+      assert.equal(f.log.length, before, 'same-datastore verification preserves warm participation');
+      await f.window.close();
     });
     for (const change of [{ server_address: '127.0.0.2' }, { server_port: 5433 }]) {
       it('re-admits the same cluster after an unselected endpoint change', async function () {
@@ -99,7 +125,8 @@ describe('Datastore recovery in place: source protocol and controls (not Postgre
         const before = f.window.datastore; options.datastore = { ...RESTARTED, ...datastore }; options.cluster = cluster;
         await assert.rejects(f.window.recover({ beforeAdopt: () => assert.fail('nothing is dropped for a refused datastore') }), { code: 'LIFECYCLE_WINDOW_DATASTORE_REPLACED' });
         assert.deepEqual(f.window.datastore, before);
-        await assert.rejects(f.window.run(A, () => assert.fail('served another datastore')), { code: 'LIFECYCLE_WINDOW_DATASTORE_CHANGED' });
+        await assert.rejects(f.window.probe(), {code:'LIFECYCLE_WINDOW_DATASTORE_CHANGED'});
+        await assert.rejects(f.window.run(A, () => assert.fail('served another datastore')), { code: 'LIFECYCLE_WINDOW_SESSION_LOST' });
       });
     }
     it('control: without the lineage comparison another cluster is adopted', async function () {
@@ -122,7 +149,7 @@ describe('Datastore recovery in place: source protocol and controls (not Postgre
     }
     it('control: without recover the window stays refused however often it is asked (the J behaviour)', async function () {
       const { f } = await restartedWindow();
-      for (let attempt = 0; attempt < 20; attempt++) await assert.rejects(f.window.run(B, () => 1), { code: 'LIFECYCLE_WINDOW_DATASTORE_CHANGED' });
+      for (let attempt = 0; attempt < 20; attempt++) await assert.rejects(f.window.run(B, () => 1), { code: 'LIFECYCLE_WINDOW_SESSION_LOST' });
     });
   });
 
@@ -343,6 +370,7 @@ describe('Datastore recovery in place: source protocol and controls (not Postgre
         assert.equal(supervisor.state().lastRefusal, 'DATASTORE_RECOVERY_REBIND_REQUIRED');
         assert.deepEqual(events, ['unavailable'], 'SELECTED_EPOCH_NOT_SILENTLY_REBOUND');
         assert.deepEqual(f.window.datastore, before);
+        await assert.rejects(f.window.probe(), {code:'LIFECYCLE_WINDOW_DATASTORE_CHANGED'});
         await assert.rejects(f.window.run(A, () => assert.fail('served new epoch')), { code: 'LIFECYCLE_WINDOW_DATASTORE_CHANGED' });
       } finally { await supervisor.close(); await f.window.close(); }
     });

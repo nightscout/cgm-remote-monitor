@@ -12,7 +12,7 @@ function owned () {
   });
 }
 describe('Registered operation completion under lifetime-lane pressure', function () {
-  it('drains a registered completion after a queued admission deadline without poisoning a healthy backend', async function () {
+  it('lets warm bodies settle while another tenant cold registration occupies the lane', async function () {
     const f = owned(), body = deferred(), entered = deferred(), sql = deferred(), sqlEntered = deferred();
     await f.window.ready();
     const first = f.window.run(A, async () => { entered.resolve(); await body.promise; });
@@ -26,13 +26,16 @@ describe('Registered operation completion under lifetime-lane pressure', functio
     const second = f.window.run(B, () => 2);
     const secondResult = second.then(value => ({ value }), error => ({ error }));
     try {
-      await sqlEntered.promise; body.resolve(); await later(40);
+      await sqlEntered.promise;
+      const warm = await Promise.race([f.window.run(A, () => 3), later(40).then(() => 'blocked')]);
+      assert.equal(warm, 3, 'warm bodies must bypass the cold registration queue');
+      body.resolve(); await later(40);
       assert.equal(f.log.some(row => row[0] === 'release' && row[1]), false, 'a queue wait must not evict a healthy owner');
       assert.deepEqual([...f.pending.values()], [false], 'the unfinished marker remains until completion executes');
       sql.resolve();
       const a = await firstResult, b = await secondResult;
       assert.equal(a.error, undefined); assert.equal(b.error, undefined);
-      assert.equal(b.value, 2); assert.deepEqual([...f.pending.values()], [true, true]);
+      assert.equal(b.value, 2); assert.deepEqual([...f.pending.values()], [false, false], 'individual completion leaves process participation open');
       await f.window.probe();
     } finally { body.resolve(); sql.resolve(); await firstResult; await secondResult; await f.window.close(); }
   });
@@ -47,6 +50,6 @@ describe('Registered operation completion under lifetime-lane pressure', functio
       assert.ok(failure.error); assert.deepEqual([...f.pending.values()], [false]);
       await assert.rejects(f.window.probe(), { code: 'LIFECYCLE_WINDOW_SESSION_LOST' });
       assert.equal(f.log.some(row => row[0] === 'release' && row[1]), true);
-    } finally { body.resolve(); await result; await f.window.close(); }
+    } finally { body.resolve(); await result; await f.window.close().catch(() => {}); }
   });
 });

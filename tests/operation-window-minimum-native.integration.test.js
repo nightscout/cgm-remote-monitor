@@ -116,35 +116,57 @@ optInSuite(process.env.NS_OPERATION_WINDOW_MINIMUM_DOCKER_TEST === '1',
     await active();
     await f.sql('UPDATE ' + f.control('tenant_lifecycle_windows') + " SET phase='suspended',generation=generation+1,claim_id=$2,artifact_digest=$3 WHERE tenant_id=$1", [f.A, require('node:crypto').randomUUID(), 'a'.repeat(64)]);
     try {
+      // Warm outer admission is local; pinned process drain closes it.
+      await f.window.drainTenant(f.A);
       await refuseBody(fn => f.window.run(f.A, fn));
       await refuseBody(fn => f.lower.withTenant(f.A, fn));
       await f.operation(f.B);
-    } finally { await resetWindow(); }
+    } finally { await f.window.drainTenant(f.A); await f.window.invalidateTenant(f.A); await resetWindow(); }
     await active();
   });
 
-  it('refuses an exclusive restore lock, then admits after the lock is released', async function () {
+  it('refuses physical tenant SQL under an exclusive restore lock while B continues', async function () {
     await f.admin(async holder => {
       assert.equal((await holder.query('SELECT pg_try_advisory_lock($1::bigint) AS held', [f.locks[0].key])).rows[0].held, true);
-      await refuseBody(fn => f.window.run(f.A, fn));
+      await refuseBody(fn => f.operation(f.A, fn));
       await f.operation(f.B);
     });
     await active();
   });
 
-  it('finishes an already admitted marker while a suspended generation refuses new bodies', async function () {
-    let operation, generation;
+  it('drains a held response before finishing participation and reopening a fresh generation', async function () {
+    let release, entered, operation, generation;
+    const held = new Promise(resolve => { release = resolve; });
+    const started = new Promise(resolve => { entered = resolve; });
+    const running = f.window.run(f.A, async () => {
+      operation = f.window.inflight(f.A)[0]; generation = f.window.currentGeneration(f.A);
+      entered(); await held;
+    });
     try {
-      await f.window.run(f.A, async () => {
-        operation = f.window.inflight(f.A)[0];
-        generation = f.window.currentGeneration(f.A);
-        await f.sql('UPDATE ' + f.control('tenant_lifecycle_windows') + " SET phase='suspended',generation=generation+1,claim_id=$2,artifact_digest=$3 WHERE tenant_id=$1", [f.A, require('node:crypto').randomUUID(), 'b'.repeat(64)]);
-      });
-      const row = (await f.sql('SELECT generation::text,finished FROM ' + f.control('tenant_lifecycle_operations') + ' WHERE tenant_id=$1 AND operation_id=$2', [f.A, operation])).rows[0];
-      assert.equal(row.generation, generation); assert.equal(row.finished, true, 'admitted response lifetime may drain');
+      await started;
+      await f.sql('UPDATE ' + f.control('tenant_lifecycle_windows') + " SET phase='suspended',generation=generation+1,claim_id=$2,artifact_digest=$3 WHERE tenant_id=$1", [f.A, require('node:crypto').randomUUID(), 'b'.repeat(64)]);
+      await f.window.drainTenant(f.A);
       await refuseBody(fn => f.window.run(f.A, fn));
-    } finally { await resetWindow(); }
+      const before = (await f.sql('SELECT finished FROM ' + f.control('tenant_lifecycle_operations') + ' WHERE tenant_id=$1 AND operation_id=$2', [f.A, operation])).rows[0];
+      assert.equal(before.finished, false, 'actual held response remains covered');
+      release(); await running; await f.window.invalidateTenant(f.A);
+      const row = (await f.sql('SELECT generation::text,finished FROM ' + f.control('tenant_lifecycle_operations') + ' WHERE tenant_id=$1 AND operation_id=$2', [f.A, operation])).rows[0];
+      assert.equal(row.generation, generation); assert.equal(row.finished, true);
+    } finally {
+      release(); await running; await f.window.drainTenant(f.A); await f.window.invalidateTenant(f.A); await resetWindow();
+    }
     await f.window.run(f.A, async () => assert.notEqual(f.window.currentGeneration(f.A), generation));
+  });
+
+  it('runs warm bodies without lifecycle SQL or additional durable rows', async function () {
+    await active(); await f.operation(f.B);
+    const before = (await f.sql('SELECT operation_id,generation::text,finished,owner_pid,owner_birth::text FROM ' + f.control('tenant_lifecycle_operations') + ' ORDER BY operation_id')).rows;
+    await f.counter.phase('warm-bodies-only', async () => {
+      for (let i = 0; i < 20; i++) await f.window.run(i % 2 ? f.A : f.B, () => {});
+    });
+    assert.deepEqual(f.counter.rows().filter(row => row.phase === 'warm-bodies-only'), [], 'warm outer bodies cannot enqueue hidden lifecycle SQL');
+    const after = (await f.sql('SELECT operation_id,generation::text,finished,owner_pid,owner_birth::text FROM ' + f.control('tenant_lifecycle_operations') + ' ORDER BY operation_id')).rows;
+    assert.deepEqual(after, before);
   });
 
   it('re-admits a new physical connection and rejects unsafe structure until restored', async function () {
@@ -178,7 +200,7 @@ optInSuite(process.env.NS_OPERATION_WINDOW_MINIMUM_DOCKER_TEST === '1',
     const pending = () => f.sql('SELECT operation_id FROM ' + f.control('tenant_lifecycle_operations') + ' WHERE tenant_id=$1 AND finished=false', [f.A]);
     const before = new Set((await pending()).rows.map(r => r.operation_id));
     try { await refuseBody(fn => window.run(f.A, fn)); }
-    finally { await window.close(); await pool.end(); }
+    finally { await assert.rejects(window.close(), { code: 'LIFECYCLE_WINDOW_DRAIN_FAILED' }); await pool.end(); }
     assert.equal((await pending()).rows.filter(r => !before.has(r.operation_id)).length, 1, 'committed orphan must remain visible to restore');
   });
 

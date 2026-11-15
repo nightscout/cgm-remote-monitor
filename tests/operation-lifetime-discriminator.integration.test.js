@@ -1,7 +1,7 @@
 'use strict';
 /* eslint-disable security/detect-non-literal-fs-filename -- File paths are exclusively owned disposable synthetic fixture artifacts. */
-// Owned native discriminator. These explicitly test-only marker lanes do not
-// implement serving admission or replace the production operation window.
+// Owned native discriminator: production process participation and actual API
+// response controls, plus one explicitly legacy raw-marker SQL cost comparator.
 const assert = require('node:assert/strict'), { randomUUID } = require('node:crypto');
 const { Pool } = require('pg');
 const { performance } = require('node:perf_hooks');
@@ -10,20 +10,20 @@ const windows = require('../lib/tenant-lifecycle/operation-window');
 const { optInSuite } = require('./support/opt-in');
 const percentile = (samples, p) => samples.slice().sort((a, b) => a - b)[Math.min(samples.length - 1, Math.ceil(samples.length * p) - 1)];
 optInSuite(process.env.NS_OPERATION_LIFETIME_DOCKER_TEST === '1', 'NS_OPERATION_LIFETIME_DOCKER_TEST=1')(
-  'operation lifetime marker serialization discriminator (not capacity acceptance)', function () {
+  'process participation and legacy marker discriminator (not capacity acceptance)', function () {
     this.timeout(120000);
     const f = createFixture(), pools = [];
     before(() => f.setup());
     after(async () => { for (const pool of pools) await pool.end(); await f.cleanup(); });
     const pool = max => { const selected = new Pool({ connectionString: f.lifetimeConnectionString, max, application_name: 'owned-lifetime-discriminator' }); pools.push(selected); return selected; };
-    it('measures bounded original operation registration and completion with no held response', async () => {
+    it('measures bounded cold participation plus warm bodies with no held response', async () => {
       const selected = pool(2), window = windows.create({ namespace: f.namespace, locks: f.locks, pool: selected });
       await window.ready();
       const samples = [], count = 128, start = performance.now();
       for (let i = 0; i < count; i++) { const started = performance.now(); await window.run(f.base.tenants[i % 2], async () => {}); samples.push(performance.now() - started); }
       const elapsed = performance.now() - start; await window.close();
-      process.stdout.write('LIFETIME_ORIGINAL_MARKER ' + JSON.stringify({ operations: count, elapsedMs: elapsed, operationsPerSecond: count * 1000 / elapsed,
-        p50Ms: percentile(samples, 0.5), p95Ms: percentile(samples, 0.95), p99Ms: percentile(samples, 0.99), scope: 'bounded functional microbenchmark; host not isolated' }) + '\n');
+      process.stdout.write('LIFETIME_PROCESS_PARTICIPATION ' + JSON.stringify({ operations: count, elapsedMs: elapsed, operationsPerSecond: count * 1000 / elapsed,
+        p50Ms: percentile(samples, 0.5), p95Ms: percentile(samples, 0.95), p99Ms: percentile(samples, 0.99), scope: 'cold participation followed by local warm bodies; process close finishes markers outside timed body loop; host not isolated' }) + '\n');
     });
     it('discriminates same-backend serial short transactions from response duration without changing marker RLS', async () => {
       const selected = pool(1), client = await selected.connect(), count = 128, tenant = f.base.tenants[0], key = f.locks[0].key;
@@ -39,7 +39,7 @@ optInSuite(process.env.NS_OPERATION_LIFETIME_DOCKER_TEST === '1', 'NS_OPERATION_
           await tx(() => client.query('INSERT INTO preview_control.tenant_lifecycle_operations(tenant_id,operation_id,generation) VALUES($1,$2,1)', [tenant, operation]));
           startSamples.push(performance.now() - start); operations.push(operation);
         })));
-        const pending = await tx(() => client.query('SELECT count(*)::int AS n,count(DISTINCT owner_pid)::int AS owners FROM preview_control.tenant_lifecycle_operations WHERE tenant_id=$1 AND finished=false', [tenant]));
+        const pending = await tx(() => client.query('SELECT count(*)::int AS n,count(DISTINCT owner_pid)::int AS owners FROM preview_control.tenant_lifecycle_operations WHERE tenant_id=$1 AND finished=false AND owner_pid=pg_backend_pid()', [tenant]));
         assert.equal(pending.rows[0].n, count); assert.equal(pending.rows[0].owners, 1);
         // All operation bodies may remain held outside this one backend's
         // transaction. Their pending rows still prevent maintenance data entry.
@@ -55,7 +55,7 @@ optInSuite(process.env.NS_OPERATION_LIFETIME_DOCKER_TEST === '1', 'NS_OPERATION_
       } finally { await client.query('SELECT pg_advisory_unlock_shared($1::bigint)', [key]); client.release(); }
     });
 
-    it('compares 1/2/4 prototype lanes through identical full production admission and held-body mix', async () => {
+    it('compares 1/2/4 cold-registration lanes with the same warm local held-body mix', async () => {
       const locks = [];
       for (let i = 1; i <= 16; i++) locks.push({ tenant: '33333333-3333-4333-8333-' + String(i).padStart(12, '0'), key: String(920000 + i) });
       await f.withAdmin(async client => {
@@ -64,6 +64,8 @@ optInSuite(process.env.NS_OPERATION_LIFETIME_DOCKER_TEST === '1', 'NS_OPERATION_
       for (const size of [1, 2, 4]) {
         const selected = pool(4), window = windows.create({ namespace: f.namespace, locks, pool: selected, leaseSessionCount: size });
         await window.ready();
+        // Cold registration is measured separately from the queue-free warm path.
+        for (const lock of locks) await window.run(lock.tenant, async () => {});
         const samples = [], entrySamples = [], count = 128, concurrency = 16, start = performance.now();
         try {
           for (let offset = 0; offset < count; offset += concurrency) await Promise.all(Array.from({ length: concurrency }, async (_, n) => {
@@ -80,12 +82,12 @@ optInSuite(process.env.NS_OPERATION_LIFETIME_DOCKER_TEST === '1', 'NS_OPERATION_
             elapsedMs: elapsed, operationsPerSecond: count * 1000 / elapsed, physicalBackends: selected.totalCount,
             entryP50Ms: percentile(entrySamples, 0.5), entryP95Ms: percentile(entrySamples, 0.95),
             completionP50Ms: percentile(samples, 0.5), completionP95Ms: percentile(samples, 0.95),
-            scope: 'same operation-window admission/markers; explicit shared session option; functional discriminator, host not isolated' }) + '\n');
+            scope: 'one cold participation per tenant, then warm local bodies; lane count affects cold/control work only; functional discriminator, host not isolated' }) + '\n');
         } finally { await window.close(); }
       }
     });
 
-    it('expires queued registrations without later SQL or poisoning other operation lifetimes', async () => {
+    it('expires cold registrations without later SQL or poisoning healthy tenant participation', async () => {
       const [A, B] = f.base.tenants, selected = pool(1); selected.options.connectionTimeoutMillis = 250;
       let release, observed;
       const gate = new Promise(resolve => { release = resolve; }), entered = new Promise(resolve => { observed = resolve; });
@@ -124,11 +126,12 @@ optInSuite(process.env.NS_OPERATION_LIFETIME_DOCKER_TEST === '1', 'NS_OPERATION_
     it('retains a real committed registration after lost reply and refuses replacement-owner completion', async () => {
       const tenant = f.base.tenants[0], selected = lossyPool('register');
       const window = windows.create({ namespace: f.namespace, locks: f.locks, pool: selected, leaseSessionCount: 1 });
+      const known = new Set((await f.withAdmin(async client => (await client.query('SELECT operation_id FROM preview_control.tenant_lifecycle_operations WHERE tenant_id=$1 AND finished=false', [tenant])).rows)).map(row => row.operation_id));
       let entered = false;
       try { await assert.rejects(window.run(tenant, async () => { entered = true; })); assert.equal(entered, false); }
-      finally { await window.close(); }
-      const pending = await f.withAdmin(async client => (await client.query('SELECT operation_id,owner_pid,owner_birth::text FROM preview_control.tenant_lifecycle_operations WHERE tenant_id=$1 AND finished=false', [tenant])).rows);
-      assert.equal(pending.length, 1);
+      finally { await assert.rejects(window.close(), { code: 'LIFECYCLE_WINDOW_DRAIN_FAILED' }); }
+      const pending = (await f.withAdmin(async client => (await client.query('SELECT operation_id,owner_pid,owner_birth::text FROM preview_control.tenant_lifecycle_operations WHERE tenant_id=$1 AND finished=false', [tenant])).rows)).filter(row => !known.has(row.operation_id));
+      assert.equal(pending.length, 1, 'one new uncertain participation, excluding already-warm API participants');
       const replacement = pool(1), client = await replacement.connect();
       try {
         await client.query('BEGIN'); await client.query("SELECT set_config('app.current_tenant_id',$1,true)", [tenant]);
@@ -144,15 +147,20 @@ optInSuite(process.env.NS_OPERATION_LIFETIME_DOCKER_TEST === '1', 'NS_OPERATION_
       finally { await controller.close(); }
       assert.equal(await f.withAdmin(async client => (await client.query('SELECT phase FROM preview_control.tenant_lifecycle_windows WHERE tenant_id=$1', [tenant])).rows[0].phase), 'active', 'ORPHAN_REFUSED_BEFORE_CLOSING');
     });
-    it('reports a lost finish reply without reusing its owner session or rewriting its committed result', async () => {
+    it('reports a lost participation finish reply without rewriting its committed result', async () => {
       const tenant = f.base.tenants[1], selected = lossyPool('finish');
       const window = windows.create({ namespace: f.namespace, locks: f.locks, pool: selected, leaseSessionCount: 1 });
-      let entered = false;
+      let operation;
       try {
-        await assert.rejects(window.run(tenant, async () => { entered = true; }), { code: 'LIFECYCLE_WINDOW_RELEASE_FAILED' }); assert(entered);
-        await assert.rejects(window.run(tenant, async () => assert.fail('poisoned lane must not run')));
-      } finally { await window.close(); }
-      assert.equal((await f.withAdmin(async client => (await client.query('SELECT count(*)::int AS n FROM preview_control.tenant_lifecycle_operations WHERE tenant_id=$1 AND finished=false', [tenant])).rows[0])).n, 0);
+        await window.run(tenant, async () => { operation = window.inflight(tenant)[0]; });
+        await f.withAdmin(client => client.query("UPDATE preview_control.tenant_lifecycle_windows SET phase='suspended',generation=generation+1,claim_id=$2,artifact_digest=$3 WHERE tenant_id=$1", [tenant, randomUUID(), 'e'.repeat(64)]));
+        await window.drainTenant(tenant);
+        await assert.rejects(window.invalidateTenant(tenant), { code: 'LIFECYCLE_WINDOW_RELEASE_FAILED' });
+        await assert.rejects(window.run(tenant, async () => assert.fail('poisoned owner must not run')), { code: 'LIFECYCLE_WINDOW_SESSION_LOST' });
+        const stored = await f.withAdmin(async client => (await client.query('SELECT finished FROM preview_control.tenant_lifecycle_operations WHERE tenant_id=$1 AND operation_id=$2', [tenant, operation])).rows);
+        assert.deepEqual(stored, [{ finished: true }], 'lost reply cannot rewrite a real committed result');
+      } finally { await window.close().catch(error => assert.equal(error.code, 'LIFECYCLE_WINDOW_DRAIN_FAILED')); }
+      await f.withAdmin(client => client.query("UPDATE preview_control.tenant_lifecycle_windows SET phase='active',claim_id=NULL,artifact_digest=NULL WHERE tenant_id=$1", [tenant]));
       const replacement = windows.create({ namespace: f.namespace, locks: f.locks, pool: pool(1), leaseSessionCount: 1 });
       try { await replacement.run(tenant, async () => {}); } finally { await replacement.close(); }
     });
@@ -160,7 +168,7 @@ optInSuite(process.env.NS_OPERATION_LIFETIME_DOCKER_TEST === '1', 'NS_OPERATION_
   });
 
 for (const size of [1, 2, 4]) optInSuite(process.env.NS_OPERATION_LIFETIME_DOCKER_TEST === '1', 'NS_OPERATION_LIFETIME_DOCKER_TEST=1')(
-  'actual API lifetime shared sessions with ' + size + ' bounded lease lanes', function () {
+  'actual API process participation with ' + size + ' bounded registration lanes', function () {
     this.timeout(120000);
     const fs = require('node:fs');
     const f = createFixture({ leaseSessions: size, drainTimeoutMs: 500, environment: { NS_POOL_OPERATION_MAX: '4' } });
@@ -168,6 +176,12 @@ for (const size of [1, 2, 4]) optInSuite(process.env.NS_OPERATION_LIFETIME_DOCKE
     const call = (id, tenant, method, route, token, body, headers) => f.base.http(f.current.get(id), tenant, method, route, token, body, headers);
     before(async () => { await f.setup(); a = await f.base.localToken(A); b = await f.base.localToken(B); });
     after(() => f.cleanup());
+    async function reported (id) {
+      const peer = f.participants.find(row => row.id === id);
+      const client = require('../lib/server/internal-api/clients').lifecycleParticipant(peer.endpoint);
+      const status = await client.getStatus({ request: randomUUID() });
+      return (await client.getOperations({ request: randomUUID(), tenant: A, incarnation: status.incarnation, identity: status.identity })).operations;
+    }
     it('preserves fresh current authorization and cross-tenant denial', async () => {
       await f.withAdmin(client => client.query("UPDATE preview_auth.tenant_authorization_roles SET permissions=ARRAY['denied'] WHERE tenant_id=$1 AND name='viewer'", [A]));
       try {
@@ -179,6 +193,9 @@ for (const size of [1, 2, 4]) optInSuite(process.env.NS_OPERATION_LIFETIME_DOCKE
       } finally { await f.withAdmin(client => client.query("UPDATE preview_auth.tenant_authorization_roles SET permissions=ARRAY['api:entries:read','api:entries:create','api:entries:update'] WHERE tenant_id=$1 AND name='viewer'", [A])); }
     });
     it('serves beyond the lane bound while actual A responses fence restore and B continues', async () => {
+      for (const id of ['api-1', 'api-2']) assert.equal((await call(id, A, 'GET', '/api/v3/entries', a)).status, 200);
+      const heldMarkers = await reported('api-1'), idleMarkers = await reported('api-2');
+      assert.equal(heldMarkers.length, 1); assert.equal(idleMarkers.length, 1);
       const count = size + 2, identifiers = Array.from({ length: count }, (_, i) => 'prototype-held-' + size + '-' + i);
       let settled = 0;
       const replies = identifiers.map(identifier => call('api-1', A, 'POST', '/api/v3/entries', a,
@@ -193,7 +210,9 @@ for (const size of [1, 2, 4]) optInSuite(process.env.NS_OPERATION_LIFETIME_DOCKE
       }
       assert(fs.existsSync(f.mark('held', 'api-1')));
       let entered = false;
-      const before = await f.restoreState(); assert.equal(before.unfinished, count);
+      const before = await f.restoreState();
+      assert.equal(before.unfinished, heldMarkers.length + idleMarkers.length, 'markers count participating processes, not held responses');
+      assert.deepEqual(await reported('api-1'), heldMarkers, 'held responses reuse the pre-existing process marker');
       const restoring = f.restore(async () => { entered = true; return 'shared-lifetime-drain'; }).then(value => ({ value }), error => ({ error }));
       try {
         const refused = await restoring;
@@ -203,7 +222,9 @@ for (const size of [1, 2, 4]) optInSuite(process.env.NS_OPERATION_LIFETIME_DOCKE
         assert.equal(suspended.phase, 'suspended');
         assert.equal(BigInt(suspended.generation), BigInt(before.generation) + 1n);
         assert.equal(suspended.audits, before.audits + 1);
-        assert.equal(suspended.unfinished, before.unfinished, 'HELD_RESPONSES_KEEP_DURABLE_MARKERS');
+        assert.deepEqual(await reported('api-1'), heldMarkers, 'HELD_RESPONSES_KEEP_DURABLE_MARKERS');
+        assert.deepEqual(await reported('api-2'), [], 'idle participant can finish during suspended drain');
+        assert.equal(suspended.unfinished, heldMarkers.length);
         assert.equal((await call('api-2', A, 'GET', '/api/v3/entries', a)).status, 503, 'A refuses new work while suspended');
         assert.equal((await call('api-1', B, 'GET', '/api/v3/entries', b)).status, 200, 'B uses the same worker while A responses remain held');
         assert.equal((await call('api-2', B, 'GET', '/api/v3/entries', b)).status, 200);
@@ -241,7 +262,8 @@ for (const size of [1, 2, 4]) optInSuite(process.env.NS_OPERATION_LIFETIME_DOCKE
       const reply = call('api-1', A, 'POST', '/api/v3/entries', a,
         { identifier, app: 'synthetic-lifetime', type: 'sgv', date: Date.now(), utcOffset: 0, sgv: 125 }, { 'x-roster-hold': 'postcommit' }).then(value => ({ value }), error => ({ error }));
       await f.base.until(async () => f.withAdmin(async client => (await client.query("SELECT count(*)::int AS n FROM preview_data.entries WHERE tenant_id=$1 AND doc->>'identifier'=$2", [A, identifier])).rows[0].n === 1), 'postcommit wire held before backend death');
-      const pending = await f.withAdmin(async client => (await client.query('SELECT DISTINCT owner_pid FROM preview_control.tenant_lifecycle_operations WHERE tenant_id=$1 AND finished=false', [A])).rows);
+      const owned = await reported('api-1'); assert.equal(owned.length, 1);
+      const pending = await f.withAdmin(async client => (await client.query('SELECT owner_pid,operation_id FROM preview_control.tenant_lifecycle_operations WHERE tenant_id=$1 AND operation_id=$2 AND finished=false', [A, owned[0]])).rows);
       assert.equal(pending.length, 1);
       let entered = false;
       const before = await f.restoreState();
@@ -254,15 +276,20 @@ for (const size of [1, 2, 4]) optInSuite(process.env.NS_OPERATION_LIFETIME_DOCKE
       const refused = await restoring;
       assert.equal(refused.error?.code, 'LIFECYCLE_RESTORE_DRAIN_TIMEOUT'); assert.equal(entered, false);
       const suspended = await f.restoreState();
-      assert.equal(suspended.phase, 'suspended'); assert.equal(suspended.unfinished, before.unfinished);
+      assert.equal(suspended.phase, 'suspended');
+      assert.equal((await f.withAdmin(async client => (await client.query('SELECT finished FROM preview_control.tenant_lifecycle_operations WHERE operation_id=$1', [owned[0]])).rows[0])).finished, false, 'held participant remains an orphan after owner loss');
       assert.equal(suspended.audits, before.audits + 1);
       assert.equal((await call('api-2', B, 'GET', '/api/v3/entries', b)).status, 200);
       const old = f.current.get('api-1'); old.child.kill('SIGTERM'); await f.base.until(async () => old.exit !== null, 'old worker exited'); await f.start('api-1', { readinessTenant: B });
       assert.equal((await call('api-1', B, 'GET', '/api/v3/entries', b)).status, 200);
-      assert.equal((await f.resume(suspended.claim_id)).interrupted, 'before-data');
-      const reopened = await f.restoreState();
-      await assert.rejects(f.restore(async () => assert.fail('replacement cannot forgive the orphan')), { code: 'LIFECYCLE_RESTORE_PREFLIGHT_ORPHANED_OPERATIONS' });
-      assert.deepEqual(await f.restoreState(), reopened, 'ORPHAN_PREFLIGHT_REFUSAL_LEAVES_REOPENED_STATE_UNCHANGED');
+      await assert.rejects(f.resume(suspended.claim_id), { code: 'LIFECYCLE_RESUME_PENDING_OPERATIONS' });
+      assert.equal((await f.restoreState()).phase, 'suspended', 'replacement cannot forgive uncertain old participation');
+      const recovery = require('../lib/tenant-lifecycle/restore-resume').create({ namespace: f.namespace, locks: f.locks, pool: f.operatorPool, cohort: f.cohort });
+      try {
+        const clearance = await recovery.clearOperations(A);
+        assert(clearance.cleared.includes(owned[0]));
+        assert.equal((await recovery.resume(A, { claimId: suspended.claim_id })).interrupted, 'before-data');
+      } finally { await recovery.close(); }
       assert((await f.withAdmin(async client => (await client.query('SELECT count(*)::int AS n FROM preview_control.tenant_lifecycle_operations WHERE tenant_id=$1 AND owner_pid=$2 AND finished=false', [A, pending[0].owner_pid])).rows[0])).n > 0);
     });
   });

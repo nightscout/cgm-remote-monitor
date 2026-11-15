@@ -187,11 +187,12 @@ describe('Separate-process fixed cohort source protocol',function(){
       local.cohort.datastoreUnavailable();
       await assert.rejects(f.coordinator.operations(f.remote,A),{code:'RESTORE_COHORT_DATASTORE_UNAVAILABLE'});
       // Same-store reconnect is not permission to forget a still-running body.
-      assert.deepEqual(await local.f.window.recover(),{restarted:false,sessionsReplaced:0});
+      await assert.rejects(local.f.window.recover(), {code:'LIFECYCLE_WINDOW_DRAIN_REQUIRED'});
       local.cohort.datastoreRecovered();
       assert.deepEqual((await f.coordinator.operations(f.remote,A)).operations,ids,'RECOVERY_RETAINS_RUNNING_OPERATION');
       assert.deepEqual([...local.f.pending.values()],[false],'RECOVERY_NEVER_CLEARS_LOST_MARKER');
       finish(); assert.equal(await settled,loss);
+      assert.deepEqual(await local.f.window.recover(),{restarted:false,sessionsReplaced:1});
       assert.deepEqual((await f.coordinator.operations(f.remote,A)).operations,[]);
       assert.deepEqual([...local.f.pending.values()],[false],'BODY_END_DOES_NOT_CLEAR_LOST_MARKER');
       // A published restart invalidates the ORIGINAL pin before any operations
@@ -203,7 +204,7 @@ describe('Separate-process fixed cohort source protocol',function(){
       const b=await f.coordinator.pin(f.remote,B,{client:f.operator});
       assert.deepEqual((await f.coordinator.operations(f.remote,B)).operations,[]);
       await f.coordinator.releasePin(b);
-    } finally {finish();await settled;if(pin)await f.coordinator.releasePin(pin);await f.close();}
+    } finally {finish();await settled;await local.f.window.recover();if(pin)await f.coordinator.releasePin(pin);await f.close();}
   }
   it('preserves live lost-backend operations and uncertain markers through recovery; stale original pins refuse',()=>recoveredOperations());
   it('control: an erased in-flight reply fails the joined recovery oracle; restored source passes',async function(){

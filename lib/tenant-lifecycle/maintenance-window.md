@@ -94,8 +94,8 @@ data transaction sets `restored` in the same commit as the replaced rows.
 
 | audit state | case | what resume requires before reopening |
 |---|---|---|
-| `suspended` | closed before the data was replaced | fresh participant census before and after. No replaced row is durable, so unfinished records and their running operations stay valid and nothing is invalidated |
-| `restored` | data already replaced | no unfinished operation record, the tenant's exclusive advisory key, awaited invalidation by every participant, then the census again: the order the restore itself uses before activation |
+| `suspended` | closed before the data was replaced | pinned process drain, no unfinished participation, exclusive key, awaited invalidation and fresh participant census. Suspension advanced the generation even though no replaced row is durable |
+| `restored` | data already replaced | pinned process drain, no unfinished participation record, the tenant's exclusive advisory key, awaited invalidation by every participant, then the census again: the order the restore itself uses before activation |
 
 It refuses when the restore's owner backend is present or its birth cannot be
 read (`LIFECYCLE_RESUME_RESTORE_OWNER_PRESENT`), when the claim is another
@@ -105,6 +105,14 @@ update and one row in `tenant_lifecycle_restore_resume` commit together; a claim
 has at most one resume row, and the row policy accepts only the label that
 matches the audit state. The restore audit row is not rewritten. Publication
 hooks a restore queued with `afterCommit` are not replayed.
+
+Ordinary requests reuse process/tenant-generation participation markers. After
+suspension, the existing pinned `getOperations` RPC closes local admission and
+returns the marker until actual responses, provider callbacks and physical SQL
+children have drained and its completion settles. Restore checks both these
+process replies and the durable unfinished rows. Healthy idle participation also
+closes through this control path. An abrupt owner loss can leave markers for all
+tenants it warmed; reconnect never clears them.
 
 `clearOperations(tenant)` records, in `tenant_lifecycle_operation_clearance`,
 that an unfinished operation record has no owner left. It clears a record only

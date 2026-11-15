@@ -1,52 +1,42 @@
-# Bounded worker lifetime sessions
+# Process-owned participation sessions
 
-The optional `leaseSessions` integer in `MULTITENANT_OPERATION_CONFIG` selects
-worker-owned shared lifetime sessions. It must be positive and no greater than
-the existing `NS_POOL_OPERATION_MAX`. Omitting it retains the existing per-request
-lifetime client path; no single-tenant configuration is changed.
+The private operation window uses bounded process-owned PostgreSQL sessions to
+register and finish tenant-generation participation. `leaseSessions` in
+`MULTITENANT_OPERATION_CONFIG` keeps its existing positive bound within
+`NS_POOL_OPERATION_MAX`; omission uses that pool's bound. Single-site Mongo
+composition does not select this adapter.
 
 A tenant maps to the first unsigned 32 bits of SHA-256 of its canonical UUID,
-modulo the selected count. Lanes open lazily and never exceed that count per
-worker, independently of tenant count or the number of held response/provider
-bodies. The existing PostgreSQL pool remains the physical upper bound. The
-chosen count is explicit so the deployment can measure and tune it without a
-source change. A hot tenant stays on one lane; this tradeoff must be included in
-capacity testing, not inferred from a distributed-tenant functional test.
+modulo the selected count. Sessions open lazily. Their short serial sections run
+only on first tenant-generation registration, restore/shutdown completion and
+control reads. Warm HTTP, internal API and socket bodies enter process-owned
+accounting directly: they do not enter the session queue or create marker SQL.
+Clinical transactions keep their own pool, shared lock, live authority and
+generation checks. No advisory lock is retained merely because a process warmed
+a tenant. See [the operation window](operation-window.md) for body and drain rules.
 
-Each lane serializes only short admission/registration and completion sections.
-The existing full admission, tenant binding, generation check, session shared
-advisory acquisition, durable marker INSERT and finished UPDATE remain intact.
-Response/provider bodies run outside those transactions. PostgreSQL's reentrant
-shared lock count retains a tenant lock until its final operation releases it.
-Clinical SQL still uses its own normal short transactions and separate pool;
-this does not introduce an additional clinical write-concurrency limit.
+Cold admissions retain the configured connection-wait deadline; an expired job
+never runs SQL later. Completion jobs take priority because durable markers must
+finish before maintenance can proceed. Healthy control reads can reuse an owned
+session even when sessions occupy every pool slot. No pool increase or new wait
+budget is introduced. A hot tenant needs no lane job after its first registration.
 
-Both admission and completion use the existing operation connection wait budget
-(`NS_POOL_OPERATION_CONNECT_TIMEOUT_MS`) for waiting in the lane queue. An
-expired queued registration never starts SQL or enters its body later. A
-registration that never acquired resources does not poison other operations.
-Query deadlines remain PostgreSQL's existing statement timeout. An ambiguous
-registration COMMIT does not enter the body. A failed or ambiguous completion
-poisons that owner backend, invalidates every associated active scope through
-its existing callback, and does not claim success. An owner loss is sticky for
-that worker lane; it never silently reconnects under old marker ownership.
+Backend error/end is sticky and invalidates associated bodies once. The failed
+client is released as failed, queued jobs refuse, and no request replaces its
+owner. Recovery admits the exact datastore and waits for actual failed bodies to
+drain before resetting failed sessions. Old unfinished markers stay unchanged.
+An uncertain registration COMMIT does not start a body; uncertain completion does
+not claim success. Marker RLS still binds PID and backend birth, so a replacement
+session cannot finish its predecessor's record.
 
-Marker RLS continues to require the exact same backend PID and birth to register
-and finish an operation. Unfinished markers survive an owner death or uncertain
-registration and keep restore fail-closed, even if a replacement worker uses the
-same participant ID. A completed marker whose reply was lost remains completed;
-its result is not rewritten to guess what happened. Restart/count changes do
-not recover orphan markers. Restore recovery remains the existing explicit
-lifecycle responsibility.
+A healthy participation marker remains unfinished between requests. Restore first
+suspends the tenant, then its pinned participant RPC closes admission and waits
+for actual body/child completion before finishing the marker once. Graceful
+shutdown does the same for all warmed tenants. An abrupt owner loss consequently
+leaves coarse markers even for idle warmed tenants. Existing explicit clearance
+handles them; reconnect and elapsed time are never completion evidence.
 
-Lifetime sessions retain their existing metadata-only database capability. They
-are not added to the observed clinical backend inventory merely to bypass the
-unknown-writer check. Native tests show that adding clock-write authority causes
-restore census refusal. No application-name, role-name or RLS exception is used.
-
-The focused native discriminator compares 1/2/4 lanes through the same admission
-and marker path, includes held response lifetimes, and tests actual API processes,
-current authorization, B continuity, owner death/replacement and lost commit
-replies. Those tests establish mechanism and safety, not a capacity envelope.
-The coordinator chooses a provisional count and measures the coherent deployment
-before making performance or capacity claims.
+These sessions retain metadata-only authority and are not accepted as clinical
+writers by role labels. Actual source/native controls must distinguish the
+process accounting contract from the retired per-request row-count assertions.
+Capacity and shutdown duration remain unmeasured until a coherent deployment run.

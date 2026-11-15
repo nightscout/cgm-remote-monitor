@@ -7,7 +7,7 @@ const B = '22222222-2222-4222-8222-222222222222';
 const fixture = require('./fixtures/operation-window-runtime-protocol');
 
 describe('Tenant operation window source protocol (not PostgreSQL evidence)', function () {
-  it('registers durably before the actual callback and finishes only after it settles', async function () {
+  it('registers participation before the first callback and retains it across settled bodies', async function () {
     const f = fixture(); let end;
     const barrier = new Promise(resolve => { end = resolve; });
     const running = f.window.run(A, async () => {
@@ -18,6 +18,9 @@ describe('Tenant operation window source protocol (not PostgreSQL evidence)', fu
     await new Promise(resolve => setImmediate(resolve));
     assert.deepEqual([...f.pending.values()], [false]); end();
     assert.equal(await running, 7);
+    // A request settles locally; only tenant drain or process close finishes participation.
+    assert.deepEqual([...f.pending.values()], [false]);
+    await f.window.close();
     assert.deepEqual([...f.pending.values()], [true]);
     assert.equal(f.log.at(-1)[0], 'release');
   });
@@ -31,9 +34,12 @@ describe('Tenant operation window source protocol (not PostgreSQL evidence)', fu
     await assert.rejects(f.window.run(A, () => { called = true; }), { code });
     assert.equal(called, false); assert.equal(f.pending.size, 0);
   });
-  it('finishes a failed callback whose lease connection remains healthy', async function () {
+  it('retains healthy participation after a failed callback and finishes it on close', async function () {
     const f = fixture(); const original = new Error('synthetic body refusal');
     await assert.rejects(f.window.run(A, () => { throw original; }), error => error === original);
+    assert.deepEqual([...f.pending.values()], [false]);
+    await f.window.run(A, () => {});
+    await f.window.close();
     assert.deepEqual([...f.pending.values()], [true]);
   });
   it('keeps a durable pending record after lease connection loss and invalidates current scope', async function () {
@@ -57,7 +63,9 @@ describe('Tenant operation window source protocol (not PostgreSQL evidence)', fu
   it('reports unlock loss instead of returning an ordinary success', async function () {
     const f = fixture({ unlock: false });
     await assert.rejects(f.window.run(A, () => 1), { code: 'LIFECYCLE_WINDOW_RELEASE_FAILED' });
-    assert.equal(f.log.at(-1)[1], true, 'failed connection must be evicted');
+    assert.deepEqual([...f.pending.values()], [false], 'uncertain lock ownership retires the backend conservatively');
+    assert(f.log.some(row => row[0] === 'release' && row[1] === true));
+    await assert.rejects(f.window.close(), {code:'LIFECYCLE_WINDOW_DRAIN_FAILED'});
   });
   it('refuses unknown tenants and closed windows before pool access', async function () {
     const f = fixture();
@@ -69,14 +77,14 @@ describe('Tenant operation window source protocol (not PostgreSQL evidence)', fu
   // Epoch-internal cache/churn expectations are retired: protected DBA drift
   // is screened at physical backend admission, not on every warm transaction.
   const fullAdmissions = f => f.log.filter(row => typeof row[0] === 'string' && row[0].includes('operation-window-role')).length;
-  it('admits a physical lifetime backend once and readmits after transport invalidation', async function () {
+  it('admits a physical lifetime backend once and refuses sticky transport termination', async function () {
     const f = fixture(); await f.window.ready(); const base = fullAdmissions(f);
     await f.window.run(A, () => {}); await f.window.run(A, () => {}); await f.window.run(B, () => {});
     assert.equal(fullAdmissions(f), base);
     f.client.emit('end');
-    await f.window.run(A, () => {});
-    assert.equal(fullAdmissions(f), base + 1);
-    await f.window.close();
+    await assert.rejects(f.window.run(A, () => {}), { code: 'LIFECYCLE_WINDOW_SESSION_LOST' });
+    assert.equal(fullAdmissions(f), base, 'an ended marker owner cannot be silently replaced');
+    await f.window.close().catch(() => {});
   });
   it('reads the live role and window row inside the transaction, after the lock', async function () {
     const f = fixture(); await f.window.run(A, () => {});
@@ -133,9 +141,9 @@ describe('Actual consumers use operation-window lifetimes (source protocol)', fu
       recoveryIntervalMs: 10, schedule: () => 1, cancel: () => {} });
     try {
       assert.equal(delivered, 1); assert.equal(runtime.last(A), null);
-      options.phase = 'suspended'; await assert.rejects(runtime.refresh(A), { code: 'LIFECYCLE_WINDOW_SUSPENDED' });
+      options.phase = 'suspended'; await f.window.drainTenant(A); await assert.rejects(runtime.refresh(A), { code: 'LIFECYCLE_WINDOW_SUSPENDED' });
       assert.equal(delivered, 1);
-      options.phase = 'active'; await runtime.refresh(A); assert.equal(delivered, 2);
+      await f.window.invalidateTenant(A); options.phase = 'active'; await runtime.refresh(A); assert.equal(delivered, 2);
     } finally { await runtime.close(); await f.window.close(); }
   });
   it('covers the actual notification producer/retry/adapter handoff and refuses suspended work', async function () {
@@ -147,7 +155,7 @@ describe('Actual consumers use operation-window lifetimes (source protocol)', fu
         f.window.assertCurrent(request.tenant); sends++; callback(null, { accepted: true, receipt: null, clearedRequestIds: [] });
       }, { operationWindow: f.window });
       await composed.start(); assert.equal(sends, 2);
-      options.phase = 'suspended'; await composed.consumers.retry(A); await composed.consumers.flush(A);
+      options.phase = 'suspended'; await f.window.drainTenant(A); await composed.consumers.retry(A); await composed.consumers.flush(A);
       assert.equal(sends, 2); assert.equal(composed.consumers.health().tenants.find(row => row.tenant === A).state, 'refused');
     } finally {
       if (composed) await composed.close(); await f.window.close(); mode.setTenancyMode(prior);
@@ -177,7 +185,7 @@ describe('Actual consumers use operation-window lifetimes (source protocol)', fu
     });
     const input = { namespace: '/', event: 'dbAdd', args: [], acknowledge: () => { f.window.assertCurrent(A); replies++; } };
     assert.equal((await forward.forward(input)).delivered, true); assert.equal(replies, 1);
-    options.phase = 'suspended'; assert.equal((await forward.forward(input)).delivered, false); assert.equal(replies, 1);
+    options.phase = 'suspended'; await f.window.drainTenant(A); assert.equal((await forward.forward(input)).delivered, false); assert.equal(replies, 1);
     await f.window.close();
   });
 });

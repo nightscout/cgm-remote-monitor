@@ -17,6 +17,23 @@ describe('bounded worker lifetime session ownership', function () {
     assert.equal(first.client, again.client); assert.notEqual(first.client, second.client); assert.equal(pool.connected, 2);
     await sessions.close(); assert(pool.clients.every(client => client.released === 1));
   });
+  it('runs health/control reads on the owned backend when every pool slot is held', async () => {
+    const pool = fixture(1), connect = pool.connect;
+    pool.connect = async () => { assert.equal(pool.connected, 0, 'FULL_POOL_CONTROL_MUST_NOT_CHECK_OUT'); return connect(); };
+    const sessions = create({pool, size:1});
+    const owner = await sessions.acquire(A);
+    try {
+      assert.equal(await sessions.control(client => { assert.equal(client, owner.client); return 9; }), 9);
+      assert.equal(pool.connected, 1);
+    } finally { await sessions.close(); }
+  });
+  it('notifies owner loss once when error is followed by end and poison', async () => {
+    const pool = fixture(1), sessions = create({pool,size:1}), owner = await sessions.acquire(A);
+    let invalidated = 0; owner.subscribe(() => invalidated++);
+    const loss = Error('synthetic disconnect'); owner.client.emit('error', loss); owner.client.emit('end'); owner.poison(loss);
+    assert.equal(invalidated, 1); assert.equal(owner.client.released, 1);
+    await sessions.close();
+  });
   it('expires queued work before it can execute without poisoning a healthy owner', async () => {
     const pool = fixture(1), sessions = create({ pool, size: 1 }), one = await sessions.acquire(A), two = await sessions.acquire(B), gate = deferred();
     let entered = false;

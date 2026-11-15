@@ -178,12 +178,14 @@ optInSuite(process.env.NS_DATASTORE_RECOVERY_DOCKER_TEST === '1', 'NS_DATASTORE_
     } finally { await instance.close(); }
   });
 
-  it('leaves the unfinished marker of an operation whose lifetime backend was lost, and finishes later operations', async function () {
+  it('retains failed-owner participation and creates one new marker for the recovered process generation', async function () {
     const before = await unfinished();
-    let release; const held = new Promise(resolve => { release = resolve; });
-    const running = window.run(A, () => held);
+    let release, entered; const held = new Promise(resolve => { release = resolve; });
+    const started = new Promise(resolve => { entered = resolve; });
+    const running = window.run(A, () => { entered(); return held; });
     running.catch(() => {});
-    await until(async () => await unfinished() === before + 1, 5000, 'registered marker');
+    await started;
+    assert.equal(await unfinished(), before, 'warm bodies reuse the durable participation');
     await admin(client => client.query("SELECT pg_terminate_backend(pid) FROM pg_stat_activity WHERE usename='recovery_lifetime'"));
     await delay(300); release();
     await assert.rejects(running);
@@ -191,7 +193,7 @@ optInSuite(process.env.NS_DATASTORE_RECOVERY_DOCKER_TEST === '1', 'NS_DATASTORE_
     instance.start();
     try { await until(() => target.available && target.events.length > 0, 30000, 'recovery'); } finally { await instance.close(); }
     assert.equal(await operate(), 1);
-    assert.equal(await unfinished(), before + 1, 'recovery clears no marker; later operations finish theirs');
+    assert.equal(await unfinished(), before + 1, 'recovery retains the orphan and later bodies share one new durable participation');
   });
 
   it('stays unavailable and backs off while PostgreSQL is down, then recovers when it returns', async function () {

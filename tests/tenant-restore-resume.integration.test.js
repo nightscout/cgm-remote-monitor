@@ -175,27 +175,38 @@ optInSuite(process.env.NS_RESTORE_RESUME_DOCKER_TEST === '1', 'NS_RESTORE_RESUME
       const status = await client.getStatus({ request: randomUUID() });
       return (await client.getOperations({ request: randomUUID(), tenant: A, incarnation: status.incarnation, identity: status.identity })).operations;
     }
-    it('pre-check leaves A open; a record is cleared only after its backend is gone and its process no longer runs it', async function () {
-      // 1. A live request: its record has a present owner backend and a running process.
+    it('pre-check leaves A open; participation is cleared only after its owner and all real bodies are gone', async function () {
+      // Warm markers belong to processes, including idle processes. Holding a
+      // response reuses that process's marker instead of allocating a new row.
+      for (const id of ['api-1', 'api-2']) assert.equal(await aServes(id), 200);
+      const owned = await reported('api-1'), other = await reported('api-2');
+      assert.equal(owned.length, 1); assert.equal(other.length, 1);
       const first = held('api-1', 'resume-held-1'); await first.ready();
-      const marker = (await state()).unfinished;
+      const marker = (await state()).unfinished.filter(row => owned.includes(row.operation_id));
       assert.equal(marker.length, 1);
-      assert.deepEqual(await reported('api-1'), [marker[0].operation_id], 'PARTICIPANT_REPORTS_RUNNING the actual process names its unfinished operation');
-      assert.deepEqual(await reported('api-2'), []);
-      assert.deepEqual(await operator(({ resume }) => resume.clearOperations(A)), { tenant: A, cleared: [], retained: [{ operation: marker[0].operation_id, reason: 'OWNER_BACKEND_PRESENT' }] });
+      assert.deepEqual(await reported('api-1'), owned, 'PARTICIPANT_REPORTS_RUNNING actual held responses retain the original participation');
+      assert.deepEqual(await reported('api-2'), other, 'idle participation is durable until an explicit drain');
+      const present = await operator(({ resume }) => resume.clearOperations(A));
+      assert.deepEqual(present.cleared, []);
+      assert.deepEqual(present.retained, [...owned, ...other].sort().map(operation => ({ operation, reason: 'OWNER_BACKEND_PRESENT' })));
       assert.deepEqual((await state()).cleared, []);
-      // 2. Its database session is ended. The record can never be finished by its owner.
+      // Ending the owner cannot make an uncertain participation disappear.
       await admin(client => client.query('SELECT pg_terminate_backend($1)', [marker[0].owner_pid]));
       await operator(({ restore }) => assert.rejects(restore.withRestore(A, { artifactDigest: DIGEST }, async () => assert.fail('must not run')),
         error => error.code === 'LIFECYCLE_RESTORE_PREFLIGHT_ORPHANED_OPERATIONS' && error.orphaned === 1));
       assert.equal((await state()).window.phase, 'active', 'RESTORE_PREFLIGHT_LEAVES_OPEN'); assert.equal(await aServes('api-2'), 200);
-      // 3. Once the process no longer runs it, an operator clears it; the record itself is untouched.
+      // The invalidated wire may already be closed. The participant must stop
+      // reporting the old marker before clearance can claim its body is gone.
       f.current.get('api-1').child.kill('SIGUSR2'); await first.done;
-      await f.base.until(async () => (await reported('api-1')).length === 0, 'the process ended its operation');
-      assert.deepEqual(await operator(({ resume }) => resume.clearOperations(A)), { tenant: A, cleared: [marker[0].operation_id], retained: [] });
-      const cleared = await state();
-      assert.deepEqual(cleared.cleared, [marker[0].operation_id]); assert.deepEqual(cleared.unfinished.map(row => row.operation_id), [marker[0].operation_id], 'CLEARANCE_APPENDS_ONLY');
-      // The serving role can neither read nor write a clearance; the operator cannot clear a record with a false owner.
+      await f.base.until(async () => !(await reported('api-1')).includes(owned[0]), 'the process ended every body under the lost participation');
+      const beforeClear = await state();
+      const cleared = await operator(({ resume }) => resume.clearOperations(A));
+      assert.deepEqual(cleared.cleared, owned);
+      assert.deepEqual(cleared.retained, beforeClear.unfinished.filter(row => !owned.includes(row.operation_id) && !beforeClear.cleared.includes(row.operation_id)).map(row => ({ operation: row.operation_id, reason: 'OWNER_BACKEND_PRESENT' })));
+      const captured = await state();
+      assert.deepEqual(captured.cleared, owned);
+      assert(captured.unfinished.some(row => row.operation_id === owned[0]), 'CLEARANCE_APPENDS_ONLY the original row stays unfinished');
+      // The serving role can neither read nor write a clearance; the operator cannot clear a false owner.
       const serving = new Pool({ connectionString: f.lifetimeConnectionString, max: 1 }); pools.push(serving);
       await assert.rejects(serving.query('SELECT 1 FROM preview_control.tenant_lifecycle_operation_clearance'), { code: '42501' });
       await serving.end();
@@ -204,12 +215,17 @@ optInSuite(process.env.NS_RESTORE_RESUME_DOCKER_TEST === '1', 'NS_RESTORE_RESUME
     });
 
     it('an API process killed with a request in flight: J closes A for good, the pre-check refuses, clearance then restore succeed', async function () {
-      const known = (await state()).unfinished.map(row => row.operation_id);
+      assert.equal(await aServes('api-2'), 200);
+      const orphans = await reported('api-2');
+      assert.equal(orphans.length, 1, 'the target process already owns one participation before its next response');
       const second = held('api-2', 'resume-held-2'); await second.ready();
       await f.base.kill(f.current.get('api-2')); f.current.delete('api-2'); await second.done;
-      await f.start('api-2');
-      const orphans = (await state()).unfinished.map(row => row.operation_id).filter(id => !known.includes(id));
-      assert.equal(orphans.length, 1, 'the killed process left one unfinished record');
+      await f.start('api-2', { readinessTenant: B });
+      assert((await state()).unfinished.some(row => row.operation_id === orphans[0]), 'the killed process leaves its existing durable participation');
+      // The current controller refuses the known orphan before changing the window.
+      const openBefore = await state();
+      await operator(({ restore }) => assert.rejects(restore.withRestore(A, { artifactDigest: DIGEST }, async () => assert.fail('must not run')), { code: 'LIFECYCLE_RESTORE_PREFLIGHT_ORPHANED_OPERATIONS' }));
+      assert.deepEqual(await state(), openBefore, 'ORPHAN_PREFLIGHT_REFUSAL_LEAVES_ACTIVE_STATE_UNCHANGED');
       // The row policy refuses a clearance that misstates the record's owner.
       const client = await observer.connect();
       try {
@@ -226,17 +242,32 @@ optInSuite(process.env.NS_RESTORE_RESUME_DOCKER_TEST === '1', 'NS_RESTORE_RESUME
       const closed = await state();
       assert.equal(closed.window.phase, 'suspended', 'without the pre-check the tenant is closed by a restore that could never drain');
       assert(await aServes('api-1') >= 400);
-      // Recovery from that closure: nothing was replaced, so resume reopens with the record still unfinished.
-      assert.equal((await operator(({ resume }) => resume.resume(A, { claimId: closed.window.claim_id }))).interrupted, 'before-data');
-      assert.equal(await aServes('api-1'), 200);
-      // The shipping controller refuses before closing.
-      await operator(({ restore }) => assert.rejects(restore.withRestore(A, { artifactDigest: DIGEST }, async () => assert.fail('must not run')),
-        error => error.code === 'LIFECYCLE_RESTORE_PREFLIGHT_ORPHANED_OPERATIONS'));
-      assert.equal((await state()).window.phase, 'active'); assert.equal(await aServes('api-2'), 200);
+      // A generation transition now retires process participation even before
+      // data replacement. Resume cannot forgive an orphan: clearance comes first.
+      await operator(({ resume }) => assert.rejects(resume.resume(A, { claimId: closed.window.claim_id }), { code: 'LIFECYCLE_RESUME_PENDING_OPERATIONS' }));
+      assert.equal((await state()).window.phase, 'suspended');
       const result = await operator(({ resume }) => resume.clearOperations(A));
       assert.deepEqual(result, { tenant: A, cleared: orphans, retained: [] });
+      assert.equal((await operator(({ resume }) => resume.resume(A, { claimId: closed.window.claim_id }))).interrupted, 'before-data');
+      assert.equal(await aServes('api-1'), 200); assert.equal(await aServes('api-2'), 200);
       assert.equal((await operator(({ restore }) => restore.withRestore(A, { artifactDigest: DIGEST }, probe('after-orphan')))).state, 'activated');
       await bWrites('after-orphan');
+    });
+
+    it('retains an idle process participation after abrupt death until explicit clearance', async function () {
+      assert.equal(await aServes('api-2'), 200, 'the response has already finished before the process is killed');
+      const owned = await reported('api-2'); assert.equal(owned.length, 1);
+      await f.base.kill(f.current.get('api-2')); f.current.delete('api-2');
+      await f.start('api-2', { readinessTenant: B });
+      const before = await state();
+      assert(before.unfinished.some(row => row.operation_id === owned[0]), 'idle process ownership is conservative and durable');
+      await operator(({ restore }) => assert.rejects(restore.withRestore(A, { artifactDigest: DIGEST }, async () => assert.fail('idle orphan must not be guessed complete')), { code: 'LIFECYCLE_RESTORE_PREFLIGHT_ORPHANED_OPERATIONS' }));
+      assert.deepEqual(await state(), before, 'pre-check leaves the active tenant unchanged');
+      const clearance = await operator(({ resume }) => resume.clearOperations(A));
+      assert.deepEqual(clearance.cleared, owned);
+      assert.equal((await operator(({ restore }) => restore.withRestore(A, { artifactDigest: DIGEST }, probe('after-idle-clearance')))).state, 'activated');
+      for (const id of ['api-1', 'api-2']) assert.equal(await aServes(id), 200);
+      await bWrites('after-idle-clearance');
     });
 
     it('no write of the other tenant was lost, and A kept its own', async function () {

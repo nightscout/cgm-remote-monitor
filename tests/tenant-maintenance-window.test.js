@@ -85,6 +85,7 @@ function fixture (options = {}) {
         async pin (given, tenant, options) { assert.equal(given,cohort);assert.equal(tenant,A);assert.equal(options.client,client);if(m.incomplete)throw Object.assign(new Error('incomplete'),{code:'COHORT_INCOMPLETE'});m.pinned=true;return pin; },
         async releasePin (given) { assert.equal(given,pin);assert(m.pinned);m.pinned=false;m.pinReleased=true; },
         assertComplete (given, tenant, options) { assert.equal(options.client, client); assert(m.pinned); if (given !== cohort || tenant !== A || m.incomplete) throw Object.assign(new Error('incomplete'), { code: 'COHORT_INCOMPLETE' }); },
+        async operations (given, tenant) { assert.equal(given, cohort); assert.equal(tenant, A); assert(m.pinned); return { participants: 1, operations: m.running || [] }; },
         async invalidate (given, tenant) { assert.equal(given, cohort); assert.equal(tenant, A); assert.equal(m.durable.window.phase, 'suspended'); assert.equal(m.durable.audit.state, 'restored'); await new Promise(resolve=>setImmediate(resolve)); m.invalidated = true; if (m.onInvalidate) await m.onInvalidate(tenant); if (m.invalidateFails) throw Object.assign(new Error('invalidate failed'), { code: 'INVALIDATE_FAILED' }); }
       };
       return original.call(this, request, ...rest);
@@ -190,6 +191,14 @@ describe('private tenant restore controller (simulated backend protocol)', funct
     const { m, api } = fixture({ authority: false });
     await assert.rejects(api.withRestore(A, { artifactDigest: DIGEST }, async () => {}), code('LIFECYCLE_RESTORE_AUTHORITY_REFUSED'));
     assert.equal(m.durable.window.phase, 'active'); assert.equal(m.durable.audit, null); await api.close();
+  });
+  it('refuses restore effects until actual process bodies drain, even with no durable pending rows', async function () {
+    const { m, api } = fixture({ running: ['actual-held-response'] });
+    await assert.rejects(api.withRestore(A, { artifactDigest: DIGEST }, () => assert.fail('RESTORE_BEFORE_PROCESS_DRAIN')), { code: 'LIFECYCLE_RESTORE_DRAIN_TIMEOUT' });
+    assert.equal(m.durable.window.phase, 'suspended');
+    assert.equal(m.durable.audit.state, 'suspended');
+    assert.deepEqual(m.durable.rows, []);
+    await api.close();
   });
   it('never clears orphan/pending operations or reopens after the drain deadline', async function () {
     const pending = [{ operation_id: 'uncertain-callback', owner_pid: 999, owner_birth: 'old' }];
