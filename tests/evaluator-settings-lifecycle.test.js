@@ -132,7 +132,10 @@ describe('evaluator settings ownership at maintained role boot', function () {
       './evaluator-consumers':{prepare:async()=>null},
       './registry-tenant-set':{open:async()=>({tenants:new Map([[A,evaluator.registryEntry(A)],[B,evaluator.registryEntry(B)]]),isActive:tenant=>tenant===B||active,revision:()=>1,stats:()=>({}),close:async()=>{},follow:async handlers=>{prepared=handlers;}})},
       '../../trusted-worker/postgres':{create:options=>{assert.equal(options.eventDriven,true);const reader=trusted.create(options);return {...reader,async close(){calls.settingsClose++;await reader.close();closed.push('settings');if(outcome.includes('close-fail'))throw Error('synthetic close failure');}};}},
-      '../../pgstream/evaluator':{open:async()=>({store:{work:async()=>[],nextDue:async()=>null,deliveries:async()=>[]},ready:async()=>{},assertAvailable(){},health:()=>({}),close:async()=>{}})},
+      // Stream recovery owns the first metadata snapshot; emulate its real
+      // ready callback instead of relying on the removed duplicate boot scan.
+      '../../pgstream/evaluator':{open:async options=>{const store={observeMany:async()=>{},work:async()=>[],nextDue:async()=>null,deliveries:async()=>[]};return {store,ready:()=>options.onRecovered(store),assertAvailable(){},health:()=>({}),close:async()=>{}};}},
+      '../internal-api/clients':{completedOutput:()=>({hintCompletedOutput:async()=>{}})},
       '../../migrations/postgres':{run:async()=>{}},
       './tenant-startup':{create:()=>({warm:async()=>{},isReady:()=>true,close:async()=>{},health:()=>({})})},
       './evaluator-runtime':async options=>{
