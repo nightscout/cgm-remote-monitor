@@ -348,6 +348,44 @@ describe('normal operational verification and owned clinical dispatch', function
       assert.equal(row.ready,true);assert.equal(row.code,null);await window.window.run(A,()=>assert(service.last(A)));
     }finally{evaluationHold?.resolve();authorityHold.resolve();verifyHold.resolve();await Promise.allSettled([entered,queued,authority]);await lifecycle.close();await service.close();await f.reader.close();await window.window.close();}
   });
+  it('drains recovery-page cycles before invalidation while another tenant keeps progressing', async function () {
+    const f=fixture(),window=require('./fixtures/operation-window-runtime-protocol')({trustedWorker:true});
+    await window.window.ready();await f.reader.verify();await f.reader.scan([A,B]);
+    let hold,entered,recovery,queued,queuedDone=false;const started=deferred(),source='a'.repeat(64),jobs=require('../lib/server/serve/evaluator-job-context').create('clinical');
+    const service=await runtime({tenants:[A,B],externalRecovery:true,operationWindow:window.window,jobContext:jobs,
+      readCurrent:async tenant=>{const row=await f.reader.read(tenant);return {tenant,identity:'b'.repeat(64),sourceIdentity:source,settingsVersion:row.version,policyGeneration:row.policyGeneration,settingsReadAt:row.readAt};},
+      readMetadata:f.reader.scan,metadataCurrent:f.reader.current,readSource:()=>source,
+      create:async current=>({evaluate:async()=>{if(current.tenant===A&&hold){started.resolve();await hold.promise;}return {checkpoint:1,signature:{stamp:1,deleted:0}};},signature:async()=>({stamp:1,deleted:0}),close(){}}),
+      recoveryIntervalMs:1000,timeIntervalMs:1000,schedule:()=>1,cancel(){},setTimer:()=>1,clearTimer(){}});
+    const initial=service.health([A]).tenants[0].progress.generation,beforeB=service.health([B]).tenants[0].progress.completedAcquisitions;
+    try{
+      hold=deferred();entered=service.acquire(A);await started.promise;
+      const scans=f.reader.health().scans;recovery=service.backstop([A],{recovery:true});
+      queued=service.acquire(A).then(()=>{queuedDone=true;});await settle();
+      assert.equal(f.reader.health().scans,scans,'RECOVERY_SCAN_MUST_WAIT_ENTERED_PAGE_CYCLE');assert.equal(queuedDone,false);
+      await service.acquire(B);assert(service.health([B]).tenants[0].progress.completedAcquisitions>beforeB,'OTHER_TENANT_MUST_PROGRESS_DURING_PAGE_DRAIN');
+      hold.resolve();await Promise.all([entered,recovery,queued]);
+      const result=service.health([A]).tenants[0];assert.equal(result.progress.generation,initial);assert.equal(result.progress.failedCompletions,0);assert.equal(result.ready,true);
+    }finally{hold?.resolve();await Promise.allSettled([entered,recovery,queued]);await service.close();await f.reader.close();await window.window.close();}
+  });
+
+  it('refuses a pre-recovery authority read without discarding the recovered model, then rebuilds an actual settings change', async function () {
+    const f=fixture(),hold=deferred(),started=deferred(),source='a'.repeat(64);await f.reader.verify();await f.reader.scan([A]);
+    const service=await runtime({tenants:[A],externalRecovery:true,
+      readCurrent:async tenant=>{const row=await f.reader.read(tenant);return {tenant,identity:(row.version===1?'b':'c').repeat(64),sourceIdentity:source,settingsVersion:row.version,policyGeneration:row.policyGeneration,settingsReadAt:row.readAt};},
+      readMetadata:f.reader.scan,metadataCurrent:f.reader.current,readSource:()=>source,
+      create:async()=>({evaluate:async()=>({checkpoint:1,signature:{stamp:1,deleted:0}}),signature:async()=>({stamp:1,deleted:0}),close(){}}),
+      recoveryIntervalMs:1000,timeIntervalMs:1000,schedule:()=>1,cancel(){},setTimer:()=>1,clearTimer(){}});
+    const initial=service.health().tenants[0].progress.generation,read=f.connection.readOnly;let first=true,authority;
+    f.connection.readOnly=async(...args)=>{const result=await read(...args);if(first&&/SELECT s.version/.test(args[0])){first=false;started.resolve();await hold.promise;}return result;};
+    try{
+      f.time(600001);authority=service.isCurrent(A,'b'.repeat(64));await started.promise;
+      await service.backstop([A],{recovery:true});hold.resolve();assert.equal(await authority,false,'PRE_RECOVERY_AUTHORITY_READ_STAYS_REFUSED');
+      assert.equal(service.health().tenants[0].progress.generation,initial,'REFUSED_OLD_AUTHORITY_MUST_NOT_DISCARD_RECOVERED_MODEL');assert.equal(await service.isCurrent(A,'b'.repeat(64)),true);
+      f.bump();await service.backstop([A],{recovery:true});assert(service.health().tenants[0].progress.generation>initial);assert.equal(service.health().tenants[0].identity,'c'.repeat(64));
+    }finally{hold.resolve();await Promise.allSettled([authority]);await service.close();await f.reader.close();}
+  });
+
   it('waits for an entered metadata read and closes queued dispatch without restarting it', async function () {
     const f=fixture(),source='a'.repeat(64);await f.reader.verify();await f.reader.scan([A]);
     let evaluations=0;
