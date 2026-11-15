@@ -3,7 +3,7 @@ const assert=require('node:assert/strict');
 const {createHash}=require('node:crypto'),{canonical}=require('../lib/server/serve/evaluator-runtime');
 const profiles=require('../lib/pgstream/intake-profile'),candidate=require('../lib/pgstream/assignment-candidate');
 const fixture=require('./fixtures/intake-source-protocol'),storeModule=require('../lib/pgstream/intake-store');
-const grants=require('../lib/pgstream/intake-grants'),work=require('../lib/pgstream/work-state');
+const grants=require('../lib/pgstream/intake-grants');
 const copy=value=>JSON.parse(JSON.stringify(value));
 const p=()=>profiles.create(fixture.options);
 async function open({creator,profile=p(),onCommit}={}){const f=fixture.create(profile);await f.window.ready();f.connection=await (creator||require('../lib/storage/postgres-connection'))(f.options);f.hints=[];f.store=storeModule.create({connection:f.connection,profile,onCommit:value=>{f.hints.push({value,last:f.calls.at(-1).text});onCommit?.(value);}});f.close=async()=>{await f.store.close();await f.connection.end();await f.window.close();await f.canonical.window.close();};return f;}
@@ -98,6 +98,24 @@ describe('sole-intake meaningful DB-free controls and SQL source contract',()=>{
  });
 });
 describe('actual selected window required by intake source',()=>{
+ it('binds the real selected window digest and keeps unselected window object keys unchanged',async()=>{
+  const f=fixture.create();let connection,owner,other;try{
+   assert.equal(f.window.intakeProfileDigest,f.profile.digest);assert(Object.isFrozen(f.window));assert.throws(()=>{f.window.intakeProfileDigest='0'.repeat(64);},TypeError);
+   const legacy=require('./fixtures/operation-window-runtime-protocol')();try{assert(!Object.hasOwn(legacy.window,'intakeProfileDigest'));}finally{await legacy.window.close();}
+   const wrong=profiles.create({...fixture.options,role:'another_intake_writer'});
+   other=require('../lib/tenant-lifecycle/operation-window').create({namespace:f.profile.binding.lifecycleNamespace,locks:[{tenant:f.A,key:'17'},{tenant:f.B,key:'19'}],pool:f.canonical.pool,trustedWorker:true,intakeProfile:wrong});
+   f.options.operationWindow=other;connection=await require('../lib/storage/postgres-connection')(f.options);owner=await connection.holdAdvisoryLock(f.profile.ownerKey,()=>{});
+   await assert.rejects(owner.openIntakeReceipts(f.profile),/ACTUAL_WINDOW_REQUIRED/);assert(!f.calls.some(c=>c.text.includes('intake-role')));
+  }finally{await owner?.close();await connection?.end();await other?.close();await f.window.close();await f.canonical.window.close();}
+ });
+ it('control: removing only digest agreement accepts a differently selected actual window, so the binding criterion is RED',async()=>{
+  const broken=altered('../lib/storage/postgres-connection',' || operationWindow.intakeProfileDigest !== selected.digest','');
+  async function criterion(creator){const f=fixture.create();let connection,owner,other;try{
+   const wrong=profiles.create({...fixture.options,role:'another_intake_writer'});other=require('../lib/tenant-lifecycle/operation-window').create({namespace:f.profile.binding.lifecycleNamespace,locks:[{tenant:f.A,key:'17'},{tenant:f.B,key:'19'}],pool:f.canonical.pool,trustedWorker:true,intakeProfile:wrong});f.options.operationWindow=other;connection=await creator(f.options);owner=await connection.holdAdvisoryLock(f.profile.ownerKey,()=>{});await assert.rejects(owner.openIntakeReceipts(f.profile),/ACTUAL_WINDOW_REQUIRED/);
+  }finally{await owner?.close();await connection?.end();await other?.close();await f.window.close();await f.canonical.window.close();}}
+  await assert.rejects(criterion(broken),{code:'ERR_ASSERTION'});await criterion(require('../lib/storage/postgres-connection'));
+ });
+
  it('refuses omitted, unbranded and wrong-namespace windows before opening receipts',async()=>{
   for(const kind of ['absent','fake','foreign']){const f=fixture.create();let connection,owner;try{
    if(kind==='absent')delete f.options.operationWindow;
@@ -107,7 +125,7 @@ describe('actual selected window required by intake source',()=>{
   }finally{await owner?.close();await connection?.end();await f.window.close();await f.canonical.window.close();}}
  });
  it('removing actual window branding makes a fake-window refusal criterion RED; restored source GREEN',async()=>{
-  const broken=altered('../lib/storage/postgres-connection',"if (!operationWindows.isWindow(operationWindow) || operationWindow.namespace !== selected.binding.lifecycleNamespace) throw new Error('PGSTREAM_INTAKE_ACTUAL_WINDOW_REQUIRED');",'');
+  const broken=altered('../lib/storage/postgres-connection',"if (!operationWindows.isWindow(operationWindow) || operationWindow.namespace !== selected.binding.lifecycleNamespace || operationWindow.intakeProfileDigest !== selected.digest) throw new Error('PGSTREAM_INTAKE_ACTUAL_WINDOW_REQUIRED');",'');
   async function criterion(creator){const f=fixture.create();f.options.operationWindow={namespace:f.profile.binding.lifecycleNamespace,acquireClient:async()=>{},assertClient:async()=>{}};let connection,owner;try{connection=await creator(f.options);owner=await connection.holdAdvisoryLock(f.profile.ownerKey,()=>{});await assert.rejects(owner.openIntakeReceipts(f.profile),/ACTUAL_WINDOW_REQUIRED/);}finally{await owner?.close();await connection?.end();await f.window.close();await f.canonical.window.close();}}
   await assert.rejects(criterion(broken),{code:'ERR_ASSERTION'});await criterion(require('../lib/storage/postgres-connection'));
  });
@@ -135,5 +153,25 @@ describe('owned committed hint identity',()=>{
  });
  it('does not let the first onCommit callback change the second committed tenant identity',async()=>{
   let observations,callbacks=0;const f=await open({onCommit:()=>{if(++callbacks===1)observations[1].tenant=fixture.A;}});try{await f.store.own(()=>{});await f.store.admit([f.A,f.B]);observations=[f.A,f.B].map(tenant=>({tenant,observed:{activity:'2'},eligibility:{activity:false}}));await f.store.observeMany(observations);assert.equal(f.rows.get(f.A).work_observed[3],'2');assert.equal(f.rows.get(f.B).work_observed[3],'2');assert.deepEqual(f.hints.map(h=>h.value.tenant),[f.A,f.B]);}finally{await f.close();}
+ });
+});
+
+
+describe('selected receiver codec through the actual receipt source path (synthetic SQL)',()=>{
+ const receiver=require('../lib/pgstream/receiver');
+ const event=(f,g,phase)=>({Data:{action:'U',schema:f.profile.binding.lifecycleNamespace,table:'tenant_lifecycle_windows',columns:Object.entries({tenant_id:f.A,generation:g,phase}).map(([name,value])=>({name,value}))}});
+ function receive(f,api=receiver){return api.create({routes:[{schema:f.profile.binding.lifecycleNamespace,table:'tenant_lifecycle_windows',kind:'lifecycle'}],store:f.store,intakeProfile:f.profile,onInput:()=>{},onHeartbeat:()=>{},onSchema:()=>{}});}
+ it('reactivates SAMEg after suspension without resetting pending age, completed vectors, output or ACK; duplicates preserve the exact row',async()=>{
+  const f=await open();try{await f.store.own(()=>{});await f.store.admit([f.A,f.B]);const r=receive(f);await r(event(f,'9007199254740994','suspended'));const suspended=copy(f.rows.get(f.A));await r(event(f,'9007199254740994','active'));const active=copy(f.rows.get(f.A));assert.equal(active.work_observed[4],'18014398509481990');assert.equal(active.work_lifecycle_enabled,true);assert.equal(active.work_enabled,true);assert.equal(active.work_pending_at,suspended.work_pending_at);assert.equal(BigInt(active.delivery_revision),BigInt(suspended.delivery_revision)+1n);
+  for(const key of ['work_completed','work_due_at','work_completed_at','output_identity','output_digest','output_revision','output_restore_generation','delivery_ack_revision','checkpoint','projection'])assert.deepEqual(active[key],suspended[key],key);
+  await r(event(f,'9007199254740994','active'));await r(event(f,'9007199254740994','suspended'));assert.deepEqual(f.rows.get(f.A),active,'duplicate and stale suspension preserve exact row');
+  const calls=f.calls.length;await assert.rejects(r(event(f,'4611686018427387903','active')),/GENERATION_DOMAIN_UNSUPPORTED/);assert.equal(f.calls.length,calls);assert.deepEqual(f.rows.get(f.A),active);
+  await r(event(f,'4611686018427387902','suspended'));await r(event(f,'4611686018427387902','active'));assert.equal(f.rows.get(f.A).work_observed[4],'9223372036854775806');
+  }finally{await f.close();}
+ });
+ it('control: replacing selected activation offset with legacy zero retains disabled eligibility and makes recovery RED; restored GREEN',async()=>{
+  const broken=altered('../lib/pgstream/receiver',"row.phase==='suspended'?1n:selected?2n:0n","row.phase==='suspended'?1n:0n");
+  async function criterion(api){const f=await open();try{await f.store.own(()=>{});await f.store.admit([f.A,f.B]);const r=receive(f,api);await r(event(f,'7','suspended'));await r(event(f,'7','active'));assert.equal(f.rows.get(f.A).work_lifecycle_enabled,true,'SAME_GENERATION_ACTIVATION_MUST_ENABLE');}finally{await f.close();}}
+  await assert.rejects(criterion(broken),{code:'ERR_ASSERTION'});await criterion(receiver);
  });
 });

@@ -95,3 +95,21 @@ describe('consumer catalogue DDL relevance', function () {
   await qualify(actual);
  });
 });
+
+
+describe('selected receiver exact recognized profile',()=>{
+ it('refuses malformed/unknown profiles and wrong receipt digest, consumer or lifecycle namespace before input',()=>{
+  const profiles=require('../lib/pgstream/intake-profile'),f=require('./fixtures/intake-source-protocol'),p=profiles.create(f.options);
+  const selected={routes:[{schema:p.binding.lifecycleNamespace,table:'tenant_lifecycle_windows',kind:'lifecycle'}],store:{profile:p.digest,consumer:p.binding.consumer+'-completed'},intakeProfile:p,onInput:()=>{},onHeartbeat:()=>{},onSchema:()=>{}};
+  assert.doesNotThrow(()=>create(selected));
+  for(const store of [{...selected.store,profile:undefined},{...selected.store,profile:'0'.repeat(64)},{...selected.store,consumer:'evaluator-other-completed'}])assert.throws(()=>create({...selected,store}),/PROFILE_BINDING/);
+  assert.throws(()=>create({...selected,routes:[{schema:'wrong_control',table:'tenant_lifecycle_windows',kind:'lifecycle'}]}),/PROFILE_BINDING/);
+  assert.throws(()=>create({...selected,intakeProfile:{...p,binding:{...p.binding,codec:'research'}}}),/PROFILE/);
+ });
+ it('actual evaluator factory refuses cross-layout and cross-consumer selected profiles before opening a binary or store',async()=>{
+  const profiles=require('../lib/pgstream/intake-profile'),f=require('./fixtures/intake-source-protocol'),p=profiles.create(f.options),config={pgstream:{binary:'/does-not-exist'},namespaces:{checkpoint:p.binding.namespace},consumer:p.binding.consumer,trustedWorker:{activity:p.binding.lifecycleNamespace,settings:'settings',operatorPolicy:'policy'}};
+  config.namespaces.clock='clock';
+  for(const change of [{consumer:'evaluator-other'},{namespaces:{...config.namespaces,checkpoint:'wrong_work'}},{trustedWorker:{...config.trustedWorker,activity:'wrong_control'}}])await assert.rejects(require('../lib/pgstream/evaluator').open({config:{...config,...change},intakeProfile:p}),/EVALUATOR_INTAKE_PROFILE_BINDING/);
+  await assert.rejects(require('../lib/pgstream/evaluator').open({config,intakeProfile:p}),{code:'ENOENT'});
+ });
+});

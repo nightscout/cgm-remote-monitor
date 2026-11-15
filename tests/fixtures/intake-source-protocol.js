@@ -8,9 +8,9 @@ const A='11111111-1111-4111-8111-111111111111',B='22222222-2222-4222-8222-222222
 const options={namespace:'intake_work',membershipNamespace:'intake_members',lifecycleNamespace:'intake_control',consumer:'evaluator-intake',role:'intake_writer',revision:'9007199254740993',members:2,codec:profiles.CODEC,generationDomain:profiles.GENERATION_DOMAIN,tenants:[A,B]};
 function create(profile=profiles.create(options)){
  const b=profile.binding,built=candidate.build({...b,intakeProfile:profile}),clients=[],calls=[],rows=new Map();
- const canonical=require('./operation-window-runtime-protocol')({trustedWorker:true});
- const window=require('../../lib/tenant-lifecycle/operation-window').create({namespace:b.lifecycleNamespace,locks:b.tenants.map((tenant,i)=>({tenant,key:String(17+i*2)})),pool:canonical.pool,trustedWorker:true});
- const admission=require('./operation-window-admission-protocol')();
+ const canonical=require('./operation-window-runtime-protocol')({trustedWorker:true,intakeProfile:profiles.create({...options,lifecycleNamespace:'synthetic_window'})});
+ const window=require('../../lib/tenant-lifecycle/operation-window').create({namespace:b.lifecycleNamespace,locks:b.tenants.map((tenant,i)=>({tenant,key:String(17+i*2)})),pool:canonical.pool,trustedWorker:true,intakeProfile:profile});
+ const admission=require('./operation-window-admission-protocol')(require('./lifecycle-domain-profile').metadata(profile));
  const state={held:true,failAssert:0,assertions:0,commit:'normal',beforeCommit:async()=>{},role:{},missing:false,extraAuthority:false,badProfile:false,grantsMutation:()=>{},policiesMutation:()=>{},clinical:0,losses:0,verify:0};
  for(const tenant of b.tenants)rows.set(tenant,{tenant,contract_digest:profile.contractDigest,work_version:2,work_observed:['1',null,null,null,null,null],work_completed:['1',null,null,null,null,null],work_observed_at:['10',null,null,null,null,null],work_pending_at:null,work_due_at:'200',work_completed_at:'20',work_enabled:true,work_activity_enabled:true,work_lifecycle_enabled:true,delivery_revision:'0',delivery_ack_revision:'0',output_identity:'a'.repeat(64),output_digest:'b'.repeat(64),output_revision:'1',output_restore_generation:'7',work_owner_ordinal:profile.assignment.owner(tenant),work_assignment_revision:b.revision,checkpoint:'7',projection:[{kind:'evaluator-work-v2',output:{synthetic:true}}]});
  function protocol(text,values,client){
