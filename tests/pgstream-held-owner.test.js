@@ -43,3 +43,17 @@ it('control: remove only the held-client mismatch refusal; actual owner/outer-ba
  async function qualify(broken){const f=await fixture(broken);try{await f.connection.withTenant(A,()=>assert.rejects(f.owner.withTenant(A,()=>f.connection.query('SELECT foreign_effect')),{code:'POSTGRES_OWNER_TRANSACTION_MISMATCH'}));}finally{await f.close();}}
  try{await assert.rejects(qualify(true),{code:'ERR_ASSERTION'});await qualify(false);}finally{scope.setTenancyMode(previous);}
 });
+it('explicit owner COMMIT boundary rejects any ambient transaction before queueing, including same-owner nesting',async()=>{
+ const previous=scope.getTenancyMode();scope.setTenancyMode('multi');const f=await fixture();
+ try{
+  let effects=0;
+  await f.connection.withTenant(A,()=>assert.rejects(f.owner.withTenantTransaction(A,()=>{effects++;}),{code:'POSTGRES_OWNER_TRANSACTION_NESTED'}));
+  await f.owner.withTenant(A,async()=>{
+   await assert.rejects(f.owner.withTenantTransaction(A,()=>{effects++;}),{code:'POSTGRES_OWNER_TRANSACTION_NESTED'});
+   await f.connection.withTenant(A,()=>f.connection.query('SELECT ordinary_nested_commit_scope'));
+  });
+  assert.equal(effects,0);
+  await f.owner.withTenantTransaction(A,()=>f.connection.query('SELECT explicit_commit_boundary'));
+  const index=f.calls.findIndex(call=>call.text==='SELECT explicit_commit_boundary');assert(index>=0);assert.equal(f.calls[index].pid,f.owner.backendPid);assert(f.calls.slice(index+1).some(call=>call.text==='COMMIT'));
+ }finally{await f.close();scope.setTenancyMode(previous);}
+});
