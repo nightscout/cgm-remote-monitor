@@ -144,6 +144,12 @@ function everyOptionalField (docs, { l, named, urls, vaultAddress, socketOf, env
   const tokenVault = { address: vaultAddress, mount: l.mount, timeoutMs: 5000, allowInsecureLoopback: false,
     ...(tokenFiles ? { tokenFile: CONFIG_DIRECTORY + '/vault-token' } : { tokenEnv: 'NS_VAULT_TOKEN' }) };
   const canonical = { mode: 'canonical-internal', trustedPeers: ['192.0.2.10'] };
+  api.localDataAuthentication = 'node';
+  evaluator.intakeStateSync = { assignmentRevision: '1' };
+  const intake = require('../../lib/pgstream/intake-profile').create({ namespace: ns.eval_checkpoint, membershipNamespace: named('intake_members'), lifecycleNamespace: ns.control, role: named('intake_writer'), consumer: evaluator.consumer, revision: '1', members: 1, tenants: [A, B], codec: require('../../lib/pgstream/intake-profile').CODEC, generationDomain: require('../../lib/pgstream/intake-profile').GENERATION_DOMAIN });
+  realtime.intakeProfile = JSON.parse(JSON.stringify(intake));
+  evaluator.consumers.realtime.partitionMetadata = { checkpointNamespace: ns.eval_checkpoint, membershipNamespace: named('partition_members'), lifecycleNamespace: named('partition_lifecycle') };
+  for (const operation of Object.values(docs.operations)) operation.intakeProfile = JSON.parse(JSON.stringify(intake));
   api.vault = { ...tokenVault }; api.resolution = { ...canonical }; env.api.NS_VAULT_TOKEN = 'synthetic-placeholder';
   realtime.unauthorizedDeadlineMs = 5000;
   Object.assign(evaluator, { evictAfterMs: 600000, evaluationAlertMs: 60000 });

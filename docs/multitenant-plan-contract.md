@@ -61,7 +61,6 @@ keys or lock keys, and `MULTITENANT_STATIC_TENANTS` is not set.
 | tenant-admin | `MULTITENANT_OWNER_PREVIEW_CONFIG` | tenant-admin | [`tenant-admin.schema.json`](../lib/server/serve/plan-contract/schema/tenant-admin.schema.json) | `lib/server/serve/owner-preview-config.js` |
 | admin | `MULTITENANT_ADMIN_CONFIG` | admin | [`admin.schema.json`](../lib/server/serve/plan-contract/schema/admin.schema.json) | `lib/server/serve/admin-config.js` |
 | vcpool | `MULTITENANT_VCPOOL_CONFIG` | vcpool | [`vcpool.schema.json`](../lib/server/serve/plan-contract/schema/vcpool.schema.json) | `lib/tenant-connector/config.js` |
-| feed-reader | `MULTITENANT_FEED_CONFIG` | feed-reader | [`feed-reader.schema.json`](../lib/server/serve/plan-contract/schema/feed-reader.schema.json) | `lib/change-feed/config.js` |
 | operation | `MULTITENANT_OPERATION_CONFIG` | api, realtime, evaluator, tenant-admin | [`operation.schema.json`](../lib/server/serve/plan-contract/schema/operation.schema.json) | `lib/server/serve/operation-cohort-config.js` |
 
 The schemas are JSON Schema (draft 2020-12) and use only `type`, `enum`, `const`,
@@ -131,11 +130,11 @@ role documents.
 ## How the contract stays in step with the loaders
 
 `tests/multitenant-plan-contract.test.js` (unit tier) generates every document
-from core's test plan (`tests/fixtures/multitenant-plan.js`) in three variants:
-the smallest registry-mode plan, one that sets every optional field with a fixed
-roster (two api instances, a named realtime worker), and that one again with
-Vault token files in place of environment references. For each object of each
-document it requires:
+from core's test plan (`tests/fixtures/multitenant-plan.js`) in registry-mode variants: the smallest plan; a fixed roster with optional fields
+(two api instances and a named realtime worker), using environment references or
+Vault token files; explicit ensure documents; and selected intake metadata read by
+the API. The metadata variant does not select a running evaluator topology.
+For each operator configuration object it requires:
 
 | name | rule | a loader change that turns it red |
 |---|---|---|
@@ -150,6 +149,21 @@ required field breaks. The fields a loader reads are recorded by a Proxy around 
 parsed document (`tests/fixtures/multitenant-plan-observer.js`). One change is
 not seen: a field added to a loader's list of accepted names that the loader
 never reads while loading.
+
+Generated intake profiles are value envelopes. The loader validates their canonical
+binding, digests and lifecycle namespace, then regenerates the assignment from
+that binding. Supplied assignment metadata grants no authority. Their schemas
+state the envelope fields; the actual profile validator checks the binding.
+Dedicated changed-binding and changed-digest controls cover this value grammar
+instead of applying the closed-configuration-object rule to it.
+
+The API's optional `localDataAuthentication: "node"` requires registry mode and
+an explicit access-token realm. Evaluator `intakeStateSync` names the assignment
+revision. `selectedIntake` additionally requires the actual explicit capability,
+worker partition, matching namespaces and distinct database identities. Realtime
+and operation profiles bind the same generated value to their lifecycle and
+completed-output contracts. Passing metadata checks does not qualify a selected
+runtime or its native SQL installation.
 
 A loader change that turns the suite red is finished when the schema and this
 page say the same thing. The contract number moves when the document-set format

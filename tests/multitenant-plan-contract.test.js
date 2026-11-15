@@ -32,11 +32,24 @@ const observer = require('./fixtures/multitenant-plan-observer');
 const layout = plan.layout('nstp');
 // `default` is the smallest registry-mode plan; `full` sets every optional field and a fixed roster,
 // with Vault credentials from the environment; `full-token-files` is `full` with token files.
-const VARIANTS = ['default', 'full', 'full-token-files', 'ensure', 'ensure-token-files'];
+const VARIANTS = ['default', 'full', 'full-token-files', 'ensure', 'ensure-token-files', 'selected-metadata'];
 const documentSet = (variant = 'default') => {
-  const selected = variant === 'ensure' ? 'full' : variant === 'ensure-token-files' ? 'full-token-files' : variant;
+  const selected = variant === 'selected-metadata' ? 'full' : variant === 'ensure' ? 'full' : variant === 'ensure-token-files' ? 'full-token-files' : variant;
   const documents = plan.documents({ layout, urls: plan.syntheticUrls(layout), variant: selected });
   const set = plan.documentSet(documents);
+  if (variant === 'selected-metadata') {
+    // Metadata parsing validates the selected profile without selecting a running
+    // worker topology. Operational capability admission is tested separately.
+    for (const entry of set.processes.filter(row => row.roles.includes('api'))) {
+      const file = entry.environment.MULTITENANT_EVALUATOR_CONFIG, doc = clone(entry.files[file]);
+      const source = require('../lib/pgstream/intake-profile');
+      const profile = source.create({ namespace: doc.postgres.namespaces.checkpoint, membershipNamespace: 'nstp_intake_members', lifecycleNamespace: doc.activity.namespace, role: 'nstp_intake_writer', consumer: doc.consumer, revision: '1', members: 2, tenants: [plan.A,plan.B], codec: source.CODEC, generationDomain: source.GENERATION_DOMAIN });
+      doc.selectedIntake = { profile: clone(profile), workers: ['evaluator-1','evaluator-2'], connectionEnv: 'NS_INTAKE_WRITER', controlConnectionEnv: 'NS_INTAKE_CONTROL' };
+      doc.intakeStateSync = { assignmentRevision: '1' };
+      doc.consumers.realtime.partitionMetadata = { checkpointNamespace: profile.binding.namespace, membershipNamespace: profile.binding.membershipNamespace, lifecycleNamespace: profile.binding.lifecycleNamespace };
+      entry.files[file] = doc;
+    }
+  }
   if (variant.startsWith('ensure')) {
     // Carry the optional unselected ensure grammar through its ACTUAL loader.
     // These synthetic identities have no native grant/host acceptance claim.
@@ -92,6 +105,9 @@ function verdict (row, mutate) {
 // (pointer writes an array index as `*`; steps reach the first item).
 function objects (schema, value, pointer = '', steps = []) {
   const rows = [];
+  // Generated profile values validate canonical binding/digests and regenerate
+  // assignment; they are not closed operator configuration objects.
+  if (opaqueProfile(pointer)) return rows;
   if (schema.type === 'object' && value && typeof value === 'object' && !Array.isArray(value)) {
     rows.push({ pointer, steps, schema });
     for (const [key, child] of Object.entries(schema.properties || {})) {
@@ -101,6 +117,8 @@ function objects (schema, value, pointer = '', steps = []) {
   if (schema.type === 'array' && Array.isArray(value) && value.length && schema.items) rows.push(...objects(schema.items, value[0], pointer + '/*', [...steps, 0]));
   return rows;
 }
+const opaqueProfile = pointer => pointer === '/intakeProfile' || pointer === '/selectedIntake/profile';
+const withinProfile = pointer => ['/intakeProfile','/selectedIntake/profile'].some(prefix => pointer === prefix || pointer.startsWith(prefix + '/'));
 const reach = (document, steps) => steps.reduce((value, step) => value[step], document);
 
 describe('deployment plan contract', function () {
@@ -109,7 +127,7 @@ describe('deployment plan contract', function () {
 
   it('accepts the test plan: every document matches its schema and every process passes its loaders', function () {
     const roster = ['realtime', 'evaluator', 'tenant-admin', 'api-1', 'api-2', 'admin', 'vcpool'];
-    const expected = { default: ['api', 'realtime', 'evaluator', 'tenant-admin', 'admin', 'vcpool'], full: roster, 'full-token-files': roster, ensure:roster, 'ensure-token-files':roster };
+    const expected = { default: ['api', 'realtime', 'evaluator', 'tenant-admin', 'admin', 'vcpool'], full: roster, 'full-token-files': roster, ensure:roster, 'ensure-token-files':roster, 'selected-metadata':roster };
     for (const variant of VARIANTS) {
       const report = contract.check(documentSet(variant));
       assert.equal(report.ok, true, variant + ': ' + JSON.stringify(report.processes.flatMap(row => row.findings)));
@@ -152,6 +170,20 @@ describe('deployment plan contract', function () {
     for (const name of Object.keys(contract.DOCUMENTS)) {
       const carried = new Set(rows.filter(row => row.name === name).flatMap(row => carriedBy(documentSet(row.variant).processes[row.index].files[row.file])));
       assert.deepEqual(namedBy(contract.schema(contract.DOCUMENTS[name].schema)).filter(pointer => !carried.has(pointer)), [], name);
+    }
+  });
+
+  it('generated profile values validate canonical binding and digests, while assignment is regenerated', function () {
+    const set = documentSet('selected-metadata'), entry = set.processes.find(row => row.roles.includes('api'));
+    const file = entry.environment.MULTITENANT_EVALUATOR_CONFIG;
+    const good = () => contract.check({contract:1,processes:[entry]});
+    assert.equal(good().ok,true);
+    const profile = entry.files[file].selectedIntake.profile;
+    profile.assignment = { forged: 'ignored source metadata' };
+    assert.equal(good().ok,true,'assignment is regenerated from validated canonical binding');
+    for (const mutate of [p => {p.digest='0'.repeat(64);}, p => {p.binding.lifecycleNamespace='foreign';}, p => {p.binding.controlReads={};}]) {
+      const original = clone(entry.files[file].selectedIntake.profile); mutate(entry.files[file].selectedIntake.profile); assert.equal(good().ok,false);
+      entry.files[file].selectedIntake.profile = original; assert.equal(good().ok,true);
     }
   });
 
@@ -206,7 +238,7 @@ describe('deployment plan contract', function () {
         }
         // No loader read lands on an object the schema does not describe.
         const pointers = described.map(object => object.pointer);
-        assert.deepEqual([...reads.keys()].filter(pointer => !pointers.includes(pointer)), []);
+        assert.deepEqual([...reads.keys()].filter(pointer => !pointers.includes(pointer) && !withinProfile(pointer)), []);
       });
 
       it('refuses each static-mode field in registry mode', function () {
