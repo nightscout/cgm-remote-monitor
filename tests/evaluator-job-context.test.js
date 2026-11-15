@@ -18,7 +18,7 @@ function settings (window, jobContext, extra = {}) {
 function singleClient () {
   const createWindow=require('../lib/tenant-lifecycle/operation-window').create;
   let available=true;const waiting=[];
-  return fixture({},config=>createWindow({...config,pool:{connect:async()=>{
+  return fixture({},config=>createWindow({...config,pool:{options:{max:1},connect:async()=>{
     if(!available)await new Promise(resolve=>waiting.push(resolve));else available=false;
     const client=await config.pool.connect(),release=client.release;
     client.release=error=>{client.release=release;release(error);const next=waiting.shift();if(next)next();else available=true;};
@@ -106,8 +106,9 @@ describe('trusted evaluator scheduling contexts (recording lifetime protocol)',f
     }finally{await q.close();await f.window.close();scope.setTenancyMode(previous);}
   });
   it('preserves active-parent two-acquire coalescing on one client, refuses late/foreign callers and independent parent joins',async function(){
-    const f=singleClient(),jobs=contexts.create('clinical');
-    const r=await runtime(settings(f.window,jobs,{timeIntervalMs:60000}));
+    const f=singleClient(),jobs=contexts.create('clinical'),hold=deferred();let block=false,entered=false;
+    const result=()=>({checkpoint:0,properties:{synthetic:true}});
+    const r=await runtime(settings(f.window,jobs,{timeIntervalMs:60000,create:async()=>({evaluate:async()=>result(),evaluateTime:async()=>{if(block){entered=true;await hold.promise;}return result();},close(){}})}));
     try{
       const initial=r.health([A]).tenants[0].progress.completedAcquisitions;
       await f.window.run(A,()=>Promise.all([r.acquire(A),r.acquire(A)]));
@@ -120,12 +121,14 @@ describe('trusted evaluator scheduling contexts (recording lifetime protocol)',f
       await assert.rejects(late,/SCOPE_INVALID/);assert.equal(r.health([A]).tenants[0].cycles,cycles);
       let independent;
       await f.window.run(A,async()=>{
-        independent=jobs.run(()=>r.tick(A));await sleep(2);
-        await assert.rejects(r.acquire(A),{code:'EVALUATOR_JOB_PARENT_BUSY'});
+        // Warm bodies no longer wait for the sole SQL client. Hold the actual
+        // independent clinical body so the conflicting parent is still live.
+        block=true;independent=jobs.run(()=>r.tick(A));await wait(()=>entered);
+        await assert.rejects(r.acquire(A),{code:'EVALUATOR_JOB_PARENT_BUSY'});hold.resolve();
       });
       await independent;await r.acquire(A);
       assert.equal(r.health([A]).tenants[0].progress.completedAcquisitions,initial+1);
-    }finally{await r.close();await f.window.close();}
+    }finally{hold.resolve();await r.close();await f.window.close();}
   });
   it('preserves explicit consumer wake rejection when its activity port fails, then progresses after recovery',async function(){
     let broken=true;const activity={check:async()=>{if(broken)throw new Error('SYNTHETIC_ACTIVITY_UNAVAILABLE');return{eligible:true};}};
@@ -198,20 +201,29 @@ describe('trusted evaluator scheduling contexts (recording lifetime protocol)',f
     }finally{hold.resolve();await r.close();await f.window.close();}
   });
   it('does not credit unfinished windows, failed completion or generation-invalidated results',async function(){
-    const f=fixture(),jobs=contexts.create('clinical'),hold=deferred();let entered=false,block=false;
-    const original=f.client.query;
-    f.client.query=async(text,...args)=>{const result=await original(text,...args);if(block && typeof text==='string' && text.startsWith('UPDATE')){entered=true;await hold.promise;}return result;};
-    let identity='a'.repeat(64);
-    const r=await runtime(settings(f.window,jobs,{timeIntervalMs:60000,readCurrent:async tenant=>({tenant,identity})}));
+    const f=fixture(),jobs=contexts.create('clinical');let entered=false,block=false,lease;
+    const lower=new(require('node:events').EventEmitter)();lower.processID=124;
+    lower.query=async(...args)=>{const result=await f.client.query(...args);return {...result,rows:result.rows.map(row=>Object.hasOwn(row,'pid')?{...row,pid:lower.processID}:row)};};
+    let identity='a'.repeat(64);const result=()=>({checkpoint:0,properties:{synthetic:true}});
+    const r=await runtime(settings(f.window,jobs,{timeIntervalMs:60000,readCurrent:async tenant=>({tenant,identity}),create:async()=>({evaluate:async()=>result(),
+      evaluateTime:async()=>{
+        if(block){
+          // The process marker is coarse, not a per-request UPDATE. An admitted
+          // physical child still keeps this real outer window unfinished.
+          lease=await f.window.acquireClient(lower,A);await lower.query('BEGIN');
+          await lower.query("SELECT set_config('app.current_tenant_id',$1,true)",[A]);await f.window.assertClient(lower,A,lease);entered=true;
+        }
+        return result();
+      },close(){}})}));
     try{
       block=true;const pending=r.tick(A);await wait(()=>entered);
       assert.equal(r.health([A]).tenants[0].progress.completedTimeCycles,0);
       assert.equal(r.health([A]).tenants[0].jobs.running,true,'FULL_WINDOW_COMPLETION_IS_STILL_INFLIGHT');
       identity='b'.repeat(64);
       assert.equal(await r.isCurrent(A,'a'.repeat(64)),false);
-      hold.resolve();await pending;
+      await lower.query('COMMIT');await lease.close();await pending;
       assert.equal(r.health([A]).tenants[0].progress.completedTimeCycles,0);
       assert(r.health([A]).tenants[0].progress.failedCompletions>0);
-    }finally{hold.resolve();await r.close();await f.window.close();}
+    }finally{await lease?.close();await r.close();await f.window.close();}
   });
 });
