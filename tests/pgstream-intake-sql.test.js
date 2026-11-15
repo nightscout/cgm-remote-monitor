@@ -23,7 +23,7 @@ describe('proposed sole-intake source capability (synthetic SQL; native unmeasur
  });
  it('has no implicit constructor/default activation, requires exact validation-only roster and exposes no clinical or arbitrary query API',async()=>{
   const f=await open();try{
-   assert.deepEqual(Object.keys(f.store).sort(),['admit','available','close','consumer','digest','observe','observeMany','own','profile'].sort());
+   assert.deepEqual(Object.keys(f.store).sort(),['admit','available','close','consumer','digest','health','observe','observeMany','own','profile'].sort());
    await assert.rejects(f.store.observe(f.A,'clock','2'),/UNAVAILABLE/);await f.store.own(()=>{f.state.losses++;});
    assert.equal(f.store.available,false);await assert.rejects(f.store.admit([f.A]),/FIXED_ROSTER/);await f.store.admit([f.B,f.A]);assert(f.store.available);
    assert(!f.calls.some(c=>/INSERT INTO|ALTER TABLE|GRANT /.test(c.text)));
@@ -173,5 +173,16 @@ describe('selected receiver codec through the actual receipt source path (synthe
   const broken=altered('../lib/pgstream/receiver',"row.phase==='suspended'?1n:selected?2n:0n","row.phase==='suspended'?1n:0n");
   async function criterion(api){const f=await open();try{await f.store.own(()=>{});await f.store.admit([f.A,f.B]);const r=receive(f,api);await r(event(f,'7','suspended'));await r(event(f,'7','active'));assert.equal(f.rows.get(f.A).work_lifecycle_enabled,true,'SAME_GENERATION_ACTIVATION_MUST_ENABLE');}finally{await f.close();}}
   await assert.rejects(criterion(broken),{code:'ERR_ASSERTION'});await criterion(receiver);
+ });
+});
+
+
+describe('receipt-only held-backend pending diagnostics (synthetic SQL)',()=>{
+ it('reports the real enabled backlog on the original backend through fresh transactions and live installed-profile checks without hints',async()=>{
+  const f=await open();try{await assert.rejects(f.store.health(),/UNAVAILABLE/);await f.store.own(()=>{});await f.store.admit([f.A,f.B]);assert.deepEqual(await f.store.health(),{pending:false,oldestPendingAt:null});await f.store.observe(f.A,'clock','2');const row=copy(f.rows.get(f.A)),hints=f.hints.length,calls=f.calls.length;assert.deepEqual(await f.store.health(),{pending:true,oldestPendingAt:Number(row.work_pending_at)});assert.deepEqual(f.rows.get(f.A),row);assert.equal(f.hints.length,hints);assert(f.calls.slice(calls).some(c=>c.text==='BEGIN'));assert.equal(f.calls.at(-1).text,'COMMIT');assert(f.calls.slice(calls).every(c=>c.pid===f.clients[0].processID));f.rows.get(f.A).work_enabled=false;assert.deepEqual(await f.store.health(),{pending:false,oldestPendingAt:null});f.state.badProfile=true;await assert.rejects(f.store.health(),/INSTALLED_PROFILE/);assert.equal(f.store.available,false);assert.equal(f.hints.length,hints);
+  }finally{await f.close();}
+ });
+ it('does not return a health result across uncertain COMMIT or renew timestamps, and latches the owner unavailable',async()=>{
+  const f=await open();try{await f.store.own(()=>{});await f.store.admit([f.A,f.B]);await f.store.observe(f.A,'clock','2');const before=copy(f.rows.get(f.A)),hints=f.hints.length;f.state.commit='unknown';await assert.rejects(f.store.health(),e=>e.commitOutcome==='uncertain'&&e.message==='SYNTHETIC_COMMIT_REPLY_LOST');assert.deepEqual(f.rows.get(f.A),before);assert.equal(f.hints.length,hints);assert.equal(f.store.available,false);await assert.rejects(f.store.health(),/UNAVAILABLE/);}finally{await f.close();}
  });
 });
