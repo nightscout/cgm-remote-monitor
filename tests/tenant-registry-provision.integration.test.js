@@ -60,6 +60,51 @@ optInSuite(enabled(), 'disposable NS_TEST_POSTGRES_ADMIN_URI and NS_VAULT_DOCKER
     assert.deepEqual({ ...await provisioning.get(request.id) }, { id: request.id, state: 'active', signingVersion: 1, hosts: ['t1-alt.example.test', 't1.example.test'] });
   });
 
+  it('PV_LOCAL_AUTH: prepared Node keys and verifiers survive reader restart, enforce RLS and observe current revocations', async function () {
+    const { createHash } = require('node:crypto');
+    const createReader = require('../lib/secrets/legacy-postgres');
+    const material = require('../lib/secrets/legacy-verifiers');
+    const codec = require('../lib/tenant-authorization/legacy-data-token').create({ issuer: 'native-lab', audience: 'native-data' });
+    const tenant = spec('local-auth', { issueRootSecret: true }), other = spec('local-other', { issueRootSecret: true });
+    const root = await provisioning.provision(tenant); await provisioning.provision(other);
+    const ns = lab.namespaces.legacy, who = '"' + lab.roles.api + '"';
+    // Same SELECT-only contract as the selected API. No writer or owner membership.
+    await lab.admin.query('GRANT USAGE ON SCHEMA "' + ns + '" TO ' + who);
+    await lab.admin.query('GRANT SELECT ON "' + ns + '".legacy_credential_config,"' + ns + '".legacy_credential_subjects,"' + ns + '".legacy_data_keys TO ' + who);
+    const subject = { subjectId: 'native-subject', tokenPrefix: 'native' };
+    const prepared = material.prepare(Buffer.from(root.rootSecret), [subject]).subjects[0];
+    await lab.admin.query('INSERT INTO "' + ns + '".legacy_credential_subjects (tenant_id,subject_id,token_prefix,verifiers,verifier_token_prefix) VALUES ($1,$2,$3,$4,$3)',
+      [tenant.id, subject.subjectId, subject.tokenPrefix, prepared.verifiers]);
+    const open = () => createReader({ connectionString: lab.urls.api, namespace: ns, localVerification: true });
+    let reader = await open();
+    const credentials = () => material.create({ read: reader.readVerification, verifyToken: codec.verify });
+    try {
+      const hash = createHash('sha1').update(root.rootSecret).digest('hex');
+      assert.deepEqual(await credentials().verifyLegacyCredential({ tenant: tenant.id }, { apiSecret: hash }), { kind: 'root' });
+      assert.equal(await credentials().verifyLegacyCredential({ tenant: other.id }, { apiSecret: hash }), null);
+      const metadata = await reader.readVerification(tenant.id), signing = await reader.signingKey(tenant.id);
+      assert(metadata.keys.every(key => !Object.hasOwn(key, 'privateKey')));
+      const principal = { kind: 'subject', subjectId: subject.subjectId, credentialVersion: 1, rootVersion: metadata.rootVersion };
+      const issued = codec.issue(tenant.id, principal, signing).token;
+      assert.deepEqual(await credentials().verifyLegacyCredential({ tenant: tenant.id }, { token: issued }, async () => true), principal);
+      await reader.close(); reader = await open();
+      assert.equal((await reader.signingKey(tenant.id)).kid, signing.kid);
+      assert.deepEqual(await credentials().verifyLegacyCredential({ tenant: tenant.id }, { token: issued }, async () => true), principal);
+      const api = await connect({ connectionString: lab.urls.api, max: 1 });
+      try {
+        const foreign = await api.withTenant(tenant.id, () => api.query('SELECT kid FROM "' + ns + '".legacy_data_keys WHERE tenant_id=$1', [other.id]));
+        assert.equal(foreign.rows.length, 0);
+        await assert.rejects(api.withTenant(tenant.id, () => api.query('UPDATE "' + ns + '".legacy_data_keys SET active=false,signing=false WHERE tenant_id=$1', [tenant.id])), { code: '42501' });
+      } finally { await api.end(); }
+      // Reuse the warmed signature proof while changing current authority.
+      await lab.admin.query('UPDATE "' + ns + '".legacy_credential_subjects SET credential_version=credential_version+1 WHERE tenant_id=$1', [tenant.id]);
+      assert.equal(await credentials().verifyLegacyCredential({ tenant: tenant.id }, { token: issued }, async () => true), null);
+      await lab.admin.query('UPDATE "' + ns + '".legacy_credential_subjects SET credential_version=1 WHERE tenant_id=$1', [tenant.id]);
+      await lab.admin.query('UPDATE "' + ns + '".legacy_data_keys SET signing=false,active=false,private_key=NULL WHERE tenant_id=$1', [tenant.id]);
+      assert.equal(await credentials().verifyLegacyCredential({ tenant: tenant.id }, { token: issued }, async () => true), null);
+    } finally { await reader.close(); }
+  });
+
   it('PV_IDEMPOTENT: provisioning twice gives the same state; the second run writes nothing and returns no secret', async function () {
     const request = spec(2, { issueRootSecret: true });
     assert.equal((await provisioning.provision(request)).outcome, 'created');
