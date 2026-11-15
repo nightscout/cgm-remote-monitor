@@ -66,7 +66,19 @@ module.exports = function fixture (options = {}) {
       if (text.includes(' AS a0,')) {
         const row = {}; for (let i=0;i<13;i++) { row['a'+i] = data.registered; row['k'+i] = data.registered; }
         row.a0 = data.keys.length > 0 && data.registered; row.k0 = data.registered && data.keys.length === 4;
-        row.a10 = row.k10 = data.registered && data.settings;
+        // Follow the emitted structural SELECT: adding a protected record must
+        // not silently turn the missing-settings scenario into another defect.
+        const record = (namespace, table, present) => {
+          const expression = 'FROM "' + namespace + '"."' + table + '" WHERE tenant_id=$1) AS a';
+          const at = text.indexOf(expression);
+          assert(at >= 0, 'recording fixture requires the actual ' + table + ' predicate');
+          const index = /^(\d+),/.exec(text.slice(at + expression.length))?.[1];
+          assert(index !== undefined, 'recording fixture requires the structural record alias');
+          row['a' + index] = row['k' + index] = data.registered && present;
+        };
+        record(ns.settings, 'tenant_settings', data.settings);
+        record(ns.control, 'tenant_activity', !options.missingActivity);
+        record(ns.legacy, 'legacy_data_keys', !options.missingLocalDataKey);
         if (options.otherMissing) row.k3 = false;
         return {rows:[row]};
       }

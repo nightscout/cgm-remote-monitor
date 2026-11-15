@@ -23,6 +23,12 @@ describe('explicit ensure: actual modules with recording SQL/driver (not native 
     assert.deepEqual(f.data.recovered,{version:2,values:{SHOW_SECONDS:false}});
     assert.equal(JSON.stringify(f.data.protected),before); assert.equal(f.data.history.length,2); await s.close();
   });
+  for (const missing of ['missingActivity','missingLocalDataKey']) it('refuses '+missing+' before provider reads rather than treating it as repairable settings',async function(){
+    const f=fixture({[missing]:true}),s=await f.create(),before=JSON.stringify(f.data.protected);
+    const result=await s.ensure(f.input);
+    assert.equal(result.outcome,'refused');assert.equal(result.code,'TENANT_ENSURE_PROVENANCE_REQUIRED');
+    assert.equal(f.vaultCalls.length,0);assert.equal(JSON.stringify(f.data.protected),before);await s.close();
+  });
   for (const options of [{vaultMissing:'data'},{vaultMissing:'signing'},{vaultMissing:'access'},{vaultMissing:'management'},{vaultMissing:'human-data'},{vaultMissing:'human-management'}]) {
     it('never creates a registered missing '+options.vaultMissing+' key, and records refusal', async function () {
       const f = fixture(options), s = await f.create(), result = await s.ensure(f.input);
