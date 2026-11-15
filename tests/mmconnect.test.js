@@ -21,6 +21,22 @@ describe('mmconnect', function () {
     }
   };
 
+  describe('DEPRECATION_WARNING', function () {
+    it('names every setting the Nightscout Connect replacement needs', function () {
+      [
+        'MMCONNECT_'
+        , 'ENABLE'
+        , 'CONNECT_SOURCE=minimedcarelink'
+        , 'CONNECT_CARELINK_USERNAME'
+        , 'CONNECT_CARELINK_PASSWORD'
+        , 'CONNECT_CARELINK_REGION'
+        , 'CONNECT_COUNTRY_CODE'
+      ].forEach(function (setting) {
+        mmconnect.DEPRECATION_WARNING.should.containEql(setting);
+      });
+    });
+  });
+
   describe('init()', function () {
     it('should create a runner if env vars are present', function () {
       var runner = mmconnect.init(env);

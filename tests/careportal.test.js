@@ -1,6 +1,7 @@
 'use strict';
 
 require('should');
+var assert = require('node:assert/strict');
 var benv = require('./fixtures/benv-loader');
 var moment = require('moment');
 
@@ -254,6 +255,136 @@ describe('careportal', function ( ) {
     mocks.treatment.eventTime.toISOString().should.equal(expectedEventTime);
     mocks.treatment.boluscalc.eventTime.should.equal(expectedEventTime);
     mocks.treatment.boluscalc.eventTime.should.not.equal(utcShiftedEventTime);
+  });
+
+  function checkLoopSubmission (eventType, failureResponse, expectedMessage, textStatus) {
+    var failed = failureResponse !== undefined;
+    var client = window.Nightscout.client;
+    client.init();
+    var loop = require('../lib/plugins/loop')(client.ctx);
+    var loopEvents = loop.getEventTypes({
+      settings: client.settings,
+      data: { profile: { data: [{ loopSettings: {
+        overridePresets: [{ name: 'test-override', symbol: '', duration: 1800 }]
+      } }] } }
+    });
+    var original = {
+      getAllEventTypes: client.plugins.getAllEventTypes,
+      ajax: $.ajax,
+      confirm: window.confirm,
+      alert: window.alert,
+      globalAlert: Object.getOwnPropertyDescriptor(global, 'alert'),
+      closeDrawer: client.browserUtils.closeDrawer
+    };
+    var alerts = [];
+    var closedDrawers = [];
+    var requests = [];
+
+    try {
+      client.plugins.getAllEventTypes = function (sbx) {
+        return original.getAllEventTypes.call(client.plugins, sbx).concat(loopEvents);
+      };
+      client.careportal.prepare();
+      $('#eventType').val(eventType);
+      client.careportal.filterInputs();
+      $('#reason').val('test-override');
+      $('#remoteCarbs').val('10');
+      $('#remoteBolus').val('1');
+      $('#notes').val('Keep these notes');
+      $('#enteredBy').val('Test user');
+      window.confirm = function () { return true; };
+      window.alert = function (message) { alerts.push(message); };
+      // The Node-based bundle harness does not alias alert to window.alert.
+      global.alert = window.alert;
+      client.browserUtils.closeDrawer = function (selector) { closedDrawers.push(selector); };
+      $.ajax = function (options) {
+        requests.push(options);
+        return {
+          done: function (callback) { if (!failed) { callback(); } return this; },
+          fail: function (callback) {
+            if (failed) { callback(failureResponse, textStatus || 'error'); }
+            return this;
+          }
+        };
+      };
+
+      client.careportal.save();
+
+      assert.equal(requests.length, 1);
+      assert.equal(requests[0].url, '/api/v2/notifications/loop');
+      assert.equal(requests[0].data.eventType, eventType);
+      if (failed) {
+        assert.deepEqual(alerts, ['Error: ' + expectedMessage]);
+        assert.deepEqual(closedDrawers, []);
+        assert.equal($('#eventType').val(), eventType);
+        assert.equal($('#notes').val(), 'Keep these notes');
+        assert.equal($('#enteredBy').val(), 'Test user');
+        if (eventType === 'Remote Carbs Entry') { assert.equal($('#remoteCarbs').val(), '10'); }
+        if (eventType === 'Remote Bolus Entry') { assert.equal($('#remoteBolus').val(), '1'); }
+      } else {
+        assert.deepEqual(alerts, []);
+        assert.deepEqual(closedDrawers, ['#treatmentDrawer']);
+      }
+    } finally {
+      client.plugins.getAllEventTypes = original.getAllEventTypes;
+      $.ajax = original.ajax;
+      window.confirm = original.confirm;
+      window.alert = original.alert;
+      if (original.globalAlert) {
+        Object.defineProperty(global, 'alert', original.globalAlert);
+      } else {
+        delete global.alert;
+      }
+      client.browserUtils.closeDrawer = original.closeDrawer;
+    }
+  }
+
+  [
+    ['Temporary Override', 'Loop notification failed: LOOP_APNS_KEY not set.'],
+    ['Temporary Override Cancel', 'Loop notification failed: Could not find deviceToken in loopSettings.'],
+    ['Remote Carbs Entry', 'Loop remote carbs failed. Incorrect carbs entry: '],
+    ['Remote Bolus Entry', 'APNs delivery failed: InvalidProviderToken']
+  ].forEach(function (testCase) {
+    it('shows the actionable failure and preserves the form for ' + testCase[0], function () {
+      var errorMessage = require('../lib/api2/loop-notification-errors')(testCase[1]);
+      checkLoopSubmission(testCase[0], { status: 500, responseText: errorMessage }, errorMessage);
+    });
+  });
+
+  var emptyFailureMessage = 'Nightscout returned an error without details. Check Loop before submitting again, and ask the Nightscout administrator to check the server logs.';
+  var connectionFailureMessage = 'Could not confirm whether Loop received this command. Check your connection and Loop before submitting it again.';
+  var authorizationFailureMessage = 'Authorization failed. Reauthorize Nightscout access or ask the administrator to check your Loop command permissions.';
+
+  ['Temporary Override', 'Temporary Override Cancel', 'Remote Carbs Entry', 'Remote Bolus Entry'].forEach(function (eventType) {
+    it('keeps an empty error response from being treated as success for ' + eventType, function () {
+      checkLoopSubmission(eventType, { status: 500, responseText: '' }, emptyFailureMessage);
+    });
+  });
+
+  [undefined, {}, '   \n  '].forEach(function (responseText) {
+    it('shows a fallback for an unusable error body: ' + JSON.stringify(responseText), function () {
+      checkLoopSubmission('Remote Carbs Entry', { status: 502, responseText: responseText }, emptyFailureMessage);
+    });
+  });
+
+  it('explains uncertain delivery after a connection failure and preserves the bolus form', function () {
+    checkLoopSubmission('Remote Bolus Entry', { status: 0, responseText: '' }, connectionFailureMessage);
+  });
+
+  it('explains uncertain delivery after a timeout and preserves the carbs form', function () {
+    checkLoopSubmission('Remote Carbs Entry', { status: 0 }, connectionFailureMessage, 'timeout');
+  });
+
+  [401, 403].forEach(function (status) {
+    ['', JSON.stringify({ status: status, message: 'Unauthorized' })].forEach(function (responseText) {
+      it('explains HTTP ' + status + ' authorization failures with body ' + JSON.stringify(responseText), function () {
+        checkLoopSubmission('Temporary Override', { status: status, responseText: responseText }, authorizationFailureMessage);
+      });
+    });
+  });
+
+  it('closes the form after a successful Loop remote command without an error alert', function () {
+    checkLoopSubmission('Temporary Override Cancel');
   });
 
 });

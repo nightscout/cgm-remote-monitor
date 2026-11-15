@@ -98,6 +98,40 @@ describe('COB', function ( ) {
 
   });
 
+  it('shows the source, device and Nightscout comparison on the pill', function (done) {
+    var now = Date.now();
+    var data = {
+      treatments: [{
+        carbs: '8'
+        , 'mills': now - 60000 //1m ago
+      }]
+      , devicestatus: [{
+        device: 'Trio'
+        , mills: now - 60000
+        , openaps: { suggested: { COB: 61, timestamp: now - 60000 } }
+      }]
+      , profile: profile
+    };
+
+    ctx.pluginBase = {
+        updatePillText: function mockedUpdatePillText (plugin, options) {
+          options.value.should.equal('61g');
+          options.info[0].should.eql({ label: 'Source', value: 'OpenAPS' });
+          options.info[1].should.eql({ label: 'Device', value: 'Trio' });
+          options.info[2].should.eql({ label: '------------', value: '' });
+          options.info[3].label.should.equal('Careportal COB');
+          options.info[3].value.should.equal(8);
+          done();
+        }
+    };
+
+    var sandbox = require('../lib/sandbox')();
+    var sbx = sandbox.clientInit(ctx, now, data);
+    cob.setProperties(sbx);
+    cob.updateVisualisation(sbx);
+
+  });
+
   it('should handle virtAsst requests', function (done) {
     var data = {
       treatments: [{
@@ -235,6 +269,43 @@ describe('COB', function ( ) {
         source: 'Loop',
         device: 'loop://iPhone'
       });
+    });
+
+    it('should use uploader COB when there is no treatment profile', function () {
+      var devicestatus = [deepMerge(OPENAPS_DEVICESTATUS, { mills: time - 1, openaps: {enacted: {COB: 5, timestamp: time - 1} } })];
+      cob.cobTotal(treatments, devicestatus, undefined, time).should.containEql({
+        cob: 5,
+        source: 'OpenAPS',
+        device: 'openaps://pi1'
+      });
+    });
+
+    it('should use uploader COB when the profile has no sens or carbratio', function () {
+      var bareProfile = require('../lib/profilefunctions')([{ startDate: '2015-06-21', carbs_hr: 30 }], ctx);
+      var devicestatus = [deepMerge(OPENAPS_DEVICESTATUS, { mills: time - 1, openaps: {enacted: {COB: 5, timestamp: time - 1} } })];
+      cob.cobTotal(treatments, devicestatus, bareProfile, time).should.containEql({
+        cob: 5,
+        source: 'OpenAPS'
+      });
+    });
+
+    it('should have no COB without a profile once uploader COB goes stale', function () {
+      var staleMills = time - (11 * 60 * 1000);
+      var devicestatus = [deepMerge(OPENAPS_DEVICESTATUS, { mills: staleMills, openaps: {enacted: {COB: 5, timestamp: staleMills} } })];
+      cob.cobTotal(treatments, devicestatus, undefined, time).should.eql({});
+    });
+
+    it('should have no COB without a profile and without uploader COB', function () {
+      cob.cobTotal(treatments, [], undefined, time).should.eql({});
+    });
+
+    it('should carry the treatment-derived COB alongside the uploader value', function () {
+      var devicestatus = [deepMerge(OPENAPS_DEVICESTATUS, { mills: time - 1, openaps: {enacted: {COB: 5, timestamp: time - 1} } })];
+      cob.cobTotal(treatments, devicestatus, profile, time).treatmentCOB.should.equal(treatmentCOB);
+    });
+
+    it('should not carry a treatment-derived COB when it is the displayed value', function () {
+      (cob.cobTotal(treatments, [], profile, time).treatmentCOB === undefined).should.equal(true);
     });
 
     it('should return historical Loop COB data when viewing retro time', function () {

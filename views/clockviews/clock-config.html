@@ -30,6 +30,16 @@
 </div>
 <script type="text/javascript">
     $( function() {
+        // Keep the token this page was opened with (clock.html's `token`) on
+        // the link to the configured clock, as the menu link carried it here.
+        // Both parts are encoded: the face is page text and the token comes
+        // from this page's address (still percent-encoded there).
+        function clockHref (face) {
+            var raw = token;
+            try { raw = decodeURIComponent(token); } catch (e) { /* keep it as given */ }
+            return '/clock/' + encodeURIComponent(face) + (raw ? '?token=' + encodeURIComponent(raw) : '');
+        }
+        $( "#clocklink" ).attr('href', clockHref($( "#facename" ).text()));
         $( "input.elmt" ).click( function() {
             let size = $("input#" + this.id + "_size").val();
             let append = '-' + this.name + (size ? size : '');
@@ -59,7 +69,7 @@
         } );
         $( "#facename" ).change(function() {
             $( "#inner" ).attr('data-face-config', $(this).text());
-            $( "#clocklink" ).attr('href', ('/clock/' + $(this).text()));
+            $( "#clocklink" ).attr('href', clockHref($(this).text()));
             window.Nightscout.client.query();
         } );
     } );

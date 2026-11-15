@@ -171,4 +171,52 @@ describe('sage', function ( ) {
     done();
   });
 
+  it('show n/a when no sensor treatment has been recorded', function (done) {
+
+    var data = {
+      sensorTreatments: [ ]
+    };
+
+    var ctx = {
+      settings: {}
+      , pluginBase: {
+        updatePillText: function mockedUpdatePillText(plugin, options) {
+          options.value.should.equal('n/a ');
+          done();
+        }
+      }
+    };
+    ctx.language = require('../lib/language')();
+
+    var sbx = sandbox.clientInit(ctx, Date.now(), data);
+    sage.setProperties(sbx);
+    sage.updateVisualisation(sbx);
+
+  });
+
+  it('show the age when a sensor treatment has been recorded', function (done) {
+
+    var data = {
+      sensorTreatments: [
+        {eventType: 'Sensor Start', mills: Date.now() - times.days(3).msecs}
+      ]
+    };
+
+    var ctx = {
+      settings: {}
+      , pluginBase: {
+        updatePillText: function mockedUpdatePillText(plugin, options) {
+          options.value.should.equal('3d0h');
+          done();
+        }
+      }
+    };
+    ctx.language = require('../lib/language')();
+
+    var sbx = sandbox.clientInit(ctx, Date.now(), data);
+    sage.setProperties(sbx);
+    sage.updateVisualisation(sbx);
+
+  });
+
 });

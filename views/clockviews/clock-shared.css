@@ -45,6 +45,11 @@ main {
   font-size: 25em;
 }
 
+#authMessage {
+  font-size: 2em;
+  padding: 2em 1em;
+}
+
 .stale {
   text-decoration: line-through;
 }

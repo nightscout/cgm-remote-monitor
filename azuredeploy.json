@@ -218,7 +218,7 @@
     },
     "WEBSITE_NODE_DEFAULT_VERSION": {
         "type": "string",
-        "defaultValue": "16.16.0"
+        "defaultValue": "~22"
     }
   },
   "resources": [{
@@ -317,7 +317,7 @@
             "value": "[parameters('auth_default_roles')]"
           }, {
             "name": "WEBSITE_NODE_DEFAULT_VERSION",
-            "value": "8.11.1"
+            "value": "[parameters('WEBSITE_NODE_DEFAULT_VERSION')]"
           }, {
             "name": "SCM_COMMAND_IDLE_TIMEOUT",
             "value": "300"

@@ -35,7 +35,7 @@ describe('clock client', function() {
     done();
   }
 
-  function renderProperties(serverUnits, browserUnits, properties) {
+  function renderProperties(serverUnits, browserUnits, properties, lowerTarget) {
     window.serverSettings = {
       settings: {
         units: serverUnits
@@ -49,7 +49,7 @@ describe('clock client', function() {
       , thresholds: {
         bgHigh: 260
         , bgLow: 55
-        , bgTargetBottom: 80
+        , bgTargetBottom: lowerTarget === undefined ? 80 : lowerTarget
         , bgTargetTop: 180
       }
       , timeFormat: 12
@@ -83,6 +83,186 @@ describe('clock client', function() {
 
   beforeEach(setupClockClient);
   afterEach(teardownClockClient);
+
+  describe('low and falling emoji', function() {
+    function renderEmoji(bg, direction, lowerTarget, browserUnits, stale) {
+      $('#inner').attr('data-face', 'bn10-sg40-em40-ar25');
+      var properties = propertiesWithUnits(bg, '-5');
+      properties.bgnow.sgvs[0].mgdl = bg;
+      properties.bgnow.sgvs[0].direction = direction;
+      if (stale) {
+        properties.bgnow.sgvs[0].mills = Date.now() - 20 * 60 * 1000;
+      }
+      renderProperties('mg/dl', browserUnits || 'mg/dl', properties, lowerTarget);
+      return $('.em').text();
+    }
+
+    ['FortyFiveDown', 'SingleDown', 'DoubleDown', 'TripleDown', 'down', 'slightdown'].forEach(function(direction) {
+      it('shows concern at 74 with direction ' + direction, function() {
+        renderEmoji(74, direction).should.equal('😟');
+      });
+    });
+
+    ['Flat', 'SingleUp', 'NONE', 'NOT COMPUTABLE', undefined].forEach(function(direction) {
+      it('preserves the existing face without a falling trend: ' + direction, function() {
+        renderEmoji(74, direction).should.equal('😊');
+      });
+    });
+
+    it('uses the configured lower target and its boundary', function() {
+      renderEmoji(89, 'SingleDown', 90).should.equal('😟');
+      renderEmoji(90, 'SingleDown', 90).should.equal('😊');
+      renderEmoji(89, 'SingleDown', 80).should.equal('😊');
+    });
+
+    it('preserves the existing low-value faces', function() {
+      renderEmoji(72, 'SingleDown').should.equal('😱');
+      renderEmoji(54, 'DoubleDown').should.equal('🥶');
+      renderEmoji(40, 'DoubleDown').should.equal('❌');
+    });
+
+    it('uses mg/dL internally when the browser displays mmol/L', function() {
+      renderEmoji(74, 'SingleDown', 80, 'mmol').should.equal('😟');
+      $('.sg').text().should.equal('4.1');
+    });
+
+    it('keeps stale data ahead of the trend warning', function() {
+      renderEmoji(74, 'SingleDown', 80, 'mg/dl', true).should.equal('🤷');
+    });
+
+    it('uses the same normalized direction for the arrow', function() {
+      renderEmoji(74, 'down').should.equal('😟');
+      $('.ar img').attr('src').should.equal('/images/SingleDown.svg');
+    });
+  });
+
+  describe('when the data fetch fails', function() {
+    var T0 = Date.parse('2026-09-24T12:00:00Z');
+    var RealDate = Date;
+    var realSetInterval = global.setInterval;
+    var now, timers, failing, calls;
+
+    // Drive the page's own setInterval timers and Date from a manual clock.
+    function startClock(face, showClockLastTime) {
+      now = T0;
+      timers = [];
+      failing = false;
+      calls = 0;
+      global.Date = class FakeDate extends RealDate {
+        constructor(...args) {
+          if (args.length) { super(...args); } else { super(now); }
+        }
+        static now() { return now; }
+      };
+      global.setInterval = function(fn, ms) {
+        timers.push({ fn: fn, ms: ms, next: now + ms });
+        return timers.length;
+      };
+
+      $('#inner').attr('data-face', face);
+      window.serverSettings = {
+        settings: {
+          units: 'mg/dl'
+          , showClockDelta: true
+          , showClockLastTime: showClockLastTime
+          , timeFormat: 24
+          , thresholds: { bgHigh: 260, bgLow: 55, bgTargetBottom: 80, bgTargetTop: 180 }
+        }
+      };
+
+      var reading = {
+        bgnow: { sgvs: [{ mgdl: 120, scaled: 120, mills: T0, direction: 'Flat' }] }
+        , delta: { mgdl: 0, display: '+0' }
+      };
+      $.ajax = function(url, opts) {
+        calls++;
+        if (failing) {
+          opts.error({ status: 0, statusText: 'error' });
+        } else {
+          opts.success(reading);
+        }
+      };
+    }
+
+    function advance(minutes) {
+      var end = now + minutes * 60 * 1000;
+      for (;;) {
+        timers.sort(function(a, b) { return a.next - b.next; });
+        var t = timers[0];
+        if (!t || t.next > end) break;
+        now = t.next;
+        t.next += t.ms;
+        t.fn();
+      }
+      now = end;
+    }
+
+    var realConsoleError;
+    beforeEach(function() {
+      realConsoleError = console.error;
+      console.error = function() {};
+    });
+
+    afterEach(function() {
+      console.error = realConsoleError;
+      global.Date = RealDate;
+      global.setInterval = realSetInterval;
+    });
+
+    ['bgclock', 'clock-color'].forEach(function(face) {
+      it('turns the ' + face + ' face stale when fetches fail after the last reading', function() {
+        startClock(face, false);
+        clockClient.init();
+        $('.sg').hasClass('stale').should.be.false();
+        $('.ag').text().should.equal('');
+
+        failing = true;
+        advance(30);
+
+        calls.should.be.above(80);
+        $('.sg').hasClass('stale').should.be.true();
+        $('.ag').text().should.equal('30 minutes ago');
+        $('body').css('background-color').should.equal('rgb(128, 128, 128)');
+      });
+    });
+
+    it('keeps the age text moving on a face that always shows it', function() {
+      startClock('cy13-sg40-ag6-tm10', true);
+      clockClient.init();
+      $('.ag').text().should.equal('Just now');
+
+      failing = true;
+      advance(5);
+
+      $('.ag').text().should.equal('5 minutes ago');
+      $('.sg').hasClass('stale').should.be.false();
+
+      advance(10);
+
+      $('.ag').text().should.equal('15 minutes ago');
+      $('.sg').hasClass('stale').should.be.true();
+    });
+
+    it('draws nothing and does not throw when no fetch has succeeded yet', function() {
+      startClock('clock-color', false);
+      failing = true;
+      clockClient.init();
+      advance(5);
+
+      calls.should.be.above(10);
+      $('.sg').text().should.equal('');
+    });
+
+    it('control: fetches that succeed with the same reading turn it stale', function() {
+      startClock('clock-color', false);
+      clockClient.init();
+      advance(30);
+
+      $('.sg').hasClass('stale').should.be.true();
+      $('.ag').text().should.equal('30 minutes ago');
+      $('body').css('background-color').should.equal('rgb(128, 128, 128)');
+    });
+  });
 
   it('constructs every supported face component with bounded numeric sizing', function() {
     $('#inner').attr('data-face', 'bn0-sg40-dt14-nl-ar25-ag6-tm10-em40');

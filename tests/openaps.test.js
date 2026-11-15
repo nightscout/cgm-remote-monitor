@@ -399,6 +399,66 @@ describe('openaps', function ( ) {
     done();
   });
 
+  describe('after an AAPS open-ended loop disable', function () {
+    var H = 60 * 60 * 1000;
+    var alertTime = now.clone().add(1, 'hours').valueOf();
+    var source = { eventType: 'OpenAPS Offline', isValid: true, pumpType: 'X', pumpSerial: 'S', enteredBy: 'AndroidAPS' };
+    var openEndedShapes = {
+      'duration 2147483647 minutes': { duration: 2147483647, durationInMilliseconds: 2147483647 * 60000, originalDuration: 2147483647 * 60000 },
+      '10 years with originalDuration 0': { duration: 5256000, durationInMilliseconds: 5256000 * 60000, originalDuration: 0 }
+    };
+
+    function processed (treatments) {
+      var ddata = require('../lib/data/ddata')();
+      ddata.treatments = treatments;
+      ddata.processTreatments(true);
+      return ddata.treatments;
+    }
+
+    function highestAlarm (treatments) {
+      var ctx = {
+        settings: {
+          units: 'mg/dl'
+        }
+        , notifications: require('../lib/notifications')(env, top_ctx)
+        , language: language
+      };
+
+      ctx.notifications.initRequests();
+
+      var sbx = sandbox.clientInit(ctx, alertTime, {
+        devicestatus: statuses
+        , treatments: processed(treatments)
+      });
+      sbx.extendedSettings = { 'enableAlerts': 'TRUE' };
+      openaps.setProperties(sbx);
+      openaps.checkNotifications(sbx);
+
+      return ctx.notifications.findHighestAlarm('OpenAPS');
+    }
+
+    Object.keys(openEndedShapes).forEach(function (shape) {
+      it('generate an alert for a stuck loop once the loop is re-enabled (' + shape + ')', function () {
+        var highest = highestAlarm([
+          Object.assign({}, source, openEndedShapes[shape], { mode: 'DISABLED_LOOP', mills: alertTime - 6 * H })
+          , Object.assign({}, source, { mode: 'CLOSED_LOOP', mills: alertTime - 5 * H, duration: 0, durationInMilliseconds: 0, originalDuration: 0 })
+        ]);
+
+        should.exist(highest);
+        highest.level.should.equal(levels.URGENT);
+        highest.title.should.equal('OpenAPS isn\'t looping');
+      });
+
+      it('not generate an alert while the loop is still disabled (' + shape + ')', function () {
+        var highest = highestAlarm([
+          Object.assign({}, source, openEndedShapes[shape], { mode: 'DISABLED_LOOP', mills: alertTime - 6 * H })
+        ]);
+
+        should.not.exist(highest);
+      });
+    });
+  });
+
   it('should handle virtAsst requests', function (done) {
     var ctx = {
       settings: {
