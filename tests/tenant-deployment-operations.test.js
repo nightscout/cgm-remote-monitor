@@ -213,7 +213,7 @@ describe('whole deployment source admission and filesystem durability', function
   it('censuses all selected A74/R69 kinds, owner configuration and the independent lifecycle ledger', function () {
     const admission = admit({ namespaces: namespaces() });
     assert.deepEqual(admission.census.selected.map(entry => entry.kind), KINDS);
-    assert.equal(admission.census.tables, 54);
+    assert.equal(admission.census.tables, 55);
     assert.equal(admission.census.candidates.length, 32);
     assert.equal(admission.census.candidates.filter(entry => entry.disposition === 'reviewed alternative').length, 5);
     // The change reader, pools, stamps, registry and retained ensure audit are deployment-operational:
@@ -238,6 +238,41 @@ describe('whole deployment source admission and filesystem durability', function
     }
   });
 
+  it('preserves valid synthetic local authentication keys through artifact encoding and detects key omission or tampering', function () {
+    const { populatedRows, A, B } = require('./fixtures/tenant-deployment-data');
+    const rows = populatedRows().legacy_data_keys;
+    assert.deepEqual(populatedRows().legacy_data_keys, rows, 'repeat seed reads retain the same synthetic keys');
+    const encoded = common.encodeTable(rows), key = 'legacy.legacy_data_keys';
+    const captured = artifact();
+    captured.manifest.catalogues = [{ kind: 'legacy', namespace: 'source_legacy', ledger: [], tables: [{
+      table: 'legacy_data_keys', columns: Object.keys(rows[0]).map(name => ({ name })),
+      count: encoded.count, digest: encoded.digest
+    }] }];
+    captured.manifest.tenants = rows.map(row => ({ tenant_id: row.tenant_id, rows: { [key]: 1 } }));
+    captured.tables = { [key]: encoded.text };
+    captured.digest = common.manifestDigest(captured.manifest);
+    const restore = require('../lib/tenant-operations/restore');
+    const restored = restore.verifyArtifact(captured)[key];
+    assert.deepEqual(restored, common.decodeTable(encoded.text));
+    const tokens = require('../lib/tenant-authorization/legacy-data-token').create({ issuer: 'synthetic.invalid', audience: 'synthetic-data', now: () => 1000 });
+    for (const row of restored) {
+      const issued = tokens.issue(row.tenant_id, { kind: 'subject', subjectId: 'synthetic_subject', credentialVersion: 1, rootVersion: 1 },
+        { kid: row.kid, privateKey: row.private_key });
+      const keys = [{ kid: row.kid, publicKey: row.public_key, active: row.active }];
+      assert.equal(tokens.verify(issued.token, row.tenant_id, keys).tid, row.tenant_id);
+      assert.throws(() => tokens.verify(issued.token, row.tenant_id, []), { code: 'SECRETS_TOKEN_INVALID' });
+      assert.throws(() => tokens.verify(issued.token, row.tenant_id === A ? B : A, keys), { code: 'SECRETS_TOKEN_INVALID' });
+    }
+    const omitted = { ...captured, tables: {} };
+    assert.throws(() => restore.verifyArtifact(omitted), { code: 'RESTORE_ARTIFACT_INVALID', detail: key });
+    const missing = { ...captured, tables: { [key]: common.encodeTable(rows.slice(1)).text } };
+    assert.throws(() => restore.verifyArtifact(missing), { code: 'RESTORE_COUNT_MISMATCH', detail: key });
+    const changed = rows.map(row => ({ ...row, signing: false }));
+    assert.throws(() => restore.verifyArtifact({ ...captured, tables: { [key]: common.encodeTable(changed).text } }),
+      { code: 'RESTORE_DIGEST_MISMATCH', detail: key });
+    assert.deepEqual(restore.verifyArtifact(captured)[key], restored, 'restored original remains valid');
+  });
+
   it('control: adding a candidate refuses until its exact extension, namespace and table list are admitted', async function () {
     for (const entry of operations.discoverCatalogues()) {
       await fs.promises.mkdir(path.dirname(path.join(scratch, entry.file)), { recursive: true });
@@ -260,7 +295,7 @@ describe('whole deployment source admission and filesystem durability', function
     const admitted = { ...options, namespaces: { ...namespaces(), synthetic: 'deploy_synthetic' }, extensions: [extension] };
     assert.throws(() => admit({ ...admitted, extensions: [{ ...extension, tables: [] }] }), { code: 'OPERATIONS_CENSUS_TABLES_MISMATCH' });
     const plan = admit(admitted);
-    assert.equal(plan.census.tables, 54);
+    assert.equal(plan.census.tables, 55);
     // An operational catalogue changed without moving its reviewed pin refuses.
     const pool = 'lib/pool-membership/postgres-candidate.json';
     const changed = JSON.parse(await fs.promises.readFile(path.join(scratch, pool), 'utf8'));
@@ -338,7 +373,7 @@ describe('whole deployment source admission and filesystem durability', function
     const checkpoints = checkpointInputs(input);
     const admission = admit({ namespaces: input.namespaces, instances: checkpoints.instances });
     assert.equal(admission.census.selected.length, 22);
-    assert.equal(admission.census.tables, 55);
+    assert.equal(admission.census.tables, 56);
     assert.equal(admission.census.candidates.length, 32);
     assert.deepEqual(admission.census.selected.filter(entry => entry.kind.includes('checkpoint')).map(entry => [entry.kind, entry.namespace, entry.instanceOf]),
       [['checkpoint', input.realtime.namespace, null], ['evaluator_checkpoint', input.evaluator.namespace, 'checkpoint']]);
@@ -459,14 +494,14 @@ describe('whole deployment source admission and filesystem durability', function
     await fs.promises.writeFile(path.join(scratch, file), JSON.stringify(candidate));
     const options = { root: scratch, namespaces: { ...namespaces(), alarm_suppression: 'deploy_alarm' }, extensions: [inputs.extension] };
     const admitted = admit(options);
-    assert.equal(admitted.census.tables, 54);
+    assert.equal(admitted.census.tables, 55);
     assert.equal(admitted.census.selected.find(entry => entry.kind === 'alarm_suppression').candidateDigest, inputs.extension.candidateDigest);
     const added = ['ALTER TABLE tenant_alarm_suppression ADD COLUMN synthetic_flag boolean'];
     candidate.migrations.push({ name: '0002_changed_shape', up: added, checksum: checksum(added) });
     await fs.promises.writeFile(path.join(scratch, file), JSON.stringify(candidate));
     assert.throws(() => admit(options), { code: 'OPERATIONS_CENSUS_EXTENSION_CHANGED', detail: file });
     const changed = { ...inputs.extension, candidateDigest: common.sha256(common.canonical(candidate)) };
-    assert.equal(admit({ ...options, extensions: [changed] }).census.tables, 54, 'explicit new admission required');
+    assert.equal(admit({ ...options, extensions: [changed] }).census.tables, 55, 'explicit new admission required');
   });
 
   it('pins the actual notifier catalogue and preserves both normalPolicy key families with narrow outbox grants', function () {
@@ -540,7 +575,7 @@ describe('whole deployment source admission and filesystem durability', function
     assert.deepEqual(profile.catalogue.migrations[0], base.migrations[0]);
     assert.equal(common.sha256(common.canonical(profile.catalogue)), inputs.candidateDigest);
     assert.equal(common.sha256(fs.readFileSync(path.join(ROOT, inputs.selection.profile), 'utf8')), inputs.sourceSha256);
-    assert.equal(selected.census.tables, 55);
+    assert.equal(selected.census.tables, 56);
     assert.equal(profile.catalogue.migrations.length, 4);
     const up = profile.catalogue.migrations[1].up;
     assert.ok(up.indexOf('ALTER TABLE profile VALIDATE CONSTRAINT socket_order_requires_empty') < up.indexOf('ALTER TABLE profile ADD COLUMN insertion_ordinal bigint GENERATED ALWAYS AS IDENTITY'));
@@ -578,7 +613,7 @@ describe('whole deployment source admission and filesystem durability', function
     assert.throws(() => admit({ namespaces: namespaces(), selection: { unknown: 'ignored' } }), { code: 'OPERATIONS_CENSUS_SELECTION_INVALID' });
     const plan = admit({ namespaces: namespaces(), selection: { treatments: 'migrations/candidates/postgres-treatments-socket-order-v1.json' } });
     assert.match(plan.census.selected.find(entry => entry.kind === 'treatments').candidatePath, /socket-order/);
-    assert.equal(plan.census.tables, 55);
+    assert.equal(plan.census.tables, 56);
     assert.throws(() => createdTables({ version: 1, migrations: [{ name: '0001_bad', up: ['CREATE TABLE unbound (value text)'], checksum: checksum(['CREATE TABLE unbound (value text)']) }] }), { code: 'OPERATIONS_CENSUS_DDL_UNSUPPORTED' });
   });
 
