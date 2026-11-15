@@ -378,6 +378,10 @@
           "description": "A PostgreSQL schema name."
         }
       }
+    },
+    "localDataAuthentication": {
+      "const": "node",
+      "description": "Registry mode with an explicit accessTokens realm; loader validates the dependency."
     }
   },
   "dependentRequired": {

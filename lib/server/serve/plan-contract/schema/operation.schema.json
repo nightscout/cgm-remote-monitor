@@ -113,6 +113,34 @@
         }
       },
       "minItems": 1
+    },
+    "intakeProfile": {
+      "type": "object",
+      "required": [
+        "binding",
+        "digest",
+        "contractDigest",
+        "ownerKey"
+      ],
+      "description": "A generated intake-profile value. The loader validates the canonical binding and digests, then regenerates assignment. Incoming assignment and other envelope metadata grant no authority.",
+      "properties": {
+        "binding": {
+          "type": "object",
+          "description": "Canonical binding is validated by intake-profile.validate against the selected source capability."
+        },
+        "digest": {
+          "type": "string",
+          "pattern": "^[a-f0-9]{64}$"
+        },
+        "contractDigest": {
+          "type": "string",
+          "pattern": "^[a-f0-9]{64}$"
+        },
+        "ownerKey": {
+          "type": "string",
+          "pattern": "^-?[0-9]{1,19}$"
+        }
+      }
     }
   },
   "dependentRequired": {
