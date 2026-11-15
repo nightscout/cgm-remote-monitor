@@ -529,6 +529,7 @@
         "tests/admin-role-ownership.integration.test.js",
         "tests/admin-lifecycle-fit.integration.test.js",
         "tests/operation-window-epoch.integration.test.js",
+        "tests/operation-window-minimum-native.integration.test.js",
         "tests/postgres-cohort-snapshot.integration.test.js",
         "tests/datastore-recovery.integration.test.js",
         "tests/tenant-write-clock-complete.integration.test.js",

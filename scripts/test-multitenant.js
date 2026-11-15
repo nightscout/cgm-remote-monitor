@@ -166,6 +166,8 @@ const INVENTORY = [
     note: 'PostgreSQL restart, stop/start and backend termination under the actual operation window, lifetime sessions, storage pool and recovery supervisor; own pinned PostgreSQL on a fixed loopback port and cleanup' },
   { file: 'tests/operation-window-epoch.integration.test.js', flags: { NS_OPERATION_WINDOW_DOCKER_TEST: '1' }, shared: [], own: ['postgres'], gate: PENDING,
     note: 'restore fence and catalogue admission epoch with the deployment plan\'s catalogue and grants' },
+  { file: 'tests/operation-window-minimum-native.integration.test.js', flags: { NS_OPERATION_WINDOW_MINIMUM_DOCKER_TEST: '1' }, shared: [], own: ['postgres'], gate: PENDING,
+    note: 'physical backend admission, live permission/tenant/restore/COMMIT fences and absence of warm global digest queries; baseline-only counter stays optional' },
   { file: 'tests/tenant-operations.integration.test.js', flags: { NS_TENANT_OPERATIONS_PG_TEST: '1' }, shared: [], own: ['postgres'], gate: PENDING,
     note: 'representative entries/clock recovery and upgrade contracts; full populated deployment recovery is separate' },
   { file: 'tests/tenant-commit-clock-port.integration.test.js', flags: { NS_TENANT_COMMIT_CLOCK_TEST: '1' }, shared: ['postgres'], own: [], gate: PENDING },
