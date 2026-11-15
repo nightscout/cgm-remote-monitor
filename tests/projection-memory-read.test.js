@@ -18,6 +18,43 @@ function reader (documents, ordinals) {
 const ids = docs => docs.map(d => typeof d._id === 'string' ? d._id : 'oid:' + d._id.toHexString());
 
 describe('projection-memory-read: the SQL path\'s answers without SQL', function () {
+  it('normalizes nested snapshots in UTF-8 length/byte order without retaining their values', function () {
+    const keys = ['zz', 'a', 'é', '中', '😀', '￿', '\ud800', '\ud801', '�', '',
+      '__proto__', 'constructor', 'toString', '01', '2', '10'];
+    // Independent specification of the previous byte ordering, including
+    // equal UTF-8 encodings and integer keys' JavaScript enumeration order.
+    function expected (value) {
+      if (Array.isArray(value)) return value.map(expected);
+      if (!value || typeof value !== 'object') return value;
+      return Object.fromEntries(Object.keys(value).sort((a, b) =>
+        Buffer.byteLength(a) - Buffer.byteLength(b) || Buffer.compare(Buffer.from(a), Buffer.from(b)))
+        .map(key => [key, expected(value[key])]));
+    }
+    const documents = Array.from({ length: keys.length }, (_, i) => {
+      const rotated = keys.slice(i).concat(keys.slice(0, i));
+      const child = Object.fromEntries(rotated.map((key, j) => [key, [null, j, { nested: i }]]));
+      return Object.fromEntries(rotated.map(key => [key, child]));
+    });
+    const input = documents.map((doc, i) => ({ id_kind: 'string', doc, ordinal: i + 1 }));
+    const original = JSON.stringify(input);
+    const rows = memoryRead.rowsOf(input);
+    assert.equal(JSON.stringify(rows), JSON.stringify(input.map(row => ({ ...row, doc: expected(row.doc) }))));
+    assert.equal(JSON.stringify(input), original);
+    assert(Object.isFrozen(rows));
+    assert(Object.isFrozen(rows[0].doc));
+    assert(Object.isFrozen(rows[0].doc.__proto__.__proto__));
+    assert.equal(Object.getPrototypeOf(rows[0].doc), Object.prototype);
+    documents[0].a.a[2].nested = 99;
+    assert.equal(rows[0].doc.a.a[2].nested, 0);
+    const next = memoryRead.rowsOf(input);
+    assert.equal(next[0].doc.a.a[2].nested, 99);
+    assert.equal(JSON.stringify(memoryRead.jsonbOrdered(documents)), JSON.stringify(expected(documents)));
+    const manyKeys = Object.fromEntries(Array.from({ length: 600 }, (_, i) =>
+      ['key-' + (600 - i) + (i % 2 ? 'é' : '😀'), { zz: i, a: null }]));
+    assert.equal(JSON.stringify(memoryRead.jsonbOrdered(manyKeys)), JSON.stringify(expected(manyKeys)));
+    assert.deepEqual(memoryRead.rowsOf([]), []);
+  });
+
   it('breaks ties on the insertion ordinal (nulls last), then the typed identity', async function () {
     const hex = '0123456789abcdef01234567';
     const docs = [{ _id: 'b', k: 1 }, { _id: 'a', k: 1 }, { _id: hex, k: 1 }, { _id: new ObjectId(hex), k: 1 }, { _id: 'c', k: 0 }, { _id: 'd', k: 1 }];
