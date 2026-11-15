@@ -96,6 +96,11 @@
                 "minimum": 0
               }
             ]
+          },
+          "sourceStallMs": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 2147483647
           }
         },
         "required": [
@@ -108,7 +113,8 @@
           "code",
           "sequence",
           "received",
-          "heartbeatAgeMs"
+          "heartbeatAgeMs",
+          "sourceStallMs"
         ],
         "additionalProperties": false
       }
