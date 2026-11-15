@@ -14,15 +14,15 @@ module.exports = function fixture (options = {}, createWindow = create) {
   client.query = async (text, values) => {
     if (text && typeof text === 'object') ({ text, values } = text);
     log.push([text, values]);
-    // Catalogue epoch, role, datastore and window row in one statement (operation-window.js).
+    // Live principal, datastore and typed window in one bounded statement.
     if ((text.includes('/* operation-window-epoch') || text.includes('/* operation-window-current'))) {
       const window = text.includes('-metadata') ? { read_only: options.metadataReadOnly || 'on' }
         : { lock_key: options.key || (values[0] === B ? '19' : '17'), phase: options.phases?.[values[0]] || options.phase || 'active', generation: options.generation || '1' };
-      return { rows: [{ epoch: options.epochForSQL ? options.epochForSQL(text) : options.epoch || 'e'.repeat(64), rolsuper: !!options.superuser, rolbypassrls: false, ...datastore, ...options.datastore, pid: options.sqlPid || 123, ...window }] };
+      return { rows: [{ role_oid: options.roleOid || 61, owns_control: !!options.ownsControl, rolcreaterole: !!options.createrole, rolcreatedb: !!options.createdb, rolreplication: !!options.replication, rolsuper: !!options.superuser, rolbypassrls: false, ...datastore, ...options.datastore, pid: options.sqlPid || 123, ...window }] };
     }
     if (text.includes('pg_catalog.pg_control_system()')) return options.clusterRead ? options.clusterRead() : { rows: [{ cluster: options.cluster || '7000000000000000001' }] };
     const metadata = admission(text, values); if (metadata) return metadata;
-    if (text.includes('FROM pg_roles')) return { rows: [{ rolsuper: !!options.superuser, rolbypassrls: false,
+    if (text.includes('FROM pg_roles')) return { rows: [{ role_oid: options.roleOid || 61, rolcreaterole: !!options.createrole, rolcreatedb: !!options.createdb, rolreplication: !!options.replication, rolsuper: !!options.superuser, rolbypassrls: false,
       ...(text.includes('pg_backend_pid') ? { ...datastore, ...options.datastore, pid: options.sqlPid || 123, role: options.sqlRole || 'synthetic_worker', birth: options.sqlBirth || '1700000000.000001' } : {}) }] };
     if (text.startsWith('SELECT pg_backend_pid()')) return { rows: [{ ...datastore, ...options.datastore, pid: options.sqlPid || 123, role: options.sqlRole || 'synthetic_worker', birth: options.sqlBirth || '1700000000.000001' }] };
     if (text.includes('pg_control_system()')) return { rows: [{ cluster: options.cluster || '7300000000000000001' }] };

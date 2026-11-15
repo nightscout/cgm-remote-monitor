@@ -1,12 +1,10 @@
-# Tenant operation window — isolated prototype
+# Tenant operation window
 
-Source-only incremental protocol. Same-ID identity-bearing import remains
-`LIFECYCLE_IDENTITY_IMPORT_UNSUPPORTED`. No CLI/configuration parser selects this
-adapter, and current preview roles do not claim a complete restore fence. The
-appended lifecycle-control migration supplies prospective tables, backend-owner
-RLS and a narrow helper. Native SQL execution, catalogue deparsing, role grants
-and RLS enforcement remain UNMEASURED. A complete serving cohort and private
-operator controller remain required before use.
+The private serving composer uses this adapter to retain tenant restore exclusion
+from durable operation registration through body, child SQL and response completion.
+Same-ID identity-bearing import remains `LIFECYCLE_IDENTITY_IMPORT_UNSUPPORTED`.
+The minimum backend admission change is implemented on a local branch; its new
+native PostgreSQL checks and joined acceptance remain UNMEASURED until run.
 
 The private composer supplies `create({namespace,locks,pool})`: a dedicated raw pg
 pool, an explicit control namespace and `locks` containing `{tenant,key}` rows
@@ -17,28 +15,40 @@ That method reads metadata directly through the dedicated pool, without the lowe
 connection module, so it must precede global lower-port installation.
 `window.namespace` is immutable. `window.identity` is initially null, then a frozen
 object with namespaceOid, ownerOid, ledgerOid, windowsOid, operationsOid,
-authorityOid, auditOid, resumeOid, clearanceOid and backendBirthOid. Each acquired backend is readmitted against that identity
-whenever the catalogue epoch changes: inside every transaction, after the shared
-lock and the tenant binding, one statement reads the epoch
-(operation-window-epoch.js: a digest of the row versions of every catalogue row
-the admission reads, role attributes, memberships and the migration ledger), the
-role's superuser/bypass attributes, the datastore identity and the tenant's window
-row. An epoch the window has not admitted runs the full admission on that backend
-and is cached only if the epoch is unchanged after it; any grant, policy, owner,
-membership, ledger or object change therefore re-runs the admission on the next
-transaction (decision cost-proportional-to-activity, item 3; native coverage in
-tests/operation-window-epoch.integration.test.js).
+authorityOid, auditOid, resumeOid, clearanceOid and backendBirthOid. Each physical backend receives full structural and grant admission before its
+first operation. Admission is internal to the window and bound to the raw client,
+backend PID and principal OID. Error/end, changed PID and datastore recovery
+invalidate it. A different physical client cannot reuse another client's admission.
+Lower connections perform admission during startup/backend observation; lifetime
+sessions perform it before acquiring their first operation lock. No catalogue
+digest, TTL, global membership/object sweep or CDC invalidation runs per operation.
 
-The private composer may explicitly select `trustedWorker: true` for a verified
-trusted evaluator process. This follows the adopted
-trusted worker performance boundary recorded at
-`releases/cgm-remote-monitor-16.0.0/decisions.md#trusted-worker-performance-boundary`
-in the alignment workspace. The default and public/routed windows retain the
-per-transaction catalogue epoch contract above. Trusted windows instead read the
-live role flags, physical backend/datastore identity and tenant window in every
-transaction, without computing the catalogue digest or running full admission
-for that tenant operation. Tenant locks, generation/phase checks, durable markers,
-rollback and orphan behavior still apply.
+Inside every transaction, after the shared lock and tenant binding, one statement
+checks the admitted current role OID, SUPERUSER/BYPASSRLS/CREATEROLE/CREATEDB/
+REPLICATION flags, membership of the fixed control owner, backend PID, datastore
+identity and typed tenant window key/phase/generation. Metadata work instead
+checks READ ONLY status. PostgreSQL privileges, forced RLS, current actor authority,
+actual COMMIT, durable markers, response-inclusive completion and restore fencing
+remain live. The suppression reader's constructor-only backend callback checks
+its full shape/grants/ledger before use; snapshots continue reading actual rows.
+
+Protected DDL and grant expansion require deployment/migration to retire affected
+serving cohorts and re-admit them. Arbitrary trusted administrator schema, policy,
+ledger or extra-grant changes on an already admitted backend no longer guarantee
+custom rejection on its next transaction. PostgreSQL still enforces actual revoked
+privileges on executed commands; this is not equivalent to detecting a DBA who
+weakens a policy while leaving SELECT permitted. CDC does not observe every role
+or DDL mutation. New/reconnected backend admission rejects unsafe structure.
+Ordinary runtime roles cannot alter protected control-owner objects or create in
+application schemas. Database TEMP, self-password and permitted session defaults
+are narrower capabilities; qualified SQL and fixed search paths remain required.
+The pgstream replication role can create/alter its own objects in its own schema,
+without control ownership; unrelated catalogue growth does not invalidate warm
+serving backends. Setup-only restore commissioner BYPASSRLS is not a runtime role.
+
+The private composer may select `trustedWorker: true` for a verified evaluator.
+It adds the joined operational verification boundary below; it uses the same live
+principal/tenant fence and backend admission as public/routed windows.
 
 The worker coordinator must call
 `window.verifyOperational(async () => { await readopt(window); await trusted.verify(); })`
@@ -51,9 +61,8 @@ related-verification callback both succeed. Concurrent verification cannot reope
 admission while another check is pending or after one fails. A verification
 failure withdraws trusted operation admission. Successful lower verification alone does not reopen it. The coordinator
 must withhold worker output during this joined verification and resume only when
-all checks pass. Catalogue drift between operational checks is detected at that
-boundary; immediate catalogue-change refusal tests continue to describe the
-default/public mode. This is an explicit process capability, never inferred from
+all checks pass. Catalogue drift is detected at this operational boundary or at new backend
+admission; public operations do not promise next-transaction DBA-drift refusal. This is an explicit process capability, never inferred from
 an ambient tenant lifetime.
 
 Overlapping same-tenant operation bodies on a bounded lifetime session share one

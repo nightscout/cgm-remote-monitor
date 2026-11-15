@@ -38,7 +38,7 @@ describe('Explicit trusted worker operation boundary (source protocol)', functio
     await f.window.run(A, () => {});
     await f.window.close();
   });
-  it('defers catalogue drift detection to the trusted operational boundary while the public default remains per transaction', async function () {
+  it('defers catalogue drift detection to the trusted operational boundary and rejects unsafe structure on public startup', async function () {
     let drift = false;
     const options = { trustedWorker: true, catalogueMutate: (kind, rows) => { if (drift && kind === 'role') rows[0].elevated = true; } };
     const f = fixture(options); await f.window.ready(); await f.window.run(A, () => {});
@@ -53,6 +53,11 @@ describe('Explicit trusted worker operation boundary (source protocol)', functio
     ['suspension', { phase: 'suspended' }, 'LIFECYCLE_WINDOW_SUSPENDED'],
     ['tenant binding', { key: '23' }, 'LIFECYCLE_WINDOW_BINDING_CHANGED'],
     ['role elevation', { superuser: true }, 'LIFECYCLE_WINDOW_ROLE_UNSAFE'],
+    ['role CREATEROLE', {createrole:true}, 'LIFECYCLE_WINDOW_ROLE_UNSAFE'],
+    ['role CREATEDB', {createdb:true}, 'LIFECYCLE_WINDOW_ROLE_UNSAFE'],
+    ['role REPLICATION', {replication:true}, 'LIFECYCLE_WINDOW_ROLE_UNSAFE'],
+    ['control-owner membership', {ownsControl:true}, 'LIFECYCLE_WINDOW_ROLE_UNSAFE'],
+    ['current principal', {roleOid:62}, 'LIFECYCLE_WINDOW_ROLE_UNSAFE'],
     ['datastore replacement', { datastore: { postmaster_birth: 'changed' } }, 'LIFECYCLE_WINDOW_DATASTORE_CHANGED'],
     ['backend replacement', { sqlPid: 124 }, 'LIFECYCLE_WINDOW_DATASTORE_CHANGED']
   ]) it('checks live ' + label + ' before trusted body SQL', async function () {
@@ -210,64 +215,44 @@ describe('Trusted owned-operation lower exclusion reuse (source protocol)', func
 });
 
 
-// An HTTP lifetime can contain several committed data transactions. Public
-// catalogue admission belongs to each physical transaction, not that lifetime.
-// This protocol double demonstrates the scope boundary; native catalogue/RLS
-// enforcement remains covered by operation-window-epoch.integration.test.js.
-describe('Public transaction proof boundaries inside one serving operation', function () {
+// Live owner membership must be checked on every transaction inside one HTTP
+// lifetime. The former all-membership/catalogue-epoch cache assertions are retired.
+describe('Public live principal boundaries inside one serving operation', function () {
   async function exercise (createWindow) {
-    let membershipChanged = false, bodies = 0;
-    const options = { catalogueMutate: (kind, rows) => {
-      if (kind === 'role' && membershipChanged) rows[0].elevated_membership = true;
-    } };
+    let bodies = 0;
+    const options = {};
     const f = fixture(options, createWindow);
     async function transaction () {
       const lease = await f.window.acquireClient(f.client, A);
-      await f.client.query('BEGIN');
       try {
+        await f.client.query('BEGIN');
         await f.client.query("SELECT set_config('app.current_tenant_id',$1,true)", [A]);
         await f.window.assertClient(f.client, A, lease);
-        bodies++;
-        await f.client.query('COMMIT');
-      } catch (error) {
-        await f.client.query('ROLLBACK');
-        throw error;
-      } finally { await lease.close(); }
+        bodies++; await f.client.query('COMMIT');
+      } catch (error) { await f.client.query('ROLLBACK'); throw error; }
+      finally { await lease.close(); }
     }
     try {
       await f.window.run(A, async () => {
-        await transaction();
-        membershipChanged = true; options.epoch = 'f'.repeat(64);
-        await assert.rejects(transaction(), { code: 'LIFECYCLE_WINDOW_SCHEMA_UNSAFE' });
-        assert.equal(bodies, 1, 'changed catalogue must refuse before the next transaction body');
-        membershipChanged = false; options.epoch = 'e'.repeat(64);
-        await transaction();
+        await transaction(); options.ownsControl = true;
+        await assert.rejects(transaction(), {code:'LIFECYCLE_WINDOW_ROLE_UNSAFE'});
+        assert.equal(bodies,1);
+        options.ownsControl = false; await transaction();
       });
-      assert.equal(bodies, 2);
-      assert.equal(epochs(f).filter(([sql]) => sql.includes('epoch lower */')).length, 4,
-        'first lower admission, confirmation, changed epoch and restored epoch are separate observations');
-      assert.deepEqual([...f.pending.values()], [true], 'serving lifetime completes its durable marker');
-    } finally { await f.window.close(); }
+      assert.equal(bodies,2);
+      assert.equal(epochs(f).length,0);
+      assert.deepEqual([...f.pending.values()],[true]);
+    } finally {await f.window.close();}
   }
-  it('rechecks a changed catalogue between committed lower transactions in the same HTTP lifetime', async function () {
-    await exercise();
-  });
-  it('rejects an operation-local cached-epoch ablation even while live tenant/backend checks remain', async function () {
-    const fs = require('node:fs'), vm = require('node:vm');
-    const file = require.resolve('../lib/tenant-lifecycle/operation-window');
-    const text = fs.readFileSync(file, 'utf8');
-    const needle = 'let row = await current(client, tenant, lifetime, metadata);';
-    assert(text.includes(needle));
-    const broken = text.replace(needle, needle + `
-      const parent = scopes.getStore();
-      if (!lifetime && parent) {
-        if (parent.cachedEpoch) row = { ...row, epoch: parent.cachedEpoch };
-        else parent.cachedEpoch = row.epoch;
-      }`);
-    const output = { exports: {} };
-    vm.runInThisContext('(function(require,module,exports){' + broken + '\n})', { filename: file })(
-      require('node:module').createRequire(file), output, output.exports);
-    await assert.rejects(exercise(output.exports.create), /Missing expected rejection/);
+  it('rejects current control-owner membership between transactions in one lifetime', async () => exercise());
+  it('detects a broken owner-membership live fence and restores green', async function () {
+    const fs=require('node:fs'),vm=require('node:vm');
+    const file=require.resolve('../lib/tenant-lifecycle/operation-window');
+    const source=fs.readFileSync(file,'utf8'),needle=' || row.owns_control !== false';
+    assert(source.includes(needle));
+    const output={exports:{}};
+    vm.runInThisContext('(function(require,module,exports){'+source.replace(needle,'')+'\n})',{filename:file})(require('node:module').createRequire(file),output,output.exports);
+    await assert.rejects(exercise(output.exports.create),/Missing expected rejection/);
     await exercise();
   });
 });

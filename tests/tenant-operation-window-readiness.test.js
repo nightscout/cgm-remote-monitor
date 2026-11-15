@@ -46,22 +46,8 @@ describe('Operation-window admission (catalog protocol double, not native Postgr
       assert.deepEqual(await admit(client(),'synthetic_window',mode),identity);
     });
   }
-  it('covers both new relations in lower and lifetime epoch names and every per-relation catalogue input',async function () {
-    const epoch=require('../lib/tenant-lifecycle/operation-window-epoch');
-    const identity=await admit(client(),'synthetic_window',{lifetime:true});
-    for (const lifetime of [false,true]) {
-      const sql=epoch.sql('synthetic_window',lifetime,identity);
-      for (const name of ['tenant_lifecycle_restore_resume','tenant_lifecycle_operation_clearance']) assert(sql.includes('to_regclass(\'"synthetic_window".'+name+'\')'));
-      const ids="'{41,42,43,44,45,46,47}'::oid[]";
-      for (const [relation,column] of [['pg_attribute','attrelid'],['pg_attrdef','adrelid'],['pg_constraint','conrelid'],['pg_policy','polrelid'],['pg_trigger','tgrelid'],['pg_rewrite','ev_class'],['pg_index','indrelid'],['pg_inherits','inhrelid']]) {
-        assert(sql.includes('FROM '+relation+' x WHERE '));assert(sql.includes('x.'+column+' = ANY('+ids+')'),relation+' covers both audit tables');
-      }
-      for (const key of ['resumeOid','clearanceOid']) {
-        const missing={...identity};delete missing[key];
-        assert.throws(()=>epoch.sql('synthetic_window',lifetime,missing),/Admitted catalogue identity required/);
-      }
-    }
-  });
+  // Retired catalogue digest implementation coverage. Both audit relations'
+  // full admission/identity/privilege/structure controls remain above.
   it('operator grants insert only approved record columns and never audit mutation or owner selection',function () {
     const grants=require('../lib/tenant-lifecycle/maintenance-window').operatorGrants({namespace:'synthetic_window',role:'synthetic_operator'});
     for (const [table,columns] of [['tenant_lifecycle_restore_resume','tenant_id,resume_id,claim_id,generation,artifact_digest,interrupted'],['tenant_lifecycle_operation_clearance','tenant_id,operation_id,generation,marker_pid,marker_birth']]) {

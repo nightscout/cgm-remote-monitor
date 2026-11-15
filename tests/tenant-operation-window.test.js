@@ -66,28 +66,22 @@ describe('Tenant operation window source protocol (not PostgreSQL evidence)', fu
     await assert.rejects(f.window.run(A, () => {}), { code: 'LIFECYCLE_WINDOW_CLOSED' });
     assert.deepEqual(f.log, []);
   });
-  // Decision cost-proportional-to-activity (item 3). Native coverage of the epoch
-  // itself is tests/operation-window-epoch.integration.test.js.
+  // Epoch-internal cache/churn expectations are retired: protected DBA drift
+  // is screened at physical backend admission, not on every warm transaction.
   const fullAdmissions = f => f.log.filter(row => typeof row[0] === 'string' && row[0].includes('operation-window-role')).length;
-  it('runs the full catalogue admission only for an epoch it has not admitted', async function () {
-    const options = {}; const f = fixture(options);
-    await f.window.ready(); const base = fullAdmissions(f);
+  it('admits a physical lifetime backend once and readmits after transport invalidation', async function () {
+    const f = fixture(); await f.window.ready(); const base = fullAdmissions(f);
     await f.window.run(A, () => {}); await f.window.run(A, () => {}); await f.window.run(B, () => {});
-    assert.equal(fullAdmissions(f) - base, 1, 'one admission for the first epoch, none while it is unchanged');
-    options.epoch = 'f'.repeat(64);
+    assert.equal(fullAdmissions(f), base);
+    f.client.emit('end');
     await f.window.run(A, () => {});
-    assert.equal(fullAdmissions(f) - base, 2, 'a changed epoch is admitted again');
+    assert.equal(fullAdmissions(f), base + 1);
+    await f.window.close();
   });
-  it('refuses when the epoch keeps changing during admission, before registration or callback', async function () {
-    let n = 0; const options = {}; Object.defineProperty(options, 'epoch', { get: () => (n++ % 16).toString(16).repeat(64) });
-    const f = fixture(options); let called = false;
-    await assert.rejects(f.window.run(A, () => { called = true; }), { code: 'LIFECYCLE_WINDOW_SCHEMA_UNSAFE' });
-    assert.equal(called, false); assert.equal(f.pending.size, 0);
-  });
-  it('reads the epoch and the window row inside the transaction, after the lock', async function () {
+  it('reads the live role and window row inside the transaction, after the lock', async function () {
     const f = fixture(); await f.window.run(A, () => {});
     const at = text => f.log.findIndex(row => typeof row[0] === 'string' && row[0].includes(text));
-    assert.ok(at('pg_try_advisory_lock_shared') < at('BEGIN') && at('BEGIN') < at('operation-window-epoch') && at('operation-window-epoch') < at('INSERT INTO'));
+    assert.ok(at('pg_try_advisory_lock_shared') < at('BEGIN') && at('BEGIN') < at('operation-window-current') && at('operation-window-current') < at('INSERT INTO'));
   });
 });
 
@@ -195,7 +189,7 @@ describe('Selected lower-port window cannot be omitted (source protocol)', funct
     const file = path.resolve(__dirname, '../lib/storage/postgres-connection.js');
     const originalRequire = require('node:module').createRequire(file);
     class Pool {
-      constructor (options) { assert.equal(Object.hasOwn(options, 'operationWindow'), false); }
+      constructor (options) { assert.equal(Object.hasOwn(options, 'operationWindow'), false); assert.equal(Object.hasOwn(options, 'admitBackend'), false); }
       on () {}
       async query () { return { rows: [{ rolsuper: false, rolbypassrls: false }] }; }
       async connect () { return f.client; }
@@ -206,6 +200,30 @@ describe('Selected lower-port window cannot be omitted (source protocol)', funct
     body(name => name === 'pg' ? { Pool } : originalRequire(name), output, output.exports);
     return output.exports;
   }
+  it('runs constructor-only screening on each physical backend and reuses startup screening',async function () {
+    const options={},f=fixture(options),lower=lowerModule(f),scope=require('../lib/storage/tenant-scope');
+    const previous=scope.getTenancyMode();scope.setTenancyMode('multi');
+    await f.window.ready();const release=lower.installOperationWindow(f.window);let store,calls=0;
+    try {
+      store=await lower({connectionString:'postgresql://synthetic/disposable_test',admitBackend:async client=>{
+        assert.equal(client,f.client);assert(f.window.isAdmittedClient(client));calls++;
+      }});
+      assert.equal(calls,1);
+      await scope.withTenant(A,()=>store.query('SELECT synthetic_screened_body'));
+      await scope.withTenant(B,()=>store.query('SELECT synthetic_screened_body'));
+      assert.equal(calls,1,'same physical backend reuses startup screening');
+      f.client.processID=789;options.sqlPid=789;
+      await scope.withTenant(A,()=>store.query('SELECT synthetic_screened_body'));
+      assert.equal(calls,2,'different physical backend screened before body');
+    } finally {if(store)await store.end();release();await f.window.close();scope.setTenancyMode(previous);}
+  });
+  it('refuses a constructor callback failure without admitting a lower pool',async function () {
+    const f=fixture(),lower=lowerModule(f);await f.window.ready();const release=lower.installOperationWindow(f.window);
+    try {
+      await assert.rejects(lower({connectionString:'postgresql://synthetic/disposable_test',admitBackend:async()=>{throw new Error('SYNTHETIC_BACKEND_SCREEN_REFUSED');}}),/SYNTHETIC_BACKEND_SCREEN_REFUSED/);
+      assert.equal(lower.cohortBackends(f.window).length,0);
+    } finally {release();await f.window.close();}
+  });
   it('screens trusted lower pools at startup and reobservation instead of each tenant transaction', async function () {
     let unsafe = false;
     const options = { trustedWorker: true, catalogueMutate(kind, rows) { if (unsafe && kind === 'role') rows[0].elevated = true; } };
@@ -239,29 +257,19 @@ describe('Selected lower-port window cannot be omitted (source protocol)', funct
       assert.equal(lower.cohortBackends(f.window).length, 0);
     } finally { if (created) await created.end(); release(); await f.window.close(); }
   });
-  for (const table of ['tenant_lifecycle_restore_resume','tenant_lifecycle_operation_clearance']) for (const path of ['lower','lifetime']) {
-    it('cached '+path+' admission refuses '+table+' drift before body SQL and restores',async function () {
+  // The former warm-backend epoch cases required immediate custom rejection
+  // after arbitrary DBA policy edits. That behavior is intentionally retired.
+  for (const table of ['tenant_lifecycle_restore_resume','tenant_lifecycle_operation_clearance']) {
+    it('rejects '+table+' drift at lower physical backend admission and restores',async function () {
       let unsafe=false;
-      // Recording catalogue row versions; generated SQL must contain both the
-      // named relation and its oid input or this epoch stays unchanged. This is
-      // source coverage of the cache boundary, not PostgreSQL digest execution.
-      const options={catalogueMutate(kind,rows){if(unsafe&&kind===table)rows[0].secured=false;},epochForSQL(sql){
-        const covered=sql.includes('to_regclass(\'"synthetic_window".'+table+'\')')&&sql.includes("'{41,42,43,44,45,46,47}'::oid[]");
-        return (unsafe&&covered?'f':'e').repeat(64);
-      }};
-      const f=fixture(options),lower=lowerModule(f),scope=require('../lib/storage/tenant-scope');
-      const previous=scope.getTenancyMode();scope.setTenancyMode('multi');
-      await f.window.ready();const release=lower.installOperationWindow(f.window);let store;
+      const f=fixture({catalogueMutate(kind,rows){if(unsafe&&kind===table)rows[0].secured=false;}});
+      const lower=lowerModule(f); await f.window.ready();
+      const release=lower.installOperationWindow(f.window); let store;
       try {
-        store=await lower({connectionString:'postgresql://synthetic/disposable_test'});
-        const call=body=>scope.withTenant(A,()=>path==='lifetime'?f.window.run(A,body):body());
-        await call(()=>store.query('SELECT healthy_new_audit_catalogue'));
         unsafe=true;
-        await assert.rejects(call(()=>store.query('SELECT forbidden_new_audit_catalogue')),{code:'LIFECYCLE_WINDOW_SCHEMA_UNSAFE'});
-        assert(!f.log.some(row=>row[0]==='SELECT forbidden_new_audit_catalogue'),'NEW_TABLE_DRIFT_STOPS_BODY');
-        unsafe=false;
-        await call(()=>store.query('SELECT restored_new_audit_catalogue'));
-      } finally {if(store)await store.end();release();await f.window.close();scope.setTenancyMode(previous);}
+        await assert.rejects(lower({connectionString:'postgresql://synthetic/disposable_test'}),{code:'LIFECYCLE_WINDOW_SCHEMA_UNSAFE'});
+        unsafe=false;store=await lower({connectionString:'postgresql://synthetic/disposable_test'});
+      } finally {if(store)await store.end();release();await f.window.close();}
     });
   }
   it('rejects a transaction-pooler identity instead of adopting SQL labels', async function () {
@@ -296,10 +304,10 @@ describe('Selected lower-port window cannot be omitted (source protocol)', funct
     try {
       store = await lower({ connectionString: 'postgresql://synthetic/disposable_test' });
       for (let i = 0; i < 3; i++) await scope.withTenant(A, () => store.query('SELECT synthetic_body'));
-      assert.equal(reads(), 1, 'one identity read for three transactions on one backend');
+      assert.equal(reads(), 0, 'startup identity reused for three transactions on one backend');
       f.client.processID = 789; options.sqlPid = 789; options.sqlBirth = '1700000000.000002';
       await scope.withTenant(A, () => store.query('SELECT synthetic_body'));
-      assert.equal(reads(), 2, 'a different backend is read again');
+      assert.equal(reads(), 1, 'a different backend is read again');
       assert.ok(lower.cohortBackends(f.window).some(row => row.pid === 789 && row.birth === '1700000000.000002'));
     } finally { if (store) await store.end(); release(); await f.window.close(); scope.setTenancyMode(previous); }
   });
