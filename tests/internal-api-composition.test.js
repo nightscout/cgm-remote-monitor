@@ -300,11 +300,21 @@ async function lifecycleLab (implementation, kind = 'uds') {
     async close () { try { await listener.close(); await cohort.close(); } finally { e.cleanup(); } } };
 }
 
-async function suspendedScenario (implementation, kind) {
+async function suspendedScenario (implementation, kind, { drain = true } = {}) {
   const lab = await lifecycleLab(implementation, kind);
   try {
     assert.deepEqual(await lab.authority.authorizeSocket(authorizeBody(A)), { denied: true }, 'A application work admitted while active');
     lab.suspend(A);
+    // The maintenance controller closes warm process participation through its
+    // pinned census RPC before it can enter the exclusive DATA window. Changing
+    // the SQL row alone is not that protocol barrier.
+    if (drain) {
+      const pinned = await lab.lifecycle.getStatus({ request: REQUEST });
+      let draining;
+      try { draining = await lab.lifecycle.getOperations({ request: REQUEST, tenant: A, incarnation: pinned.incarnation, identity: pinned.identity }); }
+      catch (error) { assert.fail('lifecycle drain of suspended A must stay callable: ' + error.message); }
+      assert.equal(draining.tenant, A, 'the pinned drain applies only to A');
+    }
     await assert.rejects(lab.authority.authorizeSocket(authorizeBody(A)), /SOCKET_IPC_UNAVAILABLE/, 'A application work must refuse while suspended');
     assert.deepEqual(lab.app, [['authorize', A]], 'Suspended A application handler must not run');
     assert.deepEqual(await lab.authority.authorizeSocket(authorizeBody(B)), { denied: true }, 'B keeps progressing while A is suspended');
@@ -342,6 +352,14 @@ describe('Per-module lifetime on a composed listener', function () {
       await closing;
       assert.equal(drained, true); assert.equal([...lab.f.pending.values()][0], true, 'operation marked finished after response completion');
     } finally { await lab.close(); }
+  });
+  it('control: omitting the process drain barrier fails suspended application refusal, then the actual barrier restores it', async function () {
+    await assert.rejects(suspendedScenario(transport, 'uds', { drain: false }), error => {
+      assert.equal(error.code, 'ERR_ASSERTION');
+      assert.match(error.message, /Missing expected rejection: A application work must refuse while suspended/);
+      return true;
+    });
+    await suspendedScenario(transport, 'uds');
   });
   it('control: a blanket listener-wide window mutant fails the lifecycle invalidation assertion', async function () {
     const broken = mutated(source => source
