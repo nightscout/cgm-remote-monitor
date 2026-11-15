@@ -191,6 +191,7 @@
         "tests/intake-state-sync.test.js",
         "tests/pgstream-bootstrap.test.js",
         "tests/pgstream-receiver.test.js",
+        "tests/pgstream-receiver-stage-diagnostics.test.js",
         "tests/pgstream-realtime-receipt.test.js",
         "tests/pgstream-typed-state.test.js",
         "tests/pgstream-activity-scheduler.test.js",
