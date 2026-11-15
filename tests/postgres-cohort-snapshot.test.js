@@ -7,23 +7,41 @@ const connect=require('../lib/storage/postgres-connection');
 const windowFixture=require('./fixtures/operation-window-runtime-protocol');
 const DATA={database:'disposable_test',database_oid:'16384',server_address:'127.0.0.1',server_port:5432,postmaster_birth:'1700000000.000000'};
 function latch(){let resolve;const promise=new Promise(done=>{resolve=done;});return {promise,resolve};}
-async function fixture(){
- const f=windowFixture();await f.window.ready();const release=connect.installOperationWindow(f.window);let serial=0,action=async()=>{};
+async function fixture({failBaseline=false}={}){
+ let unsafeColdSchema=false;
+ const f=windowFixture({catalogueMutate:(kind,rows)=>{if(unsafeColdSchema&&kind==='tenant_lifecycle_windows')rows[0].secured=false;}});
+ await f.window.ready();const release=connect.installOperationWindow(f.window);let serial=0,action=async()=>{if(failBaseline)throw Error('synthetic constructor failure');};
  const stores=[];
  class Client extends EventEmitter{
   constructor(){super();this.processID=1000+(++serial);this._queryable=true;this._ending=false;}
   connect(done){queueMicrotask(()=>done(null));}
-  query(text,values,done){if(typeof values==='function')done=values;const result=(async()=>{
+  query(input,values,done){if(typeof values==='function'){done=values;values=undefined;}const text=typeof input==='string'?input:input.text;if(typeof input==='object')values=input.values;const result=(async()=>{
    const extra=await action(this,text);
-   return {rows:[{...DATA,pid:this.processID,role:'synthetic_reader',birth:'1700000000.'+this.processID,rolsuper:false,rolbypassrls:false,...extra}]};
+   // Constructor admission now queries the actual structural protocol. Identity
+   // rows alone cannot stand in for catalogue, grant, policy and ledger rows.
+   const result=await f.client.query(text,values);
+   return {...result,rows:result.rows.map(row=>row.pid===undefined?row:{...row,pid:this.processID,...extra})};
   })();if(done){result.then(value=>done(null,value),done);return;}return result;}
   end(done){this._ending=true;this.emit('end');if(done)queueMicrotask(done);}
  }
  async function open(){const store=await connect({connectionString:'synthetic-snapshot',Client,max:1,idleTimeoutMillis:0});stores.push(store);return store;}
- const baseline=await open();
- return {window:f.window,open,baseline,setAction:fn=>{action=fn;},async close(){for(const store of stores.reverse())await store.end();release();await f.window.close();}};
+ const close=async()=>{try{for(const store of stores.reverse())await store.end();}finally{release();await f.window.close();}};
+ let baseline;
+ try{baseline=await open();}catch(error){await close();throw error;}
+ return {window:f.window,open,baseline,setAction:fn=>{action=fn;},setUnsafeColdSchema:value=>{unsafeColdSchema=value;},close};
 }
 describe('Cohort snapshots wait for actual connection admission',function(){
+ it('releases the selected window when baseline construction fails, so a fresh fixture can initialize',async function(){
+  await assert.rejects(fixture({failBaseline:true}),/synthetic constructor failure/);
+  const f=await fixture();try{assert.deepEqual((await connect.cohortSnapshot(f.window)).datastore,DATA);}finally{await f.close();}
+ });
+ it('refuses unsafe cold-backend schema before adding it to the cohort, then admits a restored backend',async function(){
+  const f=await fixture();try{
+   f.setUnsafeColdSchema(true);await assert.rejects(f.open(),{code:'LIFECYCLE_WINDOW_SCHEMA_UNSAFE'});
+   assert.deepEqual((await connect.cohortSnapshot(f.window)).backends.map(row=>row.pid),[1001]);
+   f.setUnsafeColdSchema(false);await f.open();assert.deepEqual((await connect.cohortSnapshot(f.window)).backends.map(row=>row.pid).sort(),[1001,1003]);
+  }finally{await f.close();}
+ });
  it('waits for a held constructor and captures its admitted backend instead of omitting a null identity',async function(){
   const f=await fixture(),entered=latch(),gate=latch();let pending;
   try{
@@ -51,13 +69,15 @@ describe('Cohort snapshots wait for actual connection admission',function(){
    f.setAction(async client=>{if(client.processID===1002){entered.resolve();await gate.promise;return {rolsuper:true};}});
    pending=f.open();pending.catch(()=>{});await entered.promise;
    const snapshot=connect.cohortSnapshot(f.window);gate.resolve();
-   await assert.rejects(snapshot,/NOSUPERUSER NOBYPASSRLS/);await assert.rejects(pending,/NOSUPERUSER NOBYPASSRLS/);
+   // Physical cold admission now refuses elevated principal flags before the
+   // constructor's later generic NOSUPERUSER/NOBYPASSRLS fallback can run.
+   await assert.rejects(snapshot,{code:'LIFECYCLE_WINDOW_ROLE_UNSAFE'});await assert.rejects(pending,{code:'LIFECYCLE_WINDOW_ROLE_UNSAFE'});
    assert.deepEqual((await connect.cohortSnapshot(f.window)).backends.map(row=>row.pid),[1001],'failed resource is accepted as gone only after its pool actually drains');
   }finally{gate.resolve();await pending?.catch(()=>{});await f.close();}
  });
- it('refuses an admitted but mismatched datastore',async function(){
+ it('refuses a mismatched datastore during cold backend admission',async function(){
   const f=await fixture();
-  try{f.setAction(async client=>client.processID===1002?{database_oid:'99999'}:{});await f.open();await assert.rejects(connect.cohortSnapshot(f.window),/datastore unavailable/);}
+  try{f.setAction(async client=>client.processID===1002?{database_oid:'99999'}:{});await assert.rejects(f.open(),{code:'LIFECYCLE_WINDOW_DATASTORE_CHANGED'});assert.deepEqual((await connect.cohortSnapshot(f.window)).datastore,DATA);}
   finally{await f.close();}
  });
  it('takes one cut while a continuous healthy constructor stream proceeds independently',async function(){

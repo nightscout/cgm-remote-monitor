@@ -241,7 +241,13 @@ describe('independent tenant startup admission (source protocol)', function () {
       const clinical=connection('clinical'),outbox=connection('outbox'),suppression=connection('suppression');let opened=0;
       const guards={...require('../lib/server/serve/evaluator-consumer-readiness'),suppression:async()=>{events.push('suppression');if(fault==='suppression')throw new Error('bad suppression ACL');}};
       const prepare=load('lib/server/serve/evaluator-consumers.js',{
-        '../../storage/postgres-connection':async()=>opened++?suppression:outbox,
+        '../../storage/postgres-connection':async settings=>{
+          const connection=opened++?suppression:outbox;
+          // Cold physical-backend admission is unconditional, even when every
+          // tenant is paused; the constructor invokes it before returning.
+          if(settings.admitBackend)await settings.admitBackend(connection);
+          return connection;
+        },
         '../../tenant-notifications/readiness':async()=>{events.push('outbox');if(fault==='outbox')throw new Error('bad outbox schema');},
         './evaluator-consumer-readiness':guards,
         '../../tenant-notifications/postgres':()=>({ready:async()=>{throw new Error('PAUSED_TENANT_STORE_ENTERED');}}),
@@ -256,7 +262,7 @@ describe('independent tenant startup admission (source protocol)', function () {
         const promise=prepare.prepare({config:{consumers:{realtime:selected},tenants:new Map([[A,true],[B,true]]),readCurrent:async()=>null},clinicalConnection:clinical,
           current:()=>null,isCurrent:async()=>false,operationWindow:f.window,jobContext:jobs,coldAdmission});
         if(fault)await assert.rejects(promise,/bad outbox schema|bad suppression ACL|READINESS_REFUSED/);
-        else {consumer=await promise;assert.deepEqual(events,['outbox','suppression','challenge']);assert.equal(coldCalls,2);}
+        else {consumer=await promise;assert.deepEqual(events,['suppression','outbox','challenge']);assert.equal(coldCalls,2);}
       }finally{if(consumer)await consumer.close();jobs.close();await f.window.close();}
     }
   });

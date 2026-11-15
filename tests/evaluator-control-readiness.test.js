@@ -13,10 +13,6 @@ function lab(){
     policies:[{command:'*',roles:[0],permissive:true,using:"tenant_id = nullif(current_setting('app.current_tenant_id',true),'')::uuid",check:"tenant_id = nullif(current_setting('app.current_tenant_id',true),'')::uuid"}]};
   const db={async query(sql,values){
     if(sql&&typeof sql==='object')({text:sql,values}=sql);
-    // Catalogue epoch (decision admission-epoch-everywhere): any change to the
-    // modelled catalogue state (flags) is a new epoch, as a new row version is.
-    if(sql.includes('suppression-oids'))return {rows:[{suppression:61,ledger:62}]};
-    if(sql.includes('suppression-epoch'))return {rows:[{epoch:require('node:crypto').createHash('sha256').update(JSON.stringify(flags)).digest('hex')}]};
     if(sql.includes('operation-window-')){
       const result=await f.client.query(sql,values);
       if(sql.includes('operation-window-table') && flags.privateRead && values[0].endsWith(flags.privateRead))result.rows[0].reads=true;
@@ -58,7 +54,7 @@ describe('Selected suppression control read scope source protocol',function(){
   });
   async function prepareCheck(mutate,{unsafeOutbox=false}={}){
     const mutateMarks={omitted:!!mutate};
-    const l=lab();let reader,effects=0;
+    const l=lab();let reader,effects=0,admitSuppression;
     // prepare now screens outbox metadata before tenant provisioning. Keep that
     // actual guard: use the existing notification SQL protocol on a distinct
     // connection instead of answering its new metadata queries with empty rows.
@@ -70,7 +66,14 @@ describe('Selected suppression control read scope source protocol',function(){
     },async end(){}};
     const prepare=loadPrepare({'../../storage/postgres-connection':async settings=>{
       assert(['synthetic-outbox','synthetic-suppression'].includes(settings.connectionString));
-      return settings.connectionString==='synthetic-outbox'?outboxConnection:{...l.db};
+      const connection=settings.connectionString==='synthetic-outbox'?outboxConnection:{...l.db};
+      // The real constructor screens each physical suppression backend once,
+      // before returning it. A connection double must execute that callback.
+      if(settings.connectionString==='synthetic-suppression') {
+        assert.equal(typeof settings.admitBackend,'function','COLD_SUPPRESSION_ADMISSION_REQUIRED');
+        admitSuppression=()=>settings.admitBackend(connection);await admitSuppression();
+      }
+      return connection;
     },'../../tenant-notifications/postgres':()=>({ready:async()=>{}}),
       '../../tenant-alarms/postgres':{createReader:({connection})=>(reader={read:({tenant})=>scope.withTenant(tenant,()=>connection.snapshotTransaction(async()=>{effects++;return {};}))})},
       '../../tenant-notifications/producer':()=>({close(){}}),'../../tenant-notifications/component':()=>({close:async()=>{}}),'../realtime/alarm-transport':{createAdapter:()=>({send(){}})}},mutate);
@@ -81,15 +84,23 @@ describe('Selected suppression control read scope source protocol',function(){
       assert(outbox.calls.some(call=>call.sql?.includes('notification-readiness-role')),'OUTBOX_METADATA_SCREEN_REQUIRED');
       assert.equal(outbox.calls.filter(call=>call.sql?.includes('notification-readiness-table')).length,4,'COMPLETE_OUTBOX_TABLE_SCREEN');
       assert.equal(effects,2);const full=l.observed.length;await reader.read({tenant:A});assert.equal(effects,3);
-      if(!unsafeOutbox&&!mutateMarks.omitted)assert.equal(l.observed.length,full,'UNCHANGED_EPOCH_SKIPS_FULL_SUPPRESSION_CHECK');
-      l.flags.foreignRead=true;await assert.rejects(reader.read({tenant:A}),/READINESS_REFUSED/);assert.equal(effects,3);
-      l.flags.foreignRead=false;await reader.read({tenant:B});assert.equal(effects,4);
+      if(!unsafeOutbox&&!mutateMarks.omitted)assert.equal(l.observed.length,full,'WARM_READ_HAS_NO_REPEATED_CATALOGUE_PROOF');
+      // Deliberate metadata drift does not add a warm per-read digest. A fresh
+      // backend still refuses that ACL before it can publish reader effects.
+      l.flags.foreignRead=true;await reader.read({tenant:A});assert.equal(effects,4);
+      assert.equal(l.observed.length,full,'WARM_READ_RETAINS_PHYSICAL_ADMISSION');
+      await assert.rejects(admitSuppression(),/READINESS_REFUSED/);assert.equal(effects,4);
+      l.flags.foreignRead=false;await admitSuppression();await reader.read({tenant:B});assert.equal(effects,5);
     }catch(error){if(unsafeOutbox)assert.equal(effects,0,'UNSAFE_OUTBOX_REFUSES_BEFORE_READER_EFFECTS');throw error;
     }finally{await composed?.close();jobContext.close();await l.f.window.close();}
   }
-  it('threads actual selection into prepare and every later screened reader snapshot',()=>prepareCheck());
+  it('threads actual selection into cold backend admission without repeating catalogue proofs in warm snapshots',()=>prepareCheck());
   it('detects omission at the actual prepare call site and passes fresh restored source',async function(){
     await assert.rejects(prepareCheck(s=>s.replace('selected.suppression.namespace, {operationWindow}','selected.suppression.namespace')),/READINESS_REFUSED/);await prepareCheck();
+  });
+  it('detects a dropped physical-backend admission callback and passes restored constructor composition',async function(){
+    await assert.rejects(prepareCheck(s=>s.replace('operationWindow, admitBackend });','operationWindow });')),/COLD_SUPPRESSION_ADMISSION_REQUIRED/);
+    await prepareCheck();
   });
   it('retains actual unconditional outbox metadata refusal before any tenant reader effects',async function(){
     await assert.rejects(prepareCheck(undefined,{unsafeOutbox:true}),/NOTIFICATION_SCHEMA_UNSAFE/);
