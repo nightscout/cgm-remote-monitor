@@ -22,7 +22,7 @@ function fixture(){
  tables[checkpoint]=b.tenants.map(tenant=>({tenant_id:tenant,consumer:b.consumer+'-completed',contract_digest:oldDigest,work_version:'2',work_owner_ordinal:String(p.assignment.owner(tenant)),work_assignment_revision:b.revision,work_observed:'[9007199254740993,null,null,null,null,null]',work_completed:'[1,null,null,null,null,null]',work_pending_at:'10',delivery_revision:'3',delivery_ack_revision:'2',output_revision:'1',projection:'[{"kind":"evaluator-work-v2","output":{"rows":[{"synthetic":true}]}}]'}));
  tables[checkpoint].push({tenant_id:source.A,consumer:b.consumer,contract_digest:'a'.repeat(64),work_version:'0',checkpoint:'9007199254740993',projection:'[]'});
  let state={tables,lifeHistory:lifecycle.migrations.map(({name,checksum})=>({name,checksum})),workHistory:base.catalogue.migrations.map(({name,checksum})=>({name,checksum})),bound:false,installed:false,effect:base.effectBody,assertion:null,acl:{old_writer:['*']},columns:['tenant_id','consumer','contract_digest','checkpoint','projection',...require('../lib/pgstream/work-state').COLUMNS,'work_owner_ordinal','work_assignment_revision'],disabled:[]},saved,role=null;
- const calls=[],fault={owner:false,membership:false,foreignWriter:false,corrupt:false,commit:false,ddl:false,wrongRole:false,unsafeOwner:false,badPolicy:false,existingWorkerPolicies:false,definer:false,priorLock:false};
+ const calls=[],fault={owner:false,membership:false,foreignWriter:false,corrupt:false,commit:false,ddl:false,wrongRole:false,unsafeOwner:false,badPolicy:false,existingWorkerPolicies:false,definer:false,priorLock:false,wireNameArrays:false};
  const admission=require('./fixtures/operation-window-admission-protocol')((kind,rows)=>{if(state.bound){if(kind==='tenant_lifecycle_windows')rows[0].constraints.push({definition:domain.constraint(),valid:true,deferrable:false});if(kind==='ledger')rows.push(...domain.catalogue(p).migrations.slice(-1).map(({name,checksum})=>({name,checksum})));}});
  const query=async(input,values)=>{
   const text=typeof input==='string'?input:input.text;calls.push({text,values:copy(values??null),role});
@@ -33,7 +33,7 @@ function fixture(){
   if(text==='RESET ROLE'){role=null;return {rows:[]};}
   if(text.startsWith('SET LOCAL search_path')||text.startsWith("SELECT set_config('lock_timeout'"))return {rows:[]};
   const admitted=admission(text,values);if(admitted)return admitted;
-  if(text.includes('/* intake-adoption-admin */'))return {rows:[{principal:'admin',login:'admin',pid:731,rolsuper:true,rolbypassrls:true,owned:[b.namespace,b.membershipNamespace,b.lifecycleNamespace].sort()}]};
+  if(text.includes('/* intake-adoption-admin */'))return {rows:[{principal:'admin',login:'admin',pid:731,rolsuper:true,rolbypassrls:true,owned:fault.wireNameArrays?require('pg').types.getTypeParser(text.includes('ARRAY(SELECT n.nspname::text FROM')?1009:1003,'text')('{'+[b.namespace,b.membershipNamespace,b.lifecycleNamespace].sort().join(',')+'}'):[b.namespace,b.membershipNamespace,b.lifecycleNamespace].sort()}]};
   if(text.includes('/* intake-adoption-roles */'))return {rows:values[0].map(rolname=>({rolname,rolsuper:false,rolbypassrls:false,rolcreaterole:false,rolcreatedb:false,rolreplication:false,rolinherit:false,memberships:fault.wrongRole,owns:false}))};
   if(text.includes('/* intake-adoption-prior-locks */'))return {rows:fault.priorLock?[{objid:17}]:[]};
   if(text.includes('/* intake-adoption-owner */'))return {rows:[{held:!fault.owner}]};
@@ -44,6 +44,7 @@ function fixture(){
    const tenant="tenant_id = NULLIF(current_setting('app.current_tenant_id', true), '')::uuid",rows=[{name:'tenant_consumer_checkpoint_isolation',command:'*',permissive:true,public:true,roles:[],using:tenant,check:tenant}];
    if(fault.existingWorkerPolicies)for(const worker of opts.workers){for(const sql of workers.build({...worker,namespace:b.namespace,consumer:b.consumer,membershipNamespace:b.membershipNamespace,assignment:p.assignment}).filter(v=>v.startsWith('CREATE POLICY '))){const name=sql.split(' ')[2],expression=/ USING \((.*)\) WITH CHECK/.exec(sql)[1];rows.push({name,command:'*',permissive:name.includes('_allow_'),public:false,roles:[worker.role],using:expression,check:expression});}}
    if(fault.badPolicy)rows.push({name:'foreign_policy',command:'*',permissive:true,public:true,roles:[],using:'true',check:'true'});
+   if(fault.wireNameArrays)for(const row of rows)row.roles=require('pg').types.getTypeParser(text.includes('ARRAY(SELECT r.rolname::text FROM')?1009:1003,'text')('{'+row.roles.join(',')+'}');
    return {rows};
   }
   if(text.startsWith('DROP POLICY '))return {rows:[]};
@@ -109,4 +110,11 @@ describe('actual adoption authority inventory filter source (SQL membership nati
  it('refuses LOGIN effective rights and NOINHERIT/SET ROLE paths to builtin, unknown write group and object owner',async()=>{for(const capability of ['pg_write_all_data','unknown_write_group','safe_owner']){const item=row('ordinary_login',capability,{can_login:true,owns:capability==='safe_owner',writes:capability!=='safe_owner'});assert.deepEqual(await find([item]),[item]);}});
  it('refuses warm authenticated now-NOLOGIN and explicit selected/retired NOLOGIN principals',async()=>{for(const principal of ['warm_now_nologin','selected','retired']){const item=row(principal,'unknown_write_group',{authenticated:principal==='warm_now_nologin'});assert.deepEqual(await find([item]),[item]);}});
  it('retains reachable privileged targets and refuses malformed visibility instead of treating it as empty',async()=>{const item=row('ordinary_login','trusted_superuser',{can_login:true});assert.deepEqual(await find([item]),[item]);await assert.rejects(find([{...item,authenticated:undefined}]),/AUTHORITY_INVENTORY/);});
+});
+
+describe('explicit text[] catalogue wire types (actual qualified pg parser, SQL native UNMEASURED)',()=>{
+ const run=async api=>{const f=fixture();f.fault.wireNameArrays=true;f.fault.existingWorkerPolicies=true;await api.adopt(f.client,f.opts);return f;};
+ it('explicit text element casts return strict arrays through the actual driver and retain all authority predicates',async()=>{const f=await run(adoption);assert(f.calls.some(c=>c.text.includes('ARRAY(SELECT n.nspname::text FROM')));assert(f.calls.some(c=>c.text.includes('ARRAY(SELECT r.rolname::text FROM')));});
+ it('original name[] admin owned field is RED at the strict admin precondition, restored text[] passes',async()=>{const old=altered('ARRAY(SELECT n.nspname::text FROM','ARRAY(SELECT n.nspname FROM');await assert.rejects(run(old),{code:'PGSTREAM_ADOPTION_ADMIN_REQUIRED'});await run(adoption);});
+ it('original name[] worker policy role field is RED at exact old policy validation, restored text[] passes',async()=>{const old=altered('ARRAY(SELECT r.rolname::text FROM','ARRAY(SELECT r.rolname FROM');await assert.rejects(run(old),{code:'PGSTREAM_ADOPTION_OLD_POLICY'});await run(adoption);});
 });
