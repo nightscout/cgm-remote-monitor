@@ -7,8 +7,9 @@
 [internal service contracts](internal-service-api.md). These diagrams describe
 the binding; they are not a measurement of a running deployment or an assertion
 that its ports are universal defaults. The deployment companion owns packaging;
-core keeps the plan's [`config.js`](../deploy/multitenant/config.js) as a test
-fixture.
+core publishes the [deployment plan contract](multitenant-plan-contract.md)
+and keeps a small [synthetic registry plan](../tests/fixtures/multitenant-plan.js)
+for its own tests.
 
 An interface is a contract and audience. A listener is a bound socket/address.
 A deployment process may compose roles, but private operations must still have
