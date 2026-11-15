@@ -32,7 +32,7 @@ function resetTables () {
   return {entries:['tenant_insertion_ordinal','entries'],treatments:['tenant_insertion_ordinal','treatments'],devicestatus:['tenant_insertion_ordinal','devicestatus'],profile:['tenant_insertion_ordinal','profile'],food:['tenant_insertion_ordinal','food'],activity:['activity'],settings:['settings'],
     authorization:['tenant_authorization_config','tenant_authorization_roles','tenant_authorization_subjects','tenant_authorization_subject_roles',
       'tenant_subject_admin_audit','tenant_owner_policy','tenant_owner_actors'],secrets:['secret_audit'],
-    legacy:['legacy_credential_config','legacy_credential_subjects'],access:['access_tenants','access_credentials','access_sessions','access_keys','management_session_requests'],
+    legacy:['legacy_data_keys','legacy_credential_subjects','legacy_credential_config'],access:['access_tenants','access_credentials','access_sessions','access_keys','management_session_requests'],
     clock:['tenant_write_clock'],rt_checkpoint:['tenant_consumer_checkpoint'],eval_checkpoint:['tenant_consumer_checkpoint'],
     alarm:['tenant_alarm_suppression'],outbox:['tenant_notification_state','tenant_notification_heads','tenant_notification_requests'],
     registry:['tenant_registry','tenant_registry_hosts','tenant_registry_keys','tenant_registry_clock'],

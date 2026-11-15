@@ -157,7 +157,9 @@ describe('parent-owned realtime bootstrap source contract',function(){
     for(const table of ['tenant_owner_policy','tenant_owner_actors','tenant_subject_admin_audit'])assert(reset.reset.some(row=>row.domain==='authorization'&&row.table===table),'RESET_INCLUDES_'+table);
     assert(reset.reset.some(row=>row.domain==='secrets'&&row.table==='secret_audit'));
     assert.deepEqual(reset.preserved,[{domain:'secrets',namespace:layout.namespaces.secrets,table:'secret_records'}]);
-    assert.equal(reset.reset.length,54);assert.equal(reset.foreignKeys.length,24);
+    // The local-data signer migration adds one child table and one FK edge.
+    assert.equal(reset.reset.length,55);assert.equal(reset.foreignKeys.length,25);
+    assert.deepEqual(reset.reset.filter(row=>row.domain==='legacy').map(row=>row.table),['legacy_data_keys','legacy_credential_subjects','legacy_credential_config']);
     assert(reset.reset.some(row=>row.domain==='registry'&&row.table==='tenant_registry_keys'));
     assert(reset.reset.some(row=>row.domain==='control'&&row.table==='tenant_lifecycle_key_retention'));
     assert(reset.reset.some(row=>row.domain==='access'&&row.table==='management_session_requests'));
@@ -186,6 +188,8 @@ describe('parent-owned realtime bootstrap source contract',function(){
       tables=>tables.authorization.push('foreign_owned_elsewhere'),tables=>tables.secrets.push('secret_records')]) {
       const tables=plan.resetTables();mutate(tables);assert.throws(()=>plan.resetPlan(layout,catalogues,tables),/RESET_TABLE_COVERAGE/);
     }
+    const missingKeys=plan.resetTables();missingKeys.legacy=missingKeys.legacy.filter(name=>name!=='legacy_data_keys');
+    assert.throws(()=>plan.resetPlan(layout,catalogues,missingKeys),/RESET_FK_CLOSURE/,'the old pre-signer inventory must refuse before SQL');
     const missingCounter=plan.resetTables();missingCounter.entries=missingCounter.entries.filter(name=>name!=='tenant_insertion_ordinal');
     assert.throws(()=>plan.resetPlan(layout,catalogues,missingCounter),/RESET_TABLE_COVERAGE/);
     const alteredOperation=structuredClone(catalogues), operation=alteredOperation.entries.migrations.at(-2);

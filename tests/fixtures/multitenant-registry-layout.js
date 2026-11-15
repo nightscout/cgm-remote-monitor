@@ -42,35 +42,7 @@ function insertionGrants({namespace,domain,role,mode='serving'}) {
   return [...base,...(mode==='restore'?built.restoreGrants(role):built.servingGrants(role)),
     ...(mode==='restore'?['GRANT DELETE ON '+quote(namespace)+'.tenant_insertion_ordinal TO '+who]:[])];
 }
-function ownerGrants(l){
-  const ns=l.namespaces,r=l.roles,sql=[];
-  const schema=(name,who)=>sql.push('GRANT USAGE ON SCHEMA '+quote(ns[name])+' TO '+quote(r[who]));
-  const table=(name,logical=name)=>quote(ns[name])+'.'+quote(logical);
-  const grant=(privilege,name,who)=>sql.push('GRANT '+privilege+' ON '+name+' TO '+quote(r[who]));
-  for(const who of ['owner_writer','owner_reader'])for(const name of ['authorization','legacy','access']){schema(name,who);grant('SELECT','ALL TABLES IN SCHEMA '+quote(ns[name]),who);}
-  for(const name of [table('authorization','tenant_authorization_subjects'),table('legacy','legacy_credential_subjects')])grant('INSERT,UPDATE,DELETE',name,'owner_writer');
-  grant('INSERT',table('authorization','tenant_authorization_roles'),'owner_writer');
-  grant('INSERT,DELETE',table('authorization','tenant_authorization_subject_roles'),'owner_writer');
-  sql.push('REVOKE SELECT ON '+table('authorization','tenant_subject_admin_audit')+' FROM '+quote(r.owner_writer));
-  grant('INSERT',table('authorization','tenant_subject_admin_audit'),'owner_writer');
-  for(const name of ['tenant_authorization_config','tenant_authorization_roles','tenant_owner_policy','tenant_owner_actors'])grant('UPDATE(owner_fence)',table('authorization',name),'owner_writer');
-  return sql;
-}
-function lifetimeGrants(l,roles){
-  const ns=l.namespaces,r=l.roles,sql=[];
-  if(!Array.isArray(roles)||new Set(roles).size!==roles.length||roles.some(name=>!Object.hasOwn(r,name)))throw new TypeError('Explicit fixture lifetime identity names required');
-  const schema=(name,who)=>sql.push('GRANT USAGE ON SCHEMA '+quote(ns[name])+' TO '+quote(r[who]));
-  const table=(name,logical=name)=>quote(ns[name])+'.'+quote(logical);
-  const grant=(privilege,name,who)=>sql.push('GRANT '+privilege+' ON '+name+' TO '+quote(r[who]));
-  for(const who of roles){
-    schema('control',who);for(const name of ['schema_migrations','tenant_lifecycle_windows','tenant_lifecycle_operations'])grant('SELECT',table('control',name),who);
-    if(who.startsWith('lifetime_')){
-      grant('INSERT(tenant_id,operation_id,generation),UPDATE(finished)',table('control','tenant_lifecycle_operations'),who);
-      grant('EXECUTE','FUNCTION '+quote(ns.control)+'.tenant_lifecycle_backend_birth()',who);
-    }
-  }
-  return sql;
-}
+const { ownerGrants, lifetimeGrants } = require('../../lib/server/ordinary-deployment-grants');
 function grants(l) {
   const ns=l.namespaces,r=l.roles,sql=[];
   const schema=(name,who)=>sql.push('GRANT USAGE ON SCHEMA '+quote(ns[name])+' TO '+quote(r[who]));
