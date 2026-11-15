@@ -1,5 +1,6 @@
 'use strict';
-// Source protocols only: no listener, child process or real PostgreSQL is started.
+// Recording SQL protocols; the bounded natural-exit witness also owns a loopback TCP pair.
+// No real PostgreSQL or full application campaign is started.
 const assert=require('node:assert/strict'),fs=require('node:fs'),Module=require('node:module'),path=require('node:path');
 const profile=require('./fixtures/lifecycle-domain-profile').profile({members:2,revision:'9007199254740993'});
 function memberProtocol(mutate=s=>s){
@@ -48,14 +49,14 @@ describe('separate ordinal-zero feed control authority (source SQL protocol)',()
  });
 });
 
-async function compositionProtocol(ordinal,mutate=source=>source,{shutdownWithdrawal=false,healthCloseError}={}){
+async function compositionProtocol(ordinal,mutate=source=>source,{shutdownWithdrawal=false,healthCloseError,memberCloseError}={}){
  const file=require.resolve('../lib/server/serve/evaluator-selected-preview'),{createRequire}=require('node:module'),vm=require('node:vm'),local=createRequire(file),log=[],p=profile,A=p.binding.tenants[0],B=p.binding.tenants[1];
  const manifest=require('../lib/server/serve/operation-cohort-manifest'),participants=manifest.validate(['api','eval0','eval1','realtime','tenant-admin'].map(id=>({id,roles:[id.startsWith('eval')?'evaluator':id],namespaces:['synthetic_clinical'],endpoint:{socketPath:'/synthetic/'+id+'.sock',maxBytes:100000,timeoutMs:1000}}))),self=participants[ordinal+1],f=require('./fixtures/operation-window-runtime-protocol')({intakeProfile:p,trustedWorker:true});
  const entries=new Map([A,B].map(id=>[id,{tenant:id,identity:'synthetic',env:{settings:{language:'en'}}}])),metadata=new Map([A,B].map(id=>[id,{signature:{stamp:'1'},settings:'1',policy:'1',activity:{version:'1',paused:false,suspended:false}}]));
  let available=true,timer;const trusted={verify:async()=>{available=true;log.push({kind:'trusted.verify'});},scan:async ids=>{log.push({kind:'scan',ids:[...ids]});return new Map([...ids].map(id=>[id,metadata.get(id)]));},current:id=>metadata.get(id),state:()=>({available}),health:()=>({available}),invalidate:()=>{available=false;},remove:()=>{},close:async()=>{}};
  const gate={partitioned:true,admits:id=>p.assignment.owner(id)===ordinal,refresh:async()=>{},start:()=>{},reason:()=>null,onChange:()=>{},close:()=>{}};
  let workerReleased=false,consumersClosed=false;
- const worker={begin:async()=>{},complete:async()=>{},own:async()=>log.push({kind:'worker.own'}),admit:async ids=>log.push({kind:'worker.admit',ids:[...ids]}),close:async()=>{workerReleased=true;log.push({kind:'worker.close'});}};
+ const worker={begin:async()=>{},complete:async()=>{assert(!workerReleased,'ENTERED_COMPLETION_REQUIRES_HELD_OWNER');},own:async()=>log.push({kind:'worker.own'}),admit:async ids=>log.push({kind:'worker.admit',ids:[...ids]}),close:async()=>{workerReleased=true;log.push({kind:'worker.close'});}};
  const receipts={observeMany:async rows=>log.push({kind:'receipts.observe',ids:rows.map(row=>row.tenant)})};
  const connections=[],connect=async options=>{const c={options,end:async()=>{if(shutdownWithdrawal)assert(workerReleased,'OWNER_MUST_RELEASE_BEFORE_CONNECTION_END');log.push({kind:'connection.end',name:options.application_name});}};connections.push(c);log.push({kind:'connect',options});return c;};connect.readopt=async()=>{};
  const operational={verify:async()=>trusted.verify(),version:()=>1,activateRefresh:()=>{},close:async()=>{}};
@@ -63,11 +64,30 @@ async function compositionProtocol(ordinal,mutate=source=>source,{shutdownWithdr
  const consumers={close:async()=>{consumersClosed=true;},invalidateTenant:async()=>{if(shutdownWithdrawal&&consumersClosed)throw new Error('Evaluator consumer tenant is not configured');},verifyOperational:async()=>{},start:()=>{},health:()=>({}),wake:async()=>{},revised:()=>{}};
  const scheduler={close:async()=>{},recover:async()=>log.push({kind:'recover'}),wake:()=>{},wakeDelivery:()=>{},stats:()=>({})};
  const startRuntime=async options=>{log.push({kind:'runtime',options});return runtime;};
- const overrides={'../../storage/postgres-connection':connect,'./registry-tenant-set':{open:async()=>({tenants:entries,isActive:()=>true,activeIds:()=>new Set(entries.keys()),waiting:()=>0,revision:()=>1,stats:()=>({}),close:async()=>{}})},'./evaluator-readiness':Object.assign(async()=>log.push({kind:'readiness'}),{provisionTenant:async()=>{}}),'../../pool-membership':{member:async(config,options)=>{log.push({kind:'member',options});return{configured:{mode:'partitioned',memberId:ordinal===0?A:B,ordinal,rule:p.assignment.rule,leaseMs:1000},backends:()=>[{pid:9700+ordinal,role:'membership',birth:'1700000000.000001'}],register:async()=>{},close:async()=>{}};}},'./evaluator-pool':{create:()=>gate},'../../trusted-worker/postgres':{create:()=>trusted},'../../trusted-worker/lifecycle':async()=>operational,'../../pgstream/checkpoint':{create:options=>{log.push({kind:'worker',options});return worker;}},'../../pgstream/evaluator':{open:async options=>{log.push({kind:'feed',options});await options.onRecovered(receipts);return {store:receipts,ready:async()=>{},assertAvailable:()=>{},health:()=>({healthy:true}),close:async()=>{},inspectIntake:()=>{}};}},'./tenant-startup':{create:ids=>{log.push({kind:'startup',ids:[...ids]});return{warm:async()=>{},isReady:()=>true,ensure:async()=>{},health:()=>({}),tenants:()=>[...ids],close:async()=>{}};}},'../../migrations/postgres':{run:async(command,options)=>log.push({kind:'activity.catalogue',options})},'./evaluator-runtime':startRuntime,'./evaluator-consumers':{prepare:async options=>{options.assertOperational();log.push({kind:'consumers',options});return consumers;}},'../../pgstream/activity-scheduler':{start:options=>{log.push({kind:'scheduler',options});return scheduler;}},'../../pgstream/intake-state':{worker:options=>{log.push({kind:'intake-health',options});const withdrawal=shutdownWithdrawal?local('../../pgstream/intake-state').worker({...options,bounds:{heartbeatMs:100,stallMs:1000,stepMs:100,stopMs:100,recoveryMs:2000,pendingMs:1000,maxRestarts:1},client:{},lifecycleClient:{}}):null;let ready=false;return{get available(){return ready;},assertAvailable(){assert(ready,'NO_UNQUALIFIED_HEALTH');},synchronize:async()=>{await options.revalidate();await options.reconcile();ready=true;},close:async()=>{ready=false;await withdrawal?.close();if(healthCloseError)throw healthCloseError;}};}},'../internal-api/clients':{completedOutput:()=>({hintCompletedOutput:async()=>{}}),pgstreamInput:endpoint=>({hintEvaluatorInput:async request=>{log.push({kind:'hint',endpoint,request});return{accepted:true};}})},'./evaluator-inspection':()=>()=>({})};
+ const overrides={'../../storage/postgres-connection':connect,'./registry-tenant-set':{open:async()=>({tenants:entries,isActive:()=>true,activeIds:()=>new Set(entries.keys()),waiting:()=>0,revision:()=>1,stats:()=>({}),close:async()=>{}})},'./evaluator-readiness':Object.assign(async()=>log.push({kind:'readiness'}),{provisionTenant:async()=>{}}),'../../pool-membership':{member:async(config,options)=>{log.push({kind:'member',options});return{configured:{mode:'partitioned',memberId:ordinal===0?A:B,ordinal,rule:p.assignment.rule,leaseMs:1000},backends:()=>[{pid:9700+ordinal,role:'membership',birth:'1700000000.000001'}],register:async()=>{},close:async()=>{log.push({kind:'member.close'});if(memberCloseError)throw memberCloseError;}};}},'./evaluator-pool':{create:()=>gate},'../../trusted-worker/postgres':{create:()=>trusted},'../../trusted-worker/lifecycle':async()=>operational,'../../pgstream/checkpoint':{create:options=>{log.push({kind:'worker',options});return worker;}},'../../pgstream/evaluator':{open:async options=>{log.push({kind:'feed',options});await options.onRecovered(receipts);return {store:receipts,ready:async()=>{},assertAvailable:()=>{},health:()=>({healthy:true}),close:async()=>{},inspectIntake:()=>{}};}},'./tenant-startup':{create:ids=>{log.push({kind:'startup',ids:[...ids]});return{warm:async()=>{},isReady:()=>true,ensure:async()=>{},health:()=>({}),tenants:()=>[...ids],close:async()=>{}};}},'../../migrations/postgres':{run:async(command,options)=>log.push({kind:'activity.catalogue',options})},'./evaluator-runtime':startRuntime,'./evaluator-consumers':{prepare:async options=>{options.assertOperational();log.push({kind:'consumers',options});return consumers;}},'../../pgstream/activity-scheduler':{start:options=>{log.push({kind:'scheduler',options});return scheduler;}},'../../pgstream/intake-state':{worker:options=>{log.push({kind:'intake-health',options});const withdrawal=shutdownWithdrawal?local('../../pgstream/intake-state').worker({...options,bounds:{heartbeatMs:100,stallMs:1000,stepMs:100,stopMs:100,recoveryMs:2000,pendingMs:1000,maxRestarts:1},client:{},lifecycleClient:{}}):null;let ready=false;return{get available(){return ready;},assertAvailable(){assert(ready,'NO_UNQUALIFIED_HEALTH');},synchronize:async()=>{await options.revalidate();await options.reconcile();ready=true;},close:async()=>{ready=false;await withdrawal?.close();if(healthCloseError)throw healthCloseError;}};}},'../internal-api/clients':{completedOutput:()=>({hintCompletedOutput:async()=>{}}),pgstreamInput:endpoint=>({hintEvaluatorInput:async request=>{log.push({kind:'hint',endpoint,request});return{accepted:true};}})},'./evaluator-inspection':()=>()=>({})};
  const module={exports:{}};vm.runInThisContext('(function(require,module,exports,setInterval,clearInterval,setImmediate){'+mutate(fs.readFileSync(file,'utf8'))+'\n})',{filename:file})(name=>Object.hasOwn(overrides,name)?overrides[name]:local(name),module,module.exports,(fn,delay)=>{timer={fn,delay,unref(){}};return timer;},()=>{timer=null;},()=>{});
  const previousMode=require('../lib/storage/tenant-scope').getTenancyMode();
  const config={selectedIntake:{profile:p,workers:['eval0','eval1'],...(ordinal===0?{connectionString:'postgresql://'+p.binding.role+':synthetic@127.0.0.1/disposable_test',controlConnectionString:'postgresql://feed_control:synthetic@127.0.0.1/disposable_test'}:{})},partition:{kind:'evaluator',partitioned:true,ordinal,namespace:p.binding.membershipNamespace,leaseMs:1000},intakeStateSync:{assignmentRevision:p.binding.revision},pgstream:{bounds:{recoveryMs:1000,pendingMs:1000,stallMs:1000,heartbeatMs:100},outputPeer:{}},trustedWorker:{activity:p.binding.lifecycleNamespace},activity:{namespace:p.binding.lifecycleNamespace,connectionString:'postgresql://activity:synthetic@127.0.0.1/disposable_test'},registry:{namespace:'synthetic_registry'},connectionString:'postgresql://clinical_'+ordinal+':synthetic@127.0.0.1/disposable_test',namespaces:{checkpoint:p.binding.namespace,clock:'synthetic_clock'},consumer:p.binding.consumer,consumers:{realtime:{route:{id:'synthetic-notify'},partitionMetadata:{}}},maxBytes:10000,timeIntervalMs:1000,maxTenants:100,tenants:entries};
  return {api:module.exports,config,log,worker,runtime,consumers,receipts,connections,participants,self,window:f.window,timer:()=>timer,async boot(){return module.exports.boot(config,{operationWindow:f.window,intakeBinding:()=>({participant:'eval0',incarnation:A}),partitionParticipants:participants,partitionParticipant:self});},async close(){await f.window.close();require('../lib/storage/tenant-scope').setTenancyMode(previousMode);}};
+}
+async function heldDrainCriterion(mutate=source=>source,component='runtime'){
+ const f=await compositionProtocol(1,mutate,{shutdownWithdrawal:true});let release,closed;
+ const held=new Promise(resolve=>{release=resolve;});
+ try{const context=await f.boot();f[component].close=()=>held.then(()=>f.worker.complete());closed=context.close();closed.catch(()=>{});
+  await new Promise(resolve=>setImmediate(resolve));
+  assert(!f.log.some(row=>row.kind==='worker.close'),'OWNER_MUST_REMAIN_HELD_UNTIL_ENTERED_WORK_DRAINS');
+  assert(!f.log.some(row=>row.kind==='connection.end'),'POOL_END_MUST_FOLLOW_ENTERED_WORK_DRAIN');
+  release();await closed;
+ }finally{release();await closed?.catch(()=>{});await f.close();}
+}
+async function failureRetentionCriterion(mutate=source=>source){
+ const primary=Object.assign(new Error('SYNTHETIC_PRIMARY_UNCERTAIN'),{commitOutcome:'uncertain'}),memberFailure=new Error('SYNTHETIC_MEMBER_CLOSE_FAILURE'),f=await compositionProtocol(0,mutate,{memberCloseError:memberFailure}),failures=[memberFailure];
+ try{const context=await f.boot();f.runtime.close=async()=>{throw primary;};
+  for(const connection of f.connections){const failure=new Error('SYNTHETIC_END_'+failures.length);failures.push(failure);connection.end=async()=>{f.log.push({kind:'failed.end',failure});throw failure;};}
+  let result;try{await context.close();}catch(error){result=error;}
+  assert(result instanceof globalThis.AggregateError&&[primary,...failures].every(reason=>result.errors.includes(reason)),'ALL_PRIMARY_AND_CLEANUP_FAILURES_MUST_BE_RETAINED');
+  assert.equal(f.log.filter(row=>row.kind==='failed.end').length,3);assert.equal(primary.commitOutcome,'uncertain');
+ }finally{await f.close();}
 }
 describe('actual selected boot source constructor boundaries (all I/O recording protocols)',()=>{
  it('starts one receipt/control feed only on ordinal zero and gives each worker its own SQL-fenced store, startup slice and notification partition',async()=>{
@@ -78,19 +98,53 @@ describe('actual selected boot source constructor boundaries (all I/O recording 
   try{context=await f.boot();await context.close();assert.equal(f.log.filter(row=>row.kind==='worker.close').length,1);assert(f.log.some(row=>row.kind==='connection.end'));}
   finally{await f.close();}
  });
+ // The inherited assertion expected release during a held runtime drain. That
+ // expectation was unsafe: entered completion still needs the owner's exclusion.
  it('preserves entered component drains and still releases the owner after an independent health-close failure',async()=>{
   const failure=new Error('SYNTHETIC_HEALTH_CLOSE_FAILURE'),f=await compositionProtocol(1,source=>source,{shutdownWithdrawal:true,healthCloseError:failure});let release;const held=new Promise(resolve=>{release=resolve;});let context;
   try{context=await f.boot();f.runtime.close=()=>held;let settled=false;const closed=context.close();closed.then(()=>{settled=true;},()=>{settled=true;});
-   await new Promise(resolve=>setImmediate(resolve));assert.equal(settled,false,'entered runtime drain must finish');assert(f.log.some(row=>row.kind==='worker.close'),'earlier health failure cannot skip owner release');
+   await new Promise(resolve=>setImmediate(resolve));assert.equal(settled,false,'entered runtime drain must finish');assert(!f.log.some(row=>row.kind==='worker.close'),'OWNER_MUST_REMAIN_HELD_UNTIL_ENTERED_RUNTIME_DRAINS');assert(!f.log.some(row=>row.kind==='connection.end'),'connection must remain open during entered work');
    release();await assert.rejects(closed,error=>error instanceof globalThis.AggregateError&&error.errors.includes(failure));assert(f.log.some(row=>row.kind==='connection.end'));
   }finally{release();await f.close();}
+ });
+ it('retains primary uncertainty, membership and every connection-close failure; dropped-error controls are red',async()=>{
+  await failureRetentionCriterion();
+  for(const [needle,replacement] of [['() => member?.close()','() => {}'],['catch (error) { errors.push(error); }','catch { /* deliberately drop the error */ }']]){
+   await assert.rejects(failureRetentionCriterion(source=>{assert.equal(source.split(needle).length,2);return source.replace(needle,replacement);}),/ALL_PRIMARY_AND_CLEANUP_FAILURES_MUST_BE_RETAINED/);
+  }
+  await failureRetentionCriterion();
  });
  it('controls: skipping the shutdown fence or independent owner drain is red, then restored source is green',async()=>{
   async function exercise(mutate,healthCloseError){const f=await compositionProtocol(1,mutate,{shutdownWithdrawal:true,healthCloseError});let context;
    try{context=await f.boot();await context.close();}finally{await f.close();}}
   await assert.rejects(exercise(source=>{const needle='if(stopping)return;';assert.equal(source.split(needle).length,2);return source.replace(needle,'if(false)return;');}),error=>error instanceof globalThis.AggregateError&&error.errors.some(reason=>reason.message==='Evaluator consumer tenant is not configured'));
-  await assert.rejects(exercise(source=>{const needle='() => pgstream?.close(), () => workerStore?.close()';assert.equal(source.split(needle).length,2);return source.replace(needle,'() => pgstream?.close()');}),/OWNER_MUST_RELEASE_BEFORE_CONNECTION_END/);
+  await assert.rejects(exercise(source=>{const needle='() => pgstream?.close(), () => workerStore?.close()';assert.equal(source.split(needle).length,2);return source.replace(needle,'() => pgstream?.close()');}),error=>error instanceof globalThis.AggregateError&&error.errors.some(reason=>reason.message==='OWNER_MUST_RELEASE_BEFORE_CONNECTION_END'));
   await exercise(source=>source);
+ });
+ it('keeps owner exclusion and pool resources until held clinical and delivery work drains; premature releases and ends are red',async()=>{
+  for(const component of ['runtime','consumers'])await heldDrainCriterion(source=>source,component);
+  await assert.rejects(heldDrainCriterion(source=>{const needle='      await stopped;';assert.equal(source.split(needle).length,2);return source.replace(needle,'      await workerStore?.close();\n'+needle);}),/OWNER_MUST_REMAIN_HELD_UNTIL_ENTERED_WORK_DRAINS/);
+  await assert.rejects(heldDrainCriterion(source=>{const needle='      await stopped;';assert.equal(source.split(needle).length,2);return source.replace(needle,'      await connection?.end();\n'+needle);}),/OWNER_MUST_RELEASE_BEFORE_CONNECTION_END/);
+  await heldDrainCriterion();
+ });
+ it('bounded child exits naturally after selected close releases its owned TCP pair',function(done){
+  this.timeout(7000);
+  const {execFile}=require('node:child_process'),mocha=require.resolve('mocha/bin/mocha.js');
+  const run=mode=>new Promise(resolve=>execFile(process.execPath,[mocha,'--reporter','dot',__filename,'--grep','natural-exit child protocol'],{env:{...process.env,SELECTED_SHUTDOWN_EXIT_CHILD:mode},timeout:1500},(error,stdout,stderr)=>resolve({error,stdout,stderr})));
+  (async()=>{const green=await run('restored');assert(!green.error,green.stdout+green.stderr);
+   const red=await run('omit-owner');assert(red.error?.killed,'omitted owner must retain the live TCP handle until the bounded parent kills its child');assert.match(red.stdout,/OWNER_MUST_RELEASE_BEFORE_CONNECTION_END/);
+   const restored=await run('restored');assert(!restored.error,restored.stdout+restored.stderr);console.log('bounded natural-exit witness: restored exit=0, omitted-owner killed='+red.error.killed+', restored exit=0');
+  })().then(()=>done(),done);
+ });
+ it('natural-exit child protocol',async function(){
+  const mode=process.env.SELECTED_SHUTDOWN_EXIT_CHILD;if(!mode)this.skip();
+  const net=require('node:net'),server=net.createServer();await new Promise((resolve,reject)=>{server.once('error',reject);server.listen(0,'127.0.0.1',resolve);});
+  const client=net.connect(server.address().port,'127.0.0.1');await new Promise((resolve,reject)=>{client.once('connect',resolve);client.once('error',reject);});
+  const mutate=source=>{if(mode!=='omit-owner')return source;const needle='() => pgstream?.close(), () => workerStore?.close()';assert.equal(source.split(needle).length,2);return source.replace(needle,'() => pgstream?.close()');};
+  const f=await compositionProtocol(1,mutate,{shutdownWithdrawal:true}),context=await f.boot(),release=f.worker.close;
+  f.worker.close=async()=>{await release();client.end();};
+  const end=f.connections[0].end;f.connections[0].end=async()=>{await end();await new Promise((resolve,reject)=>server.close(error=>error?reject(error):resolve()));};
+  try{await context.close();}catch(error){console.log(error.errors?.map(reason=>reason.message).join(','));throw error;}finally{await f.close();}
  });
  it('refuses forged/ambiguous/wrong-self or wrong-role participant mappings before any connection or member construction',async()=>{
   const f=await compositionProtocol(1);try{for(const change of [{partitionParticipants:[]},{partitionParticipant:f.participants[0]},{partitionParticipants:f.participants.map(p=>({...p}))}])await assert.rejects(f.api.boot(f.config,{operationWindow:f.window,partitionParticipants:f.participants,partitionParticipant:f.self,...change}),/SELECTED_PARTICIPANTS/);assert.equal(f.connections.length,0);assert(!f.log.some(row=>row.kind==='member'));}finally{await f.close();}
