@@ -11,7 +11,7 @@
 // Synthetic tenants and data only.
 const assert = require('node:assert/strict');
 const crypto = require('node:crypto');
-const { execFileSync, spawn } = require('node:child_process');
+const { execFileSync } = require('node:child_process');
 const { Client, Pool } = require('pg');
 const { run } = require('../lib/migrations/postgres');
 const plan = require('./fixtures/multitenant-plan');
@@ -23,6 +23,63 @@ const { optInSuite } = require('./support/opt-in');
 
 // postgres:16, pinned by digest. Override only with another digest.
 const IMAGE = process.env.NS_OPERATION_WINDOW_PG_IMAGE || 'postgres@sha256:9e2cf6287f25c3151f4c9421ccce2b17f3e60061c111a29165e0d2cdd9ff0a97';
+// Extend the existing fixture reaper with a fixed deadline and exact ownership.
+// This is test custody only; no service or application configuration uses it.
+function fixtureCustody(container, image, kind, receiptPrefix) {
+ const fs=require('node:fs'),path=require('node:path'),os=require('node:os');
+ const {spawn,spawnSync}=require('node:child_process');
+ let directory,cidfile,expectedImage,reaper,recorded=false,volumes=[],containerID,cleanupAt;
+ const command=(args,env=process.env)=>execFileSync('docker',args,{env,encoding:'utf8',timeout:30000,stdio:['ignore','pipe','pipe']}).trim();
+ function absent(args,pattern){const r=spawnSync('docker',args,{encoding:'utf8',timeout:10000});if(r.error)throw r.error;if(r.status===0)return false;assert(pattern.test(r.stderr||r.stdout),'Docker error is not an absence proof');return true;}
+ function inspect(){if(absent(['inspect',container],/no such (?:object|container)/i))return null;const row=JSON.parse(command(['inspect',container]))[0];assert.equal(row.Name,'/'+container);assert.equal(row.Image,expectedImage);assert.equal(row.Config.Labels['nightscout.test'],kind);assert.equal(row.Config.Labels['nightscout.test.owner'],container);assert.match(row.Id,/^[a-f0-9]{64}$/);return row;}
+ function receipt(name,value){console.log(receiptPrefix.toUpperCase()+'_'+name.toUpperCase()+' '+JSON.stringify(value));if(process.env.NS_OPERATION_WINDOW_RECEIPT_DIRECTORY)fs.writeFileSync(path.join(process.env.NS_OPERATION_WINDOW_RECEIPT_DIRECTORY,receiptPrefix+'-'+name+'.json'),JSON.stringify(value),{flag:'wx',mode:0o600});}
+ function capture(){const row=inspect();if(!row)return null;containerID=row.Id;volumes=row.Mounts.filter(v=>v.Type==='volume').map(v=>v.Name);if(!recorded){recorded=true;receipt('custody',{pid:process.pid,container,containerID,image,imageID:expectedImage,volumes,cleanupAt,reaperPid:reaper.pid,reaperBirth:fs.readFileSync('/proc/'+reaper.pid+'/stat','utf8').split(')').at(-1).trim().split(/\s+/)[19],cidfile});}return row;}
+ async function start(password,database){
+  directory=fs.mkdtempSync(path.join(os.tmpdir(),receiptPrefix+'-'));cidfile=path.join(directory,'container.cid');
+  expectedImage=command(['image','inspect','--format','{{.Id}}',image]);
+  const now=Math.floor(Date.now()/1000);cleanupAt=process.env.NS_OPERATION_WINDOW_FIXTURE_CLEANUP_AT===undefined?now+240:Number(process.env.NS_OPERATION_WINDOW_FIXTURE_CLEANUP_AT);assert(Number.isSafeInteger(cleanupAt)&&cleanupAt>now&&cleanupAt<=now+240,'finite fixture cleanup deadline required');
+  const birth=fs.readFileSync('/proc/'+process.pid+'/stat','utf8').split(')').at(-1).trim().split(/\s+/)[19];
+  const script=`set -u
+: > "$4.ready"
+while [ ! -f "$4.done" ] && [ "$(date +%s)" -lt "$3" ]; do
+ stat=$(cat "/proc/$1/stat" 2>/dev/null) || break
+ read -ra fields <<< "\${stat##*) }"
+ [ "\${fields[19]:-}" = "$2" ] || break
+ sleep 1
+done
+[ -f "$4.done" ] && exit 0
+if ! row=$(docker inspect --format '{{.Id}} {{.Name}} {{.Image}} {{index .Config.Labels "nightscout.test.owner"}} {{index .Config.Labels "nightscout.test"}}' "$5" 2>"$4.error"); then
+ grep -Eqi 'no such (object|container)' "$4.error" && exit 0
+ exit 21
+fi
+read -r id name actual owner kind <<< "$row"
+[[ "$id" =~ ^[a-f0-9]{64}$ ]] && [ "$name" = "/$5" ] && [ "$actual" = "$6" ] && [ "$owner" = "$5" ] && [ "$kind" = "$7" ] || exit 22
+volumeList=$(docker inspect --format '{{range .Mounts}}{{if eq .Type "volume"}}{{.Name}} {{end}}{{end}}' "$id" 2>"$4.error") || exit 26
+printf '%s\n' "$volumeList" > "$4.volumes"
+docker rm -f -v "$id" >"$4.reaped" 2>"$4.error" || exit 23
+if docker inspect "$id" > /dev/null 2>"$4.error"; then exit 24; fi
+grep -Eqi 'no such (object|container)' "$4.error" || exit 25
+for volume in $volumeList; do
+ [[ "$volume" =~ ^[a-f0-9]{64}$ ]] || exit 27
+ if docker volume inspect "$volume" > /dev/null 2>"$4.error"; then exit 28; fi
+ grep -qi 'no such volume' "$4.error" || exit 29
+done
+`;
+  reaper=spawn('bash',['-c',script,'reaper',String(process.pid),birth,String(cleanupAt),cidfile,container,expectedImage,kind],{detached:true,stdio:'ignore'});reaper.unref();
+  for(let i=0;i<100&&!fs.existsSync(cidfile+'.ready');i++){assert(reaper.exitCode===null,'fixture reaper failed before creation');await new Promise(resolve=>setTimeout(resolve,10));}assert(fs.existsSync(cidfile+'.ready'),'fixture reaper armed before creation');assert(reaper.exitCode===null&&reaper.signalCode===null,'fixture reaper must remain live before creation');
+  try{command(['run','--pull','never','--cidfile',cidfile,'--name',container,'--label','nightscout.test='+kind,'--label','nightscout.test.owner='+container,'-d','-p','127.0.0.1::5432','-e','POSTGRES_USER=bootstrap','-e','POSTGRES_PASSWORD','-e','POSTGRES_DB='+database,image],{...process.env,POSTGRES_PASSWORD:password});}
+  finally{capture();}
+  assert(containerID,'owned container identity required');return containerID;
+ }
+ async function close(){
+  const row=expectedImage?capture():null;
+  if(row){command(['rm','-f','-v',row.Id]);assert(absent(['inspect',row.Id],/no such (?:object|container)/i));for(const volume of volumes)assert(absent(['volume','inspect',volume],/no such volume/i));receipt('cleanup',{container,containerID:row.Id,containerAbsent:true,volumes,volumesAbsent:true});}
+  if(!row&&recorded){assert(absent(['inspect',containerID],/no such (?:object|container)/i));for(const volume of volumes)assert(absent(['volume','inspect',volume],/no such volume/i));receipt('cleanup',{container,containerID,containerAbsent:true,alreadyAbsent:true,volumes,volumesAbsent:true});}
+  if(reaper){fs.writeFileSync(cidfile+'.done','verified cleanup\n',{mode:0o600});if(reaper.exitCode===null)await new Promise((resolve,reject)=>{const timer=setTimeout(()=>reject(Error('fixture reaper did not drain')),3000);reaper.once('exit',code=>{clearTimeout(timer);code===0?resolve():reject(Error('fixture reaper exit '+code));});});}
+ }
+ return {start,close};
+}
+
 const { A, B } = plan;
 const docker = args => execFileSync('docker', args, { encoding: 'utf8', stdio: ['ignore', 'pipe', 'pipe'] }).trim();
 const sleep = ms => new Promise(resolve => setTimeout(resolve, ms));
@@ -35,7 +92,8 @@ optInSuite(process.env.NS_OPERATION_WINDOW_DOCKER_TEST === '1',
   const control = name => q(ns.control) + '.' + q(name);
   const locks = [{ tenant: A, key: '830001' }, { tenant: B, key: '830002' }];
   const urls = {};
-  let previousMode, owned = false, bootstrapURI, lifetimePool, window, lower, releaseWindow, suppression;
+  const custody=fixtureCustody(container,IMAGE,'operation-window-epoch','epoch');
+  let previousMode, bootstrapURI, lifetimePool, window, lower, releaseWindow, suppression;
 
   async function asBootstrap (fn) {
     const client = new Client({ connectionString: bootstrapURI }); await client.connect();
@@ -65,12 +123,7 @@ optInSuite(process.env.NS_OPERATION_WINDOW_DOCKER_TEST === '1',
   before(async function () {
     previousMode = scope.getTenancyMode(); scope.setTenancyMode('multi');
     const password = crypto.randomBytes(24).toString('hex');
-    execFileSync('docker', ['run', '--name', container, '--label', 'nightscout.test=operation-window-epoch', '-d', '-p', '127.0.0.1::5432',
-      '-e', 'POSTGRES_USER=bootstrap', '-e', 'POSTGRES_PASSWORD', '-e', 'POSTGRES_DB=nightscout_epoch_test', IMAGE],
-    { env: { ...process.env, POSTGRES_PASSWORD: password }, stdio: ['ignore', 'pipe', 'pipe'] });
-    owned = true;
-    spawn('sh', ['-c', 'while kill -0 "$1" 2>/dev/null; do sleep 2; done; docker rm -f -v "$2" >/dev/null 2>&1', 'reaper', String(process.pid), container],
-      { detached: true, stdio: 'ignore' }).unref();
+    await custody.start(password,'nightscout_epoch_test');
     const port = docker(['port', container, '5432/tcp']).split(':').pop();
     bootstrapURI = 'postgres://bootstrap:' + password + '@127.0.0.1:' + port + '/nightscout_epoch_test';
     const deadline = Date.now() + 30000;
@@ -113,7 +166,7 @@ optInSuite(process.env.NS_OPERATION_WINDOW_DOCKER_TEST === '1',
     const reader = await connect({ connectionString: urls.suppression, operationWindow: window, max: 1,
       admitBackend: async client => {
         // Raw admitted client is the only source of the control-read exemption.
-        await readiness.suppression(client, ns.alarm, {operationWindow});
+        await readiness.suppression(client, ns.alarm, {operationWindow:window});
         calls.push('evaluator-consumer-suppression-role');
       } });
     suppression = {connection:reader,calls};
@@ -121,14 +174,11 @@ optInSuite(process.env.NS_OPERATION_WINDOW_DOCKER_TEST === '1',
 
   after(async function () {
     try {
-      if (lower) await lower.end();
-      if (suppression) await suppression.connection.end();
-      if (releaseWindow) releaseWindow();
-      if (window) await window.close();
-      if (lifetimePool) await lifetimePool.end();
+      try { if (lower) await lower.end(); if (suppression) await suppression.connection.end(); }
+      finally { if (releaseWindow) releaseWindow(); try { if (window) await window.close(); } finally { if (lifetimePool) await lifetimePool.end(); } }
     } finally {
       scope.setTenancyMode(previousMode);
-      if (owned) docker(['rm', '-f', '-v', container]);
+      await custody.close();
     }
   });
 
