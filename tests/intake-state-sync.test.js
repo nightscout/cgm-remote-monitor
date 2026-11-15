@@ -103,17 +103,105 @@ describe('actual supervisor post-recovery and receipt clock boundaries',function
 
 describe('actual maintained intake adapter publication wiring',function(){
  async function adapter(selected=true){
-  let ports,receive,closed=0,mode=incarnation,bindingUnavailable=false,drain=async()=>{};
+  let ports,receive,httpHandler,closed=0,mode=incarnation,bindingUnavailable=false,drain=async()=>{};
   const h={healthy:false,terminal:false,closed:false,sequence:2,received:1,monotonicHeartbeatAgeMs:0};
-  const store={own:async()=>{},admit:async()=>{},health:async()=>({pending:false}),close:async()=>{closed++;}};
+  const store={available:true,own:async()=>{},admit:async()=>{},health:async()=>({pending:false}),close:async()=>{closed++;}};
   const feed={health:()=>({...h}),close:async()=>{closed++;},receipt(){}};
   const config={consumer:'evaluator-fixture',maxBytes:1000,timeIntervalMs:100,connectionString:'postgres://stream:synthetic@127.0.0.1:15432/disposable_test',tenants:new Map([[incarnation,{}]]),namespaces:{clock:'synthetic_clock',checkpoint:'synthetic_checkpoint'},trustedWorker:{settings:'synthetic_settings',operatorPolicy:'synthetic_policy',activity:'synthetic_activity'},pgstream:{binary:'/synthetic/pgstream',configFile:'/synthetic/config',receiverPort:15434,streamRole:'stream',slot:'synthetic_slot',bounds},...(selected?{intakeStateSync:{assignmentRevision}}:{})};
   const selectedRoutes=require('../lib/pgstream/evaluator').routes(config);
   const wire={source:{postgres:{url:config.connectionString,mode:'replication',replication:{replication_slot:'synthetic_slot',plugin:{add_tables:selectedRoutes.map(v=>v.schema+'.'+v.table).join(',')}}}},target:{webhooks:{notifier:{strict_mode:true},subscriptions:{store:{url:config.connectionString+'?pool_max_conns=2'},server:{address:'127.0.0.1:15433'}}}}};
-  const module=load('../lib/pgstream/evaluator.js',{'node:fs':{readFileSync:file=>file==='/synthetic/config'?JSON.stringify(wire):Buffer.from('synthetic pinned bytes')},'node:crypto':{createHash:()=>({update(){return this;},digest:()=>require('../lib/pgstream/evaluator').BINARY_SHA256})},'./checkpoint':{create:()=>store},'./receiver':{create:options=>{receive=options;return async()=>{};},parse:x=>x},'./supervisor':{start:async options=>{ports=options;return feed;}},'node:http':{createServer:()=>({once(){},listen(port,host,callback){callback();},close(callback){closed++;callback();}})}});
+  const module=load('../lib/pgstream/evaluator.js',{'node:fs':{readFileSync:file=>file==='/synthetic/config'?JSON.stringify(wire):Buffer.from('synthetic pinned bytes')},'node:crypto':{createHash:()=>({update(){return this;},digest:()=>require('../lib/pgstream/evaluator').BINARY_SHA256})},'./checkpoint':{create:()=>store},'./receiver':{...require('../lib/pgstream/receiver'),create:options=>{receive=options;return require('../lib/pgstream/receiver').create(options);}},'./supervisor':{RECEIVER_COUNTERS:require('../lib/pgstream/supervisor').RECEIVER_COUNTERS,start:async options=>{ports=options;return feed;}},'node:http':{createServer:handler=>{httpHandler=handler;return {once(){},listen(port,host,callback){callback();},close(callback){closed++;callback();}};}}});
   const owner=await module.open({config,connection:{readOnly:async()=>({rows:[{revision:'1'}]})},intakeBinding:()=>{if(bindingUnavailable)throw Error('INTAKE_BINDING_UNAVAILABLE');return {participant:peer.id,incarnation:mode};},onInput:async()=>{},onRecovered:async()=>{},onUnavailable:async()=>{await drain();},onSchema:async()=>{await drain();},onTerminal:()=>{}});
-  return {owner,ports,receive,h,store,setInc:v=>{mode=v;},loseBinding:()=>{bindingUnavailable=true;},drain:fn=>{drain=fn;},request:()=>({request:incarnation,participant:peer.id,incarnation:mode,assignmentRevision}),get closed(){return closed;}};
+  return {owner,ports,receive,h,store,async sendSchema(){let status;const req={method:'POST',url:'/pgstream',async *[Symbol.asyncIterator](){yield Buffer.from(JSON.stringify({Data:{action:'M',prefix:'pgstream.ddl',content:JSON.stringify({schema_name:'synthetic_settings',objects:[]})}}));}},res={writeHead(code){status=code;return this;},end(){}};await httpHandler(req,res);return status;},setInc:v=>{mode=v;},loseBinding:()=>{bindingUnavailable=true;},drain:fn=>{drain=fn;},request:()=>({request:incarnation,participant:peer.id,incarnation:mode,assignmentRevision}),get closed(){return closed;}};
  }
+ it('ACKs validated startup schema before the first heartbeat without advertising readiness',async()=>{
+  const f=await adapter();try{
+   let validated=0;f.drain(async()=>{validated++;});
+   await f.receive.onSchema(['synthetic_settings']);
+   assert.equal(validated,1,'SOURCE_SCHEMA_VALIDATION_COMPLETED');
+   assert.equal(f.owner.inspectIntake(f.request()).state,'recovering');
+   assert.throws(()=>f.owner.assertAvailable(),/EVALUATOR_FEED_UNAVAILABLE/);
+   await f.ports.onRecovered();f.h.healthy=true;await f.ports.onHealthy();
+   assert.equal(f.owner.inspectIntake(f.request()).state,'ready');
+   assert.doesNotThrow(()=>f.owner.assertAvailable());
+  }finally{await f.owner.close();}
+ });
+ it('keeps the newer schema fence when an older callback completes',async()=>{
+  const f=await adapter();try{
+   await f.ports.onRecovered();f.h.healthy=true;await f.ports.onHealthy();
+   const first=deferred(),second=deferred();let calls=0;
+   f.drain(()=>++calls===1?first.promise:second.promise);
+   const old=f.receive.onSchema(['synthetic_settings']);old.catch(()=>{});
+   const current=f.receive.onSchema(['synthetic_settings']);current.catch(()=>{});
+   first.resolve();await assert.rejects(old,/RECOVERY_SUPERSEDED/);
+   assert.throws(()=>f.owner.assertAvailable(),/EVALUATOR_FEED_UNAVAILABLE/,'NEW_SCHEMA_FENCE_REMAINS');
+   second.resolve();await current;
+  }finally{await f.owner.close();}
+ });
+ for(const selected of [false,true])for(const latestFails of [false,true])it('fences overlapping '+(selected?'published':'default')+' schema validation when the latest '+(latestFails?'fails':'completes first'),async()=>{
+  const f=await adapter(selected);try{
+   await f.ports.onRecovered();f.h.healthy=true;if(selected)await f.ports.onHealthy();
+   const older=deferred(),latest=deferred();let calls=0;
+   f.drain(async()=>{if(++calls===1)await older.promise;else{await latest.promise;if(latestFails)throw Error('SYNTHETIC_AUTHORITY_REFUSED');}});
+   const old=f.receive.onSchema(['synthetic_settings']);old.catch(()=>{});
+   const current=f.receive.onSchema(['synthetic_settings']);current.catch(()=>{});
+   assert.throws(()=>f.owner.assertAvailable(),/EVALUATOR_FEED_UNAVAILABLE/);
+   latest.resolve();if(latestFails)await assert.rejects(current,/SYNTHETIC_AUTHORITY_REFUSED/);else await current;
+   older.resolve();await assert.rejects(old,/SUPERSEDED/);
+   if(latestFails){assert.throws(()=>f.owner.assertAvailable(),/EVALUATOR_FEED_UNAVAILABLE/);if(selected)assert.notEqual(f.owner.inspectIntake(f.request()).state,'ready');}
+   else{assert.doesNotThrow(()=>f.owner.assertAvailable());if(selected)assert.equal(f.owner.inspectIntake(f.request()).state,'ready');}
+  }finally{await f.owner.close();}
+ });
+ it('ACKs valid schema after transport loss but cannot publish or admit before recovery',async()=>{
+  const f=await adapter();try{
+   await f.ports.onRecovered();f.h.healthy=true;await f.ports.onHealthy();
+   const hold=deferred();f.drain(()=>hold.promise);
+   const schema=f.receive.onSchema(['synthetic_settings']);
+   f.h.healthy=false;hold.resolve();await schema;
+   assert.equal(f.owner.inspectIntake(f.request()).state,'recovering');assert.throws(()=>f.owner.assertAvailable(),/EVALUATOR_FEED_UNAVAILABLE/);
+   f.drain(async()=>{});await f.ports.onRecovered();f.h.healthy=true;await f.ports.onHealthy();assert.equal(f.owner.inspectIntake(f.request()).state,'ready');
+  }finally{await f.owner.close();}
+ });
+ it('refuses failed schema validation before ACK and retains the fence until a valid retry',async()=>{
+  const f=await adapter();try{
+   await f.ports.onRecovered();f.h.healthy=true;await f.ports.onHealthy();
+   f.drain(async()=>{throw Error('SYNTHETIC_AUTHORITY_REFUSED');});
+   await assert.rejects(f.receive.onSchema(['synthetic_settings']),/SYNTHETIC_AUTHORITY_REFUSED/);
+   assert.throws(()=>f.owner.assertAvailable(),/EVALUATOR_FEED_UNAVAILABLE/);assert.equal(f.owner.inspectIntake(f.request()).state,'blocked');
+   f.drain(async()=>{});await f.receive.onSchema(['synthetic_settings']);assert.equal(f.owner.inspectIntake(f.request()).state,'ready');
+  }finally{await f.owner.close();}
+ });
+ it('uses actual receiver HTTP ACKs to release startup DDL, and refuses unsafe schema',async()=>{
+  const f=await adapter();try{
+   assert.equal(await f.sendSchema(),204);assert.equal(f.owner.inspectIntake(f.request()).state,'recovering');
+   assert.equal(f.ports.receiverDiagnostics().schemaCompleted,1);assert.throws(()=>f.owner.assertAvailable(),/EVALUATOR_FEED_UNAVAILABLE/);
+   f.drain(async()=>{throw Error('SYNTHETIC_AUTHORITY_REFUSED');});assert.equal(await f.sendSchema(),503);
+   assert.equal(f.ports.receiverDiagnostics().schemaRefusals,1);assert.equal(f.owner.inspectIntake(f.request()).state,'blocked');
+  }finally{await f.owner.close();}
+ });
+ it('refuses an old cohort binding completing schema validation',async()=>{
+  const f=await adapter();try{
+   await f.ports.onRecovered();f.h.healthy=true;await f.ports.onHealthy();
+   const hold=deferred();f.drain(()=>hold.promise);const schema=f.receive.onSchema(['synthetic_settings']);schema.catch(()=>{});
+   f.setInc(other);hold.resolve();await assert.rejects(schema,/RECOVERY_SUPERSEDED/);
+   assert.throws(()=>f.owner.assertAvailable(),/EVALUATOR_FEED_UNAVAILABLE/);assert.equal(f.owner.inspectIntake(f.request()).state,'blocked');
+  }finally{await f.owner.close();}
+ });
+ it('keeps the schema fence if fresh publication refuses a stale heartbeat',async()=>{
+  const f=await adapter();try{
+   await f.ports.onRecovered();f.h.healthy=true;await f.ports.onHealthy();
+   f.h.monotonicHeartbeatAgeMs=bounds.stallMs;
+   await assert.rejects(f.receive.onSchema(['synthetic_settings']),/FEED_NOT_READY/);
+   assert.throws(()=>f.owner.assertAvailable(),/EVALUATOR_FEED_UNAVAILABLE/);assert.notEqual(f.owner.inspectIntake(f.request()).state,'ready');
+   f.h.monotonicHeartbeatAgeMs=0;await f.receive.onSchema(['synthetic_settings']);assert.equal(f.owner.inspectIntake(f.request()).state,'ready');
+  }finally{await f.owner.close();}
+ });
+ it('keeps ordinary intake-less startup unavailable after valid schema ACK until transport recovery',async()=>{
+  const f=await adapter(false);try{
+   assert.equal(await f.sendSchema(),204);assert.throws(()=>f.owner.assertAvailable(),/EVALUATOR_FEED_UNAVAILABLE/);
+   await f.ports.onRecovered();f.h.healthy=true;assert.doesNotThrow(()=>f.owner.assertAvailable());
+  }finally{await f.owner.close();}
+ });
  it('connects real recovery/schema/loss callbacks to publication, with withdrawal before awaited drain',async()=>{
   const f=await adapter();try{assert.equal(f.owner.inspectIntake(f.request()).state,'blocked');await f.ports.onRecovered();assert.equal(f.owner.inspectIntake(f.request()).state,'recovering');f.h.healthy=true;await f.ports.onHealthy();assert.equal(f.owner.inspectIntake(f.request()).state,'ready');
    const wait=deferred();f.drain(()=>wait.promise);const schema=f.receive.onSchema(['synthetic_settings']);assert.equal(f.owner.inspectIntake(f.request()).state,'recovering');wait.resolve();await schema;assert.equal(f.owner.inspectIntake(f.request()).state,'ready');
