@@ -20,7 +20,7 @@ const record = (id, gone) => ({ operation_id: id, generation: '1', owner_pid: 7,
 // protocol model used by tests/tenant-maintenance-window.test.js.
 function fixture (options = {}, mutate) {
   const m = { authority: true, ownerPresent: false, auditVisible: true, pending: [], running: [], trace: [], durable: suspended('suspended'), ...options };
-  const metadata = protocol();
+  const metadata = protocol(require('./fixtures/lifecycle-domain-profile').metadata(options.intakeProfile));
   const client = new EventEmitter();
   const target = () => m.working || m.durable;
   client.query = async (query, values = []) => {
@@ -87,7 +87,7 @@ function fixture (options = {}, mutate) {
       loaded._compile(changed, FILE); exported = loaded.exports;
     } else exported = require(FILE);
     api = exported.create({ namespace: 'synthetic_window', locks: [{ tenant: A, key: '41' }, { tenant: B, key: '42' }],
-      pool: { connect: async () => { m.connected = true; return client; } }, cohort, lockWaitMs: 0 });
+      pool: { connect: async () => { m.connected = true; return client; } }, cohort, lockWaitMs: 0, intakeProfile:options.intakeProfile });
   } finally { Module._load = original; }
   return { m, api };
 }
@@ -211,4 +211,11 @@ describe('restore resume and operation clearance (simulated backend protocol)', 
     const { m, api } = fixture({ durable: suspended('restored') }, source => source.replace('        await cohorts.invalidate(cohort, tenant);\n', ''));
     await assert.rejects(api.resume(A, { claimId: CLAIM }), /RESUME_INVALIDATES_BEFORE_ACTIVATION/); assert.equal(m.durable.window.phase, 'suspended');
   });
+});
+
+describe('selected lifecycle generation resume protocol',function(){
+ const selected=require('./fixtures/lifecycle-domain-profile'),maximum=require('../lib/pgstream/intake-profile').DOMAIN.completeMaximum;
+ const state=g=>{const value=suspended('suspended');value.window.generation=g;value.audit.generation=g;return value;};
+ it('resumes existing maximum at the SAME generation',async()=>{const {m,api}=fixture({intakeProfile:selected.profile(),durable:state(maximum)});const result=await api.resume(A,{claimId:CLAIM});assert.equal(result.generation,maximum);assert.equal(m.durable.window.generation,maximum);assert.equal(m.durable.window.phase,'active');await api.close();});
+ it('inspect and locked resume refuse an unsupported retained generation without writing',async()=>{const initial=state((BigInt(maximum)+1n).toString()),{m,api}=fixture({intakeProfile:selected.profile(),durable:clone(initial)});const seen=await api.inspect(A);assert.equal(seen.resumable,false);assert.equal(seen.reasons[0],'LIFECYCLE_GENERATION_DOMAIN_UNSUPPORTED');await assert.rejects(api.resume(A,{claimId:CLAIM}),{code:'LIFECYCLE_GENERATION_DOMAIN_UNSUPPORTED'});assert.deepEqual(m.durable,initial);assert(!wrote(m));await api.close();});
 });

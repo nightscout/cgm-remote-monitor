@@ -7,7 +7,7 @@ const B = '22222222-2222-4222-8222-222222222222';
 module.exports = function fixture (options = {}, createWindow = create) {
   const log = [], pending = new Map();
   const datastore = {database:'disposable_test',database_oid:'16384',server_address:'127.0.0.1',server_port:5432,postmaster_birth:'1700000000.000000'};
-  const admission = require('./operation-window-admission-protocol')(options.catalogueMutate);
+  const admission = require('./operation-window-admission-protocol')(require('./lifecycle-domain-profile').metadata(options.intakeProfile,options.catalogueMutate));
   const client = new EventEmitter();
   client.processID = 123;
   client.release = error => log.push(['release', !!error]);
@@ -35,5 +35,5 @@ module.exports = function fixture (options = {}, createWindow = create) {
     return { rows: [], ...(['COMMIT','ROLLBACK'].includes(text) ? { command: text } : {}) };
   };
   const pool = { options: { max: 1 }, connect: async () => client };
-  return { client, pool, log, pending, window: createWindow({ namespace: 'synthetic_window', leaseSessionCount: options.leaseSessionCount, trustedWorker: options.trustedWorker, locks: [{ tenant: A, key: '17' }, { tenant: B, key: '19' }], pool }) };
+  return { client, pool, log, pending, window: createWindow({ namespace: 'synthetic_window', leaseSessionCount: options.leaseSessionCount, trustedWorker: options.trustedWorker, ...(options.lockRule ? {lockRule:options.lockRule} : {locks: [{ tenant: A, key: '17' }, { tenant: B, key: '19' }]}), intakeProfile:options.intakeProfile, pool }) };
 };

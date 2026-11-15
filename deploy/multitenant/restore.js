@@ -13,7 +13,7 @@ const validName = value => typeof value === 'string' && NAME.test(value) && valu
 const exact = (v, keys) => v && typeof v === 'object' && !Array.isArray(v) && Object.keys(v).every(k => keys.includes(k)) && keys.every(k => Object.hasOwn(v, k));
 
 function validateConfig (value, env = process.env) {
-  if (!exact(value, ['version', 'tenants', 'apiOrigin', 'control', 'namespaces', 'catalogues', 'drainTimeoutMs']) || value.version !== 1 ||
+  if (!exact(value, ['version', 'tenants', 'apiOrigin', 'control', 'namespaces', 'catalogues', 'drainTimeoutMs', ...(Object.hasOwn(value || {},'intakeProfile') ? ['intakeProfile'] : [])]) || value.version !== 1 ||
       !Number.isSafeInteger(value.drainTimeoutMs) || value.drainTimeoutMs < 1 || value.drainTimeoutMs > 2147483647 ||
       !Array.isArray(value.tenants) || value.tenants.length !== 2 ||
       !value.tenants.every(t => exact(t, ['id', 'host', 'tokenEnv']) && UUID.test(t.id) && /^[a-z0-9.-]+$/.test(t.host) &&
@@ -40,7 +40,11 @@ function validateConfig (value, env = process.env) {
   if (origin.origin !== value.apiOrigin || origin.hostname !== 'api' || origin.protocol !== 'http:' || origin.username || origin.password ||
       !['postgres:', 'postgresql:'].includes(pg.protocol) || !pg.username || !pg.password || !pg.pathname.slice(1) || pg.hash ||
       [...pg.searchParams.keys()].some(k => k !== 'sslmode')) throw fail('COMPOSE_OPERATOR_CONFIG_REFUSED');
-  return structuredClone(value);
+  let intakeProfile;
+  try { intakeProfile = require('../../lib/tenant-lifecycle/generation-domain').bind(value.intakeProfile,value.control.namespace,value.tenants.map(row=>row.id)); }
+  catch { throw fail('COMPOSE_OPERATOR_CONFIG_REFUSED'); }
+  const plain = {...value}; delete plain.intakeProfile;
+  return {...structuredClone(plain),...(intakeProfile ? {intakeProfile} : {})};
 }
 
 function loadConfig (file = process.env.NS_OPERATOR_CONFIG || '/run/ns-config/config.json', env = process.env) {
@@ -105,7 +109,7 @@ async function restore (config, artifact, env = process.env, hooks = {}) {
     statement_timeout: 10000, options: '-c search_path=pg_catalog' });
   try {
     const controller = require('../../lib/tenant-lifecycle/maintenance-window').create({ namespace: config.control.namespace,
-      locks: config.control.locks, pool, cohort, drainTimeoutMs: config.drainTimeoutMs });
+      locks: config.control.locks, pool, cohort, drainTimeoutMs: config.drainTimeoutMs, intakeProfile:config.intakeProfile });
     let committed = false;
     const result = await controller.withRestore(tenant, { artifactDigest: artifact.digest }, async ({ connection, maintenanceClaim }) => {
       // The lifecycle control namespace holds the key-retention ledger (BF-230).
@@ -134,7 +138,7 @@ async function recover (config, command, { tenant, claim }, env = process.env) {
   // listener already carries a transport failure to its caller.
   pool.on('error', () => {});
   try {
-    const recovery = require('../../lib/tenant-lifecycle/restore-resume').create({ namespace: config.control.namespace, locks: config.control.locks, pool, cohort });
+    const recovery = require('../../lib/tenant-lifecycle/restore-resume').create({ namespace: config.control.namespace, locks: config.control.locks, pool, cohort, intakeProfile:config.intakeProfile });
     if (command === 'inspect') return await recovery.inspect(tenant);
     if (command === 'resume') return await recovery.resume(tenant, { claimId: claim });
     return await recovery.clearOperations(tenant);

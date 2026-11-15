@@ -105,6 +105,7 @@
         "tests/write-boundary-clock.test.js",
         "tests/no-trigger-notify.test.js",
         "tests/tenant-maintenance-window.test.js",
+        "tests/lifecycle-generation-domain.test.js",
         "tests/tenant-restore-resume.test.js",
         "tests/internal-api-listener-config.test.js",
         "tests/internal-api-shutdown.test.js",

@@ -12,7 +12,7 @@ const DIGEST = 'a'.repeat(64), clone = value => JSON.parse(JSON.stringify(value)
 function fixture (options = {}) {
   const m = { authority: true, locked: false, pending: [], trace: [], foreign: { ordinal: 100, doc: 'B-current' },
     durable: { window: { lock_key: '41', phase: 'active', generation: '1', claim_id: null, artifact_digest: null }, audit: null, rows: [] }, ...options };
-  const metadata = protocol(options.metadataMutation);
+  const metadata = protocol(require('./fixtures/lifecycle-domain-profile').metadata(options.intakeProfile,options.metadataMutation));
   const client = new EventEmitter();
   const packet = { pid: 100, birth: '2026-11-07 00:00:00.000001+00', role_oid: '71' };
   const target = () => m.working || m.durable;
@@ -89,8 +89,8 @@ function fixture (options = {}) {
       };
       return original.call(this, request, ...rest);
     };
-    api = controller.create({ namespace: 'synthetic_window', locks: [{ tenant: A, key: '41' }, { tenant: B, key: '42' }],
-      pool: { connect: async () => { m.connected = true; return client; } }, cohort, drainTimeoutMs: 1 });
+    api = (options.controller || controller).create({ namespace: 'synthetic_window', locks: [{ tenant: A, key: '41' }, { tenant: B, key: '42' }],
+      pool: { connect: async () => { m.connected = true; return client; } }, cohort, drainTimeoutMs: 1, intakeProfile:options.intakeProfile });
   } finally { Module._load = original; }
   return { m, api };
 }
@@ -266,4 +266,14 @@ describe('private tenant restore controller (simulated backend protocol)', funct
     await assert.rejects(api.withRestore(A, { artifactDigest: DIGEST }, async () => assert.fail()), code('LIFECYCLE_RESTORE_ALREADY_SUSPENDED'));
     assert.equal(m.durable.window.claim_id, 'existing'); await api.close();
   });
+});
+
+// Selected source protocol only; these are not native constraint/cohort proofs.
+describe('selected lifecycle generation controller preflight',function(){
+ const selected=require('./fixtures/lifecycle-domain-profile'),maximum=require('../lib/pgstream/intake-profile').DOMAIN.completeMaximum;
+ const state=g=>({window:{lock_key:'41',phase:'active',generation:g,claim_id:null,artifact_digest:null},audit:null,rows:[]});
+ let prior;before(()=>{prior=scope.getTenancyMode();scope.setTenancyMode('multi');});after(()=>scope.setTenancyMode(prior));
+ it('refuses exhausted selected headroom before UPDATE/audit/commit without changing the durable row',async()=>{const initial=state(maximum),{m,api}=fixture({intakeProfile:selected.profile(),durable:clone(initial)});await assert.rejects(api.withRestore(A,{artifactDigest:DIGEST},async()=>assert.fail('NO_BODY')),{code:'LIFECYCLE_GENERATION_DOMAIN_UNSUPPORTED'});assert.deepEqual(m.durable,initial);assert(!m.trace.some(sql=>/^(UPDATE|INSERT|COMMIT)/.test(sql)));await api.close();});
+ it('suspends at maximum then activates at the SAME maximum',async()=>{const {m,api}=fixture({intakeProfile:selected.profile(),durable:state((BigInt(maximum)-1n).toString())});await api.withRestore(A,{artifactDigest:DIGEST},async()=>{assert.equal(m.durable.window.generation,maximum);assert.equal(m.durable.window.phase,'suspended');});assert.equal(m.durable.window.generation,maximum);assert.equal(m.durable.window.phase,'active');await api.close();});
+ it('ablation: removing only the locked-row range check permits unsupported mutation; restored check refuses',async()=>{const fs=require('fs'),path=require('path'),file=require.resolve('../lib/tenant-lifecycle/maintenance-window'),source=fs.readFileSync(file,'utf8'),needle="if(intakeProfile)require('./generation-domain').assertGeneration(w[0].generation,{next:true});";assert(source.includes(needle));const loaded=new Module(file,module);loaded.filename=file;loaded.paths=Module._nodeModulePaths(path.dirname(file));loaded._compile(source.replace(needle,''),file);const broken=fixture({intakeProfile:selected.profile(),durable:state(maximum),controller:loaded.exports});await broken.api.withRestore(A,{artifactDigest:DIGEST},async()=>{});assert.equal(broken.m.durable.window.generation,(BigInt(maximum)+1n).toString());assert(broken.m.trace.some(sql=>sql.startsWith('UPDATE ')));await broken.api.close();const restored=fixture({intakeProfile:selected.profile(),durable:state(maximum)});await assert.rejects(restored.api.withRestore(A,{artifactDigest:DIGEST},async()=>{}),{code:'LIFECYCLE_GENERATION_DOMAIN_UNSUPPORTED'});assert(!restored.m.trace.some(sql=>sql.startsWith('UPDATE ')));await restored.api.close();});
 });
