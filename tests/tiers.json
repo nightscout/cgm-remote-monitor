@@ -76,6 +76,7 @@
         "tests/secrets.test.js",
         "tests/tenant-legacy-credentials.test.js",
         "tests/tenant-local-credentials.test.js",
+        "tests/realtime-output-demand.test.js",
         "tests/postgres-tenant-stats.test.js",
         "tests/settings-function-privileges.test.js",
         "tests/mmconnect-connect-compat.test.js",
