@@ -1,5 +1,5 @@
 'use strict';
-const {it}=require('node:test'),assert=require('node:assert/strict');
+const assert=require('node:assert/strict');
 const fixed=require('../lib/pgstream/fixed-assignment'),hints=require('../lib/pgstream/input-hints');
 const ids=Array.from({length:16},(_,i)=>'00000000-0000-4000-8000-'+(i+1).toString(16).padStart(12,'0'));
 const assignment=fixed.create({tenants:ids,members:2,revision:'9007199254740993'});

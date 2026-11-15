@@ -1,5 +1,5 @@
 'use strict';
-const {it}=require('node:test'),assert=require('node:assert/strict');
+const assert=require('node:assert/strict');
 const {create}=require('../lib/pgstream/receiver');
 const assignment=require('../lib/pgstream/fixed-assignment');
 const {RULE}=require('../lib/pool-membership/slice');

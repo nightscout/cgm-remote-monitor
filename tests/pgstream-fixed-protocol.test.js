@@ -1,5 +1,5 @@
 'use strict';
-const {it}=require('node:test'),assert=require('node:assert/strict'),{createHash}=require('node:crypto');
+const assert=require('node:assert/strict'),{createHash}=require('node:crypto');
 const fs=require('node:fs'),vm=require('node:vm'),{createRequire}=require('node:module');
 const protocol=require('../lib/pool-membership/fixed-protocol');
 // Native catalogue projection 2026-11-15, point93e898: these are the measured

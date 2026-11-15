@@ -1,7 +1,7 @@
 'use strict';
 // Actual optional checkpoint modules against a transactional JavaScript model.
 // The model does not establish PostgreSQL trigger, lock, planner or COMMIT semantics.
-const {it}=require('node:test'),assert=require('node:assert/strict');
+const assert=require('node:assert/strict');
 const checkpoint=require('../lib/pgstream/checkpoint'),work=require('../lib/pgstream/work-state');
 const fixed=require('../lib/pgstream/fixed-assignment'),candidate=require('../lib/pgstream/assignment-candidate');
 const membershipProtocol=require('../lib/pool-membership/fixed-protocol');

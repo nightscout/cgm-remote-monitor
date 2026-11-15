@@ -1,5 +1,5 @@
 'use strict';
-const {describe,it}=require('node:test'),assert=require('node:assert/strict');
+const assert=require('node:assert/strict');
 const {create}=require('../lib/pgstream/fixed-assignment');
 const {RULE}=require('../lib/pool-membership/slice');
 const ids=Array.from({length:128},(_,i)=>'00000000-0000-4000-8000-'+(i+1).toString(16).padStart(12,'0'));

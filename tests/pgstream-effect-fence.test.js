@@ -1,5 +1,5 @@
 'use strict';
-const {it}=require('node:test'),assert=require('node:assert/strict'),fs=require('node:fs');
+const assert=require('node:assert/strict'),fs=require('node:fs');
 const fixed=require('../lib/pgstream/fixed-assignment'),fence=require('../lib/pgstream/effect-fence');
 const protocol=require('../lib/pool-membership/fixed-protocol'),transactionLock=require('../lib/pool-membership/transaction-lock');
 const {RULE}=require('../lib/pool-membership/slice');

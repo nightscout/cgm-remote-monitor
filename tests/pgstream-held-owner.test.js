@@ -1,7 +1,7 @@
 'use strict';
 // Actual pg.Pool, connection wrapper, operation window and owner capability;
 // synthetic pg Client only. No native datastore or restored-process claim.
-const {it}=require('node:test'),assert=require('node:assert/strict');
+const assert=require('node:assert/strict');
 const {EventEmitter}=require('node:events'),fs=require('node:fs'),path=require('node:path'),Module=require('node:module');
 const scope=require('../lib/storage/tenant-scope');
 const A='11111111-1111-4111-8111-111111111111';

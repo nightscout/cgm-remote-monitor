@@ -1,7 +1,7 @@
 'use strict';
 // Executes actual membership/operator modules with a recording SQL client.
 // No database, row-lock semantics, trigger execution or lease clock is modeled.
-const {it}=require('node:test'),assert=require('node:assert/strict');
+const assert=require('node:assert/strict');
 const fs=require('node:fs'),vm=require('node:vm'),{createRequire}=require('node:module');
 const protocol=require('../lib/pool-membership/fixed-protocol');
 const {RULE}=require('../lib/pool-membership/slice');
