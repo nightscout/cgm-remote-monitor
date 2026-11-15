@@ -11,11 +11,11 @@ describe('Lifetime lane lock reuse (source protocol, not PostgreSQL evidence)', 
     const options = { leaseSessionCount: 1 }; const f = fixture(options), first = barrier(), entered = barrier();
     const pending = f.window.run(A, async () => { entered.release(); await first.wait; });
     await entered.wait;
-    const before = count(f, '/* operation-window-epoch');
+    const before = count(f, '/* operation-window-current');
     await f.window.run(A, () => {});
     assert.equal(count(f, 'pg_try_advisory_lock_shared'), 1);
     assert.equal(count(f, 'pg_advisory_unlock_shared'), 0, 'first body still owns the lock');
-    assert.equal(count(f, '/* operation-window-epoch'), before + 1, 'new transaction reads current epoch');
+    assert.equal(count(f, '/* operation-window-current'), before + 1, 'new transaction reads current principal and tenant window');
     assert.equal([...f.pending.values()].filter(done => !done).length, 1);
     await f.window.run(B, () => {});
     assert.equal(count(f, 'pg_try_advisory_lock_shared'), 2, 'other tenant acquires its own lock');
@@ -43,13 +43,13 @@ describe('Lifetime lane lock reuse (source protocol, not PostgreSQL evidence)', 
     first.release(); await settled;
     await f.window.close().catch(() => {});
   });
-  it('re-runs catalogue admission for a changed epoch while sharing a lock', async function () {
+  it('refuses live owner membership while sharing a lock', async function () {
     let drift = false;
     const options = { leaseSessionCount: 1, catalogueMutate: (kind, rows) => { if (drift && kind === 'role') rows[0].elevated = true; } };
     const f = fixture(options), first = barrier(), entered = barrier();
     const pending = f.window.run(A, async () => { entered.release(); await first.wait; });
-    await entered.wait; drift = true; options.epoch = 'f'.repeat(64);
-    await assert.rejects(f.window.run(A, () => {}), { code: 'LIFECYCLE_WINDOW_SCHEMA_UNSAFE' });
+    await entered.wait; options.ownsControl = true;
+    await assert.rejects(f.window.run(A, () => {}), { code: 'LIFECYCLE_WINDOW_ROLE_UNSAFE' });
     assert.equal(count(f, 'pg_try_advisory_lock_shared'), 1);
     first.release(); await pending;
     await f.window.close();

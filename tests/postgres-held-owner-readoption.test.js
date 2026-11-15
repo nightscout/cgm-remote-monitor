@@ -54,12 +54,12 @@ describe('selected held-owner backend re-observation',function(){
       assert(f.calls.filter(c=>c.text.startsWith('SELECT pg_backend_pid()')).length>=2,'fresh held backend identity query');
     }finally{await f.close();}
   });
-  it('retains fresh strict epoch admission on a public/mixed owner window',async()=>{
+  it('retains bounded live admission on a public/mixed owner window',async()=>{
     const f=await fixture(false,false);
     try{
       await f.verify();
       await f.owner.withTenant(A,async()=>{await f.connection.query('SELECT ordinary_tenant_work');});
-      assert(f.calls.some(c=>c.text.includes('operation-window-epoch lower')));
+      assert(f.calls.some(c=>c.text.includes('operation-window-current lower')));
       assert(!f.calls.some(c=>c.text.includes('operation-window-current trusted-lower')));
       assert.equal(f.window.trustedWorker,false);assert.equal(f.clients.length,1);
     }finally{await f.close();}
