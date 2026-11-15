@@ -18,7 +18,7 @@ describe('fixed pgstream assignment selection (not an effects fence)',()=>{
  it('refuses missing owners, duplicate ordinals, unregistered incarnations and changed assignment',()=>{
    for(const patch of [{rows:[rows[0]]},{rows:[...rows,{...rows[1],memberId:ids[2]}]},
      {self:{...rows[0],memberId:ids[3]}},{desired:{...desired,revision:'8'}},
-     {desired:{...desired,members:1}},{rows:rows.map(r=>({...r,appliedMembers:1}))}]){
+     {desired:{...desired,members:1}},{rows:rows.map(r=>({...r,appliedMembers:1}))},{rows:rows.map((r,i)=>i===0?{...r,appliedMembers:null}:r)},{rows:rows.map((r,i)=>i===1?{...r,appliedMembers:null}:r)}]){
      const result=assignment.select({...snapshot(0),...patch});assert.equal(result.eligible,false);assert.deepEqual(result.tenants,[]);
    }
  });

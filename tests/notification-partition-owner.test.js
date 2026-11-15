@@ -97,3 +97,7 @@ describe('opt-in notification partition source ownership',function(){
   assert.equal(owner.configure(undefined,'unused'),null);
  });
 });
+
+it('cold outbox admission refuses the older NULL-skipping body and admits the exact current protocol',async()=>{
+ const old='bool_and(ordinal>=0 AND ordinal<desired.members AND applied_members=desired.members AND slice_rule=desired.slice_rule)',current='bool_and(coalesce(ordinal>=0 AND ordinal<desired.members AND applied_members=desired.members AND slice_rule=desired.slice_rule,false))',f=fixture();for(const row of f.instruments.notification){assert(row.source.includes(current));row.source=row.source.replace(current,old);}await assert.rejects(f.selection.own(f.connection),/PROTOCOL_UNQUALIFIED/);assert.equal(f.selection.available(),false);const restored=fixture();await restored.selection.own(restored.connection);await restored.selection.close();
+});
