@@ -120,7 +120,15 @@ function scan (sources) {
 function shippedSources () {
   const files = execFileSync('git', ['ls-files', '--', ...SCOPE], { cwd: ROOT, encoding: 'utf8' }).split('\n')
     .filter(file => /\.(js|cjs|json|sql)$/.test(file) && file !== 'scripts/check-no-trigger-notify.js');
-  return files.map(file => ({ file, text: fs.readFileSync(path.join(ROOT, file), 'utf8') }));
+  // This candidate assembles its named functions and bodies separately. Scan
+  // its emitted SQL as well as its source, so neither dynamic names nor body
+  // interpolation can hide a notification edge. Namespaces change identifiers,
+  // not the trigger bodies; these fixed bindings require no database or actor.
+  const assignment = require('../lib/pgstream/assignment-candidate').build({
+    membershipNamespace: 'notify_gate_membership', lifecycleNamespace: 'notify_gate_lifecycle'
+  }).catalogue;
+  return [...files.map(file => ({ file, text: fs.readFileSync(path.join(ROOT, file), 'utf8') })),
+    { file: 'lib/pgstream/assignment-candidate.js (generated catalogue).json', text: JSON.stringify(assignment) }];
 }
 
 if (require.main === module) {

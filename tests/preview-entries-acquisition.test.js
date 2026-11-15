@@ -63,7 +63,10 @@ async function fixture (mutate, populated = false, interleaved = false) {
           date: instant - index * 1000 - j * 1000, device: tenant
         } })) };
       }
-      return { rows: text.includes('pg_column_size') ? [{ bytes: 0 }] : /SELECT count/.test(text) ? [{ n: '0' }] : [] };
+      // The maintained statistics port returns one aggregate per configured
+      // source in a single statement, rather than one statement per source.
+      if (text.includes('pg_column_size')) return { rows: [...text.matchAll(/FROM "([a-z_]+)"\."([a-z_]+)"/g)].map(() => ({ bytes: 0 })) };
+      return { rows: /SELECT count/.test(text) ? [{ n: '0' }] : [] };
     }
   };
   const graph = await implementation(mutate, graphs, contexts, completed)({ config: { domains, legacyEnabled: true, contextEnabled: true,
