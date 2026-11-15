@@ -6,7 +6,7 @@ const fixture=require('./fixtures/intake-source-protocol'),storeModule=require('
 const grants=require('../lib/pgstream/intake-grants'),work=require('../lib/pgstream/work-state');
 const copy=value=>JSON.parse(JSON.stringify(value));
 const p=()=>profiles.create(fixture.options);
-async function open({creator,profile=p()}={}){const f=fixture.create(profile);await f.window.ready();f.connection=await (creator||require('../lib/storage/postgres-connection'))(f.options);f.hints=[];f.store=storeModule.create({connection:f.connection,profile,onCommit:value=>{f.hints.push({value,last:f.calls.at(-1).text});}});f.close=async()=>{await f.store.close();await f.connection.end();await f.window.close();await f.canonical.window.close();};return f;}
+async function open({creator,profile=p(),onCommit}={}){const f=fixture.create(profile);await f.window.ready();f.connection=await (creator||require('../lib/storage/postgres-connection'))(f.options);f.hints=[];f.store=storeModule.create({connection:f.connection,profile,onCommit:value=>{f.hints.push({value,last:f.calls.at(-1).text});onCommit?.(value);}});f.close=async()=>{await f.store.close();await f.connection.end();await f.window.close();await f.canonical.window.close();};return f;}
 describe('proposed sole-intake source capability (synthetic SQL; native unmeasured)',()=>{
  it('binds codec/policy/principal/fixed assignment/layout in immutable profile and retains the exact stable legacy owner key',()=>{
   const a=p(),b=profiles.create({...fixture.options,role:'another_intake_writer'}),c=profiles.create({...fixture.options,revision:'9007199254740994'});
@@ -121,5 +121,19 @@ describe('intake exact transaction outcome and close boundaries',()=>{
  });
  it('withdraws immediately on actual held-client error before callbacks and does not enter another transaction',async()=>{
   const f=await open();try{let seen;await f.store.own(()=>{seen=f.store.available;});await f.store.admit([f.A,f.B]);const before=f.calls.length;f.clients[0].emit('error',new Error('SYNTHETIC_INTAKE_TRANSPORT_LOSS'));assert.equal(seen,false);assert.equal(f.store.available,false);await assert.rejects(f.store.observe(f.A,'clock','2'),/UNAVAILABLE/);assert.equal(f.calls.length,before);assert.deepEqual(f.hints,[]);}finally{await f.close();}
+ });
+});
+describe('owned committed hint identity',()=>{
+ it('retains committed A when the caller replaces its tenant while COMMIT is pending',async()=>{
+  const f=await open();let release,pending;try{await f.store.own(()=>{});await f.store.admit([f.A,f.B]);let enter;const entered=new Promise(r=>{enter=r;}),gate=new Promise(r=>{release=r;});f.state.beforeCommit=async()=>{enter();await gate;};const observations=[{tenant:f.A,observed:{activity:'2'},eligibility:{activity:false}}];pending=f.store.observeMany(observations);await entered;observations[0].tenant=f.B;release();await pending;assert.equal(f.rows.get(f.A).work_observed[3],'2');assert.equal(f.rows.get(f.B).work_observed[3],null);assert.deepEqual(f.hints.map(h=>h.value.tenant),[f.A]);}finally{release?.();await pending?.catch(()=>{});await f.close();}
+ });
+ it('uses the same normalized toJSON batch identity for durable receipt and hint',async()=>{
+  const f=await open();try{await f.store.own(()=>{});await f.store.admit([f.A,f.B]);const observations=[{tenant:f.A,observed:{activity:'2'},eligibility:{activity:false}}];observations.toJSON=()=>[{tenant:f.B,observed:{activity:'2'},eligibility:{activity:false}}];await f.store.observeMany(observations);assert.equal(f.rows.get(f.A).work_observed[3],null);assert.equal(f.rows.get(f.B).work_observed[3],'2');assert.deepEqual(f.hints.map(h=>h.value.tenant),[f.B]);}finally{await f.close();}
+ });
+ it('never rereads a caller getter after the source batch enters COMMIT',async()=>{
+  const f=await open();let release,pending;try{await f.store.own(()=>{});await f.store.admit([f.A,f.B]);let enter,changed=false;const entered=new Promise(r=>{enter=r;}),gate=new Promise(r=>{release=r;});f.state.beforeCommit=async()=>{enter();await gate;};const observations=[{get tenant(){return changed?f.B:f.A;},observed:{activity:'2'},eligibility:{activity:false}}];pending=f.store.observeMany(observations);await entered;changed=true;release();await pending;assert.equal(f.rows.get(f.A).work_observed[3],'2');assert.deepEqual(f.hints.map(h=>h.value.tenant),[f.A]);}finally{release?.();await pending?.catch(()=>{});await f.close();}
+ });
+ it('does not let the first onCommit callback change the second committed tenant identity',async()=>{
+  let observations,callbacks=0;const f=await open({onCommit:()=>{if(++callbacks===1)observations[1].tenant=fixture.A;}});try{await f.store.own(()=>{});await f.store.admit([f.A,f.B]);observations=[f.A,f.B].map(tenant=>({tenant,observed:{activity:'2'},eligibility:{activity:false}}));await f.store.observeMany(observations);assert.equal(f.rows.get(f.A).work_observed[3],'2');assert.equal(f.rows.get(f.B).work_observed[3],'2');assert.deepEqual(f.hints.map(h=>h.value.tenant),[f.A,f.B]);}finally{await f.close();}
  });
 });

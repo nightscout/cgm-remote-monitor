@@ -39,3 +39,44 @@ describe('proposed source-recognized immutable intake profile (no activation)',(
   const broken=altered('canonical(b)!==canonical(actual.binding)||',''),p=profile.create(options),criterion=api=>assert.throws(()=>api.validate({...p,binding:{...p.binding,controlReads:{}}}),/PROFILE/);assert.throws(()=>criterion(broken),{code:'ERR_ASSERTION'});criterion(profile);
  });
 });
+function countedProfile(mutate=source=>source){
+ const fs=require('node:fs'),Module=require('node:module'),path=require('node:path'),file=require.resolve('../lib/pgstream/intake-profile'),source=mutate(fs.readFileSync(file,'utf8')),m=new Module(file,module),fixed=require('../lib/pgstream/fixed-assignment');let rebuilds=0,entries=0;
+ m.filename=file;m.paths=Module._nodeModulePaths(path.dirname(file));const original=m.require.bind(m);m.require=name=>name==='./fixed-assignment'?{create:options=>{rebuilds++;entries+=options.tenants.length;return fixed.create(options);}}:original(name);m._compile(source,file);return {api:m.exports,reset(){rebuilds=0;entries=0;},counts:()=>({rebuilds,entries})};
+}
+describe('immutable profile value ownership and fastpath',()=>{
+ it('validates a known genuine immutable 10k profile without rebuilding its roster/hash',()=>{
+  const f=countedProfile(),tenants=Array.from({length:10000},(_,i)=>'00000000-0000-4000-8000-'+(i+1).toString(16).padStart(12,'0')),p=f.api.create({...options,tenants});f.reset();for(let i=0;i<5;i++)assert.equal(f.api.validate(p).digest,p.digest);assert.deepEqual(f.counts(),{rebuilds:0,entries:0},'KNOWN_IMMUTABLE_PROFILE_MUST_NOT_REBUILD');
+ });
+ it('owns a namespace getter value once before validation/binding/branding',()=>{
+  let reads=0;const source={...options};Object.defineProperty(source,'namespace',{enumerable:true,get(){return ++reads<=2?'intake_work':'pg_shadow';}});const p=profile.create(source);assert.equal(p.binding.namespace,'intake_work','ONLY_OWNED_VALIDATED_NAMESPACE_MAY_BE_BOUND');assert.equal(reads,1);assert.equal(profile.validate(p).binding.namespace,'intake_work');
+ });
+ it('owns each roster index once rather than accepting a later getter value',()=>{
+  let reads=0;const tenants=[];Object.defineProperty(tenants,'0',{enumerable:true,configurable:true,get(){return ++reads===1?A:B;}});const p=profile.create({...options,tenants});assert.deepEqual(p.binding.tenants,[A],'ONLY_OWNED_VALIDATED_ROSTER_MAY_BE_BOUND');assert.equal(reads,1);assert.deepEqual(profile.validate(p).binding.tenants,[A]);
+ });
+ it('never invokes a caller roster iterator/species/toJSON while snapshotting bounded indexed entries',()=>{
+  const tenants=[A],refuse=()=>{throw new Error('CALLER_ROSTER_HOOK_MUST_NOT_RUN');};tenants[Symbol.iterator]=refuse;tenants.toJSON=refuse;Object.defineProperty(tenants,'constructor',{get:refuse});const source={...options,tenants};Object.defineProperty(source,'toJSON',{value:refuse});const p=profile.create(source);assert.deepEqual(p.binding.tenants,[A]);assert.equal(profile.validate(p).digest,p.digest);
+ });
+ it('requires primitive scalar strings and safe fixed numeric values before any profile is branded',()=>{
+  assert.throws(()=>profile.create({...options,consumer:{toString:()=> 'evaluator-intake'}}),/PROFILE/);assert.throws(()=>profile.create({...options,members:new Number(2)}));assert.throws(()=>profile.create({...options,revision:{toString:()=> '1'}}));
+ });
+ it('fully normalizes unknown JSON/clones/proxies, discards forged assignment functions and then recognizes only the safe returned value',()=>{
+  const f=countedProfile(),p=f.api.create(options),clone=JSON.parse(JSON.stringify(p));clone.assignment={owner:()=>{throw new Error('FORGED_ASSIGNMENT_MUST_NOT_RUN');}};
+  for(const unknown of [clone,{...p,assignment:clone.assignment},new Proxy(p,{})]){f.reset();const safe=f.api.validate(unknown);assert.deepEqual(f.counts(),{rebuilds:1,entries:2});assert.notEqual(safe,unknown);assert.equal(safe.assignment.owner(A),p.assignment.owner(A));f.reset();assert.strictEqual(f.api.validate(safe),safe);assert.deepEqual(f.counts(),{rebuilds:0,entries:0});}
+  const bad=JSON.parse(JSON.stringify(p));bad.binding.role='changed_intake';assert.throws(()=>f.api.validate(bad),/PROFILE/);
+ });
+});
+describe('immutable profile memoization controls and compatibility',()=>{
+ it('retains the exact published ordinary binding digests and stable owner key',()=>{
+  const p=profile.create(options);assert.equal(p.digest,'731c9aa4bdf4b8dee9a24acfe993705b3e90338465b2bbe77c54d647a0783ee0');assert.equal(p.contractDigest,'ad0c9de9f68a2dff9921545f6cf4bd0a5e3513c0dc9b37d20e1cbe9ba5e3f39d');assert.equal(p.ownerKey,'-5483210377315940895');assert.strictEqual(profile.validate(p),p);
+ });
+ it('control: removing genuine-value recognition rebuilds a known roster and makes the zero-rebuild criterion RED; restored GREEN',()=>{
+  const needle='if(genuine.has(profile))return profile;',broken=countedProfile(source=>{assert.equal(source.split(needle).length,2);return source.replace(needle,'');});
+  const criterion=f=>{const p=f.api.create(options);f.reset();f.api.validate(p);assert.deepEqual(f.counts(),{rebuilds:0,entries:0},'KNOWN_IMMUTABLE_PROFILE_MUST_NOT_REBUILD');};assert.throws(()=>criterion(broken),{code:'ERR_ASSERTION'});criterion(countedProfile());
+ });
+ it('control: removing owned snapshot permits an unvalidated getter-selected binding to be branded and makes criterion RED; restored GREEN',()=>{
+  const broken=altered(' options=ownOptions(options);',''),criterion=api=>{let reads=0;const source={...options};Object.defineProperty(source,'namespace',{enumerable:true,get(){return ++reads<=2?'intake_work':'pg_shadow';}});const p=api.create(source);assert.equal(p.binding.namespace,'intake_work','ONLY_OWNED_VALIDATED_NAMESPACE_MAY_BE_BRANDED');assert.equal(api.validate(p).binding.namespace,'intake_work');};assert.throws(()=>criterion(broken),{code:'ERR_ASSERTION'});criterion(profile);
+ });
+ it('control: removing primitive consumer validation would retain caller mutable state and makes the refusal criterion RED; restored GREEN',()=>{
+  const broken=altered("typeof options.consumer!=='string'||",''),criterion=api=>assert.throws(()=>api.create({...options,consumer:{toString:()=> 'evaluator-intake'}}),/PROFILE/);assert.throws(()=>criterion(broken),{code:'ERR_ASSERTION'});criterion(profile);
+ });
+});
