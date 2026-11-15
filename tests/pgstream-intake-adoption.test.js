@@ -49,12 +49,15 @@ function fixture(){
   }
   if(text.startsWith('DROP POLICY '))return {rows:[]};
 
+  if(text.includes('/* intake-adoption-ledger */')&&text.includes('"registry"'))return {rows:fault.registryHistory?[{name:'unknown',checksum:'0'.repeat(64)}]:require('../lib/migrations/catalogue').validateCatalogue(require('../lib/tenant-registry/postgres').catalogue).map(({name,checksum})=>({name,checksum}))};
+  if(text.startsWith('REVOKE EXECUTE ON FUNCTION "registry".')){const fn=text.split('"registry".')[1].split('(')[0];state.registryCapabilities=state.registryCapabilities.filter(name=>name!==fn);return {rows:[]};}
+  if(text.startsWith('REVOKE SELECT ON "registry".')||text.startsWith('REVOKE USAGE ON SCHEMA "registry"'))return {rows:[]};
   if(text.includes('/* intake-adoption-ledger */'))return {rows:copy(text.includes('"'+b.namespace+'"')?state.workHistory:state.lifeHistory).sort((a,b)=>a.name.localeCompare(b.name))};
   if(text.includes('/* intake-adoption-extra-effects */'))return {rows:[]};
   if(text.includes('/* intake-adoption-desired */'))return {rows:[{members:b.members,previous_members:null,slice_rule:'sha256-modulo-v1',revision:b.revision}]};
   if(text.includes('/* intake-adoption-snapshot */')){const table=/ FROM ("[a-z_]+"\.[a-z_]+) t/.exec(text)[1];return {rows:copy(state.tables[table]).map(row=>({row}))};}
   if(text.includes('/* intake-adoption-columns */'))return {rows:state.columns.map(attname=>({attname}))};
-  if(text.includes('/* intake-adoption-retired-definers */'))return {rows:fault.definer?[{rolname:'old_writer'}]:[]};
+  if(text.includes('/* intake-adoption-retired-definers */'))return {rows:fault.definer||state.registryCapabilities?.length?[{rolname:'old_writer'}]:[]};
   if(text.includes('/* intake-adoption-retired-rights */'))return {rows:[...Object.entries(state.acl).filter(([,rights])=>rights.length).map(([principal])=>({principal,capability:principal,can_login:true,superuser:false,authenticated:false,owns:false,writes:true})),...(fault.foreignWriter?[{principal:'foreign_writer',capability:'foreign_writer',can_login:true,superuser:false,authenticated:false,owns:false,writes:true}]:[])]};
   if(text.startsWith('ALTER TABLE '+checkpoint+' DISABLE TRIGGER')){state.disabled.push(text.split('"').at(-2));return {rows:[]};}
   if(text.startsWith('ALTER TABLE '+checkpoint+' ENABLE ALWAYS TRIGGER')){state.disabled=state.disabled.filter(v=>v!==text.split('"').at(-2));return {rows:[]};}
@@ -88,6 +91,21 @@ function fixture(){
 }
 function altered(needle,replacement){const fs=require('node:fs'),Module=require('node:module'),path=require('node:path'),file=require.resolve('../lib/pgstream/intake-adoption'),source=fs.readFileSync(file,'utf8');assert.equal(source.split(needle).length,2);const m=new Module(file,module);m.filename=file;m.paths=Module._nodeModulePaths(path.dirname(file));m._compile(source.replace(needle,replacement),file);return m.exports;}
 describe('explicit atomic intake/lifecycle ADMIN adoption source (native UNMEASURED)',()=>{
+ it('retires declared current registry capabilities before the conservative definer check, leaving selected roles alone',async()=>{
+  const f=fixture();f.opts.registryNamespace='registry';f.state().registryCapabilities=['tenant_registry_alias','tenant_registry_revision','tenant_registry_tenants'];
+  await adoption.adopt(f.client,f.opts);assert.deepEqual(f.state().registryCapabilities,[]);
+  const revokes=f.calls.filter(c=>c.text.startsWith('REVOKE EXECUTE ON FUNCTION "registry".'));assert.equal(revokes.length,4);assert(revokes.every(c=>c.text.endsWith('FROM "old_writer"')));
+  assert(f.calls.findIndex(c=>c===revokes.at(-1))<f.calls.findIndex(c=>c.text.includes('intake-adoption-retired-definers')));
+ });
+ it('refuses unknown registry history and still refuses unrelated effective definers with atomic rollback',async()=>{
+  for(const fault of ['registryHistory','definer']){const f=fixture();f.opts.registryNamespace='registry';f.state().registryCapabilities=['tenant_registry_alias'];f.fault[fault]=true;const before=copy(f.state());await assert.rejects(adoption.adopt(f.client,f.opts),/HISTORY|DEFINER_AUTHORITY/);assert.deepEqual(f.state(),before);assert.equal(f.calls.at(-1).text,'ROLLBACK');}
+  const f=fixture();await assert.rejects(adoption.adopt(f.client,{...f.opts,registryNamespace:'public'}),/ADOPTION_REGISTRY/);assert.equal(f.calls.length,0);
+ });
+ it('registry-retirement control is red when the real revocation loop is omitted; restored source adopts',async()=>{
+  const broken=altered('for(const role of o.retiredRoles)for(const text of registry.retiredReaderGrants({namespace:o.registryNamespace,role}))await query(text);','');
+  const criterion=async api=>{const f=fixture();f.opts.registryNamespace='registry';f.state().registryCapabilities=['tenant_registry_alias','tenant_registry_revision','tenant_registry_tenants'];await api.adopt(f.client,f.opts);assert.deepEqual(f.state().registryCapabilities,[]);};
+  await assert.rejects(criterion(broken),{code:'PGSTREAM_ADOPTION_DEFINER_AUTHORITY'});await criterion(adoption);
+ });
  it('holds all known owner resources and table locks before exact history/whole namespace/retained contract checks',async()=>{const f=fixture(),out=await adoption.adopt(f.client,f.opts);assert.equal(out.commitOutcome,'committed');assert.equal(out.profile,f.p.digest);assert.equal(f.calls.at(-1).text,'COMMIT');assert.equal(f.calls.filter(c=>c.text==='BEGIN').length,1);assert.equal(f.calls.filter(c=>c.text==='COMMIT').length,1);assert.equal(f.calls.filter(c=>c.text.includes('intake-adoption-owner')).length,3);const lock=f.calls.findIndex(c=>c.text.startsWith('LOCK TABLE ')),snapshot=f.calls.findIndex(c=>c.text.includes('intake-adoption-snapshot'));assert(lock>0&&lock<snapshot);assert(f.calls[lock].text.includes('tenant_activity_audit'));assert(f.calls[lock].text.includes('tenant_lifecycle_ceremony'));assert(f.calls[lock].text.includes('pool_desired'));assert.deepEqual(f.state().disabled,[]);});
  it('rebinds only the exact legacy completed digest, preserving BIGINT strings, BASE, clinical, pending, output, ACK and all lifecycle records',async()=>{const f=fixture();await adoption.adopt(f.client,f.opts);const expected=copy(f.initial.tables);for(const row of expected[f.checkpoint])if(row.consumer.endsWith('-completed'))row.contract_digest=f.p.contractDigest;assert.deepEqual(f.state().tables,expected);assert.equal(f.state().tables[f.checkpoint][0].work_observed,'[9007199254740993,null,null,null,null,null]');assert.equal(f.state().workHistory.length,5);assert.equal(f.state().lifeHistory.length,10);assert.equal(f.state().acl.old_writer.length,0);assert(f.calls.some(c=>c.text.includes('GRANT UPDATE('+workers.UPDATES.join(','))));assert(f.calls.some(c=>c.role==='worker_zero'&&c.text.includes('evaluator-worker-grants')));});
  it('refuses live legacy/worker owners, active membership transaction and elevated/indirect old principal authority before DDL',async()=>{for(const flag of ['owner','membership','wrongRole','unsafeOwner','badPolicy','priorLock']){const f=fixture();f.fault[flag]=true;await assert.rejects(adoption.adopt(f.client,f.opts),/ACTIVE|AUTHORITY|OBJECT_OWNER|OLD_POLICY|FRESH_CLIENT/);assert.deepEqual(f.state(),f.initial);assert(!f.calls.some(c=>c.text.startsWith('ALTER TABLE')));}});
