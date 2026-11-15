@@ -135,11 +135,12 @@ describe('selected API evaluator metadata without worker credentials',function()
     closed=false;fail=true;await assert.rejects(loaded.readCurrent(A,undefined,admission),/synthetic metadata read failure/);
     assert.equal(closed,true,'failure waits for reader closure');assert.deepEqual(calls,{open:2,read:2,close:2});
   });
-  it('carries registry admission through linked metadata into the actual private ACK transaction (SQL protocol only)',async function(){
+  for (const partitioned of [false,true]) it('carries registry admission through linked metadata into the actual private ACK transaction '+(partitioned?'with static partition catalogue and no workers':'with default ledger')+' (SQL protocol only)',async function(){
     const scope=require('../lib/storage/tenant-scope'),previous=scope.getTenancyMode();scope.setTenancyMode('multi');
     try {
       const value=config();delete value.tenants;value.registry={namespace:'metadata_registry',refreshMs:500};
       value.tenantSettings={connectionEnv:'SETTINGS_PG',namespaces:{settings:'metadata_display_settings',operatorPolicy:'metadata_policy'}};
+      if(partitioned)value.consumers.realtime.partitionMetadata={checkpointNamespace:value.postgres.namespaces.checkpoint,membershipNamespace:'metadata_membership',lifecycleNamespace:'metadata_lifetime'};
       fs.writeFileSync(file,JSON.stringify(value));
       const state=require('../lib/tenant-settings/component').resolveEffectiveSettings({version:1,values:{}},{generation:1,deployment:{},overrides:{}});
       let active=true,afterRead=()=>{},reads=0,currentSettings=state;
@@ -149,7 +150,9 @@ describe('selected API evaluator metadata without worker credentials',function()
         {evaluatorConfigEnv:'LINKED_EVALUATOR'},{LINKED_EVALUATOR:file,SETTINGS_PG:env.EVALUATOR_PG},
         {namespace:'metadata_alarm',connectionString:env.SUPPRESSION_PG});
       const a=require('./fixtures/tenant-alarm-protocol')(),n=require('./fixtures/tenant-notifications')();
+      if(partitioned)n.unsafe({ledger:parse.parseMetadata(value).consumers.realtime.expectedCatalogue.migrations.map(({name,checksum})=>({name,checksum}))});
       const db={transaction:fn=>n.connection.transaction(()=>a.db.transaction(fn)),async query(sql,args){
+        assert(!/pool_membership|pool_desired|tenant_consumer_checkpoint/.test(sql),'ACK_NEVER_READS_LIVE_WORKERS_OR_ASSIGNMENTS');
         if(sql.startsWith('SELECT c.anonymous_roles'))return {rows:[{anonymous_roles:['denied']}]};
         if(sql.includes('notification-ack-time'))return a.db.query(sql,args);
         if(sql.includes('notification-')||sql.includes('tenant_notification_state')){
@@ -177,6 +180,12 @@ describe('selected API evaluator metadata without worker credentials',function()
       await call(make('metadata_registry'));
       assert.equal(reads-before,2,'current metadata is rechecked inside the ACK boundary');
       assert.equal(a.calls.at(-1),'COMMIT');assert.equal(a.rows().length,2,'actual writer protocol commits both suppression levels');
+      if(partitioned){
+        const before=structuredClone(a.rows());n.unsafe({});
+        await assert.rejects(call(make('metadata_registry')),/SOCKET_FORWARD_UNAVAILABLE/,'selected static metadata refuses the old ledger');
+        const ledger=parse.parseMetadata(value).consumers.realtime.expectedCatalogue.migrations.map(({name,checksum})=>({name,checksum}));ledger.at(-1).checksum='f'.repeat(64);n.unsafe({ledger});
+        await assert.rejects(call(make('metadata_registry')),/SOCKET_FORWARD_UNAVAILABLE/,'selected static metadata refuses a wrong added migration');assert.deepEqual(a.rows(),before);
+      }
       // This is not a native PostgreSQL, producer clear or client delivery claim.
     } finally {scope.setTenancyMode(previous);}
   });
@@ -186,5 +195,28 @@ describe('selected API evaluator metadata without worker credentials',function()
       d=>d.consumers.realtime.outbox.namespace=d.postgres.namespaces.entries,d=>d.consumers.realtime.retryIntervalMs=2147483648,
       d=>d.consumers.realtime.suppression.connectionEnv='bad reference']){const d=config();change(d);assert.throws(()=>parse.parseMetadata(d),/invalid/);}
     const descriptor=config();delete descriptor.datastore;assert.doesNotThrow(()=>parse.parseMetadata(descriptor));
+  });
+
+  it('keeps default consumer metadata and socket projection unchanged',function(){
+    const value=config(),parsed=parse.parseMetadata(value);assert.deepEqual(parsed.consumers,value.consumers);
+    const projected=link({evaluatorConfigEnv:'LINKED_EVALUATOR'},{LINKED_EVALUATOR:file,SETTINGS_PG:env.SETTINGS_PG},{namespace:'metadata_alarm',connectionString:env.SUPPRESSION_PG});
+    const {readCurrent,...shape}=projected;assert.equal(typeof readCurrent,'function');
+    assert.deepEqual(shape,{namespace:'metadata_outbox',consumer:'realtime-metadata',maxRows:10,maxBytes:100000,maxPayloadBytes:10000});
+  });
+  it('derives only a static catalogue and rejects namespace collisions, raw catalogues and dynamic authority',function(){
+    const value=config();value.consumers.realtime.partitionMetadata={checkpointNamespace:value.postgres.namespaces.checkpoint,membershipNamespace:'metadata_membership',lifecycleNamespace:'metadata_lifetime'};
+    const expected=require('../lib/tenant-notifications/partition-candidate').build({...value.consumers.realtime.partitionMetadata,consumer:value.consumers.realtime.route.id,evaluatorConsumer:value.consumer+'-completed'}).catalogue;
+    assert.deepEqual(parse.parseMetadata(value).consumers.realtime.expectedCatalogue,expected);
+    assert.deepEqual(parse.parse(value,env).consumers.realtime.expectedCatalogue,expected);
+    const collisions=[...Object.values(value.postgres.namespaces).filter(x=>x!==value.postgres.namespaces.checkpoint),value.registry.namespace,value.activity.namespace,...Object.values(value.tenantSettings.namespaces),value.consumers.realtime.outbox.namespace,value.consumers.realtime.suppression.namespace];
+    for(const field of ['membershipNamespace','lifecycleNamespace'])for(const name of collisions){const bad=structuredClone(value);bad.consumers.realtime.partitionMetadata[field]=name;assert.throws(()=>parse.parseMetadata(bad),/invalid/);}
+    for(const mutate of [d=>d.consumers.realtime.partitionMetadata.checkpointNamespace='foreign_checkpoint',d=>d.consumers.realtime.partitionMetadata.lifecycleNamespace='metadata_membership',d=>d.consumer='not-an-evaluator',d=>d.consumers.realtime.expectedCatalogue=expected,...['ordinal','memberId','lease','revision','catalogue','sql','consumer'].map(key=>d=>d.consumers.realtime.partitionMetadata[key]='forbidden')]){const bad=structuredClone(value);mutate(bad);assert.throws(()=>parse.parseMetadata(bad),/invalid/);}
+    for(const field of ['consumer','route']){const changed=structuredClone(value);if(field==='consumer')changed.consumer='evaluator-other';else changed.consumers.realtime.route.id='realtime-other';assert.notDeepEqual(parse.parseMetadata(changed).consumers.realtime.expectedCatalogue,expected);}
+  });
+  it('binds static namespace changes to infrastructure restart before any worker lookup',async function(){
+    const value=config();value.consumers.realtime.partitionMetadata={checkpointNamespace:value.postgres.namespaces.checkpoint,membershipNamespace:'metadata_membership',lifecycleNamespace:'metadata_lifetime'};fs.writeFileSync(file,JSON.stringify(value));
+    const metadata=parse.loadMetadata({MULTITENANT_EVALUATOR_CONFIG:file,SETTINGS_PG:env.SETTINGS_PG});
+    value.consumers.realtime.partitionMetadata.membershipNamespace='replacement_membership';fs.writeFileSync(file,JSON.stringify(value));
+    await assert.rejects(metadata.readCurrent(A),/restart/);
   });
 });
