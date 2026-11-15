@@ -31,7 +31,9 @@ function preparation(ordinal,{roster=ids,inactive=[],mutate}={}){
   './evaluator-consumer-readiness':{sameDatastore:async()=>{},suppression:async()=>{calls.suppression++;}},
   './tenant-startup':{...startup,attempt:async(_,id,fn)=>inactive.includes(id)?false:fn()}
  },mutate);
- const config={tenants:new Map(roster.map(id=>[id,{}])),readCurrent:async()=>{},consumers:{realtime:{
+ const config={consumer:'evaluator-synthetic',tenants:new Map(roster.map(id=>[id,{}])),readCurrent:async()=>{},consumers:{realtime:{
+  partitionMetadata:{checkpointNamespace:binding.checkpointNamespace,membershipNamespace:binding.membershipNamespace,lifecycleNamespace:binding.lifecycleNamespace},
+  expectedCatalogue:require('../lib/tenant-notifications/partition-candidate').build(binding).catalogue,
   outbox:{namespace:'test_outbox',maxRows:10,maxBytes:10000,maxConnections:2},
   suppression:{namespace:'test_alarm',maxRows:10,maxBytes:10000,maxConnections:2},route:{id:'synthetic'},
   maxPayloadBytes:1000,maxInflight:1,attemptTimeoutMs:100,retryDelayMs:100,pollIntervalMs:100,retryIntervalMs:100}}};
@@ -71,6 +73,11 @@ describe('notification partition source adoption boundaries',function(){
   const off=isolated('server/serve/evaluator-consumers.js',{'../../storage/postgres-connection':()=>{throw Error('NO_RESOURCE');}});
   assert.equal(await off.prepare({config:{}}),null);
  });
+ it('requires both static metadata and matching runtime capability before any resource opens',async function(){
+  for(const change of [lab=>{delete lab.args.partition;},lab=>{delete lab.config.consumers.realtime.partitionMetadata;},lab=>{delete lab.config.consumers.realtime.expectedCatalogue;},lab=>{lab.config.consumer='evaluator-other';},...['checkpointNamespace','membershipNamespace','lifecycleNamespace','evaluatorConsumer'].map(key=>lab=>{lab.args.partition={...lab.args.partition,[key]:'conflicting_binding'};})]){
+   const lab=preparation(0);change(lab);await assert.rejects(lab.prepare(),/PARTITION_(RUNTIME_REQUIRED|METADATA_REQUIRED|METADATA_MISMATCH)/);assert.equal(lab.calls.opens,0);
+  }
+ });
  it('startup ablation breaks the actual local-slice criterion and restored source passes',async function(){
   const needle='      if (store.ownsTenant && !store.ownsTenant(tenant)) return false;';
   await assert.rejects(startupCheck(0,{mutate:raw=>{assert(raw.includes(needle));return raw.replace(needle,'');}}),/ONLY_LOCAL_SLICE_STARTUP/);
@@ -78,7 +85,8 @@ describe('notification partition source adoption boundaries',function(){
  });
  it('route-guard ablation permits resource acquisition and restored guard prevents it',async function(){
   const needle="  if (partition !== undefined && partition?.consumer !== selected.route.id) throw new Error('NOTIFICATION_PARTITION_ROUTE_MISMATCH');";
-  const broken=preparation(0,{mutate:raw=>{assert(raw.includes(needle));return raw.replace(needle,'');}});broken.args.partition={...broken.args.partition,consumer:'other'};
+  const bindingCheck='Object.entries(binding).some(([key, value]) => partition[key] !== value)';
+  const broken=preparation(0,{mutate:raw=>{assert(raw.includes(needle));assert(raw.includes(bindingCheck));return raw.replace(needle,'').replace(bindingCheck,"Object.entries(binding).filter(([key]) => key !== 'consumer').some(([key, value]) => partition[key] !== value)");}});broken.args.partition={...broken.args.partition,consumer:'other'};
   const result=await broken.prepare();try{assert.equal(broken.calls.opens,2);}finally{await result.close();}
   const restored=preparation(0);restored.args.partition={...restored.args.partition,consumer:'other'};
   await assert.rejects(restored.prepare(),/ROUTE_MISMATCH/);assert.equal(restored.calls.opens,0);
