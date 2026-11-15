@@ -14,15 +14,15 @@ const peer=peers[0];
 function load(relative,overrides={},mutate=s=>s){const file=path.resolve(__dirname,relative),module={exports:{}},original=require('node:module').createRequire(file);vm.runInThisContext('(function(require,module,exports){'+mutate(fs.readFileSync(file,'utf8'))+'\n})',{filename:file})(name=>Object.hasOwn(overrides,name)?overrides[name]:original(name),module,module.exports);return module.exports;}
 function deferred(){let resolve;return {promise:new Promise(r=>{resolve=r;}),resolve:v=>resolve(v)};}
 function clock(){let at=0,id=0;const timers=new Map();return {now:()=>at,schedule(fn,ms){const token={id:++id,unref(){}};timers.set(token,{fn,at:at+ms});return token;},cancel:token=>timers.delete(token),set(value){at=value;},advance(ms){at+=ms;for(const [key,row]of [...timers])if(row.at<=at){timers.delete(key);row.fn();}},timers};}
-function publish(){const c=clock();let current=incarnation,participant=peer.id,healthy=true,lost=false;const p=actual.publisher({assignmentRevision,stallMs:bounds.stallMs,getBinding:()=>{if(lost)throw Error('INTAKE_BINDING_UNAVAILABLE');return {participant,incarnation:current};},health:()=>({healthy,sequence:9,received:8,heartbeatAgeMs:c.now(),terminal:false,closed:false})});return {p,c,setParticipant:v=>{participant=v;},loseBinding:v=>{lost=v;},setInc:v=>{current=v;},setHealthy:v=>{healthy=v;},request:()=>({request:incarnation,participant:peer.id,incarnation:current,assignmentRevision})};}
-async function laboratory(module=actual,localBounds=bounds){
+function publish(intakeProfileDigest){const c=clock();let current=incarnation,participant=peer.id,healthy=true,lost=false;const p=actual.publisher({intakeProfileDigest,assignmentRevision,stallMs:bounds.stallMs,getBinding:()=>{if(lost)throw Error('INTAKE_BINDING_UNAVAILABLE');return {participant,incarnation:current};},health:()=>({healthy,sequence:9,received:8,heartbeatAgeMs:c.now(),terminal:false,closed:false})});return {p,c,setParticipant:v=>{participant=v;},loseBinding:v=>{lost=v;},setInc:v=>{current=v;},setHealthy:v=>{healthy=v;},request:()=>({request:incarnation,participant:peer.id,incarnation:current,assignmentRevision})};}
+async function laboratory(module=actual,localBounds=bounds,intakeProfileDigest){
  const f=require('./fixtures/operation-window-runtime-protocol')();await f.window.ready();
  const c=clock(),events=[];let current=incarnation,revision=3,state='ready',age=0,received=8,sequence=9,modify=x=>x,work=0,validateWork=async()=>{},reconcileWork=async()=>{};
  const status=request=>({request:request.request,version:1,participant:peer.id,incarnation:current,namespace:f.window.namespace,roles:peer.roles,namespaces:peer.namespaces,tenants:[incarnation,other],identity:f.window.identity,datastore:f.window.datastore,backends:[{pid:123,role:'synthetic_worker',birth:'1700000000.000001'}]});
- const reply=request=>modify({request:request.request,participant:peer.id,incarnation:current,assignmentRevision,sourceStallMs:bounds.stallMs,controlRevision:revision,state,code:state==='ready'?null:'INTAKE_BLOCKED',sequence,received,heartbeatAgeMs:age+c.now()});
+ const reply=request=>modify({...(intakeProfileDigest===undefined?{}:{intakeProfileDigest}),request:request.request,participant:peer.id,incarnation:current,assignmentRevision,sourceStallMs:bounds.stallMs,controlRevision:revision,state,code:state==='ready'?null:'INTAKE_BLOCKED',sequence,received,heartbeatAgeMs:age+c.now()});
  let rpc=async request=>reply(request),statusRpc=async request=>status(request);
  const descriptor={assignmentRevision},limits={...localBounds};
- const g=module.worker({peer,binding:descriptor,bounds:limits,...c,client:{inspectIntake:(...args)=>rpc(...args)},lifecycleClient:{getStatus:(...args)=>statusRpc(...args)},invalidate:async reason=>{events.push('withdraw:'+reason);work=0;},revalidate:async()=>{events.push('revalidate');await validateWork();},reconcile:async()=>{events.push('reconcile');await reconcileWork();}});
+ const g=module.worker({intakeProfileDigest,peer,binding:descriptor,bounds:limits,...c,client:{inspectIntake:(...args)=>rpc(...args)},lifecycleClient:{getStatus:(...args)=>statusRpc(...args)},invalidate:async reason=>{events.push('withdraw:'+reason);work=0;},revalidate:async()=>{events.push('revalidate');await validateWork();},reconcile:async()=>{events.push('reconcile');await reconcileWork();}});
  return {g,c,events,status,reply,descriptor,limits,async close(){await g.close();await f.window.close();},setInc:v=>{current=v;},setRevision:v=>{revision=v;},setState:v=>{state=v;},setAge:v=>{age=v;},setReceived:v=>{received=v;},setSequence:v=>{sequence=v;},modify:fn=>{modify=fn;},rpc:fn=>{rpc=fn;},statusRpc:fn=>{statusRpc=fn;},validate:fn=>{validateWork=fn;},reconcile:fn=>{reconcileWork=fn;},enter(){g.assertAvailable();work++;},get work(){return work;}};
 }
 describe('intake state publisher source contract',function(){
@@ -124,5 +124,54 @@ describe('actual maintained intake adapter publication wiring',function(){
  it('keeps default return/callback shapes, and stale incarnation completion cannot republish ready',async()=>{
   const plain=await adapter(false);try{assert(!Object.hasOwn(plain.owner,'inspectIntake'));assert(!Object.hasOwn(plain.ports,'onHealthy'));assert(!Object.hasOwn(plain.ports,'monotonicNow'));}finally{await plain.owner.close();}
   const f=await adapter();try{await f.ports.onRecovered();f.setInc(other);f.h.healthy=true;assert.throws(f.ports.onHealthy,/RECOVERY_SUPERSEDED/);assert.equal(f.owner.inspectIntake(f.request()).state,'blocked');}finally{await f.owner.close();}
+ });
+});
+
+// Profile agreement is an explicit immutable selection, never discovered from a reply.
+describe('intake health immutable profile agreement',function(){
+ const profile='a'.repeat(64),foreign='b'.repeat(64);
+ it('preserves unselected publication exactly and publishes only an explicitly selected strict digest',async()=>{
+  const plain=publish(),selected=publish(profile);await plain.p.recover(async()=>{});await selected.p.recover(async()=>{});
+  const old=plain.p.inspectIntake(plain.request()),next=selected.p.inspectIntake(selected.request());assert.deepEqual(next,{...old,intakeProfileDigest:profile});assert(!Object.hasOwn(old,'intakeProfileDigest'));
+  for(const value of [null,'',foreign.toUpperCase(),'a'.repeat(63),1,{},new String(profile)])assert.throws(()=>publish(value),/INTAKE_PROFILE_DIGEST_REQUIRED/);
+ });
+ it('uses an actual selected publisher without renewing receipt freshness or exceeding either stall bound',async()=>{
+  for(const sourceMs of [50,200]){const f=await laboratory(actual,bounds,profile),p=actual.publisher({intakeProfileDigest:profile,assignmentRevision,stallMs:sourceMs,getBinding:()=>({participant:peer.id,incarnation}),health:()=>({healthy:true,sequence:9,received:8,heartbeatAgeMs:f.c.now()})});try{await p.recover(async()=>{});f.rpc(async request=>p.inspectIntake(request));await f.g.synchronize();f.enter();f.c.advance(Math.min(sourceMs,bounds.stallMs)-1);await f.g.synchronize();f.c.advance(2);await Promise.resolve();assert(!f.g.available);assert.equal(f.work,0);}finally{p.close();await f.close();}}
+  const f=await laboratory(actual,bounds,profile);try{f.setAge(90);f.rpc(async request=>{const reply=f.reply(request);f.c.advance(15);return reply;});await assert.rejects(f.g.synchronize(),/FRESHNESS_EXPIRED/);assert(!f.g.available);assert.equal(f.c.timers.size,0);}finally{await f.close();}
+ });
+ it('refuses a profile change during revalidation without publishing a lease',async()=>{
+  const f=await laboratory(actual,bounds,profile);try{f.validate(async()=>f.modify(r=>({...r,intakeProfileDigest:foreign})));await assert.rejects(f.g.synchronize(),/INTAKE_PROFILE_MISMATCH/);assert(!f.g.available);assert.equal(f.work,0);assert.equal(f.c.timers.size,0);}finally{await f.close();}
+ });
+ it('refuses invalid worker factory profile values before any admission',async()=>{
+  for(const value of [null,'','A'.repeat(64),'a'.repeat(63),1,{},new String(profile)])assert.throws(()=>actual.worker({intakeProfileDigest:value}),/INTAKE_PROFILE_DIGEST_REQUIRED/);
+ });
+ it('control: removing profile agreement admits a foreign profile and makes the withdrawal oracle red',async()=>{
+  const check="  if(response.intakeProfileDigest!==profile)throw fail('INTAKE_PROFILE_MISMATCH');";
+  const broken=load('../lib/pgstream/intake-state.js',{},s=>{assert(s.includes(check));return s.replace(check,'');});
+  const criterion=async module=>{const f=await laboratory(module,bounds,profile);try{await f.g.synchronize();f.enter();f.modify(r=>({...r,intakeProfileDigest:foreign}));let error;try{await f.g.synchronize();}catch(value){error=value;}assert.equal(error?.code,'INTAKE_PROFILE_MISMATCH','FOREIGN_PROFILE_MUST_REFUSE');assert(!f.g.available);assert.equal(f.work,0);assert.equal(f.c.timers.size,0);}finally{await f.close();}};
+  await assert.rejects(criterion(broken),/FOREIGN_PROFILE_MUST_REFUSE/);await criterion(actual);
+ });
+ it('control: checking a mismatched profile before terminal latching lets same-incarnation readiness reopen',async()=>{
+  const check="  if(response.intakeProfileDigest!==profile)throw fail('INTAKE_PROFILE_MISMATCH');",terminal="  if(response.state==='terminal'){remoteTerminal=true;withdraw('INTAKE_TERMINAL_INCARNATION');}";
+  const broken=load('../lib/pgstream/intake-state.js',{},s=>{assert(s.includes(check)&&s.includes(terminal));return s.replace(check,'').replace(terminal,check+'\n'+terminal);});
+  const criterion=async module=>{const f=await laboratory(module,bounds,profile);try{await f.g.synchronize();f.setRevision(4);f.setState('terminal');f.modify(r=>({...r,intakeProfileDigest:foreign}));await assert.rejects(f.g.synchronize(),/INTAKE_PROFILE_MISMATCH/);f.modify(r=>r);f.setRevision(5);f.setState('ready');let error;try{await f.g.synchronize();}catch(value){error=value;}assert.equal(error?.code,'INTAKE_TERMINAL_INCARNATION','PROFILE_FAILURE_MUST_NOT_HIDE_TERMINAL');assert(!f.g.available);}finally{await f.close();}};
+  await assert.rejects(criterion(broken),/PROFILE_FAILURE_MUST_NOT_HIDE_TERMINAL/);await criterion(actual);
+ });
+ it('admits the exact configured profile and never adopts missing, old, wrong or changed profiles',async()=>{
+  for(const selected of [undefined,profile])for(const replacement of [undefined,foreign]){
+   const f=await laboratory(actual,bounds,selected);try{await f.g.synchronize();f.enter();f.modify(r=>{const next={...r};if(replacement===undefined)delete next.intakeProfileDigest;else next.intakeProfileDigest=replacement;return next;});
+    if(selected===undefined&&replacement===undefined)assert.equal(await f.g.synchronize(),true);
+    else{await assert.rejects(f.g.synchronize(),/INTAKE_PROFILE_MISMATCH/);assert(!f.g.available);assert.equal(f.work,0);assert.equal(f.c.timers.size,0,'NO_PROFILE_REFUSAL_LEASE');}
+   }finally{await f.close();}
+  }
+ });
+ it('does not auto-adopt another profile across control revisions or actual incarnation changes',async()=>{
+  for(const restart of [false,true]){const f=await laboratory(actual,bounds,profile);try{await f.g.synchronize();f.enter();f.setRevision(4);if(restart)f.setInc(other);f.modify(r=>({...r,intakeProfileDigest:foreign}));await assert.rejects(f.g.synchronize(),/INTAKE_PROFILE_MISMATCH/);assert(!f.g.available);assert.equal(f.work,0);assert.equal(f.c.timers.size,0);}finally{await f.close();}}
+ });
+ it('latches a same-binding terminal before missing/wrong profile and expired/null age can hide it',async()=>{
+  for(const replacement of [undefined,foreign])for(const age of [100,null]){const f=await laboratory(actual,bounds,profile);try{await f.g.synchronize();f.setRevision(4);f.setState('terminal');f.setAge(0);f.modify(r=>{const next={...r,heartbeatAgeMs:age};if(replacement===undefined)delete next.intakeProfileDigest;else next.intakeProfileDigest=replacement;return next;});await assert.rejects(f.g.synchronize(),/INTAKE_PROFILE_MISMATCH/);assert(!f.g.available);f.setRevision(5);f.setState('ready');f.modify(r=>r);await assert.rejects(f.g.synchronize(),/INTAKE_TERMINAL_INCARNATION/);assert(!f.g.available);assert.equal(f.c.timers.size,0);}finally{await f.close();}}
+ });
+ it('retains terminal against late ready replies and lost peer binding with profile refusal',async()=>{
+  const f=await laboratory(actual,bounds,profile);try{await f.g.synchronize();const wait=deferred();let reply;f.rpc(async request=>{reply=f.reply(request);return wait.promise;});const late=f.g.synchronize();await new Promise(setImmediate);f.rpc(async request=>f.reply(request));f.setRevision(4);f.setState('terminal');f.modify(r=>({...r,intakeProfileDigest:foreign}));await assert.rejects(f.g.synchronize(),/INTAKE_PROFILE_MISMATCH/);wait.resolve(reply);await assert.rejects(late,/REPLY_REORDERED/);f.statusRpc(async()=>{throw Error('SYNTHETIC_BINDING_LOST');});await assert.rejects(f.g.synchronize(),/SYNTHETIC_BINDING_LOST/);f.statusRpc(async request=>f.status(request));f.setRevision(5);f.setState('ready');f.modify(r=>r);await assert.rejects(f.g.synchronize(),/TERMINAL_INCARNATION/);assert(!f.g.available);assert.equal(f.c.timers.size,0);}finally{await f.close();}
  });
 });
