@@ -54,7 +54,7 @@ describe('Selected suppression control read scope source protocol',function(){
   });
   async function prepareCheck(mutate,{unsafeOutbox=false}={}){
     const mutateMarks={omitted:!!mutate};
-    const l=lab();let reader,effects=0,admitSuppression;
+    const l=lab();let reader,effects=0,admitSuppression,storesCreated=0,storesClosed=0,storesOwned=0;
     // prepare now screens outbox metadata before tenant provisioning. Keep that
     // actual guard: use the existing notification SQL protocol on a distinct
     // connection instead of answering its new metadata queries with empty rows.
@@ -74,7 +74,7 @@ describe('Selected suppression control read scope source protocol',function(){
         admitSuppression=()=>settings.admitBackend(connection);await admitSuppression();
       }
       return connection;
-    },'../../tenant-notifications/postgres':()=>({ready:async()=>{}}),
+    },'../../tenant-notifications/postgres':()=>{storesCreated++;return {ready:async()=>{},own:async onLoss=>{assert.equal(typeof onLoss,'function');assert.equal(effects,0);assert(outbox.calls.some(call=>call.sql?.includes('notification-readiness-role')),'COLD_OUTBOX_CHECK_PRECEDES_DEFAULT_OWN');assert.equal(outbox.calls.filter(call=>call.sql?.includes('notification-readiness-table')).length,4);storesOwned++;},close:async()=>{storesClosed++;}};},
       '../../tenant-alarms/postgres':{createReader:({connection})=>(reader={read:({tenant})=>scope.withTenant(tenant,()=>connection.snapshotTransaction(async()=>{effects++;return {};}))})},
       '../../tenant-notifications/producer':()=>({close(){}}),'../../tenant-notifications/component':()=>({close:async()=>{}}),'../realtime/alarm-transport':{createAdapter:()=>({send(){}})}},mutate);
     const config={tenants:new Map([[A,true],[B,true]]),readCurrent:async()=>({}),consumers:{realtime:{outbox:{connectionString:'synthetic-outbox',namespace:'outbox',maxRows:10,maxBytes:10000},suppression:{connectionString:'synthetic-suppression',namespace:'alarm_test',maxRows:10,maxBytes:10000},route:{id:'synthetic',socketPath:'/synthetic/unused',maxBytes:10000,timeoutMs:1000},maxPayloadBytes:1000,maxInflight:1,attemptTimeoutMs:1000,retryDelayMs:100,pollIntervalMs:100,retryIntervalMs:100}}};
@@ -83,7 +83,7 @@ describe('Selected suppression control read scope source protocol',function(){
       composed=await prepare({jobContext,config,clinicalConnection:{transaction:fn=>fn(),query:async()=>({rows:[]})},operationWindow:l.f.window,current:()=>null,isCurrent:async()=>false});
       assert(outbox.calls.some(call=>call.sql?.includes('notification-readiness-role')),'OUTBOX_METADATA_SCREEN_REQUIRED');
       assert.equal(outbox.calls.filter(call=>call.sql?.includes('notification-readiness-table')).length,4,'COMPLETE_OUTBOX_TABLE_SCREEN');
-      assert.equal(effects,2);const full=l.observed.length;await reader.read({tenant:A});assert.equal(effects,3);
+      assert.equal(storesOwned,1,'DEFAULT_STORE_OWN_AFTER_COLD_CHECKS');assert.equal(effects,2);const full=l.observed.length;await reader.read({tenant:A});assert.equal(effects,3);
       if(!unsafeOutbox&&!mutateMarks.omitted)assert.equal(l.observed.length,full,'WARM_READ_HAS_NO_REPEATED_CATALOGUE_PROOF');
       // Deliberate metadata drift does not add a warm per-read digest. A fresh
       // backend still refuses that ACL before it can publish reader effects.
@@ -92,7 +92,7 @@ describe('Selected suppression control read scope source protocol',function(){
       await assert.rejects(admitSuppression(),/READINESS_REFUSED/);assert.equal(effects,4);
       l.flags.foreignRead=false;await admitSuppression();await reader.read({tenant:B});assert.equal(effects,5);
     }catch(error){if(unsafeOutbox)assert.equal(effects,0,'UNSAFE_OUTBOX_REFUSES_BEFORE_READER_EFFECTS');throw error;
-    }finally{await composed?.close();jobContext.close();await l.f.window.close();}
+    }finally{await composed?.close();jobContext.close();await l.f.window.close();assert.equal(storesClosed,storesCreated,'ACTUAL_CREATED_STORE_CLOSE_REQUIRED');if(unsafeOutbox)assert.equal(storesOwned,0,'UNSAFE_OUTBOX_HAS_NO_DEFAULT_STORE_OWN');}
   }
   it('threads actual selection into cold backend admission without repeating catalogue proofs in warm snapshots',()=>prepareCheck());
   it('detects omission at the actual prepare call site and passes fresh restored source',async function(){

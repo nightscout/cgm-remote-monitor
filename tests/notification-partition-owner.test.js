@@ -12,20 +12,23 @@ const {RULE}=require('../lib/pool-membership/slice');
 const binding={checkpointNamespace:'test_checkpoint',membershipNamespace:'test_membership',lifecycleNamespace:'test_control',consumer:'synthetic',evaluatorConsumer:'evaluator-synthetic-completed'};
 const ids=Array.from({length:64},(_,i)=>'00000000-0000-4000-8000-'+(i+1).toString(16).padStart(12,'0'));
 const REV='9007199254740993';
-function fixture({ordinal=0,revision=REV,runTransaction,fallbackQuery}={}){
+function fixture({ordinal=0,revision=REV,runTransaction,fallbackQuery,profileSelected=false,forgedAssignment=false,profileChange}={}){
  const assignment=fixed.create({tenants:ids,members:2,revision}),self={ordinal,memberId:ids[ordinal],rule:RULE};
- const built=candidate.build(binding),clinical=assignmentCandidate.build(binding);
+ const profiles=require('../lib/pgstream/intake-profile'),safeProfile=profileSelected?profiles.create({namespace:binding.checkpointNamespace,consumer:binding.evaluatorConsumer.slice(0,-10),role:'intake_writer',membershipNamespace:binding.membershipNamespace,lifecycleNamespace:binding.lifecycleNamespace,revision,members:2,tenants:ids,codec:profiles.CODEC,generationDomain:profiles.GENERATION_DOMAIN,...profileChange}):undefined;
+ const intakeProfile=safeProfile&&forgedAssignment?{...safeProfile,assignment:{...safeProfile.assignment,owner:()=>{throw new Error('FORGED_PROFILE_ASSIGNMENT_USED');}}}:safeProfile;
+ const built=candidate.build(binding),clinical=assignmentCandidate.build({...binding,intakeProfile});
  const shape=(name,type,source,fn,deferred=false)=>({name,type,source,function_name:fn,deferrable:deferred,deferred,enabled:'A',arguments:0,unconditional:true,function_arguments:0,trigger_result:true,definer:false,language:'plpgsql',config:['search_path=pg_catalog']});
  const notification=candidate.TABLES.flatMap(table_name=>['notification_partition_effect','notification_partition_commit'].map(name=>({...shape(name,name.endsWith('commit')?29:31,built.body,'pgstream_notification_partition',name.endsWith('commit')),table_name,column_count:0})));
  const instruments={notification,assignment:[{...shape('pgstream_assignment_protocol',31,clinical.assignmentBody,'pgstream_assignment_required'),columns:assignmentCandidate.ASSIGNMENT_COLUMNS},{...shape('pgstream_effect_protocol',19,clinical.effectBody,'pgstream_assigned_effect_required'),columns:assignmentCandidate.EFFECT_COLUMNS},{...shape('pgstream_effect_commit',17,clinical.effectBody,'pgstream_assigned_effect_required',true),columns:[]}],indexes:assignmentCandidate.INDEXES.map(index=>({...index,valid:true,ready:true,unique:false,method:'btree'}))};
  let active=false,xid=0,held=false,loss,live=true,generation='7',pid=41,assigned=revision,failCommit=false,broadReads=false;
  const events=[],keys=[];
- const selection=owner.configure({...binding,assignment,self,currentGeneration:()=>generation},'test_outbox');
+ const selection=owner.configure({...binding,assignment:forgedAssignment?{...assignment,owner:()=>{throw new Error('FORGED_SELECTION_USED');},select:()=>{throw new Error('FORGED_SELECTION_USED');}}:assignment,self,currentGeneration:()=>generation,...(intakeProfile?{intakeProfile}:{})},'test_outbox');
  const connection={
   async holdAdvisoryLock(key,onLoss){held=true;loss=onLoss;keys.push(key);return {get available(){return held;},backendPid:41,async check(){if(!held)throw Error('LOST');},async close(){held=false;events.push('RELEASE');},async withTenantTransaction(tenant,fn){assert(!active);active=true;xid++;events.push('BEGIN');try{const result=await (runTransaction?runTransaction(fn):fn());if(failCommit)throw Error('COMMIT_UNCONFIRMED');events.push('COMMIT');return result;}catch(error){events.push('ROLLBACK');throw error;}finally{active=false;}}};},
   async readOnly(sql,values){
    if(sql.includes('notification-partition-grants')){const expected={pool_membership:grants.MEMBERS,pool_desired:grants.DESIRED,tenant_consumer_checkpoint:grants.ASSIGNMENT};return {rows:[{uses_schema:true,creates:false,owns:false,broad_reads:broadReads,writes:false,reads:[...expected[values[1]]].sort()}]};}
    if(sql.includes('FROM pg_index'))return {rows:instruments.indexes};
+   if(sql.includes('/* intake-assert-function */'))return {rows:[{source:clinical.intakeAssertBody,definer:false,config:['search_path=pg_catalog'],arguments:0,void_result:true,executes:false,language:'plpgsql'}]};
    if(sql.includes('FROM pg_trigger'))return {rows:sql.includes('column_count')?instruments.notification:sql.includes('t.tgname AS name')?instruments.assignment:['pool_membership','pool_desired'].map(table_name=>({...shape('',31,membershipProtocol.BODY,'pool_mutation_lock_required'),table_name}))};
    assert.fail(sql);
   },
@@ -100,4 +103,11 @@ describe('opt-in notification partition source ownership',function(){
 
 it('cold outbox admission refuses the older NULL-skipping body and admits the exact current protocol',async()=>{
  const old='bool_and(ordinal>=0 AND ordinal<desired.members AND applied_members=desired.members AND slice_rule=desired.slice_rule)',current='bool_and(coalesce(ordinal>=0 AND ordinal<desired.members AND applied_members=desired.members AND slice_rule=desired.slice_rule,false))',f=fixture();for(const row of f.instruments.notification){assert(row.source.includes(current));row.source=row.source.replace(current,old);}await assert.rejects(f.selection.own(f.connection),/PROTOCOL_UNQUALIFIED/);assert.equal(f.selection.available(),false);const restored=fixture();await restored.selection.own(restored.connection);await restored.selection.close();
+});
+it('profile-aware outbox owners validate the same worker protocol for both ordinals without adding profile-table reads or ACK dependency',async()=>{
+ for(const ordinal of [0,1]){const f=fixture({ordinal,profileSelected:true,forgedAssignment:true});try{await f.selection.own(f.connection);await f.selection.transaction(f.connection,f.owned,async()=>{f.events.push('EFFECT');});assert.deepEqual(f.events,['BEGIN','SHARED','STAMP','EFFECT','SHARED','COMMIT']);await assert.rejects(f.selection.transaction(f.connection,f.foreign,()=>{}),/FOREIGN_TENANT/);}finally{await f.selection.close();}}
+});
+it('profile-aware outbox selection refuses layout/consumer/roster/revision mismatches before any resource opens',()=>{
+ const assignment=fixed.create({tenants:ids,members:2,revision:REV}),self={ordinal:0,memberId:ids[0],rule:RULE},profiles=require('../lib/pgstream/intake-profile');
+ for(const profileChange of [{namespace:'other_checkpoint'},{consumer:'evaluator-other'},{membershipNamespace:'other_membership'},{lifecycleNamespace:'other_control'},{tenants:[ids[0]]},{revision:'9007199254740994'},{members:1}]){const intakeProfile=profiles.create({namespace:binding.checkpointNamespace,consumer:'evaluator-synthetic',role:'intake_writer',membershipNamespace:binding.membershipNamespace,lifecycleNamespace:binding.lifecycleNamespace,revision:REV,members:2,tenants:ids,codec:profiles.CODEC,generationDomain:profiles.GENERATION_DOMAIN,...profileChange});assert.throws(()=>owner.configure({...binding,assignment,self,currentGeneration:()=> '7',intakeProfile},'test_outbox'),/NOTIFICATION_INTAKE_PROFILE_BINDING/);}assert.throws(()=>owner.configure({...binding,assignment,self,currentGeneration:()=> '7',intakeProfile:undefined},'test_outbox'),/PGSTREAM_INTAKE_PROFILE/);
 });
