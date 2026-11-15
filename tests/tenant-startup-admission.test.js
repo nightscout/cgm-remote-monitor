@@ -84,7 +84,10 @@ describe('independent tenant startup admission (source protocol)', function () {
   });
   it('hard refuses wrong binding, wrong datastore, metadata failure, fake window and application code lookalikes', async function () {
     for (const options of [{key:'99'}, {superuser:true}, {phase:'suspended',unlock:false}]) {
-      const f=fixture(options); try { await assert.rejects(startup.attempt(f.window,A,async()=>{})); } finally { await f.window.close(); }
+      const f=fixture(options); try { await assert.rejects(startup.attempt(f.window,A,async()=>{})); } finally {
+        if(options.unlock===false)await assert.rejects(f.window.close(),{code:'LIFECYCLE_WINDOW_DRAIN_FAILED'});
+        else await f.window.close();
+      }
     }
     const options={}, f=fixture(options); await f.window.ready(); options.datastore={database_oid:'999'};
     try { await assert.rejects(startup.attempt(f.window,A,async()=>{}),{code:'LIFECYCLE_WINDOW_DATASTORE_CHANGED'}); }
@@ -197,6 +200,9 @@ describe('independent tenant startup admission (source protocol)', function () {
       options.phases[A]='active';await role.acquire(A);assert.deepEqual(provisioned,[B,A]);
       assert.equal(await f.window.run(A,()=>role.last(A).eligible),true);
       await role.close();role=null;options.phases[A]='suspended';options.phases[B]='suspended';
+      // Operator suspension includes draining/invalidation of the admitted
+      // generation; changing recording SQL alone leaves its active lane valid.
+      for(const tenant of [A,B]){await f.window.drainTenant(tenant);await f.window.invalidateTenant(tenant);}
       readiness.provisionTenant=async()=>{throw new Error('should not enter paused tenant');};
       role=await boot.boot(config,{operationWindow:f.window});assert.equal(role.health().tenants.some(row=>row.ready),false);
       await role.close();role=null;

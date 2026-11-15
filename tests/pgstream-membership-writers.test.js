@@ -48,7 +48,7 @@ it('all actual member writers take exclusive transaction lock; fixed heartbeat c
  await assert.rejects(member.register(),{code:'POOL_INCARNATION_EXPIRED'});await member.close();lockedTransactions(f.calls);
  assert.equal(f.calls.filter(row=>row.text.startsWith('INSERT INTO')&&row.text.includes('pool_membership')).length,1);
  assert(f.calls.filter(row=>row.text.startsWith('UPDATE')).every(row=>row.text.includes('lease_expires_at>clock_timestamp()')));
- assert.equal(f.migration[0].action,'check');assert.equal(f.migration[0].options.catalogue.migrations.at(-1).name,'0003_pool_mutation_protocol');
+ assert.equal(f.migration[0].action,'check');assert.equal(f.migration[0].options.catalogue.migrations.at(-1).name,'0004_pool_mutation_function_execution');
 });
 it('generic member behavior remains selectable and new operator writes cooperate without any desired grant change',async()=>{
  const f=fixture(),member=await f.postgres.create({kind:'evaluator',ordinal:0,leaseMs:5000,connectionString:'synthetic',namespace:'test_membership',onAlert:()=>{}});
@@ -75,7 +75,9 @@ it('control: omit exclusive writer lock; actual mutation ordering criterion turn
 });
 it('optional migration checksum/prefix and lock key are exact and default catalogue is unchanged',()=>{
  const {validateCatalogue}=require('../lib/migrations/catalogue'),catalogue=require('../migrations/candidates/postgres-pool-mutation-v1.json'),base=require('../lib/pool-membership/postgres-candidate.json');
- assert.equal(validateCatalogue(catalogue).length,3);assert.deepEqual(catalogue.migrations.slice(0,2),base.migrations);
+ assert.equal(validateCatalogue(catalogue).length,4);
+ assert.equal(catalogue.migrations[2].name,'0003_pool_mutation_protocol');
+ assert.deepEqual(catalogue.migrations[3].up,['REVOKE EXECUTE ON FUNCTION pool_mutation_lock_required() FROM PUBLIC']);assert.deepEqual(catalogue.migrations.slice(0,2),base.migrations);
  const lock=require('../lib/pool-membership/transaction-lock'),bytes=require('node:crypto').createHash('sha256').update('nightscout:pool-membership:xact:v1:test_membership:evaluator').digest();
  assert.deepEqual(lock.key('test_membership','evaluator'),[bytes.readInt32BE(0),bytes.readInt32BE(4)]);
  assert.notDeepEqual(lock.key('test_membership','evaluator'),lock.key('test_membership','vcpool'));assert.notDeepEqual(lock.key('test_membership','evaluator'),lock.key('another_membership','evaluator'));

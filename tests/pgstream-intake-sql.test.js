@@ -16,7 +16,12 @@ describe('proposed sole-intake source capability (synthetic SQL; native unmeasur
  });
  it('appends one coherent migration without editing any prefix and preserves the complete worker branch/BASE grants',()=>{
   const a=candidate.build(fixture.options),b=candidate.build({...fixture.options,intakeProfile:p()});
-  assert.deepEqual(b.catalogue.migrations.slice(0,3),a.catalogue.migrations);assert.equal(require('../lib/migrations/catalogue').validateCatalogue(b.catalogue).length,4);
+  // Sole intake is inserted before the shared EXECUTE hardening migration.
+  assert.deepEqual(b.catalogue.migrations.slice(0,3),a.catalogue.migrations.slice(0,3));
+  assert.deepEqual(b.catalogue.migrations.at(-1),a.catalogue.migrations.at(-1));
+  assert.equal(b.catalogue.migrations.at(-1).name,'0005_evaluator_assignment_function_execution');
+  assert.deepEqual(b.catalogue.migrations.at(-1).up,['REVOKE EXECUTE ON FUNCTION pgstream_assignment_required() FROM PUBLIC','REVOKE EXECUTE ON FUNCTION pgstream_assigned_effect_required() FROM PUBLIC']);
+  assert.equal(require('../lib/migrations/catalogue').validateCatalogue(b.catalogue).length,5);
   assert(b.effectBody.endsWith(a.effectBody.slice(a.effectBody.indexOf('BEGIN\n')+6)));assert(b.effectBody.includes('NEW.consumer=\'evaluator-intake-completed\''));assert(b.effectBody.includes('PGSTREAM_INTAKE_IMMUTABLE'));
   const migration=b.catalogue.migrations[3];assert(!migration.up.some(sql=>/^UPDATE tenant_consumer_checkpoint/.test(sql)));assert(require('../lib/pgstream/worker-grants').UPDATES.includes('contract_digest'));
   assert.throws(()=>candidate.build({...fixture.options,membershipNamespace:'foreign_members',intakeProfile:p()}),/CATALOGUE_BINDING/);
