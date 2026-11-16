@@ -111,3 +111,29 @@ describe('addressed realtime output demand',function(){
    const f=fixture([id(1)]);await assert.rejects(f.detector([id(1)],{interested:[id(2)]}),/interest/i);assert.equal(f.counts.scanned,0);assert.equal(f.counts.revisions,0);
  });
 });
+
+// Completed-output mode has one retry owner: durable receipts. The runtime
+// handles addressed connection demand, but never duplicates the receipt timer.
+describe('durable output retry ownership and upstream pending',()=>{
+ it('keeps upstream pending distinct from failed delivery and wakes only on completed output or demand',async()=>{
+  const tenant=id(1),timers=[];let pending=true,acquired=0;
+  const service=await runtime({tenants:[tenant],durableOutput:true,readiness:'serve',watchedTenants:()=>[tenant],
+   detect:async()=>new Map([[tenant,pending?{pending:true}:{identity:'current',stamp:'1'}]]),readCurrent:async()=>({tenant,identity:'current'}),
+   create:()=>({acquire:async()=>{acquired++;return {tenant,checkpoint:1,frame:{},rows:[]};}}),fanout:async()=>{},schedule:fn=>{timers.push(fn);return 1;},cancel(){}});
+  try{
+   const first=await service.check([tenant]);assert.equal(first.get(tenant),true,'PENDING_WAITS_FOR_NEW_DURABLE_OUTPUT');
+   assert.equal(service.health().upstreamPending,1);assert.equal(service.health().failed,0);assert.equal(acquired,0);assert.equal(timers.length,0,'NO_DUPLICATE_PENDING_RETRY');
+   pending=false;const next=await service.check([tenant]);assert.equal(next.get(tenant),true);assert.equal(acquired,1);assert.equal(service.warm(tenant),true);assert.equal(timers.length,0);
+  }finally{await service.close();}
+ });
+ it('keeps actual failed delivery owed to durable retry without a second runtime retry timer',async()=>{
+  const tenant=id(1),timers=[];let refuse=true,deliveries=0;
+  const service=await runtime({tenants:[tenant],durableOutput:true,readiness:'serve',watchedTenants:()=>[tenant],
+   detect:async()=>new Map([[tenant,{identity:'current',stamp:'1'}]]),readCurrent:async()=>({tenant,identity:'current'}),create:()=>({acquire:async()=>({tenant,checkpoint:1,frame:{},rows:[]})}),
+   fanout:async()=>{deliveries++;if(refuse)throw Error('SYNTHETIC_DELIVERY_FAILURE');},schedule:fn=>{timers.push(fn);return 1;},cancel(){}});
+  try{
+   assert.equal((await service.check([tenant])).get(tenant),false,'FAILED_DELIVERY_STAYS_OWED');assert.equal(service.health().failed,1);assert.equal(timers.length,0,'ONE_RETRY_OWNER');
+   refuse=false;assert.equal((await service.check([tenant])).get(tenant),true);assert.equal(deliveries,2);
+  }finally{await service.close();}
+ });
+});

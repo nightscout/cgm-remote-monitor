@@ -405,7 +405,11 @@
         "tests/realtime-pool-output.test.js",
         "tests/pgstream-pool-assignment-candidate.test.js",
         "tests/pgstream-pool-assignment.test.js",
-        "tests/pgstream-pool-assignment-protocol.test.js"
+        "tests/pgstream-pool-assignment-protocol.test.js",
+        "tests/clinical-stream-state.test.js",
+        "tests/clinical-stream-sql.test.js",
+        "tests/clinical-stream-recovery.test.js",
+        "tests/clinical-storage-size.test.js"
       ],
       "env": true,
       "require": [

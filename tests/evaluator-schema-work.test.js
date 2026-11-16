@@ -9,7 +9,7 @@ const deferred = () => { let resolve; const promise = new Promise(done => { reso
 function fixture (count, selected, ordinal = 0, change = text => text, realLifecycle = false, lifecycleChange = text => text) {
   const ids = Array.from({ length: count }, (_, i) => '11111111-1111-4111-8111-' + String(i).padStart(12, '0'));
   const tenants = new Map(ids.map(id => [id, {}]));
-  const calls = { scans: [], pages: [], invalidated: [], wakes: [], readiness: 0, verify: 0, timers: [], deliveryRecovery: 0 };
+  const calls = { scans: [], pages: [], invalidated: [], wakes: [], readiness: 0, verify: 0, timers: [], deliveryRecovery: 0, startup: [], streamInvalidated: [] };
   const state = { secured: true, holdReadiness: null, holdSettings: null, failPage: false, settings: 1, policy: 1, paused: false, suspended: false };
   const connection = { async readOnly (text, values) {
     if (/FROM pg_class/.test(text)) { calls.verify++; return { rows: [1,2,3,4].map(() => ({ secured: state.secured, owns: false, writes: false })) }; }
@@ -40,6 +40,9 @@ function fixture (count, selected, ordinal = 0, change = text => text, realLifec
   const readiness = Object.assign(async () => { calls.readiness++; if (state.holdReadiness) await state.holdReadiness.promise; }, { async provisionTenant () {} });
   const mocks = {
     '../../storage/postgres-connection': connect,
+    // Stream recovery now invalidates accepted input before the existing bounded
+    // metadata bootstrap; this source-only schema fixture has no clinical DB.
+    '../../storage/postgres-durable-replay': () => ({async invalidateStream(tenant){calls.streamInvalidated.push(tenant);},async acceptClinical(){throw Error('CLINICAL_INPUT_NOT_IN_SCHEMA_FIXTURE');}}),
     '../../data/tenant-projection-evaluator': { domains: [] },
     './evaluator-runtime': async options => { runtimeOptions=options; return runtime; },
     './evaluator-config': { registryEntry () {}, async withSettings(base,entry,tenant) { const row=reader.current(tenant);return {tenant,identity:String(row.settings)+':'+String(row.policy)}; } },
@@ -59,7 +62,7 @@ function fixture (count, selected, ordinal = 0, change = text => text, realLifec
     '../../pgstream/evaluator': { async open (options) { callbacks = options; return { store, async ready () { await state.atReady(); }, async close () {}, assertAvailable () {}, health: () => ({ healthy: true }) }; } },
     './tenant-startup': { create: () => ({ async warm () {}, async close () {}, isReady: () => true }) },
     './evaluator-consumers': { async prepare () { return { start () {}, async recover () { calls.deliveryRecovery++; }, async close () {} }; } },
-    '../../pgstream/activity-scheduler': { start: options => { schedulerOptions=options; return ({ async recover () {}, wakeDelivery () {}, wake: (...args) => calls.wakes.push(args), async close () {} }); } },
+    '../../pgstream/activity-scheduler': { start: options => { schedulerOptions=options; return ({ async recover () {}, wakeDelivery () {}, wake: (...args) => (args[1]==='startup'?calls.startup:calls.wakes).push(args), async close () {} }); } },
     '../internal-api/clients': { completedOutput: () => ({ hintCompletedOutput () {} }), pgstreamInput: () => ({}) },
     './evaluator-inspection': () => () => ({}),
     '../../pgstream/intake-profile': { validate: () => profile },

@@ -25,7 +25,9 @@ const CANDIDATES = {
   devicestatus: require('../migrations/candidates/postgres-devicestatus-socket-order-v1.json'),
   profile: require('../migrations/candidates/postgres-profile-socket-order-v1.json')
 };
-const candidate = domain => CANDIDATES[domain];
+// These immutable prefix controls address insertion conversion/binding. The later
+// clinical-size projection is append-only and has its own catalogue controls.
+const candidate = domain => ({...CANDIDATES[domain],migrations:CANDIDATES[domain].migrations.filter(m=>m.operation?.kind!=='clinical-storage-size-v1')});
 const clone = value => JSON.parse(JSON.stringify(value));
 const errorCode = code => error => error.code === code;
 

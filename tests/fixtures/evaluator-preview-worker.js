@@ -2,25 +2,34 @@
 
 // Private native fixture driver over the actual role composition, not a product
 // listener or control API. IPC is inherited only by the explicitly forked test.
-const pg = require('pg');
-const query = pg.Client.prototype.query;
 let held, release, armed = false, running, context, starting;
+// Count actual role queries without changing their result or timing contract.
+const clinicalReads={snapshots:0,statistics:0,catalogue:0};
+const pg=require('pg'),query=pg.Client.prototype.query;
+pg.Client.prototype.query=function(...args){const sql=typeof args[0]==='string'?args[0]:args[0]?.text;
+  if(typeof sql==='string'){
+    if(sql.includes('snapshot_source'))clinicalReads.snapshots++;
+    if(sql.includes('pg_column_size(doc)'))clinicalReads.statistics++;
+    if(sql.includes('information_schema.columns'))clinicalReads.catalogue++;
+  }
+  return query.apply(this,args);
+};
 const encode = value => JSON.parse(JSON.stringify(value, (key, item) => item === undefined
   ? { probeType: 'undefined' } : typeof item === 'number' && (!Number.isFinite(item) || Object.is(item, -0))
     ? { probeType: 'number', value: Object.is(item, -0) ? '-0' : String(item) } : item));
-pg.Client.prototype.query = function (...args) {
-  const result = query.apply(this, args);
-  // The cycle's actual clinical statistics read, after input COMMIT. Receipt
-  // batch SQL also uses jsonb_to_recordset and must not satisfy this hold.
-  if (armed && typeof args[0] === 'string' && args[0].includes('pg_column_size(doc)') && result?.then) {
-    armed = false;
-    return result.then(async value => {
-      held = true; process.send({ held: true });
-      await new Promise(done => { release = done; }); return value;
-    });
-  }
-  return result;
-};
+// Hold the actual clinical result before durable completion. Warm stream cycles
+// intentionally do not execute the old full-source statistics SELECT; that SQL
+// is no longer a valid clinical execution probe.
+const evaluatorPath = require.resolve('../../lib/data/tenant-projection-evaluator');
+const evaluator = require(evaluatorPath);
+require.cache[evaluatorPath].exports = Object.assign((...args) => {
+  const engine = evaluator(...args);
+  return Object.freeze({...engine, async evaluate(options) {
+    const result = await engine.evaluate(options);
+    if(armed){armed=false;held=true;process.send({held:true});await new Promise(done=>{release=done;});}
+    return result;
+  }});
+},evaluator);
 const failure = (error, depth = 0) => ({ name: error.name, message: error.message, ...(depth < 3 && Array.isArray(error.errors) ? { errors: error.errors.map(item => failure(item, depth + 1)) } : {}) });
 const currentOutput = tenant => context.health().closed || running.operationCohort.window.closed ? null
   : running.operationCohort.window.run(tenant, () => context.last(tenant));
@@ -32,6 +41,7 @@ process.on('message', async request => {
     else if (request.action === 'acquire') { await context.acquire(request.tenant); value = await currentOutput(request.tenant); }
     else if (request.action === 'tick') { await context.tick(request.tenant); value = await currentOutput(request.tenant); }
     else if (request.action === 'last') value = await currentOutput(request.tenant);
+    else if (request.action === 'queries') value = {...clinicalReads};
     else if (request.action === 'health') value = context.health();
     else if (request.action === 'current') value = await context.isCurrent(request.tenant, request.identity);
     else if (request.action === 'close') { await running.stop(); value = true; }

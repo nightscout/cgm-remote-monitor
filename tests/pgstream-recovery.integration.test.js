@@ -57,6 +57,28 @@ optInSuite(enabled, 'NS_PGSTREAM_RECOVERY_TEST=1 and owned disposable PostgreSQL
     function completed(row, stamp) {
       return row && BigInt(require('../lib/pgstream/work-state').map(row.work_completed).clock || '0') >= BigInt(stamp);
     }
+    it('materializes actual default clinical cohorts, corrections and deletion without warm snapshot/statistics rediscovery',async function(){
+      await write(110);const config=lab.configure(),worker=await lab.worker(config,{detached:true});assert.equal(worker.startup.ready,true);
+      try{
+        const initial=await worker.call('queries');assert(initial.snapshots>0,'CONSISTENT_BOOTSTRAP_REQUIRED');
+        const at=Date.now(),late=at-300000;
+        await lab.persistDomains({entries:[{_id:'cohort-one',type:'sgv',sgv:141,date:late,dateString:new Date(late).toISOString(),extension:{synthetic:'preserved'}},
+          {_id:'cohort-two',type:'sgv',sgv:142,date:at,dateString:new Date(at).toISOString()}]});
+        const cohort=(await lab.clock()).stamp;
+        const output=await wait(async()=>{const row=await lab.previewCompleted();return completed(row,cohort)?row:null;},10000,'DEFAULT_ROW_COHORT_NOT_COMPLETED');
+        const rows=output.projection[0].output.rows;
+        assert(rows.some(row=>row.doc._id==='cohort-one'&&row.doc.extension.synthetic==='preserved'),'EXTENSION_ROW_MISSING');
+        assert(rows.some(row=>row.doc._id==='cohort-two'),'COHORT_PARTIAL_OUTPUT');
+        await write(151,'cohort-one',600000);const corrected=(await lab.clock()).stamp;
+        await wait(async()=>completed(await lab.previewCompleted(),corrected),10000,'LATE_CORRECTION_NOT_COMPLETED');
+        assert.equal((await lab.previewCompleted()).projection[0].output.rows.find(row=>row.doc._id==='cohort-one').doc.sgv,151);
+        await lab.hardDelete('entries',{_id:'cohort-two'});const removed=(await lab.clock()).stamp;
+        await wait(async()=>completed(await lab.previewCompleted(),removed),10000,'DELETE_COHORT_NOT_COMPLETED');
+        assert(!(await lab.previewCompleted()).projection[0].output.rows.some(row=>row.doc._id==='cohort-two'),'DELETED_ROW_RETAINED');
+        const after=await worker.call('queries');assert.deepEqual(after,initial,'WARM_CLINICAL_SNAPSHOT_REDISCOVERY');
+        lab.tracePreview('default-streamed-cohort-correction-delete',{initial,after,cohort,corrected,removed,scope:'actual default evaluator and maintained CDC; bootstrap allowed, warm source snapshot/statistics/catalogue reads forbidden'});
+      }finally{await lab.stopWorker(worker);}
+    });
     it('keeps the same evaluator alive without synthetic idle-feed expiry and catches up durable output after external restart',async function(){
       await write(110);const config=lab.configure(),worker=await lab.worker(config,{detached:true});assert.equal(worker.startup.ready,true);
       const evaluator=identity(worker.child.pid),producer=lab.stream(),original=producer.identity(),before=await lab.previewCompleted();assert(original,'INDEPENDENT_PRODUCER_RUNNING');assert.notEqual(original.group,evaluator.group,'PRODUCER_NOT_IN_EVALUATOR_GROUP');

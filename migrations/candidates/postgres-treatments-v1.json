@@ -24,6 +24,26 @@
         "CREATE POLICY treatments_tenant_isolation ON treatments USING (tenant_id = NULLIF(current_setting('app.current_tenant_id', true), '')::uuid) WITH CHECK (tenant_id = NULLIF(current_setting('app.current_tenant_id', true), '')::uuid)"
       ],
       "checksum": "b29ddcf7789472ad87fa14e309a47e45e275fb123b549814595dc7aaed2977a5"
+    },
+    {
+      "name": "0002_treatments_storage_bytes",
+      "operation": {
+        "kind": "clinical-storage-size-v1",
+        "domain": "treatments"
+      },
+      "up": [
+        "LOCK TABLE \"nightscout_migration_namespace\".\"treatments\" IN ACCESS EXCLUSIVE MODE",
+        "SET LOCAL row_security = off",
+        "ALTER TABLE \"nightscout_migration_namespace\".\"treatments\" ADD COLUMN storage_bytes bigint CHECK (storage_bytes>=0)",
+        "UPDATE \"nightscout_migration_namespace\".\"treatments\" SET storage_bytes=pg_column_size(doc)",
+        "ALTER TABLE \"nightscout_migration_namespace\".\"treatments\" ALTER COLUMN storage_bytes SET NOT NULL",
+        "ALTER TABLE \"nightscout_migration_namespace\".\"treatments\" ALTER COLUMN storage_bytes SET DEFAULT 0",
+        "CREATE FUNCTION \"nightscout_migration_namespace\".clinical_storage_size() RETURNS trigger LANGUAGE plpgsql SECURITY INVOKER SET search_path=pg_catalog AS $clinical_size$\nDECLARE measured bigint;\nBEGIN\n  SELECT pg_column_size(doc) INTO STRICT measured FROM \"nightscout_migration_namespace\".\"treatments\" WHERE tenant_id=NEW.tenant_id AND id_kind=NEW.id_kind AND \"_id\"=NEW.\"_id\";\n  UPDATE \"nightscout_migration_namespace\".\"treatments\" SET storage_bytes=measured WHERE tenant_id=NEW.tenant_id AND id_kind=NEW.id_kind AND \"_id\"=NEW.\"_id\" AND storage_bytes IS DISTINCT FROM measured;\n  RETURN NULL;\nEND\n$clinical_size$",
+        "REVOKE ALL ON FUNCTION \"nightscout_migration_namespace\".clinical_storage_size() FROM PUBLIC",
+        "CREATE TRIGGER clinical_storage_size AFTER INSERT OR UPDATE OF doc ON \"nightscout_migration_namespace\".\"treatments\" FOR EACH ROW EXECUTE FUNCTION \"nightscout_migration_namespace\".clinical_storage_size()",
+        "SET LOCAL row_security = on"
+      ],
+      "checksum": "ced13d0c7e3f2940d9182f0ed474e19894a4639dd6648a8f12771ffe9ab0ded1"
     }
   ]
 }

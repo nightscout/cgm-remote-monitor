@@ -54,6 +54,26 @@
         "CREATE OR REPLACE FUNCTION \"nightscout_migration_namespace\".\"allocate_tenant_insertion_ordinal\"() RETURNS trigger LANGUAGE plpgsql SECURITY INVOKER SET search_path=pg_catalog AS $tenant_insertion$\nBEGIN\n  IF NEW.tenant_id IS DISTINCT FROM NULLIF(current_setting('app.current_tenant_id',true),'')::uuid THEN\n    RAISE EXCEPTION 'TENANT_ORDINAL_BINDING_REQUIRED' USING ERRCODE='42501';\n  END IF;\n  IF TG_OP='UPDATE' THEN\n    IF NEW.tenant_id IS DISTINCT FROM OLD.tenant_id OR NEW.insertion_ordinal IS DISTINCT FROM OLD.insertion_ordinal THEN\n      RAISE EXCEPTION 'TENANT_ORDINAL_IMMUTABLE';\n    END IF;\n    RETURN NEW;\n  END IF;\n  IF NOT EXISTS (SELECT 1 FROM \"nightscout_migration_namespace\".\"tenant_insertion_ordinal\" WHERE tenant_id=NEW.tenant_id)\n     AND EXISTS (SELECT 1 FROM \"nightscout_migration_namespace\".\"food\" WHERE tenant_id=NEW.tenant_id) THEN\n    RAISE EXCEPTION 'TENANT_ORDINAL_COUNTER_MISSING';\n  END IF;\n  IF NEW.insertion_ordinal IS NULL THEN\n    INSERT INTO \"nightscout_migration_namespace\".\"tenant_insertion_ordinal\" AS counter (tenant_id,last_ordinal) VALUES (NEW.tenant_id,1)\n      ON CONFLICT (tenant_id) DO UPDATE SET last_ordinal=counter.last_ordinal+1\n      WHERE counter.last_ordinal<9223372036854775807\n      RETURNING counter.last_ordinal INTO NEW.insertion_ordinal;\n    IF NOT FOUND THEN RAISE EXCEPTION 'TENANT_ORDINAL_EXHAUSTED' USING ERRCODE='22003'; END IF;\n  ELSE\n    IF NEW.insertion_ordinal<=0 THEN RAISE EXCEPTION 'TENANT_ORDINAL_INVALID'; END IF;\n    INSERT INTO \"nightscout_migration_namespace\".\"tenant_insertion_ordinal\" AS counter (tenant_id,last_ordinal) VALUES (NEW.tenant_id,NEW.insertion_ordinal)\n      ON CONFLICT (tenant_id) DO UPDATE SET last_ordinal=GREATEST(counter.last_ordinal,EXCLUDED.last_ordinal);\n  END IF;\n  RETURN NEW;\nEND\n$tenant_insertion$"
       ],
       "checksum": "5cde7aa25d99400b377f9fbbcd31e876343b5d0557dd7f8dde150ff33e490779"
+    },
+    {
+      "name": "0004_food_storage_bytes",
+      "operation": {
+        "kind": "clinical-storage-size-v1",
+        "domain": "food"
+      },
+      "up": [
+        "LOCK TABLE \"nightscout_migration_namespace\".\"food\" IN ACCESS EXCLUSIVE MODE",
+        "SET LOCAL row_security = off",
+        "ALTER TABLE \"nightscout_migration_namespace\".\"food\" ADD COLUMN storage_bytes bigint CHECK (storage_bytes>=0)",
+        "UPDATE \"nightscout_migration_namespace\".\"food\" SET storage_bytes=pg_column_size(doc)",
+        "ALTER TABLE \"nightscout_migration_namespace\".\"food\" ALTER COLUMN storage_bytes SET NOT NULL",
+        "ALTER TABLE \"nightscout_migration_namespace\".\"food\" ALTER COLUMN storage_bytes SET DEFAULT 0",
+        "CREATE FUNCTION \"nightscout_migration_namespace\".clinical_storage_size() RETURNS trigger LANGUAGE plpgsql SECURITY INVOKER SET search_path=pg_catalog AS $clinical_size$\nDECLARE measured bigint;\nBEGIN\n  SELECT pg_column_size(doc) INTO STRICT measured FROM \"nightscout_migration_namespace\".\"food\" WHERE tenant_id=NEW.tenant_id AND id_kind=NEW.id_kind AND \"_id\"=NEW.\"_id\";\n  UPDATE \"nightscout_migration_namespace\".\"food\" SET storage_bytes=measured WHERE tenant_id=NEW.tenant_id AND id_kind=NEW.id_kind AND \"_id\"=NEW.\"_id\" AND storage_bytes IS DISTINCT FROM measured;\n  RETURN NULL;\nEND\n$clinical_size$",
+        "REVOKE ALL ON FUNCTION \"nightscout_migration_namespace\".clinical_storage_size() FROM PUBLIC",
+        "CREATE TRIGGER clinical_storage_size AFTER INSERT OR UPDATE OF doc ON \"nightscout_migration_namespace\".\"food\" FOR EACH ROW EXECUTE FUNCTION \"nightscout_migration_namespace\".clinical_storage_size()",
+        "SET LOCAL row_security = on"
+      ],
+      "checksum": "017ef90212b13878c436de157b7abb490bb95c270ff4438f04d3f109cbfc9550"
     }
   ]
 }

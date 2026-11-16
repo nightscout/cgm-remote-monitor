@@ -67,19 +67,20 @@ describe('pgstream explicit input/schema receiver',function(){
  });
 });
 
-describe('pgstream deployment routes',function(){it('captures only five real input routes',function(){const routes=require('../lib/pgstream/evaluator').routes({namespaces:{clock:'test_clock',checkpoint:'test_checkpoint'},trustedWorker:{settings:'test_settings',operatorPolicy:'test_policy',activity:'test_activity'}});assert.equal(routes.length,5);assert(!routes.some(row=>row.kind==='heartbeat'));assert(!routes.some(row=>row.table==='tenant_consumer_checkpoint'),'NO_CHECKPOINT_SELFCAPTURE');});});
+// Semantic change: actual clinical rows now feed the evaluator; output rows stay excluded.
+describe('pgstream deployment routes',function(){it('captures six clinical domains plus the existing control routes',function(){const routes=require('../lib/pgstream/evaluator').routes({namespaces:{...Object.fromEntries(require('../lib/storage/clinical-stream-state').DOMAINS.map(d=>[d,'test_'+d])),clock:'test_clock',checkpoint:'test_checkpoint'},trustedWorker:{settings:'test_settings',operatorPolicy:'test_policy',activity:'test_activity'}});assert.equal(routes.length,11);assert.equal(routes.filter(r=>r.kind==='clinical').length,6);assert(!routes.some(row=>row.kind==='heartbeat'));assert(!routes.some(row=>row.table==='tenant_consumer_checkpoint'),'NO_CHECKPOINT_SELFCAPTURE');});});
 
 
 describe('consumer catalogue DDL relevance', function () {
  it('revalidates only configured consumer schemas without adding DML routes; omission is red and restoration green', async function () {
   const fs=require('node:fs'),vm=require('node:vm'),{createRequire}=require('node:module');
   const file=require.resolve('../lib/pgstream/evaluator'),local=createRequire(file),actual=require(file);
-  const config={namespaces:{clock:'clinical_clock',checkpoint:'clinical_checkpoint'},registry:{namespace:'tenant_registry'},
+  const config={namespaces:{...Object.fromEntries(require('../lib/storage/clinical-stream-state').DOMAINS.map(d=>[d,'clinical_'+d])),clock:'clinical_clock',checkpoint:'clinical_checkpoint'},registry:{namespace:'tenant_registry'},
    trustedWorker:{settings:'display_settings',operatorPolicy:'operator_policy',activity:'tenant_control'},
    consumers:{realtime:{outbox:{namespace:'consumer_outbox'},suppression:{namespace:'consumer_alarm'}}}};
   async function qualify(module){
    const seen=[],routes=module.routes(config);
-   assert.equal(routes.length,5);assert(!routes.some(row=>['consumer_outbox','consumer_alarm'].includes(row.schema)));
+   assert.equal(routes.length,11);assert.equal(routes.filter(r=>r.kind==='clinical').length,6);assert(!routes.some(row=>['consumer_outbox','consumer_alarm'].includes(row.schema)));
    const receive=create({routes,relevantSchemas:module.relevantSchemas(config),store:{},onInput:()=>{},onHeartbeat:()=>{},onSchema:async schemas=>seen.push(...schemas)});
    for(const schema of ['consumer_outbox','consumer_alarm','unrelated_schema'])await receive({Data:{action:'M',prefix:'pgstream.ddl',content:JSON.stringify({schema_name:schema,objects:[]})}});
    assert.deepEqual(seen,['consumer_outbox','consumer_alarm']);
@@ -108,5 +109,13 @@ describe('selected receiver exact recognized profile',()=>{
   const profiles=require('../lib/pgstream/intake-profile'),f=require('./fixtures/intake-source-protocol'),p=profiles.create(f.options),config={pgstream:{binary:'/does-not-exist'},namespaces:{checkpoint:p.binding.namespace},consumer:p.binding.consumer,trustedWorker:{activity:p.binding.lifecycleNamespace,settings:'settings',operatorPolicy:'policy'}};
   config.namespaces.clock='clock';
   for(const change of [{consumer:'evaluator-other'},{namespaces:{...config.namespaces,checkpoint:'wrong_work'}},{trustedWorker:{...config.trustedWorker,activity:'wrong_control'}}])await assert.rejects(require('../lib/pgstream/evaluator').open({config:{...config,...change},intakeProfile:p,controlConnection:{}}),/EVALUATOR_INTAKE_PROFILE_BINDING/);
+ });
+});
+
+// Optional selected topology cannot silently re-enable the superseded snapshot
+// adapter. Its ownership/profile modules retain independent source controls.
+describe('maintained evaluator entrypoint materializer selection',()=>{
+ it('refuses selected topology before acquiring any role resources',async()=>{
+  await assert.rejects(require('../lib/server/serve/evaluator-preview').boot({selectedIntake:{}},{}),/PGSTREAM_SELECTED_MATERIALIZER_UNQUALIFIED/);
  });
 });
