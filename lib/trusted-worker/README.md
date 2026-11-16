@@ -33,9 +33,9 @@ hint cannot make an obsolete identity pass the per-use authority check.
 
 `lifecycle` verifies the metadata contract at boot and explicit schema or
 transport recovery. The maintained single-host streaming roles have no periodic
-admission or full-roster settings refresh. Selected topology research retains its
-separate lifecycle policy. Its AsyncResource is created outside tenant/request
-scope.
+admission or full-roster settings refresh, including the selected fixed-v1
+preview. The lifecycle API has no periodic verifier or deferred refresh hook.
+Its AsyncResource is created outside tenant/request scope.
 Operational verification is two fixed queries per worker check, independent of
 roster size. It does not run once per tenant or enter a tenant job's operation
 window. A refused query invalidates retained metadata/settings and refuses new
