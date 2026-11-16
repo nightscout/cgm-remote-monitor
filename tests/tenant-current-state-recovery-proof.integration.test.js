@@ -385,7 +385,12 @@ optInSuite(process.env.NS_M5_CURRENT_STATE_PROOF_TEST === '1' && !!process.env.N
         assert.deepEqual(await lab.previewCompleted(lab.A), completed, 'M5_EVAL_REFUSAL retains durable revision/result/frame/input checkpoint');
         assert.equal(Number(completed.output_revision), first.outputRevision);
         assert.equal(value(completed.projection[0].output), 111);
-        assert.deepEqual(await lab.previewCheckpoint(lab.A), checkpoint, 'M5_EVAL_REFUSAL keeps good input');
+        // A bounded GAP evicts only the disposable input cache to reserve
+        // room for durable recovery metadata; the completed result above stays.
+        const gap=await lab.checkpoint(lab.consumerName,lab.A);
+        assert.equal(gap.checkpoint,checkpoint.checkpoint,'M5_EVAL_REFUSAL no false sealed input advance');
+        assert.equal(gap.projection[0].ready,false);assert.equal(gap.projection[0].gap,scenario==='row'?'rows':'bytes');
+        assert.deepEqual(gap.projection[0].rows,[],'M5_EVAL_REFUSAL bounded recovery marker replaces input cache');
         assert.equal(b.eligible, true); assert.equal(value(b), 333);
         await lab.stopWorker(worker);
       }

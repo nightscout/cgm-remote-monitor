@@ -24,7 +24,7 @@ describe('actual clinical stream SQL transport receipt',()=>{
   const f=fixture(),large=structuredClone(event);large.columns.find(c=>c.name==='doc').value=JSON.stringify({_id:'one',extension:'x'.repeat(2000)});
   await sql.accept({...f.options,data:large,maxBytes:512});
   const update=f.calls.find(c=>c.text.startsWith('UPDATE')),saved=JSON.parse(update.values[2])[0];
-  assert.equal(saved.ready,false);assert.equal(saved.gap,'CLINICAL_STREAM_BYTE_BOUND');assert.deepEqual(saved.staged,[]);assert(f.calls.some(c=>c.text==='COMMIT'));
+  assert(!update.text.includes('projection->0)||'),'GAP_MUST_REPLACE_OLD_CACHE_METADATA');assert.equal(saved.ready,false);assert.equal(saved.gap,'bytes');assert.deepEqual(saved.staged,[]);assert(f.calls.some(c=>c.text==='COMMIT'));
  });
  it('refuses invalid transaction identity before taking a physical connection',async()=>{
   let connected=false;const f=fixture();await assert.rejects(sql.accept({...f.options,data:{...event,xid:undefined},pool:{connect:async()=>{connected=true;}}}),/XID/);assert.equal(connected,false);

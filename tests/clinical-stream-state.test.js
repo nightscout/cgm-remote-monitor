@@ -47,9 +47,14 @@ describe('durable clinical stream working set',()=>{
   assert.throws(()=>stream.bound(metadata,{...limits,maxBytes:bytes-1}),/BYTE_BOUND/);
   stream.bound(metadata,{...limits,maxBytes:bytes});stream.bound(full,{...limits,maxBytes:bytes});
  });
+ it('fits a durable gap marker even when the last sealed cache filled the exact byte cap',()=>{
+  const full=boot(),bytes=Buffer.byteLength(JSON.stringify(full));
+  const gap=stream.recoverableGap(full,'CLINICAL_STREAM_BYTE_BOUND','FFFFFFFF/FFFFFFFF',{...limits,maxBytes:bytes});
+  assert.equal(gap.ready,false);assert.deepEqual(gap.rows,[]);assert(Buffer.byteLength(JSON.stringify(gap))<=bytes);
+ });
  it('persists a bounded explicit recovery gap without certifying clinical completion, then clears it only on a consistent snapshot',()=>{
   const before=boot(),gap=stream.recoverableGap(before,'CLINICAL_STREAM_ROW_BOUND','0/40',limits);
-  assert.equal(gap.ready,false);assert.deepEqual(gap.rows,before.rows);assert.equal(gap.floor,before.floor);assert.equal(gap.staged.length,0);
+  assert.equal(gap.ready,false);assert.deepEqual(gap.rows,[]);assert.equal(gap.floor,undefined);assert.equal(gap.staged.length,0);
   assert.throws(()=>stream.output(JSON.parse(JSON.stringify(gap))),/BOOTSTRAP_REQUIRED/);
   const recovered=stream.bootstrap(gap,{checkpoint:12,signature:{stamp:12,deleted:12},rows:[]},limits);
   assert.equal(recovered.gap,undefined);assert.equal(stream.output(recovered).checkpoint,12);
