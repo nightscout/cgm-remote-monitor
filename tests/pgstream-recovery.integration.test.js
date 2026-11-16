@@ -81,7 +81,7 @@ optInSuite(enabled, 'NS_PGSTREAM_RECOVERY_TEST=1 and owned disposable PostgreSQL
     });
     it('keeps the same evaluator alive without synthetic idle-feed expiry and catches up durable output after external restart',async function(){
       await write(110);const config=lab.configure(),worker=await lab.worker(config,{detached:true});assert.equal(worker.startup.ready,true,JSON.stringify(worker.startup));
-      const evaluator=identity(worker.child.pid),producer=lab.stream(),original=producer.identity(),before=await lab.previewCompleted();assert(original,'INDEPENDENT_PRODUCER_RUNNING');assert.notEqual(original.group,evaluator.group,'PRODUCER_NOT_IN_EVALUATOR_GROUP');
+      const evaluator=identity(worker.child.pid),producer=lab.stream(),original=producer.identity(),originalStarts=producer.state().starts,before=await lab.previewCompleted();assert(original,'INDEPENDENT_PRODUCER_RUNNING');assert.notEqual(original.group,evaluator.group,'PRODUCER_NOT_IN_EVALUATOR_GROUP');
       const began=performance.now();await lab.stopStream();assert.equal(producer.state().running,false);
       await write(149);const stamp=(await lab.clock()).stamp;
       // The application no longer synthesizes feed liveness. Stopping an idle
@@ -95,7 +95,7 @@ optInSuite(enabled, 'NS_PGSTREAM_RECOVERY_TEST=1 and owned disposable PostgreSQL
       assert(BigInt(stoppedWork.observed.clock)<BigInt(stamp),'STOPPED_FEED_MUST_NOT_FABRICATE_DURABLE_OBSERVATION');
       assert(BigInt(stoppedWork.completed.clock)<BigInt(stamp),'UNDELIVERED_INPUT_MUST_NOT_BE_MARKED_COMPLETED');
       assert.deepEqual(identity(worker.child.pid),evaluator,'SAME_EVALUATOR_SURVIVES_STREAM_OUTAGE');
-      assert.equal(producer.state().starts,1,'NO_FIXTURE_AUTOMATIC_RESTART');
+      assert.equal(producer.state().starts,originalStarts,'NO_FIXTURE_AUTOMATIC_RESTART');
       await lab.startStream();assert.notEqual(producer.identity().pid,original.pid,'EXPLICIT_EXTERNAL_PRODUCER_REPLACEMENT');
       const recovered=await wait(async()=>{const health=(await worker.call('health')).pgstream,output=await lab.previewCompleted();return health.healthy&&completed(output,stamp)&&BigInt(output.output_revision)>BigInt(before.output_revision)?{health,output}:null;},config.document.pgstream.bounds.recoveryMs,'EXTERNAL_STREAM_MUST_RECOVER_COMMITTED_OUTPUT');
       assert.equal(recovered.output.projection[0].output.frame.sgvs.find(row=>row._id==='synthetic-recovery').mgdl,149,'EXACT_COMMITTED_FRAME_AFTER_STREAM_RESUME');assert.deepEqual(identity(worker.child.pid),evaluator);
