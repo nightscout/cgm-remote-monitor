@@ -144,6 +144,20 @@ module.exports = function create ({ environment = {}, leaseSessions, drainTimeou
       '(SELECT count(*)::int FROM preview_control.tenant_lifecycle_restore_audit WHERE tenant_id=$1) AS audits,' +
       '(SELECT count(*)::int FROM preview_control.tenant_lifecycle_operations WHERE tenant_id=$1 AND finished=false) AS unfinished ' +
       'FROM preview_control.tenant_lifecycle_windows WHERE tenant_id=$1', [tenant])).rows[0]),
+    unfinishedOperations: (tenant = base.tenants[0]) => withAdmin(async client => (await client.query(
+      'SELECT operation_id FROM preview_control.tenant_lifecycle_operations WHERE tenant_id=$1 AND NOT finished ORDER BY operation_id', [tenant])).rows.map(row => row.operation_id)),
+    async participantOperations (id, tenant = base.tenants[0]) {
+      const peer = participants.find(row => row.id === id);
+      assert(peer, 'explicit actual participant required');
+      const client = clients.lifecycleParticipant(peer.endpoint);
+      const status = await client.getStatus({ request: crypto.randomUUID() });
+      const request = crypto.randomUUID();
+      const reply = await client.getOperations({ request, tenant, incarnation: status.incarnation, identity: status.identity });
+      assert.equal(reply.request, request); assert.equal(reply.tenant, tenant);
+      assert.equal(reply.participant, id); assert.equal(reply.incarnation, status.incarnation);
+      assert(Array.isArray(reply.operations)); assert.equal(new Set(reply.operations).size, reply.operations.length);
+      return [...reply.operations].sort();
+    },
     restore: body => controller.withRestore(base.tenants[0], { artifactDigest: 'd'.repeat(64) }, body),
     resume: claimId => resume.resume(base.tenants[0], { claimId }),
     mark: (name, id) => path.join(base.directory, name + '-' + id) };

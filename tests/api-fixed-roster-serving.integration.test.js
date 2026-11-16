@@ -86,11 +86,16 @@ optInSuite(process.env.NS_API_ROSTER_SERVING_DOCKER_TEST === '1', 'NS_API_ROSTER
       let responseDone = false, entered = false;
       const pending = call('api-1', A, 'POST', '/api/v3/entries', a, entry('native-held-A'), { 'x-roster-hold': 'postcommit' })
         .then(value => { responseDone = true; return { value }; }, error => ({ error }));
-      await f.base.until(async () => fs.existsSync(f.mark('held', 'api-1')), 'actual post-commit response held');
-      assert.equal((await stored('native-held-A')).length, 1, 'independent storage sees committed write before response');
-      const before = await f.restoreState(); assert.equal(before.unfinished, 1);
-      const outcome = f.restore(async () => { entered = true; return 'bounded-restore-body'; }).then(value => ({ value }), error => ({ error }));
       try {
+        await f.base.until(async () => fs.existsSync(f.mark('held', 'api-1')), 'actual post-commit response held');
+        assert.equal((await stored('native-held-A')).length, 1, 'independent storage sees committed write before response');
+        // Durable rows name process participation, not individual responses.
+        // Capture the exact holder and its idle peer before suspension.
+        const held = await f.participantOperations('api-1', A), idle = await f.participantOperations('api-2', A);
+        assert.equal(held.length, 1); assert.equal(idle.length, 1); assert.notEqual(held[0], idle[0]);
+        assert.deepEqual(await f.unfinishedOperations(A), [...held, ...idle].sort());
+        const before = await f.restoreState();
+        const outcome = f.restore(async () => { entered = true; return 'bounded-restore-body'; }).then(value => ({ value }), error => ({ error }));
         const refused = await outcome;
         assert.equal(refused.error?.code, 'LIFECYCLE_RESTORE_DRAIN_TIMEOUT');
         assert.equal(entered, false, 'HELD_RESPONSE_BLOCKS_RESTORE'); assert.equal(responseDone, false);
@@ -98,11 +103,12 @@ optInSuite(process.env.NS_API_ROSTER_SERVING_DOCKER_TEST === '1', 'NS_API_ROSTER
         assert.equal(suspended.phase, 'suspended');
         assert.equal(BigInt(suspended.generation), BigInt(before.generation) + 1n);
         assert.equal(suspended.audits, before.audits + 1);
-        assert.equal(suspended.unfinished, before.unfinished, 'HELD_RESPONSES_KEEP_DURABLE_MARKERS');
+        assert.deepEqual(await f.unfinishedOperations(A), held, 'EXACT_HELD_PARTICIPATION_STAYS_DURABLE');
+        assert.deepEqual(await f.participantOperations('api-2', A), [], 'IDLE_PEER_DRAINS_WITHOUT_WAITING_FOR_HELD_RESPONSE');
         assert.equal((await call('api-2', A, 'GET', '/api/v3/entries', a)).status, 503, 'A refuses new work while suspended');
         assert.equal((await call('api-2', B, 'POST', '/api/v3/entries', b, entry('native-B-progress'))).status, 201);
         assert.equal((await call('service', B, 'GET', '/api/v3/entries/native-B-progress', b)).status, 200);
-      } finally { f.current.get('api-1').child.kill('SIGUSR2'); }
+      } finally { f.current.get('api-1').child.kill('SIGUSR2'); await pending; }
       const response = await pending;
       assert.equal(response.error, undefined); assert.equal(response.value.status, 201);
       await f.base.until(async () => (await f.restoreState()).unfinished === 0, 'real response lifetimes finish');
@@ -143,12 +149,12 @@ optInSuite(process.env.NS_API_ROSTER_SERVING_DOCKER_TEST === '1', 'NS_API_ROSTER
       let entered = false, responseDone = false;
       const pending = call('api-1', A, 'POST', '/api/v3/entries', a, entry('native-early-release'),
         { 'x-roster-hold': 'postcommit', 'x-roster-release-lifetime': '1' }).then(value => { responseDone = true; return { value }; }, error => ({ error }));
-      await f.base.until(async () => fs.existsSync(f.mark('held', 'api-1')), 'early lifetime control applied');
       try {
+        await f.base.until(async () => fs.existsSync(f.mark('held', 'api-1')), 'early lifetime control applied');
         const result = await f.restore(async () => { entered = true; return 'early-release-control'; });
         assert.equal(result.state, 'activated'); assert.equal(entered, true); assert.equal(responseDone, false, 'actual success response still withheld');
         assert.throws(() => assert.equal(entered, false, 'HELD_RESPONSE_BLOCKS_RESTORE'), /HELD_RESPONSE_BLOCKS_RESTORE/);
-      } finally { f.current.get('api-1').child.kill('SIGUSR2'); }
+      } finally { f.current.get('api-1').child.kill('SIGUSR2'); await pending; }
       const response = await pending;
       assert.equal(response.error, undefined); assert.equal(response.value.status, 201);
     });
@@ -157,13 +163,15 @@ optInSuite(process.env.NS_API_ROSTER_SERVING_DOCKER_TEST === '1', 'NS_API_ROSTER
       fs.rmSync(f.mark('held', 'api-1'), { force: true });
       const pending = call('api-1', B, 'POST', '/api/v3/entries', b, entry('native-commit-without-ack'),
         { 'x-roster-hold': 'postcommit' }).then(value => ({ value }), error => ({ error }));
-      await f.base.until(async () => fs.existsSync(f.mark('held', 'api-1')), 'committed write response held');
-      assert.equal((await stored('native-commit-without-ack')).length, 1);
-      await f.base.kill(f.current.get('api-1'));
-      assert((await pending).error, 'caller sees an uncertain transport failure, not synthetic success');
+      try {
+        await f.base.until(async () => fs.existsSync(f.mark('held', 'api-1')), 'committed write response held');
+        assert.equal((await stored('native-commit-without-ack')).length, 1);
+        await f.base.kill(f.current.get('api-1'));
+        assert((await pending).error, 'caller sees an uncertain transport failure, not synthetic success');
+      } finally { if (!f.current.get('api-1').exit) f.current.get('api-1').child.kill('SIGUSR2'); await pending; }
       assert.equal((await call('api-2', B, 'GET', '/api/v3/entries/native-commit-without-ack', b)).status, 200);
       assert.equal((await stored('native-commit-without-ack')).length, 1, 'no transparent automatic mutation replay');
-      await f.start('api-1');
+      await f.start('api-1', { readinessTenant: B });
       assert.equal((await call('api-1', B, 'GET', '/api/v3/entries/native-commit-without-ack', b)).status, 200);
     });
 
