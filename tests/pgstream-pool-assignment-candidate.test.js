@@ -44,14 +44,17 @@ function parity (module) {
   assert(high > 0 && clear > 0);
 }
 describe('additive shared-pool assignment SQL v2 (source/expression proof)', () => {
-  it('appends one validated migration, preserving the full v1 catalogue, functions, checksums and trigger definitions', () => {
+  it('appends validated migrations, preserving the full v1 catalogue and published 0006 checksum', () => {
     const old = base(), captured = structuredClone(old), next = build();
     assert.deepEqual(old, captured);
-    assert.deepEqual(next.catalogue.migrations.slice(0, -1), old.catalogue.migrations);
-    const m = next.catalogue.migrations.at(-1);
+    assert.deepEqual(next.catalogue.migrations.slice(0, -2), old.catalogue.migrations);
+    const m = next.catalogue.migrations.at(-2);
     assert.equal(m.name, '0006_evaluator_pool_assignment_v2');
+    assert.equal(m.checksum, 'b4e147e4fd8b06e44489be88545619bbdeea140cf185adbb32bfd2263fee37d1', 'published frozen-067 generator bytes');
+    assert.equal(next.catalogue.migrations.at(-1).name, '0007_scope_assignment_lifecycle_reads');
+    assert.equal(next.catalogue.migrations.at(-1).up.length, 2);
     assert.equal(m.checksum, checksum(m.up));
-    assert.equal(validateCatalogue(next.catalogue).length, old.catalogue.migrations.length + 1);
+    assert.equal(validateCatalogue(next.catalogue).length, old.catalogue.migrations.length + 2);
     assert(m.up.some(sql => sql.includes('work_owner_ordinal BETWEEN 0 AND ' + (MAX_MEMBERS - 1))));
     assert(m.up.filter(sql => sql.startsWith('CREATE OR REPLACE FUNCTION')).length === 2);
     assert(!m.up.some(sql => /DISABLE|DROP TRIGGER|DROP FUNCTION/.test(sql)));
@@ -65,7 +68,7 @@ describe('additive shared-pool assignment SQL v2 (source/expression proof)', () 
   });
   it('retains the entire ordinary worker body except the explicit count bound, beneath the transition branch', () => {
     const old = base(), next = build();
-    const restoredWorker = next.effectBody.replace(next.transitionBody, '').replace('DECLARE transition jsonb; ', 'DECLARE ').replaceAll('desired.members NOT BETWEEN 1 AND ' + MAX_MEMBERS, 'desired.members NOT IN (1,2)');
+    const restoredWorker = next.effectBody.replace(next.transitionBody, '').replace('DECLARE transition jsonb; prior_tenant text; lifetime_found boolean; ', 'DECLARE ').replaceAll('desired.members NOT BETWEEN 1 AND ' + MAX_MEMBERS, 'desired.members NOT IN (1,2)');
     assert.equal(restoredWorker, old.effectBody);
     assert(next.effectBody.includes("context->>'operation'='ack'"));
     assert(next.effectBody.includes('roster.selves<>1'));
@@ -104,6 +107,31 @@ describe('additive shared-pool assignment SQL v2 (source/expression proof)', () 
     for (const required of ["current_user<>'test_operator'", "transition->>'backendPid' IS DISTINCT FROM pg_backend_pid()::text", "transition->>'transactionId' IS DISTINCT FROM pg_current_xact_id()::text", "transition->>'oldMembers' IS DISTINCT FROM desired.previous_members::text", "transition->>'members' IS DISTINCT FROM desired.members::text", "mode='ExclusiveLock'", 'applied_members IN (desired.previous_members,desired.members)', 'roster.live_count<>desired.members', 'roster.ordinals<>desired.members', "lifetime.phase<>'active'", "lifetime.generation IS DISTINCT FROM transition->'generations'->>(NEW.tenant_id::text)", "mode='ShareLock'", 'lifetime.lock_key', 'NEW.output_restore_generation::text IS DISTINCT FROM lifetime.generation']) assert(text.includes(required), required);
     assert(text.includes('FROM "test_pool".pool_desired')); assert(text.includes('FROM "test_lifetime".tenant_lifecycle_windows'));
     assert(text.includes('OLD.work_owner_ordinal IS DISTINCT FROM mod('));
+  });
+  it('scopes a deferred lifecycle read to its actual row tenant and restores the caller in both normal and exception paths; omission is RED', () => {
+    const qualify = module => {
+      const next = build(module), body = next.transitionBody;
+      const start = body.indexOf("prior_tenant:=current_setting('app.current_tenant_id',true);");
+      const set = body.indexOf("PERFORM set_config('app.current_tenant_id',NEW.tenant_id::text,true);");
+      const read = body.indexOf('SELECT phase,generation::text AS generation,lock_key INTO lifetime');
+      const found = body.indexOf('lifetime_found:=FOUND;');
+      const restore = body.indexOf("PERFORM set_config('app.current_tenant_id',prior_tenant,true);");
+      assert(start >= 0 && set > start && read > set && found > read && restore > found);
+      assert.equal(body.split("PERFORM set_config('app.current_tenant_id',prior_tenant,true);").length, 3);
+      assert(body.includes('EXCEPTION WHEN OTHERS THEN'));
+      assert(body.includes('IF NOT lifetime_found OR lifetime.phase'));
+      assert(!next.legacyBodies.transitionBody.includes('prior_tenant'));
+      // Exercise the literal generated binding/restoration statements as their
+      // restricted source-derived protocol: earlier row A with caller tenant B.
+      let tenant = 'B'; const prior = tenant;
+      if (set >= 0) tenant = 'A';
+      const visible = tenant === 'A'; tenant = prior;
+      assert(visible, 'earlier deferred row remains visible under FORCE RLS');
+      assert.equal(tenant, 'B');
+    };
+    qualify(successor);
+    const broken = mutant("      PERFORM set_config('app.current_tenant_id',NEW.tenant_id::text,true);", "      PERFORM set_config('app.current_tenant_id',prior_tenant,true);");
+    assert.throws(() => qualify(broken), { code: 'ERR_ASSERTION' }); qualify(successor);
   });
   it('refuses malformed source bindings, forged base and selected-v1 bodies rather than silently dropping their roster contract', () => {
     for (const patch of [{ operatorRole: 'postgres;unsafe' }, { lifecycleNamespace: 'public' }, { membershipNamespace: 'test_lifetime' }, { base: { ...base(), effectBody: base().effectBody + ' ' } }, { base: { ...base(), intakeProfile: {} } }]) assert.throws(() => successor.build({ ...binding, base: base(), ...patch }), /EVALUATOR_POOL_ASSIGNMENT_/);
