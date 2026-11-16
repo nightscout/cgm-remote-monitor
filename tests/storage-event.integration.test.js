@@ -105,4 +105,25 @@ const enabled=!!process.env.CLINICAL_WINDOW_PG_SOCKET;
   assert(defaultBytes>0&&fullBytes>0);console.log('STORAGE_WAL_COST '+JSON.stringify({scope:'one unchanged-document update, synthetic 19200-byte extension, no size trigger',defaultBytes,fullBytes}));
  });
 
+ it('applies identity after the actual populated ordered catalogue and tenant-bound size backfill',async()=>{
+  const migrations=require('../lib/migrations/catalogue'),catalogue=require('../migrations/candidates/postgres-entries-v1.json'),namespace='synthetic_raw_migrate';
+  await db.query('DROP SCHEMA IF EXISTS '+namespace+' CASCADE;CREATE SCHEMA '+namespace);await db.query('BEGIN');
+  try{
+   await db.query('SET LOCAL search_path='+namespace+',pg_catalog');
+   for(const migration of migrations.validateCatalogue(catalogue)){
+    if(migration.operation?.kind==='clinical-storage-size-v1'){
+     for(const tenant of [A,B]){
+      await db.query("SELECT set_config('app.current_tenant_id',$1,true)",[tenant]);
+      await db.query('INSERT INTO '+namespace+".entries(tenant_id,id_kind,doc) VALUES($1,'string',$2)",[tenant,{_id:'populated-'+tenant.slice(0,1),sgv:123}]);
+     }
+    }
+    for(const statement of migrations.renderMigration(migration,namespace))await db.query(statement);
+   }
+   const rows=(await db.query('SELECT storage_bytes,insertion_ordinal FROM '+namespace+'.entries')).rows;
+   assert.equal(rows.length,2);assert(rows.every(row=>Number(row.storage_bytes)>0&&Number(row.insertion_ordinal)>0),'POPULATED_BACKFILL_MUST_RETAIN_STORAGE_AND_ORDER');
+   assert.equal((await db.query("SELECT current_setting('app.current_tenant_id') AS tenant")).rows[0].tenant,B,'BACKFILL_MUST_RESTORE_CALLER_BINDING');
+   await identity.assertReady(db,{namespace,domain:'entries'});await db.query('COMMIT');
+  }catch(error){await db.query('ROLLBACK');throw error;}
+ });
+
 });
