@@ -28,3 +28,15 @@ describe('completed COMMIT wakes independent output without checkpoint capture',
  it('repairs output COMMIT-before-wake loss using the durable boot backlog without any captured checkpoint event',async()=>{const f=fixture({dropWake:true});await f.complete();assert.equal(f.row().delivery_revision,'1');assert.equal(f.row().delivery_ack_revision,'0');const dispatcher=f.dispatch();await dispatcher.deliver();assert.deepEqual(f.sent,[{tenant:A,revision:'1'}]);assert.equal(f.row().delivery_ack_revision,'1');await dispatcher.deliver();assert.equal(f.sent.length,1,'an ACK does not create another output revision or delivery loop');await dispatcher.close();});
  it('control: pre-COMMIT wake ablation violates ordering, then the restored producer passes',async()=>{const fs=require('node:fs'),vm=require('node:vm'),file=require.resolve('../lib/pgstream/typed-checkpoint'),source=fs.readFileSync(file,'utf8'),needle='const committed=await withOwner(tenant,async()=>{';assert(source.includes(needle));const broken=source.replace(needle,"notify(tenant,'complete');"+needle),module={exports:{}};vm.runInThisContext('(function(require,module,exports){'+broken+'\n})',{filename:file})(require('node:module').createRequire(file),module,module.exports);async function criterion(creator){const f=fixture({creator});await f.complete();assert(f.notifications.every(row=>row.phase==='COMMIT'),'WAKE_REQUIRES_CONFIRMED_COMMIT');}await assert.rejects(criterion(options=>module.exports.create(options)),/WAKE_REQUIRES_CONFIRMED_COMMIT/);await criterion(create);});
 });
+
+
+describe('bounded addressed delivery selection',()=>{
+ it('keeps durable revision and exclusion predicates while selecting the known tenant page',async()=>{
+  const A='00000000-0000-4000-8000-000000000001',B='00000000-0000-4000-8000-000000000002',calls=[];
+  const store=require('../lib/pgstream/typed-checkpoint').create({connection:{async readOnly(sql,values){calls.push({sql,values});return {rows:[]};}},namespace:'synthetic_checkpoint',consumer:'evaluator-test',maxBytes:100000,timeIntervalMs:60000});
+  await store.deliveries(64,{tenants:[A],exclude:[B]});
+  assert.match(calls[0].sql,/delivery_revision>delivery_ack_revision/);assert.match(calls[0].sql,/NOT \(tenant_id=ANY\(\$4::uuid\[\]\)\)/);assert.match(calls[0].sql,/tenant_id=ANY\(\$5::uuid\[\]\)/);assert.deepEqual(calls[0].values.slice(3),[[B],[A]]);
+  for(const tenants of [[],[A,A],Array(65).fill(A),['invalid']])await assert.rejects(store.deliveries(64,{tenants}),/Bounded delivery work/);
+  await store.deliveries();assert(!calls[1].sql.includes('$5'));assert.equal(calls[1].values.length,4);
+ });
+});

@@ -85,6 +85,11 @@ function fixture({holdAdmission=false,pgstreamEnabled=true,partitioned=false,sou
 function delayScheduler(source){const a=source.indexOf('    {\n      const hint='),b=source.indexOf("    await schemaStartup.prepare(",a),c=source.indexOf('    if (consumers) {',b);assert(a>=0&&b>a&&c>b);return source.slice(0,a)+source.slice(b,c)+source.slice(a,b)+source.slice(c);}
 const pgstreamEnabled=true;describe('maintained clinical startup independent of delivery roster preparation',function(){
  let prior;beforeEach(()=>{prior=scope.getTenancyMode();});afterEach(()=>scope.setTenancyMode(prior));
+ it('refuses evaluator pool max one before constructing a zero-slot scheduler',async()=>{
+  const prior=process.env.NS_POOL_EVALUATOR_MAX;process.env.NS_POOL_EVALUATOR_MAX='1';const f=fixture();
+  try{await assert.rejects(f.boot(),error=>error.cause?.message==='PGSTREAM_EVALUATOR_POOL_BOUND');assert.equal(f.state().clinical,undefined);}
+  finally{if(prior===undefined)delete process.env.NS_POOL_EVALUATOR_MAX;else process.env.NS_POOL_EVALUATOR_MAX=prior;await f.window.close();}
+ });
  it('completes clinical work while delivery prepares and start sweep recovers the early revision',async()=>{
   const f=fixture({pgstreamEnabled});let service;const boot=f.boot();boot.catch(()=>{});
   try{for(let n=0;n<30&&!f.trace.includes('delivery-prepare');n++)await settle();for(let n=0;n<30&&!f.state().clinical?.ready;n++)await settle();
