@@ -42,6 +42,11 @@ describe('durable clinical stream working set',()=>{
   const state=stream.bootstrap(null,{checkpoint:10,signature:{stamp:10,deleted:0},rows:[{domain:'entries',document:{...document('a',100),isValid:false},ordinal:1,storageBytes:80}]},limits);
   assert.equal(state.rows.length,1);assert.equal(stream.output(state).rows.length,0);assert.equal(stream.output(state).stats.dataSize,80);
  });
+ it('applies the same exact byte bound to full state and a receipt with rows omitted',()=>{
+  const full=boot(),bytes=Buffer.byteLength(JSON.stringify(full)),metadata={...full};delete metadata.rows;
+  assert.throws(()=>stream.bound(metadata,{...limits,maxBytes:bytes-1}),/BYTE_BOUND/);
+  stream.bound(metadata,{...limits,maxBytes:bytes});stream.bound(full,{...limits,maxBytes:bytes});
+ });
  it('persists a bounded explicit recovery gap without certifying clinical completion, then clears it only on a consistent snapshot',()=>{
   const before=boot(),gap=stream.recoverableGap(before,'CLINICAL_STREAM_ROW_BOUND','0/40',limits);
   assert.equal(gap.ready,false);assert.deepEqual(gap.rows,before.rows);assert.equal(gap.floor,before.floor);assert.equal(gap.staged.length,0);
