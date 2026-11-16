@@ -115,7 +115,7 @@ module.exports = function consumersLab () {
   };
   lab.releaseSink = () => { for (const release of held.splice(0)) release(); };
   lab.workerConsumers = async config => {
-    if(![...children].some(child=>child.exitCode===null&&child.signalCode===null))await lab.stopStream?.();
+    if(![...children].some(child=>child.exitCode===null&&child.signalCode===null))await lab.stream?.()?.stop();
     await lab.prepareProduct(config);
     return new Promise((resolve, reject) => {
     const child = fork(path.join(__dirname, 'evaluator-consumer-worker.js'), [], { silent: true, detached: true, env: {

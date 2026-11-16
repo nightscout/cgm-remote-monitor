@@ -217,7 +217,7 @@ module.exports = function evaluatorPreviewRegistryLab () {
     if (typeof detached !== 'boolean') throw new TypeError('Explicit worker detached boolean required');
     // A new explicit fixture role starts a fresh external test actor; this is
     // not an automatic response to a role process exit.
-    if(![...children].some(child=>child.exitCode===null&&child.signalCode===null))await lab.stopStream?.();
+    if(![...children].some(child=>child.exitCode===null&&child.signalCode===null))await lab.stream?.()?.stop();
     await lab.prepareProduct(config);
     return new Promise((resolve, reject) => {
     const child = fork(path.join(__dirname, 'evaluator-preview-worker.js'), [], { env: env(config), silent: true, detached });
