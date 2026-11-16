@@ -88,7 +88,7 @@ describe('clinically sufficient derived windows', () => {
       row: { domain: 'entries', id_kind: 'string', id: 'retained', storageBytes: 120 } };
     const staged = state.stage(original, event, limits);
     const criterion = module => {
-      const next = module.seal(staged, { xid: 43, lsn: '0/50', floor: at + 1, deleted: 0 }, limits);
+      const next = module.seal(staged, { xid: 43, lsn: '0/50', floor: at + 100000, deleted: 0, evaluatedAt: at + 1 }, limits);
       assert.deepEqual(next.rows.map(r => r.doc._id), ['retained'], 'RECEIPT_MUST_PRUNE_EXPIRED_DURABLE_MEMBERS');
       assert.equal(next.rows[0].doc.extension, 'kept');assert.equal(next.rows[0].storageBytes, 120);
       assert.equal(next.policy.at, at + 1);
@@ -96,9 +96,22 @@ describe('clinically sufficient derived windows', () => {
       return next;
     };
     criterion(state);
-    const broken = brokenModule('../lib/storage/clinical-stream-state', 'if(state.policy&&floor>state.policy.at){', 'if(false){');
+    const broken = brokenModule('../lib/storage/clinical-stream-state', 'if(state.policy&&evaluatedAt>state.policy.at){', 'if(false){');
     assert.throws(() => criterion(broken), /RECEIPT_MUST_PRUNE/);criterion(state);
     assert.equal(state.seal(staged, { xid: 43, lsn: '0/50', floor: 11, deleted: 0 }, limits).policy.at, at, 'OLDER_COMMIT_CLOCK_MUST_NOT_REWIND_POLICY');
     assert.equal(original.rows.length, 2, 'RECEIPT_MUST_NOT_MUTATE_PRIOR_COHORT');
+  });
+  it('keeps logical ordering separate from clinical time when a write clock is future-clamped', () => {
+    const original = boot([row('entries', 'edge', { date: at - 2 * DAY })]);
+    const criterion = module => {
+      const next = module.seal(original, { xid: 43, lsn: '0/50', floor: at + DAY, deleted: 0, evaluatedAt: at }, limits);
+      assert.equal(next.floor, at + DAY, 'ORDERING_FLOOR_MUST_STILL_ADVANCE');
+      assert.equal(next.policy.at, at, 'LOGICAL_CLOCK_MUST_NOT_ADVANCE_CLINICAL_WINDOW');assert.equal(next.rows.length, 1);
+      assert.doesNotThrow(() => module.expire(next, policy.create(env, at + 1), limits));
+    };
+    criterion(state);
+    const broken = brokenModule('../lib/storage/clinical-stream-state', 'const policy={...state.policy,at:evaluatedAt};', 'const policy={...state.policy,at:floor};').seal;
+    const oldFloor = { ...state, seal: (saved, cohort, bounds) => broken(saved, { ...cohort, evaluatedAt: cohort.floor }, bounds) };
+    assert.throws(() => criterion(oldFloor), /LOGICAL_CLOCK_MUST_NOT_ADVANCE/);criterion(state);
   });
 });

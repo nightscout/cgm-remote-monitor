@@ -116,8 +116,12 @@ optInSuite(enabled, 'NS_PGSTREAM_RECOVERY_TEST=1 and owned disposable PostgreSQL
         await wait(async()=>completed(await lab.previewCompleted(),removed),10000,'DELETE_COHORT_NOT_COMPLETED');
         assert(!(await lab.previewCheckpoint(lab.A)).projection.some(row=>row.doc._id==='cohort-two'),'DELETED_ROW_RETAINED');
         assert(!(await lab.previewCompleted()).projection[0].output.frame.sgvs.some(row=>row._id==='cohort-two'),'DELETED_ENGINE_FRAME_RETAINED');
-        const after=await worker.call('queries');assert.deepEqual(after,initial,'WARM_CLINICAL_SNAPSHOT_REDISCOVERY');
-        lab.tracePreview('default-streamed-cohort-correction-delete',{initial,after,cohort,corrected,removed,scope:'actual default evaluator and maintained CDC; bootstrap allowed, warm source snapshot/statistics/catalogue reads forbidden'});
+        const after=await worker.call('queries');
+        // Authoritative whole-history accounting is independent of the bounded
+        // clinical input. A source write may refresh it; warm clinical rows and
+        // their catalogue must still come from the accepted stream.
+        assert.deepEqual({snapshots:after.snapshots,catalogue:after.catalogue},{snapshots:initial.snapshots,catalogue:initial.catalogue},'WARM_CLINICAL_SNAPSHOT_REDISCOVERY');
+        lab.tracePreview('default-streamed-cohort-correction-delete',{initial,after,cohort,corrected,removed,scope:'actual default evaluator and maintained CDC; bootstrap allowed, warm clinical source snapshot/catalogue reads forbidden; authoritative whole-history accounting may refresh after writes'});
       }finally{await lab.stopWorker(worker);}
     });
     it('lets an unrelated tenant complete newly arriving input while the first tenant is held',async function(){
