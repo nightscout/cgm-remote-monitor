@@ -192,9 +192,7 @@ optInSuite(process.env.NS_RESTORE_RESUME_DOCKER_TEST === '1', 'NS_RESTORE_RESUME
       assert.deepEqual((await state()).cleared, []);
       // Ending the owner cannot make an uncertain participation disappear.
       await admin(client => client.query('SELECT pg_terminate_backend($1)', [marker[0].owner_pid]));
-      await operator(({ restore }) => assert.rejects(restore.withRestore(A, { artifactDigest: DIGEST }, async () => assert.fail('must not run')),
-        error => error.code === 'LIFECYCLE_RESTORE_PREFLIGHT_ORPHANED_OPERATIONS' && error.orphaned === 1));
-      assert.equal((await state()).window.phase, 'active', 'RESTORE_PREFLIGHT_LEAVES_OPEN'); assert.equal(await aServes('api-2'), 200);
+      assert.equal((await state()).window.phase, 'active', 'OWNER_LOSS_LEAVES_OPEN'); assert.equal(await aServes('api-2'), 200);
       // The invalidated wire may already be closed. The participant must stop
       // reporting the old marker before clearance can claim its body is gone.
       f.current.get('api-1').child.kill('SIGUSR2'); await first.done;
@@ -206,6 +204,12 @@ optInSuite(process.env.NS_RESTORE_RESUME_DOCKER_TEST === '1', 'NS_RESTORE_RESUME
       assert.equal(f.current.get('api-1').child.pid, survivingPid);
       assert((await state()).unfinished.some(row => row.operation_id === owned[0]), 'recovery preserves the uncertain durable marker');
       await f.base.until(async () => !(await reported('api-1')).includes(owned[0]), 'the process ended every body under the lost participation');
+      // A fresh remote cohort needs current participant status. Test the
+      // independent orphan precheck after the lost owner's process recovers,
+      // while its old durable participation still has not been cleared.
+      await operator(({ restore }) => assert.rejects(restore.withRestore(A, { artifactDigest: DIGEST }, async () => assert.fail('must not run')),
+        error => error.code === 'LIFECYCLE_RESTORE_PREFLIGHT_ORPHANED_OPERATIONS' && error.orphaned === 1));
+      assert.equal((await state()).window.phase, 'active', 'RESTORE_PREFLIGHT_LEAVES_OPEN'); assert.equal(await aServes('api-2'), 200);
       const beforeClear = await state();
       const cleared = await operator(({ resume }) => resume.clearOperations(A));
       assert.deepEqual(cleared.cleared, owned);
