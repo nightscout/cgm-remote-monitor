@@ -331,6 +331,7 @@
         "tests/notification-private-state.test.js",
         "tests/notification-producer-state.test.js",
         "tests/notification-producer.test.js",
+        "tests/notification-currentness-reads.test.js",
         "tests/evaluator-runtime-content.test.js",
         "tests/evaluator-runtime-timing.test.js",
         "tests/evaluator-due.test.js",
