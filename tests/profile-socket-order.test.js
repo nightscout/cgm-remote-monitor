@@ -15,10 +15,14 @@ function database (rows) {
 }
 describe('explicit profile socket insertion-order source contract', function () {
   it('keeps exact reviewed base migration/checksum as the validated successor prefix', function () {
-    assert.deepEqual(successor.migrations.slice(0, old.migrations.length - 1), old.migrations.slice(0, -1), 'PROFILE_CATALOGUE_PREFIX pinned base is unchanged');
+    const tails=old.migrations.filter(m=>['0099_profile_storage_bytes','0100_profile_storage_identity'].includes(m.name));
+    assert.deepEqual(tails.map(m=>m.operation),[{kind:'clinical-storage-size-v1',domain:'profile'},{kind:'storage-event-identity-v1',domain:'profile'}]);
+    const prefix=old.migrations.filter(m=>!tails.includes(m));
+    assert.deepEqual(successor.migrations.slice(0,prefix.length),prefix,'PROFILE_CATALOGUE_PREFIX pinned base is unchanged');
+    assert.deepEqual(successor.migrations.slice(-tails.length),tails,'PROFILE_CATALOGUE_COMMON_TAILS exact size and identity operations are unchanged');
     require('../lib/migrations/catalogue').validateCatalogue(successor);
     assert.equal(successor.migrations.length, old.migrations.length + 3);
-    assert.deepEqual(successor.migrations.at(-3).operation, { kind: 'tenant-insertion-v1', domain: 'profile' });
+    assert.deepEqual(successor.migrations.find(m=>m.name==='0003_profile_tenant_local_insertion').operation, { kind: 'tenant-insertion-v1', domain: 'profile' });
   });
   it('selected full-record profile first match uses persistent arrival order, not existence or sorted identity', async function () {
     const first = { id_kind: 'string', doc: { _id: 'z-first', NSCLIENT_ID: 'synthetic', startDate: '2026-11-06', store: { Synthetic: { dia: 3 } } } };

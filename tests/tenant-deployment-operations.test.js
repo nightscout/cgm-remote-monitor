@@ -576,7 +576,8 @@ describe('whole deployment source admission and filesystem durability', function
     assert.equal(common.sha256(common.canonical(profile.catalogue)), inputs.candidateDigest);
     assert.equal(common.sha256(fs.readFileSync(path.join(ROOT, inputs.selection.profile), 'utf8')), inputs.sourceSha256);
     assert.equal(selected.census.tables, 56);
-    assert.equal(profile.catalogue.migrations.length, 5);
+    assert.equal(profile.catalogue.migrations.length, 6);
+    assert.deepEqual(profile.catalogue.migrations.slice(-2),base.migrations.slice(-2),'shared storage-size and identity tails retain exact reviewed SQL/checksums');
     const up = profile.catalogue.migrations[1].up;
     assert.ok(up.indexOf('ALTER TABLE profile VALIDATE CONSTRAINT socket_order_requires_empty') < up.indexOf('ALTER TABLE profile ADD COLUMN insertion_ordinal bigint GENERATED ALWAYS AS IDENTITY'));
     assert.deepEqual(inputs.acl.grants.filter(grant => grant.sequencePrivileges), []);

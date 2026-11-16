@@ -41,12 +41,14 @@ describe('trusted PostgreSQL collection translation', function () {
     const catalogues = { treatments: require('../migrations/candidates/postgres-treatments-v1.json'),
       devicestatus: require('../migrations/candidates/postgres-devicestatus-v1.json') };
     for (const logical of ['treatments', 'devicestatus']) {
-      const old = { migrations: catalogues[logical].migrations.filter(m => m.operation?.kind !== 'clinical-storage-size-v1') };
+      const tails = catalogues[logical].migrations.filter(m => ['0099_'+logical+'_storage_bytes','0100_'+logical+'_storage_identity'].includes(m.name));
+      assert.deepEqual(tails.map(m=>m.operation),[{kind:'clinical-storage-size-v1',domain:logical},{kind:'storage-event-identity-v1',domain:logical}]);
+      const old = { migrations: catalogues[logical].migrations.filter(m => !tails.includes(m)) };
       const next = selected.catalogues[logical];
       assert.deepEqual(next.migrations.slice(0, old.migrations.length), old.migrations);
-      assert.deepEqual(next.migrations.at(-1), catalogues[logical].migrations.at(-1), 'independent size tail is identical in both variants');
+      assert.deepEqual(next.migrations.slice(-tails.length), tails, 'independent size and identity tails are identical in both variants');
       const validated = validateCatalogue(next);
-      assert.equal(validated.length, old.migrations.length + 4);
+      assert.equal(validated.length, old.migrations.length + 3 + tails.length);
       // The original socket ordering DDL stays at its immutable prefix position.
       const sql = validated[old.migrations.length].up;
       assert.match(sql[0], /CHECK \(false\) NOT VALID/);
