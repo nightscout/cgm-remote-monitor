@@ -278,6 +278,26 @@ describe('realtime logical request lifetime', function () {
     });
   }
 
+  it('keeps interest empty when transport disconnect arrives after protocol close', async function () {
+    for (const read of [true, false]) {
+      const f = fixture({ authorize: (_request, rights) => rights(read) });
+      try {
+        const socket = await f.socket();
+        const request = f.start(socket, { token: 'synthetic-current' }); await flush();
+        assert.equal(request.settled, 1, 'the request has already finished before shutdown');
+        assert.equal(f.protocol.watchedCount(), 1);
+        f.protocol.close();
+        assert.equal(f.protocol.watchedCount(), 0);
+        socket.clientClose(); socket.clientClose(); await flush();
+        assert.equal(f.protocol.watchedCount(), 0, 'late transport callbacks cannot recreate cleared interest');
+        assert.equal(f.protocol.watched(A), false);
+        assert.equal(f.protocol.stats().queued, 0);
+        await f.clock.advance(120001);
+        assert.equal(f.protocol.watchedCount(), 0);
+      } finally { await f.close(); }
+    }
+  });
+
   it('preserves an answered alarm subscription and its current-authority delivery', async function () {
     const f = fixture();
     try {
