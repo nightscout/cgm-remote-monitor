@@ -60,11 +60,11 @@ describe('dormant tenant projection evaluator source contract', function () {
     await assert.rejects(scope.withTenant(A, () => s.reader.findFiltered(fromMongo({}), { v1: true, sort: { date: -1 }, madeUp: true })), /find option/);
     assert.equal(s.calls.length, 0);
   });
-  function component (replay, suppliedConnection, suppliedStats, extra = {}) {
+  function component (replay, suppliedConnection, suppliedStats, extra = {}, factory = evaluator) {
     const env = require('../lib/server/tenant-app/environment')({ settings: { enable: ['bgnow'] } });
     const connection = suppliedConnection || { async query () { throw new Error('No SQL allowed in this contract case'); } };
     const language = require('../lib/language')();
-    return evaluator({ tenant: A, replay, connection, env, language, dbstats: suppliedStats || (async () => ({ dataSize: 0, indexSize: 0 })),
+    return factory({ tenant: A, replay, connection, env, language, dbstats: suppliedStats || (async () => ({ dataSize: 0, indexSize: 0 })),
       maxRows: 10, maxBytes: 10000, ...extra });
   }
   it('replays the committed clinical reading at an explicit instant without widening its age window', async function () {
@@ -120,6 +120,30 @@ describe('dormant tenant projection evaluator source contract', function () {
     const v = component({ async reconcile () { throw new Error('COMMIT refused'); } });
     await assert.rejects(v.evaluate(), /COMMIT refused/);
     assert.equal(v.last(), null);
+  });
+  it('publishes only completed clinical content for streams while retaining legacy snapshot rows', async function () {
+    const clock = require('./lib/views-replay/clock'), at = Date.UTC(2026, 10, 16, 12);
+    const document = { _id: 'synthetic-stream', type: 'sgv', sgv: 123, date: at - 60000, rawOnly: 'synthetic-private-extension' };
+    const replay = stream => ({ stream, async reconcile () { return { checkpoint: at, rows: [{ domain: 'entries', document }] }; } });
+    const criterion = async factory => {
+      const v = component(replay(true), undefined, undefined, { includeFrame: true }, factory);
+      try {
+        for (const result of [await v.evaluate({ at }), await v.evaluateTime({ at: at + 1000 })]) {
+          assert.equal(result.properties.bgnow.mean, 123);assert.equal(result.frame.sgvs[0].mgdl, 123);
+          assert.equal(Object.hasOwn(result, 'encodedRows'), false, 'STREAM_COMPLETION_MUST_NOT_DUPLICATE_RAW_CLINICAL_INPUT');
+          assert(!JSON.stringify(result).includes(document.rawOnly), 'RAW_EXTENSION_MUST_NOT_ENTER_COMPLETED_OUTPUT');
+        }
+      } finally { v.close(); }
+    };
+    clock.install();clock.pin(at);
+    try {
+      await criterion(evaluator);
+      const broken = require('./lib/clinical-working-set/control')('../lib/data/tenant-projection-evaluator', 'replay.stream === true ? {} : { encodedRows: input.rows }', '{ encodedRows: input.rows }');
+      await assert.rejects(criterion(broken), /STREAM_COMPLETION_MUST_NOT_DUPLICATE/);await criterion(evaluator);
+      const legacy = component(replay(false), undefined, undefined, { includeFrame: true });
+      try { assert.equal((await legacy.evaluate({ at })).encodedRows[0].doc.rawOnly, document.rawOnly); }
+      finally { legacy.close(); }
+    } finally { clock.uninstall(); }
   });
   it('retries clinical computation after a downstream failure despite unchanged snapshot progress', async function () {
     let acquisitions = 0, fail = false;
